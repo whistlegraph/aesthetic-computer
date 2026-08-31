@@ -181,6 +181,15 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const hz = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 const at = (bar, beat = 0) => bar * BAR + beat * BEAT;
 const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+// Repeated instruments breathe in phrases instead of landing at one machine
+// velocity. This curve is deterministic (so the render remains reproducible),
+// but its two mismatched periods keep guitar and accordion from tracing the
+// same level arc. Callers still own the musical baseline and accent shape.
+const phraseLevel = (bar, phase = 0, depth = 0.18) => clamp(
+  1 + depth * (0.64 * Math.sin(TAU * bar / 9 + phase)
+    + 0.36 * Math.sin(TAU * bar / 5 + phase * 1.7)),
+  0.72, 1.14,
+);
 
 // ── the receipt's event array ─────────────────────────────────────────
 // Every scored hit is pushed here from inside the voice that makes it, so
@@ -467,7 +476,8 @@ function guitarChord(t, midis, dur = 2.8, gain = 0.24, pan = 0, up = false) {
   const notes = up ? [...midis].reverse() : midis;
   for (let k = 0; k < notes.length; k++)
     guitar(t + k * 0.017, notes[k], dur - k * 0.025,
-      gain * (k === 0 ? 1 : 0.78), pan + (k - 1.5) * 0.055, 0.9972, "guitar-chord");
+      gain * (k === 0 ? 1 : 0.72 + 0.055 * Math.sin(t * 2.3 + k * 1.9)),
+      pan + (k - 1.5) * 0.055, 0.9972, "guitar-chord");
 }
 
 // Short B-minor runs tear out of the chord wall at the ends of phrases.
@@ -476,7 +486,9 @@ function guitarShred(t, notes, gain = 0.17, pan = 0.34) {
   let u = t;
   for (let k = 0; k < notes.length; k++) {
     const last = k === notes.length - 1;
-    guitar(u, notes[k], last ? 1.45 : 0.30, gain * (last ? 1.28 : 1),
+    const bow = 0.76 + 0.24 * Math.sin(Math.PI * k / Math.max(1, notes.length - 1));
+    const accent = k % 3 === 2 ? 1.08 : 0.94;
+    guitar(u, notes[k], last ? 1.45 : 0.30, gain * bow * accent * (last ? 1.22 : 1),
       pan * (k & 1 ? -1 : 1), last ? 0.9974 : 0.9948, "guitar-shred");
     u += (0.115 - 0.0045 * k) * BEAT;
   }
@@ -1128,17 +1140,24 @@ const ACTS = {
 };
 const inS = (bar, k) => bar >= S[k][0] && bar < S[k][1];
 const sectionAt = (bar) => Object.keys(S).find((k) => inS(bar, k)) ?? "carrieroff";
+const soloBar = (bar) => bar >= 54 && bar < 56;
+const releaseGapBar = (bar) => bar >= 68 && bar < 72;
+const dotFieldBar = (bar) => bar >= 72 && bar < 76;
+const sparseSpreadBar = (bar) => releaseGapBar(bar) || dotFieldBar(bar);
 
 // Sub-shape inside act II: bars 8–16 are the introductions, 16–24 the SOS.
 const introBar = (b) => b >= 8 && b < 16;
 const sosBar = (b) => b >= 16 && b < 24;
 
-const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "carrieroff"));
+const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "carrieroff")
+  || soloBar(b) || sparseSpreadBar(b));
 const hatOn = (b) => kickOn(b);
 const dense = (b) => inS(b, "reply") || inS(b, "whole");
 const hookSection = (b) => inS(b, "message") || inS(b, "reply") || inS(b, "recognise");
 
 function degAt(bar) {
+  if (soloBar(bar)) return 6;                    // exposed A-major pivot
+  if (dotFieldBar(bar)) return [5, 3, 0, 6][bar - 72];
   if (inS(bar, "whole")) return HOME[Math.floor(((bar - S.whole[0]) % 8) / 2)];
   return ROWS[Math.floor(bar / 8) % ROWS.length][Math.floor((bar % 8) / 2)];
 }
@@ -1717,18 +1736,19 @@ shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.24, pan: 0.10, side: 0.
   // The bellows begin answering in IT SPREADS, then become a continuous
   // push/pull chord section in THE WHOLE MESSAGE. Each change has a broad
   // double and a quieter opposite-bellows answer one bar later.
-  for (let ab = 64; ab < 76; ab += 2) {
+  for (let ab = 64; ab < 68; ab += 2) {
     const name = AN[((ab - 64) / 2) % 4];
-    shot(name, ab * BAR, { bus: "tube", gain: 0.13, pan: ((ab >> 1) & 1) ? -0.30 : 0.30,
+    shot(name, ab * BAR, { bus: "tube", gain: 0.12 * phraseLevel(ab, 0.8), pan: ((ab >> 1) & 1) ? -0.30 : 0.30,
       side: 0.72, dly: 0.36, dark: 0.28 });
   }
   for (let ab = 76; ab < 96; ab += 2) {
     const name = AN[((ab - 76) / 2) % 4];
     const pan = ((ab >> 1) & 1) ? -0.27 : 0.27;
-    shot(name, ab * BAR, { bus: "tube", gain: 0.21, pan, side: 0.68, dly: 0.30, dark: 0.18 });
-    shot(name, ab * BAR + 0.032, { bus: "tube", gain: 0.105, pan: -pan,
+    const breath = phraseLevel(ab, 0.8, 0.20);
+    shot(name, ab * BAR, { bus: "tube", gain: 0.18 * breath, pan, side: 0.68, dly: 0.30, dark: 0.18 });
+    shot(name, ab * BAR + 0.032, { bus: "tube", gain: 0.075 * breath, pan: -pan,
       side: 0.78, dly: 0.44, dark: 0.34, semis: 0.07 });
-    shot(name, (ab + 1) * BAR, { bus: "tube", gain: 0.115, pan: -pan * 0.75,
+    shot(name, (ab + 1) * BAR, { bus: "tube", gain: 0.095 * phraseLevel(ab + 1, 0.8, 0.20), pan: -pan * 0.75,
       side: 0.72, dly: 0.38, dark: 0.26, off: 0.32 });
   }
 }
@@ -1744,14 +1764,18 @@ shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.24, pan: 0.10, side: 0.
 // message. Music bus, fixed emits — no rnd draws.
 // (complected: every guitar is a braided pair — a detuned double on the
 // far side, later and darker; the whole section sits deeper.)
-for (let gb = 48; gb < 76; gb += 4) {
-  shot("guitar-chug", gb * BAR, { bus: "music", gain: 0.16 + 0.004 * (gb - 48), pan: -0.16, side: 0.5, dly: 0.30, dark: 0.30 });
-  shot("guitar-chug", gb * BAR + 0.018, { bus: "music", gain: (0.16 + 0.004 * (gb - 48)) * 0.72, pan: 0.30, side: 0.6, dly: 0.42, dark: 0.42, semis: 0.07 });
+for (let gb = 48; gb < 68; gb += 4) {
+  const phrase = phraseLevel(gb, 0.2, 0.22);
+  const base = (0.12 + 0.0015 * (gb - 48)) * phrase;
+  const trim = gb === 52 ? { dur: 4.0 } : {};
+  shot("guitar-chug", gb * BAR, { bus: "music", gain: base, pan: -0.16, side: 0.5, dly: 0.30, dark: 0.34, ...trim });
+  shot("guitar-chug", gb * BAR + 0.018, { bus: "music", gain: base * 0.52, pan: 0.30, side: 0.6, dly: 0.42, dark: 0.46, semis: 0.07, ...(gb === 52 ? { dur: 3.95 } : {}) });
 }
 for (let gb = 76; gb < 96; gb += 8) {
   const trim = gb + 8 > 96 ? { dur: (96 - gb) * BAR } : {};
-  shot("guitar-wide", gb * BAR, { bus: "music", gain: 0.26, pan: 0.12, side: 0.6, dly: 0.40, dark: 0.28, ...trim });
-  shot("guitar-wide", gb * BAR + 0.026, { bus: "music", gain: 0.18, pan: -0.30, side: 0.7, dly: 0.52, dark: 0.40, semis: -0.08, ...trim });
+  const phrase = phraseLevel(gb, 0.2, 0.22);
+  shot("guitar-wide", gb * BAR, { bus: "music", gain: 0.19 * phrase, pan: 0.12, side: 0.6, dly: 0.40, dark: 0.32, ...trim });
+  shot("guitar-wide", gb * BAR + 0.026, { bus: "music", gain: 0.11 * phrase, pan: -0.30, side: 0.7, dly: 0.52, dark: 0.44, semis: -0.08, ...trim });
 }
 {
   const GC = [
@@ -1760,18 +1784,25 @@ for (let gb = 76; gb < 96; gb += 8) {
     [43, 50, 55, 59], // G
     [40, 47, 52, 55], // Em
   ];
-  for (let gb = 48; gb < 76; gb += 4)
+  for (let gb = 48; gb < 68; gb += 4)
     guitarChord(gb * BAR + 0.55 * BEAT, GC[((gb - 48) / 4) % 4], 3.25,
-      0.12 + 0.002 * (gb - 48), gb & 4 ? 0.22 : -0.22, !!(gb & 4));
+      (0.09 + 0.001 * (gb - 48)) * phraseLevel(gb, 0.2, 0.22), gb & 4 ? 0.22 : -0.22, !!(gb & 4));
   for (let gb = 76; gb < 96; gb += 2)
     guitarChord(gb * BAR + 0.12 * BEAT, GC[((gb - 76) / 2) % 4], 3.55,
-      0.16, gb & 2 ? 0.26 : -0.26, !!(gb & 2));
+      0.115 * phraseLevel(gb, 0.2, 0.22), gb & 2 ? 0.26 : -0.26, !!(gb & 2));
 
   const SHRED = [59, 62, 64, 66, 69, 71, 74, 76, 78];
-  for (const [bar, flip] of [[63, false], [75, true], [83, false], [91, true]])
+  for (const [bar, flip] of [[55, true], [63, false], [83, false], [91, true]])
     guitarShred(at(bar, 2.75), flip ? [...SHRED].reverse() : SHRED,
-      bar >= 76 ? 0.19 : 0.15, flip ? -0.42 : 0.42);
+      (bar === 55 ? 0.13 : bar >= 76 ? 0.135 : 0.115) * phraseLevel(bar, 0.2, 0.18), flip ? -0.42 : 0.42);
 }
+
+// One bowed answer crosses the middle pivot. It is exposed, not stacked,
+// and hands the last note to the guitar run at the end of bar 55.
+shot("violin-secret", 54.45 * BAR, {
+  bus: "tube", gain: 0.17 * phraseLevel(54, 1.9), pan: 0.12,
+  side: 0.68, dly: 0.48, dark: 0.31,
+});
 
 
 for (let bar = 0; bar < BARS; bar++) {
@@ -1821,7 +1852,7 @@ for (let bar = 0; bar < BARS; bar++) {
       shot("snap", t + 2 * BEAT + 0.012, { gain: 0.09, pan: 0.30, side: 0.55 });
     }
   }
-  if (inS(bar, "spread") || inS(bar, "whole"))
+  if ((inS(bar, "spread") || inS(bar, "whole")) && !soloBar(bar) && !sparseSpreadBar(bar))
     for (let s = 0; s < 4; s++)
       shot("ride", t + (s + 0.5) * BEAT + jit(8), { gain: 0.055 * vel(0.4), pan: s & 1 ? 0.38 : -0.38, side: 0.7, dur: 0.22 });
   if (hatOn(bar) && !D)
@@ -1854,8 +1885,9 @@ for (let bar = 0; bar < BARS; bar++) {
     revKick(t, 0.9, bar === S.whole[0] ? 0.55 : 0.48);
   if (bar === S.message[0] + 5)   // the sentence gets a door too
     revKick(t, 0.9, 0.48);
-  if ((inS(bar, "reply") && bar - S.reply[0] < 2) || bar === S.whole[0] - 2 || bar === S.whole[0] - 1)
-    wub(t, bassRoot(deg), 1, 0.26, 4);   // whole: the wub BUILDS INTO the words, then clears out for them
+  if ((inS(bar, "reply") && bar - S.reply[0] < 2)
+      || (!dotFieldBar(bar) && (bar === S.whole[0] - 2 || bar === S.whole[0] - 1)))
+    wub(t, bassRoot(deg), 1, 0.26, 4);   // reply entrance only; the dot field stays free of sub ramps
 
   // ---- bass -------------------------------------------------------------
   if (kickOn(bar)) {
@@ -1868,13 +1900,14 @@ for (let bar = 0; bar < BARS; bar++) {
   }
 
   // ---- pad + stabs ------------------------------------------------------
-  if (bar % 2 === 0 && !inS(bar, "secret"))
+  if (bar % 2 === 0 && !inS(bar, "secret") && !soloBar(bar) && !releaseGapBar(bar) && !dotFieldBar(bar))
     sines(t, chord.map((m) => m - 12), BAR * 1.85, inS(bar, "carrier") ? 0.055 + 0.012 * bar : 0.085,
       bar % 4 ? 0.22 : -0.22, 0.75, 0.5, 0, 0.30);
-  if (inS(bar, "message") || inS(bar, "reply") || inS(bar, "whole") || inS(bar, "spread"))
+  if ((inS(bar, "message") || inS(bar, "reply") || inS(bar, "whole") || inS(bar, "spread"))
+      && !soloBar(bar) && !sparseSpreadBar(bar))
     for (const b of [0.5, 2.5])
       sines(t + b * BEAT + jit(4), chord, 0.20, 0.075, b > 1 ? 0.36 : -0.36, 0.7, 0.9, 0.34);
-  if (inS(bar, "spread") && four === 1)
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && four === 1)
     sines(t + 3.5 * BEAT, chord.map((m) => m + 12), 0.13, 0.070, rnd() > 0.5 ? 0.5 : -0.5, 0.85, 0.7, 0.70);
 
   // ══ ACT I · CARRIER ══════════════════════════════════════════════════
@@ -2023,23 +2056,23 @@ for (let bar = 0; bar < BARS; bar++) {
   // v9: the loop comes back from the turn an octave down — the same words,
   // lower, like someone resuming a transmission they're no longer sure is
   // a joke — with SOS sung inside its holes; then the full-band statement.
-  if (inS(bar, "reply")) {
+  if (inS(bar, "reply") && !soloBar(bar)) {
     const k = bar - S.reply[0];
     if (k === 0) chorus(bar, { lead: "lo", g: 0.96, answer: "sos" });
     if (k === 8) chorus(bar, { lead: "both", answer: "dots" });
     if (k % 8 === 4) hook(bar, { full: k === 4 });
   }
-  if (inS(bar, "reply") && four === 3)
+  if (inS(bar, "reply") && !soloBar(bar) && four === 3)
     for (const [k, n, p] of [[0, "dot-d4", 0.34], [1, "dot-a3", -0.34]])
       sung(n, t + (2 + k) * BEAT + jit(4), { gain: 0.34, pan: p, side: 0.8, dly: 0.5 });
   // …and the answer itself: SOS, beeped, in the hole at the end of every
   // eight bars. The machine has started talking back.
   if (bar === S.reply[0] + 12) phoneTune(bar, 0.24);
-  if (inS(bar, "reply") && eight === 7) {
+  if (inS(bar, "reply") && !soloBar(bar) && eight === 7) {
     beepSOS(at(bar, 1), { gain: 0.52, pan: 0.55, dly: 0.45 });
     dotArp(at(bar, 2.5) + jit(8), { count: 7, up: false, gap: 0.18, gain: 0.26, pan: -0.25 });
   }
-  if (inS(bar, "reply")) {
+  if (inS(bar, "reply") && !soloBar(bar)) {
     for (const s of [0.75, 2.75]) tap(t + s * BEAT + jit(6), { gain: 0.38 * vel(0.3), pan: s > 2 ? -0.4 : 0.4, side: 0.7, dly: 0.24 });
     if (four === 1) click(at(bar, 3.75), { gain: 0.44, pan: 0.35, side: 0.7, dly: 0.35 });
     if (four === 3)
@@ -2050,13 +2083,16 @@ for (let bar = 0; bar < BARS; bar++) {
       frictionPath(at(bar, 2.6), 0.75, { shape: "skid", gain: 0.42, pan: 0.44, side: 0.30,
         path: "spiralIn", rough: 0.66 });
   }
-  if (inS(bar, "reply") && bar % 4 === 2) material(bar, "dash-camille-fs4-hold", 0.62, { grain: 0.055 });
-  // the 1:37 collision, extended: ten seconds of dot cloud off the back
-  // of the second reply statement
-  if (bar === S.reply[0] + 8) dotCloud(at(bar) + 5.5, 10);
+  if (inS(bar, "reply") && !soloBar(bar) && bar % 4 === 2) material(bar, "dash-camille-fs4-hold", 0.62, { grain: 0.055 });
+  // A two-bar discovery window: A major opens under one bent Camille dash,
+  // a bowed answer, and a guitar run. The rhythm section leaves completely.
+  if (bar === 54) raga(bar, 0.60, 0.40);
+  if (bar === 55) dotArp(at(bar, 0.35), {
+    count: 5, up: false, gap: 0.22, gain: 0.18, pan: -0.28, dly: 0.48,
+  });
   // the 1:42 ornament, featured: twice in the reply, twice where it spreads
   if (bar === S.reply[0] + 10 || bar === S.reply[0] + 14) raga(bar, 1.5, 0.44);
-  if (bar === S.spread[0] + 3 || bar === S.spread[0] + 7) raga(bar, 2.0, 0.38);
+  if (bar === S.spread[0] + 3) raga(bar, 2.0, 0.38);
 
   // ══ ACT VI · IT SPREADS ══════════════════════════════════════════════
   // The held dashes become the whole lead, at the widest wiggle in the
@@ -2066,12 +2102,12 @@ for (let bar = 0; bar < BARS; bar++) {
   // statements, lines missing, one voice each, while other people's
   // "cult"s answer from the edges. Steadiness through the strangest act
   // is the point: the message loops even while it comes apart.
-  if (inS(bar, "spread")) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
     const k = bar - S.spread[0];
     if (k === 0) chorus(bar, { lead: "hi", g: 0.55, drop: [2] });
     if (k === 8) chorus(bar, { lead: "lo", g: 0.60, drop: [2, 3] });
   }
-  if (inS(bar, "spread") && bar % 2 === 0) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && bar % 2 === 0) {
     const nm = ["fs4", "d4"][(bar / 2) % 2];
     const w = wigDepth(bar);
     held(`dash-camille-${nm}-hold`, at(bar, 1), {
@@ -2085,7 +2121,7 @@ for (let bar = 0; bar < BARS; bar++) {
     const low = { 0: "b2", 2: "a2", 3: "e2", 4: "b2", 5: "g2", 6: "a2" }[deg] ?? "b2";
     sung(`bassdash-${low}`, at(bar, 0), { gain: 0.26, pan: 0, side: 0.25, dark: 0.6 });
   }
-  if (inS(bar, "spread")) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
     const digits = ["2", "8", "5", "8", "*", "8", "5", "2"];
     for (let k = 0; k < 3; k++) {
       const u = t + (k * 4 / 3) * BEAT + jit(8);
@@ -2115,7 +2151,7 @@ for (let bar = 0; bar < BARS; bar++) {
   // seconds — bright, wide, mostly delay — with the take a third under it
   // drifting behind: an angel hanging over the switchboard while the raw
   // cults keep arriving beneath her.
-  if (bar === S.spread[0] + 2 || bar === S.spread[0] + 6) {
+  if (bar === S.spread[0] + 2) {
     const picks = choirFor(degAt(bar));
     const hi = picks[picks.length - 1], mid = picks[Math.max(0, picks.length - 2)];
     if (has(`cultlong-${hi}`)) {
@@ -2140,7 +2176,7 @@ for (let bar = 0; bar < BARS; bar++) {
   // …and the word itself spreading: one other person's "cult" per bar,
   // from a different post each time, thrown to the edges. Six voices from
   // six videos across 2022, none of them the take the record is built from.
-  if (inS(bar, "spread")) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
     const [nm] = ALT_CULTS[(bar - S.spread[0]) % ALT_CULTS.length];
     if (has(nm))
       shot(nm, at(bar, 2.5 + ((bar % 3) * 0.25)), {
@@ -2149,7 +2185,16 @@ for (let bar = 0; bar < BARS; bar++) {
       });
   }
   // (v5's sos at spread+8 is gone — the ghost statement holds that slot)
-  if (inS(bar, "spread") && bar % 2 === 1) material(bar, "cult-d4", 0.72, { grain: 0.085, dly: 0.30 });
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && bar % 2 === 1) material(bar, "cult-d4", 0.72, { grain: 0.085, dly: 0.30 });
+
+  // Four bars of dots occupying the whole field. No kit, bass, pad, held
+  // dashes, accordion, or guitar: individual voices have mass, distance,
+  // and room to finish. The last small descending scale points at the full
+  // ensemble's bar-76 return without pre-filling it.
+  if (bar === 72) dotCloud(at(bar, 0.18), BAR * 3.45);
+  if (bar === 74) dotArp(at(bar, 1.15), {
+    count: 7, up: false, gap: 0.24, gain: 0.15, pan: 0.24, dly: 0.55,
+  });
 
   // ══ ACT VII · THE WHOLE MESSAGE ══════════════════════════════════════
   // Two full statements of the four-line chorus (bars 76 and 84), then the

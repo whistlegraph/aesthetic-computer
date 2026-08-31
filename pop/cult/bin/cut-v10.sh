@@ -20,12 +20,14 @@ SRC="$OUT/cult-remix-v10-full-master.wav"
 
 if [ ! -f "$TRIM" ] || [ "$FULL" -nt "$TRIM" ] || [ "$0" -nt "$TRIM" ]; then
   echo "→ 2:21 discovery edit (cut bars 10–28, 60–63, 68–71, 84–91)"
+  # Ten-millisecond edge fades keep every edit sample-continuous without
+  # shortening the timeline (an acrossfade would move all later receipts).
   ffmpeg -y -v error -i "$FULL" -filter_complex \
-    "[0:a]atrim=start=15.95:end=20,asetpts=PTS-STARTPTS[a];\
-[0:a]atrim=start=58:end=120,asetpts=PTS-STARTPTS[b];\
-[0:a]atrim=start=128:end=136,asetpts=PTS-STARTPTS[c];\
-[0:a]atrim=start=144:end=168,asetpts=PTS-STARTPTS[d];\
-[0:a]atrim=start=184,asetpts=PTS-STARTPTS[e];\
+    "[0:a]atrim=start=15.95:end=20,asetpts=PTS-STARTPTS,afade=t=out:st=4.04:d=0.01[a];\
+[0:a]atrim=start=58:end=120,asetpts=PTS-STARTPTS,afade=t=in:d=0.01,afade=t=out:st=61.99:d=0.01[b];\
+[0:a]atrim=start=128:end=136,asetpts=PTS-STARTPTS,afade=t=in:d=0.01,afade=t=out:st=7.99:d=0.01[c];\
+[0:a]atrim=start=144:end=168,asetpts=PTS-STARTPTS,afade=t=in:d=0.01,afade=t=out:st=23.99:d=0.01[d];\
+[0:a]atrim=start=184,asetpts=PTS-STARTPTS,afade=t=in:d=0.01[e];\
 [a][b][c][d][e]concat=n=5:v=0:a=1,afade=t=in:st=0:d=0.02[out]" \
     -map "[out]" -c:a pcm_s24le "$TRIM"
 fi
@@ -52,8 +54,8 @@ if [ ! -f "$SRC" ] || [ "$SPACE" -nt "$SRC" ]; then
 fi
 
 ffmpeg -y -v error -i "$SRC" -c:a libmp3lame -b:a 320k \
-  -metadata title="whistlegraph cult --- remix (v10.2, sentence first)" \
-  -metadata artist="Whistlegraph" -metadata album="pop / cult" \
+  -metadata title="wannadash" \
+  -metadata artist="Whistlegraph Dot Org" -metadata album="pixsies" \
   -metadata comment="v10.2: the withholding is over — from the first hook the voice says the whole sentence: dash, i wanna, dash, i wanna, run real fast, dot dot dot. Opens on the kick and the dot crowd; real phone: pickup, rotary, hang-up, busy." \
   "$OUT/cult-remix-v10.mp3"
 echo "✓ $OUT/cult-remix-v10.mp3"
