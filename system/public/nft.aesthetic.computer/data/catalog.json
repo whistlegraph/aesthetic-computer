@@ -2,7 +2,19 @@
   "generated": "2026-08-31",
   "snapshotNote": "holder data snapshotted 2026-08-31 via whistlegraph/codes/bin/holders-probe.mjs",
   "artist": "Jeffrey Scudder",
-  "collections": [
+  "wallets": {
+    "whistlegraph.eth": "0x238c9c645c6EE83d4323A2449C706940321a0cBf",
+    "4esthetic.eth": "0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08",
+    "aesthetic.tez": "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"
+  },
+  "verifiedAbsent": [
+    {
+      "chain": "solana",
+      "checked": "2026-08-31",
+      "note": "Both wallets checked — zero NFT-like tokens."
+    }
+  ],
+  "created": [
     {
       "id": "radical-digital-painting",
       "name": "Radical Digital Painting",
@@ -36,32 +48,37 @@
       "dataFile": "data/ten-whistlegraphs-holders.json"
     },
     {
-      "id": "a2p-v2",
-      "name": "a2p-v2",
+      "id": "lwge",
+      "name": "The Longest Whistlegraph Ever (so far) w/ Media Archive",
       "chain": "ethereum",
       "standard": "ERC-721",
-      "contract": "0xc3ecd59ba5ec8dd2865dffce7bc7c2b60adb62bf",
-      "year": null,
-      "supply": 737,
+      "contract": "0x449dc394c46eb8c15e6af7fefb0b14b95e9c1894",
+      "secondaryContract": "0x7aa86aebba590809464a07dcb0a0d43922e42ccc",
+      "year": "2022",
+      "supply": 5,
       "status": "released",
-      "notes": "737 tokens, 31 holders.",
+      "notes": "Rhizome × New Museum commission (2021), debuted at First Look 2022-05-14. Two contracts deployed by whistlegraph.eth; 5 tokens minted on 0x449d…1894, second deploy unminted. On-chain tokenURI host long.whistlegraph.com currently unresolvable; the 19 GB media archive survives off-chain.",
       "links": {
-        "explorer": "https://etherscan.io/address/0xc3ecd59ba5ec8dd2865dffce7bc7c2b60adb62bf"
+        "microsite": "https://sites.rhizome.org/the-longest-whistlegraph-ever-so-far/",
+        "editorial": "https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/",
+        "explorer": "https://etherscan.io/address/0x449dc394c46eb8c15e6af7fefb0b14b95e9c1894"
       },
-      "dataFile": "data/a2p-v2-holders.json"
+      "dataFile": null
     },
     {
-      "id": "a2p-v1",
-      "name": "a2p-v1",
-      "chain": "ethereum",
-      "standard": "ERC-721",
-      "contract": null,
-      "address": null,
-      "year": null,
+      "id": "hic-et-nunc",
+      "name": "hic et nunc works",
+      "chain": "tezos",
+      "standard": "FA2",
+      "contract": "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton",
+      "year": "2021–",
       "supply": null,
-      "status": "to-document",
-      "notes": "Predecessor of a2p-v2. Contract address to be confirmed.",
-      "links": {},
+      "status": "released",
+      "notes": "Minted by aesthetic.tez (tz1gkf8…KwBE), which is firstMinter of 222 Tezos tokens in total across contracts. The h=n corpus lives on the main hic et nunc contract — titles include Unity Quest, Birthday Robot, and the GPS-timestamped JAS 15.11.x series.",
+      "links": {
+        "marketplace": "https://objkt.com/profile/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE/created",
+        "explorer": "https://tzkt.io/tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"
+      },
       "dataFile": null
     },
     {
@@ -70,10 +87,14 @@
       "chain": "tezos",
       "standard": "FA2",
       "contract": "KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB",
+      "mintContracts": [
+        "KT1EcsqR69BHekYF5mDQquxrvNg5HhPFx6NM",
+        "KT1BoKMQVfVn1YPLQPcGLSiPL6JTLMdBnGNp"
+      ],
       "year": "2026",
       "supply": 92,
       "status": "released",
-      "notes": "$code-addressed KidLisp pieces. FA2 marketplace contract, admin aesthetic.tez. 92 tokens / 70 organic sales Mar–Jul 2026. Underlying mint contract to be documented.",
+      "notes": "$code-addressed KidLisp pieces. Marketplace contract admin aesthetic.tez; mint contracts KT1Ecsq… ($cow, $mtz tokens) and KT1BoKM… ($4bb timestamped pieces). 92 tokens / 70 organic sales Mar–Jul 2026.",
       "links": {
         "explorer": "https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB"
       },
@@ -123,6 +144,58 @@
         "site": "https://whistlegraph.org"
       },
       "dataFile": null
+    }
+  ],
+  "collected": {
+    "caveat": "Point-in-time net-balance reading of Etherscan transfer history, 2026-08-31. Partial history — verify quantities before citing.",
+    "wallets": [
+      {
+        "name": "4esthetic.eth",
+        "addr": "0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08",
+        "items": [
+          { "name": "a2p-v1", "qty": "2–3", "contract": "0x3892f76ba32c77a1a04cb0bcd848d9472d859716" },
+          { "name": "Foundation", "qty": "2" },
+          { "name": "left.gallery", "qty": "1" },
+          { "name": "Cryptoadz", "qty": "1" },
+          { "name": "Toad Sockz", "qty": "1" },
+          { "name": "OnChainMonkey", "qty": "1" },
+          { "name": "Mutant Garden Seeder", "qty": "1" },
+          { "name": "VariousBooks", "qty": "5" },
+          { "name": "Monarchs", "qty": "2" }
+        ],
+        "note": "Also holds its own Radical Digital Painting reserve editions — see the RDP holder table."
+      },
+      {
+        "name": "whistlegraph.eth",
+        "addr": "0x238c9c645c6EE83d4323A2449C706940321a0cBf",
+        "items": [
+          { "name": "YecheLangePies", "qty": "1", "group": "Yeche Lange" },
+          { "name": "GalerieYecheLange", "qty": "1", "group": "Yeche Lange" },
+          { "name": "YecheGoldenOpportunities", "qty": "1", "group": "Yeche Lange" },
+          { "name": "YecheAuctionPaddle", "qty": "1", "group": "Yeche Lange" },
+          { "name": "FoliaVirus", "qty": "1" },
+          { "name": "CreationBabies", "qty": "2" },
+          { "name": "WanderlustGirls", "qty": "1" },
+          { "name": "MEE6 Avatars", "qty": "5" }
+        ]
+      }
+    ]
+  },
+  "external": [
+    {
+      "id": "a2p-v2",
+      "name": "a2p-v2",
+      "role": "external-context",
+      "chain": "ethereum",
+      "standard": "ERC-721",
+      "contract": "0xc3ecd59ba5ec8dd2865dffce7bc7c2b60adb62bf",
+      "creator": "0x1d05cf6c6beb0c869851bfdb9510d4e44e855ad6",
+      "supply": 737,
+      "notes": "Not a Jeffrey Scudder collection — creator 0x1d05cf…5ad6. Kept as network context: its dominant holder 0xa741d850…cfcf (442/737, likely the a2p artist's vault) also holds a full Ten Whistlegraphs set and buys new Feral File shows — a peer artist deeply collecting Jeffrey.",
+      "links": {
+        "explorer": "https://etherscan.io/address/0xc3ecd59ba5ec8dd2865dffce7bc7c2b60adb62bf"
+      },
+      "dataFile": "data/a2p-v2-holders.json"
     }
   ]
 }

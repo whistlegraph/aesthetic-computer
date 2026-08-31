@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nft · Aesthetic Computer</title>
-    <meta name="description" content="Jeffrey Scudder's on-chain catalog across Ethereum, Tezos, Bitcoin, and Base — collections, holders, and citable data endpoints.">
+    <meta name="description" content="Jeffrey Scudder's on-chain record across Ethereum, Tezos, Bitcoin, and Base — works created, works collected, holders, and citable data endpoints.">
     <meta property="og:title" content="nft — Aesthetic.Computer" />
-    <meta property="og:description" content="The on-chain catalog across Ethereum, Tezos, Bitcoin, and Base." />
+    <meta property="og:description" content="The on-chain record across Ethereum, Tezos, Bitcoin, and Base." />
     <meta property="og:url" content="https://nft.aesthetic.computer" />
     <meta property="og:type" content="website" />
     <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
@@ -152,6 +152,7 @@
         .section-header[data-color="pink"] h2 { color: var(--pink); }
         .section-header[data-color="cyan"] h2 { color: var(--cyan); }
         .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header[data-color="gold"] h2 { color: var(--gold); }
         .section-header .blurb { color: var(--dim); font-size: 0.75em; }
 
         .cards {
@@ -202,6 +203,7 @@
         }
         .media .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .media .cell.wide { grid-column: 1 / -1; aspect-ratio: 4 / 1; }
+        .media .cell.banner { grid-column: 1 / -1; aspect-ratio: 1200 / 630; }
         .media .cell svg { width: 100%; height: 100%; display: block; }
 
         .badge {
@@ -270,6 +272,46 @@
         .self-tag { color: var(--pink); font-size: 0.85em; margin-left: 0.4em; }
         .fresh { color: var(--cyan); }
 
+        /* Collected — one box per wallet */
+        .wallets { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.6em; }
+        .wallet-box {
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            background: var(--box-bg);
+            padding: 0.7em 0.8em 0.8em;
+            min-width: 0;
+        }
+        .wallet-head {
+            display: flex;
+            align-items: center;
+            gap: 0.55em;
+            margin-bottom: 0.5em;
+            flex-wrap: wrap;
+        }
+        .wallet-head .wallet-name {
+            font-family: 'YWFTProcessing-Regular', 'Berkeley Mono Variable', monospace;
+            font-size: 1.1em;
+        }
+        .wallet-head .wallet-addr { font-size: 0.72em; }
+        .wallet-head .wallet-addr a { color: var(--purple); }
+        .wallet-items {
+            list-style: none;
+            columns: 2;
+            column-gap: 1.4em;
+            font-size: 0.82em;
+        }
+        .wallet-items li {
+            break-inside: avoid;
+            padding: 0.1em 0;
+            border-bottom: 1px solid var(--sep);
+        }
+        .wallet-items .qty { color: var(--cyan); font-variant-numeric: tabular-nums; }
+        .wallet-items .grp { color: var(--dim); font-size: 0.85em; }
+        .wallet-note { color: var(--dim); font-size: 0.75em; margin-top: 0.5em; }
+        .wallet-note a { color: var(--purple); }
+
+        .network-context { color: var(--dim); font-size: 0.78em; margin-bottom: 0.6em; line-height: 1.5; }
+        .network-context em { color: var(--gold); font-style: normal; }
         .network-list { display: flex; flex-direction: column; font-size: 0.85em; }
         .network-list .net-row {
             display: flex;
@@ -318,6 +360,7 @@
 
         @media (max-width: 600px) {
             .cards { grid-template-columns: 1fr; }
+            .wallet-items { columns: 1; }
         }
     </style>
 </head>
@@ -326,7 +369,7 @@
         <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-nft">nft</span><span class="logo-sep">&mdash;</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
         <a class="top-link" href="https://papers.aesthetic.computer"><span class="top-link-dot"></span>papers</a>
     </div>
-    <p class="sub">the on-chain catalog across Ethereum, Tezos, Bitcoin, and Base — every collection by <a href="https://whistlegraph.org">Jeffrey Scudder</a>: history, provenance, and a live holder view.</p>
+    <p class="sub">the on-chain record of <a href="https://whistlegraph.org">Jeffrey Scudder</a> across Ethereum, Tezos, Bitcoin, and Base — works created, works collected, and a live holder view.</p>
     <p class="as-of" id="as-of"></p>
 
     <div class="note error" id="load-error" hidden>
@@ -337,10 +380,19 @@
 
     <section class="section">
         <div class="section-header" data-color="pink">
-            <h2>Collections</h2>
-            <span class="blurb">chains, contracts, holders</span>
+            <h2>Created</h2>
+            <span class="blurb">works by Jeffrey Scudder &amp; Whistlegraph — chains, contracts, holders</span>
         </div>
         <div class="cards" id="cards"></div>
+    </section>
+
+    <section class="section" id="collected-section" hidden>
+        <div class="section-header" data-color="gold">
+            <h2>Collected</h2>
+            <span class="blurb">works by others held in the studio wallets</span>
+        </div>
+        <div class="wallets" id="wallets"></div>
+        <p class="note" id="collected-caveat" style="margin-top:0.7em; margin-bottom:0;"></p>
     </section>
 
     <section class="section" id="network-section" hidden>
@@ -348,6 +400,7 @@
             <h2>Network</h2>
             <span class="blurb">wallets holding across collections</span>
         </div>
+        <p class="network-context" id="network-context"></p>
         <div class="network-list" id="network-list"></div>
     </section>
 
@@ -357,14 +410,15 @@
             <span class="blurb">stable JSON endpoints — the citable platter interface for papers.aesthetic.computer</span>
         </div>
         <div class="endpoints" id="endpoints">
-            <div class="ep"><code><a href="./data/catalog.json">/data/catalog.json</a></code> <span class="desc">machine-readable catalog of every collection: chain, standard, contract, supply, status, links</span></div>
+            <div class="ep"><code><a href="./data/catalog.json">/data/catalog.json</a></code> <span class="desc">machine-readable catalog: created works, collected holdings, external context, wallets, verified-absent chains</span></div>
             <div class="ep"><code><a href="./data/rdp-holders.json">/data/rdp-holders.json</a></code> <span class="desc">Radical Digital Painting holder snapshot</span></div>
             <div class="ep"><code><a href="./data/ten-whistlegraphs-holders.json">/data/ten-whistlegraphs-holders.json</a></code> <span class="desc">Ten Whistlegraphs holder snapshot</span></div>
-            <div class="ep"><code><a href="./data/a2p-v2-holders.json">/data/a2p-v2-holders.json</a></code> <span class="desc">a2p-v2 holder snapshot</span></div>
+            <div class="ep"><code><a href="./data/a2p-v2-holders.json">/data/a2p-v2-holders.json</a></code> <span class="desc">external context: a2p-v2 holder snapshot (not a Jeffrey Scudder collection — kept for the network story)</span></div>
         </div>
         <p class="note" style="margin-top:0.8em; margin-bottom:0;">
             Holder schema: <code>{ totalTokens, holders: [{ addr, editions, self, lastActivity, days }] }</code>
             — <code>days</code> is days since the wallet's last on-chain activity at snapshot time.
+            <span id="verified-absent"></span>
         </p>
     </section>
 
@@ -375,7 +429,7 @@
     </footer>
 
     <script>
-        const CHAIN_LABEL = { ethereum: "Ethereum", tezos: "Tezos", bitcoin: "Bitcoin", base: "Base" };
+        const CHAIN_LABEL = { ethereum: "Ethereum", tezos: "Tezos", bitcoin: "Bitcoin", base: "Base", solana: "Solana" };
         const esc = (s) => String(s).replace(/[&<>"']/g, c =>
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
         const ipfsUrl = (u) => typeof u === "string" && u.startsWith("ipfs://")
@@ -391,22 +445,25 @@
                 { src: "assets/rdp-painting-100.jpg", alt: "Radical Digital Painting, painting 100 of 239" },
                 { src: "assets/rdp-painting-200.jpg", alt: "Radical Digital Painting, painting 200 of 239" }
             ]},
-            "a2p-v2": { static: [
-                { src: "assets/a2p-fifty.jpg", alt: "a2p-v2 token: FIFTY" },
-                { src: "assets/a2p-places.jpg", alt: "a2p-v2 token: PlacesIveBeen-render02" },
-                { src: "assets/a2p-harrison.jpg", alt: "a2p-v2 token: When Harrison Meets Rick Instead of Roy" },
-                { src: "assets/a2p-thief.jpg", alt: "a2p-v2 token: The Thief Who Stole the Artwork" }
+            "lwge": { static: [
+                { src: "assets/lwge-title.jpg", alt: "The Longest Whistlegraph Ever (so far) — chalkboard title card from the Rhizome microsite", banner: true }
             ]},
             "ten-whistlegraphs": { live: "feralfile" },
-            "kidlisp-keeps": { live: "tzkt" },
+            "hic-et-nunc": { live: "tzkt-minted" },
+            "kidlisp-keeps": { live: "tzkt-mints" },
             "whistlegraph-codes": { placeholder: "code" },
             "orgstars": { placeholder: "star" }
         };
 
+        // The generic hic et nunc fallback thumbnail — prefer displayUri
+        // whenever a token's thumbnailUri is this placeholder.
+        const HEN_GENERIC_THUMB = "ipfs://QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgnc";
+
         // Wallets with a known reverse-ENS name; everyone else gets a
         // deterministic identicon (no lookups, no libraries).
         const KNOWN_ENS = {
-            "0x238c9c645c6ee83d4323a2449c706940321a0cbf": "whistlegraph.eth"
+            "0x238c9c645c6ee83d4323a2449c706940321a0cbf": "whistlegraph.eth",
+            "0x5e6758c96a4cb5e2a1fe2e2772020dc8ad753b08": "4esthetic.eth"
         };
 
         function placeholderSvg(kind) {
@@ -452,13 +509,15 @@
                 <rect width="20" height="20" fill="var(--box-bg)"/><g fill="${color}">${cells}</g></svg>`;
         }
 
+        function imgCell(img) {
+            const cls = img.banner ? "cell banner" : "cell";
+            return `<div class="${cls}"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`;
+        }
+
         function mediaHtml(c) {
             const m = MEDIA[c.id];
             if (!m) return "";
-            if (m.static) {
-                return `<div class="media">${m.static.map(img =>
-                    `<div class="cell"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`).join("")}</div>`;
-            }
+            if (m.static) return `<div class="media">${m.static.map(imgCell).join("")}</div>`;
             if (m.placeholder) {
                 return `<div class="media"><div class="cell wide">${placeholderSvg(m.placeholder)}</div></div>`;
             }
@@ -469,24 +528,36 @@
         function fillLiveMedia(id, images) {
             const el = document.getElementById(`media-${id}`);
             if (!el || !images.length) return;
-            el.innerHTML = images.slice(0, 4).map(img =>
-                `<div class="cell"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`).join("");
+            el.innerHTML = images.slice(0, 4).map(imgCell).join("");
+        }
+
+        function tzktImages(tokens, label) {
+            return tokens
+                .filter(t => t.metadata && (t.metadata.displayUri || t.metadata.thumbnailUri))
+                .map(t => {
+                    const meta = t.metadata;
+                    const thumbIsGeneric = meta.thumbnailUri === HEN_GENERIC_THUMB;
+                    const uri = (thumbIsGeneric ? meta.displayUri : meta.thumbnailUri) ||
+                        meta.displayUri || meta.thumbnailUri;
+                    return { src: ipfsUrl(uri), alt: `${label}: ${meta.name || "token " + t.tokenId}` };
+                });
         }
 
         async function loadLiveMedia(catalog) {
-            for (const c of catalog.collections) {
+            for (const c of catalog.created) {
                 const m = MEDIA[c.id];
                 if (!m || !m.live) continue;
                 try {
-                    if (m.live === "tzkt") {
+                    if (m.live === "tzkt-mints") {
+                        const contracts = (c.mintContracts || [c.contract]).join(",");
                         const tokens = await fetchJson(
-                            `https://api.tzkt.io/v1/tokens?contract=${c.contract}&limit=4`);
-                        fillLiveMedia(c.id, tokens
-                            .filter(t => t.metadata && (t.metadata.thumbnailUri || t.metadata.displayUri))
-                            .map(t => ({
-                                src: ipfsUrl(t.metadata.thumbnailUri || t.metadata.displayUri),
-                                alt: `KidLisp Keeps token: ${t.metadata.name || "$" + t.tokenId}`
-                            })));
+                            `https://api.tzkt.io/v1/tokens?contract.in=${contracts}&limit=4`);
+                        fillLiveMedia(c.id, tzktImages(tokens, "KidLisp Keeps token"));
+                    } else if (m.live === "tzkt-minted") {
+                        const minter = (catalog.wallets || {})["aesthetic.tez"] || "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
+                        const tokens = await fetchJson(
+                            `https://api.tzkt.io/v1/tokens?firstMinter=${minter}&contract=${c.contract}&limit=4`);
+                        fillLiveMedia(c.id, tzktImages(tokens, "hic et nunc work"));
                     } else if (m.live === "feralfile") {
                         const d = await fetchJson("https://feralfile.com/api/exhibitions/ten-whistlegraphs-thv");
                         fillLiveMedia(c.id, (d.result.series || [])
@@ -556,6 +627,7 @@
                     `<div class="stat"><b>${esc(s.n)}</b><span>${esc(s.l)}</span></div>`).join("")}</div>` : ""}
                 ${c.notes ? `<p class="notes">${esc(c.notes)}</p>` : ""}
                 ${c.contract ? `<div class="contract" title="${esc(c.contract)}">${esc(c.standard || "")} · <a href="${addrUrl(c.contract, c.chain)}" target="_blank" rel="noopener">${esc(c.contract)}</a></div>` : ""}
+                ${c.secondaryContract ? `<div class="contract" title="${esc(c.secondaryContract)}">second deploy · <a href="${addrUrl(c.secondaryContract, c.chain)}" target="_blank" rel="noopener">${esc(c.secondaryContract)}</a></div>` : ""}
                 ${links ? `<div class="links">${links}</div>` : ""}
                 ${holderData ? `<details class="holders">
                     <summary>holders (${holderData.holders.length}) — sorted by editions</summary>
@@ -575,13 +647,35 @@
             return `<span class="net-avatar">${identiconSvg(addr)}${ensImg}</span>`;
         }
 
-        function renderNetwork(collectionsWithData) {
+        function renderCollected(collected) {
+            if (!collected || !collected.wallets || !collected.wallets.length) return;
+            document.getElementById("collected-section").hidden = false;
+            document.getElementById("wallets").innerHTML = collected.wallets.map(w => `
+                <div class="wallet-box">
+                    <div class="wallet-head">
+                        ${w.addr ? avatarHtml(w.addr) : ""}
+                        <span class="wallet-name">${esc(w.name)}</span>
+                        ${w.addr ? `<span class="wallet-addr"><a href="${addrUrl(w.addr, "ethereum")}" target="_blank" rel="noopener">${shortAddr(esc(w.addr))}</a></span>` : ""}
+                    </div>
+                    <ul class="wallet-items">${(w.items || []).map(it => `
+                        <li>${esc(it.name)} <span class="qty">×${esc(it.qty || "1")}</span>${it.group ? ` <span class="grp">(${esc(it.group)})</span>` : ""}</li>`).join("")}
+                    </ul>
+                    ${w.note ? `<div class="wallet-note">${esc(w.note)}</div>` : ""}
+                </div>`).join("");
+            const cav = document.getElementById("collected-caveat");
+            if (collected.caveat) cav.textContent = collected.caveat; else cav.hidden = true;
+        }
+
+        function renderNetwork(collectionsWithData, externalEntries) {
             const byAddr = new Map();
             for (const { catalog, data } of collectionsWithData) {
                 for (const h of data.holders) {
                     const key = h.addr.toLowerCase();
                     if (!byAddr.has(key)) byAddr.set(key, { addr: h.addr, chain: catalog.chain, memberships: [] });
-                    byAddr.get(key).memberships.push({ name: catalog.name, editions: h.editions });
+                    byAddr.get(key).memberships.push({
+                        name: catalog.role === "external-context" ? `${catalog.name} (external)` : catalog.name,
+                        editions: h.editions
+                    });
                 }
             }
             const cross = [...byAddr.values()]
@@ -591,6 +685,10 @@
                     a.memberships.reduce((s, m) => s + m.editions, 0));
             if (!cross.length) return;
             document.getElementById("network-section").hidden = false;
+            const ctx = (externalEntries || []).map(e => e.notes).filter(Boolean).join(" ");
+            const ctxEl = document.getElementById("network-context");
+            if (ctx) ctxEl.innerHTML = esc(ctx).replace(/0xa741d850…cfcf/g, "<em>0xa741d850…cfcf</em>");
+            else ctxEl.hidden = true;
             document.getElementById("network-list").innerHTML = cross.map(w => `
                 <div class="net-row">
                     ${avatarHtml(w.addr)}
@@ -620,19 +718,28 @@
             document.getElementById("footer-snapshot").textContent =
                 `${catalog.snapshotNote || ""} (generated ${catalog.generated})`;
 
-            // Fetch each collection's holder file in parallel; tolerate individual failures.
-            const holderResults = await Promise.all(catalog.collections.map(async (c) => {
+            const absent = (catalog.verifiedAbsent || []).map(v =>
+                `${CHAIN_LABEL[v.chain] || v.chain}: verified empty ${v.checked}. ${v.note || ""}`).join(" ");
+            if (absent) document.getElementById("verified-absent").textContent = ` ${absent}`;
+
+            // Fetch holder files for created + external entries in parallel;
+            // tolerate individual failures.
+            const external = catalog.external || [];
+            const all = [...catalog.created, ...external];
+            const holderResults = await Promise.all(all.map(async (c) => {
                 if (!c.dataFile) return null;
                 try { return await fetchJson(`./${c.dataFile}`); }
                 catch (err) { console.error(err); return null; }
             }));
 
-            document.getElementById("cards").innerHTML = catalog.collections
+            document.getElementById("cards").innerHTML = catalog.created
                 .map((c, i) => renderCard(c, holderResults[i])).join("");
 
-            renderNetwork(catalog.collections
+            renderCollected(catalog.collected);
+
+            renderNetwork(all
                 .map((c, i) => ({ catalog: c, data: holderResults[i] }))
-                .filter(x => x.data));
+                .filter(x => x.data), external);
 
             loadLiveMedia(catalog); // fire-and-forget; cells stay skeleton on failure
         })();
