@@ -28,7 +28,7 @@ SPB = 60.0 / BPM
 PXB = 96
 PXS = PXB / SPB
 PLAYHEAD_X = 560
-PLACE = 2 * 4 * SPB                      # vocal enters after a 2-bar count-in
+PLACE = 1 * 4 * SPB                      # one-bar count-in — short feedback loop
 SYNC_MS = float(os.environ.get("SYNC_MS", "50"))   # measured on synccal: 50 ms locks on this display
 
 THEME = os.environ.get("SCORE_THEME") or ("light" if 7 <= datetime.datetime.now().hour < 19 else "dark")

@@ -30,7 +30,7 @@ const readF32 = (wav) => {
   return new Float32Array(b.buffer, b.byteOffset, Math.floor(b.length / 4));
 };
 const vox = readF32(VOX);
-const PLACE = 2 * BAR;
+const PLACE = 1 * BAR;
 const total = PLACE + vox.length / SR + 2 * BAR;
 const NT = Math.ceil(total * SR);
 const mix = new Float32Array(NT);

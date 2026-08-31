@@ -35,6 +35,7 @@ if (!existsSync(SEP)) {
 }
 // boundaries: energy-valley refined (boundfix.py), REQUIRED
 const BOUNDS = JSON.parse(readFileSync(`${WORK}/bounds-${TAKE}.json`, "utf8")).words;
+const doc = JSON.parse(readFileSync(`${WORK}/stem-${TAKE}.syllnote.json`, "utf8"));
 const NSYL = { butterfly: 3, flapping: 2, costume: 2 };
 // the melody is fully @jeffrey's — absolute pitches, no detection involved
 // notepat truth (@jeffrey): c g c c c · c h c c c · g f e d e e d c c c

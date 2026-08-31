@@ -9,7 +9,7 @@ is a windows file holyvox.mjs merges over the whisper timings.
 
   pop/.venv/bin/python pop/imab/bin/boundfix.py <stem.wav> <syllnote.json> <out.json>
 """
-import json, sys, re
+import json, os, sys, re
 import numpy as np
 import librosa
 
@@ -59,6 +59,15 @@ for i in idx:
 else:
     if idx.size: last["toMs"] = int(times[idx[-1]] * 1000)
 
+# hand overrides (tracked, singer-confirmed) win over everything
+ov_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       f"boundaries-{wav.split('whistlegraph-')[-1].split('/')[0]}.json")
+if os.path.exists(ov_path):
+    ov = json.load(open(ov_path))["overrides"]
+    for w in seq:
+        o = ov.get(str(w["ti"]))
+        if o: w.update(o)
+    print(f"  (+{len(ov)} hand overrides from {os.path.basename(ov_path)})")
 json.dump({"source": wav.split("/")[-1], "words": seq}, open(outp, "w"), indent=1)
 for w in seq:
     print(f"  {w['text']:<12}{w['fromMs']/1000:6.2f} – {w['toMs']/1000:6.2f}")

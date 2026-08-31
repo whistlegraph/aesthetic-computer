@@ -1,0 +1,12 @@
+{
+  "note": "hand overrides on the energy-valley pass — by template word index; the flapping/for/you region from voiced-run analysis (PING vowel = 6.03-6.77 C#4 hold), whisper swallowed 'for you' into flapping",
+  "overrides": {
+    "0": { "fromMs": 100, "toMs": 950 },
+    "1": { "fromMs": 950, "toMs": 1320 },
+    "2": { "fromMs": 1320, "toMs": 4550 },
+    "3": { "fromMs": 4820, "toMs": 6850 },
+    "4": { "fromMs": 6850, "toMs": 7350 },
+    "5": { "fromMs": 7350, "toMs": 7900 },
+    "6": { "fromMs": 7900, "toMs": 9500 }
+  }
+}
