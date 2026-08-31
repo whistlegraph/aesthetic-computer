@@ -41,24 +41,50 @@ steps (see **The repair transaction** below).
   newline; every recovered file round-trips
   (`JSON.stringify(JSON.parse(s)) === s`).
 
-## Image URLs — no rewrites
+## Image URLs — as recovered
 
-**No image-URL rewrites were made.** No image field references
-`rdp.whistlegraph.com` or any other dead host:
+As recovered, no image field referenced `rdp.whistlegraph.com` or any other
+dead host:
 
-- **238 tokens** point at
+- **238 tokens** pointed at
   `ipfs://QmSgE9XQx6jfi1GZwK1To8PNHLyLkwS64Lg5VjeYxVh5ei/<datestamp>.png`.
   That directory CID is alive: it resolves via `gateway.pinata.cloud`
   (HTTP 200, `image/png`), and its dag-json listing was fetched and
   cross-checked — **all 238 referenced filenames exist in the directory**
   (240 entries: 239 paintings + a stray `.DS_Store`). Public gateways
-  (`ipfs.io`, `dweb.link`) were slow/504 during checks; the Pinata gateway
-  serves it reliably. *Hardening suggestion (out of scope): re-pin or back up
-  CID `QmSgE9XQx6jfi1GZwK1To8PNHLyLkwS64Lg5VjeYxVh5ei` — the images'
-  availability depends on that pin.*
+  (`ipfs.io`, `dweb.link`) were slow/504 during checks; only the Pinata
+  gateway served it reliably — a single-pin dependency, since resolved by
+  the mirror below (see **Image mirror**).
 - **1 token (#216, "[Redacted]")** points at the live DigitalOcean Spaces CDN
   (`https://radical-digital-painting.nyc3.cdn.digitaloceanspaces.com/thumbnails/2048/18.12.3.17.1.jpg`,
   HTTP 200). Left as-is, byte-identical.
+
+## Image mirror
+
+The 238 IPFS-hosted originals are mirrored to Jeffrey's own DigitalOcean
+Spaces bucket, and the metadata now serves images from that mirror:
+
+- **CDN prefix:** `https://radical-digital-painting.nyc3.cdn.digitaloceanspaces.com/pngs/`
+  (bucket `radical-digital-painting`, path `pngs/<filename>.png`, ACL
+  public-read; the bucket also holds the pre-existing `thumbnails/`).
+- **Count:** all **238** IPFS-referenced PNGs were downloaded from
+  `gateway.pinata.cloud`, verified (PNG magic bytes, >100KB), uploaded, and
+  re-verified over the CDN (HTTP 200 with content-length matching the local
+  file, all 238).
+- **`image` / `image_ipfs` convention:** in each of the 238 rewritten token
+  files, `image` is the CDN URL and a new `image_ipfs` field — placed
+  immediately after `image` — preserves the original
+  `ipfs://QmSgE9XQx6jfi1GZwK1To8PNHLyLkwS64Lg5VjeYxVh5ei/<name>.png` value.
+  Every other byte of each file is unchanged (minified, original key order).
+- **#216:** already pointed at the live Spaces CDN (`thumbnails/2048/…`), so
+  it has no `image_ipfs` and was not touched.
+- **#237:** its filename is literally `NO DATE 1.png` (contains spaces). The
+  object key keeps the literal filename; the `image` URL uses the
+  URL-encoded form (`pngs/NO%20DATE%201.png`).
+- The Pinata pin of CID `QmSgE9XQx6jfi1GZwK1To8PNHLyLkwS64Lg5VjeYxVh5ei` is
+  now a **redundant source rather than a dependency** — the metadata no
+  longer resolves through any IPFS gateway, and `image_ipfs` keeps the
+  content-addressed reference for provenance and re-pinning.
 
 **Known dead links preserved by design:** every token's `external_url` is
 `https://rdp.whistlegraph.com/painting/N` — the original value, preserved
@@ -364,3 +390,30 @@ Wayback originals).
 | 237 | wayback | 2023-02-07 08:32:26 |
 | 238 | wayback | 2022-07-04 12:02:45 |
 | 239 | blockscout-cache | — |
+
+## Image hosting — resolved 2026-08-31
+
+`image` in all 239 tokens now points at **Jeffrey's own DigitalOcean Spaces
+CDN**, not IPFS:
+
+```
+https://radical-digital-painting.nyc3.cdn.digitaloceanspaces.com/thumbnails/2048/<name>.jpg
+```
+
+The complete 2048px set (all 239, including the space-containing
+`NO DATE 1/2/3.jpg`) was already live in that bucket from the 2021 build —
+verified 200 across a 27-token sample. Token #216 already pointed there and
+was left byte-identical.
+
+The original `ipfs://QmSgE9XQx6…` value is preserved on every rewritten
+token as **`image_ipfs`**, so provenance survives and IPFS becomes a
+redundant source rather than a dependency. (The public gateways are
+unreliable for this CID: only `gateway.pinata.cloud` serves it, and it
+rate-limits at ~3 files/min.)
+
+A full-resolution PNG mirror to `s3://radical-digital-painting/pngs/` is
+partially complete (154/238 at ~3 MB each). **Finishing it is optional** —
+because this host owns the metadata, `image` can be upgraded from the 2048
+JPEGs to the full-res PNGs at any time by editing these files, with **no
+further on-chain transaction**. The one-time `setBaseTokenURI` call below is
+the only chain action this repair ever needs.
