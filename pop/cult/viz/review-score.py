@@ -36,6 +36,10 @@
 #     jeffrey top-to-bottom by register), so the dashStack's
 #     three-people-one-pitch-28-ms-apart signature is visible, not
 #     collapsed into one word.
+#   · VOWEL STRETCHING + PHONICS FILL — held words elongate their stressed
+#     vowel to match the sung duration ("daaaaaaaash", "ruuuuun reeeaaal
+#     faaaast") in both the scroller and the stack, and the letters light
+#     one by one (with a sweeping underline) in sync with the utterance.
 import json, math, os, re, subprocess, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -108,6 +112,8 @@ def stem(name, af=None):        # bus stem, trimmed to the shipped cut
 # ---------------------------------------------------------------- receipt
 receipt = json.load(open(EVENTS_JSON))
 EVENTS = receipt["events"]
+EXPLOSIONS = [{**e, "t": e["t"] - TRIM} for e in EVENTS
+              if e.get("voice") == "spatial-explosion" and e["t"] >= TRIM]
 
 WHO_COL = {"camille": (255, 140, 190), "alex": (150, 225, 130),
            "jeffrey": (130, 175, 255), None: (225, 222, 230)}
@@ -177,7 +183,7 @@ INSTR = []
 for e in EVENTS:
     s = e.get("sample")
     lbl = instr_of(s) if isinstance(s, str) else None
-    if lbl is None and e["voice"] == "guitar":
+    if lbl is None and e["voice"].startswith("guitar"):
         lbl = "guitar"
     if lbl is None:
         continue
@@ -190,7 +196,7 @@ for e in EVENTS:
         m = CHORD_MIDI.get(s.split("-")[-1], m)
     elif lbl == "boing":
         m = BOING_MIDI.get(s.split("-")[-1], m)
-    if e["voice"] == "guitar" and e.get("midi") is not None:
+    if e["voice"].startswith("guitar") and e.get("midi") is not None:
         m = min(69, max(43, e["midi"] + 19))    # spread the low notes in-lane
     if INSTR and INSTR[-1]["word"] == lbl and abs(INSTR[-1]["t0"] - max(0.0, t0)) < 0.12:
         continue                                # unison doubles draw once
@@ -212,7 +218,7 @@ EV_DASH = [e for e in WORDS if e["voice"] in ("dash", "bassdash", "sosdash")]
 # ---------------------------------------------------------------- tokens
 # Karaoke events fused into display TOKENS for the scroller and the
 # multi-voice stack. Two fusion rules:
-#   · simultaneity — same word starting within 90 ms (the dashStack's
+#   · simultaneity — same word starting within 140 ms (the dashStack's
 #     28 ms offsets, the choir's 45 ms cults, jeffrey's sub octave) is ONE
 #     token carrying the union of whos;
 #   · melisma — the same word restated by the same voice while the first
@@ -225,7 +231,7 @@ for e in sorted(KARAOKE, key=lambda e: e["t0"]):
     for tk in TOKENS[-10:]:
         if tk["word"] != e["word"]:
             continue
-        simul = e["t0"] - tk["first"] <= 0.09
+        simul = e["t0"] - tk["first"] <= 0.14
         melis = (e["voice"] == tk["voice"] and e["t0"] < tk["t1"] + 0.05
                  and e["t0"] - tk["first"] <= 1.2)
         if simul or melis:
@@ -234,17 +240,97 @@ for e in sorted(KARAOKE, key=lambda e: e["t0"]):
                 tk["whos"].append(e["who"])
             tk["prio"] = max(tk["prio"], e["prio"])
             tk["alt"] = tk["alt"] or e["voice"] == "alt"
+            tk["instances"].append(e)
             fused = True
             break
     if not fused:
         TOKENS.append({"word": e["word"], "t0": e["t0"], "t1": e["t1"],
                        "first": e["t0"], "whos": [e["who"]] if e["who"] else [],
                        "voice": e["voice"], "prio": e["prio"],
-                       "alt": e["voice"] == "alt"})
+                       "alt": e["voice"] == "alt", "instances": [e]})
 for tk in TOKENS:
     tk["whos"].sort(key=lambda w: WHO_ORDER.get(w, 9))
+    # The early pitched dot triad predates performer metadata in the sample
+    # names. Keep the receipt untouched, but show its three near-simultaneous
+    # events as three instances on the three human rails.
+    triad_dot = (tk["word"] == "dot" and not tk["whos"]
+                 and len(tk["instances"]) >= 3
+                 and tk["instances"][-1]["t0"] - tk["first"] <= 0.14)
+    tk["display_whos"] = list(WHO_ORDER) if triad_dot else list(tk["whos"])
 print(f"{len(TOKENS)} lyric tokens "
       f"({sum(1 for tk in TOKENS if len(tk['whos']) > 1)} multi-voice)", flush=True)
+
+# ---------------------------------------------------------------- vowels
+# VOWEL STRETCHING — a held word elongates its stressed vowel to match the
+# sung duration, so the mp4 reads the way the utterance sounds: "dash"
+# held 1.5 s -> "daaaaaaaash"; the runrealfast melisma -> "ruuuuun
+# reeeaaal faaaast". Baseline: a word held <= STRETCH_BASE s renders
+# normally; past that, one repeated letter per STRETCH_RATE s of hold,
+# capped at STRETCH_CAP total repeats so layout survives (an 8 s cult is
+# still one readable cuuuuult). Duration source: the token's t1 - t0,
+# which comes from the receipt event's `dur` (melisma fusion extends it).
+# Multi-word tokens split the repeats across their words (function words
+# skipped), and inside a chosen vowel GROUP ("ea" in real) the repeats
+# spread over each vowel letter -> "reeeaaal", not "reeeeeal".
+STRETCH_BASE = 0.35             # held this long or less: no elongation
+STRETCH_RATE = 0.135            # one repeated letter per 135 ms of hold
+STRETCH_CAP = 13                # total extra letters across the token
+VOWSET = set("aeiou")
+FUNC_WORDS = {"the", "of", "i", "it", "a"}   # never stretch these
+NO_STRETCH = {"dot"}             # three dot events stay three dots, never "dooooot"
+
+def vowel_groups(w):            # runs of vowels (y joins a group it follows)
+    gs, i = [], 0
+    while i < len(w):
+        if w[i] in VOWSET:
+            j = i
+            while j < len(w) and (w[j] in VOWSET or (w[j] == "y" and j > i)):
+                j += 1
+            gs.append((i, j))
+            i = j
+        else:
+            i += 1
+    return gs
+
+def stretch_part(part, extra):  # elongate ONE word's main vowel group
+    low = part.lower()
+    gs = vowel_groups(low)
+    if len(gs) > 1:             # a lone final silent-e never stretches
+        gs = [g for g in gs if not (g[1] - g[0] == 1 and g[0] == len(low) - 1
+                                    and low[g[0]] == "e")]
+    if not gs or extra <= 0:
+        return part
+    a, b = max(gs, key=lambda g: g[1] - g[0])   # longest group; ties -> first
+    letters = [k for k in range(a, b) if low[k] in VOWSET]
+    if not letters:
+        return part
+    reps = {k: 0 for k in letters}
+    for n in range(extra):      # spread repeats over the group's vowels
+        reps[letters[n % len(letters)]] += 1
+    return "".join(ch * (1 + reps.get(k, 0)) for k, ch in enumerate(part))
+
+def stretch_word(word, dur):
+    if word in NO_STRETCH:
+        return word
+    extra = min(STRETCH_CAP, int((dur - STRETCH_BASE) / STRETCH_RATE))
+    if extra <= 0:
+        return word
+    parts = word.split(" ")
+    idx = [i for i, p in enumerate(parts) if p.lower() not in FUNC_WORDS]
+    if not idx:
+        idx = list(range(len(parts)))
+    n = len(idx)                # each word takes its share of the hold
+    for j, pi in enumerate(idx):
+        parts[pi] = stretch_part(parts[pi], extra // n + (1 if j < extra % n else 0))
+    return " ".join(parts)
+
+for tk in TOKENS:
+    tk["disp"] = stretch_word(tk["word"], tk["t1"] - tk["t0"])
+print(f"vowel stretching: {sum(1 for tk in TOKENS if tk['disp'] != tk['word'])}"
+      f"/{len(TOKENS)} tokens elongated", flush=True)
+
+def prog(tk, t):                # sung progress through a token, 0..1
+    return max(0.0, min(1.0, (t - tk["t0"]) / max(1e-6, tk["t1"] - tk["t0"])))
 ALANES = [   # (label, signal, color, clip-gate threshold)
     ("bed 250+",     stem("music", af="highpass=f=250"),  (150, 140, 220), 0.11),
     ("bass <250",    stem("music", af="lowpass=f=250"),   (200, 120, 235), 0.11),
@@ -439,9 +525,20 @@ f_bar   = ImageFont.truetype(FONT_R, 20)
 f_act   = ImageFont.truetype(FONT_B, 25)
 f_tc    = ImageFont.truetype(FONT_B, 56)
 f_who   = ImageFont.truetype(FONT_B, 36)
-# multi-voice stack: the row font shrinks as more voices sing at once
-F_STACK = {1: ImageFont.truetype(FONT_B, 88), 2: ImageFont.truetype(FONT_B, 64),
-           3: ImageFont.truetype(FONT_B, 52), 4: ImageFont.truetype(FONT_B, 42)}
+# multi-voice stack: the row font shrinks as more voices sing at once;
+# F_SIZES is also the step-down ladder for rows whose STRETCHED word
+# (daaaaaaaash) would otherwise run under the act card
+F_SIZES = [88, 64, 52, 42, 34, 28]
+F_BANK = {s: ImageFont.truetype(FONT_B, s) for s in F_SIZES}
+F_STACK = {1: F_BANK[88], 2: F_BANK[64], 3: F_BANK[52], 4: F_BANK[28]}
+KAR_MAX_W = 1150                # stack text right edge stays off the act card
+def fit_stack_font(dd, text, font):
+    while dd.textlength(text, font=font) > KAR_MAX_W:
+        smaller = [s for s in F_SIZES if s < font.size]
+        if not smaller:
+            break
+        font = F_BANK[smaller[0]]
+    return font
 f_name  = ImageFont.truetype(FONT_B, 24)
 f_scr   = ImageFont.truetype(FONT_B, 38)     # scroller: upcoming / past
 f_scra  = ImageFont.truetype(FONT_B, 48)     # scroller: the word being sung
@@ -495,6 +592,8 @@ for li, (name, kind, data, col, hh) in enumerate(LANE_DEFS):
         xa, xb = sx(e["t0"]), sx(max(e["t1"], e["t0"] + 0.12))
         m = e["midi"] if e["midi"] is not None else (MIDI_LO + MIDI_HI) / 2
         yy = y0 + 4 + (MIDI_HI - m) / (MIDI_HI - MIDI_LO) * (hh - 8 - bh)
+        if e["voice"] != "instr" and e["who"] in WHO_ORDER:
+            yy += (-5, 0, 5)[WHO_ORDER[e["who"]]]
         c = col if e["voice"] == "instr" else WHO_COL.get(e["who"], WHO_COL[None])
         sd.rounded_rectangle([xa, yy, xb, yy + bh], radius=4,
                              fill=blk_fill(c), outline=blk_line(c), width=1)
@@ -601,9 +700,20 @@ def blend(c0, c1, u):           # c0 → c1 as u goes 0 → 1
     return tuple(int(a + (b - a) * u) for a, b in zip(c0, c1))
 
 def tok_col(tk):                # a token's base ink (single-who or neutral)
-    if len(tk["whos"]) == 1:
-        return ink_of(WHO_COL[tk["whos"][0]])
+    if len(tk["display_whos"]) == 1:
+        return ink_of(WHO_COL[tk["display_whos"][0]])
     return INK                  # unattributed words read in plain ink
+
+def karaoke_fill(dd, x, y, disp, font, col, p, k=1.0):
+    # PROGRESSIVE KARAOKE FILL — the whole (vowel-stretched) word sits
+    # dimmed, and the letters sung so far light up one by one, so each
+    # letter of daaaaaaaash brightens as its sound happens (the phonics
+    # read-along). Returns the lit prefix's pixel width for underlines.
+    dd.text((x, y), disp, font=font, fill=blend(BG, col, 0.40 * k), anchor="lm")
+    n = max(1, len(disp))
+    kk = max(1, min(n, int(math.ceil(p * n))))
+    dd.text((x, y), disp[:kk], font=font, fill=blend(BG, col, k), anchor="lm")
+    return dd.textlength(disp[:kk], font=font)
 
 # ── multi-voice stack (the big karaoke, one row per live voice) ──────
 # Live tokens group by word; a word with several `who` performers expands
@@ -621,52 +731,81 @@ def rows_at(t):
         g = groups.get(tk["word"])
         if g is None:
             g = groups[tk["word"]] = {"word": tk["word"], "whos": [],
-                                      "alt": False}
+                                      "alt": False, "tk": tk}
             order.append(g)
-        for who in tk["whos"]:
+        elif tk["t0"] > g["tk"]["t0"]:  # the latest restatement is the one
+            g["tk"] = tk                # actually sounding: it drives the
+        for who in tk["display_whos"]:  # stretch + the letter fill
             if who not in g["whos"]:
                 g["whos"].append(who)
         g["alt"] = g["alt"] or tk["alt"]
     for g in order:
         g["whos"].sort(key=lambda w: WHO_ORDER.get(w, 9))
-    expanded = sum(max(1, len(g["whos"])) for g in order)
     rows = []
     for g in order:
-        if len(g["whos"]) > 1 and expanded > 4:     # crowded: chorus row
-            rows.append({"word": g["word"], "whos": g["whos"], "alt": False})
-        elif g["whos"]:
+        if g["whos"]:
             for who in g["whos"]:
-                rows.append({"word": g["word"], "whos": [who], "alt": False})
+                rows.append({"word": g["word"], "whos": [who], "alt": False,
+                             "tk": g["tk"]})
         else:
-            rows.append({"word": g["word"], "whos": [], "alt": g["alt"]})
+            rows.append({"word": g["word"], "whos": [], "alt": g["alt"],
+                         "tk": g["tk"]})
     return rows[:4]
 
 # ── lyrics scroller (teleprompter band along the bottom) ─────────────
-# Time maps to x exactly like the timeline above: upcoming words approach
-# the fixed now-line from the right at LPPS px/s, light up in their
-# singer's color while sung, then fade and sink away to the left.
+# Time maps to x exactly like the timeline above. Camille, Alex, Jeffrey,
+# and unattributed/source words own fixed vertical rails, so three people
+# saying "dot" are three instances—not one stretched "dooooot" or three
+# offset drawings fighting for the same row.
 NOW_X = 350
-SCR_X0, SCR_X1 = 44, 1404       # the act card owns the right edge
-SCR_Y0, SCR_Y1 = H - 142, H - 46
-SCR_ROW_Y = (H - 116, H - 68)   # two rows; collisions bump to row 2
+SCR_X0, SCR_X1 = 190, 1404      # labels own the left; act card owns the right
+SCR_Y0, SCR_Y1 = H - 174, H - 42
+SCR_RAILS = ("camille", "alex", "jeffrey", None)
+SCR_ROW_Y = {"camille": H - 150, "alex": H - 118,
+             "jeffrey": H - 86, None: H - 54}
+SCR_LABEL = {"camille": "CAMILLE", "alex": "ALEX",
+             "jeffrey": "JEFFREY", None: "WORDS"}
 LPPS = 150.0
 SCR_LOOK = (SCR_X1 - NOW_X) / LPPS      # ≈ 7.0 s of upcoming lyric
 SCR_FADE = 1.6                          # seconds to fall away after t1
-SCR_SINK = 24                           # px a spent word sinks as it fades
 
 _meas = ImageDraw.Draw(Image.new("RGB", (8, 8)))
-row_end = [-1e9, -1e9]          # greedy, precomputed → rows never flicker
+SCR_FONT_SIZES = (38, 34, 30, 26, 22, 19)
+SCR_FONT_BANK = {s: ImageFont.truetype(FONT_B, s) for s in SCR_FONT_SIZES}
+rail_items = {r: [] for r in SCR_RAILS}
 for tk in TOKENS:
-    x = tk["t0"] * LPPS
-    w = _meas.textlength(tk["word"], font=f_scr)
-    r = 0 if x >= row_end[0] + 14 else 1
-    if r == 1 and x < row_end[1] + 14:
-        r = 0 if row_end[0] <= row_end[1] else 1    # both busy: lesser evil
-    row_end[r] = max(row_end[r], x + w)
-    tk["row"] = r
-    tk["w"] = w
+    tk["rails"] = list(tk["display_whos"]) if tk["display_whos"] else [None]
+    tk["scr_font"] = {}
+    for rail in tk["rails"]:
+        rail_items[rail].append(tk)
+for rail, items in rail_items.items():
+    for i, tk in enumerate(items):
+        # Fit to the time cell before the next word on this SAME singer rail.
+        # Font size is precomputed, so rows cannot flicker or collide.
+        avail = ((items[i + 1]["t0"] - tk["t0"]) * LPPS - 10
+                 if i + 1 < len(items) else SCR_X1 - NOW_X)
+        cell = max(8, avail)
+        font = SCR_FONT_BANK[SCR_FONT_SIZES[-1]]
+        for size in SCR_FONT_SIZES:
+            candidate = SCR_FONT_BANK[size]
+            if _meas.textlength(tk["disp"], font=candidate) <= cell:
+                font = candidate
+                break
+        tk["scr_font"][rail] = font
+        tk.setdefault("scr_cell", {})[rail] = cell
 
-def draw_scroller(dd, t):
+for tk in TOKENS:
+    tk["w"] = max(_meas.textlength(tk["disp"], font=f)
+                  for f in tk["scr_font"].values())
+
+def draw_scroller(img, dd, t):
+    for rail in SCR_RAILS:
+        yc = SCR_ROW_Y[rail]
+        col = ink_of(WHO_COL[rail])
+        dd.text((42, yc), SCR_LABEL[rail], font=f_tiny,
+                fill=blend(BG, col, 0.78), anchor="lm")
+        dd.line([SCR_X0 - 12, yc + 15, SCR_X1, yc + 15],
+                fill=blend(BG, col, 0.16), width=1)
     dd.line([NOW_X, SCR_Y0, NOW_X, SCR_Y1],
             fill=blend(BG, PLAYHEAD, 0.55), width=2)
     for tk in TOKENS:
@@ -676,12 +815,9 @@ def draw_scroller(dd, t):
         t1v = max(tk["t1"], tk["t0"] + MIN_SHOW)
         if t > t1v + SCR_FADE:
             continue
-        if x + tk["w"] < SCR_X0 - 20:
+        if x < SCR_X0:
             continue
-        yc = SCR_ROW_Y[tk["row"]]
         active = tk["t0"] <= t < t1v
-        font = f_scra if active else f_scr
-        sink = 0
         if t < tk["t0"]:        # upcoming: brighten as it nears the line
             u = max(0.0, 1.0 - (tk["t0"] - t) / SCR_LOOK)
             k = 0.30 + 0.45 * u
@@ -690,24 +826,56 @@ def draw_scroller(dd, t):
         else:                   # past: fade and sink away
             p = min(1.0, (t - t1v) / SCR_FADE)
             k = 0.75 * (1.0 - p)
-            sink = int(SCR_SINK * p)
         # ease in from the right edge instead of popping in
         k *= max(0.0, min(1.0, (SCR_X1 - x) / 130.0))
-        if tk["whos"] and len(tk["whos"]) > 1:      # multi-voice: a chorus
-            n = len(tk["whos"])                     # of name-colored copies
-            for i, who in enumerate(tk["whos"]):
-                off = int((i - (n - 1) / 2) * 15)
-                col = blend(BG, ink_of(WHO_COL[who]), k)
-                dd.text((x + i * 2, yc + off + sink), tk["word"],
-                        font=font, fill=col, anchor="lm")
-        else:
-            col = blend(BG, tok_col(tk), k)
-            dd.text((x, yc + sink), tk["word"], font=font, fill=col, anchor="lm")
-        if active:              # underline in the singer's color
-            uc = (ink_of(WHO_COL[tk["whos"][0]]) if tk["whos"]
-                  else ink_of(WHO_COL[None]))
-            ww = dd.textlength(tk["word"], font=font)
-            dd.rectangle([x, yc + 28, x + ww, yc + 31], fill=uc)
+        p = prog(tk, t)         # letter-sweep progress while it's sung
+        for rail in tk["rails"]:
+            yc = SCR_ROW_Y[rail]
+            font = tk["scr_font"][rail]
+            base = ink_of(WHO_COL[rail])
+            # Draw into the exact time cell and paste it back. This hard clip
+            # is what makes adjacent lyric tracks incapable of overlapping,
+            # even when a melisma is still active at the next word's attack.
+            x0 = max(SCR_X0, int(math.floor(x)))
+            x1 = min(SCR_X1, int(math.ceil(x + tk["scr_cell"][rail])))
+            if x1 <= x0:
+                continue
+            y0, y1 = int(yc - 22), int(yc + 23)
+            tile = img.crop((x0, y0, x1, y1))
+            td = ImageDraw.Draw(tile)
+            tx, ty = x - x0, yc - y0
+            if active:
+                lw = karaoke_fill(td, tx, ty, tk["disp"], font, base, p, k)
+            else:
+                td.text((tx, ty), tk["disp"], font=font,
+                        fill=blend(BG, base, k), anchor="lm")
+                lw = 0
+            if active:          # one swept underline on each performer rail
+                uy = ty + font.size // 2 + 2
+                td.rectangle([tx, uy, tx + max(2, lw), uy + 3], fill=base)
+            img.paste(tile, (x0, y0))
+
+# The same damped-spring receipt that spatializes the stems drives the DAW
+# lanes. They separate as bodies, cross home, overshoot, and settle; during
+# the impact, thin horizontal shards disagree briefly about displacement.
+LANE_FORCE = (-0.42, 0.96, -0.86, -0.86, -0.86, 0.70, 0.70, -0.98)
+def ease(u):
+    u = max(0.0, min(1.0, u))
+    return u * u * (3 - 2 * u)
+
+def elastic_state(t):
+    spring = 0.0
+    fracture = 0.0
+    for ex in EXPLOSIONS:
+        age = t - ex["t"]
+        dur = ex.get("dur", 4.0)
+        if 0 <= age <= dur:
+            tail = ease((dur - age) / 0.48)
+            spring += (ex.get("strength", 1.0) * math.exp(-ex.get("damping", 0.6) * age)
+                       * math.sin(2 * math.pi * ex.get("springHz", 1.0) * age) * tail)
+            fracture = max(fracture, ex.get("glitch", 0.5) * math.exp(-2.7 * age)
+                           * ease(age / 0.022) * tail)
+    return spring, fracture
 
 # ---------------------------------------------------------------- frames
 NF = int(DUR * FPS)
@@ -724,6 +892,29 @@ for f in range(NF):
     frame = chrome_np.copy()
     off = int(round(t * PPS))
     frame[STRIP_TOP:STRIP_BOT, GUT:W] = strip_np[:, off:off + SCROLL_W]
+    spring, fracture = elastic_state(t)
+    lane_dx = [0] * NLANE
+    if abs(spring) > 0.002 or fracture > 0.01:
+        for li in range(NLANE):
+            y0f = LANES_TOP + lane_y[li]
+            hh = LANE_DEFS[li][4]
+            sy0 = LBL_BAND + lane_y[li]
+            src = strip_np[sy0:sy0 + hh, off:off + SCROLL_W]
+            dst = frame[y0f:y0f + hh, GUT:W]
+            dst[:] = LANE_BG
+            dx = int(round(spring * LANE_FORCE[li] * (72 + li * 5)))
+            lane_dx[li] = dx
+            bands = 5 if fracture > 0.035 else 1
+            for band in range(bands):
+                ya = band * hh // bands
+                yb = (band + 1) * hh // bands
+                shard = int(round(fracture * (10 + li * 1.8) * (-1 if band & 1 else 1)))
+                ddx = dx + shard
+                if ddx >= 0:
+                    if ddx < SCROLL_W:
+                        dst[ya:yb, ddx:] = src[ya:yb, :SCROLL_W - ddx]
+                elif -ddx < SCROLL_W:
+                    dst[ya:yb, :SCROLL_W + ddx] = src[ya:yb, -ddx:]
     # active audio clips light up while they play
     active_rects = []
     for li in range(NLANE):
@@ -731,8 +922,8 @@ for f in range(NF):
             continue
         for (t0, t1) in lane_clips[li]:
             if t0 <= t < t1:
-                xa = max(GUT, GUT + sx(t0) - off)
-                xb = min(W, GUT + sx(t1) - off)
+                xa = max(GUT, GUT + sx(t0) - off + lane_dx[li])
+                xb = min(W, GUT + sx(t1) - off + lane_dx[li])
                 if xb > xa:
                     y0f = LANES_TOP + lane_y[li]
                     hh = LANE_DEFS[li][4]
@@ -757,40 +948,56 @@ for f in range(NF):
     # active word blocks light up in the score lanes
     for (li, t0, t1, yb0, yb1, col) in ev_rects:
         if t0 <= t < max(t1, t0 + 0.2):
-            xa = max(GUT, GUT + sx(t0) - off)
-            xb = min(W, GUT + sx(max(t1, t0 + 0.12)) - off)
+            xa = max(GUT, GUT + sx(t0) - off + lane_dx[li])
+            xb = min(W, GUT + sx(max(t1, t0 + 0.12)) - off + lane_dx[li])
             if xb > xa:
                 dd.rectangle([xa, STRIP_TOP + yb0, xb, STRIP_TOP + yb1],
                              outline=ink_of(col), width=2)
+    if abs(spring) > 0.025 or fracture > 0.04:
+        cy = (STRIP_TOP + STRIP_BOT) // 2
+        radius = int(34 + abs(spring) * 170 + fracture * 55)
+        col = blend(BG, MARK_COL, min(0.72, 0.18 + abs(spring) * 0.42 + fracture * 0.25))
+        dd.ellipse([PLAY_X - radius, cy - radius, PLAY_X + radius, cy + radius],
+                   outline=col, width=max(1, int(2 + fracture * 5)))
     # karaoke: EVERY live voice as its own name-colored row — the
     # dashStack's three simultaneous people stack camille/alex/jeffrey
     # top-to-bottom by register instead of collapsing into one word
     rows = rows_at(t)
     if rows:
-        font = F_STACK[len(rows)]
-        rh = font.size + 18
+        font0 = F_STACK[len(rows)]
+        rh = font0.size + 18
         y = KAR_TOP + rh // 2 + 4
         for row in rows:
             whos = row["whos"]
+            rtk = row["tk"]
+            disp = rtk["disp"]  # the vowel-stretched word
+            p = prog(rtk, t)    # letters lit so far (phonics sweep)
+            font = fit_stack_font(dd, disp, font0)
+            uy = y + font.size // 2 + 5
             if len(whos) > 1:   # chorus row: every performer, one word
+                lw = 0
                 for i, who in enumerate(whos):
                     dd.text((66, y + (i - (len(whos) - 1) / 2) * 20), who,
                             font=f_name, fill=ink_of(WHO_COL[who]), anchor="lm")
-                    dd.text((250 + i * 3, y + (i - (len(whos) - 1) / 2) * 10),
-                            row["word"], font=font,
-                            fill=ink_of(WHO_COL[who]), anchor="lm")
+                    lw = karaoke_fill(dd, 250 + i * 3,
+                                      y + (i - (len(whos) - 1) / 2) * 10,
+                                      disp, font, ink_of(WHO_COL[who]), p)
+                dd.rectangle([250, uy + 10, 250 + max(2, lw), uy + 14],
+                             fill=ink_of(WHO_COL[whos[0]]))
             elif whos:
                 col = ink_of(WHO_COL[whos[0]])
                 dd.text((66, y), whos[0], font=f_name, fill=col, anchor="lm")
-                dd.text((250, y), row["word"], font=font, fill=col, anchor="lm")
+                lw = karaoke_fill(dd, 250, y, disp, font, col, p)
+                dd.rectangle([250, uy, 250 + max(2, lw), uy + 4], fill=col)
             else:
                 if row["alt"]:
                     dd.text((66, y), "another cult", font=f_name,
                             fill=MUTE_GRAY, anchor="lm")
-                dd.text((250, y), row["word"], font=font, fill=INK, anchor="lm")
+                lw = karaoke_fill(dd, 250, y, disp, font, INK, p)
+                dd.rectangle([250, uy, 250 + max(2, lw), uy + 4], fill=INK)
             y += rh
     # upcoming-lyrics teleprompter
-    draw_scroller(dd, t)
+    draw_scroller(img, dd, t)
     # act card: current act lit, with a progress bar
     ai = act_index(t)
     for i, (t0, name, col) in enumerate(ACTS):

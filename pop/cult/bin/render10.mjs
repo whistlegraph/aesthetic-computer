@@ -425,14 +425,23 @@ function wub(t, midi, bars = 1, gain = 0.30, rate = 4) {
 // through a soft tanh drive, feedback high enough to ring for seconds
 // under the flanged chant. Synthesized like everything else — the guitar
 // is a wavetable of noise the string forgets slowly.
-function guitar(t, midi, dur, gain = 0.5, pan = 0, fb = 0.9965) {
-  if (!allow("guitar")) return;
-  EVENTS.push({ t: +t.toFixed(4), voice: "guitar", bus: "music", midi,
+function guitar(t, midi, dur, gain = 0.5, pan = 0, fb = 0.9965, evVoice = "guitar") {
+  if (!allow(evVoice)) return;
+  EVENTS.push({ t: +t.toFixed(4), voice: evVoice, bus: "music", midi,
     dur: +dur.toFixed(3), gain: +gain.toFixed(3), pan: +pan.toFixed(2) });
   const period = Math.max(2, Math.round(SR / hz(midi)));
   const n = Math.round(dur * SR), i0 = Math.round(t * SR);
   const line = new Float32Array(period);
-  for (let k = 0; k < period; k++) line[k] = nrnd();
+  // String excitation owns its seed: adding a chord cannot silently change
+  // the later drum-friction noise or any other scored gesture.
+  let gseed = ((Math.round(t * 1000) * 2654435761) ^ (midi * 2246822519)) >>> 0;
+  const grnd = () => {
+    gseed ^= gseed << 13; gseed >>>= 0;
+    gseed ^= gseed >>> 17;
+    gseed ^= gseed << 5; gseed >>>= 0;
+    return (gseed / 4294967295) * 2 - 1;
+  };
+  for (let k = 0; k < period; k++) line[k] = grnd();
   const sp = spatial(pan * 1.2);
   let idx = 0, prev = 0;
   let lp = 0;
@@ -448,6 +457,28 @@ function guitar(t, midi, dur, gain = 0.5, pan = 0, fb = 0.9965) {
     lp += 0.16 * (d2 - lp);
     const env = Math.min(1, i / (0.002 * SR));
     emit("music", i0 + i, lp * env * gain * tailFade(i, n), pan, sp, 0.4, 0.20);
+  }
+}
+
+// A guitar chord is four separately modelled strings, not a pad with a
+// guitar label. The 17 ms rake makes the hand audible; reversing the order
+// on alternating hits gives the progression down-strokes and up-strokes.
+function guitarChord(t, midis, dur = 2.8, gain = 0.24, pan = 0, up = false) {
+  const notes = up ? [...midis].reverse() : midis;
+  for (let k = 0; k < notes.length; k++)
+    guitar(t + k * 0.017, notes[k], dur - k * 0.025,
+      gain * (k === 0 ? 1 : 0.78), pan + (k - 1.5) * 0.055, 0.9972, "guitar-chord");
+}
+
+// Short B-minor runs tear out of the chord wall at the ends of phrases.
+// They accelerate into the downbeat, then the final note rings across it.
+function guitarShred(t, notes, gain = 0.17, pan = 0.34) {
+  let u = t;
+  for (let k = 0; k < notes.length; k++) {
+    const last = k === notes.length - 1;
+    guitar(u, notes[k], last ? 1.45 : 0.30, gain * (last ? 1.28 : 1),
+      pan * (k & 1 ? -1 : 1), last ? 0.9974 : 0.9948, "guitar-shred");
+    u += (0.115 - 0.0045 * k) * BEAT;
   }
 }
 
@@ -1066,6 +1097,21 @@ const S = {
   // aesthetivox and feel too raw". The reveal act was the one place the
   // record played the untreated recording; the record no longer does.)
 };
+
+// Three whole-mix physical gestures. Each impulse gives every bus its own
+// mass and direction; a damped spring throws it away from the listener,
+// crosses home, overshoots, and settles. The same table is written into the
+// receipt so the score video can move the visible timeline by the identical
+// force instead of adding an unrelated visual effect.
+const ELASTIC_EXPLOSIONS = [
+  { bar: 48, duration: 3.60, strength: 0.78, hz: 1.18, damping: 0.72, glitch: 0.42 },
+  { bar: 76, duration: 4.80, strength: 1.00, hz: 0.92, damping: 0.54, glitch: 0.64 },
+  { bar: 92, duration: 3.90, strength: 0.88, hz: 1.34, damping: 0.66, glitch: 0.78 },
+].map((e) => ({ ...e, t: at(e.bar) }));
+for (const e of ELASTIC_EXPLOSIONS)
+  EVENTS.push({ t: e.t, voice: "spatial-explosion", bus: "master",
+    dur: e.duration, strength: e.strength, springHz: e.hz,
+    damping: e.damping, glitch: e.glitch });
 const ACTS = {
   carrier: "I · CARRIER — a channel opens before anything is said",
   three: "II · THREE VOICES — you learn there are three people before you learn what they say",
@@ -1682,10 +1728,27 @@ shot("violin-secret", 44.4 * BAR + 0.085, { bus: "tube", gain: 0.19, pan: 0.34, 
 // secret act beside the violin, and push/pull chords doubling the act-VII
 // wall (B D G Em, one bellows each). Fixed emits.
 shot("accordion-secret", 41 * BAR, { bus: "tube", gain: 0.32, pan: -0.08, side: 0.70, dly: 0.40, dark: 0.25 });
+shot("accordion-secret", 41 * BAR + 0.070, { bus: "tube", gain: 0.14, pan: 0.32,
+  side: 0.78, dly: 0.52, dark: 0.38, semis: -12 });
 {
   const AN = ["accordion-b", "accordion-d", "accordion-g", "accordion-e"];
-  for (let ab = 76; ab < 96; ab += 2)
-    shot(AN[((ab - 76) / 2) % 4], ab * BAR, { bus: "tube", gain: 0.20, pan: ((ab >> 1) & 1) ? -0.22 : 0.22, side: 0.65, dly: 0.30, dark: 0.20 });
+  // The bellows begin answering in IT SPREADS, then become a continuous
+  // push/pull chord section in THE WHOLE MESSAGE. Each change has a broad
+  // double and a quieter opposite-bellows answer one bar later.
+  for (let ab = 64; ab < 76; ab += 2) {
+    const name = AN[((ab - 64) / 2) % 4];
+    shot(name, ab * BAR, { bus: "tube", gain: 0.13, pan: ((ab >> 1) & 1) ? -0.30 : 0.30,
+      side: 0.72, dly: 0.36, dark: 0.28 });
+  }
+  for (let ab = 76; ab < 96; ab += 2) {
+    const name = AN[((ab - 76) / 2) % 4];
+    const pan = ((ab >> 1) & 1) ? -0.27 : 0.27;
+    shot(name, ab * BAR, { bus: "tube", gain: 0.21, pan, side: 0.68, dly: 0.30, dark: 0.18 });
+    shot(name, ab * BAR + 0.032, { bus: "tube", gain: 0.105, pan: -pan,
+      side: 0.78, dly: 0.44, dark: 0.34, semis: 0.07 });
+    shot(name, (ab + 1) * BAR, { bus: "tube", gain: 0.115, pan: -pan * 0.75,
+      side: 0.72, dly: 0.38, dark: 0.26, off: 0.32 });
+  }
 }
 // boing boing: a springy sproing on every act-VII chord change, pitched
 // to the guitar wall it rides (B D G E). Fixed emits.
@@ -1707,6 +1770,25 @@ for (let gb = 76; gb < 96; gb += 8) {
   const trim = gb + 8 > 96 ? { dur: (96 - gb) * BAR } : {};
   shot("guitar-wide", gb * BAR, { bus: "music", gain: 0.26, pan: 0.12, side: 0.6, dly: 0.40, dark: 0.28, ...trim });
   shot("guitar-wide", gb * BAR + 0.026, { bus: "music", gain: 0.18, pan: -0.30, side: 0.7, dly: 0.52, dark: 0.40, semis: -0.08, ...trim });
+}
+{
+  const GC = [
+    [47, 54, 59, 62], // Bm: open fifth plus the minor third on top
+    [50, 57, 62, 66], // D
+    [43, 50, 55, 59], // G
+    [40, 47, 52, 55], // Em
+  ];
+  for (let gb = 48; gb < 76; gb += 4)
+    guitarChord(gb * BAR + 0.55 * BEAT, GC[((gb - 48) / 4) % 4], 3.25,
+      0.12 + 0.002 * (gb - 48), gb & 4 ? 0.22 : -0.22, !!(gb & 4));
+  for (let gb = 76; gb < 96; gb += 2)
+    guitarChord(gb * BAR + 0.12 * BEAT, GC[((gb - 76) / 2) % 4], 3.55,
+      0.16, gb & 2 ? 0.26 : -0.26, !!(gb & 2));
+
+  const SHRED = [59, 62, 64, 66, 69, 71, 74, 76, 78];
+  for (const [bar, flip] of [[63, false], [75, true], [83, false], [91, true]])
+    guitarShred(at(bar, 2.75), flip ? [...SHRED].reverse() : SHRED,
+      bar >= 76 ? 0.19 : 0.15, flip ? -0.42 : 0.42);
 }
 
 
@@ -2288,6 +2370,75 @@ console.log(`  ${kicks.length} kicks · ${snares.length} snares`);
 // ── the two ducks ─────────────────────────────────────────────────────
 // bedEnv:  kick only, depth 0.50 — v4's breath, unchanged.
 // pumpEnv: kick AND snare, depth 0.72, faster recovery — the tubular pump.
+//
+// Before either envelope, the five buses become bodies in one elastic
+// field. This ports the Special Signs principle (sound position IS the
+// physical state): an impulse supplies velocity, Hooke's-law spring motion
+// supplies the crossings and overshoot, damping settles it, distance becomes
+// propagation delay/level, and the violent first excursion fractures a few
+// milliseconds of the real bus into a repeating shard. The dry path remains
+// present, so words keep their scored time while the room tears around them.
+const ELASTIC_BODIES = [
+  { name: "music", L: musicL, R: musicR, dir: -0.86, mass: 1.10, shard: 0.021 },
+  { name: "drums", L: drumsL, R: drumsR, dir: 0.70, mass: 1.42, shard: 0.017 },
+  { name: "vox",   L: voxL,   R: voxR,   dir: -0.42, mass: 0.74, shard: 0.026 },
+  { name: "tube",  L: tubeL,  R: tubeR,  dir: 0.96, mass: 0.92, shard: 0.031 },
+  { name: "sig",   L: sigL,   R: sigR,   dir: -0.98, mass: 0.58, shard: 0.013 },
+];
+const readLinear = (a, p) => {
+  if (p <= 0) return a[0] || 0;
+  const q = p | 0;
+  if (q + 1 >= a.length) return a[a.length - 1] || 0;
+  const f = p - q;
+  return a[q] + (a[q + 1] - a[q]) * f;
+};
+function elasticizeBus(body, bodyIndex) {
+  for (const ex of ELASTIC_EXPLOSIONS) {
+    const start = Math.max(0, Math.round((ex.t - 0.08) * SR));
+    const end = Math.min(N, Math.round((ex.t + ex.duration + 0.10) * SR));
+    const srcL = body.L.slice(start, end), srcR = body.R.slice(start, end);
+    const anchor = Math.max(0, Math.round((ex.t + 0.035 + bodyIndex * 0.009) * SR) - start);
+    const grain = Math.max(16, Math.round(body.shard * SR));
+    for (let i = Math.max(start, Math.round(ex.t * SR)); i < end; i++) {
+      const age = i / SR - ex.t;
+      if (age < 0 || age > ex.duration) continue;
+      const tail = smooth(clamp((ex.duration - age) / 0.48, 0, 1));
+      const spring = ex.strength / body.mass * Math.exp(-ex.damping * age)
+        * Math.sin(TAU * ex.hz * age) * tail;
+      const travel = Math.abs(spring);
+      const delay = travel * (0.007 + 0.012 / body.mass) * SR;
+      const local = i - start;
+      const pos = Math.max(0, local - delay);
+      let ml = readLinear(srcL, pos), mr = readLinear(srcR, pos);
+
+      // Distance darkens/attenuates; signed displacement is azimuth. The
+      // variable propagation delay is also the Doppler bend on each return.
+      const distance = 1 / (1 + 0.24 * travel);
+      const pan = clamp(body.dir * spring * 0.86, -0.92, 0.92);
+      ml *= Math.sqrt(1 - pan) * distance;
+      mr *= Math.sqrt(1 + pan) * distance;
+
+      // At the impact only, hold and repeat a tiny piece of the actual bus.
+      // Different body grains refuse to line up: the screwiness is temporal,
+      // while the spring remains one coherent gravitational gesture.
+      const fracture = ex.glitch * Math.exp(-2.7 * age)
+        * smooth(clamp(age / 0.022, 0, 1)) * tail;
+      if (fracture > 0.012) {
+        const gp = Math.min(srcL.length - 2, anchor + ((local - anchor + grain * 64) % grain));
+        const gl = readLinear(srcL, gp), gr = readLinear(srcR, gp);
+        const swap = bodyIndex & 1;
+        ml = ml * (1 - 0.34 * fracture) + (swap ? gr : gl) * 0.34 * fracture;
+        mr = mr * (1 - 0.34 * fracture) + (swap ? gl : gr) * 0.34 * fracture;
+      }
+
+      const wet = clamp(0.46 + 0.34 * travel + 0.16 * fracture, 0, 0.88);
+      body.L[i] = srcL[local] * (1 - wet) + ml * wet;
+      body.R[i] = srcR[local] * (1 - wet) + mr * wet;
+    }
+  }
+}
+for (let k = 0; k < ELASTIC_BODIES.length; k++) elasticizeBus(ELASTIC_BODIES[k], k);
+
 const bedEnv = buildEnv(kicks.map((t) => ({ t, depth: 0.50, atk: 0.009, rel: 0.31 })));
 const pumpEnv = buildEnv([
   ...kicks.map((t) => ({ t, depth: 0.72, atk: 0.009, rel: 0.26 })),
@@ -2402,7 +2553,7 @@ console.log(`  ${EVENTS.length} events · ${Object.entries(voiceCounts).map(([k,
 writeFileSync(resolve(OUT, "cult-remix-v10.events.json"), JSON.stringify({
   schema: "aesthetic.computer/pop-events/v1",
   track: "whistlegraph cult --- remix (v10, kicks first)",
-  renderer: "pop/cult/bin/render9.mjs",
+  renderer: "pop/cult/bin/render10.mjs",
   narrative: {
     logline: "A signal goes out, and it is answered, and the joke turns out to be true — "
       + "and the message never stops looping while it happens.",
@@ -2482,6 +2633,10 @@ writeFileSync(resolve(OUT, "cult-remix-v10.events.json"), JSON.stringify({
       + "and it happens exactly where the complete lyric arrives.",
     chordBars: 2, cycleBars: 32,
   },
+  spatialExplosions: ELASTIC_EXPLOSIONS.map((e) => ({
+    t: e.t, bar: e.bar, duration: e.duration, strength: e.strength,
+    springHz: e.hz, damping: e.damping, glitch: e.glitch,
+  })),
   tempoBPM: BPM, bars: BARS, seconds: +(BARS * BAR).toFixed(2),
   // Absolute-seconds section table, with the narrative line the video can
   // caption each act with.
