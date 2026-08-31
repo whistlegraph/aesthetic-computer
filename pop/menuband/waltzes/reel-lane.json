@@ -6597,6 +6597,80 @@
           "#2e426b"
         ]
       }
+    },
+    {
+      "id": "89-sailboat",
+      "name": "Sailboat",
+      "seed": 89808,
+      "bpm": 66,
+      "bars": 22,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1
+        ],
+        [
+          3,
+          2,
+          1
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          3,
+          5
+        ],
+        [
+          3,
+          5,
+          6,
+          4
+        ],
+        [
+          2,
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8e8",
+          "#c58788",
+          "#6b2e30"
+        ]
+      }
     }
   ]
 }
