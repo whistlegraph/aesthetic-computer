@@ -15,6 +15,7 @@
     "exitDurationSec": 1.4,
     "visual": {
       "monochrome": true,
+      "keyIntakes": false,
       "reveal": {
         "curtainAlpha": 0
       },
@@ -22,6 +23,7 @@
       "keyLadder": false,
       "highway": {
         "enabled": true,
+        "holdAtKey": false,
         "travelSec": 3.6,
         "startY": -56,
         "keyInsetPx": 3,

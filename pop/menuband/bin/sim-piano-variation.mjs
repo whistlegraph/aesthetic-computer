@@ -305,6 +305,7 @@ function drawNoteHighway(t, activeRig, stripRect) {
   for (const note of displayNotes) {
     const until = note.t - t;
     if (until > travelSec) break;
+    if (until < 0 && highway.holdAtKey === false) continue;
     const duration = positive(note.dur, 0.2);
     if (t < note.t + duration) arrivals.push({ note, until, duration });
   }
@@ -318,8 +319,9 @@ function drawNoteHighway(t, activeRig, stripRect) {
     const inset = positive(highway.keyInsetPx, 2) * (stripRect.w / (W * 0.94));
     const x = keyRect.x + inset / 2;
     const width = Math.max(12, keyRect.w - inset);
-    // The leading edge reaches the key on onset. The duration-sized body keeps
-    // feeding into the key until its trailing edge is ingested on note-off.
+    // The leading edge reaches the key on onset. Other styles may keep the
+    // duration-sized body feeding into the key until note-off; the concert
+    // lane hands the attack to the lit key and leaves its top edge clean.
     const bottom = strikeY - until * speed;
     const top = bottom - duration * speed;
     const visibleTop = Math.max(startY, top);
@@ -738,7 +740,7 @@ function normalize3(value) {
 function average(values) { return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length); }
 
 function drawKeyIntakes(t, activeRig, stripRect) {
-  if (!highway.enabled) return;
+  if (!highway.enabled || entry.visual.keyIntakes === false) return;
   const held = [...new Set(displayNotes
     .filter((note) => t >= note.t && t < note.t + positive(note.dur, 0.2))
     .map((note) => note.visualMidi))];
