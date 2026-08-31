@@ -94,7 +94,7 @@
       "year": "2026",
       "supply": 92,
       "status": "released",
-      "notes": "$code-addressed KidLisp pieces. Marketplace contract admin aesthetic.tez; mint contracts KT1Ecsq… ($cow, $mtz tokens) and KT1BoKM… ($4bb timestamped pieces). 92 tokens / 70 organic sales Mar–Jul 2026.",
+      "notes": "$code-addressed KidLisp pieces. Marketplace contract admin aesthetic.tez; mint contracts KT1Ecsq… ($cow, $mtz, $roz, $berz tokens) and KT1BoKM… ($4bb timestamped pieces — a shared minting contract, so filter by firstMinter aesthetic.tez). 92 tokens / 70 organic sales Mar–Jul 2026. Token displayUri is the interactive HTML piece; thumbnailUri is the preview image.",
       "links": {
         "explorer": "https://tzkt.io/KT1Q1irsjSZ7EfUN4qHzAB2t7xLBPsAWYwBB"
       },
@@ -109,7 +109,12 @@
       "year": null,
       "supply": null,
       "status": "to-document",
-      "notes": "Inscriptions minted via ordinals.com wallets. Inscription ids to be catalogued.",
+      "notes": "The three known ordsies taproot addresses were checked 2026-08-31 (ordinals.com + blockstream.info): zero inscriptions, zero sat balance, and zero transaction history ever — nothing was minted from or received by them. Any actual inscriptions live in a wallet not yet identified.",
+      "addresses": [
+        { "addr": "bc1pr09xvm0wxla825sl3nevqa9lrfw407fkgatxr75yk3r7f53ktptsnsp9s5", "label": "Ordsies minter", "txCount": 0, "checked": "2026-08-31" },
+        { "addr": "bc1p4s35wd2zjz62j9t0fyzucaka4dgm25q3q2zjcdnvg7w2yxvevqmsr9ft0r", "label": "Ordinals receiver", "txCount": 0, "checked": "2026-08-31" },
+        { "addr": "bc1p6ns855q72j7g95wtjs8hmq06y6cdv2devnf2mfjc74kh3d8tjqfsrc05ky", "label": "Ordinals test", "txCount": 0, "checked": "2026-08-31" }
+      ],
       "links": {
         "reference": "https://ordinals.com"
       },

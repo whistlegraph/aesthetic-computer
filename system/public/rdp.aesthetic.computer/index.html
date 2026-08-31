@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radical Digital Painting — metadata host</title>
+    <meta name="description" content="Permanent host for the on-chain ERC-721 metadata of Radical Digital Painting, 239 tokens by Jeffrey Alan Scudder.">
+    <meta property="og:title" content="Radical Digital Painting — metadata host" />
+    <meta property="og:description" content="Permanent host for the on-chain ERC-721 metadata of Radical Digital Painting, 239 tokens." />
+    <meta property="og:url" content="https://rdp.aesthetic.computer" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="https://radical-digital-painting.nyc3.cdn.digitaloceanspaces.com/thumbnails/128/16.5.20.22.17.jpg" type="image/jpeg" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+    <script>
+        // Apply a saved override before first paint, same key as the papers
+        // family so the sibling pages share one theme choice.
+        try {
+            const savedTheme = localStorage.getItem('papers-theme');
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                document.documentElement.classList.add(`${savedTheme}-mode`);
+            }
+        } catch (_) {}
+    </script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #777;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a94f;
+            --blue: #4f7fd4;
+            --sep: rgba(255,255,255,0.06);
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+                --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+                --gold: #9c7a1f; --blue: #2f5fb8;
+                --sep: rgba(0,0,0,0.06);
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.1);
+            }
+        }
+        :root.light-mode {
+            --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+            --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+            --gold: #9c7a1f; --blue: #2f5fb8;
+            --sep: rgba(0,0,0,0.06);
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 14px; line-height: 1.7;
+            padding: 3em 1.2em;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        a { color: var(--cyan); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        h1 {
+            font-family: 'YWFTProcessing-Regular', sans-serif;
+            font-weight: normal;
+            font-size: 1.7em;
+            color: var(--pink);
+            margin-bottom: 0.7em;
+        }
+        h1 .mono { font-family: 'Berkeley Mono Variable', monospace; font-size: 0.65em; color: var(--dim); }
+        p { margin-bottom: 1em; }
+        code {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 3px;
+            padding: 0.05em 0.35em;
+            font-size: 0.92em;
+        }
+        footer {
+            margin-top: 2.5em; padding-top: 1em;
+            border-top: 1px solid var(--sep);
+            color: var(--dim); font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Radical Digital Painting <span class="mono">— metadata host</span></h1>
+    <p>
+        This host serves the on-chain ERC-721 metadata for
+        <em>Radical Digital Painting</em>, the 239-token contract by
+        Jeffrey&nbsp;Alan&nbsp;Scudder — <code>tokenURI(n)</code> resolves to
+        <code>/json/n.json</code> for tokens 1–239. See the
+        <a href="https://etherscan.io/address/0x5381f50ffec1b551f561e99943da88211f1a64dd">contract on Etherscan</a>,
+        the <a href="https://opensea.io/collection/radical-digital-painting">collection on OpenSea</a>,
+        the <a href="https://jas.life/painting">painting archive on jas.life</a>,
+        and <a href="https://nft.aesthetic.computer">nft.aesthetic.computer</a>
+        for the full on-chain record.
+    </p>
+    <footer>
+        <a href="https://aesthetic.computer">aesthetic.computer</a>
+    </footer>
+</body>
+</html>
