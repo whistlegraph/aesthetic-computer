@@ -17,19 +17,19 @@
 # Sung register: tonic ≈ A3. Source tempo median ≈ 115 BPM; the DANCE
 # cut runs the lane's 124.
 #
-# ── GROUND TRUTH from @jeffrey (2026-08-31) — COMPLETE, overrides stats
-# Key of C. Chant at C4; the walk lands in the LOW octave (C3):
+# ── GROUND TRUTH from @jeffrey — notepat form (2026-08-31, definitive)
 #
-#   i'm  a   but-ter-fly        C4  G4  C4 C4 C4     (the G is HIGH)
-#   flap-PING for you guys      C4  C5  C4 C4 C4     (the PING is high)
-#   just a  cos-tume            B4  A4  G4 F4
-#   i  put  on                  E4  E4  D4
-#   in  my  room                C4  C4  C4
+#   c g c c c   ·   c h c c c   ·   g f e d e e d c c c
+#   (h = the high C, notepat second octave)
 #
-# The back half is one stepwise descent in the chant's own octave:
-# B4 A4 G4 F4 E4 E4 D4 → C4 C4 C4 home. (E4/D4 inferred to keep the
-# walk stepwise — @jeffrey named B4 A4 G4 F4 and the C4 ending.)
-# Verified render: holyvox notecheck 20/20, legato glides = transit.
+#   i'm(C4) a(G4) but-ter-fly(C4 C4 C4)
+#   flap(C4)-PING(C5) for you guys(C4 C4 C4)
+#   just(G4) a(F4) cos(E4)-tume(D4)
+#   i(E4) put(E4) on(D4) · in my room(C4 C4 C4)
+#
+# (An earlier spoken pass said B-A-G-F for the costume walk; the
+# notepat punch-in G-F-E-D supersedes it.) Verified render: holyvox
+# notecheck all targets hit, legato glides recognized as transit.
 # The stats below remain as evidence; where they disagree with the
 # singer, the singer wins.
 #

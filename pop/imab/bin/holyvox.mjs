@@ -37,8 +37,9 @@ if (!existsSync(SEP)) {
 const BOUNDS = JSON.parse(readFileSync(`${WORK}/bounds-${TAKE}.json`, "utf8")).words;
 const NSYL = { butterfly: 3, flapping: 2, costume: 2 };
 // the melody is fully @jeffrey's — absolute pitches, no detection involved
+// notepat truth (@jeffrey): c g c c c · c h c c c · g f e d e e d c c c
 const GT = ["C4", "G4", "C4,C4,C4", "C4,C5", "C4", "C4", "C4",
-            "B4", "A4", "G4,F4", "E4", "E4", "D4", "C4", "C4", "C4"];
+            "G4", "F4", "E4,D4", "E4", "E4", "D4", "C4", "C4", "C4"];
 // musical minimum lengths, in beats (the held high-G "a" was too short)
 const MINB = { 1: 1.0, 4: 0.5, 5: 0.5, 6: 0.75 };
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
