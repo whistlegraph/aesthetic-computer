@@ -47,7 +47,7 @@ final class InstrumentListView: NSView {
     static var gridLayout: GridLayout {
         get {
             let raw = UserDefaults.standard.string(forKey: layoutDefaultsKey) ?? ""
-            return GridLayout(rawValue: raw) ?? .timbre
+            return GridLayout(rawValue: raw) ?? .catalogue
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: layoutDefaultsKey) }
     }

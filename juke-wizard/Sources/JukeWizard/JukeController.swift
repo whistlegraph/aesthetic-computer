@@ -270,13 +270,27 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         installKeyMonitor()
     }
     required init?(coder: NSCoder) { fatalError() }
-    deinit { if let m = keyMonitor { NSEvent.removeMonitor(m) } }
+    deinit {
+        watchTimer?.invalidate()
+        activityTimer?.invalidate()
+        djMixer?.stopDisplay()
+        if let m = keyMonitor { NSEvent.removeMonitor(m) }
+    }
 
     // Keep the single player window alive: the menu-bar CD and Dock icon can
     // restore it instantly, and playback/queue state cannot be lost on close.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        suspendPresentationActivity()
         sender.orderOut(nil)
         return false
+    }
+
+    func windowDidMiniaturize(_ notification: Notification) {
+        suspendPresentationActivity()
+    }
+
+    func windowDidDeminiaturize(_ notification: Notification) {
+        resumePresentationActivity()
     }
 
     // ── keyboard control (yields to text editing) ────────────────────────
@@ -595,7 +609,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             setPlayerChromeHidden(true)
             listScroll.isHidden = false
             activityLabel.isHidden = false
-            djMixer.startDisplay()
+            if isPresentationActive { djMixer.startDisplay() }
             roomAudio.useSource(.aesthetic)
             window?.isMovableByWindowBackground = false
         } else {
@@ -1432,6 +1446,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard let w = window else { return }
         if w.isMiniaturized { w.deminiaturize(nil) }
         w.makeKeyAndOrderFront(nil)
+        resumePresentationActivity()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -1439,6 +1454,7 @@ final class JukeController: NSWindowController, NSWindowDelegate,
         guard let w = window else { return }
         if w.isVisible, !w.isMiniaturized {
             miniPopover?.close()
+            suspendPresentationActivity()
             w.orderOut(nil)
         } else {
             quickOpenFull()
@@ -1927,15 +1943,41 @@ final class JukeController: NSWindowController, NSWindowDelegate,
 
     // ── live work awareness ────────────────────────────────────────────────
     // Slab's ledger tells us which agents are active; local process inspection
-    // catches the narrower render/bake window. Polling is read-only and cheap.
+    // catches the narrower render/bake window. Neither this poll nor the DJ
+    // display clock should run while the retained Juke window is hidden.
+    private var isPresentationActive: Bool {
+        guard let window else { return false }
+        return window.isVisible && !window.isMiniaturized
+    }
+
+    private func resumePresentationActivity() {
+        guard isPresentationActive else { return }
+        if djMode { djMixer.startDisplay() }
+        armActivityStatus()
+    }
+
+    private func suspendPresentationActivity() {
+        djMixer.stopDisplay()
+        activityTimer?.invalidate()
+        activityTimer = nil
+    }
+
     private func armActivityStatus() {
+        guard isPresentationActive, activityTimer == nil else { return }
         pollActivityStatus()
         activityTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.pollActivityStatus()
+            guard let self else { return }
+            guard self.isPresentationActive else {
+                self.activityTimer?.invalidate()
+                self.activityTimer = nil
+                return
+            }
+            self.pollActivityStatus()
         }
     }
     private func pollActivityStatus() {
-        guard activeSource == .local, !activityPollInFlight else { return }
+        guard isPresentationActive, activeSource == .local,
+              !activityPollInFlight else { return }
         activityPollInFlight = true
         let tracks = library.tracks
         DispatchQueue.global(qos: .utility).async { [weak self] in
@@ -1943,7 +1985,8 @@ final class JukeController: NSWindowController, NSWindowDelegate,
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.activityPollInFlight = false
-                guard self.activeSource == .local else { return }
+                guard self.isPresentationActive,
+                      self.activeSource == .local else { return }
                 self.renderActivityStatus(activities)
             }
         }
