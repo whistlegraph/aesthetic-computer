@@ -432,12 +432,31 @@
         const CHAIN_LABEL = { ethereum: "Ethereum", tezos: "Tezos", bitcoin: "Bitcoin", base: "Base", solana: "Solana" };
         const esc = (s) => String(s).replace(/[&<>"']/g, c =>
             ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-        const ipfsUrl = (u) => typeof u === "string" && u.startsWith("ipfs://")
-            ? "https://ipfs.io/ipfs/" + u.slice(7) : u;
+
+        // IPFS gateways in fallback order — verified working 2026-08-31
+        // (cloudflare-ipfs.com is dead; 4everland stalls). Each <img> walks
+        // this chain via its onerror handler, ending at a baked local copy
+        // when one exists.
+        const IPFS_GATEWAYS = [
+            "https://ipfs.io/ipfs/",
+            "https://dweb.link/ipfs/",
+            "https://w3s.link/ipfs/",
+            "https://nftstorage.link/ipfs/"
+        ];
+        function ipfsSources(u) {
+            if (typeof u !== "string") return [];
+            if (!u.startsWith("ipfs://")) return [u];
+            const path = u.slice(7);
+            return IPFS_GATEWAYS.map(g => g + path);
+        }
 
         // Per-collection card media. Static entries are build-time curated
-        // files in assets/ (see README); live entries fetch from public
-        // chain indexers client-side and fall back gracefully.
+        // files in assets/ (see README) and render immediately; `live`
+        // entries then try to upgrade from public chain indexers, keeping
+        // the static images when the fetch or every gateway fails.
+        // NOTE: the Feral File API 403s any request that carries an Origin
+        // header, so Ten Whistlegraphs is static-only — a browser cannot
+        // call that API at all.
         const MEDIA = {
             "radical-digital-painting": { static: [
                 { src: "assets/rdp-painting-1.jpg", alt: "Radical Digital Painting, painting 1 of 239" },
@@ -448,9 +467,24 @@
             "lwge": { static: [
                 { src: "assets/lwge-title.jpg", alt: "The Longest Whistlegraph Ever (so far) — chalkboard title card from the Rhizome microsite", banner: true }
             ]},
-            "ten-whistlegraphs": { live: "feralfile" },
-            "hic-et-nunc": { live: "tzkt-minted" },
-            "kidlisp-keeps": { live: "tzkt-mints" },
+            "ten-whistlegraphs": { static: [
+                { src: "assets/ff-puzzle-iw2.jpg", alt: "Ten Whistlegraphs series: Puzzle" },
+                { src: "assets/ff-i-dont-need-an-iphone-vld.jpg", alt: "Ten Whistlegraphs series: I Don't Need an iPhone" },
+                { src: "assets/ff-people-pleaser-uav.jpg", alt: "Ten Whistlegraphs series: People Pleaser" },
+                { src: "assets/ff-lately-when-i-fly-dcc.jpg", alt: "Ten Whistlegraphs series: Lately When I Fly" }
+            ]},
+            "hic-et-nunc": { live: "tzkt-minted", static: [
+                { src: "assets/hen-unity-quest.jpg", alt: "hic et nunc work: Unity Quest" },
+                { src: "assets/hen-birthday-robot.jpg", alt: "hic et nunc work: Birthday Robot" },
+                { src: "assets/hen-wrongpond.jpg", alt: "hic et nunc work: Drinkin' From Wrongpond" },
+                { src: "assets/hen-tipsy.jpg", alt: "hic et nunc work: Tipsy Ambulation Patchwork" }
+            ]},
+            "kidlisp-keeps": { live: "tzkt-mints", static: [
+                { src: "assets/kidlisp-cow.jpg", alt: "KidLisp Keeps token: $cow" },
+                { src: "assets/kidlisp-mtz.jpg", alt: "KidLisp Keeps token: $mtz" },
+                { src: "assets/kidlisp-roz.jpg", alt: "KidLisp Keeps token: $roz" },
+                { src: "assets/kidlisp-berz.jpg", alt: "KidLisp Keeps token: $berz" }
+            ]},
             "whistlegraph-codes": { placeholder: "code" },
             "orgstars": { placeholder: "star" }
         };
@@ -509,38 +543,77 @@
                 <rect width="20" height="20" fill="var(--box-bg)"/><g fill="${color}">${cells}</g></svg>`;
         }
 
+        // Shared onerror: advance through data-alts (pipe-separated), hide
+        // the image when every source is exhausted (the cell box remains).
+        const IMG_ONERROR = "var a=this.dataset.alts;if(a){var p=a.split('|');" +
+            "this.src=p.shift();this.dataset.alts=p.join('|');}" +
+            "else{this.style.display='none';}";
+
         function imgCell(img) {
             const cls = img.banner ? "cell banner" : "cell";
-            return `<div class="${cls}"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`;
+            const alts = (img.alts && img.alts.length)
+                ? ` data-alts="${esc(img.alts.join("|"))}"` : "";
+            return `<div class="${cls}"><img src="${esc(img.src)}" alt="${esc(img.alt)}"` +
+                ` loading="lazy"${alts} onerror="${IMG_ONERROR}"></div>`;
         }
 
         function mediaHtml(c) {
             const m = MEDIA[c.id];
             if (!m) return "";
-            if (m.static) return `<div class="media">${m.static.map(imgCell).join("")}</div>`;
             if (m.placeholder) {
                 return `<div class="media"><div class="cell wide">${placeholderSvg(m.placeholder)}</div></div>`;
             }
-            // live: skeleton cells now, filled after fetch.
-            return `<div class="media" id="media-${esc(c.id)}">${'<div class="cell"></div>'.repeat(4)}</div>`;
+            // Static images render immediately; the id lets a live fetch
+            // upgrade them in place when it succeeds.
+            const cells = m.static ? m.static.map(imgCell).join("")
+                : '<div class="cell"></div>'.repeat(4);
+            const id = m.live ? ` id="media-${esc(c.id)}"` : "";
+            return `<div class="media"${id}>${cells}</div>`;
         }
 
-        function fillLiveMedia(id, images) {
+        function fillLiveMedia(id, images, staticList) {
             const el = document.getElementById(`media-${id}`);
             if (!el || !images.length) return;
-            el.innerHTML = images.slice(0, 4).map(imgCell).join("");
+            // Each live image ends its fallback chain at a baked local copy.
+            const withFinal = images.slice(0, 4).map((img, i) => ({
+                ...img,
+                alts: [...(img.alts || []),
+                    ...(staticList && staticList[i] ? [staticList[i].src] : [])]
+            }));
+            el.innerHTML = withFinal.map(imgCell).join("");
         }
 
-        function tzktImages(tokens, label) {
+        // Build {src, alts, alt} from a resolvable URI (ipfs:// walks the
+        // gateway chain; https passes through).
+        function chainImage(uri, alt) {
+            const sources = ipfsSources(uri);
+            if (!sources.length) return null;
+            return { src: sources[0], alts: sources.slice(1), alt };
+        }
+
+        function tzktImages(tokens, label, prefer) {
             return tokens
-                .filter(t => t.metadata && (t.metadata.displayUri || t.metadata.thumbnailUri))
+                .filter(t => t.metadata)
                 .map(t => {
                     const meta = t.metadata;
-                    const thumbIsGeneric = meta.thumbnailUri === HEN_GENERIC_THUMB;
-                    const uri = (thumbIsGeneric ? meta.displayUri : meta.thumbnailUri) ||
-                        meta.displayUri || meta.thumbnailUri;
-                    return { src: ipfsUrl(uri), alt: `${label}: ${meta.name || "token " + t.tokenId}` };
-                });
+                    let uri;
+                    if (prefer === "thumbnail") {
+                        // KidLisp Keeps: displayUri is interactive HTML —
+                        // only thumbnailUri is an image.
+                        uri = meta.thumbnailUri;
+                    } else {
+                        // hic et nunc: displayUri is the artwork image;
+                        // thumbnailUri is often the generic h=n placeholder.
+                        const thumbIsGeneric = meta.thumbnailUri === HEN_GENERIC_THUMB;
+                        uri = (thumbIsGeneric ? meta.displayUri : meta.thumbnailUri) ||
+                            meta.displayUri || meta.thumbnailUri;
+                    }
+                    return uri ? chainImage(uri, `${label}: ${meta.name || "token " + t.tokenId}`) : null;
+                })
+                .filter(Boolean)
+                // Editions can share one image (e.g. the $4bb set) — show
+                // distinct artworks, not repeats.
+                .filter((img, i, arr) => arr.findIndex(x => x.src === img.src) === i);
         }
 
         async function loadLiveMedia(catalog) {
@@ -548,29 +621,22 @@
                 const m = MEDIA[c.id];
                 if (!m || !m.live) continue;
                 try {
+                    const minter = (catalog.wallets || {})["aesthetic.tez"] || "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
                     if (m.live === "tzkt-mints") {
+                        // Shared mint contracts — MUST filter by firstMinter
+                        // or the card shows other artists' tokens.
                         const contracts = (c.mintContracts || [c.contract]).join(",");
                         const tokens = await fetchJson(
-                            `https://api.tzkt.io/v1/tokens?contract.in=${contracts}&limit=4`);
-                        fillLiveMedia(c.id, tzktImages(tokens, "KidLisp Keeps token"));
+                            `https://api.tzkt.io/v1/tokens?contract.in=${contracts}&firstMinter=${minter}&limit=8`);
+                        fillLiveMedia(c.id, tzktImages(tokens, "KidLisp Keeps token", "thumbnail"), m.static);
                     } else if (m.live === "tzkt-minted") {
-                        const minter = (catalog.wallets || {})["aesthetic.tez"] || "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE";
                         const tokens = await fetchJson(
                             `https://api.tzkt.io/v1/tokens?firstMinter=${minter}&contract=${c.contract}&limit=4`);
-                        fillLiveMedia(c.id, tzktImages(tokens, "hic et nunc work"));
-                    } else if (m.live === "feralfile") {
-                        const d = await fetchJson("https://feralfile.com/api/exhibitions/ten-whistlegraphs-thv");
-                        fillLiveMedia(c.id, (d.result.series || [])
-                            .filter(s => typeof s.thumbnailURI === "string" && s.thumbnailURI.startsWith("http"))
-                            .map(s => ({
-                                src: `${s.thumbnailURI}/public`,
-                                alt: `Ten Whistlegraphs series: ${s.title || s.slug}`
-                            })));
+                        fillLiveMedia(c.id, tzktImages(tokens, "hic et nunc work", "display"), m.static);
                     }
                 } catch (err) {
+                    // Static images are already showing — just log.
                     console.error(`live media ${c.id}:`, err);
-                    const el = document.getElementById(`media-${c.id}`);
-                    if (el) el.innerHTML = '<div class="cell wide">artwork previews unavailable</div>';
                 }
             }
         }
@@ -698,10 +764,22 @@
                 </div>`).join("");
         }
 
-        async function fetchJson(path) {
-            const res = await fetch(path);
-            if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-            return res.json();
+        // Fetch with a 12s timeout and one retry — public indexers stall
+        // more often than they hard-fail.
+        async function fetchJson(path, attempt = 0) {
+            try {
+                const opts = {};
+                if (typeof AbortSignal !== "undefined" && AbortSignal.timeout) {
+                    opts.signal = AbortSignal.timeout(12000);
+                }
+                const res = await fetch(path, opts);
+                if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                if (attempt >= 1) throw err;
+                await new Promise(r => setTimeout(r, 800));
+                return fetchJson(path, attempt + 1);
+            }
         }
 
         (async () => {

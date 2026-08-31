@@ -69,6 +69,12 @@
         file_server
     }
 
+    @rdpmeta host rdp.aesthetic.computer
+    handle @rdpmeta {
+        root * /opt/ac/system/public/rdp.aesthetic.computer
+        file_server
+    }
+
     @papers host papers.aesthetic.computer papers.prompt.ac
     handle @papers {
         handle /en {

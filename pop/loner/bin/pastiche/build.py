@@ -13,6 +13,7 @@ Renders segments to $WORK/segs-<planhash>, chains xfades; run.sh
 grades and hands to chrome-reel.mjs.
 """
 import hashlib
+import json
 import os
 import subprocess
 
@@ -49,6 +50,34 @@ for _s in [GRASS, PAD, FERAL, OUTDOOR, REDPEN, SMUDGE, LACE, CHARCOAL,
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nw=1:nk=1", f"{LONER}/source/{_s}.mp4"],
         capture_output=True, text=True, check=True).stdout)
+
+
+# track time -> drawing time (both passes), so segments can source
+# their take at the moment the SAME stroke is being drawn on camera
+_wc = json.load(open(f"{LONER}/viz/wordclock.json"))
+_passes = [[_wc[0]]]
+for _e in _wc[1:]:
+    if _e["t0"] - _passes[-1][-1]["t1"] > 2.0:
+        _passes.append([])
+    _passes[-1].append(_e)
+V_ANCHORS = []
+for _p in _passes:
+    V_ANCHORS.append((_p[0]["t0"] - 0.35, 0.0))
+    for _e in _p:
+        V_ANCHORS.append((_e["t0"], _e["v0"]))
+    V_ANCHORS.append((_p[-1]["t1"], _p[-1]["v1"]))
+
+
+def v_at(t):
+    if t <= V_ANCHORS[0][0]:
+        return 0.0
+    for (t0, v0), (t1, v1) in zip(V_ANCHORS, V_ANCHORS[1:]):
+        if t <= t1:
+            if t1 <= t0:
+                return v1
+            return v0 + (v1 - v0) * (t - t0) / (t1 - t0)
+    return V_ANCHORS[-1][1]
+
 
 cursor = {s: 1.5 for s in DUR}
 cursor[GRASS] = 0.5
@@ -143,12 +172,18 @@ for i, (end_bar, src, src_t, speed, fade, opts) in enumerate(PLAN):
     fade_in = PLAN[i - 1][4] if i else 0.0
     dur = (t1 - t0) + fade_in / 2 + fade / 2
     key = hashlib.sha1(
-        repr((PLAN[i], PLAN[i - 1][4] if i else 0.0, t1 - t0))
+        repr((PLAN[i], PLAN[i - 1][4] if i else 0.0, t1 - t0, src_t))
         .encode()).hexdigest()[:12]
     seg = f"{SEGS}/{key}.mp4"
     segfiles.append((seg, dur, fade))
     if os.path.exists(seg):
         continue
+    if opts is None or opts.startswith("layer") or opts.startswith("cropx"):
+        # sync: source the take where this moment's stroke is drawn
+        frac = min(v_at(t0 + 0.2) / 25.0, 0.97)
+        need = dur * speed + 0.7
+        src_t = round(min(max(frac * (DUR[src] - need), 0.2),
+                          DUR[src] - need), 2)
     cropx = None
     layer = None
     blur = False

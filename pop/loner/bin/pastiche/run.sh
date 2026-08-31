@@ -26,7 +26,12 @@ scale=1080:1920:flags=lanczos,unsharp=5:5:0.3:5:5:0.0,format=yuv420p[v]" \
 ffmpeg -y -v error -i "$LONER/out/lonerclub-v4pid.wav" \
   -t $END -af "afade=t=out:st=63.0:d=0.788" "$WORK/audio-reel.wav"
 
-python3 trace-strokes.py
+# the performed recording is the score's source of truth when present
+if [ -f "$LONER/viz/wg-perform.json" ]; then
+  python3 wizard-export.py
+else
+  python3 trace-strokes.py
+fi
 node chrome-reel.mjs
 
 echo "reel -> $LONER/out/lonerclub-v4pid-reel.mp4"

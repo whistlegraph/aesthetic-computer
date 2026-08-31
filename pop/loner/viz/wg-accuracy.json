@@ -1,0 +1,162 @@
+[
+ {
+  "word": "curled",
+  "mark": "back curve",
+  "trace": 6.9,
+  "cover": 0.04,
+  "ends": 300.8,
+  "score": 0
+ },
+ {
+  "word": "up",
+  "mark": "spine",
+  "trace": 54.0,
+  "cover": 0.01,
+  "ends": 210.8,
+  "score": 0
+ },
+ {
+  "word": "in",
+  "mark": "seat",
+  "trace": 6.5,
+  "cover": 0.34,
+  "ends": 197.8,
+  "score": 0
+ },
+ {
+  "word": "of",
+  "mark": "knee",
+  "trace": 10.6,
+  "cover": 0.21,
+  "ends": 158.9,
+  "score": 0
+ },
+ {
+  "word": "a",
+  "mark": "knee loop",
+  "trace": 26.0,
+  "cover": 0.38,
+  "ends": 84.2,
+  "score": 0
+ },
+ {
+  "word": "just",
+  "mark": "arm loop",
+  "trace": 25.2,
+  "cover": 0.04,
+  "ends": 202.2,
+  "score": 0
+ },
+ {
+  "word": "waiting",
+  "mark": "arm loops",
+  "trace": 23.0,
+  "cover": 0.08,
+  "ends": 177.8,
+  "score": 0
+ },
+ {
+  "word": "very",
+  "mark": "knee wrap",
+  "trace": 17.5,
+  "cover": 0.06,
+  "ends": 103.3,
+  "score": 0
+ },
+ {
+  "word": "pa",
+  "mark": "hair line one",
+  "trace": 12.1,
+  "cover": 0.01,
+  "ends": 128.6,
+  "score": 0
+ },
+ {
+  "word": "tient",
+  "mark": "hair line two",
+  "trace": 4.3,
+  "cover": 0.23,
+  "ends": 349.1,
+  "score": 0
+ },
+ {
+  "word": "ly",
+  "mark": "hair line three",
+  "trace": 7.4,
+  "cover": 0.11,
+  "ends": 257.2,
+  "score": 0
+ },
+ {
+  "word": "for",
+  "mark": "cross strand",
+  "trace": 12.2,
+  "cover": 0.07,
+  "ends": 309.5,
+  "score": 0
+ },
+ {
+  "word": "time",
+  "mark": "cross strands",
+  "trace": 2.6,
+  "cover": 0.07,
+  "ends": 197.3,
+  "score": 0
+ },
+ {
+  "word": "pass",
+  "mark": "the eyes",
+  "trace": 3.0,
+  "cover": 0.03,
+  "ends": 160.7,
+  "score": 8
+ },
+ {
+  "word": "i",
+  "mark": "leg",
+  "trace": 11.7,
+  "cover": 0.05,
+  "ends": 102.5,
+  "score": 10
+ },
+ {
+  "word": "myself",
+  "mark": "base line",
+  "trace": 4.6,
+  "cover": 0.52,
+  "ends": 151.5,
+  "score": 22
+ },
+ {
+  "word": "to",
+  "mark": "last strands",
+  "trace": 1.0,
+  "cover": 0.54,
+  "ends": 169.5,
+  "score": 25
+ },
+ {
+  "word": "think",
+  "mark": "legs",
+  "trace": 7.2,
+  "cover": 0.55,
+  "ends": 110.1,
+  "score": 32
+ },
+ {
+  "word": "stone",
+  "mark": "foot + base",
+  "trace": 2.8,
+  "cover": 0.41,
+  "ends": 100.6,
+  "score": 41
+ },
+ {
+  "word": "sitting",
+  "mark": "the head arc",
+  "trace": 5.5,
+  "cover": 0.38,
+  "ends": 53.1,
+  "score": 51
+ }
+]
