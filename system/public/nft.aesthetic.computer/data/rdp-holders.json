@@ -1,0 +1,622 @@
+{
+ "totalTokens": 239,
+ "burnedOrZero": 0,
+ "holders": [
+  {
+   "addr": "0xa0393a76b132526a70450273cafeceb45eea6dee",
+   "editions": 55,
+   "self": false,
+   "lastActivity": "2025-12-15",
+   "days": 259
+  },
+  {
+   "addr": "0x79a1b0ff2ae73c591ad4cd409fd6a20b21cb2500",
+   "editions": 32,
+   "self": false,
+   "lastActivity": "2025-10-24",
+   "days": 311
+  },
+  {
+   "addr": "0x18ed928719a8951729fbd4dbf617b7968d940c7b",
+   "editions": 15,
+   "self": false,
+   "lastActivity": "2026-06-30",
+   "days": 62
+  },
+  {
+   "addr": "0xe1ddc7f1a171f927ef4b79e55d1d0838308ad4a5",
+   "editions": 7,
+   "self": false,
+   "lastActivity": "2026-08-31",
+   "days": 0
+  },
+  {
+   "addr": "0x9e139c20e563220202cdeb038c4af1210362202d",
+   "editions": 7,
+   "self": false,
+   "lastActivity": "2026-08-15",
+   "days": 16
+  },
+  {
+   "addr": "0x6266dbb2d202d4e246ee86d76bb2fbb9a71eafcd",
+   "editions": 5,
+   "self": false,
+   "lastActivity": "2025-10-23",
+   "days": 313
+  },
+  {
+   "addr": "0x0b142443b47f7557b55e981fede0e6a6543e4cd7",
+   "editions": 5,
+   "self": false,
+   "lastActivity": "2021-11-09",
+   "days": 1756
+  },
+  {
+   "addr": "0x8191a2e4721ca4f2f4533c3c12b628f141ff2c19",
+   "editions": 4,
+   "self": false,
+   "lastActivity": "2026-02-11",
+   "days": 201
+  },
+  {
+   "addr": "0x5383b65d3ed1e4fcbb4407521f02c044f7b9aba1",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2026-08-30",
+   "days": 1
+  },
+  {
+   "addr": "0xe7684ae69553acdc2913bc2d6c3c098eb5ef34ff",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2026-07-24",
+   "days": 39
+  },
+  {
+   "addr": "0xfe0875e12958a019dea15a795c22845179749f50",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2026-07-12",
+   "days": 50
+  },
+  {
+   "addr": "0xa00776576ce1749a9a75ca5bb7c6ae259b518ca8",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2025-08-10",
+   "days": 386
+  },
+  {
+   "addr": "0xfa1c903eaa1f9e0fb256e6d21d4db63c85c85855",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2024-12-03",
+   "days": 637
+  },
+  {
+   "addr": "0x16b78f5366f870d7b7d18f8badfa866091542921",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2024-11-23",
+   "days": 646
+  },
+  {
+   "addr": "0x433b9a6de923e4ae6998e856246f1f213fd13563",
+   "editions": 3,
+   "self": false,
+   "lastActivity": "2022-07-11",
+   "days": 1512
+  },
+  {
+   "addr": "0xca11d10ceb098f597a0cab28117fc3465991a63c",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-08-30",
+   "days": 1
+  },
+  {
+   "addr": "0xa4711c27924a900625bda3c63dc1eb86b44c48a6",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-08-27",
+   "days": 5
+  },
+  {
+   "addr": "0x6853a596d6d7264d3622546da3b891b6fe17eb82",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-08-24",
+   "days": 7
+  },
+  {
+   "addr": "0xcfb098c1d44eb12f93f9aaece5d6054e2a2240ab",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-08-20",
+   "days": 11
+  },
+  {
+   "addr": "0x54f54ac68d92aaef256550957b4d8f9d5fd59604",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-07-11",
+   "days": 51
+  },
+  {
+   "addr": "0x9228c501a1360b06c21e0843b6a7a96436002dcc",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-06-05",
+   "days": 87
+  },
+  {
+   "addr": "0xde5bcf9443d837220eaf7e2b200e134c4e1caedb",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-03-12",
+   "days": 172
+  },
+  {
+   "addr": "0x68e7c090174997c9bb9c29ed8a5640a943068039",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2026-02-26",
+   "days": 186
+  },
+  {
+   "addr": "0x65657e65292c3dfd4c67bcec2d22fc44de87702e",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2025-02-20",
+   "days": 557
+  },
+  {
+   "addr": "0x45f237acd2384f5e3d7a14b22b6b476505576b49",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2024-11-08",
+   "days": 661
+  },
+  {
+   "addr": "0x2e638f68088cc129052831bbdd089d57aded2c1d",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2024-11-08",
+   "days": 661
+  },
+  {
+   "addr": "0x3f2fb041ab70ab52d04210d1eccbdf040ff4dc5a",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2024-02-14",
+   "days": 930
+  },
+  {
+   "addr": "0x645c4faf7c455ad4ba3466bd0254cfe2a22c1a7d",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2023-04-24",
+   "days": 1226
+  },
+  {
+   "addr": "0x0b657398a17bcc8a13df45e74b46b9f00fa59f8b",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2023-02-06",
+   "days": 1302
+  },
+  {
+   "addr": "0x794862ba0f6ceef4691721fcaad5cb69aaa6c670",
+   "editions": 2,
+   "self": false,
+   "lastActivity": "2022-05-02",
+   "days": 1582
+  },
+  {
+   "addr": "0x1d4b9b250b1bd41daa35d94bf9204ec1b0494ee3",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-31",
+   "days": 0
+  },
+  {
+   "addr": "0x000000000000000000000000000000000000dead",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-31",
+   "days": 0
+  },
+  {
+   "addr": "0x078ad2aa3b4527e4996d087906b2a3da51bba122",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-30",
+   "days": 1
+  },
+  {
+   "addr": "0x2d0ddb67b7d551afa7c8fa4d31f86da9cc947450",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-27",
+   "days": 4
+  },
+  {
+   "addr": "0x7c7216f16e81f2cf68269a2e3c24b4123b3da2c2",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-27",
+   "days": 5
+  },
+  {
+   "addr": "0xfb6223ea050a0956cdf294129a00f66b5ae4f5a5",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-21",
+   "days": 10
+  },
+  {
+   "addr": "0xbd57fdbfb4e067992aa0c0da44dfdb10424f3dd6",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-20",
+   "days": 11
+  },
+  {
+   "addr": "0xf2b9ec5724dc97362a53907c0b4cc0aa72369e63",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-17",
+   "days": 14
+  },
+  {
+   "addr": "0x9260ae742f44b7a2e9472f5c299aa0432b3502fa",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-15",
+   "days": 16
+  },
+  {
+   "addr": "0x17fdb96934d0a4b58d7f5005b8ccfc15fb7a8cd8",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-11",
+   "days": 20
+  },
+  {
+   "addr": "0xfb4219db5cd2e9ada7db34fb61b5c0d5b5cbf198",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-10",
+   "days": 21
+  },
+  {
+   "addr": "0xd8089bc9dc3293409f4dde5282227ba8808ce7ff",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-08-08",
+   "days": 23
+  },
+  {
+   "addr": "0x4725ae1d4b5a37d7bc8b22151348790736a4431c",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-07-22",
+   "days": 40
+  },
+  {
+   "addr": "0x5151f4b48cee4f7dcb7714e7b4b836aa847bf4e8",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-07-13",
+   "days": 49
+  },
+  {
+   "addr": "0x882ff1134f17017fe2c1f4b464eee7d4f0b0d476",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-07-07",
+   "days": 55
+  },
+  {
+   "addr": "0x70135e2dd3057de188a3a9a51b9519e8ce8274e1",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-06-30",
+   "days": 62
+  },
+  {
+   "addr": "0x3631a1b12dbf55bdd94bdee382926510855d44b6",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-06-06",
+   "days": 86
+  },
+  {
+   "addr": "0x77bac8bc894ca3afee59ab1766812ab78bcdb64b",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-05-25",
+   "days": 98
+  },
+  {
+   "addr": "0x12d964f702db7b301765c0066a04ec4fbdb59e3a",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-05-22",
+   "days": 101
+  },
+  {
+   "addr": "0x369c8db326a73d7860f8c58403ae552f3fa95ea6",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-05-21",
+   "days": 102
+  },
+  {
+   "addr": "0xf1db8a2623193757317639d0532daa5e3c8ea20c",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-05-19",
+   "days": 104
+  },
+  {
+   "addr": "0x20ce65a139990bdc0233e327891d9569c786c941",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-05-14",
+   "days": 109
+  },
+  {
+   "addr": "0x87dceb815c6fe3785213b95b9573745ee309215e",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-04-08",
+   "days": 145
+  },
+  {
+   "addr": "0xd06c5b769a492507704ae6b54f18a30022d21d58",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-03-25",
+   "days": 159
+  },
+  {
+   "addr": "0xe0f94903b58dfb0afb14109fac17e2c41ed78f47",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-03-05",
+   "days": 179
+  },
+  {
+   "addr": "0xa32c38646299818ccedc6401818c2e1639c39c08",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-02-17",
+   "days": 195
+  },
+  {
+   "addr": "0xcec54be39f123cf5f5de00cba3e1a170e5d048ad",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-02-16",
+   "days": 196
+  },
+  {
+   "addr": "0x7292c6b120281796c086df949a46b1ec1c0ac196",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2026-02-16",
+   "days": 196
+  },
+  {
+   "addr": "0x47940f6992d9d0c9d96e412623a75033285c2683",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-12-17",
+   "days": 257
+  },
+  {
+   "addr": "0x7d85806c589d9e1301898932a32108f15c6daf14",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-12-03",
+   "days": 272
+  },
+  {
+   "addr": "0x28265b4188ff587e5cfe1155606026cd2ccd243d",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-11-18",
+   "days": 286
+  },
+  {
+   "addr": "0xf9dfc58ae90b57e16c8a4aa775e00c0be867597b",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-11-07",
+   "days": 297
+  },
+  {
+   "addr": "0x91d206f9cd8f0cb570ed28223df9177a836ebcfa",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-11-07",
+   "days": 297
+  },
+  {
+   "addr": "0x5b8c9b17b6435ba390d1a6f5e141f2a36520c767",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-10-21",
+   "days": 314
+  },
+  {
+   "addr": "0x6be75a10d92d0924555fe5ee94e5ae1c150fd84e",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-10-15",
+   "days": 320
+  },
+  {
+   "addr": "0xc2c5608b95591a9ac4f10865d1b8f02579a94921",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-08-05",
+   "days": 391
+  },
+  {
+   "addr": "0xb260918555d6fbdb04863945e4b5e2ec0224b562",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-03-20",
+   "days": 529
+  },
+  {
+   "addr": "0xf519a7fbfd6fcbdee8b83afa92723adcf9d0d0f6",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-02-09",
+   "days": 569
+  },
+  {
+   "addr": "0xe4e81e23e5efddfb51ad86199a9ff5f0a296cc3f",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-01-30",
+   "days": 578
+  },
+  {
+   "addr": "0xfef1b2dc9f48dcc68bf69020a563118e1563ab9a",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2025-01-30",
+   "days": 579
+  },
+  {
+   "addr": "0xd3f3311a754cb4180f154c056380ec060ed24e46",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2024-11-10",
+   "days": 659
+  },
+  {
+   "addr": "0x5045d69334f7cc4452378f88f8273c44e12b334d",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2024-08-08",
+   "days": 753
+  },
+  {
+   "addr": "0xf106e220ce52611569bf289792e224ccc4bdf000",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2024-02-25",
+   "days": 918
+  },
+  {
+   "addr": "0x0be0621c2bd19cd18fe0f6d80530ce03cb247caf",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-12-05",
+   "days": 1000
+  },
+  {
+   "addr": "0xdb762917cf21bbe45d761f52931e7110cf72dbf1",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-08-20",
+   "days": 1107
+  },
+  {
+   "addr": "0x87893f4deed2e16e80b22ee78d8fae66bd54ccb7",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-08-17",
+   "days": 1110
+  },
+  {
+   "addr": "0x23c9db5c119be5fbf429c0d09ad7744aa3ccb435",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-07-28",
+   "days": 1130
+  },
+  {
+   "addr": "0xf608db18300bdc3d4af3fd36785b981ebc4275e1",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-03-31",
+   "days": 1249
+  },
+  {
+   "addr": "0x4a788964f4022adba3d6d50c277eb7cbee31af88",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-02-23",
+   "days": 1286
+  },
+  {
+   "addr": "0x64c78b79bde749fc3ac48a60b21f6a49b11d70d3",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-02-07",
+   "days": 1301
+  },
+  {
+   "addr": "0xf252c00c6d6434b7dcbec65bfca705f67d015a95",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2023-01-14",
+   "days": 1326
+  },
+  {
+   "addr": "0xff41dbe8e83cb3103397594acc46a233fbf264e6",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2022-12-29",
+   "days": 1341
+  },
+  {
+   "addr": "0x43893d241460a6128eb8bbdbb12321fabdf01319",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2022-06-29",
+   "days": 1524
+  },
+  {
+   "addr": "0xa3b898648fb98e4883f9c05dbebc59666b9cf533",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2022-05-24",
+   "days": 1560
+  },
+  {
+   "addr": "0x85d8d18292399c94e5915d143bc1b5addc639fc0",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2021-12-16",
+   "days": 1719
+  },
+  {
+   "addr": "0xedb3fff59a4ef7bbdfafe7d3a65a86bbd639520b",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2021-11-15",
+   "days": 1750
+  },
+  {
+   "addr": "0xc950798556acaa9b131f0bb452ace8f15828c621",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2021-10-22",
+   "days": 1774
+  },
+  {
+   "addr": "0x2acf71c6d212ee04e4f7938aebfd5db83d273a35",
+   "editions": 1,
+   "self": false,
+   "lastActivity": "2021-10-09",
+   "days": 1788
+  }
+ ]
+}

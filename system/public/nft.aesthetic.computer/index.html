@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>nft · Aesthetic Computer</title>
+    <meta name="description" content="Jeffrey Scudder's on-chain catalog across Ethereum, Tezos, Bitcoin, and Base — collections, holders, and citable data endpoints.">
+    <meta property="og:title" content="nft — Aesthetic.Computer" />
+    <meta property="og:description" content="The on-chain catalog across Ethereum, Tezos, Bitcoin, and Base." />
+    <meta property="og:url" content="https://nft.aesthetic.computer" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+    <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+    <script>
+        // Apply a saved override before first paint, same key as the papers
+        // family so the sibling pages share one theme choice.
+        try {
+            const savedTheme = localStorage.getItem('papers-theme');
+            if (savedTheme === 'light' || savedTheme === 'dark') {
+                document.documentElement.classList.add(`${savedTheme}-mode`);
+            }
+        } catch (_) {}
+    </script>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --text: #e8e8e8;
+            --dim: #777;
+            --pink: #cd5c9b;
+            --cyan: #4ecdc4;
+            --purple: #7850b4;
+            --gold: #d4a94f;
+            --blue: #4f7fd4;
+            --sep: rgba(255,255,255,0.06);
+            --box-bg: rgba(255,255,255,0.03);
+            --box-border: rgba(255,255,255,0.1);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not(.dark-mode) {
+                --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+                --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+                --gold: #9c7a1f; --blue: #2f5fb8;
+                --sep: rgba(0,0,0,0.06);
+                --box-bg: rgba(0,0,0,0.03);
+                --box-border: rgba(0,0,0,0.1);
+            }
+        }
+        :root.light-mode {
+            --bg: #fafafa; --text: #1a1a2e; --dim: #888;
+            --pink: #b4489a; --cyan: #0891b2; --purple: #7850b4;
+            --gold: #9c7a1f; --blue: #2f5fb8;
+            --sep: rgba(0,0,0,0.06);
+            --box-bg: rgba(0,0,0,0.03);
+            --box-border: rgba(0,0,0,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-size: 14px; line-height: 1.6;
+            padding: 1em 1.1em;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        a { color: var(--cyan); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0.5em;
+        }
+        .logo {
+            cursor: pointer;
+            font-size: 1.6em;
+            line-height: 1.1;
+        }
+        .logo:hover { opacity: 0.8; }
+        .logo-nft {
+            font-family: 'Berkeley Mono Variable', monospace;
+            font-weight: 500;
+            color: var(--text);
+        }
+        .logo-sep {
+            color: var(--dim);
+            margin: 0 0.3em;
+            font-family: 'Berkeley Mono Variable', monospace;
+        }
+        .logo-ac {
+            font-family: 'YWFTProcessing-Regular', sans-serif;
+            font-size: 1.15em;
+            color: var(--pink);
+        }
+        .logo-dot { color: var(--cyan); }
+        .top-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--dim);
+            text-decoration: none;
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+            margin-left: auto;
+        }
+        .top-link:hover { color: var(--pink); border-color: var(--pink); background: var(--box-bg); text-decoration: none; }
+        .top-link .top-link-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--pink); display: inline-block;
+        }
+
+        .sub { color: var(--dim); font-size: 0.8em; margin-bottom: 0.6em; }
+        .sub a { color: var(--cyan); text-decoration: none; }
+        .as-of { color: var(--cyan); font-size: 0.75em; margin-bottom: 1.2em; font-variant-numeric: tabular-nums; }
+
+        .note {
+            border: 1px dashed var(--box-border);
+            border-radius: 4px;
+            padding: 0.7em 0.85em;
+            color: var(--dim);
+            font-size: 0.8em;
+            margin-bottom: 1.2em;
+            background: var(--box-bg);
+        }
+        .note.error { color: var(--pink); border-color: var(--pink); }
+        .note code { color: var(--text); }
+        [hidden] { display: none !important; }
+
+        .section { margin-bottom: 2.2em; }
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 0.7em;
+            margin-bottom: 0.7em;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--sep);
+        }
+        .section-header h2 {
+            font-size: 0.8em;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .section-header[data-color="pink"] h2 { color: var(--pink); }
+        .section-header[data-color="cyan"] h2 { color: var(--cyan); }
+        .section-header[data-color="purple"] h2 { color: var(--purple); }
+        .section-header .blurb { color: var(--dim); font-size: 0.75em; }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 0.6em;
+        }
+        .card {
+            border: 1px solid var(--box-border);
+            border-radius: 4px;
+            background: var(--box-bg);
+            padding: 0.7em 0.8em 0.8em;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5em;
+            min-width: 0;
+            transition: border-color 0.15s;
+        }
+        .card:hover { border-color: var(--pink); }
+        .card .card-top { display: flex; align-items: baseline; gap: 0.55em; flex-wrap: wrap; }
+        .card h3 {
+            font-family: 'YWFTProcessing-Regular', 'Berkeley Mono Variable', monospace;
+            font-size: 1.15em;
+            font-weight: normal;
+            line-height: 1.2;
+        }
+        .card .year { color: var(--dim); font-size: 0.8em; }
+
+        /* Media strip — fixed-aspect cells so layout never jumps while
+           images (or live fetches) resolve. */
+        .media {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+        }
+        .media .cell {
+            aspect-ratio: 1;
+            background: var(--box-bg);
+            border: 1px solid var(--sep);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--dim);
+            font-size: 0.7em;
+            min-width: 0;
+        }
+        .media .cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .media .cell.wide { grid-column: 1 / -1; aspect-ratio: 4 / 1; }
+        .media .cell svg { width: 100%; height: 100%; display: block; }
+
+        .badge {
+            font-size: 0.68em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.05em 0.5em;
+            border-radius: 10px;
+            border: 1px solid currentColor;
+            white-space: nowrap;
+        }
+        .badge.chain-ethereum { color: var(--purple); }
+        .badge.chain-tezos { color: var(--cyan); }
+        .badge.chain-bitcoin { color: var(--gold); }
+        .badge.chain-base { color: var(--blue); }
+
+        .status-badge {
+            font-size: 0.68em;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 0.05em 0.5em;
+            border-radius: 3px;
+            border: 1px solid var(--box-border);
+            color: var(--dim);
+            white-space: nowrap;
+        }
+        .status-badge.released { color: var(--cyan); border-color: var(--cyan); }
+        .status-badge.returning { color: var(--gold); border-color: var(--gold); }
+        .status-badge.planned { color: var(--purple); border-color: var(--purple); }
+        .status-badge.to-document { color: var(--dim); }
+
+        .card .stats {
+            display: flex;
+            gap: 1.1em;
+            flex-wrap: wrap;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.82em;
+        }
+        .card .stats .stat b { color: var(--text); font-weight: 600; display: block; font-size: 1.1em; }
+        .card .stats .stat span { color: var(--dim); font-size: 0.82em; }
+        .card .notes { color: var(--dim); font-size: 0.78em; line-height: 1.45; }
+        .card .contract {
+            font-size: 0.72em;
+            color: var(--dim);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .card .contract a { color: var(--purple); }
+        .card .links { display: flex; gap: 0.85em; flex-wrap: wrap; font-size: 0.78em; }
+
+        details.holders { margin-top: 0.1em; }
+        details.holders summary {
+            cursor: pointer;
+            color: var(--pink);
+            font-size: 0.78em;
+            user-select: none;
+        }
+        details.holders summary:hover { text-decoration: underline; }
+        .table-wrap { overflow-x: auto; margin-top: 0.45em; }
+        table { border-collapse: collapse; width: 100%; font-size: 0.78em; font-variant-numeric: tabular-nums; }
+        th, td { text-align: left; padding: 0.22em 0.8em 0.22em 0; white-space: nowrap; }
+        th { color: var(--dim); font-weight: 500; border-bottom: 1px solid var(--box-border); }
+        tr:nth-child(even) td { background: var(--sep); }
+        td.num, th.num { text-align: right; }
+        .self-tag { color: var(--pink); font-size: 0.85em; margin-left: 0.4em; }
+        .fresh { color: var(--cyan); }
+
+        .network-list { display: flex; flex-direction: column; font-size: 0.85em; }
+        .network-list .net-row {
+            display: flex;
+            gap: 0.7em;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 0.35em 0.6em;
+            border-bottom: 1px solid var(--sep);
+            border-radius: 3px;
+        }
+        .network-list .net-row:nth-child(even) { background: var(--sep); }
+        .network-list .net-row:hover { background: var(--box-bg); }
+        .net-avatar {
+            width: 20px; height: 20px;
+            border-radius: 3px;
+            overflow: hidden;
+            flex: 0 0 auto;
+            display: block;
+            position: relative;
+            border: 1px solid var(--sep);
+        }
+        .net-avatar svg, .net-avatar img { width: 100%; height: 100%; display: block; }
+        .net-avatar img { position: absolute; inset: 0; object-fit: cover; }
+        .network-list .net-collections { color: var(--dim); font-size: 0.85em; }
+        .network-list .net-collections em { color: var(--purple); font-style: normal; }
+
+        .endpoints { display: flex; flex-direction: column; gap: 0.35em; font-size: 0.85em; }
+        .endpoints code {
+            background: var(--box-bg);
+            border: 1px solid var(--box-border);
+            border-radius: 3px;
+            padding: 0.05em 0.4em;
+        }
+        .endpoints .ep { display: flex; gap: 0.8em; align-items: baseline; flex-wrap: wrap; }
+        .endpoints .ep .desc { color: var(--dim); font-size: 0.85em; }
+
+        footer {
+            margin-top: 2.6em;
+            padding-top: 0.9em;
+            border-top: 1px solid var(--sep);
+            color: var(--dim);
+            font-size: 0.72em;
+            line-height: 1.8;
+        }
+        footer a { color: var(--purple); }
+
+        @media (max-width: 600px) {
+            .cards { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="logo" onclick="window.location.href='https://aesthetic.computer'"><span class="logo-nft">nft</span><span class="logo-sep">&mdash;</span><span class="logo-ac">Aesthetic<span class="logo-dot">.</span>Computer</span></div>
+        <a class="top-link" href="https://papers.aesthetic.computer"><span class="top-link-dot"></span>papers</a>
+    </div>
+    <p class="sub">the on-chain catalog across Ethereum, Tezos, Bitcoin, and Base — every collection by <a href="https://whistlegraph.org">Jeffrey Scudder</a>: history, provenance, and a live holder view.</p>
+    <p class="as-of" id="as-of"></p>
+
+    <div class="note error" id="load-error" hidden>
+        Couldn't load <code>./data/catalog.json</code>. This page reads its catalog and holder
+        snapshots from relative <code>/data/*.json</code> endpoints — serve this directory over
+        HTTP (e.g. <code>python3 -m http.server</code>) rather than opening the file directly.
+    </div>
+
+    <section class="section">
+        <div class="section-header" data-color="pink">
+            <h2>Collections</h2>
+            <span class="blurb">chains, contracts, holders</span>
+        </div>
+        <div class="cards" id="cards"></div>
+    </section>
+
+    <section class="section" id="network-section" hidden>
+        <div class="section-header" data-color="cyan">
+            <h2>Network</h2>
+            <span class="blurb">wallets holding across collections</span>
+        </div>
+        <div class="network-list" id="network-list"></div>
+    </section>
+
+    <section class="section">
+        <div class="section-header" data-color="purple">
+            <h2>For research</h2>
+            <span class="blurb">stable JSON endpoints — the citable platter interface for papers.aesthetic.computer</span>
+        </div>
+        <div class="endpoints" id="endpoints">
+            <div class="ep"><code><a href="./data/catalog.json">/data/catalog.json</a></code> <span class="desc">machine-readable catalog of every collection: chain, standard, contract, supply, status, links</span></div>
+            <div class="ep"><code><a href="./data/rdp-holders.json">/data/rdp-holders.json</a></code> <span class="desc">Radical Digital Painting holder snapshot</span></div>
+            <div class="ep"><code><a href="./data/ten-whistlegraphs-holders.json">/data/ten-whistlegraphs-holders.json</a></code> <span class="desc">Ten Whistlegraphs holder snapshot</span></div>
+            <div class="ep"><code><a href="./data/a2p-v2-holders.json">/data/a2p-v2-holders.json</a></code> <span class="desc">a2p-v2 holder snapshot</span></div>
+        </div>
+        <p class="note" style="margin-top:0.8em; margin-bottom:0;">
+            Holder schema: <code>{ totalTokens, holders: [{ addr, editions, self, lastActivity, days }] }</code>
+            — <code>days</code> is days since the wallet's last on-chain activity at snapshot time.
+        </p>
+    </section>
+
+    <footer id="footer">
+        <div id="footer-snapshot"></div>
+        <div>refresh via <code>whistlegraph/codes/bin/holders-probe.mjs</code></div>
+        <div><a href="https://whistlegraph.org">whistlegraph.org</a> · <a href="https://aesthetic.computer">aesthetic.computer</a> · <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a></div>
+    </footer>
+
+    <script>
+        const CHAIN_LABEL = { ethereum: "Ethereum", tezos: "Tezos", bitcoin: "Bitcoin", base: "Base" };
+        const esc = (s) => String(s).replace(/[&<>"']/g, c =>
+            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+        const ipfsUrl = (u) => typeof u === "string" && u.startsWith("ipfs://")
+            ? "https://ipfs.io/ipfs/" + u.slice(7) : u;
+
+        // Per-collection card media. Static entries are build-time curated
+        // files in assets/ (see README); live entries fetch from public
+        // chain indexers client-side and fall back gracefully.
+        const MEDIA = {
+            "radical-digital-painting": { static: [
+                { src: "assets/rdp-painting-1.jpg", alt: "Radical Digital Painting, painting 1 of 239" },
+                { src: "assets/rdp-painting-61.jpg", alt: "Radical Digital Painting, painting 61 of 239" },
+                { src: "assets/rdp-painting-100.jpg", alt: "Radical Digital Painting, painting 100 of 239" },
+                { src: "assets/rdp-painting-200.jpg", alt: "Radical Digital Painting, painting 200 of 239" }
+            ]},
+            "a2p-v2": { static: [
+                { src: "assets/a2p-fifty.jpg", alt: "a2p-v2 token: FIFTY" },
+                { src: "assets/a2p-places.jpg", alt: "a2p-v2 token: PlacesIveBeen-render02" },
+                { src: "assets/a2p-harrison.jpg", alt: "a2p-v2 token: When Harrison Meets Rick Instead of Roy" },
+                { src: "assets/a2p-thief.jpg", alt: "a2p-v2 token: The Thief Who Stole the Artwork" }
+            ]},
+            "ten-whistlegraphs": { live: "feralfile" },
+            "kidlisp-keeps": { live: "tzkt" },
+            "whistlegraph-codes": { placeholder: "code" },
+            "orgstars": { placeholder: "star" }
+        };
+
+        // Wallets with a known reverse-ENS name; everyone else gets a
+        // deterministic identicon (no lookups, no libraries).
+        const KNOWN_ENS = {
+            "0x238c9c645c6ee83d4323a2449c706940321a0cbf": "whistlegraph.eth"
+        };
+
+        function placeholderSvg(kind) {
+            if (kind === "star") {
+                // ORGSTARS — one big on-chain star among small ones.
+                const small = [[30,18,1.2],[70,30,1],[120,12,1.5],[200,26,1],[255,16,1.3],[300,32,1],[350,10,1.2],[338,44,0.9],[24,48,0.8],[160,45,1]]
+                    .map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="var(--blue)" opacity="0.6"/>`).join("");
+                return `<svg viewBox="0 0 380 60" role="img" aria-label="ORGSTARS placeholder: a star field">
+                    ${small}
+                    <path transform="translate(190,30) scale(1.15)" fill="var(--blue)"
+                        d="M0,-20 L4.7,-6.2 L19,-6.2 L7.6,2.4 L11.8,16.2 L0,7.6 L-11.8,16.2 L-7.6,2.4 L-19,-6.2 L-4.7,-6.2 Z"/>
+                </svg>`;
+            }
+            // Whistlegraph Codes — code = URL = token = ENS.
+            return `<svg viewBox="0 0 380 60" role="img" aria-label="Whistlegraph Codes placeholder glyph">
+                <g fill="none" stroke="var(--purple)" stroke-width="2">
+                    <path d="M30 12 L16 30 L30 48"/>
+                    <path d="M350 12 L364 30 L350 48"/>
+                </g>
+                <text x="190" y="35" text-anchor="middle" fill="var(--purple)"
+                    font-family="inherit" font-size="15">code=URL=token=ENS</text>
+            </svg>`;
+        }
+
+        // Deterministic 5x5 symmetric identicon from an address — colored
+        // squares only, palette-derived, no library.
+        function identiconSvg(addr) {
+            const hex = addr.toLowerCase().replace(/^0x/, "");
+            const bytes = [];
+            for (let i = 0; i < hex.length - 1; i += 2) bytes.push(parseInt(hex.slice(i, i + 2), 16) || 0);
+            const palette = ["var(--pink)", "var(--cyan)", "var(--purple)", "var(--gold)", "var(--blue)"];
+            const color = palette[bytes[0] % palette.length];
+            let cells = "";
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const on = bytes[(row * 3 + col + 1) % bytes.length] % 2 === 0;
+                    if (!on) continue;
+                    cells += `<rect x="${col * 4}" y="${row * 4}" width="4" height="4"/>`;
+                    if (col < 2) cells += `<rect x="${(4 - col) * 4}" y="${row * 4}" width="4" height="4"/>`;
+                }
+            }
+            return `<svg viewBox="0 0 20 20" role="img" aria-label="identicon for ${esc(addr)}">
+                <rect width="20" height="20" fill="var(--box-bg)"/><g fill="${color}">${cells}</g></svg>`;
+        }
+
+        function mediaHtml(c) {
+            const m = MEDIA[c.id];
+            if (!m) return "";
+            if (m.static) {
+                return `<div class="media">${m.static.map(img =>
+                    `<div class="cell"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`).join("")}</div>`;
+            }
+            if (m.placeholder) {
+                return `<div class="media"><div class="cell wide">${placeholderSvg(m.placeholder)}</div></div>`;
+            }
+            // live: skeleton cells now, filled after fetch.
+            return `<div class="media" id="media-${esc(c.id)}">${'<div class="cell"></div>'.repeat(4)}</div>`;
+        }
+
+        function fillLiveMedia(id, images) {
+            const el = document.getElementById(`media-${id}`);
+            if (!el || !images.length) return;
+            el.innerHTML = images.slice(0, 4).map(img =>
+                `<div class="cell"><img src="${esc(img.src)}" alt="${esc(img.alt)}" loading="lazy"></div>`).join("");
+        }
+
+        async function loadLiveMedia(catalog) {
+            for (const c of catalog.collections) {
+                const m = MEDIA[c.id];
+                if (!m || !m.live) continue;
+                try {
+                    if (m.live === "tzkt") {
+                        const tokens = await fetchJson(
+                            `https://api.tzkt.io/v1/tokens?contract=${c.contract}&limit=4`);
+                        fillLiveMedia(c.id, tokens
+                            .filter(t => t.metadata && (t.metadata.thumbnailUri || t.metadata.displayUri))
+                            .map(t => ({
+                                src: ipfsUrl(t.metadata.thumbnailUri || t.metadata.displayUri),
+                                alt: `KidLisp Keeps token: ${t.metadata.name || "$" + t.tokenId}`
+                            })));
+                    } else if (m.live === "feralfile") {
+                        const d = await fetchJson("https://feralfile.com/api/exhibitions/ten-whistlegraphs-thv");
+                        fillLiveMedia(c.id, (d.result.series || [])
+                            .filter(s => typeof s.thumbnailURI === "string" && s.thumbnailURI.startsWith("http"))
+                            .map(s => ({
+                                src: `${s.thumbnailURI}/public`,
+                                alt: `Ten Whistlegraphs series: ${s.title || s.slug}`
+                            })));
+                    }
+                } catch (err) {
+                    console.error(`live media ${c.id}:`, err);
+                    const el = document.getElementById(`media-${c.id}`);
+                    if (el) el.innerHTML = '<div class="cell wide">artwork previews unavailable</div>';
+                }
+            }
+        }
+
+        function addrUrl(addr, chain) {
+            if (chain === "tezos" || /^(KT1|tz)/.test(addr)) return `https://tzkt.io/${addr}`;
+            return `https://etherscan.io/address/${addr}`;
+        }
+        function shortAddr(addr) {
+            return addr.length > 14 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+        }
+        function daysLabel(days) {
+            if (days == null) return "—";
+            if (days === 0) return "today";
+            if (days === 1) return "1d ago";
+            return `${days}d ago`;
+        }
+
+        function holderTable(holderData, chain) {
+            const rows = [...holderData.holders]
+                .sort((a, b) => (b.editions - a.editions) || (a.days - b.days))
+                .map(h => `<tr>
+                    <td><a href="${addrUrl(h.addr, chain)}" target="_blank" rel="noopener">${shortAddr(esc(h.addr))}</a>${h.self ? '<span class="self-tag">self</span>' : ""}</td>
+                    <td class="num">${h.editions}</td>
+                    <td>${esc(h.lastActivity || "—")}</td>
+                    <td class="num${h.days <= 90 ? " fresh" : ""}">${daysLabel(h.days)}</td>
+                </tr>`).join("");
+            return `<div class="table-wrap"><table>
+                <thead><tr><th>wallet</th><th class="num">editions</th><th>last activity</th><th class="num">ago</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table></div>`;
+        }
+
+        function renderCard(c, holderData) {
+            const chainKey = esc(c.chain || "ethereum");
+            const stats = [];
+            if (c.supply != null) stats.push({ n: c.supply, l: "supply" });
+            if (holderData) {
+                stats.push({ n: holderData.holders.length, l: "holders" });
+                stats.push({ n: holderData.holders.filter(h => h.days <= 90).length, l: "active 90d" });
+            }
+            const links = Object.entries(c.links || {})
+                .map(([label, url]) => `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>`)
+                .join("");
+            return `<article class="card" id="card-${esc(c.id)}">
+                <div class="card-top">
+                    <h3>${esc(c.name)}</h3>
+                    <span class="badge chain-${chainKey}">${esc(CHAIN_LABEL[c.chain] || c.chain)}</span>
+                    <span class="status-badge ${esc(c.status)}">${esc(c.status)}</span>
+                    ${c.year ? `<span class="year">${esc(c.year)}</span>` : ""}
+                </div>
+                ${mediaHtml(c)}
+                ${stats.length ? `<div class="stats">${stats.map(s =>
+                    `<div class="stat"><b>${esc(s.n)}</b><span>${esc(s.l)}</span></div>`).join("")}</div>` : ""}
+                ${c.notes ? `<p class="notes">${esc(c.notes)}</p>` : ""}
+                ${c.contract ? `<div class="contract" title="${esc(c.contract)}">${esc(c.standard || "")} · <a href="${addrUrl(c.contract, c.chain)}" target="_blank" rel="noopener">${esc(c.contract)}</a></div>` : ""}
+                ${links ? `<div class="links">${links}</div>` : ""}
+                ${holderData ? `<details class="holders">
+                    <summary>holders (${holderData.holders.length}) — sorted by editions</summary>
+                    ${holderTable(holderData, c.chain)}
+                </details>` : ""}
+            </article>`;
+        }
+
+        function avatarHtml(addr) {
+            const ens = KNOWN_ENS[addr.toLowerCase()];
+            // Identicon always renders; a known ENS avatar layers on top and
+            // removes itself on error so the identicon shows through.
+            const ensImg = ens ? `<img
+                src="https://metadata.ens.domains/mainnet/avatar/${esc(ens)}"
+                alt="ENS avatar for ${esc(ens)}" loading="lazy"
+                onerror="this.remove()">` : "";
+            return `<span class="net-avatar">${identiconSvg(addr)}${ensImg}</span>`;
+        }
+
+        function renderNetwork(collectionsWithData) {
+            const byAddr = new Map();
+            for (const { catalog, data } of collectionsWithData) {
+                for (const h of data.holders) {
+                    const key = h.addr.toLowerCase();
+                    if (!byAddr.has(key)) byAddr.set(key, { addr: h.addr, chain: catalog.chain, memberships: [] });
+                    byAddr.get(key).memberships.push({ name: catalog.name, editions: h.editions });
+                }
+            }
+            const cross = [...byAddr.values()]
+                .filter(w => w.memberships.length > 1)
+                .sort((a, b) => b.memberships.length - a.memberships.length ||
+                    b.memberships.reduce((s, m) => s + m.editions, 0) -
+                    a.memberships.reduce((s, m) => s + m.editions, 0));
+            if (!cross.length) return;
+            document.getElementById("network-section").hidden = false;
+            document.getElementById("network-list").innerHTML = cross.map(w => `
+                <div class="net-row">
+                    ${avatarHtml(w.addr)}
+                    <a href="${addrUrl(w.addr, w.chain)}" target="_blank" rel="noopener">${shortAddr(esc(w.addr))}</a>
+                    <span class="net-collections">${w.memberships.map(m =>
+                        `<em>${esc(m.name)}</em> ×${m.editions}`).join(" · ")}</span>
+                </div>`).join("");
+        }
+
+        async function fetchJson(path) {
+            const res = await fetch(path);
+            if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+            return res.json();
+        }
+
+        (async () => {
+            let catalog;
+            try {
+                catalog = await fetchJson("./data/catalog.json");
+            } catch (err) {
+                document.getElementById("load-error").hidden = false;
+                console.error(err);
+                return;
+            }
+
+            document.getElementById("as-of").textContent = `snapshot ${catalog.generated}`;
+            document.getElementById("footer-snapshot").textContent =
+                `${catalog.snapshotNote || ""} (generated ${catalog.generated})`;
+
+            // Fetch each collection's holder file in parallel; tolerate individual failures.
+            const holderResults = await Promise.all(catalog.collections.map(async (c) => {
+                if (!c.dataFile) return null;
+                try { return await fetchJson(`./${c.dataFile}`); }
+                catch (err) { console.error(err); return null; }
+            }));
+
+            document.getElementById("cards").innerHTML = catalog.collections
+                .map((c, i) => renderCard(c, holderResults[i])).join("");
+
+            renderNetwork(catalog.collections
+                .map((c, i) => ({ catalog: c, data: holderResults[i] }))
+                .filter(x => x.data));
+
+            loadLiveMedia(catalog); // fire-and-forget; cells stay skeleton on failure
+        })();
+    </script>
+</body>
+</html>

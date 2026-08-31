@@ -63,6 +63,12 @@
     # Encode everything (Caddy does this by default, but be explicit)
     encode zstd gzip
 
+    @nft host nft.aesthetic.computer
+    handle @nft {
+        root * /opt/ac/system/public/nft.aesthetic.computer
+        file_server
+    }
+
     @papers host papers.aesthetic.computer papers.prompt.ac
     handle @papers {
         handle /en {
