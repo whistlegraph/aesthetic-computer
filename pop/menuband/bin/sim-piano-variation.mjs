@@ -837,28 +837,29 @@ function drawKeyboardLabels(t, activeRig, stripRect) {
   const held = new Set(displayNotes
     .filter((note) => t >= note.t && t < note.t + positive(note.dur, 0.2))
     .map((note) => note.visualMidi));
-  const labelY = stripRect.y + stripRect.h * 0.79;
   ctx.save();
   ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textBaseline = "bottom";
   for (const midi of STRIP_MIDIS) {
     if (!activeRig.keys.has(midi)) continue;
     const label = KEY_LABELS.get(midi);
     if (!label) continue;
     const keyRect = stripKeyRect(activeRig, midi, stripRect);
-    const active = held.has(midi);
-    const keyColor = active ? stripKeyColor(activeRig, midi) : [244, 244, 244];
-    const luminance = keyColor[0] * 0.299 + keyColor[1] * 0.587 + keyColor[2] * 0.114;
-    const patchInset = Math.max(3, keyRect.w * 0.05);
-    ctx.fillStyle = rgb(keyColor, 0.98);
-    ctx.fillRect(keyRect.x + patchInset, stripRect.y + stripRect.h * 0.58,
-      keyRect.w - patchInset * 2, stripRect.h * 0.38);
-    const size = Math.max(19, Math.min(25, keyRect.w * 0.36));
-    ctx.font = `${active ? 900 : 800} ${size}px MBSansRounded`;
-    ctx.shadowColor = active ? "rgba(255,255,255,0.9)" : "transparent";
-    ctx.shadowBlur = active ? 7 : 0;
-    ctx.fillStyle = luminance > 150 ? "rgba(20,20,20,0.9)" : "rgba(255,255,255,0.96)";
-    ctx.fillText(label, keyRect.x + keyRect.w / 2, labelY);
+    // Lit white keys already contain the app's native label in the captured
+    // frame. Drawing over it caused a visible rectangular patch on key-down.
+    if (held.has(midi)) continue;
+
+    // Mirror KeyboardIconRenderer.drawWhiteLabel exactly: SF system heavy at
+    // 9pt on a 23pt natural key, lowercase, with its text box grounded 3pt
+    // above the key bottom. Scaling from the key width preserves the native
+    // type/key ratio at every reel size.
+    const nativeScale = keyRect.w / 23;
+    const size = 9 * nativeScale;
+    const bottomOffset = 3 * nativeScale;
+    ctx.font = `900 ${size}px MBSans`;
+    ctx.fillStyle = "rgba(71,71,71,1)";
+    ctx.fillText(label.toLowerCase(), keyRect.x + keyRect.w / 2,
+      stripRect.y + stripRect.h - bottomOffset);
   }
   ctx.restore();
 }
