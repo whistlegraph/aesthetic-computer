@@ -1098,19 +1098,22 @@ const S = {
   // record played the untreated recording; the record no longer does.)
 };
 
-// Three whole-mix physical gestures. Each impulse gives every bus its own
-// mass and direction; a damped spring throws it away from the listener,
-// crosses home, overshoots, and settles. The same table is written into the
-// receipt so the score video can move the visible timeline by the identical
-// force instead of adding an unrelated visual effect.
+// A family of whole-mix physical gestures. Each impulse gives every bus its
+// own mass and direction; the event's frequency, damping, strength and glitch
+// define a different impact character. The same table is written into the
+// receipt so the score video moves by the identical force.
 const ELASTIC_EXPLOSIONS = [
-  { bar: 48, duration: 3.60, strength: 0.78, hz: 1.18, damping: 0.72, glitch: 0.42 },
-  { bar: 76, duration: 4.80, strength: 1.00, hz: 0.92, damping: 0.54, glitch: 0.64 },
-  { bar: 92, duration: 3.90, strength: 0.88, hz: 1.34, damping: 0.66, glitch: 0.78 },
+  { bar: 29,  kind: "snap",    duration: 1.35, strength: 0.42, hz: 2.45, damping: 1.85, glitch: 0.72 },
+  { bar: 40,  kind: "gravity", duration: 6.20, strength: 0.62, hz: 0.46, damping: 0.34, glitch: 0.16 },
+  { bar: 48,  kind: "recoil",  duration: 3.60, strength: 0.78, hz: 1.18, damping: 0.72, glitch: 0.42 },
+  { bar: 64,  kind: "rupture", duration: 5.80, strength: 1.24, hz: 0.70, damping: 0.42, glitch: 0.84 },
+  { bar: 76,  kind: "blast",   duration: 4.80, strength: 1.00, hz: 0.92, damping: 0.54, glitch: 0.64 },
+  { bar: 92,  kind: "shatter", duration: 2.20, strength: 0.90, hz: 2.10, damping: 1.18, glitch: 1.00 },
+  { bar: 104, kind: "exhale",  duration: 4.60, strength: 0.34, hz: 0.56, damping: 0.55, glitch: 0.10 },
 ].map((e) => ({ ...e, t: at(e.bar) }));
 for (const e of ELASTIC_EXPLOSIONS)
   EVENTS.push({ t: e.t, voice: "spatial-explosion", bus: "master",
-    dur: e.duration, strength: e.strength, springHz: e.hz,
+    kind: e.kind, dur: e.duration, strength: e.strength, springHz: e.hz,
     damping: e.damping, glitch: e.glitch });
 const ACTS = {
   carrier: "I · CARRIER — a channel opens before anything is said",
@@ -2634,7 +2637,7 @@ writeFileSync(resolve(OUT, "cult-remix-v10.events.json"), JSON.stringify({
     chordBars: 2, cycleBars: 32,
   },
   spatialExplosions: ELASTIC_EXPLOSIONS.map((e) => ({
-    t: e.t, bar: e.bar, duration: e.duration, strength: e.strength,
+    t: e.t, bar: e.bar, kind: e.kind, duration: e.duration, strength: e.strength,
     springHz: e.hz, damping: e.damping, glitch: e.glitch,
   })),
   tempoBPM: BPM, bars: BARS, seconds: +(BARS * BAR).toFixed(2),
