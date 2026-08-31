@@ -42,7 +42,8 @@ function fileFor(pathname) {
     return join(live, "mac-test.html");
   // Every module the shell imports has to be listed, or the page dies on a 404
   // and the capture comes out empty rather than loudly wrong.
-  if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-midi.mjs", "/frame-driver.mjs",
+  if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
+      "/oskiewar-midi.mjs", "/frame-driver.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");

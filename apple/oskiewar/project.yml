@@ -19,6 +19,7 @@ targets:
       - path: ../../xbox/live/oskiewar.js
         buildPhase: resources
       - path: ../../xbox/live/oskiewar-sfx.mjs
+      - path: ../../xbox/live/oskiewar-voice.mjs
         buildPhase: resources
       - path: ../../xbox/live/oskiewar-midi.mjs
         buildPhase: resources

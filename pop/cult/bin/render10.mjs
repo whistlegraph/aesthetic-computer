@@ -1241,8 +1241,10 @@ const wordsIn = (bar) => bar >= S.message[0] + 4;
 
 let seed = 20220120;                                   // the cult post date
 const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-const jit = (ms = 6) => ((rnd() - 0.5) * 2 * ms) / 1000;
-const vel = (spread = 0.20) => 1 - rnd() * spread;
+// humanized (live-show pass): scatter 1.7x, velocity spread 1.35x —
+// same draw count, the parity stream holds.
+const jit = (ms = 6) => ((rnd() - 0.5) * 2 * ms * 1.7) / 1000;
+const vel = (spread = 0.20) => 1 - rnd() * spread * 1.35;
 
 // ── (1) THE CROSSOVER WIGGLE ──────────────────────────────────────────
 // The depth is a function of WHERE IN THE STORY we are, because the story
@@ -1301,9 +1303,14 @@ function hook(bar, { full = true } = {}) {
   // "that is the proper lyrical utterance rhythm there. and word choice."
   // dash F#4 · i wanna (1.50) · dash D4 (2.00) · i wanna (3.50) · run IT
   // fast (4.00, one sung phrase) · dot dot · rest. Plain sung takes.
-  dashStack(t + 0.00, "fs4", G, bar);
+  // dash-dash melody play: each loop voices its dashes in a different
+  // octave shape, and a quick camille arpeggio rings off the first.
+  const hv = (bar >> 3) % 3;
+  dashStack(t + 0.00, hv === 1 ? "fs3" : "fs4", G, bar);
+  shot(`dash-camille-${hv === 1 ? "fs4" : "fs3"}-hold`, t + 0.75, { bus: "tube", gain: 0.26 * G, pan: 0.30, side: 0.70, dly: 0.35, dur: 0.28, atk: 0.006 });
+  shot("dash-camille-d4-hold", t + 1.06, { bus: "tube", gain: 0.18 * G, pan: -0.34, side: 0.75, dly: 0.45, dur: 0.22, atk: 0.006 });
   sung("iwanna-a-sung", t + 1.50 + jit(4), { gain: 0.82 * G, pan: -0.18, side: 0.50, dly: 0.20 });
-  dashStack(t + 2.00, "d4", G * 0.95, bar);
+  dashStack(t + 2.00, hv === 2 ? "b3" : hv === 1 ? "d3" : "d4", G * 0.95, bar);
   sung("iwanna-b-sung", t + 3.50 + jit(4), { gain: 0.82 * G, pan: 0.18, side: 0.50, dly: 0.20 });
   // The long-"real" take — run · reeeeeaaaal (2.0 s) · fast. At 2.80 s it
   // rings on under the dot answers at +6.00, which is the point.
@@ -1323,7 +1330,9 @@ function hook(bar, { full = true } = {}) {
   }
   sung("dot-b3", t + 6.00 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.38, atk: 0.025 });
   sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.90 * G, pan: 0.45, side: 0.75, dly: 0.38, atk: 0.025 });
-  if (full) sung("dot-d4", t + 7.00, { gain: 0.34 * G, pan: 0.0, side: 0.60, dly: 0.55 });
+  // dot dot dot dot — four, ending every loop.
+  sung("dot-d4", t + 7.00, { gain: 0.80 * G, pan: 0.0, side: 0.60, dly: 0.45 });
+  sung("dot-fs3", t + 7.50, { gain: 0.62 * G, pan: -0.20, side: 0.70, dly: 0.50 });
   // length-play: every other full hook lets a daaaaash ring across the
   // rest bar, stretched to twice itself.
   if (full && ((bar >> 3) & 1))
@@ -1707,6 +1716,9 @@ for (let bar = 0; bar < BARS; bar++) {
   const root = bassRoot(deg);
   const chord = triad(deg);
   const four = bar % 4, eight = bar % 8;
+  // the hands push and drag across a 32-bar breath; the kick stays the
+  // clock (live-show pass)
+  const push = 0.0045 * Math.sin(TAU * (bar % 32) / 32 + 0.7);
   const D = dense(bar);
 
   // ---- kick: 4/4, and it just stays. POW per hit, never a drop. --------
@@ -1721,14 +1733,14 @@ for (let bar = 0; bar < BARS; bar++) {
   if (hatOn(bar)) {
     for (let s = 0; s < 8; s++) {
       const swing = s & 1 ? 0.035 : 0;
-      const u = t + (s * 0.5 + swing) * BEAT + jit(5);
+      const u = t + (s * 0.5 + swing) * BEAT + push + jit(5);
       if (s & 1) shot("hatC", u, { gain: 0.20 * vel(), pan: 0.20, side: 0.5, dur: 0.085 });
       else if (s % 4 === 2) shot("hatC", u, { gain: 0.11 * vel(), pan: -0.18, side: 0.5, dur: 0.065 });
     }
     if (D || eight >= 2)   // Peep pass: rolling hats most bars
       for (let s = 0; s < 16; s++)
         if (s % 4 === 1 || s % 4 === 3)
-          shot("hatC", t + (s / 16) * BAR + jit(4), { gain: 0.055 * vel(0.5), pan: (s & 2 ? 0.35 : -0.35), side: 0.6, dur: 0.045 });
+          shot("hatC", t + (s / 16) * BAR + push + jit(4), { gain: 0.055 * vel(0.5), pan: (s & 2 ? 0.35 : -0.35), side: 0.6, dur: 0.045 });
     if ((D || inS(bar, "spread")) && four === 3)
       shot("hatO", t + 3.5 * BEAT + 0.02, { gain: 0.20, pan: -0.28, side: 0.65, dur: 0.34 });
     if (four === 3 && kickOn(bar))   // Peep pass: the 32nd roll
@@ -1739,9 +1751,9 @@ for (let bar = 0; bar < BARS; bar++) {
 
   // ---- the pump's second trigger: rim on 3, clap when full -------------
   if (kickOn(bar)) {
-    snare(t + 2 * BEAT + jit(5), vel());
+    snare(t + 2 * BEAT + push + jit(5), vel());
     if (D) {
-      shot("clap", t + 2 * BEAT + jit(5), { gain: 0.22, pan: -0.12, side: 0.72 });
+      shot("clap", t + 2 * BEAT + push + jit(5), { gain: 0.22, pan: -0.12, side: 0.72 });
       shot("snap", t + 2 * BEAT + 0.012, { gain: 0.09, pan: 0.30, side: 0.55 });
     }
   }
@@ -2363,9 +2375,16 @@ for (let i = 0; i < N; i++) {
     + drumsL[i] + sideOut[i]) * fade;
   const r = (musicR[i] * be + voxR[i] * dv * VOXG + tubeR[i] * pe * TUBEG + sigR[i] * ds * SIGG
     + drumsR[i] - sideOut[i]) * fade;
-  L[i] = l; R[i] = r;
-  if (Math.abs(l) > peak) peak = Math.abs(l);
-  if (Math.abs(r) > peak) peak = Math.abs(r);
+  // the listener moves: slow stereo rotation at two incommensurate rates,
+  // breathing nearer and farther (live-show pass)
+  const lt = i / SR;
+  const th = 0.10 * Math.sin(TAU * 0.021 * lt) + 0.05 * Math.sin(TAU * 0.009 * lt + 1.3);
+  const br = 1 + 0.035 * Math.sin(TAU * 0.016 * lt + 0.5);
+  const lr = (l * Math.cos(th) - r * Math.sin(th)) * br;
+  const rr = (l * Math.sin(th) + r * Math.cos(th)) * br;
+  L[i] = lr; R[i] = rr;
+  if (Math.abs(lr) > peak) peak = Math.abs(lr);
+  if (Math.abs(rr) > peak) peak = Math.abs(rr);
 }
 const norm = peak > 1e-9 ? 0.92 / peak : 1;
 for (let i = 0; i < N; i++) { L[i] *= norm; R[i] *= norm; }

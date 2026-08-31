@@ -10,6 +10,7 @@
 		1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A5CDAFE515D4323680797051 /* product-analytics.mjs */; };
 		21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */; };
 		359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */ = {isa = PBXBuildFile; fileRef = A0AEFE9FB2DD8B296D83443D /* oskiewar-analytics.mjs */; };
+		399B26763D555AAAF98440DF /* oskiewar-voice.mjs in Resources */ = {isa = PBXBuildFile; fileRef = CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */; };
 		4D00E7B7BFD0CDAA972C6F12 /* ComicRelief-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */; };
 		5893AAD738853ADCCD1C6259 /* round-room.mjs in Resources */ = {isa = PBXBuildFile; fileRef = D5D135855C9371BD15F15377 /* round-room.mjs */; };
 		6F079803CD79934E3D119B92 /* mac-test.html in Resources */ = {isa = PBXBuildFile; fileRef = 8265144AA3E23B010A51E65A /* mac-test.html */; };
@@ -21,12 +22,14 @@
 		C0C46FBB6805F1A1E055FED7 /* OskiewarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */; };
 		DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FCECE2875B24DB7356CB0FDC /* Assets.xcassets */; };
 		F10250364FF369A809057B31 /* frame-driver.mjs in Resources */ = {isa = PBXBuildFile; fileRef = 4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */; };
+		FE65C7B80AB35953E40AA8A7 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 474C7E2A33BAAEDAEED939DF /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		179EE75D06881E64B8C2C164 /* ComicRelief-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Regular.ttf"; sourceTree = "<group>"; };
 		26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */ = {isa = PBXFileReference; path = "oskiewar-midi.mjs"; sourceTree = "<group>"; };
 		2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */ = {isa = PBXFileReference; path = "oskiewar-sfx.mjs"; sourceTree = "<group>"; };
+		474C7E2A33BAAEDAEED939DF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4C7C4D62E6C706C3AB30BB3B /* frame-driver.mjs */ = {isa = PBXFileReference; path = "frame-driver.mjs"; sourceTree = "<group>"; };
 		59BD48D8076F347B7FF9A774 /* GlyphAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphAtlas.swift; sourceTree = "<group>"; };
 		812FA65365747604E58B98E7 /* MetalSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalSceneView.swift; sourceTree = "<group>"; };
@@ -36,6 +39,7 @@
 		A5CDAFE515D4323680797051 /* product-analytics.mjs */ = {isa = PBXFileReference; path = "product-analytics.mjs"; sourceTree = "<group>"; };
 		AB2FCD0A93F17F907A54302C /* oskiewar.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = oskiewar.js; sourceTree = "<group>"; };
 		C43902C050551AD2D6DA0EF9 /* OskiewarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OskiewarApp.swift; sourceTree = "<group>"; };
+		CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */ = {isa = PBXFileReference; path = "oskiewar-voice.mjs"; sourceTree = "<group>"; };
 		D5D135855C9371BD15F15377 /* round-room.mjs */ = {isa = PBXFileReference; path = "round-room.mjs"; sourceTree = "<group>"; };
 		F05D439B6814C2DE2C8CCBF7 /* Oskiewar.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oskiewar.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCECE2875B24DB7356CB0FDC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -84,6 +88,7 @@
 			isa = PBXGroup;
 			children = (
 				FCECE2875B24DB7356CB0FDC /* Assets.xcassets */,
+				474C7E2A33BAAEDAEED939DF /* PrivacyInfo.xcprivacy */,
 				5B8907180072A0F4F1552C04 /* fonts */,
 				9CBE8B5C340FA47D25810A30 /* lib */,
 				E0FA0D9930BC45B45B9D078E /* live */,
@@ -100,6 +105,7 @@
 				8265144AA3E23B010A51E65A /* mac-test.html */,
 				26C7F4ADC37CB30558AAE696 /* oskiewar-midi.mjs */,
 				2E725A92F239CBD5114A9A1E /* oskiewar-sfx.mjs */,
+				CEF913B052D36BC3CE48BB1B /* oskiewar-voice.mjs */,
 				AB2FCD0A93F17F907A54302C /* oskiewar.js */,
 				D5D135855C9371BD15F15377 /* round-room.mjs */,
 			);
@@ -177,11 +183,13 @@
 			files = (
 				DE990881EAE44FB2BE4592FF /* Assets.xcassets in Resources */,
 				4D00E7B7BFD0CDAA972C6F12 /* ComicRelief-Regular.ttf in Resources */,
+				FE65C7B80AB35953E40AA8A7 /* PrivacyInfo.xcprivacy in Resources */,
 				F10250364FF369A809057B31 /* frame-driver.mjs in Resources */,
 				6F079803CD79934E3D119B92 /* mac-test.html in Resources */,
 				359F92BBF72AEE001B8BFD71 /* oskiewar-analytics.mjs in Resources */,
 				7729C117BEC5343C9CB8BAFC /* oskiewar-midi.mjs in Resources */,
 				21F3367D32F88CB3B2A52859 /* oskiewar-sfx.mjs in Resources */,
+				399B26763D555AAAF98440DF /* oskiewar-voice.mjs in Resources */,
 				82A4DA7DFB26C3E87F9AB609 /* oskiewar.js in Resources */,
 				1B43BAF5E41E93E3D9208197 /* product-analytics.mjs in Resources */,
 				98991A7AC85B7CAE426E8D15 /* qr.mjs in Resources */,

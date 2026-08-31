@@ -20,7 +20,8 @@ export const repo = resolve(live, "../..");
 // Hashing these tells a burner whether its output still matches the game.
 export const shellSources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs"];
 
-const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-midi.mjs",
+const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-voice.mjs",
+  "oskiewar-midi.mjs",
   "frame-driver.mjs", "round-room.mjs"];
 const fromPublic = ["aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "aesthetic.computer/lib/product-analytics.mjs",

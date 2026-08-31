@@ -1757,20 +1757,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         applyAppearance(isDark ? "light" : "dark")
     }
 
+    /// Scheduled (sunrise/sunset) appearance switching. Clicking Light or Dark
+    /// in System Settings turns this off; `set dark mode` does not, and a
+    /// machine left with both opinions splits down the middle — apps read the
+    /// forced `AppleInterfaceStyle` and go dark while the menu bar keeps
+    /// rendering the schedule's answer (light underbelly, black glyphs) until
+    /// the next real sunrise or sunset. So every forced mode clears it first.
+    private static let autoAppearanceKey = "AppleInterfaceStyleSwitchesAutomatically"
+
     /// Set macOS Dark Mode on this host and each reachable tailscale mac. Every
     /// call is dispatched async (no local shell), so the menu never blocks and
     /// an offline/asleep host just times out its ssh quietly.
     private func applyAppearance(_ mode: String) {
         let val = (mode == "dark") ? "true" : "false"
         let osa = "tell application \"System Events\" to tell appearance preferences to set dark mode to \(val)"
-        // Local host (neo).
+        // Local host (neo). The auto-switch write goes through CFPreferences
+        // rather than a fourth async process because it has to land *before*
+        // the osascript below, and `runAsync` promises no ordering.
+        CFPreferencesSetValue(Self.autoAppearanceKey as CFString, kCFBooleanFalse,
+                              kCFPreferencesAnyApplication, kCFPreferencesCurrentUser,
+                              kCFPreferencesAnyHost)
+        CFPreferencesAppSynchronize(kCFPreferencesAnyApplication)
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", osa])
         // Remotes: pass the remote command as a single ssh arg (no local shell),
         // so the AppleScript's double quotes survive untouched on the far end.
+        // One arg also sequences the two writes on the far side for free.
+        let stopAuto = "defaults write -g \(Self.autoAppearanceKey) -bool false"
         for host in Self.appearanceHosts {
             ShellRunner.runAsync("/usr/bin/ssh",
                                  args: ["-o", "ConnectTimeout=4", "-o", "BatchMode=yes",
-                                        host, "osascript -e '\(osa)'"])
+                                        host, "\(stopAuto); osascript -e '\(osa)'"])
         }
     }
 

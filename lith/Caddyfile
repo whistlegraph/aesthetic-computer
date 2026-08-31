@@ -930,7 +930,7 @@ oskiewar.com, midi.oskiewar.com {
     }
     # The game source and modules share the /oskiewar prefix with the live API
     # route below, so serve them before the proxy matcher claims them.
-    @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-midi.mjs
+    @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-voice.mjs /oskiewar-midi.mjs
     handle @oskiewarmodules {
         root * /opt/ac/xbox/live
         file_server

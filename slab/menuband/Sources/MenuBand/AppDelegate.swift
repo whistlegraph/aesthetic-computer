@@ -272,6 +272,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastQuietFocusSide: UInt16?
     /// Max gap between two same-side Command taps.
     private static let quietFocusTapWindow: CFTimeInterval = 0.50
+    /// Pointer events that cancel a Command run, alongside the keyDown
+    /// cancel. ⌘-click and ⌘-scroll are the two ways to use Command that
+    /// leave no keystroke between the taps.
+    private static let quietFocusCancellingPointerEvents:
+        Set<NSEvent.EventType> = [
+            .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel
+        ]
+    /// Same set on the CGEvent side (the tap is the primary route; the
+    /// NSEvent monitors are the fallback). The raw values are shared between
+    /// the two enums, which is what lets the tap callback hand the handler an
+    /// `NSEvent.EventType` built straight from `type.rawValue`.
+    private static let quietFocusCancellingCGEvents: Set<CGEventType> = [
+        .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel
+    ]
+    /// What the fallback NSEvent monitors watch: the gesture's own events
+    /// plus the pointer events that cancel a run.
+    private static let quietFocusMonitorMask: NSEvent.EventTypeMask = [
+        .flagsChanged, .keyDown,
+        .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel
+    ]
 
     // (The visualizer's right-⌘ TRIPLE-tap gesture was removed: it had claimed
     // right-⌘ double-tap away from quiet focus, forcing focus onto an awkward
@@ -2793,6 +2813,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // (System Events' `key code 54`) delivers a modifier's own keycode
             // as a keyDown, and treating that as a chord would cancel the very
             // run it's trying to make.
+            //
+            // A click or a scroll between the taps breaks the run for exactly
+            // the reason a keystroke does: it is real work in another app.
+            // ⌘-click (open a link in a new tab) and ⌘-scroll (zoom) are the
+            // ways to use Command that put no keyDown between the two edges,
+            // so the keyDown cancel below never sees them — two ordinary
+            // ⌘-clicks in a browser read as a ⌘⌘ double-tap and armed the
+            // keyboard mid-typing. Reported by @alexf, 2026-08-18.
+            if Self.quietFocusCancellingPointerEvents.contains(eventType) {
+                // A scroll only breaks the run while ⌘ is actually in it —
+                // that's the zoom gesture. Plain scrolling keeps emitting
+                // momentum events for about a second after the fingers lift,
+                // and those must not eat a ⌘⌘ made right afterwards. A click
+                // has no momentum tail, so it cancels unconditionally.
+                if eventType != .scrollWheel
+                    || modifierFlags.contains(.command) {
+                    self.quietFocusRunCount = 0
+                }
+                return
+            }
             if eventType == .keyDown {
                 let isCommandKey = keyCode == Self.leftCommandKeyCode
                     || keyCode == Self.rightCommandKeyCode
@@ -2876,7 +2916,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             NSLog("MenuBand: Input Monitoring not granted; Command gesture is local-only")
             quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
-                matching: [.flagsChanged, .keyDown]
+                matching: Self.quietFocusMonitorMask
             ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
         }
 #else
@@ -2888,10 +2928,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !installQuietFocusTap() {
             NSLog("MenuBand: ⌘⌘ tap creation failed — falling back to NSEvent monitors")
             quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
-                matching: [.flagsChanged, .keyDown]
+                matching: Self.quietFocusMonitorMask
             ) { handler($0.type, $0.keyCode, $0.modifierFlags) }
             quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
-                matching: [.flagsChanged, .keyDown]
+                matching: Self.quietFocusMonitorMask
             ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
         }
 #endif
@@ -2901,9 +2941,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// itself when macOS disables it (timeout / user input), the failure
     /// that otherwise kills a tap permanently and silently.
     private func installQuietFocusTap() -> Bool {
-        let mask: CGEventMask =
+        // flagsChanged + keyDown drive the gesture; the pointer types are
+        // there only to CANCEL a run (see the handler's pointer guard).
+        var mask: CGEventMask =
             (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.keyDown.rawValue)
+        for type in Self.quietFocusCancellingCGEvents {
+            mask |= (1 << type.rawValue)
+        }
         let callback: CGEventTapCallBack = { _, type, event, refcon in
             guard let refcon else { return Unmanaged.passUnretained(event) }
             let appDelegate = Unmanaged<AppDelegate>
@@ -2914,7 +2959,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 return Unmanaged.passUnretained(event)
             }
-            guard type == .flagsChanged || type == .keyDown else {
+            guard type == .flagsChanged || type == .keyDown
+                    || AppDelegate.quietFocusCancellingCGEvents.contains(type)
+            else {
                 return Unmanaged.passUnretained(event)
             }
             // Deliver the way the NSEvent monitors did: as an ordinary
@@ -6184,6 +6231,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyboardNotesHeld && !modeLatched
     }
 
+    /// Whether a bare Shift may open the bend gesture with no note held.
+    /// Shift is the "warp the still-ringing tails" move, so it only means
+    /// that while Menu Band holds the keyboard: quiet focus armed (either
+    /// half of the arming — the capture panel or the focus flag) or global
+    /// TYPE mode. With none of those the app is escaped out and Shift
+    /// belongs to whatever the user is really typing in.
+    static func shouldEngageShiftBend(localCaptureArmed: Bool,
+                                      keyboardPerformanceFocusActive: Bool,
+                                      typeModeActive: Bool) -> Bool {
+        localCaptureArmed || keyboardPerformanceFocusActive || typeModeActive
+    }
+
     static func shouldLockPointerForKeyboardTrackpad(
         keymapShown: Bool
     ) -> Bool {
@@ -6310,11 +6369,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // never opens the graph — still can't reactivate the bend.
         let inReleaseGrace = pitchBendCursorPushed
             && (pitchBendReleaseGraceUntil.map { $0.timeIntervalSinceNow > 0 } ?? false)
+        // Shift alone only counts as a performance move while Menu Band
+        // actually owns the keyboard. Escaped out, Shift is just Shift — and
+        // every other gate here needs Menu Band to already be playing, so
+        // this was the one door a bystander app could walk through: holding
+        // ⇧ to select text in Google Docs locked the pointer and raised the
+        // pitch pad (and, once `pitchBendCursorPushed` was set, the trackpad
+        // drum surface behind it). Reported by @alexf, 2026-08-18.
+        let shiftPerformance = shift && Self.shouldEngageShiftBend(
+            localCaptureArmed: localCapture.isArmed,
+            keyboardPerformanceFocusActive: keyboardPerformanceFocusActive,
+            typeModeActive: menuBand.typeMode
+        )
         // While the spacebar tape is reverse-playing, a mouse move bends + echoes
         // the playback itself (the fx route onto the rewind voice's own inserts),
         // so engage the gesture even with no key held.
-        guard focusedMouseSlide || menuBand.keyboardNotesHeld || shift || inReleaseGrace
-                || menuBand.isRewinding else { return }
+        guard focusedMouseSlide || menuBand.keyboardNotesHeld || shiftPerformance
+                || inReleaseGrace || menuBand.isRewinding else { return }
         // Shift momentarily puts a continuous surface onto the original
         // sliding FX; Tab selects FX persistently.
         let momentarySurfaceFx = (trackpadPadMode == .skin

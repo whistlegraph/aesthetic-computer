@@ -70,8 +70,10 @@ static inline double dmax(double a, double b) { return a > b ? a : b; }
 // ── the two generators, bit-exact against the Node file ────────────────
 static uint32_t seed = 20220120;           // the cult post date
 static inline double rnd(void) { seed = seed * 1664525u + 1013904223u; return (double)seed / 4294967296.0; }
-static inline double jit(double ms) { return ((rnd() - 0.5) * 2.0 * ms) / 1000.0; }
-static inline double vel(double spread) { return 1.0 - rnd() * spread; }
+// humanized (live-show pass): scatter 1.7x, velocity spread 1.35x —
+// same draw count, the parity stream holds.
+static inline double jit(double ms) { return ((rnd() - 0.5) * 2.0 * ms * 1.7) / 1000.0; }
+static inline double vel(double spread) { return 1.0 - rnd() * spread * 1.35; }
 
 static uint32_t nseed = 987654321;         // xorshift32, MenuBandPercussion's
 static inline double nrnd(void) {
@@ -1173,10 +1175,18 @@ static void hook_fn(int bar, int full) {
     // choice." So: dash F#4 · i wanna (1.50) · dash D4 (2.00) · i wanna
     // (3.50) · run IT fast (4.00, one sung phrase, G4-F#4-D4) · dot dot ·
     // rest. Plain sung takes, v2 gains, dots at 0.90.
-    dashStack(t + 0.00, "fs4", G * F, bar);
+    // dash-dash melody play: each loop voices its dashes in a different
+    // octave shape, and a quick camille arpeggio rings off the first.
+    const int hv = (bar >> 3) % 3;
+    dashStack(t + 0.00, hv == 1 ? "fs3" : "fs4", G * F, bar);
+    { Shot o = SHOT_HELD(); o.gain = 0.26 * G; o.pan = 0.30; o.side = 0.70; o.dly = 0.35; o.dur = 0.28; o.atk = 0.006;
+      char an[64]; snprintf(an, sizeof an, "dash-camille-%s-hold", hv == 1 ? "fs4" : "fs3");
+      shot(an, t + 0.75, o); }
+    { Shot o = SHOT_HELD(); o.gain = 0.18 * G; o.pan = -0.34; o.side = 0.75; o.dly = 0.45; o.dur = 0.22; o.atk = 0.006;
+      shot("dash-camille-d4-hold", t + 1.06, o); }
     { Shot o = SHOT_SUNG(); o.gain = 0.82 * G * F; o.pan = -0.18 * P; o.side = 0.50; o.dly = 0.20;
       shot("iwanna-a-sung", t + 1.50 + jit(4), o); }
-    dashStack(t + 2.00, "d4", G * 0.95 * F, bar);
+    dashStack(t + 2.00, hv == 2 ? "b3" : hv == 1 ? "d3" : "d4", G * 0.95 * F, bar);
     { Shot o = SHOT_SUNG(); o.gain = 0.82 * G * F; o.pan = 0.18 * P; o.side = 0.50; o.dly = 0.20;
       shot("iwanna-b-sung", t + 3.50 + jit(4), o); }
     if (wordsIn(bar)) {
@@ -1195,8 +1205,11 @@ static void hook_fn(int bar, int full) {
       shot("dot-b3", t + 6.00 + jit(3), o); }
     { Shot o = SHOT_SUNG(); o.gain = 0.90 * G * F; o.pan = 0.45 * P; o.side = 0.75; o.dly = 0.38;
       shot("dot-fs3", t + 6.50 + jit(3), o); }
-    if (full) { Shot o = SHOT_SUNG(); o.gain = 0.34 * G * F; o.pan = 0.0; o.side = 0.60; o.dly = 0.55;
+    // dot dot dot dot — four, ending every loop.
+    { Shot o = SHOT_SUNG(); o.gain = 0.80 * G * F; o.pan = 0.0; o.side = 0.60; o.dly = 0.45;
       shot("dot-d4", t + 7.00, o); }
+    { Shot o = SHOT_SUNG(); o.gain = 0.62 * G * F; o.pan = -0.20 * P; o.side = 0.70; o.dly = 0.50;
+      shot("dot-fs3", t + 7.50, o); }
     // length-play: every other full hook lets a daaaaash ring across the
     // rest bar, stretched to twice itself.
     if (full && ((bar >> 3) & 1))
@@ -1413,6 +1426,9 @@ static void score(void) {
         const int root = bassRoot(deg);
         int chord[3]; triad_of(deg, 59, chord);
         const int four = bar % 4, eight = bar % 8;
+        // the hands push and drag across a 32-bar breath; the kick stays
+        // the clock (live-show pass)
+        const double push = 0.0045 * sin(TAU * (bar % 32) / 32.0 + 0.7);
         const int D = dense(bar);
 
         // ---- kick: 4/4, POW per hit, never a drop ----------------------
@@ -1428,14 +1444,14 @@ static void score(void) {
         if (hatOn(bar)) {
             for (int s = 0; s < 8; s++) {
                 const double swing = (s & 1) ? 0.035 : 0;
-                const double u = t + (s * 0.5 + swing) * BEAT + jit(5);
+                const double u = t + (s * 0.5 + swing) * BEAT + push + jit(5);
                 if (s & 1) { Shot o = SHOT_DRUM(); o.gain = 0.20 * vel(0.20); o.pan = 0.20; o.side = 0.5; o.dur = 0.085; shot("hatC", u, o); }
                 else if (s % 4 == 2) { Shot o = SHOT_DRUM(); o.gain = 0.11 * vel(0.20); o.pan = -0.18; o.side = 0.5; o.dur = 0.065; shot("hatC", u, o); }
             }
             if (D || eight >= 2)   // Peep pass: rolling hats most bars
                 for (int s = 0; s < 16; s++)
                     if (s % 4 == 1 || s % 4 == 3) {
-                        const double u = t + ((double)s / 16) * BAR + jit(4);
+                        const double u = t + ((double)s / 16) * BAR + push + jit(4);
                         Shot o = SHOT_DRUM(); o.gain = 0.055 * vel(0.5); o.pan = (s & 2) ? 0.35 : -0.35; o.side = 0.6; o.dur = 0.045;
                         shot("hatC", u, o);
                     }
@@ -1456,9 +1472,9 @@ static void score(void) {
         if (kickOn(bar)) {
             // (rnd order: JS evaluates args left-to-right — jit, then vel.
             // C leaves that unspecified, so every jit+vel pair is sequenced.)
-            { const double tt = t + 2 * BEAT + jit(5); snare(tt, vel(0.20)); }
+            { const double tt = t + 2 * BEAT + push + jit(5); snare(tt, vel(0.20)); }
             if (D) {
-                { Shot o = SHOT_DRUM(); o.gain = 0.22; o.pan = -0.12; o.side = 0.72; shot("clap", t + 2 * BEAT + jit(5), o); }
+                { Shot o = SHOT_DRUM(); o.gain = 0.22; o.pan = -0.12; o.side = 0.72; shot("clap", t + 2 * BEAT + push + jit(5), o); }
                 { Shot o = SHOT_DRUM(); o.gain = 0.09; o.pan = 0.30; o.side = 0.55; shot("snap", t + 2 * BEAT + 0.012, o); }
             }
         }
@@ -1986,9 +2002,17 @@ int main(int argc, char **argv) {
                 + sigL[i] * ds * SIGG + drumsL[i] + sub + so) * fade;
             const double r = (musicR[i] * be * vd + voxR[i] * dv * VOXG * vg + tubeR[i] * pe * TUBEG * vd
                 + sigR[i] * ds * SIGG + drumsR[i] + sub - so) * fade;
-            L[i] = (float)l; R[i] = (float)r;
-            if (fabs(l) > peak) peak = fabs(l);
-            if (fabs(r) > peak) peak = fabs(r);
+            // the listener moves: a slow walk around the stage (stereo
+            // rotation at two incommensurate rates) breathing nearer and
+            // farther (live-show pass)
+            const double lt = (double)i / SR;
+            const double th = 0.10 * sin(TAU * 0.021 * lt) + 0.05 * sin(TAU * 0.009 * lt + 1.3);
+            const double br = 1.0 + 0.035 * sin(TAU * 0.016 * lt + 0.5);
+            const double lr = (l * cos(th) - r * sin(th)) * br;
+            const double rr = (l * sin(th) + r * cos(th)) * br;
+            L[i] = (float)lr; R[i] = (float)rr;
+            if (fabs(lr) > peak) peak = fabs(lr);
+            if (fabs(rr) > peak) peak = fabs(rr);
         }
     }
     const double norm = peak > 1e-9 ? 0.92 / peak : 1;

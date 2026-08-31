@@ -22,6 +22,7 @@ const mime = new Map([
 function fileFor(pathname) {
   if (pathname === "/oskiewar.js") return join(here, "oskiewar.js");
   if (pathname === "/oskiewar-sfx.mjs") return join(here, "oskiewar-sfx.mjs");
+  if (pathname === "/oskiewar-voice.mjs") return join(here, "oskiewar-voice.mjs");
   if (pathname === "/frame-driver.mjs") return join(here, "frame-driver.mjs");
   if (pathname === "/round-room.mjs") return join(here, "round-room.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")

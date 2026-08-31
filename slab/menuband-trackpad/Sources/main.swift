@@ -41,8 +41,42 @@ private final class TrackpadInteractionShield {
     private var commandExitArmed = false
     private var commandExitArmAfter: CFTimeInterval = 0
     private var lastCommandTap: CFTimeInterval?
+    /// Set when a pointer gesture lands inside a pending Command run, which
+    /// voids it the way an intervening key does.
+    private var commandRunVoided = false
 
     private static let commandKeyCodes: Set<CGKeyCode> = [54, 55]
+    private static let watchdogTick: CFTimeInterval = 1.0 / 60.0
+    private static let commandTapWindow: CFTimeInterval = 0.75
+
+    /// Mouse presses that void a Command run. `hasNonCommandKeyDown` cannot
+    /// see these: ⌘-click (open a link in a new tab) holds no key down, so a
+    /// browser full of them read as a summon and relaunched Menu Band after
+    /// the user had quit it. Reported by @alexf, 2026-08-18.
+    private static let pointerCancelEvents: [CGEventType] = [
+        .leftMouseDown, .rightMouseDown, .otherMouseDown,
+    ]
+
+    /// True when one of those landed within the last `seconds`. The watchdog
+    /// polls rather than taps, so it asks the event source how long ago.
+    private static func pointerPressed(within seconds: CFTimeInterval) -> Bool {
+        pointerCancelEvents.contains { type in
+            CGEventSource.secondsSinceLastEventType(
+                .combinedSessionState, eventType: type
+            ) <= seconds
+        }
+    }
+
+    /// Scrolling is handled separately from the presses above: ⌘-scroll (zoom)
+    /// is the gesture worth cancelling for, but momentum keeps emitting
+    /// scrollWheel for about a second after the fingers lift. Only a scroll
+    /// arriving while Command is actually held counts, which the tick below
+    /// samples as it happens instead of measuring backwards over the gap.
+    private static func scrolledThisTick() -> Bool {
+        CGEventSource.secondsSinceLastEventType(
+            .combinedSessionState, eventType: .scrollWheel
+        ) <= watchdogTick * 2
+    }
 
     /// The permission-free watchdog only receives snapshots, not key events.
     /// While the first Command tap is pending, sample the keyboard so any
@@ -87,6 +121,7 @@ private final class TrackpadInteractionShield {
     func stop() {
         precondition(Thread.isMainThread)
         lastCommandTap = nil
+        commandRunVoided = false
         commandExitArmed = false
         stopEventTap()
         panels.forEach { $0.orderOut(nil) }
@@ -111,8 +146,9 @@ private final class TrackpadInteractionShield {
             .combinedSessionState
         ).contains(.maskCommand)
         commandExitArmed = false
+        commandRunVoided = false
         commandExitArmAfter = CACurrentMediaTime() + 0.35
-        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) {
+        let timer = Timer(timeInterval: Self.watchdogTick, repeats: true) {
             [weak self] _ in
             guard let self else { return }
             let escapeDown = CGEventSource.keyState(
@@ -127,19 +163,37 @@ private final class TrackpadInteractionShield {
             if self.lastCommandTap != nil, Self.hasNonCommandKeyDown() {
                 self.lastCommandTap = nil
             }
+            // A ⌘-held scroll is a zoom, not a gap between taps. Catch it in
+            // the tick it happens so momentum after the fingers lift — ⌘ long
+            // released by then — cannot void an honest run.
+            if commandDown, self.lastCommandTap != nil, Self.scrolledThisTick() {
+                self.commandRunVoided = true
+            }
             if !self.commandExitArmed {
                 if !commandDown && now >= self.commandExitArmAfter {
                     self.commandExitArmed = true
                     self.lastCommandTap = nil
+                    self.commandRunVoided = false
                 }
             } else if commandDown && !self.commandWasDown {
                 if Self.hasNonCommandKeyDown() {
                     self.lastCommandTap = nil
-                } else if let prior = self.lastCommandTap, now - prior <= 0.75 {
-                    commandDoubleTapped = true
-                    self.lastCommandTap = nil
+                    self.commandRunVoided = false
+                } else if let prior = self.lastCommandTap,
+                          now - prior <= Self.commandTapWindow {
+                    if self.commandRunVoided
+                        || Self.pointerPressed(within: now - prior) {
+                        // Clicked or zoomed between the taps: this was Command
+                        // being used, not the summon gesture.
+                        self.lastCommandTap = nil
+                        self.commandRunVoided = false
+                    } else {
+                        commandDoubleTapped = true
+                        self.lastCommandTap = nil
+                    }
                 } else {
                     self.lastCommandTap = now
+                    self.commandRunVoided = false
                 }
             }
             self.escapeWasDown = escapeDown
