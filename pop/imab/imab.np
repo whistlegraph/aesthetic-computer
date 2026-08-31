@@ -22,13 +22,14 @@
 #
 #   i'm  a   but-ter-fly        C4  G4  C4 C4 C4     (the G is HIGH)
 #   flap-PING for you guys      C4  C5  C4 C4 C4     (the PING is high)
-#   just a  cos-tume            B3  A3  G3 F3
-#   i  put  on                  E3  E3  D3
-#   in  my  room                D3  C3  C3           (low D C C)
+#   just a  cos-tume            B4  A4  G4 F4
+#   i  put  on                  E4  E4  D4
+#   in  my  room                C4  C4  C4
 #
-# One long descent home: B3 A3 G3 F3 E3 E3 D3 D3 C3 C3 — the whole back
-# half walks down an octave below the chant. Verified render: holyvox
-# notecheck 20/20 within ±11¢, legato glides recognized as transit.
+# The back half is one stepwise descent in the chant's own octave:
+# B4 A4 G4 F4 E4 E4 D4 → C4 C4 C4 home. (E4/D4 inferred to keep the
+# walk stepwise — @jeffrey named B4 A4 G4 F4 and the C4 ending.)
+# Verified render: holyvox notecheck 20/20, legato glides = transit.
 # The stats below remain as evidence; where they disagree with the
 # singer, the singer wins.
 #

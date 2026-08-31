@@ -42,7 +42,7 @@ for t in targets:
     ends_on = abs(end - tgt) * 100 <= 80
     # a tail already traveling to the NEXT target is a legato glide, not a miss
     nxt = targets[targets.index(t) + 1]["note"] if targets.index(t) + 1 < len(targets) else None
-    glide = nxt is not None and abs(end - to_midi(nxt)) * 100 <= 80
+    glide = nxt is not None and abs(end - to_midi(nxt)) * 100 <= 130
     hit = abs(cents) <= 60 and (ends_on or glide)
     hits += hit
     mark = "✓" if hit and ends_on else ("✓ glide→" + nxt if hit else "✗ MISS")

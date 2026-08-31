@@ -33,67 +33,56 @@ if (!existsSync(SEP)) {
   console.log("→ demucs (slow)");
   sh("demucs", ["-n", "htdemucs", "--two-stems=vocals", "-o", `${WORK}/sep`, `${DL}/whistlegraph-${TAKE}.wav`]);
 }
-const doc = JSON.parse(readFileSync(`${DL}/whistlegraph-${TAKE}.syllnote.json`, "utf8"));
-const TMPL = "i'm a butterfly flapping for you guys just a costume i put on in my room".split(" ");
+// boundaries: energy-valley refined (boundfix.py), REQUIRED
+const BOUNDS = JSON.parse(readFileSync(`${WORK}/bounds-${TAKE}.json`, "utf8")).words;
 const NSYL = { butterfly: 3, flapping: 2, costume: 2 };
-// GROUND TRUTH pitch classes (@jeffrey); null = snap the take's own note to C major
-// "^" = take the octave ABOVE the previous target (the high G — @jeffrey)
-const GT = { 0: ["C"], 1: ["G^"], 2: ["C", "C", "C"], 3: ["C", "C^"], 4: null, 5: null, 6: null,
-             7: ["B"], 8: ["Av"], 9: ["Gv", "Fv"], 10: ["Ev"], 11: ["Ev"], 12: ["Dv"],
-             13: ["Dv"], 14: ["Cv"], 15: ["Cv"] };
-// "v" = at-or-below the previous target: the back half walks DOWN to low C
-const CMAJ = [0, 2, 4, 5, 7, 9, 11];
+// the melody is fully @jeffrey's — absolute pitches, no detection involved
+const GT = ["C4", "G4", "C4,C4,C4", "C4,C5", "C4", "C4", "C4",
+            "B4", "A4", "G4,F4", "E4", "E4", "D4", "C4", "C4", "C4"];
+// musical minimum lengths, in beats (the held high-G "a" was too short)
+const MINB = { 1: 1.0, 4: 0.5, 5: 0.5, 6: 0.75 };
 const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const toMidi = (n) => { const m = n.match(/^([A-G]#?)(-?\d)$/); return (Number(m[2]) + 1) * 12 + NAMES.indexOf(m[1]); };
 const nname = (m) => NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
-const norm = (w) => w.toLowerCase().replace(/[^a-z']/g, "");
-const fuzzy = (a, b) => a === b || (a.length > 3 && b.length > 3 && (a.startsWith(b.slice(0, 4)) || b.startsWith(a.slice(0, 4))));
-const seq = [];
-let ti = 0;
-for (const w of doc.words) {
-  if (ti < TMPL.length && fuzzy(TMPL[ti], norm(w.text))) { seq.push({ ti, w }); ti++; }
-}
-const onsets = seq.map((s) => s.w.nuclei[0]?.startSec ?? s.w.fromMs / 1000);
-const iois = onsets.slice(1).map((t, i) => t - onsets[i]).filter((d) => d > 0.08).sort((a, b) => a - b);
+
+const iois = BOUNDS.slice(1).map((w, i) => (w.fromMs - BOUNDS[i].fromMs) / 1000).filter((d) => d > 0.08).sort((x, y) => x - y);
 const ioi = iois[Math.floor(iois.length / 2)];
 const ratio = (2 * BEAT) / ioi;               // his beat becomes two floor beats
-const t0 = Math.max(0, seq[0].w.fromMs / 1000 - 0.15);
-const t1 = seq[seq.length - 1].w.toMs / 1000 + 0.8;
-console.log(`take ${TAKE}: ${ti}/16 · half-time stretch ${ratio.toFixed(3)} (phrase ${((t1 - t0) * ratio).toFixed(1)}s)`);
+const t0 = BOUNDS[0].fromMs / 1000;
+const t1 = BOUNDS[BOUNDS.length - 1].toMs / 1000 + 0.25;
+console.log(`take ${TAKE}: half-time base stretch ${ratio.toFixed(3)}`);
+
+// ── variable time map: per-word stretch, held notes get their beats ───
 const trim = `${WORK}/holy-trim.wav`, str = `${WORK}/holy-str.wav`;
 sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", t0.toFixed(3), "-t", (t1 - t0).toFixed(3),
   "-i", SEP, "-ac", "1", "-ar", String(SR), "-af", "highpass=f=80", trim]);
-sh("rubberband", ["-t", ratio.toFixed(4), "-F", "-c", "6", trim, str]);
+let outCursor = 0;
+const mapLines = [], wordsOut = [];
+for (let i = 0; i < BOUNDS.length; i++) {
+  const w = BOUNDS[i];
+  const inStart = w.fromMs / 1000 - t0;
+  const srcDur = (w.toMs - w.fromMs) / 1000;
+  const outDur = Math.max(srcDur * ratio, (MINB[i] ?? 0.4) * BEAT);
+  mapLines.push(`${Math.round(inStart * SR)} ${Math.round(outCursor * SR)}`);
+  wordsOut.push({ i, text: w.text, outStart: outCursor, outDur });
+  outCursor += outDur;
+}
+mapLines.push(`${Math.round((t1 - t0) * SR)} ${Math.round(outCursor * SR)}`);
+writeFileSync(`${WORK}/holy-map.txt`, mapLines.join("\n") + "\n");
+sh("rubberband", ["-M", `${WORK}/holy-map.txt`, "-F", "-c", "6", trim, str]);
 
-// ── note targets: his classes, performance octaves, vowel-onset anchors
+// ── targets: absolute melody on the mapped timeline ───────────────────
 const noteNames = [], noteStarts = [], targets = [];
-for (const { ti: tidx, w } of seq) {
-  const need = NSYL[TMPL[tidx]] ?? 1;
-  let ns = [...w.nuclei].sort((a, b) => a.startSec - b.startSec);
-  if (ns.length > need)
-    ns = ns.sort((a, b) => b.rms * b.durSec - a.rms * a.durSec).slice(0, need).sort((a, b) => a.startSec - b.startSec);
-  for (let k = 0; k < Math.min(need, ns.length); k++) {
-    const det = ns[k].midi;
-    const gtRaw = GT[tidx] ? GT[tidx][Math.min(k, GT[tidx].length - 1)] : null;
-    const up = gtRaw?.endsWith("^");
-    const dn = gtRaw?.endsWith("v");
-    const cls = gtRaw ? NAMES.indexOf(gtRaw.replace(/[\^v]/, ""))
-      : CMAJ.reduce((best, c) => {
-          const d = Math.min(...[-12, 0, 12].map((o) => Math.abs(det % 12 - c + o)));
-          const bd = Math.min(...[-12, 0, 12].map((o) => Math.abs(det % 12 - best + o)));
-          return d < bd ? c : best;
-        }, 0);
-    let midi = Math.round(det / 12) * 12 + cls;   // nearest octave of the class
-    for (const cand of [midi - 12, midi, midi + 12])
-      if (Math.abs(cand - det) < Math.abs(midi - det)) midi = cand;
-    const prevT = targets.length ? NAMES.indexOf(targets[targets.length - 1].note.replace(/-?\d+$/, "")) +
-      12 * (parseInt(targets[targets.length - 1].note.match(/-?\d+$/)[0]) + 1) : null;
-    if (up && prevT !== null) while (midi <= prevT) midi += 12;
-    if (dn && prevT !== null) while (midi > prevT) midi -= 12;
-    const at = (ns[k].startSec - t0) * ratio;
+for (const wo of wordsOut) {
+  const notes = GT[wo.i].split(",");
+  const per = wo.outDur / notes.length;
+  for (let k = 0; k < notes.length; k++) {
+    const midi = toMidi(notes[k]);
+    const at = wo.outStart + k * per + (k === 0 ? 0.03 : 0);
     noteNames.push(nname(midi));
     noteStarts.push(at.toFixed(3));
-    targets.push({ label: TMPL[tidx] + (need > 1 ? `·${k + 1}` : ""), t: +at.toFixed(3),
-                   dur: +(ns[k].durSec * ratio).toFixed(3), note: nname(midi) });
+    targets.push({ label: wo.text + (notes.length > 1 ? `·${k + 1}` : ""), t: +at.toFixed(3),
+                   dur: +(per - (k === 0 ? 0.03 : 0)).toFixed(3), note: nname(midi) });
   }
 }
 console.log(`→ WORLD snap: ${noteNames.join(" ")}`);
@@ -140,16 +129,16 @@ const kn = Math.floor(0.4 * SR), K = new Float32Array(kn);
   }
 }
 const duck = new Float32Array(NT).fill(1);
-for (let b = 8 * 4; b < BARS * 4; b++) {
+for (let b = 0; b < BARS * 4; b++) {
   const at = Math.floor(b * BEAT * SR);
   for (let j = 0; j < kn && at + j < NT; j++) bed[at + j] *= 1;   // (sines ducked below)
   for (let j = 0; j < Math.floor(0.5 * SR) && at + j < NT; j++)
     duck[at + j] *= 1 - 0.35 * Math.exp(-j / (0.09 * SR));
 }
 for (let i = 0; i < NT; i++) bed[i] *= duck[i];
-for (let b = 8 * 4; b < (BARS - 1) * 4; b++) {
+for (let b = 0; b < (BARS - 1) * 4; b++) {
   const at = Math.floor(b * BEAT * SR);
-  const g = 0.5 * (b % 4 === 0 ? 1.05 : 1.0);
+  const g = 0.62 * (b % 4 === 0 ? 1.05 : 1.0);
   for (let j = 0; j < kn && at + j < NT; j++) bed[at + j] += K[j] * g;
 }
 
