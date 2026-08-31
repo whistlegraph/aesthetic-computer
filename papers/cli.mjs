@@ -50,6 +50,7 @@ const PODCASTS = new Set([
   "aesthetic-june-26-essay",
   "aesthetic-july-4-26-essay",
   "aesthetic-july-10-26-essay",
+  "close-of-august-26-essay",
   "the-record-is-a-better-interface-essay",
   "the-console-has-a-browser-essay",
   "a-record-in-the-mail-essay",
@@ -237,6 +238,12 @@ const PAPER_MAP = {
     base: "july-10-26",
     siteName: "aesthetic-july-10-26-essay",
     title: "'Sup w/ July 10?",
+    format: "essay",
+  },
+  "essay-august-26": {
+    base: "august-26",
+    siteName: "close-of-august-26-essay",
+    title: "Close of August '26",
     format: "essay",
   },
   "essay-granularity": {
@@ -527,6 +534,7 @@ const CATEGORIES = [
       "essay-june-26",
       "essay-july-4-26",
       "essay-july-10-26",
+      "essay-august-26",
       "essay-granularity",
       "essay-console-browser",
       "essay-physical-mail",

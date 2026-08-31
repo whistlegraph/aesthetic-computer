@@ -17,6 +17,7 @@ export const HOSTED = {
   "june-26": "aesthetic-june-26-essay",
   "july-4-26": "aesthetic-july-4-26-essay",
   "july-10-26": "aesthetic-july-10-26-essay",
+  "august-26": "close-of-august-26-essay",
   "granularity": "the-record-is-a-better-interface-essay",
   "console-browser": "the-console-has-a-browser-essay",
   "physical-mail": "a-record-in-the-mail-essay",

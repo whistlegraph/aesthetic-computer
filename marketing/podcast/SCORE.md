@@ -4,6 +4,13 @@ A production lane that turns written essays (`papers/essay-*/*.tex`, `opinion/*.
 into spoken-word podcast episodes in @jeffrey's ElevenLabs voice, framed like a
 liturgical reading.
 
+**Mastering follows the /pop house law** (August '26, ported from
+`pop/loner/c/cut-wax.sh`): substrate + a voice-tuned wax/FM material stage
+(bass mono <120 Hz, slight side lift + slow drift, tanh + exciter, program
+glue, 40 Hz–15 kHz ceiling; no wow on speech), then MEASURE → **one static
+dB** → true-peak limiter (0.82 ≈ −1.7 dBTP) at **−14 LUFS**. Never a second
+loudnorm.
+
 ## The shape of an episode
 
 ```
@@ -38,10 +45,14 @@ content-hash cached (`out/cache/`), so re-runs are free.
    metadata rather than being expressed as substitute/generated logo variants.
    The cover is embedded as ID3 album art and kept as `out/<slug>-cover.png`.
 4. **`produce.mjs`** — the orchestrator. Narrates intro + each paragraph + outro
-   via `/api/say`, measures the real body duration with ffprobe to fill in the
-   announced length, assembles jingle + VO + paragraph breaths with ffmpeg
-   (loudnorm → mp3), embeds the cover, then runs the delivered body back through
-   local Whisper. The round-trip report at `out/<slug>-speech-qa.json` compares
+   via `/api/say`, trims each utterance's edges fricative-safely (low −45 dBFS
+   gate, leading/trailing only — a consonant is dim but BRIGHT, so a hotter
+   gate would eat an /s/), measures each utterance's VOICED onset and places
+   *that* on the beat grid with the lead consonant ahead of the line (the
+   vowel-on-the-beat rule from pop/loner v4), measures the real body duration
+   with ffprobe to fill in the announced length, assembles jingle + VO +
+   paragraph breaths with ffmpeg, embeds the cover, then runs the delivered
+   body back through local Whisper. The round-trip report at `out/<slug>-speech-qa.json` compares
    heard words with the spoken script and identifies phrases for human review.
    It checks intelligibility, not prosody. The metadata sidecar records the QA
    status. Output: `out/<slug>.mp3`.

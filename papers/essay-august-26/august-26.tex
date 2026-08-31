@@ -1,0 +1,130 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper]{article}
+
+% === GEOMETRY === (narrow measure, PG-style)
+\usepackage[top=1in, bottom=1in, left=1.15in, right=1.15in]{geometry}
+
+% === FONTS ===
+\usepackage{fontspec}
+\usepackage{unicode-math}
+
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+  ItalicFont=lmsans10-oblique,
+  BoldItalicFont=lmsans10-boldoblique,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  ItalicFont=lmmono10-italic,
+  Scale=0.85,
+]
+
+% === PACKAGES ===
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\usepackage{ac-paper-essay}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=acpurple,
+  urlcolor=acpurple,
+  pdfauthor={@jeffrey},
+  pdftitle={Close of August '26},
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\footnotesize\color{acgray}\thepage}
+
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+
+% Local override: tighter colophon air so it rides the final page with the
+% close instead of orphaning onto its own.
+\renewcommand{\colophon}[1]{%
+  \par\vspace{0.8em}%
+  \noindent{\color{acgray}\rule{3em}{0.4pt}}\par
+  \vspace{0.4em}%
+  \noindent{\small\itshape\color{acgray}#1}\par
+}
+
+% Local override: wrap/center long titles + start higher on the page.
+\renewcommand{\essaytitle}[1]{%
+  \begin{center}%
+    \begin{tikzpicture}
+      \node[acdark, opacity=0.25, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (2pt,-2pt) {#1};
+      \node[acpink, align=center, text width=\linewidth,
+            font=\aclight\fontsize{40pt}{46pt}\selectfont, inner sep=0pt] at (0,0) {#1};
+    \end{tikzpicture}%
+  \end{center}%
+  \vspace{0.6em}%
+}
+
+\begin{document}
+
+\thispagestyle{empty}
+\vspace*{-0.75in}
+
+\essaytitle{Close of August '26}
+\essaydate{August 2026}
+
+The best version of one of my songs arrived on the twenty-fourth of August with no return address. There is a shared shelf my computers sync finished tracks onto, and sitting on it that morning was a cut of a song called \textit{loner} --- the cut I liked best, the one with the kickless break in the middle and one fewer pass in the back half --- uploaded at 7:23 that morning by a machine I could not identify. I searched every computer in the house, and each had an alibi --- no shell history, no render logs, a source file still clean at an older revision --- except one laptop, which lives offline and wasn't answering. A working directory somewhere had made this exact minute and a half of audio and vanished; I was left holding the record without the recipe.
+
+I decided the record itself would have to be the source. Not a reconstruction --- I tried re-rendering from what I had and rejected every attempt: they were almost the song, which is the worst thing a song can be. Instead the mp3 became sacred material: spliced once at the sung pickup, one thirty-millisecond crossfade, then pulled apart into stems and rebuilt around --- her voice re-seated, a club kick underneath, the whole thing staged in space. What the arrangement learned along the way is that it had to rest: the decorative layers go quiet for the last half-bar of every eighth, and the kick, the bass, and her voice never stop. When the operating system cleaned the scratch directory holding the build --- on release day --- I dug the commands back out of the session transcript and committed them; the recovered pipeline renders the shipped master back at correlation 1.000000. The copy is now the original, and it can prove it.
+
+\section{The Word ``In''}
+
+Before any of that could ship, I spent most of a week moving single words around a bar of music. The voice on the record is Camille's, a sung line from a whistlegraph made years ago, and the beat under her is derived from her own rhythm --- the machine listens to where she breathes and calls those the bar lines. ``In'' went onto bar two, beat two; then beat one-and-a-half; then the downbeat; then, finally, halfway through beat one --- which is where she had been singing it all along.
+
+The bugs in that week were bugs of listening. The chart was shifted a full word off because I had counted ``patiently'' as two syllables and it has three. The silence-trimmer kept eating the ``ly'' off the ends of words, and the fix required admitting something I hadn't known I knew: a consonant is dim but bright --- almost no energy, all of it high --- so any trim that goes by loudness alone will swallow an /s/ whole. The rule that ended the arguments came from how singers work: the vowel lands on the beat and the consonant leans in ahead of it. And because you cannot tune by ear at five minutes a listen, the listening loop itself got rebuilt mid-week, from five minutes down to forty-seven seconds.
+
+\section{The Twenty-Seventh}
+
+Two records went out on the twenty-seventh of August, under two different names. \textit{Femrag++} --- a bell rag grown into drum and bass, which opens by saying the label's own name --- went live on the streaming services under Aesthetic Dot Computer. And the loner cut, titled \textit{lonerclub v4pid}, went to the distributor as the first record by Whistlegraph Dot Org, with Aesthetic Dot Computer credited as the featured artist --- the feature credit being the actual plumbing that lands one song on both artists' pages.\footnote{The distributor's forms taught me something about personhood along the way: a band name is acceptable as a performer but is rejected as a songwriter. The stores will let an entity sing; they will not let it write. The writing credits belong to Camille and to me.} So I spent part of the day introducing one of my names to the other. The cover is her drawing --- the blue felt-tip lonergraphic --- shot clinically sharp, because the source recordings are phone-sized and the drawing deserved better than a 390-pixel crop.
+
+\section{The Meters and the Ear}
+
+In June the confession was the whistle, a perfect fifth sharp since the day it was built. In August it was the organs. My pitch auditor had been printing FAIL next to the drawbar organ for so long that the code had grown comments explaining why the tool was wrong --- the sixteen-foot stop adds a sub-strength partial, the audit latches onto it, reads octave-low, by design, the pitch sounds right. It did not sound right. When I finally measured what the ear assigns rather than where the lowest partial sits, the organ was playing a clean octave below the note asked of it --- twelve hundred cents --- and had been forever. The comments were the tell.
+
+The same lesson ran the other direction the week before. I split a room's stereo field across two computers --- one Mac is the left channel, one is the right --- and got it to where every meter reported healthy --- signal present, receivers locked, peaks fine --- and the room was silent. One of the machines was rendering its channel straight into its own mute. The logs could not tell that failure from success, so the fix came with a new instrument: a sixty-second beat whose entire job is to be listened to --- ticks on the left, tocks on the right, a center hit every eighth bar. A limp in the ping-pong is drift; a flam on the center is desync. There is no dashboard for it. You stand in the room.
+
+Once the room worked it became something better than a speaker test. A remix I've been carving all summer got a spatial cut where pan stops being imaging and becomes address --- drums hopping from one machine to the other, a crowd of dots answering from the far side --- and from the back of an Uber I cut its lyric sheet down to the only sentence it needed: \textit{dash dash, i wanna run real fast, dot dot dot}, no other fanciness.
+
+\section{The Clockwork Kept Books}
+
+The fighting game ate the rest of the month, the way a game does: it went native on an Xbox and on a Mac, took its own front door on the open web, and learned to leave the building --- every hit, shield break, and round bell now exits the program as MIDI, so a DAW can score the fight as it happens. Its replays re-simulate from a seed rather than playing back a tape; a highlight reel is a second performance of the same match. By the thirty-first the front door itself had become a lava climb.
+
+But the part of August I suspect I'll remember is who was doing the publishing. A clockwork proposes a waltz every hour, renders it, posts the reel, and commits a ledger entry saying what it did; the caption on each fighting-game reel is the changelog. Every waltz whistles --- the lane's voice is General MIDI program 79 --- because a rule said so, and at the end of the month the machine went back through its own catalog and deleted fifty-one underperformers, each deletion recorded. Nine hundred and seventy-one commits landed in the repository in August, and a hundred and seventeen of them were the machines writing down what they had posted. The promotion runs while I sleep, and it keeps honest books.
+
+\section{Small Returns}
+
+Quieter things came back. A creature from an old game of mine walks again --- the flower eater, whose meadow became a diorama, whose title screen got color and sound, and whose command prompt moved into the dirt. The whistlegraph archive grew a television station: a zero-chrome channel that plays the performances back to back, a paper scrap of QR code in the corner so a viewer can walk from the broadcast to the record. Alex looked at the archive on update day, and the verdict stuck: the decorative code cloud came down, and the works list went back to one column --- a single ruler you run your eye down. And the menu-bar synthesizer grew its strangest voice yet, where each note is a forty-particle ecosystem crawling a little field, and the field itself is the waveform --- a tone alive as long as a key is held down.
+
+\section{Here Ends the Summer}
+\enlargethispage{5\baselineskip}%
+
+Mid-month I wrote a rider for a September residency, rewrote it until it talked like me and fit on one sheet, and sent it off with two public evenings already booked. So September has a stage in it --- a strange thing to know while it is still August.
+
+I'll close with the honest part. There is a hole in the released record at thirty-one seconds --- nine decibels deep, outside every rest I carved on purpose, and still unexplained. The meters never saw it; the level reads flat the whole way through. I found it by ear, and by ear it is fine, and it shipped. That was August, mostly: a month of siding with my ears against my instruments. The songs are out under both names now, the clockworks are posting on the hour, and the light is leaving earlier every evening. Here ends the summer, approximately.
+
+\colophon{ORCID: \href{https://orcid.org/0009-0007-4460-4913}{0009-0007-4460-4913} \enspace$\cdot$\enspace aesthetic.computer \enspace$\cdot$\enspace Fifth of the monthly essays.}
+
+\end{document}

@@ -130,6 +130,7 @@ function parseTex(raw) {
 
   // Strip vertical-space directives (may carry a length arg like -0.5in).
   body = body.replace(/\\vspace\*?\s*\{[^}]*\}/g, "\n\n");
+  body = body.replace(/\\enlargethispage\s*\{[^}]*\}\s*%?/g, ""); // page tuning, not prose
 
   // Drop footnotes (citations), colophon, and headings entirely — all via
   // balanced-brace removal so nested macros (\ac{}, \url{}) don't fool us.

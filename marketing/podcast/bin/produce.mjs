@@ -163,19 +163,70 @@ function sentences(p) {
   return out;
 }
 
-// 1. Narrate the body, one sentence at a time (each an utterance to place).
+// ── unit prep: fricative-safe trim + voiced-onset measurement ────────────
+// The loner v4 lessons (pop/loner, Aug '26), applied to speech:
+//  · a consonant is dim but BRIGHT — an energy gate high enough to find the
+//    vowel swallows an /s/ whole, so the edge gate sits low (-45 dBFS) and
+//    only LEADING/TRAILING silence is ever cut, never a pause inside a take;
+//  · the vowel lands on the beat and the consonant leans in ahead of it — so
+//    each unit reports its measured VOICED onset (first strong frame), and
+//    the grid aligns that, not the file edge.
+const WIN = 0.01; // s per analysis window
+function rmsWindows(file) {
+  const raw = execFileSync("ffmpeg",
+    ["-v", "error", "-i", file, "-ac", "1", "-ar", "16000", "-f", "s16le", "-"],
+    { maxBuffer: 1 << 26 });
+  const n = Math.floor(raw.length / 2), win = Math.round(16000 * WIN);
+  const out = [];
+  for (let i = 0; i + win <= n; i += win) {
+    let s = 0;
+    for (let j = i; j < i + win; j++) { const v = raw.readInt16LE(j * 2) / 32768; s += v * v; }
+    out.push(Math.sqrt(s / win));
+  }
+  return out;
+}
+const rmsDb = (r) => 20 * Math.log10(Math.max(r, 1e-9));
+function prepUnit(src, dst) {
+  const w = rmsWindows(src);
+  const total = w.length * WIN;
+  let first = -1, last = -1, peak = 0;
+  w.forEach((r, i) => {
+    if (rmsDb(r) > -45) { if (first < 0) first = i; last = i; }
+    if (r > peak) peak = r;
+  });
+  if (first < 0) { toWav(src, dst); return { wav: dst, dur: dur(dst), voicedOnset: 0 }; }
+  const voicedGate = Math.min(-25, rmsDb(peak) - 13);
+  let voiced = first;
+  for (let i = first; i <= last; i++) if (rmsDb(w[i]) >= voicedGate) { voiced = i; break; }
+  const start = Math.max(0, first * WIN - 0.04);         // keep a whisker of air
+  const end = Math.min(total, (last + 1) * WIN + 0.10);  // tail pad past the gate
+  execFileSync("ffmpeg", ["-y", "-i", src,
+    "-af", `atrim=${start.toFixed(3)}:${end.toFixed(3)}`,
+    "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", dst], { stdio: "ignore" });
+  return { wav: dst, dur: dur(dst), voicedOnset: Math.max(0, Math.min(0.4, voiced * WIN - start)) };
+}
+
+// The build dir exists for the whole run: trimmed unit wavs live here.
+const build = resolve(ROOT, "out", "build", script.slug);
+rmSync(build, { recursive: true, force: true });
+mkdirSync(build, { recursive: true });
+
+// 1. Narrate the body, one sentence at a time (each an utterance to place),
+// then trim its edges and measure its voiced onset.
 console.log("Narrating body…");
-const units = []; // { text, mp3, dur, paraEnd }
+const units = []; // { text, wav, dur, voicedOnset, paraEnd }
 for (let pi = 0; pi < script.paragraphs.length; pi++) {
   const ss = sentences(script.paragraphs[pi]);
   for (let si = 0; si < ss.length; si++) {
     const mp3 = await say(ss[si], `¶${pi + 1}.${si + 1}`);
-    units.push({ text: ss[si], mp3, dur: dur(mp3), paraEnd: si === ss.length - 1 });
+    const prepped = prepUnit(mp3, resolve(build, `unit_${pi}_${si}.wav`));
+    units.push({ text: ss[si], ...prepped, paraEnd: si === ss.length - 1 });
   }
 }
 
-// 2. Arrange the body on the beat grid: each sentence onset snaps to a beat
-// (paragraph breaks snap to the bar for a longer rest). Gaps flex; words don't.
+// 2. Arrange the body on the beat grid: each sentence's VOICED onset snaps to
+// a beat (paragraph breaks snap to the bar for a longer rest), with its lead
+// consonant ahead of the line. Gaps flex; words don't.
 // bodyStart is treated as an on-grid origin (0) here; the assembler places the
 // body on a real bar boundary so absolute onsets land on beats.
 const gapsBefore = [0]; // silence before unit i (index 0 = none)
@@ -187,7 +238,9 @@ const gapsBefore = [0]; // silence before unit i (index 0 = none)
     if (BEAT_ALIGN) {
       const grid = prev.paraEnd ? BAR : BEAT;
       const minBreath = prev.paraEnd ? 0.5 : 0.26;
-      g = snapUp(t, grid, minBreath) - t;
+      const vo = units[i].voicedOnset;
+      g = snapUp(t + vo, grid, minBreath) - vo - t;
+      if (g < 0.05) g += grid; // never butt-splice two takes
     } else {
       g = prev.paraEnd ? 0.7 : 0.4;
     }
@@ -197,7 +250,7 @@ const gapsBefore = [0]; // silence before unit i (index 0 = none)
 }
 const bodySec = units.reduce((s, u) => s + u.dur, 0) + gapsBefore.reduce((a, b) => a + b, 0);
 const lengthText = fmtLength(bodySec);
-console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_ALIGN ? ` · beat-aligned @ ${BED_BPM}bpm` : ""} → announcing "${lengthText}".\n`);
+console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_ALIGN ? ` · vowel-on-the-beat @ ${BED_BPM}bpm` : ""} → announcing "${lengthText}".\n`);
 
 // 3. Intro + outro voice-over (liturgical framing), with the measured length.
 const introText = `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
@@ -211,10 +264,6 @@ const { intro: introJingle, outro: outroJingle } = renderJingles(resolve(ROOT, "
 
 // 5. Assemble.
 console.log("\nAssembling…");
-const build = resolve(ROOT, "out", "build", script.slug);
-rmSync(build, { recursive: true, force: true });
-mkdirSync(build, { recursive: true });
-
 const seq = [];
 let n = 0;
 let clock = 0; // absolute seconds, so we can land the body on the bed's grid
@@ -236,14 +285,18 @@ const gap = (s) => { if (s <= 0) return; const d = resolve(build, `seg_${String(
 add(introJingle);
 gap(0.35);
 add(introVo);
-// Push the body to the next bar boundary so every sentence onset lands on a beat.
-gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.6) : clock + 0.8) - clock);
+// Push the body to the next bar boundary so the first VOICED onset lands on
+// the downbeat (its lead consonant just ahead of it), and every later
+// sentence onset lands on a beat.
+gap((BEAT_ALIGN
+  ? snapUp(clock + units[0].voicedOnset, BAR, 0.6) - units[0].voicedOnset
+  : clock + 0.8) - clock);
 // Capture each sentence's absolute [start,end] as it lands → drives subtitles.
 const cues = [];
 for (let i = 0; i < units.length; i++) {
   gap(gapsBefore[i]); // gapsBefore[0] = 0
   const startSec = clock;
-  add(units[i].mp3);
+  add(units[i].wav);
   cues.push({ start: startSec, end: clock, text: units[i].text });
 }
 gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
@@ -335,8 +388,10 @@ if (flags.nobed) {
   ], { stdio: "ignore" });
 }
 
-// 5c. Master — the same chain every episode (2-pass loudnorm → -16 LUFS +
-// true-peak limit). --nomaster to skip (just encode the pre-master).
+// 5c. Master — the same chain every episode: the episode substrate + the
+// voice-tuned wax/FM material stage, then the /pop house law (measure → one
+// static dB → true-peak limit). --nomaster to skip (just encode the
+// pre-master).
 const substrate = flags.substrate || EPISODE_SUBSTRATE[script.slug] || DEFAULT_SUBSTRATE;
 if (flags.nomaster) {
   execFileSync("ffmpeg", ["-y", "-i", premaster, "-c:a", "libmp3lame", "-b:a", "256k", audioTmp], { stdio: "ignore" });

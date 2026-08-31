@@ -48,6 +48,7 @@ export const EPISODE_SUBSTRATE = {
   "may-26": "tape",
   "june-26": "night",
   "july-10-26": "radio",
+  "august-26": "clean",   // the wax/FM material stage carries the character
   "console-browser": "radio",
   "physical-mail": "tape",
   "the-machine-that-came-back": "radio",
