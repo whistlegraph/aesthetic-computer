@@ -401,14 +401,18 @@ function drawLetterRibbon(t) {
   const spacing = positive(spec.spacingPx, 154);
   let currentIndex = displayNotes.findLastIndex((note) => note.t <= t);
   currentIndex = Math.max(0, currentIndex);
+  const current = displayNotes[currentIndex];
+  const currentEnd = current.t + positive(current.dur, 0.2);
   let playheadIndex = currentIndex;
   const next = displayNotes[currentIndex + 1];
-  if (next) {
-    const moveDuration = Math.min(0.2, Math.max(0.08, (next.t - displayNotes[currentIndex].t) * 0.45));
-    const moveStart = next.t - moveDuration;
-    const progress = clamp01((t - moveStart) / moveDuration);
+  // The played character stays exactly centered for its complete sounding
+  // interval. Any horizontal travel happens only in the silent gap before
+  // the next onset, so the row can never visually anticipate the audio.
+  if (next && next.t > currentEnd) {
+    const progress = clamp01((t - currentEnd) / (next.t - currentEnd));
     playheadIndex += progress * progress * (3 - 2 * progress);
   }
+  const soundingIndex = t < currentEnd ? currentIndex : -1;
   const visibleSlots = Math.ceil(W / (2 * spacing)) + 2;
 
   ctx.save();
@@ -421,7 +425,7 @@ function drawLetterRibbon(t) {
     if (!label) continue;
     const slot = index - playheadIndex;
     const x = W / 2 + slot * spacing;
-    const atPlayhead = Math.abs(slot) < 0.04;
+    const atPlayhead = index === soundingIndex;
     const edgeFade = clamp01((W / 2 - Math.abs(x - W / 2)) / (W * 0.22));
     const scale = atPlayhead ? 1.2 : 1;
     ctx.save();
@@ -438,6 +442,43 @@ function drawLetterRibbon(t) {
     ctx.fillText(label, 0, 0);
     ctx.restore();
   }
+  ctx.restore();
+}
+
+// Whole-piece orientation without prose: a seven-lane miniature piano roll.
+// Notes retain their absolute score positions, the completed region brightens,
+// and the hairline playhead is the same `t` used by the audio and keyboard.
+function drawMelodyMinimap(t) {
+  if (entry.visual.minimap === false) return;
+  const spec = objectOrEmpty(entry.visual.minimap);
+  if (spec.enabled === false) return;
+  const width = W * bounded(spec.width ?? 0.82, 0.5, 0.94);
+  const height = positive(spec.heightPx, 64);
+  const x0 = (W - width) / 2;
+  const y0 = H * bounded(spec.centerY ?? 0.88, 0.76, 0.95) - height / 2;
+  const laneHeight = height / SINGLE_OCTAVE_MIDIS.length;
+  const now = clamp01(t / duration);
+
+  ctx.save();
+  ctx.fillStyle = "rgba(255,255,255,0.07)";
+  ctx.fillRect(x0, y0 - 8, width, 2);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fillRect(x0, y0 - 8, width * now, 2);
+  for (const note of displayNotes) {
+    const pitch = SINGLE_OCTAVE_MIDIS.indexOf(note.visualMidi);
+    if (pitch < 0) continue;
+    const x = x0 + (note.t / duration) * width;
+    const noteWidth = Math.max(2, positive(note.dur, 0.1) / duration * width);
+    const y = y0 + (SINGLE_OCTAVE_MIDIS.length - 1 - pitch) * laneHeight + 1;
+    const color = stripKeyColor(rig, note.visualMidi);
+    const complete = note.t + positive(note.dur, 0.1) <= t;
+    const sounding = t >= note.t && t < note.t + positive(note.dur, 0.1);
+    ctx.fillStyle = rgb(color, sounding ? 1 : complete ? 0.78 : 0.20);
+    ctx.fillRect(x, y, noteWidth, Math.max(2, laneHeight - 2));
+  }
+  const playheadX = x0 + width * now;
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.fillRect(playheadX - 1, y0 - 4, 2, height + 8);
   ctx.restore();
 }
 
@@ -1036,6 +1077,7 @@ function drawFrame(t) {
   // sure they cross the bottom naturally before the empty final frame.
   if (!letterRibbon) particles.stepAndDraw(1 / FPS, 1 + pose.exitEase * 10);
   ctx.restore();
+  drawMelodyMinimap(t);
   drawCurtain(pose);
 }
 

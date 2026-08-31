@@ -95,7 +95,7 @@ const MODES = [
 // their melodies.
 const INSTRUMENTS = [[0, "Acoustic Grand Piano"]];
 const CONCERT_VISUAL = {
-  monochrome: true,
+  monochrome: false,
   keyIntakes: false,
   keyLadder: true,
   palette: {
