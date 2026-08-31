@@ -11,6 +11,21 @@ glue, 40 Hz–15 kHz ceiling; no wow on speech), then MEASURE → **one static
 dB** → true-peak limiter (0.82 ≈ −1.7 dBTP) at **−14 LUFS**. Never a second
 loudnorm.
 
+## The dailies (bin/daily.mjs)
+
+Alongside the longform readings, **"the daily"** — an automated ~2-minute
+episode: gather the last day of commit subjects (filtered, deduped, and
+REDACTED — client/confidential lanes never reach the model), write a
+~300-word script via `claude -p` in the storytelling register, produce with
+`--bedstyle club --frame daily` (116 BPM four-on-the-floor bed), publish via
+Buzzsprout. `daily-YYYY-MM-DD` slugs are pattern-cleared in `lib/hosted.mjs`;
+the content guard is daily.mjs's redaction filter + prompt rules + word-count
+and leak checks (it refuses to produce on any violation). One episode per day
+(Buzzsprout receipt = done). Clockwork: launchd
+`computer.aesthetic.podcast-daily` on neo, 8:00 PM daily, log at
+`~/Library/Logs/ac-podcast-daily.log`. `--stage` publishes private for
+review; `--dry` writes the script only.
+
 ## The shape of an episode
 
 ```

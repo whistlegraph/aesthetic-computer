@@ -17,8 +17,10 @@ import { fileURLToPath } from "node:url";
 const SR = 44100;
 
 // Tempo of the bed — exported so produce.mjs can quantize speech onsets to
-// the same grid (beat-align).
+// the same grid (beat-align). Each style has its own clock; BED_BPM stays the
+// lofi/sosoft default.
 export const BED_BPM = 72;
+export const BED_STYLE_BPM = { lofi: 72, sosoft: 72, club: 116 };
 
 // ── tiny WAV (PCM16 stereo) encoder ────────────────────────────────────
 function encodeWav(left, right) {
@@ -262,6 +264,92 @@ export function renderBed(durationSec, outPath, opts = {}) {
   for (let t = 0.5; t < dur; t += beat * (rnd() < 0.5 ? 2 : 3)) {
     mi = Math.max(0, Math.min(penta.length - 1, mi + (rnd() < 0.5 ? -1 : 1) * (rnd() < 0.3 ? 2 : 1)));
     addBell(L, R, penta[mi] * tr, t, 3.4, 0.24, rnd() * 0.6 - 0.3, 0.4); // bright=0.4 → warm
+  }
+
+  normalize(L, R, 0.72);
+  writeFileSync(outPath, encodeWav(L, R));
+  return outPath;
+}
+
+// ── the club bed: a darker, driving underscore for the dailies ─────────
+// Four-on-the-floor kick, offbeat hats + chord stabs, an eighth-note sub
+// bass walking the roots, sparse dark bells — A-minor, 116 BPM. The loner
+// rest law applies: the decorative layers sit out the last half-bar of every
+// eighth bar; kick and bass never stop. Deterministic (same LCG).
+export function renderClubBed(durationSec, outPath, opts = {}) {
+  const dur = Math.max(4, durationSec);
+  const L = new Float32Array(Math.ceil(dur * SR));
+  const R = new Float32Array(L.length);
+  const rnd = lcg(0xC1B5EA7);
+  const bpm = opts.bpm || BED_STYLE_BPM.club;
+  const beat = 60 / bpm, half = beat / 2, bar = beat * 4;
+  const tr = 2 ** ((opts.semitones || 0) / 12);
+
+  // Am · F · C · G — two bars each (the relative-minor walk of the lofi bed).
+  const prog = [
+    [110.00, 130.81, 164.81], // Am (A2 C3 E3)
+    [ 87.31, 110.00, 130.81], // F  (F2 A2 C3)
+    [130.81, 164.81, 196.00], // C  (C3 E3 G3)
+    [ 98.00, 123.47, 146.83], // G  (G2 B2 D3)
+  ];
+  const chordAt = (t) => prog[Math.floor(t / (bar * 2)) % prog.length];
+  // Decorative layers rest for the last half-bar of every 8th bar.
+  const resting = (t) => {
+    const inPhrase = t % (bar * 8);
+    return inPhrase > bar * 8 - half;
+  };
+
+  // A short sine stab (chord tones on the offbeats) and a sub-bass eighth.
+  const stab = (f, at, gain, pan) => {
+    const start = Math.floor(at * SR), n = Math.floor(0.32 * SR);
+    const gl = gain * (1 - Math.max(0, pan)), gr = gain * (1 + Math.min(0, pan));
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      const env = Math.exp(-t * 11) * (1 - Math.exp(-t * 300));
+      const s = (Math.sin(2 * Math.PI * f * t) + 0.22 * Math.sin(2 * Math.PI * f * 2 * t)) * env;
+      const idx = start + i;
+      if (idx < L.length) { L[idx] += s * gl * 0.5; R[idx] += s * gr * 0.5; }
+    }
+  };
+  const sub = (f, at, gain, len = 0.24) => {
+    const start = Math.floor(at * SR), n = Math.floor(len * SR);
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      const env = Math.min(1, t * 200) * Math.exp(-t * 7);
+      const s = Math.sin(2 * Math.PI * f * t) * env * gain;
+      const idx = start + i;
+      if (idx < L.length) { L[idx] += s; R[idx] += s; }
+    }
+  };
+
+  for (let t = 0, b = 0; t < dur; t += beat, b++) {
+    const [root, third, fifth] = chordAt(t);
+    const rest = resting(t);
+    // Kick — four on the floor, never gated.
+    addKick(L, R, t, 0.5, { f0: 92, f1: 38, pdrop: 20, adec: 6.5, len: 0.4 });
+    // Sub bass — eighths on the root, octave lift on the back half. Never gated.
+    sub(root / 2 * tr, t, 0.34);
+    sub((b % 4 >= 2 ? root : root / 2) * tr, t + half, 0.26, 0.2);
+    if (!rest) {
+      // Offbeat chord stab (the house exhale) + hat.
+      stab(third * 2 * tr, t + half, 0.16, b % 2 ? 0.3 : -0.3);
+      stab(fifth * 2 * tr, t + half, 0.11, b % 2 ? -0.2 : 0.2);
+      addNoise(L, R, t + half, 0.11, rnd, { dur: 0.07, dec: 55, hp: 1 });
+      // Quiet 16th ticks for drive.
+      addNoise(L, R, t + beat * 0.25, 0.035, rnd, { dur: 0.03, dec: 130 });
+      addNoise(L, R, t + beat * 0.75, 0.045, rnd, { dur: 0.03, dec: 130 });
+      // Clap on 2 and 4.
+      if (b % 4 === 1 || b % 4 === 3) addNoise(L, R, t, 0.12, rnd, { dur: 0.13, dec: 30, hp: 0.5 });
+    }
+  }
+
+  // Sparse dark bells — A-minor pentatonic, low shimmer, wide and quiet.
+  const penta = [220.0, 261.63, 293.66, 329.63, 392.0, 440.0];
+  let mi = 1;
+  for (let t = bar; t < dur; t += beat * (2 + Math.floor(rnd() * 4))) {
+    if (resting(t)) continue;
+    mi = Math.max(0, Math.min(penta.length - 1, mi + (rnd() < 0.5 ? -1 : 1) * (rnd() < 0.3 ? 2 : 1)));
+    addBell(L, R, penta[mi] * tr, t, 2.6, 0.13, rnd() * 0.7 - 0.35, 0.25);
   }
 
   normalize(L, R, 0.72);

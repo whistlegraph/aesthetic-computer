@@ -24,5 +24,12 @@ export const HOSTED = {
   "the-machine-that-came-back": "the-machine-that-came-back-field-note",
 };
 
+// The dailies (bin/daily.mjs) are cleared as a PATTERN, not per-episode —
+// automation can't wait for a hand-edit here every morning. Their content
+// guard lives upstream: daily.mjs filters/redacts the commit material before
+// any script is written, and the script prompt forbids client/confidential
+// work. Longform readings stay per-episode above.
+const DAILY = /^daily-\d{4}-\d{2}-\d{2}$/;
+
 // slug → hosted basename, or null if the slug is not cleared to publish.
-export const hosted = (slug) => HOSTED[slug] || null;
+export const hosted = (slug) => HOSTED[slug] || (DAILY.test(slug) ? slug : null);

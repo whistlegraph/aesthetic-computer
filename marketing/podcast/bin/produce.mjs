@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { essayToScript } from "./essay-to-script.mjs";
-import { renderJingles, renderBed, renderSineBed, BED_BPM } from "./jingle.mjs";
+import { renderJingles, renderBed, renderSineBed, renderClubBed, BED_BPM, BED_STYLE_BPM } from "./jingle.mjs";
 import { renderCover } from "./cover.mjs";
 import { master } from "./master.mjs";
 import { verifySpeech } from "./verify-speech.mjs";
@@ -145,8 +145,9 @@ const episodeBedStyle = {
 const bedStyle = String(flags.bedstyle || episodeBedStyle[script.slug] || "lofi");
 console.log(`\n▸ ${script.title} — ${script.paragraphs.length} paragraphs · ${script.wordCount} words · voice ${VOICE.provider}/${VOICE.voice}\n`);
 
-// ── beat grid (shared with the bed) ────────────────────────────────────
-const BEAT = 60 / BED_BPM;      // seconds per beat
+// ── beat grid (shared with the bed — each style has its own clock) ─────
+const GRID_BPM = BED_STYLE_BPM[bedStyle] || BED_BPM;
+const BEAT = 60 / GRID_BPM;     // seconds per beat
 const BAR = BEAT * 4;
 const BEAT_ALIGN = !flags.nobeatalign && !flags.nobed;
 // Snap a time up to the next grid line, after a minimum advance.
@@ -250,11 +251,17 @@ const gapsBefore = [0]; // silence before unit i (index 0 = none)
 }
 const bodySec = units.reduce((s, u) => s + u.dur, 0) + gapsBefore.reduce((a, b) => a + b, 0);
 const lengthText = fmtLength(bodySec);
-console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_ALIGN ? ` · vowel-on-the-beat @ ${BED_BPM}bpm` : ""} → announcing "${lengthText}".\n`);
+console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_ALIGN ? ` · vowel-on-the-beat @ ${GRID_BPM}bpm` : ""} → announcing "${lengthText}".\n`);
 
-// 3. Intro + outro voice-over (liturgical framing), with the measured length.
-const introText = `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
-const outroText = `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
+// 3. Intro + outro voice-over, with the measured length. Two frames:
+// "reading" (the liturgical essay framing) and "daily" (the short-update show).
+const FRAME = flags.frame || "reading";
+const introText = FRAME === "daily"
+  ? `The daily, from Aesthetic Dot Computer. ${script.title}. Approximately ${lengthText}.`
+  : `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
+const outroText = FRAME === "daily"
+  ? `That's today. Letters to mail at aesthetic dot computer.`
+  : `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
 console.log("Narrating frame…");
 const introVo = await say(introText, "intro");
 const outroVo = await say(outroText, "outro");
@@ -361,23 +368,31 @@ if (flags.nobed) {
 } else {
   const kit = flags.kit || "felt";
   console.log(`Scoring bed… (${bedStyle}${bedStyle === "lofi" ? ` · kit: ${kit}` : ""})`);
-  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain) : (bedStyle === "sosoft" ? 0.34 : 0.42);
+  const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain)
+    : (bedStyle === "sosoft" ? 0.34 : bedStyle === "club" ? 0.5 : 0.42);
   const bedWav = resolve(build, "bed.wav");
   if (bedStyle === "sosoft") {
     renderSineBed(dur(voiceWav) + 1.0, bedWav, { melody: true, melodyRestBars: 2 });
   } else if (bedStyle === "lofi") {
     renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
+  } else if (bedStyle === "club") {
+    renderClubBed(dur(voiceWav) + 1.0, bedWav, {});
   } else {
-    throw new Error(`Unknown --bedstyle ${bedStyle}; use sosoft or lofi.`);
+    throw new Error(`Unknown --bedstyle ${bedStyle}; use sosoft, lofi, or club.`);
   }
   // The voice is already voice-mastered. The Social Software bed keeps the
-  // reel's clear sine tone; the default lo-fi bed retains its slow phaser.
+  // reel's clear sine tone; the default lo-fi bed retains its slow phaser;
+  // the club bed stays dry (its sub carries it) with a harder, pumpier duck.
   const bedfx = bedStyle === "sosoft"
     ? `volume=${bedGain},highpass=f=55,lowpass=f=9000`
-    : `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
+    : bedStyle === "club"
+      ? `volume=${bedGain},highpass=f=30,lowpass=f=12500`
+      : `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
   const duck = bedStyle === "sosoft"
     ? "threshold=0.035:ratio=9:attack=10:release=520"
-    : "threshold=0.02:ratio=6:attack=6:release=380";
+    : bedStyle === "club"
+      ? "threshold=0.03:ratio=8:attack=8:release=230"
+      : "threshold=0.02:ratio=6:attack=6:release=380";
   execFileSync("ffmpeg", [
     "-y", "-i", voiceWav, "-i", bedWav,
     "-filter_complex",
