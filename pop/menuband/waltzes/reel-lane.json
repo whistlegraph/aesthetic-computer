@@ -6671,6 +6671,84 @@
           "#6b2e30"
         ]
       }
+    },
+    {
+      "id": "90-thimble",
+      "name": "Thimble",
+      "seed": 90817,
+      "bpm": 90,
+      "bars": 30,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          2,
+          4,
+          5,
+          3
+        ],
+        [
+          2,
+          1,
+          2
+        ],
+        [
+          3,
+          4,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          3,
+          1,
+          0
+        ],
+        [
+          1,
+          2,
+          4,
+          5
+        ],
+        [
+          6,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3eb",
+          "#87c597",
+          "#2e6b3e"
+        ]
+      }
     }
   ]
 }
