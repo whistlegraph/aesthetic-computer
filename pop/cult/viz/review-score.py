@@ -45,8 +45,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 sr = 8000
-W, H, FPS = 1920, 1080, 30
-PPS = 260                       # timeline pixels per second (520 px / bar)
+W, H, FPS = 2560, 1920, 30      # tall 2.5K critique master
+PPS = 200                       # wider temporal view: 400 px / bar
 
 RADIO = "--radio" in sys.argv
 LIGHT = "--light" in sys.argv
@@ -234,6 +234,41 @@ INSTR.sort(key=lambda e: e["t0"])
 print(f"{len(INSTR)} instrument events (violin / guitars / boings / accordion / watery-hole)",
       flush=True)
 
+def receipt_note(dst, e, word, midi, dur=None):
+    length = float(dur if dur is not None else e.get("dur", 0.3)) or 0.3
+    span = ship_span(e["t"], length)
+    if span is None or span[1] < -0.3:
+        return
+    t0, t1 = span
+    dst.append({"t0": max(0.0, t0), "t1": max(0.0, t1), "word": word,
+                "who": None, "midi": midi, "voice": "score", "prio": 0})
+
+# Dense critique lanes from the receipt: every synthesized harmony/bass note,
+# every drum trigger, and every phone/signal gesture remains independently
+# inspectable instead of disappearing into a bus waveform.
+HARMONY, BASS_NOTES, RHYTHM, SIGNAL_NOTES = [], [], [], []
+RHYTHM_MIDI = {"kick": 38, "revkick": 40, "perc": 52, "hat": 58,
+               "skid": 48, "sweep": 55}
+SIGNAL_MIDI = {"click": 72, "tap": 68, "beep": 76, "bop": 64,
+               "phone": 60}
+for e in EVENTS:
+    voice = e.get("voice", "")
+    if voice in ("pad", "stab"):
+        for midi in e.get("midis", []):
+            receipt_note(HARMONY, e, voice, midi)
+    elif voice in ("bass", "wub") and e.get("midi") is not None:
+        receipt_note(BASS_NOTES, e, voice, e["midi"])
+    elif voice in RHYTHM_MIDI:
+        receipt_note(RHYTHM, e, voice, RHYTHM_MIDI[voice], max(0.10, e.get("dur", 0.1)))
+    elif e.get("bus") == "sig":
+        label = e.get("digit") or voice
+        receipt_note(SIGNAL_NOTES, e, label, SIGNAL_MIDI.get(voice, 62),
+                     max(0.10, e.get("dur", 0.1)))
+for lane in (HARMONY, BASS_NOTES, RHYTHM, SIGNAL_NOTES):
+    lane.sort(key=lambda e: e["t0"])
+print(f"dense receipt: {len(HARMONY)} harmony · {len(BASS_NOTES)} bass · "
+      f"{len(RHYTHM)} drum · {len(SIGNAL_NOTES)} signal notes", flush=True)
+
 # ---------------------------------------------------------------- lanes
 # Two SCORE lanes drawn from the receipt (pitch-placed word blocks), then
 # audio lanes from the true bus stems (music/drums band-split, labelled).
@@ -400,10 +435,17 @@ ALANES = [   # (label, signal, color, clip-gate threshold)
 ]
 LANE_THRESH = {nm: th for (nm, _s, _c, th) in ALANES}
 LANE_DEFS = [
-    ("words", "ev", EV_WORDS, (110, 220, 205), 96),
-    ("dashes", "ev", EV_DASH, (255, 170, 120), 78),
-    ("instr", "ev", INSTR, (235, 130, 155), 52),
-] + [(nm, "au", sig, col, 58) for (nm, sig, col, _th) in ALANES]
+    ("vocal notes", "ev", EV_WORDS, (110, 220, 205), 130),
+    ("dash voices", "ev", EV_DASH, (255, 170, 120), 90),
+    ("harmony", "ev", HARMONY, (130, 180, 245), 100),
+    ("bass notes", "ev", BASS_NOTES, (195, 115, 235), 80),
+    ("violin", "ev", [e for e in INSTR if e["word"] == "violin"], (235, 150, 115), 70),
+    ("guitars", "ev", [e for e in INSTR if e["word"] in ("guitar", "guitar wide", "chug")], (235, 105, 145), 100),
+    ("accordion", "ev", [e for e in INSTR if e["word"] == "accordion"], (245, 180, 95), 90),
+    ("objects", "ev", [e for e in INSTR if e["word"] in ("boing", "watery-hole")], (190, 145, 220), 70),
+    ("drum hits", "ev", RHYTHM, (240, 125, 65), 85),
+    ("phone+signal", "ev", SIGNAL_NOTES, (255, 215, 90), 75),
+] + [(nm, "au", sig, col, 70) for (nm, sig, col, _th) in ALANES]
 NLANE = len(LANE_DEFS)
 
 # ---------------------------------------------------------------- clip gate
@@ -539,13 +581,13 @@ def mm_fill(col):               # minimap act cells
     return tuple(int(v * 0.45 + 140) for v in col) if LIGHT else dim(col, 0.40)
 
 # ---------------------------------------------------------------- layout
-GUT = 165                       # fixed left gutter
+GUT = 205                       # fixed left gutter
 SCROLL_W = W - GUT
 PLAY_X = GUT + SCROLL_W // 2    # fixed playhead
-LANE_GAP = 6
-LBL_BAND = 22                   # act-name band at top of the strip
-RULER_H = 30
-STRIP_TOP = 100
+LANE_GAP = 5
+LBL_BAND = 26                   # act-name band at top of the strip
+RULER_H = 34
+STRIP_TOP = 110
 LANES_TOP = STRIP_TOP + LBL_BAND
 lane_y, y = [], 0
 for (_n, _k, _d, _c, hh) in LANE_DEFS:
@@ -573,7 +615,9 @@ ACTS = [
 ]
 ACT_END = [a[0] for a in ACTS[1:]] + [DUR]
 MARKS = [(0.05, "watery-hole"),
-         (ship_time(29 * BAR), "bar 29: the sentence lands")]
+         (ship_time(29 * BAR), "bar 29: sentence / elastic snap")]
+MARKS += [(e["t"], f"elastic/{e.get('kind', 'impact')}") for e in EXPLOSIONS
+          if e.get("kind") != "snap"]
 
 f_title = ImageFont.truetype(FONT_B, 48)
 f_lbl   = ImageFont.truetype(FONT_B, 24)
@@ -633,7 +677,7 @@ for t, label in MARKS:
 strip_base_np = np.array(strip)
 
 # score lanes: pitch-placed word blocks from the receipt
-MIDI_LO, MIDI_HI = 43, 69
+MIDI_LO, MIDI_HI = 35, 84
 ev_rects = []                   # (lane idx, t0, t1, y0, y1, col) for lighting
 for li, (name, kind, data, col, hh) in enumerate(LANE_DEFS):
     if kind != "ev":
@@ -688,6 +732,14 @@ for li, (name, kind, sig, col, hh) in enumerate(LANE_DEFS):
                     sd.line([x, mid - hgt, x, mid + hgt], fill=wave)
     print(f"  lane {name}", flush=True)
 
+lane_bodies = []
+for li, (_name, kind, data, _col, _hh) in enumerate(LANE_DEFS):
+    if kind == "ev":
+        lane_bodies.append(sorted((e["t0"], max(e["t1"], e["t0"] + 0.12))
+                                  for e in data))
+    else:
+        lane_bodies.append(lane_clips[li])
+
 strip_np = np.array(strip)
 del strip, sd
 
@@ -700,7 +752,7 @@ chrome = Image.new("RGB", (W, H), BG)
 cd = ImageDraw.Draw(chrome)
 cd.text((40, 18), TITLE, font=f_title, fill=INK)
 
-MM_X0, MM_X1, MM_Y0, MM_Y1 = 40, 1880, 62, 88
+MM_X0, MM_X1, MM_Y0, MM_Y1 = 40, W - 40, 62, 88
 for i, (t0, name, col) in enumerate(ACTS):
     if t0 >= DUR:               # probe clips shorter than the record
         continue
@@ -721,7 +773,7 @@ cd.text((40, H - 34), "score receipt: cult-remix-v10.events.json / lanes from pe
         font=f_tiny, fill=FOOT)
 
 # act ruler card, bottom-right (the loner whistlegraph corner's replacement)
-CARD_W, CARD_H = 470, 322
+CARD_W, CARD_H = 560, 322
 CX, CY = W - 30 - CARD_W, H - 44 - CARD_H
 ROW_H = 34
 cd.rounded_rectangle([CX, CY, CX + CARD_W, CY + CARD_H], radius=10,
@@ -769,14 +821,14 @@ def karaoke_fill(dd, x, y, disp, font, col, p, k=1.0):
 # and unattributed/source words own fixed vertical rails, so three people
 # saying "dot" are three instances—not one stretched "dooooot" or three
 # offset drawings fighting for the same row.
-NOW_X = 350
-SCR_X0, SCR_X1 = 190, 1404      # labels own the left; act card owns the right
+NOW_X = 460
+SCR_X0, SCR_X1 = 220, CX - 16   # labels own the left; act card owns the right
 SCR_Y0, SCR_Y1 = STRIP_BOT + 8, H - 42
 SCR_RAILS = ("camille", "alex", "jeffrey", None)
 SCR_LABEL = {"camille": "CAMILLE", "alex": "ALEX",
              "jeffrey": "JEFFREY", None: "WORDS"}
 SCR_BAND_H = (SCR_Y1 - SCR_Y0) / len(SCR_RAILS)
-LPPS = 150.0
+LPPS = 190.0
 SCR_LOOK = (SCR_X1 - NOW_X) / LPPS      # ≈ 7.0 s of upcoming lyric
 SCR_FADE = 0.65                         # release promptly after the sung tail
 
@@ -897,10 +949,12 @@ def draw_scroller(img, dd, t):
                 td.rectangle([tx, uy, tx + max(2, lw), uy + 3], fill=base)
             img.paste(tile, (x0, y0))
 
-# The same damped-spring receipt that spatializes the stems drives the DAW
-# lanes. They separate as bodies, cross home, overshoot, and settle; during
-# the impact, thin horizontal shards disagree briefly about displacement.
-LANE_FORCE = (-0.42, 0.96, -0.86, -0.86, -0.86, 0.70, 0.70, -0.98)
+# The same damped-spring receipt that spatializes the stems drives every DAW
+# block. Duration and a stable per-block seed become mass and direction:
+# short hits snap farther/faster; long clips carry more inertia and settle
+# slowly. The measure grid remains fixed behind all of them.
+FORCE_PATTERN = (-0.42, 0.96, -0.68, 0.74, -0.88, 0.62, -0.76, 0.84)
+LANE_FORCE = tuple(FORCE_PATTERN[i % len(FORCE_PATTERN)] for i in range(NLANE))
 def ease(u):
     u = max(0.0, min(1.0, u))
     return u * u * (3 - 2 * u)
@@ -919,6 +973,29 @@ def elastic_state(t):
                            * ease(age / 0.022) * tail)
     return spring, fracture
 
+def block_elastic_state(t, li, t0, t1):
+    seed = (int(round(t0 * 1000)) * 2654435761 + li * 2246822519) & 0xffffffff
+    jitter = ((seed >> 8) & 1023) / 1023.0
+    duration = max(0.08, t1 - t0)
+    mass = 0.58 + min(1.65, math.sqrt(duration) * 0.38) + jitter * 0.24
+    direction = LANE_FORCE[li] * (0.72 + jitter * 0.56)
+    if seed % 7 == 0:
+        direction *= -0.58
+    displacement = 0.0
+    fracture = 0.0
+    for ex in EXPLOSIONS:
+        age = t - ex["t"]
+        dur = ex.get("dur", 4.0)
+        if 0 <= age <= dur:
+            tail = ease((dur - age) / 0.48)
+            hz = ex.get("springHz", 1.0) / math.sqrt(mass)
+            damping = ex.get("damping", 0.6) / math.sqrt(mass)
+            displacement += (ex.get("strength", 1.0) / mass * math.exp(-damping * age)
+                             * math.sin(2 * math.pi * hz * age) * tail)
+            fracture = max(fracture, ex.get("glitch", 0.5) / mass
+                           * math.exp(-2.7 * age) * ease(age / 0.022) * tail)
+    return int(round(displacement * direction * 128)), fracture
+
 # ---------------------------------------------------------------- frames
 NF = int(DUR * FPS)
 print(f"encoding {NF} frames...", flush=True)
@@ -935,7 +1012,6 @@ for f in range(NF):
     off = int(round(t * PPS))
     frame[STRIP_TOP:STRIP_BOT, GUT:W] = strip_np[:, off:off + SCROLL_W]
     spring, fracture = elastic_state(t)
-    lane_dx = [0] * NLANE
     if abs(spring) > 0.002 or fracture > 0.01:
         for li in range(NLANE):
             y0f = LANES_TOP + lane_y[li]
@@ -946,24 +1022,38 @@ for f in range(NF):
             moving = np.any(src != base, axis=2)
             dst = frame[y0f:y0f + hh, GUT:W]
             dst[:] = base
-            dx = int(round(spring * LANE_FORCE[li] * (72 + li * 5)))
-            lane_dx[li] = dx
-            bands = 5 if fracture > 0.035 else 1
-            for band in range(bands):
-                ya = band * hh // bands
-                yb = (band + 1) * hh // bands
-                shard = int(round(fracture * (10 + li * 1.8) * (-1 if band & 1 else 1)))
-                ddx = dx + shard
-                if ddx >= 0:
-                    if ddx < SCROLL_W:
-                        s = src[ya:yb, :SCROLL_W - ddx]
-                        m = moving[ya:yb, :SCROLL_W - ddx]
-                        d = dst[ya:yb, ddx:]
-                        d[m] = s[m]
-                elif -ddx < SCROLL_W:
-                    s = src[ya:yb, -ddx:]
-                    m = moving[ya:yb, -ddx:]
-                    d = dst[ya:yb, :SCROLL_W + ddx]
+            for body_t0, body_t1 in lane_bodies[li]:
+                sa = sx(body_t0) - off
+                sb = sx(body_t1) - off + 92   # carry the block's label
+                if sb < 0:
+                    continue
+                if sa >= SCROLL_W:
+                    break
+                sa, sb = max(0, sa), min(SCROLL_W, sb)
+                if sb <= sa:
+                    continue
+                dx, body_fracture = block_elastic_state(t, li, body_t0, body_t1)
+                bands = 5 if body_fracture > 0.035 else 1
+                for band in range(bands):
+                    ya = band * hh // bands
+                    yb = (band + 1) * hh // bands
+                    shard = int(round(body_fracture * (11 + li * 0.9)
+                                      * (-1 if band & 1 else 1)))
+                    ddx = dx + shard
+                    src_a, src_b = sa, sb
+                    dst_a = src_a + ddx
+                    if dst_a < 0:
+                        src_a -= dst_a
+                        dst_a = 0
+                    dst_b = dst_a + (src_b - src_a)
+                    if dst_b > SCROLL_W:
+                        src_b -= dst_b - SCROLL_W
+                        dst_b = SCROLL_W
+                    if src_b <= src_a or dst_b <= dst_a:
+                        continue
+                    s = src[ya:yb, src_a:src_b]
+                    m = moving[ya:yb, src_a:src_b]
+                    d = dst[ya:yb, dst_a:dst_b]
                     d[m] = s[m]
     # active audio clips light up while they play
     active_rects = []
@@ -972,8 +1062,9 @@ for f in range(NF):
             continue
         for (t0, t1) in lane_clips[li]:
             if t0 <= t < t1:
-                xa = max(GUT, GUT + sx(t0) - off + lane_dx[li])
-                xb = min(W, GUT + sx(t1) - off + lane_dx[li])
+                dx, _ = block_elastic_state(t, li, t0, t1)
+                xa = max(GUT, GUT + sx(t0) - off + dx)
+                xb = min(W, GUT + sx(t1) - off + dx)
                 if xb > xa:
                     y0f = LANES_TOP + lane_y[li]
                     hh = LANE_DEFS[li][4]
@@ -998,8 +1089,9 @@ for f in range(NF):
     # active word blocks light up in the score lanes
     for (li, t0, t1, yb0, yb1, col) in ev_rects:
         if t0 <= t < max(t1, t0 + 0.2):
-            xa = max(GUT, GUT + sx(t0) - off + lane_dx[li])
-            xb = min(W, GUT + sx(max(t1, t0 + 0.12)) - off + lane_dx[li])
+            dx, _ = block_elastic_state(t, li, t0, max(t1, t0 + 0.12))
+            xa = max(GUT, GUT + sx(t0) - off + dx)
+            xb = min(W, GUT + sx(max(t1, t0 + 0.12)) - off + dx)
             if xb > xa:
                 dd.rectangle([xa, STRIP_TOP + yb0, xb, STRIP_TOP + yb1],
                              outline=ink_of(col), width=2)
