@@ -33,10 +33,9 @@
 #     words/phrases approach a fixed now-line from the right, light up in
 #     their singer's color while sung, then fade and sink away leftward.
 #   · MULTI-VOICE KARAOKE — overlapping word events with different `who`
-#     performers draw as a STACK of name-colored rows (camille / alex /
-#     jeffrey top-to-bottom by register), so the dashStack's
-#     three-people-one-pitch-28-ms-apart signature is visible, not
-#     collapsed into one word.
+#     performers draw in separate, name-colored bands (camille / alex /
+#     jeffrey / source words). Each band gains collision-free subtracks as
+#     needed, so simultaneous parts stay distinct without clipping phonics.
 #   · VOWEL STRETCHING + PHONICS FILL — held words elongate their stressed
 #     vowel to match the sung duration ("daaaaaaaash", "ruuuuun reeeaaal
 #     faaaast") in both the scroller and the stack, and the letters light
@@ -583,24 +582,6 @@ f_mark  = ImageFont.truetype(FONT_R, 20)
 f_bar   = ImageFont.truetype(FONT_R, 20)
 f_act   = ImageFont.truetype(FONT_B, 25)
 f_tc    = ImageFont.truetype(FONT_B, 56)
-f_who   = ImageFont.truetype(FONT_B, 36)
-# multi-voice stack: the row font shrinks as more voices sing at once;
-# F_SIZES is also the step-down ladder for rows whose STRETCHED word
-# (daaaaaaaash) would otherwise run under the act card
-F_SIZES = [88, 64, 52, 42, 34, 28]
-F_BANK = {s: ImageFont.truetype(FONT_B, s) for s in F_SIZES}
-F_STACK = {1: F_BANK[88], 2: F_BANK[64], 3: F_BANK[52], 4: F_BANK[28]}
-KAR_MAX_W = 1150                # stack text right edge stays off the act card
-def fit_stack_font(dd, text, font):
-    while dd.textlength(text, font=font) > KAR_MAX_W:
-        smaller = [s for s in F_SIZES if s < font.size]
-        if not smaller:
-            break
-        font = F_BANK[smaller[0]]
-    return font
-f_name  = ImageFont.truetype(FONT_B, 24)
-f_scr   = ImageFont.truetype(FONT_B, 38)     # scroller: upcoming / past
-f_scra  = ImageFont.truetype(FONT_B, 48)     # scroller: the word being sung
 
 def sx(t):                      # strip x for time t
     return PAD_L + int(round(t * PPS))
@@ -783,35 +764,6 @@ def karaoke_fill(dd, x, y, disp, font, col, p, k=1.0):
     dd.text((x, y), disp[:kk], font=font, fill=blend(BG, col, k), anchor="lm")
     return dd.textlength(disp[:kk], font=font)
 
-# ── multi-voice stack (the big karaoke, one row per live voice) ──────
-# Live tokens group by word; a word with several `who` performers expands
-# to one name-colored row per person (camille/alex/jeffrey, register
-# order). If the moment is too crowded, multi-voice words COMPRESS to a
-# single chorus row — the word drawn once per performer, offset copies in
-# each color, all names listed — so nobody is ever dropped.
-KAR_TOP = STRIP_BOT + 14
-def rows_at(t):
-    candidates = []
-    for tk in TOKENS:
-        for who, span in tk["rail_spans"].items():
-            if span["t0"] <= t < max(span["t1"], span["t0"] + MIN_SHOW):
-                candidates.append({"word": tk["word"],
-                                   "whos": [who] if who else [],
-                                   "alt": tk["alt"], "tk": tk,
-                                   "span": span, "prio": tk["prio"]})
-    candidates.sort(key=lambda r: (-r["prio"], -r["span"]["t0"],
-                                   WHO_ORDER.get(r["whos"][0], 9) if r["whos"] else 9))
-    rows, seen = [], set()
-    for row in candidates:
-        key = (row["word"], row["whos"][0] if row["whos"] else None)
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append(row)
-    rows.sort(key=lambda r: (WHO_ORDER.get(r["whos"][0], 9) if r["whos"] else 9,
-                             -r["prio"]))
-    return rows[:4]
-
 # ── lyrics scroller (teleprompter band along the bottom) ─────────────
 # Time maps to x exactly like the timeline above. Camille, Alex, Jeffrey,
 # and unattributed/source words own fixed vertical rails, so three people
@@ -819,54 +771,81 @@ def rows_at(t):
 # offset drawings fighting for the same row.
 NOW_X = 350
 SCR_X0, SCR_X1 = 190, 1404      # labels own the left; act card owns the right
-SCR_Y0, SCR_Y1 = H - 174, H - 42
+SCR_Y0, SCR_Y1 = STRIP_BOT + 8, H - 42
 SCR_RAILS = ("camille", "alex", "jeffrey", None)
-SCR_ROW_Y = {"camille": H - 150, "alex": H - 118,
-             "jeffrey": H - 86, None: H - 54}
 SCR_LABEL = {"camille": "CAMILLE", "alex": "ALEX",
              "jeffrey": "JEFFREY", None: "WORDS"}
+SCR_BAND_H = (SCR_Y1 - SCR_Y0) / len(SCR_RAILS)
 LPPS = 150.0
 SCR_LOOK = (SCR_X1 - NOW_X) / LPPS      # ≈ 7.0 s of upcoming lyric
 SCR_FADE = 0.65                         # release promptly after the sung tail
 
 _meas = ImageDraw.Draw(Image.new("RGB", (8, 8)))
-SCR_FONT_SIZES = (38, 34, 30, 26, 22, 19)
+SCR_FONT_SIZES = (30, 28, 26, 24, 22, 20, 18, 16, 14)
 SCR_FONT_BANK = {s: ImageFont.truetype(FONT_B, s) for s in SCR_FONT_SIZES}
 rail_items = {r: [] for r in SCR_RAILS}
 for tk in TOKENS:
     tk["rails"] = list(tk["rail_spans"])
     tk["scr_font"] = {}
+    tk["scr_slot"] = {}
     for rail in tk["rails"]:
         rail_items[rail].append((tk, tk["rail_spans"][rail]))
-for rail, items in rail_items.items():
-    items.sort(key=lambda item: item[1]["t0"])
-    for i, (tk, span) in enumerate(items):
-        # Fit to the time cell before the next word on this SAME singer rail.
-        # Font size is precomputed, so rows cannot flicker or collide.
-        avail = ((items[i + 1][1]["t0"] - span["t0"]) * LPPS - 10
-                 if i + 1 < len(items) else SCR_X1 - NOW_X)
-        cell = max(8, avail)
+
+def layout_rail(items, max_size):
+    """Color one rail into non-overlapping subtracks using full text widths."""
+    slot_until = []
+    layout = []
+    for tk, span in items:
         font = SCR_FONT_BANK[SCR_FONT_SIZES[-1]]
         for size in SCR_FONT_SIZES:
+            if size > max_size:
+                continue
             candidate = SCR_FONT_BANK[size]
-            if _meas.textlength(tk["disp"], font=candidate) <= cell:
+            if _meas.textlength(tk["disp"], font=candidate) <= 520:
                 font = candidate
                 break
-        tk["scr_font"][rail] = font
-        tk.setdefault("scr_cell", {})[rail] = cell
+        cell = _meas.textlength(tk["disp"], font=font) + 18
+        slot = next((i for i, until in enumerate(slot_until)
+                     if span["t0"] >= until - 1e-6), None)
+        if slot is None:
+            slot = len(slot_until)
+            slot_until.append(0.0)
+        slot_until[slot] = span["t0"] + cell / LPPS
+        layout.append((tk, font, cell, slot))
+    return layout, max(1, len(slot_until))
 
-for tk in TOKENS:
-    tk["w"] = max(_meas.textlength(tk["disp"], font=f)
-                  for f in tk["scr_font"].values())
+SCR_SLOT_COUNTS = {}
+for rail, items in rail_items.items():
+    items.sort(key=lambda item: item[1]["t0"])
+    for max_size in SCR_FONT_SIZES:
+        layout, slots = layout_rail(items, max_size)
+        vertical_capacity = max(1, int(SCR_BAND_H // (max_size + 8)))
+        if slots <= vertical_capacity or max_size == SCR_FONT_SIZES[-1]:
+            break
+    SCR_SLOT_COUNTS[rail] = slots
+    for tk, font, cell, slot in layout:
+        tk["scr_font"][rail] = font
+        tk["scr_slot"][rail] = slot
+        tk.setdefault("scr_cell", {})[rail] = cell
+print("lyric subtracks: " + ", ".join(
+    f"{SCR_LABEL[rail].lower()}={SCR_SLOT_COUNTS[rail]}" for rail in SCR_RAILS),
+    flush=True)
 
 def draw_scroller(img, dd, t):
-    for rail in SCR_RAILS:
-        yc = SCR_ROW_Y[rail]
+    for ri, rail in enumerate(SCR_RAILS):
+        band_top = SCR_Y0 + ri * SCR_BAND_H
+        band_bot = SCR_Y0 + (ri + 1) * SCR_BAND_H
+        yc = (band_top + band_bot) / 2
         col = ink_of(WHO_COL[rail])
         dd.text((42, yc), SCR_LABEL[rail], font=f_tiny,
                 fill=blend(BG, col, 0.78), anchor="lm")
-        dd.line([SCR_X0 - 12, yc + 15, SCR_X1, yc + 15],
+        dd.line([SCR_X0 - 12, band_bot - 1, SCR_X1, band_bot - 1],
                 fill=blend(BG, col, 0.16), width=1)
+        slots = SCR_SLOT_COUNTS[rail]
+        for slot in range(1, slots):
+            sy = band_top + slot * SCR_BAND_H / slots
+            dd.line([SCR_X0, sy, SCR_X1, sy],
+                    fill=blend(BG, col, 0.08), width=1)
     dd.line([NOW_X, SCR_Y0, NOW_X, SCR_Y1],
             fill=blend(BG, PLAYHEAD, 0.55), width=2)
     for tk in TOKENS:
@@ -887,17 +866,23 @@ def draw_scroller(img, dd, t):
                 k = 0.75 * (1.0 - past)
             k *= max(0.0, min(1.0, (SCR_X1 - x) / 130.0))
             p = prog(tk, t, span)
-            yc = SCR_ROW_Y[rail]
             font = tk["scr_font"][rail]
             base = ink_of(WHO_COL[rail])
-            # Draw into the exact time cell and paste it back. This hard clip
-            # is what makes adjacent lyric tracks incapable of overlapping,
-            # even when a melisma is still active at the next word's attack.
+            ri = SCR_RAILS.index(rail)
+            slots = SCR_SLOT_COUNTS[rail]
+            slot = tk["scr_slot"][rail]
+            band_top = SCR_Y0 + ri * SCR_BAND_H
+            slot_top = band_top + slot * SCR_BAND_H / slots
+            slot_bot = band_top + (slot + 1) * SCR_BAND_H / slots
+            yc = (slot_top + slot_bot) / 2
+            # Each repeated vowel owns its full measured width. Overlapping
+            # utterances move to separate subtracks instead of being clipped
+            # at the next onset.
             x0 = max(SCR_X0, int(math.floor(x)))
             x1 = min(SCR_X1, int(math.ceil(x + tk["scr_cell"][rail])))
             if x1 <= x0:
                 continue
-            y0, y1 = int(yc - 22), int(yc + 23)
+            y0, y1 = int(math.floor(slot_top + 1)), int(math.ceil(slot_bot - 1))
             tile = img.crop((x0, y0, x1, y1))
             td = ImageDraw.Draw(tile)
             tx, ty = x - x0, yc - y0
@@ -908,7 +893,7 @@ def draw_scroller(img, dd, t):
                         fill=blend(BG, base, k), anchor="lm")
                 lw = 0
             if active:          # one swept underline on each performer rail
-                uy = ty + font.size // 2 + 2
+                uy = min(y1 - y0 - 4, int(ty + font.size / 2 + 1))
                 td.rectangle([tx, uy, tx + max(2, lw), uy + 3], fill=base)
             img.paste(tile, (x0, y0))
 
@@ -1024,44 +1009,8 @@ for f in range(NF):
         col = blend(BG, MARK_COL, min(0.72, 0.18 + abs(spring) * 0.42 + fracture * 0.25))
         dd.ellipse([PLAY_X - radius, cy - radius, PLAY_X + radius, cy + radius],
                    outline=col, width=max(1, int(2 + fracture * 5)))
-    # karaoke: EVERY live voice as its own name-colored row — the
-    # dashStack's three simultaneous people stack camille/alex/jeffrey
-    # top-to-bottom by register instead of collapsing into one word
-    rows = rows_at(t)
-    if rows:
-        font0 = F_STACK[len(rows)]
-        rh = font0.size + 18
-        y = KAR_TOP + rh // 2 + 4
-        for row in rows:
-            whos = row["whos"]
-            rtk = row["tk"]
-            disp = rtk["disp"]  # the vowel-stretched word
-            p = prog(rtk, t, row["span"])  # this singer's receipt timing
-            font = fit_stack_font(dd, disp, font0)
-            uy = y + font.size // 2 + 5
-            if len(whos) > 1:   # chorus row: every performer, one word
-                lw = 0
-                for i, who in enumerate(whos):
-                    dd.text((66, y + (i - (len(whos) - 1) / 2) * 20), who,
-                            font=f_name, fill=ink_of(WHO_COL[who]), anchor="lm")
-                    lw = karaoke_fill(dd, 250 + i * 3,
-                                      y + (i - (len(whos) - 1) / 2) * 10,
-                                      disp, font, ink_of(WHO_COL[who]), p)
-                dd.rectangle([250, uy + 10, 250 + max(2, lw), uy + 14],
-                             fill=ink_of(WHO_COL[whos[0]]))
-            elif whos:
-                col = ink_of(WHO_COL[whos[0]])
-                dd.text((66, y), whos[0], font=f_name, fill=col, anchor="lm")
-                lw = karaoke_fill(dd, 250, y, disp, font, col, p)
-                dd.rectangle([250, uy, 250 + max(2, lw), uy + 4], fill=col)
-            else:
-                if row["alt"]:
-                    dd.text((66, y), "another cult", font=f_name,
-                            fill=MUTE_GRAY, anchor="lm")
-                lw = karaoke_fill(dd, 250, y, disp, font, INK, p)
-                dd.rectangle([250, uy, 250 + max(2, lw), uy + 4], fill=INK)
-            y += rh
-    # upcoming-lyrics teleprompter
+    # Full-height performer matrix: all live and upcoming voices share the
+    # same time axis, with collision-free subtracks inside each singer band.
     draw_scroller(img, dd, t)
     # act card: current act lit, with a progress bar
     ai = act_index(t)
