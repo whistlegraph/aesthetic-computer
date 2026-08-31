@@ -1,1 +1,4 @@
+# recovered appearance-time maps and compiled tools — data/binaries stay out
+*.npz
+wg.bin
 scorecast

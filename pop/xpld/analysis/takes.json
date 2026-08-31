@@ -1,0 +1,618 @@
+{
+ "primary": "7275499036398865706",
+ "method": "see docstring; verdict defaults to the primary (unbroken-take philosophy), better-elsewhere noted",
+ "take_noise_floor": {
+  "7257275807209458986": 0.00484,
+  "7257695616694881582": 0.00284,
+  "7258670360357276970": 0.00493,
+  "7275499036398865706": 0.05362,
+  "7278943795482283307": 0.06176
+ },
+ "take_tonic_hz": {
+  "7257275807209458986": 190.6,
+  "7257695616694881582": 190.6,
+  "7258670360357276970": 188.4,
+  "7275499036398865706": 188.4,
+  "7278943795482283307": 187.3
+ },
+ "phrases": [
+  {
+   "phrase": "Hit a hump and plateaued",
+   "primary_t": [
+    6.0,
+    10.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.49,
+     "grid_dev": 41.0,
+     "noise": 0.05362
+    },
+    "7257695616694881582": {
+     "text": "Had a hump and pla-toed",
+     "t": [
+      0.01,
+      6.04
+     ],
+     "match": 0.83,
+     "voiced": 0.44,
+     "grid_dev": 41.0,
+     "noise": 0.00284
+    },
+    "7278943795482283307": {
+     "text": "Hit a hump and platter",
+     "t": [
+      0.01,
+      4.08
+     ],
+     "match": 0.87,
+     "voiced": 0.38,
+     "grid_dev": 69.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "then I gave up",
+   "primary_t": [
+    10.4,
+    13.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.77,
+     "grid_dev": 69.0,
+     "noise": 0.05362
+    },
+    "7258670360357276970": {
+     "text": "\ufffd\ufffd Head up and platter then I gave up \ufffd\ufffd",
+     "t": [
+      0.22,
+      5.0
+     ],
+     "match": 0.56,
+     "voiced": 0.58,
+     "grid_dev": 41.0,
+     "noise": 0.00493
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "now they call me Explodey Head",
+   "primary_t": [
+    13.35,
+    18.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.2,
+     "grid_dev": 41.0,
+     "noise": 0.05362
+    },
+    "7257695616694881582": {
+     "text": "then I gave up Now they call me Explodey Head Got my arm out",
+     "t": [
+      6.47,
+      17.79
+     ],
+     "match": 0.67,
+     "voiced": 0.34,
+     "grid_dev": 71.0,
+     "noise": 0.00284
+    },
+    "7278943795482283307": {
+     "text": "then I gave up now they call me Explodey Head Caught my arm out waving",
+     "t": [
+      4.4,
+      14.8
+     ],
+     "match": 0.6,
+     "voiced": 0.35,
+     "grid_dev": 49.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "Got my arm out waving anticipating",
+   "primary_t": [
+    19.0,
+    23.45
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.59,
+     "grid_dev": 69.0,
+     "noise": 0.05362
+    },
+    "7258670360357276970": {
+     "text": "\ufffd\ufffd Now they call me explodey head \ufffd\ufffd \ufffd\ufffd Got my arm out waving anticipating nothing special \ufffd\ufffd",
+     "t": [
+      7.14,
+      17.3
+     ],
+     "match": 0.57,
+     "voiced": 0.29,
+     "grid_dev": 65.0,
+     "noise": 0.00493
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "nothing special",
+   "primary_t": [
+    25.48,
+    28.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.45,
+     "grid_dev": 29.0,
+     "noise": 0.05362
+    },
+    "7257695616694881582": {
+     "text": "anticipating Nothing special",
+     "t": [
+      19.86,
+      25.52
+     ],
+     "match": 0.7,
+     "voiced": 0.57,
+     "grid_dev": 59.0,
+     "noise": 0.00284
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "Locking the doorway little doggy",
+   "primary_t": [
+    29.1,
+    33.35
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.19,
+     "grid_dev": 71.0,
+     "noise": 0.05362
+    },
+    "7258670360357276970": {
+     "text": "\ufffd\ufffd Bocking the doorway little doggy thing like a doggy \ufffd\ufffd",
+     "t": [
+      21.7,
+      26.7
+     ],
+     "match": 0.73,
+     "voiced": 0.34,
+     "grid_dev": 31.0,
+     "noise": 0.00493
+    },
+    "7278943795482283307": {
+     "text": "nothing special Blocking the doorway little doggy",
+     "t": [
+      17.3,
+      24.03
+     ],
+     "match": 0.79,
+     "voiced": 0.32,
+     "grid_dev": 41.0,
+     "noise": 0.06176
+    }
+   },
+   "better_elsewhere": "7278943795482283307",
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "thing like a doggy",
+   "primary_t": [
+    34.0,
+    37.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.64,
+     "grid_dev": 31.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "thing like a doggy",
+     "t": [
+      24.4,
+      26.72
+     ],
+     "match": 1.0,
+     "voiced": 0.81,
+     "grid_dev": 49.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "will you shut the fuck up",
+   "primary_t": [
+    37.31,
+    40.51
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.44,
+     "grid_dev": 19.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "you shut the fuck up",
+     "t": [
+      28.61,
+      31.06
+     ],
+     "match": 0.89,
+     "voiced": 0.18,
+     "grid_dev": 76.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "This house that I built Scott",
+   "primary_t": [
+    43.0,
+    45.1
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.28,
+     "grid_dev": 49.0,
+     "noise": 0.05362
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "cracks at the sides",
+   "primary_t": [
+    45.42,
+    47.85
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.11,
+     "grid_dev": 25.0,
+     "noise": 0.05362
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "brittle like life and smoothing out",
+   "primary_t": [
+    48.4,
+    52.99
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.12,
+     "grid_dev": 31.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "It flickers like a shooting star oh yeah",
+     "t": [
+      71.44,
+      76.76
+     ],
+     "match": 0.56,
+     "voiced": 0.55,
+     "grid_dev": 59.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "Airpockets dream you're no match for my graphic tee",
+   "primary_t": [
+    54.17,
+    58.69
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.07,
+     "grid_dev": 75.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "You're no match for my graphic team My face is full of internet",
+     "t": [
+      42.68,
+      47.23
+     ],
+     "match": 0.59,
+     "voiced": 0.06,
+     "grid_dev": 79.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "my face is full of internet",
+   "primary_t": [
+    59.0,
+    60.75
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.26,
+     "grid_dev": 60.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "You're no match for my graphic team My face is full of internet",
+     "t": [
+      42.68,
+      47.23
+     ],
+     "match": 0.61,
+     "voiced": 0.06,
+     "grid_dev": 79.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "Safely in a bubble that surrounds me",
+   "primary_t": [
+    62.0,
+    67.52
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.69,
+     "grid_dev": 49.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "Safely in a bubble that surrounds me",
+     "t": [
+      47.56,
+      51.95
+     ],
+     "match": 1.0,
+     "voiced": 0.75,
+     "grid_dev": 39.0,
+     "noise": 0.06176
+    }
+   },
+   "better_elsewhere": "7278943795482283307",
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "I don't think I want you back in here",
+   "primary_t": [
+    68.0,
+    71.67
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.58,
+     "grid_dev": 29.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "I don't think I want you back in here",
+     "t": [
+      52.44,
+      55.89
+     ],
+     "match": 1.0,
+     "voiced": 0.53,
+     "grid_dev": 59.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "oh no",
+   "primary_t": [
+    71.99,
+    72.66
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.62,
+     "grid_dev": 54.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "Oh no",
+     "t": [
+      56.29,
+      56.91
+     ],
+     "match": 1.0,
+     "voiced": 0.34,
+     "grid_dev": 61.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "this emo",
+   "primary_t": [
+    73.0,
+    75.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.75,
+     "grid_dev": 51.0,
+     "noise": 0.05362
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "Gee defends me in my bubble",
+   "primary_t": [
+    76.15,
+    80.45
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.69,
+     "grid_dev": 49.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "This emoji defends me in my bubble",
+     "t": [
+      57.24,
+      61.61
+     ],
+     "match": 0.82,
+     "voiced": 0.8,
+     "grid_dev": 41.0,
+     "noise": 0.06176
+    }
+   },
+   "better_elsewhere": "7278943795482283307",
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "signifying my identity my identity",
+   "primary_t": [
+    81.54,
+    89.0
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.72,
+     "grid_dev": 31.0,
+     "noise": 0.05362
+    },
+    "7278943795482283307": {
+     "text": "signifying my identity",
+     "t": [
+      61.96,
+      66.17
+     ],
+     "match": 0.79,
+     "voiced": 0.67,
+     "grid_dev": 59.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "It flickers like a shooting star",
+   "primary_t": [
+    90.0,
+    95.13
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.45,
+     "grid_dev": 31.0,
+     "noise": 0.05362
+    },
+    "7258670360357276970": {
+     "text": "\ufffd\ufffd My identity \ufffd\ufffd \ufffd\ufffd It flickers like a shooting star oh yeah \ufffd\ufffd",
+     "t": [
+      73.14,
+      82.82
+     ],
+     "match": 0.73,
+     "voiced": 0.64,
+     "grid_dev": 39.0,
+     "noise": 0.00493
+    },
+    "7278943795482283307": {
+     "text": "It flickers like a shooting star oh yeah",
+     "t": [
+      71.44,
+      76.76
+     ],
+     "match": 0.89,
+     "voiced": 0.55,
+     "grid_dev": 59.0,
+     "noise": 0.06176
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "oh yeah",
+   "primary_t": [
+    95.6,
+    96.96
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.42,
+     "grid_dev": 39.0,
+     "noise": 0.05362
+    }
+   },
+   "verdict": "7275499036398865706"
+  },
+  {
+   "phrase": "do you see",
+   "primary_t": [
+    97.41,
+    99.22
+   ],
+   "matches": {
+    "7275499036398865706": {
+     "voiced": 0.6,
+     "grid_dev": 30.0,
+     "noise": 0.05362
+    },
+    "7257695616694881582": {
+     "text": "do you see",
+     "t": [
+      91.08,
+      93.16
+     ],
+     "match": 1.0,
+     "voiced": 0.87,
+     "grid_dev": 71.0,
+     "noise": 0.00284
+    },
+    "7258670360357276970": {
+     "text": "\ufffd\ufffd Do you see \ufffd\ufffd",
+     "t": [
+      83.72,
+      85.72
+     ],
+     "match": 0.91,
+     "voiced": 0.77,
+     "grid_dev": 21.0,
+     "noise": 0.00493
+    },
+    "7278943795482283307": {
+     "text": "Do you see",
+     "t": [
+      77.28,
+      79.31
+     ],
+     "match": 1.0,
+     "voiced": 0.76,
+     "grid_dev": 31.0,
+     "noise": 0.06176
+    }
+   },
+   "better_elsewhere": "7258670360357276970",
+   "verdict": "7275499036398865706"
+  }
+ ]
+}

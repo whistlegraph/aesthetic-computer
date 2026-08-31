@@ -1,0 +1,1564 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "method": "librosa.pyin C2-C6 over full take, median f0 per whisper word window",
+ "words": [
+  {
+   "word": "This",
+   "start": 0.17,
+   "end": 0.54,
+   "sung": false
+  },
+  {
+   "word": "is",
+   "start": 0.54,
+   "end": 0.55,
+   "sung": false
+  },
+  {
+   "word": "my",
+   "start": 0.55,
+   "end": 0.72,
+   "sung": false,
+   "hz": 205.3,
+   "note": "G\u266f3",
+   "cents": -20
+  },
+  {
+   "word": "whistle",
+   "start": 0.72,
+   "end": 1.34,
+   "sung": false,
+   "hz": 157.4,
+   "note": "D\u266f3",
+   "cents": 20
+  },
+  {
+   "word": "graph",
+   "start": 1.34,
+   "end": 1.8,
+   "sung": false,
+   "hz": 141.0,
+   "note": "C\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "development",
+   "start": 1.8,
+   "end": 2.56,
+   "sung": false,
+   "hz": 142.7,
+   "note": "D3",
+   "cents": -50
+  },
+  {
+   "word": "environment",
+   "start": 2.56,
+   "end": 3.41,
+   "sung": false,
+   "hz": 120.7,
+   "note": "B2",
+   "cents": -40
+  },
+  {
+   "word": "which",
+   "start": 3.41,
+   "end": 3.54,
+   "sung": false
+  },
+  {
+   "word": "is",
+   "start": 3.54,
+   "end": 3.64,
+   "sung": false
+  },
+  {
+   "word": "basically",
+   "start": 3.64,
+   "end": 4.24,
+   "sung": false,
+   "hz": 141.0,
+   "note": "C\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "a",
+   "start": 4.24,
+   "end": 4.66,
+   "sung": false,
+   "hz": 126.7,
+   "note": "B2",
+   "cents": 45
+  },
+  {
+   "word": "stand",
+   "start": 4.66,
+   "end": 5.2,
+   "sung": false,
+   "hz": 111.3,
+   "note": "A2",
+   "cents": 20
+  },
+  {
+   "word": "like",
+   "start": 5.2,
+   "end": 5.75,
+   "sung": false,
+   "hz": 167.7,
+   "note": "E3",
+   "cents": 30
+  },
+  {
+   "word": "this",
+   "start": 5.75,
+   "end": 5.9,
+   "sung": false
+  },
+  {
+   "word": "and",
+   "start": 5.9,
+   "end": 6.18,
+   "sung": false,
+   "hz": 129.3,
+   "note": "C3",
+   "cents": -20
+  },
+  {
+   "word": "my",
+   "start": 6.18,
+   "end": 6.33,
+   "sung": false,
+   "hz": 122.1,
+   "note": "B2",
+   "cents": -20
+  },
+  {
+   "word": "whistle",
+   "start": 6.33,
+   "end": 6.94,
+   "sung": false,
+   "hz": 114.5,
+   "note": "A\u266f2",
+   "cents": -30
+  },
+  {
+   "word": "graph",
+   "start": 6.94,
+   "end": 7.38,
+   "sung": false,
+   "hz": 160.1,
+   "note": "E3",
+   "cents": -50
+  },
+  {
+   "word": "pad",
+   "start": 7.38,
+   "end": 7.66,
+   "sung": false,
+   "hz": 150.3,
+   "note": "D3",
+   "cents": 40
+  },
+  {
+   "word": "and",
+   "start": 7.66,
+   "end": 7.89,
+   "sung": false,
+   "hz": 151.1,
+   "note": "D3",
+   "cents": 50
+  },
+  {
+   "word": "a",
+   "start": 7.89,
+   "end": 7.98,
+   "sung": false
+  },
+  {
+   "word": "bunch",
+   "start": 7.98,
+   "end": 8.42,
+   "sung": false,
+   "hz": 122.8,
+   "note": "B2",
+   "cents": -10
+  },
+  {
+   "word": "of",
+   "start": 8.42,
+   "end": 8.64,
+   "sung": false,
+   "hz": 156.5,
+   "note": "D\u266f3",
+   "cents": 10
+  },
+  {
+   "word": "sheets",
+   "start": 8.64,
+   "end": 9.3,
+   "sung": false,
+   "hz": 158.7,
+   "note": "D\u266f3",
+   "cents": 35
+  },
+  {
+   "word": "and",
+   "start": 9.3,
+   "end": 9.57,
+   "sung": false
+  },
+  {
+   "word": "I",
+   "start": 9.57,
+   "end": 9.67,
+   "sung": false
+  },
+  {
+   "word": "want",
+   "start": 9.67,
+   "end": 10.06,
+   "sung": false,
+   "hz": 116.5,
+   "note": "A\u266f2",
+   "cents": 0
+  },
+  {
+   "word": "to",
+   "start": 10.06,
+   "end": 10.28,
+   "sung": false,
+   "hz": 116.2,
+   "note": "A\u266f2",
+   "cents": -5
+  },
+  {
+   "word": "show",
+   "start": 10.28,
+   "end": 10.68,
+   "sung": false,
+   "hz": 212.5,
+   "note": "G\u266f3",
+   "cents": 40
+  },
+  {
+   "word": "you",
+   "start": 10.68,
+   "end": 10.78,
+   "sung": false,
+   "hz": 160.1,
+   "note": "D\u266f3",
+   "cents": 50
+  },
+  {
+   "word": "guys",
+   "start": 10.78,
+   "end": 11.0,
+   "sung": false,
+   "hz": 145.1,
+   "note": "D3",
+   "cents": -20
+  },
+  {
+   "word": "a",
+   "start": 11.0,
+   "end": 11.33,
+   "sung": false,
+   "hz": 124.9,
+   "note": "B2",
+   "cents": 20
+  },
+  {
+   "word": "whistle",
+   "start": 11.33,
+   "end": 11.45,
+   "sung": false,
+   "hz": 120.7,
+   "note": "B2",
+   "cents": -40
+  },
+  {
+   "word": "graph",
+   "start": 11.45,
+   "end": 11.76,
+   "sung": false,
+   "hz": 120.3,
+   "note": "B2",
+   "cents": -45
+  },
+  {
+   "word": "that's",
+   "start": 11.76,
+   "end": 12.06,
+   "sung": false,
+   "hz": 148.1,
+   "note": "D3",
+   "cents": 15
+  },
+  {
+   "word": "really",
+   "start": 12.06,
+   "end": 12.39,
+   "sung": false,
+   "hz": 125.6,
+   "note": "B2",
+   "cents": 30
+  },
+  {
+   "word": "long",
+   "start": 12.39,
+   "end": 12.84,
+   "sung": false,
+   "hz": 110.6,
+   "note": "A2",
+   "cents": 10
+  },
+  {
+   "word": "It's",
+   "start": 12.85,
+   "end": 13.12,
+   "sung": false,
+   "hz": 74.1,
+   "note": "D2",
+   "cents": 15
+  },
+  {
+   "word": "gonna",
+   "start": 13.12,
+   "end": 13.47,
+   "sung": false,
+   "hz": 115.9,
+   "note": "A\u266f2",
+   "cents": -10
+  },
+  {
+   "word": "take",
+   "start": 13.47,
+   "end": 13.76,
+   "sung": false,
+   "hz": 115.2,
+   "note": "A\u266f2",
+   "cents": -20
+  },
+  {
+   "word": "a",
+   "start": 13.76,
+   "end": 13.83,
+   "sung": false
+  },
+  {
+   "word": "little",
+   "start": 13.83,
+   "end": 14.28,
+   "sung": false,
+   "hz": 170.6,
+   "note": "F3",
+   "cents": -40
+  },
+  {
+   "word": "while",
+   "start": 14.28,
+   "end": 14.62,
+   "sung": false,
+   "hz": 150.3,
+   "note": "D3",
+   "cents": 40
+  },
+  {
+   "word": "but",
+   "start": 14.62,
+   "end": 14.88,
+   "sung": false,
+   "hz": 114.2,
+   "note": "A\u266f2",
+   "cents": -35
+  },
+  {
+   "word": "I",
+   "start": 14.88,
+   "end": 14.94,
+   "sung": false
+  },
+  {
+   "word": "think",
+   "start": 14.94,
+   "end": 15.12,
+   "sung": false,
+   "hz": 157.8,
+   "note": "D\u266f3",
+   "cents": 25
+  },
+  {
+   "word": "you'll",
+   "start": 15.12,
+   "end": 15.49,
+   "sung": false,
+   "hz": 128.6,
+   "note": "C3",
+   "cents": -30
+  },
+  {
+   "word": "really",
+   "start": 15.49,
+   "end": 15.56,
+   "sung": false,
+   "hz": 117.2,
+   "note": "A\u266f2",
+   "cents": 10
+  },
+  {
+   "word": "like",
+   "start": 15.56,
+   "end": 15.74,
+   "sung": false,
+   "hz": 113.2,
+   "note": "A2",
+   "cents": 50
+  },
+  {
+   "word": "it",
+   "start": 15.74,
+   "end": 15.78,
+   "sung": false,
+   "hz": 101.5,
+   "note": "G\u266f2",
+   "cents": -40
+  },
+  {
+   "word": "and",
+   "start": 15.78,
+   "end": 15.92,
+   "sung": false,
+   "hz": 114.5,
+   "note": "A\u266f2",
+   "cents": -30
+  },
+  {
+   "word": "it's",
+   "start": 15.92,
+   "end": 16.03,
+   "sung": false
+  },
+  {
+   "word": "called",
+   "start": 16.03,
+   "end": 16.25,
+   "sung": false,
+   "hz": 116.5,
+   "note": "A\u266f2",
+   "cents": 0
+  },
+  {
+   "word": "the",
+   "start": 16.25,
+   "end": 16.36,
+   "sung": false,
+   "hz": 122.8,
+   "note": "B2",
+   "cents": -10
+  },
+  {
+   "word": "flower",
+   "start": 16.36,
+   "end": 16.61,
+   "sung": false,
+   "hz": 113.9,
+   "note": "A\u266f2",
+   "cents": -40
+  },
+  {
+   "word": "eater",
+   "start": 16.61,
+   "end": 16.76,
+   "sung": false,
+   "hz": 108.7,
+   "note": "A2",
+   "cents": -20
+  },
+  {
+   "word": "and",
+   "start": 16.76,
+   "end": 16.87,
+   "sung": false,
+   "hz": 106.9,
+   "note": "G\u266f2",
+   "cents": 50
+  },
+  {
+   "word": "it",
+   "start": 16.87,
+   "end": 17.01,
+   "sung": false,
+   "hz": 112.6,
+   "note": "A2",
+   "cents": 40
+  },
+  {
+   "word": "goes",
+   "start": 17.01,
+   "end": 17.17,
+   "sung": false,
+   "hz": 115.5,
+   "note": "A\u266f2",
+   "cents": -15
+  },
+  {
+   "word": "like",
+   "start": 17.17,
+   "end": 17.34,
+   "sung": false,
+   "hz": 114.9,
+   "note": "A\u266f2",
+   "cents": -25
+  },
+  {
+   "word": "this",
+   "start": 17.89,
+   "end": 18.07,
+   "sung": false
+  },
+  {
+   "word": "Looked",
+   "start": 18.62,
+   "end": 19.71,
+   "sung": true,
+   "hz": 154.7,
+   "note": "D\u266f3",
+   "cents": -10
+  },
+  {
+   "word": "for",
+   "start": 19.71,
+   "end": 20.26,
+   "sung": true,
+   "hz": 141.8,
+   "note": "C\u266f3",
+   "cents": 40
+  },
+  {
+   "word": "so",
+   "start": 20.26,
+   "end": 20.63,
+   "sung": true,
+   "hz": 158.3,
+   "note": "D\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "long",
+   "start": 20.63,
+   "end": 21.35,
+   "sung": true,
+   "hz": 118.9,
+   "note": "A\u266f2",
+   "cents": 35
+  },
+  {
+   "word": "for",
+   "start": 21.35,
+   "end": 22.0,
+   "sung": true,
+   "hz": 114.5,
+   "note": "A\u266f2",
+   "cents": -30
+  },
+  {
+   "word": "the",
+   "start": 22.0,
+   "end": 22.45,
+   "sung": true,
+   "hz": 131.6,
+   "note": "C3",
+   "cents": 10
+  },
+  {
+   "word": "one",
+   "start": 22.45,
+   "end": 23.0,
+   "sung": true,
+   "hz": 148.5,
+   "note": "D3",
+   "cents": 20
+  },
+  {
+   "word": "that",
+   "start": 23.0,
+   "end": 23.73,
+   "sung": true,
+   "hz": 78.7,
+   "note": "D\u266f2",
+   "cents": 20
+  },
+  {
+   "word": "I",
+   "start": 23.73,
+   "end": 23.91,
+   "sung": true
+  },
+  {
+   "word": "love",
+   "start": 23.91,
+   "end": 24.65,
+   "sung": true,
+   "hz": 158.3,
+   "note": "D\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "Left",
+   "start": 25.19,
+   "end": 25.92,
+   "sung": true,
+   "hz": 190.4,
+   "note": "F\u266f3",
+   "cents": 50
+  },
+  {
+   "word": "with",
+   "start": 25.92,
+   "end": 26.76,
+   "sung": true,
+   "hz": 146.8,
+   "note": "D3",
+   "cents": 0
+  },
+  {
+   "word": "my",
+   "start": 26.76,
+   "end": 27.03,
+   "sung": true,
+   "hz": 116.5,
+   "note": "A\u266f2",
+   "cents": 0
+  },
+  {
+   "word": "arms",
+   "start": 27.03,
+   "end": 27.74,
+   "sung": true,
+   "hz": 117.2,
+   "note": "A\u266f2",
+   "cents": 10
+  },
+  {
+   "word": "up",
+   "start": 27.74,
+   "end": 28.1,
+   "sung": true,
+   "hz": 97.2,
+   "note": "G2",
+   "cents": -15
+  },
+  {
+   "word": "in",
+   "start": 28.1,
+   "end": 28.46,
+   "sung": true,
+   "hz": 185.0,
+   "note": "F\u266f3",
+   "cents": 0
+  },
+  {
+   "word": "the",
+   "start": 28.46,
+   "end": 29.01,
+   "sung": true,
+   "hz": 92.5,
+   "note": "F\u266f2",
+   "cents": 0
+  },
+  {
+   "word": "air",
+   "start": 29.01,
+   "end": 29.56,
+   "sung": true,
+   "hz": 74.3,
+   "note": "D2",
+   "cents": 20
+  },
+  {
+   "word": "My",
+   "start": 30.16,
+   "end": 30.32,
+   "sung": true,
+   "hz": 251.3,
+   "note": "B3",
+   "cents": 30
+  },
+  {
+   "word": "lollipop",
+   "start": 30.32,
+   "end": 30.68,
+   "sung": true,
+   "hz": 225.1,
+   "note": "A3",
+   "cents": 40
+  },
+  {
+   "word": "was",
+   "start": 30.68,
+   "end": 31.56,
+   "sung": true,
+   "hz": 72.6,
+   "note": "D2",
+   "cents": -20
+  },
+  {
+   "word": "the",
+   "start": 31.56,
+   "end": 32.11,
+   "sung": true,
+   "hz": 167.7,
+   "note": "E3",
+   "cents": 30
+  },
+  {
+   "word": "stem",
+   "start": 32.11,
+   "end": 32.57,
+   "sung": true,
+   "hz": 200.6,
+   "note": "G3",
+   "cents": 40
+  },
+  {
+   "word": "I",
+   "start": 32.57,
+   "end": 32.7,
+   "sung": true,
+   "hz": 83.4,
+   "note": "E2",
+   "cents": 20
+  },
+  {
+   "word": "grabbed",
+   "start": 32.7,
+   "end": 33.72,
+   "sung": true,
+   "hz": 140.2,
+   "note": "C\u266f3",
+   "cents": 20
+  },
+  {
+   "word": "Hold",
+   "start": 34.15,
+   "end": 34.73,
+   "sung": true,
+   "hz": 164.8,
+   "note": "E3",
+   "cents": 0
+  },
+  {
+   "word": "up",
+   "start": 34.73,
+   "end": 35.02,
+   "sung": true,
+   "hz": 159.7,
+   "note": "D\u266f3",
+   "cents": 45
+  },
+  {
+   "word": "with",
+   "start": 35.02,
+   "end": 35.66,
+   "sung": true,
+   "hz": 140.2,
+   "note": "C\u266f3",
+   "cents": 20
+  },
+  {
+   "word": "both",
+   "start": 35.66,
+   "end": 36.19,
+   "sung": true,
+   "hz": 145.1,
+   "note": "D3",
+   "cents": -20
+  },
+  {
+   "word": "of",
+   "start": 36.19,
+   "end": 36.49,
+   "sung": true,
+   "hz": 169.2,
+   "note": "E3",
+   "cents": 45
+  },
+  {
+   "word": "my",
+   "start": 36.49,
+   "end": 36.76,
+   "sung": true,
+   "hz": 174.6,
+   "note": "F3",
+   "cents": 0
+  },
+  {
+   "word": "hands",
+   "start": 36.76,
+   "end": 37.65,
+   "sung": true,
+   "hz": 112.9,
+   "note": "A2",
+   "cents": 45
+  },
+  {
+   "word": "Mystery",
+   "start": 38.16,
+   "end": 39.12,
+   "sung": true,
+   "hz": 144.7,
+   "note": "D3",
+   "cents": -25
+  },
+  {
+   "word": "flower",
+   "start": 39.12,
+   "end": 40.54,
+   "sung": true,
+   "hz": 148.5,
+   "note": "D3",
+   "cents": 20
+  },
+  {
+   "word": "please",
+   "start": 40.54,
+   "end": 40.98,
+   "sung": true,
+   "hz": 227.1,
+   "note": "A\u266f3",
+   "cents": -45
+  },
+  {
+   "word": "don't",
+   "start": 40.98,
+   "end": 41.48,
+   "sung": true,
+   "hz": 222.6,
+   "note": "A3",
+   "cents": 20
+  },
+  {
+   "word": "cower",
+   "start": 41.64,
+   "end": 42.38,
+   "sung": true,
+   "hz": 197.1,
+   "note": "G3",
+   "cents": 10
+  },
+  {
+   "word": "I",
+   "start": 42.92,
+   "end": 43.09,
+   "sung": true
+  },
+  {
+   "word": "am",
+   "start": 43.09,
+   "end": 43.55,
+   "sung": true
+  },
+  {
+   "word": "hatin",
+   "start": 43.55,
+   "end": 44.54,
+   "sung": true,
+   "hz": 145.1,
+   "note": "D3",
+   "cents": -20
+  },
+  {
+   "word": "green",
+   "start": 44.54,
+   "end": 45.46,
+   "sung": true,
+   "hz": 127.1,
+   "note": "C3",
+   "cents": -50
+  },
+  {
+   "word": "now",
+   "start": 45.46,
+   "end": 46.12,
+   "sung": true,
+   "hz": 100.9,
+   "note": "G2",
+   "cents": 50
+  },
+  {
+   "word": "I'm",
+   "start": 46.56,
+   "end": 47.09,
+   "sung": true
+  },
+  {
+   "word": "gonna",
+   "start": 47.09,
+   "end": 47.96,
+   "sung": true,
+   "hz": 152.9,
+   "note": "D\u266f3",
+   "cents": -30
+  },
+  {
+   "word": "take",
+   "start": 47.96,
+   "end": 48.8,
+   "sung": true,
+   "hz": 141.0,
+   "note": "C\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "you",
+   "start": 48.8,
+   "end": 49.23,
+   "sung": true,
+   "hz": 189.3,
+   "note": "F\u266f3",
+   "cents": 40
+  },
+  {
+   "word": "so",
+   "start": 49.23,
+   "end": 49.59,
+   "sung": true,
+   "hz": 185.0,
+   "note": "F\u266f3",
+   "cents": 0
+  },
+  {
+   "word": "I",
+   "start": 49.59,
+   "end": 49.75,
+   "sung": true,
+   "hz": 227.8,
+   "note": "A\u266f3",
+   "cents": -40
+  },
+  {
+   "word": "can",
+   "start": 49.75,
+   "end": 50.26,
+   "sung": true,
+   "hz": 210.1,
+   "note": "G\u266f3",
+   "cents": 20
+  },
+  {
+   "word": "break",
+   "start": 50.26,
+   "end": 51.16,
+   "sung": true,
+   "hz": 202.9,
+   "note": "G\u266f3",
+   "cents": -40
+  },
+  {
+   "word": "you",
+   "start": 51.16,
+   "end": 51.63,
+   "sung": true,
+   "hz": 245.5,
+   "note": "B3",
+   "cents": -10
+  },
+  {
+   "word": "up",
+   "start": 51.63,
+   "end": 52.0,
+   "sung": true,
+   "hz": 246.9,
+   "note": "B3",
+   "cents": 0
+  },
+  {
+   "word": "into",
+   "start": 52.0,
+   "end": 52.84,
+   "sung": true,
+   "hz": 255.7,
+   "note": "C4",
+   "cents": -40
+  },
+  {
+   "word": "pieces",
+   "start": 52.84,
+   "end": 53.69,
+   "sung": true,
+   "hz": 244.8,
+   "note": "B3",
+   "cents": -15
+  },
+  {
+   "word": "Yum",
+   "start": 54.11,
+   "end": 54.53,
+   "sung": true
+  },
+  {
+   "word": "yum",
+   "start": 54.53,
+   "end": 54.99,
+   "sung": true,
+   "hz": 404.7,
+   "note": "G\u266f4",
+   "cents": -45
+  },
+  {
+   "word": "yum",
+   "start": 54.99,
+   "end": 55.37,
+   "sung": true,
+   "hz": 347.2,
+   "note": "F4",
+   "cents": -10
+  },
+  {
+   "word": "Now",
+   "start": 55.79,
+   "end": 56.25,
+   "sung": true,
+   "hz": 322.1,
+   "note": "E4",
+   "cents": -40
+  },
+  {
+   "word": "I",
+   "start": 56.25,
+   "end": 56.35,
+   "sung": true,
+   "hz": 132.0,
+   "note": "C3",
+   "cents": 15
+  },
+  {
+   "word": "think",
+   "start": 56.35,
+   "end": 57.05,
+   "sung": true,
+   "hz": 285.3,
+   "note": "D4",
+   "cents": -50
+  },
+  {
+   "word": "I",
+   "start": 57.05,
+   "end": 57.18,
+   "sung": true,
+   "hz": 280.4,
+   "note": "C\u266f4",
+   "cents": 20
+  },
+  {
+   "word": "wanna",
+   "start": 57.18,
+   "end": 57.92,
+   "sung": true,
+   "hz": 282.0,
+   "note": "C\u266f4",
+   "cents": 30
+  },
+  {
+   "word": "have",
+   "start": 57.92,
+   "end": 58.52,
+   "sung": true,
+   "hz": 316.6,
+   "note": "D\u266f4",
+   "cents": 30
+  },
+  {
+   "word": "you",
+   "start": 58.52,
+   "end": 58.76,
+   "sung": true,
+   "hz": 304.9,
+   "note": "D\u266f4",
+   "cents": -35
+  },
+  {
+   "word": "every",
+   "start": 58.76,
+   "end": 59.64,
+   "sung": true,
+   "hz": 280.4,
+   "note": "C\u266f4",
+   "cents": 20
+  },
+  {
+   "word": "day",
+   "start": 59.64,
+   "end": 60.72,
+   "sung": true,
+   "hz": 238.5,
+   "note": "A\u266f3",
+   "cents": 40
+  },
+  {
+   "word": "I'll",
+   "start": 60.92,
+   "end": 61.18,
+   "sung": true
+  },
+  {
+   "word": "spit",
+   "start": 61.18,
+   "end": 61.46,
+   "sung": true,
+   "hz": 202.3,
+   "note": "G\u266f3",
+   "cents": -45
+  },
+  {
+   "word": "twee",
+   "start": 61.46,
+   "end": 61.71,
+   "sung": true,
+   "hz": 219.4,
+   "note": "A3",
+   "cents": -5
+  },
+  {
+   "word": "of",
+   "start": 61.71,
+   "end": 62.04,
+   "sung": true,
+   "hz": 205.3,
+   "note": "G\u266f3",
+   "cents": -20
+  },
+  {
+   "word": "your",
+   "start": 62.04,
+   "end": 62.32,
+   "sung": true,
+   "hz": 337.4,
+   "note": "E4",
+   "cents": 40
+  },
+  {
+   "word": "seeds",
+   "start": 62.32,
+   "end": 62.87,
+   "sung": true,
+   "hz": 355.3,
+   "note": "F4",
+   "cents": 30
+  },
+  {
+   "word": "Bury",
+   "start": 63.2,
+   "end": 63.64,
+   "sung": true
+  },
+  {
+   "word": "them",
+   "start": 63.64,
+   "end": 64.08,
+   "sung": true,
+   "hz": 121.0,
+   "note": "B2",
+   "cents": -35
+  },
+  {
+   "word": "in",
+   "start": 64.08,
+   "end": 64.39,
+   "sung": true,
+   "hz": 110.0,
+   "note": "A2",
+   "cents": 0
+  },
+  {
+   "word": "the",
+   "start": 64.39,
+   "end": 64.63,
+   "sung": true,
+   "hz": 117.2,
+   "note": "A\u266f2",
+   "cents": 10
+  },
+  {
+   "word": "ground",
+   "start": 64.63,
+   "end": 65.29,
+   "sung": true,
+   "hz": 134.6,
+   "note": "C3",
+   "cents": 50
+  },
+  {
+   "word": "Harvest",
+   "start": 65.73,
+   "end": 66.42,
+   "sung": true,
+   "hz": 230.4,
+   "note": "A\u266f3",
+   "cents": -20
+  },
+  {
+   "word": "moon",
+   "start": 66.42,
+   "end": 66.86,
+   "sung": true,
+   "hz": 237.8,
+   "note": "A\u266f3",
+   "cents": 35
+  },
+  {
+   "word": "I'll",
+   "start": 66.86,
+   "end": 67.04,
+   "sung": true,
+   "hz": 263.1,
+   "note": "C4",
+   "cents": 10
+  },
+  {
+   "word": "come",
+   "start": 67.04,
+   "end": 67.4,
+   "sung": true,
+   "hz": 255.7,
+   "note": "C4",
+   "cents": -40
+  },
+  {
+   "word": "collect",
+   "start": 67.4,
+   "end": 67.91,
+   "sung": true,
+   "hz": 275.6,
+   "note": "C\u266f4",
+   "cents": -10
+  },
+  {
+   "word": "your",
+   "start": 67.91,
+   "end": 68.41,
+   "sung": true,
+   "hz": 283.7,
+   "note": "C\u266f4",
+   "cents": 40
+  },
+  {
+   "word": "spawn",
+   "start": 68.41,
+   "end": 69.64,
+   "sung": true,
+   "hz": 263.1,
+   "note": "C4",
+   "cents": 10
+  },
+  {
+   "word": "They're",
+   "start": 69.77,
+   "end": 70.28,
+   "sung": true,
+   "hz": 160.1,
+   "note": "D\u266f3",
+   "cents": 50
+  },
+  {
+   "word": "gonna",
+   "start": 70.82,
+   "end": 70.85,
+   "sung": true,
+   "hz": 206.5,
+   "note": "G\u266f3",
+   "cents": -10
+  },
+  {
+   "word": "be",
+   "start": 70.85,
+   "end": 71.07,
+   "sung": true,
+   "hz": 200.6,
+   "note": "G3",
+   "cents": 40
+  },
+  {
+   "word": "all",
+   "start": 71.07,
+   "end": 71.41,
+   "sung": true,
+   "hz": 205.3,
+   "note": "G\u266f3",
+   "cents": -20
+  },
+  {
+   "word": "mine",
+   "start": 71.41,
+   "end": 71.86,
+   "sung": true,
+   "hz": 297.1,
+   "note": "D4",
+   "cents": 20
+  },
+  {
+   "word": "cuz",
+   "start": 71.86,
+   "end": 72.21,
+   "sung": true,
+   "hz": 194.9,
+   "note": "G3",
+   "cents": -10
+  },
+  {
+   "word": "I'm",
+   "start": 72.21,
+   "end": 72.52,
+   "sung": true,
+   "hz": 222.6,
+   "note": "A3",
+   "cents": 20
+  },
+  {
+   "word": "looping",
+   "start": 72.52,
+   "end": 73.31,
+   "sung": true,
+   "hz": 131.6,
+   "note": "C3",
+   "cents": 10
+  },
+  {
+   "word": "every",
+   "start": 73.31,
+   "end": 73.88,
+   "sung": true,
+   "hz": 130.1,
+   "note": "C3",
+   "cents": -10
+  },
+  {
+   "word": "day",
+   "start": 73.88,
+   "end": 74.28,
+   "sung": true,
+   "hz": 133.9,
+   "note": "C3",
+   "cents": 40
+  },
+  {
+   "word": "looping",
+   "start": 74.28,
+   "end": 75.01,
+   "sung": true,
+   "hz": 138.6,
+   "note": "C\u266f3",
+   "cents": 0
+  },
+  {
+   "word": "every",
+   "start": 75.01,
+   "end": 75.54,
+   "sung": true,
+   "hz": 127.8,
+   "note": "C3",
+   "cents": -40
+  },
+  {
+   "word": "day",
+   "start": 75.54,
+   "end": 75.89,
+   "sung": true,
+   "hz": 133.9,
+   "note": "C3",
+   "cents": 40
+  },
+  {
+   "word": "looping",
+   "start": 75.89,
+   "end": 76.48,
+   "sung": true,
+   "hz": 136.2,
+   "note": "C\u266f3",
+   "cents": -30
+  },
+  {
+   "word": "every",
+   "start": 76.48,
+   "end": 76.8,
+   "sung": true,
+   "hz": 138.6,
+   "note": "C\u266f3",
+   "cents": 0
+  },
+  {
+   "word": "day",
+   "start": 76.8,
+   "end": 77.0,
+   "sung": true,
+   "hz": 127.1,
+   "note": "C3",
+   "cents": -50
+  },
+  {
+   "word": "flower",
+   "start": 77.0,
+   "end": 78.44,
+   "sung": true,
+   "hz": 197.1,
+   "note": "G3",
+   "cents": 10
+  },
+  {
+   "word": "eater",
+   "start": 78.44,
+   "end": 79.67,
+   "sung": true,
+   "hz": 257.9,
+   "note": "C4",
+   "cents": -25
+  },
+  {
+   "word": "It's",
+   "start": 80.41,
+   "end": 80.62,
+   "sung": false
+  },
+  {
+   "word": "about",
+   "start": 80.62,
+   "end": 80.98,
+   "sung": false
+  },
+  {
+   "word": "a",
+   "start": 80.98,
+   "end": 81.01,
+   "sung": false
+  },
+  {
+   "word": "girl",
+   "start": 81.01,
+   "end": 81.27,
+   "sung": false,
+   "hz": 170.1,
+   "note": "F3",
+   "cents": -45
+  },
+  {
+   "word": "who",
+   "start": 81.27,
+   "end": 81.47,
+   "sung": false,
+   "hz": 165.8,
+   "note": "E3",
+   "cents": 10
+  },
+  {
+   "word": "eats",
+   "start": 81.47,
+   "end": 81.76,
+   "sung": false,
+   "hz": 141.0,
+   "note": "C\u266f3",
+   "cents": 30
+  },
+  {
+   "word": "flowers",
+   "start": 81.76,
+   "end": 82.61,
+   "sung": false,
+   "hz": 133.1,
+   "note": "C3",
+   "cents": 30
+  },
+  {
+   "word": "and",
+   "start": 82.61,
+   "end": 82.83,
+   "sung": false
+  },
+  {
+   "word": "gets",
+   "start": 82.83,
+   "end": 83.52,
+   "sung": false,
+   "hz": 128.2,
+   "note": "C3",
+   "cents": -35
+  },
+  {
+   "word": "crazy",
+   "start": 83.52,
+   "end": 84.34,
+   "sung": false,
+   "hz": 179.7,
+   "note": "F\u266f3",
+   "cents": -50
+  },
+  {
+   "word": "hallucinations",
+   "start": 84.34,
+   "end": 86.63,
+   "sung": false
+  }
+ ],
+ "pitch_class_histogram": {
+  "D\u266f": 9,
+  "C\u266f": 12,
+  "A\u266f": 10,
+  "C": 15,
+  "D": 10,
+  "F\u266f": 5,
+  "G": 7,
+  "B": 5,
+  "A": 6,
+  "E": 6,
+  "F": 3,
+  "G\u266f": 7
+ },
+ "chroma_cqt_ranked": [
+  [
+   "C#",
+   0.4779999852180481
+  ],
+  [
+   "D",
+   0.4399999976158142
+  ],
+  [
+   "C",
+   0.4189999997615814
+  ],
+  [
+   "B",
+   0.3930000066757202
+  ],
+  [
+   "D#",
+   0.39100000262260437
+  ],
+  [
+   "A#",
+   0.38499999046325684
+  ],
+  [
+   "E",
+   0.33899998664855957
+  ],
+  [
+   "A",
+   0.33799999952316284
+  ],
+  [
+   "G#",
+   0.32899999618530273
+  ],
+  [
+   "F",
+   0.3199999928474426
+  ],
+  [
+   "G",
+   0.3019999861717224
+  ],
+  [
+   "F#",
+   0.2980000078678131
+  ]
+ ]
+}

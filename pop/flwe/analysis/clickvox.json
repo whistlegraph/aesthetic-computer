@@ -1,0 +1,107 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "bpm": 110.3,
+ "beat_sec": 0.544,
+ "meter": "4/4 assumed; kick on downbeats, tick on beats",
+ "anchor_sec": 18.62,
+ "count_in_beats": 8,
+ "quantize": "phrase starts snapped to nearest beat; internal rubato kept",
+ "phrases": [
+  {
+   "text": "Looked for so long for the one that I love",
+   "t0": 18.62,
+   "t1": 24.65,
+   "beat": 0,
+   "beat_measured": 0.0,
+   "shift_sec": 0.0
+  },
+  {
+   "text": "Left with my arms up in the air",
+   "t0": 25.19,
+   "t1": 29.56,
+   "beat": 12,
+   "beat_measured": 12.08,
+   "shift_sec": -0.042
+  },
+  {
+   "text": "My lollipop was the stem I grabbed",
+   "t0": 30.16,
+   "t1": 33.72,
+   "beat": 21,
+   "beat_measured": 21.21,
+   "shift_sec": -0.117
+  },
+  {
+   "text": "Hold up with both of my hands",
+   "t0": 34.15,
+   "t1": 37.65,
+   "beat": 29,
+   "beat_measured": 28.55,
+   "shift_sec": 0.245
+  },
+  {
+   "text": "Mystery flower please don't cower",
+   "t0": 38.16,
+   "t1": 42.38,
+   "beat": 36,
+   "beat_measured": 35.92,
+   "shift_sec": 0.043
+  },
+  {
+   "text": "I am hatin green now",
+   "t0": 42.92,
+   "t1": 46.12,
+   "beat": 45,
+   "beat_measured": 44.67,
+   "shift_sec": 0.179
+  },
+  {
+   "text": "I'm gonna take you so I can break you up into pieces",
+   "t0": 46.56,
+   "t1": 53.69,
+   "beat": 51,
+   "beat_measured": 51.36,
+   "shift_sec": -0.197
+  },
+  {
+   "text": "Yum yum yum",
+   "t0": 54.11,
+   "t1": 55.37,
+   "beat": 65,
+   "beat_measured": 65.24,
+   "shift_sec": -0.132
+  },
+  {
+   "text": "Now I think I wanna have you every day I'll spit twee of your seeds",
+   "t0": 55.79,
+   "t1": 62.87,
+   "beat": 68,
+   "beat_measured": 68.33,
+   "shift_sec": -0.18
+  },
+  {
+   "text": "Bury them in the ground",
+   "t0": 63.2,
+   "t1": 65.29,
+   "beat": 82,
+   "beat_measured": 81.95,
+   "shift_sec": 0.026
+  },
+  {
+   "text": "Harvest moon I'll come collect your spawn They're",
+   "t0": 65.73,
+   "t1": 70.28,
+   "beat": 87,
+   "beat_measured": 86.6,
+   "shift_sec": 0.215
+  },
+  {
+   "text": "gonna be all mine cuz I'm looping every day looping every day looping every day flower eater",
+   "t0": 70.82,
+   "t1": 79.67,
+   "beat": 96,
+   "beat_measured": 95.96,
+   "shift_sec": 0.021
+  }
+ ]
+}

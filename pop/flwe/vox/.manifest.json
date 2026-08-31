@@ -1,0 +1,98 @@
+{
+ "00-looked-for-so-long": {
+  "phrase": "Looked for so long for the one that I love",
+  "beat": 0,
+  "beats_total": 11.5,
+  "lead_in_s": 0.0,
+  "dur_s": 6.655,
+  "release_synthesized": false
+ },
+ "01-left-with-my-arms": {
+  "phrase": "Left with my arms up in the air",
+  "beat": 12,
+  "beats_total": 8.0,
+  "lead_in_s": 0.0,
+  "dur_s": 4.75,
+  "release_synthesized": false
+ },
+ "02-my-lollipop-was-the": {
+  "phrase": "My lollipop was the stem I grabbed",
+  "beat": 21,
+  "beats_total": 7.0,
+  "lead_in_s": 0.0,
+  "dur_s": 4.19,
+  "release_synthesized": false
+ },
+ "03-hold-up-with-both": {
+  "phrase": "Hold up with both of my hands",
+  "beat": 29,
+  "beats_total": 6.0,
+  "lead_in_s": 0.0,
+  "dur_s": 3.665,
+  "release_synthesized": false
+ },
+ "04-mystery-flower-please-don-t": {
+  "phrase": "Mystery flower please don't cower",
+  "beat": 36,
+  "beats_total": 8.5,
+  "lead_in_s": 0.085,
+  "dur_s": 5.11,
+  "release_synthesized": false
+ },
+ "05-i-am-hatin-green": {
+  "phrase": "I am hatin green now",
+  "beat": 45,
+  "beats_total": 6.0,
+  "lead_in_s": 0.225,
+  "dur_s": 3.88,
+  "release_synthesized": false
+ },
+ "06-i-m-gonna-take-you": {
+  "phrase": "I'm gonna take you so I can break you up into pieces",
+  "beat": 51,
+  "beats_total": 13.0,
+  "lead_in_s": 0.0,
+  "dur_s": 7.435,
+  "release_synthesized": false
+ },
+ "07-yum-yum-yum": {
+  "phrase": "Yum yum yum",
+  "beat": 65,
+  "beats_total": 1.5,
+  "lead_in_s": 0.0,
+  "dur_s": 1.185,
+  "release_synthesized": false
+ },
+ "08-now-i-think-i": {
+  "phrase": "Now I think I wanna have you every day I'll spit twee of your seeds",
+  "beat": 68,
+  "beats_total": 14.0,
+  "lead_in_s": 0.0,
+  "dur_s": 7.895,
+  "release_synthesized": false
+ },
+ "09-bury-them-in-the": {
+  "phrase": "Bury them in the ground",
+  "beat": 82,
+  "beats_total": 4.5,
+  "lead_in_s": 0.0,
+  "dur_s": 2.84,
+  "release_synthesized": false
+ },
+ "10-harvest-moon-i-ll-come": {
+  "phrase": "Harvest moon I'll come collect your spawn They're",
+  "beat": 87,
+  "beats_total": 8.5,
+  "lead_in_s": 0.295,
+  "dur_s": 5.32,
+  "release_synthesized": false
+ },
+ "11-gonna-be-all-mine": {
+  "phrase": "gonna be all mine cuz I'm looping every day looping every day looping every day flower eater",
+  "beat": 96,
+  "beats_total": 16.0,
+  "lead_in_s": 0.0,
+  "dur_s": 9.105,
+  "release_synthesized": false
+ }
+}

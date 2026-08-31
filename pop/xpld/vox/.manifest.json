@@ -1,0 +1,1952 @@
+{
+ "primary": "7275499036398865706",
+ "tonic_hz": 188.3,
+ "bpm": 130.8,
+ "phrases": {
+  "00-hit-a-hump-and": {
+   "phrase": "Hit a hump and plateaued",
+   "take": "7275499036398865706",
+   "beat": 0,
+   "beats_total": 9.5,
+   "src": [
+    5.985,
+    10.0
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 4.71,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Hit",
+     "file": "words/00-00-hit.wav",
+     "take": "7275499036398865706",
+     "src": [
+      5.985,
+      6.085
+     ]
+    },
+    {
+     "word": "a",
+     "file": "words/00-01-a.wav",
+     "take": "7275499036398865706",
+     "src": [
+      6.085,
+      6.17
+     ]
+    },
+    {
+     "word": "hump",
+     "file": "words/00-02-hump.wav",
+     "take": "7275499036398865706",
+     "src": [
+      6.17,
+      7.19
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 112.0
+    },
+    {
+     "word": "and",
+     "file": "words/00-03-and.wav",
+     "take": "7275499036398865706",
+     "src": [
+      7.19,
+      7.78
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 119.4
+    },
+    {
+     "word": "plateaued",
+     "file": "words/00-04-plateaued.wav",
+     "take": "7275499036398865706",
+     "src": [
+      7.78,
+      10.0
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 197.2
+    }
+   ]
+  },
+  "01-then-i-gave-up": {
+   "phrase": "then I gave up",
+   "take": "7275499036398865706",
+   "beat": 10,
+   "beats_total": 6.5,
+   "src": [
+    10.395,
+    13.0
+   ],
+   "lead_in_s": 0.01,
+   "dur_s": 3.285,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "then",
+     "file": "words/01-00-then.wav",
+     "take": "7275499036398865706",
+     "src": [
+      10.395,
+      11.19
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 174.7
+    },
+    {
+     "word": "I",
+     "file": "words/01-01-i.wav",
+     "take": "7275499036398865706",
+     "src": [
+      11.19,
+      11.73
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 132.4
+    },
+    {
+     "word": "gave",
+     "file": "words/01-02-gave.wav",
+     "take": "7275499036398865706",
+     "src": [
+      11.73,
+      12.53
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 141.1
+    },
+    {
+     "word": "up",
+     "file": "words/01-03-up.wav",
+     "take": "7275499036398865706",
+     "src": [
+      12.53,
+      13.0
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 141.1
+    }
+   ]
+  },
+  "02-now-they-call-me": {
+   "phrase": "now they call me Explodey Head",
+   "take": "7275499036398865706",
+   "beat": 16,
+   "beats_total": 9.5,
+   "src": [
+    13.35,
+    18.0
+   ],
+   "lead_in_s": 0.075,
+   "dur_s": 4.835,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "now",
+     "file": "words/02-00-now.wav",
+     "take": "7275499036398865706",
+     "src": [
+      13.35,
+      14.085
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 92.3
+    },
+    {
+     "word": "they",
+     "file": "words/02-01-they.wav",
+     "take": "7275499036398865706",
+     "src": [
+      14.085,
+      14.605
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 143.1
+    },
+    {
+     "word": "call",
+     "file": "words/02-02-call.wav",
+     "take": "7275499036398865706",
+     "src": [
+      14.605,
+      15.535
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 113.3
+    },
+    {
+     "word": "me",
+     "file": "words/02-03-me.wav",
+     "take": "7275499036398865706",
+     "src": [
+      15.535,
+      15.7
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 114.3
+    },
+    {
+     "word": "Explodey",
+     "file": "words/02-04-explodey.wav",
+     "take": "7275499036398865706",
+     "src": [
+      15.7,
+      17.05
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 97.2
+    },
+    {
+     "word": "Head",
+     "file": "words/02-05-head.wav",
+     "take": "7275499036398865706",
+     "src": [
+      17.05,
+      18.0
+     ],
+     "note": "E2",
+     "st_target": -14.0,
+     "hz_measured": 85.3
+    }
+   ]
+  },
+  "03-got-my-arm-out": {
+   "phrase": "Got my arm out waving anticipating",
+   "take": "7275499036398865706",
+   "beat": 28,
+   "beats_total": 10.5,
+   "src": [
+    18.99,
+    23.45
+   ],
+   "lead_in_s": 0.015,
+   "dur_s": 5.23,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Got",
+     "file": "words/03-00-got.wav",
+     "take": "7275499036398865706",
+     "src": [
+      18.99,
+      19.08
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 97.4
+    },
+    {
+     "word": "my",
+     "file": "words/03-01-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      19.08,
+      19.29
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 94.1
+    },
+    {
+     "word": "arm",
+     "file": "words/03-02-arm.wav",
+     "take": "7275499036398865706",
+     "src": [
+      19.29,
+      19.72
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 110.7
+    },
+    {
+     "word": "out",
+     "file": "words/03-03-out.wav",
+     "take": "7275499036398865706",
+     "src": [
+      19.72,
+      20.82
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 126.4
+    },
+    {
+     "word": "waving",
+     "file": "words/03-04-waving.wav",
+     "take": "7275499036398865706",
+     "src": [
+      20.82,
+      22.415
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 191.6
+    },
+    {
+     "word": "anticipating",
+     "file": "words/03-05-anticipating.wav",
+     "take": "7275499036398865706",
+     "src": [
+      22.415,
+      23.45
+     ],
+     "note": "G#3",
+     "st_target": 2.0,
+     "hz_measured": 211.4
+    }
+   ]
+  },
+  "04-nothing-special": {
+   "phrase": "nothing special",
+   "take": "7275499036398865706",
+   "beat": 42,
+   "beats_total": 5.0,
+   "src": [
+    25.48,
+    28.0
+   ],
+   "lead_in_s": 0.245,
+   "dur_s": 2.94,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "nothing",
+     "file": "words/04-00-nothing.wav",
+     "take": "7275499036398865706",
+     "src": [
+      25.48,
+      26.585
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 158.3
+    },
+    {
+     "word": "special",
+     "file": "words/04-01-special.wav",
+     "take": "7275499036398865706",
+     "src": [
+      26.585,
+      28.0
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 136.3
+    }
+   ]
+  },
+  "05-locking-the-doorway-little": {
+   "phrase": "Locking the doorway little doggy",
+   "take": "7275499036398865706",
+   "beat": 50,
+   "beats_total": 9.5,
+   "src": [
+    29.1,
+    33.35
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 4.76,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Locking",
+     "file": "words/05-00-locking.wav",
+     "take": "7275499036398865706",
+     "src": [
+      29.1,
+      29.8
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 113.6
+    },
+    {
+     "word": "the",
+     "file": "words/05-01-the.wav",
+     "take": "7275499036398865706",
+     "src": [
+      29.8,
+      30.24
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 112.0
+    },
+    {
+     "word": "doorway",
+     "file": "words/05-02-doorway.wav",
+     "take": "7275499036398865706",
+     "src": [
+      30.24,
+      31.135
+     ],
+     "note": "E2",
+     "st_target": -14.0,
+     "hz_measured": 85.3
+    },
+    {
+     "word": "little",
+     "file": "words/05-03-little.wav",
+     "take": "7275499036398865706",
+     "src": [
+      31.135,
+      32.625
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 114.3
+    },
+    {
+     "word": "doggy",
+     "file": "words/05-04-doggy.wav",
+     "take": "7275499036398865706",
+     "src": [
+      32.625,
+      33.35
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 146.0
+    }
+   ],
+   "dub": {
+    "file": "dubs/05-locking-the-doorway-little--7258670360357276970.wav",
+    "take": "7258670360357276970",
+    "src": [
+     21.55,
+     24.03
+    ],
+    "matched_text": "\ufffd\ufffd Bocking the doorway little doggy thing like a doggy \ufffd\ufffd",
+    "words": [
+     {
+      "word": "Locking",
+      "dub_word": "Bocking",
+      "src": [
+       21.7,
+       21.7
+      ]
+     },
+     {
+      "word": "the",
+      "dub_word": "the",
+      "src": [
+       21.7,
+       21.7
+      ]
+     },
+     {
+      "word": "doorway",
+      "dub_word": "doorway",
+      "src": [
+       21.7,
+       21.92
+      ],
+      "hz_dub": 98.0,
+      "note_dub": "F#2",
+      "st_dub": -11.3,
+      "cents_from_chart": 270
+     },
+     {
+      "word": "little",
+      "dub_word": "little",
+      "src": [
+       21.92,
+       22.68
+      ],
+      "hz_dub": 163.9,
+      "note_dub": "E3",
+      "st_dub": -2.4,
+      "cents_from_chart": 560
+     },
+     {
+      "word": "doggy",
+      "dub_word": "doggy",
+      "src": [
+       22.68,
+       23.58
+      ],
+      "hz_dub": 162.0,
+      "note_dub": "D#3",
+      "st_dub": -2.6,
+      "cents_from_chart": 240
+     }
+    ],
+    "note": "the alternate performance, raw \u2014 its own register/contour (see hz_dub); the render does not use it"
+   }
+  },
+  "06-thing-like-a-doggy": {
+   "phrase": "thing like a doggy",
+   "take": "7275499036398865706",
+   "beat": 61,
+   "beats_total": 7.0,
+   "src": [
+    34.0,
+    37.0
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 3.47,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "thing",
+     "file": "words/06-00-thing.wav",
+     "take": "7275499036398865706",
+     "src": [
+      34.0,
+      35.215
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 234.5
+    },
+    {
+     "word": "like",
+     "file": "words/06-01-like.wav",
+     "take": "7275499036398865706",
+     "src": [
+      35.215,
+      35.78
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 231.8
+    },
+    {
+     "word": "a",
+     "file": "words/06-02-a.wav",
+     "take": "7275499036398865706",
+     "src": [
+      35.78,
+      36.05
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 231.8
+    },
+    {
+     "word": "doggy",
+     "file": "words/06-03-doggy.wav",
+     "take": "7275499036398865706",
+     "src": [
+      36.05,
+      37.0
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 186.1
+    }
+   ]
+  },
+  "07-will-you-shut-the": {
+   "phrase": "will you shut the fuck up",
+   "take": "7275499036398865706",
+   "beat": 68,
+   "beats_total": 7.0,
+   "src": [
+    37.31,
+    40.51
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 3.61,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "will",
+     "file": "words/07-00-will.wav",
+     "take": "7275499036398865706",
+     "src": [
+      37.31,
+      37.97
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 138.6
+    },
+    {
+     "word": "you",
+     "file": "words/07-01-you.wav",
+     "take": "7275499036398865706",
+     "src": [
+      37.97,
+      38.625
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 161.1
+    },
+    {
+     "word": "shut",
+     "file": "words/07-02-shut.wav",
+     "take": "7275499036398865706",
+     "src": [
+      38.625,
+      39.185
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 240.0
+    },
+    {
+     "word": "the",
+     "file": "words/07-03-the.wav",
+     "take": "7275499036398865706",
+     "src": [
+      39.185,
+      39.63
+     ],
+     "note": "G#3",
+     "st_target": 2.0,
+     "hz_measured": 211.4
+    },
+    {
+     "word": "fuck",
+     "file": "words/07-04-fuck.wav",
+     "take": "7275499036398865706",
+     "src": [
+      39.63,
+      40.095
+     ],
+     "note": "G#3",
+     "st_target": 2.0,
+     "hz_measured": 212.6
+    },
+    {
+     "word": "up",
+     "file": "words/07-05-up.wav",
+     "take": "7275499036398865706",
+     "src": [
+      40.095,
+      40.51
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 171.2
+    }
+   ]
+  },
+  "08-this-house-that-i": {
+   "phrase": "This house that I built Scott",
+   "take": "7275499036398865706",
+   "beat": 81,
+   "beats_total": 6.5,
+   "src": [
+    43.0,
+    45.1
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 3.25,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "This",
+     "file": "words/08-00-this.wav",
+     "take": "7275499036398865706",
+     "src": [
+      43.0,
+      43.04
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 71.3
+    },
+    {
+     "word": "house",
+     "file": "words/08-01-house.wav",
+     "take": "7275499036398865706",
+     "src": [
+      43.04,
+      43.08
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 71.3
+    },
+    {
+     "word": "that",
+     "file": "words/08-02-that.wav",
+     "take": "7275499036398865706",
+     "src": [
+      43.08,
+      43.15
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 71.3
+    },
+    {
+     "word": "I",
+     "file": "words/08-03-i.wav",
+     "take": "7275499036398865706",
+     "src": [
+      43.15,
+      43.425
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 68.5
+    },
+    {
+     "word": "built",
+     "file": "words/08-04-built.wav",
+     "take": "7275499036398865706",
+     "src": [
+      43.425,
+      44.24
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 107.5
+    },
+    {
+     "word": "Scott",
+     "file": "words/08-05-scott.wav",
+     "take": "7275499036398865706",
+     "src": [
+      44.24,
+      45.1
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 158.3
+    }
+   ]
+  },
+  "09-cracks-at-the-sides": {
+   "phrase": "cracks at the sides",
+   "take": "7275499036398865706",
+   "beat": 86,
+   "beats_total": 5.5,
+   "src": [
+    45.42,
+    47.85
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 2.925,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "cracks",
+     "file": "words/09-00-cracks.wav",
+     "take": "7275499036398865706",
+     "src": [
+      45.42,
+      46.505
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 135.5
+    },
+    {
+     "word": "at",
+     "file": "words/09-01-at.wav",
+     "take": "7275499036398865706",
+     "src": [
+      46.505,
+      46.68
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 166.8
+    },
+    {
+     "word": "the",
+     "file": "words/09-02-the.wav",
+     "take": "7275499036398865706",
+     "src": [
+      46.68,
+      47.345
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 128.6
+    },
+    {
+     "word": "sides",
+     "file": "words/09-03-sides.wav",
+     "take": "7275499036398865706",
+     "src": [
+      47.345,
+      47.85
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 145.2
+    }
+   ]
+  },
+  "10-brittle-like-life-and": {
+   "phrase": "brittle like life and smoothing out",
+   "take": "7275499036398865706",
+   "beat": 92,
+   "beats_total": 10.5,
+   "src": [
+    48.4,
+    52.99
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 5.215,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "brittle",
+     "file": "words/10-00-brittle.wav",
+     "take": "7275499036398865706",
+     "src": [
+      48.4,
+      49.67
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 115.2
+    },
+    {
+     "word": "like",
+     "file": "words/10-01-like.wav",
+     "take": "7275499036398865706",
+     "src": [
+      49.67,
+      50.03
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 97.7
+    },
+    {
+     "word": "life",
+     "file": "words/10-02-life.wav",
+     "take": "7275499036398865706",
+     "src": [
+      50.03,
+      51.0
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 103.0
+    },
+    {
+     "word": "and",
+     "file": "words/10-03-and.wav",
+     "take": "7275499036398865706",
+     "src": [
+      51.225,
+      51.64
+     ]
+    },
+    {
+     "word": "smoothing",
+     "file": "words/10-04-smoothing.wav",
+     "take": "7275499036398865706",
+     "src": [
+      51.64,
+      52.37
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 167.8
+    },
+    {
+     "word": "out",
+     "file": "words/10-05-out.wav",
+     "take": "7275499036398865706",
+     "src": [
+      52.37,
+      52.99
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 152.9
+    }
+   ]
+  },
+  "11-airpockets-dream-you-re-no": {
+   "phrase": "Airpockets dream you're no match for my graphic tee",
+   "take": "7275499036398865706",
+   "beat": 105,
+   "beats_total": 10.5,
+   "src": [
+    54.17,
+    58.69
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 5.075,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Airpockets",
+     "file": "words/11-00-airpockets.wav",
+     "take": "7275499036398865706",
+     "src": [
+      54.17,
+      55.395
+     ],
+     "note": "G#4",
+     "st_target": 14.0,
+     "hz_measured": 408.3
+    },
+    {
+     "word": "dream",
+     "file": "words/11-01-dream.wav",
+     "take": "7275499036398865706",
+     "src": [
+      55.395,
+      55.53
+     ],
+     "note": "E4",
+     "st_target": 10.0,
+     "hz_measured": 345.2
+    },
+    {
+     "word": "you're",
+     "file": "words/11-02-you-re.wav",
+     "take": "7275499036398865706",
+     "src": [
+      55.53,
+      56.49
+     ],
+     "note": "F#4",
+     "st_target": 12.0,
+     "hz_measured": 359.6
+    },
+    {
+     "word": "no",
+     "file": "words/11-03-no.wav",
+     "take": "7275499036398865706",
+     "src": [
+      56.49,
+      56.57
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 132.8
+    },
+    {
+     "word": "match",
+     "file": "words/11-04-match.wav",
+     "take": "7275499036398865706",
+     "src": [
+      56.57,
+      57.18
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 117.9
+    },
+    {
+     "word": "for",
+     "file": "words/11-05-for.wav",
+     "take": "7275499036398865706",
+     "src": [
+      57.18,
+      57.535
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 103.2
+    },
+    {
+     "word": "my",
+     "file": "words/11-06-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      57.535,
+      57.85
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 105.6
+    },
+    {
+     "word": "graphic",
+     "file": "words/11-07-graphic.wav",
+     "take": "7275499036398865706",
+     "src": [
+      57.85,
+      58.36
+     ],
+     "note": "G#2",
+     "st_target": -10.0,
+     "hz_measured": 110.6
+    },
+    {
+     "word": "tee",
+     "file": "words/11-08-tee.wav",
+     "take": "7275499036398865706",
+     "src": [
+      58.36,
+      58.69
+     ],
+     "note": "A#2",
+     "st_target": -8.0,
+     "hz_measured": 116.2
+    }
+   ]
+  },
+  "12-my-face-is-full": {
+   "phrase": "my face is full of internet",
+   "take": "7275499036398865706",
+   "beat": 116,
+   "beats_total": 3.5,
+   "src": [
+    59.0,
+    60.75
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 2.005,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "my",
+     "file": "words/12-00-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      59.0,
+      59.355
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 143.5
+    },
+    {
+     "word": "face",
+     "file": "words/12-01-face.wav",
+     "take": "7275499036398865706",
+     "src": [
+      59.355,
+      59.525
+     ],
+     "note": "D#4",
+     "st_target": 9.0,
+     "hz_measured": 309.3
+    },
+    {
+     "word": "is",
+     "file": "words/12-02-is.wav",
+     "take": "7275499036398865706",
+     "src": [
+      59.525,
+      59.765
+     ],
+     "note": "D#4",
+     "st_target": 9.0,
+     "hz_measured": 324.0
+    },
+    {
+     "word": "full",
+     "file": "words/12-03-full.wav",
+     "take": "7275499036398865706",
+     "src": [
+      59.765,
+      59.845
+     ],
+     "note": "E4",
+     "st_target": 10.0,
+     "hz_measured": 331.0
+    },
+    {
+     "word": "of",
+     "file": "words/12-04-of.wav",
+     "take": "7275499036398865706",
+     "src": [
+      59.845,
+      60.49
+     ],
+     "note": "C#4",
+     "st_target": 7.0,
+     "hz_measured": 293.8
+    },
+    {
+     "word": "internet",
+     "file": "words/12-05-internet.wav",
+     "take": "7275499036398865706",
+     "src": [
+      60.49,
+      60.75
+     ],
+     "note": "C#4",
+     "st_target": 7.0,
+     "hz_measured": 283.8
+    }
+   ]
+  },
+  "13-safely-in-a-bubble": {
+   "phrase": "Safely in a bubble that surrounds me",
+   "take": "7275499036398865706",
+   "beat": 122,
+   "beats_total": 12.5,
+   "src": [
+    61.995,
+    67.52
+   ],
+   "lead_in_s": 0.265,
+   "dur_s": 6.4,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Safely",
+     "file": "words/13-00-safely.wav",
+     "take": "7275499036398865706",
+     "src": [
+      61.995,
+      62.505
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 190.5
+    },
+    {
+     "word": "in",
+     "file": "words/13-01-in.wav",
+     "take": "7275499036398865706",
+     "src": [
+      62.505,
+      62.79
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 197.2
+    },
+    {
+     "word": "a",
+     "file": "words/13-02-a.wav",
+     "take": "7275499036398865706",
+     "src": [
+      62.79,
+      63.09
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 161.1
+    },
+    {
+     "word": "bubble",
+     "file": "words/13-03-bubble.wav",
+     "take": "7275499036398865706",
+     "src": [
+      63.09,
+      64.13
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 197.2
+    },
+    {
+     "word": "that",
+     "file": "words/13-04-that.wav",
+     "take": "7275499036398865706",
+     "src": [
+      64.13,
+      65.27
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 164.9
+    },
+    {
+     "word": "surrounds",
+     "file": "words/13-05-surrounds.wav",
+     "take": "7275499036398865706",
+     "src": [
+      65.27,
+      66.68
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 249.9
+    },
+    {
+     "word": "me",
+     "file": "words/13-06-me.wav",
+     "take": "7275499036398865706",
+     "src": [
+      66.68,
+      67.52
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 194.9
+    }
+   ],
+   "dub": {
+    "file": "dubs/13-safely-in-a-bubble--7278943795482283307.wav",
+    "take": "7278943795482283307",
+    "src": [
+     47.41,
+     52.39
+    ],
+    "matched_text": "Safely in a bubble that surrounds me",
+    "words": [
+     {
+      "word": "Safely",
+      "dub_word": "Safely",
+      "src": [
+       47.56,
+       48.44
+      ],
+      "hz_dub": 333.6,
+      "note_dub": "E4",
+      "st_dub": 9.9,
+      "cents_from_chart": 990
+     },
+     {
+      "word": "in",
+      "dub_word": "in",
+      "src": [
+       48.44,
+       48.73
+      ],
+      "hz_dub": 277.3,
+      "note_dub": "C#4",
+      "st_dub": 6.7,
+      "cents_from_chart": 670
+     },
+     {
+      "word": "a",
+      "dub_word": "a",
+      "src": [
+       48.73,
+       49.16
+      ],
+      "hz_dub": 320.4,
+      "note_dub": "D#4",
+      "st_dub": 9.2,
+      "cents_from_chart": 1220
+     },
+     {
+      "word": "bubble",
+      "dub_word": "bubble",
+      "src": [
+       49.16,
+       49.75
+      ],
+      "hz_dub": 276.5,
+      "note_dub": "C#4",
+      "st_dub": 6.65,
+      "cents_from_chart": 665
+     },
+     {
+      "word": "that",
+      "dub_word": "that",
+      "src": [
+       49.75,
+       50.35
+      ],
+      "hz_dub": 372.3,
+      "note_dub": "F#4",
+      "st_dub": 11.8,
+      "cents_from_chart": 1380
+     },
+     {
+      "word": "surrounds",
+      "dub_word": "surrounds",
+      "src": [
+       50.35,
+       51.66
+      ],
+      "hz_dub": 294.6,
+      "note_dub": "C#4",
+      "st_dub": 7.75,
+      "cents_from_chart": 375
+     },
+     {
+      "word": "me",
+      "dub_word": "me",
+      "src": [
+       51.66,
+       51.95
+      ],
+      "hz_dub": 234.5,
+      "note_dub": "A#3",
+      "st_dub": 3.8,
+      "cents_from_chart": 380
+     }
+    ],
+    "note": "the alternate performance, raw \u2014 its own register/contour (see hz_dub); the render does not use it"
+   }
+  },
+  "14-i-don-t-think-i": {
+   "phrase": "I don't think I want you back in here",
+   "take": "7275499036398865706",
+   "beat": 135,
+   "beats_total": 8.0,
+   "src": [
+    68.0,
+    71.67
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 3.935,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "I",
+     "file": "words/14-00-i.wav",
+     "take": "7275499036398865706",
+     "src": [
+      68.0,
+      68.2
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 187.2
+    },
+    {
+     "word": "don't",
+     "file": "words/14-01-don-t.wav",
+     "take": "7275499036398865706",
+     "src": [
+      68.2,
+      68.905
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 187.2
+    },
+    {
+     "word": "think",
+     "file": "words/14-02-think.wav",
+     "take": "7275499036398865706",
+     "src": [
+      68.905,
+      69.225
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 153.8
+    },
+    {
+     "word": "I",
+     "file": "words/14-03-i.wav",
+     "take": "7275499036398865706",
+     "src": [
+      69.225,
+      69.67
+     ],
+     "note": "F#2",
+     "st_target": -12.0,
+     "hz_measured": 90.9
+    },
+    {
+     "word": "want",
+     "file": "words/14-04-want.wav",
+     "take": "7275499036398865706",
+     "src": [
+      69.67,
+      70.265
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 188.8
+    },
+    {
+     "word": "you",
+     "file": "words/14-05-you.wav",
+     "take": "7275499036398865706",
+     "src": [
+      70.265,
+      70.345
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 187.2
+    },
+    {
+     "word": "back",
+     "file": "words/14-06-back.wav",
+     "take": "7275499036398865706",
+     "src": [
+      70.345,
+      70.71
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 156.5
+    },
+    {
+     "word": "in",
+     "file": "words/14-07-in.wav",
+     "take": "7275499036398865706",
+     "src": [
+      70.71,
+      71.305
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 193.8
+    },
+    {
+     "word": "here",
+     "file": "words/14-08-here.wav",
+     "take": "7275499036398865706",
+     "src": [
+      71.305,
+      71.67
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 163.0
+    }
+   ]
+  },
+  "15-oh-no": {
+   "phrase": "oh no",
+   "take": "7275499036398865706",
+   "beat": 144,
+   "beats_total": 1.0,
+   "src": [
+    71.99,
+    72.66
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 0.745,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "oh",
+     "file": "words/15-00-oh.wav",
+     "take": "7275499036398865706",
+     "src": [
+      71.99,
+      72.485
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 191.6
+    },
+    {
+     "word": "no",
+     "file": "words/15-01-no.wav",
+     "take": "7275499036398865706",
+     "src": [
+      72.485,
+      72.66
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 179.8
+    }
+   ]
+  },
+  "16-this-emo": {
+   "phrase": "this emo",
+   "take": "7275499036398865706",
+   "beat": 146,
+   "beats_total": 4.0,
+   "src": [
+    73.0,
+    75.0
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 2.235,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "this",
+     "file": "words/16-00-this.wav",
+     "take": "7275499036398865706",
+     "src": [
+      73.0,
+      74.095
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 227.2
+    },
+    {
+     "word": "emo",
+     "file": "words/16-01-emo.wav",
+     "take": "7275499036398865706",
+     "src": [
+      74.095,
+      75.0
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 163.0
+    }
+   ]
+  },
+  "17-gee-defends-me-in": {
+   "phrase": "Gee defends me in my bubble",
+   "take": "7275499036398865706",
+   "beat": 153,
+   "beats_total": 9.0,
+   "src": [
+    76.15,
+    80.45
+   ],
+   "lead_in_s": 0.02,
+   "dur_s": 4.55,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "Gee",
+     "file": "words/17-00-gee.wav",
+     "take": "7275499036398865706",
+     "src": [
+      76.15,
+      76.71
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 166.8
+    },
+    {
+     "word": "defends",
+     "file": "words/17-01-defends.wav",
+     "take": "7275499036398865706",
+     "src": [
+      76.71,
+      78.105
+     ],
+     "note": "G#3",
+     "st_target": 2.0,
+     "hz_measured": 208.9
+    },
+    {
+     "word": "me",
+     "file": "words/17-02-me.wav",
+     "take": "7275499036398865706",
+     "src": [
+      78.105,
+      78.825
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 181.9
+    },
+    {
+     "word": "in",
+     "file": "words/17-03-in.wav",
+     "take": "7275499036398865706",
+     "src": [
+      78.825,
+      79.065
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 142.3
+    },
+    {
+     "word": "my",
+     "file": "words/17-04-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      79.065,
+      79.79
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 141.9
+    },
+    {
+     "word": "bubble",
+     "file": "words/17-05-bubble.wav",
+     "take": "7275499036398865706",
+     "src": [
+      79.79,
+      80.45
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 190.5
+    }
+   ],
+   "dub": {
+    "file": "dubs/17-gee-defends-me-in--7278943795482283307.wav",
+    "take": "7278943795482283307",
+    "src": [
+     57.71,
+     61.91
+    ],
+    "matched_text": "This emoji defends me in my bubble",
+    "words": [
+     {
+      "word": "Gee",
+      "dub_word": "emoji",
+      "src": [
+       57.86,
+       58.84
+      ],
+      "hz_dub": 289.6,
+      "note_dub": "C#4",
+      "st_dub": 7.45,
+      "cents_from_chart": 945
+     },
+     {
+      "word": "defends",
+      "dub_word": "defends",
+      "src": [
+       58.84,
+       59.74
+      ],
+      "hz_dub": 289.6,
+      "note_dub": "C#4",
+      "st_dub": 7.45,
+      "cents_from_chart": 545
+     },
+     {
+      "word": "me",
+      "dub_word": "me",
+      "src": [
+       59.74,
+       60.05
+      ],
+      "hz_dub": 381.0,
+      "note_dub": "F#4",
+      "st_dub": 12.2,
+      "cents_from_chart": 1220
+     },
+     {
+      "word": "in",
+      "dub_word": "in",
+      "src": [
+       60.05,
+       60.36
+      ],
+      "hz_dub": 356.5,
+      "note_dub": "F#4",
+      "st_dub": 11.05,
+      "cents_from_chart": 1605
+     },
+     {
+      "word": "my",
+      "dub_word": "my",
+      "src": [
+       60.36,
+       60.69
+      ],
+      "hz_dub": 334.5,
+      "note_dub": "E4",
+      "st_dub": 9.95,
+      "cents_from_chart": 1495
+     },
+     {
+      "word": "bubble",
+      "dub_word": "bubble",
+      "src": [
+       60.69,
+       61.61
+      ],
+      "hz_dub": 293.8,
+      "note_dub": "C#4",
+      "st_dub": 7.7,
+      "cents_from_chart": 770
+     }
+    ],
+    "note": "the alternate performance, raw \u2014 its own register/contour (see hz_dub); the render does not use it"
+   }
+  },
+  "18-signifying-my-identity-my": {
+   "phrase": "signifying my identity my identity",
+   "take": "7275499036398865706",
+   "beat": 165,
+   "beats_total": 16.0,
+   "src": [
+    81.54,
+    89.0
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 7.74,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "signifying",
+     "file": "words/18-00-signifying.wav",
+     "take": "7275499036398865706",
+     "src": [
+      81.54,
+      84.045
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 185.1
+    },
+    {
+     "word": "my",
+     "file": "words/18-01-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      84.045,
+      84.125
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 183.5
+    },
+    {
+     "word": "identity",
+     "file": "words/18-02-identity.wav",
+     "take": "7275499036398865706",
+     "src": [
+      84.125,
+      86.85
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 239.3
+    },
+    {
+     "word": "my",
+     "file": "words/18-03-my.wav",
+     "take": "7275499036398865706",
+     "src": [
+      86.85,
+      86.93
+     ],
+     "note": "G#3",
+     "st_target": 2.0,
+     "hz_measured": 216.3
+    },
+    {
+     "word": "identity",
+     "file": "words/18-04-identity.wav",
+     "take": "7275499036398865706",
+     "src": [
+      86.93,
+      89.0
+     ],
+     "note": "A#3",
+     "st_target": 4.0,
+     "hz_measured": 238.6
+    }
+   ]
+  },
+  "19-it-flickers-like-a": {
+   "phrase": "It flickers like a shooting star",
+   "take": "7275499036398865706",
+   "beat": 183,
+   "beats_total": 12.0,
+   "src": [
+    89.97,
+    95.13
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 5.905,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "It",
+     "file": "words/19-00-it.wav",
+     "take": "7275499036398865706",
+     "src": [
+      89.97,
+      90.15
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 65.8
+    },
+    {
+     "word": "flickers",
+     "file": "words/19-01-flickers.wav",
+     "take": "7275499036398865706",
+     "src": [
+      90.15,
+      91.365
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 133.9
+    },
+    {
+     "word": "like",
+     "file": "words/19-02-like.wav",
+     "take": "7275499036398865706",
+     "src": [
+      91.365,
+      91.945
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 141.5
+    },
+    {
+     "word": "a",
+     "file": "words/19-03-a.wav",
+     "take": "7275499036398865706",
+     "src": [
+      91.945,
+      92.51
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 146.0
+    },
+    {
+     "word": "shooting",
+     "file": "words/19-04-shooting.wav",
+     "take": "7275499036398865706",
+     "src": [
+      92.51,
+      94.255
+     ],
+     "note": "F#3",
+     "st_target": 0.0,
+     "hz_measured": 189.4
+    },
+    {
+     "word": "star",
+     "file": "words/19-05-star.wav",
+     "take": "7275499036398865706",
+     "src": [
+      94.255,
+      95.13
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 167.8
+    }
+   ]
+  },
+  "20-oh-yeah": {
+   "phrase": "oh yeah",
+   "take": "7275499036398865706",
+   "beat": 195,
+   "beats_total": 3.0,
+   "src": [
+    95.6,
+    96.96
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 1.77,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "oh",
+     "file": "words/20-00-oh.wav",
+     "take": "7275499036398865706",
+     "src": [
+      95.6,
+      96.47
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 163.9
+    },
+    {
+     "word": "yeah",
+     "file": "words/20-01-yeah.wav",
+     "take": "7275499036398865706",
+     "src": [
+      96.47,
+      96.96
+     ],
+     "note": "C#2",
+     "st_target": -17.0,
+     "hz_measured": 66.5
+    }
+   ]
+  },
+  "21-do-you-see": {
+   "phrase": "do you see",
+   "take": "7275499036398865706",
+   "beat": 199,
+   "beats_total": 4.0,
+   "src": [
+    97.41,
+    99.22
+   ],
+   "lead_in_s": 0.0,
+   "dur_s": 2.235,
+   "release_synthesized": false,
+   "words": [
+    {
+     "word": "do",
+     "file": "words/21-00-do.wav",
+     "take": "7275499036398865706",
+     "src": [
+      97.41,
+      97.82
+     ],
+     "note": "C#3",
+     "st_target": -5.0,
+     "hz_measured": 146.9
+    },
+    {
+     "word": "you",
+     "file": "words/21-01-you.wav",
+     "take": "7275499036398865706",
+     "src": [
+      97.82,
+      98.545
+     ],
+     "note": "D#3",
+     "st_target": -3.0,
+     "hz_measured": 162.0
+    },
+    {
+     "word": "see",
+     "file": "words/21-02-see.wav",
+     "take": "7275499036398865706",
+     "src": [
+      98.545,
+      99.22
+     ],
+     "note": "E3",
+     "st_target": -2.0,
+     "hz_measured": 161.1
+    }
+   ],
+   "dub": {
+    "file": "dubs/21-do-you-see--7258670360357276970.wav",
+    "take": "7258670360357276970",
+    "src": [
+     83.57,
+     85.53
+    ],
+    "matched_text": "\ufffd\ufffd Do you see \ufffd\ufffd",
+    "words": [
+     {
+      "word": "do",
+      "dub_word": "Do",
+      "src": [
+       83.72,
+       83.99
+      ],
+      "hz_dub": 188.8,
+      "note_dub": "F#3",
+      "st_dub": 0.05,
+      "cents_from_chart": 505
+     },
+     {
+      "word": "you",
+      "dub_word": "you",
+      "src": [
+       83.99,
+       84.46
+      ],
+      "hz_dub": 185.6,
+      "note_dub": "F#3",
+      "st_dub": -0.25,
+      "cents_from_chart": 275
+     },
+     {
+      "word": "see",
+      "dub_word": "see",
+      "src": [
+       84.46,
+       85.08
+      ],
+      "hz_dub": 201.8,
+      "note_dub": "G#3",
+      "st_dub": 1.2,
+      "cents_from_chart": 320
+     }
+    ],
+    "note": "the alternate performance, raw \u2014 its own register/contour (see hz_dub); the render does not use it"
+   }
+  }
+ }
+}

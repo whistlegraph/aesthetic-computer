@@ -1,0 +1,187 @@
+{
+ "source": "xpld-7275499036398865706.wav",
+ "bpm": 130.8,
+ "beat_sec": 0.4587,
+ "meter": "4/4 assumed; kick on downbeats, tick on beats",
+ "anchor_sec": 6.0,
+ "count_in_beats": 8,
+ "quantize": "phrase starts snapped to nearest beat; internal rubato kept",
+ "phrases": [
+  {
+   "text": "Hit a hump and plateaued",
+   "t0": 6.0,
+   "t1": 10.0,
+   "beat": 0,
+   "beat_measured": 0.0,
+   "shift_sec": 0.0
+  },
+  {
+   "text": "then I gave up",
+   "t0": 10.4,
+   "t1": 13.0,
+   "beat": 10,
+   "beat_measured": 9.59,
+   "shift_sec": 0.187
+  },
+  {
+   "text": "now they call me Explodey Head",
+   "t0": 13.35,
+   "t1": 18.0,
+   "beat": 16,
+   "beat_measured": 16.02,
+   "shift_sec": -0.011
+  },
+  {
+   "text": "Got my arm out waving anticipating",
+   "t0": 19.0,
+   "t1": 23.45,
+   "beat": 28,
+   "beat_measured": 28.34,
+   "shift_sec": -0.156
+  },
+  {
+   "text": "nothing special",
+   "t0": 25.48,
+   "t1": 28.0,
+   "beat": 42,
+   "beat_measured": 42.47,
+   "shift_sec": -0.214
+  },
+  {
+   "text": "Locking the doorway little doggy",
+   "t0": 29.1,
+   "t1": 33.35,
+   "beat": 50,
+   "beat_measured": 50.36,
+   "shift_sec": -0.164
+  },
+  {
+   "text": "thing like a doggy",
+   "t0": 34.0,
+   "t1": 37.0,
+   "beat": 61,
+   "beat_measured": 61.04,
+   "shift_sec": -0.018
+  },
+  {
+   "text": "will you shut the fuck up",
+   "t0": 37.31,
+   "t1": 40.51,
+   "beat": 68,
+   "beat_measured": 68.26,
+   "shift_sec": -0.117
+  },
+  {
+   "text": "This house that I built Scott",
+   "t0": 43.0,
+   "t1": 45.1,
+   "beat": 81,
+   "beat_measured": 80.66,
+   "shift_sec": 0.156
+  },
+  {
+   "text": "cracks at the sides",
+   "t0": 45.42,
+   "t1": 47.85,
+   "beat": 86,
+   "beat_measured": 85.94,
+   "shift_sec": 0.03
+  },
+  {
+   "text": "brittle like life and smoothing out",
+   "t0": 48.4,
+   "t1": 52.99,
+   "beat": 92,
+   "beat_measured": 92.43,
+   "shift_sec": -0.198
+  },
+  {
+   "text": "Airpockets dream you're no match for my graphic tee",
+   "t0": 54.17,
+   "t1": 58.69,
+   "beat": 105,
+   "beat_measured": 105.01,
+   "shift_sec": -0.005
+  },
+  {
+   "text": "my face is full of internet",
+   "t0": 59.0,
+   "t1": 60.75,
+   "beat": 116,
+   "beat_measured": 115.54,
+   "shift_sec": 0.211
+  },
+  {
+   "text": "Safely in a bubble that surrounds me",
+   "t0": 62.0,
+   "t1": 67.52,
+   "beat": 122,
+   "beat_measured": 122.08,
+   "shift_sec": -0.037
+  },
+  {
+   "text": "I don't think I want you back in here",
+   "t0": 68.0,
+   "t1": 71.67,
+   "beat": 135,
+   "beat_measured": 135.16,
+   "shift_sec": -0.073
+  },
+  {
+   "text": "oh no",
+   "t0": 71.99,
+   "t1": 72.66,
+   "beat": 144,
+   "beat_measured": 143.86,
+   "shift_sec": 0.065
+  },
+  {
+   "text": "this emo",
+   "t0": 73.0,
+   "t1": 75.0,
+   "beat": 146,
+   "beat_measured": 146.06,
+   "shift_sec": -0.028
+  },
+  {
+   "text": "Gee defends me in my bubble",
+   "t0": 76.15,
+   "t1": 80.45,
+   "beat": 153,
+   "beat_measured": 152.93,
+   "shift_sec": 0.033
+  },
+  {
+   "text": "signifying my identity my identity",
+   "t0": 81.54,
+   "t1": 89.0,
+   "beat": 165,
+   "beat_measured": 164.68,
+   "shift_sec": 0.148
+  },
+  {
+   "text": "It flickers like a shooting star",
+   "t0": 90.0,
+   "t1": 95.13,
+   "beat": 183,
+   "beat_measured": 183.12,
+   "shift_sec": -0.055
+  },
+  {
+   "text": "oh yeah",
+   "t0": 95.6,
+   "t1": 96.96,
+   "beat": 195,
+   "beat_measured": 195.33,
+   "shift_sec": -0.15
+  },
+  {
+   "text": "do you see",
+   "t0": 97.41,
+   "t1": 99.22,
+   "beat": 199,
+   "beat_measured": 199.27,
+   "shift_sec": -0.126
+  }
+ ]
+}

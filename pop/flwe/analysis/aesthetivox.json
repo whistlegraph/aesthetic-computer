@@ -1,0 +1,1160 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "tonic_hz": 133.9,
+ "bpm": 110.3,
+ "snap": 0.92,
+ "scale_semitones": [
+  0,
+  1,
+  2,
+  3,
+  7,
+  9,
+  10,
+  11
+ ],
+ "phrases": [
+  {
+   "phrase": "Looked for so long for the one that I love",
+   "beat": 0,
+   "floor_hz": 74.7,
+   "boundary_moves": [
+    "for -120ms",
+    "so -210ms",
+    "long -40ms",
+    "for +60ms",
+    "the +25ms",
+    "one -220ms",
+    "that -210ms",
+    "I -90ms",
+    "love +150ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Looked",
+     "note": "D3",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.08,
+     "hold": false
+    },
+    {
+     "word": "for",
+     "note": "D#3",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "runway_ms": 40,
+     "stretch": 1.29,
+     "hold": false
+    },
+    {
+     "word": "so",
+     "note": "D#3",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.51,
+     "hold": false
+    },
+    {
+     "word": "long",
+     "note": "C3",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.99,
+     "hold": false
+    },
+    {
+     "word": "for",
+     "note": "A2",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.89,
+     "hold": false
+    },
+    {
+     "word": "the",
+     "note": "C3",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 2.66,
+     "hold": true
+    },
+    {
+     "word": "one",
+     "note": "A2",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false
+    },
+    {
+     "word": "that",
+     "note": "A2",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false
+    },
+    {
+     "word": "I",
+     "note": null,
+     "beat": 9.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.4,
+     "hold": false
+    },
+    {
+     "word": "love",
+     "note": "D#3",
+     "beat": 10.0,
+     "dur_beats": 1.5,
+     "runway_ms": 100,
+     "stretch": 1.66,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Left with my arms up in the air",
+   "beat": 12,
+   "floor_hz": 78.7,
+   "boundary_moves": [
+    "with -40ms",
+    "my -15ms",
+    "arms -205ms",
+    "up -230ms",
+    "in -100ms",
+    "air -135ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Left",
+     "note": "A3",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.18,
+     "hold": false
+    },
+    {
+     "word": "with",
+     "note": "D#3",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.94,
+     "hold": false
+    },
+    {
+     "word": "my",
+     "note": "A2",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 3.44,
+     "hold": true
+    },
+    {
+     "word": "arms",
+     "note": "A#2",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.19,
+     "hold": false
+    },
+    {
+     "word": "up",
+     "note": "G2",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.3,
+     "hold": false
+    },
+    {
+     "word": "in",
+     "note": "G3",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "runway_ms": 125,
+     "stretch": 0.82,
+     "hold": false
+    },
+    {
+     "word": "the",
+     "note": "G2",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.11,
+     "hold": false
+    },
+    {
+     "word": "air",
+     "note": "D2",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "runway_ms": 85,
+     "stretch": 0.9,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "My lollipop was the stem I grabbed",
+   "beat": 21,
+   "floor_hz": 79.9,
+   "boundary_moves": [
+    "lollipop +65ms",
+    "was +115ms",
+    "the -155ms",
+    "stem -100ms",
+    "I -130ms",
+    "grabbed +125ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "My",
+     "note": "B3",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.2,
+     "hold": false
+    },
+    {
+     "word": "lollipop",
+     "note": "A3",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.67,
+     "hold": false
+    },
+    {
+     "word": "was",
+     "note": "C#2",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.34,
+     "hold": false
+    },
+    {
+     "word": "the",
+     "note": "D#3",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.9,
+     "hold": false
+    },
+    {
+     "word": "stem",
+     "note": "G3",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.13,
+     "hold": false
+    },
+    {
+     "word": "I",
+     "note": "D#2",
+     "beat": 4.5,
+     "dur_beats": 0.5,
+     "runway_ms": 60,
+     "stretch": 0.83,
+     "hold": false
+    },
+    {
+     "word": "grabbed",
+     "note": "C#3",
+     "beat": 5.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.22,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Hold up with both of my hands",
+   "beat": 29,
+   "floor_hz": 75.5,
+   "boundary_moves": [
+    "up +35ms",
+    "with +75ms",
+    "both -85ms",
+    "of -30ms",
+    "my +145ms",
+    "hands -45ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Hold",
+     "note": "D#3",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.89,
+     "hold": false
+    },
+    {
+     "word": "up",
+     "note": "D#3",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.82,
+     "hold": false
+    },
+    {
+     "word": "with",
+     "note": "C#3",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.14,
+     "hold": false
+    },
+    {
+     "word": "both",
+     "note": "C3",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.93,
+     "hold": false
+    },
+    {
+     "word": "of",
+     "note": "D#3",
+     "beat": 3.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.57,
+     "hold": false
+    },
+    {
+     "word": "my",
+     "note": "D#3",
+     "beat": 4.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 3.44,
+     "hold": true
+    },
+    {
+     "word": "hands",
+     "note": "A2",
+     "beat": 4.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.87,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Mystery flower please don't cower",
+   "beat": 36,
+   "floor_hz": 90.8,
+   "boundary_moves": [
+    "flower -180ms",
+    "please -200ms",
+    "don't -165ms",
+    "cower +215ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Mystery",
+     "note": "C#3",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "runway_ms": 85,
+     "stretch": 1.5,
+     "hold": false
+    },
+    {
+     "word": "flower",
+     "note": "D#3",
+     "beat": 2.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 0.97,
+     "hold": false
+    },
+    {
+     "word": "please",
+     "note": "A3",
+     "beat": 4.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.14,
+     "hold": false
+    },
+    {
+     "word": "don't",
+     "note": "G3",
+     "beat": 5.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.79,
+     "hold": false
+    },
+    {
+     "word": "cower",
+     "note": "G3",
+     "beat": 7.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.55,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "I am hatin green now",
+   "beat": 45,
+   "floor_hz": 67.9,
+   "boundary_moves": [
+    "am +105ms",
+    "hatin -55ms",
+    "green +240ms",
+    "now -85ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "I",
+     "note": null,
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 225,
+     "stretch": 3.38,
+     "hold": true
+    },
+    {
+     "word": "am",
+     "note": null,
+     "beat": 0.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.82,
+     "hold": true
+    },
+    {
+     "word": "hatin",
+     "note": "C#3",
+     "beat": 1.5,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.85,
+     "hold": false
+    },
+    {
+     "word": "green",
+     "note": "C3",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.37,
+     "hold": false
+    },
+    {
+     "word": "now",
+     "note": "G2",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.73,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "I'm gonna take you so I can break you up into pieces",
+   "beat": 51,
+   "floor_hz": 105.4,
+   "boundary_moves": [
+    "gonna +245ms",
+    "take +35ms",
+    "you -250ms",
+    "so +15ms",
+    "I -30ms",
+    "can -110ms",
+    "break -205ms",
+    "you +160ms",
+    "up +80ms",
+    "into -50ms",
+    "pieces +210ms"
+   ],
+   "trims": [
+    "-175ms"
+   ],
+   "words": [
+    {
+     "word": "I'm",
+     "note": null,
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.7,
+     "hold": false
+    },
+    {
+     "word": "gonna",
+     "note": "D#3",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.23,
+     "hold": false
+    },
+    {
+     "word": "take",
+     "note": "C#3",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.45,
+     "hold": false
+    },
+    {
+     "word": "you",
+     "note": "G3",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "runway_ms": 10,
+     "stretch": 0.8,
+     "hold": false
+    },
+    {
+     "word": "so",
+     "note": "G3",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.86,
+     "hold": false
+    },
+    {
+     "word": "I",
+     "note": "A3",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 3.44,
+     "hold": true
+    },
+    {
+     "word": "can",
+     "note": "A3",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.31,
+     "hold": false
+    },
+    {
+     "word": "break",
+     "note": "G3",
+     "beat": 7.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.75,
+     "hold": false
+    },
+    {
+     "word": "you",
+     "note": "B3",
+     "beat": 8.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.4,
+     "hold": false
+    },
+    {
+     "word": "up",
+     "note": "B3",
+     "beat": 9.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.12,
+     "hold": false
+    },
+    {
+     "word": "into",
+     "note": "B3",
+     "beat": 10.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.74,
+     "hold": false
+    },
+    {
+     "word": "pieces",
+     "note": "B3",
+     "beat": 11.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.27,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Yum yum yum",
+   "beat": 65,
+   "floor_hz": 140.0,
+   "boundary_moves": [
+    "yum +155ms",
+    "yum -225ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Yum",
+     "note": null,
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.47,
+     "hold": false
+    },
+    {
+     "word": "yum",
+     "note": "G4",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 3.44,
+     "hold": true
+    },
+    {
+     "word": "yum",
+     "note": "D#4",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.45,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Now I think I wanna have you every day I'll spit twee of your seeds",
+   "beat": 68,
+   "floor_hz": 140.0,
+   "boundary_moves": [
+    "I -30ms",
+    "think +110ms",
+    "I -115ms",
+    "wanna +180ms",
+    "have +30ms",
+    "you -70ms",
+    "every -170ms",
+    "day -235ms",
+    "I'll +120ms",
+    "spit +85ms",
+    "twee -25ms",
+    "of +5ms",
+    "your +100ms",
+    "seeds -100ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Now",
+     "note": "D#4",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.87,
+     "hold": false
+    },
+    {
+     "word": "I",
+     "note": "C3",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 170,
+     "stretch": 3.86,
+     "hold": true
+    },
+    {
+     "word": "think",
+     "note": "D#4",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.72,
+     "hold": false
+    },
+    {
+     "word": "I",
+     "note": "C#4",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.65,
+     "hold": false
+    },
+    {
+     "word": "wanna",
+     "note": "C#4",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.38,
+     "hold": false
+    },
+    {
+     "word": "have",
+     "note": "D#4",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.09,
+     "hold": false
+    },
+    {
+     "word": "you",
+     "note": "D4",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.93,
+     "hold": true
+    },
+    {
+     "word": "every",
+     "note": "C#4",
+     "beat": 6.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.0,
+     "hold": false
+    },
+    {
+     "word": "day",
+     "note": "A#3",
+     "beat": 8.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 0.83,
+     "hold": false
+    },
+    {
+     "word": "I'll",
+     "note": null,
+     "beat": 10.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false
+    },
+    {
+     "word": "spit",
+     "note": "G3",
+     "beat": 11.0,
+     "dur_beats": 0.5,
+     "runway_ms": 60,
+     "stretch": 2.45,
+     "hold": true
+    },
+    {
+     "word": "twee",
+     "note": "A3",
+     "beat": 11.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.98,
+     "hold": false
+    },
+    {
+     "word": "of",
+     "note": "G3",
+     "beat": 12.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.64,
+     "hold": false
+    },
+    {
+     "word": "your",
+     "note": "D#4",
+     "beat": 12.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 3.38,
+     "hold": true
+    },
+    {
+     "word": "seeds",
+     "note": "D#4",
+     "beat": 13.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.84,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Bury them in the ground",
+   "beat": 82,
+   "floor_hz": 67.1,
+   "boundary_moves": [
+    "them -115ms",
+    "in +195ms",
+    "the +25ms",
+    "ground -30ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Bury",
+     "note": null,
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.54,
+     "hold": false
+    },
+    {
+     "word": "them",
+     "note": "A#2",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.73,
+     "hold": false
+    },
+    {
+     "word": "in",
+     "note": "A2",
+     "beat": 2.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.93,
+     "hold": true
+    },
+    {
+     "word": "the",
+     "note": "A#2",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.46,
+     "hold": false
+    },
+    {
+     "word": "ground",
+     "note": "C3",
+     "beat": 3.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.19,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Harvest moon I'll come collect your spawn They're",
+   "beat": 87,
+   "floor_hz": 130.9,
+   "boundary_moves": [
+    "moon -90ms",
+    "I'll +70ms",
+    "come +170ms",
+    "collect +110ms",
+    "your -105ms",
+    "They're -230ms"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Harvest",
+     "note": "A3",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 295,
+     "stretch": 1.79,
+     "hold": false
+    },
+    {
+     "word": "moon",
+     "note": "A#3",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.91,
+     "hold": false
+    },
+    {
+     "word": "I'll",
+     "note": "C4",
+     "beat": 2.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false
+    },
+    {
+     "word": "come",
+     "note": "A#3",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.9,
+     "hold": false
+    },
+    {
+     "word": "collect",
+     "note": "C#4",
+     "beat": 3.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.85,
+     "hold": true
+    },
+    {
+     "word": "your",
+     "note": "C#4",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.9,
+     "hold": false
+    },
+    {
+     "word": "spawn",
+     "note": "C4",
+     "beat": 5.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.2,
+     "hold": false
+    },
+    {
+     "word": "They're",
+     "note": "D#3",
+     "beat": 7.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.74,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "gonna be all mine cuz I'm looping every day looping every day looping every day flower eater",
+   "beat": 96,
+   "floor_hz": 86.3,
+   "boundary_moves": [
+    "be +110ms",
+    "all +140ms",
+    "mine +45ms",
+    "cuz +80ms",
+    "I'm +65ms",
+    "looping +65ms",
+    "every +150ms",
+    "day -250ms",
+    "looping +225ms",
+    "every +205ms",
+    "day -40ms",
+    "looping -250ms",
+    "every -70ms",
+    "day +110ms",
+    "flower +170ms",
+    "eater -75ms"
+   ],
+   "trims": [
+    "-155ms"
+   ],
+   "words": [
+    {
+     "word": "gonna",
+     "note": "G3",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.93,
+     "hold": true
+    },
+    {
+     "word": "be",
+     "note": "G3",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.1,
+     "hold": false
+    },
+    {
+     "word": "all",
+     "note": "G3",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.1,
+     "hold": false
+    },
+    {
+     "word": "mine",
+     "note": "C#4",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.12,
+     "hold": false
+    },
+    {
+     "word": "cuz",
+     "note": "G3",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.81,
+     "hold": false
+    },
+    {
+     "word": "I'm",
+     "note": "A3",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.89,
+     "hold": false
+    },
+    {
+     "word": "looping",
+     "note": "B2",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.93,
+     "hold": false
+    },
+    {
+     "word": "every",
+     "note": "C3",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 3.21,
+     "hold": true
+    },
+    {
+     "word": "day",
+     "note": "C3",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.31,
+     "hold": false
+    },
+    {
+     "word": "looping",
+     "note": "C#3",
+     "beat": 6.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.15,
+     "hold": false
+    },
+    {
+     "word": "every",
+     "note": "B2",
+     "beat": 8.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.91,
+     "hold": true
+    },
+    {
+     "word": "day",
+     "note": "C3",
+     "beat": 9.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.96,
+     "hold": true
+    },
+    {
+     "word": "looping",
+     "note": "C3",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.88,
+     "hold": false
+    },
+    {
+     "word": "every",
+     "note": "C#3",
+     "beat": 10.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.55,
+     "hold": false
+    },
+    {
+     "word": "day",
+     "note": "B2",
+     "beat": 11.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.04,
+     "hold": false
+    },
+    {
+     "word": "flower",
+     "note": "G3",
+     "beat": 11.5,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.14,
+     "hold": false
+    },
+    {
+     "word": "eater",
+     "note": "C4",
+     "beat": 14.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.84,
+     "hold": false
+    }
+   ],
+   "release_synthesized": false
+  }
+ ]
+}

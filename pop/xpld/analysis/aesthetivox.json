@@ -1,0 +1,1513 @@
+{
+ "source": "xpld-7275499036398865706.wav",
+ "tonic_hz": 188.3,
+ "bpm": 130.8,
+ "snap": 0.92,
+ "scale_semitones": [
+  0,
+  2,
+  4,
+  7,
+  9,
+  10
+ ],
+ "phrases": [
+  {
+   "phrase": "Hit a hump and plateaued",
+   "beat": 0,
+   "floor_hz": 80.4,
+   "boundary_moves": [
+    "and -150ms",
+    "plateaued +20ms"
+   ],
+   "cram_spreads": [
+    "Hit -> 85ms each"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "Hit",
+     "note": null,
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 2.3,
+     "hold": true,
+     "qc_cents": null
+    },
+    {
+     "word": "a",
+     "note": null,
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 2.71,
+     "hold": true,
+     "qc_cents": null
+    },
+    {
+     "word": "hump",
+     "note": "A#2",
+     "beat": 1.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.12,
+     "hold": false,
+     "qc_cents": -18
+    },
+    {
+     "word": "and",
+     "note": "A#2",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.69,
+     "hold": false,
+     "qc_cents": 2
+    },
+    {
+     "word": "plateaued",
+     "note": "F#3",
+     "beat": 4.5,
+     "dur_beats": 5.0,
+     "runway_ms": 55,
+     "stretch": 1.06,
+     "hold": false,
+     "qc_cents": -8
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "then I gave up",
+   "beat": 10,
+   "floor_hz": 77.1,
+   "boundary_moves": [
+    "I -190ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "then",
+     "note": "E3",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "runway_ms": 10,
+     "stretch": 1.46,
+     "hold": false,
+     "qc_cents": 2
+    },
+    {
+     "word": "I",
+     "note": "C#3",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.85,
+     "hold": false,
+     "qc_cents": -13
+    },
+    {
+     "word": "gave",
+     "note": "C#3",
+     "beat": 3.5,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.15,
+     "hold": false,
+     "qc_cents": -3
+    },
+    {
+     "word": "up",
+     "note": "C#3",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.97,
+     "hold": false,
+     "qc_cents": 0
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "now they call me Explodey Head",
+   "beat": 16,
+   "floor_hz": 55.0,
+   "boundary_moves": [
+    "they +175ms",
+    "call -45ms",
+    "me +145ms",
+    "Explodey -60ms",
+    "Head -180ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "now",
+     "note": "F#2",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 75,
+     "stretch": 0.7,
+     "hold": false,
+     "qc_cents": -4
+    },
+    {
+     "word": "they",
+     "note": "C#3",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.32,
+     "hold": false,
+     "qc_cents": -4
+    },
+    {
+     "word": "call",
+     "note": "A#2",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.74,
+     "hold": false,
+     "qc_cents": -8
+    },
+    {
+     "word": "me",
+     "note": "A#2",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 2.79,
+     "hold": true,
+     "qc_cents": -3
+    },
+    {
+     "word": "Explodey",
+     "note": "F#2",
+     "beat": 5.0,
+     "dur_beats": 3.0,
+     "runway_ms": 0,
+     "stretch": 1.02,
+     "hold": false,
+     "qc_cents": -15
+    },
+    {
+     "word": "Head",
+     "note": "E2",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.73,
+     "hold": false,
+     "qc_cents": 3
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Got my arm out waving anticipating",
+   "beat": 28,
+   "floor_hz": 80.9,
+   "boundary_moves": [
+    "my +80ms",
+    "arm +120ms",
+    "out +120ms",
+    "waving +230ms",
+    "anticipating +245ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "Got",
+     "note": "F#2",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 15,
+     "stretch": 3.07,
+     "hold": true,
+     "qc_cents": -2
+    },
+    {
+     "word": "my",
+     "note": "F#2",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.81,
+     "hold": false,
+     "qc_cents": -18
+    },
+    {
+     "word": "arm",
+     "note": "G#2",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "runway_ms": 60,
+     "stretch": 1.23,
+     "hold": false,
+     "qc_cents": 5
+    },
+    {
+     "word": "out",
+     "note": "A#2",
+     "beat": 2.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.84,
+     "hold": false,
+     "qc_cents": 12
+    },
+    {
+     "word": "waving",
+     "note": "F#3",
+     "beat": 4.0,
+     "dur_beats": 3.5,
+     "runway_ms": 0,
+     "stretch": 1.01,
+     "hold": false,
+     "qc_cents": -33
+    },
+    {
+     "word": "anticipating",
+     "note": "G#3",
+     "beat": 7.5,
+     "dur_beats": 3.0,
+     "runway_ms": 0,
+     "stretch": 1.33,
+     "hold": false,
+     "qc_cents": 0
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "nothing special",
+   "beat": 42,
+   "floor_hz": 71.3,
+   "boundary_moves": [
+    "special +85ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "nothing",
+     "note": "D#3",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "runway_ms": 245,
+     "stretch": 1.06,
+     "hold": false,
+     "qc_cents": -3
+    },
+    {
+     "word": "special",
+     "note": "C#3",
+     "beat": 2.0,
+     "dur_beats": 3.0,
+     "runway_ms": 0,
+     "stretch": 0.98,
+     "hold": false,
+     "qc_cents": -11
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Locking the doorway little doggy",
+   "beat": 50,
+   "floor_hz": 58.6,
+   "boundary_moves": [
+    "the +80ms",
+    "doorway -100ms",
+    "little +135ms",
+    "doggy +245ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "Locking",
+     "note": "A#2",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.99,
+     "hold": false,
+     "qc_cents": -3
+    },
+    {
+     "word": "the",
+     "note": "A#2",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.56,
+     "hold": false,
+     "qc_cents": -32
+    },
+    {
+     "word": "doorway",
+     "note": "E2",
+     "beat": 3.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.77,
+     "hold": false,
+     "qc_cents": 3
+    },
+    {
+     "word": "little",
+     "note": "A#2",
+     "beat": 4.5,
+     "dur_beats": 3.0,
+     "runway_ms": 0,
+     "stretch": 0.92,
+     "hold": false,
+     "qc_cents": -18
+    },
+    {
+     "word": "doggy",
+     "note": "C#3",
+     "beat": 7.5,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.27,
+     "hold": false,
+     "qc_cents": 5
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "thing like a doggy",
+   "beat": 61,
+   "floor_hz": 101.9,
+   "boundary_moves": [
+    "like -245ms",
+    "doggy +70ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "thing",
+     "note": "A#3",
+     "beat": 0.0,
+     "dur_beats": 3.5,
+     "runway_ms": 0,
+     "stretch": 1.32,
+     "hold": false,
+     "qc_cents": -68
+    },
+    {
+     "word": "like",
+     "note": "A#3",
+     "beat": 3.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.41,
+     "hold": false,
+     "qc_cents": -1
+    },
+    {
+     "word": "a",
+     "note": "A#3",
+     "beat": 4.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.69,
+     "hold": false,
+     "qc_cents": -10
+    },
+    {
+     "word": "doggy",
+     "note": "F#3",
+     "beat": 4.5,
+     "dur_beats": 2.5,
+     "runway_ms": 45,
+     "stretch": 1.27,
+     "hold": false,
+     "qc_cents": 1
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "will you shut the fuck up",
+   "beat": 68,
+   "floor_hz": 90.3,
+   "boundary_moves": [
+    "you +20ms",
+    "shut +205ms",
+    "the +115ms",
+    "fuck +80ms",
+    "up -85ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "will",
+     "note": "C#3",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": -11
+    },
+    {
+     "word": "you",
+     "note": "D#3",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.69,
+     "hold": false,
+     "qc_cents": -6
+    },
+    {
+     "word": "shut",
+     "note": "A#3",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.23,
+     "hold": false,
+     "qc_cents": 0
+    },
+    {
+     "word": "the",
+     "note": "G#3",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.03,
+     "hold": false,
+     "qc_cents": 0
+    },
+    {
+     "word": "fuck",
+     "note": "G#3",
+     "beat": 5.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.38,
+     "hold": false,
+     "qc_cents": 3
+    },
+    {
+     "word": "up",
+     "note": "E3",
+     "beat": 6.5,
+     "dur_beats": 0.5,
+     "runway_ms": 45,
+     "stretch": 0.62,
+     "hold": false,
+     "qc_cents": 2
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "This house that I built Scott",
+   "beat": 81,
+   "floor_hz": 59.9,
+   "boundary_moves": [
+    "built +215ms",
+    "Scott -100ms"
+   ],
+   "cram_spreads": [
+    "This house -> 40ms each"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "This",
+     "note": "C#2",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 5.75,
+     "hold": true,
+     "qc_cents": 135
+    },
+    {
+     "word": "house",
+     "note": "C#2",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 5.25,
+     "hold": true,
+     "qc_cents": 4
+    },
+    {
+     "word": "that",
+     "note": "C#2",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 20,
+     "stretch": 4.6,
+     "hold": true,
+     "qc_cents": -1
+    },
+    {
+     "word": "I",
+     "note": "C#2",
+     "beat": 1.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.82,
+     "hold": false,
+     "qc_cents": 57
+    },
+    {
+     "word": "built",
+     "note": "G#2",
+     "beat": 2.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.41,
+     "hold": false,
+     "qc_cents": -5
+    },
+    {
+     "word": "Scott",
+     "note": "D#3",
+     "beat": 4.5,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.06,
+     "hold": false,
+     "qc_cents": 11
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "cracks at the sides",
+   "beat": 86,
+   "floor_hz": 76.0,
+   "boundary_moves": [
+    "at +145ms",
+    "the -50ms",
+    "sides +235ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "cracks",
+     "note": "C#3",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.84,
+     "hold": false,
+     "qc_cents": 25
+    },
+    {
+     "word": "at",
+     "note": "E3",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 2.63,
+     "hold": true,
+     "qc_cents": -4
+    },
+    {
+     "word": "the",
+     "note": "A#2",
+     "beat": 3.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.69,
+     "hold": false,
+     "qc_cents": 16
+    },
+    {
+     "word": "sides",
+     "note": "C#3",
+     "beat": 4.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.37,
+     "hold": false,
+     "qc_cents": 11
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "brittle like life and smoothing out",
+   "beat": 92,
+   "floor_hz": 67.9,
+   "boundary_moves": [
+    "like +90ms",
+    "life -250ms",
+    "smoothing +60ms",
+    "out -250ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "brittle",
+     "note": "A#2",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 0.9,
+     "hold": false,
+     "qc_cents": 32
+    },
+    {
+     "word": "like",
+     "note": "F#2",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.92,
+     "hold": true,
+     "qc_cents": -6
+    },
+    {
+     "word": "life",
+     "note": "G#2",
+     "beat": 4.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.94,
+     "hold": false,
+     "qc_cents": -4
+    },
+    {
+     "word": "and",
+     "note": null,
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.11,
+     "hold": false,
+     "qc_cents": null
+    },
+    {
+     "word": "smoothing",
+     "note": "E3",
+     "beat": 7.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.58,
+     "hold": false,
+     "qc_cents": -214
+    },
+    {
+     "word": "out",
+     "note": "D#3",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.73,
+     "hold": false,
+     "qc_cents": 1
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Airpockets dream you're no match for my graphic tee",
+   "beat": 105,
+   "floor_hz": 79.7,
+   "boundary_moves": [
+    "dream +55ms",
+    "you're -250ms",
+    "no +50ms",
+    "match -40ms",
+    "for +40ms",
+    "my +55ms",
+    "graphic +120ms",
+    "tee +10ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "Airpockets",
+     "note": "G#4",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 0.89,
+     "hold": false,
+     "qc_cents": -58
+    },
+    {
+     "word": "dream",
+     "note": "E4",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "runway_ms": 50,
+     "stretch": 5.41,
+     "hold": true,
+     "qc_cents": -7
+    },
+    {
+     "word": "you're",
+     "note": "F#4",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.72,
+     "hold": false,
+     "qc_cents": -35
+    },
+    {
+     "word": "no",
+     "note": "C#3",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 2.88,
+     "hold": true,
+     "qc_cents": -2
+    },
+    {
+     "word": "match",
+     "note": "A#2",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.75,
+     "hold": false,
+     "qc_cents": -7
+    },
+    {
+     "word": "for",
+     "note": "G#2",
+     "beat": 6.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.3,
+     "hold": false,
+     "qc_cents": -46
+    },
+    {
+     "word": "my",
+     "note": "G#2",
+     "beat": 7.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.73,
+     "hold": false,
+     "qc_cents": -7
+    },
+    {
+     "word": "graphic",
+     "note": "G#2",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.35,
+     "hold": false,
+     "qc_cents": 69
+    },
+    {
+     "word": "tee",
+     "note": "A#2",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.38,
+     "hold": false,
+     "qc_cents": 13
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "my face is full of internet",
+   "beat": 116,
+   "floor_hz": 140.0,
+   "boundary_moves": [
+    "face +195ms",
+    "is +45ms",
+    "full +125ms",
+    "of -115ms",
+    "internet +30ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "my",
+     "note": "C#3",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.65,
+     "hold": false,
+     "qc_cents": 516
+    },
+    {
+     "word": "face",
+     "note": "D#4",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.35,
+     "hold": false,
+     "qc_cents": -14
+    },
+    {
+     "word": "is",
+     "note": "D#4",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false,
+     "qc_cents": 64
+    },
+    {
+     "word": "full",
+     "note": "E4",
+     "beat": 1.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 2.81,
+     "hold": true,
+     "qc_cents": null
+    },
+    {
+     "word": "of",
+     "note": "C#4",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.67,
+     "hold": false,
+     "qc_cents": 18
+    },
+    {
+     "word": "internet",
+     "note": "C#4",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 25,
+     "stretch": 0.98,
+     "hold": false,
+     "qc_cents": 15
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Safely in a bubble that surrounds me",
+   "beat": 122,
+   "floor_hz": 105.4,
+   "boundary_moves": [
+    "in +185ms",
+    "a +70ms",
+    "bubble -250ms",
+    "that -110ms",
+    "surrounds +140ms",
+    "me +230ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "Safely",
+     "note": "F#3",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 265,
+     "stretch": 0.94,
+     "hold": false,
+     "qc_cents": -2
+    },
+    {
+     "word": "in",
+     "note": "F#3",
+     "beat": 0.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.61,
+     "hold": false,
+     "qc_cents": 6
+    },
+    {
+     "word": "a",
+     "note": "D#3",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 2.28,
+     "hold": true,
+     "qc_cents": -10
+    },
+    {
+     "word": "bubble",
+     "note": "F#3",
+     "beat": 3.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.88,
+     "hold": false,
+     "qc_cents": -13
+    },
+    {
+     "word": "that",
+     "note": "E3",
+     "beat": 5.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 0.8,
+     "hold": false,
+     "qc_cents": -4
+    },
+    {
+     "word": "surrounds",
+     "note": "A#3",
+     "beat": 7.0,
+     "dur_beats": 3.0,
+     "runway_ms": 0,
+     "stretch": 0.98,
+     "hold": false,
+     "qc_cents": 4
+    },
+    {
+     "word": "me",
+     "note": "F#3",
+     "beat": 10.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.37,
+     "hold": false,
+     "qc_cents": 5
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "I don't think I want you back in here",
+   "beat": 135,
+   "floor_hz": 91.8,
+   "boundary_moves": [
+    "don't -210ms",
+    "think +155ms",
+    "I -165ms",
+    "want +160ms",
+    "you +245ms",
+    "back -55ms",
+    "in -200ms",
+    "here +145ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "I",
+     "note": "F#3",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 2.3,
+     "hold": true,
+     "qc_cents": -7
+    },
+    {
+     "word": "don't",
+     "note": "F#3",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.33,
+     "hold": false,
+     "qc_cents": -2
+    },
+    {
+     "word": "think",
+     "note": "D#3",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 2.14,
+     "hold": true,
+     "qc_cents": -2
+    },
+    {
+     "word": "I",
+     "note": "F#2",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.52,
+     "hold": false,
+     "qc_cents": null
+    },
+    {
+     "word": "want",
+     "note": "F#3",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.77,
+     "hold": false,
+     "qc_cents": -1
+    },
+    {
+     "word": "you",
+     "note": "F#3",
+     "beat": 4.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 5.69,
+     "hold": true,
+     "qc_cents": 9
+    },
+    {
+     "word": "back",
+     "note": "D#3",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "runway_ms": 5,
+     "stretch": 1.26,
+     "hold": false,
+     "qc_cents": -3
+    },
+    {
+     "word": "in",
+     "note": "F#3",
+     "beat": 6.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.39,
+     "hold": false,
+     "qc_cents": 8
+    },
+    {
+     "word": "here",
+     "note": "E3",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.26,
+     "hold": false,
+     "qc_cents": -8
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "oh no",
+   "beat": 144,
+   "floor_hz": 108.7,
+   "boundary_moves": [
+    "no +5ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "oh",
+     "note": "F#3",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.46,
+     "hold": false,
+     "qc_cents": -3
+    },
+    {
+     "word": "no",
+     "note": "F#3",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 1.31,
+     "hold": false,
+     "qc_cents": -14
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "this emo",
+   "beat": 146,
+   "floor_hz": 112.5,
+   "boundary_moves": [
+    "emo -45ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "this",
+     "note": "A#3",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": -6
+    },
+    {
+     "word": "emo",
+     "note": "E3",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.76,
+     "hold": false,
+     "qc_cents": 22
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "Gee defends me in my bubble",
+   "beat": 153,
+   "floor_hz": 100.5,
+   "boundary_moves": [
+    "defends +20ms",
+    "me -205ms",
+    "in -145ms",
+    "my -195ms",
+    "bubble +60ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "Gee",
+     "note": "E3",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 20,
+     "stretch": 0.78,
+     "hold": false,
+     "qc_cents": -4
+    },
+    {
+     "word": "defends",
+     "note": "G#3",
+     "beat": 1.0,
+     "dur_beats": 3.5,
+     "runway_ms": 40,
+     "stretch": 1.18,
+     "hold": false,
+     "qc_cents": 21
+    },
+    {
+     "word": "me",
+     "note": "F#3",
+     "beat": 4.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.95,
+     "hold": false,
+     "qc_cents": -5
+    },
+    {
+     "word": "in",
+     "note": "C#3",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.96,
+     "hold": false,
+     "qc_cents": 0
+    },
+    {
+     "word": "my",
+     "note": "C#3",
+     "beat": 6.5,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.63,
+     "hold": false,
+     "qc_cents": 2
+    },
+    {
+     "word": "bubble",
+     "note": "F#3",
+     "beat": 7.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": 1
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "signifying my identity my identity",
+   "beat": 165,
+   "floor_hz": 104.8,
+   "boundary_moves": [
+    "my +145ms",
+    "identity -185ms",
+    "my +230ms",
+    "identity -150ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "signifying",
+     "note": "F#3",
+     "beat": 0.0,
+     "dur_beats": 5.0,
+     "runway_ms": 0,
+     "stretch": 0.92,
+     "hold": false,
+     "qc_cents": -26
+    },
+    {
+     "word": "my",
+     "note": "F#3",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 4.31,
+     "hold": true,
+     "qc_cents": 31
+    },
+    {
+     "word": "identity",
+     "note": "A#3",
+     "beat": 6.0,
+     "dur_beats": 5.0,
+     "runway_ms": 110,
+     "stretch": 0.88,
+     "hold": false,
+     "qc_cents": -2
+    },
+    {
+     "word": "my",
+     "note": "G#3",
+     "beat": 11.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 5.75,
+     "hold": true,
+     "qc_cents": -8
+    },
+    {
+     "word": "identity",
+     "note": "A#3",
+     "beat": 12.0,
+     "dur_beats": 4.0,
+     "runway_ms": 0,
+     "stretch": 0.89,
+     "hold": false,
+     "qc_cents": -8
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "It flickers like a shooting star",
+   "beat": 183,
+   "floor_hz": 79.6,
+   "boundary_moves": [
+    "like +25ms",
+    "a -235ms",
+    "shooting +70ms",
+    "star +15ms"
+   ],
+   "cram_spreads": [
+    "It -> 150ms each"
+   ],
+   "trims": [],
+   "words": [
+    {
+     "word": "It",
+     "note": "C#2",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.22,
+     "hold": false,
+     "qc_cents": -198
+    },
+    {
+     "word": "flickers",
+     "note": "C#3",
+     "beat": 0.5,
+     "dur_beats": 3.0,
+     "runway_ms": 190,
+     "stretch": 1.34,
+     "hold": false,
+     "qc_cents": -44
+    },
+    {
+     "word": "like",
+     "note": "C#3",
+     "beat": 3.5,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.59,
+     "hold": false,
+     "qc_cents": -38
+    },
+    {
+     "word": "a",
+     "note": "C#3",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "runway_ms": 0,
+     "stretch": 0.4,
+     "hold": false,
+     "qc_cents": 0
+    },
+    {
+     "word": "shooting",
+     "note": "F#3",
+     "beat": 6.0,
+     "dur_beats": 4.0,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": 16
+    },
+    {
+     "word": "star",
+     "note": "E3",
+     "beat": 10.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": -2
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "oh yeah",
+   "beat": 195,
+   "floor_hz": 80.3,
+   "boundary_moves": [],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "oh",
+     "note": "E3",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "runway_ms": 0,
+     "stretch": 1.05,
+     "hold": false,
+     "qc_cents": -5
+    },
+    {
+     "word": "yeah",
+     "note": "C#2",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 0.94,
+     "hold": false,
+     "qc_cents": 178
+    }
+   ],
+   "release_synthesized": false
+  },
+  {
+   "phrase": "do you see",
+   "beat": 199,
+   "floor_hz": 84.4,
+   "boundary_moves": [
+    "you -80ms",
+    "see +5ms"
+   ],
+   "cram_spreads": [],
+   "trims": [],
+   "words": [
+    {
+     "word": "do",
+     "note": "C#3",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "runway_ms": 0,
+     "stretch": 1.12,
+     "hold": false,
+     "qc_cents": 5
+    },
+    {
+     "word": "you",
+     "note": "D#3",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 0.94,
+     "hold": false,
+     "qc_cents": 1
+    },
+    {
+     "word": "see",
+     "note": "E3",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "runway_ms": 0,
+     "stretch": 1.02,
+     "hold": false,
+     "qc_cents": -5
+    }
+   ],
+   "release_synthesized": false
+  }
+ ],
+ "qc": {
+  "method": "WORLD harvest over each rendered phrase; per word, median f0 over the middle of its beat slot vs the chart target",
+  "words_measured": 106,
+  "median_abs_cents": 6,
+  "p90_abs_cents": 45,
+  "worst": [
+   [
+    "my",
+    516
+   ],
+   [
+    "smoothing",
+    -214
+   ],
+   [
+    "It",
+    -198
+   ],
+   [
+    "yeah",
+    178
+   ],
+   [
+    "This",
+    135
+   ],
+   [
+    "graphic",
+    69
+   ],
+   [
+    "thing",
+    -68
+   ],
+   [
+    "is",
+    64
+   ]
+  ]
+ }
+}

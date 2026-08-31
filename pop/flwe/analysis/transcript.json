@@ -1,0 +1,879 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "words": [
+  {
+   "word": "This",
+   "start": 0.17,
+   "end": 0.54
+  },
+  {
+   "word": "is",
+   "start": 0.54,
+   "end": 0.55
+  },
+  {
+   "word": "my",
+   "start": 0.55,
+   "end": 0.72
+  },
+  {
+   "word": "whistle",
+   "start": 0.72,
+   "end": 1.34
+  },
+  {
+   "word": "graph",
+   "start": 1.34,
+   "end": 1.8
+  },
+  {
+   "word": "development",
+   "start": 1.8,
+   "end": 2.56
+  },
+  {
+   "word": "environment",
+   "start": 2.56,
+   "end": 3.41
+  },
+  {
+   "word": "which",
+   "start": 3.41,
+   "end": 3.54
+  },
+  {
+   "word": "is",
+   "start": 3.54,
+   "end": 3.64
+  },
+  {
+   "word": "basically",
+   "start": 3.64,
+   "end": 4.24
+  },
+  {
+   "word": "a",
+   "start": 4.24,
+   "end": 4.66
+  },
+  {
+   "word": "stand",
+   "start": 4.66,
+   "end": 5.2
+  },
+  {
+   "word": "like",
+   "start": 5.2,
+   "end": 5.75
+  },
+  {
+   "word": "this",
+   "start": 5.75,
+   "end": 5.9
+  },
+  {
+   "word": "and",
+   "start": 5.9,
+   "end": 6.18
+  },
+  {
+   "word": "my",
+   "start": 6.18,
+   "end": 6.33
+  },
+  {
+   "word": "whistle",
+   "start": 6.33,
+   "end": 6.94
+  },
+  {
+   "word": "graph",
+   "start": 6.94,
+   "end": 7.38
+  },
+  {
+   "word": "pad",
+   "start": 7.38,
+   "end": 7.66
+  },
+  {
+   "word": "and",
+   "start": 7.66,
+   "end": 7.89
+  },
+  {
+   "word": "a",
+   "start": 7.89,
+   "end": 7.98
+  },
+  {
+   "word": "bunch",
+   "start": 7.98,
+   "end": 8.42
+  },
+  {
+   "word": "of",
+   "start": 8.42,
+   "end": 8.64
+  },
+  {
+   "word": "sheets",
+   "start": 8.64,
+   "end": 9.3
+  },
+  {
+   "word": "and",
+   "start": 9.3,
+   "end": 9.57
+  },
+  {
+   "word": "I",
+   "start": 9.57,
+   "end": 9.67
+  },
+  {
+   "word": "want",
+   "start": 9.67,
+   "end": 10.06
+  },
+  {
+   "word": "to",
+   "start": 10.06,
+   "end": 10.28
+  },
+  {
+   "word": "show",
+   "start": 10.28,
+   "end": 10.68
+  },
+  {
+   "word": "you",
+   "start": 10.68,
+   "end": 10.78
+  },
+  {
+   "word": "guys",
+   "start": 10.78,
+   "end": 11.0
+  },
+  {
+   "word": "a",
+   "start": 11.0,
+   "end": 11.33
+  },
+  {
+   "word": "whistle",
+   "start": 11.33,
+   "end": 11.45
+  },
+  {
+   "word": "graph",
+   "start": 11.45,
+   "end": 11.76
+  },
+  {
+   "word": "that's",
+   "start": 11.76,
+   "end": 12.06
+  },
+  {
+   "word": "really",
+   "start": 12.06,
+   "end": 12.39
+  },
+  {
+   "word": "long",
+   "start": 12.39,
+   "end": 12.84
+  },
+  {
+   "word": "It's",
+   "start": 12.85,
+   "end": 13.12
+  },
+  {
+   "word": "gonna",
+   "start": 13.12,
+   "end": 13.47
+  },
+  {
+   "word": "take",
+   "start": 13.47,
+   "end": 13.76
+  },
+  {
+   "word": "a",
+   "start": 13.76,
+   "end": 13.83
+  },
+  {
+   "word": "little",
+   "start": 13.83,
+   "end": 14.28
+  },
+  {
+   "word": "while",
+   "start": 14.28,
+   "end": 14.62
+  },
+  {
+   "word": "but",
+   "start": 14.62,
+   "end": 14.88
+  },
+  {
+   "word": "I",
+   "start": 14.88,
+   "end": 14.94
+  },
+  {
+   "word": "think",
+   "start": 14.94,
+   "end": 15.12
+  },
+  {
+   "word": "you'll",
+   "start": 15.12,
+   "end": 15.49
+  },
+  {
+   "word": "really",
+   "start": 15.49,
+   "end": 15.56
+  },
+  {
+   "word": "like",
+   "start": 15.56,
+   "end": 15.74
+  },
+  {
+   "word": "it",
+   "start": 15.74,
+   "end": 15.78
+  },
+  {
+   "word": "and",
+   "start": 15.78,
+   "end": 15.92
+  },
+  {
+   "word": "it's",
+   "start": 15.92,
+   "end": 16.03
+  },
+  {
+   "word": "called",
+   "start": 16.03,
+   "end": 16.25
+  },
+  {
+   "word": "the",
+   "start": 16.25,
+   "end": 16.36
+  },
+  {
+   "word": "flower",
+   "start": 16.36,
+   "end": 16.61
+  },
+  {
+   "word": "eater",
+   "start": 16.61,
+   "end": 16.76
+  },
+  {
+   "word": "and",
+   "start": 16.76,
+   "end": 16.87
+  },
+  {
+   "word": "it",
+   "start": 16.87,
+   "end": 17.01
+  },
+  {
+   "word": "goes",
+   "start": 17.01,
+   "end": 17.17
+  },
+  {
+   "word": "like",
+   "start": 17.17,
+   "end": 17.34
+  },
+  {
+   "word": "this",
+   "start": 17.89,
+   "end": 18.07
+  },
+  {
+   "word": "Looked",
+   "start": 18.62,
+   "end": 19.71
+  },
+  {
+   "word": "for",
+   "start": 19.71,
+   "end": 20.26
+  },
+  {
+   "word": "so",
+   "start": 20.26,
+   "end": 20.63
+  },
+  {
+   "word": "long",
+   "start": 20.63,
+   "end": 21.35
+  },
+  {
+   "word": "for",
+   "start": 21.35,
+   "end": 22.0
+  },
+  {
+   "word": "the",
+   "start": 22.0,
+   "end": 22.45
+  },
+  {
+   "word": "one",
+   "start": 22.45,
+   "end": 23.0
+  },
+  {
+   "word": "that",
+   "start": 23.0,
+   "end": 23.73
+  },
+  {
+   "word": "I",
+   "start": 23.73,
+   "end": 23.91
+  },
+  {
+   "word": "love",
+   "start": 23.91,
+   "end": 24.65
+  },
+  {
+   "word": "Left",
+   "start": 25.19,
+   "end": 25.92
+  },
+  {
+   "word": "with",
+   "start": 25.92,
+   "end": 26.76
+  },
+  {
+   "word": "my",
+   "start": 26.76,
+   "end": 27.03
+  },
+  {
+   "word": "arms",
+   "start": 27.03,
+   "end": 27.74
+  },
+  {
+   "word": "up",
+   "start": 27.74,
+   "end": 28.1
+  },
+  {
+   "word": "in",
+   "start": 28.1,
+   "end": 28.46
+  },
+  {
+   "word": "the",
+   "start": 28.46,
+   "end": 29.01
+  },
+  {
+   "word": "air",
+   "start": 29.01,
+   "end": 29.56
+  },
+  {
+   "word": "My",
+   "start": 30.16,
+   "end": 30.32
+  },
+  {
+   "word": "lollipop",
+   "start": 30.32,
+   "end": 30.68
+  },
+  {
+   "word": "was",
+   "start": 30.68,
+   "end": 31.56
+  },
+  {
+   "word": "the",
+   "start": 31.56,
+   "end": 32.11
+  },
+  {
+   "word": "stem",
+   "start": 32.11,
+   "end": 32.57
+  },
+  {
+   "word": "I",
+   "start": 32.57,
+   "end": 32.7
+  },
+  {
+   "word": "grabbed",
+   "start": 32.7,
+   "end": 33.72
+  },
+  {
+   "word": "Hold",
+   "start": 34.15,
+   "end": 34.73
+  },
+  {
+   "word": "up",
+   "start": 34.73,
+   "end": 35.02
+  },
+  {
+   "word": "with",
+   "start": 35.02,
+   "end": 35.66
+  },
+  {
+   "word": "both",
+   "start": 35.66,
+   "end": 36.19
+  },
+  {
+   "word": "of",
+   "start": 36.19,
+   "end": 36.49
+  },
+  {
+   "word": "my",
+   "start": 36.49,
+   "end": 36.76
+  },
+  {
+   "word": "hands",
+   "start": 36.76,
+   "end": 37.65
+  },
+  {
+   "word": "Mystery",
+   "start": 38.16,
+   "end": 39.12
+  },
+  {
+   "word": "flower",
+   "start": 39.12,
+   "end": 40.54
+  },
+  {
+   "word": "please",
+   "start": 40.54,
+   "end": 40.98
+  },
+  {
+   "word": "don't",
+   "start": 40.98,
+   "end": 41.48
+  },
+  {
+   "word": "cower",
+   "start": 41.64,
+   "end": 42.38
+  },
+  {
+   "word": "I",
+   "start": 42.92,
+   "end": 43.09
+  },
+  {
+   "word": "am",
+   "start": 43.09,
+   "end": 43.55
+  },
+  {
+   "word": "hatin",
+   "start": 43.55,
+   "end": 44.54
+  },
+  {
+   "word": "green",
+   "start": 44.54,
+   "end": 45.46
+  },
+  {
+   "word": "now",
+   "start": 45.46,
+   "end": 46.12
+  },
+  {
+   "word": "I'm",
+   "start": 46.56,
+   "end": 47.09
+  },
+  {
+   "word": "gonna",
+   "start": 47.09,
+   "end": 47.96
+  },
+  {
+   "word": "take",
+   "start": 47.96,
+   "end": 48.8
+  },
+  {
+   "word": "you",
+   "start": 48.8,
+   "end": 49.23
+  },
+  {
+   "word": "so",
+   "start": 49.23,
+   "end": 49.59
+  },
+  {
+   "word": "I",
+   "start": 49.59,
+   "end": 49.75
+  },
+  {
+   "word": "can",
+   "start": 49.75,
+   "end": 50.26
+  },
+  {
+   "word": "break",
+   "start": 50.26,
+   "end": 51.16
+  },
+  {
+   "word": "you",
+   "start": 51.16,
+   "end": 51.63
+  },
+  {
+   "word": "up",
+   "start": 51.63,
+   "end": 52.0
+  },
+  {
+   "word": "into",
+   "start": 52.0,
+   "end": 52.84
+  },
+  {
+   "word": "pieces",
+   "start": 52.84,
+   "end": 53.69
+  },
+  {
+   "word": "Yum",
+   "start": 54.11,
+   "end": 54.53
+  },
+  {
+   "word": "yum",
+   "start": 54.53,
+   "end": 54.99
+  },
+  {
+   "word": "yum",
+   "start": 54.99,
+   "end": 55.37
+  },
+  {
+   "word": "Now",
+   "start": 55.79,
+   "end": 56.25
+  },
+  {
+   "word": "I",
+   "start": 56.25,
+   "end": 56.35
+  },
+  {
+   "word": "think",
+   "start": 56.35,
+   "end": 57.05
+  },
+  {
+   "word": "I",
+   "start": 57.05,
+   "end": 57.18
+  },
+  {
+   "word": "wanna",
+   "start": 57.18,
+   "end": 57.92
+  },
+  {
+   "word": "have",
+   "start": 57.92,
+   "end": 58.52
+  },
+  {
+   "word": "you",
+   "start": 58.52,
+   "end": 58.76
+  },
+  {
+   "word": "every",
+   "start": 58.76,
+   "end": 59.64
+  },
+  {
+   "word": "day",
+   "start": 59.64,
+   "end": 60.72
+  },
+  {
+   "word": "I'll",
+   "start": 60.92,
+   "end": 61.18
+  },
+  {
+   "word": "spit",
+   "start": 61.18,
+   "end": 61.46
+  },
+  {
+   "word": "twee",
+   "start": 61.46,
+   "end": 61.71
+  },
+  {
+   "word": "of",
+   "start": 61.71,
+   "end": 62.04
+  },
+  {
+   "word": "your",
+   "start": 62.04,
+   "end": 62.32
+  },
+  {
+   "word": "seeds",
+   "start": 62.32,
+   "end": 62.87
+  },
+  {
+   "word": "Bury",
+   "start": 63.2,
+   "end": 63.64
+  },
+  {
+   "word": "them",
+   "start": 63.64,
+   "end": 64.08
+  },
+  {
+   "word": "in",
+   "start": 64.08,
+   "end": 64.39
+  },
+  {
+   "word": "the",
+   "start": 64.39,
+   "end": 64.63
+  },
+  {
+   "word": "ground",
+   "start": 64.63,
+   "end": 65.29
+  },
+  {
+   "word": "Harvest",
+   "start": 65.73,
+   "end": 66.42
+  },
+  {
+   "word": "moon",
+   "start": 66.42,
+   "end": 66.86
+  },
+  {
+   "word": "I'll",
+   "start": 66.86,
+   "end": 67.04
+  },
+  {
+   "word": "come",
+   "start": 67.04,
+   "end": 67.4
+  },
+  {
+   "word": "collect",
+   "start": 67.4,
+   "end": 67.91
+  },
+  {
+   "word": "your",
+   "start": 67.91,
+   "end": 68.41
+  },
+  {
+   "word": "spawn",
+   "start": 68.41,
+   "end": 69.64
+  },
+  {
+   "word": "They're",
+   "start": 69.77,
+   "end": 70.28
+  },
+  {
+   "word": "gonna",
+   "start": 70.82,
+   "end": 70.85
+  },
+  {
+   "word": "be",
+   "start": 70.85,
+   "end": 71.07
+  },
+  {
+   "word": "all",
+   "start": 71.07,
+   "end": 71.41
+  },
+  {
+   "word": "mine",
+   "start": 71.41,
+   "end": 71.86
+  },
+  {
+   "word": "cuz",
+   "start": 71.86,
+   "end": 72.21
+  },
+  {
+   "word": "I'm",
+   "start": 72.21,
+   "end": 72.52
+  },
+  {
+   "word": "looping",
+   "start": 72.52,
+   "end": 73.31
+  },
+  {
+   "word": "every",
+   "start": 73.31,
+   "end": 73.88
+  },
+  {
+   "word": "day",
+   "start": 73.88,
+   "end": 74.28
+  },
+  {
+   "word": "looping",
+   "start": 74.28,
+   "end": 75.01
+  },
+  {
+   "word": "every",
+   "start": 75.01,
+   "end": 75.54
+  },
+  {
+   "word": "day",
+   "start": 75.54,
+   "end": 75.89
+  },
+  {
+   "word": "looping",
+   "start": 75.89,
+   "end": 76.48
+  },
+  {
+   "word": "every",
+   "start": 76.48,
+   "end": 76.8
+  },
+  {
+   "word": "day",
+   "start": 76.8,
+   "end": 77.0
+  },
+  {
+   "word": "flower",
+   "start": 77.0,
+   "end": 78.44
+  },
+  {
+   "word": "eater",
+   "start": 78.44,
+   "end": 79.67
+  },
+  {
+   "word": "It's",
+   "start": 80.41,
+   "end": 80.62
+  },
+  {
+   "word": "about",
+   "start": 80.62,
+   "end": 80.98
+  },
+  {
+   "word": "a",
+   "start": 80.98,
+   "end": 81.01
+  },
+  {
+   "word": "girl",
+   "start": 81.01,
+   "end": 81.27
+  },
+  {
+   "word": "who",
+   "start": 81.27,
+   "end": 81.47
+  },
+  {
+   "word": "eats",
+   "start": 81.47,
+   "end": 81.76
+  },
+  {
+   "word": "flowers",
+   "start": 81.76,
+   "end": 82.61
+  },
+  {
+   "word": "and",
+   "start": 82.61,
+   "end": 82.83
+  },
+  {
+   "word": "gets",
+   "start": 82.83,
+   "end": 83.52
+  },
+  {
+   "word": "crazy",
+   "start": 83.52,
+   "end": 84.34
+  },
+  {
+   "word": "hallucinations",
+   "start": 84.34,
+   "end": 86.63
+  }
+ ],
+ "song_region_sec": [
+  18.0,
+  80.0
+ ]
+}

@@ -1,0 +1,52 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "method": "derived from melody.json (pyin per word): pitch-class weights, chroma_cqt, cadence targets, loop-chant tonic cluster",
+ "tonic_estimate": {
+  "hz": 133.9,
+  "note": "C3",
+  "cents_sharp": 40,
+  "statement": "the closing 'looping every day' chant circles ~134 Hz \u2014 C3 about +40 cents sharp of A440; the final cadence is G3 ('flower') resolving up a fourth to C4 ('eater'), 5 -> 1 in C"
+ },
+ "mode": "minor-leaning and hand-drawn chromatic: Eb (b3) outweighs E, with heavy b2/2 (C#/D) neighbor motion; the opening strain circles D#/Eb minor (cadence 'love' = D#3) before the piece settles onto the C center",
+ "pitch_class_weights": {
+  "D\u266f": 9,
+  "C\u266f": 12,
+  "A\u266f": 10,
+  "C": 15,
+  "D": 10,
+  "F\u266f": 5,
+  "G": 7,
+  "B": 5,
+  "A": 6,
+  "E": 6,
+  "F": 3,
+  "G\u266f": 7
+ },
+ "chroma_cqt_ranked": [
+  [
+   "C#",
+   0.4779999852180481
+  ],
+  [
+   "D",
+   0.4399999976158142
+  ],
+  [
+   "C",
+   0.4189999997615814
+  ],
+  [
+   "B",
+   0.3930000066757202
+  ],
+  [
+   "D#",
+   0.39100000262260437
+  ],
+  [
+   "A#",
+   0.38499999046325684
+  ]
+ ],
+ "intonation_note": "solo unaccompanied voice, consistently ~+20-40 cents sharp of equal temperament; tune any accompaniment to TONIC ~= 134 Hz, not concert C"
+}

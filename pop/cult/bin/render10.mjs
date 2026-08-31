@@ -882,13 +882,13 @@ function shot(name, t, {
   dur = null, dly = 0, off = 0, evVoice = null, atk = 0.0015,
   wig = 0, wigHz = 5.0, wigPhase = 0, wigDrift = 0, wigIn = 0.45,
 } = {}) {
-  // @jeffrey: "lets lose all vocals until we get to 0:40" — the voice bus
-  // is silent until the sentence's first dash at the bar-28 hook. (The
-  // watery-hole dink rides the drum bus, so it survives.)
-  if (bus === "vox" && t < 28 * BAR - 0.02) return;
+  // @jeffrey: no vocals until 0:42 — the voice bus is silent until the
+  // sentence's first dash at the bar-29 hook. (The watery-hole dink rides
+  // the drum bus, so it survives.)
+  if (bus === "vox" && t < 29 * BAR - 0.02) return;
   // The door (both critics): 400 ms of negative space before the sentence —
   // decorations step aside, the kick keeps the floor.
-  if (t >= 28 * BAR - 0.42 && t < 28 * BAR - 0.02) return;
+  if (t >= 29 * BAR - 0.42 && t < 29 * BAR - 0.02) return;
   if (bus === "vox") {
     const arc = voxArc(t);
     gain *= arc.g;
@@ -989,7 +989,7 @@ function material(bar, name, g = 1, {
 }
 
 function stretched(name, t, { gain = 1, pan = 0, semis = 0, stretch = 1, dur = 1, side = 0.7, dark = 0.45, bus = "vox", dly = 0 } = {}) {
-  if (bus === "vox" && t < 28 * BAR - 0.02) return;  // same hold as shot()
+  if (bus === "vox" && t < 29 * BAR - 0.02) return;  // same hold as shot()
   EVENTS.push({ t: +t.toFixed(4), voice: "stretch", bus, sample: name, dur: +dur.toFixed(3),
     gain: +gain.toFixed(3), pan: +pan.toFixed(2), stretch });
   const s = BANK[name];
@@ -1260,6 +1260,9 @@ function wigDepth(bar) {
 // Rates are mutually irrational-ish (4.3 / 5.9 / 3.4 Hz) so the beating
 // never settles into a pattern the ear can predict.
 function dashStack(t, which, G, bar) {
+  // The dash layer rides the tube bus, so the vox hold never caught it —
+  // no dash before the sentence, on any bus. THE fix.
+  if (t < 29 * BAR - 0.02) return;
   const w = wigDepth(bar);
   held(`dash-camille-${which}-hold`, t + 0.000 + jit(3), {
     gain: 0.50 * G, pan: -0.42, side: 0.70, dly: 0.10,
@@ -1294,16 +1297,22 @@ function dashStack(t, which, G, bar) {
 function hook(bar, { full = true } = {}) {
   const t = at(bar);
   const G = full ? 1.0 : 0.70;
+  // The v2 hook, verbatim — @jeffrey pointed at 0:48 of the v2 master:
+  // "that is the proper lyrical utterance rhythm there. and word choice."
+  // dash F#4 · i wanna (1.50) · dash D4 (2.00) · i wanna (3.50) · run IT
+  // fast (4.00, one sung phrase) · dot dot · rest. Plain sung takes.
   dashStack(t + 0.00, "fs4", G, bar);
-  sung(has("iwannaslow-a") ? "iwannaslow-a" : "iwanna-a-sung", t + 1.42 + jit(4), { gain: 0.70 * G, pan: -0.18, side: 0.50, dly: 0.24, atk: 0.05 });
+  sung("iwanna-a-sung", t + 1.50 + jit(4), { gain: 0.82 * G, pan: -0.18, side: 0.50, dly: 0.20 });
   dashStack(t + 2.00, "d4", G * 0.95, bar);
-  sung(has("iwannaslow-b") ? "iwannaslow-b" : "iwanna-b-sung", t + 3.42 + jit(4), { gain: 0.70 * G, pan: 0.18, side: 0.50, dly: 0.24, atk: 0.05 });
+  sung("iwanna-b-sung", t + 3.50 + jit(4), { gain: 0.82 * G, pan: 0.18, side: 0.50, dly: 0.20 });
   // The long-"real" take — run · reeeeeaaaal (2.0 s) · fast. At 2.80 s it
   // rings on under the dot answers at +6.00, which is the point.
   // Withheld before act VII: one aesthetivoxed dot stretched across the
   // slot instead — the length of the line with none of its words.
   if (wordsIn(bar)) {
     // same diction fix as the chorus: syllabic take first, melisma under
+    // the "real" word, fixed: the syllabic take SAYS run-real-fast (v2's
+    // runitfast take garbled it); the melisma rings under.
     sungSub("runrealfast-hi", t + 4.00 + jit(4), { gain: 1.26 * G, pan: 0.00, side: 0.35, dly: 0.10 }, { amount: 0.30 });
     sung("runrealfast-long-hi", t + 4.80 + jit(4), { gain: 0.50 * G, pan: -0.10, side: 0.60, dly: 0.35 });
   }
@@ -1312,9 +1321,13 @@ function hook(bar, { full = true } = {}) {
     bop(t + 5.50 + jit(4), hz(triad(degAt(bar))[0] + 12),
       { gain: 0.20 * G, pan: -0.28, side: 0.7, dly: 0.40 });
   }
-  sung("dot-b3", t + 6.00 + jit(3), { gain: 0.76 * G, pan: -0.45, side: 0.75, dly: 0.38, atk: 0.025 });
-  sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.76 * G, pan: 0.45, side: 0.75, dly: 0.38, atk: 0.025 });
+  sung("dot-b3", t + 6.00 + jit(3), { gain: 0.90 * G, pan: -0.45, side: 0.75, dly: 0.38, atk: 0.025 });
+  sung("dot-fs3", t + 6.50 + jit(3), { gain: 0.90 * G, pan: 0.45, side: 0.75, dly: 0.38, atk: 0.025 });
   if (full) sung("dot-d4", t + 7.00, { gain: 0.34 * G, pan: 0.0, side: 0.60, dly: 0.55 });
+  // length-play: every other full hook lets a daaaaash ring across the
+  // rest bar, stretched to twice itself.
+  if (full && ((bar >> 3) & 1))
+    stretched("dash-camille-fs4-hold", t + 7.00, { gain: 0.28 * G, pan: -0.30, stretch: 1.9, dur: 3.0, side: 0.80, dark: 0.25, bus: "vox", dly: 0.50 });
 }
 
 // ── ACT VII · THE WHOLE MESSAGE ───────────────────────────────────────
@@ -1367,6 +1380,12 @@ function chorus(bar, {
       // was.
       sungSub("runrealfast-hi", t + jit(4), { gain: 1.30 * G, pan: 0.00, side: 0.35, dly: 0.10 }, { amount: 0.30 });
       sung("runrealfast-long-hi", t + 0.80 + jit(4), { gain: 0.55 * G, pan: both ? -0.14 : -0.08, side: 0.60, dly: 0.30 });
+      if (inS(bar, "reply")) {
+        // 1:22 power-up: the line harmonized like the guitar under it —
+        // fifth and octave stacked on the melisma. No jit.
+        sung("runrealfast-long-hi", t + 0.82, { gain: 0.52 * G, pan: 0.22, side: 0.55, dly: 0.20, semis: 7 });
+        sung("runrealfast-long-lo", t + 0.86, { gain: 0.34 * G, pan: -0.24, side: 0.60, dly: 0.28, semis: 12 });
+      }
       if (both) sung("runrealfast-long-lo", t + 0.84 + jit(4), { gain: 0.44 * G, pan: 0.16, side: 0.55, dly: 0.28 });
     }
   }
@@ -1374,9 +1393,7 @@ function chorus(bar, {
   // ── line 2 · "i wanna hide a — waaaay" ────────────────────────────────
   // (withheld before act VII: one aesthetivoxed dot, stretched where the
   // held vowel would have been, and a bop takes the vowel's peak)
-  // line 2 is not in the dictated sentence: it stays withheld until
-  // act VII, so bar 76 keeps a lexical payoff (critic's finding).
-  if (!gone.has(2) && bar < S.whole[0]) {
+  if (!gone.has(2) && !wordsIn(bar)) {
     dotDriftVox(t + 2.20 + jit(20), bar, { gain: 0.22 * G, pan: 0.24, dur: 1.4, stretch: 3.8, dly: 0.40 });
     bop(t + 3.00 + jit(4), hz(triad(degAt(bar))[1] + 12),
       { gain: 0.22 * G, pan: -0.20, side: 0.7, dly: 0.40 });
@@ -1449,7 +1466,7 @@ function chorus(bar, {
       dotDrift(t + 7.0 + jit(20), bar >> 2, { gain: 0.18 * G, pan: 0.30, dur: 0.95, stretch: 3.0, dly: 0.45, dark: 0.40 });
   }
 
-  if (choirUnder) choir(bar, 0.18 * G);
+  if (choirUnder) choir(bar, 0.12 * G);   // deeper, more inset
 }
 
 // ── THE SOS FIGURE ────────────────────────────────────────────────────
@@ -1537,10 +1554,19 @@ const PHONE_TUNE = [
   [4.00, 67], [4.75, 69],                   // a — waaay
   [6.00, 59], [6.50, 55], [7.00, 59],       // dot · dot · dash
 ];
+// chorded now: each melody beep carries its in-scale third below on the
+// second oscillator, and a detuned phase-shifted double answers 30 ms
+// later on the far side.
+const PHONE_HARM = [64, 62, 59, 59, 61, 62, 64, 66, 55, 52, 55];
 function phoneTune(bar, g = 0.26) {
-  PHONE_TUNE.forEach(([k, m], i) =>
-    beep(at(bar) + k * BEAT + jit(6), hz(m + 12), 0, 0.11,
-      { gain: g * vel(0.2), pan: i % 2 ? 0.4 : -0.4, side: 0.85, dly: 0.45 }));
+  PHONE_TUNE.forEach(([k, m], i) => {
+    const tt = at(bar) + k * BEAT + jit(6);
+    const gg = g * vel(0.2);
+    beep(tt, hz(m + 12), hz(PHONE_HARM[i] + 12), 0.11,
+      { gain: gg, pan: i % 2 ? 0.4 : -0.4, side: 0.85, dly: 0.45 });
+    beep(tt + 0.030, hz(m + 12) * 1.004, hz(PHONE_HARM[i] + 12) * 0.9955, 0.11,
+      { gain: gg * 0.55, pan: i % 2 ? -0.45 : 0.45, side: 0.95, dly: 0.60 });
+  });
 }
 
 // v10.1: @jeffrey heard the reply's deep-wiggled dash line at 1:42 and
@@ -1611,11 +1637,69 @@ function dotArp(t, { count = 5, up = true, gap = 0.16, gain = 0.34, pan = 0.2, d
 // ── score ─────────────────────────────────────────────────────────────
 console.log(`→ scoring ${BARS} bars @ ${BPM} BPM · B minor · ${Object.keys(S).length} acts · ${(BARS * BAR).toFixed(1)}s`);
 
-// The first sound. From the watery-hole post (7071087615948148010): just
-// the metallic ring-down that precedes the spoken invitation — the line
-// itself stays on the wall. It rings at the cut's very top, 50 ms before
-// bar 8's first kick. No jit() here: the parity RNG stream must not shift.
-shot("waterhole", 8 * BAR - 0.05, { bus: "drums", gain: 1.35, pan: 0.0, side: 0.30, dly: 0.20 });
+// The first sound. From the watery-hole post (7071087615948148010): the
+// metallic ding right after "guys" (source 1.64-2.09 s, spike at 1.71) —
+// the line itself stays on the wall. Emitted so the spike lands exactly
+// at the cut's first sample, ringing over the first kick. No jit() here:
+// the parity RNG stream must not shift.
+shot("waterhole", 8 * BAR - 0.12, { bus: "drums", gain: 0.95, pan: 0.0, side: 0.30, dly: 0.48 });
+// The station ident — "whistlegraph dot org", jeffrey's voice snapped to
+// B2/F#2/B1, on the tube bus so it clears the lyric hold: the record's
+// first spoken words, so "dash" is never the first word.
+shot("dotorg", 18 * BAR + 0.25, { bus: "tube", gain: 0.55, pan: 0.0, side: 0.40, dly: 0.30, dark: 0.25 });
+// doooooot harmonies: the answer chord stretched five-fold into slow
+// swells drifting through the intro — B minor sung glacially.
+for (const [b, n, p] of [[12.5, "dot-b3", -0.35], [12.53, "dot-fs3", 0.35], [12.56, "dot-d4", 0.0],
+                         [20.5, "dot-b3", 0.35], [20.53, "dot-fs3", -0.35], [20.56, "dot-d4", 0.0]])
+  stretched(n, b * BAR, { gain: 0.10, pan: p, stretch: 3.5, dur: 4.0, side: 0.85, dark: 0.45, bus: "tube", dly: 0.55 });   // tamed
+// The dot dot dots, seeded into the first 30 seconds — the v2 answer
+// figure (b3 wide-left, fs3 wide-right, d4 ghost center) recessed on the
+// tube bus so it reads as signal, growing with the intro. Fixed times —
+// no rnd draws.
+for (const [k, db] of [10, 14, 16, 22].entries()) {
+  const u = db * BAR, g = 0.34 + 0.09 * k;
+  shot("dot-b3", u + 3.0 * BEAT, { bus: "tube", gain: g, pan: -0.45, side: 0.75, dly: 0.45, dark: 0.20 });
+  shot("dot-fs3", u + 3.5 * BEAT, { bus: "tube", gain: g, pan: 0.45, side: 0.75, dly: 0.45, dark: 0.20 });
+  shot("dot-d4", u + 4.0 * BEAT, { bus: "tube", gain: g * 0.45, pan: 0.0, side: 0.60, dly: 0.60, dark: 0.25 });
+}
+// The violin, for the cuuuuult passage: D5 - C#5 - B4 swelling from 1:13
+// into the act V drop at 1:20.
+// (complected: three desks, detuned and staggered — a section, not a
+// soloist — set back in the dark of the room.)
+shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.32, pan: 0.10, side: 0.60, dly: 0.48, dark: 0.30 });
+shot("violin-secret", 44.4 * BAR + 0.045, { bus: "tube", gain: 0.23, pan: -0.26, side: 0.70, dly: 0.55, dark: 0.38, semis: 0.05 });
+shot("violin-secret", 44.4 * BAR + 0.085, { bus: "tube", gain: 0.19, pan: 0.34, side: 0.70, dly: 0.60, dark: 0.42, semis: -0.07 });
+// The accordion breathes in: a 12 s musette swell under the kickless
+// secret act beside the violin, and push/pull chords doubling the act-VII
+// wall (B D G Em, one bellows each). Fixed emits.
+shot("accordion-secret", 41 * BAR, { bus: "tube", gain: 0.32, pan: -0.08, side: 0.70, dly: 0.40, dark: 0.25 });
+{
+  const AN = ["accordion-b", "accordion-d", "accordion-g", "accordion-e"];
+  for (let ab = 76; ab < 96; ab += 2)
+    shot(AN[((ab - 76) / 2) % 4], ab * BAR, { bus: "tube", gain: 0.20, pan: ((ab >> 1) & 1) ? -0.22 : 0.22, side: 0.65, dly: 0.30, dark: 0.20 });
+}
+// boing boing: a springy sproing on every act-VII chord change, pitched
+// to the guitar wall it rides (B D G E). Fixed emits.
+{
+  const BN = ["boing-b", "boing-d", "boing-g", "boing-e"];
+  for (let bb = 76; bb < 96; bb += 2)
+    shot(BN[((bb - 76) / 2) % 4], bb * BAR, { bus: "tube", gain: 0.30, pan: ((bb >> 1) & 1) ? 0.32 : -0.32, side: 0.65, dly: 0.35, dark: 0.10 });
+}
+// The dark guitars (Peep pass): a palm-muted B-pedal chug through the
+// reply and it-spreads, open ringing B-D-G-Em walls through the whole
+// message. Music bus, fixed emits — no rnd draws.
+// (complected: every guitar is a braided pair — a detuned double on the
+// far side, later and darker; the whole section sits deeper.)
+for (let gb = 48; gb < 76; gb += 4) {
+  shot("guitar-chug", gb * BAR, { bus: "music", gain: 0.16 + 0.004 * (gb - 48), pan: -0.16, side: 0.5, dly: 0.30, dark: 0.30 });
+  shot("guitar-chug", gb * BAR + 0.018, { bus: "music", gain: (0.16 + 0.004 * (gb - 48)) * 0.72, pan: 0.30, side: 0.6, dly: 0.42, dark: 0.42, semis: 0.07 });
+}
+for (let gb = 76; gb < 96; gb += 8) {
+  const trim = gb + 8 > 96 ? { dur: (96 - gb) * BAR } : {};
+  shot("guitar-wide", gb * BAR, { bus: "music", gain: 0.26, pan: 0.12, side: 0.6, dly: 0.40, dark: 0.28, ...trim });
+  shot("guitar-wide", gb * BAR + 0.026, { bus: "music", gain: 0.18, pan: -0.30, side: 0.7, dly: 0.52, dark: 0.40, semis: -0.08, ...trim });
+}
+
 
 for (let bar = 0; bar < BARS; bar++) {
   const t = at(bar);
@@ -1641,12 +1725,16 @@ for (let bar = 0; bar < BARS; bar++) {
       if (s & 1) shot("hatC", u, { gain: 0.20 * vel(), pan: 0.20, side: 0.5, dur: 0.085 });
       else if (s % 4 === 2) shot("hatC", u, { gain: 0.11 * vel(), pan: -0.18, side: 0.5, dur: 0.065 });
     }
-    if (D && eight >= 4)
+    if (D || eight >= 2)   // Peep pass: rolling hats most bars
       for (let s = 0; s < 16; s++)
         if (s % 4 === 1 || s % 4 === 3)
           shot("hatC", t + (s / 16) * BAR + jit(4), { gain: 0.055 * vel(0.5), pan: (s & 2 ? 0.35 : -0.35), side: 0.6, dur: 0.045 });
     if ((D || inS(bar, "spread")) && four === 3)
       shot("hatO", t + 3.5 * BEAT + 0.02, { gain: 0.20, pan: -0.28, side: 0.65, dur: 0.34 });
+    if (four === 3 && kickOn(bar))   // Peep pass: the 32nd roll
+      for (let r = 0; r < 6; r++)
+        shot("hatC", t + 3.25 * BEAT + r * BEAT / 8,
+          { gain: (0.034 + 0.015 * r) * vel(0.3), pan: 0.22 - 0.09 * r, side: 0.6, dur: 0.05 });
   }
 
   // ---- the pump's second trigger: rim on 3, clap when full -------------
@@ -1688,7 +1776,7 @@ for (let bar = 0; bar < BARS; bar++) {
   // rising into the downbeat, then two bars of wub under the groove.
   if (bar === S.reply[0] || bar === S.whole[0])
     revKick(t, 0.9, bar === S.whole[0] ? 0.55 : 0.48);
-  if (bar === S.message[0] + 4)   // the sentence gets a door too
+  if (bar === S.message[0] + 5)   // the sentence gets a door too
     revKick(t, 0.9, 0.48);
   if ((inS(bar, "reply") && bar - S.reply[0] < 2) || bar === S.whole[0] - 2 || bar === S.whole[0] - 1)
     wub(t, bassRoot(deg), 1, 0.26, 4);   // whole: the wub BUILDS INTO the words, then clears out for them
@@ -1700,7 +1788,7 @@ for (let bar = 0; bar < BARS; bar++) {
       const fifth = four === 3 && b === 3;
       bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : null);
     }
-    if (bar % 2 === 0) bass(t, root - 12, BAR * 0.90, g * 0.42);
+    if (bar % 2 === 0) bass(t, root - 12, BAR * 0.90, g * 0.60);   // Peep pass: more sub
   }
 
   // ---- pad + stabs ------------------------------------------------------
@@ -1807,9 +1895,11 @@ for (let bar = 0; bar < BARS; bar++) {
   // drops to the off-slots as its answer.
   if (inS(bar, "message")) {
     const k = bar - S.message[0];
+    if (k === 2) phoneTune(bar, 0.26);   // the precursor: the phone hums
+                                         // the line into the door
     if (k === 0) chorus(bar, { lead: "both", answer: "dots" });
-    if (k === 8) chorus(bar, { lead: "both", fast: true, tag: "fast" });
-    if (k % 8 === 4) hook(bar, { full: false });
+    if (k === 9) hook(bar, { full: true });   // first section: sentence order only
+    if (k % 8 === 5) hook(bar, { full: false });   // shifted: sentence lands 0:42
   }
   if (inS(bar, "message")) {
     // the phone keeps time under the hook: a tap on the "and" of 4 and a

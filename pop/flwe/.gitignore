@@ -1,0 +1,18 @@
+# The source takes — re-fetchable from the assets mirror (posts.json
+# points at them; bin/fetch.sh pulls them). Media, not source.
+source/
+
+# Raw whisper-cli JSON scratch — the curated word-level transcript
+# lives in analysis/ and IS tracked.
+analysis/whisper-raw/
+
+# out/ is already covered repo-wide by `pop/**/out/`.
+
+# The carved phrase bank — renders, re-buildable from bin/aesthetivox.py.
+# The manifest (vox/.manifest.json) IS tracked.
+vox/*.wav
+
+# carved vox banks are derived (bin/aesthetivox.py rebuilds them); manifests tracked
+vox/**/*.wav
+vox/*.wav
+!vox/.manifest.json

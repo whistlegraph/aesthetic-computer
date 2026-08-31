@@ -256,6 +256,10 @@ static const Sp NOSP = {0, 0, 0, 0};
 // after the words land at bar 76. Same score, same voices, same master
 // chain — only the address changes.
 static int SPATIAL = 0;
+// --radio: the FM fantasy — everything a shade closer to center, the bed
+// breathing off the voice (not only the kick), the voice sat back into the
+// band, and a continuous sub throughline under the whole record.
+static int RADIO = 0;
 static inline double choreoPan(int bus, long i, double pan) {
     double t = (double)i / SR;
     const double beatSec = 60.0 / BPM;
@@ -289,6 +293,7 @@ static inline double choreoPan(int bus, long i, double pan) {
 static inline void emit(int bus, long i, double mono, double pan, Sp sp, double sideAmt, double dly) {
     if (i < 0 || i >= N) return;
     if (SPATIAL) pan = choreoPan(bus, i, pan);
+    if (RADIO) pan *= 0.75;   // radio: denser center, no hard edges
     double a = (M_PI / 4.0) * (1.0 + pan);
     double cl = cos(a), cr = sin(a);
     switch (bus) {
@@ -699,13 +704,13 @@ static Shot shot_def(int bus, double side) {
 #define SHOT_HELD() shot_def(BUS_TUBE, 0.7)
 
 static void shot(const char *name, double t, Shot o) {
-    // @jeffrey: "lets lose all vocals until we get to 0:40" — the voice
-    // bus is silent until the sentence's first dash at the bar-28 hook.
-    // (The watery-hole dink rides the drum bus, so it survives.)
-    if (o.bus == BUS_VOX && t < 28 * BAR - 0.02) return;
+    // @jeffrey: no vocals until 0:42 — the voice bus is silent until the
+    // sentence's first dash at the bar-29 hook. (The watery-hole dink
+    // rides the drum bus, so it survives.)
+    if (o.bus == BUS_VOX && t < 29 * BAR - 0.02) return;
     // The door (both critics): 400 ms of negative space before the
     // sentence — decorations step aside, the kick keeps the floor.
-    if (t >= 28 * BAR - 0.42 && t < 28 * BAR - 0.02) return;
+    if (t >= 29 * BAR - 0.42 && t < 29 * BAR - 0.02) return;
     Sample *smp = bank_get(name);
     if (!smp) { bank_missing(name); return; }
     const float *s = smp->s; const long len = smp->n;
@@ -787,7 +792,7 @@ static void material(int bar, const char *name, double g,
 static void stretched(const char *name, double t, double gain, double pan,
                       double semis, double stretch, double dur, double side,
                       double dark, int bus, double dly) {
-    if (bus == BUS_VOX && t < 28 * BAR - 0.02) return;  // same hold as shot()
+    if (bus == BUS_VOX && t < 29 * BAR - 0.02) return;  // same hold as shot()
     Sample *smp = bank_get(name);
     if (!smp) { bank_missing(name); return; }
     const float *s = smp->s; const long len = smp->n;
@@ -1023,6 +1028,10 @@ static const char *cultTake(const char *nm, char *buf, size_t bufsz) {
 // their own rate and phase, so where they cross they beat. Jeffrey's sub
 // octave gives the unison a bottom instead of a fourth singer.
 static void dashStack(double t, const char *which, double G, int bar) {
+    // The dash layer rides the tube bus (SHOT_HELD), so the vox hold never
+    // caught it — the bar-24 morse chorus's dashes kept leaking in at 0:36
+    // and 0:39. No dash before the sentence, on any bus. THE fix.
+    if (t < 29 * BAR - 0.02) return;
     const double w = wigDepth(bar);
     char nm[64];
     Shot o = SHOT_HELD();
@@ -1111,10 +1120,16 @@ static int blipMidi(int bar, int k) {
 static void phoneTune(int bar, double g) {
     static const double K[11] = {0.00, 0.50, 1.00, 2.00, 2.50, 3.00, 4.00, 4.75, 6.00, 6.50, 7.00};
     static const int M[11] = {67, 66, 62, 62, 64, 66, 67, 69, 59, 55, 59};
+    // chorded now: each melody beep carries its in-scale third below on
+    // the second oscillator (the phone dials the harmony), and a detuned
+    // phase-shifted double answers 30 ms later on the far side.
+    static const int H[11] = {64, 62, 59, 59, 61, 62, 64, 66, 55, 52, 55};
     for (int i = 0; i < 11; i++) {
         const double tt = at(bar, 0) + K[i] * BEAT + jit(6);   // jit before vel,
         const double gg = g * vel(0.2);                        // like the Node args
-        beep(tt, midihz(M[i] + 12), 0, 0.11, gg, i % 2 ? 0.4 : -0.4, 0.85, 0.45, BUS_SIG);
+        beep(tt, midihz(M[i] + 12), midihz(H[i] + 12), 0.11, gg, i % 2 ? 0.4 : -0.4, 0.85, 0.45, BUS_SIG);
+        beep(tt + 0.030, midihz(M[i] + 12) * 1.004, midihz(H[i] + 12) * 0.9955, 0.11,
+             gg * 0.55, i % 2 ? -0.45 : 0.45, 0.95, 0.60, BUS_SIG);
     }
 }
 
@@ -1153,17 +1168,20 @@ static void hook_fn(int bar, int full) {
     // of scattering across it).
     const double F = SPATIAL ? 1.22 : 1.0;
     const double P = SPATIAL ? 0.6 : 1.0;
+    // The v2 hook, verbatim — @jeffrey pointed at 0:48 of the v2 master:
+    // "that is the proper lyrical utterance rhythm there. and word
+    // choice." So: dash F#4 · i wanna (1.50) · dash D4 (2.00) · i wanna
+    // (3.50) · run IT fast (4.00, one sung phrase, G4-F#4-D4) · dot dot ·
+    // rest. Plain sung takes, v2 gains, dots at 0.90.
     dashStack(t + 0.00, "fs4", G * F, bar);
-    // v10.1: the pickup is the slowed take when longdots.sh has built it —
-    // 1.5x, soft attack, a shade lower and wetter ("sorta rushed" fixed).
-    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G * F; o.pan = -0.18 * P; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
-      shot(has("iwannaslow-a") ? "iwannaslow-a" : "iwanna-a-sung", t + 1.42 + jit(4), o); }
+    { Shot o = SHOT_SUNG(); o.gain = 0.82 * G * F; o.pan = -0.18 * P; o.side = 0.50; o.dly = 0.20;
+      shot("iwanna-a-sung", t + 1.50 + jit(4), o); }
     dashStack(t + 2.00, "d4", G * 0.95 * F, bar);
-    { Shot o = SHOT_SUNG(); o.gain = 0.70 * G * F; o.pan = 0.18 * P; o.side = 0.50; o.dly = 0.24; o.atk = 0.05;
-      shot(has("iwannaslow-b") ? "iwannaslow-b" : "iwanna-b-sung", t + 3.42 + jit(4), o); }
+    { Shot o = SHOT_SUNG(); o.gain = 0.82 * G * F; o.pan = 0.18 * P; o.side = 0.50; o.dly = 0.20;
+      shot("iwanna-b-sung", t + 3.50 + jit(4), o); }
     if (wordsIn(bar)) {
-        // v10.1 fourth pass: the syllabic take SAYS the line, dry and
-        // center; the melisma enters under it as the vowel it always was.
+        // the "real" word, fixed: the syllabic take SAYS run-real-fast
+        // (v2's runitfast take garbled it); the melisma rings under.
         { Shot o = SHOT_SUNG(); o.gain = 1.26 * G * F; o.pan = 0.00; o.side = 0.35; o.dly = 0.10;
           sungSub("runrealfast-hi", t + 4.00 + jit(4), o, 0.30); }
         { Shot o = SHOT_SUNG(); o.gain = 0.50 * G * F; o.pan = -0.10 * P; o.side = 0.60; o.dly = 0.35;
@@ -1173,12 +1191,16 @@ static void hook_fn(int bar, int full) {
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 5.50 + jit(4), midihz(tri[0] + 12), 0.20 * G, -0.28, 0.7, 0.085, 0.40);
     }
-    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G * F; o.pan = -0.45 * P; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.90 * G * F; o.pan = -0.45 * P; o.side = 0.75; o.dly = 0.38;
       shot("dot-b3", t + 6.00 + jit(3), o); }
-    { Shot o = SHOT_SUNG(); o.gain = 0.76 * G * F; o.pan = 0.45 * P; o.side = 0.75; o.dly = 0.38;
+    { Shot o = SHOT_SUNG(); o.gain = 0.90 * G * F; o.pan = 0.45 * P; o.side = 0.75; o.dly = 0.38;
       shot("dot-fs3", t + 6.50 + jit(3), o); }
     if (full) { Shot o = SHOT_SUNG(); o.gain = 0.34 * G * F; o.pan = 0.0; o.side = 0.60; o.dly = 0.55;
       shot("dot-d4", t + 7.00, o); }
+    // length-play: every other full hook lets a daaaaash ring across the
+    // rest bar, stretched to twice itself.
+    if (full && ((bar >> 3) & 1))
+        stretched("dash-camille-fs4-hold", t + 7.00, 0.28 * G, -0.30, 0, 1.9, 3.0, 0.80, 0.25, BUS_VOX, 0.50);
 }
 
 enum { LEAD_BOTH, LEAD_HI, LEAD_LO };
@@ -1212,15 +1234,22 @@ static void chorus_fn(int bar, Chorus c) {
               sungSub("runrealfast-hi", t + jit(4), o, 0.30); }
             { Shot o = SHOT_SUNG(); o.gain = 0.55 * G * F; o.pan = both ? -0.14 : -0.08; o.side = 0.60; o.dly = 0.30;
               shot("runrealfast-long-hi", t + 0.80 + jit(4), o); }
+            if (inS(bar, S_REPLY)) {
+                // 1:22 power-up: the line harmonized like the guitar under
+                // it — fifth and octave stacked on the melisma. No jit:
+                // the parity stream holds.
+                { Shot o = SHOT_SUNG(); o.gain = 0.52 * G * F; o.pan = 0.22; o.side = 0.55; o.dly = 0.20; o.semis = 7;
+                  shot("runrealfast-long-hi", t + 0.82, o); }
+                { Shot o = SHOT_SUNG(); o.gain = 0.34 * G * F; o.pan = -0.24; o.side = 0.60; o.dly = 0.28; o.semis = 12;
+                  shot("runrealfast-long-lo", t + 0.86, o); }
+            }
             if (both) { Shot p = SHOT_SUNG(); p.gain = 0.44 * G * F; p.pan = 0.16; p.side = 0.55; p.dly = 0.28;
               shot("runrealfast-long-lo", t + 0.84 + jit(4), p); }
         }
     }
 
     // line 2 · "i wanna hide a — waaaay"
-    // line 2 is not in the dictated sentence: it stays withheld until
-    // act VII, so bar 76 keeps a lexical payoff (critic's finding).
-    if (!c.drop2 && bar < SB[S_WHOLE][0]) {
+    if (!c.drop2 && !wordsIn(bar)) {
         dotDriftVox(t + 2.20 + jit(20), bar, 0.22 * G, 0.24, 1.4, 3.8, 0.40, 0.35);
         int tri[3]; triad_of(degAt(bar), 59, tri);
         bop(t + 3.00 + jit(4), midihz(tri[1] + 12), 0.22 * G, -0.20, 0.7, 0.085, 0.40);
@@ -1285,7 +1314,7 @@ static void chorus_fn(int bar, Chorus c) {
         }
     }
 
-    if (c.choirUnder) choir(bar, 0.18 * G);
+    if (c.choirUnder) choir(bar, 0.12 * G);   // deeper, more inset
 }
 
 // ── score ──────────────────────────────────────────────────────────────
@@ -1293,12 +1322,91 @@ static void chorus_fn(int bar, Chorus c) {
 // SAME evaluation order — every jit()/vel()/nrnd() lands on the same draw.
 static void score(void) {
     // The first sound. From the watery-hole post (7071087615948148010):
-    // just the metallic ring-down that precedes the spoken invitation —
-    // the line itself stays on the wall. It rings at the cut's very top,
-    // 50 ms before bar 8's first kick. No jit() here: the parity RNG
-    // stream must not shift.
-    { Shot o = SHOT_DRUM(); o.gain = 1.35; o.pan = 0.0; o.side = 0.30; o.dly = 0.20;
-      shot("waterhole", 8 * BAR - 0.05, o); }
+    // the metallic ding right after "guys" (source 1.64-2.09 s, spike at
+    // 1.71) — the line itself stays on the wall. Emitted so the spike
+    // lands exactly at the cut's first sample, ringing over the first
+    // kick. No jit() here: the parity RNG stream must not shift.
+    { Shot o = SHOT_DRUM(); o.gain = 0.95; o.pan = 0.0; o.side = 0.30; o.dly = 0.48;
+      shot("waterhole", 8 * BAR - 0.12, o); }
+    // The station ident — "whistlegraph dot org", jeffrey's voice snapped
+    // to B2/F#2/B1, on the tube bus so it clears the lyric hold: the
+    // record's first spoken words, so "dash" is never the first word.
+    { Shot o = SHOT_HELD(); o.gain = 0.55; o.pan = 0.0; o.side = 0.40; o.dly = 0.30; o.dark = 0.25;
+      shot("dotorg", 18 * BAR + 0.25, o); }
+    // doooooot harmonies: the answer chord stretched five-fold into slow
+    // swells drifting through the intro — B minor sung glacially.
+    { static const struct { double b; const char *n; double p; } SD[6] = {
+        {12.5, "dot-b3", -0.35}, {12.53, "dot-fs3", 0.35}, {12.56, "dot-d4", 0.0},
+        {20.5, "dot-b3", 0.35}, {20.53, "dot-fs3", -0.35}, {20.56, "dot-d4", 0.0}};
+      for (int k = 0; k < 6; k++)   // tamed: quieter, shorter, darker
+        stretched(SD[k].n, SD[k].b * BAR, 0.10, SD[k].p, 0, 3.5, 4.0, 0.85, 0.45, BUS_TUBE, 0.55); }
+    // The dot dot dots, seeded into the first 30 seconds — the v2 answer
+    // figure (b3 wide-left, fs3 wide-right, d4 ghost center) recessed on
+    // the tube bus so it reads as signal, growing with the intro. Fixed
+    // times — no rnd draws.
+    { static const int DB[4] = {10, 14, 16, 22};
+      for (int k = 0; k < 4; k++) {
+        const double u = DB[k] * BAR; const double g = 0.34 + 0.09 * k;
+        { Shot o = SHOT_HELD(); o.gain = g; o.pan = -0.45; o.side = 0.75; o.dly = 0.45; o.dark = 0.20;
+          shot("dot-b3", u + 3.0 * BEAT, o); }
+        { Shot o = SHOT_HELD(); o.gain = g; o.pan = 0.45; o.side = 0.75; o.dly = 0.45; o.dark = 0.20;
+          shot("dot-fs3", u + 3.5 * BEAT, o); }
+        { Shot o = SHOT_HELD(); o.gain = g * 0.45; o.pan = 0.0; o.side = 0.60; o.dly = 0.60; o.dark = 0.25;
+          shot("dot-d4", u + 4.0 * BEAT, o); }
+      } }
+    // The violin, for the cuuuuult passage: D5 - C#5 - B4 swelling from
+    // 1:13 into the act V drop at 1:20.
+    // (complected: three desks of the same phrase, detuned and staggered
+    // — a section, not a soloist — set back in the dark of the room.)
+    { Shot o = SHOT_HELD(); o.gain = 0.32; o.pan = 0.10; o.side = 0.60; o.dly = 0.48; o.dark = 0.30;
+      shot("violin-secret", 44.4 * BAR, o); }
+    { Shot o = SHOT_HELD(); o.gain = 0.23; o.pan = -0.26; o.side = 0.70; o.dly = 0.55; o.dark = 0.38; o.semis = 0.05;
+      shot("violin-secret", 44.4 * BAR + 0.045, o); }
+    { Shot o = SHOT_HELD(); o.gain = 0.19; o.pan = 0.34; o.side = 0.70; o.dly = 0.60; o.dark = 0.42; o.semis = -0.07;
+      shot("violin-secret", 44.4 * BAR + 0.085, o); }
+    // The accordion breathes in: a 12 s musette swell under the kickless
+    // secret act beside the violin, and push/pull chords doubling the
+    // act-VII wall (B D G Em, one bellows each). Fixed emits.
+    { Shot o = SHOT_HELD(); o.gain = 0.32; o.pan = -0.08; o.side = 0.70; o.dly = 0.40; o.dark = 0.25;
+      shot("accordion-secret", 41 * BAR, o); }
+    { static const char *AN[4] = {"accordion-b", "accordion-d", "accordion-g", "accordion-e"};
+      for (int ab = 76; ab < 96; ab += 2) {
+        Shot o = SHOT_HELD(); o.gain = 0.20; o.pan = ((ab >> 1) & 1) ? -0.22 : 0.22;
+        o.side = 0.65; o.dly = 0.30; o.dark = 0.20;
+        shot(AN[(ab - 76) / 2 % 4], ab * BAR, o);
+      } }
+    // boing boing: a springy sproing on every act-VII chord change,
+    // pitched to the guitar wall it rides (B D G E). Fixed emits.
+    { static const char *BN[4] = {"boing-b", "boing-d", "boing-g", "boing-e"};
+      for (int bb = 76; bb < 96; bb += 2) {
+        Shot o = SHOT_HELD(); o.gain = 0.30; o.pan = ((bb >> 1) & 1) ? 0.32 : -0.32;
+        o.side = 0.65; o.dly = 0.35; o.dark = 0.10;
+        shot(BN[(bb - 76) / 2 % 4], bb * BAR, o);
+      } }
+    // The dark guitars (Peep pass): a palm-muted B-pedal chug through the
+    // reply and it-spreads, open ringing B-D-G-Em walls through the whole
+    // message. Music bus, fixed emits — no rnd draws.
+    // (complected: every guitar is a braided pair — a detuned double on
+    // the far side, later and darker, so the wall has weave, and the whole
+    // section sits deeper: darker, wetter, a shade quieter.)
+    for (int gb = 48; gb < 76; gb += 4) {
+        { Shot o = shot_def(BUS_MUSIC, 0.5); o.gain = 0.16 + 0.004 * (gb - 48);
+          o.pan = -0.16; o.dly = 0.30; o.dark = 0.30;
+          shot("guitar-chug", gb * BAR, o); }
+        { Shot o = shot_def(BUS_MUSIC, 0.6); o.gain = (0.16 + 0.004 * (gb - 48)) * 0.72;
+          o.pan = 0.30; o.dly = 0.42; o.dark = 0.42; o.semis = 0.07;
+          shot("guitar-chug", gb * BAR + 0.018, o); }
+    }
+    for (int gb = 76; gb < 96; gb += 8) {
+        double trim = gb + 8 > 96 ? (96 - gb) * BAR : 0;
+        { Shot o = shot_def(BUS_MUSIC, 0.6); o.gain = 0.26; o.pan = 0.12; o.dly = 0.40; o.dark = 0.28;
+          if (trim) o.dur = trim;
+          shot("guitar-wide", gb * BAR, o); }
+        { Shot o = shot_def(BUS_MUSIC, 0.7); o.gain = 0.18; o.pan = -0.30; o.dly = 0.52; o.dark = 0.40; o.semis = -0.08;
+          if (trim) o.dur = trim;
+          shot("guitar-wide", gb * BAR + 0.026, o); }
+    }
+
     for (int bar = 0; bar < BARS; bar++) {
         const double t = at(bar, 0);
         const int deg = degAt(bar);
@@ -1324,7 +1432,7 @@ static void score(void) {
                 if (s & 1) { Shot o = SHOT_DRUM(); o.gain = 0.20 * vel(0.20); o.pan = 0.20; o.side = 0.5; o.dur = 0.085; shot("hatC", u, o); }
                 else if (s % 4 == 2) { Shot o = SHOT_DRUM(); o.gain = 0.11 * vel(0.20); o.pan = -0.18; o.side = 0.5; o.dur = 0.065; shot("hatC", u, o); }
             }
-            if (D && eight >= 4)
+            if (D || eight >= 2)   // Peep pass: rolling hats most bars
                 for (int s = 0; s < 16; s++)
                     if (s % 4 == 1 || s % 4 == 3) {
                         const double u = t + ((double)s / 16) * BAR + jit(4);
@@ -1335,6 +1443,13 @@ static void score(void) {
                 Shot o = SHOT_DRUM(); o.gain = 0.20; o.pan = -0.28; o.side = 0.65; o.dur = 0.34;
                 shot("hatO", t + 3.5 * BEAT + 0.02, o);
             }
+            if (four == 3 && kickOn(bar))   // Peep pass: the 32nd roll
+                for (int r = 0; r < 6; r++) {
+                    const double u = t + 3.25 * BEAT + r * BEAT / 8;
+                    Shot o = SHOT_DRUM(); o.gain = (0.034 + 0.015 * r) * vel(0.3);
+                    o.pan = 0.22 - 0.09 * r; o.side = 0.6; o.dur = 0.05;
+                    shot("hatC", u, o);
+                }
         }
 
         // ---- the pump's second trigger: rim on 3, clap when full -------
@@ -1389,7 +1504,7 @@ static void score(void) {
         // ---- the re-entries announce themselves ------------------------
         if (bar == SB[S_REPLY][0] || bar == SB[S_WHOLE][0])
             revKick(t, 0.9, bar == SB[S_WHOLE][0] ? 0.55 : 0.48);
-        if (bar == SB[S_MESSAGE][0] + 4)   // the sentence gets a door too
+        if (bar == SB[S_MESSAGE][0] + 5)   // the sentence gets a door too
             revKick(t, 0.9, 0.48);
         if ((inS(bar, S_REPLY) && bar - SB[S_REPLY][0] < 2) || bar == SB[S_WHOLE][0] - 2 || bar == SB[S_WHOLE][0] - 1)
             wub(t, bassRoot(deg), 1, 0.26, 4);
@@ -1401,7 +1516,7 @@ static void score(void) {
                 const int fifth = four == 3 && b == 3;
                 bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : NO_SLIDE);
             }
-            if (bar % 2 == 0) bass(t, root - 12, BAR * 0.90, g * 0.42, NO_SLIDE);
+            if (bar % 2 == 0) bass(t, root - 12, BAR * 0.90, g * 0.60, NO_SLIDE);   // Peep pass: more sub
         }
 
         // ---- pad + stabs -----------------------------------------------
@@ -1485,8 +1600,10 @@ static void score(void) {
         if (inS(bar, S_MESSAGE)) {
             const int k = bar - SB[S_MESSAGE][0];
             if (k == 0) { Chorus c = {LEAD_BOTH, 0, ANS_DOTS, 0, 0, 1.0, 0, 0}; chorus_fn(bar, c); }
-            if (k == 8) { Chorus c = {LEAD_BOTH, 1, ANS_NONE, 1, 0, 1.0, 0, 0}; chorus_fn(bar, c); }
-            if (k % 8 == 4) hook_fn(bar, 0);
+            if (k == 2) phoneTune(bar, 0.26);   // the precursor: the phone
+                                                // hums the line into the door
+            if (k == 9) hook_fn(bar, 1);   // first section: sentence order only
+            if (k % 8 == 5) hook_fn(bar, 0);   // shifted: sentence lands 0:42
         }
         if (inS(bar, S_MESSAGE)) {
             { const double tt = at(bar, 3.5) + jit(6); tap(tt, 0.62 * vel(0.3), 0.40, 0.7, 0.26); }
@@ -1718,6 +1835,7 @@ static void score(void) {
 int main(int argc, char **argv) {
     for (int a = 1; a < argc; a++)
         if (!strcmp(argv[a], "--spatial")) SPATIAL = 1;
+        else if (!strcmp(argv[a], "--radio")) RADIO = 1;
     clock_t t0 = clock();
     // LANE = pop/cult, two levels up from the binary (pop/cult/c/cultremix)
     char self[4096];
@@ -1804,6 +1922,24 @@ int main(int argc, char **argv) {
         buildEnv(pumpEnv, tr, c);
     }
 
+    // radio: the bed breathes off the voice too — a vox-keyed duck
+    // (5 ms attack, 150 ms release, at most ~2.8 dB) on music+tube, so
+    // the band leans away whenever she sings and swells back between
+    // lines. Butter, not pump.
+    float *voxDuck = NULL;
+    if (RADIO) {
+        voxDuck = malloc(N * 4);
+        const double ka = 1 - exp(-1.0 / (0.005 * SR));
+        const double kr = 1 - exp(-1.0 / (0.150 * SR));
+        double env = 0;
+        for (long i = 0; i < N; i++) {
+            const double x = fabs(voxL[i]) + fabs(voxR[i]);
+            env += (x > env ? ka : kr) * (x - env);
+            const double d = dmin(1.0, env * 3.2);
+            voxDuck[i] = (float)(1.0 - 0.28 * d);
+        }
+    }
+
     // Special Sign side return + final sum, one pass. Band-limited
     // 80 Hz – 11.5 kHz, antisymmetric (L=+, R=−), slewed per-act send;
     // each bus's share of the side field carries that bus's duck.
@@ -1813,10 +1949,17 @@ int main(int argc, char **argv) {
         const double hpRc = 1 / (TAU * 80), hpA = hpRc / (hpRc + 1.0 / SR);
         const double lpK = 1 - exp((-TAU * 11500) / SR);
         double hp = 0, lp = 0, prev = 0, send = 0.9;
+        // radio: the healing sub — one phase-continuous sine gliding along
+        // the harmony's bass roots (B1 territory, ~62-92 Hz), ducked by
+        // the kick like the rest of the bed, sustaining through the
+        // kickless acts so the record never loses its floor.
+        double subPh = 0, subF = 0, subG = 0;
         for (long i = 0; i < N; i++) {
             const double be = bedEnv[i], pe = pumpEnv[i];
+            const double vd = RADIO ? voxDuck[i] : 1.0;
+            const double vg = RADIO ? 0.82 : 1.0;
             const double dv = pow(be, 0.25), ds = pow(be, 0.5);
-            const double s = sideB[i] * be + sideV[i] * dv + sideT[i] * pe * TUBEG + sideS[i] * ds;
+            const double s = sideB[i] * be * vd + sideV[i] * dv + sideT[i] * pe * TUBEG * vd + sideS[i] * ds;
             hp = hpA * (hp + s - prev); prev = s;
             lp += lpK * (hp - lp);
             const double barPos = ((double)i / SR) / BAR;
@@ -1829,10 +1972,20 @@ int main(int argc, char **argv) {
             const double fadeIn = dmin(1, (double)i / (0.014 * SR));
             const double fadeOut = dmin(1, (double)(N - 1 - i) / (2.6 * SR));
             const double fade = dmax(0, dmin(fadeIn, fadeOut));
-            const double l = (musicL[i] * be + voxL[i] * dv * VOXG + tubeL[i] * pe * TUBEG
-                + sigL[i] * ds * SIGG + drumsL[i] + so) * fade;
-            const double r = (musicR[i] * be + voxR[i] * dv * VOXG + tubeR[i] * pe * TUBEG
-                + sigR[i] * ds * SIGG + drumsR[i] - so) * fade;
+            double sub = 0;
+            if (RADIO) {
+                const int sbar = (int)barPos;
+                const double ft = midihz(bassRoot(degAt(sbar < BARS ? sbar : BARS - 1)));
+                if (subF <= 0) subF = ft;
+                subF += 0.00012 * (ft - subF);          // ~50 ms glide, no clicks
+                subPh += TAU * subF / SR;
+                subG += 0.00008 * (0.050 - subG);       // eases in from silence
+                sub = sin(subPh) * subG * (0.55 + 0.45 * be);
+            }
+            const double l = (musicL[i] * be * vd + voxL[i] * dv * VOXG * vg + tubeL[i] * pe * TUBEG * vd
+                + sigL[i] * ds * SIGG + drumsL[i] + sub + so) * fade;
+            const double r = (musicR[i] * be * vd + voxR[i] * dv * VOXG * vg + tubeR[i] * pe * TUBEG * vd
+                + sigR[i] * ds * SIGG + drumsR[i] + sub - so) * fade;
             L[i] = (float)l; R[i] = (float)r;
             if (fabs(l) > peak) peak = fabs(l);
             if (fabs(r) > peak) peak = fabs(r);
@@ -1845,7 +1998,7 @@ int main(int argc, char **argv) {
     char outdir[4200]; snprintf(outdir, sizeof outdir, "%s/c/out", LANE);
     mkdir(outdir, 0755);
     char outp[4400]; snprintf(outp, sizeof outp, "%s/%s.wav", outdir,
-                              SPATIAL ? "whistlecultspatial" : "cult-remix-c");
+                              SPATIAL ? "whistlecultspatial" : RADIO ? "cult-remix-radio" : "cult-remix-c");
     write_wav_f32_stereo(outp, L, R, N);
     if (missingWarned) fprintf(stderr, "  ! %d missing-sample warnings\n", missingWarned);
     const double tAll = (double)(clock() - t0) / CLOCKS_PER_SEC;

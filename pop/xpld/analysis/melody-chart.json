@@ -1,0 +1,2238 @@
+{
+ "source": "xpld-7275499036398865706.wav",
+ "primary": "7275499036398865706",
+ "tonic_hz": 188.3,
+ "bpm": 130.8,
+ "anchor_sec": 6.0,
+ "scale_semitones": [
+  0,
+  2,
+  4,
+  7,
+  9,
+  10
+ ],
+ "note": "the general melody chart: each phrase starts on its clickvox beat; word onsets are on-grid by construction (8th-note quantize, min half a beat); src is the primary take's span (the render never dubs \u2014 the alternates sing these phrases in another register); a 'dub' block marks where the sample bank carves the phrase from instead; tail_end_s = next phrase's opening in the primary",
+ "phrases": [
+  {
+   "phrase": "Hit a hump and plateaued",
+   "beat": 0,
+   "beats_total": 9.5,
+   "t0": 6.0,
+   "t1": 10.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Hit",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      6.0,
+      6.0
+     ]
+    },
+    {
+     "word": "a",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      6.0,
+      6.17
+     ]
+    },
+    {
+     "word": "hump",
+     "beat": 1.0,
+     "dur_beats": 2.5,
+     "src": [
+      6.17,
+      7.34
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 112.0,
+     "cents_err": -100
+    },
+    {
+     "word": "and",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "src": [
+      7.34,
+      7.76
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 119.4,
+     "cents_err": 11
+    },
+    {
+     "word": "plateaued",
+     "beat": 4.5,
+     "dur_beats": 5.0,
+     "src": [
+      7.76,
+      10.0
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 197.2,
+     "cents_err": 80
+    }
+   ],
+   "tail_end_s": 10.4
+  },
+  {
+   "phrase": "then I gave up",
+   "beat": 10,
+   "beats_total": 6.5,
+   "t0": 10.4,
+   "t1": 13.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "then",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "src": [
+      10.4,
+      11.38
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 174.7,
+     "cents_err": 70
+    },
+    {
+     "word": "I",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "src": [
+      11.38,
+      11.73
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 132.4,
+     "cents_err": -110
+    },
+    {
+     "word": "gave",
+     "beat": 3.5,
+     "dur_beats": 2.0,
+     "src": [
+      11.73,
+      12.53
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 141.1,
+     "cents_err": 0
+    },
+    {
+     "word": "up",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "src": [
+      12.53,
+      13.0
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 141.1,
+     "cents_err": 0
+    }
+   ],
+   "tail_end_s": 13.35
+  },
+  {
+   "phrase": "now they call me Explodey Head",
+   "beat": 16,
+   "beats_total": 9.5,
+   "t0": 13.35,
+   "t1": 18.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "now",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      13.35,
+      13.91
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 92.3,
+     "cents_err": -35
+    },
+    {
+     "word": "they",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "src": [
+      13.91,
+      14.65
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 143.1,
+     "cents_err": 25
+    },
+    {
+     "word": "call",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      14.65,
+      15.39
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 113.3,
+     "cents_err": -80
+    },
+    {
+     "word": "me",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "src": [
+      15.39,
+      15.76
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 114.3,
+     "cents_err": -65
+    },
+    {
+     "word": "Explodey",
+     "beat": 5.0,
+     "dur_beats": 3.0,
+     "src": [
+      15.76,
+      17.23
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 97.2,
+     "cents_err": 55
+    },
+    {
+     "word": "Head",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "src": [
+      17.23,
+      18.0
+     ],
+     "note": "E2",
+     "degree": "b7",
+     "st_target": -14.0,
+     "cents_from_tonic": -1400,
+     "hz_measured": 85.3,
+     "cents_err": 29
+    }
+   ],
+   "tail_end_s": 19.0
+  },
+  {
+   "phrase": "Got my arm out waving anticipating",
+   "beat": 28,
+   "beats_total": 10.5,
+   "t0": 19.0,
+   "t1": 23.45,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Got",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      19.0,
+      19.0
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 97.4,
+     "cents_err": 59
+    },
+    {
+     "word": "my",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      19.0,
+      19.17
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 94.1,
+     "cents_err": -1
+    },
+    {
+     "word": "arm",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "src": [
+      19.17,
+      19.6
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 110.7,
+     "cents_err": 80
+    },
+    {
+     "word": "out",
+     "beat": 2.0,
+     "dur_beats": 2.0,
+     "src": [
+      19.6,
+      20.34
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 126.4,
+     "cents_err": 110
+    },
+    {
+     "word": "waving",
+     "beat": 4.0,
+     "dur_beats": 3.5,
+     "src": [
+      20.59,
+      21.97
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 191.6,
+     "cents_err": 30
+    },
+    {
+     "word": "anticipating",
+     "beat": 7.5,
+     "dur_beats": 3.0,
+     "src": [
+      22.17,
+      23.45
+     ],
+     "note": "G#3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 211.4,
+     "cents_err": 0
+    }
+   ],
+   "tail_end_s": 25.48
+  },
+  {
+   "phrase": "nothing special",
+   "beat": 42,
+   "beats_total": 5.0,
+   "t0": 25.48,
+   "t1": 28.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "nothing",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "src": [
+      25.48,
+      26.5
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 158.3,
+     "cents_err": 0
+    },
+    {
+     "word": "special",
+     "beat": 2.0,
+     "dur_beats": 3.0,
+     "src": [
+      26.5,
+      28.0
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 136.3,
+     "cents_err": -60
+    }
+   ],
+   "tail_end_s": 29.1
+  },
+  {
+   "phrase": "Locking the doorway little doggy",
+   "beat": 50,
+   "beats_total": 9.5,
+   "t0": 29.1,
+   "t1": 33.35,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Locking",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "src": [
+      29.1,
+      29.72
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 113.6,
+     "cents_err": -75
+    },
+    {
+     "word": "the",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "src": [
+      29.72,
+      30.34
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 112.0,
+     "cents_err": -100
+    },
+    {
+     "word": "doorway",
+     "beat": 3.0,
+     "dur_beats": 1.5,
+     "src": [
+      30.34,
+      30.77
+     ],
+     "note": "E2",
+     "degree": "b7",
+     "st_target": -14.0,
+     "cents_from_tonic": -1400,
+     "hz_measured": 85.3,
+     "cents_err": 29
+    },
+    {
+     "word": "little",
+     "beat": 4.5,
+     "dur_beats": 3.0,
+     "src": [
+      31.0,
+      32.38
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 114.3,
+     "cents_err": -65
+    },
+    {
+     "word": "doggy",
+     "beat": 7.5,
+     "dur_beats": 2.0,
+     "src": [
+      32.38,
+      33.35
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 146.0,
+     "cents_err": 60
+    }
+   ],
+   "tail_end_s": 34.0,
+   "dub": {
+    "take": "7258670360357276970",
+    "matched_text": "\ufffd\ufffd Bocking the doorway little doggy thing like a doggy \ufffd\ufffd",
+    "t": [
+     21.7,
+     23.58
+    ],
+    "tail_end_s": 24.6,
+    "why": {
+     "text": "\ufffd\ufffd Bocking the doorway little doggy thing like a doggy \ufffd\ufffd",
+     "t": [
+      21.7,
+      26.7
+     ],
+     "match": 0.73,
+     "voiced": 0.34,
+     "grid_dev": 31.0,
+     "noise": 0.00493
+    },
+    "words": [
+     {
+      "word": "Locking",
+      "dub_word": "Bocking",
+      "src": [
+       21.7,
+       21.7
+      ]
+     },
+     {
+      "word": "the",
+      "dub_word": "the",
+      "src": [
+       21.7,
+       21.7
+      ]
+     },
+     {
+      "word": "doorway",
+      "dub_word": "doorway",
+      "src": [
+       21.7,
+       21.92
+      ],
+      "hz_dub": 98.0,
+      "note_dub": "F#2",
+      "st_dub": -11.3,
+      "cents_from_chart": 270
+     },
+     {
+      "word": "little",
+      "dub_word": "little",
+      "src": [
+       21.92,
+       22.68
+      ],
+      "hz_dub": 163.9,
+      "note_dub": "E3",
+      "st_dub": -2.4,
+      "cents_from_chart": 560
+     },
+     {
+      "word": "doggy",
+      "dub_word": "doggy",
+      "src": [
+       22.68,
+       23.58
+      ],
+      "hz_dub": 162.0,
+      "note_dub": "D#3",
+      "st_dub": -2.6,
+      "cents_from_chart": 240
+     }
+    ]
+   }
+  },
+  {
+   "phrase": "thing like a doggy",
+   "beat": 61,
+   "beats_total": 7.0,
+   "t0": 34.0,
+   "t1": 37.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "thing",
+     "beat": 0.0,
+     "dur_beats": 3.5,
+     "src": [
+      34.0,
+      35.46
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 234.5,
+     "cents_err": -20
+    },
+    {
+     "word": "like",
+     "beat": 3.5,
+     "dur_beats": 0.5,
+     "src": [
+      35.46,
+      35.78
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 231.8,
+     "cents_err": -40
+    },
+    {
+     "word": "a",
+     "beat": 4.0,
+     "dur_beats": 0.5,
+     "src": [
+      35.78,
+      35.98
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 231.8,
+     "cents_err": -40
+    },
+    {
+     "word": "doggy",
+     "beat": 4.5,
+     "dur_beats": 2.5,
+     "src": [
+      35.98,
+      37.0
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 186.1,
+     "cents_err": -20
+    }
+   ],
+   "tail_end_s": 37.31
+  },
+  {
+   "phrase": "will you shut the fuck up",
+   "beat": 68,
+   "beats_total": 7.0,
+   "t0": 37.31,
+   "t1": 40.51,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "will",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "src": [
+      37.31,
+      37.95
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 138.6,
+     "cents_err": -30
+    },
+    {
+     "word": "you",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "src": [
+      37.95,
+      38.42
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 161.1,
+     "cents_err": 30
+    },
+    {
+     "word": "shut",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      38.42,
+      39.07
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 240.0,
+     "cents_err": 20
+    },
+    {
+     "word": "the",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "src": [
+      39.07,
+      39.55
+     ],
+     "note": "G#3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 211.4,
+     "cents_err": 0
+    },
+    {
+     "word": "fuck",
+     "beat": 5.0,
+     "dur_beats": 1.5,
+     "src": [
+      39.55,
+      40.18
+     ],
+     "note": "G#3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 212.6,
+     "cents_err": 10
+    },
+    {
+     "word": "up",
+     "beat": 6.5,
+     "dur_beats": 0.5,
+     "src": [
+      40.18,
+      40.51
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 171.2,
+     "cents_err": 35
+    }
+   ],
+   "tail_end_s": 43.0
+  },
+  {
+   "phrase": "This house that I built Scott",
+   "beat": 81,
+   "beats_total": 6.5,
+   "t0": 43.0,
+   "t1": 45.1,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "This",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      43.0,
+      43.0
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 71.3,
+     "cents_err": 19
+    },
+    {
+     "word": "house",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      43.0,
+      43.01
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 71.3,
+     "cents_err": 19
+    },
+    {
+     "word": "that",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      43.01,
+      43.15
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 71.3,
+     "cents_err": 19
+    },
+    {
+     "word": "I",
+     "beat": 1.5,
+     "dur_beats": 0.5,
+     "src": [
+      43.15,
+      43.21
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 68.5,
+     "cents_err": -51
+    },
+    {
+     "word": "built",
+     "beat": 2.0,
+     "dur_beats": 2.5,
+     "src": [
+      43.21,
+      44.31
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 107.5,
+     "cents_err": 30
+    },
+    {
+     "word": "Scott",
+     "beat": 4.5,
+     "dur_beats": 2.0,
+     "src": [
+      44.34,
+      45.1
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 158.3,
+     "cents_err": 0
+    }
+   ],
+   "tail_end_s": 45.42
+  },
+  {
+   "phrase": "cracks at the sides",
+   "beat": 86,
+   "beats_total": 5.5,
+   "t0": 45.42,
+   "t1": 47.85,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "cracks",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "src": [
+      45.42,
+      46.36
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 135.5,
+     "cents_err": -70
+    },
+    {
+     "word": "at",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "src": [
+      46.36,
+      46.73
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 166.8,
+     "cents_err": -10
+    },
+    {
+     "word": "the",
+     "beat": 3.0,
+     "dur_beats": 1.0,
+     "src": [
+      46.73,
+      47.11
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 128.6,
+     "cents_err": 140
+    },
+    {
+     "word": "sides",
+     "beat": 4.0,
+     "dur_beats": 1.5,
+     "src": [
+      47.11,
+      47.85
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 145.2,
+     "cents_err": 50
+    }
+   ],
+   "tail_end_s": 48.4
+  },
+  {
+   "phrase": "brittle like life and smoothing out",
+   "beat": 92,
+   "beats_total": 10.5,
+   "t0": 48.4,
+   "t1": 52.99,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "brittle",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "src": [
+      48.4,
+      49.58
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 115.2,
+     "cents_err": -51
+    },
+    {
+     "word": "like",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      49.58,
+      50.28
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 97.7,
+     "cents_err": 64
+    },
+    {
+     "word": "life",
+     "beat": 4.0,
+     "dur_beats": 2.0,
+     "src": [
+      50.28,
+      51.0
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 103.0,
+     "cents_err": -45
+    },
+    {
+     "word": "and",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "src": [
+      51.23,
+      51.58
+     ]
+    },
+    {
+     "word": "smoothing",
+     "beat": 7.0,
+     "dur_beats": 2.5,
+     "src": [
+      51.58,
+      52.62
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 167.8,
+     "cents_err": 0
+    },
+    {
+     "word": "out",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "src": [
+      52.62,
+      52.99
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 152.9,
+     "cents_err": -60
+    }
+   ],
+   "tail_end_s": 54.17
+  },
+  {
+   "phrase": "Airpockets dream you're no match for my graphic tee",
+   "beat": 105,
+   "beats_total": 10.5,
+   "t0": 54.17,
+   "t1": 58.69,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Airpockets",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "src": [
+      54.17,
+      55.34
+     ],
+     "note": "G#4",
+     "degree": "2",
+     "st_target": 14.0,
+     "cents_from_tonic": 1400,
+     "hz_measured": 408.3,
+     "cents_err": -60
+    },
+    {
+     "word": "dream",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "src": [
+      55.34,
+      55.57
+     ],
+     "note": "E4",
+     "degree": "b7",
+     "st_target": 10.0,
+     "cents_from_tonic": 1000,
+     "hz_measured": 345.2,
+     "cents_err": 49
+    },
+    {
+     "word": "you're",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      55.78,
+      56.44
+     ],
+     "note": "F#4",
+     "degree": "1",
+     "st_target": 12.0,
+     "cents_from_tonic": 1200,
+     "hz_measured": 359.6,
+     "cents_err": -80
+    },
+    {
+     "word": "no",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "src": [
+      56.44,
+      56.61
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 132.8,
+     "cents_err": -105
+    },
+    {
+     "word": "match",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "src": [
+      56.61,
+      57.14
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 117.9,
+     "cents_err": -11
+    },
+    {
+     "word": "for",
+     "beat": 6.5,
+     "dur_beats": 1.0,
+     "src": [
+      57.14,
+      57.48
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 103.2,
+     "cents_err": -41
+    },
+    {
+     "word": "my",
+     "beat": 7.5,
+     "dur_beats": 0.5,
+     "src": [
+      57.48,
+      57.73
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 105.6,
+     "cents_err": -1
+    },
+    {
+     "word": "graphic",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "src": [
+      57.73,
+      58.35
+     ],
+     "note": "G#2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 110.6,
+     "cents_err": 79
+    },
+    {
+     "word": "tee",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "src": [
+      58.35,
+      58.69
+     ],
+     "note": "A#2",
+     "degree": "3",
+     "st_target": -8.0,
+     "cents_from_tonic": -800,
+     "hz_measured": 116.2,
+     "cents_err": -36
+    }
+   ],
+   "tail_end_s": 59.0
+  },
+  {
+   "phrase": "my face is full of internet",
+   "beat": 116,
+   "beats_total": 3.5,
+   "t0": 59.0,
+   "t1": 60.75,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "my",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      59.0,
+      59.16
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 143.5,
+     "cents_err": 30
+    },
+    {
+     "word": "face",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      59.16,
+      59.48
+     ],
+     "note": "D#4",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 309.3,
+     "cents_err": -41
+    },
+    {
+     "word": "is",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      59.48,
+      59.64
+     ],
+     "note": "D#4",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 324.0,
+     "cents_err": 40
+    },
+    {
+     "word": "full",
+     "beat": 1.5,
+     "dur_beats": 0.5,
+     "src": [
+      59.64,
+      59.96
+     ],
+     "note": "E4",
+     "degree": "b7",
+     "st_target": 10.0,
+     "cents_from_tonic": 1000,
+     "hz_measured": 331.0,
+     "cents_err": -24
+    },
+    {
+     "word": "of",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "src": [
+      59.96,
+      60.46
+     ],
+     "note": "C#4",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 293.8,
+     "cents_err": 70
+    },
+    {
+     "word": "internet",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      60.46,
+      60.75
+     ],
+     "note": "C#4",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 283.8,
+     "cents_err": 10
+    }
+   ],
+   "tail_end_s": 62.0
+  },
+  {
+   "phrase": "Safely in a bubble that surrounds me",
+   "beat": 122,
+   "beats_total": 12.5,
+   "t0": 62.0,
+   "t1": 67.52,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Safely",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      62.0,
+      62.32
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 190.5,
+     "cents_err": 20
+    },
+    {
+     "word": "in",
+     "beat": 0.5,
+     "dur_beats": 1.0,
+     "src": [
+      62.32,
+      62.72
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 197.2,
+     "cents_err": 80
+    },
+    {
+     "word": "a",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "src": [
+      62.72,
+      63.34
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 161.1,
+     "cents_err": 30
+    },
+    {
+     "word": "bubble",
+     "beat": 3.0,
+     "dur_beats": 2.0,
+     "src": [
+      63.34,
+      64.24
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 197.2,
+     "cents_err": 80
+    },
+    {
+     "word": "that",
+     "beat": 5.0,
+     "dur_beats": 2.0,
+     "src": [
+      64.24,
+      65.13
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 164.9,
+     "cents_err": -30
+    },
+    {
+     "word": "surrounds",
+     "beat": 7.0,
+     "dur_beats": 3.0,
+     "src": [
+      65.13,
+      66.45
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 249.9,
+     "cents_err": 90
+    },
+    {
+     "word": "me",
+     "beat": 10.0,
+     "dur_beats": 2.5,
+     "src": [
+      66.45,
+      67.52
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 194.9,
+     "cents_err": 60
+    }
+   ],
+   "tail_end_s": 68.0,
+   "dub": {
+    "take": "7278943795482283307",
+    "matched_text": "Safely in a bubble that surrounds me",
+    "t": [
+     47.56,
+     51.95
+    ],
+    "tail_end_s": 52.44,
+    "why": {
+     "text": "Safely in a bubble that surrounds me",
+     "t": [
+      47.56,
+      51.95
+     ],
+     "match": 1.0,
+     "voiced": 0.75,
+     "grid_dev": 39.0,
+     "noise": 0.06176
+    },
+    "words": [
+     {
+      "word": "Safely",
+      "dub_word": "Safely",
+      "src": [
+       47.56,
+       48.44
+      ],
+      "hz_dub": 333.6,
+      "note_dub": "E4",
+      "st_dub": 9.9,
+      "cents_from_chart": 990
+     },
+     {
+      "word": "in",
+      "dub_word": "in",
+      "src": [
+       48.44,
+       48.73
+      ],
+      "hz_dub": 277.3,
+      "note_dub": "C#4",
+      "st_dub": 6.7,
+      "cents_from_chart": 670
+     },
+     {
+      "word": "a",
+      "dub_word": "a",
+      "src": [
+       48.73,
+       49.16
+      ],
+      "hz_dub": 320.4,
+      "note_dub": "D#4",
+      "st_dub": 9.2,
+      "cents_from_chart": 1220
+     },
+     {
+      "word": "bubble",
+      "dub_word": "bubble",
+      "src": [
+       49.16,
+       49.75
+      ],
+      "hz_dub": 276.5,
+      "note_dub": "C#4",
+      "st_dub": 6.65,
+      "cents_from_chart": 665
+     },
+     {
+      "word": "that",
+      "dub_word": "that",
+      "src": [
+       49.75,
+       50.35
+      ],
+      "hz_dub": 372.3,
+      "note_dub": "F#4",
+      "st_dub": 11.8,
+      "cents_from_chart": 1380
+     },
+     {
+      "word": "surrounds",
+      "dub_word": "surrounds",
+      "src": [
+       50.35,
+       51.66
+      ],
+      "hz_dub": 294.6,
+      "note_dub": "C#4",
+      "st_dub": 7.75,
+      "cents_from_chart": 375
+     },
+     {
+      "word": "me",
+      "dub_word": "me",
+      "src": [
+       51.66,
+       51.95
+      ],
+      "hz_dub": 234.5,
+      "note_dub": "A#3",
+      "st_dub": 3.8,
+      "cents_from_chart": 380
+     }
+    ]
+   }
+  },
+  {
+   "phrase": "I don't think I want you back in here",
+   "beat": 135,
+   "beats_total": 8.0,
+   "t0": 68.0,
+   "t1": 71.67,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "I",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      68.0,
+      68.41
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 187.2,
+     "cents_err": -10
+    },
+    {
+     "word": "don't",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      68.41,
+      68.75
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 187.2,
+     "cents_err": -10
+    },
+    {
+     "word": "think",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "src": [
+      68.75,
+      69.39
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 153.8,
+     "cents_err": -50
+    },
+    {
+     "word": "I",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      69.39,
+      69.51
+     ],
+     "note": "F#2",
+     "degree": "1",
+     "st_target": -12.0,
+     "cents_from_tonic": -1200,
+     "hz_measured": 90.9,
+     "cents_err": -61
+    },
+    {
+     "word": "want",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "src": [
+      69.51,
+      70.02
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 188.8,
+     "cents_err": 5
+    },
+    {
+     "word": "you",
+     "beat": 4.5,
+     "dur_beats": 1.0,
+     "src": [
+      70.02,
+      70.4
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 187.2,
+     "cents_err": -10
+    },
+    {
+     "word": "back",
+     "beat": 5.5,
+     "dur_beats": 1.0,
+     "src": [
+      70.4,
+      70.91
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 156.5,
+     "cents_err": -20
+    },
+    {
+     "word": "in",
+     "beat": 6.5,
+     "dur_beats": 0.5,
+     "src": [
+      70.91,
+      71.16
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 193.8,
+     "cents_err": 50
+    },
+    {
+     "word": "here",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "src": [
+      71.16,
+      71.67
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 163.0,
+     "cents_err": -50
+    }
+   ],
+   "tail_end_s": 71.99
+  },
+  {
+   "phrase": "oh no",
+   "beat": 144,
+   "beats_total": 1.0,
+   "t0": 71.99,
+   "t1": 72.66,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "oh",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      71.99,
+      72.48
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 191.6,
+     "cents_err": 30
+    },
+    {
+     "word": "no",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      72.48,
+      72.66
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 179.8,
+     "cents_err": -80
+    }
+   ],
+   "tail_end_s": 73.0
+  },
+  {
+   "phrase": "this emo",
+   "beat": 146,
+   "beats_total": 4.0,
+   "t0": 73.0,
+   "t1": 75.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "this",
+     "beat": 0.0,
+     "dur_beats": 2.5,
+     "src": [
+      73.0,
+      74.14
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 227.2,
+     "cents_err": -75
+    },
+    {
+     "word": "emo",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      74.14,
+      75.0
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 163.0,
+     "cents_err": -50
+    }
+   ],
+   "tail_end_s": 76.15
+  },
+  {
+   "phrase": "Gee defends me in my bubble",
+   "beat": 153,
+   "beats_total": 9.0,
+   "t0": 76.15,
+   "t1": 80.45,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "Gee",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      76.15,
+      76.69
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 166.8,
+     "cents_err": -10
+    },
+    {
+     "word": "defends",
+     "beat": 1.0,
+     "dur_beats": 3.5,
+     "src": [
+      76.69,
+      78.31
+     ],
+     "note": "G#3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 208.9,
+     "cents_err": -20
+    },
+    {
+     "word": "me",
+     "beat": 4.5,
+     "dur_beats": 1.5,
+     "src": [
+      78.31,
+      78.97
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 181.9,
+     "cents_err": -60
+    },
+    {
+     "word": "in",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "src": [
+      78.97,
+      79.26
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 142.3,
+     "cents_err": 15
+    },
+    {
+     "word": "my",
+     "beat": 6.5,
+     "dur_beats": 1.0,
+     "src": [
+      79.26,
+      79.73
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 141.9,
+     "cents_err": 10
+    },
+    {
+     "word": "bubble",
+     "beat": 7.5,
+     "dur_beats": 1.5,
+     "src": [
+      79.73,
+      80.45
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 190.5,
+     "cents_err": 20
+    }
+   ],
+   "tail_end_s": 81.54,
+   "dub": {
+    "take": "7278943795482283307",
+    "matched_text": "This emoji defends me in my bubble",
+    "t": [
+     57.86,
+     61.61
+    ],
+    "tail_end_s": 61.96,
+    "why": {
+     "text": "This emoji defends me in my bubble",
+     "t": [
+      57.24,
+      61.61
+     ],
+     "match": 0.82,
+     "voiced": 0.8,
+     "grid_dev": 41.0,
+     "noise": 0.06176
+    },
+    "words": [
+     {
+      "word": "Gee",
+      "dub_word": "emoji",
+      "src": [
+       57.86,
+       58.84
+      ],
+      "hz_dub": 289.6,
+      "note_dub": "C#4",
+      "st_dub": 7.45,
+      "cents_from_chart": 945
+     },
+     {
+      "word": "defends",
+      "dub_word": "defends",
+      "src": [
+       58.84,
+       59.74
+      ],
+      "hz_dub": 289.6,
+      "note_dub": "C#4",
+      "st_dub": 7.45,
+      "cents_from_chart": 545
+     },
+     {
+      "word": "me",
+      "dub_word": "me",
+      "src": [
+       59.74,
+       60.05
+      ],
+      "hz_dub": 381.0,
+      "note_dub": "F#4",
+      "st_dub": 12.2,
+      "cents_from_chart": 1220
+     },
+     {
+      "word": "in",
+      "dub_word": "in",
+      "src": [
+       60.05,
+       60.36
+      ],
+      "hz_dub": 356.5,
+      "note_dub": "F#4",
+      "st_dub": 11.05,
+      "cents_from_chart": 1605
+     },
+     {
+      "word": "my",
+      "dub_word": "my",
+      "src": [
+       60.36,
+       60.69
+      ],
+      "hz_dub": 334.5,
+      "note_dub": "E4",
+      "st_dub": 9.95,
+      "cents_from_chart": 1495
+     },
+     {
+      "word": "bubble",
+      "dub_word": "bubble",
+      "src": [
+       60.69,
+       61.61
+      ],
+      "hz_dub": 293.8,
+      "note_dub": "C#4",
+      "st_dub": 7.7,
+      "cents_from_chart": 770
+     }
+    ]
+   }
+  },
+  {
+   "phrase": "signifying my identity my identity",
+   "beat": 165,
+   "beats_total": 16.0,
+   "t0": 81.54,
+   "t1": 89.0,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "signifying",
+     "beat": 0.0,
+     "dur_beats": 5.0,
+     "src": [
+      81.54,
+      83.9
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 185.1,
+     "cents_err": -30
+    },
+    {
+     "word": "my",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "src": [
+      83.9,
+      84.31
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 183.5,
+     "cents_err": -45
+    },
+    {
+     "word": "identity",
+     "beat": 6.0,
+     "dur_beats": 5.0,
+     "src": [
+      84.31,
+      86.47
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 239.3,
+     "cents_err": 15
+    },
+    {
+     "word": "my",
+     "beat": 11.0,
+     "dur_beats": 1.0,
+     "src": [
+      86.62,
+      87.08
+     ],
+     "note": "G#3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 216.3,
+     "cents_err": 40
+    },
+    {
+     "word": "identity",
+     "beat": 12.0,
+     "dur_beats": 4.0,
+     "src": [
+      87.08,
+      89.0
+     ],
+     "note": "A#3",
+     "degree": "3",
+     "st_target": 4.0,
+     "cents_from_tonic": 400,
+     "hz_measured": 238.6,
+     "cents_err": 10
+    }
+   ],
+   "tail_end_s": 90.0
+  },
+  {
+   "phrase": "It flickers like a shooting star",
+   "beat": 183,
+   "beats_total": 12.0,
+   "t0": 90.0,
+   "t1": 95.13,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "It",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      90.0,
+      90.0
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 65.8,
+     "cents_err": -120
+    },
+    {
+     "word": "flickers",
+     "beat": 0.5,
+     "dur_beats": 3.0,
+     "src": [
+      90.0,
+      91.34
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 133.9,
+     "cents_err": -90
+    },
+    {
+     "word": "like",
+     "beat": 3.5,
+     "dur_beats": 2.0,
+     "src": [
+      91.34,
+      92.18
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 141.5,
+     "cents_err": 5
+    },
+    {
+     "word": "a",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "src": [
+      92.18,
+      92.44
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 146.0,
+     "cents_err": 60
+    },
+    {
+     "word": "shooting",
+     "beat": 6.0,
+     "dur_beats": 4.0,
+     "src": [
+      92.44,
+      94.24
+     ],
+     "note": "F#3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 189.4,
+     "cents_err": 10
+    },
+    {
+     "word": "star",
+     "beat": 10.0,
+     "dur_beats": 2.0,
+     "src": [
+      94.24,
+      95.13
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 167.8,
+     "cents_err": 0
+    }
+   ],
+   "tail_end_s": 95.6
+  },
+  {
+   "phrase": "oh yeah",
+   "beat": 195,
+   "beats_total": 3.0,
+   "t0": 95.6,
+   "t1": 96.96,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "oh",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "src": [
+      95.6,
+      96.47
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 163.9,
+     "cents_err": -40
+    },
+    {
+     "word": "yeah",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "src": [
+      96.47,
+      96.96
+     ],
+     "note": "C#2",
+     "degree": "5",
+     "st_target": -17.0,
+     "cents_from_tonic": -1700,
+     "hz_measured": 66.5,
+     "cents_err": -102
+    }
+   ],
+   "tail_end_s": 97.41
+  },
+  {
+   "phrase": "do you see",
+   "beat": 199,
+   "beats_total": 4.0,
+   "t0": 97.41,
+   "t1": 99.22,
+   "take": "7275499036398865706",
+   "words": [
+    {
+     "word": "do",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      97.41,
+      97.9
+     ],
+     "note": "C#3",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 146.9,
+     "cents_err": 70
+    },
+    {
+     "word": "you",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "src": [
+      97.9,
+      98.54
+     ],
+     "note": "D#3",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 162.0,
+     "cents_err": 40
+    },
+    {
+     "word": "see",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      98.54,
+      99.22
+     ],
+     "note": "E3",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 161.1,
+     "cents_err": -70
+    }
+   ],
+   "dub": {
+    "take": "7258670360357276970",
+    "matched_text": "\ufffd\ufffd Do you see \ufffd\ufffd",
+    "t": [
+     83.72,
+     85.08
+    ],
+    "tail_end_s": null,
+    "why": {
+     "text": "\ufffd\ufffd Do you see \ufffd\ufffd",
+     "t": [
+      83.72,
+      85.72
+     ],
+     "match": 0.91,
+     "voiced": 0.77,
+     "grid_dev": 21.0,
+     "noise": 0.00493
+    },
+    "words": [
+     {
+      "word": "do",
+      "dub_word": "Do",
+      "src": [
+       83.72,
+       83.99
+      ],
+      "hz_dub": 188.8,
+      "note_dub": "F#3",
+      "st_dub": 0.05,
+      "cents_from_chart": 505
+     },
+     {
+      "word": "you",
+      "dub_word": "you",
+      "src": [
+       83.99,
+       84.46
+      ],
+      "hz_dub": 185.6,
+      "note_dub": "F#3",
+      "st_dub": -0.25,
+      "cents_from_chart": 275
+     },
+     {
+      "word": "see",
+      "dub_word": "see",
+      "src": [
+       84.46,
+       85.08
+      ],
+      "hz_dub": 201.8,
+      "note_dub": "G#3",
+      "st_dub": 1.2,
+      "cents_from_chart": 320
+     }
+    ]
+   }
+  }
+ ]
+}

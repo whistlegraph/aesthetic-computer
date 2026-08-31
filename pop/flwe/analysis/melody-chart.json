@@ -1,0 +1,1615 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "tonic_hz": 133.9,
+ "bpm": 110.3,
+ "anchor_sec": 18.62,
+ "scale_semitones": [
+  0,
+  1,
+  2,
+  3,
+  7,
+  9,
+  10,
+  11
+ ],
+ "note": "the general melody chart: each phrase starts on its clickvox beat; word onsets are on-grid by construction (8th-note quantize, min half a beat); src is the primary take's span",
+ "phrases": [
+  {
+   "phrase": "Looked for so long for the one that I love",
+   "beat": 0,
+   "beats_total": 11.5,
+   "t0": 18.62,
+   "t1": 24.65,
+   "words": [
+    {
+     "word": "Looked",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "src": [
+      18.62,
+      19.71
+     ],
+     "note": "D3",
+     "degree": "2",
+     "st_target": 2.0,
+     "cents_from_tonic": 200,
+     "hz_measured": 152.9,
+     "cents_err": 30
+    },
+    {
+     "word": "for",
+     "beat": 2.0,
+     "dur_beats": 1.0,
+     "src": [
+      19.71,
+      20.26
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 161.1,
+     "cents_err": 20
+    },
+    {
+     "word": "so",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      20.26,
+      20.63
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 156.1,
+     "cents_err": -35
+    },
+    {
+     "word": "long",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      20.63,
+      21.35
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 135.5,
+     "cents_err": 20
+    },
+    {
+     "word": "for",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "src": [
+      21.35,
+      22.0
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 113.3,
+     "cents_err": 10
+    },
+    {
+     "word": "the",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "src": [
+      22.0,
+      22.45
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 133.9,
+     "cents_err": 0
+    },
+    {
+     "word": "one",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "src": [
+      22.45,
+      23.0
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 110.0,
+     "cents_err": -40
+    },
+    {
+     "word": "that",
+     "beat": 8.0,
+     "dur_beats": 1.5,
+     "src": [
+      23.0,
+      23.73
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 107.8,
+     "cents_err": -75
+    },
+    {
+     "word": "I",
+     "beat": 9.5,
+     "dur_beats": 0.5,
+     "src": [
+      23.73,
+      23.91
+     ]
+    },
+    {
+     "word": "love",
+     "beat": 10.0,
+     "dur_beats": 1.5,
+     "src": [
+      23.91,
+      24.65
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 162.0,
+     "cents_err": 30
+    }
+   ]
+  },
+  {
+   "phrase": "Left with my arms up in the air",
+   "beat": 12,
+   "beats_total": 8.0,
+   "t0": 25.19,
+   "t1": 29.56,
+   "words": [
+    {
+     "word": "Left",
+     "beat": 0.0,
+     "dur_beats": 1.5,
+     "src": [
+      25.19,
+      25.92
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 218.2,
+     "cents_err": -55
+    },
+    {
+     "word": "with",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "src": [
+      25.92,
+      26.76
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 166.8,
+     "cents_err": 80
+    },
+    {
+     "word": "my",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      26.76,
+      27.03
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 114.6,
+     "cents_err": 30
+    },
+    {
+     "word": "arms",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      27.03,
+      27.74
+     ],
+     "note": "A#2",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 117.9,
+     "cents_err": -20
+    },
+    {
+     "word": "up",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "src": [
+      27.74,
+      28.1
+     ],
+     "note": "G2",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 97.2,
+     "cents_err": -55
+    },
+    {
+     "word": "in",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "src": [
+      28.1,
+      28.46
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 184.0,
+     "cents_err": -150
+    },
+    {
+     "word": "the",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "src": [
+      28.46,
+      29.01
+     ],
+     "note": "G2",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 92.5,
+     "cents_err": -140
+    },
+    {
+     "word": "air",
+     "beat": 7.0,
+     "dur_beats": 1.0,
+     "src": [
+      29.01,
+      29.56
+     ],
+     "note": "D2",
+     "degree": "2",
+     "st_target": -10.0,
+     "cents_from_tonic": -1000,
+     "hz_measured": 74.3,
+     "cents_err": -20
+    }
+   ]
+  },
+  {
+   "phrase": "My lollipop was the stem I grabbed",
+   "beat": 21,
+   "beats_total": 7.0,
+   "t0": 30.16,
+   "t1": 33.72,
+   "words": [
+    {
+     "word": "My",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      30.16,
+      30.32
+     ],
+     "note": "B3",
+     "degree": "7",
+     "st_target": 11.0,
+     "cents_from_tonic": 1100,
+     "hz_measured": 249.9,
+     "cents_err": -20
+    },
+    {
+     "word": "lollipop",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      30.32,
+      30.68
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 225.1,
+     "cents_err": -1
+    },
+    {
+     "word": "was",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "src": [
+      30.68,
+      31.56
+     ],
+     "note": "C#2",
+     "degree": "b2",
+     "st_target": -11.0,
+     "cents_from_tonic": -1100,
+     "hz_measured": 72.6,
+     "cents_err": 40
+    },
+    {
+     "word": "the",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "src": [
+      31.56,
+      32.11
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 167.7,
+     "cents_err": 90
+    },
+    {
+     "word": "stem",
+     "beat": 3.5,
+     "dur_beats": 1.0,
+     "src": [
+      32.11,
+      32.57
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 200.6,
+     "cents_err": 0
+    },
+    {
+     "word": "I",
+     "beat": 4.5,
+     "dur_beats": 0.5,
+     "src": [
+      32.57,
+      32.7
+     ],
+     "note": "D#2",
+     "degree": "b3",
+     "st_target": -9.0,
+     "cents_from_tonic": -900,
+     "hz_measured": 83.4,
+     "cents_err": 80
+    },
+    {
+     "word": "grabbed",
+     "beat": 5.0,
+     "dur_beats": 2.0,
+     "src": [
+      32.7,
+      33.72
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 144.4,
+     "cents_err": 30
+    }
+   ]
+  },
+  {
+   "phrase": "Hold up with both of my hands",
+   "beat": 29,
+   "beats_total": 6.0,
+   "t0": 34.15,
+   "t1": 37.65,
+   "words": [
+    {
+     "word": "Hold",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      34.15,
+      34.73
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 172.7,
+     "cents_err": 140
+    },
+    {
+     "word": "up",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      34.73,
+      35.02
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 166.8,
+     "cents_err": 80
+    },
+    {
+     "word": "with",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "src": [
+      35.02,
+      35.66
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 137.8,
+     "cents_err": -50
+    },
+    {
+     "word": "both",
+     "beat": 2.5,
+     "dur_beats": 1.0,
+     "src": [
+      35.66,
+      36.19
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 133.9,
+     "cents_err": 0
+    },
+    {
+     "word": "of",
+     "beat": 3.5,
+     "dur_beats": 0.5,
+     "src": [
+      36.19,
+      36.49
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 171.7,
+     "cents_err": 130
+    },
+    {
+     "word": "my",
+     "beat": 4.0,
+     "dur_beats": 0.5,
+     "src": [
+      36.49,
+      36.76
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 174.2,
+     "cents_err": 155
+    },
+    {
+     "word": "hands",
+     "beat": 4.5,
+     "dur_beats": 1.5,
+     "src": [
+      36.76,
+      37.65
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 113.3,
+     "cents_err": 10
+    }
+   ]
+  },
+  {
+   "phrase": "Mystery flower please don't cower",
+   "beat": 36,
+   "beats_total": 8.5,
+   "t0": 38.16,
+   "t1": 42.38,
+   "words": [
+    {
+     "word": "Mystery",
+     "beat": 0.0,
+     "dur_beats": 2.0,
+     "src": [
+      38.16,
+      39.12
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 141.9,
+     "cents_err": 0
+    },
+    {
+     "word": "flower",
+     "beat": 2.0,
+     "dur_beats": 2.5,
+     "src": [
+      39.12,
+      40.54
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 172.7,
+     "cents_err": 140
+    },
+    {
+     "word": "please",
+     "beat": 4.5,
+     "dur_beats": 1.0,
+     "src": [
+      40.54,
+      40.98
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 222.6,
+     "cents_err": -20
+    },
+    {
+     "word": "don't",
+     "beat": 5.5,
+     "dur_beats": 1.5,
+     "src": [
+      40.98,
+      41.48
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 204.2,
+     "cents_err": 30
+    },
+    {
+     "word": "cower",
+     "beat": 7.0,
+     "dur_beats": 1.5,
+     "src": [
+      41.64,
+      42.38
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 194.9,
+     "cents_err": -50
+    }
+   ]
+  },
+  {
+   "phrase": "I am hatin green now",
+   "beat": 45,
+   "beats_total": 6.0,
+   "t0": 42.92,
+   "t1": 46.12,
+   "words": [
+    {
+     "word": "I",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      42.92,
+      43.09
+     ]
+    },
+    {
+     "word": "am",
+     "beat": 0.5,
+     "dur_beats": 1.0,
+     "src": [
+      43.09,
+      43.55
+     ]
+    },
+    {
+     "word": "hatin",
+     "beat": 1.5,
+     "dur_beats": 2.0,
+     "src": [
+      43.55,
+      44.54
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 145.1,
+     "cents_err": 39
+    },
+    {
+     "word": "green",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      44.54,
+      45.46
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 133.1,
+     "cents_err": -10
+    },
+    {
+     "word": "now",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "src": [
+      45.46,
+      46.12
+     ],
+     "note": "G2",
+     "degree": "5",
+     "st_target": -5.0,
+     "cents_from_tonic": -500,
+     "hz_measured": 100.9,
+     "cents_err": 10
+    }
+   ]
+  },
+  {
+   "phrase": "I'm gonna take you so I can break you up into pieces",
+   "beat": 51,
+   "beats_total": 13.0,
+   "t0": 46.56,
+   "t1": 53.69,
+   "words": [
+    {
+     "word": "I'm",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      46.56,
+      47.09
+     ]
+    },
+    {
+     "word": "gonna",
+     "beat": 1.0,
+     "dur_beats": 1.5,
+     "src": [
+      47.09,
+      47.96
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 157.4,
+     "cents_err": -20
+    },
+    {
+     "word": "take",
+     "beat": 2.5,
+     "dur_beats": 1.5,
+     "src": [
+      47.96,
+      48.8
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 138.6,
+     "cents_err": -40
+    },
+    {
+     "word": "you",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "src": [
+      48.8,
+      49.23
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 199.5,
+     "cents_err": -10
+    },
+    {
+     "word": "so",
+     "beat": 5.0,
+     "dur_beats": 0.5,
+     "src": [
+      49.23,
+      49.59
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 181.4,
+     "cents_err": -175
+    },
+    {
+     "word": "I",
+     "beat": 5.5,
+     "dur_beats": 0.5,
+     "src": [
+      49.59,
+      49.75
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 227.8,
+     "cents_err": 20
+    },
+    {
+     "word": "can",
+     "beat": 6.0,
+     "dur_beats": 1.0,
+     "src": [
+      49.75,
+      50.26
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 217.6,
+     "cents_err": -60
+    },
+    {
+     "word": "break",
+     "beat": 7.0,
+     "dur_beats": 1.5,
+     "src": [
+      50.26,
+      51.16
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 205.3,
+     "cents_err": 40
+    },
+    {
+     "word": "you",
+     "beat": 8.5,
+     "dur_beats": 1.0,
+     "src": [
+      51.16,
+      51.63
+     ],
+     "note": "B3",
+     "degree": "7",
+     "st_target": 11.0,
+     "cents_from_tonic": 1100,
+     "hz_measured": 245.6,
+     "cents_err": -50
+    },
+    {
+     "word": "up",
+     "beat": 9.5,
+     "dur_beats": 0.5,
+     "src": [
+      51.63,
+      52.0
+     ],
+     "note": "B3",
+     "degree": "7",
+     "st_target": 11.0,
+     "cents_from_tonic": 1100,
+     "hz_measured": 246.9,
+     "cents_err": -41
+    },
+    {
+     "word": "into",
+     "beat": 10.0,
+     "dur_beats": 1.5,
+     "src": [
+      52.0,
+      52.84
+     ],
+     "note": "B3",
+     "degree": "7",
+     "st_target": 11.0,
+     "cents_from_tonic": 1100,
+     "hz_measured": 254.3,
+     "cents_err": 10
+    },
+    {
+     "word": "pieces",
+     "beat": 11.5,
+     "dur_beats": 1.5,
+     "src": [
+      52.84,
+      53.69
+     ],
+     "note": "B3",
+     "degree": "7",
+     "st_target": 11.0,
+     "cents_from_tonic": 1100,
+     "hz_measured": 250.6,
+     "cents_err": -15
+    }
+   ]
+  },
+  {
+   "phrase": "Yum yum yum",
+   "beat": 65,
+   "beats_total": 1.5,
+   "t0": 54.11,
+   "t1": 55.37,
+   "words": [
+    {
+     "word": "Yum",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      54.11,
+      54.53
+     ]
+    },
+    {
+     "word": "yum",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      54.53,
+      54.99
+     ],
+     "note": "G4",
+     "degree": "5",
+     "st_target": 19.0,
+     "cents_from_tonic": 1900,
+     "hz_measured": 395.6,
+     "cents_err": -25
+    },
+    {
+     "word": "yum",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      54.99,
+      55.37
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 345.3,
+     "cents_err": 140
+    }
+   ]
+  },
+  {
+   "phrase": "Now I think I wanna have you every day I'll spit twee of your seeds",
+   "beat": 68,
+   "beats_total": 14.0,
+   "t0": 55.79,
+   "t1": 62.87,
+   "words": [
+    {
+     "word": "Now",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      55.79,
+      56.25
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 322.1,
+     "cents_err": 20
+    },
+    {
+     "word": "I",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      56.25,
+      56.35
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 132.0,
+     "cents_err": -25
+    },
+    {
+     "word": "think",
+     "beat": 1.5,
+     "dur_beats": 1.5,
+     "src": [
+      56.35,
+      57.05
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 311.2,
+     "cents_err": -40
+    },
+    {
+     "word": "I",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      57.05,
+      57.18
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 280.5,
+     "cents_err": -20
+    },
+    {
+     "word": "wanna",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      57.18,
+      57.92
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 277.3,
+     "cents_err": -40
+    },
+    {
+     "word": "have",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "src": [
+      57.92,
+      58.52
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 319.4,
+     "cents_err": 5
+    },
+    {
+     "word": "you",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "src": [
+      58.52,
+      58.76
+     ],
+     "note": "D4",
+     "degree": "2",
+     "st_target": 14.0,
+     "cents_from_tonic": 1400,
+     "hz_measured": 302.4,
+     "cents_err": 10
+    },
+    {
+     "word": "every",
+     "beat": 6.5,
+     "dur_beats": 1.5,
+     "src": [
+      58.76,
+      59.64
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 280.5,
+     "cents_err": -20
+    },
+    {
+     "word": "day",
+     "beat": 8.0,
+     "dur_beats": 2.5,
+     "src": [
+      59.64,
+      60.72
+     ],
+     "note": "A#3",
+     "degree": "b7",
+     "st_target": 10.0,
+     "cents_from_tonic": 1000,
+     "hz_measured": 236.6,
+     "cents_err": -15
+    },
+    {
+     "word": "I'll",
+     "beat": 10.5,
+     "dur_beats": 0.5,
+     "src": [
+      60.92,
+      61.18
+     ]
+    },
+    {
+     "word": "spit",
+     "beat": 11.0,
+     "dur_beats": 0.5,
+     "src": [
+      61.18,
+      61.46
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 202.3,
+     "cents_err": 14
+    },
+    {
+     "word": "twee",
+     "beat": 11.5,
+     "dur_beats": 0.5,
+     "src": [
+      61.46,
+      61.71
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 219.4,
+     "cents_err": -45
+    },
+    {
+     "word": "of",
+     "beat": 12.0,
+     "dur_beats": 0.5,
+     "src": [
+      61.71,
+      62.04
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 206.5,
+     "cents_err": 50
+    },
+    {
+     "word": "your",
+     "beat": 12.5,
+     "dur_beats": 0.5,
+     "src": [
+      62.04,
+      62.32
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 337.4,
+     "cents_err": 100
+    },
+    {
+     "word": "seeds",
+     "beat": 13.0,
+     "dur_beats": 1.0,
+     "src": [
+      62.32,
+      62.87
+     ],
+     "note": "D#4",
+     "degree": "b3",
+     "st_target": 15.0,
+     "cents_from_tonic": 1500,
+     "hz_measured": 353.4,
+     "cents_err": 180
+    }
+   ]
+  },
+  {
+   "phrase": "Bury them in the ground",
+   "beat": 82,
+   "beats_total": 4.5,
+   "t0": 63.2,
+   "t1": 65.29,
+   "words": [
+    {
+     "word": "Bury",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      63.2,
+      63.64
+     ]
+    },
+    {
+     "word": "them",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "src": [
+      63.64,
+      64.08
+     ],
+     "note": "A#2",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 121.0,
+     "cents_err": 25
+    },
+    {
+     "word": "in",
+     "beat": 2.0,
+     "dur_beats": 0.5,
+     "src": [
+      64.08,
+      64.39
+     ],
+     "note": "A2",
+     "degree": "6",
+     "st_target": -3.0,
+     "cents_from_tonic": -300,
+     "hz_measured": 110.0,
+     "cents_err": -40
+    },
+    {
+     "word": "the",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "src": [
+      64.39,
+      64.63
+     ],
+     "note": "A#2",
+     "degree": "b7",
+     "st_target": -2.0,
+     "cents_from_tonic": -200,
+     "hz_measured": 117.2,
+     "cents_err": -31
+    },
+    {
+     "word": "ground",
+     "beat": 3.0,
+     "dur_beats": 1.5,
+     "src": [
+      64.63,
+      65.29
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 134.6,
+     "cents_err": 9
+    }
+   ]
+  },
+  {
+   "phrase": "Harvest moon I'll come collect your spawn They're",
+   "beat": 87,
+   "beats_total": 8.5,
+   "t0": 65.73,
+   "t1": 70.28,
+   "words": [
+    {
+     "word": "Harvest",
+     "beat": 0.0,
+     "dur_beats": 1.0,
+     "src": [
+      65.73,
+      66.42
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 227.2,
+     "cents_err": 15
+    },
+    {
+     "word": "moon",
+     "beat": 1.0,
+     "dur_beats": 1.0,
+     "src": [
+      66.42,
+      66.86
+     ],
+     "note": "A#3",
+     "degree": "b7",
+     "st_target": 10.0,
+     "cents_from_tonic": 1000,
+     "hz_measured": 237.2,
+     "cents_err": -10
+    },
+    {
+     "word": "I'll",
+     "beat": 2.0,
+     "dur_beats": 0.5,
+     "src": [
+      66.86,
+      67.04
+     ],
+     "note": "C4",
+     "degree": "1",
+     "st_target": 12.0,
+     "cents_from_tonic": 1200,
+     "hz_measured": 267.1,
+     "cents_err": -5
+    },
+    {
+     "word": "come",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "src": [
+      67.04,
+      67.4
+     ],
+     "note": "A#3",
+     "degree": "b7",
+     "st_target": 10.0,
+     "cents_from_tonic": 1000,
+     "hz_measured": 241.4,
+     "cents_err": 20
+    },
+    {
+     "word": "collect",
+     "beat": 3.0,
+     "dur_beats": 1.0,
+     "src": [
+      67.4,
+      67.91
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 285.4,
+     "cents_err": 10
+    },
+    {
+     "word": "your",
+     "beat": 4.0,
+     "dur_beats": 1.0,
+     "src": [
+      67.91,
+      68.41
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 278.9,
+     "cents_err": -30
+    },
+    {
+     "word": "spawn",
+     "beat": 5.0,
+     "dur_beats": 2.5,
+     "src": [
+      68.41,
+      69.64
+     ],
+     "note": "C4",
+     "degree": "1",
+     "st_target": 12.0,
+     "cents_from_tonic": 1200,
+     "hz_measured": 264.8,
+     "cents_err": -20
+    },
+    {
+     "word": "They're",
+     "beat": 7.5,
+     "dur_beats": 1.0,
+     "src": [
+      69.77,
+      70.28
+     ],
+     "note": "D#3",
+     "degree": "b3",
+     "st_target": 3.0,
+     "cents_from_tonic": 300,
+     "hz_measured": 160.1,
+     "cents_err": 9
+    }
+   ]
+  },
+  {
+   "phrase": "gonna be all mine cuz I'm looping every day looping every day looping every day flower eater",
+   "beat": 96,
+   "beats_total": 16.0,
+   "t0": 70.82,
+   "t1": 79.67,
+   "words": [
+    {
+     "word": "gonna",
+     "beat": 0.0,
+     "dur_beats": 0.5,
+     "src": [
+      70.82,
+      70.85
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 206.5,
+     "cents_err": 50
+    },
+    {
+     "word": "be",
+     "beat": 0.5,
+     "dur_beats": 0.5,
+     "src": [
+      70.85,
+      71.07
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 204.8,
+     "cents_err": 35
+    },
+    {
+     "word": "all",
+     "beat": 1.0,
+     "dur_beats": 0.5,
+     "src": [
+      71.07,
+      71.41
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 205.3,
+     "cents_err": 40
+    },
+    {
+     "word": "mine",
+     "beat": 1.5,
+     "dur_beats": 1.0,
+     "src": [
+      71.41,
+      71.86
+     ],
+     "note": "C#4",
+     "degree": "b2",
+     "st_target": 13.0,
+     "cents_from_tonic": 1300,
+     "hz_measured": 278.9,
+     "cents_err": -30
+    },
+    {
+     "word": "cuz",
+     "beat": 2.5,
+     "dur_beats": 0.5,
+     "src": [
+      71.86,
+      72.21
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 189.9,
+     "cents_err": -95
+    },
+    {
+     "word": "I'm",
+     "beat": 3.0,
+     "dur_beats": 0.5,
+     "src": [
+      72.21,
+      72.52
+     ],
+     "note": "A3",
+     "degree": "6",
+     "st_target": 9.0,
+     "cents_from_tonic": 900,
+     "hz_measured": 222.6,
+     "cents_err": -20
+    },
+    {
+     "word": "looping",
+     "beat": 3.5,
+     "dur_beats": 1.5,
+     "src": [
+      72.52,
+      73.31
+     ],
+     "note": "B2",
+     "degree": "7",
+     "st_target": -1.0,
+     "cents_from_tonic": -100,
+     "hz_measured": 129.7,
+     "cents_err": 45
+    },
+    {
+     "word": "every",
+     "beat": 5.0,
+     "dur_beats": 1.0,
+     "src": [
+      73.31,
+      73.88
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 130.1,
+     "cents_err": -50
+    },
+    {
+     "word": "day",
+     "beat": 6.0,
+     "dur_beats": 0.5,
+     "src": [
+      73.88,
+      74.28
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 133.9,
+     "cents_err": 0
+    },
+    {
+     "word": "looping",
+     "beat": 6.5,
+     "dur_beats": 1.5,
+     "src": [
+      74.28,
+      75.01
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 139.4,
+     "cents_err": -30
+    },
+    {
+     "word": "every",
+     "beat": 8.0,
+     "dur_beats": 1.0,
+     "src": [
+      75.01,
+      75.54
+     ],
+     "note": "B2",
+     "degree": "7",
+     "st_target": -1.0,
+     "cents_from_tonic": -100,
+     "hz_measured": 127.8,
+     "cents_err": 19
+    },
+    {
+     "word": "day",
+     "beat": 9.0,
+     "dur_beats": 0.5,
+     "src": [
+      75.54,
+      75.89
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 133.9,
+     "cents_err": 0
+    },
+    {
+     "word": "looping",
+     "beat": 9.5,
+     "dur_beats": 1.0,
+     "src": [
+      75.89,
+      76.48
+     ],
+     "note": "C3",
+     "degree": "1",
+     "st_target": 0.0,
+     "cents_from_tonic": 0,
+     "hz_measured": 136.2,
+     "cents_err": 29
+    },
+    {
+     "word": "every",
+     "beat": 10.5,
+     "dur_beats": 0.5,
+     "src": [
+      76.48,
+      76.8
+     ],
+     "note": "C#3",
+     "degree": "b2",
+     "st_target": 1.0,
+     "cents_from_tonic": 100,
+     "hz_measured": 139.4,
+     "cents_err": -30
+    },
+    {
+     "word": "day",
+     "beat": 11.0,
+     "dur_beats": 0.5,
+     "src": [
+      76.8,
+      77.0
+     ],
+     "note": "B2",
+     "degree": "7",
+     "st_target": -1.0,
+     "cents_from_tonic": -100,
+     "hz_measured": 127.1,
+     "cents_err": 10
+    },
+    {
+     "word": "flower",
+     "beat": 11.5,
+     "dur_beats": 2.5,
+     "src": [
+      77.0,
+      78.44
+     ],
+     "note": "G3",
+     "degree": "5",
+     "st_target": 7.0,
+     "cents_from_tonic": 700,
+     "hz_measured": 198.9,
+     "cents_err": -15
+    },
+    {
+     "word": "eater",
+     "beat": 14.0,
+     "dur_beats": 2.0,
+     "src": [
+      78.44,
+      79.67
+     ],
+     "note": "C4",
+     "degree": "1",
+     "st_target": 12.0,
+     "cents_from_tonic": 1200,
+     "hz_measured": 257.2,
+     "cents_err": -70
+    }
+   ]
+  }
+ ]
+}

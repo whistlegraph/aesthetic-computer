@@ -1,0 +1,395 @@
+{
+ "primary": "6992837952212569350",
+ "method": "see docstring; verdict defaults to the primary (unbroken-take philosophy), better-elsewhere noted",
+ "take_noise_floor": {
+  "6948629412728360198": 0.00318,
+  "6949031877718117638": 0.00772,
+  "6949568150962703621": 0.00358,
+  "6949737524520602885": 0.01342,
+  "6950816151547022598": 0.00369,
+  "6975681078543551749": 0.02317,
+  "6977277752525344005": 0.00721,
+  "6992837952212569350": 0.00468
+ },
+ "take_tonic_hz": {
+  "6948629412728360198": 131.7,
+  "6949031877718117638": 136.3,
+  "6949568150962703621": 130.9,
+  "6949737524520602885": 136.3,
+  "6950816151547022598": 130.2,
+  "6975681078543551749": 135.5,
+  "6977277752525344005": 135.5,
+  "6992837952212569350": 137.1
+ },
+ "phrases": [
+  {
+   "phrase": "Looked for so long for the one that I love",
+   "primary_t": [
+    18.62,
+    24.65
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.46,
+     "grid_dev": 20.7,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "Looked for so long for the one that I love",
+     "t": [
+      67.12,
+      72.0
+     ],
+     "match": 1.0,
+     "voiced": 0.22,
+     "grid_dev": 70.7,
+     "noise": 0.02317
+    },
+    "6977277752525344005": {
+     "text": "\ufffd\ufffd Looked for so long for the one that I love \ufffd\ufffd",
+     "t": [
+      0.08,
+      5.0
+     ],
+     "match": 0.98,
+     "voiced": 0.23,
+     "grid_dev": 65.0,
+     "noise": 0.00721
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Left with my arms up in the air",
+   "primary_t": [
+    25.19,
+    29.56
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.29,
+     "grid_dev": 39.3,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "Left with my arms up in the air",
+     "t": [
+      72.92,
+      76.28
+     ],
+     "match": 1.0,
+     "voiced": 0.08,
+     "grid_dev": 59.3,
+     "noise": 0.02317
+    },
+    "6977277752525344005": {
+     "text": "\ufffd\ufffd Left with my arms up in the air \ufffd\ufffd \ufffd\ufffd My lollipop was the stem I grabbed \ufffd\ufffd",
+     "t": [
+      5.88,
+      15.1
+     ],
+     "match": 0.61,
+     "voiced": 0.26,
+     "grid_dev": 80.7,
+     "noise": 0.00721
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "My lollipop was the stem I grabbed",
+   "primary_t": [
+    30.16,
+    33.72
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.06,
+     "grid_dev": 39.3,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "Lollipop was the stem I grabbed",
+     "t": [
+      79.48,
+      82.64
+     ],
+     "match": 0.95,
+     "voiced": 0.17,
+     "grid_dev": 50.7,
+     "noise": 0.02317
+    },
+    "6977277752525344005": {
+     "text": "\ufffd\ufffd Left with my arms up in the air \ufffd\ufffd \ufffd\ufffd My lollipop was the stem I grabbed \ufffd\ufffd",
+     "t": [
+      5.88,
+      15.1
+     ],
+     "match": 0.65,
+     "voiced": 0.26,
+     "grid_dev": 80.7,
+     "noise": 0.00721
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Hold up with both of my hands",
+   "primary_t": [
+    34.15,
+    37.65
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.42,
+     "grid_dev": 40.7,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "Hold up with both of my hands",
+     "t": [
+      83.69,
+      87.3
+     ],
+     "match": 1.0,
+     "voiced": 0.13,
+     "grid_dev": 10.7,
+     "noise": 0.02317
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Mystery flower please don't cower",
+   "primary_t": [
+    38.16,
+    42.38
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.46,
+     "grid_dev": 50.7,
+     "noise": 0.00468
+    },
+    "6950816151547022598": {
+     "text": "Mystery flower",
+     "t": [
+      17.92,
+      21.92
+     ],
+     "match": 0.61,
+     "voiced": 0.54,
+     "grid_dev": 30.7,
+     "noise": 0.00369
+    },
+    "6975681078543551749": {
+     "text": "Eflower please don't cower",
+     "t": [
+      91.19,
+      93.24
+     ],
+     "match": 0.88,
+     "voiced": 0.46,
+     "grid_dev": 29.3,
+     "noise": 0.02317
+    }
+   },
+   "better_elsewhere": "6950816151547022598",
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "I am hatin' green now",
+   "primary_t": [
+    42.92,
+    46.12
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.02,
+     "grid_dev": 39.3,
+     "noise": 0.00468
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "I'm gonna take you so I can break you up into pieces",
+   "primary_t": [
+    46.56,
+    53.69
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.44,
+     "grid_dev": 30.7,
+     "noise": 0.00468
+    },
+    "6949568150962703621": {
+     "text": "please don't cower I am hungry now I'm gonna take you so I can break you up into pieces Yum",
+     "t": [
+      20.66,
+      33.31
+     ],
+     "match": 0.73,
+     "voiced": 0.46,
+     "grid_dev": 30.7,
+     "noise": 0.00358
+    },
+    "6949737524520602885": {
+     "text": "please don't cower I am hungry now I'm gonna take you so I can break you up into pieces",
+     "t": [
+      2.36,
+      13.96
+     ],
+     "match": 0.75,
+     "voiced": 0.33,
+     "grid_dev": 29.3,
+     "noise": 0.01342
+    },
+    "6975681078543551749": {
+     "text": "I'm gonna take you so I can break you up into pieces",
+     "t": [
+      97.48,
+      103.46
+     ],
+     "match": 1.0,
+     "voiced": 0.13,
+     "grid_dev": 39.3,
+     "noise": 0.02317
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Yum yum yum",
+   "primary_t": [
+    54.11,
+    55.37
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.41,
+     "grid_dev": 99.3,
+     "noise": 0.00468
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Now I think I wanna have you every day I'll spit twee of your seeds",
+   "primary_t": [
+    55.79,
+    62.87
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.5,
+     "grid_dev": 30.7,
+     "noise": 0.00468
+    },
+    "6949737524520602885": {
+     "text": "Yum yum yum Now I know I wanna have you every day",
+     "t": [
+      14.42,
+      19.44
+     ],
+     "match": 0.59,
+     "voiced": 0.72,
+     "grid_dev": 90.7,
+     "noise": 0.01342
+    },
+    "6975681078543551749": {
+     "text": "Every day I'll spit three of your seeds",
+     "t": [
+      108.96,
+      112.0
+     ],
+     "match": 0.69,
+     "voiced": 0.36,
+     "grid_dev": 29.3,
+     "noise": 0.02317
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Bury them in the ground",
+   "primary_t": [
+    63.2,
+    65.29
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.0,
+     "grid_dev": null,
+     "noise": 0.00468
+    },
+    "6949737524520602885": {
+     "text": "I'll spit twee of your seeds bury them in the ground",
+     "t": [
+      19.86,
+      23.92
+     ],
+     "match": 0.62,
+     "voiced": 0.45,
+     "grid_dev": 39.3,
+     "noise": 0.01342
+    }
+   },
+   "better_elsewhere": "6949737524520602885",
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "Harvest moon I'll come collect your spawn They're",
+   "primary_t": [
+    65.73,
+    70.28
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.47,
+     "grid_dev": 29.3,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "On the ground for this moon I'll come collect your spawn",
+     "t": [
+      113.69,
+      117.28
+     ],
+     "match": 0.71,
+     "voiced": 0.2,
+     "grid_dev": 29.3,
+     "noise": 0.02317
+    }
+   },
+   "verdict": "6992837952212569350"
+  },
+  {
+   "phrase": "gonna be all mine cuz I'm looping every day looping every day looping every day flower eater",
+   "primary_t": [
+    70.82,
+    79.67
+   ],
+   "matches": {
+    "6992837952212569350": {
+     "voiced": 0.26,
+     "grid_dev": 29.3,
+     "noise": 0.00468
+    },
+    "6975681078543551749": {
+     "text": "They're gonna be all mine cuz I'm looping every day",
+     "t": [
+      118.36,
+      122.24
+     ],
+     "match": 0.6,
+     "voiced": 0.16,
+     "grid_dev": 29.3,
+     "noise": 0.02317
+    }
+   },
+   "verdict": "6992837952212569350"
+  }
+ ]
+}

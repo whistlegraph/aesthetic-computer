@@ -1,0 +1,75 @@
+{
+ "source": "flwe-6992837952212569350.wav",
+ "song_region_sec": [
+  18.0,
+  80.0
+ ],
+ "method": "librosa onset_strength -> feature.tempo, global + 10s windows (5s hop), octave-folded",
+ "bpm_global": 117.2,
+ "bpm_median": 110.3,
+ "bpm_windows": [
+  {
+   "t": 18.0,
+   "bpm": 117.2
+  },
+  {
+   "t": 23.0,
+   "bpm": 137.2
+  },
+  {
+   "t": 28.0,
+   "bpm": 137.2
+  },
+  {
+   "t": 33.0,
+   "bpm": 119.7
+  },
+  {
+   "t": 38.0,
+   "bpm": 100.4
+  },
+  {
+   "t": 43.0,
+   "bpm": 110.3
+  },
+  {
+   "t": 48.0,
+   "bpm": 110.3
+  },
+  {
+   "t": 53.0,
+   "bpm": 106.1
+  },
+  {
+   "t": 58.0,
+   "bpm": 106.1
+  },
+  {
+   "t": 63.0,
+   "bpm": 97.0
+  },
+  {
+   "t": 68.0,
+   "bpm": 117.2
+  }
+ ],
+ "bpm_windows_folded": [
+  117.2,
+  137.2,
+  137.2,
+  119.7,
+  100.4,
+  110.3,
+  110.3,
+  106.1,
+  106.1,
+  97.0,
+  117.2
+ ],
+ "drift_range": [
+  97.0,
+  137.2
+ ],
+ "verdict": "rubato",
+ "onset_count": 177
+}

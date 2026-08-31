@@ -1,0 +1,36 @@
+{
+ "source": "xpld-7275499036398865706.wav",
+ "method": "derived from melody.json (pyin per word) + a frame-level voiced-pyin probe over the sung region: fitted grid offset, pitch-class weights on that grid, chroma_cqt, phrase-final cadences",
+ "tonic_estimate": {
+  "hz": 188.3,
+  "note": "F#3",
+  "cents_sharp": 31,
+  "statement": "F# is by far the most-sung pitch class (466 voiced frames vs 371 for the runner-up); 'this emoGEE defends me in my bubble' cadences onto F#3, and the whole back half of the song (Safely in a bubble / signifying) orbits ~185-190 Hz"
+ },
+ "tonic_hz": 188.3,
+ "scale_semitones": [0, 2, 4, 7, 9, 10],
+ "scale_statement": "1 2 3 5 6 b7 in F# — mixolydian with the 4th (B) nearly absent (199 frames, below the 6-degree cut at 287): F# G# A# C# D# E. Major-leaning: A# (major 3rd, 332) clearly outweighs A (minor 3rd, 232).",
+ "mode": "major/mixolydian-leaning and hand-drawn: the b7 (E) carries the closing question — 'star oh yeah' and the final 'do you see' both land on E3, unresolved; 'signifying my identity' ends on B3 (the missing 4th making its one appearance as a held high note)",
+ "frame_pitch_class_weights": {
+  "F#": 466, "D#": 371, "A#": 332, "C#": 289, "G#": 288, "E": 287,
+  "D": 254, "F": 254, "A": 232, "G": 218, "B": 199, "C": 125
+ },
+ "grid_offset_semitones": 0.31,
+ "phrase_final_notes": [
+  {"t": 19.0, "ends": "G#3 +31c", "text": "Got my arm out waving anticipating"},
+  {"t": 25.5, "ends": "C#3 -29c", "text": "nothing special"},
+  {"t": 29.1, "ends": "D3 +16c", "text": "Locking the doorway little doggy"},
+  {"t": 34.0, "ends": "F3 -39c", "text": "thing like a doggy will you shut the fuck up"},
+  {"t": 43.0, "ends": "D3 -49c", "text": "This house that I built's got cracks at the sides"},
+  {"t": 48.4, "ends": "D#3 +1c", "text": "brittle like life and smoothing out"},
+  {"t": 54.2, "ends": "D4 -34c", "text": "Air pockets ... my face is full of internet"},
+  {"t": 62.0, "ends": "E3 -29c", "text": "Safely in a bubble ... I want you back in here oh no"},
+  {"t": 76.2, "ends": "F#3 +21c", "text": "Gee defends me in my bubble"},
+  {"t": 81.5, "ends": "B3 -9c", "text": "signifying my identity my identity"},
+  {"t": 90.0, "ends": "E3 -9c", "text": "It flickers like a shooting star oh yeah do you see"}
+ ],
+ "chroma_cqt_ranked": [
+  ["F#", 0.353], ["E", 0.349], ["A#", 0.348], ["D", 0.339], ["F", 0.337], ["B", 0.336]
+ ],
+ "intonation_note": "solo unaccompanied voice on a grid ~+31 cents sharp of equal temperament; tune any accompaniment to TONIC ~= 188 Hz (F#3+31c; an octave down, 94.2 Hz), not concert F#"
+}

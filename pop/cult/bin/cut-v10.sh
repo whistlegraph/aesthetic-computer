@@ -25,14 +25,23 @@ if [ ! -f "$TRIM" ] || [ "$FULL" -nt "$TRIM" ]; then
     -af "afade=t=in:st=0:d=0.02" -c:a pcm_s24le "$TRIM"
 fi
 
-if [ ! -f "$SRC" ] || [ "$TRIM" -nt "$SRC" ]; then
+SPACE="$OUT/.v10-space.wav"
+if [ ! -f "$SPACE" ] || [ "$TRIM" -nt "$SPACE" ]; then
+  echo "→ cathedral + low shelf (Peep pass)"
+  ffmpeg -y -v error -i "$TRIM" -i "$LANE/samples/cathedral-ir.wav" -filter_complex \
+    "[0:a]bass=g=2.5:f=95:w=0.6,asplit[dry][s];[s][1:a]afir=dry=0:wet=3[wet];\
+[dry][wet]amix=inputs=2:weights='1 0.35':normalize=0[out]" \
+    -map "[out]" -ar 48000 -c:a pcm_s24le "$SPACE"
+fi
+
+if [ ! -f "$SRC" ] || [ "$SPACE" -nt "$SRC" ]; then
   echo "→ measure trimmed v10"
-  STATS=$(ffmpeg -hide_banner -nostats -i "$TRIM" \
+  STATS=$(ffmpeg -hide_banner -nostats -i "$SPACE" \
     -af loudnorm=I=-14:TP=-1.2:LRA=9:print_format=json -f null - 2>&1 | awk '/^\{/,/^\}/')
   MI=$(echo "$STATS" | grep '"input_i"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
   GAIN=$(awk -v i="$MI" 'BEGIN{printf "%.2f", -13.9-i}')
   echo "  measured I=$MI  →  static gain ${GAIN} dB"
-  ffmpeg -y -v error -i "$TRIM" \
+  ffmpeg -y -v error -i "$SPACE" \
     -af "volume=${GAIN}dB,alimiter=limit=0.78:attack=5:release=90:level=disabled" \
     -ar 48000 -c:a pcm_s24le "$SRC"
 fi
