@@ -282,24 +282,12 @@ function drawPerformanceLight(t, activeRig, stripRect, visibility) {
   if (!active.length) return;
   const colors = active.map((midi) => stripKeyColor(activeRig, midi));
   const strength = bounded(lighting.strength ?? 1, 0, 2);
-  const radius = positive(lighting.radius, 360);
-  const perKeyAlpha = Math.min(0.34, 0.48 / Math.sqrt(active.length)) * visibility * strength;
 
-  ctx.save();
-  ctx.globalCompositeOperation = lighting.blend || "screen";
-  for (let i = 0; i < active.length; i++) {
-    const x = stripKeyX(activeRig, active[i], stripRect);
-    const y = stripRect.y + stripRect.h * 0.55;
-    const color = colors[i];
-    const glow = ctx.createRadialGradient(x, y, 8, x, y, radius);
-    glow.addColorStop(0, rgb(color, perKeyAlpha));
-    glow.addColorStop(0.34, rgb(color, perKeyAlpha * 0.42));
-    glow.addColorStop(1, rgb(color, 0));
-    ctx.fillStyle = glow;
-    ctx.fillRect(0, 0, W, H);
-  }
+  // The held key already wears its color on the strip; the room light is a
+  // single whole-frame wash. A per-key bloom would say the same thing twice.
   const average = colors.reduce((sum, color) => [sum[0] + color[0], sum[1] + color[1], sum[2] + color[2]], [0, 0, 0])
     .map((value) => Math.round(value / colors.length));
+  ctx.save();
   ctx.globalCompositeOperation = "soft-light";
   ctx.fillStyle = rgb(average, bounded(lighting.globalAlpha ?? 0.11, 0, 0.5) * visibility * strength);
   ctx.fillRect(0, 0, W, H);

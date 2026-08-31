@@ -35,8 +35,16 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 87;
+const buildVersion = 88;
 const floorY = 1800;
+// Oskiewar now opens on a solo ascent. Combat remains a mode — direct
+// opponent URLs and the regression harness still enter it — but an ordinary
+// visit is survival: one runner, a ladder of one-way platforms and lava that
+// keeps taking the floor away. Keeping this as explicit mode state, rather
+// than deleting player two, preserves replays and the fight laboratory while
+// ensuring the production route never quietly seats an adversary.
+let gameMode = "fight";
+const survivalActive = () => gameMode === "survival";
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
 // fighters and a pistol. The map is now a lattice of square tiles
@@ -130,7 +138,21 @@ let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
 // still off.
 const PLATFORM = false;
 const WIND_FLAG = false;
-const platforms = [];
+const survivalLevelCount = 32;
+const survivalStepY = 235;
+const survivalCeilingY = floorY - (survivalLevelCount + 2) * survivalStepY;
+// A deterministic, hand-tuned zig-zag. Adjacent decks always overlap a
+// normal jump's horizontal budget and sit below its 322-unit apex; variation
+// comes from where the safe landing moves, not from impossible dice rolls.
+const survivalCenters = [450, 280, 620, 390, 680, 250, 520, 710];
+const survivalWidths = [470, 390, 420, 360, 440, 380, 410, 370];
+const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
+  const center = survivalCenters[index % survivalCenters.length];
+  const width = survivalWidths[index % survivalWidths.length];
+  return { level: index + 1, left: center - width / 2,
+    right: center + width / 2, y: floorY - (index + 1) * survivalStepY };
+});
+const platformsEnabled = () => PLATFORM || survivalActive();
 // Version-one furniture — the wind flag's pole, the store's demos, the tests —
 // still asks for "the platform" by name. In a one-room cube the floor is the
 // only platform, so the name now means the whole playable span of it.
@@ -142,7 +164,7 @@ const platformY = floorY;
 // ask this, so a rung that moves takes its furniture with it.
 function surfaceYAt(x, y) {
   let surface = terrainFloorAt(x);
-  if (PLATFORM) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of platforms)
     if (ledge.y < surface && ledge.y >= y - 1 &&
       x >= ledge.left && x <= ledge.right) surface = ledge.y;
   return surface;
@@ -153,7 +175,7 @@ function surfaceYAt(x, y) {
 // lattice change lands in all three at once. The highest crossed rung wins,
 // because that is the one a fall meets first.
 function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
-  if (!PLATFORM) return null;
+  if (!platformsEnabled()) return null;
   let hit = null;
   for (const ledge of platforms) {
     const top = ledge.y - rise;
@@ -166,7 +188,7 @@ function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
 // Resting on a rung rather than falling through one: the ball asks this to
 // know whether it is supported and whether it may be booted.
 function ledgeSupports(x, y, radius = 0) {
-  if (!PLATFORM) return false;
+  if (!platformsEnabled()) return false;
   for (const ledge of platforms)
     if (x >= ledge.left + radius && x <= ledge.right - radius &&
       Math.abs(y - (ledge.y - radius)) <= 2) return true;
@@ -178,6 +200,20 @@ const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
+// A reel gets one branded beat, then motion. Three portrait seconds cost the
+// swipe decision before either fighter could move; the live game keeps that
+// introduction, while the unattended 9:16 lane reaches the fight inside the
+// first second without changing a combat rule.
+const reelIntroDurationUs = 650000;
+const survivalIntroDurationUs = 900000;
+// Keep the close face-off lens through the first exchange. The seeded bots
+// meet at about .81s; releasing at the bell made that hit happen as two tiny
+// figures at the foot of an empty portrait wall.
+const reelOpeningHoldUs = 1350000;
+function roundIntroDurationUs() {
+  if (survivalActive()) return survivalIntroDurationUs;
+  return reelGroundCamera() ? reelIntroDurationUs : introDurationUs;
+}
 const dummyGuideDurationUs = 150000000;
 const matchWins = 5;
 const errorRestartUs = 16000000;
@@ -893,6 +929,7 @@ const players = [
     sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
 ];
+const activePlayers = () => survivalActive() ? [players[0]] : players;
 const impacts = [];
 const detachedParts = [];
 const bullets = [];
@@ -1082,6 +1119,16 @@ let selfPlay = false;
 // longer say which door a round came through — and only one of those doors is
 // allowed on the wire.
 let fightOpponent = "";
+// Survival uses the round clock only as an elapsed-time source. Height is the
+// score, the lava line is the opponent, and a run ends only when the runner
+// touches it or reaches the final authored deck.
+const survivalLavaStart = floorY + 360;
+const survivalLavaBaseSpeed = 52;
+let survivalStartedAt = 0;
+let survivalLavaY = survivalLavaStart;
+let survivalHeight = 0;
+let survivalBestHeight = 0;
+let survivalPeakLevel = 0;
 let hudLeftPad = 0;
 // The title is also the attract screen. Half of sessions get the quiet,
 // cross-legged tableau; half get a standing face-off. Both remain still so
@@ -1327,6 +1374,7 @@ function startReplay(now) {
 // have put every anonymous session on a series, a demo and a live feed, so the
 // gate reads the door the round came through instead.
 function roundIsTimed() {
+  if (survivalActive()) return false;
   // Training runs without a clock — except under the reel harness, where a
   // scripted dummy bout wants the full round apparatus (clock, demo, result
   // card) so it can be recorded and repainted like any match.
@@ -1359,7 +1407,7 @@ function spectatorState(now, nextRoundId = "") {
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
     : roundResult ? "round" : selecting ? "select"
-    : introAge < introDurationUs ? "intro" : "fight";
+    : introAge < roundIntroDurationUs() ? "intro" : "fight";
   const timed = roundIsTimed();
   // An untimed frame reports zero rather than null: the relay reads every
   // remainingMs as an integer, and the title screen's attract fight has no
@@ -2248,6 +2296,10 @@ function applyRoster(player, index) {
 // belongs on this call, not in front of the game. Nothing opens those doors
 // yet, so only training reaches here.
 function startFightAgainst(kind, now) {
+  gameMode = "fight";
+  selfPlay = false;
+  players[0].spawnX = tileCenterX(3);
+  players[1].spawnX = tileCenterX(6);
   const opponent = players[1];
   fightOpponent = kind;
   opponent.npc = kind === "dummy" || kind === "spiderdummy" ||
@@ -2265,6 +2317,68 @@ function startFightAgainst(kind, now) {
   emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
 }
 
+function survivalRequested() {
+  return !String(globalThis.__oskiewarOpponent || "").trim();
+}
+
+function startSurvivalRun(now, botControlled = false) {
+  gameMode = "survival";
+  selfPlay = botControlled;
+  fightOpponent = "survival";
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  finishReplay();
+
+  const runner = players[0];
+  runner.spawnX = tileCenterX(4);
+  runner.npc = botControlled;
+  runner.bot = botControlled;
+  runner.spiderDummy = false;
+  applyRoster(runner, botControlled ? -1 : Math.max(0, runner.rosterIndex));
+
+  const absent = players[1];
+  absent.spawnX = tileCenterX(9);
+  absent.npc = true;
+  absent.bot = false;
+  absent.spiderDummy = false;
+  applyRoster(absent, -1);
+
+  resetRound(now, true);
+  absent.alive = false;
+  absent.respawnAt = Infinity;
+  absent.x = worldRight + gridWidth;
+  absent.y = floorY;
+  survivalStartedAt = now + survivalIntroDurationUs;
+  survivalLavaY = survivalLavaStart;
+  survivalHeight = 0;
+  survivalPeakLevel = 0;
+  cameraCenter = (worldLeft + worldRight) / 2;
+  cameraCenterY = floorY - 240;
+  cameraWidth = gridWidth + 120;
+  cameraContainFloor = 0;
+  cameraDoll.snap({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
+    position: { x: cameraCenter, y: cameraCenterY,
+      z: -(gridWidth + 120) * 1.35 },
+    width: gridWidth + 120, perspective: 0, fov: 55, roll: 0 });
+  for (const pickup of [...gunPickups, ...grenadePickups]) pickup.active = false;
+  for (const item of balls) item.active = false;
+  emitSignal("survival", 0, 1, 0);
+}
+
+// The title is a frozen first foothold, not an attract fight. START resets the
+// runner and the lava together, so nobody loses a run beneath the wordmark.
+function beginSurvival(now) {
+  startSurvivalRun(now, false);
+  shellMode = "MENU";
+  gameplayStarted = false;
+  roundStartedAt = now - survivalIntroDurationUs;
+  survivalStartedAt = 0;
+  cameraCenter = (worldLeft + worldRight) / 2;
+  cameraCenterY = floorY - 240;
+}
+
 // Whatever you land on is already a live training fight; the wordmark simply
 // floats over it. The intro countdown is spent before the first frame so
 // somebody arriving from a QR code is moving, not watching a number.
@@ -2272,7 +2386,7 @@ function beginTraining(now) {
   startFightAgainst(trainingOpponentKind(), now);
   shellMode = "MENU";
   gameplayStarted = false;
-  roundStartedAt = now - introDurationUs;
+  roundStartedAt = now - roundIntroDurationUs();
   const forcedAttract = globalThis.__oskiewarAttractVariant;
   titleAttractMode = forcedAttract === "still" || forcedAttract === "action"
     ? forcedAttract : hashUnit(matchName) < .5 ? "still" : "action";
@@ -2318,7 +2432,7 @@ function beginSelect(now) {
   resultLaughStep = 0;
   resultCardStung = false;
   roundStartedAt = now;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     player.roundWins = 0;
     player.score = 0;
     player.alive = true;
@@ -2327,15 +2441,19 @@ function beginSelect(now) {
 
 function returnToTitle(now, reason = "back") {
   finishReplay();
-  beginTraining(now);
+  if (survivalActive()) beginSurvival(now);
+  else beginTraining(now);
   // Menu is a hard navigation boundary: discard the prior fight's zoom and
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
   playerCameraPitch = 0;
   playerCameraZoom = 1;
-  cameraCenter = (players[0].x + players[1].x) / 2;
-  cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
-  cameraWidth = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
+  cameraCenter = survivalActive() ? (worldLeft + worldRight) / 2
+    : (players[0].x + players[1].x) / 2;
+  cameraCenterY = survivalActive() ? floorY - 240
+    : (players[0].y + players[1].y) / 2 - 90;
+  cameraWidth = survivalActive() ? gridWidth + 120
+    : Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
   cameraContainFloor = 0;
   const cameraTarget = { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.snap({ target: cameraTarget,
@@ -2356,6 +2474,7 @@ function returnToTitle(now, reason = "back") {
 // `__oskiewarSelfPlay` before boot or by calling this — never from a button,
 // so normal play cannot fall into it.
 function startSelfPlay(now) {
+  gameMode = "fight";
   selfPlay = true;
   // The harness is not the free door. A self-play run armed from a live title
   // inherits whatever training was seated, and leaving that behind would keep
@@ -2365,7 +2484,7 @@ function startSelfPlay(now) {
   gameplayStarted = true;
   selecting = false;
   titleTransitionAt = null;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     player.npc = true;
     player.bot = true;
     player.spiderDummy = false;
@@ -2436,6 +2555,7 @@ function advanceResimCommands() {
   }
 }
 function startResim(demo, now) {
+  gameMode = "fight";
   resimActive = true;
   // The reset step is demo tick zero; every later sim step counts one.
   resimTick = 0;
@@ -2485,7 +2605,7 @@ function startResim(demo, now) {
   // each pass, so replayed inputs land exactly where they were pressed.
   const fightOpen = demo.checkpoints?.[0]?.[0];
   if (fightOpen) roundStartedAt = now + fightOpen * 16667 -
-    introDurationUs - 8000;
+    roundIntroDurationUs() - 8000;
   if (demo.posePhaseUs != null) startedAt = now - demo.posePhaseUs;
 }
 
@@ -2547,6 +2667,14 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  if (survivalActive()) {
+    startSurvivalRun(now, false);
+    globalThis.__oskiewarStartLine = "climb!";
+    playDrum("bell", 1.05, 0);
+    playSine(660, .12);
+    shellPrevious = padSnapshots[0]?.down?.slice() || [];
+    return;
+  }
   if (titleAttractMode === "action") {
     selfPlay = false;
     players[0].npc = false;
@@ -2824,7 +2952,7 @@ function resetBalls(now) {
     item.rotation = 0;
     item.heldBy = -1;
     item.active = ballEnabled;
-    item.serveAt = now + introDurationUs + 150000;
+    item.serveAt = now + roundIntroDurationUs() + 150000;
     item.lastHitBy = owner ? owner.pad : -1;
     item.safeUntil = item.serveAt;
     item.safePlayers = owner ? 1 << owner.pad : 0;
@@ -2971,7 +3099,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
   roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
   matchOver = state.phase === "match";
-  roundStartedAt = now - introDurationUs - roundElapsedUs;
+  roundStartedAt = now - roundIntroDurationUs() - roundElapsedUs;
   if (roundResult && !hadResult) roundOverAt = now;
   const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.track({ target,
@@ -3091,15 +3219,17 @@ function gameBoot() {
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
       ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
-    roundStartedAt = startedAt - introDurationUs;
+    roundStartedAt = startedAt - roundIntroDurationUs();
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
   }
   if (globalThis.__oskiewarSelfPlay) {
-    startSelfPlay(startedAt);
+    if (survivalRequested()) startSurvivalRun(startedAt, true);
+    else startSelfPlay(startedAt);
     return;
   }
-  beginTraining(startedAt);
+  if (survivalRequested()) beginSurvival(startedAt);
+  else beginTraining(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
@@ -3225,6 +3355,7 @@ function resetRound(now, resetMatch = false) {
     player.botSinkNextAt = 0;
     player.botAttackSequence = 0;
     player.botJumpAt = now + 900000;
+    player.survivalTargetLevel = 1;
     player.botThreatSeen = 0;
     player.botShieldAt = Infinity;
     player.botPunishedAt = 0;
@@ -3274,23 +3405,36 @@ function resetRound(now, resetMatch = false) {
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
-  // Frame one belongs to fighter one. Starting from the wide game camera made
-  // the first portrait spend its whole beat zooming in instead of arriving as
-  // a portrait; snap to the head, then let the authored sequence cross to the
-  // other fighter and pull out.
+  // Live frame one belongs to fighter one: snap to the head, then let the
+  // authored sequence cross to the other fighter and pull out. A reel has a
+  // shorter contract and takes the whole face-off on frame zero below.
   cameraCenter = (players[0].x + players[1].x) / 2;
   cameraWidth = 960;
   cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraContainFloor = 0;
   const poseTime = (now - startedAt) / 1000000;
-  const firstHead = runnerWorldGeometry(players[0], poseTime).head;
-  const portraitWidth = Math.max(96, firstHead.radius * 6.5);
-  const portraitTarget = { x: firstHead.x, y: firstHead.y, z: firstHead.z };
-  cameraDoll.snap({ target: portraitTarget,
-    position: { x: portraitTarget.x, y: portraitTarget.y,
-      z: portraitTarget.z - Math.max(portraitWidth * 1.35,
-        Math.abs(worldNear) + 400) },
-    width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
+  if (reelGroundCamera()) {
+    // Frame zero is the face-off, not one isolated portrait. The short reel
+    // intro cannot afford to spend half of itself finding the other fighter.
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.snap({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 });
+  } else {
+    const firstHead = runnerWorldGeometry(players[0], poseTime).head;
+    const portraitWidth = Math.max(96, firstHead.radius * 6.5);
+    const portraitTarget = { x: firstHead.x, y: firstHead.y, z: firstHead.z };
+    cameraDoll.snap({ target: portraitTarget,
+      position: { x: portraitTarget.x, y: portraitTarget.y,
+        z: portraitTarget.z - Math.max(portraitWidth * 1.35,
+          Math.abs(worldNear) + 400) },
+      width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
+  }
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -3303,7 +3447,7 @@ function fighterFrameRect() {
   let right = -Infinity;
   let top = Infinity;
   let bottom = -Infinity;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     // Trimmed 2026-08-09 — @jeffrey wanted the lens closer to the fight.
     // The rect still tracks live position, so jumps and knockbacks widen
     // the frame as they happen; this is standing headroom, not arc room.
@@ -3409,13 +3553,15 @@ function terrainSpan() {
   // has owned the old ±30000 native guard since it learned to cut faces
   // instead of culling them.
   const reach = cameraDoll.width + 2600;
+  const worldTop = survivalActive() ? survivalCeilingY : ceilingY;
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
-    top: Math.max(ceilingY, cameraCenterY - reach),
+    top: Math.max(worldTop, cameraCenterY - reach),
     bottom: Math.min(floorY, cameraCenterY + reach) };
 }
 
 function updateCamera(dt) {
+  if (survivalActive()) return;
   const rect = fighterFrameRect();
   // Look slightly ahead of fast movement so zoom starts before a fighter
   // reaches the safe edge instead of reacting after the crossing.
@@ -3424,7 +3570,7 @@ function updateCamera(dt) {
   let rightDrift = 0;
   let upDrift = 0;
   let downDrift = 0;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const dx = (player.vx + (player.windVx || 0) + (player.knockVx || 0) +
       (player.shieldVx || 0)) * lookAhead;
     const dy = player.vy * lookAhead;
@@ -3492,6 +3638,23 @@ function updateCamera(dt) {
 
 function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
+  if (survivalActive()) {
+    const runner = players[0];
+    const framedWidth = (gridWidth + 120) * playerCameraZoom;
+    const halfHeight = framedWidth / cameraAspect / 2;
+    const desiredY = clamp(runner.y + halfHeight * .18,
+      survivalCeilingY + halfHeight, floorY + 40 - halfHeight);
+    const blend = 1 - Math.exp(-Math.max(0, dt) * 7);
+    cameraCenter += ((worldLeft + worldRight) / 2 - cameraCenter) * blend;
+    cameraCenterY += (desiredY - cameraCenterY) * blend;
+    cameraWidth += (framedWidth - cameraWidth) * blend;
+    const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+    cameraDoll.track({ target,
+      position: { x: cameraCenter, y: cameraCenterY,
+        z: -framedWidth * 1.35 },
+      width: framedWidth, perspective: 0, fov: 55, roll: 0 }, dt, 10);
+    return;
+  }
   if (roundResult) {
     updateResultReactions(now);
     const age = Math.max(0, (now - roundOverAt) / 1000000);
@@ -3581,7 +3744,19 @@ function updateCameraDoll(dt, now) {
       roll: 0 }, dt, 7);
     return;
   }
-  if (introAge < introDurationUs) {
+  if (reelGroundCamera() && introAge < reelOpeningHoldUs) {
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.track({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
+  if (introAge < roundIntroDurationUs()) {
     // One elapsed-time story: first fighter, second fighter, title pullback,
     // then the fight.
     // Nothing is counted in rendered frames, so live variable speed and an
@@ -3611,7 +3786,7 @@ function updateCameraDoll(dt, now) {
       width = faceWidth(head);
     } else {
       const out = clamp((age - secondEnd) /
-        (introDurationUs / 1000000 - secondEnd), 0, 1);
+        (roundIntroDurationUs() / 1000000 - secondEnd), 0, 1);
       const eased = out * out * (3 - out * 2);
       const head = headOf(players[1]);
       target = { x: lerp(head.x, opening.x, eased),
@@ -3666,7 +3841,7 @@ function updateCameraDoll(dt, now) {
 
 function freezeFinalFrame(now, livePad = -1) {
   const poseTime = (now - startedAt) / 1000000;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     if (player.pad === livePad) {
       delete player.frozenGeometry;
       delete player.frozenAt;
@@ -6113,6 +6288,114 @@ function botPad(player, opponent, now) {
   return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 }
 
+function survivalBotPad(player, now) {
+  if (!player.bot || !player.alive)
+    return { connected: true, down: [], leftX: 0, leftY: 0 };
+  let level = clamp(player.survivalTargetLevel || 1, 1, platforms.length);
+  let target = platforms[level - 1];
+  if (player.grounded && Math.abs(player.y - target.y) <= 3 &&
+      level < platforms.length) {
+    level++;
+    player.survivalTargetLevel = level;
+    target = platforms[level - 1];
+  }
+  // Aim for the nearest safe point, not every deck's center. A centered aim
+  // made the bot walk to the lip of an overlapping pair and wait forever
+  // when the remaining seven units were smaller than its jump threshold.
+  const landingLeft = target.left + 72;
+  const landingRight = target.right - 72;
+  const landingX = clamp(player.x, landingLeft, landingRight);
+  const dx = landingX - player.x;
+  if (Math.abs(dx) > 24)
+    botPress(player, dx > 0 ? "ArrowRight" : "ArrowLeft", botHoldUs.walk, now);
+  if (player.grounded && Math.abs(dx) <= 34 &&
+      now >= player.botJumpAt &&
+      botPress(player, "ArrowUp", botHoldUs.jump, now))
+    player.botJumpAt = now + 580000;
+  return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+}
+
+// The replay oven needs a bounded completion record, not a production replay.
+// Its injected fetch keeps this envelope inside the local shell; ordinary
+// survival never records, publishes, or analyzes a run. Keeping the seam
+// explicit prevents a `?replay-oven` URL typed in a normal browser from
+// turning an anonymous climb into stored match data.
+function captureSurvivalRun(now, result) {
+  if (globalThis.__oskiewarCaptureSurvival !== true ||
+      typeof saveReplay !== "function") return;
+  const tickUs = 1000000 / 60;
+  const durationTicks = Math.max(1,
+    Math.round((now - survivalStartedAt) / tickUs));
+  const roundName = "survival-v" + buildVersion + "-" +
+    Math.max(0, Math.round(survivalStartedAt / tickUs));
+  const runner = players[0];
+  const height = Math.round(survivalHeight);
+  const demo = {
+    format: "ac.oskiewar.survival", version: 1, game: "oskiewar",
+    simulation: "oskiewar-survival-1", tickRate: 60,
+    matchId: "ow-" + roundName, matchName: roundName,
+    roundId: "ow-" + roundName, roundName, roundIndex: 0,
+    startedAt: runtime().unixMs - Math.round(durationTicks / 60 * 1000),
+    durationTicks, fighters: [runner.name], nations: [runner.nation || ""],
+    winner: result === "SUMMIT" ? runner.name : null,
+    finalRoundWins: [result === "SUMMIT" ? 1 : 0],
+    cause: result, height,
+    commands: [], checkpoints: [], impacts: [],
+    events: [[0, "climb", 0, 1, 0],
+      [durationTicks, "survival-end", 0, height,
+        result === "SUMMIT" ? 1 : 0]],
+  };
+  const upload = saveReplay(JSON.stringify(demo));
+  if (upload && typeof upload.catch === "function")
+    upload.catch((error) => telemetry("SURVIVAL_CAPTURE",
+      "local-error " + error.message));
+}
+
+function finishSurvival(now, result) {
+  if (roundResult) return;
+  const runner = players[0];
+  survivalBestHeight = Math.max(survivalBestHeight, survivalHeight);
+  roundResult = result;
+  roundCause = result;
+  roundOverAt = now;
+  runner.vx = 0;
+  runner.vy = 0;
+  if (result === "LAVA") {
+    runner.alive = false;
+    runner.stance = "HIT";
+    impacts.push({ x: runner.x, y: survivalLavaY, z: runner.z,
+      life: 1.2, duration: 1.2, death: true, explosion: true,
+      blastRadius: 240, power: .8 });
+    playDrum("kick", 1.25, panPlayer(runner));
+    playSine(92, .45);
+  } else {
+    playDrum("clap", 1.2, 0);
+    playSine(880, .3);
+  }
+  globalThis.__oskiewarResultLine = result === "SUMMIT"
+    ? "summit!" : Math.round(survivalHeight) + " high";
+  emitSignal("survival-end", 0, Math.round(survivalHeight),
+    result === "SUMMIT" ? 1 : 0);
+  captureSurvivalRun(now, result);
+}
+
+function updateSurvival(dt, now) {
+  const runner = players[0];
+  const height = Math.max(0, floorY - runner.y);
+  survivalHeight = Math.max(survivalHeight, height);
+  runner.score = Math.round(survivalHeight);
+  while (survivalPeakLevel < platforms.length &&
+      runner.y <= platforms[survivalPeakLevel].y + 2)
+    survivalPeakLevel++;
+  const lavaSpeed = survivalLavaBaseSpeed +
+    Math.min(76, survivalHeight * .008);
+  survivalLavaY -= lavaSpeed * dt;
+  const body = runnerBounds(runner, (now - startedAt) / 1000000);
+  if (body.bottom >= survivalLavaY) finishSurvival(now, "LAVA");
+  else if (survivalPeakLevel >= platforms.length && runner.grounded)
+    finishSurvival(now, "SUMMIT");
+}
+
 function gameSim() {
   captureRenderInterpolationState();
   syncGameView();
@@ -6160,11 +6443,18 @@ function gameSim() {
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now);
+  if (survivalActive() && shellMode === "MENU") {
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    return;
+  }
   for (const player of players)
     inputPads[player.pad] = resimActive && resimCommands
       ? resimPad(player.pad)
       : player.bot && shellMode === "GAME"
-        ? botPad(player, players[player.pad ? 0 : 1], now)
+        ? survivalActive() && player.pad === 0
+          ? survivalBotPad(player, now)
+          : botPad(player, players[player.pad ? 0 : 1], now)
         : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
           : padSnapshots[player.pad];
   if (debugHitboxes && now >= nextInputDebugAt) {
@@ -6185,6 +6475,18 @@ function gameSim() {
   // frame walks the native shell's one socket over to the round room.
   publishSession(now);
   publishSpectator(now);
+  if (survivalActive() && roundResult) {
+    updateDetachedParts(dt);
+    updateResultImpactDebris(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    if (now - roundOverAt >= roundResultUs) {
+      emitSignal("update-safe", -1, buildVersion, 0);
+      if (selfPlay) startSurvivalRun(now, true);
+      else returnToTitle(now, "survival-end");
+    }
+    return;
+  }
   if (roundResult) {
     // The scored tail. The killcam dwell used to be the reel's quietest
     // seconds under its most dramatic frames, so the dwell keeps a slow
@@ -6268,13 +6570,13 @@ function gameSim() {
     updateSelect(now);
     return;
   }
-  if (now - roundStartedAt < introDurationUs) {
+  if (now - roundStartedAt < roundIntroDurationUs()) {
     // The intro used to pass in silence — a reel that opens on the countdown
     // opened on three mute seconds, and a player heard the round begin with
     // nothing. Ring the "3, 2, 1" on the same two channels the round clock
     // uses: the drum for the ear, the signal for the record.
     const introSecond = Math.ceil(
-      (introDurationUs - (now - roundStartedAt)) / 1000000);
+      (roundIntroDurationUs() - (now - roundStartedAt)) / 1000000);
     if (introSecond !== lastIntroSecond) {
       lastIntroSecond = introSecond;
       // playDrum is the voice, the signal is the record — the "countdown"
@@ -6288,11 +6590,14 @@ function gameSim() {
     return;
   }
   if (lastIntroSecond > 0) {
-    // The first live tick after the intro is the round opening — one accent,
-    // so "go" is a sound and not just a vanished number.
+    // The first live tick after the intro is the mode opening — one accent,
+    // so the callout is a sound and not just a vanished word.
     lastIntroSecond = -1;
     playDrum("block", 1.1, 0);
-    emitSignal("fighters-lock", -1, 0, 0);
+    if (survivalActive()) {
+      globalThis.__oskiewarStartLine = "climb!";
+      emitSignal("climb", 0, 1, 0);
+    } else emitSignal("fighters-lock", -1, 0, 0);
   }
   roundElapsedUs += dt * 1000000;
   const timedRound = roundIsTimed();
@@ -6306,25 +6611,34 @@ function gameSim() {
       emitSignal("countdown", -1, countdownSecond, 0);
     }
   }
-  updateWind(dt, now);
-  updatePlayer(players[0], inputPads[0], dt, now);
-  updatePlayer(players[1], inputPads[1], dt, now);
-  resolvePlayerStanding(now);
-  resolvePlayerPushboxes();
-  updatePowerups(now);
-  updateBodyTrees(dt, now);
-  updateBullets(dt, now);
-  updateGrenades(dt, now);
-  resolveMelee(now);
-  resolvePogoAttacks(now);
-  for (const item of balls) updateBall(item, dt, now);
-  updateDetachedParts(dt);
-  updateCamera(dt);
-  updateCameraDoll(dt, now);
-  captureFrameTelemetry(now);
-  captureRoundReplay(now);
-  recordReplayCheckpoint(now);
-  trackResimDrift(now);
+  if (survivalActive()) {
+    updatePlayer(players[0], inputPads[0], dt, now);
+    updateSurvival(dt, now);
+    updateDetachedParts(dt);
+    updateCamera(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+  } else {
+    updateWind(dt, now);
+    updatePlayer(players[0], inputPads[0], dt, now);
+    updatePlayer(players[1], inputPads[1], dt, now);
+    resolvePlayerStanding(now);
+    resolvePlayerPushboxes();
+    updatePowerups(now);
+    updateBodyTrees(dt, now);
+    updateBullets(dt, now);
+    updateGrenades(dt, now);
+    resolveMelee(now);
+    resolvePogoAttacks(now);
+    for (const item of balls) updateBall(item, dt, now);
+    updateDetachedParts(dt);
+    updateCamera(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    captureRoundReplay(now);
+    recordReplayCheckpoint(now);
+    trackResimDrift(now);
+  }
   for (const impact of impacts) {
     if (!impact.debris) {
       // A fresh impact heats the tile it landed in. The debris check is the
@@ -6371,8 +6685,8 @@ function gameSim() {
   for (let cell = 0; cell < gridField.length; cell++)
     gridField[cell] = gridField[cell] < .01 ? 0
       : gridField[cell] * Math.exp(-dt * 1.6);
-  if (players.some((player) => !player.alive) ||
-      (timedRound && roundElapsedUs >= roundDurationUs)) {
+  if (!survivalActive() && (players.some((player) => !player.alive) ||
+      (timedRound && roundElapsedUs >= roundDurationUs))) {
     if (timedRound && roundElapsedUs >= roundDurationUs &&
         players.every((player) => player.alive))
       roundCause = "TIME";
@@ -7073,7 +7387,7 @@ function fighterContainmentRequiredWidth(t) {
     top = Math.min(top, y - radius);
     bottom = Math.max(bottom, y + radius);
   };
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const world = player.replayGeometry || player.frozenGeometry ||
       runnerWorldGeometry(player, t);
     include(world.head.x, world.head.y, world.head.radius);
@@ -7093,13 +7407,13 @@ function fighterContainmentRequiredWidth(t) {
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
   const gameplayContainment = !roundResult &&
-    runtime().monotonicUs - roundStartedAt >= introDurationUs;
+    runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
   if (gameplayContainment) {
     cameraContainFloor = Math.max(cameraContainFloor,
       fighterContainmentRequiredWidth(t) * 1.11);
     return;
   }
-  const worlds = players.map((player) => player.replayGeometry ||
+  const worlds = activePlayers().map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
   if (!worlds.length) return;
   const points = [];
@@ -7214,7 +7528,8 @@ function resolveRunnerBounds(player, t) {
     player.dashUntil = 0;
     player.dashVx = 0;
   }
-  const ceiling = ceilingY + wallThickness;
+  const ceiling = (survivalActive() ? survivalCeilingY : ceilingY) +
+    wallThickness;
   const standingTop = runnerBounds(player, t).top;
   if (standingTop < ceiling) {
     player.y += ceiling - standingTop;
@@ -7835,6 +8150,7 @@ function drawControlLegend(ink) {
     ["X", "X", held.includes("X") ? "SHIELD" : ""],
     ["Y", "Y", held.includes("Y") ? "USE ITEM" : ""],
   ];
+  if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
@@ -8900,11 +9216,11 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
     drawFloatingHandle(player, point.x - width / 2,
       point.y - radius - flashingSize * 1.28, flashingSize);
   };
-  if (introSeconds < 1) {
+  if (!reelGroundCamera() && introSeconds < 1) {
     drawHeadName(players[0]);
     return;
   }
-  if (introSeconds < 2) {
+  if (!reelGroundCamera() && introSeconds < 2) {
     drawHeadName(players[1]);
     return;
   }
@@ -8927,6 +9243,38 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   }
 }
 
+function drawSurvivalIntro(titleInk, statusShadow) {
+  const callout = "climb!";
+  const size = compactLayout() ? 74 : 112;
+  const width = handleWidth(callout, size);
+  const x = viewCenterX() - width / 2;
+  const y = (stageTop + stageBottom) / 2 - size / 2;
+  typeWrite(callout, x + 5, y + 7, size, ...statusShadow);
+  typeWrite(callout, x, y, size, ...titleInk);
+}
+
+function drawSurvivalHud(titleInk) {
+  const safe = hudSafeRect();
+  const score = Math.round(survivalHeight) + " up";
+  const size = compactLayout() ? 34 : 46;
+  const width = handleWidth(score, size);
+  const x = viewCenterX() - width / 2;
+  const y = safe.top + 2;
+  typeWrite(score, x + 3, y + 4, size, ...contrastShadow(titleInk));
+  typeWrite(score, x, y, size, ...titleInk);
+}
+
+function drawSurvivalResult(titleInk, statusShadow) {
+  const result = roundResult === "SUMMIT" ? "summit!"
+    : Math.round(survivalHeight) + " up";
+  const size = compactLayout() ? 58 : 82;
+  const width = handleWidth(result, size);
+  const x = viewCenterX() - width / 2;
+  const y = (stageTop + stageBottom) / 2 - size / 2;
+  typeWrite(result, x + 5, y + 7, size, ...statusShadow);
+  typeWrite(result, x, y, size, ...titleInk);
+}
+
 function drawReelSectionProgress(now, titleInk) {
   const safe = hudSafeRect();
   const gap = compactLayout() ? 5 : 8;
@@ -8935,9 +9283,10 @@ function drawReelSectionProgress(now, titleInk) {
   const available = safe.right - safe.left - gap * 2;
   const resultDuration = matchOver ? matchResultUs : roundResultUs;
   const introAge = Math.max(0, now - roundStartedAt);
-  const section = roundResult ? 2 : introAge < introDurationUs ? 0 : 1;
+  const introLimit = roundIntroDurationUs();
+  const section = roundResult ? 2 : introAge < introLimit ? 0 : 1;
   const progress = section === 0
-    ? clamp(introAge / introDurationUs, 0, 1)
+    ? clamp(introAge / introLimit, 0, 1)
     : section === 1
       ? clamp(roundElapsedUs / roundDurationUs, 0, 1)
       : clamp((now - roundOverAt) / resultDuration, 0, 1);
@@ -9177,12 +9526,17 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
   // reason the panels were: a 9:16 reel sees far below the fighters' feet,
   // and a wall that stops short lets the clear layer through as sky.
   const wallBottom = floorY + 3000;
+  const roomTop = survivalActive() ? top - 500 : ceilingY;
   const shade = mixColor(color, [226, 172, 168], .12);
-  worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
+  if (survivalActive()) worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
+    { x: worldRight, y: roomTop, z: worldFar },
+    { x: worldRight, y: wallBottom, z: worldFar },
+    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
+  else worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
     { x: worldRight, y: ceilingY, z: worldFar },
     { x: worldRight, y: wallBottom, z: worldFar },
     { x: worldLeft, y: wallBottom, z: worldFar }, shade);
-  drawGridOverlay(shade);
+  if (!survivalActive()) drawGridOverlay(shade);
   // The left side is a real wall, but only occupies the rear half of the room.
   // Segmenting it keeps the diorama corner visible without recreating the old
   // full-depth opaque slab that could pass in front of the camera and blackout
@@ -9194,8 +9548,8 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
   const sideShade = mixColor(color, [232, 170, 153], .13);
   for (let row = 0; row < 2; row++) {
     for (let depth = 0; depth < 2; depth++) {
-      const y1 = lerp(ceilingY, sideFloor, row / 2);
-      const y2 = lerp(ceilingY, sideFloor, (row + 1) / 2);
+      const y1 = lerp(roomTop, sideFloor, row / 2);
+      const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
       const z1 = lerp(0, worldFar, depth / 2);
       const z2 = lerp(0, worldFar, (depth + 1) / 2);
       worldQuad({ x: worldLeft, y: y1, z: z1 },
@@ -9205,7 +9559,8 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
     }
   }
   const edge = mixColor(color, [64, 78, 72], .24);
-  worldQuad({ x: worldLeft, y: ceilingY, z: worldNear },
+  if (!survivalActive()) worldQuad(
+    { x: worldLeft, y: ceilingY, z: worldNear },
     { x: worldLeft, y: ceilingY, z: worldFar },
     { x: worldRight, y: ceilingY, z: worldFar },
     { x: worldRight, y: ceilingY, z: worldNear }, edge);
@@ -9213,6 +9568,30 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
     9, edge);
   worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
     9, edge);
+}
+
+function drawSurvivalLava(t) {
+  if (!survivalActive()) return;
+  const pulse = .5 + .5 * Math.sin(t * 3.1);
+  const surface = mixColor([255, 58, 24], [255, 212, 42], pulse * .42);
+  const body = mixColor([116, 10, 26], [238, 50, 18], .58 + pulse * .18);
+  const far = worldFar - 8;
+  const bottom = Math.max(floorY + 3000, survivalLavaY + 3200);
+  worldQuad({ x: worldLeft, y: survivalLavaY, z: far },
+    { x: worldRight, y: survivalLavaY, z: far },
+    { x: worldRight, y: bottom, z: far },
+    { x: worldLeft, y: bottom, z: far }, body);
+  worldQuad({ x: worldLeft, y: survivalLavaY, z: worldNear },
+    { x: worldRight, y: survivalLavaY, z: worldNear },
+    { x: worldRight, y: survivalLavaY, z: worldFar },
+    { x: worldLeft, y: survivalLavaY, z: worldFar }, surface);
+  for (let step = 0; step < 9; step++) {
+    const x1 = lerp(worldLeft, worldRight, step / 9);
+    const x2 = lerp(worldLeft, worldRight, (step + 1) / 9);
+    const y1 = survivalLavaY + Math.sin(t * 4.2 + step * 1.7) * 9;
+    const y2 = survivalLavaY + Math.sin(t * 4.2 + (step + 1) * 1.7) * 9;
+    worldLine(x1, y1, worldNear - 2, x2, y2, worldNear - 2, 7, surface);
+  }
 }
 
 // The map's addressing, made visible: the same ten-by-ten lattice the spawn
@@ -9984,15 +10363,17 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // Keep the game identity visible on the opening frame. The live fighters
   // and START remain interactive beneath the wordmark.
   const title = "oskiewar";
+  const version = "v" + buildVersion;
   const breath = 1 + Math.sin(t * .9) * .018;
+  const socialLockupGap = compact ? 10 : 18;
   const socialTitleSize = Math.min(220,
-    (stageRight - stageLeft - 56) / handleWidth(title, 1));
+    (viewWidth() - 56 - socialLockupGap) /
+      (handleWidth(title, 1) + handleWidth(version, .3)));
   const titleSize = (socialPreview ? socialTitleSize : compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
-  const version = "v" + buildVersion;
   const versionSize = Math.round(titleSize * .3);
   const versionWidth = handleWidth(version, versionSize);
-  const lockupGap = compact ? 10 : 18;
+  const lockupGap = socialPreview ? socialLockupGap : compact ? 10 : 18;
   const lockupWidth = titleWidth + lockupGap + versionWidth;
   const titleX = viewCenterX() - lockupWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
@@ -10071,7 +10452,16 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
   typeWrite(version, versionX, versionY, versionSize,
     ...(transitionInk || ink));
-  drawDummyPopLine(titleY, titleSize, transitionInk);
+  if (survivalActive()) {
+    const mode = "survival";
+    const modeSize = Math.round(titleSize * .28);
+    const modeWidth = handleWidth(mode, modeSize);
+    const modeX = viewCenterX() - modeWidth / 2;
+    const modeY = titleY + titleSize + (compact ? 8 : 12);
+    typeWrite(mode, modeX + 2, modeY + 3, modeSize,
+      ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
+    typeWrite(mode, modeX, modeY, modeSize, ...(transitionInk || ink));
+  } else drawDummyPopLine(titleY, titleSize, transitionInk);
   if (glyphCells) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
@@ -10599,7 +10989,7 @@ function gamePaint() {
   const cinematicAge = deathCinematicAge(run.monotonicUs);
   const introAge = run.monotonicUs - roundStartedAt;
   const inRoundIntro = !roundResult && introAge >= 0 &&
-    introAge < introDurationUs;
+    introAge < roundIntroDurationUs();
   // The intro deliberately owns its lens: wide title, two face portraits,
   // then a pullback. Final-frame containment would widen every portrait until
   // both fighters fitted, erasing the zoom story it was meant to protect.
@@ -10637,7 +11027,7 @@ function gamePaint() {
   // in a room this size its 2600-unit apron usually covers everything — it is
   // here to bound the worst case, not because it culls much today.
   const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
-  if (PLATFORM) for (const ledge of platforms) {
+  if (platformsEnabled()) for (const ledge of platforms) {
     if (ledge.right < spanLeft || ledge.left > spanRight) continue;
     if (ledge.y < spanTop || ledge.y > spanBottom) continue;
     const ledgeLeft = Math.max(ledge.left, spanLeft);
@@ -10651,10 +11041,11 @@ function gamePaint() {
     worldLine(ledgeLeft, ledge.y, platformNear,
       ledgeRight, ledge.y, platformNear, 5, ledgeInk);
   }
+  drawSurvivalLava(t);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
   if (renderFlags.shadows !== false) {
-    for (const player of players)
+    for (const player of activePlayers())
       if (player.alive || roundResult)
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
           shadowInk);
@@ -10716,11 +11107,13 @@ function gamePaint() {
       globalThis.__oskiewarTouch.updateButton = null;
     }
   }
-  for (const tree of bodyTrees) drawBodyTree(tree, t);
-  for (const pickup of gunPickups) drawGunPickup(pickup, t);
-  for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
+  if (!survivalActive()) {
+    for (const tree of bodyTrees) drawBodyTree(tree, t);
+    for (const pickup of gunPickups) drawGunPickup(pickup, t);
+    for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
+  }
   const showRunnerLabels = matchHud && !reelMinimal &&
-    (Boolean(roundResult) || introAge >= introDurationUs);
+    (Boolean(roundResult) || introAge >= roundIntroDurationUs());
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
     y: cameraDoll.target.y - cameraDoll.position.y,
@@ -10738,7 +11131,7 @@ function gamePaint() {
       z: (item.z1 + item.z2) / 2 })),
     // Both fighters are always in this list. A fighter is never removed from
     // the frame to make a camera move work — the shot is what moves.
-    ...players.map((item) => ({
+    ...activePlayers().map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
   const depth = (item) => dot3({
@@ -10764,16 +11157,18 @@ function gamePaint() {
   // title, controls, command notation, names, clock, or other HUD furniture.
   triangleDepth = -1.4;
   drawDebugHitboxes(players[0], t);
-  drawDebugHitboxes(players[1], t);
+  if (!survivalActive()) drawDebugHitboxes(players[1], t);
   drawBallHitboxes();
   drawSafeZones();
   triangleDepth = -1.42;
   drawImpacts();
-  const counting = !roundResult && introAge < introDurationUs;
+  const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
   if (matchHud && !reelMinimal && counting && shellMode === "GAME")
-    drawFightIntro(introAge / 1000000, titleInk, statusShadow);
+    survivalActive()
+      ? drawSurvivalIntro(titleInk, statusShadow)
+      : drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
   // newcomer — two bots need no tutorial, and neither does a reel of them.
@@ -10791,12 +11186,18 @@ function gamePaint() {
       introAge / 1000000 < REEL_MATCHUP_SECONDS) {
     const nameSize = compactLayout() ? 40 : 54;
     const top = Math.round(viewHeight * .14);
-    for (let side = 0; side < players.length; side++) {
-      drawReelName(String(players[side].name).toLowerCase(),
-        top + side * Math.round(nameSize * 1.5), nameSize, players[side], t);
+    const names = activePlayers();
+    for (let side = 0; side < names.length; side++) {
+      drawReelName(String(names[side].name).toLowerCase(),
+        top + side * Math.round(nameSize * 1.5), nameSize, names[side], t);
     }
   }
-  if (reelMinimal && roundResult && resultUiReady) {
+  if (matchHud && survivalActive() && shellMode === "GAME" &&
+      gameplayStarted && !roundResult && !counting)
+    drawSurvivalHud(titleInk);
+  if (survivalActive() && roundResult && resultUiReady) {
+    drawSurvivalResult(titleInk, statusShadow);
+  } else if (reelMinimal && roundResult && resultUiReady) {
     // One fact, in the middle of the frame: who won. The recording stops on
     // the result card, so anything queued behind the name would never survive
     // the trim — and a name alone is the whole story a reel owes a stranger.
@@ -10845,9 +11246,9 @@ function gamePaint() {
   }
   // Nameplates and stats wait for the wordmark to lift; the entry frame is
   // the word, the keys, and the two fighters, and nothing else.
-  if (matchHud && !reelMinimal && shellMode === "GAME" &&
+  if (!survivalActive() && matchHud && !reelMinimal && shellMode === "GAME" &&
       ((roundResult && resultUiReady) ||
-      (!roundResult && introAge >= introDurationUs))) {
+      (!roundResult && introAge >= roundIntroDurationUs()))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
       const player = hudPlayers[side];
@@ -10857,7 +11258,7 @@ function gamePaint() {
       drawCommandStream(player, side);
     }
   }
-  if (replayOven && capabilities().reelFullUi === true &&
+  if (!survivalActive() && replayOven && capabilities().reelFullUi === true &&
       shellMode === "GAME")
     drawReelSectionProgress(run.monotonicUs, titleInk);
   if (!replayOven) drawDebugPerformance(titleInk);

@@ -51,7 +51,8 @@ const limbPartsForTest = ["left-arm", "right-arm", "left-leg", "right-leg"];
 function createFight(startImmediately = true, enterGame = true,
   platform = "xbox-uwp", roundBridge = null,
   viewport = { width: 1920, height: 1080 }, livePublisher = null,
-  drumVoice = null, triangleHost = "triangle3d", startUs = 0) {
+  drumVoice = null, triangleHost = "triangle3d", startUs = 0,
+  capabilityOverrides = {}) {
   let now = startUs;
   const signals = [];
   const replays = [];
@@ -87,7 +88,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -95,7 +96,7 @@ function createFight(startImmediately = true, enterGame = true,
     (index = 0) => ({ ...pads[index], down: pads[index].down.slice() }),
     () => ({ platform, inputFamily: platform === "xbox-uwp" ? "xbox"
       : platform === "touch" ? "touch"
-      : platform === "mouse" ? "mouse" : "keyboard" }),
+      : platform === "mouse" ? "mouse" : "keyboard", ...capabilityOverrides }),
     (event, detail) => telemetryEvents.push([event, detail]),
     (...signal) => signals.push(signal), (payload) => {
       replays.push(payload);
@@ -530,7 +531,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.equal(socialManifest.audio, false);
   assert.match(source, /const socialTitleSize = Math\.min\(220,/);
   assert.match(source,
-    /\(stageRight - stageLeft - 56\) \/ handleWidth\(title, 1\)/);
+    /\(viewWidth\(\) - 56 - socialLockupGap\) \/\s*\(handleWidth\(title, 1\) \+ handleWidth\(version, \.3\)\)/);
   assert.equal(socialPoster[0], 0xff);
   assert.equal(socialPoster[1], 0xd8);
   assert.equal(socialVideo.subarray(4, 8).toString(), "ftyp");
@@ -991,7 +992,30 @@ test("gameplay camera has no procedural viewport shake", () => {
   assert.doesNotMatch(source, /cameraContainTouchedAt/);
   assert.match(source, /const gameplayContainment = !roundResult &&/);
   assert.match(source,
-    /runtime\(\)\.monotonicUs - roundStartedAt >= introDurationUs/);
+    /runtime\(\)\.monotonicUs - roundStartedAt >= roundIntroDurationUs\(\)/);
+});
+
+test("a reel reaches the fight inside its first second", () => {
+  const { fight, tick } = createFight(false, false, "web", null,
+    { width: 1080, height: 1920 }, null, null, "triangle3d", 0,
+    { replayOven: true, reelHud: true, reelFullUi: true });
+  fight.startFight();
+  const middle = (fight.players[0].x + fight.players[1].x) / 2;
+  assert.ok(Math.abs(fight.cameraState().doll.target.x - middle) < 1,
+    "frame zero contains the face-off rather than one isolated portrait");
+  tick(633333);
+  assert.equal(fight.roundState().roundElapsedUs, 0,
+    "the brand beat still owns its final frame");
+  tick(33334);
+  assert.ok(fight.roundState().roundElapsedUs > 0,
+    "the fight is live before the first second is over");
+  tick(300000);
+  assert.ok(fight.cameraState().doll.width < 700,
+    "the close lens holds through the opening exchange");
+  assert.match(source, /const reelIntroDurationUs = 650000/);
+  assert.match(source, /const reelOpeningHoldUs = 1350000/);
+  assert.match(source,
+    /if \(reelGroundCamera\(\)\) \{\s*\/\/ Frame zero is the face-off/);
 });
 
 test("intro camera introduces both faces before returning to the fight", () => {
@@ -1029,8 +1053,10 @@ test("intro camera introduces both faces before returning to the fight", () => {
   assert.match(source, /point\.y - radius - flashingSize \* 1\.28/);
   assert.match(source, /animatedTitleColor\(index, titleTime\)/);
   assert.match(source, /const inRoundIntro = !roundResult/);
-  assert.match(source, /if \(introSeconds < 1\) \{\s*drawHeadName\(players\[0\]\)/);
-  assert.match(source, /if \(introSeconds < 2\) \{\s*drawHeadName\(players\[1\]\)/);
+  assert.match(source,
+    /if \(!reelGroundCamera\(\) && introSeconds < 1\) \{\s*drawHeadName\(players\[0\]\)/);
+  assert.match(source,
+    /if \(!reelGroundCamera\(\) && introSeconds < 2\) \{\s*drawHeadName\(players\[1\]\)/);
   assert.doesNotMatch(source, /const andText = "and"/);
   assert.match(source, /function visibleHandle\(player\)/);
   assert.match(source, /return player\.name\.toLowerCase\(\)/);
@@ -2864,18 +2890,8 @@ test("spiderdummy remains directly reachable while pal select is retired", () =>
   assert.match(webShell, /get\("opponent"\)/);
 });
 
-// Replaces the 50/50 dummy-or-spiderdummy deal this test used to pin.
-// @jeffrey, playtesting: "can we switch dummy to bot now?" A solo session is a
-// fight rather than target practice, so the free opponent thinks — and the
-// thing that then has to be held down is the wire: a sparring partner with the
-// bot's brain must still buy no series, no demo, no live frame and no
-// analytics, because the front door never asks anybody to sign in. Both inert
-// targets stay reachable by name for damage, geometry and sync work.
-test("a fresh training session spars against the bot and stays off the wire",
-  () => {
+test("the front door is a solo survival climb with rising lava", () => {
   const previousOpponent = globalThis.__oskiewarOpponent;
-  // An empty string is a real answer — "nothing was asked for" — so the
-  // harness leaves it alone instead of substituting its usual dummy.
   globalThis.__oskiewarOpponent = "";
   let fresh;
   try {
@@ -2884,36 +2900,65 @@ test("a fresh training session spars against the bot and stays off the wire",
     if (previousOpponent === undefined) delete globalThis.__oskiewarOpponent;
     else globalThis.__oskiewarOpponent = previousOpponent;
   }
-  const { fight, replays, liveFrames, analyticsEvents, tap, tick } = fresh;
+  const { fight, replays, liveFrames, analyticsEvents, signals, tick } = fresh;
+  assert.equal(fight.survivalState().active, true);
+  assert.equal(fight.shellState().mode, "MENU");
   assert.equal(fight.players[1].npc, true);
-  assert.equal(fight.players[1].bot, true, "the free opponent hits back");
-  assert.equal(fight.players[1].spiderDummy, false);
-  assert.equal(fight.players[1].name, "BOT");
+  assert.equal(fight.players[1].bot, false);
+  assert.equal(fight.players[1].alive, false, "survival seats no adversary");
+
+  const platforms = fight.platformTable();
+  assert.equal(platforms.length, 32);
+  for (let index = 1; index < platforms.length; index++) {
+    assert.equal(platforms[index - 1].y - platforms[index].y, 235);
+    const gap = Math.max(0,
+      Math.max(platforms[index - 1].left, platforms[index].left) -
+      Math.min(platforms[index - 1].right, platforms[index].right));
+    assert.ok(gap < 180, `platform ${index + 1} remains jump-reachable`);
+  }
+
   fight.enterGame();
-  for (let frame = 0; frame < 60; frame++) tick();
-  assert.equal(fight.seriesState(), "", "training carries no series");
+  const lavaStart = fight.survivalState().lavaY;
+  for (let frame = 0; frame < 70; frame++) tick();
+  assert.ok(signals.some(([event]) => event === "climb"));
+  assert.ok(fight.survivalState().lavaY < lavaStart, "lava rises after climb!");
+  assert.match(source, /const callout = "climb!"/);
+  assert.match(webShell, /oskiewar survival climb/);
+
+  for (let frame = 0; frame < 520 && !fight.roundState().roundResult; frame++)
+    tick();
+  assert.equal(fight.roundState().roundResult, "LAVA");
+  assert.equal(fight.seriesState(), "", "survival carries no fight series");
   assert.deepEqual(replays, []);
   assert.deepEqual(liveFrames, []);
   assert.deepEqual(analyticsEvents, []);
+});
 
-  // Half of sessions open on the standing face-off, where attract borrows the
-  // first seat and keeps a cool neutral body opposite it so the matchup reads.
-  // Start has to hand that seat back AND re-seat the sparring partner: while
-  // it hardcoded an inert dummy, exactly those sessions kept punching a post.
-  globalThis.__oskiewarAttractVariant = "action";
-  tap(0, "Menu");
-  delete globalThis.__oskiewarAttractVariant;
-  assert.equal(fight.shellState().mode, "MENU");
-  assert.equal(fight.players[0].bot, true, "attract borrowed the first seat");
-  assert.equal(fight.players[1].name, "DUMMY", "the tableau stays legible");
-  fight.enterGame();
-  assert.equal(fight.players[0].bot, false, "start hands the seat back");
-  assert.equal(fight.players[1].bot, true, "start re-seats the sparring bot");
-
-  const choice = source.slice(source.indexOf("function trainingOpponentKind"),
-    source.indexOf("const selectionReady"));
-  assert.match(choice, /requested === "dummy" \|\| requested === "spiderdummy"/);
-  assert.match(choice, /trainingOpponent = "trainingbot"/);
+test("the offline oven gets one local survival completion envelope", () => {
+  const previousOpponent = globalThis.__oskiewarOpponent;
+  globalThis.__oskiewarOpponent = "";
+  globalThis.__oskiewarCaptureSurvival = true;
+  let capture;
+  try {
+    capture = createFight(false, false);
+    capture.fight.startSurvival(true);
+    for (let frame = 0; frame < 2400 && !capture.replays.length; frame++)
+      capture.tick();
+  } finally {
+    delete globalThis.__oskiewarCaptureSurvival;
+    if (previousOpponent === undefined) delete globalThis.__oskiewarOpponent;
+    else globalThis.__oskiewarOpponent = previousOpponent;
+  }
+  assert.equal(capture.replays.length, 1);
+  const run = JSON.parse(capture.replays[0]);
+  assert.equal(run.format, "ac.oskiewar.survival");
+  assert.equal(run.cause, "LAVA");
+  assert.equal(run.fighters.length, 1);
+  assert.ok(run.durationTicks > 0);
+  assert.ok(capture.fight.survivalState().peakLevel >= 4,
+    "the survival bot stalled: " +
+      JSON.stringify(capture.fight.survivalState()));
+  assert.match(reelRenderer, /__oskiewarCaptureSurvival = true/);
 });
 
 test("the skateboard is retired from the cube's deck", () => {

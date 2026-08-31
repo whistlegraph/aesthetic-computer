@@ -208,7 +208,7 @@ function statTrigger(previous, current) {
   return now - before >= Math.max(50, before * .25);
 }
 
-function digestText(mediaId, route, freshComments, insights, previous) {
+function digestText(mediaId, route, freshComments, insights, previous, ghosts) {
   const lines = [
     `# reelboy digest · ${mediaId}`,
     ``,
@@ -222,10 +222,15 @@ function digestText(mediaId, route, freshComments, insights, previous) {
     lines.push(`- ${name}: ${value ?? "—"}` +
       (was !== undefined && was !== value ? ` (was ${was ?? "—"})` : ""));
   }
-  lines.push(``, `## new comments (${freshComments.length})`);
+  lines.push(``, `## new comments (${freshComments.length}` +
+    `${ghosts ? ` + ${ghosts} unreadable` : ""})`);
   for (const row of freshComments)
     lines.push(`- ${row.at} @${row.username}${row.replyTo ? " (reply)" : ""}: ` +
       `${row.text}${row.likes ? ` (♥${row.likes})` : ""}`);
+  if (ghosts)
+    lines.push(`- ${ghosts} comment(s) Instagram counts but will not return ` +
+      `through the API (private commenters, most likely) — readable only in ` +
+      `the app; steer by the numbers unless @jeffrey relays the words.`);
   lines.push(``,
     `Charter: toolchain/instagram/REELBOY.md — iterate, test against the`,
     `baseline, burn the preview, then ASK before shipping. Never reply on`,
@@ -323,33 +328,46 @@ async function doPass() {
     const seen = new Set(state.seenComments);
     const fresh = comments.filter((row) => !seen.has(row.id));
     const statsMoved = statTrigger(state.insights, insights);
+    // Instagram counts comments the API refuses to return — private-account
+    // commenters, mostly — so the `comments` insight can climb while the
+    // edge stays empty. Those ghosts are still words: a rise in their number
+    // wakes the rock like any other comment, though the digest can only say
+    // they exist and that the app is the one place to read them.
+    const ghosts = Math.max(0, (Number(insights.comments) || 0) - comments.length);
+    const ghostsMoved = ghosts > (Number(state.ghostComments) || 0);
     // Every pass leaves a heartbeat on the rock's bus — the overlay's pulse
     // that says the loop is alive — whether or not anything else happens.
     await busDeliver(route, { kind: "heartbeat",
       excerpt: `${mediaId} · views ${insights.views ?? "—"} · ` +
         `${state.seenComments.length + fresh.length} comment(s) seen` });
-    if (!fresh.length && !statsMoved) {
+    if (!fresh.length && !statsMoved && !ghostsMoved) {
       // Quiet reel: remember the numbers, say nothing, wake nobody.
       state.insights = insights;
+      state.ghostComments = ghosts;
       writeJson(statePath, state);
       continue;
     }
     mkdirSync(INBOX, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const digestPath = join(INBOX, `${mediaId}-${stamp}.md`);
-    const digest = digestText(mediaId, route, fresh, insights, state.insights);
+    const digest =
+      digestText(mediaId, route, fresh, insights, state.insights, ghosts);
     writeFileSync(digestPath, digest);
     state.seenComments = [...seen, ...fresh.map((row) => row.id)];
     state.insights = insights;
+    state.ghostComments = ghosts;
     state.lastDigestAt = new Date().toISOString();
     writeJson(statePath, state);
+    const headline = [
+      fresh.length ? `${fresh.length} new comment(s)` : "",
+      ghostsMoved ? `${ghosts} unreadable comment(s)` : "",
+      statsMoved ? "stats moved" : "",
+    ].filter(Boolean).join(", ");
     const delivered = await busDeliver(route, { kind: "message",
-      excerpt: `${fresh.length} new comment(s)` +
-        `${statsMoved ? ", stats moved" : ""} on ${mediaId}`,
+      excerpt: `${headline} on ${mediaId}`,
       prompt: digest.slice(0, 6000) });
     const poked = await poke(route.handle);
-    console.log(`✓ ${mediaId}: ${fresh.length} new comment(s)` +
-      `${statsMoved ? ", stats moved" : ""} → ${digestPath}` +
+    console.log(`✓ ${mediaId}: ${headline} → ${digestPath}` +
       `${delivered ? " · bus delivered" : ""} · ${poked}`);
   }
 }

@@ -97,7 +97,7 @@
   </style>
 </head>
 <body>
-  <canvas id="screen" width="1920" height="1080" aria-label="oskiewar two-player stick fight"></canvas>
+  <canvas id="screen" width="1920" height="1080" aria-label="oskiewar survival climb"></canvas>
   <div id="inset-probe" aria-hidden="true"></div>
   <div id="status" role="alert" aria-live="polite"></div>
   <div id="account">
@@ -1186,16 +1186,17 @@
     globalThis.__oskiewarSfx = oskiewarSfx;
     oskiewarSfx.connectSignals(globalThis);
 
-    // The result card speaks. The piece publishes the card's sentence on a
-    // global and stamps the moment with its `result-card` signal; the
+    // The run callout and result card speak. The piece publishes each line on
+    // a global and stamps the moment with its signal; the
     // browser reads it aloud through its own speech synthesis — the one
     // voice this shell has that the console lacks. Preview burns and
     // offline reel renders stay mute: the farm must never narrate itself.
     addEventListener("oskiewar:signal", ({ detail }) => {
-      if (detail?.event !== "result-card") return;
+      if (detail?.event !== "result-card" && detail?.event !== "climb") return;
       if (socialPreview ||
         Array.isArray(globalThis.__oskiewarOfflineAudioEvents)) return;
-      const line = String(globalThis.__oskiewarResultLine || "");
+      const line = String(detail.event === "climb"
+        ? globalThis.__oskiewarStartLine : globalThis.__oskiewarResultLine || "");
       if (!line || typeof speechSynthesis === "undefined") return;
       try {
         speechSynthesis.cancel();

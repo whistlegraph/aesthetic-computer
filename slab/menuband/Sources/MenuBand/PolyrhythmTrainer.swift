@@ -332,13 +332,22 @@ final class PolyrhythmTrainerView: NSView {
                     + Self.circleSlotWidth / 2,
                 y: bounds.minY + Self.circleCenterY
             )
+            // A strike answers on the struck side: that whole dial pops up a
+            // size and settles back while the tap feedback fades, so which
+            // lane the finger landed in is readable from across the room.
+            let pulse = CGFloat(snapshot.tapFeedback
+                .filter { $0.rhythmIndex == index }
+                .map(\.opacity).max() ?? 0)
+            let scale = 1 + pulse * pulse * 0.12
             drawCircle(center: center, rhythm: rhythm,
                        phase: snapshot.phase,
                        needleFlash: snapshot.needleFlash,
-                       color: colors[index], ink: ink, dark: dark)
+                       color: colors[index], ink: ink, dark: dark,
+                       scale: scale, pulse: pulse)
             drawTapFeedback(
                 snapshot.tapFeedback.filter { $0.rhythmIndex == index },
-                center: center, color: colors[index]
+                center: center, color: colors[index],
+                dotRadius: Self.dotRadius * scale
             )
         }
 
@@ -361,27 +370,31 @@ final class PolyrhythmTrainerView: NSView {
     private func drawCircle(center: CGPoint, rhythm: PolyrhythmRhythmSnapshot,
                             phase: Double, needleFlash: Double,
                             color: NSColor, ink: NSColor,
-                            dark: Bool) {
+                            dark: Bool, scale: CGFloat = 1,
+                            pulse: CGFloat = 0) {
+        let faceRadius = Self.faceRadius * scale
+        let dotRadius = Self.dotRadius * scale
+        let handLength = Self.handLength * scale
         // The panel floats over arbitrary apps. A near-opaque clock face
         // keeps each voice readable without turning the guide into a card.
-        let faceRect = NSRect(x: center.x - Self.faceRadius,
-                              y: center.y - Self.faceRadius,
-                              width: Self.faceRadius * 2,
-                              height: Self.faceRadius * 2)
+        let faceRect = NSRect(x: center.x - faceRadius,
+                              y: center.y - faceRadius,
+                              width: faceRadius * 2,
+                              height: faceRadius * 2)
         let face = NSBezierPath(ovalIn: faceRect)
         Self.faceColor(dark: dark).setFill()
         face.fill()
         // The rim carries the hue too, so a circle is identifiable before any
-        // beat lands on it.
-        color.withAlphaComponent(0.30).setStroke()
+        // beat lands on it — and it blinks bright while its dial is popped.
+        color.withAlphaComponent(0.30 + pulse * 0.55).setStroke()
         face.lineWidth = 1.5
         face.stroke()
 
         for index in 0..<rhythm.count {
             let angle = CGFloat.pi / 2
                 - CGFloat(index) / CGFloat(rhythm.count) * 2 * .pi
-            let point = CGPoint(x: center.x + cos(angle) * Self.dotRadius,
-                                y: center.y + sin(angle) * Self.dotRadius)
+            let point = CGPoint(x: center.x + cos(angle) * dotRadius,
+                                y: center.y + sin(angle) * dotRadius)
             let diameter: CGFloat = index == rhythm.step ? 10 : 6
             let dot = NSBezierPath(ovalIn: NSRect(x: point.x - diameter / 2,
                                                   y: point.y - diameter / 2,
@@ -398,8 +411,8 @@ final class PolyrhythmTrainerView: NSView {
         }
 
         let angle = CGFloat.pi / 2 - CGFloat(phase) * 2 * .pi
-        let tip = CGPoint(x: center.x + cos(angle) * Self.handLength,
-                          y: center.y + sin(angle) * Self.handLength)
+        let tip = CGPoint(x: center.x + cos(angle) * handLength,
+                          y: center.y + sin(angle) * handLength)
         let hand = NSBezierPath()
         hand.move(to: center); hand.line(to: tip)
         let flash = CGFloat(needleFlash)
@@ -428,11 +441,12 @@ final class PolyrhythmTrainerView: NSView {
     /// is the circle lighting up as itself. Only a late one changes color, so
     /// orange/red always means "off the grid" and never "different rhythm".
     private func drawTapFeedback(_ feedback: [PolyrhythmTapFeedback],
-                                 center: CGPoint, color circleColor: NSColor) {
+                                 center: CGPoint, color circleColor: NSColor,
+                                 dotRadius: CGFloat) {
         for tap in feedback {
             let angle = CGFloat.pi / 2 - CGFloat(tap.phase) * 2 * .pi
-            let point = CGPoint(x: center.x + cos(angle) * Self.dotRadius,
-                                y: center.y + sin(angle) * Self.dotRadius)
+            let point = CGPoint(x: center.x + cos(angle) * dotRadius,
+                                y: center.y + sin(angle) * dotRadius)
             let color: NSColor = tap.accuracy >= 0.7
                 ? circleColor : (tap.accuracy >= 0.4 ? .systemOrange : .systemRed)
             let mark = NSBezierPath(ovalIn: NSRect(x: point.x - 6, y: point.y - 6,
@@ -518,8 +532,14 @@ enum PolyrhythmTrainerCLI {
             width: TracktrampMetalView.logicalSize.width,
             height: TracktrampMetalView.logicalSize.height
         ))
-        skin.image = TrackpadDrumSkinPad.image(touches: [], energy: [], membrane: nil,
-                                                appearance: app.appearance)
+        skin.image = TrackpadDrumSkinPad.image(
+            touches: [], energy: [], membrane: nil,
+            appearance: app.appearance,
+            polyrhythmBands: PolyrhythmTrainerView.circleColors(
+                accent: KeyboardIconRenderer.accent,
+                count: counts.count, dark: dark
+            )
+        )
         root.addSubview(skin)
         let trainerSize = PolyrhythmTrainerView.logicalSize(rhythmCount: counts.count)
         let circles = PolyrhythmTrainerView(frame: NSRect(

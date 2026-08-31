@@ -5840,6 +5840,1219 @@
           "#5c2e6b"
         ]
       }
+    },
+    {
+      "id": "79-umbrella",
+      "name": "Umbrella",
+      "seed": 79718,
+      "bpm": 84,
+      "bars": 28,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          4,
+          2
+        ],
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          3,
+          1
+        ],
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3,
+          5,
+          4
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/79-umbrella/79-umbrella.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/79-umbrella/79-umbrella.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/79-umbrella/79-umbrella.mp4",
+      "visual": {
+        "palette": [
+          "#f2f3e8",
+          "#c2c587",
+          "#686b2e"
+        ]
+      }
+    },
+    {
+      "id": "80-kettle",
+      "name": "Kettle",
+      "seed": 80727,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          3,
+          1,
+          0
+        ],
+        [
+          2,
+          4,
+          5,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          6,
+          5
+        ],
+        [
+          6,
+          5,
+          3,
+          4
+        ],
+        [
+          6,
+          5,
+          3,
+          4
+        ],
+        [
+          3,
+          5,
+          3
+        ],
+        [
+          5,
+          3,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/80-kettle/80-kettle.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/80-kettle/80-kettle.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/80-kettle/80-kettle.mp4",
+      "visual": {
+        "palette": [
+          "#e8eff3",
+          "#87afc5",
+          "#2e566b"
+        ]
+      }
+    },
+    {
+      "id": "81-lighthouse",
+      "name": "Lighthouse",
+      "seed": 81736,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1
+        ],
+        [
+          3,
+          5,
+          3,
+          2
+        ],
+        [
+          4,
+          5,
+          4
+        ],
+        [
+          2,
+          3,
+          4,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          1,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/81-lighthouse/81-lighthouse.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/81-lighthouse/81-lighthouse.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/81-lighthouse/81-lighthouse.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ec",
+          "#c5879d",
+          "#6b2e44"
+        ]
+      }
+    },
+    {
+      "id": "82-postcard",
+      "name": "Postcard",
+      "seed": 82745,
+      "bpm": 90,
+      "bars": 30,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          3,
+          5,
+          3
+        ],
+        [
+          5,
+          6,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          2,
+          4
+        ],
+        [
+          5,
+          6,
+          4,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          4,
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/82-postcard/82-postcard.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/82-postcard/82-postcard.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/82-postcard/82-postcard.mp4",
+      "visual": {
+        "palette": [
+          "#e9f3e8",
+          "#8bc587",
+          "#326b2e"
+        ]
+      }
+    },
+    {
+      "id": "83-marble",
+      "name": "Marble",
+      "seed": 83754,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          3,
+          4,
+          6
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          2,
+          4
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          5
+        ],
+        [
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/83-marble/83-marble.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/83-marble/83-marble.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/83-marble/83-marble.mp4",
+      "visual": {
+        "palette": [
+          "#eae8f3",
+          "#9487c5",
+          "#3b2e6b"
+        ]
+      }
+    },
+    {
+      "id": "84-clover",
+      "name": "Clover",
+      "seed": 84763,
+      "bpm": 78,
+      "bars": 26,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          6,
+          5
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          1,
+          3,
+          2,
+          1
+        ],
+        [
+          0,
+          1,
+          0,
+          1
+        ],
+        [
+          2,
+          1,
+          2
+        ],
+        [
+          1,
+          3,
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/84-clover/84-clover.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/84-clover/84-clover.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/84-clover/84-clover.mp4",
+      "visual": {
+        "palette": [
+          "#f3ede8",
+          "#c5a687",
+          "#6b4d2e"
+        ]
+      }
+    },
+    {
+      "id": "85-fountain",
+      "name": "Fountain",
+      "seed": 85772,
+      "bpm": 90,
+      "bars": 30,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          4,
+          6,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          4,
+          2
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          4,
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          4,
+          2
+        ],
+        [
+          1,
+          3,
+          1,
+          3
+        ],
+        [
+          2,
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/85-fountain/85-fountain.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/85-fountain/85-fountain.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/85-fountain/85-fountain.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3f0",
+          "#87c5b9",
+          "#2e6b5f"
+        ]
+      }
+    },
+    {
+      "id": "86-drawer",
+      "name": "Drawer",
+      "seed": 86781,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          5,
+          4,
+          3,
+          1
+        ],
+        [
+          0,
+          2,
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          4,
+          2,
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          3,
+          4,
+          5
+        ],
+        [
+          6,
+          5,
+          4,
+          3
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/86-drawer/86-drawer.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/86-drawer/86-drawer.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/86-drawer/86-drawer.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8f1",
+          "#c587bf",
+          "#6b2e65"
+        ]
+      }
+    },
+    {
+      "id": "87-blanket",
+      "name": "Blanket",
+      "seed": 87790,
+      "bpm": 81,
+      "bars": 27,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          2,
+          3,
+          4,
+          5
+        ],
+        [
+          3,
+          1,
+          0
+        ],
+        [
+          1,
+          2,
+          0,
+          2
+        ],
+        [
+          0,
+          2,
+          4,
+          6
+        ],
+        [
+          4,
+          5,
+          6,
+          4
+        ],
+        [
+          3,
+          2,
+          1,
+          3
+        ],
+        [
+          4,
+          5,
+          4
+        ],
+        [
+          5,
+          6,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/87-blanket/87-blanket.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/87-blanket/87-blanket.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/87-blanket/87-blanket.mp4",
+      "visual": {
+        "palette": [
+          "#eef3e8",
+          "#adc587",
+          "#536b2e"
+        ]
+      }
+    },
+    {
+      "id": "88-compass",
+      "name": "Compass",
+      "seed": 88799,
+      "bpm": 69,
+      "bars": 23,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          6,
+          5,
+          4,
+          5
+        ],
+        [
+          3,
+          5,
+          3,
+          4
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          2,
+          0,
+          1
+        ],
+        [
+          3,
+          2,
+          4
+        ],
+        [
+          2,
+          1,
+          2
+        ],
+        [
+          3,
+          2,
+          1
+        ],
+        [
+          2,
+          0,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/88-compass/88-compass.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/88-compass/88-compass.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/88-compass/88-compass.mp4",
+      "visual": {
+        "palette": [
+          "#e8ebf3",
+          "#879bc5",
+          "#2e426b"
+        ]
+      }
+    },
+    {
+      "id": "89-sailboat",
+      "name": "Sailboat",
+      "seed": 89808,
+      "bpm": 66,
+      "bars": 22,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1
+        ],
+        [
+          3,
+          2,
+          1
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          3,
+          5
+        ],
+        [
+          3,
+          5,
+          6,
+          4
+        ],
+        [
+          2,
+          4,
+          5
+        ],
+        [
+          6,
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/89-sailboat/89-sailboat.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8e8",
+          "#c58788",
+          "#6b2e30"
+        ]
+      }
+    },
+    {
+      "id": "90-thimble",
+      "name": "Thimble",
+      "seed": 90817,
+      "bpm": 90,
+      "bars": 30,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        4,
+        5,
+        3,
+        0,
+        5,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          2,
+          4,
+          5,
+          3
+        ],
+        [
+          2,
+          1,
+          2
+        ],
+        [
+          3,
+          4,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          3,
+          1,
+          0
+        ],
+        [
+          1,
+          2,
+          4,
+          5
+        ],
+        [
+          6,
+          5,
+          3
+        ],
+        [
+          4,
+          5,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/90-thimble/90-thimble.mp4",
+      "visual": {
+        "palette": [
+          "#e8f3eb",
+          "#87c597",
+          "#2e6b3e"
+        ]
+      }
+    },
+    {
+      "id": "91-walnut",
+      "name": "Walnut",
+      "seed": 91826,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          3,
+          5
+        ],
+        [
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          4,
+          6
+        ],
+        [
+          4,
+          5,
+          6
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          4,
+          3,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/91-walnut/91-walnut.mp4",
+      "visual": {
+        "palette": [
+          "#eee8f3",
+          "#a987c5",
+          "#502e6b"
+        ]
+      }
+    },
+    {
+      "id": "92-ivy",
+      "name": "Ivy",
+      "seed": 92835,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          3,
+          2
+        ],
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          3,
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          0,
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.mp4",
+      "visual": {
+        "palette": [
+          "#f3f1e8",
+          "#c5bb87",
+          "#6b622e"
+        ]
+      }
+    },
+    {
+      "id": "93-parlor",
+      "name": "Parlor",
+      "seed": 93844,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "C",
+      "mode": "major",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        0,
+        4,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          3,
+          1,
+          0
+        ],
+        [
+          1,
+          3,
+          4,
+          2
+        ],
+        [
+          4,
+          5,
+          6,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          5,
+          6,
+          5,
+          4
+        ],
+        [
+          3,
+          4,
+          5
+        ],
+        [
+          4,
+          2,
+          1,
+          3
+        ],
+        [
+          2,
+          3,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/93-parlor/93-parlor.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/93-parlor/93-parlor.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/93-parlor/93-parlor.mp4",
+      "visual": {
+        "palette": [
+          "#e8f1f3",
+          "#87bcc5",
+          "#2e636b"
+        ]
+      }
+    },
+    {
+      "id": "94-gramophone",
+      "name": "Gramophone",
+      "seed": 94853,
+      "bpm": 99,
+      "bars": 33,
+      "tonic": "A",
+      "mode": "minor",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        5,
+        3,
+        4,
+        0,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          1,
+          2,
+          3
+        ],
+        [
+          1,
+          2,
+          1
+        ],
+        [
+          3,
+          1,
+          2,
+          1
+        ],
+        [
+          2,
+          3,
+          5,
+          3
+        ],
+        [
+          5,
+          3,
+          4,
+          6
+        ],
+        [
+          5,
+          3,
+          2,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          6,
+          4,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/94-gramophone/94-gramophone.mp4",
+      "visual": {
+        "palette": [
+          "#f3e8ee",
+          "#c587aa",
+          "#6b2e51"
+        ]
+      }
     }
   ]
 }

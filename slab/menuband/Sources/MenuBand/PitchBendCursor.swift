@@ -386,7 +386,8 @@ enum TrackpadDrumSkinPad {
     static func image(touches: [CGPoint],
                       energy: [TrackpadSurfaceEnergy.Charge] = [],
                       membrane: TrackpadMembraneSimulation.Snapshot? = nil,
-                      appearance: NSAppearance? = nil) -> NSImage {
+                      appearance: NSAppearance? = nil,
+                      polyrhythmBands: [NSColor] = []) -> NSImage {
         // 1.64:1, matching the physical trackpad rather than the square FX
         // cursor. Large enough to read the four inset material contours.
         let size = NSSize(width: 140, height: 88)
@@ -399,11 +400,13 @@ enum TrackpadDrumSkinPad {
             if #available(macOS 11.0, *) {
                 appearance.performAsCurrentDrawingAppearance {
                     draw(in: rect, touches: touches, energy: energy,
-                         membrane: membrane, isDark: isDark)
+                         membrane: membrane, isDark: isDark,
+                         polyrhythmBands: polyrhythmBands)
                 }
             } else {
                 draw(in: rect, touches: touches, energy: energy,
-                     membrane: membrane, isDark: isDark)
+                     membrane: membrane, isDark: isDark,
+                     polyrhythmBands: polyrhythmBands)
             }
             return true
         }
@@ -412,7 +415,8 @@ enum TrackpadDrumSkinPad {
     private static func draw(in rect: NSRect, touches: [CGPoint],
                              energy: [TrackpadSurfaceEnergy.Charge],
                              membrane: TrackpadMembraneSimulation.Snapshot?,
-                             isDark: Bool) {
+                             isDark: Bool,
+                             polyrhythmBands: [NSColor] = []) {
         // Match the physical trackpad's wide rounded rectangle instead of
         // depicting the synthesis surface as a circular drum.
         let chart = rect.insetBy(dx: 4, dy: 4)
@@ -514,6 +518,35 @@ enum TrackpadDrumSkinPad {
                               (snareZone, 0.9), (kickZone, 1.3)] {
             zone.lineWidth = width
             zone.stroke()
+        }
+
+        // While the polyrhythm trainer is up, the skin divides into one
+        // vertical lane per circle — the same equal bands the tap router
+        // scores against — so the boundary a finger must respect is drawn
+        // on the instrument instead of implied. Each lane is washed
+        // edge-to-edge in its circle's hue: the whole territory carries the
+        // color code, not just a label strip, and neighboring strips butt
+        // flush at the divider so no sliver of bare skin reads as a third
+        // lane. Straight divider chords across the concentric zones read as
+        // lane rules, not more drum material.
+        if polyrhythmBands.count >= 2 {
+            let laneWidth = chart.width / CGFloat(polyrhythmBands.count)
+            for (index, hue) in polyrhythmBands.enumerated() {
+                let laneMinX = chart.minX + CGFloat(index) * laneWidth
+                hue.withAlphaComponent(isDark ? 0.16 : 0.20).setFill()
+                NSRect(x: laneMinX, y: chart.minY,
+                       width: laneWidth, height: chart.height).fill()
+                hue.withAlphaComponent(0.88).setFill()
+                NSRect(x: laneMinX, y: chart.maxY - 4.6,
+                       width: laneWidth, height: 2.6).fill()
+                guard index > 0 else { continue }
+                let divider = NSBezierPath()
+                divider.move(to: NSPoint(x: laneMinX, y: chart.minY))
+                divider.line(to: NSPoint(x: laneMinX, y: chart.maxY))
+                boundaryColor.setStroke()
+                divider.lineWidth = 1.2
+                divider.stroke()
+            }
         }
         NSGraphicsContext.restoreGraphicsState()
 
@@ -1041,6 +1074,7 @@ final class PitchBendCursorOverlayWindow: NSPanel {
     }
 
     private func applyTracktrampFrame(polyrhythm: PolyrhythmTrainerSnapshot?) {
+        tracktrampView.polyrhythmLaneCount = polyrhythm?.rhythms.count ?? 0
         let size = Self.tracktrampSurfaceSize(polyrhythm: polyrhythm)
         let panelFrame = NSRect(x: anchorScreenPoint.x - size.width / 2,
                                 y: anchorScreenPoint.y - size.height / 2,
@@ -1165,6 +1199,18 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
         var zoneLevels = SIMD4<Float>(repeating: 0)
         var clickLevel: Float = 0
         var _zonePadding = SIMD3<Float>(repeating: 0)
+    }
+
+    /// One lane per polyrhythm circle, baked into the cached skin texture so
+    /// the guides warp with the membrane like tape on a real drum head. Zero
+    /// (the resting state) draws no lanes. An Int rather than colors keeps
+    /// the 60 Hz update path to a cheap comparison; hues resolve at rebuild
+    /// time from the view's own appearance, so mode flips stay correct.
+    var polyrhythmLaneCount = 0 {
+        didSet {
+            guard polyrhythmLaneCount != oldValue else { return }
+            rebuildTextureIfNeeded(force: true)
+        }
     }
 
     private var queue: MTLCommandQueue?
@@ -1316,8 +1362,15 @@ final class TracktrampMetalView: MTKView, MTKViewDelegate {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         guard force || baseTexture == nil || scale != cachedScale else { return }
         cachedScale = scale
+        let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let lanes = polyrhythmLaneCount >= 2
+            ? PolyrhythmTrainerView.circleColors(accent: KeyboardIconRenderer.accent,
+                                                 count: polyrhythmLaneCount,
+                                                 dark: isDark)
+            : []
         let image = TrackpadDrumSkinPad.image(touches: [], energy: [], membrane: nil,
-                                              appearance: effectiveAppearance)
+                                              appearance: effectiveAppearance,
+                                              polyrhythmBands: lanes)
         let pixelWidth = max(1, Int(ceil(Self.logicalSize.width * scale)))
         let pixelHeight = max(1, Int(ceil(Self.logicalSize.height * scale)))
         guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,

@@ -223,6 +223,10 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
         return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
       };
       globalThis.__oskiewarSelfPlay = true;
+      // Survival does not publish match replays. The oven opts into one local
+      // completion envelope so its fixed-step pass knows when to stop; the
+      // fetch rewrite below guarantees that envelope never reaches the store.
+      globalThis.__oskiewarCaptureSurvival = true;
       globalThis.__oskiewarDenseReplay = true;
       globalThis.__oskiewarOfflineAudioEvents = [];
       const realFetch = globalThis.fetch;

@@ -6555,9 +6555,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return TrackpadPercussionPad.image(touches: mtTouches,
                                                 state: trackpadPercussionState)
         } else if trackpadPadMode == .skin && !momentarySurfaceFx {
+            let dark = NSApp.effectiveAppearance
+                .bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             return TrackpadDrumSkinPad.image(
                 touches: mtTouches, energy: energy,
-                membrane: trackpadMembrane.snapshot()
+                membrane: trackpadMembrane.snapshot(),
+                polyrhythmBands: polyrhythmTrainer.isActive
+                    ? PolyrhythmTrainerView.circleColors(
+                        accent: KeyboardIconRenderer.accent,
+                        count: polyrhythmTrainer.pattern.counts.count,
+                        dark: dark)
+                    : []
             )
         } else if trackpadPadMode == .synth && !momentarySurfaceFx {
             return TrackpadSynthPad.image(touches: mtTouches, energy: energy)

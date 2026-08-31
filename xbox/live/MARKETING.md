@@ -82,7 +82,9 @@ as pause. In a browser, use `?time-scale=0.25` or call
 `__oskiewarSetTimeScale(0.25)`. The factory spelling is `--speed 0.25`.
 
 **A reel is one whole match, uncut.** Offline simulation starts on the round's
-first tick and stops on its result card. Nothing inside is cut.
+first tick and stops on its result card. Nothing inside is cut. Its opening
+face-off is 0.65 seconds; live play keeps the three-second portrait intro, but
+the unattended reel reaches moving fighters inside the first swipe second.
 
 > **What "a match" means here.** `oskiewar.js` carries `matchWins = 5`, but
 > nothing accumulates round wins toward it — self-play calls `startSelfPlay`
@@ -139,6 +141,20 @@ sequence, then appends to `ledger.json`.
 The ledger records segment, seed, slot, kind, round, timestamp, media id, and
 later the retrieved insights — which is the whole reason a segment is recorded
 at all. `reel.mjs --report` rolls it up per market.
+
+`node xbox/live/marketing/trim.mjs` reports underperformers without contacting
+Instagram: live reels from the last 30 days, at least 24 hours old, with fewer
+than 500 measured views. Missing insights are protected. After a human has
+confirmed and completed deletion in Instagram's own activity tool, record the
+exact media ids locally:
+
+```sh
+node xbox/live/marketing/trim.mjs --record-deleted 123,456 --confirmed-web-delete
+```
+
+The recorder revalidates every id, annotates each row with `deletedAt` and
+`deletedReason`, and never removes ledger history. It has no Instagram login or
+deletion path.
 
 Remote production starts with `npm run oskiewar:oven -- --day YYYY-MM-DD
 --index 0`. Oven checks out the requested commit, forces bot-only source, and
