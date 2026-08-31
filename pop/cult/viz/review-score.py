@@ -773,7 +773,7 @@ strip_np = np.array(strip)
 del strip, sd
 
 # ---------------------------------------------------------------- chrome
-TITLE = "whistlegraph cult --- remix (v10)" + (
+TITLE = "wannadash" + (
     "  radio cut" if RADIO else
     "  release master" if AUDIO_OVERRIDE and "final" in os.path.basename(MP3)
     else "  club cut")

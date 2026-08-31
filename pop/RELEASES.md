@@ -64,14 +64,31 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   `pop/femrag-plusplus/sec-0..11.jpg`. Announced in chat-clock 2026-08-27.
 - **Genres:** Electronic / Drum & Bass (+ Dance secondary).
 
-## cult remix — MASTERING (whistlegraph remix, v10.1 iterating)
+## wannadash — MASTERING (DistroKid package staged)
 
-- **Lane:** `pop/cult/` · signal-narrative dance · B minor · 120 BPM · 3:28 ·
-  "The Three of Us Are in a Cult" (Whistlegraph 2022) rebuilt as nine acts of
-  morse: words withheld until act VII, dot collage from all nine cult-tagged
-  posts, real CC0 phone gestures, aesthetivoxed everything.
-- **Engine:** `bin/render10.mjs` (Node, receipts) + `c/cultremix.c` (C port,
-  bit-parity, ~4.5x faster). Master: `bin/cut-v10.sh` → `out/cult-remix-v10.mp3`.
+- **Lane:** `pop/cult/` · signal-narrative dance · B minor · 120 BPM · 2:21 ·
+  “The Three of Us Are in a Cult” (Whistlegraph 2022) rebuilt as nine acts of
+  morse. The release edit removes four redundant passages, opens a two-bar
+  A-major solo window, and makes bars 72–75 a vocal dot field before the full
+  ensemble's elastic return. Every edit edge has a 10 ms fade; the former
+  1:15 guitar collision is gone.
+- **Artist credit:** `Whistlegraph Dot Org` primary, with `Aesthetic Dot
+  Computer` as featured artist, mapped to the same existing Spotify, Apple
+  Music, and YouTube Music profiles used for `lonerclub v4pid`.
+- **Engine:** `bin/render10.mjs` (Node + per-event receipt) →
+  `bin/cut-final.sh` (five-part release edit, cathedral space, one static gain,
+  true-peak limiter). Instrument phrases use deterministic level contours;
+  the electric guitar baseline is 25–35% lower and its chord strings and shred
+  accents no longer repeat at one velocity.
+- **Master:** `out/cult-remix-final.flac` · 16-bit/44.1 kHz · **−12.1 LUFS ·
+  −1.2 dBFS peak · LRA 9.0**. DistroKid staging:
+  `~/Documents/Shelf/wannadash-DISTROKID/`.
+- **Cover:** `cover/cover-b-signal.jpg` — @jeffrey's selected second image,
+  a 3000×3000 square from the real UV-night Whistlegraph footage: three
+  multicolor chalk signals surrounding the black void.
+- **Review video:** `out/cult-remix-RELEASE-critique-2560x1920.mp4` · 2.5K
+  tall timeline with 15 instrument/audio lanes, performer lyric tracks,
+  global minimap, and the scored elastic impacts.
 
 ## season remix — RENDER (whistlegraph remix, v1)
 

@@ -30,6 +30,13 @@
 //   {
 //     "title": "marimbaba",
 //     "artist": "Aesthetic Dot Computer",
+//     "featuredArtists": [{
+//       "name": "Guest Artist",
+//       "role": "Featured artist",
+//       "spotifyUri": "spotify:artist:...",
+//       "appleMusicUrl": "https://music.apple.com/artist/...",
+//       "youtubeMusicUrl": "https://music.youtube.com/channel/..."
+//     }],
 //     "albumTitle": "marimbaba",
 //     "label": "Aesthetic Dot Computer",
 //     "primaryGenre": "Children's Music",
@@ -81,6 +88,9 @@ if (!existsSync(relPath)) {
   process.exit(1);
 }
 const rel = JSON.parse(readFileSync(relPath, "utf8"));
+const featuredArtists = rel.featuredArtists || (rel.featuredArtist
+  ? [{ name: rel.featuredArtist, role: "Featured artist" }]
+  : []);
 
 const REQUIRED = ["title", "artist", "primaryGenre", "audioFile", "coverFile"];
 const missing = REQUIRED.filter((k) => !rel[k]);
@@ -98,6 +108,7 @@ console.log(`▸ DistroKid submit · ${rel.title} — ${rel.artist}`);
 console.log(`  album      ${rel.albumTitle || rel.title}`);
 console.log(`  genre      ${rel.primaryGenre}${rel.secondaryGenre ? ` / ${rel.secondaryGenre}` : ""}`);
 console.log(`  songwriter ${(rel.songwriters || []).join(", ") || "(none set)"}`);
+console.log(`  featuring  ${featuredArtists.map((a) => `${a.name} [${a.role || "Featured artist"}]`).join(", ") || "(none)"}`);
 console.log(`  flags      instrumental=${!!rel.instrumental} explicit=${!!rel.explicit}`);
 console.log(`  release    ${rel.releaseDate || "asap"}`);
 console.log(`  audio      ${rel.audioFile}`);
@@ -214,6 +225,30 @@ await step("song title", async () => {
   await page.getByLabel(/song title|title of (your )?song/i).first().fill(rel.title);
 });
 
+for (const [i, artist] of featuredArtists.entries()) {
+  await step(`featured artist ${artist.name}`, async () => {
+    if (i === 0) {
+      await page.getByLabel(/yes.*add featured artists? to (song|track) title/i)
+        .first().check({ timeout: 8000 }).catch(async () => {
+          await page.getByText(/yes.*add featured artists? to (song|track) title/i)
+            .first().click({ timeout: 8000 });
+        });
+    } else {
+      await page.getByRole("button", { name: /add another featured artist/i }).click();
+    }
+    const roles = page.getByLabel(/artist role|featured artist.*role/i);
+    if (await roles.count())
+      await roles.last().selectOption({ label: artist.role || "Featured artist" });
+    const names = page.getByLabel(/featured artist.*name|additional artist.*name/i);
+    if (await names.count()) await names.last().fill(artist.name);
+    else {
+      const track = page.getByText(/add featured artist to (song|track) title/i)
+        .first().locator("xpath=following::*[self::input or self::textarea][1]");
+      await track.fill(artist.name);
+    }
+  });
+}
+
 await step("songwriter real name(s)", async () => {
   const names = rel.songwriters || [];
   for (let i = 0; i < names.length; i++) {
@@ -258,6 +293,25 @@ await step("release date", async () => {
 });
 
 // stores are all-checked by DistroKid by default — left as-is on purpose.
+
+for (const artist of featuredArtists) {
+  if (!artist.spotifyUri && !artist.appleMusicUrl && !artist.youtubeMusicUrl) continue;
+  await step(`artist mapping for ${artist.name}`, async () => {
+    await page.getByLabel(new RegExp(`yes.*${artist.name}.*already has artist profiles`, "i"))
+      .first().check().catch(async () => {
+        await page.getByText(new RegExp(`yes.*${artist.name}.*already has artist profiles`, "i"))
+          .first().click();
+      });
+    const fillLast = async (re, value) => {
+      if (!value) return;
+      const fields = page.getByLabel(re);
+      await fields.last().fill(value);
+    };
+    await fillLast(/spotify.*(artist )?(uri|url)/i, artist.spotifyUri);
+    await fillLast(/apple music.*artist.*(url|link)/i, artist.appleMusicUrl);
+    await fillLast(/youtube music.*artist.*(url|link)/i, artist.youtubeMusicUrl);
+  });
+}
 
 // ── stop at review ───────────────────────────────────────────────────
 console.log("");

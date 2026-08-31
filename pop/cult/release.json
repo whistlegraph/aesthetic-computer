@@ -1,0 +1,28 @@
+{
+  "title": "wannadash",
+  "artist": "Whistlegraph Dot Org",
+  "featuredArtists": [
+    {
+      "name": "Aesthetic Dot Computer",
+      "role": "Featured artist",
+      "spotifyUri": "spotify:artist:7hqUS0ZErVZ3JzdeBEEgDr",
+      "appleMusicUrl": "https://music.apple.com/artist/aesthetic-dot-computer/6770592645",
+      "youtubeMusicUrl": "https://music.youtube.com/channel/UCBFyg4JF3tnW-kVoO1GU1yA"
+    }
+  ],
+  "albumTitle": "wannadash",
+  "label": "Aesthetic Dot Computer",
+  "primaryGenre": "Electronic",
+  "secondaryGenre": "Pop",
+  "songwriters": [
+    "Camille Klein",
+    "Jeffrey Scudder"
+  ],
+  "instrumental": false,
+  "explicit": false,
+  "year": 2026,
+  "previouslyReleased": false,
+  "releaseDate": "asap",
+  "audioFile": "wannadash-MASTER.flac",
+  "coverFile": "wannadash-cover.jpg"
+}
