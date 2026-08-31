@@ -354,7 +354,16 @@ if (flags.novoicemaster) {
     "speechnorm=e=6.25:r=0.0003:l=1",     // even line-to-line loudness
     "acompressor=threshold=-18dB:ratio=3:attack=6:release=180:makeup=1.5",
   ].join(",");
-  execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-af", vmaster, "-ac", "2", "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
+  try {
+    execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-af", vmaster, "-ac", "2", "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
+  } catch {
+    // adynamicequalizer's mode grammar shifts across ffmpeg majors (6.x
+    // rejects mode=cutabove); a static gentle de-harsh keeps the chain
+    // portable on appliance hosts.
+    console.log("  (portable voice chain — dynamic de-harsh → static EQ)");
+    const vportable = vmaster.replace(/adynamicequalizer=[^,]*/, "equalizer=f=6500:t=q:w=2.0:g=-2.5");
+    execFileSync("ffmpeg", ["-y", "-i", voiceRaw, "-af", vportable, "-ac", "2", "-c:a", "pcm_s16le", voiceWav], { stdio: "ignore" });
+  }
 }
 
 // 5b. Score a bed under the whole reading, sidechain-ducked by the voice so
