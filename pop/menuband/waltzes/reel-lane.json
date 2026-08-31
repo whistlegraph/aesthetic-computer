@@ -6821,6 +6821,80 @@
           "#502e6b"
         ]
       }
+    },
+    {
+      "id": "92-ivy",
+      "name": "Ivy",
+      "seed": 92835,
+      "bpm": 87,
+      "bars": 29,
+      "tonic": "D",
+      "mode": "dorian",
+      "singleOctave": true,
+      "instrumentProgram": 78,
+      "instrumentName": "Whistle",
+      "development": "mirror",
+      "harmonyDegrees": [
+        0,
+        3,
+        4,
+        0,
+        5,
+        3,
+        4,
+        0
+      ],
+      "melodyBars": [
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          3,
+          2
+        ],
+        [
+          0,
+          1,
+          3
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          3,
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          0,
+          2,
+          0
+        ]
+      ],
+      "notesPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.notes.json",
+      "audioPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.wav",
+      "outPath": "pop/menuband/out/menu-band-waltzes/92-ivy/92-ivy.mp4",
+      "visual": {
+        "palette": [
+          "#f3f1e8",
+          "#c5bb87",
+          "#6b622e"
+        ]
+      }
     }
   ]
 }
