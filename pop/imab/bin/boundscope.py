@@ -24,15 +24,34 @@ PXS = 260.0                     # px per ORIGINAL second — fine enough to read
 NEEDLE = 640
 SYNC_MS = 50.0
 
+import json
 y, sr = librosa.load(STEM, sr=22050, mono=True)
 hop = 128
 rms = librosa.feature.rms(y=y, frame_length=1024, hop_length=hop)[0]
 tt = librosa.times_like(rms, sr=sr, hop_length=hop)
-f0, v, vp = librosa.pyin(y, sr=sr, fmin=80, fmax=700, frame_length=1024, hop_length=hop)
-voiced = v & (vp > 0.2) & np.isfinite(f0)
-midi = np.where(voiced, 69 + 12 * np.log2(np.where(voiced, f0, 1) / 440.0), np.nan)
 DUR = float(len(y)) / sr
-NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+# mel spectrogram, pre-rendered at ruler resolution — words are readable:
+# vowels = bright bands, sibilants = top splash, gaps = boundaries
+S = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=110, hop_length=hop, fmax=6000)
+Sdb = librosa.power_to_db(S, ref=np.max)
+Sn = np.clip((Sdb + 62) / 62, 0, 1)
+SPEC_H = 380
+spec_w = int(DUR * PXS)
+cols = np.linspace(0, Sn.shape[1] - 1, spec_w).astype(int)
+strip = Sn[::-1, cols]                                  # low freq at bottom
+rows = np.linspace(0, strip.shape[0] - 1, SPEC_H).astype(int)
+strip = strip[rows]
+ink = np.array([26, 26, 34]); paper = np.array([255, 253, 246]); hot = np.array([188, 30, 104])
+rgb = (paper[None, None] * (1 - strip[..., None]) +
+       (ink[None, None] * (1 - strip[..., None] * 0.35) + hot[None, None] * (strip[..., None] * 0.35)) * strip[..., None])
+SPEC_IMG = Image.fromarray(rgb.astype(np.uint8), "RGB")
+# current boundary guesses, to be corrected by ear
+BOUNDS = []
+bp = f"{WORK}/bounds-{TAKE}.json"
+if os.path.exists(bp):
+    for w in json.load(open(bp))["words"]:
+        for sy in w.get("sylls", [{"label": w["text"], "fromMs": w["fromMs"], "toMs": w["toMs"]}]):
+            BOUNDS.append((sy["label"], sy["fromMs"] / 1000, sy["toMs"] / 1000))
 
 slow_wav = f"{WORK}/boundscope-audio.wav"
 subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", STEM,
@@ -42,8 +61,8 @@ BG, INK, PINK, BLUE = (255, 253, 246), (26, 26, 34), (188, 30, 104), (72, 100, 1
 F = lambda s: ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", s)
 f_num, f_small, f_title = F(44), F(26), F(38)
 FRAMES = int(math.ceil(DUR / SLOW * FPS))
-PITCH_Y0, PITCH_Y1, LO, HI = 140, 560, 45, 75
-WAVE_Y0, WAVE_Y1 = 600, 940
+SPEC_Y0 = 190
+WAVE_Y0, WAVE_Y1 = 620, 940
 
 proc = subprocess.Popen(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
@@ -69,17 +88,17 @@ for i in range(FRAMES):
             d.text((x + 5, 58), f"{int(ts)}", font=f_num, fill=INK)
         elif k % 5 == 0:
             d.text((x + 3, 88), f"{ts:.1f}"[-2:], font=f_small, fill=(*INK, 130))
-    # pitch trace
-    for m in range(LO, HI + 1, 12):
-        yy = PITCH_Y1 - (m - LO) / (HI - LO) * (PITCH_Y1 - PITCH_Y0)
-        d.line([0, yy, W, yy], fill=(*INK, 40))
-        d.text((6, yy - 26), NAMES[m % 12] + str(m // 12 - 1), font=f_small, fill=(*INK, 140))
-    i0 = np.searchsorted(tt, max(0, t_lo)); i1 = np.searchsorted(tt, min(DUR, t_hi))
-    for j in range(i0, i1):
-        if not voiced[j]: continue
-        x = x_of(tt[j])
-        yy = PITCH_Y1 - (midi[j] - LO) / (HI - LO) * (PITCH_Y1 - PITCH_Y0)
-        d.rectangle([x, yy - 3, x + 2, yy + 3], fill=(*PINK, 235))
+    # spectrogram window, same time axis as the ruler
+    sx0 = int(max(0, t_lo) * PXS); sx1 = int(min(DUR, t_hi) * PXS)
+    if sx1 > sx0:
+        crop = SPEC_IMG.crop((sx0, 0, sx1, SPEC_H))
+        img.paste(crop, (x_of(sx0 / PXS), SPEC_Y0))
+    # boundary guesses: brackets + labels riding the spectrogram
+    for (lab, b0, b1) in BOUNDS:
+        if b1 < t_lo or b0 > t_hi: continue
+        xa, xb = x_of(b0), x_of(b1)
+        d.line([xa, SPEC_Y0 - 14, xa, SPEC_Y0 + SPEC_H + 14], fill=(*BLUE, 200), width=2)
+        d.text((xa + 4, SPEC_Y0 - 44), lab, font=f_small, fill=(*BLUE, 255))
     # energy waveform along time
     pk = np.percentile(rms, 97)
     for px_ in range(0, W, 2):
