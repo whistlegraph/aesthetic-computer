@@ -83,9 +83,9 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Master:** `out/cult-remix-final.flac` · 16-bit/44.1 kHz · **−12.1 LUFS ·
   −1.2 dBFS peak · LRA 9.0**. DistroKid staging:
   `~/Documents/Shelf/wannadash-DISTROKID/`.
-- **Cover:** `cover/cover-b-signal.jpg` — @jeffrey's selected second image,
-  a 3000×3000 square from the real UV-night Whistlegraph footage: three
-  multicolor chalk signals surrounding the black void.
+- **Cover:** `cover/wannadash-cover-gpt-image-2-field.jpg` — the selected
+  `gpt-image-2` spatial dot-field variation of the real UV-night Whistlegraph
+  footage, prepared as a 3000×3000 sRGB DistroKid master.
 - **Review video:** `out/cult-remix-RELEASE-critique-2560x1920.mp4` · 2.5K
   tall timeline with 15 instrument/audio lanes, performer lyric tracks,
   global minimap, and the scored elastic impacts.
