@@ -3,6 +3,7 @@
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
+#include "render/ac_surface.hpp"
 
 using Microsoft::WRL::ComPtr;
 using namespace Platform;
@@ -287,6 +288,43 @@ static void Check(HRESULT hr) {
   if (FAILED(hr)) throw Exception::CreateException(hr);
 }
 
+// The WinRT half of the render seam. A native class cannot hold a ref type, so
+// the CoreWindow arrives as the IUnknown the swap-chain call wants anyway.
+class CoreWindowSurface final : public ac::xbox::render::SurfaceHost {
+ public:
+  explicit CoreWindowSurface(IUnknown* window) : window_(window) {}
+
+  void preferred_size(unsigned& width, unsigned& height) override {
+    try {
+      const auto hdmi = HdmiDisplayInformation::GetForCurrentView();
+      const auto mode = hdmi ? hdmi->GetCurrentDisplayMode() : nullptr;
+      if (mode) {
+        width = (std::min)(3840u, mode->ResolutionWidthInRawPixels);
+        height = (std::min)(2160u, mode->ResolutionHeightInRawPixels);
+      }
+      const auto display = DisplayInformation::GetForCurrentView();
+      const auto rawWidth = display->ScreenWidthInRawPixels;
+      const auto rawHeight = display->ScreenHeightInRawPixels;
+      if (width <= 1920 && rawWidth >= 1920 && rawHeight >= 1080) {
+        width = (std::min)(3840u, rawWidth);
+        height = (std::min)(2160u, rawHeight);
+      }
+    } catch (...) {
+      // Early Xbox activation can withhold display information. The caller's
+      // seeded values stand rather than DXGI's 8x8 placeholder.
+    }
+  }
+
+  HRESULT create_swap_chain(IDXGIFactory2* factory, ID3D11Device* device,
+                            const DXGI_SWAP_CHAIN_DESC1& desc,
+                            IDXGISwapChain1** out) override {
+    return factory->CreateSwapChainForCoreWindow(device, window_, &desc, nullptr, out);
+  }
+
+ private:
+  IUnknown* window_;
+};
+
 ref class App sealed : public IFrameworkView {
 public:
   virtual void Initialize(CoreApplicationView^ view) {
@@ -544,6 +582,8 @@ private:
   }
 
   void CreateGraphics() {
+    if (!m_surface)
+      m_surface = std::make_unique<CoreWindowSurface>(reinterpret_cast<IUnknown*>(m_window));
     UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #if defined(_DEBUG)
     flags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -576,24 +616,7 @@ private:
     // hiding the mistake while every useful drawing coordinate gets clipped.
     unsigned requestedWidth = 1920;
     unsigned requestedHeight = 1080;
-    try {
-      const auto hdmi = HdmiDisplayInformation::GetForCurrentView();
-      const auto mode = hdmi ? hdmi->GetCurrentDisplayMode() : nullptr;
-      if (mode) {
-        requestedWidth = (std::min)(3840u, mode->ResolutionWidthInRawPixels);
-        requestedHeight = (std::min)(2160u, mode->ResolutionHeightInRawPixels);
-      }
-      const auto display = DisplayInformation::GetForCurrentView();
-      const auto rawWidth = display->ScreenWidthInRawPixels;
-      const auto rawHeight = display->ScreenHeightInRawPixels;
-      if (requestedWidth <= 1920 && rawWidth >= 1920 && rawHeight >= 1080) {
-        requestedWidth = (std::min)(3840u, rawWidth);
-        requestedHeight = (std::min)(2160u, rawHeight);
-      }
-    } catch (...) {
-      // Early Xbox activation can withhold display information. Keep the
-      // explicit 1080p fallback instead of accepting DXGI's 8x8 placeholder.
-    }
+    m_surface->preferred_size(requestedWidth, requestedHeight);
     desc.Width = requestedWidth;
     desc.Height = requestedHeight;
     desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -603,8 +626,7 @@ private:
     desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     desc.Scaling = DXGI_SCALING_STRETCH;
     desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-    Check(factory->CreateSwapChainForCoreWindow(
-      m_device.Get(), reinterpret_cast<IUnknown*>(m_window), &desc, nullptr, &m_swapChain));
+    Check(m_surface->create_swap_chain(factory.Get(), m_device.Get(), desc, &m_swapChain));
     Check(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffer)));
     D3D11_TEXTURE2D_DESC backBufferDesc{};
     m_backBuffer->GetDesc(&backBufferDesc);
@@ -2556,6 +2578,7 @@ private:
   }
 
   CoreWindow^ m_window = nullptr;
+  std::unique_ptr<ac::xbox::render::SurfaceHost> m_surface;
   bool m_closed = false;
   bool m_needsIdleFrame = false;
   unsigned m_previousButtons = 0;
