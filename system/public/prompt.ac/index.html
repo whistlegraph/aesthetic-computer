@@ -130,6 +130,17 @@
     white-space: pre; color: var(--dim); opacity: .55;
   }
   #ghost .pad { color: transparent; }
+  /* ── KidLisp on the line — the runtime's syntax palette, DOM'd: typed
+     source renders through a colored underlay while the input's own text
+     goes clear (the block caret stays). ── */
+  #lisp {
+    position: absolute; top: 0; left: 0; pointer-events: none;
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    white-space: pre;
+  }
+  body.kidlisp #cmd { color: transparent; }
+  body.kidlisp #cmd::selection { color: transparent; }
+  .corner span[style] { text-shadow: 1px 1px 0 rgba(0, 0, 0, .75); }
   #results {
     position: absolute; left: 0; right: 0;
     top: calc(1.3 * clamp(20px, 2.6vw, 30px));
@@ -234,6 +245,7 @@
     <div class="flair"></div>
     <div class="line">
       <span id="ghost" aria-hidden="true"></span>
+      <span id="lisp" aria-hidden="true"></span>
       <input id="cmd" aria-label="Aesthetic Computer prompt"
              autocomplete="off" autocapitalize="off" autocorrect="off"
              spellcheck="false" enterkeyhint="go" />
@@ -266,7 +278,7 @@ const { ACFrame } = await import(`${runtimeOrigin}/html/lib/moat.mjs`);
 
 const $ = (id) => document.getElementById(id);
 const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure");
-const $ghost = $("ghost"), $results = $("results");
+const $ghost = $("ghost"), $results = $("results"), $lisp = $("lisp");
 const $screen = $("screen"), $corner = $("corner"), $cornerName = $("cornerName");
 const $auth = $("auth"), $login = $("login"), $signup = $("signup"), $profile = $("profile");
 const $reply = $("reply"), $replyText = $("replyText"), $notice = $("notice");
@@ -403,10 +415,14 @@ function setMode(piece) {
   document.title = onPiece ? piece + " · prompt.ac" : "prompt.ac";
   $screen.classList.remove("overlay");
   if (onPiece) { clearReply(); $notice.hidden = true; }
-  $cornerName.textContent = piece;
+  // KidLisp pieces wear their syntax colors on the label, like the raster HUD.
+  if (isKidlisp(piece)) $cornerName.replaceChildren(lispSpans(piece));
+  else $cornerName.textContent = piece;
+  // URLs keep AC's canonical kidlisp encoding: underscores for spaces.
+  const urlPiece = piece.replaceAll(" ", "_");
   const target = onPiece
-    ? (nestedMount ? location.pathname + location.search + "#" + piece
-                   : "/" + piece + location.search)
+    ? (nestedMount ? location.pathname + location.search + "#" + urlPiece
+                   : "/" + urlPiece + location.search)
     : (nestedMount ? location.pathname + location.search : "/" + location.search);
   if (location.pathname + location.search + location.hash !== target) {
     history.replaceState(null, "", target);
@@ -442,10 +458,26 @@ frame.onBridgeReady(() => {
 // A `prompt~…~!autorun` load is the prompt mid-execution — treat it as the
 // prompt visually, but only a bare `prompt` accepts dom-input submits.
 frame.onPiece((slug) => {
-  const name = slug || "prompt";
+  let name = (slug || "prompt").split("?")[0]; // reports can carry params
+  // Reported kidlisp slugs arrive underscore-encoded; the display form is
+  // the spaced source, exactly what the raster HUD shows. setMode re-encodes
+  // the underscores when it writes the URL.
+  if (isKidlisp(name)) name = name.replaceAll("_", " ");
   const atPrompt = name === "prompt" || name.startsWith("prompt~");
-  promptLive = name === "prompt";
+  let payload = atPrompt && name !== "prompt"
+    ? decodeURIComponent(name.slice("prompt~".length)).replaceAll("~", " ")
+    : "";
+  if (isKidlisp(payload)) payload = payload.replaceAll("_", " ");
+  const autorun = payload.includes("!autorun");
+  // A prompt~text report without !autorun is a prefill: the runtime's
+  // Backspace-from-a-piece shortcut lands here with the old slug typed and
+  // its prompt interactive, so the DOM line mirrors both.
+  promptLive = name === "prompt" || (atPrompt && !autorun);
   setMode(atPrompt ? "prompt" : name);
+  if (payload && !autorun) {
+    activate({ silent: true });
+    setTyped(payload);
+  }
   if (promptLive && pendingSubmit) {
     const queued = pendingSubmit;
     pendingSubmit = null;
@@ -550,6 +582,7 @@ function syncCaret() {
   void $caret.offsetWidth; // restart the blink at full opacity on movement
   $caret.style.animation = "";
   document.body.classList.toggle("typing", $cmd.value.length > 0);
+  renderLisp(); // keep the colored underlay glued to the input's scroll
 }
 for (const ev of ["input", "click", "keyup", "focus"]) $cmd.addEventListener(ev, syncCaret);
 $cmd.addEventListener("input", () => {
@@ -611,6 +644,15 @@ window.addEventListener("keydown", (e) => {
   // it (a submit's Enter still bubbles here with focus already gone).
   if (e.target === $cmd || document.activeElement === $cmd) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // Backspace over a piece is the classic eat-the-slug shortcut: the prompt
+  // rises with the piece name typed, ready to chew backwards.
+  if (currentPiece !== "prompt" && e.key === "Backspace") {
+    e.preventDefault();
+    $screen.classList.add("overlay");
+    activate();
+    setTyped(currentPiece);
+    return;
+  }
   const printable = e.key.length === 1;
   if (e.key === "/" || printable || e.key === "Enter" || e.key === "ArrowUp") {
     e.preventDefault();
@@ -806,7 +848,8 @@ function refreshCompletions() {
   completions = [];
   completionAt = 0;
   completionNavigated = false;
-  if (active && typed && !/[ :~]/.test(typed)) {
+  // KidLisp source gets colors, not completions (the raster hides them too).
+  if (active && typed && !/[ :~]/.test(typed) && !isKidlisp(typed)) {
     const t = typed.toLowerCase();
     for (const name of Object.keys(commandDocs)) {
       if (name.startsWith(t)) completions.push({ name, desc: commandDocs[name].desc });
@@ -880,6 +923,110 @@ function navigateCompletions(dir) {
   completionAt = (completionAt + dir + completions.length) % completions.length;
   completionNavigated = true;
   renderCompletions();
+}
+
+// ── KidLisp coloring — a static port of the runtime's palette
+// (getNormalTokenColor / getFunctionColor / getParenthesesColor in
+// lib/kidlisp.mjs). Execution-state colors (timing blinks, $code loading)
+// stay the runtime's business; the line and label get the resting palette.
+const LISP_PARENS = ["rgb(192,192,192)", "gold", "orange", "hotpink", "blueviolet", "deepskyblue", "limegreen"];
+const LISP_MATH = ["+", "-", "*", "/", "%", "mod", "=", ">", "<", ">=", "<=", "abs", "sqrt", "min", "max"];
+const LISP_SPECIAL = ["def", "if", "cond", "later", "once", "lambda", "let", "do"];
+const LISP_KNOWN = ["wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed", "print", "debug", "random", "sin", "cos", "tan", "floor", "ceil", "round", "noise", "choose", "?", "...", "..", "overtone", "mic", "amplitude", "melody", "speaker", "resolution", "lines", "wiggle", "shape", "scroll", "flip", "spin", "resetSpin", "smoothspin", "sort", "zoom", "blur", "contrast", "pan", "unpan", "mask", "unmask", "steal", "putback", "label", "len", "now", "die", "tap", "draw", "not", "range", "mul", "log", "no", "yes", "fade", "jump"];
+const RAINBOW = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"];
+
+function isKidlisp(text) {
+  const t = (text || "").trim();
+  if (!t) return false;
+  if (t.startsWith("(") || t.startsWith(";")) return true;
+  if (/^\$[0-9A-Za-z]{4,12}$/.test(t) && (/\d/.test(t) || (/[a-z]/.test(t) && /[A-Z]/.test(t)))) return true;
+  return t.includes(",") || t.includes("\n");
+}
+
+function lispSpans(source) {
+  // Tokenize preserving whitespace runs, then color with the raster's rules.
+  const toks = [];
+  let i = 0;
+  while (i < source.length) {
+    const ch = source[i];
+    let j;
+    if (ch === ";") {
+      j = source.indexOf("\n", i); if (j === -1) j = source.length;
+      toks.push({ t: source.slice(i, j) });
+    } else if (ch === '"') {
+      j = i + 1; while (j < source.length && source[j] !== '"') j++;
+      toks.push({ t: source.slice(i, Math.min(j + 1, source.length)) }); j = Math.min(j + 1, source.length);
+    } else if (ch === "(" || ch === ")" || ch === ",") {
+      j = i + 1; toks.push({ t: ch });
+    } else if (/\s/.test(ch)) {
+      j = i; while (j < source.length && /\s/.test(source[j])) j++;
+      toks.push({ t: source.slice(i, j), ws: true });
+    } else {
+      j = i; while (j < source.length && !/[\s(),;"]/.test(source[j])) j++;
+      toks.push({ t: source.slice(i, j) });
+    }
+    i = j;
+  }
+  const words = toks.filter((k) => !k.ws);
+  const isNum = (t) => /^-?\d+(\.\d+)?$/.test(t);
+  const frag = document.createDocumentFragment();
+  const span = (text, color) => {
+    const s = document.createElement("span");
+    if (color) s.style.color = color;
+    s.textContent = text;
+    frag.append(s);
+  };
+  let depth = 0;
+  toks.forEach((k) => {
+    const t = k.t;
+    if (k.ws) return span(t);
+    const w = words.indexOf(k); // index among meaningful tokens
+    const prev = words[w - 1]?.t, next = words[w + 1]?.t, next2 = words[w + 2]?.t;
+    if (t === "(") { span(t, LISP_PARENS[depth % LISP_PARENS.length]); depth++; return; }
+    if (t === ")") { depth = Math.max(0, depth - 1); return span(t, LISP_PARENS[depth % LISP_PARENS.length]); }
+    if (t === ",") return span(t, LISP_PARENS[depth % LISP_PARENS.length]);
+    if (t.startsWith(";")) return span(t, "gray");
+    if (t.startsWith('"')) return span(t, "yellow");
+    if (/^[$][0-9A-Za-z]+$/.test(t)) { span("$", "limegreen"); return span(t.slice(1), "lime"); }
+    if (/^[#][0-9A-Za-z]{1,8}$/.test(t) && t.length > 1) { span("#", "magenta"); return span(t.slice(1), "orange"); }
+    if (/^[!][0-9A-Za-z]+$/.test(t) && t.length > 1) { span("!", "cyan"); return span(t.slice(1), "teal"); }
+    if (isNum(t)) {
+      // RGB triplets glow their own channels, everything else is pink.
+      const v = Math.max(0, Math.min(255, parseFloat(t)));
+      if (isNum(next) && isNum(next2)) return span(t, `rgb(${v},0,0)`);
+      if (isNum(prev) && isNum(next)) return span(t, `rgb(0,${v},0)`);
+      if (isNum(prev) && isNum(words[w - 2]?.t)) return span(t, `rgb(0,${Math.round(v * 0.75)},${v})`);
+      return span(t, "pink");
+    }
+    if (/^\d*\.?\d+[sf]!?(\.\.\.?)?$/.test(t)) return span(t, "yellow");
+    if (t === "rainbow" || t === "p0") { [...t].forEach((c, ci) => span(c, RAINBOW[ci % RAINBOW.length])); return; }
+    if (t === "zebra" || t === "p1") { [...t].forEach((c, ci) => span(c, ci % 2 ? "gray" : "white")); return; }
+    if (t === "fade" || t.startsWith("fade:")) return span(t, "mediumseagreen");
+    if (CSS.supports("color", t)) return span(t, t);
+    if (prev === "(") { // function position
+      if (LISP_MATH.includes(t)) return span(t, "lime");
+      if (LISP_SPECIAL.includes(t)) return span(t, "purple");
+      if (t === "repeat") return span(t, "magenta");
+      return span(t, "cyan");
+    }
+    if (LISP_MATH.includes(t)) return span(t, "lime");
+    if (t === "repeat") return span(t, "magenta");
+    if (LISP_SPECIAL.includes(t)) return span(t, "purple");
+    if (LISP_KNOWN.includes(t)) return span(t, "cyan");
+    return span(t, "orange");
+  });
+  return frag;
+}
+
+function renderLisp() {
+  const typed = $cmd.value;
+  const lisp = active && isKidlisp(typed);
+  document.body.classList.toggle("kidlisp", lisp);
+  $lisp.replaceChildren();
+  if (lisp) {
+    $lisp.append(lispSpans(typed));
+    $lisp.style.transform = `translateX(${-$cmd.scrollLeft}px)`;
+  }
 }
 
 function whistlegraphFromInput(input) {
