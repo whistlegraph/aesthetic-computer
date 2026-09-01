@@ -1,0 +1,11 @@
+# actv-watchdog.timer — run the AC station health check every 5 minutes.
+[Unit]
+Description=Aesthetic Computer TV watchdog schedule
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -45,7 +45,10 @@ cleanup() {
   [ -n "${CHROME_PID:-}" ] && kill "$CHROME_PID" 2>/dev/null || true
   [ -n "${XVFB_PID:-}" ] && kill "$XVFB_PID" 2>/dev/null || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# A bare signal trap would swallow TERM during startup and keep booting a
+# unit systemd is trying to stop — exit explicitly so the EXIT trap tears down.
+trap 'exit 143' INT TERM
 
 # ── virtual speaker ──────────────────────────────────────────────────
 pulseaudio --check 2>/dev/null || pulseaudio --start --exit-idle-time=-1
@@ -78,7 +81,9 @@ sleep 15
 log "chrome watching $URL"
 
 if [ "$UNMUTE_CLICK" = "1" ]; then
-  DISPLAY="$DISPLAY_NUM" xdotool mousemove "$((W / 2))" "$((H / 2))" click 1
+  # Default tap lands center; stations whose center is interactive (laklok
+  # opens a message dialog) aim CLICK_X/CLICK_Y somewhere inert instead.
+  DISPLAY="$DISPLAY_NUM" xdotool mousemove "${CLICK_X:-$((W / 2))}" "${CLICK_Y:-$((H / 2))}" click 1
   sleep 1
   # Park the cursor in the corner so it doesn't sit on the picture.
   DISPLAY="$DISPLAY_NUM" xdotool mousemove "$((W - 1))" "$((H - 1))"

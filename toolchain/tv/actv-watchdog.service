@@ -1,0 +1,11 @@
+# actv-watchdog.service — health check for the AC station (fired by timer).
+# AUDIO_CHECK=0: a chat room is legitimately silent; only picture + process
+# vitals apply.
+[Unit]
+Description=Aesthetic Computer TV watchdog check
+
+[Service]
+Type=oneshot
+Environment=DISPLAY_NUM=:98 SINK=acsink UNIT=actv AUDIO_CHECK=0
+Environment=PROFILE_DIR=%h/.ac-rig-chrome
+ExecStart=/bin/sh %h/actv/watchdog.sh

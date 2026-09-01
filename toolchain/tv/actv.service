@@ -1,0 +1,15 @@
+# actv.service — Aesthetic Computer TV station (laer-klokken chat, live).
+# Second station on the same rig host: own display (:98), own sink, own
+# Chrome profile — see actv.env. Install like wgtv.service.
+[Unit]
+Description=Aesthetic Computer TV → YouTube RTMP rig
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/bin/sh %h/actv/rig.sh %h/actv/actv.env
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
