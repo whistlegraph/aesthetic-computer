@@ -112,6 +112,22 @@ where noted; do step 1–3 early because the calendar starts there.
    Note what this does *not* block: the shell, the store assets, the copy, and
    the depot scripts all proceed underneath it. Only distribution and payment
    wait on KYC.
+
+   *Fee paid 2026-09-01, so the 30-day clock runs from there — earliest release
+   is on or after 2026-10-01.* Bank details are in and validated by WorldPay,
+   the account holder matching the legal name. What remains is the identity
+   review alone, and the onboarding page prices it higher than the notice did:
+   **up to 10 business days**, not 2–7, with an explicit instruction not to
+   contact Steamworks support while it runs.
+
+   **There is no appid until that clears.** The dashboard is unambiguous — "you
+   will need to first complete the Steam Direct paperwork below to get your own
+   appID" — so `Complete Account Creation` stays locked, `steam_appid.txt`
+   stays on Valve's Spacewar test app (480), and the store page, which the
+   two-week coming-soon window depends on, cannot be started either. Ten
+   business days from 2026-09-01 lands mid-September; the coming-soon minimum
+   then expires around the same time as the fee clock, so the two waits overlap
+   rather than stack.
 4. **HUMAN — Name the app.** Claiming the app in Steamworks fixes the name the
    appid is registered under. "oskiewar" is presumably uncontested, but the
    choice is a signature, not a form field.
