@@ -20,6 +20,7 @@
 // so — publishing never fails on the feedback loop's absence.
 
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -217,14 +218,51 @@ function complete(path, durationSec) {
     Math.abs(actual - durationSec) < 0.1;
 }
 
+// What the picture was made by. A finished mp4 of the right duration used to
+// count as done forever, so once the treatment changed — concert style, the
+// readable-lesson pass — every already-rendered waltz kept its old look and
+// the lane posted last week's design. Two of those reached the grid before
+// anyone noticed. Hash the sources that decide how a reel looks and sounds,
+// and re-render when they move.
+const RENDER_INPUTS = [
+  "pop/menuband/bin/render-menu-band-waltzes.mjs",
+  "pop/menuband/bin/render-menu-band-waltz.swift",
+  "pop/menuband/bin/render-waltz-audio.mjs",
+  "pop/menuband/bin/sim-piano-variation.mjs",
+  "pop/menuband/bin/reel-lib.mjs",
+  "pop/lib/preview-shared.mjs",
+];
+const renderFingerprint = () => {
+  const sum = createHash("sha256");
+  for (const rel of RENDER_INPUTS) {
+    const path = join(ROOT, rel);
+    // A missing input is itself a fingerprint: it must not silently hash the
+    // same as a present one, or a half-checkout would reuse foreign renders.
+    sum.update(rel).update(existsSync(path) ? readFileSync(path) : "absent");
+  }
+  return sum.digest("hex").slice(0, 16);
+};
+const stampPath = (out) => out.replace(/\.[^.]+$/, "") + ".render.json";
+
 function renderIfNeeded(entry) {
   const out = mp4Path(entry);
-  if (complete(out, entry.durationSec ?? manifest.defaults?.durationSec ?? 60)) return out;
+  const want = renderFingerprint();
+  const had = readJson(stampPath(out), null)?.fingerprint ?? null;
+  if (had && had !== want)
+    console.log(`▸ ${entry.id} was rendered by ${had}, renderer is now ${want}` +
+      ` — re-rendering`);
+  if (had === want &&
+      complete(out, entry.durationSec ?? manifest.defaults?.durationSec ?? 60))
+    return out;
   console.log(`▸ rendering ${entry.id} (${entry.bpm} BPM, ${entry.bars} bars)`);
   const render = spawnSync("nice", ["-n", "19", process.execPath, RENDERER,
     "--manifest", MANIFEST, "--ids", entry.id], { cwd: ROOT, stdio: "inherit" });
   if (render.status !== 0) die(`render failed for ${entry.id}`);
   if (!existsSync(out)) die(`render finished but ${out} is missing`);
+  // Stamped only after a render that actually finished, so a killed one is
+  // retried rather than inheriting the fingerprint of work it never did.
+  writeFileSync(stampPath(out),
+    JSON.stringify({ fingerprint: want, at: new Date().toISOString() }, null, 2) + "\n");
   return out;
 }
 
