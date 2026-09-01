@@ -19,7 +19,9 @@
 // not because a run looked better.
 
 import { existsSync } from "node:fs";
-import { serveShell, repo } from "./shell.mjs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { serveShell, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
 import { seed32 } from "./source.mjs";
 
 const argv = process.argv.slice(2);
@@ -44,13 +46,10 @@ async function loadPuppeteer() {
   return (await import(`${dir}/lib/esm/puppeteer/puppeteer.js`)).default;
 }
 
-// The ladder is 32 decks 235 units apart, so a run's height converts back into
-// the deck it died on. The envelope reports height rather than level, and
-// "died two platforms from the top" is the sentence a person can act on.
-const survivalStepY = 235;
-const survivalLevelCount = 32;
-const levelFor = (height) =>
-  Math.max(0, Math.min(survivalLevelCount, Math.round(height / survivalStepY)));
+// The envelope reports height in world units; "died two decks from the top" is
+// the sentence a person can act on. `shell.mjs` owns the conversion.
+const survivalLevelCount = survivalLadder.levels;
+const levelFor = survivalLevelFor;
 
 // Parse `a=1,b=2` into the tune object the game reads. Values are numbers —
 // every knob the climb bot has is a number, and a silent NaN would poison a
@@ -175,14 +174,36 @@ function report(label, runs) {
   return { summits, median, best, runs: runs.length };
 }
 
+// One shell and one browser, held open across many climbs. Standing them up
+// costs more than a run does, so anything measuring more than a single ladder
+// — a sweep here, the auto-tuner next door — should borrow this rather than
+// shelling out per run.
+export async function openLab({ log = () => {} } = {}) {
+  const shell = await serveShell({ replays: "stub", log: () => {} });
+  const puppeteer = await loadPuppeteer();
+  const browser = await puppeteer.launch({
+    headless: true, executablePath: chrome,
+    args: ["--no-sandbox", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
+      "--disable-background-timer-throttling"],
+  });
+  return {
+    climb: (options) => climb({ browser, shell, log, ...options }),
+    close: async () => {
+      await browser.close();
+      await shell.close?.();
+    },
+  };
+}
+
+export { levelFor, survivalLevelCount };
+
+// Everything below is the command line. Imported, this module is just the lab.
+const invoked = process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invoked) {
 const log = console.log;
-const shell = await serveShell({ replays: "stub", log: () => {} });
-const puppeteer = await loadPuppeteer();
-const browser = await puppeteer.launch({
-  headless: true, executablePath: chrome,
-  args: ["--no-sandbox", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
-    "--disable-background-timer-throttling"],
-});
+const lab = await openLab({ log });
+const climbOne = (options) => lab.climb(options);
 
 try {
   const runs = Math.max(1, Number(flags.runs || 3));
@@ -204,7 +225,7 @@ try {
       const tune = { ...base, [key]: value };
       const results = [];
       for (const seed of seeds)
-        results.push(await climb({ browser, shell, seed, tune, cap, log }));
+        results.push(await climbOne({ seed, tune, cap }));
       table.push({ value, ...report(`${key}=${value}`, results) });
     }
     console.log(`\n── ${key} ──`);
@@ -220,11 +241,11 @@ try {
     if (Object.keys(tune).length) console.log(`tune ${JSON.stringify(tune)}`);
     const results = [];
     for (const seed of seeds)
-      results.push(await climb({ browser, shell, seed, tune, cap, log }));
+      results.push(await climbOne({ seed, tune, cap }));
     report(Object.keys(tune).length ? "tuned" : "shipping bot", results);
   }
 } finally {
-  await browser.close();
-  await shell.close?.();
+  await lab.close();
   process.exit(0);
+}
 }
