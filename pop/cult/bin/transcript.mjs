@@ -18,6 +18,17 @@ import { fileURLToPath } from "node:url";
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "../out");
 const TRIM = 15.95;
+const CUTS = [[20, 58], [120, 128], [136, 144], [168, 184]];
+
+function shipTime(fullTime) {
+  let removed = 0;
+  for (const [start, end] of CUTS) {
+    if (fullTime < start) break;
+    if (fullTime < end) return null;
+    removed += end - start;
+  }
+  return fullTime - TRIM - removed;
+}
 
 const receipt = JSON.parse(readFileSync(join(OUT, "cult-remix-v10.events.json"), "utf8"));
 const events = receipt.events ?? receipt;
@@ -63,8 +74,8 @@ for (const e of events) {
   if (typeof e.sample !== "string") continue;
   const w = words(e.sample);
   if (!w) continue;
-  const t = e.t - TRIM;
-  if (t < -0.5) continue;
+  const t = shipTime(e.t);
+  if (t == null || t < -0.5) continue;
   const bar = e.t / 2;
   lines.push({
     t, text: `${mmss(Math.max(0, t))}  ${w}${e.who ? `  · ${e.who}` : ""}` +
@@ -75,7 +86,7 @@ lines.sort((a, b) => a.t - b.t);
 
 const text = [
   "whistlegraph cult --- remix (v10.1) — word transcript, shipped time",
-  `${lines.length} utterances · cut starts ${TRIM}s into the full render`,
+  `${lines.length} utterances · two-bar opening buildup`,
   "",
   ...lines.map((l) => l.text),
 ].join("\n");

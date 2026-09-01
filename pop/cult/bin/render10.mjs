@@ -567,18 +567,21 @@ const KEY = {
 };
 const CULT_DIAL = ["2", "8", "5", "8"];     // C · U · L · T
 
-function beep(t, f1, f2, dur, { gain = 1, pan = 0, side = 0.6, dly = 0, bus = "sig", digit = null } = {}) {
+function beep(t, f1, f2, dur, {
+  gain = 1, pan = 0, side = 0.6, dly = 0, bus = "sig", digit = null,
+  attack = 0.003, rel = 0.012,
+} = {}) {
   if (!allow("beep")) return;
-  EVENTS.push({ t: +t.toFixed(4), voice: "beep", bus, hz: f2 ? [f1, f2] : [f1], dur: +dur.toFixed(3),
+  EVENTS.push({ t: +t.toFixed(4), voice: "beep", bus, hz: f2 ? [f1, f2] : [f1], dur: +(dur + rel).toFixed(3),
     gain: +gain.toFixed(3), pan: +pan.toFixed(2), ...(digit ? { digit } : {}) });
-  const rel = 0.012, n = Math.round((dur + rel) * SR), i0 = Math.round(t * SR);
+  const n = Math.round((dur + rel) * SR), i0 = Math.round(t * SR);
   const sp = spatial(pan * 1.2);
   let p1 = 0, p2 = 0;
   for (let i = 0; i < n; i++) {
     const u = i / SR;
     p1 += (TAU * f1) / SR;
     if (f2) p2 += (TAU * f2) / SR;
-    const atk = 0.5 - 0.5 * Math.cos(Math.PI * clamp(u / 0.003, 0, 1));
+    const atk = 0.5 - 0.5 * Math.cos(Math.PI * clamp(u / attack, 0, 1));
     const off = u > dur ? 0.5 + 0.5 * Math.cos(Math.PI * clamp((u - dur) / rel, 0, 1)) : 1;
     const s = (Math.sin(p1) + (f2 ? 0.85 * Math.sin(p2) : 0)) * (f2 ? 0.5 : 0.9);
     emit(bus, i0 + i, s * atk * off * 0.30 * gain * tailFade(i, n), pan, sp, side, dly);
@@ -1115,18 +1118,22 @@ const S = {
 // define a different impact character. The same table is written into the
 // receipt so the score video moves by the identical force.
 const ELASTIC_EXPLOSIONS = [
-  { bar: 29,  kind: "snap",    duration: 1.35, strength: 0.42, hz: 2.45, damping: 1.85, glitch: 0.72 },
-  { bar: 40,  kind: "gravity", duration: 6.20, strength: 0.62, hz: 0.46, damping: 0.34, glitch: 0.16 },
-  { bar: 48,  kind: "recoil",  duration: 3.60, strength: 0.78, hz: 1.18, damping: 0.72, glitch: 0.42 },
-  { bar: 64,  kind: "rupture", duration: 5.80, strength: 1.24, hz: 0.70, damping: 0.42, glitch: 0.84 },
-  { bar: 76,  kind: "blast",   duration: 4.80, strength: 1.00, hz: 0.92, damping: 0.54, glitch: 0.64 },
-  { bar: 92,  kind: "shatter", duration: 2.20, strength: 0.90, hz: 2.10, damping: 1.18, glitch: 1.00 },
-  { bar: 104, kind: "exhale",  duration: 4.60, strength: 0.34, hz: 0.56, damping: 0.55, glitch: 0.10 },
-].map((e) => ({ ...e, t: at(e.bar) }));
+  { bar: 29,  kind: "snap",    duration: 1.35, strength: 0.42, hz: 2.45, damping: 1.85, glitch: 0.72, attack: 0.06, release: 0.30 },
+  { bar: 40,  kind: "gravity", duration: 6.20, strength: 0.62, hz: 0.46, damping: 0.34, glitch: 0.16, attack: 0.24, release: 1.00 },
+  { bar: 48,  kind: "recoil",  duration: 3.60, strength: 0.78, hz: 1.18, damping: 0.72, glitch: 0.42, attack: 0.14, release: 0.72 },
+  // The release edit lands here. This is an unfurl, not a second climax:
+  // the buses separate slowly while the lyric stays in front, then the
+  // sharper bar-76 blast becomes the destination of the whole passage.
+  { bar: 64,  kind: "unfurl",  duration: 7.60, strength: 0.48, hz: 0.54, damping: 0.72, glitch: 0.22, attack: 0.48, release: 1.40, dispersion: 0.08, offset: 0.12 },
+  { bar: 76,  kind: "blast",   duration: 4.80, strength: 1.12, hz: 0.92, damping: 0.58, glitch: 0.80, attack: 0.07, release: 0.62, dispersion: 0.18 },
+  { bar: 92,  kind: "shatter", duration: 2.20, strength: 0.90, hz: 2.10, damping: 1.18, glitch: 1.00, attack: 0.07, release: 0.42 },
+  { bar: 104, kind: "exhale",  duration: 4.60, strength: 0.34, hz: 0.56, damping: 0.55, glitch: 0.10, attack: 0.26, release: 1.10 },
+].map((e) => ({ ...e, t: at(e.bar) + (e.offset ?? 0) }));
 for (const e of ELASTIC_EXPLOSIONS)
   EVENTS.push({ t: e.t, voice: "spatial-explosion", bus: "master",
     kind: e.kind, dur: e.duration, strength: e.strength, springHz: e.hz,
-    damping: e.damping, glitch: e.glitch });
+    damping: e.damping, glitch: e.glitch, attack: e.attack, release: e.release,
+    dispersion: e.dispersion ?? 0 });
 const ACTS = {
   carrier: "I · CARRIER — a channel opens before anything is said",
   three: "II · THREE VOICES — you learn there are three people before you learn what they say",
@@ -1143,21 +1150,32 @@ const sectionAt = (bar) => Object.keys(S).find((k) => inS(bar, k)) ?? "carrierof
 const soloBar = (bar) => bar >= 54 && bar < 56;
 const releaseGapBar = (bar) => bar >= 68 && bar < 72;
 const dotFieldBar = (bar) => bar >= 72 && bar < 76;
-const sparseSpreadBar = (bar) => releaseGapBar(bar) || dotFieldBar(bar);
+// Bars 64–67 and 72–75 are adjacent in the shipped edit. Treat them as one
+// eight-bar composition even though four source bars are omitted between
+// them; this keeps the release flow intentional on both sides of the splice.
+const releaseSpreadBar = (bar) => (bar >= 64 && bar < 68) || dotFieldBar(bar);
+const releaseSpreadIndex = (bar) => bar < 68 ? bar - 64 : bar - 68;
+// The release gap is sparse in the full composition, but the shipped edit
+// cuts over it. Bars 72–75 are a DOT foreground, not an instrumental hole:
+// every ensemble lane continues underneath them.
+const sparseSpreadBar = (bar) => releaseGapBar(bar);
 
 // Sub-shape inside act II: bars 8–16 are the introductions, 16–24 the SOS.
 const introBar = (b) => b >= 8 && b < 16;
 const sosBar = (b) => b >= 16 && b < 24;
 
 const kickOn = (b) => !(inS(b, "carrier") || inS(b, "secret") || inS(b, "carrieroff")
-  || soloBar(b) || sparseSpreadBar(b));
+  || soloBar(b) || releaseGapBar(b));
 const hatOn = (b) => kickOn(b);
 const dense = (b) => inS(b, "reply") || inS(b, "whole");
 const hookSection = (b) => inS(b, "message") || inS(b, "reply") || inS(b, "recognise");
 
 function degAt(bar) {
   if (soloBar(bar)) return 6;                    // exposed A-major pivot
-  if (dotFieldBar(bar)) return [5, 3, 0, 6][bar - 72];
+  // The second kept half of IT SPREADS continues the progression that the
+  // omitted bars would have carried: D for two bars, then A for two bars.
+  // It no longer changes harmony every bar at the splice.
+  if (dotFieldBar(bar)) return [2, 2, 6, 6][bar - 72];
   if (inS(bar, "whole")) return HOME[Math.floor(((bar - S.whole[0]) % 8) / 2)];
   return ROWS[Math.floor(bar / 8) % ROWS.length][Math.floor((bar % 8) / 2)];
 }
@@ -1738,18 +1756,35 @@ shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.24, pan: 0.10, side: 0.
   // double and a quieter opposite-bellows answer one bar later.
   for (let ab = 64; ab < 68; ab += 2) {
     const name = AN[((ab - 64) / 2) % 4];
-    shot(name, ab * BAR, { bus: "tube", gain: 0.12 * phraseLevel(ab, 0.8), pan: ((ab >> 1) & 1) ? -0.30 : 0.30,
-      side: 0.72, dly: 0.36, dark: 0.28 });
+    const entrance = ab === 64 ? 0.16 : 0;
+    shot(name, ab * BAR + entrance, {
+      bus: "tube", gain: (ab === 64 ? 0.10 : 0.12) * phraseLevel(ab, 0.8),
+      pan: ((ab >> 1) & 1) ? -0.30 : 0.30,
+      side: 0.72, dly: 0.36, dark: 0.28,
+      ...(ab === 64 ? { atk: 0.22 } : { dur: 3.45 }),
+    });
+  }
+  // The release edit jumps from bar 67 into the dot field at bar 72. Enter
+  // after the splice with a soft bellows attack; the old pre-roll began
+  // outside the kept region and made the edit land inside a sample.
+  for (const [ab, name] of [[72, "accordion-g"], [74, "accordion-b"]]) {
+    const pan = ab === 72 ? 0.24 : -0.24;
+    shot(name, ab * BAR + 0.10, { bus: "tube", gain: 0.090 * phraseLevel(ab, 0.8), pan,
+      side: 0.72, dly: 0.38, dark: 0.26, atk: 0.34, dur: 3.45 });
+    shot(name, ab * BAR + 0.15, { bus: "tube", gain: 0.034 * phraseLevel(ab, 1.3), pan: -pan,
+      side: 0.80, dly: 0.48, dark: 0.38, semis: 0.06, atk: 0.38, dur: 3.30 });
   }
   for (let ab = 76; ab < 96; ab += 2) {
     const name = AN[((ab - 76) / 2) % 4];
     const pan = ((ab >> 1) & 1) ? -0.27 : 0.27;
     const breath = phraseLevel(ab, 0.8, 0.20);
-    shot(name, ab * BAR, { bus: "tube", gain: 0.18 * breath, pan, side: 0.68, dly: 0.30, dark: 0.18 });
+    const seamTrim = ab === 82;
+    shot(name, ab * BAR, { bus: "tube", gain: 0.18 * breath, pan, side: 0.68, dly: 0.30, dark: 0.18,
+      ...(seamTrim ? { dur: 3.55 } : {}) });
     shot(name, ab * BAR + 0.032, { bus: "tube", gain: 0.075 * breath, pan: -pan,
-      side: 0.78, dly: 0.44, dark: 0.34, semis: 0.07 });
+      side: 0.78, dly: 0.44, dark: 0.34, semis: 0.07, ...(seamTrim ? { dur: 3.42 } : {}) });
     shot(name, (ab + 1) * BAR, { bus: "tube", gain: 0.095 * phraseLevel(ab + 1, 0.8, 0.20), pan: -pan * 0.75,
-      side: 0.72, dly: 0.38, dark: 0.26, off: 0.32 });
+      side: 0.72, dly: 0.38, dark: 0.26, off: 0.32, ...(seamTrim ? { dur: 1.65 } : {}) });
   }
 }
 // boing boing: a springy sproing on every act-VII chord change, pitched
@@ -1766,13 +1801,16 @@ shot("violin-secret", 44.4 * BAR, { bus: "tube", gain: 0.24, pan: 0.10, side: 0.
 // far side, later and darker; the whole section sits deeper.)
 for (let gb = 48; gb < 68; gb += 4) {
   const phrase = phraseLevel(gb, 0.2, 0.22);
-  const base = (0.12 + 0.0015 * (gb - 48)) * phrase;
-  const trim = gb === 52 ? { dur: 4.0 } : {};
-  shot("guitar-chug", gb * BAR, { bus: "music", gain: base, pan: -0.16, side: 0.5, dly: 0.30, dark: 0.34, ...trim });
-  shot("guitar-chug", gb * BAR + 0.018, { bus: "music", gain: base * 0.52, pan: 0.30, side: 0.6, dly: 0.42, dark: 0.46, semis: 0.07, ...(gb === 52 ? { dur: 3.95 } : {}) });
+  const base = (0.12 + 0.0015 * (gb - 48)) * phrase * (gb === 64 ? 0.78 : 1);
+  const trim = gb === 52 ? { dur: 4.0 } : gb === 64 ? { dur: 7.45 } : {};
+  const entrance = gb === 64 ? 0.18 : 0;
+  shot("guitar-chug", gb * BAR + entrance, { bus: "music", gain: base, pan: -0.16, side: 0.5, dly: 0.30, dark: 0.34, ...trim });
+  shot("guitar-chug", gb * BAR + entrance + 0.018, { bus: "music", gain: base * 0.52, pan: 0.30, side: 0.6, dly: 0.42, dark: 0.46, semis: 0.07,
+    ...(gb === 52 ? { dur: 3.95 } : gb === 64 ? { dur: 7.35 } : {}) });
 }
 for (let gb = 76; gb < 96; gb += 8) {
-  const trim = gb + 8 > 96 ? { dur: (96 - gb) * BAR } : {};
+  const trim = gb === 76 ? { dur: 15.65 }
+    : gb + 8 > 96 ? { dur: (96 - gb) * BAR } : {};
   const phrase = phraseLevel(gb, 0.2, 0.22);
   shot("guitar-wide", gb * BAR, { bus: "music", gain: 0.19 * phrase, pan: 0.12, side: 0.6, dly: 0.40, dark: 0.32, ...trim });
   shot("guitar-wide", gb * BAR + 0.026, { bus: "music", gain: 0.11 * phrase, pan: -0.30, side: 0.7, dly: 0.52, dark: 0.44, semis: -0.08, ...trim });
@@ -1792,7 +1830,7 @@ for (let gb = 76; gb < 96; gb += 8) {
       0.115 * phraseLevel(gb, 0.2, 0.22), gb & 2 ? 0.26 : -0.26, !!(gb & 2));
 
   const SHRED = [59, 62, 64, 66, 69, 71, 74, 76, 78];
-  for (const [bar, flip] of [[55, true], [63, false], [83, false], [91, true]])
+  for (const [bar, flip] of [[55, true], [63, false], [91, true]])
     guitarShred(at(bar, 2.75), flip ? [...SHRED].reverse() : SHRED,
       (bar === 55 ? 0.13 : bar >= 76 ? 0.135 : 0.115) * phraseLevel(bar, 0.2, 0.18), flip ? -0.42 : 0.42);
 }
@@ -1810,6 +1848,15 @@ for (let bar = 0; bar < BARS; bar++) {
   const deg = degAt(bar);
   const root = bassRoot(deg);
   const chord = triad(deg);
+  // Bar 34 is the first audible progression turn after the release edit.
+  // Root-position G used to throw every harmonic voice upward at once
+  // (pad +8/+9/+8 semitones; sub +8), which read as a pasted-in wall. Keep
+  // the same G harmony in close inversions instead: B and D hold while F#
+  // moves one semitone to G, and the sub falls B→G in its existing octave.
+  const padChord = bar === 34 ? [47, 50, 55]
+    : bar === 64 ? [50, 54, 59] : chord.map((m) => m - 12);
+  const stabChord = bar === 34 ? [59, 62, 67]
+    : bar === 64 ? [62, 66, 71] : chord;
   const four = bar % 4, eight = bar % 8;
   // the hands push and drag across a 32-bar breath; the kick stays the
   // clock (live-show pass)
@@ -1818,10 +1865,13 @@ for (let bar = 0; bar < BARS; bar++) {
 
   // ---- kick: 4/4, and it just stays. POW per hit, never a drop. --------
   if (kickOn(bar)) {
-    const g = introBar(bar) ? 0.66 + 0.035 * (bar - 8)
-      : inS(bar, "recognise") ? 0.90 - 0.06 * (bar - S.recognise[0]) : 0.96;
-    for (let b = 0; b < 4; b++)
-      kick(t + b * BEAT + jit(2.5), g * (b === 0 ? 1 : 0.95), { weight: b === 0 ? 1.0 : 0.86 });
+    const openingRamp = bar === 8 ? [0.42, 0.46, 0.50, 0.56]
+      : bar === 9 ? [0.56, 0.64, 0.74, 0.86] : null;
+    const g = inS(bar, "recognise") ? 0.90 - 0.06 * (bar - S.recognise[0]) : 0.96;
+    for (let b = 0; b < 4; b++) {
+      const hit = openingRamp ? openingRamp[b] : g * (b === 0 ? 1 : 0.95);
+      kick(t + b * BEAT + jit(2.5), hit, { weight: b === 0 ? 1.0 : 0.86 });
+    }
   }
 
   // ---- hats ------------------------------------------------------------
@@ -1883,6 +1933,8 @@ for (let bar = 0; bar < BARS; bar++) {
   // rising into the downbeat, then two bars of wub under the groove.
   if (bar === S.reply[0] || bar === S.whole[0])
     revKick(t, 0.9, bar === S.whole[0] ? 0.55 : 0.48);
+  if (bar === 9)
+    revKick(at(10), 3.75, 0.60);                 // two-bar wooooop into the vocal snap
   if (bar === S.message[0] + 5)   // the sentence gets a door too
     revKick(t, 0.9, 0.48);
   if ((inS(bar, "reply") && bar - S.reply[0] < 2)
@@ -1896,19 +1948,158 @@ for (let bar = 0; bar < BARS; bar++) {
       const fifth = four === 3 && b === 3;
       bass(t + (b + 0.5) * BEAT + jit(3), root + (fifth ? 7 : 0), 0.26, g, fifth ? root : null);
     }
-    if (bar % 2 === 0) bass(t, root - 12, BAR * 0.90, g * 0.60);   // Peep pass: more sub
+    if (bar % 2 === 0) {
+      const subNote = bar === 34 ? root - 24 : bar === 64 ? root : root - 12;
+      const subTime = bar === 34 ? t + 0.10 : bar === 64 ? t + 0.12 : t;
+      const subFrom = bar === 34 ? bassRoot(degAt(bar - 1)) - 12
+        : bar === 64 ? bassRoot(degAt(59)) : null;
+      bass(subTime, subNote, BAR * 0.90, g * 0.60, subFrom);   // Peep pass: more sub
+    }
   }
 
   // ---- pad + stabs ------------------------------------------------------
-  if (bar % 2 === 0 && !inS(bar, "secret") && !soloBar(bar) && !releaseGapBar(bar) && !dotFieldBar(bar))
-    sines(t, chord.map((m) => m - 12), BAR * 1.85, inS(bar, "carrier") ? 0.055 + 0.012 * bar : 0.085,
-      bar % 4 ? 0.22 : -0.22, 0.75, 0.5, 0, 0.30);
+  if (bar % 2 === 0 && !inS(bar, "secret") && !soloBar(bar) && !releaseGapBar(bar))
+    sines(t + (bar === 34 ? 0.08 : bar === 64 ? 0.12 : 0), padChord, BAR * 1.85,
+      inS(bar, "carrier") ? 0.055 + 0.012 * bar : 0.085,
+      bar % 4 ? 0.22 : -0.22, 0.75, 0.5, 0,
+      bar === 34 ? 0.46 : bar === 64 ? 0.52 : 0.30);
   if ((inS(bar, "message") || inS(bar, "reply") || inS(bar, "whole") || inS(bar, "spread"))
       && !soloBar(bar) && !sparseSpreadBar(bar))
     for (const b of [0.5, 2.5])
-      sines(t + b * BEAT + jit(4), chord, 0.20, 0.075, b > 1 ? 0.36 : -0.36, 0.7, 0.9, 0.34);
+      sines(t + b * BEAT + jit(4), stabChord, 0.20, 0.075,
+        b > 1 ? 0.36 : -0.36, 0.7, 0.9, 0.34);
   if (inS(bar, "spread") && !sparseSpreadBar(bar) && four === 1)
     sines(t + 3.5 * BEAT, chord.map((m) => m + 12), 0.13, 0.070, rnd() > 0.5 ? 0.5 : -0.5, 0.85, 0.7, 0.70);
+  if (dotFieldBar(bar)) {
+    // A reduced ensemble, not a drop: restrained chord pulses and a ringing
+    // guitar hand the pre-cut G harmony into the dot cloud, then gather
+    // energy toward bar 76. The progression still changes once per bar.
+    const gather = (bar - 72) / 3;
+    for (const b of [0.5, 2.5])
+      sines(t + b * BEAT + jit(4), chord, 0.28, 0.036 + gather * 0.020,
+        b > 1 ? 0.30 : -0.30, 0.72, 0.76, 0.38);
+    if ((bar & 1) === 0)
+      guitarChord(t + 0.08,
+        [chord[0] - 12, chord[1] - 12, chord[2] - 12, chord[0]],
+        3.52, 0.058 + gather * 0.018, bar === 72 ? 0.18 : -0.18, bar === 74);
+  }
+
+  // The shipped opening keeps only bars 8–9. Bar 8 establishes the strange
+  // machine bed; bar 9 now turns that bed into an instrumental pickup: four
+  // rising chord tones, a low two-hertz pulse and a small accelerating guitar
+  // run all point at the vocal/elastic downbeat without moving the lyric.
+  if (bar === 9) {
+    const rise = [chord[0] - 12, chord[1] - 12, chord[2] - 12, chord[0]];
+    for (let k = 0; k < rise.length; k++)
+      sines(t + k * BEAT, [rise[k]], BEAT * 0.76, 0.034 + k * 0.014,
+        k % 2 ? 0.22 : -0.22, 0.66, 0.58 + k * 0.10, 0.22, 0.025);
+    wub(t, root, 1, 0.12, 2);
+    guitarShred(t + 1.32, [47, 50, 54, 59, 62, 66], 0.075, 0.25);
+  }
+  if (bar === 8 || bar === 9) {
+    // The release keeps only these two setup bars. A rising C-U-L-T keypad
+    // exchange fills their open air without masking the long reverse-kick
+    // anticipation: sparse in bar 8, quicker and brighter in bar 9.
+    const calls = bar === 8
+      ? [[1.72, "2", -0.46, 0.24, 0.22], [3.18, "8", 0.42, 0.27, 0.26]]
+      : [[0.62, "5", -0.38, 0.27, 0.25], [1.48, "8", 0.34, 0.30, 0.28],
+         [2.42, "*", -0.24, 0.32, 0.31], [3.28, "2", 0.18, 0.35, 0.36]];
+    for (let k = 0; k < calls.length; k++) {
+      const [beat, digit, pan, gain, dur] = calls[k];
+      const bt = t + beat * BEAT + jit(3);
+      dtmf(bt, digit, dur,
+        { gain, pan, side: 0.86, dly: 0.72, bus: "sig", attack: 0.012, rel: 0.16 });
+      const a = chord[k % chord.length] + 12;
+      const b = chord[(k + 1) % chord.length] + 12;
+      beep(bt + 0.026, hz(a), hz(b), dur * 1.18,
+        { gain: gain * 0.62, pan: -pan * 0.72, side: 0.92, dly: 0.82,
+          bus: "sig", attack: 0.020, rel: 0.28 });
+
+      // Interlocking echo taps turn the dial tones into a played rhythm.
+      // The last source bar is bounded carefully so no aether tail is cut by
+      // the release edit at 20 s.
+      const taps = bar === 8
+        ? (k === 0 ? [[0.72, 0.36], [1.42, 0.18]] : [[0.42, 0.25]])
+        : (k === 0 ? [[0.38, 0.34], [0.72, 0.17]]
+          : k === 1 ? [[0.50, 0.30], [0.78, 0.15]]
+          : k === 2 ? [[0.34, 0.26], [0.62, 0.13]] : []);
+      for (let e = 0; e < taps.length; e++) {
+        const [offBeat, level] = taps[e];
+        const et = bt + offBeat * BEAT;
+        const ed = Math.min(0.16 + e * 0.03, Math.max(0.06, 19.86 - et));
+        if (et + ed >= 19.92) continue;
+        dtmf(et, digit, ed, {
+          gain: gain * level, pan: -pan * (0.85 + 0.1 * e), side: 0.94,
+          dly: 0.86, bus: "sig", attack: 0.012, rel: 0.28,
+        });
+        beep(et + 0.018, hz(b), hz(a), ed * 1.12, {
+          gain: gain * level * 0.68, pan: pan * (e ? 1 : -1), side: 0.98,
+          dly: 0.92, bus: "sig", attack: 0.018, rel: 0.36,
+        });
+      }
+    }
+    if (bar === 9)
+      bop(t + 3.58 * BEAT, hz(chord[2] + 12), {
+        gain: 0.20, pan: 0.34, side: 0.76, dly: 0.42,
+      });
+  }
+  if (bar >= 29 && bar < 33) {
+    // The phone harmony survives the edit into the first lyric statement.
+    // Its paired tones follow each bar's chord at the dash / answer slots,
+    // then lose level and density over four bars until only the band remains.
+    const k = bar - 29;
+    const fade = [0.30, 0.23, 0.16, 0.09][k];
+    const lyricBeats = k < 2 ? [0.18, 1.62, 3.08] : [0.32, 2.58];
+    for (let q = 0; q < lyricBeats.length; q++) {
+      const a = chord[(q + k) % chord.length] + 12;
+      const b = chord[(q + k + 1) % chord.length] + 12;
+      const bt = t + lyricBeats[q] * BEAT + jit(3);
+      const pan = q & 1 ? 0.32 : -0.32;
+      beep(bt, hz(a), hz(b), 0.30 + 0.05 * (2 - q), {
+        gain: fade, pan, side: 0.92, dly: 0.80,
+        bus: "sig", attack: 0.018, rel: 0.30,
+      });
+      // A high, inverted reply lands between lyric accents. It starts strong
+      // enough to bounce off the first words, then disappears into the sides.
+      const echoBeat = q & 1 ? 0.42 : 0.68;
+      beep(bt + echoBeat * BEAT, hz(b + 12), hz(a + 12), 0.18 + 0.03 * (2 - q), {
+        gain: fade * (0.38 - 0.04 * k), pan: -pan * 1.35, side: 0.98, dly: 0.94,
+        bus: "sig", attack: 0.024, rel: 0.44,
+      });
+    }
+    dtmf(t + (3.55 - 0.18 * k) * BEAT, CULT_DIAL[k], 0.16 + 0.025 * (3 - k), {
+      gain: fade * 0.78, pan: k & 1 ? -0.42 : 0.42, side: 0.92, dly: 0.82,
+      bus: "sig", attack: 0.010, rel: 0.28,
+    });
+  }
+
+  // The first "run real fast" lands at bar 31. Two bars of phone harmonics
+  // tighten from wide syncopation into eighth-note anticipation, while a
+  // reverse kick pulls the entire room toward the downbeat.
+  if (bar === 30) {
+    const dropT = at(31);
+    revKick(dropT, 1.90, 0.68);
+    const climb = [59, 62, 66, 69, 71, 74];
+    const beats = [0.18, 0.92, 1.48, 2.04, 2.62, 3.30];
+    for (let k = 0; k < climb.length; k++) {
+      const bt = t + beats[k] * BEAT;
+      const g = 0.075 + 0.020 * k;
+      beep(bt, hz(climb[k] + 12), hz(climb[Math.max(0, k - 2)] + 12), 0.12 + 0.014 * k, {
+        gain: g, pan: k & 1 ? 0.48 : -0.48, side: 0.96, dly: 0.88,
+        bus: "sig", attack: 0.012, rel: 0.28,
+      });
+    }
+  }
+  if (bar === 31) {
+    // Impact underneath the consonants; the brighter phone afterimages arc
+    // outward after the phrase rather than masking its center.
+    wub(t, bassRoot(deg), 1, 0.22, 6);
+    guitarChord(t + 0.035, [47, 54, 59, 62], 2.35, 0.105, -0.06, false);
+    for (const [o, m, p, g] of [[0.34, 78, -0.58, 0.12], [0.72, 81, 0.58, 0.09], [1.18, 86, -0.42, 0.06]])
+      beep(t + o, hz(m), hz(m - 5), 0.20, {
+        gain: g, pan: p, side: 0.99, dly: 0.96, bus: "sig", attack: 0.022, rel: 0.52,
+      });
+  }
 
   // ══ ACT I · CARRIER ══════════════════════════════════════════════════
   // v10: the record starts when the kicks start — cut-v10.sh trims the
@@ -2059,7 +2250,9 @@ for (let bar = 0; bar < BARS; bar++) {
   if (inS(bar, "reply") && !soloBar(bar)) {
     const k = bar - S.reply[0];
     if (k === 0) chorus(bar, { lead: "lo", g: 0.96, answer: "sos" });
-    if (k === 8) chorus(bar, { lead: "both", answer: "dots" });
+    // This statement ends exactly where the release jumps to bar 64. Leave
+    // its final held dash out so no performer is cut off at the edit.
+    if (k === 8) chorus(bar, { lead: "both", answer: "dots", drop: [4] });
     if (k % 8 === 4) hook(bar, { full: k === 4 });
   }
   if (inS(bar, "reply") && !soloBar(bar) && four === 3)
@@ -2091,8 +2284,11 @@ for (let bar = 0; bar < BARS; bar++) {
     count: 5, up: false, gap: 0.22, gain: 0.18, pan: -0.28, dly: 0.48,
   });
   // the 1:42 ornament, featured: twice in the reply, twice where it spreads
-  if (bar === S.reply[0] + 10 || bar === S.reply[0] + 14) raga(bar, 1.5, 0.44);
-  if (bar === S.spread[0] + 3) raga(bar, 2.0, 0.38);
+  if (bar === S.reply[0] + 10) raga(bar, 0.15, 0.40);
+  if (bar === S.reply[0] + 14) raga(bar, 1.5, 0.44);
+  // Place the spread ornament early enough to sing its entire gesture before
+  // the release skips from bar 67 to bar 72.
+  if (bar === S.spread[0] + 1) raga(bar, 0.5, 0.32);
 
   // ══ ACT VI · IT SPREADS ══════════════════════════════════════════════
   // The held dashes become the whole lead, at the widest wiggle in the
@@ -2102,12 +2298,16 @@ for (let bar = 0; bar < BARS; bar++) {
   // statements, lines missing, one voice each, while other people's
   // "cult"s answer from the edges. Steadiness through the strangest act
   // is the point: the message loops even while it comes apart.
-  if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && !dotFieldBar(bar)) {
     const k = bar - S.spread[0];
-    if (k === 0) chorus(bar, { lead: "hi", g: 0.55, drop: [2] });
+    // In the shipped edit only "run real fast" crosses the first four bars.
+    // The former line-3/4 held dashes extended beyond the cut at bar 68 and
+    // were literally sliced in half. Let the phrase finish, then let the
+    // instruments carry the thought forward.
+    if (k === 0) chorus(bar, { lead: "hi", g: 0.62, drop: [2, 3, 4] });
     if (k === 8) chorus(bar, { lead: "lo", g: 0.60, drop: [2, 3] });
   }
-  if (inS(bar, "spread") && !sparseSpreadBar(bar) && bar % 2 === 0) {
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && !releaseSpreadBar(bar) && bar % 2 === 0) {
     const nm = ["fs4", "d4"][(bar / 2) % 2];
     const w = wigDepth(bar);
     held(`dash-camille-${nm}-hold`, at(bar, 1), {
@@ -2121,15 +2321,42 @@ for (let bar = 0; bar < BARS; bar++) {
     const low = { 0: "b2", 2: "a2", 3: "e2", 4: "b2", 5: "g2", 6: "a2" }[deg] ?? "b2";
     sung(`bassdash-${low}`, at(bar, 0), { gain: 0.26, pan: 0, side: 0.25, dark: 0.6 });
   }
+  // Controlled divergence for the eight bars that survive into the release:
+  // one voice, then its answer, then a small two-voice convergence. The UI
+  // and the ear can follow each addition instead of receiving three stacked
+  // dashes plus a bass double every other bar.
+  if (releaseSpreadBar(bar)) {
+    const k = releaseSpreadIndex(bar);
+    const nm = k < 4 ? "d4" : k < 6 ? "fs4" : "b3";
+    if (k === 2)
+      held(`dash-camille-${nm}-hold`, at(bar, 0.65), {
+        gain: 0.24, pan: -0.30, side: 0.76, dly: 0.34, wig: 5, wigHz: 4.3, wigIn: 0.65,
+      });
+    if (k === 4)
+      held(`dash-alex-${nm}-hold`, at(bar, 0.75), {
+        gain: 0.21, pan: 0.30, side: 0.78, dly: 0.38, wig: 6, wigHz: 5.9, wigIn: 0.70,
+      });
+    if (k === 6) {
+      held(`dash-camille-${nm}-hold`, at(bar, 0.55), {
+        gain: 0.23, pan: -0.28, side: 0.78, dly: 0.34, wig: 6, wigHz: 4.3, wigIn: 0.60,
+      });
+      held(`dash-alex-${nm}-hold`, at(bar, 0.82), {
+        gain: 0.19, pan: 0.28, side: 0.80, dly: 0.40, wig: 7, wigHz: 5.9, wigIn: 0.65,
+      });
+    }
+  }
   if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
     const digits = ["2", "8", "5", "8", "*", "8", "5", "2"];
-    for (let k = 0; k < 3; k++) {
-      const u = t + (k * 4 / 3) * BEAT + jit(8);
-      dtmf(u, digits[(bar * 3 + k) % digits.length], 0.055,
-        { gain: 0.46 * vel(0.3), pan: k === 1 ? 0 : k ? 0.5 : -0.5, side: 0.85, dly: 0.40 });
+    const bridge = releaseSpreadBar(bar);
+    const bk = bridge ? releaseSpreadIndex(bar) : 0;
+    const count = bridge ? [1, 1, 1, 2, 1, 2, 2, 3][bk] : 3;
+    for (let k = 0; k < count; k++) {
+      const u = t + (k * 4 / Math.max(1, count)) * BEAT + jit(8);
+      dtmf(u, digits[(bar * 3 + k) % digits.length], bridge ? 0.075 : 0.055,
+        { gain: (bridge ? 0.25 : 0.46) * vel(0.3), pan: count === 1 ? 0 : k & 1 ? 0.42 : -0.42, side: 0.85, dly: 0.40 });
     }
-    if (four === 2) bop(at(bar, 3.25), hz(blipMidi(bar, 2)), { gain: 0.26, pan: -0.4, side: 0.8, dly: 0.45 });
-    if (four === 1) dotArp(at(bar, 1.5) + jit(8), { count: 6, up: bar % 8 < 4, gap: 0.15, gain: 0.24, pan: 0.35, dly: 0.42 });
+    if (!bridge && four === 2) bop(at(bar, 3.25), hz(blipMidi(bar, 2)), { gain: 0.26, pan: -0.4, side: 0.8, dly: 0.45 });
+    if (!bridge && four === 1) dotArp(at(bar, 1.5) + jit(8), { count: 6, up: bar % 8 < 4, gap: 0.15, gain: 0.24, pan: 0.35, dly: 0.42 });
     // v10.1: somebody in the switchboard is on a ROTARY phone — one real
     // dial pass per half of the act, thrown to the edges like the cults
     if (bar === S.spread[0] + 4 && has("phone-rotary-a"))
@@ -2138,10 +2365,11 @@ for (let bar = 0; bar < BARS; bar++) {
       shot("phone-rotary-b", at(bar, 1.0), { bus: "vox", gain: 0.13, pan: 0.55, side: 0.85, dark: 0.45, dly: 0.45, atk: 0.08, wig: 9, wigHz: 0.30, wigPhase: 2.1, wigIn: 0.6 });
     // it spreads: a skid every bar, alternating sides, never in the same
     // place twice — the friction equivalent of the wiggle coming apart.
-    friction(at(bar, 2.5 + (bar % 3) * 0.25), 0.58, { shape: "skid",
-      gain: 0.34 * vel(0.3), pan: bar % 2 ? 0.46 : -0.46, side: 0.30,
-      cut0: 2200, cut1: 1050, res0: 280 - (bar % 4) * 30, res1: 149, rough: 0.62 });
-    if (four === 0)
+    if (!bridge || bk === 3 || bk === 7)
+      friction(at(bar, 2.5 + (bar % 3) * 0.25), 0.58, { shape: "skid",
+        gain: (bridge ? 0.24 : 0.34) * vel(0.3), pan: bar % 2 ? 0.46 : -0.46, side: 0.30,
+        cut0: 2200, cut1: 1050, res0: 280 - (bar % 4) * 30, res1: 149, rough: 0.62 });
+    if (!bridge && four === 0)
       friction(at(bar, 3.1), 0.95, { shape: "drag", gain: 0.30, pan: bar % 4 ? -0.2 : 0.2,
         side: 0.24, cut0: 900, cut1: 1900, res0: 119, res1: 189, rough: 0.55, synthetic: true });
   }
@@ -2151,7 +2379,7 @@ for (let bar = 0; bar < BARS; bar++) {
   // seconds — bright, wide, mostly delay — with the take a third under it
   // drifting behind: an angel hanging over the switchboard while the raw
   // cults keep arriving beneath her.
-  if (bar === S.spread[0] + 2) {
+  if (bar === S.spread[0] + 2 && !releaseSpreadBar(bar)) {
     const picks = choirFor(degAt(bar));
     const hi = picks[picks.length - 1], mid = picks[Math.max(0, picks.length - 2)];
     if (has(`cultlong-${hi}`)) {
@@ -2178,23 +2406,30 @@ for (let bar = 0; bar < BARS; bar++) {
   // six videos across 2022, none of them the take the record is built from.
   if (inS(bar, "spread") && !sparseSpreadBar(bar)) {
     const [nm] = ALT_CULTS[(bar - S.spread[0]) % ALT_CULTS.length];
-    if (has(nm))
+    const bridge = releaseSpreadBar(bar);
+    const bk = bridge ? releaseSpreadIndex(bar) : 0;
+    if (has(nm) && (!bridge || bk === 1 || bk === 3 || bk === 5 || bk === 7))
       shot(nm, at(bar, 2.5 + ((bar % 3) * 0.25)), {
-        bus: "vox", gain: 0.30 + 0.02 * ((bar - S.spread[0]) % 4),
+        bus: "vox", gain: bridge ? 0.22 : 0.30 + 0.02 * ((bar - S.spread[0]) % 4),
         pan: bar % 2 ? 0.62 : -0.62, side: 0.90, dark: 0.16, dly: 0.48,
       });
   }
   // (v5's sos at spread+8 is gone — the ghost statement holds that slot)
-  if (inS(bar, "spread") && !sparseSpreadBar(bar) && bar % 2 === 1) material(bar, "cult-d4", 0.72, { grain: 0.085, dly: 0.30 });
+  if (inS(bar, "spread") && !sparseSpreadBar(bar) && !releaseSpreadBar(bar) && bar % 2 === 1)
+    material(bar, "cult-d4", 0.72, { grain: 0.085, dly: 0.30 });
 
-  // Four bars of dots occupying the whole field. No kit, bass, pad, held
-  // dashes, accordion, or guitar: individual voices have mass, distance,
-  // and room to finish. The last small descending scale points at the full
-  // ensemble's bar-76 return without pre-filling it.
-  if (bar === 72) dotCloud(at(bar, 0.18), BAR * 3.45);
-  if (bar === 74) dotArp(at(bar, 1.15), {
-    count: 7, up: false, gap: 0.24, gain: 0.15, pan: 0.24, dly: 0.55,
-  });
+  // Four bars of dots occupy the vocal field, but the instrumental band no
+  // longer vanishes underneath them. Kick, hats, bass and the sustained pad
+  // continue through the elastic fracture, so the old release 1:16 moment
+  // reads as a deliberate glitch inside the groove rather than buggy silence.
+  if (bar === 72)
+    dotDriftVox(at(bar, 1.05), bar, { gain: 0.15, pan: 0.22, dur: 2.6, stretch: 4.0, dly: 0.50, dark: 0.24 });
+  if (bar === 73)
+    dotDrift(at(bar, 1.20), 7, { gain: 0.13, pan: -0.22, dur: 2.25, stretch: 3.8, dly: 0.52, dark: 0.30 });
+  if (bar === 74)
+    dotDriftVox(at(bar, 1.00), bar, { gain: 0.16, pan: -0.18, dur: 2.35, stretch: 3.9, dly: 0.48, dark: 0.20 });
+  if (bar === 75)
+    dotArp(at(bar, 1.15), { count: 5, up: true, gap: 0.22, gain: 0.14, pan: 0.18, dly: 0.46 });
 
   // ══ ACT VII · THE WHOLE MESSAGE ══════════════════════════════════════
   // Two full statements of the four-line chorus (bars 76 and 84), then the
@@ -2404,9 +2639,12 @@ function elasticizeBus(body, bodyIndex) {
     for (let i = Math.max(start, Math.round(ex.t * SR)); i < end; i++) {
       const age = i / SR - ex.t;
       if (age < 0 || age > ex.duration) continue;
-      const tail = smooth(clamp((ex.duration - age) / 0.48, 0, 1));
+      const edge = smooth(clamp(age / ex.attack, 0, 1))
+        * smooth(clamp((ex.duration - age) / ex.release, 0, 1));
+      const spread = ex.dispersion ?? 0;
+      const bodyHz = ex.hz * (1 + spread * (bodyIndex - 2) / 2);
       const spring = ex.strength / body.mass * Math.exp(-ex.damping * age)
-        * Math.sin(TAU * ex.hz * age) * tail;
+        * Math.sin(TAU * bodyHz * age) * edge;
       const travel = Math.abs(spring);
       const delay = travel * (0.007 + 0.012 / body.mass) * SR;
       const local = i - start;
@@ -2424,7 +2662,7 @@ function elasticizeBus(body, bodyIndex) {
       // Different body grains refuse to line up: the screwiness is temporal,
       // while the spring remains one coherent gravitational gesture.
       const fracture = ex.glitch * Math.exp(-2.7 * age)
-        * smooth(clamp(age / 0.022, 0, 1)) * tail;
+        * smooth(clamp(age / 0.035, 0, 1)) * edge;
       if (fracture > 0.012) {
         const gp = Math.min(srcL.length - 2, anchor + ((local - anchor + grain * 64) % grain));
         const gl = readLinear(srcL, gp), gr = readLinear(srcR, gp);
@@ -2433,7 +2671,11 @@ function elasticizeBus(body, bodyIndex) {
         mr = mr * (1 - 0.34 * fracture) + (swap ? gl : gr) * 0.34 * fracture;
       }
 
-      const wet = clamp(0.46 + 0.34 * travel + 0.16 * fracture, 0, 0.88);
+      // The old fixed 46% wet floor switched the whole bus instantaneously
+      // at both event edges. The physical gesture now crossfades from dry,
+      // blooms with displacement/fracture, and returns fully dry on its own
+      // release shoulder.
+      const wet = edge * clamp(0.14 + 0.46 * travel + 0.20 * fracture, 0, 0.84);
       body.L[i] = srcL[local] * (1 - wet) + ml * wet;
       body.R[i] = srcR[local] * (1 - wet) + mr * wet;
     }
@@ -2638,6 +2880,7 @@ writeFileSync(resolve(OUT, "cult-remix-v10.events.json"), JSON.stringify({
   spatialExplosions: ELASTIC_EXPLOSIONS.map((e) => ({
     t: e.t, bar: e.bar, kind: e.kind, duration: e.duration, strength: e.strength,
     springHz: e.hz, damping: e.damping, glitch: e.glitch,
+    attack: e.attack, release: e.release, dispersion: e.dispersion ?? 0,
   })),
   tempoBPM: BPM, bars: BARS, seconds: +(BARS * BAR).toFixed(2),
   // Absolute-seconds section table, with the narrative line the video can

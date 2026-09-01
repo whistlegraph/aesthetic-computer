@@ -27,6 +27,8 @@
 #                  master out/cult-remix-final.mp3 — same trim/timeline,
 #                  so the receipt aligns 1:1)
 #   --out PATH     override the output mp4 path
+#   --lufs-target N display the creative loudness target (default −10.5)
+#   --tp-ceiling N  flag live true peaks above this value (default −2.0)
 #
 # FINAL-video additions (@jeffrey's two asks):
 #   · LYRICS SCROLLER — a teleprompter band along the bottom: upcoming
@@ -43,6 +45,11 @@
 import json, math, os, re, subprocess, sys, time
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+REVIEW_STACK = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "viz"))
+if REVIEW_STACK not in sys.path:
+    sys.path.insert(0, REVIEW_STACK)
+from loudness_meter import analyze_loudness, draw_loudness_meter
 
 sr = 8000
 W, H, FPS = 2560, 1920, 30      # tall 2.5K critique master
@@ -69,6 +76,8 @@ if LIGHT:
 OUT_OVERRIDE = argval("--out")
 if OUT_OVERRIDE:
     OUT = os.path.abspath(OUT_OVERRIDE)
+LUFS_TARGET = float(argval("--lufs-target") or -10.5)
+TP_CEILING = float(argval("--tp-ceiling") or -2.0)
 EVENTS_JSON = os.path.join(OUTD, "cult-remix-v10.events.json")
 STEMS = os.path.join(OUTD, "stems")
 FONT_B = "/Users/jas/aesthetic-computer/slab/menuband/Sources/MenuBand/Resources/ywft-processing-bold.ttf"
@@ -592,6 +601,14 @@ else:
     BAR_TRACK = (40, 40, 46)
     MUTE_GRAY = (160, 158, 165)
 
+# Each physical impact owns a distinct spectral color. Blocks keep their lane
+# identity at rest, then borrow one of these hues while the force is acting;
+# the stable per-block seed prevents frame-to-frame color flicker.
+IMPACT_COLORS = (
+    (255, 92, 164), (76, 218, 255), (255, 191, 72), (144, 112, 255),
+    (100, 235, 154), (255, 112, 72), (224, 102, 255),
+)
+
 def ink_of(col):                # a lane color as legible text/outline ink
     return dim(col, 0.55) if LIGHT else col
 def mute_of(col):               # the same color, muted (inactive act rows)
@@ -655,6 +672,9 @@ f_mark  = ImageFont.truetype(FONT_R, 20)
 f_bar   = ImageFont.truetype(FONT_R, 20)
 f_act   = ImageFont.truetype(FONT_B, 25)
 f_tc    = ImageFont.truetype(FONT_B, 56)
+
+print(f"analyzing review loudness: {os.path.basename(MP3)}", flush=True)
+LOUDNESS = analyze_loudness(MP3)
 
 def sx(t):                      # strip x for time t
     return PAD_L + int(round(t * PPS))
@@ -775,6 +795,8 @@ del strip, sd
 # ---------------------------------------------------------------- chrome
 TITLE = "wannadash" + (
     "  radio cut" if RADIO else
+    "  competitive master" if AUDIO_OVERRIDE and "competitive" in os.path.basename(MP3)
+    else
     "  release master" if AUDIO_OVERRIDE and "final" in os.path.basename(MP3)
     else "  club cut")
 chrome = Image.new("RGB", (W, H), BG)
@@ -991,16 +1013,24 @@ def ease(u):
 def elastic_state(t):
     spring = 0.0
     fracture = 0.0
-    for ex in EXPLOSIONS:
+    active_color = 0
+    active_energy = 0.0
+    for ex_i, ex in enumerate(EXPLOSIONS):
         age = t - ex["t"]
         dur = ex.get("dur", 4.0)
         if 0 <= age <= dur:
-            tail = ease((dur - age) / 0.48)
-            spring += (ex.get("strength", 1.0) * math.exp(-ex.get("damping", 0.6) * age)
-                       * math.sin(2 * math.pi * ex.get("springHz", 1.0) * age) * tail)
+            edge = (ease(age / ex.get("attack", 0.12))
+                    * ease((dur - age) / ex.get("release", 0.65)))
+            impulse = (ex.get("strength", 1.0) * math.exp(-ex.get("damping", 0.6) * age)
+                       * math.sin(2 * math.pi * ex.get("springHz", 1.0) * age) * edge)
+            spring += impulse
             fracture = max(fracture, ex.get("glitch", 0.5) * math.exp(-2.7 * age)
-                           * ease(age / 0.022) * tail)
-    return spring, fracture
+                           * ease(age / 0.035) * edge)
+            energy = abs(impulse) + fracture * 0.45
+            if energy > active_energy:
+                active_energy = energy
+                active_color = ex_i
+    return spring, fracture, active_color
 
 def block_elastic_state(t, li, t0, t1):
     seed = (int(round(t0 * 1000)) * 2654435761 + li * 2246822519) & 0xffffffff
@@ -1012,18 +1042,32 @@ def block_elastic_state(t, li, t0, t1):
         direction *= -0.58
     displacement = 0.0
     fracture = 0.0
-    for ex in EXPLOSIONS:
+    visual_energy = 0.0
+    active_color = (seed >> 19) % len(IMPACT_COLORS)
+    for ex_i, ex in enumerate(EXPLOSIONS):
         age = t - ex["t"]
         dur = ex.get("dur", 4.0)
         if 0 <= age <= dur:
-            tail = ease((dur - age) / 0.48)
-            hz = ex.get("springHz", 1.0) / math.sqrt(mass)
+            edge = (ease(age / ex.get("attack", 0.12))
+                    * ease((dur - age) / ex.get("release", 0.65)))
+            lane_spread = ex.get("dispersion", 0.0) * ((li % 5) - 2) / 2
+            hz = ex.get("springHz", 1.0) * (1 + lane_spread) / math.sqrt(mass)
             damping = ex.get("damping", 0.6) / math.sqrt(mass)
-            displacement += (ex.get("strength", 1.0) / mass * math.exp(-damping * age)
-                             * math.sin(2 * math.pi * hz * age) * tail)
-            fracture = max(fracture, ex.get("glitch", 0.5) / mass
-                           * math.exp(-2.7 * age) * ease(age / 0.022) * tail)
-    return int(round(displacement * direction * 128)), fracture
+            impulse = (ex.get("strength", 1.0) / mass * math.exp(-damping * age)
+                       * math.sin(2 * math.pi * hz * age) * edge)
+            displacement += impulse
+            local_fracture = (ex.get("glitch", 0.5) / mass
+                              * math.exp(-2.7 * age) * ease(age / 0.035) * edge)
+            fracture = max(fracture, local_fracture)
+            energy = abs(impulse) + local_fracture * 0.55
+            if energy > visual_energy:
+                visual_energy = energy
+                active_color = (ex_i + ((seed >> 19) & 3)) % len(IMPACT_COLORS)
+    vertical_direction = -1 if ((seed >> 5) & 1) else 1
+    dx = int(round(displacement * direction * 128))
+    dy = int(round(displacement * vertical_direction * (8 + 7 / mass)))
+    tint = min(0.46, visual_energy * 0.34)
+    return dx, dy, fracture, IMPACT_COLORS[active_color], tint
 
 # ---------------------------------------------------------------- frames
 NF = int(DUR * FPS)
@@ -1040,7 +1084,7 @@ for f in range(NF):
     frame = chrome_np.copy()
     off = int(round(t * PPS))
     frame[STRIP_TOP:STRIP_BOT, GUT:W] = strip_np[:, off:off + SCROLL_W]
-    spring, fracture = elastic_state(t)
+    spring, fracture, impact_color = elastic_state(t)
     if abs(spring) > 0.002 or fracture > 0.01:
         for li in range(NLANE):
             y0f = LANES_TOP + lane_y[li]
@@ -1061,29 +1105,39 @@ for f in range(NF):
                 sa, sb = max(0, sa), min(SCROLL_W, sb)
                 if sb <= sa:
                     continue
-                dx, body_fracture = block_elastic_state(t, li, body_t0, body_t1)
-                bands = 5 if body_fracture > 0.035 else 1
-                for band in range(bands):
-                    ya = band * hh // bands
-                    yb = (band + 1) * hh // bands
-                    shard = int(round(body_fracture * (11 + li * 0.9)
-                                      * (-1 if band & 1 else 1)))
-                    ddx = dx + shard
-                    src_a, src_b = sa, sb
-                    dst_a = src_a + ddx
-                    if dst_a < 0:
-                        src_a -= dst_a
-                        dst_a = 0
-                    dst_b = dst_a + (src_b - src_a)
-                    if dst_b > SCROLL_W:
-                        src_b -= dst_b - SCROLL_W
-                        dst_b = SCROLL_W
-                    if src_b <= src_a or dst_b <= dst_a:
-                        continue
-                    s = src[ya:yb, src_a:src_b]
-                    m = moving[ya:yb, src_a:src_b]
-                    d = dst[ya:yb, dst_a:dst_b]
-                    d[m] = s[m]
+                dx, dy, _body_fracture, tint_col, tint_mix = block_elastic_state(
+                    t, li, body_t0, body_t1)
+                # One body moves as one body. The earlier five horizontal
+                # shards read as doubled clips; a smaller vertical throw now
+                # supplies depth/placement without cloning the information.
+                src_a, src_b = sa, sb
+                dst_a = src_a + dx
+                if dst_a < 0:
+                    src_a -= dst_a
+                    dst_a = 0
+                dst_b = dst_a + (src_b - src_a)
+                if dst_b > SCROLL_W:
+                    src_b -= dst_b - SCROLL_W
+                    dst_b = SCROLL_W
+                src_y0, src_y1 = 0, hh
+                dst_y0 = dy
+                if dst_y0 < 0:
+                    src_y0 -= dst_y0
+                    dst_y0 = 0
+                dst_y1 = dst_y0 + (src_y1 - src_y0)
+                if dst_y1 > hh:
+                    src_y1 -= dst_y1 - hh
+                    dst_y1 = hh
+                if src_b <= src_a or dst_b <= dst_a or src_y1 <= src_y0:
+                    continue
+                s = src[src_y0:src_y1, src_a:src_b].copy()
+                if tint_mix > 0.002:
+                    tint_arr = np.asarray(tint_col, dtype=np.float32)
+                    s = np.clip(s.astype(np.float32) * (1.0 - tint_mix)
+                                + tint_arr * tint_mix, 0, 255).astype(np.uint8)
+                m = moving[src_y0:src_y1, src_a:src_b]
+                d = dst[dst_y0:dst_y1, dst_a:dst_b]
+                d[m] = s[m]
     # active audio clips light up while they play
     active_rects = []
     for li in range(NLANE):
@@ -1091,7 +1145,7 @@ for f in range(NF):
             continue
         for (t0, t1) in lane_clips[li]:
             if t0 <= t < t1:
-                dx, _ = block_elastic_state(t, li, t0, t1)
+                dx, _dy, _fracture, _tint, _mix = block_elastic_state(t, li, t0, t1)
                 xa = max(GUT, GUT + sx(t0) - off + dx)
                 xb = min(W, GUT + sx(t1) - off + dx)
                 if xb > xa:
@@ -1118,16 +1172,18 @@ for f in range(NF):
     # active word blocks light up in the score lanes
     for (li, t0, t1, yb0, yb1, col) in ev_rects:
         if t0 <= t < max(t1, t0 + 0.2):
-            dx, _ = block_elastic_state(t, li, t0, max(t1, t0 + 0.12))
+            dx, dy, _fracture, _tint, _mix = block_elastic_state(
+                t, li, t0, max(t1, t0 + 0.12))
             xa = max(GUT, GUT + sx(t0) - off + dx)
             xb = min(W, GUT + sx(max(t1, t0 + 0.12)) - off + dx)
             if xb > xa:
-                dd.rectangle([xa, STRIP_TOP + yb0, xb, STRIP_TOP + yb1],
+                dd.rectangle([xa, STRIP_TOP + yb0 + dy, xb, STRIP_TOP + yb1 + dy],
                              outline=ink_of(col), width=2)
     if abs(spring) > 0.025 or fracture > 0.04:
         cy = (STRIP_TOP + STRIP_BOT) // 2
         radius = int(34 + abs(spring) * 170 + fracture * 55)
-        col = blend(BG, MARK_COL, min(0.72, 0.18 + abs(spring) * 0.42 + fracture * 0.25))
+        force_col = IMPACT_COLORS[impact_color % len(IMPACT_COLORS)]
+        col = blend(BG, force_col, min(0.78, 0.22 + abs(spring) * 0.42 + fracture * 0.28))
         dd.ellipse([PLAY_X - radius, cy - radius, PLAY_X + radius, cy + radius],
                    outline=col, width=max(1, int(2 + fracture * 5)))
     # Full-height performer matrix: all live and upcoming voices share the
@@ -1149,6 +1205,17 @@ for f in range(NF):
     dd.text((W - 40, 14),
             f"{int(t) // 60}:{int(t) % 60:02d}.{int((t * 10) % 10)}",
             font=f_tc, fill=INK, anchor="ra")
+    draw_loudness_meter(
+        dd, LOUDNESS, t, (760, 10, W - 360, 56), f_tiny,
+        target_lufs=LUFS_TARGET, true_peak_ceiling=TP_CEILING,
+        colors={
+            "background": CARD_BG,
+            "outline": CARD_EDGE,
+            "text": INK,
+            "muted": FOOT,
+            "track": BAR_TRACK,
+        },
+    )
     ff.stdin.write(img.tobytes())
     if f % 300 == 0:
         print(f"  frame {f}/{NF}  ({time.time() - t_start:.0f}s)", flush=True)
