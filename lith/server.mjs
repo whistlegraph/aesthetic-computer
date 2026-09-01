@@ -251,8 +251,14 @@ app.use((req, res, next) => {
   }
 
   // Caddy sends non-root prompt.ac routes here so the same live resolver owns
-  // both domains. Preserve the old behavior when no Whistlegraph route wins.
+  // both domains. Piece-like paths serve the HTML prompt shell, which boots
+  // its runtime straight into the piece — prompt.ac/line stays on prompt.ac,
+  // matching the raster site's real paths. Dotted paths (assets and files)
+  // keep the historical aesthetic.computer redirect.
   if (isPrompt && req.path !== "/") {
+    if (!req.path.includes(".")) {
+      return res.sendFile(join(PUBLIC, "prompt.ac", "index.html"));
+    }
     return res.redirect(301, `https://aesthetic.computer${req.originalUrl}`);
   }
   next();

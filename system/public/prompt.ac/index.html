@@ -11,7 +11,7 @@
   /* prompt.ac — the HTML prompt, sister of disks/prompt.mjs (the raster
      prompt) the way laklok.com's vector client sisters its raster piece.
      At the prompt the DOM owns the whole screen: crisp typed line + block
-     caret, MOTD ticker from the same mood feed, login state. The AC runtime
+     caret, login state. The AC runtime
      stays booted in a hidden iframe as the command brain (prompt.mjs still
      parses, aliases, and halts every command via the prompt:dom-input
      bridge); it becomes visible only while a piece is on stage. The palettes
@@ -19,7 +19,7 @@
 
      Interaction mirrors TextInput.act() in lib/type.mjs: the line is either
      activated (canType — blinking caret, curtain down) or deactivated (the
-     login curtain — MOTD + auth — stands). Backdrop taps and typing
+     login curtain — the auth buttons — stands). Backdrop taps and typing
      activate; a backdrop tap or Escape on an empty line deactivates. The
      blips (300 press, 250 deactivate, 850 run) are the same sines type.mjs
      plays, WebAudio'd here because the hidden runtime never sees these keys. */
@@ -68,7 +68,7 @@
   html, body { height: 100%; margin: 0; background: var(--bg); }
   body { font-family: var(--font); color: var(--text); overflow: hidden; cursor: var(--cursor-precise), auto; }
   #cmd { cursor: var(--cursor-precise), text; }
-  button, .corner, .motd .by b { cursor: var(--cursor-active), pointer; }
+  button, .corner { cursor: var(--cursor-active), pointer; }
   ::selection { background: var(--highlight); color: var(--bg); }
 
   /* ── Stage: the hosted runtime. While the DOM prompt owns the screen the
@@ -89,7 +89,6 @@
   body[data-mode="prompt"] #screen { display: flex; }
   /* Slash-prompt over a running piece: same screen as a translucent curtain. */
   body[data-mode="piece"] #screen.overlay { display: flex; background: var(--scrim); }
-  body[data-mode="piece"] #screen.overlay .motd,
   body[data-mode="piece"] #screen.overlay .auth,
   body[data-mode="piece"] #screen.overlay .flair { display: none; }
 
@@ -122,9 +121,27 @@
     font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
     caret-color: transparent; /* the block caret below replaces the bar */
   }
-  /* Chrome draws a dropdown arrow for list-bound inputs — the wg command
-     datalist still opens, but the arrow doesn't belong on the prompt. */
-  #cmd::-webkit-calendar-picker-indicator { display: none !important; }
+  /* ── Native autocomplete — the raster's in-view completions: the best
+     match's remainder ghosts onto the typed line, the rest stack beneath
+     as faint rows (history rows ride the same rail), Tab completes. ── */
+  #ghost {
+    position: absolute; top: 0; left: 0; pointer-events: none;
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    white-space: pre; color: var(--dim); opacity: .55;
+  }
+  #ghost .pad { color: transparent; }
+  #results {
+    position: absolute; left: 0; right: 0;
+    top: calc(1.3 * clamp(20px, 2.6vw, 30px));
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    white-space: pre; overflow: hidden;
+  }
+  #results .row { opacity: .4; cursor: var(--cursor-active), pointer; }
+  #results .row .desc { opacity: .55; }
+  #results .row.sel { opacity: .95; }
+  #results .row:hover { opacity: .8; }
+  #results .row.wg { color: rgb(255, 100, 255); }
+  #results .row.hist { color: rgb(140, 90, 235); cursor: var(--cursor-active), pointer; }
   #caret {
     position: absolute; top: 0; left: 0; height: 1.3em; width: .62em;
     background: var(--block); pointer-events: none;
@@ -162,28 +179,10 @@
   }
   .notice.gone { opacity: 0; }
 
-  /* ── MOTD — the mood of the day ticker, centered like the raster's. ── */
-  .motd {
-    max-width: min(72ch, 86vw); text-align: center;
-    font-size: clamp(15px, 1.8vw, 21px); line-height: 1.5;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
-    transition: opacity .35s;
-    user-select: none;
-  }
-  /* The login curtain — showLoginCurtain in prompt.mjs: MOTD + auth stand
-     only while the line is deactivated, empty, and quiet (no reply). */
-  .motd.faded,
-  body.active .motd, body.typing .motd,
-  body.replying .motd, body.submitting .motd { opacity: 0; }
-  body.active .motd, body.typing .motd,
-  body.replying .motd, body.submitting .motd { pointer-events: none; }
-  .motd .by { display: block; margin-top: .4em; font-size: .72em; color: var(--dim); }
-  .motd .by b { cursor: var(--cursor-active), pointer; }
-  .motd .by b:hover { color: var(--highlight); }
-  .t-handle, .t-kidlisp, .t-clock, .t-painting, .t-prompt, .t-url { color: var(--highlight); }
-
-  /* ── Login / I'm new / profile — ui.TextButton, vectorized. ─────────── */
-  .auth { display: flex; gap: 14px; margin-top: 34px; transition: opacity .35s; }
+  /* ── Login / I'm new / profile — ui.TextButton, vectorized. This is the
+     login curtain (showLoginCurtain in prompt.mjs): it stands only while
+     the line is deactivated, empty, and quiet (no reply). ─────────────── */
+  .auth { display: flex; gap: 14px; transition: opacity .35s; }
   body.active .auth, body.typing .auth,
   body.replying .auth, body.submitting .auth { opacity: 0; pointer-events: none; }
   .auth button {
@@ -199,22 +198,20 @@
   .auth #profile { background: var(--profile-bg); color: var(--profile-text); border-color: var(--profile-text); }
   .auth button[hidden] { display: none; }
 
-  /* ── Corner chip — the DOM twin of the composited HUD label. ────────── */
+  /* ── Corner label — the DOM twin of the composited HUD label: the piece
+     name in the prompt's own type, drop-shadowed, no box. ─────────────── */
   .corner {
     position: absolute; z-index: 4;
     top: max(8px, env(safe-area-inset-top));
     left: max(8px, env(safe-area-inset-left));
-    display: none; align-items: center; gap: 6px;
-    padding: 4px 10px; cursor: var(--cursor-active), pointer; user-select: none;
-    background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .3);
-    border-radius: 6px; color: #fff; font-family: var(--font); font-size: 14px;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+    display: none; cursor: var(--cursor-active), pointer; user-select: none;
+    color: #fff; font-family: var(--font);
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, .75);
   }
-  body[data-mode="piece"] .corner { display: flex; }
+  body[data-mode="piece"] .corner { display: block; }
   body[data-mode="piece"] #screen.overlay ~ .corner { display: none; }
-  .corner:hover { border-color: var(--highlight); }
-  .corner .back { color: var(--highlight); font-weight: 700; }
+  .corner:hover { color: var(--highlight); }
 
   /* ── Boot loader — only when deep-linking straight into a piece. ────── */
   .loading {
@@ -236,19 +233,16 @@
   <div id="screen">
     <div class="flair"></div>
     <div class="line">
-      <input id="cmd" aria-label="Aesthetic Computer prompt" list="wgCommands"
+      <span id="ghost" aria-hidden="true"></span>
+      <input id="cmd" aria-label="Aesthetic Computer prompt"
              autocomplete="off" autocapitalize="off" autocorrect="off"
              spellcheck="false" enterkeyhint="go" />
       <span id="caret"></span>
       <span id="measure"></span>
-      <datalist id="wgCommands"></datalist>
+      <div id="results" role="listbox"></div>
     </div>
     <div class="reply" id="reply" hidden><span class="dots">▪▪▪</span><span id="replyText"></span></div>
     <div class="notice" id="notice" hidden></div>
-    <div class="motd" id="motd" hidden>
-      <span id="motdText"></span>
-      <span class="by" id="motdBy" hidden>— <b id="motdHandle"></b></span>
-    </div>
     <div class="auth" id="auth" hidden>
       <button id="login">Log in</button>
       <button id="signup">I'm new</button>
@@ -256,7 +250,7 @@
     </div>
   </div>
 
-  <div class="corner" id="corner" title="back to prompt"><span class="back">&lsaquo;</span><span id="cornerName"></span></div>
+  <div class="corner" id="corner" title="back to prompt"><span id="cornerName"></span></div>
   <div class="loading" id="loading">booting aesthetic computer&hellip;</div>
   <span class="sr-only" id="dot" role="status">runtime booting</span>
 
@@ -268,14 +262,12 @@ const runtimeOverride = localRuntime
 const runtimeOrigin = runtimeOverride || (localRuntime
   ? location.origin
   : "https://aesthetic.computer");
-const { ACFrame, renderBody, handleColor } = await import(
-  `${runtimeOrigin}/html/lib/moat.mjs`
-);
+const { ACFrame } = await import(`${runtimeOrigin}/html/lib/moat.mjs`);
 
 const $ = (id) => document.getElementById(id);
 const $cmd = $("cmd"), $caret = $("caret"), $measure = $("measure");
+const $ghost = $("ghost"), $results = $("results");
 const $screen = $("screen"), $corner = $("corner"), $cornerName = $("cornerName");
-const $motd = $("motd"), $motdText = $("motdText"), $motdBy = $("motdBy"), $motdHandle = $("motdHandle");
 const $auth = $("auth"), $login = $("login"), $signup = $("signup"), $profile = $("profile");
 const $reply = $("reply"), $replyText = $("replyText"), $notice = $("notice");
 const $loading = $("loading"), $dot = $("dot");
@@ -287,11 +279,13 @@ let promptLive = false; // the runtime's prompt piece is loaded + interactive
 let lastSubmitted = ""; // suppress the runtime echoing a command back as a "reply"
 let noticeTimer, submitTimer;
 
-// ── Blips — the TextInput activation sounds from lib/type.mjs, WebAudio'd
-// so the DOM prompt speaks the same tongue: 300 press/activate, 250
-// deactivate, 850 run. (The hidden runtime can't blip for keys it never sees.)
+// ── Blips — the TextInput sounds from lib/type.mjs, rendered with a port
+// of the AC synth envelope (lib/sound/synth.mjs by way of speaker.mjs):
+// duration is seconds, attack and decay are fractions of that duration,
+// and both ramps are linear. The hidden runtime never sees these keys, so
+// the shell plays its exact ticks — same tones, same math, same lengths.
 let audio;
-function blip(tone, volume, dur) {
+function synth({ tone, volume, duration, attack, decay }) {
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state === "suspended") audio.resume();
@@ -299,19 +293,65 @@ function blip(tone, volume, dur) {
     osc.type = "sine";
     osc.frequency.value = tone;
     const t = audio.currentTime;
+    const attackEnd = t + duration * attack;
+    const decayStart = t + duration * (1 - decay); // decayFrames count back from the end
     gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(volume, t + 0.005);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    gain.gain.linearRampToValueAtTime(volume, attackEnd);
+    if (decayStart > attackEnd) gain.gain.setValueAtTime(volume, decayStart);
+    gain.gain.linearRampToValueAtTime(0, t + duration);
     osc.connect(gain).connect(audio.destination);
     osc.start(t);
-    osc.stop(t + dur + 0.02);
+    osc.stop(t + duration + 0.01);
   } catch {}
 }
+// The literal calls type.mjs makes on touch/activate, deactivate, and run.
 const SND = {
-  press: () => blip(300, 0.5, 0.12),
-  deactivate: () => blip(250, 0.75, 0.17),
-  run: () => blip(850, 0.65, 0.15),
+  press: () => synth({ tone: 300, volume: 0.5, duration: 0.01, attack: 0.1, decay: 0.96 }),
+  deactivate: () => synth({ tone: 250, volume: 0.75, duration: 0.001, attack: 0.1, decay: 0.99 }),
+  run: () => synth({ tone: 850, volume: 0.65, duration: 0.005, attack: 0.1, decay: 0.96 }),
 };
+
+// ── Keypunch — the raster's AeCo_compkey sample, pitched notepat-style by
+// the QWERTY music map in prompt.mjs and played on every edit of the line
+// at the same randomized volume.
+const KEY_MUSIC = {
+  c: [0, -.7], v: [1, -.5], d: [2, -.6], s: [3, -.4], e: [4, -.5],
+  f: [5, -.4], w: [6, -.3], g: [7, -.3], r: [8, -.2], a: [9, -.2],
+  q: [10, -.1], b: [11, -.1], h: [12, .1], t: [13, .1], i: [14, .2],
+  y: [15, .2], j: [16, .3], k: [17, .4], u: [18, .3], l: [19, .5],
+  o: [20, .4], m: [21, .6], p: [22, .5], n: [23, .7], z: [-2, -.9], x: [-1, -.8],
+};
+let keySample; // the decoded compkey buffer
+let lastKey = null; // last printable key — pitches the punch (lastPressedKey)
+const safari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+fetch(`https://assets.aesthetic.computer/sounds/AeCo_compkey.${safari ? "m4a" : "ogg"}`)
+  .then((r) => r.arrayBuffer())
+  .then((buf) => {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    return audio.decodeAudioData(buf);
+  })
+  .then((decoded) => (keySample = decoded))
+  .catch(() => {});
+function keypunch() {
+  if (!keySample) return;
+  try {
+    if (audio.state === "suspended") audio.resume();
+    const src = audio.createBufferSource();
+    src.buffer = keySample;
+    const gain = audio.createGain();
+    gain.gain.value = 0.2 + Math.random() * 0.4;
+    const music = lastKey ? KEY_MUSIC[lastKey] : null;
+    if (music) {
+      src.playbackRate.value = Math.pow(2, (music[0] - 11) / 12); // centered like the raster
+      const pan = audio.createStereoPanner();
+      pan.pan.value = music[1];
+      src.connect(gain).connect(pan).connect(audio.destination);
+    } else {
+      src.connect(gain).connect(audio.destination);
+    }
+    src.start();
+  } catch {}
+}
 
 // ── Activation — canType in type.mjs. The login curtain (MOTD + auth)
 // stands while the line is deactivated and empty; tapping the backdrop or
@@ -325,6 +365,7 @@ function activate({ silent = false } = {}) {
     if (!silent) SND.press();
     clearReply(); // reactivating dismisses the last answer, like the raster
     document.body.classList.remove("submitting");
+    refreshCompletions(); // history rows greet an empty activated line
   }
   $cmd.focus();
   syncCaret();
@@ -337,11 +378,19 @@ function deactivate({ silent = false } = {}) {
   if (!silent) SND.deactivate();
   deactivatedAt = performance.now();
   $cmd.blur();
+  refreshCompletions(); // ghost + rows stand down with the line
 }
 
-// Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
-// shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
-const initial = decodeURIComponent(location.hash.slice(1)) || "prompt";
+// Deep links ride real paths like the raster site (prompt.ac/line): lith's
+// resolver serves this shell for every piece-like prompt.ac path, and
+// replaceState keeps the bar in sync without a request. A nested dev mount
+// (localhost:8888/prompt.ac/) owns no paths, so it stays on hashes; old
+// #piece links still resolve everywhere.
+const nestedMount = location.pathname.startsWith("/prompt.ac");
+const initial = decodeURIComponent(
+  (!nestedMount && location.pathname !== "/" ? location.pathname.slice(1) : "") ||
+  location.hash.slice(1),
+) || "prompt";
 let currentPiece = initial;
 const frameParams = "nogap=true&nolabel=true&shellhtml=true";
 
@@ -355,9 +404,13 @@ function setMode(piece) {
   $screen.classList.remove("overlay");
   if (onPiece) { clearReply(); $notice.hidden = true; }
   $cornerName.textContent = piece;
-  const h = "#" + piece;
-  if (onPiece && location.hash !== h) history.replaceState(null, "", h);
-  else if (!onPiece && location.hash) history.replaceState(null, "", location.pathname);
+  const target = onPiece
+    ? (nestedMount ? location.pathname + location.search + "#" + piece
+                   : "/" + piece + location.search)
+    : (nestedMount ? location.pathname + location.search : "/" + location.search);
+  if (location.pathname + location.search + location.hash !== target) {
+    history.replaceState(null, "", target);
+  }
   document.body.classList.remove("submitting"); // the command landed somewhere
   if (onPiece) { deactivate({ silent: true }); $ac.focus(); }
   // Landing home from a piece raises the login curtain (deactivated splash);
@@ -499,7 +552,11 @@ function syncCaret() {
   document.body.classList.toggle("typing", $cmd.value.length > 0);
 }
 for (const ev of ["input", "click", "keyup", "focus"]) $cmd.addEventListener(ev, syncCaret);
-$cmd.addEventListener("input", clearReply); // typing dismisses the last answer
+$cmd.addEventListener("input", () => {
+  clearReply(); // typing dismisses the last answer
+  keypunch(); // every edit punches, like the raster's prompt:text:replace
+  refreshCompletions();
+});
 document.addEventListener("selectionchange", () => {
   if (document.activeElement === $cmd) syncCaret();
 });
@@ -509,16 +566,28 @@ function setTyped(text) {
   $cmd.value = text;
   $cmd.setSelectionRange(text.length, text.length);
   syncCaret();
+  refreshCompletions();
 }
 
 // ── Keyboard ───────────────────────────────────────────────────────────────
 $cmd.addEventListener("keydown", (e) => {
+  if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) lastKey = e.key.toLowerCase();
   if (e.key === "Enter") {
+    // Arrow-walking the completion rows makes Enter run the pick, as the
+    // raster's navigated filter list does; otherwise the typed line runs.
+    if (completionNavigated) acceptCompletion();
     submitCommand($cmd.value);
+  } else if (e.key === "Tab" && completions.length > 0) {
+    e.preventDefault();
+    acceptCompletion();
   } else if (e.key === "ArrowUp") {
-    e.preventDefault(); recall(-1);
+    e.preventDefault();
+    if (completions.length > 1) navigateCompletions(-1);
+    else recall(-1);
   } else if (e.key === "ArrowDown") {
-    e.preventDefault(); recall(1);
+    e.preventDefault();
+    if (completions.length > 1) navigateCompletions(1);
+    else recall(1);
   } else if (e.key === "Escape") {
     // Escape clears a typed line; on an empty line it deactivates — the
     // curtain returns at home, the slash-curtain drops back to its piece.
@@ -547,7 +616,11 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     if (currentPiece !== "prompt") $screen.classList.add("overlay");
     activate(); // auto-activation blips, as in the raster's keyboard:down
-    if (printable && e.key !== "/") setTyped($cmd.value + e.key);
+    if (printable && e.key !== "/") {
+      lastKey = e.key.toLowerCase();
+      setTyped($cmd.value + e.key);
+      keypunch();
+    }
     else if (e.key === "ArrowUp") recall(-1);
     else syncCaret();
   }
@@ -597,40 +670,6 @@ $cmd.addEventListener("focus", () => {
   if (performance.now() - deactivatedAt < 150) { $cmd.blur(); return; }
   activate({ silent: true });
 });
-
-// ── MOTD — the same mood feed the raster prompt cycles every 8s. ──────────
-const MOTD_CYCLE_MS = 8000;
-let moods = [], moodAt = 0;
-function showMood(m) {
-  $motdText.textContent = "";
-  // Token-colored like chat: @handles and $codes inside moods jump in place.
-  $motdText.append(renderBody(m.mood, (slug) => jumpPiece(slug)));
-  const by = m.handle ? (m.handle.startsWith("@") ? m.handle : "@" + m.handle) : null;
-  $motdBy.hidden = !by;
-  if (by) {
-    $motdHandle.textContent = by;
-    $motdHandle.style.color = handleColor(by.slice(1).toLowerCase());
-    $motdHandle.onclick = () => jumpPiece(by);
-  }
-  $motd.hidden = false;
-}
-fetch(`${runtimeOrigin}/api/mood/all?limit=20`)
-  .then((r) => r.ok ? r.json() : null)
-  .then((data) => {
-    moods = (data?.moods || []).filter((m) => m?.mood?.trim());
-    if (!moods.length && data?.mood) moods = [data];
-    if (!moods.length) return;
-    showMood(moods[0]);
-    if (moods.length > 1) setInterval(() => {
-      $motd.classList.add("faded");
-      setTimeout(() => {
-        moodAt = (moodAt + 1) % moods.length;
-        showMood(moods[moodAt]);
-        $motd.classList.remove("faded");
-      }, 360);
-    }, MOTD_CYCLE_MS);
-  })
-  .catch(() => {});
 
 // ── Auth — the runtime (same origin as aesthetic.computer sessions) knows
 // who's signed in; ask it over the bridge and mirror the raster buttons.
@@ -712,12 +751,20 @@ window.addEventListener("message", (event) => {
     jumpPiece(destination);
   }
 });
-window.promptAC = { load: jumpPiece };
+window.promptAC = {
+  load: jumpPiece,
+  // Probe window: tmp/promptac-*.mjs assert against this.
+  debug: () => ({
+    active, completions: completions.map((c) => c.name), completionAt,
+    ghost: $ghost.textContent, rows: $results.children.length,
+    keySample: !!keySample, docs: Object.keys(commandDocs).length,
+  }),
+};
 
 // ── Whistlegraph command feed. Non-conflicting codes work bare; collisions
 // such as `line` keep their AC meaning and are exposed as `wg line` instead.
+// The codes also ride the in-view completions below (no datalist popover).
 const wgByCode = new Map();
-const $wgCommands = $("wgCommands");
 const wgFeed = fetch("https://whistlegraph.org/api/commands")
   .then((res) => res.ok ? res.json() : null)
   .then((data) => {
@@ -725,13 +772,115 @@ const wgFeed = fetch("https://whistlegraph.org/api/commands")
     for (const entry of commands) {
       if (!entry?.code) continue;
       wgByCode.set(String(entry.code).toLowerCase(), entry);
-      const option = document.createElement("option");
-      option.value = entry.command || entry.code;
-      option.label = `${entry.code} — ${entry.title || "Whistlegraph"}`;
-      $wgCommands.appendChild(option);
     }
+    refreshCompletions();
   })
   .catch(() => {});
+
+// ── Autocomplete — the raster prompt's docs.json (pieces + prompts, hidden
+// dropped), prefix-matched like its activeCompletions: the best match's
+// remainder ghosts onto the typed line, candidates stack beneath with their
+// descriptions, Tab completes, arrows walk the rows, Enter runs the pick.
+// With an empty activated line, recent history stacks there instead, purple
+// and fading, exactly where the raster paints its own.
+let commandDocs = {};
+fetch(`${runtimeOrigin}/docs.json`)
+  .then((r) => (r.ok ? r.json() : null))
+  .then((d) => {
+    if (!d) return;
+    const all = { ...(d.pieces || {}), ...(d.prompts || {}) };
+    for (const name of Object.keys(all)) {
+      if (!all[name].hidden) commandDocs[name] = all[name];
+    }
+    refreshCompletions();
+  })
+  .catch(() => {});
+
+const MAX_ROWS = 9;
+let completions = []; // [{name, desc, wg}]
+let completionAt = 0;
+let completionNavigated = false; // arrows touched the list → Enter runs the pick
+
+function refreshCompletions() {
+  const typed = $cmd.value;
+  completions = [];
+  completionAt = 0;
+  completionNavigated = false;
+  if (active && typed && !/[ :~]/.test(typed)) {
+    const t = typed.toLowerCase();
+    for (const name of Object.keys(commandDocs)) {
+      if (name.startsWith(t)) completions.push({ name, desc: commandDocs[name].desc });
+    }
+    completions.sort((a, b) => a.name.length - b.name.length || (a.name < b.name ? -1 : 1));
+    for (const [code, entry] of wgByCode) {
+      if (code.startsWith(t)) {
+        completions.push({ name: entry.command || code, desc: entry.title || "Whistlegraph", wg: true });
+      }
+    }
+    completions = completions.slice(0, MAX_ROWS);
+  }
+  renderCompletions();
+}
+
+function renderCompletions() {
+  const typed = $cmd.value;
+  const best = completions[completionAt];
+  // The ghost: typed prefix rendered invisible so the remainder lands on the
+  // glyph grid right after the caret (monospace makes this exact).
+  if (best && !best.wg && best.name.length > typed.length && active) {
+    $ghost.replaceChildren();
+    const pad = document.createElement("span");
+    pad.className = "pad";
+    pad.textContent = typed;
+    $ghost.append(pad, best.name.slice(typed.length));
+  } else {
+    $ghost.replaceChildren();
+  }
+  $results.replaceChildren();
+  if (completions.length > 0) {
+    completions.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.className = "row" + (i === completionAt ? " sel" : "") + (c.wg ? " wg" : "");
+      row.setAttribute("role", "option");
+      row.textContent = (i === completionAt ? "> " : "  ") + c.name;
+      if (c.desc) {
+        const desc = document.createElement("span");
+        desc.className = "desc";
+        desc.textContent = " — " + c.desc;
+        row.append(desc);
+      }
+      row.onpointerdown = (e) => e.stopPropagation(); // rows aren't backdrop
+      row.onpointerup = (e) => e.stopPropagation();
+      row.onclick = () => { acceptCompletion(i); submitCommand($cmd.value); };
+      $results.append(row);
+    });
+  } else if (active && !typed && hist.length) {
+    hist.slice(-5).reverse().forEach((h) => {
+      const row = document.createElement("div");
+      row.className = "row hist";
+      row.textContent = "  " + h;
+      row.onpointerdown = (e) => e.stopPropagation();
+      row.onpointerup = (e) => e.stopPropagation();
+      row.onclick = () => { setTyped(h); $cmd.focus(); };
+      $results.append(row);
+    });
+    // Fade the stack the way the raster's history rows decay.
+    [...$results.children].forEach((row, i) => { row.style.opacity = 0.45 / (i + 1); });
+  }
+}
+
+function acceptCompletion(at = completionAt) {
+  const pick = completions[at];
+  if (!pick) return;
+  setTyped(pick.name);
+  keypunch(); // the raster punches on every text replace, tab included
+}
+
+function navigateCompletions(dir) {
+  completionAt = (completionAt + dir + completions.length) % completions.length;
+  completionNavigated = true;
+  renderCompletions();
+}
 
 function whistlegraphFromInput(input) {
   const value = String(input || "").trim().toLowerCase();
