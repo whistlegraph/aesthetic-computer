@@ -18,7 +18,7 @@
 // That table is the whole point: a bot change ships because a number moved,
 // not because a run looked better.
 
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveShell, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
@@ -198,12 +198,24 @@ export async function openLab({ log = () => {} } = {}) {
 export { levelFor, survivalLevelCount };
 
 // Everything below is the command line. Imported, this module is just the lab.
-const invoked = process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+//
+// `import.meta.url` reports the REAL path while `argv[1]` keeps whatever the
+// caller typed, so comparing them raw silently decides "imported" whenever any
+// path component is a symlink — /tmp against /private/tmp on a Mac, or a
+// worktree reached through a linked directory. The script then exits 0 having
+// printed nothing, which reads exactly like a passing run. Ask node when it can
+// answer, and compare real paths when it cannot.
+const invoked = typeof import.meta.main === "boolean" ? import.meta.main : (() => {
+  try {
+    return Boolean(process.argv[1]) &&
+      realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch { return false; }
+})();
 if (invoked) {
 const log = console.log;
 const lab = await openLab({ log });
 const climbOne = (options) => lab.climb(options);
+let failed = false;
 
 try {
   const runs = Math.max(1, Number(flags.runs || 3));
@@ -244,8 +256,18 @@ try {
       results.push(await climbOne({ seed, tune, cap }));
     report(Object.keys(tune).length ? "tuned" : "shipping bot", results);
   }
+} catch (error) {
+  // `process.exit(0)` in the finally used to run before a rejection could be
+  // reported, so a lab that never got the page open printed nothing and exited
+  // 0 — a broken run and a clean run were the same output. Say what went wrong
+  // and exit non-zero, because a sweep is only worth anything if its silence
+  // means "no summits", not "no simulation".
+  failed = true;
+  console.error(`✗ ${error?.stack || error?.message || error}`);
 } finally {
   await lab.close();
-  process.exit(0);
+  // Chrome and the shell can both leave handles behind; exit explicitly rather
+  // than waiting on the loop to drain.
+  process.exit(failed ? 1 : 0);
 }
 }

@@ -3,6 +3,7 @@
 #
 #   oskiewar-clockwork publish 0     # bake slot 0 on the oven and post it
 #   oskiewar-clockwork insights      # pull Meta's figures onto the ledger
+#   oskiewar-clockwork tune          # price the climb bot if reels failed (proposes only)
 #
 # This exists because the crontab used to call `bash -lc '... node ...'` directly
 # and every part of that was wrong in a way that failed silently:
@@ -112,8 +113,25 @@ case "$MODE" in
     status=${PIPESTATUS[0]}
     [ "$status" -eq 0 ] || exit "$status"
     ;;
+  tune)
+    # Reads the day's outcomes off the ledger and, only if reels failed, prices
+    # the climb bot's constants headlessly. It PROPOSES ONLY — it writes
+    # ~/.local/state/oskiewar-survival-tune.json and changes nothing else — so
+    # it has no ledger to publish and no figures to post, and stops here.
+    #
+    # This needs the whole game shell, not just the marketing tools: the lab
+    # serves oskiewar.js and the modules `shell.mjs` lists out of
+    # system/public. Those paths were added to this checkout's sparse cone for
+    # exactly this; without them the page 404s and never boots.
+    STAGE="pricing the climb bot against recent outcomes"
+    "$NODE" xbox/live/marketing/survival-tune.mjs 2>&1 | tee -a "$LOG"
+    status=${PIPESTATUS[0]}
+    STAGE="done"
+    say "✓ tune complete"
+    exit "$status"
+    ;;
   *)
-    say "unknown mode '$MODE' (want: publish | insights)"; exit 2 ;;
+    say "unknown mode '$MODE' (want: publish | insights | tune)"; exit 2 ;;
 esac
 
 # --- send the figures where the wall can see them now ---
