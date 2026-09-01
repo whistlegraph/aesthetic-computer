@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whistlegraph Stars</title>
+<meta name="description" content="Star the org. A star on whistlegraph.org does nothing but shine.">
+<meta property="og:title" content="Whistlegraph Stars">
+<meta property="og:description" content="Star the org. A star does nothing but shine.">
+<meta property="og:image" content="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer.webp">
+<meta name="theme-color" content="#16122a">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  /* The sky is whistlegraph.org's room after dark — the same ink the TV goes to,
+     with the paper reduced to points of light. Patronage, never investment:
+     nothing on this page promises a return, because a star doesn't have one. */
+  :root{
+    --paper:#fffdf6;
+    --ink:#25204a;
+    --margin:#b44887;
+    --room:#16122a;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--room);color:var(--paper);font:15px/1.45 var(--sans);overflow:hidden;
+    -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+  #sky{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
+
+  /* The masthead wears the archive's margin pink, same as the TV's corner label. */
+  header{position:fixed;left:0;right:0;top:0;padding:14px 16px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(22,18,42,.9),rgba(22,18,42,0))}
+  h1{font:600 15px var(--mono);letter-spacing:.02em;color:var(--margin)}
+  h1 span{color:var(--paper);margin-left:7px}
+  #count{display:block;margin-top:2px;font:12px var(--mono);color:rgba(255,253,246,.66)}
+
+  /* The rail: connect + mint. It is the same wallet rail the Codes mint page
+     will reuse, which is the real reason this page ships first. */
+  #rail{position:fixed;left:0;right:0;bottom:0;padding:14px 16px 20px;
+    display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;
+    background:linear-gradient(0deg,rgba(22,18,42,.94),rgba(22,18,42,0))}
+  button{font:600 14px var(--mono);color:var(--paper);background:var(--ink);
+    border:1px solid rgba(255,253,246,.22);padding:11px 20px;border-radius:22px;cursor:pointer;
+    transition:background .15s ease,border-color .15s ease}
+  button:hover:not(:disabled){background:var(--margin);border-color:var(--margin)}
+  button:disabled{opacity:.45;cursor:default}
+  #note{width:100%;text-align:center;font:12px var(--mono);color:rgba(255,253,246,.6)}
+  #note a{color:var(--margin)}
+
+  /* Hover card. ENS names render here, which is exactly why DENYLIST exists. */
+  #card{position:fixed;pointer-events:none;opacity:0;transform:translate(-50%,-140%);
+    background:var(--ink);border:1px solid rgba(255,253,246,.2);border-radius:6px;
+    padding:7px 11px;font:12px var(--mono);white-space:nowrap;
+    box-shadow:0 2px 12px rgba(0,0,0,.6);transition:opacity .12s ease}
+  #card.on{opacity:1}
+  #card b{color:var(--margin);font-weight:600}
+
+  @media (prefers-reduced-motion:reduce){ #card{transition:none} }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<header>
+  <h1>whistlegraph<span>stars</span></h1>
+  <span id="count">reading the sky…</span>
+</header>
+<div id="card"></div>
+<div id="rail">
+  <button id="connect">connect wallet</button>
+  <button id="mint" disabled>mint a star</button>
+  <div id="note">A star does nothing but shine. Patronage, not investment.</div>
+</div>
+
+<script type="module">
+// Whistlegraph Stars — the constellation, read straight off Base.
+//
+// No backend and no indexer: the sky is one eth_getLogs for mint events
+// (Transfer from the zero address), which are immutable, so a star stays where
+// it was born even if the token later changes hands. Position, hue, and twinkle
+// all fall out of the minting address, so this page and the contract's on-chain
+// SVG describe the same star without either one storing a coordinate.
+//
+// RFC: whistlegraph/codes/ORGSTARS-RFC.md
+
+// ---- deploy config ------------------------------------------------------
+// CONTRACT stays null until ORGSTAR is deployed; the page renders an honest
+// empty sky in the meantime. ?chain=base-sepolia switches to the rehearsal.
+const CHAINS = {
+  "base": {
+    id: 8453, rpc: "https://base-rpc.publicnode.com", label: "Base",
+    contract: null,       // ← set at deploy
+    deployBlock: 0n,      // ← set at deploy (keeps getLogs cheap)
+    explorer: "https://basescan.org",
+  },
+  "base-sepolia": {
+    id: 84532, rpc: "https://base-sepolia-rpc.publicnode.com", label: "Base Sepolia",
+    contract: null, deployBlock: 0n,
+    explorer: "https://sepolia.basescan.org",
+  },
+};
+const chainKey = new URLSearchParams(location.search).get("chain") === "base-sepolia"
+  ? "base-sepolia" : "base";
+const CHAIN = CHAINS[chainKey];
+
+// ENS names are written by their owners and rendered on our page. Any name we
+// will not display goes here (lowercase); those stars fall back to the address.
+const DENYLIST = new Set([]);
+
+const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const ZERO32 = "0x" + "0".repeat(64);
+const MAINNET_RPC = "https://ethereum-rpc.publicnode.com"; // ENS lives on L1
+
+// ---- rpc ----------------------------------------------------------------
+async function rpc(url, method, params) {
+  const r = await fetch(url, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error.message);
+  return j.result;
+}
+const call = (url, to, data) => rpc(url, "eth_call", [{ to, data }, "latest"]);
+
+// ---- the star, derived from its minter ----------------------------------
+// One 32-bit FNV-1a over the address gives every visual property. The contract's
+// tokenURI derives hue and point count from the same bytes; keep them in step.
+function hash32(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+function starOf(addr, tokenId, indexInCluster) {
+  const h = hash32(addr.toLowerCase());
+  // Base position from the wallet — inset from the edges so nothing clips.
+  const bx = 0.06 + ((h & 0xffff) / 0xffff) * 0.88;
+  const by = 0.10 + (((h >>> 16) & 0xffff) / 0xffff) * 0.74;
+  // Extra stars from one wallet spiral out around that seed: a formation, and
+  // the wallet reads brighter for having more of them.
+  const a = (h % 360) * (Math.PI / 180) + indexInCluster * 2.399963; // golden angle
+  const r = indexInCluster === 0 ? 0 : 0.026 * Math.sqrt(indexInCluster);
+  return {
+    addr, tokenId,
+    x: bx + Math.cos(a) * r,
+    y: by + Math.sin(a) * r,
+    hue: h % 360,
+    points: 4 + (h % 4),                 // 4–7 points
+    phase: ((h >>> 8) % 1000) / 1000,    // twinkle offset
+    size: 1 + (((h >>> 20) & 0xff) / 0xff) * 0.6,
+  };
+}
+
+// ---- reading the sky ----------------------------------------------------
+async function readSky() {
+  if (!CHAIN.contract) return [];
+  const logs = await rpc(CHAIN.rpc, "eth_getLogs", [{
+    address: CHAIN.contract,
+    topics: [TRANSFER, ZERO32],           // mints only
+    fromBlock: "0x" + CHAIN.deployBlock.toString(16),
+    toBlock: "latest",
+  }]);
+  const byWallet = new Map();
+  const stars = [];
+  for (const log of logs) {
+    const addr = "0x" + log.topics[2].slice(26);
+    const tokenId = BigInt(log.topics[3]).toString();
+    const n = byWallet.get(addr.toLowerCase()) ?? 0;
+    byWallet.set(addr.toLowerCase(), n + 1);
+    stars.push(starOf(addr, tokenId, n));
+  }
+  for (const s of stars) s.cluster = byWallet.get(s.addr.toLowerCase());
+  return stars;
+}
+
+async function priceWei() {
+  if (!CHAIN.contract) return null;
+  try { return BigInt(await call(CHAIN.rpc, CHAIN.contract, "0xa035b1fe")); } // price()
+  catch { return null; }
+}
+
+// ---- ENS, resolved lazily on hover --------------------------------------
+const ensCache = new Map();
+async function ensName(addr) {
+  const key = addr.toLowerCase();
+  if (ensCache.has(key)) return ensCache.get(key);
+  ensCache.set(key, null); // don't stampede while in flight
+  try {
+    // ENS reverse registrar, resolved through the universal resolver's
+    // reverse(bytes) path would need ABI encoding we don't want inline; the
+    // addr.reverse node lookup below is the plain two-step.
+    const node = await reverseNode(key);
+    const resolver = await call(MAINNET_RPC, "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+      "0x0178b8bf" + node.slice(2));
+    const rAddr = "0x" + resolver.slice(26);
+    if (/^0x0+$/.test(rAddr)) return null;
+    const res = await call(MAINNET_RPC, rAddr, "0x691f3431" + node.slice(2)); // name(bytes32)
+    const len = parseInt(res.slice(66, 130), 16);
+    const name = new TextDecoder().decode(
+      Uint8Array.from(res.slice(130, 130 + len * 2).match(/../g).map((b) => parseInt(b, 16))));
+    const ok = name && !DENYLIST.has(name.toLowerCase()) ? name : null;
+    ensCache.set(key, ok);
+    return ok;
+  } catch { return null; }
+}
+// namehash of "<addr-without-0x>.addr.reverse", computed with the browser's
+// keccak-free path: we ask the chain for it via the reverse registrar's node().
+async function reverseNode(addr) {
+  return call(MAINNET_RPC, "0x084b1c3C81545d370f3634392De611CaaBFf8148",
+    "0xbffbe61c" + "0".repeat(24) + addr.slice(2)); // node(address)
+}
+
+// ---- painting -----------------------------------------------------------
+const cv = document.getElementById("sky");
+const ctx = cv.getContext("2d");
+let stars = [], dpr = 1, W = 0, H = 0;
+
+function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener("resize", resize);
+
+function drawStar(s, t) {
+  const x = s.x * W, y = s.y * H;
+  // Brightness rides the cluster: one wallet with many stars shines harder.
+  const glow = Math.min(1, 0.45 + Math.log2(1 + (s.cluster ?? 1)) * 0.22);
+  const twinkle = 0.78 + 0.22 * Math.sin(t * 0.0011 + s.phase * Math.PI * 2);
+  const R = (2.4 + s.size * 2.6) * twinkle;
+
+  // A tight halo: wide enough to glow, small enough that a dense formation
+  // still reads as separate stars instead of one smudge.
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, R * 3.6);
+  halo.addColorStop(0, `hsla(${s.hue},80%,78%,${0.34 * glow * twinkle})`);
+  halo.addColorStop(1, "hsla(0,0%,100%,0)");
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(x, y, R * 3.6, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = `hsla(${s.hue},92%,${72 + glow * 18}%,${twinkle})`;
+  ctx.beginPath();
+  for (let i = 0; i < s.points * 2; i++) {
+    const a = (Math.PI * i) / s.points - Math.PI / 2;
+    const rr = i % 2 === 0 ? R : R * 0.38;
+    i === 0 ? ctx.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr)
+            : ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath(); ctx.fill();
+  s._r = R * 3; s._x = x; s._y = y; // hit box
+}
+
+function frame(t) {
+  ctx.clearRect(0, 0, W, H);
+  for (const s of stars) drawStar(s, t);
+  requestAnimationFrame(frame);
+}
+
+// ---- hover --------------------------------------------------------------
+const card = document.getElementById("card");
+const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+cv.addEventListener("pointermove", async (e) => {
+  let hit = null;
+  for (const s of stars) {
+    const d = Math.hypot(e.clientX - s._x, e.clientY - s._y);
+    if (d < Math.max(s._r, 14)) { hit = s; break; }
+  }
+  if (!hit) { card.classList.remove("on"); return; }
+  card.style.left = hit._x + "px";
+  card.style.top = hit._y + "px";
+  card.innerHTML = `<b>${short(hit.addr)}</b>${hit.cluster > 1 ? ` · ${hit.cluster} stars` : ""}`;
+  card.classList.add("on");
+  const name = await ensName(hit.addr);
+  if (name && card.classList.contains("on")) {
+    card.innerHTML = `<b>${name}</b>${hit.cluster > 1 ? ` · ${hit.cluster} stars` : ""}`;
+  }
+});
+cv.addEventListener("pointerleave", () => card.classList.remove("on"));
+
+// ---- the rail -----------------------------------------------------------
+const $connect = document.getElementById("connect");
+const $mint = document.getElementById("mint");
+const $note = document.getElementById("note");
+const $count = document.getElementById("count");
+let account = null, price = null;
+
+$connect.addEventListener("click", async () => {
+  if (!window.ethereum) {
+    $note.textContent = "No wallet found in this browser.";
+    return;
+  }
+  try {
+    [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
+    $connect.textContent = short(account);
+    await ensureChain();
+    $mint.disabled = !CHAIN.contract;
+  } catch (e) { $note.textContent = e.message ?? "Connection refused."; }
+});
+
+async function ensureChain() {
+  const hex = "0x" + CHAIN.id.toString(16);
+  const current = await window.ethereum.request({ method: "eth_chainId" });
+  if (current === hex) return;
+  await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
+}
+
+$mint.addEventListener("click", async () => {
+  if (!account || !CHAIN.contract) return;
+  $mint.disabled = true;
+  try {
+    await ensureChain();
+    const hash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{
+        from: account, to: CHAIN.contract,
+        value: "0x" + (price ?? 0n).toString(16),
+        data: "0x1249c58b", // mint()
+      }],
+    });
+    $note.innerHTML = `star on its way — <a href="${CHAIN.explorer}/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0, 10)}…</a>`;
+    setTimeout(refresh, 4000);
+  } catch (e) {
+    $note.textContent = e.message?.split("\n")[0] ?? "Mint cancelled.";
+  } finally { $mint.disabled = false; }
+});
+
+// ---- boot ---------------------------------------------------------------
+async function refresh() {
+  try {
+    stars = await readSky();
+    const wallets = new Set(stars.map((s) => s.addr.toLowerCase())).size;
+    $count.textContent = stars.length
+      ? `${stars.length} star${stars.length === 1 ? "" : "s"} · ${wallets} wallet${wallets === 1 ? "" : "s"} · Constellation of ${new Date().getUTCFullYear()}`
+      : CHAIN.contract ? "an empty sky — be the first" : "the sky opens soon";
+  } catch (e) {
+    $count.textContent = "the sky is out of reach right now";
+  }
+}
+
+resize();
+requestAnimationFrame(frame);
+refresh();
+priceWei().then((p) => {
+  price = p;
+  if (p != null) {
+    const eth = Number(p) / 1e18;
+    $mint.textContent = `mint a star · ${eth} ETH`;
+  }
+});
+if (!CHAIN.contract) {
+  $mint.textContent = "mint a star";
+  $note.textContent = `ORGSTAR is not deployed on ${CHAIN.label} yet. A star does nothing but shine.`;
+}
+</script>
+</body>
+</html>
