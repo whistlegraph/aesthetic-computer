@@ -339,10 +339,34 @@ async function doPost(creds) {
   }
   if (state !== "FINISHED") die(`container ended ${state} — nothing was published`);
 
-  const published = await call(api(`${creds.igUserId}/media_publish?access_token=${creds.token}`), {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ creation_id: created.id }),
-  });
+  // `media_publish` can post the reel AND still answer 400. @menuband.app did
+  // exactly that 33 times: every hourly run reported "Cannot Create Media",
+  // every hourly run put another copy of the same waltz on the grid, and none
+  // of them reached the ledger — which is why the account carried 33 more
+  // posts than its record knew about, and why this looked like a publishing
+  // ban instead of a publishing loop. So a refusal is not believed until the
+  // account agrees: if the media count moved, the reel went up, and the honest
+  // report is success with the id Meta declined to hand back.
+  const before = (await fetchMe(creds)).media_count;
+  let published;
+  try {
+    published = await call(api(`${creds.igUserId}/media_publish?access_token=${creds.token}`), {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ creation_id: created.id }),
+    });
+  } catch (error) {
+    const after = (await fetchMe(creds).catch(() => ({}))).media_count;
+    if (!(Number.isFinite(before) && Number.isFinite(after) && after > before)) throw error;
+    const recent = await call(api(`${creds.igUserId}/media?fields=id&limit=1` +
+      `&access_token=${creds.token}`)).catch(() => null);
+    const id = recent?.data?.[0]?.id;
+    console.log(`⚠ media_publish answered "${error.message}" but the account ` +
+      `went ${before} → ${after} media — the reel published anyway.`);
+    if (!id) throw new Error(
+      `published despite the error, but its media id could not be read back — ` +
+      `ledger it by hand before the lane reposts it`);
+    published = { id };
+  }
   console.log(`✓ published · ${published.id}`);
 
   // The permalink is the one field only Meta can supply, and only after the
