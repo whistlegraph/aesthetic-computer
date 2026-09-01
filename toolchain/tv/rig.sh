@@ -119,7 +119,7 @@ exec ffmpeg -hide_banner -loglevel warning \
   -thread_queue_size 1024 -use_wallclock_as_timestamps 1 \
   -f x11grab -framerate "$FPS" -video_size "$SIZE" -i "$DISPLAY_NUM" \
   -thread_queue_size 1024 -use_wallclock_as_timestamps 1 \
-  -f pulse -i "${SINK}.monitor" \
+  -itsoffset "${AV_OFFSET:-0}" -f pulse -fragment_size 1024 -i "${SINK}.monitor" \
   $SCALE_ARGS \
   -af "aresample=async=1:first_pts=0" \
   -fps_mode cfr \

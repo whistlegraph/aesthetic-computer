@@ -60,10 +60,12 @@
   /* 📺 broadcast mode (?tv=1) — the rig's Chrome is the viewer, a couch is
      the reader: label scales for a living room and never dims, the QR grows
      to scan-from-the-sofa size, and the progress hair leaves the floor. */
-  body.tv #label{max-width:86vw;font:600 26px var(--mono);opacity:1}
-  body.tv #label .meta{font:17px var(--mono)}
+  body.tv #label{max-width:86vw;opacity:1}
+  body.tv #label .code{display:block;font:600 46px var(--mono);letter-spacing:.03em}
+  body.tv #label .title{display:block;margin-left:0;font:600 32px var(--mono);margin-top:2px}
+  body.tv #label .meta{font:20px var(--mono);margin-top:5px}
   body.tv.idle #label{opacity:1}
-  body.tv #qr{width:200px;height:200px}
+  body.tv #qr{width:140px;height:140px}
   body.tv #bar{display:none}
 </style>
 </head>
@@ -86,6 +88,11 @@ const CDN="https://assets.aesthetic.computer/whistlegraph";
 const IDX=CDN+"/index";
 // 📺 ?tv=1 — broadcast mode for the rig's Chrome (big label, big QR, no bar).
 if(new URLSearchParams(location.search).has("tv"))document.body.classList.add("tv");
+const TV=document.body.classList.contains("tv");
+// Television surfs: no single work may hold the channel longer than this —
+// the hour-long performances yield to the tiktok-scale ones.
+const TV_DWELL_MS=180000;
+let dwellTimer=null;
 const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;
 
 let WORKS=[];            // playable channel entries: {code,title,by,views,src,poster,dead}
@@ -161,6 +168,7 @@ function play(i,push=true){
   front.muted=document.body.dataset.sound!=="on";
   front.currentTime=0;
   front.play().catch(()=>{});
+  if(TV){ clearTimeout(dwellTimer); dwellTimer=setTimeout(next,TV_DWELL_MS); }
   showLabel(w);
   // stage the next pick in the back screen
   const peek=deck.length?deck[deck.length-1]:null;
