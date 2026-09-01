@@ -11,6 +11,7 @@
 
 #include "../platform/ac_platform.hpp"
 #include "../QuickJsEngine.hpp"
+#include "../render/gdk_surface.hpp"
 
 #include <windows.h>
 
@@ -394,18 +395,23 @@ int main(int argc, char** argv) {
       if (SUCCEEDED(hr)) hr = dxgiDevice->GetAdapter(&adapter);
       if (SUCCEEDED(hr)) hr = adapter->GetParent(IID_PPV_ARGS(&factory));
       ComPtr<IDXGISwapChain1> swapChain;
+      // Through render::SurfaceHost rather than calling DXGI here, so this
+      // check exercises the seam App.cpp draws through instead of a parallel
+      // copy that could drift away from it.
+      ac::xbox::render::HwndSurface surface(
+        static_cast<HWND>(plat->window().native_handle()));
+      unsigned surfaceWidth = 640, surfaceHeight = 360;
+      surface.preferred_size(surfaceWidth, surfaceHeight);
       if (SUCCEEDED(hr)) {
         DXGI_SWAP_CHAIN_DESC1 desc{};
-        desc.Width = 640;
-        desc.Height = 360;
+        desc.Width = surfaceWidth;
+        desc.Height = surfaceHeight;
         desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
         desc.SampleDesc.Count = 1;
         desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         desc.BufferCount = 2;
         desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-        hr = factory->CreateSwapChainForHwnd(
-          device.Get(), static_cast<HWND>(plat->window().native_handle()),
-          &desc, nullptr, nullptr, &swapChain);
+        hr = surface.create_swap_chain(factory.Get(), device.Get(), desc, &swapChain);
       }
       ComPtr<ID3D11Texture2D> back;
       ComPtr<ID3D11RenderTargetView> target;
@@ -418,7 +424,9 @@ int main(int argc, char** argv) {
       }
       plat->window().pump();
       ok = SUCCEEDED(hr);
-      detail = ok ? "CreateSwapChainForHwnd + clear + present" : Hr(hr);
+      detail = ok ? ("render::SurfaceHost -> CreateSwapChainForHwnd " +
+        std::to_string(surfaceWidth) + "x" + std::to_string(surfaceHeight) +
+        " + clear + present") : Hr(hr);
     }
     Report("window + swap chain", ok, true, detail);
   } else if (!window_allowed) {
