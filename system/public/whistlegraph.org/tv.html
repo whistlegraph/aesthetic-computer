@@ -84,6 +84,8 @@
 import {qrcode, ErrorCorrectLevel} from "/qr.mjs"; // same encoder AC's HUD uses
 const CDN="https://assets.aesthetic.computer/whistlegraph";
 const IDX=CDN+"/index";
+// 📺 ?tv=1 — broadcast mode for the rig's Chrome (big label, big QR, no bar).
+if(new URLSearchParams(location.search).has("tv"))document.body.classList.add("tv");
 const fmtViews=v=>v>=1e6?`${(v/1e6).toFixed(1)}M`:v>=1e3?`${Math.round(v/1e3)}K`:`${v}`;
 
 let WORKS=[];            // playable channel entries: {code,title,by,views,src,poster,dead}
