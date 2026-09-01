@@ -3,6 +3,7 @@
 #
 #   menuband-clockwork publish       # render + post the lane's next waltz
 #   menuband-clockwork insights      # pull Meta's figures onto the ledger
+#   menuband-clockwork clear         # reset the consecutive-failure breaker
 #
 # A sibling of oskiewar-clockwork.sh with the same hard-won shape — node
 # resolved from installations (not a shell's PATH), the automation checkout
@@ -48,13 +49,37 @@ if [ "$MODE" = "publish" ]; then
   fi
 fi
 
+# --- the breaker: stop pushing on a door that is not opening ---
+# Meta blocked publishing on this account on 2026-08-31 and the lane retried
+# every hour for 32 hours, re-rendering and re-uploading 31 MB to Spaces each
+# time, to be told "Fatal" and try again. Nothing counted, so nothing escalated.
+# After this many consecutive failures the publish lane holds until a human
+# clears it — a lane that cannot publish should go quiet, not get louder.
+FAILS="$STATE/menuband-clockwork-fails"
+BREAKER_TRIP="${MENUBAND_CLOCKWORK_BREAKER:-3}"
+fail_count() { cat "$FAILS" 2>/dev/null || echo 0; }
+TRIPPED=0
+
+if [ "$MODE" = "clear" ]; then
+  WAS="$(fail_count)"   # read before the delete, or it always reports zero
+  rm -f "$FAILS"
+  echo "menuband clockwork breaker cleared (was $WAS consecutive failures)"
+  exit 0
+fi
+
 STAGE="starting"
 finish() {
   local code=$?
   [ "$MODE" = "publish" ] && rm -rf "$LOCK"
-  printf '{"format":"ac.menuband.clockwork","mode":"%s","startedAt":"%s","finishedAt":"%s","exitCode":%d,"stage":"%s","ok":%s}\n' \
+  printf '{"format":"ac.menuband.clockwork","mode":"%s","startedAt":"%s","finishedAt":"%s","exitCode":%d,"stage":"%s","ok":%s,"consecutiveFailures":%s}\n' \
     "$MODE" "$STARTED" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$code" "$STAGE" \
-    "$([ $code -eq 0 ] && echo true || echo false)" > "$BEAT"
+    "$([ $code -eq 0 ] && echo true || echo false)" "$(fail_count)" > "$BEAT"
+  # A tripped run did no work, so it is neither a success to celebrate nor a
+  # fresh failure to count — leave the tally exactly where it was.
+  if [ "$TRIPPED" -eq 0 ] && [ "$MODE" = "publish" ]; then
+    if [ $code -eq 0 ]; then rm -f "$FAILS"
+    else echo $(( $(fail_count) + 1 )) > "$FAILS"; fi
+  fi
   if [ $code -ne 0 ]; then
     say "✗ FAILED at stage '$STAGE' (exit $code) · see $LOG"
     osascript -e "display notification \"menuband $MODE failed at $STAGE\" with title \"reel clockwork\"" 2>/dev/null || true
@@ -62,6 +87,13 @@ finish() {
   exit $code
 }
 trap finish EXIT
+
+if [ "$MODE" = "publish" ] && [ "$(fail_count)" -ge "$BREAKER_TRIP" ]; then
+  TRIPPED=1
+  say "⛔ breaker open: $(fail_count) consecutive publish failures — holding."
+  say "   Fix the cause, then: menuband-clockwork clear"
+  exit 0
+fi
 
 # --- node, resolved from installations rather than from a shell's PATH ---
 STAGE="resolving node"
@@ -129,7 +161,7 @@ case "$MODE" in
     [ "$status" -eq 0 ] || exit "$status"
     ;;
   *)
-    say "unknown mode '$MODE' (want: publish | insights)"; exit 2 ;;
+    say "unknown mode '$MODE' (want: publish | insights | clear)"; exit 2 ;;
 esac
 
 # --- close the loop in git: the ledger is the record a human reads ---

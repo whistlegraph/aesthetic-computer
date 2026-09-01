@@ -119,10 +119,23 @@ async function call(url, init = {}) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
     const err = body.error || body;
-    const msg = err.message
-      ? `${err.message}${err.code !== undefined ? ` (code ${err.code}${err.error_subcode ? `/${err.error_subcode}` : ""})` : ""}`
-      : JSON.stringify(err);
-    const e = new Error(`${response.status} · ${msg}`);
+    // `message` is often the useless half. A reel that will not publish reports
+    // `Fatal (code -1/2207032)` and nothing else, while the reason a person can
+    // act on — "we limit how often you can post", an account restriction, a
+    // media problem — rides in `error_user_title`/`error_user_msg`. Dropping
+    // those turned 32 consecutive @menuband publish failures into one
+    // indistinguishable word, and cost a day of guessing at the cause.
+    const parts = [];
+    if (err.message) parts.push(err.message);
+    else if (Object.keys(err).length) parts.push(JSON.stringify(err));
+    if (err.code !== undefined)
+      parts.push(`(code ${err.code}${err.error_subcode ? `/${err.error_subcode}` : ""})`);
+    if (err.error_user_title) parts.push(`· ${err.error_user_title}`);
+    if (err.error_user_msg) parts.push(`· ${err.error_user_msg}`);
+    // The trace id is what Meta asks for first in any support thread, and it is
+    // the only handle on a failure whose message says nothing.
+    if (err.fbtrace_id) parts.push(`[fbtrace ${err.fbtrace_id}]`);
+    const e = new Error(`${response.status} · ${parts.join(" ")}`);
     e.meta = err;
     throw e;
   }
