@@ -1,0 +1,7 @@
+# wgtv-watchdog.service — one health check of the TV rig (fired by the timer).
+[Unit]
+Description=Whistlegraph TV watchdog check
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh %h/wgtv/watchdog.sh

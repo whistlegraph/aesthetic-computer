@@ -1,0 +1,11 @@
+# wgtv-watchdog.timer — run the rig health check every 5 minutes.
+[Unit]
+Description=Whistlegraph TV watchdog schedule
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -190,6 +190,19 @@ async function doStatus() {
   }
 }
 
+async function doSetPrivacy() {
+  const id = flags.broadcast || die(`--broadcast <id> required`);
+  const privacy = flags.privacy || die(`--privacy public|unlisted|private required`);
+  const at = await accessToken();
+  // Broadcasts are videos; read-modify-write the status so the other
+  // status fields (madeForKids, license, …) survive the part replace.
+  const cur = await yt(at, "GET", `/videos?part=status&id=${id}`);
+  const status = cur.items?.[0]?.status || die(`video ${id} not found`);
+  status.privacyStatus = privacy;
+  await yt(at, "PUT", `/videos?part=status`, { id, status });
+  console.log(`✓ ${id} → ${privacy}`);
+}
+
 async function doEnd() {
   const id = flags.broadcast || die(`--broadcast <id> required`);
   const at = await accessToken();
@@ -201,6 +214,7 @@ const commands = {
   list: doList,
   "ensure-stream": doEnsureStream,
   "create-broadcast": doCreateBroadcast,
+  "set-privacy": doSetPrivacy,
   status: doStatus,
   end: doEnd,
 };
