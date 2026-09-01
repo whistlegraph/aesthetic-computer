@@ -23,6 +23,12 @@ The primary frontend origin is `209.38.133.33`.
 
 - `aesthetic.computer` keeps its non-lith service records for PDS, session, silo, oven, spaces/CDN, Auth0, Shopify, Stripe, and Cloudflare Worker endpoints.
 - `prompt.ac` keeps `*.prompt.ac -> 100::` for the Worker wildcard.
+- `prompt.ac` zone ruleset "prompt.ac bare-domain auto-redirect" (dynamic
+  redirect, ruleset 99ad241726fe48ee9db29ba97f11ad4d) was DISABLED 2026-09-01:
+  it 301'd every non-root path to aesthetic.computer at the edge, which now
+  belongs to lith's resolver (server.mjs serves the HTML prompt shell for
+  dotless piece paths, 302s live wg codes, 301s dotted paths). Re-enable it
+  only if the shell has to be pulled — it supersedes the origin's routing.
 - `sotce.net` keeps `chat.sotce.net -> 157.245.134.225` plus its mail/Auth0 records.
 
 ## Netlify Status
