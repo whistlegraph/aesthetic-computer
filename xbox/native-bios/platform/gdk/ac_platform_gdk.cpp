@@ -59,7 +59,11 @@ class GdkWindow final : public Window {
     cls.style = CS_HREDRAW | CS_VREDRAW;
     cls.lpfnWndProc = &GdkWindow::Proc;
     cls.hInstance = instance;
-    cls.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    // IDC_ARROW is MAKEINTRESOURCE, which follows UNICODE and resolves to the
+    // ANSI spelling in this project. Everything here pins the -W entry points
+    // explicitly, so the resource id has to be pinned the same way or the two
+    // disagree about pointer type.
+    cls.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));  // IDC_ARROW
     cls.lpszClassName = kWindowClass;
     if (!RegisterClassExW(&cls) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS)
       return false;
