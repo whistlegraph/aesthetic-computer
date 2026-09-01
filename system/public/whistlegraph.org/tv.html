@@ -57,6 +57,14 @@
     text-shadow:0 1px 4px rgba(0,0,0,.7);display:none}
   body.paused #pause{display:block}
   #err{position:fixed;inset:0;display:none;place-items:center;font:15px var(--mono);color:var(--paper)}
+  /* 📺 broadcast mode (?tv=1) — the rig's Chrome is the viewer, a couch is
+     the reader: label scales for a living room and never dims, the QR grows
+     to scan-from-the-sofa size, and the progress hair leaves the floor. */
+  body.tv #label{max-width:86vw;font:600 26px var(--mono);opacity:1}
+  body.tv #label .meta{font:17px var(--mono)}
+  body.tv.idle #label{opacity:1}
+  body.tv #qr{width:200px;height:200px}
+  body.tv #bar{display:none}
 </style>
 </head>
 <body>

@@ -147,10 +147,20 @@ async function pollChat(chat) {
 
 // ── the AC chat side: one lazy socket, reconnect on demand ───────────
 let ws = null;
+let currentVideoId = null; // for the walk-back link on each guest message
 function sendToChat(name, text) {
   const payload = JSON.stringify({
     type: "chat:service-message",
-    content: { secret: SECRET, via: "youtube", name, text },
+    content: {
+      secret: SECRET,
+      via: "youtube",
+      name,
+      text,
+      // Clicking a televised guest walks you into their room: the popout chat.
+      link: currentVideoId
+        ? `https://www.youtube.com/live_chat?is_popout=1&v=${currentVideoId}`
+        : undefined,
+    },
   });
   return new Promise((resolve) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -187,6 +197,7 @@ async function run() {
           continue;
         }
         chat = await attachChat(videoId);
+        currentVideoId = videoId;
         drained = false;
         log(`attached to ${videoId} live chat (InnerTube)`);
       }

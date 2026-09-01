@@ -156,6 +156,7 @@ let lakTheme = "ler";
 let lakLinksOnly = false;
 let settingsOpen = false;
 let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
+let lakTV = false; // 📺 `~tv` colon token — broadcast chrome (no input, no gear)
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 
 // 🔗 What counts as a media link — hosts that ARE media plus direct files.
@@ -194,6 +195,7 @@ function boot({ api, wipe, debug, send, hud, store, colon, jump }) {
   settingsOpen = false;
   lakTheme = "ler";
   lakLinksOnly = false;
+  lakTV = false;
   let colonTheme = false;
   let colonLinks = false;
   for (const token of colon || []) {
@@ -201,6 +203,9 @@ function boot({ api, wipe, debug, send, hud, store, colon, jump }) {
     if (token === "links") { lakLinksOnly = true; colonLinks = true; }
     if (token === "alle") { lakLinksOnly = false; colonLinks = true; }
     if (token === "vector") jump("out:https://laklok.com/html/");
+    // 📺 `laer-klokken~tv` / `laklok~tv` — the broadcast face: no login or
+    // message bar, no settings gear; the room is the whole picture.
+    if (token === "tv") lakTV = true;
   }
   if (!colonTheme && LAK_THEMES[store["laklok:theme"]]) {
     lakTheme = store["laklok:theme"];
@@ -346,6 +351,7 @@ function paintQR($) {
   }
 
   // ⚙️ Settings toggle — a little hamburger by the QR ("here by the QR").
+  if (lakTV) { gearBox = null; return; } // 📺 no controls on television
   const gw = 13;
   const gh = 13;
   const gx = qrX - gw - 4;
@@ -441,6 +447,7 @@ function paint($) {
   chat.paint($, {
     otherChat: chatView(),
     hideChrome: true,
+    hideInput: lakTV, // 📺 broadcast face drops the login/message footer
     topMargin: LAK_TOP_MARGIN, // Shorter top chrome panel than the default 42.
     attachAfterInput: true,
     inputPlaceholder: "Chat...",

@@ -226,6 +226,7 @@ export class ChatManager {
           font: message.font || "font_1", // 🔤 Include font from DB (default for old messages)
         };
         if (message.via) msg.via = message.via; // 📺 e.g. "youtube" — service relays
+        if (message.link) msg.link = message.link; // 📺 walk-back to the live chat
         if (message._id) msg.id = message._id.toString();
         if (message.deleted) msg.deleted = true;
         instance.messages.push(msg);
@@ -419,6 +420,11 @@ export class ChatManager {
     if (text.length > MAX_CHARS) text = text.slice(0, MAX_CHARS);
     if (profanityFiltered(instance.config.name)) text = filter(text, this.filterDebug);
 
+    // Optional walk-back link (the broadcast's popout chat) — YouTube only.
+    let link;
+    const rawLink = String(msg.content.link || "").slice(0, 160);
+    if (/^https:\/\/(www\.youtube\.com|youtu\.be)\//.test(rawLink)) link = rawLink;
+
     let when = new Date();
     if (!this.dev) {
       try {
@@ -433,7 +439,7 @@ export class ChatManager {
     if (!this.dev && this.db) {
       try {
         const collection = this.db.collection(instance.config.name);
-        const result = await collection.insertOne({ from: name, via, text, when, font: "font_1" });
+        const result = await collection.insertOne({ from: name, via, text, when, font: "font_1", ...(link ? { link } : {}) });
         insertedId = result.insertedId?.toString();
       } catch (err) {
         console.error(`💬 [${instance.config.name}] Service message store failed, broadcasting anyway:`, err.message);
@@ -441,6 +447,7 @@ export class ChatManager {
     }
 
     const out = { from: name, via, text, when, font: "font_1" };
+    if (link) out.link = link;
     if (insertedId) out.id = insertedId;
     instance.messages.push(out);
     if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();

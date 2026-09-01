@@ -209,8 +209,12 @@
   .from { color: var(--handle); font-weight: 600; }
   .from.me { color: #fff; }
   /* 📺 Televised guests — relayed in from YouTube live chat (via: "youtube").
-     Red banner mirrors the raster sister (disks/chat.mjs paint loop). */
+     Red banner mirrors the raster sister (disks/chat.mjs paint loop); the
+     little `yt` chip walks back to the broadcast's popout live chat. */
   .msg.tv { background: rgba(205, 30, 30, 0.18); border-left: 2px solid rgb(205, 30, 30); }
+  .ytchip { background: #c00; color: #fff; font: 600 10px var(--sans); padding: 1px 5px;
+    border-radius: 3px; margin-left: 6px; text-decoration: none; vertical-align: middle; }
+  .ytchip:hover { background: #f22; }
   .body { word-break: break-word; }
   .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
   .heart { color: var(--heart); font-size: 12px; }
@@ -814,6 +818,13 @@ function rowFor(msg) {
   time.className = "time";
   time.title = new Date(msg.when).toLocaleString();
   row.append(from, body, time);
+  // 📺 Televised guests carry a `yt` chip back to the popout live chat.
+  if (msg.via === "youtube" && msg.link) {
+    const chip = document.createElement("a");
+    chip.className = "ytchip"; chip.textContent = "yt";
+    chip.href = msg.link; chip.target = "_blank"; chip.rel = "noopener";
+    body.append(chip);
+  }
   if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }
   // ✏️ own messages get edit + delete affordances once signed in (CSS shows
   // them). Delete arms on first click ("sikker?") — the raster confirms via

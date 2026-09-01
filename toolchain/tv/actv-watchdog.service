@@ -8,5 +8,7 @@ Description=Aesthetic Computer TV watchdog check
 Type=oneshot
 Environment=DISPLAY_NUM=:98 SINK=acsink UNIT=actv AUDIO_CHECK=0 SIZE=960x540
 Environment=PROFILE_DIR=%h/.ac-rig-chrome
-Environment="RELOAD_URLS=https://aesthetic.computer/aesthetic.computer/lib/disk.mjs https://aesthetic.computer/aesthetic.computer/disks/chat.mjs https://aesthetic.computer/aesthetic.computer/disks/laklok.mjs"
+# /api/version is the same signal disk.mjs's update badge watches — any AC
+# deploy restarts the station, so the badge never lingers on television.
+Environment=RELOAD_URLS=https://aesthetic.computer/api/version
 ExecStart=/bin/sh %h/actv/watchdog.sh

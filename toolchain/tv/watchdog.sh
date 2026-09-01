@@ -60,8 +60,12 @@ fi
 if [ -n "${RELOAD_URLS:-}" ]; then
   marker=""
   for u in $RELOAD_URLS; do
-    marker="$marker|$(curl -sI --max-time 10 "$u" | tr -d '\r' |
-      awk -F': ' 'tolower($1)=="last-modified"||tolower($1)=="etag"{print $2}' | paste -sd, -)"
+    body=$(curl -s --max-time 10 "$u")
+    # /api/version answers carry a per-request timestamp — fingerprint the
+    # deployed sha alone; anything else fingerprints as a body hash.
+    fp=$(printf %s "$body" | grep -o '"deployed":"[^"]*"' | head -1)
+    [ -z "$fp" ] && [ -n "$body" ] && fp=$(printf %s "$body" | md5sum | cut -d" " -f1)
+    marker="$marker|$fp"
   done
   if [ -n "$(echo "$marker" | tr -d '| ,')" ]; then
     prev=$(cat "$WD/deploy_marker" 2>/dev/null || true)

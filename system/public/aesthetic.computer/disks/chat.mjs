@@ -165,6 +165,7 @@ function stripInlineColorCodes(s) {
 
 let input, inputBtn, handleBtn, token, currentUserSub;
 let chatMaxChars = 128; // Default chat char limit; overridable via options.maxChars
+let inputHidden = false; // 📺 options.hideInput — TV/kiosk mode drops the whole footer
 let messagesNeedLayout = true;
 let tapState = null;
 let inputTypefaceName; // Store the typeface name for text input
@@ -607,7 +608,7 @@ async function boot(
   
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont];
-  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -968,13 +969,14 @@ function paint(
   topMargin = options?.topMargin ?? 42;
 
   // Pick radio station per chat (default "bj"/KPBJ; laer-klokken sets "r8dio")
+  inputHidden = options?.hideInput === true;
   if (options?.radio && RADIO_STATIONS[options.radio]) {
     activeRadioStation = options.radio;
   }
 
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
-  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
   
   // User-selected font is only for NEW messages being typed, not for rendering existing messages
   const typefaceName = selectedFontConfig.typeface;
@@ -1301,6 +1303,8 @@ function paint(
                   color = theme.handle;
                 }
               }
+            } else if (element.type === "ytlink") {
+              color = isHovered ? [255, 130, 130] : [255, 70, 70]; // YouTube red chip
             } else if (element.type === "email") {
               color = isHovered ? theme.emailHover : theme.email;
             } else if (element.type === "url") {
@@ -1975,6 +1979,11 @@ function paint(
   // Calculate panel height based on selected font (use already-declared selectedFontConfig)
   const selectedRowHeight = selectedFontConfig.rowHeight ?? (typeface.blockHeight + 1);
   const panelHeight = Math.max(32, selectedRowHeight + 20); // At least 32px, or font height + padding
+
+  // 📺 hideInput (TV mode): no footer, no login, no message field — the room
+  // is the whole picture, so the entire bottom-panel chrome stays unpainted.
+  if (inputHidden) attachBtnBounds = null;
+  if (!inputHidden) {
   
   // Get font-specific dimensions for handle button
   const selectedTypeface = selectedFontConfig.typeface || typefaceName;
@@ -2208,6 +2217,8 @@ function paint(
     },
     false, undefined, false, selectedTypeface
   );
+
+  } // end !inputHidden — footer chrome
 
   // Presence display - shows "here" (actively present) and "online"
   // (connected anywhere). Pieces that don't have real chat presence (e.g.
@@ -2857,7 +2868,7 @@ function act(
 
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
-  const bottomMargin = getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
   // 📺 Capture `jump` for the iOS YouTube fallback (opens links externally).
   jumpApi = jump;
@@ -3632,6 +3643,17 @@ function act(
                   type: "url",
                   text: element.text,
                   displayText: element.text,
+                  description: "Open in browser",
+                  action: () => jump("out:" + element.text)
+                };
+                break;
+              } else if (element.type === "ytlink") {
+                beep();
+                // 📺 Televised-guest chip → the broadcast's popout live chat.
+                linkConfirmModal = {
+                  type: "url",
+                  text: element.text,
+                  displayText: "YouTube live chat",
                   description: "Open in browser",
                   action: () => jump("out:" + element.text)
                 };
@@ -4988,8 +5010,12 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // Add count multiplier if message was repeated
     const countSuffix = message.count > 1 ? ` x${message.count}` : "";
 
+    // 📺 Televised guests carry a clickable " yt" chip that opens the
+    // broadcast's popout live chat (message.link, sent by the bridge).
+    const ytSuffix = message.via === "youtube" ? "  yt" : "";
+
     // Use plain handle for layout (colors applied during rendering)
-    const fullMessage = message.from + " " + message.text + countSuffix;
+    const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix;
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },
@@ -5003,6 +5029,14 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // Cache parsed elements on the message object (reused in paint + layout + act)
     // AI assistant messages are markdown, not AC chat syntax — skip painting/handle parsing
     message._parsedElements = message.from === "aa" ? [] : parseMessageElements(fullMessage);
+    if (ytSuffix) {
+      message._parsedElements.push({
+        type: "ytlink",
+        start: fullMessage.length - 2,
+        end: fullMessage.length,
+        text: message.link || "https://www.youtube.com/@aesthetic.computer/streams",
+      });
+    }
     // Add height for all lines in the message
     // Each line is msgRowHeight tall (per-message font height)
     // Plus add lineGap between lines within the message and after the message
@@ -5401,6 +5435,9 @@ function generateDynamicColorMessage(message, theme) {
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "handle") {
       const color = isHovered ? theme.handleHover : theme.handle;
+      colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
+    } else if (element.type === "ytlink") {
+      const color = isHovered ? [255, 130, 130] : [255, 70, 70]; // YouTube red chip
       colorCodedText = `\\${getColorString(color)}\\${elementText}\\${getColorString(theme.messageText)}\\`;
     } else if (element.type === "email") {
       const color = isHovered ? theme.emailHover : theme.email;

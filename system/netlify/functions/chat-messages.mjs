@@ -159,6 +159,7 @@ export async function handler(event, context) {
           // `from` instead of a user sub — surface it rather than "anon".
           from: (msg.user && handleMap.get(msg.user)) || msg.from || "anon",
           via: msg.via || undefined,
+          link: msg.link || undefined,
           // Deletes are soft — the flag lives in the row while `text` keeps the
           // original, so mask here or the REST surface leaks deleted messages.
           text: msg.deleted ? "[deleted]" : msg.text,
