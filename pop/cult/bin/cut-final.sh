@@ -67,6 +67,6 @@ ffmpeg -hide_banner -nostats -i "$OUT/cult-remix-final-master.wav" \
 DK="$HOME/Documents/Shelf/wannadash-DISTROKID"
 mkdir -p "$DK"
 cp "$OUT/cult-remix-final.flac" "$DK/wannadash-MASTER.flac"
-cp "$LANE/cover/cover-b-signal.jpg" "$DK/wannadash-cover.jpg"
+cp "$LANE/cover/wannadash-cover-gpt-image-2-field.jpg" "$DK/wannadash-cover.jpg"
 cp "$LANE/release.json" "$DK/release.json"
 echo "✓ $OUT/cult-remix-final.flac  (DistroKid folder staged at $DK)"
