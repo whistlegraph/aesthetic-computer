@@ -2755,7 +2755,19 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/menuband/2026-09-01/94-gramophone.mp4"
       },
-      "insights": null
+      "insights": {
+        "views": 3,
+        "reach": 0,
+        "likes": 0,
+        "comments": 0,
+        "saved": 0,
+        "shares": 0,
+        "total_interactions": 0,
+        "ig_reels_avg_watch_time": 0,
+        "ig_reels_video_view_total_time": 0,
+        "reels_skip_rate": 0
+      },
+      "insightsAt": "2026-09-01T21:51:14.045Z"
     }
   ]
 }
