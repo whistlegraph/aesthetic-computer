@@ -52,6 +52,26 @@ if [ -z "$enter_us" ] || [ "$enter_us" = "0" ] ||
   exit 0
 fi
 
+# ── deploy watch: restart when the station's upstream code updates ───
+# The broadcast should always show the latest deploy. RELOAD_URLS lists
+# the files whose change means "the page you're airing is stale" — their
+# combined Last-Modified/ETag is the fingerprint; a change restarts the
+# station (fresh Chrome, fresh code, few seconds of blip).
+if [ -n "${RELOAD_URLS:-}" ]; then
+  marker=""
+  for u in $RELOAD_URLS; do
+    marker="$marker|$(curl -sI --max-time 10 "$u" | tr -d '\r' |
+      awk -F': ' 'tolower($1)=="last-modified"||tolower($1)=="etag"{print $2}' | paste -sd, -)"
+  done
+  if [ -n "$(echo "$marker" | tr -d '| ,')" ]; then
+    prev=$(cat "$WD/deploy_marker" 2>/dev/null || true)
+    echo "$marker" > "$WD/deploy_marker"
+    if [ -n "$prev" ] && [ "$marker" != "$prev" ]; then
+      restart "upstream code updated"
+    fi
+  fi
+fi
+
 # ── vital 1: the process tree (this station's, not any station's) ────
 pgrep -f "user-data-dir=$PROFILE_DIR" >/dev/null || restart "chrome gone"
 pgrep -f "Xvfb $D" >/dev/null || restart "Xvfb gone"

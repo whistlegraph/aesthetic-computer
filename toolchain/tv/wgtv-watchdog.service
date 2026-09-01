@@ -4,4 +4,8 @@ Description=Whistlegraph TV watchdog check
 
 [Service]
 Type=oneshot
+# SIZE must match the station's capture size (wgtv renders 1280x720 and
+# upscales in ffmpeg) or the frame grab errors and reads as "frozen".
+Environment=SIZE=1280x720
+Environment=RELOAD_URLS=https://tv.whistlegraph.org
 ExecStart=/bin/sh %h/wgtv/watchdog.sh

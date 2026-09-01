@@ -62,6 +62,12 @@ XVFB_PID=$!
 sleep 2
 log "Xvfb up on $DISPLAY_NUM (${SIZE})"
 
+# No mouse on television — hide the cursor whenever it isn't moving.
+if command -v unclutter >/dev/null 2>&1; then
+  DISPLAY="$DISPLAY_NUM" unclutter -idle 1 -root &
+  log "unclutter hiding the cursor"
+fi
+
 # ── the viewer ───────────────────────────────────────────────────────
 # Fresh profile every boot: the TV page remembers sound-on across visits,
 # and a remembered unmute would turn our one tap into a channel change.
@@ -91,13 +97,34 @@ if [ "$UNMUTE_CLICK" = "1" ]; then
 fi
 
 # ── the transmitter ──────────────────────────────────────────────────
+# Broadcast legibility: capture at SIZE, transmit at OUT_SIZE. Rendering
+# the page small and upscaling makes every glyph and QR proportionally
+# bigger in the YouTube frame — Slidecop for the stream. SCALE_FLAGS
+# picks the resampler: neighbor keeps pixel UIs crisp, lanczos suits
+# video footage.
+OUT_SIZE="${OUT_SIZE:-$SIZE}"
+SCALE_FLAGS="${SCALE_FLAGS:-lanczos}"
+SCALE_ARGS=""
+if [ "$OUT_SIZE" != "$SIZE" ]; then
+  SCALE_ARGS="-vf scale=${OUT_SIZE%x*}:${OUT_SIZE#*x}:flags=$SCALE_FLAGS"
+  log "upscaling ${SIZE} → ${OUT_SIZE} (${SCALE_FLAGS})"
+fi
+
 # Keyframe every 2s (YouTube wants ≤4s), constant-ish bitrate for ingest.
+# A/V sync: screen and speaker are two unsynced clocks — wallclock
+# timestamps on both inputs + async audio resampling + CFR output keep
+# them married instead of drifting apart over a broadcast day.
 log "ffmpeg → ${RTMP_URL}/(key)"
 exec ffmpeg -hide_banner -loglevel warning \
+  -thread_queue_size 1024 -use_wallclock_as_timestamps 1 \
   -f x11grab -framerate "$FPS" -video_size "$SIZE" -i "$DISPLAY_NUM" \
+  -thread_queue_size 1024 -use_wallclock_as_timestamps 1 \
   -f pulse -i "${SINK}.monitor" \
+  $SCALE_ARGS \
+  -af "aresample=async=1:first_pts=0" \
+  -fps_mode cfr \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -b:v "$VBITRATE" -maxrate "$VBITRATE" -bufsize 9000k \
   -x264-params "keyint=$((FPS * 2)):min-keyint=$((FPS * 2)):scenecut=0" \
-  -c:a aac -b:a 160k -ar 44100 -ac 2 \
+  -c:a aac -b:a 160k -ar 48000 -ac 2 \
   -f flv "${RTMP_URL}/${STREAM_KEY}"

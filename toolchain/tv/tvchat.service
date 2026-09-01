@@ -7,7 +7,7 @@ After=network-online.target
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/node %h/actv/chat-bridge.mjs %h/actv/chat-bridge.env
+ExecStart=/usr/local/bin/node %h/actv/chat-bridge.mjs %h/actv/chat-bridge.env
 Restart=always
 RestartSec=15
 
