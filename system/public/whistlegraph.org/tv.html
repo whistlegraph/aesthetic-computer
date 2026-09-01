@@ -229,11 +229,16 @@ Promise.all([
   const created=Object.entries(cur.createdWorks||{})
     .map(([code,w])=>overlay({code,...w}))
     .filter(w=>!deleted.has(w.code)&&(!active.size||active.has(w.code)));
+  // The archive rips are HEVC; viewers that can't decode it (Linux boxes,
+  // the broadcast rig, unlicensed Android/Windows) get the -avc.mp4 twins.
+  // ?avc forces the fallback for testing on an HEVC-capable machine.
+  const AVC=new URLSearchParams(location.search).has("avc")||
+    !(window.MediaSource&&MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"'));
   WORKS=[...generated,...created].map(w=>({
     code:w.code, title:w.title, by:w.by, views:w.views||0,
     // curated works air their canonical performance; recovered ones start on
     // the archive rip and get upgraded to their hero post once posts.json lands
-    src:w.slug?`${CDN}/${w.slug}/${w.slug}-web.mp4`:`${IDX}/${w.asset||w.code}.mp4`,
+    src:w.slug?`${CDN}/${w.slug}/${w.slug}-web.mp4`:`${IDX}/${w.asset||w.code}${AVC?"-avc":""}.mp4`,
     slug:w.slug, featuredPost:w.featuredPost, dead:false,
   }));
   if(!WORKS.length){ document.getElementById("err").style.display="grid"; return; }
@@ -242,6 +247,7 @@ Promise.all([
   // Deep cuts: posts.json knows every take. Recovered works swap to their
   // featured (or most-seen) video post — the same hero index.html fronts.
   fetch("/posts.json?t="+Date.now(),{cache:"no-cache"}).then(r=>r.ok?r.json():{posts:[]}).then(pd=>{
+    if(AVC) return; // post heroes have no H.264 twins yet — stay on the rips
     const byCode={};
     for(const p of pd.posts||[]){
       if(p.media==="audio"||!p.src) continue;

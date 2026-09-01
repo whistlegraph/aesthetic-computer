@@ -1,0 +1,24 @@
+# wgtv.service — Whistlegraph TV broadcast rig (systemd user unit).
+#
+# Install on the rig host (jasellite):
+#   mkdir -p ~/.config/systemd/user
+#   cp wgtv.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now wgtv
+#   loginctl enable-linger $USER     # keeps user units alive without a login
+#
+# Logs: journalctl --user -u wgtv -f
+[Unit]
+Description=Whistlegraph TV → YouTube RTMP rig
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/bin/sh %h/wgtv/rig.sh %h/wgtv/wgtv.env
+Restart=always
+RestartSec=10
+# ffmpeg is the foreground process; if Chrome or Xvfb die the capture goes
+# black/silent but ffmpeg keeps running, so a watchdog probe is still wanted.
+
+[Install]
+WantedBy=default.target

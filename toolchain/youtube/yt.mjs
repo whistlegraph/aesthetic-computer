@@ -166,7 +166,10 @@ async function doAuth() {
         response_type: "code",
         scope: SCOPES.join(" "),
         access_type: "offline",
-        prompt: "consent",
+        // select_account forces the account/brand chooser even when a default
+        // session exists — without it Google silently binds the token to the
+        // signed-in default identity (three straight wrong-channel auths, 2026-09-01).
+        prompt: "select_account consent",
       });
       const loginHint = flags["login-hint"] || process.env.YT_LOGIN_HINT;
       if (loginHint) authParams.set("login_hint", String(loginHint));
