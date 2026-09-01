@@ -120,9 +120,19 @@ async function buildSlot(day, index) {
       (span.signals.length ? ` over ${span.signals.join(" ")}` : ""));
   if (!render.complete)
     log(`   ⚠ the match never finished inside the ${spec.cap}s cap — fragment`);
+  const outcome = render.outcome || null;
+  if (outcome)
+    log(`   outcome ${outcome.succeeded ? "✓ succeeded" : "✗ failed"}` +
+      ` · ${outcome.cause || "—"}` +
+      (outcome.mode === "survival"
+        ? ` · deck ${outcome.level}/${outcome.levels}` : ""));
 
   const audioName = audioNameFor({ ...spec, render });
+  // The verdict rides at the top of the sidecar rather than buried in `render`,
+  // because it is the first thing anyone asks of a finished reel — did the bot
+  // make it? — and the first thing the ledger needs when the next slot builds.
   const record = { ...spec, audioName, sourceCommit, builtAt: new Date().toISOString(),
+    outcome,
     render: { wall: render.wall, frames: render.frames,
       liveFrames: render.liveFrames, frameCadence: render.frameCadence,
       seconds: render.seconds, hasAudio: render.hasAudio,
@@ -156,9 +166,14 @@ async function goLive(record) {
     igUserId: process.env.OSKIEWAR_IG_USER_ID,
     token: process.env.OSKIEWAR_IG_TOKEN, log });
   const audioName = audioNameFor(record);
+  // The outcome travels into the ledger so the grid can be read back as a
+  // record of how the bot is doing, not just what got posted. Without it the
+  // only way to learn that three straight reels were the same deck-5 death was
+  // to watch all three.
   appendLedger({ mode: "live", id: record.id, slot: record.slot, day: record.day,
     index: record.index, segment: record.segment, seed: record.seed,
     kind: record.kind, round: audioName, audioName,
+    outcome: record.outcome || null,
     publishedAt: new Date().toISOString(),
     urls, ...posted, insights: null });
   // Reelboy follows its own output: the reel that just went live becomes the

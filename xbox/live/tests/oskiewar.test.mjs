@@ -2952,10 +2952,16 @@ test("the offline oven gets one local survival completion envelope", () => {
   assert.equal(capture.replays.length, 1);
   const run = JSON.parse(capture.replays[0]);
   assert.equal(run.format, "ac.oskiewar.survival");
-  assert.equal(run.cause, "LAVA");
+  // This asserted LAVA, and passed for the wrong reason: the climb bot could
+  // not clear the deck 5 to 6 gap, so every oven run — and every reel built
+  // from one — ended in the lava at deck 5 of 32. The bot now tops out the
+  // ladder, so the envelope's happy path is a summit, and holding the whole
+  // ladder here is what keeps a future tuning regression from going quiet.
+  assert.equal(run.cause, "SUMMIT");
   assert.equal(run.fighters.length, 1);
   assert.ok(run.durationTicks > 0);
-  assert.ok(capture.fight.survivalState().peakLevel >= 4,
+  assert.equal(capture.fight.survivalState().peakLevel,
+    capture.fight.platformTable().length,
     "the survival bot stalled: " +
       JSON.stringify(capture.fight.survivalState()));
   assert.match(reelRenderer, /__oskiewarCaptureSurvival = true/);

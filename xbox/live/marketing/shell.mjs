@@ -20,6 +20,15 @@ export const repo = resolve(live, "../..");
 // Hashing these tells a burner whether its output still matches the game.
 export const shellSources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs"];
 
+// The survival ladder, mirrored from `oskiewar.js` (`survivalLevelCount` and
+// `survivalStepY`). A climb's completion envelope reports how high the runner
+// got in world units; every reader wants that back as "deck 5 of 32", and it
+// is worth converting in one place rather than three.
+export const survivalLadder = { levels: 32, stepY: 235 };
+export const survivalLevelFor = (height) =>
+  Math.max(0, Math.min(survivalLadder.levels,
+    Math.round((Number(height) || 0) / survivalLadder.stepY)));
+
 const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-voice.mjs",
   "oskiewar-midi.mjs",
   "frame-driver.mjs", "round-room.mjs"];

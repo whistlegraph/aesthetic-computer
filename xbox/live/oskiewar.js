@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 88;
+const buildVersion = 90;
 const floorY = 1800;
 // Oskiewar now opens on a solo ascent. Combat remains a mode — direct
 // opponent URLs and the regression harness still enter it — but an ordinary
@@ -6288,9 +6288,54 @@ function botPad(player, opponent, now) {
   return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 }
 
+// The climb bot's four numbers, gathered so they can be priced instead of
+// guessed. `survival-lab.mjs` runs the ladder headlessly and sweeps one of
+// these at a time; the defaults are exactly what the bot shipped with, and
+// ordinary play never sets the override, so a human's attract-mode climb is
+// unchanged by the seam existing.
+const survivalTuneDefaults = {
+  landingInset: 72,        // how far inside a deck's edge still counts as footing
+  walkThreshold: 24,       // closer than this and walking is only jitter
+  // How far off the aim point the runner may still commit to a jump. This was
+  // 34, and 34 is why no reel ever summited: decks 5 and 6 do not overlap
+  // horizontally, so `dx` there never falls below 92 and the bot stood on the
+  // lip jumping straight up until the lava took it. Committing while the walk
+  // is still carrying it is what crosses a gap. Measured by `survival-lab.mjs`:
+  // ≤100 dies on deck 5, ≥110 summits all 32, and it still summits at 420 —
+  // 160 sits well inside that shelf rather than on its edge.
+  jumpThreshold: 160,
+  jumpCooldownUs: 580000,  // the floor under one jump per deck
+  jumpHoldUs: botHoldUs.jump, // held past apex, or `jumpCutScale` clips the rise
+  // Per-reel variation. The ladder is fixed, the bot is fixed, and under the
+  // oven's fixed-step clock the round clock the bot's dice seed from is fixed
+  // too — so every slot rendered a frame-identical climb, and three reels
+  // shipped the same run. The oven passes a seed; it is folded into the
+  // fighter's dice once, which moves the aim from deck to deck while leaving
+  // any single seed exactly reproducible. Zero means no variation, which is
+  // what ordinary play uses, so a human's attract-mode climb is untouched.
+  seed: 0,
+  // Share of the landing band the aim may wander. Bought with `survival-lab`:
+  // .15 and .3 both summit 4/4, .45 and .6 drop to 3/4 because a hard bias
+  // toward a deck's edge can leave the next jump unmakeable. .3 is the most
+  // visible variation that still costs nothing.
+  aimJitter: .3,
+};
+function survivalTune() {
+  const override = globalThis.__oskiewarSurvivalTune;
+  if (!override) return survivalTuneDefaults;
+  return { ...survivalTuneDefaults, ...override };
+}
+
 function survivalBotPad(player, now) {
   if (!player.bot || !player.alive)
     return { connected: true, down: [], leftX: 0, leftY: 0 };
+  const tune = survivalTune();
+  // Folded in once per run, before the first aim is taken.
+  if (tune.seed && player.survivalSeed !== tune.seed) {
+    player.survivalSeed = tune.seed;
+    player.botRngState =
+      (player.botRngState ^ Math.imul(tune.seed, 0x9e3779b9)) >>> 0;
+  }
   let level = clamp(player.survivalTargetLevel || 1, 1, platforms.length);
   let target = platforms[level - 1];
   if (player.grounded && Math.abs(player.y - target.y) <= 3 &&
@@ -6298,20 +6343,31 @@ function survivalBotPad(player, now) {
     level++;
     player.survivalTargetLevel = level;
     target = platforms[level - 1];
+    // One roll per deck, not per tick: the runner should commit to a line and
+    // hold it, and rolling every frame would average the wander back to zero.
+    player.survivalAimBias = tune.seed ? botRoll(player) - .5 : 0;
   }
   // Aim for the nearest safe point, not every deck's center. A centered aim
   // made the bot walk to the lip of an overlapping pair and wait forever
   // when the remaining seven units were smaller than its jump threshold.
-  const landingLeft = target.left + 72;
-  const landingRight = target.right - 72;
-  const landingX = clamp(player.x, landingLeft, landingRight);
+  //
+  // The inset cuts both ways, which is why it is tunable: too small and the
+  // bot commits to a landing on the very edge of the deck above, too large and
+  // the aim point can sit past the far end of the deck it is standing on, so
+  // it walks itself off a ledge reaching for a spot it cannot stand under.
+  const landingLeft = target.left + tune.landingInset;
+  const landingRight = target.right - tune.landingInset;
+  // With no seed the bias is 0 and this is exactly the old `clamp(player.x, …)`.
+  const aim = clamp(player.x, landingLeft, landingRight) +
+    (player.survivalAimBias || 0) * (landingRight - landingLeft) * tune.aimJitter;
+  const landingX = clamp(aim, landingLeft, landingRight);
   const dx = landingX - player.x;
-  if (Math.abs(dx) > 24)
+  if (Math.abs(dx) > tune.walkThreshold)
     botPress(player, dx > 0 ? "ArrowRight" : "ArrowLeft", botHoldUs.walk, now);
-  if (player.grounded && Math.abs(dx) <= 34 &&
+  if (player.grounded && Math.abs(dx) <= tune.jumpThreshold &&
       now >= player.botJumpAt &&
-      botPress(player, "ArrowUp", botHoldUs.jump, now))
-    player.botJumpAt = now + 580000;
+      botPress(player, "ArrowUp", tune.jumpHoldUs, now))
+    player.botJumpAt = now + tune.jumpCooldownUs;
   return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 }
 
@@ -6326,8 +6382,15 @@ function captureSurvivalRun(now, result) {
   const tickUs = 1000000 / 60;
   const durationTicks = Math.max(1,
     Math.round((now - survivalStartedAt) / tickUs));
+  // The clock this is built from is fixed under an offline fixed-step pass, so
+  // without the seed every reel in a day filed the same name — and that name
+  // becomes the reel's Instagram `audio_name` (`audioNameFor`), which is only
+  // honoured on the post that mints it. Live climbs pass no seed and keep the
+  // original name.
+  const runSeed = survivalTune().seed >>> 0;
   const roundName = "survival-v" + buildVersion + "-" +
-    Math.max(0, Math.round(survivalStartedAt / tickUs));
+    Math.max(0, Math.round(survivalStartedAt / tickUs)) +
+    (runSeed ? "-" + runSeed.toString(36) : "");
   const runner = players[0];
   const height = Math.round(survivalHeight);
   const demo = {

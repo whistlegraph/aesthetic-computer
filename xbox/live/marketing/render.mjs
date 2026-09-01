@@ -13,7 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { serveShell, repo } from "./shell.mjs";
+import { serveShell, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -214,6 +214,11 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     await page.evaluateOnNewDocument((seedValue, wardrobe, opponent) => {
       if (wardrobe) globalThis.__oskiewarWardrobe = wardrobe;
       if (opponent) globalThis.__oskiewarSelfPlayOpponent = opponent;
+      // Survival's ladder and climb bot are both fixed, and so is the round
+      // clock under a fixed-step pass — without this the slot's seed never
+      // reaches the runner and every reel is the same climb. It was: three
+      // consecutive posts were frame-identical.
+      globalThis.__oskiewarSurvivalTune = { seed: seedValue >>> 0 };
       let state = seedValue >>> 0;
       Math.random = () => {
         state = (state + 0x6d2b79f5) >>> 0;
@@ -319,18 +324,44 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     const demo = shell.replayBodies.get(shell.demos.at(-1).roundName);
     if (!demo) throw new Error("offline demo payload is missing");
     writeFileSync(join(spec.out, "demo.json"), JSON.stringify(demo));
+    // What the recording actually contains. The envelope knows whether the
+    // runner topped the ladder or the lava took it, but that verdict used to
+    // live only in `work/demo.json`, which the queue discards after a publish
+    // — so three consecutive reels shipped the identical deck-5 death and the
+    // ledger recorded nothing that could have said so. `complete` is not this:
+    // it only means the sim ended inside its cap, and a death is complete.
+    const survival = demo.simulation === "oskiewar-survival-1";
+    const outcome = {
+      mode: survival ? "survival" : "fight",
+      cause: demo.cause ?? null,
+      succeeded: survival ? demo.cause === "SUMMIT" : demo.winner !== null,
+      height: survival ? Math.round(demo.height ?? 0) : null,
+      level: survival ? survivalLevelFor(demo.height) : null,
+      levels: survival ? survivalLadder.levels : null,
+      winner: demo.winner ?? null,
+      ticks: demo.durationTicks ?? 0,
+      round: demo.roundName ?? null,
+    };
+    // `value`/`value2` carry a signal's payload — `survival-end` puts the
+    // final height there — so dropping them threw away the one number that
+    // says how the recorded run went.
     const signals = events.filter((cue) => cue.kind === "signal")
       .map((cue) => ({ event: cue.event, player: cue.player,
-        t: +((cue.at - zeroMs) / 1000).toFixed(3) }))
+        t: +((cue.at - zeroMs) / 1000).toFixed(3),
+        value: cue.value ?? null, value2: cue.value2 ?? null }))
       .filter(({ t }) => t >= 0 && t <= seconds);
     const round = shell.demos.at(-1);
     const wall = (Date.now() - started) / 1000;
     log(`✓ ${base} [${wall.toFixed(0)}s wall · ${stamps.length} authored frames` +
       ` · ${events.length} offline audio cues]`);
+    log(`   outcome ${outcome.succeeded ? "✓" : "✗"} ${outcome.cause || "—"}` +
+      (outcome.mode === "survival"
+        ? ` · deck ${outcome.level}/${outcome.levels} · ${outcome.height} high` : ""));
     return { base, wall, frames: stamps.length, liveFrames: 0,
       frameCadence: "offline-demo-60", seconds, matches: [],
       rounds: [{ round: round.roundName, winner: round.winner,
         seconds: +(round.durationTicks / 60 / timeScale).toFixed(1) }], complete: true,
+      outcome,
       hasAudio: soundtrack.length > 44, replayPosts: shell.replayPosts, signals };
   } finally {
     await page.close();
