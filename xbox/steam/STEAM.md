@@ -7,7 +7,8 @@ concept approval, no achievement mandate, no gamertag rule, and no platform-laye
 rewrite waiting behind the door. The gates are a $100 fee, two review queues,
 and two waiting periods, all of which run in parallel with the build work.
 
-Store copy and the asset shot-list live in `store-page/`.
+Store copy and the asset shot-list live in `store-page/`. GeForce NOW rides on
+this lane rather than paralleling it — see `GEFORCE-NOW.md`.
 
 ---
 
@@ -45,6 +46,17 @@ is exactly what a launch needs.
 
 ---
 
+## One content rule this repo can trip over
+
+Steam Direct's prohibited list includes "applications built on blockchain
+technology that issue or allow exchange of cryptocurrencies or NFTs." oskiewar
+itself has nothing to do with any of that, but this repo does mint on Tezos
+elsewhere, and the Electron shell wraps an aesthetic.computer runtime. The
+shell must expose no mint, wallet, or token surface — not as a hidden route,
+not as dead code reachable from a prompt. Keep the Steam depot to the game.
+
+---
+
 ## Human-only steps
 
 Flagged in order. Nothing in the next section blocks on any of these except
@@ -52,18 +64,54 @@ where noted; do step 1–3 early because the calendar starts there.
 
 1. **HUMAN — Create the Steamworks account** at
    [partner.steamgames.com/steamdirect](https://partner.steamgames.com/steamdirect).
+   *State as of 2026-08-31:* signed in on blueberry as **jeffreyscudder**
+   (Steam persona "whistlegraph" — a persona, not a partner account; the
+   dashboard still offers "sign up as a new Steamworks partner", so nothing is
+   registered yet). The wizard is seven tabs, in this order: Introduction →
+   Enter Name & Address → Sign NDA → Sign SDA → Pay Fee → Enter Payment & Tax
+   Info → Welcome. Note the fee lands *before* the tax interview, so the
+   30-day clock can start without waiting on verification.
    Needs a Steam account, legal name, and address. Decide the
    publisher-of-record name here — it is public on every store page. Unlike
    ID@Xbox's onboarding form, Steam Direct's tax flow handles individuals
    (W-9-type information for US persons), so no entity is required to start;
    whether an entity is *wanted* for tax reasons is a different question and
-   also a human one.
+   also a human one. **Decided 2026-08-31: sole proprietor, no entity** — the
+   W-9 runs on an SSN, the bank account must be in the matching legal name,
+   and the publisher-of-record shown on the store page is a separate, still-open
+   choice that does not require a company to be anything other than a person's
+   name.
 2. **HUMAN — Pay the $100 app fee** (credit card). Per product. Starts the
    30-day clock. Recouped in the payout after $1,000 adjusted gross revenue.
 3. **HUMAN — The tax/identity/bank interview.** Tax questionnaire (SSN or EIN),
    identity verification, and bank details whose account-holder name must match
    the legal identification exactly. Verification is 2–7 business days and may
    come back asking for documents. Nothing publishes until this clears.
+
+   *It did come back, 2026-09-01.* The partner entity exists (**Jeffrey Alan
+   Scudder**, sole proprietorship) and the NDA and SDA are signed, but KYC
+   raised an action item: Valve's third-party tax vendor (**TaxIdentity**, by
+   Lilaham) wants an identification document **plus a selfie holding that same
+   document**, uploaded to a personalized Dropbox File Request. Two deadlines
+   ride on it — the upload link dies **30 days** out (≈ 2026-10-01), and
+   missing the stated date **invalidates the completed KYC and tax form**,
+   forcing a full retake of the interview. Vendor review is a further 2–7 days,
+   and the item sits on the dashboard until approved.
+
+   Document rules worth getting right the first time, since a rejection costs
+   another review cycle: passport identity page, driver's license, or
+   government-issued ID (a citizen card, health card, military ID, or post
+   office card will *not* validate). A passport is the cheaper choice — a
+   card-style document needs **both front and rear**. Photograph the original,
+   in color, in focus, **uncropped with all four corners and edges visible**,
+   with no glare washing out watermarks or holograms. The selfie must show the
+   full face, no hat, no glasses. Document goes as PDF or JPEG; selfie as JPEG.
+   There is a postal fallback (Tax Identity Solutions / Valve Tax Certification,
+   Sammamish WA) if the upload route fails.
+
+   Note what this does *not* block: the shell, the store assets, the copy, and
+   the depot scripts all proceed underneath it. Only distribution and payment
+   wait on KYC.
 4. **HUMAN — Name the app.** Claiming the app in Steamworks fixes the name the
    appid is registered under. "oskiewar" is presumably uncontested, but the
    choice is a signature, not a form field.
@@ -86,7 +134,9 @@ where noted; do step 1–3 early because the calendar starts there.
   `xbox/steam/shell/` today; Steamworks even ships a public test appid
   (480, "Spacewar") that the SDK initializes against, so overlay and
   achievement calls can be exercised end-to-end before oskiewar has an appid
-  of its own.
+  of its own. **Scaffolded and booting as of 2026-09-01** — 59.94 fps, zero
+  dropped simulation ticks, offline-clean. `shell/README.md` carries the
+  wiring and the remaining list (steamworks.js, the trimmed page, depots).
 - **Store assets.** Nearly every required image renders out of the game —
   `snapshot.mjs` emits the fighters as resolution-independent vectors and the
   reel factory's renderer produces true gameplay at any viewport. The full
@@ -179,6 +229,28 @@ Win32 shell (the QuickJS engine and shaders port; the UWP platform layer does
 not), Linux needs a third shell or a bet on Proton, and Steamworks gets bound
 three times in three languages. That is the multi-month shape `PUBLISHING.md`
 budgets for the GDK — spent on Steam, where nothing demands it.
+
+> **Correction, 2026-09-01.** The paragraph above prices the Windows native
+> shell at the *console* GDK port, and those are not the same job. Re-read at
+> HEAD: `native-bios/platform/ac_platform.hpp` is a finished OS seam with a
+> second backend already written against it
+> (`platform/gdk/ac_platform_gdk.cpp`, plain x64 Win32 — `CreateWindowExW`, a
+> `PeekMessageW` pump, an HWND, GameInput, XAudio2), and
+> `native-bios/gdk/gdk_smoke.cpp` is an executable spike that already brings up
+> **QuickJS + D3D11 + oskiewar.js on the PC target**, with D2D and DWrite for
+> text. Every graphics finding that made `GDK-PORT.md` §1a expensive — no D3D11
+> on the Xbox Game OS, no D2D/DWrite on console, port the renderer to D3D12 —
+> is a *console* constraint. On Windows PC the port table's own answers are
+> "`CreateSwapChainForHwnd` on PC" and text "verbatim on PC".
+>
+> What genuinely remains for a Steam-native Windows build is bounded and
+> nothing to do with graphics: de-C++/CX'ing `App.cpp` (2,724 lines, 48
+> `ref new` sites across twelve WinRT namespaces) and lifting the renderer out
+> of it behind the seam. The stubs still in the GDK backend — HTTP, UDP,
+> WebSocket, MIDI, image decode — are all capabilities oskiewar either never
+> uses or already treats as optional, so they can stay stubs for a first Steam
+> build. That is weeks of C++, not the multi-month console shape, and it is a
+> different bet from Electron rather than a strictly worse one.
 
 **Tauri.** One shell, but three *different* system webviews — WebView2 on
 Windows, WKWebView on macOS, WebKitGTK on Linux. The Steam overlay has no

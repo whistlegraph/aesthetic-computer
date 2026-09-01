@@ -1,0 +1,32 @@
+{
+  "name": "oskiewar-steam-shell",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Electron shell that ships oskiewar's browser runtime to Steam",
+  "author": "Jeffrey Alan Scudder",
+  "main": "main.js",
+  "scripts": {
+    "stage": "node stage.mjs",
+    "start": "electron .",
+    "build:win": "node stage.mjs && electron-builder --win --x64",
+    "build:linux": "node stage.mjs && electron-builder --linux --x64",
+    "build:mac": "node stage.mjs && electron-builder --mac"
+  },
+  "optionalDependencies": {
+    "steamworks.js": "^0.4.0"
+  },
+  "build": {
+    "appId": "computer.aesthetic.oskiewar",
+    "productName": "oskiewar",
+    "electronVersion": "38.1.2",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "package.json"],
+    "extraResources": [
+      { "from": "staged", "to": "staged" },
+      { "from": "steam_appid.txt", "to": "../steam_appid.txt" }
+    ],
+    "win": { "target": ["dir"] },
+    "linux": { "target": ["dir"], "category": "Game" },
+    "mac": { "target": ["dir"] }
+  }
+}

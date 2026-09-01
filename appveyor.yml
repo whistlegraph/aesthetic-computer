@@ -27,6 +27,15 @@ clone_script:
 environment:
   package_dir: C:\projects\aesthetic-computer\artifacts\
   cert_password: aesthetic-xbox-ci
+  # The GDK desktop lane moved here from .github/workflows/xbox-gdk-desktop.yml,
+  # which cannot run: that account is billing-locked and every job is refused
+  # before it starts. Pinned edition — bumping it is a deliberate act, and the
+  # cache key follows appveyor.yml.
+  gdk_package: microsoft.gdk.windows
+  gdk_version: 2604.3.7874
+
+cache:
+  - .gdk -> appveyor.yml
 
 install:
   - ps: |
@@ -64,9 +73,60 @@ install:
         Export-PfxCertificate -Cert $cert -FilePath (Join-Path $root $key) -Password $password | Out-Null
       }
       $master.Dispose()
+  # The public GDK arrives as a NuGet payload rather than an installer, which is
+  # the whole reason a hosted runner can build the PC target at all. Only the PC
+  # target: the Xbox Extensions that produce Gaming.Xbox.Scarlett.x64 are gated
+  # behind the NDA program.
+  - ps: |
+      $ErrorActionPreference = 'Stop'
+      $root = Join-Path $env:APPVEYOR_BUILD_FOLDER '.gdk'
+      if (Test-Path (Join-Path $root 'windows\include\XGameRuntime.h')) {
+        Write-Host 'GDK payload restored from cache'
+      } else {
+        $url = "https://api.nuget.org/v3-flatcontainer/$env:gdk_package/$env:gdk_version/$env:gdk_package.$env:gdk_version.nupkg"
+        $nupkg = Join-Path $env:TEMP 'gdk.nupkg'
+        Write-Host "GET $url"
+        Invoke-WebRequest -Uri $url -OutFile $nupkg -UseBasicParsing
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [IO.Compression.ZipFile]::OpenRead($nupkg)
+        try {
+          # Every header, and only the binaries this target links or is about
+          # to. The rest is ARM64 and the multi-hundred-megabyte XSAPI debug
+          # libs; taking all of lib/x64 would cache ~600 MB.
+          $wanted = '^native/\d+/(windows/(?:include/.+|(?:lib|bin)/x64/(?:xgameruntime[^/]*|GameInput\.lib|libHttpClient\.(?:lib|dll)|XCurl\.(?:lib|dll))))$'
+          $kept = 0
+          foreach ($entry in $archive.Entries) {
+            if (-not $entry.Name) { continue }  # directory entry
+            if ($entry.FullName -match $wanted) {
+              $target = Join-Path $root ($Matches[1] -replace '/', '\')
+              New-Item -ItemType Directory -Force (Split-Path $target) | Out-Null
+              [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $true)
+              $kept++
+            }
+          }
+          Write-Host "extracted $kept files"
+        } finally { $archive.Dispose() }
+        if (-not (Test-Path (Join-Path $root 'windows\include\XGameRuntime.h'))) {
+          throw 'GDK payload is missing XGameRuntime.h'
+        }
+      }
+      $grdk = Get-Content (Join-Path $root 'windows\include\grdk.h') -Raw
+      if ($grdk -match '#define\s+_GRDK_EDITION\s+(\d{6})') {
+        Write-Host "GDK edition $($Matches[1])"
+      } else { throw 'could not read _GRDK_EDITION from grdk.h' }
 
 build_script:
   - cmd: call xbox\test-native-windows.cmd
+  # Gaming.Desktop, stock x64 plus GDK include/lib paths (the October 2025
+  # layout). Built before the MSIX because it is the fast one, and a break in
+  # shared code should be named in a minute rather than twenty.
+  - cmd: >-
+      msbuild xbox\native-bios\gdk\NativeBiosGdk.vcxproj /m /v:minimal
+      /p:Configuration=Release /p:Platform=x64
+      /p:GDKCrossPlatformPath=%APPVEYOR_BUILD_FOLDER%\.gdk\
+  # The point of the lane: the spike runs QuickJS, D3D11 and oskiewar.js, prints
+  # a verdict per check, and sets the exit code on any required one.
+  - cmd: artifacts\native-bios-gdk\Release\NativeBiosGdk.exe
   - cmd: >-
       msbuild "xbox\native-bios\NativeBios.sln" /restore /m
       /p:Configuration=Release /p:Platform=x64
