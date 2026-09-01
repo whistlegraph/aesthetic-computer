@@ -185,8 +185,14 @@ function generateVariation(n) {
 
 // When the queue is dry, append waltz no. (highest + 1) to the manifest and
 // hand it back as the next thing to post.
+// How many times one waltz may be refused before the lane stops offering it.
+const PUBLISH_ATTEMPTS = Number(process.env.MENUBAND_PUBLISH_ATTEMPTS || 3);
+// Posted, or refused often enough that it is no longer the lane's problem.
+const spent = (entry) =>
+  published(entry) || (entry.publishFailures || 0) >= PUBLISH_ATTEMPTS;
+
 function ensureQueue() {
-  const open = manifest.variations.find((entry) => !published(entry));
+  const open = manifest.variations.find((entry) => !spent(entry));
   if (open) return open;
   const next = 1 + Math.max(...manifest.variations.map(waltzNumber));
   const entry = generateVariation(next);
@@ -229,7 +235,30 @@ function publish(entry) {
     video, "--audio-name", audioName(entry),
     "--collaborators", COLLABORATORS],
     { cwd: ROOT, stdio: "inherit" });
-  if (post.status !== 0) die(`ig.mjs post failed for ${entry.id}`);
+  if (post.status !== 0) {
+    // Meta will refuse one particular file forever while accepting its
+    // neighbours — 95-saucer failed 33 times across 33 hours with a clean
+    // decode, identical specs to a waltz that published fine, and a
+    // byte-perfect upload. Because `ensureQueue` always hands back the FIRST
+    // unposted variation, that one file stopped the whole lane rather than
+    // costing it a slot. Count the refusals against the waltz itself and step
+    // over it once it has had its chances; the next slot posts something.
+    entry.publishFailures = (entry.publishFailures || 0) + 1;
+    if (entry.publishFailures >= PUBLISH_ATTEMPTS)
+      entry.publishSkippedAt = new Date().toISOString();
+    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
+    if (entry.publishSkippedAt)
+      console.error(`✗ ${entry.id} refused ${entry.publishFailures}× — ` +
+        `skipping it; the next slot moves on. Clear \`publishFailures\` in ` +
+        `${basename(MANIFEST)} to retry it.`);
+    die(`ig.mjs post failed for ${entry.id}`);
+  }
+  // A waltz that finally lands should not carry a grudge from earlier slots.
+  if (entry.publishFailures) {
+    delete entry.publishFailures;
+    delete entry.publishSkippedAt;
+    writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + "\n");
+  }
   // ig.mjs leaves the receipt beside the video (extension swapped for
   // .instagram.json); the media id in it is what reelboy watches.
   const receipt = readJson(video.replace(/\.[^.]+$/, "") + ".instagram.json", null);
