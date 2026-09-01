@@ -225,6 +225,7 @@ export class ChatManager {
           sub: message.user || undefined,
           font: message.font || "font_1", // 🔤 Include font from DB (default for old messages)
         };
+        if (message.via) msg.via = message.via; // 📺 e.g. "youtube" — service relays
         if (message._id) msg.id = message._id.toString();
         if (message.deleted) msg.deleted = true;
         instance.messages.push(msg);
@@ -380,6 +381,8 @@ export class ChatManager {
       delete instance.authorizedConnections[id];
     } else if (msg.type === "chat:message") {
       await this.handleChatMessage(instance, ws, id, msg);
+    } else if (msg.type === "chat:service-message") {
+      await this.handleServiceMessage(instance, ws, id, msg);
     } else if (msg.type === "chat:delete") {
       await this.handleDeleteMessage(instance, ws, id, msg);
     } else if (msg.type === "chat:edit") {
@@ -387,6 +390,62 @@ export class ChatManager {
     } else if (msg.type === "chat:heart") {
       await this.handleChatHeart(instance, ws, id, msg);
     }
+  }
+
+  // 📺 Service relays (the TV chat bridge) post on behalf of off-AC visitors —
+  // e.g. YouTube live-chat viewers of the always-on broadcasts. They authorize
+  // with a shared secret (CHAT_SERVICE_SECRET env), not a user token, and their
+  // messages carry `via` (e.g. "youtube") + the visitor's display name as
+  // `from`, so clients can render them as televised guests rather than handles.
+  // No activity feed, no push notifications — guests are heard, not amplified.
+  async handleServiceMessage(instance, ws, id, msg) {
+    const secret = process.env.CHAT_SERVICE_SECRET;
+    if (!secret || msg.content?.secret !== secret) {
+      console.error(`💬 [${instance.config.name}] Service message rejected (bad secret)`);
+      ws.send(this.pack("unauthorized", { message: "Bad service secret." }, id));
+      return;
+    }
+
+    const via = String(msg.content.via || "youtube").slice(0, 16);
+    // Visitor names are foreign input: strip control chars and our color-code
+    // delimiter, clamp, and fall back rather than ever posting an empty name.
+    const name =
+      String(msg.content.name || "")
+        .replace(/[\u0000-\u001f\\@]/g, "")
+        .trim()
+        .slice(0, 24) || "viewer";
+    let text = String(msg.content.text || "").trim();
+    if (!text) return;
+    if (text.length > MAX_CHARS) text = text.slice(0, MAX_CHARS);
+    if (profanityFiltered(instance.config.name)) text = filter(text, this.filterDebug);
+
+    let when = new Date();
+    if (!this.dev) {
+      try {
+        const clockResponse = await fetch("https://aesthetic.computer/api/clock");
+        if (clockResponse.ok) when = new Date(await clockResponse.text());
+      } catch (err) {
+        console.log("💬 Clock fetch failed, using local time");
+      }
+    }
+
+    let insertedId;
+    if (!this.dev && this.db) {
+      try {
+        const collection = this.db.collection(instance.config.name);
+        const result = await collection.insertOne({ from: name, via, text, when, font: "font_1" });
+        insertedId = result.insertedId?.toString();
+      } catch (err) {
+        console.error(`💬 [${instance.config.name}] Service message store failed, broadcasting anyway:`, err.message);
+      }
+    }
+
+    const out = { from: name, via, text, when, font: "font_1" };
+    if (insertedId) out.id = insertedId;
+    instance.messages.push(out);
+    if (instance.messages.length > MAX_MESSAGES) instance.messages.shift();
+    this.broadcast(instance, this.pack("message", out));
+    console.log(`💬 [${instance.config.name}] 📺 via ${via}: ${name} (${text.length} chars)`);
   }
 
   async handleChatMessage(instance, ws, id, msg) {

@@ -1,0 +1,15 @@
+# tvchat.service — the YouTube→AC chat bridge for the laer-klokken station.
+# Install like the station units; needs ~/actv/chat-bridge.env (0600) with
+# CHAT_SERVICE_SECRET + YT client/token paths (see chat-bridge.mjs header).
+[Unit]
+Description=YouTube live chat → AC chat-clock bridge
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/node %h/actv/chat-bridge.mjs %h/actv/chat-bridge.env
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

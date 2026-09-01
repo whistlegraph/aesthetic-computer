@@ -155,7 +155,10 @@ export async function handler(event, context) {
 
         const messagesWithHandles = messages.map((msg) => ({
           id: msg._id.toString(),
-          from: (msg.user && handleMap.get(msg.user)) || "anon",
+          // Service-relay rows (via: "youtube") carry their visitor name in
+          // `from` instead of a user sub — surface it rather than "anon".
+          from: (msg.user && handleMap.get(msg.user)) || msg.from || "anon",
+          via: msg.via || undefined,
           // Deletes are soft — the flag lives in the row while `text` keeps the
           // original, so mask here or the REST surface leaks deleted messages.
           text: msg.deleted ? "[deleted]" : msg.text,

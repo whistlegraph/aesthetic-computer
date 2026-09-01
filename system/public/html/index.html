@@ -208,6 +208,9 @@
   .msg:hover { background: rgba(255,255,255,.06); }
   .from { color: var(--handle); font-weight: 600; }
   .from.me { color: #fff; }
+  /* 📺 Televised guests — relayed in from YouTube live chat (via: "youtube").
+     Red banner mirrors the raster sister (disks/chat.mjs paint loop). */
+  .msg.tv { background: rgba(205, 30, 30, 0.18); border-left: 2px solid rgb(205, 30, 30); }
   .body { word-break: break-word; }
   .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
   .heart { color: var(--heart); font-size: 12px; }
@@ -791,6 +794,7 @@ function decorateRow(row, msg) {
   row.dataset.when = new Date(msg.when).toISOString();
   if (msg.edited) row.dataset.edited = "1";
   row.classList.toggle("has-media", !msg.deleted && hasMediaLink(msg.text || ""));
+  row.classList.toggle("tv", msg.via === "youtube"); // 📺 televised guests
   const fromHandle = (msg.from || "").replace(/^@/, "").toLowerCase();
   row.classList.toggle("own", !!auth.handle && fromHandle === auth.handle);
 }

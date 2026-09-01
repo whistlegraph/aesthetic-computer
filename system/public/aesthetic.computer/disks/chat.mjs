@@ -1135,9 +1135,22 @@ function paint(
     // 🎯 Draw hover background if this message is being hovered
     if (hoveredMessageIndex === i) {
       ink(255, 255, 255, 15).box(
-        layout.x - 2, 
-        layout.y - 1, 
-        layout.width + 4, 
+        layout.x - 2,
+        layout.y - 1,
+        layout.width + 4,
+        layout.height + 2
+      );
+    }
+
+    // 📺 Televised guests — messages relayed in from the YouTube live-chat
+    // bridge (via: "youtube") get a red banner behind the whole block so
+    // visitors read as broadcast, not residents. Mirrored in the vector
+    // sister (system/public/html/index.html, `.msg.tv`).
+    if (message.via === "youtube") {
+      ink(205, 30, 30, 45).box(
+        layout.x - 2,
+        layout.y - 1,
+        layout.width + 4,
         layout.height + 2
       );
     }
