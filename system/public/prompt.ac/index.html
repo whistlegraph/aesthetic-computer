@@ -15,7 +15,14 @@
      stays booted in a hidden iframe as the command brain (prompt.mjs still
      parses, aliases, and halts every command via the prompt:dom-input
      bridge); it becomes visible only while a piece is on stage. The palettes
-     mirror `scheme` in disks/prompt.mjs — keep them in lockstep. */
+     mirror `scheme` in disks/prompt.mjs — keep them in lockstep.
+
+     Interaction mirrors TextInput.act() in lib/type.mjs: the line is either
+     activated (canType — blinking caret, curtain down) or deactivated (the
+     login curtain — MOTD + auth — stands). Backdrop taps and typing
+     activate; a backdrop tap or Escape on an empty line deactivates. The
+     blips (300 press, 250 deactivate, 850 run) are the same sines type.mjs
+     plays, WebAudio'd here because the hidden runtime never sees these keys. */
 
   @font-face {
     font-family: "Berkeley Mono Web";
@@ -24,6 +31,10 @@
   }
 
   :root { /* prompt.mjs scheme.dark */
+    /* The runtime's mouse cursors (cursors/precise.svg + active.svg),
+       inlined so the shell wears them on any origin. */
+    --cursor-precise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 25 25'><path d='M13 3v3M13 20v3M6 13H3M20 13h3' stroke='black' stroke-width='4' stroke-linecap='round'/><circle cx='13' cy='13' r='2' fill='black'/><path d='M12 2v3M12 19v3M5 12H2M19 12h3' stroke='%2300ffff' stroke-width='4' stroke-linecap='round'/><circle cx='12' cy='12' r='2' fill='white'/></svg>") 12 12;
+    --cursor-active: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='-1 -1 27 27'><path d='M13 2v3M13 21v3M2 13h3M21 13h3' fill='none' stroke='black' stroke-width='4' stroke-linecap='round'/><path d='M12 1v3M12 20v3M1 12h3M20 12h3' fill='none' stroke='%2300ffff' stroke-width='4' stroke-linecap='round'/></svg>") 12 12;
     --bg:        rgb(70, 50, 100);
     --text:      #fff;
     --ghost:     rgba(200, 30, 100, .78);  /* scheme.prompt */
@@ -55,7 +66,9 @@
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; margin: 0; background: var(--bg); }
-  body { font-family: var(--font); color: var(--text); overflow: hidden; }
+  body { font-family: var(--font); color: var(--text); overflow: hidden; cursor: var(--cursor-precise), auto; }
+  #cmd { cursor: var(--cursor-precise), text; }
+  button, .corner, .motd .by b { cursor: var(--cursor-active), pointer; }
   ::selection { background: var(--highlight); color: var(--bg); }
 
   /* ── Stage: the hosted runtime. While the DOM prompt owns the screen the
@@ -118,7 +131,12 @@
     font-size: clamp(20px, 2.6vw, 30px);
     animation: blink 1s steps(2, start) infinite;
   }
-  body:not([data-mode="prompt"]) #screen:not(.overlay) #caret { display: none; }
+  /* The caret only blinks while the line is activated (canType in type.mjs);
+     deactivated text sits dimmed behind the curtain, like the raster's. */
+  #caret { display: none; }
+  body.active[data-mode="prompt"] #caret,
+  body.active[data-mode="piece"] #screen.overlay #caret { display: block; }
+  body:not(.active) #cmd { opacity: .55; }
   @keyframes blink { 50% { opacity: 0; } }
   #measure {
     position: absolute; visibility: hidden; white-space: pre;
@@ -150,20 +168,27 @@
     font-size: clamp(15px, 1.8vw, 21px); line-height: 1.5;
     text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
     transition: opacity .35s;
-    cursor: default; user-select: none;
+    user-select: none;
   }
-  .motd.faded, body.typing .motd { opacity: 0; }
+  /* The login curtain — showLoginCurtain in prompt.mjs: MOTD + auth stand
+     only while the line is deactivated, empty, and quiet (no reply). */
+  .motd.faded,
+  body.active .motd, body.typing .motd,
+  body.replying .motd, body.submitting .motd { opacity: 0; }
+  body.active .motd, body.typing .motd,
+  body.replying .motd, body.submitting .motd { pointer-events: none; }
   .motd .by { display: block; margin-top: .4em; font-size: .72em; color: var(--dim); }
-  .motd .by b { cursor: pointer; }
+  .motd .by b { cursor: var(--cursor-active), pointer; }
   .motd .by b:hover { color: var(--highlight); }
   .t-handle, .t-kidlisp, .t-clock, .t-painting, .t-prompt, .t-url { color: var(--highlight); }
 
   /* ── Login / I'm new / profile — ui.TextButton, vectorized. ─────────── */
-  .auth { display: flex; gap: 14px; margin-top: 34px; }
-  body.typing .auth { opacity: 0; transition: opacity .35s; }
+  .auth { display: flex; gap: 14px; margin-top: 34px; transition: opacity .35s; }
+  body.active .auth, body.typing .auth,
+  body.replying .auth, body.submitting .auth { opacity: 0; pointer-events: none; }
   .auth button {
     font-family: var(--font); font-size: clamp(14px, 1.6vw, 18px);
-    color: #fff; padding: 7px 16px; cursor: pointer;
+    color: #fff; padding: 7px 16px; cursor: var(--cursor-active), pointer;
     border: 1px solid var(--login-edge);
     box-shadow: 2px 2px 0 rgba(0, 0, 0, .55);
     background: var(--login-bg);
@@ -180,7 +205,7 @@
     top: max(8px, env(safe-area-inset-top));
     left: max(8px, env(safe-area-inset-left));
     display: none; align-items: center; gap: 6px;
-    padding: 4px 10px; cursor: pointer; user-select: none;
+    padding: 4px 10px; cursor: var(--cursor-active), pointer; user-select: none;
     background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .3);
     border-radius: 6px; color: #fff; font-family: var(--font); font-size: 14px;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
@@ -260,7 +285,59 @@ let pendingJump = null;
 let pendingSubmit = null; // command typed before the runtime's prompt was live
 let promptLive = false; // the runtime's prompt piece is loaded + interactive
 let lastSubmitted = ""; // suppress the runtime echoing a command back as a "reply"
-let noticeTimer;
+let noticeTimer, submitTimer;
+
+// ── Blips — the TextInput activation sounds from lib/type.mjs, WebAudio'd
+// so the DOM prompt speaks the same tongue: 300 press/activate, 250
+// deactivate, 850 run. (The hidden runtime can't blip for keys it never sees.)
+let audio;
+function blip(tone, volume, dur) {
+  try {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+    const osc = audio.createOscillator(), gain = audio.createGain();
+    osc.type = "sine";
+    osc.frequency.value = tone;
+    const t = audio.currentTime;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(volume, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  } catch {}
+}
+const SND = {
+  press: () => blip(300, 0.5, 0.12),
+  deactivate: () => blip(250, 0.75, 0.17),
+  run: () => blip(850, 0.65, 0.15),
+};
+
+// ── Activation — canType in type.mjs. The login curtain (MOTD + auth)
+// stands while the line is deactivated and empty; tapping the backdrop or
+// typing tears it down, and tapping again (or Escape on an empty line)
+// raises it back.
+let active = false;
+function activate({ silent = false } = {}) {
+  if (!active) {
+    active = true;
+    document.body.classList.add("active");
+    if (!silent) SND.press();
+    clearReply(); // reactivating dismisses the last answer, like the raster
+    document.body.classList.remove("submitting");
+  }
+  $cmd.focus();
+  syncCaret();
+}
+let deactivatedAt = 0; // guards against phantom refocus, as in type.mjs
+function deactivate({ silent = false } = {}) {
+  if (!active) return;
+  active = false;
+  document.body.classList.remove("active");
+  if (!silent) SND.deactivate();
+  deactivatedAt = performance.now();
+  $cmd.blur();
+}
 
 // Deep-link support that doesn't fight Caddy: prompt.ac/#clock stays on the
 // shell (hash never reaches the server), while prompt.ac/clock 301s to AC.
@@ -269,6 +346,7 @@ let currentPiece = initial;
 const frameParams = "nogap=true&nolabel=true&shellhtml=true";
 
 function setMode(piece) {
+  const wasPiece = document.body.dataset.mode === "piece";
   currentPiece = piece;
   const onPiece = piece !== "prompt";
   document.body.dataset.mode = onPiece ? "piece" : "prompt";
@@ -280,8 +358,12 @@ function setMode(piece) {
   const h = "#" + piece;
   if (onPiece && location.hash !== h) history.replaceState(null, "", h);
   else if (!onPiece && location.hash) history.replaceState(null, "", location.pathname);
-  if (onPiece) { $cmd.blur(); $ac.focus(); }
-  else { $cmd.focus(); syncCaret(); }
+  document.body.classList.remove("submitting"); // the command landed somewhere
+  if (onPiece) { deactivate({ silent: true }); $ac.focus(); }
+  // Landing home from a piece raises the login curtain (deactivated splash);
+  // a repeat "prompt" report mid-typing must not blur the line.
+  else if (wasPiece) deactivate({ silent: true });
+  else syncCaret();
 }
 setMode(initial);
 if (initial !== "prompt") $loading.classList.add("on");
@@ -350,10 +432,14 @@ function showReply(text, thinking) {
   document.body.classList.toggle("thinking", thinking);
   $replyText.textContent = fresh;
   $reply.hidden = !fresh && !thinking;
+  document.body.classList.toggle("replying", !$reply.hidden);
+  // A bare echo of the submitted command means it's still executing — keep
+  // the curtain held; anything else (reply, thinking, cleared line) settles it.
+  if (thinking || t !== lastSubmitted) document.body.classList.remove("submitting");
 }
 function clearReply() {
   lastSubmitted = "";
-  document.body.classList.remove("thinking");
+  document.body.classList.remove("thinking", "replying");
   $replyText.textContent = "";
   $reply.hidden = true;
 }
@@ -375,6 +461,7 @@ function submitCommand(value, { remember = true } = {}) {
   const work = whistlegraphFromInput(v);
   if (work) { location.assign(work.url); return; }
 
+  SND.run(); // the 850Hz execute blip from type.mjs
   if (currentPiece === "prompt") {
     // Seed and execute the real prompt TextInput. The DOM only supplies data;
     // command parsing, aliases, and halt() stay inside the prompt system.
@@ -388,7 +475,14 @@ function submitCommand(value, { remember = true } = {}) {
     jumpPiece(`prompt~${v}~!autorun`);
   }
   setTyped("");
-  if (currentPiece !== "prompt") { $screen.classList.remove("overlay"); $cmd.blur(); $ac.focus(); }
+  deactivate({ silent: true }); // the raster deactivates after running
+  // Hold the curtain down while the command lands (a piece load or a reply
+  // takes over from here; the timeout catches commands that answer with
+  // neither).
+  document.body.classList.add("submitting");
+  clearTimeout(submitTimer);
+  submitTimer = setTimeout(() => document.body.classList.remove("submitting"), 8000);
+  if (currentPiece !== "prompt") { $screen.classList.remove("overlay"); $ac.focus(); }
 }
 
 // ── Block caret — the raster prompt's blinking block, in DOM. ──────────────
@@ -426,11 +520,17 @@ $cmd.addEventListener("keydown", (e) => {
   } else if (e.key === "ArrowDown") {
     e.preventDefault(); recall(1);
   } else if (e.key === "Escape") {
+    // Escape clears a typed line; on an empty line it deactivates — the
+    // curtain returns at home, the slash-curtain drops back to its piece.
+    const hadText = $cmd.value.length > 0;
     setTyped("");
     clearReply();
     if (currentPiece !== "prompt") {
       $screen.classList.remove("overlay");
-      $cmd.blur(); $ac.focus();
+      deactivate();
+      $ac.focus();
+    } else if (!hadText) {
+      deactivate();
     }
   }
 });
@@ -438,30 +538,64 @@ $cmd.addEventListener("keydown", (e) => {
 // At the prompt the line always owns typing (the stage is hidden + inert);
 // over a piece, "/" or any printable key raises the slash-prompt curtain.
 window.addEventListener("keydown", (e) => {
-  if (document.activeElement === $cmd) return;
+  // Skip keys the line already handled — even when its handler just blurred
+  // it (a submit's Enter still bubbles here with focus already gone).
+  if (e.target === $cmd || document.activeElement === $cmd) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const printable = e.key.length === 1;
-  if (e.key === "/" || printable) {
+  if (e.key === "/" || printable || e.key === "Enter" || e.key === "ArrowUp") {
     e.preventDefault();
     if (currentPiece !== "prompt") $screen.classList.add("overlay");
-    $cmd.focus();
+    activate(); // auto-activation blips, as in the raster's keyboard:down
     if (printable && e.key !== "/") setTyped($cmd.value + e.key);
+    else if (e.key === "ArrowUp") recall(-1);
     else syncCaret();
   }
 });
 
-// Tapping anywhere on the prompt screen summons the keyboard (mobile).
+// ── Backdrop taps — the press/lift dance of TextInput.act(). A press on the
+// backdrop blips and activates on lift; a backdrop tap while active
+// deactivates (raising the login curtain back, or dropping the slash-curtain
+// to its piece). Buttons and the typed line itself opt out, the way
+// backdropTouchOff shields the raster's buttons — clicking typed text
+// places the caret, it never drops the line.
+let pressedBackdrop = false;
 $screen.addEventListener("pointerdown", (e) => {
-  if (e.target.closest("button, a, input")) return;
-  requestAnimationFrame(() => $cmd.focus());
+  const onControl = e.target.closest("button, a, b");
+  pressedBackdrop = !onControl && !e.target.closest("input");
+  if (!active && !onControl) SND.press(); // the touch blip, before lift
+});
+$screen.addEventListener("pointerup", (e) => {
+  if (e.target.closest("button, a, b")) { pressedBackdrop = false; return; }
+  const onInput = e.target.closest("input");
+  if (!active) {
+    activate({ silent: true }); // the press already blipped
+  } else if (pressedBackdrop && !onInput) {
+    deactivate(); // typed text stays, dimmed — reactivating resumes it
+    if (currentPiece !== "prompt") {
+      setTyped("");
+      $screen.classList.remove("overlay");
+      $ac.focus();
+    }
+  }
+  pressedBackdrop = false;
 });
 
 // The stage keeps rendering beneath the prompt screen; if the runtime grabs
 // focus (its keyboard textarea does on boot), hand typing straight back.
 window.addEventListener("blur", () => {
-  if (currentPiece === "prompt" && document.activeElement === $ac) {
+  if (active && currentPiece === "prompt" && document.activeElement === $ac) {
     setTimeout(() => $cmd.focus(), 0);
   }
+});
+
+// Keyboard-tab focus (or any stray focus) counts as quiet activation — except
+// the browser's own refocus right after a deactivating blur (the raster's
+// manualDeactivationTime guard, DOM'd).
+$cmd.addEventListener("focus", () => {
+  if (active) return;
+  if (performance.now() - deactivatedAt < 150) { $cmd.blur(); return; }
+  activate({ silent: true });
 });
 
 // ── MOTD — the same mood feed the raster prompt cycles every 8s. ──────────
