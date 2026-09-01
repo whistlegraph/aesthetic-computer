@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- sync-test.html — the station's test card. Black screen; every even UTC
+     second a 120ms white flash with a simultaneous 1kHz beep. On :00 and
+     :30 the flash doubles (two pulses 400ms apart) so a recording can be
+     pinned to absolute wallclock modulo 30s. sync-probe.sh reads flashes
+     with blackdetect and beeps with silencedetect, pairs them for A/V
+     offset, and uses the double flash for glass-to-glass delay. -->
+<html><head><meta charset="utf-8"><title>sync test</title><style>
+  html,body{height:100%;margin:0;background:#000;overflow:hidden}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0}
+  #tag{position:fixed;left:24px;top:16px;color:#444;font:600 28px monospace}
+</style></head><body>
+<div id="flash"></div><div id="tag">SYNC TEST CARD</div>
+<script>
+const flash = document.getElementById("flash");
+let ctx = null;
+function beep(atMs) {
+  if (!ctx) return;
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.frequency.value = 1000;
+  gain.gain.value = 0.5;
+  osc.connect(gain).connect(ctx.destination);
+  const t = ctx.currentTime + Math.max(0, atMs - performance.now()) / 1000;
+  osc.start(t); osc.stop(t + 0.12);
+}
+function pulse(atMs) {
+  const wait = Math.max(0, atMs - performance.now());
+  setTimeout(() => {
+    flash.style.opacity = "1";
+    setTimeout(() => (flash.style.opacity = "0"), 120);
+  }, wait);
+  beep(atMs);
+}
+// The rig's boot tap lands here and unlocks WebAudio.
+document.body.addEventListener("click", () => {
+  if (!ctx) ctx = new AudioContext();
+  ctx.resume();
+}, { once: false });
+// Schedule against the UTC grid, re-aiming every second to stay honest.
+setInterval(() => {
+  const now = Date.now();
+  const nextEven = Math.ceil(now / 2000) * 2000;
+  if (nextEven - now > 900) {
+    const perfAt = performance.now() + (nextEven - now);
+    pulse(perfAt);
+    if (nextEven % 30000 === 0) pulse(perfAt + 400); // double-flash marker
+  }
+}, 1000);
+</script></body></html>
