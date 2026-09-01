@@ -178,7 +178,7 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-function boot({ api, wipe, debug, send, hud, store, colon, jump }) {
+function boot({ api, wipe, debug, send, hud, store, colon, params, jump }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
@@ -198,7 +198,9 @@ function boot({ api, wipe, debug, send, hud, store, colon, jump }) {
   lakTV = false;
   let colonTheme = false;
   let colonLinks = false;
-  for (const token of colon || []) {
+  // URL `~` separators land in params, `:` in colon — `laer-klokken~tv`
+  // and `laklok:tv` should both reach the same switches, so scan both.
+  for (const token of [...(colon || []), ...(params || [])]) {
     if (LAK_THEMES[token]) { lakTheme = token; colonTheme = true; }
     if (token === "links") { lakLinksOnly = true; colonLinks = true; }
     if (token === "alle") { lakLinksOnly = false; colonLinks = true; }
