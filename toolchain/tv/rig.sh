@@ -121,7 +121,7 @@ exec ffmpeg -hide_banner -loglevel warning \
   -thread_queue_size 1024 -use_wallclock_as_timestamps 1 \
   -itsoffset "${AV_OFFSET:-0}" -f pulse -fragment_size 1024 -i "${SINK}.monitor" \
   $SCALE_ARGS \
-  -af "aresample=async=1:first_pts=0" \
+  -af "aresample=async=1" \
   -fps_mode cfr \
   -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p \
   -b:v "$VBITRATE" -maxrate "$VBITRATE" -bufsize 9000k \
