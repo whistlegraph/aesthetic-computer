@@ -112,6 +112,11 @@ drawing one.
 
 - [The Whistlegraph Zine](https://sexmag.shop/products/the-whistlegraph-zine) — Sex Magazine (ed. Asher Penn), 2023. 60pp, 750 copies.
 
+**Records**
+
+- [The Pruttipal Index](https://www.discogs.com/release/26322782-Goodiepal-Bananskolen-The-Pruttipal-Index) — Goodiepal & Bananskolen, Futura Resistenza, 3×CD — 2023. Whistlegraph is credited on *Whistlegraph's Er Bare Düre*, *Whistlegraph'er* and *Ind Kommer: Nynne*.
+- [Et Banann'Skole Tip](https://anagramspace.com/shop/audio/vinyl/44086/et-bananskole-tip/) — Goodiepal & Pals / Bananskolen, LP with hand-drawn sleeves, Copenhagen — 2020 ([Discogs](https://www.discogs.com/release/18076240-Bananskolen-Bananskolen))
+
 ## Future
 
 A whistlegraph has always been drawn flat — on snow, on wet pavement, on paper.
