@@ -1,0 +1,21 @@
+# wgtv-playout.service — Whistlegraph TV composed by ffmpeg, no browser.
+# Replaces the browser rig (wgtv.service): streams the archive mp4s
+# directly, so A/V sync is correct by construction — no Xvfb, no
+# PulseAudio, no AV_OFFSET. Restart=always self-heals an RTMP drop
+# (playout exits when its consumer ffmpeg dies). See playout.mjs.
+#
+# Cutover:  systemctl --user disable --now wgtv wgtv-watchdog.timer
+#           systemctl --user enable --now wgtv-playout
+# Rollback: the reverse — the browser rig files are left intact.
+[Unit]
+Description=Whistlegraph TV playout (ffmpeg-native) → YouTube RTMP
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/node %h/wgtv/playout.mjs %h/wgtv/wgtv.env
+Restart=always
+RestartSec=8
+
+[Install]
+WantedBy=default.target
