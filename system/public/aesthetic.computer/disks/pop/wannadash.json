@@ -1,0 +1,22 @@
+{
+  "slug": "wannadash",
+  "title": "wannadash",
+  "artist": "Whistlegraph Dot Org",
+  "album": "wannadash",
+  "bpm": "120–128",
+  "key": "B minor",
+  "meter": "4/4",
+  "duration": 114.125,
+  "audio": "https://assets.aesthetic.computer/pop/wannadash.mp3",
+  "cover": "https://assets.aesthetic.computer/pop/wannadash.jpg",
+  "sections": [
+    { "name": "carrier", "t": 0, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-0.jpg", "code": "a", "color": [200, 190, 255] },
+    { "name": "the message", "t": 4.05, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-1.jpg", "code": "b", "color": [255, 105, 175] },
+    { "name": "the secret", "t": 20.05, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-2.jpg", "code": "c", "color": [110, 255, 140] },
+    { "name": "the reply", "t": 36.05, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-3.jpg", "code": "d", "color": [255, 150, 70] },
+    { "name": "it spreads", "t": 59.93, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-4.jpg", "code": "e", "color": [255, 105, 175] },
+    { "name": "the whole message", "t": 75.52, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-5.jpg", "code": "f", "color": [110, 255, 140] },
+    { "name": "carrier off", "t": 98.38, "illy": "https://assets.aesthetic.computer/pop/wannadash/sec-6.jpg", "code": "g", "color": [200, 190, 255] }
+  ],
+  "credits": "Whistlegraph Dot Org. Voices: Camille Klein, Alex Freundlich, Jeffrey Scudder. From The Three of Us Are in a Cult (Whistlegraph, 2022). Produced by Jeffrey Scudder / Aesthetic Dot Computer."
+}

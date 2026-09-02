@@ -7,6 +7,42 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## wannadash — SUBMITTED-READY (DistroKid form filled 2026-09-01; @jeffrey ticks the attestations + Continue)
+
+- **Artist:** Whistlegraph Dot Org · **title:** `wannadash` (all lowercase, preserve-caps
+  ticked; no featured artist in the title) · label Aesthetic Dot Computer · Electronic /
+  Indie Dance–Nu Disco, secondary Pop · voices Camille Klein, Alex Freundlich, Jeffrey
+  Scudder · songwriters Camille Klein (lyrics), Jeffrey Scudder (music) · producer Jeffrey
+  Scudder. Packet: `~/Documents/Shelf/wannadash-DISTROKID/` (MASTER.flac, cover 3000²,
+  release.json).
+- **Lane:** `pop/cult/` · the whistlegraph cult remix, edited to 1:54 · B minor · 120 → 128 BPM
+  (the tempo picks up with the swing, bin/tempo.py) · deterministic score `bin/render10.mjs`
+  and its bit-exact C port `c/cultremix.c`; `bash bin/bake-c.sh` bakes the whole record in
+  ~20 s; `bin/banks.sh` rebuilds the ignored sample/sung banks. Mix rounds 1–13 in
+  `MIX-NOTES-2026-09-01.md`; the guitar reorchestrated on `pop/guitar/` (strum machine).
+- **Master:** `out/wannadash-release.flac` — −10.0 LUFS · −2.1 dBTP · LRA 5.2 · 114.13 s ·
+  48 k/24-bit; passes the house gate (`pop/MASTERING.md`, `bin/master-audit.mjs`).
+- **Cover:** `pop/cult/cover/wannadash-cover-gpt-image-2-field.jpg` — the three UV-powder
+  glyphs (pink · green · orange) around the stone, from the cult footage's palette.
+- **On AC (2026-09-01):** https://aesthetic.computer/wannadash — `disks/wannadash.mjs` +
+  `disks/pop/wannadash.json` (7 sections in shipped time). CDN:
+  - audio · https://assets.aesthetic.computer/pop/wannadash.mp3 (320 k, cover embedded)
+  - cover · https://assets.aesthetic.computer/pop/wannadash.jpg (3000²)
+  - master · https://assets.aesthetic.computer/pop/wannadash/wannadash-master.flac
+  - stills · https://assets.aesthetic.computer/pop/wannadash/sec-{0..6}.jpg
+- **Picture from the receipt:** `pop/cult/viz/field.mjs` draws the score receipt onto the
+  cover — every sung dot a grain of powder, every dash a streak that grows while the note
+  holds, coloured by who sang it, placed by pan and pitch, kick-lifted, explosion-knocked;
+  mapped through the tempo warp + release seams so it is frame-accurate to the shipped
+  audio. One drawing, three outputs: `out/wannadash-canvas.mp4` (Spotify Canvas — 1080×1920,
+  8.000 s = the hook's four bars, silent, seamless, no text; upload in Spotify for Artists
+  once the track is live), `out/wannadash-reel.mp4` (Instagram Reel — the full 1:54 with
+  the words on three rails as they are sung), and the section stills above.
+- **Next:** attestations + Continue on DistroKid (@jeffrey) → paste the Spotify link here →
+  Canvas to S4A → post the reel.
+
+---
+
 ## Femrag++ — RELEASED (2026-08-27 · DistroKid uuid 6AC3B59B-BF20-48D9-9813CB10B86C62B7)
 
 - **Live:** https://open.spotify.com/track/2v7LcVM38kpiIYd0RWQJzm ·
