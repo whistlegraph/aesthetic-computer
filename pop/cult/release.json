@@ -1,15 +1,6 @@
 {
   "title": "wannadash",
   "artist": "Whistlegraph Dot Org",
-  "featuredArtists": [
-    {
-      "name": "Aesthetic Dot Computer",
-      "role": "Featured artist",
-      "spotifyUri": "spotify:artist:7hqUS0ZErVZ3JzdeBEEgDr",
-      "appleMusicUrl": "https://music.apple.com/artist/aesthetic-dot-computer/6770592645",
-      "youtubeMusicUrl": "https://music.youtube.com/channel/UCBFyg4JF3tnW-kVoO1GU1yA"
-    }
-  ],
   "albumTitle": "wannadash",
   "label": "Aesthetic Dot Computer",
   "primaryGenre": "Electronic",
@@ -24,5 +15,35 @@
   "previouslyReleased": false,
   "releaseDate": "asap",
   "audioFile": "wannadash-MASTER.flac",
-  "coverFile": "wannadash-cover.jpg"
+  "coverFile": "wannadash-cover.jpg",
+  "preserveCapitalization": true,
+  "featuredInTitle": false,
+  "subgenre": "Indie Dance / Nu Disco",
+  "performers": [
+    {
+      "name": "Camille Klein",
+      "role": "Singing & vocals"
+    },
+    {
+      "name": "Alex Freundlich",
+      "role": "Singing & vocals"
+    },
+    {
+      "name": "Jeffrey Scudder",
+      "role": "Singing & vocals"
+    }
+  ],
+  "producers": [
+    {
+      "name": "Jeffrey Scudder",
+      "role": "Producer"
+    }
+  ],
+  "master": {
+    "lufs": -10.0,
+    "lra": 5.2,
+    "dbtp": -2.1,
+    "seconds": 114.13,
+    "chain": "bin/bake-c.sh (c/cultremix \u2192 bin/tempo.py \u2192 bin/cut-release.sh)"
+  }
 }

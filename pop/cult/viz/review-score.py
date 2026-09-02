@@ -55,6 +55,15 @@ sr = 8000
 W, H, FPS = 2560, 1920, 30      # tall 2.5K critique master
 PPS = 200                       # wider temporal view: 400 px / bar
 
+# --preview: a listening copy, not a critique master. This ONLY drops the
+# frame rate — the geometry stays at 2560x1920 on purpose. The layout is not
+# fully fractional (the scroll strip is built from absolute lane heights and
+# is broadcast into a fixed STRIP_TOP:STRIP_BOT window), so shrinking W/H
+# raises a broadcast error rather than a smaller picture. Halving FPS halves
+# the frames, which is where the time actually goes: ~260 s -> ~135 s.
+if "--preview" in sys.argv:
+    FPS = 15
+
 RADIO = "--radio" in sys.argv
 LIGHT = "--light" in sys.argv
 def argval(flag):

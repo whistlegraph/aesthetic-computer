@@ -11,30 +11,33 @@ pop/cult/c/cultremix            # → pop/cult/c/out/cult-remix-c.wav
 
 ## Parity vs `node pop/cult/bin/render10.mjs`
 
-Measured against a fresh Node render of the same source
-(md5 `2e2ac6bab8a5f8cc3c17a2136a9dcf9b`), same machine, 2026-08-16:
+Re-ported 2026-09-01 against the wannadash release score (the elastic
+explosions, the release-edit geometry, and the two rounds of mix notes:
+`bright`, `air`, `staircasePan`, `guitarStrum`, `cultCluster`, `keepTime`,
+the dinner bell, the drive under the warble). Measured against a fresh Node
+render of the same source, same machine:
 
 | metric | Node | C |
 | --- | --- | --- |
 | duration | 10,905,600 frames · 227.200 s | identical, frame-exact |
-| integrated loudness (ffmpeg loudnorm) | −17.40 LUFS | −17.40 LUFS |
-| true peak | −0.72 dBTP | −0.72 dBTP |
-| sample peak | −0.724 dBFS | −0.724 dBFS |
-| pre-master peak / linear trim | 1.895557 / 0.485 | 1.895557 / 0.485 |
-| 1 s window RMS Δ @ 20/60/95/155/210 s | — | 0.000 dB at all five |
-| max per-sample difference | — | 1.34 × 10⁻⁷ (residual −165 dBFS) |
-| render wall time | ~17.3 s | ~3.9 s (~4.5×) |
+| pre-master peak / linear trim | 1.984729 / 0.464 | 1.984729 / 0.464 |
+| sample peak after trim | 0.920000 | 0.920000 |
+| max per-sample difference | — | 1.79 × 10⁻⁷ (−135 dBFS) |
+| worst 250 ms window, residual vs signal | — | −139.9 dB |
+| render wall time | ~17 s | ~3.5 s (~5×) |
 
-Every voice is exact — kick/revKick/wub, bass, sines, DTMF/bops/clicks/taps,
-woodTap, friction and frictionPath, shot with pitch wiggle, granular stretch,
-subharmonic doubling, choir/secretChoir/raga/phoneTune, tube DC block, dub
-delay, both ducks, the side return and the single linear trim. No voice is
-approximate: both generators are reproduced bit-for-bit (score LCG seed
-20220120 stepping `seed*1664525+1013904223` mod 2³² then /2³²; noise
-xorshift32 seed 987654321 divided by 2³²−1), and every `jit()/vel()/nrnd()`
-draw happens in the Node score's evaluation order — jit-before-vel pairs are
-explicitly sequenced because C leaves argument order unspecified. The
-remaining 10⁻⁷ residual is float32 accumulation-order noise.
+Every voice is exact, including the ones added this pass: the Karplus-Strong
+guitar (its per-note xorshift seed hashed from `round(t*1000)` and the midi
+exactly as the Node file does it, so a chord never shifts the friction
+noise), the air bed on its own LCG, the Shepard-pan staircase, the elastic
+field over the five buses, and the vox macro arc — which the previous port
+had never carried, and which was the entire residual before this pass
+(every sung take between bars 8 and 76 was 0.72–1.0× and a shade dark in
+Node and not in C).
+
+The fast lane is `bin/bake-c.sh`: build, render, cut the DistroKid master
+from the C output. The Node renderer remains the receipt generator for the
+review video.
 
 ## What differs from the Node renderer
 
@@ -49,7 +52,6 @@ remaining 10⁻⁷ residual is float32 accumulation-order noise.
 - Memory: ~850 MB peak (fifteen N-length float busses plus envelopes, same
   layout as the Node render).
 
-The port tracks the working-tree v10.1 source (iwannaslow takes, withheld
-words, choir sub floors, blip counterline, phone tune, raga ornament, phone
-gestures, 112 bars / 9 acts). If `render10.mjs` changes, re-port before
-trusting parity.
+The port tracks the working-tree wannadash source. If `render10.mjs` changes,
+re-port before trusting parity — and check with the residual, not by ear: the
+last drift (the vox arc) was audible only as "the voices sit differently".
