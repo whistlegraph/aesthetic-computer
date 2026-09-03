@@ -9,9 +9,7 @@
 //   node toolchain/prompt-stats.mjs --q flower          search raw entries
 //   node toolchain/prompt-stats.mjs --kind kidlisp-code --limit 100
 
-import { readFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { loadTokens, UA } from "./mcp/ac-token.mjs";
 
 const HOST = process.env.AC_HOST || "https://aesthetic.computer";
 
@@ -23,14 +21,7 @@ function flag(name) {
   return next && !next.startsWith("--") ? next : true;
 }
 
-let token;
-try {
-  token = JSON.parse(readFileSync(join(homedir(), ".ac-token"), "utf8"))
-    .access_token;
-} catch {
-  console.error("❌ No admin token — expected ~/.ac-token with access_token.");
-  process.exit(1);
-}
+const { access_token: token } = await loadTokens();
 
 const q = flag("q");
 const kind = flag("kind");
@@ -54,7 +45,7 @@ if (q) {
 }
 
 const res = await fetch(`${HOST}/api/prompt-log?${params}`, {
-  headers: { Authorization: `Bearer ${token}` },
+  headers: { Authorization: `Bearer ${token}`, "User-Agent": UA },
 });
 if (!res.ok) {
   console.error(`❌ ${res.status} ${await res.text()}`);
