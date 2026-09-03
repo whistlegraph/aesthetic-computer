@@ -1428,6 +1428,15 @@ async function boot({
 
 // 🛑 Halt: (Intercept input and route it to commands.)
 async function halt($, text) {
+  // 🛰️ Prompt corpus: record what was entered (anonymous, fire-and-forget).
+  if (text?.trim().length > 0) {
+    fetch("/api/prompt-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text.trim().slice(0, 256) }),
+    }).catch(() => {});
+  }
+
   const {
     api,
     broadcast,
