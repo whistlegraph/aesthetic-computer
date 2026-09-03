@@ -333,6 +333,11 @@ const PAPER_MAP = {
     siteName: "nom-games-26-arxiv",
     title: "The nom Games",
   },
+  "arxiv-turf": {
+    base: "turf",
+    siteName: "taking-turf-26-arxiv",
+    title: "Taking Turf",
+  },
   "arxiv-granularity": {
     base: "granularity",
     siteName: "gaps-in-granularity-26-arxiv",
@@ -530,6 +535,7 @@ const CATEGORIES = [
       "arxiv-comp-strats",
       "arxiv-nom",
       "arxiv-granularity",
+      "arxiv-turf",
       "essay-may-26",
       "essay-june-26",
       "essay-july-4-26",
