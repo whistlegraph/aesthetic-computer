@@ -12,7 +12,7 @@ export function roundNameFromPath(pathname) {
 export class RoundRoom {
   constructor(name, { WebSocketImpl = globalThis.WebSocket,
     fetchImpl = globalThis.fetch, historyImpl = globalThis.history,
-    analytics = () => false,
+    analytics = () => false, role = "viewer",
     sessionOrigin = "wss://session-server.aesthetic.computer",
     replayOrigin = "" } = {}) {
     if (!ROUND_NAME.test(name || "")) throw new Error("Invalid oskiewar round name");
@@ -24,6 +24,11 @@ export class RoundRoom {
     this.analytics = analytics;
     this.sessionOrigin = sessionOrigin;
     this.replayOrigin = replayOrigin;
+    // A challenger asks for the second chair; a viewer only watches. A denied
+    // chair quietly demotes this room to a viewer connection, so the friend
+    // who arrived third still sees the fight they were invited to.
+    this.role = role === "challenger" ? "challenger" : "viewer";
+    this.seat = "";
     this.socket = null;
     this.timer = null;
     this.listener = null;
@@ -58,8 +63,9 @@ export class RoundRoom {
     if (this.stopped || !this.WebSocketImpl) return;
     const generation = ++this.generation;
     const id = `ow-${this.name}`;
+    const role = this.role === "challenger" ? "&role=challenger" : "";
     const socket = new this.WebSocketImpl(
-      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=web`);
+      `${this.sessionOrigin}/oskiewar-live?match=${encodeURIComponent(id)}&surface=web${role}`);
     this.socket = socket;
     socket.addEventListener?.("open", () => {
       if (generation === this.generation) this.emit("status", { label: "waiting", live: false });
@@ -68,7 +74,10 @@ export class RoundRoom {
       if (generation !== this.generation) return;
       let message;
       try { message = JSON.parse(event.data); } catch { return; }
-      if (message.type === "oskiewar:status") {
+      if (message.type === "oskiewar:seat") {
+        this.seat = String(message.content?.seat || "");
+        this.emit("seat", { seat: this.seat });
+      } else if (message.type === "oskiewar:status") {
         this.live = Boolean(message.content?.live);
         this.emit("status", { ...message.content,
           label: this.live ? "live" : "waiting" });
@@ -86,6 +95,15 @@ export class RoundRoom {
         this.emit("state", message.content);
         if (message.content?.phase === "match") this.loadDemo(true);
       } else if (message.type === "oskiewar:error") {
+        // A taken chair is an answer, not a failure: fall back to watching
+        // before the server's close comes through, so the reconnect below
+        // rejoins as one more face in the grandstand.
+        if (this.role === "challenger" &&
+            /challenger/i.test(message.content?.message || "")) {
+          this.role = "viewer";
+          this.seat = "";
+          this.emit("seat", { seat: "", denied: true });
+        }
         this.emit("status", { label: message.content?.message || "unavailable", live: false });
       }
     });
@@ -93,11 +111,23 @@ export class RoundRoom {
       if (generation !== this.generation || this.stopped) return;
       this.socket = null;
       this.live = false;
+      this.seat = "";
       this.loadDemo();
       this.schedule(() => this.open(), 1200);
     };
     socket.addEventListener?.("close", closed);
     socket.addEventListener?.("error", () => socket.close?.());
+  }
+
+  // The challenger's presses, up to the relay and on to the publishing game.
+  // Returns whether the wire took them, so the game can pace its own retries.
+  sendInput(content) {
+    if (this.seat !== "challenger" || this.socket?.readyState !== 1)
+      return false;
+    try {
+      this.socket.send(JSON.stringify({ type: "oskiewar:input", content }));
+      return true;
+    } catch { return false; }
   }
 
   async loadDemo(force = false) {
@@ -156,6 +186,7 @@ export class RoundRoom {
     ++this.generation;
     clearTimeout(this.timer);
     this.timer = null;
+    this.seat = "";
     this.socket?.close?.(1000, "leaving");
     this.socket = null;
     this.listener = null;

@@ -35,16 +35,24 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 90;
+const buildVersion = 91;
 const floorY = 1800;
-// Oskiewar now opens on a solo ascent. Combat remains a mode — direct
-// opponent URLs and the regression harness still enter it — but an ordinary
-// visit is survival: one runner, a ladder of one-way platforms and lava that
-// keeps taking the floor away. Keeping this as explicit mode state, rather
-// than deleting player two, preserves replays and the fight laboratory while
-// ensuring the production route never quietly seats an adversary.
+// Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
+// the URL becomes the invitation — and until a friend opens it, all you can
+// do is move: a training floor with your own moves named back at you and one
+// standing instruction, find a friend. Survival (the solo ascent) and the
+// bot/dummy doors remain modes behind `?opponent=`, and the regression
+// harness still enters combat directly. Keeping player two as explicit mode
+// state, rather than deleting the chair, preserves replays and the fight
+// laboratory while ensuring no route quietly seats an adversary.
 let gameMode = "fight";
 const survivalActive = () => gameMode === "survival";
+// The versus lane's two rooms-of-play: alone in the cube waiting on a rival,
+// or fighting the rival the relay seated. Both publish to the same room so
+// the shared URL is the lobby, the fight and the grandstand at once.
+const lobbyActive = () => gameMode === "fight" && fightOpponent === "versus-lobby";
+const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
+const versusLane = () => lobbyActive() || versusActive();
 // The cube. @jeffrey climbed the tower and asked for the opposite: a small
 // closed box — "like a 10ft by 10ft cube" — with nothing in it but two
 // fighters and a pistol. The map is now a lattice of square tiles
@@ -899,7 +907,7 @@ const players = [
     sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
-    npc: false, bot: false,
+    npc: false, bot: false, remote: false,
     pad: 1, spawnX: tileCenterX(6), x: tileCenterX(6), y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
@@ -929,7 +937,11 @@ const players = [
     sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
 ];
-const activePlayers = () => survivalActive() ? [players[0]] : players;
+// Who the camera, the scorekeeping and the reactions believe is on stage.
+// Survival and the versus lobby are both one-body rooms — the second chair
+// is parked off the map until somebody takes it.
+const activePlayers = () =>
+  survivalActive() || lobbyActive() ? [players[0]] : players;
 const impacts = [];
 const detachedParts = [];
 const bullets = [];
@@ -1153,6 +1165,55 @@ function trainingOpponentKind() {
   if (!trainingOpponent) trainingOpponent = "trainingbot";
   return trainingOpponent;
 }
+// The versus lane's room. One name for the whole visit — the shell writes it
+// into the address bar, the QR encodes it, and a friend opening that address
+// takes the second chair. A visit that arrived THROUGH such an address and
+// found nobody hosting claims the name instead, so a shared link survives
+// its sender refreshing.
+let versusRoomName = "";
+let versusNextAt = 0;
+let versusRivalName = "";
+// How long an empty wire keeps the rival seated. Long enough to ride out a
+// dropped packet or a phone switching antennas, short enough that a closed
+// tab reads as "they left" while the fighter is still warm.
+const versusChallengerGraceMs = 2500;
+// The fight streams faster than a grandstand needs, because for the
+// challenger this feed IS the game — their own presses come back to them
+// as pictures through it.
+const versusSnapshotIntervalUs = 33000;
+// How long a visitor who arrived through a shared address waits for a host
+// before deciding the room is theirs to claim.
+const versusClaimAfterUs = 2500000;
+let versusClaimArmedAt = 0;
+let versusInputSeq = 0;
+let versusInputLastSent = "";
+let versusInputNextAt = 0;
+let versusInputMinNextAt = 0;
+// The bridge a claiming visitor stepped off of, kept so a lost publisher
+// race can walk them right back on as a challenger.
+let versusFallbackBridge = null;
+
+function versusChallengerFresh() {
+  const remote = globalThis.__oskiewarRemotePad;
+  if (!remote || !Number.isFinite(remote.at)) return false;
+  return Date.now() - remote.at < versusChallengerGraceMs;
+}
+
+// The remote rival's pad, read off the same wire shape a hand or a bot
+// writes. A stale global answers neutral rather than holding the last
+// press — a vanished friend must drop their guard, not run into a corner
+// forever.
+function remotePadSnapshot() {
+  const remote = globalThis.__oskiewarRemotePad;
+  const fresh = remote && Number.isFinite(remote.at) &&
+    Date.now() - remote.at < versusChallengerGraceMs;
+  if (!fresh) return { connected: true, down: [], leftX: 0, leftY: 0,
+    rightX: 0, rightY: 0 };
+  return { connected: true,
+    down: Array.isArray(remote.down) ? remote.down.slice() : [],
+    leftX: Number(remote.leftX) || 0, leftY: Number(remote.leftY) || 0,
+    rightX: 0, rightY: 0 };
+}
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
 let selectionStep = 0;
@@ -1372,7 +1433,9 @@ function startReplay(now) {
 // does. An opponent with no bot AI used to be a safe stand-in for "nobody is
 // watching this" — the day training started sparring back, that stand-in would
 // have put every anonymous session on a series, a demo and a live feed, so the
-// gate reads the door the round came through instead.
+// gate reads the door the round came through instead. The versus lane is off
+// this wire too, by choice rather than freedom: it runs one room, one stream,
+// no series and no demo, because the shared URL must keep meaning this fight.
 function roundIsTimed() {
   if (survivalActive()) return false;
   // Training runs without a clock — except under the reel harness, where a
@@ -1381,7 +1444,7 @@ function roundIsTimed() {
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
   if (resimActive) return true;
-  if (fightOpponent === "trainingbot") return false;
+  if (fightOpponent === "trainingbot" || versusLane()) return false;
   return !(players[1].npc && !players[1].bot);
 }
 
@@ -2306,6 +2369,7 @@ function startFightAgainst(kind, now) {
     kind === "bot" || kind === "trainingbot";
   opponent.bot = kind === "bot" || kind === "trainingbot";
   opponent.spiderDummy = kind === "spiderdummy";
+  opponent.remote = false;
   // Pad two is @OSKIE until ppl arrives carrying a handle of its own.
   applyRoster(opponent, opponent.npc ? -1 : 2);
   selecting = false;
@@ -2318,7 +2382,19 @@ function startFightAgainst(kind, now) {
 }
 
 function survivalRequested() {
-  return !String(globalThis.__oskiewarOpponent || "").trim();
+  const requested = String(globalThis.__oskiewarOpponent || "")
+    .trim().toLowerCase();
+  if (requested === "survival") return true;
+  // The empty front door still opens on the climb wherever the shell cannot
+  // carry a rival's presses inbound — the native publisher reads the relay
+  // and discards, so a versus room there would be a post that never hits
+  // back. The web shell raises the capability flag; nothing else does.
+  return !requested && globalThis.__oskiewarVersusCapable !== true;
+}
+
+function versusRequested() {
+  return !String(globalThis.__oskiewarOpponent || "").trim() &&
+    globalThis.__oskiewarVersusCapable === true;
 }
 
 function startSurvivalRun(now, botControlled = false) {
@@ -2343,6 +2419,7 @@ function startSurvivalRun(now, botControlled = false) {
   absent.npc = true;
   absent.bot = false;
   absent.spiderDummy = false;
+  absent.remote = false;
   applyRoster(absent, -1);
 
   resetRound(now, true);
@@ -2405,6 +2482,185 @@ function beginTraining(now) {
   }
 }
 
+// The versus lobby: one fighter, an empty chair, and the address as the
+// invitation. Everything a visitor can do here is practice — their own moves
+// are named back at them — until the relay seats a rival, at which point
+// updateVersusSeat opens the real fight. The empty chair is parked out past
+// the wall the way survival parks it, so the camera, the scorekeeping and
+// the reactions all read a one-body room.
+function beginVersusLobby(now, { title = false } = {}) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "versus-lobby";
+  finishReplay();
+  seriesName = "";
+  matchName = "";
+  previousRoundName = "";
+  if (!versusRoomName) versusRoomName = sessionName;
+  globalThis.__oskiewarVersusRoom = versusRoomName;
+  const local = players[0];
+  local.spawnX = tileCenterX(3);
+  local.npc = false;
+  local.bot = false;
+  local.spiderDummy = false;
+  local.remote = false;
+  applyRoster(local, Math.max(0, local.rosterIndex));
+  const chair = players[1];
+  chair.spawnX = tileCenterX(6);
+  chair.npc = true;
+  chair.bot = false;
+  chair.spiderDummy = false;
+  chair.remote = false;
+  applyRoster(chair, -1);
+  selecting = false;
+  shellMode = title ? "MENU" : "GAME";
+  gameplayStarted = !title;
+  titleTransitionAt = null;
+  resetRound(now, true);
+  chair.alive = false;
+  chair.respawnAt = Infinity;
+  chair.x = worldRight + gridWidth;
+  chair.y = floorY;
+  // An empty chair wears no dummy's name — the wire calls it NOBODY.
+  chair.name = "";
+  // Spend the countdown before the first frame: arriving is moving, and
+  // there is nobody here to count in against anyway.
+  roundStartedAt = now - roundIntroDurationUs();
+  spectatorQr = typeof qrcode === "function"
+    ? spectatorCode("https://oskiewar.com/" + versusRoomName) : null;
+  emitSignal("versus-lobby", 0, 1, 0);
+}
+
+// A rival took the chair. Seat them as a real second fighter — no bot brain,
+// no npc stillness, their presses riding in off the relay — and open the
+// round with the full countdown so both screens see the same three seconds.
+function startVersusFight(now, resetMatch = true) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "versus";
+  const local = players[0];
+  local.spawnX = tileCenterX(3);
+  local.npc = false;
+  local.bot = false;
+  local.spiderDummy = false;
+  local.remote = false;
+  applyRoster(local, Math.max(0, local.rosterIndex));
+  const rival = players[1];
+  rival.spawnX = tileCenterX(6);
+  rival.npc = false;
+  rival.bot = false;
+  rival.spiderDummy = false;
+  rival.remote = true;
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  resetRound(now, resetMatch);
+  dressVersusRival();
+  if (resetMatch && typeof analytics === "function") {
+    analytics("match_started", {
+      source_system: "browser",
+      surface: "web",
+      opponent_type: "remote-player",
+    });
+  }
+  emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+}
+
+// What the rival is called and what they wear, read off the freshest input
+// frame — the challenger mails their handle and colors with every press, so
+// a name arriving late still lands. The relay already shape-checked both;
+// the sanitize here is for the state schema's sake, because one bent name
+// would cost every published frame.
+function dressVersusRival() {
+  const rival = players[1];
+  if (!rival.remote) return;
+  const remote = globalThis.__oskiewarRemotePad;
+  const offered = String(remote?.name || "").toUpperCase()
+    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "RIVAL";
+  rival.name = versusRivalName;
+  const colors = (Array.isArray(remote?.colors) ? remote.colors : [])
+    .filter((entry) => Array.isArray(entry) && entry.length === 3 &&
+      entry.every((channel) => Number.isInteger(channel) &&
+        channel >= 0 && channel <= 255))
+    .map((entry) => entry.slice(0, 3));
+  if (colors.length) {
+    rival.handleColors = colors;
+    rival.color = colors.reduce((sum, entry) => sum.map((value, index) =>
+      value + entry[index] / colors.length), [0, 0, 0]).map(Math.round);
+  } else {
+    rival.handleColors = [];
+    rival.color = [38, 82, 176];
+  }
+}
+
+// The versus lane's own wire: one room, streamed faster than a grandstand
+// needs because for the challenger this feed IS the game. It runs from the
+// title screen on — a friend can arrive while the host is still reading the
+// wordmark — and rides the same publisher socket the round rooms use.
+function publishVersus(now) {
+  if (!versusLane() || !versusRoomName || livePublishFailed ||
+      typeof publishLive !== "function" || now < versusNextAt) return;
+  versusNextAt = now + versusSnapshotIntervalUs;
+  try {
+    publishLive("ow-" + versusRoomName, JSON.stringify(spectatorState(now)));
+  } catch (error) {
+    livePublishFailed = true;
+    telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+  }
+}
+
+// Two visitors can arrive through the same dead address and both decide to
+// host it. The relay lets exactly one publish; the other's shell hears "this
+// match already has a publisher" and raises a flag, and this walks that
+// loser back into the room as a challenger through the bridge it kept.
+function updateVersusConflict(now) {
+  if (!versusLane() || !versusFallbackBridge) return false;
+  if (globalThis.__oskiewarPublishConflict !== "ow-" + versusRoomName)
+    return false;
+  globalThis.__oskiewarPublishConflict = "";
+  const bridge = versusFallbackBridge;
+  versusFallbackBridge = null;
+  bridge.role = "challenger";
+  roundViewer = bridge;
+  roundViewerMode = "";
+  roundViewerDemo = null;
+  roundViewerStatus = "CONNECTING";
+  shellMode = "GAME";
+  selecting = false;
+  roundResult = "";
+  matchOver = false;
+  matchName = bridge.name || "";
+  roundStartedAt = now - roundIntroDurationUs();
+  roundViewerStop = bridge.start(handleRoundViewer);
+  telemetry("VERSUS_CONFLICT", versusRoomName);
+  return true;
+}
+
+// The seat, watched every tick. Fresh presses in the lobby open the fight;
+// a wire gone quiet mid-fight sends the room back to waiting. The rival's
+// wardrobe follows their freshest frame because the handle can arrive after
+// the chair was taken.
+function updateVersusSeat(now) {
+  if (updateVersusConflict(now)) return;
+  if (!versusLane()) return;
+  const fresh = versusChallengerFresh();
+  if (lobbyActive() && fresh) {
+    startVersusFight(now, true);
+    return;
+  }
+  if (versusActive() && !fresh) {
+    beginVersusLobby(now);
+    return;
+  }
+  if (versusActive() && fresh) {
+    const offered = String(globalThis.__oskiewarRemotePad?.name || "")
+      .toUpperCase().replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+    if (offered && offered !== versusRivalName) dressVersusRival();
+  }
+}
+
 // Deprecated with PAL_SELECT — see the flag.
 function beginSelect(now) {
   selecting = true;
@@ -2442,17 +2698,23 @@ function beginSelect(now) {
 function returnToTitle(now, reason = "back") {
   finishReplay();
   if (survivalActive()) beginSurvival(now);
+  else if (versusLane()) beginVersusLobby(now, { title: true });
   else beginTraining(now);
   // Menu is a hard navigation boundary: discard the prior fight's zoom and
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
   playerCameraPitch = 0;
   playerCameraZoom = 1;
+  // The lobby frames its one fighter — the empty chair is parked past the
+  // wall, and averaging it in would sling the lens a map-width off stage.
   cameraCenter = survivalActive() ? (worldLeft + worldRight) / 2
+    : lobbyActive() ? players[0].x
     : (players[0].x + players[1].x) / 2;
   cameraCenterY = survivalActive() ? floorY - 240
+    : lobbyActive() ? players[0].y - 90
     : (players[0].y + players[1].y) / 2 - 90;
   cameraWidth = survivalActive() ? gridWidth + 120
+    : lobbyActive() ? 980
     : Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
   cameraContainFloor = 0;
   const cameraTarget = { x: cameraCenter, y: cameraCenterY, z: 0 };
@@ -2488,6 +2750,7 @@ function startSelfPlay(now) {
     player.npc = true;
     player.bot = true;
     player.spiderDummy = false;
+    player.remote = false;
     player.rosterIndex = -1;
   }
   // The reel harness may seat the training dummy in the second chair — a
@@ -3161,6 +3424,80 @@ function updateRoundViewer(now, dt) {
   }
 }
 
+// The buttons a challenger's pad may carry up the wire — the fight's own
+// vocabulary, no system keys. View and Menu stay local: a rival must never
+// toggle the host's debug overlay or send their game back to the title.
+const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+
+// The challenger's half of the versus wire: sample the local pad, ship it on
+// change, and heartbeat while idle so silence can mean absence. Sends pace
+// themselves a hair above the relay's own floor — a press that lands inside
+// the pause simply leaves on the next tick rather than being dropped.
+function sendChallengerInput(now) {
+  if (roundViewer?.seat !== "challenger" ||
+      typeof roundViewer.sendInput !== "function") return;
+  const pad = typeof gamepad === "function" ? gamepad(0) : null;
+  if (!pad) return;
+  const down = (pad.down || [])
+    .filter((button) => versusInputButtons.includes(button)).slice(0, 10);
+  const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+  const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
+  const worn = JSON.stringify(frame);
+  if (worn !== versusInputLastSent) {
+    if (now < versusInputMinNextAt) return;
+  } else if (now < versusInputNextAt) return;
+  versusInputMinNextAt = now + 33000;
+  versusInputNextAt = now + 250000;
+  const identity = acFeed?.player;
+  const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
+    .map((entry) => Array.isArray(entry)
+      ? entry.slice(0, 3) : [entry.r, entry.g, entry.b])
+    .filter((entry) => entry.every((channel) => Number.isInteger(channel) &&
+      channel >= 0 && channel <= 255))
+    .slice(0, 4);
+  if (roundViewer.sendInput({ seq: versusInputSeq++, ...frame,
+    name: identity?.handle ? String(identity.handle).toUpperCase() : "",
+    colors })) versusInputLastSent = worn;
+}
+
+// A visitor who arrived through a shared address and found nobody hosting
+// takes the room over — the link a friend sent must keep working after the
+// sender's tab closed. The chair-holder claims first; a seat-denied watcher
+// waits three times as long, so two arrivals at a dead address stagger
+// instead of racing, and updateVersusConflict catches the tie anyway.
+function updateVersusClaim(now) {
+  if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
+  // A room with a live host is a fight to join; a room with a stored demo is
+  // a replay page and keeps being one — versus rooms never record, so only a
+  // truly empty address falls through to the claim.
+  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO") {
+    versusClaimArmedAt = 0;
+    return false;
+  }
+  if (!versusClaimArmedAt) {
+    versusClaimArmedAt = now;
+    return false;
+  }
+  const wait = roundViewer.seat === "challenger"
+    ? versusClaimAfterUs : versusClaimAfterUs * 3;
+  if (now - versusClaimArmedAt < wait) return false;
+  const name = roundViewer.name;
+  versusFallbackBridge = roundViewer;
+  roundViewerStop?.();
+  roundViewerStop = null;
+  roundViewer = null;
+  roundViewerMode = "";
+  roundViewerDemo = null;
+  roundViewerStatus = "CONNECTING";
+  versusClaimArmedAt = 0;
+  versusRoomName = name;
+  globalThis.__oskiewarRemotePad = null;
+  beginVersusLobby(now);
+  telemetry("VERSUS_CLAIM", name);
+  return true;
+}
+
 // A demo carries the impacts the live pass spawned. Replaying them puts the
 // sparks and debris back into a repaint that otherwise only moves bodies.
 // The demo loops, so a tick that runs backwards restarts the sweep clean.
@@ -3224,12 +3561,19 @@ function gameBoot() {
     return;
   }
   if (globalThis.__oskiewarSelfPlay) {
-    if (survivalRequested()) startSurvivalRun(startedAt, true);
+    // A harness cast keeps the pre-versus reading of the empty door: nobody
+    // is holding a controller, so "no opponent" means the climb, never a
+    // lobby waiting on a friend who cannot exist.
+    if (survivalRequested() || versusRequested())
+      startSurvivalRun(startedAt, true);
     else startSelfPlay(startedAt);
     return;
   }
   if (survivalRequested()) beginSurvival(startedAt);
-  else beginTraining(startedAt);
+  else if (versusRequested()) {
+    versusRoomName = sessionName;
+    beginVersusLobby(startedAt, { title: true });
+  } else beginTraining(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
@@ -3366,9 +3710,10 @@ function resetRound(now, resetMatch = false) {
     delete player.headBustedAt;
     player.headRoll = 0;
     player.headRollRate = 0;
-    // Only a hand can still be leaning on a button across the reset; a bot's
-    // presses were just cleared, so inheriting pad two would suppress them.
-    player.previous = player.npc || player.bot ? []
+    // Only a LOCAL hand can still be leaning on a button across the reset; a
+    // bot's presses were just cleared, and a remote rival's ride their own
+    // wire — inheriting pad two's local snapshot would suppress them.
+    player.previous = player.npc || player.bot || player.remote ? []
       : padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
@@ -6477,6 +6822,11 @@ function gameSim() {
   }
   if (roundViewer) {
     updateRoundViewer(now, dt);
+    // A visitor who holds the second chair plays through this screen: their
+    // pad goes up the wire every tick it changes, and a room found hostless
+    // becomes theirs to host.
+    sendChallengerInput(now);
+    updateVersusClaim(now);
     return;
   }
   padSnapshots[0] = gamepad(0);
@@ -6506,6 +6856,9 @@ function gameSim() {
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now);
+  // The versus seat watches from the title on — a friend can take the chair
+  // while the host is still reading the wordmark, and the fight lifts it.
+  updateVersusSeat(now);
   if (survivalActive() && shellMode === "MENU") {
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
@@ -6514,6 +6867,7 @@ function gameSim() {
   for (const player of players)
     inputPads[player.pad] = resimActive && resimCommands
       ? resimPad(player.pad)
+      : player.remote ? remotePadSnapshot()
       : player.bot && shellMode === "GAME"
         ? survivalActive() && player.pad === 0
           ? survivalBotPad(player, now)
@@ -6538,6 +6892,7 @@ function gameSim() {
   // frame walks the native shell's one socket over to the round room.
   publishSession(now);
   publishSpectator(now);
+  publishVersus(now);
   if (survivalActive() && roundResult) {
     updateDetachedParts(dt);
     updateResultImpactDebris(dt);
@@ -6625,6 +6980,12 @@ function gameSim() {
     if (now - roundOverAt >= resultDuration) {
       emitSignal("update-safe", -1, buildVersion, 0);
       if (selfPlay) startSelfPlay(now);
+      // A versus result rolls straight into the next round while the rival's
+      // wire stays warm — the room, not the title, is home base. A finished
+      // match deals fresh, a finished round keeps the tally.
+      else if (versusActive() && versusChallengerFresh())
+        startVersusFight(now, matchOver);
+      else if (versusActive()) beginVersusLobby(now);
       else returnToTitle(now, "round-end");
     }
     return;
@@ -6748,7 +7109,8 @@ function gameSim() {
   for (let cell = 0; cell < gridField.length; cell++)
     gridField[cell] = gridField[cell] < .01 ? 0
       : gridField[cell] * Math.exp(-dt * 1.6);
-  if (!survivalActive() && (players.some((player) => !player.alive) ||
+  if (!survivalActive() && !lobbyActive() &&
+      (players.some((player) => !player.alive) ||
       (timedRound && roundElapsedUs >= roundDurationUs))) {
     if (timedRound && roundElapsedUs >= roundDurationUs &&
         players.every((player) => player.alive))
@@ -10772,10 +11134,13 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The round QR owns the top-right corner whenever it is up, so the HUD clock
 // asks for its footprint before choosing a lane.
+// The versus lane's whole premise is the shareable address, so its QR stays
+// up in play; every other untimed round keeps the code off the fight.
 function spectatorQrBox() {
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  if (shellMode === "GAME" && !roundIsTimed()) return null;
+  if (!versusLane())
+    if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -10982,9 +11347,10 @@ function gamePaint() {
   // Each fighter's cues sit where the fighter stands — @jeffrey: "can audio
   // be mixed according to the player's position, stereo, for each player, if
   // its not local multiplayer". Two humans on one couch share one speaker
-  // image, so their mix stays centered; against the machine, the stage pans.
-  // The shell reads this every frame and hands it to the sound bank.
-  const couchVersus = !players[1].npc && !players[1].bot && !selfPlay;
+  // image, so their mix stays centered; against the machine — or a rival on
+  // the far end of a wire — the stage pans.
+  const couchVersus = !players[1].npc && !players[1].bot &&
+    !players[1].remote && !selfPlay;
   globalThis.__oskiewarPlayerPans = couchVersus ? [0, 0]
     : [panPlayer(players[0]), panPlayer(players[1])];
   // The shell's resolution governor steers by this — the game's own measured
@@ -11004,7 +11370,10 @@ function gamePaint() {
     players[0].nation = localNation;
     if (!players[1].npc) players[1].nation = localNation;
   }
-  for (const player of players) player.handleColors = fighterProfile(player.name).colors;
+  // The remote rival's wardrobe came up the wire, not out of the roster —
+  // a profile lookup here would answer empty and strip them every frame.
+  for (const player of players)
+    if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
@@ -11145,9 +11514,22 @@ function gamePaint() {
         hud.top + 2, timerSize, ...timerInk);
     }
     if (roundViewer) {
-      const viewerLabel = roundViewerMode || roundViewerStatus;
+      const viewerLabel = roundViewer.seat === "challenger"
+        ? roundViewerMode === "LIVE" ? "VS" : "WAITING FOR HOST"
+        : roundViewerMode || roundViewerStatus;
       typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7,
         24, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+      // The chair-holder plays through this feed: say which body is theirs
+      // while the matchup is still fresh, then get out of the fight's way.
+      if (roundViewer.seat === "challenger" && roundViewerMode === "LIVE" &&
+          t < 8) {
+        const seatLine = "YOU ARE " +
+          (players[1].name || "THE SECOND FIGHTER") + " — RIGHT SIDE";
+        const seatSize = compactLayout() ? 13 : 17;
+        const seatWidth = handleWidth(seatLine, seatSize);
+        typeWrite(seatLine, viewCenterX() - seatWidth / 2,
+          hud.top + hudTypeSize + 16, seatSize, ...titleInk);
+      }
     }
     const nowMs = run.unixMs || Date.now();
     drawHudStatusTray(null, titleInk, nowMs);
@@ -11169,6 +11551,7 @@ function gamePaint() {
     } else if (globalThis.__oskiewarTouch) {
       globalThis.__oskiewarTouch.updateButton = null;
     }
+    drawVersusHud(t, titleInk, run);
   }
   if (!survivalActive()) {
     for (const tree of bodyTrees) drawBodyTree(tree, t);
@@ -11336,6 +11719,58 @@ function gamePaint() {
     drawSpectatorQr(titleInk);
     drawTouchControls();
   }
+}
+
+// The raw pad words remember() files between real moves. The training floor
+// captions moves, not fingers — "KICK" teaches, "B" nags.
+const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
+  "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU"]);
+
+// The lobby's interface is two sentences and a code: find a friend, share
+// the address, and until they arrive every move the lone fighter makes is
+// named back at them — the empty room as training mode.
+function drawVersusHud(t, ink, run) {
+  if (!versusLane() || shellMode !== "GAME") return;
+  if (!lobbyActive()) return;
+  const hud = hudSafeRect();
+  const compact = compactLayout();
+  const headline = "FIND A FRIEND";
+  const headSize = compact ? 30 : 44;
+  const pulse = .5 + Math.sin(t * 2.4) * .5;
+  const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
+  const headWidth = handleWidth(headline, headSize);
+  const headX = viewCenterX() - headWidth / 2;
+  const headY = hud.top + (compact ? 30 : 42);
+  typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
+  typeWrite(headline, headX, headY, headSize, ...headInk);
+  const address = "OSKIEWAR.COM/" + versusRoomName.toUpperCase();
+  const addressSize = compact ? 16 : 23;
+  const addressWidth = handleWidth(address, addressSize);
+  const addressY = headY + headSize + 10;
+  typeWrite(address, viewCenterX() - addressWidth / 2 + 2, addressY + 2,
+    addressSize, ...contrastShadow(ink));
+  typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
+    addressSize, ...ink);
+  const hint = "WHOEVER OPENS IT FIGHTS YOU";
+  const hintSize = compact ? 11 : 14;
+  const hintWidth = handleWidth(hint, hintSize);
+  typeWrite(hint, viewCenterX() - hintWidth / 2,
+    addressY + addressSize + 8, hintSize, ...ink);
+  const player = players[0];
+  if (!player.lastButtonAt || versusLabelNoise.has(player.lastButton)) return;
+  const age = (run.monotonicUs - player.lastButtonAt) / 1000000;
+  if (age < 0 || age > .9) return;
+  // The caption swells on landing and lets go through the tail — spoken,
+  // not filed.
+  const fade = 1 - age / .9;
+  const moveSize = Math.round((compact ? 26 : 38) * (1.06 - fade * .06));
+  const moveWidth = handleWidth(player.lastButton, moveSize);
+  const moveX = viewCenterX() - moveWidth / 2;
+  const moveY = Math.round(viewHeight * .62) - Math.round((1 - fade) * 26);
+  const moveInk = fade > .4 ? ink : mixColor(contrastShadow(ink), ink, fade / .4);
+  typeWrite(player.lastButton, moveX + 3, moveY + 3, moveSize,
+    ...contrastShadow(ink));
+  typeWrite(player.lastButton, moveX, moveY, moveSize, ...moveInk);
 }
 
 function boot() {

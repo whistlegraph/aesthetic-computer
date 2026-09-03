@@ -123,6 +123,16 @@
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
       new URLSearchParams(location.search).get("opponent") || "";
+    // This shell can carry a rival's presses inbound off the relay, which is
+    // what lets the game open as a versus room by default. The native shell
+    // publishes and discards, so it never raises this and keeps the climb —
+    // and so does every harness lane: social previews, oven burns and
+    // self-play casts all want the fronts they were built against.
+    {
+      const harness = new URLSearchParams(location.search);
+      globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
+        !harness.has("replay-oven") && !harness.has("self-play");
+    }
     let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
@@ -1012,6 +1022,19 @@
           if (message.type === "oskiewar:viewers")
             globalThis.__oskiewarLiveAgents =
               Math.max(0, Number(message.content?.agents) || 0);
+          // A challenger's pad, relayed from the second chair. Stamped with
+          // the wall clock on arrival so the game can read silence as
+          // absence — the two ends share no monotonic clock to compare.
+          if (message.type === "oskiewar:input" && message.content &&
+              typeof message.content === "object")
+            globalThis.__oskiewarRemotePad =
+              { ...message.content, at: Date.now() };
+          // Two visitors claimed the same dead room; the relay let one host.
+          // Raise the flag and the game walks this one back in as the
+          // challenger.
+          if (message.type === "oskiewar:error" &&
+              /already has a publisher/i.test(message.content?.message || ""))
+            globalThis.__oskiewarPublishConflict = matchId;
           // A linked agent asked for a reload. Same safety as the update
           // poll: on the title it happens now, mid-fight it arms and waits
           // for the title — an agent must never yank a round out from under
@@ -1260,9 +1283,22 @@
     globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
     const roundName = roundNameFromPath(location.pathname);
+    // A visitor arriving through a shared address asks for the second chair
+    // — first to open the link fights the host, everybody after watches.
+    // Harness lanes stay pure spectators.
     globalThis.__oskiewarRoundBridge = roundName
-      ? new RoundRoom(roundName, { analytics })
+      ? new RoundRoom(roundName, { analytics,
+          role: globalThis.__oskiewarVersusCapable === true
+            ? "challenger" : "viewer" })
       : null;
+    // The versus room's name IS the invitation, so the address bar carries
+    // it as soon as the game mints one — copying the URL is sharing the
+    // fight.
+    setInterval(() => {
+      const room = globalThis.__oskiewarVersusRoom;
+      if (room && location.pathname !== "/" + room)
+        history.replaceState(null, "", "/" + room);
+    }, 500);
 
     let loadedVersion = "";
     const responseVersion = (response) => response.headers.get("etag") ||

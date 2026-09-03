@@ -20,9 +20,18 @@ const MAX_VIEWERS = 64;
 // own, so a room full of spectators can never lock a maintainer out of the
 // telemetry, and a stuck agent can never eat the spectator allowance.
 const MAX_AGENTS = 4;
-const MAX_ROOMS = 128;
+// Since versus became the front door every visitor holds a room while their
+// tab is open, so the ceiling is concurrent visitors rather than concurrent
+// fights being watched.
+const MAX_ROOMS = 256;
 const ROOM_TTL_MS = 10 * 60 * 1000;
 const MIN_PUBLISH_INTERVAL_MS = 25;
+// The challenger's presses. A pad state is a few dozen bytes and a hand can
+// only change it so fast — the cap is generous for play and stingy for abuse.
+const MAX_INPUT_BYTES = 640;
+const MIN_INPUT_INTERVAL_MS = 15;
+const INPUT_BUTTON = /^[A-Za-z]{1,16}$/;
+const FIGHTER_NAME = /^@?[A-Z0-9_-]{1,24}$/i;
 
 const finite = (value, limit = 1000000) =>
   Number.isFinite(value) && Math.abs(value) <= limit;
@@ -143,12 +152,13 @@ export class OskiewarLiveManager {
     ws.on("pong", () => { ws.isAlive = true; });
     const url = new URL(req.url, "http://session");
     const matchId = canonicalMatchId(url.searchParams.get("match"));
-    // Three roles, and everything unrecognized still watches. A phone that
+    // Four roles, and everything unrecognized still watches. A phone that
     // scanned the round QR sends no role at all, and an older client that sends
     // one this build has never heard of must not be turned away at the door.
     const requestedRole = url.searchParams.get("role");
     const role = requestedRole === "publisher" ? "publisher"
-      : requestedRole === "agent" ? "agent" : "viewer";
+      : requestedRole === "agent" ? "agent"
+      : requestedRole === "challenger" ? "challenger" : "viewer";
     const surface = oskiewarSurface(url.searchParams.get("surface"));
     if (!matchId) {
       send(ws, "oskiewar:error", { message: "Invalid match ID" });
@@ -164,12 +174,14 @@ export class OskiewarLiveManager {
         return true;
       }
       room = { matchId, publisher: null, publisherSurface: "unknown",
-        viewers: new Set(), agents: new Set(), state: null, liveStarted: false,
-        updatedAt: this.now(), publishedAt: 0, nudgedAt: 0, flaggedAt: 0 };
+        challenger: null, viewers: new Set(), agents: new Set(), state: null,
+        liveStarted: false, updatedAt: this.now(), publishedAt: 0,
+        nudgedAt: 0, flaggedAt: 0, inputAt: 0 };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
     else if (role === "agent") this.addAgent(room, ws);
+    else if (role === "challenger") this.addChallenger(room, ws, surface);
     else this.addViewer(room, ws, surface);
     return true;
   }
@@ -265,6 +277,72 @@ export class OskiewarLiveManager {
     ws.on("error", remove);
   }
 
+  // The second chair. One per room, first come first served: the friend who
+  // opened the shared URL sits down and their presses travel to the publishing
+  // game, which runs the one authoritative simulation and streams the fight
+  // back over the same fan-out every phone already reads. A denied seat closes
+  // with 4409 so the client knows to stay and watch instead.
+  addChallenger(room, ws, surface) {
+    if (room.challenger?.readyState === 1) {
+      send(ws, "oskiewar:error", { message: "This match already has a challenger" });
+      ws.close?.(4409, "Challenger already seated");
+      return;
+    }
+    room.challenger = ws;
+    room.updatedAt = this.now();
+    this.analytics.capture("challenger_joined", {
+      source_system: "session-server",
+      surface,
+      viewer_state: room.publisher?.readyState === 1 ? "live" : "waiting",
+    });
+    send(ws, "oskiewar:seat", { matchId: room.matchId, seat: "challenger" });
+    send(ws, "oskiewar:status", this.status(room));
+    if (room.state) send(ws, "oskiewar:state", room.state);
+    ws.on("message", (data) => this.relayInput(room, ws, data));
+    const remove = () => {
+      if (room.challenger !== ws) return;
+      room.challenger = null;
+      room.updatedAt = this.now();
+      this.broadcastStatus(room);
+    };
+    ws.on("close", remove);
+    ws.on("error", remove);
+    this.broadcastStatus(room);
+  }
+
+  // A challenger's pad, forwarded to the publisher and nowhere else. The relay
+  // checks shape, not meaning: short button names, a stick within its gimbal,
+  // an optional handle and wardrobe so the host can dress the second fighter.
+  // Anything malformed is dropped in silence — a fight must not stutter
+  // because one packet came in bent.
+  relayInput(room, ws, data) {
+    if (room.challenger !== ws) return;
+    if (Buffer.byteLength(data) > MAX_INPUT_BYTES) return;
+    let message;
+    try { message = JSON.parse(data.toString()); } catch { return; }
+    if (message.type !== "oskiewar:input") return;
+    const input = message.content;
+    if (!input || typeof input !== "object" || Array.isArray(input)) return;
+    if (!integer(input.seq, 0, 2147483647)) return;
+    if (!Array.isArray(input.down) || input.down.length > 10 ||
+        input.down.some((button) => typeof button !== "string" ||
+          !INPUT_BUTTON.test(button))) return;
+    if (!finite(input.leftX, 1.5) || !finite(input.leftY, 1.5)) return;
+    if (input.name !== undefined && input.name !== "" &&
+        (typeof input.name !== "string" || !FIGHTER_NAME.test(input.name)))
+      return;
+    if (input.colors !== undefined && (!Array.isArray(input.colors) ||
+        input.colors.length > 4 || !input.colors.every(color))) return;
+    const now = this.now();
+    if (now - room.inputAt < MIN_INPUT_INTERVAL_MS) return;
+    room.inputAt = now;
+    room.updatedAt = now;
+    send(room.publisher, "oskiewar:input", { seq: input.seq,
+      down: input.down, leftX: input.leftX, leftY: input.leftY,
+      name: typeof input.name === "string" ? input.name : "",
+      colors: Array.isArray(input.colors) ? input.colors : [] });
+  }
+
   nudge(room, data) {
     if (Buffer.byteLength(data) > 512) return;
     let message;
@@ -332,15 +410,19 @@ export class OskiewarLiveManager {
   }
 
   // Agents read the frame numbers out of the same state payload a phone gets,
-  // so the fan-out is one list; only the counting is split.
+  // so the fan-out is one list; only the counting is split. The challenger is
+  // a watcher too — their own fighter reaches them the same way it reaches
+  // the grandstand.
   *watchers(room) {
     yield* room.viewers;
     yield* room.agents;
+    if (room.challenger) yield room.challenger;
   }
 
   status(room) {
     return { matchId: room.matchId, live: room.publisher?.readyState === 1,
       viewers: room.viewers.size, agents: room.agents.size,
+      challenger: room.challenger?.readyState === 1,
       hasState: Boolean(room.state), updatedAt: room.updatedAt };
   }
 
@@ -353,7 +435,7 @@ export class OskiewarLiveManager {
   prune() {
     const oldest = this.now() - ROOM_TTL_MS;
     for (const [matchId, room] of this.rooms) {
-      if (!room.publisher && room.viewers.size === 0 &&
+      if (!room.publisher && !room.challenger && room.viewers.size === 0 &&
           room.agents.size === 0 && room.updatedAt < oldest)
         this.rooms.delete(matchId);
     }
@@ -361,4 +443,5 @@ export class OskiewarLiveManager {
 }
 
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
-  MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS });
+  MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS,
+  MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS });

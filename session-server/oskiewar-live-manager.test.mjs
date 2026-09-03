@@ -111,6 +111,67 @@ test("a second live publisher cannot take over a match", () => {
   assert.equal(second.closed?.code, 4409);
 });
 
+test("a challenger is seated, watches state, and their presses reach the publisher", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), rival = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(rival, { url: `${url}&role=challenger` });
+  assert.ok(rival.sent.some((message) => message.type === "oskiewar:seat" &&
+    message.content.seat === "challenger"));
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state() })));
+  assert.equal(rival.sent.at(-1).type, "oskiewar:state");
+  now += 30;
+  rival.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:input",
+    content: { seq: 1, down: ["ArrowLeft", "A"], leftX: -0.4, leftY: 0,
+      name: "@FRIEND", colors: [[10, 20, 30]] } })));
+  const input = host.sent.at(-1);
+  assert.equal(input.type, "oskiewar:input");
+  assert.deepEqual(input.content.down, ["ArrowLeft", "A"]);
+  assert.equal(input.content.name, "@FRIEND");
+});
+
+test("the second chair holds one challenger and frees on close", () => {
+  const manager = new OskiewarLiveManager();
+  const host = new FakeSocket(), first = new FakeSocket(), second = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(first, { url: `${url}&role=challenger` });
+  manager.handleConnection(second, { url: `${url}&role=challenger` });
+  assert.equal(second.closed?.code, 4409);
+  first.close(1000, "leaving");
+  const third = new FakeSocket();
+  manager.handleConnection(third, { url: `${url}&role=challenger` });
+  assert.ok(third.sent.some((message) => message.type === "oskiewar:seat"));
+});
+
+test("bent or over-rate challenger input is dropped in silence", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), rival = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(rival, { url: `${url}&role=challenger` });
+  const count = host.sent.length;
+  const press = (content) => rival.emit("message",
+    Buffer.from(JSON.stringify({ type: "oskiewar:input", content })));
+  now += 30;
+  press({ seq: 1, down: ["<script>"], leftX: 0, leftY: 0 });
+  press({ seq: 2, down: ["A"], leftX: 99, leftY: 0 });
+  press({ seq: "3", down: ["A"], leftX: 0, leftY: 0 });
+  press({ seq: 4, down: ["A"], leftX: 0, leftY: 0, name: "not a name!" });
+  assert.equal(host.sent.length, count);
+  press({ seq: 5, down: ["A"], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 1);
+  press({ seq: 6, down: ["B"], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 1);
+  now += 30;
+  press({ seq: 7, down: ["B"], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 2);
+});
+
 test("live rooms emit minimized server milestones once", () => {
   let now = 100;
   const captured = [];
