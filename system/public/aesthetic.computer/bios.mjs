@@ -6579,6 +6579,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "handle") {
       HANDLE = content; // Set the global HANDLE const to the user handle.
+      // Join the handle's presence room so a linked agent lights the mark.
+      import("./lib/agent-presence.mjs")
+        .then((mod) => mod.startAgentPresence({ room: HANDLE }))
+        .catch(() => {});
       return;
     }
 
