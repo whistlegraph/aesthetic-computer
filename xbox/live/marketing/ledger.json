@@ -613,6 +613,37 @@
         "reels_skip_rate": 31.1
       },
       "insightsAt": "2026-09-03T01:41:09.901Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-09-03-s2-gamedev",
+      "slot": 737,
+      "day": "2026-09-03",
+      "index": 2,
+      "segment": "gamedev",
+      "seed": "2026-09-03#2",
+      "kind": "self-play",
+      "round": "survival-v92-54-1k3b8ng",
+      "audioName": "survival-v92-54-1k3b8ng",
+      "outcome": {
+        "mode": "survival",
+        "cause": "LAVA",
+        "succeeded": false,
+        "height": 3361,
+        "level": 14,
+        "levels": 32,
+        "winner": null,
+        "ticks": 2511,
+        "round": "survival-v92-54-1k3b8ng"
+      },
+      "publishedAt": "2026-09-03T23:11:58.263Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-03-s2-gamedev/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-03-s2-gamedev/cover.jpg"
+      },
+      "containerId": "18085867895446357",
+      "mediaId": "18092156474130286",
+      "insights": null
     }
   ]
 }
