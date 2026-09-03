@@ -597,6 +597,12 @@ from = "/api/version"
 to = "/.netlify/functions/version"
 status = 200
 
+# Mimechan — imageboard where the boards are mimetypes
+[[redirects]]
+from = "/api/mimechan"
+to = "/.netlify/functions/mimechan"
+status = 200
+
 # M4L plugins API
 [[redirects]]
 from = "/m4l-plugins"

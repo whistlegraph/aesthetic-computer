@@ -1,0 +1,398 @@
+<!doctype html>
+<!-- Mimechan, 2026.09.02 — an imageboard where the boards are mimetypes. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>mimechan</title>
+  <style>
+    :root {
+      --paper: #ffffee;
+      --card: #f0e0d6;
+      --card-edge: #d9bfb7;
+      --ink: #800000;
+      --body: #2b1a12;
+      --dim: #9c7a6e;
+      --link: #0000ee;
+      --green: #789922;
+      --accent: #d00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #1b1b21;
+        --card: #26232b;
+        --card-edge: #3a3542;
+        --ink: #e8a0a0;
+        --body: #d8d2ca;
+        --dim: #8a8494;
+        --link: #8ab4f8;
+        --green: #9fbf4e;
+        --accent: #ff6b6b;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--body);
+      font: 14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      padding-bottom: 4em;
+    }
+    a { color: var(--link); }
+    header { text-align: center; padding: 1.2em 1em 0.4em; }
+    header h1 { margin: 0; color: var(--ink); font-size: 2.2em; letter-spacing: -0.04em; }
+    header h1 a { color: inherit; text-decoration: none; }
+    header p.tag { margin: 0.2em 0 0; color: var(--dim); font-size: 0.85em; }
+    nav#boards {
+      text-align: center;
+      padding: 0.6em 1em;
+      border-top: 1px solid var(--card-edge);
+      border-bottom: 1px solid var(--card-edge);
+      margin: 0.8em 0 1em;
+      font-size: 0.9em;
+    }
+    nav#boards a { margin: 0 0.4em; white-space: nowrap; }
+    main { max-width: 52em; margin: 0 auto; padding: 0 1em; }
+    h2 { color: var(--ink); font-size: 1.2em; }
+    h2 a { color: inherit; }
+
+    form#post {
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      padding: 0.8em;
+      margin-bottom: 1.5em;
+      display: grid;
+      gap: 0.5em;
+    }
+    form#post input[type="text"], form#post textarea {
+      width: 100%;
+      background: var(--paper);
+      color: var(--body);
+      border: 1px solid var(--card-edge);
+      padding: 0.4em;
+      font: inherit;
+    }
+    form#post textarea { min-height: 4.5em; resize: vertical; }
+    form#post .filerow { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
+    form#post button {
+      background: var(--ink); color: var(--paper);
+      border: 0; padding: 0.45em 1.2em; font: inherit; cursor: pointer;
+      justify-self: start;
+    }
+    #dest { color: var(--green); font-weight: bold; }
+    #formhint { color: var(--dim); font-size: 0.85em; margin: 0; }
+    #status { color: var(--accent); }
+
+    .post {
+      background: var(--card);
+      border: 1px solid var(--card-edge);
+      padding: 0.6em 0.8em;
+      margin: 0.5em 0;
+      overflow-wrap: anywhere;
+    }
+    .post.op { border-left: 3px solid var(--ink); }
+    .post .meta { font-size: 0.85em; color: var(--dim); margin-bottom: 0.3em; }
+    .post .meta .name { color: var(--ink); font-weight: bold; }
+    .post .meta a { color: var(--dim); }
+    .post .filemeta { font-size: 0.8em; color: var(--dim); margin: 0.2em 0; }
+    .post .filemeta a.typelink { color: var(--green); }
+    .post .body { white-space: pre-wrap; margin-top: 0.4em; }
+    .post .body .gt { color: var(--green); }
+    .post img, .post video { max-width: 100%; max-height: 24em; display: block; }
+    .post audio { width: 100%; max-width: 28em; display: block; }
+    .post iframe.doc { width: 100%; height: 24em; border: 1px solid var(--card-edge); background: #fff; }
+    .post pre.textfile {
+      max-height: 18em; overflow: auto; background: var(--paper);
+      border: 1px solid var(--card-edge); padding: 0.6em; font-size: 0.85em;
+    }
+    .post .specimen { font-size: 2em; line-height: 1.2; }
+    .post .blob {
+      display: inline-block; background: var(--paper);
+      border: 1px dashed var(--card-edge); padding: 0.8em 1.2em;
+    }
+    .omitted { color: var(--dim); font-size: 0.85em; margin: 0.3em 0; }
+    .replies { margin-left: 1.5em; }
+    @media (max-width: 40em) { .replies { margin-left: 0.6em; } }
+
+    .dir { display: grid; grid-template-columns: repeat(auto-fill, minmax(14em, 1fr)); gap: 0.5em; }
+    .dir a.b {
+      background: var(--card); border: 1px solid var(--card-edge);
+      padding: 0.6em 0.8em; text-decoration: none; color: var(--body);
+    }
+    .dir a.b .t { color: var(--ink); font-weight: bold; display: block; }
+    .dir a.b .n { color: var(--dim); font-size: 0.8em; }
+    body.dragging::after {
+      content: "drop the file — its type picks the board";
+      position: fixed; inset: 0; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--paper) 80%, transparent);
+      color: var(--ink); font-size: 1.4em; pointer-events: none;
+    }
+    footer { text-align: center; color: var(--dim); font-size: 0.8em; margin-top: 3em; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="#/">mimechan</a></h1>
+    <p class="tag">every file finds its board</p>
+  </header>
+  <nav id="boards"></nav>
+  <main id="view"></main>
+  <footer>an <a href="https://aesthetic.computer">aesthetic.computer</a> experiment · post any filetype</footer>
+
+<script>
+const API = "/api/mimechan";
+const view = document.getElementById("view");
+const nav = document.getElementById("boards");
+let pendingFile = null; // { name, type, data } staged for the form
+
+const esc = (s) => s ?? "";
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+const human = (n) =>
+  n > 1048576 ? (n / 1048576).toFixed(1) + "MB" : n > 1024 ? (n / 1024).toFixed(0) + "KB" : n + "B";
+const ago = (d) => {
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+};
+
+// The type decides the renderer. This is the whole site, really.
+function renderFile(file) {
+  const [top, sub] = file.type.split("/");
+  let media;
+  if (top === "image") {
+    media = el("img");
+    media.src = file.url;
+    media.alt = file.name;
+    media.loading = "lazy";
+  } else if (top === "audio") {
+    media = el("audio");
+    media.controls = true;
+    media.preload = "none";
+    media.src = file.url;
+  } else if (top === "video") {
+    media = el("video");
+    media.controls = true;
+    media.preload = "metadata";
+    media.src = file.url;
+  } else if (file.type === "application/pdf" || file.type === "text/html") {
+    media = el("iframe", "doc");
+    media.setAttribute("sandbox", ""); // markup renders, scripts never run
+    media.src = file.url;
+  } else if (top === "text" || ["application/json", "application/xml", "application/javascript"].includes(file.type)) {
+    media = el("pre", "textfile", "…");
+    fetch(file.url).then((r) => r.text()).then((t) => {
+      media.textContent = t.length > 8000 ? t.slice(0, 8000) + "\n…[truncated]" : t;
+    });
+  } else if (top === "font") {
+    media = el("div", "specimen", "Sphinx of black quartz, judge my vow. 0123456789");
+    const face = new FontFace("mc-" + file.url.split("=")[1], `url(${file.url})`);
+    face.load().then((f) => {
+      document.fonts.add(f);
+      media.style.fontFamily = f.family;
+    });
+  } else {
+    media = el("a", "blob", "⬇ " + file.name + " · " + human(file.size));
+    media.href = file.url;
+    media.download = file.name;
+  }
+  return media;
+}
+
+function renderText(text) {
+  const body = el("div", "body");
+  for (const line of esc(text).split("\n")) {
+    let node;
+    if (/^>>\w+/.test(line)) {
+      node = el("span");
+      const code = line.match(/^>>(\w+)/)[1];
+      const a = el("a", null, ">>" + code);
+      a.href = "#/t/" + code;
+      node.append(a, document.createTextNode(line.slice(code.length + 2)));
+    } else if (line.startsWith(">")) {
+      node = el("span", "gt", line);
+    } else {
+      node = el("span", null, line);
+    }
+    body.append(node, document.createTextNode("\n"));
+  }
+  return body;
+}
+
+function renderPost(post, isOp) {
+  const div = el("div", "post" + (isOp ? " op" : ""));
+  div.id = post.code;
+  const meta = el("div", "meta");
+  meta.append(el("span", "name", esc(post.name) || "Anonymous"), document.createTextNode(" · " + ago(post.when) + " · "));
+  const link = el("a", null, "No." + post.code);
+  link.href = "#/t/" + (post.parent || post.code);
+  meta.append(link);
+  div.append(meta);
+  if (post.file) {
+    const fm = el("div", "filemeta");
+    const tl = el("a", "typelink", post.file.type);
+    tl.href = "#/" + post.file.type;
+    const dl = el("a", null, esc(post.file.name));
+    dl.href = post.file.url;
+    dl.download = post.file.name;
+    fm.append(tl, document.createTextNode(" · " + human(post.file.size) + " · "), dl);
+    div.append(fm, renderFile(post.file));
+  }
+  if (post.text) div.append(renderText(post.text));
+  return div;
+}
+
+function postForm(parent) {
+  const form = el("form");
+  form.id = "post";
+  const name = el("input");
+  name.type = "text";
+  name.placeholder = "Anonymous";
+  name.maxLength = 40;
+  const text = el("textarea");
+  text.placeholder = parent ? "reply…" : "say something (optional — the file does the talking)";
+  text.maxLength = 4000;
+  const filerow = el("div", "filerow");
+  const file = el("input");
+  file.type = "file"; // no accept attr — every filetype is welcome here
+  const dest = el("span");
+  dest.id = "dest";
+  filerow.append(file, dest);
+  const button = el("button", null, parent ? "reply" : "start a thread");
+  const status = el("span");
+  status.id = "status";
+  const hint = el("p", null, parent
+    ? "any filetype rides along, whatever board this is"
+    : "no board picker — the file's mimetype IS the board. drag, paste, or browse.");
+  hint.id = "formhint";
+  form.append(name, text, filerow, button, status, hint);
+
+  const stage = (f) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingFile = { name: f.name, type: fileType(f), data: reader.result.split(",")[1] };
+      dest.textContent = "→ /" + pendingFile.type + "/";
+    };
+    reader.readAsDataURL(f);
+  };
+  file.onchange = () => file.files[0] && stage(file.files[0]);
+  document.ondragover = (e) => { e.preventDefault(); document.body.classList.add("dragging"); };
+  document.ondragleave = () => document.body.classList.remove("dragging");
+  document.ondrop = (e) => {
+    e.preventDefault();
+    document.body.classList.remove("dragging");
+    if (e.dataTransfer.files[0]) stage(e.dataTransfer.files[0]);
+  };
+  document.onpaste = (e) => {
+    const f = [...(e.clipboardData?.files || [])][0];
+    if (f) stage(f);
+  };
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    status.textContent = "posting…";
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.value, text: text.value, parent, file: pendingFile }),
+    });
+    const out = await res.json();
+    if (!res.ok) { status.textContent = out.error; return; }
+    pendingFile = null;
+    location.hash = "#/t/" + (parent || out.code);
+    route();
+  };
+  return form;
+}
+
+// A tiny 4-byte guess for files the browser can't type. Then extension. Then octets.
+function fileType(f) {
+  if (f.type) return f.type;
+  const ext = f.name.split(".").pop().toLowerCase();
+  const map = { lisp: "text/x-lisp", mjs: "text/javascript", md: "text/markdown", mid: "audio/midi", wasm: "application/wasm" };
+  return map[ext] || "application/octet-stream";
+}
+
+async function loadNav() {
+  const { boards } = await fetch(API).then((r) => r.json());
+  nav.replaceChildren(...boards.flatMap((b, i) => {
+    const a = el("a", null, "/" + b.board + "/");
+    a.href = "#/" + b.board;
+    return i ? [document.createTextNode(" "), a] : [a];
+  }));
+  return boards;
+}
+
+async function home() {
+  view.replaceChildren(el("h2", null, "start a thread"), postForm(null));
+  const data = await fetch(API).then((r) => r.json());
+  const dir = el("div", "dir");
+  for (const b of data.boards) {
+    const a = el("a", "b");
+    a.href = "#/" + b.board;
+    a.append(el("span", "t", "/" + b.board + "/"), el("span", "n", b.threads + " thread" + (b.threads === 1 ? "" : "s")));
+    dir.append(a);
+  }
+  view.append(el("h2", null, "boards"), data.boards.length ? dir : el("p", null, "no boards yet — the first file posted mints the first board."));
+  if (data.recent.length) {
+    view.append(el("h2", null, "recent files"));
+    for (const p of data.recent) view.append(renderPost(p, false));
+  }
+}
+
+async function board(name) {
+  const data = await fetch(API + "?board=" + encodeURIComponent(name)).then((r) => r.json());
+  const h = el("h2", null, "/" + name + "/");
+  view.replaceChildren(h, postFormNote(name), ...[]);
+  for (const t of data.threads) {
+    view.append(renderPost(t.op, true));
+    const omitted = t.replyCount - t.replies.length;
+    if (omitted > 0) view.append(el("div", "omitted", omitted + " repl" + (omitted === 1 ? "y" : "ies") + " omitted"));
+    const wrap = el("div", "replies");
+    for (const r of t.replies) wrap.append(renderPost(r, false));
+    view.append(wrap);
+  }
+  if (!data.threads.length) view.append(el("p", null, "empty board. post a " + name + " file from the front page to fill it."));
+}
+
+function postFormNote(name) {
+  const p = el("p");
+  p.append(document.createTextNode("threads land here when a posted file says "), el("b", null, name), document.createTextNode(" — post from the "), Object.assign(el("a", null, "front page"), { href: "#/" }), document.createTextNode("."));
+  return p;
+}
+
+async function thread(code) {
+  const res = await fetch(API + "?thread=" + encodeURIComponent(code));
+  if (!res.ok) { view.replaceChildren(el("p", null, "thread not found.")); return; }
+  const data = await res.json();
+  const h = el("h2");
+  const back = el("a", null, "/" + data.op.board + "/");
+  back.href = "#/" + data.op.board;
+  h.append(back, document.createTextNode(" · No." + data.op.code));
+  view.replaceChildren(h, renderPost(data.op, true));
+  const wrap = el("div", "replies");
+  for (const r of data.replies) wrap.append(renderPost(r, false));
+  view.append(wrap, el("h2", null, "reply"), postForm(code));
+}
+
+async function route() {
+  pendingFile = null;
+  const hash = location.hash.replace(/^#\/?/, "");
+  view.replaceChildren(el("p", null, "loading…"));
+  if (!hash) await home();
+  else if (hash.startsWith("t/")) await thread(hash.slice(2));
+  else await board(decodeURIComponent(hash));
+  loadNav();
+}
+
+window.onhashchange = route;
+route();
+</script>
+</body>
+</html>
