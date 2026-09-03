@@ -2,10 +2,12 @@
 // chat-bridge.mjs — YouTube live chat → AC chat, one way.
 //
 // Watches the AC channel's active live broadcast (the laer-klokken TV
-// station) and forwards each YouTube chat message into the chat-clock
-// room as a "televised guest": the server's chat:service-message lane
-// stamps it via:"youtube" + the visitor's display name, and both laklok
-// sisters render it with the red banner. AC → YouTube needs no bridge —
+// station) and forwards each YouTube chat message into the main
+// chat-system room as a "televised guest": the server's
+// chat:service-message lane stamps it via:"youtube" + the visitor's
+// display name, and the chat piece renders it with the red banner.
+// Guests land in the main chat, not chat-clock — the laer-klokken room
+// stays community-only (their call). AC → YouTube needs no bridge —
 // the stream itself shows the room.
 //
 // The official v3 liveChatMessages API returns bodyless 404s for these
