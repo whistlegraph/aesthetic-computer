@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 91;
+const buildVersion = 92;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3882,8 +3882,12 @@ function rectPackWidth(rect) {
 // Lowered with the reach/rise trim above: the closest the lens may sit.
 // The tightest the automatic camera may go. It scales with the same pull, or a
 // portrait shot closes to the pull and then hits a floor sized for a television.
+// The versus lobby holds a mid shot instead: one body under a close-up lens
+// filled the screen and sat on top of the very instruction the room exists to
+// show, and a visitor deciding whether to share the address wants to see the
+// room they are inviting somebody into.
 const frameFloorWidth = () =>
-  (compactLayout() ? 215 : 315) * portraitPull();
+  (lobbyActive() ? 860 : compactLayout() ? 215 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -11551,7 +11555,6 @@ function gamePaint() {
     } else if (globalThis.__oskiewarTouch) {
       globalThis.__oskiewarTouch.updateButton = null;
     }
-    drawVersusHud(t, titleInk, run);
   }
   if (!survivalActive()) {
     for (const tree of bodyTrees) drawBodyTree(tree, t);
@@ -11716,6 +11719,9 @@ function gamePaint() {
     if (transitionAge >= 0) return;
   }
   if (!replayOven) {
+    // Over the fighters, deliberately: the lobby's lone body stands center
+    // frame, and an instruction painted under it was an instruction hidden.
+    if (!reelMinimal) drawVersusHud(t, titleInk, run);
     drawSpectatorQr(titleInk);
     drawTouchControls();
   }

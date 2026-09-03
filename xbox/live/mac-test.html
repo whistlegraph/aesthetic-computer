@@ -1299,6 +1299,16 @@
       if (room && location.pathname !== "/" + room)
         history.replaceState(null, "", "/" + room);
     }, 500);
+    // A challenger who glances at another tab stops simulating — the frame
+    // driver parks with the tab and the engine's own input heartbeat parks
+    // with it — but a glance must not cost the chair. While hidden, the
+    // shell keeps the seat warm with an empty pad; hands off is what hidden
+    // means anyway.
+    setInterval(() => {
+      const bridge = globalThis.__oskiewarRoundBridge;
+      if (document.hidden && bridge?.seat === "challenger")
+        bridge.sendInput?.({ seq: 0, down: [], leftX: 0, leftY: 0 });
+    }, 1000);
 
     let loadedVersion = "";
     const responseVersion = (response) => response.headers.get("etag") ||
