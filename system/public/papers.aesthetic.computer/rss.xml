@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-08-31T13:05:51.702Z</updated>
+  <updated>2026-09-03T14:19:15.400Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,164 +13,29 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
-    <title>ProPublica — A Dossier</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/propublica-dossier-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/propublica-dossier-26-arxiv.pdf</id>
-    <updated>2026-08-31T13:05:51.702Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">501(c)(3) investigative newsroom · IRS 990 + accountability record · arXiv — What is publicly recoverable about ProPublica: origin, nonprofit structure, newsroom and partner network, data tools, people, money, reach, awards, corrections, and disputed work. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Take the Psychology Out of Posting: the oskiewar Reel Factory</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskiewar-reels-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/oskiewar-reels-26-arxiv.pdf</id>
-    <updated>2026-08-31T13:05:51.445Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>The Door Is Shut: oskiewar and the Retail Xbox Store</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskiewar-store-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/oskiewar-store-26-arxiv.pdf</id>
-    <updated>2026-08-31T13:05:51.440Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>The Media Estate</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/media-estate-26-deck.pdf"/>
-    <id>https://papers.aesthetic.computer/media-estate-26-deck.pdf</id>
-    <updated>2026-08-31T13:05:51.336Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">One Funnel, Nine Surfaces · 16:9 deck 10pp — An overview deck of the Aesthetic Computer and whistlegraph media estate: twelve accounts across nine surfaces, which can be posted to by script today, and the build-out plan. The whistlegraph archive still moves tens of thousands of views a day; the deck argues the work is connecting that audience to the new instrument, starting with Instagram.</summary>
-  </entry>
-  <entry>
-    <title>A Record in the Mail</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf</id>
-    <updated>2026-08-31T13:05:51.334Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">An essay on API-made vinyl and cassette fulfillment · podcast — A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki&apos;s product-and-order API for one-off vinyl, and Tape On Demand&apos;s more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.</summary>
-  </entry>
-  <entry>
-    <title>The Console Has a Browser</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf</id>
-    <updated>2026-08-31T13:05:51.331Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Close of August &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/close-of-august-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/close-of-august-26-essay.pdf</id>
-    <updated>2026-08-31T13:05:51.327Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>&apos;Sup w/ July 10?</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
-    <updated>2026-08-31T13:05:51.325Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic June &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
-    <updated>2026-08-31T13:05:51.321Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
-  </entry>
-  <entry>
-    <title>Aesthinema</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf</id>
-    <updated>2026-08-31T13:05:50.331Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
     <title>Stack of the Summer &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/stack-of-the-summer-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/stack-of-the-summer-26-arxiv.pdf</id>
-    <updated>2026-08-31T13:05:50.286Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">A Nine-Vector Platform Report · arXiv-style · Summer 2026 — Stack of the Summer &apos;26 cuts through Aesthetic Computer&apos;s living platform: the piece lifecycle and creative runtime, user data and backend choices, realtime and deployment, KidLisp publishing, shared services, desktop and bare-metal embodiments, engineering quality, privacy boundaries, and architectural history. It distinguishes canonical, transitional, and experimental layers, then names the priorities that can thicken the platform without losing its narrow creative waist.</summary>
   </entry>
   <entry>
-    <title>The Keymap Is the Score</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf</id>
-    <updated>2026-07-28T14:53:04.000Z</updated>
-    <published>2026-07-27T00:00:00.000Z</published>
+    <title>Keymaps as Social Software</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
-    <summary type="text">A plain-spoken companion to Keymaps as Social Software · essay — A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat&apos;s notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.</summary>
-  </entry>
-  <entry>
-    <title>Whistlegraph</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-07-28T06:12:05.198Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
-  </entry>
-  <entry>
-    <title>Equal Enough to Draw</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf</id>
-    <updated>2026-07-23T00:00:00.000Z</updated>
-    <published>2026-07-23T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Paths, Equivalence, and Evidence in a Tiny Creative Language · arXiv 7pp — Equal Enough to Draw studies what homotopy type theory can honestly contribute to KidLisp without pretending the live language is a proof assistant. It separates source, AST, render, trace, contextual, and type-level identity; defines bounded observational equivalence over a host, input trace, frame horizon, and tolerance; and proposes content-addressed path certificates beside the permissive paint loop.</summary>
-  </entry>
-  <entry>
-    <title>The Record Is a Better Interface</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-record-is-a-better-interface-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/the-record-is-a-better-interface-essay.pdf</id>
-    <updated>2026-07-15T22:00:00.000Z</updated>
-    <published>2026-07-15T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">An essay on expressive playback · podcast — A turntable lets a listener hold recorded sound directly, while streaming apps reduce playback to a menu of approved speeds. This essay asks why production tools remain instruments while consumer players became transport controls, and argues for audible, continuous scrubbing that gives the recording back to the hand.</summary>
-  </entry>
-  <entry>
-    <title>Gaps in Granularity</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/gaps-in-granularity-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/gaps-in-granularity-26-arxiv.pdf</id>
-    <updated>2026-07-15T00:53:37.054Z</updated>
-    <published>2026-07-14T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Expressive Control and the Impoverishment of Consumer Playback · arXiv 10pp — A record scratch gives you continuous, gestural, real-time control over a recording; YouTube and Spotify give you a dropdown of round speeds, and some give nothing at all. This paper names that gap &apos;granularity,&apos; grounds it in the theory of directness and the mature craft of turntablism and elastic audio, and shows that Aesthetic Computer already ships the alternative across its players. The real opening is not that the instrument is impossible, but that it lives everywhere except the default transport of the apps you actually listen and watch through.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic July 4 &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf</id>
-    <updated>2026-07-05T22:49:43.040Z</updated>
-    <published>2026-07-05T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Essay · ~4pp · Independence Day special — An Independence Day special between the June and July essays, written on the Declaration&apos;s 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure&apos;s most truthful sentence.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -180,17 +45,27 @@
     <title>KidLisp &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">A Minimal Lisp for Generative Art on a Social Platform · arXiv 6pp — KidLisp is the platform&apos;s tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.</summary>
   </entry>
   <entry>
+    <title>Equal Enough to Draw</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/hott-kidlisp-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-07-23T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Paths, Equivalence, and Evidence in a Tiny Creative Language · arXiv 7pp — Equal Enough to Draw studies what homotopy type theory can honestly contribute to KidLisp without pretending the live language is a proof assistant. It separates source, AST, render, trace, contextual, and type-level identity; defines bounded observational equivalence over a host, input trace, frame horizon, and tolerance; and proposes content-addressed path certificates beside the permissive paint loop.</summary>
+  </entry>
+  <entry>
     <title>PLOrk&apos;ing the Planet</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/plorking-the-planet-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -200,7 +75,7 @@
     <title>AC Native OS</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -210,7 +85,7 @@
     <title>From setup() to boot()</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/piece-api-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/piece-api-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -220,7 +95,7 @@
     <title>Who Pays for Creative Tools?</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/who-pays-for-creative-tools-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-27T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -230,7 +105,7 @@
     <title>Pieces Not Programs</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/pieces-not-programs-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -240,27 +115,57 @@
     <title>notepat.com</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/notepat-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/notepat-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">From Keyboard Toy to System Front Door · arXiv 5pp — notepat.com is framed as a keyboard-first front door to the system. The paper follows the toy-like input surface as it grows into a fuller creative interface.</summary>
   </entry>
   <entry>
+    <title>Radical Computer Art</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
+  </entry>
+  <entry>
+    <title>Whistlegraph</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-03-21T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
+  </entry>
+  <entry>
     <title>Sucking on the Complex</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/sucking-on-the-complex-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Platform Hegemony, Critique-as-Content, and Anti-Environments · arXiv 5pp — Sucking on the Complex critiques platform hegemony and the way critique becomes content. It looks for anti-environments that stay messy, resistant, and alive.</summary>
   </entry>
   <entry>
+    <title>Gaps in Granularity</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/gaps-in-granularity-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/gaps-in-granularity-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-07-14T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Expressive Control and the Impoverishment of Consumer Playback · arXiv 10pp — A record scratch gives you continuous, gestural, real-time control over a recording; YouTube and Spotify give you a dropdown of round speeds, and some give nothing at all. This paper names that gap &apos;granularity,&apos; grounds it in the theory of directness and the mature craft of turntablism and elastic audio, and shows that Aesthetic Computer already ships the alternative across its players. The real opening is not that the instrument is impossible, but that it lives everywhere except the default transport of the apps you actually listen and watch through.</summary>
+  </entry>
+  <entry>
     <title>Vestigial Features</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/dead-ends-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -270,7 +175,7 @@
     <title>Playable Folk Songs</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/folk-songs-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -280,17 +185,27 @@
     <title>Repository Archaeology</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/repo-archaeology-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Tracing the Evolution of AC Through Its Git History · arXiv 3pp · interactive timeline — Repository Archaeology traces the project through its git history. The paper shows how version control can become a narrative medium for design evolution.</summary>
   </entry>
   <entry>
+    <title>The Hand and the Loop</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-06-08T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic · arXiv 4pp — The Hand and the Loop reads AC&apos;s git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.</summary>
+  </entry>
+  <entry>
     <title>Network Audit</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/network-audit-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/network-audit-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -300,7 +215,7 @@
     <title>KidLisp Language Reference</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/kidlisp-reference-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -310,7 +225,7 @@
     <title>Citation Diversity Audit</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/citation-diversity-audit-26.pdf"/>
     <id>https://papers.aesthetic.computer/citation-diversity-audit-26.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -320,7 +235,7 @@
     <title>Get Closed Source Out of Schools</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/open-schools-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/open-schools-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-20T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -330,7 +245,7 @@
     <title>Five Years from Now</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/five-years-from-now-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-20T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -340,17 +255,47 @@
     <title>Aesthetic May &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-may-26-essay.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-25T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Essay · ~5pp — Aesthetic May &apos;26 is a magazine-style essay companion to Five Years from Now. May is both the month and the modal verb of possibility; the essay reads the present as a field of branching maybes rather than a line of probabilities --- where the music lane may go, what jeffrey may do, what may not happen this year, and the weather acting on all of it. First entry in the essay-* lane.</summary>
   </entry>
   <entry>
+    <title>Aesthetic June &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-june-26-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~3pp · podcast — Aesthetic June &apos;26 is the storytelling companion to May. Where May was the modal mood, June is the answer, delivered as four hundred and fifty-seven commits --- the word carrying both its meanings, version control and Juno&apos;s oath. Told as scenes: the songs that caught up, the whistle found a perfect fifth sharp, the ring of native wizards learning one sign-in, and a Danish learn-the-clock community getting its own front door on the chat. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
+    <title>Aesthetic July 4 &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-july-4-26-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-07-05T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~4pp · Independence Day special — An Independence Day special between the June and July essays, written on the Declaration&apos;s 250th anniversary. Independence is a hanging word --- in + dependere, not to hang from --- and the essay follows it in the abstract: declarations versus definitions in C and in Philadelphia, the personal computer as an independence movement the cloud quietly reversed, artists who built their own rooms (a library in a church, folk songs as open-source software, an artwork designed to scan badly), and an honest ledger of which way one small platform hangs --- a podcast hung from a host, Menuband submitted to App Store review on the holiday weekend itself, and the CNAME record as infrastructure&apos;s most truthful sentence.</summary>
+  </entry>
+  <entry>
+    <title>&apos;Sup w/ July 10?</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-july-10-26-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Essay · ~2pp · mid-month postcard · podcast — A mid-month postcard from July 10th --- not the monthly essay but a check-in written because someone asked how it was going. The answer: living in two times at once. Told as three scenes: excavating Whistlegraph, an artform made years ago with a friend, now counted (963 videos transcribed, 424 songs clustered, ~1.72 billion views) and given a hand-lettered legal-pad home at whistlegraph.org; a brand-new fighting game, fight, born in two days with its rollback safety net built before its network floor; and Menuband bounced from App Store review for naming macOS in its subtitle, then let through after learning to say one word less. Also available as a spoken reading in @jeffrey&apos;s voice.</summary>
+  </entry>
+  <entry>
     <title>CalArts, Callouts, and Papers</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/calarts-callouts-papers-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -360,7 +305,7 @@
     <title>Handle Identity on the AT Protocol</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/handle-identity-atproto-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-27T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -370,7 +315,7 @@
     <title>Two Departments, One Building</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/ucla-arts-funding-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-27T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -380,17 +325,26 @@
     <title>The Potter and the Prompt</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/potter-and-prompt-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-04-05T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">John Holden&apos;s Proto-Cognitive Music Theory and Aesthetic Computer · arXiv 7pp — The Potter and the Prompt argues that AC independently converges on the core principles of John Holden&apos;s 1770 proto-cognitive music theory. It proposes AC as a computational laboratory for advancing Holden&apos;s unfinished program on grouping, attention, and the module.</summary>
   </entry>
   <entry>
+    <title>Aesthinema</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthinema-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
     <title>The Pals Mark</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pals-mark-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/pals-mark-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-07-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -399,7 +353,7 @@
     <title>KidLisp Cards</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/kidlisp-cards-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -409,17 +363,66 @@
     <title>Reading the Score</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/reading-the-score-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Reading the Score looks at the graphic score as an interface for interpretation and collaboration. The paper treats notation as a computational and social object.</summary>
   </entry>
   <entry>
+    <title>The Record Is a Better Interface</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-record-is-a-better-interface-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-record-is-a-better-interface-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-07-15T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">An essay on expressive playback · podcast — A turntable lets a listener hold recorded sound directly, while streaming apps reduce playback to a menu of approved speeds. This essay asks why production tools remain instruments while consumer players became transport controls, and argues for audible, continuous scrubbing that gives the recording back to the hand.</summary>
+  </entry>
+  <entry>
+    <title>The Console Has a Browser</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-console-has-a-browser-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>A Record in the Mail</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/a-record-in-the-mail-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">An essay on API-made vinyl and cassette fulfillment · podcast — A podcast asks to become an object. This essay maps two routes from an Aesthetic Computer episode to the mailbox: Kunaki&apos;s product-and-order API for one-off vinyl, and Tape On Demand&apos;s more human cassette workflow. It argues for a shared physical-release manifest, a deliberate payment gate, and a side B that can turn physical media into correspondence.</summary>
+  </entry>
+  <entry>
+    <title>The Keymap Is the Score</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/the-keymap-is-the-score-essay.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-07-27T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A plain-spoken companion to Keymaps as Social Software · essay — A keymap is more than a hidden preference table: it is an agreement that travels between people, programs, and machines. This essay names the inherited AWSED piano layout, introduces notepat&apos;s notes-that-name-themselves alternative, and follows that argument into the hand-assembled Scores for Social Software edition at UCLA.</summary>
+  </entry>
+  <entry>
+    <title>The Media Estate</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/media-estate-26-deck.pdf"/>
+    <id>https://papers.aesthetic.computer/media-estate-26-deck.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">One Funnel, Nine Surfaces · 16:9 deck 10pp — An overview deck of the Aesthetic Computer and whistlegraph media estate: twelve accounts across nine surfaces, which can be posted to by script today, and the build-out plan. The whistlegraph archive still moves tens of thousands of views a day; the deck argues the work is connecting that audience to the new instrument, starting with Instagram.</summary>
+  </entry>
+  <entry>
     <title>The URL Tradition</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/url-tradition-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-04-27T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -429,8 +432,35 @@
     <title>Where the Microseconds Go</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-04-26T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>oskiewar</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskiewar-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/oskiewar-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-08-04T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>The Door Is Shut: oskiewar and the Retail Xbox Store</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskiewar-store-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/oskiewar-store-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Take the Psychology Out of Posting: the oskiewar Reel Factory</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskiewar-reels-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/oskiewar-reels-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -438,7 +468,7 @@
     <title>Diagrams from Data</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/diagrams-from-data-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-04-28T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -447,7 +477,7 @@
     <title>The nom Games</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/nom-games-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/nom-games-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-06-08T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -457,7 +487,7 @@
     <title>AesthetiCal: A URL-Addressable Calendar</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/cal-aesthetical-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-06-15T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -467,7 +497,7 @@
     <title>Jeffrey Alan Scudder — CV</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
     <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-07-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -476,7 +506,7 @@
     <title>Rhizome.org — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/rhizome-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -486,7 +516,7 @@
     <title>School for Poetic Computation — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/sfpc-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -496,7 +526,7 @@
     <title>Eyebeam — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/eyebeam-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -506,7 +536,7 @@
     <title>Recurse Center — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/recurse-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -516,7 +546,7 @@
     <title>Internet Archive — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/internet-archive-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -526,7 +556,7 @@
     <title>Mellon Foundation — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/mellon-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -536,7 +566,7 @@
     <title>Pioneer Works — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/pioneer-works-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-02T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -546,7 +576,7 @@
     <title>A Fraserin&apos; Art + Tech</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/fraserin-essay-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -555,7 +585,7 @@
     <title>Comp Strats</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/comp-strats-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -564,7 +594,7 @@
     <title>MicroVision — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/microvision-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-04T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -574,7 +604,7 @@
     <title>What&apos;s New CalArts!? — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/whats-new-calarts-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -584,7 +614,7 @@
     <title>NEW INC — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/new-inc-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -594,7 +624,7 @@
     <title>Studio Museum in Harlem — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/studio-museum-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -604,7 +634,7 @@
     <title>HathiTrust — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/hathitrust-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -614,7 +644,7 @@
     <title>The Kitchen — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/the-kitchen-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -624,7 +654,7 @@
     <title>Machine Project — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/machine-project-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -634,7 +664,7 @@
     <title>Heavy Manners Library — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/heavy-manners-library-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -644,7 +674,7 @@
     <title>Creative Time — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/creative-time-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
@@ -654,40 +684,37 @@
     <title>Creative Capital — A Dossier</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/creative-capital-dossier-26-arxiv.pdf</id>
-    <updated>2026-07-03T07:57:35.155Z</updated>
+    <updated>2026-09-03T14:19:15.400Z</updated>
     <published>2026-05-18T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">501(c)(3) artist-grant funder · 990 + grantee record · arXiv — What is publicly recoverable about Creative Capital, the New York nonprofit (1999–) that regrants to individual artists: structure, the award, people, and money from the IRS 990 series and the public grantee record. Scaffold revision — figures pending; fact-surfacing, not argument.</summary>
   </entry>
   <entry>
-    <title>Keymaps as Social Software</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf</id>
-    <updated>2026-06-13T23:44:42.265Z</updated>
-    <published>2026-05-02T00:00:00.000Z</published>
+    <title>ProPublica — A Dossier</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/propublica-dossier-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/propublica-dossier-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:15.400Z</updated>
+    <published>2026-09-03T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">501(c)(3) investigative newsroom · IRS 990 + accountability record · arXiv — What is publicly recoverable about ProPublica: origin, nonprofit structure, newsroom and partner network, data tools, people, money, reach, awards, corrections, and disputed work. Fact-surfacing, not argument.</summary>
+  </entry>
+  <entry>
+    <title>Taking Turf</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf</id>
+    <updated>2026-09-03T14:19:14.862Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
   <entry>
-    <title>The Hand and the Loop</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/hand-and-loop-26-arxiv.pdf</id>
-    <updated>2026-06-08T00:00:00.000Z</updated>
-    <published>2026-06-08T00:00:00.000Z</published>
+    <title>Close of August &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/close-of-august-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/close-of-august-26-essay.pdf</id>
+    <updated>2026-09-03T14:19:14.630Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
-    <summary type="text">Three Eras of My Own Code: Hand-Written, GPT-Grafted, Agentic · arXiv 4pp — The Hand and the Loop reads AC&apos;s git history across three eras — hand-written, GPT-grafted, and fully agentic — and asks honestly whether the codebase is better off. It weighs 5x velocity and five new subsystems against the loss of instrument-like minimalism, and argues for keeping the loop in the leaves while a human hand carves the foundational libraries.</summary>
-  </entry>
-  <entry>
-    <title>Radical Computer Art</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/radical-computer-art-26-arxiv.pdf</id>
-    <updated>2026-05-18T13:16:55.495Z</updated>
-    <published>2026-03-21T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">Goodiepalian Approaches in Aesthetic Computer · arXiv 5pp — This paper treats Goodiepalian practice as a model for radical computer art. It emphasizes play, notation, and the social life of systems over polished product design.</summary>
   </entry>
   <entry>
     <title>Aesthetic Computer &apos;26</title>
