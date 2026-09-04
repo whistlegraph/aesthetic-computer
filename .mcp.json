@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "acin": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/acin-mcp.mjs"
+      ]
+    },
     "fleet": {
       "type": "stdio",
       "command": "node",

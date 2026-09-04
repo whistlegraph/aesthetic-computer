@@ -1568,13 +1568,32 @@ test("start button flashes yellow green lime before lifting off the fight", () =
   assert.match(source, /if \(transitionAge >= 0 \|\| socialPreview \|\|/);
 });
 
-test("title start is a bounded pointer button and negative space only duds", () => {
+// The bounded start target left the rest of the screen as negative space
+// that dudded. @jeffrey, versus era: "pressing anywhere / any key should
+// start" — the title is an invitation, so every gesture is the answer. The
+// button stays as the labeled way in; it just has no dead surroundings.
+test("the title starts from anywhere: any tap, any key", () => {
   assert.match(source, /function titleButtonRect\(\)/);
   assert.match(source, /titleButton = button/);
   assert.match(source, /titleHover = hovered/);
-  assert.match(webShell, /if \(!inside\) \{[\s\S]{0,100}drum\("block", \.32, 0\)/);
+  assert.match(webShell, /Anywhere is the button/);
+  assert.doesNotMatch(webShell, /if \(!inside\) \{/);
   assert.match(webShell, /tapTitle\(point\)/);
   assert.doesNotMatch(webShell, /body\.selection-hover, body\.title-open/);
+  // A tap in open space on the game's own wordmark screen arms the same
+  // transition a button press does.
+  const { fight, tick } = createFight(false, false);
+  globalThis.__oskiewarTouch = { taps: [], pointer: { x: 0, y: 0, active: false } };
+  try {
+    assert.equal(fight.shellState().mode, "MENU");
+    globalThis.__oskiewarTouch.taps.push({ x: 40, y: 40 });
+    tick();
+    assert.equal(fight.shellState().mode, "MENU");
+    tick(700001);
+    assert.equal(fight.shellState().mode, "GAME");
+  } finally {
+    delete globalThis.__oskiewarTouch;
+  }
 });
 
 // Each letter of the wordmark is its own target and its own toy: hovering one

@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 93;
+const buildVersion = 94;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2964,7 +2964,7 @@ function enterGame(now) {
   if (PAL_SELECT) beginSelect(now);
 }
 
-function updateShell(now) {
+function updateShell(now, tapped = false) {
   const pad = padSnapshots[0] || {};
   // The title screen is where the game's pace is set: +/- on a keyboard
   // step the clock a quarter at a time, from a quarter speed to double.
@@ -3001,7 +3001,7 @@ function updateShell(now) {
     shellStickLive = stickLive;
     return;
   }
-  if (down.some((button) => !shellPrevious.includes(button)) ||
+  if (tapped || down.some((button) => !shellPrevious.includes(button)) ||
       (stickLive && !shellStickLive)) {
     playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
@@ -3885,9 +3885,12 @@ function rectPackWidth(rect) {
 // The versus lobby holds a mid shot instead: one body under a close-up lens
 // filled the screen and sat on top of the very instruction the room exists to
 // show, and a visitor deciding whether to share the address wants to see the
-// room they are inviting somebody into.
+// room they are inviting somebody into. Under the wordmark the same lobby
+// sits for a portrait — the title is a face, and starting is the pullback
+// that reveals the room.
 const frameFloorWidth = () =>
-  (lobbyActive() ? 860 : compactLayout() ? 215 : 315) * portraitPull();
+  (lobbyActive() ? shellMode === "MENU" ? 430 : 860
+    : compactLayout() ? 215 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -6854,12 +6857,17 @@ function gameSim() {
     if (Math.abs(push) > .08)
       playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
   }
+  // A tap anywhere on the wordmark screen is a start press — read before
+  // the tap queue is wiped for the tick. The shell already turns first-visit
+  // taps into a button; this catches every visit after that.
+  const titleTapped = shellMode === "MENU" && !selecting &&
+    (globalThis.__oskiewarTouch?.taps?.length || 0) > 0;
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
   if (consumeSystemButtons(now)) return;
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
-  if (shellMode === "MENU") updateShell(now);
+  if (shellMode === "MENU") updateShell(now, titleTapped);
   // The versus seat watches from the title on — a friend can take the chair
   // while the host is still reading the wordmark, and the fight lifts it.
   updateVersusSeat(now);

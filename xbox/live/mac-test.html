@@ -390,15 +390,11 @@
 
     function tapTitle(point = null) {
       if (!titleOpen) return false;
-      const button = globalThis.__oskiewarTouch?.titleButton;
-      const inside = !point || button && point.x >= button.x &&
-        point.x <= button.x + button.width && point.y >= button.y &&
-        point.y <= button.y + button.height;
-      if (!inside) {
-        ensureAudio();
-        drum("block", .32, 0);
-        return true;
-      }
+      // Anywhere is the button. The bounded start target left the rest of
+      // the screen as negative space that dudded — but the title is an
+      // invitation, not a menu, so the first gesture starts the game
+      // wherever it lands. Any key already arrives here pointless and
+      // starts too.
       dismissTitle();
       keys[0].add("A");
       unlockAudio();

@@ -16,6 +16,22 @@ const COLLECTION = "prompts";
 const MAX_LENGTH = 256;
 const REDACTED_HEADS = new Set(["email"]); // arguments may carry PII
 
+// In-memory per-source throttle (lith is a long-lived process). The source key
+// exists only in this map for at most a minute and is never stored.
+const RATE_LIMIT_PER_MIN = 30;
+const rateBuckets = new Map();
+function rateLimited(source) {
+  const now = Date.now();
+  const bucket = rateBuckets.get(source);
+  if (!bucket || now - bucket.start > 60000) {
+    if (rateBuckets.size > 10000) rateBuckets.clear();
+    rateBuckets.set(source, { start: now, count: 1 });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > RATE_LIMIT_PER_MIN;
+}
+
 let disksDir = null;
 try {
   disksDir = join(
@@ -143,6 +159,14 @@ export async function handler(event) {
     }
 
     if (event.httpMethod === "POST") {
+      const source =
+        event.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
+        event.headers?.["client-ip"] || "unknown";
+      if (rateLimited(source)) {
+        await database.disconnect();
+        return respond(429, { error: "Rate limited" });
+      }
+
       const body = JSON.parse(event.body || "{}");
       let text = (body.text || "").trim().slice(0, MAX_LENGTH);
 
@@ -167,12 +191,16 @@ export async function handler(event) {
         // Indexes already exist - that's fine
       }
 
+      // Coarsen the timestamp to the hour so stored rows cannot be strung
+      // into fine-grained submission sequences.
+      const hour = new Date(now);
+      hour.setMinutes(0, 0, 0);
       await prompts.insertOne({
         text,
         kind,
         resolved,
         day: now.toISOString().split("T")[0],
-        createdAt: now,
+        createdAt: hour,
       });
 
       await database.disconnect();
