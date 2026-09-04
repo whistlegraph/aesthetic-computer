@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 92;
+const buildVersion = 93;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -9216,15 +9216,11 @@ function drawRunner(player, t, showLabel = true) {
         segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
     }
   }
-  // The sparring partner keeps its face on the still tableau. This used to read
-  // `npc && !bot`, which meant "the inert dummy" — but training spars against a
-  // real bot now, so that test went false and the title screen lost a face
-  // entirely rather than swapping which one it wore. Ask the door instead.
-  const sparringPartner = player.npc &&
-    (!player.bot || fightOpponent === "trainingbot");
-  if (shellMode !== "MENU" || titleTransitionAt !== null ||
-      titleAttractMode === "action" || sparringPartner)
-    drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
+  // Every fighter wears its face everywhere now, the title included. The
+  // still tableau used to sit faceless — a sparring-partner special case
+  // grown from the old dummy door — but the wordmark screen is the
+  // storefront, and whoever sits under it should look back.
+  drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow, geometry);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
