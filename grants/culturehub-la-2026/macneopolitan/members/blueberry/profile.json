@@ -1,0 +1,13 @@
+{
+  "hostname": "blueberry",
+  "logins": { "console": 69, "tty": 692, "recorded_since": "Thu May 28 22:07:05 EDT 2026" },
+  "boots": { "reboots": 64, "shutdowns": 34, "current_boot": "2026-09-02T19:39:29" },
+  "uptime": {"longest_stretch_days": 13.1, "longest_stretch_began": "2026-05-28"},
+  "disk": {"used":"437G","free":"32G","pct":"94%"},
+  "load": { "processes": 660, "loadavg": [1.40,1.61,1.71] },
+  "cpu_champions": [{"cmd": "mediaanalysisd", "cpu_hours": 6.2}, {"cmd": "photolibraryd", "cpu_hours": 3.3}, {"cmd": "slab-menubar", "cpu_hours": 2.5}, {"cmd": "MenuBand", "cpu_hours": 2.4}, {"cmd": "WindowServer", "cpu_hours": 2.3}, {"cmd": "BlueberryWallpaper", "cpu_hours": 1.4}],
+  "agent_workload": {"total":925,"by_project":{"core":908,"aesthetic-computer-vault":17},"by_provider":{"claude":925},"by_month":{"2026-09":18,"2026-08":366,"2026-07":514,"2026-06":27}},
+  "prox_rocks_now": [{"name":"zevad","agent":"claude"}],
+  "fish_abbreviations": 0,
+  "profiled_at": "2026-09-04T13:03:03Z"
+}

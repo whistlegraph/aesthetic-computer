@@ -1,0 +1,15 @@
+{
+  "hostname": "neo",
+  "model": "MacBook Neo",
+  "model_identifier": "Mac17,5",
+  "chip": "Apple A18 Pro",
+  "memory": "8 GB",
+  "serial_tail": "4L09",
+  "os": "26.6.2",
+  "born": "2026-04-24T00:37:00",
+  "battery": { "cycles": 212, "condition": "Normal", "capacity": "100%" },
+  "shell": { "commands": 231, "since": "2026-04-24", "top": [{"cmd":"cd","count":55},{"cmd":"!","count":23},{"cmd":"claude","count":16},{"cmd":"sudo","count":6},{"cmd":"ssh","count":6},{"cmd":"/Users/jas/.local/bin/codex-slab","count":6},{"cmd":"say","count":5},{"cmd":"echo","count":5}] },
+  "agent_sessions": { "count": 1121, "since": "2026-04-24" },
+  "menuband": { "melodic_program": 78, "backend": "gm", "radio": "nts1" },
+  "harvested_at": "2026-09-04T12:46:22Z"
+}

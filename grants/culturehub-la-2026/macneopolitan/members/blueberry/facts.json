@@ -1,0 +1,15 @@
+{
+  "hostname": "blueberry",
+  "model": "MacBook Neo",
+  "model_identifier": "Mac17,5",
+  "chip": "Apple A18 Pro",
+  "memory": "8 GB",
+  "serial_tail": "0HPX",
+  "os": "26.6.2",
+  "born": "2026-06-11T00:43:03",
+  "battery": { "cycles": 85, "condition": "Normal", "capacity": "99%" },
+  "shell": { "commands": 183, "since": "2026-06-11", "top": [{"cmd":"c","count":55},{"cmd":"!","count":17},{"cmd":"co","count":12},{"cmd":"cd","count":9},{"cmd":"cr","count":8},{"cmd":"sudo","count":4},{"cmd":"claude","count":4},{"cmd":"ssh","count":3}] },
+  "agent_sessions": { "count": 925, "since": "2026-06-11" },
+  "menuband": { "melodic_program": 78, "backend": "gm", "radio": "nts1" },
+  "harvested_at": "2026-09-04T12:46:35Z"
+}

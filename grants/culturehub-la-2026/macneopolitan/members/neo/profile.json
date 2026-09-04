@@ -1,0 +1,13 @@
+{
+  "hostname": "neo",
+  "logins": { "console": 119, "tty": 6305, "recorded_since": "Sun Apr 19 08:33:08 EDT 2026" },
+  "boots": { "reboots": 111, "shutdowns": 49, "current_boot": "2026-09-02T06:47:13" },
+  "uptime": {"longest_stretch_days": 5.9, "longest_stretch_began": "2026-06-14"},
+  "disk": {"used":"211G","free":"7411M","pct":"97%"},
+  "load": { "processes": 614, "loadavg": [6.10,5.15,6.11] },
+  "cpu_champions": [{"cmd": "WindowServer", "cpu_hours": 8.7}, {"cmd": "coreaudiod", "cpu_hours": 2.6}, {"cmd": "claude", "cpu_hours": 1.8}, {"cmd": "BlueberryWallpaper", "cpu_hours": 1.7}, {"cmd": "com.apple.AppleSunriseWLAN", "cpu_hours": 1.5}, {"cmd": "Terminal", "cpu_hours": 1.4}],
+  "agent_workload": {"total":1122,"by_project":{"core":797,"aesthetic-computer-vault":62,"aesthetic-computer":263},"by_provider":{"claude":859,"codex":262,"system":1},"by_month":{"2026-09":28,"2026-05":298,"2026-08":227,"2026-07":269,"2026-06":226,"2026-04":74}},
+  "prox_rocks_now": [{"name":"bekor","agent":"claude"},{"name":"map","agent":"claude"},{"name":"sole","agent":"claude"},{"name":"sununo","agent":"codex"},{"name":"fanu","agent":"claude"},{"name":"fosob","agent":"codex"},{"name":"rilitu","agent":"claude"},{"name":"lalesu","agent":"claude"},{"name":"barobu","agent":"claude"}],
+  "fish_abbreviations": 0,
+  "profiled_at": "2026-09-04T13:03:02Z"
+}
