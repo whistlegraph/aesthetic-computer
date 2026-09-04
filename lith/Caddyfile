@@ -310,6 +310,15 @@
             header Cache-Control "public, max-age=60, stale-while-revalidate=300"
             file_server
         }
+        # /comments is the back-of-house comment room — TikTok comment
+        # screenshots getting sorted. Claimed here for the same reason as
+        # /stars: the bare-code matcher would read "comments" as a code.
+        @wgcomments path /comments /comments/
+        handle @wgcomments {
+            rewrite * /comments.html
+            header Cache-Control "public, max-age=60, stale-while-revalidate=300"
+            file_server
+        }
         # Bare /<code> deep links (e.g. /imab, /clth) go to lith, which returns
         # index.html with THAT work's og:title / og:image / og:video injected —
         # so iMessage, Slack, Twitter, etc. unfurl the specific whistlegraph

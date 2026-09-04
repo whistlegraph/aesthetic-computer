@@ -6,6 +6,12 @@ Reel suggestions live separately in [`REELS-BACKLOG.md`](REELS-BACKLOG.md).
 
 Status: `received` → `verified` → `applied` → `live`
 
+## Received September 3, 2026
+
+| Status | Request |
+|---|---|
+| applied | Compile TikTok comment screenshots from over the years as a back-of-house archive to get sorted; not for the public site, though one or two may get used. Built the comment room at `/comments` (unlinked, noindex) with intake/sorting via `toolchain/whistlegraph/comments.mjs` — statuses unsorted → keeper / filed / ditch, optional work code, source post, capture date, and note per screenshot. Awaiting Alex's screenshots to fill it. |
+
 ## Received August 18, 2026
 
 | Status | Request |

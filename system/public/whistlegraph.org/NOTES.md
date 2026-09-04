@@ -43,6 +43,25 @@ receives `DEPLOY_SECRET` or the deployment vault.
 The publisher requires the Tangled knot as the checkout's `origin`; GitHub remains
 the public marketplace/mirror used to install the plugin.
 
+## Comment room — back of house (2026-09-03)
+
+Alex asked (iMessage, 2026-09-03) to compile TikTok comment screenshots from
+over the years as a house archive to get sorted — not for the site, though he
+may pull one or two forward. The room lives at `/comments` (`comments.html`),
+unlinked from the nav and `noindex`; Caddy claims the path above the bare-code
+matcher exactly like `/stars`. Data is `comments/comments.json` plus
+content-hash-named images in `comments/img/`, written only by
+`toolchain/whistlegraph/comments.mjs` (`add` / `list` / `set` / `prune`;
+statuses unsorted → keeper / filed / ditch). Screenshots arrive from Alex by
+any channel and get archived with optional `[code]`, source post, capture
+date, and note; the page is a read-only viewer with status and code filters.
+
+From the same thread: the /pop sample-carving work should eventually surface
+on this site as an **open sample library under the codes** — melodies and
+metadata per work, downloadable. Needs a data model (likely `samples:[…]` per
+work or a `samples/<code>/` convention) once the pop pipeline starts emitting
+library folders; design it alongside the per-page source-video list below.
+
 ## Bigger feature — needs a data model (2026-07-11)
 - **Per-page source-video list.** On each whistlegraph's detail page, list *every*
   TikTok video feeding its aggregate data, each with its own view count — so we can

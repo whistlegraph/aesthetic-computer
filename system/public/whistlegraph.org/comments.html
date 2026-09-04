@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whistlegraph Comments</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Back of house — what people said under the whistlegraphs.">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  /* The comment room is back of house: unlinked, unindexed, in the archive's
+     paper presentation. It renders comments/comments.json, which is sorted
+     with toolchain/whistlegraph/comments.mjs — the page never writes. */
+  :root{
+    color-scheme:light;
+    --paper:#fffdf6;
+    --ink:#25204a;
+    --dim:#645e85;
+    --margin:#b44887;
+    --link:#1a56d6;
+    --hair:rgba(40,30,90,.16);
+    --rule:rgba(40,30,90,.35);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans);
+    padding:22px 18px 64px;-webkit-font-smoothing:antialiased}
+  a{color:var(--link)}
+  header{max-width:1080px;margin:0 auto 18px}
+  h1{font:600 16px var(--mono);letter-spacing:.02em;color:var(--margin)}
+  h1 span{color:var(--ink);margin-left:7px}
+  #tally{display:block;margin-top:3px;font:12px var(--mono);color:var(--dim)}
+
+  nav{max-width:1080px;margin:0 auto 20px;display:flex;gap:8px;flex-wrap:wrap}
+  nav button{font:12px var(--mono);color:var(--ink);background:none;
+    border:1px solid var(--hair);border-radius:14px;padding:5px 12px;cursor:pointer}
+  nav button:hover{border-color:var(--margin)}
+  nav button.on{background:var(--margin);border-color:var(--margin);color:var(--paper)}
+
+  #room{max-width:1080px;margin:0 auto;columns:4 240px;column-gap:14px}
+  figure{break-inside:avoid;margin:0 0 14px;border:1px solid var(--hair);
+    border-radius:6px;overflow:hidden;background:#fff}
+  figure img{display:block;width:100%;height:auto}
+  figcaption{padding:8px 10px;font:12px var(--mono);color:var(--dim);
+    display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;border-top:1px solid var(--hair)}
+  figcaption .code{color:var(--margin);text-decoration:none;font-weight:600}
+  figcaption .code:hover{text-decoration:underline}
+  figcaption .keeper{color:var(--margin)}
+  figcaption .note{color:var(--ink);flex-basis:100%}
+
+  #empty{max-width:560px;margin:8vh auto 0;font:13px/1.7 var(--mono);color:var(--dim)}
+  #empty b{color:var(--ink);font-weight:600}
+  #empty code{color:var(--margin)}
+</style>
+</head>
+<body>
+<header>
+  <h1>whistlegraph<span>comments</span></h1>
+  <span id="tally">opening the room…</span>
+</header>
+<nav id="filters" hidden></nav>
+<div id="room"></div>
+<div id="empty" hidden>
+  <p><b>The comment room is empty.</b></p>
+  <p>This is the back-of-house archive for TikTok comment screenshots
+  gathered over the years. Send them to Jeffrey (AirDrop, iMessage, a
+  folder — anything), and they land here to get sorted:</p>
+  <p><code>node toolchain/whistlegraph/comments.mjs add &lt;folder&gt;</code></p>
+  <p>Each screenshot can carry a work <code>[code]</code>, a source post, a
+  capture date, and a note; keepers are the ones worth pulling forward.</p>
+</div>
+
+<script type="module">
+const room = document.getElementById("room");
+const empty = document.getElementById("empty");
+const tally = document.getElementById("tally");
+const filters = document.getElementById("filters");
+
+let comments = [];
+let titles = new Map();
+let statusFilter = "all";
+let codeFilter = null;
+
+function render() {
+  const shown = comments.filter((c) =>
+    (statusFilter === "all" || c.status === statusFilter) &&
+    (!codeFilter || c.code === codeFilter));
+  room.replaceChildren(...shown.map((c) => {
+    const fig = document.createElement("figure");
+    const img = document.createElement("img");
+    img.src = `comments/${c.img}`;
+    img.loading = "lazy";
+    if (c.w && c.h) { img.width = c.w; img.height = c.h; }
+    img.alt = c.note || `comment screenshot ${c.id}`;
+    fig.append(img);
+    const cap = document.createElement("figcaption");
+    if (c.code) {
+      const a = document.createElement("a");
+      a.className = "code";
+      a.href = `/${c.code}`;
+      a.textContent = `[${c.code}]`;
+      if (titles.has(c.code)) a.title = titles.get(c.code);
+      cap.append(a);
+    }
+    if (c.post) {
+      const a = document.createElement("a");
+      a.href = `/post/${c.post}`;
+      a.textContent = "post";
+      cap.append(a);
+    }
+    if (c.captured) cap.append(Object.assign(document.createElement("span"), { textContent: c.captured }));
+    if (c.status === "keeper") cap.append(Object.assign(document.createElement("span"), { className: "keeper", textContent: "★ keeper" }));
+    if (c.note) cap.append(Object.assign(document.createElement("span"), { className: "note", textContent: c.note }));
+    if (cap.childNodes.length) fig.append(cap);
+    return fig;
+  }));
+  const codeNote = codeFilter ? ` · [${codeFilter}]` : "";
+  tally.textContent = `${shown.length} of ${comments.length} screenshot${comments.length === 1 ? "" : "s"}${codeNote} · back of house`;
+}
+
+function chip(label, on, click) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  if (on) b.classList.add("on");
+  b.addEventListener("click", click);
+  return b;
+}
+
+function renderFilters() {
+  const counts = {};
+  for (const c of comments) counts[c.status] = (counts[c.status] || 0) + 1;
+  const chips = [chip("all", statusFilter === "all", () => { statusFilter = "all"; refreshUI(); })];
+  for (const status of ["unsorted", "keeper", "filed"]) {
+    if (!counts[status]) continue;
+    chips.push(chip(`${status} ${counts[status]}`, statusFilter === status,
+      () => { statusFilter = status; refreshUI(); }));
+  }
+  const codes = [...new Set(comments.map((c) => c.code).filter(Boolean))].sort();
+  for (const code of codes) {
+    chips.push(chip(`[${code}]`, codeFilter === code,
+      () => { codeFilter = codeFilter === code ? null : code; refreshUI(); }));
+  }
+  filters.replaceChildren(...chips);
+  filters.hidden = chips.length <= 1;
+}
+
+function refreshUI() { renderFilters(); render(); }
+
+try {
+  const manifest = await (await fetch("comments/comments.json", { cache: "no-store" })).json();
+  comments = (manifest.comments || []).filter((c) => c.status !== "ditch");
+} catch {
+  tally.textContent = "the room could not be read";
+}
+if (!comments.length) {
+  empty.hidden = false;
+  tally.textContent = "0 screenshots · back of house";
+} else {
+  refreshUI();
+  // Work titles arrive late and only decorate tooltips; the room never waits.
+  fetch("graphs.json").then((r) => r.json()).then((g) => {
+    titles = new Map((g.works || []).map((w) => [w.code, w.title]));
+    render();
+  }).catch(() => {});
+}
+</script>
+</body>
+</html>
