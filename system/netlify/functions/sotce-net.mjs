@@ -112,6 +112,18 @@ const SHELL_CACHE_MAX = 40;
 const SHELL_MODIFIED = new Date(Math.floor(Date.now() / 1000) * 1000);
 const SHELL_MODIFIED_HTTP = SHELL_MODIFIED.toUTCString();
 
+// 📓 The assembled feed (pages + answered questions + totals) is identical
+// for every subscriber — only until/renews/admin differ per user — and its
+// assembly is dominated by per-asker handle lookups that can each cost two
+// Auth0 round-trips. Cache it in-process: every mutation to pages or asks
+// flows through this same long-lived process, so invalidation is exact; the
+// TTL only bounds staleness from out-of-module writes (e.g. /handle changes).
+let feedCache = null; // { at, data: { pages, questions, totalPages, totalQuestions, lastModified, hasMore } }
+const FEED_CACHE_TTL = 60 * 1000;
+function invalidateFeedCache() {
+  feedCache = null;
+}
+
 // 🔔 Service worker for web push — no fetch handler, so it never touches
 // caching or page loads. Payloads come encrypted from shared/push.mjs as
 // { title, body, icon, image, data: { piece } }.
@@ -10709,13 +10721,34 @@ export const handler = async (event, context) => {
         shell.log("🔴 Admin:", isAdmin);
 
         // 📓 Recent Pages (with pagination support)
-        const database = await connect();
-        const pages = database.db.collection("sotce-pages");
-        
+
         // Pagination parameters
         const requestedPage = body.pageNumber; // Specific page number (1-indexed)
         const offset = body.offset || 0; // For loading older pages
         const metaOnly = body.metaOnly; // Only return page count and last modified
+
+        // The boot shape — full history, from the top — is what every
+        // logged-in load requests, and it's the one worth caching whole.
+        const bootShape =
+          !!body.loadAll && requestedPage === undefined && !offset && !metaOnly;
+        const cachedFeed =
+          feedCache && Date.now() - feedCache.at < FEED_CACHE_TTL
+            ? feedCache.data
+            : null;
+
+        if (bootShape && cachedFeed) {
+          Object.assign(out, cachedFeed);
+          shell.log("🫐 Feed served from cache.", performance.now());
+          return respond(200, out);
+        }
+        if (metaOnly && cachedFeed) {
+          out.totalPages = cachedFeed.totalPages;
+          out.lastModified = cachedFeed.lastModified;
+          return respond(200, out);
+        }
+
+        const database = await connect();
+        const pages = database.db.collection("sotce-pages");
 
         // Always get total count and last modified for cache validation
         // Exclude Q&A pages (isQA: true) — those are shown as question cards from sotce-asks
@@ -10769,46 +10802,70 @@ export const handler = async (event, context) => {
           out.hasMore = offset + limit < totalCount;
         }
 
-        // Add a 'handle' field to each page record.
+        // Add a 'handle' field to each page record. Misses are remembered as
+        // null so a handleless user costs one lookup per assembly, not one
+        // per record (each cold lookup can mean two Auth0 API calls).
         const subsToHandles = {}; // Cache handles on this go around.
-        for (const [index, page] of retrievedPages.entries()) {
-          let handle = subsToHandles[page.user];
-          if (!handle) {
-            handle = await handleFor(page.user, "sotce");
-            if (handle) subsToHandles[page.user] = handle;
+        for (const page of retrievedPages) {
+          if (!(page.user in subsToHandles)) {
+            subsToHandles[page.user] =
+              (await handleFor(page.user, "sotce")) || null;
           }
-          page.handle = handle;
+          page.handle = subsToHandles[page.user] || undefined;
         }
 
         out.pages = retrievedPages;
 
-        // ❓ Also fetch answered questions to mix into the feed
-        const asks = database.db.collection("sotce-asks");
-        const answeredQuestions = await asks
-          .find({ state: "answered" })
-          .sort({ answeredAt: -1 })
-          .limit(body.loadAll ? 0 : 50) // 0 = no limit (full history) when loading all
-          .project({ draftAnswer: 0, draftStartedAt: 0, draftLastEditedAt: 0 })
-          .toArray();
-        
-        // Add handles to questions
-        for (const q of answeredQuestions) {
-          let handle = subsToHandles[q.user];
-          if (!handle) {
-            handle = await handleFor(q.user, "sotce");
-            if (handle) subsToHandles[q.user] = handle;
+        if (cachedFeed) {
+          // Questions don't vary by pagination shape — reuse the cached set
+          // (answeredAt-descending) so single-page fetches skip the
+          // per-asker handle walk; slice mirrors the non-loadAll limit.
+          out.questions = body.loadAll
+            ? cachedFeed.questions
+            : cachedFeed.questions.slice(0, 50);
+          out.totalQuestions = cachedFeed.totalQuestions;
+        } else {
+          // ❓ Also fetch answered questions to mix into the feed
+          const asks = database.db.collection("sotce-asks");
+          const answeredQuestions = await asks
+            .find({ state: "answered" })
+            .sort({ answeredAt: -1 })
+            .limit(body.loadAll ? 0 : 50) // 0 = no limit (full history) when loading all
+            .project({ draftAnswer: 0, draftStartedAt: 0, draftLastEditedAt: 0 })
+            .toArray();
+
+          // Add handles to questions
+          for (const q of answeredQuestions) {
+            if (!(q.user in subsToHandles)) {
+              subsToHandles[q.user] =
+                (await handleFor(q.user, "sotce")) || null;
+            }
+            q.handle = subsToHandles[q.user] || undefined;
+            q.type = "question"; // Mark as question for client-side rendering
           }
-          q.handle = handle;
-          q.type = "question"; // Mark as question for client-side rendering
+
+          out.questions = answeredQuestions;
+          out.totalQuestions = await asks.countDocuments({ state: "answered" });
         }
-        
-        out.questions = answeredQuestions;
-        out.totalQuestions = await asks.countDocuments({ state: "answered" });
 
         await database.disconnect();
 
+        if (bootShape) {
+          feedCache = {
+            at: Date.now(),
+            data: {
+              totalPages: out.totalPages,
+              lastModified: out.lastModified,
+              hasMore: out.hasMore,
+              pages: out.pages,
+              questions: out.questions,
+              totalQuestions: out.totalQuestions,
+            },
+          };
+        }
+
         // TODO: 👤 'Handled' pages filtered by user..
-        shell.log("🫐 Retrieved:", retrievedPages.length, "pages,", answeredQuestions.length, "questions", performance.now());
+        shell.log("🫐 Retrieved:", retrievedPages.length, "pages,", out.questions.length, "questions", performance.now());
       }
       return respond(200, out);
     } else {
@@ -10918,6 +10975,7 @@ export const handler = async (event, context) => {
           await pages.updateOne({ _id: page._id }, { $set: updates });
         }
 
+        invalidateFeedCache(); // A published page can be crumpled (unpublished).
         await database.disconnect();
         return respond(200, { message: "Draft crumpled successfully." });
       } else {
@@ -10960,6 +11018,8 @@ export const handler = async (event, context) => {
         });
         page = await pages.findOne({ _id: insertion.insertedId });
       }
+
+      invalidateFeedCache();
 
       // 🔔 Tell opted-in devices a page went up. Fire-and-forget so the
       // publish never waits on push fan-out; the body stays generic since
@@ -11090,6 +11150,7 @@ export const handler = async (event, context) => {
       await KeyValue.connect();
       await KeyValue.del("@handles", handle);
       await KeyValue.del("userIDs", sotceSub);
+      invalidateFeedCache(); // The cached feed embeds handles on asks.
     }
 
     // 3. Delete the user's handle if it exists and the user does not have
@@ -11264,6 +11325,8 @@ export const handler = async (event, context) => {
     // NOTE: No separate page is created — answered questions live only in
     // sotce-asks and get swizzled into the feed client-side alongside diary pages.
 
+    invalidateFeedCache(); // The new answer belongs in the cached feed.
+
     // 🔔 Tell the asker their question was answered. Their push registration
     // is stored under the "sotce-"-prefixed sub (see register-push-token).
     sendToUser(
@@ -11370,7 +11433,8 @@ export const handler = async (event, context) => {
     const asks = database.db.collection("sotce-asks");
     
     const result = await asks.deleteMany({});
-    
+    invalidateFeedCache(); // Answered questions were part of the cached feed.
+
     await database.disconnect();
     shell.log("❓ All questions cleared:", result.deletedCount, "by", user.email);
     return respond(200, { success: true, deletedCount: result.deletedCount });
