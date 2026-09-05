@@ -10244,8 +10244,10 @@ export const handler = async (event, context) => {
 
     let etag = cachedShell?.etag;
     if (!etag) {
+      // Weak ETag on purpose: Cloudflare strips strong ETags whenever an
+      // HTML-rewriting feature is enabled, but lets weak ones through.
       etag =
-        '"' +
+        'W/"' +
         crypto.createHash("sha256").update(body).digest("hex").slice(0, 32) +
         '"';
       if (!dev) {
@@ -10264,9 +10266,10 @@ export const handler = async (event, context) => {
       "Cache-Control": "public, max-age=0, must-revalidate",
     };
 
-    // Weak comparison: proxies may prefix W/ when they compress the body.
+    // Compare on the bare hash so W/ prefixing (ours or a proxy's) never
+    // breaks the match.
     const inm = event.headers["if-none-match"];
-    if (inm && inm.includes(etag.slice(1, -1))) {
+    if (inm && inm.includes(etag.slice(etag.indexOf('"') + 1, -1))) {
       return respond(304, "", shellHeaders);
     }
 

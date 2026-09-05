@@ -57,8 +57,10 @@
     header @serviceworker Cache-Control "no-cache, no-store, must-revalidate"
 
     # HTML: no-cache (always revalidate, but use ETag for 304)
+    # `?` = set only if absent — proxied apps that send their own
+    # Cache-Control (e.g. the sotce-net shell) were getting both headers.
     @html path / *.html
-    header @html Cache-Control "no-cache"
+    header @html ?Cache-Control "no-cache"
 
     # Encode everything (Caddy does this by default, but be explicit)
     encode zstd gzip
@@ -964,13 +966,19 @@ oskiewar.com, midi.oskiewar.com {
     handle @oskiewarround {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html
+        header Cache-Control no-cache
         file_server
     }
     # The game source and modules share the /oskiewar prefix with the live API
     # route below, so serve them before the proxy matcher claims them.
+    # `no-cache` here means revalidate, not never-cache: an unchanged file
+    # answers 304 against its ETag and loads from disk. Without the header the
+    # browser's heuristic kept whole modules stale across deploys — a returning
+    # visitor once ran a months-old round-room.mjs against the current relay.
     @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-voice.mjs /oskiewar-midi.mjs
     handle @oskiewarmodules {
         root * /opt/ac/xbox/live
+        header Cache-Control no-cache
         file_server
     }
     handle /oskiewar* {
@@ -992,18 +1000,24 @@ oskiewar.com, midi.oskiewar.com {
     }
     handle /aesthetic.computer/* {
         root * /opt/ac/system/public
+        header Cache-Control no-cache
         file_server
     }
     handle /type/* {
         root * /opt/ac/system/public
+        header Cache-Control no-cache
         file_server
     }
+    # The one asset that genuinely never moves between deploys can skip the
+    # revalidation round-trip for a week.
     handle /ComicRelief-Regular.ttf {
         root * /opt/ac/system/public/papers.aesthetic.computer/foundry/fonts
+        header Cache-Control "public, max-age=604800"
         file_server
     }
     handle /sw.js {
         root * /opt/ac/system/public
+        header Cache-Control no-cache
         file_server
     }
 
@@ -1012,10 +1026,12 @@ oskiewar.com, midi.oskiewar.com {
     handle @oskiewargame {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html
+        header Cache-Control no-cache
         file_server
     }
     handle {
         root * /opt/ac/xbox/live
+        header Cache-Control no-cache
         file_server
     }
 }
