@@ -12,7 +12,7 @@
 //
 //   --start <sec> --frames <n>   render a slice (layout checks)
 
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas } from "canvas";
@@ -43,29 +43,29 @@ checkYwftAvailable();
 if (!existsSync(AUDIO)) { console.error(`✗ bake first: ${AUDIO}`); process.exit(1); }
 
 const W = 1920, H = 1080, FPS = 30;
-const BPM = 124, BEAT = 60 / BPM, BAR = 4 * BEAT, BARS = 104;
+const BPM = 124, BEAT = 60 / BPM, BAR = 4 * BEAT, BARS = 100;
 
 // ── the hitbaker form, mirrored ───────────────────────────────────────
 const SEC = (bar) =>
-  bar < 4 ? "intro" : bar < 20 ? "verse" : bar < 24 ? "pre"
+  bar < 8 ? "chorus" : bar < 20 ? "verse" : bar < 24 ? "pre"
   : bar < 40 ? "chorus" : bar < 52 ? "verse" : bar < 56 ? "pre"
-  : bar < 72 ? "chorus" : bar < 76 ? "break" : bar < 100 ? "finale"
+  : bar < 72 ? "chorus" : bar < 76 ? "break" : bar < 96 ? "finale"
   : "peel";
 const VERSE8 = ["Am", "Am", "G", "G", "C", "C", "F", "G"];
 const CHOR8 = ["C", "C", "F", "F", "C", "C", "C", "C"];
 const chordAt = (bar) => {
   const s = SEC(bar);
-  if (s === "intro" || s === "peel") return "C";
-  if (s === "verse") return VERSE8[(bar - (bar < 40 ? 4 : 40)) % 8];
+  if (s === "peel") return "C";
+  if (s === "verse") return VERSE8[(bar - (bar < 40 ? 8 : 40)) % 8];
   if (s === "pre") return ["F", "F", "G", "G"][bar % 4];
   if (s === "break") return "G";
-  return CHOR8[(bar - (bar < 52 ? 24 : bar < 76 ? 56 : 76)) % 8];
+  return CHOR8[(bar - (bar < 8 ? 0 : bar < 52 ? 24 : bar < 76 ? 56 : 76)) % 8];
 };
 const inBreak = (bar) => bar >= 72 && bar < 76;
 
 // night-butterfly tints, one per section kind
 const TINT = {
-  intro: "#4a3aa7", verse: "#2a4ad6", pre: "#b05cc4",
+  verse: "#2a4ad6", pre: "#b05cc4",
   chorus: "#eda100", break: "#1baf7a", finale: "#e05a9e", peel: "#4a3aa7",
 };
 const SECTIONS = [];
@@ -81,44 +81,81 @@ const SECTIONS = [];
 const beatsOf = (bar) => [0, 1, 2, 3].map((k) => bar * 4 + k);
 const ev = (t0, dur) => ({ t0, t1: t0 + dur });
 const LANES = [
-  { key: "vox", color: "#ffd257", events: [24, 56, 76].flatMap((door) =>
+  { key: "vox", color: "#ffd257", events: [0, 24, 56, 76].flatMap((door) =>
     [ev(door * BAR, 8 * BAR)]) },
   { key: "xylo", color: "#eda100", events: (() => {
     const out = [];
     for (const base of [32, 34, 64, 66]) out.push(ev(base * BAR, 2 * BAR));
-    for (let b = 84; b < 100; b += 2) out.push(ev(b * BAR, 2 * BAR));
+    for (let b = 80; b < 96; b += 2) out.push(ev(b * BAR, 2 * BAR));
     return out;
   })() },
   { key: "stabs", color: "#b05cc4", events: (() => {
     const out = [];
-    for (let bar = 4; bar < 100; bar++) if (!inBreak(bar))
+    for (let bar = 0; bar < 96; bar++) if (!inBreak(bar))
       for (const beat of [1.5, 3]) out.push(ev(bar * BAR + beat * BEAT, 0.6 * BEAT));
     return out;
   })() },
   { key: "hats", color: "#1baf7a", events: (() => {
     const out = [];
-    for (let bar = 0; bar < 100; bar++) out.push(ev(bar * BAR, BAR * 0.96));
+    for (let bar = 0; bar < 96; bar++) out.push(ev(bar * BAR, BAR * 0.96));
     return out;
   })() },
   { key: "clap", color: "#e05a9e", events: (() => {
     const out = [];
-    for (let bar = 4; bar < 100; bar++) if (!inBreak(bar))
+    for (let bar = 0; bar < 96; bar++) if (!inBreak(bar))
       for (const beat of [1, 3]) out.push(ev(bar * BAR + beat * BEAT, 0.5 * BEAT));
     return out;
   })() },
   { key: "kick", color: "#e34948", events: (() => {
     const out = [];
-    for (let bar = 0; bar < 100; bar++) if (!inBreak(bar))
+    for (let bar = 0; bar < 96; bar++) if (!inBreak(bar))
       for (const b of beatsOf(bar)) out.push(ev(b * BEAT, 0.45 * BEAT));
     return out;
   })() },
   { key: "bass", color: "#2a78d6", events: (() => {
     const out = [];
-    for (let bar = 4; bar < 100; bar++) if (!inBreak(bar))
+    for (let bar = 0; bar < 96; bar++) if (!inBreak(bar))
       for (const half of [0, 2]) out.push(ev(bar * BAR + half * BEAT, 2 * BEAT * 0.95));
     return out;
   })() },
 ];
+
+// ── the word score, for the vox lane ─────────────────────────────────
+const WORDS = [];
+{
+  const scoreF = resolve(LANE, "vocal-score.json");
+  const lyrF = resolve(LANE, "out/imab-sacredvox.lyrics.json");
+  if (existsSync(scoreF) && existsSync(lyrF)) {
+    const syl = JSON.parse(readFileSync(lyrF, "utf8")).syllables;
+    const findSyl = (spec) => {
+      const [label, nth] = spec.split("#");
+      const hits = syl.filter((x) => x.label === label);
+      return hits[Number(nth ?? 0)] ?? null;
+    };
+    for (const evn of JSON.parse(readFileSync(scoreF, "utf8")).events ?? []) {
+      if (!evn.src) continue;
+      let label, durMs;
+      if (evn.src.startsWith("words:")) {
+        const [a2, b2] = evn.src.slice(6).split("..");
+        const s1 = findSyl(a2), s2 = findSyl(b2);
+        if (!s1 || !s2) continue;
+        label = `${a2}${b2}`; durMs = s2.toMs - s1.fromMs;
+      } else if (evn.src.startsWith("word:")) {
+        const w = findSyl(evn.src.slice(5));
+        if (!w) continue;
+        label = evn.src.slice(5).split("#")[0]; durMs = w.toMs - w.fromMs;
+      } else continue;
+      const t0 = evn.bar * BAR + ((evn.beat ?? 1) - 1) * BEAT;
+      WORDS.push({ label, t0, t1: t0 + (durMs / 1000) * (evn.stretch ?? 1),
+        harm: (evn.harm ?? []).length });
+    }
+  }
+}
+const WORD_IMGS = {};
+for (const w of new Set(WORDS.map((x) => x.label)))
+  WORD_IMGS[w] = await magickRenderText(w.replace(/[^a-z']/gi, ""), {
+    ptSize: 17, fill: "#ffe9a8", outPath: `${ASSETS}/w-${w.replace(/[^a-z]/gi, "")}.png`,
+  });
 
 // ── audio + envelope ─────────────────────────────────────────────────
 console.log("decoding audio…");
@@ -228,6 +265,25 @@ function drawFrame(now) {
         ROW_H - 6, evn.t0, evn.t1, lane.color, active ? 1 : 0.55);
     }
   });
+
+  // the word score rides the vox lane: a block per word, label inside
+  {
+    const y = TL_TOP + 36;                      // vox is lane 0
+    for (const w of WORDS) {
+      if (w.t1 < now - 4 * BAR || w.t0 > now + 4 * BAR) continue;
+      const x0 = t2x(w.t0, now), x1 = t2x(w.t1, now);
+      const active = now >= w.t0 && now < w.t1;
+      ctx.fillStyle = w.harm ? (active ? "#ffb3d9" : "#b3628a")
+        : (active ? "#ffe9a8" : "#9a8b57");
+      ctx.fillRect(x0, y + ROW_H * 0.15, Math.max(3, x1 - x0), ROW_H * 0.7);
+      const img = WORD_IMGS[w.label];
+      if (img && x1 - x0 > 8) {
+        ctx.globalAlpha = active ? 1 : 0.75;
+        ctx.drawImage(img, x0 + 2, y + ROW_H * 0.5 - img.height / 2);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
 
   // fixed playhead
   ctx.fillStyle = "rgba(255,255,255,0.9)";
