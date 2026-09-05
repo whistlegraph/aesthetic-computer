@@ -19,6 +19,12 @@ fi
 
 mkdir -p "$STATE" "$ADVERTISE_DIR"
 
+declare -a bwrap_command=(bwrap)
+if command -v aa-exec >/dev/null 2>&1 && \
+   aa-exec -p mediascholar-bwrap -- /bin/true >/dev/null 2>&1; then
+  bwrap_command=(aa-exec -p mediascholar-bwrap -- bwrap)
+fi
+
 declare -a root_paths=()
 for source_path in /bin /sbin /lib /lib64; do
   if [[ -L "$source_path" ]]; then
@@ -28,7 +34,7 @@ for source_path in /bin /sbin /lib /lib64; do
   fi
 done
 
-exec bwrap \
+exec "${bwrap_command[@]}" \
   --die-with-parent \
   --new-session \
   --unshare-pid \

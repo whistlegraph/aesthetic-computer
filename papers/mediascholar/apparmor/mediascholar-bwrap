@@ -1,0 +1,10 @@
+# Permit Bubblewrap to create the user namespace used by Mediascholar without
+# relaxing Ubuntu's global restriction on unprivileged user namespaces.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile mediascholar-bwrap flags=(unconfined) {
+  userns,
+
+  include if exists <local/mediascholar-bwrap>
+}

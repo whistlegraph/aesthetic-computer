@@ -20,7 +20,8 @@ RUNNER="$SOURCE_RUNNER"
 stage_runtime() {
   [[ -d "$REPO/node_modules" ]] || { echo "$REPO/node_modules is required" >&2; exit 1; }
   install -d -m 0755 \
-    "$RUNTIME/papers/bin" "$RUNTIME/papers/mediascholar/systemd" \
+    "$RUNTIME/papers/bin" "$RUNTIME/papers/mediascholar/apparmor" \
+    "$RUNTIME/papers/mediascholar/systemd" \
     "$RUNTIME/slab/bin" "$RUNTIME/toolchain/mcp"
   install -m 0755 "$SOURCE_ROOT/papers/bin/mediascholar.mjs" "$RUNTIME/papers/bin/mediascholar.mjs"
   install -m 0755 "$SOURCE_ROOT/papers/mediascholar/run-sandboxed.sh" "$RUNTIME/papers/mediascholar/run-sandboxed.sh"
@@ -37,6 +38,8 @@ stage_runtime() {
     "$SOURCE_ROOT/papers/mediascholar/topic-prompt.md" \
     "$SOURCE_ROOT/papers/mediascholar/paper-prompt.md" \
     "$RUNTIME/papers/mediascholar/"
+  install -m 0644 "$SOURCE_ROOT/papers/mediascholar/apparmor/mediascholar-bwrap" \
+    "$RUNTIME/papers/mediascholar/apparmor/mediascholar-bwrap"
   install -m 0755 "$SOURCE_ROOT/papers/mediascholar/install-jasellite.sh" \
     "$RUNTIME/papers/mediascholar/install-jasellite.sh"
   install -m 0644 "$SOURCE"/*.service "$SOURCE"/*.timer "$RUNTIME/papers/mediascholar/systemd/"
@@ -89,7 +92,14 @@ install_dependencies() {
   sudo -n ionice -c 3 nice -n 19 apt-get update
   sudo -n ionice -c 3 nice -n 19 apt-get install -y --no-install-recommends \
     texlive-xetex texlive-latex-extra texlive-fonts-recommended texlive-bibtex-extra \
-    poppler-utils imagemagick zip bubblewrap
+    poppler-utils imagemagick zip bubblewrap apparmor-utils
+  if command -v aa-exec >/dev/null 2>&1 && \
+     [[ -w /sys/kernel/security/apparmor/.load || -e /sys/module/apparmor ]]; then
+    sudo -n install -m 0644 \
+      "$RUNTIME/papers/mediascholar/apparmor/mediascholar-bwrap" \
+      /etc/apparmor.d/mediascholar-bwrap
+    sudo -n apparmor_parser -r /etc/apparmor.d/mediascholar-bwrap
+  fi
 }
 
 install_codex() {
