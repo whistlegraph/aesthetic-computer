@@ -31,20 +31,8 @@ UMask=0077
 # aa-exec must enter the named AppArmor profile before Bubblewrap creates the
 # namespace. Bubblewrap sets no_new_privs for the provider process itself.
 NoNewPrivileges=false
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=%h/.local/share/mediascholar
-ReadWritePaths=%h/.config/slab/ledger/advertise
-InaccessiblePaths=-%h/aesthetic-computer-vault
-InaccessiblePaths=-%h/.ssh
-InaccessiblePaths=-%h/.aws
-InaccessiblePaths=-%h/.gnupg
-InaccessiblePaths=-%h/.config/claude/oauth-token
-InaccessiblePaths=-%h/.config/mediascholar/credentials
-InaccessiblePaths=-%h/.claude
-InaccessiblePaths=-%h/.codex
-ProtectKernelTunables=true
-ProtectControlGroups=true
+# Filesystem, PID, temporary-file, device, and capability isolation are applied
+# by run-sandboxed.sh. Per-user systemd mount isolation would create a nested
+# user namespace before AppArmor can authorize Bubblewrap on Ubuntu 24.04.
 LockPersonality=true
 RestrictSUIDSGID=true
