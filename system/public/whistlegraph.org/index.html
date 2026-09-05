@@ -168,8 +168,8 @@
   .sortbar button.on{background:var(--margin); color:var(--paper); border-color:var(--margin)}
   .sectionbar{display:flex; flex-wrap:wrap; gap:0; margin:7px 0 13px; border-bottom:2px solid var(--line); align-items:flex-end}
   .sectionbar .sl{font-size:11px; color:var(--dim); padding:7px 9px 6px 0; text-transform:uppercase; letter-spacing:.08em}
-  .sectionbar button{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px}
-  .sectionbar button:hover{border-color:var(--line); background:var(--tint)}
+  .sectionbar button, .sectionbar a.tab{font:inherit; font-size:14px; color:var(--ink); border:1px solid transparent; border-bottom:0; background:transparent; padding:7px 11px 6px; cursor:pointer; margin-bottom:-2px; text-decoration:none}
+  .sectionbar button:hover, .sectionbar a.tab:hover{border-color:var(--line); background:var(--tint)}
   .sectionbar button.on{background:var(--ink); color:var(--paper); border-color:var(--ink)}
   .archive-kind{display:block; font-size:9px; letter-spacing:.03em; text-transform:uppercase; color:var(--margin)}
   .archive-desc{display:block; max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -309,7 +309,7 @@
   /* touch: sort chips + section tabs get real finger room */
   @media (pointer:coarse){
     .sortbar button{padding:5px 9px}
-    .sectionbar button{padding:9px 13px 8px}
+    .sectionbar button, .sectionbar a.tab{padding:9px 13px 8px}
   }
 </style>
 </head>
@@ -370,6 +370,7 @@
       <button data-section="works" class="on" data-i18n="section.works">Whistlegraphs</button>
       <button data-section="archive" data-i18n="section.posts">Posts</button>
       <button data-section="about" data-i18n="section.about">History</button>
+      <a class="tab" href="/wild" data-i18n="section.wild">Wild</a>
     </div>
     <div id="browse">
     <div class="searchrow">
@@ -482,7 +483,7 @@
 
     <hr class="thick">
     <footer>
-      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.09.02"}'>Last updated 2026.09.02</span><br>
+      <span data-i18n="footer.updated" data-i18n-vars='{"date":"2026.09.05"}'>Last updated 2026.09.05</span><br>
       <span data-i18n-html="footer.media">Media from the <a href="https://aesthetic.computer">aesthetic.computer</a> archive.</span>
     </footer>
   </div>
@@ -558,7 +559,7 @@ const EN={
   "search.aria":"Search whistlegraphs","search.empty":"Nothing matches that search.",
   "filters.toggle":"Filters","filters.label":"Filter:",
   "section.aria":"Archive section","section.works":"Whistlegraphs","section.posts":"Posts",
-  "section.about":"History",
+  "section.about":"History","section.wild":"Wild",
   "sort.viewed":"Popularity","sort.duration":"Duration","sort.videos":"Most videos",
   "sort.year":"By year","sort.title":"Title A–Z","sort.author":"Author A–Z",
   "sort.reverse":"Reverse order","sort.newest":"Newest","sort.oldest":"Oldest",
