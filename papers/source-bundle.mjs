@@ -21,7 +21,7 @@ function configuredFiles(paperDir) {
 
 export async function createSourceBundle({ paperDir, texBase }) {
   const texName = `${texBase}.tex`;
-  const defaults = [texName, `${texBase}.md`, "references.bib", "source-bundle.json"];
+  const defaults = [texName, `${texBase}.md`, "references.bib", "botted.json", "source-bundle.json"];
   for (const name of readdirSync(paperDir)) {
     if (name.endsWith(".sty") || name.endsWith(".cls")) defaults.push(name);
   }

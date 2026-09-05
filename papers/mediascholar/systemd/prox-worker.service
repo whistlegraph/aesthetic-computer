@@ -1,0 +1,28 @@
+[Unit]
+Description=Headless Linux Prox ledger and allowlisted job controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/mediascholar/env
+ExecStart=/usr/bin/env node %h/.local/lib/mediascholar/slab/bin/prox-worker.mjs
+Restart=on-failure
+RestartSec=10
+Nice=10
+CPUWeight=10
+MemoryMax=128M
+TasksMax=32
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/slab/ledger
+ProtectKernelTunables=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=default.target

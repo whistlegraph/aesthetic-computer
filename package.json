@@ -58,6 +58,8 @@
     "test:kidlisp-wasm:audio": "jasmine spec/kidlisp-wasm-sonic-spec.mjs",
     "papers": "node papers/cli.mjs",
     "papers:publish": "node papers/cli.mjs publish",
+    "mediascholar": "node papers/bin/mediascholar.mjs",
+    "test:mediascholar": "node --test papers/test/mediascholar.test.mjs slab/test/prox-worker.test.mjs slab/test/mediascholar-credential-proxy.test.mjs slab/test/mediascholar-mcp-integration.test.mjs",
     "user": "f() { echo -n \"https://cloud.digitalocean.com/spaces/user-aesthetic-computer?path=\"; curl -s \"https://aesthetic.computer/user?from=$1\" | jq -r '.sub'; }; f",
     "filter": "cd shared; node --experimental-repl-await -i -e \"import('./filter.mjs').then(m => global.filter = m.filter)\"",
     "chat": "echo '\n💬 Chat\n';",

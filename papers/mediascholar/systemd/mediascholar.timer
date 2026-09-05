@@ -1,0 +1,11 @@
+[Unit]
+Description=Offer Mediascholar one low-priority run each day
+
+[Timer]
+OnCalendar=*-*-* 09:17:00 UTC
+RandomizedDelaySec=45m
+Persistent=true
+Unit=mediascholar.service
+
+[Install]
+WantedBy=timers.target

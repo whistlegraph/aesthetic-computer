@@ -1,0 +1,12 @@
+[Unit]
+Description=Retry the guarded Mediascholar dependency bootstrap
+
+[Timer]
+OnBootSec=20m
+OnUnitInactiveSec=6h
+RandomizedDelaySec=30m
+AccuracySec=5m
+Unit=mediascholar-bootstrap.service
+
+[Install]
+WantedBy=timers.target

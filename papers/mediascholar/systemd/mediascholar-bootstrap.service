@@ -1,0 +1,21 @@
+[Unit]
+Description=Install Mediascholar paper tools during an admitted quiet interval
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/aesthetic-computer/.git
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash %h/.local/lib/mediascholar/papers/mediascholar/install-jasellite.sh --bootstrap-once
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=1
+CPUQuota=25%
+IOWeight=1
+MemoryMax=1024M
+TasksMax=128
+TimeoutStartSec=2h
+TimeoutStopSec=30
+KillMode=mixed
+OOMPolicy=stop
+UMask=0077

@@ -1,0 +1,48 @@
+[Unit]
+Description=Mediascholar unattended Botted Paper run
+After=network-online.target mediascholar-proxy.service prox-worker.service
+Wants=network-online.target mediascholar-proxy.service prox-worker.service
+ConditionPathExists=%h/aesthetic-computer/.git
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/mediascholar/env
+Environment=MEDIASCHOLAR_PROXY_URL=http://127.0.0.1:7431
+Environment=XDG_CACHE_HOME=%h/.local/share/mediascholar/cache
+Environment=TEXMFVAR=%h/.local/share/mediascholar/texmf-var
+Environment=TEXMFCONFIG=%h/.local/share/mediascholar/texmf-config
+Environment=CLAUDE_CONFIG_DIR=%h/.local/share/mediascholar/claude
+Environment=CODEX_HOME=%h/.local/share/mediascholar/codex
+UnsetEnvironment=ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY CODEX_API_KEY
+ExecStart=/usr/bin/env bash %h/.local/lib/mediascholar/papers/mediascholar/run-sandboxed.sh
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=1
+CPUQuota=50%
+IOWeight=1
+MemoryHigh=1536M
+MemoryMax=2048M
+TasksMax=128
+TimeoutStartSec=6h
+TimeoutStopSec=30
+KillMode=mixed
+OOMPolicy=stop
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/mediascholar
+ReadWritePaths=%h/.config/slab/ledger/advertise
+InaccessiblePaths=-%h/aesthetic-computer-vault
+InaccessiblePaths=-%h/.ssh
+InaccessiblePaths=-%h/.aws
+InaccessiblePaths=-%h/.gnupg
+InaccessiblePaths=-%h/.config/claude/oauth-token
+InaccessiblePaths=-%h/.config/mediascholar/credentials
+InaccessiblePaths=-%h/.claude
+InaccessiblePaths=-%h/.codex
+ProtectKernelTunables=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictSUIDSGID=true

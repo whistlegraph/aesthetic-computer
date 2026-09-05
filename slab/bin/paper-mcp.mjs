@@ -19,10 +19,15 @@ import { basename, dirname, extname, join, relative, resolve, sep } from "node:p
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { createSourceBundle } from "../../papers/source-bundle.mjs";
 
 const pexec = promisify(execFile);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(SCRIPT_DIR, "../..");
+// Headless workers run the MCP implementation from the stable checkout while
+// building inside an isolated git worktree. PAPER_REPO points catalog/build
+// operations at that worktree without copying or executing unreviewed tools
+// from it.
+const REPO = resolve(process.env.PAPER_REPO || resolve(SCRIPT_DIR, "../.."));
 const DEFAULT_VAULT = resolve(REPO, "../aesthetic-computer-vault");
 const SKIP_DIRS = new Set([".git", "node_modules", "figures", "logos", "data", "tools", "build", "dist"]);
 const SOURCE_EXTS = new Set([".tex", ".md"]);
@@ -53,12 +58,14 @@ async function configuredRoots() {
   for (const candidate of vaultCandidates) {
     if (await exists(candidate)) { vault = candidate; break; }
   }
-  const roots = [
-    { scope: "public", path: join(REPO, "papers") },
-    { scope: "private", path: join(REPO, "papers-private") },
-    { scope: "vault", path: join(vault, "papers-private") },
-    { scope: "fuser", path: join(vault, "fuser", "papers") },
-  ];
+  const roots = [{ scope: "public", path: join(REPO, "papers") }];
+  if (process.env.PAPER_DISABLE_VAULT !== "1") {
+    roots.push(
+      { scope: "private", path: join(REPO, "papers-private") },
+      { scope: "vault", path: join(vault, "papers-private") },
+      { scope: "fuser", path: join(vault, "fuser", "papers") },
+    );
+  }
   if (process.env.PAPER_ROOT) roots.unshift({ scope: "configured", path: resolve(process.env.PAPER_ROOT) });
   const extra = String(process.env.AC_PAPER_ROOTS || "")
     .split(":").map((p) => p.trim()).filter(Boolean);
@@ -349,6 +356,7 @@ async function buildRecord(rec, passes = 2) {
   if (!rec.sourcePath || extname(rec.sourcePath).toLowerCase() !== ".tex") {
     throw new Error(`${rec.id} has no TeX source.`);
   }
+  await createSourceBundle({ paperDir: rec.dir, texBase: rec.stem });
   const engine = await texEngine();
   const requestedPasses = Math.max(1, Math.min(4, Number(passes) || 2));
   // Tectonic resolves references to convergence itself; repeating the whole
@@ -358,7 +366,7 @@ async function buildRecord(rec, passes = 2) {
   for (let pass = 1; pass <= count; pass++) {
     try {
       const args = engine.kind === "xelatex"
-        ? ["-interaction=nonstopmode", "-halt-on-error", "-file-line-error", basename(rec.sourcePath)]
+        ? ["-no-shell-escape", "-interaction=nonstopmode", "-halt-on-error", "-file-line-error", basename(rec.sourcePath)]
         : ["--keep-logs", "--keep-intermediates", "--synctex", basename(rec.sourcePath)];
       const result = await pexec(engine.path, args, { cwd: rec.dir, timeout: 180_000, maxBuffer: 8 * 1024 * 1024 });
       output += result.stdout || "";

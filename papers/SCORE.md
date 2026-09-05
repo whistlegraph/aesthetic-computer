@@ -8,7 +8,7 @@ The mill is not an academic obligation. It is a publishing infrastructure — a 
 
 ## Attribution
 
-All AC papers are bylined **@jeffrey** — this is enforced in `cli.mjs` (`AUTHOR_NAME = "@jeffrey"`, `AUTHOR_URI = "https://prompt.ac/@jeffrey"`). The only place a full legal name appears is the CV title. Do **not** byline AC papers (or AC pop essays) as "Studio Zollo"; that studio name is for @jeffrey's separate personal-art / non-AC attributions only. AC papers + AC pop = @jeffrey / aesthetic.computer.
+All human-authored AC papers are bylined **@jeffrey** — this is enforced in `cli.mjs` (`AUTHOR_NAME = "@jeffrey"`, `AUTHOR_URI = "https://prompt.ac/@jeffrey"`). The only place a full legal name appears is the CV title. Do **not** byline AC papers (or AC pop essays) as "Studio Zollo"; that studio name is for @jeffrey's separate personal-art / non-AC attributions only. AC papers + AC pop = @jeffrey / aesthetic.computer. Mediascholar candidates are the exception before human acceptance: they are bylined **Mediascholar**, carry `botted.json`, and must not imply that @jeffrey supplied or endorses their topic.
 
 ## What This Is
 
@@ -181,6 +181,15 @@ specified in [`GEAR-GUESS.md`](GEAR-GUESS.md).
 |---|---|---|
 | [`aesthetic-computer-media`](gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex) | One fast portable media workspace across the fleet | guess 1 |
 | [`xbox-native-fleet`](gear-guess-xbox-native-fleet/xbox-native-fleet.tex) | Three native screens, a narrow tailnet route, and no imaginary pooled GPU | guess 1 |
+
+### 13. Botted Papers (`arxiv-botted-*/`, candidate-only)
+
+[Mediascholar](mediascholar/) synthesizes an unsupplied new-media question,
+checks it against independent public signals and prior papers, then runs the
+full arXiv mill. Its output is a **Botted Paper**: bylined Mediascholar, marked
+with `botted.json`, and held in an isolated checkout for review. Automation
+ends at the candidate. Publishing, merging, and adopting an @jeffrey byline
+remain deliberate human actions.
 
 ## Tooling
 

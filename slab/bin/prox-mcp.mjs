@@ -425,6 +425,40 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   }];
 }
 
+async function toolJob({ host, job = "mediascholar", action = "status" }) {
+  const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
+  if (!wanted) throw new Error("`host` is required (for example, jasellite).");
+  const jobName = String(job || "").trim().toLowerCase();
+  if (jobName !== "mediascholar") throw new Error("`job` must be `mediascholar`.");
+  const jobAction = String(action || "status").trim().toLowerCase();
+  if (!new Set(["start", "status", "cancel"]).has(jobAction)) {
+    throw new Error("`action` must be `start`, `status`, or `cancel`.");
+  }
+  const ledgers = await allLedgers();
+  const target = ledgers.find((ledger) => String(ledger.host || "").toLowerCase() === wanted);
+  if (!target) throw new Error(`no cached ledger for host «${host}» — its headless Prox must be online first.`);
+  if (!target.ip) throw new Error(`no tailnet IP known for ${target.host}.`);
+  const body = JSON.stringify({ job: jobName, action: jobAction });
+  const response = await fetch(`http://${target.ip}:${PORT}/job`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    body,
+    signal: AbortSignal.timeout(20_000),
+  }).catch((error) => {
+    throw new Error(`${jobAction} ${jobName} on ${target.host} (${target.ip}) failed: ${error.message}`);
+  });
+  let result;
+  try { result = await response.json(); }
+  catch { throw new Error(`${target.host} returned an invalid job response (HTTP ${response.status}).`); }
+  if (!response.ok || !result.ok) {
+    throw new Error(`${jobAction} ${jobName} on ${target.host} failed: ${result.error || `HTTP ${response.status}`}`);
+  }
+  const detail = result.properties
+    ? Object.entries(result.properties).map(([key, value]) => `${key}=${value}`).join(" ")
+    : `state=${result.state || "ok"}`;
+  return [{ type: "text", text: `${target.host}:${jobName} ${jobAction} — ${detail}` }];
+}
+
 async function toolBindNotification({ handle, contact, event = "imessage", wake = true }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
@@ -570,6 +604,20 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_job",
+    description:
+      "Start, inspect, or cancel one allowlisted headless job on a Linux Prox host. The remote endpoint accepts only a fixed job name mapped to a systemd user unit; it never accepts command text, paths, prompts, environment variables, or arbitrary executables. Starting may consume provider usage; cancel stops the named unit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        host: { type: "string", description: "Headless Prox hostname, for example jasellite." },
+        job: { type: "string", enum: ["mediascholar"], default: "mediascholar" },
+        action: { type: "string", enum: ["start", "status", "cancel"], default: "status" },
+      },
+      required: ["host"],
+    },
+  },
+  {
     name: "prox_bind_notification",
     description:
       "Create or replace one contact-keyed Loopboy route from iMessage to a stable local prox. Every new inbound from that contact pokes the rock and, by default, reactivates its terminal session with a steering prompt. This does not send or react to the incoming message.",
@@ -592,6 +640,7 @@ async function callTool(name, args) {
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
     case "prox_launch": return toolLaunch(args || {});
+    case "prox_job": return toolJob(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});
     case "prox_loopboy_wait": return toolLoopboyWait(args || {}, context);
     case "prox_loopboy_agent_status": return toolLoopboyAgentStatus(args || {});
@@ -639,4 +688,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_close, prox_dump)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_job, prox_close, prox_dump)" });
