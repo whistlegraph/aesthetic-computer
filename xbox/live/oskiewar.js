@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 97;
+const buildVersion = 98;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2661,6 +2661,32 @@ function updateVersusSeat(now) {
   }
 }
 
+// The waiting room owes its lone fighter a real death. In a fight the
+// round system rebuilds a destroyed body, but the lobby has no rounds — a
+// fighter blasted down to a bouncing head would hop the empty room forever
+// as scraps. Losing the torso now reads as dying: the head gets a short
+// beat to land, then a KO drops it, and the lobby respawn hands back a
+// whole body.
+let lobbyDoomAt = 0;
+function updateLobbyMortality(now) {
+  if (!lobbyActive()) { lobbyDoomAt = 0; return; }
+  const player = players[0];
+  if (!player.alive || hasPart(player, "torso")) { lobbyDoomAt = 0; return; }
+  if (!lobbyDoomAt) { lobbyDoomAt = now + 2200000; return; }
+  if (now < lobbyDoomAt) return;
+  lobbyDoomAt = 0;
+  player.alive = false;
+  player.respawnAt = now + 1600000;
+  player.vx = 0;
+  player.vy = 0;
+  player.stance = "HIT";
+  player.lastButton = "DESTROYED";
+  player.lastButtonAt = now;
+  impacts.push({ x: player.x, y: player.y - 60, z: player.z, life: .55,
+    duration: .55, death: true, explosion: false });
+  playDrum("whoosh", 1.15, panPlayer(player));
+}
+
 // Deprecated with PAL_SELECT — see the flag.
 function beginSelect(now) {
   selecting = true;
@@ -4258,7 +4284,7 @@ function updateResultReactions(now) {
       if (pressed === "ArrowRight") player.facing = 1;
       player.resultReaction = winner
         ? ({ LAUGH: "LAUGH", A: "KICK", B: "PUNCH", X: "POSE", Y: "DANCE",
-            ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP",
+            ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "AIR",
             ArrowDown: "CROUCH" }[pressed] || "DANCE")
         : ({ A: "CRY", B: "WOE", X: "SULK", Y: "WIGGLE" }[pressed] ||
           "WOE");
@@ -5352,7 +5378,7 @@ function directionTap(player, direction, now) {
   if (now - previousTap > doubleTapUs || releasedAt <= previousTap ||
       now - releasedAt < doubleTapReleaseUs) return false;
   player.lastTap[direction] = -10000000;
-  player.pendingMoveLabel = direction === "UP" ? "ULTRA JUMP" : "DASH " + direction;
+  player.pendingMoveLabel = direction === "UP" ? "ULTRA AIR" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
     player.vy = -ultraJumpVelocity;
@@ -6037,6 +6063,12 @@ function updatePlayer(player, pad, dt, now) {
       player.hitSegment = -1;
       player.hitSegmentUntil = 0;
       player.hitStunUntil = 0;
+      // The waiting room hands back a whole body: parts are round
+      // furniture and the lobby has no round to rebuild them.
+      if (lobbyActive()) {
+        player.removedParts = [];
+        player.partDamage = {};
+      }
       player.alive = true;
     }
     return;
@@ -6307,8 +6339,8 @@ function updatePlayer(player, pad, dt, now) {
       player.doubleJumpLinesUntil = now + 280000;
     }
     player.pendingMoveLabel = player.skateboard ? "OLLIE"
-      : airJump ? "DOUBLE JUMP"
-      : wasCrouched ? "CROUCH JUMP" : "JUMP";
+      : airJump ? "DOUBLE AIR"
+      : wasCrouched ? "CROUCH AIR" : "AIR";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
@@ -6871,6 +6903,7 @@ function gameSim() {
   // The versus seat watches from the title on — a friend can take the chair
   // while the host is still reading the wordmark, and the fight lifts it.
   updateVersusSeat(now);
+  updateLobbyMortality(now);
   if (survivalActive() && shellMode === "MENU") {
     updateCameraDoll(dt, now);
     captureFrameTelemetry(now);
@@ -8395,14 +8428,14 @@ function controlLocale() {
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W JUMP",
+    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W AIR",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP JUMP",
+    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP AIR",
   };
 }
 
@@ -8414,7 +8447,7 @@ function combatKeys() {
     [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
     ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
     ["SHIFT", "SHIELD", "X"], ["ALT", "USE ITEM", "Y"],
-    ["W", "JUMP", "ArrowUp"]];
+    ["W", "AIR", "ArrowUp"]];
   if (caps.inputFamily === "touch") return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"],
     ["X", "SHIELD", "X"], ["Y", "USE ITEM", "Y"]];
@@ -8422,7 +8455,7 @@ function combatKeys() {
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
     [["RIGHT", "RIGHT"], ">> DASH", "ArrowRight"],
     ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "SHIELD", "X"],
-    ["Y", "USE ITEM", "Y"], ["STICK_UP", "JUMP", "ArrowUp"]];
+    ["Y", "USE ITEM", "Y"], ["STICK_UP", "AIR", "ArrowUp"]];
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -8586,53 +8619,94 @@ const m30FaceSends = { C: "RightTrigger", Z: "RightShoulder" };
 const m30SendLabel = { RightTrigger: "SHIELD", RightShoulder: "USE ITEM",
   LeftTrigger: "KICK", LeftShoulder: "USE ITEM" };
 
-// The M30's own manual page. A six-button pad understated by a four-row
-// column becomes the controller itself, laid out like the hardware in the
-// hand: d-pad west, the two button arcs east — green A, yellow B, blue C
-// under a gray top row — and the red START between them. Every drawn
-// control lights with the live press, so the mapping is not a diagram of
-// faith: plug in, press, and the page answers.
+// The M30's own manual page, drawn from the device itself: the white
+// dogbone body with red L/R nubs over its shoulders, the dark cross on its
+// round base, the red start pill, and the two button arcs climbing to the
+// right — gray X/Y/Z small on top, green A / yellow B / blue C big below,
+// the bottom row shifted toward the thumb. Proportions transcribed from
+// 8BitDo's top-down of the M30 2.4G (white), the unit in @jeffrey's hand.
+// Every drawn control lights with the live press, so the mapping is not a
+// diagram of faith: plug in, press, and the page answers.
 function drawM30Cluster(x, y, size, held, directionActive, ink) {
   const small = Math.round(size * .58);
-  const gap = Math.max(4, Math.round(size * .25));
   const d = padButtonDiameter(size);
-  const pitch = d + gap;
-  typeWrite("8BITDO M30", x, y, small, ...ink);
-  const bodyTop = y + Math.round(small * 1.8);
-  // The d-pad cross, lit by buttons and stick alike.
-  const cross = [["STICK_UP", "ArrowUp", d, 0], ["LEFT", "ArrowLeft", 0, d],
-    ["RIGHT", "ArrowRight", d * 2, d], ["DOWN", "ArrowDown", d, d * 2]];
-  for (const [cap, button, dx, dy] of cross)
-    drawPadButton(cap, x + dx, bodyTop + dy, size, directionActive(button));
-  // START — the small red button in the middle of the body.
-  const startSize = Math.round(size * .62);
-  const startDiam = padButtonDiameter(startSize);
-  const startX = x + d * 3 + Math.round(size * .9);
-  const startY = bodyTop + Math.round(d * 1.5 - startDiam / 2);
-  drawPadButton("M30S", startX, startY, startSize, held.includes("Menu"), 1, "");
-  const startLabelSize = Math.round(small * .85);
-  typeWrite("START", Math.round(startX + startDiam / 2 -
-    handleWidth("START", startLabelSize) / 2),
-    startY + startDiam + 3, startLabelSize, ...ink);
-  // The two face arcs: the middle button of each row rides a hair higher.
-  const faceX = startX + startDiam + Math.round(size * .9);
-  const arc = [Math.round(size * .28), 0, Math.round(size * .28)];
-  const rows = [
-    [["M30X", "X", held.includes("X")], ["M30Y", "Y", held.includes("Y")],
-      ["M30Z", "Z", held.includes(m30FaceSends.Z)]],
-    [["M30A", "A", held.includes("A")], ["M30B", "B", held.includes("B")],
-      ["M30C", "C", held.includes(m30FaceSends.C)]],
+  const light = visualTheme.light;
+  const lobeR = Math.round(d * 1.62);
+  const bodyMidY = y + Math.round(d * .3) + lobeR;
+  const leftLobeX = x + lobeR;
+  const rightLobeX = x + Math.round(d * 7.5) - lobeR;
+  const plastic = mixColor([176, 182, 194], [246, 248, 251], light);
+  const print = mixColor([92, 98, 112], [118, 124, 138], light);
+  // Shoulder nubs first, so the body covers their roots.
+  const nub = mixColor([196, 44, 58], [206, 48, 62], light);
+  filledCapsule(leftLobeX - d, bodyMidY - lobeR, leftLobeX + Math.round(d * .2),
+    bodyMidY - lobeR, Math.round(d * .4), nub);
+  filledCapsule(rightLobeX - Math.round(d * .2), bodyMidY - lobeR,
+    rightLobeX + d, bodyMidY - lobeR, Math.round(d * .4), nub);
+  filledDisc(leftLobeX, bodyMidY, lobeR, plastic);
+  filledDisc(rightLobeX, bodyMidY, lobeR, plastic);
+  filledCapsule(leftLobeX, bodyMidY, rightLobeX, bodyMidY,
+    Math.round(lobeR * 1.7), plastic);
+  // The silkscreen wordmark rides the body's top center.
+  const markSize = Math.round(small * .9);
+  typeWrite("8BITDO M30", Math.round((leftLobeX + rightLobeX) / 2 -
+    handleWidth("8BITDO M30", markSize) / 2),
+    bodyMidY - lobeR + Math.round(d * .1), markSize, ...print);
+  // D-pad: the dark cross on its round base, each arm lighting alone.
+  const dpadBase = mixColor([44, 48, 60], [58, 62, 74], light);
+  filledDisc(leftLobeX, bodyMidY, Math.round(d * 1.02), dpadBase);
+  const crossInk = mixColor([24, 27, 36], [32, 35, 44], light);
+  const armLen = Math.round(d * .8);
+  const armWidth = Math.round(d * .5);
+  const arms = [["ArrowUp", 0, -1], ["ArrowDown", 0, 1],
+    ["ArrowLeft", -1, 0], ["ArrowRight", 1, 0]];
+  for (const [button, dx, dy] of arms)
+    filledCapsule(leftLobeX, bodyMidY, leftLobeX + dx * armLen,
+      bodyMidY + dy * armLen, armWidth, directionActive(button)
+        ? mixColor(crossInk, [245, 248, 255], .5) : crossInk);
+  filledDisc(leftLobeX, bodyMidY, Math.max(2, Math.round(d * .14)),
+    mixColor([16, 18, 26], [22, 24, 32], light));
+  // START — the red pill mid-body, its name silkscreened beneath, with the
+  // 2.4G's three tiny extras below. Pressed wears the discs' white rim.
+  const startPressed = held.includes("Menu");
+  const midX = Math.round((leftLobeX + rightLobeX) / 2);
+  const pillHalf = Math.round(size * .5);
+  const pillY = bodyMidY - Math.round(d * .28);
+  if (startPressed) filledCapsule(midX - pillHalf, pillY, midX + pillHalf,
+    pillY, Math.round(size * .44) + 4, [245, 248, 255]);
+  filledCapsule(midX - pillHalf, pillY, midX + pillHalf, pillY,
+    Math.round(size * .44), startPressed
+      ? mixColor(padButtonInk.M30S, [255, 255, 255], .3) : padButtonInk.M30S);
+  const startLabelSize = Math.round(small * .8);
+  typeWrite("START", Math.round(midX - handleWidth("START", startLabelSize) / 2),
+    pillY + Math.round(size * .32), startLabelSize, ...print);
+  for (let dot = 0; dot < 3; dot++)
+    filledDisc(midX + (dot - 1) * Math.round(d * .42),
+      pillY + Math.round(d * .85), Math.max(2, Math.round(d * .09)), print);
+  // The face arcs climb to the right like the hardware; the top row runs
+  // smaller and the bottom row leans into the thumb.
+  const pitch = Math.round(d * 1.05);
+  const drop = Math.round(d * .3);
+  const smallFace = Math.round(size * .82);
+  const disc = (key, cap, cx, cy, buttonSize, pressed) =>
+    drawPadButton(key, cx - Math.round(buttonSize * .78),
+      cy - Math.round(buttonSize * .75), buttonSize, pressed, 1, cap);
+  const face = [
+    ["M30X", "X", 0, 0, smallFace, held.includes("X")],
+    ["M30Y", "Y", 1, 0, smallFace, held.includes("Y")],
+    ["M30Z", "Z", 2, 0, smallFace, held.includes(m30FaceSends.Z)],
+    ["M30A", "A", 0, 1, size, held.includes("A")],
+    ["M30B", "B", 1, 1, size, held.includes("B")],
+    ["M30C", "C", 2, 1, size, held.includes(m30FaceSends.C)],
   ];
-  let faceY = bodyTop + Math.round(d * .35);
-  for (const [rowIndex, row] of rows.entries()) {
-    // The bottom arc sits shifted right, like the thumb finds it.
-    const shift = rowIndex ? Math.round(d * .35) : 0;
-    for (const [column, [key, cap, pressed]] of row.entries())
-      drawPadButton(key, faceX + shift + column * pitch, faceY + arc[column],
-        size, pressed, 1, cap);
-    faceY += d + Math.round(gap * 1.6);
-  }
-  let rowY = bodyTop + d * 3 + Math.round(small * 1.2);
+  for (const [key, cap, column, row, buttonSize, pressed] of face)
+    disc(key, cap,
+      rightLobeX + Math.round((column - 1) * pitch - d * .35) +
+        (row ? Math.round(d * .34) : 0),
+      bodyMidY - Math.round(d * .8) + (2 - column) * drop +
+        (row ? Math.round(d * .92) : 0),
+      buttonSize, pressed);
+  let rowY = bodyMidY + lobeR + Math.round(small * 1.2);
   const captions = [
     `A KICK  B PUNCH  C ${m30SendLabel[m30FaceSends.C]}`,
     `X SHIELD  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
@@ -8669,7 +8743,7 @@ function drawControlLegend(ink) {
     ["LEFT", "ArrowLeft", directionActive("ArrowLeft") ? "MOVE" : ""],
     ["RIGHT", "ArrowRight", dash ? "DASH >>" :
       directionActive("ArrowRight") ? "MOVE" : ""],
-    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "JUMP" : ""],
+    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "AIR" : ""],
     ["DOWN", "ArrowDown", directionActive("ArrowDown") ? "CROUCH" : ""],
     ["A", "A", both ? "GRAB" : held.includes("A") ? "KICK" : ""],
     ["B", "B", !both && held.includes("B") ? "PUNCH" : ""],
@@ -11112,12 +11186,42 @@ function hudClockBox(unixMs) {
     capabilities().inputFamily === "touch";
   const size = touch ? 16 : hudTypeSize;
   const qrBox = spectatorQrBox();
-  const right = qrBox ? qrBox.left - 14 : safe.right;
+  const anchor = qrBox ? qrBox.left - 14 : safe.right;
+  // National identity begins at this corner: the local country's flag flies
+  // just left of the QR and the clock lane slides over to make room. US
+  // first — more flags join as they are drawn.
+  const flagCode = typeof capabilities === "function" &&
+    capabilities().country === "US" ? "US" : "";
+  const flagWidth = flagCode ? Math.round(size * 2.1) : 0;
+  const right = anchor - (flagCode ? flagWidth + 12 : 0);
   const dialRadius = Math.max(6, Math.round(size * .38));
   const dialGap = Math.max(5, Math.round(size * .2));
   const textRight = right - dialRadius * 2 - dialGap;
-  return { label, size, right, textRight, dialRadius,
-    dialX: right - dialRadius, left: textRight - handleWidth(label, size) };
+  return { label, size, right, textRight, dialRadius, anchor, flagCode,
+    flagWidth, dialX: right - dialRadius,
+    left: textRight - handleWidth(label, size) };
+}
+
+// Old Glory at corner scale: seven stripes and a starred canton read as the
+// flag long before thirteen would, and the stars stay dots — real stars need
+// more pixels than the corner owns. Shadowed like the type beside it so it
+// flies on any sky.
+function drawUsFlag(x, y, width, height, ink) {
+  box(x + 2, y + 2, width, height, ...contrastShadow(ink));
+  const stripes = 7;
+  for (let stripe = 0; stripe < stripes; stripe++) {
+    const top = y + Math.round(stripe * height / stripes);
+    const bottom = y + Math.round((stripe + 1) * height / stripes);
+    box(x, top, width, bottom - top,
+      ...(stripe % 2 ? [238, 242, 247] : [188, 32, 46]));
+  }
+  const cantonWidth = Math.round(width * .44);
+  const cantonHeight = Math.round(height * 4 / stripes);
+  box(x, y, cantonWidth, cantonHeight, 38, 52, 122);
+  for (let star = 0; star < 6; star++)
+    filledDisc(x + Math.round(cantonWidth * (.22 + (star % 3) * .28)),
+      y + Math.round(cantonHeight * (star < 3 ? .3 : .7)),
+      Math.max(1, Math.round(height * .05)), [238, 242, 247]);
 }
 
 function drawHudClock(clock, y, ink, unixMs) {
@@ -11355,6 +11459,13 @@ function drawSpectatorQr(ink, placement = null) {
   const qr = placement || spectatorQrBox();
   if (!qr) return;
   const { count, quiet, cell, size, left, top } = qr;
+  // National identity flies beside the code, wherever the code goes. US
+  // first — more flags join as they are drawn. Reel placements opt out with
+  // the rest of the HUD furniture.
+  if (!placement && typeof capabilities === "function" &&
+      capabilities().country === "US")
+    drawUsFlag(left - Math.round(hudTypeSize * 2.1) - 12, top + 2,
+      Math.round(hudTypeSize * 2.1), Math.round(hudTypeSize * 1.2), ink);
   const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
   triangleDepth = -1.43;
@@ -11840,7 +11951,7 @@ function drawVersusHud(t, ink, run) {
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
-  const headline = "FIGHT A FRIEND";
+  const headline = "WAITING ROOM";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -11849,7 +11960,8 @@ function drawVersusHud(t, ink, run) {
   const headY = hud.top + (compact ? 30 : 42);
   typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
   typeWrite(headline, headX, headY, headSize, ...headInk);
-  const address = "OSKIEWAR.COM/" + versusRoomName.toUpperCase();
+  const address = "FIGHT A FRIEND  OSKIEWAR.COM/" +
+    versusRoomName.toUpperCase();
   const addressSize = compact ? 16 : 23;
   const addressWidth = handleWidth(address, addressSize);
   const addressY = headY + headSize + 10;

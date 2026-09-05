@@ -354,7 +354,7 @@ test("a detected pad swaps the round legend onto gamepad wording", () => {
   assert.equal(host.capabilities().inputFamily, "xbox");
   const { fight } = createFight(false, false, "xbox-uwp");
   assert.equal(fight.combatLegend(fight.players[0]),
-    "LEFT,RIGHT MOVE   RIGHT,RIGHT >> DASH   A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK JUMP");
+    "LEFT,RIGHT MOVE   RIGHT,RIGHT >> DASH   A KICK   B PUNCH   X SHIELD   Y USE ITEM   STICK AIR");
 });
 
 test("every instructional keyboard key uses the shared gray keycap renderer", () => {
@@ -2662,7 +2662,7 @@ test("double-tap directions trigger dash, ultra-jump, and fast-drop", () => {
 
   tap(0, "ArrowUp");
   tap(0, "ArrowUp");
-  assert.equal(fight.players[0].lastButton, "ULTRA JUMP");
+  assert.equal(fight.players[0].lastButton, "ULTRA AIR");
   assert.ok(fight.players[0].vy < -1100);
 
   // Airborne, double-tap DOWN is the ground pound, not a nameless fast drop —
@@ -3244,7 +3244,7 @@ test("fighters can crouch in air and carry a crouch into a jump", () => {
   crouchJump.pads[0].down = ["ArrowUp"];
   crouchJump.tick();
   assert.equal(jumpPlayer.crouchJump, true);
-  assert.equal(jumpPlayer.lastButton, "CROUCH JUMP");
+  assert.equal(jumpPlayer.lastButton, "CROUCH AIR");
   crouchJump.tick(90000);
   assert.ok(jumpPlayer.vy < 0);
   assert.equal(jumpPlayer.ducking, true);
@@ -3305,7 +3305,7 @@ test("the ultra jump still clears the platform after the gravity retune", { skip
   player.x = (stage.platformLeft + stage.platformRight) / 2;
   tap(0, "ArrowUp");
   tap(0, "ArrowUp");
-  assert.equal(player.lastButton, "ULTRA JUMP");
+  assert.equal(player.lastButton, "ULTRA AIR");
   for (let frame = 0; frame < 200 && !player.grounded; frame++) tick();
   assert.ok(player.grounded);
   assert.ok(player.y < stage.floorY,
@@ -4820,7 +4820,7 @@ test("shielding plants a runner but preserves crouch input", () => {
 
 test("victory controls select directional attack and movement frames", () => {
   assert.match(source, /A: "KICK", B: "PUNCH"/);
-  assert.match(source, /ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP"/);
+  assert.match(source, /ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "AIR"/);
   assert.match(source, /player\.resultReactionAt \|\| now/);
 });
 
