@@ -49,6 +49,13 @@
   .excerpt::before{content:"“"}
   .excerpt::after{content:"”"}
 
+  .media{margin:8px 0 4px}
+  .media img,.media video{display:block;max-width:100%;max-height:360px;
+    border:1px solid var(--hair);border-radius:6px;background:#efece2}
+  .media a.shot{display:inline-block;line-height:0}
+  .keep{font:11px var(--mono);color:var(--dim);margin-top:3px;display:block}
+  .keep a{color:var(--dim)}
+
   footer{max-width:760px;margin:30px auto 0;font:12px/1.7 var(--mono);color:var(--dim)}
   footer a{color:var(--dim)}
 </style>
@@ -61,8 +68,9 @@
 <main id="field"></main>
 <footer>
   Third-party sightings across the open web, gathered by coordinated search
-  sweeps and link-verified before listing. Some pages may have drifted or died
-  since; that is the wild for you.
+  sweeps and link-verified before listing. Media and page snapshots are
+  slurped onto our own shelf (⤓) so a sighting outlives its source; the
+  originals may still drift or die — that is the wild for you.
 </footer>
 
 <script type="module">
@@ -112,6 +120,44 @@ try {
         q.className = "excerpt";
         q.textContent = e.excerpt;
         art.append(q);
+      }
+      if (e.media) {
+        // Slurped copies (wild-slurp.mjs): the sighting's own media, kept on
+        // our shelf so it outlives the source page.
+        const m = e.media;
+        const box = document.createElement("div");
+        box.className = "media";
+        if (m.video) {
+          const v = document.createElement("video");
+          v.src = m.video;
+          v.controls = true;
+          v.preload = "none";
+          v.playsInline = true;
+          if (m.poster) v.poster = m.poster;
+          box.append(v);
+        } else if (m.poster) {
+          const shot = document.createElement("a");
+          shot.className = "shot";
+          shot.href = m.archive || e.url;
+          shot.rel = "noopener";
+          const img = document.createElement("img");
+          img.src = m.poster;
+          img.loading = "lazy";
+          img.alt = e.title;
+          shot.append(img);
+          box.append(shot);
+        }
+        if (m.archive) {
+          const keep = document.createElement("span");
+          keep.className = "keep";
+          const ka = document.createElement("a");
+          ka.href = m.archive;
+          ka.rel = "noopener";
+          ka.textContent = `archived copy · ${m.slurped || ""}`;
+          keep.append("⤓ ", ka);
+          box.append(keep);
+        }
+        if (box.childNodes.length) art.append(box);
       }
       sec.append(art);
     }
