@@ -31,7 +31,7 @@
 //   → out/imab-hitbaker-demo1.wav + .mp3   (then verify:
 //     pop/.venv/bin/python pop/study/study.py out/imab-hitbaker-demo1.wav ...)
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -86,14 +86,15 @@ const put = (buf, y, t, g) => {
   for (let j = 0; a + j < z; j++) buf[a + j] += y[j] * g;
 };
 
-// ── FORM ──────────────────────────────────────────────────────────────
+// ── FORM: cold open — the hook sings at bar 4 (0:08), chart law:
+// the voice arrives right away ────────────────────────────────────────
 const SEC = (bar) =>
-  bar < 4 ? "intro" : bar < 20 ? "verse1" : bar < 24 ? "pre1"
-  : bar < 40 ? "chorus1" : bar < 52 ? "verse2" : bar < 56 ? "pre2"
-  : bar < 72 ? "chorus2" : bar < 76 ? "break" : bar < 100 ? "finale"
-  : "peel";
-const inBreak = (bar) => bar >= 72 && bar < 76;
-const CHORUS_DOORS = [24, 56, 76];
+  bar < 4 ? "intro" : bar < 12 ? "chorus0" : bar < 24 ? "verse1"
+  : bar < 28 ? "pre1" : bar < 44 ? "chorus1" : bar < 56 ? "verse2"
+  : bar < 60 ? "pre2" : bar < 76 ? "chorus2" : bar < 80 ? "break"
+  : bar < 100 ? "finale" : "peel";
+const inBreak = (bar) => bar >= 76 && bar < 80;
+const CHORUS_DOORS = [4, 28, 60, 80];
 
 // ── HARMONY: verse = README hook cycle (Am Am G G C C F G),
 // chorus = the sacred bed's own map (C C F F C C C C), pre = F F G G,
@@ -103,24 +104,31 @@ const CHOR8 = ["C", "C", "F", "F", "C", "C", "C", "C"];
 const chord = (bar) => {
   const s = SEC(bar);
   if (s === "intro") return "C";
-  if (s === "verse1") return VERSE8[(bar - 4) % 8];
-  if (s === "verse2") return VERSE8[(bar - 40) % 8];
+  if (s === "verse1") return VERSE8[(bar - 12) % 8];
+  if (s === "verse2") return VERSE8[(bar - 44) % 8];
   if (s === "pre1" || s === "pre2") return ["F", "F", "G", "G"][bar % 4];
   if (s === "break") return "G";
   if (s === "peel") return "C";
-  const base = s === "chorus1" ? 24 : s === "chorus2" ? 56 : 76;
+  const base = s === "chorus0" ? 4 : s === "chorus1" ? 28
+    : s === "chorus2" ? 60 : 80;
   return CHOR8[(bar - base) % 8];
 };
 const BASSM = { Am: 45, G: 43, C: 48, F: 41 };            // A2 G2 C3 F2
 const SUBM = { Am: 33, G: 31, C: 24, F: 29 };             // A1 G1 C1 F1
-const STAB = {                                             // stab homes (A4–E5)
-  Am: [69, 72, 76], G: [67, 71, 74], C: [67, 72, 76], F: [69, 72, 77] };
+// rootless jazz voicings, comping register E4–E5 — the bass owns the
+// root, the comp owns the color (7ths and 9ths, not block triads)
+const COMP = {
+  Am: [[64, 67, 72], [67, 72, 76, 79]],                   // Am7 · Am7(9)
+  G:  [[65, 71, 74], [62, 65, 71]],                       // G7 · G7 low
+  C:  [[64, 67, 71], [64, 69, 72]],                       // Cmaj7 · C6
+  F:  [[65, 69, 72], [69, 72, 76]],                       // Fmaj7 · Fmaj7 rootless
+};
 const CH = { C: [48, 55, 64, 72, 79], F: [53, 57, 60, 69, 77],
   G: [43, 55, 62, 71, 79], Am: [45, 57, 64, 69, 76] };
 
 // ── BREATH: shallow now — chart LRA is a wall. Last half-bar of each
 // 8-bar phrase dips decoratives to 0.68, never deeper ─────────────────
-const RESTS = [12, 20, 32, 48, 64, 92].map((d) => [T(d) - BAR / 2, T(d), 0.68]);
+const RESTS = [12, 28, 44, 60, 92].map((d) => [T(d) - BAR / 2, T(d), 0.68]);
 const gateAt = (t) => {
   for (const [a, b, depth] of RESTS) if (t >= a && t < b) return depth;
   return 1;
@@ -182,10 +190,10 @@ for (let bar = 4; bar < 100; bar++) {
 }
 { // the roll into the finale door
   const steps = [];
-  for (let b = 74; b < 75; b += 0.25) steps.push(b);
-  for (let b = 75; b < 76; b += 0.125) steps.push(b);
-  for (const b of steps) put(backBuf, S.snare, T(b) + eager(), 0.10 + 0.20 * ((b - 74) / 2) ** 1.4);
-  put(backBuf, S["reverse-kick"], T(76) - S["reverse-kick"].length / SR, 0.45);
+  for (let b = 78; b < 79; b += 0.25) steps.push(b);
+  for (let b = 79; b < 80; b += 0.125) steps.push(b);
+  for (const b of steps) put(backBuf, S.snare, T(b) + eager(), 0.10 + 0.20 * ((b - 78) / 2) ** 1.4);
+  put(backBuf, S["reverse-kick"], T(80) - S["reverse-kick"].length / SR, 0.45);
 }
 
 // ── SUB: offbeat tanh sine on the roots, everywhere but the break ─────
@@ -220,31 +228,50 @@ for (let bar = 4; bar < 100; bar++) {
     durSec: 1.5 * BEAT, gain: 0.14, preset: "bass", decayMul: 0.7 }, bassBuf, { sampleRate: SR });
 }
 
-// ── STABS: the mid-band stays home. Offbeat chord stabs (the "and" of
-// 2 and beat 4) in A4–E5, vibraphone bite — the chart's lowmid/mid ────
+// ── COMP: jazz accompaniment, not a machine. Rootless 7th/9th
+// voicings comped in patterns a player would choose — Charleston,
+// pushes into the next bar, laid-back strums, velocities that breathe.
+// One pattern per two-bar phrase, seeded, so it grooves but never
+// loops mechanically ─────────────────────────────────────────────────
 const stabBuf = new Float32Array(NT), stabEchoBuf = new Float32Array(NT);
+// each pattern: [beat, weight] — beats > 4 are ANTICIPATIONS and take
+// the NEXT bar's chord (the push is what makes it jazz)
+const COMP_PATTERNS = [
+  [[1, 1], [2.5, 0.8]],                     // Charleston
+  [[1.5, 0.9], [4.5, 1]],                   // and-of-1, push into next
+  [[2.5, 0.85], [4, 0.7]],
+  [[1, 0.9], [3.5, 0.75], [4.5, 0.9]],      // busy turn w/ push
+  [[2, 0.8]],                               // one lean chord
+  [[1.5, 0.85], [3, 0.7]],
+];
+const lay = () => 0.006 + Math.abs(rnd()) * 0.022;        // behind the beat
 for (let bar = 4; bar < 100; bar++) {
   if (inBreak(bar)) continue;
   const s = SEC(bar);
   const g = s.startsWith("verse") ? 1.0 : s.startsWith("pre") ? 1.2
-    : s === "finale" ? 1.4 : 1.2;
-  for (const [beat, gg] of [[1.5, 1], [3, 0.85]]) {
-    const t = T(bar) + beat * BEAT;
-    for (const midi of STAB[chord(bar)]) {
-      mixEventMarimba({ startSec: t + eager(), midi, durSec: 0.6 * BEAT,
-        gain: g * gg * gateAt(t), preset: "vibraphone", decayMul: 0.55,
-      }, stabBuf, { sampleRate: SR });
-      // a quiet octave shimmer keeps the mid band lit without the
-      // voicing itself living up there
-      mixEventMarimba({ startSec: t + eager(), midi: midi + 12,
-        durSec: 0.5 * BEAT, gain: g * gg * 0.4 * gateAt(t),
-        preset: "vibraphone", decayMul: 0.45 }, stabBuf, { sampleRate: SR });
-    }
-    // the echo throw, 3/16 later, opposite side, same register
-    for (const midi of STAB[chord(bar)])
-      mixEventMarimba({ startSec: t + 0.75 * BEAT + eager(), midi,
-        durSec: 0.4 * BEAT, gain: g * gg * 0.35 * gateAt(t),
-        preset: "vibraphone", decayMul: 0.4 }, stabEchoBuf, { sampleRate: SR });
+    : s === "finale" ? 1.3 : 1.15;
+  const pat = COMP_PATTERNS[Math.floor((0.5 + rnd()) * COMP_PATTERNS.length)
+    % COMP_PATTERNS.length];
+  for (const [beat, w] of pat) {
+    const push = beat > 4;
+    const ch = chord(push ? Math.min(bar + 1, BARS - 1) : bar);
+    const voicing = COMP[ch][Math.abs(Math.floor(rnd() * 4)) % COMP[ch].length];
+    const t = T(bar) + (beat - 1) * BEAT + lay();
+    const dur = (push ? 1.1 : 0.55 + Math.abs(rnd()) * 0.5) * BEAT;
+    // strummed, top note leads, each voice its own touch
+    voicing.forEach((midi, vi) => {
+      const vel = w * (0.75 + Math.abs(rnd()) * 0.45) * (1 - vi * 0.08);
+      mixEventMarimba({ startSec: t + vi * (0.012 + Math.abs(rnd()) * 0.014),
+        midi, durSec: dur, gain: g * vel * gateAt(t),
+        preset: "vibraphone", decayMul: 0.9 }, stabBuf, { sampleRate: SR });
+    });
+    // soft echo throw opposite side, one comp late
+    if (!push && rnd() > 0.1)
+      voicing.forEach((midi, vi) => {
+        mixEventMarimba({ startSec: t + 0.75 * BEAT + vi * 0.012, midi,
+          durSec: dur * 0.6, gain: g * w * 0.28 * gateAt(t),
+          preset: "vibraphone", decayMul: 0.6 }, stabEchoBuf, { sampleRate: SR });
+      });
   }
 }
 
@@ -325,7 +352,7 @@ const LIFT = [ // bar-5 flavor: the flare, up and out
   [0, 1, "C5"], [0, 1.75, "G5"], [0, 2, "C6"], [0, 3.5, "C6"], [0, 4, "G5"],
   [1, 1, "C6"], [1, 2, "G5"], [1, 3, "C5"], [1, 4, "G5"],
 ];
-for (const base of [32, 64]) // back half of each chorus
+for (const base of [36, 68]) // back half of each full chorus
   for (let rep = 0; rep < 4; rep += 2)
     for (const [bo, beat, note] of FIG) {
       const t = T(base + rep + bo) + (beat - 1) * BEAT;
@@ -373,14 +400,17 @@ const rush = (door, gain, n = 9, span = 1.25) => {
     put(clickBuf, S["click-door"], T(door) - span * (1 - frac) - 0.02, gain * (0.5 + 0.5 * frac));
   }
 };
-rush(4, 0.07, 7); rush(24, 0.10); rush(40, 0.07, 7); rush(56, 0.10);
-rush(72, 0.08); rush(76, 0.11, 12, 1.6); rush(100, 0.06, 6, 1.5);
+rush(4, 0.08, 7); rush(12, 0.07, 7); rush(28, 0.10); rush(44, 0.07, 7);
+rush(60, 0.10); rush(76, 0.08); rush(80, 0.11, 12, 1.6); rush(100, 0.06, 6, 1.5);
 put(clickBuf, S["click-door"], 0, 0.09);
-for (const [door, g] of [[24, 0.45], [56, 0.45], [76, 0.5]])
+for (const [door, g] of [[4, 0.4], [28, 0.45], [60, 0.45], [80, 0.5]])
   put(bellBuf, S["reverse-bell"], T(door) - S["reverse-bell"].length / SR, g);
 
-// ── THE VOICE: sacred phrase at the chorus doors if it exists ─────────
+// ── THE VOICE: lead bus + group unison + stretched butterfly choir ───
 const voxStem = new Float32Array(NT);
+const choirStem = new Float32Array(NT);
+const haloStem = new Float32Array(NT);
+const PY = `${REPO}/pop/.venv/bin/python`;
 // aesthetivox is the chain (lane law) — prefer the note-locked retimed
 // stem when it exists; sacredvox is the fallback preview voice
 const VOXF = process.env.IMAB_VOX ? resolve(process.env.IMAB_VOX)
@@ -388,17 +418,75 @@ const VOXF = process.env.IMAB_VOX ? resolve(process.env.IMAB_VOX)
     ? `${OUT}/imab-aesthetivox-retimed.wav` : `${OUT}/imab-sacredvox.wav`;
 let haveVox = existsSync(VOXF);
 if (haveVox) {
-  const vox = readF32(VOXF);
+  // lead bus: high-pass the rumble, presence for listenability, one
+  // gentle 2:1 so the phrase sits level on the wall
+  const leadF = `${WORK}/hb-lead.wav`;
+  sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", VOXF,
+    "-af", "highpass=f=90,equalizer=f=3000:t=q:w=1.4:g=2.5," +
+    "acompressor=threshold=0.25:ratio=2:attack=12:release=160:makeup=1.2",
+    "-ar", String(SR), "-ac", "1", leadF]);
+  const vox = readF32(leadF);
   for (const door of CHORUS_DOORS) put(voxStem, vox, T(door), 1);
-  const SETSJ = resolve(HERE, "../vocal-sets.json");
-  if (existsSync(SETSJ))
-    for (const s of (JSON.parse(readFileSync(SETSJ, "utf8")).sets ?? [])) {
-      if (!s.at) continue;
-      const m = /^([A-Z])(\d+(?:\.\d+)?)$/.exec(s.at.trim().toUpperCase());
-      const at = T(24 + (m[1].charCodeAt(0) - 65)) + (parseFloat(m[2]) - 1) * BEAT;
-      put(voxStem, readF32(`${OUT}/imab-set-${s.take}.wav`), at, s.gain ?? 1);
+
+  // the GROUP: every regulated set take doubles the lead at the doors,
+  // slightly eager/late — a room of people saying it together
+  const sets = readdirSync(OUT).filter((f) => /^imab-set-.*\.wav$/.test(f));
+  for (const [si, f] of sets.entries())
+    for (const door of CHORUS_DOORS)
+      put(voxStem, readF32(`${OUT}/${f}`), T(door) + (si % 2 ? 0.014 : -0.011), 0.45);
+
+  // halo: the lead through the church send, wide and behind
+  sh(PY, [`${REPO}/spinging/lib/vocal_bus.py`, "reverb", leadF,
+    `${WORK}/hb-halo.wav`, "-14", "1.6"]);
+  if (existsSync(`${WORK}/hb-halo.wav`)) {
+    const halo = readF32(`${WORK}/hb-halo.wav`);
+    for (const door of CHORUS_DOORS) put(haloStem, halo, T(door), 1);
+  }
+
+  // BUTTERFLY CHOIR: takes stretched long (rubberband, formants kept)
+  // at unison / +4 / +7 — the group blooms through the break and under
+  // the finale
+  const choirSrc = [VOXF, ...sets.map((f) => `${OUT}/${f}`)].slice(0, 3);
+  const variants = [];
+  choirSrc.forEach((src, i) => {
+    for (const [stretch, pitch] of i === 0
+      ? [[2.0, 0], [2.0, 4], [2.0, 7]] : [[2.0, 0]]) {
+      const out = `${WORK}/hb-choir-${i}-${stretch}-${pitch}.wav`;
+      if (!existsSync(out))
+        sh("rubberband", ["-t", String(stretch), "-p", String(pitch), "-F",
+          "-q", src, out]);
+      if (existsSync(out)) variants.push(out);
     }
+  });
+  for (const [vi, v] of variants.entries()) {
+    const y = readF32(v);
+    for (const at of [76, 80, 88]) {          // break bloom + finale bed
+      const t0 = Math.floor(T(at) * SR);
+      const fadeN = Math.floor(1.5 * SR);
+      for (let j = 0; j < y.length && t0 + j < NT; j++) {
+        const fade = Math.min(j / fadeN, 1);
+        choirStem[t0 + j] += y[j] * fade * (0.5 - vi * 0.05);
+      }
+    }
+  }
+  console.log(`vox: lead + ${sets.length} group takes + ${variants.length} choir strands`);
 } else console.log("· no vocal found — baking the instrumental bed");
+
+// the follower: everything decorative leans away while the voice sings
+const fo = new Float32Array(NT);
+{
+  const atk = 1 - Math.exp(-1 / (0.015 * SR)), rel = 1 - Math.exp(-1 / (0.25 * SR));
+  let f = 0;
+  for (let i = 0; i < NT; i++) {
+    const e = Math.abs(voxStem[i]);
+    f += (e > f ? atk : rel) * (e - f); fo[i] = f;
+  }
+  const nz = [];
+  for (let i = 0; i < NT; i += 16) if (fo[i] > 1e-5) nz.push(fo[i]);
+  nz.sort((a, b) => a - b);
+  const p98 = nz[Math.floor(nz.length * 0.98)] || 1;
+  for (let i = 0; i < NT; i++) fo[i] = Math.min(1, fo[i] / p98);
+}
 
 // ── THE STAGE: kick/sub/bass/vox mono; everything decorative WIDE.
 // Chart stereo correlation runs 0.68–0.87 — stage for it ──────────────
@@ -426,21 +514,23 @@ const addPlaced = (src, deg = 0, depth = 0, gain = 1, perSample = null) => {
 };
 const pump = (i) => duck[i];
 const pumpHalf = (i) => 1 - (1 - duck[i]) * 0.5;
+const pumpVox = (i) => duck[i] * (1 - 0.35 * fo[i]);      // lean away from him
+const voxDuck = (i) => 1 - 0.3 * fo[i];
 
 addPlaced(kickBuf, 0, 0, 1);
 addPlaced(subBuf, 0, 0, 1, pumpHalf);
 addPlaced(bassBuf, 0, 0.15, 1, pump);
 addPlaced(backBuf, -4, 0.08, 1);
-addPlaced(stabBuf, -20, 0.18, 1, pump);
-addPlaced(stabEchoBuf, 24, 0.3, 1, pump);
+addPlaced(stabBuf, -20, 0.18, 1, pumpVox);
+addPlaced(stabEchoBuf, 24, 0.3, 1, pumpVox);
 addPlaced(hatBuf, 18, 0.1, 1);
 addPlaced(openBuf, -16, 0.1, 1);
 addPlaced(shakL, -30, 0.15, 1);
 addPlaced(shakR, 30, 0.15, 1);
-addPlaced(washBuf, 26, 0, 1);
-addPlaced(washBuf2, -26, 0, 1);
-addPlaced(sineBuf, 0, 0.35, 1, pump);
-addPlaced(xyloBuf, -16, 0.2, 1, pump);
+addPlaced(washBuf, 26, 0, 1, voxDuck);
+addPlaced(washBuf2, -26, 0, 1, voxDuck);
+addPlaced(sineBuf, 0, 0.35, 1, pumpVox);
+addPlaced(xyloBuf, -16, 0.2, 1, pumpVox);
 addPlaced(clickBuf, 10, 0, 1);
 addPlaced(bellBuf, 12, 0.3, 1);
 
@@ -448,9 +538,14 @@ if (haveVox) {
   const rms = (a) => { let s = 0, n = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i]) > 1e-4) { s += a[i] * a[i]; n++; } return Math.sqrt(s / Math.max(1, n)); };
   const inst = new Float32Array(NT);
   for (let i = 0; i < NT; i++) inst[i] = (L[i] + R[i]) / 2;
-  const vg = Math.min(6, (rms(inst) * 2.0) / Math.max(1e-9, rms(voxStem)));
+  const ri = rms(inst);
+  const vg = Math.min(10, (ri * 3.2) / Math.max(1e-9, rms(voxStem)));
   addPlaced(voxStem, 0, 0, vg);
-  console.log(`voice: sacred ×${vg.toFixed(2)} at doors ${CHORUS_DOORS.join("/")}`);
+  addPlaced(haloStem, 24, 0.25, vg * 0.3);
+  addPlaced(haloStem, -24, 0.25, vg * 0.24);
+  const cg = Math.min(8, (ri * 1.1) / Math.max(1e-9, rms(choirStem) || 1));
+  addPlaced(choirStem, 0, 0.3, cg, voxDuck);
+  console.log(`voice: lead ×${vg.toFixed(2)} · choir ×${cg.toFixed(2)} at doors ${CHORUS_DOORS.join("/")}`);
 }
 
 // ── premaster: body-peak normalize (floor law), fade the tail ─────────
@@ -470,7 +565,7 @@ sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "f32le", "-ar", 
 
 // ── master: the cut-wax material chain, retuned for the chart print:
 // wider highs, more excitement, 16.5k ceiling, TARGET −8.5 ────────────
-const TARGET = -8.5;
+const TARGET = -10.0;   // house master law: −10 ±1 LUFS, ≤ −2 dBTP
 const MATERIAL =
   "acrossover=split=120:order=4th[low][high];" +
   "[low]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1[lowm];" +
@@ -500,7 +595,7 @@ let gain = TARGET - measure(`${WORK}/hitbaker-wax.wav`).I;
 let final = null;
 for (let round = 0; round < 5; round++) {
   sh("ffmpeg", ["-y", "-v", "error", "-i", `${WORK}/hitbaker-wax.wav`,
-    "-af", `volume=${gain.toFixed(2)}dB,alimiter=limit=0.85:attack=5:release=90:level=disabled`,
+    "-af", `volume=${gain.toFixed(2)}dB,alimiter=limit=0.63:attack=5:release=90:level=disabled`,
     "-ar", String(SR), "-c:a", "pcm_s24le", `${WORK}/hitbaker-master.wav`]);
   final = measure(`${WORK}/hitbaker-master.wav`);
   console.log(`master round ${round}: static ${gain.toFixed(2)} dB → I ${final.I} LUFS · LRA ${final.LRA} · TP ${final.P} dBFS`);
