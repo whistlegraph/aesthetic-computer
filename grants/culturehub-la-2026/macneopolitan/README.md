@@ -62,6 +62,16 @@ before their official setup dates.
   a hostname. Run all four for `third` on its first day.
 - `book/the-macneopolitan-trio.tex` + `bin/book.sh` — the band book PDF (one
   autobiography page + one journey page per living member)
+- `scores/*.mbscore` + `bin/singconduct.mjs` — sing-aware scores: a voice
+  with `lyrics`/`singVoice`/`singBase` sings through Menu Band's say route
+  (per-syllable scheduled posts), or with `--vox` as a pre-rendered
+  WORLD-sung line played at the downbeat (cached `.voxN-<voice>.wav` next
+  to the score). Double-clicked in Finder a score degrades to its `notes`.
+- `bin/vox.py` — the vox renderer: each syllable spoken by the member's
+  voice (macOS `say`, or open-source `espeak`/`espeak:<variant>`), WORLD-
+  pitched to the exact note and vowel-stretched to fill the beat, consonants
+  as pickups. The espeak engine is the candidate for a fleet-shippable open
+  TTS organ (headless, runs on AC Native OS).
 - `members/<name>/voice.json` — the aesthetivox voice identity: cast macOS
   voice (neo=Fred, blueberry=Kathy, third=Junior) + singing parameters
   derived from the biography (vibrato = 4x battery cycles/day, breath =

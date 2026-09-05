@@ -394,6 +394,10 @@ export const handler = async (event, context) => {
           <meta name="og:image" content="${assetPath}thumbnail.png" />
           <link rel="icon" type="image/png" href="${assetPath}cookie.png" />
           <link rel="apple-touch-icon" href="${assetPath}cookie.png" />
+          <link rel="manifest" href="/manifest.json" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-title" content="Sotce Net" />
+          <meta name="theme-color" content="#FFD1DC" />
           <link rel="preload" href="${assetPath}cookie.png" as="image" />
           <link rel="preload" href="${assetPath}cookie-open.png" as="image" />
           <link
@@ -10499,6 +10503,32 @@ export const handler = async (event, context) => {
     return respond(200, SW_SOURCE, {
       "Content-Type": "application/javascript; charset=utf-8",
     });
+  } else if (path === "/manifest.json" && method === "get") {
+    // 📱 Web app manifest — lets iOS add-to-home-screen install the site
+    // standalone, which is what unlocks web push delivery on iPhones.
+    // (Caddy's *.json rule supplies an hour of caching.)
+    return respond(
+      200,
+      {
+        name: "Sotce Net",
+        short_name: "Sotce Net",
+        description: "confessions",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        background_color: "#FFD1DC",
+        theme_color: "#FFD1DC",
+        icons: [
+          {
+            src: assetPath + "cookie.png",
+            sizes: "2048x2048",
+            type: "image/png",
+            purpose: "any",
+          },
+        ],
+      },
+      { "Content-Type": "application/manifest+json; charset=utf-8" },
+    );
   } else if (path === "/subscribers" && method === "get") {
     // Counting means paginating every Stripe subscription ever (seconds of
     // API calls), and the logged-out gate blocks on this response — so cache

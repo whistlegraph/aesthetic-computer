@@ -1,0 +1,25 @@
+{
+  "title": "Mary Had a Little Lamb — first singing test",
+  "composer": "Trad., arr. for the MacNeoPolitan Trio",
+  "machines": 1,
+  "bpm": 104,
+  "lead": 3.0,
+  "description": "Realtime singing test: the sing voice carries notes AND lyrics. Driven by bin/singconduct.mjs the lyrics are sung through Menu Band's say route (AVSpeech, per-note pitch, shared clock); double-clicked in Finder it degrades gracefully to the whistle playing the same melody.",
+  "voices": [
+    {
+      "name": "neo sings (Fred)",
+      "program": 78,
+      "velocity": 96,
+      "notes": "64:1,62:1,60:1,62:1,64:1,64:1,64:2,62:1,62:1,62:2,64:1,67:1,67:2,64:1,62:1,60:1,62:1,64:1,64:1,64:1,64:1,62:1,62:1,64:1,62:1,60:4",
+      "lyrics": "Mar y had a lit tle lamb lit tle lamb lit tle lamb Mar y had a lit tle lamb its fleece was white as snow",
+      "singVoice": "Fred",
+      "singBase": 62
+    },
+    {
+      "name": "whistle double",
+      "program": 78,
+      "velocity": 64,
+      "notes": "88:1,86:1,84:1,86:1,88:1,88:1,88:2,86:1,86:1,86:2,88:1,91:1,91:2,88:1,86:1,84:1,86:1,88:1,88:1,88:1,88:1,86:1,86:1,88:1,86:1,84:4"
+    }
+  ]
+}
