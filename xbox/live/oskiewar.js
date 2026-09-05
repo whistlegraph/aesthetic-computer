@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 95;
+const buildVersion = 96;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -8481,6 +8481,9 @@ function replayOfferKeys() {
 // input keeps its keycaps; every other family gets these.
 const padButtonInk = {
   A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
+  // The M30's two Sega-only face buttons ship uncolored; silver keeps the
+  // dark glyph readable on both themes.
+  C: [206, 212, 224], Z: [206, 212, 224],
 };
 const padGlyph = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
 const padButtonDiameter = (size) => Math.round(size * .78) * 2;
@@ -8557,6 +8560,70 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
   return width;
 }
 
+// `controllers()` walks the whole pad list and the legend asks every painted
+// frame, so the name check breathes once a second instead.
+let m30CheckAt = 0;
+let m30Present = false;
+function m30Seated() {
+  const now = runtime().monotonicUs;
+  if (now >= m30CheckAt) {
+    m30CheckAt = now + 1000000;
+    m30Present = typeof controllers === "function" &&
+      (controllers() || []).some((pad) => /8bitdo\s+m30/i.test(pad?.name || ""));
+  }
+  return m30Present;
+}
+
+// The M30 folds two extra moves into its Sega face: C and the top-edge R
+// reach the game as the trigger pair, Z and the top-edge L as the shoulders —
+// the pad's factory Xbox map wearing Sega names. Which trigger C sends was
+// read off the live hardware, not the leaflet; flip this table if 8BitDo's
+// firmware ever swaps the pair.
+const m30FaceSends = { C: "RightTrigger", Z: "RightShoulder" };
+const m30SendLabel = { RightTrigger: "SHIELD", RightShoulder: "USE ITEM",
+  LeftTrigger: "KICK", LeftShoulder: "USE ITEM" };
+
+// The M30's own manual page. A six-button pad understated by a four-row
+// column becomes the controller itself: both button arcs, colored like the
+// hardware, every disc lit by the live press — so the mapping is not a
+// diagram of faith. Plug in, press, and the page answers.
+function drawM30Cluster(x, y, size, held, ink) {
+  const small = Math.round(size * .58);
+  const gap = Math.max(4, Math.round(size * .25));
+  const d = padButtonDiameter(size);
+  const pitch = d + gap;
+  // The real face arcs: the middle button of each row rides a hair higher.
+  const arc = [Math.round(size * .28), 0, Math.round(size * .28)];
+  typeWrite("8BITDO M30", x, y, small, ...ink);
+  let rowY = y + Math.round(small * 1.8);
+  const rows = [
+    [["X", held.includes("X")], ["Y", held.includes("Y")],
+      ["Z", held.includes(m30FaceSends.Z)]],
+    [["A", held.includes("A")], ["B", held.includes("B")],
+      ["C", held.includes(m30FaceSends.C)]],
+  ];
+  for (const [rowIndex, row] of rows.entries()) {
+    // The bottom arc sits shifted right, like the thumb finds it.
+    const shift = rowIndex ? Math.round(d * .35) : 0;
+    for (const [column, [cap, pressed]] of row.entries())
+      drawPadButton(cap, x + shift + column * pitch, rowY + arc[column], size,
+        pressed);
+    rowY += d + Math.round(gap * 1.6);
+  }
+  rowY += Math.round(small * .9);
+  const captions = [
+    `A KICK  B PUNCH  C ${m30SendLabel[m30FaceSends.C]}`,
+    `X SHIELD  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
+    `L ${m30SendLabel.LeftShoulder}  R ${m30SendLabel.LeftTrigger}`,
+    "A+B GRAB  START PAUSE",
+  ];
+  for (const caption of captions) {
+    typeWrite(caption, x, rowY, small, ...ink);
+    rowY += Math.round(small * 1.55);
+  }
+  return rowY + Math.round(small * .6);
+}
+
 // Lifted clear of the bottom edge, because the signed-in handle and its
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
@@ -8589,6 +8656,10 @@ function drawControlLegend(ink) {
   ];
   if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
+  // A seated M30 keeps the four direction rows and trades the action column
+  // for the pad's own manual page below them.
+  const m30 = !keyboard && !survivalActive() && m30Seated();
+  if (m30) controls.length = 4;
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
@@ -8603,7 +8674,9 @@ function drawControlLegend(ink) {
     if (action) typeWrite(action, x + width + 10,
       y + Math.round(size * .25), size, ...ink);
   }
-  drawStickGate(x, safe.top + controls.length * step, size, pad, ink);
+  let legendBottom = safe.top + controls.length * step;
+  if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held, ink);
+  drawStickGate(x, legendBottom, size, pad, ink);
 }
 
 // The legend named the stick's directions but never its ANGLE, so a fighter

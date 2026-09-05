@@ -645,9 +645,16 @@
     // deliberate -- an analog trigger passes back through 0 constantly, and a
     // pad that forgot what it was would flicker between zooming and kicking.
     const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i];
+    // The 8BitDo M30 wears Microsoft's 045e id, but its "triggers" are the C
+    // face button and the top-edge R — ordinary digital switches. The vendor
+    // guess would latch them analog and feed every C press to the camera, so
+    // the pad's own name overrules the id it borrowed.
+    const digitalTriggerIds = [/8bitdo\s+m30/i];
     const analogTriggerPads = new Set();
     function hasAnalogTriggers(pad) {
       if (!pad) return false;
+      if (digitalTriggerIds.some((match) => match.test(pad.id || "")))
+        return false;
       if (analogTriggerPads.has(pad.index)) return true;
       const known = analogTriggerIds.some((match) => match.test(pad.id || ""));
       const partial = [6, 7].some((slot) => {
