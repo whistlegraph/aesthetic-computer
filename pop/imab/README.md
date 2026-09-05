@@ -39,8 +39,18 @@ bar 3 (D5 G5 B5); bar 7 = "nothing holds me" from lately-when-i-fly
 ## tools
 
 ```bash
+node pop/imab/bin/hitbaker.mjs         # the CHART arrangement (single-study calibrated):
+                                       #   104-bar verse/pre/chorus form, G-pedal break,
+                                       #   terminal-lift finale → out/imab-hitbaker-demo1
+                                       #   vocal doors: choruses at bars 24 / 56 / 76 (A = 24)
 node pop/imab/bin/gen-click.mjs        # click + guide → out/ (juke-sync picks mp3s up)
 node pop/imab/bin/gen-kit.mjs          # one-shot sample kit → samples/kit/
+node pop/imab/bin/lyrictrack.mjs       # canonical lyric timing: drawn boundaries →
+                                       #   stem + floor JSONs + grid-fit proof mp4
+pop/.venv/bin/python pop/imab/bin/lyricscroll.py
+                                       # the scrolling review clip: alignment-video
+                                       #   chassis over the real floor mix, lyric
+                                       #   ribbon underneath (needs lyrictrack first)
 ```
 
 - **out/imab-click-124** — 2-bar count-in, then 64 bars. Beat 1
