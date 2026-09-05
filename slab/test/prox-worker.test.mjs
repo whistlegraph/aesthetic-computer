@@ -97,7 +97,7 @@ test("headless Prox exposes a path-free public Mediascholar status", async (t) =
     ],
   }));
   const fakeSystemctl = join(root, "systemctl");
-  await writeFile(fakeSystemctl, `#!/bin/sh\ncase "$*" in\n  *show*mediascholar.service*) printf 'ActiveState=active\\nSubState=running\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *list-timers*) printf '[]\\n' ;;\nesac\n`);
+  await writeFile(fakeSystemctl, `#!/bin/sh\ncase "$*" in\n  *show*mediascholar.service*) printf 'ActiveState=activating\\nSubState=start\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *list-timers*) printf '[]\\n' ;;\nesac\n`);
   await chmod(fakeSystemctl, 0o700);
 
   const config = workerConfig({

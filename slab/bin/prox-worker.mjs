@@ -213,7 +213,7 @@ export async function buildMediascholarStatus(config) {
     recentMediascholarRuns(config),
   ]);
   const current = runs[0] || null;
-  const running = mainUnit.ActiveState === "active";
+  const running = new Set(["active", "activating"]).has(mainUnit.ActiveState);
   const bootstrapping = new Set(["active", "activating"]).has(bootstrapUnit.ActiveState);
   const requiredTools = doctor?.paperTools ? Object.values(doctor.paperTools) : [];
   const toolsReady = requiredTools.length > 0 && requiredTools.every(Boolean);
