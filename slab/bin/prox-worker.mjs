@@ -214,6 +214,7 @@ export async function buildMediascholarStatus(config) {
   ]);
   const current = runs[0] || null;
   const running = mainUnit.ActiveState === "active";
+  const bootstrapping = new Set(["active", "activating"]).has(bootstrapUnit.ActiveState);
   const requiredTools = doctor?.paperTools ? Object.values(doctor.paperTools) : [];
   const toolsReady = requiredTools.length > 0 && requiredTools.every(Boolean);
   const admission = doctor?.admission;
@@ -237,6 +238,11 @@ export async function buildMediascholarStatus(config) {
     detail = phase === "authoring-paper"
       ? "Research, drafting, building, and visual QA are running inside the paper stack."
       : "The topic is being formed without a human-supplied prompt.";
+  } else if (bootstrapping) {
+    state = "working";
+    phase = "bootstrap";
+    headline = "Installing the paper mill";
+    detail = "The toolchain is being installed at low priority inside Jasellite's resource limits.";
   } else if (current?.status === "candidate") {
     state = "review";
     phase = "candidate";

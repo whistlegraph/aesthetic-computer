@@ -116,6 +116,12 @@ test("headless Prox exposes a path-free public Mediascholar status", async (t) =
   assert.equal(JSON.stringify(status).includes("/private/"), false);
   assert.equal(JSON.stringify(status).includes("secret-provider"), false);
 
+  await writeFile(fakeSystemctl, `#!/bin/sh\ncase "$*" in\n  *show*mediascholar-bootstrap.service*) printf 'ActiveState=activating\\nSubState=start\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *list-timers*) printf '[]\\n' ;;\nesac\n`);
+  const bootstrapping = await buildMediascholarStatus(config);
+  assert.equal(bootstrapping.state, "working");
+  assert.equal(bootstrapping.phase, "bootstrap");
+  assert.equal(bootstrapping.headline, "Installing the paper mill");
+
   const server = createWorkerServer(config, "127.0.0.1");
   const port = await listen(server);
   t.after(() => close(server));
