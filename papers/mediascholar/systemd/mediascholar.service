@@ -28,7 +28,9 @@ TimeoutStopSec=30
 KillMode=mixed
 OOMPolicy=stop
 UMask=0077
-NoNewPrivileges=true
+# aa-exec must enter the named AppArmor profile before Bubblewrap creates the
+# namespace. Bubblewrap sets no_new_privs for the provider process itself.
+NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
