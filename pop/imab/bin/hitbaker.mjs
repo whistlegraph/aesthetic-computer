@@ -144,6 +144,19 @@ for (let b = 0; b < BARS * 4; b++) {
   put(kickBuf, S.kick, b * BEAT, g);
 }
 put(kickBuf, S.kick, T(BARS), 1.0);
+// the THUMP: a 52Hz decaying sine under every kick — the bassy kick
+{
+  const n = Math.floor(0.24 * SR), th = new Float32Array(n);
+  for (let j = 0; j < n; j++) {
+    const t = j / SR;
+    th[j] = Math.sin(2 * Math.PI * 52 * t - 0.6 * Math.exp(-t / 0.02))
+      * Math.min(t / 0.004, 1) * Math.exp(-t / 0.085);
+  }
+  for (let b2 = 0; b2 < BARS * 4; b2++) {
+    if (inBreak(Math.floor(b2 / 4))) continue;
+    put(kickBuf, th, b2 * BEAT, 0.55);
+  }
+}
 
 const duck = new Float32Array(NT).fill(1);
 {
@@ -534,9 +547,17 @@ if (haveVox) {
       const hits = syl.filter((x) => x.label === label);
       return hits[Number(nth ?? 0)] ?? null;
     };
+    // other takes as word sources: take:<id>:<text>[#n] slices the
+    // regulated set take (his own performances only — third-party
+    // corpus audio never ships)
+    const takeWords = {};
+    for (const f of readdirSync(OUT))
+      if (/^imab-set-(.+)-words\.json$/.test(f))
+        takeWords[/^imab-set-(.+)-words\.json$/.exec(f)[1]] =
+          JSON.parse(readFileSync(`${OUT}/${f}`, "utf8"));
     const sliceCache = {};
-    const wordWav = (fromMs, toMs, stretch, pitch) => {
-      const key = `${fromMs}-${toMs}-${stretch}-${pitch}`;
+    const wordWav = (fromMs, toMs, stretch, pitch, srcWav = leadF) => {
+      const key = `${fromMs}-${toMs}-${stretch}-${pitch}-${srcWav.replace(/[^a-z0-9]/gi, "").slice(-24)}`;
       if (sliceCache[key]) return sliceCache[key];
       const t0 = Math.max(0, fromMs / 1000 - 0.04);
       const t1 = toMs / 1000 + 0.08;
@@ -545,7 +566,7 @@ if (haveVox) {
       if (!existsSync(cut)) {
         const raw = `${WORK}/hb-wraw-${key}.wav`;
         sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
-          "-i", leadF, "-af",
+          "-i", srcWav, "-af",
           `atrim=start=${t0.toFixed(3)}:end=${t1.toFixed(3)},asetpts=PTS-STARTPTS,` +
           `afade=t=in:d=0.02,afade=t=out:st=${Math.max(0, dur - 0.07).toFixed(3)}:d=0.07`,
           "-ar", String(SR), "-ac", "1", raw]);
@@ -559,8 +580,18 @@ if (haveVox) {
     let placed = 0;
     for (const ev of score.events ?? []) {
       const stretch = ev.stretch ?? 1, pitch = ev.pitch ?? 0;
-      let fromMs, toMs;
-      if (ev.src.startsWith("words:")) {          // span: words:just..tume
+      let fromMs, toMs, srcWav = leadF;
+      if (ev.src.startsWith("take:")) {         // take:<id>:<text>[#n]
+        const m = /^take:([^:]+):(.+)$/.exec(ev.src);
+        if (!m || !takeWords[m[1]]) continue;
+        const [word, nth] = m[2].split("#");
+        const hits = takeWords[m[1]].filter(
+          (x) => x.text.toLowerCase() === word.toLowerCase());
+        const w = hits[Number(nth ?? 0)];
+        if (!w) continue;
+        fromMs = w.fromMs; toMs = w.toMs;
+        srcWav = `${OUT}/imab-set-${m[1]}.wav`;
+      } else if (ev.src.startsWith("words:")) {          // span: words:just..tume
         const [a2, b2] = ev.src.slice(6).split("..");
         const s1 = findSyl(a2), s2 = findSyl(b2);
         if (!s1 || !s2) continue;
@@ -574,7 +605,7 @@ if (haveVox) {
       const layers = [[pitch, 1], ...(ev.harm ?? [])
         .filter((h) => h !== 0).map((h) => [pitch + h, 0.55])];
       for (const [pp, hg] of layers) {
-        const y = wordWav(fromMs, toMs, stretch, pp);
+        const y = wordWav(fromMs, toMs, stretch, pp, srcWav);
         if (!y) continue;
         put(stretch >= 2.5 ? choirStem : voxStem, y, t, (ev.gain ?? 1) * hg);
         placed++;

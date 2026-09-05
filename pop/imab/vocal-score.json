@@ -1,72 +1,531 @@
 {
-  "_": "word-level vocal score for hitbaker — placement, duration (stretch), pitch, harmony stacks. src: word:<label>[#n] or words:<a>..<b> (span). bar/beat on the 124 grid (form: chorus0@0 verse1@8 pre@20 chorus1@24 verse2@40 pre@52 chorus2@56 break@72 finale@76 peel@96). stretch >= 2.5 routes to the choir bed (ducks nothing).",
+  "_": "word-level vocal score for hitbaker \u2014 placement, duration (stretch), pitch, harmony stacks. src: word:<label>[#n] or words:<a>..<b> (span). bar/beat on the 124 grid (form: chorus0@0 verse1@8 pre@20 chorus1@24 verse2@40 pre@52 chorus2@56 break@72 finale@76 peel@96). stretch >= 2.5 routes to the choir bed (ducks nothing).",
   "events": [
-    { "_": "── verse 1: the Shatner monologue — every word its own event", "src": "word:i'm", "bar": 8, "beat": 1, "stretch": 1.4, "gain": 0.95 },
-    { "src": "word:a", "bar": 9, "beat": 2.5, "gain": 0.9 },
-    { "src": "word:but", "bar": 10, "beat": 1, "gain": 1 },
-    { "src": "word:ter", "bar": 10, "beat": 2, "gain": 1 },
-    { "src": "word:fly", "bar": 10, "beat": 4, "stretch": 0.8, "gain": 1.05 },
-    { "src": "word:flap", "bar": 12, "beat": 3, "gain": 0.9 },
-    { "src": "word:ping", "bar": 13, "beat": 1, "harm": [7], "gain": 1 },
-    { "src": "word:for", "bar": 14, "beat": 3, "gain": 0.85 },
-    { "src": "word:you", "bar": 14, "beat": 4, "gain": 0.85 },
-    { "src": "word:guys", "bar": 15, "beat": 1, "stretch": 1.6, "gain": 0.95 },
-    { "src": "word:i'm", "bar": 16, "beat": 1, "gain": 0.9 },
-    { "src": "word:a", "bar": 17, "beat": 1, "stretch": 1.8, "gain": 0.85 },
-    { "src": "words:but..fly", "bar": 18, "beat": 3.5, "stretch": 0.75, "gain": 1.05 },
-    { "src": "word:fly", "bar": 19, "beat": 2.5, "gain": 0.6 },
-    { "src": "word:fly", "bar": 19, "beat": 4, "gain": 0.45, "pitch": 4 },
-
-    { "_": "── pre 1: the stutter build", "src": "word:but", "bar": 20, "beat": 1, "gain": 0.9 },
-    { "src": "word:but", "bar": 20, "beat": 3, "gain": 0.9 },
-    { "src": "word:but", "bar": 21, "beat": 1, "gain": 0.95 },
-    { "src": "word:ter", "bar": 21, "beat": 2, "gain": 0.9 },
-    { "src": "word:but", "bar": 21, "beat": 3, "gain": 0.95 },
-    { "src": "word:ter", "bar": 21, "beat": 4, "gain": 0.9 },
-    { "src": "words:but..fly", "bar": 22, "beat": 1, "stretch": 0.85, "gain": 1 },
-    { "src": "words:but..fly", "bar": 22, "beat": 3, "stretch": 0.85, "gain": 1, "pitch": 4 },
-    { "src": "word:fly", "bar": 23, "beat": 1, "stretch": 2, "harm": [4, 7], "gain": 1 },
-
-    { "_": "── chorus 1 accents", "src": "word:ping", "bar": 32, "beat": 2.5, "harm": [12], "gain": 0.6 },
-    { "src": "word:fly", "bar": 38, "beat": 3, "pitch": 7, "gain": 0.5 },
-
-    { "_": "── verse 2: costume deadpan", "src": "word:just", "bar": 40, "beat": 1, "gain": 0.95 },
-    { "src": "word:a#1", "bar": 40, "beat": 3.5, "gain": 0.85 },
-    { "src": "word:cos", "bar": 41, "beat": 1, "gain": 1 },
-    { "src": "word:tume", "bar": 41, "beat": 2, "harm": [3], "gain": 0.95 },
-    { "src": "word:i", "bar": 43, "beat": 1, "gain": 0.9 },
-    { "src": "word:put", "bar": 43, "beat": 2, "gain": 0.9 },
-    { "src": "word:on", "bar": 43, "beat": 3, "gain": 0.9 },
-    { "src": "word:in", "bar": 44, "beat": 1, "gain": 0.9 },
-    { "src": "word:my", "bar": 44, "beat": 3, "gain": 0.9 },
-    { "src": "word:room", "bar": 45, "beat": 1, "stretch": 2, "harm": [7], "gain": 1 },
-    { "src": "word:room", "bar": 47, "beat": 3, "stretch": 3, "gain": 0.55 },
-    { "src": "words:flap..ping", "bar": 49, "beat": 1, "gain": 0.8 },
-    { "src": "word:guys", "bar": 50, "beat": 4, "stretch": 0.7, "gain": 0.7 },
-
-    { "_": "── pre 2: build again, higher", "src": "word:but", "bar": 52, "beat": 1, "gain": 0.9 },
-    { "src": "word:ter", "bar": 52, "beat": 3, "gain": 0.9 },
-    { "src": "words:but..fly", "bar": 53, "beat": 1, "stretch": 0.85, "gain": 0.95 },
-    { "src": "words:but..fly", "bar": 54, "beat": 1, "stretch": 0.85, "pitch": 4, "gain": 0.95 },
-    { "src": "word:fly", "bar": 55, "beat": 1, "stretch": 2, "harm": [4, 7, 12], "gain": 1.05 },
-
-    { "_": "── chorus 2 accents", "src": "word:ping", "bar": 64, "beat": 2.5, "harm": [12], "gain": 0.6 },
-
-    { "_": "── break: the bloom", "src": "word:fly", "bar": 72, "beat": 1, "stretch": 4, "harm": [4, 7, 12], "gain": 0.9 },
-    { "src": "word:room", "bar": 74, "beat": 1, "stretch": 4, "pitch": -5, "gain": 0.55 },
-
-    { "_": "── finale: the chant", "src": "words:but..fly", "bar": 78, "beat": 1, "harm": [7], "gain": 0.9 },
-    { "src": "word:i'm", "bar": 79, "beat": 4.5, "gain": 0.8 },
-    { "src": "words:but..fly", "bar": 82, "beat": 1, "harm": [7], "gain": 0.9 },
-    { "src": "word:ping", "bar": 84, "beat": 2.5, "harm": [12], "gain": 0.65 },
-    { "src": "words:but..fly", "bar": 86, "beat": 1, "harm": [4, 7], "gain": 0.95 },
-    { "src": "word:i'm", "bar": 87, "beat": 4.5, "gain": 0.8 },
-    { "src": "words:but..fly", "bar": 90, "beat": 1, "harm": [7, 12], "gain": 1 },
-    { "src": "word:fly", "bar": 92, "beat": 1, "stretch": 2, "harm": [4, 7], "gain": 0.9 },
-    { "src": "word:guys", "bar": 94, "beat": 3, "stretch": 0.7, "gain": 0.7 },
-
-    { "_": "── peel: goodnight", "src": "word:in", "bar": 96, "beat": 1, "gain": 0.8 },
-    { "src": "word:my", "bar": 96, "beat": 3, "gain": 0.8 },
-    { "src": "word:room", "bar": 97, "beat": 1, "stretch": 3, "harm": [7], "gain": 0.85 }
+    {
+      "_": "\u2500\u2500 verse 1: the Shatner monologue \u2014 every word its own event",
+      "src": "word:i'm",
+      "bar": 8,
+      "beat": 1,
+      "stretch": 1.4,
+      "gain": 0.95
+    },
+    {
+      "src": "word:a",
+      "bar": 9,
+      "beat": 2.5,
+      "gain": 0.9
+    },
+    {
+      "src": "word:but",
+      "bar": 10,
+      "beat": 1,
+      "gain": 1,
+      "stretch": 2.0
+    },
+    {
+      "src": "word:ter",
+      "bar": 10,
+      "beat": 2.5,
+      "gain": 1,
+      "stretch": 2.0
+    },
+    {
+      "src": "word:fly",
+      "bar": 10,
+      "beat": 4,
+      "stretch": 2.4,
+      "gain": 1.1
+    },
+    {
+      "src": "word:flap",
+      "bar": 12,
+      "beat": 3,
+      "gain": 0.9
+    },
+    {
+      "src": "word:ping",
+      "bar": 13,
+      "beat": 1,
+      "harm": [
+        7
+      ],
+      "gain": 1
+    },
+    {
+      "src": "word:for",
+      "bar": 14,
+      "beat": 3,
+      "gain": 0.85
+    },
+    {
+      "src": "word:you",
+      "bar": 14,
+      "beat": 4,
+      "gain": 0.85
+    },
+    {
+      "src": "word:guys",
+      "bar": 15,
+      "beat": 1,
+      "stretch": 1.6,
+      "gain": 0.95
+    },
+    {
+      "src": "word:i'm",
+      "bar": 16,
+      "beat": 1,
+      "gain": 0.9
+    },
+    {
+      "src": "word:a",
+      "bar": 17,
+      "beat": 1,
+      "stretch": 1.8,
+      "gain": 0.85
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 18,
+      "beat": 3,
+      "stretch": 1.7,
+      "gain": 1.05
+    },
+    {
+      "src": "word:fly",
+      "bar": 19,
+      "beat": 2.5,
+      "gain": 0.6
+    },
+    {
+      "src": "word:fly",
+      "bar": 19,
+      "beat": 4,
+      "gain": 0.45,
+      "pitch": 4
+    },
+    {
+      "_": "\u2500\u2500 pre 1: the stutter build",
+      "src": "word:but",
+      "bar": 20,
+      "beat": 1,
+      "gain": 0.9
+    },
+    {
+      "src": "word:but",
+      "bar": 20,
+      "beat": 3,
+      "gain": 0.9
+    },
+    {
+      "src": "word:but",
+      "bar": 21,
+      "beat": 1,
+      "gain": 0.95
+    },
+    {
+      "src": "word:ter",
+      "bar": 21,
+      "beat": 2,
+      "gain": 0.9
+    },
+    {
+      "src": "word:but",
+      "bar": 21,
+      "beat": 3,
+      "gain": 0.95
+    },
+    {
+      "src": "word:ter",
+      "bar": 21,
+      "beat": 4,
+      "gain": 0.9
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 22,
+      "beat": 1,
+      "stretch": 0.85,
+      "gain": 1
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 22,
+      "beat": 3,
+      "stretch": 0.85,
+      "gain": 1,
+      "pitch": 4
+    },
+    {
+      "src": "word:fly",
+      "bar": 23,
+      "beat": 1,
+      "stretch": 2.4,
+      "harm": [
+        4,
+        7
+      ],
+      "gain": 1
+    },
+    {
+      "_": "\u2500\u2500 chorus 1 accents",
+      "src": "word:ping",
+      "bar": 32,
+      "beat": 2.5,
+      "harm": [
+        12
+      ],
+      "gain": 0.6
+    },
+    {
+      "src": "word:fly",
+      "bar": 38,
+      "beat": 3,
+      "pitch": 7,
+      "gain": 0.5
+    },
+    {
+      "_": "\u2500\u2500 verse 2: costume deadpan",
+      "src": "word:just",
+      "bar": 40,
+      "beat": 1,
+      "gain": 0.95
+    },
+    {
+      "src": "word:a#1",
+      "bar": 40,
+      "beat": 3.5,
+      "gain": 0.85
+    },
+    {
+      "src": "word:cos",
+      "bar": 41,
+      "beat": 1,
+      "gain": 1
+    },
+    {
+      "src": "word:tume",
+      "bar": 41,
+      "beat": 2,
+      "harm": [
+        3
+      ],
+      "gain": 0.95
+    },
+    {
+      "src": "word:i",
+      "bar": 43,
+      "beat": 1,
+      "gain": 0.9
+    },
+    {
+      "src": "word:put",
+      "bar": 43,
+      "beat": 2,
+      "gain": 0.9
+    },
+    {
+      "src": "word:on",
+      "bar": 43,
+      "beat": 3,
+      "gain": 0.9
+    },
+    {
+      "src": "word:in",
+      "bar": 44,
+      "beat": 1,
+      "gain": 0.9
+    },
+    {
+      "src": "word:my",
+      "bar": 44,
+      "beat": 3,
+      "gain": 0.9
+    },
+    {
+      "src": "word:room",
+      "bar": 45,
+      "beat": 1,
+      "stretch": 2,
+      "harm": [
+        7
+      ],
+      "gain": 1
+    },
+    {
+      "src": "word:room",
+      "bar": 47,
+      "beat": 3,
+      "stretch": 3,
+      "gain": 0.55
+    },
+    {
+      "src": "words:flap..ping",
+      "bar": 49,
+      "beat": 1,
+      "gain": 0.8
+    },
+    {
+      "src": "word:guys",
+      "bar": 50,
+      "beat": 4,
+      "stretch": 0.7,
+      "gain": 0.7
+    },
+    {
+      "_": "\u2500\u2500 pre 2: build again, higher",
+      "src": "word:but",
+      "bar": 52,
+      "beat": 1,
+      "gain": 0.9
+    },
+    {
+      "src": "word:ter",
+      "bar": 52,
+      "beat": 3,
+      "gain": 0.9
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 53,
+      "beat": 1,
+      "stretch": 0.85,
+      "gain": 0.95
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 54,
+      "beat": 1,
+      "stretch": 0.85,
+      "pitch": 4,
+      "gain": 0.95
+    },
+    {
+      "src": "word:fly",
+      "bar": 55,
+      "beat": 1,
+      "stretch": 2.4,
+      "harm": [
+        4,
+        7,
+        12
+      ],
+      "gain": 1.05
+    },
+    {
+      "_": "\u2500\u2500 chorus 2 accents",
+      "src": "word:ping",
+      "bar": 64,
+      "beat": 2.5,
+      "harm": [
+        12
+      ],
+      "gain": 0.6
+    },
+    {
+      "_": "\u2500\u2500 break: the bloom",
+      "src": "word:fly",
+      "bar": 72,
+      "beat": 1,
+      "stretch": 4,
+      "harm": [
+        4,
+        7,
+        12
+      ],
+      "gain": 0.9
+    },
+    {
+      "src": "word:room",
+      "bar": 74,
+      "beat": 1,
+      "stretch": 4,
+      "pitch": -5,
+      "gain": 0.55
+    },
+    {
+      "_": "\u2500\u2500 finale: the chant",
+      "src": "words:but..fly",
+      "bar": 78,
+      "beat": 1,
+      "harm": [
+        7
+      ],
+      "gain": 0.9
+    },
+    {
+      "src": "word:i'm",
+      "bar": 79,
+      "beat": 4.5,
+      "gain": 0.8
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 82,
+      "beat": 1,
+      "harm": [
+        7
+      ],
+      "gain": 0.9
+    },
+    {
+      "src": "word:ping",
+      "bar": 84,
+      "beat": 2.5,
+      "harm": [
+        12
+      ],
+      "gain": 0.65
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 86,
+      "beat": 1,
+      "harm": [
+        4,
+        7
+      ],
+      "gain": 0.95
+    },
+    {
+      "src": "word:i'm",
+      "bar": 87,
+      "beat": 4.5,
+      "gain": 0.8
+    },
+    {
+      "src": "words:but..fly",
+      "bar": 90,
+      "beat": 1,
+      "harm": [
+        7,
+        12
+      ],
+      "gain": 1
+    },
+    {
+      "src": "word:fly",
+      "bar": 92,
+      "beat": 1,
+      "stretch": 2.4,
+      "harm": [
+        4,
+        7
+      ],
+      "gain": 0.9
+    },
+    {
+      "src": "word:guys",
+      "bar": 94,
+      "beat": 3,
+      "stretch": 0.7,
+      "gain": 0.7
+    },
+    {
+      "_": "\u2500\u2500 peel: goodnight",
+      "src": "word:in",
+      "bar": 96,
+      "beat": 1,
+      "gain": 0.8
+    },
+    {
+      "src": "word:my",
+      "bar": 96,
+      "beat": 3,
+      "gain": 0.8
+    },
+    {
+      "src": "word:room",
+      "bar": 97,
+      "beat": 1,
+      "stretch": 3,
+      "harm": [
+        7
+      ],
+      "gain": 0.85
+    },
+    {
+      "_": "\u2500\u2500 other takes: call-and-response (his own performances)",
+      "src": "take:7427025009693986079:butterfly",
+      "bar": 11,
+      "beat": 2,
+      "gain": 0.7
+    },
+    {
+      "src": "take:7656469190517263646:flapping",
+      "bar": 13,
+      "beat": 3,
+      "gain": 0.6
+    },
+    {
+      "src": "take:7427025009693986079:butterfly",
+      "bar": 30,
+      "beat": 3,
+      "gain": 0.55
+    },
+    {
+      "src": "take:7656469190517263646:costume",
+      "bar": 42,
+      "beat": 1,
+      "gain": 0.7
+    },
+    {
+      "src": "take:7427025009693986079:room",
+      "bar": 46,
+      "beat": 1,
+      "stretch": 2,
+      "gain": 0.6
+    },
+    {
+      "src": "take:7656469190517263646:butterfly",
+      "bar": 48,
+      "beat": 1,
+      "stretch": 1.5,
+      "gain": 0.6
+    },
+    {
+      "src": "take:7656469190517263646:butterfly",
+      "bar": 62,
+      "beat": 3,
+      "pitch": 4,
+      "gain": 0.5
+    },
+    {
+      "src": "take:7427025009693986079:butterfly",
+      "bar": 73,
+      "beat": 2,
+      "stretch": 3,
+      "gain": 0.5
+    },
+    {
+      "src": "take:7656469190517263646:butterfly",
+      "bar": 80,
+      "beat": 1,
+      "harm": [
+        7
+      ],
+      "gain": 0.85
+    },
+    {
+      "src": "take:7427025009693986079:butterfly",
+      "bar": 88,
+      "beat": 1,
+      "harm": [
+        7
+      ],
+      "gain": 0.85
+    },
+    {
+      "src": "take:7656469190517263646:flapping",
+      "bar": 93,
+      "beat": 1,
+      "gain": 0.6
+    },
+    {
+      "src": "take:7427025009693986079:room",
+      "bar": 98,
+      "beat": 1,
+      "stretch": 2.6,
+      "gain": 0.6
+    }
   ]
 }
