@@ -1,0 +1,374 @@
+% !TEX program = xelatex
+\documentclass[11pt,letterpaper,landscape]{article}
+
+\usepackage[letterpaper,landscape,top=0.54in,bottom=0.50in,left=0.62in,right=0.62in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[
+  Extension=.otf,
+  UprightFont=lmroman10-regular,
+  BoldFont=lmroman10-bold,
+  ItalicFont=lmroman10-italic,
+  BoldItalicFont=lmroman10-bolditalic,
+]
+\setsansfont{Latin Modern Sans}[
+  Extension=.otf,
+  UprightFont=lmsans10-regular,
+  BoldFont=lmsans10-bold,
+]
+\setmonofont{Latin Modern Mono}[
+  Extension=.otf,
+  UprightFont=lmmono10-regular,
+  Scale=0.88,
+]
+\usepackage{xcolor}
+\usepackage{graphicx}
+\graphicspath{{./}}
+\usepackage{../ac-paper-layout}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{microtype}
+\usepackage{ragged2e}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,positioning}
+
+\definecolor{accyan}{RGB}{37,151,145}
+\definecolor{accream}{RGB}{248,246,239}
+\definecolor{acamber}{RGB}{210,154,44}
+\definecolor{acred}{RGB}{184,63,73}
+\definecolor{acline}{RGB}{213,207,215}
+\definecolor{acsoft}{RGB}{239,235,241}
+
+\hypersetup{
+  pdftitle={Aesthetic Network Resource Allocation Map},
+  pdfauthor={Aesthetic Computer},
+  pdfsubject={Observed fleet allocation and safe batch-work routing, 2026-09-05}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\renewcommand{\arraystretch}{1.18}
+\setlength{\tabcolsep}{5pt}
+
+\newcommand{\displaytitle}[1]{%
+  {\acbold\fontsize{31pt}{32pt}\selectfont\color{acdark}#1\par}%
+}
+\newcommand{\deck}[1]{%
+  \vspace{0.24em}{\aclight\fontsize{13pt}{15pt}\selectfont\color{acpink}#1\par}%
+}
+\newcommand{\dateline}{%
+  \vspace{0.55em}{\ttfamily\fontsize{8.5pt}{10pt}\selectfont\color{acgray}%
+  OBSERVED 2026-09-05 \quad LOAD = 1-MINUTE LOAD / VCPU}%
+}
+\newcommand{\claim}[2]{%
+  \noindent\begin{minipage}{\textwidth}
+    \displaytitle{#1}
+    \deck{#2}
+  \end{minipage}
+  \vspace{0.35em}\par\noindent{\color{acpink}\rule{\textwidth}{1.5pt}}\par
+}
+\newcommand{\metric}[2]{%
+  \begin{minipage}[t]{0.22\textwidth}
+    {\acbold\fontsize{27pt}{27pt}\selectfont\color{acdark}#1}\par
+    {\aclight\fontsize{10pt}{11pt}\selectfont\color{acgray}#2}
+  \end{minipage}%
+}
+\newcommand{\usagebar}[2]{%
+  \begin{tikzpicture}[baseline=-0.55ex]
+    \fill[acsoft] (0,0) rectangle (3.4,0.14);
+    \pgfmathsetmacro{\barwidth}{3.4*(#1)/100}
+    \fill[#2] (0,0) rectangle (\barwidth,0.115);
+  \end{tikzpicture}%
+}
+\newcommand{\state}[2]{%
+  {\ttfamily\bfseries\fontsize{7.3pt}{8pt}\selectfont\color{#1}#2}%
+}
+\newcommand{\machine}[4]{%
+  \begin{tikzpicture}[baseline=-0.55ex,scale=.13,line width=1.25pt,color=#1]
+    #2
+  \end{tikzpicture}\hspace{0.38em}%
+  {\acbold\fontsize{11.2pt}{12pt}\selectfont\color{acdark}#3}%
+  \hfill{\ttfamily\fontsize{7.4pt}{8pt}\selectfont\color{acgray}#4}%
+}
+\newcommand{\servericon}{%
+  \draw (0,1) rectangle (14,7); \draw (0,9) rectangle (14,15);
+  \fill (2,3) circle (0.7); \fill (2,11) circle (0.7);
+}
+\newcommand{\ovenicon}{%
+  \draw (7,0) .. controls (1,4) and (4,9) .. (6,12)
+    .. controls (7,8) and (11,7) .. (10,15)
+    .. controls (16,9) and (15,3) .. (7,0);
+}
+\newcommand{\bridgeicon}{%
+  \draw (0,2)--(16,2); \draw (2,2)--(2,7);
+  \draw (14,2)--(14,7); \draw (2,7) .. controls (6,15) and (10,15) .. (14,7);
+}
+\newcommand{\dbicon}{%
+  \draw (1,12) ellipse (7 and 3); \draw (1,12)--(1,3);
+  \draw (15,12)--(15,3); \draw (1,3) arc (180:360:7 and 3);
+}
+\newcommand{\layersicon}{%
+  \draw (0,12)--(8,16)--(16,12)--(8,8)--cycle;
+  \draw (0,7)--(8,3)--(16,7); \draw (0,3)--(8,-1)--(16,3);
+}
+\newcommand{\orbicon}{%
+  \draw (8,8) circle (5); \draw (0,8) .. controls (4,1) and (13,1) .. (16,8);
+  \fill (15,7) circle (1);
+}
+
+\begin{document}
+
+\claim{26 vCPU, but only Oven is a batch worker.}
+{The fleet is large in aggregate and narrow in practice: production boundaries matter more than idle percentages.}
+\dateline
+
+\vspace{0.65em}
+\noindent\metric{8}{DigitalOcean Droplets}\hfill
+\metric{50 GiB}{memory}\hfill
+\metric{905 GB}{root storage}\hfill
+\metric{\$307}{monthly list cost}
+
+\vspace{0.78em}
+\begin{tikzpicture}[x=0.91cm,y=1cm]
+  % One cell per vCPU: a literal fragmentation map of the 26-core fleet.
+  \fill[acgray!42] (0,0) rectangle (1,0.82);
+  \fill[acgray!58] (1,0) rectangle (2,0.82);
+  \fill[acpurple!70] (2,0) rectangle (4,0.82);
+  \fill[acamber!83] (4,0) rectangle (12,0.82);
+  \fill[acpurple!48] (12,0) rectangle (14,0.82);
+  \fill[accyan!66] (14,0) rectangle (16,0.82);
+  \fill[acpurple!58] (16,0) rectangle (18,0.82);
+  \fill[acpink!78] (18,0) rectangle (26,0.82);
+  \foreach \x in {0,...,26} \draw[white,line width=.55pt] (\x,0)--(\x,.82);
+  \node[anchor=west,font=\ttfamily\scriptsize,text=acgray] at (0,-.22) {1 CELL = 1 vCPU};
+  \node[anchor=east,font=\ttfamily\scriptsize,text=acgray] at (26,-.22) {COLOR = OPERATING CLASS};
+\end{tikzpicture}
+
+\vspace{0.55em}
+{\small
+\begin{tabularx}{\textwidth}{@{}>{\RaggedRight\arraybackslash}p{1.30in} >{\RaggedRight\arraybackslash}p{1.66in} r r r r >{\RaggedRight\arraybackslash}X@{}}
+\toprule
+\textbf{Machine} & \textbf{Capacity} & \textbf{Load} & \textbf{RAM} & \textbf{Disk} & \textbf{Class} & \textbf{Reserved purpose} \\
+\midrule
+Legacy & \texttt{1C / 1G / 30G + 148G} & \usagebar{0}{acpink} & 64\% & 97\% vol. & \state{acgray}{ARCHIVE} & Fourteen archival sites \\
+Session & \texttt{1C / 1G / 25G} & \usagebar{0}{acpink} & 61\% & 36\% & \state{acpurple}{LIVE} & Realtime multiplayer authority \\
+Knot & \texttt{2C / 4G / 25G} & \usagebar{2}{acpink} & 39\% & 62\% & \state{acpurple}{SOURCE} & Tangled git origin \\
+Oven & \texttt{8C / 16G / 320G} & \usagebar{41}{acamber} & 21\% & 17\% & \state{acamber}{BATCH} & Media factory, IPFS, paper builds \\
+Silo & \texttt{2C / 4G / 25G} & \usagebar{1}{acpink} & 66\% & 74\% & \state{acpurple}{DATA} & Databases and media relay \\
+Help & \texttt{2C / 4G / 80G} & \usagebar{4}{accyan} & 16\% & 8\% & \state{accyan}{PROXY} & AA bridge and Caddy only \\
+Lith & \texttt{2C / 4G / 80G} & \usagebar{21}{acpink} & 50\% & 51\% & \state{acpurple}{PUBLIC} & Frontend and API ingress \\
+Jasellite & \texttt{8C / 16G / 320G} & \usagebar{0}{acpink} & 9\% & 58\% & \state{acpink}{INTERACTIVE} & Agents, prox, previews \\
+\bottomrule
+\end{tabularx}}
+
+\vspace{0.58em}
+{\aclight\fontsize{13pt}{14pt}\selectfont\color{acdark}Root storage is concentrated on Oven and Jasellite.}\par
+\vspace{0.16em}
+\begin{tikzpicture}[x=0.0261cm,y=1cm]
+  % One continuous address-space strip: capacity is pale; observed use is dark.
+  \fill[acgray!20] (0,0) rectangle (30,.54);
+  \fill[acgray!28] (30,0) rectangle (55,.54);
+  \fill[acpurple!22] (55,0) rectangle (80,.54);
+  \fill[acamber!24] (80,0) rectangle (400,.54);
+  \fill[acpurple!20] (400,0) rectangle (425,.54);
+  \fill[accyan!20] (425,0) rectangle (505,.54);
+  \fill[acpurple!22] (505,0) rectangle (585,.54);
+  \fill[acpink!22] (585,0) rectangle (905,.54);
+
+  \fill[acgray!72] (0,0) rectangle (10.8,.54);
+  \fill[acgray!72] (30,0) rectangle (39,.54);
+  \fill[acpurple!70] (55,0) rectangle (70.5,.54);
+  \fill[acamber!82] (80,0) rectangle (134.4,.54);
+  \fill[acpurple!70] (400,0) rectangle (418.5,.54);
+  \fill[accyan!72] (425,0) rectangle (431.4,.54);
+  \fill[acpurple!70] (505,0) rectangle (545.8,.54);
+  \fill[acpink!74] (585,0) rectangle (770.6,.54);
+  \foreach \x in {0,30,55,80,400,425,505,585,905} \draw[white,line width=.75pt] (\x,0)--(\x,.54);
+
+  \node[anchor=west,font=\ttfamily\scriptsize,text=acgray] at (0,-.20) {DARK = USED};
+  \node[anchor=center,font=\ttfamily\scriptsize,text=acdark] at (240,.27) {OVEN 320G};
+  \node[anchor=center,font=\ttfamily\scriptsize,text=acdark] at (465,.27) {HELP 80G};
+  \node[anchor=center,font=\ttfamily\scriptsize,text=acdark] at (545,.27) {LITH 80G};
+  \node[anchor=center,font=\ttfamily\scriptsize,text=acdark] at (745,.27) {JASELLITE 320G};
+  \node[anchor=east,font=\ttfamily\scriptsize,text=acred] at (905,-.20) {LEGACY ATTACHED VOL 148G / 97\% USED};
+\end{tikzpicture}
+
+\vfill
+{\small\color{acgray}\textit{Reading the plate.} The two eight-core rectangles dominate the total, but they are not interchangeable. Oven is interruptible production capacity. Jasellite is the interactive agent seat and keeps a human-response reserve.}
+
+\newpage
+
+\claim{Five Droplets stay sealed around live state.}
+{The map separates preservation, authority, source, data, and public ingress before allocating any autonomous work.}
+
+\vspace{0.65em}
+\begin{tikzpicture}[
+  node distance=0.50cm and 0.62cm,
+  machine/.style={draw=acline,line width=.9pt,minimum width=6.62cm,minimum height=1.44cm,inner sep=8pt,align=left,fill=white},
+  flow/.style={-{Latex[length=2.1mm]},line width=1.0pt,color=acpurple!80},
+  note/.style={font=\ttfamily\scriptsize,text=acgray,align=center}
+]
+  \node[machine] (legacy) {\machine{acgray}{\servericon}{Legacy}{ARCHIVE}\\[-1pt]
+    {\scriptsize Apache · Rails · PHP · PostgreSQL 9.5}\\[-1pt]
+    {\ttfamily\scriptsize\color{acred}EOL OS / VOLUME 97\%}};
+  \node[machine,right=of legacy] (session) {\machine{acpurple}{\orbicon}{Session}{LIVE}\\[-1pt]
+    {\scriptsize Arena · Socket.io · geckos · Caddy}\\[-1pt]
+    {\ttfamily\scriptsize\color{acred}1 GiB / LATENCY-SENSITIVE}};
+  \node[machine,right=of session] (knot) {\machine{acpurple}{\layersicon}{Knot}{SOURCE}\\[-1pt]
+    {\scriptsize Tangled knot · AT Protocol}\\[-1pt]
+    {\ttfamily\scriptsize\color{acred}SOURCE OF TRUTH}};
+
+  \node[machine,below=0.58cm of legacy,xshift=3.35cm] (silo) {\machine{acpurple}{\dbicon}{Silo}{DATA}\\[-1pt]
+    {\scriptsize MongoDB · Datomic · PostgreSQL · MediaMTX}\\[-1pt]
+    {\ttfamily\scriptsize\color{acred}RAM 66\% / DISK 74\%}};
+  \node[machine,right=0.75cm of silo] (lith) {\machine{acpurple}{\layersicon}{Lith}{PUBLIC}\\[-1pt]
+    {\scriptsize Frontend · API · Caddy · IPFS · Oxigraph}\\[-1pt]
+    {\ttfamily\scriptsize\color{acred}PRODUCTION INGRESS}};
+
+  \draw[flow] (knot.south) |- (lith.east);
+  \draw[flow] (lith.west) -- (silo.east);
+  \draw[flow] (session.south) |- (lith.north);
+  \node[note,below=0.18cm of silo] {persistent state};
+  \node[note,below=0.18cm of lith] {public requests};
+\end{tikzpicture}
+
+\vspace{0.58em}
+\noindent{\color{acpurple}\rule{\textwidth}{0.55pt}}
+\vspace{0.3em}
+
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}p{1.17in} X X@{}}
+Boundary & What makes it non-schedulable & Correct response \\
+\midrule
+Archive & Obsolete dependencies and a nearly full archive volume & Preserve; migrate deliberately; never borrow the host for batch work. \\
+Realtime & A one-core, one-GiB latency authority & Keep the event loop and memory headroom quiet. \\
+Source & Repository origin and mirror chain & Protect integrity and storage; builds happen elsewhere. \\
+Data & Persistent stores already carry 66\% RAM and 74\% disk & Back up and compact; do not colocate autonomous agents. \\
+Ingress & User-facing application and API plane & Keep deploys observable; no background render queues. \\
+\bottomrule
+\end{tabularx}
+
+\vfill
+\begin{center}
+{\aclight\fontsize{16pt}{18pt}\selectfont\color{acpink}
+Idle CPU inside a live boundary is failover margin, not inventory.}
+\end{center}
+
+\newpage
+
+\claim{Autonomous work belongs on Oven.}
+{Jasellite schedules and inspects; Help proxies. Neither becomes a general worker.}
+
+\vspace{0.65em}
+\begin{tikzpicture}[
+  box/.style={draw=acline,line width=.9pt,minimum height=1.33cm,inner sep=9pt,align=left,fill=white},
+  arrow/.style={-{Latex[length=2mm]},line width=1pt,color=acpink}
+]
+  \node[box,minimum width=6.25cm] (queue) {\machine{acpink}{\orbicon}{Jasellite}{CONTROL}\\[-1pt]
+    {\scriptsize enqueue · inspect · notify}\\[-1pt]
+    {\ttfamily\scriptsize\color{acpink}HUMAN-RESPONSE RESERVE}};
+  \node[box,minimum width=7.00cm,right=1.0cm of queue] (oven) {\machine{acamber}{\ovenicon}{Oven}{WORKER}\\[-1pt]
+    {\scriptsize research · synthesis · XeLaTeX · media}\\[-1pt]
+    {\ttfamily\scriptsize\color{acamber}CGROUP / NICE / INTERRUPTIBLE}};
+  \node[box,minimum width=5.15cm,right=1.0cm of oven] (artifact) {{\acbold\large candidate}\\[-1pt]
+    {\scriptsize PDF + source + log}\\[-1pt]
+    {\ttfamily\scriptsize\color{acpurple}REVIEW GATE}};
+  \draw[arrow] (queue) -- node[above,font=\ttfamily\scriptsize,text=acgray]{lease} (oven);
+  \draw[arrow] (oven) -- node[above,font=\ttfamily\scriptsize,text=acgray]{artifact} (artifact);
+\end{tikzpicture}
+
+\vspace{0.85em}
+{\acbold\fontsize{14pt}{16pt}\selectfont\color{acdark}Operating budget}\par
+\vspace{0.25em}
+\begin{tikzpicture}[x=0.72cm,y=0.52cm]
+  \node[anchor=east,font=\ttfamily\small] at (-.3,3.5) {OVEN CPU};
+  \foreach \x in {0,...,7} {
+    \fill[acamber!78] (\x,3) rectangle +(0.84,0.72);
+    \draw[white] (\x,3) rectangle +(0.84,0.72);
+  }
+  \node[anchor=west,font=\small] at (8.4,3.36) {8 cores · batch ceiling 6 · 2 reserved};
+
+  \node[anchor=east,font=\ttfamily\small] at (-.3,1.9) {JAS CPU};
+  \foreach \x in {0,...,7} {
+    \pgfmathparse{\x<2 ? "acpink!78" : "acsoft"}
+    \fill[\pgfmathresult] (\x,1.4) rectangle +(0.84,0.72);
+    \draw[white] (\x,1.4) rectangle +(0.84,0.72);
+  }
+  \node[anchor=west,font=\small] at (8.4,1.76) {2 cores soft ceiling · 6 kept interactive};
+
+  \node[anchor=east,font=\ttfamily\small] at (-.3,.3) {HELP CPU};
+  \foreach \x in {0,1} {
+    \fill[acsoft] (\x,-.2) rectangle +(0.84,0.72);
+    \draw[white] (\x,-.2) rectangle +(0.84,0.72);
+  }
+  \node[anchor=west,font=\small] at (2.4,.16) {no batch allocation · proxy and tunnel only};
+\end{tikzpicture}
+
+\vspace{0.65em}
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}p{1.25in} X >{\RaggedRight\arraybackslash}p{2.15in}@{}}
+Workload & Placement & Guardrail \\
+\midrule
+Mediascholar & Oven service + timer; Jasellite submits and receives progress & One paper at a time; bounded tokens; no publish or merge. \\
+Paper builds & Oven & Existing papermill lane; lower priority than interactive work. \\
+Heavy media & Oven & Utility priority; capped cores; resumable outputs. \\
+Interactive agents & Jasellite & Preserve six cores and memory headroom for prox sessions. \\
+AA bridge & Help & Existing Caddy/tunnel path only; no worker daemon. \\
+\bottomrule
+\end{tabularx}
+
+\vfill
+{\small\color{acgray}Authentication should be injected at job start from the existing secret path. The queue records provider, model, token budget, PID/cgroup, source set, and artifact path—never the token itself.}
+
+\newpage
+
+\claim{WGTV moves as bytes, not frames.}
+{Pre-encode each master once on Oven; loop it there with stream copy. Help remains unchanged.}
+
+\vspace{0.72em}
+\begin{tikzpicture}[
+  node distance=.62cm,
+  pipebox/.style={draw=acline,line width=.9pt,minimum width=5.45cm,minimum height=1.72cm,inner sep=7pt,align=center,fill=white},
+  arrow/.style={-{Latex[length=2.1mm]},line width=1.05pt,color=acpurple}
+]
+  \node[pipebox] (works) {{\acbold\Large 135}\\[-1pt]{\small works}\\[4pt]{\ttfamily\scriptsize archive MP4 + metadata}};
+  \node[pipebox,right=of works,draw=acamber] (encode) {\machine{acamber}{\ovenicon}{Oven}{ENCODE}\\[3pt]{\scriptsize scale · pad · titles · QR}\\{\ttfamily\scriptsize H.264 / AAC}};
+  \node[pipebox,right=of encode] (masters) {{\acbold\large masters}\\[-1pt]{\small object storage}\\[4pt]{\ttfamily\scriptsize versioned manifest}};
+  \node[pipebox,right=of masters,draw=acamber] (loop) {\machine{acamber}{\ovenicon}{Oven}{PLAYOUT}\\[3pt]{\ttfamily\scriptsize -re -c copy}\\{\scriptsize persistent RTMP}};
+  \draw[arrow] (works)--(encode);
+  \draw[arrow] (encode)--(masters);
+  \draw[arrow] (masters)--(loop);
+\end{tikzpicture}
+
+\vspace{0.70em}
+\begin{tikzpicture}[x=0.62cm,y=.62cm]
+  \node[anchor=east,font=\acbold\large,text=acdark] at (2.9,3.1) {live encode};
+  \foreach \x in {3,...,12} \fill[acpink!82] (\x,2.7) rectangle +(0.82,.72);
+  \foreach \x in {13,...,14} \fill[acsoft] (\x,2.7) rectangle +(0.82,.72);
+  \node[anchor=west,font=\ttfamily\large,text=acpink] at (15.3,3.06) {1.5--2 cores};
+
+  \node[anchor=east,font=\acbold\large,text=acdark] at (2.9,1.35) {stream copy};
+  \fill[accyan!78] (3,1.0) rectangle +(0.82,.72);
+  \foreach \x in {4,...,14} \fill[acsoft] (\x,1.0) rectangle +(0.82,.72);
+  \node[anchor=west,font=\ttfamily\large,text=accyan] at (15.3,1.36) {$<$0.25 core};
+\end{tikzpicture}
+
+\vspace{0.45em}
+{\acbold\fontsize{14pt}{16pt}\selectfont\color{acdark}What changes}\par
+\vspace{0.22em}
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}p{1.28in} X X@{}}
+ & Before & After \\
+\midrule
+Composition & Frames generated for every broadcast pass & One dated master per work; views become snapshot metadata. \\
+Playout & Decode, composite, and encode continuously & Read bytes at wall-clock speed; copy codecs unchanged. \\
+Failure surface & Renderer, fonts, network, and encoder stay live & Manifest, file reader, and RTMP connection stay live. \\
+Placement & Jasellite competes with agents & Oven owns both batch render and low-cost playout. \\
+Help & Proposed as an edge relay & Not used. AA bridge and Caddy remain isolated. \\
+\bottomrule
+\end{tabularx}
+
+\vfill
+\begin{center}
+{\aclight\fontsize{15pt}{17pt}\selectfont\color{acpink}
+One machine makes the file. The same machine reads the file. Nothing redraws it.}
+\end{center}
+
+\end{document}

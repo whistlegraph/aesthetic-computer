@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "pdf": "aesthetic-network-resource-map-2026-09-05.pdf",
+  "pdfSha256": "56aa289d6dd798e7bb099e61b73fe4a146ce5805264f8cee1cbca6a2475c30a1",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Codex"
+  },
+  "reviewedAt": "2026-09-05T20:45:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "No visible project-name wordmark appears; the Pals mark and AC palette carry the identity without introducing an uncolored or missing period."
+  },
+  "expectedDiagrams": 4,
+  "diagrams": [
+    {
+      "id": "fleet-fragmentation-map",
+      "page": 1,
+      "crop": [0.05, 0.13, 0.90, 0.72],
+      "design": "pass",
+      "checks": {"tangents":"pass","type":"pass","balance":"pass","spaceUse":"pass","hierarchy":"pass","edgeRouting":"pass"},
+      "notes": "The 26-cell CPU strip and proportional 905GB storage strip dominate the plate; the table is legible at normal PDF size and the two large-capacity hosts remain visible at thumbnail scale."
+    },
+    {
+      "id": "sealed-live-boundaries",
+      "page": 2,
+      "crop": [0.05, 0.13, 0.90, 0.69],
+      "design": "pass",
+      "checks": {"tangents":"pass","type":"pass","balance":"pass","spaceUse":"pass","hierarchy":"pass","edgeRouting":"pass"},
+      "notes": "Five equal-width machine nodes keep distinct gutters; the three short routes avoid text and terminate cleanly."
+    },
+    {
+      "id": "autonomous-work-routing",
+      "page": 3,
+      "crop": [0.05, 0.13, 0.90, 0.70],
+      "design": "pass",
+      "checks": {"tangents":"pass","type":"pass","balance":"pass","spaceUse":"pass","hierarchy":"pass","edgeRouting":"pass"},
+      "notes": "Control, worker, and review gate read left to right; the operating-budget bars make the asymmetry explicit and Help receives no allocation."
+    },
+    {
+      "id": "wgtv-byte-pipeline",
+      "page": 4,
+      "crop": [0.05, 0.13, 0.90, 0.70],
+      "design": "pass",
+      "checks": {"tangents":"pass","type":"pass","balance":"pass","spaceUse":"pass","hierarchy":"pass","edgeRouting":"pass"},
+      "notes": "The byte pipeline is continuous, evenly spaced, and collision-free; CPU bars and before/after rows support the same single claim."
+    }
+  ],
+  "presentation": {
+    "expectedSlides": 4,
+    "slides": [
+      {"page":1,"design":"pass","checks":{"oneClaim":"pass","distanceType":"pass","evidenceDominance":"pass","voteClarity":"n/a","routeOrientation":"n/a","qrLegibility":"n/a"}},
+      {"page":2,"design":"pass","checks":{"oneClaim":"pass","distanceType":"pass","evidenceDominance":"pass","voteClarity":"n/a","routeOrientation":"pass","qrLegibility":"n/a"}},
+      {"page":3,"design":"pass","checks":{"oneClaim":"pass","distanceType":"pass","evidenceDominance":"pass","voteClarity":"n/a","routeOrientation":"pass","qrLegibility":"n/a"}},
+      {"page":4,"design":"pass","checks":{"oneClaim":"pass","distanceType":"pass","evidenceDominance":"pass","voteClarity":"n/a","routeOrientation":"pass","qrLegibility":"n/a"}}
+    ]
+  }
+}
