@@ -28,6 +28,7 @@ const KNOWN_TOPICS = [
   "chat-system",
   "chat-sotce",
   "chat-clock",
+  "sotce-pages",
 ];
 const MAX_LABEL = 64;
 
@@ -81,11 +82,28 @@ export async function handler(event) {
     }
   }
 
-  const topics = Array.isArray(body.topics)
+  let topics = Array.isArray(body.topics)
     ? body.topics.filter((t) => KNOWN_TOPICS.includes(t))
     : ["scream", "mood"];
 
-  const user = await authorize(event.headers); // null is fine (anonymous)
+  // sotce.net registrations authorize against the sotce tenant and store the
+  // user under a "sotce-"-prefixed sub (the repo-wide cross-tenant convention),
+  // so sends can target either tenant's users without sub collisions.
+  const tenant = body.tenant === "sotce" ? "sotce" : "aesthetic";
+  const user = await authorize(event.headers, tenant); // null is fine (anonymous)
+  const userKey = user?.sub
+    ? (tenant === "sotce" ? "sotce-" : "") + user.sub
+    : null;
+
+  // Sotce topics carry reader-side content (chat text), so they require a
+  // signed-in sotce account — never an anonymous registration.
+  const SOTCE_TOPICS = ["chat-sotce", "sotce-pages"];
+  if (
+    topics.some((t) => SOTCE_TOPICS.includes(t)) &&
+    !(tenant === "sotce" && userKey)
+  ) {
+    topics = topics.filter((t) => !SOTCE_TOPICS.includes(t));
+  }
 
   const database = await connect();
   try {
@@ -111,13 +129,13 @@ export async function handler(event) {
       updatedAt: new Date(),
     };
 
-    if (user?.sub) {
+    if (userKey) {
       // Bind to user; claim the token from any previous account on this
       // device, and drop stale rows for this device (rotated endpoints).
-      doc.user = user.sub;
-      await collection.deleteMany({ token, user: { $ne: user.sub } });
+      doc.user = userKey;
+      await collection.deleteMany({ token, user: { $ne: userKey } });
       await collection.deleteMany({
-        user: user.sub,
+        user: userKey,
         deviceId,
         token: { $ne: token },
       });

@@ -93,6 +93,7 @@ import {
   userIDFromEmail,
 } from "../../backend/authorization.mjs";
 import * as KeyValue from "../../backend/kv.mjs";
+import { broadcastToTopic, sendToUser } from "../../../shared/push.mjs";
 
 import Stripe from "stripe";
 import crypto from "node:crypto";
@@ -110,6 +111,49 @@ const SHELL_CACHE_MAX = 40;
 // process start doubles as the shell's modification time.
 const SHELL_MODIFIED = new Date(Math.floor(Date.now() / 1000) * 1000);
 const SHELL_MODIFIED_HTTP = SHELL_MODIFIED.toUTCString();
+
+// 🔔 Service worker for web push — no fetch handler, so it never touches
+// caching or page loads. Payloads come encrypted from shared/push.mjs as
+// { title, body, icon, image, data: { piece } }.
+const SW_SOURCE = `// sotce.net service worker — web push delivery only.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
+self.addEventListener("push", (event) => {
+  let note = {};
+  try {
+    note = event.data?.json() || {};
+  } catch {
+    note = { body: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(note.title || "Sotce Net", {
+      body: note.body || "",
+      icon: note.icon || "https://assets.aesthetic.computer/sotce-net/cookie.png",
+      image: note.image,
+      data: note.data || {},
+    })
+  );
+});
+
+// Tapping a notification opens its page ("" = the diary, "chat" = chat),
+// reusing an open tab when there is one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const piece = event.notification.data?.piece || "";
+  const url = self.location.origin + "/" + piece;
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((tabs) => {
+      const tab = tabs.find((t) => t.url.startsWith(self.location.origin));
+      if (tab) {
+        tab.focus();
+        return tab.navigate ? tab.navigate(url) : undefined;
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+`;
 
 const dateOptions = {
   weekday: "long",
@@ -4770,6 +4814,44 @@ export const handler = async (event, context) => {
                   h2.innerText =
                     "Your subscription ends on " + subscription.until + ".";
                   buttons.push(genSubscribeButton("resubscribe"));
+                }
+
+                // 🔔 Notifications toggle — new pages, answered questions,
+                // and chat messages arrive as web notifications.
+                if (pushSupported()) {
+                  const nb = cel("button");
+                  nb.id = "notifications-toggle";
+                  nb.innerText = "notifications";
+                  notificationsOn().then(function (on) {
+                    nb.innerText = on
+                      ? "notifications: on"
+                      : "notifications: off";
+                  });
+                  nb.onclick = async function () {
+                    if (nb.disabled) return;
+                    nb.disabled = true;
+                    try {
+                      if (await notificationsOn()) {
+                        await disableNotifications();
+                        nb.innerText = "notifications: off";
+                      } else {
+                        const ok = await enableNotifications();
+                        nb.innerText = ok
+                          ? "notifications: on"
+                          : "notifications: off";
+                        if (!ok && Notification.permission === "denied") {
+                          alert(
+                            "🔕 Notifications are blocked for this site in your browser settings.",
+                          );
+                        }
+                      }
+                    } catch (err) {
+                      console.error("🔔 Notification toggle error:", err);
+                      nb.innerText = "notifications: off";
+                    }
+                    nb.disabled = false;
+                  };
+                  buttons.push(nb);
                 }
 
                 curtain.classList.add("hidden");
@@ -9851,6 +9933,128 @@ export const handler = async (event, context) => {
               }
             }
 
+            // 🔔 Web push — pages, answered questions, and chat arrive as
+            // notifications once a reader opts in. Server side: shared/push.mjs.
+            const VAPID_PUBLIC_KEY =
+              "BIgGeN262eCK5bDaTdifFEsyvgcd6wwRztK_H7m6uhM49egJZsUKz2tiTVgjlD-JypqyVnvTqL3iZK3L4tAeFKk";
+
+            function pushSupported() {
+              return (
+                "serviceWorker" in navigator &&
+                "PushManager" in window &&
+                "Notification" in window
+              );
+            }
+
+            function pushDeviceId() {
+              let id;
+              try {
+                id = localStorage.getItem("sotce-push-device-id");
+                if (!id) {
+                  id = crypto.randomUUID();
+                  localStorage.setItem("sotce-push-device-id", id);
+                }
+              } catch (err) {
+                id = crypto.randomUUID();
+              }
+              return id;
+            }
+
+            function pushDeviceLabel() {
+              const ua = navigator.userAgent;
+              let browser = "Browser";
+              if (ua.includes("Edg/")) browser = "Edge";
+              else if (ua.includes("Chrome/")) browser = "Chrome";
+              else if (ua.includes("Firefox/")) browser = "Firefox";
+              else if (ua.includes("Safari/")) browser = "Safari";
+              let os = "";
+              if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+              else if (ua.includes("Android")) os = "Android";
+              else if (ua.includes("Mac")) os = "macOS";
+              else if (ua.includes("Windows")) os = "Windows";
+              else if (ua.includes("Linux")) os = "Linux";
+              return browser + (os ? " on " + os : "");
+            }
+
+            async function pushSubscriptionNow() {
+              if (!pushSupported()) return null;
+              const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+              if (!reg) return null;
+              return await reg.pushManager.getSubscription();
+            }
+
+            async function notificationsOn() {
+              try {
+                if (!pushSupported()) return false;
+                if (Notification.permission !== "granted") return false;
+                return !!(await pushSubscriptionNow());
+              } catch (err) {
+                return false;
+              }
+            }
+
+            async function enableNotifications() {
+              if (!pushSupported()) {
+                alert("This browser does not support notifications.");
+                return false;
+              }
+              const permission = await Notification.requestPermission();
+              if (permission !== "granted") return false;
+              const reg = await navigator.serviceWorker.register("/sw.js");
+              await navigator.serviceWorker.ready;
+              const keyBytes = Uint8Array.from(
+                atob(
+                  VAPID_PUBLIC_KEY.replace(/-/g, "+").replace(/_/g, "/"),
+                ),
+                function (c) {
+                  return c.charCodeAt(0);
+                },
+              );
+              let sub = await reg.pushManager.getSubscription();
+              sub =
+                sub ||
+                (await reg.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: keyBytes,
+                }));
+              const token =
+                window.sotceTOKEN || (await auth0Client.getTokenSilently());
+              const res = await fetch("/api/register-push-token", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: "Bearer " + token,
+                },
+                body: JSON.stringify({
+                  kind: "webpush",
+                  subscription: sub.toJSON(),
+                  deviceId: pushDeviceId(),
+                  label: pushDeviceLabel(),
+                  platform: "web",
+                  topics: ["sotce-pages", "chat-sotce"],
+                  tenant: "sotce",
+                }),
+              });
+              if (res.ok) console.log("🔔 Notifications enabled.");
+              return res.ok;
+            }
+
+            async function disableNotifications() {
+              const sub = await pushSubscriptionNow();
+              if (!sub) return;
+              fetch("/api/register-push-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  kind: "webpush",
+                  token: sub.endpoint,
+                  remove: true,
+                }),
+              }).catch(function () {});
+              await sub.unsubscribe();
+              console.log("🔕 Notifications disabled.");
+            }
+
             // Stripe.js loads on demand — only the checkout flow needs it.
             function loadStripeJs() {
               if (window.Stripe) return Promise.resolve();
@@ -10289,6 +10493,12 @@ export const handler = async (event, context) => {
     }
 
     return respond(200, body, shellHeaders);
+  } else if (path === "/sw.js" && method === "get") {
+    // 🔔 Web push service worker. (Caddy's @serviceworker rule adds the
+    // no-cache header, so none is set here.)
+    return respond(200, SW_SOURCE, {
+      "Content-Type": "application/javascript; charset=utf-8",
+    });
   } else if (path === "/subscribers" && method === "get") {
     // Counting means paginating every Stripe subscription ever (seconds of
     // API calls), and the logged-out gate blocks on this response — so cache
@@ -10720,6 +10930,22 @@ export const handler = async (event, context) => {
         });
         page = await pages.findOne({ _id: insertion.insertedId });
       }
+
+      // 🔔 Tell opted-in devices a page went up. Fire-and-forget so the
+      // publish never waits on push fan-out; the body stays generic since
+      // page words are subscriber-only.
+      broadcastToTopic(
+        database.db,
+        "sotce-pages",
+        {
+          title: "Sotce Net",
+          body: "A new page has been written.",
+          data: { piece: "" },
+          ttl: 3600,
+        },
+        shell.log,
+      ).catch((err) => shell.error("🔔 Page push failed:", err?.message));
+
       await database.disconnect();
       return respond(200, { page });
     } else {
@@ -11007,6 +11233,21 @@ export const handler = async (event, context) => {
 
     // NOTE: No separate page is created — answered questions live only in
     // sotce-asks and get swizzled into the feed client-side alongside diary pages.
+
+    // 🔔 Tell the asker their question was answered. Their push registration
+    // is stored under the "sotce-"-prefixed sub (see register-push-token).
+    sendToUser(
+      database.db,
+      "sotce-" + question.user,
+      {
+        title: "Sotce Net",
+        body: "Your question has been answered.",
+        data: { piece: "" },
+        ttl: 24 * 3600,
+      },
+      {},
+      shell.log,
+    ).catch((err) => shell.error("🔔 Answer push failed:", err?.message));
 
     await database.disconnect();
 

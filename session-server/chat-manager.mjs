@@ -38,7 +38,9 @@ export const chatInstances = {
     name: "chat-sotce",
     allowedHost: "chat.sotce.net",
     userInfoEndpoint: "https://sotce.us.auth0.com/userinfo",
-    topic: "mood",
+    // Dedicated topic — sotce chat pings must never fan out to the shared
+    // "mood" topic that aesthetic.computer devices subscribe to.
+    topic: "chat-sotce",
   },
   "chat-clock.aesthetic.computer": {
     name: "chat-clock",
@@ -618,9 +620,9 @@ export class ChatManager {
         });
       }
 
-      // Push notification (production only, non-muted, chat-system and chat-clock only)
-      // Note: chat-sotce is intentionally excluded from push notifications
-      if (!this.dev && !userIsMuted && instance.config.name !== "chat-sotce") {
+      // Push notification (production only, non-muted). chat-sotce rides its
+      // own "chat-sotce" topic, which only sotce.net readers opt into.
+      if (!this.dev && !userIsMuted) {
         this.notify(instance, handle, filteredText, when);
       }
     } catch (err) {
