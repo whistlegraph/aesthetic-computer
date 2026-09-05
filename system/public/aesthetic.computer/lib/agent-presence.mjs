@@ -1,6 +1,6 @@
 // Agent Presence (client), 26.09.03
 // Connects this AC surface to the presence relay under the user's handle and
-// shows a small agent mark in the bottom-right corner while an agent is
+// shows a small agent mark in the top-right corner while an agent is
 // linked in — the platform-wide cousin of oskiewar's telemetry antenna.
 
 const RELAY_HOST = "session-server.aesthetic.computer";
@@ -33,7 +33,7 @@ function ensureMark() {
   mark.width = 12;
   mark.height = 12;
   mark.style.cssText =
-    "position:fixed;right:8px;bottom:8px;width:24px;height:24px;" +
+    "position:fixed;right:8px;top:8px;width:24px;height:24px;" +
     "image-rendering:pixelated;z-index:1000;display:none;opacity:0.9;";
   mark.dataset.acAgentMark = "true";
   document.body.appendChild(mark);
