@@ -95,6 +95,14 @@ import {
 import * as KeyValue from "../../backend/kv.mjs";
 
 import Stripe from "stripe";
+import crypto from "node:crypto";
+
+// The HTML shell is identical for every request to a given path (auth and all
+// dynamic content happen client-side), so render it once per title and serve
+// 304s to return visitors. Keyed by title + assetPath; numbered page paths
+// each get a title, hence the size cap.
+const shellCache = new Map(); // title|assetPath -> { body, etag }
+const SHELL_CACHE_MAX = 40;
 
 const dateOptions = {
   weekday: "long",
@@ -164,7 +172,8 @@ export const handler = async (event, context) => {
 
         if (subscriptionEndTime > currentTime) {
           shell.log("📰 Subscription active from cache!", performance.now());
-          await KeyValue.disconnect();
+          // (Redis stays connected — lith is long-lived and concurrent
+          // requests share the client, so quitting here would race them.)
           return parsed;
         } else {
           shell.log(
@@ -185,7 +194,6 @@ export const handler = async (event, context) => {
 
       if (!customers.data.length) {
         shell.log("❌ No customer found in Stripe");
-        await KeyValue.disconnect();
         return { subscribed: false };
       }
       const customer = customers.data[0];
@@ -214,11 +222,9 @@ export const handler = async (event, context) => {
             current_period_end: subscription.current_period_end,
           }),
         );
-        await KeyValue.disconnect();
         return subscription;
       } else {
         shell.log("❌ No active subscription found");
-        await KeyValue.disconnect();
         return { subscribed: false };
       }
     } catch (err) {
@@ -316,7 +322,7 @@ export const handler = async (event, context) => {
       path === "/respond" ||
       path.match(/^\/\d+$/) ||
       path.match(/^\/q\d+$/)) &&
-    method === "get"
+    (method === "get" || method === "head")
   ) {
     const miniBreakpoint = 245;
 
@@ -325,7 +331,10 @@ export const handler = async (event, context) => {
       title = path.replace("/", "") + " · " + title;
     }
 
-    const body = html`
+    const shellKey = title + "|" + assetPath;
+    const cachedShell = dev ? undefined : shellCache.get(shellKey);
+
+    const body = cachedShell?.body || html`
       <html lang="en">
         <head>
           <meta charset="utf-8" />
@@ -353,6 +362,22 @@ export const handler = async (event, context) => {
           />-->
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+          <link rel="preconnect" href="https://assets.aesthetic.computer" crossorigin />
+          <link rel="preconnect" href="https://hi.sotce.net" />
+          <link
+            rel="preload"
+            href="${assetPath}helvetica.woff"
+            as="font"
+            type="font/woff"
+            crossorigin="anonymous"
+          />
+          <link
+            rel="preload"
+            href="${assetPath}helvetica-bold.woff"
+            as="font"
+            type="font/woff"
+            crossorigin="anonymous"
+          />
           <link
             href="https://fonts.googleapis.com/css2?family=Carlito:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
             rel="stylesheet"
@@ -3299,11 +3324,12 @@ export const handler = async (event, context) => {
           </style>
           ${dev ? reloadScript : ""}
           <script
+            defer
             crossorigin="anonymous"
             src="/aesthetic.computer/dep/auth0-spa-js.production.js"
           ></script>
-          <script src="https://js.stripe.com/v3/"></script>
-          <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js"></script>
+          <!-- Stripe.js and the Monaco editor load lazily on first use. -->
+
           ${!dev ? analyticsScript : ""}
         </head>
         <body>
@@ -3828,14 +3854,33 @@ export const handler = async (event, context) => {
             chatInterface.appendChild(chatMessages);
             chatInterface.appendChild(chatInputBar);
             
-            // 🎹 Initialize Monaco Editor for chat input
-            require.config({ 
-              paths: { 
+            // 🎹 Monaco Editor loads lazily the first time chat opens;
+            // until then the plain textarea fallback handles input.
+            let monacoChatRequested = false;
+            function loadMonacoChatEditor() {
+              if (monacoChatRequested) return;
+              monacoChatRequested = true;
+              if (window.require && window.require.config) {
+                bootMonacoChat();
+                return;
+              }
+              const monacoLoader = document.createElement("script");
+              monacoLoader.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.min.js";
+              monacoLoader.onload = bootMonacoChat;
+              monacoLoader.onerror = function () {
+                console.warn("🎹 Monaco loader failed; keeping fallback chat input.");
+              };
+              document.head.appendChild(monacoLoader);
+            }
+
+            function bootMonacoChat() {
+            require.config({
+              paths: {
                 vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
               },
               ignoreDuplicateModules: ['vs/editor/editor.main']
             });
-            
+
             require(['vs/editor/editor.main'], function() {
               // Register sotce-chat language with syntax highlighting
               monaco.languages.register({ id: 'sotce-chat' });
@@ -4037,6 +4082,7 @@ export const handler = async (event, context) => {
               chatEditorReady = true;
               console.log("🎹 Monaco chat editor ready");
             });
+            } // bootMonacoChat
 
             // 🥬 Send a message to chat.
             async function chatSend(text) {
@@ -4151,6 +4197,7 @@ export const handler = async (event, context) => {
                   (status === "subscribed" || subscription?.admin) // Only show chat for subscribed users and admins
                 ) {
                   chatInterface.classList.remove("hidden");
+                  loadMonacoChatEditor();
                 }
                 chatterCountUpdate();
                 return;
@@ -5114,6 +5161,7 @@ export const handler = async (event, context) => {
               chatButton.onclick = function () {
                 chatInterface.classList.remove("hidden");
                 chatInterface.classList.remove("inaccessible");
+                loadMonacoChatEditor();
                 chatScrollToBottom();
                 updatePath("/chat");
                 if (window.sotceHandle) {
@@ -9650,6 +9698,21 @@ export const handler = async (event, context) => {
                   ? window.sotceUSER
                   : await auth0Client.getUser();
 
+                // Load the entire history so scrollback reaches the very first page.
+                // (don't set pageNumber, which would limit the server to one page)
+                const subscribeOptions = { loadAll: true };
+
+                // The subscription check only needs the token, not the /user
+                // response — start it alongside the /user round-trip when the
+                // cached claims already show a verified email (the common
+                // return-user case).
+                const earlySubscribed = user.email_verified
+                  ? subscribed(subscribeOptions).catch(function (err) {
+                      console.error("Subscription pre-check failed:", err);
+                      return "error";
+                    })
+                  : null;
+
                 const userExists = await fetch(
                   "/user?from=" +
                     encodeURIComponent(user.email) +
@@ -9673,19 +9736,11 @@ export const handler = async (event, context) => {
                   await spinnerPass(async () => await gate("unverified", user));
                 } else {
                   // The user's email is verified...
-
-                  // Determine pagination based on path
-                  const pageMatchUrl = path.match(/^\\/(\\d+)$/);
-                  const questionMatchUrl = path.match(/^\\/q(\\d+)$/);
-                  const subscribeOptions = {};
-                  
-                  // Load the entire history so scrollback reaches the very first page.
-                  // (don't set pageNumber, which would limit the server to one page)
-                  subscribeOptions.loadAll = true;
-                  
                   console.log("📄 subscribeOptions:", subscribeOptions, "for path:", path);
 
-                  let entered = await subscribed(subscribeOptions);
+                  let entered = earlySubscribed
+                    ? await earlySubscribed
+                    : await subscribed(subscribeOptions);
                   let times = 0;
 
                   while (
@@ -9789,8 +9844,23 @@ export const handler = async (event, context) => {
               }
             }
 
+            // Stripe.js loads on demand — only the checkout flow needs it.
+            function loadStripeJs() {
+              if (window.Stripe) return Promise.resolve();
+              return new Promise(function (resolve, reject) {
+                const stripeScript = document.createElement("script");
+                stripeScript.src = "https://js.stripe.com/v3/";
+                stripeScript.onload = resolve;
+                stripeScript.onerror = function () {
+                  reject(new Error("Stripe.js failed to load"));
+                };
+                document.head.appendChild(stripeScript);
+              });
+            }
+
             // Go to the paywalled subscription page.
             async function subscribe() {
+              await loadStripeJs();
               const stripe = Stripe(
                 "${dev
                   ? SOTCE_STRIPE_API_TEST_PUB_KEY
@@ -10171,11 +10241,80 @@ export const handler = async (event, context) => {
         </body>
       </html>
     `;
-    return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
+
+    let etag = cachedShell?.etag;
+    if (!etag) {
+      etag =
+        '"' +
+        crypto.createHash("sha256").update(body).digest("hex").slice(0, 32) +
+        '"';
+      if (!dev) {
+        shellCache.set(shellKey, { body, etag });
+        if (shellCache.size > SHELL_CACHE_MAX) {
+          shellCache.delete(shellCache.keys().next().value);
+        }
+      }
+    }
+
+    const shellHeaders = {
+      "Content-Type": "text/html; charset=utf-8",
+      ETag: etag,
+      // Revalidate every visit, but a matching ETag turns the 400KB shell
+      // into a 304 for return visitors.
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    };
+
+    // Weak comparison: proxies may prefix W/ when they compress the body.
+    const inm = event.headers["if-none-match"];
+    if (inm && inm.includes(etag.slice(1, -1))) {
+      return respond(304, "", shellHeaders);
+    }
+
+    return respond(200, body, shellHeaders);
   } else if (path === "/subscribers" && method === "get") {
+    // Counting means paginating every Stripe subscription ever (seconds of
+    // API calls), and the logged-out gate blocks on this response — so cache
+    // the count and refresh it in the background once it goes stale.
+    const COUNT_TTL = 15 * 60 * 1000;
+    const countCacheKey = "sotce-subscriber-count";
+
+    let cached;
+    try {
+      await KeyValue.connect();
+      const raw = await KeyValue.get(countCacheKey, "cumulative");
+      if (raw) cached = JSON.parse(raw);
+    } catch (err) {
+      shell.error("Subscriber count cache read failed:", err);
+    }
+
+    const storeCount = async (count) => {
+      try {
+        await KeyValue.set(
+          countCacheKey,
+          "cumulative",
+          JSON.stringify({ count, at: Date.now() }),
+        );
+      } catch (err) {
+        shell.error("Subscriber count cache write failed:", err);
+      }
+    };
+
+    if (cached !== undefined) {
+      if (Date.now() - cached.at > COUNT_TTL) {
+        // Stale: serve it now, refresh after responding.
+        getCumulativeSubscriptionCount(productId)
+          .then((count) => {
+            if (count !== undefined && count !== null) return storeCount(count);
+          })
+          .catch((err) => shell.error("Subscriber count refresh failed:", err));
+      }
+      return respond(200, { subscribers: cached.count });
+    }
+
     const subscribers = await getCumulativeSubscriptionCount(productId);
 
     if (subscribers !== undefined && subscribers !== null) {
+      await storeCount(subscribers);
       return respond(200, { subscribers });
     } else {
       return respond(500, { message: "Could not get subscriber count." });
@@ -10677,7 +10816,6 @@ export const handler = async (event, context) => {
       await KeyValue.connect();
       await KeyValue.del("@handles", handle);
       await KeyValue.del("userIDs", sotceSub);
-      await KeyValue.disconnect();
     }
 
     // 3. Delete the user's handle if it exists and the user does not have
@@ -11104,7 +11242,6 @@ async function cancelSubscription(user, key) {
     // Clear the redis cache for this subscriber.
     await KeyValue.connect();
     await KeyValue.del("sotce-subscribed", user.sub);
-    await KeyValue.disconnect();
 
     result.status = 200;
     result.body = {

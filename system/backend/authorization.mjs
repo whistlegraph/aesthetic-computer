@@ -12,7 +12,27 @@ const dev = process.env.CONTEXT === "dev";
 const aestheticBaseURI = "https://aesthetic.us.auth0.com";
 const sotceBaseURI = "https://sotce.us.auth0.com";
 
+// 🚀 Userinfo cache — the same bearer token arrives with every API call a
+// client makes, so hitting Auth0's /userinfo (and its rate limit) each time
+// is pure latency. Successful lookups are held briefly; failures never are.
+const userinfoCache = new Map(); // sha256(tenant|authorization) -> { user, at }
+const USERINFO_CACHE_MS = 10 * 60 * 1000; // 10 minutes
+const USERINFO_CACHE_MAX = 500;
+
 export async function authorize({ authorization }, tenant = "aesthetic") {
+  if (!authorization) return undefined;
+
+  const { createHash } = await import("node:crypto");
+  const cacheKey = createHash("sha256")
+    .update(tenant + "|" + authorization)
+    .digest("hex");
+
+  const cached = userinfoCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < USERINFO_CACHE_MS) {
+    return { ...cached.user }; // Shallow copy so callers can't mutate the cache.
+  }
+  if (cached) userinfoCache.delete(cacheKey);
+
   try {
     const { got } = await import("got");
     const baseURI = tenant === "aesthetic" ? aestheticBaseURI : sotceBaseURI;
@@ -24,6 +44,12 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
       })
     ).body;
     shell.log(`✅ Authorization successful for \`${tenant}\` user: ${result?.sub}`);
+    if (result?.sub) {
+      if (userinfoCache.size >= USERINFO_CACHE_MAX) {
+        userinfoCache.delete(userinfoCache.keys().next().value); // Drop oldest.
+      }
+      userinfoCache.set(cacheKey, { user: result, at: Date.now() });
+    }
     return result;
   } catch (err) {
     shell.error("❌ Authorization failed:", err?.message || err, err?.code);
