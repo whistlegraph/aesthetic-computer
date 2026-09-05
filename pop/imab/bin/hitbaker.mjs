@@ -555,9 +555,19 @@ if (haveVox) {
       if (/^imab-set-(.+)-words\.json$/.test(f))
         takeWords[/^imab-set-(.+)-words\.json$/.exec(f)[1]] =
           JSON.parse(readFileSync(`${OUT}/${f}`, "utf8"));
+    const ensureTakeWords = (id) => {                  // whisper, never guess
+      if (takeWords[id]) return true;
+      const wav = `${OUT}/imab-set-${id}.wav`;
+      if (!existsSync(wav)) return false;
+      const out = `${OUT}/imab-set-${id}-words.json`;
+      sh("node", [`${REPO}/pop/bin/whisper-words.mjs`, wav, "--out", out]);
+      if (!existsSync(out)) return false;
+      takeWords[id] = JSON.parse(readFileSync(out, "utf8"));
+      return true;
+    };
     const sliceCache = {};
     const wordWav = (fromMs, toMs, stretch, pitch, srcWav = leadF) => {
-      const key = `${fromMs}-${toMs}-${stretch}-${pitch}-${srcWav.replace(/[^a-z0-9]/gi, "").slice(-24)}`;
+      const key = `${fromMs}-${toMs}-${stretch}-${(+pitch).toFixed(2)}-${srcWav.replace(/[^a-z0-9]/gi, "").slice(-24)}`;
       if (sliceCache[key]) return sliceCache[key];
       const t0 = Math.max(0, fromMs / 1000 - 0.04);
       const t1 = toMs / 1000 + 0.08;
@@ -576,6 +586,32 @@ if (haveVox) {
       }
       return (sliceCache[key] = existsSync(cut) ? readF32(cut) : null);
     };
+    // ── THE PITCH GATE: measured, never guessed. Every pitched layer
+    // measures its source (cached f0 beside the stem, else pyin), snaps
+    // the target to the nearest chord tone at that bar, renders the
+    // exact fractional shift, VERIFIES the render, and corrects once if
+    // the residual exceeds 30 cents ──────────────────────────────────
+    const WG = `${HERE}/wordgate.py`;
+    const CHORD_PCS = { C: [0, 4, 7], F: [5, 9, 0], G: [7, 11, 2], Am: [9, 0, 4] };
+    const midiCache = {};
+    const measure = (args) => {
+      const key = args.join("|");
+      if (key in midiCache) return midiCache[key];
+      const r = spawnSync(PY, [WG, ...args], { encoding: "utf8" });
+      const v = parseFloat(r.stdout);
+      return (midiCache[key] = Number.isFinite(v) ? v : null);
+    };
+    const snapToChord = (raw, ch) => {
+      const pcs = CHORD_PCS[ch] ?? CHORD_PCS.C;
+      let best = Math.round(raw), bd = 99;
+      for (let off = -3; off <= 3; off++) {
+        const cand = Math.round(raw) + off;
+        if (!pcs.includes(((cand % 12) + 12) % 12)) continue;
+        if (Math.abs(cand - raw) < bd) { bd = Math.abs(cand - raw); best = cand; }
+      }
+      return best;
+    };
+    const gate = { ok: 0, corrected: 0, missed: 0 };
     const score = JSON.parse(readFileSync(SCOREF, "utf8"));
     let placed = 0;
     for (const ev of score.events ?? []) {
@@ -583,7 +619,7 @@ if (haveVox) {
       let fromMs, toMs, srcWav = leadF;
       if (ev.src.startsWith("take:")) {         // take:<id>:<text>[#n]
         const m = /^take:([^:]+):(.+)$/.exec(ev.src);
-        if (!m || !takeWords[m[1]]) continue;
+        if (!m || !ensureTakeWords(m[1])) continue;
         const [word, nth] = m[2].split("#");
         const hits = takeWords[m[1]].filter(
           (x) => x.text.toLowerCase() === word.toLowerCase());
@@ -602,16 +638,39 @@ if (haveVox) {
         fromMs = w.fromMs; toMs = w.toMs;
       } else continue;
       const t = T(ev.bar) + ((ev.beat ?? 1) - 1) * BEAT;
+      const barChord = chord(Math.min(ev.bar, BARS - 1));
       const layers = [[pitch, 1], ...(ev.harm ?? [])
         .filter((h) => h !== 0).map((h) => [pitch + h, 0.55])];
       for (const [pp, hg] of layers) {
-        const y = wordWav(fromMs, toMs, stretch, pp, srcWav);
+        let y;
+        if (pp === 0) {
+          y = wordWav(fromMs, toMs, stretch, 0, srcWav);   // as sung, untouched
+        } else {
+          const srcMidi = measure(["src", srcWav, String(fromMs), String(toMs)]);
+          if (srcMidi === null) {
+            y = wordWav(fromMs, toMs, stretch, pp, srcWav); // unpitched word — raw shift
+            gate.missed++;
+          } else {
+            const target = snapToChord(srcMidi + pp, barChord);
+            let shift = target - srcMidi;
+            y = wordWav(fromMs, toMs, stretch, Number(shift.toFixed(2)), srcWav);
+            const cut = `${WORK}/hb-w-${fromMs}-${toMs}-${stretch}-${(+shift.toFixed(2)).toFixed(2)}-${srcWav.replace(/[^a-z0-9]/gi, "").slice(-24)}.wav`;
+            const got = y ? measure(["wav", cut]) : null;
+            if (got !== null && Math.abs(got - target) > 0.3) {
+              shift += target - got;                        // one correction pass
+              y = wordWav(fromMs, toMs, stretch, Number(shift.toFixed(2)), srcWav) ?? y;
+              gate.corrected++;
+            } else if (got !== null) gate.ok++;
+            else gate.missed++;
+          }
+        }
         if (!y) continue;
         put(stretch >= 2.5 ? choirStem : voxStem, y, t, (ev.gain ?? 1) * hg);
         placed++;
       }
     }
-    console.log(`word score: ${placed} placements from vocal-score.json`);
+    console.log(`word score: ${placed} placements · pitch gate ` +
+      `${gate.ok} on target, ${gate.corrected} corrected, ${gate.missed} unmeasurable`);
   }
 
   // halo: the lead through the church send, wide and behind
