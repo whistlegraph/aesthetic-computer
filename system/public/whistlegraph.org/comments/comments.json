@@ -1,5 +1,16 @@
 {
   "about": "Back-of-house archive of TikTok comment screenshots — sorted with toolchain/whistlegraph/comments.mjs, rendered at whistlegraph.org/comments.",
-  "updated": "2026-09-03T22:38:07.572Z",
-  "comments": []
+  "updated": "2026-09-04T12:16:51.030Z",
+  "comments": [
+    {
+      "id": "8d4bcd64",
+      "img": "img/8d4bcd64.png",
+      "w": 1380,
+      "h": 792,
+      "status": "unsorted",
+      "added": "2026-09-04",
+      "captured": "2022-10-31",
+      "note": "from Dropbox Whistlegraph/Comments Screenshots"
+    }
+  ]
 }
