@@ -1,0 +1,130 @@
+{
+  "about": "Sightings of whistlegraph in the wild — third-party content across the open web, gathered by coordinated search agents on 2026-09-05 and link-verified. Source ledger: toolchain/whistlegraph/WILD.md.",
+  "updated": "2026-09-05",
+  "sections": [
+    {
+      "title": "the lore machine",
+      "blurb": "The October 2022 incident — Jeffrey vanishing from videos, the blood video, the TikTok ban — set off a genuine ARG hunt across Reddit's theory subreddits.",
+      "entries": [
+        { "date": "2022-11-01", "platform": "r/ARG", "title": "Anyone know what's going on with whistlegraph?", "url": "https://www.reddit.com/r/ARG/comments/yjevha/anyone_know_whats_going_on_with_whistlegraph/", "gist": "The ARG community asks if it's a live ARG; a commenter recounts the whole lore for outsiders." },
+        { "date": "2022-11-01", "platform": "r/GameTheorists", "title": "TikTok mystery (I think?)", "url": "https://www.reddit.com/r/GameTheorists/comments/yivwwx/tiktok_mystery_i_think/", "gist": "MatPat's community flags whistlegraph as an unsolved TikTok mystery." },
+        { "date": "2022-11-02", "platform": "r/FilmTheorists", "title": "WHISTLEGRAPH LORE????????????", "url": "https://www.reddit.com/r/FilmTheorists/comments/yklzpj/whistlegraph_lore/", "gist": "The imposter-Jeffrey theory; still drawing comments as late as June 2024.", "excerpt": "even jeffrey himself said that wasnt the real jeffrey" },
+        { "date": "2022-11-05", "platform": "r/ARG", "title": "Whistlegraphs", "url": "https://www.reddit.com/r/ARG/comments/ymem0m/whistlegraphs/", "gist": "The third member vanishes from main videos but appears in cryptic ones — Halloween bit or real ARG?" },
+        { "date": "2022-11-11", "platform": "r/FilmTheorists", "title": "What the heck is going on with the whistlegraph account", "url": "https://www.reddit.com/r/FilmTheorists/comments/yryd77/what_the_heck_is_going_on_with_the_whistlegraph/", "excerpt": "some sort of cult and Guy #3 has been missing", "gist": "Fans tracked Jeffrey's on-camera disappearance as ongoing lore." },
+        { "date": "2022-11-16", "platform": "r/FilmTheorists", "title": "So the numbers in this video are suspicious", "url": "https://www.reddit.com/r/FilmTheorists/comments/yx7nzz/whistlegraphs_so_the_numbers_in_this_video_are/", "gist": "Fans ran the five-number sequences through Wolfram Alpha and got December 19 of 2020 and 2018." },
+        { "date": "2022-11-19", "platform": "r/FilmTheorists", "title": "Butterfly symbolism thread", "url": "https://www.reddit.com/r/FilmTheorists/comments/yz59o6/whistlegraphs_i_couldnt_upload_all_the_butterfly/", "excerpt": "There are no happy butterflies", "gist": "\"Jeffrey is the butterfly, right?\" — noting the destroyed spider web and the account's reply." },
+        { "date": "2022-11-22", "platform": "r/GameTheorists", "title": "Theory Suggestions Megathread pitch", "url": "https://www.reddit.com/r/GameTheorists/comments/p12qd6/theory_suggestions_megathread/ixbg8u0/", "gist": "A fan formally pitched whistlegraph for a MatPat episode." },
+        { "date": "2022-12-11", "platform": "r/FilmTheorists", "title": "The channel keeps deleting their videos", "url": "https://www.reddit.com/r/FilmTheorists/comments/zihafa/so_the_whistlegraph_channel_keeps_deleting_their/", "excerpt": "Jeffrey might've been traded for the girl?", "gist": "A fan archived videos as fast as they vanished, hunting hidden messages in a commercial." },
+        { "date": "2022-12-12", "platform": "r/FilmTheorists", "title": "Dropping lore but idk how to decode it", "url": "https://www.reddit.com/r/FilmTheorists/comments/zjlnht/whistlegraph_tiktok_is_dropping_lore_but_idk_how/", "gist": "Spectrogram-hunting the static in album teasers; cross-posted to r/ARG for backup." },
+        { "date": "2022-12-13", "platform": "r/FilmTheorists", "title": "The mystery includes a trippy art app", "url": "https://www.reddit.com/r/FilmTheorists/comments/zl8afp/the_whistlegraph_mystery_includes_a_trippy_art/", "gist": "The ARG hunt led fans into nopaint.art." },
+        { "date": "2022-12-23", "platform": "r/FilmTheorists", "title": "Y'all, there's been a lore drop! Their new album!", "url": "https://www.reddit.com/r/FilmTheorists/comments/ztrocl/yall_theres_been_a_whistlegraph_lore_drop_their/", "gist": "Fan gallery of the 12/22/22 album release, plus an image from a deleted video." },
+        { "date": "2024-03-09", "platform": "r/FilmTheorists", "title": "The retrospective", "url": "https://www.reddit.com/r/FilmTheorists/comments/1b9wgqe/what_it_a_franchise_or_show_you_really_wanted/ku1dpyf/", "excerpt": "an ARG that involved trying to literally make a new art form", "gist": "The main theorist, remembering it two years later." }
+      ]
+    },
+    {
+      "title": "the fan wiki",
+      "blurb": "An organized fan community wrote a fourteen-article encyclopedia at whistlegraph.fandom.com.",
+      "entries": [
+        { "platform": "Fandom", "title": "Whistlegraph Wiki", "url": "https://whistlegraph.fandom.com/wiki/Whistlegraph_Wiki", "excerpt": "The official wiki for all things Whistlegraph. Lore. People. More.", "gist": "The main page, featuring trio fanart credited to Mikaela Hamilton." },
+        { "platform": "Fandom", "title": "Whistlegraph lore", "url": "https://whistlegraph.fandom.com/wiki/Whistlegraph_lore", "excerpt": "He is trapped inside of a computer", "gist": "The richest fan-theory document found anywhere: the October Incident, the ban, the petition." },
+        { "platform": "Fandom", "title": "The Whistlegraph trio", "url": "https://whistlegraph.fandom.com/wiki/The_Whistlegraph_trio", "excerpt": "Organization Type: Performance Trio, Band, Religious coven", "gist": "Fan-written history from the 2020 Ashland cabin to a 'Disbandment' section dated Nov 2023." },
+        { "platform": "Fandom", "title": "Whistlegraph (Concept)", "url": "https://whistlegraph.fandom.com/wiki/Whistlegraph_(Concept)", "gist": "A fan-authored definition of the art form, with lyrics transcribed from memory." },
+        { "platform": "Fandom", "title": "Perry (Periyala)", "url": "https://whistlegraph.fandom.com/wiki/Perry_(Periyala)", "gist": "A wiki page about a superfan: her Zoom interview, cassette documentary, Discord ban, and continued activity on aesthetic.computer." },
+        { "platform": "Fandom", "title": "Ella Fleck", "url": "https://whistlegraph.fandom.com/wiki/Ella_Fleck", "gist": "Fans tracking peripheral collaborators — the Whistlegraph dance, 'Hair doodle for Ella'." },
+        { "platform": "Fandom", "title": "The Whistlegraph House", "url": "https://whistlegraph.fandom.com/wiki/The_Whistlegraph_House", "gist": "The Ashland cabin as a lore location." },
+        { "platform": "Fandom", "title": "Squeezy", "url": "https://whistlegraph.fandom.com/wiki/Squeezy", "excerpt": "Squeezy is something.", "gist": "The entire body text of the page." }
+      ]
+    },
+    {
+      "title": "the 252-million-view butterfly",
+      "blurb": "The biggest whistlegraph artifact in the wild is a reupload.",
+      "entries": [
+        { "date": "2021-02-11", "platform": "YouTube · Viral Queens", "title": "I Am A Butterfly (reupload)", "url": "https://www.youtube.com/watch?v=xslk5WclnRw", "gist": "~252 million views, 4.9M likes, ~10,000 comments — dwarfing the official channel; its comment section is a live fan archive." },
+        { "date": "2021-04-12", "platform": "YouTube · Viral Saga", "title": "I Am A Butterfly TikTok WhistleGraph", "url": "https://www.youtube.com/watch?v=yj-sOdKS2Fs", "gist": "Another compilation channel riding the 2021 wave." },
+        { "date": "2021-09-26", "platform": "YouTube · Drawing For Kids", "title": "Butterfly reupload", "url": "https://www.youtube.com/watch?v=3rWhUeAb6hI", "gist": "The butterfly recirculated as children's drawing content." }
+      ]
+    },
+    {
+      "title": "fan works",
+      "entries": [
+        { "date": "2022-05-18", "platform": "Archive of Our Own", "title": "Dot, Dot, Kiss", "url": "https://archiveofourown.org/works/39079263", "excerpt": "credits to the \"song\" go to whistlegraph on tiktok!", "gist": "A 2,091-word One Piece songfic structured scene-by-scene on a whistlegraph's strokes — the only whistlegraph hit on all of AO3." },
+        { "date": "2022-06-11", "platform": "YouTube", "title": "whistlegraphblocks & whistlegraph", "url": "https://www.youtube.com/watch?v=GBHR7VwU6ys", "gist": "A fan channel invented a 'whistlegraphblocks' spin-off concept — the first of at least three tribute videos." },
+        { "date": "2022-10-25", "platform": "Change.org", "title": "#SAVEWHISTLEGRAPH", "url": "https://www.change.org/p/bring-back-whistlegraph", "gist": "The petition Perry started when TikTok banned the account; 21 signatures; the fan wiki credits it with the restoration." },
+        { "date": "2023-06-05", "platform": "YouTube · LBBWhistlegraphs", "title": "Student whistlegraphs, 2022–23 school year", "url": "https://www.youtube.com/watch?v=tNg4XssVyoM", "gist": "A teacher's channel dedicated to whistlegraphs made with students — the form taught in classrooms." },
+        { "date": "2023-06-05", "platform": "YouTube · LBBWhistlegraphs", "title": "Student-inspired whistlegraph", "url": "https://www.youtube.com/watch?v=4LY6VvVIdco", "gist": "With a companion blog at lbbwhistlegraphs.com, now offline." },
+        { "platform": "Pinterest", "title": "My First Whistlegraph", "url": "https://www.pinterest.com/pin/my-first-whistlegraph--624100460884046714/", "excerpt": "I decided to create a whistlegraph of my own!", "gist": "An original fan-made whistlegraph — a smiling figure with a heart." },
+        { "platform": "Pinterest", "title": "Lady Bradi Bug Whistlegraphs", "url": "https://www.pinterest.com/lbbwhistlegraphs/", "gist": "Teacher and blogger Bradi Harrington built a whole personal practice of original whistlegraphs." },
+        { "date": "2023-06-11", "platform": "YouTube", "title": "@whistlegraph (tribute)", "url": "https://www.youtube.com/watch?v=ykO8AkXREn8", "gist": "A third tribute from the same dedicated fan channel." },
+        { "date": "2024-08-06", "platform": "YouTube · bo en archive", "title": "some of the time (unreleased)", "url": "https://www.youtube.com/watch?v=VRwwiNvglfw", "gist": "A fan-run archive channel preserving an unreleased whistlegraph × bo en collaboration from a livestream." },
+        { "date": "2024-08-06", "platform": "YouTube · bo en archive", "title": "butterfly (extended instrumental)", "url": "https://www.youtube.com/watch?v=HgvA4kvMShA", "gist": "Rescued from a special mixtape and mirrored on archive.org." },
+        { "date": "2024-08-19", "platform": "YouTube", "title": "(cursed video) Triaingle", "url": "https://www.youtube.com/watch?v=L--nKFXq6bI", "gist": "The songs circulating as meme raw material years after the peak." },
+        { "date": "2025-06-03", "platform": "YouTube", "title": "@whistlegraph But Nickelodeon Creatures", "url": "https://www.youtube.com/watch?v=5552rV8PC4w", "gist": "A kid-culture mashup redrawing whistlegraph performances as Nickelodeon characters." }
+      ]
+    },
+    {
+      "title": "haters and doubters",
+      "entries": [
+        { "date": "2020-04-23", "platform": "r/delusionalartists", "title": "This video is trying way too hard to be artistic", "url": "https://www.reddit.com/r/delusionalartists/comments/g6oqtk/i_get_what_hes_trying_to_say_but_this_video_is/", "gist": "An early mockery thread (42 points) — u/whistlegraph replied in person, explaining the work." },
+        { "date": "2020-04-23", "platform": "r/delusionalartists", "title": "This fully grown man considers himself an artist", "url": "https://www.reddit.com/r/delusionalartists/comments/g6nb1e/this_fully_grown_man_considers_himself_an_artist/", "excerpt": "He calls his work \"Whistlegraphs\". He's 100% serious.", "gist": "Deleted by a mod for pearl-clutching; comments split between mockers and defenders." },
+        { "date": "2022-04-07", "platform": "r/AskReddit", "title": "What shouldn't irritate you as much as it does?", "url": "https://www.reddit.com/r/AskReddit/comments/tyai70/whats_something_that_shouldnt_irritate_you_as/i3r3ahz/", "excerpt": "idk why I just really can't stand them", "gist": "Broad-audience irritation as a measure of reach." },
+        { "date": "2022-04-22", "platform": "r/AskReddit", "title": "What TikToker do you hate the most and why?", "url": "https://www.reddit.com/r/AskReddit/comments/u9hud3/what_tiktoker_do_you_hate_the_most_and_why/i5s1vqh/", "excerpt": "Whistlegraph. I don't know why though. Just something about them.", "gist": "The same user, two weeks later." }
+      ]
+    },
+    {
+      "title": "memory, recognition, and the word escaping",
+      "entries": [
+        { "date": "2020-04-07", "platform": "r/Documentaries", "title": "Meeting Mr. Kid Pix comment", "url": "https://www.reddit.com/r/Documentaries/comments/fvfmel/meeting_mr_kid_pix_2020_description_in_comments/fmn8k4e/", "gist": "A commenter connects the filmmaker to 'a tiktok account called Whistlegraphs'." },
+        { "date": "2020-06-18", "platform": "r/InternetIsBeautiful", "title": "No Paint thread", "url": "https://www.reddit.com/r/InternetIsBeautiful/comments/hb6qa6/no_paint_a_simple_website_for_creating_unique_art/fv93964/", "excerpt": "made by whistlegraph on tiktok! hes a nice guy", "gist": "Commenters identify No Paint's author." },
+        { "date": "2020-07-29", "platform": "r/tipofmytongue", "title": "The rhythm-doodles hunt", "url": "https://www.reddit.com/r/tipofmytongue/comments/i04w7h/tomt_tiktok_account_where_he_makes_rhythm_doodles/", "gist": "The work stuck in memory before the name did — solved by commenters as Whistlegraph." },
+        { "date": "2020-12-09", "platform": "r/AnimalsOnReddit", "title": "Wild voice recognition", "url": "https://www.reddit.com/r/AnimalsOnReddit/comments/k9ryvn/big_fur/gf61fvj/", "excerpt": "your voice sounds exactly like the whistlegraphs guy on tiktok", "gist": "On an unrelated animal video." },
+        { "date": "2021-01-16", "platform": "r/whistlegraph", "title": "Join the No Paint Discord", "url": "https://www.reddit.com/r/whistlegraph/comments/kyaahy/join_the_no_paint_discord/", "gist": "A dedicated fan subreddit exists, created January 2021." },
+        { "date": "2022-12-13", "platform": "r/whistlegraph", "title": "I'm excited about the album 12/22/22!", "url": "https://www.reddit.com/r/whistlegraph/comments/zkfoqd/im_excited_about_the_album_122222/", "gist": "The superfan brought the hype to the fan subreddit." },
+        { "date": "2023-04-24", "platform": "r/oddlysatisfying", "title": "Pen plotter synced to piano", "url": "https://www.reddit.com/r/oddlysatisfying/comments/12x9ie1/pen_plotter_programmed_to_sync_with_piano_piece/jhjuuxp/", "excerpt": "Whistlegraph?", "gist": "The coined word used as a genre label for a stranger's work." },
+        { "date": "2023-09-10", "platform": "r/tipofmytongue", "title": "The second hunt", "url": "https://www.reddit.com/r/tipofmytongue/comments/16eognd/tomt_word_or_account_20212022_help_me_find_the/", "gist": "'A really lovely song/drawing style on TikTok' — solved in February 2024; people still re-finding it years later." },
+        { "date": "2024-01-27", "platform": "r/4tran4", "title": "Anyone know what this image means?", "url": "https://www.reddit.com/r/4tran4/comments/1abv3tt/anyone_know_what_this_image_means/kjr3jh4/", "excerpt": "Apparently this is a whistlegraph", "gist": "A whistlegraph image circulating out of context in a shitposting subreddit." },
+        { "date": "2026-07-16", "platform": "Wiktionary", "title": "whistlegraph, n.", "url": "https://en.wiktionary.org/wiki/whistlegraph", "excerpt": "a piece of art created via whistlegraphing", "gist": "A third-party editor added the noun — and 'whistlegraphing' the same day. The coined word entered a crowd-edited dictionary." }
+      ]
+    },
+    {
+      "title": "press, criticism, institutions",
+      "blurb": "Coverage beyond the archive's known press list.",
+      "entries": [
+        { "date": "2020-02-01", "platform": "Twitter", "title": "bo en announces the butterfly collab", "url": "https://x.com/boenyeah/status/1223732726597066757", "gist": "Musician bo en (Calum Bowen) quoting the lyric to his followers." },
+        { "date": "2021-03-16", "platform": "Schneider Museum of Art", "title": "Art Beyond 2021", "url": "https://sma.sou.edu/whistlegraph/", "gist": "The hometown museum featured Whistlegraph at Lithia Park, Ashland." },
+        { "date": "2021-05-27", "platform": "Schneider Museum of Art", "title": "Creative Industries Discussion", "url": "https://sma.sou.edu/virtual-creative-industries-discussion-whistlegraph/", "gist": "A public talk hosted by the museum; recorded on their channel." },
+        { "date": "2021-06-11", "platform": "YouTube · Schneider Museum", "title": "Creative Industries Discussion (video)", "url": "https://www.youtube.com/watch?v=rZRVTHLu10I", "gist": "The talk, uploaded on the museum's own channel." },
+        { "date": "2021", "platform": "Schneider Museum of Art", "title": "Free Family Days with Whistlegraph", "url": "https://sma.sou.edu/free-family-days-with-whistlegraph/", "gist": "Sketchbook giveaways and drawing prompts at Lithia Park." },
+        { "date": "2021-10-05", "platform": "The Adam McBride Show", "title": "An Artist's View on NFTs, Art, and Apes", "url": "https://podcasts.apple.com/us/podcast/an-artists-view-on-nfts-art-and-apes-jeffrey-alan-scudder/id1410811576?i=1000537658640", "gist": "A podcast interview; the host recommends the whistlegraph TikTok." },
+        { "date": "2021-11-10", "platform": "TrendHunter", "title": "Whistlegraphs Combines Music and Drawing to Create Poetic Images", "url": "https://www.trendhunter.com/trends/whistlegraphs", "gist": "The trend industry files whistlegraphs under brand opportunity." },
+        { "date": "2022-03-02", "platform": "Rhizome", "title": "Apply to Whistlegraph Workshops", "url": "https://rhizome.org/editorial/2022/mar/02/apply-to-whistlegraph-workshops/", "gist": "Free Write-a-Whistlegraph workshops for teens ahead of the New Museum performance." },
+        { "date": "2022-05-20", "platform": "Twitter", "title": "Taipei Dangdai announces the Launch Stage", "url": "https://x.com/taipeidangdai/status/1527708136865337344", "gist": "The art fair opened its Launch Stage with a live whistlegraph performance and a conversation with Casey Reas and Feral File." },
+        { "date": "2022-05-20", "platform": "christopheradams.io", "title": "Launch Stage", "url": "https://github.com/christopheradams/christopheradams.io/blob/master/_posts/2022-05-20-launch-stage.md", "gist": "The stage's builder lists Whistlegraph for Feral File among four featured digital-art platform artists." },
+        { "date": "2022-06-03", "platform": "YouTube", "title": "Live at Cold Spring Hollow", "url": "https://www.youtube.com/watch?v=Q3p1WlvGgus", "gist": "Audience-shot recording of a live performance in Belchertown, Massachusetts." },
+        { "date": "2022-09-13", "platform": "Rhizome", "title": "First Look: The Longest Whistlegraph Ever (so far)", "url": "https://rhizome.org/editorial/2022/sep/13/first-look-the-longest-whistlegraph-ever-so-far/", "gist": "The commissioned work's online debut announcement." },
+        { "date": "2022-10-05", "platform": "Rhizome", "title": "Write-a-Whistlegraph workshop documentation", "url": "https://rhizome.org/editorial/2022/oct/05/write-a-whistlegraph-workshop-documentation/", "gist": "The Far Rockaway curriculum residency, preserving student-composed whistlegraphs like 'I Love Jim' and 'Third Eye'." },
+        { "date": "2022", "platform": "New Museum", "title": "Rhizome Presents: TLWESF", "url": "https://www.newmuseum.org/event/rhizome-presents-the-longest-whistlegraph-ever-so-far/", "gist": "The museum-side listing of the chalkboard performance, debuted May 14, 2022." },
+        { "date": "2022", "platform": "Feral File journal", "title": "Doodling Clockwork in Lore and Score", "url": "https://feralfile.com/journal/close-up/whistlegraph-doodling-clockwork-in-lore-and-score", "gist": "Dorothy Howard's commissioned close-up essay on the whistlegraph form." },
+        { "date": "2022-11-06", "platform": "cmarthoughts.com", "title": "Whistlegraph: body language", "url": "https://cmarthoughts.com/whistlegraph-body-language/", "excerpt": "performance at its perfection", "gist": "An independent blog review analyzing the trio's body language — unsolicited criticism on no known press list." },
+        { "date": "2023-03-07", "platform": "Galerie Yeche Lange", "title": "Whistlegraph survey talk", "url": "https://www.youtube.com/watch?v=eD-6j1cNgMo", "gist": "The NYC gallery presents the work including Underpainting's debut at School of Truth." },
+        { "date": "2023-09-06", "platform": "Dirt", "title": "What is a whistlegraph?", "url": "https://www.magazine.dirt.fyi/p/whistlegraph", "gist": "Nika Simovich Fisher's explainer, framing the trio as a pandemic-era introduction to conceptual art — cited as a source by the fan wiki." },
+        { "platform": "KADIST", "title": "Jeffrey Alan Scudder", "url": "https://kadist.org/people/jeffrey-alan-scudder/", "gist": "Collection artist bio crediting the whistlegraph TikTok and its drawing tutorials set to music." },
+        { "platform": "Wildxyz", "title": "Jeffrey Scudder", "url": "https://wild.xyz/jeffrey-scudder/", "gist": "Artist profile describing the founder of a performance group popularizing an art style by the same name." },
+        { "platform": "left.gallery", "title": "whistlegraph [aka Jeffrey]", "url": "https://left.gallery/jeffrey-alan-scudder", "gist": "The gallery adopted the whistlegraph identity for his artist page." },
+        { "platform": "celinekatzman.com", "title": "Curator portfolio", "url": "https://celinekatzman.com/entrance/tag:new+museum", "gist": "Celine Wong Katzman documents her commissioning of The Longest Whistlegraph Ever (so far)." },
+        { "platform": "OpenSea", "title": "TLWESF collection", "url": "https://opensea.io/collection/the-longest-whistlegraph-ever-so-far", "gist": "Five tokens, two owners, and the Herbert W. Franke tribute edition on secondary-market infrastructure." }
+      ]
+    },
+    {
+      "title": "tech and design worlds",
+      "entries": [
+        { "date": "2021-08-05", "platform": "Hacker News", "title": "Kid Pix as a JavaScript App", "url": "https://news.ycombinator.com/item?id=28077188", "excerpt": "It's by Jeffrey Alan Scudder aka Whistlegraph", "gist": "Greg Sadetsky recommends the Craig Hickman mini-documentary and calls No Paint fantastic." },
+        { "date": "2021-10-23", "platform": "Are.na", "title": "the way conversations move", "url": "https://www.are.na/block/13686465", "gist": "leslie liu cites whistlegraphs while thinking about neurodivergent conversation cadence — a conceptual reference, not a bookmark." },
+        { "date": "2023-02-08", "platform": "Are.na", "title": "Whistlegraph: Winter 2022", "url": "https://www.are.na/block/20283279", "gist": "Saved by designer-educator Rosa McElheny; roughly thirty whistlegraph blocks exist across Are.na." },
+        { "date": "2024-06-16", "platform": "Grant Custer's blog", "title": "Inspiration: Meeting Mr. Kid Pix", "url": "https://feed.grantcuster.com/post/2024-06-16-19-33-19-Inspiration-Meeting-Mr-Kid-Pix", "excerpt": "So nice to see people putting effort to understand + be understood.", "gist": "Using the film to think through why delightful paint programs differ from video games." },
+        { "date": "2024-06-19", "platform": "Hacker News", "title": "Don Hopkins quotes the praise", "url": "https://news.ycombinator.com/item?id=40725172", "gist": "The HCI figure passes Custer's recommendation along." },
+        { "date": "2024-09-13", "platform": "Hacker News", "title": "Mapping the ecosystem", "url": "https://news.ycombinator.com/item?id=41528056", "gist": "A commenter shares the aesthetic-computer repo as background for other readers." },
+        { "date": "2026-03-30", "platform": "Are.na", "title": "Whistlegraph TikTok Compilation No. 2", "url": "https://www.are.na/block/44887043", "gist": "Saved by artist Travess Smalley this past March — still circulating among artists." }
+      ]
+    }
+  ]
+}

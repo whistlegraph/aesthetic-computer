@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Whistlegraph in the Wild</title>
+<meta name="description" content="Sightings of whistlegraph across the open web — theories, fan works, mockery, criticism, and strange recirculations.">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<style>
+  /* The wild page renders wild/wild.json — third-party sightings gathered by
+     search sweeps and link-verified. Ledger of record:
+     toolchain/whistlegraph/WILD.md. Same paper presentation as /comments. */
+  :root{
+    color-scheme:light;
+    --paper:#fffdf6;
+    --ink:#25204a;
+    --dim:#645e85;
+    --margin:#b44887;
+    --link:#1a56d6;
+    --hair:rgba(40,30,90,.16);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"Berkeley Mono Variable",Menlo,"DejaVu Sans Mono",monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);
+    padding:22px 18px 64px;-webkit-font-smoothing:antialiased}
+  a{color:var(--link)}
+  header{max-width:760px;margin:0 auto 26px}
+  h1{font:600 16px var(--mono);letter-spacing:.02em;color:var(--margin)}
+  h1 span{color:var(--ink);margin-left:7px}
+  #tally{display:block;margin-top:3px;font:12px var(--mono);color:var(--dim)}
+
+  main{max-width:760px;margin:0 auto}
+  section{margin:0 0 34px}
+  h2{font:600 13px var(--mono);color:var(--margin);letter-spacing:.03em;
+    border-bottom:1px solid var(--hair);padding-bottom:5px;margin-bottom:4px}
+  .blurb{font:13px/1.6 var(--sans);color:var(--dim);margin:6px 0 10px}
+
+  article{padding:10px 0;border-bottom:1px solid var(--hair)}
+  article:last-child{border-bottom:none}
+  .meta{font:11px var(--mono);color:var(--dim)}
+  .meta b{color:var(--ink);font-weight:600}
+  article h3{font:600 14px/1.4 var(--sans);margin:1px 0 2px}
+  article h3 a{color:var(--link);text-decoration:none}
+  article h3 a:hover{text-decoration:underline}
+  .gist{font:13px/1.55 var(--sans);color:var(--ink)}
+  .excerpt{display:block;margin-top:3px;font:12px/1.5 var(--mono);color:var(--margin)}
+  .excerpt::before{content:"“"}
+  .excerpt::after{content:"”"}
+
+  footer{max-width:760px;margin:30px auto 0;font:12px/1.7 var(--mono);color:var(--dim)}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>whistlegraph<span>in the wild</span></h1>
+  <span id="tally">opening the field guide…</span>
+</header>
+<main id="field"></main>
+<footer>
+  Third-party sightings across the open web, gathered by coordinated search
+  sweeps and link-verified before listing. Some pages may have drifted or died
+  since; that is the wild for you.
+</footer>
+
+<script type="module">
+const field = document.getElementById("field");
+const tally = document.getElementById("tally");
+
+try {
+  const data = await (await fetch("/wild/wild.json", { cache: "no-store" })).json();
+  const sections = data.sections || [];
+  let count = 0;
+  field.replaceChildren(...sections.map((s) => {
+    const sec = document.createElement("section");
+    const h2 = document.createElement("h2");
+    h2.textContent = s.title;
+    sec.append(h2);
+    if (s.blurb) {
+      const p = document.createElement("p");
+      p.className = "blurb";
+      p.textContent = s.blurb;
+      sec.append(p);
+    }
+    for (const e of s.entries || []) {
+      count += 1;
+      const art = document.createElement("article");
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const platform = document.createElement("b");
+      platform.textContent = e.platform || "";
+      meta.append(platform);
+      if (e.date) meta.append(` · ${e.date}`);
+      art.append(meta);
+      const h3 = document.createElement("h3");
+      const a = document.createElement("a");
+      a.href = e.url;
+      a.rel = "noopener";
+      a.textContent = e.title;
+      h3.append(a);
+      art.append(h3);
+      if (e.gist) {
+        const g = document.createElement("p");
+        g.className = "gist";
+        g.textContent = e.gist;
+        art.append(g);
+      }
+      if (e.excerpt) {
+        const q = document.createElement("span");
+        q.className = "excerpt";
+        q.textContent = e.excerpt;
+        art.append(q);
+      }
+      sec.append(art);
+    }
+    return sec;
+  }));
+  const years = sections.flatMap((s) => (s.entries || []).map((e) => (e.date || "").slice(0, 4))).filter(Boolean).sort();
+  const range = years.length ? ` · ${years[0]}–${years[years.length - 1]}` : "";
+  tally.textContent = `${count} sightings${range} · updated ${data.updated || ""}`;
+} catch {
+  tally.textContent = "the field guide could not be read";
+}
+</script>
+</body>
+</html>

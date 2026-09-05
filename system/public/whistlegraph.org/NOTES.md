@@ -62,6 +62,19 @@ metadata per work, downloadable. Needs a data model (likely `samples:[…]` per
 work or a `samples/<code>/` convention) once the pop pipeline starts emitting
 library folders; design it alongside the per-page source-video list below.
 
+## Whistlegraph in the wild — /wild (2026-09-05)
+
+A field guide of third-party sightings across the open web: Reddit ARG hunts,
+the fan wiki, the 252M-view butterfly reupload, fan works, mockery threads,
+press outside the known list, tech-world mentions, and the Wiktionary entry.
+Gathered by a coordinated seven-agent search sweep with link verification;
+ledger of record is `toolchain/whistlegraph/WILD.md`. The page (`wild.html`)
+renders `wild/wild.json` (sections → entries with date/platform/url/gist and
+≤15-word excerpts); Caddy claims `/wild` above the bare-code matcher like
+`/stars` and `/comments`. Indexable on purpose — unlike the comment room this
+is front of house. New sightings: add an entry to `wild/wild.json` and mirror
+it in `WILD.md`.
+
 ## Bigger feature — needs a data model (2026-07-11)
 - **Per-page source-video list.** On each whistlegraph's detail page, list *every*
   TikTok video feeding its aggregate data, each with its own view count — so we can

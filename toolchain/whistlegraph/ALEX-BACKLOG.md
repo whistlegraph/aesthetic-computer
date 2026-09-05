@@ -10,7 +10,7 @@ Status: `received` → `verified` → `applied` → `live`
 
 | Status | Request |
 |---|---|
-| applied | Compile TikTok comment screenshots from over the years as a back-of-house archive to get sorted; not for the public site, though one or two may get used. Built the comment room at `/comments` (unlinked, noindex) with intake/sorting via `toolchain/whistlegraph/comments.mjs` — statuses unsorted → keeper / filed / ditch, optional work code, source post, capture date, and note per screenshot. Awaiting Alex's screenshots to fill it. |
+| live | Compile TikTok comment screenshots from over the years as a back-of-house archive to get sorted; not for the public site, though one or two may get used. Built the comment room at `/comments` (unlinked, noindex) with intake/sorting via `toolchain/whistlegraph/comments.mjs` — statuses unsorted → keeper / filed / ditch, optional work code, source post, capture date, and note per screenshot. Filled 2026-09-05 with 246 screenshots harvested from Jeffrey's camera roll via the Photos OCR index (comment-panel text "Reply"/"pinned" cross-matched with "whistlegraph"), dated 2019–2025, plus one from Dropbox — 247 live, all unsorted, awaiting Alex's pass. A looser 161-screenshot remainder (video pages, profile grids) is parked in `downloads/comments-harvest/` for a second sweep if wanted. |
 
 ## Received August 18, 2026
 
