@@ -129,12 +129,13 @@ export function createFrameDriver({
     }, delay);
   };
 
-  const pumpSimulation = (current, sampleEachTick) => {
-    if (!running || !visible || currentTimeScale === 0) return;
+  const pumpSimulation = (current, sampleEachTick,
+    maxTicks = maxCatchUpTicks) => {
+    if (!running || currentTimeScale === 0) return;
     const dueEvery = wallInterval();
     let ticks = 0;
     while (current + earlyTolerance >= nextSimulationAt &&
-      ticks < maxCatchUpTicks) {
+      ticks < maxTicks) {
       simulationTime += interval;
       runSimulation(sampleEachTick, current);
       nextSimulationAt += dueEvery;
@@ -146,6 +147,30 @@ export function createFrameDriver({
       nextSimulationAt = current + dueEvery;
     }
     armSimulationTimer();
+  };
+
+  // A hidden or fully occluded window loses rAF and its tight fallback timer,
+  // which used to park the whole timeline. A backgrounded versus host then
+  // stopped publishing its room, and a waiting challenger's claim clock never
+  // ran -- two overlapping windows on the same room could both go dead. While
+  // hidden, the owed ticks are settled in one burst per second instead: the
+  // cadence a throttled background tab actually grants a timer.
+  const maintenanceIntervalMs = 1000;
+  const maintenanceCatchUpTicks = simulationFps * 4;
+  let maintenanceHandle = null;
+  const clearMaintenanceTimer = () => {
+    if (maintenanceHandle === null) return;
+    clearTimer(maintenanceHandle);
+    maintenanceHandle = null;
+  };
+  const armMaintenanceTimer = () => {
+    clearMaintenanceTimer();
+    if (!running || visible || currentTimeScale === 0) return;
+    maintenanceHandle = setTimer(() => {
+      maintenanceHandle = null;
+      pumpSimulation(now(), true, maintenanceCatchUpTicks);
+      armMaintenanceTimer();
+    }, maintenanceIntervalMs);
   };
 
   const rafTick = (timestamp) => {
@@ -227,6 +252,7 @@ export function createFrameDriver({
       running = false;
       forgetProfileFrame();
       clearSimulationTimer();
+      clearMaintenanceTimer();
       if (rafHandle !== null) cancelFrame(rafHandle);
       rafHandle = null;
     },
@@ -234,7 +260,9 @@ export function createFrameDriver({
       visible = Boolean(value);
       forgetProfileFrame();
       clearSimulationTimer();
-      if (!running || !visible) return;
+      clearMaintenanceTimer();
+      if (!running) return;
+      if (!visible) { armMaintenanceTimer(); return; }
       nextSimulationAt = now();
       sampleInput();
       simulationTime += interval;
@@ -250,6 +278,7 @@ export function createFrameDriver({
         nextSimulationAt = now() + wallInterval();
         armSimulationTimer();
       }
+      armMaintenanceTimer();
       return currentTimeScale;
     },
     getTimeScale() { return currentTimeScale; },

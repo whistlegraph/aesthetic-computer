@@ -1279,11 +1279,31 @@
     globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
     const roundName = roundNameFromPath(location.pathname);
+    // The game module download is the long pole of the whole load, so it
+    // starts here, before anything else is awaited. `no-cache` rather than
+    // `no-store` lets the browser revalidate: an unchanged module answers
+    // 304 and loads from disk instead of shipping half a megabyte again.
+    const pieceSourceFetch = globalThis.__fightPieceSource
+      ? null : fetch("/oskiewar.js", { cache: "no-cache" });
+    // A bare front door still finds the fight: while the module downloads,
+    // the relay is asked for one open room — a live host, an empty second
+    // chair — and a hit turns this visit into that room's challenger. A
+    // miss, or a slow relay, leaves the visitor hosting a room of their own.
+    const openRoom = !roundName && globalThis.__oskiewarVersusCapable === true
+      ? fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
+            { cache: "no-store", signal: AbortSignal.timeout(2500) })
+          .then((response) => response.ok ? response.json() : null)
+          .then((body) => roundNameFromPath("/" + (body?.room || "")))
+          .catch(() => "")
+      : Promise.resolve("");
+    const joinName = roundName || await openRoom;
+    if (joinName && !roundName)
+      history.replaceState(null, "", "/" + joinName);
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
     // Harness lanes stay pure spectators.
-    globalThis.__oskiewarRoundBridge = roundName
-      ? new RoundRoom(roundName, { analytics,
+    globalThis.__oskiewarRoundBridge = joinName
+      ? new RoundRoom(joinName, { analytics,
           role: globalThis.__oskiewarVersusCapable === true
             ? "challenger" : "viewer" })
       : null;
@@ -1331,7 +1351,7 @@
     async function start() {
       let source = globalThis.__fightPieceSource;
       if (!source) {
-        const response = await fetch("/oskiewar.js", { cache: "no-store" });
+        const response = await pieceSourceFetch;
         loadedVersion = responseVersion(response);
         source = await response.text();
         setInterval(checkForUpdate, 2000);

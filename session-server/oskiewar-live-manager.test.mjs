@@ -147,6 +147,37 @@ test("the second chair holds one challenger and frees on close", () => {
   assert.ok(third.sent.some((message) => message.type === "oskiewar:seat"));
 });
 
+// The bare front door asks for one open room. Only a live host with an empty
+// second chair and an untimed round qualifies — the timed rounds are the
+// recorded broadcast farm, television rather than an open chair.
+test("the matchmaker offers one live untimed room with an empty chair", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  assert.equal(manager.openRoom(), null);
+  const farm = new FakeSocket();
+  manager.handleConnection(farm, { url: "/oskiewar-live?match=lafegu-dorimi-kunapo&role=publisher" });
+  now += 30;
+  farm.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state",
+    content: { ...state(), round: { remainingMs: 24000, timed: true, result: "" } } })));
+  assert.equal(manager.openRoom(), null);
+  const host = new FakeSocket();
+  manager.handleConnection(host, { url: "/oskiewar-live?match=bafegu-dorimi-kunapo&role=publisher" });
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state",
+    content: { ...state(), round: { remainingMs: 0, timed: false, result: "" } } })));
+  assert.deepEqual(manager.openRoom(),
+    { matchId: "ow-bafegu-dorimi-kunapo", room: "bafegu-dorimi-kunapo" });
+  // A seated challenger closes the door; an emptied chair reopens it —
+  // until the host's frames go stale.
+  const rival = new FakeSocket();
+  manager.handleConnection(rival, { url: "/oskiewar-live?match=bafegu-dorimi-kunapo&role=challenger" });
+  assert.equal(manager.openRoom(), null);
+  rival.close(1000, "leaving");
+  assert.equal(manager.openRoom()?.room, "bafegu-dorimi-kunapo");
+  now += 10001;
+  assert.equal(manager.openRoom(), null);
+});
+
 test("bent or over-rate challenger input is dropped in silence", () => {
   let now = 100;
   const manager = new OskiewarLiveManager({ now: () => now });

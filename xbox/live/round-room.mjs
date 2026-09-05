@@ -28,6 +28,8 @@ export class RoundRoom {
     // chair quietly demotes this room to a viewer connection, so the friend
     // who arrived third still sees the fight they were invited to.
     this.role = role === "challenger" ? "challenger" : "viewer";
+    this.wantsSeat = this.role === "challenger";
+    this.seatRetryAt = 0;
     this.seat = "";
     this.socket = null;
     this.timer = null;
@@ -81,6 +83,24 @@ export class RoundRoom {
         this.live = Boolean(message.content?.live);
         this.emit("status", { ...message.content,
           label: this.live ? "live" : "waiting" });
+        // A denied chair used to be forever: the demoted challenger watched
+        // from the grandstand even after the chair emptied, so two windows on
+        // one room could both end up seatless. Status frames say whether the
+        // second chair is held; when it frees, the walked-back challenger
+        // reconnects to take it, paced so a contested chair can't flap.
+        if (this.wantsSeat && this.role === "viewer" &&
+            message.content?.challenger === false) {
+          const at = Date.now();
+          if (at - this.seatRetryAt >= 4000) {
+            this.seatRetryAt = at;
+            this.role = "challenger";
+            ++this.generation;
+            this.socket?.close?.(1000, "retaking the chair");
+            this.socket = null;
+            this.open();
+            return;
+          }
+        }
         if (!this.live) this.loadDemo();
       } else if (message.type === "oskiewar:state") {
         if (message.content?.nextRoundId) {

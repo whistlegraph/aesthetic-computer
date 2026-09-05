@@ -432,6 +432,27 @@ export class OskiewarLiveManager {
       send(watcher, "oskiewar:status", status);
   }
 
+  // The bare front door's matchmaker: one room with a live publisher, an
+  // empty second chair, and an untimed round — the timed rounds are the
+  // recorded broadcast farm, and a visitor dropped into one would be watching
+  // television, not taking a chair. Freshness is required on top of the open
+  // socket because a wedged host can hold a connection long after its last
+  // frame; of the rooms left standing, the most recently published one wins.
+  openRoom() {
+    this.prune();
+    let open = null;
+    for (const room of this.rooms.values()) {
+      if (room.publisher?.readyState !== 1) continue;
+      if (room.challenger?.readyState === 1) continue;
+      if (room.state?.round?.timed !== false) continue;
+      if (this.now() - room.publishedAt > 10000) continue;
+      if (!open || room.publishedAt > open.publishedAt) open = room;
+    }
+    return open
+      ? { matchId: open.matchId, room: open.matchId.replace(/^ow-/, "") }
+      : null;
+  }
+
   prune() {
     const oldest = this.now() - ROOM_TTL_MS;
     for (const [matchId, room] of this.rooms) {

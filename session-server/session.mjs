@@ -1392,6 +1392,17 @@ log(
   }) socket: wss://${ip.address()}:${info.port}`,
 );
 
+// oskiewar's front-door matchmaker. A visitor who opens oskiewar.com bare is
+// offered one open versus room — a live host with an empty second chair — so
+// two strangers arriving separately still meet. Public by design: the answer
+// is a room name any shared link would carry, and the wildcard CORS header is
+// what lets oskiewar.com's shell ask a different origin the question.
+fastify.get("/oskiewar-open-room", async (request, reply) => {
+  reply.header("Access-Control-Allow-Origin", "*");
+  reply.header("Cache-Control", "no-store");
+  return oskiewarLiveManager.openRoom() || {};
+});
+
 // *** Status Page Routes (defined after wss initialization) ***
 // Status JSON endpoint
 fastify.get("/status", async (request, reply) => {

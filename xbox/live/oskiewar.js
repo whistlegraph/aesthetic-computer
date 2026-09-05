@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 94;
+const buildVersion = 95;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -11736,7 +11736,7 @@ function gamePaint() {
 const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
   "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU"]);
 
-// The lobby's interface is two sentences and a code: find a friend, share
+// The lobby's interface is a challenge and a code: fight a friend, share
 // the address, and until they arrive every move the lone fighter makes is
 // named back at them — the empty room as training mode.
 function drawVersusHud(t, ink, run) {
@@ -11744,7 +11744,7 @@ function drawVersusHud(t, ink, run) {
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
-  const headline = "FIND A FRIEND";
+  const headline = "FIGHT A FRIEND";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -11761,11 +11761,6 @@ function drawVersusHud(t, ink, run) {
     addressSize, ...contrastShadow(ink));
   typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
     addressSize, ...ink);
-  const hint = "WHOEVER OPENS IT FIGHTS YOU";
-  const hintSize = compact ? 11 : 14;
-  const hintWidth = handleWidth(hint, hintSize);
-  typeWrite(hint, viewCenterX() - hintWidth / 2,
-    addressY + addressSize + 8, hintSize, ...ink);
   const player = players[0];
   if (!player.lastButtonAt || versusLabelNoise.has(player.lastButton)) return;
   const age = (run.monotonicUs - player.lastButtonAt) / 1000000;
