@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { buildLedger, createWorkerServer, workerConfig } from "../bin/prox-worker.mjs";
+import { buildLedger, buildMediascholarStatus, createWorkerServer, workerConfig } from "../bin/prox-worker.mjs";
 
 const listen = (server) => new Promise((resolve, reject) => {
   server.once("error", reject);
@@ -30,7 +30,7 @@ test("headless Prox sanitizes its ledger and exposes only allowlisted systemd jo
 
   const calls = join(root, "systemctl.calls");
   const fakeSystemctl = join(root, "systemctl");
-  await writeFile(fakeSystemctl, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${calls}'\ncase "$*" in\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\nMemoryCurrent=0\\nCPUUsageNSec=0\\n' ;;\nesac\n`);
+  await writeFile(fakeSystemctl, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${calls}'\ncase "$*" in\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\nMemoryCurrent=0\\nCPUUsageNSec=0\\n' ;;\n  *list-timers*) printf '[]\\n' ;;\nesac\n`);
   await chmod(fakeSystemctl, 0o700);
 
   const config = workerConfig({
@@ -70,4 +70,56 @@ test("headless Prox sanitizes its ledger and exposes only allowlisted systemd jo
     body: JSON.stringify({ job: "mediascholar", action: "status" }),
   }).then((response) => response.json());
   assert.equal(status.properties.ActiveState, "inactive");
+});
+
+test("headless Prox exposes a path-free public Mediascholar status", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "prox-scholar-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const home = join(root, "mediascholar");
+  const runDir = join(home, "runs", "20260905-170000-000Z");
+  await mkdir(runDir, { recursive: true });
+  await writeFile(join(runDir, "run.json"), JSON.stringify({
+    id: "20260905-170000-000Z",
+    status: "authoring-paper",
+    startedAt: "2026-09-05T17:00:00.000Z",
+    worktree: "/private/worktree",
+    provider: "secret-provider",
+  }));
+  await writeFile(join(runDir, "topic.json"), JSON.stringify({
+    title: "Synthetic media question",
+    question: "What changes when a medium can inspect its own circulation?",
+    claim: "Self-inspection becomes a material property of the medium.",
+    whyNow: "Machine-readable cultural infrastructure is becoming ordinary.",
+    terms: ["circulation", "reflexivity"],
+    signals: [
+      { title: "Public source", url: "https://example.org/source", kind: "paper", relevance: "Evidence" },
+      { title: "Private file", url: "file:///private/note", kind: "note", relevance: "Do not expose" },
+    ],
+  }));
+  const fakeSystemctl = join(root, "systemctl");
+  await writeFile(fakeSystemctl, `#!/bin/sh\ncase "$*" in\n  *show*mediascholar.service*) printf 'ActiveState=active\\nSubState=running\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *show*) printf 'ActiveState=inactive\\nSubState=dead\\nResult=success\\nExecMainStatus=0\\n' ;;\n  *list-timers*) printf '[]\\n' ;;\nesac\n`);
+  await chmod(fakeSystemctl, 0o700);
+
+  const config = workerConfig({
+    PROX_WORKER_BIND: "127.0.0.1",
+    PROX_WORKER_LEDGER_DIR: join(root, "ledger"),
+    PROX_WORKER_SYSTEMCTL: fakeSystemctl,
+    PROX_WORKER_MEDIASCHOLAR_RUNNER: join(root, "missing-runner.mjs"),
+    MEDIASCHOLAR_HOME: home,
+    MEDIASCHOLAR_ENABLED: "1",
+  });
+  const status = await buildMediascholarStatus(config);
+  assert.equal(status.state, "working");
+  assert.equal(status.phase, "authoring-paper");
+  assert.equal(status.current.topic.signals.length, 1);
+  assert.equal(status.current.topic.signals[0].url, "https://example.org/source");
+  assert.equal(JSON.stringify(status).includes("/private/"), false);
+  assert.equal(JSON.stringify(status).includes("secret-provider"), false);
+
+  const server = createWorkerServer(config, "127.0.0.1");
+  const port = await listen(server);
+  t.after(() => close(server));
+  const response = await fetch(`http://127.0.0.1:${port}/status/mediascholar`);
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).system, "mediascholar");
 });

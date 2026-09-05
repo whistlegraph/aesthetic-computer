@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mediascholar · Aesthetic Computer</title>
+  <meta name="description" content="Live progress from Mediascholar, the autonomous new-media paper worker.">
+  <meta property="og:title" content="Mediascholar — Aesthetic Computer">
+  <meta property="og:description" content="Watch an autonomous scholar synthesize new-media questions and mill Botted Papers for review.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://papers.aesthetic.computer/scholar/">
+  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171729;
+      --surface: #202038;
+      --surface-2: #282844;
+      --text: #f4f0f5;
+      --dim: #aaa4b0;
+      --pink: #ef71bd;
+      --cyan: #55ddd2;
+      --line: rgba(255, 255, 255, .13);
+      --waiting: #e5b957;
+      --ready: #69d690;
+      --unknown: #827d89;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        color-scheme: light;
+        --bg: #f4f0f3;
+        --surface: #fff;
+        --surface-2: #eee8ed;
+        --text: #201b25;
+        --dim: #69616d;
+        --pink: #b4489a;
+        --cyan: #087e83;
+        --line: rgba(32, 27, 37, .16);
+        --waiting: #946700;
+        --ready: #177744;
+        --unknown: #827d89;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 85% 10%, rgba(239, 113, 189, .12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Berkeley Mono Variable", ui-monospace, monospace;
+      line-height: 1.5;
+    }
+
+    a { color: inherit; }
+    .shell { width: min(1120px, calc(100% - 36px)); margin: 0 auto; padding: 24px 0 56px; }
+    .masthead { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+    .brand { text-decoration: none; font-size: clamp(18px, 2vw, 25px); }
+    .brand span { color: var(--pink); font-family: "YWFTProcessing-Regular", sans-serif; }
+    .return { color: var(--dim); font-size: 13px; text-underline-offset: 3px; }
+
+    .hero { padding: clamp(70px, 13vh, 145px) 0 clamp(44px, 8vh, 88px); max-width: 960px; }
+    .state {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--waiting);
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .state::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 14%, transparent);
+    }
+    .state[data-state="working"] { color: var(--cyan); }
+    .state[data-state="review"] { color: var(--pink); }
+    .state[data-state="idle"] { color: var(--ready); }
+    .state[data-state="unavailable"] { color: var(--unknown); }
+    .state[data-state="working"]::before { animation: pulse 1.4s ease-in-out infinite; }
+
+    h1 {
+      margin: 22px 0 15px;
+      max-width: 18ch;
+      font-family: "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace;
+      font-size: clamp(48px, 8vw, 104px);
+      font-weight: normal;
+      letter-spacing: -.035em;
+      line-height: .94;
+    }
+    .detail { margin: 0; max-width: 66ch; color: var(--dim); font-size: clamp(16px, 2vw, 21px); }
+    .updated { margin-top: 24px; color: var(--dim); font-size: 12px; }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      margin: 0 0 56px;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .step { position: relative; padding: 18px 18px 18px 0; color: var(--dim); border-bottom: 1px solid var(--line); }
+    .step::before { content: ""; position: absolute; top: -2px; left: 0; width: 0; height: 3px; background: var(--pink); }
+    .step[data-stage="active"] { color: var(--text); }
+    .step[data-stage="active"]::before { width: 100%; }
+    .step[data-stage="done"] { color: var(--ready); }
+    .step[data-stage="done"]::before { width: 100%; background: var(--ready); }
+    .step b { display: block; margin-bottom: 4px; color: inherit; font-size: 14px; }
+    .step span { font-size: 11px; }
+
+    .grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .8fr); gap: 22px; align-items: start; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: clamp(20px, 3vw, 34px); }
+    .panel h2 { margin: 0 0 22px; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--pink); }
+    .topic-title { margin: 0 0 14px; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 48px); line-height: 1.08; }
+    .topic-question { margin: 0 0 22px; font-family: Georgia, serif; font-size: 19px; line-height: 1.5; }
+    .claim { margin: 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--dim); }
+    .empty-title { margin: 0 0 12px; font-size: clamp(28px, 4vw, 48px); line-height: 1.08; }
+    .empty-copy { margin: 0; color: var(--dim); font-size: 17px; max-width: 48ch; }
+
+    .sources { display: grid; gap: 10px; margin-top: 28px; }
+    .source { display: block; padding: 14px 15px; background: var(--surface-2); border-radius: 8px; text-decoration: none; }
+    .source:hover { outline: 1px solid var(--cyan); }
+    .source b { display: block; font-size: 13px; }
+    .source span { display: block; margin-top: 4px; color: var(--dim); font-size: 11px; }
+
+    .facts { margin: 0; }
+    .fact { display: flex; justify-content: space-between; gap: 20px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .fact:first-child { padding-top: 0; }
+    .fact:last-child { padding-bottom: 0; border-bottom: 0; }
+    dt { color: var(--dim); }
+    dd { margin: 0; text-align: right; }
+    .gate[data-value="ready"] { color: var(--ready); }
+    .gate[data-value="waiting"] { color: var(--waiting); }
+    .gate[data-value="unknown"] { color: var(--unknown); }
+
+    .candidates { margin-top: 22px; }
+    .candidate { padding: 14px 0; border-top: 1px solid var(--line); }
+    .candidate b { display: block; }
+    .candidate span { color: var(--dim); font-size: 11px; }
+
+    .privacy { margin: 22px 0 0; color: var(--dim); font-size: 11px; }
+    [hidden] { display: none !important; }
+
+    @keyframes pulse { 50% { opacity: .38; transform: scale(.78); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 24px, 1120px); padding-top: 16px; }
+      .hero { padding-top: 70px; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      .masthead { align-items: center; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="/"><span>papers</span> / mediascholar</a>
+      <a class="return" href="/platter">platter</a>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="headline">
+        <div class="state" id="state" data-state="waiting">connecting</div>
+        <h1 id="headline">Reading the worker</h1>
+        <p class="detail" id="detail">Connecting to Mediascholar’s public progress signal.</p>
+        <p class="updated" id="updated" aria-live="polite"></p>
+      </section>
+
+      <ol class="pipeline" aria-label="Botted Paper pipeline">
+        <li class="step" data-step="bootstrap"><b>Quiet window</b><span>admission + tools</span></li>
+        <li class="step" data-step="synthesizing-topic"><b>Inquiry</b><span>topic + sources</span></li>
+        <li class="step" data-step="authoring-paper"><b>Paper</b><span>draft + build + QA</span></li>
+        <li class="step" data-step="candidate"><b>Review</b><span>human release gate</span></li>
+      </ol>
+
+      <div class="grid">
+        <section class="panel" id="topic-panel" hidden>
+          <h2>Current inquiry</h2>
+          <h3 class="topic-title" id="topic-title"></h3>
+          <p class="topic-question" id="topic-question"></p>
+          <p class="claim" id="topic-claim"></p>
+          <div class="sources" id="sources" aria-label="Source signals"></div>
+        </section>
+
+        <section class="panel" id="empty-panel">
+          <h2>Current inquiry</h2>
+          <p class="empty-title">No topic chosen yet.</p>
+          <p class="empty-copy" id="empty-copy">Topic synthesis begins only after Jasellite has enough spare capacity. The system has made no provider run.</p>
+        </section>
+
+        <aside class="panel">
+          <h2>Activity</h2>
+          <dl class="facts">
+            <div class="fact"><dt>processor</dt><dd class="gate" id="processor">unknown</dd></div>
+            <div class="fact"><dt>memory</dt><dd class="gate" id="memory">unknown</dd></div>
+            <div class="fact"><dt>disk</dt><dd class="gate" id="disk">unknown</dd></div>
+            <div class="fact"><dt>provider runs</dt><dd id="runs">0</dd></div>
+            <div class="fact"><dt>next check</dt><dd id="next">—</dd></div>
+          </dl>
+          <div class="candidates" id="candidates" hidden></div>
+          <p class="privacy">Prompts, tokens, host paths, and private logs never appear here. Candidates cannot publish themselves.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const stages = ["bootstrap", "synthesizing-topic", "authoring-paper", "candidate"];
+    const stateNames = { waiting: "waiting", working: "working", idle: "ready", review: "review", unavailable: "unavailable" };
+    const date = (value, options = {}) => value ? new Intl.DateTimeFormat(undefined, options).format(new Date(value)) : "—";
+
+    function setPipeline(phase) {
+      const normalized = phase === "admission" || phase === "starting" ? "bootstrap"
+        : phase === "recovery" || phase === "connection" ? null : phase;
+      const active = stages.indexOf(normalized);
+      document.querySelectorAll("[data-step]").forEach((step, index) => {
+        step.dataset.stage = active < 0 ? "" : index < active ? "done" : index === active ? "active" : "";
+      });
+    }
+
+    function renderTopic(topic) {
+      document.getElementById("topic-panel").hidden = !topic;
+      document.getElementById("empty-panel").hidden = Boolean(topic);
+      if (!topic) return;
+      document.getElementById("topic-title").textContent = topic.title;
+      document.getElementById("topic-question").textContent = topic.question;
+      document.getElementById("topic-claim").textContent = topic.claim;
+      const sources = document.getElementById("sources");
+      sources.replaceChildren();
+      topic.signals.forEach((signal) => {
+        const link = document.createElement("a");
+        link.className = "source";
+        link.href = signal.url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        const title = document.createElement("b");
+        title.textContent = signal.title;
+        const kind = document.createElement("span");
+        kind.textContent = signal.kind;
+        link.append(title, kind);
+        sources.append(link);
+      });
+    }
+
+    function renderCandidates(items) {
+      const region = document.getElementById("candidates");
+      region.hidden = items.length === 0;
+      region.replaceChildren();
+      items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "candidate";
+        const title = document.createElement("b");
+        title.textContent = item.title;
+        const status = document.createElement("span");
+        status.textContent = `${item.status} · ${date(item.completedAt, { dateStyle: "medium" })}`;
+        row.append(title, status);
+        region.append(row);
+      });
+    }
+
+    function render(status) {
+      const state = document.getElementById("state");
+      state.dataset.state = status.state;
+      state.textContent = stateNames[status.state] || status.state;
+      document.getElementById("headline").textContent = status.headline;
+      document.getElementById("detail").textContent = status.detail;
+      document.getElementById("updated").textContent = status.updatedAt
+        ? `Updated ${date(status.updatedAt, { dateStyle: "medium", timeStyle: "medium" })}` : "";
+      setPipeline(status.phase);
+      renderTopic(status.current?.topic || null);
+      ["processor", "memory", "disk"].forEach((name) => {
+        const element = document.getElementById(name);
+        element.dataset.value = status.gates[name];
+        element.textContent = status.gates[name];
+      });
+      document.getElementById("runs").textContent = String(status.activity.providerRuns);
+      document.getElementById("empty-copy").textContent = status.activity.providerRuns === 0
+        ? "Topic synthesis begins only after Jasellite has enough spare capacity. The system has made no provider run."
+        : "No active inquiry is available from the latest run.";
+      document.getElementById("next").textContent = date(status.nextCheckAt, { weekday: "short", hour: "numeric", minute: "2-digit" });
+      renderCandidates(status.activity.candidates);
+    }
+
+    async function refresh() {
+      try {
+        const response = await fetch("/api/mediascholar-status", { cache: "no-store" });
+        if (!response.ok) throw new Error("status unavailable");
+        render(await response.json());
+      } catch {
+        render({
+          state: "unavailable", phase: "connection", headline: "Live status is unavailable",
+          detail: "Mediascholar may still be running; the public status link could not be reached.",
+          updatedAt: null, nextCheckAt: null,
+          gates: { processor: "unknown", memory: "unknown", disk: "unknown" },
+          current: null, activity: { providerRuns: 0, candidates: [] },
+        });
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 15000);
+  </script>
+</body>
+</html>
