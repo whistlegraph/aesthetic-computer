@@ -113,8 +113,8 @@ const chord = (bar) => {
 };
 const BASSM = { Am: 45, G: 43, C: 48, F: 41 };            // A2 G2 C3 F2
 const SUBM = { Am: 33, G: 31, C: 24, F: 29 };             // A1 G1 C1 F1
-const STAB = {                                             // mid-band homes (A5–E6)
-  Am: [81, 84, 88], G: [79, 83, 86], C: [79, 84, 88], F: [81, 84, 89] };
+const STAB = {                                             // stab homes (A4–E5)
+  Am: [69, 72, 76], G: [67, 71, 74], C: [67, 72, 76], F: [69, 72, 77] };
 const CH = { C: [48, 55, 64, 72, 79], F: [53, 57, 60, 69, 77],
   G: [43, 55, 62, 71, 79], Am: [45, 57, 64, 69, 76] };
 
@@ -202,13 +202,22 @@ for (let b = 0; b < 100 * 4; b++) {
   }
 }
 
-// ── BASS: marimba roots, half-note pulse, in from bar 4 ───────────────
+// ── BASS: marimba root+fifth dyads, half-note pulse — bass CHORDS,
+// not lone roots (the fifth carries the harmony down low) ─────────────
 const bassBuf = new Float32Array(NT);
 for (let bar = 4; bar < 100; bar++) {
   if (inBreak(bar)) continue;
-  for (const half of [0, 2])
-    mixEventMarimba({ startSec: T(bar) + half * BEAT, midi: BASSM[chord(bar)],
+  const root = BASSM[chord(bar)];
+  for (const half of [0, 2]) {
+    mixEventMarimba({ startSec: T(bar) + half * BEAT, midi: root,
+      durSec: 2 * BEAT, gain: 0.3, preset: "bass", decayMul: 0.8 }, bassBuf, { sampleRate: SR });
+    mixEventMarimba({ startSec: T(bar) + half * BEAT, midi: root + 7,
       durSec: 2 * BEAT, gain: 0.18, preset: "bass", decayMul: 0.8 }, bassBuf, { sampleRate: SR });
+  }
+  // the tenth on beat 3 leans the chord's color into the bar
+  mixEventMarimba({ startSec: T(bar) + 2 * BEAT, midi: root + 12 +
+    (chord(bar) === "Am" ? 3 : 4),
+    durSec: 1.5 * BEAT, gain: 0.14, preset: "bass", decayMul: 0.7 }, bassBuf, { sampleRate: SR });
 }
 
 // ── STABS: the mid-band stays home. Offbeat chord stabs (the "and" of
@@ -221,13 +230,19 @@ for (let bar = 4; bar < 100; bar++) {
     : s === "finale" ? 1.4 : 1.2;
   for (const [beat, gg] of [[1.5, 1], [3, 0.85]]) {
     const t = T(bar) + beat * BEAT;
-    for (const midi of STAB[chord(bar)])
+    for (const midi of STAB[chord(bar)]) {
       mixEventMarimba({ startSec: t + eager(), midi, durSec: 0.6 * BEAT,
         gain: g * gg * gateAt(t), preset: "vibraphone", decayMul: 0.55,
       }, stabBuf, { sampleRate: SR });
-    // the echo throw, 3/16 later, opposite side of the stage
+      // a quiet octave shimmer keeps the mid band lit without the
+      // voicing itself living up there
+      mixEventMarimba({ startSec: t + eager(), midi: midi + 12,
+        durSec: 0.5 * BEAT, gain: g * gg * 0.4 * gateAt(t),
+        preset: "vibraphone", decayMul: 0.45 }, stabBuf, { sampleRate: SR });
+    }
+    // the echo throw, 3/16 later, opposite side, same register
     for (const midi of STAB[chord(bar)])
-      mixEventMarimba({ startSec: t + 0.75 * BEAT + eager(), midi: midi + 12,
+      mixEventMarimba({ startSec: t + 0.75 * BEAT + eager(), midi,
         durSec: 0.4 * BEAT, gain: g * gg * 0.35 * gateAt(t),
         preset: "vibraphone", decayMul: 0.4 }, stabEchoBuf, { sampleRate: SR });
   }
@@ -334,7 +349,7 @@ for (let bar = 4; bar < 100; bar++) {
   const nv = s.startsWith("verse") ? 3 : s.startsWith("pre") ? 4
     : s === "break" ? 5 : s === "finale" ? 4 : s.startsWith("chorus") ? 4 : 0;
   if (!nv) continue;
-  const voices = CH[chord(bar)].slice(1, nv + 1);        // skip the low root — mud
+  const voices = CH[chord(bar)].slice(0, nv + 1);        // low root back — bass chords
   const swell = s === "break" ? 1.4 : 1;
   const a = Math.floor(T(bar) * SR), n = Math.floor((BAR + 0.6) * SR);
   for (let vi = 0; vi < voices.length; vi++) {
@@ -366,7 +381,11 @@ for (const [door, g] of [[24, 0.45], [56, 0.45], [76, 0.5]])
 
 // ── THE VOICE: sacred phrase at the chorus doors if it exists ─────────
 const voxStem = new Float32Array(NT);
-const VOXF = process.env.IMAB_VOX ? resolve(process.env.IMAB_VOX) : `${OUT}/imab-sacredvox.wav`;
+// aesthetivox is the chain (lane law) — prefer the note-locked retimed
+// stem when it exists; sacredvox is the fallback preview voice
+const VOXF = process.env.IMAB_VOX ? resolve(process.env.IMAB_VOX)
+  : existsSync(`${OUT}/imab-aesthetivox-retimed.wav`)
+    ? `${OUT}/imab-aesthetivox-retimed.wav` : `${OUT}/imab-sacredvox.wav`;
 let haveVox = existsSync(VOXF);
 if (haveVox) {
   const vox = readF32(VOXF);
