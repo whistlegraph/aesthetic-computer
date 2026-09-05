@@ -36,6 +36,18 @@ Compare several studied tracks:
 That writes `COMPARISON.md` plus section-timeline, band-balance, and
 loudness-small-multiple figures.
 
+Map a studied track bar by bar (chords, phrase keys, energy):
+
+```fish
+.venv/bin/python study/map.py study/out/track-slug/report.json
+```
+
+That writes `MAP.md`, `map.json`, and `fig-map.png` next to the report —
+a per-bar chord lane (triad templates over harmonic chroma, downbeat
+phase picked where chord changes land hardest, with a small diatonic
+prior from each phrase's key), per-phrase keys, and the six-band heatmap
+on one time axis.
+
 ## honesty notes
 
 - Loudness range and true peak are **approximations** (RMS-window LRA,

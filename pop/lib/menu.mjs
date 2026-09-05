@@ -152,6 +152,10 @@ export const MENU = {
       params: ["out"],
       blurb: "several study reports side by side — timelines, band balance, loudness",
     },
+    "study-map": {
+      file: "study/map.py",
+      blurb: "bar-by-bar song map from a study report — chord lane, phrase keys, band heat",
+    },
   },
 
   vocal: {

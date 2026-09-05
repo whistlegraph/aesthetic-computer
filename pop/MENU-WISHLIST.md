@@ -48,6 +48,11 @@ All from Abe's 2026-05-21 list.
   study reports: section timelines, band-balance heatmap, loudness
   small multiples, `COMPARISON.md` stat table.
   → `study/compare.py`
+- 🟢 **study map** (`analysis.study-map`) — bar-by-bar song map from a
+  study report: downbeat-aligned chord lane (triad templates + diatonic
+  prior per phrase key), per-phrase keys, band heatmap, `MAP.md` with
+  degrees vs. the global key.
+  → `study/map.py`
 
 ### score — notation & sequencing
 - 🟢 **audio → rhythm sequence** (`score.audio-to-rhythm`) — onset-detect
