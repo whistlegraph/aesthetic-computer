@@ -1,0 +1,7 @@
+{
+  "note": "the regulated vocal-set registry: every take processed by bin/vocalset.mjs, placeable by GLOBAL grid address (letter A = bar 16, so J1 = bar 25). at:null = prepared, unplaced. Main take 7311… is the lead — it rides the floor's pass doors via lyrictrack, not this file.",
+  "sets": [
+    { "take": "7427025009693986079", "at": "J1", "gain": 1.0 },
+    { "take": "7656469190517263646", "at": null, "gain": 1.0 }
+  ]
+}

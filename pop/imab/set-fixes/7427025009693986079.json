@@ -1,0 +1,22 @@
+{
+  "note": "measured word boundaries for this take's stretched 124 wav (RMS/ZCR/f0 scans, 2026-09-05 v2). The take sings 'i'm a butterfly flapping for you guys IT'S just a costume i put on in my room' — no 'not' (that recognizer ghost is the i'm→a glide). v2 corrects v1: i'm truly enters at ~60ms (was late at 370), and the C3 descent at 1100–1300 is 'but', so 'a' ends at the G3 plateau's edge (~1080), not 1420. Whisper is advisory-only on sung material — these values are the scan truth.",
+  "words": [
+    { "text": "i'm", "fromMs": 60, "toMs": 700 },
+    { "text": "a", "fromMs": 700, "toMs": 1080 },
+    { "text": "butterfly", "fromMs": 1080, "toMs": 2000 },
+    { "text": "flapping", "fromMs": 2000, "toMs": 3150 },
+    { "text": "for", "fromMs": 3320, "toMs": 3770 },
+    { "text": "you", "fromMs": 3820, "toMs": 4320 },
+    { "text": "guys", "fromMs": 4320, "toMs": 5000 },
+    { "text": "it's", "fromMs": 5150, "toMs": 5320 },
+    { "text": "just", "fromMs": 5320, "toMs": 5830 },
+    { "text": "a", "fromMs": 5840, "toMs": 6240 },
+    { "text": "costume", "fromMs": 6560, "toMs": 6940 },
+    { "text": "i", "fromMs": 7760, "toMs": 7840 },
+    { "text": "put", "fromMs": 7880, "toMs": 8040 },
+    { "text": "on", "fromMs": 8080, "toMs": 8360 },
+    { "text": "in", "fromMs": 8400, "toMs": 8640 },
+    { "text": "my", "fromMs": 8640, "toMs": 8920 },
+    { "text": "room", "fromMs": 9000, "toMs": 9680 }
+  ]
+}

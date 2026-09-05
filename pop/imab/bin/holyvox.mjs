@@ -27,7 +27,31 @@ const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { stdio: ["ignore", "i
 const SR = 48_000, BPM = 124, BEAT = 60 / BPM, BAR = 4 * BEAT;
 const CYCLE = 16 * BAR;                       // half-time vocal needs room
 
-// ── the sacred phrase, stretched to half-time (his beat = 2 floor beats)
+const tuned = `${OUT}/imab-holyvox.wav`;
+
+// ── dictated recut (default once the retimed stem exists): the
+// aesthetivox stem already carries @jeffrey's note-lock AND his
+// dictated grid (lyric-overrides.json) — half-time is ONE uniform ×2
+// stretch, so A1/A3/A4 land on exact half-time grid points.
+const RSTEM = `${OUT}/imab-aesthetivox-retimed.wav`;
+if (existsSync(RSTEM) && !argv.includes("--classic")) {
+  console.log("→ dictated recut: ×2 half-time of the retimed aesthetivox stem");
+  sh("rubberband", ["-t", "2.0", "-F", "-c", "6", RSTEM, `${WORK}/holy-str.wav`]);
+  sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", `${WORK}/holy-str.wav`,
+    "-ac", "1", "-ar", String(SR), "-c:a", "pcm_s16le", tuned]);
+  const lyr = JSON.parse(readFileSync(`${OUT}/imab-sacredvox.lyrics.json`, "utf8"));
+  const FIT = `${OUT}/imab-gt-targets.fitted.json`;
+  const fit = existsSync(FIT) ? JSON.parse(readFileSync(FIT, "utf8")) : null;
+  const targets = lyr.syllables.map((s, i) => ({
+    label: s.label, t: +((s.fromMs / 1000) * 2).toFixed(3),
+    dur: +Math.max(0.1, ((s.toMs - s.fromMs) / 1000) * 2).toFixed(3),
+    note: fit ? fit[i].note : "C3" }));
+  writeFileSync(`${WORK}/holy-targets.json`, JSON.stringify(targets, null, 1));
+  console.log("→ notecheck");
+  sh(PY, [`${HERE}/notecheck.py`, tuned, `${WORK}/holy-targets.json`], { stdio: ["ignore", "inherit", "inherit"] });
+} else {
+
+// ── CLASSIC: the sacred phrase, stretched to half-time (his beat = 2 floor beats)
 const SEP = `${WORK}/sep/htdemucs/whistlegraph-${TAKE}/vocals.wav`;
 if (!existsSync(SEP)) {
   console.log("→ demucs (slow)");
@@ -111,7 +135,6 @@ for (const wo of wordsOut) {
   }
 }
 console.log(`→ WORLD snap: ${noteNames.join(" ")}`);
-const tuned = `${OUT}/imab-holyvox.wav`;
 const r = spawnSync(PY, [`${REPO}/pop/bin/pitchsnap_world.py`, str, tuned,
   "--notes", noteNames.join(","), "--note-starts", noteStarts.join(","),
   "--retain", "1.0", "--xfade-ms", "60", "--voicing-ramp-ms", "40",
@@ -121,6 +144,7 @@ if (r.status !== 0) { console.error("✗ WORLD failed"); process.exit(1); }
 writeFileSync(`${WORK}/holy-targets.json`, JSON.stringify(targets, null, 1));
 console.log("→ notecheck");
 sh(PY, [`${HERE}/notecheck.py`, tuned, `${WORK}/holy-targets.json`], { stdio: ["ignore", "inherit", "inherit"] });
+}
 
 // ── the holy bed: pure sines breathing under a soft kick ──────────────
 const BARS = 64, NT = Math.ceil((BARS * BAR + 3) * SR);

@@ -1,0 +1,32 @@
+{
+  "note": "@jeffrey's dictated timing (2026-09-03). overrides: grid addresses (letter = bar from the pass door: A=16, B=17…; number = beat, decimals ok) that RETIME the audio — dictated syllables move to their addresses, un-dictated ones stay pinned. drawnFix: corrections to the drawn boundaries in the RAW take timebase (annotation repair, audio untouched). i'm@A1 is the pass placement itself (floor puts the stem ON the door).",
+  "overrides": {
+    "1": { "start": "A3", "end": "A4" },
+    "14": { "start": "G1", "end": "G2" },
+    "15": { "start": "G2", "end": "G3" },
+    "16": { "start": "G3", "end": "H1" },
+    "17": { "start": "H1", "end": "H2" },
+    "18": { "start": "H2", "end": "H3" },
+    "19": { "start": "H3" }
+  },
+  "overrides-note": "i-put-on starts G1 (@jeffrey; put/on ride pinned ≈G1.5/G2.35); in-my-room ON H1 (@jeffrey; my/room carried at their sung spacing, quantized H2/H2.5 — room@1.5 matches the imab.np held-room rhythm).",
+  "drawnFix": {
+    "0": { "toMs": 940 },
+    "1": { "fromMs": 1340, "toMs": 2298 },
+    "2": { "fromMs": 2460, "toMs": 3080 },
+    "3": { "fromMs": 3080, "toMs": 3360 },
+    "4": { "fromMs": 3360 },
+    "9": { "toMs": 9450 },
+    "10": { "fromMs": 9600, "toMs": 10425 },
+    "11": { "fromMs": 10500, "toMs": 11600 },
+    "12": { "fromMs": 11950 },
+    "13": { "toMs": 13800 },
+    "14": { "fromMs": 14125, "toMs": 14675 },
+    "15": { "fromMs": 14800, "toMs": 15325 },
+    "16": { "fromMs": 15325, "toMs": 16175 },
+    "17": { "fromMs": 16200, "toMs": 16750 },
+    "18": { "fromMs": 16800, "toMs": 17360 },
+    "19": { "fromMs": 17360 }
+  },
+  "drawnFix-note": "@jeffrey 2026-09-04: the 1360–2298 segment IS the sung 'a' (was mislabeled 'but'); 940–1190 is dead space in the i'm glide. but-ter share the 2520–3240 island, split at the /t/ closure dip ~3080; fly's /f/ at 3360. just = 9600–10425 (dʒ bite at 9600 = E1 on the waveform, @jeffrey; st tail to 10425); the long 10500–11600 hold is the real 'a'(F); cos bursts 11950."
+}
