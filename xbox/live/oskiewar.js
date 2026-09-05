@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 96;
+const buildVersion = 97;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -8481,9 +8481,12 @@ function replayOfferKeys() {
 // input keeps its keycaps; every other family gets these.
 const padButtonInk = {
   A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
-  // The M30's two Sega-only face buttons ship uncolored; silver keeps the
-  // dark glyph readable on both themes.
-  C: [206, 212, 224], Z: [206, 212, 224],
+  // The M30's face wears its own colorway — green A, yellow B, blue C, all
+  // three top-row buttons gray — which is NOT the Xbox palette above, so the
+  // cluster keys its own inks rather than borrowing the Xbox letters'.
+  M30A: [96, 200, 80], M30B: [240, 198, 60], M30C: [86, 148, 235],
+  M30X: [168, 176, 190], M30Y: [168, 176, 190], M30Z: [168, 176, 190],
+  M30S: [235, 78, 78],
 };
 const padGlyph = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
 const padButtonDiameter = (size) => Math.round(size * .78) * 2;
@@ -8584,33 +8587,52 @@ const m30SendLabel = { RightTrigger: "SHIELD", RightShoulder: "USE ITEM",
   LeftTrigger: "KICK", LeftShoulder: "USE ITEM" };
 
 // The M30's own manual page. A six-button pad understated by a four-row
-// column becomes the controller itself: both button arcs, colored like the
-// hardware, every disc lit by the live press — so the mapping is not a
-// diagram of faith. Plug in, press, and the page answers.
-function drawM30Cluster(x, y, size, held, ink) {
+// column becomes the controller itself, laid out like the hardware in the
+// hand: d-pad west, the two button arcs east — green A, yellow B, blue C
+// under a gray top row — and the red START between them. Every drawn
+// control lights with the live press, so the mapping is not a diagram of
+// faith: plug in, press, and the page answers.
+function drawM30Cluster(x, y, size, held, directionActive, ink) {
   const small = Math.round(size * .58);
   const gap = Math.max(4, Math.round(size * .25));
   const d = padButtonDiameter(size);
   const pitch = d + gap;
-  // The real face arcs: the middle button of each row rides a hair higher.
-  const arc = [Math.round(size * .28), 0, Math.round(size * .28)];
   typeWrite("8BITDO M30", x, y, small, ...ink);
-  let rowY = y + Math.round(small * 1.8);
+  const bodyTop = y + Math.round(small * 1.8);
+  // The d-pad cross, lit by buttons and stick alike.
+  const cross = [["STICK_UP", "ArrowUp", d, 0], ["LEFT", "ArrowLeft", 0, d],
+    ["RIGHT", "ArrowRight", d * 2, d], ["DOWN", "ArrowDown", d, d * 2]];
+  for (const [cap, button, dx, dy] of cross)
+    drawPadButton(cap, x + dx, bodyTop + dy, size, directionActive(button));
+  // START — the small red button in the middle of the body.
+  const startSize = Math.round(size * .62);
+  const startDiam = padButtonDiameter(startSize);
+  const startX = x + d * 3 + Math.round(size * .9);
+  const startY = bodyTop + Math.round(d * 1.5 - startDiam / 2);
+  drawPadButton("M30S", startX, startY, startSize, held.includes("Menu"), 1, "");
+  const startLabelSize = Math.round(small * .85);
+  typeWrite("START", Math.round(startX + startDiam / 2 -
+    handleWidth("START", startLabelSize) / 2),
+    startY + startDiam + 3, startLabelSize, ...ink);
+  // The two face arcs: the middle button of each row rides a hair higher.
+  const faceX = startX + startDiam + Math.round(size * .9);
+  const arc = [Math.round(size * .28), 0, Math.round(size * .28)];
   const rows = [
-    [["X", held.includes("X")], ["Y", held.includes("Y")],
-      ["Z", held.includes(m30FaceSends.Z)]],
-    [["A", held.includes("A")], ["B", held.includes("B")],
-      ["C", held.includes(m30FaceSends.C)]],
+    [["M30X", "X", held.includes("X")], ["M30Y", "Y", held.includes("Y")],
+      ["M30Z", "Z", held.includes(m30FaceSends.Z)]],
+    [["M30A", "A", held.includes("A")], ["M30B", "B", held.includes("B")],
+      ["M30C", "C", held.includes(m30FaceSends.C)]],
   ];
+  let faceY = bodyTop + Math.round(d * .35);
   for (const [rowIndex, row] of rows.entries()) {
     // The bottom arc sits shifted right, like the thumb finds it.
     const shift = rowIndex ? Math.round(d * .35) : 0;
-    for (const [column, [cap, pressed]] of row.entries())
-      drawPadButton(cap, x + shift + column * pitch, rowY + arc[column], size,
-        pressed);
-    rowY += d + Math.round(gap * 1.6);
+    for (const [column, [key, cap, pressed]] of row.entries())
+      drawPadButton(key, faceX + shift + column * pitch, faceY + arc[column],
+        size, pressed, 1, cap);
+    faceY += d + Math.round(gap * 1.6);
   }
-  rowY += Math.round(small * .9);
+  let rowY = bodyTop + d * 3 + Math.round(small * 1.2);
   const captions = [
     `A KICK  B PUNCH  C ${m30SendLabel[m30FaceSends.C]}`,
     `X SHIELD  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
@@ -8656,10 +8678,10 @@ function drawControlLegend(ink) {
   ];
   if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
-  // A seated M30 keeps the four direction rows and trades the action column
-  // for the pad's own manual page below them.
+  // A seated M30 trades the whole legend column for the pad's own manual
+  // page — the drawn controller carries its d-pad, so no rows remain.
   const m30 = !keyboard && !survivalActive() && m30Seated();
-  if (m30) controls.length = 4;
+  if (m30) controls.length = 0;
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
@@ -8675,7 +8697,8 @@ function drawControlLegend(ink) {
       y + Math.round(size * .25), size, ...ink);
   }
   let legendBottom = safe.top + controls.length * step;
-  if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held, ink);
+  if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
+    directionActive, ink);
   drawStickGate(x, legendBottom, size, pad, ink);
 }
 
