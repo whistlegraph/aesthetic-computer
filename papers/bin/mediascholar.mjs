@@ -272,13 +272,9 @@ async function invokeClaude({ config, stage, prompt, schemaPath, worktree, runDi
     ? "Read,Glob,Grep,WebSearch,WebFetch"
     : "Read,Glob,Grep,Write,Edit,WebSearch,WebFetch,mcp__paper__paper_list,mcp__paper__paper_find,mcp__paper__paper_read,mcp__paper__paper_build,mcp__paper__paper_figure_table_qa_check";
   args.push("--tools", tools, "--allowedTools", tools);
-  if (stage === "paper") {
-    const configPath = join(runDir, "paper-mcp.json");
-    await writeJson(configPath, mcpConfig(worktree));
-    args.push("--mcp-config", configPath, "--strict-mcp-config");
-  } else {
-    args.push("--strict-mcp-config", "--mcp-config", JSON.stringify({ mcpServers: {} }));
-  }
+  const configPath = join(runDir, `${stage}-mcp.json`);
+  await writeJson(configPath, stage === "paper" ? mcpConfig(worktree) : { mcpServers: {} });
+  args.push("--mcp-config", configPath, "--strict-mcp-config");
   args.push(prompt);
   const log = await runLogged(config.claudeBin, args, {
     cwd: worktree,
