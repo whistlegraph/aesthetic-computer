@@ -1,0 +1,56 @@
+{
+  "snare": {
+    "id": 695700,
+    "name": "drumhit_Clap12",
+    "by": "DigitalUnderglow",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/695700/",
+    "centroid_hz": 3295,
+    "duration_s": 0.451383
+  },
+  "clap": {
+    "id": 388543,
+    "name": "Clap 02.wav",
+    "by": "totalcult",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/388543/",
+    "centroid_hz": 5857,
+    "duration_s": 0.388005
+  },
+  "hat-closed": {
+    "id": 513363,
+    "name": "HH Cl 02.wav",
+    "by": "pomeroyjoshua",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/513363/",
+    "centroid_hz": 10286,
+    "duration_s": 0.0914059
+  },
+  "hat-open": {
+    "id": 842867,
+    "name": "Hat_Open-03",
+    "by": "crosley_bendix",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/842867/",
+    "centroid_hz": 8034,
+    "duration_s": 0.25
+  },
+  "shaker": {
+    "id": 607221,
+    "name": "Shekere Strike.wav",
+    "by": "jonopodmore",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/607221/",
+    "centroid_hz": 3036,
+    "duration_s": 0.677166
+  },
+  "kick": {
+    "id": 259518,
+    "name": "kick3",
+    "by": "soneproject",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/259518/",
+    "centroid_hz": 2016,
+    "duration_s": 0.398277
+  }
+}

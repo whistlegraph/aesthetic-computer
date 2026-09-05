@@ -229,6 +229,42 @@ export const MENU = {
       },
     },
     used: {
+      "imab-real-kick": {
+        lane: "imab", file: "imab/samples/real/kick.wav",
+        source: "freesound #259518 — “kick3” by soneproject",
+        license: "CC0", url: "https://freesound.org/s/259518/",
+        blurb: "house kick — hitbaker real kit (four on the floor)",
+      },
+      "imab-real-snare": {
+        lane: "imab", file: "imab/samples/real/snare.wav",
+        source: "freesound #695700 — “drumhit_Clap12” by DigitalUnderglow",
+        license: "CC0", url: "https://freesound.org/s/695700/",
+        blurb: "clap-snare backbeat body — hitbaker real kit",
+      },
+      "imab-real-clap": {
+        lane: "imab", file: "imab/samples/real/clap.wav",
+        source: "freesound #388543 — “Clap 02.wav” by totalcult",
+        license: "CC0", url: "https://freesound.org/s/388543/",
+        blurb: "hand clap layer on 2 & 4 — hitbaker real kit",
+      },
+      "imab-real-hat-closed": {
+        lane: "imab", file: "imab/samples/real/hat-closed.wav",
+        source: "freesound #513363 — “HH Cl 02.wav” by pomeroyjoshua",
+        license: "CC0", url: "https://freesound.org/s/513363/",
+        blurb: "closed hat eighths — hitbaker real kit",
+      },
+      "imab-real-hat-open": {
+        lane: "imab", file: "imab/samples/real/hat-open.wav",
+        source: "freesound #842867 — “Hat_Open-03” by crosley_bendix",
+        license: "CC0", url: "https://freesound.org/s/842867/",
+        blurb: "open hat offbeats — hitbaker real kit",
+      },
+      "imab-real-shaker": {
+        lane: "imab", file: "imab/samples/real/shaker.wav",
+        source: "freesound #607221 — “Shekere Strike.wav” by jonopodmore",
+        license: "CC0", url: "https://freesound.org/s/607221/",
+        blurb: "shekere sixteenths, staged wide — hitbaker real kit",
+      },
       "manhattan-siren": {
         lane: "marimba", file: "marimba/assets/manhattan-siren.mp3",
         source: "freesound #223824 — “Wail and Yelp.mp3” by WBJB1",

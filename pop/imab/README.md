@@ -43,6 +43,9 @@ node pop/imab/bin/hitbaker.mjs         # the CHART arrangement (single-study cal
                                        #   104-bar verse/pre/chorus form, G-pedal break,
                                        #   terminal-lift finale → out/imab-hitbaker-demo1
                                        #   vocal doors: choruses at bars 24 / 56 / 76 (A = 24)
+node pop/imab/bin/fetch-real-kit.mjs   # CC0 Freesound drum one-shots → samples/real/
+                                       #   (hitbaker prefers these; provenance in
+                                       #   kit-real.json + the pop menu sample registry)
 node pop/imab/bin/gen-click.mjs        # click + guide → out/ (juke-sync picks mp3s up)
 node pop/imab/bin/gen-kit.mjs          # one-shot sample kit → samples/kit/
 node pop/imab/bin/lyrictrack.mjs       # canonical lyric timing: drawn boundaries →

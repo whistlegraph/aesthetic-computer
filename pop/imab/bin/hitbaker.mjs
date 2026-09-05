@@ -58,9 +58,17 @@ const readF32 = (wav) => {
   const n = Math.floor(b.length / 4);
   return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + n * 4));
 };
+// the REAL kit (CC0 Freesound one-shots via fetch-real-kit.mjs) wins
+// where it exists — real percussion is noise + transient, which is the
+// chart's percussive weight; the synth kit keeps the lane's doors/bells
+const REAL = resolve(HERE, "../samples/real");
 const S = {};
 for (const name of ["kick", "hat-closed", "hat-open", "shaker", "snare",
-  "click-door", "reverse-kick", "reverse-bell"]) S[name] = readF32(`${KIT}/${name}.wav`);
+  "clap", "click-door", "reverse-kick", "reverse-bell"]) {
+  const real = `${REAL}/${name}.wav`, kit = `${KIT}/${name}.wav`;
+  const path = existsSync(real) ? real : existsSync(kit) ? kit : null;
+  if (path) S[name] = readF32(path);
+}
 const XY = {};
 for (const n of ["C5", "G5", "C6"]) XY[n] = readF32(`${KIT}/xylo-${n}.wav`);
 
@@ -143,7 +151,8 @@ const duck = new Float32Array(NT).fill(1);
 // ── BACKBEAT: the chart's perc-share lever. Snare+clap stack on 2 & 4
 // everywhere but the break; finale doubles the clap ───────────────────
 const backBuf = new Float32Array(NT);
-const CLAP = repitch(S.snare, 1.19), CLAP2 = repitch(S.snare, 1.31);
+const CLAP = S.clap ?? repitch(S.snare, 1.19);
+const CLAP2 = repitch(CLAP, 1.12);
 // noise body under the tonal snare — the kit's one-shots are modal
 // synths and ring pitched, which HPSS (and ears) read as tonal; a real
 // backbeat is mostly shaped noise
@@ -165,10 +174,10 @@ for (let bar = 4; bar < 100; bar++) {
   const fin = SEC(bar) === "finale";
   for (const beat of [1, 3]) {
     const t = T(bar) + beat * BEAT;
-    put(backBuf, S.snare, t + eager(), 3.2);
-    put(backBuf, NSNARE, t + eager(), 3.8);
-    put(backBuf, CLAP, t + 0.004 + eager(), 2.0);
-    if (fin) put(backBuf, CLAP2, t + 0.009 + eager(), 1.6);
+    put(backBuf, S.snare, t + eager(), 3.6);
+    put(backBuf, NSNARE, t + eager(), 1.6);
+    put(backBuf, CLAP, t + 0.004 + eager(), 2.8);
+    if (fin) put(backBuf, CLAP2, t + 0.009 + eager(), 1.8);
   }
 }
 { // the roll into the finale door
@@ -283,7 +292,7 @@ const washBuf = new Float32Array(NT), washBuf2 = new Float32Array(NT);
   for (let s = 4 * 16; s < 100 * 16; s++) {
     const t = s * BEAT / 4, bar = Math.floor(t / BAR);
     const on16 = s % 4;                                  // 0=beat 2=offbeat
-    const g = (on16 === 2 ? 1.2 : on16 === 0 ? 0.7 : 0.5)
+    const g = (on16 === 2 ? 1.0 : on16 === 0 ? 0.6 : 0.4)
       * (SEC(bar) === "finale" ? 1.25 : inBreak(bar) ? 0.7 : 1);
     put(washBuf, hitL, t + eager(), g * gateAt(t));
     put(washBuf2, hitR, t + eager(), g * 0.85 * gateAt(t));
@@ -453,7 +462,7 @@ const MATERIAL =
   "equalizer=f=400:t=q:w=1.4:g=-4," +
   "equalizer=f=150:t=q:w=1.0:g=-1.5," +
   "equalizer=f=2800:t=q:w=1.6:g=1.5," +
-  "treble=g=5:f=7500," +
+  "treble=g=3:f=7500," +
   "highpass=f=28,lowpass=f=16500";
 sh("ffmpeg", ["-y", "-v", "error", "-i", `${WORK}/hitbaker-premaster.wav`,
   "-filter_complex", `[0:a]${MATERIAL}[out]`, "-map", "[out]",
