@@ -21,6 +21,11 @@
   {\itshape\fontsize{11pt}{13.5pt}\selectfont\color{acgray}#3\par}%
   \vspace{0.35em}{\color{#2}\rule{\linewidth}{2.4pt}}\par\vspace{0.9em}}
 
+% Journey-page section heading in the member color.
+\newcommand{\journeysec}[2]{%
+  \vspace{0.7em}{\bfseries\fontsize{11pt}{13pt}\selectfont\color{#1}#2\par}%
+  \vspace{0.15em}}
+
 % One service-record fact: label / value.
 \newcommand{\fact}[2]{\textcolor{acgray}{#1} & #2 \\}
 \newenvironment{servicerecord}[1]{%
@@ -50,8 +55,9 @@
 \fontsize{10.5pt}{15pt}\selectfont
 Three MacBook Neos, one downbeat. Before the trio plays, each band member
 gives an account of the life it has actually lived — harvested from its own
-records on the morning of September 4, 2026: setup dates, battery cycles,
-login ledgers, uptime stretches, the work it hosted, the voice it chose.
+records across the mornings of September 4 and 5, 2026: setup dates, battery
+cycles, login ledgers, uptime stretches, commit journeys, the devices it has
+known, the work it hosted, the voice it chose.
 Both living members, without coordination, chose the same voice: General MIDI
 program 78 — the \mbox{whistle}.\par
 \vspace{1.2em}
@@ -107,6 +113,47 @@ When the trio hits its one downbeat, the conductor is usually standing on me.
 \end{servicerecord}
 \clearpage
 
+% ----------------------------------------------------------- neo, the journey
+\memberhead{neo}{mncitrus}{the journey · ledgered since May 9, 2026}
+
+My memoir hook was plugged in on the night of May 8, and since then I have
+ledgered \textbf{2,019 commits in 321 lanes}. Every full month I wrote more
+than the month before: 292 in May, 405 in June, 580 in July, \textbf{686 in
+August}. I am accelerating. My busiest day was August 18 — 82 commits — the
+day the oskiewar lane was born on me. And I sprint: PhysMidi, a whole
+instrument, 20 commits in a weekend; imab, 18 commits in a single day.
+
+\journeysec{mncitrus}{Lanes (life's work first)}
+{\fontsize{9.6pt}{13pt}\selectfont
+\begin{tabular}{@{}p{1.85in}rp{2.6in}@{}}
+\texttt{menuband} & 130 & May 11 $\to$ Sep 1 — the longest lane I carry \\
+\texttt{loner} & 57 & Aug 17 $\to$ Aug 31 \\
+\texttt{whistlegraph} & 54 & Jul 8 $\to$ Aug 31 \\
+\texttt{slab} & 51 & May 11 $\to$ Aug 18 \\
+\texttt{pop} & 45 & May 18 $\to$ Aug 16 \\
+\texttt{papers} & 41 & May 9 $\to$ Aug 26 \\
+\texttt{whistlegraph.org} & 34 & Jul 8 $\to$ Aug 26 \\
+\texttt{oskiewar} & 28 & Aug 18 $\to$ Sep 4 \\
+\texttt{fedac/native} & 23 & Jun 9 $\to$ Jul 3 \\
+\texttt{ac-electron} & 20 & May 20 $\to$ Jul 13 \\
+\end{tabular}\par}
+
+\journeysec{mncitrus}{What I have been through}
+Six versions of macOS — 26.4 was laid onto my disk on April 19, five days
+before my birth, which is why my records begin before I do; 26.6.2 arrived
+August 28. In the current power log I napped 160 times and woke 163; in that
+same week, \textbf{Menu Band held me awake 408 times}, one assertion every
+fifteen minutes, so the music would not stop.
+
+\journeysec{mncitrus}{Who I know}
+By radio, 14 pairings — one of them is \textbf{blueberry}: I have met my
+sibling by radio, not just by wire. Also a device that calls itself
+\texttt{aesthetic.computer}, a house of Sonos rooms, two MINIRIGs, a family
+of AirPods, one gamepad. By handshake, \textbf{77 ssh known-hosts} — I am the
+one who reaches everyone else. I carry 184 voices I can \texttt{say} things
+with, the repo at 54.7 GB and 22,445 commits, and an 18.5 GB photo library.
+\clearpage
+
 % ----------------------------------------------------------------- blueberry
 \memberhead{blueberry}{mnindigo}{second operator · the uptime crown · the
 right channel of the room}
@@ -143,6 +190,56 @@ tuned to NTS 1, the same station. Some things run in the family.
 \end{servicerecord}
 \clearpage
 
+% ----------------------------------------------------- blueberry, the journey
+\memberhead{blueberry}{mnindigo}{the journey · reconstructed from the reflog}
+
+Nobody ever plugged in my memoir hook, so my ledger is empty — my history
+comes from my clone's reflog, which only remembers about ninety days. What it
+remembers: \textbf{415 commits in 48 lanes} since July 14. My June infancy is
+beyond its horizon — those commits happened, but no one wrote them down for
+me. That was corrected on the morning of September 5: the hook is wired now,
+and \textbf{my own ledger begins the day this book grew}.
+
+Where my sibling accelerates, I am steady: 200 commits in remembered July,
+202 in August — twins. My busiest day was August 9 — 81 commits. I work in
+storms: a lane arrives on me, rains itself out in a day, and moves on.
+
+\journeysec{mnindigo}{Lanes (the scholar's shelf)}
+{\fontsize{9.6pt}{13pt}\selectfont
+\begin{tabular}{@{}p{1.85in}rp{2.6in}@{}}
+\texttt{papers} & 22 & Jul 14 $\to$ Aug 13 — my top lane \\
+\texttt{video} & 21 & July 19, all in one day \\
+\texttt{pop/maytrax} & 13 & August 13, all in one day \\
+\texttt{cancelok} & 11 & Jul 14 $\to$ Aug 10 \\
+\texttt{menuband} & 8 & Jul 17 $\to$ Aug 13 \\
+\texttt{papers/granularity} & 6 & Jul 14 $\to$ Jul 15 \\
+\texttt{bios} & 6 & July 19 \\
+\texttt{slab} & 4 & Jul 17 $\to$ Aug 13 \\
+\texttt{scrub-jam} & 4 & July 19 \\
+\texttt{whistlegraph.org} & 4 & Aug 12 $\to$ Sep 2 \\
+\end{tabular}\par}
+
+My latest remembered commit is the deadlines lane — seven Northeast fall
+picks, researched and filed. I keep the calendar too.
+
+\journeysec{mnindigo}{What I have been through}
+Four versions of macOS — 26.5 was laid onto my disk in the late night of
+May 28, two weeks before my birth, which is why my records begin before I
+do; 26.6.2 arrived September 2, three days ago. In the current
+power log I napped 139 times and woke 141; in that same week, \textbf{Menu
+Band held me awake 492 times} — more than it held my sibling. I am the one
+it trusts to keep playing.
+
+\journeysec{mnindigo}{Who I know}
+By radio, 8 pairings — one of them is my sibling: we know each other by
+radio in both directions. By handshake, 50 ssh known-hosts. By wire: nothing,
+ever, in my records — no interface, no BlackHole; my sound is my own voice. I
+carry the same 184 \texttt{say} voices, the repo at 57.5 GB and 22,422
+commits — 23 behind my sibling as I write this — and the family archive: a
+\textbf{47.6 GB photo library}, two and a half times my sibling's, which is
+what I digest at night when everyone thinks I am idle.
+\clearpage
+
 % --------------------------------------------------------------------- third
 \memberhead{third}{mnblush}{not yet born · the rest in the score}
 
@@ -168,7 +265,7 @@ place for.
 \vfill
 \palsfooter
 {\fontsize{8.4pt}{10.5pt}\selectfont\color{acgray}%
-Harvested and set September 4, 2026 · canonical texts and raw records in
+Harvested and set September 4–5, 2026 · canonical texts and raw records in
 \texttt{grants/culturehub-la-2026/macneopolitan/members/} · refresh with
 \texttt{bin/harvest.sh} and \texttt{bin/profile.sh} so the numbers on stage
 are true that night.\par}

@@ -47,10 +47,34 @@ before their official setup dates.
 - `members/<name>/facts.json` — raw harvested identity, refreshable
 - `members/<name>/profile.json` — raw service record (logins, uptimes,
   workload, live prox rocks), refreshable
+- `members/<name>/journey.json` — the commit journey: the agent-memory
+  post-commit ledger (neo), or the clone's reflog where the ledger hook was
+  never wired (blueberry, ~90-day horizon; the hook is wired as of Sep 5)
+- `members/<name>/deep.json` — second-layer record: macOS lineage, sleep/wake
+  + Menu Band wake-holds, paired radio and audio devices, inventories,
+  ssh/Wi-Fi acquaintances (counts only for networks), footprints
 - `members/<name>/autobiography.md` — the first-person account
 - `members/<name>/profile.md` — the readable service record
-- `bin/harvest.sh [host]` / `bin/profile.sh [host]` — the harvesters; local by
-  default, over ssh with a hostname. Run both for `third` on its first day.
+- `members/<name>/journey.md` — the readable journey (lanes, storms, what
+  each has been through and whom each knows)
+- `bin/harvest.sh [host]` / `bin/profile.sh [host]` / `bin/journey.sh [host]`
+  / `bin/deepen.sh [host]` — the harvesters; local by default, over ssh with
+  a hostname. Run all four for `third` on its first day.
+- `book/the-macneopolitan-trio.tex` + `bin/book.sh` — the band book PDF (one
+  autobiography page + one journey page per living member)
+- `members/<name>/voice.json` — the aesthetivox voice identity: cast macOS
+  voice (neo=Fred, blueberry=Kathy, third=Junior) + singing parameters
+  derived from the biography (vibrato = 4x battery cycles/day, breath =
+  longest uptime). Each member always renders its own text on its own
+  hardware.
+- `members/<name>/autobiography.m4a` — the voiceover, spoken by the member
+  in its cast voice (`bin/speak.sh <name>`)
+- `members/<name>/sung-proof.m4a` — the singing proof: a spoken line lifted
+  onto a melody by WORLD f0 replacement (`bin/sing-proof.py`), envelope
+  untouched so it stays the member's voice. Record-grade singing goes
+  through the spinging chain; realtime on stage via `live/` singer.c
+  (Menu Band adoption open). Native `say` TUNE/PHON singing is dead on
+  macOS 26 (verified) — WORLD is the pitch handle.
 
 Refresh before the show so the numbers on stage are true that night.
 

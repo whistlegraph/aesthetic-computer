@@ -1,0 +1,22 @@
+{
+  "member": "third",
+  "aesthetivox": {
+    "base_voice": "Junior",
+    "why": "the youngest voice in the house, reserved for the unborn; until its hardware exists it may only be rendered on a sibling's body",
+    "engine": "macOS say — no hardware yet",
+    "rate_wpm": 165,
+    "sing": {
+      "route": "world-f0-replace (spinging chain)",
+      "register": null,
+      "vibrato_hz": null,
+      "vibrato_depth_cents": 18,
+      "breath_every_s": null,
+      "harmony_lock": 0.875,
+      "whistle_double": { "gm_program": 78, "octaves_up": 2, "note": "if it chooses the family voice" }
+    },
+    "realtime": { "core": "live/ singer.c", "latency_ms": 564, "status": "menuband adoption open" }
+  },
+  "derivation": {
+    "note": "all singing parameters derive from usage data it does not yet have; run the harvest ritual on its first day and fill these in"
+  }
+}

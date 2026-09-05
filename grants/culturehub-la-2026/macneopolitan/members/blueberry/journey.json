@@ -1,0 +1,340 @@
+{
+  "source": "reflog",
+  "total_commits": 415,
+  "ledger_begins": "2026-07-14",
+  "ledger_ends": "2026-09-02",
+  "first_commit": "boot: count success at disk-load, retry imports for real, fix telemetry fields",
+  "latest_commit": "deadlines: seven Northeast fall picks \u2014 Art Omi Music, Guthman, Squeaky Wheel, MASS MoCA, Yaddo, Berklee live-coding post, Midnight Moment",
+  "by_month": {
+    "2026-07": 200,
+    "2026-08": 202,
+    "2026-09": 13
+  },
+  "lanes_total": 48,
+  "lanes": [
+    {
+      "lane": "papers",
+      "commits": 22,
+      "first": "2026-07-14",
+      "last": "2026-08-13",
+      "first_subject": "papers: new essay \u2014 Gaps in Granularity (consumer AV playback expressivity)",
+      "last_subject": "papers: embed deterministic source bundles"
+    },
+    {
+      "lane": "video",
+      "commits": 21,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "video: dial release ends steady hold \u2014 net-time PLL can always re-lock",
+      "last_subject": "video: chips use write()'s built-in bg (true glyph-measured boxes) + wedge container"
+    },
+    {
+      "lane": "pop/maytrax",
+      "commits": 13,
+      "first": "2026-08-13",
+      "last": "2026-08-13",
+      "first_subject": "pop/maytrax: femrag++ rhythmic rework + SHAKEOUT video pipeline",
+      "last_subject": "pop/maytrax: run + skank join the remix pool"
+    },
+    {
+      "lane": "cancelok",
+      "commits": 11,
+      "first": "2026-07-14",
+      "last": "2026-08-10",
+      "first_subject": "cancelok: crisper labels (MatrixChunky8) + a names list in the repo",
+      "last_subject": "cancelok: hourly lineage \u2014 ripplo recrossed from ploo x wandro"
+    },
+    {
+      "lane": "menuband",
+      "commits": 8,
+      "first": "2026-07-17",
+      "last": "2026-08-13",
+      "first_subject": "menuband: tune instant spoken digits",
+      "last_subject": "menuband: preserve command-scale reel v10"
+    },
+    {
+      "lane": "papers/granularity",
+      "commits": 6,
+      "first": "2026-07-14",
+      "last": "2026-07-15",
+      "first_subject": "papers/granularity: bring up to the quality rubric",
+      "last_subject": "papers/granularity: portrait cover (jeffrey) + fix wonky two-column spacing"
+    },
+    {
+      "lane": "bios",
+      "commits": 6,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "bios: silent-zip tapes fall back to mp4 rendition audio",
+      "last_subject": "bios: audio follows the needle \u2014 seam anchor relocates the tape loop to the same phase"
+    },
+    {
+      "lane": "slab",
+      "commits": 4,
+      "first": "2026-07-17",
+      "last": "2026-08-13",
+      "first_subject": "slab: sync fleet messaging and session helpers",
+      "last_subject": "slab: deterministic desktop-tint cache key"
+    },
+    {
+      "lane": "scrub-jam",
+      "commits": 4,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "scrub-jam: solo baton passes after release completes \u2014 one player at a time",
+      "last_subject": "scrub-jam: drive real tape codes (!udd) alongside synth styles"
+    },
+    {
+      "lane": "whistlegraph.org",
+      "commits": 4,
+      "first": "2026-08-12",
+      "last": "2026-09-02",
+      "first_subject": "whistlegraph.org: unlink the lapsed zine shop, quiet the captions",
+      "last_subject": "whistlegraph.org: Records in History \u2014 the Bananskolen LP Alex sent + the Pruttipal Index credit"
+    },
+    {
+      "lane": "stack",
+      "commits": 3,
+      "first": "2026-07-14",
+      "last": "2026-07-15",
+      "first_subject": "stack: DevOps stack-knowledge poster + session-server DB upgrade plan",
+      "last_subject": "stack: nightly refresh engine + launchd agent"
+    },
+    {
+      "lane": "thespianjas",
+      "commits": 3,
+      "first": "2026-07-15",
+      "last": "2026-07-17",
+      "first_subject": "thespianjas: add native Metal studio",
+      "last_subject": "thespianjas: add recovery tools and v002 reference"
+    },
+    {
+      "lane": "pop",
+      "commits": 3,
+      "first": "2026-07-17",
+      "last": "2026-08-13",
+      "first_subject": "pop: add spatial and micro-render experiments",
+      "last_subject": "pop: refresh library \u2014 femrag++ SHAKEOUT cuts discoverable in Juke"
+    },
+    {
+      "lane": "juke",
+      "commits": 3,
+      "first": "2026-08-13",
+      "last": "2026-08-13",
+      "first_subject": "juke: 'newest rendered' sorts by real file mtime, newest on top",
+      "last_subject": "juke: give a dragged-out record a way to close"
+    },
+    {
+      "lane": "podcast",
+      "commits": 2,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "podcast: support SDK CDN publishing",
+      "last_subject": "podcast: find credentials in local vault"
+    },
+    {
+      "lane": "media",
+      "commits": 2,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "media: begin thespianjas digital twin pipeline",
+      "last_subject": "media: add AI podcast double and PALS covers"
+    },
+    {
+      "lane": "tapes",
+      "commits": 2,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "tapes: queryable audio-property index \u2014 tape-index.json + indexer",
+      "last_subject": "tapes: first-class silent flag in the index \u2014 quiet, mostly-empty, and no-audio-stream tapes all filterable"
+    },
+    {
+      "lane": "macpal",
+      "commits": 2,
+      "first": "2026-08-11",
+      "last": "2026-08-11",
+      "first_subject": "macpal: wear the resident agent as a contact disc (Iris on panda)",
+      "last_subject": "macpal: camera-shy \u2014 the badge steps out while a reel is filming"
+    },
+    {
+      "lane": "ac-os",
+      "commits": 2,
+      "first": "2026-08-13",
+      "last": "2026-08-13",
+      "first_subject": "ac-os: ship Trackdrum input and performance deck",
+      "last_subject": "ac-os: retrigger Trackdrum on deliberate slides"
+    },
+    {
+      "lane": "pop/cult",
+      "commits": 2,
+      "first": "2026-08-13",
+      "last": "2026-08-14",
+      "first_subject": "pop/cult: the whistlegraph cult remix, and the speech-to-singing lane that sings it",
+      "last_subject": "pop/cult: fix the friction voice by measuring it, not by ear"
+    },
+    {
+      "lane": "wannadash",
+      "commits": 2,
+      "first": "2026-09-01",
+      "last": "2026-09-01",
+      "first_subject": "wannadash: the release cut, and four notes on what it still gets wrong",
+      "last_subject": "wannadash: the record, mixed in both engines, and its release lane"
+    },
+    {
+      "lane": "boot",
+      "commits": 1,
+      "first": "2026-07-14",
+      "last": "2026-07-14",
+      "first_subject": "boot: count success at disk-load, retry imports for real, fix telemetry fields",
+      "last_subject": "boot: count success at disk-load, retry imports for real, fix telemetry fields"
+    },
+    {
+      "lane": "npmrc",
+      "commits": 1,
+      "first": "2026-07-14",
+      "last": "2026-07-14",
+      "first_subject": "npmrc: supply-chain cooldown (min-release-age=7) in every install dir",
+      "last_subject": "npmrc: supply-chain cooldown (min-release-age=7) in every install dir"
+    },
+    {
+      "lane": "boots",
+      "commits": 1,
+      "first": "2026-07-14",
+      "last": "2026-07-14",
+      "first_subject": "boots: The Last Week of Boots report + toolchain/boots/report.mjs",
+      "last_subject": "boots: The Last Week of Boots report + toolchain/boots/report.mjs"
+    },
+    {
+      "lane": "api.overlay",
+      "commits": 1,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "api.overlay: a crisp vector UI layer on uiCtx, above the pixel buffer (+ cancelok ?vec)",
+      "last_subject": "api.overlay: a crisp vector UI layer on uiCtx, above the pixel buffer (+ cancelok ?vec)"
+    },
+    {
+      "lane": "signal",
+      "commits": 1,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "signal: recent-chats listing + per-invocation --to targeting",
+      "last_subject": "signal: recent-chats listing + per-invocation --to targeting"
+    },
+    {
+      "lane": "papers site",
+      "commits": 1,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "papers site: freshness-first sorting; float freshest section to top",
+      "last_subject": "papers site: freshness-first sorting; float freshest section to top"
+    },
+    {
+      "lane": "tooling",
+      "commits": 1,
+      "first": "2026-07-15",
+      "last": "2026-07-15",
+      "first_subject": "tooling: add illy media generation plugin",
+      "last_subject": "tooling: add illy media generation plugin"
+    },
+    {
+      "lane": "blueberry",
+      "commits": 1,
+      "first": "2026-07-17",
+      "last": "2026-07-17",
+      "first_subject": "blueberry: checkpoint staged cleanup",
+      "last_subject": "blueberry: checkpoint staged cleanup"
+    },
+    {
+      "lane": "juke-wizard",
+      "commits": 1,
+      "first": "2026-07-17",
+      "last": "2026-07-17",
+      "first_subject": "juke-wizard: surface live work status",
+      "last_subject": "juke-wizard: surface live work status"
+    },
+    {
+      "lane": "marketing",
+      "commits": 1,
+      "first": "2026-07-17",
+      "last": "2026-07-17",
+      "first_subject": "marketing: add social-software reel pipelines",
+      "last_subject": "marketing: add social-software reel pipelines"
+    },
+    {
+      "lane": "illy",
+      "commits": 1,
+      "first": "2026-07-17",
+      "last": "2026-07-17",
+      "first_subject": "illy: refresh the local plugin manifest",
+      "last_subject": "illy: refresh the local plugin manifest"
+    },
+    {
+      "lane": "lith",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "lith: zero-downtime deploys \u2014 Caddy queues dials through the restart window",
+      "last_subject": "lith: zero-downtime deploys \u2014 Caddy queues dials through the restart window"
+    },
+    {
+      "lane": "bags",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "bags: kick/hat/snare stems join ^tapes",
+      "last_subject": "bags: kick/hat/snare stems join ^tapes"
+    },
+    {
+      "lane": "sweep",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "sweep: cancelok lineage, reel remix tooling, SineabyeLive tweaks",
+      "last_subject": "sweep: cancelok lineage, reel remix tooling, SineabyeLive tweaks"
+    },
+    {
+      "lane": "prompt.ac",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "prompt.ac: 2018 platter page + Caddy route (from blueberry)",
+      "last_subject": "prompt.ac: 2018 platter page + Caddy route (from blueberry)"
+    },
+    {
+      "lane": "gitignore",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "gitignore: tape cache + jam shots",
+      "last_subject": "gitignore: tape cache + jam shots"
+    },
+    {
+      "lane": "audio",
+      "commits": 1,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "audio: demand-gate frequency analysis; video: single-box sync readout (no overlap)",
+      "last_subject": "audio: demand-gate frequency analysis; video: single-box sync readout (no overlap)"
+    },
+    {
+      "lane": "dm-mcp",
+      "commits": 1,
+      "first": "2026-08-11",
+      "last": "2026-08-11",
+      "first_subject": "dm-mcp: attachment sends + stop fabricating Signal send success",
+      "last_subject": "dm-mcp: attachment sends + stop fabricating Signal send success"
+    },
+    {
+      "lane": "wallpaper",
+      "commits": 1,
+      "first": "2026-08-11",
+      "last": "2026-08-11",
+      "first_subject": "wallpaper: the flat backdrop breathes with the prompts",
+      "last_subject": "wallpaper: the flat backdrop breathes with the prompts"
+    }
+  ],
+  "busiest_day": {
+    "date": "2026-08-09",
+    "commits": 81
+  }
+}

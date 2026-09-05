@@ -1,0 +1,341 @@
+{
+  "total_commits": 2019,
+  "ledger_begins": "2026-05-09",
+  "ledger_ends": "2026-09-05",
+  "first_commit": "opinion: add \"The Studio File System\" essay Author-side study of the monorepo's 90+ top-level dirs \u2014 frames the sprawl as a studio file system rather than a so\u2026",
+  "latest_commit": "pop study/map.py: the mapper itself (missed by pathspec commit)",
+  "by_month": {
+    "2026-05": 292,
+    "2026-06": 405,
+    "2026-07": 580,
+    "2026-08": 686,
+    "2026-09": 56
+  },
+  "lanes_total": 321,
+  "lanes": [
+    {
+      "lane": "menuband",
+      "commits": 130,
+      "first": "2026-05-11",
+      "last": "2026-09-01",
+      "first_subject": "menuband: landing page \u2192 1.1 release notes Download link + meta strings (en/es) now point at Menu-Band-1.1.dmg",
+      "last_subject": "menuband: re-render when the treatment changes, not just when the file is missing A finished mp4 of the right "
+    },
+    {
+      "lane": "loner",
+      "commits": 57,
+      "first": "2026-08-17",
+      "last": "2026-08-31",
+      "first_subject": "loner: repair whisper's word boundaries against the audio, and fix the trim that the next word's attack was de",
+      "last_subject": "loner: whistlegraph wizard \u2014 perform the score on the trackpad WhistlegraphWizard (slab/whistlegraphwizard, Tr"
+    },
+    {
+      "lane": "whistlegraph",
+      "commits": 54,
+      "first": "2026-07-08",
+      "last": "2026-08-31",
+      "first_subject": "whistlegraph: full dataset \u2014 963 transcribed, 424 songs clustered (30 named, 82 unnamed multi-take), merge-by-",
+      "last_subject": "whistlegraph: song-corpus statistical melody tools + imab lane bootstrap song-corpus/analyze-corpus sweep a so"
+    },
+    {
+      "lane": "slab",
+      "commits": 51,
+      "first": "2026-05-11",
+      "last": "2026-08-18",
+      "first_subject": "slab: jeffrey-voice event sounds + scoped fade/cancel/afplay helpers new jeffrey-say.py speaks every event cue",
+      "last_subject": "slab: the menu bar had stopped following the appearance macOS derives the translucent menu bar's own light/dar"
+    },
+    {
+      "lane": "pop",
+      "commits": 45,
+      "first": "2026-05-18",
+      "last": "2026-08-16",
+      "first_subject": "pop: track single releases \u2014 RELEASES.md (trancenwaltz shipped) - pop/RELEASES.md: DistroKid status tracker. t",
+      "last_subject": "pop: register the four whistlegraph remix lanes in RELEASES.md \u2014 cult (MASTERING, v10.1), season (RENDER v1), "
+    },
+    {
+      "lane": "papers",
+      "commits": 41,
+      "first": "2026-05-09",
+      "last": "2026-08-26",
+      "first_subject": "papers: page-1 JPEG thumbs on the index Each paper card on papers.aesthetic.computer now leads with a 60-DPI p",
+      "last_subject": "papers: sosoft-cycle2 platter page \u2014 every Cycle 2 asset at one URL Scores for Social Software (UCLA DESMA, sp"
+    },
+    {
+      "lane": "whistlegraph.org",
+      "commits": 34,
+      "first": "2026-07-08",
+      "last": "2026-08-26",
+      "first_subject": "whistlegraph.org: proper caps, growing Index, final-glyph thumbs, animated cut-letter wordmark + W favicon",
+      "last_subject": "whistlegraph.org: the settings panel sheds its frame"
+    },
+    {
+      "lane": "oskiewar",
+      "commits": 28,
+      "first": "2026-08-18",
+      "last": "2026-09-04",
+      "first_subject": "oskiewar v74: the session gets a name, the debug fps survives the title, and an agent can attach to the run it",
+      "last_subject": "oskiewar v94: the title is a portrait, and every gesture starts it The wordmark screen closes to a 430-floor p"
+    },
+    {
+      "lane": "fedac/native",
+      "commits": 23,
+      "first": "2026-06-09",
+      "last": "2026-07-03",
+      "first_subject": "fedac/native: lanserv LAN dev server (http + mdns/bonjour) + ssh in oven builds - lanserv.c: HTTP control endp",
+      "last_subject": "fedac/native: cap clips carry dj song timecode \u2014 songStart/songEnd metadata in the MP4 If a deck is loaded (dj"
+    },
+    {
+      "lane": "ac-electron",
+      "commits": 20,
+      "first": "2026-05-20",
+      "last": "2026-07-13",
+      "first_subject": "ac-electron: grant clipboard permissions to webviews navigator.clipboard.readText() inside the AC webview was ",
+      "last_subject": "ac-electron: forward production webview console + crashes to a tailable log The pad/piece runs inside a nested"
+    },
+    {
+      "lane": "physmidi",
+      "commits": 20,
+      "first": "2026-06-14",
+      "last": "2026-06-15",
+      "first_subject": "physmidi: pitch regression harness + fix clarinet octave Foundation for the PhysMidi effort (physically-model ",
+      "last_subject": "physmidi: stabilize FX rain overshoot + revive guitar-fret squeak generate_synthfx_sample (prog 96 rain): clam"
+    },
+    {
+      "lane": "imab",
+      "commits": 18,
+      "first": "2026-08-31",
+      "last": "2026-08-31",
+      "first_subject": "imab: the measured melody \u2014 35-take statistical skeleton replaces the composed hook Corpus sweep of 84 butterf",
+      "last_subject": "imab: syllawizard \u2014 draw rectangles around spectrum bands per syllable Self-contained HTML annotator: scrollab"
+    },
+    {
+      "lane": "grants",
+      "commits": 16,
+      "first": "2026-05-21",
+      "last": "2026-07-19",
+      "first_subject": "grants: CultureHub LA residency submitted \u2014 deadlines site + SCORE.md Move CultureHub LA Residency from Active",
+      "last_subject": "grants: scaffold .ART Award 2026 \u2014 No Paint, 2016\u2013present at nopaint.art"
+    },
+    {
+      "lane": "p5-worker",
+      "commits": 16,
+      "first": "2026-05-28",
+      "last": "2026-05-29",
+      "first_subject": "p5-worker: CanvasShim needs classList + child/node fields p5's createCanvas calls canvas.classList.add('p5Canv",
+      "last_subject": "p5-worker: real reframe + mouseWheel + better keyboard + ac global - reframe handled via act(event.is('reframe"
+    },
+    {
+      "lane": "slab/menubar",
+      "commits": 15,
+      "first": "2026-05-14",
+      "last": "2026-07-03",
+      "first_subject": "slab/menubar: drop Tailscale.app GUI fallback from tool resolution The bundle's MacOS/Tailscale binary is the ",
+      "last_subject": "slab/menubar: audio tile fixes \u2014 decode stereo waveforms (mono buffer read zero frames = flat strip), cap juke"
+    },
+    {
+      "lane": "podcast",
+      "commits": 15,
+      "first": "2026-07-03",
+      "last": "2026-07-28",
+      "first_subject": "podcast: RSS publish allowlist (keep confidential readings out) + kit picker - feed.mjs: HOSTED map = strict p",
+      "last_subject": "podcast: add pronunciation round-trip QA"
+    },
+    {
+      "lane": "crm",
+      "commits": 14,
+      "first": "2026-06-29",
+      "last": "2026-07-01",
+      "first_subject": "crm: Linked Open Data endpoint (data.aesthetic.computer) Stage 1 of the CIDOC CRM / Linked Art broadcast layer",
+      "last_subject": "crm: Aesthetic.Computer wordmark (pink dot) + corner returns to AC proper - Render the brand as 'Aesthetic.Com"
+    },
+    {
+      "lane": "macpal",
+      "commits": 13,
+      "first": "2026-06-16",
+      "last": "2026-07-17",
+      "first_subject": "macpal: new distributable corner-star companion app A friendly little star ('star') that floats in a screen co",
+      "last_subject": "macpal: hand off control through Deskflow"
+    },
+    {
+      "lane": "chat",
+      "commits": 11,
+      "first": "2026-05-22",
+      "last": "2026-09-05",
+      "first_subject": "chat: fix YouTube embed overlay tap-outside / close not working The disk runs in a Web Worker in production, s",
+      "last_subject": "chat: the elastic lands on the edge \u2014 fling spring no longer coasts the newest message under the input bar Pho"
+    },
+    {
+      "lane": "date-wizard",
+      "commits": 11,
+      "first": "2026-06-15",
+      "last": "2026-07-17",
+      "first_subject": "date-wizard: native macOS DateWizard app (AppKit) Sibling to wave-wizard/. Native week grid -> /api/cal via UR",
+      "last_subject": "date-wizard: focus the menu on upcoming days"
+    },
+    {
+      "lane": "video",
+      "commits": 10,
+      "first": "2026-07-13",
+      "last": "2026-07-19",
+      "first_subject": "video: restore GIF / MP4 / ZIP export buttons on posted tapes Re-enable the export trio (deprecated in c9ce283",
+      "last_subject": "video: unified prize-wheel net-time PLL + scrub-jam harness (prove the groove) - Released/parked rates now gli"
+    },
+    {
+      "lane": "trance",
+      "commits": 9,
+      "first": "2026-05-19",
+      "last": "2026-05-21",
+      "first_subject": "trance: chill-mix redesign (trancenwaltzi) \u2014 all chill-gated recap/bin/trance.mjs \u2014 every change scoped to `--",
+      "last_subject": "trance: --stems flag \u2014 export each chill engine bus as a dry stereo WAV After the chill stereo bus rebuild, --"
+    },
+    {
+      "lane": "lith",
+      "commits": 9,
+      "first": "2026-05-21",
+      "last": "2026-07-06",
+      "first_subject": "lith: public /pop-demos route for the demo page system/netlify/functions/pop-demos.mjs serves pop/demos.html a",
+      "last_subject": "lith: www.prompt.ac \u2192 apex redirect + DNS.md note (www record missing from the prompt.ac zone, falls into the "
+    },
+    {
+      "lane": "nom",
+      "commits": 9,
+      "first": "2026-06-09",
+      "last": "2026-07-06",
+      "first_subject": "nom: rename mathnom \u2192 numbnom (canonical) + add dannom (Danish edition) - mathnom.mjs \u2192 numbnom.mjs; numbnom i",
+      "last_subject": "nom: words always fit their tiles \u2014 diagonal 45\u00b0 refit (\u221a2 more run) + fractional hd scale for the longest dan"
+    },
+    {
+      "lane": "spinging",
+      "commits": 9,
+      "first": "2026-07-19",
+      "last": "2026-07-20",
+      "first_subject": "spinging: canonical voice stack \u2014 corral vocal tools behind one CLI",
+      "last_subject": "spinging: round-6.5 refinements \u2014 affricate coda evidence, phrase-initial fricative re-extension"
+    },
+    {
+      "lane": "wip",
+      "commits": 8,
+      "first": "2026-05-19",
+      "last": "2026-08-11",
+      "first_subject": "wip: pop (hellsine lane, dance gen scripts, RELEASES) + slab menubar/menuband Preserving in-progress work for ",
+      "last_subject": "WIP: menubar refactor, klokkentales, lith config, nopaint (carried off main 2026-08-10)"
+    },
+    {
+      "lane": "quotes",
+      "commits": 8,
+      "first": "2026-05-22",
+      "last": "2026-07-17",
+      "first_subject": "quotes: AE-2026-002 \u2014 The Resilience Institute code quote Four-page Code Quote for the Resilience Institute we",
+      "last_subject": "quotes: add advisory pack AE-2026-005"
+    },
+    {
+      "lane": "kidlisp",
+      "commits": 8,
+      "first": "2026-05-30",
+      "last": "2026-06-08",
+      "first_subject": "kidlisp: preview/spinner tools + STRUCTURE/SCORE + evaluator updates Co-Authored-By: Claude Opus 4.8 (1M conte",
+      "last_subject": "kidlisp: global UTC clock \u2014 musically-timed animation, end to end Re-architect melody/timer timing around one "
+    },
+    {
+      "lane": "amaythingra",
+      "commits": 8,
+      "first": "2026-06-03",
+      "last": "2026-06-05",
+      "first_subject": "amaythingra: ah/ooh-only vocals, reverse-snare @3:30, distinct woops, drop dynamics Production-session pass (@",
+      "last_subject": "amaythingra: cinematic storyline visualizer pipeline (insta-story + YouTube + Canvas) big-pictures storyline c"
+    },
+    {
+      "lane": "electron",
+      "commits": 8,
+      "first": "2026-06-04",
+      "last": "2026-06-05",
+      "first_subject": "electron: open chat jump-out links in the system browser External jump(\"out:\u2026\") links did nothing useful in th",
+      "last_subject": "electron: native macOS chrome + smaller window + pals icon + link fix - Standard native macOS title bar (frame"
+    },
+    {
+      "lane": "nela donate",
+      "commits": 8,
+      "first": "2026-06-15",
+      "last": "2026-06-15",
+      "first_subject": "nela donate: rewrite copy in NELA Computer Club's plain voice Match the original nelacomputer.club register \u2014 ",
+      "last_subject": "nela donate: graceful slug placeholder (live flag + club-site fallback) The OpenCollective project doesn't exi"
+    },
+    {
+      "lane": "pads",
+      "commits": 8,
+      "first": "2026-07-12",
+      "last": "2026-07-13",
+      "first_subject": "pads: shared lib/pads.mjs engine + all 15 pads as thin wrappers - lib/pads.mjs (nom-style singleton): UTC-cloc",
+      "last_subject": "pads: +6 new (batch 5/5) + ^pads bag now holds all 47 rullo hex-grid\u00d7gamelan, tavo bubbles\u00d7bubble-synth, wexo "
+    },
+    {
+      "lane": "nopaint.art",
+      "commits": 8,
+      "first": "2026-07-19",
+      "last": "2026-07-19",
+      "first_subject": "nopaint.art: serve the preserved 2021 build from lith The complete Construct export (165 files: runtime, 32 sp",
+      "last_subject": "nopaint.art: restore missing Construct runtime (c3runtime, workermain, wasm) The first mirror only captured fi"
+    },
+    {
+      "lane": "prompt",
+      "commits": 7,
+      "first": "2026-05-18",
+      "last": "2026-06-28",
+      "first_subject": "prompt: sigil autocomplete ($ # !) from in-memory media feed Step 1 of the universal AC search box. createHand",
+      "last_subject": "prompt: jump to jasellite.aesthetic.computer"
+    },
+    {
+      "lane": "slab menubar",
+      "commits": 7,
+      "first": "2026-05-18",
+      "last": "2026-07-11",
+      "first_subject": "slab menubar: cross-app tiling + screen-fill rect packing + screensaver action - tileNow() now packs iTerm2 *a",
+      "last_subject": "slab menubar: Scatter now \u2014 inverse of Tile, tiny confetti windows across desktop (\u2318\u2325S)"
+    },
+    {
+      "lane": "slab/frame",
+      "commits": 7,
+      "first": "2026-06-17",
+      "last": "2026-06-24",
+      "first_subject": "slab/frame: local-machine support (controller captures itself, no ssh) + run remote cmds via 'bash -s' so fish",
+      "last_subject": "slab/frame: capture-scale knob + fix Retina OCR coord scaling Introduces a captureScale constant (1x) used for"
+    },
+    {
+      "lane": "av-reels",
+      "commits": 7,
+      "first": "2026-07-11",
+      "last": "2026-07-13",
+      "first_subject": "av-reels: capture/gesture/performance/stamp tooling + ignore regen outputs",
+      "last_subject": "av-reels: pads posters \u2014 47-pad grid (pads-poster) + original 15 (reels-poster)"
+    },
+    {
+      "lane": "arena",
+      "commits": 6,
+      "first": "2026-05-09",
+      "last": "2026-05-21",
+      "first_subject": "arena: heavier ground friction + grenades collide and roll Two follow-ups to the live test. \ud83c\udfc3 Ground friction ",
+      "last_subject": "arena: smoother reconcile \u2014 raise snap thresh 2\u21924, soft-K 0.05\u21920.18 8s arena-probe with WASD square showed one"
+    },
+    {
+      "lane": "slab/menuband",
+      "commits": 6,
+      "first": "2026-05-09",
+      "last": "2026-05-30",
+      "first_subject": "slab/menuband: PDF score round-trip with sample-accurate playback Drag a Menu Band PDF onto the menubar piano ",
+      "last_subject": "slab/menuband: App Store fork scaffolding + controller updates - MAS entitlements, STORE-APP-STORE.md, MASBund"
+    },
+    {
+      "lane": "resilience",
+      "commits": 6,
+      "first": "2026-05-20",
+      "last": "2026-05-20",
+      "first_subject": "resilience: rebrand PoC to Institute gateway Direction doc 'Website Architecture & Strategic Direction' is the",
+      "last_subject": "resilience: drop final self-describing copy - Removed exhibition credit 'A central image \u2014 the alchemical line"
+    }
+  ],
+  "busiest_day": {
+    "date": "2026-08-18",
+    "commits": 82
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "member": "blueberry",
+  "aesthetivox": {
+    "base_voice": "Kathy",
+    "why": "the classic MacinTalk counterpart — steady, cool, second operator",
+    "engine": "macOS say, rendered on blueberry's own hardware over ssh (bin/speak.sh)",
+    "rate_wpm": 165,
+    "sing": {
+      "route": "world-f0-replace (spinging chain; sung-proof via bin/sing-proof.py)",
+      "register": "A3-centered, a fifth above neo",
+      "vibrato_hz": 4.0,
+      "vibrato_depth_cents": 18,
+      "breath_every_s": 13.1,
+      "harmony_lock": 0.875,
+      "whistle_double": { "gm_program": 78, "octaves_up": 2 }
+    },
+    "realtime": { "core": "live/ singer.c", "latency_ms": 564, "status": "menuband adoption open" }
+  },
+  "derivation": {
+    "vibrato_hz": "4x battery cycles per day (exactly 1.0/day)",
+    "breath_every_s": "longest unbroken uptime, days as seconds (13.1) — the long-breathed one",
+    "register": "higher and cooler — the still one, the right channel",
+    "whistle_double": "its chosen Menu Band voice, GM 78 — same as its sibling, uncoordinated"
+  }
+}

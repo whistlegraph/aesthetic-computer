@@ -1,0 +1,177 @@
+{
+  "hostname": "neo",
+  "computer_name": "Jeffrey\u2019s MacBook Neo",
+  "installs_total": 106,
+  "macos_updates": [
+    {
+      "name": "macOS 26.4",
+      "version": "26.4",
+      "date": "2026-04-19T12:33:19Z"
+    },
+    {
+      "name": "macOS 26.4.1",
+      "version": "26.4.1",
+      "date": "2026-04-25T19:56:56Z"
+    },
+    {
+      "name": "macOS 26.5",
+      "version": "26.5",
+      "date": "2026-05-14T16:14:05Z"
+    },
+    {
+      "name": "macOS 26.5.1",
+      "version": "26.5.1",
+      "date": "2026-06-06T15:49:23Z"
+    },
+    {
+      "name": "macOS 26.5.2",
+      "version": "26.5.2",
+      "date": "2026-07-13T08:31:02Z"
+    },
+    {
+      "name": "macOS 26.6.2",
+      "version": "26.6.2",
+      "date": "2026-08-28T19:23:40Z"
+    }
+  ],
+  "installs_by_source": {
+    "package_source_apple": 96,
+    "package_source_other": 10
+  },
+  "sleeps": 160,
+  "wakes": 163,
+  "menuband_wake_assertions": 408,
+  "audio_devices": [
+    {
+      "name": "BlackHole 2ch",
+      "input": 2,
+      "output": 2,
+      "transport": "coreaudio_device_type_virtual"
+    },
+    {
+      "name": "MacBook Neo Microphone",
+      "input": 1,
+      "output": null,
+      "transport": "coreaudio_device_type_builtin"
+    },
+    {
+      "name": "MacBook Neo Speakers",
+      "input": null,
+      "output": 2,
+      "transport": "coreaudio_device_type_builtin"
+    },
+    {
+      "name": "aesthetic.computer Microphone",
+      "input": 1,
+      "output": null,
+      "transport": "coreaudio_device_type_unknown"
+    },
+    {
+      "name": "ZoomAudioDevice",
+      "input": 2,
+      "output": 2,
+      "transport": "coreaudio_device_type_virtual"
+    }
+  ],
+  "bluetooth_paired": [
+    {
+      "name": "8BitDo Micro gamepad",
+      "type": "Gamepad",
+      "connected": false
+    },
+    {
+      "name": "aesthetic.computer",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "AirPods Pro - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Bedroom",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "blueberry",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "Dining Room (SONOS 933E)",
+      "type": "Speaker",
+      "connected": false
+    },
+    {
+      "name": "Foyer (SONOS 7D34)",
+      "type": "Speaker",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Max - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "MINIRIG 4",
+      "type": "Speaker",
+      "connected": false
+    },
+    {
+      "name": "MINIRIG 4",
+      "type": "Speaker",
+      "connected": false
+    },
+    {
+      "name": "Whistlegraph's AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    }
+  ],
+  "displays": [
+    {
+      "name": "Color LCD",
+      "resolution": "2816 x 1762",
+      "main": "spdisplays_yes"
+    }
+  ],
+  "usb_now": [],
+  "apps_system": 28,
+  "apps_user": 10,
+  "house_apps": [
+    "Aesthetic Computer",
+    "BlueberryWallpaper",
+    "SlabMenubar",
+    "TrackDrum for Menu Band"
+  ],
+  "brew_formulae": 245,
+  "fonts_user": 289,
+  "fonts_local": 1,
+  "say_voices": 184,
+  "launchd_services": 570,
+  "launchd_non_apple": 59,
+  "ssh_known_hosts": 77,
+  "wifi_known_networks": 73,
+  "repo_gb": 54.7,
+  "repo_commits_local": 22449,
+  "photos_library_gb": 18.5,
+  "timezone": "New_York",
+  "locale": "en_US"
+}

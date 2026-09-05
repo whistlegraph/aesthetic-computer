@@ -1,0 +1,118 @@
+{
+  "hostname": "blueberry",
+  "computer_name": "blueberry",
+  "installs_total": 74,
+  "macos_updates": [
+    {
+      "name": "macOS 26.5",
+      "version": "26.5",
+      "date": "2026-05-29T02:07:16Z"
+    },
+    {
+      "name": "macOS 26.5.1",
+      "version": "26.5.1",
+      "date": "2026-06-12T02:55:30Z"
+    },
+    {
+      "name": "macOS 26.5.2",
+      "version": "26.5.2",
+      "date": "2026-07-13T08:19:58Z"
+    },
+    {
+      "name": "macOS 26.6.2",
+      "version": "26.6.2",
+      "date": "2026-09-02T18:30:00Z"
+    }
+  ],
+  "installs_by_source": {
+    "package_source_apple": 72,
+    "package_source_other": 2
+  },
+  "sleeps": 139,
+  "wakes": 141,
+  "menuband_wake_assertions": 492,
+  "audio_devices": [
+    {
+      "name": "MacBook Neo Microphone",
+      "input": 1,
+      "output": null,
+      "transport": "coreaudio_device_type_builtin"
+    },
+    {
+      "name": "MacBook Neo Speakers",
+      "input": null,
+      "output": 2,
+      "transport": "coreaudio_device_type_builtin"
+    }
+  ],
+  "bluetooth_paired": [
+    {
+      "name": "aesthetic.computer",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "AirPods Pro - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Bedroom",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Max - Find My",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "jeffrey\u2019s AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    },
+    {
+      "name": "Jeffrey\u2019s MacBook Neo",
+      "type": null,
+      "connected": false
+    },
+    {
+      "name": "Whistlegraph's AirPods Pro",
+      "type": "Headphones",
+      "connected": false
+    }
+  ],
+  "displays": [
+    {
+      "name": "Color LCD",
+      "resolution": "2816 x 1762",
+      "main": "spdisplays_yes"
+    }
+  ],
+  "usb_now": [],
+  "apps_system": 23,
+  "apps_user": 8,
+  "house_apps": [
+    "BlueberryWallpaper",
+    "SlabMenubar",
+    "TrackDrum for Menu Band"
+  ],
+  "brew_formulae": 155,
+  "fonts_user": 210,
+  "fonts_local": 1,
+  "say_voices": 184,
+  "launchd_services": 540,
+  "launchd_non_apple": 41,
+  "ssh_known_hosts": 50,
+  "wifi_known_networks": 67,
+  "repo_gb": 57.5,
+  "repo_commits_local": 22422,
+  "photos_library_gb": 47.9,
+  "timezone": "New_York",
+  "locale": "en_US"
+}
