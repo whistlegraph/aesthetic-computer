@@ -52,5 +52,32 @@
     "url": "https://freesound.org/s/259518/",
     "centroid_hz": 2016,
     "duration_s": 0.398277
+  },
+  "fan": {
+    "id": 867208,
+    "name": "whirring",
+    "by": "6James",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/867208/",
+    "centroid_hz": 3410,
+    "duration_s": 11.584
+  },
+  "cards": {
+    "id": 817574,
+    "name": "shuffle05",
+    "by": "SilverDubloons",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/817574/",
+    "centroid_hz": 2759,
+    "duration_s": 0.975238
+  },
+  "material": {
+    "id": 641380,
+    "name": "Clothing Ruffle 03-2.wav",
+    "by": "WhiteFire43",
+    "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "url": "https://freesound.org/s/641380/",
+    "centroid_hz": 3581,
+    "duration_s": 4.83817
   }
 }

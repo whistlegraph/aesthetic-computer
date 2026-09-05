@@ -265,6 +265,30 @@ export const MENU = {
         license: "CC0", url: "https://freesound.org/s/607221/",
         blurb: "shekere sixteenths, staged wide — hitbaker real kit",
       },
+      "imab-tex-spokes": {
+        lane: "imab", file: "imab/samples/real/spokes.wav",
+        source: "freesound #384187 — “Click Tick.wav” (same source as marimba spoke-click)",
+        license: "CC0", url: "https://freesound.org/s/384187/",
+        blurb: "bike-spoke tick — verse 16ths, orbiting the head",
+      },
+      "imab-tex-fan": {
+        lane: "imab", file: "imab/samples/real/fan.wav",
+        source: "freesound #867208 — “whirring” by 6James",
+        license: "CC0", url: "https://freesound.org/s/867208/",
+        blurb: "fan whir — sustained bed through break/finale, slow orbit + filter wobble",
+      },
+      "imab-tex-cards": {
+        lane: "imab", file: "imab/samples/real/cards.wav",
+        source: "freesound #817574 — “shuffle05” by SilverDubloons",
+        license: "CC0", url: "https://freesound.org/s/817574/",
+        blurb: "card riffle — door transitions",
+      },
+      "imab-tex-material": {
+        lane: "imab", file: "imab/samples/real/material.wav",
+        source: "freesound #641380 — “Clothing Ruffle 03-2.wav” by WhiteFire43",
+        license: "CC0", url: "https://freesound.org/s/641380/",
+        blurb: "cloth ruffle — close verse texture",
+      },
       "manhattan-siren": {
         lane: "marimba", file: "marimba/assets/manhattan-siren.mp3",
         source: "freesound #223824 — “Wail and Yelp.mp3” by WBJB1",

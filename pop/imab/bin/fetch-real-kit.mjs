@@ -53,6 +53,32 @@ const ROLES = {
     filter: `${CC0} duration:[0.04 TO 0.7]`,
     centroid: [2500, 16000], target: 7000,
   },
+  // textures — the bicycle childhood palette
+  spokes: {
+    query: "bicycle wheel spokes spinning card",
+    filter: `${CC0} duration:[0.5 TO 8]`,
+    centroid: [800, 12000], target: 4000,
+  },
+  fan: {
+    query: "electric fan whirring",
+    filter: `${CC0} duration:[2 TO 12]`,
+    centroid: [100, 6000], target: 900,
+  },
+  cards: {
+    query: "playing cards shuffle riffle",
+    filter: `${CC0} duration:[0.2 TO 3]`,
+    centroid: [1500, 14000], target: 5500,
+  },
+  air: {
+    query: "soft air whoosh breath",
+    filter: `${CC0} duration:[0.5 TO 6]`,
+    centroid: [400, 9000], target: 2500,
+  },
+  material: {
+    query: "fabric cloth rustle",
+    filter: `${CC0} duration:[0.5 TO 6]`,
+    centroid: [800, 10000], target: 3500,
+  },
 };
 
 const centroidOf = (wav) => {

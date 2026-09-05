@@ -36,6 +36,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { mixEventMarimba } from "../../marimba/synths/marimba.mjs";
+import { applyWobble } from "../../dance/synths/fx.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../../..");
@@ -46,7 +47,7 @@ mkdirSync(WORK, { recursive: true });
 const sh = (cmd, args, opts = {}) => spawnSync(cmd, args, { stdio: ["ignore", "ignore", "inherit"], ...opts });
 
 const SR = 48_000, BPM = 124, BEAT = 60 / BPM, BAR = 4 * BEAT;
-const BARS = 104, TAIL = 2.5;
+const BARS = 100, TAIL = 2.5;
 const NT = Math.ceil((BARS * BAR + TAIL) * SR);
 const T = (b) => b * BAR;
 
@@ -86,15 +87,15 @@ const put = (buf, y, t, g) => {
   for (let j = 0; a + j < z; j++) buf[a + j] += y[j] * g;
 };
 
-// ── FORM: cold open — the hook sings at bar 4 (0:08), chart law:
-// the voice arrives right away ────────────────────────────────────────
+// ── FORM: no intro at all — the record opens ON the voice, bar 0,
+// full band under it ─────────────────────────────────────────────────
 const SEC = (bar) =>
-  bar < 4 ? "intro" : bar < 12 ? "chorus0" : bar < 24 ? "verse1"
-  : bar < 28 ? "pre1" : bar < 44 ? "chorus1" : bar < 56 ? "verse2"
-  : bar < 60 ? "pre2" : bar < 76 ? "chorus2" : bar < 80 ? "break"
-  : bar < 100 ? "finale" : "peel";
-const inBreak = (bar) => bar >= 76 && bar < 80;
-const CHORUS_DOORS = [4, 28, 60, 80];
+  bar < 8 ? "chorus0" : bar < 20 ? "verse1"
+  : bar < 24 ? "pre1" : bar < 40 ? "chorus1" : bar < 52 ? "verse2"
+  : bar < 56 ? "pre2" : bar < 72 ? "chorus2" : bar < 76 ? "break"
+  : bar < 96 ? "finale" : "peel";
+const inBreak = (bar) => bar >= 72 && bar < 76;
+const CHORUS_DOORS = [0, 24, 56, 76];
 
 // ── HARMONY: verse = README hook cycle (Am Am G G C C F G),
 // chorus = the sacred bed's own map (C C F F C C C C), pre = F F G G,
@@ -103,14 +104,13 @@ const VERSE8 = ["Am", "Am", "G", "G", "C", "C", "F", "G"];
 const CHOR8 = ["C", "C", "F", "F", "C", "C", "C", "C"];
 const chord = (bar) => {
   const s = SEC(bar);
-  if (s === "intro") return "C";
-  if (s === "verse1") return VERSE8[(bar - 12) % 8];
-  if (s === "verse2") return VERSE8[(bar - 44) % 8];
+  if (s === "verse1") return VERSE8[(bar - 8) % 8];
+  if (s === "verse2") return VERSE8[(bar - 40) % 8];
   if (s === "pre1" || s === "pre2") return ["F", "F", "G", "G"][bar % 4];
   if (s === "break") return "G";
   if (s === "peel") return "C";
-  const base = s === "chorus0" ? 4 : s === "chorus1" ? 28
-    : s === "chorus2" ? 60 : 80;
+  const base = s === "chorus0" ? 0 : s === "chorus1" ? 24
+    : s === "chorus2" ? 56 : 76;
   return CHOR8[(bar - base) % 8];
 };
 const BASSM = { Am: 45, G: 43, C: 48, F: 41 };            // A2 G2 C3 F2
@@ -128,7 +128,7 @@ const CH = { C: [48, 55, 64, 72, 79], F: [53, 57, 60, 69, 77],
 
 // ── BREATH: shallow now — chart LRA is a wall. Last half-bar of each
 // 8-bar phrase dips decoratives to 0.68, never deeper ─────────────────
-const RESTS = [12, 28, 44, 60, 92].map((d) => [T(d) - BAR / 2, T(d), 0.68]);
+const RESTS = [8, 24, 40, 56, 88].map((d) => [T(d) - BAR / 2, T(d), 0.68]);
 const gateAt = (t) => {
   for (const [a, b, depth] of RESTS) if (t >= a && t < b) return depth;
   return 1;
@@ -136,7 +136,7 @@ const gateAt = (t) => {
 
 // ── KICK: four on the floor from bar 0, out only for the 4-bar break ──
 const kickBuf = new Float32Array(NT);
-const KICKG = 0.5;
+const KICKG = 0.8;
 for (let b = 0; b < BARS * 4; b++) {
   const bar = Math.floor(b / 4), beat = b % 4;
   if (inBreak(bar)) continue;
@@ -147,12 +147,14 @@ put(kickBuf, S.kick, T(BARS), 1.0);
 
 const duck = new Float32Array(NT).fill(1);
 {
-  const win = Math.floor(0.5 * SR), tau = 0.09 * SR;
+  // THE PUMP is a feature: deep press, slow exhale — the bed breathes
+  // against the kick the whole record
+  const win = Math.floor(0.5 * SR), tau = 0.16 * SR;
   for (let b = 0; b < BARS * 4; b++) {
     if (inBreak(Math.floor(b / 4))) continue;
     const at = Math.floor(b * BEAT * SR);
     for (let j = 0; j < win && at + j < NT; j++)
-      duck[at + j] = Math.min(duck[at + j], 1 - 0.55 * Math.exp(-j / tau));
+      duck[at + j] = Math.min(duck[at + j], 1 - 0.72 * Math.exp(-j / tau));
   }
 }
 
@@ -177,7 +179,7 @@ const NSNARE = (() => {
   }
   return y;
 })();
-for (let bar = 4; bar < 100; bar++) {
+for (let bar = 0; bar < 96; bar++) {
   if (inBreak(bar)) continue;
   const fin = SEC(bar) === "finale";
   for (const beat of [1, 3]) {
@@ -190,17 +192,17 @@ for (let bar = 4; bar < 100; bar++) {
 }
 { // the roll into the finale door
   const steps = [];
-  for (let b = 78; b < 79; b += 0.25) steps.push(b);
-  for (let b = 79; b < 80; b += 0.125) steps.push(b);
-  for (const b of steps) put(backBuf, S.snare, T(b) + eager(), 0.10 + 0.20 * ((b - 78) / 2) ** 1.4);
-  put(backBuf, S["reverse-kick"], T(80) - S["reverse-kick"].length / SR, 0.45);
+  for (let b = 74; b < 75; b += 0.25) steps.push(b);
+  for (let b = 75; b < 76; b += 0.125) steps.push(b);
+  for (const b of steps) put(backBuf, S.snare, T(b) + eager(), 0.10 + 0.20 * ((b - 74) / 2) ** 1.4);
+  put(backBuf, S["reverse-kick"], T(76) - S["reverse-kick"].length / SR, 0.45);
 }
 
 // ── SUB: offbeat tanh sine on the roots, everywhere but the break ─────
 const subBuf = new Float32Array(NT);
-for (let b = 0; b < 100 * 4; b++) {
+for (let b = 0; b < 96 * 4; b++) {
   const bar = Math.floor(b / 4);
-  if (inBreak(bar) || SEC(bar) === "intro") continue;
+  if (inBreak(bar)) continue;
   const f = 440 * 2 ** ((SUBM[chord(bar)] - 69) / 12);
   const at = Math.floor((b * BEAT + BEAT / 2) * SR), n = Math.floor(0.34 * BEAT * SR);
   for (let j = 0; j < n && at + j < NT; j++) {
@@ -213,7 +215,7 @@ for (let b = 0; b < 100 * 4; b++) {
 // ── BASS: marimba root+fifth dyads, half-note pulse — bass CHORDS,
 // not lone roots (the fifth carries the harmony down low) ─────────────
 const bassBuf = new Float32Array(NT);
-for (let bar = 4; bar < 100; bar++) {
+for (let bar = 0; bar < 96; bar++) {
   if (inBreak(bar)) continue;
   const root = BASSM[chord(bar)];
   for (const half of [0, 2]) {
@@ -243,27 +245,40 @@ const COMP_PATTERNS = [
   [[1, 0.9], [3.5, 0.75], [4.5, 0.9]],      // busy turn w/ push
   [[2, 0.8]],                               // one lean chord
   [[1.5, 0.85], [3, 0.7]],
+  [[1, 0.9, "hold"]],                       // whole bar rings — sustain
+  [[1, 0.85, "hold"], [4.5, 0.8]],          // held chord, then the push
 ];
 const lay = () => 0.006 + Math.abs(rnd()) * 0.022;        // behind the beat
-for (let bar = 4; bar < 100; bar++) {
+for (let bar = 0; bar < 96; bar++) {
   if (inBreak(bar)) continue;
   const s = SEC(bar);
   const g = s.startsWith("verse") ? 1.0 : s.startsWith("pre") ? 1.2
     : s === "finale" ? 1.3 : 1.15;
   const pat = COMP_PATTERNS[Math.floor((0.5 + rnd()) * COMP_PATTERNS.length)
     % COMP_PATTERNS.length];
-  for (const [beat, w] of pat) {
+  for (const [beat, w, hold] of pat) {
     const push = beat > 4;
     const ch = chord(push ? Math.min(bar + 1, BARS - 1) : bar);
     const voicing = COMP[ch][Math.abs(Math.floor(rnd() * 4)) % COMP[ch].length];
     const t = T(bar) + (beat - 1) * BEAT + lay();
-    const dur = (push ? 1.1 : 0.55 + Math.abs(rnd()) * 0.5) * BEAT;
+    const dur = (hold ? 3.6 : push ? 1.1 : 0.55 + Math.abs(rnd()) * 0.5) * BEAT;
+    // a grace slide from a half-step below, sometimes — the player leans in
+    const grace = !hold && rnd() > 0.22;
     // strummed, top note leads, each voice its own touch
     voicing.forEach((midi, vi) => {
       const vel = w * (0.75 + Math.abs(rnd()) * 0.45) * (1 - vi * 0.08);
+      if (grace)
+        mixEventMarimba({ startSec: t - 0.07 + vi * 0.01, midi: midi - 1,
+          durSec: 0.08, gain: g * vel * 0.4 * gateAt(t),
+          preset: "vibraphone", decayMul: 0.3 }, stabBuf, { sampleRate: SR });
       mixEventMarimba({ startSec: t + vi * (0.012 + Math.abs(rnd()) * 0.014),
         midi, durSec: dur, gain: g * vel * gateAt(t),
-        preset: "vibraphone", decayMul: 0.9 }, stabBuf, { sampleRate: SR });
+        preset: "vibraphone", decayMul: hold ? 2.4 : 0.9 }, stabBuf, { sampleRate: SR });
+      // octave pop on the top note, occasionally — a little grin
+      if (vi === voicing.length - 1 && rnd() > 0.3)
+        mixEventMarimba({ startSec: t + 0.02, midi: midi + 12,
+          durSec: 0.3 * BEAT, gain: g * vel * 0.45 * gateAt(t),
+          preset: "vibraphone", decayMul: 0.4 }, stabBuf, { sampleRate: SR });
     });
     // soft echo throw opposite side, one comp late
     if (!push && rnd() > 0.1)
@@ -273,6 +288,21 @@ for (let bar = 4; bar < 100; bar++) {
           preset: "vibraphone", decayMul: 0.6 }, stabEchoBuf, { sampleRate: SR });
       });
   }
+  // a playful little run into the next phrase — every 4th bar, usually
+  if (bar % 4 === 3 && rnd() > -0.2) {
+    const scale = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76];
+    const startIdx = 3 + Math.abs(Math.floor(rnd() * 8)) % 5;
+    const dirn = rnd() > 0 ? 1 : -1;
+    const nNotes = 3 + Math.abs(Math.floor(rnd() * 4)) % 3;
+    for (let k = 0; k < nNotes; k++) {
+      const midi = scale[Math.max(0, Math.min(scale.length - 1,
+        startIdx + k * dirn))];
+      const tt = T(bar) + (3 + k * 0.33) * BEAT + lay();
+      mixEventMarimba({ startSec: tt, midi, durSec: 0.4 * BEAT,
+        gain: g * (0.5 + Math.abs(rnd()) * 0.3) * gateAt(tt),
+        preset: "vibraphone", decayMul: 0.5 }, stabBuf, { sampleRate: SR });
+    }
+  }
 }
 
 // ── HATS: eighths with a lifted gain law (chart weight), sixteenth
@@ -280,19 +310,19 @@ for (let bar = 4; bar < 100; bar++) {
 const hatBuf = new Float32Array(NT), openBuf = new Float32Array(NT);
 for (let e = 0; e < BARS * 8; e++) {
   const t = e * BEAT / 2, bar = Math.floor(t / BAR), off = e % 2 === 1;
-  if (bar >= 100) continue;
+  if (bar >= 96) continue;
   if (inBreak(bar) && !off) continue;                    // break keeps offbeats only
   const g = (off ? 3.3 : 1.8) * (SEC(bar) === "finale" ? 1.1 : 1) * gateAt(t);
   put(hatBuf, S["hat-closed"], t + eager(), g);
 }
-for (let bar = 7; bar < 100; bar += 4) {                 // sixteenth turn fills
+for (let bar = 7; bar < 96; bar += 4) {                 // sixteenth turn fills
   if (inBreak(bar)) continue;
   for (let k = 0; k < 4; k++)
     put(hatBuf, S["hat-closed"], T(bar) + (3 + k / 4) * BEAT + eager(), 0.7 + 0.2 * k);
 }
 for (let e = 0; e < BARS * 8; e++) {
   const t = e * BEAT / 2, bar = Math.floor(t / BAR), off = e % 2 === 1;
-  if (!off || bar < 4 || bar >= 100 || inBreak(bar)) continue;
+  if (!off || bar >= 96 || inBreak(bar)) continue;
   const beatIdx = Math.floor((e % 8) / 2);
   if (beatIdx === 1 || beatIdx === 3)
     put(openBuf, S["hat-open"], t + eager(), 1.8 * gateAt(t));
@@ -300,7 +330,7 @@ for (let e = 0; e < BARS * 8; e++) {
 
 // ── SHAKER: sixteenths, staged wide by alternating sides ──────────────
 const shakL = new Float32Array(NT), shakR = new Float32Array(NT);
-for (let s = 4 * 16; s < 100 * 16; s++) {
+for (let s = 0; s < 96 * 16; s++) {
   const t = s * BEAT / 4, bar = Math.floor(t / BAR);
   const wave = 0.5 + 0.5 * Math.sin(s * Math.PI / 8 + 0.7);
   let g = (0.5 + 0.4 * wave);
@@ -331,7 +361,7 @@ const washBuf = new Float32Array(NT), washBuf2 = new Float32Array(NT);
     return hit;
   };
   const hitL = mkHit(), hitR = mkHit();
-  for (let s = 4 * 16; s < 100 * 16; s++) {
+  for (let s = 0; s < 96 * 16; s++) {
     const t = s * BEAT / 4, bar = Math.floor(t / BAR);
     const on16 = s % 4;                                  // 0=beat 2=offbeat
     const g = (on16 === 2 ? 1.0 : on16 === 0 ? 0.6 : 0.4)
@@ -340,6 +370,63 @@ const washBuf = new Float32Array(NT), washBuf2 = new Float32Array(NT);
     put(washBuf2, hitR, t + eager(), g * 0.85 * gateAt(t));
   }
 }
+
+// ── TEXTURES: the bicycle childhood — spokes tick through the verses,
+// cards riffle at the doors, a fan whirs the break and the outro,
+// cloth moves close in the verses, synthesized air swells the doors ──
+const texSpokes = new Float32Array(NT), texCards = new Float32Array(NT);
+const texFan = new Float32Array(NT), texMat = new Float32Array(NT);
+const texAir = new Float32Array(NT);
+{
+  const sp = existsSync(`${REAL}/spokes.wav`) ? readF32(`${REAL}/spokes.wav`) : null;
+  if (sp) for (let st = 0; st < 96 * 16; st++) {
+    const t = st * BEAT / 4, bar = Math.floor(t / BAR);
+    const sec = SEC(bar);
+    if (!sec.startsWith("verse") && sec !== "break") continue;
+    if (st % 4 === 1 || st % 4 === 3)
+      put(texSpokes, sp, t + eager(), 0.5 + 0.3 * Math.abs(rnd()));
+  }
+  const cards = existsSync(`${REAL}/cards.wav`) ? readF32(`${REAL}/cards.wav`) : null;
+  if (cards) for (const door of [8, 24, 40, 56, 72, 76, 96])
+    put(texCards, cards, T(door) - (cards.length / SR) * 0.9, 0.9);
+  const fan = existsSync(`${REAL}/fan.wav`) ? readF32(`${REAL}/fan.wav`) : null;
+  if (fan) for (const [b0, b1, g] of [[72, 96, 0.45], [96, 100, 0.32]]) {
+    const span = (b1 - b0) * BAR, step = fan.length / SR - 1.0;
+    for (let off = 0; off < span; off += step) {
+      const at = Math.floor((T(b0) + off) * SR);
+      const fadeN = Math.floor(1.0 * SR);
+      for (let j = 0; j < fan.length && at + j < NT; j++) {
+        const fade = Math.min(j / fadeN, 1, Math.max(0, (fan.length - j) / fadeN));
+        texFan[at + j] += fan[j] * fade * g;
+      }
+    }
+  }
+  const mat = existsSync(`${REAL}/material.wav`) ? readF32(`${REAL}/material.wav`) : null;
+  if (mat) for (let bar = 8; bar < 96; bar += 8) {
+    if (!SEC(bar).startsWith("verse")) continue;
+    put(texMat, mat, T(bar) + BEAT * (1 + Math.abs(rnd()) * 2), 0.38);
+  }
+  { // AIR — soft band-passed noise swells, synthesized
+    const swellN = Math.floor(1.6 * SR);
+    const swell = new Float32Array(swellN);
+    let lp = 0; const aa = 1 - Math.exp(-2 * Math.PI * 1800 / SR);
+    for (let j = 0; j < swellN; j++) {
+      lp += aa * (rnd() * 2 - lp);
+      const x = j / swellN;
+      swell[j] = lp * Math.sin(Math.PI * x) ** 2;
+    }
+    for (const door of [24, 56, 76]) put(texAir, swell, T(door) - 1.5, 1.1);
+    for (let bar = 0; bar < 96; bar++) {
+      if (!SEC(bar).startsWith("chorus")) continue;
+      put(texAir, swell, T(bar) + Math.abs(rnd()) * 2, 0.16);
+    }
+  }
+}
+// wobbles, wannadash-style: the fan breathes through a slow filter,
+// the spokes shimmer in amplitude
+applyWobble(texFan, { sampleRate: SR, target: "filter", rate: 0.13,
+  depth: 0.7, baseCutoffHz: 2600 });
+applyWobble(texSpokes, { sampleRate: SR, target: "amp", rate: 4.07, depth: 0.25 });
 
 // ── XYLO CHANT: the hook cell echoed through every chorus; the finale
 // adds the LIFT answer (new material late — One Step lesson 4) ────────
@@ -352,13 +439,13 @@ const LIFT = [ // bar-5 flavor: the flare, up and out
   [0, 1, "C5"], [0, 1.75, "G5"], [0, 2, "C6"], [0, 3.5, "C6"], [0, 4, "G5"],
   [1, 1, "C6"], [1, 2, "G5"], [1, 3, "C5"], [1, 4, "G5"],
 ];
-for (const base of [36, 68]) // back half of each full chorus
+for (const base of [32, 64]) // back half of each full chorus
   for (let rep = 0; rep < 4; rep += 2)
     for (const [bo, beat, note] of FIG) {
       const t = T(base + rep + bo) + (beat - 1) * BEAT;
       put(xyloBuf, XY[note], t + eager(), 0.45 * (1 + rnd() * 0.15) * gateAt(t));
     }
-for (let base = 84; base < 100; base += 4) {  // the finale answer, new
+for (let base = 80; base < 96; base += 4) {  // the finale answer, new
   for (const [bo, beat, note] of FIG) {
     const t = T(base + bo) + (beat - 1) * BEAT;
     put(xyloBuf, XY[note], t + eager(), 0.5 * (1 + rnd() * 0.12));
@@ -371,7 +458,7 @@ for (let base = 84; base < 100; base += 4) {  // the finale answer, new
 
 // ── CHOIR SINES: verse tissue + break swell (the G pedal breathes) ────
 const sineBuf = new Float32Array(NT);
-for (let bar = 4; bar < 100; bar++) {
+for (let bar = 0; bar < 96; bar++) {
   const s = SEC(bar);
   const nv = s.startsWith("verse") ? 3 : s.startsWith("pre") ? 4
     : s === "break" ? 5 : s === "finale" ? 4 : s.startsWith("chorus") ? 4 : 0;
@@ -381,7 +468,7 @@ for (let bar = 4; bar < 100; bar++) {
   const a = Math.floor(T(bar) * SR), n = Math.floor((BAR + 0.6) * SR);
   for (let vi = 0; vi < voices.length; vi++) {
     const f = 440 * 2 ** ((voices[vi] - 69) / 12);
-    const g = 0.018 * (1 - vi * 0.12) * swell;
+    const g = 0.034 * (1 - vi * 0.12) * swell;
     const lfo = 0.11 + 0.02 * vi;
     for (let j = 0; j < n && a + j < NT; j++) {
       const t = j / SR;
@@ -400,10 +487,9 @@ const rush = (door, gain, n = 9, span = 1.25) => {
     put(clickBuf, S["click-door"], T(door) - span * (1 - frac) - 0.02, gain * (0.5 + 0.5 * frac));
   }
 };
-rush(4, 0.08, 7); rush(12, 0.07, 7); rush(28, 0.10); rush(44, 0.07, 7);
-rush(60, 0.10); rush(76, 0.08); rush(80, 0.11, 12, 1.6); rush(100, 0.06, 6, 1.5);
-put(clickBuf, S["click-door"], 0, 0.09);
-for (const [door, g] of [[4, 0.4], [28, 0.45], [60, 0.45], [80, 0.5]])
+rush(8, 0.07, 7); rush(24, 0.10); rush(40, 0.07, 7);
+rush(56, 0.10); rush(72, 0.08); rush(76, 0.11, 12, 1.6); rush(96, 0.06, 6, 1.5);
+for (const [door, g] of [[24, 0.45], [56, 0.45], [76, 0.5]])
   put(bellBuf, S["reverse-bell"], T(door) - S["reverse-bell"].length / SR, g);
 
 // ── THE VOICE: lead bus + group unison + stretched butterfly choir ───
@@ -443,33 +529,54 @@ if (haveVox) {
     for (const door of CHORUS_DOORS) put(haloStem, halo, T(door), 1);
   }
 
-  // BUTTERFLY CHOIR: takes stretched long (rubberband, formants kept)
-  // at unison / +4 / +7 — the group blooms through the break and under
-  // the finale
+  // BUTTERFLY CHOIR: takes stretched LONG (rubberband, formants kept)
+  // at unison / +4 / +7 — ×2, ×3 and ×4 stretches so the syllables
+  // dissolve into sustained tone. Runs from the second chorus onward:
+  // tissue first, bloom at the break, bed under the finale
   const choirSrc = [VOXF, ...sets.map((f) => `${OUT}/${f}`)].slice(0, 3);
   const variants = [];
   choirSrc.forEach((src, i) => {
-    for (const [stretch, pitch] of i === 0
-      ? [[2.0, 0], [2.0, 4], [2.0, 7]] : [[2.0, 0]]) {
+    const recipe = i === 0
+      ? [[2.0, 0], [2.0, 4], [2.0, 7], [3.0, 0], [3.0, 7], [4.0, 0]]
+      : [[2.0, 0], [3.0, 0]];
+    for (const [stretch, pitch] of recipe) {
       const out = `${WORK}/hb-choir-${i}-${stretch}-${pitch}.wav`;
       if (!existsSync(out))
         sh("rubberband", ["-t", String(stretch), "-p", String(pitch), "-F",
           "-q", src, out]);
-      if (existsSync(out)) variants.push(out);
+      if (existsSync(out)) variants.push({ out, stretch });
     }
   });
+  const CHOIR_AT = [[56, 0.3], [64, 0.4], [72, 0.9], [76, 0.7], [84, 0.55]];
   for (const [vi, v] of variants.entries()) {
-    const y = readF32(v);
-    for (const at of [76, 80, 88]) {          // break bloom + finale bed
+    const y = readF32(v.out);
+    for (const [at, w] of CHOIR_AT) {
+      if (v.stretch >= 3 && at < 72) continue;  // deepest drones save for the bloom
       const t0 = Math.floor(T(at) * SR);
-      const fadeN = Math.floor(1.5 * SR);
+      const fadeN = Math.floor(2.5 * SR);
       for (let j = 0; j < y.length && t0 + j < NT; j++) {
         const fade = Math.min(j / fadeN, 1);
-        choirStem[t0 + j] += y[j] * fade * (0.5 - vi * 0.05);
+        choirStem[t0 + j] += y[j] * fade * w * (0.4 - vi * 0.03);
       }
     }
   }
-  console.log(`vox: lead + ${sets.length} group takes + ${variants.length} choir strands`);
+
+  // HOLYVOX: the angelic cut — note-locked half-time with its church
+  // halo already printed. Sustained tissue through verse 2, the break
+  // bloom, and the whole finale
+  const HOLY = `${OUT}/imab-holyvox.wav`;
+  if (existsSync(HOLY)) {
+    const holy = readF32(HOLY);
+    for (const [at, w] of [[40, 0.5], [72, 1.0], [76, 0.7], [88, 0.7]]) {
+      const t0 = Math.floor(T(at) * SR);
+      const fadeN = Math.floor(2 * SR);
+      for (let j = 0; j < holy.length && t0 + j < NT; j++)
+        choirStem[t0 + j] += holy[j] * Math.min(j / fadeN, 1) * w * 0.5;
+    }
+  }
+  // the angels sway — slow amplitude wobble across the whole choir
+  applyWobble(choirStem, { sampleRate: SR, target: "amp", rate: 0.09, depth: 0.22 });
+  console.log(`vox: lead + ${sets.length} group takes + ${variants.length} choir strands + holyvox`);
 } else console.log("· no vocal found — baking the instrumental bed");
 
 // the follower: everything decorative leans away while the voice sings
@@ -491,25 +598,50 @@ const fo = new Float32Array(NT);
 // ── THE STAGE: kick/sub/bass/vox mono; everything decorative WIDE.
 // Chart stereo correlation runs 0.68–0.87 — stage for it ──────────────
 const L = new Float32Array(NT), R = new Float32Array(NT);
-const addPlaced = (src, deg = 0, depth = 0, gain = 1, perSample = null) => {
+const sideB = new Float32Array(NT);
+// Special Sign space (wannadash render.mjs): the direct voice stays dry
+// on a stable equal-power pan — mono-safe — while a cheap interaural
+// model (ITD + head shadow) feeds a band-limited side bus returned
+// antisymmetrically in the premaster. Space as a return, not a
+// replacement.
+const depthFilter = (m, depth) => {
+  const a = 1 - Math.exp(-2 * Math.PI * (9000 - 6500 * depth) / SR);
+  const y = new Float32Array(m.length); let acc = 0;
+  for (let i = 0; i < m.length; i++) { acc += a * (m[i] - acc); y[i] = acc; }
+  return y;
+};
+const addPlaced = (src, deg = 0, depth = 0, gain = 1, perSample = null, sideAmt = 0) => {
   let m = src;
-  if (depth > 0) {
-    const a = 1 - Math.exp(-2 * Math.PI * (9000 - 6500 * depth) / SR);
-    const y = new Float32Array(m.length); let acc = 0;
-    for (let i = 0; i < m.length; i++) { acc += a * (m[i] - acc); y[i] = acc; }
-    m = y; gain *= 1 - 0.25 * depth;
-  }
-  // ILD-only panning: delayed copies anti-correlate broadband highs,
-  // which is exactly the phasey width the chart never has. Width comes
-  // from placing different sources on different sides.
-  const itd = 0;
-  const ild = 10 ** (-Math.abs(deg) / 40 * 12 / 20);
+  if (depth > 0) { m = depthFilter(m, depth); gain *= 1 - 0.25 * depth; }
+  const pan = Math.max(-1, Math.min(1, deg / 40));
+  const a = (Math.PI / 4) * (1 + pan);
+  const gl = Math.cos(a), gr = Math.sin(a);
+  const az = pan * 1.2;
+  const itd = Math.round(0.00027 * SR * Math.sin(az));
+  const shadow = 0.35 * Math.sin(az);
   for (let i = 0; i < m.length && i < NT; i++) {
     const e = gain * (perSample ? perSample(i) : 1);
-    const near = m[i] * e, far = (i >= itd ? m[i - itd] : 0) * e * ild;
-    if (deg > 0) { R[i] += near; L[i] += far; }
-    else if (deg < 0) { L[i] += near; R[i] += far; }
-    else { L[i] += near; R[i] += near; }
+    const v = m[i] * e;
+    L[i] += v * gl; R[i] += v * gr;
+    if (sideAmt) {
+      const li = i + itd, ri = i - itd;
+      const l = li >= 0 && li < NT ? v * (1 - shadow) : 0;
+      const r = ri >= 0 && ri < NT ? v * (1 + shadow) : 0;
+      sideB[i] += 0.5 * (l - r) * sideAmt;
+    }
+  }
+};
+// a texture that circles the head: equal-power pan swept by a slow LFO
+const addOrbit = (src, rateHz, depthDeg, gain = 1, perSample = null, sideAmt = 0.5) => {
+  const phase = Math.abs(rnd()) * Math.PI * 2;
+  for (let i = 0; i < src.length && i < NT; i++) {
+    const e = gain * (perSample ? perSample(i) : 1);
+    const v = src[i] * e;
+    if (!v) continue;
+    const pan = (depthDeg / 40) * Math.sin(2 * Math.PI * rateHz * (i / SR) + phase);
+    const a = (Math.PI / 4) * (1 + pan);
+    L[i] += v * Math.cos(a); R[i] += v * Math.sin(a);
+    if (sideAmt) sideB[i] += 0.5 * v * -Math.sin(pan * 1.2) * 0.35 * sideAmt;
   }
 };
 const pump = (i) => duck[i];
@@ -518,21 +650,28 @@ const pumpVox = (i) => duck[i] * (1 - 0.35 * fo[i]);      // lean away from him
 const voxDuck = (i) => 1 - 0.3 * fo[i];
 
 addPlaced(kickBuf, 0, 0, 1);
-addPlaced(subBuf, 0, 0, 1, pumpHalf);
+addPlaced(subBuf, 0, 0, 1, pump);   // the sub rides the pump — classic sidechain swell
 addPlaced(bassBuf, 0, 0.15, 1, pump);
-addPlaced(backBuf, -4, 0.08, 1);
-addPlaced(stabBuf, -20, 0.18, 1, pumpVox);
-addPlaced(stabEchoBuf, 24, 0.3, 1, pumpVox);
-addPlaced(hatBuf, 18, 0.1, 1);
-addPlaced(openBuf, -16, 0.1, 1);
-addPlaced(shakL, -30, 0.15, 1);
-addPlaced(shakR, 30, 0.15, 1);
-addPlaced(washBuf, 26, 0, 1, voxDuck);
-addPlaced(washBuf2, -26, 0, 1, voxDuck);
-addPlaced(sineBuf, 0, 0.35, 1, pumpVox);
-addPlaced(xyloBuf, -16, 0.2, 1, pumpVox);
+addPlaced(backBuf, -4, 0.08, 1, null, 0.3);
+addPlaced(stabBuf, -20, 0.18, 1, pumpVox, 0.5);
+addPlaced(stabEchoBuf, 24, 0.3, 1, pumpVox, 0.6);
+addPlaced(hatBuf, 18, 0.1, 1, null, 0.35);
+addPlaced(openBuf, -16, 0.1, 1, null, 0.4);
+addPlaced(shakL, -30, 0.15, 1, null, 0.5);
+addPlaced(shakR, 30, 0.15, 1, null, 0.5);
+addPlaced(washBuf, 26, 0, 1, (i) => pump(i) * voxDuck(i), 0.4);
+addPlaced(washBuf2, -26, 0, 1, (i) => pump(i) * voxDuck(i), 0.4);
+addPlaced(sineBuf, 0, 0.35, 1, pumpVox, 0.3);
+addPlaced(xyloBuf, -16, 0.2, 1, pumpVox, 0.5);
 addPlaced(clickBuf, 10, 0, 1);
-addPlaced(bellBuf, 12, 0.3, 1);
+addPlaced(bellBuf, 12, 0.3, 1, null, 0.4);
+// the bicycle childhood, spatialized: spokes and fan circle the head,
+// cards riffle from alternating wings, cloth close, air everywhere
+addOrbit(texSpokes, 0.06, 34, 0.8, (i) => voxDuck(i), 0.6);
+addOrbit(texFan, 0.04, 28, 1, (i) => pump(i) * voxDuck(i), 0.5);
+addPlaced(texCards, 30, 0.15, 0.9, null, 0.6);
+addPlaced(texMat, -8, 0.4, 0.7, (i) => voxDuck(i), 0.2);
+addOrbit(texAir, 0.05, 36, 0.8, null, 0.5);
 
 if (haveVox) {
   const rms = (a) => { let s = 0, n = 0; for (let i = 0; i < a.length; i++) if (Math.abs(a[i]) > 1e-4) { s += a[i] * a[i]; n++; } return Math.sqrt(s / Math.max(1, n)); };
@@ -543,9 +682,23 @@ if (haveVox) {
   addPlaced(voxStem, 0, 0, vg);
   addPlaced(haloStem, 24, 0.25, vg * 0.3);
   addPlaced(haloStem, -24, 0.25, vg * 0.24);
-  const cg = Math.min(8, (ri * 1.1) / Math.max(1e-9, rms(choirStem) || 1));
-  addPlaced(choirStem, 0, 0.3, cg, voxDuck);
+  const cg = Math.min(8, (ri * 1.3) / Math.max(1e-9, rms(choirStem) || 1));
+  addPlaced(choirStem, 0, 0.3, cg, pumpVox);   // the angels pump too
   console.log(`voice: lead ×${vg.toFixed(2)} · choir ×${cg.toFixed(2)} at doors ${CHORUS_DOORS.join("/")}`);
+}
+
+// ── the side RETURN: band-limit (250–8k), breathe with the pump,
+// fold antisymmetrically into the mains ───────────────────────────────
+{
+  let lpLo = 0, lpHi = 0;
+  const aLo = 1 - Math.exp(-2 * Math.PI * 250 / SR);
+  const aHi = 1 - Math.exp(-2 * Math.PI * 8000 / SR);
+  for (let i = 0; i < NT; i++) {
+    lpLo += aLo * (sideB[i] - lpLo);
+    lpHi += aHi * (sideB[i] - lpHi);
+    const band = (lpHi - lpLo) * 0.6 * (0.5 + 0.5 * duck[i]);
+    L[i] += band; R[i] -= band;
+  }
 }
 
 // ── premaster: body-peak normalize (floor law), fade the tail ─────────
@@ -595,7 +748,8 @@ let gain = TARGET - measure(`${WORK}/hitbaker-wax.wav`).I;
 let final = null;
 for (let round = 0; round < 5; round++) {
   sh("ffmpeg", ["-y", "-v", "error", "-i", `${WORK}/hitbaker-wax.wav`,
-    "-af", `volume=${gain.toFixed(2)}dB,alimiter=limit=0.63:attack=5:release=90:level=disabled`,
+    "-af", `volume=${gain.toFixed(2)}dB,aresample=192000,` +
+      "alimiter=limit=0.74:attack=5:release=90:level=disabled,aresample=48000",
     "-ar", String(SR), "-c:a", "pcm_s24le", `${WORK}/hitbaker-master.wav`]);
   final = measure(`${WORK}/hitbaker-master.wav`);
   console.log(`master round ${round}: static ${gain.toFixed(2)} dB → I ${final.I} LUFS · LRA ${final.LRA} · TP ${final.P} dBFS`);
