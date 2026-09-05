@@ -99,6 +99,8 @@ def downbeat_offset(chroma_beats):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("report")
+    ap.add_argument("--figwidth", type=float, default=10.0,
+                    help="map figure width in inches (height scales)")
     args = ap.parse_args()
     out = Path(args.report).parent
     rpt = json.loads(Path(args.report).read_text())
@@ -172,7 +174,7 @@ def main():
     gk_pc = NOTES.index(gk_name)
 
     fig_map(out, title, y, sr, bars, sections, phrases, phrase_keys,
-            frame_t, band_db, rms_db)
+            frame_t, band_db, rms_db, args.figwidth)
     write_map_md(out, rpt, bars, phrase_keys, gk_pc, gk_mode)
     json_bars = out / "map.json"
     json_bars.write_text(json.dumps(
@@ -195,9 +197,9 @@ def merge_chord_spans(bars):
 
 
 def fig_map(out, title, y, sr, bars, sections, phrases, phrase_keys,
-            frame_t, band_db, rms_db):
+            frame_t, band_db, rms_db, figwidth=10.0):
     fig, axes = plt.subplots(
-        3, 1, figsize=(10, 6.4), sharex=True,
+        3, 1, figsize=(figwidth, figwidth * 0.64), sharex=True,
         gridspec_kw={"height_ratios": [1.6, 0.7, 1.3]})
     ax_l, ax_c, ax_b = axes
 
