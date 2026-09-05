@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 99;
+const buildVersion = 100;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2666,20 +2666,26 @@ function updateVersusSeat(now) {
 
 // The waiting room owes its lone fighter a real death. In a fight the
 // round system rebuilds a destroyed body, but the lobby has no rounds — a
-// fighter blasted down to a bouncing head would hop the empty room forever
-// as scraps. Losing the torso now reads as dying: the head gets a short
-// beat to land, then a KO drops it, and the lobby respawn hands back a
-// whole body.
-let lobbyDoomAt = 0;
+// fighter blasted apart would hop the empty room forever as a ghost among
+// its own scraps. Losing the torso IS dying here, immediately: the card
+// says so, the beat holds long enough to read, and the respawn sweeps the
+// floor and hands back a whole body.
 function updateLobbyMortality(now) {
-  if (!lobbyActive()) { lobbyDoomAt = 0; return; }
+  if (!lobbyActive()) return;
   const player = players[0];
-  if (!player.alive || hasPart(player, "torso")) { lobbyDoomAt = 0; return; }
-  if (!lobbyDoomAt) { lobbyDoomAt = now + 2200000; return; }
-  if (now < lobbyDoomAt) return;
-  lobbyDoomAt = 0;
+  if (!player.alive) {
+    // Deaths from any cause (a self-blast, a shot) arrive here already
+    // down; give them the same readable beat the destruction gets.
+    if (!player.lobbyDeathDressed) {
+      player.lobbyDeathDressed = true;
+      player.respawnAt = Math.max(player.respawnAt || 0, now + 2500000);
+    }
+    return;
+  }
+  if (hasPart(player, "torso")) return;
   player.alive = false;
-  player.respawnAt = now + 1600000;
+  player.lobbyDeathDressed = true;
+  player.respawnAt = now + 2500000;
   player.vx = 0;
   player.vy = 0;
   player.stance = "HIT";
@@ -6066,11 +6072,15 @@ function updatePlayer(player, pad, dt, now) {
       player.hitSegment = -1;
       player.hitSegmentUntil = 0;
       player.hitStunUntil = 0;
-      // The waiting room hands back a whole body: parts are round
-      // furniture and the lobby has no round to rebuild them.
+      // The waiting room hands back a whole body and a swept floor: parts,
+      // corpses and scattered limbs are round furniture, and the lobby has
+      // no round to rebuild the one or clear the others.
       if (lobbyActive()) {
         player.removedParts = [];
         player.partDamage = {};
+        player.fallenBodyGeometry = null;
+        player.lobbyDeathDressed = false;
+        detachedParts.length = 0;
       }
       player.alive = true;
     }
@@ -11987,6 +11997,20 @@ function drawVersusHud(t, ink, run) {
   typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
     addressSize, ...ink);
   const player = players[0];
+  // The death card owns the middle of the screen for the whole down beat —
+  // the loop is die, read it, stand back up whole.
+  if (!player.alive) {
+    const deadLabel = "YOU DIED";
+    const deadSize = compact ? 44 : 66;
+    const deadWidth = handleWidth(deadLabel, deadSize);
+    const deadX = viewCenterX() - deadWidth / 2;
+    const deadY = Math.round(viewHeight * .44 + Math.sin(t * 3.2) * 3);
+    typeWrite(deadLabel, deadX + 4, deadY + 4, deadSize,
+      ...contrastShadow(ink));
+    typeWrite(deadLabel, deadX, deadY, deadSize,
+      ...mixColor(ink, [235, 38, 58], .8));
+    return;
+  }
   if (!player.lastButtonAt || versusLabelNoise.has(player.lastButton)) return;
   const age = (run.monotonicUs - player.lastButtonAt) / 1000000;
   if (age < 0 || age > .9) return;
