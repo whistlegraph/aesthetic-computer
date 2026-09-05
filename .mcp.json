@@ -7,13 +7,6 @@
         "toolchain/mcp/acin-mcp.mjs"
       ]
     },
-    "fleet": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/fleet-mcp.mjs"
-      ]
-    },
     "illy": {
       "type": "stdio",
       "command": "node",
@@ -26,27 +19,6 @@
       "command": "bash",
       "args": [
         "toolchain/mcp/slack-mcp.sh"
-      ]
-    },
-    "chat": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/chat-mcp.mjs"
-      ]
-    },
-    "prox": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/prox-mcp.mjs"
-      ]
-    },
-    "paper": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "slab/bin/paper-mcp.mjs"
       ]
     },
     "instagram": {

@@ -271,7 +271,9 @@ while read -r name port script; do
   write_plist "$name" "computer.aesthetic.$name-mcp" "$REPO/$script" "$port"
   echo "✓ $name-mcp → 127.0.0.1:$port"
   if [ "$HAVE_CLAUDE" = 1 ]; then
-    # Local scope shadows the stdio entry of the same name in .mcp.json.
+    # These daemon servers live only at local scope pointing at the running
+    # http front; they were removed from .mcp.json so newer Claude Code does not
+    # flag a project-vs-local endpoint conflict. Remove-then-add is idempotent.
     claude mcp remove "$name" --scope local >/dev/null 2>&1 || true
     claude mcp add --transport http --scope local "$name" "http://127.0.0.1:$port/mcp" >/dev/null
     echo "  ↳ claude → http://127.0.0.1:$port/mcp (local scope)"
