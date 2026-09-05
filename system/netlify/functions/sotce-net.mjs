@@ -104,6 +104,13 @@ import crypto from "node:crypto";
 const shellCache = new Map(); // title|assetPath -> { body, etag }
 const SHELL_CACHE_MAX = 40;
 
+// Last-Modified backstop for the 304 path: the CDN strips ETag headers from
+// HTML outright (even weak ones), but passes Last-Modified through. The shell
+// only changes when new code deploys, and a deploy restarts this process, so
+// process start doubles as the shell's modification time.
+const SHELL_MODIFIED = new Date(Math.floor(Date.now() / 1000) * 1000);
+const SHELL_MODIFIED_HTTP = SHELL_MODIFIED.toUTCString();
+
 const dateOptions = {
   weekday: "long",
   year: "numeric",
@@ -10261,8 +10268,9 @@ export const handler = async (event, context) => {
     const shellHeaders = {
       "Content-Type": "text/html; charset=utf-8",
       ETag: etag,
-      // Revalidate every visit, but a matching ETag turns the 400KB shell
-      // into a 304 for return visitors.
+      "Last-Modified": SHELL_MODIFIED_HTTP,
+      // Revalidate every visit, but a matching validator turns the 400KB
+      // shell into a 304 for return visitors.
       "Cache-Control": "public, max-age=0, must-revalidate",
     };
 
@@ -10270,6 +10278,13 @@ export const handler = async (event, context) => {
     // breaks the match.
     const inm = event.headers["if-none-match"];
     if (inm && inm.includes(etag.slice(etag.indexOf('"') + 1, -1))) {
+      return respond(304, "", shellHeaders);
+    }
+
+    // The CDN never forwards our ETag to browsers, so return visitors
+    // revalidate with If-Modified-Since instead.
+    const ims = Date.parse(event.headers["if-modified-since"] || "");
+    if (!inm && ims && ims >= SHELL_MODIFIED.getTime()) {
       return respond(304, "", shellHeaders);
     }
 
