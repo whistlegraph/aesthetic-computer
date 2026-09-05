@@ -389,6 +389,44 @@ private final class OscSender {
 private final class NetworkBridge {
     private var liveTask: URLSessionWebSocketTask?
     private var liveMatch = ""
+    // Inbound relay words (a challenger's pad, viewer counts, a publisher
+    // conflict) parked until the frame thread drains them — JSContext is
+    // single-threaded and URLSession answers wherever it pleases.
+    private let inboxLock = NSLock()
+    private var inbox: [(match: String, text: String)] = []
+
+    func drainInbox() -> [(match: String, text: String)] {
+        inboxLock.lock()
+        defer { inboxLock.unlock() }
+        let pending = inbox
+        inbox = []
+        return pending
+    }
+
+    private func listen(_ task: URLSessionWebSocketTask, match: String) {
+        task.receive { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let message):
+                if case .string(let text) = message {
+                    self.inboxLock.lock()
+                    self.inbox.append((match, text))
+                    if self.inbox.count > 64 { self.inbox.removeFirst() }
+                    self.inboxLock.unlock()
+                }
+                self.listen(task, match: match)
+            case .failure:
+                // A dead socket must not wedge the room: forgetting the match
+                // lets the next 33ms publish dial a fresh connection.
+                DispatchQueue.main.async {
+                    if task === self.liveTask {
+                        self.liveTask = nil
+                        self.liveMatch = ""
+                    }
+                }
+            }
+        }
+    }
 
     func saveReplay(_ payload: String) {
         guard let data = payload.data(using: .utf8), data.count <= 524_288,
@@ -414,6 +452,7 @@ private final class NetworkBridge {
             guard let url = components?.url else { return }
             liveTask = URLSession.shared.webSocketTask(with: url)
             liveTask?.resume()
+            if let liveTask { listen(liveTask, match: match) }
         }
         guard let liveTask else { return }
         let envelope = "{\"type\":\"oskiewar:state\",\"content\":\(payload)}"
@@ -558,6 +597,33 @@ private final class NativeGameHost {
             qr = regex.stringByReplacingMatches(in: qr,
                 range: NSRange(qr.startIndex..., in: qr), withTemplate: "\n")
         }
+        // This shell can now carry a rival's presses inbound off the relay,
+        // so it raises the same flag the web shell does: the empty front
+        // door opens as the versus waiting room rather than the climb. The
+        // handler mirrors the web socket listener, minus reload (the bundle
+        // cannot reload itself) and the canvas resolution dial.
+        javascript.evaluateScript("""
+        globalThis.__oskiewarVersusCapable = true;
+        globalThis.__oskiewarShellSocketMessage = function (raw, match) {
+          var message;
+          try { message = JSON.parse(raw); } catch (error) { return; }
+          var content = message && message.content;
+          if (message.type === "oskiewar:viewers")
+            globalThis.__oskiewarLiveAgents =
+              Math.max(0, Number(content && content.agents) || 0);
+          if (message.type === "oskiewar:input" && content &&
+              typeof content === "object")
+            globalThis.__oskiewarRemotePad =
+              Object.assign({}, content, { at: Date.now() });
+          if (message.type === "oskiewar:error" &&
+              /already has a publisher/i.test((content && content.message) || ""))
+            globalThis.__oskiewarPublishConflict = match;
+          if (message.type === "oskiewar:flags" && content &&
+              typeof content === "object")
+            globalThis.__oskiewarRenderFlags =
+              Object.assign({}, globalThis.__oskiewarRenderFlags, content);
+        };
+        """)
         javascript.evaluateScript(qr + "\n" + hello,
             withSourceURL: URL(fileURLWithPath: "oskiewar/oskiewar.js"))
         call("boot")
@@ -615,6 +681,15 @@ private final class NativeGameHost {
     }
 
     private func frame() {
+        // Relay words land here, on the same thread as every other JS call,
+        // before the sim steps that will read what they set.
+        for message in network.drainInbox() {
+            guard javascriptError.isEmpty,
+                  let handler = javascript.objectForKeyedSubscript(
+                    "__oskiewarShellSocketMessage"),
+                  !handler.isUndefined else { break }
+            handler.call(withArguments: [message.text, message.match])
+        }
         let now = CACurrentMediaTime()
         let delta = min(0.1, max(0, now - lastFrame))
         lastFrame = now

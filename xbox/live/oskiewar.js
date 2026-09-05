@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 98;
+const buildVersion = 99;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1316,6 +1316,9 @@ function spectatorCode(url) {
 let roundViewer = null;
 let roundViewerStop = null;
 let roundViewerMode = "";
+// The chair-holder's own View presses, remembered across viewer ticks — the
+// debug toggle needs an edge, and the host's echo never carries system keys.
+let viewerSystemPrevious = [];
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
@@ -6860,6 +6863,20 @@ function gameSim() {
     advanceResimCommands();
   }
   if (roundViewer) {
+    // The chair-holder's hands are local even when the fight is not. The
+    // control legend, the M30 manual page and the touch discs all light off
+    // inputPads[0], and the debug toggle wants a View edge — none of that
+    // may wait on the host's echo, so the local pad is sampled here exactly
+    // as it would be in a hosted fight.
+    padSnapshots[0] = gamepad(0);
+    inputPads[0] = padSnapshots[0];
+    const down = padSnapshots[0]?.down || [];
+    if (down.includes("View") && !viewerSystemPrevious.includes("View")) {
+      debugHitboxes = !debugHitboxes;
+      debugPerfReported = false;
+      telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
+    }
+    viewerSystemPrevious = down.slice();
     updateRoundViewer(now, dt);
     // A visitor who holds the second chair plays through this screen: their
     // pad goes up the wire every tick it changes, and a room found hostless
