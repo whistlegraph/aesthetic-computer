@@ -203,21 +203,30 @@ def fig_map(out, title, y, sr, bars, sections, phrases, phrase_keys,
         gridspec_kw={"height_ratios": [1.6, 0.7, 1.3]})
     ax_l, ax_c, ax_b = axes
 
-    # loudness + sections + phrase ticks
-    ax_l.plot(frame_t, np.clip(rms_db, -40, 0), color="#2a78d6", lw=0.9)
-    ax_l.set_ylim(-40, 2)
-    ax_l.set_ylabel("level (dB)")
+    # loudness colored per section, with a matching background wash
+    clipped = np.clip(rms_db, -40, 0)
     for sec in sections:
-        ax_l.axvline(sec["start_s"], color=INK2, lw=0.8, alpha=0.7)
+        c = sec_color(sec["label"])
+        m = (frame_t >= sec["start_s"]) & (frame_t <= sec["end_s"])
+        ax_l.plot(frame_t[m], clipped[m], color=c, lw=0.9)
+        for ax in (ax_l, ax_c, ax_b):
+            ax.axvspan(sec["start_s"], sec["end_s"], color=c, alpha=0.06,
+                       zorder=0)
         if sec["end_s"] - sec["start_s"] > 5:
             ax_l.text((sec["start_s"] + sec["end_s"]) / 2, -3.5,
                       sec["label"], ha="center", fontsize=10,
-                      fontweight="bold", color=sec_color(sec["label"]))
+                      fontweight="bold", color=c, zorder=5,
+                      bbox=dict(boxstyle="round,pad=0.2", fc=SURFACE,
+                                ec="none", alpha=0.8))
+    ax_l.set_ylim(-40, 2)
+    ax_l.set_ylabel("level (dB)")
     for p in phrases:
         ax_l.axvline(p["start_s"], color=INK2, lw=0.5, alpha=0.35, ls=":")
     for pk in phrase_keys:
+        tonic = pk["key"].split()[0]
         ax_l.text((pk["start_s"] + pk["end_s"]) / 2, -37.5, pk["key"],
-                  ha="center", fontsize=6.5, color=INK2)
+                  ha="center", fontsize=6.5, fontweight="bold",
+                  color=PC_COLORS[NOTES.index(tonic)])
     ax_l.set_title(f"{title} — song map (phrase keys along the floor)")
 
     # chord lane
@@ -227,7 +236,7 @@ def fig_map(out, title, y, sr, bars, sections, phrases, phrase_keys,
             continue
         ax_c.barh(0, w, left=span["start_s"], height=0.9,
                   color=PC_COLORS[span["root_pc"]],
-                  alpha=0.45, edgecolor=SURFACE, linewidth=0.8)
+                  alpha=0.62, edgecolor=SURFACE, linewidth=0.8)
         if w > 3:
             ax_c.text(span["start_s"] + w / 2, 0, span["chord"],
                       ha="center", va="center", fontsize=7, color=INK)
