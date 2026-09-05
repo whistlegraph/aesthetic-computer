@@ -10,13 +10,26 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createRequire } from "node:module";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
+import { loadTokens } from "./ac-token.mjs";
 
 const pexec = promisify(execFile);
+// Resolve puppeteer against the repo root (this file lives at toolchain/mcp/),
+// not the process cwd, so the daemon finds it wherever it was launched from.
+const requireRepo = createRequire(
+  join(fileURLToPath(import.meta.url), "../../../package.json"),
+);
 const RELAY =
   process.env.AC_PRESENCE_RELAY || "wss://session-server.aesthetic.computer";
 const DEFAULT_HANDLE = process.env.AC_HANDLE || "jeffrey";
 const DEFAULT_URL = "https://aesthetic.computer/prompt";
+const CHROME_BIN =
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const PROFILE_DIR = join(homedir(), ".acin-chrome");
 
 // One attachment at a time — acin_in to a new room supersedes the old one.
 const state = {
@@ -25,6 +38,11 @@ const state = {
   label: null,
   lastStatus: null,
   connectedAt: null,
+  wantRoom: null, // survives socket drops so we can quietly re-attach
+  wantLabel: null,
+  reconnectTimer: null,
+  browser: null, // puppeteer handle to the dedicated signed-in window
+  page: null,
 };
 
 function canonicalRoom(value) {
@@ -41,6 +59,25 @@ function detach() {
   state.label = null;
   state.lastStatus = null;
   state.connectedAt = null;
+  state.wantRoom = null;
+  state.wantLabel = null;
+  clearTimeout(state.reconnectTimer);
+  state.reconnectTimer = null;
+}
+
+// A dropped socket (relay restart, network blip) re-attaches quietly every 5s
+// for as long as the attachment is still wanted — acin_out is the only way out.
+function scheduleReconnect() {
+  if (state.reconnectTimer || !state.wantRoom) return;
+  state.reconnectTimer = setTimeout(async () => {
+    state.reconnectTimer = null;
+    if (!state.wantRoom || state.socket) return;
+    try {
+      await attach(state.wantRoom, state.wantLabel);
+    } catch {
+      scheduleReconnect();
+    }
+  }, 5000);
 }
 
 // Attach and resolve on the first status frame, so the caller learns how many
@@ -67,17 +104,24 @@ function attach(room, label) {
       state.lastStatus = message.content;
       if (state.socket !== socket) {
         // First frame: adopt this socket as the live attachment.
-        detach();
+        if (state.socket) {
+          try { state.socket.close(); } catch { /* superseded */ }
+        }
         state.socket = socket;
         state.room = room;
         state.label = label;
+        state.wantRoom = room;
+        state.wantLabel = label;
         state.connectedAt = new Date().toISOString();
         clearTimeout(timeout);
         resolvePromise(message.content);
       }
     };
     socket.onclose = () => {
-      if (state.socket === socket) detach();
+      if (state.socket === socket) {
+        state.socket = null;
+        scheduleReconnect();
+      }
     };
     socket.onerror = () => {
       clearTimeout(timeout);
@@ -87,8 +131,66 @@ function attach(room, label) {
   });
 }
 
-async function openChrome(url) {
-  await pexec("open", ["-a", "Google Chrome", url]);
+// The dedicated window: a separate Chrome instance on its own profile
+// (~/.acin-chrome) so jeffrey's daily browser is never driven. The shared
+// ac-login session (~/.ac-token) is seeded through boot.mjs's first-party
+// `session-aesthetic` pickup before any page script runs; `state=acin` in the
+// URL defeats the fast-boot "no auth cache → skip auth" gate (boot cleans it
+// off after pickup). The profile keeps the session, so even plain opens of
+// this profile stay signed in.
+async function openSignedInChrome(url) {
+  const tokens = await loadTokens();
+  const session = {
+    accessToken: tokens.access_token,
+    account: { label: tokens.user.email, id: tokens.user.sub },
+  };
+  const encoded = encodeURIComponent(
+    Buffer.from(JSON.stringify(session)).toString("base64"),
+  );
+  const target = new URL(url);
+  target.searchParams.set("state", "acin");
+
+  const alive = state.browser &&
+    (state.browser.connected ?? state.browser.isConnected?.());
+  if (!alive) {
+    const puppeteer = requireRepo("puppeteer");
+    try {
+      state.browser = await puppeteer.launch({
+        executablePath: CHROME_BIN,
+        headless: false,
+        userDataDir: PROFILE_DIR,
+        defaultViewport: null,
+        args: [
+          "--no-first-run",
+          "--no-default-browser-check",
+          "--window-size=800,900",
+        ],
+      });
+    } catch {
+      // Profile already held by a running acin window (SingletonLock) — hand
+      // the URL to that instance; its persisted session keeps it signed in.
+      await pexec(CHROME_BIN, [`--user-data-dir=${PROFILE_DIR}`, url]);
+      state.browser = null;
+      state.page = null;
+      return { url, handedOff: true };
+    }
+    state.page =
+      (await state.browser.pages())[0] || (await state.browser.newPage());
+  }
+
+  await state.page.evaluateOnNewDocument((enc) => {
+    try { localStorage.setItem("session-aesthetic", enc); } catch { /* blocked */ }
+  }, encoded);
+  await state.page.goto(target.href, {
+    waitUntil: "networkidle2",
+    timeout: 45000,
+  });
+  const check = await state.page.evaluate(() => ({
+    signedIn: !!window.acUSER,
+    crab:
+      document.querySelector("[data-ac-agent-mark]")?.style.display || "absent",
+  }));
+  return { url: target.href, ...check };
 }
 
 function text(value) {
@@ -104,9 +206,7 @@ async function toolIn(args) {
   const status = await attach(room, label);
   let opened = null;
   if (args.open !== false) {
-    const url = args.url || DEFAULT_URL;
-    await openChrome(url);
-    opened = url;
+    opened = await openSignedInChrome(args.url || DEFAULT_URL);
   }
   return text({
     linked: true,
@@ -116,19 +216,29 @@ async function toolIn(args) {
     agents: status.agents,
     opened,
     note: opened
-      ? "Chrome window opened; the linked-agent mark lights bottom-right once the surface signs in and joins the room."
+      ? "Dedicated Chrome window opened signed in via ~/.ac-token; the claude crab lights top-right once the surface joins the room."
       : "Attached without opening a window.",
   });
 }
 
 function toolStatus() {
-  if (!state.socket) return text({ linked: false });
+  if (!state.socket) {
+    return text(
+      state.wantRoom
+        ? { linked: false, reconnecting: true, room: `@${state.wantRoom}` }
+        : { linked: false },
+    );
+  }
   return text({
     linked: true,
     room: `@${state.room}`,
     label: state.label,
     connectedAt: state.connectedAt,
     lastStatus: state.lastStatus,
+    window: state.browser &&
+      (state.browser.connected ?? state.browser.isConnected?.())
+      ? "open"
+      : null,
   });
 }
 
@@ -144,10 +254,10 @@ const TOOLS = [
     name: "acin_in",
     description:
       "Claude in: attach this session as an agent to an aesthetic.computer " +
-      "handle's presence room (lights the linked-agent mark bottom-right on " +
-      "every AC surface signed in as that handle) and open a Chrome window " +
-      "on aesthetic.computer, already clauded in. Presence holds until " +
-      "acin_out or the session ends.",
+      "handle's presence room (lights the claude crab top-right on every AC " +
+      "surface signed in as that handle) and open a dedicated Chrome window " +
+      "already signed in via the shared ~/.ac-token session. Presence holds " +
+      "until acin_out or the session ends, surviving relay restarts.",
     inputSchema: {
       type: "object",
       properties: {
@@ -192,9 +302,9 @@ async function handleMessage(message) {
             serverInfo: { name: "acin-mcp", version: "1.0.0" },
             instructions:
               "Claude in / claude out of aesthetic.computer. acin_in attaches " +
-              "agent presence to a handle's room and opens Chrome on AC; the " +
-              "linked-agent mark shows bottom-right while attached. Presence " +
-              "drops when this session ends.",
+              "agent presence to a handle's room and opens a dedicated Chrome " +
+              "window signed in via ~/.ac-token; the claude crab shows " +
+              "top-right while attached. Presence drops when this session ends.",
           },
         };
       case "initialized":
