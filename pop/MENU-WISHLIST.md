@@ -38,6 +38,16 @@ All from Abe's 2026-05-21 list.
   detector with hysteresis + retrigger lockout; beatbox a mic to fire
   drum samples.
   → `lib/analysis.mjs:audioGate`
+- 🟢 **single study** (`analysis.single-study`) — read a finished single
+  from the outside in: master (LUFS/LRA/crest/stereo), structure
+  (self-similarity → section letters + phrase tier), arrangement
+  (six-band energy, percussive share), harmony (key, dominant voice).
+  Emits `report.json` + `REPORT.md` + four figures.
+  → `study/study.py` (docs: `study/README.md`)
+- 🟢 **study compare** (`analysis.study-compare`) — line up several
+  study reports: section timelines, band-balance heatmap, loudness
+  small multiples, `COMPARISON.md` stat table.
+  → `study/compare.py`
 
 ### score — notation & sequencing
 - 🟢 **audio → rhythm sequence** (`score.audio-to-rhythm`) — onset-detect

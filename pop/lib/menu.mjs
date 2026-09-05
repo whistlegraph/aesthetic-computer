@@ -142,6 +142,16 @@ export const MENU = {
       params: ["threshold", "attackMs", "releaseMs", "minGapMs"],
       blurb: "amplitude onset trigger — beatbox a mic to fire samples",
     },
+    "single-study": {
+      file: "study/study.py",
+      params: ["out", "title", "artist"],
+      blurb: "finished single, outside in — master/structure/arrangement/harmony report + figures",
+    },
+    "study-compare": {
+      file: "study/compare.py",
+      params: ["out"],
+      blurb: "several study reports side by side — timelines, band balance, loudness",
+    },
   },
 
   vocal: {

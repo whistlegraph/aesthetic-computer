@@ -191,6 +191,30 @@ JS twin across 76 rows, and both tracks re-render **byte-identical** WAVs.
 `acidtek.c` was left alone — its "off-beatness" is Barlow indispensability, not
 Toussaint's measure, and its comment now says so.
 
+## Shared tooling — single study (critical listening)
+
+`pop/study/` is the single-study-toolkit: static analysis of a **finished**
+single, read from the outside in the way a listener meets it — the mastered
+object (LUFS, loudness range, crest, stereo image, spectral tilt), then its
+shape in time (self-similarity → section letters + a phrase tier), then who
+is playing when (six-band energy, percussive share, onset density), then
+what the notes are (key global + per-section, dominant voice). One command
+per track, one to compare a shelf of them:
+
+```fish
+cd pop
+.venv/bin/python study/study.py track.mp3 --out study/out/slug --title T --artist A
+.venv/bin/python study/compare.py study/out/*/report.json --out study/out/comparison
+```
+
+This is the mill's critique bench: run it on our own masters next to work we
+admire and let the deltas argue. First use (oskie's *One Step* vs. four /pop
+releases) is written up in `papers/study-one-step/`. Registered in the pop
+menu as `analysis.single-study` / `analysis.study-compare`; honesty limits
+(approximate LRA/true-peak, per-track section letters, streaming-rip air
+band) live in `study/README.md`. Study inputs and outputs stay out of git —
+`study/out/` is ignored, and third-party audio never gets committed.
+
 ## Sample sources (commercial-safe)
 
 Tracks ship to DistroKid/Spotify, so any sourced audio MUST be CC0 /
