@@ -521,6 +521,68 @@ if (haveVox) {
     for (const door of CHORUS_DOORS)
       put(voxStem, readF32(`${OUT}/${f}`), T(door) + (si % 2 ? 0.014 : -0.011), 0.45);
 
+  // ── THE WORD SCORE: pop/imab/vocal-score.json places single words
+  // and phrases anywhere on the grid — placement, duration (stretch),
+  // pitch, and harmony stacks are all playable. Timings come from
+  // lyrictrack's syllable boundaries against the retimed stem ────────
+  const LYR = `${OUT}/imab-sacredvox.lyrics.json`;
+  const SCOREF = resolve(HERE, "../vocal-score.json");
+  if (existsSync(LYR) && existsSync(SCOREF)) {
+    const syl = JSON.parse(readFileSync(LYR, "utf8")).syllables;
+    const findSyl = (spec) => {
+      const [label, nth] = spec.split("#");
+      const hits = syl.filter((x) => x.label === label);
+      return hits[Number(nth ?? 0)] ?? null;
+    };
+    const sliceCache = {};
+    const wordWav = (fromMs, toMs, stretch, pitch) => {
+      const key = `${fromMs}-${toMs}-${stretch}-${pitch}`;
+      if (sliceCache[key]) return sliceCache[key];
+      const t0 = Math.max(0, fromMs / 1000 - 0.04);
+      const t1 = toMs / 1000 + 0.08;
+      const dur = t1 - t0;
+      const cut = `${WORK}/hb-w-${key}.wav`;
+      if (!existsSync(cut)) {
+        const raw = `${WORK}/hb-wraw-${key}.wav`;
+        sh("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
+          "-i", leadF, "-af",
+          `atrim=start=${t0.toFixed(3)}:end=${t1.toFixed(3)},asetpts=PTS-STARTPTS,` +
+          `afade=t=in:d=0.02,afade=t=out:st=${Math.max(0, dur - 0.07).toFixed(3)}:d=0.07`,
+          "-ar", String(SR), "-ac", "1", raw]);
+        if (stretch !== 1 || pitch !== 0)
+          sh("rubberband", ["-t", String(stretch), "-p", String(pitch), "-F", "-q", raw, cut]);
+        else sh("cp", [raw, cut]);
+      }
+      return (sliceCache[key] = existsSync(cut) ? readF32(cut) : null);
+    };
+    const score = JSON.parse(readFileSync(SCOREF, "utf8"));
+    let placed = 0;
+    for (const ev of score.events ?? []) {
+      const stretch = ev.stretch ?? 1, pitch = ev.pitch ?? 0;
+      let fromMs, toMs;
+      if (ev.src.startsWith("words:")) {          // span: words:just..tume
+        const [a2, b2] = ev.src.slice(6).split("..");
+        const s1 = findSyl(a2), s2 = findSyl(b2);
+        if (!s1 || !s2) continue;
+        fromMs = s1.fromMs; toMs = s2.toMs;
+      } else if (ev.src.startsWith("word:")) {
+        const w = findSyl(ev.src.slice(5));
+        if (!w) continue;
+        fromMs = w.fromMs; toMs = w.toMs;
+      } else continue;
+      const t = T(ev.bar) + ((ev.beat ?? 1) - 1) * BEAT;
+      const layers = [[pitch, 1], ...(ev.harm ?? [])
+        .filter((h) => h !== 0).map((h) => [pitch + h, 0.55])];
+      for (const [pp, hg] of layers) {
+        const y = wordWav(fromMs, toMs, stretch, pp);
+        if (!y) continue;
+        put(stretch >= 2.5 ? choirStem : voxStem, y, t, (ev.gain ?? 1) * hg);
+        placed++;
+      }
+    }
+    console.log(`word score: ${placed} placements from vocal-score.json`);
+  }
+
   // halo: the lead through the church send, wide and behind
   sh(PY, [`${REPO}/spinging/lib/vocal_bus.py`, "reverb", leadF,
     `${WORK}/hb-halo.wav`, "-14", "1.6"]);
