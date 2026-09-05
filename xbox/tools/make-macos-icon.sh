@@ -9,7 +9,8 @@ set -eu
 
 out=${1:?usage: make-macos-icon.sh <path/to/Oskiewar.icns>}
 repo_root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
-master="$repo_root/xbox/assets/ac-native-icon-master.png"
+# The mac app wears the same face as the iOS app — one identity per game.
+master="$repo_root/apple/oskiewar/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/oskiewar-icon.XXXXXX")
 trap 'rm -rf "$work"' EXIT

@@ -108,7 +108,7 @@ targets:
       - name: Render Oskiewar.icns
         inputFiles:
           - $(SRCROOT)/../../xbox/tools/make-macos-icon.sh
-          - $(SRCROOT)/../../xbox/assets/ac-native-icon-master.png
+          - $(SRCROOT)/../oskiewar/Assets.xcassets/AppIcon.appiconset/AppIcon.png
         outputFiles:
           - $(BUILT_PRODUCTS_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/Oskiewar.icns
         script: |
