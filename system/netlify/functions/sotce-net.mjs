@@ -117,9 +117,10 @@ const SHELL_MODIFIED_HTTP = SHELL_MODIFIED.toUTCString();
 // assembly is dominated by per-asker handle lookups that can each cost two
 // Auth0 round-trips. Cache it in-process: every mutation to pages or asks
 // flows through this same long-lived process, so invalidation is exact; the
-// TTL only bounds staleness from out-of-module writes (e.g. /handle changes).
+// TTL only bounds staleness from out-of-module writes (a /handle rename
+// showing its old name on old asks for a few minutes is the worst case).
 let feedCache = null; // { at, data: { pages, questions, totalPages, totalQuestions, lastModified, hasMore } }
-const FEED_CACHE_TTL = 60 * 1000;
+const FEED_CACHE_TTL = 10 * 60 * 1000;
 function invalidateFeedCache() {
   feedCache = null;
 }
