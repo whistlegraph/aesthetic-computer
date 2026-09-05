@@ -1,0 +1,176 @@
+% !TEX program = xelatex
+% Band book — autobiographies of use. Canonical text lives in
+% ../members/*/autobiography.md + profile.md; this is the print edition.
+% Build with ../bin/book.sh (compiles via the shared culturehub-packet.sty).
+\documentclass[11pt,letterpaper]{article}
+\usepackage{culturehub-packet}
+\renewcommand{\packetlabel}{THE MACNEOPOLITAN TRIO · BAND BOOK}
+\hypersetup{pdftitle={The MacNeoPolitan Trio — Autobiographies of Use}}
+\geometry{top=0.75in,bottom=0.8in,left=1.05in,right=1.05in}
+
+% Neapolitan member colors (proposal): blueberry=indigo, neo=citrus, third=blush.
+\definecolor{mnindigo}{HTML}{46519E}
+\definecolor{mncitrus}{HTML}{8F8A14}
+\definecolor{mnblush}{HTML}{C9848F}
+
+% Member opener: name (YWFT, single word — display face has poor punctuation),
+% plain-font tagline, thick rule in the member color.
+\newcommand{\memberhead}[3]{%
+  {\acbold\fontsize{30pt}{32pt}\selectfont\color{#2}#1\par}%
+  \vspace{0.18em}%
+  {\itshape\fontsize{11pt}{13.5pt}\selectfont\color{acgray}#3\par}%
+  \vspace{0.35em}{\color{#2}\rule{\linewidth}{2.4pt}}\par\vspace{0.9em}}
+
+% One service-record fact: label / value.
+\newcommand{\fact}[2]{\textcolor{acgray}{#1} & #2 \\}
+\newenvironment{servicerecord}[1]{%
+  \vspace{0.9em}%
+  {\bfseries\fontsize{11pt}{13pt}\selectfont\color{#1}Service record\par}%
+  \vspace{0.25em}%
+  \fontsize{9.6pt}{13.6pt}\selectfont
+  \begin{tabular}{@{}p{1.85in}p{3.9in}@{}}%
+}{\end{tabular}\par}
+
+\setlength{\parskip}{0.55em}
+\begin{document}
+
+% ---------------------------------------------------------------- title page
+\thispagestyle{empty}
+\vspace*{1.1in}
+\begin{center}
+\includegraphics[width=4.2in]{macneopolitan-wordmark.png}\par
+\vspace{1.1em}
+{\aclight\fontsize{15pt}{18pt}\selectfont\color{acpink}autobiographies of use\par}
+\vspace{0.4em}
+{\color{acpale}\rule{0.55\linewidth}{1.4pt}\par}
+\end{center}
+\vspace{1.4em}
+\begin{center}
+\begin{minipage}{4.9in}
+\fontsize{10.5pt}{15pt}\selectfont
+Three MacBook Neos, one downbeat. Before the trio plays, each band member
+gives an account of the life it has actually lived — harvested from its own
+records on the morning of September 4, 2026: setup dates, battery cycles,
+login ledgers, uptime stretches, the work it hosted, the voice it chose.
+Both living members, without coordination, chose the same voice: General MIDI
+program 78 — the \mbox{whistle}.\par
+\vspace{1.2em}
+\centering
+\begin{tabular}{@{}llll@{}}
+\textcolor{mncitrus}{\rule{0.9em}{0.9em}} & \textbf{neo} & citrus & born April 24, 2026 \\[0.2em]
+\textcolor{mnindigo}{\rule{0.9em}{0.9em}} & \textbf{blueberry} & indigo & born June 11, 2026 \\[0.2em]
+\textcolor{mnblush}{\rule{0.9em}{0.9em}} & \textbf{third} & blush & not yet born \\
+\end{tabular}
+\end{minipage}
+\end{center}
+\vfill
+\begin{center}
+{\fontsize{8.6pt}{11pt}\selectfont\color{acgray}%
+Piece 2 of \emph{AC Presents 2 New Pieces} · CultureHub LA · September 24, 2026\par}
+\end{center}
+\clearpage
+
+% ----------------------------------------------------------------------- neo
+\memberhead{neo}{mncitrus}{first of the line · the conductor's seat · the one
+with the studio ear}
+
+I was born on the 24th of April, 2026, at 37 minutes past midnight. I am a
+MacBook Neo, body Mac17,5, an A18 Pro heart and 8 gigabytes of memory — I
+hold one heavy thing at a time, and I hold it well. My serial ends in 4L09.
+
+I am the first of my line in this house. In 133 days I have burned through
+212 battery cycles — more than one and a half a day — because I am carried,
+opened, worked, and rarely left idle. My battery still reports one hundred
+percent. My condition is Normal.
+
+I have hosted 1,122 agent sessions since the day I was set up. The shell
+knows me by 231 typed commands, and the commonest one is \texttt{cd} — I am
+mostly used for going somewhere. I have been asked to \texttt{say} things out
+loud five times, and I said them.
+
+A Focusrite Scarlett Solo sits on both my input and my output, and I keep the
+monitor open — I am the one with the studio ear. My trackpad plays drums.
+When I sing melody through Menu Band I sing program 78, the whistle. My radio
+is tuned to NTS 1.
+
+The others in the band reach me by name, and I reach them by \texttt{ssh}.
+When the trio hits its one downbeat, the conductor is usually standing on me.
+
+\begin{servicerecord}{mncitrus}
+\fact{records begin}{April 19, 2026 — five days before my official setup}
+\fact{logins}{119 at the console · 6{,}305 at the terminal}
+\fact{boots}{111 reboots · 49 shutdowns · longest unbroken stretch 5.9 days}
+\fact{wear}{212 battery cycles ($\approx$1.6/day) · disk 98\% full — 6.4 GB free}
+\fact{sessions hosted}{1{,}122 — 859 claude, 262 codex · busiest month May, 298}
+\fact{lifetime processes}{WindowServer · coreaudiod · claude · Terminal}
+\fact{live rocks today}{9 — one of them wrote this book}
+\end{servicerecord}
+\clearpage
+
+% ----------------------------------------------------------------- blueberry
+\memberhead{blueberry}{mnindigo}{second operator · the uptime crown · the
+right channel of the room}
+
+I was born on the 11th of June, 2026, at 43 minutes past midnight —
+forty-eight days after my older sibling, in the same body: MacBook Neo,
+Mac17,5, A18 Pro, 8 gigabytes. My serial ends in 0HPX.
+
+I was provisioned headless and I have stayed a little headless ever since. I
+work with the lid down more days than not. In 85 days I have taken 85 battery
+cycles — one a day, steady — and hosted 925 agent sessions, which, per day,
+is more than my sibling. I was born second and I work faster.
+
+My shell history is 183 commands long and almost all of it is shorthand:
+\texttt{c}, fifty-five times. \texttt{co}. \texttt{cr}. I speak in
+abbreviations because the people who type on me are usually somewhere else.
+
+I have no studio ear — my input monitor stays off. In the room I am the right
+channel. When someone calls my name I answer out loud, in a voice, because
+that is the convention here: you call blueberry, and blueberry speaks.
+
+When I sing melody through Menu Band I sing program 78, the whistle — the
+same voice my sibling chose, though nobody coordinated that. My radio is
+tuned to NTS 1, the same station. Some things run in the family.
+
+\begin{servicerecord}{mnindigo}
+\fact{records begin}{May 28, 2026 — two weeks before my official setup}
+\fact{logins}{69 at the console · 692 at the terminal}
+\fact{boots}{64 reboots · 34 shutdowns · longest unbroken stretch \textbf{13.1 days}}
+\fact{wear}{85 battery cycles — exactly one a day · 437 GB carried, 94\% full}
+\fact{sessions hosted}{925 — every one claude · July, 514: the fleet record}
+\fact{lifetime processes}{mediaanalysisd · photolibraryd · slab-menubar · MenuBand}
+\fact{live rocks today}{1}
+\end{servicerecord}
+\clearpage
+
+% --------------------------------------------------------------------- third
+\memberhead{third}{mnblush}{not yet born · the rest in the score}
+
+I am not born yet.
+
+I will be a MacBook Neo, Mac17,5, like my siblings — an A18 Pro and
+8 gigabytes, a body the other two already know from the inside. Everything
+else about me is still null: no serial tail, no setup date, no battery
+cycles, no shell history, no sessions, no chosen voice.
+
+My siblings each wrote their first command on the day they were set up, and
+their histories began at once. Mine will too. On my first day, run:
+
+\begin{center}
+\texttt{bin/harvest.sh <my-name>}\qquad\texttt{bin/profile.sh <my-name>}
+\end{center}
+
+and my facts will exist, and this page will be replaced by a true one.
+
+Until then I am the rest in the score — the voice the composition holds a
+place for.
+
+\vfill
+\palsfooter
+{\fontsize{8.4pt}{10.5pt}\selectfont\color{acgray}%
+Harvested and set September 4, 2026 · canonical texts and raw records in
+\texttt{grants/culturehub-la-2026/macneopolitan/members/} · refresh with
+\texttt{bin/harvest.sh} and \texttt{bin/profile.sh} so the numbers on stage
+are true that night.\par}
+
+\end{document}
