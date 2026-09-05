@@ -27,8 +27,8 @@ def load(paths):
     return [json.loads(Path(p).read_text()) for p in paths]
 
 
-def fig_structures(out, reports):
-    fig, ax = plt.subplots(figsize=(9, 0.62 * len(reports) + 0.9))
+def fig_structures(out, reports, k=1.0):
+    fig, ax = plt.subplots(figsize=(9 * k, 0.62 * len(reports) + 0.9))
     for i, r in enumerate(reports):
         y = len(reports) - 1 - i
         for sec in r["structure"]["sections"]:
@@ -50,10 +50,10 @@ def fig_structures(out, reports):
     plt.close(fig)
 
 
-def fig_balance(out, reports):
+def fig_balance(out, reports, k=1.0):
     mat = np.array([[r["arrangement"]["band_balance_db"][b[0]]
                      for b in BANDS] for r in reports])
-    fig, ax = plt.subplots(figsize=(4.8, 0.42 * len(reports) + 1.0))
+    fig, ax = plt.subplots(figsize=(4.8 * k, 0.42 * len(reports) + 1.0))
     ax.imshow(np.clip(mat, -30, 0), cmap=SEQ_CMAP, aspect="auto",
               vmin=-30, vmax=0)
     for i in range(mat.shape[0]):
@@ -72,9 +72,9 @@ def fig_balance(out, reports):
     plt.close(fig)
 
 
-def fig_dynamics(out, reports, curves):
+def fig_dynamics(out, reports, curves, k=1.0):
     n = len(reports)
-    fig, axes = plt.subplots(n, 1, figsize=(5.6, 0.78 * n + 0.5),
+    fig, axes = plt.subplots(n, 1, figsize=(5.6 * k, 0.78 * n + 0.5),
                              sharex=True)
     axes = np.atleast_1d(axes)
     for ax, r, (t, db) in zip(axes, reports, curves):
@@ -113,6 +113,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("reports", nargs="+")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--figscale", type=float, default=1.0,
+                    help="scale figure widths (heights track row count)")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -132,9 +134,9 @@ def main():
             db.append(20 * np.log10(np.sqrt(np.mean(seg ** 2)) + 1e-12))
         curves.append((np.array(t), np.array(db)))
 
-    fig_structures(out, reports)
-    fig_balance(out, reports)
-    fig_dynamics(out, reports, curves)
+    fig_structures(out, reports, args.figscale)
+    fig_balance(out, reports, args.figscale)
+    fig_dynamics(out, reports, curves, args.figscale)
     write_markdown(out, reports)
     print(f"→ {out}")
 
