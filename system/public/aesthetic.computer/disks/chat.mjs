@@ -3871,7 +3871,15 @@ function act(
 
     // 📜 Start inertial fling on lift
     // Note: use wasScrollingOnLift because isDragging is reset earlier in this same lift event.
-    if (e.is("lift") && wasScrollingOnLift && Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY) {
+    // An out-of-bounds release ALWAYS flings — otherwise a slow lift while
+    // overscrolled had no spring to bring it home and stuck past the edge.
+    if (
+      e.is("lift") &&
+      wasScrollingOnLift &&
+      (Math.abs(scrollVelocity) > SCROLL_MIN_VELOCITY ||
+        scroll < 0 ||
+        scroll > maxScroll())
+    ) {
       isFlinging = true;
     }
 
@@ -4253,7 +4261,7 @@ function sim({ api, num, send, net, store }) {
 
   // 📜 Inertial scroll physics
   if (isFlinging) {
-    const max = totalScrollHeight - chatHeight + 5;
+    const max = maxScroll();
     const outOfBounds = scroll < 0 || scroll > max;
 
     if (outOfBounds) {
@@ -4264,8 +4272,14 @@ function sim({ api, num, send, net, store }) {
       scrollVelocity *= BOUNCE_DAMPING;
       scroll += scrollVelocity;
 
-      // Settle once close enough
-      if (Math.abs(displacement) < 0.5 && Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY) {
+      // The spring's momentum must die AT the edge. If this frame carried
+      // scroll across the boundary, landing on the far side, the old code
+      // handed that velocity to the coast branch below — which cruised the
+      // view right past the newest message (it settled ~70px into history,
+      // hiding the last message behind the input bar). Land exactly on the
+      // edge instead; the visible elastic dip still happens on the way in.
+      const crossed = Math.sign(scroll - target) !== Math.sign(displacement);
+      if (crossed || (Math.abs(displacement) < 0.5 && Math.abs(scrollVelocity) < SCROLL_MIN_VELOCITY)) {
         scroll = target;
         scrollVelocity = 0;
         isFlinging = false;
@@ -4553,16 +4567,23 @@ function setR8dioVolume(vol, send) {
   }
 }
 
+// Top scroll limit. Never below 0: with fewer messages than a screenful the
+// raw difference goes negative, and clamping to it would shove the feed up
+// past the bottom edge. (`|| 0` guards the pre-layout NaN.)
+function maxScroll() {
+  return Math.max(0, totalScrollHeight - chatHeight + 5 || 0);
+}
+
 function boundScroll() {
   if (scroll < 0) scroll = 0;
-  const max = totalScrollHeight - chatHeight + 5;
+  const max = maxScroll();
   if (scroll > max) scroll = max;
 }
 
 // Soft bound allows overscroll up to MAX_OVERSCROLL (for bounce feel while dragging)
 function boundScrollSoft() {
-  const max = totalScrollHeight - chatHeight + 5;
   if (scroll < -MAX_OVERSCROLL) scroll = -MAX_OVERSCROLL;
+  const max = maxScroll();
   if (scroll > max + MAX_OVERSCROLL) scroll = max + MAX_OVERSCROLL;
 }
 
