@@ -53,6 +53,23 @@ const NETWORK_FIRST_PATTERNS = [
   /\/aesthetic\.computer\/systems\/.*\.mjs$/,
 ];
 
+// How long a network-first module waits for its conditional fetch before the
+// cached copy goes out instead (the fetch still completes and refreshes the
+// cache). Boot logs from a Mac on a stalling link (2026-09-04) showed ~1 in 4
+// fetches hanging 10–23s and a single boot sitting on dozens of them. A
+// healthy link revalidates in well under a second and never hits this. The
+// lockstep concern above still holds in the fallback window: a fresh piece
+// can meet a lib cached before the last deploy. That trades a 20s hang for a
+// rare failed import that a reload fixes.
+const NETWORK_FIRST_TIMEOUT_MS = 3000;
+
+// Content-hashed bundles: the hash in the filename is the version (bios.mjs
+// reads the current one from disk-worker-manifest.json, fetched no-cache), so
+// a cached copy never goes stale — serve it without touching the network.
+const IMMUTABLE_PATTERNS = [
+  /\/aesthetic\.computer\/lib\/disk\.worker\.[a-f0-9]+\.mjs$/,
+];
+
 // Never cache these (always network)
 const NEVER_CACHE = [
   /\/api\//,
@@ -120,14 +137,50 @@ self.addEventListener('fetch', (event) => {
   // For core modules, create a clean cache key without query params
   // This ensures disk.mjs?session-aesthetic=... matches cached /aesthetic.computer/lib/disk.mjs
   const isCoreModule = PRECACHE_MODULES.some((m) => url.pathname === m);
-  const cacheKey = isCoreModule ? new Request(url.origin + url.pathname) : event.request;
-  
+  const isImmutable = IMMUTABLE_PATTERNS.some((pattern) => pattern.test(url.pathname));
+  const cacheKey = isCoreModule || isImmutable ? new Request(url.origin + url.pathname) : event.request;
+
+  if (isImmutable) {
+    // Cache-first, no revalidation: the hash in the name is the version, so a
+    // cached copy is the copy. On a miss, fetch once, store it, and drop the
+    // previous hashes — each deploy would otherwise leave ~1.7MB behind.
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) return cachedResponse;
+        const networkResponse = await fetch(event.request);
+        if (networkResponse.ok && networkResponse.status === 200) {
+          const store = (async () => {
+            try {
+              const responseToCache = networkResponse.clone();
+              const body = await responseToCache.clone().text();
+              if (!body || body.length === 0) return;
+              await cache.put(cacheKey, responseToCache);
+              const keys = await cache.keys();
+              await Promise.all(
+                keys
+                  .filter((key) => key.url !== cacheKey.url)
+                  .filter((key) => IMMUTABLE_PATTERNS.some((pattern) => pattern.test(new URL(key.url).pathname)))
+                  .map((key) => cache.delete(key)),
+              );
+            } catch (e) {
+              // Incomplete download — leave the cache alone; next boot retries.
+            }
+          })();
+          event.waitUntil(store);
+        }
+        return networkResponse;
+      })
+    );
+    return;
+  }
+
   if (isCacheable) {
     // Stale-while-revalidate strategy with corruption detection
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         // Use clean cache key for core modules to ignore query params
-        return cache.match(cacheKey).then((cachedResponse) => {
+        return cache.match(cacheKey).then(async (cachedResponse) => {
           // Use `cache: 'no-cache'` so the browser sends a conditional request
           // (If-None-Match / If-Modified-Since) instead of serving from the HTTP
           // cache. Origin returns 304 when unchanged (cheap) or 200 with fresh
@@ -178,10 +231,35 @@ self.addEventListener('fetch', (event) => {
             });
           
           // Network-first modules wait for the (conditional, usually-304)
-          // fetch — its catch already falls back to cachedResponse offline.
+          // fetch — its catch already falls back to cachedResponse offline —
+          // but only for NETWORK_FIRST_TIMEOUT_MS when a cached copy exists.
+          // On a link that stalls (a lost packet's retransmit backoff runs
+          // 1s, 2s, 4s, 8s…) a boot used to sit on ~35 of these round trips;
+          // now it gets the last good module after the timeout while the
+          // fetch finishes in the background and refreshes the cache. A
+          // healthy link answers in well under the timeout and sees no change.
           // Everything else returns the cached response immediately (SWR).
-          if (preferNetwork) return fetchPromise;
-          return cachedResponse || fetchPromise;
+          if (preferNetwork) {
+            if (!cachedResponse) return fetchPromise;
+            let timer;
+            const timeout = new Promise((resolve) => {
+              timer = setTimeout(() => resolve(null), NETWORK_FIRST_TIMEOUT_MS);
+            });
+            const fromNetwork = await Promise.race([
+              fetchPromise.then((response) => response, () => null),
+              timeout,
+            ]);
+            clearTimeout(timer);
+            if (fromNetwork) return fromNetwork;
+            event.waitUntil(fetchPromise.catch(() => {}));
+            return cachedResponse;
+          }
+          if (cachedResponse) {
+            // Keep the worker alive until the background revalidation lands.
+            event.waitUntil(fetchPromise.catch(() => {}));
+            return cachedResponse;
+          }
+          return fetchPromise;
         });
       })
     );

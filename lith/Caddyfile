@@ -40,6 +40,15 @@
     # and Caddy-served responses.
     header @code ?Access-Control-Allow-Origin *
 
+    # Content-hashed worker bundles are the exception to the short TTL: the
+    # hash in the filename IS the version, and bios.mjs reads the current one
+    # from disk-worker-manifest.json (fetched no-cache, so always revalidated).
+    # A given filename never changes content, so browsers and the service
+    # worker may keep it for a year — a new build means a new name, never a
+    # stale hit. Must come after the @code rule so it wins for these paths.
+    @immutable path_regexp ^/aesthetic\.computer/lib/disk\.worker\.[a-f0-9]+\.mjs$
+    header @immutable Cache-Control "public, max-age=31536000, immutable"
+
     # Static assets: long cache (1h fresh, serve stale for 24h while revalidating)
     @cacheable path *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"
