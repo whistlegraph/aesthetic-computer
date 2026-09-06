@@ -644,6 +644,37 @@
       "containerId": "18085867895446357",
       "mediaId": "18092156474130286",
       "insights": null
+    },
+    {
+      "mode": "live",
+      "id": "2026-09-06-s0-gen",
+      "slot": 744,
+      "day": "2026-09-06",
+      "index": 0,
+      "segment": "gen",
+      "seed": "2026-09-06#0",
+      "kind": "self-play",
+      "round": "survival-v100-54-17ios81",
+      "audioName": "survival-v100-54-17ios81",
+      "outcome": {
+        "mode": "survival",
+        "cause": "LAVA",
+        "succeeded": false,
+        "height": 1481,
+        "level": 6,
+        "levels": 32,
+        "winner": null,
+        "ticks": 1264,
+        "round": "survival-v100-54-17ios81"
+      },
+      "publishedAt": "2026-09-06T13:10:27.479Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-06-s0-gen/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-06-s0-gen/cover.jpg"
+      },
+      "containerId": "18086447231446357",
+      "mediaId": "18438537742127193",
+      "insights": null
     }
   ]
 }
