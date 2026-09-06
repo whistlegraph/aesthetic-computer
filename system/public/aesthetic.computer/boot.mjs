@@ -257,7 +257,7 @@ function ensureBootCanvasPoll() {
   }, 30000);
 }
 
-function bootLog(message) {
+function bootLog(message, level = "info") {
   // Skip logging in PACK mode (NFT bundles should be silent)
   if (window.acPACK_MODE) return;
   
@@ -274,7 +274,7 @@ function bootLog(message) {
     console.log(`🚀 [BOOT] ${message} (+${elapsed}ms)`);
   }
   window._bootTimings.push({ message, elapsed });
-  bootTelemetry.enqueue(message, "info");
+  bootTelemetry.enqueue(message, level);
   
   // Update the boot canvas (via the canvas animation system)
   if (window.acBOOT_LOG_CANVAS) {
@@ -1468,6 +1468,12 @@ async function setupAuth0Client() {
     cacheLocation: "localstorage",
     useRefreshTokens: true,
     authorizationParams: { redirect_uri: window.location.origin },
+    // The SDK gives every token request 10s and retries it three times, so a
+    // slow link fails the code-for-token exchange at exactly ~30s and the user
+    // lands back on the prompt logged out, with the error swallowed. Boot logs
+    // from a Mac on a bad connection (2026-09-04) showed module fetches taking
+    // 11–23s and ten logins in two days dying at 20–37s. Give the exchange room.
+    httpTimeoutInSeconds: 30,
   });
   window.acAuthTiming.auth0ClientCreateEnd = performance.now();
   bootLog(`auth0 client created (${Math.round(window.acAuthTiming.auth0ClientCreateEnd - window.acAuthTiming.auth0ClientCreateStart)}ms)`);
@@ -1496,11 +1502,20 @@ if (!sandboxed && !skipAuth) {
         (location.search.includes("code=") ||
           location.search.includes("error="))
       ) {
+        // Log the exchange to boot telemetry — a failure here is the "I logged
+        // in and came back logged out" report, and console.error never reaches
+        // us.
+        const redirectStart = performance.now();
+        bootLog("auth0 handling redirect callback");
         try {
-          // console.log("🔐 Handling auth0 redirect...");
           await auth0Client.handleRedirectCallback();
+          bootLog(`auth0 redirect callback ok (${Math.round(performance.now() - redirectStart)}ms)`);
         } catch (e) {
           console.error("🔐", e);
+          bootLog(
+            `auth0 redirect callback failed (${Math.round(performance.now() - redirectStart)}ms): ${e?.error || e?.name || "error"}: ${e?.error_description || e?.message || e}`,
+            "error",
+          );
         }
         
         // Ensure Auth0 parameters are completely cleaned from URL
