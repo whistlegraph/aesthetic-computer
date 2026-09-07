@@ -39,6 +39,29 @@ const MY = new Set([hostname(), hostname().replace(/\.local$/, ""), "local",
   "localhost", "self"].map((s) => s.toLowerCase()));
 const isLocal = (h) => MY.has(String(h).toLowerCase());
 
+// voxplay: schedule a wav on the AUDIO clock so file-time `preroll` lands
+// exactly on the shared epoch — afplay's variable spawn latency made the
+// vocal drift against Menu Band's sample-accurate grid.
+const VOXPLAY_SRC = `import AVFoundation
+let a = CommandLine.arguments
+let url = URL(fileURLWithPath: a[1])
+let epoch = Double(a[2])!
+let preroll = a.count > 3 ? (Double(a[3]) ?? 0) : 0
+let player = try! AVAudioPlayer(contentsOf: url)
+player.prepareToPlay()
+let delay = (epoch - preroll) - Date().timeIntervalSince1970
+if delay <= 0 { player.play() }
+else { player.play(atTime: player.deviceCurrentTime + delay) }
+RunLoop.main.run(until: Date(timeIntervalSinceNow: max(0, delay) + player.duration + 0.5))`;
+
+function ensureVoxplay() {
+  if (spawnSync("sh", ["-c", "test -x /tmp/voxplay"]).status === 0) return true;
+  const r = spawnSync("sh", ["-c",
+    "cat > /tmp/voxplay.swift && swiftc -O /tmp/voxplay.swift -o /tmp/voxplay"],
+    { input: VOXPLAY_SRC, encoding: "utf8" });
+  return r.status === 0;
+}
+
 function ensurePoster(host) {
   const build = "cat > /tmp/mbpost.swift && swiftc -O /tmp/mbpost.swift -o /tmp/mbpost";
   const have = (isLocal(host)
@@ -114,9 +137,13 @@ for (const voice of score.voices || []) {
         continue;
       }
     }
-    const waitMs = Math.max(0, epoch * 1000 - Date.now() - 120);
-    setTimeout(() => spawn("afplay", [wav], { stdio: "ignore" }), waitMs);
-    console.log(`  ✎ ${voice.name}: voxxed line at the downbeat (${wav.split("/").pop()})`);
+    if (!ensureVoxplay()) {
+      console.error("  ✗ could not build /tmp/voxplay");
+      continue;
+    }
+    // 0.5 = the PREROLL baked into the render by bin/vox.py.
+    spawn("/tmp/voxplay", [wav, epoch.toFixed(3), "0.5"], { stdio: "ignore" });
+    console.log(`  ✎ ${voice.name}: voxxed line scheduled on the audio clock (${wav.split("/").pop()})`);
     continue;
   }
   if (voice.lyrics) {

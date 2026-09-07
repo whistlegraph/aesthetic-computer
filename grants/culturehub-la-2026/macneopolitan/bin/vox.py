@@ -91,8 +91,12 @@ def sing_syllable(text, midi, dur_s):
     return y, onset_s
 
 # ---- assemble on the beat grid: nucleus on the beat, consonant as pickup --
+# PREROLL seconds of silence precede beat 0, so the first consonant pickup
+# is never clipped and a scheduling player can align file-time PREROLL to
+# the shared downbeat exactly (bin/singconduct.mjs passes it to voxplay).
+PREROLL = 0.5
 total_beats = sum(d for _, d in notes)
-master = np.zeros(int((total_beats * beat + 2.0) * fs))
+master = np.zeros(int((PREROLL + total_beats * beat + 2.0) * fs))
 pos_beats = 0.0
 s = 0
 for tok, dur in notes:
@@ -101,7 +105,7 @@ for tok, dur in notes:
         syl = syllables[s] if s < len(syllables) else "la"
         s += 1
         y, onset_s = sing_syllable(syl, midi, dur * beat)
-        start = int(max(0.0, pos_beats * beat - onset_s) * fs)
+        start = int(max(0.0, PREROLL + pos_beats * beat - onset_s) * fs)
         end = min(len(master), start + len(y))
         master[start:end] += y[: end - start]
         print(f"  {syl:>6} → midi {midi:.0f}, {dur:g} beat(s)", file=sys.stderr)
