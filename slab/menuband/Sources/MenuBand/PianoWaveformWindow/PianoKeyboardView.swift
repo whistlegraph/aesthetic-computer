@@ -23,6 +23,7 @@ final class PianoKeyboardView: NSView {
     private var lastHapticTime: TimeInterval = 0
     private var lastHoverHapticTime: TimeInterval = 0
     private var pendingHapticEcho: DispatchWorkItem?
+    private var abcFeedbackTimer: Timer?
 
     private let pianoScale: CGFloat
     private var widthConstraint: NSLayoutConstraint!
@@ -43,6 +44,10 @@ final class PianoKeyboardView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    deinit {
+        abcFeedbackTimer?.invalidate()
     }
 
     override var acceptsFirstResponder: Bool { true }
@@ -82,6 +87,7 @@ final class PianoKeyboardView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         guard let menuBand = menuBand else { return }
+        updateABCFeedbackTimer()
 
         KeyboardIconRenderer.withPianoWaveformKeyboard(keymap: menuBand.keymap) {
             KeyboardIconRenderer.activeKeymap = menuBand.keymap
@@ -89,11 +95,36 @@ final class PianoKeyboardView: NSView {
                 litNotes: menuBand.litNotes,
                 enabled: menuBand.midiMode,
                 typeMode: true,
+                abcMode: menuBand.abcLayerEnabled,
                 hovered: hoveredNote.map { .note($0) },
                 includeSettings: false,
                 layout: Self.rendererLayout
             )
             image.draw(in: pianoTargetRect())
+        }
+    }
+
+    private func updateABCFeedbackTimer() {
+        let shouldAnimate = menuBand?.abcLayerEnabled == true
+            && !(menuBand?.litNotes.isEmpty ?? true)
+        if shouldAnimate, abcFeedbackTimer == nil {
+            let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) {
+                [weak self] _ in
+                guard let self else { return }
+                let active = self.menuBand?.abcLayerEnabled == true
+                    && !(self.menuBand?.litNotes.isEmpty ?? true)
+                if active {
+                    self.needsDisplay = true
+                } else {
+                    self.abcFeedbackTimer?.invalidate()
+                    self.abcFeedbackTimer = nil
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            abcFeedbackTimer = timer
+        } else if !shouldAnimate {
+            abcFeedbackTimer?.invalidate()
+            abcFeedbackTimer = nil
         }
     }
 

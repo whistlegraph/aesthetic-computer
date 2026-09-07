@@ -555,6 +555,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         [weak self] keyCode, isDown, isRepeat, flags in
         guard let self else { return false }
 
+        // Exact ⌘Tab is Menu Band's global ABC toggle. Claim both edges before
+        // the performance-focus gate so the chord never opens macOS's app
+        // switcher. Plain Tab retains its TrackDrum/FX surface switch below.
+        let commandTab = Self.isABCToggleShortcut(
+            keyCode: keyCode,
+            flags: NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+        )
+        if commandTab {
+            if isDown && !isRepeat {
+                DispatchQueue.main.async {
+                    self.menuBand.abcLayerEnabled.toggle()
+                }
+            }
+            return true
+        }
+
         // Escape must remain available even when the percussion click wall or
         // KeyMap owns AppKit focus. The session tap runs ahead of either local
         // monitor, so this is the reliable way out of a latched trackpad mode.
@@ -1584,6 +1600,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // user sees the layout dynamically appear while typing.
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
+            // Local fallback for an exact ⌘Tab when the global Accessibility
+            // tap is unavailable. On the direct build the global tap above is
+            // what reliably beats the Dock's app switcher.
+            if Self.isABCToggleShortcut(keyCode: keyCode, flags: flags) {
+                if isDown && !isRepeat { self.menuBand.abcLayerEnabled.toggle() }
+                return true
+            }
             // PLAIN Tab toggles percussion and pitch bend — but only
             // mid-bend (the overlay is up) and only where the MultitouchSupport
             // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
@@ -2658,7 +2681,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let metro = CGFloat(KeyboardIconRenderer.metronomeFlash)
             let levelStep: CGFloat = 0.01
             let flashStep: CGFloat = 0.02
-            let dirty = percActive || barsDirty
+            let abcHeld = self.menuBand.abcLayerEnabled
+                && !self.menuBand.litNotes.isEmpty
+            let dirty = percActive || abcHeld || barsDirty
                 || abs(level - self.visualizerLastDrawnLevel) > levelStep
                 || abs(midi - self.visualizerLastDrawnMidiFlash) > flashStep
                 || abs(metro - self.visualizerLastDrawnMetroFlash) > flashStep
@@ -3431,6 +3456,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             playbackLitNotes: menuBand.playbackLitNotes,
             enabled: menuBand.midiMode,
             typeMode: menuBand.typeMode,
+            abcMode: menuBand.abcLayerEnabled,
             melodicProgram: menuBand.effectiveMelodicProgram,
             voiceLabel: voiceLabel,
             hovered: hoveredElement,
@@ -3582,6 +3608,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// starts at the pivot and ripples outward; fade-out starts at the
     /// outermost cell and retreats toward the pivot.
     private func letterAlpha(for midi: UInt8) -> CGFloat {
+        if menuBand.abcLayerEnabled { return 1.0 }
         if keyboardPerformanceFocusActive { return 1.0 }
         return letterAlphas[midi] ?? 0
     }
@@ -3763,6 +3790,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let (v, p) = NoteExpression.values(for: display, at: pt)
             if menuBand.isPercussionDisplayNote(display) {
                 // Shift-click accents the drum (a harder hit).
+                menuBand.playABCLayer(forDisplayNote: display)
                 currentDrumGroup = menuBand.percussionNoteOn(
                     menuBand.percussionDrum(forDisplayNote: display),
                     velocity: v, pan: p, accent: shift)
@@ -6819,6 +6847,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     enum TrackDrumSlashAction: Equatable { case trainer, help }
+
+    static func isABCToggleShortcut(
+        keyCode: UInt16,
+        flags: NSEvent.ModifierFlags
+    ) -> Bool {
+        keyCode == UInt16(kVK_Tab)
+            && flags.contains(.command)
+            && !flags.contains(.option)
+            && !flags.contains(.control)
+            && !flags.contains(.shift)
+    }
 
     static func trackDrumSlashAction(
         keyCode: UInt16,

@@ -553,6 +553,7 @@ final class CollapsedPianoWaveformView: NSView {
         qwertyMap.keymap = menuBand.keymap
         qwertyMap.voiceColor = familyColor
         qwertyMap.litKeyCodes = menuBand.heldKeyCodes()
+        qwertyMap.abcLayerEnabled = menuBand.abcLayerEnabled
         // Forward the active octave shift so out-of-MIDI-range caps
         // render dimmed — visual cue that those keys won't sound.
         qwertyMap.octaveShift = menuBand.octaveShift

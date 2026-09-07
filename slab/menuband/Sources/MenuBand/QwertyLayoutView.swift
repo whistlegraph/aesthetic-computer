@@ -11,7 +11,18 @@ final class QwertyLayoutView: NSView {
     /// controller's `heldKeyCodes` snapshot. Updating triggers a
     /// redraw.
     var litKeyCodes: Set<UInt16> = [] {
-        didSet { needsDisplay = true }
+        didSet {
+            needsDisplay = true
+            updateABCFeedbackTimer()
+        }
+    }
+    /// Speak & Spell presentation: mapped letters stay visible and a held
+    /// letter cap softly blinks while its glyph jitters.
+    var abcLayerEnabled = false {
+        didSet {
+            needsDisplay = true
+            updateABCFeedbackTimer()
+        }
     }
     /// Keymap variant — controls which key codes are colored as
     /// "note-mapped" (Notepat = 2-octave layout, Ableton = Live's
@@ -53,6 +64,7 @@ final class QwertyLayoutView: NSView {
         }
     }
     private var hoverTrackingArea: NSTrackingArea?
+    private var abcFeedbackTimer: Timer?
 
     // 5 rows of 14pt caps + 4 row gaps of 1pt = 74pt + a touch of
     // breathing room. (Was 60pt back when there were 4 rows.)
@@ -81,6 +93,10 @@ final class QwertyLayoutView: NSView {
         setFrameSize(Self.intrinsicSize)
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        abcFeedbackTimer?.invalidate()
+    }
 
     override var isFlipped: Bool { false }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -178,6 +194,10 @@ final class QwertyLayoutView: NSView {
     /// Bracket caps — percussion-half latches ([ = left, ] = right).
     /// Control keys like the octave / voice rows, never notes.
     private static let percussionKeyCodes: Set<UInt16> = [33, 30]
+    private static let alphabetKeyCodes: Set<UInt16> = [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17,
+        31, 32, 34, 35, 37, 38, 40, 45, 46,
+    ]
     private static let keySize: CGFloat = 14
     private static let keyGap: CGFloat = 1
     private static let cornerRadius: CGFloat = 2.5
@@ -212,6 +232,29 @@ final class QwertyLayoutView: NSView {
                         isOctaveKey: isOctaveKey || isVoiceKey,
                         outOfRange: outOfRange,
                         hovered: isHovered)
+        }
+    }
+
+    private func updateABCFeedbackTimer() {
+        let shouldAnimate = abcLayerEnabled
+            && !litKeyCodes.isDisjoint(with: Self.alphabetKeyCodes)
+        if shouldAnimate, abcFeedbackTimer == nil {
+            let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) {
+                [weak self] _ in
+                guard let self else { return }
+                if self.abcLayerEnabled
+                    && !self.litKeyCodes.isDisjoint(with: Self.alphabetKeyCodes) {
+                    self.needsDisplay = true
+                } else {
+                    self.abcFeedbackTimer?.invalidate()
+                    self.abcFeedbackTimer = nil
+                }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            abcFeedbackTimer = timer
+        } else if !shouldAnimate {
+            abcFeedbackTimer?.invalidate()
+            abcFeedbackTimer = nil
         }
     }
 
@@ -363,6 +406,15 @@ final class QwertyLayoutView: NSView {
                              isOctaveKey: Bool = false,
                              outOfRange: Bool = false,
                              hovered: Bool = false) {
+        let alphabetFeedback = abcLayerEnabled && lit
+            && label.count == 1 && label.first?.isLetter == true
+        let phase = CACurrentMediaTime()
+        let blink = alphabetFeedback
+            ? CGFloat(0.5 + 0.5 * sin(phase * 2 * .pi * 3.2)) : 0
+        let shakeX = alphabetFeedback
+            ? CGFloat(sin(phase * 2 * .pi * 8.0)) * 0.75 * scale : 0
+        let shakeY = alphabetFeedback
+            ? CGFloat(cos(phase * 2 * .pi * 6.0)) * 0.38 * scale : 0
         let path = NSBezierPath(roundedRect: rect,
                                  xRadius: scaledCornerRadius,
                                  yRadius: scaledCornerRadius)
@@ -386,7 +438,12 @@ final class QwertyLayoutView: NSView {
         // keys play piano keys" rather than another voice-colored
         // ornament.
         if lit {
-            NSColor.controlAccentColor.withAlphaComponent(0.85).setFill()
+            let base = NSColor.controlAccentColor
+            let fill = alphabetFeedback
+                ? (base.blended(withFraction: 0.10 + blink * 0.22,
+                                of: .white) ?? base)
+                : base
+            fill.withAlphaComponent(0.85).setFill()
             path.fill()
         } else if isOctaveKey && !mapped {
             NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
@@ -453,9 +510,12 @@ final class QwertyLayoutView: NSView {
             // mapped piano caps.
             textColor = NSColor.labelColor.withAlphaComponent(0.22)
         }
+        let feedbackTextColor = alphabetFeedback
+            ? textColor.withAlphaComponent(0.76 + blink * 0.24)
+            : textColor
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: scaledLabelFontSize, weight: .heavy),
-            .foregroundColor: textColor,
+            .foregroundColor: feedbackTextColor,
         ]
         let s = NSAttributedString(string: label, attributes: attrs)
         let size = s.size()
@@ -467,7 +527,7 @@ final class QwertyLayoutView: NSView {
             let stackedFontSize = scaledLabelFontSize * 0.78
             let stackedAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: stackedFontSize, weight: .heavy),
-                .foregroundColor: textColor,
+                .foregroundColor: feedbackTextColor,
             ]
             let stackedBase = NSAttributedString(string: label, attributes: stackedAttrs)
             let stackedAlt = NSAttributedString(string: altLabel, attributes: stackedAttrs)
@@ -486,8 +546,8 @@ final class QwertyLayoutView: NSView {
             stackedBase.draw(at: NSPoint(x: rect.midX - baseSz.width / 2,
                                           y: bottomGlyphBaselineY))
         } else {
-            s.draw(at: NSPoint(x: rect.midX - size.width / 2,
-                               y: rect.midY - size.height / 2 - 0.5))
+            s.draw(at: NSPoint(x: rect.midX - size.width / 2 + shakeX,
+                               y: rect.midY - size.height / 2 - 0.5 + shakeY))
         }
     }
 }

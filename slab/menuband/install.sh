@@ -47,6 +47,23 @@ say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }
 warn(){ printf "%s! %s%s\n" "$YELLOW" "$1" "$RESET"; }
 
+# Apple's timestamp endpoint occasionally drops a signing request even when
+# the identity and bundle are valid. Retry the network-dependent operation so
+# one transient miss cannot leave a nested extension partially signed.
+codesign_timestamped() {
+    local attempt
+    for attempt in 1 2 3; do
+        if /usr/bin/codesign "$@" 2>&1; then
+            return 0
+        fi
+        if (( attempt < 3 )); then
+            warn "timestamped signing attempt ${attempt} failed — retrying"
+            sleep 1
+        fi
+    done
+    return 1
+}
+
 source "${SCRIPT_DIR}/../bin/build-lock.sh"
 acquire_build_lock menuband
 
@@ -326,7 +343,7 @@ ENTITLEMENTS="${SCRIPT_DIR}/MenuBand.entitlements"
 #      WITHOUT --deep (the launcher is already signed, so there's no
 #      unsigned nested code to recurse into), seals the final launcher
 #      hash correctly.
-if ! codesign --force --sign "${SIGN_ID}" \
+if ! codesign_timestamped --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menubandlauncher \
     --options runtime \
     --entitlements "${ENTITLEMENTS}" \
@@ -341,12 +358,13 @@ fi
 for qlax in ScorePreview ScoreThumbnail; do
     QL_AX="${APP_DIR}/Contents/PlugIns/${qlax}.appex"
     if [[ -d "${QL_AX}" ]]; then
-        if ! codesign --force --sign "${SIGN_ID}" \
+        if ! codesign_timestamped --force --sign "${SIGN_ID}" \
             --identifier "computer.aestheticcomputer.menuband.quicklook.${qlax}" \
             --options runtime \
             --timestamp \
             "${QL_AX}" 2>&1; then
             warn "QuickLook ${qlax} sign failed"
+            exit 1
         fi
     fi
 done
@@ -355,14 +373,15 @@ done
 # nested signature.
 HELP_BUNDLE="${APP_DIR}/Contents/Resources/MenuBand.help"
 if [[ -d "${HELP_BUNDLE}" ]]; then
-    if ! codesign --force --sign "${SIGN_ID}" \
+    if ! codesign_timestamped --force --sign "${SIGN_ID}" \
         --identifier computer.aestheticcomputer.menuband.help \
         --timestamp \
         "${HELP_BUNDLE}" 2>&1; then
         warn "help book sign failed"
+        exit 1
     fi
 fi
-if ! codesign --force --sign "${SIGN_ID}" \
+if ! codesign_timestamped --force --sign "${SIGN_ID}" \
     --identifier computer.aestheticcomputer.menuband \
     --options runtime \
     --entitlements "${ENTITLEMENTS}" \
@@ -372,6 +391,12 @@ if ! codesign --force --sign "${SIGN_ID}" \
     exit 1
 fi
 ok "signed"
+
+if ! /usr/bin/codesign --verify --deep --strict --verbose=2 "${APP_DIR}" 2>&1; then
+    warn "deep signature verification failed — refusing to replace the installed app"
+    exit 1
+fi
+ok "deep signature verified"
 
 # Verify the signed bundle BEFORE launchctl load. IconTinter.swift calls
 # NSWorkspace.setIcon(forFile:) on the bundle path at startup, which

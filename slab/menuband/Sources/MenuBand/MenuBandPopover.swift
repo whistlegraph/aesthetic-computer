@@ -418,6 +418,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Unified CDJ Radio card. Direct-download builds additionally expose the
     /// Spotify source; App Store builds use the same deck for radio stations.
     private var cdjRadioView: MenuBandCDJRadioView?
+    private var abcLayerCheckbox: NSButton?
     private var inputMonitorButton: NSButton?
     /// Right-click menu on the headset button: audio input device /
     /// monitored input channel / output device. Rebuilt on every open so
@@ -1157,6 +1158,18 @@ final class MenuBandPopoverViewController: NSViewController {
         }
 #endif
 
+        let abcCheckbox = NSButton(
+            checkboxWithTitle: "ABC", target: self,
+            action: #selector(toggleABCLayer(_:))
+        )
+        abcCheckbox.controlSize = .small
+        abcCheckbox.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        abcCheckbox.state = menuBand?.abcLayerEnabled == true ? .on : .off
+        abcCheckbox.toolTip = "Layer spoken A–Z key names over the instrument"
+        abcCheckbox.setAccessibilityLabel("Spoken alphabet layer")
+        abcCheckbox.setContentHuggingPriority(.required, for: .horizontal)
+        abcLayerCheckbox = abcCheckbox
+
         let monitorButton = HoverFeedbackButton()
         monitorButton.bezelStyle = .inline
         monitorButton.isBordered = false
@@ -1175,8 +1188,8 @@ final class MenuBandPopoverViewController: NSViewController {
         monitorDeviceMenu = deviceMenu
         refreshInputMonitorButton()
 
-        // Listening tools get their own small row above the footer: disc on
-        // the left, input-monitor headset on the right, both aligned over Quit.
+        // Listening tools get their own small row above the footer. ABC sits
+        // immediately left of the Juke disc; the input monitor closes the row.
         let listeningRow = NSStackView()
         listeningRow.orientation = .horizontal
         listeningRow.alignment = .centerY
@@ -1184,6 +1197,7 @@ final class MenuBandPopoverViewController: NSViewController {
         let listeningSpacer = NSView()
         listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         listeningRow.addArrangedSubview(listeningSpacer)
+        listeningRow.addArrangedSubview(abcCheckbox)
 #if !MAC_APP_STORE
         listeningRow.addArrangedSubview(jukeButton)
 #endif
@@ -1572,6 +1586,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
+        abcLayerCheckbox?.state = n.abcLayerEnabled ? .on : .off
         midiSwitch.state = n.midiMode ? .on : .off
         midiInlineLabel?.isHidden = !n.midiMode
         refreshHeldNotes()
@@ -1593,6 +1608,7 @@ final class MenuBandPopoverViewController: NSViewController {
         let safe = max(0, min(127, Int(n.melodicProgram)))
         qwertyMap?.keymap = n.keymap
         qwertyMap?.octaveShift = n.octaveShift
+        qwertyMap?.abcLayerEnabled = n.abcLayerEnabled
         if n.midiMode {
             qwertyMap?.voiceColor = .controlAccentColor
         } else if n.instrumentBackend == .kpbj {
@@ -2654,6 +2670,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func openJuke(_ sender: Any?) {
         onJukeToggle?()
+    }
+
+    @objc private func toggleABCLayer(_ sender: NSButton) {
+        menuBand?.abcLayerEnabled = sender.state == .on
     }
 
     @objc private func toggleInputMonitoring(_ sender: Any?) {

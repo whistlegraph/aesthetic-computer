@@ -5,6 +5,8 @@ import AppKit
 /// band strikes the left circle, and so on). Keeping the clock pure makes
 /// its boundary behavior testable without audio or AppKit timers.
 struct PolyrhythmTrainerClock {
+    static let defaultBPM = 180
+
     struct Pattern: Equatable {
         let counts: [Int]
         var label: String { counts.map(String.init).joined(separator: ":") }
@@ -21,7 +23,7 @@ struct PolyrhythmTrainerClock {
     private(set) var isActive = false
     private(set) var startedAt: CFTimeInterval = 0
     private(set) var pattern: Pattern = PolyrhythmTrainerClock.patterns[0]
-    private(set) var bpm = 75
+    private(set) var bpm = PolyrhythmTrainerClock.defaultBPM
     private var lastOrdinals: [Int] = []
     private var lastPulseAt: CFTimeInterval = -.infinity
     private struct RecordedTap {
@@ -465,7 +467,7 @@ final class PolyrhythmTrainerView: NSView {
 /// Flags after `--render-polyrhythm`:
 ///   --pattern 3:2      colon-separated subdivision counts (e.g. 3:4:5)
 ///   --phase 0.25       cycle phase 0…1 (wraps; default 0.18)
-///   --bpm 85           tempo readout + needle-flash timing (default 85)
+///   --bpm 180          tempo readout + needle-flash timing (default 180)
 ///   --light | --dark   appearance (light is the default; reels use light)
 ///   --scale 4          pixel scale (default 4)
 ///   --out /path.png    output PNG (default /tmp/menuband-polyrhythm.png)
@@ -491,7 +493,10 @@ enum PolyrhythmTrainerCLI {
         }
         let rawPhase = Double(value("--phase") ?? "0.18") ?? 0.18
         let phase = rawPhase - floor(rawPhase)
-        let bpm = min(300, max(30, Int(value("--bpm") ?? "85") ?? 85))
+        let defaultBPM = PolyrhythmTrainerClock.defaultBPM
+        let bpm = min(300, max(30,
+            Int(value("--bpm") ?? String(defaultBPM)) ?? defaultBPM
+        ))
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         let dark = args.contains("--dark") && !args.contains("--light")

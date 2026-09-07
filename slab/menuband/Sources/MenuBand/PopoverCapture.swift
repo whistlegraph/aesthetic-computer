@@ -42,6 +42,7 @@ enum PopoverCLI {
         }
 
         let controller = MenuBandController()
+        controller.abcLayerEnabled = args.contains("--abc")
         // Pick a melodic GM program so the readout names a recognizable
         // instrument (defaults to 0 = Acoustic Grand Piano) instead of the
         // mic "Sample Voice" the cold controller starts on.

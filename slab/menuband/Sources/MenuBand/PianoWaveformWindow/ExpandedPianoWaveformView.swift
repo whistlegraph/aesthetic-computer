@@ -998,6 +998,7 @@ final class ExpandedPianoWaveformView: NSView {
         // is fully interactive.
         qwertyView.litKeyCodes = menuBand.heldKeyCodes()
         qwertyView.keymap = menuBand.keymap
+        qwertyView.abcLayerEnabled = menuBand.abcLayerEnabled
         let safe = max(0, min(127, Int(menuBand.effectiveMelodicProgram)))
         let familyColor = menuBand.midiMode
             ? NSColor.controlAccentColor

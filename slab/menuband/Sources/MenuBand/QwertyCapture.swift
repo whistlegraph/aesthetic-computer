@@ -29,6 +29,7 @@ enum QwertyCLI {
         view.scale = 4
         view.keymap = controller.keymap
         view.litKeyCodes = controller.heldKeyCodes()
+        view.abcLayerEnabled = args.contains("--abc")
         view.voiceColor = InstrumentListView.colorForProgram(Int(controller.effectiveMelodicProgram))
         view.frame = NSRect(origin: .zero, size: view.intrinsicContentSize)
         view.layoutSubtreeIfNeeded()

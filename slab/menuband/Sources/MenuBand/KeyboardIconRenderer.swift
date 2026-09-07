@@ -113,6 +113,20 @@ enum KeyboardIconRenderer {
         return (dx, dy, blink)
     }
 
+    /// Continuous, low-amplitude positive feedback for a held ABC key. The
+    /// keycap stays registered in place while its letter jitters; `blink`
+    /// softly brightens both the cap and glyph.
+    static func abcVibe(forMidi m: Int, active: Bool, held: Bool,
+                        phase: CFTimeInterval)
+        -> (dx: CGFloat, dy: CGFloat, blink: CGFloat) {
+        guard active, held else { return (0, 0, 0) }
+        let seed = Double(m) * 0.71
+        let dx = CGFloat(sin(phase * 2 * .pi * 8.0 + seed)) * 0.75
+        let dy = CGFloat(cos(phase * 2 * .pi * 6.0 + seed)) * 0.38
+        let blink = CGFloat(0.5 + 0.5 * sin(phase * 2 * .pi * 3.2 + seed))
+        return (dx, dy, blink)
+    }
+
     /// Rotation (radians) for the menubar music-note glyph, derived from
     /// the most recent percussion hit across ALL drum pads — a damped
     /// left/right wobble that rings down over ~0.4 s so the icon visibly
@@ -637,11 +651,26 @@ enum KeyboardIconRenderer {
     ]
 
     static var labelByMidi: [Int: String] {
-        switch activeKeymap {
+        labelByMidi(for: activeKeymap)
+    }
+
+    static func labelByMidi(for keymap: Keymap) -> [Int: String] {
+        switch keymap {
         case .notepat: return labelByMidiNotepat
         case .ableton: return labelByMidiAbleton
         case .milkyTracker: return labelByMidiMilkyTracker
         }
+    }
+
+    static func letter(forMidi midi: UInt8, keymap: Keymap) -> String? {
+        guard let label = labelByMidi(for: keymap)[Int(midi)],
+              label.count == 1,
+              label.unicodeScalars.allSatisfy({
+                (65...90).contains(Int($0.value))
+                    || (97...122).contains(Int($0.value))
+              })
+        else { return nil }
+        return label.uppercased()
     }
 
     @inline(__always)
@@ -862,6 +891,7 @@ enum KeyboardIconRenderer {
                       playbackLitNotes: Set<UInt8> = [],
                       enabled: Bool,
                       typeMode: Bool = false,
+                      abcMode: Bool = false,
                       melodicProgram: UInt8 = 0,
                       voiceLabel: String? = nil,
                       hovered: HitResult? = nil,
@@ -902,6 +932,7 @@ enum KeyboardIconRenderer {
 
             let countIn = includeSettings ? countInProgress : nil
             let countInPhase = CACurrentMediaTime()
+            let abcPhase = countInPhase
 
             // 🔴 REC dot — fixed slot at the far left, before the piano.
             // Solid red when idle; a blinking dot + elapsed timer while
@@ -1041,6 +1072,8 @@ enum KeyboardIconRenderer {
                         : Self.countInShake(for: m, phase: countInPhase)
                     let rect = baseRect.offsetBy(dx: shake.x, dy: shake.y)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let abc = Self.abcVibe(forMidi: m, active: abcMode,
+                                           held: isLit, phase: abcPhase)
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let isLeftmost = !sliding && (m == leftmostMidi)
@@ -1066,7 +1099,11 @@ enum KeyboardIconRenderer {
                         // — the rainbow stripe stays hidden while the
                         // key's down so the press reads as a single
                         // saturated event, not a stripe-grow animation.
-                        lit(m).setFill()
+                        let pressed = abcMode
+                            ? (lit(m).blended(withFraction: 0.10 + abc.blink * 0.22,
+                                             of: .white) ?? lit(m))
+                            : lit(m)
+                        pressed.setFill()
                         path.fill()
                     } else {
                         NSGradient(starting: whiteHi, ending: whiteLo)!.draw(in: path, angle: -90)
@@ -1179,6 +1216,8 @@ enum KeyboardIconRenderer {
                         let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {
+                            a = abcMode ? 0.76 + abc.blink * 0.24 : 1.0
+                        } else if abcMode {
                             a = 1.0
                         } else if let closure = letterAlpha {
                             a = closure(UInt8(m))
@@ -1191,7 +1230,8 @@ enum KeyboardIconRenderer {
                             // them, so the letter reads on the colored
                             // band rather than floating above it. The
                             // percussion buzz shakes ONLY the letter rect.
-                            let labelRect = rect.offsetBy(dx: vibe.dx, dy: vibe.dy)
+                            let labelRect = rect.offsetBy(
+                                dx: vibe.dx + abc.dx, dy: vibe.dy + abc.dy)
                             drawWhiteLabel(display, in: labelRect, lit: isLit, alpha: a,
                                            chroma: Self.chromaticColorByPitchClass[m % 12],
                                            uppercase: Self.uppercaseForMidi(m))
@@ -1212,6 +1252,8 @@ enum KeyboardIconRenderer {
                         : Self.countInShake(for: m, phase: countInPhase)
                     let rect = baseRect.offsetBy(dx: shake.x, dy: shake.y)
                     let isLit = tileOffset == 0 && litNotes.contains(UInt8(m))
+                    let abc = Self.abcVibe(forMidi: m, active: abcMode,
+                                           held: isLit, phase: abcPhase)
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
@@ -1248,6 +1290,10 @@ enum KeyboardIconRenderer {
                     } else {
                         NSGradient(starting: blackHi, ending: blackLo)!.draw(in: path, angle: -90)
                     }
+                    if isLit && abcMode {
+                        NSColor.white.withAlphaComponent(0.06 + abc.blink * 0.16).setFill()
+                        path.fill()
+                    }
                     if countIn == nil && isHover && !isLit {
                         NSColor.white.withAlphaComponent(0.20).setFill()
                         path.fill()
@@ -1279,6 +1325,8 @@ enum KeyboardIconRenderer {
                         let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {
+                            a = abcMode ? 0.76 + abc.blink * 0.24 : 1.0
+                        } else if abcMode {
                             a = 1.0
                         } else if let closure = letterAlpha {
                             a = closure(UInt8(m))
@@ -1287,7 +1335,8 @@ enum KeyboardIconRenderer {
                         }
                         if a > 0.01 {
                             // Percussion buzz shakes only the letter rect.
-                            let labelRect = rect.offsetBy(dx: vibe.dx, dy: vibe.dy)
+                            let labelRect = rect.offsetBy(
+                                dx: vibe.dx + abc.dx, dy: vibe.dy + abc.dy)
                             drawBlackLabel(display, in: labelRect, lit: isLit, alpha: a)
                         }
                     }

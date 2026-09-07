@@ -117,6 +117,23 @@ verify_app() {
         ok "all 129 Jeffrey voice-number clips present"
     fi
 
+    # ABC is a zero-latency performance path: every Fred letter must be in the
+    # signed bundle because runtime synthesis would make the first press late.
+    local missing_letters=0
+    local letter
+    for letter in {A..Z}; do
+        if [[ ! -f "$RES_DIR/abc-$letter.aiff" ]]; then
+            err "  missing Fred alphabet clip: abc-$letter.aiff"
+            missing_letters=$((missing_letters + 1))
+        fi
+    done
+    if (( missing_letters > 0 )); then
+        err "$missing_letters Fred alphabet clip(s) absent"
+        FAIL=1
+    else
+        ok "all 26 zero-latency Fred alphabet clips present"
+    fi
+
     # Scan the binary for hardcoded developer paths. We only care about
     # paths the runtime might dereference — DWARF debug-info source paths
     # are cosmetic and stripped by install.sh's `strip -S` step anyway.

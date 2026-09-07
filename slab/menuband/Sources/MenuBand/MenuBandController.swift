@@ -209,6 +209,7 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let abcLayerKey = "notepat.abcLayer"
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let percussionVolumeKey = "notepat.percussionVolume"
@@ -820,6 +821,16 @@ final class MenuBandController {
         }
     }
 
+    /// Optional Speak & Spell-style layer. The selected instrument remains
+    /// untouched; each played A–Z key adds its spoken key-cap letter on top.
+    var abcLayerEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: abcLayerKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: abcLayerKey)
+            onChange?()
+        }
+    }
+
     var octaveShift: Int {
         get { UserDefaults.standard.integer(forKey: octaveShiftKey) }
         set {
@@ -1281,6 +1292,37 @@ final class MenuBandController {
     /// name picks up whatever bend/space/echo the last gesture left on.
     func speakLanguageName(_ text: String, languageCode: String) {
         synth.speak(text, languageCode: languageCode)
+    }
+
+    /// Secondary alphabet voice used by the popover's ABC checkbox.
+    private func playABCLayer(forKeyCode keyCode: UInt16) {
+        guard abcLayerEnabled,
+              let letter = Self.spokenABCLetter(forKeyCode: keyCode)
+        else { return }
+        if Thread.isMainThread {
+            synth.speakLetter(letter)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.synth.speakLetter(letter)
+            }
+        }
+    }
+
+    /// Piano clicks do not carry a hardware key code. Resolve the printed
+    /// letter from the visible note under the active keymap so a pointer press
+    /// spells the exact same label the user sees on that key.
+    func playABCLayer(forDisplayNote displayNote: UInt8) {
+        guard abcLayerEnabled,
+              let letter = KeyboardIconRenderer.letter(
+                forMidi: displayNote, keymap: keymap)
+        else { return }
+        if Thread.isMainThread {
+            synth.speakLetter(letter)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.synth.speakLetter(letter)
+            }
+        }
     }
 
     /// One random drum hit for the About-window card-flip easter egg.
@@ -2554,6 +2596,7 @@ final class MenuBandController {
         tapHeld.insert(midiNote)
         let visualNote = displayNote ?? midiNote
         tapDisplayNote[midiNote] = visualNote
+        playABCLayer(forDisplayNote: visualNote)
         if linger { tapLinger[midiNote] = velocity }
         // Tapped notes are always melodic — they originate from the piano
         // UI and get octave-shifted by the caller. Never route to channel 9
@@ -3226,6 +3269,12 @@ final class MenuBandController {
         }
     }
 
+    /// Uppercase letter printed on an ANSI hardware key cap. Internal so the
+    /// alphabet layer's complete A–Z mapping stays covered by unit tests.
+    static func spokenABCLetter(forKeyCode keyCode: UInt16) -> String? {
+        letterForKeyCode(keyCode).map { String($0).uppercased() }
+    }
+
     /// Map a hardware key code to the digit on its key cap, or nil for
     /// non-digit keys. Covers the top number row only — keypad digits
     /// have separate codes and are intentionally skipped (most laptops
@@ -3356,6 +3405,7 @@ final class MenuBandController {
                 // ⌘s → Save) or insert an Option-glyph (⌥a → å). Only the
                 // first down triggers the chord.
                 if !isRepeat {
+                    playABCLayer(forKeyCode: keyCode)
                     // Root into `heldNotes` (so it stays put through morphs and
                     // the key-up releases it), then layer the chord extensions
                     // on top — the exact structure a held note morphs into.
@@ -3757,6 +3807,7 @@ final class MenuBandController {
            let semi = MenuBandLayout.semitone(forKeyCode: keyCode, keymap: keymap) {
             if isDown {
                 if !isRepeat {
+                    playABCLayer(forKeyCode: keyCode)
                     let drum = MenuBandPercussion.Drum.forPitchClass(semi % 12)
                     let pan = MenuBandLayout.panForKeyCode(keyCode)
                     // Shift (the linger arm) ACCENTS the drum — a harder,
@@ -3789,6 +3840,7 @@ final class MenuBandController {
                 // through to the focused app.
                 return true
             }
+            playABCLayer(forKeyCode: keyCode)
             // Match the menubar-tap path's voice allocation: round-robin
             // across 8 melodic channels so rapid retriggers don't stomp
             // each other on channel 0. Without this, keyboard play sounds

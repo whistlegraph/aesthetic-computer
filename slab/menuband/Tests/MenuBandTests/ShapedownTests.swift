@@ -470,15 +470,16 @@ final class ShapedownTests: XCTestCase {
 
     func testPolyrhythmClockStartsTogetherAndDividesOneCycleThreeAgainstTwo() {
         var clock = PolyrhythmTrainerClock()
+        XCTAssertEqual(clock.bpm, 180)
         clock.start(at: 10)
         XCTAssertEqual(clock.tick(at: 10), [0, 1])
         XCTAssertEqual(clock.snapshot(at: 10)!.needleFlash, 1)
         XCTAssertEqual(clock.snapshot(at: 10.12)!.needleFlash, 0, accuracy: 0.000_001)
-        XCTAssertEqual(clock.tick(at: 10.79), [])
-        XCTAssertEqual(clock.tick(at: 10.81), [0])
-        XCTAssertEqual(clock.tick(at: 11.21), [1])
-        XCTAssertEqual(clock.tick(at: 11.61), [0])
-        XCTAssertEqual(clock.tick(at: 12.41), [0, 1])
+        XCTAssertEqual(clock.tick(at: 10.32), [])
+        XCTAssertEqual(clock.tick(at: 10.34), [0])
+        XCTAssertEqual(clock.tick(at: 10.51), [1])
+        XCTAssertEqual(clock.tick(at: 10.67), [0])
+        XCTAssertEqual(clock.tick(at: 11.01), [0, 1])
     }
 
     func testSlashCyclesFourPatternsThenTurnsTrainerOff() {
@@ -572,14 +573,53 @@ final class ShapedownTests: XCTestCase {
         XCTAssertNil(AppDelegate.trackDrumEntryDigit(keyCode: 44, flags: []))
     }
 
+    func testABCLayerCoversEveryANSIAlphabetKeyOnce() {
+        let letterKeyCodes: [UInt16] = [
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13,
+            14, 15, 16, 17, 31, 32, 34, 35, 37, 38, 40, 45, 46,
+        ]
+        let letters = letterKeyCodes.compactMap {
+            MenuBandController.spokenABCLetter(forKeyCode: $0)
+        }
+        XCTAssertEqual(Set(letters), Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ".map(String.init)))
+        XCTAssertEqual(letters.count, 26)
+        XCTAssertEqual(MenuBandController.spokenABCLetter(forKeyCode: 5), "G")
+        XCTAssertNil(MenuBandController.spokenABCLetter(forKeyCode: 49))
+    }
+
+    func testABCPianoClicksSpeakTheirVisibleLetter() {
+        XCTAssertEqual(KeyboardIconRenderer.letter(
+            forMidi: 67, keymap: .notepat), "G")
+        XCTAssertEqual(KeyboardIconRenderer.letter(
+            forMidi: 67, keymap: .ableton), "G")
+        XCTAssertEqual(KeyboardIconRenderer.letter(
+            forMidi: 67, keymap: .milkyTracker), "B")
+        XCTAssertNil(KeyboardIconRenderer.letter(
+            forMidi: 84, keymap: .notepat))
+    }
+
+    func testCommandTabIsOnlyTheExactABCToggleChord() {
+        XCTAssertTrue(AppDelegate.isABCToggleShortcut(
+            keyCode: 48, flags: [.command]))
+        XCTAssertFalse(AppDelegate.isABCToggleShortcut(
+            keyCode: 48, flags: []))
+        XCTAssertFalse(AppDelegate.isABCToggleShortcut(
+            keyCode: 48, flags: [.command, .shift]))
+        XCTAssertFalse(AppDelegate.isABCToggleShortcut(
+            keyCode: 0, flags: [.command]))
+    }
+
     func testBpmReadoutPulsesOnPrimaryBeats() {
         XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
-            phase: 0, primaryCount: 3, bpm: 75), 1, accuracy: 0.000_001)
+            phase: 0, primaryCount: 3,
+            bpm: PolyrhythmTrainerClock.defaultBPM), 1, accuracy: 0.000_001)
         XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
-            phase: 0.5, primaryCount: 4, bpm: 75), 1, accuracy: 0.000_001)
-        // Mid-beat (0.4 s after the strike at 75 bpm) the flash is out.
+            phase: 0.5, primaryCount: 4,
+            bpm: PolyrhythmTrainerClock.defaultBPM), 1, accuracy: 0.000_001)
+        // Mid-beat (0.167 s after the strike at 180 bpm) the flash is out.
         XCTAssertEqual(PolyrhythmTrainerClock.bpmPulse(
-            phase: 0.5 / 3.0, primaryCount: 3, bpm: 75), 0, accuracy: 0.000_001)
+            phase: 0.5 / 3.0, primaryCount: 3,
+            bpm: PolyrhythmTrainerClock.defaultBPM), 0, accuracy: 0.000_001)
     }
 
     func testThreeRhythmPatternTicksEveryCircleAtCycleStart() {
@@ -587,10 +627,10 @@ final class ShapedownTests: XCTestCase {
         for step in 1...4 { clock.cyclePattern(at: CFTimeInterval(step)) }
         XCTAssertEqual(clock.pattern.label, "3:4:5")
         XCTAssertEqual(clock.tick(at: 4), [0, 1, 2])
-        // 75 bpm × 3 primary beats = 2.4 s cycle; the 5-circle subdivides
-        // it every 0.48 s.
-        XCTAssertEqual(clock.tick(at: 4.47), [])
-        XCTAssertEqual(clock.tick(at: 4.49), [2])
+        // 180 bpm × 3 primary beats = 1 s cycle; the 5-circle subdivides
+        // it every 0.2 s.
+        XCTAssertEqual(clock.tick(at: 4.19), [])
+        XCTAssertEqual(clock.tick(at: 4.21), [2])
     }
 
     func testPolyrhythmRateStepsByFiveAndKeepsPhase() {
@@ -598,20 +638,21 @@ final class ShapedownTests: XCTestCase {
         clock.start(at: 10)
         let before = clock.snapshot(at: 10.6)!.phase
         clock.changeRate(by: 5, at: 10.6)
-        XCTAssertEqual(clock.bpm, 80)
+        XCTAssertEqual(clock.bpm, 185)
         XCTAssertEqual(clock.snapshot(at: 10.6)!.phase, before, accuracy: 0.000_001)
         clock.changeRate(by: 500, at: 10.6)
         XCTAssertEqual(clock.bpm, 300)
     }
 
     func testTrackpadBandRoutesTapToItsOwnCircle() {
-        // 75 bpm 3:2 → 2.4 s cycle. 10.8 is exactly the 3-circle's second
-        // beat but lands a third of the way between the 2-circle's beats.
+        // 180 bpm 3:2 → 1 s cycle. 10⅓ is exactly on the 3-circle grid
+        // but lands a third of the way between the 2-circle's beats.
         var clock = PolyrhythmTrainerClock()
         clock.start(at: 10)
-        clock.registerTap(at: 10.8, normalizedX: 0.1)
-        clock.registerTap(at: 10.8, normalizedX: 0.9)
-        let feedback = clock.snapshot(at: 10.8)!.tapFeedback
+        let strikeAt = 10.0 + 1.0 / 3.0
+        clock.registerTap(at: strikeAt, normalizedX: 0.1)
+        clock.registerTap(at: strikeAt, normalizedX: 0.9)
+        let feedback = clock.snapshot(at: strikeAt)!.tapFeedback
         XCTAssertEqual(feedback.count, 2)
         XCTAssertEqual(feedback[0].rhythmIndex, 0)
         XCTAssertGreaterThan(feedback[0].accuracy, 0.95)
@@ -640,8 +681,8 @@ final class ShapedownTests: XCTestCase {
     func testPositionlessTapFallsBackToNearestGrid() {
         var clock = PolyrhythmTrainerClock()
         clock.start(at: 10)
-        clock.registerTap(at: 10.82)
-        let feedback = clock.snapshot(at: 10.82)!.tapFeedback
+        clock.registerTap(at: 10.34)
+        let feedback = clock.snapshot(at: 10.34)!.tapFeedback
         XCTAssertEqual(feedback.count, 1)
         XCTAssertEqual(feedback[0].rhythmIndex, 0)
         XCTAssertGreaterThan(feedback[0].accuracy, 0.9)

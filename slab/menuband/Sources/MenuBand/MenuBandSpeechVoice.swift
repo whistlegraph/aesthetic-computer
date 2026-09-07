@@ -39,9 +39,16 @@ final class MenuBandSpeechVoice {
     /// Reused converter; rebuilt if the synthesizer's output format changes.
     private var converter: AVAudioConverter?
     private var converterInputFormat: AVAudioFormat?
+    /// Invalidates late buffers from an utterance superseded by a newer key.
+    /// ABC is intentionally monophonic, like the original learning toy.
+    private var utteranceGeneration = 0
     /// Bundled, pre-rendered Jeffrey ElevenLabs clips for every selectable
     /// voice number (0...128). Loaded off the interaction path at startup.
     private var numberSamples: [Int: AVAudioPCMBuffer] = [:]
+    /// Fred's A-Z bank is decoded synchronously while the audio graph attaches.
+    /// `spell` therefore does no synthesis, file I/O, or conversion on key-down:
+    /// even the first press only schedules an already-resident PCM buffer.
+    private var alphabetSamples: [String: AVAudioPCMBuffer] = [:]
 
     func attach(to engine: AVAudioEngine, output: AVAudioNode,
                 dryOutput: AVAudioNode) {
@@ -60,9 +67,44 @@ final class MenuBandSpeechVoice {
         engine.connect(mixer, to: output, format: nil)
         mixer.outputVolume = 1.0
         numberPlayer.volume = 1.0
+        prepareAlphabetSamples()
         attached = true
         prewarm()
         prepareNumberSamples()
+    }
+
+    /// Load the tiny A-Z bank before `attach` returns. This intentionally adds
+    /// a small amount of launch work so ABC never has a lazy first-key penalty.
+    private func prepareAlphabetSamples() {
+        var loaded: [String: AVAudioPCMBuffer] = [:]
+        for scalar in UnicodeScalar("A").value...UnicodeScalar("Z").value {
+            guard let unicode = UnicodeScalar(scalar) else { continue }
+            let letter = String(Character(unicode))
+            let resource = "abc-\(letter)"
+            // SwiftPM flattens resources in the signed app; development
+            // bundles may retain the source subdirectory. Accept both.
+            let url = Bundle.appResources.url(
+                forResource: resource, withExtension: "aiff",
+                subdirectory: "voice-letters"
+            ) ?? Bundle.appResources.url(
+                forResource: resource, withExtension: "aiff"
+            )
+            guard let url,
+                  let file = try? AVAudioFile(forReading: url),
+                  let source = AVAudioPCMBuffer(
+                    pcmFormat: file.processingFormat,
+                    frameCapacity: AVAudioFrameCount(file.length)
+                  )
+            else { continue }
+            do { try file.read(into: source) } catch { continue }
+            guard let converted = Self.convertedBuffer(source, to: renderFormat),
+                  let trimmed = trimmingLeadingSilence(converted)
+            else { continue }
+            loaded[letter] = trimmed
+        }
+        alphabetSamples = loaded
+        NSLog("MenuBand: preloaded %d zero-latency Fred alphabet clips",
+              loaded.count)
     }
 
     /// Prime AVSpeech's renderer while the rest of Menu Band is starting.
@@ -166,17 +208,53 @@ final class MenuBandSpeechVoice {
     /// routed through the engine's effect chain. Cuts off any in-flight
     /// phrase so rapid clicks don't pile up.
     func say(_ text: String, languageCode: String) {
+        render(text, languageCode: languageCode, rateMultiplier: 0.92,
+               pitchMultiplier: 1)
+    }
+
+    /// Short, deliberate alphabet articulation inspired by the classic
+    /// Speak & Spell. It uses the existing effects bus as a secondary layer;
+    /// the player's selected musical voice continues independently. Every
+    /// letter is already decoded, so the first key and every later key take
+    /// the same buffer-scheduling path.
+    func spell(_ letter: String) {
+        let key = letter.uppercased()
+        guard attached, let buffer = alphabetSamples[key] else {
+            NSLog("MenuBand: missing preloaded ABC clip for %@", key)
+            return
+        }
+        utteranceGeneration += 1
+        _ = synthesizer.stopSpeaking(at: .immediate)
+        player.stop()
+        player.scheduleBuffer(buffer, completionHandler: nil)
+        if let engine, !engine.isRunning { try? engine.start() }
+        player.play()
+    }
+
+    private func render(_ text: String, languageCode: String,
+                        rateMultiplier: Float, pitchMultiplier: Float,
+                        voice: AVSpeechSynthesisVoice? = nil) {
         guard attached else { return }
         player.stop()
+        utteranceGeneration += 1
+        let generation = utteranceGeneration
+        _ = synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = Self.bestVoice(for: languageCode)
-        // A touch slower than default so the fx have something to chew on.
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.92
+        // Fred is the built-in classic Mac voice closest to the clipped,
+        // electronic learning-toy character. Other speech keeps its native
+        // language voice, and Macs without Fred fall back to English.
+        utterance.voice = voice ?? Self.bestVoice(for: languageCode)
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * rateMultiplier
+        utterance.pitchMultiplier = pitchMultiplier
         synthesizer.write(utterance) { [weak self] buffer in
             guard let self = self,
                   let pcm = buffer as? AVAudioPCMBuffer,
                   pcm.frameLength > 0 else { return }
-            DispatchQueue.main.async { self.schedule(pcm) }
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self,
+                      self.utteranceGeneration == generation else { return }
+                self.schedule(pcm)
+            }
         }
     }
 

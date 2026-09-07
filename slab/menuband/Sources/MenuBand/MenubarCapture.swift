@@ -76,7 +76,8 @@ enum MenubarCLI {
         // can sit centered in a promo frame without the chip pulling its
         // visual weight to one side.
         let img = KeyboardIconRenderer.image(
-            litNotes: notes, enabled: args.contains("--midi"), melodicProgram: program,
+            litNotes: notes, enabled: args.contains("--midi"),
+            abcMode: args.contains("--abc"), melodicProgram: program,
             voiceLabel: voice, includeSettings: !args.contains("--no-settings"),
             layout: .fixedCanvas)
 

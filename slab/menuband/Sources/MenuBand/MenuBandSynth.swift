@@ -1045,6 +1045,11 @@ final class MenuBandSynth {
         speechVoice.say(text, languageCode: languageCode)
     }
 
+    /// Speak one key-cap letter without replacing the active instrument.
+    func speakLetter(_ letter: String) {
+        speechVoice.spell(letter)
+    }
+
     /// Debounced number-row feedback from the bundled Jeffrey voice bank.
     func playSpokenNumber(_ number: Int) {
         speechVoice.playNumber(number)
