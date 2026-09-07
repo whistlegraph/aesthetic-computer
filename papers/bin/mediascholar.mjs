@@ -303,7 +303,9 @@ async function invokeClaude({ config, stage, prompt, schemaPath, worktree, runDi
   const configPath = join(runDir, `${stage}-mcp.json`);
   await writeJson(configPath, stage === "paper" ? mcpConfig(worktree) : { mcpServers: {} });
   args.push("--mcp-config", configPath, "--strict-mcp-config");
-  args.push(prompt);
+  // Older CLIs accept --json-schema yet never emit structured_output; the
+  // runs then end in prose or markdown. Demand the shape in the prompt too.
+  args.push(`${prompt}\n\nYour final message must be exactly one JSON object matching the provided output schema — no prose, no markdown headings, no code fences around it.`);
   const log = await runLogged(config.claudeBin, args, {
     cwd: worktree,
     env,
