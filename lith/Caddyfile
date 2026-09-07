@@ -475,7 +475,15 @@
     }
 
     # --- sotce.net ---
-    @sotce host sotce.net www.sotce.net
+    # www → apex, 308 so a stray POST keeps its method. One canonical origin:
+    # Auth0's callback/logout allowlists, the push service worker, and
+    # localStorage all key on it. (Netlify used to do this; lith must.)
+    @sotcewww host www.sotce.net
+    handle @sotcewww {
+        redir https://sotce.net{uri} 308
+    }
+
+    @sotce host sotce.net
     handle @sotce {
         handle /api/* {
             import lith_proxy

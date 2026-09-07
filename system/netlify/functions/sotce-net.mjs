@@ -192,7 +192,13 @@ export const handler = async (event, context) => {
     ? "/assets/sotce-net/"
     : "https://assets.aesthetic.computer/sotce-net/";
 
-  const baseHost = event.headers["host"] || "localhost";
+  // Auth0's callback/logout allowlists hold the apex only, so a request that
+  // arrives on the www host must not leak "www." into HOST (Caddy 308s www
+  // to the apex before this normally matters).
+  const baseHost = (event.headers["host"] || "localhost").replace(
+    /^www\./,
+    "",
+  );
   const HOST = dev ? `https://${baseHost}/sotce-net` : `https://${baseHost}`;
 
   // 👑 Admin emails that get subscriber access without Stripe
@@ -4831,44 +4837,6 @@ export const handler = async (event, context) => {
                   h2.innerText =
                     "Your subscription ends on " + subscription.until + ".";
                   buttons.push(genSubscribeButton("resubscribe"));
-                }
-
-                // 🔔 Notifications toggle — new pages, answered questions,
-                // and chat messages arrive as web notifications.
-                if (pushSupported()) {
-                  const nb = cel("button");
-                  nb.id = "notifications-toggle";
-                  nb.innerText = "notifications";
-                  notificationsOn().then(function (on) {
-                    nb.innerText = on
-                      ? "notifications: on"
-                      : "notifications: off";
-                  });
-                  nb.onclick = async function () {
-                    if (nb.disabled) return;
-                    nb.disabled = true;
-                    try {
-                      if (await notificationsOn()) {
-                        await disableNotifications();
-                        nb.innerText = "notifications: off";
-                      } else {
-                        const ok = await enableNotifications();
-                        nb.innerText = ok
-                          ? "notifications: on"
-                          : "notifications: off";
-                        if (!ok && Notification.permission === "denied") {
-                          alert(
-                            "🔕 Notifications are blocked for this site in your browser settings.",
-                          );
-                        }
-                      }
-                    } catch (err) {
-                      console.error("🔔 Notification toggle error:", err);
-                      nb.innerText = "notifications: off";
-                    }
-                    nb.disabled = false;
-                  };
-                  buttons.push(nb);
                 }
 
                 curtain.classList.add("hidden");
@@ -10465,6 +10433,11 @@ export const handler = async (event, context) => {
             window.cancel = cancel;
             window.signup = signup;
             window.resend = resend;
+            // 🔔 No visible toggle yet — push opt-in waits for a home that
+            // isn't the gate. Reachable from the console meanwhile.
+            window.notificationsOn = notificationsOn;
+            window.enableNotifications = enableNotifications;
+            window.disableNotifications = disableNotifications;
           </script>
         </body>
       </html>
