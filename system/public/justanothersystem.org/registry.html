@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registry — Jeffrey Alan Scudder</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="https://aesthetic.computer/favicon.ico">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+    :root { --bg:#000; --fg:#f0f0f0; --dim:#666; --pink:#ff4ca8; --blank:#553; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'IBM Plex Mono',monospace; background:var(--bg); color:var(--fg);
+           padding:2rem 1rem 6rem; max-width:1100px; margin:0 auto; }
+    h1 { font-size:1rem; font-weight:500; margin-bottom:.25rem; }
+    .sub { color:var(--dim); font-size:.75rem; margin-bottom:2rem; }
+    .work { border-top:1px solid #222; padding:1.25rem 0; display:flex; gap:1rem; flex-wrap:wrap; }
+    .pics { display:flex; gap:.5rem; flex-wrap:wrap; }
+    .pics img { height:180px; width:auto; display:block; background:#111; }
+    .meta { flex:1; min-width:260px; font-size:.8rem; line-height:1.7; }
+    .id { color:var(--pink); }
+    .blank { color:var(--blank); font-style:italic; }
+    .note { color:var(--dim); font-size:.7rem; margin-top:.35rem; max-width:40ch; }
+    .ctx { color:var(--dim); font-size:.75rem; border-top:1px solid #222; padding:1rem 0; }
+    .count { color:var(--dim); }
+  </style>
+</head>
+<body>
+  <h1>Object registry</h1>
+  <div class="sub" id="summary">loading registry.json…</div>
+  <div id="works"></div>
+  <div id="context"></div>
+  <script>
+    const CDN = 'https://assets.aesthetic.computer/justanothersystem/slideshow/';
+    const field = (label, value) => `${label}: ` +
+      (value && (!Array.isArray(value) || value.length)
+        ? `<span>${Array.isArray(value) ? value.map(e => `${e.venue}, ${e.city} (${e.dates})`).join('; ') : value}</span>`
+        : `<span class="blank">—</span>`);
+    fetch('registry.json').then(r => r.json()).then(reg => {
+      const works = reg.works;
+      const filled = works.filter(w => w.title && w.medium && w.dimensions).length;
+      document.getElementById('summary').textContent =
+        `${works.length} works · ${reg.photos.length} photos · ${filled} fully documented · generated ${reg.generated}`;
+      document.getElementById('works').innerHTML = works.map(w => `
+        <div class="work">
+          <div class="pics">${w.photos.map(f =>
+            `<a href="${CDN}${f}" target="_blank" rel="noopener"><img loading="lazy" src="${CDN}${f}" alt="${w.title || 'untitled painting, ' + (w.documentedPlaces || []).join(' / ')}"></a>`).join('')}
+          </div>
+          <div class="meta">
+            <div class="id">${w.id}</div>
+            ${field('title', w.title)}<br>
+            ${field('year', w.year)}<br>
+            ${field('medium', w.medium)}<br>
+            ${field('dimensions', w.dimensions)}<br>
+            ${field('status', w.status === 'unknown' ? null : w.status)}<br>
+            ${field('exhibitions', w.exhibitions)}<br>
+            <span class="count">documented ${w.documentedFrom || '—'} · ${(w.documentedPlaces || []).join(' / ') || '—'}</span>
+            ${w.cluster ? `<div class="note">cluster (${w.cluster.confidence || '?'}): ${w.cluster.note || ''}</div>` : ''}
+          </div>
+        </div>`).join('');
+      const ctx = reg.photos.filter(p => p.context);
+      document.getElementById('context').innerHTML = ctx.length
+        ? `<div class="ctx">context photos, not works: ${ctx.map(p => p.file + ' — ' + p.context).join(' · ')}</div>` : '';
+    }).catch(e => { document.getElementById('summary').textContent = 'failed to load registry.json: ' + e; });
+  </script>
+</body>
+</html>
