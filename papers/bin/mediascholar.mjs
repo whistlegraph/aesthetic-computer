@@ -237,13 +237,41 @@ async function runLogged(command, args, options) {
   }
 }
 
+// The provider does not always land its answer as bare JSON: a run that ends
+// with "I have gathered… ```json {…}``` …sources" is a success whose record
+// is buried in prose. Dig it out rather than fail the whole run on it.
+function coerceJson(text) {
+  const raw = String(text ?? "").trim();
+  try { return JSON.parse(raw); } catch {}
+  const fence = /```(?:json)?\s*\n([\s\S]*?)\n\s*```/g;
+  for (let match; (match = fence.exec(raw)); ) {
+    try { return JSON.parse(match[1]); } catch {}
+  }
+  for (let start = raw.indexOf("{"); start !== -1; start = raw.indexOf("{", start + 1)) {
+    let depth = 0, inString = false, escaped = false;
+    for (let i = start; i < raw.length; i++) {
+      const ch = raw[i];
+      if (escaped) { escaped = false; continue; }
+      if (ch === "\\") { escaped = inString; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === "{") depth++;
+      else if (ch === "}" && --depth === 0) {
+        try { return JSON.parse(raw.slice(start, i + 1)); } catch {}
+        break;
+      }
+    }
+  }
+  throw new Error(`no JSON object found in provider output: ${raw.slice(0, 200)}…`);
+}
+
 function parseClaudeResult(stdout) {
   const envelope = JSON.parse(stdout);
   if (envelope.structured_output && typeof envelope.structured_output === "object") {
     return { value: envelope.structured_output, model: envelope.model || null, usage: envelope.usage || null };
   }
   const raw = typeof envelope.result === "string" ? envelope.result : JSON.stringify(envelope.result ?? envelope);
-  return { value: JSON.parse(raw), model: envelope.model || null, usage: envelope.usage || null };
+  return { value: coerceJson(raw), model: envelope.model || null, usage: envelope.usage || null };
 }
 
 function mcpConfig(worktree) {
@@ -316,7 +344,7 @@ async function invokeCodex({ config, stage, prompt, schemaPath, worktree, runDir
     stdoutPath: join(runDir, `${stage}.events.jsonl`),
     stderrPath: join(runDir, `${stage}.stderr.log`),
   });
-  const value = JSON.parse(await readFile(outputPath, "utf8"));
+  const value = coerceJson(await readFile(outputPath, "utf8"));
   let model = null;
   let usage = null;
   for (const line of log.stdout.split("\n").filter(Boolean)) {
