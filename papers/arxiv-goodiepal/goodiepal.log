@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  15 MAY 2026 18:31
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  13 AUG 2026 20:50
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1525,6 +1525,8 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-bold(0)/m/n/22'.
 (microtype)             Ignoring protrusion settings for this character.
+File: figures/cover.png Graphic file (type bmp)
+<figures/cover.png>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-light' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1620,7 +1622,7 @@ Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/9'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 7.65005pt on input line 123.
+(Font)              scaled to size 7.65005pt on input line 125.
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `LatinModernMono' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
@@ -1630,21 +1632,24 @@ Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 9.00096pt on input line 123.
+(Font)              scaled to size 9.00096pt on input line 125.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 6.00064pt on input line 123.
+(Font)              scaled to size 6.00064pt on input line 125.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00053pt on input line 123.
+(Font)              scaled to size 5.00053pt on input line 125.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 8.99904pt on input line 123.
+(Font)              scaled to size 8.99904pt on input line 125.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 5.99936pt on input line 123.
+(Font)              scaled to size 5.99936pt on input line 125.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 123.
+(Font)              scaled to size 4.99947pt on input line 125.
 
 LaTeX Font Warning: Font shape `TU/LatinModernRoman(0)/m/sc' undefined
 (Font)              using `TU/LatinModernRoman(0)/m/n' instead on input line 12
-3.
+5.
+
+
+LaTeX Warning: Optional argument of \twocolumn too tall on page 1.
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
@@ -1656,42 +1661,45 @@ Underfull \vbox (badness 10000) has occurred while \output is active []
 
 
 ]
-Underfull \hbox (badness 1142) in paragraph at lines 135--136
+Underfull \hbox (badness 1142) in paragraph at lines 137--138
 \TU/LatinModernRoman(0)/m/sc/10 ing” at venues including Louisiana Museum (Hum-
 
  []
 
 
-Underfull \hbox (badness 2707) in paragraph at lines 135--136
+Underfull \hbox (badness 2707) in paragraph at lines 137--138
 \TU/LatinModernRoman(0)/m/sc/10 labæk), KUNSTHAL AARHUS, and Kammer-Pop
- []
-
-
-Underfull \hbox (badness 5847) in paragraph at lines 137--137
-|[]\TU/LatinModernRoman(0)/b/n/10 MUSIC FOR ALTERNATIVE INTELLI-
  []
 
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00107pt on input line 149.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00075pt on input line 149.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 149.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 149.
-LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
-(Font)              scaled to size 8.50006pt on input line 153.
 
-Underfull \hbox (badness 1917) in paragraph at lines 161--162
+Underfull \hbox (badness 5847) in paragraph at lines 139--139
+|[]\TU/LatinModernRoman(0)/b/n/10 MUSIC FOR ALTERNATIVE INTELLI-
+ []
+
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00107pt on input line 151.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00075pt on input line 151.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 151.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 151.
+LaTeX Font Info:    Font shape `TU/LatinModernMono(0)/m/n' will be
+(Font)              scaled to size 8.50006pt on input line 155.
+
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [2]
+Underfull \hbox (badness 1917) in paragraph at lines 163--164
 []\TU/LatinModernRoman(0)/m/sc/10 Aesthetic.Computer’s primary interface is a t
 ext
  []
 
 
-Underfull \hbox (badness 1661) in paragraph at lines 167--168
+Underfull \hbox (badness 1661) in paragraph at lines 169--170
 \TU/LatinModernRoman(0)/m/sc/10 instrument—the default boot piece for AC Native
 
  []
@@ -1699,8 +1707,8 @@ Underfull \hbox (badness 1661) in paragraph at lines 167--168
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [2]
-Underfull \hbox (badness 1152) in paragraph at lines 177--178
+
+Underfull \hbox (badness 1152) in paragraph at lines 179--180
 []\TU/LatinModernRoman(0)/m/sc/10 Aesthetic.Computer’s logo is called “Pals.” T
 he
  []
@@ -1708,17 +1716,17 @@ he
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
-Underfull \vbox (badness 10000) has occurred while \output is active []
-
  [3]
-Underfull \hbox (badness 1158) in paragraph at lines 205--206
+Underfull \hbox (badness 1158) in paragraph at lines 207--208
 \TU/LatinModernRoman(0)/m/sc/10 scannable obstructions” force a machine interpr
 eter
  []
 
 
-Underfull \hbox (badness 2726) in paragraph at lines 209--210
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+
+Underfull \hbox (badness 2726) in paragraph at lines 211--212
 []\TU/LatinModernRoman(0)/m/sc/10 Menkman’s \TU/LatinModernRoman(0)/m/it/10 Bey
 ond Resolution \TU/LatinModernRoman(0)/m/sc/10 [[][]Menkman[][], [][]2020[][]]
  []
@@ -1726,11 +1734,13 @@ ond Resolution \TU/LatinModernRoman(0)/m/sc/10 [[][]Menkman[][], [][]2020[][]]
 
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
-
+ [4]
 Underfull \vbox (badness 10000) has occurred while \output is active []
 
- [4]
-(./goodiepal.bbl) [5] (./goodiepal.aux)
+
+(./goodiepal.bbl [5]) [6
+
+] (./goodiepal.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1743,12 +1753,12 @@ Package rerunfilecheck Info: File `goodiepal.out' has not changed.
 (rerunfilecheck)             Checksum: 77226BEB2D2BCA4387A2E3D8A3CD029F;3056.
  ) 
 Here is how much of TeX's memory you used:
- 19527 strings out of 469709
- 362573 string characters out of 5466024
+ 19548 strings out of 469709
+ 362996 string characters out of 5466024
  969864 words of memory out of 5000000
- 47910 multiletter control sequences out of 15000+600000
+ 47928 multiletter control sequences out of 15000+600000
  630284 words of font info for 101 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 86i,12n,107p,1405b,670s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 86i,12n,107p,1405b,668s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on goodiepal.pdf (5 pages).
+Output written on goodiepal.pdf (6 pages).

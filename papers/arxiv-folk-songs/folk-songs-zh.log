@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  13 AUG 2026 20:50
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -847,26 +847,188 @@ LaTeX Warning: You have requested package `../ac-paper-cards',
                but the package provides `ac-paper-cards'.
 
 Package: ac-paper-cards 2026/03/17 Aesthetic Computer cards layout v4
+(../ac-source-bundle.sty
+
+LaTeX Warning: You have requested package `../ac-source-bundle',
+               but the package provides `ac-source-bundle'.
+
+Package: ac-source-bundle 2026/08/11 Aesthetic Computer source bundle
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
+Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/color.cfg
+File: color.cfg 2016/01/02 v1.6 sample color configuration
+)
+Package xcolor Info: Driver file: xetex.def on input line 274.
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/mathcolor.ltx)
+Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1349.
+Package xcolor Info: Model `RGB' extended on input line 1365.
+Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1367.
+Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1368.
+Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1369.
+Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1370.
+Package xcolor Info: Model `Gray' substituted by `gray' on input line 1371.
+Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/attachfile2/attachfile2.sty
+Package: attachfile2 2024-01-18 v2.12 Attach files into PDF (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/iftex.sty
+Package: iftex 2024/12/12 v1.0g TeX engine tests
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/infwarerr/infwarerr.sty
+Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
+Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvoptions/kvoptions.sty
+Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
+Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
+))
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
+Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO
+)
+Package pdftexcmds Info: \pdf@primitive is available.
+Package pdftexcmds Info: \pdf@ifprimitive is available.
+Package pdftexcmds Info: \pdfdraftmode not found.
+) (/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdfescape/pdfescape.sty
+Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hyperref.sty
+Package: hyperref 2026-01-29 v7.01p Hypertext links for LaTeX
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.
+sty
+Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
+) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hycolor/hycolor.sty
+Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/nameref.sty
+Package: nameref 2026-01-29 v2.58 Cross-referencing by name of section
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/refcount/refcount.sty
+Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/gettitlestring/gettitlestr
+ing.sty
+Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
+)
+\c@section@level=\count339
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/stringenc/stringenc.sty
+Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
+)
+)
+\@linkdim=\dimen271
+\Hy@linkcounter=\count340
+\Hy@pagecounter=\count341
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/pd1enc.def
+File: pd1enc.def 2026-01-29 v7.01p Hyperref: PDFDocEncoding definition (HO)
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/intcalc/intcalc.sty
+Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
+)
+\Hy@SavedSpaceFactor=\count342
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/puenc.def
+File: puenc.def 2026-01-29 v7.01p Hyperref: PDF Unicode definition (HO)
+)
+Package hyperref Info: Hyper figures OFF on input line 4201.
+Package hyperref Info: Link nesting OFF on input line 4206.
+Package hyperref Info: Hyper index ON on input line 4209.
+Package hyperref Info: Plain pages OFF on input line 4216.
+Package hyperref Info: Backreferencing OFF on input line 4221.
+Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
+Package hyperref Info: Bookmarks ON on input line 4468.
+\c@Hy@tempcnt=\count343
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/url/url.sty
+\Urlmuskip=\muskip19
+Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
+)
+LaTeX Info: Redefining \url on input line 4807.
+\XeTeXLinkMargin=\dimen272
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bitset/bitset.sty
+Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
+Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
+)
+))
+\Fld@menulength=\count344
+\Field@Width=\dimen273
+\Fld@charsize=\dimen274
+Package hyperref Info: Hyper figures OFF on input line 6084.
+Package hyperref Info: Link nesting OFF on input line 6089.
+Package hyperref Info: Hyper index ON on input line 6092.
+Package hyperref Info: backreferencing OFF on input line 6099.
+Package hyperref Info: Link coloring OFF on input line 6104.
+Package hyperref Info: Link coloring with OCG OFF on input line 6109.
+Package hyperref Info: PDF/A mode OFF on input line 6114.
+\Hy@abspage=\count345
+\c@Item=\count346
+\c@Hfootnote=\count347
+)
+Package hyperref Info: Driver (autodetected): hxetex.
+ (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hxetex.def
+File: hxetex.def 2026-01-29 v7.01p Hyperref driver for XeTeX
+\pdfm@box=\box62
+\c@Hy@AnnotLevel=\count348
+\HyField@AnnotCount=\count349
+\Fld@listcount=\count350
+\c@bookmark@seq@number=\count351
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/rerunfilecheck/rerunfilechec
+k.sty
+Package: rerunfilecheck 2025-06-21 v1.11 Rerun checks for auxiliary files (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/generic/uniquecounter/uniquecounte
+r.sty
+Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
+)
+Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
+84.
+)
+\Hy@SectionHShift=\skip80
+)
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/attachfile2/atfi-dvipdfmx.de
+f
+File: atfi-dvipdfmx.def 2024-01-18 v2.12 attachfile2 driver for dvipdfmx/XeTeX 
+(HO)
+\c@atfi@obj=\count352
+) (./folk-songs-zh.atfi)
+\atfi@stream=\write3
+\openout3 = `folk-songs-zh.atfi'.
+
+\atfi@appearancewidth=\skip81
+\atfi@appearanceheight=\skip82
+\atfi@appearancedepth=\skip83
+\atfi@appearancebox=\box63
+\c@atfi@flags=\count353
+))
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/geometry/geometry.sty
 Package: geometry 2020/01/02 v5.9 Page Geometry
 
 (/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/ifvtex.sty
 Package: ifvtex 2019/10/25 v1.7 ifvtex legacy package. Use iftex instead.
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/iftex/iftex.sty
-Package: iftex 2024/12/12 v1.0g TeX engine tests
-))
-\Gm@cnth=\count339
-\Gm@cntv=\count340
-\c@Gm@tempcnt=\count341
-\Gm@bindingoffset=\dimen271
-\Gm@wd@mp=\dimen272
-\Gm@odd@mp=\dimen273
-\Gm@even@mp=\dimen274
-\Gm@layoutwidth=\dimen275
-\Gm@layoutheight=\dimen276
-\Gm@layouthoffset=\dimen277
-\Gm@layoutvoffset=\dimen278
+)
+\Gm@cnth=\count354
+\Gm@cntv=\count355
+\c@Gm@tempcnt=\count356
+\Gm@bindingoffset=\dimen275
+\Gm@wd@mp=\dimen276
+\Gm@odd@mp=\dimen277
+\Gm@even@mp=\dimen278
+\Gm@layoutwidth=\dimen279
+\Gm@layoutheight=\dimen280
+\Gm@layouthoffset=\dimen281
+\Gm@layoutvoffset=\dimen282
 \Gm@dimlist=\toks28
 )
 
@@ -923,26 +1085,7 @@ Package fontspec Info:
 (fontspec)             - 'normal' (m/n) with NFSS spec.: <->"Droid Sans
 (fontspec)             Fallback/OT:script=latn;language=dflt;"
 
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/xcolor/xcolor.sty
-Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics-cfg/color.cfg
-File: color.cfg 2016/01/02 v1.6 sample color configuration
-)
-Package xcolor Info: Driver file: xetex.def on input line 274.
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/graphics/mathcolor.ltx)
-Package xcolor Info: Model `cmy' substituted by `cmy0' on input line 1349.
-Package xcolor Info: Model `RGB' extended on input line 1365.
-Package xcolor Info: Model `HTML' substituted by `rgb' on input line 1367.
-Package xcolor Info: Model `Hsb' substituted by `hsb' on input line 1368.
-Package xcolor Info: Model `tHsb' substituted by `hsb' on input line 1369.
-Package xcolor Info: Model `HSB' substituted by `hsb' on input line 1370.
-Package xcolor Info: Model `Gray' substituted by `gray' on input line 1371.
-Package xcolor Info: Model `wave' substituted by `hsb' on input line 1372.
-)
-\acrandtmp=\count342
+\acrandtmp=\count357
 
 (/Users/jas/Library/texmf/tex/latex/tcolorbox/tcolorbox.sty
 Package: tcolorbox 2025/11/28 version 6.9.0 text color boxes
@@ -952,11 +1095,11 @@ Package: tcolorbox 2025/11/28 version 6.9.0 text color boxes
 (/Users/jas/Library/texmf/tex/latex/pgf/utilities/pgfrcs.sty
 (/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-common.tex
 \pgfutil@everybye=\toks29
-\pgfutil@tempdima=\dimen279
-\pgfutil@tempdimb=\dimen280
+\pgfutil@tempdima=\dimen283
+\pgfutil@tempdimb=\dimen284
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfutil-latex.def
-\pgfutil@abb=\box62
+\pgfutil@abb=\box64
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgfrcs.code.tex
 (/Users/jas/Library/texmf/tex/generic/pgf/pgf.revision.tex)
@@ -977,26 +1120,26 @@ Package: pgfsys 2025-08-29 v3.1.11a (3.1.11a)
 .tex
 \pgfkeys@tmptoks=\toks32
 ))
-\pgf@x=\dimen281
-\pgf@y=\dimen282
-\pgf@xa=\dimen283
-\pgf@ya=\dimen284
-\pgf@xb=\dimen285
-\pgf@yb=\dimen286
-\pgf@xc=\dimen287
-\pgf@yc=\dimen288
-\pgf@xd=\dimen289
-\pgf@yd=\dimen290
-\w@pgf@writea=\write3
+\pgf@x=\dimen285
+\pgf@y=\dimen286
+\pgf@xa=\dimen287
+\pgf@ya=\dimen288
+\pgf@xb=\dimen289
+\pgf@yb=\dimen290
+\pgf@xc=\dimen291
+\pgf@yc=\dimen292
+\pgf@xd=\dimen293
+\pgf@yd=\dimen294
+\w@pgf@writea=\write4
 \r@pgf@reada=\read2
-\c@pgf@counta=\count343
-\c@pgf@countb=\count344
-\c@pgf@countc=\count345
-\c@pgf@countd=\count346
+\c@pgf@counta=\count358
+\c@pgf@countb=\count359
+\c@pgf@countc=\count360
+\c@pgf@countd=\count361
 \t@pgf@toka=\toks33
 \t@pgf@tokb=\toks34
 \t@pgf@tokc=\toks35
-\pgf@sys@id@count=\count347
+\pgf@sys@id@count=\count362
  (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgf.cfg
 File: pgf.cfg 2025-08-29 v3.1.11a (3.1.11a)
 )
@@ -1011,12 +1154,12 @@ File: pgfsys-dvipdfmx.def 2025-08-29 v3.1.11a (3.1.11a)
 (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsys-common-pdf.def
 File: pgfsys-common-pdf.def 2025-08-29 v3.1.11a (3.1.11a)
 )
-\pgfsys@objnum=\count348
+\pgfsys@objnum=\count363
 ))) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsyssoftpath.code.t
 ex
 File: pgfsyssoftpath.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfsyssoftpath@smallbuffer@items=\count349
-\pgfsyssoftpath@bigbuffer@items=\count350
+\pgfsyssoftpath@smallbuffer@items=\count364
+\pgfsyssoftpath@bigbuffer@items=\count365
 ) (/Users/jas/Library/texmf/tex/generic/pgf/systemlayer/pgfsysprotocol.code.tex
 File: pgfsysprotocol.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcore.code.tex
@@ -1025,9 +1168,9 @@ Package: pgfcore 2025-08-29 v3.1.11a (3.1.11a)
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathutil.code.tex)
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathparser.code.tex
-\pgfmath@dimen=\dimen291
-\pgfmath@count=\count351
-\pgfmath@box=\box63
+\pgfmath@dimen=\dimen295
+\pgfmath@count=\count366
+\pgfmath@box=\box65
 \pgfmath@toks=\toks36
 \pgfmath@stack@operand=\toks37
 \pgfmath@stack@operation=\toks38
@@ -1048,54 +1191,54 @@ ode.tex)
 ics.code.tex)
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathcalc.code.tex)
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmathfloat.code.tex
-\c@pgfmathroundto@lastzeros=\count352
+\c@pgfmathroundto@lastzeros=\count367
 ))
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfint.code.tex)
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepoints.code.tex
 File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@picminx=\dimen292
-\pgf@picmaxx=\dimen293
-\pgf@picminy=\dimen294
-\pgf@picmaxy=\dimen295
-\pgf@pathminx=\dimen296
-\pgf@pathmaxx=\dimen297
-\pgf@pathminy=\dimen298
-\pgf@pathmaxy=\dimen299
-\pgf@xx=\dimen300
-\pgf@xy=\dimen301
-\pgf@yx=\dimen302
-\pgf@yy=\dimen303
-\pgf@zx=\dimen304
-\pgf@zy=\dimen305
+\pgf@picminx=\dimen296
+\pgf@picmaxx=\dimen297
+\pgf@picminy=\dimen298
+\pgf@picmaxy=\dimen299
+\pgf@pathminx=\dimen300
+\pgf@pathmaxx=\dimen301
+\pgf@pathminy=\dimen302
+\pgf@pathmaxy=\dimen303
+\pgf@xx=\dimen304
+\pgf@xy=\dimen305
+\pgf@yx=\dimen306
+\pgf@yy=\dimen307
+\pgf@zx=\dimen308
+\pgf@zy=\dimen309
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathconstruct.code.
 tex
 File: pgfcorepathconstruct.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@path@lastx=\dimen306
-\pgf@path@lasty=\dimen307
+\pgf@path@lastx=\dimen310
+\pgf@path@lasty=\dimen311
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorepathusage.code.tex
 File: pgfcorepathusage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@shorten@end@additional=\dimen308
-\pgf@shorten@start@additional=\dimen309
+\pgf@shorten@end@additional=\dimen312
+\pgf@shorten@start@additional=\dimen313
 ) (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorescopes.code.tex
 File: pgfcorescopes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfpic=\box64
-\pgf@hbox=\box65
-\pgf@layerbox@main=\box66
-\pgf@picture@serial@count=\count353
+\pgfpic=\box66
+\pgf@hbox=\box67
+\pgf@layerbox@main=\box68
+\pgf@picture@serial@count=\count368
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoregraphicstate.code.t
 ex
 File: pgfcoregraphicstate.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgflinewidth=\dimen310
+\pgflinewidth=\dimen314
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoretransformations.cod
 e.tex
 File: pgfcoretransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@pt@x=\dimen311
-\pgf@pt@y=\dimen312
-\pgf@pt@temp=\dimen313
+\pgf@pt@x=\dimen315
+\pgf@pt@y=\dimen316
+\pgf@pt@temp=\dimen317
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorequick.code.tex
 File: pgfcorequick.code.tex 2025-08-29 v3.1.11a (3.1.11a)
@@ -1109,20 +1252,20 @@ File: pgfcorepathprocessing.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorearrows.code.tex
 File: pgfcorearrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfarrowsep=\dimen314
+\pgfarrowsep=\dimen318
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreshade.code.tex
 File: pgfcoreshade.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@max=\dimen315
-\pgf@sys@shading@range@num=\count354
-\pgf@shadingcount=\count355
+\pgf@max=\dimen319
+\pgf@sys@shading@range@num=\count369
+\pgf@shadingcount=\count370
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreimage.code.tex
 File: pgfcoreimage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcoreexternal.code.tex
 File: pgfcoreexternal.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfexternal@startupbox=\box67
+\pgfexternal@startupbox=\box69
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/basiclayer/pgfcorelayers.code.tex
 File: pgfcorelayers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
@@ -1139,15 +1282,15 @@ File: pgfcorerdf.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )))
 (/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleshapes.code.tex
 File: pgfmoduleshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfnodeparttextbox=\box68
+\pgfnodeparttextbox=\box70
 )
 (/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmoduleplot.code.tex
 File: pgfmoduleplot.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 )
 (/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-0-65.sty
 Package: pgfcomp-version-0-65 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@nodesepstart=\dimen316
-\pgf@nodesepend=\dimen317
+\pgf@nodesepstart=\dimen320
+\pgf@nodesepend=\dimen321
 ) (/Users/jas/Library/texmf/tex/latex/pgf/compatibility/pgfcomp-version-1-18.st
 y
 Package: pgfcomp-version-1-18 2025-08-29 v3.1.11a (3.1.11a)
@@ -1158,8 +1301,8 @@ Package: pgfcomp-version-1-18 2025-08-29 v3.1.11a (3.1.11a)
 (/Users/jas/Library/texmf/tex/generic/pgf/math/pgfmath.code.tex))
 (/Users/jas/Library/texmf/tex/generic/pgf/utilities/pgffor.code.tex
 Package: pgffor 2025-08-29 v3.1.11a (3.1.11a)
-\pgffor@iter=\dimen318
-\pgffor@skip=\dimen319
+\pgffor@iter=\dimen322
+\pgffor@skip=\dimen323
 \pgffor@stack=\toks39
 \pgffor@toks=\toks40
 ))
@@ -1169,33 +1312,33 @@ Package: tikz 2025-08-29 v3.1.11a (3.1.11a)
 (/Users/jas/Library/texmf/tex/generic/pgf/libraries/pgflibraryplothandlers.code
 .tex
 File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@plot@mark@count=\count356
-\pgfplotmarksize=\dimen320
+\pgf@plot@mark@count=\count371
+\pgfplotmarksize=\dimen324
 )
-\tikz@lastx=\dimen321
-\tikz@lasty=\dimen322
-\tikz@lastxsaved=\dimen323
-\tikz@lastysaved=\dimen324
-\tikz@lastmovetox=\dimen325
-\tikz@lastmovetoy=\dimen326
-\tikzleveldistance=\dimen327
-\tikzsiblingdistance=\dimen328
-\tikz@figbox=\box69
-\tikz@figbox@bg=\box70
-\tikz@tempbox=\box71
-\tikz@tempbox@bg=\box72
-\tikztreelevel=\count357
-\tikznumberofchildren=\count358
-\tikznumberofcurrentchild=\count359
-\tikz@fig@count=\count360
+\tikz@lastx=\dimen325
+\tikz@lasty=\dimen326
+\tikz@lastxsaved=\dimen327
+\tikz@lastysaved=\dimen328
+\tikz@lastmovetox=\dimen329
+\tikz@lastmovetoy=\dimen330
+\tikzleveldistance=\dimen331
+\tikzsiblingdistance=\dimen332
+\tikz@figbox=\box71
+\tikz@figbox@bg=\box72
+\tikz@tempbox=\box73
+\tikz@tempbox@bg=\box74
+\tikztreelevel=\count372
+\tikznumberofchildren=\count373
+\tikznumberofcurrentchild=\count374
+\tikz@fig@count=\count375
 
 (/Users/jas/Library/texmf/tex/generic/pgf/modules/pgfmodulematrix.code.tex
 File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfmatrixcurrentrow=\count361
-\pgfmatrixcurrentcolumn=\count362
-\pgf@matrix@numberofcolumns=\count363
+\pgfmatrixcurrentrow=\count376
+\pgfmatrixcurrentcolumn=\count377
+\pgf@matrix@numberofcolumns=\count378
 )
-\tikz@expandcount=\count364
+\tikz@expandcount=\count379
 
 (/Users/jas/Library/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibr
 arytopaths.code.tex
@@ -1213,94 +1356,88 @@ Package: environ 2014/05/04 v0.3 A new way to define environments
 (/Users/jas/Library/texmf/tex/latex/trimspaces/trimspaces.sty
 Package: trimspaces 2009/09/17 v1.1 Trim spaces around a token list
 ))
-\tcb@titlebox=\box73
-\tcb@upperbox=\box74
-\tcb@lowerbox=\box75
-\tcb@phantombox=\box76
-\c@tcbbreakpart=\count365
-\c@tcblayer=\count366
-\c@tcolorbox@number=\count367
-\l__tcobox_tmpa_box=\box77
-\l__tcobox_tmpa_dim=\dimen329
-\tcb@temp=\box78
-\tcb@temp=\box79
+\tcb@titlebox=\box75
+\tcb@upperbox=\box76
+\tcb@lowerbox=\box77
+\tcb@phantombox=\box78
+\c@tcbbreakpart=\count380
+\c@tcblayer=\count381
+\c@tcolorbox@number=\count382
+\l__tcobox_tmpa_box=\box79
+\l__tcobox_tmpa_dim=\dimen333
 \tcb@temp=\box80
 \tcb@temp=\box81
+\tcb@temp=\box82
+\tcb@temp=\box83
 )
 (/Users/jas/Library/texmf/tex/latex/tcolorbox/tcbbreakable.code.tex
 Library (tcolorbox): 'tcbbreakable.code.tex' version '6.9.0'
 (/Users/jas/Library/texmf/tex/latex/pdfcol/pdfcol.sty
 Package: pdfcol 2022-09-21 v1.7 Handle new color stacks for pdfTeX (HO)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
-Package: ltxcmds 2023-12-04 v1.26 LaTeX kernel commands for general use (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/infwarerr/infwarerr.sty
-Package: infwarerr 2019/12/03 v1.5 Providing info/warning/error messages (HO)
-)
 Package pdfcol Info: Interface disabled because of missing PDF mode of pdfTeX.
 )
 Package pdfcol Info: pdfTeX's color stacks are not available.
-\tcb@testbox=\box82
-\tcb@totalupperbox=\box83
-\tcb@totallowerbox=\box84
-) (/Users/jas/Library/texmf/tex/latex/tcolorbox/tcbskins.code.tex
+\tcb@testbox=\box84
+\tcb@totalupperbox=\box85
+\tcb@totallowerbox=\box86
+)
+(/Users/jas/Library/texmf/tex/latex/tcolorbox/tcbskins.code.tex
 Library (tcolorbox): 'tcbskins.code.tex' version '6.9.0'
 (/Users/jas/Library/texmf/tex/latex/tikzfill/tikzfill.image.sty
 Package: tikzfill.image 2026/04/23 v1.2.0 Image filling library for TikZ
 
 (/Users/jas/Library/texmf/tex/latex/tikzfill/tikzlibraryfill.image.code.tex
 File: tikzlibraryfill.image.code.tex 2026/04/23 v1.2.0 Image filling library
-\l__tikzfill_tmpa_dim=\dimen330
-\l__tikzfill_tmpb_dim=\dimen331
-\l__tikzfill_img_box=\box85
+\l__tikzfill_tmpa_dim=\dimen334
+\l__tikzfill_tmpb_dim=\dimen335
+\l__tikzfill_img_box=\box87
 ))
 (/Users/jas/Library/texmf/tex/latex/tcolorbox/tcbskinsjigsaw.code.tex
 Library (tcolorbox): 'tcbskinsjigsaw.code.tex' version '6.9.0'
 )) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/eso-pic/eso-pic.sty
 Package: eso-pic 2025/12/10 v3.0d eso-pic (RN)
-\ESO@tempdima=\dimen332
-\ESO@tempdimb=\dimen333
+\ESO@tempdima=\dimen336
+\ESO@tempdimb=\dimen337
 )
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/titlesec/titlesec.sty
 Package: titlesec 2025/01/04 v2.17 Sectioning titles
-\ttl@box=\box86
-\beforetitleunit=\skip80
-\aftertitleunit=\skip81
-\ttl@plus=\dimen334
-\ttl@minus=\dimen335
+\ttl@box=\box88
+\beforetitleunit=\skip84
+\aftertitleunit=\skip85
+\ttl@plus=\dimen338
+\ttl@minus=\dimen339
 \ttl@toksa=\toks43
-\titlewidth=\dimen336
-\titlewidthlast=\dimen337
-\titlewidthfirst=\dimen338
+\titlewidth=\dimen340
+\titlewidthlast=\dimen341
+\titlewidthfirst=\dimen342
 )
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty
 Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
 
-\f@nch@headwidth=\skip82
-\f@nch@offset@elh=\skip83
-\f@nch@offset@erh=\skip84
-\f@nch@offset@olh=\skip85
-\f@nch@offset@orh=\skip86
-\f@nch@offset@elf=\skip87
-\f@nch@offset@erf=\skip88
-\f@nch@offset@olf=\skip89
-\f@nch@offset@orf=\skip90
-\f@nch@height=\skip91
-\f@nch@footalignment=\skip92
-\f@nch@widthL=\skip93
-\f@nch@widthC=\skip94
-\f@nch@widthR=\skip95
+\f@nch@headwidth=\skip86
+\f@nch@offset@elh=\skip87
+\f@nch@offset@erh=\skip88
+\f@nch@offset@olh=\skip89
+\f@nch@offset@orh=\skip90
+\f@nch@offset@elf=\skip91
+\f@nch@offset@erf=\skip92
+\f@nch@offset@olf=\skip93
+\f@nch@offset@orf=\skip94
+\f@nch@height=\skip95
+\f@nch@footalignment=\skip96
+\f@nch@widthL=\skip97
+\f@nch@widthC=\skip98
+\f@nch@widthR=\skip99
 \@temptokenb=\toks44
 )
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/enumitem/enumitem.sty
 Package: enumitem 2025/02/06 v3.11 Customized lists
-\labelindent=\skip96
-\enit@outerparindent=\dimen339
+\labelindent=\skip100
+\enit@outerparindent=\dimen343
 \enit@toks=\toks45
-\enit@inbox=\box87
-\enit@count@id=\count368
-\enitdp@description=\count369
+\enit@inbox=\box89
+\enit@count@id=\count383
+\enitdp@description=\count384
 )
 (/Users/jas/Library/texmf/tex/latex/adjustbox/adjustbox.sty
 Package: adjustbox 2025/02/26 v1.3c Adjusting TeX boxes (trim, clip, ...)
@@ -1314,7 +1451,7 @@ Package: xkeyval 2025/11/04 v2.10 package option processing (HA)
 \XKV@tempa@toks=\toks47
 \XKV@tempb@toks=\toks48
 )
-\XKV@depth=\count370
+\XKV@depth=\count385
 File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
 ))
 (/Users/jas/Library/texmf/tex/latex/adjustbox/adjcalc.sty
@@ -1326,143 +1463,28 @@ Package: trimclip 2025/02/21 v1.2a Trim and clip general TeX material
 
 (/Users/jas/Library/texmf/tex/latex/collectbox/collectbox.sty
 Package: collectbox 2022/10/17 v0.4c Collect macro arguments as boxes
-\collectedbox=\box88
+\collectedbox=\box90
 )
-\tc@llx=\dimen340
-\tc@lly=\dimen341
-\tc@urx=\dimen342
-\tc@ury=\dimen343
+\tc@llx=\dimen344
+\tc@lly=\dimen345
+\tc@urx=\dimen346
+\tc@ury=\dimen347
 Package trimclip Info: Using driver 'tc-xetex.def'.
 
 (/Users/jas/Library/texmf/tex/latex/adjustbox/tc-xetex.def
 File: tc-xetex.def 2019/01/04 v2.2 Clipping driver for xetex
 ))
-\adjbox@Width=\dimen344
-\adjbox@Height=\dimen345
-\adjbox@Depth=\dimen346
-\adjbox@Totalheight=\dimen347
-\adjbox@pwidth=\dimen348
-\adjbox@pheight=\dimen349
-\adjbox@pdepth=\dimen350
-\adjbox@ptotalheight=\dimen351
+\adjbox@Width=\dimen348
+\adjbox@Height=\dimen349
+\adjbox@Depth=\dimen350
+\adjbox@Totalheight=\dimen351
+\adjbox@pwidth=\dimen352
+\adjbox@pheight=\dimen353
+\adjbox@pdepth=\dimen354
+\adjbox@ptotalheight=\dimen355
 )
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hyperref.sty
-Package: hyperref 2026-01-29 v7.01p Hypertext links for LaTeX
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvsetkeys/kvsetkeys.sty
-Package: kvsetkeys 2022-10-05 v1.19 Key value parser (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/kvdefinekeys/kvdefinekeys.
-sty
-Package: kvdefinekeys 2019-12-19 v1.6 Define keys (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdfescape/pdfescape.sty
-Package: pdfescape 2019/12/09 v1.15 Implements pdfTeX's escape features (HO)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/pdftexcmds/pdftexcmds.sty
-Package: pdftexcmds 2020-06-27 v0.33 Utility functions of pdfTeX for LuaTeX (HO
-)
-Package pdftexcmds Info: \pdf@primitive is available.
-Package pdftexcmds Info: \pdf@ifprimitive is available.
-Package pdftexcmds Info: \pdfdraftmode not found.
-)) (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hycolor/hycolor.sty
-Package: hycolor 2020-01-27 v1.10 Color options for hyperref/bookmark (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/nameref.sty
-Package: nameref 2026-01-29 v2.58 Cross-referencing by name of section
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/refcount/refcount.sty
-Package: refcount 2019/12/15 v3.6 Data extraction from label references (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/gettitlestring/gettitlestr
-ing.sty
-Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/kvoptions/kvoptions.sty
-Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
-))
-\c@section@level=\count371
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/stringenc/stringenc.sty
-Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
-)
-)
-\@linkdim=\dimen352
-\Hy@linkcounter=\count372
-\Hy@pagecounter=\count373
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/pd1enc.def
-File: pd1enc.def 2026-01-29 v7.01p Hyperref: PDFDocEncoding definition (HO)
-)
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/intcalc/intcalc.sty
-Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
-)
-\Hy@SavedSpaceFactor=\count374
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/puenc.def
-File: puenc.def 2026-01-29 v7.01p Hyperref: PDF Unicode definition (HO)
-)
-Package hyperref Info: Hyper figures OFF on input line 4201.
-Package hyperref Info: Link nesting OFF on input line 4206.
-Package hyperref Info: Hyper index ON on input line 4209.
-Package hyperref Info: Plain pages OFF on input line 4216.
-Package hyperref Info: Backreferencing OFF on input line 4221.
-Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
-Package hyperref Info: Bookmarks ON on input line 4468.
-\c@Hy@tempcnt=\count375
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/url/url.sty
-\Urlmuskip=\muskip19
-Package: url 2013/09/16  ver 3.4  Verb mode for urls, etc.
-)
-LaTeX Info: Redefining \url on input line 4807.
-\XeTeXLinkMargin=\dimen353
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bitset/bitset.sty
-Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/bigintcalc/bigintcalc.sty
-Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
-)
-))
-\Fld@menulength=\count376
-\Field@Width=\dimen354
-\Fld@charsize=\dimen355
-Package hyperref Info: Hyper figures OFF on input line 6084.
-Package hyperref Info: Link nesting OFF on input line 6089.
-Package hyperref Info: Hyper index ON on input line 6092.
-Package hyperref Info: backreferencing OFF on input line 6099.
-Package hyperref Info: Link coloring OFF on input line 6104.
-Package hyperref Info: Link coloring with OCG OFF on input line 6109.
-Package hyperref Info: PDF/A mode OFF on input line 6114.
-\Hy@abspage=\count377
-\c@Item=\count378
-\c@Hfootnote=\count379
-)
-Package hyperref Info: Driver (autodetected): hxetex.
- (/usr/local/texlive/2026basic/texmf-dist/tex/latex/hyperref/hxetex.def
-File: hxetex.def 2026-01-29 v7.01p Hyperref driver for XeTeX
-\pdfm@box=\box89
-\c@Hy@AnnotLevel=\count380
-\HyField@AnnotCount=\count381
-\Fld@listcount=\count382
-\c@bookmark@seq@number=\count383
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/latex/rerunfilecheck/rerunfilechec
-k.sty
-Package: rerunfilecheck 2025-06-21 v1.11 Rerun checks for auxiliary files (HO)
-
-(/usr/local/texlive/2026basic/texmf-dist/tex/generic/uniquecounter/uniquecounte
-r.sty
-Package: uniquecounter 2019/12/15 v1.4 Provide unlimited unique counter (HO)
-)
-Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
-84.
-)
-\Hy@SectionHShift=\skip97
-)
-Package hyperref Info: Option `colorlinks' set `true' on input line 275.
-Package hyperref Info: Option `breaklinks' set `true' on input line 275.
+Package hyperref Info: Option `colorlinks' set `true' on input line 276.
+Package hyperref Info: Option `breaklinks' set `true' on input line 276.
 
 (/usr/local/texlive/2026basic/texmf-dist/tex/latex/titlesec/titletoc.sty
 Package: titletoc 2025/01/04 v2.17 TOC entries
@@ -1674,7 +1696,12 @@ n.cfg
 File: mt-LatinModernRoman.cfg 2026/02/26 v1.2 microtype config. file: Latin Mod
 ern Roman (RS)
 )
-\c@lstlisting=\count384
+\c@lstlisting=\count386
+Package hyperref Info: Link coloring ON on input line 59.
+ (./folk-songs-zh.out) (./folk-songs-zh.out)
+\@outlinefile=\write5
+\openout5 = `folk-songs-zh.out'.
+
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: xetex
@@ -1710,18 +1737,12 @@ ern Roman (RS)
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-Package hyperref Info: Link coloring ON on input line 59.
-(./folk-songs-zh.out) (./folk-songs-zh.out)
-\@outlinefile=\write4
-\openout4 = `folk-songs-zh.out'.
-
 File: ../../papers/arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../../papers/arxiv-ac/figures/pals.pdf>
 Package microtype Info: Loading generic protrusion settings for font family
 (microtype)             `ywft-processing-bold' (encoding: TU).
 (microtype)             For optimal results, create family-specific settings.
 (microtype)             See the microtype manual for details.
-
 
 Package microtype Warning: Unknown slot number of character
 (microtype)                `\k A'
@@ -2362,12 +2383,12 @@ Package rerunfilecheck Info: File `folk-songs-zh.out' has not changed.
 (rerunfilecheck)             Checksum: 4AC17896AA8136F9B56E410D4CB1E9A0;792.
  ) 
 Here is how much of TeX's memory you used:
- 37419 strings out of 469709
- 784183 string characters out of 5466024
- 1356620 words of memory out of 5000000
- 65464 multiletter control sequences out of 15000+600000
+ 37711 strings out of 469709
+ 789921 string characters out of 5466024
+ 1363058 words of memory out of 5000000
+ 65743 multiletter control sequences out of 15000+600000
  632618 words of font info for 130 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 117i,12n,122p,1010b,1050s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 117i,12n,124p,1010b,1050s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
 Output written on folk-songs-zh.pdf (20 pages).

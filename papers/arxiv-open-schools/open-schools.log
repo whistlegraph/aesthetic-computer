@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  18 JUN 2026 22:17
+This is XeTeX, Version 3.141592653-2.6-0.999998 (TeX Live 2026) (preloaded format=xelatex 2026.3.1)  13 AUG 2026 20:50
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1352,8 +1352,31 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 Package: xurl 2022/01/09 v 0.10 modify URL breaks
 )
 Package hyperref Info: Option `colorlinks' set `true' on input line 114.
-)
-(./open-schools.aux)
+
+(../ac-source-bundle.sty
+
+LaTeX Warning: You have requested package `../ac-source-bundle',
+               but the package provides `ac-source-bundle'.
+
+Package: ac-source-bundle 2026/08/11 Aesthetic Computer source bundle
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/attachfile2/attachfile2.sty
+Package: attachfile2 2024-01-18 v2.12 Attach files into PDF (HO)
+
+(/usr/local/texlive/2026basic/texmf-dist/tex/latex/attachfile2/atfi-dvipdfmx.de
+f
+File: atfi-dvipdfmx.def 2024-01-18 v2.12 attachfile2 driver for dvipdfmx/XeTeX 
+(HO)
+\c@atfi@obj=\count368
+) (./open-schools.atfi)
+\atfi@stream=\write4
+\openout4 = `open-schools.atfi'.
+
+\atfi@appearancewidth=\skip93
+\atfi@appearanceheight=\skip94
+\atfi@appearancedepth=\skip95
+\atfi@appearancebox=\box118
+\c@atfi@flags=\count369
+))) (./open-schools.aux)
 \openout1 = `open-schools.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 51.
@@ -1595,8 +1618,8 @@ ern Roman (RS)
 
 Package hyperref Info: Link coloring ON on input line 51.
 (./open-schools.out) (./open-schools.out)
-\@outlinefile=\write4
-\openout4 = `open-schools.out'.
+\@outlinefile=\write5
+\openout5 = `open-schools.out'.
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
@@ -1975,44 +1998,6 @@ If that doesn't work, type  X <return>  to quit.
 File: figures/cover.png Graphic file (type bmp)
 <figures/cover.png>
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.61 ...tsize{10pt}{12pt}\selectfont\color{acpink}
-                                                   Every Chromebook Is a Gat...
-
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
-! Package xcolor Error: Undefined color `acgray'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.64 {\small\color{acgray}
-                           Aesthetic.Computer}\par
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
-! Package xcolor Error: Undefined color `acgray'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.65 {\small\color{acgray}
-                           ORCID: \href{https://orcid.org/0009-0007-4460-491...
-
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package xcolor Error: Undefined color `acpurple'.
 
 See the xcolor package documentation for explanation.
@@ -2021,30 +2006,6 @@ Type  H <return>  for immediate help.
                                                   
 l.65 .../0009-0007-4460-4913}{0009-0007-4460-4913}
                                                   }\par
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.69 {\small\color{acpink!40}
-                             \textit{working draft --- not for citation}}\par
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
-! Package xcolor Error: Undefined color `acgray'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.71 {\footnotesize\color{acgray}
-                                  March 2026}\par
 Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
@@ -2144,18 +2105,6 @@ Package microtype Info: Character `\guilsinglleft ' is missing
 Package microtype Info: Character `\guilsinglright ' is missing
 (microtype)             in font `\TU/ywft-processing-light(0)/m/n/71.13188'.
 (microtype)             Ignoring protrusion settings for this character.
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.74 \clearpage
-               
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [1
 
 ]
@@ -2293,18 +2242,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.124 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -2336,18 +2273,6 @@ l.124
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.124 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [2
 
 ]
@@ -2560,18 +2485,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.167 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -2603,18 +2516,6 @@ l.167
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.167 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [3]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -2700,18 +2601,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.214 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -2743,18 +2632,6 @@ l.214
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.214 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [4]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -2840,18 +2717,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.268 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -2883,18 +2748,6 @@ l.268
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.268 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [5]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3161,18 +3014,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.326 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -3204,18 +3045,6 @@ l.326
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.326 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [6]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3322,18 +3151,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.374 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -3365,18 +3182,6 @@ l.374
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.374 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [7]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3405,18 +3210,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.433 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -3448,18 +3241,6 @@ l.433
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.433 
-      
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [8]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3639,18 +3420,6 @@ Try typing  <return>  to proceed.
 If that doesn't work, type  X <return>  to quit.
 
 
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.93   Education)}(2024)]{kite2024gnulinux}
-                                           
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
 t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
@@ -3682,18 +3451,6 @@ l.93   Education)}(2024)]{kite2024gnulinux}
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.93   Education)}(2024)]{kite2024gnulinux}
-                                           
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
 [9]
 
 ! Package xcolor Error: Undefined color `acpurple'.
@@ -3733,17 +3490,38 @@ If that doesn't work, type  X <return>  to quit.
 
 )
 
-! Package xcolor Error: Undefined color `acpink'.
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
+t, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perha
+ps you misspelled it.
 
-See the xcolor package documentation for explanation.
+See the pgfkeys package documentation for explanation.
 Type  H <return>  for immediate help.
  ...                                              
                                                   
 l.452 \end{document}
                     
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
+(That was another \errmessage.)
 
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+
+! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
+u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=-4
+pt, shadow yshift=-4pt, shadow opacity=0.18', and I am going to ignore it. Perh
+aps you misspelled it.
+
+See the pgfkeys package documentation for explanation.
+Type  H <return>  for immediate help.
+ ...                                              
+                                                  
+l.452 \end{document}
+                    
+(That was another \errmessage.)
+
+File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
+<use ../arxiv-ac/figures/pals.pdf>
+[10]
 
 ! Package pgfkeys Error: I do not know the key '/tikz/blur shadow', to which yo
 u passed 'shadow blur steps=5, shadow blur extra rounding=1pt, shadow xshift=4p
@@ -3776,19 +3554,7 @@ l.452 \end{document}
 
 File: ../arxiv-ac/figures/pals.pdf Graphic file (type pdf)
 <use ../arxiv-ac/figures/pals.pdf>
-
-! Package xcolor Error: Undefined color `acpink'.
-
-See the xcolor package documentation for explanation.
-Type  H <return>  for immediate help.
- ...                                              
-                                                  
-l.452 \end{document}
-                    
-Try typing  <return>  to proceed.
-If that doesn't work, type  X <return>  to quit.
-
-[10] (./open-schools.aux)
+[11] (./open-schools.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -3801,12 +3567,12 @@ Package rerunfilecheck Info: File `open-schools.out' has not changed.
 (rerunfilecheck)             Checksum: 1D7AA3B12B232941C31667B8B20733A7;6143.
  ) 
 Here is how much of TeX's memory you used:
- 30068 strings out of 469709
- 591743 string characters out of 5466024
- 1170059 words of memory out of 5000000
- 58229 multiletter control sequences out of 15000+600000
- 630814 words of font info for 102 fonts, out of 8000000 for 9000
+ 30382 strings out of 469709
+ 597864 string characters out of 5466024
+ 1177533 words of memory out of 5000000
+ 58529 multiletter control sequences out of 15000+600000
+ 630822 words of font info for 103 fonts, out of 8000000 for 9000
  319 hyphenation exceptions out of 8191
- 103i,12n,108p,1333b,1039s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 103i,13n,108p,1333b,1039s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on open-schools.pdf (10 pages).
+Output written on open-schools.pdf (11 pages).
