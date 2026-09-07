@@ -1326,30 +1326,29 @@ export const handler = async (event, context) => {
             }
             #notification-bell {
               position: fixed;
-              top: max(0.6em, env(safe-area-inset-top));
+              top: max(0.7em, env(safe-area-inset-top));
               right: max(0.8em, env(safe-area-inset-right));
-              font-size: 1.35em;
-              line-height: 1;
+              line-height: 0;
               cursor: pointer;
               user-select: none;
               -webkit-user-select: none;
               z-index: 2;
-              filter: grayscale(1);
-              opacity: 0.35;
+              color: var(--gate-text);
+              opacity: 0.3;
               transition:
-                0.15s opacity,
-                0.15s filter,
-                0.15s ease-out transform;
+                0.07s opacity,
+                0.07s color,
+                0.07s ease-out transform;
             }
             #notification-bell.on {
-              filter: none;
+              color: var(--pink-border);
               opacity: 1;
             }
             #notification-bell:hover {
               transform: scale(1.1);
             }
             #notification-bell:active {
-              transform: scale(0.95);
+              transform: scale(0.9);
             }
             #gate h1 {
               font-weight: normal;
@@ -3505,23 +3504,27 @@ export const handler = async (event, context) => {
             let chatButtonRef = null;
             
             // Helper to open chat with optional prefilled message
+            function prefillChatInput(message) {
+              setTimeout(() => {
+                chatInput.value = message;
+                chatInput.focus();
+                // Move cursor to end of input
+                const len = message.length;
+                chatInput.setSelectionRange(len, len);
+                // Force focus again after a tick to ensure cursor is visible
+                requestAnimationFrame(() => {
+                  chatInput.focus();
+                  chatInput.setSelectionRange(len, len);
+                });
+              }, 100);
+            }
+
+            let suppressAutoRef = false; // Explicit prefill beats the default.
             function openChatWithMessage(message) {
               if (chatButtonRef) {
+                suppressAutoRef = true;
                 chatButtonRef.click();
-                if (message) {
-                  setTimeout(() => {
-                    chatInput.value = message;
-                    chatInput.focus();
-                    // Move cursor to end of input
-                    const len = message.length;
-                    chatInput.setSelectionRange(len, len);
-                    // Force focus again after a tick to ensure cursor is visible
-                    requestAnimationFrame(() => {
-                      chatInput.focus();
-                      chatInput.setSelectionRange(len, len);
-                    });
-                  }, 100);
-                }
+                if (message) prefillChatInput(message);
               }
             }
 
@@ -4487,6 +4490,7 @@ export const handler = async (event, context) => {
             const gateElements = {};
             let gating = false;
             let computePageLayout;
+            let currentPageRef; // () => "p12 " / "q3 " for the page in view.
             let SUBSCRIBER_COUNT;
             const maxLines = ${MAX_LINES};
 
@@ -4518,6 +4522,24 @@ export const handler = async (event, context) => {
               const curtain = document.createElement("div");
               curtain.id = "gate-curtain";
               curtain.classList.add("obscured");
+
+              // 🎹 Every gate control blips like the prompt curtain's
+              // buttons — one hover per entry, a tick on press, a tone on
+              // click. Delegated so late arrivals (bell, subscribe) join in.
+              const blippable =
+                "button, a, #notification-bell, #cookie-wrapper.interactive";
+              let lastBlipHover = null;
+              curtain.addEventListener("pointerover", function (e) {
+                const t = e.target.closest?.(blippable);
+                if (t && t !== lastBlipHover) hoverBlip();
+                lastBlipHover = t;
+              });
+              curtain.addEventListener("pointerdown", function (e) {
+                if (e.target.closest?.(blippable)) downBlip();
+              });
+              curtain.addEventListener("click", function (e) {
+                if (e.target.closest?.(blippable)) pushBlip();
+              });
               g.id = "gate";
               g.classList.add("faded");
 
@@ -4868,33 +4890,79 @@ export const handler = async (event, context) => {
                 }
 
                 // 🔔 A little bell in the screen's corner — push opt-in
-                // without a button in the gate's nav. Lit = ringing.
+                // without a button in the gate's nav. Pink = ringing.
                 if (pushSupported()) {
                   const bell = cel("div");
                   bell.id = "notification-bell";
-                  bell.innerText = "🔔";
                   bell.title = "notifications";
+                  bell.innerHTML =
+                    '<svg viewBox="0 0 24 24" width="22" height="22">' +
+                    '<path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' +
+                    "</svg>";
+                  let ringing = false; // Mirrored so a tap answers instantly.
+                  // Switching the bell off once is remembered — the auto-ask
+                  // below never bothers that reader again.
+                  let declined;
+                  try {
+                    declined = localStorage.getItem(
+                      "sotce-notifications-declined",
+                    );
+                  } catch (err) {
+                    declined = "1";
+                  }
                   notificationsOn().then(function (on) {
+                    ringing = on;
                     bell.classList.toggle("on", on);
+                    // Auto-invite: a subscriber who never declined gets the
+                    // browser's ask right away (or a silent re-register when
+                    // permission is already granted). Safari holds prompts
+                    // for a tap on the bell itself.
+                    if (!on && !declined && Notification.permission !== "denied") {
+                      enableNotifications()
+                        .then(function (ok) {
+                          ringing = ok;
+                          bell.classList.toggle("on", ok);
+                        })
+                        .catch(function () {});
+                    }
                   });
                   bell.onclick = async function () {
                     if (bell.dataset.busy) return;
                     bell.dataset.busy = "1";
+                    const want = !ringing;
+                    bell.classList.toggle("on", want); // Snap now, settle after.
                     try {
-                      if (await notificationsOn()) {
-                        await disableNotifications();
-                        bell.classList.remove("on");
-                      } else {
+                      if (want) {
                         const ok = await enableNotifications();
+                        ringing = ok;
                         bell.classList.toggle("on", ok);
+                        if (ok) {
+                          declined = null;
+                          try {
+                            localStorage.removeItem(
+                              "sotce-notifications-declined",
+                            );
+                          } catch (err) {}
+                        }
                         if (!ok && Notification.permission === "denied") {
                           alert(
                             "🔕 Notifications are blocked for this site in your browser settings.",
                           );
                         }
+                      } else {
+                        await disableNotifications();
+                        ringing = false;
+                        declined = "1";
+                        try {
+                          localStorage.setItem(
+                            "sotce-notifications-declined",
+                            "1",
+                          );
+                        } catch (err) {}
                       }
                     } catch (err) {
                       console.error("🔔 Notification toggle error:", err);
+                      ringing = false;
                       bell.classList.remove("on");
                     }
                     delete bell.dataset.busy;
@@ -5314,6 +5382,15 @@ export const handler = async (event, context) => {
                 if (gateEl) gateEl.style.visibility = "hidden";
                 // Trigger layout update for canvas/editors
                 setTimeout(() => computePageLayout?.(), 50);
+                // Opening from the button reads as commenting on the page in
+                // view — prefill its reference, as if its number was tapped.
+                // An explicit prefill (page number, @mention) or a typed
+                // draft wins over the default.
+                if (!suppressAutoRef) {
+                  const ref = currentPageRef?.();
+                  if (ref && !chatInput.value.trim()) prefillChatInput(ref);
+                }
+                suppressAutoRef = false;
               };
 
               topBar.appendChild(chatButton);
@@ -8587,6 +8664,15 @@ export const handler = async (event, context) => {
                   // Re-scale any open editor pages
                   rescaleEditors();
                 };
+
+                currentPageRef = function () {
+                  const pageData = pageCache.get(displayedPageIndex);
+                  const isQuestion = pageData?.type === "question";
+                  const displayNum = isQuestion
+                    ? pageData?.questionNumber || displayedPageIndex
+                    : pageData?.pageNumber || displayedPageIndex;
+                  return (isQuestion ? "q" : "p") + displayNum + " ";
+                };
                 
                 canvas.style.touchAction = "none";
                 canvas.style.cursor = "grab";
@@ -9269,7 +9355,8 @@ export const handler = async (event, context) => {
                 };
                 g.totalPages = totalPages;
                 g.getCurrentPage = () => currentPageIndex;
-                
+                currentPageRef = () => "p" + currentPageIndex + " ";
+
                 g.appendChild(binding);
 
                 computePageLayout = function (e) {
@@ -9975,6 +10062,84 @@ export const handler = async (event, context) => {
                 login("signup");
               }
             }
+
+            // 🎹 Gate blips — the AC synth voice (aesthetic.computer's
+            // lib/sound/synth.mjs, served same-origin) runs inside a small
+            // AudioWorklet here, playing the prompt curtain's exact hover /
+            // press / click recipes. First interaction warms the engine up;
+            // that one blip is dropped rather than queued into a suspended
+            // context.
+            let blipCtx, blipNode, blipBooting;
+            function initBlips() {
+              if (blipBooting) return;
+              blipBooting = true;
+              (async function () {
+                blipCtx = new (window.AudioContext ||
+                  window.webkitAudioContext)();
+                const src =
+                  'import Synth from "' +
+                  location.origin +
+                  "/aesthetic.computer/lib/sound/synth.mjs\";\\n" +
+                  "let nextId = 0;\\n" +
+                  "class GateBlips extends AudioWorkletProcessor {\\n" +
+                  "  constructor() { super(); this.voices = [];\\n" +
+                  "    this.port.onmessage = (e) => {\\n" +
+                  "      const d = e.data;\\n" +
+                  "      const frames = Math.max(1, Math.round(sampleRate * d.duration));\\n" +
+                  "      this.voices.push(new Synth({\\n" +
+                  '        type: d.type || "sine", id: nextId++,\\n' +
+                  "        options: { tone: d.tone },\\n" +
+                  "        duration: frames,\\n" +
+                  "        attack: Math.round(frames * (d.attack || 0)),\\n" +
+                  "        decay: Math.round(frames * (d.decay || 0)),\\n" +
+                  "        volume: d.volume ?? 1, pan: 0,\\n" +
+                  "      }));\\n" +
+                  "    };\\n" +
+                  "  }\\n" +
+                  "  process(inputs, outputs) {\\n" +
+                  "    const out = outputs[0];\\n" +
+                  "    if (!out[0]) return true;\\n" +
+                  "    for (let f = 0; f < out[0].length; f++) {\\n" +
+                  "      let v = 0;\\n" +
+                  "      for (const voice of this.voices) v += voice.next(0);\\n" +
+                  "      for (let c = 0; c < out.length; c++) out[c][f] = v;\\n" +
+                  "    }\\n" +
+                  "    this.voices = this.voices.filter((v) => v.playing);\\n" +
+                  "    return true;\\n" +
+                  "  }\\n" +
+                  "}\\n" +
+                  'registerProcessor("gate-blips", GateBlips);';
+                const url = URL.createObjectURL(
+                  new Blob([src], { type: "application/javascript" }),
+                );
+                await blipCtx.audioWorklet.addModule(url);
+                blipNode = new AudioWorkletNode(blipCtx, "gate-blips", {
+                  outputChannelCount: [2],
+                });
+                blipNode.connect(blipCtx.destination);
+              })().catch(function (err) {
+                console.warn("🎹 Gate blips unavailable:", err);
+                blipNode = null;
+              });
+            }
+            function blip(spec) {
+              if (!blipNode) {
+                initBlips();
+                return;
+              }
+              if (blipCtx.state !== "running") {
+                blipCtx.resume();
+                return;
+              }
+              blipNode.port.postMessage(spec);
+            }
+            // The prompt curtain's recipes, verbatim.
+            const hoverBlip = () =>
+              blip({ type: "sine", tone: 1000, attack: 0.005, decay: 0.8, volume: 0.12, duration: 0.015 });
+            const downBlip = () =>
+              blip({ type: "sine", tone: 600, attack: 0.1, decay: 0.99, volume: 0.75, duration: 0.001 });
+            const pushBlip = () =>
+              blip({ type: "sine", tone: 800, attack: 0.1, decay: 0.99, volume: 0.75, duration: 0.005 });
 
             // 🔔 Web push — pages, answered questions, and chat arrive as
             // notifications once a reader opts in. Server side: shared/push.mjs.
