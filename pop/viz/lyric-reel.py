@@ -1419,7 +1419,8 @@ def draw_bare(near, far, focus, t):
             is_cult = w["word"].lower() == "cult"
             x0 = lyric_x0(w, t)
             xe = x0 + w["px"]
-            word_hold = CULT_HOLD if is_cult else 0.0
+            word_hold = ((CULT_HOLD if is_cult else 0.0)
+                         + (TUN_LINGER if TUNNEL else 0.0))
             word_decay = CULT_COOL if is_cult else WORD_COOL
             if t > state_end + word_hold + word_decay or (xe < -40 and not TUNNEL):
                 continue
@@ -1449,6 +1450,10 @@ def draw_bare(near, far, focus, t):
                         char_start, char_end = state_end - edge, state_end - edge / 2
                     elif c.lower() == "t":
                         char_start, char_end = state_end - edge / 2, state_end
+                if TUNNEL:
+                    # fast chatter never blinks out: starts and endings keep
+                    # a guaranteed lit moment however short the sung slot
+                    char_end = max(char_end, char_start + TUN_MIN_LIT)
                 active = char_start <= t < char_end
                 burn_age = t - char_end
                 fresh_burn = 0 <= burn_age < CHAR_TRAIL
@@ -1526,7 +1531,9 @@ def draw_bare(near, far, focus, t):
                 depth = 1.0
                 if TUNNEL:
                     if upcoming:
-                        dz = (char_start - t) + TUN_Z0
+                        # dock at the front TUN_LEAD early so word starts
+                        # are already in place when the voice arrives
+                        dz = max(0.0, (char_start - t) - TUN_LEAD) + TUN_Z0
                         depth = TUN_Z0 / dz
                         fade *= 0.62 + 0.38 * depth
                     elif word_cool:
@@ -1755,6 +1762,9 @@ def lane_flash(li, t):
     dt = t - times[i]
     return math.exp(-dt / 0.11) if dt >= 0 else 0.0
 
+TUN_LEAD = 0.28                  # a glyph docks at the front this early
+TUN_LINGER = 0.45                # a finished word holds before the ring flight
+TUN_MIN_LIT = 0.14               # every char burns at least this long ("i"!)
 TUN_VP = (W / 2, H / 2)          # where the wormhole swallows, full-res
 TUN_RING_ZONE = 1.0              # seconds: material inside the now ring dies
 TUN_RING_SCREEN = (W / 2, H / 2, 460.0)   # now-ring centre + radius, full-res
@@ -1870,7 +1880,7 @@ def draw_letter_field(layer, t):
     for rail in RAILS:
         for w in rail_words[rail]:
             is_cult = w["word"].lower() == "cult"
-            word_hold = CULT_HOLD if is_cult else 0.0
+            word_hold = (CULT_HOLD if is_cult else 0.0) + TUN_LINGER
             word_decay = CULT_COOL if is_cult else WORD_COOL
             settle = (w["t0"] + max(w["dur"], w.get("visual_dur", w["dur"]))
                       + word_hold + word_decay)

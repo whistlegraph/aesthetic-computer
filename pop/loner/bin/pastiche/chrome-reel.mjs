@@ -359,7 +359,7 @@ for await (const chunk of dec.stdout) {
       img.data.set(fbuf);
       ctx.putImageData(img, 0, 0);
       const now = fi / FPS;
-      drawScore(ctx, now);
+      if (process.env.PASTICHE_SCORE === "1") drawScore(ctx, now);
       drawRing(ctx, now);
       drawLyric(ctx, now);
       if (!enc.stdin.write(canvas.toBuffer("raw"))) {

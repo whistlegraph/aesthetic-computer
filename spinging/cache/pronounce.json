@@ -782,5 +782,61 @@
   "accent": "untagged-usSafe",
   "v": 4,
   "fetchedAt": "2026-08-14T15:32:20.298Z"
+ },
+ "butterfly": {
+  "ipa": "[ˈbʌ.ɾɚ.flaɪ]",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:38.485Z"
+ },
+ "flapping": {
+  "ipa": "/ˈflæpɪŋ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:38.614Z"
+ },
+ "guys": {
+  "ipa": "/ɡaɪz/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:38.695Z"
+ },
+ "just": {
+  "ipa": "/d͡ʒʌst/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:38.867Z"
+ },
+ "costume": {
+  "ipa": "/ˈkɑsˌt(j)um/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:38.979Z"
+ },
+ "put": {
+  "ipa": "/pʊt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:39.110Z"
+ },
+ "my": {
+  "ipa": "/maɪ/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:39.264Z"
+ },
+ "room": {
+  "ipa": "/ɹum/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-08-31T17:10:39.403Z"
  }
 }

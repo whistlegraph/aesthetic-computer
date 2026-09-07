@@ -1,7 +1,41 @@
 {
-  "note": "the regulated vocal-set registry: every take processed by bin/vocalset.mjs, placeable by GLOBAL grid address (letter A = bar 16, so J1 = bar 25). at:null = prepared, unplaced. Main take 7311… is the lead — it rides the floor's pass doors via lyrictrack, not this file.",
+  "note": "the regulated vocal-set registry: every take processed by bin/vocalset.mjs, placeable by GLOBAL grid address (letter A = bar 16, so J1 = bar 25). at:null = prepared, unplaced. Main take 7311\u2026070175 is the lead \u2014 it rides the floor's pass doors via lyrictrack, not this file. The CHOIR block choralizes: every listed take lands together at one address (floor stacks them at choir gain; the scroll draws their blocks without ribbon \u2014 the lead's own ribbon carries the words there).",
   "sets": [
-    { "take": "7427025009693986079", "at": "J1", "gain": 1.0 },
-    { "take": "7656469190517263646", "at": null, "gain": 1.0 }
-  ]
+    {
+      "take": "7427025009693986079",
+      "at": "J1",
+      "gain": 1.0
+    },
+    {
+      "take": "7656469190517263646",
+      "at": "Q1",
+      "gain": 1.0
+    },
+    {
+      "take": "7311185009245818143",
+      "at": null,
+      "gain": 1.0
+    },
+    {
+      "take": "7335667959647456555",
+      "at": null,
+      "gain": 1.0
+    },
+    {
+      "take": "7601670541833014558",
+      "at": null,
+      "gain": 1.0
+    }
+  ],
+  "choir": {
+    "at": "Y1",
+    "gain": 0.5,
+    "takes": [
+      "7427025009693986079",
+      "7656469190517263646",
+      "7311185009245818143",
+      "7335667959647456555",
+      "7601670541833014558"
+    ]
+  }
 }

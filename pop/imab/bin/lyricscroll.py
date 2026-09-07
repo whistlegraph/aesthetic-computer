@@ -29,10 +29,11 @@ scroll = lv.Scroll(playhead_x=PLAYHEAD_X, px_per_beat=96, spb=SPB)
 TH = lv.theme()
 
 # per-take accent themes (lead = the theme's pink; sets cycle these)
-SET_ACCENTS = [
-    {"HOT": (46, 172, 160), "BLOCK": (46, 172, 160, 52), "GLOW": (46, 172, 160, 72), "TRACE": (36, 150, 140)},
-    {"HOT": (222, 152, 44), "BLOCK": (222, 152, 44, 52), "GLOW": (222, 152, 44, 72), "TRACE": (200, 134, 30)},
-]
+def _acc(r, g, b):
+    return {"HOT": (r, g, b), "BLOCK": (r, g, b, 52), "GLOW": (r, g, b, 72),
+            "TRACE": (max(0, r - 16), max(0, g - 20), max(0, b - 16))}
+SET_ACCENTS = [_acc(46, 172, 160), _acc(222, 152, 44), _acc(150, 96, 190),
+               _acc(110, 155, 62), _acc(200, 92, 74), _acc(88, 124, 190)]
 
 # ── the lead take: lyrictrack's JSONs · notes = the fitted GT register ─
 stemdoc = json.load(open(os.path.join(OUT, "imab-sacredvox.lyrics.json")))
@@ -66,7 +67,7 @@ if os.path.getmtime(AUD) < os.path.getmtime(os.path.join(OUT, "imab-floor-demo1.
              "imab-aesthetivox-retimed.wav node pop/imab/bin/floor.mjs")
 dur = lv.duration(AUD)
 START = float(os.environ.get("START_BAR", "16")) * 4 * SPB
-END = min(dur, float(os.environ.get("END_BAR", "33")) * 4 * SPB)
+END = min(dur, float(os.environ.get("END_BAR", "48")) * 4 * SPB)   # through the choir door
 TOTAL_BEATS = int(math.ceil(dur / SPB))
 
 samples = lv.mono(AUD)
@@ -76,31 +77,56 @@ VOX = next(p for p in ["imab-aesthetivox-retimed.wav", "imab-aesthetivox.wav",
 voxsamp = lv.mono(os.path.join(OUT, VOX))
 ft, fm = lv.f0_trace(os.path.join(OUT, VOX))
 
-# ── placed vocal sets: word blocks from fitted targets + trace + ribbon ─
+# ── placed vocal sets: word blocks from fitted targets + trace; solo
+# placements also join the ribbon, choir placements stay blocks-only
+# (the lead's own ribbon carries the words at the choir door) ─────────
 SETS = []
 sets_path = os.path.join(LANE, "vocal-sets.json")
 if os.path.exists(sets_path):
-    placed = [s for s in json.load(open(sets_path)).get("sets", []) if s.get("at")]
-    for k, s in enumerate(placed):
-        L, beat = s["at"][0].upper(), float(s["at"][1:])
-        off = (16 + ord(L) - 65) * 4 * SPB + (beat - 1) * SPB
-        wav = os.path.join(OUT, f"imab-set-{s['take']}.wav")
-        tgt = os.path.join(OUT, f"imab-set-{s['take']}-targets.fitted.json")
+    sdoc = json.load(open(sets_path))
+    order = [s["take"] for s in sdoc.get("sets", [])]
+    cache = {}
+
+    def load_take(take):
+        if take in cache:
+            return cache[take]
+        wav = os.path.join(OUT, f"imab-set-{take}.wav")
+        tgt = os.path.join(OUT, f"imab-set-{take}-targets.fitted.json")
         if not os.path.exists(tgt):
-            tgt = os.path.join(OUT, f"imab-set-{s['take']}-targets.json")
+            tgt = os.path.join(OUT, f"imab-set-{take}-targets.json")
         if not (os.path.exists(wav) and os.path.exists(tgt)):
-            continue
-        acc = SET_ACCENTS[k % len(SET_ACCENTS)]
-        targets = json.load(open(tgt))
+            cache[take] = None
+            return None
         sft, sfm = lv.f0_trace(wav)
+        cache[take] = {"targets": json.load(open(tgt)), "samp": lv.mono(wav),
+                       "ft": sft, "fm": sfm}
+        return cache[take]
+
+    def place(take, addr, with_ribbon):
+        d_ = load_take(take)
+        if d_ is None:
+            return
+        L, beat = addr[0].upper(), float(addr[1:])
+        off = (16 + ord(L) - 65) * 4 * SPB + (beat - 1) * SPB
+        k = order.index(take) if take in order else len(order)
+        acc = SET_ACCENTS[k % len(SET_ACCENTS)]
         SETS.append({
             "off": off, "accent": acc,
-            "samp": lv.mono(wav), "ft": sft, "fm": sfm,
+            "samp": d_["samp"], "ft": d_["ft"], "fm": d_["fm"],
             "words": [{"t": off + t_["t"], "dur": max(t_["dur"], 0.2),
                        "stem_t": t_["t"], "midi": lv.to_midi(t_["note"]),
-                       "label": t_["label"], "note": t_["note"]} for t_ in targets],
+                       "label": t_["label"], "note": t_["note"]}
+                      for t_ in d_["targets"]],
             "ribbon": [{"t": off + t_["t"], "t1": off + t_["t"] + t_["dur"],
-                        "text": t_["label"], "accent": acc["HOT"]} for t_ in targets]})
+                        "text": t_["label"], "accent": acc["HOT"]}
+                       for t_ in d_["targets"]] if with_ribbon else []})
+
+    for s in sdoc.get("sets", []):
+        if s.get("at"):
+            place(s["take"], s["at"], True)
+    if sdoc.get("choir"):
+        for take in sdoc["choir"].get("takes", []):
+            place(take, sdoc["choir"]["at"], False)
 for s in SETS:
     ribbon.extend(s["ribbon"])
 ribbon.sort(key=lambda w: w["t"])

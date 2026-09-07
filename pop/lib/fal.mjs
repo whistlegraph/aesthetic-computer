@@ -122,6 +122,47 @@ export async function generateReferenceShot({
   return runQueueJob({ endpoint, input, outPath, label, log });
 }
 
+// Seedance 2.5 multimodal reference-to-video. Unlike the 2.0 helper above,
+// 2.5 accepts many separately role-mapped identity, prop, motion, and audio
+// references in one generation. Uploading first avoids a very large JSON body.
+export async function generateSeedance25ReferenceShot({
+  images = [], videos = [], audios = [], prompt,
+  duration = "auto", ratio = "auto", resolution = "720p",
+  audio = true, seed = null,
+  outPath, label = "seedance-2.5-ref", log = console.log,
+}) {
+  if (!images.length && !videos.length) {
+    throw new Error("Seedance 2.5 reference-to-video needs an image or video reference");
+  }
+  for (const path of [...images, ...videos, ...audios]) {
+    if (!existsSync(path)) throw new Error(`Seedance 2.5 reference not found: ${path}`);
+  }
+  const input = {
+    prompt,
+    image_urls: images.length
+      ? await Promise.all(images.map((path) => uploadToFalStorage(path, log)))
+      : undefined,
+    video_urls: videos.length
+      ? await Promise.all(videos.map((path) => uploadToFalStorage(path, log)))
+      : undefined,
+    audio_urls: audios.length
+      ? await Promise.all(audios.map((path) => uploadToFalStorage(path, log)))
+      : undefined,
+    duration: String(duration),
+    resolution,
+    aspect_ratio: ratio,
+    generate_audio: audio,
+    seed: seed ?? undefined,
+  };
+  return runQueueJob({
+    endpoint: "bytedance/seedance-2.5/reference-to-video",
+    input,
+    outPath,
+    label,
+    log,
+  });
+}
+
 // Submit one job to a fal queue endpoint, poll to completion, download the
 // mp4 to outPath. Shared by every Seedance entry point above.
 async function runQueueJob({ endpoint, input, outPath, label, log }) {
@@ -253,6 +294,110 @@ export async function generateLipsync({
     sync_mode: syncMode,
   };
   return runQueueJob({ endpoint: "fal-ai/sync-lipsync/v2", input, outPath, label, log });
+}
+
+// Audio-driven talking image through Sync Labs sync-3 on fal. This path is
+// intended for photoreal stills where facial fidelity and precise mouth motion
+// matter more than the broader performance synthesis provided by Kling Avatar.
+export async function generateSync3Avatar({
+  image, audio, outPath, label = "sync-3-avatar", log = console.log,
+}) {
+  if (!existsSync(image)) throw new Error(`sync-3 image not found: ${image}`);
+  if (!existsSync(audio)) throw new Error(`sync-3 audio not found: ${audio}`);
+  const input = {
+    image_url: await uploadToFalStorage(image, log),
+    audio_url: await uploadToFalStorage(audio, log),
+  };
+  return runQueueJob({
+    endpoint: "fal-ai/sync-lipsync/v3/image-to-video",
+    input,
+    outPath,
+    label,
+    log,
+  });
+}
+
+// Audio-driven full-person performance through ByteDance OmniHuman 1.5.
+// Unlike mouth-focused lipsync models, this model uses the voice to animate
+// expression, head, shoulders, arms, and visible body posture.
+export async function generateOmniHuman({
+  image, audio, outPath, label = "omnihuman-v1.5", log = console.log,
+}) {
+  if (!existsSync(image)) throw new Error(`OmniHuman image not found: ${image}`);
+  if (!existsSync(audio)) throw new Error(`OmniHuman audio not found: ${audio}`);
+  const input = {
+    image_url: await uploadToFalStorage(image, log),
+    audio_url: await uploadToFalStorage(audio, log),
+  };
+  return runQueueJob({
+    endpoint: "fal-ai/bytedance/omnihuman/v1.5",
+    input,
+    outPath,
+    label,
+    log,
+  });
+}
+
+// High-fidelity Sync Labs sync-3 mouth pass for an already-moving source
+// video. This preserves the body performance while tightening phonemes.
+export async function generateSync3Lipsync({
+  video, audio, syncMode = "cut_off",
+  outPath, label = "sync-3-lipsync", log = console.log,
+}) {
+  if (!existsSync(video)) throw new Error(`sync-3 video not found: ${video}`);
+  if (!existsSync(audio)) throw new Error(`sync-3 audio not found: ${audio}`);
+  const input = {
+    video_url: await uploadToFalStorage(video, log),
+    audio_url: await uploadToFalStorage(audio, log),
+    sync_mode: syncMode,
+  };
+  return runQueueJob({
+    endpoint: "fal-ai/sync-lipsync/v3",
+    input,
+    outPath,
+    label,
+    log,
+  });
+}
+
+// Identity-bound full-body motion transfer through Kling v3 Pro. The scene
+// image owns appearance, the driving video owns movement, and the optional
+// face element gives Kling a separate high-resolution identity anchor.
+export async function generateKlingMotionControlV3({
+  image, video, faceImage = null, faceReferences = [], prompt = "",
+  characterOrientation = "video", keepOriginalSound = true,
+  outPath, label = "kling-v3-motion-control", log = console.log,
+}) {
+  if (!existsSync(image)) throw new Error(`Kling source image not found: ${image}`);
+  if (!existsSync(video)) throw new Error(`Kling driving video not found: ${video}`);
+  if (faceImage && !existsSync(faceImage)) {
+    throw new Error(`Kling face image not found: ${faceImage}`);
+  }
+  for (const reference of faceReferences) {
+    if (!existsSync(reference)) {
+      throw new Error(`Kling face reference not found: ${reference}`);
+    }
+  }
+  const input = {
+    prompt,
+    image_url: await uploadToFalStorage(image, log),
+    video_url: await uploadToFalStorage(video, log),
+    keep_original_sound: keepOriginalSound,
+    character_orientation: characterOrientation,
+    elements: faceImage ? [{
+      frontal_image_url: await uploadToFalStorage(faceImage, log),
+      reference_image_urls: await Promise.all(
+        faceReferences.map((reference) => uploadToFalStorage(reference, log)),
+      ),
+    }] : undefined,
+  };
+  return runQueueJob({
+    endpoint: "fal-ai/kling-video/v3/pro/motion-control",
+    input,
+    outPath,
+    label,
+    log,
+  });
 }
 
 // Audio-driven talking AVATAR (Kling AI Avatar v2 via fal). Unlike lipsync —

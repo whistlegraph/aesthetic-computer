@@ -79,6 +79,22 @@ def v_at(t):
     return V_ANCHORS[-1][1]
 
 
+
+VMAP = {}
+_vm_path = f"{LONER}/viz/vocal-maps.json"
+if os.path.exists(_vm_path):
+    VMAP = json.load(open(_vm_path))
+
+
+def window_words(t0, t1):
+    """Track-time word onsets inside a segment window: (track_t, k)."""
+    out = []
+    for i, e in enumerate(_wc):
+        if t0 - 0.3 <= e["t0"] <= t1 + 0.3:
+            out.append((e["t0"], i % 20))
+    return out
+
+
 cursor = {s: 1.5 for s in DUR}
 cursor[GRASS] = 0.5
 
@@ -172,18 +188,34 @@ for i, (end_bar, src, src_t, speed, fade, opts) in enumerate(PLAN):
     fade_in = PLAN[i - 1][4] if i else 0.0
     dur = (t1 - t0) + fade_in / 2 + fade / 2
     key = hashlib.sha1(
-        repr((PLAN[i], PLAN[i - 1][4] if i else 0.0, t1 - t0, src_t))
+        repr((PLAN[i], PLAN[i - 1][4] if i else 0.0, t1 - t0, src_t,
+              speed))
         .encode()).hexdigest()[:12]
     seg = f"{SEGS}/{key}.mp4"
     segfiles.append((seg, dur, fade))
     if os.path.exists(seg):
         continue
     if opts is None or opts.startswith("layer") or opts.startswith("cropx"):
-        # sync: source the take where this moment's stroke is drawn
-        frac = min(v_at(t0 + 0.2) / 25.0, 0.97)
+        # vocal shape remap: warp the take so ITS sung words land on the
+        # track's words through this window; fall back to drawing-clock
+        pairs = []
+        if src in VMAP:
+            hits = {h["k"]: h["start"] for h in VMAP[src]}
+            for tr_t, k in window_words(t0, t1):
+                if k in hits:
+                    pairs.append((tr_t, hits[k]))
+        if len(pairs) >= 2:
+            (ta, sa), (tb, sb) = pairs[0], pairs[-1]
+            rate = (sb - sa) / max(0.4, tb - ta)
+            speed = round(min(max(rate, 0.55), 1.7), 3)
+            src_t = round(sa - (ta - (t0 - fade_in / 2)) * speed, 2)
+        elif len(pairs) == 1:
+            src_t = round(pairs[0][1] - (pairs[0][0] - t0), 2)
+        else:
+            frac = min(v_at(t0 + 0.2) / 25.0, 0.97)
+            src_t = round(frac * (DUR[src] - dur * speed - 0.9), 2)
         need = dur * speed + 0.7
-        src_t = round(min(max(frac * (DUR[src] - need), 0.2),
-                          DUR[src] - need), 2)
+        src_t = min(max(src_t, 0.2), DUR[src] - need)
     cropx = None
     layer = None
     blur = False

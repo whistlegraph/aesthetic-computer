@@ -276,16 +276,26 @@ const voxStem = new Float32Array(NT);
 const PASSES = [16, 40, 56];
 for (const door of PASSES) put(voxStem, vox, T(door), 1);   // i'm ON the door (@jeffrey: "16:A1")
 
-// placed vocal sets — regulated takes by global address (vocal-sets.json; A = bar 16)
+// placed vocal sets — regulated takes by global address (vocal-sets.json;
+// A = bar 16). The choir block choralizes: all its takes stack at one
+// address, each at choir gain, under the lead's own pass.
 const SETSJ = resolve(HERE, "../vocal-sets.json");
-if (existsSync(SETSJ))
-  for (const s of (JSON.parse(readFileSync(SETSJ, "utf8")).sets ?? [])) {
-    if (!s.at) continue;
-    const m = /^([A-Z])(\d+(?:\.\d+)?)$/.exec(s.at.trim().toUpperCase());
+if (existsSync(SETSJ)) {
+  const sdoc = JSON.parse(readFileSync(SETSJ, "utf8"));
+  const placeSet = (take, addr, gain, label) => {
+    const wav = `${OUT}/imab-set-${take}.wav`;
+    if (!existsSync(wav)) { console.log(`  (set ${take.slice(0, 6)}… not regulated yet — skipped)`); return; }
+    const m = /^([A-Z])(\d+(?:\.\d+)?)$/.exec(addr.trim().toUpperCase());
     const at = T(16 + (m[1].charCodeAt(0) - 65)) + (parseFloat(m[2]) - 1) * BEAT;
-    put(voxStem, readF32(`${OUT}/imab-set-${s.take}.wav`), at, s.gain ?? 1);
-    console.log(`set ${s.take.slice(0, 6)}… placed at ${s.at} (${at.toFixed(2)}s)`);
-  }
+    put(voxStem, readF32(wav), at, gain);
+    console.log(`${label} ${take.slice(0, 6)}… placed at ${addr} (${at.toFixed(2)}s) ×${gain}`);
+  };
+  for (const s of (sdoc.sets ?? []))
+    if (s.at) placeSet(s.take, s.at, s.gain ?? 1, "set");
+  if (sdoc.choir)
+    for (const take of (sdoc.choir.takes ?? []))
+      placeSet(take, sdoc.choir.at, sdoc.choir.gain ?? 0.5, "choir");
+}
 
 // the follower that keys the wub: swell only in the gaps the voice leaves
 const fo = new Float32Array(NT);
