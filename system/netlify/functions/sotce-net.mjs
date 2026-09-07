@@ -385,7 +385,8 @@ export const handler = async (event, context) => {
   // 🏠 Home, Chat, Page Routes
   if (
     (path === "/" ||
-      path === "/chat" ||
+      path === "/comment" || // Presentational rename of chat; ids stay "chat".
+      path === "/chat" || // Legacy alias — old links still open the room.
       path === "/gate" ||
       path === "/write" ||
       path === "/ask" ||
@@ -1322,6 +1323,33 @@ export const handler = async (event, context) => {
             #gate #cookie-wrapper.interactive:active {
               transform: scale(0.96);
               transition: 0.13s ease-out transform;
+            }
+            #notification-bell {
+              position: fixed;
+              top: max(0.6em, env(safe-area-inset-top));
+              right: max(0.8em, env(safe-area-inset-right));
+              font-size: 1.35em;
+              line-height: 1;
+              cursor: pointer;
+              user-select: none;
+              -webkit-user-select: none;
+              z-index: 2;
+              filter: grayscale(1);
+              opacity: 0.35;
+              transition:
+                0.15s opacity,
+                0.15s filter,
+                0.15s ease-out transform;
+            }
+            #notification-bell.on {
+              filter: none;
+              opacity: 1;
+            }
+            #notification-bell:hover {
+              transform: scale(1.1);
+            }
+            #notification-bell:active {
+              transform: scale(0.95);
             }
             #gate h1 {
               font-weight: normal;
@@ -4285,7 +4313,7 @@ export const handler = async (event, context) => {
 
               if (type === "unauthorized") {
                 // notice("Unauthorized", ["red", "yellow"]);
-                alert("⚠️ 🗨️ Subscribe and create a handle to chat.");
+                alert("⚠️ 🗨️ Subscribe and create a handle to comment.");
                 return;
               }
 
@@ -4839,6 +4867,41 @@ export const handler = async (event, context) => {
                   buttons.push(genSubscribeButton("resubscribe"));
                 }
 
+                // 🔔 A little bell in the screen's corner — push opt-in
+                // without a button in the gate's nav. Lit = ringing.
+                if (pushSupported()) {
+                  const bell = cel("div");
+                  bell.id = "notification-bell";
+                  bell.innerText = "🔔";
+                  bell.title = "notifications";
+                  notificationsOn().then(function (on) {
+                    bell.classList.toggle("on", on);
+                  });
+                  bell.onclick = async function () {
+                    if (bell.dataset.busy) return;
+                    bell.dataset.busy = "1";
+                    try {
+                      if (await notificationsOn()) {
+                        await disableNotifications();
+                        bell.classList.remove("on");
+                      } else {
+                        const ok = await enableNotifications();
+                        bell.classList.toggle("on", ok);
+                        if (!ok && Notification.permission === "denied") {
+                          alert(
+                            "🔕 Notifications are blocked for this site in your browser settings.",
+                          );
+                        }
+                      }
+                    } catch (err) {
+                      console.error("🔔 Notification toggle error:", err);
+                      bell.classList.remove("on");
+                    }
+                    delete bell.dataset.busy;
+                  };
+                  curtain.appendChild(bell);
+                }
+
                 curtain.classList.add("hidden");
                 // if (GATE_WAS_UP) cookieWrapper.classList.add("interactive");
               }
@@ -4884,7 +4947,7 @@ export const handler = async (event, context) => {
                     // Only show chat for subscribed users and admins
                     if (status === "subscribed" || subscription?.admin) {
                       chatInterface.classList.add("splash-chat-open");
-                      updatePath("/chat");
+                      updatePath("/comment");
                     } else {
                       // For non-subscribed users, just go to home
                       updatePath("/");
@@ -5229,7 +5292,7 @@ export const handler = async (event, context) => {
               // {
               const chatButton = cel("button");
               chatButton.id = "chat-button";
-              chatButton.innerText = "chat";
+              chatButton.innerText = "comment";
               chatButtonRef = chatButton; // Set global reference
 
               chatButton.onclick = function () {
@@ -5237,7 +5300,7 @@ export const handler = async (event, context) => {
                 chatInterface.classList.remove("inaccessible");
                 loadMonacoChatEditor();
                 chatScrollToBottom();
-                updatePath("/chat");
+                updatePath("/comment");
                 if (window.sotceHandle) {
                   chatHandle.innerText = window.sotceHandle;
                 }
@@ -7691,18 +7754,12 @@ export const handler = async (event, context) => {
                         }
                       }
                     } else {
-                      // At boundary - render current page with resistance AND ghost next page
+                      // At boundary - only the current page, with resistance.
+                      // (No ghost card: past the ends there is nothing, and a
+                      // blank page-top sliding in read as a page that doesn't
+                      // exist.)
                       const currentOff = -dragDelta * 0.3;
                       renderPage(pageData, displayedPageIndex, currentOff, false, 1);
-
-                      // Render ghost page at boundary to prevent visual disappearing
-                      if (dragDelta > 0 && displayedPageIndex >= loadedFeedCount) {
-                        const ghostOff = (1 - progress) * slideDistance;
-                        renderPage(null, displayedPageIndex + 1, ghostOff, true, 1);
-                      } else if (dragDelta < 0 && displayedPageIndex <= 1) {
-                        const ghostOff = -(1 - progress) * slideDistance;
-                        renderPage(null, displayedPageIndex - 1, ghostOff, true, 1);
-                      }
                     }
                   } else {
                     // Static - render adjacent pages first (behind), then current on top
@@ -9563,7 +9620,8 @@ export const handler = async (event, context) => {
                   }
                   g.classList.remove("obscured");
 
-                  if (path === "/chat") chatButton.click();
+                  if (path === "/comment" || path === "/chat")
+                    chatButton.click();
                 };
               });
 
@@ -9741,7 +9799,7 @@ export const handler = async (event, context) => {
 
               if (type === undefined) {
                 // Not garden.
-                if (path === "/chat") {
+                if (path === "/comment" || path === "/chat") {
                   document.getElementById("cookie-wrapper")?.click();
                 }
               }
@@ -10433,8 +10491,7 @@ export const handler = async (event, context) => {
             window.cancel = cancel;
             window.signup = signup;
             window.resend = resend;
-            // 🔔 No visible toggle yet — push opt-in waits for a home that
-            // isn't the gate. Reachable from the console meanwhile.
+            // 🔔 The gate's corner bell drives these; exposed for the console.
             window.notificationsOn = notificationsOn;
             window.enableNotifications = enableNotifications;
             window.disableNotifications = disableNotifications;
