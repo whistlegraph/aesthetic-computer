@@ -35,7 +35,7 @@ runtime = function acRuntime() {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 100;
+const buildVersion = 101;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1322,6 +1322,11 @@ let viewerSystemPrevious = [];
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
+// When the last authoritative LIVE frame landed, in engine microseconds. The
+// grandstand runs at display rate but the wire only arrives ~30×/s and
+// irregularly, so the frames in between dead-reckon off this mark (see
+// updateRoundViewer) instead of freezing on the last snap.
+let roundViewerLiveAt = 0;
 let roundViewerImpactTick = -1;
 let livePublishFailed = false;
 
@@ -3359,12 +3364,24 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     const player = players[index];
     const previousX = player.x;
     const previousY = player.y;
+    // Held to spot the edges the live wire reports as flags but never as the
+    // sparks and debris the host spawned locally. A demo carries its own
+    // impact track (replayViewerImpacts), so this reconstruction is LIVE-only.
+    const wasAlive = player.alive;
+    const wasHit = player.hit || 0;
+    const priorLimbs = player.removedParts?.length || 0;
     for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
       "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
     player.vz = source.vz || 0;
+    // Grandstand coasting rides ONLY a velocity the host actually reported.
+    // The vx/vy above fall back to a frame-to-frame difference for the walk
+    // cycle's sake, but that difference is a teleport artifact on the first
+    // snap and after a wire gap — dead-reckoning it would fling the body.
+    player.wireVx = Number.isFinite(source.vx) ? source.vx : 0;
+    player.wireVy = Number.isFinite(source.vy) ? source.vy : 0;
     player.attackKind = source.attack || "";
     // A demo knows which tick a swing began on, so the replayed pose can run
     // its real arc instead of freezing at one canned mid-swing phase.
@@ -3374,6 +3391,20 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     player.attackUntil = player.attackKind ? now + 120000 : 0;
     player.hit = source.hit || 0;
     player.blockFlash = source.blockFlash || 0;
+    // The host spawns sparks on a strike, a burst on a lost limb and a
+    // whoosh-lit puff on a kill; none of that rides the state wire, so the
+    // grandstand used to watch a body silently pop apart. Reconstruct the
+    // burst from the flag edges the wire DOES carry — a fresh hit, a new
+    // missing part, a death — so live watchers see the blow land.
+    if (roundViewerMode === "LIVE") {
+      if (player.hit > .4 && wasHit <= .4)
+        impacts.push({ x: player.x, y: player.y - 90, z: player.z,
+          life: .32, duration: .32, death: false, explosion: true });
+      const lostLimb = (player.removedParts?.length || 0) > priorLimbs;
+      if (lostLimb || (wasAlive && !player.alive))
+        impacts.push({ x: player.x, y: player.y - 60, z: player.z,
+          life: .55, duration: .55, death: true, explosion: false });
+    }
   }
   const sources = state.balls || [state.ball];
   for (let index = 0; index < balls.length; index++) {
@@ -3446,8 +3477,17 @@ function handleRoundViewer(message) {
     if (roundViewerDemo && message.content?.phase === "match") return;
     roundViewerMode = "LIVE";
     applyRoundViewerState(message.content, now);
+    roundViewerLiveAt = now;
   }
 }
+
+// How far past the last authoritative frame the grandstand keeps coasting on
+// wire velocity before it holds still. One frame carries fresh vx/vy, so a
+// short coast is honest and self-correcting — the next frame snaps to truth.
+// Past this the velocity is stale enough that coasting would walk a fighter
+// through a wall or float them past a jump's apex, so a long wire gap freezes
+// the pose instead of inventing motion.
+const liveDeadReckonMaxUs = 150000;
 
 function updateRoundViewer(now, dt) {
   if (roundViewerDemo && roundViewerMode === "DEMO") {
@@ -3455,6 +3495,24 @@ function updateRoundViewer(now, dt) {
     if (state) {
       applyRoundViewerState(state, now, dt);
       replayViewerImpacts(state.tick, dt);
+    }
+  } else if (roundViewerMode === "LIVE" &&
+      now - roundViewerLiveAt < liveDeadReckonMaxUs) {
+    // Between the ~30 irregular frames a second the wire delivers, coast every
+    // moving body along its last reported velocity so the render runs the same
+    // smooth 60 as a hosted fight instead of teleporting on each arrival.
+    for (const player of players) {
+      if (!player.alive) continue;
+      // Coast the delta only — the host's reported position is truth and may
+      // sit anywhere it says (legacy rooms even ran off the cube). The 150ms
+      // horizon above bounds any overshoot, and the next snap corrects it.
+      player.x += (player.wireVx || 0) * dt;
+      player.y += (player.wireVy || 0) * dt;
+    }
+    for (const ball of balls) {
+      if (!ball.active) continue;
+      ball.x += (ball.vx || 0) * dt;
+      ball.y += (ball.vy || 0) * dt;
     }
   }
 }
