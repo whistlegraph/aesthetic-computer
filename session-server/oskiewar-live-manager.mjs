@@ -203,6 +203,18 @@ export class OskiewarLiveManager {
       ws.close?.(4409, "Publisher already connected");
       return;
     }
+    // A new publisher counts frames from its own zero, so the room lets go of
+    // the old one's snapshot — otherwise the stale-frame guard in publish()
+    // reads every frame of a claimed room as old until the successor
+    // out-counts the dead host's sequence (measured: ~14 silent seconds after
+    // each versus handoff, one for each second the old host had been live).
+    // Dropping the snapshot also stops a mid-handoff spectator being handed a
+    // freeze-frame of the previous fight, and stops the matchmaker offering a
+    // chair beside a corpse.
+    if (room.state) {
+      room.state = null;
+      room.publishedAt = 0;
+    }
     room.publisher = ws;
     room.publisherSurface = surface;
     room.updatedAt = this.now();

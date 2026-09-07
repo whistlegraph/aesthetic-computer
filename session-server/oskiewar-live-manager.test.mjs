@@ -111,6 +111,32 @@ test("a second live publisher cannot take over a match", () => {
   assert.equal(second.closed?.code, 4409);
 });
 
+test("a successor publisher counts from zero — no corpse seq gate, no stale frame", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const first = new FakeSocket(), viewer = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(first, { url: `${url}&role=publisher` });
+  manager.handleConnection(viewer, { url });
+  now += 30;
+  first.emit("message", Buffer.from(JSON.stringify(
+    { type: "oskiewar:state", content: state(500) })));
+  assert.equal(viewer.sent.at(-1).content.seq, 500);
+  first.close();
+  const second = new FakeSocket();
+  manager.handleConnection(second, { url: `${url}&role=publisher` });
+  const late = new FakeSocket();
+  manager.handleConnection(late, { url });
+  assert.ok(!late.sent.some((m) => m.type === "oskiewar:state"),
+    "a mid-handoff spectator must not be handed the dead host's frame");
+  now += 30;
+  second.emit("message", Buffer.from(JSON.stringify(
+    { type: "oskiewar:state", content: state(1) })));
+  assert.equal(viewer.sent.at(-1).content.seq, 1,
+    "the claimed room must fan the new host's first frame, not mute it");
+  assert.equal(late.sent.at(-1).content.seq, 1);
+});
+
 test("a challenger is seated, watches state, and their presses reach the publisher", () => {
   let now = 100;
   const manager = new OskiewarLiveManager({ now: () => now });
