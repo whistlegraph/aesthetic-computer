@@ -10079,7 +10079,7 @@ export const handler = async (event, context) => {
                 const src =
                   'import Synth from "' +
                   location.origin +
-                  "/aesthetic.computer/lib/sound/synth.mjs\";\\n" +
+                  '/aesthetic.computer/lib/sound/synth.mjs";\\n' +
                   "let nextId = 0;\\n" +
                   "class GateBlips extends AudioWorkletProcessor {\\n" +
                   "  constructor() { super(); this.voices = [];\\n" +
