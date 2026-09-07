@@ -4523,11 +4523,10 @@ export const handler = async (event, context) => {
               curtain.id = "gate-curtain";
               curtain.classList.add("obscured");
 
-              // 🎹 Every gate control blips like the prompt curtain's
-              // buttons — one hover per entry, a tick on press, a tone on
-              // click. Delegated so late arrivals (bell, subscribe) join in.
-              const blippable =
-                "button, a, #notification-bell, #cookie-wrapper.interactive";
+              // 🎹 Only the bell blips (the whole gate chiming wore thin) —
+              // one hover per entry, a tick on press, a tone on click.
+              // Delegated so the bell joins in whenever the gate rebuilds.
+              const blippable = "#notification-bell";
               let lastBlipHover = null;
               curtain.addEventListener("pointerover", function (e) {
                 const t = e.target.closest?.(blippable);
