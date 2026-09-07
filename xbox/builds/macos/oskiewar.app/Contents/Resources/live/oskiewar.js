@@ -10,36 +10,96 @@
 // that copy rather than allocating another.
 const hostRuntime = runtime;
 let clockEpoch = null;
+// Game speed is the clock, not a patch on top of it. Every deadline, spring,
+// bot die-roll and animation in this piece reads one monotonic stream, so
+// scaling the stream's increments scales the whole game coherently — physics,
+// input windows, round timers, all in step. Set from the title screen with
+// +/- on a keyboard, in quarter steps between a quarter and double speed;
+// the offline reel harness drives simMonotonicUs itself and never touches
+// this, so recordings always run at one.
+let gameSpeed = 1;
+let gameSpeedChangedAt = 0;
+let scaledClockUs = 0;
+let lastRawClockUs = null;
 runtime = function acRuntime() {
   const info = hostRuntime();
   const raw = Number(info.monotonicUs) || 0;
   if (clockEpoch === null) clockEpoch = raw;
-  info.monotonicUs = raw - clockEpoch;
+  if (lastRawClockUs === null) lastRawClockUs = raw;
+  scaledClockUs += (raw - lastRawClockUs) * gameSpeed;
+  lastRawClockUs = raw;
+  info.monotonicUs = Math.round(scaledClockUs);
   if (typeof info.simMonotonicUs === "number")
     info.simMonotonicUs -= clockEpoch;
   return info;
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 58;
+const buildVersion = 99;
 const floorY = 1800;
-const ceilingY = 0;
-const wallThickness = 80;
-const worldLeft = 0;
-// The padded room. The long street gave the skateboard a runway and gave a
-// stray camera twenty thousand empty units to get lost in — @jeffrey wants
-// the fight in a room again. Every piece of furniture (platform, pickups,
-// spawns, both wall trees) already lived inside the first five thousand
-// units, and a room this size caps the worst-case draw span, which the
-// console's interpreter pays for directly.
-const worldRight = 5000;
-const worldNear = -900;
-const worldFar = 900;
-// A padded room is flat: the rolling hills were tuned for the street and
-// compressed fivefold they put real slopes under the spawn marks. The
-// quarter-pipe wall transitions are the padding, and they stay.
+// Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
+// the URL becomes the invitation — and until a friend opens it, all you can
+// do is move: a training floor with your own moves named back at you and one
+// standing instruction, find a friend. Survival (the solo ascent) and the
+// bot/dummy doors remain modes behind `?opponent=`, and the regression
+// harness still enters combat directly. Keeping player two as explicit mode
+// state, rather than deleting the chair, preserves replays and the fight
+// laboratory while ensuring no route quietly seats an adversary.
+let gameMode = "fight";
+const survivalActive = () => gameMode === "survival";
+// The versus lane's two rooms-of-play: alone in the cube waiting on a rival,
+// or fighting the rival the relay seated. Both publish to the same room so
+// the shared URL is the lobby, the fight and the grandstand at once.
+const lobbyActive = () => gameMode === "fight" && fightOpponent === "versus-lobby";
+const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
+const versusLane = () => lobbyActive() || versusActive();
+// The cube. @jeffrey climbed the tower and asked for the opposite: a small
+// closed box — "like a 10ft by 10ft cube" — with nothing in it but two
+// fighters and a pistol. The map is now a lattice of square tiles
+// rather than a pile of hand numbers: ten tiles wide, ten tiles tall, each
+// tile 90 units on a side, which makes a fighter (180 tall) exactly two
+// tiles and the room exactly the phrase that asked for it. Simulation stays
+// continuous — nothing about motion quantizes — but the STRUCTURE is
+// addressable: spawns, pickups and lanes are authored in tile coordinates,
+// a grid overlay draws the lattice on the back wall, and `gridField` below
+// holds one number per tile so per-tile computation (heat, ownership,
+// weather) has a surface to run on.
+const tileSize = 90;
+const gridCols = 10;
+const gridRows = 10;
+// Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
+// every tile edge lands on a clean multiple of 90. The walls stand outside
+// the lattice: the structural shell is one wallThickness beyond each face,
+// and `resolveRunnerBounds` pushes off the faces themselves.
+const wallThickness = 40;
+const gridLeft = 0;
+const gridWidth = gridCols * tileSize;
+const gridHeight = gridRows * tileSize;
+const worldLeft = gridLeft - wallThickness;
+const worldRight = gridLeft + gridWidth + wallThickness;
+const ceilingY = floorY - gridHeight - wallThickness;
+// The cube is as deep as it is wide. Fighters live near z = 0; depth is the
+// room's third dimension for the eye, not for the fight.
+const worldNear = -gridWidth / 2;
+const worldFar = gridWidth / 2;
+// Address helpers: world position to tile and back. Rows count UP from the
+// floor, because in a fight the floor is where everything starts. All three
+// clamp, so a body pressed into a wall still names a real tile.
+const tileCol = (x) =>
+  Math.min(gridCols - 1, Math.max(0, Math.floor((x - gridLeft) / tileSize)));
+const tileRow = (y) =>
+  Math.min(gridRows - 1, Math.max(0, Math.floor((floorY - y) / tileSize)));
+const tileCenterX = (col) => gridLeft + (col + .5) * tileSize;
+const tileTopY = (row) => floorY - (row + 1) * tileSize;
+// One number per tile, row-major from the floor-left corner. Today impacts
+// write heat into it and the overlay draws that heat fading; tomorrow it is
+// wherever tiled computation over the map wants to live.
+const gridField = new Float32Array(gridCols * gridRows);
+const gridFieldIndex = (x, y) => tileRow(y) * gridCols + tileCol(x);
+// The floor stays flat wall to wall — see terrainFloorAt for why the ramps
+// went. A flat floor has nothing finer to say than one sample per tile.
 const terrainAmplitude = 0;
-const terrainSamples = 48;
+const terrainSamples = gridCols;
 let terrainPhase = 0;
 function terrainSeed(value) {
   let hash = 2166136261;
@@ -50,21 +110,20 @@ function terrainSeed(value) {
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
 function terrainFloorAt(x) {
+  // The cube's floor is flat — amplitude zero — and this runs for every
+  // grass blade and every foot every frame. The constant answers first; the
+  // heightfield math below wakes the day the amplitude does.
+  if (!terrainAmplitude) return floorY;
   const nx = clamp((x - worldLeft) / (worldRight - worldLeft), 0, 1);
   const edge = Math.sin(nx * Math.PI) ** 2;
   const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
   const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // Two circular quarter-pipes meet the floor tangentially and approach a
-  // vertical tangent at each coping: an actual half-pipe cross-section.
-  const transitionRadius = 720;
-  const wallDistance = Math.min(x - worldLeft, worldRight - x);
-  const transition = clamp((transitionRadius - wallDistance) /
-    transitionRadius, 0, 1);
-  const halfPipeRise = transitionRadius *
-    (1 - Math.sqrt(Math.max(0, 1 - transition * transition)));
-  const terrainNoise = (broad + detail) * terrainAmplitude * edge *
-    (1 - transition);
-  return floorY - terrainNoise - halfPipeRise;
+  // No side skate ramps — @jeffrey asked for them gone back in the tower,
+  // and the cube keeps the verdict: the floor is flat wall to wall, the
+  // walls stand square out of it, and `resolveRunnerBounds` is what keeps a
+  // body off them.
+  const terrainNoise = (broad + detail) * terrainAmplitude * edge;
+  return floorY - terrainNoise;
 }
 function terrainTangentAt(x, span = 12) {
   const left = terrainFloorAt(clamp(x - span, worldLeft, worldRight));
@@ -79,24 +138,90 @@ let stageTop = 112;
 let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
-// The stage furniture is flagged out for now — @jeffrey wants the arena to
-// read as one floor. Flip PLATFORM true and the ledge comes back whole:
-// drawing, collision, pickup lanes, grenade and ball bounces, the bot's
-// sink-and-chase play. The wind flag rides its own switch the same way.
+// The lattice is off: a 10x10 cube holds a plain jump (apex 322, tiles are
+// 90) but has no room for a rung a fighter could stand under, and the point
+// of the cube is that there is nowhere to go but at each other. The ledge
+// machinery below stays, because a tile-authored map is exactly the shape a
+// future rung would be written in. The wind flag rides its own switch and is
+// still off.
 const PLATFORM = false;
 const WIND_FLAG = false;
-const platformLeft = 650;
-const platformRight = 1350;
-// A jump apexes 290 above the floor, so the ledge sits inside a single hop and
-// inside the tight opening frame. At its old 1600 only an ultra jump reached
-// it, which put every platform powerup out of play and off screen.
-const platformY = 1560;
+const survivalLevelCount = 32;
+const survivalStepY = 235;
+const survivalCeilingY = floorY - (survivalLevelCount + 2) * survivalStepY;
+// A deterministic, hand-tuned zig-zag. Adjacent decks always overlap a
+// normal jump's horizontal budget and sit below its 322-unit apex; variation
+// comes from where the safe landing moves, not from impossible dice rolls.
+const survivalCenters = [450, 280, 620, 390, 680, 250, 520, 710];
+const survivalWidths = [470, 390, 420, 360, 440, 380, 410, 370];
+const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
+  const center = survivalCenters[index % survivalCenters.length];
+  const width = survivalWidths[index % survivalWidths.length];
+  return { level: index + 1, left: center - width / 2,
+    right: center + width / 2, y: floorY - (index + 1) * survivalStepY };
+});
+const platformsEnabled = () => PLATFORM || survivalActive();
+// Version-one furniture — the wind flag's pole, the store's demos, the tests —
+// still asks for "the platform" by name. In a one-room cube the floor is the
+// only platform, so the name now means the whole playable span of it.
+const platformLeft = gridLeft;
+const platformRight = gridLeft + gridWidth;
+const platformY = floorY;
+// The surface a thing at (x, y) is standing over: the nearest rung at or below
+// it, and the floor when there is no rung. Shadows, pickups and the bot all
+// ask this, so a rung that moves takes its furniture with it.
+function surfaceYAt(x, y) {
+  let surface = terrainFloorAt(x);
+  if (platformsEnabled()) for (const ledge of platforms)
+    if (ledge.y < surface && ledge.y >= y - 1 &&
+      x >= ledge.left && x <= ledge.right) surface = ledge.y;
+  return surface;
+}
+// Which rung a falling thing just crossed, or null. `rise` lifts the contact
+// line off the rung by an object's radius and `inset` keeps its edges on the
+// span, so one answer serves fighters, grenades and the ball alike — and a
+// lattice change lands in all three at once. The highest crossed rung wins,
+// because that is the one a fall meets first.
+function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
+  if (!platformsEnabled()) return null;
+  let hit = null;
+  for (const ledge of platforms) {
+    const top = ledge.y - rise;
+    if (previousY > top || y < top) continue;
+    if (x < ledge.left + inset || x > ledge.right - inset) continue;
+    if (!hit || ledge.y < hit.y) hit = ledge;
+  }
+  return hit;
+}
+// Resting on a rung rather than falling through one: the ball asks this to
+// know whether it is supported and whether it may be booted.
+function ledgeSupports(x, y, radius = 0) {
+  if (!platformsEnabled()) return false;
+  for (const ledge of platforms)
+    if (x >= ledge.left + radius && x <= ledge.right - radius &&
+      Math.abs(y - (ledge.y - radius)) <= 2) return true;
+  return false;
+}
 const doubleTapUs = 280000;
 const doubleTapReleaseUs = 40000;
 const roundDurationUs = 30000000;
 const roundResultUs = 3000000;
 const matchResultUs = 5000000;
 const introDurationUs = 3000000;
+// A reel gets one branded beat, then motion. Three portrait seconds cost the
+// swipe decision before either fighter could move; the live game keeps that
+// introduction, while the unattended 9:16 lane reaches the fight inside the
+// first second without changing a combat rule.
+const reelIntroDurationUs = 650000;
+const survivalIntroDurationUs = 900000;
+// Keep the close face-off lens through the first exchange. The seeded bots
+// meet at about .81s; releasing at the bell made that hit happen as two tiny
+// figures at the foot of an empty portrait wall.
+const reelOpeningHoldUs = 1350000;
+function roundIntroDurationUs() {
+  if (survivalActive()) return survivalIntroDurationUs;
+  return reelGroundCamera() ? reelIntroDurationUs : introDurationUs;
+}
 const dummyGuideDurationUs = 150000000;
 const matchWins = 5;
 const errorRestartUs = 16000000;
@@ -221,6 +346,9 @@ const hudTypeSize = 42;
 const commandStreamDepth = 20;
 const commandStreamRows = 5;
 const commandStreamColumns = 8;
+const commandStreamColumnsNow = () => compactLayout() ? 4 : commandStreamColumns;
+const commandStreamTypeSize = (handleSize) => Math.max(18,
+  Math.round(handleSize * (compactLayout() ? .8 : .88)));
 const commandHoldUs = 1100000;
 const commandFadeUs = 1900000;
 const replayButtons = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
@@ -382,6 +510,7 @@ class FightCamDoll {
     this.fov = spec.fov || 55;
     this.roll = spec.roll || 0;
     this.dirty = true;
+    collapseRenderCameraInterpolation();
   }
 
   prepare() {
@@ -447,6 +576,12 @@ const cameraDoll = new FightCamDoll();
 const cameraScale = () => (stageRight - stageLeft) / cameraDoll.width;
 let playerCameraYaw = 0;
 let playerCameraPitch = 0;
+// A multiplier on the framed width, so zoom rides on top of automatic framing
+// rather than fighting it: the camera still guarantees both fighters are in
+// shot, and this scales the result. Above 1 is wider. The ceiling is low on
+// purpose -- a wide shot draws a wider span of terrain, and span IS the frame
+// budget on a console whose JS never gets a JIT.
+let playerCameraZoom = 1;
 let triangleDepth = -1.4;
 // A match frame submits ~2100 faces. Buffering them into a Float32Array first
 // cost 5.7ms a frame where handing each one straight over costs 1.8ms —
@@ -487,7 +622,11 @@ function projectedTriangle(a, b, c, color) {
   if (!(triangleSafe(a.x) && triangleSafe(a.y) && triangleSafe(a.z) &&
       triangleSafe(b.x) && triangleSafe(b.y) && triangleSafe(b.z) &&
       triangleSafe(c.x) && triangleSafe(c.y) && triangleSafe(c.z))) return;
-  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z, ...color);
+  // Positional, not spread: see the note on emitTriangle above. Every face a
+  // frame submits comes through here, and `...color` built one throwaway
+  // iterator apiece for ~2100 of them.
+  emitTriangle(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z,
+    color[0], color[1], color[2]);
 }
 // Sutherland-Hodgman, one plane at a time. Both clips below are the same walk:
 // step the polygon's edges, keep the vertices that are inside, and whenever an
@@ -520,17 +659,24 @@ const clipViewNear = (polygon) =>
 // at this lens — so a legitimately visible floor can still ask for coordinates
 // far outside anything the rasterizer will take. Cut it to a band a viewport
 // wide instead of dropping the face and leaving a hole in the ground.
+// The four band edges live at module scope over mutable bounds instead of
+// being rebuilt as an array of closures per face — the walls cross the band
+// every frame, and that little array was steady interpreter garbage.
+let bandMinX = 0, bandMaxX = 0, bandMinY = 0, bandMaxY = 0;
+const bandEdges = [
+  (vertex) => vertex.x - bandMinX,
+  (vertex) => bandMaxX - vertex.x,
+  (vertex) => vertex.y - bandMinY,
+  (vertex) => bandMaxY - vertex.y,
+];
 function clipScreenBand(polygon) {
   const width = viewWidth();
-  const margin = guardBand;
-  const edges = [
-    (vertex) => vertex.x + width * margin,
-    (vertex) => width * (1 + margin) - vertex.x,
-    (vertex) => vertex.y + viewHeight * margin,
-    (vertex) => viewHeight * (1 + margin) - vertex.y,
-  ];
+  bandMinX = -width * guardBand;
+  bandMaxX = width * (1 + guardBand);
+  bandMinY = -viewHeight * guardBand;
+  bandMaxY = viewHeight * (1 + guardBand);
   let clipped = polygon;
-  for (const distance of edges) {
+  for (const distance of bandEdges) {
     if (clipped.length < 3) return [];
     clipped = clipPolygon(clipped, distance, mixVertex);
   }
@@ -540,9 +686,37 @@ function clipScreenBand(polygon) {
 // plane, projected, cut to the guard band, then fanned into whatever triangles
 // are left. Zero of them is a face entirely behind the camera, which is a
 // perfectly good answer.
+// Whether a projected vertex already sits inside the guard band. A NaN fails
+// every compare, so a broken projection falls through to the clipper.
+function bandContains(vertex) {
+  const width = viewWidth();
+  return vertex.x >= -width * guardBand && vertex.x <= width * (1 + guardBand) &&
+    vertex.y >= -viewHeight * guardBand &&
+    vertex.y <= viewHeight * (1 + guardBand);
+}
 function worldTriangle(a, b, c, color) {
-  const near = clipViewNear([cameraDoll.toView(a), cameraDoll.toView(b),
-    cameraDoll.toView(c)]);
+  const viewA = cameraDoll.toView(a);
+  const viewB = cameraDoll.toView(b);
+  const viewC = cameraDoll.toView(c);
+  // Nearly every face a frame submits sits whole in front of the lens and
+  // whole inside the guard band, and the console's interpreter was paying
+  // for six array allocations per face on the way to discovering that.
+  // Plain compares decide the common case; only a face that actually
+  // crosses a plane pays for the Sutherland-Hodgman walk.
+  if (viewA.z >= cameraNear && viewB.z >= cameraNear && viewC.z >= cameraNear) {
+    const pa = cameraDoll.projectView(viewA);
+    const pb = cameraDoll.projectView(viewB);
+    const pc = cameraDoll.projectView(viewC);
+    if (bandContains(pa) && bandContains(pb) && bandContains(pc)) {
+      projectedTriangle(pa, pb, pc, color);
+      return;
+    }
+    const banded = clipScreenBand([pa, pb, pc]);
+    for (let corner = 2; corner < banded.length; corner++)
+      projectedTriangle(banded[0], banded[corner - 1], banded[corner], color);
+    return;
+  }
+  const near = clipViewNear([viewA, viewB, viewC]);
   if (near.length < 3) return;
   const projected = near.map((vertex) => cameraDoll.projectView(vertex));
   if (projected.some((point) => !Number.isFinite(point.x) ||
@@ -699,7 +873,12 @@ function displayTheme() {
 }
 const players = [
   { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
-    pad: 0, spawnX: 2240, x: 2240, y: floorY, z: 0,
+    // Spawn marks stand on the centers of tiles 3 and 6 — mirrored across
+    // the cube's middle, three tiles from the pistol's corner. Three
+    // matters: a pickup takes any limb within 90, a standing fighter's arms
+    // reach most of a tile past the mark, and two tiles of gap was close
+    // enough that the bell handed the weapon out before anyone moved.
+    pad: 0, spawnX: tileCenterX(3), x: tileCenterX(3), y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [190, 42, 58], hit: 0,
@@ -714,7 +893,8 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: 1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    gunAimX: 1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
+    nextGunShotAt: 0,
     stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
@@ -724,10 +904,11 @@ const players = [
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
+    sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
   { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
-    npc: false, bot: false,
-    pad: 1, spawnX: 2760, x: 2760, y: floorY, z: 0,
+    npc: false, bot: false, remote: false,
+    pad: 1, spawnX: tileCenterX(6), x: tileCenterX(6), y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -742,7 +923,8 @@ const players = [
     shieldLocked: false, shieldBrokenAt: 0,
     shieldCrouched: false, shieldAimX: 0, shieldAimY: 0,
     windVx: 0, knockVx: 0, gunAmmo: 0, grenadeAmmo: 0,
-    gunAimX: -1, gunAimY: 0, gunMode: "HANDGUN", nextGunShotAt: 0,
+    gunAimX: -1, gunAimY: 0, gunAimLive: false, gunMode: "HANDGUN",
+    nextGunShotAt: 0,
     stance: "NEUTRAL",
     heldBall: -1, heldPart: -1, heldPlayer: -1, grabbedBy: -1,
     grabHeld: false, crouchBlend: 0, standingOn: -1,
@@ -752,47 +934,54 @@ const players = [
     botPresses: {},
     jumpLaunchAt: 0, jumpPoseUntil: 0, landPoseUntil: 0,
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
+    sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
 ];
+// Who the camera, the scorekeeping and the reactions believe is on stage.
+// Survival and the versus lobby are both one-body rooms — the second chair
+// is parked off the map until somebody takes it.
+const activePlayers = () =>
+  survivalActive() || lobbyActive() ? [players[0]] : players;
 const impacts = [];
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// Pickups belong to a surface the player can actually see. When the optional
-// ledge is gone they sit just above the floor instead of floating at its old
-// invisible height.
+// The cube's whole arsenal, said out loud: one pistol, nothing else. The
+// SMG, the rocket launcher and the grenades belonged to a tower where
+// height priced a weapon; a one-room box has no shelf to price them on,
+// and a 900-wide fight gives a spray weapon nothing to miss. The blade
+// came and went inside one build — @jeffrey tried the sword-and-pistol
+// standoff and asked for fists and one gun instead. The pistol sits on a
+// corner tile, three tiles behind the far spawn mark, so the bell opens
+// with a choice instead of a handout: turn your back on the other fighter
+// to arm up, or rush the middle bare-handed.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: 2050, startsActive: true,
-    y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-  { kind: "RUBBER SMG", amount: 18, x: 850, startsActive: true,
-    airborne: true, y: ceilingY + 240, z: 0 },
-  { kind: "ROCKET LAUNCHER", amount: 3, x: 4150, startsActive: true,
-    airborne: true, y: ceilingY + 240, z: 0 },
+  { kind: "HANDGUN", amount: 6, x: tileCenterX(9), startsActive: true,
+    y: floorY, z: 0 },
 ];
-const grenadePickups = [
-  { amount: 2, x: 2950, y: PLATFORM ? platformY - 70 : floorY - 35, z: 0 },
-];
-// Two trees grow out of the side walls, one per side, and they are the only
-// thing in the round that gives a body back. A fighter who has been taken
-// apart limb by limb can walk to the wall and be whole again — which is worth
-// crossing the stage for, and worth the fifteen seconds it puts back on the
-// clock. They take the whole round to ripen, so each one is picked at most
-// once and the walk has to be timed.
-const bodyTrees = [
-  { x: worldLeft + wallThickness, y: floorY - 60, z: 0, growth: 0 },
-  { x: worldRight - wallThickness, y: floorY - 60, z: 0, growth: 0 },
-];
+const grenadePickups = [];
+// No trees. Two grew out of the tower's side walls and were the only thing
+// in a round that gave a body back; in the cube their ripe fruit read as a
+// coconut hanging over the fight, and @jeffrey asked for it gone. The
+// consequence is the point now: a fighter taken apart limb by limb stays
+// that way until the bell. The grower/harvest machinery below sleeps on
+// this empty list.
+const bodyTrees = [];
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
 for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
-  pickup.y = pickup.airborne ? ceilingY + 330
-    : PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
+  // A pickup names its tile and floats seventy above that tile's surface —
+  // the same float the old ledges used, and it keeps a real-sized weapon
+  // from reading as a decal painted on the floor.
+  pickup.y = surfaceYAt(pickup.x, pickup.y) - 70;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
-// can never leave a previous kind's float behind.
+// can never leave a previous kind's float behind. The skateboard is out of
+// the deck — @jeffrey asked for no boards on this map — so the series draw
+// below can only ever deal a ball.
 const ballKinds = [
   { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
     bounce: .58, drag: .994, windFactor: .58, gravityFactor: 1 },
@@ -800,9 +989,6 @@ const ballKinds = [
     bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
-  { type: "skateboard", spawnOwner: -1, radius: 52, mass: 1.4,
-    hitScale: .82, bounce: .34, drag: .982, windFactor: .12,
-    gravityFactor: 1 },
 ];
 let matchBallType = ballKinds[0].type;
 // A match inflates exactly one ball and keeps it for every round.
@@ -812,7 +998,86 @@ const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
   heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
-let ballEnabled = true;
+// The ball is out of the round — @jeffrey asked for the cube bare. All of
+// the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
+// sleeps behind this switch exactly as it always did for the test harness;
+// flipping it back on is the whole re-installation.
+let ballEnabled = false;
+// Physics remains an exact 60 Hz story. Rendering may happen between those
+// authored instants—especially during slow motion—so retain the state that
+// entered each tick and blend only presentation coordinates toward the state
+// that left it. The authoritative objects are restored immediately after
+// paint; collision, replay capture and networking never see interpolated data.
+let renderPreviousState = null;
+const renderInterpolationFields = {
+  player: ["x", "y", "z", "headRoll", "crouchBlend"],
+  bullet: ["x", "y", "z", "previousX", "previousY"],
+  grenade: ["x", "y", "z", "previousX", "previousY", "blastRadius"],
+  ball: ["x", "y", "z", "rotation"],
+  detached: ["x1", "y1", "z1", "x2", "y2", "z2"],
+  debris: ["x", "y", "z"],
+  camera: ["width", "roll", "perspective", "fov"],
+  cameraPoint: ["x", "y", "z"],
+};
+
+function renderInterpolationObjects() {
+  return [
+    ...players.map((object) => [object, renderInterpolationFields.player]),
+    ...bullets.map((object) => [object, renderInterpolationFields.bullet]),
+    ...grenades.map((object) => [object, renderInterpolationFields.grenade]),
+    ...balls.map((object) => [object, renderInterpolationFields.ball]),
+    ...detachedParts.map((object) => [object, renderInterpolationFields.detached]),
+    ...impacts.flatMap((impact) => (impact.debris || [])
+      .map((object) => [object, renderInterpolationFields.debris])),
+    [cameraDoll, renderInterpolationFields.camera],
+    [cameraDoll.position, renderInterpolationFields.cameraPoint],
+    [cameraDoll.target, renderInterpolationFields.cameraPoint],
+  ];
+}
+
+function captureRenderInterpolationState() {
+  renderPreviousState = new Map();
+  for (const [object, fields] of renderInterpolationObjects())
+    renderPreviousState.set(object, Object.fromEntries(fields
+      .filter((field) => Number.isFinite(object[field]))
+      .map((field) => [field, object[field]])));
+}
+
+// A camera snap is an edit, not motion. If it happens inside a simulation
+// tick, replace the retained camera sample too; otherwise fractional-speed
+// paint blends the new close-up with the old wide shot and frame one lands
+// halfway between them.
+function collapseRenderCameraInterpolation() {
+  if (!renderPreviousState) return;
+  for (const [object, fields] of [
+    [cameraDoll, renderInterpolationFields.camera],
+    [cameraDoll.position, renderInterpolationFields.cameraPoint],
+    [cameraDoll.target, renderInterpolationFields.cameraPoint],
+  ]) renderPreviousState.set(object, Object.fromEntries(fields
+    .filter((field) => Number.isFinite(object[field]))
+    .map((field) => [field, object[field]])));
+}
+
+function beginRenderInterpolation(alpha) {
+  const amount = clamp(Number(alpha), 0, 1);
+  if (!renderPreviousState || amount >= .999) return () => {};
+  const restore = [];
+  for (const [object, fields] of renderInterpolationObjects()) {
+    const previous = renderPreviousState.get(object);
+    if (!previous) continue;
+    for (const field of fields) {
+      if (!Number.isFinite(previous[field]) || !Number.isFinite(object[field]))
+        continue;
+      restore.push([object, field, object[field]]);
+      object[field] = lerp(previous[field], object[field], amount);
+    }
+  }
+  cameraDoll.dirty = true;
+  return () => {
+    for (const [object, field, value] of restore) object[field] = value;
+    cameraDoll.dirty = true;
+  };
+}
 let padSnapshots = [null, null];
 // The pad each fighter actually feels. A bot writes its synthesized presses
 // here, so the HUD, the debug read-out, the replay and the physics all read
@@ -822,6 +1087,8 @@ let startedAt = 0;
 let roundStartedAt = 0;
 let lastSimAt = 0;
 let roundElapsedUs = 0;
+const fightHitMarks = [];
+globalThis.__oskiewarFightHitMarks = fightHitMarks;
 let lastCountdownSecond = -1;
 // The intro's own clock: which "3, 2, 1" second last rang, and whether the
 // round-open accent has fired. -1 means the accent is still owed.
@@ -859,6 +1126,21 @@ let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
 let selfPlay = false;
+// Which kind the round on screen was opened against. Training and the bot door
+// seat the same fighter with the same brain now, so `players[1].bot` can no
+// longer say which door a round came through — and only one of those doors is
+// allowed on the wire.
+let fightOpponent = "";
+// Survival uses the round clock only as an elapsed-time source. Height is the
+// score, the lava line is the opponent, and a run ends only when the runner
+// touches it or reaches the final authored deck.
+const survivalLavaStart = floorY + 360;
+const survivalLavaBaseSpeed = 52;
+let survivalStartedAt = 0;
+let survivalLavaY = survivalLavaStart;
+let survivalHeight = 0;
+let survivalBestHeight = 0;
+let survivalPeakLevel = 0;
 let hudLeftPad = 0;
 // The title is also the attract screen. Half of sessions get the quiet,
 // cross-legged tableau; half get a standing face-off. Both remain still so
@@ -866,12 +1148,71 @@ let hudLeftPad = 0;
 // Hashing the already-created round name keeps the split stable for a visit
 // without spending a second Math.random call (reel seeding relies on one).
 let titleAttractMode = "still";
+// What a fresh session is dealt. @jeffrey, playtesting: "can we switch dummy
+// to bot now?" — the free front door was a post that never hit back, so a solo
+// visit was target practice rather than a fight. `trainingbot` is that same
+// fighter with the bot's brain switched on, carrying its own kind name so the
+// wire gate in `roundIsTimed` can still tell the free door from the one a
+// handle buys. The inert dummy and the spider stay reachable by name, because
+// damage, geometry and sync work all want a target that stands still.
 let trainingOpponent = "";
 function trainingOpponentKind() {
   const requested = String(globalThis.__oskiewarOpponent || "").toLowerCase();
-  if (requested === "spiderdummy") return requested;
-  if (!trainingOpponent) trainingOpponent = "dummy";
+  if (requested === "dummy" || requested === "spiderdummy" ||
+      requested === "trainingbot") return requested;
+  // One kind for the whole visit: a title returned to after a knockout must
+  // not re-deal the opponent out from under the player.
+  if (!trainingOpponent) trainingOpponent = "trainingbot";
   return trainingOpponent;
+}
+// The versus lane's room. One name for the whole visit — the shell writes it
+// into the address bar, the QR encodes it, and a friend opening that address
+// takes the second chair. A visit that arrived THROUGH such an address and
+// found nobody hosting claims the name instead, so a shared link survives
+// its sender refreshing.
+let versusRoomName = "";
+let versusNextAt = 0;
+let versusRivalName = "";
+// How long an empty wire keeps the rival seated. Long enough to ride out a
+// dropped packet or a phone switching antennas, short enough that a closed
+// tab reads as "they left" while the fighter is still warm.
+const versusChallengerGraceMs = 2500;
+// The fight streams faster than a grandstand needs, because for the
+// challenger this feed IS the game — their own presses come back to them
+// as pictures through it.
+const versusSnapshotIntervalUs = 33000;
+// How long a visitor who arrived through a shared address waits for a host
+// before deciding the room is theirs to claim.
+const versusClaimAfterUs = 2500000;
+let versusClaimArmedAt = 0;
+let versusInputSeq = 0;
+let versusInputLastSent = "";
+let versusInputNextAt = 0;
+let versusInputMinNextAt = 0;
+// The bridge a claiming visitor stepped off of, kept so a lost publisher
+// race can walk them right back on as a challenger.
+let versusFallbackBridge = null;
+
+function versusChallengerFresh() {
+  const remote = globalThis.__oskiewarRemotePad;
+  if (!remote || !Number.isFinite(remote.at)) return false;
+  return Date.now() - remote.at < versusChallengerGraceMs;
+}
+
+// The remote rival's pad, read off the same wire shape a hand or a bot
+// writes. A stale global answers neutral rather than holding the last
+// press — a vanished friend must drop their guard, not run into a corner
+// forever.
+function remotePadSnapshot() {
+  const remote = globalThis.__oskiewarRemotePad;
+  const fresh = remote && Number.isFinite(remote.at) &&
+    Date.now() - remote.at < versusChallengerGraceMs;
+  if (!fresh) return { connected: true, down: [], leftX: 0, leftY: 0,
+    rightX: 0, rightY: 0 };
+  return { connected: true,
+    down: Array.isArray(remote.down) ? remote.down.slice() : [],
+    leftX: Number(remote.leftX) || 0, leftY: Number(remote.leftY) || 0,
+    rightX: 0, rightY: 0 };
 }
 const selectionReady = [false, false];
 const selectionPrevious = [[], []];
@@ -888,6 +1229,12 @@ let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
 let seriesName = "";
+// The app run's own name, distinct from any round or series: rounds are born
+// and buried every thirty seconds, but the console sitting on the title screen
+// is still a running program somebody may want to attach to. One name from
+// boot to quit, drawn beside the debug bug, carried as sessionId in every live
+// frame, and used as the relay room while no timed round is publishing.
+let sessionName = "";
 let previousRoundName = "";
 let roundReplayFrames = [];
 let roundReplayLastAt = 0;
@@ -896,6 +1243,7 @@ let replayOfferPrevious = [];
 let shellMode = "MENU";
 let gameplayStarted = false;
 let shellPrevious = [];
+let shellRawPrevious = [];
 // Whether the stick was already leaned last frame, so a held lean reads as
 // one gesture at the title rather than a machine-gun of entries.
 let shellStickLive = false;
@@ -923,9 +1271,19 @@ let titleToyAt = -1;
 // travel is the same hysteresis the camera uses at the safe-zone edge.
 let titleGlyphHot = -1;
 let navigationPrevious = [[], []];
+// Remote render experiment flags. An attached agent can flip these through
+// the relay — the shell merges oskiewar:flags into the global and the paint
+// below reads it once per frame — so what each layer costs can be measured
+// on the machine that is actually struggling, not a workstation imitating
+// it. Every flag missing means the full picture; xbox/tools/oskiewar-ablate
+// walks them and reads the price back out of the live fps telemetry.
+let renderFlags = {};
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
+// One FIGHT_DEBUG_PERF telemetry line per debug toggle, so the console's log
+// can prove the fps row drew without narrating every frame.
+let debugPerfReported = false;
 let nextInputDebugAt = 0;
 let frameTelemetry = [];
 let frameTelemetryFlushAt = 0;
@@ -933,6 +1291,14 @@ let lastPaintAt = 0;
 let displayFps = 0;
 let liveSequence = 0;
 let liveNextAt = 0;
+// The session room ticks slower than a round room: nobody spectates a title
+// screen at 20Hz, and an agent reading fps is happy at four.
+const sessionSnapshotIntervalUs = 250000;
+let sessionNextAt = 0;
+// Which round the session room was last told about, so the hand-off frame
+// goes out exactly once per round instead of flapping the native shell's
+// single publisher socket every tick.
+let sessionAnnouncedRound = "";
 let spectatorQr = null;
 // Encoding a code costs about 59ms and is the whole 50-100ms tail in the
 // frame histogram: it ran at every round reset, for a URL that changes once
@@ -950,6 +1316,9 @@ function spectatorCode(url) {
 let roundViewer = null;
 let roundViewerStop = null;
 let roundViewerMode = "";
+// The chair-holder's own View presses, remembered across viewer ticks — the
+// debug toggle needs an edge, and the host's echo never carries system keys.
+let viewerSystemPrevious = [];
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
@@ -1017,8 +1386,9 @@ function startReplay(now) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
-    // Spiderdummy training carries exactly one board and no second match ball.
-    matchBallType = "skateboard";
+    // Spiderdummy training carries one plain ball; there is no board to
+    // carry anymore.
+    matchBallType = "soccer";
     replay = null;
     spectatorQr = null;
     return;
@@ -1051,38 +1421,74 @@ function startReplay(now) {
   };
   replayLastCommand = [-1, -1];
   replayNextCheckpointAt = now;
-  liveSequence = 0;
+  // The sequence counter survives the match: every round room is born empty,
+  // so a fresh room takes any first number — but the session room lives from
+  // boot to quit, and the relay silently drops a frame whose sequence ever
+  // runs backwards. One counter, never rewound, serves them both.
   liveNextAt = now;
   livePublishFailed = false;
   spectatorQr = null;
   trackMatchStarted();
 }
 
+// Whether the round on screen is on the wire: clocked, named, recorded,
+// published, counted. The free training round never is, whatever its opponent
+// does. An opponent with no bot AI used to be a safe stand-in for "nobody is
+// watching this" — the day training started sparring back, that stand-in would
+// have put every anonymous session on a series, a demo and a live feed, so the
+// gate reads the door the round came through instead. The versus lane is off
+// this wire too, by choice rather than freedom: it runs one room, one stream,
+// no series and no demo, because the shared URL must keep meaning this fight.
 function roundIsTimed() {
-  // Training against the dummy runs without a clock — except under the reel
-  // harness, where a scripted dummy bout wants the full round apparatus
-  // (clock, demo, result card) so it can be recorded and repainted like any
-  // match.
+  if (survivalActive()) return false;
+  // Training runs without a clock — except under the reel harness, where a
+  // scripted dummy bout wants the full round apparatus (clock, demo, result
+  // card) so it can be recorded and repainted like any match.
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
   if (resimActive) return true;
+  if (fightOpponent === "trainingbot" || versusLane()) return false;
   return !(players[1].npc && !players[1].bot);
 }
 
+// The frame numbers the debug HUD already prints, packed for the wire. Only
+// stages the host actually measured go in — a console reports a real frame and
+// present time, a browser reports its rAF span and its own paint cost and
+// nothing else — because a zeroed field on a public feed reads as a stall
+// rather than as silence. Two decimals is the resolution AC_NATIVE_PROFILE
+// prints at, and it holds the whole block under sixty bytes.
+function spectatorPerf(run) {
+  const perf = { fps: Math.round(displayFps || 0) };
+  const frameMs = Number(run.frameMs) || 0;
+  const renderMs = Number(run.renderCpuMs) || 0;
+  const hz = Number(run.refreshHz) || 0;
+  if (frameMs) perf.frameMs = Math.round(frameMs * 100) / 100;
+  if (renderMs) perf.renderMs = Math.round(renderMs * 100) / 100;
+  if (hz) perf.hz = Math.round(hz);
+  return perf;
+}
+
 function spectatorState(now, nextRoundId = "") {
+  const run = runtime();
   const introAge = now - roundStartedAt;
   const phase = instantReplay ? "replay" : matchOver ? "match"
-    : roundResult ? "round" : introAge < introDurationUs ? "intro" : "fight";
+    : roundResult ? "round" : selecting ? "select"
+    : introAge < roundIntroDurationUs() ? "intro" : "fight";
   const timed = roundIsTimed();
-  const remainingMs = roundResult ? 0 : timed ? Math.max(0,
-    Math.round((roundDurationUs - roundElapsedUs) / 1000)) : null;
+  // An untimed frame reports zero rather than null: the relay reads every
+  // remainingMs as an integer, and the title screen's attract fight has no
+  // clock to misreport.
+  const remainingMs = roundResult || !timed ? 0 : Math.max(0,
+    Math.round((roundDurationUs - roundElapsedUs) / 1000));
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
-    at: runtime().unixMs || 0, phase,
-    seriesId: "ow-" + seriesName, roundId: "ow-" + matchName,
+    at: run.unixMs || 0, phase,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
-      name: player.name, nation: player.nation || "", color: player.color,
+      // The title's still variant seats a fighter with no name yet, and the
+      // relay turns away a nameless one — so the empty seat gets called what
+      // it is rather than costing the whole frame.
+      name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, alive: player.alive,
@@ -1105,8 +1511,22 @@ function spectatorState(now, nextRoundId = "") {
     wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, timed, result: roundResult || "",
       cause: roundCause || "" },
-    replayUrl: "/api/oskiewar-replays?id=ow-" + matchName,
+    // @jeffrey plays oskiewar.com in Edge on an Xbox, where there are no
+    // devtools and the console's own AC_NATIVE_PROFILE line only reaches a
+    // Device Portal on the same LAN. The live socket is the one channel that
+    // already leaves the box, so the frame rate rides out with the round and
+    // can be read from anywhere the round can.
+    perf: spectatorPerf(run),
   };
+  // A title-screen frame has no series, no round and no demo to link — the
+  // relay rejects an id it cannot parse, so an empty name stays off the wire
+  // entirely rather than riding out as "ow-".
+  if (seriesName) state.seriesId = "ow-" + seriesName;
+  if (matchName) {
+    state.roundId = "ow-" + matchName;
+    state.replayUrl = "/api/oskiewar-replays?id=ow-" + matchName;
+  }
+  if (sessionName) state.sessionId = "ow-" + sessionName;
   if (nextRoundId) state.nextRoundId = nextRoundId;
   return state;
 }
@@ -1123,6 +1543,42 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
   } catch (error) {
     // A native host with an older room-ID contract must never take down play.
     // Disable only spectator publishing until the next match/host upgrade.
+    livePublishFailed = true;
+    telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+  }
+}
+
+// The session channel. Rounds publish their own rooms, but the app run itself
+// keeps one room under its own name so an agent has somewhere to attach while
+// nothing is being scored — the title screen included. It runs only while the
+// debug bug is lit: every anonymous visitor idling on oskiewar.com would
+// otherwise claim one of the relay's 128 rooms, and this channel exists for a
+// maintainer who asked for it, not for an audience. While a timed round is on
+// the wire the session room instead gets exactly one frame naming that round,
+// which both points any watcher at the fight and retires this room's publisher
+// so the native shell's single socket is free to follow.
+function publishSession(now) {
+  if (!debugHitboxes || !sessionName || livePublishFailed ||
+      typeof publishLive !== "function") return;
+  const liveRound = roundIsTimed() && matchName ? matchName : "";
+  if (liveRound) {
+    if (sessionAnnouncedRound === liveRound) return;
+    sessionAnnouncedRound = liveRound;
+    try {
+      publishLive("ow-" + sessionName,
+        JSON.stringify(spectatorState(now, "ow-" + liveRound)));
+    } catch (error) {
+      livePublishFailed = true;
+      telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+    }
+    return;
+  }
+  sessionAnnouncedRound = "";
+  if (now < sessionNextAt) return;
+  sessionNextAt = now + sessionSnapshotIntervalUs;
+  try {
+    publishLive("ow-" + sessionName, JSON.stringify(spectatorState(now)));
+  } catch (error) {
     livePublishFailed = true;
     telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
   }
@@ -1898,16 +2354,25 @@ function applyRoster(player, index) {
   player.handleColors = profile.colors;
 }
 
-// The one door into a fight, and the seam auth will attach to. Dummy is free
-// and anonymous — it is the front door and must never ask for anything. Bot
-// and ppl are what a handle buys, because they persist: a series, a published
-// match, a replay, a ranking. Sign-in belongs on this call, not in front of
-// the game. Nothing opens those doors yet, so only training reaches here.
+// The one door into a fight, and the seam auth will attach to. Training is
+// free and anonymous — it is the front door and must never ask for anything,
+// and `trainingbot` is that door's sparring partner: the bot's brain in a
+// round that stays off the wire. Bot and ppl are what a handle buys, because
+// they persist: a series, a published match, a replay, a ranking. Sign-in
+// belongs on this call, not in front of the game. Nothing opens those doors
+// yet, so only training reaches here.
 function startFightAgainst(kind, now) {
+  gameMode = "fight";
+  selfPlay = false;
+  players[0].spawnX = tileCenterX(3);
+  players[1].spawnX = tileCenterX(6);
   const opponent = players[1];
-  opponent.npc = kind === "dummy" || kind === "spiderdummy" || kind === "bot";
-  opponent.bot = kind === "bot";
+  fightOpponent = kind;
+  opponent.npc = kind === "dummy" || kind === "spiderdummy" ||
+    kind === "bot" || kind === "trainingbot";
+  opponent.bot = kind === "bot" || kind === "trainingbot";
   opponent.spiderDummy = kind === "spiderdummy";
+  opponent.remote = false;
   // Pad two is @OSKIE until ppl arrives carrying a handle of its own.
   applyRoster(opponent, opponent.npc ? -1 : 2);
   selecting = false;
@@ -1919,6 +2384,81 @@ function startFightAgainst(kind, now) {
   emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
 }
 
+function survivalRequested() {
+  const requested = String(globalThis.__oskiewarOpponent || "")
+    .trim().toLowerCase();
+  if (requested === "survival") return true;
+  // The empty front door still opens on the climb wherever the shell cannot
+  // carry a rival's presses inbound — the native publisher reads the relay
+  // and discards, so a versus room there would be a post that never hits
+  // back. The web shell raises the capability flag; nothing else does.
+  return !requested && globalThis.__oskiewarVersusCapable !== true;
+}
+
+function versusRequested() {
+  return !String(globalThis.__oskiewarOpponent || "").trim() &&
+    globalThis.__oskiewarVersusCapable === true;
+}
+
+function startSurvivalRun(now, botControlled = false) {
+  gameMode = "survival";
+  selfPlay = botControlled;
+  fightOpponent = "survival";
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  finishReplay();
+
+  const runner = players[0];
+  runner.spawnX = tileCenterX(4);
+  runner.npc = botControlled;
+  runner.bot = botControlled;
+  runner.spiderDummy = false;
+  applyRoster(runner, botControlled ? -1 : Math.max(0, runner.rosterIndex));
+
+  const absent = players[1];
+  absent.spawnX = tileCenterX(9);
+  absent.npc = true;
+  absent.bot = false;
+  absent.spiderDummy = false;
+  absent.remote = false;
+  applyRoster(absent, -1);
+
+  resetRound(now, true);
+  absent.alive = false;
+  absent.respawnAt = Infinity;
+  absent.x = worldRight + gridWidth;
+  absent.y = floorY;
+  survivalStartedAt = now + survivalIntroDurationUs;
+  survivalLavaY = survivalLavaStart;
+  survivalHeight = 0;
+  survivalPeakLevel = 0;
+  cameraCenter = (worldLeft + worldRight) / 2;
+  cameraCenterY = floorY - 240;
+  cameraWidth = gridWidth + 120;
+  cameraContainFloor = 0;
+  cameraDoll.snap({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
+    position: { x: cameraCenter, y: cameraCenterY,
+      z: -(gridWidth + 120) * 1.35 },
+    width: gridWidth + 120, perspective: 0, fov: 55, roll: 0 });
+  for (const pickup of [...gunPickups, ...grenadePickups]) pickup.active = false;
+  for (const item of balls) item.active = false;
+  emitSignal("survival", 0, 1, 0);
+}
+
+// The title is a frozen first foothold, not an attract fight. START resets the
+// runner and the lava together, so nobody loses a run beneath the wordmark.
+function beginSurvival(now) {
+  startSurvivalRun(now, false);
+  shellMode = "MENU";
+  gameplayStarted = false;
+  roundStartedAt = now - survivalIntroDurationUs;
+  survivalStartedAt = 0;
+  cameraCenter = (worldLeft + worldRight) / 2;
+  cameraCenterY = floorY - 240;
+}
+
 // Whatever you land on is already a live training fight; the wordmark simply
 // floats over it. The intro countdown is spent before the first frame so
 // somebody arriving from a QR code is moving, not watching a number.
@@ -1926,7 +2466,7 @@ function beginTraining(now) {
   startFightAgainst(trainingOpponentKind(), now);
   shellMode = "MENU";
   gameplayStarted = false;
-  roundStartedAt = now - introDurationUs;
+  roundStartedAt = now - roundIntroDurationUs();
   const forcedAttract = globalThis.__oskiewarAttractVariant;
   titleAttractMode = forcedAttract === "still" || forcedAttract === "action"
     ? forcedAttract : hashUnit(matchName) < .5 ? "still" : "action";
@@ -1945,6 +2485,211 @@ function beginTraining(now) {
   }
 }
 
+// The versus lobby: one fighter, an empty chair, and the address as the
+// invitation. Everything a visitor can do here is practice — their own moves
+// are named back at them — until the relay seats a rival, at which point
+// updateVersusSeat opens the real fight. The empty chair is parked out past
+// the wall the way survival parks it, so the camera, the scorekeeping and
+// the reactions all read a one-body room.
+function beginVersusLobby(now, { title = false } = {}) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "versus-lobby";
+  finishReplay();
+  seriesName = "";
+  matchName = "";
+  previousRoundName = "";
+  if (!versusRoomName) versusRoomName = sessionName;
+  globalThis.__oskiewarVersusRoom = versusRoomName;
+  const local = players[0];
+  local.spawnX = tileCenterX(3);
+  local.npc = false;
+  local.bot = false;
+  local.spiderDummy = false;
+  local.remote = false;
+  applyRoster(local, Math.max(0, local.rosterIndex));
+  const chair = players[1];
+  chair.spawnX = tileCenterX(6);
+  chair.npc = true;
+  chair.bot = false;
+  chair.spiderDummy = false;
+  chair.remote = false;
+  applyRoster(chair, -1);
+  selecting = false;
+  shellMode = title ? "MENU" : "GAME";
+  gameplayStarted = !title;
+  titleTransitionAt = null;
+  resetRound(now, true);
+  chair.alive = false;
+  chair.respawnAt = Infinity;
+  chair.x = worldRight + gridWidth;
+  chair.y = floorY;
+  // An empty chair wears no dummy's name — the wire calls it NOBODY.
+  chair.name = "";
+  // Spend the countdown before the first frame: arriving is moving, and
+  // there is nobody here to count in against anyway.
+  roundStartedAt = now - roundIntroDurationUs();
+  spectatorQr = typeof qrcode === "function"
+    ? spectatorCode("https://oskiewar.com/" + versusRoomName) : null;
+  emitSignal("versus-lobby", 0, 1, 0);
+}
+
+// A rival took the chair. Seat them as a real second fighter — no bot brain,
+// no npc stillness, their presses riding in off the relay — and open the
+// round with the full countdown so both screens see the same three seconds.
+function startVersusFight(now, resetMatch = true) {
+  gameMode = "fight";
+  selfPlay = false;
+  fightOpponent = "versus";
+  const local = players[0];
+  local.spawnX = tileCenterX(3);
+  local.npc = false;
+  local.bot = false;
+  local.spiderDummy = false;
+  local.remote = false;
+  applyRoster(local, Math.max(0, local.rosterIndex));
+  const rival = players[1];
+  rival.spawnX = tileCenterX(6);
+  rival.npc = false;
+  rival.bot = false;
+  rival.spiderDummy = false;
+  rival.remote = true;
+  selecting = false;
+  shellMode = "GAME";
+  gameplayStarted = true;
+  titleTransitionAt = null;
+  resetRound(now, resetMatch);
+  dressVersusRival();
+  if (resetMatch && typeof analytics === "function") {
+    analytics("match_started", {
+      source_system: "browser",
+      surface: "web",
+      opponent_type: "remote-player",
+    });
+  }
+  emitSignal("fighters", -1, players[0].rosterIndex, players[1].rosterIndex);
+}
+
+// What the rival is called and what they wear, read off the freshest input
+// frame — the challenger mails their handle and colors with every press, so
+// a name arriving late still lands. The relay already shape-checked both;
+// the sanitize here is for the state schema's sake, because one bent name
+// would cost every published frame.
+function dressVersusRival() {
+  const rival = players[1];
+  if (!rival.remote) return;
+  const remote = globalThis.__oskiewarRemotePad;
+  const offered = String(remote?.name || "").toUpperCase()
+    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "RIVAL";
+  rival.name = versusRivalName;
+  const colors = (Array.isArray(remote?.colors) ? remote.colors : [])
+    .filter((entry) => Array.isArray(entry) && entry.length === 3 &&
+      entry.every((channel) => Number.isInteger(channel) &&
+        channel >= 0 && channel <= 255))
+    .map((entry) => entry.slice(0, 3));
+  if (colors.length) {
+    rival.handleColors = colors;
+    rival.color = colors.reduce((sum, entry) => sum.map((value, index) =>
+      value + entry[index] / colors.length), [0, 0, 0]).map(Math.round);
+  } else {
+    rival.handleColors = [];
+    rival.color = [38, 82, 176];
+  }
+}
+
+// The versus lane's own wire: one room, streamed faster than a grandstand
+// needs because for the challenger this feed IS the game. It runs from the
+// title screen on — a friend can arrive while the host is still reading the
+// wordmark — and rides the same publisher socket the round rooms use.
+function publishVersus(now) {
+  if (!versusLane() || !versusRoomName || livePublishFailed ||
+      typeof publishLive !== "function" || now < versusNextAt) return;
+  versusNextAt = now + versusSnapshotIntervalUs;
+  try {
+    publishLive("ow-" + versusRoomName, JSON.stringify(spectatorState(now)));
+  } catch (error) {
+    livePublishFailed = true;
+    telemetry("OSKIEWAR_LIVE_DISABLED", String(error?.message || error));
+  }
+}
+
+// Two visitors can arrive through the same dead address and both decide to
+// host it. The relay lets exactly one publish; the other's shell hears "this
+// match already has a publisher" and raises a flag, and this walks that
+// loser back into the room as a challenger through the bridge it kept.
+function updateVersusConflict(now) {
+  if (!versusLane() || !versusFallbackBridge) return false;
+  if (globalThis.__oskiewarPublishConflict !== "ow-" + versusRoomName)
+    return false;
+  globalThis.__oskiewarPublishConflict = "";
+  const bridge = versusFallbackBridge;
+  versusFallbackBridge = null;
+  bridge.role = "challenger";
+  roundViewer = bridge;
+  roundViewerMode = "";
+  roundViewerDemo = null;
+  roundViewerStatus = "CONNECTING";
+  shellMode = "GAME";
+  selecting = false;
+  roundResult = "";
+  matchOver = false;
+  matchName = bridge.name || "";
+  roundStartedAt = now - roundIntroDurationUs();
+  roundViewerStop = bridge.start(handleRoundViewer);
+  telemetry("VERSUS_CONFLICT", versusRoomName);
+  return true;
+}
+
+// The seat, watched every tick. Fresh presses in the lobby open the fight;
+// a wire gone quiet mid-fight sends the room back to waiting. The rival's
+// wardrobe follows their freshest frame because the handle can arrive after
+// the chair was taken.
+function updateVersusSeat(now) {
+  if (updateVersusConflict(now)) return;
+  if (!versusLane()) return;
+  const fresh = versusChallengerFresh();
+  if (lobbyActive() && fresh) {
+    startVersusFight(now, true);
+    return;
+  }
+  if (versusActive() && !fresh) {
+    beginVersusLobby(now);
+    return;
+  }
+  if (versusActive() && fresh) {
+    const offered = String(globalThis.__oskiewarRemotePad?.name || "")
+      .toUpperCase().replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+    if (offered && offered !== versusRivalName) dressVersusRival();
+  }
+}
+
+// The waiting room owes its lone fighter a real death. In a fight the
+// round system rebuilds a destroyed body, but the lobby has no rounds — a
+// fighter blasted down to a bouncing head would hop the empty room forever
+// as scraps. Losing the torso now reads as dying: the head gets a short
+// beat to land, then a KO drops it, and the lobby respawn hands back a
+// whole body.
+let lobbyDoomAt = 0;
+function updateLobbyMortality(now) {
+  if (!lobbyActive()) { lobbyDoomAt = 0; return; }
+  const player = players[0];
+  if (!player.alive || hasPart(player, "torso")) { lobbyDoomAt = 0; return; }
+  if (!lobbyDoomAt) { lobbyDoomAt = now + 2200000; return; }
+  if (now < lobbyDoomAt) return;
+  lobbyDoomAt = 0;
+  player.alive = false;
+  player.respawnAt = now + 1600000;
+  player.vx = 0;
+  player.vy = 0;
+  player.stance = "HIT";
+  player.lastButton = "DESTROYED";
+  player.lastButtonAt = now;
+  impacts.push({ x: player.x, y: player.y - 60, z: player.z, life: .55,
+    duration: .55, death: true, explosion: false });
+  playDrum("whoosh", 1.15, panPlayer(player));
+}
+
 // Deprecated with PAL_SELECT — see the flag.
 function beginSelect(now) {
   selecting = true;
@@ -1959,6 +2704,12 @@ function beginSelect(now) {
   deathCinematic = null;
   matchOver = false;
   roundElapsedUs = 0;
+  fightHitMarks.length = 0;
+  if (Array.isArray(globalThis.__oskiewarFightHitForecast))
+    for (const mark of globalThis.__oskiewarFightHitForecast)
+      fightHitMarks.push({ at: clamp(Number(mark.at) || 0, 0, 1),
+        color: Array.isArray(mark.color) ? mark.color.slice(0, 3) : [226, 42, 66],
+        decisive: mark.decisive === true });
   lastCountdownSecond = -1;
   lastIntroSecond = 0;
   resultPulseAt = 0;
@@ -1966,7 +2717,7 @@ function beginSelect(now) {
   resultLaughStep = 0;
   resultCardStung = false;
   roundStartedAt = now;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     player.roundWins = 0;
     player.score = 0;
     player.alive = true;
@@ -1975,14 +2726,25 @@ function beginSelect(now) {
 
 function returnToTitle(now, reason = "back") {
   finishReplay();
-  beginTraining(now);
+  if (survivalActive()) beginSurvival(now);
+  else if (versusLane()) beginVersusLobby(now, { title: true });
+  else beginTraining(now);
   // Menu is a hard navigation boundary: discard the prior fight's zoom and
   // right-stick diorama angle before the very first title frame is painted.
   playerCameraYaw = 0;
   playerCameraPitch = 0;
-  cameraCenter = (players[0].x + players[1].x) / 2;
-  cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
-  cameraWidth = Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
+  playerCameraZoom = 1;
+  // The lobby frames its one fighter — the empty chair is parked past the
+  // wall, and averaging it in would sling the lens a map-width off stage.
+  cameraCenter = survivalActive() ? (worldLeft + worldRight) / 2
+    : lobbyActive() ? players[0].x
+    : (players[0].x + players[1].x) / 2;
+  cameraCenterY = survivalActive() ? floorY - 240
+    : lobbyActive() ? players[0].y - 90
+    : (players[0].y + players[1].y) / 2 - 90;
+  cameraWidth = survivalActive() ? gridWidth + 120
+    : lobbyActive() ? 980
+    : Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
   cameraContainFloor = 0;
   const cameraTarget = { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.snap({ target: cameraTarget,
@@ -2003,15 +2765,21 @@ function returnToTitle(now, reason = "back") {
 // `__oskiewarSelfPlay` before boot or by calling this — never from a button,
 // so normal play cannot fall into it.
 function startSelfPlay(now) {
+  gameMode = "fight";
   selfPlay = true;
+  // The harness is not the free door. A self-play run armed from a live title
+  // inherits whatever training was seated, and leaving that behind would keep
+  // the whole mechanical test off the wire — no demo, no rollover.
+  fightOpponent = "";
   shellMode = "GAME";
   gameplayStarted = true;
   selecting = false;
   titleTransitionAt = null;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     player.npc = true;
     player.bot = true;
     player.spiderDummy = false;
+    player.remote = false;
     player.rosterIndex = -1;
   }
   // The reel harness may seat the training dummy in the second chair — a
@@ -2022,11 +2790,9 @@ function startSelfPlay(now) {
     players[1].bot = false;
   startReplay(now);
   resetRound(now, true);
-  // The bout's standing matchup: the left corner rides, the right corner
-  // cuts. One board and one blade per map, dealt at the bell and never
-  // dealt again — losing either is losing it for the round.
-  players[0].skateboard = true;
-  players[1].swordHeld = true;
+  // No dealt equipment. The cube's blade and pistol wait on their floor
+  // tiles in self-play exactly as they do in a live match, and the bots arm
+  // themselves by walking over them — or don't.
   // The bots' dice are seeded off the round clock, which a re-simulation
   // cannot reproduce — so a dense demo carries the seeds themselves, and a
   // replayed sim rolls exactly what the live pass rolled. Spawns ride along
@@ -2081,6 +2847,7 @@ function advanceResimCommands() {
   }
 }
 function startResim(demo, now) {
+  gameMode = "fight";
   resimActive = true;
   // The reset step is demo tick zero; every later sim step counts one.
   resimTick = 0;
@@ -2118,10 +2885,8 @@ function startResim(demo, now) {
     });
   replay = null;
   resetRound(now, true);
-  // Self-play deals the board and the blade at the bell; the rerun must
-  // start from the same table.
-  players[0].skateboard = true;
-  players[1].swordHeld = true;
+  // Self-play deals nothing at the bell, so the rerun starts from the same
+  // bare table: both weapons still on their tiles.
   if (Array.isArray(demo.botSeeds))
     players.forEach((player, index) => {
       if (demo.botSeeds[index] != null)
@@ -2132,7 +2897,7 @@ function startResim(demo, now) {
   // each pass, so replayed inputs land exactly where they were pressed.
   const fightOpen = demo.checkpoints?.[0]?.[0];
   if (fightOpen) roundStartedAt = now + fightOpen * 16667 -
-    introDurationUs - 8000;
+    roundIntroDurationUs() - 8000;
   if (demo.posePhaseUs != null) startedAt = now - demo.posePhaseUs;
 }
 
@@ -2179,6 +2944,7 @@ function consumeSystemButtons(now) {
     const previous = navigationPrevious[index];
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
+      debugPerfReported = false;
       telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
     }
     if (down.includes("Menu") && !previous.includes("Menu")) pressed = true;
@@ -2193,17 +2959,30 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  if (survivalActive()) {
+    startSurvivalRun(now, false);
+    globalThis.__oskiewarStartLine = "climb!";
+    playDrum("bell", 1.05, 0);
+    playSine(660, .12);
+    shellPrevious = padSnapshots[0]?.down?.slice() || [];
+    return;
+  }
   if (titleAttractMode === "action") {
     selfPlay = false;
     players[0].npc = false;
     players[0].bot = false;
     players[0].spiderDummy = false;
     applyRoster(players[0], Math.max(0, players[0].rosterIndex));
-    // Attract mode may borrow two bots to demonstrate motion, but Start always
-    // opens the anonymous front door: one player versus an inert dummy.
+    // Attract keeps a cool neutral body in the second chair so the tableau
+    // reads as a matchup rather than two identical red bots. Start hands the
+    // first seat back and re-seats whichever sparring partner this session was
+    // actually dealt: hardcoding the inert dummy here left every session the
+    // clock dealt the action tableau — half of them — still punching a post
+    // after training switched to the bot.
+    const training = trainingOpponentKind();
     players[1].npc = true;
-    players[1].bot = false;
-    players[1].spiderDummy = false;
+    players[1].bot = training === "trainingbot";
+    players[1].spiderDummy = training === "spiderdummy";
     applyRoster(players[1], -1);
   }
   shellMode = "GAME";
@@ -2214,13 +2993,33 @@ function enterGame(now) {
   if (PAL_SELECT) beginSelect(now);
 }
 
-function updateShell(now) {
+function updateShell(now, tapped = false) {
   const pad = padSnapshots[0] || {};
+  // The title screen is where the game's pace is set: +/- on a keyboard
+  // step the clock a quarter at a time, from a quarter speed to double.
+  // Handled before anything else so a speed tap can never read as "start",
+  // and edge-detected against the unfiltered pad so holding the key steps
+  // exactly once.
+  const rawDown = pad.down || [];
+  const speedTap = (button) => rawDown.includes(button) &&
+    !shellRawPrevious.includes(button);
+  if (speedTap("SpeedUp") || speedTap("SpeedDown")) {
+    const stepped = gameSpeed + (speedTap("SpeedUp") ? .25 : -.25);
+    const next = clamp(stepped, .25, 2);
+    if (next !== gameSpeed) {
+      gameSpeed = next;
+      gameSpeedChangedAt = now;
+      playDrum("hat", .55, speedTap("SpeedUp") ? .35 : -.35);
+      emitSignal("game-speed", -1, gameSpeed, 0);
+    } else playDrum("block", .3, 0);
+  }
+  shellRawPrevious = rawDown.slice();
   // View and Menu are the system's buttons — View toggles the debug HUD and
   // must not double as "start the game". Everything else, and a real lean on
   // the analog stick, says the player wants in.
-  const down = (pad.down || [])
-    .filter((button) => button !== "View" && button !== "Menu");
+  const down = rawDown
+    .filter((button) => button !== "View" && button !== "Menu" &&
+      button !== "SpeedUp" && button !== "SpeedDown");
   const stickLive = Math.abs(pad.leftX || 0) > .5 || Math.abs(pad.leftY || 0) > .5;
   if (titleTransitionAt !== null) {
     if (now - titleTransitionAt >= 700000) {
@@ -2231,7 +3030,7 @@ function updateShell(now) {
     shellStickLive = stickLive;
     return;
   }
-  if (down.some((button) => !shellPrevious.includes(button)) ||
+  if (tapped || down.some((button) => !shellPrevious.includes(button)) ||
       (stickLive && !shellStickLive)) {
     playDrum("hat", .55, 0);
     if (typeof titleBeep === "function") titleBeep();
@@ -2433,22 +3232,24 @@ function resetBalls(now) {
     ballKinds.find((kind) => kind.type === matchBallType) || ballKinds[0]);
   for (const item of balls) {
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
-    item.x = owner ? owner.spawnX + owner.facing * 180 : platformRight + 820;
+    item.x = owner ? owner.spawnX + owner.facing * 180
+      : gridLeft + gridWidth / 2;
     item.y = owner ? terrainFloorAt(item.x) - item.radius
-      : terrainFloorAt(item.x) - 920;
-    // The beach ball begins airborne beyond the platform edge, so its first
-    // landing is in the open arena rather than on the center platform.
+      : terrainFloorAt(item.x) - gridHeight + item.radius + 40;
+    // An unowned ball begins airborne over the cube's center tile seam and
+    // drops onto the middle of the fight.
     item.z = owner ? owner.z : 0;
     item.vx = 0;
     item.vy = 0;
     item.rotation = 0;
     item.heldBy = -1;
     item.active = ballEnabled;
-    item.serveAt = now + introDurationUs + 150000;
+    item.serveAt = now + roundIntroDurationUs() + 150000;
     item.lastHitBy = owner ? owner.pad : -1;
     item.safeUntil = item.serveAt;
     item.safePlayers = owner ? 1 << owner.pad : 0;
-    emitSignal("ballserve", owner ? owner.pad : -1,
+    // A serve call for a ball that will never inflate is a sound cue lying.
+    if (ballEnabled) emitSignal("ballserve", owner ? owner.pad : -1,
       owner ? owner.facing : 0, windMph);
   }
 }
@@ -2590,7 +3391,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
   roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
   matchOver = state.phase === "match";
-  roundStartedAt = now - introDurationUs - roundElapsedUs;
+  roundStartedAt = now - roundIntroDurationUs() - roundElapsedUs;
   if (roundResult && !hadResult) roundOverAt = now;
   const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.track({ target,
@@ -2652,6 +3453,80 @@ function updateRoundViewer(now, dt) {
   }
 }
 
+// The buttons a challenger's pad may carry up the wire — the fight's own
+// vocabulary, no system keys. View and Menu stay local: a rival must never
+// toggle the host's debug overlay or send their game back to the title.
+const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+  "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+
+// The challenger's half of the versus wire: sample the local pad, ship it on
+// change, and heartbeat while idle so silence can mean absence. Sends pace
+// themselves a hair above the relay's own floor — a press that lands inside
+// the pause simply leaves on the next tick rather than being dropped.
+function sendChallengerInput(now) {
+  if (roundViewer?.seat !== "challenger" ||
+      typeof roundViewer.sendInput !== "function") return;
+  const pad = typeof gamepad === "function" ? gamepad(0) : null;
+  if (!pad) return;
+  const down = (pad.down || [])
+    .filter((button) => versusInputButtons.includes(button)).slice(0, 10);
+  const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+  const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
+  const worn = JSON.stringify(frame);
+  if (worn !== versusInputLastSent) {
+    if (now < versusInputMinNextAt) return;
+  } else if (now < versusInputNextAt) return;
+  versusInputMinNextAt = now + 33000;
+  versusInputNextAt = now + 250000;
+  const identity = acFeed?.player;
+  const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
+    .map((entry) => Array.isArray(entry)
+      ? entry.slice(0, 3) : [entry.r, entry.g, entry.b])
+    .filter((entry) => entry.every((channel) => Number.isInteger(channel) &&
+      channel >= 0 && channel <= 255))
+    .slice(0, 4);
+  if (roundViewer.sendInput({ seq: versusInputSeq++, ...frame,
+    name: identity?.handle ? String(identity.handle).toUpperCase() : "",
+    colors })) versusInputLastSent = worn;
+}
+
+// A visitor who arrived through a shared address and found nobody hosting
+// takes the room over — the link a friend sent must keep working after the
+// sender's tab closed. The chair-holder claims first; a seat-denied watcher
+// waits three times as long, so two arrivals at a dead address stagger
+// instead of racing, and updateVersusConflict catches the tie anyway.
+function updateVersusClaim(now) {
+  if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
+  // A room with a live host is a fight to join; a room with a stored demo is
+  // a replay page and keeps being one — versus rooms never record, so only a
+  // truly empty address falls through to the claim.
+  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO") {
+    versusClaimArmedAt = 0;
+    return false;
+  }
+  if (!versusClaimArmedAt) {
+    versusClaimArmedAt = now;
+    return false;
+  }
+  const wait = roundViewer.seat === "challenger"
+    ? versusClaimAfterUs : versusClaimAfterUs * 3;
+  if (now - versusClaimArmedAt < wait) return false;
+  const name = roundViewer.name;
+  versusFallbackBridge = roundViewer;
+  roundViewerStop?.();
+  roundViewerStop = null;
+  roundViewer = null;
+  roundViewerMode = "";
+  roundViewerDemo = null;
+  roundViewerStatus = "CONNECTING";
+  versusClaimArmedAt = 0;
+  versusRoomName = name;
+  globalThis.__oskiewarRemotePad = null;
+  beginVersusLobby(now);
+  telemetry("VERSUS_CLAIM", name);
+  return true;
+}
+
 // A demo carries the impacts the live pass spawned. Replaying them puts the
 // sparks and debris back into a repaint that otherwise only moves bodies.
 // The demo loops, so a tick that runs backwards restarts the sweep clean.
@@ -2677,6 +3552,13 @@ function gameBoot() {
   // The reel harness may boot with the debug overlay lit — safe-zone crops,
   // stat chassis, input read-outs — to diagnose framing on a rendered reel.
   if (globalThis.__oskiewarDebugOverlay === true) debugHitboxes = true;
+  // Name the session once. A client-error restart re-runs boot inside the
+  // same app run, and whoever attached to the session should not lose it to
+  // a crash the restart exists to paper over.
+  if (!sessionName) {
+    seedNames(Math.floor(Math.random() * 4294967296));
+    sessionName = pronounceableMatchName();
+  }
   startedAt = runtime().monotonicUs;
   roundStartedAt = startedAt;
   lastSimAt = startedAt;
@@ -2703,15 +3585,24 @@ function gameBoot() {
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
       ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
-    roundStartedAt = startedAt - introDurationUs;
+    roundStartedAt = startedAt - roundIntroDurationUs();
     roundViewerStop = roundViewer.start(handleRoundViewer);
     return;
   }
   if (globalThis.__oskiewarSelfPlay) {
-    startSelfPlay(startedAt);
+    // A harness cast keeps the pre-versus reading of the empty door: nobody
+    // is holding a controller, so "no opponent" means the climb, never a
+    // lobby waiting on a friend who cannot exist.
+    if (survivalRequested() || versusRequested())
+      startSurvivalRun(startedAt, true);
+    else startSelfPlay(startedAt);
     return;
   }
-  beginTraining(startedAt);
+  if (survivalRequested()) beginSurvival(startedAt);
+  else if (versusRequested()) {
+    versusRoomName = sessionName;
+    beginVersusLobby(startedAt, { title: true });
+  } else beginTraining(startedAt);
 }
 
 function resetRound(now, resetMatch = false) {
@@ -2780,10 +3671,13 @@ function resetRound(now, resetMatch = false) {
     player.grenadeAmmo = 0;
     player.gunAimX = player.facing;
     player.gunAimY = 0;
+    player.gunAimLive = false;
     player.gunMode = "HANDGUN";
     player.itemArm = "";
     player.nextGunShotAt = 0;
     player.nextSpitAt = 0;
+    player.spitAt = -Infinity;
+    player.spitHeavy = false;
     player.resultReaction = "";
     player.resultReactionAt = 0;
     resultReactionPrevious[player.pad] = [];
@@ -2834,6 +3728,7 @@ function resetRound(now, resetMatch = false) {
     player.botSinkNextAt = 0;
     player.botAttackSequence = 0;
     player.botJumpAt = now + 900000;
+    player.survivalTargetLevel = 1;
     player.botThreatSeen = 0;
     player.botShieldAt = Infinity;
     player.botPunishedAt = 0;
@@ -2844,9 +3739,10 @@ function resetRound(now, resetMatch = false) {
     delete player.headBustedAt;
     player.headRoll = 0;
     player.headRollRate = 0;
-    // Only a hand can still be leaning on a button across the reset; a bot's
-    // presses were just cleared, so inheriting pad two would suppress them.
-    player.previous = player.npc || player.bot ? []
+    // Only a LOCAL hand can still be leaning on a button across the reset; a
+    // bot's presses were just cleared, and a remote rival's ride their own
+    // wire — inheriting pad two's local snapshot would suppress them.
+    player.previous = player.npc || player.bot || player.remote ? []
       : padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
@@ -2857,8 +3753,12 @@ function resetRound(now, resetMatch = false) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
-  for (const tree of bodyTrees) tree.growth = 0;
-  for (const tree of bodyTrees) tree.y = terrainFloorAt(tree.x) - 60;
+  for (const tree of bodyTrees) {
+    tree.growth = 0;
+    tree.spent = false;
+    tree.y = terrainFloorAt(tree.x) - 60;
+  }
+  gridField.fill(0);
   nextPowerupAtUs = powerupIntervalUs;
   powerupSequence = 0;
   roundResult = "";
@@ -2879,22 +3779,36 @@ function resetRound(now, resetMatch = false) {
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
-  // A new round opens on its fighters, not the midpoint of the 25,000-unit
-  // street. Keeping the stale world midpoint here made the first gameplay
-  // tick jump thousands of units away from the three-beat portrait intro.
+  // Live frame one belongs to fighter one: snap to the head, then let the
+  // authored sequence cross to the other fighter and pull out. A reel has a
+  // shorter contract and takes the whole face-off on frame zero below.
   cameraCenter = (players[0].x + players[1].x) / 2;
   cameraWidth = 960;
   cameraCenterY = (players[0].y + players[1].y) / 2 - 90;
   cameraContainFloor = 0;
-  const openingHead = runnerWorldGeometry(players[0],
-    (now - startedAt) / 1000000).head;
-  const openingWidth = Math.max(96, openingHead.radius * 6.5);
-  const openingTarget = { x: openingHead.x, y: openingHead.y, z: openingHead.z };
-  cameraDoll.snap({ target: openingTarget,
-    position: { x: openingTarget.x, y: openingTarget.y,
-      z: openingTarget.z - Math.max(openingWidth * 1.35,
-        Math.abs(worldNear) + 400) },
-    width: openingWidth, perspective: 0, fov: 55, roll: 0 });
+  const poseTime = (now - startedAt) / 1000000;
+  if (reelGroundCamera()) {
+    // Frame zero is the face-off, not one isolated portrait. The short reel
+    // intro cannot afford to spend half of itself finding the other fighter.
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.snap({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 });
+  } else {
+    const firstHead = runnerWorldGeometry(players[0], poseTime).head;
+    const portraitWidth = Math.max(96, firstHead.radius * 6.5);
+    const portraitTarget = { x: firstHead.x, y: firstHead.y, z: firstHead.z };
+    cameraDoll.snap({ target: portraitTarget,
+      position: { x: portraitTarget.x, y: portraitTarget.y,
+        z: portraitTarget.z - Math.max(portraitWidth * 1.35,
+          Math.abs(worldNear) + 400) },
+      width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
+  }
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -2907,7 +3821,7 @@ function fighterFrameRect() {
   let right = -Infinity;
   let top = Infinity;
   let bottom = -Infinity;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     // Trimmed 2026-08-09 — @jeffrey wanted the lens closer to the fight.
     // The rect still tracks live position, so jumps and knockbacks widen
     // the frame as they happen; this is standing headroom, not arc room.
@@ -2964,6 +3878,13 @@ const portraitPull = () => clamp(cameraAspect / (16 / 9), .52, 1);
 // A reel ends on the win. Nobody is holding a controller, so there is no wide
 // shot to hand back to — the last thing in frame should be the winner's face.
 const reelCamera = () => typeof capabilities === "function" &&
+  capabilities().replayOven === true && capabilities().reelHud === true &&
+  capabilities().reelFullUi !== true;
+// Ground coverage belongs to every 9:16 oven burn, including the full-UI
+// lane. `reelCamera` is narrower: it also opts into minimal-HUD winner framing.
+// Reusing that narrower predicate for terrain left full-UI reels with the TV
+// slab edge behind the lens, exposing a hard cut beneath the floor.
+const reelGroundCamera = () => typeof capabilities === "function" &&
   capabilities().replayOven === true && capabilities().reelHud === true;
 
 // Rect-pack: the camera width that makes a world rect exactly fill the
@@ -2990,8 +3911,15 @@ function rectPackWidth(rect) {
 // Lowered with the reach/rise trim above: the closest the lens may sit.
 // The tightest the automatic camera may go. It scales with the same pull, or a
 // portrait shot closes to the pull and then hits a floor sized for a television.
+// The versus lobby holds a mid shot instead: one body under a close-up lens
+// filled the screen and sat on top of the very instruction the room exists to
+// show, and a visitor deciding whether to share the address wants to see the
+// room they are inviting somebody into. Under the wordmark the same lobby
+// sits for a portrait — the title is a face, and starting is the pullback
+// that reveals the room.
 const frameFloorWidth = () =>
-  (compactLayout() ? 215 : 315) * portraitPull();
+  (lobbyActive() ? shellMode === "MENU" ? 430 : 860
+    : compactLayout() ? 215 : 315) * portraitPull();
 
 // Terrain is flat color, so it only has to reach as far as the lens can see.
 // Submitting the whole arena pushed its far corners past the native ±30000
@@ -3006,13 +3934,15 @@ function terrainSpan() {
   // has owned the old ±30000 native guard since it learned to cut faces
   // instead of culling them.
   const reach = cameraDoll.width + 2600;
+  const worldTop = survivalActive() ? survivalCeilingY : ceilingY;
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
-    top: Math.max(ceilingY, cameraCenterY - reach),
+    top: Math.max(worldTop, cameraCenterY - reach),
     bottom: Math.min(floorY, cameraCenterY + reach) };
 }
 
 function updateCamera(dt) {
+  if (survivalActive()) return;
   const rect = fighterFrameRect();
   // Look slightly ahead of fast movement so zoom starts before a fighter
   // reaches the safe edge instead of reacting after the crossing.
@@ -3021,7 +3951,7 @@ function updateCamera(dt) {
   let rightDrift = 0;
   let upDrift = 0;
   let downDrift = 0;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const dx = (player.vx + (player.windVx || 0) + (player.knockVx || 0) +
       (player.shieldVx || 0)) * lookAhead;
     const dy = player.vy * lookAhead;
@@ -3058,10 +3988,17 @@ function updateCamera(dt) {
   const footRoom = 40;
   // Aim below the fighters' middle, not at it. A vertical frame centered on
   // the bodies spends its whole upper half on sky; leaning the aim down
-  // rides them into the upper third with ground filling in beneath.
+  // rides them into the upper third with ground filling in beneath. The
+  // lean is priced against how much of the frame the pack already fills:
+  // in the cube's close-ups two fighters stand most of the view tall, and
+  // the full tower-era lean pushed their heads over the action-safe line —
+  // so it fades out as the pack closes on the frame's height.
+  const packFill = clamp((rect.bottom - rect.top) / Math.max(1, halfHeight),
+    0, 2);
+  const aimLean = halfHeight * .22 * clamp((1.8 - packFill) / .8, 0, 1);
   let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
-    : clamp((rect.top + rect.bottom) / 2 + halfHeight * .22,
+    : clamp((rect.top + rect.bottom) / 2 + aimLean,
       ceilingY + halfHeight, floorY + footRoom - halfHeight);
   // Fold containment into the target before easing. Clamping the live camera
   // after easing caused a one-frame reset whenever a fighter crossed the safe
@@ -3082,6 +4019,23 @@ function updateCamera(dt) {
 
 function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
+  if (survivalActive()) {
+    const runner = players[0];
+    const framedWidth = (gridWidth + 120) * playerCameraZoom;
+    const halfHeight = framedWidth / cameraAspect / 2;
+    const desiredY = clamp(runner.y + halfHeight * .18,
+      survivalCeilingY + halfHeight, floorY + 40 - halfHeight);
+    const blend = 1 - Math.exp(-Math.max(0, dt) * 7);
+    cameraCenter += ((worldLeft + worldRight) / 2 - cameraCenter) * blend;
+    cameraCenterY += (desiredY - cameraCenterY) * blend;
+    cameraWidth += (framedWidth - cameraWidth) * blend;
+    const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
+    cameraDoll.track({ target,
+      position: { x: cameraCenter, y: cameraCenterY,
+        z: -framedWidth * 1.35 },
+      width: framedWidth, perspective: 0, fov: 55, roll: 0 }, dt, 10);
+    return;
+  }
   if (roundResult) {
     updateResultReactions(now);
     const age = Math.max(0, (now - roundOverAt) / 1000000);
@@ -3171,16 +4125,26 @@ function updateCameraDoll(dt, now) {
       roll: 0 }, dt, 7);
     return;
   }
-  if (introAge < introDurationUs) {
-    // Three seconds used to hold one wide two-shot — the widest the camera ever
-    // got — and it introduced nobody: two figures the height of a thumbnail
-    // standing apart. It is three beats now. A second on one fighter's face, a
-    // whip across to the other's, then out to the shot the fight opens on.
-    //
-    // The heads come from the same geometry the killcam frames, so a face shot
-    // is the head's own radius rather than a guess at how big a fighter is.
+  if (reelGroundCamera() && introAge < reelOpeningHoldUs) {
+    const target = { x: (players[0].x + players[1].x) / 2,
+      y: (players[0].y + players[1].y) / 2 - 90,
+      z: (players[0].z + players[1].z) / 2 };
+    const width = Math.max(980,
+      Math.abs(players[1].x - players[0].x) + 760) * portraitPull();
+    cameraDoll.track({ target,
+      position: { x: target.x, y: target.y,
+        z: target.z - Math.max(width * 1.35, Math.abs(worldNear) + 400) },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
+  if (introAge < roundIntroDurationUs()) {
+    // One elapsed-time story: first fighter, second fighter, title pullback,
+    // then the fight.
+    // Nothing is counted in rendered frames, so live variable speed and an
+    // offline slow-motion burn tell the identical introduction.
     const age = introAge / 1000000;
-    const beat = introDurationUs / 1000000 / 3;
+    const firstEnd = 1;
+    const secondEnd = 2;
     const poseTime = (now - startedAt) / 1000000;
     const headOf = (player) =>
       (player.frozenGeometry || runnerWorldGeometry(player, poseTime)).head;
@@ -3195,15 +4159,15 @@ function updateCameraDoll(dt, now) {
 
     let target;
     let width;
-    if (age < beat * 2) {
-      // The whip is the ease itself: `track` is still travelling from the first
-      // face when the second is asked for, so the pan happens for free and at a
-      // speed the rest of the camera already agrees with.
-      const head = headOf(players[age < beat ? 0 : 1]);
+    if (age < secondEnd) {
+      // Frame one is already on player one. Track easing carries the camera
+      // across to player two without a cut.
+      const head = headOf(players[age < firstEnd ? 0 : 1]);
       target = { x: head.x, y: head.y, z: head.z };
       width = faceWidth(head);
     } else {
-      const out = clamp((age - beat * 2) / beat, 0, 1);
+      const out = clamp((age - secondEnd) /
+        (roundIntroDurationUs() / 1000000 - secondEnd), 0, 1);
       const eased = out * out * (3 - out * 2);
       const head = headOf(players[1]);
       target = { x: lerp(head.x, opening.x, eased),
@@ -3241,7 +4205,8 @@ function updateCameraDoll(dt, now) {
     const release = 1 - Math.exp(-Math.max(0, dt) * 1.6);
     cameraContainFloor = lerp(cameraContainFloor, naturalWidth, release);
   }
-  const framedWidth = Math.max(naturalWidth, cameraContainFloor);
+  const framedWidth = Math.max(naturalWidth, cameraContainFloor) *
+    (reelCamera() ? 1 : playerCameraZoom);
   // Automatic framing stays orthographic, preventing camera movement from
   // bending the arena. The right stick may still rotate the diorama explicitly.
   const tilt = .026 + playerCameraPitch;
@@ -3257,7 +4222,7 @@ function updateCameraDoll(dt, now) {
 
 function freezeFinalFrame(now, livePad = -1) {
   const poseTime = (now - startedAt) / 1000000;
-  for (const player of players) {
+  for (const player of activePlayers()) {
     if (player.pad === livePad) {
       delete player.frozenGeometry;
       delete player.frozenAt;
@@ -3322,7 +4287,7 @@ function updateResultReactions(now) {
       if (pressed === "ArrowRight") player.facing = 1;
       player.resultReaction = winner
         ? ({ LAUGH: "LAUGH", A: "KICK", B: "PUNCH", X: "POSE", Y: "DANCE",
-            ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "JUMP",
+            ArrowLeft: "DASH", ArrowRight: "DASH", ArrowUp: "AIR",
             ArrowDown: "CROUCH" }[pressed] || "DANCE")
         : ({ A: "CRY", B: "WOE", X: "SULK", Y: "WIGGLE" }[pressed] ||
           "WOE");
@@ -3419,45 +4384,73 @@ function fireGun(player, input) {
   emitSignal("bullet", player.pad, pose.dx, pose.dy);
 }
 
+// The mouth used by both face paint and projectile spawn. Its coordinates are
+// authored in face-space, then rotated with a bodyless head. Keeping this one
+// transform prevents the visible lips and the physical glob from separating
+// while the head rolls.
+function spitMouthPose(player) {
+  const radius = 22;
+  const direction = player.facing || 1;
+  const head = { x: player.x, y: player.y - radius };
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
+  const localX = direction * radius * .2;
+  const localY = radius * .3;
+  const offsetX = localX * cosRoll - localY * sinRoll;
+  const offsetY = localX * sinRoll + localY * cosRoll;
+  // Position and aim are related but not identical: the mouth sits low on the
+  // face, while spit travels mostly forward with only a small downward pitch.
+  // Using center->mouth as velocity made that low placement dominate the shot
+  // and swing it sideways as the head rolled.
+  // The runner's `facing` sign names its mirrored drawing side; the visible
+  // face normal points away from that sign. Treating it as the normal sent the
+  // release upper-left while the mouth presented lower-right.
+  const aimLocalX = -direction;
+  const aimLocalY = -.22;
+  const aimX = aimLocalX * cosRoll - aimLocalY * sinRoll;
+  const aimY = aimLocalX * sinRoll + aimLocalY * cosRoll;
+  // Screen/world Y grows downward. Head roll owns the sideways swing, but a
+  // spit release always pitches below the mouth instead of becoming an
+  // upward shot during the top half of a roll.
+  const downwardAimY = Math.abs(aimY);
+  const aimLength = Math.hypot(aimX, downwardAimY) || 1;
+  return {
+    x: head.x + offsetX,
+    y: head.y + offsetY,
+    outX: aimX / aimLength,
+    outY: downwardAimY / aimLength,
+    roll, direction,
+  };
+}
+
 function spit(player, heavy = false) {
   const now = runtime().monotonicUs;
   if (now < (player.nextSpitAt || 0)) return;
-  const direction = player.facing || 1;
-  // Spit leaves the mouth — not the chest — as a lob: slow enough to watch,
-  // tossed upward for gravity to bring back down. The mouth is derived from
-  // sim state ONLY (feet, ducking, head-only), never from runnerWorldGeometry:
-  // pose geometry follows the wall clock on the live pass and the exact
-  // stepper on the re-sim, and hanging the spawn on it made the same round
-  // play out two different ways — 258 units of re-sim drift from a ±7-unit
-  // breath sway. The fixed numbers are the standing/crouched head heights.
-  const headY = isHeadOnly(player) ? player.y - 22
-    : player.y - (player.ducking ? 108 : 180) + 22;
+  const mouth = spitMouthPose(player);
+  const direction = mouth.direction;
   // A rolling head spits WHERE ITS MOUTH POINTS. The lob leaves along the
   // head's current angle, so aim on a bodyless head is a timing skill — wait
   // for the roll to face your rival, or spit skyward and let it rain. Bodied
   // fighters have no roll and lob flat-forward as before. headRoll is sim
   // state (integrated in updatePlayers), so the re-sim agrees.
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
-  const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
-  const aim = (x, y) => ({ x: x * cosRoll - y * sinRoll,
-    y: x * sinRoll + y * cosRoll });
-  const mouthOffset = aim(direction * 15, 6);
-  const mouthX = player.x + mouthOffset.x;
-  const mouthY = headY + mouthOffset.y;
-  // Inches, not feet, and slow — an analog lob that visibly goes UP, hangs,
-  // and falls on a lazy parabola. A spit fight is something two faces have
-  // up close, not artillery: more height than reach, over a second in the
-  // air, all of it watchable.
-  const toss = aim(direction * (heavy ? 90 : 120), heavy ? -480 : -420);
+  // Release at the visible lips, mostly face-forward with a slight downward
+  // pitch. Both the spawn and aim use the same rolling face transform.
+  const speed = heavy ? 520 : 680;
+  const toss = { x: mouth.outX * speed, y: mouth.outY * speed };
   bullets.push({
-    x: mouthX, y: mouthY, z: player.z,
-    previousX: mouthX, previousY: mouthY,
+    x: mouth.x, y: mouth.y, z: player.z,
+    previousX: mouth.x, previousY: mouth.y,
     vx: toss.x, vy: toss.y,
     owner: player.pad, life: 1, spit: true, heavy,
-    safeUntil: now + 90000,
+    // Let the glob visibly clear the lips and the spitter's own fallen limbs.
+    // Without this, a bodyless fighter often spat directly into its debris
+    // halo and produced only a yellow impact puff on the release frame.
+    safeUntil: now + 220000,
   });
   while (bullets.length > 24) bullets.shift();
   player.nextSpitAt = now + (heavy ? 520000 : 260000);
+  player.spitAt = now;
+  player.spitHeavy = heavy;
   player.lastButton = heavy ? "HEAVY SPIT" : "SPIT";
   player.lastButtonAt = now;
   player.pendingMoveLabel = player.lastButton;
@@ -3535,8 +4528,15 @@ function updateGrenadePickups(now) {
 // function owns the geometry so the picture and the pickup test agree.
 function treeFruit(tree) {
   const toward = tree.x < (worldLeft + worldRight) / 2 ? 1 : -1;
-  const reach = 90 + 330 * tree.growth;
-  return { x: tree.x + toward * (reach * .5 + 60), y: tree.y - reach * .9,
+  // Cube-scale tree. The tower's tree leaned three tiles into a room that
+  // had thirty; the same lean in a ten-tile cube put ripe fruit inside a
+  // spawn-idle fighter's reach, and two fighters who never moved wound the
+  // clock back fifteen seconds every eighteen — no round could end. This
+  // tree climbs about two tiles of wall, leans under one tile in, and hangs
+  // its fruit high enough that picking it is a jump at the wall, never a
+  // side effect of standing near one.
+  const reach = 45 + 150 * tree.growth;
+  return { x: tree.x + toward * (reach * .35 + 30), y: tree.y - reach * 1.3,
     z: tree.z, toward, reach,
     tipX: tree.x + toward * reach * .5, tipY: tree.y - reach * .9 };
 }
@@ -3544,6 +4544,14 @@ function treeFruit(tree) {
 function updateBodyTrees(dt, now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const tree of bodyTrees) {
+    // One harvest a round, said out loud. Eighteen seconds of ripening against
+    // a thirty second round used to say it on its own, and the padded room's
+    // quarter-pipe said it again by holding the fruit a wall's height above a
+    // standing fighter. The tower's floor is flat, which put the fruit back
+    // inside arm's reach — and two fighters then stood at the wall winding
+    // fifteen seconds off the clock every eighteen, so the round could not
+    // end. A round that cannot end is worse than a body that stays broken.
+    if (tree.spent) continue;
     if (tree.growth < 1) {
       tree.growth = Math.min(1, tree.growth + dt * 1000000 / treeRipenUs);
       continue;
@@ -3551,9 +4559,13 @@ function updateBodyTrees(dt, now) {
     const fruit = treeFruit(tree);
     for (const player of players) {
       if (!player.alive) continue;
-      if (runnerDistanceToPoint(player, poseTime, fruit.x, fruit.y, fruit.z) > 320)
+      // A tile and a third — a hand up at the fruit, not the whole corner of
+      // the room. Sized with treeFruit above so a spawn-mark idler stays out
+      // of range; the two limits only hold together.
+      if (runnerDistanceToPoint(player, poseTime, fruit.x, fruit.y, fruit.z) > 120)
         continue;
       tree.growth = 0;
+      tree.spent = true;
       player.removedParts = [];
       player.partDamage = {};
       player.fallenBodyGeometry = null;
@@ -3580,10 +4592,12 @@ function drawBodyTree(tree, t) {
   const tipY = crownY + sway;
   worldCapsule(tree.x, tree.y, tree.z, tipX, tipY, tree.z,
     Math.max(2, (11 + 9 * tree.growth) * scale), bark);
+  // Canopy sized with treeFruit's cube-scale lean: fronds stay under a tile
+  // long so the tree dresses its wall without reaching into the fight.
   for (const spread of [-1, -.35, .35, 1]) {
     worldCapsule(tipX, tipY, tree.z,
-      tipX + toward * (60 + 90 * tree.growth),
-      tipY + spread * (60 + 70 * tree.growth), tree.z,
+      tipX + toward * (30 + 45 * tree.growth),
+      tipY + spread * (30 + 35 * tree.growth), tree.z,
       Math.max(2, (8 + 8 * tree.growth) * scale), leaf);
   }
   if (!ripe) return;
@@ -3595,17 +4609,15 @@ function drawBodyTree(tree, t) {
 
 function updatePowerups(now) {
   while (roundElapsedUs >= nextPowerupAtUs) {
-    const occupied = [...gunPickups, ...grenadePickups]
-      .some((pickup) => pickup.active);
+    const occupied = gunPickups.some((pickup) => pickup.active);
     if (!occupied) {
-      const choices = [...gunPickups, grenadePickups[0]];
-      const pickup = choices[powerupSequence % choices.length];
+      // The cycle's whole job is to keep six more rounds of ammo appearing
+      // somewhere worth crossing the cube for — the corner tiles,
+      // alternating, so the reload never lives on one fighter's side.
+      const pickup = gunPickups[0];
       pickup.active = true;
-      // The flag owns exact center. Alternating pickup lanes keep a real-sized
-      // weapon from reading as hardware attached to its pole.
-      pickup.x = (platformLeft + platformRight) / 2 +
-        (powerupSequence % 2 ? 1400 : -1400);
-      pickup.y = PLATFORM ? platformY - 70 : terrainFloorAt(pickup.x) - 35;
+      pickup.x = tileCenterX(powerupSequence % 2 === 0 ? 0 : 9);
+      pickup.y = surfaceYAt(pickup.x, floorY) - 70;
       pickup.z = 0;
       powerupSequence += 1;
       emitSignal("powerup", -1, powerupSequence, nextPowerupAtUs / 1000000);
@@ -3615,6 +4627,30 @@ function updatePowerups(now) {
   }
   updateGunPickups(now);
   updateGrenadePickups(now);
+}
+
+// Ghost trails map a ricochet's whole path. The fixed length is the entire
+// point: shots here have no clock-based expiry, they bounce until they hit
+// somebody, so a trail that grew with flight time would be the eleven-frames-a
+// -second stray all over again — measured in line segments instead of terrain
+// span. A ring buffer costs the same on the thousandth bounce as on the first.
+//
+// Sampling every third tick buys three times the arc for the same sixteen
+// points, and a bounce records out of turn so the corner lands on the wall
+// rather than being chorded through it.
+const bulletTrailPoints = 12;
+const bulletTrailStride = 4;
+
+function recordBulletTrail(bullet) {
+  if (!bullet.trail) {
+    // One allocation at birth, never per frame.
+    bullet.trail = new Array(bulletTrailPoints * 2).fill(0);
+    bullet.trailCount = 0;
+  }
+  const slot = (bullet.trailCount % bulletTrailPoints) * 2;
+  bullet.trail[slot] = bullet.x;
+  bullet.trail[slot + 1] = bullet.y;
+  bullet.trailCount++;
 }
 
 function updateBullets(dt, now, combat = true) {
@@ -3637,6 +4673,9 @@ function updateBullets(dt, now, combat = true) {
     bullet.previousY = bullet.y;
     bullet.x += bullet.vx * dt;
     bullet.y += bullet.vy * dt;
+    // Held so the ricochets below can be spotted by the sign they flip.
+    const enteredVx = bullet.vx;
+    const enteredVy = bullet.vy;
     // Shots have no clock-based expiry. Arena surfaces ricochet them so a
     // long-travelling round remains part of the fight until contact.
     if (bullet.x - 24 <= worldLeft + wallThickness) {
@@ -3675,6 +4714,14 @@ function updateBullets(dt, now, combat = true) {
         }
       } else bullet.vy = -Math.abs(bullet.vy);
     }
+    // A bounce is worth a point of its own: on the stride alone the segment
+    // spanning a ricochet would cut the corner straight through the wall.
+    if (bullet.vx !== enteredVx || bullet.vy !== enteredVy ||
+        bullet.trailTick === undefined) {
+      bullet.trailTick = 0;
+      recordBulletTrail(bullet);
+    } else if (++bullet.trailTick % bulletTrailStride === 0)
+      recordBulletTrail(bullet);
   }
   for (let left = 0; left < bullets.length; left++) {
     const a = bullets[left];
@@ -3703,6 +4750,7 @@ function updateBullets(dt, now, combat = true) {
       y1: bullet.previousY ?? bullet.y, z1: bullet.z,
       x2: bullet.x, y2: bullet.y, z2: bullet.z, width: 48 };
     for (const fragment of detachedParts) {
+      if (fragment.owner === bullet.owner && now < bullet.safeUntil) continue;
       const contact = segmentSegmentClosest(shot, fragment);
       if (contact.distance > (shot.width + fragment.width) / 2) continue;
       const impulse = bullet.heavy ? 1500 : bullet.spit ? 900 : 1200;
@@ -3851,10 +4899,10 @@ function updateGrenades(dt, now, combat = true) {
       grenade.vy = Math.abs(grenade.vy) * .65;
       if (grenade.rocket) grenade.fuse = 0;
     }
-    if (PLATFORM && grenade.vy >= 0 && previousY <= platformY - 30 &&
-        grenade.y >= platformY - 30 && grenade.x >= platformLeft &&
-        grenade.x <= platformRight) {
-      grenade.y = platformY - 30;
+    const ledge = grenade.vy >= 0 &&
+      ledgeCrossed(grenade.x, previousY, grenade.y, 30);
+    if (ledge) {
+      grenade.y = ledge.y - 30;
       grenade.vy = -Math.abs(grenade.vy) * .55;
       grenade.vx *= .82;
     } else if (grenade.y >= terrainFloorAt(grenade.x) - 30) {
@@ -3938,11 +4986,16 @@ function meleeTarget(player, now) {
   const pulse = meleePulse(player, now);
   const spec = meleeSpecFor(player, player.attackKind);
   const lowKick = player.attackKind === "KICK" && player.lowKick;
+  const reachX = player.x + player.facing * (spec.reach + spec.swell * pulse);
+  // A low kick sweeps the ground in front of the kicker — the ground he is
+  // standing on. The bare terrain probe read the arena floor, so a low kick
+  // thrown on a rung aimed a storey down through the rung it stood on.
+  const sweepY = lowKick
+    ? Math.min(surfaceYAt(reachX, player.y), player.y + 20) - 5 : 0;
   return {
     x: player.x + player.facing * (spec.reach + spec.swell * pulse +
       (lowKick ? 34 * pulse : 0)),
-    y: lowKick ? terrainFloorAt(player.x + player.facing *
-      (spec.reach + spec.swell * pulse)) - 5 : player.y - spec.height,
+    y: lowKick ? sweepY : player.y - spec.height,
     z: player.z,
   };
 }
@@ -3969,7 +5022,7 @@ function itemHandTarget(player, now) {
     x: player.x + player.facing * (42 + 52 * pulse),
     y: player.y - 118 - 52 * pulse, z: player.z,
   };
-  if (player.itemAimLocked ||
+  if (player.itemAimLocked || player.gunAimLive ||
       (player.itemAction === "FIRE" && now < player.itemActionUntil)) {
     const aimX = player.gunAimX || player.facing;
     const aimY = player.gunAimY || 0;
@@ -3984,7 +5037,7 @@ function itemHandTarget(player, now) {
 function gunPose(player, now, input = null) {
   let aimX = input?.horizontal || player.facing;
   let aimY = input ? -input.vertical : 0;
-  if (!input && (player.itemAimLocked ||
+  if (!input && (player.itemAimLocked || player.gunAimLive ||
       (player.itemAction === "FIRE" && now < player.itemActionUntil))) {
     aimX = player.gunAimX || player.facing;
     aimY = player.gunAimY || 0;
@@ -4167,7 +5220,10 @@ function updateBall(ball, dt, now) {
   // serve time comes round.
   if (!ball.active && ballEnabled && ball.serveAt && now >= ball.serveAt) {
     ball.active = true;
-    ball.x = (platformLeft + platformRight) / 2;
+    // Re-inflate on the far side from wherever it popped, so the fighter who
+    // owned the ball's exit does not also own its return.
+    ball.x = ball.x > (worldLeft + worldRight) / 2
+      ? tileCenterX(2) : tileCenterX(7);
     ball.y = ceilingY + ball.radius + 120;
     ball.z = 0;
     ball.vx = 0;
@@ -4192,10 +5248,7 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const platformSupported = PLATFORM && ball.x >= platformLeft + ball.radius &&
-    ball.x <= platformRight - ball.radius &&
-    ball.y >= platformY - ball.radius - 2 &&
-    ball.y <= platformY - ball.radius + 2;
+  const platformSupported = ledgeSupports(ball.x, ball.y, ball.radius);
   const floorSupported = ball.y >= terrainFloorAt(ball.x) - ball.radius - 2;
   const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
@@ -4217,11 +5270,10 @@ function updateBall(ball, dt, now) {
     ball.y = ceilingY + inset;
     ball.vy = Math.abs(ball.vy);
   }
-  const platformTop = platformY - ball.radius;
-  if (PLATFORM && ball.vy >= 0 && previous.y <= platformTop && ball.y >= platformTop &&
-      ball.x >= platformLeft + ball.radius &&
-      ball.x <= platformRight - ball.radius) {
-    ball.y = platformTop;
+  const ledge = ball.vy >= 0 &&
+    ledgeCrossed(ball.x, previous.y, ball.y, ball.radius, ball.radius);
+  if (ledge) {
+    ball.y = ledge.y - ball.radius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .58) : 0;
     ball.vx *= ball.drag || .992;
@@ -4231,9 +5283,7 @@ function updateBall(ball, dt, now) {
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onSurface = ((PLATFORM && ball.x >= platformLeft + ball.radius &&
-    ball.x <= platformRight - ball.radius &&
-    Math.abs(ball.y - (platformY - ball.radius)) <= 2) ||
+  const onSurface = (ledgeSupports(ball.x, ball.y, ball.radius) ||
     ball.y >= terrainFloorAt(ball.x) - ball.radius - 2) && Math.abs(ball.vy) < 180;
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
@@ -4331,7 +5381,7 @@ function directionTap(player, direction, now) {
   if (now - previousTap > doubleTapUs || releasedAt <= previousTap ||
       now - releasedAt < doubleTapReleaseUs) return false;
   player.lastTap[direction] = -10000000;
-  player.pendingMoveLabel = direction === "UP" ? "ULTRA JUMP" : "DASH " + direction;
+  player.pendingMoveLabel = direction === "UP" ? "ULTRA AIR" : "DASH " + direction;
   playDrum("clap", 1.05, panPlayer(player));
   if (direction === "UP") {
     player.vy = -ultraJumpVelocity;
@@ -4411,6 +5461,8 @@ function directionTap(player, direction, now) {
 
 function sink(player, now) {
   player.sinkUntil = now + sinkDurationUs;
+  // The rung being dropped through, so the sink cannot also eat the next one.
+  player.sinkFrom = player.y;
   player.grounded = false;
   player.jumpHeld = false;
   player.vy = Math.max(player.vy, 260);
@@ -4434,6 +5486,7 @@ function crouchHop(player, direction, now) {
 
 function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
+  recordFightHit(killerPad, true);
   releaseCarriedBall(target, now);
   if (!deathCinematic && killerPad !== target.pad)
     deathCinematic = { startedAt: now, loserPad: target.pad,
@@ -4456,11 +5509,14 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   playDrum("whoosh", 1.15, panPlayer(target));
   emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
-  // The dummy is the opponent everybody gets for free, and its fight is
+  // The training opponent is the one everybody gets for free, and its fight is
   // already running under the title screen — so its head is the one number
-  // the whole site can share without anybody signing in. Balling yourself
-  // does not count; somebody has to have popped it.
-  if (target.npc && !target.bot && killerPad !== target.pad)
+  // the whole site can share without anybody signing in. The count follows the
+  // free door rather than the missing AI: once training started sparring back,
+  // an `!target.bot` gate would have silenced the site's only shared number.
+  // Balling yourself does not count; somebody has to have popped it.
+  if (target.npc && killerPad !== target.pad &&
+      (!target.bot || fightOpponent === "trainingbot"))
     emitSignal("dummy-popped", killerPad, target.pad, 1);
 }
 
@@ -4859,10 +5915,6 @@ function stealHeldObject(player, now) {
     player.itemArm = availableArm(player);
     target.itemArm = "";
     label = "GRENADES";
-  } else if (target.skateboard) {
-    target.skateboard = false;
-    player.skateboard = true;
-    label = "SKATEBOARD";
   }
   if (!label) return false;
   target.lastButton = label + " TAKEN";
@@ -5014,6 +6066,12 @@ function updatePlayer(player, pad, dt, now) {
       player.hitSegment = -1;
       player.hitSegmentUntil = 0;
       player.hitStunUntil = 0;
+      // The waiting room hands back a whole body: parts are round
+      // furniture and the lobby has no round to rebuild them.
+      if (lobbyActive()) {
+        player.removedParts = [];
+        player.partDamage = {};
+      }
       player.alive = true;
     }
     return;
@@ -5037,6 +6095,18 @@ function updatePlayer(player, pad, dt, now) {
     player.gunAimX = rawInput.horizontal;
     player.gunAimY = -rawInput.vertical;
     if (rawInput.horizontal) player.facing = rawInput.horizontal;
+  }
+  // A held gun used to point dead ahead unless you also held X, so the one
+  // thing a player is plainly doing with it — pointing it somewhere — never
+  // reached the fighter. A vertical direction now tilts the hand on its own.
+  // The X lock still earns its keep: it pins an aim while you stand still and
+  // it turns you. This does neither, deliberately — steering the drawn arm
+  // must not steer the walk, or every upward shot would rewrite your footing.
+  player.gunAimLive = false;
+  if (!aimLocked && player.gunAmmo > 0 && rawInput.vertical) {
+    player.gunAimX = rawInput.horizontal || player.facing;
+    player.gunAimY = -rawInput.vertical;
+    player.gunAimLive = true;
   }
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
@@ -5094,6 +6164,14 @@ function updatePlayer(player, pad, dt, now) {
       (input.horizontal || input.vertical))
     emitSignal("move", player.pad, input.horizontal, input.vertical);
   player.pendingMoveLabel = "";
+  // An ultra jump IS a second press of UP, so the air-jump gate below used to
+  // see the same press the double-tap had just spent: the ultra fired, a
+  // double jump launched on top of it a tick later, the move read-out said
+  // DOUBLE JUMP, and the air jump the fighter never asked for was gone. The
+  // horizontal branch has always honored the "tap was spent" answer; this is
+  // the vertical one doing the same. It matters more in a tower, where the
+  // crow's nest is the one rung an ultra jump is the only way onto.
+  let verticalTapSpent = false;
   const upPressed = input.vertical > 0 && !player.previous.includes("MOVE_UP");
   const downPressed = input.vertical < 0 && player.inputY >= 0;
   const wasCrouched = player.ducking || player.crouchBlend >= .35;
@@ -5125,7 +6203,7 @@ function updatePlayer(player, pad, dt, now) {
   if (input.vertical && input.vertical !== player.inputY) {
     const direction = input.vertical > 0 ? "UP" : "DOWN";
     recordCommand(player, direction, now);
-    directionTap(player, direction, now);
+    verticalTapSpent = directionTap(player, direction, now);
     if (headOnly) {
       const alternating = player.headPumpDirection &&
         player.headPumpDirection !== input.vertical &&
@@ -5253,7 +6331,8 @@ function updatePlayer(player, pad, dt, now) {
     player.vy *= jumpCutScale;
     player.jumpHeld = false;
   }
-  if (!aimLocked && !headOnly && upPressed && !player.jumpLaunchAt &&
+  if (!aimLocked && !headOnly && upPressed && !verticalTapSpent &&
+      !player.jumpLaunchAt &&
       (player.grounded || player.airJumpsUsed < 1)) {
     const airJump = !player.grounded;
     player.jumpLaunchAt = now + (airJump ? 1 : jumpAnticipationUs);
@@ -5263,8 +6342,8 @@ function updatePlayer(player, pad, dt, now) {
       player.doubleJumpLinesUntil = now + 280000;
     }
     player.pendingMoveLabel = player.skateboard ? "OLLIE"
-      : airJump ? "DOUBLE JUMP"
-      : wasCrouched ? "CROUCH JUMP" : "JUMP";
+      : airJump ? "DOUBLE AIR"
+      : wasCrouched ? "CROUCH AIR" : "AIR";
   }
   if (player.jumpLaunchAt && now >= player.jumpLaunchAt) {
     player.jumpLaunchAt = 0;
@@ -5366,17 +6445,23 @@ function updatePlayer(player, pad, dt, now) {
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
   player.grounded = false;
-  // A sinking fighter is transparent to the platform but never to the floor.
-  if (PLATFORM && now >= player.sinkUntil &&
-      player.vy >= 0 && previousY <= platformY && player.y >= platformY &&
-      player.x >= platformLeft && player.x <= platformRight) {
-    player.y = platformY;
+  // A sinking fighter is transparent to the rung it left and to nothing else.
+  // A window long enough to clear one lip — .25s, 290 units of fall — is
+  // already long enough to fall past the next rung 260 below, and a
+  // double-tap that dropped two storeys read as a fall rather than a step
+  // down. Remembering where the sink started is what keeps it one storey.
+  // The floor is never transparent, which is why it stays in the else.
+  const ledge = player.vy >= 0 && ledgeCrossed(player.x, previousY, player.y);
+  const sinking = now < player.sinkUntil &&
+    ledge && ledge.y <= player.sinkFrom + 4;
+  if (ledge && !sinking) {
+    player.y = ledge.y;
     if (headOnly) {
       player.vy = 0;
       player.grounded = true;
       player.stance = input.horizontal ? "ROLL" : "HEAD ONLY";
     } else if (pogo && player.pogoDive) {
-      bouncePogoOnSurface(player, platformY, now);
+      bouncePogoOnSurface(player, ledge.y, now);
     } else {
       player.vy = 0;
       player.grounded = true;
@@ -5590,7 +6675,179 @@ function botPad(player, opponent, now) {
   return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
 }
 
+// The climb bot's four numbers, gathered so they can be priced instead of
+// guessed. `survival-lab.mjs` runs the ladder headlessly and sweeps one of
+// these at a time; the defaults are exactly what the bot shipped with, and
+// ordinary play never sets the override, so a human's attract-mode climb is
+// unchanged by the seam existing.
+const survivalTuneDefaults = {
+  landingInset: 72,        // how far inside a deck's edge still counts as footing
+  walkThreshold: 24,       // closer than this and walking is only jitter
+  // How far off the aim point the runner may still commit to a jump. This was
+  // 34, and 34 is why no reel ever summited: decks 5 and 6 do not overlap
+  // horizontally, so `dx` there never falls below 92 and the bot stood on the
+  // lip jumping straight up until the lava took it. Committing while the walk
+  // is still carrying it is what crosses a gap. Measured by `survival-lab.mjs`:
+  // ≤100 dies on deck 5, ≥110 summits all 32, and it still summits at 420 —
+  // 160 sits well inside that shelf rather than on its edge.
+  jumpThreshold: 160,
+  jumpCooldownUs: 580000,  // the floor under one jump per deck
+  jumpHoldUs: botHoldUs.jump, // held past apex, or `jumpCutScale` clips the rise
+  // Per-reel variation. The ladder is fixed, the bot is fixed, and under the
+  // oven's fixed-step clock the round clock the bot's dice seed from is fixed
+  // too — so every slot rendered a frame-identical climb, and three reels
+  // shipped the same run. The oven passes a seed; it is folded into the
+  // fighter's dice once, which moves the aim from deck to deck while leaving
+  // any single seed exactly reproducible. Zero means no variation, which is
+  // what ordinary play uses, so a human's attract-mode climb is untouched.
+  seed: 0,
+  // Share of the landing band the aim may wander. Bought with `survival-lab`:
+  // .15 and .3 both summit 4/4, .45 and .6 drop to 3/4 because a hard bias
+  // toward a deck's edge can leave the next jump unmakeable. .3 is the most
+  // visible variation that still costs nothing.
+  aimJitter: .3,
+};
+function survivalTune() {
+  const override = globalThis.__oskiewarSurvivalTune;
+  if (!override) return survivalTuneDefaults;
+  return { ...survivalTuneDefaults, ...override };
+}
+
+function survivalBotPad(player, now) {
+  if (!player.bot || !player.alive)
+    return { connected: true, down: [], leftX: 0, leftY: 0 };
+  const tune = survivalTune();
+  // Folded in once per run, before the first aim is taken.
+  if (tune.seed && player.survivalSeed !== tune.seed) {
+    player.survivalSeed = tune.seed;
+    player.botRngState =
+      (player.botRngState ^ Math.imul(tune.seed, 0x9e3779b9)) >>> 0;
+  }
+  let level = clamp(player.survivalTargetLevel || 1, 1, platforms.length);
+  let target = platforms[level - 1];
+  if (player.grounded && Math.abs(player.y - target.y) <= 3 &&
+      level < platforms.length) {
+    level++;
+    player.survivalTargetLevel = level;
+    target = platforms[level - 1];
+    // One roll per deck, not per tick: the runner should commit to a line and
+    // hold it, and rolling every frame would average the wander back to zero.
+    player.survivalAimBias = tune.seed ? botRoll(player) - .5 : 0;
+  }
+  // Aim for the nearest safe point, not every deck's center. A centered aim
+  // made the bot walk to the lip of an overlapping pair and wait forever
+  // when the remaining seven units were smaller than its jump threshold.
+  //
+  // The inset cuts both ways, which is why it is tunable: too small and the
+  // bot commits to a landing on the very edge of the deck above, too large and
+  // the aim point can sit past the far end of the deck it is standing on, so
+  // it walks itself off a ledge reaching for a spot it cannot stand under.
+  const landingLeft = target.left + tune.landingInset;
+  const landingRight = target.right - tune.landingInset;
+  // With no seed the bias is 0 and this is exactly the old `clamp(player.x, …)`.
+  const aim = clamp(player.x, landingLeft, landingRight) +
+    (player.survivalAimBias || 0) * (landingRight - landingLeft) * tune.aimJitter;
+  const landingX = clamp(aim, landingLeft, landingRight);
+  const dx = landingX - player.x;
+  if (Math.abs(dx) > tune.walkThreshold)
+    botPress(player, dx > 0 ? "ArrowRight" : "ArrowLeft", botHoldUs.walk, now);
+  if (player.grounded && Math.abs(dx) <= tune.jumpThreshold &&
+      now >= player.botJumpAt &&
+      botPress(player, "ArrowUp", tune.jumpHoldUs, now))
+    player.botJumpAt = now + tune.jumpCooldownUs;
+  return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+}
+
+// The replay oven needs a bounded completion record, not a production replay.
+// Its injected fetch keeps this envelope inside the local shell; ordinary
+// survival never records, publishes, or analyzes a run. Keeping the seam
+// explicit prevents a `?replay-oven` URL typed in a normal browser from
+// turning an anonymous climb into stored match data.
+function captureSurvivalRun(now, result) {
+  if (globalThis.__oskiewarCaptureSurvival !== true ||
+      typeof saveReplay !== "function") return;
+  const tickUs = 1000000 / 60;
+  const durationTicks = Math.max(1,
+    Math.round((now - survivalStartedAt) / tickUs));
+  // The clock this is built from is fixed under an offline fixed-step pass, so
+  // without the seed every reel in a day filed the same name — and that name
+  // becomes the reel's Instagram `audio_name` (`audioNameFor`), which is only
+  // honoured on the post that mints it. Live climbs pass no seed and keep the
+  // original name.
+  const runSeed = survivalTune().seed >>> 0;
+  const roundName = "survival-v" + buildVersion + "-" +
+    Math.max(0, Math.round(survivalStartedAt / tickUs)) +
+    (runSeed ? "-" + runSeed.toString(36) : "");
+  const runner = players[0];
+  const height = Math.round(survivalHeight);
+  const demo = {
+    format: "ac.oskiewar.survival", version: 1, game: "oskiewar",
+    simulation: "oskiewar-survival-1", tickRate: 60,
+    matchId: "ow-" + roundName, matchName: roundName,
+    roundId: "ow-" + roundName, roundName, roundIndex: 0,
+    startedAt: runtime().unixMs - Math.round(durationTicks / 60 * 1000),
+    durationTicks, fighters: [runner.name], nations: [runner.nation || ""],
+    winner: result === "SUMMIT" ? runner.name : null,
+    finalRoundWins: [result === "SUMMIT" ? 1 : 0],
+    cause: result, height,
+    commands: [], checkpoints: [], impacts: [],
+    events: [[0, "climb", 0, 1, 0],
+      [durationTicks, "survival-end", 0, height,
+        result === "SUMMIT" ? 1 : 0]],
+  };
+  const upload = saveReplay(JSON.stringify(demo));
+  if (upload && typeof upload.catch === "function")
+    upload.catch((error) => telemetry("SURVIVAL_CAPTURE",
+      "local-error " + error.message));
+}
+
+function finishSurvival(now, result) {
+  if (roundResult) return;
+  const runner = players[0];
+  survivalBestHeight = Math.max(survivalBestHeight, survivalHeight);
+  roundResult = result;
+  roundCause = result;
+  roundOverAt = now;
+  runner.vx = 0;
+  runner.vy = 0;
+  if (result === "LAVA") {
+    runner.alive = false;
+    runner.stance = "HIT";
+    impacts.push({ x: runner.x, y: survivalLavaY, z: runner.z,
+      life: 1.2, duration: 1.2, death: true, explosion: true,
+      blastRadius: 240, power: .8 });
+    playDrum("kick", 1.25, panPlayer(runner));
+    playSine(92, .45);
+  } else {
+    playDrum("clap", 1.2, 0);
+    playSine(880, .3);
+  }
+  globalThis.__oskiewarResultLine = result === "SUMMIT"
+    ? "summit!" : Math.round(survivalHeight) + " high";
+  emitSignal("survival-end", 0, Math.round(survivalHeight),
+    result === "SUMMIT" ? 1 : 0);
+  captureSurvivalRun(now, result);
+}
+
+function updateSurvival(dt, now) {
+  const runner = players[0];
+  const height = Math.max(0, floorY - runner.y);
+  survivalHeight = Math.max(survivalHeight, height);
+  runner.score = Math.round(survivalHeight);
+  while (survivalPeakLevel < platforms.length &&
+      runner.y <= platforms[survivalPeakLevel].y + 2)
+    survivalPeakLevel++;
+  const lavaSpeed = survivalLavaBaseSpeed +
+    Math.min(76, survivalHeight * .008);
+  survivalLavaY -= lavaSpeed * dt;
+  const body = runnerBounds(runner, (now - startedAt) / 1000000);
+  if (body.bottom >= survivalLavaY) finishSurvival(now, "LAVA");
+  else if (survivalPeakLevel >= platforms.length && runner.grounded)
+    finishSurvival(now, "SUMMIT");
+}
+
 function gameSim() {
+  captureRenderInterpolationState();
   syncGameView();
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
@@ -5606,7 +6863,26 @@ function gameSim() {
     advanceResimCommands();
   }
   if (roundViewer) {
+    // The chair-holder's hands are local even when the fight is not. The
+    // control legend, the M30 manual page and the touch discs all light off
+    // inputPads[0], and the debug toggle wants a View edge — none of that
+    // may wait on the host's echo, so the local pad is sampled here exactly
+    // as it would be in a hosted fight.
+    padSnapshots[0] = gamepad(0);
+    inputPads[0] = padSnapshots[0];
+    const down = padSnapshots[0]?.down || [];
+    if (down.includes("View") && !viewerSystemPrevious.includes("View")) {
+      debugHitboxes = !debugHitboxes;
+      debugPerfReported = false;
+      telemetry("FIGHT_DEBUG", debugHitboxes ? "on" : "off");
+    }
+    viewerSystemPrevious = down.slice();
     updateRoundViewer(now, dt);
+    // A visitor who holds the second chair plays through this screen: their
+    // pad goes up the wire every tick it changes, and a room found hostless
+    // becomes theirs to host.
+    sendChallengerInput(now);
+    updateVersusClaim(now);
     return;
   }
   padSnapshots[0] = gamepad(0);
@@ -5620,17 +6896,44 @@ function gameSim() {
     playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
   if (Math.abs(cameraY) > .08)
     playerCameraPitch = clamp(playerCameraPitch + cameraY * dt * .72, -.24, .28);
+  // Triggers zoom, but only on a pad whose triggers are analog -- on anything
+  // else the shell is still aliasing them to A and X, and stealing those two
+  // buttons would cost a small pad its item and shield.
+  if (cameraPad.analogTriggers) {
+    // Right pulls in, left pushes out, and they cancel when both are held.
+    const push = (Number(cameraPad.leftTrigger) || 0) -
+      (Number(cameraPad.rightTrigger) || 0);
+    if (Math.abs(push) > .08)
+      playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
+  }
+  // A tap anywhere on the wordmark screen is a start press — read before
+  // the tap queue is wiped for the tick. The shell already turns first-visit
+  // taps into a button; this catches every visit after that.
+  const titleTapped = shellMode === "MENU" && !selecting &&
+    (globalThis.__oskiewarTouch?.taps?.length || 0) > 0;
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
   if (consumeSystemButtons(now)) return;
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
-  if (shellMode === "MENU") updateShell(now);
+  if (shellMode === "MENU") updateShell(now, titleTapped);
+  // The versus seat watches from the title on — a friend can take the chair
+  // while the host is still reading the wordmark, and the fight lifts it.
+  updateVersusSeat(now);
+  updateLobbyMortality(now);
+  if (survivalActive() && shellMode === "MENU") {
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    return;
+  }
   for (const player of players)
     inputPads[player.pad] = resimActive && resimCommands
       ? resimPad(player.pad)
+      : player.remote ? remotePadSnapshot()
       : player.bot && shellMode === "GAME"
-        ? botPad(player, players[player.pad ? 0 : 1], now)
+        ? survivalActive() && player.pad === 0
+          ? survivalBotPad(player, now)
+          : botPad(player, players[player.pad ? 0 : 1], now)
         : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
           : padSnapshots[player.pad];
   if (debugHitboxes && now >= nextInputDebugAt) {
@@ -5647,7 +6950,23 @@ function gameSim() {
     telemetry("FIGHT_INPUT", values.join(" | "));
   }
   recordReplayCommands(now, inputPads);
+  // Session first: the hand-off frame must leave before the round's first
+  // frame walks the native shell's one socket over to the round room.
+  publishSession(now);
   publishSpectator(now);
+  publishVersus(now);
+  if (survivalActive() && roundResult) {
+    updateDetachedParts(dt);
+    updateResultImpactDebris(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    if (now - roundOverAt >= roundResultUs) {
+      emitSignal("update-safe", -1, buildVersion, 0);
+      if (selfPlay) startSurvivalRun(now, true);
+      else returnToTitle(now, "survival-end");
+    }
+    return;
+  }
   if (roundResult) {
     // The scored tail. The killcam dwell used to be the reel's quietest
     // seconds under its most dramatic frames, so the dwell keeps a slow
@@ -5662,12 +6981,32 @@ function gameSim() {
     if (!resultCardStung && now - roundOverAt >= 1100000) {
       resultCardStung = true;
       playDrum("bell", .95, 0);
+      // The card's own line rides a global for whichever shell can speak:
+      // the web shell reads it back through speech synthesis on this same
+      // signal. Signals carry numbers, and the sentence is presentation.
+      // The anonymous seat wears a blank nameplate, and a blank name read
+      // aloud is a stumble — but only the local first seat can be nameless,
+      // so a nameless winner is always "you".
+      const card = resultCardText();
+      const spokenWinner = card.winner.replace(/^@/, "");
+      globalThis.__oskiewarResultLine = roundResult === "TIE" ? "tie!"
+        : (spokenWinner ? spokenWinner + " wins the " : "you win the ") +
+          (matchOver ? "match" : "round");
       emitSignal("result-card", -1, roundResult === "TIE" ? 0 : 1, 0);
       // The winner gets the last word: a staccato synthesized laugh rides
       // out of the bell. A tie amuses nobody.
       if (roundResult !== "TIE") {
         resultLaughAt = now + 420000;
         resultLaughStep = 0;
+        // The mouth opens on the sting and the laugh lands in it — the same
+        // open-ring LAUGH face the A+B chord earns, dealt automatically to
+        // the winner unless they have already chosen their own gloat.
+        const winner = players[0].score === players[1].score ? null
+          : players[players[0].score > players[1].score ? 0 : 1];
+        if (winner?.alive && !winner.resultReaction) {
+          winner.resultReaction = "LAUGH";
+          winner.resultReactionAt = now;
+        }
       }
     }
     if (resultLaughAt && resultLaughStep < 5 && now >= resultLaughAt) {
@@ -5703,6 +7042,12 @@ function gameSim() {
     if (now - roundOverAt >= resultDuration) {
       emitSignal("update-safe", -1, buildVersion, 0);
       if (selfPlay) startSelfPlay(now);
+      // A versus result rolls straight into the next round while the rival's
+      // wire stays warm — the room, not the title, is home base. A finished
+      // match deals fresh, a finished round keeps the tally.
+      else if (versusActive() && versusChallengerFresh())
+        startVersusFight(now, matchOver);
+      else if (versusActive()) beginVersusLobby(now);
       else returnToTitle(now, "round-end");
     }
     return;
@@ -5711,13 +7056,13 @@ function gameSim() {
     updateSelect(now);
     return;
   }
-  if (now - roundStartedAt < introDurationUs) {
+  if (now - roundStartedAt < roundIntroDurationUs()) {
     // The intro used to pass in silence — a reel that opens on the countdown
     // opened on three mute seconds, and a player heard the round begin with
     // nothing. Ring the "3, 2, 1" on the same two channels the round clock
     // uses: the drum for the ear, the signal for the record.
     const introSecond = Math.ceil(
-      (introDurationUs - (now - roundStartedAt)) / 1000000);
+      (roundIntroDurationUs() - (now - roundStartedAt)) / 1000000);
     if (introSecond !== lastIntroSecond) {
       lastIntroSecond = introSecond;
       // playDrum is the voice, the signal is the record — the "countdown"
@@ -5731,11 +7076,14 @@ function gameSim() {
     return;
   }
   if (lastIntroSecond > 0) {
-    // The first live tick after the intro is the round opening — one accent,
-    // so "go" is a sound and not just a vanished number.
+    // The first live tick after the intro is the mode opening — one accent,
+    // so the callout is a sound and not just a vanished word.
     lastIntroSecond = -1;
     playDrum("block", 1.1, 0);
-    emitSignal("fighters-lock", -1, 0, 0);
+    if (survivalActive()) {
+      globalThis.__oskiewarStartLine = "climb!";
+      emitSignal("climb", 0, 1, 0);
+    } else emitSignal("fighters-lock", -1, 0, 0);
   }
   roundElapsedUs += dt * 1000000;
   const timedRound = roundIsTimed();
@@ -5749,27 +7097,44 @@ function gameSim() {
       emitSignal("countdown", -1, countdownSecond, 0);
     }
   }
-  updateWind(dt, now);
-  updatePlayer(players[0], inputPads[0], dt, now);
-  updatePlayer(players[1], inputPads[1], dt, now);
-  resolvePlayerStanding(now);
-  resolvePlayerPushboxes();
-  updatePowerups(now);
-  updateBodyTrees(dt, now);
-  updateBullets(dt, now);
-  updateGrenades(dt, now);
-  resolveMelee(now);
-  resolvePogoAttacks(now);
-  for (const item of balls) updateBall(item, dt, now);
-  updateDetachedParts(dt);
-  updateCamera(dt);
-  updateCameraDoll(dt, now);
-  captureFrameTelemetry(now);
-  captureRoundReplay(now);
-  recordReplayCheckpoint(now);
-  trackResimDrift(now);
+  if (survivalActive()) {
+    updatePlayer(players[0], inputPads[0], dt, now);
+    updateSurvival(dt, now);
+    updateDetachedParts(dt);
+    updateCamera(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+  } else {
+    updateWind(dt, now);
+    updatePlayer(players[0], inputPads[0], dt, now);
+    updatePlayer(players[1], inputPads[1], dt, now);
+    resolvePlayerStanding(now);
+    resolvePlayerPushboxes();
+    updatePowerups(now);
+    updateBodyTrees(dt, now);
+    updateBullets(dt, now);
+    updateGrenades(dt, now);
+    resolveMelee(now);
+    resolvePogoAttacks(now);
+    for (const item of balls) updateBall(item, dt, now);
+    updateDetachedParts(dt);
+    updateCamera(dt);
+    updateCameraDoll(dt, now);
+    captureFrameTelemetry(now);
+    captureRoundReplay(now);
+    recordReplayCheckpoint(now);
+    trackResimDrift(now);
+  }
   for (const impact of impacts) {
     if (!impact.debris) {
+      // A fresh impact heats the tile it landed in. The debris check is the
+      // once-per-impact gate — the first sim tick is the only tick an impact
+      // exists without motes — so a hit stamps its cell exactly once, and
+      // the overlay on the back wall shows the fight's last half-second as
+      // cooling squares.
+      const cell = gridFieldIndex(impact.x, impact.y);
+      gridField[cell] = Math.min(1, gridField[cell] +
+        (impact.explosion ? 1 : impact.death ? .9 : .55));
       const count = impact.explosion ? 24 : impact.death ? 10 : 6;
       impact.debris = Array.from({ length: count }, (_, index) => {
         const angle = index / count * Math.PI * 2 +
@@ -5800,8 +7165,15 @@ function gameSim() {
     impact.life -= dt;
   }
   while (impacts.length && impacts[0].life <= 0) impacts.shift();
-  if (players.some((player) => !player.alive) ||
-      (timedRound && roundElapsedUs >= roundDurationUs)) {
+  // The tile field cools between stamps — a fixed exponential against the
+  // fixed 60 Hz step, so a replayed round heats and fades identically. Cells
+  // snap to zero below a hundredth so a quiet map is exactly zeros.
+  for (let cell = 0; cell < gridField.length; cell++)
+    gridField[cell] = gridField[cell] < .01 ? 0
+      : gridField[cell] * Math.exp(-dt * 1.6);
+  if (!survivalActive() && !lobbyActive() &&
+      (players.some((player) => !player.alive) ||
+      (timedRound && roundElapsedUs >= roundDurationUs))) {
     if (timedRound && roundElapsedUs >= roundDurationUs &&
         players.every((player) => player.alive))
       roundCause = "TIME";
@@ -5960,7 +7332,10 @@ function paletteColorAt(colors, coordinate, fallback) {
 }
 
 function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null) {
-  const bands = colors?.length > 1 ? 6 : 1;
+  // The gradient's resolution is an experiment dial: six bands is the look,
+  // one band is a flat capsule at a third of the faces.
+  const bands = colors?.length > 1
+    ? clamp(Math.round(renderFlags.bands ?? 6), 1, 6) : 1;
   if (bands === 1) {
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width, damagedPartColor(fallback, player, segment.part));
@@ -6147,7 +7522,8 @@ function runnerWorldGeometry(player, t) {
     landingRecovery * .45, noLegs ? .45 : 0), 0, 1);
   const height = lerp(180, 108, crouchPose);
   const formDrop = pogo ? 54 : noLegs ? 31 : 0;
-  const aimPose = player.itemAimLocked ? player.gunAimX || player.facing : 0;
+  const aimPose = player.itemAimLocked || player.gunAimLive
+    ? player.gunAimX || player.facing : 0;
   const lean = player.facing * (idle ? 5 : 3 + speed * 10) + aimPose * 7;
   const x = player.x;
   const feet = player.y;
@@ -6158,14 +7534,20 @@ function runnerWorldGeometry(player, t) {
     : feet - lerp(58, 40, crouchPose) + formDrop;
   const neckX = x + lean;
   const neckY = feet - height + 54 - breath + formDrop +
-    (player.itemAimLocked ? (player.gunAimY || 0) * 8 : 0);
+    (player.itemAimLocked || player.gunAimLive
+      ? (player.gunAimY || 0) * 8 : 0);
   const attackPulse = meleePulse(player, poseNow);
   const head = headOnly
     ? { x, y: feet - 22, z, radius: 22 }
     : { x: neckX + lean * .2,
       y: feet - height + 22 - breath * 1.6 + formDrop, z, radius: 22 };
   const segments = [];
-  const actionArm = player.facing > 0 ? "right-arm" : "left-arm";
+  // `startMelee` and `heldItem` both gate on `itemHand`, so the drawn striking
+  // arm has to name that same part. Naming it by facing alone tagged the
+  // reaching capsules with the opposite arm the moment a fighter turned around
+  // while armed — shooting off one arm then erased the other one's limb.
+  const actionArm = itemHand(player) ||
+    (player.facing > 0 ? "right-arm" : "left-arm");
   const rearArm = actionArm === "right-arm" ? "left-arm" : "right-arm";
   const actionLeg = player.facing > 0 ? "right-leg" : "left-leg";
   const rearLeg = actionLeg === "right-leg" ? "left-leg" : "right-leg";
@@ -6214,6 +7596,13 @@ function runnerWorldGeometry(player, t) {
       jointY: middleY + dx / distance * height * bend,
       targetX, targetY };
   };
+  // Where a grounded foot may actually plant. The bare terrain probe reads
+  // the arena floor, so a fighter standing on a rung planted his feet a
+  // storey down and the shins stretched to reach — the long legs @jeffrey
+  // called out. The probe now asks for the surface the fighter is actually
+  // standing on, and a foot hanging past a rung's lip stops at the leg's own
+  // reach — a short dangle — instead of the floor below.
+  const footPlant = (footX) => Math.min(surfaceYAt(footX, feet), feet + 20);
   segment(head.x, head.y + head.radius * .78, neckX, neckY, 10, "neck");
   segment(neckX, neckY, x, hipY, 10, "torso");
   // An elbow sags downward whichever way the hand actually reaches. Bending
@@ -6224,6 +7613,14 @@ function runnerWorldGeometry(player, t) {
   const shoulderSpread = 12;
   const leftShoulderX = neckX - shoulderSpread;
   const rightShoulderX = neckX + shoulderSpread;
+  // The working hand always reaches out front and the idle one always trails
+  // behind, so both shoulders follow facing. Anchoring them on the arm that
+  // owns the item instead meant a fighter who armed himself facing right and
+  // then turned around hung his reaching arm off the rear shoulder and his
+  // trailing arm off the front one: the pair crossed once at the neck and
+  // again past the elbows, boxing the double diamond @jeffrey called out.
+  const actionShoulderX = neckX + player.facing * shoulderSpread;
+  const restShoulderX = neckX - player.facing * shoulderSpread;
   segment(leftShoulderX, shoulderY, rightShoulderX, shoulderY, 10,
     "shoulders");
   if (player.attackKind === "KICK" && attackPulse > 0) {
@@ -6248,7 +7645,7 @@ function runnerWorldGeometry(player, t) {
     // The deck is drawn tilted along the terrain, so each foot plants on
     // the deck's own top at its x — flat foot heights ran the board
     // through the shins on every slope.
-    const deckAt = (footX) => terrainFloorAt(footX) - 6;
+    const deckAt = (footX) => footPlant(footX) - 6;
     const plantedX = x + player.facing * 28;
     const push = Math.sin(poseCycle) * 34;
     const leadFootX = plantedX + player.facing * 18;
@@ -6272,9 +7669,9 @@ function runnerWorldGeometry(player, t) {
     const rearKnee = x - player.facing * 16 - stride * .38;
     const rearFoot = x - player.facing * 28 - stride;
     // The animation phase still chooses the discrete stride; ground probes
-    // constrain that frame onto the heightfield without adding new sim steps.
-    const leadGround = terrainFloorAt(leadFoot);
-    const rearGround = terrainFloorAt(rearFoot);
+    // constrain that frame onto the surface underfoot without new sim steps.
+    const leadGround = footPlant(leadFoot);
+    const rearGround = footPlant(rearFoot);
     segment(x, hipY, leadKnee, leadGround - 30, 10, "lead-thigh");
     segment(leadKnee, leadGround - 30, leadFoot, leadGround, 10, "lead-shin");
     segment(x, hipY, rearKnee, rearGround - 30, 10, "rear-thigh");
@@ -6324,9 +7721,6 @@ function runnerWorldGeometry(player, t) {
     // The striking arm outranks the carry pose: a whip or bash has to publish
     // attack capsules or an armed fighter could never land a hand strike.
     const target = meleeTarget(player, poseNow);
-    const itemOnRight = itemHand(player) === "right-arm";
-    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
-    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY, target.x, target.y,
       meleeSpecFor(player, player.attackKind).span,
       armBend(actionShoulderX, target.x));
@@ -6341,9 +7735,6 @@ function runnerWorldGeometry(player, t) {
   } else if ((player.itemAction && actionNow < player.itemActionUntil) ||
       (player.gunAmmo > 0 && player.itemAction !== "THROW")) {
     const target = itemHandTarget(player, actionNow);
-    const itemOnRight = itemHand(player) === "right-arm";
-    const actionShoulderX = itemOnRight ? rightShoulderX : leftShoulderX;
-    const restShoulderX = itemOnRight ? leftShoulderX : rightShoulderX;
     const armPose = twoBone(actionShoulderX, shoulderY,
       target.x, target.y, 58, armBend(actionShoulderX, target.x));
     segment(actionShoulderX, shoulderY, armPose.jointX, armPose.jointY, 12,
@@ -6483,7 +7874,7 @@ function fighterContainmentRequiredWidth(t) {
     top = Math.min(top, y - radius);
     bottom = Math.max(bottom, y + radius);
   };
-  for (const player of players) {
+  for (const player of activePlayers()) {
     const world = player.replayGeometry || player.frozenGeometry ||
       runnerWorldGeometry(player, t);
     include(world.head.x, world.head.y, world.head.radius);
@@ -6503,13 +7894,13 @@ function fighterContainmentRequiredWidth(t) {
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
   const gameplayContainment = !roundResult &&
-    runtime().monotonicUs - roundStartedAt >= introDurationUs;
+    runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
   if (gameplayContainment) {
     cameraContainFloor = Math.max(cameraContainFloor,
       fighterContainmentRequiredWidth(t) * 1.11);
     return;
   }
-  const worlds = players.map((player) => player.replayGeometry ||
+  const worlds = activePlayers().map((player) => player.replayGeometry ||
     player.frozenGeometry || runnerWorldGeometry(player, t));
   if (!worlds.length) return;
   const points = [];
@@ -6624,7 +8015,8 @@ function resolveRunnerBounds(player, t) {
     player.dashUntil = 0;
     player.dashVx = 0;
   }
-  const ceiling = ceilingY + wallThickness;
+  const ceiling = (survivalActive() ? survivalCeilingY : ceilingY) +
+    wallThickness;
   const standingTop = runnerBounds(player, t).top;
   if (standingTop < ceiling) {
     player.y += ceiling - standingTop;
@@ -6866,6 +8258,7 @@ function dismountSkateboard(target, now) {
 
 function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
     force = 1100, lift = 150, damageParts = true) {
+  recordFightHit(sourcePad, false);
   const direction = Math.sign(target.x - sourceX) ||
     (sourcePad === target.pad ? -target.facing : target.facing) || 1;
   releaseCarriedBall(target, now);
@@ -7052,14 +8445,14 @@ function controlLocale() {
     replayPaused: "PAUSED   F PLAY   A D SCRUB   G EXIT",
     replayPlaying: "F PAUSE   A D SCRUB   G EXIT",
     replay: "Q REPLAY",
-    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W JUMP",
+    combat: "SPACE KICK   ENTER PUNCH   SHIFT SHIELD   ALT USE ITEM   W AIR",
   } : {
     title: "start",
     select: "LEFT RIGHT SELECT     A READY     X P2 / DUMMY / BOT     B BACK",
     replayPaused: "PAUSED   A PLAY   LEFT RIGHT SCRUB   B EXIT",
     replayPlaying: "A PAUSE   LEFT RIGHT SCRUB   B EXIT",
     replay: "Y REPLAY",
-    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP JUMP",
+    combat: "A KICK   B PUNCH   X SHIELD   Y USE ITEM   UP AIR",
   };
 }
 
@@ -7071,7 +8464,7 @@ function combatKeys() {
     [["A", "D"], "MOVE", "ArrowLeft"], [["D", "D"], ">> DASH", "ArrowRight"],
     ["SPACE", "KICK", "A"], ["ENTER", "PUNCH", "B"],
     ["SHIFT", "SHIELD", "X"], ["ALT", "USE ITEM", "Y"],
-    ["W", "JUMP", "ArrowUp"]];
+    ["W", "AIR", "ArrowUp"]];
   if (caps.inputFamily === "touch") return [
     ["A", "KICK", "A"], ["B", "PUNCH", "B"],
     ["X", "SHIELD", "X"], ["Y", "USE ITEM", "Y"]];
@@ -7079,7 +8472,7 @@ function combatKeys() {
     [["LEFT", "RIGHT"], "MOVE", "ArrowLeft"],
     [["RIGHT", "RIGHT"], ">> DASH", "ArrowRight"],
     ["A", "KICK", "A"], ["B", "PUNCH", "B"], ["X", "SHIELD", "X"],
-    ["Y", "USE ITEM", "Y"], ["STICK_UP", "JUMP", "ArrowUp"]];
+    ["Y", "USE ITEM", "Y"], ["STICK_UP", "AIR", "ArrowUp"]];
 }
 
 // What the buttons do, named on the way into a round. B changes meaning with
@@ -7138,6 +8531,12 @@ function replayOfferKeys() {
 // input keeps its keycaps; every other family gets these.
 const padButtonInk = {
   A: [96, 200, 80], B: [235, 78, 78], X: [86, 148, 235], Y: [240, 198, 60],
+  // The M30's face wears its own colorway — green A, yellow B, blue C, all
+  // three top-row buttons gray — which is NOT the Xbox palette above, so the
+  // cluster keys its own inks rather than borrowing the Xbox letters'.
+  M30A: [96, 200, 80], M30B: [240, 198, 60], M30C: [86, 148, 235],
+  M30X: [168, 176, 190], M30Y: [168, 176, 190], M30Z: [168, 176, 190],
+  M30S: [235, 78, 78],
 };
 const padGlyph = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
 const padButtonDiameter = (size) => Math.round(size * .78) * 2;
@@ -7214,6 +8613,130 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
   return width;
 }
 
+// `controllers()` walks the whole pad list and the legend asks every painted
+// frame, so the name check breathes once a second instead.
+let m30CheckAt = 0;
+let m30Present = false;
+function m30Seated() {
+  const now = runtime().monotonicUs;
+  if (now >= m30CheckAt) {
+    m30CheckAt = now + 1000000;
+    m30Present = typeof controllers === "function" &&
+      (controllers() || []).some((pad) => /8bitdo\s+m30/i.test(pad?.name || ""));
+  }
+  return m30Present;
+}
+
+// The M30 folds two extra moves into its Sega face: C and the top-edge R
+// reach the game as the trigger pair, Z and the top-edge L as the shoulders —
+// the pad's factory Xbox map wearing Sega names. Which trigger C sends was
+// read off the live hardware, not the leaflet; flip this table if 8BitDo's
+// firmware ever swaps the pair.
+const m30FaceSends = { C: "RightTrigger", Z: "RightShoulder" };
+const m30SendLabel = { RightTrigger: "SHIELD", RightShoulder: "USE ITEM",
+  LeftTrigger: "KICK", LeftShoulder: "USE ITEM" };
+
+// The M30's own manual page, drawn from the device itself: the white
+// dogbone body with red L/R nubs over its shoulders, the dark cross on its
+// round base, the red start pill, and the two button arcs climbing to the
+// right — gray X/Y/Z small on top, green A / yellow B / blue C big below,
+// the bottom row shifted toward the thumb. Proportions transcribed from
+// 8BitDo's top-down of the M30 2.4G (white), the unit in @jeffrey's hand.
+// Every drawn control lights with the live press, so the mapping is not a
+// diagram of faith: plug in, press, and the page answers.
+function drawM30Cluster(x, y, size, held, directionActive, ink) {
+  const small = Math.round(size * .58);
+  const d = padButtonDiameter(size);
+  const light = visualTheme.light;
+  const lobeR = Math.round(d * 1.62);
+  const bodyMidY = y + Math.round(d * .3) + lobeR;
+  const leftLobeX = x + lobeR;
+  const rightLobeX = x + Math.round(d * 7.5) - lobeR;
+  const plastic = mixColor([176, 182, 194], [246, 248, 251], light);
+  const print = mixColor([92, 98, 112], [118, 124, 138], light);
+  // Shoulder nubs first, so the body covers their roots.
+  const nub = mixColor([196, 44, 58], [206, 48, 62], light);
+  filledCapsule(leftLobeX - d, bodyMidY - lobeR, leftLobeX + Math.round(d * .2),
+    bodyMidY - lobeR, Math.round(d * .4), nub);
+  filledCapsule(rightLobeX - Math.round(d * .2), bodyMidY - lobeR,
+    rightLobeX + d, bodyMidY - lobeR, Math.round(d * .4), nub);
+  filledDisc(leftLobeX, bodyMidY, lobeR, plastic);
+  filledDisc(rightLobeX, bodyMidY, lobeR, plastic);
+  filledCapsule(leftLobeX, bodyMidY, rightLobeX, bodyMidY,
+    Math.round(lobeR * 1.7), plastic);
+  // The silkscreen wordmark rides the body's top center.
+  const markSize = Math.round(small * .9);
+  typeWrite("8BITDO M30", Math.round((leftLobeX + rightLobeX) / 2 -
+    handleWidth("8BITDO M30", markSize) / 2),
+    bodyMidY - lobeR + Math.round(d * .1), markSize, ...print);
+  // D-pad: the dark cross on its round base, each arm lighting alone.
+  const dpadBase = mixColor([44, 48, 60], [58, 62, 74], light);
+  filledDisc(leftLobeX, bodyMidY, Math.round(d * 1.02), dpadBase);
+  const crossInk = mixColor([24, 27, 36], [32, 35, 44], light);
+  const armLen = Math.round(d * .8);
+  const armWidth = Math.round(d * .5);
+  const arms = [["ArrowUp", 0, -1], ["ArrowDown", 0, 1],
+    ["ArrowLeft", -1, 0], ["ArrowRight", 1, 0]];
+  for (const [button, dx, dy] of arms)
+    filledCapsule(leftLobeX, bodyMidY, leftLobeX + dx * armLen,
+      bodyMidY + dy * armLen, armWidth, directionActive(button)
+        ? mixColor(crossInk, [245, 248, 255], .5) : crossInk);
+  filledDisc(leftLobeX, bodyMidY, Math.max(2, Math.round(d * .14)),
+    mixColor([16, 18, 26], [22, 24, 32], light));
+  // START — the red pill mid-body, its name silkscreened beneath, with the
+  // 2.4G's three tiny extras below. Pressed wears the discs' white rim.
+  const startPressed = held.includes("Menu");
+  const midX = Math.round((leftLobeX + rightLobeX) / 2);
+  const pillHalf = Math.round(size * .5);
+  const pillY = bodyMidY - Math.round(d * .28);
+  if (startPressed) filledCapsule(midX - pillHalf, pillY, midX + pillHalf,
+    pillY, Math.round(size * .44) + 4, [245, 248, 255]);
+  filledCapsule(midX - pillHalf, pillY, midX + pillHalf, pillY,
+    Math.round(size * .44), startPressed
+      ? mixColor(padButtonInk.M30S, [255, 255, 255], .3) : padButtonInk.M30S);
+  const startLabelSize = Math.round(small * .8);
+  typeWrite("START", Math.round(midX - handleWidth("START", startLabelSize) / 2),
+    pillY + Math.round(size * .32), startLabelSize, ...print);
+  for (let dot = 0; dot < 3; dot++)
+    filledDisc(midX + (dot - 1) * Math.round(d * .42),
+      pillY + Math.round(d * .85), Math.max(2, Math.round(d * .09)), print);
+  // The face arcs climb to the right like the hardware; the top row runs
+  // smaller and the bottom row leans into the thumb.
+  const pitch = Math.round(d * 1.05);
+  const drop = Math.round(d * .3);
+  const smallFace = Math.round(size * .82);
+  const disc = (key, cap, cx, cy, buttonSize, pressed) =>
+    drawPadButton(key, cx - Math.round(buttonSize * .78),
+      cy - Math.round(buttonSize * .75), buttonSize, pressed, 1, cap);
+  const face = [
+    ["M30X", "X", 0, 0, smallFace, held.includes("X")],
+    ["M30Y", "Y", 1, 0, smallFace, held.includes("Y")],
+    ["M30Z", "Z", 2, 0, smallFace, held.includes(m30FaceSends.Z)],
+    ["M30A", "A", 0, 1, size, held.includes("A")],
+    ["M30B", "B", 1, 1, size, held.includes("B")],
+    ["M30C", "C", 2, 1, size, held.includes(m30FaceSends.C)],
+  ];
+  for (const [key, cap, column, row, buttonSize, pressed] of face)
+    disc(key, cap,
+      rightLobeX + Math.round((column - 1) * pitch - d * .35) +
+        (row ? Math.round(d * .34) : 0),
+      bodyMidY - Math.round(d * .8) + (2 - column) * drop +
+        (row ? Math.round(d * .92) : 0),
+      buttonSize, pressed);
+  let rowY = bodyMidY + lobeR + Math.round(small * 1.2);
+  const captions = [
+    `A KICK  B PUNCH  C ${m30SendLabel[m30FaceSends.C]}`,
+    `X SHIELD  Y USE ITEM  Z ${m30SendLabel[m30FaceSends.Z]}`,
+    `L ${m30SendLabel.LeftShoulder}  R ${m30SendLabel.LeftTrigger}`,
+    "A+B GRAB  START PAUSE",
+  ];
+  for (const caption of captions) {
+    typeWrite(caption, x, rowY, small, ...ink);
+    rowY += Math.round(small * 1.55);
+  }
+  return rowY + Math.round(small * .6);
+}
+
 // Lifted clear of the bottom edge, because the signed-in handle and its
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
@@ -7237,14 +8760,19 @@ function drawControlLegend(ink) {
     ["LEFT", "ArrowLeft", directionActive("ArrowLeft") ? "MOVE" : ""],
     ["RIGHT", "ArrowRight", dash ? "DASH >>" :
       directionActive("ArrowRight") ? "MOVE" : ""],
-    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "JUMP" : ""],
+    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "AIR" : ""],
     ["DOWN", "ArrowDown", directionActive("ArrowDown") ? "CROUCH" : ""],
     ["A", "A", both ? "GRAB" : held.includes("A") ? "KICK" : ""],
     ["B", "B", !both && held.includes("B") ? "PUNCH" : ""],
     ["X", "X", held.includes("X") ? "SHIELD" : ""],
     ["Y", "Y", held.includes("Y") ? "USE ITEM" : ""],
   ];
+  if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
+  // A seated M30 trades the whole legend column for the pad's own manual
+  // page — the drawn controller carries its d-pad, so no rows remain.
+  const m30 = !keyboard && !survivalActive() && m30Seated();
+  if (m30) controls.length = 0;
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
@@ -7259,6 +8787,44 @@ function drawControlLegend(ink) {
     if (action) typeWrite(action, x + width + 10,
       y + Math.round(size * .25), size, ...ink);
   }
+  let legendBottom = safe.top + controls.length * step;
+  if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
+    directionActive, ink);
+  drawStickGate(x, legendBottom, size, pad, ink);
+}
+
+// The legend named the stick's directions but never its ANGLE, so a fighter
+// walking on a half-tilted stick looked identical to one at full lean, and
+// the camera stick had no read-out at all. Only drawn while a stick is off
+// center: an always-present gate would be one more permanently-lit widget in
+// a corner that is already busy.
+function drawStickGate(x, y, size, pad, ink) {
+  const gate = (label, dx, dy, column) => {
+    const radius = Math.round(size * .82);
+    const cx = x + radius + column * Math.round(radius * 2.6);
+    const cy = y + radius;
+    const idle = mixColor([58, 66, 86], [170, 180, 196], visualTheme.light);
+    // The gate ring is drawn as a disc under a smaller ground-colored disc:
+    // filledDisc is the only circle primitive the piece owns, and two of them
+    // cost less than an arc walked out of line segments.
+    filledDisc(cx, cy, radius, idle);
+    filledDisc(cx, cy, radius - 3,
+      mixColor([7, 8, 28], [230, 239, 247], visualTheme.light));
+    // Screen y grows downward while the pad reports up as positive.
+    const knobX = cx + dx * (radius - 5);
+    const knobY = cy - dy * (radius - 5);
+    filledDisc(knobX, knobY, Math.max(3, Math.round(size * .26)), ink);
+    typeWrite(label, cx - radius, cy + radius + 2,
+      Math.round(size * .62), ...ink);
+  };
+  const live = (dx, dy) => Math.abs(dx) > .12 || Math.abs(dy) > .12;
+  const leftX = Number(pad.leftX) || 0;
+  const leftY = Number(pad.leftY) || 0;
+  const rightX = Number(pad.rightX) || 0;
+  const rightY = Number(pad.rightY) || 0;
+  let column = 0;
+  if (live(leftX, leftY)) gate("move", leftX, leftY, column++);
+  if (live(rightX, rightY)) gate("cam", rightX, rightY, column++);
 }
 
 const controlRailWidth = () => compactLayout() ? 138 : 188;
@@ -7405,6 +8971,8 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
+  const spitAge = now - (player.spitAt || -Infinity);
+  const spitting = isHeadOnly(player) && spitAge >= 0 && spitAge < 190000;
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
@@ -7415,6 +8983,15 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       stroke(faceX + offset + eyeWidth, eyeY - eyeWidth,
         faceX + offset - eyeWidth, eyeY + eyeWidth, lineWidth);
     }
+  } else if (spitting) {
+    // The release reads on the face before the glob clears it: both eyes
+    // squeeze inward for the same short beat as the pursed lips below.
+    for (const offset of [-eyeGap, eyeGap])
+      stroke(faceX + offset - eyeWidth * 1.35,
+        eyeY + (offset < 0 ? -1 : 1) * r * .035,
+        faceX + offset + eyeWidth * 1.35,
+        eyeY + (offset < 0 ? 1 : -1) * r * .035,
+        lineWidth * 1.15);
   } else if (blink) {
     stroke(faceX - eyeGap - eyeWidth, eyeY, faceX - eyeGap + eyeWidth,
       eyeY, lineWidth);
@@ -7474,7 +9051,14 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
         Math.max(1.5, lineWidth * .72), tear);
   }
   const mouthY = head.y + r * .3;
-  if (player.resultReaction === "LAUGH") {
+  if (spitting) {
+    const release = 1 - clamp(spitAge / 190000, 0, 1);
+    const lip = player.spitHeavy ? [226, 58, 126] : [232, 92, 132];
+    // faceX already carries .08r of facing offset; another .12r makes this
+    // exactly the .20r face-space mouth used by spitMouthPose().
+    ring(faceX + direction * r * .12, mouthY,
+      r * (.105 + release * .055), Math.max(.7, r * .055), lip);
+  } else if (player.resultReaction === "LAUGH") {
     const age = Math.max(0, (now - player.resultReactionAt) / 1000000);
     const open = .35 + Math.abs(Math.sin(age * 18)) * .65;
     ring(faceX + direction * r * .08, mouthY,
@@ -7795,14 +9379,19 @@ function drawRunner(player, t, showLabel = true) {
   const displayNow = player.frozenAt || runtime().monotonicUs;
   if (player.skateboard) {
     const board = projectPoint(player.x, player.y + 5, player.z);
+    // The tilt probes ask for the surface the rider is actually on: bare
+    // terrain reads the arena floor, which would pitch a rung-riding board
+    // toward the storey below the moment the ground under it sloped.
+    const boardSurface = (probeX) =>
+      Math.min(surfaceYAt(probeX, player.y), player.y + 20);
     const leftEdge = player.skateWallSide
       ? projectPoint(player.x, player.y - 67, player.z)
       : projectPoint(player.x - 72,
-        terrainFloorAt(player.x - 72) + 5, player.z);
+        boardSurface(player.x - 72) + 5, player.z);
     const boardEdge = player.skateWallSide
       ? projectPoint(player.x, player.y + 77, player.z)
       : projectPoint(player.x + 72,
-        terrainFloorAt(player.x + 72) + 5, player.z);
+        boardSurface(player.x + 72) + 5, player.z);
     const reach = Math.max(.5, Math.hypot(boardEdge.x - leftEdge.x,
       boardEdge.y - leftEdge.y) / 2);
     const rotation = Math.atan2(boardEdge.y - leftEdge.y,
@@ -7822,9 +9411,11 @@ function drawRunner(player, t, showLabel = true) {
         segment.width + Math.max(3, 5 * cameraScale()), [255, 238, 102]);
     }
   }
-  if (shellMode !== "MENU" || titleTransitionAt !== null ||
-      titleAttractMode === "action" || (player.npc && !player.bot))
-    drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
+  // Every fighter wears its face everywhere now, the title included. The
+  // still tableau used to sit faceless — a sparring-partner special case
+  // grown from the old dummy door — but the wordmark screen is the
+  // storefront, and whoever sits under it should look back.
+  drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow, geometry);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
@@ -7878,6 +9469,11 @@ function drawDoubleJumpMotion(player, t) {
 // them — `impactHitboxesUntil` still times the flash, but only for someone
 // who has already asked to see the geometry.
 function drawDebugHitboxes(player, t) {
+  // The hud experiment flag prices the debug geometry itself — boxes, crops
+  // and skeletal overlays — while the fps read-out, bug and session name
+  // stay up, because the instrument that measures must not vanish with the
+  // scaffolding it is measuring.
+  if (renderFlags.hud === false) return;
   const now = runtime().monotonicUs;
   const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
   if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
@@ -7950,6 +9546,10 @@ function nationFlag(country) {
     0x1f1e6 + letter.charCodeAt(0) - 65)).join("");
 }
 
+const reelProgressInset = () => typeof capabilities === "function" &&
+  capabilities().replayOven === true && capabilities().reelFullUi === true
+  ? compactLayout() ? 42 : 50 : 0;
+
 function playerHandleLayout(player, side) {
   const safe = hudSafeRect();
   const touch = typeof capabilities === "function" &&
@@ -7960,7 +9560,7 @@ function playerHandleLayout(player, side) {
   // right fighter from the right. The command phrase mirrors to the inside,
   // so neither name has to give up its corner to make room for it.
   const x = side === 0 ? safe.left + 8 : safe.right - 8 - width;
-  const y = safe.bottom - size - (touch ? 250 : 18);
+  const y = safe.bottom - size - (touch ? 250 : 18) - reelProgressInset();
   return { x, y, size, width };
 }
 
@@ -8058,8 +9658,22 @@ const playerStatPanelHeight = () => {
   return 16 + 3 * (size + 7) + 10;
 };
 
+const debugReadoutMetaSize = () => compactLayout() ? 19 : 24;
+const debugReadoutTimingSize = () =>
+  Math.max(17, Math.round(debugReadoutMetaSize() * .76));
+// The band the measured-performance read-out owns, just above the nameplate.
+// Everything that stacks over a handle reserves it rather than sharing it: the
+// console has always printed a second timing row there and it landed exactly on
+// the state card's `anim::` line, and the browser started printing one the day
+// it began timing its own frames. Both rows are reserved whether or not the
+// host fills the second — the card above must not breathe when a measurement
+// finally arrives, the same fixed-chassis rule the card itself follows.
+const debugReadoutHeight = () => debugHitboxes
+  ? debugReadoutMetaSize() + 6 + debugReadoutTimingSize() + 5 : 0;
+
 // The state trace owns a fixed stack over each handle without a container.
-const statStackHeight = () => debugHitboxes ? playerStatPanelHeight() + 8 : 0;
+const statStackHeight = () => debugHitboxes
+  ? debugReadoutHeight() + playerStatPanelHeight() + 8 : 0;
 
 function drawPlayerStats(player, side, t) {
   if (!debugHitboxes) return;
@@ -8078,7 +9692,7 @@ function drawPlayerStats(player, side, t) {
   const height = playerStatPanelHeight();
   const handle = playerHandleLayout(player, side);
   const x = side === 0 ? safe.left : safe.right - width;
-  const y = handle.y - height - 12;
+  const y = handle.y - debugReadoutHeight() - height - 12;
   const previousDepth = triangleDepth;
   triangleDepth = -1.445;
   for (let row = 0; row < lines.length; row++) {
@@ -8098,7 +9712,11 @@ function drawHudInventory(player, side) {
   const size = Math.round(hudTypeSize * .62);
   const width = handleWidth(text, size);
   const x = side === 0 ? handle.x : handle.x + handle.width - width;
-  const y = handle.y - statStackHeight() - size - 7;
+  // Commands own the rows immediately above the fighter's name. Inventory
+  // starts above whichever of those rows are still visible, so neither can
+  // drift over the other as the command history dissolves.
+  const y = handle.y - statStackHeight() - commandStreamStackHeight(player) -
+    size - 7;
   const shadow = contrastShadow(player.color);
   typeWrite(text, x + 2, y + 3, size, ...shadow);
   typeWrite(text, x, y, size, ...player.color);
@@ -8122,6 +9740,20 @@ function spatialHudPlayers() {
 function commandFade(index, count, idle) {
   const settle = clamp((idle - commandHoldUs) / commandFadeUs, 0, 1);
   return clamp(index / Math.max(1, count - 1) + 1 - settle * 2, 0, 1);
+}
+
+function commandStreamStackHeight(player, now = runtime().monotonicUs) {
+  const count = player.commandStream.length;
+  if (!count) return 0;
+  const idle = now - (player.commandStream.at(-1)?.at || now);
+  const visible = player.commandStream.reduce((total, entry, index) =>
+    total + (commandFade(index, count, idle) > .01 ? 1 : 0), 0);
+  const handle = playerHandleLayout(player, player.pad);
+  const size = commandStreamTypeSize(handle.size);
+  const rows = Math.min(commandStreamRows,
+    Math.ceil(Math.min(commandStreamDepth, visible) /
+      commandStreamColumnsNow()));
+  return rows * (size + 7);
 }
 
 function drawCommandStream(player, side) {
@@ -8150,28 +9782,28 @@ function drawCommandStream(player, side) {
     else claimed.add(entry.label);
   }
   if (!entries.length) return;
-  // Commands emerge beside the handle on its inward side — right of the
-  // left corner's name, left of the right corner's. Eight glyphs form a
-  // phrase; completed phrases rise as a unit while a fresh phrase takes the
-  // handle lane beneath it.
+  // The name owns its row. Commands stack in distinct rows above it, aligned
+  // to the same outside edge, so a long handle can never sit underneath its
+  // own input history.
   entries.reverse();
   const handle = playerHandleLayout(player, side);
-  const size = handle.size;
+  const size = commandStreamTypeSize(handle.size);
+  const columns = commandStreamColumnsNow();
   const lineEntries = entries.slice(0, commandStreamDepth);
   const gap = Math.round(size * .34);
   const rows = [];
-  for (let index = 0; index < lineEntries.length; index += 8)
-    rows.push(lineEntries.slice(index, index + 8));
+  for (let index = 0; index < lineEntries.length; index += columns)
+    rows.push(lineEntries.slice(index, index + columns));
   const safe = hudSafeRect();
   for (let row = 0; row < rows.length; row++) {
     const rowEntries = rows[row];
     const width = rowEntries.reduce((sum, entry, index) => sum +
       handleWidth(entry.text, size) + (index ? gap : 0), 0);
-    let cursor = side === 0 ? handle.x + handle.width + 12
-      : handle.x - 12 - width;
+    let cursor = side === 0 ? handle.x : handle.x + handle.width - width;
+    cursor = clamp(cursor, safe.left, safe.right - width);
     const newestAt = Math.max(...rowEntries.map((entry) => entry.at));
     const rise = clamp((now - newestAt) / 900000, 0, 1) * size * .8;
-    const y = handle.y - statStackHeight() - row * (size + 7) - rise;
+    const y = handle.y - statStackHeight() - (row + 1) * (size + 7) - rise;
     for (const entry of rowEntries) {
       const quiet = mixColor([104, 114, 136], [82, 90, 108], visualTheme.light);
       const live = entry.held ? player.color : quiet;
@@ -8191,56 +9823,136 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const centerY = (stageTop + stageBottom) / 2;
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
-  const nameSize = touch ? 32 : compactLayout() ? 48 : 74;
-  const drawCenteredName = (player) => {
-    const width = handleWidth(visibleHandle(player), nameSize);
-    drawFloatingHandle(player, centerX - width / 2, centerY - nameSize / 2,
-      nameSize);
+  const nameSize = touch ? 28 : compactLayout() ? 38 : 54;
+  const drawHeadName = (player) => {
+    const head = runnerWorldGeometry(player,
+      (runtime().monotonicUs - startedAt) / 1000000).head;
+    const point = projectPoint(head.x, head.y, head.z);
+    const edge = projectPoint(head.x + head.radius, head.y, head.z);
+    const radius = Math.max(8, Math.hypot(edge.x - point.x, edge.y - point.y));
+    const flash = .5 + .5 * Math.sin(introSeconds * Math.PI * 8);
+    const flashingSize = nameSize * (1 + flash * .1);
+    const width = handleWidth(visibleHandle(player), flashingSize);
+    drawFloatingHandle(player, point.x - width / 2,
+      point.y - radius - flashingSize * 1.28, flashingSize);
   };
-  if (introSeconds < .65) {
-    drawCenteredName(players[0]);
+  if (!reelGroundCamera() && introSeconds < 1) {
+    drawHeadName(players[0]);
     return;
   }
-  if (introSeconds < 1.3) {
-    drawCenteredName(players[1]);
+  if (!reelGroundCamera() && introSeconds < 2) {
+    drawHeadName(players[1]);
     return;
   }
+  {
+    const title = "oskiewar";
+    const titleSize = touch ? 54 : compactLayout() ? 72 : 98;
+    const width = handleWidth(title, titleSize);
+    let cursor = centerX - width / 2;
+    const titleTime = (runtime().monotonicUs - startedAt) / 1000000;
+    for (let index = 0; index < title.length; index++) {
+      const character = title[index];
+      const advance = comicGlyphAdvance(character, titleSize);
+      typeWrite(character, cursor + 5, centerY - titleSize / 2 + 6,
+        titleSize, ...statusShadow);
+      typeWrite(character, cursor, centerY - titleSize / 2,
+        titleSize, ...animatedTitleColor(index, titleTime));
+      cursor += advance;
+    }
+    return;
+  }
+}
 
-  const andText = "and";
-  const andSize = nameSize * .72;
-  const firstWidth = handleWidth(visibleHandle(players[0]), nameSize);
-  const secondWidth = handleWidth(visibleHandle(players[1]), nameSize);
-  const andWidth = handleWidth(andText, andSize);
-  const pairGap = compactLayout() ? 320 - 30 : 320;
-  const pairWidth = firstWidth + pairGap + andWidth + pairGap + secondWidth;
-  const pairLeft = centerX - pairWidth / 2;
-  const pairStarts = [pairLeft,
-    pairLeft + firstWidth + pairGap + andWidth + pairGap];
-  const travel = clamp((introSeconds - 1.3) / .6, 0, 1);
-  const eased = travel * travel * (3 - travel * 2);
-  for (let side = 0; side < players.length; side++) {
-    const player = players[side];
-    const target = playerHandleLayout(player, side);
-    const startX = pairStarts[side];
-    const startY = centerY - target.size / 2;
-    drawFloatingHandle(player, lerp(startX, target.x, eased),
-      lerp(startY, target.y, eased), lerp(nameSize, target.size, eased));
+function drawSurvivalIntro(titleInk, statusShadow) {
+  const callout = "climb!";
+  const size = compactLayout() ? 74 : 112;
+  const width = handleWidth(callout, size);
+  const x = viewCenterX() - width / 2;
+  const y = (stageTop + stageBottom) / 2 - size / 2;
+  typeWrite(callout, x + 5, y + 7, size, ...statusShadow);
+  typeWrite(callout, x, y, size, ...titleInk);
+}
+
+function drawSurvivalHud(titleInk) {
+  const safe = hudSafeRect();
+  const score = Math.round(survivalHeight) + " up";
+  const size = compactLayout() ? 34 : 46;
+  const width = handleWidth(score, size);
+  const x = viewCenterX() - width / 2;
+  const y = safe.top + 2;
+  typeWrite(score, x + 3, y + 4, size, ...contrastShadow(titleInk));
+  typeWrite(score, x, y, size, ...titleInk);
+}
+
+function drawSurvivalResult(titleInk, statusShadow) {
+  const result = roundResult === "SUMMIT" ? "summit!"
+    : Math.round(survivalHeight) + " up";
+  const size = compactLayout() ? 58 : 82;
+  const width = handleWidth(result, size);
+  const x = viewCenterX() - width / 2;
+  const y = (stageTop + stageBottom) / 2 - size / 2;
+  typeWrite(result, x + 5, y + 7, size, ...statusShadow);
+  typeWrite(result, x, y, size, ...titleInk);
+}
+
+function drawReelSectionProgress(now, titleInk) {
+  const safe = hudSafeRect();
+  const gap = compactLayout() ? 5 : 8;
+  const widths = [.16, .68, .16];
+  const labels = ["INTRO", "FIGHT", "OUTRO"];
+  const available = safe.right - safe.left - gap * 2;
+  const resultDuration = matchOver ? matchResultUs : roundResultUs;
+  const introAge = Math.max(0, now - roundStartedAt);
+  const introLimit = roundIntroDurationUs();
+  const section = roundResult ? 2 : introAge < introLimit ? 0 : 1;
+  const progress = section === 0
+    ? clamp(introAge / introLimit, 0, 1)
+    : section === 1
+      ? clamp(roundElapsedUs / roundDurationUs, 0, 1)
+      : clamp((now - roundOverAt) / resultDuration, 0, 1);
+  const labelSize = compactLayout() ? 18 : 22;
+  const barHeight = compactLayout() ? 6 : 8;
+  const barY = safe.bottom - barHeight;
+  const labelY = barY - labelSize - 7;
+  const track = mixColor([52, 58, 76], [170, 157, 137], visualTheme.light);
+  const done = mixColor([96, 222, 154], [31, 92, 76], visualTheme.light);
+  const hitMarks = Array.isArray(globalThis.__oskiewarFightHitForecast)
+    ? globalThis.__oskiewarFightHitForecast : fightHitMarks;
+  let x = safe.left;
+  for (let index = 0; index < widths.length; index++) {
+    const width = index === widths.length - 1
+      ? safe.right - x : Math.round(available * widths[index]);
+    const amount = index < section ? 1 : index === section ? progress : 0;
+    box(x, barY, width, barHeight, ...track);
+    if (amount > 0) box(x, barY, width * amount, barHeight,
+      ...(index === section ? titleInk : done));
+    if (index === 1) {
+      const markWidth = compactLayout() ? 5 : 6;
+      for (const mark of hitMarks) {
+        const markX = x + clamp(mark.at, 0, 1) * width;
+        const reached = roundElapsedUs / roundDurationUs >= mark.at;
+        const impactInk = mark.decisive ? [226, 42, 66] : mark.color;
+        box(markX - markWidth / 2, barY - 3,
+          markWidth, barHeight + 6,
+          ...(reached ? impactInk : mixColor(track, impactInk, .72)));
+      }
+    }
+    const labelWidth = handleWidth(labels[index], labelSize);
+    typeWrite(labels[index], x + (width - labelWidth) / 2,
+      labelY, labelSize, ...(index === section ? titleInk : track));
+    x += width + gap;
   }
-  const andY = centerY - andSize / 2;
-  if (introSeconds < 2.45) {
-    const andX = centerX - andWidth / 2;
-    typeWrite(andText, andX + 4, andY + 5, andSize, ...statusShadow);
-    typeWrite(andText, andX, andY, andSize, ...titleInk);
-    return;
-  }
-  const fightAge = clamp((introSeconds - 2.45) / .55, 0, 1);
-  const fightSize = lerp(72, 96, Math.sin(fightAge * Math.PI));
-  const startText = "start";
-  const startWidth = startText.length * fightSize * .58;
-  typeWrite(startText, centerX - startWidth / 2 + 5,
-    centerY - fightSize / 2 + 6, fightSize, ...statusShadow);
-  typeWrite(startText, centerX - startWidth / 2,
-    centerY - fightSize / 2, fightSize, ...titleInk);
+}
+
+function recordFightHit(sourcePad, decisive) {
+  if (roundResult || roundElapsedUs <= 0) return;
+  if (Array.isArray(globalThis.__oskiewarFightHitForecast)) return;
+  const fighter = players[sourcePad];
+  fightHitMarks.push({
+    at: clamp(roundElapsedUs / roundDurationUs, 0, 1),
+    color: fighter?.color ? [...fighter.color] : [226, 42, 66],
+    decisive: decisive === true,
+  });
 }
 
 // A pole or a branch crossing the near plane has the same problem a face does,
@@ -8258,6 +9970,12 @@ function clipSegmentBand(from, to) {
   const width = viewWidth();
   const minX = -width * guardBand, maxX = width * (1 + guardBand);
   const minY = -viewHeight * guardBand, maxY = viewHeight * (1 + guardBand);
+  // Most segments sit whole inside the band — every grass blade, most limbs.
+  // Plain compares answer those; only a segment that actually crosses an
+  // edge pays for the parametric walk and its rebuilt endpoints.
+  if (from.x >= minX && from.x <= maxX && from.y >= minY && from.y <= maxY &&
+      to.x >= minX && to.x <= maxX && to.y >= minY && to.y <= maxY)
+    return { from, to };
   const dx = to.x - from.x, dy = to.y - from.y;
   let enter = 0, exit = 1;
   for (const [edge, room] of [[-dx, from.x - minX], [dx, maxX - from.x],
@@ -8286,7 +10004,10 @@ function worldSegment(x1, y1, z1, x2, y2, z2) {
     b = mixVertex(b, a, (cameraNear - b.z) / (a.z - b.z));
   const from = cameraDoll.projectView(a);
   const to = cameraDoll.projectView(b);
-  return [from.x, from.y, from.z, to.x, to.y, to.z].every(Number.isFinite)
+  // Six plain checks instead of an array built per segment per frame.
+  return Number.isFinite(from.x) && Number.isFinite(from.y) &&
+    Number.isFinite(from.z) && Number.isFinite(to.x) &&
+    Number.isFinite(to.y) && Number.isFinite(to.z)
     ? clipSegmentBand(from, to) : null;
 }
 
@@ -8310,13 +10031,21 @@ function worldCapsule(x1, y1, z1, x2, y2, z2, width, color,
 
 function worldQuad(a, b, c, d, color) {
   // Lighting is decided in world space, off the surface the quad names, so it
-  // is the same shade however the clipper ends up cutting the face up.
-  const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-  const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-  const normal = normalize3(cross3(ab, ac));
-  const light = { x: -globalLight.x, y: -globalLight.y, z: -globalLight.z };
-  const illumination = .72 + Math.max(0, dot3(normal, light)) * .28;
-  const lit = color.map((channel) => Math.round(channel * illumination));
+  // is the same shade however the clipper ends up cutting the face up. The
+  // cross, normalize and dot run in scalars: this is every wall panel every
+  // frame, and the vector objects were pure interpreter garbage.
+  const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+  const acx = c.x - a.x, acy = c.y - a.y, acz = c.z - a.z;
+  const nx = aby * acz - abz * acy;
+  const ny = abz * acx - abx * acz;
+  const nz = abx * acy - aby * acx;
+  const magnitude = Math.hypot(nx, ny, nz) || 1;
+  const toward = (nx * -globalLight.x + ny * -globalLight.y +
+    nz * -globalLight.z) / magnitude;
+  const illumination = .72 + Math.max(0, toward) * .28;
+  const lit = [Math.round(color[0] * illumination),
+    Math.round(color[1] * illumination),
+    Math.round(color[2] * illumination)];
   worldTriangle(a, b, c, lit);
   worldTriangle(a, c, d, lit);
 }
@@ -8354,7 +10083,7 @@ function drawTerrainFrontWall(left, right, near, color) {
   // that no frame sees under it, and wears the ground color — so everything
   // below the floor line reads as earth.
   const step = (worldRight - worldLeft) / terrainSamples;
-  const reel = reelCamera();
+  const reel = reelGroundCamera();
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = floorY + (reel ? 9000 : 720);
   const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
@@ -8374,73 +10103,153 @@ function drawTerrainFrontWall(left, right, near, color) {
   }
 }
 
-function drawRoomSurfaces(left, right, top, bottom, color) {
-  // The old six columns were rebuilt between the current visible edges. That
-  // made every camera pan bend and recolor the room. Thirty global columns
-  // preserve the former density across the five-times-long street.
-  const columns = 30;
-  const rows = 2;
-  const step = (worldRight - worldLeft) / columns;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, columns - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, columns);
-  for (let row = 0; row < rows; row++) {
-    for (let column = first; column < last; column++) {
-      const x1 = worldLeft + column * step;
-      const x2 = worldLeft + (column + 1) * step;
-      // Bury the wall deep beneath the floor. A coplanar edge exposing a
-      // one-pixel clear-color crescent is the small reason; the frame shape is
-      // the large one. A 9:16 reel sees far below the fighters' feet, and a
-      // wall that stopped a hundred units under the floor let the clear layer
-      // through as a band of sky along the bottom of every reel.
-      const floor1 = terrainFloorAt(x1) + 3000;
-      const floor2 = terrainFloorAt(x2) + 3000;
-      const y1Left = lerp(ceilingY, floor1, row / rows);
-      const y1Right = lerp(ceilingY, floor2, row / rows);
-      const y2Left = lerp(ceilingY, floor1, (row + 1) / rows);
-      const y2Right = lerp(ceilingY, floor2, (row + 1) / rows);
-      const grain = .5 + .5 * Math.sin(column * 17.7 + row * 43.1 +
-        terrainPhase * 2.4);
-      const plaster = mixColor([255, 198, 151], [198, 146, 184], grain);
-      const checker = (row + column) % 2 ? .12 : .06;
-      const shade = mixColor(color, plaster, checker + grain * .1);
-      worldQuad({ x: x1, y: y1Left, z: worldFar },
-        { x: x2, y: y1Right, z: worldFar },
-        { x: x2, y: y2Right, z: worldFar },
-        { x: x1, y: y2Left, z: worldFar }, shade);
-    }
+function drawTerrainBackWall(left, right, far, color) {
+  // The far edge was simply open. Yaw clamps at +/-.62rad, which is more than
+  // enough to swing the diorama around and look straight through the back of
+  // the slab into the buried room wall. The near edge has hung a skirt since
+  // the reel work; this is its mirror, and it exists for the ordinary TV lens
+  // where the right stick can actually reach around.
+  //
+  // Reels return early. That lens already hangs its single skirt just behind
+  // the fighters at z=55, and a second wall out at worldFar would sit behind
+  // that one where no reel frame ever looks -- pure cost, and a change to
+  // footage whose framing is test-enshrined.
+  if (reelGroundCamera()) return;
+  const step = (worldRight - worldLeft) / terrainSamples;
+  const wallZ = far + 2;
+  const wallBottom = floorY + 720;
+  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
+  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
+  for (let index = first; index < last; index++) {
+    const x1 = worldLeft + index * step;
+    const x2 = worldLeft + (index + 1) * step;
+    const y1 = terrainFloorAt(x1);
+    const y2 = terrainFloorAt(x2);
+    // Same grain walk as the front skirt, so the two edges read as one solid
+    // block of earth rather than two differently-eroded walls.
+    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
+    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
+    worldQuad(
+      { x: x1, y: y1, z: wallZ },
+      { x: x2, y: y2, z: wallZ },
+      { x: x2, y: wallBottom, z: wallZ },
+      { x: x1, y: wallBottom, z: wallZ }, wall);
   }
+}
+
+function drawRoomSurfaces(left, right, top, bottom, color) {
+  // One plain sheet — @jeffrey: "can the level background be plain colored?
+  // not stripey?" The sixty checkered plaster panels went with the request,
+  // and the hundred-odd faces they cost every frame went with them. The tint
+  // folds the old checker's average plaster into the theme color, so neither
+  // theme shifts, only flattens. Buried deep beneath the floor for the same
+  // reason the panels were: a 9:16 reel sees far below the fighters' feet,
+  // and a wall that stops short lets the clear layer through as sky.
+  const wallBottom = floorY + 3000;
+  const roomTop = survivalActive() ? top - 500 : ceilingY;
+  const shade = mixColor(color, [226, 172, 168], .12);
+  if (survivalActive()) worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
+    { x: worldRight, y: roomTop, z: worldFar },
+    { x: worldRight, y: wallBottom, z: worldFar },
+    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
+  else worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldFar },
+    { x: worldRight, y: wallBottom, z: worldFar },
+    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
+  if (!survivalActive()) drawGridOverlay(shade);
   // The left side is a real wall, but only occupies the rear half of the room.
   // Segmenting it keeps the diorama corner visible without recreating the old
   // full-depth opaque slab that could pass in front of the camera and blackout
   // the fight during an orbit.
   const sideFloor = terrainFloorAt(worldLeft) + 120;
+  // The side wall keeps its four-quad segmentation — that is what stops a
+  // full-depth slab passing in front of an orbiting camera and blacking out
+  // the fight — but wears one plain pigment now, the old checker's average.
+  const sideShade = mixColor(color, [232, 170, 153], .13);
   for (let row = 0; row < 2; row++) {
     for (let depth = 0; depth < 2; depth++) {
-      const y1 = lerp(ceilingY, sideFloor, row / 2);
-      const y2 = lerp(ceilingY, sideFloor, (row + 1) / 2);
+      const y1 = lerp(roomTop, sideFloor, row / 2);
+      const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
       const z1 = lerp(0, worldFar, depth / 2);
       const z2 = lerp(0, worldFar, (depth + 1) / 2);
-      const pigment = (row + depth) % 2 ? [218, 151, 163] : [247, 188, 143];
-      const shade = mixColor(color, pigment, .13);
       worldQuad({ x: worldLeft, y: y1, z: z1 },
         { x: worldLeft, y: y1, z: z2 },
         { x: worldLeft, y: y2, z: z2 },
-        { x: worldLeft, y: y2, z: z1 }, shade);
+        { x: worldLeft, y: y2, z: z1 }, sideShade);
     }
   }
   const edge = mixColor(color, [64, 78, 72], .24);
-  for (let column = first; column < last; column++) {
-    const x1 = worldLeft + column * step;
-    const x2 = worldLeft + (column + 1) * step;
-    worldQuad({ x: x1, y: ceilingY, z: worldNear },
-      { x: x1, y: ceilingY, z: worldFar },
-      { x: x2, y: ceilingY, z: worldFar },
-      { x: x2, y: ceilingY, z: worldNear }, edge);
-  }
+  if (!survivalActive()) worldQuad(
+    { x: worldLeft, y: ceilingY, z: worldNear },
+    { x: worldLeft, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldFar },
+    { x: worldRight, y: ceilingY, z: worldNear }, edge);
   worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
     9, edge);
   worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
     9, edge);
+}
+
+function drawSurvivalLava(t) {
+  if (!survivalActive()) return;
+  const pulse = .5 + .5 * Math.sin(t * 3.1);
+  const surface = mixColor([255, 58, 24], [255, 212, 42], pulse * .42);
+  const body = mixColor([116, 10, 26], [238, 50, 18], .58 + pulse * .18);
+  const far = worldFar - 8;
+  const bottom = Math.max(floorY + 3000, survivalLavaY + 3200);
+  worldQuad({ x: worldLeft, y: survivalLavaY, z: far },
+    { x: worldRight, y: survivalLavaY, z: far },
+    { x: worldRight, y: bottom, z: far },
+    { x: worldLeft, y: bottom, z: far }, body);
+  worldQuad({ x: worldLeft, y: survivalLavaY, z: worldNear },
+    { x: worldRight, y: survivalLavaY, z: worldNear },
+    { x: worldRight, y: survivalLavaY, z: worldFar },
+    { x: worldLeft, y: survivalLavaY, z: worldFar }, surface);
+  for (let step = 0; step < 9; step++) {
+    const x1 = lerp(worldLeft, worldRight, step / 9);
+    const x2 = lerp(worldLeft, worldRight, (step + 1) / 9);
+    const y1 = survivalLavaY + Math.sin(t * 4.2 + step * 1.7) * 9;
+    const y2 = survivalLavaY + Math.sin(t * 4.2 + (step + 1) * 1.7) * 9;
+    worldLine(x1, y1, worldNear - 2, x2, y2, worldNear - 2, 7, surface);
+  }
+}
+
+// The map's addressing, made visible: the same ten-by-ten lattice the spawn
+// marks and pickups are authored on, ruled onto the back wall, with one tint
+// per heated cell of `gridField` fading as the field cools. Seams are thin
+// quads rather than worldLines because the native renderer buries the whole
+// line stratum beneath the world's triangles — the grid would vanish behind
+// its own wall on console, the same way the gun once drew under the floor.
+function drawGridOverlay(shade) {
+  const gridZ = worldFar - 2;
+  const gridTop = floorY - gridHeight;
+  const hot = mixColor([255, 138, 92], [204, 58, 46], visualTheme.light);
+  for (let cell = 0; cell < gridField.length; cell++) {
+    const heat = gridField[cell];
+    if (heat < .03) continue;
+    const left = gridLeft + (cell % gridCols) * tileSize;
+    const bottom = floorY - Math.floor(cell / gridCols) * tileSize;
+    worldQuad({ x: left, y: bottom - tileSize, z: gridZ },
+      { x: left + tileSize, y: bottom - tileSize, z: gridZ },
+      { x: left + tileSize, y: bottom, z: gridZ },
+      { x: left, y: bottom, z: gridZ }, mixColor(shade, hot, heat * .55));
+  }
+  const seam = mixColor(shade, [30, 34, 48], .22);
+  const seamZ = gridZ - 1;
+  for (let col = 0; col <= gridCols; col++) {
+    const x = gridLeft + col * tileSize;
+    worldQuad({ x: x - 1.5, y: gridTop, z: seamZ },
+      { x: x + 1.5, y: gridTop, z: seamZ },
+      { x: x + 1.5, y: floorY, z: seamZ },
+      { x: x - 1.5, y: floorY, z: seamZ }, seam);
+  }
+  for (let row = 0; row <= gridRows; row++) {
+    const y = floorY - row * tileSize;
+    worldQuad({ x: gridLeft, y: y - 1.5, z: seamZ },
+      { x: gridLeft + gridWidth, y: y - 1.5, z: seamZ },
+      { x: gridLeft + gridWidth, y: y + 1.5, z: seamZ },
+      { x: gridLeft, y: y + 1.5, z: seamZ }, seam);
+  }
 }
 
 function drawTerrainGrass(left, right, color) {
@@ -8501,8 +10310,7 @@ function drawSkyAtmosphere(sky, arena) {
 }
 
 function shadowSurfaceY(x, y) {
-  return PLATFORM && x >= platformLeft && x <= platformRight && y <= platformY + 1
-    ? platformY : terrainFloorAt(x);
+  return surfaceYAt(x, y);
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
@@ -8690,6 +10498,7 @@ function drawBall(ball) {
 }
 
 function drawBallHitboxes() {
+  if (renderFlags.hud === false) return;
   if (!debugHitboxes) return;
   for (const item of balls) {
     if (!item.active) continue;
@@ -8742,13 +10551,13 @@ function drawBullet(bullet) {
     bullet.previousY ?? bullet.y, bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
-  const core = blink
-    ? [255, 255, 248]
-    : bullet.spit ? bullet.heavy ? [255, 92, 174] : [118, 255, 196]
+  const core = bullet.spit
+    ? bullet.heavy ? [255, 92, 174] : [118, 255, 196]
+    : blink ? [255, 255, 248]
     : bullet.rubber ? [255, 226, 58] : [255, 178, 76];
-  const trail = blink
-    ? [255, 244, 178]
-    : bullet.spit ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
+  const trail = bullet.spit
+    ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
+    : blink ? [255, 244, 178]
     : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
   const scale = cameraScale();
   // Project the complete projectile. The old 2px/4px floors made both the
@@ -8758,16 +10567,66 @@ function drawBullet(bullet) {
   // says "bullet", so a glob doesn't draw one — just a little ball with a
   // couple of droplets falling off the arc behind it.
   if (bullet.spit) {
-    const radius = Math.max(.9, (bullet.heavy ? 5.5 : 3.5) * scale);
+    // A glob must survive the wide portrait camera as a ball, not sub-pixel
+    // dust. The darker halo keeps its circular edge legible over sky or earth.
+    const radius = Math.max(2, (bullet.heavy ? 10 : 7) * scale);
+    filledDisc(point.x, point.y, radius * 1.35, trail);
     filledDisc(point.x, point.y, radius, core);
     filledDisc(lerp(point.x, previous.x, .5), lerp(point.y, previous.y, .5),
       radius * .45, trail);
     filledDisc(previous.x, previous.y, radius * .25, trail);
     return;
   }
+  drawBulletTrail(bullet, trail, scale);
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
+}
+
+// The ghost of where a round has been. Walked oldest to newest so the fade
+// runs the right way down the path, and drawn thin: the live tracer is the
+// bullet, this is only the shape its bounces have written.
+//
+// Bare quads, NOT filledCapsule. A capsule is two triangles plus two discs and
+// a small disc is a six-sided fan, so it costs ten faces — at the 24-bullet cap
+// that is 3,600 faces of ghost against a ~2,100-face frame, which is the eleven
+// -frames-a-second stray wearing a different hat. Two faces a segment caps the
+// worst case at 528, and a trail wants no round caps anyway.
+function drawBulletTrail(bullet, ink, scale) {
+  const stored = Math.min(bullet.trailCount || 0, bulletTrailPoints);
+  if (stored < 2) return;
+  // The same leash the camera uses. A round that has sailed out of the fight
+  // is off screen, and its ghost should not be paid for either.
+  if (!players.some((player) =>
+    Math.abs(bullet.x - player.x) < 5200 &&
+    Math.abs(bullet.y - player.y) < 5200)) return;
+  const ground = mixColor([7, 8, 28], [230, 239, 247], visualTheme.light);
+  const oldest = (bullet.trailCount || 0) - stored;
+  let previous = null;
+  for (let step = 0; step < stored; step++) {
+    const slot = ((oldest + step) % bulletTrailPoints) * 2;
+    const here = projectPoint(bullet.trail[slot], bullet.trail[slot + 1],
+      bullet.z);
+    if (previous) {
+      // Newer segments carry more of the tracer's weight and colour, so the
+      // tail thins toward nothing rather than stopping on a hard edge.
+      const age = step / stored;
+      const radius = Math.max(.4, (bullet.rubber ? 3 : 2.2) * scale * age) / 2;
+      const dx = here.x - previous.x;
+      const dy = here.y - previous.y;
+      const length = Math.hypot(dx, dy);
+      if (length > .001) {
+        const nx = -dy / length * radius;
+        const ny = dx / length * radius;
+        const [r, g, b] = mixColor(ground, ink, .18 + age * .55);
+        screenTriangle(previous.x + nx, previous.y + ny,
+          previous.x - nx, previous.y - ny, here.x + nx, here.y + ny, r, g, b);
+        screenTriangle(previous.x - nx, previous.y - ny,
+          here.x - nx, here.y - ny, here.x + nx, here.y + ny, r, g, b);
+      }
+    }
+    previous = here;
+  }
 }
 
 function drawGrenadePickup(pickup, t) {
@@ -9124,22 +10983,24 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   // Keep the game identity visible on the opening frame. The live fighters
   // and START remain interactive beneath the wordmark.
   const title = "oskiewar";
+  const version = "v" + buildVersion;
   const breath = 1 + Math.sin(t * .9) * .018;
+  const socialLockupGap = compact ? 10 : 18;
   const socialTitleSize = Math.min(220,
-    (stageRight - stageLeft - 56) / handleWidth(title, 1));
+    (viewWidth() - 56 - socialLockupGap) /
+      (handleWidth(title, 1) + handleWidth(version, .3)));
   const titleSize = (socialPreview ? socialTitleSize : compact ? 88 : 154) * breath;
   const titleWidth = handleWidth(title, titleSize);
-  const version = "v" + buildVersion;
   const versionSize = Math.round(titleSize * .3);
   const versionWidth = handleWidth(version, versionSize);
-  const lockupGap = compact ? 10 : 18;
+  const lockupGap = socialPreview ? socialLockupGap : compact ? 10 : 18;
   const lockupWidth = titleWidth + lockupGap + versionWidth;
   const titleX = viewCenterX() - lockupWidth / 2;
   const titleY = viewHeight * (compact ? .38 : .35);
 
   // Air fuzzies: sparse motes drifting the whole frame, no panels or stripes
   // behind the wordmark.
-  if (transitionAge < 0)
+  if (transitionAge < 0 && renderFlags.dust !== false)
     for (let index = 0; index < (compact ? 10 : 16); index++) {
       const phase = index * 2.39996;
       const x = stageLeft + (stageRight - stageLeft) *
@@ -9154,8 +11015,8 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   let cursor = titleX;
   // Kerning scaffold: one cell per glyph, taken from the same advance the
   // layout walks, so drift and bob read against their own metrics.
-  const glyphCells = debugHitboxes && transitionAge < 0 && !socialPreview
-    ? [] : null;
+  const glyphCells = debugHitboxes && transitionAge < 0 && !socialPreview &&
+    renderFlags.hud !== false ? [] : null;
   const flashPalette = [[255, 226, 48], [70, 224, 92], [181, 255, 48]];
   const flash = transitionAge >= 0
     ? flashPalette[Math.floor(transitionAge / .065) % flashPalette.length] : null;
@@ -9211,7 +11072,16 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
   typeWrite(version, versionX, versionY, versionSize,
     ...(transitionInk || ink));
-  drawDummyPopLine(titleY, titleSize, transitionInk);
+  if (survivalActive()) {
+    const mode = "survival";
+    const modeSize = Math.round(titleSize * .28);
+    const modeWidth = handleWidth(mode, modeSize);
+    const modeX = viewCenterX() - modeWidth / 2;
+    const modeY = titleY + titleSize + (compact ? 8 : 12);
+    typeWrite(mode, modeX + 2, modeY + 3, modeSize,
+      ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
+    typeWrite(mode, modeX, modeY, modeSize, ...(transitionInk || ink));
+  } else drawDummyPopLine(titleY, titleSize, transitionInk);
   if (glyphCells) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
@@ -9261,6 +11131,21 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
         typeWrite(character, x + offset, y + offset, size, ...shadowInk);
       typeWrite(character, x, y, size, ...litInk);
       promptCursor += advance;
+    }
+    // The pace dial. Quiet unless the clock is off its default — or was just
+    // touched, so stepping back to one still answers the keypress — and it
+    // lives large in the bottom-right corner, a dashboard readout rather
+    // than a footnote under the start word.
+    const paceNow = runtime().monotonicUs;
+    if (gameSpeed !== 1 || (gameSpeedChangedAt &&
+        paceNow - gameSpeedChangedAt < 2400000)) {
+      const pace = "×" + gameSpeed;
+      const paceSize = Math.max(30, Math.round(button.textSize * .8));
+      const hud = hudSafeRect();
+      const paceX = hud.right - handleWidth(pace, paceSize);
+      const paceY = hud.bottom - paceSize;
+      typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
+      typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
     }
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
@@ -9318,12 +11203,42 @@ function hudClockBox(unixMs) {
     capabilities().inputFamily === "touch";
   const size = touch ? 16 : hudTypeSize;
   const qrBox = spectatorQrBox();
-  const right = qrBox ? qrBox.left - 14 : safe.right;
+  const anchor = qrBox ? qrBox.left - 14 : safe.right;
+  // National identity begins at this corner: the local country's flag flies
+  // just left of the QR and the clock lane slides over to make room. US
+  // first — more flags join as they are drawn.
+  const flagCode = typeof capabilities === "function" &&
+    capabilities().country === "US" ? "US" : "";
+  const flagWidth = flagCode ? Math.round(size * 2.1) : 0;
+  const right = anchor - (flagCode ? flagWidth + 12 : 0);
   const dialRadius = Math.max(6, Math.round(size * .38));
   const dialGap = Math.max(5, Math.round(size * .2));
   const textRight = right - dialRadius * 2 - dialGap;
-  return { label, size, right, textRight, dialRadius,
-    dialX: right - dialRadius, left: textRight - handleWidth(label, size) };
+  return { label, size, right, textRight, dialRadius, anchor, flagCode,
+    flagWidth, dialX: right - dialRadius,
+    left: textRight - handleWidth(label, size) };
+}
+
+// Old Glory at corner scale: seven stripes and a starred canton read as the
+// flag long before thirteen would, and the stars stay dots — real stars need
+// more pixels than the corner owns. Shadowed like the type beside it so it
+// flies on any sky.
+function drawUsFlag(x, y, width, height, ink) {
+  box(x + 2, y + 2, width, height, ...contrastShadow(ink));
+  const stripes = 7;
+  for (let stripe = 0; stripe < stripes; stripe++) {
+    const top = y + Math.round(stripe * height / stripes);
+    const bottom = y + Math.round((stripe + 1) * height / stripes);
+    box(x, top, width, bottom - top,
+      ...(stripe % 2 ? [238, 242, 247] : [188, 32, 46]));
+  }
+  const cantonWidth = Math.round(width * .44);
+  const cantonHeight = Math.round(height * 4 / stripes);
+  box(x, y, cantonWidth, cantonHeight, 38, 52, 122);
+  for (let star = 0; star < 6; star++)
+    filledDisc(x + Math.round(cantonWidth * (.22 + (star % 3) * .28)),
+      y + Math.round(cantonHeight * (star < 3 ? .3 : .7)),
+      Math.max(1, Math.round(height * .05)), [238, 242, 247]);
 }
 
 function drawHudClock(clock, y, ink, unixMs) {
@@ -9359,13 +11274,16 @@ function drawHudClock(clock, y, ink, unixMs) {
   circle(clock.dialX, centerY, clock.dialRadius, 2, ink);
 }
 
-function hudStatusTray(clock) {
+function hudStatusTray(clock = null) {
   const icons = hudStatusIcons();
   if (!icons.length) return null;
   const statusCell = statusCellSize();
-  const right = clock.left - 14;
+  const safe = hudSafeRect();
+  const qrBox = spectatorQrBox();
+  const right = clock ? clock.left - 14
+    : qrBox ? qrBox.left - 14 : safe.right;
   const width = icons.length * statusCell + (icons.length - 1) * statusGap;
-  return { icons, right, left: right - width, top: hudSafeRect().top,
+  return { icons, right, left: right - width, top: safe.top,
     height: statusCell };
 }
 
@@ -9391,6 +11309,23 @@ function drawHudStatusTray(clock, ink, unixMs) {
     const top = safe.bottom - statusCell;
     drawDebugBug(viewCenterX(), top + statusCell / 2 + 2,
       statusCell / 26);
+    // The session's name rides beside the bug: it is what a telemetry agent
+    // attaches to, and debug mode is exactly the moment somebody wants to
+    // read that name off the screen and type it into a terminal.
+    if (sessionName) {
+      const size = Math.max(17, Math.round(statusCell * .4));
+      typeWrite(sessionName, viewCenterX() + statusCell * .62,
+        top + statusCell / 2 + 2 - size / 2, size, ...ink);
+    }
+    // And the linked-agent mark keeps the bug company on its other side —
+    // @jeffrey: "can the little agent icon be near the debug ladybug, not by
+    // the fps". The name says where to attach; the antenna says who has.
+    const agents = linkedAgents();
+    if (agents) {
+      const scale = statusCell / 34;
+      drawAgentLink(viewCenterX() - statusCell * .62 - 14 * scale,
+        top + statusCell / 2 + 2, scale, agents);
+    }
   }
   if (!tray) return;
   const lit = typeof capabilities === "function" &&
@@ -9424,10 +11359,13 @@ function drawDebugBug(x, y, scale = 1) {
 
 // The round QR owns the top-right corner whenever it is up, so the HUD clock
 // asks for its footprint before choosing a lane.
+// The versus lane's whole premise is the shareable address, so its QR stays
+// up in play; every other untimed round keeps the code off the fight.
 function spectatorQrBox() {
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  if (shellMode === "GAME" && !roundIsTimed()) return null;
+  if (!versusLane())
+    if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -9436,19 +11374,29 @@ function spectatorQrBox() {
   const cell = Math.max(2,
     Math.floor((compactLayout() ? 108 : 158) / (count + quiet * 2)));
   const size = (count + quiet * 2) * cell;
-  return { left: safe.right - size, top: safe.top, size, cell, count, quiet };
+  // The QR anchors on the safe rect's top-right corner — the exact spot the
+  // debug overlay draws its yellow corner crop. With the bug lit the
+  // instrument wins: the code steps below the crop instead of covering it,
+  // and every lane that asks this box (the clock included) follows it down.
+  const top = safe.top + (debugHitboxes ? 52 : 0);
+  return { left: safe.right - size, top, size, cell, count, quiet };
 }
 
 function drawDebugPerformance(ink) {
-  if (!debugHitboxes || shellMode !== "GAME" || roundResult) return;
-  const metaSize = compactLayout() ? 19 : 24;
+  // The wordmark screen used to hide this row, but the title is a running
+  // fight with a frame budget of its own — debug mode reads the machine, not
+  // the match, so the numbers stay up wherever the bug is lit. Only a round's
+  // result card still clears the lane, because the card owns it.
+  if (!debugHitboxes || roundResult) return;
+  const metaSize = debugReadoutMetaSize();
   const run = runtime();
-  // Only the console fills in a refresh rate, a render surface, and per-stage
-  // timings. The browser reports none of them, and the read-out used to answer
-  // with the logical stage size, the measured frame rate wearing a Hz label,
-  // and a row of zeroed milliseconds — three numbers that looked like
-  // instruments and were not. Each line waits for a real measurement now, so
-  // the web build says the one true thing it knows: how fast it is drawing.
+  // Every line waits for a real measurement. The read-out used to answer with
+  // the logical stage size, the measured frame rate wearing a Hz label, and a
+  // row of zeroed milliseconds — three numbers that looked like instruments and
+  // were not. The browser now times its own frame span and its own paint, so it
+  // fills the rate and two of the three stages honestly; the render surface is
+  // still the console's alone, and a browser can never time the compositor's
+  // present, so that stage stays out of the row rather than reading 0.00ms.
   const refreshHz = Number(run.refreshHz) || 0;
   // Measured first, always — the display's refresh rate is a constant, not
   // an instrument, so it rides behind the number that actually moves.
@@ -9461,21 +11409,66 @@ function drawDebugPerformance(ink) {
     ? "  ·  " + renderWidth + "x" + renderHeight + "  ·  " +
       String(run.antialiasingMode || (aa + "x")) : "";
   const frameMs = Number(run.frameMs) || 0;
+  const presentMs = Number(run.presentMs) || 0;
   const timing = frameMs
     ? "frame " + frameMs.toFixed(2) + "ms  render " +
-      (Number(run.renderCpuMs) || 0).toFixed(2) + "ms  present " +
-      (Number(run.presentMs) || 0).toFixed(2) + "ms" : "";
+      (Number(run.renderCpuMs) || 0).toFixed(2) + "ms" +
+      (presentMs ? "  present " + presentMs.toFixed(2) + "ms" : "") : "";
   // The bottom-left corner belongs to a fighter's nameplate, so the read-out
   // stacks upward from just above it instead of printing across a handle. The
   // ammo row keeps its own lane a stat card further up, well clear of this.
   const lane = playerHandleLayout(players[0], 0);
   let y = lane.y - metaSize - 6;
+  // One line of proof per debug toggle: the console renders this read-out
+  // where no devtools can confirm it, so the Device Portal log gets told the
+  // row was actually drawn, with what, and where.
+  if (!debugPerfReported) {
+    debugPerfReported = true;
+    telemetry("FIGHT_DEBUG_PERF", rate + (timing ? " | " + timing : "") +
+      " | lane=" + Math.round(lane.x) + "," + Math.round(y) +
+      " session=" + sessionName);
+  }
   for (const [index, label] of [rate + surface, timing].entries()) {
     if (!label) continue;
-    const size = index ? Math.max(17, Math.round(metaSize * .76)) : metaSize;
+    const size = index ? debugReadoutTimingSize() : metaSize;
     typeWrite(label, lane.x, y, size, ...ink);
     y -= size + 5;
   }
+}
+
+// How many telemetry watchers are reading this round. The relay counts
+// `role=agent` sockets apart from phone spectators and tells the publishing
+// game; a host that has not wired that up answers nothing and the mark stays
+// off. Note this can only ever see the live socket: the console's
+// AC_NATIVE_PROFILE line goes out one way through OutputDebugStringA, so a
+// Device Portal reading it is invisible from in here.
+function linkedAgents() {
+  if (typeof capabilities !== "function") return 0;
+  return Math.max(0, Math.round(Number(capabilities().liveAgents) || 0));
+}
+
+// @jeffrey: "if we are in debug mode and reading telemetry on a device can we
+// show a little agent icon to show our linked in connection on the telemetry of
+// that round". An antenna'd head, so it cannot be read as the debug bug beside
+// it or as one more human in the grandstand — a phone that scanned the round QR
+// is a viewer and lights nothing here. The mark means a machine is reading
+// these numbers right now.
+function drawAgentLink(x, y, scale = 1, count = 1) {
+  const shell = [120, 226, 255];
+  const detail = [10, 16, 30];
+  // Antenna first so the head caps its stalk: the bulb on the air is the
+  // "linked" half of the mark and the head is the "agent" half.
+  filledCapsule(x, y - 5 * scale, x, y - 10 * scale, 1.6 * scale, shell);
+  filledDisc(x, y - 11 * scale, 2.2 * scale, shell);
+  filledCapsule(x - 4 * scale, y, x + 4 * scale, y, 12 * scale, shell);
+  filledDisc(x - 3 * scale, y - 1.5 * scale, 1.7 * scale, detail);
+  filledDisc(x + 3 * scale, y - 1.5 * scale, 1.7 * scale, detail);
+  filledCapsule(x - 3 * scale, y + 3 * scale, x + 3 * scale, y + 3 * scale,
+    1.6 * scale, detail);
+  // A second watcher is rare enough to say plainly rather than by stacking
+  // heads sideways across a read-out that has no room for them.
+  if (count > 1) typeWrite(String(count), x + 13 * scale, y - 6 * scale,
+    Math.max(12, Math.round(13 * scale)), ...shell);
 }
 
 function drawSpectatorQr(ink, placement = null) {
@@ -9483,6 +11476,13 @@ function drawSpectatorQr(ink, placement = null) {
   const qr = placement || spectatorQrBox();
   if (!qr) return;
   const { count, quiet, cell, size, left, top } = qr;
+  // National identity flies beside the code, wherever the code goes. US
+  // first — more flags join as they are drawn. Reel placements opt out with
+  // the rest of the HUD furniture.
+  if (!placement && typeof capabilities === "function" &&
+      capabilities().country === "US")
+    drawUsFlag(left - Math.round(hudTypeSize * 2.1) - 12, top + 2,
+      Math.round(hudTypeSize * 2.1), Math.round(hudTypeSize * 1.2), ink);
   const shadow = [24, 26, 34];
   const previousDepth = triangleDepth;
   triangleDepth = -1.43;
@@ -9563,7 +11563,7 @@ function drawDetachedPart(fragment) {
 }
 
 function drawSafeZones() {
-  if (!debugHitboxes) return;
+  if (!debugHitboxes || renderFlags.hud === false) return;
   drawCornerCrops(hudSafeRect(), 46, 3, [255, 214, 84]);
   drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
@@ -9576,6 +11576,18 @@ function gamePaint() {
       ? titleTransitionAt !== null ? "title-transition" : "title"
       : selecting ? "select" : "game";
   }
+  // Each fighter's cues sit where the fighter stands — @jeffrey: "can audio
+  // be mixed according to the player's position, stereo, for each player, if
+  // its not local multiplayer". Two humans on one couch share one speaker
+  // image, so their mix stays centered; against the machine — or a rival on
+  // the far end of a wire — the stage pans.
+  const couchVersus = !players[1].npc && !players[1].bot &&
+    !players[1].remote && !selfPlay;
+  globalThis.__oskiewarPlayerPans = couchVersus ? [0, 0]
+    : [panPlayer(players[0]), panPlayer(players[1])];
+  // The shell's resolution governor steers by this — the game's own measured
+  // rate, because the host's profile numbers never made it off the Xbox.
+  globalThis.__oskiewarDisplayFps = displayFps;
   if (lastPaintAt > 0 && run.monotonicUs > lastPaintAt) {
     const sample = clamp(1000000 / (run.monotonicUs - lastPaintAt), 1, 240);
     displayFps = displayFps ? lerp(displayFps, sample, .12) : sample;
@@ -9590,7 +11602,10 @@ function gamePaint() {
     players[0].nation = localNation;
     if (!players[1].npc) players[1].nation = localNation;
   }
-  for (const player of players) player.handleColors = fighterProfile(player.name).colors;
+  // The remote rival's wardrobe came up the wire, not out of the roster —
+  // a profile lookup here would answer empty and strip them every frame.
+  for (const player of players)
+    if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
   visualTheme = displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
@@ -9602,7 +11617,8 @@ function gamePaint() {
   // command stream — crowds a 9:16 crop and competes with the fight for the
   // eye. So a reel carries no HUD at all while the round is live, and states
   // the outcome afterward in the middle of the frame, one line at a time.
-  const reelMinimal = replayOven && reelHud;
+  const reelMinimal = replayOven && reelHud &&
+    capabilities().reelFullUi !== true;
   triangleDepth = -1.4;
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
@@ -9626,15 +11642,23 @@ function gamePaint() {
   const menuArena = mixColor([7, 10, 26], [235, 241, 248], visualTheme.light);
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
+  renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   wipe(...outside);
-  drawSkyAtmosphere(sky, arena);
+  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
     return;
   }
   const cinematicAge = deathCinematicAge(run.monotonicUs);
-  if (cinematicAge < 0 || cinematicAge >= 1.45) containFighters(t);
+  const introAge = run.monotonicUs - roundStartedAt;
+  const inRoundIntro = !roundResult && introAge >= 0 &&
+    introAge < roundIntroDurationUs();
+  // The intro deliberately owns its lens: wide title, two face portraits,
+  // then a pullback. Final-frame containment would widen every portrait until
+  // both fighters fitted, erasing the zoom story it was meant to protect.
+  if (!inRoundIntro && (cinematicAge < 0 || cinematicAge >= 1.45))
+    containFighters(t);
   cameraDoll.prepare();
   const { left: spanLeft, right: spanRight,
     top: spanTop, bottom: spanBottom } = terrainSpan();
@@ -9648,39 +11672,58 @@ function gamePaint() {
   // which stands several thousand units back, and the step came back on
   // every wide frame. Reels only: on the TV lens the visible front edge IS
   // the padded-room look.
-  const groundNear = reelCamera()
+  const groundNear = reelGroundCamera()
     ? Math.min(worldNear, cameraDoll.position.z - 400) : worldNear;
+  drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
-  drawTerrainGrass(spanLeft, spanRight, ground);
+  if (renderFlags.grass !== false) drawTerrainGrass(spanLeft, spanRight, ground);
   drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
-  const ledgeLeft = Math.max(platformLeft, spanLeft);
-  const ledgeRight = Math.min(platformRight, spanRight);
-  // The platform wants to be a slab, but the stage paints in order with no
-  // depth buffer — the volume's faces landed over the fighters on console.
-  // Back to the plane until the volume can be drawn behind them properly.
-  if (PLATFORM && ledgeLeft < ledgeRight) worldQuad(
-    { x: ledgeLeft, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformNear },
-    { x: ledgeRight, y: platformY, z: platformFar },
-    { x: ledgeLeft, y: platformY, z: platformFar }, platformColor);
+  // A rung wants to be a slab, but the stage paints in order with no depth
+  // buffer — the volume's faces landed over the fighters on console. So each
+  // one is a plane plus a front-edge line: the plane is the deck a fighter
+  // stands on, and the line is the lip, which is what keeps a rung readable
+  // when the camera happens to sit at its height and the deck goes edge-on.
+  // The line rides the line layer, so twelve rungs cost twenty-four faces and
+  // the lips cost none. The span clamp is the same one the terrain uses, and
+  // in a room this size its 2600-unit apron usually covers everything — it is
+  // here to bound the worst case, not because it culls much today.
+  const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
+  if (platformsEnabled()) for (const ledge of platforms) {
+    if (ledge.right < spanLeft || ledge.left > spanRight) continue;
+    if (ledge.y < spanTop || ledge.y > spanBottom) continue;
+    const ledgeLeft = Math.max(ledge.left, spanLeft);
+    const ledgeRight = Math.min(ledge.right, spanRight);
+    if (ledgeLeft >= ledgeRight) continue;
+    worldQuad(
+      { x: ledgeLeft, y: ledge.y, z: platformNear },
+      { x: ledgeRight, y: ledge.y, z: platformNear },
+      { x: ledgeRight, y: ledge.y, z: platformFar },
+      { x: ledgeLeft, y: ledge.y, z: platformFar }, platformColor);
+    worldLine(ledgeLeft, ledge.y, platformNear,
+      ledgeRight, ledge.y, platformNear, 5, ledgeInk);
+  }
+  drawSurvivalLava(t);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],
     visualTheme.light * .72);
-  for (const player of players)
-    if (player.alive || roundResult)
-      drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
-        shadowInk);
-  for (const item of balls)
-    if (item.active)
-      drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
+  if (renderFlags.shadows !== false) {
+    for (const player of activePlayers())
+      if (player.alive || roundResult)
+        drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
+          shadowInk);
+    for (const item of balls)
+      if (item.active)
+        drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);
+  }
   const windInk = windDirection < 0
     ? mixColor([72, 174, 255], [28, 88, 188], visualTheme.light)
     : mixColor([255, 92, 132], [184, 35, 62], visualTheme.light);
   if (WIND_FLAG && shellMode === "GAME") drawWindFlag(t, windInk);
-  // The top row is the round's: a clock, and who is watching. The wordmark
-  // screen carries its own clock, so this one waits for start.
+  // The round keeps match time and spectator state only. Time of day belongs
+  // to the title screen; carrying it into gameplay confused two unrelated
+  // clocks and spent the top-right lane on non-match information.
   if (matchHud && !reelMinimal && shellMode === "GAME" && gameplayStarted) {
     const timedRound = roundIsTimed();
     const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
@@ -9703,25 +11746,35 @@ function gamePaint() {
         hud.top + 2, timerSize, ...timerInk);
     }
     if (roundViewer) {
-      const viewerLabel = roundViewerMode || roundViewerStatus;
+      const viewerLabel = roundViewer.seat === "challenger"
+        ? roundViewerMode === "LIVE" ? "VS" : "WAITING FOR HOST"
+        : roundViewerMode || roundViewerStatus;
       typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7,
         24, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+      // The chair-holder plays through this feed: say which body is theirs
+      // while the matchup is still fresh, then get out of the fight's way.
+      if (roundViewer.seat === "challenger" && roundViewerMode === "LIVE" &&
+          t < 8) {
+        const seatLine = "YOU ARE " +
+          (players[1].name || "THE SECOND FIGHTER") + " — RIGHT SIDE";
+        const seatSize = compactLayout() ? 13 : 17;
+        const seatWidth = handleWidth(seatLine, seatSize);
+        typeWrite(seatLine, viewCenterX() - seatWidth / 2,
+          hud.top + hudTypeSize + 16, seatSize, ...titleInk);
+      }
     }
-    // Wall clock in the top right, tucked left of the round QR and below the
-    // spectator label so it never lands on either.
     const nowMs = run.unixMs || Date.now();
-    const clock = hudClockBox(nowMs);
-    drawHudClock(clock,
-      hud.top + (roundViewer ? clock.size + 10 : 2), titleInk, nowMs);
-    drawHudStatusTray(clock, titleInk, nowMs);
+    drawHudStatusTray(null, titleInk, nowMs);
     const updateReady = typeof capabilities === "function" &&
       capabilities().updateReady === true;
     if (updateReady) {
       const label = "update ready";
-      const size = Math.round(clock.size * .58);
+      const size = Math.round(hudTypeSize * .58);
       const width = handleWidth(label, size);
-      const x = clock.right - width;
-      const y = clock.top + clock.size + 12;
+      const qrBox = spectatorQrBox();
+      const right = qrBox ? qrBox.left - 14 : hud.right;
+      const x = right - width;
+      const y = hud.top + hudTypeSize + 12;
       typeWrite(label, x + 2, y + 3, size, ...contrastShadow(titleInk));
       typeWrite(label, x, y, size, ...titleInk);
       if (globalThis.__oskiewarTouch)
@@ -9731,12 +11784,13 @@ function gamePaint() {
       globalThis.__oskiewarTouch.updateButton = null;
     }
   }
-  for (const tree of bodyTrees) drawBodyTree(tree, t);
-  for (const pickup of gunPickups) drawGunPickup(pickup, t);
-  for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
-  const introAge = run.monotonicUs - roundStartedAt;
+  if (!survivalActive()) {
+    for (const tree of bodyTrees) drawBodyTree(tree, t);
+    for (const pickup of gunPickups) drawGunPickup(pickup, t);
+    for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
+  }
   const showRunnerLabels = matchHud && !reelMinimal &&
-    (Boolean(roundResult) || introAge >= introDurationUs);
+    (Boolean(roundResult) || introAge >= roundIntroDurationUs());
   const viewDirection = normalize3({
     x: cameraDoll.target.x - cameraDoll.position.x,
     y: cameraDoll.target.y - cameraDoll.position.y,
@@ -9754,7 +11808,7 @@ function gamePaint() {
       z: (item.z1 + item.z2) / 2 })),
     // Both fighters are always in this list. A fighter is never removed from
     // the frame to make a camera move work — the shot is what moves.
-    ...players.map((item) => ({
+    ...activePlayers().map((item) => ({
       kind: "player", item, x: item.x, y: item.y, z: item.z })),
   ];
   const depth = (item) => dot3({
@@ -9780,23 +11834,26 @@ function gamePaint() {
   // title, controls, command notation, names, clock, or other HUD furniture.
   triangleDepth = -1.4;
   drawDebugHitboxes(players[0], t);
-  drawDebugHitboxes(players[1], t);
+  if (!survivalActive()) drawDebugHitboxes(players[1], t);
   drawBallHitboxes();
   drawSafeZones();
   triangleDepth = -1.42;
   drawImpacts();
-  const counting = !roundResult && introAge < introDurationUs;
+  const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.
   if (matchHud && !reelMinimal && counting && shellMode === "GAME")
-    drawFightIntro(introAge / 1000000, titleInk, statusShadow);
+    survivalActive()
+      ? drawSurvivalIntro(titleInk, statusShadow)
+      : drawFightIntro(introAge / 1000000, titleInk, statusShadow);
   // The keys belong wherever a newcomer is looking: under the wordmark on the
   // way in, and again while a round counts itself off. Self-play has no
   // newcomer — two bots need no tutorial, and neither does a reel of them.
   // The legend is the stable key for the score written beneath it. Keep it
   // present throughout every player-controlled screen; only unattended bot
   // self-play and marketing reels have no learner to serve.
-  if (!replayOven && !selfPlay) drawControlLegend(titleInk);
+  if (!replayOven && !selfPlay && renderFlags.keys !== false)
+    drawControlLegend(titleInk);
   const resultUiReady = cinematicAge < 0 || cinematicAge >= 1.1;
   // A reel opens on the matchup. Both names, both palettes, stacked up top
   // where the fighters are not — a stranger scrolling past should know who is
@@ -9806,12 +11863,18 @@ function gamePaint() {
       introAge / 1000000 < REEL_MATCHUP_SECONDS) {
     const nameSize = compactLayout() ? 40 : 54;
     const top = Math.round(viewHeight * .14);
-    for (let side = 0; side < players.length; side++) {
-      drawReelName(String(players[side].name).toLowerCase(),
-        top + side * Math.round(nameSize * 1.5), nameSize, players[side], t);
+    const names = activePlayers();
+    for (let side = 0; side < names.length; side++) {
+      drawReelName(String(names[side].name).toLowerCase(),
+        top + side * Math.round(nameSize * 1.5), nameSize, names[side], t);
     }
   }
-  if (reelMinimal && roundResult && resultUiReady) {
+  if (matchHud && survivalActive() && shellMode === "GAME" &&
+      gameplayStarted && !roundResult && !counting)
+    drawSurvivalHud(titleInk);
+  if (survivalActive() && roundResult && resultUiReady) {
+    drawSurvivalResult(titleInk, statusShadow);
+  } else if (reelMinimal && roundResult && resultUiReady) {
     // One fact, in the middle of the frame: who won. The recording stops on
     // the result card, so anything queued behind the name would never survive
     // the trim — and a name alone is the whole story a reel owes a stranger.
@@ -9860,9 +11923,9 @@ function gamePaint() {
   }
   // Nameplates and stats wait for the wordmark to lift; the entry frame is
   // the word, the keys, and the two fighters, and nothing else.
-  if (matchHud && !reelMinimal && shellMode === "GAME" &&
+  if (!survivalActive() && matchHud && !reelMinimal && shellMode === "GAME" &&
       ((roundResult && resultUiReady) ||
-      (!roundResult && introAge >= introDurationUs))) {
+      (!roundResult && introAge >= roundIntroDurationUs()))) {
     const hudPlayers = spatialHudPlayers();
     for (let side = 0; side < hudPlayers.length; side++) {
       const player = hudPlayers[side];
@@ -9872,6 +11935,9 @@ function gamePaint() {
       drawCommandStream(player, side);
     }
   }
+  if (!survivalActive() && replayOven && capabilities().reelFullUi === true &&
+      shellMode === "GAME")
+    drawReelSectionProgress(run.monotonicUs, titleInk);
   if (!replayOven) drawDebugPerformance(titleInk);
   drawDeathFlash();
   if (shellMode === "MENU") {
@@ -9881,9 +11947,60 @@ function gamePaint() {
     if (transitionAge >= 0) return;
   }
   if (!replayOven) {
+    // Over the fighters, deliberately: the lobby's lone body stands center
+    // frame, and an instruction painted under it was an instruction hidden.
+    if (!reelMinimal) drawVersusHud(t, titleInk, run);
     drawSpectatorQr(titleInk);
     drawTouchControls();
   }
+}
+
+// The raw pad words remember() files between real moves. The training floor
+// captions moves, not fingers — "KICK" teaches, "B" nags.
+const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
+  "A", "B", "X", "Y", "LB", "RB", "VIEW", "MENU"]);
+
+// The lobby's interface is a challenge and a code: fight a friend, share
+// the address, and until they arrive every move the lone fighter makes is
+// named back at them — the empty room as training mode.
+function drawVersusHud(t, ink, run) {
+  if (!versusLane() || shellMode !== "GAME") return;
+  if (!lobbyActive()) return;
+  const hud = hudSafeRect();
+  const compact = compactLayout();
+  const headline = "WAITING ROOM";
+  const headSize = compact ? 30 : 44;
+  const pulse = .5 + Math.sin(t * 2.4) * .5;
+  const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
+  const headWidth = handleWidth(headline, headSize);
+  const headX = viewCenterX() - headWidth / 2;
+  const headY = hud.top + (compact ? 30 : 42);
+  typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
+  typeWrite(headline, headX, headY, headSize, ...headInk);
+  const address = "FIGHT A FRIEND  OSKIEWAR.COM/" +
+    versusRoomName.toUpperCase();
+  const addressSize = compact ? 16 : 23;
+  const addressWidth = handleWidth(address, addressSize);
+  const addressY = headY + headSize + 10;
+  typeWrite(address, viewCenterX() - addressWidth / 2 + 2, addressY + 2,
+    addressSize, ...contrastShadow(ink));
+  typeWrite(address, viewCenterX() - addressWidth / 2, addressY,
+    addressSize, ...ink);
+  const player = players[0];
+  if (!player.lastButtonAt || versusLabelNoise.has(player.lastButton)) return;
+  const age = (run.monotonicUs - player.lastButtonAt) / 1000000;
+  if (age < 0 || age > .9) return;
+  // The caption swells on landing and lets go through the tail — spoken,
+  // not filed.
+  const fade = 1 - age / .9;
+  const moveSize = Math.round((compact ? 26 : 38) * (1.06 - fade * .06));
+  const moveWidth = handleWidth(player.lastButton, moveSize);
+  const moveX = viewCenterX() - moveWidth / 2;
+  const moveY = Math.round(viewHeight * .62) - Math.round((1 - fade) * 26);
+  const moveInk = fade > .4 ? ink : mixColor(contrastShadow(ink), ink, fade / .4);
+  typeWrite(player.lastButton, moveX + 3, moveY + 3, moveSize,
+    ...contrastShadow(ink));
+  typeWrite(player.lastButton, moveX, moveY, moveSize, ...moveInk);
 }
 
 function boot() {
@@ -9909,13 +12026,14 @@ function paint() {
     catch (_) { drawClientErrorFallback(); }
     return;
   }
+  const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
   try {
     gamePaint();
   } catch (error) {
     captureClientError("paint", error);
     try { drawClientError(); }
     catch (_) { drawClientErrorFallback(); }
-  }
+  } finally { restore(); }
 }
 
 function act() {}
