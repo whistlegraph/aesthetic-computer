@@ -289,7 +289,10 @@ function mcpConfig(worktree) {
 
 async function invokeClaude({ config, stage, prompt, schemaPath, worktree, runDir }) {
   const env = await credentialEnv(config, "claude");
-  const schema = JSON.stringify(JSON.parse(await readFile(schemaPath, "utf8")));
+  // The CLI's validator rejects a draft-2020-12 $schema ref; the shape is
+  // all it needs, so hand it the schema without the meta declaration.
+  const { $schema, ...schemaBody } = JSON.parse(await readFile(schemaPath, "utf8"));
+  const schema = JSON.stringify(schemaBody);
   const args = [
     "--print", "--output-format", "json", "--json-schema", schema,
     "--no-session-persistence", "--permission-mode", "auto",
