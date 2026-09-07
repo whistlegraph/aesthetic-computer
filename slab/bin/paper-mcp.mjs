@@ -304,9 +304,9 @@ async function toolRead({ paper, section, maxChars = 24_000 } = {}) {
 }
 
 async function texEngine() {
-  const xelatex = [process.env.XELATEX, "/Library/TeX/texbin/xelatex", "/usr/local/bin/xelatex", "/opt/homebrew/bin/xelatex"].filter(Boolean);
+  const xelatex = [process.env.XELATEX, "/Library/TeX/texbin/xelatex", "/usr/local/bin/xelatex", "/opt/homebrew/bin/xelatex", "/usr/bin/xelatex"].filter(Boolean);
   for (const path of xelatex) if (await exists(path)) return { kind: "xelatex", path };
-  const tectonic = [process.env.TECTONIC, "/opt/homebrew/bin/tectonic", "/usr/local/bin/tectonic"].filter(Boolean);
+  const tectonic = [process.env.TECTONIC, "/opt/homebrew/bin/tectonic", "/usr/local/bin/tectonic", "/usr/bin/tectonic"].filter(Boolean);
   for (const path of tectonic) if (await exists(path)) return { kind: "tectonic", path };
   throw new Error("no TeX engine found (install XeLaTeX/Tectonic or set XELATEX/TECTONIC).");
 }
