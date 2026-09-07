@@ -621,6 +621,8 @@ if (!cmd || cmd === "-h" || cmd === "--help") {
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
       "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
       "  frame view <machine>        capture + open the badged preview window (= --preview)\n" +
+      "  frame tape <machine> [secs] [--crop x,y,w,h] [--fps n] [--cursor] [--out f.mp4] [--label l]\n" +
+      "                              record a short HQ mp4 (whole display or a crop); prints its path + metadata\n" +
       "  frame doctor [machine]      per-machine daemon + permission status\n" +
       "  frame setup <machine>       trigger + guide the one-time Screen Recording grant\n" +
       "  frame list                  registered machines\n" +
@@ -644,4 +646,25 @@ else if (cmd === "view") {
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
   await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
+} else if (cmd === "tape") {
+  // `frame tape <machine> [secs] …` — the CLI face of frame-tape.mjs / frame_tape.
+  // Recording (reel) + crop (ffmpeg) live in the shared lib so the MCP tool and
+  // this command stay one implementation.
+  const machine = argv[1];
+  if (!machine) {
+    console.error("usage: frame tape <machine> [secs] [--crop x,y,w,h] [--fps n] [--cursor] [--out file.mp4] [--label name]");
+    process.exit(1);
+  }
+  const { recordTape } = await import("../lib/frame-tape.mjs");
+  const secs = argv[2] && !argv[2].startsWith("--") ? Number(argv[2]) : (opt("--secs") ? Number(opt("--secs")) : undefined);
+  const r = await recordTape({
+    machine,
+    duration: secs,
+    crop: opt("--crop")?.split(",").map(Number),
+    fps: opt("--fps") ? Number(opt("--fps")) : undefined,
+    cursor: flag("--cursor"),
+    out: opt("--out"),
+    label: opt("--label"),
+  });
+  console.log(JSON.stringify(r, null, 2));
 } else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

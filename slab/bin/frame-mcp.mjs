@@ -24,6 +24,7 @@ import { homedir, tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { clickPoint, hoverPoint, sendKeys } from "./macos.mjs";
 import { buildHoverProbes, changesNearPoint } from "../lib/frame-hover-atlas.mjs";
+import { recordTape } from "../lib/frame-tape.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, "../..");
@@ -1030,6 +1031,25 @@ async function toolSetup({ machine }) {
   return [{ type: "text", text: stdout.trim() }];
 }
 
+// TAPE: a short HQ mp4 instead of a still. Records through SlabMenubar's grant
+// (see frame-tape.mjs for why that, not ssh screencapture), then returns the
+// file PATH — never the video bytes, which would blow the MCP payload.
+async function toolTape({ machine, duration, crop, fps, cursor, out, label } = {}) {
+  const r = await recordTape({ machine, duration, crop, fps, cursor, out, label });
+  const where = r.region
+    ? `region ${r.region.w}×${r.region.h} @(${r.region.x},${r.region.y}) pts`
+    : "full display";
+  return [{
+    type: "text",
+    text:
+      `TAPE — ${machine}: ${where}, ${r.duration ?? r.requestedDuration}s @ ~${r.fps ?? r.requestedFps}fps, ` +
+      `${r.width}×${r.height}px, ${(r.bytes / 1e6).toFixed(2)} MB\n` +
+      `saved: ${r.path}\n` +
+      `(video returned by PATH — read/attach the file; it is not inlined.)\n\n` +
+      JSON.stringify(r, null, 2),
+  }];
+}
+
 const TOOLS = [
   {
     name: "frame",
@@ -1256,6 +1276,27 @@ const TOOLS = [
       required: ["machine"],
     },
   },
+  {
+    name: "frame_tape",
+    description:
+      "TAPE: record a short HQ h264 video of a fleet Mac's screen — the whole display or a sub-region — for a fixed duration, then return the local .mp4 PATH plus metadata (region, duration, fps, dimensions, size). Records through SlabMenubar's Screen Recording grant (the same GUI-session path a single frame uses), so it works headlessly over ssh where a bare screencapture would fail on TCC. The video is returned by path, NEVER inlined. Use it to capture a live UI section over time and compare recordings side by side.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        machine: { type: "string", description: "Target name (see frame_list). Records that machine's screen." },
+        duration: { type: "number", minimum: 0.5, maximum: 60, description: "Seconds to record (default 6, capped at 60)." },
+        crop: {
+          type: "array", items: { type: "number" }, minItems: 4, maxItems: 4,
+          description: "Optional [x,y,w,h] sub-region in GLOBAL screen points (same convention as frame crops). Omit for the whole display.",
+        },
+        fps: { type: "number", minimum: 1, maximum: 60, description: "Target frames per second (default 30). Actual fps tracks screen updates." },
+        cursor: { type: "boolean", description: "Film the real macOS cursor (default false; it teleports under synthetic control and reads as broken)." },
+        out: { type: "string", description: "Optional output .mp4 path (default ~/.local/share/slab/tapes/<machine>-<timestamp>.mp4)." },
+        label: { type: "string", description: "Optional short label folded into the default filename." },
+      },
+      required: ["machine"],
+    },
+  },
 ];
 
 async function callTool(name, args) {
@@ -1278,6 +1319,7 @@ async function callTool(name, args) {
     case "frame_list": return toolList();
     case "frame_doctor": return toolDoctor(args || {});
     case "frame_setup": return toolSetup(args || {});
+    case "frame_tape": return toolTape(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
 }
