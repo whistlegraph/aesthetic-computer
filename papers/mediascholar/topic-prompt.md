@@ -8,6 +8,10 @@ and their bibliographies, and public primary evidence in this repository.
 Search current public sources. Prefer artworks, artist statements, source code,
 archives, proceedings, institutional records, standards, and scholarly work.
 
+Keep the record's prose fields tight: `title` under 140 characters,
+`question` under 600, `claim` and `whyNow` under 900 each — a couple of
+sentences, not paragraphs. The schema enforces these ceilings.
+
 Find a pressure, contradiction, or unnamed pattern that appears across at
 least three independent sources. Check that the proposed claim does not merely
 repeat an existing Aesthetic Computer paper. The result must advance a concept

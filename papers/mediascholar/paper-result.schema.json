@@ -2,33 +2,90 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["title", "paperDir", "texPath", "pdfPath", "claim", "sourcesCount", "qa", "status"],
+  "required": [
+    "title",
+    "paperDir",
+    "texPath",
+    "pdfPath",
+    "claim",
+    "sourcesCount",
+    "qa",
+    "status"
+  ],
   "properties": {
-    "title": { "type": "string", "minLength": 8, "maxLength": 160 },
-    "paperDir": { "type": "string", "minLength": 3, "maxLength": 500 },
-    "texPath": { "type": "string", "minLength": 3, "maxLength": 500 },
-    "pdfPath": { "type": "string", "minLength": 3, "maxLength": 500 },
-    "claim": { "type": "string", "minLength": 20, "maxLength": 700 },
-    "sourcesCount": { "type": "integer", "minimum": 3 },
+    "title": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160
+    },
+    "paperDir": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "texPath": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "pdfPath": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "claim": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 1000
+    },
+    "sourcesCount": {
+      "type": "integer",
+      "minimum": 3
+    },
     "qa": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["built", "figureTableCheck", "visualInspection", "pagesInspected", "remainingFailures"],
+      "required": [
+        "built",
+        "figureTableCheck",
+        "visualInspection",
+        "pagesInspected",
+        "remainingFailures"
+      ],
       "properties": {
-        "built": { "type": "boolean" },
-        "figureTableCheck": { "type": "boolean" },
-        "visualInspection": { "type": "boolean" },
+        "built": {
+          "type": "boolean"
+        },
+        "figureTableCheck": {
+          "type": "boolean"
+        },
+        "visualInspection": {
+          "type": "boolean"
+        },
         "pagesInspected": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "integer", "minimum": 1 }
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
         },
         "remainingFailures": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1, "maxLength": 300 }
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
         }
       }
     },
-    "status": { "type": "string", "enum": ["candidate", "blocked"] }
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "blocked"
+      ]
+    }
   }
 }
