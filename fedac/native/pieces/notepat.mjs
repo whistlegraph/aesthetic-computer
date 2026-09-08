@@ -473,8 +473,8 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
 // DMX light mirrors bgColor via system.dmxSend (USB DMX PRO widget).
 // dmxMap turns rgb into universe slots (index 0 = channel 1) — swap this
-// per fixture; default is a bare RGB head at address 1.
-const dmxMap = (r, g, b) => [r, g, b];
+// per fixture; the house light is addressed at ch3, rgb on 3/4/5.
+const dmxMap = (r, g, b) => [0, 0, r, g, b];
 let dmxLast = [-1, -1, -1];
 let dmxFrame = -60;
 
