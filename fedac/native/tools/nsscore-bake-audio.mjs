@@ -134,10 +134,16 @@ const azTable = new Float64Array(n), elTable = new Float64Array(n), diTable = ne
   }
 }
 
-const osc = (wave, ph, seed) =>
+// Waveforms. `kick` is the hardcore one: a sine whose pitch collapses in
+// the first few milliseconds, then gets driven into saturation — the
+// distorted 909 that the whole genre is built on.
+const osc = (wave, ph) =>
   wave === "triangle" ? 2 * Math.abs(2 * (ph - Math.floor(ph + 0.5))) - 1
+  : wave === "saw" ? 2 * (ph - Math.floor(ph + 0.5))
+  : wave === "square" ? (ph - Math.floor(ph) < 0.5 ? 1 : -1)
   : wave === "noise" || wave === "click" ? Math.random() * 2 - 1
   : Math.sin(2 * Math.PI * ph);
+const sat = (x, drive) => drive > 1 ? Math.tanh(x * drive) / Math.tanh(drive) : x;
 
 // ── render ───────────────────────────────────────────────────────────
 const BLOCK = 64;
@@ -149,18 +155,26 @@ for (const lane of S.lanes) {
     if (len <= 0) continue;
     const atk = Math.max(1, Math.min(0.25 * e.dur, 0.8) * SR);
     const rel = Math.max(1, Math.min(0.35 * e.dur, 1.5) * SR);
-    // a click is a percussive burst: near-instant attack, fast decay
+    // percussive voices get an exponential body; sustained ones a raised
+    // cosine. `sweep` collapses the pitch over `sweepMs` (the kick), and
+    // `drive` saturates — both are what make a club voice hit rather than
+    // merely sound.
     const clicky = e.wave === "click" || e.wave === "noise";
+    const perc = clicky || e.wave === "kick";
+    const decay = e.decay ?? (clicky ? Math.max(0.004, e.dur * 0.35) : e.dur * 0.5);
+    const sweep = e.sweep || 1, sweepMs = (e.sweepMs || 22) / 1000;
     const dry = new Float64Array(len);
     let ph = 0;
     for (let i = 0; i < len; i++) {
-      const env = clicky
-        ? Math.exp(-i / (SR * Math.max(0.004, e.dur * 0.35)))
+      const env = perc
+        ? Math.exp(-i / (SR * decay))
         : i < atk ? 0.5 - 0.5 * Math.cos(Math.PI * i / atk)
         : i > len - rel ? 0.5 - 0.5 * Math.cos(Math.PI * (len - i) / rel)
         : 1;
-      ph += (e.hz || 220) / SR;
-      dry[i] = osc(e.wave, ph) * env * e.g * (clicky ? 0.5 : 0.62);
+      const f = (e.hz || 220) * (1 + (sweep - 1) * Math.exp(-(i / SR) / sweepMs));
+      ph += f / SR;
+      const wv = e.wave === "kick" ? Math.sin(2 * Math.PI * ph) : osc(e.wave, ph);
+      dry[i] = sat(wv * env, e.drive || 1) * e.g * (clicky ? 0.5 : 0.62);
     }
 
     if (!HR) { // modeled fallback — see git history for the full parametric path
@@ -203,7 +217,22 @@ for (const lane of S.lanes) {
   }
 }
 
-// ── one normalization at the end (never per-source) ──────────────────
+// ── master: optional soft-clip glue, then ONE normalization ──────────
+// A hardcore master lives on saturation, not on peak headroom; tanh on
+// the summed ears keeps the loudness without shattering the binaural
+// image the way a hard limiter would.
+const MASTER_DRIVE = S.masterDrive || 1;
+if (MASTER_DRIVE > 1) {
+  let rms = 0;
+  for (let i = 0; i < n; i++) rms += outL[i] * outL[i] + outR[i] * outR[i];
+  rms = Math.sqrt(rms / (2 * n)) || 1;
+  const pre = (S.masterTarget || 0.30) / rms;  // pre-clip RMS target
+  for (let i = 0; i < n; i++) {
+    outL[i] = Math.tanh(outL[i] * pre * MASTER_DRIVE) / Math.tanh(MASTER_DRIVE);
+    outR[i] = Math.tanh(outR[i] * pre * MASTER_DRIVE) / Math.tanh(MASTER_DRIVE);
+  }
+}
+
 let peak = 0;
 for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(outL[i]), Math.abs(outR[i]));
 const g = peak > 0 ? 0.89 / peak : 1;

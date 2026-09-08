@@ -78,7 +78,7 @@ const seatPos = (i) => [Math.cos(seatAngle(i)) * RING, 0, Math.sin(seatAngle(i))
 // ── choreography: lane → seat (the composition model) ────────────────
 const M = S.movements;
 function laneSeat(lane, t) {
-  if (S.lanes.length <= 4) { // spatial-test scores: the seat you're passing
+  if (S.lanes.length <= 8) { // spatial scores: the seat you are passing
     const a = voiceAngle(lane) + spinAngle;
     return ((Math.round(((a + Math.PI / 2) / (Math.PI * 2)) * SEATS) % SEATS) + SEATS) % SEATS;
   }
@@ -649,7 +649,7 @@ function drawFrame(t) {
     const p2 = project(p3, t);
     if (!p2 || gr <= 0.03) continue;
     const c = S.lanes[i].color;
-    const solo = S.lanes.length <= 4 ? 1.9 : 1;
+    const solo = S.lanes.length <= 8 ? 1.7 : 1;
     const r = Math.max(2, (4.5 + glow[i] * 8) * solo * p2.s / 140);
     items.push({ d: p2.d, draw: () => {
       ctx.fillStyle = rgba(c, 0.45 + glow[i] * 0.55);
