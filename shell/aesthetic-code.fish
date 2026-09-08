@@ -11,10 +11,10 @@ end
 
 functions --erase ac aesthetic
 
-function ac --description 'Launch Aesthetic Code'
+function ac --description 'Open Aesthetic Code'
     command $HOME/.local/bin/aesthetic $argv
 end
 
-function aesthetic --description 'Launch Aesthetic Code'
+function aesthetic --description 'Open Aesthetic Code'
     command $HOME/.local/bin/aesthetic $argv
 end

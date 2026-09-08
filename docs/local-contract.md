@@ -12,16 +12,19 @@ Aesthetic Code requires no Aesthetic Code server.
 - Updates are user-initiated. An update check may be enabled separately without
   transmitting workspace or session data.
 
-## Inference modes
+## Inference boundary
 
-`local` routes inference to an Ollama server on `127.0.0.1`, rejects known
-Ollama cloud model names, and disables the agent loop's telemetry, feedback,
-browser integration, WebFetch, and WebSearch surfaces.
+The terminal interface is always Aesthetic Code. Engines are internal bridges,
+not alternate client interfaces or command shortcuts.
 
-`claude` and `codex` are provider modes. The interface must label them as
-provider-backed before a prompt is sent. Provider terms govern that traffic.
+The current bridge uses Codex app-server and remote inference. The interface
+labels this before a prompt is sent. Provider terms govern that traffic.
 
-The local mode does not yet impose an operating-system network sandbox on shell
-commands run by the agent. A command the user approves can still access the
-network. Strict offline enforcement is required before the product may claim
-that arbitrary agent tools are network-isolated.
+A future local bridge must route inference only to a loopback or explicitly
+configured private endpoint, reject known cloud model names, and disable
+telemetry, feedback, browser integration, WebFetch, and WebSearch surfaces.
+
+Local inference will not by itself impose an operating-system network sandbox
+on shell commands run by the agent. A command the user approves can still
+access the network. Strict offline enforcement is required before the product
+may claim that arbitrary agent tools are network-isolated.

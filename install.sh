@@ -13,19 +13,6 @@ chmod +x "$PROJECT_DIR/bin/aesthetic"
 ln -sfn "$PROJECT_DIR/bin/aesthetic" "$BIN_DIR/aesthetic"
 ln -sfn "$PROJECT_DIR/bin/aesthetic" "$BIN_DIR/ac"
 
-if [[ ! -f "$CONFIG_DIR/config" ]]; then
-    if command -v ollama >/dev/null 2>&1 \
-        && ollama list 2>/dev/null | awk 'NR > 1 && $1 !~ /:cloud/ && $1 !~ /-cloud/ { found=1 } END { exit !found }'; then
-        default_agent="local"
-    elif command -v codex >/dev/null 2>&1 || command -v codex-slab >/dev/null 2>&1; then
-        default_agent="codex"
-    else
-        default_agent="claude"
-    fi
-    umask 077
-    printf 'default_agent = "%s"\n' "$default_agent" > "$CONFIG_DIR/config"
-fi
-
 if [[ -f "$FISH_CONFIG" ]] && ! grep -Fq '# aesthetic-code:start' "$FISH_CONFIG"; then
     {
         printf '\n# aesthetic-code:start\n'
