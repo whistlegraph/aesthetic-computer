@@ -5382,12 +5382,16 @@ export const handler = async (event, context) => {
                 // Trigger layout update for canvas/editors
                 setTimeout(() => computePageLayout?.(), 50);
                 // Opening from the button reads as commenting on the page in
-                // view — prefill its reference, as if its number was tapped.
-                // An explicit prefill (page number, @mention) or a typed
-                // draft wins over the default.
+                // view — always prefill its reference, as if its number was
+                // tapped. A leftover bare ref from an earlier open gets
+                // replaced; only a real typed draft survives. An explicit
+                // prefill (tapped page number, @mention) still wins.
                 if (!suppressAutoRef) {
                   const ref = currentPageRef?.();
-                  if (ref && !chatInput.value.trim()) prefillChatInput(ref);
+                  const existing = chatInput.value.trim();
+                  if (ref && (existing === "" || /^[pq]\\d+$/.test(existing))) {
+                    prefillChatInput(ref);
+                  }
                 }
                 suppressAutoRef = false;
               };
@@ -8665,12 +8669,23 @@ export const handler = async (event, context) => {
                 };
 
                 currentPageRef = function () {
-                  const pageData = pageCache.get(displayedPageIndex);
-                  const isQuestion = pageData?.type === "question";
+                  // feedItemMap is built whole at boot with true page and
+                  // question numbers; pageCache holds lazily fetched raw
+                  // docs that may lack them. Falling back to the feed index
+                  // was wrong — it counts pages and questions together.
+                  const item =
+                    feedItemMap.get(currentPageIndex) ||
+                    pageCache.get(currentPageIndex);
+                  if (!item) return "p" + currentPageIndex + " ";
+                  const isQuestion = item.type === "question";
                   const displayNum = isQuestion
-                    ? pageData?.questionNumber || displayedPageIndex
-                    : pageData?.pageNumber || displayedPageIndex;
-                  return (isQuestion ? "q" : "p") + displayNum + " ";
+                    ? item.questionNumber
+                    : item.pageNumber;
+                  return (
+                    (isQuestion ? "q" : "p") +
+                    (displayNum || currentPageIndex) +
+                    " "
+                  );
                 };
                 
                 canvas.style.touchAction = "none";
