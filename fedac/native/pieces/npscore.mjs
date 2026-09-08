@@ -175,15 +175,23 @@ function paint({ wipe, ink, write, system }) {
     if (l.start > t) break;
     if (l.dur != null) {
       if (t < l.start + l.dur) {
-        r += l.rgb[0] * l.gain; g += l.rgb[1] * l.gain; b += l.rgb[2] * l.gain;
-        w += l.gain;
+        // Envelope, not a plateau: each note-on pulses bright then dies
+        // toward the cue's end (fade overrides the curve, default e^-3u)
+        // so the room carries the music's dynamic, not a held average.
+        const k = l.gain * Math.exp(-(l.fade ?? 3) * (t - l.start) / l.dur);
+        r += l.rgb[0] * k; g += l.rgb[1] * k; b += l.rgb[2] * k;
+        w += k;
       }
     } else {
       const k = Math.max(0, 1 - (t - l.start) / (l.decay ?? 0.12)) * l.gain;
       fr += l.rgb[0] * k; fg += l.rgb[1] * k; fb += l.rgb[2] * k;
     }
   }
-  if (w) { r /= w; g /= w; b /= w; }
+  // Weighted average picks the COLOR; summed activity sets the LEVEL.
+  // Normalizing alone would cancel the envelopes (one dying pad would
+  // still render full-bright) — scaling by min(1, w) is what lets rests
+  // and decays actually reach black.
+  if (w) { const lvl = Math.min(1, w); r = r / w * lvl; g = g / w * lvl; b = b / w * lvl; }
   const R = Math.min(255, Math.round(r + fr));
   const G = Math.min(255, Math.round(g + fg));
   const B = Math.min(255, Math.round(b + fb));
