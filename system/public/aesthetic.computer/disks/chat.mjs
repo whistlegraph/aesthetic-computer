@@ -320,6 +320,7 @@ async function voxToggle(message, api) {
       },
     });
     my.phase = "playing";
+    console.log("🗣️ Vox playing:", message.id, my.words.length, "words, sfx:", String(sfx).slice(0, 60));
   } catch (err) {
     console.warn("🗣️ Vox failed:", err);
     if (vox === my) vox = null;
@@ -4392,6 +4393,7 @@ function sim({ api, num, send, net, store }) {
     my.playing
       .progress()
       .then((p) => {
+        console.log("🗣️ Vox progress:", JSON.stringify(p));
         if (vox !== my) return;
         my.awaitingProgress = false;
         if (my.playing.killed || (p?.progress ?? 0) >= 0.999) {
