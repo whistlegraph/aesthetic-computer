@@ -48,12 +48,14 @@ enum WindowNav {
         guard AXTiler.trusted else { return }
         let wins = windows()
         guard !wins.isEmpty else {
+            NavHoldHint.shared.noteJump(local: false)
             DeskflowSpatialNav.cross(from: dir, alignment: 0.5)
             return
         }
 
         guard let focusCenter = focusedWindowCenter() else {
             focus(wins[0])
+            NavHoldHint.shared.noteJump(local: true)
             return
         }
         let currentIdx = wins.enumerated().min(by: {
@@ -64,14 +66,50 @@ enum WindowNav {
         if let target = directionalWindow(in: wins, from: current,
                                           excluding: currentIdx, direction: dir) {
             focus(target)
+            NavHoldHint.shared.noteJump(local: true)
             return
         }
 
         // The local wall ended. Preserve the focused pane's perpendicular
         // position so the receiving host can choose the pane that continues
         // the same visual row/column.
+        NavHoldHint.shared.noteJump(local: false)
         DeskflowSpatialNav.cross(from: dir, alignment: normalizedAlignment(
             of: current, direction: dir))
+    }
+
+    /// What the ⌘⌥-hold pad needs to light itself: the focused pane's frame
+    /// and, per direction, the window an arrow press would land on right now.
+    /// Same window set, same focus resolution, same neighbor scoring as
+    /// `jump` — a hint that disagrees with the key it hints at is worse than
+    /// no hint.
+    struct HintSnapshot {
+        var originFrame: CGRect?
+        var targets: [Direction: Int]
+    }
+
+    static func hintSnapshot() -> HintSnapshot {
+        guard AXTiler.trusted else { return HintSnapshot(originFrame: nil, targets: [:]) }
+        let wins = windows()
+        guard !wins.isEmpty else { return HintSnapshot(originFrame: nil, targets: [:]) }
+        let focusCenter = focusedWindowCenter()
+        let currentIdx = focusCenter.flatMap { fc in
+            wins.enumerated().min(by: {
+                dist2($0.element.center, fc) < dist2($1.element.center, fc)
+            })?.offset
+        }
+        let fallback = NSScreen.main.map { cgFrame(of: $0) }
+            .map { CGPoint(x: $0.midX, y: $0.midY) } ?? .zero
+        let current = currentIdx.map { wins[$0].center } ?? focusCenter ?? fallback
+        var targets: [Direction: Int] = [:]
+        for dir in Direction.allCases {
+            if let target = directionalWindow(in: wins, from: current,
+                                              excluding: currentIdx, direction: dir) {
+                targets[dir] = target.id
+            }
+        }
+        return HintSnapshot(originFrame: currentIdx.map { wins[$0].frame },
+                            targets: targets)
     }
 
     /// Fleet navigation endpoint: select the prompt nearest the edge through

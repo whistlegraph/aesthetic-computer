@@ -53,6 +53,17 @@ enum PopSound {
         }
     }
 
+    /// The "ready" chime for the ⌘⌥ hold: two soft rising blips that say "the
+    /// wall is listening — pick an arrow". Gentler than the lens pop because
+    /// it fires on a pause, not on a command.
+    static func playNavReady() {
+        queue.async {
+            guard let buffer = renderNavReady(), start() else { return }
+            player.scheduleBuffer(buffer, at: nil, options: .interrupts)
+            player.play()
+        }
+    }
+
     /// Lazy, so an app that never zooms never spins up an audio engine.
     private static func start() -> Bool {
         if running { return true }
@@ -87,6 +98,37 @@ enum PopSound {
             let attack = min(1.0, t / 0.02)             // ~2ms — a click, not a swell
             let decay = exp(-5.5 * t)
             samples[i] = Float(sin(phase) * attack * decay * gain)
+        }
+        return buffer
+    }
+
+    private static func renderNavReady() -> AVAudioPCMBuffer? {
+        guard let format = format else { return nil }
+        let noteDuration = 0.075
+        let gap = 0.028
+        let total = noteDuration * 2 + gap + 0.02   // tail room for the decay
+        let frames = AVAudioFrameCount(sampleRate * total)
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
+              let samples = buffer.floatChannelData?[0] else { return nil }
+        buffer.frameLength = frames
+        for i in 0..<Int(frames) { samples[i] = 0 }
+
+        // A major third up — friendly and unambiguous as a question mark, where
+        // the octave pops are reserved for answers (in/out, locked on).
+        let notes: [(start: Double, frequency: Double)] = [
+            (0, 660), (noteDuration + gap, 830.6),
+        ]
+        let noteFrames = Int(sampleRate * noteDuration)
+        for note in notes {
+            let startFrame = Int(note.start * sampleRate)
+            var phase = 0.0
+            for i in 0..<noteFrames where startFrame + i < Int(frames) {
+                let t = Double(i) / Double(noteFrames)
+                phase += 2 * .pi * note.frequency / sampleRate
+                let attack = min(1.0, t / 0.04)
+                let decay = exp(-4.0 * t)
+                samples[startFrame + i] += Float(sin(phase) * attack * decay * 0.10)
+            }
         }
         return buffer
     }

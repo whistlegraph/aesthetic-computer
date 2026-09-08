@@ -190,6 +190,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// twice isn't one. See CtrlDoubleTap.
     private var zoomLensTap: CtrlDoubleTap?
 
+    /// Hold bare ⌘⌥ → chime + arrow-key pad showing which arrows currently
+    /// lead to a neighboring prompt pane. Also a modifier-only gesture, so
+    /// also an event tap rather than a Carbon hotkey. See NavHoldHint.
+    private var navHoldTap: NavHoldTap?
+
     /// Macs (beyond this host) to flip when going dark/light. ssh aliases that
     /// resolve on the LAN/tailnet; unreachable ones are skipped silently.
     private static let appearanceHosts = ["panda", "chicken", "blueberry"]
@@ -340,6 +345,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // whether focus arrived through WindowNav or an ordinary mouse click.
         PromptFocusHighlight.shared.start()
 
+        // Holding bare ⌘⌥ for a beat chimes and floats the arrow-key pad over
+        // the focused pane, previewing where each arrow would jump.
+        let holdTap = NavHoldTap(
+            onHoldStart: { NavHoldHint.shared.beginHold() },
+            onHoldEnd: { NavHoldHint.shared.endHold() },
+            onChordKey: { NavHoldHint.shared.noteChordKey() },
+            onPointerDown: { NavHoldHint.shared.notePointerDown() })
+        if holdTap.start() { navHoldTap = holdTap }
+
         // Terminal.app sizes windows in character cells, so its native font
         // zoom also changes the pixel frame. Preserve the frame around that
         // native action; the terminal remains responsible for its per-window
@@ -405,6 +419,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tilePopulationTimer?.invalidate()
         tileRequestWorkItem?.cancel()
         zoomLensTap?.stop()
+        navHoldTap?.stop()
+        NavHoldHint.shared.endHold()
         // Compositor zoom outlives us — never quit leaving the screen magnified.
         if ZoomLens.isZoomed { ZoomLens.zoomOut() }
         passphraseServer.stop()

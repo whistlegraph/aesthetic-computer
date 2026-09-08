@@ -44,6 +44,17 @@ enum DeskflowSpatialNav {
         let promptCount: Int
     }
 
+    /// The directions in which a fleet hop is possible right now: a screen is
+    /// linked that way in Deskflow's graph AND its ledger shows live prompts.
+    /// File reads only (graph + cached peer ledgers) — call off-main anyway;
+    /// the ⌘⌥-hold pad uses it to light its "beyond the wall" arrows.
+    static func availableCrossDirections() -> Set<WindowNav.Direction> {
+        guard let source = localScreenName(), let geometry = geometry() else { return [] }
+        return Set(WindowNav.Direction.allCases.filter {
+            targetScreen(from: source, direction: $0, geometry: geometry) != nil
+        })
+    }
+
     static func cross(from direction: WindowNav.Direction, alignment: CGFloat) {
         guard let source = localScreenName(), let geometry = geometry(),
               let target = targetScreen(from: source, direction: direction, geometry: geometry),
