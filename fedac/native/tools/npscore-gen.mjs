@@ -6,7 +6,13 @@
 // the room, builds ramp it, kicks flash white — since the player maps
 // velocity to both volume and light gain.
 //
-//   node npscore-gen.mjs [--minutes 4] [--seed 7] [--bpm 122] [out.npscore]
+// --style lullaby swaps the club for the nursery: a 3/4 music-box
+// pentatonic melody over I-vi-IV-V, a warm dyad every other bar, block
+// and tambourine ticks — low velocities so the room glows dim and the
+// sparse events sit clear of frame-boundary jitter.
+//
+//   node npscore-gen.mjs [--minutes 4] [--seed 7] [--bpm 122]
+//                        [--style lullaby] [out.npscore]
 
 import { writeFileSync } from "node:fs";
 
@@ -14,18 +20,24 @@ const arg = (k, d) => {
   const i = process.argv.indexOf("--" + k);
   return i > 0 ? parseFloat(process.argv[i + 1]) : d;
 };
+const styleIdx = process.argv.indexOf("--style");
+const style = styleIdx > 0 ? process.argv[styleIdx + 1] : "club";
 const minutes = arg("minutes", 4);
 const seed = arg("seed", 7);
-const bpm = arg("bpm", 122);
+const bpm = arg("bpm", style === "lullaby" ? 63 : 122);
 const outArg = process.argv.slice(2).filter(a => !a.startsWith("--") &&
-  a !== String(minutes) && a !== String(seed) && a !== String(bpm))[0];
+  a !== String(minutes) && a !== String(seed) && a !== String(bpm) && a !== style)[0];
 
 let s = seed >>> 0 || 1;
 const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
 const pick = (a) => a[Math.floor(rnd() * a.length)];
 
-const NAMES1 = ["umber", "vesper", "cobalt", "ember", "sable", "aurora", "quartz", "willow"];
-const NAMES2 = ["cascade", "orbit", "meadow", "signal", "harbor", "lattice", "drift", "engine"];
+const NAMES1 = style === "lullaby"
+  ? ["hush", "moth", "tide", "fern", "dune", "lull", "wisp", "eider"]
+  : ["umber", "vesper", "cobalt", "ember", "sable", "aurora", "quartz", "willow"];
+const NAMES2 = style === "lullaby"
+  ? ["moon", "cradle", "lantern", "sleep", "shoal", "feather", "ember", "hollow"]
+  : ["cascade", "orbit", "meadow", "signal", "harbor", "lattice", "drift", "engine"];
 const name = pick(NAMES1) + "-" + pick(NAMES2);
 
 const spb = 60 / bpm;
@@ -93,6 +105,36 @@ function drumBar(kind, ramp = 0) {
 
 function section(bars, fn) { for (let b = 0; b < bars; b++) { fn(b); t += bar; } }
 
+if (style === "lullaby") {
+  // 3/4 nursery waltz: a music-box line wandering the C pentatonic over
+  // I-vi-IV-V, a warm dyad every other bar, block tick on the downbeat,
+  // tambourine breath every fourth bar. The last nine bars hush to nothing.
+  const bar3 = 3 * spb;
+  const PENTA = [60, 62, 64, 67, 69, 72];
+  const ROOTS = [48, 45, 41, 43];
+  const bars = Math.max(16, Math.round((minutes * 60) / bar3));
+  let m = 2;
+  for (let b = 0; b < bars; b++) {
+    const fade = b > bars - 10 ? (bars - b) / 10 : 1;
+    const root = ROOTS[b % 4];
+    if (b % 2 === 0) {
+      tone(pad, root + 12, t, bar3 * 1.9, 30 * fade);
+      tone(pad, root + 19, t, bar3 * 1.9, 26 * fade);
+    }
+    let q = 0;
+    while (q < 3) {
+      if (q > 0 && rnd() < 0.25) { q++; continue; } // breaths between phrases
+      m = Math.max(0, Math.min(PENTA.length - 1, m + Math.floor(rnd() * 3) - 1));
+      const held = q === 0 && rnd() < 0.4;
+      tone(arp, PENTA[m], t + q * spb, spb * (held ? 1.8 : 0.85), (36 + rnd() * 16) * fade);
+      q += held ? 2 : 1;
+    }
+    hit("block", t, 28 * fade);
+    if (b % 4 === 3) hit("tambo", t + 2 * spb, 22 * fade);
+    t += bar3;
+  }
+} else {
+
 section(8, b => { padBar(b, 45 + b * 2); if (b >= 4) bassBar(b, 80); }); // intro
 for (let cy = 0; cy < cycles; cy++) {
   hit("crash", t, 120);
@@ -112,10 +154,15 @@ for (let cy = 0; cy < cycles; cy++) {
   });
 }
 section(8, b => { padBar(b, 55 - b * 6); arpBar(b, Math.max(20, 50 - b * 6)); }); // outro
+}
 
 const score = {
   name, bpm, leadSeconds: 1, tailSeconds: 2,
-  voices: [
+  voices: style === "lullaby" ? [
+    { name: "musicbox", program: 10, velocity: 45, notes: arp },
+    { name: "warm", program: 89, velocity: 30, notes: pad },
+    { name: "ticks", kind: "percussion", velocity: 30, notes: drums },
+  ] : [
     { name: "pad", program: 89, velocity: 60, notes: pad },
     { name: "bass", program: 38, velocity: 100, notes: bass },
     { name: "arp", program: 4, velocity: 80, notes: arp },
