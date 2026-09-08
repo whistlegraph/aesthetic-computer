@@ -473,11 +473,12 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
 // DMX light mirrors bgColor via system.dmxSend (USB DMX PRO widget).
 // dmxMap turns rgb into universe slots (index 0 = channel 1) — swap this
-// per fixture. House light: Chauvet Wedge Tri, 3ch personality at d.490
-// (plain R G B on 490/491/492, no dimmer gate). One reused frame buffer.
-const dmxSlots = new Array(492).fill(0);
+// per fixture. House default: 3ch rgb at the TOP of the universe, d.510
+// (R 510, G 511, B 512 — a 3ch head can't start higher). Shared with
+// npscore.mjs and Menu Band's DMXOut. One reused full-universe buffer.
+const dmxSlots = new Array(512).fill(0);
 const dmxMap = (r, g, b) => {
-  dmxSlots[489] = r; dmxSlots[490] = g; dmxSlots[491] = b;
+  dmxSlots[509] = r; dmxSlots[510] = g; dmxSlots[511] = b;
   return dmxSlots;
 };
 let dmxLast = [-1, -1, -1];

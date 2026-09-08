@@ -47,10 +47,10 @@ const DRUM_LETTER = {
   ride: "b", crash: "c#", splash: "d#", cowbell: "f#", block: "g#", tambo: "a#",
 };
 
-// House fixture map — Chauvet Wedge Tri, 3ch at d.490 (see notepat.mjs).
-const dmxSlots = new Array(492).fill(0);
+// House fixture map — 3ch rgb at d.510, top of the universe (see notepat.mjs).
+const dmxSlots = new Array(512).fill(0);
 const dmxMap = (r, g, b) => {
-  dmxSlots[489] = r; dmxSlots[490] = g; dmxSlots[491] = b;
+  dmxSlots[509] = r; dmxSlots[510] = g; dmxSlots[511] = b;
   return dmxSlots;
 };
 
