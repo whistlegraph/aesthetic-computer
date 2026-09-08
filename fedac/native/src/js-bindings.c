@@ -19,6 +19,7 @@
 #include <linux/reboot.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <termios.h>
 #include "qrcodegen.h"
 #include <alsa/asoundlib.h>
 #include "machines.h"
@@ -6498,6 +6499,72 @@ static JSValue js_print_raw(JSContext *ctx, JSValueConst this_val, int argc, JSV
     return written == len ? JS_TRUE : JS_FALSE;
 }
 
+// system.dmxSend(channels) — push one DMX universe frame to the first USB DMX
+// widget (Enttec Pro framing — DMXking USB PRO et al; the widget owns DMX
+// timing, we just hand it slots). fd persists across calls; a failed write
+// closes it so unplug/replug self-heals on the next send.
+static int dmx_fd = -1;
+
+static int dmx_open(void) {
+    if (dmx_fd >= 0) return dmx_fd;
+    for (int i = 0; i < 4; i++) {
+        char path[24];
+        snprintf(path, sizeof(path), "/dev/ttyUSB%d", i);
+        int fd = open(path, O_WRONLY | O_NOCTTY);
+        if (fd < 0) continue;
+        struct termios t;
+        if (tcgetattr(fd, &t) == 0) {
+            cfmakeraw(&t); // raw — the frame bytes must pass untouched
+            cfsetospeed(&t, B115200);
+            cfsetispeed(&t, B115200);
+            tcsetattr(fd, TCSANOW, &t);
+        }
+        ac_log("💡 [dmx] opened %s\n", path);
+        dmx_fd = fd;
+        return fd;
+    }
+    return -1;
+}
+
+static JSValue js_dmx_send(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1) return JS_FALSE;
+    int fd = dmx_open();
+    if (fd < 0) return JS_FALSE;
+
+    JSValue lenVal = JS_GetPropertyStr(ctx, argv[0], "length");
+    uint32_t len = 0;
+    JS_ToUint32(ctx, &len, lenVal);
+    JS_FreeValue(ctx, lenVal);
+    if (len > 512) len = 512;
+    uint32_t slots = len < 24 ? 24 : len; // widget wants ≥24 slots per frame
+
+    // 7E 06 lenLo lenHi | 00 startcode + slots | E7
+    uint8_t pkt[5 + 1 + 512 + 1];
+    uint16_t payload = (uint16_t)(slots + 1);
+    pkt[0] = 0x7E; pkt[1] = 0x06;
+    pkt[2] = payload & 0xFF; pkt[3] = payload >> 8;
+    pkt[4] = 0x00; // DMX start code
+    memset(pkt + 5, 0, slots);
+    for (uint32_t i = 0; i < len; i++) {
+        JSValue v = JS_GetPropertyUint32(ctx, argv[0], i);
+        int32_t b = 0;
+        JS_ToInt32(ctx, &b, v);
+        JS_FreeValue(ctx, v);
+        pkt[5 + i] = (uint8_t)(b & 0xFF);
+    }
+    pkt[5 + slots] = 0xE7;
+
+    ssize_t n = write(fd, pkt, 5 + slots + 1);
+    if (n != (ssize_t)(5 + slots + 1)) {
+        ac_log("💡 [dmx] write failed (%s) — closing\n", strerror(errno));
+        close(dmx_fd);
+        dmx_fd = -1;
+        return JS_FALSE;
+    }
+    return JS_TRUE;
+}
+
 static JSValue js_jump(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
     if (!current_rt || argc < 1) return JS_UNDEFINED;
@@ -7799,6 +7866,8 @@ static JSValue build_system_obj(JSContext *ctx) {
                       JS_NewCFunction(ctx, js_list_printers, "listPrinters", 0));
     JS_SetPropertyStr(ctx, sys, "printRaw",
                       JS_NewCFunction(ctx, js_print_raw, "printRaw", 2));
+    JS_SetPropertyStr(ctx, sys, "dmxSend",
+                      JS_NewCFunction(ctx, js_dmx_send, "dmxSend", 1));
 
     // Volume and brightness control from JS
     JS_SetPropertyStr(ctx, sys, "volumeAdjust",

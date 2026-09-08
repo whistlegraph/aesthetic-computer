@@ -471,6 +471,13 @@ let dark = true; // AC Native Notepat is an instrument surface: always dark.
 let bgColor = [0, 0, 0];
 let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
+// DMX light mirrors bgColor via system.dmxSend (USB DMX PRO widget).
+// dmxMap turns rgb into universe slots (index 0 = channel 1) — swap this
+// per fixture; default is a bare RGB head at address 1.
+const dmxMap = (r, g, b) => [r, g, b];
+let dmxLast = [-1, -1, -1];
+let dmxFrame = -60;
+
 // === DRUM BACKGROUND FLASH ===
 // Tones paint the full-screen background from their note colors while held
 // (see the activeKeys loop in paint()). Drums are one-shots and don't live
@@ -6533,6 +6540,17 @@ function paint({ wipe, ink, box, line, write, screen, sound, system, trackpad, p
   }
 
   wipe(Math.round(bgColor[0]), Math.round(bgColor[1]), Math.round(bgColor[2]));
+
+  // Mirror the backdrop out to the DMX light — on change (capped ~30fps)
+  // plus a 1s keepalive so a re-plugged widget picks the color back up.
+  if (system.dmxSend) {
+    const dr = Math.round(bgColor[0]), dg = Math.round(bgColor[1]), db = Math.round(bgColor[2]);
+    const changed = dr !== dmxLast[0] || dg !== dmxLast[1] || db !== dmxLast[2];
+    if ((changed && frame - dmxFrame >= 2) || frame - dmxFrame >= 60) {
+      if (system.dmxSend(dmxMap(dr, dg, db))) dmxLast = [dr, dg, db];
+      dmxFrame = frame;
+    }
+  }
 
   // Tablet mode change detection — beep + log
   if (system.tabletMode !== lastTabletMode && lastTabletMode !== null) {
