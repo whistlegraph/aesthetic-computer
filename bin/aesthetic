@@ -1,0 +1,299 @@
+#!/usr/bin/env bash
+
+set -u
+
+VERSION="0.1.0"
+CONFIG_DIR="${AESTHETIC_CODE_CONFIG_DIR:-${HOME}/.config/aesthetic-code}"
+CONFIG_FILE="${CONFIG_DIR}/config"
+
+usage() {
+    cat <<'EOF'
+Usage: aesthetic [local|claude|codex] [directory] [-- agent arguments]
+       ac [local|claude|codex] [directory] [-- agent arguments]
+       aesthetic use <local|claude|codex>
+       aesthetic model <ollama-model>
+       aesthetic doctor
+
+With no arguments, Aesthetic Code starts the preferred agent in the current
+directory. Set AESTHETIC_CODE_AGENT to override the saved preference.
+EOF
+}
+
+fail() {
+    printf 'aesthetic: %s\n' "$*" >&2
+    exit 1
+}
+
+valid_agent() {
+    [[ "$1" == "local" || "$1" == "claude" || "$1" == "codex" ]]
+}
+
+read_saved_agent() {
+    [[ -f "$CONFIG_FILE" ]] || return 0
+    sed -nE 's/^[[:space:]]*default_agent[[:space:]]*=[[:space:]]*"?(local|claude|codex)"?[[:space:]]*$/\1/p' "$CONFIG_FILE" | head -n 1
+}
+
+read_saved_model() {
+    [[ -f "$CONFIG_FILE" ]] || return 0
+    sed -nE 's/^[[:space:]]*local_model[[:space:]]*=[[:space:]]*"([^"[:space:]]+)"[[:space:]]*$/\1/p' "$CONFIG_FILE" | head -n 1
+}
+
+write_config() {
+    local agent="$1"
+    local model="$2"
+    local temporary
+    mkdir -p "$CONFIG_DIR"
+    temporary="${CONFIG_FILE}.$$"
+    umask 077
+    printf 'default_agent = "%s"\n' "$agent" > "$temporary"
+    if [[ -n "$model" ]]; then
+        printf 'local_model = "%s"\n' "$model" >> "$temporary"
+    fi
+    mv "$temporary" "$CONFIG_FILE"
+}
+
+write_saved_agent() {
+    local agent="$1"
+    valid_agent "$agent" || fail "agent must be local, claude, or codex"
+    write_config "$agent" "$(read_saved_model)"
+    printf 'Aesthetic Code will use %s by default.\n' "$agent"
+}
+
+write_saved_model() {
+    local model="$1"
+    local agent
+    [[ "$model" =~ ^[A-Za-z0-9._/:+-]+$ ]] || fail "invalid Ollama model name"
+    [[ "$model" != *":cloud"* && "$model" != *"-cloud"* ]] || fail "local mode refuses cloud models"
+    agent="$(read_saved_agent)"
+    write_config "${agent:-local}" "$model"
+    printf 'Aesthetic Code local model: %s\n' "$model"
+}
+
+has_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+resolve_default_agent() {
+    local requested="${AESTHETIC_CODE_AGENT:-}"
+    local saved=""
+
+    if [[ -n "$requested" ]]; then
+        valid_agent "$requested" || fail "AESTHETIC_CODE_AGENT must be local, claude, or codex"
+        printf '%s\n' "$requested"
+        return
+    fi
+
+    saved="$(read_saved_agent)"
+    if [[ -n "$saved" ]]; then
+        printf '%s\n' "$saved"
+    elif has_command codex || has_command codex-slab; then
+        printf 'codex\n'
+    elif has_command claude; then
+        printf 'claude\n'
+    else
+        fail "install Ollama, Claude Code, or Codex first"
+    fi
+}
+
+doctor() {
+    local saved saved_model local_models
+    saved="$(read_saved_agent)"
+    saved_model="${AESTHETIC_CODE_LOCAL_MODEL:-$(read_saved_model)}"
+    printf 'Aesthetic Code %s\n' "$VERSION"
+    printf 'config: %s\n' "$CONFIG_FILE"
+    printf 'default: %s\n' "${AESTHETIC_CODE_AGENT:-${saved:-automatic}}"
+    printf 'control plane: local\n'
+    printf 'telemetry: off\n'
+
+    if has_command ollama; then
+        local_models="$(ollama list 2>/dev/null | awk 'NR > 1 && $1 !~ /:cloud/ && $1 !~ /-cloud/ { count++ } END { print count + 0 }')"
+        printf 'local inference: %s (%s local model%s)\n' "$(command -v ollama)" "$local_models" "$([[ "$local_models" == "1" ]] && printf '' || printf 's')"
+        if [[ -n "$saved_model" ]]; then
+            printf 'local model: %s\n' "$saved_model"
+        fi
+    else
+        printf 'local inference: Ollama not installed\n'
+    fi
+
+    if has_command claude; then
+        printf 'claude: %s\n' "$(command -v claude)"
+    else
+        printf 'claude: not installed\n'
+    fi
+
+    if has_command codex-slab; then
+        printf 'codex: %s (tracked)\n' "$(command -v codex-slab)"
+    elif has_command codex; then
+        printf 'codex: %s\n' "$(command -v codex)"
+    else
+        printf 'codex: not installed\n'
+    fi
+
+    if [[ -d "${HOME}/Applications/SlabMenubar.app" ]]; then
+        printf 'prompt rocks: installed\n'
+    else
+        printf 'prompt rocks: unavailable\n'
+    fi
+}
+
+quote_command() {
+    local item
+    for item in "$@"; do
+        printf '%q ' "$item"
+    done
+    printf '\n'
+}
+
+agent=""
+target_directory=""
+agent_arguments=()
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" || "${1:-}" == "help" ]]; then
+    usage
+    exit 0
+fi
+
+if [[ "${1:-}" == "--version" || "${1:-}" == "-V" || "${1:-}" == "version" ]]; then
+    printf 'Aesthetic Code %s\n' "$VERSION"
+    exit 0
+fi
+
+if [[ "${1:-}" == "doctor" ]]; then
+    doctor
+    exit 0
+fi
+
+if [[ "${1:-}" == "use" ]]; then
+    [[ $# -eq 2 ]] || fail "usage: aesthetic use <local|claude|codex>"
+    write_saved_agent "$2"
+    exit 0
+fi
+
+if [[ "${1:-}" == "model" ]]; then
+    [[ $# -eq 2 ]] || fail "usage: aesthetic model <ollama-model>"
+    write_saved_model "$2"
+    exit 0
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        local|claude|codex)
+            if [[ -z "$agent" && -z "$target_directory" && ${#agent_arguments[@]} -eq 0 ]]; then
+                agent="$1"
+            else
+                agent_arguments+=("$1")
+            fi
+            shift
+            ;;
+        --agent)
+            [[ $# -ge 2 ]] || fail "--agent requires local, claude, or codex"
+            valid_agent "$2" || fail "agent must be local, claude, or codex"
+            agent="$2"
+            shift 2
+            ;;
+        --claude)
+            agent="claude"
+            shift
+            ;;
+        --codex)
+            agent="codex"
+            shift
+            ;;
+        --local)
+            agent="local"
+            shift
+            ;;
+        --)
+            shift
+            while [[ $# -gt 0 ]]; do
+                agent_arguments+=("$1")
+                shift
+            done
+            ;;
+        here)
+            if [[ -z "$target_directory" ]]; then
+                target_directory="$PWD"
+            else
+                agent_arguments+=("$1")
+            fi
+            shift
+            ;;
+        *)
+            if [[ -z "$target_directory" && -d "$1" ]]; then
+                target_directory="$(cd "$1" && pwd -P)"
+            else
+                agent_arguments+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+agent="${agent:-$(resolve_default_agent)}"
+target_directory="${target_directory:-$PWD}"
+[[ -d "$target_directory" ]] || fail "directory does not exist: $target_directory"
+
+launcher=""
+local_model=""
+launch_command=()
+case "$agent" in
+    codex)
+        if has_command codex-slab; then
+            launcher="$(command -v codex-slab)"
+        elif has_command codex; then
+            launcher="$(command -v codex)"
+        else
+            fail "Codex is not installed"
+        fi
+        ;;
+    claude)
+        has_command claude || fail "Claude Code is not installed"
+        launcher="$(command -v claude)"
+        ;;
+    local)
+        has_command ollama || fail "local mode requires Ollama: https://ollama.com/download"
+        has_command claude || fail "local mode currently requires the Claude Code CLI as its agent loop"
+        local_model="${AESTHETIC_CODE_LOCAL_MODEL:-$(read_saved_model)}"
+        if [[ -z "$local_model" ]]; then
+            local_model="$(ollama list 2>/dev/null | awk 'NR > 1 && $1 !~ /:cloud/ && $1 !~ /-cloud/ { print $1; exit }')"
+        fi
+        [[ -n "$local_model" ]] || fail "no local Ollama model is installed; pull one, then run: aesthetic model <name>"
+        [[ "$local_model" != *":cloud"* && "$local_model" != *"-cloud"* ]] || fail "local mode refuses cloud models"
+        ollama show "$local_model" >/dev/null 2>&1 || fail "local Ollama model is unavailable: $local_model"
+        launcher="$(command -v claude)"
+        ;;
+esac
+
+cd "$target_directory" || fail "cannot enter directory: $target_directory"
+export AESTHETIC_CODE=1
+export AESTHETIC_CODE_VERSION="$VERSION"
+export AESTHETIC_CODE_NETWORK_MODE="$([[ "$agent" == "local" ]] && printf 'local-only' || printf 'provider')"
+
+launch_command+=("$launcher")
+if [[ "$agent" == "local" ]]; then
+    export ANTHROPIC_AUTH_TOKEN="ollama"
+    export ANTHROPIC_BASE_URL="http://127.0.0.1:11434"
+    export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+    export DISABLE_TELEMETRY=1
+    export DISABLE_ERROR_REPORTING=1
+    export DISABLE_FEEDBACK_COMMAND=1
+    export CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1
+    launch_command+=("--model" "$local_model" "--no-chrome" "--disallowedTools" "WebFetch,WebSearch")
+fi
+if (( ${#agent_arguments[@]} )); then
+    launch_command+=("${agent_arguments[@]}")
+fi
+
+if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
+    printf 'agent=%s\n' "$agent"
+    printf 'directory=%s\n' "$PWD"
+    printf 'command='
+    quote_command "${launch_command[@]}"
+    exit 0
+fi
+
+if [[ -t 1 ]]; then
+    printf '\033[2maesthetic code · %s · %s\033[0m\n' "$agent" "${PWD##*/}"
+fi
+
+exec "${launch_command[@]}"
