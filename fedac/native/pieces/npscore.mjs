@@ -1,11 +1,17 @@
-// npscore — performs an .npscore (melody voices + light cues) on bare
-// metal: notes through the GM synth lane, lights out the DMX lane, and
-// the backdrop mirrors the room. Format doc lives in
-// tools/mbscore-to-npscore.mjs, which translates Menu Band .mbscore files.
+// npscore — performs an .npscore (melody + percussion + light cues) on
+// bare metal: notes down the GM synth lane, drums through the shared
+// percussion kit, lights out the DMX lane. Format doc lives in
+// tools/mbscore-to-npscore.mjs; tools/npscore-gen.mjs composes long ones.
+//
+// Light model (notepat's, roomward): sustained cues average, weighted by
+// their velocity gain; flash cues (decay, no dur) ADD on top and fade —
+// a kick punches white over the held chord color. DMX sends cap at 40Hz,
+// the honest wire ceiling (a 492-slot frame is ~22ms of 250kbaud).
 //
 // Score selection: `npscore:name` colon param, else /pieces/npscore-current.txt
-// (a pointer file — lanserv PUT can't pass colon params through /jump).
-// Scores land beside pieces as /pieces/<name>.npscore via lanserv PUT.
+// (pointer file — lanserv /jump can't carry colon params).
+
+import { playPercussion } from "/lib/percussion.mjs";
 
 // Same 16 GM family fallbacks as notepat — the C GM voice takes over where
 // a program is implemented; these shape the `type` path for the rest.
@@ -28,13 +34,18 @@ const FAMILY = [
   { wave: "noise", attack: 0.001, decay: 0.3, volume: 0.45 },
 ];
 
-// notepat pitch-class palette (sharps black) — the player's own fallback
-// when a score ships without a lights track.
+// notepat pitch-class palette (sharps black).
 const PC_RGB = [
   [255, 50, 50], [0, 0, 0], [255, 160, 0], [0, 0, 0], [255, 230, 0],
   [50, 200, 50], [0, 0, 0], [50, 120, 255], [0, 0, 0], [130, 50, 200],
   [0, 0, 0], [180, 80, 255],
 ];
+
+// Drum name → percussion-kit letter (lib/percussion.mjs speaks letters).
+const DRUM_LETTER = {
+  kick: "c", snare: "d", clap: "e", snap: "f", "hat-c": "g", "hat-o": "a",
+  ride: "b", crash: "c#", splash: "d#", cowbell: "f#", block: "g#", tambo: "a#",
+};
 
 // House fixture map — Chauvet Wedge Tri, 3ch at d.490 (see notepat.mjs).
 const dmxSlots = new Array(492).fill(0);
@@ -46,9 +57,11 @@ const dmxMap = (r, g, b) => {
 let score = null;
 let scoreName = "";
 let err = null;
-let events = []; // [{ at, dur, hz, gm, vol }] sorted by at
+let events = []; // [{ at, kind, … }] sorted by at
+let lights = []; // [{ start, dur?, decay?, rgb, gain }] sorted by start
 let cursor = 0;
-let t0 = 0; // Date.now() when playback began
+let liteLo = 0;
+let t0 = 0;
 let total = 0;
 let state = "load"; // load | play | done
 let dmxLast = [-1, -1, -1];
@@ -57,31 +70,61 @@ let dmxStamp = 0;
 const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 function loadScore(system) {
-  const raw = system?.readFile?.("/pieces/" + scoreName + ".npscore");
+  // readFile tails at 64KB (it's a log reader) — scores go through the
+  // uncapped byte lane and decode here; score JSON is ASCII by design.
+  let raw = null;
+  const buf = system?.readFileBytes?.("/pieces/" + scoreName + ".npscore");
+  if (buf) {
+    const bytes = new Uint8Array(buf);
+    const parts = [];
+    for (let i = 0; i < bytes.length; i += 4096)
+      parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + 4096)));
+    raw = parts.join("");
+  } else {
+    raw = system?.readFile?.("/pieces/" + scoreName + ".npscore");
+  }
   if (!raw) { err = "no /pieces/" + scoreName + ".npscore"; return; }
   try { score = JSON.parse(raw); } catch (e) { err = "bad json: " + e.message; return; }
   const lead = score.leadSeconds || 0;
   events = [];
   for (const v of score.voices || []) {
+    if (v.kind === "percussion") {
+      for (const n of v.notes || []) {
+        const letter = DRUM_LETTER[n.drum] || n.drum;
+        events.push({
+          at: lead + n.start, kind: "drum", letter,
+          vol: (n.velocity ?? v.velocity ?? 100) / 127, dur: 0.05,
+        });
+      }
+      continue;
+    }
     const fam = FAMILY[Math.floor((v.program || 0) / 8)] || FAMILY[0];
     for (const n of v.notes || []) {
+      const vel = (n.velocity ?? v.velocity ?? 100) / 127;
       events.push({
-        at: lead + n.start, dur: n.dur, midi: n.midi, hz: hz(n.midi),
-        gm: v.program || 0, fam,
-        vol: ((n.velocity ?? v.velocity ?? 100) / 127) * fam.volume,
+        at: lead + n.start, kind: "tone", dur: n.dur, midi: n.midi,
+        hz: hz(n.midi), gm: v.program || 0, fam, vel, vol: vel * fam.volume,
       });
     }
   }
   events.sort((a, b) => a.at - b.at);
-  if (!Array.isArray(score.lights) || !score.lights.length) {
-    score.lights = events.map(e => ({
-      start: e.at, dur: e.dur, rgb: PC_RGB[((e.midi % 12) + 12) % 12],
+
+  if (Array.isArray(score.lights) && score.lights.length) {
+    lights = score.lights.map(l => ({
+      ...l, start: l.start + lead, gain: l.gain ?? 1,
     }));
-  } else if (lead) {
-    score.lights = score.lights.map(l => ({ ...l, start: l.start + lead }));
+  } else {
+    // Derive: tones hold their pitch color at their velocity; drums flash
+    // white and fade — kicks a beat longer than hats.
+    lights = events.map(e => e.kind === "tone"
+      ? { start: e.at, dur: e.dur, rgb: PC_RGB[((e.midi % 12) + 12) % 12], gain: e.vel }
+      : { start: e.at, decay: e.letter === "c" ? 0.18 : 0.1, rgb: [255, 255, 255], gain: e.vol });
   }
+  lights.sort((a, b) => a.start - b.start);
+
   total = events.reduce((m, e) => Math.max(m, e.at + e.dur), 0) + (score.tailSeconds ?? 0.5);
   cursor = 0;
+  liteLo = 0;
   t0 = Date.now() + 400; // breath so note zero isn't late
   state = "play";
 }
@@ -100,7 +143,10 @@ function sim({ sound }) {
   const t = (Date.now() - t0) / 1000;
   while (cursor < events.length && events[cursor].at <= t) {
     const e = events[cursor++];
-    if (e.at + e.dur > t) { // never fire a note the clock already passed
+    if (e.at + Math.max(e.dur, 0.1) <= t) continue; // clock already passed it
+    if (e.kind === "drum") {
+      playPercussion(sound, e.letter, { volume: e.vol });
+    } else {
       sound?.synth?.({
         type: e.fam.wave, tone: e.hz, duration: e.dur, volume: e.vol,
         attack: e.fam.attack, decay: e.fam.decay, gmProgram: e.gm,
@@ -110,7 +156,7 @@ function sim({ sound }) {
   if (t > total) state = "done";
 }
 
-function paint({ wipe, ink, write, screen, system }) {
+function paint({ wipe, ink, write, system }) {
   if (err) {
     wipe(40, 10, 10);
     ink(255, 200, 200);
@@ -119,22 +165,38 @@ function paint({ wipe, ink, write, screen, system }) {
   }
   const t = (Date.now() - t0) / 1000;
 
-  // Average every active light cue — notepat's held-tone blend, roomward.
-  let r = 0, g = 0, b = 0, w = 0;
-  for (const l of score.lights) {
-    if (l.start <= t && t < l.start + l.dur) { r += l.rgb[0]; g += l.rgb[1]; b += l.rgb[2]; w++; }
+  // Base layer: velocity-weighted average of active sustained cues.
+  // Flash layer: decaying additive bursts. Head pointer skips spent cues.
+  while (liteLo < lights.length &&
+         lights[liteLo].start + (lights[liteLo].dur ?? lights[liteLo].decay ?? 0.2) < t) liteLo++;
+  let r = 0, g = 0, b = 0, w = 0, fr = 0, fg = 0, fb = 0;
+  for (let i = liteLo; i < lights.length; i++) {
+    const l = lights[i];
+    if (l.start > t) break;
+    if (l.dur != null) {
+      if (t < l.start + l.dur) {
+        r += l.rgb[0] * l.gain; g += l.rgb[1] * l.gain; b += l.rgb[2] * l.gain;
+        w += l.gain;
+      }
+    } else {
+      const k = Math.max(0, 1 - (t - l.start) / (l.decay ?? 0.12)) * l.gain;
+      fr += l.rgb[0] * k; fg += l.rgb[1] * k; fb += l.rgb[2] * k;
+    }
   }
-  if (w) { r = Math.round(r / w); g = Math.round(g / w); b = Math.round(b / w); }
+  if (w) { r /= w; g /= w; b /= w; }
+  const R = Math.min(255, Math.round(r + fr));
+  const G = Math.min(255, Math.round(g + fg));
+  const B = Math.min(255, Math.round(b + fb));
 
-  const changed = r !== dmxLast[0] || g !== dmxLast[1] || b !== dmxLast[2];
+  const changed = R !== dmxLast[0] || G !== dmxLast[1] || B !== dmxLast[2];
   const now = Date.now();
-  if (system?.dmxSend && ((changed && now - dmxStamp > 33) || now - dmxStamp > 1000)) {
-    if (system.dmxSend(dmxMap(r, g, b))) dmxLast = [r, g, b];
+  if (system?.dmxSend && ((changed && now - dmxStamp >= 25) || now - dmxStamp > 1000)) {
+    if (system.dmxSend(dmxMap(R, G, B))) dmxLast = [R, G, B];
     dmxStamp = now;
   }
 
-  wipe(r, g, b);
-  const bright = r + g + b > 380;
+  wipe(R, G, B);
+  const bright = R + G + B > 380;
   ink(bright ? 0 : 255, bright ? 0 : 255, bright ? 0 : 255);
   write(score?.name || scoreName, { x: 8, y: 8, size: 1 });
   if (state === "done") {
@@ -147,7 +209,7 @@ function paint({ wipe, ink, write, screen, system }) {
   }
 }
 
-function act({ event: e, system, sound }) {
+function act({ event: e, system }) {
   if (e.is("keyboard:down:escape")) system?.jump?.("prompt");
   if (e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
     if (state === "done") loadScore(system);
