@@ -9,16 +9,18 @@ const { floor, min, max } = Math;
 const DURATION = 60; // ranked run length in seconds
 const KEY_ROWS = [[7, 8, 9], [4, 5, 6], [1, 2, 3], ["", 0, ""]];
 
-// Rank titles by problems solved in 60 seconds, strongest first.
+// The ladder IS the difficulty curve: the rank you hold mid-run decides the
+// problem ranges — you go through the ranks to earn the complexity.
+// kinds: 2 = add/sub only, 3 = +multiply, 4 = +divide. Strongest first.
 const RANKS = [
-  [45, "oracle", [255, 215, 60]],
-  [36, "wizard", [200, 120, 255]],
-  [28, "mathlete", [90, 220, 255]],
-  [20, "computer", [80, 255, 160]],
-  [14, "calculator", [120, 200, 255]],
-  [9, "reckoner", [255, 170, 80]],
-  [5, "adder", [255, 130, 130]],
-  [0, "counter", [180, 180, 200]],
+  { at: 50, title: "oracle", color: [255, 215, 60], add: [2, 100], mulA: [2, 12], mulB: [2, 100], kinds: 4 },
+  { at: 40, title: "wizard", color: [200, 120, 255], add: [2, 100], mulA: [2, 12], mulB: [2, 100], kinds: 4 },
+  { at: 31, title: "mathlete", color: [90, 220, 255], add: [2, 100], mulA: [2, 12], mulB: [2, 100], kinds: 4 },
+  { at: 23, title: "computer", color: [80, 255, 160], add: [2, 100], mulA: [2, 12], mulB: [2, 100], kinds: 4 },
+  { at: 16, title: "calculator", color: [120, 200, 255], add: [2, 100], mulA: [2, 9], mulB: [2, 25], kinds: 4 },
+  { at: 11, title: "reckoner", color: [255, 170, 80], add: [2, 50], mulA: [2, 6], mulB: [2, 12], kinds: 4 },
+  { at: 6, title: "adder", color: [255, 130, 130], add: [2, 20], mulA: [2, 5], mulB: [2, 9], kinds: 3 },
+  { at: 0, title: "counter", color: [180, 180, 200], add: [2, 9], mulA: [2, 5], mulB: [2, 5], kinds: 2 },
 ];
 
 const TITLE_COLORS = [
@@ -32,42 +34,72 @@ let problem, entry, dirty;
 let solved, streak, bestStreak;
 let countStart, startMs, remaining, lastTickSecond;
 let flash, shake, keyFlash, overTimer, frames;
+let ghost, rankUp; // fading solve notation; mid-run rank-up banner
 let best, improved;
 let playerHandle, authorizeFn, storeRef, numRef;
 let leaderboard, leaderboardStatus, leaderboardRank, lastSubmittedKey;
 let generation = 0;
 
 function rankFor(score) {
-  return RANKS.find(([m]) => score >= m);
+  return RANKS.find((r) => score >= r.at);
+}
+
+// One line of working — the mental route (round-and-correct, left-to-right,
+// distributive splits). Shown when you slip; echoed after every solve.
+function makeHint(kind, a, b) {
+  if (kind === 0) {
+    const ones = b % 10, tens = b - ones;
+    if (ones >= 8) return `${a}+${tens + 10}=${a + tens + 10}  -${10 - ones}  ${a + b}`;
+    if (tens === 0 || ones === 0) return `${a}+${b}=${a + b}`;
+    return `${a}+${tens}=${a + tens}  +${ones}  ${a + b}`;
+  }
+  if (kind === 1) {
+    const c = a + b, ones = a % 10, tens = a - ones;
+    if (ones >= 8) return `${c}-${tens + 10}=${c - tens - 10}  +${10 - ones}  ${b}`;
+    if (tens === 0 || ones === 0) return `${c}-${a}=${b}`;
+    return `${c}-${tens}=${c - tens}  -${ones}  ${b}`;
+  }
+  if (kind === 2) {
+    const ones = b % 10, tens = b - ones;
+    if (tens === 0 || ones === 0) return `${a}x${b}=${a * b}`;
+    return `${a}x${tens}=${a * tens}  +${a}x${ones}=${a * ones}  ${a * b}`;
+  }
+  const c = a * b, ones = b % 10, tens = b - ones;
+  if (tens === 0 || ones === 0) return `${c}/${a}=${b}`;
+  return `${c}=${a}x${tens}+${a}x${ones}  ${tens}+${ones}=${b}`;
 }
 
 function makeProblem() {
-  const kind = numRef.randInt(3);
+  const rank = rankFor(solved);
+  const kind = numRef.randInt(rank.kinds - 1);
   let a, b;
   if (kind <= 1) {
-    a = numRef.randIntRange(2, 100);
-    b = numRef.randIntRange(2, 100);
+    a = numRef.randIntRange(...rank.add);
+    b = numRef.randIntRange(...rank.add);
   } else {
-    a = numRef.randIntRange(2, 12);
-    b = numRef.randIntRange(2, 100);
+    a = numRef.randIntRange(...rank.mulA);
+    b = numRef.randIntRange(...rank.mulB);
   }
-  if (kind === 0) return { text: `${a} + ${b}`, answer: String(a + b) };
-  if (kind === 1) return { text: `${a + b} - ${a}`, answer: String(b) };
-  if (kind === 2) return { text: `${a} x ${b}`, answer: String(a * b) };
-  return { text: `${a * b} / ${a}`, answer: String(b) };
+  const hint = makeHint(kind, a, b);
+  if (kind === 0) return { text: `${a} + ${b}`, answer: String(a + b), hint };
+  if (kind === 1) return { text: `${a + b} - ${a}`, answer: String(b), hint };
+  if (kind === 2) return { text: `${a} x ${b}`, answer: String(a * b), hint };
+  return { text: `${a * b} / ${a}`, answer: String(b), hint };
 }
 
 function resetRun() {
+  solved = 0; // before makeProblem — the opening rank picks the ranges
+  streak = 0;
+  bestStreak = 0;
   problem = makeProblem();
   entry = "";
   dirty = false;
-  solved = 0;
-  streak = 0;
-  bestStreak = 0;
   remaining = duration;
   lastTickSecond = null;
   flash = 0;
   shake = 0;
+  ghost = null;
+  rankUp = null;
   improved = false;
   leaderboardRank = null;
   leaderboardStatus = "";
@@ -194,14 +226,22 @@ function pressDigit(d, sound) {
   entry = next;
   keyFlash = { value: d, frames: 6 };
   if (entry === problem.answer) {
+    const rankBefore = rankFor(solved);
     solved += 1;
+    const rankAfter = rankFor(solved);
     streak = dirty ? 1 : streak + 1;
     bestStreak = max(bestStreak, streak);
     flash = 8;
+    ghost = { text: problem.hint, frames: 100 };
     const tone = 660 * Math.pow(2, min(streak, 12) / 12);
     sound.synth({ type: "triangle", tone, attack: 0, decay: 0.09, duration: 0.09, volume: 0.3 });
     if (streak > 0 && streak % 5 === 0) {
       sound.synth({ type: "triangle", tone: tone * 2, attack: 0.05, decay: 0.12, duration: 0.12, volume: 0.2 });
+    }
+    if (rankAfter !== rankBefore) {
+      rankUp = { title: rankAfter.title, color: rankAfter.color, frames: 120 };
+      sound.synth({ type: "triangle", tone: 880, attack: 0, decay: 0.15, duration: 0.15, volume: 0.3 });
+      sound.synth({ type: "triangle", tone: 1320, attack: 0.08, decay: 0.2, duration: 0.2, volume: 0.25 });
     }
     problem = makeProblem();
     entry = "";
@@ -230,6 +270,8 @@ function sim({ sound }) {
   flash = max(0, flash - 1);
   shake = max(0, shake - 1);
   if (keyFlash && --keyFlash.frames <= 0) keyFlash = null;
+  if (ghost && --ghost.frames <= 0) ghost = null;
+  if (rankUp && --rankUp.frames <= 0) rankUp = null;
   if (state === "over") overTimer += 1;
 
   if (state === "count") {
@@ -300,8 +342,8 @@ function paint({ wipe, ink, screen }) {
     ink(200, 200, 230).write(`${duration} seconds of mental math`, { x: cx, y: floor(sh * 0.3), center: "x" });
     ink(140, 140, 180).write("type the answer - it advances itself", { x: cx, y: floor(sh * 0.3) + 12, center: "x" });
     if (best > 0) {
-      const [, title, color] = rankFor(best);
-      ink(...color).write(`your best ${best} - ${title}`, { x: cx, y: floor(sh * 0.3) + 28, center: "x" });
+      const r = rankFor(best);
+      ink(...r.color).write(`your best ${best} - ${r.title}`, { x: cx, y: floor(sh * 0.3) + 28, center: "x" });
     }
     if (leaderboard.length) {
       ink(120, 120, 170).write("world ranks", { x: cx, y: floor(sh * 0.48), center: "x" });
@@ -332,6 +374,10 @@ function paint({ wipe, ink, screen }) {
     const barColor = frac > 0.5 ? [80, 220, 130] : frac > 0.15 ? [255, 200, 60] : [255, 80, 70];
     ink(...barColor).box(0, 0, barW, 3);
     ink(255, 255, 255, 220).write(String(solved), { x: 5, y: 7 });
+    if (state === "play") {
+      const liveRank = rankFor(solved);
+      ink(...liveRank.color, 210).write(liveRank.title, { x: 5, y: 19 });
+    }
     if (streak >= 2) ink(255, 215, 60).write(`streak ${streak}`, { x: sw - 5 - `streak ${streak}`.length * 6, y: 7 });
   }
 
@@ -345,6 +391,18 @@ function paint({ wipe, ink, screen }) {
     const entryColor = shake > 0 ? [255, 90, 70] : [120, 220, 255];
     const caret = frames % 60 < 36 ? "_" : " ";
     ink(...entryColor).write(entry + caret, { x: cx, y: entryY, center: "x", size });
+
+    // The working: amber while you're off the route, green echo after a solve.
+    const hintY = min(entryY + 10 * size + 8, padTop - 14);
+    if (dirty) {
+      ink(255, 200, 120, 220).write(problem.hint, { x: cx, y: hintY, center: "x" });
+    } else if (ghost) {
+      ink(140, 255, 180, min(220, ghost.frames * 4)).write(ghost.text, { x: cx, y: hintY, center: "x" });
+    }
+
+    if (rankUp) {
+      ink(...rankUp.color, min(255, rankUp.frames * 5)).write(`${rankUp.title}!`, { x: cx, y: 30, center: "x", size: 2 });
+    }
   }
 
   if (state === "play") {
@@ -363,9 +421,9 @@ function paint({ wipe, ink, screen }) {
 
   if (state === "over") {
     ink(0, 0, 0, 120).box(0, 0, sw, sh);
-    const [, title, color] = rankFor(solved);
+    const finalRank = rankFor(solved);
     ink(255, 255, 255).write(`${solved} solved`, { x: cx, y: floor(sh * 0.16), center: "x", size: 2 });
-    ink(...color).write(title, { x: cx, y: floor(sh * 0.16) + 22, center: "x", size: 2 });
+    ink(...finalRank.color).write(finalRank.title, { x: cx, y: floor(sh * 0.16) + 22, center: "x", size: 2 });
     let y = floor(sh * 0.16) + 48;
     if (improved) {
       const pulse = 180 + floor(Math.sin(frames / 8) * 70);

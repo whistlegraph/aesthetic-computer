@@ -4252,7 +4252,7 @@ void draw() {
       },
       numrank: {
         sig: "numrank[:seconds]",
-        desc: "60-second mental math sprint: type the answer and it advances itself — build clean streaks, earn a rank title, climb the world leaderboard.",
+        desc: "60-second mental math sprint: type the answer and it advances itself. Problems start tiny and grow as you rank up mid-run — go through the ranks to earn the complexity. Misses show the mental route; so does every solve.",
         colon: [
           { name: "seconds", type: "number", required: false, desc: "custom run length 10-600 (non-60s runs are unranked)" },
         ],
