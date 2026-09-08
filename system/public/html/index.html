@@ -215,6 +215,15 @@
   .ytchip { background: #c00; color: #fff; font: 600 10px var(--sans); padding: 1px 5px;
     border-radius: 3px; margin-left: 6px; text-decoration: none; vertical-align: middle; }
   .ytchip:hover { background: #f22; }
+  /* 🗣️ Pruttivox — @prutti's messages carry a `vox` chip that speaks them in
+     his consented voice clone; the word being spoken lights up lime. Colors
+     mirror the raster sister (disks/chat.mjs voxlink/voxword). */
+  .voxchip { background: #ffaa3c; color: #3a2408; font: 600 10px var(--sans); padding: 1px 5px;
+    border-radius: 3px; margin-left: 6px; cursor: pointer; border: 0; vertical-align: middle; }
+  .voxchip:hover { background: #ffdc78; }
+  .voxchip.loading { background: #ffebb4; }
+  .voxchip.playing { background: #beff50; }
+  .body .lit, .body a.lit { color: #beff50 !important; }
   .body { word-break: break-word; }
   .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
   .heart { color: var(--heart); font-size: 12px; }
@@ -785,6 +794,96 @@ function ago(when) {
   return Math.round(s / 86400) + "d";
 }
 
+// ── 🗣️ Pruttivox ──────────────────────────────────────────────────────────────
+// A `vox` chip on @prutti's messages fetches /api/pruttivox (server verifies
+// authorship, caches mp3 + word timings on the CDN) and speaks the message.
+// Word i in the timing table is displayed token i — whitespace split, with a
+// URL counting as one word (the voice says "link"), matching the raster
+// sister and the server tokenizer. Highlight clocks on audio.currentTime.
+const VOX_HANDLE = "prutti";
+let vox = null; // { id, audio, chip, spans, words, raf }
+
+function voxStop() {
+  if (!vox) return;
+  vox.audio.pause();
+  cancelAnimationFrame(vox.raf);
+  vox.chip.classList.remove("playing", "loading");
+  for (const s of vox.spans) s.classList.remove("lit");
+  vox = null;
+}
+
+// Wrap the body's text into one span per whitespace token, once per row.
+// Token elements (.t-*) are atomic: a URL is one spoken word; a quoted
+// prompt with spaces occupies one slot per word so the whole run lights up.
+function voxWords(body) {
+  if (body._voxSpans) return body._voxSpans;
+  const spans = [];
+  const walk = (node) => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const frag = document.createDocumentFragment();
+        for (const bit of child.textContent.split(/(\s+)/)) {
+          if (!bit) continue;
+          if (/^\s+$/.test(bit)) frag.append(bit);
+          else { const s = span("", bit); spans.push(s); frag.append(s); }
+        }
+        child.replaceWith(frag);
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        if (child.classList.contains("ytchip") || child.classList.contains("voxchip")) continue;
+        const isToken = [...child.classList].some((c) => c.startsWith("t-"));
+        if (!isToken) { walk(child); continue; } // color wrapper — split inside
+        if (child.classList.contains("t-url")) spans.push(child);
+        else {
+          const count = child.textContent.split(/\s+/).filter(Boolean).length || 1;
+          for (let i = 0; i < count; i += 1) spans.push(child);
+        }
+      }
+    }
+  };
+  walk(body);
+  body._voxSpans = spans;
+  return spans;
+}
+
+async function voxToggle(row, chip) {
+  if (vox && vox.id === row.dataset.id) return voxStop();
+  voxStop();
+  chip.classList.add("loading");
+  const my = (vox = { id: row.dataset.id, chip, spans: [], words: [], raf: 0, audio: new Audio() });
+  try {
+    const r = await fetch(`${AC_API}/api/pruttivox?id=${encodeURIComponent(my.id)}`);
+    if (!r.ok) throw new Error(`pruttivox ${r.status}`);
+    const data = await r.json();
+    if (vox !== my) return;
+    my.words = data.words || [];
+    my.spans = voxWords(row.querySelector(".body"));
+    my.audio.src = data.audio;
+    my.audio.onended = () => { if (vox === my) voxStop(); };
+    await my.audio.play();
+    if (vox !== my) { my.audio.pause(); return; }
+    chip.classList.remove("loading");
+    chip.classList.add("playing");
+    const tick = () => {
+      if (vox !== my) return;
+      const t = my.audio.currentTime;
+      let index = -1;
+      for (let i = 0; i < my.words.length; i += 1) {
+        if (t >= my.words[i].s) index = i;
+        else break;
+      }
+      // A multi-word token occupies several slots of the same element, so
+      // resolve to the element first — a plain index toggle would un-light it.
+      const active = index >= 0 ? my.spans[index] : null;
+      for (const s of my.spans) s.classList.toggle("lit", s === active);
+      my.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (err) {
+    console.warn("🗣️ vox failed:", err);
+    if (vox === my) { chip.classList.remove("loading"); vox = null; }
+  }
+}
+
 // ── Rendering ──────────────────────────────────────────────────────────────────
 const seen = new Set();
 function nearBottom() { return $log.scrollHeight - $log.scrollTop - $log.clientHeight < 80; }
@@ -823,6 +922,15 @@ function rowFor(msg) {
     const chip = document.createElement("a");
     chip.className = "ytchip"; chip.textContent = "yt";
     chip.href = msg.link; chip.target = "_blank"; chip.rel = "noopener";
+    body.append(chip);
+  }
+  // 🗣️ @prutti's messages carry a `vox` chip that speaks them aloud.
+  if (msg.id && !msg.deleted &&
+      (msg.from || "").replace(/^@/, "").toLowerCase() === VOX_HANDLE) {
+    const chip = document.createElement("button");
+    chip.className = "voxchip"; chip.textContent = "vox";
+    chip.title = "hør beskeden (syntetisk stemme)";
+    chip.onclick = () => voxToggle(row, chip);
     body.append(chip);
   }
   if (msg.hearts > 0) { const h = span("heart", "♥" + msg.hearts); row.append(h); }

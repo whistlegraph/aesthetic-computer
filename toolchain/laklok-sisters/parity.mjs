@@ -136,6 +136,7 @@ function regexLiteral(src, constName) {
     ["og preview endpoint (/api/og-preview)", "/api/og-preview?url="],
     ["og image proxy (/api/og-image)", "/api/og-image?url="],
     ["painting confirm endpoint (/api/painting-code)", "/api/painting-code?code="],
+    ["pruttivox endpoint (/api/pruttivox)", "/api/pruttivox?id="],
   ]) {
     const a = chatDisk.includes(needle);
     const b = vector.includes(needle);
