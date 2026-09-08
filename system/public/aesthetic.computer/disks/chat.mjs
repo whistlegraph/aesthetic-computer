@@ -264,6 +264,8 @@ let youtubeModalVideoId = null; // Current video in modal
 // being spoken lights up. Word i in the server's timing table is displayed
 // token i, so the highlight is an index lookup, not a text match.
 const VOX_HANDLE = "prutti";
+const VOX_LABEL = "vox";
+const VOX_CHIP_GAP = 4;
 let vox = null; // { messageId, phase: "loading"|"playing", words, tokens,
 //                  prefix, playing, wordIndex, duration, awaitingProgress }
 let voxSimTick = 0;
@@ -328,23 +330,48 @@ async function voxToggle(message, api) {
   }
 }
 
-// The active word as a synthetic paint element, or null.
-function voxWordElementFor(message) {
+// The word being spoken, as synthetic paint elements — one per wrapped line
+// it touches. The offsets come back in the space the paint loop counts in
+// (accumulated line lengths), which drifts from source offsets as soon as a
+// message carries a hard newline: `text.box` consumes those without emitting
+// a character. `tb.charMap` is the honest map from column back to source.
+function voxWordElementsFor(message) {
   if (
     !vox ||
     vox.phase !== "playing" ||
     vox.messageId !== message.id ||
     vox.wordIndex < 0
   ) {
-    return null;
+    return [];
   }
   const token = vox.tokens?.[vox.wordIndex];
-  if (!token) return null;
-  return {
-    type: "voxword",
-    start: token.start + vox.prefix,
-    end: token.end + vox.prefix,
-  };
+  const tb = message.tb;
+  if (!token || !tb?.charMap) return [];
+  const from = token.start + vox.prefix;
+  const to = token.end + vox.prefix;
+  // A word living inside a parsed element (a spoken URL, say) keeps that
+  // element's color — two color splices over one range corrupt the line.
+  const parsed = message._parsedElements || [];
+  if (parsed.some((el) => el.start < to && el.end > from)) return [];
+
+  const spans = [];
+  let acc = 0;
+  for (let line = 0; line < tb.lines.length; line += 1) {
+    const map = tb.charMap[line] || [];
+    let first = -1;
+    let last = -1;
+    for (let col = 0; col < map.length; col += 1) {
+      if (map[col] >= from && map[col] < to) {
+        if (first < 0) first = col;
+        last = col + 1;
+      }
+    }
+    if (first >= 0) {
+      spans.push({ type: "voxword", start: acc + first, end: acc + last });
+    }
+    acc += tb.lines[line].length;
+  }
+  return spans;
 }
 let domApi = null; // Store dom API reference for modal
 let jumpApi = null; // Store jump reference for iOS external-link fallback
@@ -1286,10 +1313,10 @@ function paint(
     let hoverKey = "";
     for (const h of hoveredElements) hoverKey += h.start + ":" + h.end + ",";
 
-    // 🗣️ Vox playback recolors this message (chip state + karaoke word), so
-    // its phase and word index join the cache key — the cache rebuilds as
-    // the spoken word advances and again when playback ends.
-    const voxWordEl = voxWordElementFor(message);
+    // 🗣️ Vox playback recolors this message (karaoke word), so its phase and
+    // word index join the cache key — the cache rebuilds as the spoken word
+    // advances and again when playback ends.
+    const voxWordEls = voxWordElementsFor(message);
     if (vox && vox.messageId === message.id) {
       hoverKey += "vox:" + vox.phase + ":" + vox.wordIndex + ",";
     }
@@ -1336,18 +1363,9 @@ function paint(
     // Cache color-coded + shadow lines per message (invalidated by hover state)
     const needsRebuild = !message._colorLineCache || message._colorLineHoverKey !== hoverKey;
     if (needsRebuild) {
-      // The karaoke word joins the element list unless it overlaps a parsed
-      // element (a spoken URL, say) — two splices on one range corrupt the
-      // line, so the link keeps its color and the highlight skips that word.
-      let paintElements = parsedElements;
-      if (
-        voxWordEl &&
-        !parsedElements.some(
-          (el) => el.start < voxWordEl.end && el.end > voxWordEl.start,
-        )
-      ) {
-        paintElements = parsedElements.concat(voxWordEl);
-      }
+      const paintElements = voxWordEls.length
+        ? parsedElements.concat(voxWordEls)
+        : parsedElements;
       const cachedLines = [];
       let tempCharPos = charPos;
       const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
@@ -1414,12 +1432,6 @@ function paint(
               }
             } else if (element.type === "ytlink") {
               color = isHovered ? [255, 130, 130] : [255, 70, 70]; // YouTube red chip
-            } else if (element.type === "voxlink") {
-              // 🗣️ Amber at rest, pale while the render loads, lime while speaking.
-              const voxActive = vox && vox.messageId === message.id;
-              if (voxActive && vox.phase === "loading") color = [255, 235, 180];
-              else if (voxActive) color = [190, 255, 80];
-              else color = isHovered ? [255, 220, 120] : [255, 170, 60];
             } else if (element.type === "voxword") {
               color = [190, 255, 80]; // The word being spoken right now.
             } else if (element.type === "email") {
@@ -1590,6 +1602,30 @@ function paint(
       ink(...tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     } else {
       ink(tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+    }
+
+    // 🗣️ Vox chip after the timestamp — small caps in MatrixChunky8, and a
+    // trailing chip like the timestamp rather than characters inside the
+    // message, so wrapping (and the offset drift a hard newline causes) can
+    // never move it out from under the tap. Amber at rest, pale while the
+    // render loads, lime while speaking.
+    if (layout.vox) {
+      const voxX = tsX + timestampWidth + VOX_CHIP_GAP;
+      layout.vox.x = voxX - x; // Stored relative, like `timestamp.x`.
+      layout.vox.y = timestampY; // Absolute, matching what we draw.
+      const active = vox && vox.messageId === message.id;
+      let voxColor;
+      if (active && vox.phase === "loading") voxColor = [255, 235, 180];
+      else if (active) voxColor = [190, 255, 80];
+      else voxColor = layout.vox.over ? [255, 220, 120] : [255, 170, 60];
+      ink(...voxColor).write(
+        VOX_LABEL,
+        { x: voxX, y: timestampY },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
     }
 
     lastAgo = ago;
@@ -3451,6 +3487,19 @@ function act(
         ) {
           message.layout.inBox = true;
 
+          // 🗣️ `vox` chip hover — checked before the timestamp, since the
+          // chip sits just past it on the same row.
+          const voxBox = message.layout.vox;
+          if (voxBox) {
+            const voxStartX = message.layout.x + voxBox.x;
+            voxBox.over =
+              e.x > voxStartX &&
+              e.x < voxStartX + voxBox.width &&
+              e.y > voxBox.y &&
+              e.y < voxBox.y + voxBox.height;
+            if (voxBox.over) break;
+          }
+
           // 📆 `timestamp` hover and activate.
           const timestamp = message.layout.timestamp;
           const startX = message.layout.x + timestamp.x;
@@ -3628,7 +3677,26 @@ function act(
           // Calculate click position relative to message
           const relativeX = e.x - message.layout.x;
           const relativeY = e.y - message.layout.y;
-          
+
+          // 🗣️ Speak this message in prutti's voice (tap again to stop). The
+          // chip owns a box outside the text, so it stays tappable however
+          // the message wraps.
+          const voxBox = message.layout.vox;
+          if (voxBox) {
+            const voxStartX = message.layout.x + voxBox.x;
+            if (
+              e.x > voxStartX - 2 &&
+              e.x < voxStartX + voxBox.width + 2 &&
+              e.y > voxBox.y - 2 &&
+              e.y < voxBox.y + voxBox.height + 2
+            ) {
+              beep();
+              voxToggle(message, api);
+              clickedInteractiveElement = true;
+              continue; // Next message; this one is handled.
+            }
+          }
+
           // Check each interactive element for hit detection
           for (const element of parsedElements) {
             // Calculate the position of this element in the rendered text
@@ -3774,11 +3842,6 @@ function act(
                   description: "Open in browser",
                   action: () => jump("out:" + element.text)
                 };
-                break;
-              } else if (element.type === "voxlink") {
-                beep();
-                // 🗣️ Speak this message in prutti's voice (tap again to stop).
-                voxToggle(message, api);
                 break;
               } else if (element.type === "painting") {
                 beep();
@@ -4101,6 +4164,18 @@ function act(
             }
           }
           
+          // 🗣️ Check vox chip hover (a button, so it takes the pointer).
+          const voxBox = message.layout.vox;
+          if (voxBox) {
+            const voxStartX = message.layout.x + voxBox.x;
+            voxBox.over =
+              e.x > voxStartX &&
+              e.x < voxStartX + voxBox.width &&
+              e.y > voxBox.y &&
+              e.y < voxBox.y + voxBox.height;
+            if (voxBox.over) hoveredAnyElement = true;
+          }
+
           // Check timestamp hover
           const timestamp = message.layout.timestamp;
           const startX = message.layout.x + timestamp.x;
@@ -4215,9 +4290,12 @@ function act(
           if (message.layout.timestamp) {
             message.layout.timestamp.over = false;
           }
+          if (message.layout.vox) {
+            message.layout.vox.over = false;
+          }
         }
       }
-      
+
       // Change cursor to pointer when hovering over interactive elements
       if (hoveredAnyElement || handleBtn.over || inputBtn.over) {
         send({ type: "cursor", cursor: "pointer" });
@@ -5180,11 +5258,8 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // broadcast's popout live chat (message.link, sent by the bridge).
     const ytSuffix = message.via === "youtube" ? "  yt" : "";
 
-    // 🗣️ @prutti's messages carry a "vox" chip that speaks them aloud.
-    const voxSuffix = voxable(message) ? "  vox" : "";
-
     // Use plain handle for layout (colors applied during rendering)
-    const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix + voxSuffix;
+    const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix;
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },
@@ -5199,19 +5274,11 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // AI assistant messages are markdown, not AC chat syntax — skip painting/handle parsing
     message._parsedElements = message.from === "aa" ? [] : parseMessageElements(fullMessage);
     if (ytSuffix) {
-      const ytEnd = fullMessage.length - voxSuffix.length;
       message._parsedElements.push({
         type: "ytlink",
-        start: ytEnd - 2,
-        end: ytEnd,
-        text: message.link || "https://www.youtube.com/@aesthetic.computer/streams",
-      });
-    }
-    if (voxSuffix) {
-      message._parsedElements.push({
-        type: "voxlink",
-        start: fullMessage.length - 3,
+        start: fullMessage.length - 2,
         end: fullMessage.length,
+        text: message.link || "https://www.youtube.com/@aesthetic.computer/streams",
       });
     }
     // Add height for all lines in the message
@@ -5366,6 +5433,17 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       height: 8, // MatrixChunky8 height
       width: text.width(timeAgo(msg.when), "MatrixChunky8"),
     };
+    // 🗣️ The vox chip rides just past the timestamp; paint refines `x`/`y`
+    // from the widths it actually renders (hearts shift the whole tail).
+    const voxChip = voxable(msg)
+      ? {
+          x: timestamp.x + timestamp.width + VOX_CHIP_GAP,
+          y: timestamp.y,
+          width: text.width(VOX_LABEL, "MatrixChunky8"),
+          height: 8,
+          over: msg.lastLayout?.vox?.over || false,
+        }
+      : undefined;
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];
     
     // Calculate box dimensions based on per-message rowHeight
@@ -5379,6 +5457,7 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       width: msg.tb.box.width,
       height: boxHeight, // Use our calculated height instead of tb.box.height
       timestamp,
+      vox: voxChip,
       timestampColor,
       msgColor,
       inBox,
