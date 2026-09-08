@@ -4376,14 +4376,19 @@ function sim({ api, num, send, net, store }) {
   // stack a second request on an unanswered one.
   voxSimTick += 1;
   if (vox) api.needsPaint?.(); // Chip + karaoke tints animate while active.
+  // A progress ask sent before BIOS registers the playing sample is
+  // silently dropped and its promise never resolves — so a pending ask
+  // expires after 500ms instead of locking the karaoke out forever.
+  const voxNow = Date.now();
   if (
     vox?.phase === "playing" &&
     vox.playing &&
-    !vox.awaitingProgress &&
-    voxSimTick % 5 === 0
+    voxSimTick % 5 === 0 &&
+    (!vox.awaitingProgress || voxNow - vox.progressAskedAt > 500)
   ) {
     const my = vox;
     my.awaitingProgress = true;
+    my.progressAskedAt = voxNow;
     my.playing
       .progress()
       .then((p) => {
