@@ -319,8 +319,9 @@ async function voxToggle(message, api) {
         if (vox === my) vox = null;
       },
     });
+    my.startedAt = performance.now();
     my.phase = "playing";
-    console.log("🗣️ Vox playing:", message.id, my.words.length, "words, sfx:", String(sfx).slice(0, 60));
+    console.log("🗣️ Vox playing:", message.id, my.words.length, "words");
   } catch (err) {
     console.warn("🗣️ Vox failed:", err);
     if (vox === my) vox = null;
@@ -4377,40 +4378,22 @@ function sim({ api, num, send, net, store }) {
   // stack a second request on an unanswered one.
   voxSimTick += 1;
   if (vox) api.needsPaint?.(); // Chip + karaoke tints animate while active.
-  // A progress ask sent before BIOS registers the playing sample is
-  // silently dropped and its promise never resolves — so a pending ask
-  // expires after 500ms instead of locking the karaoke out forever.
-  const voxNow = Date.now();
-  if (
-    vox?.phase === "playing" &&
-    vox.playing &&
-    voxSimTick % 5 === 0 &&
-    (!vox.awaitingProgress || voxNow - vox.progressAskedAt > 500)
-  ) {
-    const my = vox;
-    my.awaitingProgress = true;
-    my.progressAskedAt = voxNow;
-    my.playing
-      .progress()
-      .then((p) => {
-        console.log("🗣️ Vox progress:", JSON.stringify(p));
-        if (vox !== my) return;
-        my.awaitingProgress = false;
-        if (my.playing.killed || (p?.progress ?? 0) >= 0.999) {
-          vox = null; // Finished — the cache key change clears the tints.
-          return;
-        }
-        const t = (p?.progress || 0) * (p?.duration || my.duration || 0);
-        let index = -1;
-        for (let i = 0; i < my.words.length; i += 1) {
-          if (t >= my.words[i].s) index = i;
-          else break;
-        }
-        my.wordIndex = index;
-      })
-      .catch(() => {
-        if (vox === my) my.awaitingProgress = false;
-      });
+  // The karaoke clocks on wall time from play start — the sfx progress API
+  // never answers (it fails for the stock `sfx` piece too), and for short
+  // clips at speed 1.0 the word timestamps need no correction. The kill
+  // callback clears at the exact audio end; the wall clock is the backstop.
+  if (vox?.phase === "playing") {
+    const t = (performance.now() - vox.startedAt) / 1000;
+    if (t > (vox.duration || 0) + 1.5) {
+      vox = null;
+    } else {
+      let index = -1;
+      for (let i = 0; i < vox.words.length; i += 1) {
+        if (t >= vox.words[i].s) index = i;
+        else break;
+      }
+      vox.wordIndex = index;
+    }
   }
 
   // ✏️ Closing the composer without submitting cancels a pending re-edit.
