@@ -257,6 +257,93 @@ let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
 let youtubeLoadQueue = new Set(); // Track which videos are being loaded
 let youtubeModalOpen = false; // Track if YouTube modal is open
 let youtubeModalVideoId = null; // Current video in modal
+
+// 🗣️ Pruttivox — a "vox" chip on @prutti's messages speaks them in his
+// consented voice clone (server: /api/pruttivox, gates in
+// marketing/klokkentales/SCORE.md). One message plays at a time; the word
+// being spoken lights up. Word i in the server's timing table is displayed
+// token i, so the highlight is an index lookup, not a text match.
+const VOX_HANDLE = "prutti";
+let vox = null; // { messageId, phase: "loading"|"playing", words, tokens,
+//                  prefix, playing, wordIndex, duration, awaitingProgress }
+let voxSimTick = 0;
+
+function voxable(message) {
+  return (
+    !message.deleted &&
+    message.id &&
+    (message.from || "").replace(/^@/, "").toLowerCase() === VOX_HANDLE
+  );
+}
+
+// Whitespace tokens with char offsets — same split as the server tokenizer.
+function voxTokenize(text) {
+  const tokens = [];
+  const re = /\S+/g;
+  let m;
+  while ((m = re.exec(text))) {
+    tokens.push({ start: m.index, end: m.index + m[0].length });
+  }
+  return tokens;
+}
+
+function voxStop() {
+  vox?.playing?.kill?.(0.05);
+  vox = null;
+}
+
+async function voxToggle(message, api) {
+  if (vox && vox.messageId === message.id) {
+    voxStop();
+    return;
+  }
+  voxStop();
+  const my = (vox = {
+    messageId: message.id,
+    phase: "loading",
+    wordIndex: -1,
+    prefix: (message.from || "").length + 1, // fullMessage = from + " " + text
+  });
+  try {
+    const res = await fetch(`/api/pruttivox?id=${encodeURIComponent(message.id)}`);
+    if (!res.ok) throw new Error(`pruttivox ${res.status}`);
+    const data = await res.json();
+    if (vox !== my) return; // Superseded while loading.
+    my.words = data.words || [];
+    my.tokens = voxTokenize(message.text);
+    my.duration = data.duration || 0;
+    const sfx = await api.net.preload(data.audio);
+    if (vox !== my) return;
+    my.playing = api.sound.play(sfx, undefined, {
+      kill: () => {
+        if (vox === my) vox = null;
+      },
+    });
+    my.phase = "playing";
+  } catch (err) {
+    console.warn("🗣️ Vox failed:", err);
+    if (vox === my) vox = null;
+  }
+}
+
+// The active word as a synthetic paint element, or null.
+function voxWordElementFor(message) {
+  if (
+    !vox ||
+    vox.phase !== "playing" ||
+    vox.messageId !== message.id ||
+    vox.wordIndex < 0
+  ) {
+    return null;
+  }
+  const token = vox.tokens?.[vox.wordIndex];
+  if (!token) return null;
+  return {
+    type: "voxword",
+    start: token.start + vox.prefix,
+    end: token.end + vox.prefix,
+  };
+}
 let domApi = null; // Store dom API reference for modal
 let jumpApi = null; // Store jump reference for iOS external-link fallback
 let sendApi = null; // Store send reference (used by receive() for tape callbacks)
@@ -1197,6 +1284,14 @@ function paint(
     let hoverKey = "";
     for (const h of hoveredElements) hoverKey += h.start + ":" + h.end + ",";
 
+    // 🗣️ Vox playback recolors this message (chip state + karaoke word), so
+    // its phase and word index join the cache key — the cache rebuilds as
+    // the spoken word advances and again when playback ends.
+    const voxWordEl = voxWordElementFor(message);
+    if (vox && vox.messageId === message.id) {
+      hoverKey += "vox:" + vox.phase + ":" + vox.wordIndex + ",";
+    }
+
     let charPos = 0; // Track position in the full message
     let lastLineRenderedWidthForThisMessage = 0; // Track actual rendered width of last line for THIS message
 
@@ -1239,6 +1334,18 @@ function paint(
     // Cache color-coded + shadow lines per message (invalidated by hover state)
     const needsRebuild = !message._colorLineCache || message._colorLineHoverKey !== hoverKey;
     if (needsRebuild) {
+      // The karaoke word joins the element list unless it overlaps a parsed
+      // element (a spoken URL, say) — two splices on one range corrupt the
+      // line, so the link keeps its color and the highlight skips that word.
+      let paintElements = parsedElements;
+      if (
+        voxWordEl &&
+        !parsedElements.some(
+          (el) => el.start < voxWordEl.end && el.end > voxWordEl.start,
+        )
+      ) {
+        paintElements = parsedElements.concat(voxWordEl);
+      }
       const cachedLines = [];
       let tempCharPos = charPos;
       const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
@@ -1260,7 +1367,7 @@ function paint(
         let colorCodedLine = lineEscaped;
 
         // Find elements that overlap with this line and apply colors (in reverse order)
-        const lineElements = parsedElements
+        const lineElements = paintElements
           .filter(el => el.start < lineEnd && el.end > lineStart)
           .sort((a, b) => b.start - a.start);
 
@@ -1305,6 +1412,14 @@ function paint(
               }
             } else if (element.type === "ytlink") {
               color = isHovered ? [255, 130, 130] : [255, 70, 70]; // YouTube red chip
+            } else if (element.type === "voxlink") {
+              // 🗣️ Amber at rest, pale while the render loads, lime while speaking.
+              const voxActive = vox && vox.messageId === message.id;
+              if (voxActive && vox.phase === "loading") color = [255, 235, 180];
+              else if (voxActive) color = [190, 255, 80];
+              else color = isHovered ? [255, 220, 120] : [255, 170, 60];
+            } else if (element.type === "voxword") {
+              color = [190, 255, 80]; // The word being spoken right now.
             } else if (element.type === "email") {
               color = isHovered ? theme.emailHover : theme.email;
             } else if (element.type === "url") {
@@ -3658,6 +3773,11 @@ function act(
                   action: () => jump("out:" + element.text)
                 };
                 break;
+              } else if (element.type === "voxlink") {
+                beep();
+                // 🗣️ Speak this message in prutti's voice (tap again to stop).
+                voxToggle(message, api);
+                break;
               } else if (element.type === "painting") {
                 beep();
                 // Show confirmation modal for painting
@@ -4251,6 +4371,41 @@ function act(
 }
 
 function sim({ api, num, send, net, store }) {
+  // 🗣️ Advance the vox karaoke while a message is being spoken. Progress
+  // polls round-trip to BIOS, so sample every few sim ticks and never
+  // stack a second request on an unanswered one.
+  voxSimTick += 1;
+  if (vox) api.needsPaint?.(); // Chip + karaoke tints animate while active.
+  if (
+    vox?.phase === "playing" &&
+    vox.playing &&
+    !vox.awaitingProgress &&
+    voxSimTick % 5 === 0
+  ) {
+    const my = vox;
+    my.awaitingProgress = true;
+    my.playing
+      .progress()
+      .then((p) => {
+        if (vox !== my) return;
+        my.awaitingProgress = false;
+        if (my.playing.killed || (p?.progress ?? 0) >= 0.999) {
+          vox = null; // Finished — the cache key change clears the tints.
+          return;
+        }
+        const t = (p?.progress || 0) * (p?.duration || my.duration || 0);
+        let index = -1;
+        for (let i = 0; i < my.words.length; i += 1) {
+          if (t >= my.words[i].s) index = i;
+          else break;
+        }
+        my.wordIndex = index;
+      })
+      .catch(() => {
+        if (vox === my) my.awaitingProgress = false;
+      });
+  }
+
   // ✏️ Closing the composer without submitting cancels a pending re-edit.
   // `opened` waits out the frames between tapping "edit" and the keyboard
   // actually coming up, so the edit doesn't self-cancel on arrival.
@@ -5035,8 +5190,11 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // broadcast's popout live chat (message.link, sent by the bridge).
     const ytSuffix = message.via === "youtube" ? "  yt" : "";
 
+    // 🗣️ @prutti's messages carry a "vox" chip that speaks them aloud.
+    const voxSuffix = voxable(message) ? "  vox" : "";
+
     // Use plain handle for layout (colors applied during rendering)
-    const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix;
+    const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix + voxSuffix;
     const tb = text.box(
       fullMessage,
       { x: leftMargin, y: 0 },
@@ -5051,11 +5209,19 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     // AI assistant messages are markdown, not AC chat syntax — skip painting/handle parsing
     message._parsedElements = message.from === "aa" ? [] : parseMessageElements(fullMessage);
     if (ytSuffix) {
+      const ytEnd = fullMessage.length - voxSuffix.length;
       message._parsedElements.push({
         type: "ytlink",
-        start: fullMessage.length - 2,
-        end: fullMessage.length,
+        start: ytEnd - 2,
+        end: ytEnd,
         text: message.link || "https://www.youtube.com/@aesthetic.computer/streams",
+      });
+    }
+    if (voxSuffix) {
+      message._parsedElements.push({
+        type: "voxlink",
+        start: fullMessage.length - 3,
+        end: fullMessage.length,
       });
     }
     // Add height for all lines in the message

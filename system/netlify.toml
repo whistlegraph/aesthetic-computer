@@ -401,6 +401,11 @@ included_env_vars = ["CONTEXT", "AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET", "MONG
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
 included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME"]
+[functions.pruttivox]
+# Speak a @prutti chat message in his consented voice clone (word-timed)
+external_node_modules = ["mongodb", "mongodb-connection-string-url"]
+included_files = ["backend/**/*.mjs"]
+included_env_vars = ["MONGODB_CONNECTION_STRING", "MONGODB_NAME", "ART_ENDPOINT", "ART_KEY", "ART_SECRET", "ELEVENLABS_API_KEY", "PRUTTI_ELEVENLABS_VOICE_ID"]
 [functions.metrics]
 external_node_modules = ["mongodb", "mongodb-connection-string-url"]
 included_files = ["backend/**/*.mjs"]
@@ -1935,6 +1940,10 @@ status = 200
 [[redirects]]
 from = "/api/boot-log"
 to = "/.netlify/functions/boot-log"
+status = 200
+[[redirects]]
+from = "/api/pruttivox"
+to = "/.netlify/functions/pruttivox"
 status = 200
 [[redirects]]
 from = "/api/paper-hit"

@@ -69,7 +69,25 @@ node bin/feed.mjs
 # Review first; public release always requires the explicit second command.
 node bin/buzzsprout.mjs summer-so-far-2026 --private
 node bin/buzzsprout.mjs publish summer-so-far-2026
+
+# Pruttivox: one-off read-aloud of a community text in the Prutti IVC.
+node bin/pruttivox.mjs "teksten her" --from @snakes --publish
 ```
+
+## Pruttivox
+
+Community members send a text; Prutti's clone reads it. Every clip ends with a
+spoken "Pruttivox. Syntetisk stemme." tag, and each render logs its text and
+requester to the vault. Listen to the whole clip before sharing. Never render a
+text that has the voice make real-world commitments — payments, meetings,
+endorsements, claims about other people; the clone reads performances, it does
+not speak for Prutti. Clips are shared in the clock channel where Prutti
+participates and can veto any clip.
+
+The chat lane (`/api/pruttivox` + the "vox" chip in chat/laklok) reads only
+messages @prutti himself typed — the text comes from the database by message
+id, never from the caller — and caches each render on the CDN with word
+timings for the karaoke highlight.
 
 ## Release gates
 
