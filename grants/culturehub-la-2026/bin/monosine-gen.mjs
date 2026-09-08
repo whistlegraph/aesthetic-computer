@@ -40,12 +40,12 @@ for (let pass = 0; pass < 2; pass++)
     tone(r, o, 0.85, 0.5 + pass * 0.06, 0.12);
 movements.push({ ...m, t1: +t.toFixed(3), level: 1 });
 
-m = door("IV · Climb", "two octaves of light");
+m = door("IV · Overhead", "the tone rises above you");
 for (const [r, o] of [[R.u, 0], [R.P5, 0], [R.u, 1], [R.M3, 1], [R.P5, 1], [R.u, 2]])
   tone(r, o, 1.3, 0.44 + 0.03 * (o + 1), 0.2);
 movements.push({ ...m, t1: +t.toFixed(3), level: 0.8 });
 
-m = door("V · Settle", "the way home");
+m = door("V · Underfoot", "and sinks below");
 for (const [r, o] of [[R.P5, 1], [R.u, 1], [R.M6, 0], [R.P5, 0], [R.M3, 0]])
   tone(r, o, 1.8, 0.38, 0.35);
 movements.push({ ...m, t1: +t.toFixed(3), level: 0.55 });
@@ -62,19 +62,39 @@ const N = 256;
 const speedAt = (τ) => {
   const inM = (k) => τ >= movements[k].t0 && τ < movements[k].t1;
   if (inM(0)) return 0;
-  if (inM(1)) return 0.35;
-  if (inM(2)) { const u = (τ - movements[2].t0) / (movements[2].t1 - movements[2].t0); return 0.6 + 0.5 * Math.sin(Math.PI * u); }
-  if (inM(3)) return 0.5;
-  if (inM(4)) { const u = (τ - movements[4].t0) / (movements[4].t1 - movements[4].t0); return 0.4 * (1 - u); }
+  if (inM(1)) return 0.55;
+  if (inM(2)) { const u = (τ - movements[2].t0) / (movements[2].t1 - movements[2].t0); return 1.0 + 0.9 * Math.sin(Math.PI * u); }
+  if (inM(3)) return 0.45;
+  if (inM(4)) { const u = (τ - movements[4].t0) / (movements[4].t1 - movements[4].t0); return 0.45 * (1 - u); }
   return 0;
 };
 const rotation = Array.from({ length: N }, (_, i) => +speedAt((i / (N - 1)) * dur).toFixed(4));
+
+// elevation ribbon: -1 = underfoot, 0 = ear level, +1 = straight overhead.
+// The binaural baker turns this into pinna-comb notches, so IV and V are
+// the above/below test the same way III is the left/right one.
+const elevAt = (τ) => {
+  const u = (k) => (τ - movements[k].t0) / (movements[k].t1 - movements[k].t0);
+  const inM = (k) => τ >= movements[k].t0 && τ < movements[k].t1;
+  if (inM(3)) return Math.sin(Math.PI * u(3)) * 0.95;        // arcs overhead
+  if (inM(4)) return -Math.sin(Math.PI * u(4)) * 0.85;       // dips underfoot
+  if (inM(5)) return 0;
+  return 0;
+};
+const elevation = Array.from({ length: N }, (_, i) => +elevAt((i / (N - 1)) * dur).toFixed(4));
+
+// distance ribbon: the emitter leans in close through the spin, so the
+// orbit reads as a fly-by rather than a distant carousel.
+const distAt = (τ) => (τ >= movements[2].t0 && τ < movements[2].t1 ? 0.12 : 0.3);
+const distance = Array.from({ length: N }, (_, i) => +distAt((i / (N - 1)) * dur).toFixed(4));
 
 const score = {
   name: "monosine",
   dur,
   movements,
   rotation,
+  elevation,
+  distance,
   lanes: [{ name: "sine", color: [179, 64, 46], events }], // graphic-score red
 };
 

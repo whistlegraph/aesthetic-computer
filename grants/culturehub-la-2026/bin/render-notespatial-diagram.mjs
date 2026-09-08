@@ -123,11 +123,19 @@ function spinRate(t) {
   return (S.lanes.length > 1 ? 0.15 : 0) + env * Math.PI;
 }
 const voiceAngle = (i) => (i / S.lanes.length) * Math.PI * 2;
+// the elevation ribbon the baker turns into pinna notches, read here as
+// literal height: overhead voices ride up, underfoot ones drop below.
+function elevationAt(t) {
+  const e = S.elevation;
+  if (!e) return 0;
+  return e[Math.max(0, Math.min(e.length - 1, Math.round((t / S.dur) * (e.length - 1))))] || 0;
+}
 function voicePos(i, t) {
   const g = globeState(t);
   const a = voiceAngle(i) + spinAngle;
-  const ringR = RING * g.r * g.scale;
-  const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.34;
+  const el = elevationAt(t);
+  const ringR = RING * g.r * g.scale * Math.cos(el * Math.PI / 2 * 0.8);
+  const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.34 + el * 2.3;
   return [Math.cos(a) * ringR, y, Math.sin(a) * ringR];
 }
 
@@ -227,8 +235,36 @@ function rigSprite(p2, color, active) {
   ctx.restore();
 }
 
+// The listener's ears carry the live stereo image: each one blends the
+// voices currently panned to its side, by the SAME law the audio baker
+// uses (pan = sin(angle) — see nsscore-bake-audio.mjs), so the picture
+// tells you what your headphones should be doing. L and R are labeled
+// from the listener's own head, not the page.
+function earMix() {
+  const out = { l: [0, 0, 0, 0], r: [0, 0, 0, 0] };
+  for (let i = 0; i < S.lanes.length; i++) {
+    if (glow[i] < 0.02) continue;
+    const pan = Math.sin(voiceAngle(i) + spinAngle);
+    const wr = (pan + 1) / 2, wl = 1 - wr;
+    const c = S.lanes[i].color;
+    for (const [side, w] of [["l", wl], ["r", wr]]) {
+      const k = glow[i] * w;
+      out[side][0] += c[0] * k; out[side][1] += c[1] * k;
+      out[side][2] += c[2] * k; out[side][3] += k;
+    }
+  }
+  for (const side of ["l", "r"]) {
+    const a = out[side][3];
+    out[side] = a > 0.001
+      ? [Math.round(out[side][0] / a), Math.round(out[side][1] / a), Math.round(out[side][2] / a), Math.min(1, a)]
+      : [30, 30, 30, 0];
+  }
+  return out;
+}
+
 function palSprite(p2, t) {
   const u = Math.max(14, 46 * p2.s / 140);
+  const mix = earMix();
   ctx.save();
   ctx.translate(p2.x, p2.y + Math.sin(t * 1.6) * u * 0.04);
   ctx.strokeStyle = ink(0.85);
@@ -237,9 +273,23 @@ function palSprite(p2, t) {
   // round body, bigger round head — paper pal
   ctx.beginPath(); ctx.ellipse(0, -u * 0.34, u * 0.62, u * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.arc(0, -u * 1.28, u * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // ears — this pal is all listening
-  ctx.beginPath(); ctx.arc(-u * 0.62, -u * 1.32, u * 0.16, Math.PI * 0.4, Math.PI * 1.6); ctx.stroke();
-  ctx.beginPath(); ctx.arc(u * 0.62, -u * 1.32, u * 0.16, -Math.PI * 0.6, Math.PI * 0.6); ctx.stroke();
+  // ears — filled with what each one is hearing, ringed in ink
+  for (const [side, sx] of [["l", -1], ["r", 1]]) {
+    const [er, eg, eb, ea] = mix[side];
+    ctx.beginPath();
+    ctx.arc(sx * u * 0.66, -u * 1.32, u * 0.2, 0, Math.PI * 2);
+    ctx.fillStyle = ea > 0.02 ? rgba([er, eg, eb], 0.25 + ea * 0.75) : CREAM;
+    ctx.fill();
+    ctx.strokeStyle = ink(0.85);
+    ctx.lineWidth = Math.max(1.2, u * 0.055);
+    ctx.stroke();
+    // the label rides the ear, so L is the listener's left
+    ctx.fillStyle = ink(0.8);
+    ctx.font = MONO(Math.max(9, u * 0.3), true);
+    ctx.textAlign = "center";
+    ctx.fillText(side.toUpperCase(), sx * u * 1.12, -u * 1.24);
+    ctx.textAlign = "left";
+  }
   // face: dot eyes + small open-mouth wonder
   ctx.fillStyle = INK;
   ctx.beginPath(); ctx.arc(-u * 0.2, -u * 1.32, u * 0.055, 0, Math.PI * 2); ctx.fill();
@@ -247,6 +297,29 @@ function palSprite(p2, t) {
   ctx.beginPath(); ctx.arc(0, -u * 1.06, u * 0.09, 0, Math.PI * 2);
   ctx.strokeStyle = ink(0.85); ctx.lineWidth = Math.max(1, u * 0.045); ctx.stroke();
   ctx.restore();
+}
+
+// A headphone read-out beside the plan: two bars showing what each ear
+// gets right now — the same mix the pal's ears wear.
+function drawEarMeter(x, y, w) {
+  const mix = earMix();
+  ctx.fillStyle = ink(0.45);
+  ctx.font = MONO(12);
+  ctx.fillText("your headphones", x, y - 8);
+  for (const [i, side] of ["l", "r"].entries()) {
+    const [er, eg, eb, ea] = mix[side];
+    const by = y + i * 18;
+    ctx.fillStyle = ink(0.7);
+    ctx.font = MONO(12, true);
+    ctx.fillText(side.toUpperCase(), x, by + 10);
+    ctx.fillStyle = ink(0.08);
+    ctx.fillRect(x + 16, by, w, 12);
+    ctx.fillStyle = rgba([er, eg, eb], 0.35 + ea * 0.65);
+    ctx.fillRect(x + 16, by, Math.max(2, w * Math.min(1, ea)), 12);
+    ctx.strokeStyle = ink(0.25);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 16, by, w, 12);
+  }
 }
 
 // ── track data strip (scorodeon-kin, whole piece at once) ────────────
@@ -368,6 +441,17 @@ function drawPlan(t, cx, cy, r) {
   ctx.fillStyle = CREAM;
   ctx.strokeStyle = ink(0.7);
   ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const pm = earMix();
+  for (const [side, sx] of [["l", -1], ["r", 1]]) {
+    ctx.beginPath(); ctx.arc(cx + sx * 6.5, cy, 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = pm[side][3] > 0.02 ? rgba(pm[side].slice(0, 3), 0.35 + pm[side][3] * 0.65) : CREAM;
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle = ink(0.55);
+  ctx.font = MONO(9, true);
+  ctx.textAlign = "center";
+  ctx.fillText("L", cx - 13, cy + 3); ctx.fillText("R", cx + 13, cy + 3);
+  ctx.textAlign = "left";
   ctx.fillStyle = INK;
   ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 0.9, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 0.9, 0, Math.PI * 2); ctx.fill();
@@ -387,6 +471,36 @@ function drawPlan(t, cx, cy, r) {
   ctx.font = MONO(12);
   ctx.textAlign = "center";
   ctx.fillText("plan", cx, cy + r + 16);
+  ctx.textAlign = "left";
+}
+
+// Side view: where the emitter sits above or below the ear line — the
+// cue the pinna combs carry, drawn so you can check it against what you
+// hear on headphones.
+function drawElevation(t, cx, cy, h) {
+  const el = elevationAt(t);
+  ctx.strokeStyle = ink(0.25);
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - 26, cy); ctx.lineTo(cx + 26, cy); ctx.stroke(); // ear line
+  ctx.setLineDash([2, 3]);
+  ctx.beginPath(); ctx.moveTo(cx, cy - h); ctx.lineTo(cx, cy + h); ctx.stroke();
+  ctx.setLineDash([]);
+  // the listener in profile
+  ctx.fillStyle = CREAM; ctx.strokeStyle = ink(0.7); ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // the emitter at its height
+  const ey = cy - el * h;
+  const c = S.lanes[0].color, a = Math.max(...glow);
+  ctx.fillStyle = rgba(c, 0.4 + a * 0.6);
+  ctx.beginPath(); ctx.arc(cx + 16, ey, 3.5 + a * 3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = rgba(c, 0.35);
+  ctx.beginPath(); ctx.moveTo(cx + 6, cy); ctx.lineTo(cx + 16, ey); ctx.stroke();
+  ctx.fillStyle = ink(0.45);
+  ctx.font = MONO(11);
+  ctx.textAlign = "center";
+  ctx.fillText("above", cx, cy - h - 5);
+  ctx.fillText("below", cx, cy + h + 13);
+  ctx.fillText("elevation", cx, cy + h + 30);
   ctx.textAlign = "left";
 }
 
@@ -443,6 +557,12 @@ function drawLegend(x, y) {
   ctx.strokeStyle = ink(0.7);
   ctx.beginPath(); ctx.ellipse(px, y + 18, 9, 7.4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.arc(px, y + 2, 9.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const lm = earMix();
+  for (const [side, sx] of [["l", -1], ["r", 1]]) {
+    ctx.beginPath(); ctx.arc(px + sx * 10, y + 1, 3.2, 0, Math.PI * 2);
+    ctx.fillStyle = lm[side][3] > 0.02 ? rgba(lm[side].slice(0, 3), 0.3 + lm[side][3] * 0.7) : CREAM;
+    ctx.fill(); ctx.stroke();
+  }
   ctx.fillStyle = INK;
   ctx.beginPath(); ctx.arc(px - 3, y + 1, 1.1, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(px + 3, y + 1, 1.1, 0, Math.PI * 2); ctx.fill();
@@ -556,10 +676,17 @@ function drawFrame(t) {
   ctx.fillText(S.lanes.length > 1
     ? `special sign · ${mins} → 8–12 min live via held movements`
     : `${S.name} · ${mins} · one emitter orbiting the field`, W - 60, 70);
+  ctx.textAlign = "right";
+  ctx.fillStyle = ink(0.35);
+  ctx.font = MONO(14);
+  ctx.fillText("binaural · ITD + head shadow + pinna elevation · headphones", W - 60, 92);
+  ctx.textAlign = "left";
   ctx.textAlign = "left";
   drawLegend(1278, 108);
 
-  drawPlan(t, 150, 668, 64);
+  drawPlan(t, 132, 606, 58);
+  if (S.elevation) drawElevation(t, 268, 606, 44);
+  drawEarMeter(78, 742, 96);
   drawStrip(t);
 }
 
