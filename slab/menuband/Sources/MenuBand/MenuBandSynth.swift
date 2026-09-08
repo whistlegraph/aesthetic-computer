@@ -2548,6 +2548,10 @@ final class MenuBandSynth {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
         onNoteEvent?(midi, velocity, true, channel, channelPan[Int(channel & 0x0F)])
+        // Roomward: every sounding note also pulses the DMX fixture (no-op
+        // without a widget). Hooked here, past the guards, so the light
+        // mirrors exactly what the audio does — live keys and .mbscore alike.
+        DMXOut.shared.noteOn(midi: Int(midi), velocity: Int(velocity))
         // A fresh note re-syncs the spacebar reverse clock with the record
         // head: the next Space press rewinds from the new "now" (including
         // this note) instead of resuming the previous session's cursor.
@@ -2712,6 +2716,7 @@ final class MenuBandSynth {
     func noteOff(_ midi: UInt8, channel: UInt8 = 0) {
         guard started else { return }
         onNoteEvent?(midi, 0, false, channel, channelPan[Int(channel & 0x0F)])
+        DMXOut.shared.noteOff(midi: Int(midi))
         let key = noteKey(midi, channel: channel)
         activeNotes.remove(key)
         defer { scheduleIdleSuspendIfNeeded() }
@@ -2757,6 +2762,7 @@ final class MenuBandSynth {
 
     func panic() {
         guard started else { return }
+        DMXOut.shared.blackout()
         activeNotes.removeAll()
         gmRoutedNotes.removeAll()
         if gmSynthEnabled { gmSynth.panic() }
