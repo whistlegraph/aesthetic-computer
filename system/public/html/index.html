@@ -218,11 +218,14 @@
   /* 🗣️ Pruttivox — @prutti's messages carry a `vox` chip that speaks them in
      his consented voice clone; the word being spoken lights up lime. Colors
      mirror the raster sister (disks/chat.mjs voxlink/voxword). */
-  .voxchip { background: #ffaa3c; color: #3a2408; font: 600 10px var(--sans); padding: 1px 5px;
-    border-radius: 3px; margin-left: 6px; cursor: pointer; border: 0; vertical-align: middle; }
-  .voxchip:hover { background: #ffdc78; }
-  .voxchip.loading { background: #ffebb4; }
-  .voxchip.playing { background: #beff50; }
+  .voxchip { background: none; border: 0; padding: 0 0 0 1px; margin-left: 6px;
+    cursor: pointer; color: #ffaa3c; line-height: 0; vertical-align: middle; }
+  .voxchip:hover { color: #ffdc78; }
+  .voxchip.loading { color: #ffebb4; }
+  .voxchip.playing { color: #beff50; }
+  /* The glyph is drawn on the raster sister's pixel grid, so it must not be
+     smoothed on the way up to DOM size. */
+  .voxchip svg { display: block; fill: currentColor; shape-rendering: crispEdges; }
   .body .lit, .body a.lit { color: #beff50 !important; }
   .body { word-break: break-word; }
   .time { color: var(--time); font-size: 11px; opacity: .8; margin-left: 2px; }
@@ -801,6 +804,33 @@ function ago(when) {
 // URL counting as one word (the voice says "link"), matching the raster
 // sister and the server tokenizer. Highlight clocks on audio.currentTime.
 const VOX_HANDLE = "prutti";
+// The speaker glyph, mirrored pixel for pixel from the raster sister
+// (VOX_CONE_ROWS in disks/chat.mjs): a cone in cols 0–3, then two waves at
+// cols 5 and 7. Drawn at 2× so it carries at DOM sizes; parity.mjs diffs the
+// row table against chat.mjs, so edit both or neither.
+const VOX_CONE_ROWS = [1, 2, 3, 4, 3, 2, 1]; // Row widths, all left-aligned.
+const VOX_ICON_W = 8;
+const VOX_ICON_H = 7;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function voxGlyph() {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${VOX_ICON_W} ${VOX_ICON_H}`);
+  svg.setAttribute("width", VOX_ICON_W * 2);
+  svg.setAttribute("height", VOX_ICON_H * 2);
+  svg.setAttribute("aria-hidden", "true");
+  const rect = (x, y, w, h) => {
+    const r = document.createElementNS(SVG_NS, "rect");
+    r.setAttribute("x", x); r.setAttribute("y", y);
+    r.setAttribute("width", w); r.setAttribute("height", h);
+    svg.append(r);
+  };
+  VOX_CONE_ROWS.forEach((w, row) => rect(0, row, w, 1));
+  rect(5, 2, 1, 3); // Near wave.
+  rect(7, 1, 1, 5); // Far wave.
+  return svg;
+}
+
 let vox = null; // { id, audio, chip, spans, words, raf }
 
 function voxStop() {
@@ -928,8 +958,10 @@ function rowFor(msg) {
   if (msg.id && !msg.deleted &&
       (msg.from || "").replace(/^@/, "").toLowerCase() === VOX_HANDLE) {
     const chip = document.createElement("button");
-    chip.className = "voxchip"; chip.textContent = "vox";
+    chip.className = "voxchip";
+    chip.append(voxGlyph());
     chip.title = "hør beskeden (syntetisk stemme)";
+    chip.setAttribute("aria-label", "hør beskeden (syntetisk stemme)");
     chip.onclick = () => voxToggle(row, chip);
     body.append(chip);
   }

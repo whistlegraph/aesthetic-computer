@@ -153,6 +153,26 @@ function regexLiteral(src, constName) {
     `chat.mjs: ${a ? "ok" : "CHANGED"} · vector: ${b ? "ok" : "CHANGED"}`);
 }
 
+// ── 10. Vox speaker glyph — same pixels on both sisters ───────────────────
+{
+  const rows = (src) =>
+    src.match(/const VOX_CONE_ROWS = \[([^\]]*)\]/)?.[1]?.replace(/\s/g, "");
+  const a = rows(chatDisk);
+  const b = rows(vector);
+  check("vox cone rows (VOX_CONE_ROWS in both)", !!a && a === b,
+    a === b ? a : `chat.mjs: ${a} · vector: ${b}`);
+
+  // The two waves are drawn, not tabulated, so anchor their offsets too. One
+  // sister offsets from the draw origin (`x + 5`), the other from the SVG's
+  // own grid (`5`) — same pixels, so normalize the origin away before diffing.
+  const waves = (src) => {
+    const flat = src.replace(/[xy] \+ /g, "");
+    return /\b5, 2, 1, 3\b/.test(flat) && /\b7, 1, 1, 5\b/.test(flat);
+  };
+  check("vox wave offsets (cols 5 and 7)", waves(chatDisk) && waves(vector),
+    `chat.mjs: ${waves(chatDisk) ? "ok" : "CHANGED"} · vector: ${waves(vector) ? "ok" : "CHANGED"}`);
+}
+
 // ── Report ────────────────────────────────────────────────────────────────
 let failed = 0;
 for (const { name, ok, detail } of checks) {
