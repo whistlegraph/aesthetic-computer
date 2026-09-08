@@ -78,6 +78,10 @@ const seatPos = (i) => [Math.cos(seatAngle(i)) * RING, 0, Math.sin(seatAngle(i))
 // ── choreography: lane → seat (the composition model) ────────────────
 const M = S.movements;
 function laneSeat(lane, t) {
+  if (S.lanes.length === 1) { // the emitter belongs to whichever seat it passes
+    const a = voiceAngle(lane) + spinAngle;
+    return ((Math.round(((a + Math.PI / 2) / (Math.PI * 2)) * SEATS) % SEATS) + SEATS) % SEATS;
+  }
   const u = (m) => (t - m.t0) / (m.t1 - m.t0);
   if (t < M[0].t1) {
     const k = u(M[0]);
@@ -98,32 +102,32 @@ function laneSeat(lane, t) {
   return 0;
 }
 
-// ── the virtual acoustic space: globe spin + manipulation ────────────
+// ── the virtual acoustic space: registered 1:1 on the room ───────────
+// The field IS the ring — voices orbit at seat radius, screen height,
+// passing machine to machine. Movements breathe its size, never lift it.
 function globeState(t) {
   const u = (m) => Math.max(0, Math.min(1, (t - m.t0) / (m.t1 - m.t0)));
-  let scale = 1, cy = 1.72, r = 1.05;
-  if (t < M[0].t1) scale = 0.25 + u(M[0]) * 0.75;            // assembling
-  else if (t >= M[3].t0 && t < M[3].t1) r = 1.05 + u(M[3]) * 0.3; // dilate
-  else if (t >= M[4].t0 && t < M[4].t1) { scale = 1 - u(M[4]) * 0.3; cy = 1.72 - u(M[4]) * 0.5; }
-  else if (t >= M[4].t1) { scale = 0.7 - Math.min(1, (t - M[4].t1) / 6) * 0.55; cy = 1.22; }
+  let scale = 1, cy = 0.72, r = 0.94;
+  if (t < M[0].t1) scale = 0.3 + u(M[0]) * 0.7;               // assembling
+  else if (t >= M[3].t0 && t < M[3].t1) r = 0.94 + u(M[3]) * 0.18; // dilate
+  else if (t >= M[4].t0 && t < M[4].t1) scale = 1 - u(M[4]) * 0.35;
+  else if (t >= M[4].t1) scale = 0.65 - Math.min(1, (t - M[4].t1) / 6) * 0.5;
   return { scale, cy, r };
 }
 let spinAngle = 0, lastT = 0;
+// Integrates the SAME curve the audio baker pans by (K = 0.5 laps/sec at
+// ribbon 1.0) — what you hear crossing the field is what you see.
 function spinRate(t) {
-  const base = 0.25;
-  if (t >= M[2].t0 && t < M[2].t1) { // Super-Spin — the whirl
-    const k = (t - M[2].t0) / (M[2].t1 - M[2].t0);
-    return base + 2.6 * (0.4 + k * k * 2.2);
-  }
   const i = Math.min((S.rotation?.length ?? 1) - 1, Math.floor((t / S.dur) * (S.rotation?.length ?? 1)));
-  return base + (S.rotation?.[Math.max(0, i)] ?? 0) * 1.4;
+  const env = S.rotation?.[Math.max(0, i)] ?? 0;
+  return (S.lanes.length > 1 ? 0.15 : 0) + env * Math.PI;
 }
 const voiceAngle = (i) => (i / S.lanes.length) * Math.PI * 2;
 function voicePos(i, t) {
   const g = globeState(t);
   const a = voiceAngle(i) + spinAngle;
-  const ringR = (i % 2 ? 0.52 : 0.8) * g.r * g.scale;
-  const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.28 * g.scale;
+  const ringR = RING * g.r * g.scale;
+  const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.34;
   return [Math.cos(a) * ringR, y, Math.sin(a) * ringR];
 }
 
@@ -276,10 +280,11 @@ function drawStrip(t) {
   }
 
   const lanesH = STRIP_H - MINI_H - 8;
-  const laneH = lanesH / S.lanes.length;
+  const laneH = Math.min(46, lanesH / S.lanes.length);
+  const yBase = STRIP_Y + (lanesH - laneH * S.lanes.length) / 2;
   const tLo = t - PH * ZOOM - 1, tHi = t + (1 - PH) * ZOOM + 1;
   for (let i = 0; i < S.lanes.length; i++) {
-    const y = STRIP_Y + i * laneH;
+    const y = yBase + i * laneH;
     const evs = S.lanes[i].events;
     // rolling window — time only moves forward, so never rescan the past
     while (stripLo[i] < evs.length && evs[stripLo[i]].t + evs[stripLo[i]].dur < tLo) stripLo[i]++;
@@ -307,7 +312,7 @@ function drawStrip(t) {
   ctx.textAlign = "right";
   for (let i = 0; i < S.lanes.length; i++) {
     ctx.fillStyle = rgba(S.lanes[i].color, 0.9);
-    ctx.fillText(S.lanes[i].name, STRIP_X - 10, STRIP_Y + i * laneH + laneH * 0.74);
+    ctx.fillText(S.lanes[i].name, STRIP_X - 10, yBase + i * laneH + laneH * 0.74);
   }
   ctx.textAlign = "left";
 
@@ -336,6 +341,53 @@ function drawStrip(t) {
   ctx.fillRect(STRIP_X + w0 * STRIP_W, my, Math.max(2, (w1 - w0) * STRIP_W), MINI_H);
   ctx.fillStyle = LINE_RED;
   ctx.fillRect(STRIP_X + Math.min(1, Math.max(0, t / S.dur)) * STRIP_W - 1, my - 2, 2, MINI_H + 4);
+}
+
+// ── plan view: the room top-down — seats, listener, emitter angle ────
+function drawPlan(t, cx, cy, r) {
+  ctx.strokeStyle = ink(0.35);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = ink(0.12);
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.55, 0, Math.PI * 2); ctx.stroke();
+  // seats — tiny slabs, lit when owning a sounding voice
+  for (let i = 0; i < SEATS; i++) {
+    const a = seatAngle(i);
+    const sx = cx + Math.cos(a) * r * 0.86, sy = cy + Math.sin(a) * r * 0.86;
+    let lit = null;
+    for (let v = 0; v < S.lanes.length; v++)
+      if (laneSeat(v, t) === i && glow[v] > 0.08) lit = S.lanes[v].color;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.fillStyle = lit ? rgba(lit, 0.9) : "#26262a";
+    ctx.fillRect(-6, -4, 12, 8);
+    ctx.restore();
+  }
+  // the listener
+  ctx.fillStyle = CREAM;
+  ctx.strokeStyle = ink(0.7);
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(cx - 1.8, cy - 1, 0.9, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx + 1.8, cy - 1, 0.9, 0, Math.PI * 2); ctx.fill();
+  // voices at their true angles; the emitter drags a short trail
+  const g = globeState(t);
+  for (let i = 0; i < S.lanes.length; i++) {
+    const a = voiceAngle(i) + spinAngle;
+    const vr = r * 0.86 * g.r * g.scale / 0.94;
+    const vx = cx + Math.cos(a) * vr, vy = cy + Math.sin(a) * vr;
+    ctx.strokeStyle = rgba(S.lanes[i].color, 0.3);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, vr, a - 0.6, a); ctx.stroke();
+    ctx.fillStyle = rgba(S.lanes[i].color, 0.55 + glow[i] * 0.45);
+    ctx.beginPath(); ctx.arc(vx, vy, 3.5 + glow[i] * 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = ink(0.45);
+  ctx.font = MONO(12);
+  ctx.textAlign = "center";
+  ctx.fillText("plan", cx, cy + r + 16);
+  ctx.textAlign = "left";
 }
 
 // ── legend: the listening system, spelled out in one ink chain ───────
@@ -429,15 +481,13 @@ function drawFrame(t) {
              rgba(r.color, (1 - age) * 0.5 * Math.min(1, r.g * 1.5)), 2);
   }
 
-  // the virtual acoustic space — wireframe globe above the room
+  // the virtual acoustic field — a dome registered on the room itself
   const g = globeState(t);
-  const gr = g.r * g.scale;
-  if (gr > 0.03) {
-    circle3d(0, g.cy, 0, gr, "y", t, ink(0.30), 1.5);
-    circle3d(0, g.cy + gr * 0.55, 0, gr * 0.82, "y", t, ink(0.16), 1);
-    circle3d(0, g.cy - gr * 0.55, 0, gr * 0.82, "y", t, ink(0.16), 1);
-    circle3d(0, g.cy, 0, gr, "x", t, ink(0.10), 1);
-    circle3d(0, g.cy, 0, gr, "z", t, ink(0.10), 1);
+  const gr = RING * g.r * g.scale;
+  if (gr > 0.1) {
+    circle3d(0, g.cy, 0, gr, "y", t, ink(0.26), 1.5);          // the orbit
+    circle3d(0, g.cy + 0.75, 0, gr * 0.8, "y", t, ink(0.13), 1);
+    circle3d(0, g.cy + 1.4, 0, gr * 0.45, "y", t, ink(0.09), 1); // dome cap
   }
 
   // sight-lines: voice → its machine (the choreography made visible)
@@ -475,7 +525,8 @@ function drawFrame(t) {
     const p2 = project(p3, t);
     if (!p2 || gr <= 0.03) continue;
     const c = S.lanes[i].color;
-    const r = Math.max(2, (4.5 + glow[i] * 8) * p2.s / 140);
+    const solo = S.lanes.length === 1 ? 1.9 : 1;
+    const r = Math.max(2, (4.5 + glow[i] * 8) * solo * p2.s / 140);
     items.push({ d: p2.d, draw: () => {
       ctx.fillStyle = rgba(c, 0.45 + glow[i] * 0.55);
       ctx.beginPath(); ctx.arc(p2.x, p2.y, r, 0, Math.PI * 2); ctx.fill();
@@ -496,15 +547,19 @@ function drawFrame(t) {
   const mv = M.find(m => t >= m.t0 && t < m.t1);
   ctx.fillStyle = ink(0.85);
   ctx.font = MONO(22, true);
-  if (mv) ctx.fillText(mv.name + " — " + mv.sub + " · " +
-    ["enter", "antiphony", "orbit", "scatter", "converge", "rest"][M.indexOf(mv)], 62, 150);
+  if (mv) ctx.fillText(mv.name + " — " + mv.sub + (S.lanes.length > 1 ? " · " +
+    ["enter", "antiphony", "orbit", "scatter", "converge", "rest"][M.indexOf(mv)] : ""), 62, 150);
   ctx.fillStyle = ink(0.45);
   ctx.font = MONO(16);
   ctx.textAlign = "right";
-  ctx.fillText("special sign · 1:41 source → 8–12 min live via held movements", W - 60, 70);
+  const mins = `${Math.floor(S.dur / 60)}:${String(Math.round(S.dur % 60)).padStart(2, "0")}`;
+  ctx.fillText(S.lanes.length > 1
+    ? `special sign · ${mins} → 8–12 min live via held movements`
+    : `${S.name} · ${mins} · one emitter orbiting the field`, W - 60, 70);
   ctx.textAlign = "left";
   drawLegend(1278, 108);
 
+  drawPlan(t, 150, 668, 64);
   drawStrip(t);
 }
 
