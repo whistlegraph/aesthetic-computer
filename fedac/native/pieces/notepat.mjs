@@ -473,8 +473,10 @@ let bgTarget = dark ? [20, 20, 25] : [240, 238, 232];
 
 // DMX light mirrors bgColor via system.dmxSend (USB DMX PRO widget).
 // dmxMap turns rgb into universe slots (index 0 = channel 1) — swap this
-// per fixture; the house light is addressed at ch3, rgb on 3/4/5.
-const dmxMap = (r, g, b) => [0, 0, r, g, b];
+// per fixture. House light: Chauvet Wedge Tri, 7ch personality at addr 3
+// (R G B macro strobe auto dimmer on slots 3-9); macro/strobe/auto stay 0
+// or they override the rgb, dimmer rides full and color does the fading.
+const dmxMap = (r, g, b) => [0, 0, r, g, b, 0, 0, 0, 255];
 let dmxLast = [-1, -1, -1];
 let dmxFrame = -60;
 
