@@ -299,6 +299,15 @@ function voxTokenize(text) {
   return tokens;
 }
 
+// A message's tappable width. `layout.width` measures the text box alone, but
+// the vox chip rides past the timestamp beyond that edge — without this the
+// tap and hover gates never reach the chip on a message whose last line is
+// shorter than its widest one.
+function messageHitWidth(layout) {
+  const voxRight = layout.vox ? layout.vox.x + layout.vox.width : 0;
+  return Math.max(layout.width, voxRight);
+}
+
 function voxStop() {
   vox?.playing?.kill?.(0.05);
   vox = null;
@@ -3481,7 +3490,7 @@ function act(
         
         if (
           e.x > message.layout.x &&
-          e.x < message.layout.x + message.layout.width &&
+          e.x < message.layout.x + messageHitWidth(message.layout) &&
           e.y > message.layout.y &&
           e.y < message.layout.y + fullHeight
         ) {
@@ -4122,7 +4131,7 @@ function act(
         // Check if hovering over this message
         if (
           e.x > message.layout.x &&
-          e.x < message.layout.x + message.layout.width &&
+          e.x < message.layout.x + messageHitWidth(message.layout) &&
           e.y > message.layout.y &&
           e.y < message.layout.y + message.layout.height
         ) {
