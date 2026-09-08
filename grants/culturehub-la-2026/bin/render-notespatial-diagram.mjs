@@ -78,7 +78,7 @@ const seatPos = (i) => [Math.cos(seatAngle(i)) * RING, 0, Math.sin(seatAngle(i))
 // ── choreography: lane → seat (the composition model) ────────────────
 const M = S.movements;
 function laneSeat(lane, t) {
-  if (S.lanes.length === 1) { // the emitter belongs to whichever seat it passes
+  if (S.lanes.length <= 4) { // spatial-test scores: the seat you're passing
     const a = voiceAngle(lane) + spinAngle;
     return ((Math.round(((a + Math.PI / 2) / (Math.PI * 2)) * SEATS) % SEATS) + SEATS) % SEATS;
   }
@@ -122,7 +122,11 @@ function spinRate(t) {
   const env = S.rotation?.[Math.max(0, i)] ?? 0;
   return (S.lanes.length > 1 ? 0.15 : 0) + env * Math.PI;
 }
-const voiceAngle = (i) => (i / S.lanes.length) * Math.PI * 2;
+// where a voice sits: pinned lanes hold still, the rest ride the orbit
+const voiceAngle = (i) => typeof S.lanes[i].az === "number"
+  ? S.lanes[i].az - spinAngle          // cancels the spin added downstream
+  : (i / S.lanes.length) * Math.PI * 2 + (S.lanes[i].azOffset || 0);
+const isPinned = (i) => typeof S.lanes[i].az === "number";
 // the elevation ribbon the baker turns into pinna notches, read here as
 // literal height: overhead voices ride up, underfoot ones drop below.
 function elevationAt(t) {
@@ -133,7 +137,7 @@ function elevationAt(t) {
 function voicePos(i, t) {
   const g = globeState(t);
   const a = voiceAngle(i) + spinAngle;
-  const el = elevationAt(t);
+  const el = isPinned(i) ? (S.lanes[i].el || 0) : elevationAt(t);
   const ringR = RING * g.r * g.scale * Math.cos(el * Math.PI / 2 * 0.8);
   const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.34 + el * 2.3;
   return [Math.cos(a) * ringR, y, Math.sin(a) * ringR];
@@ -645,7 +649,7 @@ function drawFrame(t) {
     const p2 = project(p3, t);
     if (!p2 || gr <= 0.03) continue;
     const c = S.lanes[i].color;
-    const solo = S.lanes.length === 1 ? 1.9 : 1;
+    const solo = S.lanes.length <= 4 ? 1.9 : 1;
     const r = Math.max(2, (4.5 + glow[i] * 8) * solo * p2.s / 140);
     items.push({ d: p2.d, draw: () => {
       ctx.fillStyle = rgba(c, 0.45 + glow[i] * 0.55);

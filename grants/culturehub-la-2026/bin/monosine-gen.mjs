@@ -15,12 +15,20 @@ const R = { u: 1, M2: 9 / 8, M3: 5 / 4, P4: 4 / 3, P5: 3 / 2, M6: 5 / 3, M7: 15 
 const hz = (r, oct = 0) => +(A * r * 2 ** oct).toFixed(3);
 
 const events = [];
+const hats = [];    // pinned high, overhead — transient elevation cue
+const clicks = [];  // pinned low, underfoot — the counter-height
 let t = 0;
 const tone = (r, oct, dur, g, gap = 0.2) => {
   events.push({ t: +t.toFixed(3), dur: +dur.toFixed(3), hz: hz(r, oct), wave: "sine", g: +g.toFixed(3) });
   t += dur + gap;
 };
 const door = (name, sub) => ({ name, sub, t0: +t.toFixed(3) });
+// Hats ride ABOVE and clicks sit BELOW, both pinned in the room: broadband
+// transients localize far more sharply than tone, so they are the honest
+// test of the elevation cue while the sine sweeps past them horizontally.
+const hat = (at, g = 0.5) => hats.push({ t: +at.toFixed(3), dur: 0.06, hz: 9000, wave: "click", g });
+const click = (at, g = 0.55) => clicks.push({ t: +at.toFixed(3), dur: 0.035, hz: 2400, wave: "click", g });
+const pulse = (from, to, step, fn) => { for (let x = from; x < to; x += step) fn(x); };
 const movements = [];
 let m;
 
@@ -53,6 +61,16 @@ movements.push({ ...m, t1: +t.toFixed(3), level: 0.55 });
 m = door("VI · Vanish", "one tone, thinning");
 tone(R.u, 0, 6, 0.2, 0);
 movements.push({ ...m, t1: +t.toFixed(3), level: 0.2 });
+
+// the rhythm layer, laid over the movements the tones already carved
+const MV = movements;
+pulse(MV[1].t0, MV[1].t1, 1.2, (x) => hat(x, 0.42));            // II: a walking tick above
+pulse(MV[1].t0 + 0.6, MV[1].t1, 1.2, (x) => click(x, 0.34));    // answered from below
+pulse(MV[2].t0, MV[2].t1, 0.45, (x, i) => hat(x, 0.5));         // III: the spin gets a pulse
+pulse(MV[2].t0 + 0.225, MV[2].t1, 0.45, (x) => click(x, 0.4));
+pulse(MV[3].t0, MV[3].t1, 0.8, (x) => hat(x, 0.46));            // IV: overhead, with the tone
+pulse(MV[4].t0, MV[4].t1, 1.6, (x) => click(x, 0.5));           // V: below, with the tone
+hat(MV[5].t0, 0.3);                                             // VI: one last tick, then nothing
 
 const dur = +t.toFixed(3);
 // rotation = ORBIT SPEED (laps/sec-ish, integrated identically by the
@@ -95,9 +113,15 @@ const score = {
   rotation,
   elevation,
   distance,
-  lanes: [{ name: "sine", color: [179, 64, 46], events }], // graphic-score red
+  lanes: [
+    { name: "sine", color: [179, 64, 46], events },              // the orbiting emitter
+    // pinned: front-left and high; front-right and low. Fixed things in
+    // the room, so the moving tone has references to pass.
+    { name: "hats (above)", color: [62, 124, 138], events: hats, az: -0.7, el: 0.8, dist: 1.0 },
+    { name: "clicks (below)", color: [140, 120, 60], events: clicks, az: 0.7, el: -0.45, dist: 1.0 },
+  ],
 };
 
 const dest = process.argv[2] || "monosine.nsscore";
 writeFileSync(dest, JSON.stringify(score) + "\n");
-console.log(`${dest} — ${events.length} tones, ${dur}s, 6 movements`);
+console.log(`${dest} — ${events.length} tones, ${hats.length} hats above, ${clicks.length} clicks below, ${dur}s`);
