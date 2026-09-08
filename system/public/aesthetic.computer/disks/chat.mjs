@@ -3496,8 +3496,11 @@ function act(
         ) {
           message.layout.inBox = true;
 
-          // 🗣️ `vox` chip hover — checked before the timestamp, since the
-          // chip sits just past it on the same row.
+          // 🗣️ `vox` chip press — checked before the timestamp, since the chip
+          // sits just past it on the same row. The press is only armed here;
+          // the lift decides, so a scroll that starts on the chip still
+          // scrolls. `clicked` has to be set before breaking out — it is what
+          // the lift handler looks for.
           const voxBox = message.layout.vox;
           if (voxBox) {
             const voxStartX = message.layout.x + voxBox.x;
@@ -3506,7 +3509,10 @@ function act(
               e.x < voxStartX + voxBox.width &&
               e.y > voxBox.y &&
               e.y < voxBox.y + voxBox.height;
-            if (voxBox.over) break;
+            if (voxBox.over) {
+              message.clicked = true;
+              break;
+            }
           }
 
           // 📆 `timestamp` hover and activate.
