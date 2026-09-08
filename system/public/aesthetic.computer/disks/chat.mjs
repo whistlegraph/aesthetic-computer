@@ -264,8 +264,18 @@ let youtubeModalVideoId = null; // Current video in modal
 // being spoken lights up. Word i in the server's timing table is displayed
 // token i, so the highlight is an index lookup, not a text match.
 const VOX_HANDLE = "prutti";
-const VOX_LABEL = "vox";
 const VOX_CHIP_GAP = 4;
+const VOX_ICON_W = 8; // Cone in cols 0–3, then two waves at cols 5 and 7.
+const VOX_HIT_PAD = 2; // Grab room around the glyph — it is a touch target.
+const VOX_CONE_ROWS = [1, 2, 3, 4, 3, 2, 1]; // Row widths, all left-aligned.
+
+// A right-pointing cone with two sound waves. At seven pixels tall a lettered
+// chip is a smudge, but this silhouette still reads as both play and speaker.
+function voxIcon(ink, color, x, y) {
+  VOX_CONE_ROWS.forEach((w, row) => ink(...color).box(x, y + row, w, 1));
+  ink(...color).box(x + 5, y + 2, 1, 3); // Near wave.
+  ink(...color).box(x + 7, y + 1, 1, 5); // Far wave.
+}
 let vox = null; // { messageId, phase: "loading"|"playing", words, tokens,
 //                  prefix, playing, wordIndex, duration, awaitingProgress }
 let voxSimTick = 0;
@@ -1548,7 +1558,8 @@ function paint(
     const ago = message._agoCache;
     let overTimestamp = false;
 
-    // Show all timestamps (not just unique ones), with fading for older messages
+    // Every timestamp renders at full opacity — age is legible from the text
+    // itself, so fading older ones only cost readability.
     const tsColor = layout.timestamp.over ? theme.timestampHover : theme.timestamp;
     
     // Use MatrixChunky8 for compact timestamps tacked onto the end of messages
@@ -1568,11 +1579,6 @@ function paint(
     // Timestamp is 8px tall (MatrixChunky8), so offset it down within the row
     const timestampHeight = 8; // MatrixChunky8 glyph height
     const timestampY = layout.timestamp.y + (msgRowHeight - timestampHeight);
-    
-    // Calculate fade based on message index (newer = more opaque, older = more faded)
-    // Drastically reduce opacity for older timestamps
-    const messageIndex = client.messages.length - 1 - i;
-    const fadeAlpha = Math.max(25, 200 - (messageIndex * 25)); // Min 25, decrease by 25 per message (more dramatic fade)
     
     // ♥ Hearts first — repeated symbols for 1-9, heart+number for 10+, always opaque
     let heartOffsetX = 0;
@@ -1599,16 +1605,17 @@ function paint(
     // Timestamp after hearts
     const tsX = timestampX + heartOffsetX;
     if (Array.isArray(tsColor)) {
-      ink(...tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+      ink(...tsColor).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     } else {
-      ink(tsColor, fadeAlpha).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
+      ink(tsColor).write(ago, { x: tsX, y: timestampY }, undefined, undefined, false, "MatrixChunky8");
     }
 
-    // 🗣️ Vox chip after the timestamp — small caps in MatrixChunky8, and a
-    // trailing chip like the timestamp rather than characters inside the
-    // message, so wrapping (and the offset drift a hard newline causes) can
-    // never move it out from under the tap. Amber at rest, pale while the
-    // render loads, lime while speaking.
+    // 🗣️ Vox chip after the timestamp — a drawn speaker, and a trailing chip
+    // like the timestamp rather than characters inside the message, so
+    // wrapping (and the offset drift a hard newline causes) can never move it
+    // out from under the tap. Amber at rest, pale while the render loads,
+    // lime while speaking. `layout.vox.x` is the padded hit box; the glyph
+    // itself sits inset by VOX_HIT_PAD.
     if (layout.vox) {
       const voxX = tsX + timestampWidth + VOX_CHIP_GAP;
       layout.vox.x = voxX - x; // Stored relative, like `timestamp.x`.
@@ -1618,14 +1625,7 @@ function paint(
       if (active && vox.phase === "loading") voxColor = [255, 235, 180];
       else if (active) voxColor = [190, 255, 80];
       else voxColor = layout.vox.over ? [255, 220, 120] : [255, 170, 60];
-      ink(...voxColor).write(
-        VOX_LABEL,
-        { x: voxX, y: timestampY },
-        undefined,
-        undefined,
-        false,
-        "MatrixChunky8",
-      );
+      voxIcon(ink, voxColor, voxX + VOX_HIT_PAD, timestampY);
     }
 
     lastAgo = ago;
@@ -5439,8 +5439,8 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       ? {
           x: timestamp.x + timestamp.width + VOX_CHIP_GAP,
           y: timestamp.y,
-          width: text.width(VOX_LABEL, "MatrixChunky8"),
-          height: 8,
+          width: VOX_ICON_W + VOX_HIT_PAD * 2,
+          height: 8, // The full MatrixChunky8 row, not just the 7px glyph.
           over: msg.lastLayout?.vox?.over || false,
         }
       : undefined;
