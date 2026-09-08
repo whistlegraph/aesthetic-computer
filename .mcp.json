@@ -48,6 +48,13 @@
       "args": [
         "juke-wizard/bin/jukewizard-mcp.mjs"
       ]
+    },
+    "sweep": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/sweep-mcp.mjs"
+      ]
     }
   }
 }
