@@ -5,10 +5,17 @@
 //
 // Conducting happens through /pieces/notespatial-state.txt, polled ~1Hz
 // and PUT-able over LAN by any machine (this is the leader protocol):
-//   { "lanes": [0,3,7] | "all", "rate": 1.0, "seek": <seconds>? }
+//   { "lanes": [0,3,7] | "all", "rate": 1.0, "seek": <seconds>?,
+//     "hold": true|false }
 // rate changes rebase the clock so time stays continuous — speed and
 // trajectory move live without a click. Lanes not owned still draw as
 // ghosts so every screen shows the whole field.
+//
+// The 1:41 source expands to the 8–12 minute performance by DWELLING:
+// hold loops the current movement until released (each pass can differ —
+// assignments walk, rate bends), release lets the piece run on. On-device
+// conducting for solo play: space toggles hold, enter jumps to the next
+// movement's door.
 //
 // Score selection: `notespatial:name` colon param, else
 // /pieces/notespatial-current.txt. Loops by default (installation form);
@@ -26,6 +33,8 @@ let err = null;
 let laneEvents = []; // per lane: sorted events with cursor
 let owned = null; // Set of lane indices, or null = all
 let rate = 1;
+let hold = false; // dwell: loop the current movement until released
+let heldMv = null; // the movement captured when hold engaged
 let base = 0; // wall ms at t=0 (rebased on rate change / seek / loop)
 let stateStamp = 0;
 let dmxLast = [-1, -1, -1];
@@ -63,6 +72,7 @@ function applyState(system) {
       rebase(st.seek);
       for (const l of laneEvents) l.cursor = 0;
     }
+    if (typeof st.hold === "boolean") hold = st.hold;
   } catch (_) { /* half-written PUT — next poll wins */ }
 }
 
@@ -82,10 +92,24 @@ function sim({ sound, system }) {
 
   if (now() - stateStamp > 1000) { stateStamp = now(); applyState(system); }
 
-  if (t > score.dur + 2) { // loop — the installation form
-    rebase(-1);
-    for (const l of laneEvents) l.cursor = 0;
-    return;
+  // Dwelling: a held movement loops at its far door — this is how 1:41
+  // becomes 8–12 minutes (see grants/culturehub-la-2026/
+  // NOTESPATIAL-COMPOSITION.md). Cursors rewind to zero; the fire loop
+  // walks silently past everything before the door.
+  if (hold) {
+    if (!heldMv && t >= 0) heldMv = (score.movements || []).find(m => t >= m.t0 && t < m.t1) || null;
+    if (heldMv && t >= heldMv.t1) {
+      rebase(heldMv.t0);
+      for (const l of laneEvents) l.cursor = 0;
+      return;
+    }
+  } else {
+    heldMv = null;
+    if (t > score.dur + 2) { // full run loops — the installation form
+      rebase(-1);
+      for (const l of laneEvents) l.cursor = 0;
+      return;
+    }
   }
 
   for (let i = 0; i < laneEvents.length; i++) {
@@ -158,7 +182,8 @@ function paint({ wipe, ink, box, write, screen, system }) {
   ink(200, 200, 210);
   write((mv ? mv.name + " — " + mv.sub : "…") +
         "  " + (t < 0 ? "-" : "") + Math.abs(t).toFixed(1) + "s" +
-        (rate !== 1 ? "  ×" + rate.toFixed(2) : ""),
+        (rate !== 1 ? "  ×" + rate.toFixed(2) : "") +
+        (hold ? "  [HOLD]" : ""),
         { x: 4, y: H - 14, size: 1 });
   if (score.rotation && t >= 0) {
     const u = Math.min(1, t / score.dur) * (score.rotation.length - 1);
@@ -169,9 +194,14 @@ function paint({ wipe, ink, box, write, screen, system }) {
 
 function act({ event: e, system }) {
   if (e.is("keyboard:down:escape")) system?.jump?.("prompt");
+  if (e.is("keyboard:down:space")) { hold = !hold; heldMv = null; }
   if (e.is("keyboard:down:enter") || e.is("keyboard:down:return")) {
-    rebase(-1);
+    // jump to the next movement door (wraps to the top)
+    const t = scoreTime();
+    const next = (score?.movements || []).find(m => m.t0 > t + 0.05);
+    rebase(next ? next.t0 : -1);
     for (const l of laneEvents) l.cursor = 0;
+    heldMv = null;
   }
 }
 
