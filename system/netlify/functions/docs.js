@@ -4250,6 +4250,15 @@ void draw() {
         hidden: true,
         //TODO: shouldnt this go to nopaint site? nopaint.art
       },
+      numrank: {
+        sig: "numrank[:seconds]",
+        desc: "60-second mental math sprint: type the answer and it advances itself — build clean streaks, earn a rank title, climb the world leaderboard.",
+        colon: [
+          { name: "seconds", type: "number", required: false, desc: "custom run length 10-600 (non-60s runs are unranked)" },
+        ],
+        examples: ["numrank", "numrank:120"],
+        done: true,
+      },
       numbnom: {
         sig: "numbnom[:words|:spanish]",
         desc: "Number Munchers-style grid game: munch squares that match the math rule (odds, evens, primes, multiples, factors) on a beat, dodge troggles.",

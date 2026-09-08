@@ -8,6 +8,7 @@ import { compareNomRuns, normalizeNomRun } from "../../public/aesthetic.computer
 
 const GAMES = new Set([
   "numbnom", "engnom", "mexinom", "dannom", "rusnom", "catnom", "notenom", "artnom",
+  "numrank", // mental-math sprint — shares the per-user best-run ladder
 ]);
 
 function gameFrom(event, body = {}) {

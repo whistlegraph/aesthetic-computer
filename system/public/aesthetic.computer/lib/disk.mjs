@@ -12336,6 +12336,11 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "aa" &&
           currentText !== "sign" &&
           currentText !== "jas" &&
+          // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.
+          !(
+            currentText === "numrank" &&
+            (data.key === "Backspace" || data.key === "Enter")
+          ) &&
           currentPath !== "aesthetic.computer/disks/prompt"
         ) {
           // If recording, Escape should stop the tape instead of jumping to prompt
