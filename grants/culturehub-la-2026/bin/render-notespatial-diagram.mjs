@@ -58,7 +58,7 @@ const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a
 const norm = (a) => { const l = Math.hypot(...a); return [a[0] / l, a[1] / l, a[2] / l]; };
 
 function project(p, t) {
-  const az = 0.4 + t * 0.05, el = 0.34, dist = 8.2, fov = 980;
+  const az = 0.4 + t * 0.05, el = 0.27, dist = 8.2, fov = 900;
   const look = [0, 1.0, 0];
   const cam = [Math.cos(az) * Math.cos(el) * dist, look[1] + Math.sin(el) * dist,
                Math.sin(az) * Math.cos(el) * dist];
@@ -68,7 +68,8 @@ function project(p, t) {
   const d = sub(p, cam);
   const z = dot(d, fwd);
   if (z < 0.5) return null;
-  return { x: W / 2 + dot(d, right) * fov / z, y: H / 2 - 80 - dot(d, up) * fov / z, s: fov / z, d: z };
+  // scene-only anamorphic stretch: the room reads panoramic, chrome stays true
+  return { x: W / 2 + dot(d, right) * fov * 1.22 / z, y: H / 2 - 145 - dot(d, up) * fov / z, s: fov / z, d: z };
 }
 
 const seatAngle = (i) => (i / SEATS) * Math.PI * 2 - Math.PI / 2;
@@ -128,6 +129,7 @@ function voicePos(i, t) {
 
 // ── event feed ───────────────────────────────────────────────────────
 const cursors = S.lanes.map(() => 0);
+const stripLo = S.lanes.map(() => 0);
 const ripples = [];
 const glow = S.lanes.map(() => 0);
 
@@ -244,53 +246,155 @@ function palSprite(p2, t) {
 }
 
 // ── track data strip (scorodeon-kin, whole piece at once) ────────────
-const STRIP_Y = 872, STRIP_H = 150, STRIP_X = 210, STRIP_W = W - STRIP_X - 60;
+// scorodeon's discipline: the playhead holds still, the score flows past.
+const STRIP_Y = 800, STRIP_H = 215, STRIP_X = 210, STRIP_W = W - STRIP_X - 60;
+const ZOOM = 22;                 // seconds across the strip
+const PH = 0.35;                 // playhead sits at 35% — more future than past
+const MINI_H = 14;
+const xOf = (tt, now) => STRIP_X + (PH + (tt - now) / ZOOM) * STRIP_W;
+
 function drawStrip(t) {
   ctx.strokeStyle = ink(0.25);
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(60, STRIP_Y - 26); ctx.lineTo(W - 60, STRIP_Y - 26); ctx.stroke();
-  if (S.rotation) { // the composed spin, over the doors
+  ctx.save();
+  ctx.beginPath(); ctx.rect(STRIP_X, STRIP_Y - 26, STRIP_W, STRIP_H + 30); ctx.clip();
+
+  if (S.rotation) { // the composed spin scrolls in the same system
     ctx.strokeStyle = "rgba(62,124,138,0.7)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
+    let started = false;
     for (let i = 0; i < S.rotation.length; i++) {
-      const x = STRIP_X + (i / (S.rotation.length - 1)) * STRIP_W;
+      const rt = (i / (S.rotation.length - 1)) * S.dur;
+      const x = xOf(rt, t);
+      if (x < STRIP_X - 4 || x > STRIP_X + STRIP_W + 4) { started = false; continue; }
       const y = STRIP_Y - 6 - S.rotation[i] * 16;
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
     }
     ctx.stroke();
   }
-  const laneH = STRIP_H / S.lanes.length;
+
+  const lanesH = STRIP_H - MINI_H - 8;
+  const laneH = lanesH / S.lanes.length;
+  const tLo = t - PH * ZOOM - 1, tHi = t + (1 - PH) * ZOOM + 1;
   for (let i = 0; i < S.lanes.length; i++) {
     const y = STRIP_Y + i * laneH;
-    ctx.fillStyle = rgba(S.lanes[i].color, 0.9);
-    ctx.font = MONO(11);
-    ctx.textAlign = "right";
-    ctx.fillText(S.lanes[i].name, STRIP_X - 10, y + laneH * 0.72);
-    ctx.textAlign = "left";
-    for (const e of S.lanes[i].events) {
-      const x = STRIP_X + (e.t / S.dur) * STRIP_W;
-      const w = Math.max(1.5, (e.dur / S.dur) * STRIP_W);
-      ctx.fillStyle = rgba(S.lanes[i].color, 0.28 + Math.min(0.62, e.g));
-      ctx.fillRect(x, y + laneH * 0.18, w, laneH * 0.64);
+    const evs = S.lanes[i].events;
+    // rolling window — time only moves forward, so never rescan the past
+    while (stripLo[i] < evs.length && evs[stripLo[i]].t + evs[stripLo[i]].dur < tLo) stripLo[i]++;
+    for (let j = stripLo[i]; j < evs.length && evs[j].t <= tHi; j++) {
+      const e = evs[j];
+      const x0 = xOf(e.t, t), x1 = xOf(e.t + e.dur, t);
+      const sounding = t >= e.t && t < e.t + e.dur;
+      ctx.fillStyle = rgba(S.lanes[i].color, (0.30 + Math.min(0.6, e.g)) * (sounding ? 1 : 0.82));
+      ctx.fillRect(x0, y + laneH * 0.16, Math.max(2, x1 - x0), laneH * 0.68);
     }
   }
-  for (const m of M) { // movement doors
-    const x = STRIP_X + (m.t0 / S.dur) * STRIP_W;
+  for (const m of M) { // movement doors slide by with their numerals
+    const x = xOf(m.t0, t);
+    if (x < STRIP_X - 60 || x > STRIP_X + STRIP_W + 60) continue;
     ctx.strokeStyle = ink(0.5);
-    ctx.beginPath(); ctx.moveTo(x, STRIP_Y - 4); ctx.lineTo(x, STRIP_Y + STRIP_H + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, STRIP_Y - 4); ctx.lineTo(x, STRIP_Y + lanesH + 2); ctx.stroke();
     ctx.fillStyle = ink(0.55);
-    ctx.font = MONO(13);
-    ctx.fillText(m.name.split(" ")[0], x + 5, STRIP_Y + STRIP_H + 20);
+    ctx.font = MONO(14, true);
+    ctx.fillText(m.name.split(" ")[0], x + 6, STRIP_Y + 12);
   }
-  const px = STRIP_X + Math.min(1, Math.max(0, t / S.dur)) * STRIP_W;
+  ctx.restore();
+
+  // lane names hold the left gutter
+  ctx.font = MONO(13);
+  ctx.textAlign = "right";
+  for (let i = 0; i < S.lanes.length; i++) {
+    ctx.fillStyle = rgba(S.lanes[i].color, 0.9);
+    ctx.fillText(S.lanes[i].name, STRIP_X - 10, STRIP_Y + i * laneH + laneH * 0.74);
+  }
+  ctx.textAlign = "left";
+
+  // the fixed playhead + clock
+  const px = STRIP_X + PH * STRIP_W;
   ctx.strokeStyle = LINE_RED;
   ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(px, STRIP_Y - 14); ctx.lineTo(px, STRIP_Y + STRIP_H + 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px, STRIP_Y - 14); ctx.lineTo(px, STRIP_Y + lanesH + 4); ctx.stroke();
   ctx.fillStyle = LINE_RED;
   ctx.font = MONO(13, true);
-  const mm = Math.max(0, t), tt = `${Math.floor(mm / 60)}:${String(Math.floor(mm % 60)).padStart(2, "0")}`;
-  ctx.fillText(tt, px + 6, STRIP_Y - 8);
+  const mm = Math.max(0, Math.min(S.dur, t));
+  ctx.fillText(`${Math.floor(mm / 60)}:${String(Math.floor(mm % 60)).padStart(2, "0")}`, px + 6, STRIP_Y - 8);
+
+  // minimap: the whole piece, the visible window, the position
+  const my = STRIP_Y + lanesH + 8;
+  ctx.fillStyle = ink(0.08);
+  ctx.fillRect(STRIP_X, my, STRIP_W, MINI_H);
+  for (const m of M) {
+    const x = STRIP_X + (m.t0 / S.dur) * STRIP_W;
+    ctx.strokeStyle = ink(0.35);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, my); ctx.lineTo(x, my + MINI_H); ctx.stroke();
+  }
+  const w0 = Math.max(0, (t - PH * ZOOM) / S.dur), w1 = Math.min(1, (t + (1 - PH) * ZOOM) / S.dur);
+  ctx.fillStyle = ink(0.10);
+  ctx.fillRect(STRIP_X + w0 * STRIP_W, my, Math.max(2, (w1 - w0) * STRIP_W), MINI_H);
+  ctx.fillStyle = LINE_RED;
+  ctx.fillRect(STRIP_X + Math.min(1, Math.max(0, t / S.dur)) * STRIP_W - 1, my - 2, 2, MINI_H + 4);
+}
+
+// ── legend: the listening system, spelled out in one ink chain ───────
+function drawLegend(x, y) {
+  const label = (tx, s) => {
+    ctx.fillStyle = ink(0.5);
+    ctx.font = MONO(12);
+    ctx.textAlign = "center";
+    ctx.fillText(s, tx, y + 46);
+    ctx.textAlign = "left";
+  };
+  const arrow = (ax) => {
+    ctx.strokeStyle = ink(0.4);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(ax, y + 12); ctx.lineTo(ax + 26, y + 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax + 20, y + 8); ctx.lineTo(ax + 26, y + 12); ctx.lineTo(ax + 20, y + 16); ctx.stroke();
+  };
+  ctx.lineWidth = 1.4;
+  // the virtual space — wireframe circle with three voice dots
+  ctx.strokeStyle = ink(0.6);
+  ctx.beginPath(); ctx.arc(x, y + 10, 16, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y + 10, 16, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+  for (const [dx, dy, c] of [[-6, 2, [255, 230, 0]], [7, 6, [77, 205, 196]], [2, 16, [130, 50, 200]]]) {
+    ctx.fillStyle = rgba(c, 0.9);
+    ctx.beginPath(); ctx.arc(x + dx, y + dy, 2.6, 0, Math.PI * 2); ctx.fill();
+  }
+  label(x, "virtual space");
+  arrow(x + 26);
+  // the window — thinkpad
+  const tx = x + 108;
+  ctx.fillStyle = "#1b1b1f";
+  ctx.strokeStyle = ink(0.6);
+  ctx.fillRect(tx - 14, y - 4, 28, 19); ctx.strokeRect(tx - 14, y - 4, 28, 19);
+  ctx.beginPath(); ctx.moveTo(tx - 17, y + 22); ctx.lineTo(tx + 17, y + 22); ctx.lineTo(tx + 21, y + 27); ctx.lineTo(tx - 21, y + 27); ctx.closePath();
+  ctx.fillStyle = "#26262a"; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = LINE_RED;
+  ctx.beginPath(); ctx.arc(tx, y + 24.5, 1.6, 0, Math.PI * 2); ctx.fill();
+  label(tx, "six windows");
+  arrow(tx + 34);
+  // the rig
+  const rx = tx + 108;
+  ctx.fillStyle = "#2c2c31";
+  ctx.strokeStyle = ink(0.6);
+  ctx.fillRect(rx - 9, y - 6, 18, 24); ctx.strokeRect(rx - 9, y - 6, 18, 24);
+  ctx.beginPath(); ctx.arc(rx, y + 8, 4.6, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(rx, y - 0.5, 2.3, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rx, y + 18); ctx.lineTo(rx - 7, y + 27); ctx.moveTo(rx, y + 18); ctx.lineTo(rx + 7, y + 27); ctx.stroke();
+  label(rx, "room sound");
+  arrow(rx + 30);
+  // the listener pal
+  const px = rx + 100;
+  ctx.fillStyle = CREAM;
+  ctx.strokeStyle = ink(0.7);
+  ctx.beginPath(); ctx.ellipse(px, y + 18, 9, 7.4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(px, y + 2, 9.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.beginPath(); ctx.arc(px - 3, y + 1, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(px + 3, y + 1, 1.1, 0, Math.PI * 2); ctx.fill();
+  label(px, "the listener");
 }
 
 // ── frame ────────────────────────────────────────────────────────────
@@ -397,10 +501,9 @@ function drawFrame(t) {
   ctx.fillStyle = ink(0.45);
   ctx.font = MONO(16);
   ctx.textAlign = "right";
-  ctx.fillText("one virtual acoustic space · six windows · the listener in the room", W - 60, 70);
-  ctx.fillText("that mediates it, via the actual computers", W - 60, 92);
-  ctx.fillText("special sign · 1:41 source → 8–12 min live via held movements", W - 60, 122);
+  ctx.fillText("special sign · 1:41 source → 8–12 min live via held movements", W - 60, 70);
   ctx.textAlign = "left";
+  drawLegend(1278, 108);
 
   drawStrip(t);
 }
@@ -421,7 +524,7 @@ async function main() {
   const ff = spawn("ffmpeg", [
     "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", `${W}x${H}`, "-r", String(FPS),
     "-i", "-", "-i", audioPath,
-    "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+    "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
     "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-shortest", outPath,
   ], { stdio: ["pipe", "ignore", "inherit"] });
   const write = (buf) => new Promise(res => ff.stdin.write(buf) ? res() : ff.stdin.once("drain", res));
