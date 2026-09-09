@@ -584,6 +584,10 @@ if (pub) pub.on("error", (err) => {
 
       await sub.subscribe("code", (message) => {
         const parsed = JSON.parse(message);
+        // Store the latest state for late joiners, exactly as the websocket
+        // path does — an Aesthetic Code session pushes its blank piece the
+        // moment it opens, long before anyone scans the QR to come watch.
+        codeChannelState[parsed.codeChannel] = parsed;
         if (codeChannels[parsed.codeChannel]) {
           const msg = pack("code", message, "development");
           subscribers(codeChannels[parsed.codeChannel], msg);
