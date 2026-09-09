@@ -415,3 +415,33 @@ test("published frame timing is bounded and closed to unknown keys", () => {
   assert.equal(validateOskiewarLiveState({ ...state(), perf: [59] }),
     "Invalid performance");
 });
+
+test("the rollback lane's packets pass seat to seat and never reach the grandstand", () => {
+  const manager = new OskiewarLiveManager({ now: () => 1000 });
+  const host = new FakeSocket(), rival = new FakeSocket(), fan = new FakeSocket();
+  const url = "/oskiewar-live?match=sezzi7";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(rival, { url: `${url}&role=challenger` });
+  manager.handleConnection(fan, { url });
+  host.sent.length = rival.sent.length = fan.sent.length = 0;
+  const packet = (content) => Buffer.from(JSON.stringify({ type: "oskiewar:net", content }));
+  rival.emit("message", packet({ t: "i", f: 12, m: [3, 3, 0], a: 9, s: 14 }));
+  assert.deepEqual(host.sent, [{ type: "oskiewar:net",
+    content: { t: "i", f: 12, m: [3, 3, 0], a: 9, s: 14 } }]);
+  host.emit("message", packet({ t: "start", origin: 0, delay: 2 }));
+  assert.deepEqual(rival.sent, [{ type: "oskiewar:net",
+    content: { t: "start", origin: 0, delay: 2 } }]);
+  assert.equal(fan.sent.length, 0, "spectators never hear the seats talk");
+  // The grandstand has no voice on this channel, and neither seat may send
+  // junk or a payload past the cap.
+  fan.emit("message", packet({ t: "i" }));
+  rival.emit("message", packet("bent"));
+  rival.emit("message", packet({ pad: "x".repeat(OSKIEWAR_LIVE_LIMITS.MAX_NET_BYTES) }));
+  assert.equal(host.sent.length, 1);
+  assert.equal(rival.sent.length, 1);
+  // Pads still ride the same socket under their own tighter cap.
+  rival.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:input",
+    content: { seq: 1, down: ["A"], leftX: 0, leftY: 0 } })));
+  assert.equal(host.sent.length, 2);
+  assert.equal(host.sent[1].type, "oskiewar:input");
+});

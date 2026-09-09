@@ -10,6 +10,17 @@
 // that copy rather than allocating another.
 const hostRuntime = runtime;
 let clockEpoch = null;
+// Rollback netplay's hooks into the clock and the side effects. The session
+// itself lives further down (search "Rollback netplay"); these four sit here
+// because the wrapper below and the signal emitters read them.
+let netSession = null;
+// While non-null, runtime() reports this clock: the sim is stepping frame f
+// and must read f's time whatever the wall says.
+let netClockUs = null;
+// While true the sim is replaying frames it already showed once — no drums,
+// no signals, no telemetry, no publishing. The state changes; nothing else.
+let netSilent = false;
+let netFrameInputs = null;
 // Game speed is the clock, not a patch on top of it. Every deadline, spring,
 // bot die-roll and animation in this piece reads one monotonic stream, so
 // scaling the stream's increments scales the whole game coherently — physics,
@@ -31,11 +42,36 @@ runtime = function acRuntime() {
   info.monotonicUs = Math.round(scaledClockUs);
   if (typeof info.simMonotonicUs === "number")
     info.simMonotonicUs -= clockEpoch;
+  // A rollback fight keeps its own clock: frame f reads f's time while it is
+  // simulated, and the paint between frames reads the current frame's time
+  // plus how far the display is into it, so animation and HUD stay on the
+  // fight's timeline rather than the wall's.
+  if (netClockUs !== null) {
+    info.monotonicUs = netClockUs;
+    info.simMonotonicUs = netClockUs;
+  } else if (netSession) {
+    const alpha = Math.max(0, Math.min(1, Number(info.renderAlpha) || 0));
+    const at = netSession.originUs + netSession.frame * NET_TICK_US +
+      Math.round(alpha * NET_TICK_US);
+    info.monotonicUs = at;
+    info.simMonotonicUs = at;
+  }
   return info;
+};
+// Replayed frames are silent: the wall already saw them once.
+const hostTelemetry = telemetry;
+telemetry = function netTelemetry(...args) {
+  if (netSilent) return;
+  return typeof hostTelemetry === "function" ? hostTelemetry(...args) : undefined;
+};
+const hostAnalytics = analytics;
+analytics = function netAnalytics(...args) {
+  if (netSilent) return;
+  return typeof hostAnalytics === "function" ? hostAnalytics(...args) : undefined;
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 101;
+const buildVersion = 102;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1194,6 +1230,9 @@ let versusInputMinNextAt = 0;
 let versusFallbackBridge = null;
 
 function versusChallengerFresh() {
+  // In a rollback fight the rival's presence is the session itself; the
+  // sim must not read the wall clock to decide whether the fight goes on.
+  if (netSession) return true;
   const remote = globalThis.__oskiewarRemotePad;
   if (!remote || !Number.isFinite(remote.at)) return false;
   return Date.now() - remote.at < versusChallengerGraceMs;
@@ -1203,6 +1242,14 @@ function versusChallengerFresh() {
 // writes. A stale global answers neutral rather than holding the last
 // press — a vanished friend must drop their guard, not run into a corner
 // forever.
+// The seat whoever is at this screen is holding. Seat one everywhere except a
+// rollback fight's challenger, who plays the second fighter — their keycap
+// legend, touch discs and move names must follow their own hands rather than
+// lighting up when the other player presses something.
+const localSeat = () => netSession ? netSession.seat : 0;
+const localPad = () => inputPads[localSeat()] ||
+  { connected: true, down: [], leftX: 0, leftY: 0 };
+
 function remotePadSnapshot() {
   const remote = globalThis.__oskiewarRemotePad;
   const fresh = remote && Number.isFinite(remote.at) &&
@@ -1692,7 +1739,7 @@ const frameTelemetrySchema = ["us", "cameraX", "cameraY", "cameraWidth",
   "p2x", "p2y", "p2z", "p2vx", "p2vy"];
 
 function captureFrameTelemetry(now, force = false) {
-  if (selecting || shellMode === "MENU") return;
+  if (netSilent || selecting || shellMode === "MENU") return;
   const round = (value) => Math.round(Number(value || 0) * 100) / 100;
   frameTelemetry.push([
     Math.round(now - roundStartedAt), round(cameraCenter), round(cameraCenterY),
@@ -1875,6 +1922,7 @@ function finishReplay() {
 }
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
+  if (netSilent) return;
   if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
     player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
@@ -1884,7 +1932,7 @@ function emitSignal(event, player = -1, value = 0, value2 = 0) {
 // allowlist predates those names. Fall back without stopping the match; newer
 // hosts and the browser still receive the authored voice unchanged.
 function playDrum(name, velocity = 1, pan = 0) {
-  if (typeof drum !== "function") return;
+  if (netSilent || typeof drum !== "function") return;
   try {
     drum(name, velocity, pan);
   } catch (error) {
@@ -1899,7 +1947,7 @@ function playDrum(name, velocity = 1, pan = 0) {
 }
 
 function playSine(frequency, duration = .12) {
-  if (typeof synth !== "function") return;
+  if (netSilent || typeof synth !== "function") return;
   try { synth(frequency, duration); } catch (_) {}
 }
 
@@ -2581,6 +2629,7 @@ function startVersusFight(now, resetMatch = true) {
 // the sanitize here is for the state schema's sake, because one bent name
 // would cost every published frame.
 function dressVersusRival() {
+  if (netSession) { netApplyIdentities(netSession.deal); return; }
   const rival = players[1];
   if (!rival.remote) return;
   const remote = globalThis.__oskiewarRemotePad;
@@ -2608,7 +2657,11 @@ function dressVersusRival() {
 // title screen on — a friend can arrive while the host is still reading the
 // wordmark — and rides the same publisher socket the round rooms use.
 function publishVersus(now) {
-  if (!versusLane() || !versusRoomName || livePublishFailed ||
+  // Both seats simulate, but only the host narrates: the grandstand keeps
+  // the stream it always had, and the challenger never races the host for
+  // the room's one publisher socket.
+  if (netSession && netSession.seat !== 0) return;
+  if (netSilent || !versusLane() || !versusRoomName || livePublishFailed ||
       typeof publishLive !== "function" || now < versusNextAt) return;
   versusNextAt = now + versusSnapshotIntervalUs;
   try {
@@ -2651,8 +2704,13 @@ function updateVersusConflict(now) {
 // wardrobe follows their freshest frame because the handle can arrive after
 // the chair was taken.
 function updateVersusSeat(now) {
+  if (netSession) return;
   if (updateVersusConflict(now)) return;
   if (!versusLane()) return;
+  // A rival who can roll back says so on the net channel. Their first pad
+  // usually lands first, so the offer is taken here rather than only from
+  // the lobby — a streamed fight one second old is upgraded in place.
+  if (netPeerHello && netHostBegin(now)) return;
   const fresh = versusChallengerFresh();
   if (lobbyActive() && fresh) {
     startVersusFight(now, true);
@@ -3472,6 +3530,12 @@ function handleRoundViewer(message) {
     globalThis.__oskiewarReplayReady = true;
     return;
   }
+  if (message.type === "net") {
+    if (netSession) netInbox.push(message.content);
+    else netHandlePreSession(message.content);
+    return;
+  }
+  if (netSession && message.type === "state") return;
   if (message.type === "state") {
     if (roundViewerDemo && !message.live) return;
     if (roundViewerDemo && message.content?.phase === "match") return;
@@ -3552,6 +3616,615 @@ function sendChallengerInput(now) {
   if (roundViewer.sendInput({ seq: versusInputSeq++, ...frame,
     name: identity?.handle ? String(identity.handle).toUpperCase() : "",
     colors })) versusInputLastSent = worn;
+}
+
+// ---------------------------------------------------------------------------
+// Rollback netplay. Both seats run the whole fight; nobody streams it to the
+// other. Each tick a seat schedules its own pad a couple of frames ahead,
+// mails it, and simulates the current frame with the rival's last known pad
+// standing in for the one that has not arrived. When the real pad lands and
+// differs, the sim steps back to the snapshot before that frame and replays
+// forward in silence. That is what Street Fighter 6 does; the price is a
+// simulation that is a pure function of (frame, both pads), and a snapshot of
+// every variable that simulation touches. The list lives in netSimScalars /
+// netSimArrays below and the netplay test pins it: two seats fed the same
+// pads must hash identical states, round after round.
+const NET_TICK_US = replayTickUs;
+// Frames a press waits before it is simulated. Two at 60 Hz is 33 ms — the
+// same order as a display's own lag, and it means a rival packet arriving
+// within ~33 ms costs no rollback at all.
+const NET_INPUT_DELAY = 2;
+// How far past the rival's newest pad we will guess before we stop and wait.
+// Eight frames is 133 ms of one-way silence, well past the relay's p99.
+const NET_MAX_ROLLBACK = 8;
+// Pads per packet. Every packet re-sends this many recent frames so a lost
+// packet costs nothing unless several vanish in a row.
+const NET_REDUNDANCY = 10;
+const NET_HASH_EVERY = 30;
+// The floor of frame zero's clock. The host offers its own clock rounded up
+// to a tick so its timeline runs straight into the fight; this floor keeps
+// every "0 means unset" deadline in the sim unset whatever the host reports.
+const NET_ORIGIN_US = 1000000;
+// Wall-clock silence after which the rival is gone and the fight ends.
+const NET_PEER_LOST_MS = 4000;
+const NET_HELLO_INTERVAL_MS = 1000;
+let netInbox = [];
+let netPeerHello = null;
+let netHelloSentAt = 0;
+const netEmptyPad = Object.freeze({ connected: true, down: Object.freeze([]),
+  leftX: 0, leftY: 0, rightX: 0, rightY: 0 });
+const netPadCache = new Map();
+
+// A recorded mask back into the pad shape the sim reads (see resimPad). One
+// object per mask value, frozen, so a frame costs no allocation.
+function netPadFromMask(mask) {
+  mask = mask | 0;
+  let pad = netPadCache.get(mask);
+  if (pad) return pad;
+  const down = [];
+  if (mask & 1) down.push("ArrowLeft");
+  if (mask & 2) down.push("ArrowRight");
+  if (mask & 4) down.push("ArrowUp");
+  if (mask & 8) down.push("ArrowDown");
+  for (let index = 4; index < replayButtons.length; index++)
+    if (mask & (1 << index)) down.push(replayButtons[index]);
+  pad = Object.freeze({ connected: true, down: Object.freeze(down),
+    leftX: 0, leftY: 0, rightX: 0, rightY: 0 });
+  netPadCache.set(mask, pad);
+  return pad;
+}
+
+// Everything the simulation reads or writes that is not a constant, a render
+// cache, or the wire. Scalars are captured and restored by name; the arrays
+// are deep-copied. The netplay test pins that this list covers the round clock.
+function netSimScalars() {
+  return {
+    gameMode,
+    terrainPhase,
+    matchBallType,
+    ballEnabled,
+    startedAt,
+    roundStartedAt,
+    lastSimAt,
+    roundElapsedUs,
+    lastCountdownSecond,
+    lastIntroSecond,
+    resultPulseAt,
+    resultLaughAt,
+    resultLaughStep,
+    resultCardStung,
+    roundOverAt,
+    roundResult,
+    matchOver,
+    roundCause,
+    deathCinematic,
+    impactHitboxesUntil,
+    fightOpponent,
+    survivalStartedAt,
+    survivalLavaY,
+    survivalHeight,
+    survivalBestHeight,
+    survivalPeakLevel,
+    trainingOpponent,
+    windMph,
+    windDirection,
+    windAcceleration,
+    windTargetMph,
+    windTargetDirection,
+    nextWindChangeAt,
+    matchName,
+    seriesName,
+    previousRoundName,
+    shellMode,
+    gameplayStarted,
+    titleTransitionAt,
+    nameSeed,
+    nextPowerupAtUs,
+    powerupSequence,
+    selecting,
+    selfPlay,
+    titleAttractMode,
+    hudLeftPad,
+    dummyGuideStartedAt,
+  };
+}
+function netRestoreScalars(saved) {
+  ({
+    gameMode,
+    terrainPhase,
+    matchBallType,
+    ballEnabled,
+    startedAt,
+    roundStartedAt,
+    lastSimAt,
+    roundElapsedUs,
+    lastCountdownSecond,
+    lastIntroSecond,
+    resultPulseAt,
+    resultLaughAt,
+    resultLaughStep,
+    resultCardStung,
+    roundOverAt,
+    roundResult,
+    matchOver,
+    roundCause,
+    deathCinematic,
+    impactHitboxesUntil,
+    fightOpponent,
+    survivalStartedAt,
+    survivalLavaY,
+    survivalHeight,
+    survivalBestHeight,
+    survivalPeakLevel,
+    trainingOpponent,
+    windMph,
+    windDirection,
+    windAcceleration,
+    windTargetMph,
+    windTargetDirection,
+    nextWindChangeAt,
+    matchName,
+    seriesName,
+    previousRoundName,
+    shellMode,
+    gameplayStarted,
+    titleTransitionAt,
+    nameSeed,
+    nextPowerupAtUs,
+    powerupSequence,
+    selecting,
+    selfPlay,
+    titleAttractMode,
+    hudLeftPad,
+    dummyGuideStartedAt,
+  } = saved);
+}
+const netSimArrays = () => ({
+  players, balls, bullets, grenades, impacts, detachedParts,
+  gunPickups, grenadePickups, bodyTrees, gridField, resultReactionPrevious,
+  fightHitMarks,
+});
+
+function netSnapshot() {
+  const arrays = {};
+  for (const [name, live] of Object.entries(netSimArrays()))
+    arrays[name] = structuredClone(live);
+  return { scalars: netSimScalars(), arrays };
+}
+
+// Restore in place: the live arrays are `const` and referenced everywhere, so
+// their identity stays and their contents are replaced. Keys the live object
+// grew since the snapshot are removed too — a key the sim added later must not
+// survive a rewind.
+function netRestore(snapshot) {
+  netRestoreScalars(structuredClone(snapshot.scalars));
+  const live = netSimArrays();
+  for (const [name, saved] of Object.entries(snapshot.arrays)) {
+    const target = live[name];
+    const copy = structuredClone(saved);
+    if (ArrayBuffer.isView(target)) { target.set(copy); continue; }
+    if (target.length === copy.length && copy.every((entry) =>
+        entry && typeof entry === "object" && !Array.isArray(entry))) {
+      for (let index = 0; index < target.length; index++) {
+        const item = target[index];
+        if (!item || typeof item !== "object") { target[index] = copy[index]; continue; }
+        for (const key of Object.keys(item))
+          if (!(key in copy[index])) delete item[key];
+        Object.assign(item, copy[index]);
+      }
+    } else {
+      target.length = 0;
+      target.push(...copy);
+    }
+  }
+}
+
+// FNV-1a over the state that decides a fight. Exact doubles, not rounded: a
+// last-bit difference is a real desync and must read as one.
+function netStateHash() {
+  const view = players.map((player) => [player.x, player.y, player.z,
+    player.vx, player.vy, player.vz, player.facing, player.alive,
+    player.grounded, player.ducking, player.blocking, player.score,
+    player.roundWins, player.attackKind, player.attackUntil,
+    player.hitStunUntil, player.stance, player.gunAmmo, player.grenadeAmmo,
+    player.heldBall, player.removedParts, player.dashUntil]);
+  view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
+    item.vx, item.vy, item.heldBy]));
+  view.push(bullets.length, grenades.length, roundResult, roundElapsedUs,
+    matchOver, roundStartedAt, roundOverAt);
+  const text = JSON.stringify(view);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash;
+}
+
+// The local seat's handle and wardrobe, in the shape the pad frames already
+// carry, so the host can dress both fighters the same way on both screens.
+function netLocalIdentity() {
+  const identity = acFeed?.player;
+  const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
+    .map((entry) => Array.isArray(entry)
+      ? entry.slice(0, 3) : [entry.r, entry.g, entry.b])
+    .filter((entry) => entry.every((channel) => Number.isInteger(channel) &&
+      channel >= 0 && channel <= 255))
+    .slice(0, 4);
+  return { name: identity?.handle ? String(identity.handle).toUpperCase() : "",
+    colors };
+}
+
+function netCleanName(value, fallback) {
+  const offered = String(value || "").toUpperCase()
+    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+  return /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : fallback;
+}
+
+function netCleanColors(value) {
+  return (Array.isArray(value) ? value : [])
+    .filter((entry) => Array.isArray(entry) && entry.length === 3 &&
+      entry.every((channel) => Number.isInteger(channel) &&
+        channel >= 0 && channel <= 255))
+    .map((entry) => entry.slice(0, 3)).slice(0, 4);
+}
+
+function netAverageColor(colors, fallback) {
+  if (!colors.length) return fallback.slice();
+  return colors.reduce((sum, entry) => sum.map((value, index) =>
+    value + entry[index] / colors.length), [0, 0, 0]).map(Math.round);
+}
+
+// The deal the host writes and both seats apply: who sits where, wearing
+// what, and the clock and ball they share. Everything the first frame's
+// state derives from that is not already a constant of the build.
+function netMakeDeal() {
+  const local = players[0];
+  const rival = netPeerHello || {};
+  const rivalColors = netCleanColors(rival.colors);
+  const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
+  const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
+  return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
+    ballType: matchBallType,
+    fighters: [
+      { name: netCleanName(local.name, "@HOST"), rosterIndex: local.rosterIndex,
+        color: local.color.slice(0, 3),
+        handleColors: netCleanColors(local.handleColors) },
+      { name: netCleanName(rival.name, "RIVAL"), rosterIndex: -1,
+        color: netAverageColor(rivalColors, [38, 82, 176]),
+        handleColors: rivalColors },
+    ] };
+}
+
+function netApplyIdentities(deal) {
+  deal.fighters.forEach((entry, index) => {
+    const player = players[index];
+    player.name = entry.name;
+    player.rosterIndex = entry.rosterIndex;
+    player.color = entry.color.slice();
+    player.handleColors = entry.handleColors.map((c) => c.slice());
+  });
+  versusRivalName = deal.fighters[1].name;
+}
+
+// Frame zero. Both seats run this with the same deal under the same clock,
+// and the state that comes out is the state the fight starts from — the
+// hash exchange on the first frame says whether it really is.
+function netBegin(deal, seat, send) {
+  netEnd("restart");
+  const session = { seat, deal, frame: 0, originUs: deal.origin,
+    delay: deal.delay, send,
+    local: new Map(), remote: new Map(), used: new Map(), snapshots: new Map(),
+    remoteFrame: -1, remoteSimFrame: 0, lastRemoteMask: 0, ackFrame: -1,
+    confirmed: -1, hashes: new Map(), peerHashes: new Map(),
+    lastPacketAt: Date.now(), startedAt: Date.now(), ticks: 0,
+    stats: { rollbacks: 0, rolledFrames: 0, maxRollback: 0, stalls: 0,
+      waits: 0, sent: 0, received: 0, desyncs: 0, snapshotMs: 0, resimMs: 0 } };
+  for (let frame = 0; frame < deal.delay; frame++) session.local.set(frame, 0);
+  netSession = session;
+  netClockUs = deal.origin;
+  try {
+    matchBallType = deal.ballType;
+    // The limb poses that collide are phased off this epoch, so both seats
+    // must share it; and a rollback fight is never a recorded one.
+    startedAt = deal.origin;
+    lastSimAt = deal.origin;
+    replay = null;
+    startVersusFight(deal.origin, true);
+    netApplyIdentities(deal);
+  } finally {
+    netClockUs = null;
+  }
+  telemetry("NET_BEGIN", "seat " + seat + " delay " + deal.delay);
+}
+
+// Leaving on purpose tells the rival at once instead of costing them the
+// silence timeout; whatever the leaving seat's game did next stands.
+function netLeave(reason) {
+  if (!netSession) return;
+  try { netSession.send({ t: "bye", r: reason }); } catch (_) {}
+  netEnd(reason);
+}
+
+function netEnd(reason) {
+  if (!netSession) return;
+  const stats = netSession.stats;
+  // Time never runs backwards: the local clock picks up where the fight's
+  // clock stood, so every deadline the fight left behind is still meaningful.
+  scaledClockUs = Math.max(scaledClockUs,
+    netSession.originUs + netSession.frame * NET_TICK_US);
+  telemetry("NET_END", reason + " frames " + netSession.frame +
+    " rollbacks " + stats.rollbacks + " rolled " + stats.rolledFrames +
+    " max " + stats.maxRollback + " stalls " + stats.stalls +
+    " waits " + stats.waits + " desyncs " + stats.desyncs);
+  netSession = null;
+  netInbox.length = 0;
+  netPeerHello = null;
+  globalThis.__oskiewarNetStats = null;
+}
+
+// The rival's pad for a frame: the real one if it came, otherwise the newest
+// one we have — a hand mostly keeps doing what it was doing.
+function netRemoteInputFor(session, frame) {
+  const known = session.remote.get(frame);
+  if (known !== undefined) return known;
+  for (let back = frame - 1; back >= 0 && back >= frame - NET_MAX_ROLLBACK * 2; back--) {
+    const older = session.remote.get(back);
+    if (older !== undefined) return older;
+  }
+  return session.lastRemoteMask;
+}
+
+function netInputsFor(session, frame) {
+  const local = session.local.get(frame) ?? 0;
+  const remote = netRemoteInputFor(session, frame);
+  return session.seat === 0 ? [local, remote] : [remote, local];
+}
+
+function netSimulateFrame(session, frame, silent) {
+  const started = performance.now();
+  session.snapshots.set(frame, netSnapshot());
+  session.stats.snapshotMs += performance.now() - started;
+  const inputs = netInputsFor(session, frame);
+  session.used.set(frame, inputs);
+  netFrameInputs = inputs;
+  netClockUs = session.originUs + (frame + 1) * NET_TICK_US;
+  netSilent = silent;
+  try {
+    gameSim();
+  } finally {
+    netClockUs = null;
+    netSilent = false;
+    netFrameInputs = null;
+  }
+}
+
+// The earliest frame we simulated with a guessed rival pad that has since
+// been contradicted. Frames past `confirmed` are the only candidates.
+function netEarliestMisprediction(session) {
+  const remoteSeat = session.seat === 0 ? 1 : 0;
+  for (let frame = session.confirmed + 1; frame < session.frame; frame++) {
+    const real = session.remote.get(frame);
+    if (real === undefined) return null;
+    const used = session.used.get(frame);
+    if (used && used[remoteSeat] !== real) return frame;
+    session.confirmed = frame;
+  }
+  return null;
+}
+
+function netRollback(session, toFrame) {
+  const started = performance.now();
+  const depth = session.frame - toFrame;
+  netRestore(session.snapshots.get(toFrame));
+  for (let frame = toFrame; frame < session.frame; frame++)
+    netSimulateFrame(session, frame, true);
+  session.stats.rollbacks++;
+  session.stats.rolledFrames += depth;
+  session.stats.maxRollback = Math.max(session.stats.maxRollback, depth);
+  session.stats.resimMs += performance.now() - started;
+}
+
+function netPrune(session) {
+  const floor = Math.min(session.confirmed, session.frame - NET_MAX_ROLLBACK - 2);
+  for (const frame of session.snapshots.keys())
+    if (frame < floor) session.snapshots.delete(frame);
+  for (const frame of session.used.keys())
+    if (frame < floor) session.used.delete(frame);
+  const inputFloor = floor - NET_REDUNDANCY * 2;
+  for (const frame of session.local.keys())
+    if (frame < inputFloor) session.local.delete(frame);
+  for (const frame of session.remote.keys())
+    if (frame < inputFloor) session.remote.delete(frame);
+  for (const frame of session.hashes.keys())
+    if (frame < inputFloor) session.hashes.delete(frame);
+  for (const frame of session.peerHashes.keys())
+    if (frame < inputFloor) session.peerHashes.delete(frame);
+}
+
+function netDrainInbox(session) {
+  const remoteSeat = session.seat === 0 ? 1 : 0;
+  for (const packet of netInbox) {
+    if (!packet || typeof packet !== "object") continue;
+    session.lastPacketAt = Date.now();
+    session.stats.received++;
+    if (packet.t === "bye") { session.peerLeft = true; continue; }
+    if (packet.t === "i" && Array.isArray(packet.m) &&
+        Number.isInteger(packet.f)) {
+      // m[k] is the pad for frame f + k; the newest is the last.
+      for (let index = 0; index < packet.m.length && index < NET_REDUNDANCY * 2; index++) {
+        const frame = packet.f + index;
+        const mask = packet.m[index] | 0;
+        if (frame < 0 || session.remote.has(frame)) continue;
+        session.remote.set(frame, mask);
+        if (frame > session.remoteFrame) {
+          session.remoteFrame = frame;
+          session.lastRemoteMask = mask;
+        }
+      }
+      if (Number.isInteger(packet.a)) session.ackFrame = Math.max(session.ackFrame, packet.a);
+      if (Number.isInteger(packet.s)) session.remoteSimFrame = Math.max(session.remoteSimFrame, packet.s);
+      if (Array.isArray(packet.h) && packet.h.length === 2)
+        netNotePeerHash(session, packet.h[0], packet.h[1], remoteSeat);
+    }
+  }
+  netInbox.length = 0;
+}
+
+function netNotePeerHash(session, frame, hash) {
+  if (!Number.isInteger(frame)) return;
+  const mine = session.hashes.get(frame);
+  if (mine === undefined) { session.peerHashes.set(frame, hash); return; }
+  if (mine !== hash) {
+    session.stats.desyncs++;
+    telemetry("NET_DESYNC", "frame " + frame + " mine " + mine + " theirs " + hash);
+  }
+}
+
+// Our state hash at the newest frame both pads are known for — a frame that
+// will never be rolled back again, so both seats hash the same thing if
+// they are the same game.
+function netExchangeHash(session) {
+  const frame = session.confirmed;
+  if (frame < 0 || frame % NET_HASH_EVERY !== 0 || session.hashes.has(frame)) return;
+  const snapshotAfter = session.snapshots.get(frame + 1);
+  if (!snapshotAfter) return;
+  // Hash the snapshot taken before frame+1, i.e. the state after `frame`,
+  // without disturbing the live state: restore is destructive, so hash the
+  // live state only when it IS that frame.
+  let hash;
+  if (session.frame === frame + 1) hash = netStateHash();
+  else {
+    const live = netSnapshot();
+    netRestore(snapshotAfter);
+    hash = netStateHash();
+    netRestore(live);
+  }
+  session.hashes.set(frame, hash);
+  const theirs = session.peerHashes.get(frame);
+  if (theirs !== undefined) netNotePeerHash(session, frame, theirs);
+  session.pendingHash = [frame, hash];
+}
+
+function netSendInputs(session) {
+  // Every local pad we have decided on, including the one just scheduled for
+  // frame + delay. Sending one short of it starves the rival: they stall for
+  // the frame we are holding, we stall for the frame they are holding, and
+  // both fights crawl (measured in the browser harness: two thirds of ticks
+  // spent waiting) even on a wire with no latency at all.
+  const newest = session.frame + session.delay;
+  const first = Math.max(0, newest - NET_REDUNDANCY + 1);
+  const masks = [];
+  for (let frame = first; frame <= newest; frame++)
+    masks.push(session.local.get(frame) ?? 0);
+  const packet = { t: "i", f: first, m: masks, a: session.remoteFrame,
+    s: session.frame };
+  if (session.pendingHash) { packet.h = session.pendingHash; session.pendingHash = null; }
+  if (session.send(packet)) session.stats.sent++;
+}
+
+// One driver tick of a rollback fight. Ingest the rival, repair the past if
+// it was guessed wrong, schedule and mail our own pad, then either step one
+// frame or hold — hold when we have guessed as far as we dare past the
+// rival's last real pad, or when we are simply running ahead of them.
+function netTick() {
+  const session = netSession;
+  netDrainInbox(session);
+  if (session.peerLeft || Date.now() - session.lastPacketAt > NET_PEER_LOST_MS) {
+    const seat = session.seat;
+    netEnd(session.peerLeft ? "rival-left" : "peer-lost");
+    globalThis.__oskiewarRemotePad = null;
+    // The host is left alone in its room; the challenger's bridge is still
+    // up and goes back to watching whatever the room shows next.
+    if (seat === 0 && versusActive()) beginVersusLobby(runtime().monotonicUs);
+    return;
+  }
+  const earliest = netEarliestMisprediction(session);
+  if (earliest !== null) netRollback(session, earliest);
+  const scheduled = session.frame + session.delay;
+  if (!session.local.has(scheduled)) {
+    const pad = typeof gamepad === "function" ? gamepad(0) : null;
+    session.local.set(scheduled, pad ? inputCommand(pad) : 0);
+  }
+  netSendInputs(session);
+  session.ticks++;
+  if (session.frame > session.remoteFrame + NET_MAX_ROLLBACK) {
+    session.stats.waits++;
+    return;
+  }
+  // Frame advantage: if we are more than a delay's worth ahead of where the
+  // rival says they are, give back one tick in four until we are level. Paced
+  // by ticks, not frames — a frame that stalls does not advance, and a stall
+  // keyed on the frame number would hold that frame forever.
+  const ahead = session.frame - session.remoteSimFrame;
+  if (ahead > session.delay + 1 && session.ticks % 4 === 0) {
+    session.stats.stalls++;
+    return;
+  }
+  netSimulateFrame(session, session.frame, false);
+  session.frame++;
+  netPrune(session);
+  netExchangeHash(session);
+  // A window into the lane for the debug overlay, the agent tools and the
+  // browser harness: what the fight is costing and whether it is one game.
+  globalThis.__oskiewarNetStats = { seat: session.seat, frame: session.frame,
+    confirmed: session.confirmed, remoteFrame: session.remoteFrame,
+    hash: session.hashes.get(session.confirmed) ?? 0,
+    hashFrame: session.confirmed, ...session.stats };
+}
+
+// The challenger announces itself on the net channel until the host answers
+// with a deal; a host that never answers is an older build, and the fight
+// falls back to the streamed lane it always had.
+function netChallengerHello(now) {
+  if (netSession || roundViewer?.seat !== "challenger" ||
+      typeof roundViewer.sendNet !== "function") return;
+  const at = Date.now();
+  if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
+  netHelloSentAt = at;
+  roundViewer.sendNet({ t: "hello", v: 1, ...netLocalIdentity() });
+}
+
+// Packets that arrive before a session exists: the challenger's hello lands
+// on the host, the host's deal lands on the challenger. Anything else waits
+// in the inbox for the session to drain.
+function netHandlePreSession(packet) {
+  if (!packet || typeof packet !== "object") return;
+  if (packet.t === "hello" && !roundViewer) {
+    netPeerHello = { name: packet.name, colors: packet.colors, at: Date.now() };
+    return;
+  }
+  if (packet.t === "start" && roundViewer?.seat === "challenger" &&
+      packet.v === 1 && Number.isInteger(packet.origin) &&
+      Number.isInteger(packet.delay) && Array.isArray(packet.fighters) &&
+      packet.fighters.length === 2) {
+    const bridge = roundViewer;
+    netBegin(packet, 1, (content) => bridge.sendNet(content));
+    return;
+  }
+  netInbox.push(packet);
+}
+
+// The host's side of the opening: a fresh challenger who said hello gets a
+// deal instead of the streamed fight.
+function netHostBegin(now) {
+  const deal = netMakeDeal();
+  const room = "ow-" + versusRoomName;
+  const send = (content) => typeof globalThis.__oskiewarNetSend === "function"
+    ? globalThis.__oskiewarNetSend(room, content) : false;
+  if (!send(deal)) return false;
+  netBegin(deal, 0, send);
+  return true;
+}
+
+function netDrainHostInbox() {
+  const inbox = globalThis.__oskiewarNetInbox;
+  if (!Array.isArray(inbox) || !inbox.length) return;
+  for (const packet of inbox) {
+    if (netSession) netInbox.push(packet);
+    else netHandlePreSession(packet);
+  }
+  inbox.length = 0;
 }
 
 // A visitor who arrived through a shared address and found nobody hosting
@@ -3806,7 +4479,9 @@ function resetRound(now, resetMatch = false) {
     // Only a LOCAL hand can still be leaning on a button across the reset; a
     // bot's presses were just cleared, and a remote rival's ride their own
     // wire — inheriting pad two's local snapshot would suppress them.
-    player.previous = player.npc || player.bot || player.remote ? []
+    player.previous = netFrameInputs
+      ? netPadFromMask(netFrameInputs[player.pad]).down.slice()
+      : player.npc || player.bot || player.remote ? []
       : padSnapshots[player.pad]?.down?.slice() || [];
     player.suppressedDirections = player.previous.filter((button) =>
       button.startsWith("Arrow"));
@@ -3873,6 +4548,10 @@ function resetRound(now, resetMatch = false) {
           Math.abs(worldNear) + 400) },
       width: portraitWidth, perspective: 0, fov: 55, roll: 0 });
   }
+  // A rollback fight's fighters are named by the deal, not by whichever
+  // machine ran the reset: applyRoster above dresses seat one from the local
+  // account, which on the challenger's screen is the challenger.
+  if (netSession) netApplyIdentities(netSession.deal);
 }
 
 // The box the camera packs. It is a fighting-game pushbox rather than the
@@ -6930,7 +7609,7 @@ function gameSim() {
     resimTick++;
     advanceResimCommands();
   }
-  if (roundViewer) {
+  if (roundViewer && !netSession) {
     // The chair-holder's hands are local even when the fight is not. The
     // control legend, the M30 manual page and the touch discs all light off
     // inputPads[0], and the debug toggle wants a View edge — none of that
@@ -6950,6 +7629,7 @@ function gameSim() {
     // pad goes up the wire every tick it changes, and a room found hostless
     // becomes theirs to host.
     sendChallengerInput(now);
+    netChallengerHello(now);
     updateVersusClaim(now);
     return;
   }
@@ -6981,7 +7661,10 @@ function gameSim() {
     (globalThis.__oskiewarTouch?.taps?.length || 0) > 0;
   if (!selecting && Array.isArray(globalThis.__oskiewarTouch?.taps))
     globalThis.__oskiewarTouch.taps.length = 0;
-  if (consumeSystemButtons(now)) return;
+  if (consumeSystemButtons(now)) {
+    if (netSession) netLeave("system-button");
+    return;
+  }
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now, titleTapped);
@@ -6995,7 +7678,9 @@ function gameSim() {
     return;
   }
   for (const player of players)
-    inputPads[player.pad] = resimActive && resimCommands
+    inputPads[player.pad] = netFrameInputs
+      ? netPadFromMask(netFrameInputs[player.pad])
+      : resimActive && resimCommands
       ? resimPad(player.pad)
       : player.remote ? remotePadSnapshot()
       : player.bot && shellMode === "GAME"
@@ -8812,7 +9497,7 @@ function drawControlLegend(ink) {
   if (typeof capabilities === "function" &&
       capabilities().inputFamily === "touch") return;
   const safe = hudSafeRect();
-  const pad = inputPads[0] || { down: [], leftX: 0, leftY: 0 };
+  const pad = localPad();
   const held = pad.down || [];
   const directionActive = (button) => held.includes(button) ||
     (button === "ArrowLeft" && pad.leftX < -.12) ||
@@ -8822,8 +9507,9 @@ function drawControlLegend(ink) {
   const size = compactLayout() ? 18 : 24;
   const x = safe.left + 8;
   const both = held.includes("A") && held.includes("B");
-  const dash = players[0].lastButton === "DASH" &&
-    runtime().monotonicUs - players[0].lastButtonAt < 700000;
+  const legendFighter = players[localSeat()];
+  const dash = legendFighter.lastButton === "DASH" &&
+    runtime().monotonicUs - legendFighter.lastButtonAt < 700000;
   const controls = [
     ["LEFT", "ArrowLeft", directionActive("ArrowLeft") ? "MOVE" : ""],
     ["RIGHT", "ArrowRight", dash ? "DASH >>" :
@@ -8903,7 +9589,7 @@ function drawTouchControls() {
   if (typeof capabilities !== "function" ||
       capabilities().inputFamily !== "touch" || capabilities().socialPreview)
     return;
-  const held = inputPads[0]?.down || [];
+  const held = localPad().down || [];
   const spread = 64;
   // The clusters stand clear of the home indicator and any notch ear; the
   // shell's touchKeyAt mirrors this arithmetic, so a shift here must land
@@ -12096,7 +12782,9 @@ function boot() {
 function sim() {
   if (clientError) { restartAfterClientError(); return; }
   try {
-    gameSim();
+    netDrainHostInbox();
+    if (netSession) netTick();
+    else gameSim();
   } catch (error) {
     captureClientError("sim", error);
   }

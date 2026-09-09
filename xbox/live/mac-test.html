@@ -1001,6 +1001,17 @@
     }
 
     const liveSockets = new Map();
+    // The host's half of the rollback lane: a packet to the challenger rides
+    // the publisher socket of the room the fight is in. False means the wire
+    // was not up and the game should count the frame as unsent.
+    globalThis.__oskiewarNetSend = (matchId, content) => {
+      const state = liveSockets.get(matchId);
+      if (state?.socket?.readyState !== WebSocket.OPEN) return false;
+      try {
+        state.socket.send(JSON.stringify({ type: "oskiewar:net", content }));
+        return true;
+      } catch { return false; }
+    };
     function publishLive(matchId, payload) {
       let retiresRoom = false;
       try { retiresRoom = Boolean(JSON.parse(payload).nextRoundId); } catch {}
@@ -1032,6 +1043,11 @@
               typeof message.content === "object")
             globalThis.__oskiewarRemotePad =
               { ...message.content, at: Date.now() };
+          // The rollback lane's packets from the challenger. Queued for the
+          // game to drain on its next tick; the engine owns the protocol.
+          if (message.type === "oskiewar:net" && message.content &&
+              typeof message.content === "object")
+            (globalThis.__oskiewarNetInbox ||= []).push(message.content);
           // Two visitors claimed the same dead room; the relay let one host.
           // Raise the flag and the game walks this one back in as the
           // challenger.

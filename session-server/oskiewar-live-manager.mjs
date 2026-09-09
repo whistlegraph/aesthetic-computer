@@ -30,6 +30,11 @@ const MIN_PUBLISH_INTERVAL_MS = 25;
 // only change it so fast — the cap is generous for play and stingy for abuse.
 const MAX_INPUT_BYTES = 640;
 const MIN_INPUT_INTERVAL_MS = 15;
+// The rollback lane's own channel between the two seats: input frames with a
+// few frames of redundancy, the match-start deal, and state hashes. Small,
+// frequent, and never rate-limited — a dropped input packet is a rollback
+// the other seat has to eat, so the relay forwards every one it is handed.
+const MAX_NET_BYTES = 2048;
 const INPUT_BUTTON = /^[A-Za-z]{1,16}$/;
 const FIGHTER_NAME = /^@?[A-Z0-9_-]{1,24}$/i;
 
@@ -329,9 +334,12 @@ export class OskiewarLiveManager {
   // because one packet came in bent.
   relayInput(room, ws, data) {
     if (room.challenger !== ws) return;
-    if (Buffer.byteLength(data) > MAX_INPUT_BYTES) return;
+    const bytes = Buffer.byteLength(data);
+    if (bytes > MAX_NET_BYTES) return;
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
+    if (message.type === "oskiewar:net") return this.relayNet(room, ws, message);
+    if (bytes > MAX_INPUT_BYTES) return;
     if (message.type !== "oskiewar:input") return;
     const input = message.content;
     if (!input || typeof input !== "object" || Array.isArray(input)) return;
@@ -353,6 +361,20 @@ export class OskiewarLiveManager {
       down: input.down, leftX: input.leftX, leftY: input.leftY,
       name: typeof input.name === "string" ? input.name : "",
       colors: Array.isArray(input.colors) ? input.colors : [] });
+  }
+
+  // Seat to seat and nowhere else: a packet from the publisher reaches the
+  // challenger, a packet from the challenger reaches the publisher, and the
+  // grandstand never hears either. The relay checks only that the payload is
+  // a small JSON object; what the two games say to each other is theirs.
+  relayNet(room, ws, message) {
+    const content = message.content;
+    if (!content || typeof content !== "object" || Array.isArray(content)) return;
+    const target = ws === room.publisher ? room.challenger
+      : ws === room.challenger ? room.publisher : null;
+    if (!target) return;
+    room.updatedAt = this.now();
+    send(target, "oskiewar:net", content);
   }
 
   nudge(room, data) {
@@ -396,6 +418,10 @@ export class OskiewarLiveManager {
     let message;
     try { message = JSON.parse(data.toString()); }
     catch { return send(ws, "oskiewar:error", { message: "Invalid JSON" }); }
+    if (message.type === "oskiewar:net") {
+      if (Buffer.byteLength(data) <= MAX_NET_BYTES) this.relayNet(room, ws, message);
+      return;
+    }
     if (message.type !== "oskiewar:state") return;
     let state = message.content;
     if (typeof state === "string") {
@@ -477,4 +503,4 @@ export class OskiewarLiveManager {
 
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
   MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS,
-  MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS });
+  MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS, MAX_NET_BYTES });

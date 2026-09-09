@@ -114,6 +114,10 @@ export class RoundRoom {
         this.lastState = message.content;
         this.emit("state", message.content);
         if (message.content?.phase === "match") this.loadDemo(true);
+      } else if (message.type === "oskiewar:net") {
+        // The rollback lane's packets from the host: input frames, the
+        // match-start deal, state hashes. Handed straight to the game.
+        this.emit("net", message.content);
       } else if (message.type === "oskiewar:error") {
         // A taken chair is an answer, not a failure: fall back to watching
         // before the server's close comes through, so the reconnect below
@@ -146,6 +150,17 @@ export class RoundRoom {
       return false;
     try {
       this.socket.send(JSON.stringify({ type: "oskiewar:input", content }));
+      return true;
+    } catch { return false; }
+  }
+
+  // The rollback lane's packets from this seat up to the host. Only the chair
+  // may speak, and only while the wire is up; the return says whether it went.
+  sendNet(content) {
+    if (this.seat !== "challenger" || this.socket?.readyState !== 1)
+      return false;
+    try {
+      this.socket.send(JSON.stringify({ type: "oskiewar:net", content }));
       return true;
     } catch { return false; }
   }
