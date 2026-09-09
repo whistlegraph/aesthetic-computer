@@ -38,7 +38,7 @@ const PAPERS_STACK_INSTRUCTIONS = [
   "The papers stack is the Aesthetic Computer scholarly publishing workflow, not a generic PDF renderer.",
   "For requests such as 'use the papers stack' or 'use /papers', first consult papers/SCORE.md, the public Platter index, relevant sub-platters, prior papers and bibliographies, and primary code/data/evidence.",
   "Unless the user explicitly requests another mill lane, default to an archival/arXiv-style LaTeX paper with abstract, context/related work, method/system, implementation, evidence/evaluation, ethics/privacy/limitations, conclusion, references, and captioned figures/tables.",
-  "Briefings, dossiers, essays, decks, cards, and visual reports are distinct outputs. Build, run Figure-Table-QA-Check, visually inspect every page and diagram crop, record the current render in aesthetic-eye.json, and run Aesthetic Eye check. Compilation alone is not completion; a missing, stale, or failing Aesthetic Eye review is a hard failure.",
+  "Briefings, dossiers, essays, decks, cards, and visual reports are distinct outputs. Build, run Figure-Table-QA-Check, visually inspect every page plus every evidence-figure and diagram crop, record the current render in aesthetic-eye.json, and run Aesthetic Eye check. Compilation alone is not completion; a missing, stale, or failing Aesthetic Eye review is a hard failure.",
 ].join(" ");
 
 async function exists(path) {
@@ -443,7 +443,7 @@ async function toolAestheticEyePrepare({ paper } = {}) {
   if (!rec.pdfPath || !(await exists(rec.pdfPath))) throw new Error(`${rec.id} has no PDF. Call paper_build first.`);
   const result = await runAestheticEye("prepare", rec);
   if (!result.pass) throw new Error(`Aesthetic Eye prepare failed for ${rec.id}:\n${result.output}`);
-  return [{ type: "text", text: `Aesthetic Eye review prepared for ${rec.title} [${rec.id}]\n${result.output}\nInspect pages-contact.png and every diagram crop, then record verdicts and call paper_aesthetic_eye_check.` }];
+  return [{ type: "text", text: `Aesthetic Eye review prepared for ${rec.title} [${rec.id}]\n${result.output}\nInspect pages-contact.png and every evidence-figure and diagram crop, then record verdicts and call paper_aesthetic_eye_check.` }];
 }
 
 async function toolAestheticEyeCheck({ paper } = {}) {
@@ -670,7 +670,7 @@ const TOOLS = [
   },
   {
     name: "paper_aesthetic_eye_prepare",
-    description: "Prepare Aesthetic Eye review artifacts from an existing aesthetic-eye.json: an all-page contact sheet and one crop per declared diagram. Inspect every rendered artifact and update the manifest with the current PDF hash and literal visual verdicts. SIDE EFFECT: writes .aesthetic-eye/ raster files beside the paper.",
+    description: "Prepare Aesthetic Eye review artifacts from an existing aesthetic-eye.json: an all-page contact sheet and one crop per declared evidence figure and diagram. Inspect every rendered artifact and update the manifest with the current PDF hash and literal visual verdicts. SIDE EFFECT: writes .aesthetic-eye/ raster files beside the paper.",
     inputSchema: {
       type: "object",
       properties: { paper: { type: "string" } },
@@ -724,7 +724,7 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
-            serverInfo: { name: "paper-mcp", version: "1.2.0" },
+            serverInfo: { name: "paper-mcp", version: "1.3.0" },
             instructions: PAPERS_STACK_INSTRUCTIONS,
           },
         };

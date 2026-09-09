@@ -1,9 +1,10 @@
 # Aesthetic Eye
 
-`aesthetic-eye` is the render-first design gate for papers and their diagrams. A
-successful TeX build is not visual approval. The final PDF must receive a
-paper-wide brand verdict, and every diagram must receive the literal verdict
-`design: pass` or `design: fail` in an `aesthetic-eye.json` beside the paper.
+`aesthetic-eye` is the render-first design gate for papers and their visual
+evidence. A successful TeX build is not visual approval. The final PDF must
+receive a paper-wide brand verdict, and every evidence figure and diagram must
+receive the literal verdict `design: pass` or `design: fail` in an
+`aesthetic-eye.json` beside the paper.
 
 ## Brand rule
 
@@ -63,6 +64,23 @@ These are visual judgments, not geometry-only lint. The agent must open and
 inspect the prepared crops. A manifest copied from an older render fails because
 it records the SHA-256 of the reviewed PDF.
 
+## Evidence-figure checks
+
+Every photographic, screenshot, plotted, or generated figure receives five
+checks. The checker inventories figure environments containing
+`\includegraphics` in the matching TeX source, so omitting their manifest
+records is a failure.
+
+- `scale` — the evidence is large enough to inspect at normal PDF size;
+- `legibility` — essential marks, labels, and comparisons can be read without
+  zooming beyond normal reading size;
+- `evidenceDominance` — the evidence, not its caption or surrounding prose,
+  owns the figure's visual area;
+- `crop` — empty margins and irrelevant interface chrome do not miniaturize the
+  useful content;
+- `captionFit` — the caption identifies what is shown and what it proves without
+  visually overpowering it.
+
 ## Manifest
 
 Place `aesthetic-eye.json` beside the paper source:
@@ -72,6 +90,7 @@ Place `aesthetic-eye.json` beside the paper source:
   "schema": 1,
   "paper": "Example Paper",
   "pdf": "example.pdf",
+  "expectedFigures": 1,
   "expectedDiagrams": 1,
   "visualInference": true,
   "pdfSha256": "sha256-of-reviewed-pdf",
@@ -86,6 +105,21 @@ Place `aesthetic-eye.json` beside the paper source:
       "dotColor": "pass"
     }
   },
+  "figures": [
+    {
+      "id": "observed-result",
+      "page": 1,
+      "crop": [0.08, 0.22, 0.84, 0.32],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      }
+    }
+  ],
   "diagrams": [
     {
       "id": "system-map",
@@ -107,20 +141,22 @@ Place `aesthetic-eye.json` beside the paper source:
 ```
 
 `crop` is `[x, y, width, height]` in normalized page coordinates, measured from
-the upper-left. `expectedDiagrams` is the explicit inventory: every diagram in
-the paper must appear once, including title illustrations that explain the
-system rather than merely decorate it.
+the upper-left. `expectedFigures` must match every TeX figure containing
+`\includegraphics`; `expectedDiagrams` is the explicit diagram inventory,
+including title illustrations that explain the system rather than merely
+decorate it.
 
 ## Pass
 
 ```bash
 node papers/aesthetic-eye.mjs prepare papers/arxiv-example
-# Open .aesthetic-eye/pages-contact.png, diagrams-contact.png, and every crop.
+# Open pages-contact.png, figures-contact.png, diagrams-contact.png, and every crop.
 # Record the visual-inference verdicts and the printed pdfSha256.
 node papers/aesthetic-eye.mjs check papers/arxiv-example
 ```
 
 The check fails when a visible brand name omits its period, the brand review is
-absent, the dot-color check fails, a diagram is missing, a verdict is absent, a
-diagram fails, or the PDF changed after review. `.aesthetic-eye/` is disposable
-rendered evidence; the manifest is the durable review record.
+absent, the dot-color check fails, a source evidence figure or diagram is
+missing from the manifest, a verdict is absent or failed, or the PDF changed
+after review. `.aesthetic-eye/` is disposable rendered evidence; the manifest
+is the durable review record.

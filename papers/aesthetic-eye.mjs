@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// aesthetic-eye — render-first visual QA for papers and their diagrams.
+// aesthetic-eye — render-first visual QA for papers and their visual evidence.
 //
-// A TeX build proves syntax, not design. This tool prepares diagram crops for
+// A TeX build proves syntax, not design. This tool prepares evidence crops for
 // visual inference and enforces a current-PDF manifest whose verdict is the
-// literal `design: pass|fail` for every diagram.
+// literal `design: pass|fail` for every evidence figure and diagram.
 
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const exec = promisify(execFile);
 const REQUIRED_CHECKS = ["tangents", "type", "balance", "spaceUse", "hierarchy", "edgeRouting"];
+const FIGURE_CHECKS = ["scale", "legibility", "evidenceDominance", "crop", "captionFit"];
 const PRESENTATION_CHECKS = ["oneClaim", "distanceType", "evidenceDominance", "voteClarity", "routeOrientation", "qrLegibility"];
 const BRAND_NAME = "Aesthetic.Computer";
 const BRAND_DOT_COLOR = "#B44887";
@@ -28,6 +29,12 @@ async function exists(path) {
 
 async function sha256(path) {
   return createHash("sha256").update(await readFile(path)).digest("hex");
+}
+
+export function countEvidenceFigures(sourceText) {
+  return [...String(sourceText || "").matchAll(/\\begin\{figure\*?\}([\s\S]*?)\\end\{figure\*?\}/g)]
+    .filter((match) => /\\includegraphics(?:\[[^\]]*\])?\{/.test(match[1]))
+    .length;
 }
 
 function resolveInputs(input, manifestArg) {
@@ -47,12 +54,17 @@ async function loadReview(input, manifestArg) {
     ? manifest.pdf
     : join(paperDir, manifest.pdf || "");
   if (!manifest.pdf || !(await exists(pdfPath))) throw new Error(`manifest PDF is missing: ${pdfPath}`);
-  return { paperDir, manifestPath, manifest, pdfPath };
+  const sourcePath = join(paperDir, `${basename(pdfPath, extname(pdfPath))}.tex`);
+  const sourceFigureCount = await exists(sourcePath)
+    ? countEvidenceFigures(await readFile(sourcePath, "utf8"))
+    : null;
+  return { paperDir, manifestPath, manifest, pdfPath, sourcePath, sourceFigureCount };
 }
 
-export function validateManifest(manifest, currentPdfSha256) {
+export function validateManifest(manifest, currentPdfSha256, sourceFigureCount = null) {
   const errors = [];
   const diagrams = Array.isArray(manifest?.diagrams) ? manifest.diagrams : [];
+  const figures = Array.isArray(manifest?.figures) ? manifest.figures : [];
   const brand = manifest?.brand;
   const presentation = manifest?.presentation;
   if (manifest?.schema !== 1) errors.push("schema must be 1");
@@ -105,6 +117,46 @@ export function validateManifest(manifest, currentPdfSha256) {
 
   const allDesignPass = diagrams.length === manifest?.expectedDiagrams
     && diagrams.every((diagram) => diagram.design === "pass");
+
+  const figuresRequired = (Number.isInteger(sourceFigureCount) && sourceFigureCount > 0)
+    || manifest?.expectedFigures != null
+    || figures.length > 0;
+  if (figuresRequired) {
+    if (!Number.isInteger(manifest?.expectedFigures) || manifest.expectedFigures < 0) {
+      errors.push("expectedFigures must be a non-negative integer when the source contains evidence figures");
+    } else {
+      if (figures.length !== manifest.expectedFigures) {
+        errors.push(`expected ${manifest.expectedFigures} evidence figure(s), found ${figures.length}`);
+      }
+      if (Number.isInteger(sourceFigureCount) && manifest.expectedFigures !== sourceFigureCount) {
+        errors.push(`source contains ${sourceFigureCount} evidence figure(s), manifest expects ${manifest.expectedFigures}`);
+      }
+    }
+    const ids = new Set();
+    for (const [index, figure] of figures.entries()) {
+      const prefix = `figure ${figure?.id || index + 1}`;
+      if (!figure?.id) errors.push(`${prefix}: id is required`);
+      else if (ids.has(figure.id)) errors.push(`${prefix}: id must be unique`);
+      else ids.add(figure.id);
+      if (!Number.isInteger(figure?.page) || figure.page < 1) errors.push(`${prefix}: page must be >= 1`);
+      if (!Array.isArray(figure?.crop) || figure.crop.length !== 4 || figure.crop.some((n) => !Number.isFinite(n) || n < 0 || n > 1)) {
+        errors.push(`${prefix}: crop must be four normalized values between 0 and 1`);
+      } else if (figure.crop[0] + figure.crop[2] > 1 || figure.crop[1] + figure.crop[3] > 1) {
+        errors.push(`${prefix}: crop extends beyond the rendered page`);
+      }
+      if (!["pass", "fail"].includes(figure?.design)) errors.push(`${prefix}: design must be pass or fail`);
+      for (const check of FIGURE_CHECKS) {
+        if (!["pass", "fail"].includes(figure?.checks?.[check])) errors.push(`${prefix}: checks.${check} must be pass or fail`);
+      }
+      const failedChecks = FIGURE_CHECKS.filter((check) => figure?.checks?.[check] === "fail");
+      if (figure?.design === "pass" && failedChecks.length) {
+        errors.push(`${prefix}: design cannot pass while ${failedChecks.join(", ")} fail`);
+      }
+    }
+  }
+  const allFigureDesignsPass = !figuresRequired
+    || (figures.length === manifest?.expectedFigures
+      && figures.every((figure) => figure.design === "pass"));
   if (presentation) {
     const slides = Array.isArray(presentation.slides) ? presentation.slides : [];
     if (!Number.isInteger(presentation.expectedSlides) || presentation.expectedSlides < 1) {
@@ -131,7 +183,14 @@ export function validateManifest(manifest, currentPdfSha256) {
   const presentationPass = !presentation
     || (presentation.slides?.length === presentation.expectedSlides
       && presentation.slides.every((slide) => slide.design === "pass"));
-  return { pass: errors.length === 0 && allDesignPass && brandPass && presentationPass, errors, diagrams, brand, presentation };
+  return {
+    pass: errors.length === 0 && allDesignPass && allFigureDesignsPass && brandPass && presentationPass,
+    errors,
+    diagrams,
+    figures,
+    brand,
+    presentation,
+  };
 }
 
 export async function findVisibleBrandViolations(pdfPath) {
@@ -142,7 +201,7 @@ export async function findVisibleBrandViolations(pdfPath) {
 async function check(input, manifestArg) {
   const review = await loadReview(input, manifestArg);
   const digest = await sha256(review.pdfPath);
-  const verdict = validateManifest(review.manifest, digest);
+  const verdict = validateManifest(review.manifest, digest, review.sourceFigureCount);
   const brandViolations = await findVisibleBrandViolations(review.pdfPath);
   const errors = [...verdict.errors];
   if (brandViolations.length) {
@@ -151,6 +210,7 @@ async function check(input, manifestArg) {
   const pass = verdict.pass && errors.length === 0;
   console.log(`brand: ${verdict.brand?.design || "missing"}  ${BRAND_NAME}  dot ${BRAND_DOT_COLOR}`);
   for (const diagram of verdict.diagrams) console.log(`design: ${diagram.design}  ${diagram.id}  page ${diagram.page}`);
+  for (const figure of verdict.figures) console.log(`figure: ${figure.design}  ${figure.id}  page ${figure.page}`);
   for (const slide of verdict.presentation?.slides || []) console.log(`slide: ${slide.design}  page ${slide.page}`);
   if (errors.length) for (const error of errors) console.error(`FAIL: ${error}`);
   if (!pass && !errors.length) console.error("FAIL: one or more visual verdicts have design: fail");
@@ -180,29 +240,40 @@ async function prepare(input, manifestArg, outputArg) {
     }
   }
 
-  const crops = [];
-  for (const diagram of review.manifest.diagrams || []) {
-    const pagePath = `${pagePrefix}-${diagram.page}.png`;
-    if (!(await exists(pagePath))) throw new Error(`${diagram.id}: rendered page ${diagram.page} is missing`);
-    const { stdout } = await exec("magick", ["identify", "-format", "%w %h", pagePath]);
-    const [pageWidth, pageHeight] = stdout.trim().split(/\s+/).map(Number);
-    const [x, y, width, height] = diagram.crop;
-    const geometry = `${Math.round(pageWidth * width)}x${Math.round(pageHeight * height)}+${Math.round(pageWidth * x)}+${Math.round(pageHeight * y)}`;
-    const cropPath = join(outputDir, `diagram-${diagram.id}.png`);
-    await exec("magick", [pagePath, "-crop", geometry, "+repage", cropPath]);
-    crops.push(cropPath);
-    console.log(`${diagram.id}: ${cropPath}`);
+  async function renderCrops(items, kind) {
+    const crops = [];
+    for (const item of items || []) {
+      const pagePath = `${pagePrefix}-${item.page}.png`;
+      if (!(await exists(pagePath))) throw new Error(`${item.id}: rendered page ${item.page} is missing`);
+      const { stdout } = await exec("magick", ["identify", "-format", "%w %h", pagePath]);
+      const [pageWidth, pageHeight] = stdout.trim().split(/\s+/).map(Number);
+      const [x, y, width, height] = item.crop;
+      const geometry = `${Math.round(pageWidth * width)}x${Math.round(pageHeight * height)}+${Math.round(pageWidth * x)}+${Math.round(pageHeight * y)}`;
+      const cropPath = join(outputDir, `${kind}-${item.id}.png`);
+      await exec("magick", [pagePath, "-crop", geometry, "+repage", cropPath]);
+      crops.push(cropPath);
+      console.log(`${item.id}: ${cropPath}`);
+    }
+    return crops;
   }
 
-  if (crops.length) {
+  const figureCrops = await renderCrops(review.manifest.figures, "figure");
+  if (figureCrops.length) {
+    const contactPath = join(outputDir, "figures-contact.png");
+    await exec("magick", ["montage", "-font", CONTACT_FONT, ...figureCrops, "-thumbnail", "1000x700", "-tile", "2x", "-geometry", "+24+24", contactPath]);
+    console.log(`figures: ${contactPath}`);
+  }
+
+  const diagramCrops = await renderCrops(review.manifest.diagrams, "diagram");
+  if (diagramCrops.length) {
     const contactPath = join(outputDir, "diagrams-contact.png");
-    await exec("magick", ["montage", "-font", CONTACT_FONT, ...crops, "-thumbnail", "1000x700", "-tile", "2x", "-geometry", "+24+24", contactPath]);
-    console.log(`contact: ${contactPath}`);
+    await exec("magick", ["montage", "-font", CONTACT_FONT, ...diagramCrops, "-thumbnail", "1000x700", "-tile", "2x", "-geometry", "+24+24", contactPath]);
+    console.log(`diagrams: ${contactPath}`);
   }
   const brandViolations = await findVisibleBrandViolations(review.pdfPath);
   console.log(`brand text: ${brandViolations.length ? `FAIL (${brandViolations.length} missing period)` : "PASS"}`);
   console.log(`pdfSha256: ${await sha256(review.pdfPath)}`);
-  console.log("Next: inspect pages-contact.png for the colored Aesthetic.Computer period, inspect every diagram crop, record the verdicts, then run `aesthetic-eye check`.");
+  console.log("Next: inspect pages-contact.png for the colored Aesthetic.Computer period, inspect every evidence-figure and diagram crop, record the verdicts, then run `aesthetic-eye check`.");
 }
 
 function option(args, name) {
