@@ -33,11 +33,12 @@ const SKIP_DIRS = new Set([".git", "node_modules", "figures", "logos", "data", "
 const SOURCE_EXTS = new Set([".tex", ".md"]);
 const PAPER_EXTS = new Set([".tex", ".md", ".pdf"]);
 const MAX_READ_CHARS = 60_000;
+const AESTHETIC_EYE = join(REPO, "papers", "aesthetic-eye.mjs");
 const PAPERS_STACK_INSTRUCTIONS = [
   "The papers stack is the Aesthetic Computer scholarly publishing workflow, not a generic PDF renderer.",
   "For requests such as 'use the papers stack' or 'use /papers', first consult papers/SCORE.md, the public Platter index, relevant sub-platters, prior papers and bibliographies, and primary code/data/evidence.",
   "Unless the user explicitly requests another mill lane, default to an archival/arXiv-style LaTeX paper with abstract, context/related work, method/system, implementation, evidence/evaluation, ethics/privacy/limitations, conclusion, references, and captioned figures/tables.",
-  "Briefings, dossiers, essays, decks, cards, and visual reports are distinct outputs. Build, then run Figure-Table-QA-Check and visually inspect; compilation alone is not completion.",
+  "Briefings, dossiers, essays, decks, cards, and visual reports are distinct outputs. Build, run Figure-Table-QA-Check, visually inspect every page and diagram crop, record the current render in aesthetic-eye.json, and run Aesthetic Eye check. Compilation alone is not completion; a missing, stale, or failing Aesthetic Eye review is a hard failure.",
 ].join(" ");
 
 async function exists(path) {
@@ -406,11 +407,51 @@ async function notifyArtifactReady(handle, pdfPath) {
   }
 }
 
+async function runAestheticEye(command, rec) {
+  try {
+    const result = await pexec(process.execPath, [AESTHETIC_EYE, command, rec.dir], {
+      timeout: 180_000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+    return { pass: true, output: `${result.stdout || ""}\n${result.stderr || ""}`.trim() };
+  } catch (error) {
+    return {
+      pass: false,
+      output: `${error.stdout || ""}\n${error.stderr || ""}`.trim() || String(error.message || error),
+    };
+  }
+}
+
+function formatAestheticEyeStatus(result) {
+  const state = result.pass ? "PASS" : "FAIL";
+  const consequence = result.pass
+    ? "visual acceptance is current"
+    : "visual acceptance is incomplete; prepare, inspect, record, and re-check before delivery";
+  return `AESTHETIC EYE: ${state} — ${consequence}${result.output ? `\n${result.output}` : ""}`;
+}
+
 async function toolBuild({ paper, passes = 2, notifyHandle } = {}) {
   const rec = await resolvePaper(paper);
   const built = await buildRecord(rec, passes);
+  const aestheticEye = await runAestheticEye("check", rec);
   const notified = await notifyArtifactReady(notifyHandle, built.pdfPath);
-  return [{ type: "text", text: `built ${rec.title} [${rec.id}]\n${built.pdfPath}\n${built.bytes} bytes · ${built.passes} ${built.engine} pass(es)${notified ? `\n${notified}` : ""}` }];
+  return [{ type: "text", text: `built ${rec.title} [${rec.id}]\n${built.pdfPath}\n${built.bytes} bytes · ${built.passes} ${built.engine} pass(es)\n${formatAestheticEyeStatus(aestheticEye)}${notified ? `\n${notified}` : ""}` }];
+}
+
+async function toolAestheticEyePrepare({ paper } = {}) {
+  const rec = await resolvePaper(paper);
+  if (!rec.pdfPath || !(await exists(rec.pdfPath))) throw new Error(`${rec.id} has no PDF. Call paper_build first.`);
+  const result = await runAestheticEye("prepare", rec);
+  if (!result.pass) throw new Error(`Aesthetic Eye prepare failed for ${rec.id}:\n${result.output}`);
+  return [{ type: "text", text: `Aesthetic Eye review prepared for ${rec.title} [${rec.id}]\n${result.output}\nInspect pages-contact.png and every diagram crop, then record verdicts and call paper_aesthetic_eye_check.` }];
+}
+
+async function toolAestheticEyeCheck({ paper } = {}) {
+  const rec = await resolvePaper(paper);
+  if (!rec.pdfPath || !(await exists(rec.pdfPath))) throw new Error(`${rec.id} has no PDF. Call paper_build first.`);
+  const result = await runAestheticEye("check", rec);
+  if (!result.pass) throw new Error(formatAestheticEyeStatus(result));
+  return [{ type: "text", text: `${formatAestheticEyeStatus(result)}\n${rec.pdfPath}` }];
 }
 
 async function toolOpen({ paper, build = false } = {}) {
@@ -433,6 +474,7 @@ async function toolFigureTableQaCheck({ paper, build = false, dpi = 180, page } 
   let pdfPath = rec.pdfPath;
   if ((!pdfPath || !(await exists(pdfPath))) && build) pdfPath = (await buildRecord(rec, 2)).pdfPath;
   if (!pdfPath || !(await exists(pdfPath))) throw new Error(`${rec.id} has no PDF. Build it before Figure-Table-QA-Check.`);
+  const aestheticEye = await runAestheticEye("check", rec);
 
   const pdftoppm = await firstExecutable([
     process.env.PDFTOPPM,
@@ -557,6 +599,7 @@ async function toolFigureTableQaCheck({ paper, build = false, dpi = 180, page } 
     `Bundle: ${qaDir}`,
     `Manifest: ${manifestPath}`,
     `Pages: ${pageFiles.join(", ")}`,
+    formatAestheticEyeStatus(aestheticEye),
     "",
     manifest,
   ].join("\n");
@@ -600,7 +643,7 @@ const TOOLS = [
   },
   {
     name: "paper_build",
-    description: "Build a resolved .tex paper in place with XeLaTeX (no shell escape), normally two passes. A successful build is not visual acceptance: call paper_figure_table_qa_check afterward. SIDE EFFECT: writes the PDF and normal TeX auxiliary files beside the source.",
+    description: "Build a resolved .tex paper in place with XeLaTeX (no shell escape), normally two passes, then report the mandatory Aesthetic Eye gate as PASS or FAIL. A new build normally makes an old visual review stale. Call paper_figure_table_qa_check, inspect the render, prepare and record Aesthetic Eye verdicts, then call paper_aesthetic_eye_check. SIDE EFFECT: writes the PDF and normal TeX auxiliary files beside the source.",
     inputSchema: {
       type: "object",
       properties: {
@@ -613,7 +656,7 @@ const TOOLS = [
   },
   {
     name: "paper_figure_table_qa_check",
-    description: "Run Figure-Table-QA-Check: rasterize a paper, inventory figures/tables/embedded visual cards, and return an overview or full-resolution page for OpenAI visual inference. This tool never self-certifies a pass; the model must inspect every inventoried item, iterate failures, and rerun the check.",
+    description: "Run Figure-Table-QA-Check: rasterize a paper, inventory figures/tables/embedded visual cards, return an overview or full-resolution page for OpenAI visual inference, and report the mandatory Aesthetic Eye gate as PASS or FAIL. This tool never self-certifies a pass; inspect every inventoried item, iterate failures, then prepare, record, and check Aesthetic Eye.",
     inputSchema: {
       type: "object",
       properties: {
@@ -622,6 +665,24 @@ const TOOLS = [
         dpi: { type: "integer", minimum: 120, maximum: 300, default: 180 },
         page: { type: "integer", minimum: 1, description: "Optional one-based page number for full-resolution visual inference; omit for the all-page overview." },
       },
+      required: ["paper"],
+    },
+  },
+  {
+    name: "paper_aesthetic_eye_prepare",
+    description: "Prepare Aesthetic Eye review artifacts from an existing aesthetic-eye.json: an all-page contact sheet and one crop per declared diagram. Inspect every rendered artifact and update the manifest with the current PDF hash and literal visual verdicts. SIDE EFFECT: writes .aesthetic-eye/ raster files beside the paper.",
+    inputSchema: {
+      type: "object",
+      properties: { paper: { type: "string" } },
+      required: ["paper"],
+    },
+  },
+  {
+    name: "paper_aesthetic_eye_check",
+    description: "Enforce the Aesthetic Eye hard gate. Fails when aesthetic-eye.json is missing, stale, malformed, contains a failed brand/diagram/presentation verdict, or visible Aesthetic.Computer text omits its pink period.",
+    inputSchema: {
+      type: "object",
+      properties: { paper: { type: "string" } },
       required: ["paper"],
     },
   },
@@ -646,6 +707,8 @@ async function callTool(name, args) {
     case "paper_read": return toolRead(args || {});
     case "paper_build": return toolBuild(args || {});
     case "paper_figure_table_qa_check": return toolFigureTableQaCheck(args || {});
+    case "paper_aesthetic_eye_prepare": return toolAestheticEyePrepare(args || {});
+    case "paper_aesthetic_eye_check": return toolAestheticEyeCheck(args || {});
     case "paper_open": return toolOpen(args || {});
     default: throw new Error(`Unknown tool: ${name}`);
   }
@@ -661,7 +724,7 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
-            serverInfo: { name: "paper-mcp", version: "1.1.0" },
+            serverInfo: { name: "paper-mcp", version: "1.2.0" },
             instructions: PAPERS_STACK_INSTRUCTIONS,
           },
         };
@@ -685,4 +748,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7777);
 if (port) serveHttp({ handleMessage, port, banner: "📄 paper-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "📄 paper-mcp started (paper_list, paper_find, paper_read, paper_build, paper_figure_table_qa_check, paper_open)" });
+else serveStdio({ handleMessage, banner: "📄 paper-mcp started (paper_list, paper_find, paper_read, paper_build, paper_figure_table_qa_check, paper_aesthetic_eye_prepare, paper_aesthetic_eye_check, paper_open)" });

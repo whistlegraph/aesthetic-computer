@@ -27,7 +27,12 @@ use a LaTeX `figure` environment.
    unusually empty. Inspect each at full resolution.
 5. Reject and revise every visual failure. Rebuild and repeat the overview and
    detail checks until the entire paper passes.
-6. Open the accepted PDF with `paper_open`.
+6. Run `paper_aesthetic_eye_prepare`, inspect its all-page contact sheet and
+   every declared diagram crop, and record the six diagram verdicts plus the
+   brand verdict in `aesthetic-eye.json` against the current PDF hash.
+7. Run `paper_aesthetic_eye_check`. A missing, stale, malformed, or failing
+   manifest is a hard failure and must be reported as such.
+8. Open the accepted PDF with `paper_open` only after both rendered gates pass.
 
 The QA tool deliberately reports `VISUAL INFERENCE REQUIRED`; it never
 self-certifies a pass.
