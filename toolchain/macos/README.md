@@ -106,3 +106,15 @@ missing), `--folder NAME` (iCloud Drive subfolder, default `to-phone`). Needs
 iCloud Photos + iCloud Drive on (both enabled on this host). Sync lands in a
 few seconds. Complements `iphone-tap/` (which drives the phone via iPhone
 Mirroring) — this one gets files *onto* the phone.
+
+## gfn.sh — GeForce NOW network mode (Wi-Fi Macs)
+
+`toolchain/macos/gfn.sh on` pins the AWDL interface down (AirDrop/Handoff
+channel-hopping is the usual source of 20–100 ms spikes on a Wi-Fi hop) and
+turns AirDrop discoverability off for the session; `off` restores both;
+`check` prints Wi-Fi jitter plus GFN's own last network-test line. `on` installs
+a root LaunchDaemon (`computer.aesthetic.gfn-awdl`) that re-lowers awdl0 every
+15 s, because macOS re-raises it on any Continuity touch; `off` removes it.
+Uses sudo on a TTY, or a macOS admin dialog when run from Claude's `!` runner.
+Measured on blueberry: gateway hop stddev 23 ms → 3 ms. Tailscale stays up — with no exit node set, GFN traffic never
+touches it. A USB-C Ethernet adapter beats all of this.
