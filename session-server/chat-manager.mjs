@@ -42,7 +42,7 @@ export const chatInstances = {
     // "mood" topic that aesthetic.computer devices subscribe to.
     topic: "chat-sotce",
     // And its own face in the notification, not the aesthetic.computer mark.
-    icon: "https://assets.aesthetic.computer/sotce-net/cookie.png",
+    icon: "https://assets.aesthetic.computer/sotce-net/cookie-192.png",
   },
   "chat-clock.aesthetic.computer": {
     name: "chat-clock",

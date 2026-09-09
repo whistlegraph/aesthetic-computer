@@ -142,7 +142,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(note.title || "Sotce Net", {
       body: note.body || "",
-      icon: note.icon || "https://assets.aesthetic.computer/sotce-net/cookie.png",
+      icon: note.icon || "https://assets.aesthetic.computer/sotce-net/cookie-192.png",
       image: note.image,
       data: note.data || {},
     })
@@ -11240,7 +11240,7 @@ export const handler = async (event, context) => {
         {
           title: "Sotce Net",
           body: "A new page has been written.",
-          icon: "https://assets.aesthetic.computer/sotce-net/cookie.png",
+          icon: "https://assets.aesthetic.computer/sotce-net/cookie-192.png",
           data: { piece: "" },
           ttl: 3600,
         },
