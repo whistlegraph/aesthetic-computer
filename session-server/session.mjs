@@ -2563,7 +2563,7 @@ wss.on("connection", async (ws, req) => {
         // Note: codeChannelState stores the original msg.content object, 
         // pack() will JSON.stringify it, so don't double-stringify here
         const stateMsg = pack("code", codeChannelState[codeChannel], id);
-        send(stateMsg);
+        if (ws.readyState === WebSocket.OPEN) ws.send(stateMsg);
         log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
       }
     } else if (msg.type === "code-channel:info") {
