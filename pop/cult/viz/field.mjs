@@ -149,8 +149,11 @@ function drawFrame(ctx, cover, data, T, o) {
   if (lift > 0.02) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.22 * lift; ctx.drawImage(cover, x, y, dw, dh); }
   ctx.globalAlpha = 1;
 
-  // the powder: grains placed by pan (x) and pitch (y), jittered by index
+  // the powder: grains placed by pan (x) and pitch (y), jittered by index.
+  // Off unless asked (--powder): @jeffrey preferred the cover breathing on
+  // its own — the kick lift and the explosions carry the record.
   ctx.globalCompositeOperation = "lighter";
+  if (!o.powder) { ctx.globalCompositeOperation = "source-over"; return; }
   const fieldW = W * 0.82, fieldH = H * (o.square ? 0.72 : 0.56), cx = W / 2, cy = H * (o.square ? 0.5 : 0.47);
   for (const g of grains) {
     const age = T - g.t; if (age < -0.02) continue;
@@ -159,6 +162,8 @@ function drawFrame(ctx, cover, data, T, o) {
     const j1 = hash(g.i) - 0.5, j2 = hash(g.i + 7919) - 0.5;
     const px = cx + (g.pan * 0.9 + j1 * 0.28) * fieldW / 2;
     const py = cy - ((g.midi - 62) / 16 + j2 * 0.3) * fieldH / 2;
+    // keep the powder above the word rails (the reel) — clamp, do not skip
+    const pyC = o.square ? py : Math.min(py, H * 0.60);
     const col = WHO[g.who] || WHO.none;
     const fade = age < g.dur ? 1 : Math.max(0, 1 - (age - g.dur) / (life - g.dur));
     const pop = age < 0.09 ? 1 + 0.8 * (1 - age / 0.09) : 1;
@@ -166,7 +171,7 @@ function drawFrame(ctx, cover, data, T, o) {
       const len = Math.min(Math.min(age, g.dur) * o.pxPerSec * (g.stretch ? 0.35 : 1), W * 0.42);
       const ang = (j1 * 0.9) + (g.pan * 0.35);
       const w = (11 + 26 * Math.min(1, g.gain * 1.6)) * o.grain;
-      ctx.save(); ctx.translate(px, py); ctx.rotate(ang);
+      ctx.save(); ctx.translate(px, pyC); ctx.rotate(ang);
       ctx.lineCap = "round";
       ctx.strokeStyle = rgba(col, 0.22 * fade); ctx.lineWidth = w * 2.6;
       ctx.beginPath(); ctx.moveTo(-len / 2, 0); ctx.lineTo(len / 2, 0); ctx.stroke();
@@ -177,15 +182,15 @@ function drawFrame(ctx, cover, data, T, o) {
       ctx.restore();
     } else {
       const r = (g.kind === "spark" ? 5 : g.kind === "word" ? 14 : 9 + 15 * Math.min(1, g.gain * 2)) * pop * o.grain;
-      ctx.fillStyle = rgba(col, 0.28 * fade); ctx.beginPath(); ctx.arc(px, py, r * 3.2, 0, 7); ctx.fill();
-      ctx.fillStyle = rgba(col, 0.5 * fade); ctx.beginPath(); ctx.arc(px, py, r * 1.7, 0, 7); ctx.fill();
-      ctx.fillStyle = rgba(col, 0.95 * fade); ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill();
-      ctx.fillStyle = rgba([255, 255, 255], 0.7 * fade); ctx.beginPath(); ctx.arc(px, py, r * 0.42, 0, 7); ctx.fill();
+      ctx.fillStyle = rgba(col, 0.28 * fade); ctx.beginPath(); ctx.arc(px, pyC, r * 3.2, 0, 7); ctx.fill();
+      ctx.fillStyle = rgba(col, 0.5 * fade); ctx.beginPath(); ctx.arc(px, pyC, r * 1.7, 0, 7); ctx.fill();
+      ctx.fillStyle = rgba(col, 0.95 * fade); ctx.beginPath(); ctx.arc(px, pyC, r, 0, 7); ctx.fill();
+      ctx.fillStyle = rgba([255, 255, 255], 0.7 * fade); ctx.beginPath(); ctx.arc(px, pyC, r * 0.42, 0, 7); ctx.fill();
       // a little scatter of dust around every sung dot
       if (g.kind === "dot" && age < 0.5) for (let s = 0; s < 5; s++) {
         const a = hash(g.i * 31 + s) * 6.283, dd = (12 + 70 * hash(g.i * 17 + s)) * (0.3 + age * 2) * o.grain;
         ctx.fillStyle = rgba(col, 0.5 * fade * (1 - age / 0.5));
-        ctx.beginPath(); ctx.arc(px + Math.cos(a) * dd, py + Math.sin(a) * dd, 2.6 * o.grain, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(px + Math.cos(a) * dd, pyC + Math.sin(a) * dd, 2.6 * o.grain, 0, 7); ctx.fill();
       }
     }
   }
@@ -197,7 +202,7 @@ function drawWords(ctx, words, T) {
   const W = ctx.canvas.width, H = ctx.canvas.height;
   const live = words.filter((w) => T >= w.t && T < w.t + Math.max(w.dur, 0.42) + 0.25);
   if (!live.length) return;
-  const rails = { camille: H * 0.70, none: H * 0.735, alex: H * 0.77, jeffrey: H * 0.84 };
+  const rails = { none: H * 0.655, camille: H * 0.715, alex: H * 0.778, jeffrey: H * 0.842 };
   const seen = new Set();
   for (const w of [...live].reverse()) {
     if (seen.has(w.who)) continue; seen.add(w.who);
@@ -225,7 +230,9 @@ async function main() {
     // the hook: bars 29–33 in score time = 8.000 s of 120 BPM. Silent, so
     // score time is the loop clock; grains from the bars either side are
     // drawn wrapped so the tails cross the seam.
-    const W = 1080, H = 1920, FPS = 30, LOOP = 8.0, T0 = 58.0;
+    // the window starts an eighth BEFORE the downbeat so the loop point falls
+    // between kicks — a kick flash on the seam reads as a cut.
+    const W = 1080, H = 1920, FPS = 30, LOOP = 8.0, T0 = 57.75;
     const timeOf = (t) => { const u = t - T0; return u >= -LOOP && u < 2 * LOOP ? u : null; };
     const data = build(timeOf);
     const wrap = (arr) => arr.flatMap((g) => [g, { ...g, t: g.t - LOOP }, { ...g, t: g.t + LOOP }]);
@@ -236,7 +243,7 @@ async function main() {
     const cv = createCanvas(W, H), ctx = cv.getContext("2d");
     const N = LOOP * FPS;
     for (let f = 0; f < N; f++) {
-      drawFrame(ctx, cover, data, f / FPS, { breath: LOOP, driftX: 90, pxPerSec: 220, grain: 1, square: false });
+      drawFrame(ctx, cover, data, f / FPS, { breath: LOOP, driftX: 90, pxPerSec: 220, grain: 1, square: false, powder: has("powder") });
       if (!ff.stdin.write(cv.toBuffer("raw"))) await new Promise((r) => ff.stdin.once("drain", r));
     }
     ff.stdin.end();
@@ -256,7 +263,7 @@ async function main() {
     const N = Math.round((to - from) * FPS);
     for (let f = 0; f < N; f++) {
       const T = from + f / FPS;
-      drawFrame(ctx, cover, data, T, { breath: 16, driftX: 120, pxPerSec: 220, grain: 1, square: false });
+      drawFrame(ctx, cover, data, T, { breath: 16, driftX: 120, pxPerSec: 220, grain: 1, square: false, powder: has("powder") });
       if (!has("no-words")) drawWords(ctx, data.words, T);
       if (f % (FPS * 10) === 0) process.stdout.write(`\r  ${T.toFixed(0)} s`);
       if (!ff.stdin.write(cv.toBuffer("raw"))) await new Promise((r) => ff.stdin.once("drain", r));
@@ -268,7 +275,7 @@ async function main() {
     const W = 1080, H = 1920, T = Number(flag("t", 4.5));
     const data = build(ship); data.kicks.sort((a, b) => a.t - b.t);
     const cv = createCanvas(W, H), ctx = cv.getContext("2d");
-    drawFrame(ctx, cover, data, T, { breath: 16, driftX: 120, pxPerSec: 220, grain: 1, square: false });
+    drawFrame(ctx, cover, data, T, { breath: 16, driftX: 120, pxPerSec: 220, grain: 1, square: false, powder: has("powder") });
     if (!has("no-words")) drawWords(ctx, data.words, T);
     writeFileSync(flag("out", `${LANE}/out/.frame.png`), cv.toBuffer("image/png"));
   } else if (MODE === "stills") {
@@ -278,7 +285,7 @@ async function main() {
     const data = build(ship); data.kicks.sort((a, b) => a.t - b.t);
     const cv = createCanvas(S, S), ctx = cv.getContext("2d");
     times.forEach((T, i) => {
-      drawFrame(ctx, cover, data, T, { breath: 16, driftX: 0, pxPerSec: 110, grain: S / 1080, square: true });
+      drawFrame(ctx, cover, data, T, { breath: 16, driftX: 0, pxPerSec: 110, grain: S / 1080, square: true, powder: has("powder") });
       const p = `${dir}/sec-${i}.jpg`;
       writeFileSync(p, cv.toBuffer("image/jpeg", { quality: 0.86 }));
       console.log(`✓ ${p}  @ ${T}s`);

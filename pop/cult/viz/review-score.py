@@ -12,9 +12,13 @@
 # Truth sources:
 #   · out/cult-remix-v10.events.json — the score receipt (regenerate with
 #     `node pop/cult/bin/render10.mjs`); word mapping ported from
-#     bin/transcript.mjs. Receipt times are FULL-render seconds; the
-#     release edit starts TRIM=15.95 s in, then removes render bars 10–28,
-#     60–63, 68–71 and 84–91. Every act remains; repeated late phrases do not.
+#     bin/transcript.mjs. Receipt times are FULL-render seconds on the
+#     fixed 120 grid. The RELEASE is that render warped through
+#     bin/tempo.py (120 → 128 with the swing, bar 44 → 104) and cut by
+#     bin/cut-release.sh into seven segments with 0.24 s constant-power
+#     seams — the same SEGS/XF model as viz/field.mjs. Every receipt time
+#     goes through warp() then ship_time(); the stems are warped the same
+#     way so the lanes line up with the master to the sample.
 #   · out/stems/v10-*.wav — TRUE per-bus stems from
 #     `node pop/cult/bin/render10.mjs --stems` (vox / tube / music /
 #     drums / signal). The music and drums buses are band-split into
@@ -64,6 +68,16 @@ PPS = 200                       # wider temporal view: 400 px / bar
 if "--preview" in sys.argv:
     FPS = 15
 
+# --reel: the Instagram cut. 1080x1920 portrait, same scrolling track view
+# (lanes scaled to the upper two thirds, a narrower gutter, a slower scroll
+# so ~6 s stay in view) with the karaoke scroller — vowels stretched, letters
+# lit as sung — filling the lower third at phone-readable sizes. The
+# critique chrome (act card, loudness meter, receipt footer) stays home.
+REEL = "--reel" in sys.argv
+if REEL:
+    W, H = 1080, 1920
+    PPS = 150
+
 RADIO = "--radio" in sys.argv
 LIGHT = "--light" in sys.argv
 def argval(flag):
@@ -82,6 +96,8 @@ OUT = os.path.join(OUTD, "cult-remix-radio-review-score.mp4" if RADIO
                    else "cult-remix-review-score.mp4")
 if LIGHT:
     OUT = OUT.replace(".mp4", "-light.mp4")
+if REEL:
+    OUT = os.path.join(OUTD, "wannadash-score-reel.mp4")
 OUT_OVERRIDE = argval("--out")
 if OUT_OVERRIDE:
     OUT = os.path.abspath(OUT_OVERRIDE)
@@ -96,53 +112,82 @@ BPM = 120.0
 BEAT = 60.0 / BPM               # 0.5 s
 BAR = 4 * BEAT                  # 2.0 s
 EIGHTH = BEAT / 2
-TRIM = 15.95                    # shipped t = full-render t − TRIM
-GRID0 = 8 * BAR - TRIM          # 0.05 — bar 8's downbeat in shipped time
+# ── the release edit: full-render seconds → shipped seconds ──
+# bin/tempo.py: tempo follows the swing curve, 120 through bar 44, a
+# smoothstep to 128 at bar 104, integrated bar by bar (pitch preserved).
+def smooth(u):
+    u = max(0.0, min(1.0, u))
+    return u * u * (3 - 2 * u)
+def bpm_at(bar):
+    return 120.0 + 8.0 * smooth((bar - 44) / 60.0)
+EDGES = [0.0]                   # warped time of every bar's downbeat
+for _b in range(114):
+    EDGES.append(EDGES[-1] + BAR * 120.0 / bpm_at(_b))
+def warp(s):                    # render seconds → warped seconds
+    b = int(s // BAR); f = s - b * BAR
+    if b >= len(EDGES) - 1:
+        b = len(EDGES) - 2; f = s - b * BAR
+    return EDGES[b] + f * 120.0 / bpm_at(b)
+def unwarp(w):                  # warped seconds → render seconds
+    b = 0
+    while b < len(EDGES) - 2 and w >= EDGES[b + 1]:
+        b += 1
+    return b * BAR + (w - EDGES[b]) * bpm_at(b) / 120.0
+# bin/cut-release.sh's segments (render seconds, pre-warp) and its seams:
+# each seam is a 0.24 s crossfade, so segment i+1 starts XF before segment
+# i ends. The first boundary is a hard start (the record opens at 15.95).
+SEGS = [(15.95, 20.0), (58.0, 74.0), (79.76, 120.0), (127.76, 136.0),
+        (143.76, 167.95), (183.71, 192.0), (207.76, 224.80)]
+XF = 0.24
+WSEGS = [(warp(a), warp(b)) for a, b in SEGS]
+TRIM = SEGS[0][0]               # the record opens here
 BAR0 = 8                        # ruler numbers speak render bars (hook = 29)
-CUTS = [
-    (10 * BAR, 29 * BAR),         # withheld opening
-    (60 * BAR, 64 * BAR),         # reply repetition
-    (68 * BAR, 72 * BAR),         # middle of spread
-    (84 * BAR, 92 * BAR),         # repeated whole-message statement
-]
 
-def ship_time(full_t):
-    """Map one full-render time through every release cut."""
-    removed = 0.0
-    for cut0, cut1 in CUTS:
-        if full_t < cut0:
-            break
-        if full_t < cut1:
+def ship_time(full_t, end=False):
+    """Map one full-render time through the warp and every release cut.
+    end=True maps a right edge: a segment's end belongs to the kept side."""
+    w = warp(full_t)
+    acc = 0.0
+    for i, (ws, we) in enumerate(WSEGS):
+        if w < ws:
             return None
-        removed += cut1 - cut0
-    return full_t - TRIM - removed
+        if w < we or (end and w <= we):
+            return acc + (w - ws)
+        acc += we - ws - (XF if i > 0 else 0.0)
+    return None
 
 def ship_end_time(full_t):
-    """Map an event's right edge; a cut start belongs to the kept left side."""
-    removed = 0.0
-    for cut0, cut1 in CUTS:
-        if full_t <= cut0:
-            break
-        if full_t < cut1:
-            return None
-        removed += cut1 - cut0
-    return full_t - TRIM - removed
+    return ship_time(full_t, end=True)
+
+def unship(t):
+    """Shipped seconds → full-render seconds (seam overlaps resolve to the
+    earlier segment)."""
+    acc = 0.0
+    for i, (ws, we) in enumerate(WSEGS):
+        seg = we - ws
+        if t < acc + seg or i == len(WSEGS) - 1:
+            return unwarp(ws + (t - acc))
+        acc += seg - XF
+    return unwarp(WSEGS[-1][1])
 
 def ship_span(full_t, dur):
     """Map the first surviving portion of an event through all cuts."""
     full_end = full_t + dur
     visible_start = full_t
-    for cut0, cut1 in CUTS:
-        if cut0 <= visible_start < cut1:
-            visible_start = cut1
-    if visible_start >= full_end:
+    for i, (a, b) in enumerate(SEGS):
+        prev_end = SEGS[i - 1][1] if i > 0 else -1.0
+        if prev_end <= visible_start < a:      # in a gap: slide to the next kept start
+            visible_start = a
+    if visible_start >= SEGS[-1][1] or visible_start >= full_end:
         return None
     visible_end = full_end
-    for cut0, _cut1 in CUTS:
-        if visible_start < cut0 < visible_end:
-            visible_end = cut0
+    for a, b in SEGS:
+        if a <= visible_start < b:
+            visible_end = min(visible_end, b)
             break
     return ship_time(visible_start), ship_end_time(visible_end)
+
+GRID0 = ship_time(8 * BAR) or 0.0   # bar 8's downbeat in shipped time
 
 # ---------------------------------------------------------------- audio in
 def load(path, af=None, ss=None):
@@ -168,19 +213,37 @@ def fit(sig):
         sig = np.concatenate([sig, np.zeros(N - len(sig), np.float32)])
     return sig[:N]
 
-def release_cut(sig):
-    parts, cursor = [], 0
-    for cut0, cut1 in CUTS:
-        a = int(round((cut0 - TRIM) * sr))
-        b = int(round((cut1 - TRIM) * sr))
-        parts.append(sig[cursor:a])
-        cursor = b
-    parts.append(sig[cursor:])
+def warp_signal(sig):
+    """Resample a full-render signal bar by bar onto the tempo map — the
+    display-side twin of rubberband-r3's --timemap (envelope-exact, which is
+    all a lane waveform needs)."""
+    parts = []
+    for b in range(len(EDGES) - 1):
+        a0, a1 = int(round(b * BAR * sr)), int(round((b + 1) * BAR * sr))
+        src = sig[a0:a1]
+        if len(src) == 0:
+            break
+        n_out = int(round((EDGES[b + 1] - EDGES[b]) * sr))
+        xs = np.linspace(0, len(src) - 1, n_out, dtype=np.float32)
+        parts.append(np.interp(xs, np.arange(len(src), dtype=np.float32), src).astype(np.float32))
     return np.concatenate(parts)
 
-def stem(name, af=None):        # bus stem, trimmed + discovery edit
-    sig = load(os.path.join(STEMS, f"v10-{name}.wav"), af=af, ss=TRIM)
-    return fit(release_cut(sig))
+def release_cut(sig):
+    """Cut a WARPED full signal into the shipped record: seven segments,
+    each seam overlapping the previous tail by XF."""
+    out = None
+    xf = int(round(XF * sr))
+    for i, (ws, we) in enumerate(WSEGS):
+        piece = sig[int(round(ws * sr)):int(round(we * sr))]
+        if out is None:
+            out = piece
+        else:
+            out = np.concatenate([out[:-xf], piece])
+    return out
+
+def stem(name, af=None):        # bus stem, warped + release edit
+    sig = load(os.path.join(STEMS, f"v10-{name}.wav"), af=af)
+    return fit(release_cut(warp_signal(sig)))
 
 # ---------------------------------------------------------------- receipt
 receipt = json.load(open(EVENTS_JSON))
@@ -493,6 +556,9 @@ LANE_DEFS = [
     ("drum hits", "ev", RHYTHM, (240, 125, 65), 85),
     ("phone+signal", "ev", SIGNAL_NOTES, (255, 215, 90), 75),
 ] + [(nm, "au", sig, col, 70) for (nm, sig, col, _th) in ALANES]
+if REEL:                        # scale the lanes into the phone's upper two thirds
+    LANE_DEFS = [(n, k, d, c, max(40, int(round(hh * 0.66))))
+                 for (n, k, d, c, hh) in LANE_DEFS]
 NLANE = len(LANE_DEFS)
 
 # ---------------------------------------------------------------- clip gate
@@ -534,8 +600,12 @@ def clips_of(sig, thresh=0.11):
             merged[-1][1] = reg[1]
         else:
             merged.append(reg)
-    def snap8(t):                        # snap edges to the 8th-note grid
-        return min(DUR, max(0.0, GRID0 + round((t - GRID0) / EIGHTH) * EIGHTH))
+    def snap8(t):                        # snap edges to the (warped) 8th-note grid
+        full = round(unship(max(0.0, t)) / EIGHTH) * EIGHTH
+        st = ship_time(full)
+        if st is None:
+            st = t
+        return min(DUR, max(0.0, st))
     snapped = []
     for t0, t1 in merged:
         a, b = snap8(t0), snap8(t1)
@@ -636,13 +706,13 @@ def mm_fill(col):               # minimap act cells
     return tuple(int(v * 0.45 + 140) for v in col) if LIGHT else dim(col, 0.40)
 
 # ---------------------------------------------------------------- layout
-GUT = 205                       # fixed left gutter
+GUT = 150 if REEL else 205      # fixed left gutter
 SCROLL_W = W - GUT
 PLAY_X = GUT + SCROLL_W // 2    # fixed playhead
 LANE_GAP = 5
 LBL_BAND = 26                   # act-name band at top of the strip
 RULER_H = 34
-STRIP_TOP = 110
+STRIP_TOP = 150 if REEL else 110
 LANES_TOP = STRIP_TOP + LBL_BAND
 lane_y, y = [], 0
 for (_n, _k, _d, _c, hh) in LANE_DEFS:
@@ -668,6 +738,7 @@ ACTS = [
     (ship_time(96 * BAR),  "VIII RECOGNITION",      (150, 160, 200)),
     (ship_time(104 * BAR), "IX CARRIER OFF",        (150, 150, 155)),
 ]
+ACTS = [a for a in ACTS if a[0] is not None]   # acts cut from the release fall away
 ACT_END = [a[0] for a in ACTS[1:]] + [DUR]
 MARKS = [(0.05, "watery-hole"),
          (ship_time(29 * BAR), "bar 29: sentence / elastic snap")]
@@ -675,15 +746,17 @@ MARKS += [(e["t"], f"elastic/{e.get('kind', 'impact')}") for e in EXPLOSIONS
           if e.get("kind") != "snap"]
 
 f_title = ImageFont.truetype(FONT_B, 48)
-f_lbl   = ImageFont.truetype(FONT_B, 24)
+f_lbl   = ImageFont.truetype(FONT_B, 19 if REEL else 24)
 f_tiny  = ImageFont.truetype(FONT_R, 17)
 f_mark  = ImageFont.truetype(FONT_R, 20)
 f_bar   = ImageFont.truetype(FONT_R, 20)
 f_act   = ImageFont.truetype(FONT_B, 25)
 f_tc    = ImageFont.truetype(FONT_B, 56)
 
-print(f"analyzing review loudness: {os.path.basename(MP3)}", flush=True)
-LOUDNESS = analyze_loudness(MP3)
+LOUDNESS = None
+if not REEL:
+    print(f"analyzing review loudness: {os.path.basename(MP3)}", flush=True)
+    LOUDNESS = analyze_loudness(MP3)
 
 def sx(t):                      # strip x for time t
     return PAD_L + int(round(t * PPS))
@@ -703,6 +776,8 @@ for li in range(NLANE):
 ry = STRIP_H - RULER_H
 render_bar = BAR0
 while True:
+    if render_bar * BAR > SEGS[-1][1]:
+        break
     bt = ship_time(render_bar * BAR)
     if bt is None:
         render_bar += 1
@@ -798,21 +873,66 @@ for li, (_name, kind, data, _col, _hh) in enumerate(LANE_DEFS):
     else:
         lane_bodies.append(lane_clips[li])
 
+# --dump PATH: export the shipped-time score (tokens, lanes, grid, acts) as
+# JSON for other renderers — pop/viz/lyric-reel.py builds the Instagram
+# lyric reel from it — then stop before the critique video.
+DUMP = argval("--dump")
+if DUMP:
+    env_hz = 50
+    lanes_out = []
+    for li, (name, kind, data, col, hh) in enumerate(LANE_DEFS):
+        lane = {"name": name, "kind": kind, "color": list(col)}
+        if kind == "ev":
+            lane["events"] = [{"t0": round(e["t0"], 3), "t1": round(e["t1"], 3),
+                               "word": e["word"], "who": e.get("who"),
+                               "midi": e.get("midi")} for e in data]
+        else:
+            per = sr // env_hz
+            nfr = len(data) // per
+            env = np.sqrt((data[: nfr * per].reshape(nfr, per) ** 2).mean(axis=1))
+            if env.max() > 0:
+                env = env / env.max()
+            lane["clips"] = [[round(a, 3), round(b, 3)] for a, b in lane_clips[li]]
+            lane["env_hz"] = env_hz
+            lane["env"] = [round(float(v), 3) for v in env]
+        lanes_out.append(lane)
+    bars = []
+    rb = BAR0
+    while rb * BAR <= SEGS[-1][1]:
+        bt = ship_time(rb * BAR)
+        if bt is not None and bt < DUR:
+            bars.append({"bar": rb, "t": round(bt, 4)})
+        rb += 1
+    toks = [{"word": tk["word"], "disp": tk["disp"], "whos": tk["display_whos"],
+             "rails": {str(k): {"t0": round(v["t0"], 3), "t1": round(v["t1"], 3)}
+                       for k, v in tk["rail_spans"].items()},
+             "t0": round(tk["t0"], 3), "t1": round(tk["t1"], 3)} for tk in TOKENS]
+    json.dump({"title": "wannadash", "artist": "whistlegraph dot org",
+               "audio": MP3, "dur": round(DUR, 4),
+               "who_colors": {str(k): list(v) for k, v in WHO_COL.items()},
+               "tokens": toks, "lanes": lanes_out, "bars": bars,
+               "acts": [{"t0": round(a[0], 3), "name": a[1], "color": list(a[2])}
+                        for a in ACTS],
+               "explosions": [{k: v for k, v in e.items() if k != "voice"} for e in EXPLOSIONS]},
+              open(DUMP, "w"))
+    print(f"dumped score → {DUMP}")
+    sys.exit(0)
+
 strip_np = np.array(strip)
 del strip, sd
 
 # ---------------------------------------------------------------- chrome
-TITLE = "wannadash" + (
+TITLE = "wannadash  by  whistlegraph dot org" if REEL else "wannadash" + (
     "  radio cut" if RADIO else
     "  competitive master" if AUDIO_OVERRIDE and "competitive" in os.path.basename(MP3)
     else
-    "  release master" if AUDIO_OVERRIDE and "final" in os.path.basename(MP3)
+    "  release master" if AUDIO_OVERRIDE and re.search(r"final|release", os.path.basename(MP3))
     else "  club cut")
 chrome = Image.new("RGB", (W, H), BG)
 cd = ImageDraw.Draw(chrome)
 cd.text((40, 18), TITLE, font=f_title, fill=INK)
 
-MM_X0, MM_X1, MM_Y0, MM_Y1 = 40, W - 40, 62, 88
+MM_X0, MM_X1, MM_Y0, MM_Y1 = (40, W - 40, 96, 122) if REEL else (40, W - 40, 62, 88)
 for i, (t0, name, col) in enumerate(ACTS):
     if t0 >= DUR:               # probe clips shorter than the record
         continue
@@ -828,20 +948,24 @@ for li, (name, kind, _d, col, hh) in enumerate(LANE_DEFS):
     cd.rectangle([10, y0, GUT - 6, y0 + hh - 1], fill=LANE_BG)
     cd.text((18, y0 + hh // 2), name, font=f_lbl, fill=ink_of(col), anchor="lm")
 cd.line([GUT - 2, STRIP_TOP, GUT - 2, STRIP_BOT], fill=GUT_LINE)
-cd.text((40, H - 34), "score receipt: cult-remix-v10.events.json / lanes from per-bus stems"
-        " (music + drums band-split as labelled) / B minor / 120 BPM",
-        font=f_tiny, fill=FOOT)
+if not REEL:
+    cd.text((40, H - 34), "score receipt: cult-remix-v10.events.json / lanes from per-bus stems"
+            " (music + drums band-split as labelled) / B minor / 120 → 128 BPM (pick-up with the swing, bars 44–104)",
+            font=f_tiny, fill=FOOT)
 
 # act ruler card, bottom-right (the loner whistlegraph corner's replacement)
 CARD_W, CARD_H = 560, 322
 CX, CY = W - 30 - CARD_W, H - 44 - CARD_H
 ROW_H = 34
-cd.rounded_rectangle([CX, CY, CX + CARD_W, CY + CARD_H], radius=10,
-                     fill=CARD_BG, outline=CARD_EDGE, width=2)
-cd.text((CX + 18, CY + 10), "acts", font=f_lbl, fill=CARD_HDR)
-for i, (t0, name, col) in enumerate(ACTS):
-    ry2 = CY + 42 + i * ROW_H
-    cd.text((CX + 18, ry2), name, font=f_act, fill=mute_of(col))
+if REEL:
+    CX = W + 16                 # no card on the phone; the scroller owns the width
+else:
+    cd.rounded_rectangle([CX, CY, CX + CARD_W, CY + CARD_H], radius=10,
+                         fill=CARD_BG, outline=CARD_EDGE, width=2)
+    cd.text((CX + 18, CY + 10), "acts", font=f_lbl, fill=CARD_HDR)
+    for i, (t0, name, col) in enumerate(ACTS):
+        ry2 = CY + 42 + i * ROW_H
+        cd.text((CX + 18, ry2), name, font=f_act, fill=mute_of(col))
 chrome_np = np.array(chrome)
 del chrome, cd
 
@@ -881,19 +1005,25 @@ def karaoke_fill(dd, x, y, disp, font, col, p, k=1.0):
 # and unattributed/source words own fixed vertical rails, so three people
 # saying "dot" are three instances—not one stretched "dooooot" or three
 # offset drawings fighting for the same row.
-NOW_X = 460
-SCR_X0, SCR_X1 = 220, CX - 16   # labels own the left; act card owns the right
-SCR_Y0, SCR_Y1 = STRIP_BOT + 8, H - 42
+# The now-line sits well right of the label column so a held word — whose
+# stretched vowels scroll left at LPPS while its letters light — keeps its
+# already-sung head on screen until the utterance completes. Words are only
+# released once their RIGHT edge has passed the label column.
+NOW_X = 560 if REEL else 700
+SCR_X0, SCR_X1 = (120, W - 16) if REEL else (220, CX - 16)   # labels left; act card right
+SCR_Y0, SCR_Y1 = STRIP_BOT + 8, H - (60 if REEL else 42)
 SCR_RAILS = ("camille", "alex", "jeffrey", None)
 SCR_LABEL = {"camille": "CAMILLE", "alex": "ALEX",
              "jeffrey": "JEFFREY", None: "WORDS"}
 SCR_BAND_H = (SCR_Y1 - SCR_Y0) / len(SCR_RAILS)
-LPPS = 190.0
+LPPS = 130.0 if REEL else 190.0
 SCR_LOOK = (SCR_X1 - NOW_X) / LPPS      # ≈ 7.0 s of upcoming lyric
 SCR_FADE = 0.65                         # release promptly after the sung tail
 
 _meas = ImageDraw.Draw(Image.new("RGB", (8, 8)))
-SCR_FONT_SIZES = (30, 28, 26, 24, 22, 20, 18, 16, 14)
+SCR_FONT_SIZES = ((72, 64, 56, 48, 42, 36, 30, 26, 22) if REEL
+                  else (30, 28, 26, 24, 22, 20, 18, 16, 14))
+SCR_MAXW = 640 if REEL else 520          # widest a stretched word may run
 SCR_FONT_BANK = {s: ImageFont.truetype(FONT_B, s) for s in SCR_FONT_SIZES}
 rail_items = {r: [] for r in SCR_RAILS}
 for tk in TOKENS:
@@ -913,7 +1043,7 @@ def layout_rail(items, max_size):
             if size > max_size:
                 continue
             candidate = SCR_FONT_BANK[size]
-            if _meas.textlength(tk["disp"], font=candidate) <= 520:
+            if _meas.textlength(tk["disp"], font=candidate) <= SCR_MAXW:
                 font = candidate
                 break
         cell = _meas.textlength(tk["disp"], font=font) + 18
@@ -949,7 +1079,7 @@ def draw_scroller(img, dd, t):
         band_bot = SCR_Y0 + (ri + 1) * SCR_BAND_H
         yc = (band_top + band_bot) / 2
         col = ink_of(WHO_COL[rail])
-        dd.text((42, yc), SCR_LABEL[rail], font=f_tiny,
+        dd.text((20 if REEL else 42, yc), SCR_LABEL[rail], font=f_lbl if REEL else f_tiny,
                 fill=blend(BG, col, 0.78), anchor="lm")
         dd.line([SCR_X0 - 12, band_bot - 1, SCR_X1, band_bot - 1],
                 fill=blend(BG, col, 0.16), width=1)
@@ -965,7 +1095,8 @@ def draw_scroller(img, dd, t):
             span = tk["rail_spans"][rail]
             x = NOW_X + (span["t0"] - t) * LPPS
             t1v = max(span["t1"], span["t0"] + MIN_SHOW)
-            if x > SCR_X1 or x < SCR_X0 or t > t1v + SCR_FADE:
+            if (x > SCR_X1 or x + tk["scr_cell"][rail] < SCR_X0
+                    or t > t1v + SCR_FADE):
                 continue
             active = span["t0"] <= t < t1v
             if t < span["t0"]:
@@ -1085,7 +1216,8 @@ ff = subprocess.Popen(["ffmpeg", "-y", "-v", "error",
     "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
     "-i", MP3, "-map", "0:v", "-map", "1:a",
     "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-    "-c:a", "aac", "-b:a", "256k", "-shortest", OUT], stdin=subprocess.PIPE)
+    "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart", "-shortest", OUT],
+    stdin=subprocess.PIPE)
 
 t_start = time.time()
 for f in range(NF):
@@ -1200,7 +1332,7 @@ for f in range(NF):
     draw_scroller(img, dd, t)
     # act card: current act lit, with a progress bar
     ai = act_index(t)
-    for i, (t0, name, col) in enumerate(ACTS):
+    for i, (t0, name, col) in enumerate([] if REEL else ACTS):
         ry2 = CY + 42 + i * ROW_H
         if i == ai:
             dd.rectangle([CX + 10, ry2 - 3, CX + CARD_W - 10, ry2 + 27],
@@ -1214,17 +1346,18 @@ for f in range(NF):
     dd.text((W - 40, 14),
             f"{int(t) // 60}:{int(t) % 60:02d}.{int((t * 10) % 10)}",
             font=f_tc, fill=INK, anchor="ra")
-    draw_loudness_meter(
-        dd, LOUDNESS, t, (760, 10, W - 360, 56), f_tiny,
-        target_lufs=LUFS_TARGET, true_peak_ceiling=TP_CEILING,
-        colors={
-            "background": CARD_BG,
-            "outline": CARD_EDGE,
-            "text": INK,
-            "muted": FOOT,
-            "track": BAR_TRACK,
-        },
-    )
+    if LOUDNESS is not None:
+          draw_loudness_meter(
+          dd, LOUDNESS, t, (760, 10, W - 360, 56), f_tiny,
+          target_lufs=LUFS_TARGET, true_peak_ceiling=TP_CEILING,
+          colors={
+              "background": CARD_BG,
+              "outline": CARD_EDGE,
+              "text": INK,
+              "muted": FOOT,
+              "track": BAR_TRACK,
+          },
+      )
     ff.stdin.write(img.tobytes())
     if f % 300 == 0:
         print(f"  frame {f}/{NF}  ({time.time() - t_start:.0f}s)", flush=True)
