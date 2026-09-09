@@ -278,7 +278,6 @@ function voxIcon(ink, color, x, y) {
 }
 let vox = null; // { messageId, phase: "loading"|"playing", words, tokens,
 //                  prefix, playing, wordIndex, duration, awaitingProgress }
-let voxSimTick = 0;
 
 function voxable(message) {
   return (
@@ -308,23 +307,26 @@ function messageHitWidth(layout) {
   return Math.max(layout.width, voxRight);
 }
 
-function voxStop() {
+function voxStop(api) {
+  if (!vox) return;
   vox?.playing?.kill?.(0.05);
   vox = null;
+  api?.needsPaint?.();
 }
 
 async function voxToggle(message, api) {
   if (vox && vox.messageId === message.id) {
-    voxStop();
+    voxStop(api);
     return;
   }
-  voxStop();
+  voxStop(api);
   const my = (vox = {
     messageId: message.id,
     phase: "loading",
     wordIndex: -1,
     prefix: (message.from || "").length + 1, // fullMessage = from + " " + text
   });
+  api.needsPaint?.();
   try {
     const res = await fetch(`/api/pruttivox?id=${encodeURIComponent(message.id)}`);
     if (!res.ok) throw new Error(`pruttivox ${res.status}`);
@@ -337,15 +339,22 @@ async function voxToggle(message, api) {
     if (vox !== my) return;
     my.playing = api.sound.play(sfx, undefined, {
       kill: () => {
-        if (vox === my) vox = null;
+        if (vox === my) {
+          vox = null;
+          api.needsPaint?.();
+        }
       },
     });
     my.startedAt = performance.now();
     my.phase = "playing";
+    api.needsPaint?.();
     console.log("🗣️ Vox playing:", message.id, my.words.length, "words");
   } catch (err) {
     console.warn("🗣️ Vox failed:", err);
-    if (vox === my) vox = null;
+    if (vox === my) {
+      vox = null;
+      api.needsPaint?.();
+    }
   }
 }
 
@@ -4466,11 +4475,10 @@ function act(
 }
 
 function sim({ api, num, send, net, store }) {
-  // 🗣️ Advance the vox karaoke while a message is being spoken. Progress
-  // polls round-trip to BIOS, so sample every few sim ticks and never
-  // stack a second request on an unanswered one.
-  voxSimTick += 1;
-  if (vox) api.needsPaint?.(); // Chip + karaoke tints animate while active.
+  // 🗣️ Advance the vox karaoke while a message is being spoken. The chip and
+  // highlight are discrete states, so repaint only when one changes. Asking
+  // for a frame on every sim tick makes the renderer expose half-drained
+  // command batches as visible flicker on dense laklok screens.
   // The karaoke clocks on wall time from play start — the sfx progress API
   // never answers (it fails for the stock `sfx` piece too), and for short
   // clips at speed 1.0 the word timestamps need no correction. The kill
@@ -4479,13 +4487,17 @@ function sim({ api, num, send, net, store }) {
     const t = (performance.now() - vox.startedAt) / 1000;
     if (t > (vox.duration || 0) + 1.5) {
       vox = null;
+      api.needsPaint?.();
     } else {
       let index = -1;
       for (let i = 0; i < vox.words.length; i += 1) {
         if (t >= vox.words[i].s) index = i;
         else break;
       }
-      vox.wordIndex = index;
+      if (index !== vox.wordIndex) {
+        vox.wordIndex = index;
+        api.needsPaint?.();
+      }
     }
   }
 
