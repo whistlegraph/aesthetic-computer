@@ -4467,9 +4467,9 @@ function act(
 
 function sim({ api, num, send, net, store }) {
   // 🗣️ Advance the vox karaoke while a message is being spoken. Chat's
-  // paint loop is already continuous, so changing state here is enough. A
-  // second needsPaint request races the normal frame pump and briefly exposes
-  // a half-painted dense laklok screen at each karaoke transition.
+  // paint loop is already continuous, so changing state here is enough; an
+  // extra needsPaint request only schedules work the normal frame pump is
+  // already doing.
   // The karaoke clocks on wall time from play start — the sfx progress API
   // never answers (it fails for the stock `sfx` piece too), and for short
   // clips at speed 1.0 the word timestamps need no correction. The kill
