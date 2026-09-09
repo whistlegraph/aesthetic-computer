@@ -26,6 +26,7 @@ import { appendLedger, audioNameFor, dryRun, publishLive, queueDir, readLedger,
   refreshInsights, reveal, segmentReport, uploadPublic } from "./publish.mjs";
 import { repo } from "./shell.mjs";
 import { dress, segments, share } from "./segments.mjs";
+import { doors } from "./render.mjs";
 
 const argv = process.argv.slice(2);
 const flags = {};
@@ -69,6 +70,12 @@ async function buildSlot(day, index) {
     allowReplays: flags.replays === true, log });
   spec.theme = themeNow();
   spec.hud = flags["no-hud"] !== true;
+  // The door is dealt from the seed unless a review render names one.
+  if (flags.door !== undefined) {
+    if (!doors.includes(flags.door))
+      throw new Error(`--door must be one of ${doors.join(", ")}`);
+    spec.door = flags.door;
+  }
   spec.timeScale = flags.speed === undefined ? 1 : Number(flags.speed);
   if (!Number.isFinite(spec.timeScale) || spec.timeScale <= 0)
     throw new Error("--speed must be a positive number (for example 0.25)");
@@ -132,7 +139,7 @@ async function buildSlot(day, index) {
   // because it is the first thing anyone asks of a finished reel — did the bot
   // make it? — and the first thing the ledger needs when the next slot builds.
   const record = { ...spec, audioName, sourceCommit, builtAt: new Date().toISOString(),
-    outcome,
+    door: render.door || spec.door || null, outcome,
     render: { wall: render.wall, frames: render.frames,
       liveFrames: render.liveFrames, frameCadence: render.frameCadence,
       seconds: render.seconds, hasAudio: render.hasAudio,
@@ -172,7 +179,8 @@ async function goLive(record) {
   // to watch all three.
   appendLedger({ mode: "live", id: record.id, slot: record.slot, day: record.day,
     index: record.index, segment: record.segment, seed: record.seed,
-    kind: record.kind, round: audioName, audioName,
+    kind: record.kind, door: record.door || record.outcome?.mode || null,
+    round: audioName, audioName,
     outcome: record.outcome || null,
     publishedAt: new Date().toISOString(),
     urls, ...posted, insights: null });

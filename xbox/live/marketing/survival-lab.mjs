@@ -113,7 +113,7 @@ async function climb({ browser, shell, seed, tune, cap = 240, log }) {
     }, seed32(seed), { seed: seed32(seed), ...tune });
 
     // No `reel-hud`: the dress costs draw time and this pass is never seen.
-    await page.goto(`${shell.origin}/?social-preview&replay-oven&offline-render`,
+    await page.goto(`${shell.origin}/?social-preview&replay-oven&offline-render&opponent=survival`,
       { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.waitForFunction(() => globalThis.__oskiewarOfflineReady === true,
       { timeout: 15000 });

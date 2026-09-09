@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { demoOriginMs, offlineReplayAddress } from "./render.mjs";
+import { demoOriginMs, demoOutcome, doorForSeed, doors, offlineDemoAddress, offlineReplayAddress } from "./render.mjs";
 import { replayOvenProfile } from "./replay-oven.mjs";
 
 test("the Replay Oven keeps the match HUD on fixed-step burns", () => {
@@ -53,4 +53,45 @@ test("an unalignable recording says so instead of guessing", () => {
   assert.equal(demoOriginMs([{ event: "ko", player: 0, at: 12 }],
     [[4, "ko", 0]]), null);
   assert.equal(demoOriginMs([], []), null);
+});
+
+test("the oven deals each slot's door from its seed, and a month is a mix", () => {
+  const dealt = { survival: 0, fight: 0 };
+  for (let day = 1; day <= 30; day++)
+    for (let index = 0; index < 3; index++) {
+      const seed = `2026-09-${String(day).padStart(2, "0")}#${index}`;
+      const door = doorForSeed(seed);
+      assert.ok(doors.includes(door));
+      assert.equal(doorForSeed(seed), door, "a seed always deals the same door");
+      dealt[door]++;
+    }
+  assert.ok(dealt.survival >= 20 && dealt.fight >= 20,
+    `a month of slots is a real mix: ${JSON.stringify(dealt)}`);
+});
+
+test("the offline demo address names its door so the game never rolls under the oven", () => {
+  assert.match(offlineDemoAddress("http://x", "survival"), /&opponent=survival&reel-hud/);
+  assert.match(offlineDemoAddress("http://x", "fight", { hud: false, timeScale: .5 }),
+    /&opponent=fight&time-scale=0\.5$/);
+  assert.throws(() => offlineDemoAddress("http://x", "coin"), /unknown door/);
+});
+
+test("a demo's outcome reads the same shape off a climb envelope and a fight demo", () => {
+  const climb = demoOutcome({ simulation: "oskiewar-survival-1", cause: "SUMMIT",
+    height: 7593, winner: "@BOT", durationTicks: 1134, roundName: "climb" });
+  assert.equal(climb.mode, "survival");
+  assert.equal(climb.succeeded, true);
+  assert.equal(climb.level, 32);
+  const tie = demoOutcome({ simulation: "oskiewar-physics-1", winner: null,
+    durationTicks: 1838, roundName: "vuggo908",
+    events: [[10, "punch", 1, -1, 0], [1838, "tie", -1, 0, 0]] });
+  assert.deepEqual([tie.mode, tie.cause, tie.succeeded, tie.level],
+    ["fight", "TIE", false, null]);
+  const ko = demoOutcome({ simulation: "oskiewar-physics-1", winner: "@JEFFREY",
+    durationTicks: 900, roundName: "ruffi297",
+    events: [[600, "killcam", 0, 1, 1], [900, "roundwin", 0, 1, 1]] });
+  assert.deepEqual([ko.cause, ko.succeeded, ko.winner], ["KO", true, "@JEFFREY"]);
+  const decision = demoOutcome({ simulation: "oskiewar-physics-1", winner: "@OSKIE",
+    durationTicks: 1838, events: [[1838, "roundwin", 1, 1, 2]] });
+  assert.equal(decision.cause, "TIME");
 });

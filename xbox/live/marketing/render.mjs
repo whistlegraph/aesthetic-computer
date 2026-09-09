@@ -64,6 +64,24 @@ async function loadPuppeteer() {
   return (await import(`${dir}/lib/esm/puppeteer/puppeteer.js`)).default;
 }
 
+// The oven's oskiewaroll. The game rolls its front door at every title, and
+// the oven cannot let a slot's seed land on a coin — so it deals the door
+// itself, from the same seed that names the match, and names it in the URL.
+// A day's three slots come out as a mix of climbs and fights that any machine
+// re-rendering the day reproduces exactly. `--door` on `reel.mjs` overrides
+// the deal for a review render.
+export const doors = ["survival", "fight"];
+export function doorForSeed(seed) {
+  return doors[(seed32(seed) >>> 9) & 1];
+}
+export function offlineDemoAddress(origin, door,
+    { hud = true, timeScale = 1 } = {}) {
+  if (!doors.includes(door)) throw new Error(`unknown door "${door}"`);
+  return `${origin}/?social-preview&replay-oven&offline-render` +
+    `&opponent=${door}` + (hud ? "&reel-hud&reel-full-ui" : "") +
+    (timeScale === 1 ? "" : `&time-scale=${encodeURIComponent(timeScale)}`);
+}
+
 export function offlineReplayAddress(origin, round,
   { hud = true, timeScale = 1 } = {}) {
   return `${origin}/${round}?social-preview&replay-oven&offline-render` +
@@ -248,10 +266,9 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
           addEventListener() {}, removeEventListener() {} };
       };
     }, seed32(seed), spec.wardrobe || "", spec.opponent || "");
-    const address = `${shell.origin}/?social-preview&replay-oven&offline-render` +
-      (hud ? "&reel-hud&reel-full-ui" : "") +
-      (timeScale === 1 ? "" : `&time-scale=${encodeURIComponent(timeScale)}`);
-    log(`🎬 ${id} · offline demo · seed "${seed}" · ${width}×${height}` +
+    const door = doors.includes(spec.door) ? spec.door : doorForSeed(seed);
+    const address = offlineDemoAddress(shell.origin, door, { hud, timeScale });
+    log(`🎬 ${id} · offline demo · ${door} · seed "${seed}" · ${width}×${height}` +
       ` · ${timeScale}× time · cap ${cap}s`);
     await page.goto(address, { waitUntil: "domcontentloaded", timeout: 45000 });
     await page.evaluate(() => document.fonts.ready);
@@ -330,18 +347,7 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     // — so three consecutive reels shipped the identical deck-5 death and the
     // ledger recorded nothing that could have said so. `complete` is not this:
     // it only means the sim ended inside its cap, and a death is complete.
-    const survival = demo.simulation === "oskiewar-survival-1";
-    const outcome = {
-      mode: survival ? "survival" : "fight",
-      cause: demo.cause ?? null,
-      succeeded: survival ? demo.cause === "SUMMIT" : demo.winner !== null,
-      height: survival ? Math.round(demo.height ?? 0) : null,
-      level: survival ? survivalLevelFor(demo.height) : null,
-      levels: survival ? survivalLadder.levels : null,
-      winner: demo.winner ?? null,
-      ticks: demo.durationTicks ?? 0,
-      round: demo.roundName ?? null,
-    };
+    const outcome = demoOutcome(demo);
     // `value`/`value2` carry a signal's payload — `survival-end` puts the
     // final height there — so dropping them threw away the one number that
     // says how the recorded run went.
@@ -357,7 +363,7 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     log(`   outcome ${outcome.succeeded ? "✓" : "✗"} ${outcome.cause || "—"}` +
       (outcome.mode === "survival"
         ? ` · deck ${outcome.level}/${outcome.levels} · ${outcome.height} high` : ""));
-    return { base, wall, frames: stamps.length, liveFrames: 0,
+    return { base, wall, door, frames: stamps.length, liveFrames: 0,
       frameCadence: "offline-demo-60", seconds, matches: [],
       rounds: [{ round: round.roundName, winner: round.winner,
         seconds: +(round.durationTicks / 60 / timeScale).toFixed(1) }], complete: true,
@@ -366,6 +372,35 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
   } finally {
     await page.close();
   }
+}
+
+// What a finished demo says about itself, in one shape for both doors. A
+// climb's envelope carries its own verdict (`cause`, `height`); a fight demo
+// says who won and leaves the how in its event stream, so the cause is read
+// off the round's last word — `tie`, or a win that a `killcam` made a KO and
+// the clock otherwise made a decision. A tie is a finished round, not a
+// failure, but it is not the reel anyone wants either, so `succeeded` stays
+// false and the ledger can say how often the bots run the clock out.
+export function demoOutcome(demo) {
+  const survival = demo.simulation === "oskiewar-survival-1";
+  const events = Array.isArray(demo.events) ? demo.events : [];
+  const last = [...events].reverse()
+    .find(([, event]) => event === "tie" || event === "roundwin" || event === "matchwin");
+  const fightCause = demo.winner !== null && demo.winner !== undefined
+    ? (events.some(([, event]) => event === "killcam") ? "KO" : "TIME")
+    : last?.[1] === "tie" ? "TIE" : null;
+  return {
+    mode: survival ? "survival" : "fight",
+    cause: survival ? demo.cause ?? null : fightCause,
+    succeeded: survival ? demo.cause === "SUMMIT"
+      : demo.winner !== null && demo.winner !== undefined,
+    height: survival ? Math.round(demo.height ?? 0) : null,
+    level: survival ? survivalLevelFor(demo.height) : null,
+    levels: survival ? survivalLadder.levels : null,
+    winner: demo.winner ?? null,
+    ticks: demo.durationTicks ?? 0,
+    round: demo.roundName ?? null,
+  };
 }
 
 // The wall time of the demo's tick zero — the instant the shipped picture
@@ -542,7 +577,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
 
     const address = kind === "replay"
       ? `${shell.origin}/${spec.round}?social-preview&replay-oven`
-      : `${shell.origin}/?social-preview&replay-oven`;
+      : `${shell.origin}/?social-preview&replay-oven&opponent=fight`;
     log(`🎬 ${id} · ${kind} · seed "${seed}" · ${width}×${height} · ${rounds} full match(es), cap ${cap}s`);
     log(`   ${address}`);
     await page.goto(address, { waitUntil: "domcontentloaded", timeout: 45000 });

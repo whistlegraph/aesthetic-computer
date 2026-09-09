@@ -95,7 +95,7 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ ...posterSize, deviceScaleFactor: 1 });
   await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "light" }]);
-  await page.goto(`${origin}/?social-preview`, { waitUntil: "networkidle2" });
+  await page.goto(`${origin}/?social-preview&opponent=fight`, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await new Promise((resolveWait) => setTimeout(resolveWait, 900));
   await page.screenshot({ path: poster, type: "jpeg", quality: 94 });
@@ -103,7 +103,7 @@ try {
   // The MP4 is a phone-shaped, silent light-mode title loop. Reversing the
   // short capture back to its first frame removes the visible loop seam.
   await page.setViewport({ ...videoSize, deviceScaleFactor: 1 });
-  await page.goto(`${origin}/?social-preview`, { waitUntil: "networkidle2" });
+  await page.goto(`${origin}/?social-preview&opponent=fight`, { waitUntil: "networkidle2" });
   await page.evaluate(() => document.fonts.ready);
   await new Promise((resolveWait) => setTimeout(resolveWait, 900));
   const recorder = await page.screencast({ path: webm, fps: 30 });
