@@ -171,8 +171,8 @@ final class ZzzManager {
         if session.subagentCount > 0 { return "subagents are still running" }
         if session.claudePid <= 0 || session.tty.isEmpty { return "missing pid/tty" }
         if session.cwd.isEmpty { return "missing working directory" }
-        if session.agentType == "codex" && session.providerSessionId.isEmpty {
-            return "Codex provider thread is not known yet"
+        if session.isCodexBacked && session.providerSessionId.isEmpty {
+            return "Provider thread is not known yet"
         }
         if loopboySessionIds().contains(session.sessionId) { return "Loopboy-bound prompt" }
         if let seconds = minimumIdle,
@@ -187,7 +187,7 @@ final class ZzzManager {
         parking.insert(session.sessionId)
         defer { parking.remove(session.sessionId) }
 
-        let provider = session.agentType == "codex"
+        let provider = session.isCodexBacked
             ? session.providerSessionId : session.sessionId
         let entry = ZzzEntry(
             version: 1,

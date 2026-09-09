@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // prox-mcp.mjs — an MCP over the slab "prompt rocks" ledger, so any
 // agent can LIST, FIND, POKE, and launch the little tumbling sigil stones the slab
-// menubar parks over every live Claude session across the fleet.
+// menubar parks over every live agent session across the fleet.
 //
 // A "rock" is one live session (or headless agent), advertised by its machine
 // as `host:name` — e.g. neo:regif, blueberry:flock, panda:iris. The name is the
@@ -43,6 +43,7 @@ const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "s
 const MARKER_DIRS = [join(SLAB_HOME, "state", "active-prompts"), join(SLAB_HOME, "state", "awaiting-prompts")];
 
 const shellQuote = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
+const isCodexBacked = (agent) => agent === "codex" || agent === "aesthetic-code";
 
 async function findFile(root, suffix) {
   let entries;
@@ -62,7 +63,7 @@ async function transcriptFor(rock, marker) {
   if (marker?.transcript_path) return marker.transcript_path;
   const agent = marker?.agent_type || rock.agentType || "claude";
   const providerId = marker?.provider_session_id || marker?.codex_session_id || rock.id;
-  if (agent === "codex") {
+  if (isCodexBacked(agent)) {
     return findFile(join(homedir(), ".codex", "sessions"), `${providerId}.jsonl`);
   }
   return findFile(join(homedir(), ".claude", "projects"), `${rock.id}.jsonl`);
@@ -302,7 +303,20 @@ async function toolDump({ handle, destination } = {}) {
   };
   await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
 
-  const resume = agent === "codex" ? `#!/bin/sh
+  let resume;
+  if (agent === "aesthetic-code") {
+    resume = `#!/bin/sh
+set -eu
+bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+day=$(date +%Y/%m/%d)
+store="$HOME/.codex/sessions/$day"
+mkdir -p "$store"
+cp "$bundle/transcript.jsonl" "$store/rollout-prox-${providerId}.jsonl"
+cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
+exec aesthetic --resume ${shellQuote(providerId)}
+`;
+  } else if (agent === "codex") {
+    resume = `#!/bin/sh
 set -eu
 bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 day=$(date +%Y/%m/%d)
@@ -311,7 +325,9 @@ mkdir -p "$store"
 cp "$bundle/transcript.jsonl" "$store/rollout-prox-${providerId}.jsonl"
 cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
 exec codex resume ${shellQuote(providerId)}
-` : `#!/bin/sh
+`;
+  } else {
+    resume = `#!/bin/sh
 set -eu
 bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 project=${shellQuote((marker.cwd || r.cwd || homedir()).replaceAll("/", "-") || "-")}
@@ -321,6 +337,7 @@ cp "$bundle/transcript.jsonl" "$store/${r.id}.jsonl"
 cd ${shellQuote(marker.cwd || r.cwd || homedir())} 2>/dev/null || cd "$HOME"
 exec claude --resume ${shellQuote(r.id)}
 `;
+  }
   await writeFile(join(out, "resume.sh"), resume, { mode: 0o700 });
   await chmod(join(out, "resume.sh"), 0o700);
   await writeFile(join(out, "README.txt"),
@@ -334,8 +351,8 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
   const agentName = String(agent || "").trim().toLowerCase();
-  if (!new Set(["claude", "codex"]).has(agentName)) {
-    throw new Error("`agent` must be `claude` or `codex`.");
+  if (!new Set(["claude", "codex", "aesthetic-code"]).has(agentName)) {
+    throw new Error("`agent` must be `claude`, `codex`, or `aesthetic-code`.");
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
@@ -525,14 +542,14 @@ const TOOLS = [
   {
     name: "prox_list",
     description:
-      "List the 'prompt rocks' across the slab fleet — every live agent session (Claude or Codex) and headless agent the menubar advertises, as host:name with its status (working/awaiting/complete/rendering/blank/interrupted), kind, owning agent, age, and a one-line subject. Use this to see what every machine is working on right now. Reads the local fleet ledger cache (no SSH).",
+      "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Aesthetic Code session and headless agent the menubar advertises, as host:name with its status, kind, owning interface, age, and subject. Reads the local fleet ledger cache (no SSH).",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Only rocks on this machine (e.g. neo, blueberry, panda)." },
         status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted." },
         kind: { type: "string", description: "Filter by kind: session | agent." },
-        agent: { type: "string", description: "Filter by owning agent: claude | codex." },
+        agent: { type: "string", description: "Filter by owning interface: claude | codex | aesthetic-code." },
       },
     },
   },
@@ -564,7 +581,7 @@ const TOOLS = [
   {
     name: "prox_close",
     description:
-      "Close a prompt rock — end that Claude session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session (SIGTERM then SIGKILL — claude traps SIGTERM), and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated (its transcript persists and is resumable). Only closes rocks on THIS machine (it needs the terminal window); refuses to close the calling session.",
+      "Close a prompt rock — end that agent session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session, and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated; its transcript remains resumable. Only closes rocks on this machine and refuses to close the calling session.",
     inputSchema: {
       type: "object",
       properties: {
@@ -589,12 +606,12 @@ const TOOLS = [
   {
     name: "prox_launch",
     description:
-      "Launch a new interactive Claude or Codex prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only the fixed claude/codex launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
+      "Launch a new interactive Claude, Codex, or Aesthetic Code prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only fixed allowlisted launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Target Slab hostname, for example poorslice." },
-        agent: { type: "string", enum: ["claude", "codex"], description: "Agent CLI to launch." },
+        agent: { type: "string", enum: ["claude", "codex", "aesthetic-code"], description: "Interface to launch." },
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },

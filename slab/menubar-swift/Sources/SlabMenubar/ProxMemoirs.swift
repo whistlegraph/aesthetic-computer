@@ -141,7 +141,7 @@ final class ProxMemoirs {
     /// new hooks/watchers provide the exact path and skip it entirely.
     private func locateTranscript(for session: ClaudeSession) -> String? {
         let fm = FileManager.default
-        if session.agentType == "codex" {
+        if session.isCodexBacked {
             let needle = session.providerSessionId.isEmpty ? session.sessionId : session.providerSessionId
             let root = "\(Paths.home)/.codex/sessions"
             guard let walk = fm.enumerator(atPath: root) else { return nil }
@@ -325,7 +325,7 @@ final class ProxMemoirs {
             else { continue }
             var role = ""
             var content: Any?
-            if agentType == "codex" {
+            if agentType == "codex" || agentType == "aesthetic-code" {
                 guard (obj["type"] as? String) == "response_item",
                       let payload = obj["payload"] as? [String: Any],
                       (payload["type"] as? String) == "message" else { continue }

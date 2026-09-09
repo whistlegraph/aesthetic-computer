@@ -93,13 +93,15 @@ session; older peers remain compatible because both fields are optional.
 
 ## Fleet prompt hosts
 
-Each Slab host publishes its Claude and Codex rocks on tailnet-only port 5252.
+Each Slab host publishes its Claude, Codex, and Aesthetic Code rocks on
+tailnet-only port 5252.
 The `prox` MCP can list, resolve, and poke those handles, or use `prox_launch`
-to open a new interactive Claude/Codex Terminal on a host. The launch endpoint
-is not a general remote shell: it accepts only those two installed launchers,
-a prompt of at most 4000 characters, and an existing cwd beneath the target
-user’s home directory. Use `slab/install.sh --prompt-host` to install the agent
-hooks and wrappers without the legacy ambient-audio or lid-control services.
+to open a new interactive Claude, Codex, or Aesthetic Code Terminal on a host.
+The launch endpoint is not a general remote shell: it accepts only those three
+installed launchers, a prompt of at most 4000 characters, and an existing cwd
+beneath the target user’s home directory. Use `slab/install.sh --prompt-host`
+to install the agent hooks and wrappers without the legacy ambient-audio or
+lid-control services.
 
 ### Spatial prompt navigation
 

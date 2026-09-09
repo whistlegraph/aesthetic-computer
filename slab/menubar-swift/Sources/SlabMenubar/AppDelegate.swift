@@ -1861,14 +1861,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func restartAllActive() {
         let sessions = state.claudeSessions.filter { !$0.isRemote }
         if sessions.isEmpty { return }
-        let legacyCodexCount = sessions.filter {
-            $0.agentType == "codex" && $0.providerSessionId.isEmpty
+        let missingProviderCount = sessions.filter {
+            $0.isCodexBacked && $0.providerSessionId.isEmpty
         }.count
         let alert = NSAlert()
         alert.messageText = "Refresh all local agent sessions?"
-        var detail = "This will stop \(sessions.count) running Claude/Codex session\(sessions.count == 1 ? "" : "s"), reload current configuration, and resume each thread in a fresh terminal. In-flight work will be interrupted."
-        if legacyCodexCount > 0 {
-            detail += " \(legacyCodexCount) Codex session\(legacyCodexCount == 1 ? "" : "s") predates refresh tracking and will reopen as a new thread this once."
+        var detail = "This will stop \(sessions.count) running agent session\(sessions.count == 1 ? "" : "s"), reload current configuration, and resume each thread in a fresh terminal. In-flight work will be interrupted."
+        if missingProviderCount > 0 {
+            detail += " \(missingProviderCount) provider-backed session\(missingProviderCount == 1 ? "" : "s") predates refresh tracking and will reopen as a new thread this once."
         }
         alert.informativeText = detail
         alert.alertStyle = .warning
@@ -2276,9 +2276,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for state: ClaudeSession.State, dark: Bool, blink: Bool = false,
         agentType: String = "claude"
     ) -> (palette: Palette, glyph: String) {
-        // Codex completion is a stronger attention cue than Claude's calm
-        // slate: coral/red, distinct from approval/elicitation amber.
-        if agentType == "codex", state == .complete {
+        // Codex-backed completion is a stronger attention cue than Claude's
+        // calm slate: coral/red, distinct from approval/elicitation amber.
+        if (agentType == "codex" || agentType == "aesthetic-code"), state == .complete {
             if dark {
                 return blink
                     ? (Palette(bg: (23500, 3200, 4200), text: (65535, 48000, 46000),
@@ -2293,7 +2293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (21000, 300, 800), cursor: (62000, 5000, 5000)), "✓ complete")
         }
         let base = baseStatusDecor(for: state, dark: dark, blink: blink)
-        guard agentType == "codex" else { return base }
+        guard agentType == "codex" || agentType == "aesthetic-code" else { return base }
         return (palette: codexTint(base.palette, dark: dark), glyph: base.glyph)
     }
 
@@ -2457,9 +2457,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .interrupted: s = "complete"
         case .stale:    s = "stale"
         }
-        // Codex gets its own settings-set family so its slightly-cooler
-        // palette is provisioned + switched independently of Claude's.
-        let agentSuffix = agentType == "codex" ? "-codex" : ""
+        // Codex-backed interfaces share a settings-set family so their
+        // slightly-cooler palette is provisioned independently of Claude's.
+        let agentSuffix = (agentType == "codex" || agentType == "aesthetic-code")
+            ? "-codex" : ""
         let base = "Slab-\(s)-\(dark ? "dark" : "light")\(agentSuffix)"
         // Only attention states ever pulse; the suffix keeps the alt
         // settings set distinct so Terminal.app can flip between two
@@ -2750,7 +2751,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // deciding whether to warn on close. Include shells + dev runtimes so
             // Slab can close terminals (dev servers, REPLs) without a popover.
             tm.append("    try")
-            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\", \"codex\", \"codex-slab\"}")
+            tm.append("      set clean commands of slabSS to {\"screen\", \"tmux\", \"less\", \"more\", \"view\", \"mandoc\", \"tail\", \"log\", \"top\", \"htop\", \"bash\", \"zsh\", \"sh\", \"fish\", \"node\", \"npm\", \"pnpm\", \"yarn\", \"bun\", \"deno\", \"turbo\", \"vite\", \"tsx\", \"ts-node\", \"nodemon\", \"esbuild\", \"git\", \"ssh\", \"python\", \"python3\", \"ruby\", \"claude\", \"codex\", \"codex-slab\", \"ac\", \"aesthetic\"}")
             tm.append("    end try")
             // A fresh `make new settings set` inherits Terminal's FACTORY
             // title components (working dir + process + size all on), not
@@ -3024,8 +3025,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             fontSize: fontSize, app: app)
     }
 
-    /// Provider-aware sibling used by Refresh Sessions. Codex is launched via
-    /// its Slab wrapper so the replacement remains visible as a prompt rock.
+    /// Provider-aware sibling used by Refresh Sessions. Each interface uses
+    /// its tracked launcher so the replacement remains visible as a rock.
     private static func openTerminalRunningAgent(
         cwd: String,
         sessionId: String,
@@ -3038,7 +3039,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = fontSize
         let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
         let shellCmd: String
-        if agentType == "codex" {
+        if agentType == "aesthetic-code" {
+            let safeSid = providerSessionId.replacingOccurrences(of: "'", with: "'\\''")
+            shellCmd = providerSessionId.isEmpty
+                ? "cd '\(safeCwd)' && aesthetic"
+                : "cd '\(safeCwd)' && aesthetic --resume '\(safeSid)'"
+        } else if agentType == "codex" {
             if providerSessionId.isEmpty {
                 shellCmd = "cd '\(safeCwd)' && codex-slab"
             } else {

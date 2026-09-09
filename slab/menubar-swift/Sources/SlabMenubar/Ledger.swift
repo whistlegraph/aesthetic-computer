@@ -17,7 +17,7 @@
 //     off the main thread, failure-tolerant, so resolves stay local + instant.
 //
 // The overlay stays local-only: rocks are never rendered for remote machines.
-// The only remote control action is an allowlisted Claude/Codex launch; the
+// The only remote control action is an allowlisted agent launch; the
 // ledger never accepts an arbitrary executable or shell command.
 import Foundation
 
@@ -154,9 +154,10 @@ final class LedgerStore {
     /// agent, an initial prompt, and a working directory inside this user's
     /// home folder.
     private static func launchPrompt(_ body: [String: Any]) -> [String: Any] {
-        let agent = ((body["agent"] as? String) ?? "").lowercased()
-        guard agent == "claude" || agent == "codex" else {
-            return ["ok": false, "error": "agent must be claude or codex"]
+        let requestedAgent = ((body["agent"] as? String) ?? "").lowercased()
+        let agent = requestedAgent == "aesthetic" ? "aesthetic-code" : requestedAgent
+        guard agent == "claude" || agent == "codex" || agent == "aesthetic-code" else {
+            return ["ok": false, "error": "agent must be claude, codex, or aesthetic-code"]
         }
 
         let prompt = (body["prompt"] as? String) ?? ""
@@ -195,9 +196,14 @@ final class LedgerStore {
             return ["ok": false, "error": "cwd must stay inside the target user's home folder"]
         }
 
-        let binary = agent == "codex"
-            ? "\(Paths.slabBin)/codex-slab"
-            : "\(Paths.home)/.local/bin/claude"
+        let binary: String
+        if agent == "codex" {
+            binary = "\(Paths.slabBin)/codex-slab"
+        } else if agent == "aesthetic-code" {
+            binary = "\(Paths.home)/.local/bin/aesthetic"
+        } else {
+            binary = "\(Paths.home)/.local/bin/claude"
+        }
         guard fm.isExecutableFile(atPath: binary) else {
             return ["ok": false, "error": "\(agent) launcher is not installed"]
         }
@@ -217,7 +223,11 @@ final class LedgerStore {
         } else {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
         }
-        if !prompt.isEmpty { command += " \(shellQuote(prompt))" }
+        if !prompt.isEmpty {
+            command += agent == "aesthetic-code"
+                ? " --prompt \(shellQuote(prompt))"
+                : " \(shellQuote(prompt))"
+        }
 
         // Hand Terminal a one-shot executable document through LaunchServices.
         // This avoids the macOS Automation permission required by AppleScript
@@ -655,7 +665,7 @@ final class LedgerHTTPServer {
             return
         }
 
-        // POST /launch — start one fixed Claude/Codex launcher in Terminal.
+        // POST /launch — start one fixed, allowlisted agent launcher in Terminal.
         // The callback rejects arbitrary binaries, paths outside HOME, and
         // oversized prompts; this HTTP layer only handles framing.
         if line.hasPrefix("POST"), line.contains("/launch") {

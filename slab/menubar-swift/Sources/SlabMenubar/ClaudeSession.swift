@@ -1,7 +1,8 @@
 import Foundation
 
 /// Generic alias — a tracked agent session is no longer Claude-specific
-/// (Codex sessions flow through the same markers + reducer). New code should
+/// (Codex and Aesthetic Code sessions flow through the same markers + reducer).
+/// New code should
 /// prefer `AgentSession`; the old name stays valid so existing call sites
 /// (overlay, snapshot, menu) keep compiling.
 typealias AgentSession = ClaudeSession
@@ -77,11 +78,19 @@ struct ClaudeSession {
     /// remote session reads distinctly from a local one.
     var remoteHost: String = ""
 
-    /// Which CLI agent owns this session — "claude" (default) or "codex".
+    /// Which interface owns this session — "claude" (default), "codex", or
+    /// "aesthetic-code".
     /// Read from the marker's `agent_type`; drives per-agent labels/tooltips
     /// in the menu. The state/color engine is agent-agnostic, so this is
     /// display-only.
     var agentType: String = "claude"
+
+    /// Aesthetic Code owns its UI while using Codex app-server as its current
+    /// provider bridge. Provider-thread operations therefore share Codex's
+    /// transcript and resume path without presenting the Codex UI.
+    var isCodexBacked: Bool {
+        agentType == "codex" || agentType == "aesthetic-code"
+    }
 
     /// Optional hardware/platform destination for this prompt (for example
     /// `xbox`). The active-prompt marker owns this metadata so the
@@ -100,9 +109,12 @@ struct ClaudeSession {
     /// True for sessions running on another machine, surfaced via the bridge.
     var isRemote: Bool { !remoteHost.isEmpty }
 
-    /// Human label for the owning agent ("Claude", "Codex").
+    /// Human label for the owning interface.
     var agentLabel: String {
-        agentType.isEmpty ? "Claude" : agentType.prefix(1).uppercased() + agentType.dropFirst()
+        if agentType == "aesthetic-code" { return "Aesthetic Code" }
+        return agentType.isEmpty
+            ? "Claude"
+            : agentType.prefix(1).uppercased() + agentType.dropFirst()
     }
 
     var shortSubject: String {
@@ -190,6 +202,11 @@ enum ClaudeSessionReader {
                 // has overwritten it yet) — preserve so applyTerminalDecor
                 // paints the appearance-matched bg.
                 // (no-op: keep s.state == .blank)
+            } else if s.agentType == "aesthetic-code",
+                      s.state == .complete || s.state == .awaiting || s.state == .interrupted {
+                // Aesthetic Code receives app-server lifecycle events
+                // directly, so its marker can state this transition without
+                // waiting for hook-derived side channels.
             } else if isInterrupted(sessionId: s.sessionId, markerPath: path) {
                 // No awaiting marker, but no tool is running and the session
                 // has gone quiet → interrupted (Esc) and idle. NOT green.
@@ -309,12 +326,19 @@ enum ClaudeSessionReader {
             return (attrs?[.creationDate] as? Date) ?? updated
         }()
 
-        // Only `blank` is read from the marker — every other state comes
-        // from the awaiting-prompts cross-check in `active()`. We surface
-        // blank early so the reducer can preserve it (as opposed to
-        // promoting to .working when no awaiting marker is present).
-        let parsedState: ClaudeSession.State =
-            ((obj["state"] as? String) == "blank") ? .blank : .working
+        // Hook-backed clients still derive most state from the side-channel
+        // markers. Aesthetic Code receives direct app-server lifecycle events
+        // and can publish exact idle/interrupted state itself.
+        let agentType = (obj["agent_type"] as? String) ?? "claude"
+        let parsedState: ClaudeSession.State = {
+            switch obj["state"] as? String {
+            case "blank": return .blank
+            case "complete" where agentType == "aesthetic-code": return .complete
+            case "awaiting" where agentType == "aesthetic-code": return .awaiting
+            case "interrupted" where agentType == "aesthetic-code": return .interrupted
+            default: return .working
+            }
+        }()
 
         var session = ClaudeSession(
             sessionId: (obj["session_id"] as? String) ?? fallbackId,
@@ -330,7 +354,7 @@ enum ClaudeSessionReader {
             awaitingMessage: nil
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
-        session.agentType = (obj["agent_type"] as? String) ?? "claude"
+        session.agentType = agentType
         session.providerSessionId = (obj["provider_session_id"] as? String)
             ?? (obj["codex_session_id"] as? String)
             ?? (session.agentType == "claude" ? session.sessionId : "")
