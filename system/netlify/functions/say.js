@@ -29,12 +29,16 @@ const CDN_URL = "https://art.aesthetic.computer";
 const CACHE_PREFIX = "tts-cache/";
 
 // Generate cache key from provider + voice + text + instructions
-// Custom voice clones (jeffrey) get their own subfolder so all utterances
-// from that voice are easy to list / browse on the CDN.
+// Consented voice clones get their own subfolders so their utterance catalogs
+// stay distinct from stock voices.
 function getCacheKey(provider, voiceId, text, instructions) {
   const parts = `${provider}:${voiceId}:${text}${instructions ? `:${instructions}` : ""}`;
   const hash = crypto.createHash("sha256").update(parts).digest("hex");
-  const subfolder = provider === "jeffrey" ? "jeffrey/" : "";
+  const subfolder = provider === "jeffrey"
+    ? "jeffrey/"
+    : provider === "prutti"
+      ? "pruttivox/"
+      : "";
   return `${CACHE_PREFIX}${subfolder}${hash}.mp3`;
 }
 
@@ -184,6 +188,60 @@ async function generateElevenLabs(text, gender, set, scream) {
   };
 }
 
+// Pruttivox uses Prutti's consented IVC. Arbitrary text is deliberately
+// producer-gated below; the public chat lane remains message-id-only in
+// `netlify/functions/pruttivox.mjs`.
+async function generatePrutti(text) {
+  const voiceId = process.env.PRUTTI_ELEVENLABS_VOICE_ID;
+  if (!voiceId || !process.env.ELEVENLABS_API_KEY) {
+    const error = new Error("Pruttivox is not configured.");
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.38,
+          similarity_boost: 0.9,
+          style: 0.48,
+          use_speaker_boost: true,
+          speed: 0.98,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    throw new Error(`ElevenLabs (Pruttivox) ${response.status}: ${detail}`);
+  }
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    voiceId: "prutti-ivc",
+  };
+}
+
+async function authorizePruttivox(event) {
+  const { authorize, handleFor, hasAdmin } = await import("../../backend/authorization.mjs");
+  const user = await authorize(event.headers);
+  if (!user?.sub || !user.email_verified) return null;
+
+  const handle = String(await handleFor(user.sub) || "").toLowerCase();
+  const allowed = handle === "prutti" || await hasAdmin(user, "aesthetic");
+  return allowed ? `@${handle}` : null;
+}
+
 // ── Jeffrey: Professional Voice Clone (PVC) ──────────────────────────
 // Trained on multiple public lectures/talks by @jeffrey. Same voice
 // used in the LACMA 2026 grant pitch video.
@@ -326,10 +384,46 @@ exports.handler = async (event) => {
     const set = parseInt(body.voice?.split(":")[1]) || 0;
     const gender = body.voice?.split(":")[0]?.toLowerCase() || "neutral";
 
-    // Provider: "jeffrey" (default PVC), "openai", "google", "eleven"
+    // Provider: "jeffrey" (default PVC), "openai", "google", "eleven",
+    // or producer-gated "prutti".
     // Can be set via body.provider; falls back to Jeffrey for parity
     // with the `say` piece default.
     const provider = body.provider || "jeffrey";
+
+    let requester = null;
+    if (provider === "prutti") {
+      if (typeof body.from !== "string" || !body.from.trim()) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: "Pruttivox needs text to speak." }),
+        };
+      }
+      try {
+        requester = await authorizePruttivox(event);
+      } catch (error) {
+        console.error("Pruttivox authorization failed:", error);
+        return {
+          statusCode: 503,
+          headers,
+          body: JSON.stringify({ message: "Pruttivox authorization is unavailable." }),
+        };
+      }
+      if (!requester) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ message: "Pruttivox is available to its approved producers." }),
+        };
+      }
+      if (utterance.length > 1200) {
+        return {
+          statusCode: 413,
+          headers,
+          body: JSON.stringify({ message: "Pruttivox chunks must be 1200 characters or fewer." }),
+        };
+      }
+    }
 
     // Instructions for gpt-4o-mini-tts emotional/style control (OpenAI only)
     const instructions = provider === "openai" ? (body.instructions || null) : null;
@@ -401,6 +495,10 @@ exports.handler = async (event) => {
           await recordSaying({
             text,
             provider,
+            requester,
+            requestId: body.requestId || null,
+            chunkIndex: Number.isInteger(body.chunkIndex) ? body.chunkIndex : null,
+            chunkCount: Number.isInteger(body.chunkCount) ? body.chunkCount : null,
             voice: null, // unknown on cache hit; cacheKey ties it to the original
             voiceSpec,
             scream,
@@ -431,6 +529,8 @@ exports.handler = async (event) => {
         result = await generateGoogle(text, gender, set, isSSML);
       } else if (provider === "eleven") {
         result = await generateElevenLabs(text, gender, set, scream);
+      } else if (provider === "prutti") {
+        result = await generatePrutti(text);
       } else if (provider === "jeffrey") {
         result = await generateJeffrey(text, scream, speed, styleOverride, stabilityOverride, similarityOverride, withTimestamps);
       } else {
@@ -467,6 +567,10 @@ exports.handler = async (event) => {
         await recordSaying({
           text,
           provider,
+          requester,
+          requestId: body.requestId || null,
+          chunkIndex: Number.isInteger(body.chunkIndex) ? body.chunkIndex : null,
+          chunkCount: Number.isInteger(body.chunkCount) ? body.chunkCount : null,
           voice: voiceId,
           voiceSpec,
           scream,
@@ -496,6 +600,10 @@ exports.handler = async (event) => {
         await recordSaying({
           text,
           provider,
+          requester,
+          requestId: body.requestId || null,
+          chunkIndex: Number.isInteger(body.chunkIndex) ? body.chunkIndex : null,
+          chunkCount: Number.isInteger(body.chunkCount) ? body.chunkCount : null,
           voice: voiceId,
           voiceSpec,
           scream,
@@ -528,7 +636,7 @@ exports.handler = async (event) => {
     } catch (error) {
       console.error("TTS generation failed:", error);
       return {
-        statusCode: 500,
+        statusCode: error.statusCode || 500,
         headers,
         body: JSON.stringify({ message: "An error has occurred.", error: error.message }),
       };
@@ -553,6 +661,6 @@ function corsHeaders(event) {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Credentials": true,
     "Access-Control-Allow-Headers":
-      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+      "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
   };
 }

@@ -202,24 +202,36 @@ function speak(words, voice, mode = "local", opts = {}) {
 
     if (opts.instructions) payload.instructions = opts.instructions;
     if (opts.scream) payload.scream = true;
+    if (opts.requestId) payload.requestId = opts.requestId;
+    if (Number.isInteger(opts.chunkIndex)) payload.chunkIndex = opts.chunkIndex;
+    if (Number.isInteger(opts.chunkCount)) payload.chunkCount = opts.chunkCount;
 
     // Create a promise that resolves when the fetch completes
     let fetchResolve;
     const fetchPromise = new Promise(resolve => { fetchResolve = resolve; });
     pendingFetches.set(label, fetchPromise);
 
-    function fetchSpeech(retryCount = 0) {
+    async function fetchSpeech(retryCount = 0) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout to 15s
+      const timeoutMs = opts.provider === "prutti" ? 120000 : 15000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       const host = ``; //window.acDEBUG
       // ? `` // Just use current host, via `netlify.toml`.
       // : "https://ai.aesthetic.computer";
 
+      const headers = { "Content-Type": "application/json" };
+      if (opts.provider === "prutti") {
+        try {
+          const token = window.acTOKEN || await window.auth0Client?.getTokenSilently?.();
+          if (token) headers.Authorization = `Bearer ${token}`;
+        } catch {
+          // The server returns the authoritative access error.
+        }
+      }
+
       fetch(`${host}/api/say`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
         signal: controller.signal,
       })
@@ -238,7 +250,8 @@ function speak(words, voice, mode = "local", opts = {}) {
             play();
           } else {
             console.log("🗣️ Speech fetch failure, status:", res.status, "retry:", retryCount);
-            if (retryCount < 3) {
+            const retryable = res.status === 429 || res.status >= 500;
+            if (retryable && retryCount < 3) {
               setTimeout(() => {
                 fetchSpeech(retryCount + 1);
               }, 1000 * (retryCount + 1)); // Exponential backoff
@@ -246,6 +259,10 @@ function speak(words, voice, mode = "local", opts = {}) {
               console.error("🗣️ Max retries reached for:", label);
               pendingFetches.delete(label);
               fetchResolve(null); // Resolve with null on failure
+              window.acSEND({
+                type: "speech:error",
+                content: { status: res.status, provider: opts.provider || "openai" },
+              });
             }
           }
         })
@@ -260,6 +277,10 @@ function speak(words, voice, mode = "local", opts = {}) {
             console.error("🗣️ Giving up on:", label, "after", retryCount, "retries");
             pendingFetches.delete(label);
             fetchResolve(null); // Resolve with null on failure
+            window.acSEND({
+              type: "speech:error",
+              content: { status: 0, provider: opts.provider || "openai" },
+            });
           }
         });
     }
