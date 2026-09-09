@@ -3,7 +3,7 @@
 //
 // A TeX build proves syntax, not design. This tool prepares evidence crops for
 // visual inference and enforces a current-PDF manifest whose verdict is the
-// literal `design: pass|fail` for every evidence figure and diagram.
+// literal `design: pass|fail` for every embedded evidence image and diagram.
 
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -33,8 +33,11 @@ async function sha256(path) {
 
 export function countEvidenceFigures(sourceText) {
   return [...String(sourceText || "").matchAll(/\\begin\{figure\*?\}([\s\S]*?)\\end\{figure\*?\}/g)]
-    .filter((match) => /\\includegraphics(?:\[[^\]]*\])?\{/.test(match[1]))
-    .length;
+    .reduce(
+      (count, match) => count
+        + [...match[1].matchAll(/\\includegraphics(?:\[[^\]]*\])?\{/g)].length,
+      0,
+    );
 }
 
 function resolveInputs(input, manifestArg) {
@@ -123,13 +126,13 @@ export function validateManifest(manifest, currentPdfSha256, sourceFigureCount =
     || figures.length > 0;
   if (figuresRequired) {
     if (!Number.isInteger(manifest?.expectedFigures) || manifest.expectedFigures < 0) {
-      errors.push("expectedFigures must be a non-negative integer when the source contains evidence figures");
+      errors.push("expectedFigures must be a non-negative integer when the source contains evidence images");
     } else {
       if (figures.length !== manifest.expectedFigures) {
-        errors.push(`expected ${manifest.expectedFigures} evidence figure(s), found ${figures.length}`);
+        errors.push(`expected ${manifest.expectedFigures} evidence image(s), found ${figures.length}`);
       }
       if (Number.isInteger(sourceFigureCount) && manifest.expectedFigures !== sourceFigureCount) {
-        errors.push(`source contains ${sourceFigureCount} evidence figure(s), manifest expects ${manifest.expectedFigures}`);
+        errors.push(`source contains ${sourceFigureCount} evidence image(s), manifest expects ${manifest.expectedFigures}`);
       }
     }
     const ids = new Set();

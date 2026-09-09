@@ -2,7 +2,7 @@
 
 `aesthetic-eye` is the render-first design gate for papers and their visual
 evidence. A successful TeX build is not visual approval. The final PDF must
-receive a paper-wide brand verdict, and every evidence figure and diagram must
+receive a paper-wide brand verdict, and every embedded evidence image and diagram must
 receive the literal verdict `design: pass` or `design: fail` in an
 `aesthetic-eye.json` beside the paper.
 
@@ -66,9 +66,9 @@ it records the SHA-256 of the reviewed PDF.
 
 ## Evidence-figure checks
 
-Every photographic, screenshot, plotted, or generated figure receives five
-checks. The checker inventories figure environments containing
-`\includegraphics` in the matching TeX source, so omitting their manifest
+Every photographic, screenshot, plotted, or generated image receives five
+checks. The checker inventories every `\includegraphics` item inside figure
+environments in the matching TeX source, so omitting an image's manifest
 records is a failure.
 
 - `scale` — the evidence is large enough to inspect at normal PDF size;
@@ -76,8 +76,10 @@ records is a failure.
   zooming beyond normal reading size;
 - `evidenceDominance` — the evidence, not its caption or surrounding prose,
   owns the figure's visual area;
-- `crop` — empty margins and irrelevant interface chrome do not miniaturize the
-  useful content;
+- `crop` — the complete evidentiary content is preserved. Use aspect-fit
+  letterboxing by default; crop only when the removed area is documented as
+  non-evidence, and do not let empty margins or irrelevant interface chrome
+  miniaturize the useful content;
 - `captionFit` — the caption identifies what is shown and what it proves without
   visually overpowering it.
 
@@ -141,8 +143,9 @@ Place `aesthetic-eye.json` beside the paper source:
 ```
 
 `crop` is `[x, y, width, height]` in normalized page coordinates, measured from
-the upper-left. `expectedFigures` must match every TeX figure containing
-`\includegraphics`; `expectedDiagrams` is the explicit diagram inventory,
+the upper-left. `expectedFigures` must match every `\includegraphics` item inside
+a TeX figure; multi-panel figures therefore require one verdict per embedded
+image. `expectedDiagrams` is the explicit diagram inventory,
 including title illustrations that explain the system rather than merely
 decorate it.
 
@@ -156,7 +159,7 @@ node papers/aesthetic-eye.mjs check papers/arxiv-example
 ```
 
 The check fails when a visible brand name omits its period, the brand review is
-absent, the dot-color check fails, a source evidence figure or diagram is
+absent, the dot-color check fails, a source evidence image or diagram is
 missing from the manifest, a verdict is absent or failed, or the PDF changed
 after review. `.aesthetic-eye/` is disposable rendered evidence; the manifest
 is the durable review record.

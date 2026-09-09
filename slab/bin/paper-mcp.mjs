@@ -670,7 +670,7 @@ const TOOLS = [
   },
   {
     name: "paper_aesthetic_eye_prepare",
-    description: "Prepare Aesthetic Eye review artifacts from an existing aesthetic-eye.json: an all-page contact sheet and one crop per declared evidence figure and diagram. Inspect every rendered artifact and update the manifest with the current PDF hash and literal visual verdicts. SIDE EFFECT: writes .aesthetic-eye/ raster files beside the paper.",
+    description: "Prepare Aesthetic Eye review artifacts from an existing aesthetic-eye.json: an all-page contact sheet and one crop per declared embedded evidence image and diagram. Inspect every rendered artifact and update the manifest with the current PDF hash and literal visual verdicts. SIDE EFFECT: writes .aesthetic-eye/ raster files beside the paper.",
     inputSchema: {
       type: "object",
       properties: { paper: { type: "string" } },

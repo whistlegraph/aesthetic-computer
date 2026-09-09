@@ -80,17 +80,18 @@ flagship paper is expected to show its argument, not just state it.
 - **D6** Screenshots are legitimate evidence: the coarse UI being criticized, the
   AC piece being praised, the user comment proving demand. Caption them like
   exhibits — say what the reader is looking at and why it is in the paper.
-- **D7 [HARD] Aesthetic Eye.** Every evidence figure and diagram is inventoried
+- **D7 [HARD] Aesthetic Eye.** Every embedded evidence image and diagram is inventoried
   in the paper's `aesthetic-eye.json` and receives an explicit visual-inference
-  verdict of `design: pass|fail`. Evidence figures must pass scale, legibility,
-  evidence dominance, crop, and caption-fit checks. Diagrams must pass clear
+  verdict of `design: pass|fail`. Each image in a multi-panel figure receives
+  its own verdict. Evidence images must pass scale, legibility, evidence
+  dominance, crop, and caption-fit checks. Diagrams must pass clear
   tangents, accessible type, balanced composition, intentional use of available
   space, legible hierarchy, and unambiguous edge routing. The paper-wide brand
   verdict also requires every
   visible wordmark to read `Aesthetic.Computer`, with its period in AC pink
   (`#B44887`). The manifest's PDF hash must match the built PDF. Run
   `node papers/aesthetic-eye.mjs prepare <paper-dir>`, inspect the page contact
-  sheet and every evidence-figure and diagram crop, record the verdicts, then run
+  sheet and every evidence-image and diagram crop, record the verdicts, then run
   `node papers/aesthetic-eye.mjs check <paper-dir>`.
 
 ## E — Cover (`bin/gen-cover.mjs`)

@@ -34,11 +34,12 @@ const passingFigure = {
   },
 };
 
-test("counts image-backed evidence figures but not a TikZ diagram", () => {
+test("counts every embedded evidence image but not a TikZ diagram", () => {
   const source = String.raw`
     \begin{figure}\includegraphics{evidence}\end{figure}
+    \begin{figure}\includegraphics[width=.5\linewidth]{second}\includegraphics{third}\end{figure}
     \begin{figure*}\begin{tikzpicture}\end{tikzpicture}\end{figure*}`;
-  assert.equal(countEvidenceFigures(source), 1);
+  assert.equal(countEvidenceFigures(source), 3);
 });
 
 test("fails when source evidence is absent from the Aesthetic Eye manifest", () => {
@@ -47,7 +48,7 @@ test("fails when source evidence is absent from the Aesthetic Eye manifest", () 
   assert.match(verdict.errors.join("\n"), /expectedFigures/);
 });
 
-test("passes a fully reviewed evidence figure", () => {
+test("passes a fully reviewed evidence image", () => {
   const manifest = { ...baseManifest, expectedFigures: 1, figures: [passingFigure] };
   assert.equal(validateManifest(manifest, "current-hash", 1).pass, true);
 });

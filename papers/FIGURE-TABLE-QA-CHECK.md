@@ -28,7 +28,7 @@ use a LaTeX `figure` environment.
 5. Reject and revise every visual failure. Rebuild and repeat the overview and
    detail checks until the entire paper passes.
 6. Run `paper_aesthetic_eye_prepare`, inspect its all-page contact sheet and
-   every declared evidence-figure and diagram crop, and record the figure,
+   every declared evidence-image and diagram crop, and record the image,
    diagram, and brand verdicts in `aesthetic-eye.json` against the current PDF
    hash.
 7. Run `paper_aesthetic_eye_check`. A missing, stale, malformed, or failing
@@ -82,6 +82,9 @@ self-certifies a pass.
 
 ### Figures, diagrams, and embedded cards
 
+- Preserve the complete evidentiary content by default. Aspect-fit the source
+  into its field and letterbox mismatched ratios; crop only documented
+  non-evidence, never content needed to interpret the artifact.
 - Flow direction and hierarchy are immediately unambiguous.
 - Repeated cards, logos, or nodes use equal widths, heights, row baselines, and
   gutters. Inspect the negative space between items, not only the items.
