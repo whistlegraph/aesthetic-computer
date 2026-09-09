@@ -163,9 +163,10 @@ final class AudioGroupPreview: NSObject, AVAudioPlayerDelegate {
     }
 
     /// Same grid as ImageGroupPreview (cols = ceil(sqrt n), top-to-bottom
-    /// rows) but with a CAPPED cell: audio tiles are dashboards, not
-    /// canvases, so a lone file opens as a card instead of swallowing the
-    /// whole screen. Small walls center; big walls fill as before.
+    /// rows) but with a CAPPED cell: audio tiles are tiny cards — a thumbnail,
+    /// three lines of type, a waveform strip — so a lone file opens as a
+    /// notification-sized card instead of swallowing the screen. Small walls
+    /// center; big walls fill as before.
     private func layoutGrid() {
         let n = controllers.count
         guard n > 0 else { return }
@@ -174,7 +175,7 @@ final class AudioGroupPreview: NSObject, AVAudioPlayerDelegate {
         let cols = Int(ceil(Double(n).squareRoot()))
         let rows = Int(ceil(Double(n) / Double(cols)))
         let gap: CGFloat = 16
-        let maxW: CGFloat = 560, maxH: CGFloat = 340
+        let maxW: CGFloat = 360, maxH: CGFloat = 132
         let cellW = min((screen.width - gap * CGFloat(cols + 1)) / CGFloat(cols), maxW)
         let cellH = min((screen.height - gap * CGFloat(rows + 1)) / CGFloat(rows), maxH)
         let gridW = CGFloat(cols) * cellW + gap * CGFloat(cols - 1)
@@ -215,6 +216,9 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
     private let stateDot = NSTextField(labelWithString: "")
     private let badge = NSTextField(labelWithString: "")
     private var artView: NSImageView?
+    private var artWidth: NSLayoutConstraint?
+    /// Thumbnail side — the cover is a badge on the card, not the card.
+    private static let thumb: CGFloat = 48
     var indexBadge: String = "" { didSet { updateBadge() } }
     private var duration: Double = 0
 
@@ -225,7 +229,7 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
         self.emoji = emoji
         self.onClose = onClose
         panel = AudioPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 132),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered, defer: false)
         super.init()
@@ -242,7 +246,7 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
         panel.title = (path as NSString).lastPathComponent
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.minSize = NSSize(width: 260, height: 170)
+        panel.minSize = NSSize(width: 240, height: 96)
 
         let glass = NSVisualEffectView()
         glass.material = .hudWindow
@@ -258,7 +262,7 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
         setActive(false, playing: false)
     }
 
-    // MARK: layout — [art?] / title / artist·album / tech / waveform / time
+    // MARK: layout — [thumb?] title / artist·album / tech·time  —  waveform
 
     private func buildContent(in content: NSView) {
         func style(_ f: NSTextField, size: CGFloat, weight: NSFont.Weight, color: NSColor) {
@@ -267,11 +271,11 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
             f.lineBreakMode = .byTruncatingMiddle
             f.translatesAutoresizingMaskIntoConstraints = false
         }
-        style(titleField, size: 13, weight: .semibold, color: .labelColor)
-        style(artistField, size: 11, weight: .regular, color: .secondaryLabelColor)
-        style(techField, size: 10, weight: .regular, color: .tertiaryLabelColor)
-        style(timeField, size: 10, weight: .regular, color: .secondaryLabelColor)
-        style(stateDot, size: 12, weight: .bold, color: .labelColor)
+        style(titleField, size: 11.5, weight: .semibold, color: .labelColor)
+        style(artistField, size: 10, weight: .regular, color: .secondaryLabelColor)
+        style(techField, size: 9, weight: .regular, color: .tertiaryLabelColor)
+        style(timeField, size: 9, weight: .regular, color: .secondaryLabelColor)
+        style(stateDot, size: 11, weight: .bold, color: .labelColor)
         timeField.alignment = .right
 
         waveform.translatesAutoresizingMaskIntoConstraints = false
@@ -282,22 +286,29 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
         content.addSubview(timeField)
         content.addSubview(stateDot)
 
-        // artwork slot fills whatever vertical room the metadata + waveform
-        // leave; hidden (zero-height) until loadMetadata finds embedded art
+        // artwork is a fixed thumbnail beside the type — never a canvas the
+        // tile grows into; collapsed to zero width until loadMetadata finds
+        // embedded art
         let art = NSImageView()
         art.imageScaling = .scaleProportionallyUpOrDown
         art.imageAlignment = .alignCenter
+        art.wantsLayer = true
+        art.layer?.cornerRadius = 6
+        art.layer?.masksToBounds = true
         art.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(art)
         artView = art
+        let artW = art.widthAnchor.constraint(equalToConstant: Self.thumb)
+        artWidth = artW
 
         NSLayoutConstraint.activate([
-            art.topAnchor.constraint(equalTo: content.topAnchor, constant: 40),
-            art.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            art.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            art.topAnchor.constraint(equalTo: content.topAnchor, constant: 34),
+            art.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 14),
+            artW,
+            art.heightAnchor.constraint(equalToConstant: Self.thumb),
 
-            titleField.topAnchor.constraint(equalTo: art.bottomAnchor, constant: 8),
-            titleField.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            titleField.topAnchor.constraint(equalTo: art.topAnchor, constant: -1),
+            titleField.leadingAnchor.constraint(equalTo: art.trailingAnchor, constant: 10),
             titleField.trailingAnchor.constraint(equalTo: stateDot.leadingAnchor, constant: -8),
             stateDot.centerYAnchor.constraint(equalTo: titleField.centerYAnchor),
             stateDot.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
@@ -313,11 +324,12 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
             timeField.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
             timeField.widthAnchor.constraint(greaterThanOrEqualToConstant: 96),
 
-            waveform.topAnchor.constraint(equalTo: techField.bottomAnchor, constant: 8),
-            waveform.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
-            waveform.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
-            waveform.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -14),
-            waveform.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            waveform.topAnchor.constraint(greaterThanOrEqualTo: techField.bottomAnchor, constant: 6),
+            waveform.topAnchor.constraint(greaterThanOrEqualTo: art.bottomAnchor, constant: 8),
+            waveform.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 14),
+            waveform.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -14),
+            waveform.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -10),
+            waveform.heightAnchor.constraint(greaterThanOrEqualToConstant: 22),
         ])
         installBadge(in: content)
     }
@@ -397,11 +409,9 @@ private final class AudioPanelController: NSObject, NSWindowDelegate {
         if let art = artwork {
             artView?.image = art
         } else {
-            // no embedded cover: give the waveform the vertical room instead
+            // no embedded cover: the type slides over to the left edge
             artView?.isHidden = true
-            let collapse = artView!.heightAnchor.constraint(equalToConstant: 0)
-            collapse.priority = .required
-            collapse.isActive = true
+            artWidth?.constant = 0
         }
     }
 
