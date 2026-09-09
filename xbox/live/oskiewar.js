@@ -59,19 +59,29 @@ runtime = function acRuntime() {
   return info;
 };
 // Replayed frames are silent: the wall already saw them once.
-const hostTelemetry = telemetry;
-telemetry = function netTelemetry(...args) {
-  if (netSilent) return;
-  return typeof hostTelemetry === "function" ? hostTelemetry(...args) : undefined;
-};
-const hostAnalytics = analytics;
-analytics = function netAnalytics(...args) {
-  if (netSilent) return;
-  return typeof hostAnalytics === "function" ? hostAnalytics(...args) : undefined;
-};
+//
+// These two hooks belong to the host, and the hosts disagree about which of
+// them exist: the native shell installs `telemetry` and no `analytics` at all.
+// Reading an undeclared binding throws, and this runs at the top level of one
+// program, so that throw took every `let` below it with it — the shell then
+// reported the first of those (`gameMode`) as uninitialized, a good half a
+// file away from the actual cause. `typeof` is the one way to ask whether a
+// binding exists without touching it, so ask, and only wrap what is there.
+const hostTelemetry = typeof telemetry === "function" ? telemetry : null;
+if (hostTelemetry)
+  telemetry = function netTelemetry(...args) {
+    if (netSilent) return;
+    return hostTelemetry(...args);
+  };
+const hostAnalytics = typeof analytics === "function" ? analytics : null;
+if (hostAnalytics)
+  analytics = function netAnalytics(...args) {
+    if (netSilent) return;
+    return hostAnalytics(...args);
+  };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 103;
+const buildVersion = 104;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
