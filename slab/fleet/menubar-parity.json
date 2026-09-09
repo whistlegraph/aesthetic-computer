@@ -1,0 +1,44 @@
+{
+  "capturedFrom": "blueberry",
+  "capturedAt": "2026-09-03T04:38:21.022Z",
+  "statusItems": {
+    "computer.aestheticcomputer.menuband": {
+      "NSStatusItem Preferred Position Item-0": 370,
+      "NSStatusItem Preferred Position menuband": 317,
+      "NSStatusItem VisibleCC menuband-cdj-radio": 0,
+      "NSStatusItem VisibleCC menuband-juke": 0
+    },
+    "computer.slab.menubar": {
+      "NSStatusItem Preferred Position Item-0": 279,
+      "NSStatusItem Preferred Position Item-1": 691,
+      "statBlocksVisible": 1
+    },
+    "computer.aesthetic.app": {
+      "NSStatusItem Preferred Position Item-0": 751,
+      "NSStatusItem Preferred Position Item-1": 799
+    },
+    "com.apple.controlcenter": {
+      "NSStatusItem Preferred Position Battery": 199,
+      "NSStatusItem Preferred Position BentoBox-0": 157,
+      "NSStatusItem Preferred Position FocusModes": 279,
+      "NSStatusItem Preferred Position WiFi": 241,
+      "NSStatusItem VisibleCC Battery": 1,
+      "NSStatusItem VisibleCC BentoBox-0": 1,
+      "NSStatusItem VisibleCC Clock": 1,
+      "NSStatusItem VisibleCC FocusModes": 1,
+      "NSStatusItem VisibleCC WiFi": 1
+    }
+  },
+  "slabFlags": {
+    "auto-tile": true,
+    "tile-near": true,
+    "tile-tiny": false,
+    "theme-by-status": true,
+    "force-bright": false,
+    "prefer-iterm": false,
+    "muted": true,
+    "resource-graph": true,
+    "prompt-sigils-off": false,
+    "zoom-lens-off": false
+  }
+}

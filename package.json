@@ -15,6 +15,7 @@
     "pop:ddex": "node pop/bin/ddex.mjs",
     "pop:site": "node pop/bin/publish-release-records.mjs",
     "doctor": "node toolchain/doctor.mjs",
+    "menubar:parity": "node slab/bin/menubar-parity.mjs",
     "domain": "node toolchain/domains/domain.mjs",
     "laklok:parity": "node toolchain/laklok-sisters/parity.mjs",
     "laklok:sisters": "node toolchain/laklok-sisters/sisters.mjs",

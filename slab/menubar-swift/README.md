@@ -201,6 +201,40 @@ set phrase (echo $resp | jq -r '.secret // empty')
 
 The modal is a native `NSAlert` + `NSSecureTextField`, brought to the front with `NSApp.activate(ignoringOtherApps:)`.
 
+## Fleet parity (same menu bar on every Mac)
+
+`slab/bin/menubar-parity.mjs` (`npm run menubar:parity -- <cmd>`) keeps
+Menu Band, SlabMenubar and Aesthetic.Computer.app identical across the
+fleet — same *build* (Mach-O UUID, not just the version string), same
+⌘-drag arrangement of every status item, same Slab toggles.
+
+```
+npm run menubar:parity -- audit neo            # table: builds, agents, layout vs canon
+npm run menubar:parity -- capture --from local # this Mac's layout → slab/fleet/menubar-parity.json
+npm run menubar:parity -- deploy neo           # ship this Mac's installed bundles to neo
+npm run menubar:parity -- apply neo            # layout + flags from the canon → neo
+```
+
+The canon (`slab/fleet/menubar-parity.json`) is the reference Mac's
+`NSStatusItem Preferred Position` / `VisibleCC` defaults for the four
+status-item owners (Menu Band, Slab, the AC tray, Control Center) plus the
+Slab flag files (auto-tile, theme-by-status, …). Positions are measured
+from the right edge, so they carry between same-width MacBooks.
+
+`deploy` rsyncs the Developer-ID-signed Menu Band and Electron bundles
+whole (valid on any Mac) and routes SlabMenubar through `deploy-host.sh`
+because it is self-signed per machine. Bundles that already share a build
+UUID are skipped.
+
+**New Mac checklist:** clone the repo, run `slab/install.sh` then
+`slab/menubar-swift/install.sh` and `slab/menuband/install.sh` once (they
+register the launch agents and the self-signed identity — `deploy` alone
+cannot), grant Accessibility / Screen Recording / Full Disk Access to the
+installed apps, then from an existing Mac: `deploy <new>` and
+`apply <new>`. Launch the AC app by path
+(`open -a /Applications/Aesthetic.Computer.app`) — stray duplicate bundles
+make `open -b` pick the wrong copy.
+
 ## Layout
 
 ```
