@@ -62,7 +62,7 @@ test("shows the signed-in handle and the current piece in the header", () => {
 
 test("keeps a QR column on the right and narrows the transcript around it", async () => {
   const { qrBlock } = await import("../src/qr.mjs");
-  const qr = qrBlock("aesthetic.computer/prompt~channel~Ab0-_9Zz~!autorun");
+  const qr = qrBlock("aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
   const state = {
     workspace: "/project",
     mode: "remote",

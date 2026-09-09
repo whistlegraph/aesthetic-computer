@@ -39,22 +39,39 @@ export { paint };
   },
   lua: {
     id: "lua",
-    label: "lua",
+    label: "processing",
     extension: ".lua",
     mime: "text/x-lua; charset=utf-8",
-    // Live pushes run, but aesthetic.computer/@handle/<name> only resolves
-    // .mjs and .lisp today, so a published .lua has no front door yet.
+    // Lua is the language of L5, Aesthetic Computer's Processing surface, so a
+    // piece here is written in Processing's vocabulary — setup and draw, not
+    // paint — against `lib/l5.mjs`.
+    //
+    // The shape of the blank is load-bearing. A push over the code channel
+    // carries only { piece, source, codeChannel }: no extension, no language.
+    // The client recognises Lua in that message by reading the source — it must
+    // begin with a `--` comment AND declare `function setup(` or `function
+    // draw(` — and anything else is compiled as JavaScript and fails. Both are
+    // natural in real L5, and this blank keeps them.
     routable: false,
     blank: (name) => `-- ${name}, ${stamp()}
+-- A blank Aesthetic Computer piece, in Processing (L5).
 
-function paint()
-  wipe(70, 50, 100)
-  ink(255, 100, 255)
-  write("${name}", 6, 6)
+function setup()
+  noStroke()
+end
+
+function draw()
+  background(70, 50, 100)
+  fill(255, 100, 255)
+  text("${name}", 6, 16)
 end
 `,
   },
 };
+
+// Some runtimes answer to more than one name. Lua is the language; Processing
+// is what it is for.
+export const RUNTIME_ALIASES = { processing: "lua", l5: "lua", js: "mjs", kidlisp: "lisp" };
 
 export const DEFAULT_RUNTIME = "mjs";
 
@@ -71,8 +88,18 @@ export function runtimeIds() {
   return Object.keys(RUNTIMES);
 }
 
+// How the runtimes read in the interface: the id to type, named by what it is
+// where the two differ. `lua` is the one worth spelling out — nobody comes
+// looking for Lua, they come looking for Processing.
+export function runtimeMenu() {
+  return runtimeIds()
+    .map((id) => (RUNTIMES[id].label === id ? id : `${id} (${RUNTIMES[id].label})`))
+    .join(", ");
+}
+
 export function runtimeFor(id) {
-  const runtime = RUNTIMES[String(id || "").replace(/^\./, "").toLowerCase()];
+  const wanted = String(id || "").replace(/^\./, "").toLowerCase();
+  const runtime = RUNTIMES[RUNTIME_ALIASES[wanted] || wanted];
   if (!runtime) {
     throw new Error(`unknown runtime "${id}" — try ${runtimeIds().join(", ")}`);
   }

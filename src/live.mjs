@@ -9,8 +9,15 @@
 // This is the path the VS Code extension has always used: POST /run publishes
 // { piece, source, codeChannel } to Redis, the session server relays it to the
 // channel's subscribers, and the client swaps the running piece. A viewer joins
-// the channel by opening `prompt~channel~<channel>~!autorun`, which runs the
+// the channel by opening `prompt~channel%20<channel>~!autorun`, which runs the
 // prompt's own `channel` command on arrival.
+//
+// The `%20` is load-bearing. parse.mjs special-cases anything beginning
+// `prompt~` and hands the whole remainder to the prompt as ONE parameter, so
+// the prompt sees the string `channel~<channel>` and splits its own arguments
+// on spaces — a tilde-separated argument arrives glued to the command name and
+// the channel is silently dropped, leaving the phone on an empty prompt. An
+// encoded space is what actually reaches `halt` as two tokens.
 import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
@@ -58,6 +65,7 @@ export class LivePiece extends EventEmitter {
     this.blank = "";
     this.watcher = null;
     this.debounce = null;
+    this.sending = false;
     this.pushes = 0;
   }
 
@@ -66,9 +74,10 @@ export class LivePiece extends EventEmitter {
   }
 
   // The URL a phone scans: it joins the code channel and then sits waiting for
-  // source, which arrives as soon as anything is pushed.
+  // source, which arrives as soon as anything is pushed. See the note at the
+  // top of the file for why the argument is separated by an encoded space.
   get scanUrl() {
-    return `${this.scanHost}/prompt~channel~${this.channel}~!autorun`;
+    return `${this.scanHost}/prompt~channel%20${this.channel}~!autorun`;
   }
 
   // Where the piece answers once it has been published under a handle.
@@ -159,12 +168,17 @@ export class LivePiece extends EventEmitter {
   async push() {
     const source = this.source();
     if (!source.trim()) return false;
-    const response = await this.fetch(`${this.site}/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
-      body: JSON.stringify({ piece: this.slug, source, codeChannel: this.channel }),
-    });
-    if (!response.ok) throw new Error(`live push failed (HTTP ${response.status})`);
+    this.sending = true;
+    try {
+      const response = await this.fetch(`${this.site}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
+        body: JSON.stringify({ piece: this.slug, source, codeChannel: this.channel }),
+      });
+      if (!response.ok) throw new Error(`live push failed (HTTP ${response.status})`);
+    } finally {
+      this.sending = false;
+    }
     this.pushes += 1;
     this.emit("push", this.pushes);
     return true;
@@ -173,6 +187,13 @@ export class LivePiece extends EventEmitter {
   // Watch the whole directory rather than the file: editors and patch tools
   // replace files instead of writing through them, which leaves a file watch
   // pointed at a discarded inode.
+  //
+  // One push per save is enough. The session server keeps the last message a
+  // channel received and replays it to whoever joins later, so the piece a
+  // session opens with is still waiting when a phone finally scans the code.
+  // This carried a 4s re-announce heartbeat until that retention landed
+  // (aesthetic-computer d8d3c80053); a beat per session per 4s to cover a
+  // one-line server bug was rent, not architecture.
   watch(onError = () => {}) {
     this.unwatch();
     try {

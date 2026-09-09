@@ -78,6 +78,26 @@ assert_contains "$output" 'runtime=lisp'
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'runtime=mjs'
 
+# Claude is the default engine bridge, on Fable; Codex stays selectable.
+assert_contains "$output" 'backend=claude'
+assert_contains "$output" 'model=claude-fable-5-1'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" --backend codex "$WORK_DIR")"
+assert_contains "$output" 'backend=codex'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" --backend claude --model claude-opus-5 "$WORK_DIR")"
+assert_contains "$output" 'model=claude-opus-5'
+
+if AESTHETIC_CODE_DRY_RUN=1 "$CLI" --backend gemini "$WORK_DIR" >/dev/null 2>&1; then
+    printf 'Expected an unknown backend to fail.\n' >&2
+    exit 1
+fi
+
+output="$($CLI doctor)"
+assert_contains "$output" 'engine bridge claude:'
+assert_contains "$output" 'engine bridge codex:'
+assert_contains "$output" 'default engine bridge: claude (claude-fable-5-1)'
+
 if AESTHETIC_CODE_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
     printf 'Expected an unknown runtime to fail.\n' >&2
     exit 1

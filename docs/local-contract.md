@@ -24,21 +24,57 @@ interface action, not an agent tool.
 ## Live piece boundary
 
 The session's piece is pushed to `aesthetic.computer/run` on a private code
-channel every time its file changes, so that a phone that scanned the QR code
-can run it. That request carries the piece's source and the channel token, and
-nothing else: no account token, no workspace paths, no conversation. The
-channel token is random per session and is never reused.
+channel every time its file changes, and re-sent unchanged every few seconds so
+that a phone scanning the QR code later still receives it. That request carries
+the piece's source and the channel token, and nothing else: no account token, no
+workspace paths, no conversation. The channel token is random per session and is
+never reused.
 
 Pushing is the interface's own action, on a file the user can see, and stops
-when the session ends.
+when the session ends. It is the one thing Aesthetic Code sends without being
+asked each time, so it is worth stating plainly: while the interface is open,
+the piece on screen is repeatedly leaving the machine.
 
 ## Inference boundary
 
 The terminal interface is always Aesthetic Code. Engines are internal bridges,
 not alternate client interfaces or command shortcuts.
 
-The current bridge uses Codex app-server and remote inference. The interface
-labels this before a prompt is sent. Provider terms govern that traffic.
+Two bridges exist, both remote: Claude Code in headless stream-json mode
+(the default, on `claude-fable-5-1`) and Codex app-server. `--backend` and
+`/backend` choose between them and `--model` and `/model` name the model. The
+interface labels remote inference before a prompt is sent. Provider terms
+govern that traffic, and each bridge signs in with its own vendor's existing
+credentials on this machine; Aesthetic Code stores no key of its own.
+
+Neither bridge inherits the user's own agent configuration. Codex is started
+with `on-request` approvals and a `workspace-write` sandbox regardless of what
+`~/.codex/config.toml` says; Claude is started with `--setting-sources ""` and
+`--strict-mcp-config`, so the user's allow-lists, hooks and MCP servers are not
+in the session. On both, an approval is answered in this terminal and nowhere
+else, and an `a` — allow for the session — is held in memory for the life of
+the session rather than written to a settings file.
+
+### The sandbox gap on the Claude bridge
+
+The two bridges are not equivalent on containment, and the difference is worth
+stating rather than papering over.
+
+Codex runs commands under an operating-system sandbox: writes are confined to
+the workspace and `networkAccess` is false, so an approved command still cannot
+reach the network without a second, explicit escalation.
+
+Claude Code has no equivalent sandbox. On that bridge Aesthetic Code confines
+the file tools to the workspace, removes WebFetch and WebSearch, and routes
+every prompt to this terminal — and Claude does prompt before a command that
+touches the network — but the prompt is the whole boundary. A shell command the
+user approves runs with the user's own privileges and can reach the network.
+Read-only commands are auto-approved by Claude's own classifier, as reads
+inside the sandbox are on the Codex bridge.
+
+Aesthetic Code therefore does not claim that agent tools are network-isolated
+on the Claude bridge. Where that matters, `--backend codex` is the bridge with
+a kernel behind its approvals.
 
 A future local bridge must route inference only to a loopback or explicitly
 configured private endpoint, reject known cloud model names, and disable

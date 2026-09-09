@@ -12,6 +12,9 @@ export class AppServer extends EventEmitter {
     args = ["app-server", "--stdio"],
     environment = {},
     developerInstructions = "",
+    // Empty means "whatever ~/.codex/config.toml says", which is how this
+    // bridge has always chosen a model. A name here overrides it per thread.
+    model = "",
   }) {
     super();
     this.cwd = cwd;
@@ -20,6 +23,7 @@ export class AppServer extends EventEmitter {
     this.environment = environment;
     this.resumeThreadId = resumeThreadId;
     this.developerInstructions = developerInstructions;
+    this.model = model;
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
@@ -80,6 +84,7 @@ export class AppServer extends EventEmitter {
       sandbox: "workspace-write",
       ephemeral: false,
       sessionStartSource: this.threadId ? "clear" : "startup",
+      ...(this.model ? { model: this.model } : {}),
       ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
     });
     this.threadId = result.thread.id;
@@ -94,6 +99,7 @@ export class AppServer extends EventEmitter {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
       sandbox: "workspace-write",
+      ...(this.model ? { model: this.model } : {}),
       ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
     });
     this.threadId = result.thread.id;

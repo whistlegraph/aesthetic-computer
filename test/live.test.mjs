@@ -7,7 +7,7 @@ import test from "node:test";
 import { LivePiece, pieceDirectory } from "../src/live.mjs";
 import { randomChannel, randomSlug } from "../src/names.mjs";
 import { qrBlock } from "../src/qr.mjs";
-import { runtimeFor, runtimeForExtension, runtimeIds } from "../src/runtimes.mjs";
+import { runtimeFor, runtimeForExtension, runtimeIds, runtimeMenu } from "../src/runtimes.mjs";
 
 async function workspace(context) {
   const root = await mkdtemp(join(tmpdir(), "aesthetic-code-live-"));
@@ -23,9 +23,27 @@ test("names are pronounceable and channels stay short enough to scan", () => {
     assert.match(randomChannel(), /^[A-Za-z0-9_-]{8}$/);
   }
   // A version-3 QR is the largest that fits a terminal corner: 33 columns.
-  const block = qrBlock(`aesthetic.computer/prompt~channel~${randomChannel()}~!autorun`);
-  assert.equal(block.width, 33);
-  assert.equal(block.height, 17);
+  // Measure the real scan URL rather than a copy of it, so lengthening the URL
+  // fails here instead of quietly growing the code to a version that no longer
+  // fits an 80×24 window and is dropped from the frame.
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const url = new LivePiece({ cwd: tmpdir() }).scanUrl;
+    assert.ok(Buffer.byteLength(url) <= 53, `${url} is too long for a version-3 code`);
+    const block = qrBlock(url);
+    assert.equal(block.width, 33);
+    assert.equal(block.height, 17);
+  }
+});
+
+// The phone has to land on the prompt holding the channel as its own word.
+// parse.mjs hands everything after `prompt~` to the prompt as ONE parameter,
+// and the prompt splits its own arguments on spaces — a tilde glues the channel
+// to the command name, so `channel` runs with no argument and joins nothing.
+test("the scan URL separates the channel from the command with a space", () => {
+  const live = new LivePiece({ cwd: tmpdir(), channel: "Ab0-_9Zz" });
+  assert.equal(live.scanUrl, "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
+  const [, command] = live.scanUrl.match(/\/prompt~(.*)~!autorun$/);
+  assert.deepEqual(decodeURIComponent(command).split(" "), ["channel", "Ab0-_9Zz"]);
 });
 
 // Read the rendered block back into a grid of dark modules. A code that is
@@ -49,7 +67,7 @@ function decodeBlock(block) {
 
 test("the rendered code matches the encoder module for module", async () => {
   const { qrcode, ErrorCorrectLevel } = await import("../src/vendor/qr.mjs");
-  const url = "aesthetic.computer/prompt~channel~Ab0-_9Zz~!autorun";
+  const url = "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun";
   const quiet = 2;
   const modules = qrcode(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
   const grid = decodeBlock(qrBlock(url, { quiet }));
@@ -101,6 +119,25 @@ test("every runtime carries a blank that names itself", () => {
   assert.equal(runtimeFor("mjs").routable, true);
   assert.equal(runtimeFor("lua").routable, false);
   assert.throws(() => runtimeFor("rust"), /unknown runtime/);
+
+  // The names a person reaches for resolve to the same three runtimes.
+  assert.equal(runtimeFor("processing").id, "lua");
+  assert.equal(runtimeFor("L5").id, "lua");
+  assert.equal(runtimeFor("kidlisp").id, "lisp");
+  assert.equal(runtimeFor("js").id, "mjs");
+  assert.match(runtimeMenu(), /lua \(processing\)/);
+});
+
+// A live push carries no extension, so the client reads the source to decide
+// it is Lua: it must open with a `--` comment and declare setup or draw. The
+// Processing blank has to satisfy that on its own or it is compiled as
+// JavaScript and the phone never sees the piece.
+test("the Processing blank is recognisable as Lua from its source alone", () => {
+  const source = runtimeFor("processing").blank("movika");
+  assert.ok(source.trim().startsWith("--"), "must open with a Lua comment");
+  assert.match(source, /(?:^|\n)\s*function\s+(setup|draw)\s*\(/);
+  // Processing's vocabulary, not Aesthetic Computer's.
+  assert.doesNotMatch(source, /function\s+paint\s*\(/);
 });
 
 test("a session mints a blank piece, pushes it, and cleans up after itself", async (context) => {
@@ -117,7 +154,7 @@ test("a session mints a blank piece, pushes it, and cleans up after itself", asy
   });
 
   assert.equal(live.file, join(root, "movika.mjs"));
-  assert.equal(live.scanUrl, "aesthetic.computer/prompt~channel~Ab0-_9Zz~!autorun");
+  assert.equal(live.scanUrl, "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
   assert.equal(live.publishedUrl("jeffrey"), "https://aesthetic.computer/@jeffrey/movika");
   assert.equal(live.publishedUrl(""), "");
 
@@ -136,6 +173,39 @@ test("a session mints a blank piece, pushes it, and cleans up after itself", asy
   // An untouched blank leaves nothing behind.
   assert.equal(live.cleanup(), true);
   assert.equal(existsSync(live.file), false);
+});
+
+// The session server retains the last message a channel saw and replays it to
+// late joiners, so the harness announces a piece once per save and no more. A
+// watch that sees no edits must therefore be silent — and must not leave a
+// timer running behind it.
+test("a piece announces itself once per save, not on a beat", async (context) => {
+  const root = await workspace(context);
+  const calls = [];
+  const live = new LivePiece({
+    cwd: root,
+    slug: "movika",
+    fetch: async (url, options) => {
+      calls.push(JSON.parse(options.body));
+      return ok();
+    },
+  });
+  live.create();
+  live.watch();
+  await new Promise((resolve) => setTimeout(resolve, 130));
+
+  assert.equal(calls.length, 0, "an idle watch does not re-announce");
+
+  await writeFile(live.file, "// touched\n");
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  assert.equal(calls.length, 1, "a save announces exactly once");
+  assert.match(calls[0].source, /touched/);
+  assert.equal(live.pushes, 1, "and that push is counted as an edit");
+
+  live.unwatch();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(calls.length, 1, "stopping the watch leaves no timer behind");
+  live.cleanup();
 });
 
 test("an edited piece is never deleted on the way out", async (context) => {

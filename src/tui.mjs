@@ -3,12 +3,12 @@
 import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
-import { AppServer } from "./app-server.mjs";
+import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
 import { cleanText, renderFrame } from "./render.mjs";
-import { DEFAULT_RUNTIME, runtimeIds } from "./runtimes.mjs";
+import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 
 const arguments_ = process.argv.slice(2);
@@ -19,6 +19,10 @@ const option = (name) => {
 const cwd = path.resolve(option("--cwd") || process.cwd());
 const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
+// Which engine bridge drives the conversation, and on which model. The bridge
+// can be swapped mid-session with /backend, so neither is a constant.
+let backend = backendFor(option("--backend") || process.env.AESTHETIC_CODE_BACKEND || DEFAULT_BACKEND);
+let model = option("--model") || backend.defaultModel;
 
 const session = new ACSession();
 // Every session opens on a new blank piece with a random name. It is a real
@@ -36,6 +40,8 @@ const state = {
   approval: null,
   account: session.label(),
   piece: "",
+  // What the bridge said it is running, once it has said so.
+  model: "",
   qr: null,
   showQr: true,
   entries: [
@@ -52,10 +58,20 @@ function developerInstructions() {
   const account = session.handle
     ? `The user is signed in to Aesthetic Computer as @${session.handle}.`
     : "The user is not signed in to Aesthetic Computer; /login signs them in.";
+  // A live push carries no file extension, so a Processing piece is recognised
+  // by its own opening lines. Rewriting them silently takes the phone dark.
+  const dialect =
+    live.runtime.id === "lua"
+      ? [
+          "This is a Processing (L5) piece: write Processing, not Aesthetic Computer JavaScript — `setup` and `draw`, `background`, `fill`, `circle`, `text`, `width`, `height`, `frameCount`, `mouseX`, `mouseY`, `mouseIsPressed`. There is no `paint`, `wipe`, or `ink`.",
+          "Keep the file's first line a `--` comment and keep a top-level `function setup(` or `function draw(`. The live channel sends no file extension, so those two things are the only way the piece is recognised as Lua rather than compiled as JavaScript — drop either and the phone goes blank.",
+        ]
+      : [];
   return [
     "You are running inside Aesthetic Code, a terminal interface for Aesthetic Computer (AC) work.",
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
+    ...dialect,
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
     "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
     "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
@@ -67,16 +83,37 @@ function developerInstructions() {
 const slabSession = new SlabSession({ cwd });
 slabSession.start();
 slabSession.identity(session.handle);
-const engine = new AppServer({
-  cwd,
-  resumeThreadId,
-  developerInstructions: developerInstructions(),
-  environment: {
-    SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
-    SLAB_TERMINAL_TTY: slabSession.tty,
-    SLAB_AGENT_TYPE: "aesthetic-code",
-  },
-});
+
+// One engine at a time, wired to the same handlers however it was built.
+function openEngine({ resume = "" } = {}) {
+  const opened = new backend.Engine({
+    cwd,
+    resumeThreadId: resume,
+    model,
+    developerInstructions: developerInstructions(),
+    environment: {
+      SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
+      SLAB_TERMINAL_TTY: slabSession.tty,
+      SLAB_AGENT_TYPE: "aesthetic-code",
+    },
+  });
+  opened.on("notification", handleNotification);
+  opened.on("request", handleRequest);
+  opened.on("protocolError", (error) => {
+    addEntry("error", errorText(error));
+    redraw();
+  });
+  opened.on("fatal", (error) => {
+    if (closing || opened !== engine) return;
+    state.status = "offline";
+    addEntry("error", errorText(error));
+    slabSession.awaitingInput("aesthetic code engine bridge is offline");
+    redraw();
+  });
+  return opened;
+}
+
+let engine = openEngine({ resume: resumeThreadId });
 let drawing = false;
 let closing = false;
 let streamedMessageId = null;
@@ -373,6 +410,71 @@ async function commandPublish(argumentText) {
   redraw();
 }
 
+// ── engine commands ─────────────────────────────────────────────────────
+
+function engineLabel() {
+  return `${backend.label} · ${state.model || model || backend.modelSource}`;
+}
+
+// Open a thread on the current bridge, replacing whatever is running. This is
+// what /new, /backend and /model all come down to: the conversation restarts,
+// the piece and the QR code do not.
+async function restartEngine(note) {
+  state.status = "starting";
+  redraw();
+  const previous = engine;
+  engine = openEngine();
+  previous.close();
+  try {
+    const connection = await engine.connect();
+    slabSession.connected(engine.threadId);
+    state.model = connection?.model || model;
+    state.entries = [{ kind: "notice", text: `${note} · ${engineLabel()}`, id: `thread-${Date.now()}` }];
+    state.status = "ready";
+  } catch (error) {
+    addEntry("error", errorText(error));
+    state.status = "failed";
+  }
+  redraw();
+}
+
+async function commandBackend(rest) {
+  if (!rest) {
+    addEntry("notice", `${engineLabel()} · backends: ${backendMenu()}`);
+    return redraw();
+  }
+  if (state.busy) {
+    addEntry("error", "Interrupt the current turn before switching engines.");
+    return redraw();
+  }
+  const [wanted, wantedModel = ""] = rest.split(/\s+/).filter(Boolean);
+  let next;
+  try {
+    next = backendFor(wanted);
+  } catch (error) {
+    addEntry("error", errorText(error));
+    return redraw();
+  }
+  backend = next;
+  model = wantedModel || next.defaultModel;
+  state.model = "";
+  return restartEngine("Engine");
+}
+
+async function commandModel(rest) {
+  if (!rest) {
+    addEntry("notice", engineLabel());
+    return redraw();
+  }
+  if (state.busy) {
+    addEntry("error", "Interrupt the current turn before switching models.");
+    return redraw();
+  }
+  model = rest.split(/\s+/)[0];
+  state.model = "";
+  return restartEngine("Model");
+}
+
 async function submitInput() {
   const text = state.input.trim();
   state.input = "";
@@ -391,7 +493,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -403,6 +505,8 @@ async function submitInput() {
       return redraw();
     }
     if (command === "/publish") return commandPublish(rest);
+    if (command === "/backend" || command === "/engine") return commandBackend(rest);
+    if (command === "/model") return commandModel(rest);
     if (command === "/piece") {
       if (rest) {
         try {
@@ -420,7 +524,7 @@ async function submitInput() {
     }
     if (command === "/runtime") {
       if (!rest) {
-        addEntry("notice", `${live.runtime.label} · runtimes: ${runtimeIds().join(", ")}`);
+        addEntry("notice", `${live.runtime.label} · runtimes: ${runtimeMenu()}`);
         return redraw();
       }
       try {
@@ -463,7 +567,9 @@ async function submitInput() {
           engine.developerInstructions = developerInstructions();
           await engine.newThread();
           slabSession.connected(engine.threadId);
-          state.entries = [{ kind: "notice", text: "New thread", id: `thread-${Date.now()}` }];
+          state.entries = [
+            { kind: "notice", text: `New thread · ${engineLabel()}`, id: `thread-${Date.now()}` },
+          ];
           state.status = "ready";
         } catch (error) {
           addEntry("error", errorText(error));
@@ -588,21 +694,6 @@ session.watch().on("change", () => {
   redraw();
 });
 
-engine.on("notification", handleNotification);
-engine.on("request", handleRequest);
-engine.on("protocolError", (error) => {
-  addEntry("error", errorText(error));
-  redraw();
-});
-engine.on("fatal", (error) => {
-  if (!closing) {
-    state.status = "offline";
-    addEntry("error", errorText(error));
-    slabSession.awaitingInput("aesthetic code engine bridge is offline");
-    redraw();
-  }
-});
-
 // Mint this session's blank piece and the QR code that opens it on a phone.
 live.create();
 live.watch(liveError);
@@ -614,8 +705,12 @@ try {
   const connection = await engine.connect();
   slabSession.connected(connection.thread.id);
   state.status = "ready";
-  if (resumeThreadId && !restoreThread(connection.thread)) addEntry("notice", "Resumed thread");
-  else if (connection?.model) addEntry("notice", `Ready · ${connection.model}`);
+  state.model = connection?.model || model;
+  if (resumeThreadId && !restoreThread(connection.thread)) {
+    addEntry("notice", `Resumed thread · ${engineLabel()}`);
+  } else {
+    addEntry("notice", `Ready · ${engineLabel()}`);
+  }
   if (!session.signedIn) {
     addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
   }

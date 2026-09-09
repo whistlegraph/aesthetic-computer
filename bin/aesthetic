@@ -3,6 +3,8 @@
 set -euo pipefail
 
 VERSION="0.4.0"
+DEFAULT_BACKEND="${AESTHETIC_CODE_BACKEND:-claude}"
+DEFAULT_CLAUDE_MODEL="claude-fable-5-1"
 script_path="${BASH_SOURCE[0]}"
 while [[ -L "$script_path" ]]; do
     script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
@@ -17,7 +19,8 @@ PROJECT_DIR="$(cd "$(dirname "$script_path")/.." && pwd -P)"
 
 usage() {
     cat <<'EOF'
-Usage: ac [directory] [--runtime mjs|lisp|lua]
+Usage: ac [directory] [--runtime mjs|lisp|processing]
+                      [--backend claude|codex] [--model NAME]
        aesthetic [directory]
        aesthetic doctor
        aesthetic login | logout | whoami
@@ -29,6 +32,10 @@ your @handle at https://aesthetic.computer/@handle/slug.
 
 Each session opens on a new blank piece and shows a QR code that runs it
 live on a phone. --runtime picks the language of that piece.
+
+--backend picks the engine bridge: claude (the default, on
+claude-fable-5-1) or codex. --model names the model on that bridge, and
+/backend and /model change either one mid-session.
 EOF
 }
 
@@ -53,11 +60,14 @@ doctor() {
         printf 'node: not installed\n'
     fi
 
-    if has_command codex; then
-        printf 'engine bridge: ready\n'
-    else
-        printf 'engine bridge: unavailable (install Codex)\n'
-    fi
+    for backend in claude codex; do
+        if has_command "$backend"; then
+            printf 'engine bridge %s: ready\n' "$backend"
+        else
+            printf 'engine bridge %s: unavailable\n' "$backend"
+        fi
+    done
+    printf 'default engine bridge: %s (%s)\n' "$DEFAULT_BACKEND" "$DEFAULT_CLAUDE_MODEL"
 
     if has_command node; then
         printf 'account: %s\n' "$(node "$PROJECT_DIR/src/cli.mjs" whoami 2>/dev/null || printf 'not signed in')"
@@ -88,6 +98,8 @@ target_directory=""
 resume_thread=""
 initial_prompt=""
 runtime=""
+backend=""
+model=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --resume)
@@ -102,11 +114,28 @@ while [[ $# -gt 0 ]]; do
             initial_prompt="$2"
             shift 2
             ;;
+        --backend|--engine)
+            [[ $# -ge 2 ]] || fail "--backend requires an engine"
+            case "$2" in
+                # backends.mjs resolves the aliases; this is the same set.
+                claude|codex|anthropic|fable|openai|gpt) backend="$2" ;;
+                *) fail "unknown backend: $2 (claude, codex)" ;;
+            esac
+            shift 2
+            ;;
+        --model)
+            [[ $# -ge 2 ]] || fail "--model requires a name"
+            [[ "$2" =~ ^[A-Za-z0-9._@:-]+$ ]] || fail "invalid model name: $2"
+            model="$2"
+            shift 2
+            ;;
         --runtime)
             [[ $# -ge 2 ]] || fail "--runtime requires a language"
             case "$2" in
-                mjs|lisp|lua) runtime="$2" ;;
-                *) fail "unknown runtime: $2 (mjs, lisp, lua)" ;;
+                # The names people reach for are accepted alongside the file
+                # extensions; runtimes.mjs resolves the aliases.
+                mjs|lisp|lua|js|kidlisp|processing|l5) runtime="$2" ;;
+                *) fail "unknown runtime: $2 (mjs, lisp, processing)" ;;
             esac
             shift 2
             ;;
@@ -132,7 +161,15 @@ target_directory="${target_directory:-$PWD}"
 target_directory="$(cd "$target_directory" && pwd -P)"
 
 has_command node || fail "Node.js is required"
-has_command codex || fail "the Aesthetic Code engine bridge is not installed"
+
+# The bridge is a subprocess, so the one that will be spawned has to be here.
+selected_backend="${backend:-$DEFAULT_BACKEND}"
+case "$selected_backend" in
+    anthropic|fable) selected_backend="claude" ;;
+    openai|gpt) selected_backend="codex" ;;
+esac
+has_command "$selected_backend" ||
+    fail "the $selected_backend engine bridge is not installed"
 
 if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
     printf 'interface=aesthetic-code\n'
@@ -140,6 +177,8 @@ if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
     printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
     printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
     printf 'runtime=%s\n' "${runtime:-mjs}"
+    printf 'backend=%s\n' "$selected_backend"
+    printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
     exit 0
 fi
 
@@ -151,4 +190,6 @@ arguments=("--cwd" "$target_directory")
 if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
 if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
+arguments+=("--backend" "$selected_backend")
+if [[ -n "$model" ]]; then arguments+=("--model" "$model"); fi
 exec node "$PROJECT_DIR/src/tui.mjs" "${arguments[@]}"
