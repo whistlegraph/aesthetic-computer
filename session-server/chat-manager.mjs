@@ -41,6 +41,8 @@ export const chatInstances = {
     // Dedicated topic — sotce chat pings must never fan out to the shared
     // "mood" topic that aesthetic.computer devices subscribe to.
     topic: "chat-sotce",
+    // And its own face in the notification, not the aesthetic.computer mark.
+    icon: "https://assets.aesthetic.computer/sotce-net/cookie.png",
   },
   "chat-clock.aesthetic.computer": {
     name: "chat-clock",
@@ -959,6 +961,7 @@ export class ChatManager {
     broadcastToTopic(this.db, instance.config.topic, {
       title,
       body: text,
+      icon: instance.config.icon, // undefined keeps the default mark
       urgent: true, // time-sensitive on iOS, Urgency: high on web
       ttl: 0, // don't store undelivered chat pings
       data: { piece: "chat" },

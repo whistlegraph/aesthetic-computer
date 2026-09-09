@@ -321,14 +321,17 @@ async function sendAPNsBatch(tokens, note) {
 }
 
 // 📦 Notification shape
-// note = { title, body, image?, data? (flat string map, e.g. { piece }),
+// note = { title, body, icon?, image?, data? (flat string map, e.g. { piece }),
 //          urgent?, ttl? }
+// `icon` is the small badge the OS draws beside the text. It defaults to the
+// aesthetic.computer mark, but a sender with its own face — sotce.net's
+// cookie — passes one and keeps it.
 
 function webPayload(note) {
   return JSON.stringify({
     title: note.title,
     body: note.body,
-    icon: ICON,
+    icon: note.icon || ICON,
     image: note.image,
     data: note.data || {},
   });

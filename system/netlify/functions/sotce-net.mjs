@@ -11240,6 +11240,7 @@ export const handler = async (event, context) => {
         {
           title: "Sotce Net",
           body: "A new page has been written.",
+          icon: "https://assets.aesthetic.computer/sotce-net/cookie.png",
           data: { piece: "" },
           ttl: 3600,
         },
