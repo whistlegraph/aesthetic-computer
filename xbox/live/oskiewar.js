@@ -71,7 +71,7 @@ analytics = function netAnalytics(...args) {
 };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 102;
+const buildVersion = 103;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -4469,6 +4469,9 @@ function resetRound(now, resetMatch = false) {
     player.botThreatSeen = 0;
     player.botShieldAt = Infinity;
     player.botPunishedAt = 0;
+    player.botScene = null;
+    player.botGoal = "";
+    player.botSubgoal = null;
     player.botRngState = (Math.round(now / 1000) ^
       Math.imul(player.pad + 1, 0x9e3779b9)) >>> 0;
     delete player.frozenGeometry;
@@ -7311,6 +7314,163 @@ function botDown(player, now) {
     .filter((button) => now < player.botPresses[button].until);
 }
 
+// ── What a bot sees ─────────────────────────────────────────────────────────
+// The bots used to steer off the whole table. The climb bot read the ladder
+// by index — `platforms[level]` — and the fight bot read the opponent's
+// coordinates wherever they were, on screen or not. Neither is what a hand on
+// a pad has. A player sees a screen: the rungs the lens has in frame, the lava
+// once it has climbed into view, the other fighter while the camera holds
+// them — and picks the next move from what that frame offers.
+//
+// `botScene` is that frame. It is rebuilt every simulation tick from the same
+// projection the stage paints with, so a rung is in the scene exactly when
+// its lip lands on the screen a person would be watching. `botOptions` is the
+// list of moves the scene affords from where the bot is standing: which of
+// those rungs one jump reaches, from where; the span it can walk; the deck it
+// could sink through. The brains below hold a goal (the summit, the
+// opponent), pick the option that advances it as this tick's subgoal, and
+// press for that — nothing in them reaches past the frame.
+//
+// One jump's ceiling, from the same numbers the fighter's legs use: with up
+// held, the rise is v²/2g, and everything above it is out of reach.
+const jumpApex = jumpVelocity * jumpVelocity / (2 * riseGravity);
+// A jump's horizontal budget onto a deck `dy` above the takeoff: the whole
+// rise, then the fall from the apex down to the deck's height, walked at
+// walking speed. Scaled down hard — the bot is committing to a lip, and a
+// landing at the very end of the arc is a landing it can miss by one frame.
+const botAirCommit = .6;
+function jumpReach(dy) {
+  const riseSeconds = jumpVelocity / riseGravity;
+  const fallSeconds = Math.sqrt(2 * Math.max(0, jumpApex - dy) / fallGravity);
+  return walkSpeed * (riseSeconds + fallSeconds) * botAirCommit;
+}
+// Where the feet are. Level 0 is the arena floor; a rung answers by its level.
+function botFooting(player) {
+  if (!player.grounded) return null;
+  if (platformsEnabled()) for (const ledge of platforms)
+    if (Math.abs(player.y - ledge.y) <= 3 &&
+      player.x >= ledge.left && player.x <= ledge.right) return { ...ledge };
+  return { level: 0, left: platformLeft, right: platformRight, y: floorY };
+}
+// The screen. The whole screen, not the action-safe rect: a person watching
+// a television reads the rung above out of the sky the HUD floats over.
+const botViewport = () =>
+  ({ left: stageLeft, right: stageRight, top: 0, bottom: viewHeight });
+function pointInView(view, x, y, z = 0) {
+  const point = projectPoint(x, y, z);
+  return Number.isFinite(point.x) && Number.isFinite(point.y) &&
+    point.x >= view.left && point.x <= view.right &&
+    point.y >= view.top && point.y <= view.bottom;
+}
+// A rung is in view when any of its lip is: both ends projected, the span
+// clipped against the screen's sides, its height inside the screen's top and
+// bottom. A deck half off the right edge still offers its visible half.
+function rungInView(view, ledge) {
+  const a = projectPoint(ledge.left, ledge.y, 0);
+  const b = projectPoint(ledge.right, ledge.y, 0);
+  if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) return false;
+  const y = (a.y + b.y) / 2;
+  return y >= view.top && y <= view.bottom &&
+    Math.max(a.x, b.x) >= view.left && Math.min(a.x, b.x) <= view.right;
+}
+
+function botScene(player, opponent, now) {
+  const view = botViewport();
+  const footing = botFooting(player);
+  const rungs = [];
+  if (platformsEnabled()) for (const ledge of platforms)
+    if (rungInView(view, ledge))
+      rungs.push({ level: ledge.level, left: ledge.left, right: ledge.right,
+        y: ledge.y, dy: player.y - ledge.y });
+  const scene = {
+    at: now,
+    view,
+    lens: { width: cameraDoll.width, x: cameraDoll.target.x,
+      y: cameraDoll.target.y },
+    self: { x: player.x, y: player.y, vx: player.vx, vy: player.vy,
+      grounded: player.grounded, facing: player.facing, footing },
+    floor: pointInView(view, clamp(player.x, platformLeft, platformRight),
+      floorY) ? { y: floorY, left: platformLeft, right: platformRight } : null,
+    rungs,
+    lava: survivalActive() &&
+      pointInView(view, clamp(player.x, worldLeft, worldRight), survivalLavaY)
+      ? { y: survivalLavaY, below: survivalLavaY - player.y } : null,
+    opponent: null,
+    pickups: [],
+  };
+  if (opponent && opponent.alive && opponent !== player &&
+      pointInView(view, opponent.x, opponent.y - 90, opponent.z || 0)) {
+    const dx = opponent.x - player.x;
+    scene.opponent = { x: opponent.x, y: opponent.y, dx, dy: player.y - opponent.y,
+      distance: Math.abs(dx), facing: opponent.facing,
+      attacking: Boolean(opponent.attackKind) && now < opponent.attackUntil,
+      attackStartedAt: opponent.attackStartedAt };
+  }
+  for (const pickup of [...gunPickups, ...grenadePickups])
+    if (pickup.active && pointInView(view, pickup.x, pickup.y))
+      scene.pickups.push({ kind: pickup.kind || "item",
+        x: pickup.x, y: pickup.y, dx: pickup.x - player.x });
+  scene.options = botOptions(player, scene);
+  return scene;
+}
+
+// The moves the scene affords from this footing. Every option names the deck
+// it ends on, so a brain can pick by destination and then read off how to
+// get there. In the air there is nothing to enumerate; the brain keeps the
+// subgoal it left the ground with.
+function botOptions(player, scene) {
+  const options = [];
+  const footing = scene.self.footing;
+  if (!footing) return options;
+  options.push({ kind: "walk", level: footing.level, y: footing.y,
+    left: footing.left, right: footing.right });
+  const inset = survivalTune().landingInset;
+  for (const rung of scene.rungs) {
+    const dy = footing.y - rung.y;
+    if (dy <= 0 || dy > jumpApex) continue;
+    const landLeft = rung.left + inset;
+    const landRight = rung.right - inset;
+    if (landRight < landLeft) continue;
+    const reach = jumpReach(dy);
+    // Where on this footing a jump can start and still come down on the
+    // landing band. An empty window is a deck the lens shows but the legs
+    // cannot have from here.
+    const takeoffLeft = Math.max(footing.left, landLeft - reach);
+    const takeoffRight = Math.min(footing.right, landRight + reach);
+    if (takeoffLeft > takeoffRight) continue;
+    const aim = clamp(player.x, landLeft, landRight);
+    options.push({ kind: "jump", level: rung.level, y: rung.y, dy, reach,
+      landLeft, landRight, takeoffLeft, takeoffRight, aim,
+      cost: Math.abs(aim - player.x) });
+  }
+  if (footing.level > 0) {
+    // Sinking drops to whatever is under the feet — and only what is in
+    // frame counts, the same as a person deciding to fall.
+    let below = scene.floor ? { level: 0, y: floorY } : null;
+    for (const rung of scene.rungs)
+      if (rung.y > footing.y && player.x >= rung.left &&
+        player.x <= rung.right && (!below || rung.y < below.y))
+        below = { level: rung.level, y: rung.y };
+    if (below) options.push({ kind: "sink", level: below.level, y: below.y,
+      dy: footing.y - below.y });
+  }
+  return options;
+}
+
+// The climb's subgoal: the highest deck one jump reaches from this footing,
+// the nearest of them when two tie. On the ladder that is the deck above —
+// two decks is 470 and the apex is 322 — but the choice is made from the
+// scene, so a deck the lens has not shown yet is a deck the bot waits for.
+function highestJump(options) {
+  let best = null;
+  for (const option of options) {
+    if (option.kind !== "jump") continue;
+    if (!best || option.y < best.y ||
+        (option.y === best.y && option.cost < best.cost)) best = option;
+  }
+  return best;
+}
+
 function botPad(player, opponent, now) {
   if (!player.bot) {
     player.botPresses = {};
@@ -7340,12 +7500,22 @@ function botPad(player, opponent, now) {
     return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
   }
 
-  const dx = opponent.x - player.x;
-  const distance = Math.abs(dx);
+  // The frame, and the opponent only as the frame shows them. The fight
+  // camera holds both fighters, so an opponent out of view is the rare case —
+  // but when it happens the bot has nothing to chase and opens nothing new.
+  const scene = botScene(player, opponent, now);
+  player.botScene = scene;
+  player.botGoal = "opponent";
+  const seen = scene.opponent;
+  if (!seen) {
+    player.botSubgoal = null;
+    return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+  }
+  const dx = seen.dx;
+  const distance = seen.distance;
   const toward = Math.sign(dx) || player.facing || -1;
-  const opponentThreatening = opponent.attackKind &&
-    now < opponent.attackUntil && distance < 245 &&
-    opponent.facing === -toward;
+  const opponentThreatening = seen.attacking && distance < 245 &&
+    seen.facing === -toward;
   const striking = botHeld(player, "A", now) || botHeld(player, "X", now);
 
   // A guard that answers every swing the frame it starts turns the round into
@@ -7355,8 +7525,8 @@ function botPad(player, opponent, now) {
   // all. The lapse is what lets damage through, and damage is what ends
   // rounds.
   if (opponentThreatening) {
-    if (player.botThreatSeen !== opponent.attackStartedAt) {
-      player.botThreatSeen = opponent.attackStartedAt;
+    if (player.botThreatSeen !== seen.attackStartedAt) {
+      player.botThreatSeen = seen.attackStartedAt;
       const roll = botRoll(player);
       player.botShieldAt = roll < 0.55
         ? now + 70000 + Math.round(roll * 250000) : Infinity;
@@ -7400,16 +7570,31 @@ function botPad(player, opponent, now) {
     }
   }
 
-  if (player.grounded && opponent.y < player.y - 180 &&
-      now >= player.botJumpAt &&
+  // Up and down are read off the scene's options. An opponent a storey up
+  // is reached by the jump that lands on their deck when the frame offers
+  // one, and by a plain jump at them when it does not — the cube has no
+  // rungs, and there the old leap is the only vertical move there is.
+  const climb = seen.dy > 180
+    ? scene.options.find((option) => option.kind === "jump" &&
+        Math.abs(option.y - seen.y) <= 3) || null
+    : null;
+  player.botSubgoal = climb;
+  if (climb && Math.abs(climb.aim - player.x) > 24)
+    botPress(player, climb.aim > player.x ? "ArrowRight" : "ArrowLeft",
+      botHoldUs.walk, now);
+  const canLeap = climb
+    ? player.x >= climb.takeoffLeft && player.x <= climb.takeoffRight
+    : seen.dy > 180;
+  if (player.grounded && canLeap && now >= player.botJumpAt &&
       botPress(player, "ArrowUp", botHoldUs.jump, now))
     player.botJumpAt = now + 1250000;
-  // Knocked up onto the platform the bot would camp out of reach, so it plays
-  // the same double-tap-down a player would: two real presses with a real
-  // release between them.
-  if (PLATFORM && player.grounded && player.standingOn < 0 &&
-      player.y < floorY - 40 &&
-      opponent.y > player.y + 200 && now >= player.botSinkAt) {
+  // Knocked up onto a deck the bot would camp out of reach, so it plays the
+  // same double-tap-down a player would: two real presses with a real
+  // release between them — and only through a deck the frame shows a floor
+  // under.
+  const sink = scene.options.find((option) => option.kind === "sink");
+  if (sink && player.grounded && player.standingOn < 0 &&
+      seen.dy < -200 && now >= player.botSinkAt) {
     player.botSinkAt = now + 900000;
     player.botSinkTaps = 2;
     player.botSinkNextAt = now;
@@ -7470,35 +7655,51 @@ function survivalBotPad(player, now) {
     player.botRngState =
       (player.botRngState ^ Math.imul(tune.seed, 0x9e3779b9)) >>> 0;
   }
-  let level = clamp(player.survivalTargetLevel || 1, 1, platforms.length);
-  let target = platforms[level - 1];
-  if (player.grounded && Math.abs(player.y - target.y) <= 3 &&
-      level < platforms.length) {
-    level++;
-    player.survivalTargetLevel = level;
-    target = platforms[level - 1];
-    // One roll per deck, not per tick: the runner should commit to a line and
-    // hold it, and rolling every frame would average the wander back to zero.
-    player.survivalAimBias = tune.seed ? botRoll(player) - .5 : 0;
+  // The frame, every tick. The goal is the summit; the subgoal is the deck
+  // this frame offers a jump onto. On the ground that is re-chosen from the
+  // scene each tick — in the air the runner holds the deck it left for.
+  const scene = botScene(player, null, now);
+  player.botScene = scene;
+  player.botGoal = "summit";
+  const footing = scene.self.footing;
+  if (footing) {
+    const next = highestJump(scene.options);
+    if (next && next.level !== player.survivalTargetLevel) {
+      player.survivalTargetLevel = next.level;
+      // One roll per deck, not per tick: the runner should commit to a line
+      // and hold it, and rolling every frame would average the wander back
+      // to zero.
+      player.survivalAimBias = tune.seed ? botRoll(player) - .5 : 0;
+    }
+    player.botSubgoal = next;
+    if (!next) {
+      // Nothing above in frame. Stand where a deck cannot end under you —
+      // the lens is catching up, and the next rung arrives in it.
+      const middle = (footing.left + footing.right) / 2;
+      if (Math.abs(middle - player.x) > tune.walkThreshold)
+        botPress(player, middle > player.x ? "ArrowRight" : "ArrowLeft",
+          botHoldUs.walk, now);
+      return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+    }
   }
-  // Aim for the nearest safe point, not every deck's center. A centered aim
-  // made the bot walk to the lip of an overlapping pair and wait forever
-  // when the remaining seven units were smaller than its jump threshold.
-  //
-  // The inset cuts both ways, which is why it is tunable: too small and the
-  // bot commits to a landing on the very edge of the deck above, too large and
-  // the aim point can sit past the far end of the deck it is standing on, so
-  // it walks itself off a ledge reaching for a spot it cannot stand under.
-  const landingLeft = target.left + tune.landingInset;
-  const landingRight = target.right - tune.landingInset;
-  // With no seed the bias is 0 and this is exactly the old `clamp(player.x, …)`.
-  const aim = clamp(player.x, landingLeft, landingRight) +
-    (player.survivalAimBias || 0) * (landingRight - landingLeft) * tune.aimJitter;
-  const landingX = clamp(aim, landingLeft, landingRight);
-  const dx = landingX - player.x;
+  const target = player.botSubgoal;
+  if (!target)
+    return { connected: true, down: botDown(player, now), leftX: 0, leftY: 0 };
+  // Aim for the nearest safe point on the landing band, not the deck's
+  // center: a centered aim walked the bot to the lip of an overlapping pair
+  // and waited forever when the remaining seven units were smaller than its
+  // jump threshold. The seeded wander moves the aim along the band.
+  const aim = clamp(clamp(player.x, target.landLeft, target.landRight) +
+    (player.survivalAimBias || 0) * (target.landRight - target.landLeft) *
+    tune.aimJitter, target.landLeft, target.landRight);
+  const dx = aim - player.x;
   if (Math.abs(dx) > tune.walkThreshold)
     botPress(player, dx > 0 ? "ArrowRight" : "ArrowLeft", botHoldUs.walk, now);
-  if (player.grounded && Math.abs(dx) <= tune.jumpThreshold &&
+  // Commit inside the option's own budget or the tuned threshold, whichever
+  // is tighter — the threshold was priced by `survival-lab.mjs`, and the
+  // budget keeps a lab sweep from asking for a jump the legs cannot land.
+  if (player.grounded && Math.abs(dx) <= Math.min(tune.jumpThreshold, target.reach) &&
+      player.x >= target.takeoffLeft && player.x <= target.takeoffRight &&
       now >= player.botJumpAt &&
       botPress(player, "ArrowUp", tune.jumpHoldUs, now))
     player.botJumpAt = now + tune.jumpCooldownUs;
@@ -11251,6 +11452,32 @@ function drawBall(ball) {
   }
 }
 
+// What the bot saw this tick, drawn where it saw it: every rung in its frame
+// gets a lip line, the deck it is jumping for gets its landing band, and the
+// footing gets the window a jump may start from. A person watching a bot
+// stand still can now read whether it is waiting for a deck to enter frame.
+function drawBotScene(player) {
+  if (renderFlags.hud === false) return;
+  if (!debugHitboxes || !player.bot || !player.botScene) return;
+  const scene = player.botScene;
+  const seen = [58, 222, 255];
+  for (const rung of scene.rungs)
+    worldLine(rung.left, rung.y, 0, rung.right, rung.y, 0, 3, seen);
+  const goal = player.botSubgoal;
+  if (goal && goal.kind === "jump") {
+    const band = [120, 255, 120];
+    worldLine(goal.landLeft, goal.y, 0, goal.landRight, goal.y, 0, 6, band);
+    worldLine(goal.aim, goal.y, 0, goal.aim, goal.y - 40, 0, 3, band);
+    const footing = scene.self.footing;
+    if (footing)
+      worldLine(goal.takeoffLeft, footing.y, 0, goal.takeoffRight,
+        footing.y, 0, 6, [255, 214, 90]);
+  }
+  if (scene.lava)
+    worldLine(worldLeft, scene.lava.y, 0, worldRight, scene.lava.y, 0, 3,
+      [255, 110, 70]);
+}
+
 function drawBallHitboxes() {
   if (renderFlags.hud === false) return;
   if (!debugHitboxes) return;
@@ -12589,6 +12816,7 @@ function gamePaint() {
   triangleDepth = -1.4;
   drawDebugHitboxes(players[0], t);
   if (!survivalActive()) drawDebugHitboxes(players[1], t);
+  for (const player of players) drawBotScene(player);
   drawBallHitboxes();
   drawSafeZones();
   triangleDepth = -1.42;
