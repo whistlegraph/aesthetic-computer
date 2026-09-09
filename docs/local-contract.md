@@ -12,6 +12,15 @@ Aesthetic Code requires no Aesthetic Code server.
 - Updates are user-initiated. An update check may be enabled separately without
   transmitting workspace or session data.
 
+## Account and publishing boundary
+
+Signing in talks to Auth0 (`hi.aesthetic.computer`) and `aesthetic.computer`
+only when the user runs `/login`, and stores the result in `~/.ac-token`, the
+shared Aesthetic Computer session file. Publishing sends one piece's source
+and the session token to `aesthetic.computer` only when the user runs
+`/publish`. The engine bridge never receives the token; publishing is an
+interface action, not an agent tool.
+
 ## Inference boundary
 
 The terminal interface is always Aesthetic Code. Engines are internal bridges,

@@ -38,6 +38,28 @@ test("renders one branded interface with privacy state and prompt", () => {
   assert.equal(frame.split("\n").length, 20);
 });
 
+test("shows the signed-in handle and the current piece in the header", () => {
+  const frame = renderFrame(
+    {
+      workspace: "/project",
+      mode: "remote",
+      status: "ready",
+      busy: false,
+      input: "",
+      entries: [{ id: "p", kind: "publish", text: "https://aesthetic.computer/@tester/smiley" }],
+      account: "@tester",
+      piece: "smiley",
+    },
+    70,
+    12,
+    false,
+  );
+  assert.match(frame, /AESTHETIC CODE  @tester  smiley/);
+  assert.match(frame, /REMOTE · READY/);
+  assert.match(frame, /PUB  https:\/\/aesthetic\.computer\/@tester\/smiley/);
+  assert.match(renderFrame({ workspace: "/p", mode: "remote", status: "ready", entries: [], input: "" }, 60, 12, false), /not signed in/);
+});
+
 test("renders approvals inside the interface", () => {
   const frame = renderFrame(
     {

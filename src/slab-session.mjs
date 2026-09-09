@@ -58,6 +58,7 @@ export class SlabSession {
       tty,
       agent_pid: pid,
       agent_type: "aesthetic-code",
+      handle: "",
       provider_agent_type: "codex",
       provider_session_id: "",
       updated: now(),
@@ -81,6 +82,11 @@ export class SlabSession {
 
   connected(providerSessionId) {
     this.#update({ provider_session_id: providerSessionId || "" });
+  }
+
+  // Which @handle this rock acts as (display only; never email or name).
+  identity(handle = "") {
+    this.#update({ handle: String(handle || "").replace(/^@/, "") });
   }
 
   working(prompt = "") {

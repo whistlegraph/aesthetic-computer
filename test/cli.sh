@@ -31,7 +31,7 @@ assert_contains() {
 }
 
 output="$($CLI --version)"
-assert_contains "$output" 'Aesthetic Code 0.2.1'
+assert_contains "$output" 'Aesthetic Code 0.3.0'
 
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=aesthetic-code'
@@ -48,6 +48,29 @@ assert_contains "$output" 'initial_prompt=yes'
 output="$($CLI doctor)"
 assert_contains "$output" 'control plane: local'
 assert_contains "$output" 'telemetry: off'
+assert_contains "$output" 'account: '
+
+# Account commands read the shared ~/.ac-token under $HOME.
+FAKE_HOME="$TEST_ROOT/home"
+mkdir -p "$FAKE_HOME"
+if output="$(HOME="$FAKE_HOME" "$CLI" whoami 2>&1)"; then
+    printf 'Expected whoami to exit non-zero when signed out.\n' >&2
+    exit 1
+fi
+assert_contains "$output" 'not signed in'
+
+printf '{"access_token":"t","user":{"handle":"tester"}}' > "$FAKE_HOME/.ac-token"
+output="$(HOME="$FAKE_HOME" "$CLI" whoami)"
+assert_contains "$output" '@tester'
+
+printf 'export function paint() {}\n' > "$WORK_DIR/smiley.mjs"
+output="$(HOME="$FAKE_HOME" AESTHETIC_CODE_DRY_RUN=1 "$CLI" publish "$WORK_DIR/smiley.mjs")"
+assert_contains "$output" 'https://aesthetic.computer/@tester/smiley'
+
+if HOME="$FAKE_HOME" AESTHETIC_CODE_DRY_RUN=1 "$CLI" publish >/dev/null 2>&1; then
+    printf 'Expected publish without a file to fail.\n' >&2
+    exit 1
+fi
 
 if AESTHETIC_CODE_DRY_RUN=1 "$CLI" claude >/dev/null 2>&1; then
     printf 'Expected the removed provider shortcut to fail.\n' >&2

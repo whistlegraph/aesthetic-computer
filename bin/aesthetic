@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.2.1"
+VERSION="0.3.0"
 script_path="${BASH_SOURCE[0]}"
 while [[ -L "$script_path" ]]; do
     script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
@@ -20,8 +20,12 @@ usage() {
 Usage: ac [directory]
        aesthetic [directory]
        aesthetic doctor
+       aesthetic login | logout | whoami
+       aesthetic publish <file> [slug]
 
-Open the Aesthetic Code terminal interface in a workspace.
+Open the Aesthetic Code terminal interface in a workspace, or manage the
+shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
+your @handle at https://aesthetic.computer/@handle/slug.
 EOF
 }
 
@@ -51,6 +55,10 @@ doctor() {
     else
         printf 'engine bridge: unavailable (install Codex)\n'
     fi
+
+    if has_command node; then
+        printf 'account: %s\n' "$(node "$PROJECT_DIR/src/cli.mjs" whoami 2>/dev/null || printf 'not signed in')"
+    fi
 }
 
 case "${1:-}" in
@@ -66,6 +74,10 @@ case "${1:-}" in
         [[ $# -eq 1 ]] || fail "doctor takes no arguments"
         doctor
         exit 0
+        ;;
+    login|logout|whoami|publish)
+        has_command node || fail "Node.js is required"
+        exec node "$PROJECT_DIR/src/cli.mjs" "$@"
         ;;
 esac
 

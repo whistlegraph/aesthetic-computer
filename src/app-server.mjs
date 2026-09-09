@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.2.1";
+const VERSION = "0.3.0";
 
 export class AppServer extends EventEmitter {
   constructor({
@@ -11,6 +11,7 @@ export class AppServer extends EventEmitter {
     command = "codex",
     args = ["app-server", "--stdio"],
     environment = {},
+    developerInstructions = "",
   }) {
     super();
     this.cwd = cwd;
@@ -18,6 +19,7 @@ export class AppServer extends EventEmitter {
     this.args = args;
     this.environment = environment;
     this.resumeThreadId = resumeThreadId;
+    this.developerInstructions = developerInstructions;
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
@@ -78,6 +80,7 @@ export class AppServer extends EventEmitter {
       sandbox: "workspace-write",
       ephemeral: false,
       sessionStartSource: this.threadId ? "clear" : "startup",
+      ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
     });
     this.threadId = result.thread.id;
     this.turnId = null;
@@ -91,6 +94,7 @@ export class AppServer extends EventEmitter {
       approvalPolicy: "on-request",
       approvalsReviewer: "user",
       sandbox: "workspace-write",
+      ...(this.developerInstructions ? { developerInstructions: this.developerInstructions } : {}),
     });
     this.threadId = result.thread.id;
     this.turnId = null;

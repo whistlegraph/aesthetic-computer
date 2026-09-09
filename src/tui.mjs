@@ -2,7 +2,9 @@
 
 import path from "node:path";
 import process from "node:process";
+import { ACSession } from "./ac-session.mjs";
 import { AppServer } from "./app-server.mjs";
+import { publishPiece } from "./publish.mjs";
 import { cleanText, renderFrame } from "./render.mjs";
 import { SlabSession } from "./slab-session.mjs";
 
@@ -14,6 +16,9 @@ const option = (name) => {
 const cwd = path.resolve(option("--cwd") || process.cwd());
 const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
+const PIECE_EXTENSIONS = new Set([".mjs", ".lisp"]);
+
+const session = new ACSession();
 const state = {
   workspace: cwd,
   mode: "remote",
@@ -24,6 +29,9 @@ const state = {
   history: [],
   historyIndex: 0,
   approval: null,
+  account: session.label(),
+  piece: "",
+  pieceFile: "",
   entries: [
     {
       id: "privacy",
@@ -33,11 +41,28 @@ const state = {
   ],
 };
 
+// The model must never mistake a file on disk for a published piece.
+function developerInstructions() {
+  const account = session.handle
+    ? `The user is signed in to Aesthetic Computer as @${session.handle}.`
+    : "The user is not signed in to Aesthetic Computer; /login signs them in.";
+  return [
+    "You are running inside Aesthetic Code, a terminal interface for Aesthetic Computer (AC) work.",
+    account,
+    "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
+    "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
+    "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
+    "Dev servers: do not stop a dev server you were asked to start; say that it is still running.",
+  ].join("\n");
+}
+
 const slabSession = new SlabSession({ cwd });
 slabSession.start();
+slabSession.identity(session.handle);
 const engine = new AppServer({
   cwd,
   resumeThreadId,
+  developerInstructions: developerInstructions(),
   environment: {
     SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
     SLAB_TERMINAL_TTY: slabSession.tty,
@@ -76,6 +101,7 @@ function redraw() {
 function finish(code = 0) {
   if (closing) return;
   closing = true;
+  session.unwatch();
   slabSession.close();
   engine.close();
   process.stdin.setRawMode(false);
@@ -88,12 +114,22 @@ function errorText(error) {
   return cleanText(error?.message || error || "unknown error");
 }
 
+// Track the piece under work from the files the agent touches.
+function notePiece(file) {
+  if (!file) return;
+  const resolved = path.resolve(cwd, file);
+  if (!PIECE_EXTENSIONS.has(path.extname(resolved).toLowerCase())) return;
+  state.pieceFile = resolved;
+  state.piece = path.basename(resolved, path.extname(resolved));
+}
+
 function itemSummary(item) {
   if (!item) return null;
   if (item.type === "commandExecution") return { kind: "command", text: item.command };
   if (item.type === "fileChange") {
-    const files = (item.changes || []).map((change) => change.path).join(", ");
-    return { kind: "change", text: files || "workspace files" };
+    const paths = (item.changes || []).map((change) => change.path).filter(Boolean);
+    for (const file of paths) notePiece(file);
+    return { kind: "change", text: paths.join(", ") || "workspace files" };
   }
   if (item.type === "mcpToolCall") return { kind: "command", text: `${item.server} · ${item.tool}` };
   if (item.type === "dynamicToolCall") return { kind: "command", text: item.tool };
@@ -112,6 +148,8 @@ function restoreThread(thread) {
         if (text) restored.push({ id: item.id, kind: "user", text: cleanText(text) });
       } else if (item.type === "agentMessage" && item.text) {
         restored.push({ id: item.id, kind: "assistant", text: cleanText(item.text) });
+      } else if (item.type === "fileChange") {
+        for (const change of item.changes || []) notePiece(change.path);
       }
     }
   }
@@ -246,6 +284,77 @@ function answerApproval(character) {
   return true;
 }
 
+// ── account + publish commands ──────────────────────────────────────────
+
+function refreshAccount(announce = false) {
+  const previous = state.account;
+  state.account = session.label();
+  slabSession.identity(session.handle);
+  if (announce && previous !== state.account) {
+    addEntry("notice", session.signedIn ? `Signed in as ${state.account}` : "Signed out");
+  }
+}
+
+async function commandLogin() {
+  if (session.signingIn) {
+    addEntry("notice", "A sign-in is already waiting on the browser.");
+    return redraw();
+  }
+  const id = addEntry("notice", "Opening the browser to sign in…");
+  redraw();
+  try {
+    const handle = await session.login({
+      onUrl: (url) => {
+        updateEntry(id, "notice", `Sign in at ${url}`);
+        redraw();
+      },
+    });
+    refreshAccount();
+    updateEntry(
+      id,
+      "notice",
+      handle ? `Signed in as @${handle}` : "Signed in · claim a handle at aesthetic.computer/handle",
+    );
+  } catch (error) {
+    updateEntry(id, "error", `Sign-in failed: ${errorText(error)}`);
+  }
+  redraw();
+}
+
+function commandLogout() {
+  const removed = session.logout();
+  refreshAccount();
+  addEntry("notice", removed ? "Signed out" : "Already signed out");
+  redraw();
+}
+
+async function commandPublish(argumentText) {
+  const [file = state.pieceFile, slug = ""] = argumentText.split(/\s+/).filter(Boolean);
+  if (!file) {
+    addEntry("error", "Usage: /publish <file> [slug] — no piece has been touched yet.");
+    return redraw();
+  }
+  const id = addEntry("publish", `Publishing ${path.basename(file)}…`);
+  redraw();
+  try {
+    const result = await publishPiece({
+      file,
+      slug,
+      session,
+      cwd,
+      onStep: (step) => {
+        updateEntry(id, "publish", `Publishing ${path.basename(file)} · ${step}…`);
+        redraw();
+      },
+    });
+    notePiece(result.path);
+    updateEntry(id, "publish", `${result.route}${result.verified ? "" : " · uploaded, not yet readable"}`);
+  } catch (error) {
+    updateEntry(id, "error", `Publish failed: ${errorText(error)}`);
+  }
+  redraw();
+}
+
 async function submitInput() {
   const text = state.input.trim();
   state.input = "";
@@ -254,22 +363,45 @@ async function submitInput() {
   if (!text) return redraw();
 
   if (text.startsWith("/")) {
-    if (text === "/quit" || text === "/exit") return finish();
-    if (text === "/clear") {
+    const [command, ...restWords] = text.split(/\s+/);
+    const rest = restWords.join(" ");
+    if (command === "/quit" || command === "/exit") return finish();
+    if (command === "/clear") {
       state.entries = [];
       return redraw();
     }
-    if (text === "/help") {
-      addEntry("notice", "/new · /clear · /quit   ctrl-c interrupts a running turn");
+    if (command === "/help") {
+      addEntry(
+        "notice",
+        "/login · /logout · /whoami · /publish <file> [slug] · /piece [name] · /new · /clear · /quit   ctrl-c interrupts a running turn",
+      );
       return redraw();
     }
-    if (text === "/new") {
+    if (command === "/login") return commandLogin();
+    if (command === "/logout") return commandLogout();
+    if (command === "/whoami") {
+      refreshAccount();
+      addEntry("notice", state.account);
+      return redraw();
+    }
+    if (command === "/publish") return commandPublish(rest);
+    if (command === "/piece") {
+      if (rest) notePiece(rest.endsWith(".mjs") || rest.endsWith(".lisp") ? rest : `${rest}.mjs`);
+      else {
+        state.piece = "";
+        state.pieceFile = "";
+      }
+      addEntry("notice", state.piece ? `Working on ${state.piece}` : "No current piece");
+      return redraw();
+    }
+    if (command === "/new") {
       if (state.busy) {
         addEntry("error", "Interrupt the current turn before starting a new thread.");
       } else {
         state.status = "starting";
         redraw();
         try {
+          engine.developerInstructions = developerInstructions();
           await engine.newThread();
           slabSession.connected(engine.threadId);
           state.entries = [{ kind: "notice", text: "New thread", id: `thread-${Date.now()}` }];
@@ -391,6 +523,12 @@ process.stdout.on("resize", redraw);
 process.on("SIGTERM", () => finish(143));
 process.on("SIGHUP", () => finish(129));
 
+// A sign-in or sign-out anywhere in the AC suite shows up here live.
+session.watch().on("change", () => {
+  refreshAccount(true);
+  redraw();
+});
+
 engine.on("notification", handleNotification);
 engine.on("request", handleRequest);
 engine.on("protocolError", (error) => {
@@ -413,6 +551,9 @@ try {
   state.status = "ready";
   if (resumeThreadId && !restoreThread(connection.thread)) addEntry("notice", "Resumed thread");
   else if (connection?.model) addEntry("notice", `Ready · ${connection.model}`);
+  if (!session.signedIn) {
+    addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
+  }
   redraw();
   if (initialPrompt) {
     replaceInput(initialPrompt);
