@@ -134,10 +134,19 @@ async function play(page, script, beat = 180) {
   }
 }
 
-const hostScript = [["ArrowRight"], ["Space"], ["ArrowRight", "ArrowUp"],
-  ["Enter"], ["ArrowLeft"], ["Space"], ["ArrowRight"], ["Enter"]];
-const guestScript = [["ArrowLeft"], ["Enter"], ["ArrowUp"], ["ArrowLeft"],
-  ["Space"], ["ArrowRight"], ["Enter"], ["ArrowLeft"]];
+// WASD, not the arrows. A rollback seat reads `gamepad(0)` whichever chair it
+// sits in — the rival's word is written into pad 1 — so arrow keys drive a pad
+// that netplay immediately overwrites, and the fighter never hears them. The
+// arrow version of these scripts still produced rollbacks, but only as a side
+// effect of its Space/Enter presses, which is a much thinner test than it looks.
+//
+// Note also that these cannot reach a round rollover on their own: versus
+// rounds are untimed (`roundIsTimed()` is false under `versusLane()`), so a
+// movement-only fight runs one endless round. Landing hits is what ends one.
+const hostScript = [["KeyD"], ["Space"], ["KeyD", "KeyW"],
+  ["Enter"], ["KeyA"], ["Space"], ["KeyD"], ["Enter"]];
+const guestScript = [["KeyA"], ["Enter"], ["KeyW"], ["KeyA"],
+  ["Space"], ["KeyD"], ["Enter"], ["KeyA"]];
 
 const fail = (reason) => { console.log(`\nFAILED: ${reason}`); process.exitCode = 1; };
 
