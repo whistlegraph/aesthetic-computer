@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-VERSION="0.3.0"
+VERSION="0.4.0"
 script_path="${BASH_SOURCE[0]}"
 while [[ -L "$script_path" ]]; do
     script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
@@ -17,7 +17,7 @@ PROJECT_DIR="$(cd "$(dirname "$script_path")/.." && pwd -P)"
 
 usage() {
     cat <<'EOF'
-Usage: ac [directory]
+Usage: ac [directory] [--runtime mjs|lisp|lua]
        aesthetic [directory]
        aesthetic doctor
        aesthetic login | logout | whoami
@@ -26,6 +26,9 @@ Usage: ac [directory]
 Open the Aesthetic Code terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
 your @handle at https://aesthetic.computer/@handle/slug.
+
+Each session opens on a new blank piece and shows a QR code that runs it
+live on a phone. --runtime picks the language of that piece.
 EOF
 }
 
@@ -84,6 +87,7 @@ esac
 target_directory=""
 resume_thread=""
 initial_prompt=""
+runtime=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --resume)
@@ -96,6 +100,14 @@ while [[ $# -gt 0 ]]; do
             [[ $# -ge 2 ]] || fail "--prompt requires text"
             [[ ${#2} -le 4000 ]] || fail "prompt exceeds 4000 characters"
             initial_prompt="$2"
+            shift 2
+            ;;
+        --runtime)
+            [[ $# -ge 2 ]] || fail "--runtime requires a language"
+            case "$2" in
+                mjs|lisp|lua) runtime="$2" ;;
+                *) fail "unknown runtime: $2 (mjs, lisp, lua)" ;;
+            esac
             shift 2
             ;;
         --)
@@ -127,6 +139,7 @@ if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
     printf 'directory=%s\n' "$target_directory"
     printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
     printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
+    printf 'runtime=%s\n' "${runtime:-mjs}"
     exit 0
 fi
 
@@ -137,4 +150,5 @@ export AESTHETIC_CODE_VERSION="$VERSION"
 arguments=("--cwd" "$target_directory")
 if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
+if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
 exec node "$PROJECT_DIR/src/tui.mjs" "${arguments[@]}"

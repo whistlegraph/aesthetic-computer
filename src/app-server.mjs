@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.3.0";
+const VERSION = "0.4.0";
 
 export class AppServer extends EventEmitter {
   constructor({

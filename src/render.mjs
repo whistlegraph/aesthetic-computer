@@ -151,22 +151,50 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const status = String(state.status || "ready").toUpperCase();
   const right = `${paint(useColor, state.mode === "local" ? "status" : "highlight", mode)} · ${paint(useColor, statusTone(state.status), status)}`;
   const rightWidth = textWidth(`${mode} · ${status}`);
-  const account = state.account || "not signed in";
-  const piece = state.piece ? clipText(state.piece, 24) : "";
-  const leftPlain = `AESTHETIC CODE  ${account}${piece ? `  ${piece}` : ""}`;
+
+  // A narrow window drops the piece, then the account, rather than pushing the
+  // status off the end of the row.
+  const room = Math.max(0, width - 3 - rightWidth);
+  const title = "AESTHETIC CODE";
+  let account = state.account || "not signed in";
+  let piece = state.piece ? clipText(state.piece, 24) : "";
+  if (textWidth(`${title}  ${account}  ${piece}`) > room) piece = "";
+  if (textWidth(`${title}  ${account}`) > room) account = "";
+  const leftPlain = clipText(
+    `${title}${account ? `  ${account}` : ""}${piece ? `  ${piece}` : ""}`,
+    room,
+  );
   const left =
-    `${paint(useColor, "bold text", "AESTHETIC CODE")}  ` +
-    `${paint(useColor, account.startsWith("@") ? "handle" : "muted", account)}` +
-    `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
+    leftPlain === title || !account
+      ? paint(useColor, "bold text", leftPlain)
+      : `${paint(useColor, "bold text", title)}  ` +
+        `${paint(useColor, account.startsWith("@") ? "handle" : "muted", account)}` +
+        `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
   const gap = " ".repeat(Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth));
   const header = ` ${left}${gap}${right} `;
   const workspace = clipText(state.workspace || "workspace", Math.max(8, width - 2));
   const pathLine = paint(useColor, "muted", ` ${workspace}`);
 
   const transcriptRows = height - 5;
-  const transcript = state.entries.flatMap((entry) => entryLines(entry, width - 2, useColor));
+  // The QR code keeps its own column on the right, so the transcript is
+  // narrowed rather than overdrawn. A code is an image, not text: it needs its
+  // own black on white to be scannable, so a window with colour switched off or
+  // too little room shows the scan URL instead and drops the code.
+  const qr =
+    useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height + 2
+      ? state.qr
+      : null;
+  const contentWidth = qr ? width - qr.width - 2 : width - 2;
+  const transcript = state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
   const visible = transcript.slice(Math.max(0, transcript.length - transcriptRows));
   while (visible.length < transcriptRows) visible.unshift("");
+
+  const body = visible.map((line, index) => {
+    const row = ` ${pad(line, contentWidth)}`;
+    if (!qr) return row;
+    const band = index - (transcriptRows - qr.height);
+    return band >= 0 ? `${row} ${qr.lines[band]}` : row;
+  });
 
   let prompt;
   if (state.approval) {
@@ -190,9 +218,9 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const help = paint(
     useColor,
     "muted",
-    state.busy ? " ctrl-c interrupt" : " /help · /login · /publish · ctrl-c quit",
+    clipText(state.busy ? " ctrl-c interrupt" : " /help · /login · /publish · /qr · ctrl-c quit", width),
   );
-  const lines = [header, pathLine, ...visible.map((line) => ` ${line}`), rule, prompt, help];
+  const lines = [header, pathLine, ...body, rule, prompt, help];
   return lines
     .slice(0, height)
     .map((line) => `${ground}${pad(line, width)}${reset}`)

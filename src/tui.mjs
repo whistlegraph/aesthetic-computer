@@ -4,8 +4,11 @@ import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
 import { AppServer } from "./app-server.mjs";
+import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
+import { qrBlock } from "./qr.mjs";
 import { cleanText, renderFrame } from "./render.mjs";
+import { DEFAULT_RUNTIME, runtimeIds } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 
 const arguments_ = process.argv.slice(2);
@@ -16,9 +19,11 @@ const option = (name) => {
 const cwd = path.resolve(option("--cwd") || process.cwd());
 const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
-const PIECE_EXTENSIONS = new Set([".mjs", ".lisp"]);
 
 const session = new ACSession();
+// Every session opens on a new blank piece with a random name. It is a real
+// file in the workspace, and every edit is pushed to whatever scanned the QR.
+const live = new LivePiece({ cwd, runtime: option("--runtime") || DEFAULT_RUNTIME });
 const state = {
   workspace: cwd,
   mode: "remote",
@@ -31,7 +36,8 @@ const state = {
   approval: null,
   account: session.label(),
   piece: "",
-  pieceFile: "",
+  qr: null,
+  showQr: true,
   entries: [
     {
       id: "privacy",
@@ -49,6 +55,8 @@ function developerInstructions() {
   return [
     "You are running inside Aesthetic Code, a terminal interface for Aesthetic Computer (AC) work.",
     account,
+    `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
+    "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
     "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
     "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
     "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
@@ -102,6 +110,7 @@ function finish(code = 0) {
   if (closing) return;
   closing = true;
   session.unwatch();
+  live.cleanup();
   slabSession.close();
   engine.close();
   process.stdin.setRawMode(false);
@@ -114,13 +123,22 @@ function errorText(error) {
   return cleanText(error?.message || error || "unknown error");
 }
 
-// Track the piece under work from the files the agent touches.
+// Track the piece under work from the files the agent touches. The QR code
+// addresses the channel rather than the file, so it stays valid across a
+// retarget; only the name in the header changes.
 function notePiece(file) {
   if (!file) return;
-  const resolved = path.resolve(cwd, file);
-  if (!PIECE_EXTENSIONS.has(path.extname(resolved).toLowerCase())) return;
-  state.pieceFile = resolved;
-  state.piece = path.basename(resolved, path.extname(resolved));
+  if (live.retarget(file)) live.watch(liveError);
+  state.piece = `${live.slug}${live.runtime.extension}`;
+}
+
+function liveError(error) {
+  addEntry("error", `Live push failed: ${errorText(error)}`);
+  redraw();
+}
+
+function refreshQr() {
+  state.qr = state.showQr ? qrBlock(live.scanUrl) : null;
 }
 
 function itemSummary(item) {
@@ -329,7 +347,7 @@ function commandLogout() {
 }
 
 async function commandPublish(argumentText) {
-  const [file = state.pieceFile, slug = ""] = argumentText.split(/\s+/).filter(Boolean);
+  const [file = live.file, slug = ""] = argumentText.split(/\s+/).filter(Boolean);
   if (!file) {
     addEntry("error", "Usage: /publish <file> [slug] — no piece has been touched yet.");
     return redraw();
@@ -373,7 +391,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish <file> [slug] · /piece [name] · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -386,12 +404,53 @@ async function submitInput() {
     }
     if (command === "/publish") return commandPublish(rest);
     if (command === "/piece") {
-      if (rest) notePiece(rest.endsWith(".mjs") || rest.endsWith(".lisp") ? rest : `${rest}.mjs`);
-      else {
-        state.piece = "";
-        state.pieceFile = "";
+      if (rest) {
+        try {
+          live.rename(rest.split(/\s+/)[0]);
+          live.watch(liveError);
+          state.piece = `${live.slug}${live.runtime.extension}`;
+          addEntry("notice", `Working on ${live.file}`);
+        } catch (error) {
+          addEntry("error", errorText(error));
+        }
+      } else {
+        addEntry("notice", `Working on ${live.file}`);
       }
-      addEntry("notice", state.piece ? `Working on ${state.piece}` : "No current piece");
+      return redraw();
+    }
+    if (command === "/runtime") {
+      if (!rest) {
+        addEntry("notice", `${live.runtime.label} · runtimes: ${runtimeIds().join(", ")}`);
+        return redraw();
+      }
+      try {
+        live.rename(live.slug, rest.split(/\s+/)[0]);
+        live.watch(liveError);
+        state.piece = `${live.slug}${live.runtime.extension}`;
+        addEntry("notice", `${live.runtime.label} · ${live.file}`);
+        if (!live.runtime.routable) {
+          addEntry("notice", `${live.runtime.label} runs live but has no @handle route yet`);
+        }
+      } catch (error) {
+        addEntry("error", errorText(error));
+      }
+      return redraw();
+    }
+    if (command === "/qr") {
+      state.showQr = !state.showQr;
+      refreshQr();
+      addEntry("notice", state.showQr ? live.scanUrl : "QR hidden");
+      return redraw();
+    }
+    if (command === "/live") {
+      addEntry("notice", `Pushing ${live.file} to ${live.scanUrl}`);
+      live.push().then(
+        () => {
+          addEntry("notice", `Pushed · ${live.pushes} total`);
+          redraw();
+        },
+        (error) => liveError(error),
+      );
       return redraw();
     }
     if (command === "/new") {
@@ -544,6 +603,12 @@ engine.on("fatal", (error) => {
   }
 });
 
+// Mint this session's blank piece and the QR code that opens it on a phone.
+live.create();
+live.watch(liveError);
+state.piece = `${live.slug}${live.runtime.extension}`;
+refreshQr();
+
 redraw();
 try {
   const connection = await engine.connect();
@@ -554,6 +619,8 @@ try {
   if (!session.signedIn) {
     addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
   }
+  addEntry("notice", `${live.slug}${live.runtime.extension} · scan the code or open ${live.scanUrl}`);
+  live.push().catch(() => {});
   redraw();
   if (initialPrompt) {
     replaceInput(initialPrompt);

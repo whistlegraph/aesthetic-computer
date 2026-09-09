@@ -21,6 +21,17 @@ and the session token to `aesthetic.computer` only when the user runs
 `/publish`. The engine bridge never receives the token; publishing is an
 interface action, not an agent tool.
 
+## Live piece boundary
+
+The session's piece is pushed to `aesthetic.computer/run` on a private code
+channel every time its file changes, so that a phone that scanned the QR code
+can run it. That request carries the piece's source and the channel token, and
+nothing else: no account token, no workspace paths, no conversation. The
+channel token is random per session and is never reused.
+
+Pushing is the interface's own action, on a file the user can see, and stops
+when the session ends.
+
 ## Inference boundary
 
 The terminal interface is always Aesthetic Code. Engines are internal bridges,

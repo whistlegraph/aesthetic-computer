@@ -31,7 +31,7 @@ assert_contains() {
 }
 
 output="$($CLI --version)"
-assert_contains "$output" 'Aesthetic Code 0.3.0'
+assert_contains "$output" 'Aesthetic Code 0.4.0'
 
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=aesthetic-code'
@@ -69,6 +69,17 @@ assert_contains "$output" 'https://aesthetic.computer/@tester/smiley'
 
 if HOME="$FAKE_HOME" AESTHETIC_CODE_DRY_RUN=1 "$CLI" publish >/dev/null 2>&1; then
     printf 'Expected publish without a file to fail.\n' >&2
+    exit 1
+fi
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" --runtime lisp "$WORK_DIR")"
+assert_contains "$output" 'runtime=lisp'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+assert_contains "$output" 'runtime=mjs'
+
+if AESTHETIC_CODE_DRY_RUN=1 "$CLI" --runtime rust "$WORK_DIR" >/dev/null 2>&1; then
+    printf 'Expected an unknown runtime to fail.\n' >&2
     exit 1
 fi
 
