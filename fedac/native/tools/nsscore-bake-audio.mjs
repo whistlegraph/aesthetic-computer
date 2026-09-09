@@ -118,7 +118,13 @@ function hrirAt(azRad, elRad) {
 }
 
 // ── position tables ──────────────────────────────────────────────────
+// Beyond each voice's own motion, the whole FIELD can move: fieldShift
+// swings everything (pinned lanes included) around the listener,
+// fieldTilt raises or drops the entire scene, fieldScale pushes it near
+// or far. These are the global gestures — a whole room turning, rather
+// than one thing flying.
 const azTable = new Float64Array(n), elTable = new Float64Array(n), diTable = new Float64Array(n);
+const fShift = new Float64Array(n), fTilt = new Float64Array(n), fScale = new Float64Array(n);
 {
   const spin = S.rotation || [0];
   const elev = S.elevation || null;
@@ -131,6 +137,9 @@ const azTable = new Float64Array(n), elTable = new Float64Array(n), diTable = ne
     azTable[i] = a;
     elTable[i] = elev ? sample(elev, τ) * (Math.PI / 2) : 0;
     diTable[i] = dist ? 0.6 + sample(dist, τ) * 2.4 : 1.2;
+    fShift[i] = S.fieldShift ? sample(S.fieldShift, τ) * Math.PI : 0;
+    fTilt[i] = S.fieldTilt ? sample(S.fieldTilt, τ) * (Math.PI / 2) : 0;
+    fScale[i] = S.fieldScale ? Math.max(0.15, sample(S.fieldScale, τ)) : 1;
   }
 }
 
@@ -144,6 +153,51 @@ const osc = (wave, ph) =>
   : wave === "noise" || wave === "click" ? Math.random() * 2 - 1
   : Math.sin(2 * Math.PI * ph);
 const sat = (x, drive) => drive > 1 ? Math.tanh(x * drive) / Math.tanh(drive) : x;
+
+// ── modal voices ─────────────────────────────────────────────────────
+// A struck object rings as a sum of decaying sinusoids. Frequencies and
+// dampings come from material constants the way pop/nullabye/c/
+// ac_mesh_acoustics.h derives them: wave speed sqrt(E/rho) over the
+// object's characteristic lengths, damping from the loss factor. Give an
+// event {wave:"modal", material, size} and it sounds like the thing it
+// is made of; {modes:[...]} overrides with explicit partials.
+const MATERIALS = {
+  wood:     { density: 690,  young: 10.5e9, loss: 0.034 },
+  aluminum: { density: 2700, young: 69e9,   loss: 0.006 },
+  glass:    { density: 2500, young: 70e9,   loss: 0.012 },
+  stone:    { density: 2700, young: 45e9,   loss: 0.022 },
+  // softer, lossier bodies for organic sound — same derivation, damper
+  shell:    { density: 1800, young: 22e9,   loss: 0.018 },
+  reed:     { density: 400,  young: 4.0e9,  loss: 0.055 },
+  water:    { density: 1000, young: 2.2e9,  loss: 0.10  },
+};
+const MODE_FACTOR = [0.42, 0.47, 0.53, 0.71, 0.89, 1.17];
+function modesFor(e) {
+  if (Array.isArray(e.modes)) return e.modes;
+  const m = MATERIALS[e.material] || MATERIALS.wood;
+  const L = Math.max(0.02, e.size || 0.12);
+  const wave = Math.sqrt(m.young / m.density);
+  const lens = [L, L * 0.82, L * 0.67, L * 0.55, L * 0.44, L * 0.36];
+  return MODE_FACTOR.map((f, k) => {
+    const hz = Math.max(22, (wave / (2 * Math.PI * lens[k])) * f);
+    return { hz, decay: 1 / (m.loss * 2 * Math.PI * hz + 1e-6), g: 1 / (1 + k * 0.85) };
+  });
+}
+
+// ── the room ─────────────────────────────────────────────────────────
+// Four early reflections off notional walls, each spatialized from its
+// own direction. Not decoration: a dry HRTF image tends to collapse
+// inside the head, and plausible early reflections are what push it out
+// into the room. Off by default; scores opt in with `room`.
+const ROOM = S.room ? {
+  mix: S.room.mix ?? 0.3,
+  taps: [
+    { az: -1.9, el: 0.15, ms: 13, g: 0.60 },
+    { az: 1.9, el: 0.15, ms: 17, g: 0.55 },
+    { az: -2.7, el: -0.1, ms: 23, g: 0.42 },
+    { az: 2.7, el: -0.1, ms: 29, g: 0.38 },
+  ],
+} : null;
 
 // ── render ───────────────────────────────────────────────────────────
 const BLOCK = 64;
@@ -163,7 +217,38 @@ for (const lane of S.lanes) {
     const perc = clicky || e.wave === "kick";
     const decay = e.decay ?? (clicky ? Math.max(0.004, e.dur * 0.35) : e.dur * 0.5);
     const sweep = e.sweep || 1, sweepMs = (e.sweepMs || 22) / 1000;
+    // Chamberlin state-variable filter: wind is bandpassed noise, a
+    // droplet is a resonant ping, rustle is noise with the top rolled
+    // off. Natural sound is mostly filtered noise with an envelope.
+    const fc = e.bp || e.lp || 0;
+    const useBp = !!e.bp;
+    const fCo = fc ? 2 * Math.sin(Math.PI * Math.min(0.24, fc / SR)) : 0;
+    const q1 = 1 / (e.q || 1.2);
+    let flow = 0, fband = 0;
+    const vib = e.vib || 0, vibDepth = e.vibDepth || 0;
     const dry = new Float64Array(len);
+
+    if (e.wave === "modal") { // struck: excite the mode bank, let it ring
+      const modes = modesFor(e).filter(m => m.hz < SR * 0.45);
+      const exLen = Math.max(2, Math.floor(SR * (e.strike || 0.0015)));
+      for (const m of modes) {
+        const w = 2 * Math.PI * m.hz / SR;
+        const dec = Math.exp(-1 / (SR * Math.max(0.004, m.decay * (e.ring || 1))));
+        let a = 0, b = 0; // resonator state as a rotating pair
+        for (let i = 0; i < len; i++) {
+          const drive = i < exLen ? (Math.random() * 2 - 1) * (1 - i / exLen) : 0;
+          const na = (a * Math.cos(w) - b * Math.sin(w) + drive) * dec;
+          const nb = (a * Math.sin(w) + b * Math.cos(w)) * dec;
+          a = na; b = nb;
+          dry[i] += a * m.g;
+        }
+      }
+      let pk = 0;
+      for (let i = 0; i < len; i++) pk = Math.max(pk, Math.abs(dry[i]));
+      const norm = pk > 0 ? e.g * 0.62 / pk : 0;
+      for (let i = 0; i < len; i++) dry[i] = sat(dry[i] * norm, e.drive || 1);
+    } else {
+
     let ph = 0;
     for (let i = 0; i < len; i++) {
       const env = perc
@@ -171,10 +256,18 @@ for (const lane of S.lanes) {
         : i < atk ? 0.5 - 0.5 * Math.cos(Math.PI * i / atk)
         : i > len - rel ? 0.5 - 0.5 * Math.cos(Math.PI * (len - i) / rel)
         : 1;
-      const f = (e.hz || 220) * (1 + (sweep - 1) * Math.exp(-(i / SR) / sweepMs));
+      let f = (e.hz || 220) * (1 + (sweep - 1) * Math.exp(-(i / SR) / sweepMs));
+      if (vib) f *= 1 + vibDepth * Math.sin(2 * Math.PI * vib * i / SR);
       ph += f / SR;
-      const wv = e.wave === "kick" ? Math.sin(2 * Math.PI * ph) : osc(e.wave, ph);
+      let wv = e.wave === "kick" ? Math.sin(2 * Math.PI * ph) : osc(e.wave, ph);
+      if (fCo) {
+        flow += fCo * fband;
+        const high = wv - flow - q1 * fband;
+        fband += fCo * high;
+        wv = useBp ? fband : flow;
+      }
       dry[i] = sat(wv * env, e.drive || 1) * e.g * (clicky ? 0.5 : 0.62);
+    }
     }
 
     if (!HR) { // modeled fallback — see git history for the full parametric path
@@ -191,14 +284,15 @@ for (const lane of S.lanes) {
     let prev = null;
     for (let b = 0; b < len; b += BLOCK) {
       const idx = Math.min(n - 1, s0 + b);
-      const azRaw = pinned ? lane.az : azTable[idx];
+      const azRaw = (pinned ? lane.az : azTable[idx] + (lane.azOffset || 0)) + fShift[idx];
       const az = Math.atan2(Math.sin(azRaw) * SPREAD, Math.cos(azRaw));
-      const el = pinned ? (lane.el || 0) * (Math.PI / 2) : elTable[idx];
-      const dist = pinned ? (lane.dist ?? 1.2) : diTable[idx];
+      const elRaw = (pinned ? (lane.el || 0) * (Math.PI / 2) : elTable[idx]) + fTilt[idx];
+      const el = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, elRaw));
+      const dist = (pinned ? (lane.dist ?? 1.2) : diTable[idx]) * fScale[idx] * (lane.gainDist || 1);
       const cur = hrirAt(az, el);
       if (!prev) prev = cur;
       // 1/r with a near-field floor, plus gentle air absorption with range
-      const gain = 1 / Math.max(0.35, dist);
+      const gain = (lane.mix ?? 1) / Math.max(0.35, dist);
       const blockEnd = Math.min(len, b + BLOCK);
       for (let i = b; i < blockEnd; i++) {
         const x = dry[i] * gain;
@@ -213,6 +307,26 @@ for (const lane of S.lanes) {
         }
       }
       prev = cur;
+    }
+
+    // reflections: the same dry signal, delayed, from the walls
+    if (ROOM && HR) {
+      for (const tap of ROOM.taps) {
+        const ir = hrirAt(tap.az, tap.el * (Math.PI / 2));
+        const d = Math.floor(tap.ms / 1000 * SR);
+        const gain = ROOM.mix * tap.g;
+        for (let i = 0; i < len; i++) {
+          const x = dry[i] * gain;
+          if (x === 0) continue;
+          const o = s0 + i + d;
+          for (let k = 0; k < TAPS; k++) {
+            const t = o + k;
+            if (t >= n) break;
+            outL[t] += x * ir.L[k];
+            outR[t] += x * ir.R[k];
+          }
+        }
+      }
     }
   }
 }

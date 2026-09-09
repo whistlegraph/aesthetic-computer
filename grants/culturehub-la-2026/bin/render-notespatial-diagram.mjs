@@ -134,11 +134,25 @@ function elevationAt(t) {
   if (!e) return 0;
   return e[Math.max(0, Math.min(e.length - 1, Math.round((t / S.dur) * (e.length - 1))))] || 0;
 }
+// The global gestures: the whole field swings, tips, and breathes near
+// and far around a listener who stays put. The machines never move —
+// they are furniture — so a field transform is visible as everything
+// else moving relative to them.
+function fieldAt(t, key, dflt) {
+  const a = S[key];
+  if (!a) return dflt;
+  return a[Math.max(0, Math.min(a.length - 1, Math.round((t / S.dur) * (a.length - 1))))] ?? dflt;
+}
 function voicePos(i, t) {
   const g = globeState(t);
-  const a = voiceAngle(i) + spinAngle;
-  const el = isPinned(i) ? (S.lanes[i].el || 0) : elevationAt(t);
-  const ringR = RING * g.r * g.scale * Math.cos(el * Math.PI / 2 * 0.8);
+  const a = voiceAngle(i) + spinAngle + fieldAt(t, "fieldShift", 0) * Math.PI;
+  const el = Math.max(-1, Math.min(1,
+    (isPinned(i) ? (S.lanes[i].el || 0) : elevationAt(t)) + fieldAt(t, "fieldTilt", 0)));
+  const scale = fieldAt(t, "fieldScale", 1);
+  const lane = S.lanes[i];
+  const near = isPinned(i) ? (lane.dist ?? 1.2) : 1.2;
+  const ringR = RING * g.r * g.scale * Math.cos(el * Math.PI / 2 * 0.8)
+                * Math.max(0.25, Math.min(2.1, scale * near / 1.2));
   const y = g.cy + Math.sin(voiceAngle(i) * 3 + i) * 0.34 + el * 2.3;
   return [Math.cos(a) * ringR, y, Math.sin(a) * ringR];
 }
@@ -244,11 +258,12 @@ function rigSprite(p2, color, active) {
 // uses (pan = sin(angle) — see nsscore-bake-audio.mjs), so the picture
 // tells you what your headphones should be doing. L and R are labeled
 // from the listener's own head, not the page.
+let lastPaintT = 0;
 function earMix() {
   const out = { l: [0, 0, 0, 0], r: [0, 0, 0, 0] };
   for (let i = 0; i < S.lanes.length; i++) {
     if (glow[i] < 0.02) continue;
-    const pan = Math.sin(voiceAngle(i) + spinAngle);
+    const pan = Math.sin(voiceAngle(i) + spinAngle + fieldAt(lastPaintT, "fieldShift", 0) * Math.PI);
     const wr = (pan + 1) / 2, wl = 1 - wr;
     const c = S.lanes[i].color;
     for (const [side, w] of [["l", wl], ["r", wr]]) {
@@ -462,8 +477,9 @@ function drawPlan(t, cx, cy, r) {
   // voices at their true angles; the emitter drags a short trail
   const g = globeState(t);
   for (let i = 0; i < S.lanes.length; i++) {
-    const a = voiceAngle(i) + spinAngle;
-    const vr = r * 0.86 * g.r * g.scale / 0.94;
+    const a = voiceAngle(i) + spinAngle + fieldAt(t, "fieldShift", 0) * Math.PI;
+    const vr = r * 0.86 * g.r * g.scale / 0.94
+               * Math.max(0.3, Math.min(1.6, fieldAt(t, "fieldScale", 1)));
     const vx = cx + Math.cos(a) * vr, vy = cy + Math.sin(a) * vr;
     ctx.strokeStyle = rgba(S.lanes[i].color, 0.3);
     ctx.lineWidth = 2;
@@ -576,7 +592,7 @@ function drawLegend(x, y) {
 // ── frame ────────────────────────────────────────────────────────────
 let titleImg = null;
 function drawFrame(t) {
-  spinAngle += spinRate(t) * (t - lastT); lastT = t;
+  spinAngle += spinRate(t) * (t - lastT); lastT = t; lastPaintT = t;
 
   for (let i = 0; i < S.lanes.length; i++) {
     const evs = S.lanes[i].events;
@@ -607,7 +623,7 @@ function drawFrame(t) {
 
   // the virtual acoustic field — a dome registered on the room itself
   const g = globeState(t);
-  const gr = RING * g.r * g.scale;
+  const gr = RING * g.r * g.scale * Math.max(0.3, Math.min(2.0, fieldAt(t, "fieldScale", 1)));
   if (gr > 0.1) {
     circle3d(0, g.cy, 0, gr, "y", t, ink(0.26), 1.5);          // the orbit
     circle3d(0, g.cy + 0.75, 0, gr * 0.8, "y", t, ink(0.13), 1);
