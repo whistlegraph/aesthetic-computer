@@ -742,6 +742,38 @@
         "reels_skip_rate": 32.8
       },
       "insightsAt": "2026-09-09T01:41:10.962Z"
+    },
+    {
+      "mode": "live",
+      "id": "2026-09-09-s2-homebrew",
+      "slot": 755,
+      "day": "2026-09-09",
+      "index": 2,
+      "segment": "homebrew",
+      "seed": "2026-09-09#2",
+      "kind": "self-play",
+      "door": "survival",
+      "round": "survival-v102-54-b3apy",
+      "audioName": "survival-v102-54-b3apy",
+      "outcome": {
+        "mode": "survival",
+        "cause": "LAVA",
+        "succeeded": false,
+        "height": 7121,
+        "level": 30,
+        "levels": 32,
+        "winner": null,
+        "ticks": 4112,
+        "round": "survival-v102-54-b3apy"
+      },
+      "publishedAt": "2026-09-09T23:14:00.430Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-09-s2-homebrew/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-09-s2-homebrew/cover.jpg"
+      },
+      "containerId": "18087139691446357",
+      "mediaId": "17904726327331819",
+      "insights": null
     }
   ]
 }
