@@ -1,0 +1,110 @@
+THINKING IN PICTURES — PLATTER NOTE
+
+SOURCE
+
+Temple Grandin, “Autism and Visual Thought,” chapter 1 of Thinking in
+Pictures: And Other Reports from My Life with Autism. The book first appeared
+in 1995; the public page combines the 1996 Vintage edition with an update from
+the 2006 expanded edition.
+
+https://www.grandin.com/inc/visual.thinking.html
+
+Original Vintage edition: ISBN 0-679-77289-8
+Expanded Vintage edition: ISBN 978-0-307-27565-3
+Page last modified when checked: 2013-12-10
+Checked: 2026-09-08
+
+CLAIM
+
+Grandin describes visual thought as cognition built from specific, sensory
+images rather than from words or generalized symbols. Her memory behaves like
+a growing library of particular scenes. Design begins by retrieving and
+recombining those scenes, running the assembly as a moving simulation, changing
+viewpoint, and testing the imagined result against material behavior.
+
+The chapter’s strongest move is from cognitive description to design method.
+Grandin photographs a cattle chute from the animal’s eye level, notices light,
+shadow, footing, pressure, and social sightlines that other designers missed,
+and alters the environment so the animal can move voluntarily. The failure is
+not assigned to an uncooperative animal when a frightening ramp, glare, or
+slippery surface explains the behavior.
+
+The 2006 update narrows an earlier generalization. Grandin no longer treats all
+autistic people as visual thinkers; she distinguishes photographic visual,
+music-and-pattern, and verbal-detail specializations, with mixtures between
+them. The useful principle is cognitive plurality, not a new three-box test.
+
+STRUCTURE
+
+1. Specific visual memories are recalled, rotated, replayed, and recombined.
+2. Perspective-taking turns mental imagery into an engineering instrument.
+3. Associative thought moves from concrete examples toward categories.
+4. Physical symbols and rehearsed actions make some abstractions usable.
+5. The 2006 update proposes several specialized thinking styles and argues for
+   developing strengths rather than tutoring only against deficits.
+
+EVIDENCE POSTURE
+
+Read the chapter first as autobiographical evidence and a record of design
+practice. Its livestock cases show how Grandin says she observed, simulated,
+built, and corrected systems. They do not by themselves establish how autistic
+people in general think.
+
+The neuroscience passages summarize research available by 2006 and explain it
+through brain-region and “computer cable” metaphors. They are time-bound claims,
+not a current clinical account. Recheck the cited studies and contemporary
+reviews before carrying those mechanisms into a paper, diagnosis, educational
+plan, or accessibility standard. The page’s own correction—that autistic
+people do not share one visual style—is the guardrail for using it here.
+
+AESTHETIC COMPUTER
+
+Aesthetic Computer opens through language—a typed prompt and named URLs—but
+most pieces explain themselves through image, sound, motion, and action. Grandin
+makes that mismatch actionable: the prompt should remain one route, not become
+the assumed shape of every person’s thought.
+
+The existing KidLisp cards point toward a second route by keeping a concrete
+render beside its source. The piece index and autocomplete retain the durable
+name, but a visual path could pair that name with the exact useful state, its
+primary action, and a stable example. Pattern thinkers need structure they can
+compare; verbal-detail thinkers need precise labels and state; visual thinkers
+need specific evidence rather than decorative imagery. None of these routes
+should diagnose the person using it.
+
+Grandin’s cattle-eye photograph supplies the sharper interface rule: inspect a
+piece from the participant’s actual position. Device size, glare, contrast,
+input method, sound state, and prior knowledge are part of the design. When a
+person stalls, first test the chute. Do not explain friction as a failure to
+understand the intended interface.
+
+The chapter also clarifies what AC’s saved previews, paintings, sources, and
+short names can do together. They can form a library of specific, returnable
+examples that people combine into new work. Associative discovery is valuable
+when it helps someone move among concrete works; it becomes a different system
+when opaque ranking chooses what should hold their attention.
+
+LOCAL THREADS
+
+- papers/arxiv-ac/ac.tex — the prompt front door, its discovery curve, and the
+  contrast with graphical creative-coding environments
+- papers/arxiv-kidlisp/kidlisp.tex — immediate visual output and composition
+  from small, reusable programs
+- papers/arxiv-kidlisp-cards/kidlisp-cards.tex — source and rendered example on
+  one inspectable card
+- papers/arxiv-pieces/pieces.tex — named works, visible descriptions, learned
+  action, and the requirement that a person be able to return
+
+FOLLOW-UP
+
+Prototype one alternate route through list: name + dominant preview + primary
+action, with a text-only route preserved. Evaluate it from phone distance and
+with unfamiliar participants. The question is not whether pictures are better
+than words; it is whether the system exposes more than one usable way to find,
+understand, and remember a piece.
+
+RIGHTS AND PROVENANCE
+
+This file contains bibliographic metadata, an original summary, an evidence
+caveat, and an AC-specific reading. It is not a mirror of the chapter. The full
+text remains on Temple Grandin’s site and in the cited book editions.
