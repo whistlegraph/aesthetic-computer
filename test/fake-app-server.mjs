@@ -8,11 +8,11 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line);
   if (message.method === "initialize") {
     send({ id: message.id, result: { userAgent: "fake" } });
-  } else if (message.method === "thread/start") {
+  } else if (message.method === "thread/start" || message.method === "thread/resume") {
     send({
       id: message.id,
       result: {
-        thread: { id: "thread-1" },
+        thread: { id: message.params.threadId || "thread-1", turns: [] },
         model: "test-model",
         modelProvider: "test",
         cwd: message.params.cwd,

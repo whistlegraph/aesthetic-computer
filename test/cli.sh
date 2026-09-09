@@ -31,7 +31,7 @@ assert_contains() {
 }
 
 output="$($CLI --version)"
-assert_contains "$output" 'Aesthetic Code 0.2.0'
+assert_contains "$output" 'Aesthetic Code 0.2.1'
 
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=aesthetic-code'
@@ -40,6 +40,10 @@ assert_contains "$output" "directory=$WORK_DIR"
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$TEST_BIN/ac" "$WORK_DIR")"
 assert_contains "$output" 'interface=aesthetic-code'
 assert_contains "$output" "directory=$WORK_DIR"
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" --resume 00000000-0000-0000-0000-000000000001 --prompt continue "$WORK_DIR")"
+assert_contains "$output" 'resume=yes'
+assert_contains "$output" 'initial_prompt=yes'
 
 output="$($CLI doctor)"
 assert_contains "$output" 'control plane: local'

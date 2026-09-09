@@ -20,6 +20,9 @@ bridge uses `codex app-server`; its inference is remote and the TUI labels that
 boundary before a prompt is sent. A native local-inference engine can replace
 the bridge without changing the interface.
 
+Each live TUI publishes its own Slab marker, so the menubar and prox ledger can
+name, focus, wake, close, and track it as `aesthetic-code`.
+
 Inside the TUI: `/new`, `/clear`, `/help`, `/quit`. Press `ctrl-c` to interrupt
 a running turn or exit while idle.
 

@@ -2,14 +2,22 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.2.0";
+const VERSION = "0.2.1";
 
 export class AppServer extends EventEmitter {
-  constructor({ cwd, command = "codex", args = ["app-server", "--stdio"] }) {
+  constructor({
+    cwd,
+    resumeThreadId = "",
+    command = "codex",
+    args = ["app-server", "--stdio"],
+    environment = {},
+  }) {
     super();
     this.cwd = cwd;
     this.command = command;
     this.args = args;
+    this.environment = environment;
+    this.resumeThreadId = resumeThreadId;
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
@@ -23,6 +31,7 @@ export class AppServer extends EventEmitter {
       cwd: this.cwd,
       env: {
         ...process.env,
+        ...this.environment,
         AESTHETIC_CODE: "1",
         AESTHETIC_CODE_VERSION: VERSION,
       },
@@ -58,7 +67,7 @@ export class AppServer extends EventEmitter {
       capabilities: { experimentalApi: true },
     });
     this.notify("initialized", {});
-    return this.newThread();
+    return this.resumeThreadId ? this.resumeThread(this.resumeThreadId) : this.newThread();
   }
 
   async newThread() {
@@ -69,6 +78,19 @@ export class AppServer extends EventEmitter {
       sandbox: "workspace-write",
       ephemeral: false,
       sessionStartSource: this.threadId ? "clear" : "startup",
+    });
+    this.threadId = result.thread.id;
+    this.turnId = null;
+    return result;
+  }
+
+  async resumeThread(threadId) {
+    const result = await this.request("thread/resume", {
+      threadId,
+      cwd: this.cwd,
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      sandbox: "workspace-write",
     });
     this.threadId = result.thread.id;
     this.turnId = null;

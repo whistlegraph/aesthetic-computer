@@ -31,3 +31,17 @@ test("drives a thread without opening a managed client", async () => {
   assert.equal(deltas.join(""), "Tests pass.");
   engine.close();
 });
+
+test("resumes a provider thread behind the same interface", async () => {
+  const threadId = "00000000-0000-0000-0000-000000000001";
+  const engine = new AppServer({
+    cwd: directory,
+    resumeThreadId: threadId,
+    command: process.execPath,
+    args: [path.join(directory, "fake-app-server.mjs")],
+  });
+  const connection = await engine.connect();
+  assert.equal(connection.thread.id, threadId);
+  assert.equal(engine.threadId, threadId);
+  engine.close();
+});

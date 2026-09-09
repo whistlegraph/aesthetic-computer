@@ -4,8 +4,16 @@ import path from "node:path";
 import process from "node:process";
 import { AppServer } from "./app-server.mjs";
 import { cleanText, renderFrame } from "./render.mjs";
+import { SlabSession } from "./slab-session.mjs";
 
-const cwd = path.resolve(process.argv[2] || process.cwd());
+const arguments_ = process.argv.slice(2);
+const option = (name) => {
+  const index = arguments_.indexOf(name);
+  return index >= 0 ? arguments_[index + 1] || "" : "";
+};
+const cwd = path.resolve(option("--cwd") || process.cwd());
+const resumeThreadId = option("--resume");
+const initialPrompt = option("--prompt");
 const state = {
   workspace: cwd,
   mode: "remote",
@@ -25,7 +33,17 @@ const state = {
   ],
 };
 
-const engine = new AppServer({ cwd });
+const slabSession = new SlabSession({ cwd });
+slabSession.start();
+const engine = new AppServer({
+  cwd,
+  resumeThreadId,
+  environment: {
+    SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
+    SLAB_TERMINAL_TTY: slabSession.tty,
+    SLAB_AGENT_TYPE: "aesthetic-code",
+  },
+});
 let drawing = false;
 let closing = false;
 let streamedMessageId = null;
@@ -58,6 +76,7 @@ function redraw() {
 function finish(code = 0) {
   if (closing) return;
   closing = true;
+  slabSession.close();
   engine.close();
   process.stdin.setRawMode(false);
   process.stdin.pause();
@@ -81,12 +100,32 @@ function itemSummary(item) {
   return null;
 }
 
+function restoreThread(thread) {
+  const restored = [];
+  for (const turn of thread?.turns || []) {
+    for (const item of turn.items || []) {
+      if (item.type === "userMessage") {
+        const text = (item.content || [])
+          .filter((content) => content.type === "text")
+          .map((content) => content.text)
+          .join("\n");
+        if (text) restored.push({ id: item.id, kind: "user", text: cleanText(text) });
+      } else if (item.type === "agentMessage" && item.text) {
+        restored.push({ id: item.id, kind: "assistant", text: cleanText(item.text) });
+      }
+    }
+  }
+  state.entries.push(...restored.slice(-80));
+  return restored.length;
+}
+
 function handleNotification({ method, params = {} }) {
   switch (method) {
     case "turn/started":
       state.busy = true;
       state.status = "working";
       engine.turnId = params.turn?.id || engine.turnId;
+      slabSession.working();
       break;
     case "item/agentMessage/delta":
       if (!streamedMessageId || streamedMessageId !== params.itemId) {
@@ -133,6 +172,9 @@ function handleNotification({ method, params = {} }) {
       streamedMessageId = null;
       const failure = params.turn?.error;
       if (failure) addEntry("error", failure.message || JSON.stringify(failure));
+      if (params.turn?.status === "interrupted") slabSession.interrupted();
+      else if (params.turn?.status === "failed") slabSession.awaitingInput("aesthetic code turn failed");
+      else slabSession.complete();
       break;
     }
     case "warning":
@@ -166,6 +208,11 @@ function handleRequest(request) {
       method: request.method,
       subject: approvalSubject(request.method, request.params || {}),
     };
+    slabSession.awaitingInput(
+      request.method === "item/commandExecution/requestApproval"
+        ? "aesthetic code needs command approval"
+        : "aesthetic code needs file approval",
+    );
     state.status = "approval";
     redraw();
     return;
@@ -192,6 +239,8 @@ function answerApproval(character) {
   const result = decision === "decline" ? "Denied" : decision === "cancel" ? "Cancelled" : "Allowed";
   addEntry("notice", `${result}: ${approval.subject}`);
   state.approval = null;
+  if (decision === "cancel") slabSession.interrupted();
+  else slabSession.resumeWork();
   state.status = state.busy ? "working" : "ready";
   redraw();
   return true;
@@ -222,6 +271,7 @@ async function submitInput() {
         redraw();
         try {
           await engine.newThread();
+          slabSession.connected(engine.threadId);
           state.entries = [{ kind: "notice", text: "New thread", id: `thread-${Date.now()}` }];
           state.status = "ready";
         } catch (error) {
@@ -243,6 +293,7 @@ async function submitInput() {
   state.history.push(text);
   state.historyIndex = state.history.length;
   addEntry("user", text);
+  slabSession.working(text);
   state.busy = true;
   state.status = "working";
   redraw();
@@ -350,6 +401,7 @@ engine.on("fatal", (error) => {
   if (!closing) {
     state.status = "offline";
     addEntry("error", errorText(error));
+    slabSession.awaitingInput("aesthetic code engine bridge is offline");
     redraw();
   }
 });
@@ -357,9 +409,15 @@ engine.on("fatal", (error) => {
 redraw();
 try {
   const connection = await engine.connect();
+  slabSession.connected(connection.thread.id);
   state.status = "ready";
-  if (connection?.model) addEntry("notice", `Ready · ${connection.model}`);
+  if (resumeThreadId && !restoreThread(connection.thread)) addEntry("notice", "Resumed thread");
+  else if (connection?.model) addEntry("notice", `Ready · ${connection.model}`);
   redraw();
+  if (initialPrompt) {
+    replaceInput(initialPrompt);
+    await submitInput();
+  }
 } catch (error) {
   state.status = "offline";
   addEntry("error", errorText(error));
