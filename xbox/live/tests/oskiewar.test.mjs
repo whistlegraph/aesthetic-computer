@@ -88,7 +88,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), doorState: () => door, botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -2460,14 +2460,17 @@ test("a bot spends a held item at range and still swings up close", () => {
   bot.npc = true;
   bot.bot = true;
   bot.gunAmmo = 4;
-  fight.players[0].x = 5000;
-  bot.x = 7000;
+  // Staged inside the cube's walls: the bot plays off the frame a person
+  // would be watching, and a fighter teleported outside the room is outside
+  // the lens (and pushed back in by the walls a tick later).
+  fight.players[0].x = 100;
+  bot.x = 700;
   bot.botItemAt = 0;
   tick();
   assert.equal(bot.gunAmmo, 3);
   assert.equal(fight.bullets.length, 1);
-  fight.players[0].x = 5850;
-  bot.x = 6000;
+  fight.players[0].x = 350;
+  bot.x = 500;
   bot.botAttackAt = 0;
   tick();
   assert.ok(["WHIP", "KICK"].includes(bot.attackKind));
@@ -2909,9 +2912,53 @@ test("spiderdummy remains directly reachable while pal select is retired", () =>
   assert.match(webShell, /get\("opponent"\)/);
 });
 
-test("the front door is a solo survival climb with rising lava", () => {
+test("the front door is an oskiewaroll: lava climb or versus fight, dealt at every title", () => {
   const previousOpponent = globalThis.__oskiewarOpponent;
+  const realRandom = Math.random;
   globalThis.__oskiewarOpponent = "";
+  try {
+    // Heads is the climb, tails the fight — the whole coin is Math.random.
+    Math.random = () => .2;
+    const heads = createFight(false, false);
+    assert.equal(heads.fight.doorState(), "survival");
+    assert.equal(heads.fight.survivalState().active, true);
+    assert.ok(heads.signals.some(([event, pad, a, b]) =>
+      event === "oskiewaroll" && a === 1 && b === 0), "the roll is a signal");
+    Math.random = () => .8;
+    const tails = createFight(false, false);
+    assert.equal(tails.fight.doorState(), "fight");
+    assert.equal(tails.fight.survivalState().active, false);
+    assert.equal(tails.fight.players[1].bot, true, "the fight door seats the training bot");
+    // Back at the title the coin is thrown again.
+    Math.random = () => .2;
+    tails.fight.backToTitle();
+    assert.equal(tails.fight.doorState(), "survival");
+    assert.equal(tails.fight.survivalState().active, true);
+    Math.random = () => .8;
+    tails.fight.backToTitle();
+    assert.equal(tails.fight.doorState(), "fight");
+    assert.equal(tails.fight.survivalState().active, false);
+    // A named door never rolls.
+    Math.random = () => .8;
+    globalThis.__oskiewarOpponent = "survival";
+    const named = createFight(false, false);
+    assert.equal(named.fight.survivalState().active, true);
+    assert.ok(named.signals.some(([event, pad, a, b]) =>
+      event === "oskiewaroll" && a === 1 && b === 1));
+  } finally {
+    Math.random = realRandom;
+    if (previousOpponent === undefined) delete globalThis.__oskiewarOpponent;
+    else globalThis.__oskiewarOpponent = previousOpponent;
+  }
+  assert.match(webShell, /oskiewar stick fight and lava climb/);
+  assert.match(reelRenderer, /&opponent=survival/);
+  assert.match(reelRenderer, /&opponent=fight/);
+  assert.match(socialRenderer.toString(), /opponent=fight/);
+});
+
+test("the lava climb is a solo run with rising lava", () => {
+  const previousOpponent = globalThis.__oskiewarOpponent;
+  globalThis.__oskiewarOpponent = "survival";
   let fresh;
   try {
     fresh = createFight(false, false);
@@ -2942,7 +2989,6 @@ test("the front door is a solo survival climb with rising lava", () => {
   assert.ok(signals.some(([event]) => event === "climb"));
   assert.ok(fight.survivalState().lavaY < lavaStart, "lava rises after climb!");
   assert.match(source, /const callout = "climb!"/);
-  assert.match(webShell, /oskiewar survival climb/);
 
   for (let frame = 0; frame < 520 && !fight.roundState().roundResult; frame++)
     tick();
@@ -2955,7 +3001,7 @@ test("the front door is a solo survival climb with rising lava", () => {
 
 test("the offline oven gets one local survival completion envelope", () => {
   const previousOpponent = globalThis.__oskiewarOpponent;
-  globalThis.__oskiewarOpponent = "";
+  globalThis.__oskiewarOpponent = "survival";
   globalThis.__oskiewarCaptureSurvival = true;
   let capture;
   try {
@@ -2984,6 +3030,98 @@ test("the offline oven gets one local survival completion envelope", () => {
     "the survival bot stalled: " +
       JSON.stringify(capture.fight.survivalState()));
   assert.match(reelRenderer, /__oskiewarCaptureSurvival = true/);
+});
+
+test("the climb bot plays off the frame: a scene graph every tick, options inside it", () => {
+  const previousOpponent = globalThis.__oskiewarOpponent;
+  globalThis.__oskiewarOpponent = "survival";
+  let capture;
+  try {
+    capture = createFight(false, false);
+  } finally {
+    if (previousOpponent === undefined) delete globalThis.__oskiewarOpponent;
+    else globalThis.__oskiewarOpponent = previousOpponent;
+  }
+  const { fight, tick } = capture;
+  fight.startSurvival(true);
+  const runner = fight.players[0];
+  const ladder = fight.platformTable();
+  const apex = 1760 * 1760 / (2 * 4800);
+  let lastAt = -1;
+  let narrowest = Infinity;
+  let waited = 0;
+  let jumpsChosen = 0;
+  let ticks = 0;
+  for (; ticks < 2400 && !fight.roundState().roundResult; ticks++) {
+    tick();
+    const scene = fight.botSceneState(0);
+    if (!scene) continue;
+    // Rebuilt this tick, not cached from an earlier one.
+    assert.ok(scene.at > lastAt, "the scene is rebuilt every tick");
+    lastAt = scene.at;
+    // The frame is the screen a person sees: every rung the scene holds
+    // projects onto it with the lens the bot read, and no rung off it does.
+    const fresh = fight.botSceneNow(0);
+    const camera = fight.cameraState();
+    const onScreen = (rung) => {
+      const a = fight.projectPoint(rung.left, rung.y, 0);
+      const b = fight.projectPoint(rung.right, rung.y, 0);
+      const y = (a.y + b.y) / 2;
+      return y >= 0 && y <= camera.viewHeight &&
+        Math.max(a.x, b.x) >= 0 && Math.min(a.x, b.x) <= camera.stageRight;
+    };
+    assert.deepEqual(fresh.rungs.map((rung) => rung.level),
+      ladder.filter(onScreen).map((rung) => rung.level));
+    narrowest = Math.min(narrowest, scene.rungs.length);
+    // Every option ends on a rung in the frame, and every jump is one the
+    // legs can make: above the feet, under the apex.
+    for (const option of scene.options) {
+      if (option.kind === "walk") continue;
+      assert.ok(scene.rungs.some((rung) => rung.level === option.level) ||
+        (option.kind === "sink" && option.level === 0),
+        `${option.kind} to ${option.level} is in the frame`);
+      if (option.kind === "jump") {
+        assert.ok(option.dy > 0 && option.dy <= apex);
+        assert.ok(option.takeoffLeft <= option.takeoffRight);
+      }
+    }
+    const goal = fight.botSubgoalState(0);
+    if (scene.self.footing && !goal) waited++;
+    if (goal) {
+      assert.equal(goal.kind, "jump");
+      jumpsChosen++;
+      assert.ok(scene.self.footing === null ||
+        scene.options.includes(goal), "the subgoal is one of this frame's options");
+    }
+  }
+  assert.equal(fight.roundState().roundResult, "SUMMIT",
+    "the bot summits off the frame alone: " + JSON.stringify(fight.survivalState()));
+  assert.ok(narrowest < ladder.length,
+    "the frame never shows the whole ladder on a television");
+  assert.ok(jumpsChosen > 0);
+  // Reported, not asserted: how long the climb took and how many ticks the
+  // bot stood waiting for a deck to enter the frame.
+  console.log(`  climb: ${ticks} ticks, waited ${waited}, narrowest frame ${narrowest} rungs`);
+  assert.match(source, /player\.botScene = scene;/);
+});
+
+test("the fight bot reads the opponent off the frame and the cube offers no rungs", () => {
+  const { fight, tick } = createFight();
+  const bot = fight.players[1];
+  bot.npc = true;
+  bot.bot = true;
+  tick();
+  tick();
+  const scene = fight.botSceneState(1);
+  assert.ok(scene, "the fight bot builds a scene");
+  assert.ok(scene.opponent, "the opponent is in frame");
+  assert.equal(scene.opponent.x, fight.players[0].x);
+  assert.deepEqual(scene.rungs, [], "the cube has no rungs to see");
+  assert.deepEqual(scene.options.map((option) => option.kind), ["walk"]);
+  assert.equal(scene.options[0].level, 0);
+  assert.equal(scene.self.footing.level, 0);
+  assert.equal(fight.players[0].botScene ?? null, null,
+    "a hand on a pad builds no scene");
 });
 
 test("the skateboard is retired from the cube's deck", () => {
