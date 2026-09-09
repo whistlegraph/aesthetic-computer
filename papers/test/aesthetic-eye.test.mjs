@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { countEvidenceFigures, validateManifest } from "../aesthetic-eye.mjs";
+import { countEvidenceFigures, renderedPageNumber, validateManifest } from "../aesthetic-eye.mjs";
 
 const baseManifest = {
   schema: 1,
@@ -40,6 +40,12 @@ test("counts every embedded evidence image but not a TikZ diagram", () => {
     \begin{figure}\includegraphics[width=.5\linewidth]{second}\includegraphics{third}\end{figure}
     \begin{figure*}\begin{tikzpicture}\end{tikzpicture}\end{figure*}`;
   assert.equal(countEvidenceFigures(source), 3);
+});
+
+test("resolves padded and unpadded rendered page filenames", () => {
+  assert.equal(renderedPageNumber("page-5.png"), 5);
+  assert.equal(renderedPageNumber("page-05.png"), 5);
+  assert.equal(renderedPageNumber("page-contact.png"), null);
 });
 
 test("fails when source evidence is absent from the Aesthetic Eye manifest", () => {

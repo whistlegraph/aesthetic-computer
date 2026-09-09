@@ -7,7 +7,7 @@
 
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { access, mkdir, readFile, readdir } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,11 @@ export function countEvidenceFigures(sourceText) {
         + [...match[1].matchAll(/\\includegraphics(?:\[[^\]]*\])?\{/g)].length,
       0,
     );
+}
+
+export function renderedPageNumber(name) {
+  const match = String(name || "").match(/^page-(\d+)\.png$/);
+  return match ? Number(match[1]) : null;
 }
 
 function resolveInputs(input, manifestArg) {
@@ -226,11 +231,17 @@ async function prepare(input, manifestArg, outputArg) {
   const outputDir = outputArg ? resolve(outputArg) : join(review.paperDir, ".aesthetic-eye");
   await mkdir(outputDir, { recursive: true });
   const pagePrefix = join(outputDir, "page");
+  for (const name of await readdir(outputDir)) {
+    if (renderedPageNumber(name) != null) await rm(join(outputDir, name));
+  }
   await exec("pdftoppm", ["-png", "-r", "144", review.pdfPath, pagePrefix], { maxBuffer: 8 * 1024 * 1024 });
-  const pagePaths = (await readdir(outputDir))
-    .filter((name) => /^page-\d+\.png$/.test(name))
-    .sort((a, b) => Number(a.match(/\d+/)?.[0]) - Number(b.match(/\d+/)?.[0]))
-    .map((name) => join(outputDir, name));
+  const pageEntries = (await readdir(outputDir))
+    .map((name) => ({ name, page: renderedPageNumber(name) }))
+    .filter((entry) => entry.page != null)
+    .sort((a, b) => a.page - b.page)
+    .map((entry) => ({ ...entry, path: join(outputDir, entry.name) }));
+  const pagePaths = pageEntries.map((entry) => entry.path);
+  const pagePathByNumber = new Map(pageEntries.map((entry) => [entry.page, entry.path]));
 
   if (pagePaths.length) {
     const pagesContactPath = join(outputDir, "pages-contact.png");
@@ -246,8 +257,8 @@ async function prepare(input, manifestArg, outputArg) {
   async function renderCrops(items, kind) {
     const crops = [];
     for (const item of items || []) {
-      const pagePath = `${pagePrefix}-${item.page}.png`;
-      if (!(await exists(pagePath))) throw new Error(`${item.id}: rendered page ${item.page} is missing`);
+      const pagePath = pagePathByNumber.get(item.page);
+      if (!pagePath || !(await exists(pagePath))) throw new Error(`${item.id}: rendered page ${item.page} is missing`);
       const { stdout } = await exec("magick", ["identify", "-format", "%w %h", pagePath]);
       const [pageWidth, pageHeight] = stdout.trim().split(/\s+/).map(Number);
       const [x, y, width, height] = item.crop;
