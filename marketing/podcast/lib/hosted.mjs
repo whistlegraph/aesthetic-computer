@@ -22,6 +22,7 @@ export const HOSTED = {
   "console-browser": "the-console-has-a-browser-essay",
   "physical-mail": "a-record-in-the-mail-essay",
   "the-machine-that-came-back": "the-machine-that-came-back-field-note",
+  "september-so-far-2026": "september-so-far-26-log",
 };
 
 // The dailies (bin/daily.mjs) are cleared as a PATTERN, not per-episode —

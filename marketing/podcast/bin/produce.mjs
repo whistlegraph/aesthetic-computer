@@ -13,6 +13,8 @@
 //   node bin/produce.mjs ../../papers/essay-named-markets/named-markets.tex
 //   node bin/produce.mjs ../../opinion/lotus-notes.md --open
 //   flags: --open --force --stability 0.5 --similarity 0.8 --speed 1.0
+//          --bedstyle sosoft|lofi|club  |  --bedfile <wav> --bedbpm N [--bedbeats 3]
+//          --frame reading|daily|log
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -142,13 +144,16 @@ const speaker = script.author.replace(/^@/, "");
 const episodeBedStyle = {
   "keymap-score": "sosoft",
 };
-const bedStyle = String(flags.bedstyle || episodeBedStyle[script.slug] || "lofi");
+// --bedfile <wav> scores a pre-rendered bed (e.g. an .npscore rendered by
+// bin/npscore-render.mjs) looped under the voice; its clock comes from
+// --bedbpm (and --bedbeats for a 3/4 score) so the vowel grid still holds.
+const bedStyle = String(flags.bedfile ? "file" : (flags.bedstyle || episodeBedStyle[script.slug] || "lofi"));
 console.log(`\n▸ ${script.title} — ${script.paragraphs.length} paragraphs · ${script.wordCount} words · voice ${VOICE.provider}/${VOICE.voice}\n`);
 
 // ── beat grid (shared with the bed — each style has its own clock) ─────
-const GRID_BPM = BED_STYLE_BPM[bedStyle] || BED_BPM;
+const GRID_BPM = flags.bedbpm !== undefined ? Number(flags.bedbpm) : (BED_STYLE_BPM[bedStyle] || BED_BPM);
 const BEAT = 60 / GRID_BPM;     // seconds per beat
-const BAR = BEAT * 4;
+const BAR = BEAT * (flags.bedbeats !== undefined ? Number(flags.bedbeats) : 4);
 const BEAT_ALIGN = !flags.nobeatalign && !flags.nobed;
 // Snap a time up to the next grid line, after a minimum advance.
 const snapUp = (t, grid, minAdvance) => Math.ceil((t + minAdvance) / grid - 1e-6) * grid;
@@ -258,10 +263,14 @@ console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_A
 const FRAME = flags.frame || "reading";
 const introText = FRAME === "daily"
   ? `The daily, from Aesthetic Dot Computer. ${script.title}. Approximately ${lengthText}.`
-  : `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
+  : FRAME === "log"
+    ? `From Aesthetic Dot Computer: ${script.title}, by ${speaker}. Approximately ${lengthText}.`
+    : `A reading of the essay: ${script.title}, by ${speaker}. Approximately ${lengthText}.`;
 const outroText = FRAME === "daily"
   ? `That's today. Letters to mail at aesthetic dot computer.`
-  : `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
+  : FRAME === "log"
+    ? `That's the log so far. Letters to mail at aesthetic dot computer.`
+    : `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
 console.log("Narrating frame…");
 const introVo = await say(introText, "intro");
 const outroVo = await say(outroText, "outro");
@@ -369,7 +378,8 @@ if (flags.novoicemaster) {
 // 5b. Score a bed under the whole reading, sidechain-ducked by the voice so
 // speech stays clear. `sosoft` uses the same blue sine-pad + pentatonic
 // language as the Scores for Social Software reel, with longer phrase breaths
-// for an essay-length listen. --nobed skips; --bedstyle selects sosoft|lofi.
+// for an essay-length listen. --nobed skips; --bedstyle selects sosoft|lofi|club;
+// --bedfile loops a pre-rendered wav (see bin/npscore-render.mjs).
 const premaster = resolve(build, "premaster.wav");
 const audioTmp = resolve(build, "audio.mp3");
 if (flags.nobed) {
@@ -378,16 +388,24 @@ if (flags.nobed) {
   const kit = flags.kit || "felt";
   console.log(`Scoring bed… (${bedStyle}${bedStyle === "lofi" ? ` · kit: ${kit}` : ""})`);
   const bedGain = flags.bedgain !== undefined ? Number(flags.bedgain)
-    : (bedStyle === "sosoft" ? 0.34 : bedStyle === "club" ? 0.5 : 0.42);
+    : (bedStyle === "sosoft" ? 0.34 : bedStyle === "club" ? 0.5 : bedStyle === "file" ? 0.45 : 0.42);
   const bedWav = resolve(build, "bed.wav");
-  if (bedStyle === "sosoft") {
+  if (bedStyle === "file") {
+    const src = resolve(process.cwd(), String(flags.bedfile));
+    if (!existsSync(src)) throw new Error(`--bedfile not found: ${src}`);
+    const need = dur(voiceWav) + 1.0;
+    console.log(`  bed file: ${src} (${dur(src).toFixed(1)}s → looped to ${need.toFixed(1)}s)`);
+    execFileSync("ffmpeg", ["-y", "-stream_loop", "-1", "-i", src, "-t", need.toFixed(3),
+      "-af", `afade=t=out:st=${Math.max(0, need - 4).toFixed(3)}:d=4`,
+      "-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", bedWav], { stdio: "ignore" });
+  } else if (bedStyle === "sosoft") {
     renderSineBed(dur(voiceWav) + 1.0, bedWav, { melody: true, melodyRestBars: 2 });
   } else if (bedStyle === "lofi") {
     renderBed(dur(voiceWav) + 1.0, bedWav, { kit });
   } else if (bedStyle === "club") {
     renderClubBed(dur(voiceWav) + 1.0, bedWav, {});
   } else {
-    throw new Error(`Unknown --bedstyle ${bedStyle}; use sosoft, lofi, or club.`);
+    throw new Error(`Unknown --bedstyle ${bedStyle}; use sosoft, lofi, club, or --bedfile <wav>.`);
   }
   // The voice is already voice-mastered. The Social Software bed keeps the
   // reel's clear sine tone; the default lo-fi bed retains its slow phaser;
@@ -396,12 +414,16 @@ if (flags.nobed) {
     ? `volume=${bedGain},highpass=f=55,lowpass=f=9000`
     : bedStyle === "club"
       ? `volume=${bedGain},highpass=f=30,lowpass=f=12500`
-      : `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
+      : bedStyle === "file"
+        ? `volume=${bedGain},highpass=f=40,lowpass=f=11000`
+        : `volume=${bedGain},aphaser=type=t:speed=0.25:decay=0.4`;
   const duck = bedStyle === "sosoft"
     ? "threshold=0.035:ratio=9:attack=10:release=520"
     : bedStyle === "club"
       ? "threshold=0.03:ratio=8:attack=8:release=230"
-      : "threshold=0.02:ratio=6:attack=6:release=380";
+      : bedStyle === "file"
+        ? "threshold=0.03:ratio=7:attack=8:release=320"
+        : "threshold=0.02:ratio=6:attack=6:release=380";
   execFileSync("ffmpeg", [
     "-y", "-i", voiceWav, "-i", bedWav,
     "-filter_complex",

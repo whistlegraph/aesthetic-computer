@@ -58,7 +58,7 @@ if (existsSync(receipt) && !flags.force) {
 const REDACT = [
   /fuser/i, /regarde/i, /asher/i, /bermudez/i, /drvk/i, /danz/i,
   /sosoft|ucla/i, /marketplace|patricia/i, /named-markets|market on your name/i,
-  /vault/i, /invoice/i,
+  /vault/i, /invoice/i, /thomaslawson|lawson|valise/i,
 ];
 const range = typeof flags.date === "string"
   ? ["--since", `${date}T00:00:00`, "--until", `${date}T23:59:59`]
@@ -121,7 +121,10 @@ const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "te
   input: PROMPT, encoding: "utf8", timeout: 300000, maxBuffer: 1 << 22,
 });
 if (w.status !== 0 || !w.stdout) {
-  console.error(`✗ script generation failed: ${(w.stderr || "no output").slice(0, 400)}`);
+  // claude -p reports auth failures on STDOUT ("Failed to authenticate…"), so
+  // show both streams — a week of "no output" hid an expired token once.
+  const said = [w.stderr, w.stdout].filter(Boolean).join(" | ").trim() || "no output";
+  console.error(`✗ script generation failed (exit ${w.status}): ${said.slice(0, 400)}`);
   process.exit(1);
 }
 let script = w.stdout.trim();
