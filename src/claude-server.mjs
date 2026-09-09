@@ -36,8 +36,12 @@ import { createInterface } from "node:readline";
 
 const VERSION = "0.4.0";
 
-// Anthropic's most capable model, and what a session opens on.
-export const DEFAULT_CLAUDE_MODEL = "claude-fable-5-1";
+// What a session opens on. Fable is the model this harness was built for and
+// where it wants to land, but the account it runs on cannot bill Fable today
+// (`out_of_credits`, seven-day overage exhausted), and a default that greets
+// every session with a red error line is not a default. Opus until the credits
+// come back, then this goes straight back to "claude-fable-5-1".
+export const DEFAULT_CLAUDE_MODEL = "claude-opus-5";
 
 // Tools whose work is a file change, and the input field naming the file. The
 // interface watches these to follow the piece the agent is writing.

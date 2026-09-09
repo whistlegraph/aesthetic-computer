@@ -37,7 +37,7 @@ Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 Two bridges ship, and either can drive a session:
 
 ```sh
-ac                                  # claude, on claude-fable-5-1
+ac                                  # claude, on claude-opus-5
 ac --backend codex                  # codex app-server
 ac --model claude-opus-5            # a different model on the same bridge
 ```

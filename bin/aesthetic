@@ -4,7 +4,7 @@ set -euo pipefail
 
 VERSION="0.4.0"
 DEFAULT_BACKEND="${AESTHETIC_CODE_BACKEND:-claude}"
-DEFAULT_CLAUDE_MODEL="claude-fable-5-1"
+DEFAULT_CLAUDE_MODEL="claude-opus-5"
 script_path="${BASH_SOURCE[0]}"
 while [[ -L "$script_path" ]]; do
     script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
@@ -34,7 +34,7 @@ Each session opens on a new blank piece and shows a QR code that runs it
 live on a phone. --runtime picks the language of that piece.
 
 --backend picks the engine bridge: claude (the default, on
-claude-fable-5-1) or codex. --model names the model on that bridge, and
+claude-opus-5) or codex. --model names the model on that bridge, and
 /backend and /model change either one mid-session.
 EOF
 }

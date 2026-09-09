@@ -40,8 +40,8 @@ the piece on screen is repeatedly leaving the machine.
 The terminal interface is always Aesthetic Code. Engines are internal bridges,
 not alternate client interfaces or command shortcuts.
 
-Two bridges exist, both remote: Claude Code in headless stream-json mode
-(the default, on `claude-fable-5-1`) and Codex app-server. `--backend` and
+Two bridges exist, both remote: Claude Code in headless stream-json mode (the
+default, on `claude-opus-5`) and Codex app-server. `--backend` and
 `/backend` choose between them and `--model` and `/model` name the model. The
 interface labels remote inference before a prompt is sent. Provider terms
 govern that traffic, and each bridge signs in with its own vendor's existing
@@ -54,6 +54,20 @@ with `on-request` approvals and a `workspace-write` sandbox regardless of what
 in the session. On both, an approval is answered in this terminal and nowhere
 else, and an `a` — allow for the session — is held in memory for the life of
 the session rather than written to a settings file.
+
+### Why the Claude bridge opens on Opus and not Fable
+
+Fable is the model this bridge was built for and the one it should default to.
+The account it runs on cannot currently bill it: `claude --model
+claude-fable-5-1` answers `out_of_credits`, with the seven-day overage already
+spent, and `--fallback-model` does not rescue that. The harness selects and
+requests Fable correctly — it fails at the provider, not here — but a default
+that greets every session with a red error line is not a default, so the bridge
+opens on `claude-opus-5` instead.
+
+`/model claude-fable-5-1` still reaches for Fable at any time. When the credits
+are back, `DEFAULT_CLAUDE_MODEL` in `src/claude-server.mjs` and the matching
+string in `bin/aesthetic` go back to Fable and this section comes out.
 
 ### The sandbox gap on the Claude bridge
 
