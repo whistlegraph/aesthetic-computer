@@ -10,9 +10,10 @@
 // audience already speaks. None of the copy claims anything the game does not
 // do — the sim really is deterministic, the replays really are addressable,
 // the whole thing really is one 264 KB file.
-
-import { execFileSync } from "node:child_process";
-import { repo } from "./shell.mjs";
+//
+// What a segment carries is what gets DRAWN: a hook line and a tail. There is
+// no caption and there are no hashtags — @jeffrey, 2026-09-02: "they are
+// lame". The reel is the post; the post says nothing under it.
 
 export const segments = {
   fgc: {
@@ -22,13 +23,6 @@ export const segments = {
     hooks: ["hitbox on impact", "grab beats shield", "the ball is legal",
       "read the frame", "both bots, no player"],
     tail: "oskiewar.com",
-    captions: [
-      "Hitboxes flash on contact so you can see exactly what hit what. Two bots, no player, no cuts.",
-      "Shield stops strikes. It does not stop a grab. That is the whole rock-paper-scissors.",
-      "There is a ball in the fighting game and it is fully legal. Kick it at someone.",
-    ],
-    tags: ["fgc", "fightinggame", "indiefightinggame", "hitbox", "framedata",
-      "fgcommunity", "combo", "indiegame", "oskiewar"],
   },
   gamedev: {
     name: "indie gamedev",
@@ -37,13 +31,6 @@ export const segments = {
     hooks: ["no engine", "one file, 264 KB", "deterministic sim",
       "this is a test run", "60 Hz fixed timestep"],
     tail: "oskiewar.com",
-    captions: [
-      "No engine. One JavaScript file, a fixed 60 Hz timestep, and a canvas. This clip is the test suite playing itself.",
-      "Under a fixed timestep two machines given the same match name agree on a SHA-256 sixty seconds in. That is what makes replays and netcode possible.",
-      "Every match records to a replay you can open by name. Nothing here is a video of a video.",
-    ],
-    tags: ["gamedev", "indiedev", "indiegame", "javascript", "gamedevelopment",
-      "creativecoding", "madewithcode", "solodev", "oskiewar"],
   },
   homebrew: {
     name: "Xbox / console homebrew",
@@ -52,13 +39,6 @@ export const segments = {
     hooks: ["same file on console", "runs on Xbox", "no port, no rewrite",
       "JavaScriptCore, natively", "console + browser, one source"],
     tail: "oskiewar.com",
-    captions: [
-      "The exact file in this clip runs on console too — JavaScriptCore natively, no port and no rewrite.",
-      "Browser and console from one source. The renderer is the only thing that differs.",
-      "Homebrew that is not emulated and not a wrapper. One game, two machines.",
-    ],
-    tags: ["xbox", "homebrew", "consoledev", "gamedev", "indiegame",
-      "xboxseriesx", "devkit", "oskiewar"],
   },
   retro: {
     name: "retro / pixel + arcade",
@@ -67,13 +47,6 @@ export const segments = {
     hooks: ["stick figures, real physics", "drawn by hand", "arcade rules",
       "24 seconds on the clock", "pick a pal, pick a fight"],
     tail: "oskiewar.com",
-    captions: [
-      "Stick figures with real joints, real weight, and real hitboxes. Round timer, best of three, no menus.",
-      "Everything is drawn with lines and circles at runtime. No sprites, no assets, no atlas.",
-      "Pick a pal, pick a fight. That is the entire front end.",
-    ],
-    tags: ["retrogaming", "pixelart", "arcade", "stickfigure", "indiegame",
-      "retro", "gamedev", "oskiewar"],
   },
   gen: {
     name: "generative / computational art",
@@ -82,13 +55,6 @@ export const segments = {
     hooks: ["one seed, one fight", "the audio is synthesized offline",
       "named by arithmetic", "no samples", "seeded by the date"],
     tail: "oskiewar.com",
-    captions: [
-      "Today's date is the seed. It names the match, picks the ball and sets the fighters — the whole bout falls out of one string.",
-      "Nothing you hear is a sample. Every hit, step and bell is synthesized from the same offline demo clock as the frames.",
-      "A date goes in, a match comes out. The reel you are watching was chosen by arithmetic, not by me.",
-    ],
-    tags: ["generativeart", "creativecoding", "computationalart", "webaudio",
-      "proceduralaudio", "deterministic", "codeart", "oskiewar"],
   },
 };
 
@@ -118,31 +84,9 @@ export function share() {
     [key, `${count}/${rotation.length}`]));
 }
 
-export function changelogCaption(subject) {
-  const match = String(subject).trim().match(/^oskiewar v(\d+):\s*(.+)$/i);
-  if (!match) throw new Error("no oskiewar changelog commit found");
-  const change = match[2].trim().toLowerCase();
-  const versionLine = `oskiewar v${match[1]} — ${change}` +
-    (/[.!?]$/.test(change) ? "" : ".");
-  const caption = `${versionLine}\n\ntell reelboy what to change.`;
-  if (caption.length > 2200) throw new Error("oskiewar changelog caption exceeds 2200 characters");
-  return caption;
-}
-
-export function latestChangelogSubject() {
-  try {
-    return execFileSync("git", ["log", "--grep", "^oskiewar v", "-1", "--format=%s"],
-      { cwd: repo, encoding: "utf8" }).trim();
-  } catch {
-    throw new Error("could not read the latest oskiewar changelog commit");
-  }
-}
-
 export function dress(segmentKey, pick, facts) {
   const segment = segments[segmentKey];
   const hook = segment.hooks[pick % segment.hooks.length];
-  const tags = [];
-  const caption = changelogCaption(latestChangelogSubject());
-  return { hook, tail: segment.tail, caption, tags,
+  return { hook, tail: segment.tail, caption: "", tags: [],
     lines: { hook, under: facts.under } };
 }

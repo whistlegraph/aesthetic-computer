@@ -46,9 +46,11 @@ export function payloadFor(spec, { igUserId, videoUrl, coverUrl }) {
   const body = {
     media_type: "REELS",
     video_url: videoUrl,
-    caption: spec.caption,
     share_to_feed: true,
   };
+  // No caption field at all when there is nothing to say — Meta treats an
+  // empty string as a caption, and the reel is meant to stand alone.
+  if (spec.caption) body.caption = spec.caption;
   if (coverUrl) body.cover_url = coverUrl;
   // Original audio can only be named once. Bind it to the round captured in
   // the reel so Instagram's audio page remains findable by match identity.
@@ -86,11 +88,13 @@ export function dryRun(spec, paths, options, log = console.log) {
     mode: "dry-run", writtenAt: new Date().toISOString(),
     slot: spec.slot, day: spec.day, index: spec.index,
     segment: spec.segment, seed: spec.seed, kind: spec.kind,
-    captionChars: spec.caption.length, hashtags: spec.tags.length,
+    captionChars: (spec.caption || "").length, hashtags: (spec.tags || []).length,
     ...payload,
   }, null, 2) + "\n");
   log(`📮 dry run · nothing left this machine`);
-  log(`   caption ${spec.caption.length}/2200 chars · ${spec.tags.length}/30 tags`);
+  log(spec.caption
+    ? `   caption ${spec.caption.length}/2200 chars · ${spec.tags.length}/30 tags`
+    : `   no caption, no hashtags`);
   log(`   payload → ${path}`);
   return path;
 }

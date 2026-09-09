@@ -109,11 +109,14 @@ function youtube(policy) {
     console.log(`· youtube: sampled out (every ${policy.sample.every}) — skipping`);
     return;
   }
-  const firstLine = caption.split("\n")[0].trim() || basename(video, ".mp4");
+  // A reel with no caption is titled by its account and described by nothing:
+  // no "#shorts" (YouTube reads a vertical clip under three minutes as one on
+  // its own), no credit line. @jeffrey, 2026-09-02: no hashtags, no
+  // descriptions — "they are lame".
+  const firstLine = caption.split("\n")[0].trim() || policy.channel;
   const title = firstLine.slice(0, 100);
   const isShort = seconds > 0 && seconds <= 180;
-  const description = [caption, "", isShort ? "#shorts" : null,
-    "made with aesthetic.computer"].filter((l) => l !== null).join("\n");
+  const description = caption;
   const args = [YT, "upload", video, "--as", policy.channel,
     "--title", title, "--description", description,
     "--privacy", policy.privacy, "--category", policy.category,
