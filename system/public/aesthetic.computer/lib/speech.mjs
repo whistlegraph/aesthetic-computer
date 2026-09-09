@@ -222,7 +222,9 @@ function speak(words, voice, mode = "local", opts = {}) {
       const headers = { "Content-Type": "application/json" };
       if (opts.provider === "prutti") {
         try {
-          const token = window.acTOKEN || await window.auth0Client?.getTokenSilently?.();
+          const token = opts.authToken
+            || window.acTOKEN
+            || await window.auth0Client?.getTokenSilently?.();
           if (token) headers.Authorization = `Bearer ${token}`;
         } catch {
           // The server returns the authoritative access error.

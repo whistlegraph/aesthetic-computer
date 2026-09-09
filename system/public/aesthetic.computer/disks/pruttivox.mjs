@@ -9,6 +9,7 @@ let text = "";
 let chunks = [];
 let chunkIndex = 0;
 let requestId = null;
+let authToken = null;
 let status = "idle";
 
 function splitPoint(value, limit) {
@@ -51,6 +52,7 @@ function boot({ params, hud }) {
 function queueChunk(speak) {
   const queue = [...chunks, SYNTHETIC_TAG];
   speak(queue[chunkIndex], "neutral:0", "cloud", {
+    authToken,
     provider: "prutti",
     volume: 1,
     requestId,
@@ -59,8 +61,25 @@ function queueChunk(speak) {
   });
 }
 
-function start(speak) {
-  if (!text || text.length > MAX_TEXT_LENGTH || status === "speaking") return;
+async function start(speak, authorize) {
+  if (
+    !text
+    || text.length > MAX_TEXT_LENGTH
+    || status === "authorizing"
+    || status === "speaking"
+  ) return;
+
+  status = "authorizing";
+  try {
+    authToken = await authorize();
+  } catch {
+    authToken = null;
+  }
+  if (!authToken) {
+    status = "error";
+    return;
+  }
+
   requestId = globalThis.crypto?.randomUUID?.()
     || `pruttivox-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   chunks = chunkText(text);
@@ -92,7 +111,10 @@ function paint({ wipe, ink, screen }) {
 
   let footer = "TAP TO SPEAK";
   let color = [190, 160, 185];
-  if (status === "speaking") {
+  if (status === "authorizing") {
+    footer = "CHECKING PRODUCER ACCESS";
+    color = [255, 210, 100];
+  } else if (status === "speaking") {
     footer = `SPEAKING ${Math.min(chunkIndex + 1, chunks.length + 1)} / ${chunks.length + 1}`;
     color = [190, 255, 100];
   } else if (status === "done") {
@@ -105,13 +127,13 @@ function paint({ wipe, ink, screen }) {
   ink(...color).write(footer, { center: "x", screen, y: screen.height - 24 });
 }
 
-function act({ event: e, speak }) {
+function act({ event: e, speak, authorize }) {
   if (
     e.is("touch")
     || e.is("keyboard:down:space")
     || e.is("keyboard:down:enter")
   ) {
-    start(speak);
+    start(speak, authorize);
   }
 
   if (e.is("speech:completed") && status === "speaking") {
@@ -121,6 +143,7 @@ function act({ event: e, speak }) {
   }
 
   if (e.is("speech:error") && e.content?.provider === "prutti") {
+    authToken = null;
     status = "error";
   }
 }
