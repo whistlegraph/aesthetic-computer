@@ -903,9 +903,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if let iconURL = Bundle.main.url(forResource: "Oskiewar", withExtension: "icns"),
            let icon = NSImage(contentsOf: iconURL) { NSApp.applicationIconImage = icon }
         installMenus()
+        // A small window by default. The game reads fine at this size and it
+        // sits beside a terminal instead of taking the screen; the window is
+        // resizable and remembers nothing, so full screen is still one ⌘F
+        // away for anyone who wants the room.
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1600, height: 900)
-        let targetWidth = min(1600, screen.width * 0.92)
-        let targetHeight = min(900, screen.height * 0.92)
+        let targetWidth = min(720, screen.width * 0.92)
+        let targetHeight = min(480, screen.height * 0.92)
         let view = GameView(frame: NSRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
         window = NSWindow(contentRect: view.bounds,
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
