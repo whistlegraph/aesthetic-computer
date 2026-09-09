@@ -25,12 +25,12 @@ function post(mediaId, publishedAt, views, extra = {}) {
   };
 }
 
-test("trim candidates are measured, sub-500, 24h–30d live reels", () => {
-  const eligibleOld = post("old", "2026-08-02T16:00:00.000Z", 499);
+test("trim candidates are measured, sub-1k, 24h–30d live reels", () => {
+  const eligibleOld = post("old", "2026-08-02T16:00:00.000Z", 999);
   const eligibleNew = post("new", "2026-08-29T16:00:00.000Z", 0);
   const rows = [
     eligibleNew,
-    post("exactly-500", "2026-08-20T16:00:00.000Z", 500),
+    post("exactly-1000", "2026-08-20T16:00:00.000Z", 1000),
     post("fresh", "2026-08-29T16:00:00.001Z", 12),
     post("expired", "2026-07-31T15:59:59.999Z", 12),
     post("unmeasured", "2026-08-20T16:00:00.000Z", null),
@@ -78,7 +78,7 @@ test("recording refuses unknown, protected, or stale ids atomically", () => {
   const ledger = {
     posts: [
       target,
-      post("keeper", "2026-08-20T16:00:00.000Z", 900),
+      post("keeper", "2026-08-20T16:00:00.000Z", 1900),
       post("unmeasured", "2026-08-20T16:00:00.000Z", null),
     ],
   };

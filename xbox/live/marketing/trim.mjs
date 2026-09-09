@@ -10,13 +10,13 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 export const trimPolicy = Object.freeze({
-  maxViews: 500,
+  maxViews: 1000,
   minAgeHours: 24,
   lookbackDays: 30,
 });
 
 export const deletedReason =
-  "underperformer trim (bulk delete via web Your activity tool, 30-day pool)";
+  "underperformer trim (<1k views; bulk delete via web Your activity tool, 30-day pool)";
 
 export function trimCandidates(posts, {
   now = Date.now(),
@@ -87,7 +87,7 @@ function valueAfter(args, flag) {
 
 function printReport(rows) {
   console.log("oskiewar trim · read-only");
-  console.log("<500 views · 24h–30d old · missing insights protected");
+  console.log(`<${trimPolicy.maxViews} views · 24h–30d old · missing insights protected`);
   console.log(`${rows.length} candidate${rows.length === 1 ? "" : "s"}`);
   for (const row of rows) {
     const watch = row.avgWatchMs == null ? "—" : `${row.avgWatchMs}ms`;
