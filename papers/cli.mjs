@@ -333,6 +333,16 @@ const PAPER_MAP = {
     siteName: "nom-games-26-arxiv",
     title: "The nom Games",
   },
+  "arxiv-ios-so-far": {
+    base: "ios-so-far",
+    siteName: "ios-so-far-26-arxiv",
+    title: "iOS So Far",
+  },
+  "arxiv-traffic": {
+    base: "traffic",
+    siteName: "aesthetic-network-traffic-26-arxiv",
+    title: "Aesthetic Network Traffic Report",
+  },
   "arxiv-turf": {
     base: "turf",
     siteName: "taking-turf-26-arxiv",
@@ -534,6 +544,7 @@ const CATEGORIES = [
       "arxiv-score-analysis",
       "arxiv-comp-strats",
       "arxiv-nom",
+      "arxiv-ios-so-far",
       "arxiv-granularity",
       "arxiv-turf",
       "essay-may-26",
@@ -554,6 +565,7 @@ const CATEGORIES = [
     dirs: [
       "arxiv-archaeology",
       "arxiv-hand-and-loop",
+      "arxiv-traffic",
       "arxiv-network-audit",
       "arxiv-diversity",
       "arxiv-open-schools",

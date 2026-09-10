@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "paper": "Aesthetic Network Traffic Report",
+  "pdf": "traffic.pdf",
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "pdfSha256": "a36fd8fd44ae18d3ac603cc01f62f6b30881b842326936354d28f4cd6c52c766",
+  "reviewedAt": "2026-09-10T03:45:00Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Verified at 800 dpi on the page-1 byline: the period between 'Aesthetic' and 'Computer' renders in AC pink against the gray byline run. Confirmed again in the abstract and in the page-6 bibliography entries, which route through the same \\ac macro. Domain names are set in \\texttt throughout (aesthetic.computer, notepat.com) and are literal hostnames, not wordmarks."
+  },
+  "diagrams": [
+    {
+      "id": "reduction-funnel",
+      "page": 3,
+      "crop": [
+        0.52,
+        0.05,
+        0.39,
+        0.2
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Rebuilt twice. The first render centered fixed-width bands on a shared axis and set each count in white inside its band; the widest band ran under its own left-hand label and the palest fills left white numerals unreadable. Recast as a left-aligned log10 bar chart: label above each bar in gray, count outside the bar end in acdark on white, bar length log10 of the value so all six orders of magnitude stay visible without a scale break. The second rebuild corrected the data rather than the drawing: bands 4-6 were re-cut on direct (non-embedded) boots after an always-on gallery iframe was found inside the human total. The chart carries no connectors; edgeRouting passes vacuously because nothing in the figure implies a direction it does not draw."
+    }
+  ],
+  "history": [
+    {
+      "reviewedAt": "2026-09-10T03:45:00Z",
+      "notes": "Re-reviewed after the embedded-boot correction. Section 5, Tables 3, 4 and 6, Figure 1, the abstract, the appendix entry-shape paragraph and the conclusion were all re-cut on 71,143 direct boots instead of 118,982 mixed ones. Page count went 7 -> 8 -> 7: the appendix table and two trimmed paragraphs plus a footnotesize bibliography pulled the references and the source-bundle plaque back onto page 7, so the document no longer ends on a near-empty page. All seven pages re-inspected at 100 dpi; Table 1 checked for the earlier zone-name overrun, Table 7 for the earlier justification stretch, both clean."
+    }
+  ]
+}

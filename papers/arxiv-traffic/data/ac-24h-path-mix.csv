@@ -1,0 +1,16 @@
+path,requests,share_pct
+/api/version,1098386,56.99
+/.netlify/functions/handle-colors,315508,16.37
+/api/piece-hit,68902,3.58
+/,64428,3.34
+/api/piece-log,30581,1.59
+/aesthetic.computer/lib/parse.mjs,8918,0.46
+/cdn-cgi/rum,8457,0.44
+/aesthetic.computer/lib/num.mjs,8024,0.42
+/aesthetic.computer/bios.mjs,7933,0.41
+/api/macpal-art,6447,0.33
+/api/macpal-status,6423,0.33
+/aesthetic.computer/lib/text.mjs,5900,0.31
+/aesthetic.computer/lib/frame-capture.mjs,5749,0.30
+/aesthetic.computer/lib/graph.mjs,5678,0.29
+/aesthetic.computer/lib/pack-mode.mjs,5584,0.29
