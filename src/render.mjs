@@ -320,8 +320,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
   // own black on white to be scannable, so a window with colour switched off or
   // too little room shows the scan URL instead and drops the code.
+  // The code needs the rows it occupies and not one more. An earlier `+ 2`
+  // asked for breathing room it never used, which put the cliff at 24 rows and
+  // hid the code from a 23-row window for no reason a reader could see.
   const qr =
-    useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height + 2
+    useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height
       ? state.qr
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;

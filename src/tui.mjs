@@ -712,8 +712,15 @@ refreshQr();
 const bootAt = Date.now();
 let bootTimer = null;
 function bootFrame() {
-  if (closing || drawing) return;
+  if (closing) return;
   const elapsed = Date.now() - bootAt;
+  // A frame skipped because a redraw is in flight must still schedule the next
+  // one, or the entrance stops mid-stride and never resumes.
+  if (drawing) {
+    bootTimer = setTimeout(bootFrame, mascotNextFrameIn(elapsed));
+    bootTimer.unref?.();
+    return;
+  }
   const frame = renderBoot(elapsed, process.stdout.columns, process.stdout.rows,
     process.env.NO_COLOR !== "1");
   process.stdout.write(`\x1b[H\x1b[2J${frame}`);
