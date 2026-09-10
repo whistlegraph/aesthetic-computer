@@ -5,6 +5,18 @@
 // Assets: ~/.cache/ac/imab/takes/<take-id>/{audio.mp3,spec.png}, made lazily
 //         from pop/imab/out/imab-sets-successive.mp3
 // Edits:  pop/imab/processed-boundaries-<take-id>.json and set-fixes/<take-id>.json
+//
+// A syllable is a box in two dimensions: when it happens and which part of
+// the spectrum it occupies. The queue build had collapsed the second one —
+// it kept fLo/fHi in the schema and wrote them to every export, but hardcoded
+// them to 0...1 with no way to touch them, which also silently discarded the
+// 0.15/0.9 seeds wizard-prep.py writes. The 2D grips, the undo history and
+// the loop-selection below come from the single-take editor that grew in
+// parallel (rescue/neo-syllawizard-diverged-20260910); the take queue,
+// autosave and set-fixes export are the queue build's. Downstream
+// (vocalset.mjs, lyrictrack.mjs, setscroll.py) still reads only fromMs/toMs,
+// so the band is an authoring aid today — it is drawn, edited, and preserved
+// rather than invented, which is the condition for it to become more later.
 
 import AppKit
 import AVFoundation
@@ -183,12 +195,10 @@ struct Rect: Codable {
     var fHi: Double
 }
 
-enum BoxDrag {
-    case create
-    case move
-    case resizeLeft
-    case resizeRight
-}
+/// Direct manipulation: a box is a thing you grab, not something you can only
+/// redraw from scratch. Grab an edge to move that boundary, a corner for both,
+/// the middle to slide the whole syllable.
+enum Grip { case body, left, right, top, bottom, tl, tr, bl, br }
 
 final class SpectroView: NSView {
     let spec: NSImage
@@ -196,11 +206,15 @@ final class SpectroView: NSView {
     var cur = 0
     var player: AVAudioPlayer?
     var dragStart: NSPoint?
-    var dragInitial: Rect?
-    var dragMode: BoxDrag = .create
+    var drag: (i: Int, grip: Grip, orig: Rect, from: NSPoint)?
+    var creating = false
     var dragged = false
+    var history: [[Rect?]] = []
+    var loopSel = false
+    let GRAB: CGFloat = 7            // edge grab tolerance in px
     var onChange: () -> Void = {}
     var onEdit: () -> Void = {}
+    var onTransport: () -> Void = {}
 
     init(spec: NSImage) {
         self.spec = spec
@@ -208,7 +222,15 @@ final class SpectroView: NSView {
                                  height: spec.size.height + SPEC_TOP + 20))
         wantsLayer = true
         Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            self?.needsDisplay = true
+            guard let self else { return }
+            // Looping the selected syllable is how a boundary gets judged: the
+            // same 300ms over and over until the consonant is inside it.
+            if self.loopSel, let value = self.rects[self.cur], let player = self.player,
+               player.isPlaying,
+               player.currentTime >= TimeInterval(Double(value.toMs) / 1000) {
+                player.currentTime = TimeInterval(Double(value.fromMs) / 1000)
+            }
+            self.needsDisplay = true
         }
     }
 
@@ -216,32 +238,83 @@ final class SpectroView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        addCursorRect(bounds, cursor: .crosshair)
-        for value in rects.compactMap({ $0 }) {
-            let box = displayRect(value)
-            if box.width > 20 {
-                addCursorRect(box.insetBy(dx: 10, dy: 0), cursor: .openHand)
-            }
-            addCursorRect(NSRect(x: box.minX - 10, y: box.minY,
-                                 width: 20, height: box.height), cursor: .resizeLeftRight)
-            addCursorRect(NSRect(x: box.maxX - 10, y: box.minY,
-                                 width: 20, height: box.height), cursor: .resizeLeftRight)
+    // The pointer says what a drag will do here, so the eight grab points
+    // don't have to be discovered by trial.
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(rect: bounds,
+            options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect], owner: self))
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        switch grip(at: point)?.1 {
+        case .left, .right:      NSCursor.resizeLeftRight.set()
+        case .top, .bottom:      NSCursor.resizeUpDown.set()
+        case .tl, .tr, .bl, .br: NSCursor.crosshair.set()
+        case .body:              NSCursor.openHand.set()
+        case nil:                NSCursor.crosshair.set()
         }
     }
 
-    func displayRect(_ value: Rect) -> NSRect {
-        let x = CGFloat(value.fromMs) / 1000 * PXS
-        let width = CGFloat(value.toMs - value.fromMs) / 1000 * PXS
-        return NSRect(x: x, y: SPEC_TOP, width: width, height: spec.size.height)
+    func specY(_ frequency: Double) -> CGFloat {
+        SPEC_TOP + (1 - CGFloat(frequency)) * spec.size.height
     }
 
-    func modelInterval(_ fromX: CGFloat, _ toX: CGFloat) -> Rect {
-        let x0 = max(0, min(spec.size.width - 4, min(fromX, toX)))
-        let x1 = max(x0 + 4, min(spec.size.width, max(fromX, toX)))
-        return Rect(fromMs: Int(x0 / PXS * 1000), toMs: Int(x1 / PXS * 1000),
-                    fLo: 0, fHi: 1)
+    func frameOf(_ value: Rect) -> NSRect {
+        let x = CGFloat(value.fromMs) / 1000 * PXS
+        let y = specY(value.fHi)
+        return NSRect(x: x, y: y,
+                      width: CGFloat(value.toMs - value.fromMs) / 1000 * PXS,
+                      height: specY(value.fLo) - y)
+    }
+
+    /// Which box and which part of it is under this point. The current
+    /// syllable is tested first so its handles stay reachable when boxes
+    /// overlap.
+    func grip(at point: NSPoint) -> (Int, Grip)? {
+        var order = Array(rects.indices)
+        if let k = order.firstIndex(of: cur) { order.remove(at: k); order.insert(cur, at: 0) }
+        for index in order {
+            guard let value = rects[index] else { continue }
+            let box = frameOf(value)
+            guard box.insetBy(dx: -GRAB, dy: -GRAB).contains(point) else { continue }
+            let nearL = abs(point.x - box.minX) <= GRAB, nearR = abs(point.x - box.maxX) <= GRAB
+            let nearT = abs(point.y - box.minY) <= GRAB, nearB = abs(point.y - box.maxY) <= GRAB
+            switch (nearL, nearR, nearT, nearB) {
+            case (true, _, true, _): return (index, .tl)
+            case (_, true, true, _): return (index, .tr)
+            case (true, _, _, true): return (index, .bl)
+            case (_, true, _, true): return (index, .br)
+            case (true, _, _, _):    return (index, .left)
+            case (_, true, _, _):    return (index, .right)
+            case (_, _, true, _):    return (index, .top)
+            case (_, _, _, true):    return (index, .bottom)
+            default:                 return (index, .body)
+            }
+        }
+        return nil
+    }
+
+    func msAt(_ x: CGFloat) -> Int { max(0, Int(x / PXS * 1000)) }
+
+    func freqAt(_ y: CGFloat) -> Double {
+        Double(max(0, min(1, 1 - (y - SPEC_TOP) / spec.size.height)))
+    }
+
+    // Bounded so an overshot drag costs nothing; a tool that punishes trying
+    // things stops being used for judgment.
+    func pushHistory() {
+        history.append(rects)
+        if history.count > 100 { history.removeFirst() }
+    }
+
+    func playRange(_ value: Rect) {
+        guard let player else { return }
+        player.currentTime = TimeInterval(Double(value.fromMs) / 1000)
+        player.play()
+        onTransport()
     }
 
     override func draw(_ dirty: NSRect) {
@@ -267,7 +340,7 @@ final class SpectroView: NSView {
 
         for (index, value) in rects.enumerated() {
             guard let value else { continue }
-            let box = displayRect(value)
+            let box = frameOf(value)
             let hot = index == cur
             let color = hot
                 ? NSColor(calibratedRed: 1, green: 0.36, blue: 0.62, alpha: 1)
@@ -283,15 +356,36 @@ final class SpectroView: NSView {
                 .foregroundColor: color,
             ]).draw(at: NSPoint(x: box.minX + 4, y: max(SPEC_TOP - 24, box.minY - 26)))
             if hot {
-                NSColor(calibratedWhite: 0.06, alpha: 1).setFill()
+                // the grab points, made visible
+                NSColor.white.setFill()
                 color.setStroke()
-                for x in [box.minX, box.maxX] {
-                    let handle = NSRect(x: x - 5, y: box.midY - 14, width: 10, height: 28)
-                    handle.fill()
+                for handlePoint in [
+                    NSPoint(x: box.minX, y: box.minY), NSPoint(x: box.midX, y: box.minY),
+                    NSPoint(x: box.maxX, y: box.minY), NSPoint(x: box.minX, y: box.midY),
+                    NSPoint(x: box.maxX, y: box.midY), NSPoint(x: box.minX, y: box.maxY),
+                    NSPoint(x: box.midX, y: box.maxY), NSPoint(x: box.maxX, y: box.maxY),
+                ] {
+                    let handle = NSRect(x: handlePoint.x - 4, y: handlePoint.y - 4,
+                                        width: 8, height: 8)
                     let outline = NSBezierPath(rect: handle)
-                    outline.lineWidth = 2
+                    outline.fill()
+                    outline.lineWidth = 1.5
                     outline.stroke()
                 }
+                // width / band readout, so the drag is a measurement
+                let span = value.toMs - value.fromMs
+                let band = Int(round((value.fHi - value.fLo) * 100))
+                let caption = NSAttributedString(
+                    string: "\(value.fromMs)→\(value.toMs)ms · \(span)ms · band \(band)%",
+                    attributes: [
+                        .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
+                        .foregroundColor: NSColor.white,
+                    ])
+                let plate = NSRect(x: box.minX, y: box.maxY + 6,
+                                   width: caption.size().width + 10, height: 18)
+                NSColor.black.withAlphaComponent(0.65).setFill()
+                NSBezierPath(rect: plate).fill()
+                caption.draw(at: NSPoint(x: box.minX + 5, y: box.maxY + 8))
             }
         }
 
@@ -311,70 +405,73 @@ final class SpectroView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         dragStart = point
-        dragInitial = nil
-        dragMode = .create
         dragged = false
-        let slop: CGFloat = 10
-        for index in rects.indices.reversed() {
-            guard let value = rects[index] else { continue }
-            let box = displayRect(value)
-            guard box.insetBy(dx: -slop, dy: -slop).contains(point) else { continue }
-            cur = index
-            dragInitial = value
-            if abs(point.x - box.minX) <= slop {
-                dragMode = .resizeLeft
-            } else if abs(point.x - box.maxX) <= slop {
-                dragMode = .resizeRight
-            } else {
-                dragMode = .move
-            }
-            onChange()
-            break
+        creating = false
+        drag = nil
+        if let (index, grip) = grip(at: point), let value = rects[index] {
+            cur = index                                  // click selects
+            drag = (index, grip, value, point)
+            pushHistory()
+        } else {
+            creating = true
         }
+        onChange()
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let start = dragStart else { return }
         let end = convert(event.locationInWindow, from: nil)
-        if abs(end.x - start.x) > 3 { dragged = true }
+        if abs(end.x - start.x) > 3 || abs(end.y - start.y) > 3 { dragged = true }
         guard dragged else { return }
-        switch dragMode {
-        case .create:
-            rects[cur] = modelInterval(start.x, end.x)
-        case .move:
-            guard let initial = dragInitial else { return }
-            let box = displayRect(initial)
-            let width = min(box.width, spec.size.width)
-            let x = min(max(0, box.minX + end.x - start.x), spec.size.width - width)
-            rects[cur] = modelInterval(x, x + width)
-        case .resizeLeft:
-            guard let initial = dragInitial else { return }
-            let box = displayRect(initial)
-            rects[cur] = modelInterval(min(end.x, box.maxX - 4), box.maxX)
-        case .resizeRight:
-            guard let initial = dragInitial else { return }
-            let box = displayRect(initial)
-            rects[cur] = modelInterval(box.minX, max(end.x, box.minX + 4))
+        if let drag {
+            let dx = end.x - drag.from.x, dy = end.y - drag.from.y
+            let deltaMs = Int(dx / PXS * 1000)
+            let deltaF = Double(-dy / spec.size.height)
+            var value = drag.orig
+            switch drag.grip {
+            case .body:   value.fromMs += deltaMs; value.toMs += deltaMs
+                          value.fLo += deltaF;     value.fHi += deltaF
+            case .left:   value.fromMs += deltaMs
+            case .right:  value.toMs += deltaMs
+            case .top:    value.fHi += deltaF
+            case .bottom: value.fLo += deltaF
+            case .tl:     value.fromMs += deltaMs; value.fHi += deltaF
+            case .tr:     value.toMs += deltaMs;   value.fHi += deltaF
+            case .bl:     value.fromMs += deltaMs; value.fLo += deltaF
+            case .br:     value.toMs += deltaMs;   value.fLo += deltaF
+            }
+            if value.fromMs > value.toMs { swap(&value.fromMs, &value.toMs) }
+            if value.fLo > value.fHi { swap(&value.fLo, &value.fHi) }
+            value.fromMs = max(0, value.fromMs)
+            value.toMs = max(value.fromMs + 20, value.toMs)
+            value.fLo = max(0, min(1, value.fLo))
+            value.fHi = max(0, min(1, value.fHi))
+            rects[drag.i] = value
+        } else if creating {
+            let x0 = min(start.x, end.x), x1 = max(start.x, end.x)
+            rects[cur] = Rect(fromMs: msAt(x0), toMs: msAt(x1),
+                              fLo: freqAt(max(start.y, end.y)),
+                              fHi: freqAt(min(start.y, end.y)))
         }
-        window?.invalidateCursorRects(for: self)
+        onChange()
         onEdit()
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer {
-            dragStart = nil
-            dragInitial = nil
-            dragMode = .create
-        }
+        let wasCreating = creating
+        defer { dragStart = nil; drag = nil; creating = false }
         guard let start = dragStart else { return }
         if !dragged {
-            if case .create = dragMode {
-                player?.currentTime = TimeInterval(start.x / PXS)
+            if drag != nil {
+                history.removeLast()             // a plain click is not an edit
+            } else {
+                player?.currentTime = TimeInterval(start.x / PXS)   // seek in empty space
                 player?.play()
+                onTransport()
             }
-        } else if case .create = dragMode {
+        } else if wasCreating {
             if let next = (cur + 1..<SYLS.count).first(where: { rects[$0] == nil }) {
-                cur = next
+                cur = next                        // drawing a fresh one advances
             } else if cur < SYLS.count - 1 {
                 cur += 1
             }
@@ -383,23 +480,73 @@ final class SpectroView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        // ⌘Z undoes the last edit. The queue build autosaves every
+        // adjustment, which without this leaves no way back from a slip.
+        if event.modifierFlags.contains(.command),
+           event.charactersIgnoringModifiers?.lowercased() == "z" {
+            if let previous = history.popLast() {
+                rects = previous
+                onChange()
+                onEdit()
+            }
+            return
+        }
+        let shift = event.modifierFlags.contains(.shift)
+        let step = shift ? 50 : 10                                   // ms nudge
         switch event.keyCode {
-        case 49:
+        case 49:                                                     // space
             if let player {
                 if player.isPlaying { player.pause() } else { player.play() }
             }
-        case 51:
-            rects[cur] = nil
-            onEdit()
-        case 123:
-            cur = max(0, cur - 1)
+            onTransport()
+        case 36:                                                     // return — hear this syllable
+            if let value = rects[cur] { playRange(value) }
+        case 37:                                                     // L — loop the selection
+            loopSel.toggle()
+            if loopSel, let value = rects[cur] { playRange(value) }
             onChange()
-        case 124:
-            cur = min(SYLS.count - 1, cur + 1)
+        case 51, 117:                                                // delete
+            pushHistory()
+            rects[cur] = nil
+            onChange()
+            onEdit()
+        case 123:                                                    // ←
+            if event.modifierFlags.contains(.option), var value = rects[cur] {
+                pushHistory()
+                value.fromMs = max(0, value.fromMs - step)
+                value.toMs -= step
+                rects[cur] = value
+                onEdit()
+            } else {
+                cur = max(0, cur - 1)
+            }
+            onChange()
+        case 124:                                                    // →
+            if event.modifierFlags.contains(.option), var value = rects[cur] {
+                pushHistory()
+                value.fromMs += step
+                value.toMs += step
+                rects[cur] = value
+                onEdit()
+            } else {
+                cur = min(SYLS.count - 1, cur + 1)
+            }
+            onChange()
+        case 48:                                                     // tab
+            cur = shift ? max(0, cur - 1) : min(SYLS.count - 1, cur + 1)
             onChange()
         default:
             super.keyDown(with: event)
         }
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command),
+           event.charactersIgnoringModifiers?.lowercased() == "z" {
+            keyDown(with: event)
+            return true
+        }
+        return false
     }
 }
 
@@ -423,6 +570,13 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     }
     var setFixURL: URL {
         repo.appendingPathComponent("pop/imab/set-fixes/\(selectedTake.id).json")
+    }
+    /// Hand-drawn bands from the single-take editor and syllawizard.mjs. The
+    /// queue build never read this file, so two takes' worth of drawn bands
+    /// (0.12...0.9 on 7311159624588070175) sat unread while the queue wrote
+    /// 0...1 over the same syllables.
+    var drawnURL: URL {
+        repo.appendingPathComponent("pop/imab/boundaries-drawn-\(selectedTake.id).json")
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -634,8 +788,53 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         DispatchQueue.main.async { [weak self] in self?.revealCurrent() }
     }
 
+    // wizard-prep.py seeds fLo 0.15 / fHi 0.9 and syllawizard.mjs writes real
+    // bands, so a load that hardcoded 0...1 silently discarded work every time
+    // the take was reopened. Read what is there; fall back to the full band
+    // only when the file has none.
+    private func band(_ source: [String: Any]) -> (Double, Double) {
+        let lo = source["fLo"] as? Double ?? 0
+        let hi = source["fHi"] as? Double ?? 1
+        return hi > lo ? (max(0, lo), min(1, hi)) : (0, 1)
+    }
+
+    /// label+wi -> band, from a `sylls` document. Keyed by label rather than
+    /// index because the two tools disagree about ordering.
+    private func drawnBands() -> [String: (Double, Double)] {
+        guard let syllables = jsonObject(drawnURL)?["sylls"] as? [[String: Any]] else { return [:] }
+        var out: [String: (Double, Double)] = [:]
+        for syllable in syllables {
+            guard let label = syllable["label"] as? String,
+                  let wordIndex = syllable["wi"] as? Int else { continue }
+            let (lo, hi) = band(syllable)
+            if hi - lo < 0.999 { out["\(label)#\(wordIndex)"] = (lo, hi) }
+        }
+        return out
+    }
+
+    /// Timings come from the newest edit; a flat band is filled in from the
+    /// drawn file rather than left at full height. Only flat bands are
+    /// touched, so a band edited here always wins.
+    private func recoverBands() {
+        guard let view else { return }
+        let drawn = drawnBands()
+        guard !drawn.isEmpty else { return }
+        var recovered = 0
+        for index in view.rects.indices {
+            guard var value = view.rects[index] else { continue }
+            guard value.fHi - value.fLo > 0.999 else { continue }
+            guard let (lo, hi) = drawn["\(SYLS[index].0)#\(SYLS[index].1)"] else { continue }
+            value.fLo = lo
+            value.fHi = hi
+            view.rects[index] = value
+            recovered += 1
+        }
+        if recovered > 0 { refresh(message: "recovered \(recovered) drawn bands") }
+    }
+
     func seed() {
         guard let view else { return }
+        defer { recoverBands() }
         if let syllables = jsonObject(outURL)?["sylls"] as? [[String: Any]],
            !syllables.isEmpty {
             for syllable in syllables {
@@ -644,7 +843,8 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
                       let from = syllable["fromMs"] as? Int,
                       let to = syllable["toMs"] as? Int,
                       let index = SYLS.firstIndex(where: { $0.0 == label && $0.1 == wordIndex }) else { continue }
-                view.rects[index] = Rect(fromMs: from, toMs: to, fLo: 0, fHi: 1)
+                let (lo, hi) = band(syllable)
+                view.rects[index] = Rect(fromMs: from, toMs: to, fLo: lo, fHi: hi)
             }
             return
         }
@@ -653,11 +853,12 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
             guard words.indices.contains(wordIndex),
                   let from = words[wordIndex]["fromMs"] as? Int,
                   let to = words[wordIndex]["toMs"] as? Int else { continue }
+            let (lo, hi) = band(words[wordIndex])
             let members = SYLS.indices.filter { SYLS[$0].1 == wordIndex }
             for (part, index) in members.enumerated() {
                 let a = from + (to - from) * part / members.count
                 let b = from + (to - from) * (part + 1) / members.count
-                view.rects[index] = Rect(fromMs: a, toMs: b, fLo: 0, fHi: 1)
+                view.rects[index] = Rect(fromMs: a, toMs: b, fLo: lo, fHi: hi)
             }
         }
     }
