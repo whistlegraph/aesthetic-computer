@@ -1429,9 +1429,17 @@ final class PromptSigilOverlay {
                     platformTarget platformTargetVisible: Bool) {
         if rockVisible {
             if !window.isVisible { window.orderFrontRegardless() }
+            // The pointer surface has to be on screen to receive anything. It
+            // was built, sized and moved with the rock but never ordered in, so
+            // `mouseDown` could not fire and a click on a rock did nothing at
+            // all. It is transparent and sits directly over the rock, so
+            // showing it costs nothing visually and is what makes the rock
+            // clickable in the first place.
+            if !interactionWindow.isVisible { interactionWindow.orderFrontRegardless() }
         } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
             if window.isVisible { window.orderOut(nil) }
+            if interactionWindow.isVisible { interactionWindow.orderOut(nil) }
         }
         if loopboyStyled && heartbeatVisible {
             if !heartbeatWindow.isVisible { heartbeatWindow.orderFrontRegardless() }
