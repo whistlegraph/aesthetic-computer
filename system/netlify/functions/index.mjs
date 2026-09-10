@@ -16,6 +16,7 @@ import {
 import { respond } from "../../backend/http.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
@@ -44,20 +45,17 @@ function serializeBrowserConfig(config) {
   return JSON.stringify(config).replaceAll("<", "\\u003c");
 }
 
-// Fire-and-forget piece hit tracking (don't await, don't block page load)
+// Record a piece hit against the database we are already connected to. This
+// used to POST to our own public API — out through the CDN and back into a
+// second function invocation — which is why half the landing page's latency
+// was spent telling ourselves something we already knew.
 async function trackPieceHit(piece, type) {
   try {
-    const baseUrl = dev ? "https://localhost:8888" : "https://aesthetic.computer";
-    const { got } = await import("got");
-    await got.post(`${baseUrl}/api/piece-hit`, {
-      json: { piece, type },
-      // Don't pass auth header - piece hits are anonymous for now
-      // This avoids Auth0 calls on every page load
-      https: { rejectUnauthorized: false },
-      timeout: { request: 5000 },
-    });
+    const database = await connect();
+    await recordPieceHit(database.db, { piece, type });
+    await database.disconnect();
   } catch (e) {
-    // Silent fail - don't let tracking break page loads
+    // Silent fail — counting a read must never cost the reader the page.
     if (dev) console.log("📊 Hit tracking failed:", e.message);
   }
 }
@@ -103,6 +101,23 @@ async function fun(event, context) {
   try {
     // TODO: Return a 500 or 404 for everything that does not exist...
     //       - [] Like for example if the below import fails...
+
+    // 🔌 A WebSocket handshake is not a page. Stale clients — cached service
+    // workers and old installed builds from before the loader moved to
+    // session-server.aesthetic.computer — still try to upgrade against the
+    // root host, and every failed attempt was being answered with the full
+    // ~120KB landing page and counted as a piece hit. Refuse cheaply instead;
+    // they retry forever either way, but now it costs a header, not a page.
+    if ((event.headers["upgrade"] || "").toLowerCase() === "websocket") {
+      return {
+        statusCode: 426,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          Connection: "close",
+        },
+        body: "Upgrade Required — the module loader lives at wss://session-server.aesthetic.computer",
+      };
+    }
 
     if (event.path === "/favicon.ico") {
       return {
@@ -2268,14 +2283,20 @@ async function fun(event, context) {
   const _path = event.path === "/" ? "🏠" : event.path.slice(0, 20);
   console.log(`✨ ${_path} ${meta?.title || "~"} ${_ms}ms`);
 
-  // 📊 Track piece hit (awaited with timeout so Netlify doesn't kill it)
-  if (!dev && statusCode === 200 && parsed?.text && !previewOrIcon) {
+  // 📊 Track piece hit — a local write now, so it no longer needs a race
+  //    against a two second timeout. Machines are not readers: crawlers,
+  //    link previewers and scripted clients reach this same line, and
+  //    counting them made the collection describe traffic instead of people.
+  if (
+    !dev &&
+    statusCode === 200 &&
+    parsed?.text &&
+    !previewOrIcon &&
+    !looksAutomated(event.headers)
+  ) {
     const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
     try {
-      await Promise.race([
-        trackPieceHit(parsed.text, pieceType),
-        new Promise((r) => setTimeout(r, 2000)),
-      ]);
+      await trackPieceHit(parsed.text, pieceType);
     } catch (e) { /* silent */ }
   }
 

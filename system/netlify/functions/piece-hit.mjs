@@ -6,6 +6,7 @@
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
+import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
 
 export async function handler(event) {
   let database;
@@ -90,54 +91,15 @@ export async function handler(event) {
         /* anonymous hit */
       }
 
-      const now = new Date();
-      const today = now.toISOString().split("T")[0];
-      const hitsCol = database.db.collection("piece-hits");
-      const userHitsCol = database.db.collection("piece-user-hits");
-
-      // Ensure indexes exist (safe to call multiple times)
-      try {
-        await hitsCol.createIndex({ piece: 1 }, { unique: true });
-        await hitsCol.createIndex({ hits: -1 });
-        await userHitsCol.createIndex({ piece: 1, user: 1 }, { unique: true });
-        await userHitsCol.createIndex({ piece: 1, hits: -1 });
-      } catch (indexErr) {
-        // Indexes already exist - that's fine
+      // Machines reach this endpoint the same way a reader does. A signed-in
+      // request is a person by definition; an anonymous automated one is not.
+      // Answer 200 either way, so a caller has nothing to retry.
+      if (!user?.sub && looksAutomated(event.headers)) {
+        await database.disconnect();
+        return respond(200, { success: true, counted: false });
       }
 
-      // 1. Update aggregate stats
-      await hitsCol.updateOne(
-        { piece },
-        {
-          $inc: {
-            hits: 1,
-            [`daily.${today}.hits`]: 1,
-          },
-          $set: { lastHit: now, type },
-          $setOnInsert: { firstHit: now, uniqueUsers: 0 },
-        },
-        { upsert: true },
-      );
-
-      // 2. Update per-user stats
-      const userKey = user?.sub || "anonymous";
-      const userResult = await userHitsCol.updateOne(
-        { piece, user: userKey },
-        {
-          $inc: { hits: 1 },
-          $set: { lastHit: now },
-          $setOnInsert: { firstHit: now },
-        },
-        { upsert: true },
-      );
-
-      // If this was a new user for this piece, increment uniqueUsers
-      if (userResult.upsertedCount > 0 && userKey !== "anonymous") {
-        await hitsCol.updateOne(
-          { piece },
-          { $inc: { uniqueUsers: 1, [`daily.${today}.unique`]: 1 } },
-        );
-      }
+      await recordPieceHit(database.db, { piece, type, user: user?.sub });
 
       await database.disconnect();
       return respond(200, { success: true });
