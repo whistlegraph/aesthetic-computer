@@ -2491,8 +2491,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Codex-backed interfaces share a settings-set family so their
         // slightly-cooler palette is provisioned independently of Claude's.
-        let agentSuffix = (agentType == "codex" || agentType == "aesthetic-code")
-            ? "-codex" : ""
+        // Aesthetic Code has its own: it borrowed Codex's until now, which put
+        // the one interface that IS Aesthetic Computer in somebody else's
+        // colours. `-aesthetic` is the prompt's own scheme, the same values
+        // the harness paints itself with — and it names the palette rather
+        // than the tool, which is still deciding what it is called.
+        let agentSuffix: String
+        switch agentType {
+        case "aesthetic-code": agentSuffix = "-aesthetic"
+        case "codex":          agentSuffix = "-codex"
+        default:               agentSuffix = ""
+        }
         let base = "Slab-\(s)-\(dark ? "dark" : "light")\(agentSuffix)"
         // Only attention states ever pulse; the suffix keeps the alt
         // settings set distinct so Terminal.app can flip between two
