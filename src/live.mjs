@@ -27,7 +27,7 @@ import { DEFAULT_RUNTIME, runtimeFor, runtimeForExtension } from "./runtimes.mjs
 
 export const SITE = "https://aesthetic.computer";
 // Scannable codes get smaller the shorter the text, and this address exists to
-// be scanned. prompt.ac is the same runtime as aesthetic.computer behind a
+// be scanned — see `scanUrl` for the short route it uses. prompt.ac is the same runtime as aesthetic.computer behind a
 // leaner shell, and nine bytes shorter — which is a whole version of the code
 // once the scheme a phone camera needs is added back on.
 export const SCAN_HOST = "prompt.ac";
@@ -76,10 +76,15 @@ export class LivePiece extends EventEmitter {
   }
 
   // The URL a phone scans: it joins the code channel and then sits waiting for
-  // source, which arrives as soon as anything is pushed. See the note at the
-  // top of the file for why the argument is separated by an encoded space.
+  // source, which arrives as soon as anything is pushed.
+  //
+  // Short on purpose. Every byte here is a module of QR, and the long form this
+  // expands to — `/prompt~channel%20<id>~!autorun`, a command line wearing
+  // percent-encoding — costs a whole extra version of the symbol: smaller
+  // modules, on a surface someone is holding a phone up to. The `~<channel>`
+  // route on the host redirects to it, so the code stays at version 2.
   get scanUrl() {
-    return `${this.scanHost}/prompt~channel%20${this.channel}~!autorun`;
+    return `${this.scanHost}/~${this.channel}`;
   }
 
   // Where the piece answers once it has been published under a handle.

@@ -22,28 +22,34 @@ test("names are pronounceable and channels stay short enough to scan", () => {
     assert.match(randomSlug(), /^[a-z]{4,6}$/);
     assert.match(randomChannel(), /^[A-Za-z0-9_-]{8}$/);
   }
-  // A version-3 QR is the largest that fits a terminal corner: 33 columns.
-  // Measure the real scan URL rather than a copy of it, so lengthening the URL
-  // fails here instead of quietly growing the code to a version that no longer
-  // fits an 80×24 window and is dropped from the frame.
+  // The address is short so the code can be. Measure the real scan URL rather
+  // than a copy of it, so lengthening it fails here instead of quietly growing
+  // the symbol a version — which costs modules on the rock, where someone is
+  // holding a phone up to it. A phone gets the URL with `https://` in front,
+  // so that is what is measured: 32 bytes is a version-2 code at level L.
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const url = new LivePiece({ cwd: tmpdir() }).scanUrl;
-    assert.ok(Buffer.byteLength(url) <= 53, `${url} is too long for a version-3 code`);
+    const scanned = `https://${url}`;
+    assert.ok(
+      Buffer.byteLength(scanned) <= 32,
+      `${scanned} is too long for a version-2 code`,
+    );
     const block = qrBlock(url);
-    assert.equal(block.width, 33);
-    assert.equal(block.height, 17);
+    assert.equal(block.width, 29);
+    assert.equal(block.height, 15);
   }
 });
 
-// The phone has to land on the prompt holding the channel as its own word.
-// parse.mjs hands everything after `prompt~` to the prompt as ONE parameter,
-// and the prompt splits its own arguments on spaces — a tilde glues the channel
-// to the command name, so `channel` runs with no argument and joins nothing.
-test("the scan URL separates the channel from the command with a space", () => {
+// The scanned address is the short one; the host expands it. The rule it
+// expands to still matters — parse.mjs hands everything after `prompt~` to the
+// prompt as ONE parameter and the prompt splits its own arguments on spaces, so
+// the channel must arrive as its own word — but that lives in the `~<channel>`
+// redirect in lith/Caddyfile now, not here.
+test("the scan URL is the short route, not the command line", () => {
   const live = new LivePiece({ cwd: tmpdir(), channel: "Ab0-_9Zz" });
-  assert.equal(live.scanUrl, "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun");
-  const [, command] = live.scanUrl.match(/\/prompt~(.*)~!autorun$/);
-  assert.deepEqual(decodeURIComponent(command).split(" "), ["channel", "Ab0-_9Zz"]);
+  assert.equal(live.scanUrl, "prompt.ac/~Ab0-_9Zz");
+  const [, channel] = live.scanUrl.match(/\/~(.+)$/);
+  assert.equal(channel, "Ab0-_9Zz", "the channel travels whole, needing no encoding");
 });
 
 // Read the rendered block back into a grid of dark modules. A code that is
@@ -67,7 +73,7 @@ function decodeBlock(block) {
 
 test("the rendered code matches the encoder module for module", async () => {
   const { qrcode, ErrorCorrectLevel } = await import("../src/vendor/qr.mjs");
-  const url = "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun";
+  const url = "prompt.ac/~Ab0-_9Zz";
   const quiet = 2;
   const modules = qrcode(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
   const grid = decodeBlock(qrBlock(url, { quiet }));
@@ -154,7 +160,7 @@ test("a session mints a blank piece, pushes it, and cleans up after itself", asy
   });
 
   assert.equal(live.file, join(root, "movika.mjs"));
-  assert.equal(live.scanUrl, "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun");
+  assert.equal(live.scanUrl, "prompt.ac/~Ab0-_9Zz");
   assert.equal(live.publishedUrl("jeffrey"), "https://aesthetic.computer/@jeffrey/movika");
   assert.equal(live.publishedUrl(""), "");
 
