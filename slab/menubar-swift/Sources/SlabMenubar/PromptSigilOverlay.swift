@@ -435,11 +435,12 @@ final class PromptSigilOverlay {
     /// legible to a phone camera held at desk distance, and shrunk to stone
     /// size its modules stop resolving. Even at this size it eats far less of
     /// the pane than the seventeen rows of half-blocks it replaces.
-    // Bigger than a stone because it has to be readable by a camera, but not a
-    // billboard: at 2x this is five device pixels per module, comfortably above
-    // the three-pixel floor and under half the area of the first attempt, which
-    // covered the corner of the terminal it was anchored to.
-    static let scanSurfaceSize: CGFloat = 80
+    // A rock among rocks. The short `~<channel>` address encodes in 25 modules
+    // rather than 33, which buys back the room the first attempts spent: at 64
+    // points the code draws at 58 — the stones are 56 — with four device pixels
+    // to a module, above the three-pixel floor. So it keeps the wall's rhythm
+    // instead of being the one tile that shouts.
+    static let scanSurfaceSize: CGFloat = 64
 
     /// True when this rock shows a scannable code instead of the tumbling
     /// sigil. Fixed at construction, because it decides the surface's
