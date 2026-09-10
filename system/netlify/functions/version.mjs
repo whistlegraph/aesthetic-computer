@@ -15,6 +15,23 @@ const TANGLED_REPO_URL =
 const RECENT_COMMIT_COUNT = 10;
 const HISTORY_SCAN_LIMIT = 50;
 
+// 📦 How long a matched-hash request is held open before answering "nothing
+// changed", and how often the deployed commit is re-read while it waits.
+// This used to be a flat 4s sleep, which cost one request per open tab every
+// four seconds forever: 1,098,386 requests in the 24h of 2026-09-09, or 57.0%
+// of everything aesthetic.computer served that day. Holding for 45s instead
+// cuts that by ~11x, and because lith is one long-lived Express process the
+// re-read below actually sees a new .commit-ref mid-request, so a deploy is
+// still detected within a second rather than within the hold.
+const LONG_POLL_MS = Number(process.env.VERSION_LONG_POLL_MS || 45000);
+const LONG_POLL_TICK_MS = 1000;
+
+// The unmatched-hash branch shells out to `git fetch`, and every boot calls it
+// once with no `current` param. Cache the resolved payload briefly so a burst
+// of boots shares one fetch instead of one apiece.
+const REMOTE_CACHE_MS = 15000;
+let remoteCache = { key: null, at: 0, value: null };
+
 // Get deployed commit from file written during build/deploy.
 // In Netlify Dev (local), the .commit-ref on disk is usually a stale leftover
 // from a previous deploy, so fall back to `git rev-parse HEAD` instead — the
@@ -163,7 +180,7 @@ async function getLatestFromTangledMirror(deployedCommit) {
 
 export default async (request) => {
   const repoRoot = getRepoRoot();
-  const deployedCommit = await getDeployedCommit(repoRoot);
+  let deployedCommit = await getDeployedCommit(repoRoot);
   const url = new URL(request.url);
   const clientHash = url.searchParams.get("current");
   const rawPath = url.searchParams.get("path") || "";
@@ -174,31 +191,42 @@ export default async (request) => {
     ? rawPath
     : "";
 
-  // Long-poll mode: if client sends ?current=<hash> matching deployed version,
-  // wait ~4 seconds before responding (allows near-instant new-deploy detection)
+  // Long-poll mode: the client's hash matches what is deployed, so hold the
+  // connection and re-read .commit-ref until it moves or the hold expires.
+  // Falling out of the loop with a changed commit drops through to the full
+  // payload below, which is what the client reads as "a deploy happened".
   if (clientHash && clientHash === deployedCommit.slice(0, 7)) {
-    await new Promise((r) => setTimeout(r, 4000));
-    // Re-check isn't useful (same function instance), but the NEXT call after
-    // a Netlify redeploy will hit the new function with a new .commit-ref
-    return new Response(
-      JSON.stringify({ changed: false, deployed: deployedCommit.slice(0, 7) }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-        },
-      }
-    );
+    const deadline = Date.now() + LONG_POLL_MS;
+    while (Date.now() < deadline && !request.signal?.aborted) {
+      await new Promise((r) => setTimeout(r, LONG_POLL_TICK_MS));
+      deployedCommit = await getDeployedCommit(repoRoot);
+      if (deployedCommit.slice(0, 7) !== clientHash) break;
+    }
+    if (deployedCommit.slice(0, 7) === clientHash) {
+      return new Response(
+        JSON.stringify({ changed: false, deployed: clientHash }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
+    }
   }
 
   try {
-    const {
-      latestCommit,
-      behindBy,
-      recentCommits,
-    } = repoRoot
-      ? await getLatestFromTangled(repoRoot, deployedCommit, pathFilter)
-      : await getLatestFromTangledMirror(deployedCommit);
+    const cacheKey = `${deployedCommit}:${pathFilter}`;
+    let resolved;
+    if (remoteCache.key === cacheKey && Date.now() - remoteCache.at < REMOTE_CACHE_MS) {
+      resolved = remoteCache.value;
+    } else {
+      resolved = repoRoot
+        ? await getLatestFromTangled(repoRoot, deployedCommit, pathFilter)
+        : await getLatestFromTangledMirror(deployedCommit);
+      remoteCache = { key: cacheKey, at: Date.now(), value: resolved };
+    }
+    const { latestCommit, behindBy, recentCommits } = resolved;
 
     const status = behindBy === 0 ? "current" : "behind";
 
