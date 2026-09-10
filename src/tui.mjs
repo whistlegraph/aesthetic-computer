@@ -52,6 +52,12 @@ const state = {
   // copy of it. `/qr` still brings it back — on a machine with no Slab menu
   // bar the code in here is the only way onto a phone.
   showQr: false,
+  // Actions run without stopping to ask, and are reported once they have. The
+  // engine has no OS sandbox of its own, so what still holds a session in is
+  // narrower than a prompt: file tools confined to this directory, the fetching
+  // tools withheld, and none of the user's own settings or servers in scope.
+  // `/ask on` trades the speed back for the question.
+  autoAllow: true,
   entries: [
     {
       id: "privacy",
@@ -412,11 +418,22 @@ function handleRequest(request) {
     request.method === "item/commandExecution/requestApproval" ||
     request.method === "item/fileChange/requestApproval"
   ) {
-    state.approval = {
-      id: request.id,
-      method: request.method,
-      subject: approvalSubject(request.method, request.params || {}),
-    };
+    const subject = approvalSubject(request.method, request.params || {});
+    // Allowed without asking, by default. The first real session spent two of
+    // its two hours and nineteen minutes parked on prompts with nobody sitting
+    // in front of them, and that is the failure this default answers.
+    //
+    // The interface stays the approver rather than handing the decision down to
+    // the engine, so every action still arrives here and is still written into
+    // the transcript: you read what ran instead of being asked about it first.
+    // `/ask on` puts the question back for the rest of the session.
+    if (state.autoAllow) {
+      engine.respond(request.id, { decision: "accept" });
+      addEntry("notice", `Ran: ${subject}`);
+      redraw();
+      return;
+    }
+    state.approval = { id: request.id, method: request.method, subject };
     slabSession.awaitingInput(
       request.method === "item/commandExecution/requestApproval"
         ? "aesthetic code needs command approval"
@@ -637,7 +654,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -683,6 +700,21 @@ async function submitInput() {
       } catch (error) {
         addEntry("error", errorText(error));
       }
+      return redraw();
+    }
+    // The way back. Auto-allow is the default, so this is the control that
+    // matters most in here: one word returns the question for the rest of the
+    // session, and the notice says which way it went rather than assuming the
+    // reader remembers which way it was.
+    if (command === "/ask") {
+      const want = rest.trim().toLowerCase();
+      state.autoAllow = want === "on" ? false : want === "off" ? true : !state.autoAllow;
+      addEntry(
+        "notice",
+        state.autoAllow
+          ? "Running without asking · /ask on to be asked first"
+          : "Asking before each action · /ask off to stop asking",
+      );
       return redraw();
     }
     if (command === "/open") {

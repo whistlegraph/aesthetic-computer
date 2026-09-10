@@ -28,7 +28,8 @@ prompt, orange highlight, magenta handle) and shows the signed-in `@handle` and
 the piece currently being worked on in the header.
 
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
-`/piece [name]`, `/runtime [mjs|lisp|processing]`, `/backend [claude|codex]`,
+`/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
+`/backend [claude|codex]`,
 `/model [name]`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
 `ctrl-c` to interrupt a running turn or exit while idle.
 
@@ -124,12 +125,23 @@ at `https://aesthetic.computer/@handle/slug`, exactly like the web prompt's
 uploads the source, and reads the live file back before reporting the URL.
 Writing a file under `disks/` does not publish it, and the engine is told so.
 
+`--autopublish` does that on every save instead, so the session's URL is live
+the whole time the piece is being worked on and the last edit is still there
+after the terminal closes. It coalesces — a publish runs once the saves stop,
+never more than one at a time, and never twice for the same bytes — and it
+flushes the pending save on exit. Off by default, since it writes to a public
+route under your own handle: turn it on per session with the flag or
+`/autopublish`, or for every session with `AESTHETIC_CODE_AUTOPUBLISH=1`, which
+`--no-autopublish` overrides. With it on the engine is told the piece is
+already live and told not to ask you to publish.
+
 ```sh
 aesthetic login
 aesthetic whoami
 aesthetic publish system/public/aesthetic.computer/disks/smiley.mjs
 ac --runtime lisp
 ac --backend codex
+ac --autopublish
 ```
 
 ```sh

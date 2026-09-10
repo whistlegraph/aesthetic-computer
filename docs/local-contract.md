@@ -21,11 +21,22 @@ and the session token to `aesthetic.computer` only when the user runs
 `/publish`. The engine bridge never receives the token; publishing is an
 interface action, not an agent tool.
 
+Auto-publish (`--autopublish`, `AESTHETIC_CODE_AUTOPUBLISH=1`, `/autopublish`)
+is the one way that becomes repeated rather than per-command: with it on, the
+interface publishes the session's piece a couple of seconds after every save,
+and the last save is flushed on the way out. It is off by default and has to be
+turned on per session or per environment, because it writes to a public route
+under the user's own handle. It changes when publishing happens, not who does
+it — still the interface, still the same one file, and the token still never
+reaches the bridge. The agent cannot turn it on, and the transcript keeps one
+line naming the URL each publish went to.
+
 ## Live piece boundary
 
 The session's piece is pushed to `aesthetic.computer/run` on a private code
-channel every time its file changes, and re-sent unchanged every few seconds so
-that a phone scanning the QR code later still receives it. That request carries
+channel every time its file changes. The session server retains the last
+message a channel received, so a phone that scans the code later still receives
+the piece without the interface re-announcing it. That request carries
 the piece's source and the channel token, and nothing else: no account token, no
 workspace paths, no conversation. The channel token is random per session and is
 never reused.
