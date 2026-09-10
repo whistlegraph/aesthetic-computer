@@ -78,6 +78,21 @@ assert_contains "$output" 'runtime=lisp'
 output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'runtime=mjs'
 
+# Publishing is outward-facing, so it is off unless this session asked for it —
+# by flag or by environment, with the flag able to say no to the environment.
+assert_contains "$output" 'autopublish=off'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" --autopublish "$WORK_DIR")"
+assert_contains "$output" 'autopublish=on'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 AESTHETIC_CODE_AUTOPUBLISH=1 "$CLI" "$WORK_DIR")"
+assert_contains "$output" 'autopublish=on'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 AESTHETIC_CODE_AUTOPUBLISH=1 "$CLI" --no-autopublish "$WORK_DIR")"
+assert_contains "$output" 'autopublish=off'
+
+output="$(AESTHETIC_CODE_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+
 # Claude is the default engine bridge, on Fable; Codex stays selectable.
 assert_contains "$output" 'backend=claude'
 assert_contains "$output" 'model=claude-opus-5'

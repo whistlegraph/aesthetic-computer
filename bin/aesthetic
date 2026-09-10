@@ -21,6 +21,7 @@ usage() {
     cat <<'EOF'
 Usage: ac [directory] [--runtime mjs|lisp|processing]
                       [--backend claude|codex] [--model NAME]
+                      [--autopublish | --no-autopublish]
        aesthetic [directory]
        aesthetic doctor
        aesthetic login | logout | whoami
@@ -36,6 +37,12 @@ live on a phone. --runtime picks the language of that piece.
 --backend picks the engine bridge: claude (the default, on
 claude-opus-5) or codex. --model names the model on that bridge, and
 /backend and /model change either one mid-session.
+
+--autopublish publishes the piece under your @handle a couple of seconds
+after every save, so the session's URL is live the whole time it is being
+worked on. Off by default; AESTHETIC_CODE_AUTOPUBLISH=1 turns it on for
+every session, --no-autopublish overrides that, and /autopublish toggles
+it mid-session.
 EOF
 }
 
@@ -100,8 +107,19 @@ initial_prompt=""
 runtime=""
 backend=""
 model=""
+# Empty means "whatever the environment says"; the interface reads
+# AESTHETIC_CODE_AUTOPUBLISH itself, and these two flags override it.
+autopublish=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --autopublish)
+            autopublish="on"
+            shift
+            ;;
+        --no-autopublish)
+            autopublish="off"
+            shift
+            ;;
         --resume)
             [[ $# -ge 2 ]] || fail "--resume requires a thread id"
             [[ "$2" =~ ^[0-9A-Fa-f-]{36}$ ]] || fail "invalid thread id"
@@ -177,6 +195,7 @@ if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
     printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
     printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
     printf 'runtime=%s\n' "${runtime:-mjs}"
+    printf 'autopublish=%s\n' "${autopublish:-$([[ "${AESTHETIC_CODE_AUTOPUBLISH:-0}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
     printf 'backend=%s\n' "$selected_backend"
     printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
     exit 0
@@ -190,6 +209,8 @@ arguments=("--cwd" "$target_directory")
 if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
 if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
+if [[ "$autopublish" == "on" ]]; then arguments+=("--autopublish"); fi
+if [[ "$autopublish" == "off" ]]; then arguments+=("--no-autopublish"); fi
 arguments+=("--backend" "$selected_backend")
 if [[ -n "$model" ]]; then arguments+=("--model" "$model"); fi
 exec node "$PROJECT_DIR/src/tui.mjs" "${arguments[@]}"

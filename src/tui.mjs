@@ -4,12 +4,13 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
+import { AutoPublisher } from "./autopublish.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
 import { cleanText, renderBoot, renderFrame } from "./render.mjs";
-import { mascotNextFrameIn } from "./mascot.mjs";
+import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 
@@ -18,6 +19,7 @@ const option = (name) => {
   const index = arguments_.indexOf(name);
   return index >= 0 ? arguments_[index + 1] || "" : "";
 };
+const flag = (name) => arguments_.includes(name);
 const cwd = path.resolve(option("--cwd") || process.cwd());
 const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
@@ -59,6 +61,32 @@ const state = {
   ],
 };
 
+// Publishing on every save, when the session asked for it. The token stays in
+// here — this is the interface publishing on its own schedule, not a tool the
+// agent can reach — and the piece keeps its own name, so a session's URL is
+// settled the moment auto-publish is on.
+const autopublish = new AutoPublisher({
+  enabled:
+    !flag("--no-autopublish") &&
+    (flag("--autopublish") ||
+      /^(1|on|true|yes)$/i.test(process.env.AESTHETIC_CODE_AUTOPUBLISH || "")),
+  publish: () => publishPiece({ file: live.file, slug: live.slug, session, cwd }),
+});
+
+// Why a save might not be publishable. Auto-publish stays quiet about all of
+// these until something asks it to publish — an unsigned-in session should not
+// narrate a failure on every keystroke.
+function autopublishBlocker() {
+  if (!session.signedIn) return "not signed in · /login to publish";
+  if (!session.handle) return "this account has no @handle yet";
+  if (!live.runtime.routable) return `${live.runtime.label} has no @handle route yet`;
+  return "";
+}
+
+function autopublishRoute() {
+  return session.handle ? live.publishedUrl(session.handle) : "";
+}
+
 // The model must never mistake a file on disk for a published piece.
 function developerInstructions() {
   const account = session.handle
@@ -73,15 +101,26 @@ function developerInstructions() {
           "Keep the file's first line a `--` comment and keep a top-level `function setup(` or `function draw(`. The live channel sends no file extension, so those two things are the only way the piece is recognised as Lua rather than compiled as JavaScript — drop either and the phone goes blank.",
         ]
       : [];
+  // With auto-publish on, telling the user to run /publish is wrong twice: the
+  // work is already done, and the URL it would print is one they already have.
+  const publishing =
+    autopublish.enabled && !autopublishBlocker()
+      ? [
+          `Auto-publish is ON for this session: the interface publishes ${live.file} to ${autopublishRoute()} a couple of seconds after every save. That URL is live and stays live after this session ends.`,
+          "So do NOT end with a /publish command and do NOT tell the user to publish — say the piece is live and name that URL. Only mention /publish if a publish is reported as failing.",
+        ]
+      : [
+          "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
+          "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
+          "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
+        ];
   return [
     "You are running inside Aesthetic Code, a terminal interface for Aesthetic Computer (AC) work.",
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
     ...dialect,
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
-    "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
-    "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
-    "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
+    ...publishing,
     "Dev servers: do not stop a dev server you were asked to start; say that it is still running.",
   ].join("\n");
 }
@@ -143,6 +182,26 @@ function updateEntry(id, kind, text) {
 
 // The guard keeps a redraw from re-entering itself; `finally` is what keeps a
 // single bad frame from latching it shut and freezing the screen for good.
+let danceTimer = null;
+const danceStartedAt = Date.now();
+// While the machine has the floor the footer figure moves, and a turn that is
+// thinking rather than printing sends no events to repaint on — so the dance
+// keeps its own slow tick and drops it the moment the turn ends.
+function danceTick() {
+  danceTimer = null;
+  if (closing) return;
+  state.mascotMs = Date.now() - danceStartedAt;
+  const next = mascotRowNextFrameIn(state.mascotMs, state.busy);
+  if (next === null) return;
+  redraw();
+  danceTimer = setTimeout(danceTick, next);
+  danceTimer.unref?.();
+}
+function startDance() {
+  state.mascotMs = Date.now() - danceStartedAt;
+  if (!danceTimer) danceTick();
+}
+
 function redraw() {
   if (closing || drawing) return;
   drawing = true;
@@ -154,17 +213,34 @@ function redraw() {
   }
 }
 
-function finish(code = 0) {
+async function finish(code = 0) {
   if (closing) return;
   closing = true;
   session.unwatch();
-  live.cleanup();
+  const pending = autopublish.pending || autopublish.running;
+  live.unwatch();
   slabSession.close();
   engine.close();
   process.stdin.setRawMode(false);
   process.stdin.pause();
   process.stdout.write("\x1b[?2004l\x1b[?25h\x1b[?1049l");
   process.exitCode = code;
+  // The last save has to land. Quitting a second after an edit would otherwise
+  // drop it — auto-publish coalesces, and the timer it was waiting on dies with
+  // the process. This runs after the screen is handed back, so it prints as
+  // ordinary terminal output rather than into a frame that is already gone.
+  if (pending) {
+    process.stdout.write("publishing the last save…\n");
+    try {
+      const result = await autopublish.flush();
+      process.stdout.write(result ? `${result.route}\n` : "the last save did not publish\n");
+    } catch {
+      process.stdout.write("the last save did not publish\n");
+    }
+  }
+  // The blank goes last: an untouched piece is deleted, and deleting it before
+  // a flush would publish an empty file or nothing at all.
+  live.cleanup();
 }
 
 function errorText(error) {
@@ -184,6 +260,30 @@ function liveError(error) {
   addEntry("error", `Live push failed: ${errorText(error)}`);
   redraw();
 }
+
+// One line in the transcript, rewritten in place. Auto-publish runs on its own
+// every few seconds for a whole session; it does not get to push the
+// conversation off the screen doing it.
+const AUTOPUBLISH_ENTRY = "autopublish";
+
+autopublish.on("start", () => {
+  updateEntry(AUTOPUBLISH_ENTRY, "publish", `Publishing ${live.slug}…`);
+  redraw();
+});
+
+autopublish.on("published", (result) => {
+  updateEntry(
+    AUTOPUBLISH_ENTRY,
+    "publish",
+    `${result.route} · auto${result.verified ? "" : " · uploaded, not yet readable"}`,
+  );
+  redraw();
+});
+
+autopublish.on("failed", (error) => {
+  updateEntry(AUTOPUBLISH_ENTRY, "error", `Auto-publish failed: ${errorText(error)}`);
+  redraw();
+});
 
 function refreshQr() {
   state.qr = state.showQr ? qrBlock(live.scanUrl) : null;
@@ -231,6 +331,7 @@ function handleNotification({ method, params = {} }) {
   switch (method) {
     case "turn/started":
       state.busy = true;
+      startDance();
       state.status = "working";
       engine.turnId = params.turn?.id || engine.turnId;
       slabSession.working();
@@ -398,6 +499,34 @@ function commandLogout() {
   redraw();
 }
 
+function commandAutopublish(argumentText) {
+  const word = argumentText.trim().toLowerCase();
+  if (word && !/^(on|off|yes|no|true|false|1|0)$/.test(word)) {
+    addEntry("error", "Usage: /autopublish [on|off]");
+    return redraw();
+  }
+  const wanted = word ? /^(on|yes|true|1)$/.test(word) : !autopublish.enabled;
+  autopublish.set(wanted);
+  const blocker = autopublishBlocker();
+  if (!wanted) {
+    addEntry("notice", "Auto-publish off · /publish puts the piece live");
+  } else if (blocker) {
+    addEntry("notice", `Auto-publish on · nothing will publish yet: ${blocker}`);
+  } else {
+    addEntry("notice", `Auto-publish on · every save goes to ${autopublishRoute()}`);
+    // Turning it on mid-session should publish what is already written, not
+    // wait for the next keystroke to notice the piece exists.
+    if (!live.pristine) autopublish.note(live.source());
+  }
+  // How publishing works is part of the developer instructions, and those are
+  // written once when the thread opens. A mid-session toggle is real
+  // immediately for the interface and only reaches the model on a new thread —
+  // say so, rather than letting it keep recommending /publish for a piece that
+  // is already live.
+  addEntry("notice", "The model is told when a thread opens · /new to tell it now");
+  return redraw();
+}
+
 async function commandPublish(argumentText) {
   const [file = live.file, slug = ""] = argumentText.split(/\s+/).filter(Boolean);
   if (!file) {
@@ -508,7 +637,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -520,6 +649,7 @@ async function submitInput() {
       return redraw();
     }
     if (command === "/publish") return commandPublish(rest);
+    if (command === "/autopublish" || command === "/auto") return commandAutopublish(rest);
     if (command === "/backend" || command === "/engine") return commandBackend(rest);
     if (command === "/model") return commandModel(rest);
     if (command === "/piece") {
@@ -633,6 +763,7 @@ async function submitInput() {
   addEntry("user", text);
   slabSession.working(text);
   state.busy = true;
+  startDance();
   state.status = "working";
   redraw();
   try {
@@ -738,6 +869,13 @@ session.watch().on("change", () => {
 // Mint this session's blank piece and the QR code that opens it on a phone.
 live.create();
 live.watch(liveError);
+// Every save that reaches the phone is a candidate for the public URL too. The
+// blank is not: an untouched session should leave nothing behind, out there or
+// in the workspace.
+live.on("push", () => {
+  if (live.pristine || autopublishBlocker()) return;
+  autopublish.note(live.source());
+});
 state.piece = `${live.slug}${live.runtime.extension}`;
 refreshQr();
 
@@ -786,6 +924,15 @@ try {
     `${live.slug}${live.runtime.extension} · scan the rock, /open in a browser, ` +
       `or /qr for a code · ${live.scanUrl}`,
   );
+  if (autopublish.enabled) {
+    const blocker = autopublishBlocker();
+    addEntry(
+      "notice",
+      blocker
+        ? `Auto-publish on · nothing will publish yet: ${blocker}`
+        : `Auto-publish on · every save goes to ${autopublishRoute()}`,
+    );
+  }
   live.push().catch(() => {});
   redraw();
   if (initialPrompt) {

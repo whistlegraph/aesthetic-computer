@@ -31,6 +31,39 @@ const POSES = {
   blink: [" ▪ ", "╱│╲", "╱ ╲"],
 };
 
+// One row, for the footer, where he lives for the rest of the session. Working
+// is the only thing worth animating there: it is the one fact the interface
+// cannot otherwise tell you without spending a row on it, and a figure that
+// moves exactly while the machine is busy needs no label.
+const ONE_ROW = {
+  stand: "\\●/",
+  // Arms down, arms up. Two frames is a dance at this size — the eye reads
+  // alternation as effort, and anything more elaborate is noise in a corner.
+  work: ["\\●/", "/●\\", "—●—", "/●\\"],
+};
+
+export const MASCOT_ROW_WIDTH = 3;
+
+// How fast he dances. Slow enough not to strobe beside text someone is
+// reading, fast enough to read as motion rather than a glitch.
+const DANCE_MS = 220;
+
+// The one-row guy. `busy` is the only input that changes him: standing when it
+// is your turn, dancing while the machine has the floor.
+export function mascotRow(elapsed = 0, busy = false) {
+  if (!busy) return ONE_ROW.stand;
+  const ms = Math.max(0, Number(elapsed) || 0);
+  return ONE_ROW.work[Math.floor(ms / DANCE_MS) % ONE_ROW.work.length];
+}
+
+// When the footer next needs repainting. Standing costs nothing — the answer
+// is null, and the caller can stop asking.
+export function mascotRowNextFrameIn(elapsed = 0, busy = false) {
+  if (!busy) return null;
+  const ms = Math.max(0, Number(elapsed) || 0);
+  return DANCE_MS - (ms % DANCE_MS);
+}
+
 // Milliseconds. The walk is brisk enough that nobody waits for it and slow
 // enough to read as walking; the wave lands after he stops, because waving
 // mid-stride looks like falling over.

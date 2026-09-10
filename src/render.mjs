@@ -3,7 +3,7 @@
 // The palette is the Aesthetic Computer prompt's dark scheme (disks/prompt.mjs
 // `scheme.dark`): purple ground, pink prompt block, orange highlight, magenta
 // handle, light-purple secondary text.
-import { MASCOT_HEIGHT, mascotAt } from "./mascot.mjs";
+import { MASCOT_HEIGHT, mascotAt, mascotRow } from "./mascot.mjs";
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
 const CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
@@ -374,7 +374,13 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // The little guy keeps the far corner from the QR code. He is one row and he
   // does not move: an animated footer costs a full repaint every few seconds
   // for the rest of the session, and the entrance already showed he is alive.
-  const guy = `${paint(useColor, "soft", "\\")}${paint(useColor, "handle", "\u25cf")}${paint(useColor, "soft", "/")}`;
+  // He dances while the machine has the floor and stands while it is yours —
+  // the one fact the interface would otherwise need a row and a word to say.
+  const pose = Array.from(mascotRow(state.mascotMs ?? 0, Boolean(state.busy)));
+  const guy =
+    `${paint(useColor, "soft", pose[0])}` +
+    `${paint(useColor, "handle", pose[1])}` +
+    `${paint(useColor, "soft", pose[2])}`;
   const helpText = state.busy
     ? " ctrl-c interrupt"
     : " /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
