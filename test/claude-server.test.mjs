@@ -9,6 +9,21 @@ import { ClaudeServer, DEFAULT_CLAUDE_MODEL } from "../src/claude-server.mjs";
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const fake = path.join(directory, "fake-claude-cli.mjs");
 
+// A flag's value, or undefined when the flag is not there. Reaching for
+// `argv.indexOf(name) + 1` instead reads argv[0] on a missing flag and
+// compares against "--print", which fails in a way that names the wrong cause.
+function flagIn(argv, name) {
+  const index = argv.indexOf(name);
+  return index < 0 ? undefined : argv[index + 1];
+}
+
+// Every spawn that recorded itself, oldest first.
+function launches(argvFile) {
+  const raw = readFileSync(argvFile, "utf8");
+  const lines = raw.split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  return { raw, lines, argvs: lines.map((line) => line.argv) };
+}
+
 function scratch() {
   const root = mkdtempSync(path.join(tmpdir(), "aesthetic-claude-"));
   return { root, cleanup: () => rmSync(root, { recursive: true, force: true }) };
@@ -110,8 +125,10 @@ test("the launch carries the approval contract and the workspace", async (t) => 
     environment: { FAKE_CLAUDE_ARGV: argvFile },
   });
   await engine.connect();
-  const argv = JSON.parse(readFileSync(argvFile, "utf8"));
-  const flag = (name) => argv[argv.indexOf(name) + 1];
+  const record = launches(argvFile);
+  assert.equal(record.lines.length, 1, `expected one spawn, got:\n${record.raw}`);
+  const argv = record.argvs[0];
+  const flag = (name) => flagIn(argv, name);
 
   assert.equal(flag("--model"), DEFAULT_CLAUDE_MODEL);
   // Without this the CLI has nobody to ask and denies every prompt itself.
@@ -134,11 +151,26 @@ test("resuming names the thread instead of minting one", async (t) => {
   const argvFile = path.join(root, "argv.json");
   const threadId = "00000000-0000-0000-0000-000000000001";
   const engine = bridge(t, { resumeThreadId: threadId, environment: { FAKE_CLAUDE_ARGV: argvFile } });
+  const completed = new Promise((resolve) => {
+    engine.on("notification", ({ method, params }) => {
+      if (method === "turn/completed") resolve(params.turn.status);
+    });
+  });
+  engine.on("request", (request) => engine.respond(request.id, { decision: "accept" }));
+
   await engine.connect();
-  const argv = JSON.parse(readFileSync(argvFile, "utf8"));
-  assert.equal(argv[argv.indexOf("--resume") + 1], threadId);
+  const record = launches(argvFile);
+  assert.equal(record.lines.length, 1, `expected one spawn, got:\n${record.raw}`);
+  const argv = record.argvs[0];
+  assert.equal(flagIn(argv, "--resume"), threadId, `argv was:\n${record.raw}`);
   assert.ok(!argv.includes("--session-id"));
-  assert.equal(engine.threadId, threadId);
+
+  // Take a turn before reading the id back. `system/init` arrives with the
+  // turn, and it is what revises the thread id — asserting straight after
+  // connect() races that message and can pass without ever seeing it.
+  await engine.startTurn("carry on");
+  assert.equal(await completed, "completed");
+  assert.equal(engine.threadId, threadId, "a resumed thread keeps its id");
   cleanup();
 });
 

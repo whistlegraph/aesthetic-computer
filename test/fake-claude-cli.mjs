@@ -1,10 +1,24 @@
 // A stand-in for `claude` in headless stream-json mode: enough of the
 // protocol to drive one turn that writes a file and asks to do it.
-import { writeFileSync } from "node:fs";
+import { appendFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 
 const argv = process.argv.slice(2);
-if (process.env.FAKE_CLAUDE_ARGV) writeFileSync(process.env.FAKE_CLAUDE_ARGV, JSON.stringify(argv));
+// One line per spawn, appended: a second launch must show up rather than
+// overwrite the first.
+if (process.env.FAKE_CLAUDE_ARGV) {
+  appendFileSync(
+    process.env.FAKE_CLAUDE_ARGV,
+    `${JSON.stringify({ pid: process.pid, ppid: process.ppid, at: Date.now(), argv })}\n`,
+  );
+}
+
+// A missing flag has no value. `argv.indexOf(name) + 1` reads argv[0] when the
+// flag is absent, which quietly hands back "--print" instead of nothing.
+function flag(name) {
+  const index = argv.indexOf(name);
+  return index < 0 ? "" : argv[index + 1] || "";
+}
 
 function send(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -14,7 +28,7 @@ const file = "/tmp/piece.mjs";
 const toolUseId = "toolu_1";
 // The real CLI honours --session-id and keeps a resumed id, and reports it
 // back on every turn's init.
-const sessionId = argv[argv.indexOf("--session-id") + 1] || argv[argv.indexOf("--resume") + 1] || "session-1";
+const sessionId = flag("--session-id") || flag("--resume") || "session-1";
 
 createInterface({ input: process.stdin }).on("line", (line) => {
   const message = JSON.parse(line);
