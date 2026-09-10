@@ -435,7 +435,11 @@ final class PromptSigilOverlay {
     /// legible to a phone camera held at desk distance, and shrunk to stone
     /// size its modules stop resolving. Even at this size it eats far less of
     /// the pane than the seventeen rows of half-blocks it replaces.
-    static let scanSurfaceSize: CGFloat = 140
+    // Bigger than a stone because it has to be readable by a camera, but not a
+    // billboard: at 2x this is five device pixels per module, comfortably above
+    // the three-pixel floor and under half the area of the first attempt, which
+    // covered the corner of the terminal it was anchored to.
+    static let scanSurfaceSize: CGFloat = 96
 
     /// True when this rock shows a scannable code instead of the tumbling
     /// sigil. Fixed at construction, because it decides the surface's
