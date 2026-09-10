@@ -183,6 +183,10 @@ function liveError(error) {
 
 function refreshQr() {
   state.qr = state.showQr ? qrBlock(live.scanUrl) : null;
+  // The rock in the menu bar carries the same address. `/qr` hides the code in
+  // here, not out there — the rock is a different surface with its own room,
+  // and hiding one is no reason to blank the other.
+  slabSession.live(`${live.slug}${live.runtime.extension}`, live.scanUrl);
 }
 
 function itemSummary(item) {

@@ -59,6 +59,12 @@ export class SlabSession {
       agent_pid: pid,
       agent_type: "aesthetic-code",
       handle: "",
+      // The piece this session is writing, and the address a phone reaches it
+      // at. The menubar draws these as a scannable code on the rock, which is
+      // where a QR wants to be: real pixels on a surface you can hold a camera
+      // up to, rather than seventeen rows of half-blocks inside the transcript.
+      piece: "",
+      scan_url: "",
       provider_agent_type: "codex",
       provider_session_id: "",
       updated: now(),
@@ -87,6 +93,16 @@ export class SlabSession {
   // Which @handle this rock acts as (display only; never email or name).
   identity(handle = "") {
     this.#update({ handle: String(handle || "").replace(/^@/, "") });
+  }
+
+  // The live piece and its scan address. Called whenever either changes — a
+  // session renames its piece, or switches runtime — so the code on the rock
+  // always points at what is actually running.
+  live(piece = "", scanUrl = "") {
+    this.#update({
+      piece: String(piece || ""),
+      scan_url: String(scanUrl || ""),
+    });
   }
 
   working(prompt = "") {
