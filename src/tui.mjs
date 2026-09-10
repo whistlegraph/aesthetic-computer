@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
@@ -499,7 +500,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -543,6 +544,32 @@ async function submitInput() {
         }
       } catch (error) {
         addEntry("error", errorText(error));
+      }
+      return redraw();
+    }
+    if (command === "/open") {
+      // The code is for a phone. This is for the machine the session is already
+      // running on: same URL, same channel, same autorun — the piece opens in a
+      // browser here and updates on every save exactly as the phone does.
+      const url = `https://${live.scanUrl}`;
+      const opener = process.platform === "darwin"
+        ? "open"
+        : process.platform === "win32"
+          ? "explorer"
+          : "xdg-open";
+      try {
+        // Detached and fully redirected: a browser launcher that inherits this
+        // terminal can print into the frame, and anything printed into the
+        // frame scrolls it.
+        const child = spawn(opener, [url], { stdio: "ignore", detached: true });
+        child.on("error", (error) => {
+          addEntry("error", `Could not open a browser: ${errorText(error)}`);
+          redraw();
+        });
+        child.unref();
+        addEntry("notice", `Opening ${url}`);
+      } catch (error) {
+        addEntry("error", `Could not open a browser: ${errorText(error)}`);
       }
       return redraw();
     }

@@ -369,7 +369,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const guy = `${paint(useColor, "soft", "\\")}${paint(useColor, "handle", "\u25cf")}${paint(useColor, "soft", "/")}`;
   const helpText = state.busy
     ? " ctrl-c interrupt"
-    : " /help \u00b7 /login \u00b7 /publish \u00b7 /qr \u00b7 ctrl-c quit";
+    : " /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const help =
     width >= 23
       ? ` ${guy}${paint(useColor, "muted", clipText(helpText, width - 5))}`
