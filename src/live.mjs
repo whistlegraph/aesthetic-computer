@@ -26,9 +26,11 @@ import { randomChannel, randomSlug } from "./names.mjs";
 import { DEFAULT_RUNTIME, runtimeFor, runtimeForExtension } from "./runtimes.mjs";
 
 export const SITE = "https://aesthetic.computer";
-// Scannable codes get smaller the shorter the text, and every phone camera
-// adds the scheme back, so the QR carries a bare host.
-export const SCAN_HOST = "aesthetic.computer";
+// Scannable codes get smaller the shorter the text, and this address exists to
+// be scanned. prompt.ac is the same runtime as aesthetic.computer behind a
+// leaner shell, and nine bytes shorter — which is a whole version of the code
+// once the scheme a phone camera needs is added back on.
+export const SCAN_HOST = "prompt.ac";
 const DISKS = join("system", "public", "aesthetic.computer", "disks");
 
 // Pieces belong in the disks folder when the workspace is the Aesthetic

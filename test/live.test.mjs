@@ -41,7 +41,7 @@ test("names are pronounceable and channels stay short enough to scan", () => {
 // to the command name, so `channel` runs with no argument and joins nothing.
 test("the scan URL separates the channel from the command with a space", () => {
   const live = new LivePiece({ cwd: tmpdir(), channel: "Ab0-_9Zz" });
-  assert.equal(live.scanUrl, "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
+  assert.equal(live.scanUrl, "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun");
   const [, command] = live.scanUrl.match(/\/prompt~(.*)~!autorun$/);
   assert.deepEqual(decodeURIComponent(command).split(" "), ["channel", "Ab0-_9Zz"]);
 });
@@ -67,7 +67,7 @@ function decodeBlock(block) {
 
 test("the rendered code matches the encoder module for module", async () => {
   const { qrcode, ErrorCorrectLevel } = await import("../src/vendor/qr.mjs");
-  const url = "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun";
+  const url = "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun";
   const quiet = 2;
   const modules = qrcode(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
   const grid = decodeBlock(qrBlock(url, { quiet }));
@@ -154,7 +154,7 @@ test("a session mints a blank piece, pushes it, and cleans up after itself", asy
   });
 
   assert.equal(live.file, join(root, "movika.mjs"));
-  assert.equal(live.scanUrl, "aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
+  assert.equal(live.scanUrl, "prompt.ac/prompt~channel%20Ab0-_9Zz~!autorun");
   assert.equal(live.publishedUrl("jeffrey"), "https://aesthetic.computer/@jeffrey/movika");
   assert.equal(live.publishedUrl(""), "");
 
