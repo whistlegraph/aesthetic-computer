@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>oskiewar — privacy</title>
+<meta name="description" content="What oskiewar sends, what it keeps, and what it never asks for.">
+<link rel="canonical" href="https://oskiewar.com/privacy.html">
+<style>
+  :root {
+    --brick:  #c9a58c;
+    --mortar: #b8917a;
+    --grass:  #8fbc6b;
+    --ink:    #241c18;
+    --soft:   #5a4a40;
+    --paper:  #f6efe8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--brick);
+    background-image:
+      linear-gradient(var(--mortar) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mortar) 1px, transparent 1px);
+    background-size: 96px 96px;
+    color: var(--ink);
+    font-family: "Comic Relief", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    font-size: 17px; line-height: 1.6;
+    padding: 40px 16px 0; min-height: 100vh;
+  }
+  main {
+    max-width: 620px; margin: 0 auto 48px; background: var(--paper);
+    border: 3px solid var(--ink); border-radius: 10px; padding: 28px 26px 32px;
+  }
+  h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  .tag { color: var(--soft); margin: 0 0 26px; }
+  h2 {
+    font-size: 20px; margin: 30px 0 8px;
+    border-bottom: 2px solid var(--brick); padding-bottom: 4px;
+  }
+  p, li { margin: 0 0 10px; }
+  ul { padding-left: 22px; }
+  a { color: #a8324f; }
+  .lead {
+    background: #efe3d6; border-left: 4px solid var(--ink);
+    padding: 12px 14px; margin: 0 0 6px;
+  }
+  footer {
+    max-width: 620px; margin: 0 auto; padding: 0 0 40px;
+    color: #4a3a30; font-size: 15px;
+  }
+  footer a { color: #7a2438; }
+  .grass { height: 34px; background: var(--grass); border-top: 3px solid var(--ink); margin-top: 34px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>privacy</h1>
+  <p class="tag">oskiewar · last updated 9 September 2026</p>
+
+  <p class="lead">
+    oskiewar has no accounts, no sign-in and no advertising. It never asks for
+    your name, your email or your location, and there is no profile of you to
+    build because the game does not know who you are.
+  </p>
+
+  <h2>What leaves your machine</h2>
+  <ul>
+    <li>
+      <strong>The game itself.</strong> oskiewar downloads its own current
+      version from oskiewar.com so a fix reaches you without a store update.
+      That is an ordinary web request; it carries no identifier we assign.
+    </li>
+    <li>
+      <strong>A fight, while it is happening.</strong> When you play someone
+      else, the positions of the two fighters and the state of the round pass
+      through a relay server so the other player — and anyone watching that
+      room's address — sees the match. This is gameplay: coordinates, timers,
+      scores. It is not stored after the round ends.
+    </li>
+    <li>
+      <strong>Finished rounds.</strong> A completed round may be kept as a
+      compact recording — the inputs and the resulting motion — so rounds can be
+      replayed and watched later. A recording contains the fight and nothing
+      about the person who played it.
+    </li>
+    <li>
+      <strong>Crash reports.</strong> If the game fails, it can send the error
+      and the state it failed in, so the fault can be fixed. No document,
+      keystroke or file of yours is included.
+    </li>
+  </ul>
+
+  <h2>What never leaves</h2>
+  <p>
+    There is no analytics SDK, no advertising identifier, no third-party
+    tracker, and no cross-app or cross-site tracking of any kind. oskiewar does
+    not read your files, your contacts, your camera, your microphone or your
+    location. Nothing is sold or shared with a data broker, because nothing
+    about you is collected in the first place.
+  </p>
+
+  <h2>Children</h2>
+  <p>
+    The game is safe for children to play and collects nothing from anyone
+    regardless of age. Because it asks for no personal information at all, there
+    is none to handle differently.
+  </p>
+
+  <h2>Your say</h2>
+  <p>
+    Since there is no account and nothing identifying you, there is no personal
+    record to request or delete. If you would like a round recording removed,
+    write to
+    <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> and say
+    which room it was in.
+  </p>
+
+  <h2>Changes</h2>
+  <p>
+    If what the game sends ever changes, this page changes with it and the date
+    above moves. Questions go to the same address.
+  </p>
+</main>
+<div class="grass"></div>
+<footer>
+  <p style="padding-top:14px">
+    <a href="https://oskiewar.com">play</a> ·
+    <a href="/support.html">support</a> ·
+    <a href="https://aesthetic.computer">aesthetic.computer</a>
+  </p>
+</footer>
+</body>
+</html>

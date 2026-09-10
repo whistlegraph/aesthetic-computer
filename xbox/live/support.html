@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>oskiewar — support</title>
+<meta name="description" content="oskiewar support: how to play, how to fight a friend, troubleshooting, and how to reach a human.">
+<link rel="canonical" href="https://oskiewar.com/support.html">
+<style>
+  :root {
+    --brick:  #c9a58c;
+    --mortar: #b8917a;
+    --grass:  #8fbc6b;
+    --ground: #5e7a4a;
+    --ink:    #241c18;
+    --soft:   #5a4a40;
+    --violet: #ee82ee;
+    --red:    #cd5c5c;
+    --paper:  #f6efe8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--brick);
+    background-image:
+      linear-gradient(var(--mortar) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mortar) 1px, transparent 1px);
+    background-size: 96px 96px;
+    color: var(--ink);
+    font-family: "Comic Relief", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    padding: 40px 16px 0;
+    min-height: 100vh;
+  }
+  main {
+    max-width: 620px;
+    margin: 0 auto 48px;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 10px;
+    padding: 28px 26px 32px;
+  }
+  h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  .tag { color: var(--soft); margin: 0 0 26px; }
+  h2 {
+    font-size: 20px; margin: 30px 0 8px;
+    border-bottom: 2px solid var(--brick); padding-bottom: 4px;
+  }
+  p, li { margin: 0 0 10px; }
+  ul { padding-left: 22px; }
+  code, kbd {
+    background: #e6dcd2; border: 1px solid #cbbdb0; border-radius: 4px;
+    padding: 1px 6px; font-family: ui-monospace, Menlo, monospace; font-size: 15px;
+  }
+  a { color: #a8324f; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 14px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ded2c6; }
+  th { font-weight: 700; }
+  footer {
+    max-width: 620px; margin: 0 auto; padding: 0 0 40px;
+    color: #4a3a30; font-size: 15px;
+  }
+  footer a { color: #7a2438; }
+  .grass {
+    height: 34px; background: var(--grass);
+    border-top: 3px solid var(--ink); margin-top: 34px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>oskiewar</h1>
+  <p class="tag">pick a pal. pick a fight.</p>
+
+  <h2>Playing</h2>
+  <p>
+    Two fighters, one screen. Move, jump and hit until a round ends; win rounds
+    to win the match. There is no tutorial and nothing to unlock — the whole
+    game is on screen the first time you open it.
+  </p>
+  <table>
+    <tr><th>Move</th><td><kbd>A</kbd> <kbd>D</kbd> — or the left stick on a gamepad</td></tr>
+    <tr><th>Jump</th><td><kbd>W</kbd></td></tr>
+    <tr><th>Crouch</th><td><kbd>S</kbd></td></tr>
+    <tr><th>Kick</th><td><kbd>Space</kbd> or <kbd>F</kbd></td></tr>
+    <tr><th>Punch</th><td><kbd>Return</kbd> or <kbd>G</kbd></td></tr>
+    <tr><th>Shield</th><td><kbd>Shift</kbd>, <kbd>B</kbd> or <kbd>H</kbd></td></tr>
+    <tr><th>Use item</th><td><kbd>Option</kbd></td></tr>
+    <tr><th>Menu / back</th><td><kbd>Esc</kbd> or <kbd>Delete</kbd></td></tr>
+    <tr><th>Full screen</th><td><kbd>⌘F</kbd></td></tr>
+  </table>
+  <p>
+    A second player on the same Mac uses the arrow keys to move, with
+    <kbd>K</kbd> to kick, <kbd>L</kbd> to punch, <kbd>;</kbd> to shield and
+    <kbd>&#39;</kbd> for an item. Two connected gamepads work too — one each.
+  </p>
+
+  <h2>Fighting a friend somewhere else</h2>
+  <p>
+    Every match has a room, and the room is a web address. Send it to a friend
+    and they drop into the second chair from any browser — no account, no
+    install, nothing to sign up for. Both machines run the whole fight and
+    agree with each other continuously, so play stays responsive even when the
+    connection between you is not perfect.
+  </p>
+  <p>
+    If your friend's fighter freezes or snaps, the connection dropped rather
+    than the game. Wait a moment — it recovers on its own — or start a fresh
+    room and send the new address.
+  </p>
+
+  <h2>If something is wrong</h2>
+  <ul>
+    <li>
+      <strong>The window is small when it opens.</strong> That is on purpose, so
+      the game can sit beside your work. Drag any edge, or press <kbd>⌘F</kbd>
+      for full screen.
+    </li>
+    <li>
+      <strong>No sound.</strong> Check the volume in System Settings → Sound and
+      make sure the app is not muted there. The game makes all of its own audio;
+      nothing external is required.
+    </li>
+    <li>
+      <strong>A gamepad is not recognised.</strong> Pair it in System Settings →
+      Bluetooth first, then press a button on it while the game window is
+      focused.
+    </li>
+    <li>
+      <strong>The game looks out of date.</strong> It refreshes itself from
+      oskiewar.com between rounds. Quit and reopen it to take an update
+      immediately.
+    </li>
+    <li>
+      <strong>It will not start, or a round ends in an error screen.</strong>
+      Quit and reopen. If it happens twice in a row, email the address below and
+      say what you were doing — that is genuinely useful and takes one line.
+    </li>
+  </ul>
+
+  <h2>Reaching a human</h2>
+  <p>
+    Write to <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.
+    A person reads it. Say what happened and what you expected instead; a
+    screenshot helps and is never required.
+  </p>
+  <p>
+    oskiewar is made by <a href="https://aesthetic.computer">Aesthetic
+    Computer</a>. You can also just
+    <a href="https://oskiewar.com">play it in a browser</a>.
+  </p>
+</main>
+<div class="grass"></div>
+<footer>
+  <p style="padding-top:14px">
+    <a href="https://oskiewar.com">play</a> ·
+    <a href="/privacy.html">privacy</a> ·
+    <a href="https://aesthetic.computer">aesthetic.computer</a>
+  </p>
+</footer>
+</body>
+</html>
