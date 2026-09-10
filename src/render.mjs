@@ -292,9 +292,15 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const right = `${paint(useColor, state.mode === "local" ? "status" : "highlight", mode)} · ${paint(useColor, statusTone(state.status), status)}`;
   const rightWidth = textWidth(`${mode} · ${status}`);
 
-  // A narrow window drops the piece, then the account, rather than pushing the
-  // status off the end of the row.
-  const room = Math.max(0, width - 3 - rightWidth);
+  // The prompt rock parks itself over the top-right corner of the terminal
+  // window, so the header stops short of it. The rock is a fixed 80 points
+  // wide however this window is sized, which lands between eleven and sixteen
+  // columns across the font sizes anyone reads code in; sixteen clears it, and
+  // the header has the slack to give. A narrow window keeps its status and
+  // spends the gutter instead — nothing is worth hiding the state behind a
+  // rock that might not be there.
+  const rockGutter = width >= 64 ? 16 : 0;
+  const room = Math.max(0, width - 3 - rightWidth - rockGutter);
   const title = "AESTHETIC CODE";
   let account = state.account || "not signed in";
   let piece = state.piece ? clipText(state.piece, 24) : "";
@@ -310,8 +316,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       : `${paint(useColor, "bold text", title)}  ` +
         `${paint(useColor, account.startsWith("@") ? "handle" : "muted", account)}` +
         `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
-  const gap = " ".repeat(Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth));
-  const header = ` ${left}${gap}${right} `;
+  const gap = " ".repeat(
+    Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth - rockGutter),
+  );
+  const header = ` ${left}${gap}${right}${" ".repeat(rockGutter)} `;
   const workspace = clipText(state.workspace || "workspace", Math.max(8, width - 2));
   const pathLine = paint(useColor, "muted", ` ${workspace}`);
 
