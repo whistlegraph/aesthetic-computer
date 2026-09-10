@@ -45,7 +45,11 @@ const state = {
   // What the bridge said it is running, once it has said so.
   model: "",
   qr: null,
-  showQr: true,
+  // The prompt rock in the menu bar draws this session's code at real pixel
+  // resolution, so the transcript does not spend seventeen rows on a worse
+  // copy of it. `/qr` still brings it back — on a machine with no Slab menu
+  // bar the code in here is the only way onto a phone.
+  showQr: false,
   entries: [
     {
       id: "privacy",
@@ -777,7 +781,11 @@ try {
   if (!session.signedIn) {
     addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
   }
-  addEntry("notice", `${live.slug}${live.runtime.extension} · scan the code or open ${live.scanUrl}`);
+  addEntry(
+    "notice",
+    `${live.slug}${live.runtime.extension} · scan the rock, /open in a browser, ` +
+      `or /qr for a code · ${live.scanUrl}`,
+  );
   live.push().catch(() => {});
   redraw();
   if (initialPrompt) {
