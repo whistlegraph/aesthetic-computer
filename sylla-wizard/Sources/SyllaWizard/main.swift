@@ -183,12 +183,21 @@ struct Rect: Codable {
     var fHi: Double
 }
 
+enum BoxDrag {
+    case create
+    case move
+    case resizeLeft
+    case resizeRight
+}
+
 final class SpectroView: NSView {
     let spec: NSImage
     var rects: [Rect?] = Array(repeating: nil, count: SYLS.count)
     var cur = 0
     var player: AVAudioPlayer?
     var dragStart: NSPoint?
+    var dragInitial: Rect?
+    var dragMode: BoxDrag = .create
     var dragged = false
     var onChange: () -> Void = {}
     var onEdit: () -> Void = {}
@@ -207,8 +216,32 @@ final class SpectroView: NSView {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    func specY(_ frequency: Double) -> CGFloat {
-        SPEC_TOP + (1 - frequency) * spec.size.height
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .crosshair)
+        for value in rects.compactMap({ $0 }) {
+            let box = displayRect(value)
+            if box.width > 20 {
+                addCursorRect(box.insetBy(dx: 10, dy: 0), cursor: .openHand)
+            }
+            addCursorRect(NSRect(x: box.minX - 10, y: box.minY,
+                                 width: 20, height: box.height), cursor: .resizeLeftRight)
+            addCursorRect(NSRect(x: box.maxX - 10, y: box.minY,
+                                 width: 20, height: box.height), cursor: .resizeLeftRight)
+        }
+    }
+
+    func displayRect(_ value: Rect) -> NSRect {
+        let x = CGFloat(value.fromMs) / 1000 * PXS
+        let width = CGFloat(value.toMs - value.fromMs) / 1000 * PXS
+        return NSRect(x: x, y: SPEC_TOP, width: width, height: spec.size.height)
+    }
+
+    func modelInterval(_ fromX: CGFloat, _ toX: CGFloat) -> Rect {
+        let x0 = max(0, min(spec.size.width - 4, min(fromX, toX)))
+        let x1 = max(x0 + 4, min(spec.size.width, max(fromX, toX)))
+        return Rect(fromMs: Int(x0 / PXS * 1000), toMs: Int(x1 / PXS * 1000),
+                    fLo: 0, fHi: 1)
     }
 
     override func draw(_ dirty: NSRect) {
@@ -234,25 +267,32 @@ final class SpectroView: NSView {
 
         for (index, value) in rects.enumerated() {
             guard let value else { continue }
-            let x = CGFloat(value.fromMs) / 1000 * PXS
-            let width = CGFloat(value.toMs - value.fromMs) / 1000 * PXS
-            let y = specY(value.fHi)
-            let height = specY(value.fLo) - y
+            let box = displayRect(value)
             let hot = index == cur
             let color = hot
                 ? NSColor(calibratedRed: 1, green: 0.36, blue: 0.62, alpha: 1)
                 : NSColor(calibratedRed: 0.48, green: 0.78, blue: 1, alpha: 0.9)
-            let rect = NSRect(x: x, y: y, width: width, height: height)
             color.withAlphaComponent(hot ? 0.22 : 0.12).setFill()
-            rect.fill()
+            box.fill()
             color.setStroke()
-            let path = NSBezierPath(rect: rect)
+            let path = NSBezierPath(rect: box)
             path.lineWidth = 2
             path.stroke()
             NSAttributedString(string: SYLS[index].0, attributes: [
                 .font: NSFont.boldSystemFont(ofSize: 18),
                 .foregroundColor: color,
-            ]).draw(at: NSPoint(x: x + 4, y: max(SPEC_TOP - 24, y - 26)))
+            ]).draw(at: NSPoint(x: box.minX + 4, y: max(SPEC_TOP - 24, box.minY - 26)))
+            if hot {
+                NSColor(calibratedWhite: 0.06, alpha: 1).setFill()
+                color.setStroke()
+                for x in [box.minX, box.maxX] {
+                    let handle = NSRect(x: x - 5, y: box.midY - 14, width: 10, height: 28)
+                    handle.fill()
+                    let outline = NSBezierPath(rect: handle)
+                    outline.lineWidth = 2
+                    outline.stroke()
+                }
+            }
         }
 
         if let player {
@@ -269,34 +309,75 @@ final class SpectroView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        dragStart = convert(event.locationInWindow, from: nil)
+        let point = convert(event.locationInWindow, from: nil)
+        dragStart = point
+        dragInitial = nil
+        dragMode = .create
         dragged = false
+        let slop: CGFloat = 10
+        for index in rects.indices.reversed() {
+            guard let value = rects[index] else { continue }
+            let box = displayRect(value)
+            guard box.insetBy(dx: -slop, dy: -slop).contains(point) else { continue }
+            cur = index
+            dragInitial = value
+            if abs(point.x - box.minX) <= slop {
+                dragMode = .resizeLeft
+            } else if abs(point.x - box.maxX) <= slop {
+                dragMode = .resizeRight
+            } else {
+                dragMode = .move
+            }
+            onChange()
+            break
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
         guard let start = dragStart else { return }
         let end = convert(event.locationInWindow, from: nil)
-        if abs(end.x - start.x) > 4 { dragged = true }
+        if abs(end.x - start.x) > 3 { dragged = true }
         guard dragged else { return }
-        let x0 = min(start.x, end.x), x1 = max(start.x, end.x)
-        let y0 = min(start.y, end.y), y1 = max(start.y, end.y)
-        let fHi = Double(max(0, min(1, 1 - (y0 - SPEC_TOP) / spec.size.height)))
-        let fLo = Double(max(0, min(1, 1 - (y1 - SPEC_TOP) / spec.size.height)))
-        rects[cur] = Rect(fromMs: Int(x0 / PXS * 1000),
-                          toMs: Int(x1 / PXS * 1000), fLo: fLo, fHi: fHi)
+        switch dragMode {
+        case .create:
+            rects[cur] = modelInterval(start.x, end.x)
+        case .move:
+            guard let initial = dragInitial else { return }
+            let box = displayRect(initial)
+            let width = min(box.width, spec.size.width)
+            let x = min(max(0, box.minX + end.x - start.x), spec.size.width - width)
+            rects[cur] = modelInterval(x, x + width)
+        case .resizeLeft:
+            guard let initial = dragInitial else { return }
+            let box = displayRect(initial)
+            rects[cur] = modelInterval(min(end.x, box.maxX - 4), box.maxX)
+        case .resizeRight:
+            guard let initial = dragInitial else { return }
+            let box = displayRect(initial)
+            rects[cur] = modelInterval(box.minX, max(end.x, box.minX + 4))
+        }
+        window?.invalidateCursorRects(for: self)
         onEdit()
     }
 
     override func mouseUp(with event: NSEvent) {
-        defer { dragStart = nil }
+        defer {
+            dragStart = nil
+            dragInitial = nil
+            dragMode = .create
+        }
         guard let start = dragStart else { return }
         if !dragged {
-            player?.currentTime = TimeInterval(start.x / PXS)
-            player?.play()
-        } else if let next = (cur + 1..<SYLS.count).first(where: { rects[$0] == nil }) {
-            cur = next
-        } else if cur < SYLS.count - 1 {
-            cur += 1
+            if case .create = dragMode {
+                player?.currentTime = TimeInterval(start.x / PXS)
+                player?.play()
+            }
+        } else if case .create = dragMode {
+            if let next = (cur + 1..<SYLS.count).first(where: { rects[$0] == nil }) {
+                cur = next
+            } else if cur < SYLS.count - 1 {
+                cur += 1
+            }
         }
         onChange()
     }
@@ -440,9 +521,12 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
-        guard table.selectedRow >= 0, table.selectedRow != selectedIndex else { return }
+        // Capture the clicked row before saving. Refreshing table data can clear
+        // AppKit's live selection while this notification is still on the stack.
+        let row = table.selectedRow
+        guard takes.indices.contains(row), row != selectedIndex else { return }
         save()
-        selectedIndex = table.selectedRow
+        selectedIndex = row
         playlistMode = false
         loadSelectedTake()
     }
@@ -526,6 +610,10 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         player.delegate = self
         view = spectro
         seed()
+        let durationMs = Int(player.duration * 1000)
+        if let overflow = spectro.rects.firstIndex(where: { ($0?.toMs ?? 0) > durationMs }) {
+            spectro.cur = max(0, overflow - 2)
+        }
         spectro.onEdit = { [weak self] in
             self?.draftDirty = true
             self?.refresh(message: "autosaved")
@@ -543,6 +631,7 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
         window.title = "SyllaWizard · \(selectedIndex + 1)/\(takes.count) · \(take.id)"
         window.makeFirstResponder(spectro)
         refresh()
+        DispatchQueue.main.async { [weak self] in self?.revealCurrent() }
     }
 
     func seed() {
@@ -555,9 +644,7 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
                       let from = syllable["fromMs"] as? Int,
                       let to = syllable["toMs"] as? Int,
                       let index = SYLS.firstIndex(where: { $0.0 == label && $0.1 == wordIndex }) else { continue }
-                view.rects[index] = Rect(fromMs: from, toMs: to,
-                                         fLo: syllable["fLo"] as? Double ?? 0.12,
-                                         fHi: syllable["fHi"] as? Double ?? 0.9)
+                view.rects[index] = Rect(fromMs: from, toMs: to, fLo: 0, fHi: 1)
             }
             return
         }
@@ -570,7 +657,7 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
             for (part, index) in members.enumerated() {
                 let a = from + (to - from) * part / members.count
                 let b = from + (to - from) * (part + 1) / members.count
-                view.rects[index] = Rect(fromMs: a, toMs: b, fLo: 0.12, fHi: 0.9)
+                view.rects[index] = Rect(fromMs: a, toMs: b, fLo: 0, fHi: 1)
             }
         }
     }
@@ -578,7 +665,20 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
     @objc func pick(_ sender: NSButton) {
         view?.cur = sender.tag
         if let view { window.makeFirstResponder(view) }
+        revealCurrent()
         refresh()
+    }
+
+    func revealCurrent() {
+        guard let view, view.rects.indices.contains(view.cur),
+              let value = view.rects[view.cur],
+              let scroll = view.enclosingScrollView else { return }
+        let clip = scroll.contentView
+        let x = CGFloat(value.fromMs) / 1000 * PXS
+        let maximum = max(0, view.bounds.width - clip.bounds.width)
+        let centered = min(maximum, max(0, x - clip.bounds.width / 2))
+        clip.scroll(to: NSPoint(x: centered, y: 0))
+        scroll.reflectScrolledClipView(clip)
     }
 
     @objc func togglePlay() {
@@ -627,7 +727,7 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
                 : (view.rects[index] != nil ? .systemGreen : .secondaryLabelColor)
         }
         let done = view.rects.compactMap { $0 }.count
-        status.stringValue = message ?? "\(done)/\(SYLS.count) · → \(SYLS[view.cur].0) · ready"
+        status.stringValue = message ?? "\(done)/\(SYLS.count) · → \(SYLS[view.cur].0) · drag band or edge"
         view.needsDisplay = true
         save()
     }
@@ -680,7 +780,10 @@ final class App: NSObject, NSApplicationDelegate, NSTableViewDataSource,
                 try? data.write(to: setFixURL, options: .atomic)
             }
         }
-        table?.reloadData()
+        if table != nil, takes.indices.contains(selectedIndex) {
+            table.reloadData(forRowIndexes: IndexSet(integer: selectedIndex),
+                             columnIndexes: IndexSet(integer: 0))
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) { save() }
