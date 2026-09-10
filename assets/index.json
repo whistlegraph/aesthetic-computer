@@ -1,0 +1,492 @@
+{
+  "generated": "2026-09-10T16:25:46.759Z",
+  "bucket": "assets-aesthetic-computer",
+  "endpoint": "https://sfo3.digitaloceanspaces.com",
+  "region": "sfo3",
+  "totals": {
+    "files": 34356,
+    "bytes": 98972540242
+  },
+  "prefixes": [
+    {
+      "prefix": "false.work/",
+      "files": 55,
+      "bytes": 38054644141,
+      "newest": "2026-07-24",
+      "oldest": "2025-10-30",
+      "note": ""
+    },
+    {
+      "prefix": "private/pop-workspace/",
+      "files": 11951,
+      "bytes": 25086695695,
+      "newest": "2026-09-07",
+      "oldest": "2026-07-27",
+      "note": "Pop track working media: raw vocal stems and alignment caches. Billable to regenerate."
+    },
+    {
+      "prefix": "whistlegraph/",
+      "files": 6582,
+      "bytes": 11524866440,
+      "newest": "2026-09-05",
+      "oldest": "2023-10-21",
+      "note": "Whistlegraph archive and harvested media."
+    },
+    {
+      "prefix": "private/vault-workspace/",
+      "files": 3680,
+      "bytes": 6890099217,
+      "newest": "2026-09-10",
+      "oldest": "2026-07-27",
+      "note": "Personal vault workspace archives (grants, marketing drafts, internal reports)."
+    },
+    {
+      "prefix": "pruttipal/",
+      "files": 209,
+      "bytes": 2327753619,
+      "newest": "2026-04-24",
+      "oldest": "2024-04-18",
+      "note": ""
+    },
+    {
+      "prefix": "spiderlily/",
+      "files": 2,
+      "bytes": 1957661226,
+      "newest": "2026-03-14",
+      "oldest": "2025-12-17",
+      "note": ""
+    },
+    {
+      "prefix": "os/",
+      "files": 4,
+      "bytes": 1822163426,
+      "newest": "2026-03-14",
+      "oldest": "2026-03-10",
+      "note": ""
+    },
+    {
+      "prefix": "sosoft/",
+      "files": 480,
+      "bytes": 1638598258,
+      "newest": "2026-08-26",
+      "oldest": "2026-08-25",
+      "note": ""
+    },
+    {
+      "prefix": "private/day-workspaces/",
+      "files": 1027,
+      "bytes": 1026134563,
+      "newest": "2026-07-30",
+      "oldest": "2026-07-30",
+      "note": "Dated whole-workspace snapshots."
+    },
+    {
+      "prefix": "pop/",
+      "files": 261,
+      "bytes": 957571449,
+      "newest": "2026-09-01",
+      "oldest": "2026-05-18",
+      "note": "Published pop media (beds, mixes) — see pop/ASSETS.md for the policy."
+    },
+    {
+      "prefix": "private/regarde/",
+      "files": 1841,
+      "bytes": 944426609,
+      "newest": "2026-08-13",
+      "oldest": "2026-08-12",
+      "note": "REGARDE render workspaces (confidential)."
+    },
+    {
+      "prefix": "jeffreys/",
+      "files": 1065,
+      "bytes": 808953343,
+      "newest": "2026-05-24",
+      "oldest": "2026-01-04",
+      "note": ""
+    },
+    {
+      "prefix": "private/client-assets/",
+      "files": 2,
+      "bytes": 769988968,
+      "newest": "2026-07-24",
+      "oldest": "2026-07-24",
+      "note": "Client deliverables and source media under NDA."
+    },
+    {
+      "prefix": "snappidagg/",
+      "files": 317,
+      "bytes": 705197832,
+      "newest": "2026-01-06",
+      "oldest": "2026-01-06",
+      "note": ""
+    },
+    {
+      "prefix": "private/pop-release/",
+      "files": 29,
+      "bytes": 661622650,
+      "newest": "2026-08-12",
+      "oldest": "2026-08-12",
+      "note": "Mastered pop releases staged for distribution."
+    },
+    {
+      "prefix": "gigs/",
+      "files": 95,
+      "bytes": 561131692,
+      "newest": "2026-04-02",
+      "oldest": "2026-03-06",
+      "note": ""
+    },
+    {
+      "prefix": "papers/",
+      "files": 119,
+      "bytes": 432048923,
+      "newest": "2026-08-06",
+      "oldest": "2026-02-18",
+      "note": "Paper figures, readings audio, and cassette material."
+    },
+    {
+      "prefix": "screenshots/",
+      "files": 103,
+      "bytes": 413131731,
+      "newest": "2024-04-18",
+      "oldest": "2024-03-15",
+      "note": ""
+    },
+    {
+      "prefix": "2018/",
+      "files": 1,
+      "bytes": 214059546,
+      "newest": "2026-07-19",
+      "oldest": "2026-07-19",
+      "note": ""
+    },
+    {
+      "prefix": "justanothersystem/",
+      "files": 61,
+      "bytes": 213440054,
+      "newest": "2026-03-23",
+      "oldest": "2026-02-27",
+      "note": ""
+    },
+    {
+      "prefix": "podcast/",
+      "files": 22,
+      "bytes": 200081622,
+      "newest": "2026-08-31",
+      "oldest": "2026-07-03",
+      "note": ""
+    },
+    {
+      "prefix": "bgm/",
+      "files": 36,
+      "bytes": 195426721,
+      "newest": "2026-03-12",
+      "oldest": "2024-04-18",
+      "note": ""
+    },
+    {
+      "prefix": "oskie/",
+      "files": 13,
+      "bytes": 192615798,
+      "newest": "2026-01-28",
+      "oldest": "2026-01-01",
+      "note": ""
+    },
+    {
+      "prefix": "gm/",
+      "files": 3889,
+      "bytes": 190313378,
+      "newest": "2026-05-08",
+      "oldest": "2026-05-08",
+      "note": ""
+    },
+    {
+      "prefix": "private/build-workspace/",
+      "files": 272,
+      "bytes": 188501527,
+      "newest": "2026-08-12",
+      "oldest": "2026-08-12",
+      "note": "Build artifacts too large for git."
+    },
+    {
+      "prefix": "wipppps/",
+      "files": 16,
+      "bytes": 184648734,
+      "newest": "2025-09-03",
+      "oldest": "2025-03-18",
+      "note": ""
+    },
+    {
+      "prefix": "audio/",
+      "files": 2,
+      "bytes": 178378157,
+      "newest": "2026-04-05",
+      "oldest": "2026-04-05",
+      "note": ""
+    },
+    {
+      "prefix": "m4l/",
+      "files": 112,
+      "bytes": 121936999,
+      "newest": "2026-08-04",
+      "oldest": "2026-01-15",
+      "note": ""
+    },
+    {
+      "prefix": "menuband/",
+      "files": 29,
+      "bytes": 109276760,
+      "newest": "2026-08-25",
+      "oldest": "2026-04-28",
+      "note": ""
+    },
+    {
+      "prefix": "laer-klokken/",
+      "files": 1,
+      "bytes": 88161822,
+      "newest": "2026-07-14",
+      "oldest": "2026-07-14",
+      "note": ""
+    },
+    {
+      "prefix": "sno/",
+      "files": 24,
+      "bytes": 72828157,
+      "newest": "2026-03-14",
+      "oldest": "2023-11-16",
+      "note": ""
+    },
+    {
+      "prefix": "marketing/",
+      "files": 37,
+      "bytes": 56752737,
+      "newest": "2026-06-02",
+      "oldest": "2026-06-02",
+      "note": ""
+    },
+    {
+      "prefix": "lacma-2026/",
+      "files": 13,
+      "bytes": 47049339,
+      "newest": "2026-04-23",
+      "oldest": "2026-04-22",
+      "note": ""
+    },
+    {
+      "prefix": "n64/",
+      "files": 1,
+      "bytes": 33554432,
+      "newest": "2025-11-16",
+      "oldest": "2025-11-16",
+      "note": ""
+    },
+    {
+      "prefix": "digitpain/",
+      "files": 20,
+      "bytes": 30776725,
+      "newest": "2023-11-21",
+      "oldest": "2023-10-21",
+      "note": ""
+    },
+    {
+      "prefix": "type/",
+      "files": 1544,
+      "bytes": 12747271,
+      "newest": "2026-09-10",
+      "oldest": "2023-10-21",
+      "note": ""
+    },
+    {
+      "prefix": "images/",
+      "files": 14,
+      "bytes": 9941502,
+      "newest": "2026-03-27",
+      "oldest": "2023-10-21",
+      "note": ""
+    },
+    {
+      "prefix": "bonneville/",
+      "files": 11,
+      "bytes": 9244465,
+      "newest": "2026-05-19",
+      "oldest": "2026-05-19",
+      "note": ""
+    },
+    {
+      "prefix": "dev/",
+      "files": 1,
+      "bytes": 9086963,
+      "newest": "2024-10-12",
+      "oldest": "2024-10-12",
+      "note": ""
+    },
+    {
+      "prefix": "sotce-net/",
+      "files": 11,
+      "bytes": 5203003,
+      "newest": "2026-09-09",
+      "oldest": "2024-06-26",
+      "note": ""
+    },
+    {
+      "prefix": "(bucket root)",
+      "files": 13,
+      "bytes": 5020045,
+      "newest": "2026-07-24",
+      "oldest": "2026-01-18",
+      "note": ""
+    },
+    {
+      "prefix": "mvis/",
+      "files": 16,
+      "bytes": 4534524,
+      "newest": "2025-08-31",
+      "oldest": "2024-03-24",
+      "note": ""
+    },
+    {
+      "prefix": "klokkentales/",
+      "files": 186,
+      "bytes": 4023638,
+      "newest": "2026-09-10",
+      "oldest": "2026-09-08",
+      "note": ""
+    },
+    {
+      "prefix": "comodiddies/",
+      "files": 2,
+      "bytes": 3628794,
+      "newest": "2026-06-11",
+      "oldest": "2026-06-11",
+      "note": ""
+    },
+    {
+      "prefix": "gameboy/",
+      "files": 61,
+      "bytes": 2228224,
+      "newest": "2025-12-15",
+      "oldest": "2025-11-14",
+      "note": ""
+    },
+    {
+      "prefix": "aesthetic-inc/",
+      "files": 4,
+      "bytes": 1815553,
+      "newest": "2026-03-12",
+      "oldest": "2024-10-21",
+      "note": ""
+    },
+    {
+      "prefix": "direct/",
+      "files": 2,
+      "bytes": 1257715,
+      "newest": "2024-11-18",
+      "oldest": "2024-11-18",
+      "note": ""
+    },
+    {
+      "prefix": "plugins/",
+      "files": 7,
+      "bytes": 910285,
+      "newest": "2026-04-11",
+      "oldest": "2026-04-11",
+      "note": ""
+    },
+    {
+      "prefix": "sundarakarma.com/",
+      "files": 7,
+      "bytes": 543563,
+      "newest": "2025-07-03",
+      "oldest": "2025-07-01",
+      "note": ""
+    },
+    {
+      "prefix": "besospesos/",
+      "files": 10,
+      "bytes": 503426,
+      "newest": "2026-06-11",
+      "oldest": "2026-06-11",
+      "note": ""
+    },
+    {
+      "prefix": "libs/",
+      "files": 2,
+      "bytes": 457865,
+      "newest": "2025-01-23",
+      "oldest": "2025-01-23",
+      "note": ""
+    },
+    {
+      "prefix": "sounds/",
+      "files": 20,
+      "bytes": 235414,
+      "newest": "2024-04-18",
+      "oldest": "2024-04-18",
+      "note": ""
+    },
+    {
+      "prefix": "fonts/",
+      "files": 5,
+      "bytes": 233708,
+      "newest": "2025-12-15",
+      "oldest": "2025-12-15",
+      "note": ""
+    },
+    {
+      "prefix": "ordfish/",
+      "files": 56,
+      "bytes": 191408,
+      "newest": "2023-10-21",
+      "oldest": "2023-10-21",
+      "note": ""
+    },
+    {
+      "prefix": "files/",
+      "files": 4,
+      "bytes": 99791,
+      "newest": "2024-04-05",
+      "oldest": "2024-03-24",
+      "note": ""
+    },
+    {
+      "prefix": "kidlisp.com/",
+      "files": 3,
+      "bytes": 87507,
+      "newest": "2026-03-09",
+      "oldest": "2026-01-13",
+      "note": ""
+    },
+    {
+      "prefix": "rain/",
+      "files": 2,
+      "bytes": 16882,
+      "newest": "2024-01-03",
+      "oldest": "2024-01-03",
+      "note": ""
+    },
+    {
+      "prefix": "ableton/",
+      "files": 2,
+      "bytes": 16064,
+      "newest": "2026-01-15",
+      "oldest": "2026-01-03",
+      "note": ""
+    },
+    {
+      "prefix": "builds.false.work/",
+      "files": 1,
+      "bytes": 13655,
+      "newest": "2025-11-13",
+      "oldest": "2025-11-13",
+      "note": ""
+    },
+    {
+      "prefix": "ticketed-pieces/",
+      "files": 1,
+      "bytes": 6687,
+      "newest": "2024-05-20",
+      "oldest": "2024-05-20",
+      "note": ""
+    }
+  ]
+}
