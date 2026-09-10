@@ -22,8 +22,9 @@ enum PromptScanCode {
     /// for print on a busy page; on a screen the code sits on its own white
     /// card with the desktop well clear of it, and four made the card read as
     /// mostly margin. Two, plus CI's own, is three — enough separation, far
-    /// less white.
-    private static let quietModules = 2
+    /// less white — and on a card that is fitted to the code rather than
+    /// padded around it, one is enough: CI's own border makes it two.
+    private static let quietModules = 1
 
     /// The smallest module we are willing to draw, in device pixels. Below
     /// this the code is a texture rather than something a phone camera can

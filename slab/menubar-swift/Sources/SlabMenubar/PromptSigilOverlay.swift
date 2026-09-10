@@ -609,6 +609,9 @@ final class PromptSigilOverlay {
             rockLayer.isHidden = true
             shadowLayer.mask = nil
             scanLayer.frame = CGRect(x: pad, y: pad + labelH, width: size, height: size)
+            // The white ground is only a backstop behind the bitmap's own quiet
+            // zone. `setScanCode` shrinks this frame to the code it is given —
+            // a card wider than its code is margin nobody asked for.
             scanLayer.backgroundColor = NSColor.white.cgColor
             scanLayer.contentsGravity = .center
             scanLayer.contentsScale = PromptScanCode.renderScale
@@ -1155,6 +1158,16 @@ final class PromptSigilOverlay {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         scanLayer.contents = image
+        // Fit the card to the code. The bitmap is a whole number of device
+        // pixels per module and rarely divides the surface exactly, so the
+        // leftover used to show as a white frame around a white margin.
+        if let image {
+            let side = CGFloat(image.width) / PromptScanCode.renderScale
+            scanLayer.frame = CGRect(
+                x: pad + (size - side) / 2,
+                y: pad + labelH + (size - side) / 2,
+                width: side, height: side)
+        }
         CATransaction.commit()
     }
 
