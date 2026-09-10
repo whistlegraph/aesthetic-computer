@@ -94,6 +94,42 @@ test("keeps a QR column on the right and narrows the transcript around it", asyn
   }
 });
 
+test("no state can make a row wider than the window", async () => {
+  const { qrBlock } = await import("../src/qr.mjs");
+  const qr = qrBlock("aesthetic.computer/prompt~channel%20Ab0-_9Zz~!autorun");
+  const path = "/private/tmp/claude-501/-Users-jas/8e2ce643-970e-478d-bf06-4e3e19671f15/scratchpad/puka.mjs";
+  const base = { workspace: path, mode: "remote", status: "ready", account: "@tester", piece: "puka.mjs", input: "", qr, entries: [] };
+  // One wrapped row scrolls the whole frame, and the QR code sits on the rows
+  // that go first — so every one of these has to come back exactly as wide as
+  // the window, escape codes and double-width glyphs and all.
+  const states = [
+    base,
+    { ...base, status: "approval", approval: { subject: path } },
+    { ...base, status: "approval", approval: { subject: "x".repeat(400) } },
+    { ...base, entries: [{ id: "e", kind: "assistant", text: "Done ✅ it runs 🚀 now — check it ✨" }] },
+    { ...base, entries: [{ id: "e", kind: "assistant", text: "这是一个测试 これはテストです 이것은 테스트입니다" }] },
+    { ...base, entries: [{ id: "e", kind: "command", text: `${"█".repeat(120)}\n${"—".repeat(200)}` }] },
+    { ...base, input: `${"🌈".repeat(60)}?`, cursor: 61 },
+  ];
+  for (const state of states) {
+    for (const [columns, rows] of [[75, 42], [100, 40], [80, 24], [57, 24], [40, 20], [32, 10]]) {
+      const frame = renderFrame(state, columns, rows, true);
+      assert.equal(frame.split("\n").length, rows);
+      for (const row of frame.split("\n")) assert.equal(textWidth(row), columns);
+    }
+  }
+});
+
+test("measures a row in terminal cells, not characters", () => {
+  assert.equal(textWidth("ok"), 2);
+  assert.equal(textWidth("🌈"), 2, "an emoji takes two columns");
+  assert.equal(textWidth("测"), 2, "so does a CJK glyph");
+  assert.equal(textWidth("é"), 1, "a combining mark takes none");
+  assert.equal(textWidth("▀─·—…"), 5, "the interface's own glyphs stay narrow");
+  assert.deepEqual(wrapText("🌈🌈🌈", 4), ["🌈🌈", "🌈"]);
+  assert.equal(wrapText("🌈🌈", 1).filter(Boolean).length, 2, "a glyph wider than the column still advances");
+});
+
 test("renders approvals inside the interface", () => {
   const frame = renderFrame(
     {

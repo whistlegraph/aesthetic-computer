@@ -7,7 +7,8 @@ import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, renderFrame } from "./render.mjs";
+import { cleanText, renderBoot, renderFrame } from "./render.mjs";
+import { mascotNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 
@@ -135,12 +136,17 @@ function updateEntry(id, kind, text) {
   }
 }
 
+// The guard keeps a redraw from re-entering itself; `finally` is what keeps a
+// single bad frame from latching it shut and freezing the screen for good.
 function redraw() {
   if (closing || drawing) return;
   drawing = true;
-  const frame = renderFrame(state, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
-  process.stdout.write(`\x1b[H\x1b[2J${frame}`);
-  drawing = false;
+  try {
+    const frame = renderFrame(state, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
+    process.stdout.write(`\x1b[H\x1b[2J${frame}`);
+  } finally {
+    drawing = false;
+  }
 }
 
 function finish(code = 0) {
@@ -700,9 +706,28 @@ live.watch(liveError);
 state.piece = `${live.slug}${live.runtime.extension}`;
 refreshQr();
 
-redraw();
+// The entrance plays across the bridge handshake instead of in front of it.
+// The handshake is most of a second of nothing; the little guy walks in over
+// it, and the interface replaces him mid-stride the moment the bridge answers.
+const bootAt = Date.now();
+let bootTimer = null;
+function bootFrame() {
+  if (closing || drawing) return;
+  const elapsed = Date.now() - bootAt;
+  const frame = renderBoot(elapsed, process.stdout.columns, process.stdout.rows,
+    process.env.NO_COLOR !== "1");
+  process.stdout.write(`\x1b[H\x1b[2J${frame}`);
+  bootTimer = setTimeout(bootFrame, mascotNextFrameIn(elapsed));
+  bootTimer.unref?.();
+}
+function bootDone() {
+  clearTimeout(bootTimer);
+  bootTimer = null;
+}
+bootFrame();
 try {
   const connection = await engine.connect();
+  bootDone();
   slabSession.connected(connection.thread.id);
   state.status = "ready";
   state.model = connection?.model || model;
@@ -722,6 +747,7 @@ try {
     await submitInput();
   }
 } catch (error) {
+  bootDone();
   state.status = "offline";
   addEntry("error", errorText(error));
   redraw();
