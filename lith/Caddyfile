@@ -710,6 +710,24 @@
         file_server
     }
 
+    # --- prompt.ac/~<channel> → a live Aesthetic Code session ---
+    # The address a phone gets when it scans the prompt rock. It exists to be
+    # short: every byte of it is a module of QR, and the long form it expands
+    # to (`/prompt~channel%20<id>~!autorun`) costs an extra version of the
+    # symbol — smaller modules, on the surface hardest to scan. Twenty-seven
+    # bytes with the scheme keeps it at version 2.
+    #
+    # A redirect rather than a rewrite: the shell reads the channel out of its
+    # own location client-side, so it has to actually arrive at the long URL.
+    # Must sit above @promptac, which otherwise claims every non-root path.
+    @promptac_channel {
+        host prompt.ac
+        path_regexp promptacchannel ^/~([A-Za-z0-9_-]{4,16})$
+    }
+    handle @promptac_channel {
+        redir https://prompt.ac/prompt~channel%20{re.promptacchannel.1}~!autorun 302
+    }
+
     # --- prompt.ac routes ---
     # Non-root paths pass through lith's conflict-aware Whistlegraph resolver.
     # It sends live codes to whistlegraph.org and preserves the historical
