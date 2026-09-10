@@ -564,3 +564,17 @@ crm/.cache/
 # history; only ciphertext from that repository is ever pushed.
 /vault/
 tmp/nopaint-sheets/
+
+# tmp/ is the repo's scratch drawer: probe scripts, QA frame dumps, review
+# captures. It accumulated 130+ untracked files and ~290 MB across two
+# machines (2026-09-10), which made a real `git status` unreadable and hid
+# actual work. Ignore the drawer, keep the two subtrees that are genuinely
+# tracked, and keep tracking anything already committed (gitignore never
+# untracks). Scratch worth keeping goes to the assets bucket, not here.
+/tmp/*
+!/tmp/imagegen/
+!/tmp/laklok-touch-probe.mjs
+!/tmp/nopaint-sheets/
+
+# agent/PR worktree scratch (client work checked out beside the repo)
+/.tmp-pr*/
