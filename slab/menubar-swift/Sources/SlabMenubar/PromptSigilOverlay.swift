@@ -439,7 +439,7 @@ final class PromptSigilOverlay {
     // billboard: at 2x this is five device pixels per module, comfortably above
     // the three-pixel floor and under half the area of the first attempt, which
     // covered the corner of the terminal it was anchored to.
-    static let scanSurfaceSize: CGFloat = 96
+    static let scanSurfaceSize: CGFloat = 80
 
     /// True when this rock shows a scannable code instead of the tumbling
     /// sigil. Fixed at construction, because it decides the surface's
@@ -508,6 +508,8 @@ final class PromptSigilOverlay {
     private var shadowFrames: [CGImage] = []
     /// The flat code this surface is showing, when it is a scan surface.
     private(set) var scanImage: CGImage?
+    /// The address that code encodes, so a click can go where a scan would.
+    var scanURL: String = ""
 
     init(sessionId: String, tty: String, scanSurface: Bool = false) {
         self.sessionId = sessionId
@@ -734,6 +736,15 @@ final class PromptSigilOverlay {
         }
         interactionView.onClick = { [weak self] in
             guard let self else { return }
+            // A code is an invitation to go somewhere. Scanning it and clicking
+            // it should land in the same place, so on this surface the click
+            // opens the piece instead of the collectible card — the card is a
+            // portrait of a stone, and this rock is not showing one.
+            if self.isScanSurface,
+               let url = URL(string: PromptScanCode.scannablePayload(self.scanURL)) {
+                NSWorkspace.shared.open(url)
+                return
+            }
             self.onClick?(self)
         }
     }
@@ -2666,6 +2677,7 @@ final class PromptSigilOverlayController {
             let scanCode = scanCode(for: s)
             let scanSurface = scanCode != nil
             if scanSurface { liveScanURLs.insert(s.scanURL) }
+            defer { if scanSurface { overlays[s.sessionId]?.scanURL = s.scanURL } }
             let ov: PromptSigilOverlay
             if let existing = overlays[s.sessionId], existing.tty == bare,
                existing.isScanSurface == scanSurface {

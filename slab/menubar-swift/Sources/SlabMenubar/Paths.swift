@@ -202,6 +202,12 @@ enum Paths {
     /// because the lens takes over the pointer and someone hitting it by
     /// accident wants a way out that survives a relaunch.
     static var zoomLensDisabledFlag: String { "\(slabHome)/state/zoom-lens-off" }
+
+    /// Status sounds — a short synthesized cue when a tracked prompt finishes,
+    /// asks for input, or disconnects (PromptStatusSound). On by default and
+    /// independent of the ambient mute, which silences the hooks' TTS/pad
+    /// layer; this marker exists only once turned off from the menu.
+    static var statusSoundsDisabledFlag: String { "\(slabHome)/state/status-sounds-off" }
 }
 
 enum Tools {

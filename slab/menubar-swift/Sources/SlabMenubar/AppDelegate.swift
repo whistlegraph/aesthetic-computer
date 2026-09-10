@@ -540,6 +540,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 self.gathering = false
                 self.state = snapshot
+                // Status sounds — the ear's version of theme-by-status: a cue
+                // when a prompt finishes, stops to ask, or drops off the list.
+                // Fed every tick even while off, so state never goes stale.
+                PromptStatusWatcher.shared.observe(
+                    sessions: snapshot.claudeSessions,
+                    enabled: snapshot.statusSounds)
                 // gather() doesn't know about iMessage; fold the cached poll
                 // result in here so the icon + decor read one consistent
                 // picture. This awareness is independent of theme-by-status:
@@ -2083,6 +2089,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         PromptSigilOverlayController.shared.sync(
             sessions: state.claudeSessions, enabled: nowOn)
         refresh()
+    }
+
+    /// Toggle the status cues (PromptStatusSound). On by default; the marker
+    /// exists only when explicitly disabled, like the sigils. Turning them on
+    /// plays the done cue once so the switch is audibly confirmed.
+    @objc func toggleStatusSounds() {
+        let path = Paths.statusSoundsDisabledFlag
+        let fm = FileManager.default
+        let nowOn: Bool
+        if fm.fileExists(atPath: path) {
+            try? fm.removeItem(atPath: path)
+            nowOn = true
+        } else {
+            let dir = (path as NSString).deletingLastPathComponent
+            try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            fm.createFile(atPath: path, contents: nil)
+            nowOn = false
+        }
+        state.statusSounds = nowOn
+        if nowOn { PromptStatusSound.play([.complete]) }
+        refresh()
+    }
+
+    /// The three cues in order, so the vocabulary can be learned on demand.
+    @objc func previewStatusSounds() {
+        PromptStatusSound.play(PromptStatusSound.Cue.allCases)
     }
 
     /// Toggle the ⌃⌃ zoom lens. The tap keeps listening either way — this only

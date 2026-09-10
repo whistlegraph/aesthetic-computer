@@ -135,6 +135,7 @@ struct StateSnapshot {
     var textSize: TextSize = .far
     var themeByStatus: Bool = false
     var promptSigils: Bool = true
+    var statusSounds: Bool = true
     var zoomLens: Bool = true
     var forceBright: Bool = false
     var preferIterm: Bool = false
@@ -209,6 +210,7 @@ struct StateSnapshot {
         }
         s.themeByStatus = FileManager.default.fileExists(atPath: Paths.themeByStatusFlag)
         s.promptSigils = !FileManager.default.fileExists(atPath: Paths.promptSigilsDisabledFlag)
+        s.statusSounds = !FileManager.default.fileExists(atPath: Paths.statusSoundsDisabledFlag)
         s.zoomLens = !FileManager.default.fileExists(atPath: Paths.zoomLensDisabledFlag)
         s.forceBright = FileManager.default.fileExists(atPath: Paths.forceBrightFlag)
         s.preferIterm = FileManager.default.fileExists(atPath: Paths.preferItermFlag)

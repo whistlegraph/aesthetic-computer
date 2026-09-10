@@ -668,6 +668,13 @@ enum MenuBuilder {
         let sigils = item("PromptRocks", selector: #selector(AppDelegate.togglePromptSigils), target: target)
         sigils.state = state.promptSigils ? .on : .off
         sub.addItem(sigils)
+        let sounds = item("Status sounds", selector: #selector(AppDelegate.toggleStatusSounds), target: target)
+        sounds.state = state.statusSounds ? .on : .off
+        sounds.toolTip = "Chime when a prompt finishes its turn, stops to ask for input, or disconnects. Separate from the ambient mute."
+        sub.addItem(sounds)
+        let preview = item("Play status sounds", selector: #selector(AppDelegate.previewStatusSounds), target: target)
+        preview.toolTip = "Done, needs input, disconnected — in that order."
+        sub.addItem(preview)
         let lens = item("Zoom lens (⌃⌃)", selector: #selector(AppDelegate.toggleZoomLens), target: target)
         lens.state = state.zoomLens ? .on : .off
         sub.addItem(lens)

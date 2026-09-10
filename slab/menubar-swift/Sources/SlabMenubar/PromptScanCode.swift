@@ -17,10 +17,13 @@ import AppKit
 import CoreImage
 
 enum PromptScanCode {
-    /// Modules of white kept around the code. Four is the spec's minimum for a
-    /// reliable read. CIQRCodeGenerator already draws a one-module border of
-    /// its own, which lands *inside* this margin rather than counting as it.
-    private static let quietModules = 4
+    /// Modules of white kept around the code, on top of the one-module border
+    /// CIQRCodeGenerator already draws. The spec asks for four, which is sized
+    /// for print on a busy page; on a screen the code sits on its own white
+    /// card with the desktop well clear of it, and four made the card read as
+    /// mostly margin. Two, plus CI's own, is three — enough separation, far
+    /// less white.
+    private static let quietModules = 2
 
     /// The smallest module we are willing to draw, in device pixels. Below
     /// this the code is a texture rather than something a phone camera can
@@ -55,11 +58,12 @@ enum PromptScanCode {
         guard !payload.isEmpty, surfacePoints > 0,
               let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
         filter.setValue(Data(payload.utf8), forKey: "inputMessage")
-        // "M" recovers ~15% of the symbol. On a screen there is no print
-        // damage to recover from, so anything higher only buys modules — and
-        // more modules at a fixed surface means smaller ones, which is the
-        // opposite of what makes this scan.
-        filter.setValue("M", forKey: "inputCorrectionLevel")
+        // "L" recovers ~7%. Every level above it spends modules on damage this
+        // symbol cannot take: it is drawn, not printed, never creased, smudged
+        // or partly covered, and a camera either sees a clean screen or sees
+        // nothing. More modules at a fixed surface means smaller ones, which is
+        // the only thing here that actually costs a read.
+        filter.setValue("L", forKey: "inputCorrectionLevel")
         guard let output = filter.outputImage else { return nil }
 
         let modules = Int(output.extent.width.rounded())
