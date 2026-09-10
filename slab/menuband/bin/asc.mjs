@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-// asc.mjs — App Store Connect API helper for Menu Band.
+// asc.mjs — App Store Connect API helper for the account's apps.
+//
+// Defaults to Menu Band on macOS, which is the release this was written for.
+// `--app <name|id>` and `--platform <IOS|MAC_OS>` point it at any other app;
+// an app with records on both platforms needs the platform said out loud,
+// because a version, a build and a review submission are all per-platform and
+// silently picking one is how you submit the wrong thing.
 //
 //   node bin/asc.mjs status                     version states + latest builds
 //   node bin/asc.mjs get <path>                 raw GET, prints JSON
@@ -23,7 +29,34 @@ import zlib from "node:zlib";
 
 const KEY_ID = "S4TQKG6U99";
 const ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1";
-const APP_ID = "6767311903"; // Menu Band
+// The account's apps. Names are what you type; ids are what ASC wants.
+const APPS = {
+  menuband: "6767311903",
+  oskiewar: "6802477398",
+  nopaint: "1107427275",
+  fingerquilt: "1153451161",
+  softwallpaper: "1390237091",
+  aestheticcomputer: "6450940883",
+};
+
+// --app / --platform are pulled out before the positional args are read, so
+// `submit --app oskiewar` still finds `submit` as the command.
+const argv = process.argv.slice(2);
+function flag(name, fallback) {
+  const i = argv.indexOf(`--${name}`);
+  if (i === -1) return fallback;
+  const v = argv[i + 1];
+  if (!v) throw new Error(`--${name} needs a value`);
+  argv.splice(i, 2);
+  return v;
+}
+const APP_ARG = flag("app", "menuband");
+const APP_ID = /^\d+$/.test(APP_ARG) ? APP_ARG : APPS[APP_ARG.toLowerCase()];
+if (!APP_ID)
+  throw new Error(`unknown app "${APP_ARG}" — one of ${Object.keys(APPS).join(", ")}, or a numeric id`);
+const PLATFORM = flag("platform", "MAC_OS").toUpperCase();
+if (!["IOS", "MAC_OS", "TV_OS"].includes(PLATFORM))
+  throw new Error(`platform must be IOS, MAC_OS or TV_OS (got ${PLATFORM})`);
 const VENDOR = process.env.ASC_VENDOR_NUMBER; // needed for sales reports
 const API = "https://api.appstoreconnect.apple.com";
 
@@ -105,7 +138,7 @@ async function post(path, body) {
   console.log(text || `created ${path}`);
 }
 
-const [cmd, arg, arg2] = process.argv.slice(2);
+const [cmd, arg, arg2] = argv;
 
 if (cmd === "get") {
   console.log(JSON.stringify(await get(arg), null, 2));
@@ -127,14 +160,18 @@ if (cmd === "get") {
   // that looks ready in the UI but was never actually sent. Idempotent — safe
   // to re-run after a partial failure.
   const versions = await get(
-    `/v1/apps/${APP_ID}/appStoreVersions?limit=5&fields[appStoreVersions]=versionString,appStoreState`,
+    `/v1/apps/${APP_ID}/appStoreVersions?limit=10&filter[platform]=${PLATFORM}` +
+      `&fields[appStoreVersions]=versionString,appStoreState,platform`,
   );
   const editable = versions.data.find((v) =>
     arg
       ? v.attributes.versionString === arg
       : v.attributes.appStoreState === "PREPARE_FOR_SUBMISSION",
   );
-  if (!editable) throw new Error(arg ? `no version ${arg}` : "no editable version");
+  if (!editable)
+    throw new Error(
+      arg ? `no ${PLATFORM} version ${arg}` : `no editable ${PLATFORM} version`,
+    );
   if (editable.attributes.appStoreState !== "PREPARE_FOR_SUBMISSION")
     throw new Error(
       `${editable.attributes.versionString} is ${editable.attributes.appStoreState}, not submittable`,
@@ -146,10 +183,11 @@ if (cmd === "get") {
     console.log(`  build ${attached.data.attributes.version} already attached`);
   } else {
     const builds = await get(
-      `/v1/builds?filter[app]=${APP_ID}&limit=1&sort=-version&fields[builds]=version,processingState`,
+      `/v1/builds?filter[app]=${APP_ID}&filter[preReleaseVersion.platform]=${PLATFORM}` +
+        `&limit=1&sort=-version&fields[builds]=version,processingState`,
     );
     const build = builds.data[0];
-    if (!build) throw new Error("no build to attach");
+    if (!build) throw new Error(`no ${PLATFORM} build to attach`);
     if (build.attributes.processingState !== "VALID")
       throw new Error(`build ${build.attributes.version} is ${build.attributes.processingState}`);
     await patch(
@@ -176,7 +214,7 @@ if (cmd === "get") {
     await postJSON(`/v1/reviewSubmissions`, {
       data: {
         type: "reviewSubmissions",
-        attributes: { platform: "MAC_OS" },
+        attributes: { platform: PLATFORM },
         relationships: { app: { data: { type: "apps", id: APP_ID } } },
       },
     }),
@@ -202,21 +240,27 @@ if (cmd === "get") {
   );
   console.log(`  ${done.data.attributes.state} at ${done.data.attributes.submittedDate}`);
 } else if (cmd === "status") {
+  console.log(`${APP_ARG} (${APP_ID})  platform ${PLATFORM}`);
   const versions = await get(
-    `/v1/apps/${APP_ID}/appStoreVersions?limit=8&fields[appStoreVersions]=versionString,appStoreState,createdDate`,
+    `/v1/apps/${APP_ID}/appStoreVersions?limit=8&filter[platform]=${PLATFORM}` +
+      `&fields[appStoreVersions]=versionString,appStoreState,createdDate`,
   );
   console.log("— appStoreVersions —");
   for (const v of versions.data)
     console.log(
       `  ${v.attributes.versionString}  ${v.attributes.appStoreState}  (${v.attributes.createdDate})  id=${v.id}`,
     );
+  // Per-platform, or a Mac build reads as though it were an iOS one — which
+  // is exactly how an unshippable iOS release looks ready from the outside.
   const builds = await get(
-    `/v1/builds?filter[app]=${APP_ID}&limit=8&sort=-version&fields[builds]=version,processingState,uploadedDate`,
+    `/v1/builds?filter[app]=${APP_ID}&filter[preReleaseVersion.platform]=${PLATFORM}` +
+      `&limit=8&sort=-version&fields[builds]=version,processingState,uploadedDate,expired`,
   );
   console.log("— builds —");
   for (const b of builds.data)
     console.log(
-      `  build ${b.attributes.version}  ${b.attributes.processingState}  (${b.attributes.uploadedDate})  id=${b.id}`,
+      `  build ${b.attributes.version}  ${b.attributes.processingState}` +
+        `${b.attributes.expired ? "  EXPIRED" : ""}  (${b.attributes.uploadedDate})  id=${b.id}`,
     );
   const subs = await get(
     `/v1/reviewSubmissions?filter[app]=${APP_ID}&limit=5&fields[reviewSubmissions]=state,platform,submittedDate`,
@@ -322,5 +366,11 @@ if (cmd === "get") {
     }
   }
 } else {
-  console.log("usage: asc.mjs status | get <path> | delete <path> | sales [date] | analytics [reportId] | analytics-data <reportId>");
+  console.log(
+    "usage: asc.mjs [--app <name|id>] [--platform IOS|MAC_OS] " +
+      "status | submit [version] | get <path> | post <path> <json> | " +
+      "patch <path> <json> | delete <path> | sales [date] | " +
+      "analytics [reportId] | analytics-data <reportId>",
+  );
+  console.log(`apps: ${Object.keys(APPS).join(", ")}`);
 }
