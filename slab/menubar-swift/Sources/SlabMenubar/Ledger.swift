@@ -48,6 +48,10 @@ struct LedgerEntry: Codable, Equatable {
     /// Guarded launch identity. Optional keeps older fleet ledgers readable;
     /// unlike the route registry, this originates in the live marker.
     var loopboyContact: String?
+    /// Bare host+path a phone can scan to reach the piece this prompt is
+    /// holding. Only Aesthetic Code mints one. Optional both because older
+    /// fleet ledgers predate it and because most prompts never have one.
+    var scanURL: String?
 }
 
 struct Ledger: Codable {
@@ -401,7 +405,8 @@ final class LedgerStore {
                 memoir: ProxMemoirs.shared.text(for: s.sessionId),
                 agentType: s.agentType,
                 platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
-                loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact)
+                loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact,
+                scanURL: s.scanURL.isEmpty ? nil : s.scanURL)
         }
         entries.append(contentsOf: advertisedAgents())
 
@@ -448,7 +453,8 @@ final class LedgerStore {
                 memoir: (obj["memoir"] as? String),
                 agentType: (obj["agent_type"] as? String),
                 platformTarget: (obj["platform_target"] as? String),
-                loopboyContact: (obj["loopboy_contact"] as? String)))
+                loopboyContact: (obj["loopboy_contact"] as? String),
+                scanURL: (obj["scan_url"] as? String)))
         }
         return out
     }

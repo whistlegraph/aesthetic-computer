@@ -431,7 +431,18 @@ final class PromptSigilOverlay {
     private var targetOrigin: NSPoint?
     private var currentOrigin: NSPoint?
 
-    let size: CGFloat = 56
+    /// How wide a scan surface is. A stone is 56 points; a code has to stay
+    /// legible to a phone camera held at desk distance, and shrunk to stone
+    /// size its modules stop resolving. Even at this size it eats far less of
+    /// the pane than the seventeen rows of half-blocks it replaces.
+    static let scanSurfaceSize: CGFloat = 140
+
+    /// True when this rock shows a scannable code instead of the tumbling
+    /// sigil. Fixed at construction, because it decides the surface's
+    /// geometry — the controller builds a fresh overlay when a session gains
+    /// or loses its scan URL.
+    let isScanSurface: Bool
+    let size: CGFloat
     /// Padding around the rock inside the window so the offset drop shadow has
     /// room and isn't clipped by the window edge.
     private let pad: CGFloat = 9
@@ -453,6 +464,7 @@ final class PromptSigilOverlay {
     private let shadowLayer = CALayer()      // solid status colour, masked to the rock silhouette
     private let shadowMask = CALayer()       // plays the same frames → the shadow's tumbling shape
     private let nameLayer = CALayer()        // the rock's pet name, under the rock (pixel-text bitmap)
+    private let scanLayer = CALayer()        // flat white card carrying the QR, on scan surfaces only
     private let heartbeatTrackLayer = CALayer()
     private let heartbeatFillLayer = CALayer()
     private let heartbeatFuseEmitter = CAEmitterLayer()
@@ -490,10 +502,14 @@ final class PromptSigilOverlay {
     /// silhouette the shadow plays.
     private var rockFrames: [CGImage] = []
     private var shadowFrames: [CGImage] = []
+    /// The flat code this surface is showing, when it is a scan surface.
+    private(set) var scanImage: CGImage?
 
-    init(sessionId: String, tty: String) {
+    init(sessionId: String, tty: String, scanSurface: Bool = false) {
         self.sessionId = sessionId
         self.tty = tty
+        self.isScanSurface = scanSurface
+        self.size = scanSurface ? Self.scanSurfaceSize : 56
 
         let box = size + 2 * pad
         let initial = NSRect(x: -2000, y: -2000, width: box, height: box + labelH)
@@ -573,6 +589,27 @@ final class PromptSigilOverlay {
         rockLayer.minificationFilter = .nearest
         rockLayer.contentsScale = 1
         container.layer?.addSublayer(rockLayer)
+
+        // A scan surface keeps the rock's place in the world and gives up its
+        // material. The tumbling frames, the silhouette mask and the sun's
+        // shading are all withheld, because every one of them would cost the
+        // code a read: what remains of the stone is its status colour, now a
+        // plain offset square peeking out from behind the card, and its pet
+        // name underneath. `contentsGravity = .center` with a matching
+        // `contentsScale` lands one bitmap pixel on one device pixel, so the
+        // modules are never resampled; the white ground is a backstop for the
+        // few points of surface the code's own quiet zone doesn't reach.
+        if scanSurface {
+            rockLayer.isHidden = true
+            shadowLayer.mask = nil
+            scanLayer.frame = CGRect(x: pad, y: pad + labelH, width: size, height: size)
+            scanLayer.backgroundColor = NSColor.white.cgColor
+            scanLayer.contentsGravity = .center
+            scanLayer.contentsScale = PromptScanCode.renderScale
+            scanLayer.magnificationFilter = .nearest
+            scanLayer.minificationFilter = .nearest
+            container.layer?.addSublayer(scanLayer)
+        }
 
         // Transparent space above/below lets smoke rise and ash fall without
         // the heartbeat window clipping either stream.
@@ -1050,6 +1087,12 @@ final class PromptSigilOverlay {
     func setFrames(rock: [CGImage], shadow: [CGImage]) {
         rockFrames = rock
         shadowFrames = shadow
+        // A scan surface still grows its stone, because the collectible card
+        // it opens on click is a portrait of the session, not a second copy of
+        // the code. It just never installs those frames: the sigil would be
+        // playing behind an opaque card, and letting `positionLabels` measure
+        // its silhouette would drag the pet name up over the code.
+        guard !isScanSurface else { return }
         rockLayer.contents = rock.first
         shadowMask.contents = shadow.first
         positionLabels(for: rock)
@@ -1087,6 +1130,17 @@ final class PromptSigilOverlay {
         let nameY = max(20, visibleBottom - 16)
         nameLayer.frame.origin.y = nameY
         stateLayer.frame.origin.y = max(1, nameY - 18)
+    }
+
+    /// Install the rendered code. Flat, static, and swapped without an
+    /// implicit CALayer crossfade — a half-faded QR is an unreadable one.
+    func setScanCode(_ image: CGImage?) {
+        guard isScanSurface, scanImage !== image else { return }
+        scanImage = image
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        scanLayer.contents = image
+        CATransaction.commit()
     }
 
     /// Tint the flat drop-shadow disc with the session's status colour.
@@ -1226,6 +1280,9 @@ final class PromptSigilOverlay {
     }
 
     private func applyPlayback() {
+        // A code does not tumble. Nothing about a scan surface is animated,
+        // so it never joins the compositor's playback at all.
+        guard !isScanSurface else { return }
         guard !ecoPaused, rockFrames.count > 1, let (period, cw) = motion else {
             rockLayer.removeAnimation(forKey: "tumble")
             shadowMask.removeAnimation(forKey: "tumble")
@@ -1863,6 +1920,12 @@ final class PromptSigilOverlayController {
     /// Serial queue for the offscreen 3D frame renders — one rock at a time so
     /// a per-minute sun change never spins up 7 Metal renderers at once.
     private let renderQueue = DispatchQueue(label: "computer.slab.sigil-frames", qos: .userInitiated)
+    /// One rendered code per scan URL. `sync` runs several times a second and
+    /// the generator is not free, so each destination is drawn once and
+    /// dropped as soon as no live prompt points there. A URL that cannot be
+    /// encoded at all is remembered too, so it isn't retried every tick.
+    private var scanCodes: [String: CGImage] = [:]
+    private var unscannableURLs: Set<String> = []
 
     /// Hover/click plumbing for the rocks. The badge windows stay
     /// mouse-transparent (clicks still reach the terminal beneath); GLOBAL
@@ -2533,6 +2596,27 @@ final class PromptSigilOverlayController {
 
     /// Reconcile the badge set with the live sessions. Off when `enabled` is
     /// false. Only sessions with a real local tty get a badge.
+    /// The code this session's rock should be showing, or nil for the stone.
+    /// Every gate lives here: only Aesthetic Code mints scan URLs, the URL has
+    /// to exist, and it has to survive the generator — a payload too long for a
+    /// QR, or one that would only fit at a module size no camera can resolve,
+    /// comes back nil and the session keeps an ordinary rock.
+    private func scanCode(for s: ClaudeSession) -> CGImage? {
+        guard s.agentType == "aesthetic-code" else { return nil }
+        let url = s.scanURL
+        guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !unscannableURLs.contains(url) else { return nil }
+        if let cached = scanCodes[url] { return cached }
+        guard let image = PromptScanCode.render(
+            url: url, surfacePoints: PromptSigilOverlay.scanSurfaceSize)
+        else {
+            unscannableURLs.insert(url)
+            return nil
+        }
+        scanCodes[url] = image
+        return image
+    }
+
     func sync(sessions: [ClaudeSession], enabled: Bool) {
         guard enabled else { teardown(); return }
         installActivationObserverIfNeeded()
@@ -2559,6 +2643,7 @@ final class PromptSigilOverlayController {
         }
 
         var membershipChanged = false
+        var liveScanURLs = Set<String>()
         for (sid, ov) in overlays where !liveIds.contains(sid) {
             ov.close(); overlays.removeValue(forKey: sid); membershipChanged = true
             if bubbleFor == sid {
@@ -2569,12 +2654,22 @@ final class PromptSigilOverlayController {
         for s in live {
             let bare = (s.tty as NSString).lastPathComponent
             liveParticleTtys.insert(bare)
+            // An Aesthetic Code session is holding a piece, and the client for
+            // that piece is a phone. When the marker says where to send it, the
+            // rock trades its stone for a code the camera can take. Nil — an
+            // older session, a piece that hasn't minted yet, another agent
+            // entirely, a URL too long to encode — leaves the stone standing.
+            let scanCode = scanCode(for: s)
+            let scanSurface = scanCode != nil
+            if scanSurface { liveScanURLs.insert(s.scanURL) }
             let ov: PromptSigilOverlay
-            if let existing = overlays[s.sessionId], existing.tty == bare {
+            if let existing = overlays[s.sessionId], existing.tty == bare,
+               existing.isScanSurface == scanSurface {
                 ov = existing
             } else {
                 overlays[s.sessionId]?.close()
-                ov = PromptSigilOverlay(sessionId: s.sessionId, tty: bare)
+                ov = PromptSigilOverlay(sessionId: s.sessionId, tty: bare,
+                                        scanSurface: scanSurface)
                 ov.onHoverChange = { [weak self] rock, hovering in
                     self?.handleDirectHover(rock, hovering: hovering)
                 }
@@ -2590,6 +2685,7 @@ final class PromptSigilOverlayController {
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
             ov.soundSeed = seed
+            ov.setScanCode(scanCode)
             // Re-render the sprite sheet only when the rock or the sun moved.
             let loopboy = loopIds.contains(s.sessionId)
             let key = "\(seed):\(dark):\(sunMinute):\(loopboy)"
@@ -2644,6 +2740,11 @@ final class PromptSigilOverlayController {
             ov.setName(SigilRenderer.name(for: s), dark: dark)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
+            // The card says what kind of object this is; a scan rock is not
+            // offering a memory, it is offering a way in.
+            ov.tooltipEdition = scanSurface
+                ? "PROMPT ROCK  •  SCAN TO OPEN"
+                : "PROMPT ROCK  •  LIVING MEMORY"
             let story = (s.loopboyResponse.isEmpty ? nil : s.loopboyResponse)
                 ?? ProxMemoirs.shared.text(for: s.sessionId)
                 ?? Self.fallbackBody(summary: s.titleString, subject: s.shortSubject)
@@ -2657,6 +2758,8 @@ final class PromptSigilOverlayController {
             }
         }
         particleColors = particleColors.filter { liveParticleTtys.contains($0.key) }
+        scanCodes = scanCodes.filter { liveScanURLs.contains($0.key) }
+        unscannableURLs = unscannableURLs.filter { liveScanURLs.contains($0) }
 
         if membershipChanged { needsRebind = true }
         startTimerIfNeeded()
@@ -2718,6 +2821,8 @@ final class PromptSigilOverlayController {
         overlays.removeAll()
         binding.removeAll()
         particleColors.removeAll()
+        scanCodes.removeAll()
+        unscannableURLs.removeAll()
         removeMouseMonitors()
         for (_, obs) in axObservers {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)

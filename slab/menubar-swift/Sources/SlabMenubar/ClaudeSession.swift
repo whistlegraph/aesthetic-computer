@@ -98,6 +98,13 @@ struct ClaudeSession {
     /// prompt changes, titles, and terminal retiling without name-based rules.
     var platformTarget: String = ""
 
+    /// Where a phone can reach the piece this session is holding, as a bare
+    /// host+path (`aesthetic.computer/prompt~…`) with no scheme. Only
+    /// Aesthetic Code mints one, and only once its piece exists, so an empty
+    /// string is the ordinary case and means "no scannable destination yet".
+    /// The prompt rock turns this into a QR surface; everything else ignores it.
+    var scanURL: String = ""
+
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
@@ -363,6 +370,7 @@ enum ClaudeSessionReader {
         session.loopboyState = (obj["loopboy_state"] as? String) ?? ""
         session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
+        session.scanURL = (obj["scan_url"] as? String) ?? ""
         return session
     }
 
