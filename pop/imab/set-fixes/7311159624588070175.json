@@ -1,0 +1,86 @@
+{
+  "source" : "SyllaWizard processed-pass timebase",
+  "take" : "7311159624588070175",
+  "words" : [
+    {
+      "fromMs" : 0,
+      "text" : "i'm",
+      "toMs" : 964
+    },
+    {
+      "fromMs" : 965,
+      "text" : "a",
+      "toMs" : 1516
+    },
+    {
+      "fromMs" : 1969,
+      "text" : "butterfly",
+      "toMs" : 3868
+    },
+    {
+      "fromMs" : 3877,
+      "text" : "flapping",
+      "toMs" : 5681
+    },
+    {
+      "fromMs" : 5709,
+      "text" : "for",
+      "toMs" : 6174
+    },
+    {
+      "fromMs" : 6175,
+      "text" : "you",
+      "toMs" : 6548
+    },
+    {
+      "fromMs" : 6551,
+      "text" : "guys",
+      "toMs" : 7699
+    },
+    {
+      "fromMs" : 7714,
+      "text" : "just",
+      "toMs" : 8650
+    },
+    {
+      "fromMs" : 8690,
+      "text" : "a",
+      "toMs" : 9681
+    },
+    {
+      "fromMs" : 9702,
+      "text" : "costume",
+      "toMs" : 11656
+    },
+    {
+      "fromMs" : 11676,
+      "text" : "i",
+      "toMs" : 12131
+    },
+    {
+      "fromMs" : 12151,
+      "text" : "put",
+      "toMs" : 12630
+    },
+    {
+      "fromMs" : 12643,
+      "text" : "on",
+      "toMs" : 13560
+    },
+    {
+      "fromMs" : 13602,
+      "text" : "in",
+      "toMs" : 14113
+    },
+    {
+      "fromMs" : 14117,
+      "text" : "my",
+      "toMs" : 14655
+    },
+    {
+      "fromMs" : 14660,
+      "text" : "room",
+      "toMs" : 15827
+    }
+  ]
+}
