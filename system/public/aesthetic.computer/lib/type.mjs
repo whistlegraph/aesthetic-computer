@@ -3665,16 +3665,16 @@ class TextFields {
     this.specs.forEach((spec) => (this.values[spec.name] = ""));
     this.#submit = submit;
 
+    // `poe` is the bare mode — no gutter, no focus border, no Enter/Paste
+    // buttons, just a caret and the text. That's what a row this short wants;
+    // the piece around it gives the send button. (Disabling the buttons by
+    // hand doesn't hold — `showButton` turns them back on when a field
+    // activates.)
     this.input = new TextInput($, "", () => this.advance($), {
       ...options,
+      poe: true,
       closeOnEmptyEnter: false,
     });
-
-    // The rows are too short to hold TextInput's own buttons; the piece around
-    // them gives the send button instead.
-    this.input.enter.btn.disabled = true;
-    this.input.copy.btn.disabled = true;
-    this.input.paste.btn.disabled = true;
   }
 
   get current() {
