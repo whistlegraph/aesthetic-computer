@@ -36,7 +36,7 @@ const mime = new Map([[".html", "text/html; charset=utf-8"],
 
 function fileFor(pathname) {
   if (pathname === "/oskiewar.js") return join(here, "oskiewar.js");
-  if (/^\/(oskiewar-(sfx|voice|midi)|frame-driver|round-room)\.mjs$/.test(pathname))
+  if (/^\/(oskiewar-(sfx|voice|midi)|frame-driver|round-room|account)\.mjs$/.test(pathname))
     return join(here, pathname.slice(1));
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");

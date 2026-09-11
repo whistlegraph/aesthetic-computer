@@ -2524,13 +2524,16 @@ function applyRoster(player, index) {
   player.handleColors = profile.colors;
 }
 
-// The one door into a fight, and the seam auth will attach to. Training is
-// free and anonymous — it is the front door and must never ask for anything,
-// and `trainingbot` is that door's sparring partner: the bot's brain in a
-// round that stays off the wire. Bot and ppl are what a handle buys, because
-// they persist: a series, a published match, a replay, a ranking. Sign-in
-// belongs on this call, not in front of the game. Nothing opens those doors
-// yet, so only training reaches here.
+// The one door into a fight. Training is free and anonymous — it is the front
+// door and must never ask for anything, and `trainingbot` is that door's
+// sparring partner: the bot's brain in a round that stays off the wire. Bot
+// and ppl are what a handle buys, because they persist: a series, a published
+// match, a replay, a ranking. Nothing opens those two doors yet, so only
+// training reaches here and this call asks for nothing.
+//
+// The seam the sign-in actually landed on is `versusAllowed()`, because versus
+// is the door that opened first: see `startVersusFight`. When bot and ppl open,
+// they gate here on the same reader.
 function startFightAgainst(kind, now) {
   gameMode = "fight";
   selfPlay = false;
@@ -2568,6 +2571,91 @@ function survivalRequested() {
 function versusRequested() {
   return !String(globalThis.__oskiewarOpponent || "").trim() &&
     globalThis.__oskiewarVersusCapable === true;
+}
+
+// ---------------------------------------------------------------------------
+// The door. @jeffrey: "i think we should require users to axtually login in
+// order to play... and also to make a handle in order to play".
+//
+// Training stays free and anonymous — it is the front door and must never ask
+// for anything — and so does watching: the link a friend sends has to work for
+// whoever opens it, account or no account. What a handle buys is the half of
+// the game with another person on the other end of it, because that half is
+// the half that persists. A fight against a stranger called RIVAL is not worth
+// having; those placeholder names were the symptom, not the problem.
+//
+// The shell owns the account and the panel; this file owns the question of
+// when the door is in the way. Two globals carry it:
+//
+//   __oskiewarAccount      { ready, signedIn, handle, colors }  shell → game
+//   __oskiewarAccountDoor  "" | "login" | "handle"              game → shell
+// The door is built, tested and wired on both sides, and it is held open until
+// the tenant can actually let somebody through it. Native sign-in needs
+// "Passwordless OTP" ticked on the Auth0 application, and as of 26.09.11 the
+// tenant answers `unauthorized_client` — so the only way in is the redirect,
+// which lands on the Universal Login page's Turnstile, which is the loop this
+// whole flow exists to avoid. Requiring an account before there is a working
+// way to make one does not gate the game, it closes it.
+//
+// Flip this to true the moment that grant is on. Everything behind it is
+// already written and covered by tests, which drive it through
+// `setVersusRequiresAccount`.
+let versusRequiresAccount = false;
+
+const accountState = () => globalThis.__oskiewarAccount || null;
+// Nobody is turned away before the shell has finished asking. A silent session
+// check takes a moment, and a door that flashed up inside it would send a
+// signed-in player off to sign in again.
+const accountReady = () => accountState()?.ready === true;
+const accountHandle = () => String(accountState()?.handle || "");
+// A shell with no account system at all is not a locked-out visitor, it is an
+// older build, and it must not be left standing in a waiting room that can
+// never start. The two halves of this door — the panel over there, the refusal
+// here — ship together, and until the shell offers one there is nothing for
+// this to hold shut.
+//
+// Which is the honest shape of it: this is a door, not a lock. The name on the
+// wire has always been whatever the client says it is, and a console can set
+// any global it likes. Enforcement would mean the relay verifying a token on
+// the seat, and that is a different piece of work.
+const versusAllowed = () => !versusRequiresAccount || !accountState() ||
+  (accountReady() && accountState().signedIn === true &&
+    Boolean(accountHandle()));
+
+// Which door, if any, stands between this visitor and a fight. Empty while the
+// shell is still asking, and empty for anyone already through.
+function versusDoor() {
+  if (!versusRequiresAccount) return "";
+  if (!accountState() || !accountReady()) return "";
+  if (accountState().signedIn !== true) return "login";
+  if (!accountHandle()) return "handle";
+  return "";
+}
+
+// Raised only while somebody is actually trying to play a person: standing in
+// the waiting room, or holding a chair. A spectator is never asked for
+// anything, and neither is the title screen.
+// What this file last asked the shell for, so a panel that closes on its own
+// can be told from one that was never open.
+let accountDoorAsked = "";
+
+function updateAccountDoor() {
+  const wanted = shellMode === "GAME" && versusLane() && !roundViewer
+    ? versusDoor() : "";
+  const showing = globalThis.__oskiewarAccountDoor || "";
+  // "never mind" drops every request the panel is holding, this one included.
+  // Left alone, the next frame would simply ask again and the panel would
+  // spring back up — which is not a dismissal, it is a trap. Somebody who
+  // backs out goes to the title screen instead, where the account button
+  // lives, where training is one press away, and where nothing is asking them
+  // for anything.
+  if (accountDoorAsked && wanted && !showing) {
+    accountDoorAsked = "";
+    returnToTitle(runtime().monotonicUs, "account");
+    return;
+  }
+  if (showing !== wanted) globalThis.__oskiewarAccountDoor = wanted;
+  accountDoorAsked = wanted;
 }
 
 function startSurvivalRun(now, botControlled = false) {
@@ -2708,6 +2796,10 @@ function beginVersusLobby(now, { title = false } = {}) {
 // no npc stillness, their presses riding in off the relay — and open the
 // round with the full countdown so both screens see the same three seconds.
 function startVersusFight(now, resetMatch = true) {
+  // The one gate that matters: this is the call that puts two people in a
+  // round. Everything below it — publishing, the seat, the score — assumes
+  // both ends have a name worth writing down.
+  if (!versusAllowed()) return;
   gameMode = "fight";
   selfPlay = false;
   fightOpponent = "versus";
@@ -2780,6 +2872,9 @@ function publishVersus(now) {
   if (netSession && netSession.seat !== 0) return;
   if (netSilent || !versusLane() || !versusRoomName || livePublishFailed ||
       typeof publishLive !== "function") return;
+  // A waiting room nobody can be invited into is not a room. Publishing it
+  // would put it in front of the matchmaker as a chair to take.
+  if (!versusAllowed()) return;
   // Paced on the WALL clock, not the simulation's. The driver runs up to four
   // owed ticks in one instant to catch up, and a sim-clocked gate let every
   // one of those emit its own frame — two or three full state builds in the
@@ -2839,7 +2934,7 @@ function updateVersusSeat(now) {
   // the lobby — a streamed fight one second old is upgraded in place.
   if (netPeerHello && netHostBegin(now)) return;
   const fresh = versusChallengerFresh();
-  if (lobbyActive() && fresh) {
+  if (lobbyActive() && fresh && versusAllowed()) {
     startVersusFight(now, true);
     return;
   }
@@ -4041,6 +4136,11 @@ let versusInputLastDown = "[]";
 function sendChallengerInput(now) {
   if (roundViewer?.seat !== "challenger" ||
       typeof roundViewer.sendInput !== "function") return;
+  // Holding the chair is not the same as sitting in it. A visitor who has not
+  // come through the door sends nothing, so the host reads the seat as empty
+  // and the room stays open for somebody who has — and this visitor keeps
+  // watching the fight, which was never gated.
+  if (!versusAllowed()) return;
   const pad = typeof gamepad === "function" ? gamepad(0) : null;
   if (!pad) return;
   const down = (pad.down || [])
@@ -4732,7 +4832,7 @@ function netTick() {
 // falls back to the streamed lane it always had.
 function netChallengerHello(now) {
   if (netSession || roundViewer?.seat !== "challenger" ||
-      typeof roundViewer.sendNet !== "function") return;
+      typeof roundViewer.sendNet !== "function" || !versusAllowed()) return;
   const at = Date.now();
   if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
@@ -4792,6 +4892,9 @@ function netDrainHostInbox() {
 // instead of racing, and updateVersusConflict catches the tie anyway.
 function updateVersusClaim(now) {
   if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
+  // Claiming a dead address means hosting, and hosting is playing. Whoever
+  // arrives next deserves a room with a named fighter standing in it.
+  if (!versusAllowed()) return false;
   // A room with a live host is a fight to join; a room with a stored demo is
   // a replay page and keeps being one — versus rooms never record, so only a
   // truly empty address falls through to the claim.
@@ -8372,6 +8475,10 @@ function gameSim() {
   const now = runtime().monotonicUs;
   const dt = Math.min(0.04, Math.max(0.001, (now - lastSimAt) / 1000000));
   lastSimAt = now;
+  // Whether a door is in the way is state, not decoration: the same answer
+  // gates the fight, the claim and the wire, so it is settled once on the tick
+  // rather than re-asked by each of them mid-paint.
+  updateAccountDoor();
   simulateAirParticles(dt, now);
   if (resimPending) {
     startResim(resimPending, now);
@@ -13666,7 +13773,13 @@ function drawVersusHud(t, ink, run) {
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
-  const headline = "WAITING ROOM";
+  const door = versusDoor();
+  // Behind the door the address is a lie: nothing is published, so nobody
+  // could arrive at it. Say what is actually in the way instead. The panel
+  // that takes the email or the handle is the shell's, over the top of this;
+  // this is the part that stays legible on a television across a room.
+  const headline = door === "login" ? "SIGN IN TO PLAY"
+    : door === "handle" ? "CHOOSE A HANDLE" : "WAITING ROOM";
   const headSize = compact ? 30 : 44;
   const pulse = .5 + Math.sin(t * 2.4) * .5;
   const headInk = mixColor(ink, [235, 205, 74], .35 + pulse * .45);
@@ -13675,8 +13788,10 @@ function drawVersusHud(t, ink, run) {
   const headY = hud.top + (compact ? 30 : 42);
   typeWrite(headline, headX + 3, headY + 3, headSize, ...contrastShadow(ink));
   typeWrite(headline, headX, headY, headSize, ...headInk);
-  const address = "FIGHT A FRIEND  OSKIEWAR.COM/" +
-    versusRoomName.toUpperCase();
+  const address = door === "login"
+    ? "A FIGHT NEEDS A NAME ON BOTH ENDS"
+    : door === "handle" ? "YOUR HANDLE IS WHAT THE FIGHT WRITES DOWN"
+    : "FIGHT A FRIEND  OSKIEWAR.COM/" + versusRoomName.toUpperCase();
   const addressSize = compact ? 16 : 23;
   const addressWidth = handleWidth(address, addressSize);
   const addressY = headY + headSize + 10;

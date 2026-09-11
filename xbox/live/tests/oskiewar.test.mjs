@@ -9,6 +9,7 @@ import { decodeDump, dumpRows } from
 
 const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8");
 const webShell = await readFile(new URL("../mac-test.html", import.meta.url), "utf8");
+const accountShell = await readFile(new URL("../account.mjs", import.meta.url), "utf8");
 const reelRenderer = await readFile(new URL(
   "../marketing/render.mjs", import.meta.url), "utf8");
 const replayOven = await readFile(new URL(
@@ -88,7 +89,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -1323,12 +1324,14 @@ test("debug starts hidden and shows its enlarged bottom-center bug", () => {
 
 test("web title offers the shared account logout without entering a fight", () => {
   assert.match(webShell, /<button id="logout" type="button">log out<\/button>/);
-  assert.match(webShell, /hi\.aesthetic\.computer\/v2\/logout/);
-  assert.match(webShell, /target\.searchParams\.set\("client_id",/);
+  // Ending an SSO session still costs a navigation, and that lives in
+  // account.mjs now alongside the native door that does not.
+  assert.match(accountShell, /hi\.aesthetic\.computer|\$\{DOMAIN\}\/v2\/logout/);
+  assert.match(accountShell, /target\.searchParams\.set\("client_id",/);
   // Auth0 checks returnTo against its allowed logout URLs, so the shell hands
   // back the origin it is actually being served from rather than a hardcoded
   // oskiewar.com that no preview or local host could ever match.
-  assert.match(webShell, /target\.searchParams\.set\("returnTo", location\.origin \+ "\/"\)/);
+  assert.match(accountShell, /target\.searchParams\.set\("returnTo", location\.origin \+ "\/"\)/);
   assert.match(webShell, /body\.social-preview #logout \{ display: none; \}/);
   assert.match(webShell, /event\.target instanceof HTMLButtonElement/);
 });
@@ -1809,6 +1812,151 @@ test("a watcher runs its own sparks and flying limbs, and lets them expire", () 
 // were swallowing button edges — the client marks a frame sent the moment the
 // socket takes it, so an edge the relay dropped was invisible at both ends
 // until the next change or the quarter-second heartbeat.
+// @jeffrey: "i think we should require users to axtually login in order to
+// play... and also to make a handle in order to play". Training stays free and
+// anonymous — it is the front door and must never ask for anything — and so
+// does watching: the link a friend sends has to work for whoever opens it.
+// What a handle buys is the half of the game with another person on the other
+// end of it. The @HOST / RIVAL placeholders were the symptom of its absence.
+test("a fight against a person needs a handle; training and watching do not", () => {
+  const account = globalThis.__oskiewarAccount;
+  const capable = globalThis.__oskiewarVersusCapable;
+  globalThis.__oskiewarVersusCapable = true;
+  try {
+    const signedOut = { ready: true, signedIn: false, handle: "", colors: [] };
+    globalThis.__oskiewarAccount = signedOut;
+    const { fight, tick } = createFight(false, false);
+    fight.setVersusRequiresAccount(true);
+    fight.enterLobby();
+    tick(100000);
+    assert.equal(fight.versusAllowed(), false);
+    assert.equal(fight.versusDoor(), "login");
+    assert.equal(globalThis.__oskiewarAccountDoor, "login",
+      "the shell is asked for its sign-in panel");
+    // The waiting room is still standing and still walkable — it doubles as
+    // the training floor, and the door is not a wall.
+    assert.equal(fight.lobbyState().lobby, true);
+    // But nothing that needs a second person happens. A rival's pad arriving
+    // would normally start the fight on the spot.
+    globalThis.__oskiewarRemotePad = { down: [], leftX: 0, leftY: 0,
+      at: Date.now() };
+    for (let frame = 0; frame < 10; frame++) tick();
+    assert.equal(fight.lobbyState().lane, "versus-lobby",
+      "no fight starts from behind the door");
+    // And the room is not published, so the matchmaker never offers it as a
+    // chair to take.
+    assert.equal(fight.liveFrameCount(), 0);
+    // Signed in, but with no handle yet: a different door, same refusal.
+    globalThis.__oskiewarAccount =
+      { ready: true, signedIn: true, handle: "", colors: [] };
+    tick();
+    assert.equal(fight.versusDoor(), "handle");
+    assert.equal(fight.versusAllowed(), false);
+    // Through it.
+    globalThis.__oskiewarAccount =
+      { ready: true, signedIn: true, handle: "@JEFFREY", colors: [] };
+    tick();
+    assert.equal(fight.versusDoor(), "");
+    assert.equal(fight.versusAllowed(), true);
+    for (let frame = 0; frame < 10; frame++) tick();
+    assert.equal(fight.lobbyState().lane, "versus", "now the fight starts");
+    assert.equal(globalThis.__oskiewarAccountDoor, "",
+      "and the panel is dismissed");
+  } finally {
+    globalThis.__oskiewarRemotePad = null;
+    globalThis.__oskiewarAccountDoor = "";
+    globalThis.__oskiewarVersusCapable = capable;
+    if (account) globalThis.__oskiewarAccount = account;
+    else delete globalThis.__oskiewarAccount;
+  }
+});
+
+// "never mind" has to mean it. The shell drops every request the panel holds,
+// this file's included — so a game that simply re-asks on its next frame turns
+// a dismissal into a trap.
+test("backing out of the door leaves the versus lane rather than reopening it", () => {
+  const account = globalThis.__oskiewarAccount;
+  const capable = globalThis.__oskiewarVersusCapable;
+  globalThis.__oskiewarVersusCapable = true;
+  try {
+    globalThis.__oskiewarAccount =
+      { ready: true, signedIn: false, handle: "", colors: [] };
+    const { fight, tick } = createFight(false, false);
+    fight.setVersusRequiresAccount(true);
+    fight.enterLobby();
+    tick(100000);
+    assert.equal(globalThis.__oskiewarAccountDoor, "login");
+    assert.equal(fight.shellState().mode, "GAME");
+    // The shell's "never mind" clears the panel's requests, this one included.
+    globalThis.__oskiewarAccountDoor = "";
+    tick();
+    assert.equal(globalThis.__oskiewarAccountDoor, "",
+      "the panel is not slammed back open");
+    assert.equal(fight.shellState().mode, "MENU",
+      "the title is where the account button and training both live");
+    // And it stays down for as long as nobody is asking to fight a person.
+    for (let frame = 0; frame < 10; frame++) tick();
+    assert.equal(globalThis.__oskiewarAccountDoor, "");
+  } finally {
+    globalThis.__oskiewarAccountDoor = "";
+    globalThis.__oskiewarVersusCapable = capable;
+    if (account) globalThis.__oskiewarAccount = account;
+    else delete globalThis.__oskiewarAccount;
+  }
+});
+
+// The door is held open until the Auth0 tenant can actually let somebody
+// through it — requiring an account before there is a working way to make one
+// would close the game rather than gate it.
+test("the account requirement is off until the tenant can honour it", () => {
+  assert.match(source, /let versusRequiresAccount = false;/);
+  const account = globalThis.__oskiewarAccount;
+  try {
+    globalThis.__oskiewarAccount =
+      { ready: true, signedIn: false, handle: "", colors: [] };
+    const { fight } = createFight(false, false);
+    assert.equal(fight.versusAllowed(), true, "nobody is turned away yet");
+    assert.equal(fight.versusDoor(), "");
+  } finally {
+    if (account) globalThis.__oskiewarAccount = account;
+    else delete globalThis.__oskiewarAccount;
+  }
+});
+
+// Nobody is turned away before the shell has finished asking. A silent session
+// check takes a moment, and a door that flashed up inside it would send a
+// signed-in player off to sign in again.
+test("the door stays shut until the shell has finished asking", () => {
+  const account = globalThis.__oskiewarAccount;
+  const capable = globalThis.__oskiewarVersusCapable;
+  globalThis.__oskiewarVersusCapable = true;
+  try {
+    globalThis.__oskiewarAccount =
+      { ready: false, signedIn: false, handle: "", colors: [] };
+    const { fight, tick } = createFight(false, false);
+    fight.setVersusRequiresAccount(true);
+    fight.enterLobby();
+    tick(100000);
+    assert.equal(fight.versusDoor(), "", "no door while the answer is unknown");
+    assert.equal(globalThis.__oskiewarAccountDoor, "");
+    // Nor does an unknown answer let anybody through.
+    assert.equal(fight.versusAllowed(), false);
+    // But a shell with no account system at all is an older build, not a
+    // locked-out visitor. The two halves of this door ship together, and a
+    // mismatched pair must fail open rather than leave somebody standing in a
+    // waiting room that can never start.
+    delete globalThis.__oskiewarAccount;
+    tick();
+    assert.equal(fight.versusAllowed(), true);
+    assert.equal(fight.versusDoor(), "");
+  } finally {
+    globalThis.__oskiewarAccountDoor = "";
+    globalThis.__oskiewarVersusCapable = capable;
+    if (account) globalThis.__oskiewarAccount = account;
+    else delete globalThis.__oskiewarAccount;
+  }
+});
+
 // @jeffrey: "it seems possible to die in the waiting room but keep jumping
 // stilll". A dead fighter takes no input — but nothing moved it either, and a
 // body blasted out of a jump kept the jump's height, and its jump pose, for
@@ -1858,6 +2006,12 @@ test("a challenger's button edges leave at once and the stick still waits", () =
     start(listener) { bridge.listener = listener; return () => {}; },
     sendInput(content) { sent.push(content); return true; },
     sendNet() { return false; } };
+  // A chair-holder who has not come through the door sends nothing at all,
+  // which is its own test below; this one is about pacing.
+  const account = globalThis.__oskiewarAccount;
+  globalThis.__oskiewarAccount =
+    { ready: true, signedIn: true, handle: "@JEFFREY", colors: [] };
+  try {
   const { pads, tick } = createFight(false, false, "web", bridge);
   tick();
   const count = sent.length;
@@ -1884,6 +2038,10 @@ test("a challenger's button edges leave at once and the stick still waits", () =
   // An unchanged frame echoes once soon after a change rather than waiting
   // out the idle heartbeat, so a dropped edge has a second chance.
   assert.match(source, /versusInputNextAt = now \+ \(edge \? 50000 : 250000\)/);
+  } finally {
+    if (account) globalThis.__oskiewarAccount = account;
+    else delete globalThis.__oskiewarAccount;
+  }
 });
 
 test("the connection meter reads the wire it is actually on", () => {
@@ -2137,6 +2295,9 @@ test("published frames carry the shots and lobs in the air", () => {
 // full state builds in the same millisecond, arriving at the relay as a burst
 // it can only coalesce. Catch-up is exactly when the fight is busiest.
 test("a versus host publishes on the wall clock, so a catch-up burst is one frame", () => {
+  const account = globalThis.__oskiewarAccount;
+  globalThis.__oskiewarAccount =
+    { ready: true, signedIn: true, handle: "@JEFFREY", colors: [] };
   const { fight, liveFrames, tick } = createFight(false, false);
   fight.startFightAgainst("versus");
   tick(50000);
@@ -2154,6 +2315,8 @@ test("a versus host publishes on the wall clock, so a catch-up burst is one fram
   assert.match(webShell,
     /'\{"type":"oskiewar:state","content":' \+ payload \+ "\}"/);
   assert.doesNotMatch(webShell, /content: JSON\.parse\(payload\)/);
+  if (account) globalThis.__oskiewarAccount = account;
+  else delete globalThis.__oskiewarAccount;
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -5669,7 +5832,9 @@ test("a victory laugh opens the mouth and emits floating notes", () => {
 
 test("anonymous web players can log in without receiving a fake handle", () => {
   assert.match(webShell, /<button id="logout" type="button">log in<\/button>/);
-  assert.match(webShell, /loginWithRedirect/);
+  // The redirect is the fallback now rather than the front door, so it lives in
+  // account.mjs beside the native email-code form that replaced it.
+  assert.match(accountShell, /loginWithRedirect/);
   assert.match(webShell, /handle: "", colors:/);
   assert.match(source, /const anonymousFighter = \{ handle: ""/);
 });

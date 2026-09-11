@@ -58,6 +58,11 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
     noOp, noOp, () => viewport,
   );
   globalThis.__oskiewarVersusCapable = true;
+  // A rollback fight has two signed-in seats by definition — versus is behind
+  // the account door now, so a seat that could not name itself would never
+  // have been dealt into one.
+  globalThis.__oskiewarAccount =
+    { ready: true, signedIn: true, handle: "@SEAT", colors: [] };
   globalThis.__oskiewarNetSend = netSend || (() => false);
   globalThis.__oskiewarNetInbox = [];
   globalThis.__oskiewarRoundBridge = roundBridge;

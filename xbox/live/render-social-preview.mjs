@@ -43,8 +43,10 @@ function fileFor(pathname) {
   // Every module the shell imports has to be listed, or the page dies on a 404
   // and the capture comes out empty rather than loudly wrong.
   if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
-      "/oskiewar-midi.mjs", "/frame-driver.mjs",
+      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/account.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
+  if (pathname === "/aesthetic.computer/lib/auth0-otp.mjs")
+    return join(repo, "system/public/aesthetic.computer/lib/auth0-otp.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
   if (pathname === "/aesthetic.computer/lib/product-analytics.mjs")
