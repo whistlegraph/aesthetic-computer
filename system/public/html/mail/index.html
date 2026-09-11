@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>mail · aesthetic.computer</title>
+<meta name="description" content="Your aesthetic.computer inbox — a plain HTML desk for reading and writing mail." />
+<meta name="theme-color" content="#16131c" />
+<style>
+  /* 📬 mail, the HTML sister of disks/mail.mjs.
+     The piece is the instrument — glance at the box, fire off a line, watch
+     the envelope on the curtain. This is the desk: real text selection,
+     spellcheck, a native keyboard and a caret that came with the browser,
+     for when the letter is longer than a sentence.
+     Both talk to the same /api/mail, so there is no rendering to keep in
+     lockstep — only this file's own look. The settings pane mirrors the
+     laklok client's (see system/public/html/index.html). */
+
+  :root, :root[data-theme="night"] {
+    --bg:        #16131c;
+    --bg-deep:   #0f0d14;
+    --bg-soft:   #221d2c;
+    --line:      rgba(150,140,190,.22);
+    --text:      #ece8f4;
+    --dim:       #9a93ad;
+    --faint:     #6a6480;
+    --handle:    #9ab4ff;
+    --subject:   #ffd98c;
+    --accent:    #78d2ff;
+    --unread:    #1e2a3c;
+    --badge:     #dc1e28;
+    --send-bg:   #2bd08a;
+    --send-text: #06180f;
+  }
+  :root[data-theme="clay"] {
+    --bg:        #b4643c;
+    --bg-deep:   #8f4e2e;
+    --bg-soft:   #c2734a;
+    --line:      rgba(220,150,100,.26);
+    --text:      #fffff0;
+    --dim:       #f0cdb4;
+    --faint:     #d0a184;
+    --handle:    #ffd2a0;
+    --subject:   #fff0b4;
+    --accent:    #ffe078;
+    --unread:    #96522e;
+    --badge:     #a01414;
+    --send-bg:   #ff8c50;
+    --send-text: #2a1308;
+  }
+  :root[data-theme="forest"] {
+    --bg:        #183824;
+    --bg-deep:   #10281a;
+    --bg-soft:   #1e462c;
+    --line:      rgba(90,150,110,.26);
+    --text:      #ebfff0;
+    --dim:       #a0c8aa;
+    --faint:     #6e9678;
+    --handle:    #aae696;
+    --subject:   #e6f08c;
+    --accent:    #82dc96;
+    --unread:    #204a2e;
+    --badge:     #b41e28;
+    --send-bg:   #82dc96;
+    --send-text: #08200f;
+  }
+  :root[data-theme="day"] {
+    --bg:        #f4f1ea;
+    --bg-deep:   #e6e1d6;
+    --bg-soft:   #fffdf7;
+    --line:      rgba(60,50,40,.18);
+    --text:      #211d18;
+    --dim:       #5d564c;
+    --faint:     #8a8276;
+    --handle:    #1f4fa8;
+    --subject:   #8a5a00;
+    --accent:    #1f6f9c;
+    --unread:    #e2ecf6;
+    --badge:     #c41220;
+    --send-bg:   #1f6f9c;
+    --send-text: #ffffff;
+  }
+
+  :root {
+    --font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --body-size: 14px;
+  }
+  :root[data-size="roomy"] { --body-size: 16px; }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: var(--body-size);
+    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--accent); }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header {
+    position: relative;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--line);
+    padding: 9px 66px 9px 12px; /* right gutter clears the corner QR */
+    flex: 0 0 auto;
+  }
+  .top { display: flex; align-items: center; gap: 8px; }
+  h1 {
+    margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .04em;
+    color: var(--accent);
+  }
+  #count {
+    background: var(--badge); color: #fff;
+    border-radius: 8px; padding: 0 6px;
+    font-size: 11px; font-weight: 700;
+    display: none;
+  }
+  #count.on { display: inline-block; }
+
+  #addresses { margin-top: 3px; font-size: 11px; color: var(--faint); }
+  #addresses b { color: var(--dim); font-weight: 400; }
+  #addresses .perma { color: var(--accent); opacity: .8; }
+
+  /* 📱 QR — pinned top-right over a white quiet zone, like the laklok client.
+     Scans (or clicks) through to the piece at aesthetic.computer/mail. */
+  #qrlink {
+    position: absolute; top: 6px; right: 6px; z-index: 4;
+    display: none; background: #fff; padding: 3px; line-height: 0;
+  }
+  #qr { display: block; image-rendering: pixelated; width: 50px; height: 50px; }
+
+  /* ⚙️ Settings toggle. */
+  #gear {
+    flex: 0 0 auto; margin-left: auto;
+    width: 26px; height: 22px;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: transparent; color: var(--text);
+    font-family: var(--font); font-size: 13px; line-height: 1;
+    cursor: pointer; padding: 0;
+  }
+  #gear:hover, #gear.open { border-color: var(--accent); color: var(--accent); }
+
+  #settings {
+    position: absolute; top: 100%; right: 8px;
+    background: var(--bg-soft);
+    border: 1px solid var(--accent);
+    padding: 8px 10px; font-size: 12px;
+    display: none; min-width: 220px; z-index: 9;
+  }
+  #settings.open { display: block; }
+  #settings h2 { margin: 0 0 6px; font-size: 12px; color: var(--accent); font-weight: 700; }
+  #settings .row { display: flex; align-items: center; gap: 6px; margin: 5px 0; flex-wrap: wrap; }
+  #settings .row .lbl { width: 44px; opacity: .75; }
+  #settings .note { margin-top: 8px; font-size: 11px; color: var(--faint); }
+  .chip {
+    border: 1px solid var(--line); border-radius: 3px;
+    background: transparent; color: var(--text);
+    font-family: var(--font); font-size: 11px;
+    padding: 2px 7px; cursor: pointer;
+  }
+  .chip.sel { background: var(--accent); border-color: var(--accent); color: var(--bg-deep); font-weight: 700; }
+  .chip:hover { border-color: var(--accent); }
+
+  /* ── Tabs ───────────────────────────────────────────────────────────── */
+  nav {
+    flex: 0 0 auto; display: flex; gap: 6px;
+    padding: 7px 12px; border-bottom: 1px solid var(--line);
+    background: var(--bg-deep);
+  }
+  nav .chip { font-size: 12px; padding: 3px 10px; }
+
+  /* ── Letters ────────────────────────────────────────────────────────── */
+  main { flex: 1 1 auto; overflow-y: auto; padding: 4px 0 16px; }
+  .letter {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .letter:nth-child(even) { background: rgba(127,127,127,.05); }
+  .letter.unread { background: var(--unread); }
+  .meta { display: flex; align-items: baseline; gap: 8px; font-size: 12px; margin-bottom: 2px; }
+  .who { color: var(--handle); font-weight: 700; }
+  .subject { color: var(--subject); }
+  .when { margin-left: auto; color: var(--faint); font-size: 11px; white-space: nowrap; }
+  .dot { color: var(--accent); }
+  .body { color: var(--text); }
+  .reply {
+    margin-top: 4px; font-size: 11px;
+    background: none; border: 0; padding: 0;
+    color: var(--faint); font-family: var(--font); cursor: pointer;
+  }
+  .reply:hover { color: var(--accent); text-decoration: underline; }
+  #empty, #loading { padding: 18px 12px; color: var(--faint); }
+  body.unread-only .letter:not(.unread) { display: none; }
+
+  /* ── Compose ────────────────────────────────────────────────────────── */
+  #compose {
+    flex: 0 0 auto; border-top: 1px solid var(--line);
+    background: var(--bg-deep); padding: 8px 12px 10px;
+  }
+  #compose .field { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
+  #compose label { width: 44px; flex: 0 0 auto; color: var(--faint); font-size: 12px; padding-top: 5px; }
+  #compose input, #compose textarea {
+    flex: 1 1 auto; min-width: 0;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px;
+    font-family: var(--font); font-size: var(--body-size);
+    padding: 4px 6px; resize: vertical;
+  }
+  #compose input:focus, #compose textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  #compose textarea { min-height: 62px; line-height: 1.45; }
+  .actions { display: flex; align-items: center; gap: 10px; }
+  #send {
+    background: var(--send-bg); color: var(--send-text);
+    border: 0; border-radius: 3px; padding: 5px 14px;
+    font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  #send:disabled { opacity: .45; cursor: default; }
+  #note { font-size: 11px; color: var(--faint); }
+  #note.bad { color: var(--badge); }
+  #note.good { color: var(--send-bg); }
+
+  /* ── Sign-in gate ───────────────────────────────────────────────────── */
+  #gate {
+    display: none;
+    margin: 28px auto; max-width: 380px;
+    background: var(--bg-soft); border: 1px solid var(--line);
+    padding: 18px 20px; text-align: center;
+  }
+  body.signed-out #gate { display: block; }
+  body.signed-out main, body.signed-out #compose, body.signed-out nav { display: none; }
+  #gate h2 { margin: 0 0 8px; font-size: 15px; color: var(--accent); }
+  #gate p { margin: 0 0 14px; color: var(--dim); font-size: 13px; }
+  #gate button {
+    background: var(--send-bg); color: var(--send-text);
+    border: 0; border-radius: 3px; padding: 8px 16px;
+    font-family: var(--font); font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  #gate .waiting { margin-top: 12px; font-size: 12px; color: var(--faint); }
+</style>
+</head>
+<body>
+
+<header>
+  <a id="qrlink" href="https://aesthetic.computer/mail"
+     title="aesthetic.computer/mail — scan, or click for the piece"
+     aria-label="QR code to aesthetic.computer/mail"><canvas id="qr"></canvas></a>
+
+  <div class="top">
+    <h1>mail</h1>
+    <span id="count"></span>
+    <button id="gear" title="settings" aria-label="settings">☰</button>
+  </div>
+  <div id="addresses"></div>
+
+  <div id="settings">
+    <h2>settings</h2>
+    <div class="row" data-setting="theme">
+      <span class="lbl">theme</span>
+      <button class="chip" data-theme="night">night</button>
+      <button class="chip" data-theme="clay">clay</button>
+      <button class="chip" data-theme="forest">forest</button>
+      <button class="chip" data-theme="day">day</button>
+    </div>
+    <div class="row" data-setting="show">
+      <span class="lbl">show</span>
+      <button class="chip" data-show="all">all</button>
+      <button class="chip" data-show="unread">unread</button>
+    </div>
+    <div class="row" data-setting="size">
+      <span class="lbl">size</span>
+      <button class="chip" data-size="cozy">cozy</button>
+      <button class="chip" data-size="roomy">roomy</button>
+    </div>
+    <div class="note">
+      the piece lives at <a href="https://aesthetic.computer/mail">aesthetic.computer/mail</a>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button class="chip" data-tab="inbox">inbox</button>
+  <button class="chip" data-tab="sent">sent</button>
+  <button class="chip" id="markread">mark read</button>
+</nav>
+
+<div id="gate">
+  <h2>sign in to read your mail</h2>
+  <p>mail rides on your aesthetic.computer handle. sign in over on the prompt and this page picks it up on its own.</p>
+  <button id="signin">sign in at aesthetic.computer</button>
+  <div class="waiting" id="waiting"></div>
+</div>
+
+<main id="list"><div id="loading">loading…</div></main>
+
+<form id="compose" autocomplete="off">
+  <div class="field">
+    <label for="to">to</label>
+    <input id="to" name="to" placeholder="@handle or ac25namuc" spellcheck="false" />
+  </div>
+  <div class="field">
+    <label for="subject">re</label>
+    <input id="subject" name="subject" placeholder="(optional)" maxlength="80" />
+  </div>
+  <div class="field">
+    <label for="body">say</label>
+    <textarea id="body" name="body" rows="3" maxlength="500" placeholder="…"></textarea>
+  </div>
+  <div class="actions">
+    <button id="send" type="submit">send</button>
+    <span id="note"></span>
+  </div>
+</form>
+
+<script type="module">
+const API = "/api/mail";
+const PIECE = "https://aesthetic.computer/mail";
+
+const $ = (id) => document.getElementById(id);
+const $list = $("list"), $count = $("count"), $addresses = $("addresses");
+const $settings = $("settings"), $gear = $("gear"), $note = $("note");
+const $to = $("to"), $subject = $("subject"), $body = $("body"), $send = $("send");
+
+const auth = { token: null, sub: null };
+let mail = null;
+let tab = "inbox";
+
+// ── Settings — the laklok client's pane, same shape, this page's options ────
+const THEMES = ["night", "clay", "forest", "day"];
+const query = new URLSearchParams(location.search);
+let theme = query.get("theme") || localStorage.getItem("mail:theme") || "night";
+if (!THEMES.includes(theme)) theme = "night";
+let show = localStorage.getItem("mail:show") || "all";
+let size = localStorage.getItem("mail:size") || "cozy";
+
+function applyTheme(name) {
+  theme = name;
+  document.documentElement.dataset.theme = name;
+  for (const chip of $settings.querySelectorAll("[data-theme]")) {
+    chip.classList.toggle("sel", chip.dataset.theme === name);
+  }
+  localStorage.setItem("mail:theme", name);
+}
+function applyShow(mode) {
+  show = mode;
+  document.body.classList.toggle("unread-only", mode === "unread");
+  for (const chip of $settings.querySelectorAll("[data-show]")) {
+    chip.classList.toggle("sel", chip.dataset.show === mode);
+  }
+  localStorage.setItem("mail:show", mode);
+}
+function applySize(name) {
+  size = name;
+  document.documentElement.dataset.size = name;
+  for (const chip of $settings.querySelectorAll("[data-size]")) {
+    chip.classList.toggle("sel", chip.dataset.size === name);
+  }
+  localStorage.setItem("mail:size", name);
+}
+applyTheme(theme);
+applyShow(show);
+applySize(size);
+
+$settings.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+  if (chip.dataset.theme) applyTheme(chip.dataset.theme);
+  if (chip.dataset.show) applyShow(chip.dataset.show);
+  if (chip.dataset.size) applySize(chip.dataset.size);
+});
+
+$gear.onclick = (e) => {
+  e.stopPropagation();
+  const open = $settings.classList.toggle("open");
+  $gear.classList.toggle("open", open);
+};
+document.addEventListener("click", (e) => {
+  if (!$settings.contains(e.target) && e.target !== $gear) {
+    $settings.classList.remove("open");
+    $gear.classList.remove("open");
+  }
+});
+
+// 📱 QR through to the piece — the same generator the raster side uses.
+import("/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
+  .then(({ qrcode, ErrorCorrectLevel }) => {
+    const cells = qrcode(PIECE, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+    const n = cells.length;
+    const canvas = $("qr");
+    const scale = 2;
+    canvas.width = canvas.height = n * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#000";
+    for (let y = 0; y < n; y += 1) {
+      for (let x = 0; x < n; x += 1) {
+        if (cells[y][x]) ctx.fillRect(x * scale, y * scale, scale, scale);
+      }
+    }
+    $("qrlink").style.display = "block";
+  })
+  .catch(() => {});
+
+// ── Auth — the session the AC runtime cached on this origin ─────────────────
+function decodeJwtSub(token) {
+  try {
+    const body = token.split(".")[1];
+    return JSON.parse(atob(body.replace(/-/g, "+").replace(/_/g, "/"))).sub || null;
+  } catch { return null; }
+}
+
+function findAcSession() {
+  const now = Date.now() / 1000;
+  let best = null, expired = false;
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith("@@auth0spajs@@")) continue;
+    let entry;
+    try { entry = JSON.parse(localStorage.getItem(key)); } catch { continue; }
+    const token = entry?.body?.access_token;
+    if (!token) continue;
+    if ((entry.expiresAt || 0) <= now + 30) { expired = true; continue; }
+    const sub =
+      entry.body?.decodedToken?.claims?.sub ||
+      entry.body?.decodedToken?.user?.sub ||
+      decodeJwtSub(token);
+    if (sub) best = { token, sub };
+  }
+  return best || (expired ? { expired: true } : null);
+}
+
+// Signing in happens in another tab on this same origin, so the auth0 cache
+// landing in localStorage is something we can simply wait for — `storage`
+// fires cross-tab, and the poll covers the tab that wrote it.
+function waitForSignIn() {
+  const waiting = $("waiting");
+  let tries = 0;
+  const check = () => {
+    const session = findAcSession();
+    if (session && !session.expired) {
+      clearInterval(timer);
+      window.removeEventListener("storage", check);
+      start(session);
+      return true;
+    }
+    tries += 1;
+    if (waiting) waiting.textContent = tries > 1 ? "waiting for sign-in…" : "";
+    return false;
+  };
+  const timer = setInterval(check, 1000);
+  window.addEventListener("storage", check);
+}
+
+$("signin").onclick = () => {
+  window.open("https://aesthetic.computer/prompt", "_blank", "noopener");
+  $("waiting").textContent = "waiting for sign-in…";
+};
+
+// ── Fetching ───────────────────────────────────────────────────────────────
+async function api(method, body) {
+  const res = await fetch(API, {
+    method,
+    headers: {
+      Authorization: `Bearer ${auth.token}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  return { status: res.status, ...(data || {}) };
+}
+
+function ago(when) {
+  const secs = (Date.now() - new Date(when).getTime()) / 1000;
+  if (secs < 60) return "now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`;
+  if (secs < 604800) return `${Math.floor(secs / 86400)}d`;
+  return new Date(when).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function render() {
+  if (!mail) return;
+
+  $count.textContent = mail.unread || "";
+  $count.classList.toggle("on", (mail.unread || 0) > 0);
+  $("markread").style.display = (mail.unread || 0) > 0 && tab === "inbox" ? "" : "none";
+
+  $addresses.innerHTML = (mail.addresses || [])
+    .map((a) => `<b class="${a.startsWith("ac") ? "perma" : ""}">${a}</b>`)
+    .join(" · ");
+
+  for (const chip of document.querySelectorAll("[data-tab]")) {
+    chip.classList.toggle("sel", chip.dataset.tab === tab);
+  }
+
+  const letters = tab === "inbox" ? mail.inbox : mail.sent;
+  if (!letters?.length) {
+    $list.innerHTML = `<div id="empty">${
+      tab === "inbox" ? "nothing in the box yet." : "nothing sent yet."
+    }</div>`;
+    return;
+  }
+
+  $list.innerHTML = letters
+    .map((m) => {
+      const who = tab === "inbox" ? m.from : m.to;
+      const unread = tab === "inbox" && !m.read;
+      return `<article class="letter${unread ? " unread" : ""}">
+        <div class="meta">
+          ${unread ? '<span class="dot">•</span>' : ""}
+          <span class="who">${esc(who || "someone")}</span>
+          ${m.subject ? `<span class="subject">${esc(m.subject)}</span>` : ""}
+          <span class="when">${ago(m.when)}</span>
+        </div>
+        <div class="body">${esc(m.text)}</div>
+        ${who ? `<button class="reply" data-to="${esc(who)}">reply</button>` : ""}
+      </article>`;
+    })
+    .join("");
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+}
+
+async function refresh() {
+  const res = await api("GET");
+  if (res.status === 200) {
+    mail = res;
+    render();
+  } else {
+    $list.innerHTML = `<div id="empty">couldn't load mail (${res.status}).</div>`;
+  }
+}
+
+// ── Wiring ─────────────────────────────────────────────────────────────────
+document.querySelector("nav").addEventListener("click", async (e) => {
+  const chip = e.target.closest("[data-tab]");
+  if (chip) {
+    tab = chip.dataset.tab;
+    render();
+    return;
+  }
+  if (e.target.id === "markread") {
+    await api("POST", { action: "read" });
+    await refresh();
+  }
+});
+
+$list.addEventListener("click", (e) => {
+  const btn = e.target.closest(".reply");
+  if (!btn) return;
+  $to.value = btn.dataset.to;
+  $subject.focus();
+});
+
+$("compose").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const to = $to.value.trim();
+  const text = $body.value.trim();
+  $note.className = "";
+  if (!to) { $note.textContent = "who is it to?"; $note.className = "bad"; return; }
+  if (!text) { $note.textContent = "nothing to say yet"; $note.className = "bad"; return; }
+
+  $send.disabled = true;
+  $note.textContent = "sending…";
+  const res = await api("POST", { to, subject: $subject.value.trim(), text });
+  $send.disabled = false;
+
+  if (res.status === 200) {
+    $note.textContent = `sent to ${res.to || to}`;
+    $note.className = "good";
+    $subject.value = "";
+    $body.value = "";
+    tab = "sent";
+    await refresh();
+  } else if (res.status === 404) {
+    $note.textContent = `no one answers to ${to}`;
+    $note.className = "bad";
+  } else {
+    $note.textContent = res.message || "couldn't send that";
+    $note.className = "bad";
+  }
+});
+
+// ⌘/ctrl + enter sends from anywhere in the form.
+$("compose").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    $("compose").requestSubmit();
+  }
+});
+
+function start(session) {
+  auth.token = session.token;
+  auth.sub = session.sub;
+  document.body.classList.remove("signed-out");
+  refresh();
+}
+
+const session = findAcSession();
+if (session && !session.expired) {
+  start(session);
+} else {
+  document.body.classList.add("signed-out");
+  if (session?.expired) {
+    $("gate").querySelector("p").textContent =
+      "your session expired. sign in again and this page will pick it up.";
+  }
+  waitForSignIn();
+}
+</script>
+</body>
+</html>
