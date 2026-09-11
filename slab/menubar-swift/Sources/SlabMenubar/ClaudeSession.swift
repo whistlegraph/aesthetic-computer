@@ -105,6 +105,12 @@ struct ClaudeSession {
     /// The prompt rock turns this into a QR surface; everything else ignores it.
     var scanURL: String = ""
 
+    /// The piece this session is writing, with its extension — `balozo.mjs`.
+    /// Only Aesthetic Code sets it, and it names the rock: a session that is
+    /// holding a piece should be addressable by that piece's name rather than
+    /// by a second unrelated word drawn from its session id.
+    var piece: String = ""
+
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
@@ -371,6 +377,7 @@ enum ClaudeSessionReader {
         session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
         session.scanURL = (obj["scan_url"] as? String) ?? ""
+        session.piece = (obj["piece"] as? String) ?? ""
         return session
     }
 
