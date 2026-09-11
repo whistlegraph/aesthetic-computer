@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "pdf": "shipping-easel.pdf",
+  "pdfSha256": "f65a5d5319fba6f6551e6cdccaffe02516da9aae52061aacaabc5af81c99575d",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-09-11T20:45:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Running header, title block and every body mention go through the \\ac macro, which sets the period in AC pink. The bibliography entry carries a plain period, since a .bib field cannot colour it."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "acts",
+      "page": 2,
+      "crop": [
+        0.48,
+        0.03,
+        0.46,
+        0.22
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected at full resolution after a restructure. The first draft ran a single chain with 'needs a licence' on the edge leaving advertise, which read as though advertising needed one; the two available acts now sit as equal-width peers on a shared baseline and converge into distribute, so the gate label reads as an additional requirement rather than a property of either parent. Arrows terminate on borders with no tangents, the today/next rail orients the two bands, and every label is legible at print size."
+    }
+  ]
+}

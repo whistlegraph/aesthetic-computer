@@ -75,6 +75,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "report-shipping-easel": {
+    base: "shipping-easel",
+    siteName: "shipping-the-easel-26-report",
+    title: "Shipping the Easel",
+  },
   "arxiv-inference-turnstile": {
     base: "inference-turnstile",
     siteName: "paying-for-strangers-26-arxiv",
