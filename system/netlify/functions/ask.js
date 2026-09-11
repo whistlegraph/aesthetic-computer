@@ -44,7 +44,7 @@ const allowedOrigins = [
 // - ANTHROPIC_API_KEY (for Claude models)
 // - OPENAI_API_KEY (for OpenAI models)
 
-async function handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin) {
+async function handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin, handle = "") {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY not configured");
     return {
@@ -193,6 +193,14 @@ async function handleClaudeRequest(messages, model, temperature, top_p, max_toke
                       const outputTokens = tokenUsage.output_tokens || 0;
                       const totalTokens = inputTokens + outputTokens;
                       const maxTokens = max_tokens;
+                      // 🪙 Bill the handle what this actually cost. Fire and
+                      // forget: the answer is already delivered and an
+                      // accounting write must never delay or fail it.
+                      if (handle) {
+                        import("../../backend/ai-budget.mjs")
+                          .then(({ recordUsage }) => recordUsage(handle, totalTokens, { model }))
+                          .catch(() => {});
+                      }
                       
                       // Create visual progress bar for output tokens vs limit
                       const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
@@ -394,14 +402,34 @@ exports.handler = stream(async (event) => {
       console.log("🔓 ask: treating as anonymous —", err.message);
     }
 
-    if (!handle) {
+    // A handle that has spent its day is served exactly like a visitor: the
+    // cheap model, the small ceiling. Running out drops the tier, it does not
+    // close the door — `make` and `paint` keep working, they just stop costing
+    // what the good models cost. A budget that becomes an outage is a worse
+    // product than no budget at all.
+    let spent = null;
+    if (handle) {
+      try {
+        const { checkBudget } = await import("../../backend/ai-budget.mjs");
+        spent = await checkBudget(handle);
+      } catch (err) {
+        console.log("🪙 budget unavailable —", err.message);
+      }
+    }
+    const overBudget = Boolean(spent?.exhausted);
+
+    if (!handle || overBudget) {
       if (model !== ANONYMOUS_MODEL) {
-        console.log(`🪙 Anonymous — ${model} → ${ANONYMOUS_MODEL}`);
+        const why = overBudget
+          ? `@${handle} over budget (${spent.used}/${spent.budget} today)`
+          : "Anonymous";
+        console.log(`🪙 ${why} — ${model} → ${ANONYMOUS_MODEL}`);
         model = ANONYMOUS_MODEL;
       }
       max_tokens = Math.min(max_tokens, ANONYMOUS_MAX_TOKENS);
     } else {
-      console.log(`🪙 @${handle} — ${model}`);
+      const left = spent ? ` · ${spent.remaining}/${spent.budget} left today` : "";
+      console.log(`🪙 @${handle} — ${model}${left}`);
     }
 
     
@@ -425,7 +453,7 @@ exports.handler = stream(async (event) => {
     console.log(`❓ Prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`);
     
     if (isClaudeModel) {
-      return handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin);
+      return handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin, handle);
     } else {
       // OpenAI request
       if (!process.env.OPENAI_API_KEY) {
@@ -556,6 +584,13 @@ exports.handler = stream(async (event) => {
                       const outputTokens = tokenUsage.completion_tokens || 0;
                       const totalTokens = inputTokens + outputTokens;
                       const maxTokens = max_tokens;
+                      // 🪙 See the Claude path — same reasoning, same numbers,
+                      // different spelling of the usage object.
+                      if (handle) {
+                        import("../../backend/ai-budget.mjs")
+                          .then(({ recordUsage }) => recordUsage(handle, totalTokens, { model }))
+                          .catch(() => {});
+                      }
                       
                       // Create visual progress bar for output tokens vs limit
                       const outputProgress = Math.min(outputTokens / maxTokens, 1.0);
