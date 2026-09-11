@@ -57,12 +57,22 @@ function sim({ clock }) {
 
 const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
 
-// A tab reads as chosen or not — TextButton takes the colors, not the ink.
+// Each tab keeps its own hue so you can tell them apart at a glance, and the
+// open one is the only one that fills. TextButton takes colors, not ink.
+const TABS = {
+  inbox: [60, 130, 210],
+  sent: [210, 140, 50],
+  prefs: [150, 100, 200],
+};
+
 function tab(name) {
+  const [r, g, b] = TABS[name];
   return view === name
-    ? [[64, 54, 104], [180, 160, 255], [235, 225, 255]]
-    : [[28, 26, 34], [86, 80, 104], [132, 126, 156]];
+    ? [[r >> 1, g >> 1, b >> 1], [r, g, b], [255, 255, 255]]
+    : [[20, 19, 24], [r >> 2, g >> 2, b >> 2], [r * 0.55, g * 0.55, b * 0.55]];
 }
+
+const PERMA = /^ac\d\d[a-z]{5}@/;
 
 // How long ago, short enough to sit next to a handle.
 function ago(when) {
@@ -114,12 +124,26 @@ function paint(api) {
   }
   y += 16;
 
-  // The two spellings of this mailbox — permahandle first, it never moves.
+  // The two spellings of this mailbox. The permahandle never moves and reads
+  // like a serial number, so it wears MatrixChunky8; the @handle is the human
+  // alias and stays in the normal face.
   for (const address of mail.addresses) {
-    ink(address.startsWith("ac") ? 110 : 90).write(address, { x, y });
-    y += 10;
+    if (PERMA.test(address)) {
+      ink(110, 200, 165).write(
+        address,
+        { x, y: y + 1 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+      y += 9;
+    } else {
+      ink(150, 170, 225).write(address, { x, y });
+      y += 11;
+    }
   }
-  y += 4;
+  y += 5;
 
   inboxBtn.reposition({ x, y, screen });
   inboxBtn.paint(api, tab("inbox"));
@@ -156,23 +180,33 @@ function paint(api) {
     y += 18;
   }
 
-  for (const letter of letters) {
-    if (y > screen.height - 14) break;
+  const bounds = wide - 10;
+
+  letters.forEach((letter, i) => {
+    if (y > screen.height - 14) return;
     const unread = view === "inbox" && !letter.read;
     const who = (view === "inbox" ? letter.from : letter.to) || "someone";
+    const body = text.box(letter.text, { x: x + 8, y }, bounds).box.height;
 
-    if (unread) ink(0, 255, 255).box(x, y + 2, 3, 3);
+    // Stripe the row behind everything, so a long message stays one block.
+    ink(unread ? [30, 42, 56] : i % 2 ? [26, 23, 32] : [33, 29, 40]).box(
+      x,
+      y - 3,
+      wide,
+      body + 17,
+    );
+
+    if (unread) ink(0, 255, 255).box(x + 2, y + 2, 3, 3);
     ink(unread ? [170, 220, 255] : [130, 140, 170]).write(who, {
-      x: x + 6,
+      x: x + 8,
       y,
     });
     ink(70).write(ago(letter.when), { x: screen.width - 34, y });
     y += 11;
 
-    const bounds = wide - 10;
-    ink(unread ? 245 : 190).write(letter.text, { x: x + 8, y }, undefined, bounds);
-    y += text.box(letter.text, { x: x + 8, y }, bounds).box.height + 6;
-  }
+    ink(unread ? 245 : 190).write(letter.text, { x: x + 10, y }, undefined, bounds);
+    y += body + 6;
+  });
 }
 
 function paintPrefs(api, x, y, wide) {
