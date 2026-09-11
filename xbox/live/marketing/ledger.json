@@ -31,7 +31,7 @@
         "ig_reels_video_view_total_time": 7697991,
         "reels_skip_rate": 47.7
       },
-      "insightsAt": "2026-09-10T01:41:05.556Z"
+      "insightsAt": "2026-09-11T01:41:04.887Z"
     },
     {
       "mode": "live",
@@ -178,7 +178,7 @@
         "ig_reels_video_view_total_time": 8448437,
         "reels_skip_rate": 51.4
       },
-      "insightsAt": "2026-09-10T01:41:07.138Z"
+      "insightsAt": "2026-09-11T01:41:05.738Z"
     },
     {
       "mode": "live",
@@ -276,7 +276,7 @@
         "ig_reels_video_view_total_time": 18885261,
         "reels_skip_rate": 38.4
       },
-      "insightsAt": "2026-09-10T01:41:08.437Z"
+      "insightsAt": "2026-09-11T01:41:06.560Z"
     },
     {
       "mode": "live",
@@ -308,7 +308,7 @@
         "ig_reels_video_view_total_time": 14995812,
         "reels_skip_rate": 36.8
       },
-      "insightsAt": "2026-09-10T01:41:09.352Z"
+      "insightsAt": "2026-09-11T01:41:07.234Z"
     },
     {
       "mode": "live",
@@ -374,7 +374,7 @@
         "ig_reels_video_view_total_time": 14370200,
         "reels_skip_rate": 33.4
       },
-      "insightsAt": "2026-09-10T01:41:11.005Z",
+      "insightsAt": "2026-09-11T01:41:07.913Z",
       "platforms": {
         "youtube": {
           "videoId": "BkG6coEZSWc",
@@ -416,7 +416,7 @@
         "ig_reels_video_view_total_time": 15183656,
         "reels_skip_rate": 34.1
       },
-      "insightsAt": "2026-09-10T01:41:11.616Z"
+      "insightsAt": "2026-09-11T01:41:08.467Z"
     },
     {
       "mode": "live",
@@ -516,7 +516,7 @@
         "ig_reels_video_view_total_time": 10921270,
         "reels_skip_rate": 37.6
       },
-      "insightsAt": "2026-09-10T01:41:12.650Z"
+      "insightsAt": "2026-09-11T01:41:09.329Z"
     },
     {
       "mode": "live",
@@ -548,7 +548,7 @@
         "ig_reels_video_view_total_time": 19226543,
         "reels_skip_rate": 31.2
       },
-      "insightsAt": "2026-09-10T01:41:13.559Z"
+      "insightsAt": "2026-09-11T01:41:09.863Z"
     },
     {
       "mode": "live",
@@ -576,11 +576,11 @@
         "saved": 0,
         "shares": 0,
         "total_interactions": 6,
-        "ig_reels_avg_watch_time": 7646,
-        "ig_reels_video_view_total_time": 8426087,
+        "ig_reels_avg_watch_time": 7640,
+        "ig_reels_video_view_total_time": 8427648,
         "reels_skip_rate": 36.9
       },
-      "insightsAt": "2026-09-10T01:41:14.323Z"
+      "insightsAt": "2026-09-11T01:41:10.608Z"
     },
     {
       "mode": "live",
@@ -655,7 +655,7 @@
         "ig_reels_video_view_total_time": 36215903,
         "reels_skip_rate": 33.4
       },
-      "insightsAt": "2026-09-10T01:41:15.210Z"
+      "insightsAt": "2026-09-11T01:41:11.282Z"
     },
     {
       "mode": "live",
@@ -687,18 +687,18 @@
       "containerId": "18086447231446357",
       "mediaId": "18438537742127193",
       "insights": {
-        "views": 4946,
-        "reach": 4120,
+        "views": 4949,
+        "reach": 4127,
         "likes": 17,
         "comments": 0,
         "saved": 0,
         "shares": 0,
         "total_interactions": 17,
-        "ig_reels_avg_watch_time": 10002,
-        "ig_reels_video_view_total_time": 41610528,
+        "ig_reels_avg_watch_time": 10000,
+        "ig_reels_video_view_total_time": 41631390,
         "reels_skip_rate": 27.8
       },
-      "insightsAt": "2026-09-10T01:41:16.072Z"
+      "insightsAt": "2026-09-11T01:41:11.694Z"
     },
     {
       "mode": "live",
@@ -730,18 +730,18 @@
       "containerId": "18086658659446357",
       "mediaId": "17913702084462410",
       "insights": {
-        "views": 2666,
+        "views": 2667,
         "reach": 2389,
         "likes": 10,
         "comments": 0,
         "saved": 0,
         "shares": 0,
         "total_interactions": 10,
-        "ig_reels_avg_watch_time": 8919,
-        "ig_reels_video_view_total_time": 21362610,
-        "reels_skip_rate": 33
+        "ig_reels_avg_watch_time": 8918,
+        "ig_reels_video_view_total_time": 21367737,
+        "reels_skip_rate": 32.9
       },
-      "insightsAt": "2026-09-10T01:41:16.691Z"
+      "insightsAt": "2026-09-11T01:41:12.329Z"
     },
     {
       "mode": "live",
@@ -774,18 +774,18 @@
       "containerId": "18087139691446357",
       "mediaId": "17904726327331819",
       "insights": {
-        "views": 1346,
-        "reach": 1115,
-        "likes": 7,
+        "views": 2013,
+        "reach": 1842,
+        "likes": 12,
         "comments": 0,
         "saved": 0,
         "shares": 0,
-        "total_interactions": 7,
-        "ig_reels_avg_watch_time": 11834,
-        "ig_reels_video_view_total_time": 13112098,
-        "reels_skip_rate": 30.4
+        "total_interactions": 12,
+        "ig_reels_avg_watch_time": 10751,
+        "ig_reels_video_view_total_time": 19686766,
+        "reels_skip_rate": 35.2
       },
-      "insightsAt": "2026-09-10T01:41:17.968Z"
+      "insightsAt": "2026-09-11T01:41:12.919Z"
     }
   ]
 }
