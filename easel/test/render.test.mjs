@@ -110,6 +110,12 @@ test("no state can make a row wider than the window", async () => {
     { ...base, entries: [{ id: "e", kind: "assistant", text: "这是一个测试 これはテストです 이것은 테스트입니다" }] },
     { ...base, entries: [{ id: "e", kind: "command", text: `${"█".repeat(120)}\n${"—".repeat(200)}` }] },
     { ...base, input: `${"🌈".repeat(60)}?`, cursor: 61 },
+    { ...base, audience: { here: 3, peak: 12, arrivals: 14, online: 148 } },
+    { ...base, audience: { here: 0, peak: 0, arrivals: 0, online: null } },
+    { ...base, audience: { here: 9999, peak: 99999, arrivals: 0, online: 99999 } },
+    { ...base, health: { frame: { blank: true, color: [12, 10, 24], colors: 1 } } },
+    { ...base, audience: { here: 2, peak: 2, online: 9 }, health: { frame: { blank: true, color: [255, 255, 255], colors: 1 } } },
+    { ...base, audience: { here: 2, peak: 2, online: 9 }, health: { frame: { blank: false, colors: 64 } } },
   ];
   for (const state of states) {
     for (const [columns, rows] of [[75, 42], [100, 40], [80, 24], [57, 24], [40, 20], [32, 10]]) {
@@ -149,4 +155,83 @@ test("renders approvals inside the interface", () => {
   assert.match(frame, /y once/);
   assert.match(frame, /a session/);
   assert.match(frame, /n deny/);
+});
+
+// The count is the only number in the interface that moves because of somebody
+// else, so it has to be legible — and it has to be honest, which means saying
+// nothing at all rather than zero when the server has not answered.
+test("shows who is watching the piece, and says nothing when it cannot know", async () => {
+  const { audienceReadout } = await import("../src/render.mjs");
+  const base = {
+    workspace: "/project",
+    mode: "remote",
+    status: "ready",
+    account: "@tester",
+    piece: "puka.mjs",
+    input: "",
+    entries: [],
+  };
+
+  const watched = renderFrame(
+    { ...base, audience: { here: 3, peak: 12, arrivals: 14, online: 148 } },
+    100,
+    24,
+    false,
+  );
+  assert.match(watched, /3 here/, "the live count is on the frame");
+  assert.match(watched, /12 peak/, "and so is the high-water mark");
+  assert.match(watched, /148 on AC/);
+
+  const quiet = renderFrame({ ...base, audience: { here: 0, peak: 0, online: null } }, 100, 24, false);
+  assert.match(quiet, /0 here/, "an answered zero is a real, reportable zero");
+
+  const unknown = renderFrame({ ...base, audience: { here: null, peak: 0 } }, 100, 24, false);
+  assert.ok(!/here/.test(unknown), "an unanswered query claims nothing at all");
+  const absent = renderFrame(base, 100, 24, false);
+  assert.ok(!/here/.test(absent), "and neither does a session with no audience yet");
+
+  // The peak is only news while it is ahead of the present.
+  const level = audienceReadout({ here: 4, peak: 4, online: null }, 80, false);
+  assert.equal(level.plain, "4 here");
+
+  // A narrow window keeps the fact that matters and drops the trimmings.
+  const wide = audienceReadout({ here: 2, peak: 9, online: 100 }, 80, false);
+  assert.equal(wide.plain, "2 here · 9 peak · 100 on AC");
+  assert.equal(audienceReadout({ here: 2, peak: 9, online: 100 }, 16, false).plain, "2 here · 9 peak");
+  assert.equal(audienceReadout({ here: 2, peak: 9, online: 100 }, 8, false).plain, "2 here");
+  assert.equal(audienceReadout({ here: 2, peak: 9, online: 100 }, 3, false).plain, "", "and gives up rather than clipping a number in half");
+});
+
+// The failure the whole diagnostics pipe exists for: a piece that paints one
+// flat colour and throws nothing. It has to reach the frame even when the
+// viewer count never arrived, and it has to outrank the trimmings.
+test("a blank frame is reported, and outranks the rest of the readout", async () => {
+  const { audienceReadout } = await import("../src/render.mjs");
+  const base = {
+    workspace: "/project", mode: "remote", status: "ready",
+    account: "@tester", piece: "kizide.mjs", input: "", entries: [],
+  };
+
+  const blank = renderFrame(
+    { ...base, health: { frame: { blank: true, color: [12, 10, 24], colors: 1 } } },
+    100, 24, false,
+  );
+  assert.match(blank, /blank 12,10,24/, "it says so even with no viewer count");
+
+  const both = audienceReadout(
+    { here: 2, peak: 9, online: 100, frame: { blank: true, color: [0, 0, 0], colors: 1 } },
+    80, false,
+  );
+  assert.equal(both.plain, "blank 0,0,0 \u00b7 2 here \u00b7 9 peak \u00b7 100 on AC");
+  // Squeezed, the bad news is what survives.
+  assert.equal(
+    audienceReadout({ here: 2, peak: 9, online: 100, frame: { blank: true, color: [0, 0, 0] } }, 12, false).plain,
+    "blank 0,0,0",
+  );
+
+  const healthy = audienceReadout({ here: 2, peak: 2, frame: { blank: false, colors: 48 } }, 80, false);
+  assert.equal(healthy.plain, "2 here \u00b7 48 colors", "a working piece reports its spread, not an alarm");
+
+  const nothing = audienceReadout({ here: null, frame: null }, 80, false);
+  assert.equal(nothing.plain, "", "and an unanswered session still claims nothing");
 });

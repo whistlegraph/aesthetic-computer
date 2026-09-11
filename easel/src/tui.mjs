@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
+import { Audience } from "./audience.mjs";
 import { AutoPublisher } from "./autopublish.mjs";
-import { EASEL_HEIGHT, easelFrame, easelNextFrame } from "./easel.mjs";
+import { Diagnostics } from "./diagnostics.mjs";
+import { EASEL_HEIGHT, easelFrame, easelNextFrame, easelWidth } from "./easel.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, renderBoot, renderFrame } from "./render.mjs";
+import { cleanText, color, easelInk, renderBoot, renderFrame } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -66,6 +69,12 @@ const state = {
   piece: "",
   // What the bridge said it is running, once it has said so.
   model: "",
+  // Who is watching the piece, once the session server has said. Null until
+  // then — see `audience.mjs` on why that is not zero.
+  audience: null,
+  // What those people's browsers are actually showing — a blank frame, an
+  // uncaught error. Null until the relay lets this session listen.
+  health: null,
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -117,6 +126,34 @@ function autopublishRoute() {
 }
 
 // The model must never mistake a file on disk for a published piece.
+// The repo's style guides, named only when the session is actually running in
+// the repository that holds them. Naming a path that isn't there teaches the
+// model to ignore the whole instruction.
+const STYLE_GUIDES = [
+  ["SCREEN.md", "how a piece draws on the AC canvas"],
+  ["HAND.md", "how the code reads"],
+];
+
+function styleInstructions() {
+  const present = STYLE_GUIDES.filter(([file]) => existsSync(path.join(cwd, file)));
+  if (present.length === 0) return [];
+  const named = present
+    .map(([file, subject]) => `${file} (${subject})`)
+    .join(" and ");
+  const lines = [
+    `Style: this repo's guides are ${named} — read them before writing a piece, and follow them over your own defaults.`,
+  ];
+  // The one rule that gets broken on a first draft, inlined because a model
+  // that skips the read still has to know it. Lua pieces draw through
+  // Processing and never see the hud/ui API, so it would only mislead them.
+  if (live.runtime.id !== "lua") {
+    lines.push(
+      "Above all: the system paints its own corner label at (6, 6) in a 6x10 font, and tapping it is how the user gets back. Keep the top-left ~20 rows clear — put readouts along the bottom or right-aligned — or take the label over deliberately with hud.label().",
+    );
+  }
+  return lines;
+}
+
 function developerInstructions() {
   const account = session.handle
     ? `The user is signed in to Aesthetic Computer as @${session.handle}.`
@@ -148,6 +185,7 @@ function developerInstructions() {
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
     ...dialect,
+    ...styleInstructions(),
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
     ...publishing,
     "Dev servers: do not stop a dev server you were asked to start; say that it is still running.",
@@ -254,6 +292,7 @@ async function finish(code = 0) {
   session.unwatch();
   const pending = autopublish.pending || autopublish.running;
   live.unwatch();
+  audience.close();
   slabSession.close();
   engine.close();
   process.stdin.setRawMode(false);
@@ -320,12 +359,64 @@ autopublish.on("failed", (error) => {
   redraw();
 });
 
+// Who is watching. The channel is the piece's public route once a handle has
+// resolved, which is the same name the published address carries — so the count
+// is of people at the address on the splash, not of some private side channel.
+const audience = new Audience({ channel: live.channel });
+
+audience.on("change", (report) => {
+  state.audience = report;
+  redraw();
+});
+
+// What the piece looks like from inside the browsers running it. Rides the
+// audience's socket — one connection, two readouts.
+const health = new Diagnostics({
+  channel: live.channel,
+  token: async () => {
+    if (!session.signedIn) return null;
+    try {
+      return await session.token();
+    } catch {
+      return null;
+    }
+  },
+});
+
+audience.on("open", () => {
+  health.attach((type, content) => audience.send(type, content)).catch(() => {});
+});
+audience.on("message", (message) => health.receive(message));
+
+health.on("change", (report) => {
+  state.health = report;
+  redraw();
+});
+
+// An error from the piece is news, so it goes in the transcript rather than
+// only into a counter the user has to notice.
+health.on("log", (line) => {
+  if (line.level !== "error") return;
+  addEntry("error", `Piece: ${line.text}`);
+  redraw();
+});
+
+// Follow the piece: a sign-in turns the fallback channel into `@handle/slug`,
+// and a rename or a retarget moves it again.
+function refreshAudience() {
+  audience.watch(live.channel);
+  health.watch(live.channel).catch(() => {});
+}
+
 function refreshQr() {
   state.qr = state.showQr ? qrBlock(live.scanUrl) : null;
   // The rock in the menu bar carries the same address. `/qr` hides the code in
   // here, not out there — the rock is a different surface with its own room,
   // and hiding one is no reason to blank the other.
   slabSession.live(`${live.slug}${live.runtime.extension}`, live.scanUrl);
+  // The scanned address and the watched channel are the same name, so whatever
+  // moved one moved the other.
+  refreshAudience();
 }
 
 function itemSummary(item) {
@@ -419,6 +510,10 @@ function handleNotification({ method, params = {} }) {
       if (params.turn?.status === "interrupted") slabSession.interrupted();
       else if (params.turn?.status === "failed") slabSession.awaitingInput("aesthetic code turn failed");
       else slabSession.complete();
+      // Whatever the turn wrote goes out now rather than on the coalescing
+      // timer. An interrupted turn publishes too — the user stopped the agent,
+      // not the file, and what is on disk is still what they are looking at.
+      publishTurn();
       // An interrupt is a decision about everything you were going to say, not
       // just the turn that was running, so ctrl-c drops the queue with it.
       if (params.turn?.status === "interrupted" && state.queued.length) {
@@ -527,6 +622,21 @@ function publishBlankOnce() {
   if (!autopublish.enabled || autopublishBlocker()) return;
   blankPublished = true;
   autopublish.note(live.source());
+}
+
+// A turn is the natural moment to publish. Mid-turn the agent may write a file
+// five times in ten seconds, so the coalescing window is doing real work and
+// should be left alone; but once the turn is over the file is as finished as it
+// is going to get, and waiting out the rest of `minGap` only means the address
+// the user is about to open still answers with the previous version.
+function publishTurn() {
+  if (!autopublish.enabled || autopublishBlocker()) return;
+  // The file watcher debounces its own save notice, so a write from the last
+  // moments of the turn may not have been noted yet. Read it here instead of
+  // racing that timer.
+  autopublish.note(live.source());
+  // Failures already reach the transcript through the `failed` event.
+  autopublish.flush().catch(() => {});
 }
 
 function refreshAccount(announce = false) {
@@ -979,8 +1089,10 @@ function splashTick() {
   const elapsed = Date.now() - splashStartedAt;
   const canvas = { piece: live.slug, address: live.scanUrl };
   const columns = process.stdout.columns || 80;
-  const lines = easelFrame(elapsed, canvas);
-  const pad = Math.max(0, Math.floor((columns - lines[0].length) / 2));
+  // NO_COLOR gets the plain frame, the same as the entrance does.
+  const lines = easelFrame(elapsed, canvas, process.env.NO_COLOR === "1" ? null : easelInk);
+  // Measured, not counted: the painted lines carry escapes that take no columns.
+  const pad = Math.max(0, Math.floor((columns - easelWidth(canvas.piece, canvas.address)) / 2));
   const gap = Math.max(0, Math.floor(((process.stdout.rows || 24) - EASEL_HEIGHT) / 2));
   const body = lines.map((line) => " ".repeat(pad) + line).join("\n");
   process.stdout.write(`\x1b[H\x1b[2J${color.ground}${"\n".repeat(gap)}${body}`);
@@ -1032,6 +1144,7 @@ live.on("push", () => {
 });
 state.piece = `${live.slug}${live.runtime.extension}`;
 refreshQr();
+audience.start();
 
 // The entrance plays across the bridge handshake instead of in front of it.
 // The handshake is most of a second of nothing; the little guy walks in over

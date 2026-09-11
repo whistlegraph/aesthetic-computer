@@ -84,6 +84,26 @@ export const color = {
   block: bg(palette.block) + fg(palette.text),
 };
 
+// The easel splash paints the piece's name a hue per character. These are the
+// palette's saturated entries in the order they read best left to right — warm
+// through pink into green — skipping `error` and the two purples, which are the
+// interface's own vocabulary and would make a name look like a status.
+export const easelInk = {
+  frame: fg(palette.soft),
+  name: [
+    fg(palette.highlight),
+    fg(palette.handle),
+    fg(palette.you),
+    fg(palette.edit),
+    fg(palette.status),
+    fg(palette.run),
+  ],
+  address: fg(palette.muted),
+  cursor: fg(palette.prompt),
+  legs: fg(palette.muted),
+  reset: color.reset + color.ground,
+};
+
 export function cleanText(value) {
   return String(value ?? "")
     .replace(ESCAPE, "")
@@ -304,6 +324,54 @@ export function renderBoot(elapsed = 0, columns = 80, rows = 24, useColor = true
     .join("\n");
 }
 
+// The readout for everything happening on the far side of the QR code: how many
+// people are at the piece, and what their browsers are painting. Parts fall off
+// the right as the window narrows, worst news first — a blank frame outranks a
+// viewer count, because it is the one thing here that means something is wrong.
+//
+// Nothing is printed for a fact that has not been established. `here` is null
+// until the session server answers, and a null is "not known", not zero — see
+// `audience.mjs`. The same goes for the frame.
+export function audienceReadout(state, room = 80, useColor = true) {
+  const here = state?.here;
+  const frame = state?.frame;
+  const parts = [];
+
+  // A flat frame is what a piece looks like when it fails without throwing,
+  // which is exactly the failure nothing else in the interface can see.
+  if (frame?.blank)
+    parts.push({
+      text: frame.color ? `blank ${frame.color.join(",")}` : "blank",
+      tone: "error",
+    });
+
+  if (Number.isFinite(here))
+    // Green only when somebody is actually there, so the eye can find it
+    // without reading it.
+    parts.push({ text: `${here} here`, tone: here > 0 ? "status" : "muted" });
+
+  if (Number.isFinite(here) && state.peak > here)
+    parts.push({ text: `${state.peak} peak`, tone: "muted" });
+  if (frame && !frame.blank && frame.colors > 0)
+    parts.push({ text: `${frame.colors} colors`, tone: "muted" });
+  if (Number.isFinite(state?.online))
+    parts.push({ text: `${state.online} on AC`, tone: "muted" });
+
+  if (parts.length === 0) return { plain: "", painted: "" };
+
+  // Drop from the right until it fits, rather than clipping mid-number.
+  while (parts.length > 1 && textWidth(parts.map((p) => p.text).join(" \u00b7 ")) > room)
+    parts.pop();
+  const plain = parts.map((p) => p.text).join(" \u00b7 ");
+  if (textWidth(plain) > room) return { plain: "", painted: "" };
+
+  const separator = paint(useColor, "muted", " \u00b7 ");
+  return {
+    plain,
+    painted: parts.map((p) => paint(useColor, p.tone, p.text)).join(separator),
+  };
+}
+
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns);
   const height = Math.max(10, rows);
@@ -343,8 +411,23 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth - rockGutter),
   );
   const header = ` ${left}${gap}${right}${" ".repeat(rockGutter)} `;
-  const workspace = clipText(state.workspace || "workspace", Math.max(8, width - 2));
-  const pathLine = paint(useColor, "muted", ` ${workspace}`);
+  // The workspace path and the audience share a row: the path is reference the
+  // eye skips after the first second, and the count is the one number in the
+  // interface that changes because of somebody else.
+  const audience = audienceReadout(
+    { ...state.audience, frame: state.health?.frame },
+    Math.max(0, width - 4 - textWidth(state.workspace || "workspace")),
+    useColor,
+  );
+  const workspace = clipText(
+    state.workspace || "workspace",
+    Math.max(8, width - 2 - (audience.plain ? textWidth(audience.plain) + 2 : 0)),
+  );
+  const pathLine = audience.plain
+    ? ` ${paint(useColor, "muted", workspace)}` +
+      " ".repeat(Math.max(1, width - 2 - textWidth(workspace) - textWidth(audience.plain))) +
+      `${audience.painted} `
+    : paint(useColor, "muted", ` ${workspace}`);
 
   const transcriptRows = height - 5;
   // The QR code keeps its own column on the right, so the transcript is

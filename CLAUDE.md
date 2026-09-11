@@ -33,6 +33,10 @@ Automated maintenance system ("AA"). Main score: `SCORE.md`; ant mindset/rules: 
 
 `HAND.md` at the repo root is the code-style guide — companion to `papers/VOICE.md` (prose). Read it before writing or carving core code. Key idea: leaves (pieces) stay small and can be loop-generated; the foundational libs are the instrument and want knowability over raw terseness. The active "rehandify" campaign and its guardrails live at the bottom of that file.
 
+## The Screen (Piece Layout)
+
+`SCREEN.md` at the repo root governs how a piece *draws* — the corner-label zone the system reserves at `(6, 6)`, `reframed` layout, `ui.Button` + `pens()` multitouch, killing held voices in `leave`. Read it before drawing a piece. HAND covers how the code reads; this covers where the pixels go.
+
 ## Development Commands
 
 ### Running the Development Environment

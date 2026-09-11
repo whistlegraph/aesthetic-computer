@@ -48,6 +48,7 @@ import * as platform from "./platform.mjs";
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
+import { Diagnostics } from "./diagnostics.mjs"; // Reports a piece's health to its author.
 import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import {
   notArray,
@@ -1967,6 +1968,15 @@ let remoteLogQueue = [];
 let remoteLogSocket = null;
 const MAX_REMOTE_LOG_QUEUE = 50;
 
+// 🩺 What this piece looks like from in here, for whoever is authoring it.
+// Silent until `channel()` is given a code channel — see `diagnostics.mjs`.
+const diagnostics = new Diagnostics({
+  send: (type, content) => socket?.send(type, content),
+});
+// The worker has no `window`, so this is the only listener that ever sees an
+// uncaught error thrown by a piece.
+diagnostics.watch(globalThis);
+
 function setupRemoteLogging() {
   const originalConsole = {
     log: console.log.bind(console),
@@ -1975,6 +1985,9 @@ function setupRemoteLogging() {
   };
 
   function sendRemoteLog(level, args) {
+    // 🩺 The author's copy. Independent of LAN dev mode, which is what makes
+    // this work in production at all.
+    diagnostics.note(level, serializeArgs(args));
     if (!devIdentity || !remoteLogSocket?.connected) {
       // Queue logs until connected
       if (remoteLogQueue.length < MAX_REMOTE_LOG_QUEUE) {
@@ -7739,8 +7752,13 @@ async function load(
         pieceCodeChannel = owned;
         socket?.send("code-channel:sub", pieceCodeChannel);
       }
+      // 🩺 Report on this piece to whoever owns it. Scoped to the piece's own
+      // channel, which only that handle's token can listen to — a piece being
+      // authored is the only thing that ever gets reported on.
+      diagnostics.channel(pieceCodeChannel);
     } else {
       pieceCodeChannel = undefined;
+      diagnostics.channel("");
     }
 
     // 👱 Route to the `profile` piece if we are just hitting an empty
@@ -8694,7 +8712,22 @@ async function load(
       // );
 
       // Note: This is used for live development via the socket server.
-      $commonApi.load({ source, name, codeChannel }, false, false, true); // Load source code.
+      //
+      // A push names the piece by its bare slug (`balozo`), but this browser
+      // may be sitting on that piece's handle route (`@jeffrey/balozo`). The
+      // name given here becomes `currentText`, and `bios.mjs` rewrites the
+      // address bar from it — so taking the pushed slug at face value renamed
+      // the URL to `/balozo`, and the next refresh resolved that as a system
+      // piece, failed, and landed on `404~balozo`. It also dropped
+      // `pieceCodeChannel`, which quietly ended live updates.
+      //
+      // When the route we are on is that same piece, the route is its name.
+      const routed =
+        currentText?.startsWith("@") &&
+        currentText.split("/")[1]?.split(":")[0] === name
+          ? currentText
+          : name;
+      $commonApi.load({ source, name: routed, codeChannel }, false, false, true); // Load source code.
     } /*if (piece === "*" || piece === undefined /*|| currentText === piece*/ /*) {*/ else {
       // console.log("💾️ Reloading:", piece, "Params:", currentParams);
       // $commonApi.pieceCount = -1; // Reset pieceCount on developer reload.
@@ -16849,6 +16882,13 @@ async function makeFrame({ data: { type, content } }) {
         // Painted is false, skip pixel transfer
       }
 
+      // 🩺 Sample the frame on its way to the display. This is the last point
+      // where the worker can still see what the viewer is about to see, which
+      // is the only place a piece that paints nothing is distinguishable from
+      // a piece that paints — from in here they look identical.
+      if (diagnostics.on && !screen.pixels?.buffer?.detached) {
+        diagnostics.frame(screen.pixels, screen.width, screen.height);
+      }
 
       // Optional messages to send.
       if (painted === true) sendData.paintChanged = true;

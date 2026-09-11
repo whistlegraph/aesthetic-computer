@@ -168,6 +168,7 @@ const worldManagers = {
 
 import { filter } from "./filter.mjs"; // Profanity filtering.
 import { ChatManager } from "./chat-manager.mjs"; // Multi-instance chat support.
+import { DiagnosticsRelay } from "./diagnostics.mjs"; // A piece's health, to its author.
 import { DuelManager } from "./duel-manager.mjs"; // Server-authoritative duel game.
 import { FightManager } from "./fight-manager.mjs"; // Fight presence + seat queue.
 import { OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
@@ -446,6 +447,10 @@ const info = {
 const codeChannels = {}; // Used to filter `code` updates from redis to
 //                          clients who explicitly have the channel set.
 const codeChannelState = {}; // Store last code sent to each channel for late joiners
+
+// Who is allowed to hear a piece report on itself. Lives beside the code
+// channels because it is scoped by exactly the same names.
+const diagnostics = new DiagnosticsRelay({ log: (...args) => log(...args) });
 
 // DAW channel for M4L device ↔ IDE communication
 const dawDevices = new Set(); // Connection IDs of /device instances
@@ -2566,11 +2571,36 @@ wss.on("connection", async (ws, req) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(stateMsg);
         log(`📥 Sent current state to late joiner on channel ${codeChannel}`);
       }
+    } else if (msg.type === "diagnostics:listen") {
+      // An author asking to hear what its piece sees. Authorized against the
+      // channel — see `diagnostics.mjs` for the two rules.
+      const ch = msg.content?.channel;
+      diagnostics
+        .listen(ws, ch, msg.content?.token)
+        .then((refusal) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          ws.send(
+            pack(
+              "diagnostics:listening",
+              { channel: ch, ok: !refusal, reason: refusal || undefined },
+              id,
+            ),
+          );
+        })
+        .catch(() => {});
+    } else if (msg.type === "diagnostics:report") {
+      // A browser reporting on itself. Relayed only to that channel's
+      // listeners, never back to other viewers.
+      diagnostics.report(ws, msg.content?.channel, msg.content, pack);
     } else if (msg.type === "code-channel:info") {
       // Return viewer count for a code channel
       const ch = msg.content;
       const count = codeChannels[ch]?.size || 0;
-      send(pack("code-channel:info", { channel: ch, viewers: count }, id));
+      // Answers the asking socket only. This read `send(...)` until 2026-09-11,
+      // which is not defined anywhere in this file — every info request threw
+      // into the global uncaughtException handler and no reply was ever sent.
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(pack("code-channel:info", { channel: ch, viewers: count }, id));
     } else if (msg.type === "slide" && msg.content?.codeChannel) {
       // Handle slide broadcast (low-latency value updates, no state storage)
       const targetChannel = msg.content.codeChannel;
@@ -3055,6 +3085,8 @@ wss.on("connection", async (ws, req) => {
       for (const wm of Object.values(worldManagers)) wm.playerLeave(rawDepartingHandle, id);
     }
     removeNotepatMidiSubscriber(id);
+
+    diagnostics.forget(ws);
 
     // Remove from VSCode clients if present
     vscodeClients.delete(ws);
