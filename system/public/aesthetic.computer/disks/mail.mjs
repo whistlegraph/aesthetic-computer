@@ -13,6 +13,7 @@ let ellipsisTicker;
 let busy = false;
 let input; // the compose field — one line, same grammar as the prompt command
 let composeNote = null; // what went wrong with the last send, if anything
+let pendingTo = null; // an address waiting for the field to be ready for it
 
 function meta() {
   return {
@@ -97,20 +98,29 @@ async function send(api, raw) {
   }
 }
 
-// Open compose, optionally already addressed to someone.
+// Open compose, optionally already addressed to someone. Opening the keyboard
+// resyncs the field from an empty textarea, so the address has to wait for it
+// (see sim) instead of being written here.
 function compose(api, to) {
   view = "compose";
   composeNote = null;
-  input.text = to ? `${to} ` : "";
   input.mute = false;
-  api.send({ type: "keyboard:text:replace", content: { text: input.text } });
+  pendingTo = to ? `${to} ` : null;
   api.send({ type: "keyboard:open" });
 }
 
 // 🧮 Sim
 function sim(api) {
   ellipsisTicker?.update(api.clock.time());
-  if (view === "compose") input.sim(api);
+  if (view !== "compose") return;
+
+  if (pendingTo && input.canType) {
+    input.text = pendingTo;
+    api.send({ type: "keyboard:text:replace", content: { text: pendingTo } });
+    pendingTo = null;
+  }
+
+  input.sim(api);
 }
 
 const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
@@ -372,6 +382,7 @@ function act(api) {
     if (e.is("keyboard:down:escape")) {
       view = "inbox";
       composeNote = null;
+      pendingTo = null;
       api.send({ type: "keyboard:close" });
       needsPaint();
       return;
