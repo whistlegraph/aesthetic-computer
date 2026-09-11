@@ -716,6 +716,8 @@ async function fetchHandleColors(handle) {
 }
 const MOTD_CYCLE_MS = 8000;
 let previousKidlispMode = false; // Track previous KidLisp mode state for sound triggers
+let mailCount = null; // { unread, total } — drives the envelope on the curtain
+let mailBtn;
 let versionInfo = null; // { deployed, latest, status, behindBy } - git commit status
 let versionCommit = null; // Current commit hash for the commit button
 let recentCommits = []; // Recent commits for uniticker display: [{hash, message, author, date}]
@@ -6566,6 +6568,43 @@ function paint($) {
 
     $.layer(1);
 
+    // 📬 Mail. Sits just above the commit button: an envelope if there's
+    // anything in the box at all, with a red badge counting what's unread.
+    if (flairEnabled && mailCount?.total > 0) {
+      const unread = mailCount.unread || 0;
+      const w = 15;
+      const h = 10;
+      const ex = Math.floor((screen.width - w) / 2);
+      const ey = screen.height - 36;
+
+      mailBtn = mailBtn || new $.ui.Button();
+      mailBtn.box = { x: ex - 6, y: ey - 4, w: w + 12, h: h + 8 };
+
+      const lit = unread > 0;
+      const hot = mailBtn.over && !mailBtn.down;
+      $.ink(lit ? [0, 120, 140, 210] : [26, 30, 38, 170]).box(ex, ey, w, h);
+      $.ink(lit ? [120, 255, 255] : hot ? [130, 140, 160] : [80, 88, 104]).box(
+        ex, ey, w, h, "outline",
+      );
+      $.ink(lit ? [190, 255, 255] : [60, 66, 80]);
+      $.line(ex, ey, ex + (w >> 1), ey + (h >> 1));
+      $.line(ex + w - 1, ey, ex + (w >> 1), ey + (h >> 1));
+
+      if (unread > 0) {
+        const label = `${unread}`;
+        const bw = label.length * 4 + 5;
+        const bx = ex + w - 3;
+        const by = ey - 4;
+        $.ink(220, 30, 40).box(bx, by, bw, 9);
+        $.ink(255, 120, 130).box(bx, by, bw, 9, "outline");
+        $.ink(255, 240, 240).write(
+          label, { x: bx + 3, y: by + 2 }, undefined, undefined, false, "MatrixChunky8",
+        );
+      }
+    } else {
+      mailBtn = undefined;
+    }
+
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
     // Also part of flair — hidden (along with the notepat button) when flair is off.
@@ -7755,6 +7794,19 @@ function paintThinkingGuy($) {
 
 // 🧮 Sim
 function sim($) {
+  // 📬 Ask once whether there's mail waiting. `?count` is two counts, not the
+  // whole inbox — the curtain only needs to know whether to draw the envelope.
+  if (mailCount === null && $.user) {
+    mailCount = "asking";
+    $.net
+      .userRequest("GET", "/api/mail?count=1")
+      .then((res) => {
+        mailCount = res?.status === 200 ? res : { unread: 0, total: 0 };
+        $.needsPaint();
+      })
+      .catch(() => (mailCount = { unread: 0, total: 0 }));
+  }
+
   // 📦 Mirror the worker-global update poll into our local refs so the
   // existing commit-button + uniticker code keeps working unchanged.
   const u = $.system?.update;
@@ -8588,6 +8640,18 @@ function act({
   });
   }
 
+
+  // 📬 Mail button — straight to the inbox.
+  if (mailBtn) {
+    mailBtn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        jump("mail");
+      },
+      cancel: () => cancelSound(),
+    });
+  }
 
   // 📦 Commit button - reload page when update is ready, else navigate to commits
   if (commitBtn && !commitBtn.btn.disabled) {

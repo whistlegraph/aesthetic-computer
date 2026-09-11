@@ -1511,6 +1511,12 @@ class TextInput {
     this.key = `${$.slug}:history`; // This is "per-piece" and should
     //                                 be per TextInput object...23.05.23.12.50
 
+    // 🚫 Embedded fields (see TextFields) don't want the piece's prompt
+    // history: a `to` row offering you the last thing you typed in `body` is
+    // noise, not help. `history: false` turns off the arrows, the rolodex
+    // drag, and the push on submit.
+    this.noHistory = options.history === false;
+
     this.$ = $;
 
     this.closeOnEmptyEnter = options.closeOnEmptyEnter || false;
@@ -2193,13 +2199,15 @@ class TextInput {
   // Run a command.
   async #execute(store) {
     // Make a history stack if one doesn't exist already.
-    store[this.key] = store[this.key] || [];
-    // Push input to a history stack, avoiding repeats and prompt-prefixed navigation.
-    if (store[this.key][0] !== this.text && !this.text.startsWith("prompt~")) {
-      store[this.key].unshift(this.text);
+    if (!this.noHistory) {
+      store[this.key] = store[this.key] || [];
+      // Push input to a history stack, avoiding repeats and prompt-prefixed navigation.
+      if (store[this.key][0] !== this.text && !this.text.startsWith("prompt~")) {
+        store[this.key].unshift(this.text);
+      }
     }
     // console.log("📚 Stored prompt history:", store[key]);
-    store.persist(this.key); // Persist the history stack across tabs.
+    if (!this.noHistory) store.persist(this.key); // Persist across tabs.
     // 🍎 Process commands for a given context, passing the text input.
     await this.#processCommand?.(this.text);
     this.commandSentOnce = true;
@@ -2245,7 +2253,7 @@ class TextInput {
   async beginHistoryScrub() {
     const store = this.$?.store;
     this.#scrubCache =
-      (store && (await store.retrieve(this.key))) || [""];
+      (!this.noHistory && store && (await store.retrieve(this.key))) || [""];
     if (this.#prehistory === undefined) this.#prehistory = this.text;
     return this.#scrubCache.length;
   }
@@ -2516,7 +2524,7 @@ class TextInput {
         }
 
         // Move backwards through history stack.
-        if (e.key === "ArrowUp" && !this.skipHistory) {
+        if (e.key === "ArrowUp" && !this.skipHistory && !this.noHistory) {
           // TODO: Check to see if this is the first history traversal,
           //       and store the current text if it is...
           const history = (await store.retrieve(this.key)) || [""];
@@ -2543,7 +2551,7 @@ class TextInput {
         }
 
         // ... and forwards.
-        if (e.key === "ArrowDown" && !this.skipHistory) {
+        if (e.key === "ArrowDown" && !this.skipHistory && !this.noHistory) {
           const history = (await store.retrieve(this.key)) || [""];
           if (this.#prehistory === undefined) this.#prehistory = this.text;
 
@@ -3673,6 +3681,7 @@ class TextFields {
     this.input = new TextInput($, "", () => this.advance($), {
       ...options,
       poe: true,
+      history: false,
       closeOnEmptyEnter: false,
     });
   }

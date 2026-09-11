@@ -36,6 +36,16 @@ export async function handler(event) {
     const tells = await mailbox(database);
 
     if (event.httpMethod === "GET") {
+      // `?count` is the cheap one — the prompt asks it on every boot just to
+      // know whether to draw the envelope.
+      if (event.queryStringParameters?.count !== undefined) {
+        const [unread, total] = await Promise.all([
+          tells.countDocuments({ to: user.sub, read: { $ne: true } }),
+          tells.countDocuments({ to: user.sub }),
+        ]);
+        return respond(200, { unread, total });
+      }
+
       const [inbox, sent, unread, addresses] = await Promise.all([
         tells.find({ to: user.sub }).sort({ when: -1 }).limit(PAGE).toArray(),
         tells.find({ from: user.sub }).sort({ when: -1 }).limit(PAGE).toArray(),
