@@ -6568,39 +6568,69 @@ function paint($) {
 
     $.layer(1);
 
-    // 📬 Mail. Sits just above the commit button: an envelope if there's
-    // anything in the box at all, with a red badge counting what's unread.
+    // 📬 Mail. Sits above the commit button: an envelope if there's anything
+    // in the box at all, with a red badge counting what's unread.
     if (flairEnabled && mailCount?.total > 0) {
       const unread = mailCount.unread || 0;
       const w = 15;
       const h = 10;
-      const ex = Math.floor((screen.width - w) / 2);
-      const ey = screen.height - 36;
+      const label = unread > 0 ? `${unread}` : null;
+      const badgeW = label ? label.length * 4 + 5 : 0;
+
+      // Centre the whole cluster — envelope plus badge — not just the
+      // envelope, or the badge's overhang drags it off the middle.
+      const cluster = w + (label ? badgeW - 3 : 0);
+      const ex = Math.floor((screen.width - cluster) / 2);
+      const ey = screen.height - 42; // a clear row above the commit button
 
       // A Button hit-tests through its Box, so hand it a real one — a plain
-      // {x,y,w,h} has no `contains` and the tap goes nowhere.
-      mailBtn = mailBtn || new $.ui.Button(ex - 6, ey - 4, w + 12, h + 8);
-      mailBtn.box = $.geo.Box.from({ x: ex - 6, y: ey - 4, w: w + 12, h: h + 8 });
+      // {x,y,w,h} has no `contains` and the tap falls through.
+      const hit = { x: ex - 6, y: ey - 6, w: cluster + 12, h: h + 12 };
+      mailBtn = mailBtn || new $.ui.Button(hit.x, hit.y, hit.w, hit.h);
+      mailBtn.box = $.geo.Box.from(hit);
 
       const lit = unread > 0;
       const hot = mailBtn.over && !mailBtn.down;
-      $.ink(lit ? [0, 120, 140, 210] : [26, 30, 38, 170]).box(ex, ey, w, h);
-      $.ink(lit ? [120, 255, 255] : hot ? [130, 140, 160] : [80, 88, 104]).box(
-        ex, ey, w, h, "outline",
-      );
-      $.ink(lit ? [190, 255, 255] : [60, 66, 80]);
+      const pressed = mailBtn.down;
+
+      const fill = pressed
+        ? [0, 80, 100, 235]
+        : lit
+          ? hot
+            ? [0, 150, 175, 230]
+            : [0, 120, 140, 210]
+          : hot
+            ? [40, 46, 58, 205]
+            : [26, 30, 38, 170];
+
+      const edge = pressed
+        ? [210, 255, 255]
+        : lit
+          ? hot
+            ? [200, 255, 255]
+            : [120, 255, 255]
+          : hot
+            ? [150, 162, 186]
+            : [80, 88, 104];
+
+      $.ink(fill).box(ex, ey, w, h);
+      $.ink(edge).box(ex, ey, w, h, "outline");
+      $.ink(lit || hot ? [190, 255, 255] : [60, 66, 80]);
       $.line(ex, ey, ex + (w >> 1), ey + (h >> 1));
       $.line(ex + w - 1, ey, ex + (w >> 1), ey + (h >> 1));
 
-      if (unread > 0) {
-        const label = `${unread}`;
-        const bw = label.length * 4 + 5;
+      if (label) {
         const bx = ex + w - 3;
         const by = ey - 4;
-        $.ink(220, 30, 40).box(bx, by, bw, 9);
-        $.ink(255, 120, 130).box(bx, by, bw, 9, "outline");
+        $.ink(hot ? [255, 60, 70] : [220, 30, 40]).box(bx, by, badgeW, 9);
+        $.ink(hot ? [255, 180, 185] : [255, 120, 130]).box(bx, by, badgeW, 9, "outline");
         $.ink(255, 240, 240).write(
-          label, { x: bx + 3, y: by + 2 }, undefined, undefined, false, "MatrixChunky8",
+          label,
+          { x: bx + 3, y: by + 2 },
+          undefined,
+          undefined,
+          false,
+          "MatrixChunky8",
         );
       }
     } else {
