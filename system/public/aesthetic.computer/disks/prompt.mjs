@@ -2910,6 +2910,36 @@ async function halt($, text) {
     }
     makeFlash($);
     return true;
+  } else if (slug === "mail" && params.length > 0) {
+    // mail @handle (or ac25namuc) your message — bare `mail` falls through
+    // below and loads the inbox piece instead.
+    const to = params[0];
+    const body = params.slice(1).join(" ").trim();
+    if (!body) {
+      flashColor = [255, 255, 0];
+      notice("MAIL WHAT?", ["yellow", "red"]);
+      makeFlash($, true);
+      return true;
+    }
+    const res = await net.userRequest("POST", "/api/mail", { to, text: body });
+    if (res?.status === 200) {
+      flashColor = [0, 255, 0];
+      notice(`MAILED ${(res.to || to).toUpperCase()}`);
+    } else if (res?.status === 404) {
+      flashColor = [255, 0, 0];
+      notice("NO SUCH USER", ["yellow", "red"]);
+      makeFlash($, true);
+    } else if (res?.status === 401 || res?.message === "unauthorized") {
+      flashColor = [255, 0, 0];
+      notice("LOG IN TO MAIL", ["yellow", "red"]);
+      makeFlash($, true);
+    } else {
+      flashColor = [255, 0, 0];
+      notice("MAIL FAILED", ["yellow", "red"]);
+      makeFlash($, true);
+    }
+    makeFlash($);
+    return true;
   } else if (text.startsWith("publish")) {
     const publishablePiece = store["publishable-piece"];
     if (!publishablePiece) {

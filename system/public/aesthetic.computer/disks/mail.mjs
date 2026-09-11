@@ -1,18 +1,20 @@
-// Mail, 2026.2.12
-// Email preferences and blast history for aesthetic.computer.
+// Mail, 2026.2.12 → 2026.9.11 (inbox added)
+// AC mail. `mail @handle words...` sends from the prompt; `mail` lands here.
+// Tier 1: nothing leaves aesthetic.computer. See `system/backend/mail.mjs`.
 
+let view = "inbox"; // inbox · sent · prefs
 let status = "loading"; // loading, loaded, error, noauth
-let data = null;
+let mail = null;
+let prefs = null; // blast subscription + history, fetched when prefs opens
 let errorMsg = null;
-let subBtn, unsubBtn;
+let inboxBtn, sentBtn, prefsBtn, readBtn, subBtn, unsubBtn;
 let ellipsisTicker;
-let toggling = false;
+let busy = false;
 
-// 📰 Meta
 function meta() {
   return {
     title: "Mail — aesthetic.computer",
-    desc: "Email preferences and blast history.",
+    desc: "Your aesthetic.computer inbox.",
   };
 }
 
@@ -21,15 +23,22 @@ async function boot({ user, gizmo, hud, net, ui, screen }) {
   hud.label("mail");
   ellipsisTicker = new gizmo.EllipsisTicker();
 
+  inboxBtn = new ui.TextButton("inbox", { screen });
+  sentBtn = new ui.TextButton("sent", { screen });
+  prefsBtn = new ui.TextButton("prefs", { screen });
+  readBtn = new ui.TextButton("mark read", { screen });
+  subBtn = new ui.TextButton("subscribe", { screen });
+  unsubBtn = new ui.TextButton("unsubscribe", { screen });
+
   if (!user) {
     status = "noauth";
     return;
   }
 
   try {
-    const res = await net.userRequest("GET", "/api/mail-status");
+    const res = await net.userRequest("GET", "/api/mail");
     if (res.status === 200) {
-      data = await res.json();
+      mail = res;
       status = "loaded";
     } else {
       status = "error";
@@ -39,9 +48,6 @@ async function boot({ user, gizmo, hud, net, ui, screen }) {
     status = "error";
     errorMsg = err.message;
   }
-
-  subBtn = new ui.TextButton("subscribe", { screen });
-  unsubBtn = new ui.TextButton("unsubscribe", { screen });
 }
 
 // 🧮 Sim
@@ -49,22 +55,34 @@ function sim({ clock }) {
   ellipsisTicker?.update(clock.time());
 }
 
+// How long ago, short enough to sit next to a handle.
+function ago(when) {
+  const secs = (Date.now() - new Date(when).getTime()) / 1000;
+  if (secs < 60) return "now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`;
+  if (secs < 604800) return `${Math.floor(secs / 86400)}d`;
+  return new Date(when).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 // 🎨 Paint
 function paint(api) {
-  const { wipe, ink, screen, help } = api;
+  const { wipe, ink, screen, text, help } = api;
   wipe(24, 20, 28);
 
   if (status === "loading") {
-    ink(180)
-      .write(
-        "loading" + ellipsisTicker.text(help.repeat, { pad: false }),
-        { center: "xy", size: 1 },
-      );
+    ink(180).write(
+      "loading" + ellipsisTicker.text(help.repeat, { pad: false }),
+      { center: "xy", size: 1 },
+    );
     return;
   }
 
   if (status === "noauth") {
-    ink(180).write("log in to manage email preferences", { center: "xy" });
+    ink(180).write("log in for mail", { center: "xy" });
     return;
   }
 
@@ -75,131 +93,195 @@ function paint(api) {
     return;
   }
 
-  const leftX = 6;
+  const x = 6;
+  const wide = screen.width - x * 2;
   let y = 8;
-  const lineH = 10;
 
-  // Header
-  ink(200, 180, 255).write("mail", { x: leftX, y, size: 2 });
+  ink(200, 180, 255).write("mail", { x, y, size: 2 });
+  if (mail.unread > 0) {
+    ink(0, 255, 255).write(`${mail.unread} new`, { x: x + 46, y: y + 4 });
+  }
+  y += 20;
+
+  // The two spellings of this mailbox — permahandle first, it never moves.
+  for (const address of mail.addresses) {
+    ink(address.startsWith("ac") ? 110 : 90).write(address, { x, y });
+    y += 10;
+  }
+  y += 4;
+
+  inboxBtn.reposition({ x, y, screen });
+  ink(view === "inbox" ? [70, 60, 110] : [44, 40, 54]);
+  inboxBtn.paint(api);
+  sentBtn.reposition({ x: x + 48, y, screen });
+  ink(view === "sent" ? [70, 60, 110] : [44, 40, 54]);
+  sentBtn.paint(api);
+  prefsBtn.reposition({ x: x + 88, y, screen });
+  ink(view === "prefs" ? [70, 60, 110] : [44, 40, 54]);
+  prefsBtn.paint(api);
   y += 18;
 
-  // Subscription status
-  if (data.email) {
-    ink(120).write(data.email, { x: leftX, y });
-    y += lineH + 2;
+  ink(60).box(x, y, wide, 1);
+  y += 8;
 
-    if (data.subscribed) {
-      ink(120, 200, 120).write("subscribed", { x: leftX, y });
-      // Show unsubscribe button
-      unsubBtn.reposition({ x: leftX + 80, y: y - 2, screen });
+  if (view === "prefs") {
+    paintPrefs(api, x, y, wide);
+    return;
+  }
+
+  const letters = view === "inbox" ? mail.inbox : mail.sent;
+
+  if (letters.length === 0) {
+    ink(100).write(
+      view === "inbox" ? "no mail yet" : "nothing sent yet",
+      { x, y },
+    );
+    if (view === "inbox") {
+      ink(70).write("try: mail @jeffrey hello", { x, y: y + 12 });
+    }
+    return;
+  }
+
+  if (view === "inbox" && mail.unread > 0) {
+    readBtn.reposition({ x, y, screen });
+    ink(busy ? [60, 60, 60] : [40, 70, 70]);
+    readBtn.paint(api);
+    y += 18;
+  }
+
+  for (const letter of letters) {
+    if (y > screen.height - 14) break;
+    const unread = view === "inbox" && !letter.read;
+    const who = (view === "inbox" ? letter.from : letter.to) || "someone";
+
+    if (unread) ink(0, 255, 255).box(x, y + 2, 3, 3);
+    ink(unread ? [170, 220, 255] : [130, 140, 170]).write(who, {
+      x: x + 6,
+      y,
+    });
+    ink(70).write(ago(letter.when), { x: screen.width - 34, y });
+    y += 11;
+
+    const bounds = wide - 10;
+    ink(unread ? 245 : 190).write(letter.text, { x: x + 8, y }, undefined, bounds);
+    y += text.box(letter.text, { x: x + 8, y }, bounds).box.height + 6;
+  }
+}
+
+function paintPrefs(api, x, y, wide) {
+  const { ink, screen } = api;
+
+  if (!prefs) {
+    ink(140).write("loading prefs…", { x, y });
+    return;
+  }
+
+  if (prefs.email) {
+    ink(120).write(prefs.email, { x, y });
+    y += 12;
+
+    if (prefs.subscribed) {
+      ink(120, 200, 120).write("subscribed", { x, y });
+      unsubBtn.reposition({ x: x + 80, y: y - 2, screen });
       ink(120, 80, 80);
       unsubBtn.paint(api);
     } else {
-      ink(200, 120, 80).write("unsubscribed", { x: leftX, y });
-      // Show subscribe button
-      subBtn.reposition({ x: leftX + 96, y: y - 2, screen });
+      ink(200, 120, 80).write("unsubscribed", { x, y });
+      subBtn.reposition({ x: x + 96, y: y - 2, screen });
       ink(80, 160, 80);
       subBtn.paint(api);
     }
-    y += lineH + 4;
+    y += 16;
   }
 
-  if (toggling) {
-    ink(160).write("updating...", { x: leftX, y });
-    y += lineH + 4;
+  if (busy) {
+    ink(160).write("updating…", { x, y });
+    y += 14;
   }
 
-  // Divider
-  ink(60).box(leftX, y, screen.width - leftX * 2, 1);
-  y += 8;
+  ink(160, 140, 200).write("blast history", { x, y });
+  y += 14;
 
-  // Blast history
-  ink(160, 140, 200).write("blast history", { x: leftX, y });
-  y += lineH + 4;
-
-  if (!data.blasts || data.blasts.length === 0) {
-    ink(100).write("no blasts sent yet", { x: leftX, y });
+  if (!prefs.blasts || prefs.blasts.length === 0) {
+    ink(100).write("no blasts sent yet", { x, y });
     return;
   }
 
   ink(80).write(
-    `${data.count} blast${data.count !== 1 ? "s" : ""} · ${data.totalSent} emails sent · ${data.totalUnsubscribed} unsub`,
-    { x: leftX, y },
+    `${prefs.count} blast${prefs.count !== 1 ? "s" : ""} · ${prefs.totalSent} sent · ${prefs.totalUnsubscribed} unsub`,
+    { x, y },
   );
-  y += lineH + 4;
+  y += 14;
 
-  for (const blast of data.blasts) {
+  for (const blast of prefs.blasts) {
     if (y > screen.height - 16) break;
-
-    const date = new Date(blast.when).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-    const statusColor =
+    const color =
       blast.status === "completed"
         ? [80, 180, 80]
         : blast.status === "in-progress"
           ? [200, 180, 80]
           : [180, 80, 80];
-
-    ink(...statusColor).write(blast.status, { x: leftX, y });
-    ink(140).write(date, { x: leftX + 80, y });
-    ink(100).write(
-      `${blast.sent}/${blast.totalAttempted} sent`,
-      { x: leftX + 150, y },
-    );
-    y += lineH;
-
-    // Subject line
-    const subj =
-      blast.subject?.length > 50
-        ? blast.subject.slice(0, 47) + "..."
-        : blast.subject || "(no subject)";
-    ink(80).write(subj, { x: leftX + 8, y });
-    y += lineH + 4;
+    ink(...color).write(blast.status, { x, y });
+    ink(140).write(ago(blast.when), { x: x + 80, y });
+    ink(100).write(`${blast.sent}/${blast.totalAttempted}`, { x: x + 130, y });
+    y += 10;
+    ink(80).write(blast.subject || "(no subject)", { x: x + 8, y }, undefined, wide - 10);
+    y += 14;
   }
 }
 
 // 🎪 Act
 function act({ event: e, net, needsPaint }) {
-  if (status !== "loaded" || toggling) return;
+  if (status !== "loaded") return;
 
-  if (data.subscribed) {
-    unsubBtn?.act(e, async () => {
-      toggling = true;
-      needsPaint();
-      try {
-        const res = await net.userRequest("POST", "/api/mail-status", {
-          action: "unsubscribe",
-        });
-        if (res.status === 200) {
-          data.subscribed = false;
-        }
-      } catch (err) {
-        console.error("Unsubscribe failed:", err);
-      }
-      toggling = false;
-      needsPaint();
-    });
+  inboxBtn?.act(e, () => {
+    view = "inbox";
+    needsPaint();
+  });
+
+  sentBtn?.act(e, () => {
+    view = "sent";
+    needsPaint();
+  });
+
+  prefsBtn?.act(e, async () => {
+    view = "prefs";
+    needsPaint();
+    if (prefs) return;
+    const res = await net.userRequest("GET", "/api/mail-status");
+    if (res.status === 200) prefs = res;
+    needsPaint();
+  });
+
+  if (busy) return;
+
+  readBtn?.act(e, async () => {
+    busy = true;
+    needsPaint();
+    const res = await net.userRequest("POST", "/api/mail", { action: "read" });
+    if (res.status === 200) {
+      mail.unread = 0;
+      mail.inbox.forEach((letter) => (letter.read = true));
+    }
+    busy = false;
+    needsPaint();
+  });
+
+  if (view !== "prefs" || !prefs) return;
+
+  const toggle = async (action, subscribed) => {
+    busy = true;
+    needsPaint();
+    const res = await net.userRequest("POST", "/api/mail-status", { action });
+    if (res.status === 200) prefs.subscribed = subscribed;
+    busy = false;
+    needsPaint();
+  };
+
+  if (prefs.subscribed) {
+    unsubBtn?.act(e, () => toggle("unsubscribe", false));
   } else {
-    subBtn?.act(e, async () => {
-      toggling = true;
-      needsPaint();
-      try {
-        const res = await net.userRequest("POST", "/api/mail-status", {
-          action: "subscribe",
-        });
-        if (res.status === 200) {
-          data.subscribed = true;
-        }
-      } catch (err) {
-        console.error("Subscribe failed:", err);
-      }
-      toggling = false;
-      needsPaint();
-    });
+    subBtn?.act(e, () => toggle("subscribe", true));
   }
 }
 

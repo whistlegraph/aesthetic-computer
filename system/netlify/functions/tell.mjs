@@ -1,25 +1,16 @@
-// tell, 26.04.23 → 26.06.11 (FCM → standard push migration)
-// Send a one-way "tell" from one AC user to another. The recipient gets a
-// push notification on every registered device — or just one, when `device`
-// names a deviceId or label — and the message is stored in the `tells`
-// collection as their inbox.
+// tell, 26.04.23 → 26.09.11 (send path moved into `backend/mail.mjs`)
+// Send a one-way "tell" from one AC user to another. The recipient gets a push
+// notification on every registered device — or just one, when `device` names a
+// deviceId or label — and the message lands in their mail.
 //
 // POST /api/tell
-//   body: { to: "@handle", text: "message", device?: "deviceId-or-label" }
+//   body: { to: "@handle" | "ac25namuc", text: "message", device?: "id-or-label" }
 //   headers: Authorization: Bearer <Auth0 token>
 
-import {
-  authorize,
-  userIDFromHandleOrEmail,
-  getHandleOrEmail,
-} from "../../backend/authorization.mjs";
+import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { filter } from "../../backend/filter.mjs";
-import { shell } from "../../backend/shell.mjs";
-import { sendToUser } from "../../../shared/push.mjs";
-
-const MAX_TEXT_LENGTH = 500;
+import { clean, deliver, subFromAddress } from "../../backend/mail.mjs";
 
 export async function handler(event) {
   if (event.httpMethod !== "POST") {
@@ -33,10 +24,8 @@ export async function handler(event) {
     return respond(400, { message: "Invalid JSON body" });
   }
 
-  const rawTo = typeof body.to === "string" ? body.to.trim() : "";
-  const rawText = typeof body.text === "string" ? body.text : "";
-  if (!rawTo) return respond(400, { message: "Missing recipient" });
-  const text = filter(rawText.trim()).slice(0, MAX_TEXT_LENGTH);
+  if (!body.to) return respond(400, { message: "Missing recipient" });
+  const text = clean(body.text);
   if (!text) return respond(400, { message: "Empty message" });
 
   const sender = await authorize(event.headers);
@@ -44,61 +33,19 @@ export async function handler(event) {
 
   const database = await connect();
   try {
-    const recipientSub = await userIDFromHandleOrEmail(rawTo, database);
-    if (!recipientSub) {
-      return respond(404, { message: "Recipient not found" });
-    }
+    const to = await subFromAddress(body.to, database);
+    if (!to) return respond(404, { message: "Recipient not found" });
 
-    const fromHandle = await getHandleOrEmail(sender.sub);
-    const toHandle = rawTo.startsWith("@") ? rawTo : `@${rawTo}`;
-
-    const tells = database.db.collection("tells");
-    await tells.createIndex({ to: 1, when: -1 });
-    await tells.createIndex({ from: 1, when: -1 });
-
-    const when = new Date();
-    const insertResult = await tells.insertOne({
-      to: recipientSub,
-      toHandle,
-      from: sender.sub,
-      fromHandle,
-      text,
-      when,
-    });
-
-    // Push to the recipient's registered devices (all, or one if addressed).
-    let pushSummary = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
-    try {
-      pushSummary = await sendToUser(
-        database.db,
-        recipientSub,
-        {
-          title: `${fromHandle} told you`,
-          body: text,
-          data: {
-            kind: "tell",
-            from: fromHandle || "",
-            tellId: insertResult.insertedId.toString(),
-            piece: "chat",
-          },
-        },
-        {
-          device:
-            typeof body.device === "string" && body.device
-              ? body.device
-              : undefined,
-        },
-        shell.log,
-      );
-    } catch (err) {
-      shell.log("🔴 tell push send failed:", err?.message || err);
-    }
+    const told = await deliver(
+      { from: sender.sub, to, text, device: body.device, verb: "told" },
+      database,
+    );
 
     return respond(200, {
       status: "told",
-      to: toHandle,
-      when,
-      push: pushSummary,
+      to: told.toHandle,
+      when: told.when,
+      push: told.push,
     });
   } catch (err) {
     console.error("🔴 tell error:", err);
