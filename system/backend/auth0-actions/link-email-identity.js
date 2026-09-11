@@ -51,6 +51,16 @@ exports.onExecutePostLogin = async (event, api) => {
   // takeover.
   if (event.user.email_verified !== true || !event.user.email) return;
 
+  // Only an identity created by THIS login. Linking makes the secondary user
+  // cease to exist as a subject, and Aesthetic Computer keys by subject —
+  // `@handles` is `findOne({_id: sub})`, and it is not alone. A passwordless
+  // identity with history behind it therefore cannot be merged here without
+  // re-keying that history first: @jeffrey's own `email|…` had thirty-five
+  // logins and a handle row of its own when this was written, and linking it
+  // would have orphaned both. A brand new identity has nothing to lose, which
+  // is the only case this Action is allowed to touch.
+  if ((event.stats?.logins_count ?? 0) > 1) return;
+
   const management = new ManagementClient({
     domain: event.secrets.AUTH0_DOMAIN,
     clientId: event.secrets.AUTH0_M2M_CLIENT_ID,

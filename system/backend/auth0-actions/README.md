@@ -66,6 +66,29 @@ It worked when the `sub` in the returned `id_token` is the **existing**
 `auth0|…` subject rather than a fresh `email|…` one, and `GET /handle?for=<sub>`
 answers with the handle instead of 404.
 
+### It only ever touches a brand new identity
+
+Linking makes the secondary user **cease to exist as a subject**, and Aesthetic
+Computer keys by subject — `@handles` is `findOne({_id: sub})`, and it is not
+the only place. So a passwordless identity that already has history cannot be
+merged here; that needs an AC-side re-key first, which is separate work.
+
+This is not hypothetical. `me@jas.life` has two unlinked Auth0 users:
+
+```
+auth0|63effeeb…  Username-Password-Authentication, 783 logins  → @jeffrey
+email|63ed8722…  email passwordless,                 35 logins  → @jeffrey
+```
+
+Both own a `@handles` row. Merging them would have silently orphaned the
+second one's history. The Action therefore declines anything with
+`logins_count > 1` — a brand new identity has nothing to lose, and that is the
+only case it is allowed to touch.
+
+An account already split this way keeps working exactly as it does today: two
+subjects, both resolving to the same handle. Unifying them is a migration, not
+a login-time decision.
+
 ### The security rule, and why it is not optional
 
 Linking on an unverified address is account takeover: anyone who controls a
