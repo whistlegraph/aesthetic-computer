@@ -28,7 +28,7 @@ try {
   } else if (command === "publish") {
     const [file, slug = ""] = rest.filter((argument) => !argument.startsWith("--"));
     if (!file) fail("usage: aesthetic publish <file> [slug]");
-    if (process.env.AESTHETIC_CODE_DRY_RUN === "1") {
+    if (process.env.EASEL_DRY_RUN === "1") {
       const plan = planPublish({ file, slug, handle: session.handle || "handle" });
       out(`would publish ${plan.path} as ${plan.route}`);
     } else {

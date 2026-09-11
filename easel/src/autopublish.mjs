@@ -9,7 +9,7 @@
 //
 // It is off unless asked for. Publishing is outward-facing — the bytes land on
 // a public route under the user's own name — so it stays an opt-in for the
-// session (`/autopublish on`, `--autopublish`, AESTHETIC_CODE_AUTOPUBLISH=1)
+// session (`/autopublish on`, `--autopublish`, EASEL_AUTOPUBLISH=1)
 // rather than something the interface starts doing on its own.
 //
 // Saves arrive far faster than a publish should: an agent turn can write a file

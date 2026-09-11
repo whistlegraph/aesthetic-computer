@@ -1,6 +1,6 @@
 // PROMPT SCAN CODES.
 //
-// An Aesthetic Code session is holding a live piece, and the way you reach that
+// An Easel session is holding a live piece, and the way you reach that
 // piece from a phone is a QR. Printed into the terminal it costs seventeen rows
 // of half-blocks and shoves the actual conversation off the top of the pane;
 // carried by the session's prompt rock it costs nothing but the stone's own

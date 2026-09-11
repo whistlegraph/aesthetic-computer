@@ -2634,12 +2634,12 @@ final class PromptSigilOverlayController {
     /// Reconcile the badge set with the live sessions. Off when `enabled` is
     /// false. Only sessions with a real local tty get a badge.
     /// The code this session's rock should be showing, or nil for the stone.
-    /// Every gate lives here: only Aesthetic Code mints scan URLs, the URL has
+    /// Every gate lives here: only Easel mints scan URLs, the URL has
     /// to exist, and it has to survive the generator — a payload too long for a
     /// QR, or one that would only fit at a module size no camera can resolve,
     /// comes back nil and the session keeps an ordinary rock.
     private func scanCode(for s: ClaudeSession) -> CGImage? {
-        guard s.agentType == "aesthetic-code" else { return nil }
+        guard s.agentType == "easel" else { return nil }
         let url = s.scanURL
         guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !unscannableURLs.contains(url) else { return nil }
@@ -2691,7 +2691,7 @@ final class PromptSigilOverlayController {
         for s in live {
             let bare = (s.tty as NSString).lastPathComponent
             liveParticleTtys.insert(bare)
-            // An Aesthetic Code session is holding a piece, and the client for
+            // An Easel session is holding a piece, and the client for
             // that piece is a phone. When the marker says where to send it, the
             // rock trades its stone for a code the camera can take. Nil — an
             // older session, a piece that hasn't minted yet, another agent

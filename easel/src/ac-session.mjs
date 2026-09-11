@@ -3,7 +3,7 @@
 // Every AC desktop app reads one file, ~/.ac-token, minted by `ac-login` with
 // Auth0 Authorization-Code + PKCE and a loopback callback. This module reads
 // and watches that file, refreshes the access token, and can run the same
-// sign-in flow itself so Aesthetic Code needs no other checkout. Only the
+// sign-in flow itself so Easel needs no other checkout. Only the
 // handle is ever displayed; email and name stay in the file.
 import { EventEmitter } from "node:events";
 import { createHash, randomBytes } from "node:crypto";
@@ -20,17 +20,17 @@ export const SITE = "https://aesthetic.computer";
 // Cloudflare fronts aesthetic.computer and rejects a bare user agent (1010).
 export const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
-  "(KHTML, like Gecko) Chrome/125.0 Safari/537.36 aesthetic-code";
+  "(KHTML, like Gecko) Chrome/125.0 Safari/537.36 easel";
 
 const base64url = (buffer) =>
   buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 
 const LANDING = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed in · Aesthetic Code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed in · Easel</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
 background:rgb(70,50,100);color:white;font-family:monospace}main{text-align:center;padding:2em}
 h1{font-weight:normal;color:rgb(255,100,255)}p{color:rgb(220,180,255)}</style></head>
-<body><main><h1>Signed in</h1><p>Return to Aesthetic Code. You can close this tab.</p></main></body></html>`;
+<body><main><h1>Signed in</h1><p>Return to Easel. You can close this tab.</p></main></body></html>`;
 
 export function openInBrowser(url) {
   const command =
@@ -210,13 +210,13 @@ export class ACSession extends EventEmitter {
           const failure = url.searchParams.get("error");
           if (failure) {
             response.writeHead(400, { "content-type": "text/plain" });
-            response.end("Sign-in failed. Return to Aesthetic Code.");
+            response.end("Sign-in failed. Return to Easel.");
             settle(reject, new Error(url.searchParams.get("error_description") || failure));
             return;
           }
           if (url.searchParams.get("state") !== state) {
             response.writeHead(400, { "content-type": "text/plain" });
-            response.end("State mismatch. Return to Aesthetic Code and retry.");
+            response.end("State mismatch. Return to Easel and retry.");
             settle(reject, new Error("sign-in state mismatch — retry /login"));
             return;
           }

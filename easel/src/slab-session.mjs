@@ -57,7 +57,7 @@ export class SlabSession {
       summary: "aesthetic code",
       tty,
       agent_pid: pid,
-      agent_type: "aesthetic-code",
+      agent_type: "easel",
       handle: "",
       // The piece this session is writing, and the address a phone reaches it
       // at. The menubar draws these as a scannable code on the rock, which is

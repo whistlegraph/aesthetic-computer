@@ -43,7 +43,7 @@ const SLAB_HOME = process.env.SLAB_HOME || join(homedir(), ".local", "share", "s
 const MARKER_DIRS = [join(SLAB_HOME, "state", "active-prompts"), join(SLAB_HOME, "state", "awaiting-prompts")];
 
 const shellQuote = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
-const isCodexBacked = (agent) => agent === "codex" || agent === "aesthetic-code";
+const isCodexBacked = (agent) => agent === "codex" || agent === "easel";
 
 async function findFile(root, suffix) {
   let entries;
@@ -304,7 +304,7 @@ async function toolDump({ handle, destination } = {}) {
   await writeFile(join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
 
   let resume;
-  if (agent === "aesthetic-code") {
+  if (agent === "easel") {
     resume = `#!/bin/sh
 set -eu
 bundle=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -351,8 +351,8 @@ async function toolLaunch({ host, agent, cwd, prompt = "", by, loopboyContact = 
   const wanted = String(host || "").trim().toLowerCase().replace(/\.local$/, "");
   if (!wanted) throw new Error("`host` is required (for example, poorslice).");
   const agentName = String(agent || "").trim().toLowerCase();
-  if (!new Set(["claude", "codex", "aesthetic-code"]).has(agentName)) {
-    throw new Error("`agent` must be `claude`, `codex`, or `aesthetic-code`.");
+  if (!new Set(["claude", "codex", "easel"]).has(agentName)) {
+    throw new Error("`agent` must be `claude`, `codex`, or `easel`.");
   }
   if (String(prompt).length > 4000) throw new Error("`prompt` exceeds 4000 characters.");
   const contactKey = String(loopboyContact || "").trim().toLowerCase();
@@ -542,14 +542,14 @@ const TOOLS = [
   {
     name: "prox_list",
     description:
-      "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Aesthetic Code session and headless agent the menubar advertises, as host:name with its status, kind, owning interface, age, and subject. Reads the local fleet ledger cache (no SSH).",
+      "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Easel session and headless agent the menubar advertises, as host:name with its status, kind, owning interface, age, and subject. Reads the local fleet ledger cache (no SSH).",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Only rocks on this machine (e.g. neo, blueberry, panda)." },
         status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted." },
         kind: { type: "string", description: "Filter by kind: session | agent." },
-        agent: { type: "string", description: "Filter by owning interface: claude | codex | aesthetic-code." },
+        agent: { type: "string", description: "Filter by owning interface: claude | codex | easel." },
       },
     },
   },
@@ -606,12 +606,12 @@ const TOOLS = [
   {
     name: "prox_launch",
     description:
-      "Launch a new interactive Claude, Codex, or Aesthetic Code prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only fixed allowlisted launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
+      "Launch a new interactive Claude, Codex, or Easel prompt in Terminal.app on a Slab fleet host. SIDE EFFECT: opens a live agent session and may consume account usage. The target accepts only fixed allowlisted launchers, limits cwd to that user's home folder, and binds the endpoint to its tailnet IP; no arbitrary command is accepted.",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Target Slab hostname, for example poorslice." },
-        agent: { type: "string", enum: ["claude", "codex", "aesthetic-code"], description: "Interface to launch." },
+        agent: { type: "string", enum: ["claude", "codex", "easel"], description: "Interface to launch." },
         cwd: { type: "string", description: "Optional absolute directory on the target. Defaults to its aesthetic-computer checkout and must stay under its home folder." },
         prompt: { type: "string", description: "Optional initial prompt, at most 4000 characters. Omit to open an idle TUI." },
         by: { type: "string", description: "Optional caller label recorded by the target." },

@@ -325,7 +325,7 @@ final class ProxMemoirs {
             else { continue }
             var role = ""
             var content: Any?
-            if agentType == "codex" || agentType == "aesthetic-code" {
+            if agentType == "codex" || agentType == "easel" {
                 guard (obj["type"] as? String) == "response_item",
                       let payload = obj["payload"] as? [String: Any],
                       (payload["type"] as? String) == "message" else { continue }

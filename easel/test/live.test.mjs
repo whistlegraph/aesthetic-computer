@@ -10,7 +10,7 @@ import { qrBlock } from "../src/qr.mjs";
 import { runtimeFor, runtimeForExtension, runtimeIds, runtimeMenu } from "../src/runtimes.mjs";
 
 async function workspace(context) {
-  const root = await mkdtemp(join(tmpdir(), "aesthetic-code-live-"));
+  const root = await mkdtemp(join(tmpdir(), "easel-live-"));
   context.after(() => rm(root, { recursive: true, force: true }));
   return root;
 }

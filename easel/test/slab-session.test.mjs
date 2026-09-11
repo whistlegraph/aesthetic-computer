@@ -9,7 +9,7 @@ const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 const exists = async (path) => stat(path).then(() => true, () => false);
 
 test("publishes the full Slab prompt lifecycle", async (context) => {
-  const root = await mkdtemp(join(tmpdir(), "aesthetic-code-slab-"));
+  const root = await mkdtemp(join(tmpdir(), "easel-slab-"));
   context.after(() => rm(root, { recursive: true, force: true }));
   const session = new SlabSession({
     cwd: "/project",
@@ -24,7 +24,7 @@ test("publishes the full Slab prompt lifecycle", async (context) => {
 
   session.start();
   let marker = await readJson(active);
-  assert.equal(marker.agent_type, "aesthetic-code");
+  assert.equal(marker.agent_type, "easel");
   assert.equal(marker.state, "blank");
 
   session.connected("00000000-0000-0000-0000-000000000001");

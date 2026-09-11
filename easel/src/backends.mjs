@@ -1,4 +1,4 @@
-// backends.mjs — the engine bridges Aesthetic Code can drive.
+// backends.mjs — the engine bridges Easel can drive.
 //
 // A bridge is a subprocess speaking a line protocol over stdio. The interface
 // holds the same conversation over either of them — a thread, turns inside it,

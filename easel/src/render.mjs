@@ -1,4 +1,4 @@
-// render.mjs — one frame of the Aesthetic Code interface.
+// render.mjs — one frame of the Easel interface.
 //
 // The palette is the Aesthetic Computer prompt's dark scheme (disks/prompt.mjs
 // `scheme.dark`): purple ground, pink prompt block, orange highlight, magenta
@@ -59,7 +59,7 @@ const slabState = join(
   process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab"),
   "state",
 );
-const groundMode = (process.env.AESTHETIC_CODE_GROUND || "").toLowerCase();
+const groundMode = (process.env.EASEL_GROUND || "").toLowerCase();
 const slabManagesWindow =
   process.env.TERM_PROGRAM === "Apple_Terminal" && existsSync(slabState);
 export const paintsGround =

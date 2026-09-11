@@ -8,7 +8,7 @@ import { looksLikePiece, planPublish, publishPiece, slugFor } from "../src/publi
 const SOURCE = "export function paint({ wipe }) { wipe(70, 50, 100); }\n";
 
 async function piece(context, name = "smiley.mjs", source = SOURCE) {
-  const root = await mkdtemp(join(tmpdir(), "aesthetic-code-publish-"));
+  const root = await mkdtemp(join(tmpdir(), "easel-publish-"));
   context.after(() => rm(root, { recursive: true, force: true }));
   const file = join(root, name);
   await writeFile(file, source);

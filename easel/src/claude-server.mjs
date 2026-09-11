@@ -163,8 +163,8 @@ export class ClaudeServer extends EventEmitter {
         behavior: "deny",
         message:
           decision === "cancel"
-            ? "Cancelled in Aesthetic Code."
-            : "Denied in Aesthetic Code.",
+            ? "Cancelled in Easel."
+            : "Denied in Easel.",
       };
     }
     this.#send({
@@ -269,8 +269,8 @@ export class ClaudeServer extends EventEmitter {
       env: {
         ...process.env,
         ...this.environment,
-        AESTHETIC_CODE: "1",
-        AESTHETIC_CODE_VERSION: VERSION,
+        EASEL: "1",
+        EASEL_VERSION: VERSION,
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -468,7 +468,7 @@ export class ClaudeServer extends EventEmitter {
         response: {
           subtype: "error",
           request_id: message.request_id,
-          error: `Aesthetic Code does not support ${request.subtype} yet`,
+          error: `Easel does not support ${request.subtype} yet`,
         },
       });
       return;

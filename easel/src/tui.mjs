@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
 import { AutoPublisher } from "./autopublish.mjs";
+import { EASEL_HEIGHT, easelFrame, easelNextFrame } from "./easel.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { publishPiece } from "./publish.mjs";
@@ -25,7 +26,7 @@ const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
 // Which engine bridge drives the conversation, and on which model. The bridge
 // can be swapped mid-session with /backend, so neither is a constant.
-let backend = backendFor(option("--backend") || process.env.AESTHETIC_CODE_BACKEND || DEFAULT_BACKEND);
+let backend = backendFor(option("--backend") || process.env.EASEL_BACKEND || DEFAULT_BACKEND);
 let model = option("--model") || backend.defaultModel;
 
 const session = new ACSession();
@@ -93,11 +94,11 @@ const state = {
 const autopublish = new AutoPublisher({
   // On by default. The scanned address is the published one, so a session
   // that does not publish has nothing to point a camera at; `--no-autopublish`
-  // and `AESTHETIC_CODE_AUTOPUBLISH=0` both opt out, and a signed-out session
+  // and `EASEL_AUTOPUBLISH=0` both opt out, and a signed-out session
   // never reaches the attempt.
   enabled:
     !flag("--no-autopublish") &&
-    !/^(0|off|false|no)$/i.test(process.env.AESTHETIC_CODE_AUTOPUBLISH || ""),
+    !/^(0|off|false|no)$/i.test(process.env.EASEL_AUTOPUBLISH || ""),
   publish: () => publishPiece({ file: live.file, slug: live.slug, session, cwd }),
 });
 
@@ -139,11 +140,11 @@ function developerInstructions() {
         ]
       : [
           "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
-          "A piece is live only after the user runs the Aesthetic Code command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
+          "A piece is live only after the user runs the Easel command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
           "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
         ];
   return [
-    "You are running inside Aesthetic Code, a terminal interface for Aesthetic Computer (AC) work.",
+    "You are running inside Easel, a terminal interface for Aesthetic Computer (AC) work.",
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
     ...dialect,
@@ -168,7 +169,7 @@ function openEngine({ resume = "" } = {}) {
     environment: {
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,
-      SLAB_AGENT_TYPE: "aesthetic-code",
+      SLAB_AGENT_TYPE: "easel",
     },
   });
   opened.on("notification", handleNotification);
@@ -190,6 +191,11 @@ function openEngine({ resume = "" } = {}) {
 let engine = openEngine({ resume: resumeThreadId });
 let drawing = false;
 let closing = false;
+// The startup easel owns the screen until it is done or dismissed. Declared
+// here rather than beside the splash itself because redraw() reads it, and
+// redraw() can be called before that block is reached.
+let splashing = false;
+let splashTimer = null;
 let streamedMessageId = null;
 let pasteBuffer = null;
 
@@ -232,7 +238,7 @@ function startDance() {
 }
 
 function redraw() {
-  if (closing || drawing) return;
+  if (closing || drawing || splashing) return;
   drawing = true;
   try {
     const frame = renderFrame(state, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
@@ -474,7 +480,7 @@ function handleRequest(request) {
     redraw();
     return;
   }
-  engine.reject(request.id, -32601, `Aesthetic Code does not support ${request.method} yet`);
+  engine.reject(request.id, -32601, `Easel does not support ${request.method} yet`);
 }
 
 function answerApproval(character) {
@@ -894,6 +900,13 @@ function insertText(value) {
 }
 
 function handleKey(input) {
+  // The easel is a greeting, not a gate. Any key puts it away.
+  if (splashing) {
+    splashing = false;
+    clearTimeout(splashTimer);
+    splashTimer = null;
+    redraw();
+  }
   if (answerApproval(input)) return;
 
   if (input === "\u0003") {
@@ -957,6 +970,39 @@ function handleKeys(buffer) {
 }
 
 process.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?2004h");
+
+// 🎨 Stand the easel up. Each frame reads the live values rather than a
+// snapshot, so the address is written onto the canvas at whatever moment the
+// sign-in resolves — which is the honest thing to show, since that is exactly
+// when the piece's address starts answering.
+function splashTick() {
+  const elapsed = Date.now() - splashStartedAt;
+  const canvas = { piece: live.slug, address: live.scanUrl };
+  const columns = process.stdout.columns || 80;
+  const lines = easelFrame(elapsed, canvas);
+  const pad = Math.max(0, Math.floor((columns - lines[0].length) / 2));
+  const gap = Math.max(0, Math.floor(((process.stdout.rows || 24) - EASEL_HEIGHT) / 2));
+  const body = lines.map((line) => " ".repeat(pad) + line).join("\n");
+  process.stdout.write(`\x1b[H\x1b[2J${color.ground}${"\n".repeat(gap)}${body}`);
+
+  const next = easelNextFrame(elapsed, canvas);
+  if (next === null) {
+    splashing = false;
+    splashTimer = null;
+    return redraw();
+  }
+  splashTimer = setTimeout(splashTick, next);
+  splashTimer.unref?.();
+}
+
+// Skip it on a screen too small to hold it — a clipped easel is worse than
+// none — and whenever output is not a terminal at all.
+const splashStartedAt = Date.now();
+if (process.stdout.isTTY && (process.stdout.rows || 0) >= EASEL_HEIGHT + 4) {
+  splashing = true;
+  splashTick();
+}
+
 process.stdin.setRawMode(true);
 process.stdin.resume();
 process.stdin.on("data", handleKeys);

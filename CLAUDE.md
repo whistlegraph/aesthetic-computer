@@ -140,7 +140,7 @@ Pieces are URL-addressable: `aesthetic.computer/piece-name`, params `piece-name:
 - `kidlisp/` - KidLisp docs and tools
 - `spec/` - Jasmine tests for KidLisp
 - `ants/` - AestheticAnts automated maintenance
-- `aesthetic-code/` - The terminal coding interface (`ac`); `cd aesthetic-code && ./install.sh`
+- `easel/` - Easel, the terminal coding interface (`ac`); `cd easel && ./install.sh`
 
 ## Notes
 

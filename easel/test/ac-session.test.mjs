@@ -9,7 +9,7 @@ const jsonResponse = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 async function scratch(context) {
-  const root = await mkdtemp(join(tmpdir(), "aesthetic-code-session-"));
+  const root = await mkdtemp(join(tmpdir(), "easel-session-"));
   context.after(() => rm(root, { recursive: true, force: true }));
   return join(root, ".ac-token");
 }

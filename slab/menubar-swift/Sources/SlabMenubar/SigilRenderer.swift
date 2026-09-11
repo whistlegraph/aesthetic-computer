@@ -70,13 +70,13 @@ enum SigilRenderer {
                 return routeName
             }
         }
-        // An Aesthetic Code session is holding one named piece, and that name is
+        // An Easel session is holding one named piece, and that name is
         // already the session's public identity: it is the slug in the address on
         // the rock and the channel the piece is pushed on. Drawing a second,
         // unrelated word from the session id meant the rock and the piece
         // disagreed about what the session was called — you would open `balozo`
         // and be handed `muzad`. The piece wins, and follows a rename.
-        if session.agentType == "aesthetic-code" {
+        if session.agentType == "easel" {
             let slug = (session.piece as NSString).deletingPathExtension
             let clean = slug.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
             if !clean.isEmpty { return String(clean.prefix(16)) }

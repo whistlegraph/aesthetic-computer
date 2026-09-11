@@ -49,7 +49,7 @@ struct LedgerEntry: Codable, Equatable {
     /// unlike the route registry, this originates in the live marker.
     var loopboyContact: String?
     /// Bare host+path a phone can scan to reach the piece this prompt is
-    /// holding. Only Aesthetic Code mints one. Optional both because older
+    /// holding. Only Easel mints one. Optional both because older
     /// fleet ledgers predate it and because most prompts never have one.
     var scanURL: String?
 }
@@ -159,9 +159,9 @@ final class LedgerStore {
     /// home folder.
     private static func launchPrompt(_ body: [String: Any]) -> [String: Any] {
         let requestedAgent = ((body["agent"] as? String) ?? "").lowercased()
-        let agent = requestedAgent == "aesthetic" ? "aesthetic-code" : requestedAgent
-        guard agent == "claude" || agent == "codex" || agent == "aesthetic-code" else {
-            return ["ok": false, "error": "agent must be claude, codex, or aesthetic-code"]
+        let agent = requestedAgent == "aesthetic" ? "easel" : requestedAgent
+        guard agent == "claude" || agent == "codex" || agent == "easel" else {
+            return ["ok": false, "error": "agent must be claude, codex, or easel"]
         }
 
         let prompt = (body["prompt"] as? String) ?? ""
@@ -203,8 +203,8 @@ final class LedgerStore {
         let binary: String
         if agent == "codex" {
             binary = "\(Paths.slabBin)/codex-slab"
-        } else if agent == "aesthetic-code" {
-            binary = "\(Paths.home)/.local/bin/aesthetic"
+        } else if agent == "easel" {
+            binary = "\(Paths.home)/.local/bin/easel"
         } else {
             binary = "\(Paths.home)/.local/bin/claude"
         }
@@ -228,7 +228,7 @@ final class LedgerStore {
             command = "cd \(shellQuote(cwd)) && exec \(shellQuote(binary))"
         }
         if !prompt.isEmpty {
-            command += agent == "aesthetic-code"
+            command += agent == "easel"
                 ? " --prompt \(shellQuote(prompt))"
                 : " \(shellQuote(prompt))"
         }

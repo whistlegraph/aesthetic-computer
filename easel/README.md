@@ -1,10 +1,10 @@
-# Aesthetic Code
+# Easel
 
-A coding interface for the terminal. Lives at `aesthetic-code/` in the
+A coding interface for the terminal. Lives at `easel/` in the
 Aesthetic Computer repository.
 
 ```sh
-cd aesthetic-code && ./install.sh
+cd easel && ./install.sh
 ac
 ```
 
@@ -21,7 +21,7 @@ engine bridge: a subprocess on stdio that the interface drives. A native
 local-inference engine can replace the bridge without changing the interface.
 
 Each live TUI publishes its own Slab marker, so the menubar and prox ledger can
-name, focus, wake, close, and track it as `aesthetic-code`, including which
+name, focus, wake, close, and track it as `easel`, including which
 @handle it acts as. The marker also carries the piece and its address, which the
 menubar draws as a scannable code on the session's prompt rock.
 
@@ -59,7 +59,7 @@ model are running.
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK
-speaks, driven directly over a pipe. That is why Aesthetic Code still has no
+speaks, driven directly over a pipe. That is why Easel still has no
 dependencies: a subprocess on stdio is the same shape as `codex app-server
 --stdio`, and it carries streaming, tool calls and approvals without a package
 tree behind it. Each bridge signs in with the vendor CLI's own credentials
@@ -79,7 +79,7 @@ written down in [`docs/local-contract.md`](docs/local-contract.md).
 
 ## The session's piece, live on a phone
 
-Opening Aesthetic Code opens a new blank piece. It gets a random pronounceable
+Opening Easel opens a new blank piece. It gets a random pronounceable
 name, it is a real file in the workspace, and a QR code for it sits in the
 bottom right of the interface. Scan the code and the piece runs on your phone;
 every edit the agent makes reaches it a moment later.
@@ -122,7 +122,7 @@ comment and declares `setup` or `draw` is taken as Lua at all.
 
 ## Account and publishing
 
-Aesthetic Code reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
+Easel reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
 the same file `ac-login` and the AC desktop apps use. `/login` runs the
 Authorization-Code + PKCE flow in your browser with a loopback callback and
 writes that file; a sign-in or sign-out anywhere in the suite updates the
@@ -142,7 +142,7 @@ camera at. It coalesces — a publish runs once the saves stop,
 never more than one at a time, and never twice for the same bytes — and it
 flushes the pending save on exit. Off by default, since it writes to a public
 route under your own handle: turn it on per session with the flag or
-`/autopublish`, or for every session with `AESTHETIC_CODE_AUTOPUBLISH=1`, which
+`/autopublish`, or for every session with `EASEL_AUTOPUBLISH=1`, which
 `--no-autopublish` overrides. With it on the engine is told the piece is
 already live and told not to ask you to publish.
 
@@ -160,7 +160,7 @@ aesthetic doctor
 npm test
 ```
 
-Aesthetic Code is proprietary. See `LICENSE`.
+Easel is proprietary. See `LICENSE`.
 
 On Fish installations with existing `ac` or `aesthetic` functions, the
 installer preserves them as `ac-repo` and `aesthetic-platform`.

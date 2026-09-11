@@ -38,8 +38,8 @@ export class AppServer extends EventEmitter {
       env: {
         ...process.env,
         ...this.environment,
-        AESTHETIC_CODE: "1",
-        AESTHETIC_CODE_VERSION: VERSION,
+        EASEL: "1",
+        EASEL_VERSION: VERSION,
       },
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -66,8 +66,8 @@ export class AppServer extends EventEmitter {
 
     await this.request("initialize", {
       clientInfo: {
-        name: "aesthetic_code",
-        title: "Aesthetic Code",
+        name: "easel",
+        title: "Easel",
         version: VERSION,
       },
       capabilities: { experimentalApi: true },

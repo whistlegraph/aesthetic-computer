@@ -3,7 +3,7 @@
 Written 2026-09-11. Prices quoted are from `https://openrouter.ai/api/v1/models`,
 pulled that morning. Nothing here is implemented.
 
-The goal is to stop requiring every person who opens Aesthetic Code to already
+The goal is to stop requiring every person who opens Easel to already
 hold a Claude or Codex subscription. Today both bridges sign in with a vendor
 CLI's own credentials, which is elegant — no key, no server, no account — and
 also a wall: the interface is unusable to anyone who has not already paid
@@ -62,7 +62,7 @@ Worth noting, because it changes how bad this option feels: OpenRouter has an
 OAuth PKCE flow at `https://openrouter.ai/auth` that exchanges a code at
 `POST /api/v1/auth/keys` for a user-scoped key billed to that user's credits,
 and it documents a headless mode with no `callback_url` where the user copies
-the code across. Aesthetic Code already runs an Authorization-Code + PKCE flow
+the code across. Easel already runs an Authorization-Code + PKCE flow
 with a loopback callback in `src/ac-session.mjs`; a second one against a
 different issuer is the same ninety lines. So "bring your own key" can be
 `/login`-shaped rather than paste-shaped.
@@ -120,7 +120,7 @@ The trust boundary in the recommended option is worth stating flatly: Aesthetic
 Computer never sees the prompts, but it does mint a bearer token that spends its
 money, and a user who extracts that token from their own machine — trivially,
 it is a file they own — can spend the cap however they like, including on
-something that is not Aesthetic Code. The cap is therefore the entire control.
+something that is not Easel. The cap is therefore the entire control.
 It should be small, it should reset, and it should be revocable per handle.
 
 ## Whether this needs a second kind of engine
@@ -251,7 +251,7 @@ product, and writes the answer back to Redis. The invalidation half is in
 `ticket.js`, which on `customer.subscription.updated` reads
 `customer.metadata.sub` and deletes the cache entry. That pair — a Redis-cached
 entitlement keyed on the Auth0 sub, invalidated by a webhook — is precisely what
-a paid Aesthetic Code tier needs, and it can be ported by changing the product
+a paid Easel tier needs, and it can be ported by changing the product
 id.
 
 `system/netlify/functions/news-toll.mjs` is the cleanest single-file reference
@@ -318,7 +318,7 @@ of magnitude.
 
 These are @jeffrey's own sessions in the full Aesthetic Computer tree, on a
 million-token context, and they are an upper bound rather than a typical
-Aesthetic Code session — the interface opens on one small piece file in a
+Easel session — the interface opens on one small piece file in a
 workspace the user chose. So, bottom-up: thirty turns, context growing from
 about 15k tokens to about 60k, averaging 35k. That is roughly 1.05M cache-read
 tokens, 300k cache-write, 20k output. Priced across the shelf at today's
@@ -390,7 +390,7 @@ may be issued or re-issued, plus a short `expires_at` so an abandoned key stops
 mattering — and it is a partial one. Worth testing before promising a tier.
 
 Runaway spend inside a single session is the most likely everyday failure, and
-it is not malice. Aesthetic Code auto-approves tool calls by default:
+it is not malice. Easel auto-approves tool calls by default:
 `handleRequest` in `src/tui.mjs` answers `accept` unless `/ask on` is set,
 because the first real session spent two of its two hours and nineteen minutes
 parked on prompts with nobody watching. That default is right for a piece
@@ -452,7 +452,7 @@ from unauthenticated route probes, not from a working call.
   cannot answer. The free tier's viability is a quality question, not a price
   one.
 - **The realistic monthly-active handle count.** 2,814 handles exist. How many
-  would open Aesthetic Code in a month is a guess, and the $300 figure moves
+  would open Easel in a month is a guess, and the $300 figure moves
   linearly with it.
 
 ## What this changes in the contract

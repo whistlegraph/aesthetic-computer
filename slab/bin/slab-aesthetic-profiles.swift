@@ -3,7 +3,7 @@
 // The menubar already switches a tab's `current settings` per session status,
 // picking a settings set by name (see AppDelegate.profileName). Claude sessions
 // get the plain `Slab-<status>-<dark|light>` family and Codex ones a cooler
-// `-codex` twin. Aesthetic Code sessions had no family of their own and were
+// `-codex` twin. Easel sessions had no family of their own and were
 // borrowing Codex's, so the one interface that IS Aesthetic Computer was the
 // one wearing somebody else's colours.
 //

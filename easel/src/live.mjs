@@ -1,6 +1,6 @@
 // live.mjs — the session's piece, and the channel that carries it to a phone.
 //
-// Every Aesthetic Code session opens on a new blank piece with a random name.
+// Every Easel session opens on a new blank piece with a random name.
 // The piece is a real file in the workspace, so the agent edits it like any
 // other file, and every save is pushed to Aesthetic Computer's `/run` endpoint
 // on a private code channel. Anything watching that channel — a phone that

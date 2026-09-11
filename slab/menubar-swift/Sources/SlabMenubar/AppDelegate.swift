@@ -2310,7 +2310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     ) -> (palette: Palette, glyph: String) {
         // Codex-backed completion is a stronger attention cue than Claude's
         // calm slate: coral/red, distinct from approval/elicitation amber.
-        if (agentType == "codex" || agentType == "aesthetic-code"), state == .complete {
+        if (agentType == "codex" || agentType == "easel"), state == .complete {
             if dark {
                 return blink
                     ? (Palette(bg: (23500, 3200, 4200), text: (65535, 48000, 46000),
@@ -2325,7 +2325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                            bold: (21000, 300, 800), cursor: (62000, 5000, 5000)), "✓ complete")
         }
         let base = baseStatusDecor(for: state, dark: dark, blink: blink)
-        guard agentType == "codex" || agentType == "aesthetic-code" else { return base }
+        guard agentType == "codex" || agentType == "easel" else { return base }
         return (palette: codexTint(base.palette, dark: dark), glyph: base.glyph)
     }
 
@@ -2491,14 +2491,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Codex-backed interfaces share a settings-set family so their
         // slightly-cooler palette is provisioned independently of Claude's.
-        // Aesthetic Code has its own: it borrowed Codex's until now, which put
+        // Easel has its own: it borrowed Codex's until now, which put
         // the one interface that IS Aesthetic Computer in somebody else's
         // colours. `-aesthetic` is the prompt's own scheme, the same values
         // the harness paints itself with — and it names the palette rather
         // than the tool, which is still deciding what it is called.
         let agentSuffix: String
         switch agentType {
-        case "aesthetic-code": agentSuffix = "-aesthetic"
+        case "easel": agentSuffix = "-aesthetic"
         case "codex":          agentSuffix = "-codex"
         default:               agentSuffix = ""
         }
@@ -3080,7 +3080,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         _ = fontSize
         let safeCwd = cwd.replacingOccurrences(of: "'", with: "'\\''")
         let shellCmd: String
-        if agentType == "aesthetic-code" {
+        if agentType == "easel" {
             let safeSid = providerSessionId.replacingOccurrences(of: "'", with: "'\\''")
             shellCmd = providerSessionId.isEmpty
                 ? "cd '\(safeCwd)' && aesthetic"

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 VERSION="0.4.0"
-DEFAULT_BACKEND="${AESTHETIC_CODE_BACKEND:-claude}"
+DEFAULT_BACKEND="${EASEL_BACKEND:-claude}"
 DEFAULT_CLAUDE_MODEL="claude-opus-5"
 script_path="${BASH_SOURCE[0]}"
 while [[ -L "$script_path" ]]; do
@@ -27,7 +27,7 @@ Usage: ac [directory] [--runtime mjs|lisp|processing]
        aesthetic login | logout | whoami
        aesthetic publish <file> [slug]
 
-Open the Aesthetic Code terminal interface in a workspace, or manage the
+Open the Easel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
 your @handle at https://aesthetic.computer/@handle/slug.
 
@@ -40,7 +40,7 @@ claude-opus-5) or codex. --model names the model on that bridge, and
 
 --autopublish publishes the piece under your @handle a couple of seconds
 after every save, so the session's URL is live the whole time it is being
-worked on. Off by default; AESTHETIC_CODE_AUTOPUBLISH=1 turns it on for
+worked on. Off by default; EASEL_AUTOPUBLISH=1 turns it on for
 every session, --no-autopublish overrides that, and /autopublish toggles
 it mid-session.
 EOF
@@ -56,7 +56,7 @@ has_command() {
 }
 
 doctor() {
-    printf 'Aesthetic Code %s\n' "$VERSION"
+    printf 'Easel %s\n' "$VERSION"
     printf 'interface: %s\n' "$PROJECT_DIR/src/tui.mjs"
     printf 'control plane: local\n'
     printf 'telemetry: off\n'
@@ -87,7 +87,7 @@ case "${1:-}" in
         exit 0
         ;;
     --version|-V|version)
-        printf 'Aesthetic Code %s\n' "$VERSION"
+        printf 'Easel %s\n' "$VERSION"
         exit 0
         ;;
     doctor)
@@ -108,7 +108,7 @@ runtime=""
 backend=""
 model=""
 # Empty means "whatever the environment says"; the interface reads
-# AESTHETIC_CODE_AUTOPUBLISH itself, and these two flags override it.
+# EASEL_AUTOPUBLISH itself, and these two flags override it.
 autopublish=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -189,13 +189,13 @@ esac
 has_command "$selected_backend" ||
     fail "the $selected_backend engine bridge is not installed"
 
-if [[ "${AESTHETIC_CODE_DRY_RUN:-0}" == "1" ]]; then
-    printf 'interface=aesthetic-code\n'
+if [[ "${EASEL_DRY_RUN:-0}" == "1" ]]; then
+    printf 'interface=easel\n'
     printf 'directory=%s\n' "$target_directory"
     printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
     printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
     printf 'runtime=%s\n' "${runtime:-mjs}"
-    printf 'autopublish=%s\n' "${autopublish:-$([[ "${AESTHETIC_CODE_AUTOPUBLISH:-0}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
+    printf 'autopublish=%s\n' "${autopublish:-$([[ "${EASEL_AUTOPUBLISH:-0}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
     printf 'backend=%s\n' "$selected_backend"
     printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
     exit 0
@@ -204,7 +204,7 @@ fi
 [[ -t 0 && -t 1 ]] || fail "an interactive terminal is required"
 
 export AESTHETIC_CODE=1
-export AESTHETIC_CODE_VERSION="$VERSION"
+export EASEL_VERSION="$VERSION"
 arguments=("--cwd" "$target_directory")
 if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
