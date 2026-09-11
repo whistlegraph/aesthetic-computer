@@ -5,12 +5,21 @@
 // (xelatex 3-pass + deploy + index update + verify).
 
 import { promises as fs } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 import { spawn, execFile } from "child_process";
 
-const MAX_RECENT_JOBS = 10;
+const MAX_RECENT_JOBS = 20;
 const MAX_LOG_LINES = 2000;
+
+// Job history is kept on disk as well as in memory. Held only in memory, the
+// entire build record vanished on every oven restart, so `recent: []` was
+// ambiguous between "never built" and "restarted since the last build" —
+// exactly the question you need answered when the mill has gone quiet.
+// Summaries only; logs stay in memory and are lost on restart as before.
+const STATE_DIR = process.env.OVEN_STATE_DIR || "/opt/oven/state";
+const HISTORY_FILE = path.join(STATE_DIR, "papers-build-history.json");
 
 // papers/cli.mjs lives inside the git clone at /opt/oven/native-git/papers/
 const GIT_REPO_DIR =
@@ -19,6 +28,35 @@ const GIT_REPO_DIR =
 const jobs = new Map();
 const jobOrder = [];
 let activeJobId = null;
+
+// Restarted-in jobs: summaries rehydrated from HISTORY_FILE, oldest last.
+// They carry no logs and no live process — they exist so `recent` can still
+// answer "when did this mill last turn, and did it work?".
+let history = [];
+
+function loadHistory() {
+  try {
+    const parsed = JSON.parse(readFileSync(HISTORY_FILE, "utf8"));
+    if (Array.isArray(parsed)) history = parsed.slice(0, MAX_RECENT_JOBS);
+  } catch {
+    history = []; // absent or corrupt — start clean, never fatal
+  }
+}
+
+function saveHistory(snapshot) {
+  history = [snapshot, ...history.filter((h) => h.id !== snapshot.id)].slice(
+    0,
+    MAX_RECENT_JOBS,
+  );
+  try {
+    mkdirSync(STATE_DIR, { recursive: true });
+    writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), "utf8");
+  } catch {
+    // A read-only or missing state dir must never take the build down.
+  }
+}
+
+loadHistory();
 
 function nowISO() {
   return new Date().toISOString();
@@ -74,6 +112,7 @@ function makeSnapshot(job, opts = {}) {
     finishedAt: job.finishedAt,
     exitCode: job.exitCode,
     error: job.error,
+    publishError: job.publishError || null,
     logCount: job.logs.length,
     elapsedMs: job.startedAt
       ? (job.finishedAt ? Date.parse(job.finishedAt) : Date.now()) -
@@ -248,8 +287,19 @@ async function runPapersJob(job) {
     try {
       await publishToLith(job);
     } catch (pushErr) {
-      // Non-fatal — PDFs were built successfully even if publish failed
-      addLogLine(job, "stderr", `  PUBLISH FAILED: ${pushErr.message}${pushErr.stderr ? " | " + pushErr.stderr.trim() : ""}`);
+      // A build whose PDFs never reach papers.aesthetic.computer is not a
+      // success, however clean the xelatex runs were — reporting it as one is
+      // how a broken papermill looks healthy from the outside. The PDFs *did*
+      // build, so say exactly that and let the status endpoint carry it.
+      const detail = `${pushErr.message}${pushErr.stderr ? " | " + pushErr.stderr.trim() : ""}`;
+      addLogLine(job, "stderr", `  PUBLISH FAILED: ${detail}`);
+      job.publishError = detail;
+      job.status = "failed";
+      job.stage = "publish-failed";
+      job.percent = 100;
+      job.error = `PDFs built, but publishing to lith failed: ${detail}`;
+      job.finishedAt = nowISO();
+      return;
     }
 
     job.status = "success";
@@ -263,6 +313,7 @@ async function runPapersJob(job) {
     job.error = err.message || String(err);
   } finally {
     if (activeJobId === job.id) activeJobId = null;
+    saveHistory(makeSnapshot(job));
   }
 }
 
@@ -309,13 +360,20 @@ export function getPapersBuild(jobId, opts = {}) {
 }
 
 export function getPapersBuildsSummary() {
+  const live = jobOrder
+    .map((id) => jobs.get(id))
+    .filter(Boolean)
+    .map((j) => makeSnapshot(j));
+  const liveIds = new Set(live.map((j) => j.id));
   return {
     activeJobId,
     active: activeJobId ? makeSnapshot(jobs.get(activeJobId)) : null,
-    recent: jobOrder
-      .map((id) => jobs.get(id))
-      .filter(Boolean)
-      .map((j) => makeSnapshot(j)),
+    // This process's jobs first, then whatever earlier runs left on disk.
+    recent: [...live, ...history.filter((h) => !liveIds.has(h.id))].slice(
+      0,
+      MAX_RECENT_JOBS,
+    ),
+    lastFinished: [...live, ...history].find((j) => j.finishedAt) || null,
   };
 }
 

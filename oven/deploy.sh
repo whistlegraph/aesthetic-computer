@@ -38,6 +38,7 @@ rsync -avz --progress --delete \
   --exclude='ac-source' \
   --exclude='native-git' \
   --exclude='secrets' \
+  --exclude='state' \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
   "$SCRIPT_DIR/" \
   "root@$OVEN_HOST:$REMOTE_DIR/"
@@ -298,6 +299,12 @@ fi
 install -m 0644 $REMOTE_DIR/infra/oven.service /etc/systemd/system/oven.service
 # Rewrite systemd override from scratch so stale directives do not survive deploys.
 mkdir -p /etc/systemd/system/oven.service.d
+# Emergency pauses are not configuration. This one — PAPERS_POLLER_DISABLED=1,
+# added by hand on 2026-05-13 to stop a rebuild loop — outlived its cause by
+# four months, because rewriting override.conf 'from scratch' never touched the
+# drop-ins beside it. Every deploy now clears it: the fix for a loop is a
+# deploy, so if the loop is really back, re-add it and write down why.
+rm -f /etc/systemd/system/oven.service.d/pause-papers-poller.conf
 cat > /etc/systemd/system/oven.service.d/override.conf <<EOF
 [Service]
 Environment=OVEN_VERSION=$GIT_VERSION

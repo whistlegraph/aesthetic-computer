@@ -5,7 +5,8 @@
 // successful build. If so, pulls and triggers startPapersBuild().
 //
 // Shares the git clone at GIT_REPO_DIR with native-git-poller.mjs.
-// Uses a separate hash file (.last-papers-built-hash) to track state.
+// Keeps its own build marker under .git/oven-state/ — see the note below for
+// why it cannot live in the worktree.
 
 import { execFile } from "child_process";
 import { promises as fs } from "fs";
@@ -14,7 +15,24 @@ import path from "path";
 const POLL_INTERVAL_MS = parseInt(process.env.PAPERS_POLL_INTERVAL_MS || "60000", 10);
 const GIT_REPO_DIR = process.env.NATIVE_GIT_DIR || "/opt/oven/native-git";
 const BRANCH = process.env.NATIVE_GIT_BRANCH || "main";
-const HASH_FILE = path.join(GIT_REPO_DIR, ".last-papers-built-hash");
+
+// The "already built" marker lives inside .git/, not in the worktree.
+//
+// It used to be <repo>/.last-papers-built-hash — and on 2026-03-18 an
+// over-broad `git add -A` in the builder committed that file to main. From
+// then on it was a *tracked* file holding poller state, so every cleanup the
+// pipeline runs at the end of a build — `git checkout -- .` in
+// papers-builder.mjs, `git reset --hard` + `git clean -fd` in
+// native-git-poller.mjs — silently reverted it to the committed value
+// (aaa62f4a, 2026-03-21). The poller then re-derived the same months-wide diff
+// on the very next tick and rebuilt the entire mill again, pushing a fresh
+// metadata commit each lap. That is the "papers auto-build commit loop" the
+// poller was hand-paused for on 2026-05-13.
+//
+// .git/ is the one directory none of those cleanups touch, so state kept here
+// survives a build instead of being undone by it.
+const STATE_DIR = path.join(GIT_REPO_DIR, ".git", "oven-state");
+const HASH_FILE = path.join(STATE_DIR, "papers-last-built-hash");
 
 // Paths that should trigger a papers rebuild (prefixes)
 const TRIGGER_PREFIXES = [
@@ -60,6 +78,28 @@ let timer = null;
 let startBuildFn = null;
 let logFn = (level, icon, msg) => console.log(`[papers-git-poller] ${msg}`);
 
+// Health, reported verbatim by GET /papers-build so that "is the papermill
+// alive?" is answerable without shelling into the box. `running: false` on its
+// own never said *why* — that is how a systemd drop-in kept this off for four
+// months without anyone noticing.
+const health = {
+  enabled: true,
+  disabledReason: null,
+  startedAt: null,
+  lastPollAt: null,
+  lastPollOk: null,
+  lastError: null,
+  consecutiveErrors: 0,
+  lastBuiltHash: null,
+  lastTriggerAt: null,
+  lastTriggeredJobId: null,
+};
+
+function markDisabled(reason) {
+  health.enabled = false;
+  health.disabledReason = reason;
+}
+
 function git(args, cwd = GIT_REPO_DIR) {
   return new Promise((resolve, reject) => {
     execFile("git", args, { cwd, timeout: 30_000 }, (err, stdout, stderr) => {
@@ -76,18 +116,29 @@ async function readLastBuiltHash() {
   try {
     return (await fs.readFile(HASH_FILE, "utf8")).trim();
   } catch {
+    // No marker → treat as a first run and rebuild the whole mill once. The
+    // legacy worktree file is deliberately NOT read as a fallback: its value is
+    // the stale commit the loop kept restoring, so trusting it would just start
+    // the treadmill again. To skip the one-time full rebuild, seed this file by
+    // hand with the commit whose PDFs are already deployed.
     return null;
   }
 }
 
 async function writeLastBuiltHash(hash) {
+  await fs.mkdir(STATE_DIR, { recursive: true });
   await fs.writeFile(HASH_FILE, hash + "\n", "utf8");
+  health.lastBuiltHash = hash;
 }
 
 async function poll() {
-  if (process.env.PAPERS_POLLER_DISABLED === "1") return;
+  if (process.env.PAPERS_POLLER_DISABLED === "1") {
+    markDisabled("PAPERS_POLLER_DISABLED=1");
+    return;
+  }
   if (polling) return;
   polling = true;
+  health.lastPollAt = new Date().toISOString();
 
   try {
     // Fetch latest from origin
@@ -95,6 +146,10 @@ async function poll() {
 
     const remoteHead = await git(["rev-parse", `origin/${BRANCH}`]);
     const lastBuilt = await readLastBuiltHash();
+    health.lastBuiltHash = lastBuilt;
+    health.lastPollOk = true;
+    health.lastError = null;
+    health.consecutiveErrors = 0;
 
     if (remoteHead === lastBuilt) {
       polling = false;
@@ -181,11 +236,13 @@ async function poll() {
     await writeLastBuiltHash(remoteHead);
 
     // Trigger build
+    health.lastTriggerAt = new Date().toISOString();
     const job = await startBuildFn({
       ref: remoteHead,
       changed_paths: papersPaths.join(","),
     });
 
+    health.lastTriggeredJobId = job.id;
     logFn(
       "info",
       "🚀",
@@ -195,10 +252,16 @@ async function poll() {
     if (err?.code === "PAPERS_BUILD_BUSY") {
       logFn("info", "⏳", "Papers build already running — will retry next poll");
     } else {
+      health.lastPollOk = false;
+      health.consecutiveErrors += 1;
+      health.lastError = {
+        at: new Date().toISOString(),
+        message: `${err.message}${err.stderr ? " | " + err.stderr.trim() : ""}`,
+      };
       logFn(
         "error",
         "❌",
-        `Papers git poll error: ${err.message}${err.stderr ? " | " + err.stderr.trim() : ""}`
+        `Papers git poll error (${health.consecutiveErrors} in a row): ${err.message}${err.stderr ? " | " + err.stderr.trim() : ""}`
       );
     }
   } finally {
@@ -213,13 +276,23 @@ export function startPoller({ startPapersBuild, addServerLog }) {
   if (addServerLog) logFn = addServerLog;
 
   if (process.env.PAPERS_POLLER_DISABLED === "1") {
-    logFn("info", "⏸️", "Papers git poller disabled via PAPERS_POLLER_DISABLED=1 — not starting");
+    markDisabled("PAPERS_POLLER_DISABLED=1");
+    logFn(
+      "error",
+      "⏸️",
+      "Papers git poller OFF — PAPERS_POLLER_DISABLED=1. Nothing in this repo " +
+        "sets it, so it came from the unit: check " +
+        "/etc/systemd/system/oven.service.d/*.conf on the oven.",
+    );
     return;
   }
 
   // Check that GIT_REPO_DIR exists before starting
   fs.access(GIT_REPO_DIR)
     .then(() => {
+      health.enabled = true;
+      health.disabledReason = null;
+      health.startedAt = new Date().toISOString();
       logFn(
         "info",
         "📄",
@@ -230,6 +303,7 @@ export function startPoller({ startPapersBuild, addServerLog }) {
       timer = setInterval(poll, POLL_INTERVAL_MS);
     })
     .catch(() => {
+      markDisabled(`repo dir not found: ${GIT_REPO_DIR}`);
       logFn(
         "error",
         "⚠️",
@@ -247,10 +321,36 @@ export function stopPoller() {
 }
 
 export function getPollerStatus() {
+  const running = timer !== null;
+  const sinceLastPollMs = health.lastPollAt
+    ? Date.now() - Date.parse(health.lastPollAt)
+    : null;
   return {
-    running: timer !== null,
+    running,
+    // `enabled` is the *intent*, `running` the fact; when they disagree,
+    // `disabledReason` says which switch did it.
+    enabled: health.enabled,
+    disabledReason: health.disabledReason,
+    // A poller whose timer exists but whose ticks have stopped landing (a
+    // wedged git fetch, say) looks identical to a healthy one from `running`
+    // alone. Three missed intervals is the line.
+    healthy:
+      running &&
+      health.enabled &&
+      sinceLastPollMs !== null &&
+      sinceLastPollMs < POLL_INTERVAL_MS * 3 &&
+      health.consecutiveErrors < 3,
     intervalMs: POLL_INTERVAL_MS,
     repoDir: GIT_REPO_DIR,
     branch: BRANCH,
+    startedAt: health.startedAt,
+    lastPollAt: health.lastPollAt,
+    sinceLastPollMs,
+    lastPollOk: health.lastPollOk,
+    consecutiveErrors: health.consecutiveErrors,
+    lastError: health.lastError,
+    lastBuiltHash: health.lastBuiltHash,
+    lastTriggerAt: health.lastTriggerAt,
+    lastTriggeredJobId: health.lastTriggeredJobId,
   };
 }

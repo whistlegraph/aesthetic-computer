@@ -152,6 +152,53 @@ async function mirrorInSync() {
     `lacks and is ${behind} behind; reconcile before deploying` };
 }
 
+// Is the oven's papermill actually watching main?
+//
+// `papers/SCORE.md` promises that pushing to `papers/` rebuilds the PDFs within
+// a minute. On 2026-05-13 the poller was hand-paused with a systemd drop-in to
+// stop a runaway rebuild loop; the loop was fixed two days later, the pause
+// never lifted, and for four months every papers push quietly built nothing.
+// Nothing failed — the promise just stopped being kept, and the only place that
+// said so was a `running: false` in a JSON blob nobody reads.
+async function papersMill() {
+  const t0 = Date.now();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch("https://oven.aesthetic.computer/papers-build", {
+      signal: ctrl.signal,
+    });
+    const ms = Date.now() - t0;
+    if (!res.ok) return { ok: false, ms, note: `oven says HTTP ${res.status}` };
+    const { poller = {}, active, recent = [] } = await res.json();
+
+    if (poller.running !== true)
+      return { ok: false, ms, note:
+        `poller STOPPED${poller.disabledReason ? ` — ${poller.disabledReason}` : ""}` +
+        ` — papers pushes are not rebuilding; check ` +
+        `/etc/systemd/system/oven.service.d/*.conf on the oven` };
+
+    if (poller.healthy === false)
+      return { ok: false, ms, note:
+        `poller timer alive but not ticking (last poll ` +
+        `${poller.sinceLastPollMs ?? "?"}ms ago, ${poller.consecutiveErrors ?? 0} ` +
+        `errors in a row)${poller.lastError ? `: ${poller.lastError.message}` : ""}` };
+
+    if (active) return { ok: true, ms, note: `building ${active.id} (${active.stage})` };
+
+    const last = recent.find((j) => j.finishedAt);
+    if (last && last.status !== "success")
+      return { ok: false, ms, note:
+        `last build ${last.id} ${last.status}${last.error ? `: ${last.error}` : ""}` };
+    if (last) return { ok: true, ms, note: `idle; last build ok ${last.finishedAt}` };
+    return { ok: true, ms, note: "polling; no build recorded yet" };
+  } catch (e) {
+    return { ok: false, ms: Date.now() - t0, note: e.name === "AbortError" ? "timeout" : (e.code || e.message) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── the checklist ────────────────────────────────────────────────────────────
 // group · label · run() → {ok, ms?, note?} · critical? · scope (local|prod|tool)
 
@@ -171,6 +218,7 @@ const CHECKS = [
   // Deploy provenance — reachability says a box answers, not that it answers
   // with the code you shipped.
   { group: "Deploy", label: "knot ↔ github mirror", scope: "prod", run: () => mirrorInSync() },
+  { group: "Deploy", label: "oven papermill (papers/)", scope: "prod", run: () => papersMill() },
 
   // Host tooling — the binaries pipelines shell out to.
   { group: "Host tooling", label: "node",         scope: "tool", run: () => bin("node") },

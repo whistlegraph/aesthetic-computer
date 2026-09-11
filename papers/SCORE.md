@@ -345,6 +345,30 @@ The pipeline polls git every 60s, detects changes, and runs `node papers/cli.mjs
 - **Manual trigger:** `POST oven.aesthetic.computer/papers-build` (requires admin key)
 - **SSE logs:** `GET oven.aesthetic.computer/papers-build/:jobId/stream`
 - **Source:** `oven/papers-builder.mjs`, `oven/papers-git-poller.mjs`
+- **Health:** `npm run doctor` — the "oven papermill (papers/)" check fails loudly
+  when the poller is stopped, wedged, or its last build did not reach the site.
+
+#### When the mill goes quiet
+
+It has gone quiet before, for four months, without anything failing. On
+2026-05-13 the poller was paused by hand — a systemd drop-in at
+`/etc/systemd/system/oven.service.d/pause-papers-poller.conf` setting
+`PAPERS_POLLER_DISABLED=1` — to stop a rebuild loop. The loop was fixed two days
+later; the pause was never lifted, and nothing in this repo records it. So when
+`GET /papers-build` reports `"running": false`, look at the unit drop-ins on the
+oven first, not at the code:
+
+```bash
+ssh -i aesthetic-computer-vault/oven/ssh/oven-deploy-key root@oven.aesthetic.computer \
+  'ls /etc/systemd/system/oven.service.d/ && systemctl show oven -p Environment'
+```
+
+The poller's "already built" marker lives at
+`<repo>/.git/oven-state/papers-last-built-hash`, deliberately inside `.git/` —
+the builder ends each run with `git checkout -- .`, so a marker in the worktree
+gets reverted by the build it was recording, and the poller then rebuilds the
+same diff forever. Deleting that marker forces one full rebuild; seeding it with
+a commit SHA declares that commit's PDFs already deployed.
 
 ### Manual (Local)
 
