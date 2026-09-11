@@ -38,7 +38,21 @@ async function boot(api) {
 
   // The compose field takes exactly what the prompt command takes, so there's
   // one grammar to learn: `@handle your message`.
-  input = new ui.TextInput(api, "@handle your message", (text) => send(api, text));
+  input = new ui.TextInput(
+    api,
+    "@handle your message",
+    (text) => send(api, text),
+    {
+      scheme: {
+        text: 245,
+        background: [16, 13, 22, 220],
+        block: [120, 210, 255],
+        highlight: 0,
+        guideline: [110, 100, 140, 128],
+      },
+      closeOnEmptyEnter: true,
+    },
+  );
 
   if (!user) {
     status = "noauth";
@@ -193,13 +207,6 @@ function paint(api) {
     return;
   }
 
-  if (view === "compose") {
-    input.paint(api);
-    if (composeNote) {
-      ink(255, 130, 130).write(composeNote, { x: 6, y: screen.height - 12 });
-    }
-    return;
-  }
 
   const x = 6;
   const wide = screen.width - x * 2;
@@ -256,6 +263,27 @@ function paint(api) {
 
   ink(60).box(x, y, wide, 1);
   y += 8;
+
+  // Compose sits in the room instead of replacing it — the addresses and tabs
+  // stay put and the field takes the space the letters were using.
+  if (view === "compose") {
+    const frame = {
+      x: 0,
+      y,
+      width: screen.width,
+      height: Math.min(96, screen.height - y - 14),
+    };
+    input.paint(api, false, frame);
+    ink(composeNote ? [255, 130, 130] : [96, 104, 118]).write(
+      composeNote || "enter sends  ·  escape goes back",
+      { x, y: frame.y + frame.height + 3 },
+      undefined,
+      undefined,
+      false,
+      "MatrixChunky8",
+    );
+    return;
+  }
 
   if (view === "prefs") {
     paintPrefs(api, x, y, wide);
