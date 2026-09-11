@@ -70,7 +70,7 @@ import { soundWhitelist } from "./sound/sound-whitelist.mjs";
 
 import { CamDoll } from "./cam-doll.mjs";
 
-import { TextInput, Typeface } from "../lib/type.mjs";
+import { TextFields, TextInput, Typeface } from "../lib/type.mjs";
 
 import * as lisp from "./kidlisp.mjs";
 import { isKidlispSource, fetchCachedCode, fetchKidlispMetadata, getCachedCode, initPersistentCache, getCachedCodeMultiLevel, saveCodeToAllCaches, enableKidlispConsole, enableKidlispTrace, disableKidlispTrace, clearExecutionTrace, postExecutionTrace } from "./kidlisp.mjs"; // Add lisp evaluator.
@@ -4617,6 +4617,7 @@ const $commonApi = {
     TextButton: ui.TextButton,
     TextButtonSmall: ui.TextButtonSmall,
     TextInput: TextInput,
+    TextFields: TextFields,
   },
   help: {
     choose: help.choose,

@@ -15,6 +15,7 @@ import {
   clean,
   deliver,
   mailbox,
+  MAX_SUBJECT_LENGTH,
   subFromAddress,
 } from "../../backend/mail.mjs";
 import { ObjectId } from "mongodb";
@@ -48,6 +49,7 @@ export async function handler(event) {
         inbox: inbox.map((m) => ({
           id: m._id,
           from: m.fromHandle,
+          subject: m.subject || null,
           text: m.text,
           when: m.when,
           read: m.read === true,
@@ -55,6 +57,7 @@ export async function handler(event) {
         sent: sent.map((m) => ({
           id: m._id,
           to: m.toHandle,
+          subject: m.subject || null,
           text: m.text,
           when: m.when,
         })),
@@ -78,6 +81,7 @@ export async function handler(event) {
     }
 
     const text = clean(body.text);
+    const subject = clean(body.subject, MAX_SUBJECT_LENGTH);
     if (!body.to) return respond(400, { message: "Missing recipient" });
     if (!text) return respond(400, { message: "Empty message" });
 
@@ -85,7 +89,7 @@ export async function handler(event) {
     if (!to) return respond(404, { message: "Recipient not found" });
 
     const sentMail = await deliver(
-      { from: user.sub, to, text, device: body.device },
+      { from: user.sub, to, text, subject, device: body.device },
       database,
     );
 

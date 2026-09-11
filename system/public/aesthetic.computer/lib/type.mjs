@@ -3645,4 +3645,169 @@ class Prompt {
   }
 }
 
-export { Typeface, TextInput, Prompt, clearGlyphCache };
+// 📋 A stack of labelled fields sharing one keyboard — `to`, `subject`, `body`.
+// Only the focused field is live: it hosts the single TextInput while the rest
+// draw as plain rows. One buffer, one cursor, one keyboard, no two fields
+// fighting over who the typing belongs to.
+//
+// specs: [{ name, label, lines = 1, placeholder }] — the last field sends.
+class TextFields {
+  values = {};
+  focused = 0;
+  specs;
+  input;
+  rows = []; // hit boxes, rebuilt every paint
+  #submit;
+  #pending = null; // a value waiting for the keyboard to be ready for it
+
+  constructor($, specs, submit, options = {}) {
+    this.specs = specs.map((spec) => ({ lines: 1, ...spec }));
+    this.specs.forEach((spec) => (this.values[spec.name] = ""));
+    this.#submit = submit;
+
+    this.input = new TextInput($, "", () => this.advance($), {
+      ...options,
+      closeOnEmptyEnter: false,
+    });
+
+    // The rows are too short to hold TextInput's own buttons; the piece around
+    // them gives the send button instead.
+    this.input.enter.btn.disabled = true;
+    this.input.copy.btn.disabled = true;
+    this.input.paste.btn.disabled = true;
+  }
+
+  get current() {
+    return this.specs[this.focused];
+  }
+
+  // Pull the live buffer back into the focused field.
+  sync() {
+    this.values[this.current.name] = this.input.text;
+  }
+
+  focus(index, $) {
+    this.sync();
+    this.focused = Math.max(0, Math.min(this.specs.length - 1, index));
+    this.#pending = this.values[this.current.name] ?? "";
+    $.send({ type: "keyboard:open" });
+  }
+
+  // Enter walks down the stack, and sends from the last field.
+  advance($) {
+    this.sync();
+    if (this.focused < this.specs.length - 1) return this.focus(this.focused + 1, $);
+    this.#submit({ ...this.values });
+  }
+
+  reset($) {
+    this.specs.forEach((spec) => (this.values[spec.name] = ""));
+    this.focused = 0;
+    this.input.text = "";
+    this.#pending = "";
+    $.send({ type: "keyboard:text:replace", content: { text: "" } });
+  }
+
+  sim($) {
+    // Opening the keyboard resyncs the field from the dom textarea, so a value
+    // can only be handed over once the field is actually ready to take it.
+    if (this.#pending !== null && this.input.canType) {
+      this.input.text = this.#pending;
+      $.send({
+        type: "keyboard:text:replace",
+        content: { text: this.#pending },
+      });
+      this.#pending = null;
+    }
+    this.input.sim($);
+  }
+
+  #labelWidth($) {
+    const widest = this.specs.reduce(
+      (wide, spec) =>
+        Math.max(wide, $.text.box(spec.label, undefined, undefined, 1, false, "MatrixChunky8").box.width),
+      0,
+    );
+    return Math.min(widest + 6, Math.round($.screen.width * 0.34));
+  }
+
+  // Single-line rows keep their height and the taller fields split whatever is
+  // left, so one call fits a phone and a desktop.
+  paint($, frame) {
+    const { ink } = $;
+    const labelW = this.#labelWidth($);
+    const gap = 3;
+    const rowH = 14;
+    const grows = this.specs.filter((spec) => spec.lines > 1).length;
+    const singles = this.specs.length - grows;
+    const spare =
+      frame.height - singles * (rowH + gap) - grows * gap;
+    const grown = Math.max(30, Math.floor(spare / Math.max(grows, 1)));
+
+    this.rows = [];
+    let y = frame.y;
+
+    this.specs.forEach((spec, i) => {
+      const h = spec.lines > 1 ? grown : rowH;
+      const box = { x: frame.x, y, width: frame.width, height: h };
+      this.rows.push(box);
+      const on = i === this.focused;
+
+      ink(on ? [120, 210, 255] : [92, 88, 110]).write(
+        spec.label,
+        { x: box.x + 2, y: y + 4 },
+        undefined,
+        undefined,
+        false,
+        "MatrixChunky8",
+      );
+
+      const field = {
+        x: box.x + labelW,
+        y,
+        width: box.width - labelW,
+        height: h,
+      };
+
+      if (on) {
+        this.input.paint($, false, field);
+      } else {
+        const value = this.values[spec.name];
+        ink(20, 17, 26).box(field.x, field.y, field.width, field.height);
+        ink(46, 42, 58).box(field.x, field.y, field.width, field.height, "outline");
+        ink(value ? 185 : [74, 70, 90]).write(
+          value || spec.placeholder || "",
+          { x: field.x + 3, y: y + 4 },
+          undefined,
+          field.width - 6,
+        );
+      }
+
+      y += h + gap;
+    });
+  }
+
+  // Returns true when a tap moved the focus, so the caller can stop there.
+  act($) {
+    const e = $.event;
+    if (e.is("touch")) {
+      const hit = this.rows.findIndex(
+        (b) =>
+          e.x >= b.x &&
+          e.x < b.x + b.width &&
+          e.y >= b.y &&
+          e.y < b.y + b.height,
+      );
+      if (hit >= 0) {
+        if (hit !== this.focused) {
+          this.focus(hit, $);
+          return true;
+        }
+      }
+    }
+    this.input.act($);
+    return false;
+  }
+}
+
+export { Typeface, TextInput, TextFields, Prompt, clearGlyphCache };

@@ -11,9 +11,9 @@ let inboxBtn, sentBtn, prefsBtn, readBtn, writeBtn, subBtn, unsubBtn;
 let rows = []; // [{ y0, y1, who }] — paint measures them, act replies to them
 let ellipsisTicker;
 let busy = false;
-let input; // the compose field — one line, same grammar as the prompt command
+let fields; // to · subject · body, sharing one keyboard (see lib/type.mjs)
+let sendBtn;
 let composeNote = null; // what went wrong with the last send, if anything
-let pendingTo = null; // an address waiting for the field to be ready for it
 
 function meta() {
   return {
@@ -33,15 +33,20 @@ async function boot(api) {
   prefsBtn = new ui.TextButton("prefs", { screen });
   readBtn = new ui.TextButton("mark read", { screen });
   writeBtn = new ui.TextButton("write", { screen });
+  sendBtn = new ui.TextButton("send", { screen });
   subBtn = new ui.TextButton("subscribe", { screen });
   unsubBtn = new ui.TextButton("unsubscribe", { screen });
 
   // The compose field takes exactly what the prompt command takes, so there's
   // one grammar to learn: `@handle your message`.
-  input = new ui.TextInput(
+  fields = new ui.TextFields(
     api,
-    "@handle your message",
-    (text) => send(api, text),
+    [
+      { name: "to", label: "to", placeholder: "@handle or ac25namuc" },
+      { name: "subject", label: "re", placeholder: "(optional)" },
+      { name: "body", label: "say", lines: 4, placeholder: "…" },
+    ],
+    (letter) => send(api, letter),
     {
       scheme: {
         text: 245,
@@ -50,7 +55,6 @@ async function boot(api) {
         highlight: 0,
         guideline: [110, 100, 140, 128],
       },
-      closeOnEmptyEnter: true,
     },
   );
 
@@ -78,74 +82,58 @@ async function refresh({ net }) {
   }
 }
 
-// Post whatever's in the compose field, then fall back to the inbox.
-async function send(api, raw) {
-  const body = raw.trim();
-  input.text = "";
-  input.showBlink = false;
-  input.mute = true;
-  api.send({ type: "keyboard:text:replace", content: { text: "" } });
-  api.send({ type: "keyboard:close" });
-
-  const gap = body.indexOf(" ");
-  if (gap < 1) {
-    composeNote = "who? try: @handle your message";
+// Post the letter, then show it in `sent`.
+async function send(api, { to, subject, body }) {
+  const text = (body || "").trim();
+  if (!to?.trim()) {
+    composeNote = "who is it to?";
     return;
   }
-
-  const to = body.slice(0, gap);
-  const text = body.slice(gap + 1).trim();
   if (!text) {
     composeNote = "nothing to say yet";
     return;
   }
 
-  const res = await api.net.userRequest("POST", "/api/mail", { to, text });
+  const res = await api.net.userRequest("POST", "/api/mail", {
+    to: to.trim(),
+    subject,
+    text,
+  });
+
   if (res.status === 200) {
     composeNote = null;
-    view = "sent";
+    fields.reset(api);
+    leaveCompose(api, "sent");
     await refresh(api);
   } else if (res.status === 404) {
-    composeNote = `no one answers to ${to}`;
+    composeNote = `no one answers to ${to.trim()}`;
   } else {
     composeNote = "couldn't send that";
   }
 }
 
-// Put the field away and go somewhere.
+// Put the fields away and go somewhere.
 function leaveCompose(api, to) {
   view = to;
   composeNote = null;
-  pendingTo = null;
-  input.text = "";
-  input.mute = true;
-  api.send({ type: "keyboard:text:replace", content: { text: "" } });
+  fields.input.mute = true;
   api.send({ type: "keyboard:close" });
 }
 
-// Open compose, optionally already addressed to someone. Opening the keyboard
-// resyncs the field from an empty textarea, so the address has to wait for it
-// (see sim) instead of being written here.
+// Open compose, optionally already addressed to someone — a reply lands on the
+// subject, since the `to` is already answered.
 function compose(api, to) {
   view = "compose";
   composeNote = null;
-  input.mute = false;
-  pendingTo = to ? `${to} ` : null;
-  api.send({ type: "keyboard:open" });
+  fields.input.mute = false;
+  if (to) fields.values.to = to;
+  fields.focus(to ? 1 : 0, api);
 }
 
 // 🧮 Sim
 function sim(api) {
   ellipsisTicker?.update(api.clock.time());
-  if (view !== "compose") return;
-
-  if (pendingTo && input.canType) {
-    input.text = pendingTo;
-    api.send({ type: "keyboard:text:replace", content: { text: pendingTo } });
-    pendingTo = null;
-  }
-
-  input.sim(api);
+  if (view === "compose") fields.sim(api);
 }
 
 const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
@@ -279,17 +267,21 @@ function paint(api) {
   // stay put and the field takes the space the letters were using.
   if (view === "compose") {
     const frame = {
-      x: 0,
+      x,
       y,
-      width: screen.width,
-      height: Math.min(96, screen.height - y - 14),
+      width: wide,
+      height: Math.min(110, Math.max(64, screen.height - y - 34)),
     };
-    input.paint(api, false, frame);
+    fields.paint(api, frame);
+
+    const footer = frame.y + frame.height + 4;
+    sendBtn.reposition({ x, y: footer, screen });
+    sendBtn.paint(api, [[28, 54, 42], [110, 210, 155], [205, 255, 225]]);
     ink(composeNote ? [255, 130, 130] : [96, 104, 118]).write(
-      composeNote || "enter sends  ·  escape goes back",
-      { x, y: frame.y + frame.height + 3 },
+      composeNote || "enter moves down  ·  tap a row to jump",
+      { x: x + 40, y: footer + 6 },
       undefined,
-      undefined,
+      wide - 40,
       false,
       "MatrixChunky8",
     );
@@ -344,6 +336,14 @@ function paint(api) {
       x: x + 8,
       y,
     });
+    if (letter.subject) {
+      ink(unread ? [255, 225, 140] : [150, 135, 90]).write(
+        letter.subject,
+        { x: x + 8 + (who.length + 1) * 6, y },
+        undefined,
+        bounds - (who.length + 2) * 6,
+      );
+    }
     ink(70).write(ago(letter.when), { x: screen.width - 34, y });
     y += 11;
 
@@ -439,7 +439,18 @@ function act(api) {
       return;
     }
 
-    input.act(api);
+    let sending = false;
+    sendBtn?.act(e, () => {
+      sending = true;
+      fields.sync();
+      send(api, { ...fields.values });
+    });
+    if (sending) {
+      needsPaint();
+      return;
+    }
+
+    if (fields.act(api)) needsPaint();
     return;
   }
 

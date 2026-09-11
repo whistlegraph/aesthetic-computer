@@ -15,6 +15,7 @@ import { sendToUser } from "../../shared/push.mjs";
 
 export const MAIL_DOMAIN = "mail.aesthetic.computer"; // tier 2 binds this for real
 export const MAX_TEXT_LENGTH = 500;
+export const MAX_SUBJECT_LENGTH = 80;
 
 const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
 
@@ -64,12 +65,15 @@ export async function mailbox(database) {
   return tells;
 }
 
-export function clean(text) {
-  return filter((text || "").trim()).slice(0, MAX_TEXT_LENGTH);
+export function clean(text, max = MAX_TEXT_LENGTH) {
+  return filter((text || "").trim()).slice(0, max);
 }
 
 // Put one message in a mailbox and buzz whatever devices the reader carries.
-export async function deliver({ from, to, text, device, verb = "mailed" }, database) {
+export async function deliver(
+  { from, to, text, subject, device, verb = "mailed" },
+  database,
+) {
   const tells = await mailbox(database);
   const [fromHandle, toHandle] = await Promise.all([
     nameFor(from, database),
@@ -83,6 +87,9 @@ export async function deliver({ from, to, text, device, verb = "mailed" }, datab
     from,
     fromHandle,
     text,
+    // A letter may have a subject; a `tell` never does, so don't store an
+    // empty one and leave every message before today shaped as it was.
+    ...(subject ? { subject } : {}),
     when,
     read: false,
   });
@@ -94,7 +101,7 @@ export async function deliver({ from, to, text, device, verb = "mailed" }, datab
       to,
       {
         title: `${fromHandle} ${verb} you`,
-        body: text,
+        body: subject ? `${subject} — ${text}` : text,
         data: {
           kind: "tell",
           from: fromHandle || "",
