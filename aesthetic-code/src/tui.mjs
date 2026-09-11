@@ -55,6 +55,11 @@ const state = {
   cursor: 0,
   history: [],
   historyIndex: 0,
+  // Prompts typed while a turn was running. Thinking ahead of the machine is
+  // the normal way to use this thing — you read the first half of an answer and
+  // already know the next instruction — and refusing that keystroke threw the
+  // sentence away and made you wait to retype it.
+  queued: [],
   approval: null,
   account: session.label(),
   piece: "",
@@ -408,6 +413,14 @@ function handleNotification({ method, params = {} }) {
       if (params.turn?.status === "interrupted") slabSession.interrupted();
       else if (params.turn?.status === "failed") slabSession.awaitingInput("aesthetic code turn failed");
       else slabSession.complete();
+      // An interrupt is a decision about everything you were going to say, not
+      // just the turn that was running, so ctrl-c drops the queue with it.
+      if (params.turn?.status === "interrupted" && state.queued.length) {
+        const dropped = state.queued.length;
+        state.queued.length = 0;
+        addEntry("notice", `Interrupted · dropped ${dropped} queued`);
+      }
+      drainQueue();
       break;
     }
     case "warning":
@@ -492,11 +505,30 @@ function answerApproval(character) {
 
 // ── account + publish commands ──────────────────────────────────────────
 
+// The address on the rock is the piece's published address, so it has to exist
+// before anyone scans it — including in the first seconds of a session, before
+// a single edit. Publishing the blank is what makes the code on the rock point
+// at a page instead of a 404.
+//
+// It cannot run at startup: the handle arrives asynchronously, and without one
+// there is no route to publish to. So it is armed here instead and fires on
+// whichever comes first — a session that was already signed in, or the moment a
+// sign-in resolves.
+let blankPublished = false;
+
+function publishBlankOnce() {
+  if (blankPublished) return;
+  if (!autopublish.enabled || autopublishBlocker()) return;
+  blankPublished = true;
+  autopublish.note(live.source());
+}
+
 function refreshAccount(announce = false) {
   const previous = state.account;
   state.account = session.label();
   slabSession.identity(session.handle);
   live.handle = session.handle || "";
+  publishBlankOnce();
   if (announce && previous !== state.account) {
     addEntry("notice", session.signedIn ? `Signed in as ${state.account}` : "Signed out");
   }
@@ -551,8 +583,10 @@ function commandAutopublish(argumentText) {
   } else {
     addEntry("notice", `Auto-publish on · every save goes to ${autopublishRoute()}`);
     // Turning it on mid-session should publish what is already written, not
-    // wait for the next keystroke to notice the piece exists.
-    if (!live.pristine) autopublish.note(live.source());
+    // wait for the next keystroke to notice the piece exists. That includes an
+    // untouched blank: the point of publishing is that the address answers.
+    blankPublished = true;
+    autopublish.note(live.source());
   }
   // How publishing works is part of the developer instructions, and those are
   // written once when the thread opens. A mid-session toggle is real
@@ -653,6 +687,20 @@ async function commandModel(rest) {
   model = rest.split(/\s+/)[0];
   state.model = "";
   return restartEngine("Model");
+}
+
+// Start the next queued line, if the turn that just ended left one. Routed back
+// through the same path a typed line takes, so a queued `/command` still behaves
+// like a command rather than becoming a prompt.
+function drainQueue() {
+  if (state.busy || !state.queued.length) return;
+  const next = state.queued.shift();
+  state.input = next;
+  state.cursor = Array.from(next).length;
+  submitInput().catch((error) => {
+    addEntry("error", errorText(error));
+    redraw();
+  });
 }
 
 async function submitInput() {
@@ -805,7 +853,9 @@ async function submitInput() {
   }
 
   if (state.busy) {
-    addEntry("error", "A turn is already running. Press ctrl-c to interrupt it.");
+    state.queued.push(text);
+    const place = state.queued.length > 1 ? ` (${state.queued.length} queued)` : "";
+    addEntry("notice", `Queued${place} · ${text}`);
     return redraw();
   }
 
@@ -824,6 +874,9 @@ async function submitInput() {
     state.status = "failed";
     addEntry("error", errorText(error));
     redraw();
+    // A turn that never started emits no turn/completed, so the queue has to be
+    // let go from here too or it waits for a turn that will never come.
+    drainQueue();
   }
 }
 
@@ -920,9 +973,13 @@ session.watch().on("change", () => {
 // Mint this session's blank piece and the QR code that opens it on a phone.
 live.create();
 live.watch(liveError);
-// Every save that reaches the phone is a candidate for the public URL too. The
-// blank is not: an untouched session should leave nothing behind, out there or
-// in the workspace.
+publishBlankOnce();
+// Every save that reaches the phone is a candidate for the public URL too, and
+// so is the blank. That reverses an earlier rule — an untouched session used to
+// leave nothing behind, out there or in the workspace — because the address on
+// the rock is now the published one, and a code that resolves to a 404 until
+// someone types is worse than a published blank. The local file is still
+// discarded on exit if it was never edited; the published copy stays.
 live.on("push", () => {
   if (live.pristine || autopublishBlocker()) return;
   autopublish.note(live.source());
