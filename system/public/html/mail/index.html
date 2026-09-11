@@ -175,7 +175,7 @@
   nav .chip { font-size: 12px; padding: 3px 10px; }
 
   /* ── Letters ────────────────────────────────────────────────────────── */
-  main { flex: 1 1 auto; overflow-y: auto; padding: 4px 0 16px; }
+  main { flex: 1 1 auto; overflow-y: auto; padding: 4px 0 16px; min-height: 30vh; }
   .letter {
     padding: 8px 12px;
     border-bottom: 1px solid var(--line);
@@ -200,10 +200,16 @@
   body.unread-only .letter:not(.unread) { display: none; }
 
   /* ── Compose ────────────────────────────────────────────────────────── */
+  /* Closed by default: on a short screen an always-open form leaves the
+     letters a sliver to live in. The `write` chip opens it, and so does
+     replying to anything. */
   #compose {
     flex: 0 0 auto; border-top: 1px solid var(--line);
     background: var(--bg-deep); padding: 8px 12px 10px;
+    display: none; max-height: 60vh; overflow-y: auto;
   }
+  body.composing #compose { display: block; }
+  #write.sel { background: var(--send-bg); border-color: var(--send-bg); color: var(--send-text); }
   #compose .field { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
   #compose label { width: 44px; flex: 0 0 auto; color: var(--faint); font-size: 12px; padding-top: 5px; }
   #compose input, #compose textarea {
@@ -217,7 +223,7 @@
     outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent);
   }
-  #compose textarea { min-height: 62px; line-height: 1.45; }
+  #compose textarea { min-height: 54px; line-height: 1.45; }
   .actions { display: flex; align-items: center; gap: 10px; }
   #send {
     background: var(--send-bg); color: var(--send-text);
@@ -291,6 +297,7 @@
   <button class="chip" data-tab="inbox">inbox</button>
   <button class="chip" data-tab="sent">sent</button>
   <button class="chip" id="markread">mark read</button>
+  <button class="chip" id="write">write</button>
 </nav>
 
 <div id="gate">
@@ -578,13 +585,25 @@ document.querySelector("nav").addEventListener("click", async (e) => {
     await api("POST", { action: "read" });
     await refresh();
   }
+  if (e.target.id === "write") openCompose();
 });
+
+function openCompose(to) {
+  document.body.classList.add("composing");
+  document.getElementById("write").classList.add("sel");
+  if (to) $to.value = to;
+  (to ? $subject : $to).focus();
+}
+
+function closeCompose() {
+  document.body.classList.remove("composing");
+  document.getElementById("write").classList.remove("sel");
+}
 
 $list.addEventListener("click", (e) => {
   const btn = e.target.closest(".reply");
   if (!btn) return;
-  $to.value = btn.dataset.to;
-  $subject.focus();
+  openCompose(btn.dataset.to);
 });
 
 $("compose").addEventListener("submit", async (e) => {
@@ -605,6 +624,7 @@ $("compose").addEventListener("submit", async (e) => {
     $note.className = "good";
     $subject.value = "";
     $body.value = "";
+    closeCompose();
     tab = "sent";
     await refresh();
   } else if (res.status === 404) {
