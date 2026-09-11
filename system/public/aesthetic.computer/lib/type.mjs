@@ -3726,6 +3726,10 @@ class TextFields {
         type: "keyboard:text:replace",
         content: { text: this.#pending },
       });
+      // Land the caret at the end of what's actually in this field. Without
+      // this it keeps the column it had in the last one and hangs out past
+      // the text, in empty space.
+      this.input.snap();
       this.#pending = null;
     }
     this.input.sim($);
@@ -3779,7 +3783,18 @@ class TextFields {
       };
 
       if (on) {
+        // A lit bed under the field and a bright edge over it, so which row
+        // has the keys is obvious without hunting for the caret.
+        ink(26, 34, 50).box(field.x, field.y, field.width, field.height);
         this.input.paint($, false, field);
+        ink(110, 180, 255).box(
+          field.x,
+          field.y,
+          field.width,
+          field.height,
+          "outline",
+        );
+        ink(120, 210, 255).box(field.x - 2, field.y + 1, 2, field.height - 2);
       } else {
         const value = this.values[spec.name];
         ink(20, 17, 26).box(field.x, field.y, field.width, field.height);
