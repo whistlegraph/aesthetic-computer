@@ -3796,9 +3796,27 @@ class TextFields {
     });
   }
 
-  // Returns true when a tap moved the focus, so the caller can stop there.
+  // Returns true when the focus moved, so the caller can stop there.
   act($) {
     const e = $.event;
+
+    // Up and down walk the stack. They used to scrub prompt history, which is
+    // off in here, so the keys are free — and moving between fields is the
+    // obvious thing for them to do in a form. Left and right stay with the
+    // caret, where they belong.
+    if (e.is("keyboard:down:arrowup") && this.focused > 0) {
+      this.focus(this.focused - 1, $);
+      return true;
+    }
+
+    if (
+      e.is("keyboard:down:arrowdown") &&
+      this.focused < this.specs.length - 1
+    ) {
+      this.focus(this.focused + 1, $);
+      return true;
+    }
+
     if (e.is("touch")) {
       const hit = this.rows.findIndex(
         (b) =>
