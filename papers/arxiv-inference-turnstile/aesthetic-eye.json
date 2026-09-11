@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "pdf": "inference-turnstile.pdf",
+  "pdfSha256": "73c0904abdd18d5103f43aa3412838b2c9ee3f788288b70726bee6a727e0e775",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-09-11T17:45:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every visible wordmark \u2014 running header, title block, body prose, and bibliography \u2014 carries the period. The header, title block and body use the \\ac macro, which sets it in AC pink; the two bibliography entries carry a plain period, since a .bib howpublished field cannot colour it."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "tier",
+      "page": 2,
+      "crop": [
+        0.48,
+        0.2,
+        0.46,
+        0.32
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected at full resolution. Two purple question nodes on a vertical spine, two pink outcome nodes, every edge labelled yes or no; arrows terminate on node borders with no tangents or collisions and all type is legible at print size. The two disqualifying paths converge on one outcome box, which is the claim the figure exists to make. The open area upper-left is the routing channel for the no-token elbow rather than stranded space; the composition is deliberately spine-right because the qualifying path is the one that descends."
+    }
+  ]
+}
