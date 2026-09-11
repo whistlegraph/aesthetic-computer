@@ -181,6 +181,26 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
   "apt-get install -y -q texlive-xetex texlive-fonts-extra texlive-latex-extra texlive-bibtex-extra texlive-lang-chinese texlive-lang-cjk fonts-droid-fallback 2>&1 | tail -5 || true"
 echo "✅ TeX Live ready"
 
+# The mill imports one package that is not a Node builtin: jszip, used by
+# papers/source-bundle.mjs to build the ZIP each paper ends with. It arrived on
+# 2026-09-05 and the oven's checkout has never had a node_modules, so every
+# papers build since has died at module resolution before reaching xelatex —
+# invisibly, because the poller that would have run them was paused in May.
+#
+# --no-save --no-package-lock matters: package.json and package-lock.json are
+# tracked files in that checkout, and a build that mutates tracked files is the
+# exact bug this deploy is fixing elsewhere.
+echo ""
+echo "📄 Ensuring papers build dependencies..."
+# Only when it is actually missing: `npm install <pkg>` in a directory with a
+# package.json resolves that whole tree (1105 packages here), which is a minute
+# nobody should pay on every deploy. --engine-strict=false because the oven runs
+# Node 20 and the repo asks for 24; the mill itself is fine on 20, and this is
+# not the place to relitigate that.
+ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "root@$OVEN_HOST" \
+  "cd /opt/oven/native-git && if [ -d node_modules/jszip ]; then echo '   jszip present'; else npm install --no-save --no-package-lock --no-audit --no-fund --engine-strict=false jszip >/dev/null 2>&1 && chown -R oven:oven node_modules && echo '   jszip installed'; fi" || \
+  echo "   ⚠️  could not install jszip — papers builds will fail at source-bundle.mjs"
+
 # Optional vault-managed admin key for /os-base-build endpoints
 echo ""
 if [ -f "$VAULT_OS_KEY" ]; then
@@ -219,6 +239,14 @@ echo "✅ Secret sync stage complete in ${SECRET_SYNC_TIME}ms"
 # Sync BDF font files + glyph caches for bundle font embedding
 echo ""
 echo "📦 Syncing font assets (BDF + glyph caches)..."
+# These live in the assets bucket, not in git, so a checkout that has not run
+# `npm run assets:sync:down` simply does not have them. Under `set -e` that
+# aborted the whole deploy at this line — a hundred lines before the unit is
+# installed — so a machine missing an optional font cache could not deploy the
+# oven at all, and said so only as an rsync status 23 buried in the log.
+if [ ! -d "$SCRIPT_DIR/../system/public/assets/type" ]; then
+  echo "⏭️  no local system/public/assets/type — skipping (run 'npm run assets:sync:down' to include fonts)"
+else
 rsync -avz --progress \
   --include='*/' \
   --include='*.bdf' \
@@ -228,6 +256,7 @@ rsync -avz --progress \
   -e "ssh -i $SSH_KEY -o StrictHostKeyChecking=no" \
   "$SCRIPT_DIR/../system/public/assets/type/" \
   "root@$OVEN_HOST:$REMOTE_DIR/assets-type/"
+fi
 
 END_FONT_SYNC=$(ms)
 FONT_SYNC_TIME=$((END_FONT_SYNC - END_SECRET_SYNC))
