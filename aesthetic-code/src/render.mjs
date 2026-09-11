@@ -3,6 +3,9 @@
 // The palette is the Aesthetic Computer prompt's dark scheme (disks/prompt.mjs
 // `scheme.dark`): purple ground, pink prompt block, orange highlight, magenta
 // handle, light-purple secondary text.
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { MASCOT_HEIGHT, mascotAt, mascotRow } from "./mascot.mjs";
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
@@ -42,11 +45,31 @@ function cube(rgb) {
 const fg = (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
 const bg = (rgb) => (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
 
+// Slab tints the whole Terminal window by session status — lifted while the
+// machine works, pulled toward the prompt's pink when it wants you, settled
+// deeper when it is done. Painting our own fixed ground on top of that leaves
+// the interface one purple and the rest of the window another, so a hard
+// rectangle appears around the text and moves every time the status changes.
+//
+// Where Slab is managing the window, inherit its colour and let the whole
+// window carry the signal together. Everywhere else — a plain Terminal, iTerm,
+// an ssh session — keep painting, because this palette's light text needs a
+// dark ground under it and there is nobody else to supply one.
+const slabState = join(
+  process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab"),
+  "state",
+);
+const groundMode = (process.env.AESTHETIC_CODE_GROUND || "").toLowerCase();
+const slabManagesWindow =
+  process.env.TERM_PROGRAM === "Apple_Terminal" && existsSync(slabState);
+export const paintsGround =
+  groundMode === "paint" || (groundMode !== "inherit" && !slabManagesWindow);
+
 export const color = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
   inverse: "\x1b[7m",
-  ground: bg(palette.background) + fg(palette.text),
+  ground: (paintsGround ? bg(palette.background) : "") + fg(palette.text),
   text: fg(palette.text),
   prompt: fg(palette.prompt),
   highlight: fg(palette.highlight),
