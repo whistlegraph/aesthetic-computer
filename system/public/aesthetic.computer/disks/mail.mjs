@@ -95,13 +95,15 @@ function paint(api) {
 
   const x = 6;
   const wide = screen.width - x * 2;
-  let y = 8;
+  let y = 6; // the hud label is already the title — don't write a second one
 
-  ink(200, 180, 255).write("mail", { x, y, size: 2 });
   if (mail.unread > 0) {
-    ink(0, 255, 255).write(`${mail.unread} new`, { x: x + 46, y: y + 4 });
+    ink(0, 255, 255).write(`${mail.unread} new`, {
+      x: screen.width - 42,
+      y,
+    });
   }
-  y += 20;
+  y += 16;
 
   // The two spellings of this mailbox — permahandle first, it never moves.
   for (const address of mail.addresses) {
