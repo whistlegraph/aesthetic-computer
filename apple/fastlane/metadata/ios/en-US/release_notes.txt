@@ -1,0 +1,1 @@
+Recovery from hung loads: reload from a stuck boot screen, automatic retry when the network reconnects, and pull down to refresh. Notifications now arrive directly from Apple, so the app is smaller and starts faster.

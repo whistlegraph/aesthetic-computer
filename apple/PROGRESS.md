@@ -5,7 +5,98 @@ Append a new section on top for each App Store build.
 
 ---
 
-## 1.1 (3) — 2026-04-30 (in progress)
+## 1.1 (4) — 2026-09-11 (submitted)
+
+Builds 1.1 (2) and 1.1 (3) were uploaded in April and May but never attached
+to an App Store version, and TestFlight let them expire. This build carries
+everything both of them had plus the June push change, and it ships through a
+lane instead of by hand.
+
+### Shipped
+- **Firebase removed.** Push tokens come straight from APNs
+  (`didRegisterForRemoteNotificationsWithDeviceToken`) and reach the runtime
+  as `kind: "apns"` via `/api/register-push-token`; the server fans out
+  itself. No SDK, no GoogleService plist, smaller binary
+  (commit `2a5816a281`).
+- **fastlane lane** at `apple/fastlane/` — the Menu Band / oskiewar shape:
+  `fastlane ios meta` (creates the 1.1 version + metadata), `shots`,
+  `build` (cloud-signed archive + App Store export to
+  `apple/build/export/aesthetic.computer.ipa`), `upload`, `privacy`, and
+  `ship`, which hands the last mile to `slab/menuband/bin/asc.mjs submit
+  --app aestheticcomputer --platform IOS`. Metadata seeded from the live 1.0
+  listing in `fastlane/metadata/ios/en-US/`.
+
+### Submission notes
+- `fastlane ios meta` ran 2026-09-11: version 1.1 created (PREPARE_FOR_SUBMISSION,
+  id `c2212b58-deec-424e-a60d-5ac2ee3c7260`), description/keywords/URLs/What's New
+  landed, and all eight screenshot sets (iPhone 6.7 + 5.5, iPad Pro 12.9 ×2, and
+  their iMessage twins) were inherited from 1.0 — no `shots` run needed.
+- **Blocker 2026-09-11:** `fastlane ios build` fails at destination resolution —
+  "iOS 26.5 is not installed. Please download and install the platform".
+  Xcode 26.6 kept the iPhoneOS 26.5 SDK but has zero simulator runtimes, and
+  Xcode 15+ needs the platform even for device archives. Fix is
+  `xcodebuild -downloadPlatform iOS` (~8 GB on disk); the build lane now
+  preflights this.
+- **Archive host = blueberry** (Xcode 26.6 + iOS 26.5 runtime already installed,
+  39 GiB free) — neo would have to download the 8.5 GB platform first. Sync the
+  lane files with `rsync --relative apple/fastlane apple/PROGRESS.md
+  apple/aesthetic-computer-Info.plist apple/aesthetic.computer.xcodeproj/project.pbxproj
+  blueberry:~/aesthetic-computer/`, then `ssh blueberry bash -c "cd
+  ~/aesthetic-computer/apple && fastlane ios build"` (login shell is fish). First
+  run died at CodeSign with `errSecInternalComponent` — the ssh session cannot
+  reach the login keychain; fix is the blueberry recipe: `security
+  unlock-keychain` + `security set-key-partition-list -S apple-tool:,apple:,codesign:
+  -s` (interactive, @jeffrey's password), then rerun.
+  **Unlock state is per audit session**: an unlock in one `ssh -t` does nothing
+  for the next ssh connection, so unlock and archive in the SAME session:
+  `ssh -t blueberry 'security unlock-keychain ~/Library/Keychains/login.keychain-db; cd ~/aesthetic-computer/apple && fastlane ios build'`.
+- **Export ran on neo, not blueberry.** Blueberry's archive succeeded but its export
+  produced nothing; the `.xcarchive` was tar-piped to `apple/build/` on neo and
+  exported with `xcodebuild -exportArchive … -exportOptionsPlist
+  ExportOptions-AppStore.plist -allowProvisioningUpdates` + the S4TQKG6U99 key.
+  Signing is a **Cloud Managed Apple Distribution** certificate (SHA1 D25B0254…,
+  expires 2027-04-23) — cloud-managed, so it never appears in
+  `security find-identity`, and `/v1/certificates` does not list it either.
+  Verified in the ipa: aps-environment=production, get-task-allow=false,
+  ITSAppUsesNonExemptEncryption=false, app + appex both build 4.
+- **deliver gotcha:** it validates `./fastlane/metadata` and `./fastlane/screenshots`
+  on every call even with `skip_metadata`/`skip_screenshots`, and rejects the
+  `ios/` platform subfolder as an unknown locale — so `metadata_path` and
+  `screenshots_path` live in `deliver_defaults`, not per lane.
+- **Uploaded 2026-09-11 13:04** via `fastlane ios upload` ("Successfully uploaded
+  package to App Store Connect"). Poll `asc.mjs status --app aestheticcomputer
+  --platform IOS` until build 4 (dated today) reads VALID, then `fastlane ios ship`.
+- **Build 4 VALID on ASC 2026-09-11 10:05 PT** (id `09702f94-172a-46ac-b4bd-9c55cee7910d`,
+  usesNonExemptEncryption=false from the plist key, minOS 15.0). Waiting on
+  `fastlane ios ship`.
+- **SUBMITTED 2026-09-11 16:00 ET via `fastlane ios ship`** — version 1.1 and
+  reviewSubmission `3645eb9f-9254-4d77-9f5c-db9210da77e2` both WAITING_FOR_REVIEW.
+  Three 409s on the way, all fixed in `slab/menuband/bin/asc.mjs`:
+  (1) `submit` picked the highest build NUMBER across every train — the 2023
+  1.0 train reached build 5, so it tried to attach an EXPIRED build; now filters
+  `preReleaseVersion.version` + `expired=false`, sorted by upload date.
+  (2) Apple's expanded age-rating questionnaire had ten unanswered fields
+  (advertising, ageAssurance, parentalControls, gunsOrOtherWeapons,
+  healthOrWellnessTopics, lootBox, messagingAndChat, userGeneratedContent,
+  socialMedia, socialMediaAgeRestricted). They live on the **editable appInfo**
+  (`556bc291…`, created with version 1.1); the live 1.0 appInfo's declaration is
+  locked. Declared honestly per the operator: chat, UGC, social = yes (not
+  age-restricted); ads, loot boxes, health, parental controls, age assurance =
+  no; guns = none. Rating stayed 4+.
+  (3) `submit` opened a fresh reviewSubmission on every retry; it now reuses an
+  open READY_FOR_REVIEW shell and skips an item already present. One empty
+  shell (`f60158d8…`) is orphaned — Apple refuses to cancel an empty one.
+- `CURRENT_PROJECT_VERSION` bumped 3 → 4 on both targets (3 was consumed by
+  the expired upload).
+- Order: `fastlane ios meta` → `fastlane ios build` → `fastlane ios upload`
+  → `node slab/menuband/bin/asc.mjs status --app aestheticcomputer
+  --platform IOS` until build 4 reads VALID → `fastlane ios ship`.
+- What's New lives in `fastlane/metadata/ios/en-US/release_notes.txt`.
+
+---
+
+
+## 1.1 (3) — 2026-04-30 (uploaded, never submitted; build expired)
 
 Reliability pass before this build ships. Field reports of the app sitting
 on the boot.mjs animation indefinitely (5,000s+) with no way to recover

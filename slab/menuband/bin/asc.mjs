@@ -182,9 +182,14 @@ if (cmd === "get") {
   if (attached.data) {
     console.log(`  build ${attached.data.attributes.version} already attached`);
   } else {
+    // Only this version's own train, and never an expired build. Sorting by
+    // -version across every train hands back whichever train once counted
+    // highest — the iOS app's 2023 1.0 train reached build 5, which outranked
+    // 1.1's build 4, and attaching that expired build 409'd.
     const builds = await get(
       `/v1/builds?filter[app]=${APP_ID}&filter[preReleaseVersion.platform]=${PLATFORM}` +
-        `&limit=1&sort=-version&fields[builds]=version,processingState`,
+        `&filter[preReleaseVersion.version]=${encodeURIComponent(editable.attributes.versionString)}` +
+        `&filter[expired]=false&limit=1&sort=-uploadedDate&fields[builds]=version,processingState`,
     );
     const build = builds.data[0];
     if (!build) throw new Error(`no ${PLATFORM} build to attach`);
@@ -210,25 +215,47 @@ if (cmd === "get") {
       `submission ${blocking.id} is ${blocking.attributes.state} — resolve or cancel it first`,
     );
 
-  const created = JSON.parse(
-    await postJSON(`/v1/reviewSubmissions`, {
-      data: {
-        type: "reviewSubmissions",
-        attributes: { platform: PLATFORM },
-        relationships: { app: { data: { type: "apps", id: APP_ID } } },
-      },
-    }),
+  // Reuse an unsubmitted shell for this platform rather than opening another:
+  // before this, every run that 409'd further down left one more empty
+  // READY_FOR_REVIEW submission behind.
+  const reusable = open.data.find(
+    (s) => s.attributes.state === "READY_FOR_REVIEW" && s.attributes.platform === PLATFORM,
   );
-  const submissionId = created.data.id;
-  await postJSON(`/v1/reviewSubmissionItems`, {
-    data: {
-      type: "reviewSubmissionItems",
-      relationships: {
-        reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
-        appStoreVersion: { data: { type: "appStoreVersions", id: editable.id } },
+  let submissionId;
+  if (reusable) {
+    submissionId = reusable.id;
+    console.log(`  reusing submission ${submissionId}`);
+  } else {
+    const created = JSON.parse(
+      await postJSON(`/v1/reviewSubmissions`, {
+        data: {
+          type: "reviewSubmissions",
+          attributes: { platform: PLATFORM },
+          relationships: { app: { data: { type: "apps", id: APP_ID } } },
+        },
+      }),
+    );
+    submissionId = created.data.id;
+  }
+  const items = await get(
+    `/v1/reviewSubmissions/${submissionId}/items?include=appStoreVersion&fields[reviewSubmissionItems]=state`,
+  );
+  const alreadyIn = items.data.some(
+    (i) => i.relationships?.appStoreVersion?.data?.id === editable.id,
+  );
+  if (alreadyIn) {
+    console.log(`  ${editable.attributes.versionString} already in the submission`);
+  } else {
+    await postJSON(`/v1/reviewSubmissionItems`, {
+      data: {
+        type: "reviewSubmissionItems",
+        relationships: {
+          reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
+          appStoreVersion: { data: { type: "appStoreVersions", id: editable.id } },
+        },
       },
-    },
-  });
+    });
+  }
   const done = JSON.parse(
     await patchJSON(`/v1/reviewSubmissions/${submissionId}`, {
       data: {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Store export for apple/aesthetic.computer.xcodeproj archives.
+	     Used when re-exporting an existing .xcarchive by hand:
+	     xcodebuild -exportArchive -archivePath <xcarchive> -exportOptionsPlist
+	       apple/ExportOptions-AppStore.plist -exportPath build/export
+	       -allowProvisioningUpdates -authenticationKeyPath ... (see fastlane/Fastfile)
+	     fastlane ios build generates its own equivalent. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>teamID</key>
+	<string>FB5948YR3S</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>
