@@ -1,0 +1,11 @@
+[Unit]
+Description=Check main for session-server changes every 60 seconds
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=60
+AccuracySec=10
+Unit=session-autopublish.service
+
+[Install]
+WantedBy=timers.target

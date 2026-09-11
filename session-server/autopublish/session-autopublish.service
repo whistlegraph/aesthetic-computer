@@ -1,0 +1,14 @@
+[Unit]
+Description=Redeploy the session server when its own code changes on main
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/aesthetic-computer/session-server/autopublish/autopublish.sh
+# 0 = nothing to do or deployed cleanly. 1 = the deploy failed and rolled
+# itself back, which deploy-remote.sh has already said loudly in the log.
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target
