@@ -2,6 +2,17 @@ const { stream } = require("@netlify/functions");
 
 const dev = process.env.CONTEXT === "dev";
 
+import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
+
+// The model a caller may reach without signing in. Anonymous traffic still
+// works — the front page has to demo itself to someone who has never logged in
+// — but it demos itself on the cheap tier. The expensive models are the thing a
+// handle buys, because `hint` is caller-supplied and was, until now, the only
+// thing deciding how much a stranger could spend of ours.
+const ANONYMOUS_MODEL = "gpt-4o-mini";
+const ANONYMOUS_MAX_TOKENS = 512;
+const AUTH_TIMEOUT_MS = 3000;
+
 const allowedOrigins = [
   "https://aesthetic.computer",
   "https://botce.ac",
@@ -291,7 +302,7 @@ exports.handler = stream(async (event) => {
         "Content-Type": "text/plain",
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
       body: "Success!",
     };
@@ -353,6 +364,43 @@ exports.handler = stream(async (event) => {
     }
     
     console.log("🔧 Final model from hint:", model);
+
+    // 🔑 Who is asking. The origin allowlist above is a browser convention, not
+    // an authorization check — anything that is not a browser simply sets the
+    // header — so it decides nothing about cost. This does.
+    let handle = "";
+    try {
+      const user = await Promise.race([
+        authorize(event.headers),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("auth timeout")), AUTH_TIMEOUT_MS),
+        ),
+      ]);
+      if (user?.sub) {
+        const handleOrEmail = await getHandleOrEmail(user.sub);
+        if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
+          handle = handleOrEmail.slice(1);
+        }
+      }
+    } catch (err) {
+      // An unreachable Auth0 must not take the endpoint down with it. A caller
+      // we cannot identify is treated as anonymous, which is the cheap path —
+      // failing closed here would break `make` and `paint` for signed-in users
+      // during someone else's outage, and failing open would be the bug we are
+      // fixing.
+      console.log("🔓 ask: treating as anonymous —", err.message);
+    }
+
+    if (!handle) {
+      if (model !== ANONYMOUS_MODEL) {
+        console.log(`🪙 Anonymous — ${model} → ${ANONYMOUS_MODEL}`);
+        model = ANONYMOUS_MODEL;
+      }
+      max_tokens = Math.min(max_tokens, ANONYMOUS_MAX_TOKENS);
+    } else {
+      console.log(`🪙 @${handle} — ${model}`);
+    }
+
     
     // Set appropriate token limits for Claude models
     if (model.includes("claude")) {

@@ -29,6 +29,7 @@ import * as vec3 from "../dep/gl-matrix/vec3.mjs";
 import * as vec4 from "../dep/gl-matrix/vec4.mjs";
 
 import * as graph from "./graph.mjs";
+import { setAskTokenProvider } from "./ask.mjs";
 import {
   splitColorCodes,
   stripColorCodes as stripCodes,
@@ -10532,6 +10533,11 @@ async function makeFrame({ data: { type, content } }) {
     $commonApi.net.iframe = content.iframe;
     $commonApi.net.sandboxed = content.sandboxed;
     $commonApi.net.tvMode = TV_MODE; // Add TV mode flag to common API
+
+    // 🔑 Hand `/api/ask` a way to learn who is asking. Signing in or out is
+    // picked up on the next ask because the provider resolves the token at call
+    // time rather than caching one here.
+    setAskTokenProvider(() => $commonApi.authorize());
 
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");

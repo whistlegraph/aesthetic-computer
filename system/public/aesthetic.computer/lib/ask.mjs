@@ -1,5 +1,15 @@
 import { DEBUG } from "../disks/common/debug.mjs";
 
+// `/api/ask` reads the caller's handle to decide which model they may reach:
+// anonymous traffic is served the cheap tier, a handle gets the good models.
+// Conversation is constructed in five places with only a store and a slug, so
+// the token arrives here once from disk.mjs rather than through every caller.
+let tokenProvider = null;
+
+export function setAskTokenProvider(provider) {
+  tokenProvider = provider;
+}
+
 export class Conversation {
   messages = [];
   forgetful = false;
@@ -74,12 +84,24 @@ export class Conversation {
     // ? `` // Just use current host, via `netlify.toml`.
     // : "https://ai.aesthetic.computer";
 
-    const responsePromise = fetch(`${host}/api/ask`, {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: this.messages, hint }),
-    });
+    // Kept as one promise rather than an await so the timeout race below still
+    // starts counting from here. A missing or failed token is not an error: it
+    // is the anonymous path, which still answers, just on the cheap model.
+    const responsePromise = (async () => {
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const token = await tokenProvider?.();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch (err) {
+        if (DEBUG) console.warn("🔑 ask: no token —", err);
+      }
+      return fetch(`${host}/api/ask`, {
+        method: "POST",
+        signal,
+        headers,
+        body: JSON.stringify({ messages: this.messages, hint }),
+      });
+    })();
 
     if (this.forgetful) this.messages.length = 0;
 
