@@ -55,6 +55,15 @@ function sim({ clock }) {
   ellipsisTicker?.update(clock.time());
 }
 
+const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
+
+// A tab reads as chosen or not — TextButton takes the colors, not the ink.
+function tab(name) {
+  return view === name
+    ? [[64, 54, 104], [180, 160, 255], [235, 225, 255]]
+    : [[28, 26, 34], [86, 80, 104], [132, 126, 156]];
+}
+
 // How long ago, short enough to sit next to a handle.
 function ago(when) {
   const secs = (Date.now() - new Date(when).getTime()) / 1000;
@@ -113,14 +122,11 @@ function paint(api) {
   y += 4;
 
   inboxBtn.reposition({ x, y, screen });
-  ink(view === "inbox" ? [70, 60, 110] : [44, 40, 54]);
-  inboxBtn.paint(api);
+  inboxBtn.paint(api, tab("inbox"));
   sentBtn.reposition({ x: x + 48, y, screen });
-  ink(view === "sent" ? [70, 60, 110] : [44, 40, 54]);
-  sentBtn.paint(api);
+  sentBtn.paint(api, tab("sent"));
   prefsBtn.reposition({ x: x + 88, y, screen });
-  ink(view === "prefs" ? [70, 60, 110] : [44, 40, 54]);
-  prefsBtn.paint(api);
+  prefsBtn.paint(api, tab("prefs"));
   y += 18;
 
   ink(60).box(x, y, wide, 1);
@@ -146,8 +152,7 @@ function paint(api) {
 
   if (view === "inbox" && mail.unread > 0) {
     readBtn.reposition({ x, y, screen });
-    ink(busy ? [60, 60, 60] : [40, 70, 70]);
-    readBtn.paint(api);
+    readBtn.paint(api, busy ? DIM : [[30, 60, 60], [100, 200, 200], [190, 255, 255]]);
     y += 18;
   }
 
@@ -185,13 +190,11 @@ function paintPrefs(api, x, y, wide) {
     if (prefs.subscribed) {
       ink(120, 200, 120).write("subscribed", { x, y });
       unsubBtn.reposition({ x: x + 80, y: y - 2, screen });
-      ink(120, 80, 80);
-      unsubBtn.paint(api);
+      unsubBtn.paint(api, [[60, 26, 26], [200, 110, 110], [255, 190, 190]]);
     } else {
       ink(200, 120, 80).write("unsubscribed", { x, y });
       subBtn.reposition({ x: x + 96, y: y - 2, screen });
-      ink(80, 160, 80);
-      subBtn.paint(api);
+      subBtn.paint(api, [[26, 60, 30], [110, 200, 120], [190, 255, 200]]);
     }
     y += 16;
   }
