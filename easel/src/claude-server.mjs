@@ -410,9 +410,28 @@ export class ClaudeServer extends EventEmitter {
 
   #assistant(message) {
     const content = message.message?.content || [];
-    // A rate limit or a refused model comes back as a synthetic assistant
-    // message with no stream behind it. It reads as an error, not as an answer.
-    if (message.is_api_error_message) return;
+    // A rate limit, a usage cap, or a refused model comes back as a synthetic
+    // assistant message with no stream behind it. It reads as an error, not as
+    // an answer — and it is the only explanation there will be: the turn that
+    // follows reports `interrupted`, and an interrupted turn carries no error.
+    // Dropping it left a session that simply stopped, for no stated reason.
+    if (message.is_api_error_message) {
+      const text = content
+        .filter((block) => block.type === "text" && block.text)
+        .map((block) => block.text)
+        .join(" ")
+        .trim();
+      this.emit("notification", {
+        method: "error",
+        params: {
+          error: { message: text || "the engine refused the turn" },
+          // The turn's own result decides whether the session is done for; this
+          // is the reason, not the verdict.
+          willRetry: true,
+        },
+      });
+      return;
+    }
     let index = 0;
     for (const block of content) {
       if (block.type === "tool_use") {

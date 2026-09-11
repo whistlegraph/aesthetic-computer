@@ -188,3 +188,28 @@ test("an interrupted turn reads as interrupted, not as a failure", async (t) => 
   assert.equal(turn.status, "interrupted");
   assert.equal(turn.error, undefined);
 });
+
+// A turn that the API refuses reports `interrupted`, and an interrupted turn
+// carries no error — so if the refusal itself is dropped, the session simply
+// stops for no stated reason. That is what two parallel sessions looked like.
+test("a refused turn says why, instead of stopping in silence", async (t) => {
+  const engine = bridge(t, {
+    environment: { FAKE_CLAUDE_API_ERROR: "Usage limit reached. Try again at 6pm." },
+  });
+
+  const errors = [];
+  const finished = new Promise((resolve) => {
+    engine.on("notification", ({ method, params }) => {
+      if (method === "error") errors.push(params.error?.message);
+      if (method === "turn/completed") resolve(params.turn);
+    });
+  });
+
+  await engine.connect();
+  await engine.startTurn("make a piece");
+  const turn = await finished;
+
+  assert.equal(turn.status, "interrupted", "the turn still reports how it ended");
+  assert.deepEqual(errors, ["Usage limit reached. Try again at 6pm."],
+    "and the reason reaches the interface");
+});

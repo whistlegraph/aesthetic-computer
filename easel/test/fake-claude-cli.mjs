@@ -57,6 +57,19 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     return;
   }
 
+  // A turn the API refuses outright: a usage cap or a rate limit arrives as a
+  // synthetic assistant message with no stream behind it, then an aborted
+  // result. This is the shape two parallel sessions hit.
+  if (message.type === "user" && process.env.FAKE_CLAUDE_API_ERROR) {
+    send({
+      type: "assistant",
+      is_api_error_message: true,
+      message: { id: "msg_err", content: [{ type: "text", text: process.env.FAKE_CLAUDE_API_ERROR }] },
+    });
+    send({ type: "result", subtype: "error_during_execution", terminal_reason: "aborted_by_api" });
+    return;
+  }
+
   if (message.type === "user") {
     send({ type: "stream_event", event: { type: "message_start", message: { id: "msg_1" } } });
     send({ type: "stream_event", event: { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } } });
