@@ -993,7 +993,7 @@ function shellPromptSync($) {
   const input = $.system?.prompt?.input;
   if (!input) return;
   const thinking = !!$.system.prompt.thinking;
-  const state = (input.text || "") + " " + thinking;
+  const state = (input.text || "") + "\0" + thinking;
   if (state === shellPromptLast) return;
   shellPromptLast = state;
   send({
@@ -7719,6 +7719,28 @@ async function load(
       });
     }
 
+    // 📡 A piece published under a handle owns the code channel named after
+    // its own route. `/run` accepts a push there only from that handle's token,
+    // so the name is free to be public — which is what lets the address someone
+    // scanned be the channel too. Loading @handle/piece is therefore enough to
+    // start watching it live, and the session server replays the last source to
+    // a late joiner, so a phone arriving mid-session gets the current piece
+    // without waiting for the next save.
+    //
+    // Subscribed alongside this browser's own channel rather than replacing it,
+    // and deliberately never persisted: this is someone else's piece, not this
+    // browser's identity.
+    const routeChannel = (parsed.piece || slug || "").split(":")[0];
+    if (routeChannel.startsWith("@") && routeChannel.indexOf("/") !== -1) {
+      const owned = routeChannel.slice(1);
+      if (owned !== pieceCodeChannel) {
+        pieceCodeChannel = owned;
+        socket?.send("code-channel:sub", pieceCodeChannel);
+      }
+    } else {
+      pieceCodeChannel = undefined;
+    }
+
     // 👱 Route to the `profile` piece if we are just hitting an empty
     // username.
     if (slug.startsWith("@") && slug.indexOf("/") === -1) {
@@ -7816,7 +7838,8 @@ async function load(
     if (
       devReload === true &&
       parsed.codeChannel &&
-      parsed.codeChannel !== codeChannel
+      parsed.codeChannel !== codeChannel &&
+      parsed.codeChannel !== pieceCodeChannel
     ) {
       console.warn(
         "🙅 Not reloading, code channel invalid:",
@@ -8825,6 +8848,11 @@ async function load(
 
             // Subscribe to code-channel as needed.
             if (codeChannel) socket?.send("code-channel:sub", codeChannel);
+            // …and to the loaded piece's own channel, which a reconnect would
+            // otherwise drop silently — the piece would keep rendering and
+            // simply stop updating.
+            if (pieceCodeChannel)
+              socket?.send("code-channel:sub", pieceCodeChannel);
 
             updateHUDStatus();
             $commonApi.needsPaint();
@@ -10282,6 +10310,10 @@ function send(data, shared = []) {
 
 // Used to subscribe to live coding / development reloads.
 let codeChannel, codeChannelAutoLoader;
+// The channel named by the piece currently loaded from a handle route,
+// held separately from this browser's own `codeChannel` because it belongs
+// to whoever published the piece. Never persisted.
+let pieceCodeChannel;
 
 // Queue for export events that arrive when actEvents isn't available
 let pendingExportEvents = [];
