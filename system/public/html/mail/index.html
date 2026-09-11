@@ -179,7 +179,6 @@
   .letter {
     padding: 8px 12px;
     border-bottom: 1px solid var(--line);
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
   .letter:nth-child(even) { background: rgba(127,127,127,.05); }
@@ -189,7 +188,9 @@
   .subject { color: var(--subject); }
   .when { margin-left: auto; color: var(--faint); font-size: 11px; white-space: nowrap; }
   .dot { color: var(--accent); }
-  .body { color: var(--text); }
+  /* Only the letter's own text keeps its line breaks — putting pre-wrap on
+     the whole row renders the template's indentation as blank lines. */
+  .body { color: var(--text); white-space: pre-wrap; }
   .reply {
     margin-top: 4px; font-size: 11px;
     background: none; border: 0; padding: 0;
