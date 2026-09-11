@@ -1,9 +1,10 @@
 # Aesthetic Code
 
-A coding interface for the terminal.
+A coding interface for the terminal. Lives at `aesthetic-code/` in the
+Aesthetic Computer repository.
 
 ```sh
-./install.sh
+cd aesthetic-code && ./install.sh
 ac
 ```
 
@@ -50,7 +51,7 @@ model are running.
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK
-speaks, driven directly over a pipe. That is why this repository still has no
+speaks, driven directly over a pipe. That is why Aesthetic Code still has no
 dependencies: a subprocess on stdio is the same shape as `codex app-server
 --stdio`, and it carries streaming, tool calls and approvals without a package
 tree behind it. Each bridge signs in with the vendor CLI's own credentials
@@ -149,7 +150,7 @@ aesthetic doctor
 npm test
 ```
 
-This repository is proprietary. See `LICENSE`.
+Aesthetic Code is proprietary. See `LICENSE`.
 
 On Fish installations with existing `ac` or `aesthetic` functions, the
 installer preserves them as `ac-repo` and `aesthetic-platform`.
