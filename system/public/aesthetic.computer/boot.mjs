@@ -332,6 +332,11 @@ function hideBootLog() {
   if (bc?.hide) {
     bc.hide();
   }
+  // 🐚 The piece is on screen now. `ready` (disk loaded) fires earlier, while
+  // the overlay still stands, so a hosting shell that dresses the runtime —
+  // prompt.ac's corner label — needs this later moment to avoid drawing its
+  // chrome over the boot log.
+  window.parent?.postMessage({ type: "ac:boot-hidden" }, "*");
   // Safety net: if the disk-loaded path somehow never marked success, getting
   // far enough to hide the overlay still counts as a boot.
   markBootSuccess();

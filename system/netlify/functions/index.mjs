@@ -1360,7 +1360,10 @@ async function fun(event, context) {
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
           var isL5=false;try{isL5=location.pathname.indexOf('.lua')>=0||(window.self!==window.top&&(document.referrer.indexOf('l5.aesthetic')>=0||document.referrer.indexOf('l5.prompt')>=0));}catch(e){isL5=document.referrer.indexOf('l5.')>=0;}
           var isKidlisp=false;if(!isL5){try{isKidlisp=window.self!==window.top&&(window.parent.location.hostname.indexOf('kidlisp')>=0||document.referrer.indexOf('kidlisp')>=0);}catch(e){isKidlisp=document.referrer.indexOf('kidlisp')>=0;}}
-          if(!isKidlisp&&!isL5&&window.self!==window.top){if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
+          // nogap+nolabel reads as "someone else's preview chrome" — kidlisp.com's
+          // embed. An HTML shell (prompt.ac) passes the same pair but says so with
+          // shellhtml, and wants the plain boot log, not the $code preview.
+          if(!isKidlisp&&!isL5&&window.self!==window.top&&qs.indexOf('shellhtml')<0){if(qs.indexOf('nolabel')>=0&&qs.indexOf('nogap')>=0)isKidlisp=true;}
           // Detect $code piece name from URL pathname OR document.referrer (kidlisp.com parent)
           var klPieceName='';(function(){var p=location.pathname;if(p.length>1){var pn=p.slice(1).split('?')[0].split(':')[0];if(pn.startsWith('$'))pn=pn.slice(1);if(pn&&pn!=='prompt'&&pn!=='kidlisp')klPieceName=pn;}if(!klPieceName){try{var ref=document.referrer;if(ref&&(ref.indexOf('kidlisp.com')>=0||ref.indexOf('kidlisp')>=0)){var rp=new URL(ref).pathname.slice(1).split('?')[0].split(':')[0];if(rp.startsWith('$'))rp=rp.slice(1);if(rp&&rp!=='prompt'&&rp!=='kidlisp'&&rp!=='device')klPieceName=rp;}}catch(e){}}})();
           var klSourceLines=[],klSourceReady=false;

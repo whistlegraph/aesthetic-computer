@@ -114,6 +114,10 @@ export function el(tag, props = {}, ...kids) {
 //   frame.load("clock")      → in-place piece swap (no reload) via `load-piece`
 //   frame.onPiece(cb)        → fires when the runtime reports a new slug
 //   frame.onReady(cb)        → fires once the runtime is booted + interactive
+//   frame.onLive(cb)         → fires once the runtime's boot overlay is down
+//                              and the piece itself is on screen (later than
+//                              onReady — that one lands while the boot log
+//                              still covers the frame)
 // In-place swap depends on boot.mjs's `load-piece` parent handler; if the
 // runtime is older, call frame.load(slug, { reload: true }) to fall back to a
 // full iframe.src navigation.
@@ -123,9 +127,11 @@ export class ACFrame {
     this.origin = origin;
     this.piece = null;
     this.ready = false;
+    this.live = false;
     this.bridgeReady = false;
     this._onPiece = [];
     this._onReady = [];
+    this._onLive = [];
     this._onBridgeReady = [];
     window.addEventListener("message", (e) => {
       if (e.source !== iframe.contentWindow) return;
@@ -145,6 +151,11 @@ export class ACFrame {
           this.ready = true;
           this._onReady.forEach((cb) => cb());
         }
+      } else if (d.type === "ac:boot-hidden") {
+        if (!this.live) {
+          this.live = true;
+          this._onLive.forEach((cb) => cb());
+        }
       } else if (d.type === "ac:bridge-ready") {
         if (!this.bridgeReady) {
           this.bridgeReady = true;
@@ -158,6 +169,7 @@ export class ACFrame {
   // the fresh runtime.
   boot(slug = "prompt", params = "nogap=true&nolabel=true") {
     this.ready = false;
+    this.live = false;
     this.bridgeReady = false;
     this.piece = null;
     this.iframe.src = `${this.origin}/${slug}?${params}`;
@@ -174,6 +186,7 @@ export class ACFrame {
   }
   onPiece(cb) { this._onPiece.push(cb); return this; }
   onReady(cb) { this._onReady.push(cb); return this; }
+  onLive(cb) { this._onLive.push(cb); return this; }
   onBridgeReady(cb) { this._onBridgeReady.push(cb); return this; }
 }
 
