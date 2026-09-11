@@ -6577,8 +6577,10 @@ function paint($) {
       const ex = Math.floor((screen.width - w) / 2);
       const ey = screen.height - 36;
 
-      mailBtn = mailBtn || new $.ui.Button();
-      mailBtn.box = { x: ex - 6, y: ey - 4, w: w + 12, h: h + 8 };
+      // A Button hit-tests through its Box, so hand it a real one — a plain
+      // {x,y,w,h} has no `contains` and the tap goes nowhere.
+      mailBtn = mailBtn || new $.ui.Button(ex - 6, ey - 4, w + 12, h + 8);
+      mailBtn.box = $.geo.Box.from({ x: ex - 6, y: ey - 4, w: w + 12, h: h + 8 });
 
       const lit = unread > 0;
       const hot = mailBtn.over && !mailBtn.down;
