@@ -2,8 +2,6 @@ const { stream } = require("@netlify/functions");
 
 const dev = process.env.CONTEXT === "dev";
 
-import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
-
 // The model a caller may reach without signing in. Anonymous traffic still
 // works — the front page has to demo itself to someone who has never logged in
 // — but it demos itself on the cheap tier. The expensive models are the thing a
@@ -370,6 +368,11 @@ exports.handler = stream(async (event) => {
     // header — so it decides nothing about cost. This does.
     let handle = "";
     try {
+      // Dynamic import because this file is CommonJS and authorization.mjs is
+      // not. A static `import` here loads as nothing and the route 404s.
+      const { authorize, getHandleOrEmail } = await import(
+        "../../backend/authorization.mjs"
+      );
       const user = await Promise.race([
         authorize(event.headers),
         new Promise((_, reject) =>
