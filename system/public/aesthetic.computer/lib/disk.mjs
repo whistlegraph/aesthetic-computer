@@ -12372,6 +12372,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "laer-klokken" &&
           currentText !== "laklok" &&
           currentText !== "aa" &&
+          currentText !== "mail" && // composing — it leaves on its own terms
           currentText !== "sign" &&
           currentText !== "jas" &&
           // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.
@@ -16790,6 +16791,7 @@ async function makeFrame({ data: { type, content } }) {
           x: startX,
           y: startY,
           opacity: 1,
+          auto: globalAutoReload, // What the checkbox is actually drawing.
           img: (({ width, height, pixels }) => ({ width, height, pixels }))(
             badge,
           ),

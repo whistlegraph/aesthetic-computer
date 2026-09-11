@@ -371,11 +371,27 @@ function act(api) {
   if (view === "compose") {
     if (e.is("keyboard:down:escape")) {
       view = "inbox";
+      composeNote = null;
       api.send({ type: "keyboard:close" });
       needsPaint();
       return;
     }
     input.act(api);
+    return;
+  }
+
+  // Off the compose field these keys mean what they mean everywhere else.
+  if (e.is("keyboard:down:enter")) {
+    compose(api);
+    needsPaint();
+    return;
+  }
+  if (
+    e.is("keyboard:down:escape") ||
+    e.is("keyboard:down:backspace") ||
+    e.is("keyboard:down:`")
+  ) {
+    api.jump("prompt");
     return;
   }
 
