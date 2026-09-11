@@ -112,6 +112,17 @@ async function send(api, raw) {
   }
 }
 
+// Put the field away and go somewhere.
+function leaveCompose(api, to) {
+  view = to;
+  composeNote = null;
+  pendingTo = null;
+  input.text = "";
+  input.mute = true;
+  api.send({ type: "keyboard:text:replace", content: { text: "" } });
+  api.send({ type: "keyboard:close" });
+}
+
 // Open compose, optionally already addressed to someone. Opening the keyboard
 // resyncs the field from an empty textarea, so the address has to wait for it
 // (see sim) instead of being written here.
@@ -407,14 +418,27 @@ function act(api) {
   if (status !== "loaded") return;
 
   if (view === "compose") {
-    if (e.is("keyboard:down:escape")) {
-      view = "inbox";
-      composeNote = null;
-      pendingTo = null;
-      api.send({ type: "keyboard:close" });
+    // The tabs stay live while composing — they're painted, so they have to
+    // work. Otherwise the only way out is a key, and a phone has no escape.
+    let left = false;
+    const leave = (to) => {
+      leaveCompose(api, to);
+      left = true;
+    };
+    inboxBtn?.act(e, () => leave("inbox"));
+    sentBtn?.act(e, () => leave("sent"));
+    prefsBtn?.act(e, () => leave("prefs"));
+    if (left) {
       needsPaint();
       return;
     }
+
+    if (e.is("keyboard:down:escape")) {
+      leaveCompose(api, "inbox");
+      needsPaint();
+      return;
+    }
+
     input.act(api);
     return;
   }
