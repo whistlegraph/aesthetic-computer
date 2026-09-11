@@ -22,7 +22,15 @@ local-inference engine can replace the bridge without changing the interface.
 
 Each live TUI publishes its own Slab marker, so the menubar and prox ledger can
 name, focus, wake, close, and track it as `aesthetic-code`, including which
-@handle it acts as.
+@handle it acts as. The marker also carries the piece and its address, which the
+menubar draws as a scannable code on the session's prompt rock.
+
+A signed-in session owns its code channel by name — `<handle>/<slug>` — and
+`/run` accepts a push to it only from that handle's token. Ownership is the
+token, not the secrecy of the name, so the channel's name can be the piece's
+public address: `prompt.ac/@handle/slug` is what the rock shows, from the moment
+the session opens until after it closes. Signed out there is nothing published
+and no channel to own, so the code falls back to the opaque `~<channel>` route.
 
 The interface uses the Aesthetic Computer prompt's palette (purple ground, pink
 prompt, orange highlight, magenta handle) and shows the signed-in `@handle` and
@@ -126,9 +134,11 @@ at `https://aesthetic.computer/@handle/slug`, exactly like the web prompt's
 uploads the source, and reads the live file back before reporting the URL.
 Writing a file under `disks/` does not publish it, and the engine is told so.
 
-`--autopublish` does that on every save instead, so the session's URL is live
-the whole time the piece is being worked on and the last edit is still there
-after the terminal closes. It coalesces — a publish runs once the saves stop,
+Auto-publish does that on every save, so the session's URL is live the whole
+time the piece is being worked on and the last edit is still there after the
+terminal closes. It is **on by default**: the address on the rock is the piece's
+published address, so a session that never publishes has nothing to point a
+camera at. It coalesces — a publish runs once the saves stop,
 never more than one at a time, and never twice for the same bytes — and it
 flushes the pending save on exit. Off by default, since it writes to a public
 route under your own handle: turn it on per session with the flag or

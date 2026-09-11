@@ -50,12 +50,20 @@ export class LivePiece extends EventEmitter {
     fetch = globalThis.fetch,
     site = SITE,
     scanHost = SCAN_HOST,
+    handle = "",
+    token = null,
   } = {}) {
     super();
     this.cwd = cwd;
     this.slug = slug;
     this.runtime = runtimeFor(runtime);
-    this.channel = channel;
+    // The channel a signed-out session falls back to. It is unguessable because
+    // nothing about it says whose it is, which is the only thing protecting it:
+    // `/run` will take a push to an opaque channel from any signed-in account.
+    this.fallbackChannel = channel;
+    this.handle = handle;
+    // Resolves an access token, or null when this session cannot push.
+    this.token = token;
     this.directory = directory;
     this.fetch = fetch;
     this.site = site;
@@ -75,16 +83,28 @@ export class LivePiece extends EventEmitter {
     return join(this.directory, `${this.slug}${this.runtime.extension}`);
   }
 
-  // The URL a phone scans: it joins the code channel and then sits waiting for
-  // source, which arrives as soon as anything is pushed.
+  // The channel this session pushes on. A signed-in session owns
+  // `<handle>/<slug>`, which `/run` will only accept a push to from that
+  // handle's token — so the name no longer has to hide, and the piece's public
+  // address can be the channel's name as well.
+  get channel() {
+    return this.handle ? `${this.handle}/${this.slug}` : this.fallbackChannel;
+  }
+
+  // The URL a phone scans. Signed in, that is the piece's own published address:
+  // it exists from the moment the session opens, it is still there after the
+  // session closes, and it is the same address whether you scanned it in the
+  // first second or the last. Signed out there is nothing published and no
+  // channel to own, so it falls back to the opaque `~<channel>` route, which
+  // joins the channel and waits for source.
   //
-  // Short on purpose. Every byte here is a module of QR, and the long form this
-  // expands to — `/prompt~channel%20<id>~!autorun`, a command line wearing
-  // percent-encoding — costs a whole extra version of the symbol: smaller
-  // modules, on a surface someone is holding a phone up to. The `~<channel>`
-  // route on the host redirects to it, so the code stays at version 2.
+  // Short on purpose either way. Every byte here is a module of QR, and the long
+  // form the `~` route expands to — `/prompt~channel%20<id>~!autorun`, a command
+  // line wearing percent-encoding — costs a whole extra version of the symbol.
   get scanUrl() {
-    return `${this.scanHost}/~${this.channel}`;
+    return this.handle
+      ? `${this.scanHost}/@${this.handle}/${this.slug}`
+      : `${this.scanHost}/~${this.fallbackChannel}`;
   }
 
   // Where the piece answers once it has been published under a handle.
@@ -177,9 +197,18 @@ export class LivePiece extends EventEmitter {
     if (!source.trim()) return false;
     this.sending = true;
     try {
+      // `/run` takes no anonymous pushes: ownership of a channel is the token,
+      // not the name. A session with no token can still watch its own piece in
+      // a browser, it just cannot put source on anyone else's screen.
+      const headers = {
+        "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
+      };
+      const token = await this.token?.();
+      if (token) headers.Authorization = `Bearer ${token}`;
       const response = await this.fetch(`${this.site}/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "User-Agent": USER_AGENT },
+        headers,
         body: JSON.stringify({ piece: this.slug, source, codeChannel: this.channel }),
       });
       if (!response.ok) throw new Error(`live push failed (HTTP ${response.status})`);

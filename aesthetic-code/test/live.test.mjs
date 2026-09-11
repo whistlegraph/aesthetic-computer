@@ -265,3 +265,53 @@ test("a failed push is reported rather than swallowed", async (context) => {
   live.create();
   await assert.rejects(() => live.push(), /HTTP 500/);
 });
+
+// A signed-in session owns its channel by name, and that name is the piece's
+// own public address — so the thing on the rock, the thing the phone loads and
+// the thing `/run` checks the token against are all one string.
+test("a signed-in session owns its channel and scans its published address", () => {
+  const live = new LivePiece({
+    cwd: tmpdir(),
+    slug: "murafi",
+    handle: "jeffrey",
+    channel: "Ab0-_9Zz",
+  });
+  assert.equal(live.channel, "jeffrey/murafi");
+  assert.equal(live.scanUrl, "prompt.ac/@jeffrey/murafi");
+  assert.equal(
+    live.publishedUrl("jeffrey"),
+    "https://aesthetic.computer/@jeffrey/murafi",
+    "the scanned address and the published address are the same piece",
+  );
+});
+
+// Signing out has to give the opaque channel back rather than leave a dangling
+// `@/slug`, which `/run` would read as an owned channel with no owner.
+test("signing out falls back to the opaque channel", () => {
+  const live = new LivePiece({ cwd: tmpdir(), slug: "murafi", handle: "jeffrey", channel: "Ab0-_9Zz" });
+  live.handle = "";
+  assert.equal(live.channel, "Ab0-_9Zz");
+  assert.equal(live.scanUrl, "prompt.ac/~Ab0-_9Zz");
+});
+
+test("a push carries the session's token, and omits the header without one", async () => {
+  const calls = [];
+  const fetchStub = async (url, options) => {
+    calls.push(options);
+    return { ok: true };
+  };
+  const root = await mkdtemp(join(tmpdir(), "ac-token-"));
+  await writeFile(join(root, "murafi.mjs"), "// piece\n");
+
+  const signedIn = new LivePiece({
+    cwd: root, slug: "murafi", handle: "jeffrey",
+    fetch: fetchStub, token: async () => "tok_123",
+  });
+  await signedIn.push();
+  assert.equal(calls[0].headers.Authorization, "Bearer tok_123");
+  assert.equal(JSON.parse(calls[0].body).codeChannel, "jeffrey/murafi");
+
+  const signedOut = new LivePiece({ cwd: root, slug: "murafi", fetch: fetchStub });
+  await signedOut.push();
+  assert.equal(calls[1].headers.Authorization, undefined, "no token, no header");
+});

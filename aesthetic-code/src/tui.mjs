@@ -31,7 +31,21 @@ let model = option("--model") || backend.defaultModel;
 const session = new ACSession();
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
-const live = new LivePiece({ cwd, runtime: option("--runtime") || DEFAULT_RUNTIME });
+const live = new LivePiece({
+  cwd,
+  runtime: option("--runtime") || DEFAULT_RUNTIME,
+  // `/run` accepts a push only from the handle that owns the channel, so a
+  // push carries the session's own token. A signed-out session resolves null
+  // here and simply does not push.
+  token: async () => {
+    if (!session.signedIn) return null;
+    try {
+      return await session.token();
+    } catch {
+      return null;
+    }
+  },
+});
 const state = {
   workspace: cwd,
   mode: "remote",
@@ -72,10 +86,13 @@ const state = {
 // agent can reach — and the piece keeps its own name, so a session's URL is
 // settled the moment auto-publish is on.
 const autopublish = new AutoPublisher({
+  // On by default. The scanned address is the published one, so a session
+  // that does not publish has nothing to point a camera at; `--no-autopublish`
+  // and `AESTHETIC_CODE_AUTOPUBLISH=0` both opt out, and a signed-out session
+  // never reaches the attempt.
   enabled:
     !flag("--no-autopublish") &&
-    (flag("--autopublish") ||
-      /^(1|on|true|yes)$/i.test(process.env.AESTHETIC_CODE_AUTOPUBLISH || "")),
+    !/^(0|off|false|no)$/i.test(process.env.AESTHETIC_CODE_AUTOPUBLISH || ""),
   publish: () => publishPiece({ file: live.file, slug: live.slug, session, cwd }),
 });
 
@@ -134,6 +151,7 @@ function developerInstructions() {
 const slabSession = new SlabSession({ cwd });
 slabSession.start();
 slabSession.identity(session.handle);
+live.handle = session.handle || "";
 
 // One engine at a time, wired to the same handlers however it was built.
 function openEngine({ resume = "" } = {}) {
@@ -478,6 +496,7 @@ function refreshAccount(announce = false) {
   const previous = state.account;
   state.account = session.label();
   slabSession.identity(session.handle);
+  live.handle = session.handle || "";
   if (announce && previous !== state.account) {
     addEntry("notice", session.signedIn ? `Signed in as ${state.account}` : "Signed out");
   }
