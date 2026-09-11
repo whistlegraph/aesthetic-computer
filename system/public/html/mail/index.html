@@ -419,6 +419,21 @@ function decodeJwtSub(token) {
   } catch { return null; }
 }
 
+// Auth0 keeps the profile in its own `@@user@@` entry, which is where a
+// readable sub actually lives.
+function userSubFromCache() {
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith("@@auth0spajs@@") || !key.endsWith("@@user@@")) continue;
+    try {
+      const entry = JSON.parse(localStorage.getItem(key));
+      const sub = entry?.decodedToken?.claims?.sub || entry?.decodedToken?.user?.sub;
+      if (sub) return sub;
+    } catch {}
+  }
+  return null;
+}
+
 function findAcSession() {
   const now = Date.now() / 1000;
   let best = null, expired = false;
@@ -430,11 +445,15 @@ function findAcSession() {
     const token = entry?.body?.access_token;
     if (!token) continue;
     if ((entry.expiresAt || 0) <= now + 30) { expired = true; continue; }
+    // The sub is a nicety, not a requirement — with no audience configured
+    // Auth0 hands back an encrypted (JWE) access token whose payload can't be
+    // read here at all, and /api/mail derives the user from the token anyway.
     const sub =
       entry.body?.decodedToken?.claims?.sub ||
       entry.body?.decodedToken?.user?.sub ||
-      decodeJwtSub(token);
-    if (sub) best = { token, sub };
+      decodeJwtSub(token) ||
+      userSubFromCache();
+    best = { token, sub };
   }
   return best || (expired ? { expired: true } : null);
 }
