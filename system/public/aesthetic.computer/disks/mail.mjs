@@ -294,17 +294,21 @@ function act({ event: e, net, needsPaint }) {
 
   if (busy) return;
 
-  readBtn?.act(e, async () => {
-    busy = true;
-    needsPaint();
-    const res = await net.userRequest("POST", "/api/mail", { action: "read" });
-    if (res.status === 200) {
-      mail.unread = 0;
-      mail.inbox.forEach((letter) => (letter.read = true));
-    }
-    busy = false;
-    needsPaint();
-  });
+  // Only a button that's actually on screen may act — otherwise it keeps the
+  // box it had in another view and catches clicks meant for something else.
+  if (view === "inbox" && mail.unread > 0) {
+    readBtn?.act(e, async () => {
+      busy = true;
+      needsPaint();
+      const res = await net.userRequest("POST", "/api/mail", { action: "read" });
+      if (res.status === 200) {
+        mail.unread = 0;
+        mail.inbox.forEach((letter) => (letter.read = true));
+      }
+      busy = false;
+      needsPaint();
+    });
+  }
 
   if (view !== "prefs" || !prefs) return;
 
