@@ -85,21 +85,63 @@ test("a fixed match broadcast fans out and caches state for late spectators", ()
   assert.equal(late.sent.at(-1)?.content.seq, 1);
 });
 
-test("duplicate and over-rate publisher frames are dropped", () => {
+// Coalescing is allowed to cost latency. It is not allowed to cost
+// information — and for a long time it cost both: the rate gate ran before
+// the store, so a burst of two frames in one instant (a host catch-up tick,
+// or a link stall batching them) delivered the OLDER one and lost the newer
+// for good. Against the real relay that was 25% of frames on a wired link
+// and 57% on a busy one. The newest frame now always survives the gate.
+test("over-rate publisher frames coalesce to the newest, and duplicates drop", () => {
   let now = 100;
   const manager = new OskiewarLiveManager({ now: () => now });
   const host = new FakeSocket(), viewer = new FakeSocket();
   const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
   manager.handleConnection(host, { url: `${url}&role=publisher` });
   manager.handleConnection(viewer, { url });
+  const publish = (seq) => host.emit("message",
+    Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(seq) })));
   now += 30;
-  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(1) })));
+  publish(1);
   const count = viewer.sent.length;
+  assert.equal(viewer.sent.at(-1).content.seq, 1);
+  // Three more inside the 25 ms floor: nothing goes out yet, and what is held
+  // is the last of them, not the first.
   now += 1;
-  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(2) })));
+  publish(2);
+  now += 1;
+  publish(3);
+  now += 1;
+  publish(4);
+  assert.equal(viewer.sent.length, count, "the burst is coalesced, not fanned out");
+  const room = manager.rooms.get("ow-bafegu-dorimi-kunapo");
+  assert.equal(room.state.seq, 4, "and the newest is what is held");
+  // A frame the room has already passed is a duplicate whenever it arrives.
   now += 30;
-  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state", content: state(1) })));
-  assert.equal(viewer.sent.length, count);
+  publish(2);
+  assert.equal(room.state.seq, 4);
+  // The trailing flush hands the room whatever is newest when it fires.
+  manager.flush(room);
+  assert.equal(viewer.sent.length, count + 1);
+  assert.equal(viewer.sent.at(-1).content.seq, 4);
+  // And it fires once for that frame, however often it is asked.
+  manager.flush(room);
+  assert.equal(viewer.sent.length, count + 1);
+});
+
+test("the seat hears its own fighter before the grandstand does", () => {
+  const manager = new OskiewarLiveManager({ now: () => 1000 });
+  const host = new FakeSocket(), rival = new FakeSocket(), fan = new FakeSocket();
+  const url = "/oskiewar-live?match=sezzi7";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(fan, { url });
+  manager.handleConnection(rival, { url: `${url}&role=challenger` });
+  const order = [];
+  for (const [name, socket] of [["fan", fan], ["rival", rival]])
+    socket.send = ((inner) => (data) => { order.push(name); inner.call(socket, data); })(socket.send);
+  const room = manager.rooms.get("ow-sezzi7");
+  room.state = state(9);
+  manager.flush(room);
+  assert.deepEqual(order, ["rival", "fan"]);
 });
 
 test("a second live publisher cannot take over a match", () => {
@@ -222,11 +264,23 @@ test("bent or over-rate challenger input is dropped in silence", () => {
   assert.equal(host.sent.length, count);
   press({ seq: 5, down: ["A"], leftX: 0, leftY: 0 });
   assert.equal(host.sent.length, count + 1);
-  press({ seq: 6, down: ["B"], leftX: 0, leftY: 0 });
+  // The 15 ms floor paces a stick, which moves continuously — so the same
+  // buttons arriving again inside it are dropped, leftX and all.
+  press({ seq: 6, down: ["A"], leftX: .5, leftY: 0 });
   assert.equal(host.sent.length, count + 1);
-  now += 30;
+  // A button edge is not a stick. The client marks a frame sent the moment
+  // the socket takes it, so a press swallowed here was invisible to both ends
+  // until the next change or the idle heartbeat a quarter of a second later.
   press({ seq: 7, down: ["B"], leftX: 0, leftY: 0 });
-  assert.equal(host.sent.length, count + 2);
+  assert.equal(host.sent.length, count + 2, "a press goes through at once");
+  assert.deepEqual(host.sent.at(-1).content.down, ["B"]);
+  press({ seq: 8, down: [], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 3, "and so does the release");
+  press({ seq: 9, down: [], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 3, "holding nothing is still a hold");
+  now += 30;
+  press({ seq: 10, down: [], leftX: 0, leftY: 0 });
+  assert.equal(host.sent.length, count + 4);
 });
 
 test("live rooms emit minimized server milestones once", () => {
@@ -414,6 +468,54 @@ test("published frame timing is bounded and closed to unknown keys", () => {
     "Invalid performance");
   assert.equal(validateOskiewarLiveState({ ...state(), perf: [59] }),
     "Invalid performance");
+});
+
+test("projectiles and impacts ride out bounded, and a full frame still fits", () => {
+  const shot = [820, -140, 0, 750, -140, 4200, 0, 1, 4];
+  const lob = [910, -80, 0, 1950, -400, 0, 1, 0, 1150];
+  assert.equal(validateOskiewarLiveState({ ...state(), shots: [], lobs: [] }), null);
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: Array.from({ length: 24 }, () => shot),
+    lobs: Array.from({ length: 12 }, () => lob) }), null);
+  // The caps are the game's own, and a row is an exact shape: a watcher
+  // positions render objects off these numbers without re-checking them.
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: Array.from({ length: 25 }, () => shot) }), "Invalid shots");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: [shot.slice(0, 8)] }), "Invalid shots");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: [[...shot.slice(0, 8), 8]] }), "Invalid shots");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: [[...shot.slice(0, 7), 2, 4]] }), "Invalid shots");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    shots: [[NaN, ...shot.slice(1)]] }), "Invalid shots");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    lobs: Array.from({ length: 13 }, () => lob) }), "Invalid lobs");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    lobs: [[...lob.slice(0, 7), -1, 1150]] }), "Invalid lobs");
+  // The host's impact track, whose ids are what let a watcher tell a repeated
+  // mark from a new one — so an id has to be a real ascending integer, not
+  // any finite number.
+  const mark = [9999, 5200, 11940, 0, 550, 520, 1];
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    impacts: Array.from({ length: 12 }, () => mark) }), null);
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    impacts: Array.from({ length: 13 }, () => mark) }), "Invalid impacts");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    impacts: [[1.5, ...mark.slice(1)]] }), "Invalid impacts");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    impacts: [[...mark.slice(0, 6), 4]] }), "Invalid impacts");
+  assert.equal(validateOskiewarLiveState({ ...state(),
+    impacts: [mark.slice(0, 6)] }), "Invalid impacts");
+  // A full sky is the frame the relay has to carry, so it is measured here
+  // rather than discovered in play: the size cap turns a busy fight away
+  // silently, and a watcher would see the projectiles stop, not an error.
+  const full = JSON.stringify({ ...state(),
+    shots: Array.from({ length: 24 }, () => shot),
+    lobs: Array.from({ length: 12 }, () => lob),
+    impacts: Array.from({ length: 12 }, () => mark) });
+  assert.ok(Buffer.byteLength(full) < 8192,
+    `a full sky is ${Buffer.byteLength(full)} bytes`);
 });
 
 test("the rollback lane's packets pass seat to seat and never reach the grandstand", () => {

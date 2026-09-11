@@ -71,6 +71,37 @@ function ball(value) {
     finite(value.y) && finite(value.z) && finite(value.radius, 10000);
 }
 
+// Projectiles, as the flat number rows the game packs (see spectatorState).
+// A watcher positions render objects straight off these, so they are bounded
+// here the same way a fighter is: an exact row length, finite coordinates, an
+// owner that is one of the two seats, and a flag word with no spare bits. The
+// counts are the game's own caps — 24 rounds in the air, 12 lobs.
+//
+//   shot: x y z previousX previousY vx vy owner flags(spit|heavy|rubber)
+//   lob:  x y z vx vy owner flags(rocket|exploding) blastRadius fuseMs
+const projectileRows = (value, count, length, check) => {
+  if (value === undefined) return true;
+  return Array.isArray(value) && value.length <= count &&
+    value.every((row) => Array.isArray(row) && row.length === length &&
+      row.every((entry) => finite(entry, 10000000)) && check(row));
+};
+
+const shots = (value) => projectileRows(value, 24, 9, (row) =>
+  integer(row[7], 0, 1) && integer(row[8], 0, 7));
+
+const lobs = (value) => projectileRows(value, 12, 9, (row) =>
+  integer(row[5], 0, 1) && integer(row[6], 0, 3) &&
+  finite(row[7], 100000) && row[7] >= 0 && finite(row[8], 600000) && row[8] >= 0);
+
+// The host's impact track:
+//   mark: id x y z durationMs lifeMs flags(death|explosion)
+// A watcher spawns render objects off these and keys duplicate suppression on
+// the id, so the id has to be a real ascending integer, not any finite number.
+const marks = (value) => projectileRows(value, 12, 7, (row) =>
+  integer(row[0], 0, 2147483647) &&
+  integer(row[4], 0, 60000) && integer(row[5], 0, 60000) &&
+  integer(row[6], 0, 3));
+
 // How fast the publishing client is actually drawing. @jeffrey plays in a
 // browser on an Xbox, which has no devtools, so this is the only way to read a
 // console's frame rate from anywhere else. Every field is optional because a
@@ -117,8 +148,13 @@ export function validateOskiewarLiveState(value) {
       !integer(value.wind.mph, 0, 200))) return "Invalid wind";
   if (!value.round || typeof value.round !== "object" ||
       !integer(value.round.remainingMs, 0, 3600000) ||
+      (value.round.elapsedMs !== undefined &&
+        !integer(value.round.elapsedMs, 0, 3600000)) ||
       typeof value.round.result !== "string" || value.round.result.length > 80)
     return "Invalid round";
+  if (!shots(value.shots)) return "Invalid shots";
+  if (!lobs(value.lobs)) return "Invalid lobs";
+  if (!marks(value.impacts)) return "Invalid impacts";
   if (!perf(value.perf)) return "Invalid performance";
   if (value.replayUrl !== undefined &&
       !/^\/api\/oskiewar-replays\?id=ow-[a-z0-9-]+$/.test(value.replayUrl))
@@ -129,6 +165,15 @@ export function validateOskiewarLiveState(value) {
 function send(ws, type, content) {
   if (ws?.readyState !== 1) return false;
   try { ws.send(JSON.stringify({ type, content })); return true; }
+  catch { return false; }
+}
+
+// A frame already serialized. The state fan-out is the one place in this file
+// where the same bytes go to up to sixty-nine sockets, and stringifying the
+// whole 2 KB payload once per watcher was most of the cost of a full room.
+function sendRaw(ws, frame) {
+  if (ws?.readyState !== 1) return false;
+  try { ws.send(frame); return true; }
   catch { return false; }
 }
 
@@ -181,7 +226,8 @@ export class OskiewarLiveManager {
       room = { matchId, publisher: null, publisherSurface: "unknown",
         challenger: null, viewers: new Set(), agents: new Set(), state: null,
         liveStarted: false, updatedAt: this.now(), publishedAt: 0,
-        nudgedAt: 0, flaggedAt: 0, inputAt: 0 };
+        nudgedAt: 0, flaggedAt: 0, inputAt: 0, inputDown: null,
+        flushTimer: null, flushedSeq: -1 };
       this.rooms.set(matchId, room);
     }
     if (role === "publisher") this.addPublisher(room, ws, surface);
@@ -220,6 +266,11 @@ export class OskiewarLiveManager {
       room.state = null;
       room.publishedAt = 0;
     }
+    // A frame still waiting on the trailing flush belongs to the host that
+    // just left. It must not land on the room after the successor's first.
+    clearTimeout(room.flushTimer);
+    room.flushTimer = null;
+    room.flushedSeq = -1;
     room.publisher = ws;
     room.publisherSurface = surface;
     room.updatedAt = this.now();
@@ -354,7 +405,15 @@ export class OskiewarLiveManager {
     if (input.colors !== undefined && (!Array.isArray(input.colors) ||
         input.colors.length > 4 || !input.colors.every(color))) return;
     const now = this.now();
-    if (now - room.inputAt < MIN_INPUT_INTERVAL_MS) return;
+    // The 15 ms floor exists to pace a stick, which moves continuously. A
+    // button edge is a discrete event and must never be the thing it drops:
+    // the client marks a frame as sent the moment the socket takes it, so a
+    // press the relay swallowed here was invisible to both ends until the
+    // next change or the idle heartbeat.
+    const buttons = input.down.join(" ");
+    const held = buttons === room.inputDown;
+    if (held && now - room.inputAt < MIN_INPUT_INTERVAL_MS) return;
+    room.inputDown = buttons;
     room.inputAt = now;
     room.updatedAt = now;
     send(room.publisher, "oskiewar:input", { seq: input.seq,
@@ -430,11 +489,43 @@ export class OskiewarLiveManager {
     const invalid = validateOskiewarLiveState(state);
     if (invalid) return send(ws, "oskiewar:error", { message: invalid });
     const now = this.now();
-    if (now - room.publishedAt < MIN_PUBLISH_INTERVAL_MS) return;
     if (room.state && state.seq <= room.state.seq) return;
     room.state = state;
-    room.publishedAt = now;
     room.updatedAt = now;
+    // The 25 ms floor coalesces a burst. It must not throw the burst away,
+    // and it used to: the gate ran BEFORE the store, so of two frames landing
+    // in one instant — which is exactly what a host's catch-up tick emits —
+    // the older one went out to the room and the newer one was gone for good.
+    // Measured against the real relay that was a quarter of all frames on a
+    // wired link and well over half on a busy one, and it fell hardest at the
+    // moments the fight was busiest. Now the newest frame is always the one
+    // kept, and a trailing flush hands it over a few milliseconds late.
+    // Coalescing is allowed to cost latency. That is what it is for. It is
+    // not allowed to cost information.
+    if (now - room.publishedAt < MIN_PUBLISH_INTERVAL_MS) {
+      this.armFlush(room);
+      return;
+    }
+    this.flush(room);
+  }
+
+  // One trailing timer per room, never a queue of them: whatever is newest
+  // when it fires is what the room gets. Unreferenced, because a pending
+  // frame is not a reason to keep a process alive.
+  armFlush(room) {
+    if (room.flushTimer) return;
+    room.flushTimer = setTimeout(() => {
+      room.flushTimer = null;
+      if (this.rooms.get(room.matchId) === room) this.flush(room);
+    }, MIN_PUBLISH_INTERVAL_MS);
+    room.flushTimer.unref?.();
+  }
+
+  flush(room) {
+    const state = room.state;
+    if (!state || state.seq === room.flushedSeq) return;
+    room.flushedSeq = state.seq;
+    room.publishedAt = this.now();
     if (!room.liveStarted) {
       room.liveStarted = true;
       this.analytics.capture("live_started", {
@@ -443,8 +534,8 @@ export class OskiewarLiveManager {
         phase: state.phase,
       });
     }
-    for (const watcher of this.watchers(room))
-      send(watcher, "oskiewar:state", state);
+    const frame = JSON.stringify({ type: "oskiewar:state", content: state });
+    for (const watcher of this.watchers(room)) sendRaw(watcher, frame);
   }
 
   // Agents read the frame numbers out of the same state payload a phone gets,
@@ -452,9 +543,12 @@ export class OskiewarLiveManager {
   // a watcher too — their own fighter reaches them the same way it reaches
   // the grandstand.
   *watchers(room) {
+    // The challenger first. They are playing the fight; everyone after them
+    // is watching it, and a seat that waited behind sixty-four spectators for
+    // its own fighter was paying for their view.
+    if (room.challenger) yield room.challenger;
     yield* room.viewers;
     yield* room.agents;
-    if (room.challenger) yield room.challenger;
   }
 
   status(room) {
@@ -495,8 +589,11 @@ export class OskiewarLiveManager {
     const oldest = this.now() - ROOM_TTL_MS;
     for (const [matchId, room] of this.rooms) {
       if (!room.publisher && !room.challenger && room.viewers.size === 0 &&
-          room.agents.size === 0 && room.updatedAt < oldest)
+          room.agents.size === 0 && room.updatedAt < oldest) {
+        clearTimeout(room.flushTimer);
+        room.flushTimer = null;
         this.rooms.delete(matchId);
+      }
     }
   }
 }

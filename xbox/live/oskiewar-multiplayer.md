@@ -10,6 +10,17 @@ streams it to the other. Jump to "Part two" for that. The streamed lane below
 still exists and still matters: it is what spectators watch, and it is the
 fallback whenever one side is an older build or the net channel is blocked.
 
+**Part three (2026-09-11) rebuilt the streamed lane's watching half**, and
+closes every item part one left open except local prediction. Projectiles and
+the host's impact track are on the wire, the relay no longer discards the
+newest frame of a burst, the grandstand interpolates between two real frames
+instead of extrapolating past one, a watcher has the match HUD and the round's
+own clock, button edges no longer wait on a floor written for a stick, a
+denied chair actually reaches the grandstand, a desync is repaired instead of
+counted, and both lanes draw a connection meter. Part one below is the
+diagnosis as it stood on 2026-09-09; where it says a thing is missing, check
+part three before believing it.
+
 ---
 
 # Part one: the streamed lane, and why the guest lagged
@@ -115,7 +126,9 @@ camera pose, `wind`, `round {remainingMs, timed, result, cause}`. About
 
 Not on the wire but read by the guest: `hit`, `blockFlash`, `attackTicks`
 (`:3388-3393`). Not on the wire at all: bullets, grenades, detached parts,
-impacts, ammo, command stream, stance, hit stun.
+impacts, ammo, command stream, stance, hit stun. *(Part three put `hit`,
+`blockFlash`, `attackTicks`, bullets and grenades on the wire; detached parts,
+impacts, ammo, command stream, stance and hit stun are still host-only.)*
 
 **Pads (guest → host)** `sendChallengerInput` (`:3530-3556`), called every
 sim tick. Sends `{seq, down[], leftX, leftY, name, colors}` when the pad
@@ -301,8 +314,9 @@ Items 3, 4, 5 and 8 below are answered by the rollback lane in part two: the
 guest now has the HUD and the intro because it runs the round itself, it does
 not interpolate a stream because there is no stream to interpolate, it sees
 every effect because it spawns them, and its own fighter is locally
-simulated. Items 1, 2, 6 and 7 are still open and still apply to spectators,
-who continue to watch the streamed lane.
+simulated. Part three answers 1 through 7 for spectators and for the streamed
+guest. Item 8's first half — local prediction of the guest's own fighter — is
+the only one left, and it is moot on the lane that superseded it.
 
 ## The original ranking, kept for the spectator lane
 
@@ -497,3 +511,310 @@ ticks holding for each other and read like a netcode fault that is not one.
   against that baseline rather than trusting the exit code.
 - Prior two-window recording method and the 2026-09-07 numbers are in the
   session memory note `oskiewar-multiplayer-e2e`.
+
+---
+
+# Part three: the streamed lane, watched (2026-09-11)
+
+@jeffrey: "i notice that projectiles in oskiewar dont show up across
+multiplayer matches", then "we need to make sure physics has strong rendering
+sync etc", then "can we show a connection health like wifi meter... on the top
+right of the game", then "so we have an understanding of ping / connection to
+the other player?"
+
+Four changes. The first three are the grandstand's half of part one's ranking
+(items 1, 4, and half of 5); the fourth is new.
+
+## Projectiles are on the wire
+
+`spectatorState` now carries `shots` and `lobs` beside the fighters, as flat
+number rows rather than named objects:
+
+```
+shot: x y z previousX previousY vx vy owner flags(spit|heavy|rubber)
+lob:  x y z vx vy owner flags(rocket|exploding) blastRadius fuseMs
+```
+
+Twenty-four rounds and twelve grenades are the game's own caps, and the relay
+validates both shapes (`shots`/`lobs` in `validateOskiewarLiveState`). A frame
+carrying a full sky measures 2.4 KB against the relay's 8 KiB cap, up from
+1.27 KB for an empty one. A frame with no rows at all is an older host or a
+stored demo, and the watcher leaves its arrays alone rather than clearing
+them; an empty row set is a host saying the air is clear.
+
+Velocity rides along so the playout buffer can carry a round smoothly between
+arrivals instead of stepping it 140 units at each one. Projectiles have no
+identity on the wire, so a watcher rebuilds them each frame rather than
+matching this frame's third bullet to the last frame's third — the match would
+be a guess, and a wrong guess teleports a streak across the arena.
+
+The same frame now also carries `hit`, `blockFlash` and `attackTicks` per
+fighter: three numbers the watcher already knew how to read (`:3388-3393`) and
+had never been sent, which is why the strike spark and the limb burst were
+dead code in LIVE and every swing froze at one canned mid-pose.
+
+`netStateHash` hashes projectile positions now, not just counts. A round whose
+flight differed between two rollback seats killed different fighters, and the
+count matched right up to the frame one seat's bullet connected.
+
+## The relay keeps the newest frame of a burst
+
+`publish()` used to run the 25 ms rate gate **before** the store, so of two
+frames landing in one instant — a host catch-up tick, or a link stall batching
+them — the older one went out and the newer was gone for good. That is the
+whole of the 25-57% loss in part one's tables, and it fell hardest exactly
+when the fight was busiest.
+
+Now the store comes first and a single trailing `setTimeout` (unreferenced,
+one per room, cleared on takeover and on prune) hands the room whatever is
+newest when it fires. The fan-out also serializes the frame once for the whole
+room instead of once per socket, and `watchers()` yields the challenger first:
+a seat that waited behind sixty-four spectators for its own fighter was paying
+for their view. Coalescing is allowed to cost latency. It is not allowed to
+cost information.
+
+The relay is no longer "no timers".
+
+## The grandstand interpolates instead of extrapolating
+
+A frame is no longer painted in the socket callback. It is filed with its
+arrival time (`queueRoundViewerState`), and `updateRoundViewer` reads a playout
+clock held a little behind the newest arrival, then paints the blend of the two
+frames that bracket it (`blendRoundViewerStates`). Continuous quantities
+interpolate; everything discrete — who is alive, which limbs are gone, what
+phase the round is in — comes from the frame already reached, so a fighter
+cannot die before the pose that killed them has finished arriving.
+
+- **One clock.** The queue and the coast fuse are both wall milliseconds.
+  Part one's drift bug — an arrival stamped by `performance.now()` compared
+  against the driver's sim time, so the 150 ms fuse stopped tripping as
+  dropped ticks accumulated — is gone because there is no longer a mixture.
+- **The delay is measured, not fixed.** `gap + 2 × jitter + 8 ms`, clamped to
+  45-220 ms, and moved at a twentieth per frame so resizing it never
+  time-warps the picture. The playout clock advances on the simulation's own
+  dt and leans toward `now − delay`; pinning it to the wall each tick would
+  replay the network's jitter as motion.
+- **Extrapolation is the exception.** Past the end of the buffer the newest
+  frame stands and bodies coast on the velocity it reported, measured from
+  that frame's own position so the reckoning never compounds, bounded by the
+  same 150 ms horizon as before.
+- **A dark room drops the queue.** A status frame saying `live: false`, a room
+  change, a takeover and a claim all reset it, so nothing stale is blended
+  into whatever timeline arrives next.
+
+## Both lanes draw a connection meter
+
+Four bars and one number, top right, under the round's QR code
+(`netHealth`/`drawNetHealth`). It reports only what the seat it is drawn on can
+actually measure, and draws nothing at all on a lane with no rival:
+
+| Lane | Reading | Where it comes from |
+|---|---|---|
+| Rollback fight | ping, `48MS` | a real round trip, see below |
+| Grandstand or older-build guest | jitter, `±14MS`, plus `9% LOST` when any | arrival spacing and holes in the host's sequence numbers |
+| Host in the streamed lane | age of the last pad, `120MS` | the only thing a host hears from its rival |
+
+Bars: 4 under 50 ms, 3 under 100, 2 under 170, else 1; a desync clamps a
+rollback fight to one bar however fast the wire is, because two machines that
+are no longer playing the same fight do not have a healthy connection.
+
+**Ping, by echo.** Every rollback input packet carries `w`, the sender's own
+wall-clock mark. The rival holds the newest `w` it heard and returns it as `e`
+on its next packet. The round trip is therefore a subtraction in the asking
+seat's **own** clock, so the two machines never have to agree on what time it
+is — which they cannot, and which is why nothing measured this before. It
+reads up to one frame long, because the rival holds the mark until its next
+tick; that is an honest part of what a press costs. `pings` counts
+measurements separately from `pingMs`, so a sub-millisecond LAN round trip
+reads as four bars and `0MS` rather than "no measurement yet".
+
+## The watcher has a HUD, and a round clock that means something
+
+`gameplayStarted` was never true on the watcher boot path, and the whole match
+HUD hangs off it: no round clock, no `VS` / `WAITING FOR HOST` label, no
+"you are ..." seat line, no status tray. That was part one's "no state updates
+on screen when the game starts". It is set now, in the boot branch and in the
+fallback-bridge takeover.
+
+The clock itself needed the wire to say more. A watcher derived
+`roundStartedAt` from `remainingMs`, which is zero on every untimed round — so
+it pinned itself a full round duration in the past, `counting` was never true,
+and the intro card never drew. `spectatorState` now carries `round.elapsedMs`,
+the round's own age with the intro included, and the watcher sets its clock
+from that directly. Joining mid-intro lands mid-intro.
+
+`roundIsTimed()` also answered from the machine it ran on, which for a watcher
+is not in the fight. It now returns the wire's `round.timed` while watching
+live, and `false` while a watcher is still waiting for its first frame —
+otherwise a connected-but-unserved watcher painted a phantom thirty-second
+countdown over somebody else's lobby.
+
+The top-right corner is now measured once (`hudTopRightLeft`). The QR owns it,
+the connection meter sits under the QR or takes the corner when no code is up,
+and the `VS` / `LIVE` label and the update-ready affordance both measure from
+the corner's left edge rather than assuming it is free.
+
+## The watcher runs its own sparks and limbs
+
+The reconstruction from flag edges was already written and had never fired,
+because `hit` and `blockFlash` were not on the wire (part three fixes that
+above) and because `updateResultImpactDebris` ran only inside a demo or a
+hosted sim. A watcher's `impacts` array therefore grew for the life of the
+connection without ever producing a mote.
+
+- `updateRoundViewerEffects` runs both `updateResultImpactDebris` and the
+  fragment physics on every watched tick.
+- `detachPart` is split: `spawnDetachedPart` throws the pieces,
+  `detachPart` does the simulation's bookkeeping around it. A watcher diffs
+  `removedParts` frame to frame and spawns the pieces for any limb that just
+  went, posed from a copy of the fighter with that limb restored — a body's
+  geometry no longer carries the limbs it has lost, so asking the fighter as
+  it stands returns nothing to throw.
+- `updateDetachedParts(dt, combat)` takes the same switch `updateBullets`
+  already had. A watcher's fragments tumble, settle and draw but damage
+  nobody, and they expire rather than renewing their own life the way a hosted
+  fragment does — scenery that never expires is a leak, and nothing on the
+  wire would ever say to remove it.
+- A fighter who comes back whole is a new round, and takes the wreckage with
+  it.
+
+Nothing here is authoritative and none of it is on the wire. It does not have
+to match the host bit for bit. It has to happen.
+
+## A denied chair reaches the grandstand
+
+Part one's item 7, and the reason none of the above was visible in practice.
+The bridge had one timer slot. A versus room has no stored replay and 404s
+forever, so the 1800 ms replay retry held that slot nearly all the time, and a
+socket closing in that window asked to reconnect and was dropped in silence.
+A third visitor — denied the chair, closed with 4409 — sat on "this match
+already has a challenger" and never joined the room at all. `schedule` now
+takes a named slot (`reconnect`, `replay`) and `open()` clears its own.
+
+Verified with three real browsers on a local instance of the real relay: the
+third shows the host's fighters, their handles, the `live` label and the meter.
+
+## A press is not a stick
+
+Part one's item 6. Two rate floors were written to pace an analog axis that
+moves every frame, and both were swallowing button edges: the client's 33 ms
+gate held a press for up to two frames, and the relay's 15 ms gate dropped one
+outright. The client marks a frame sent the moment the socket takes it
+(`:3554`), so an edge the relay swallowed was invisible at BOTH ends until the
+next change or the quarter-second heartbeat.
+
+A changed `down[]` now leaves at once on the client and passes the relay's
+floor unconditionally; an unchanged frame echoes once after 50 ms before
+settling into the 250 ms heartbeat, so a lost edge has a second chance without
+an ack protocol. Stick drift still waits out the floor, which is what the
+floor was for.
+
+## The host publishes on the wall clock
+
+Part one's item 2. `publishVersus` was gated on 33 ms of SIM time, and the
+driver runs up to four owed ticks in one instant to catch up — so a catch-up
+pump emitted three full state builds in the same millisecond, arriving at the
+relay as a burst it could only coalesce. Catch-up is exactly when the fight is
+busiest. The gate reads `runtime().unixMs` now, so a burst is one frame.
+
+The shell's `publishLive` also parsed the payload to read one field, parsed it
+again to re-wrap it, and stringified it back: four passes over the whole state
+per publish, on a console, thirty times a second. The frame is a string
+concatenation now and `nextRoundId` is read as text.
+
+## The host's impact track rides out
+
+A watcher reconstructing sparks from flag edges covers a punch landing and
+nothing else: a ricochet, a spit splat, a ground pound's crater and a
+grenade's own blast raise no flag on any fighter, so they happened in silence
+on every screen but the host's.
+
+Each impact is numbered as it is spawned (`spawnImpact`), because a stateless
+frame that repeats the same list ten times cannot otherwise say which sparks a
+watcher has already been shown — a position is not an identity. The newest
+twelve ride out as `[id, x, y, z, durationMs, lifeMs, flags]`, the watcher
+spawns only the numbers it has not seen at the age the frame reports, and the
+flag-edge reconstruction stays as the fallback for a host too old to send a
+track. `impactSequence` is in `netSimScalars`: a rollback that re-spawns an
+impact has to re-issue the same number.
+
+A full frame — 24 shots, 12 lobs, 12 marks, both fighters wrecked — measures
+2856 bytes against the relay's 8 KiB cap, and the relay test pins that.
+
+## A desync is repaired by dropping a lane
+
+Two machines no longer playing the same fight used to go on playing their
+different ones; the two people found out when one died on a screen where they
+had not been hit.
+
+The repair is to stop pretending there are two authorities. The host has one,
+so both seats fall back to the lane where the host IS it: the challenger goes
+back to watching the stream with its pads on the wire, and the host resumes
+the streamed versus fight it was already publishing for the grandstand.
+Nothing rewinds, nothing stops, and no state has to fit through a 2 KiB
+channel. The cost is the rollback lane's latency — the honest price of one
+machine having been wrong.
+
+The seat that notices tells the rival (`{t:"desync"}`) so the other does not
+eat the four-second timeout, and both then refuse to open a rollback session
+for sixty seconds. Without that cooldown the challenger's next hello would
+deal a fresh session into the same divergence one second later, forever.
+
+One trap this opened: a rollback seat sends net packets, not pads, so the
+moment the lane closes the host has heard nothing on the pad wire for as long
+as the fight lasted. Read literally that is an empty chair, and an empty chair
+resets the match — turning a repaired desync into a lost score. A three-second
+grace covers the changeover; a rival who has genuinely gone still times out.
+
+## A watcher keeps the round's address
+
+`spectatorQrBox` asked `versusLane()`, a fact about the fight on the local
+machine — so an untimed versus round, watched, lost its code at exactly the
+moment somebody might want to pass it on. A live watcher is now a lane that
+keeps its code up.
+
+## A corpse in the waiting room falls
+
+Not a networking bug, found while looking at one. @jeffrey: "it seems possible
+to die in the waiting room but keep jumping stilll". A dead fighter takes no
+input, but nothing moved it either: the dead branch in `updatePlayer` skips
+every rule including gravity, which is right in a round — the round ends and
+rebuilds the body, and the killcam wants the pose held — but the waiting room
+has no round. A fighter blasted out of a hop kept the hop's height, and its
+jump pose, for the whole two-and-a-half-second respawn beat. `settleCorpse`
+drops it: gravity, the ground under it, no ledges (a corpse must not catch a
+rung it would have caught alive), and then it stops.
+
+## What this did not change
+
+- **Desyncs are repaired by changing lanes, not by resynchronising.** There is
+  still no path that hands a diverged seat the other's state.
+- **Local prediction of the guest's own fighter** (part one, item 8) is still
+  unwritten, and is moot between two current builds: the rollback lane
+  simulates that fighter locally already.
+- **Same engine only**, as part two says. Transcendental functions are not
+  bit-identical across V8, JavaScriptCore and the console's QuickJS, and limb
+  poses are the hitboxes. The desync repair above is now what happens when
+  that bites, instead of two people quietly playing different fights.
+
+## Method
+
+- `npm run xbox:test:oskiewar:netplay` — eleven tests, including the echo ping
+  and the desync repair.
+- `node --test session-server/oskiewar-live-manager.test.mjs` — twenty-one,
+  including the coalescing contract and the projectile row bounds.
+- `node --test xbox/live/tests/oskiewar.test.mjs` — nine new tests here: the
+  published frame carries the shots, a watcher blends two frames rather than
+  snapping, the meter reads the wire it is on, a watcher gets the match HUD
+  and the round's own clock, a watcher runs its own sparks and limbs, the
+  host's impact track rides out, button edges leave at once, a versus host
+  publishes on the wall clock, and a corpse in the waiting room falls.
+  Baseline is 36 failures at HEAD; diff failure names rather than trusting the
+  exit code.
+- `node --test xbox/live/tests/round-room.test.mjs` — five, including the
+  denied chair reaching the grandstand while the replay retry runs.
+- `node xbox/live/tests/netplay-browser.mjs --seconds 10 --shots <dir>` — two
+  real browsers over a local instance of the real relay. The frames it leaves
+  are how the meter was eyeballed.
+- Any `oskiewar.js` edit needs `npm run xbox:burn:oskiewar-social`; the social
+  manifest is hash-bound and a test pins it.

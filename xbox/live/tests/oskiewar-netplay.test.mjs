@@ -33,6 +33,8 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          remoteFrame: netSession.remoteFrame, stats: { ...netSession.stats },
          snapshots: netSession.snapshots.size } : null,
        netplayHash: () => netStateHash(),
+       netplayForceHash: (frame, hash) => netNotePeerHash(netSession, frame, hash),
+       netplayLaneBlocked: () => netLaneBlockedUntil > Date.now(),
        netplaySnapshot: () => netSnapshot(),
        netplayRestore: (saved) => netRestore(saved),
        netplayScalarNames: () => Object.keys(netSimScalars()),
@@ -221,6 +223,51 @@ test("two seats fed the same pads over a laggy wire stay one fight", () => {
   assert.equal(names[1], "@RIVAL");
 });
 
+// @jeffrey: "so we have an understanding of ping / connection to the other
+// player?" Now yes, and it costs one field each way. A seat stamps its own
+// wall clock on every input packet; the rival holds that mark and sends it
+// back on its next one. The round trip is therefore a subtraction in the
+// asking seat's OWN clock, so the two machines never have to agree on what
+// time it is — which they cannot, and which is why nothing measured this
+// before.
+test("each seat measures its own round trip from the rival's echo", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 4 });
+  const realNow = Date.now;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  try {
+    beginPair(host, guest, wire);
+    assert.equal(host.fight.netplayState().stats.pings, 0,
+      "nothing has come home yet");
+    for (let frame = 0; frame < 240; frame++) {
+      wall += 17;
+      host.press(...choreography(0, host.fight.netplayState().frame));
+      guest.press(...choreography(1, guest.fight.netplayState().frame));
+      host.tick();
+      guest.tick();
+      wire.step();
+    }
+    for (const seat of [host, guest]) {
+      const stats = seat.fight.netplayState().stats;
+      assert.ok(stats.pings > 10, `echoes keep coming: ${stats.pings}`);
+      // Eight ticks of wire each way plus the hold until the rival's next
+      // tick: a couple of hundred milliseconds on this bench, and nowhere
+      // near the four-second silence that ends a fight.
+      assert.ok(stats.pingMs > 50 && stats.pingMs < 500,
+        `and read as a real duration: ${stats.pingMs}`);
+    }
+    // A wire with nothing on it is not a fast wire. The reading stops
+    // updating rather than drifting toward zero.
+    const held = host.fight.netplayState().stats.pingMs;
+    for (let frame = 0; frame < 20; frame++) { wall += 17; host.tick(); }
+    assert.equal(host.fight.netplayState().stats.pingMs, held);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test("a seat that stops hearing the rival waits instead of guessing forever", () => {
   const host = createSeat();
   const guest = createSeat();
@@ -237,6 +284,54 @@ test("a seat that stops hearing the rival waits instead of guessing forever", ()
   assert.ok(later.remoteFrame >= remoteFrame);
   assert.ok(later.stats.waits + later.stats.stalls > 0, "the host held for the rival");
   assert.ok(later.frame >= frozen, "the host never rewinds its own frame count");
+});
+
+// A desync used to be counted and lived with: two machines no longer playing
+// the same fight went on playing their different ones, and the two people
+// found out when one died on a screen where they had not been hit. The repair
+// is to stop pretending there are two authorities — both seats drop to the
+// lane where the host is the only one, and stay out of the rollback lane long
+// enough that the next hello is not the same divergence one second later.
+test("a desync drops both seats to the lane with one authority", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 2 });
+  beginPair(host, guest, wire);
+  run(host, guest, wire, 90);
+  const confirmed = host.fight.netplayState().confirmed;
+  assert.ok(confirmed > 30);
+  // Seats hash every thirtieth confirmed frame, so the newest one both of
+  // them have actually written down is the last multiple of thirty.
+  const hashed = Math.floor(confirmed / 30) * 30;
+  // The rival reports a state hash that is not ours at a frame neither seat
+  // will roll back again. There is no honest way to reconcile that.
+  host.fight.netplayForceHash(hashed, 0x5ea51de);
+  assert.equal(host.fight.netplayState(), null,
+    "the host left the rollback lane at once");
+  assert.ok(host.fight.netplayLaneBlocked(),
+    "and will not be dealt back into it");
+  // The other seat hears about it rather than waiting out the four-second
+  // silence, and takes the same exit — one wire delay later, not four
+  // seconds later.
+  for (let step = 0; step < 6 && guest.fight.netplayState(); step++) {
+    wire.step();
+    guest.tick();
+  }
+  assert.equal(guest.fight.netplayState(), null);
+  assert.ok(guest.fight.netplayLaneBlocked());
+  // A rollback seat sends net packets, not pads, so the host has heard
+  // nothing on the pad wire for the whole fight. Read literally that is an
+  // empty chair, and an empty chair resets the match — the grace covers the
+  // changeover so a repaired desync does not also cost the score.
+  const wins = host.fight.fighters().map((fighter) => fighter.roundWins);
+  for (let frame = 0; frame < 60; frame++) host.tick();
+  assert.equal(host.fight.roundState().fightOpponent, "versus",
+    "the host keeps the fight rather than dropping to the lobby");
+  assert.deepEqual(host.fight.fighters().map((fighter) => fighter.roundWins),
+    wins, "and keeps the score");
+  // A straggler from the closed lane is not an invitation to reopen it.
+  host.fight.netplayPreSession({ t: "hello", v: 1, name: "@RIVAL", colors: [] });
+  assert.equal(host.fight.netplayState(), null);
 });
 
 test("the sim state list is not empty and covers the round clock", () => {

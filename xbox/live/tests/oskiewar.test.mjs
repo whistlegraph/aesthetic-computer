@@ -88,7 +88,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => platforms.map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -1544,6 +1544,401 @@ test("raw live and demo rooms run through the canonical game engine", () => {
   assert.equal(fight.players[0].x, 5400);
 });
 
+// The grandstand used to paint each frame the instant it landed and then
+// extrapolate on the last velocity until the next one — bodies coasting
+// through the floor and snapping back several times a second, and every
+// correction smeared over two paints because the frame arrived mid-render.
+// Now a frame is filed with its arrival time and the picture reads a clock
+// held a little behind the newest of them, so a pose is always a blend of two
+// frames the host really sent.
+test("a watcher blends two wire frames instead of snapping to the newest", () => {
+  let deliver;
+  const bridge = { name: "bafegu-dorimi-kunapo",
+    start(listener) { deliver = listener; return () => {}; } };
+  const realNow = Date.now;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  try {
+    const { fight, tick } = createFight(false, false, "web", bridge);
+    const frame = (seq, x, shot) => ({ format: "ac.oskiewar.live", version: 1,
+      seq, at: wall, phase: "fight", fighters: [
+        { name: "@FIFI", color: [209, 100, 216], x, y: 12000, z: 0, vx: 600,
+          vy: 0, vz: 0, facing: 1, alive: true, grounded: true, ducking: false,
+          blocking: false, score: 0, roundWins: 0, attack: "",
+          removedParts: [], hit: 0, blockFlash: 0, attackTicks: 0 },
+        { name: "@SAT", color: [130, 204, 213], x: 6900, y: 12000, z: 0,
+          vx: 0, vy: 0, vz: 0, facing: -1, alive: true, grounded: true,
+          ducking: false, blocking: false, score: 0, roundWins: 0, attack: "",
+          removedParts: [], hit: 0, blockFlash: 0, attackTicks: 0 }],
+      ball: { x: 6000, y: 11958, z: 0, radius: 42, active: false },
+      camera: { x: 6000, y: 9600, width: 2200 },
+      wind: { direction: -1, mph: 0 }, round: { remainingMs: 22000, result: "" },
+      shots: [[shot, 11900, 0, shot - 70, 11900, 4200, 0, 1, 4]], lobs: [] });
+    const send = (content) =>
+      deliver({ type: "state", content, live: true, roundName: bridge.name });
+    send(frame(1, 5100, 6000));
+    wall += 33;
+    send(frame(2, 5120, 6140));
+    // The clock sits about a frame and the measured jitter behind the newest
+    // arrival — roughly 68 ms here — so let the wall run until that clock
+    // lands between the pair rather than past it.
+    wall += 52;
+    tick();
+    const watched = fight.players[0];
+    assert.ok(watched.x > 5100 && watched.x < 5120,
+      `blended, not snapped: ${watched.x}`);
+    // A shot the host never sent used to be invisible. It is here, it wears
+    // the kind it was fired as, and it is carried along its own reported
+    // velocity rather than stepped 140 units at each arrival.
+    assert.equal(fight.bullets.length, 1);
+    assert.equal(fight.bullets[0].rubber, true);
+    assert.equal(fight.bullets[0].owner, 1);
+    assert.ok(fight.bullets[0].x > 6000 && fight.bullets[0].x < 6140,
+      `a round in flight: ${fight.bullets[0].x}`);
+    assert.ok(fight.bullets[0].x - fight.bullets[0].previousX > 0,
+      "and it keeps both ends of its streak");
+    // Past the buffer the picture holds rather than inventing motion: the
+    // newest frame is the truth, coasted no further than the dead-reckoning
+    // horizon whatever the gap grows to.
+    wall += 4000;
+    tick();
+    assert.ok(fight.players[0].x >= 5120, "the newest frame stands");
+    assert.ok(fight.players[0].x < 5120 + 600 * .2,
+      `and the coast is bounded: ${fight.players[0].x}`);
+    // A host that goes dark drops the queue, so nothing stale is ever blended
+    // into whatever timeline arrives next.
+    deliver({ type: "status", content: { live: false },
+      roundName: bridge.name });
+    const held = fight.players[0].x;
+    tick();
+    assert.equal(fight.players[0].x, held);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+// @jeffrey: "can we show a connection health like wifi meter... on the top
+// right of the game", and "so we have an understanding of ping / connection to
+// the other player?". The meter reports only what the seat it is drawn on can
+// actually measure, and reports nothing at all on a lane with no rival.
+// Part one of the multiplayer note called this "no state updates on screen
+// when the game starts": the whole match HUD hangs off `gameplayStarted`,
+// which the watcher boot path never set, and the intro card hangs off a round
+// clock the watcher derived from `remainingMs` — zero on every untimed round,
+// which pinned its clock a full round duration in the past.
+test("a watcher gets the match HUD and the round's own clock", () => {
+  let deliver;
+  const bridge = { name: "bafegu-dorimi-kunapo", seat: "challenger",
+    start(listener) { deliver = listener; return () => {}; },
+    sendInput() { return true; } };
+  const realNow = Date.now;
+  const realQr = globalThis.qrcode;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  // The engine only mints a code when the host offers an encoder.
+  globalThis.qrcode = qrcode;
+  try {
+    const { fight, tick } = createFight(false, false, "web", bridge);
+    assert.equal(fight.roundState().gameplayStarted, true,
+      "watching a fight is gameplay for the person doing it");
+    const fighter = (side) => ({ name: side ? "@SAT" : "@FIFI",
+      color: [209, 100, 216], x: 5100 + side * 1800, y: 12000, z: 0,
+      vx: 0, vy: 0, vz: 0, facing: side ? -1 : 1, alive: true, grounded: true,
+      ducking: false, blocking: false, score: 0, roundWins: 0, attack: "",
+      removedParts: [], hit: 0, blockFlash: 0, attackTicks: 0 });
+    let seq = 0;
+    // The buffer paints the frame a later one stands behind, so a fixture
+    // states each frame twice — once to arrive, once to become the past.
+    const show = (round, phase) => {
+      for (let copy = 0; copy < 2; copy++) {
+        deliver({ type: "state", live: true, roundName: bridge.name,
+          content: { format: "ac.oskiewar.live", version: 1, seq: ++seq,
+            at: wall, phase, fighters: [fighter(0), fighter(1)],
+            ball: { x: 6000, y: 11958, z: 0, radius: 42, active: false },
+            camera: { x: 6000, y: 9600, width: 2200 }, round } });
+        wall += 2000;
+        tick();
+      }
+    };
+    // An untimed versus round, one second into its intro. `remainingMs` is
+    // zero there and always will be; `elapsedMs` is the field that means
+    // something.
+    show({ remainingMs: 0, timed: false, result: "", elapsedMs: 1000 }, "intro");
+    const watched = fight.roundState();
+    assert.equal(watched.timed, false, "the wire says whether there is a clock");
+    assert.ok(watched.introAge > 900000 && watched.introAge < 1100000,
+      `one second into the intro, not thirty in the past: ${watched.introAge}`);
+    assert.ok(watched.introAge < watched.introLimit,
+      "so the round is still counting itself off, and the intro card draws");
+    assert.equal(watched.roundElapsedUs, 0, "the fight itself has not started");
+    // A timed round watched from the grandstand still reads its clock off
+    // `remainingMs`, which is what the HUD timer counts down.
+    show({ remainingMs: 21000, timed: true, result: "", elapsedMs: 12000 },
+      "fight");
+    assert.equal(fight.roundState().timed, true);
+    assert.equal(fight.roundState().roundElapsedUs, 9000000);
+    // And the address stays up. `spectatorQrBox` asks `versusLane()`, a fact
+    // about the fight on THIS machine — so an untimed versus round, watched,
+    // used to lose its code at exactly the moment somebody might pass it on.
+    assert.ok(fight.qrBox(), "a watcher keeps the round's code");
+  } finally {
+    Date.now = realNow;
+    if (realQr) globalThis.qrcode = realQr; else delete globalThis.qrcode;
+  }
+  // The VS label moved out from under the top-right corner, which the round's
+  // QR and the connection meter now share. One measurement serves every label
+  // that wants to sit beside them.
+  const hudSource = source.slice(source.indexOf("const viewerLabel ="));
+  assert.match(hudSource.slice(0, 600), /hudTopRightLeft\(\) - 14/);
+  assert.match(source, /function hudTopRightLeft\(\)[\s\S]{0,240}netHealthBox\(\)\?\.left/);
+});
+
+// A watcher reconstructing sparks from flag edges covers a punch landing and
+// nothing else: a ricochet, a spit splat, a ground pound's crater and a
+// grenade's own blast raise no flag on any fighter, so they used to happen in
+// silence on every screen but the host's. The host's real track rides out now,
+// and each mark carries the number that says whether a watcher has seen it —
+// a position is not an identity, and the host repeats a mark on every frame it
+// is still burning.
+test("the host's impact track rides out, and a watcher spawns each mark once", () => {
+  const { fight, liveFrames, tick } = createFight();
+  tick(50000);
+  assert.deepEqual(liveFrames.at(-1)[1].impacts, []);
+  fight.knockOut();
+  tick(34000);
+  tick(34000);
+  const marks = liveFrames.at(-1)[1].impacts;
+  assert.ok(marks.length > 0, "a knockout leaves a mark on the wire");
+  const [id, x, y, z, durationMs, lifeMs, flags] = marks[0];
+  assert.ok(Number.isInteger(id) && id > 0, "and the mark is numbered");
+  assert.ok([x, y, z].every(Number.isInteger));
+  assert.ok(durationMs > 0 && lifeMs > 0 && lifeMs <= durationMs);
+  assert.ok(flags >= 0 && flags <= 3);
+  assert.ok(marks.every((mark, index) =>
+    index === 0 || mark[0] > marks[index - 1][0]), "in order");
+  // The numbers are simulation state: a rollback that re-spawns an impact
+  // must re-issue the same one, or two seats disagree about which sparks a
+  // watcher has already been shown.
+  assert.match(source, /function netSimScalars[\s\S]{0,2000}impactSequence,/);
+});
+
+// "Guest gets positions, flags and names only: no hit, no bullets, no debris."
+// Debris was the last of those. `updateResultImpactDebris` ran only inside a
+// demo or a hosted sim, so a watcher's impacts never grew a single mote and
+// the array grew for the life of the connection instead.
+test("a watcher runs its own sparks and flying limbs, and lets them expire", () => {
+  let deliver;
+  const bridge = { name: "bafegu-dorimi-kunapo",
+    start(listener) { deliver = listener; return () => {}; } };
+  const realNow = Date.now;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  try {
+    const { fight, tick } = createFight(false, false, "web", bridge);
+    const fighter = (side, removedParts, hit) => ({
+      name: side ? "@SAT" : "@FIFI", color: [209, 100, 216],
+      x: 5100 + side * 1800, y: 12000, z: 0, vx: 0, vy: 0, vz: 0,
+      facing: side ? -1 : 1, alive: true, grounded: true, ducking: false,
+      blocking: false, score: 0, roundWins: 0, attack: "", removedParts, hit,
+      blockFlash: 0, attackTicks: 0 });
+    let seq = 0;
+    const send = (removedParts, hit, impacts) => {
+      const content = { format: "ac.oskiewar.live", version: 1, seq: ++seq,
+        at: wall, phase: "fight",
+        fighters: [fighter(0, removedParts, hit), fighter(1, [], 0)],
+        ball: { x: 6000, y: 11958, z: 0, radius: 42, active: false },
+        camera: { x: 6000, y: 9600, width: 2200 },
+        round: { remainingMs: 0, timed: false, result: "", elapsedMs: 9000 } };
+      if (impacts) content.impacts = impacts;
+      deliver({ type: "state", live: true, roundName: bridge.name, content });
+      wall += 2000;
+      tick();
+    };
+    const show = (removedParts, hit) => { send(removedParts, hit); send(removedParts, hit); };
+    show([], 0);
+    assert.equal(fight.impacts.length, 0);
+    assert.equal(fight.detachedParts.length, 0);
+    // A struck fighter with an arm freshly gone: the wire carries the flag
+    // and the missing part, and the watcher makes the rest.
+    show(["left-arm"], 1);
+    assert.ok(fight.impacts.length > 0, "the blow lands visibly");
+    assert.ok(fight.detachedParts.length > 0, "and the arm goes flying");
+    assert.ok(fight.impacts.every((impact) => impact.debris?.length > 0),
+      "every spark grew its motes");
+    // Cosmetic, so it expires. A watcher's fragment that renewed its own life
+    // the way a hosted one does would still be on screen at the end of the
+    // session, and nothing on the wire would ever say to remove it.
+    for (let frame = 0; frame < 220; frame++) send(["left-arm"], 0);
+    assert.equal(fight.impacts.length, 0, "the sparks burned out");
+    assert.equal(fight.detachedParts.length, 0, "the limbs settled and went");
+    // When the host's own track is on the frame it wins: it is the same
+    // spark, in the right place, and doubling them reads as a heavier hit
+    // than the one that landed. Each mark spawns once however many frames
+    // repeat it while it burns.
+    const before = fight.impacts.length;
+    for (let repeat = 0; repeat < 6; repeat++)
+      send(["left-arm"], 1, [[900, 5200, 11940, 0, 320, 300, 2]]);
+    send(["left-arm"], 1, [[900, 5200, 11940, 0, 320, 300, 2]]);
+    assert.equal(fight.impacts.length, before + 1,
+      "one mark, one spark, however often the frame repeats it");
+    assert.equal(fight.impacts.at(-1).explosion, true);
+    send(["left-arm"], 1, [[901, 5300, 11940, 0, 320, 320, 0]]);
+    send(["left-arm"], 1, [[901, 5300, 11940, 0, 320, 320, 0]]);
+    assert.equal(fight.impacts.length, before + 2, "a new number is a new spark");
+    // A limb already gone is not a fresh loss, however many frames report it.
+    show(["left-arm"], 1);
+    assert.equal(fight.detachedParts.length, 0,
+      "the same missing arm is not thrown twice");
+    // A fighter who comes back whole is a new round. The next loss throws
+    // again, and the round after that takes the wreckage with it rather than
+    // letting it blow through the reset.
+    show([], 0);
+    show(["right-arm"], 1);
+    assert.ok(fight.detachedParts.length > 0);
+    assert.ok(fight.impacts.length > 0);
+    show([], 0);
+    assert.equal(fight.detachedParts.length, 0);
+    assert.equal(fight.impacts.length, 0);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+// A press is not a stick. The 33 ms client floor and the relay's 15 ms one
+// were both written to pace an analog axis that moves every frame, and both
+// were swallowing button edges — the client marks a frame sent the moment the
+// socket takes it, so an edge the relay dropped was invisible at both ends
+// until the next change or the quarter-second heartbeat.
+// @jeffrey: "it seems possible to die in the waiting room but keep jumping
+// stilll". A dead fighter takes no input — but nothing moved it either, and a
+// body blasted out of a jump kept the jump's height, and its jump pose, for
+// the whole two-and-a-half-second respawn beat. A corpse hanging in the air
+// mid-hop is exactly what still jumping looks like.
+test("a fighter killed mid-jump in the waiting room falls instead of hanging", () => {
+  const capable = globalThis.__oskiewarVersusCapable;
+  globalThis.__oskiewarVersusCapable = true;
+  try {
+    const { fight, pads, tick } = createFight(false, false);
+    fight.enterLobby();
+    tick(100000);
+    assert.equal(fight.lobbyState().lobby, true);
+    const player = fight.players[0];
+    const floor = player.y;
+    pads[0].leftY = 1;
+    tick();
+    pads[0].leftY = 0;
+    for (let frame = 0; frame < 10; frame++) tick();
+    assert.ok(player.y < floor - 40 && !player.grounded, "airborne");
+    // Losing the torso IS dying here, and it can happen at the top of a hop.
+    player.removedParts = ["torso"];
+    tick();
+    assert.equal(player.alive, false);
+    for (let frame = 0; frame < 40; frame++) tick();
+    assert.ok(player.grounded, "the body came down");
+    assert.ok(Math.abs(player.y - floor) < 1, `and settled: ${player.y - floor}`);
+    assert.equal(player.alive, false, "still dead, for the whole beat");
+    // And it stays down: a corpse takes no input, so nothing hops it again.
+    const landed = player.y;
+    for (let hop = 0; hop < 4; hop++) {
+      pads[0].leftY = 1;
+      tick();
+      pads[0].leftY = 0;
+      for (let frame = 0; frame < 3; frame++) tick();
+    }
+    assert.equal(player.y, landed);
+    assert.equal(player.alive, false);
+  } finally {
+    globalThis.__oskiewarVersusCapable = capable;
+  }
+});
+
+test("a challenger's button edges leave at once and the stick still waits", () => {
+  const sent = [];
+  const bridge = { name: "sezzi7", seat: "challenger", live: true,
+    start(listener) { bridge.listener = listener; return () => {}; },
+    sendInput(content) { sent.push(content); return true; },
+    sendNet() { return false; } };
+  const { pads, tick } = createFight(false, false, "web", bridge);
+  tick();
+  const count = sent.length;
+  // Two frames apart is inside the old 33 ms floor.
+  pads[0].down = ["A"];
+  tick();
+  assert.equal(sent.length, count + 1, "the press goes at once");
+  pads[0].down = ["A", "B"];
+  tick();
+  assert.equal(sent.length, count + 2, "and so does the next one");
+  pads[0].down = [];
+  tick();
+  assert.equal(sent.length, count + 3, "releases are edges too");
+  assert.deepEqual(sent.at(-1).down, []);
+  // A stick still waits out the floor: it moves every single frame, and
+  // sending every frame is exactly what the floor was written for.
+  const held = sent.length;
+  pads[0].leftX = .4;
+  tick();
+  assert.equal(sent.length, held, "analog drift waits");
+  pads[0].leftX = .5;
+  tick();
+  assert.equal(sent.length, held + 1, "and goes once the floor has passed");
+  // An unchanged frame echoes once soon after a change rather than waiting
+  // out the idle heartbeat, so a dropped edge has a second chance.
+  assert.match(source, /versusInputNextAt = now \+ \(edge \? 50000 : 250000\)/);
+});
+
+test("the connection meter reads the wire it is actually on", () => {
+  let deliver;
+  const bridge = { name: "bafegu-dorimi-kunapo",
+    start(listener) { deliver = listener; return () => {}; } };
+  const realNow = Date.now;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  try {
+    const { fight, tick } = createFight(false, false, "web", bridge);
+    // A title screen with nobody on the other end rates nothing.
+    assert.equal(fight.netHealth(), null);
+    const frame = (seq) => ({ format: "ac.oskiewar.live", version: 1, seq,
+      at: wall, phase: "fight", fighters: [0, 1].map((side) => ({
+        name: side ? "@SAT" : "@FIFI", color: [209, 100, 216],
+        x: 5100 + side * 1800, y: 12000, z: 0, vx: 0, vy: 0, vz: 0,
+        facing: side ? -1 : 1, alive: true, grounded: true, ducking: false,
+        blocking: false, score: 0, roundWins: 0, attack: "", removedParts: [],
+        hit: 0, blockFlash: 0, attackTicks: 0 })),
+      ball: { x: 6000, y: 11958, z: 0, radius: 42, active: false },
+      camera: { x: 6000, y: 9600, width: 2200 },
+      round: { remainingMs: 22000, result: "" } });
+    // A metronomic 33 ms wire with every sequence number present is the best
+    // a grandstand can be served, and reads as such.
+    for (let index = 0; index < 220; index++) {
+      deliver({ type: "state", content: frame(index + 1), live: true,
+        roundName: bridge.name });
+      wall += 33;
+      tick();
+    }
+    const clean = fight.netHealth();
+    assert.equal(clean.bars, 4);
+    assert.match(clean.label, /^\u00b1\d+MS$/, "a watcher reports jitter, not ping");
+    assert.equal(clean.note, "", "and no loss");
+    assert.ok(fight.wireHealth().jitterMs < 4);
+    // Now the wire the relay's coalescing gate actually produces: frames land
+    // in bursts and every other sequence number is missing.
+    let seq = 400;
+    for (let index = 0; index < 260; index++) {
+      seq += 2;
+      deliver({ type: "state", content: frame(seq), live: true,
+        roundName: bridge.name });
+      wall += index % 2 ? 8 : 120;
+      tick();
+    }
+    const rough = fight.netHealth();
+    assert.ok(rough.bars < clean.bars, `a worse wire reads worse: ${rough.bars}`);
+    assert.match(rough.note, /% LOST$/);
+    assert.ok(fight.wireHealth().lossPct > 40);
+  } finally {
+    Date.now = realNow;
+  }
+});
+
 test("start button flashes yellow green lime before lifting off the fight", () => {
   const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");
@@ -1697,6 +2092,68 @@ test("debug mode boxes every title glyph against its own advance", () => {
   assert.match(source, /glyphCells\.push\(\[cursor \+ drift, titleY \+ bob, advance\]\)/);
   assert.match(source, /strokeBox\(titleX, titleY, titleWidth, titleSize/);
   fight.setDebugHitboxes(false);
+});
+
+// @jeffrey: "i notice that projectiles in oskiewar dont show up across
+// multiplayer matches". They did not: the state wire carried fighters, balls
+// and a camera, and every shot, lob and blast stayed on the host's machine.
+// A watcher saw two bodies flinch and die with nothing in the air between
+// them. The rounds ride out now, and so do the three flags the grandstand
+// already knew how to read and had never been sent.
+test("published frames carry the shots and lobs in the air", () => {
+  const { fight, liveFrames, pads, tick } = createFight();
+  tick(50000);
+  assert.deepEqual(liveFrames.at(-1)[1].shots, [],
+    "an empty sky is stated, not left out");
+  fight.players[0].gunAmmo = 6;
+  // Out of each other's reach first: the fighters spawn 270 units apart and a
+  // handgun round covers 70 a frame, so at spawn distance the shot lands
+  // before a single published frame has been assembled.
+  fight.players[1].x = fight.players[0].x + 3000;
+  pads[0].down = ["Y"];
+  tick();
+  pads[0].down = [];
+  assert.ok(fight.bullets.length > 0, "the harness's fighter fired");
+  tick(34000);
+  const frame = liveFrames.at(-1)[1];
+  assert.equal(frame.shots.length, fight.bullets.length);
+  const [x, y, z, previousX, previousY, vx, vy, owner, flags] = frame.shots[0];
+  assert.ok([x, y, z, previousX, previousY, vx, vy].every(Number.isInteger),
+    "rounded: a shot's tenth of a unit is nobody's business");
+  assert.equal(owner, 0);
+  assert.equal(flags, 0, "a plain handgun round carries no kind bits");
+  assert.ok(Math.abs(vx) > 1000, "and its velocity, so a watcher can carry it");
+  // The three flags the reconstruction on the other end reads.
+  for (const fighter of frame.fighters) {
+    assert.equal(typeof fighter.hit, "number");
+    assert.equal(typeof fighter.blockFlash, "number");
+    assert.ok(Number.isInteger(fighter.attackTicks));
+  }
+  assert.ok(JSON.stringify(frame).length < 7168);
+});
+
+// The driver runs up to four owed ticks in one instant to catch up, and a
+// sim-clocked publish gate let every one of those emit its own frame: three
+// full state builds in the same millisecond, arriving at the relay as a burst
+// it can only coalesce. Catch-up is exactly when the fight is busiest.
+test("a versus host publishes on the wall clock, so a catch-up burst is one frame", () => {
+  const { fight, liveFrames, tick } = createFight(false, false);
+  fight.startFightAgainst("versus");
+  tick(50000);
+  const count = liveFrames.length;
+  assert.ok(count > 0, "a versus lobby narrates itself to the grandstand");
+  // Four ticks of simulation with no wall time between them is what a
+  // catch-up pump looks like from inside the game.
+  for (let owed = 0; owed < 4; owed++) tick(0);
+  assert.equal(liveFrames.length, count, "the burst publishes nothing extra");
+  tick(34000);
+  assert.equal(liveFrames.length, count + 1, "and the next real frame does");
+  // The shell used to parse the payload to read one field, parse it again to
+  // re-wrap it, and stringify it back: four passes over the whole state per
+  // publish, on a console, thirty times a second.
+  assert.match(webShell,
+    /'\{"type":"oskiewar:state","content":' \+ payload \+ "\}"/);
+  assert.doesNotMatch(webShell, /content: JSON\.parse\(payload\)/);
 });
 
 test("active matches publish bounded phone spectator snapshots", () => {
@@ -4545,9 +5002,11 @@ test("dummy rounds are untimed and omit the round clock", () => {
   for (let frame = 0; frame < 800; frame++) tick(40000);
   assert.equal(fight.roundState().roundResult, "");
   assert.ok(fight.roundState().roundElapsedUs > 30000000);
-  // The reel harness may put a scripted dummy bout on the clock; the
-  // untimed default survives beneath that exception.
-  assert.match(source, /function roundIsTimed\(\)[\s\S]{0,600}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
+  // The reel harness may put a scripted dummy bout on the clock, and a live
+  // watcher answers for somebody else's round entirely; the untimed default
+  // survives beneath both exceptions. The window is a budget for the
+  // exceptions above it, not a claim about how many there are.
+  assert.match(source, /function roundIsTimed\(\)[\s\S]{0,1000}!\(players\[1\]\.npc && !players\[1\]\.bot\)/);
   assert.match(source, /timedRound \? String\(remainingSeconds\)\.padStart\(2, "0"\) : ""/);
   assert.doesNotMatch(source, /timerText === "∞"/);
 });
@@ -4587,8 +5046,10 @@ test("dummy training has no QR, analytics, spectator feed, or replay upload", ()
   assert.deepEqual(analyticsEvents, []);
   assert.deepEqual(liveFrames, []);
   assert.deepEqual(replays, []);
+  // The guard still stands; a live watcher is the one lane allowed past it,
+  // because for a watcher the code IS the thing they might pass on.
   assert.match(source,
-    /function spectatorQrBox\(\)[\s\S]{0,180}if \(shellMode === "GAME" && !roundIsTimed\(\)\) return null/);
+    /function spectatorQrBox\(\)[\s\S]{0,600}if \(shellMode === "GAME" && !roundIsTimed\(\)\) return null/);
   assert.match(source,
     /if \(!roundIsTimed\(\)\) \{[\s\S]{0,300}replay = null/);
 });

@@ -86,3 +86,42 @@ test("the first live state emits one identifier-free view milestone", () => {
   }]]);
   room.stop();
 });
+
+// A versus room has no stored replay and 404s forever, so the 1800 ms retry
+// loop held the bridge's only timer slot almost all the time. A socket closing
+// inside that window asked to reconnect and was dropped in silence — which is
+// how a third visitor, denied the chair and closed with 4409, wedged on "this
+// match already has a challenger" and never joined the grandstand at all.
+test("a denied chair still reaches the grandstand while the replay retry runs", async () => {
+  const messages = [];
+  let replayTries = 0;
+  const room = new RoundRoom("sezzi7", {
+    WebSocketImpl: Socket,
+    fetchImpl: async () => { replayTries++; return { ok: false }; },
+    role: "challenger",
+    analytics: () => {},
+  });
+  room.start((message) => messages.push(message));
+  const denied = Socket.all.at(-1);
+  assert.match(denied.url, /role=challenger$/, "it asks for the chair first");
+  // Let the replay retry take its slot, the way it does on a live versus room.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.ok(replayTries > 0);
+  assert.ok(room.timers.replay, "the replay retry is armed and holding a slot");
+  // The relay turns the chair down and closes.
+  denied.event("message", JSON.stringify({ type: "oskiewar:error",
+    content: { message: "This match already has a challenger" } }));
+  assert.equal(messages.at(-1).content.label,
+    "This match already has a challenger");
+  const sockets = Socket.all.length;
+  denied.close();
+  assert.ok(room.timers.reconnect,
+    "the reconnect gets its own slot rather than being dropped");
+  await new Promise((resolve) => setTimeout(resolve, 1300));
+  assert.equal(Socket.all.length, sockets + 1, "and it actually reopens");
+  assert.doesNotMatch(Socket.all.at(-1).url, /role=challenger/,
+    "as one more face in the grandstand");
+  room.stop();
+  assert.equal(room.timers.reconnect, null);
+  assert.equal(room.timers.replay, null);
+});

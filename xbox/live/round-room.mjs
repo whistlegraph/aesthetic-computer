@@ -32,7 +32,13 @@ export class RoundRoom {
     this.seatRetryAt = 0;
     this.seat = "";
     this.socket = null;
-    this.timer = null;
+    // Two named slots, not one shared one. A versus room has no stored replay
+    // and 404s forever, so the 1800 ms replay retry below used to hold the
+    // only slot almost all the time — and a socket closing in that window
+    // asked for a reconnect that was silently dropped, which is how a
+    // spectator or a walked-back challenger wedged on "already has a
+    // challenger" and never came back.
+    this.timers = { reconnect: null, replay: null };
     this.listener = null;
     this.live = false;
     this.lastState = null;
@@ -63,6 +69,7 @@ export class RoundRoom {
 
   open() {
     if (this.stopped || !this.WebSocketImpl) return;
+    this.clear("reconnect");
     const generation = ++this.generation;
     const id = `ow-${this.name}`;
     const role = this.role === "challenger" ? "&role=challenger" : "";
@@ -137,7 +144,7 @@ export class RoundRoom {
       this.live = false;
       this.seat = "";
       this.loadDemo();
-      this.schedule(() => this.open(), 1200);
+      this.schedule("reconnect", () => this.open(), 1200);
     };
     socket.addEventListener?.("close", closed);
     socket.addEventListener?.("error", () => socket.close?.());
@@ -186,15 +193,20 @@ export class RoundRoom {
         return;
       }
     } catch {}
-    if (!this.live || force) this.schedule(() => this.loadDemo(force), 1800);
+    if (!this.live || force) this.schedule("replay", () => this.loadDemo(force), 1800);
   }
 
-  schedule(action, delay) {
-    if (this.timer || this.stopped) return;
-    this.timer = setTimeout(() => {
-      this.timer = null;
+  schedule(slot, action, delay) {
+    if (this.timers[slot] || this.stopped) return;
+    this.timers[slot] = setTimeout(() => {
+      this.timers[slot] = null;
       action();
     }, delay);
+  }
+
+  clear(slot) {
+    if (slot) { clearTimeout(this.timers[slot]); this.timers[slot] = null; return; }
+    for (const name of Object.keys(this.timers)) this.clear(name);
   }
 
   move(value) {
@@ -205,8 +217,7 @@ export class RoundRoom {
     this.live = false;
     this.lastState = null;
     this.deliverySeen = new Set();
-    clearTimeout(this.timer);
-    this.timer = null;
+    this.clear();
     ++this.generation;
     this.socket?.close?.(1000, "next round");
     this.socket = null;
@@ -219,8 +230,7 @@ export class RoundRoom {
   stop() {
     this.stopped = true;
     ++this.generation;
-    clearTimeout(this.timer);
-    this.timer = null;
+    this.clear();
     this.seat = "";
     this.socket?.close?.(1000, "leaving");
     this.socket = null;

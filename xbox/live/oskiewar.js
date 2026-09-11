@@ -989,6 +989,20 @@ const players = [
 const activePlayers = () =>
   survivalActive() || lobbyActive() ? [players[0]] : players;
 const impacts = [];
+
+// Every impact gets a number, in order, for the life of the run. A watcher
+// cannot be told "here is a new spark" by a stateless frame that repeats the
+// same list ten times — it has to be able to tell which ones it has already
+// seen, and a position is not an identity. The counter is simulation state:
+// a rollback that re-spawns an impact must re-issue the same number.
+let impactSequence = 0;
+
+function spawnImpact(impact) {
+  impact.id = ++impactSequence;
+  impacts.push(impact);
+  return impact;
+}
+
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
@@ -1226,7 +1240,7 @@ const versusChallengerGraceMs = 2500;
 // The fight streams faster than a grandstand needs, because for the
 // challenger this feed IS the game — their own presses come back to them
 // as pictures through it.
-const versusSnapshotIntervalUs = 33000;
+const versusSnapshotIntervalMs = 33;
 // How long a visitor who arrived through a shared address waits for a host
 // before deciding the room is theirs to claim.
 const versusClaimAfterUs = 2500000;
@@ -1239,10 +1253,14 @@ let versusInputMinNextAt = 0;
 // race can walk them right back on as a challenger.
 let versusFallbackBridge = null;
 
+let versusSeatGraceUntil = 0;
+
 function versusChallengerFresh() {
   // In a rollback fight the rival's presence is the session itself; the
   // sim must not read the wall clock to decide whether the fight goes on.
   if (netSession) return true;
+  // And for a moment after one ends badly, while the rival is changing lanes.
+  if (Date.now() < versusSeatGraceUntil) return true;
   const remote = globalThis.__oskiewarRemotePad;
   if (!remote || !Number.isFinite(remote.at)) return false;
   return Date.now() - remote.at < versusChallengerGraceMs;
@@ -1379,12 +1397,47 @@ let viewerSystemPrevious = [];
 let roundViewerStatus = "CONNECTING";
 let roundViewerDemo = null;
 let roundViewerDemoStartedAt = 0;
-// When the last authoritative LIVE frame landed, in engine microseconds. The
-// grandstand runs at display rate but the wire only arrives ~30×/s and
-// irregularly, so the frames in between dead-reckon off this mark (see
-// updateRoundViewer) instead of freezing on the last snap.
+// When the last authoritative LIVE frame landed, on the WALL clock in
+// milliseconds. Wall, not sim: the frame arrives in a socket callback, where
+// the sim clock is not running, and comparing an arrival stamped by one clock
+// against a deadline read from the other drifted by every dropped tick until
+// the coast fuse below stopped tripping at all.
 let roundViewerLiveAt = 0;
+// The grandstand's playout buffer. Wire frames are no longer painted the
+// instant they land — they queue here with their arrival time and the render
+// reads a clock held a little behind the newest of them, so every frame is
+// drawn by interpolating the two that bracket it. Extrapolation is what is
+// left when the buffer runs dry, not the normal case: a body that coasts on
+// stale velocity walks through the floor and then snaps back, which is the
+// whole of what "glitchy" meant on a guest screen.
+let roundViewerFrames = [];
+// The playout clock, in the same wall milliseconds the queue is stamped in.
+// It advances on the simulation's own dt so the picture moves at the sim's
+// rate, and leans gently toward (now − delay) so it neither runs dry nor
+// falls further and further behind.
+let roundViewerPlayoutMs = 0;
+// How far behind the newest arrival the playout clock sits. One wire frame
+// plus the jitter we have actually measured — enough that the next frame is
+// usually already in hand when the clock reaches the last one.
+let roundViewerDelayMs = 70;
+// Wire health, measured from arrivals alone: mean gap, jitter (mean absolute
+// deviation of the gap), and the share of sequence numbers that never came.
+// These are what the connection meter reads, and what sizes the delay above.
+let roundViewerGapMs = 33;
+let roundViewerJitterMs = 0;
+let roundViewerLossPct = 0;
+let roundViewerSeq = -1;
+let roundViewerSeqHeard = 0;
+let roundViewerSeqExpected = 0;
 let roundViewerImpactTick = -1;
+// The newest impact number this watcher has spawned. The host repeats a mark
+// on every frame it is still burning, so this is what tells a repeat from a
+// new spark.
+let roundViewerImpactId = 0;
+// Whether the round being watched has a clock. The wire says so; the watcher
+// must not answer from its own `roundIsTimed()`, which reads a local fight
+// that is not happening.
+let roundViewerTimed = true;
 let livePublishFailed = false;
 
 // Match names are public URLs and must not collide, so they take real
@@ -1502,6 +1555,13 @@ function startReplay(now) {
 // this wire too, by choice rather than freedom: it runs one room, one stream,
 // no series and no demo, because the shared URL must keep meaning this fight.
 function roundIsTimed() {
+  // A watcher is answering about somebody else's round. Everything below reads
+  // this machine's own fight, which for a watcher is not running — and a
+  // watcher that has not been served a frame yet has no round to report at
+  // all, so it must not paint a countdown for one. A stored demo still falls
+  // through: it IS a local re-run, and it was a timed round when recorded.
+  if (roundViewer && roundViewerMode !== "DEMO")
+    return roundViewerMode === "LIVE" && roundViewerTimed;
   if (survivalActive()) return false;
   // Training runs without a clock — except under the reel harness, where a
   // scripted dummy bout wants the full round apparatus (clock, demo, result
@@ -1559,7 +1619,48 @@ function spectatorState(now, nextRoundId = "") {
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
       removedParts: player.removedParts.slice(),
+      // Three numbers the grandstand already knew how to read and had never
+      // been sent. `applyRoundViewerState` reconstructs the strike spark, the
+      // limb burst and the swing's real arc from them; without them a live
+      // watcher saw a body come apart in silence and every swing froze at one
+      // canned mid-pose. Two decimals is all a fade needs.
+      hit: Math.round((player.hit || 0) * 100) / 100,
+      blockFlash: Math.round((player.blockFlash || 0) * 100) / 100,
+      attackTicks: player.attackKind
+        ? Math.max(0, Math.round((now - player.attackStartedAt) / replayTickUs))
+        : 0,
     })),
+    // Shots and lobs, the fight's projectiles. These used to stay home: a
+    // watcher — and a challenger on an older build — watched fighters flinch
+    // and die with nothing visible in the air between them. Flat number rows
+    // rather than objects, because the relay caps a frame at 8 KiB and 24
+    // rounds plus 12 grenades named longhand is most of that cap on its own.
+    // Velocity rides along so the playout buffer can carry a round smoothly
+    // between arrivals instead of stepping it 140 units at a time.
+    shots: bullets.filter((shot) => shot.life > 0).map((shot) => [
+      Math.round(shot.x), Math.round(shot.y), Math.round(shot.z),
+      Math.round(shot.previousX ?? shot.x),
+      Math.round(shot.previousY ?? shot.y),
+      Math.round(shot.vx || 0), Math.round(shot.vy || 0), shot.owner | 0,
+      (shot.spit ? 1 : 0) | (shot.heavy ? 2 : 0) | (shot.rubber ? 4 : 0)]),
+    // The host's own impact track. A watcher was reconstructing sparks from
+    // the flag edges it could see, which covers a punch landing and nothing
+    // else: a ricochet, a spit splat, a ground pound's crater and a grenade's
+    // own blast raise no flag on any fighter, so they happened in silence on
+    // every screen but the host's. Newest twelve, each with the number that
+    // says whether a watcher has already seen it, and its remaining life so
+    // it is spawned at the age it really is.
+    impacts: impacts.filter((mark) => mark.life > 0).slice(-12)
+      .map((mark) => [mark.id | 0, Math.round(mark.x), Math.round(mark.y),
+        Math.round(mark.z), Math.round((mark.duration || .3) * 1000),
+        Math.round(Math.max(0, mark.life) * 1000),
+        (mark.death ? 1 : 0) | (mark.explosion ? 2 : 0)]),
+    lobs: grenades.filter((lob) => lob.alive).map((lob) => [
+      Math.round(lob.x), Math.round(lob.y), Math.round(lob.z),
+      Math.round(lob.vx || 0), Math.round(lob.vy || 0), lob.owner | 0,
+      (lob.rocket ? 1 : 0) | (lob.exploding ? 2 : 0),
+      Math.round(lob.blastRadius || 0),
+      Math.round(Math.max(0, lob.fuse || 0) * 1000)]),
     ball: { active: ball.active, x: ball.x, y: ball.y,
       z: ball.z, radius: ball.radius, type: ball.type, mass: ball.mass },
     balls: balls.map((item) => ({ active: item.active, x: item.x,
@@ -1572,7 +1673,13 @@ function spectatorState(now, nextRoundId = "") {
       roll: cameraDoll.roll },
     wind: { direction: windDirection, mph: windMph },
     round: { remainingMs, timed, result: roundResult || "",
-      cause: roundCause || "" },
+      cause: roundCause || "",
+      // How long this round has been running, intro included. A timed round
+      // could be reconstructed from `remainingMs` alone, but the versus lane
+      // reports zero there — and a watcher deriving its clock from that zero
+      // pinned itself thirty seconds in the past, which is why it never
+      // counted a round off and never played an intro card.
+      elapsedMs: clamp(Math.round((now - roundStartedAt) / 1000), 0, 3600000) },
     // @jeffrey plays oskiewar.com in Edge on an Xbox, where there are no
     // devtools and the console's own AC_NATIVE_PROFILE line only reaches a
     // Device Portal on the same LAN. The live socket is the one channel that
@@ -2672,8 +2779,16 @@ function publishVersus(now) {
   // the room's one publisher socket.
   if (netSession && netSession.seat !== 0) return;
   if (netSilent || !versusLane() || !versusRoomName || livePublishFailed ||
-      typeof publishLive !== "function" || now < versusNextAt) return;
-  versusNextAt = now + versusSnapshotIntervalUs;
+      typeof publishLive !== "function") return;
+  // Paced on the WALL clock, not the simulation's. The driver runs up to four
+  // owed ticks in one instant to catch up, and a sim-clocked gate let every
+  // one of those emit its own frame — two or three full state builds in the
+  // same millisecond, arriving at the relay as a burst it can only coalesce.
+  // Catch-up is exactly when the fight is busiest, so the cost landed where
+  // there was least room for it. Wall time makes a burst one frame.
+  const wall = runtime().unixMs || 0;
+  if (wall && wall < versusNextAt) return;
+  versusNextAt = wall + versusSnapshotIntervalMs;
   try {
     publishLive("ow-" + versusRoomName, JSON.stringify(spectatorState(now)));
   } catch (error) {
@@ -2698,7 +2813,9 @@ function updateVersusConflict(now) {
   roundViewerMode = "";
   roundViewerDemo = null;
   roundViewerStatus = "CONNECTING";
+  resetRoundViewerPlayout();
   shellMode = "GAME";
+  gameplayStarted = true;
   selecting = false;
   roundResult = "";
   matchOver = false;
@@ -2737,6 +2854,23 @@ function updateVersusSeat(now) {
   }
 }
 
+// A dead body falling. No input, no collision with anybody, no ledges: a
+// corpse is not a fighter and must not catch a rung it would have caught
+// alive. It drops, it lands on the ground under it, and it stops.
+function settleCorpse(player, dt) {
+  if (player.grounded) return;
+  player.vy += fallGravity * dt;
+  player.x += player.vx * dt;
+  player.y += player.vy * dt;
+  player.vx *= .96;
+  const terrainY = terrainFloorAt(player.x);
+  if (player.y < terrainY) return;
+  player.y = terrainY;
+  player.vy = 0;
+  player.vx = 0;
+  player.grounded = true;
+}
+
 // The waiting room owes its lone fighter a real death. In a fight the
 // round system rebuilds a destroyed body, but the lobby has no rounds — a
 // fighter blasted apart would hop the empty room forever as a ghost among
@@ -2759,12 +2893,13 @@ function updateLobbyMortality(now) {
   player.alive = false;
   player.lobbyDeathDressed = true;
   player.respawnAt = now + 2500000;
+  // Horizontal drive goes; the fall does not. Zeroing both used to be
+  // invisible because nothing moved the body afterwards either.
   player.vx = 0;
-  player.vy = 0;
   player.stance = "HIT";
   player.lastButton = "DESTROYED";
   player.lastButtonAt = now;
-  impacts.push({ x: player.x, y: player.y - 60, z: player.z, life: .55,
+  spawnImpact({ x: player.x, y: player.y - 60, z: player.z, life: .55,
     duration: .55, death: true, explosion: false });
   playDrum("whoosh", 1.15, panPlayer(player));
 }
@@ -3437,7 +3572,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     // impact track (replayViewerImpacts), so this reconstruction is LIVE-only.
     const wasAlive = player.alive;
     const wasHit = player.hit || 0;
-    const priorLimbs = player.removedParts?.length || 0;
+    const priorParts = player.removedParts?.slice() || [];
     for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
       "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
       if (source[key] !== undefined) player[key] = source[key];
@@ -3465,13 +3600,37 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     // burst from the flag edges the wire DOES carry — a fresh hit, a new
     // missing part, a death — so live watchers see the blow land.
     if (roundViewerMode === "LIVE") {
-      if (player.hit > .4 && wasHit <= .4)
+      // Reconstructing the strike spark is the fallback for a host too old to
+      // send its impact track. When the real track is on the frame it wins:
+      // it is the same spark, in the right place, and doubling them reads as
+      // a heavier hit than the one that landed.
+      if (!state.impacts && player.hit > .4 && wasHit <= .4)
         impacts.push({ x: player.x, y: player.y - 90, z: player.z,
           life: .32, duration: .32, death: false, explosion: true });
-      const lostLimb = (player.removedParts?.length || 0) > priorLimbs;
-      if (lostLimb || (wasAlive && !player.alive))
+      const nowParts = player.removedParts || [];
+      // A fighter who came back whole is a new round, not a healed limb.
+      const lost = nowParts.length < priorParts.length ? []
+        : nowParts.filter((part) => !priorParts.includes(part));
+      if (nowParts.length < priorParts.length) clearRoundViewerEffects();
+      if (!state.impacts && (lost.length || (wasAlive && !player.alive)))
         impacts.push({ x: player.x, y: player.y - 60, z: player.z,
           life: .55, duration: .55, death: true, explosion: false });
+      // And the limb itself goes flying. The wire says which part is gone; it
+      // does not say where the pieces went, and the pieces are the part of a
+      // dismemberment anybody actually watches. They are spawned from the
+      // fighter's own pose here and then fall under local physics, so they
+      // land where the body stands rather than where a packet said it did.
+      if (lost.length && detachedParts.length < 48) {
+        // Posed from BEFORE the loss, on a copy: the wire's removedParts are
+        // already applied to the live fighter, and a body's geometry no
+        // longer carries the limbs it has lost — so asking the fighter as it
+        // stands now returns no segments to throw.
+        const pose = runnerWorldGeometry({ ...player, removedParts: priorParts },
+          (now - startedAt) / 1000000);
+        const rival = players[player.pad === 0 ? 1 : 0];
+        for (const part of lost)
+          spawnDetachedPart(player, part, pose, rival?.x ?? player.x, now);
+      }
     }
   }
   const sources = state.balls || [state.ball];
@@ -3482,6 +3641,13 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       "type", "mass", "heldBy"])
       if (source[key] !== undefined) balls[index][key] = source[key];
   }
+  // A frame that carries no projectile rows is an older host or a stored
+  // demo, and its shots are simply unknown — leaving the arrays alone is the
+  // honest answer. A frame that carries an empty row set is a host saying the
+  // air is clear, and that clears it.
+  if (state.shots) applyWireShots(state.shots);
+  if (state.lobs) applyWireLobs(state.lobs);
+  if (state.impacts) applyWireImpacts(state.impacts);
   cameraCenter = state.camera.x;
   cameraCenterY = state.camera.y;
   cameraWidth = state.camera.width;
@@ -3494,9 +3660,24 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
   roundResult = state.round.result || "";
   roundCause = state.round.cause ||
     (roundResult.includes("BALLED") ? "BALLED" : roundResult ? "ROUND" : "");
-  roundElapsedUs = Math.max(0, roundDurationUs - state.round.remainingMs * 1000);
+  // Whether the round on the wire has a clock is the HOST's fact, not a thing
+  // to re-derive locally: `roundIsTimed()` answers from the machine it runs
+  // on, and a watcher's machine is not in the fight. A demo carries no flag
+  // and was always a timed, recorded round.
+  roundViewerTimed = state.round.timed !== false;
+  // The round's own age, intro included, straight off the wire. Deriving it
+  // from `remainingMs` instead is what broke the versus lane: that field is
+  // zero on an untimed round, so the clock landed a full round duration in
+  // the past, `counting` was never true, and the intro card never drew.
+  const elapsedUs = Number.isFinite(state.round.elapsedMs)
+    ? state.round.elapsedMs * 1000 : null;
+  roundElapsedUs = roundViewerTimed
+    ? Math.max(0, roundDurationUs - state.round.remainingMs * 1000)
+    : elapsedUs === null ? 0
+    : Math.max(0, elapsedUs - roundIntroDurationUs());
   matchOver = state.phase === "match";
-  roundStartedAt = now - roundIntroDurationUs() - roundElapsedUs;
+  roundStartedAt = elapsedUs === null
+    ? now - roundIntroDurationUs() - roundElapsedUs : now - elapsedUs;
   if (roundResult && !hadResult) roundOverAt = now;
   const target = state.camera.target || { x: cameraCenter, y: cameraCenterY, z: 0 };
   cameraDoll.track({ target,
@@ -3506,6 +3687,60 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     fov: state.camera.fov || 55, roll: state.camera.roll || 0 }, dt, 1000);
 }
 
+// Shots and lobs arrive as the flat number rows spectatorState packs (owner
+// and kind folded into one flag word). They are rebuilt rather than merged:
+// a round has no identity on the wire, so matching this frame's third bullet
+// to last frame's third bullet would be a guess, and a wrong guess teleports
+// a streak across the arena. The arrays themselves keep their identity — the
+// camera's swept-path packer and the render interpolator both hold references
+// to them.
+function applyWireShots(rows) {
+  bullets.length = 0;
+  for (const row of rows) {
+    const [x, y, z, previousX, previousY, vx, vy, owner, flags] = row;
+    bullets.push({ x, y, z, previousX, previousY, vx, vy,
+      owner: owner === 1 ? 1 : 0, life: 1, safeUntil: 0,
+      spit: Boolean(flags & 1), heavy: Boolean(flags & 2),
+      rubber: Boolean(flags & 4),
+      // No bounce history came up the wire, so a watched round draws its
+      // streak and no ricochet tail. drawBulletTrail reads the count first
+      // and an empty one costs it nothing.
+      trail: [], trailCount: 0 });
+  }
+}
+
+// The host's impact track, which repeats each mark for as long as it burns.
+// The id is what makes a repeat readable as a repeat: a watcher spawns only
+// the numbers it has not seen, at the age the frame reports, and then runs
+// them out on its own physics.
+function applyWireImpacts(rows) {
+  if (!rows.length) return;
+  const newest = rows[rows.length - 1][0];
+  // Numbers only climb within one host's run. A lower one is a different
+  // host, or the same one restarted, and nothing before it has been seen.
+  if (newest < roundViewerImpactId) roundViewerImpactId = 0;
+  for (const row of rows) {
+    const [id, x, y, z, durationMs, lifeMs, flags] = row;
+    if (id <= roundViewerImpactId) continue;
+    impacts.push({ x, y, z, duration: durationMs / 1000,
+      life: Math.max(.001, lifeMs / 1000),
+      death: Boolean(flags & 1), explosion: Boolean(flags & 2) });
+  }
+  roundViewerImpactId = Math.max(roundViewerImpactId, newest);
+}
+
+function applyWireLobs(rows) {
+  grenades.length = 0;
+  for (const row of rows) {
+    const [x, y, z, vx, vy, owner, flags, blastRadius, fuseMs] = row;
+    // Only live grenades ride out, so anything here is alive by definition —
+    // which is also what puts it in the render list.
+    grenades.push({ x, y, z, vx, vy, owner: owner === 1 ? 1 : 0, alive: true,
+      rocket: Boolean(flags & 1), exploding: Boolean(flags & 2),
+      blastRadius, blastAge: 0, fuse: fuseMs / 1000, hitPlayers: 0 });
+  }
+}
+
 function handleRoundViewer(message) {
   const now = runtime().monotonicUs;
   matchName = message.roundName || matchName;
@@ -3513,10 +3748,14 @@ function handleRoundViewer(message) {
     roundViewerDemo = null;
     roundViewerMode = "";
     roundViewerStatus = "CONNECTING";
+    resetRoundViewerPlayout();
     return;
   }
   if (message.type === "status") {
     roundViewerStatus = String(message.content?.label || "waiting").toUpperCase();
+    // A room that goes dark keeps no queue: whatever arrives next belongs to
+    // a new timeline, and a stale frame blended into it is a teleport.
+    if (message.content?.live === false) resetRoundViewerPlayout();
     return;
   }
   if (message.type === "demo") {
@@ -3537,6 +3776,7 @@ function handleRoundViewer(message) {
     roundViewerDemo = message.content;
     roundViewerDemoStartedAt = now;
     roundViewerMode = "DEMO";
+    resetRoundViewerPlayout();
     globalThis.__oskiewarReplayReady = true;
     return;
   }
@@ -3550,18 +3790,91 @@ function handleRoundViewer(message) {
     if (roundViewerDemo && !message.live) return;
     if (roundViewerDemo && message.content?.phase === "match") return;
     roundViewerMode = "LIVE";
-    applyRoundViewerState(message.content, now);
-    roundViewerLiveAt = now;
+    queueRoundViewerState(message.content);
   }
 }
 
-// How far past the last authoritative frame the grandstand keeps coasting on
-// wire velocity before it holds still. One frame carries fresh vx/vy, so a
-// short coast is honest and self-correcting — the next frame snaps to truth.
-// Past this the velocity is stale enough that coasting would walk a fighter
-// through a wall or float them past a jump's apex, so a long wire gap freezes
-// the pose instead of inventing motion.
-const liveDeadReckonMaxUs = 150000;
+// A fresh timeline: a room change, a takeover, a host that went away. The
+// queue, the playout clock and the measured health all start over, because
+// every one of them is a statement about a wire that no longer exists.
+// Sparks, debris and fallen limbs belong to one round on one wire. A new
+// round, a new room or a host that went away takes them with it.
+function clearRoundViewerEffects() {
+  impacts.length = 0;
+  detachedParts.length = 0;
+  roundViewerImpactId = 0;
+}
+
+function resetRoundViewerPlayout() {
+  clearRoundViewerEffects();
+  roundViewerFrames = [];
+  roundViewerPlayoutMs = 0;
+  roundViewerLiveAt = 0;
+  roundViewerGapMs = 33;
+  roundViewerJitterMs = 0;
+  roundViewerLossPct = 0;
+  roundViewerSeq = -1;
+  roundViewerSeqHeard = 0;
+  roundViewerSeqExpected = 0;
+}
+
+// A frame lands here, in a socket callback, between one simulation tick and
+// the next paint. Painting it from inside that callback is what smeared every
+// correction across two frames: the render interpolator had already captured
+// the pre-frame pose, so the next paint landed partway into the new state and
+// the one after finished the jump. So the frame is only filed — stamped with
+// its arrival and measured — and the tick decides when it is due.
+function queueRoundViewerState(state) {
+  const at = Date.now();
+  const gap = roundViewerLiveAt ? at - roundViewerLiveAt : 0;
+  roundViewerLiveAt = at;
+  if (gap > 0 && gap < 2000) {
+    roundViewerGapMs += (gap - roundViewerGapMs) * .12;
+    roundViewerJitterMs +=
+      (Math.abs(gap - roundViewerGapMs) - roundViewerJitterMs) * .12;
+  }
+  // Loss read off the host's own sequence numbers, over a rolling window.
+  // This is where the relay's coalescing shows: a frame it dropped inside its
+  // 25 ms gate leaves a hole in the count that nothing else on this side can
+  // see. A takeover or a fresh room rewinds the sequence, which restarts the
+  // window rather than reading as a hundred lost frames.
+  const seq = Number(state?.seq);
+  if (Number.isFinite(seq)) {
+    if (roundViewerSeq >= 0 && seq > roundViewerSeq) {
+      roundViewerSeqExpected += seq - roundViewerSeq;
+      roundViewerSeqHeard += 1;
+      if (roundViewerSeqExpected >= 180) {
+        roundViewerLossPct = clamp(Math.round(
+          (1 - roundViewerSeqHeard / roundViewerSeqExpected) * 100), 0, 100);
+        roundViewerSeqExpected = 0;
+        roundViewerSeqHeard = 0;
+      }
+    } else {
+      roundViewerSeqExpected = 0;
+      roundViewerSeqHeard = 0;
+    }
+    roundViewerSeq = seq;
+  }
+  // One wire frame plus twice the jitter actually measured, held inside a
+  // window where a buffer is still worth more than it costs. The delay itself
+  // moves slowly: resizing it quickly would time-warp the picture.
+  const want = clamp(roundViewerGapMs + roundViewerJitterMs * 2 + 8, 45, 220);
+  roundViewerDelayMs += (want - roundViewerDelayMs) * .05;
+  roundViewerFrames.push({ state, at });
+  // A ceiling, not a working depth: the playout holds about three frames.
+  // This only catches a tab whose simulation parked while the wire kept
+  // arriving, and the clock's own thousand-millisecond reset sorts out the
+  // rest when the tab comes back.
+  if (roundViewerFrames.length > 32) roundViewerFrames.shift();
+}
+
+// How far past the newest frame in hand the grandstand keeps coasting on wire
+// velocity before it holds still. Inside the buffer nothing coasts at all —
+// the pose is blended between two frames the host really sent. Past the
+// buffer the velocity goes stale fast enough that coasting walks a fighter
+// through a wall or floats them past a jump's apex, so a long gap freezes the
+// pose instead of inventing motion.
+const liveDeadReckonMaxMs = 150;
 
 function updateRoundViewer(now, dt) {
   if (roundViewerDemo && roundViewerMode === "DEMO") {
@@ -3570,25 +3883,146 @@ function updateRoundViewer(now, dt) {
       applyRoundViewerState(state, now, dt);
       replayViewerImpacts(state.tick, dt);
     }
-  } else if (roundViewerMode === "LIVE" &&
-      now - roundViewerLiveAt < liveDeadReckonMaxUs) {
-    // Between the ~30 irregular frames a second the wire delivers, coast every
-    // moving body along its last reported velocity so the render runs the same
-    // smooth 60 as a hosted fight instead of teleporting on each arrival.
-    for (const player of players) {
-      if (!player.alive) continue;
-      // Coast the delta only — the host's reported position is truth and may
-      // sit anywhere it says (legacy rooms even ran off the cube). The 150ms
-      // horizon above bounds any overshoot, and the next snap corrects it.
-      player.x += (player.wireVx || 0) * dt;
-      player.y += (player.wireVy || 0) * dt;
-    }
-    for (const ball of balls) {
-      if (!ball.active) continue;
-      ball.x += (ball.vx || 0) * dt;
-      ball.y += (ball.vy || 0) * dt;
-    }
+    return;
   }
+  if (roundViewerMode !== "LIVE" || !roundViewerFrames.length) return;
+  const wall = Date.now();
+  const target = wall - roundViewerDelayMs;
+  // A first frame, or a wire that stopped and came back, sets the clock
+  // outright. Every other tick advances it by the simulation's own dt and
+  // leans a twentieth of the way toward where it belongs. Leaning rather than
+  // snapping is what keeps the picture's rate the sim's rate: a clock pinned
+  // to the wall every tick replays the network's jitter as motion.
+  if (!roundViewerPlayoutMs || Math.abs(target - roundViewerPlayoutMs) > 1000)
+    roundViewerPlayoutMs = target;
+  else roundViewerPlayoutMs += dt * 1000 +
+    (target - roundViewerPlayoutMs) * .05;
+  const play = roundViewerPlayoutMs;
+  // Hold exactly one frame behind the clock: it is the left end of the pair
+  // being blended, and the one to coast from if the buffer runs dry.
+  while (roundViewerFrames.length > 1 && roundViewerFrames[1].at <= play)
+    roundViewerFrames.shift();
+  const before = roundViewerFrames[0].at <= play ? roundViewerFrames[0] : null;
+  const after = before ? roundViewerFrames[1] : roundViewerFrames[0];
+  if (before && after) {
+    const span = Math.max(1, after.at - before.at);
+    const alpha = clamp((play - before.at) / span, 0, 1);
+    applyRoundViewerState(blendRoundViewerStates(before.state, after.state,
+      alpha, (play - before.at) / 1000), now, dt);
+    updateRoundViewerEffects(dt);
+    return;
+  }
+  // Starved, or not yet arrived at the first frame. The newest thing in hand
+  // is the truth; past it the bodies coast on the velocity that frame
+  // reported — measured from that frame's own position, so the reckoning is
+  // never compounded and the next arrival needs no correcting snap.
+  const edge = before || after;
+  applyRoundViewerState(edge.state, now, dt);
+  if (before)
+    coastRoundViewer(Math.min(play - before.at, liveDeadReckonMaxMs) / 1000);
+  updateRoundViewerEffects(dt);
+}
+
+// The half of the fight a watcher is allowed to run for itself. Sparks, their
+// debris and the limbs that came off are cosmetic: nothing here decides a hit
+// or a score, so none of it has to agree with the host bit for bit — it only
+// has to happen. Before this, `impacts` grew for the life of the connection
+// and never drew a mote, because the function that grows an impact's debris
+// ran only in a demo or a hosted sim.
+function updateRoundViewerEffects(dt) {
+  updateResultImpactDebris(dt);
+  if (detachedParts.length) updateDetachedParts(dt, false);
+}
+
+// Dead reckoning, and only past the end of the buffer.
+function coastRoundViewer(seconds) {
+  if (seconds <= 0) return;
+  for (const player of players) {
+    if (!player.alive) continue;
+    // Coast the delta only — the host's reported position is truth and may
+    // sit anywhere it says (legacy rooms even ran off the cube).
+    player.x += (player.wireVx || 0) * seconds;
+    player.y += (player.wireVy || 0) * seconds;
+  }
+  for (const item of balls) {
+    if (!item.active) continue;
+    item.x += (item.vx || 0) * seconds;
+    item.y += (item.vy || 0) * seconds;
+  }
+  // Both ends of a shot move together: the streak's length is the round's
+  // speed, not the size of the gap we are papering over.
+  for (const shot of bullets) {
+    shot.x += (shot.vx || 0) * seconds;
+    shot.y += (shot.vy || 0) * seconds;
+    shot.previousX += (shot.vx || 0) * seconds;
+    shot.previousY += (shot.vy || 0) * seconds;
+  }
+  for (const lob of grenades) {
+    if (lob.exploding) continue;
+    lob.x += (lob.vx || 0) * seconds;
+    lob.y += (lob.vy || 0) * seconds;
+  }
+}
+
+// The pose the grandstand actually paints: two frames the host really sent,
+// blended. Continuous quantities interpolate; everything discrete — who is
+// alive, which limbs are gone, what phase the round is in — comes from the
+// frame already reached, because a fighter must not die before the pose that
+// killed them has finished arriving.
+const blendFighterKeys = ["x", "y", "z", "vx", "vy", "vz", "hit",
+  "blockFlash", "attackTicks"];
+const blendCameraKeys = ["x", "y", "width", "perspective", "fov", "roll"];
+const blendPointKeys = ["x", "y", "z"];
+
+function blendNumbers(from, to, keys, t) {
+  const out = { ...from };
+  if (!to) return out;
+  for (const key of keys) {
+    const a = Number(from?.[key]);
+    const b = Number(to[key]);
+    if (Number.isFinite(a) && Number.isFinite(b)) out[key] = a + (b - a) * t;
+  }
+  return out;
+}
+
+function blendRoundViewerStates(from, to, t, seconds) {
+  const state = { ...from };
+  state.fighters = (from.fighters || []).map((fighter, index) =>
+    blendNumbers(fighter, to.fighters?.[index], blendFighterKeys, t));
+  const blendBall = (ball, other) =>
+    ball ? blendNumbers(ball, other, blendPointKeys, t) : ball;
+  if (from.balls)
+    state.balls = from.balls.map((ball, index) =>
+      blendBall(ball, to.balls?.[index]));
+  if (from.ball) state.ball = blendBall(from.ball, to.ball);
+  if (from.camera) {
+    state.camera = blendNumbers(from.camera, to.camera, blendCameraKeys, t);
+    for (const part of ["position", "target"])
+      if (from.camera[part]) state.camera[part] =
+        blendNumbers(from.camera[part], to.camera?.[part], blendPointKeys, t);
+  }
+  // Projectiles have no identity on the wire, so they are carried forward on
+  // their own reported velocity rather than matched against the next frame's
+  // rows — a wrong match teleports a streak across the arena. A shot flies
+  // straight, so this is not an approximation of the host's path, it IS it.
+  if (from.shots) state.shots = from.shots.map((row) => {
+    const [x, y, z, previousX, previousY, vx, vy, owner, flags] = row;
+    return [x + vx * seconds, y + vy * seconds, z,
+      previousX + vx * seconds, previousY + vy * seconds, vx, vy, owner, flags];
+  });
+  if (from.lobs) state.lobs = from.lobs.map((row, index) => {
+    const [x, y, z, vx, vy, owner, flags, blastRadius, fuseMs] = row;
+    const next = to.lobs?.[index];
+    // A blast's ring grows over a fifth of a second, which is six wire
+    // frames — steppy enough to see. It blends when the next frame plainly
+    // holds the same blast; otherwise the radius stands.
+    const radius = next && next[6] === flags && next[5] === owner
+      ? blastRadius + (next[7] - blastRadius) * t : blastRadius;
+    const moving = flags & 2 ? 0 : seconds;
+    return [x + vx * moving, y + vy * moving, z, vx, vy, owner, flags,
+      radius, fuseMs];
+  });
+  return state;
 }
 
 // The buttons a challenger's pad may carry up the wire — the fight's own
@@ -3596,6 +4030,9 @@ function updateRoundViewer(now, dt) {
 // toggle the host's debug overlay or send their game back to the title.
 const versusInputButtons = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
   "A", "B", "X", "Y", "LeftShoulder", "RightShoulder"];
+// The buttons of the last frame the wire actually took, held apart from the
+// whole frame so a press can be told from a stick twitch.
+let versusInputLastDown = "[]";
 
 // The challenger's half of the versus wire: sample the local pad, ship it on
 // change, and heartbeat while idle so silence can mean absence. Sends pace
@@ -3611,11 +4048,24 @@ function sendChallengerInput(now) {
   const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
   const frame = { down, leftX: round2(pad.leftX), leftY: round2(pad.leftY) };
   const worn = JSON.stringify(frame);
-  if (worn !== versusInputLastSent) {
-    if (now < versusInputMinNextAt) return;
-  } else if (now < versusInputNextAt) return;
+  // A button edge leaves at once. The 33 ms floor was written to pace a
+  // stick, which drifts continuously and would otherwise send every tick —
+  // but a press is a discrete event, and holding one back for up to two
+  // frames put a third of a display's lag into the one thing a player feels
+  // most. Only the analog half still waits.
+  const pressed = JSON.stringify(down);
+  const edge = pressed !== versusInputLastDown;
+  if (!edge) {
+    if (worn !== versusInputLastSent) {
+      if (now < versusInputMinNextAt) return;
+    } else if (now < versusInputNextAt) return;
+  }
   versusInputMinNextAt = now + 33000;
-  versusInputNextAt = now + 250000;
+  // An unchanged frame is repeated once soon after a change, then settles
+  // into the idle heartbeat. The relay drops what arrives too fast and says
+  // nothing about it, so a lost edge used to be invisible for a quarter of a
+  // second; one cheap echo closes that window without adding a protocol.
+  versusInputNextAt = now + (edge ? 50000 : 250000);
   const identity = acFeed?.player;
   const colors = (Array.isArray(identity?.colors) ? identity.colors : [])
     .map((entry) => Array.isArray(entry)
@@ -3625,7 +4075,10 @@ function sendChallengerInput(now) {
     .slice(0, 4);
   if (roundViewer.sendInput({ seq: versusInputSeq++, ...frame,
     name: identity?.handle ? String(identity.handle).toUpperCase() : "",
-    colors })) versusInputLastSent = worn;
+    colors })) {
+    versusInputLastSent = worn;
+    versusInputLastDown = pressed;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -3709,6 +4162,7 @@ function netSimScalars() {
     roundCause,
     deathCinematic,
     impactHitboxesUntil,
+    impactSequence,
     fightOpponent,
     survivalStartedAt,
     survivalLavaY,
@@ -3760,6 +4214,7 @@ function netRestoreScalars(saved) {
     roundCause,
     deathCinematic,
     impactHitboxesUntil,
+    impactSequence,
     fightOpponent,
     survivalStartedAt,
     survivalLavaY,
@@ -3840,7 +4295,16 @@ function netStateHash() {
     player.heldBall, player.removedParts, player.dashUntil]);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
-  view.push(bullets.length, grenades.length, roundResult, roundElapsedUs,
+  // Projectiles by position, not just by count. A round whose flight differs
+  // between the two machines kills different fighters, and hashing only the
+  // length let that drift silently: the count matched right up to the frame
+  // one seat's bullet connected and the other's missed.
+  view.push(bullets.map((shot) => [shot.x, shot.y, shot.z, shot.vx, shot.vy,
+    shot.owner, shot.life]));
+  view.push(grenades.map((lob) => [lob.x, lob.y, lob.z, lob.vx, lob.vy,
+    lob.owner, lob.fuse, lob.alive, lob.exploding, lob.blastRadius,
+    lob.hitPlayers]));
+  view.push(roundResult, roundElapsedUs,
     matchOver, roundStartedAt, roundOverAt);
   const text = JSON.stringify(view);
   let hash = 0x811c9dc5;
@@ -3928,8 +4392,16 @@ function netBegin(deal, seat, send) {
     remoteFrame: -1, remoteSimFrame: 0, lastRemoteMask: 0, ackFrame: -1,
     confirmed: -1, hashes: new Map(), peerHashes: new Map(),
     lastPacketAt: Date.now(), startedAt: Date.now(), ticks: 0,
+    // peerStamp is the newest wall-clock mark heard from the rival, echoed
+    // back on our next packet so they can read their own round trip; pingMs is
+    // ours, read from the echoes coming the other way.
+    peerStamp: 0,
     stats: { rollbacks: 0, rolledFrames: 0, maxRollback: 0, stalls: 0,
-      waits: 0, sent: 0, received: 0, desyncs: 0, snapshotMs: 0, resimMs: 0 } };
+      waits: 0, sent: 0, received: 0, desyncs: 0, snapshotMs: 0, resimMs: 0,
+      // `pings` counts measurements, not milliseconds: a round trip under half
+      // a millisecond rounds to zero, and a meter that reads "no measurement
+      // yet" on a LAN would be wrong at exactly the moment it is best.
+      pings: 0, pingMs: 0 } };
   for (let frame = 0; frame < deal.delay; frame++) session.local.set(frame, 0);
   netSession = session;
   netClockUs = deal.origin;
@@ -3959,6 +4431,16 @@ function netLeave(reason) {
 function netEnd(reason) {
   if (!netSession) return;
   const stats = netSession.stats;
+  // A seat in a rollback fight sends net packets, not pads, so the moment
+  // this lane closes the host has heard nothing on the pad wire for as long
+  // as the fight lasted. Read literally that is an empty chair, and an empty
+  // chair resets the match — which would turn a repaired desync into a lost
+  // score. The grace covers the changeover; a rival who has genuinely gone
+  // still times out, just three seconds later.
+  if (reason === "desync" || reason === "desync-peer")
+    versusSeatGraceUntil = Date.now() + 3000;
+  // The stream this seat is about to start watching again is a new timeline.
+  if (roundViewer) resetRoundViewerPlayout();
   // Time never runs backwards: the local clock picks up where the fight's
   // clock stood, so every deadline the fight left behind is still meaningful.
   scaledClockUs = Math.max(scaledClockUs,
@@ -4054,11 +4536,17 @@ function netPrune(session) {
 
 function netDrainInbox(session) {
   const remoteSeat = session.seat === 0 ? 1 : 0;
-  for (const packet of netInbox) {
+  // Taken as a batch: a hash mismatch inside this loop ends the session and
+  // empties the inbox underneath it.
+  const batch = netInbox.splice(0, netInbox.length);
+  for (const packet of batch) {
     if (!packet || typeof packet !== "object") continue;
     session.lastPacketAt = Date.now();
     session.stats.received++;
     if (packet.t === "bye") { session.peerLeft = true; continue; }
+    // The rival noticed the divergence first. Same repair from this side, and
+    // no answering packet: a desync that echoed would ping-pong.
+    if (packet.t === "desync") { session.peerDesync = true; continue; }
     if (packet.t === "i" && Array.isArray(packet.m) &&
         Number.isInteger(packet.f)) {
       // m[k] is the pad for frame f + k; the newest is the last.
@@ -4074,11 +4562,25 @@ function netDrainInbox(session) {
       }
       if (Number.isInteger(packet.a)) session.ackFrame = Math.max(session.ackFrame, packet.a);
       if (Number.isInteger(packet.s)) session.remoteSimFrame = Math.max(session.remoteSimFrame, packet.s);
+      // Ping, by echo. `w` is the rival's own mark, which we hold and send
+      // back; `e` is one of ours coming home, so the round trip is a
+      // subtraction in OUR clock and the two machines need no shared time.
+      // It reads up to one frame long, because the rival holds our mark until
+      // their next tick — an honest part of what a press actually costs.
+      if (Number.isInteger(packet.w)) session.peerStamp = packet.w;
+      if (Number.isInteger(packet.e) && packet.e > 0) {
+        const trip = Date.now() - packet.e;
+        if (trip >= 0 && trip < 4000) {
+          session.stats.pingMs = session.stats.pings
+            ? session.stats.pingMs + (trip - session.stats.pingMs) * .15 : trip;
+          session.stats.pings++;
+        }
+      }
       if (Array.isArray(packet.h) && packet.h.length === 2)
         netNotePeerHash(session, packet.h[0], packet.h[1], remoteSeat);
+      if (netSession !== session) return;
     }
   }
-  netInbox.length = 0;
 }
 
 function netNotePeerHash(session, frame, hash) {
@@ -4088,7 +4590,36 @@ function netNotePeerHash(session, frame, hash) {
   if (mine !== hash) {
     session.stats.desyncs++;
     telemetry("NET_DESYNC", "frame " + frame + " mine " + mine + " theirs " + hash);
+    netDesyncRepair(session, frame);
   }
+}
+
+// A desync used to be counted and then lived with: two machines that are no
+// longer playing the same fight went on playing their different ones, and the
+// two people found out when one of them died on a screen where they had not
+// been hit.
+//
+// The repair is to stop pretending there are two authorities. The host has
+// one, so both seats fall back to the lane where the host IS the authority:
+// the challenger goes back to watching the host's stream with its pads going
+// up the wire, and the host resumes the streamed versus fight it was already
+// publishing for the grandstand. The fight does not stop, it does not rewind,
+// and nobody has to re-adopt a state that will not fit through a 2 KiB
+// channel. What it costs is the rollback lane's latency, which is the honest
+// price of one machine having been wrong.
+//
+// Both seats have to agree, or the host sits waiting for packets that are not
+// coming — so the seat that notices says so, and both then refuse to open a
+// rollback session again for a while. Without that cooldown the challenger's
+// next hello would deal a fresh session into the same divergence, one second
+// later, forever.
+const NET_DESYNC_COOLDOWN_MS = 60000;
+let netLaneBlockedUntil = 0;
+
+function netDesyncRepair(session, frame) {
+  netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+  try { session.send({ t: "desync", f: frame }); } catch (_) {}
+  netEnd("desync");
 }
 
 // Our state hash at the newest frame both pads are known for — a frame that
@@ -4128,7 +4659,8 @@ function netSendInputs(session) {
   for (let frame = first; frame <= newest; frame++)
     masks.push(session.local.get(frame) ?? 0);
   const packet = { t: "i", f: first, m: masks, a: session.remoteFrame,
-    s: session.frame };
+    s: session.frame, w: Date.now() };
+  if (session.peerStamp) packet.e = session.peerStamp;
   if (session.pendingHash) { packet.h = session.pendingHash; session.pendingHash = null; }
   if (session.send(packet)) session.stats.sent++;
 }
@@ -4140,6 +4672,15 @@ function netSendInputs(session) {
 function netTick() {
   const session = netSession;
   netDrainInbox(session);
+  if (!netSession) return;
+  // The rival told us the two fights came apart. Drop to the streamed lane,
+  // where there is only one authority, and stay out of the rollback lane long
+  // enough that the next hello is not just the same divergence again.
+  if (session.peerDesync) {
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("desync-peer");
+    return;
+  }
   if (session.peerLeft || Date.now() - session.lastPacketAt > NET_PEER_LOST_MS) {
     const seat = session.seat;
     netEnd(session.peerLeft ? "rival-left" : "peer-lost");
@@ -4175,12 +4716,15 @@ function netTick() {
   session.frame++;
   netPrune(session);
   netExchangeHash(session);
+  // The hash exchange can find the mismatch that ends this session.
+  if (netSession !== session) return;
   // A window into the lane for the debug overlay, the agent tools and the
   // browser harness: what the fight is costing and whether it is one game.
   globalThis.__oskiewarNetStats = { seat: session.seat, frame: session.frame,
     confirmed: session.confirmed, remoteFrame: session.remoteFrame,
     hash: session.hashes.get(session.confirmed) ?? 0,
-    hashFrame: session.confirmed, ...session.stats };
+    hashFrame: session.confirmed, ...session.stats,
+    behind: Math.max(0, session.frame - 1 - session.remoteFrame) };
 }
 
 // The challenger announces itself on the net channel until the host answers
@@ -4190,6 +4734,7 @@ function netChallengerHello(now) {
   if (netSession || roundViewer?.seat !== "challenger" ||
       typeof roundViewer.sendNet !== "function") return;
   const at = Date.now();
+  if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
   netHelloSentAt = at;
   roundViewer.sendNet({ t: "hello", v: 1, ...netLocalIdentity() });
@@ -4200,6 +4745,9 @@ function netChallengerHello(now) {
 // in the inbox for the session to drain.
 function netHandlePreSession(packet) {
   if (!packet || typeof packet !== "object") return;
+  // A packet from the lane we have just fallen out of. Both ends are watching
+  // the same cooldown, so this is a straggler in flight, not an offer.
+  if (Date.now() < netLaneBlockedUntil) return;
   if (packet.t === "hello" && !roundViewer) {
     netPeerHello = { name: packet.name, colors: packet.colors, at: Date.now() };
     return;
@@ -4266,6 +4814,7 @@ function updateVersusClaim(now) {
   roundViewerMode = "";
   roundViewerDemo = null;
   roundViewerStatus = "CONNECTING";
+  resetRoundViewerPlayout();
   versusClaimArmedAt = 0;
   versusRoomName = name;
   globalThis.__oskiewarRemotePad = null;
@@ -4329,6 +4878,11 @@ function gameBoot() {
     selecting = false;
     roundResult = "";
     matchOver = false;
+    // Watching a fight IS gameplay for the person doing it. This was false on
+    // every watcher, and the whole match HUD hangs off it: no round clock, no
+    // VS or WAITING FOR HOST label, no "you are ..." seat line, no status
+    // tray. That is the "no state updates on screen" @jeffrey reported.
+    gameplayStarted = true;
     matchName = roundViewer.name || "";
     spectatorQr = typeof qrcode === "function"
       ? spectatorCode("https://oskiewar.com/" + matchName) : spectatorQr;
@@ -5420,7 +5974,7 @@ function updateBullets(dt, now, combat = true) {
       bullet.vy += 700 * dt;
       bullet.life -= dt * .22;
       if (bullet.life <= 0) {
-        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+        spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
           life: .16, duration: .16, death: false, explosion: false });
         continue;
       }
@@ -5455,7 +6009,7 @@ function updateBullets(dt, now, combat = true) {
         bullet.life -= .18;
         if (Math.abs(bullet.vy) < 90) bullet.life = 0;
         if (bullet.life <= 0) {
-          impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+          spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
             life: .16, duration: .16, death: false, explosion: false });
         } else playDrum("hat", .3, panAt(bullet.x, bullet.z));
         // A splash bounces any bodyless head standing in it — including the
@@ -5489,7 +6043,7 @@ function updateBullets(dt, now, combat = true) {
           Math.abs(a.z - b.z) <= 48) {
         a.life = 0;
         b.life = 0;
-        impacts.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
+        spawnImpact({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
           z: (a.z + b.z) / 2, life: .18, duration: .18,
           death: false, explosion: false });
         playDrum("hat", 1, 0);
@@ -5515,7 +6069,7 @@ function updateBullets(dt, now, combat = true) {
       fragment.owner = bullet.owner;
       fragment.hitAfter = now + 120000;
       bullet.life = 0;
-      impacts.push({ x: contact.secondPoint.x, y: contact.secondPoint.y,
+      spawnImpact({ x: contact.secondPoint.x, y: contact.secondPoint.y,
         z: contact.secondPoint.z, life: .18, duration: .18,
         death: false, explosion: false });
       playDrum("hat", .72, panAt(fragment.x1, fragment.z1));
@@ -5551,7 +6105,7 @@ function updateBullets(dt, now, combat = true) {
         bullet.y = shield.y + ny * (shield.radius + 25);
         bullet.owner = target.pad;
         bullet.life = Math.max(bullet.life, .55);
-        impacts.push({ x: bullet.x, y: bullet.y, z: bullet.z,
+        spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
           life: .18, duration: .18, death: false, explosion: false });
         breakShield(target, now);
         emitSignal("ballblock", target.pad, 1, 0);
@@ -5574,7 +6128,7 @@ function updateBullets(dt, now, combat = true) {
       const segmentIndex = endpointHit && !headshot
         ? pointContact.segmentIndex : contact.segmentIndex;
       bullet.life = 0;
-      impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+      spawnImpact({ x: contact.x, y: contact.y, z: contact.z,
         life: .2, duration: .2, death: headshot,
         explosion: false });
       impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
@@ -5885,7 +6439,7 @@ function returnBall(ball, player, now, shielded, intensity = 1) {
     player.vy = Math.min(player.vy + incomingVy * .16, -Math.max(520, speed * .28));
     player.grounded = false;
   }
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .22, duration: .22, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum(shielded ? "block" : "clap", shielded ? 1.1 : 1.25,
@@ -5917,7 +6471,7 @@ function crossWackBall(ball, hitters, now) {
     hit.player.lastButton = "CROSS WACK";
     hit.player.lastButtonAt = now;
   }
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .32, duration: .32, death: false, explosion: true });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
   playDrum("clap", 1.55, panAt(ball.x, ball.z));
@@ -5942,7 +6496,7 @@ function bootBall(ball, player, now) {
   ball.safePlayers = 1 << player.pad;
   player.lastButton = dashing ? "DASH BOOT" : "BOOT";
   player.lastButtonAt = now;
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("kick", 1.12, panAt(ball.x, ball.z));
@@ -5963,7 +6517,7 @@ function bounceBallOffBody(ball, player, now, segmentIndex = -1) {
   ball.safePlayers = 1 << player.pad;
   applyBodyHit(player, segmentIndex, ball.x - ball.vx,
     ball.lastHitBy, now, 760, 110, false);
-  impacts.push({ x: ball.x, y: ball.y, z: ball.z,
+  spawnImpact({ x: ball.x, y: ball.y, z: ball.z,
     life: .16, duration: .16, death: false, explosion: false });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 300000);
   playDrum("block", .82, panAt(ball.x, ball.z));
@@ -6260,7 +6814,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   emitSignal(cause === "BALLED" ? "balled" : "ko",
     killerPad, target.pad, players[killerPad]?.score || 0);
   roundCause = cause;
-  impacts.push({ x: target.x, y: target.y - 120, z: target.z, life: .55,
+  spawnImpact({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
   playDrum("whoosh", 1.15, panPlayer(target));
   emitSignal("killcam", killerPad, target.pad, 1);
@@ -6298,7 +6852,7 @@ function groundPound(player, now) {
   player.lastButton = "GROUND POUND";
   player.lastButtonAt = now;
   const terrainY = terrainFloorAt(player.x);
-  impacts.push({ x: player.x, y: terrainY, z: player.z,
+  spawnImpact({ x: player.x, y: terrainY, z: player.z,
     life: .58, duration: .58, death: false, explosion: true,
     blastRadius: radius, power });
   impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
@@ -6329,7 +6883,7 @@ function groundPound(player, now) {
     item.vx = 0;
     item.vy = 0;
     item.serveAt = now + 1200000;
-    impacts.push({ x: item.x, y: item.y, z: item.z,
+    spawnImpact({ x: item.x, y: item.y, z: item.z,
       life: .22, duration: .22, death: false, explosion: false });
     emitSignal("ballblock", player.pad, 1, power);
   }
@@ -6366,7 +6920,7 @@ function resolveMelee(now) {
       fragment.owner = attacker.pad;
       fragment.hitAfter = now + 120000;
       attacker.attackHit = true;
-      impacts.push({ x: closest.secondPoint.x, y: closest.secondPoint.y,
+      spawnImpact({ x: closest.secondPoint.x, y: closest.secondPoint.y,
         z: closest.secondPoint.z, life: .18, duration: .18,
         death: false, explosion: false });
       playDrum("clap", .82, panPlayer(attacker));
@@ -6386,7 +6940,7 @@ function resolveMelee(now) {
   }
   for (const { attacker, target, strike, headshot, segmentIndex } of contacts) {
     if (!target.alive && contacts.length < 2) continue;
-    impacts.push({ x: strike.x, y: strike.y, z: strike.z,
+    spawnImpact({ x: strike.x, y: strike.y, z: strike.z,
       life: .2, duration: .2, death: false, explosion: false });
     impactHitboxesUntil = Math.max(impactHitboxesUntil, now + 350000);
     const away = Math.sign(target.x - attacker.x) || -attacker.facing;
@@ -6468,7 +7022,7 @@ function resolvePogoAttacks(now) {
     attacker.vy = Math.min(attacker.vy, -985);
     attacker.lastButton = "POGO";
     attacker.lastButtonAt = now;
-    impacts.push({ x: contact.x, y: contact.y, z: contact.z,
+    spawnImpact({ x: contact.x, y: contact.y, z: contact.z,
       life: .2, duration: .2, death: contact.headshot, explosion: false });
     if (contact.headshot) killPlayer(target, attacker.pad, now, "POGO");
     else applyBodyHit(target, contact.segmentIndex, attacker.x,
@@ -6768,7 +7322,7 @@ function shieldBash(player, now) {
     target.blocking = false;
     target.knockVx += direction * 420;
   }
-  impacts.push({ x: (player.x + target.x) / 2, y: player.y - 90,
+  spawnImpact({ x: (player.x + target.x) / 2, y: player.y - 90,
     z: (player.z + target.z) / 2, life: .26, duration: .26,
     death: false, explosion: true, blastRadius: 180, power: .35 });
   playDrum("block", 1.25, panPlayer(player));
@@ -6795,6 +7349,14 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (!player.alive) {
     player.previous = pad.down.slice();
+    // A body that dies off the ground still has to come down. Everything
+    // below this branch is skipped while dead, gravity included, which is
+    // right in a round — the round ends and rebuilds the body, and the
+    // killcam wants the pose held. The waiting room has no round, so a
+    // fighter blasted out of a jump hung in mid-air in its jump pose for the
+    // whole respawn beat. @jeffrey: "it seems possible to die in the waiting
+    // room but keep jumping stilll" — that is what a frozen hop looks like.
+    if (lobbyActive() && now < player.respawnAt) settleCorpse(player, dt);
     if (now >= player.respawnAt) {
       player.x = player.spawnX;
       player.y = terrainFloorAt(player.spawnX);
@@ -7771,7 +8333,7 @@ function finishSurvival(now, result) {
   if (result === "LAVA") {
     runner.alive = false;
     runner.stance = "HIT";
-    impacts.push({ x: runner.x, y: survivalLavaY, z: runner.z,
+    spawnImpact({ x: runner.x, y: survivalLavaY, z: runner.z,
       life: 1.2, duration: 1.2, death: true, explosion: true,
       blastRadius: 240, power: .8 });
     playDrum("kick", 1.25, panPlayer(runner));
@@ -9125,8 +9687,11 @@ function runnerContactToPoint(player, t, px, py, pz = 0) {
   return { headDistance, bodyDistance, segmentIndex };
 }
 
-function detachPart(player, part, geometry, sourceX, now) {
-  if (!hasPart(player, part)) return;
+// The flying half of a dismemberment, separated from the bookkeeping half so
+// that a watcher can spawn the same debris. A watcher is told WHICH limb came
+// off (`removedParts` rides the wire) but not where its pieces went, and the
+// pieces are the part of a limb loss anybody actually sees.
+function spawnDetachedPart(player, part, geometry, sourceX, now) {
   const direction = Math.sign(player.x - sourceX) || player.facing || 1;
   for (const segment of geometry.segments.filter((item) =>
     item.part === part && !item.hitboxOnly)) {
@@ -9139,6 +9704,11 @@ function detachPart(player, part, geometry, sourceX, now) {
       spin: direction * (3.5 + detachedParts.length % 4),
       life: 2.6, part, owner: player.pad, heldBy: -1, hitAfter: now + 180000 });
   }
+}
+
+function detachPart(player, part, geometry, sourceX, now) {
+  if (!hasPart(player, part)) return;
+  spawnDetachedPart(player, part, geometry, sourceX, now);
   player.removedParts.push(part);
   player.partDamage[part] = Math.max(player.partDamage[part] || 0,
     part === "torso" ? 3 : 2);
@@ -9249,7 +9819,11 @@ function applyBodyHit(target, segmentIndex, sourceX, sourcePad, now,
   emitSignal("bodyhit", sourcePad, target.pad, segmentIndex);
 }
 
-function updateDetachedParts(dt) {
+// `combat` is false on a watcher: the limbs still tumble, settle and draw,
+// but they do not damage anybody. The fight they belong to is being decided
+// on another machine, and a watcher that scored its own hits would fight the
+// wire for the rest of the round. Same switch `updateBullets` already has.
+function updateDetachedParts(dt, combat = true) {
   const now = runtime().monotonicUs;
   for (const fragment of detachedParts) {
     if (fragment.heldBy >= 0) {
@@ -9299,7 +9873,7 @@ function updateDetachedParts(dt) {
       fragment.spin *= .78;
     }
     const speed = Math.hypot(fragment.vx, fragment.vy);
-    if (speed > 650 && now >= (fragment.hitAfter || 0)) {
+    if (combat && speed > 650 && now >= (fragment.hitAfter || 0)) {
       for (const target of players) {
         if (!target.alive || target.pad === fragment.owner) continue;
         const contact = runnerContactToPoint(target,
@@ -9319,8 +9893,11 @@ function updateDetachedParts(dt) {
     }
     // Dismembered anatomy remains a physical arena object. It can settle,
     // be picked up again, thrown, and strike either fighter for the rest of
-    // the round rather than evaporating on a cosmetic timer.
-    fragment.life = Math.max(fragment.life, 1);
+    // the round rather than evaporating on a cosmetic timer. On a watcher it
+    // is only scenery, and scenery that never expires is a leak: the wire
+    // says which limbs are gone, not which pieces are still worth drawing.
+    if (combat) fragment.life = Math.max(fragment.life, 1);
+    else fragment.life -= dt;
   }
   for (let index = detachedParts.length - 1; index >= 0; index--) {
     if (detachedParts[index].life > 0 || detachedParts[index].heldBy >= 0) continue;
@@ -12355,7 +12932,11 @@ function drawDebugBug(x, y, scale = 1) {
 function spectatorQrBox() {
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  if (!versusLane())
+  // A watcher is looking at the one thing the code is for. `versusLane()` is a
+  // fact about the fight on THIS machine, and a watcher's machine is not in
+  // one — so an untimed versus round, watched, used to lose its address at
+  // exactly the moment somebody might want to pass it on.
+  if (!versusLane() && !(roundViewer && roundViewerMode === "LIVE"))
     if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
@@ -12460,6 +13041,127 @@ function drawAgentLink(x, y, scale = 1, count = 1) {
   // heads sideways across a read-out that has no room for them.
   if (count > 1) typeWrite(String(count), x + 13 * scale, y - 6 * scale,
     Math.max(12, Math.round(13 * scale)), ...shell);
+}
+
+// Connection health, as four bars and one number — the thing every online
+// game owes a player and oskiewar had no way to say. @jeffrey: "can we show a
+// connection health like wifi meter, on the top right of the game".
+//
+// The number is whatever this seat can honestly measure, which is not the same
+// on both lanes:
+//
+//   A rollback fight knows its round trip exactly (see netSendInputs: our own
+//   wall mark comes home on the rival's next packet), so it reports ping.
+//   A grandstand or an older-build guest never gets a packet back, so it can
+//   only measure the wire it is being served: how irregular the frames are and
+//   how many of them the relay ate. It reports jitter, and loss when there is
+//   any.
+//   A host in the streamed lane hears the rival only through pads, so its one
+//   honest reading is how long ago the last one arrived.
+//
+// Nothing is invented. A lane with no rival on it draws nothing at all.
+const netHealthPalette = [[245, 90, 96], [250, 200, 80], [180, 235, 120],
+  [108, 240, 168]];
+
+function netHealth() {
+  if (netSession) {
+    const stats = netSession.stats;
+    const ping = Math.round(stats.pingMs || 0);
+    // Nothing has come home yet; a meter that reads four bars before it has
+    // measured anything is a lie told at exactly the moment somebody is
+    // deciding whether the connection is good.
+    let bars = !stats.pings ? 0
+      : ping < 50 ? 4 : ping < 100 ? 3 : ping < 170 ? 2 : 1;
+    // A desync means the two machines are no longer playing the same fight.
+    // The wire may be fast and the connection is still not healthy.
+    if (bars && stats.desyncs) bars = Math.min(bars, 1);
+    return { bars, label: stats.pings ? ping + "MS" : "···",
+      note: stats.desyncs ? "DESYNC" : "" };
+  }
+  if (roundViewerMode === "LIVE" && roundViewerFrames.length) {
+    const jitter = Math.round(roundViewerJitterMs);
+    const loss = roundViewerLossPct;
+    const bars = jitter < 12 && loss < 3 ? 4
+      : jitter < 30 && loss < 10 ? 3
+      : jitter < 60 && loss < 25 ? 2 : 1;
+    return { bars, label: "±" + jitter + "MS",
+      note: loss ? loss + "% LOST" : "" };
+  }
+  // The host's side of a streamed fight. Only while somebody is actually
+  // sitting in the second chair — an empty room has no connection to rate.
+  if (versusLane() && !roundViewer) {
+    const remote = globalThis.__oskiewarRemotePad;
+    if (!remote || !Number.isFinite(remote.at)) return null;
+    const age = Date.now() - remote.at;
+    if (age > versusChallengerGraceMs) return null;
+    return { bars: age < 150 ? 4 : age < 400 ? 3 : age < 1000 ? 2 : 1,
+      label: age + "MS", note: "" };
+  }
+  return null;
+}
+
+// Where the meter stands, and whether it stands at all. Split out so the rest
+// of the top-right corner can measure around it: with no QR up the meter owns
+// that corner, and a label that assumed the corner was free landed on it.
+function netHealthBox() {
+  if (typeof capabilities === "function" &&
+      (capabilities().socialPreview || capabilities().replayOven === true))
+    return null;
+  if (shellMode !== "GAME") return null;
+  const health = netHealth();
+  if (!health) return null;
+  const safe = hudSafeRect();
+  const qr = spectatorQrBox();
+  const compact = compactLayout();
+  const bar = compact ? 5 : 7;
+  const gap = compact ? 3 : 4;
+  const tall = compact ? 19 : 26;
+  const count = 4;
+  const width = count * bar + (count - 1) * gap;
+  // Under the code, never over it: the QR is the address a friend types and
+  // the meter is a readout about the friend who already did.
+  const top = (qr ? qr.top + qr.size + 8 : safe.top) + 2;
+  // Sized off the bars rather than the HUD's own type scale: the reading is a
+  // caption to the meter, and at hudTypeSize it swamped the thing it labels.
+  const size = Math.max(14, Math.round(tall * .8));
+  const label = health.note ? health.label + "  " + health.note : health.label;
+  return { health, bar, gap, tall, count, width, top, base: top + tall,
+    right: safe.right, left: safe.right - Math.max(width,
+      handleWidth(label, size)), size, label };
+}
+
+// The left edge of whatever owns the top-right corner — the round's QR, or
+// the connection meter when no code is up. Anything else that wants to sit up
+// there measures from here instead of from the safe rect, or it draws on top
+// of the corner's furniture.
+function hudTopRightLeft() {
+  const qr = spectatorQrBox();
+  if (qr) return qr.left;
+  return netHealthBox()?.left ?? hudSafeRect().right;
+}
+
+function drawNetHealth(ink) {
+  const box = netHealthBox();
+  if (!box) return;
+  const { health, bar, gap, tall, count, width, base, right, size, label } = box;
+  const lit = netHealthPalette[Math.max(0, health.bars - 1)];
+  const dim = mixColor([58, 64, 78], [196, 201, 212], visualTheme.light);
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.43;
+  for (let index = 0; index < count; index++) {
+    const height = Math.round(tall * (index + 1) / count);
+    const x = right - width + index * (bar + gap);
+    screenRect(x + 2, base - height + 2, bar, height, [24, 26, 34]);
+    screenRect(x, base - height, bar, height,
+      index < health.bars ? lit : dim);
+  }
+  const labelWidth = handleWidth(label, size);
+  const labelY = base + 7;
+  typeWrite(label, right - labelWidth + 2, labelY + 2, size,
+    ...contrastShadow(ink));
+  typeWrite(label, right - labelWidth, labelY, size,
+    ...(health.note ? netHealthPalette[0] : ink));
+  triangleDepth = previousDepth;
 }
 
 function drawSpectatorQr(ink, placement = null) {
@@ -12740,8 +13442,13 @@ function gamePaint() {
       const viewerLabel = roundViewer.seat === "challenger"
         ? roundViewerMode === "LIVE" ? "VS" : "WAITING FOR HOST"
         : roundViewerMode || roundViewerStatus;
-      typeWrite(viewerLabel, hud.right - viewerLabel.length * 18, hud.top + 7,
-        24, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
+      // Left of the corner's furniture, never on it: that corner is the
+      // round's QR, or the connection meter when there is no code up.
+      const labelSize = 24;
+      const labelRight = hudTopRightLeft() - 14;
+      typeWrite(viewerLabel,
+        labelRight - handleWidth(viewerLabel, labelSize), hud.top + 7,
+        labelSize, ...(roundViewerMode === "LIVE" ? [210, 42, 62] : titleInk));
       // The chair-holder plays through this feed: say which body is theirs
       // while the matchup is still fresh, then get out of the fight's way.
       if (roundViewer.seat === "challenger" && roundViewerMode === "LIVE" &&
@@ -12762,9 +13469,7 @@ function gamePaint() {
       const label = "update ready";
       const size = Math.round(hudTypeSize * .58);
       const width = handleWidth(label, size);
-      const qrBox = spectatorQrBox();
-      const right = qrBox ? qrBox.left - 14 : hud.right;
-      const x = right - width;
+      const x = hudTopRightLeft() - 14 - width;
       const y = hud.top + hudTypeSize + 12;
       typeWrite(label, x + 2, y + 3, size, ...contrastShadow(titleInk));
       typeWrite(label, x, y, size, ...titleInk);
@@ -12943,6 +13648,7 @@ function gamePaint() {
     // frame, and an instruction painted under it was an instruction hidden.
     if (!reelMinimal) drawVersusHud(t, titleInk, run);
     drawSpectatorQr(titleInk);
+    if (!reelMinimal) drawNetHealth(titleInk);
     drawTouchControls();
   }
 }

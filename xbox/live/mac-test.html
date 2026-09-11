@@ -1012,17 +1012,23 @@
         return true;
       } catch { return false; }
     };
+    // `payload` arrives as JSON the game already serialized. It used to be
+    // parsed to read one field, parsed again to be re-wrapped, and
+    // stringified back — four passes over the whole state per publish, on a
+    // console, thirty times a second. The frame is a string concatenation now
+    // and the one field it needs is read as text: `nextRoundId` is only ever
+    // emitted when it is a real room id.
+    const liveFrame = (payload) =>
+      '{"type":"oskiewar:state","content":' + payload + "}";
     function publishLive(matchId, payload) {
-      let retiresRoom = false;
-      try { retiresRoom = Boolean(JSON.parse(payload).nextRoundId); } catch {}
+      const retiresRoom = /"nextRoundId":"ow-/.test(payload);
       let state = liveSockets.get(matchId);
       if (!state) {
         const socket = new WebSocket(`wss://session-server.aesthetic.computer/oskiewar-live?match=${encodeURIComponent(matchId)}&role=publisher&surface=web`);
         state = { socket, pending: payload, retire: retiresRoom };
         liveSockets.set(matchId, state);
         socket.addEventListener("open", () => {
-          if (state.pending) socket.send(JSON.stringify({ type: "oskiewar:state",
-            content: JSON.parse(state.pending) }));
+          if (state.pending) socket.send(liveFrame(state.pending));
           state.pending = "";
           if (state.retire) setTimeout(() => socket.close(1000, "next round"), 0);
         });
@@ -1095,7 +1101,7 @@
       }
       state.retire ||= retiresRoom;
       if (state.socket.readyState === WebSocket.OPEN) {
-        state.socket.send(JSON.stringify({ type: "oskiewar:state", content: JSON.parse(payload) }));
+        state.socket.send(liveFrame(payload));
         if (state.retire) setTimeout(() => state.socket.close(1000, "next round"), 0);
       } else state.pending = payload;
     }
