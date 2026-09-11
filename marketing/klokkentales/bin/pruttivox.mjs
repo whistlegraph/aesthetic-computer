@@ -6,6 +6,7 @@
 //
 //   node bin/pruttivox.mjs "Hej klokken, god torsdag" --from @snakes
 //   node bin/pruttivox.mjs "..." --slug god-torsdag --publish
+//   node bin/pruttivox.mjs --file interview.txt --slug interview --from prutti
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -28,19 +29,41 @@ const voiceId = env.PRUTTI_ELEVENLABS_VOICE_ID || (existsSync(receiptPath)
   : null);
 
 const argv = process.argv.slice(2);
-const text = argv.find((arg) => !arg.startsWith("--"));
 const flag = (name) => {
   const index = argv.indexOf(`--${name}`);
   return index >= 0 ? argv[index + 1] : null;
 };
+const valued = new Set([flag("from"), flag("slug"), flag("file")].filter(Boolean));
+const file = flag("file");
+const text = (file
+  ? readFileSync(resolve(file), "utf8")
+  : argv.find((arg) => !arg.startsWith("--") && !valued.has(arg)) || "").trim();
 
 if (!voiceId) throw new Error("Prutti voice has not been created; see voice.mjs");
 if (!env.ELEVENLABS_API_KEY) throw new Error("ELEVENLABS_API_KEY is missing");
-if (!text || !text.trim()) {
-  throw new Error('usage: pruttivox.mjs "the text" [--from @handle] [--slug name] [--publish] [--force]');
+if (!text) {
+  throw new Error('usage: pruttivox.mjs "the text" | --file text.txt [--from @handle] [--slug name] [--publish] [--force]');
 }
-if (text.length > 1200) {
-  throw new Error(`text is ${text.length} characters; keep pruttivox clips under 1200`);
+
+// the voice gets brittle past a page, so a long text is spoken in pieces and
+// stitched — seams land on paragraph or sentence ends, where a breath belongs.
+function pieces(body, limit = 900) {
+  const out = [];
+  const fit = (parts, join) => {
+    for (const part of parts) {
+      const last = out[out.length - 1];
+      if (last && last.length + join.length + part.length <= limit) out[out.length - 1] = last + join + part;
+      else out.push(part);
+    }
+  };
+  for (const paragraph of body.split(/\n\s*\n/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean)) {
+    if (paragraph.length <= limit) fit([paragraph], "\n\n");
+    else for (const sentence of paragraph.split(/(?<=[.!?])\s+/)) {
+      if (sentence.length <= limit) fit([sentence], " ");
+      else fit(sentence.match(new RegExp(`.{1,${limit}}(\\s|$)`, "g")).map((s) => s.trim()), " ");
+    }
+  }
+  return out;
 }
 
 const slug = (flag("slug") || text.trim().toLowerCase()
@@ -75,12 +98,19 @@ async function speak(line, destination) {
 
 mkdirSync(outRoot, { recursive: true });
 if (!existsSync(tagPath)) await speak(tagText, tagPath);
-const bodyPath = resolve(outRoot, `${slug}.body.mp3`);
-await speak(text, bodyPath);
+const bodies = pieces(text);
+const bodyPaths = [];
+for (const [index, body] of bodies.entries()) {
+  const bodyPath = resolve(outRoot, bodies.length > 1 ? `${slug}.body-${index + 1}.mp3` : `${slug}.body.mp3`);
+  await speak(body, bodyPath);
+  bodyPaths.push(bodyPath);
+}
 
+const pad = bodyPaths.map((_, i) => `[${i}:a]apad=pad_dur=0.4[a${i}]`).join(";");
+const chain = bodyPaths.map((_, i) => `[a${i}]`).join("");
 execFileSync("ffmpeg", [
-  "-y", "-i", bodyPath, "-i", tagPath,
-  "-filter_complex", "[0:a]apad=pad_dur=0.4[a0];[a0][1:a]concat=n=2:v=0:a=1",
+  "-y", ...bodyPaths.flatMap((path) => ["-i", path]), "-i", tagPath,
+  "-filter_complex", `${pad};${chain}[${bodyPaths.length}:a]concat=n=${bodyPaths.length + 1}:v=0:a=1`,
   "-ar", "44100", "-b:a", "192k",
   "-metadata", "artist=Pruttivox (syntetisk stemme / synthetic voice)",
   "-metadata", "album=Klokkentales",

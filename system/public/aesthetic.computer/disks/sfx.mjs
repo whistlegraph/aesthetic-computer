@@ -33,20 +33,38 @@ let sfxData;
 let playingSample;
 let progress;
 
-const { round } = Math;
+const { round, max } = Math;
 
-async function boot({ net: { preload }, play, ui, params, sound }) {
+async function boot({ net: { preload }, num, ui, params, sound }) {
+  // A full url plays whatever was linked — `sfx https://…/clip.mp3`. The
+  // button wears the filename; the whole url would be a button the width of
+  // three screens.
   const name = params[0] || "startup";
+  const linked = /^https?:\/\//.test(name);
+  const label = linked
+    ? decodeURIComponent(name.split("?")[0].split("/").pop())
+    : name;
   console.log("Sound name:", name);
   sfx = await preload(name);
-  btn = new ui.TextButton(`Play "${name}"`);
+  btn = new ui.TextButton(`Play "${label}"`);
   speedBtn = new ui.TextButton(speedLabel());
   fromBtn = new ui.TextButton(fromLabel());
   toBtn = new ui.TextButton(toLabel());
 
+  // A linked file is for listening, not inspecting, so it skips the waveform
+  // rather than haul minutes of samples across the worker boundary. Note this
+  // does NOT yet make `sfx <url>` usable: a 174-second mp3 still takes the
+  // renderer down with the sample read removed, and the real cause is unfound.
+  // Linked audio plays from the chat chip today (marketing/klokkentales).
+  if (linked) return;
+
   sound.getSampleData(sfx).then((data) => {
-    sfxData = data;
-    // console.log("🔴 Sample Data:", sfxData);
+    // Compressed once, to a fixed width, rather than every paint. The count
+    // passed to `arrCompress` is a stride — it keeps every nth sample — so the
+    // old constant 256 asked a long file for a 30,000-point polyline sixty
+    // times a second, and the piece never drew a frame.
+    const stride = max(1, round(data.length / 256));
+    sfxData = { peak: num.arrMax(data), wave: num.arrCompress(data, stride) };
   });
 }
 
@@ -59,8 +77,8 @@ function paint({ api, wipe, ink, screen, num }) {
   if (sfxData) {
     paintSound(
       api,
-      num.arrMax(sfxData),
-      num.arrCompress(sfxData, 256), // 🔴 TODO: This could be made much faster.
+      sfxData.peak,
+      sfxData.wave,
       0,
       0,
       screen.width,

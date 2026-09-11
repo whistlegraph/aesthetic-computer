@@ -287,6 +287,17 @@ function voxable(message) {
   );
 }
 
+// 🔊 A linked sound gets the same chip — the difference is only what it plays,
+// prutti's rendered voice or the file someone posted. The extensions are the
+// ones `net.preload` decodes; flac is deliberately absent, it would load a
+// chip that can only fail.
+const VOX_LINK = /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|m4a|webm)(?:\?[^\s]*)?/i;
+
+function voxLink(message) {
+  if (message.deleted || !message.id) return null;
+  return message.text?.match(VOX_LINK)?.[0] || null;
+}
+
 // Whitespace tokens with char offsets — same split as the server tokenizer.
 function voxTokenize(text) {
   const tokens = [];
@@ -319,21 +330,27 @@ async function voxToggle(message, api) {
     return;
   }
   voxStop();
+  const link = voxLink(message);
   const my = (vox = {
     messageId: message.id,
     phase: "loading",
     wordIndex: -1,
+    linked: !!link, // A linked file plays as itself — no words to follow.
     prefix: (message.from || "").length + 1, // fullMessage = from + " " + text
   });
   try {
-    const res = await fetch(`/api/pruttivox?id=${encodeURIComponent(message.id)}`);
-    if (!res.ok) throw new Error(`pruttivox ${res.status}`);
-    const data = await res.json();
-    if (vox !== my) return; // Superseded while loading.
-    my.words = data.words || [];
-    my.tokens = voxTokenize(message.text);
-    my.duration = data.duration || 0;
-    const sfx = await api.net.preload(data.audio);
+    let audio = link;
+    if (!audio) {
+      const res = await fetch(`/api/pruttivox?id=${encodeURIComponent(message.id)}`);
+      if (!res.ok) throw new Error(`pruttivox ${res.status}`);
+      const data = await res.json();
+      if (vox !== my) return; // Superseded while loading.
+      my.words = data.words || [];
+      my.tokens = voxTokenize(message.text);
+      my.duration = data.duration || 0;
+      audio = data.audio;
+    }
+    const sfx = await api.net.preload(audio);
     if (vox !== my) return;
     my.playing = api.sound.play(sfx, undefined, {
       kill: () => {
@@ -342,7 +359,7 @@ async function voxToggle(message, api) {
     });
     my.startedAt = performance.now();
     my.phase = "playing";
-    console.log("🗣️ Vox playing:", message.id, my.words.length, "words");
+    console.log("🗣️ Vox playing:", message.id, link || `${my.words.length} words`);
   } catch (err) {
     console.warn("🗣️ Vox failed:", err);
     if (vox === my) vox = null;
@@ -1633,6 +1650,7 @@ function paint(
       let voxColor;
       if (active && vox.phase === "loading") voxColor = [255, 235, 180];
       else if (active) voxColor = [190, 255, 80];
+      else if (layout.vox.linked) voxColor = layout.vox.over ? [150, 240, 255] : [80, 185, 220];
       else voxColor = layout.vox.over ? [255, 220, 120] : [255, 170, 60];
       voxIcon(ink, voxColor, voxX + VOX_HIT_PAD, timestampY);
     }
@@ -4474,7 +4492,9 @@ function sim({ api, num, send, net, store }) {
   // never answers (it fails for the stock `sfx` piece too), and for short
   // clips at speed 1.0 the word timestamps need no correction. The kill
   // callback clears at the exact audio end; the wall clock is the backstop.
-  if (vox?.phase === "playing") {
+  // A linked file has no word table and no known duration, so it is left to
+  // the kill callback — the wall-clock backstop below would cut it at 1.5s.
+  if (vox?.phase === "playing" && !vox.linked) {
     const t = (performance.now() - vox.startedAt) / 1000;
     if (t > (vox.duration || 0) + 1.5) {
       vox = null;
@@ -5451,13 +5471,15 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     };
     // 🗣️ The vox chip rides just past the timestamp; paint refines `x`/`y`
     // from the widths it actually renders (hearts shift the whole tail).
-    const voxChip = voxable(msg)
+    const linked = voxLink(msg);
+    const voxChip = (linked || voxable(msg))
       ? {
           x: timestamp.x + timestamp.width + VOX_CHIP_GAP,
           y: timestamp.y,
           width: VOX_ICON_W + VOX_HIT_PAD * 2,
           height: 8, // The full MatrixChunky8 row, not just the 7px glyph.
           over: msg.lastLayout?.vox?.over || false,
+          linked: !!linked, // Paint reads this; a tap re-reads the message.
         }
       : undefined;
     let timestampColor = [100 / 1.3, 100 / 1.3, 145 / 1.3];

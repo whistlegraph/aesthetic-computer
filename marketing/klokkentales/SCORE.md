@@ -72,6 +72,9 @@ node bin/buzzsprout.mjs publish summer-so-far-2026
 
 # Pruttivox: one-off read-aloud of a community text in the Prutti IVC.
 node bin/pruttivox.mjs "teksten her" --from @snakes --publish
+
+# A long text comes from a file and is spoken in stitched pieces.
+node bin/pruttivox.mjs --file interview.txt --slug interview --from @prutti
 ```
 
 ## Pruttivox
@@ -88,6 +91,14 @@ The chat lane (`/api/pruttivox` + the "vox" chip in chat/laklok) reads only
 messages @prutti himself typed — the text comes from the database by message
 id, never from the caller — and caches each render on the CDN with word
 timings for the karaoke highlight.
+
+The same chip, in blue, plays a sound *linked* in any message (mp3, wav, ogg,
+m4a, webm — the formats `net.preload` decodes). That one renders nothing and
+speaks for nobody; it just plays the file at the url. A message carrying a
+link plays the link, not its words. This is the working lane for linked audio:
+`sfx <url>` from the prompt still kills the renderer on a long remote file
+(reproduced three times on a 174-second mp3, cause not yet found), so send
+people to the chip, not to the piece.
 
 ## Release gates
 
