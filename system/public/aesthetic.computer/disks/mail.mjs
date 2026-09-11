@@ -2,14 +2,17 @@
 // AC mail. `mail @handle words...` sends from the prompt; `mail` lands here.
 // Tier 1: nothing leaves aesthetic.computer. See `system/backend/mail.mjs`.
 
-let view = "inbox"; // inbox · sent · prefs
+let view = "inbox"; // inbox · sent · prefs · compose
 let status = "loading"; // loading, loaded, error, noauth
 let mail = null;
 let prefs = null; // blast subscription + history, fetched when prefs opens
 let errorMsg = null;
-let inboxBtn, sentBtn, prefsBtn, readBtn, subBtn, unsubBtn;
+let inboxBtn, sentBtn, prefsBtn, readBtn, writeBtn, subBtn, unsubBtn;
+let rows = []; // [{ y0, y1, who }] — paint measures them, act replies to them
 let ellipsisTicker;
 let busy = false;
+let input; // the compose field — one line, same grammar as the prompt command
+let composeNote = null; // what went wrong with the last send, if anything
 
 function meta() {
   return {
@@ -19,7 +22,8 @@ function meta() {
 }
 
 // 🥾 Boot
-async function boot({ user, gizmo, hud, net, ui, screen }) {
+async function boot(api) {
+  const { user, gizmo, hud, net, ui, screen } = api;
   hud.label("mail");
   ellipsisTicker = new gizmo.EllipsisTicker();
 
@@ -27,14 +31,23 @@ async function boot({ user, gizmo, hud, net, ui, screen }) {
   sentBtn = new ui.TextButton("sent", { screen });
   prefsBtn = new ui.TextButton("prefs", { screen });
   readBtn = new ui.TextButton("mark read", { screen });
+  writeBtn = new ui.TextButton("write", { screen });
   subBtn = new ui.TextButton("subscribe", { screen });
   unsubBtn = new ui.TextButton("unsubscribe", { screen });
+
+  // The compose field takes exactly what the prompt command takes, so there's
+  // one grammar to learn: `@handle your message`.
+  input = new ui.TextInput(api, "@handle your message", (text) => send(api, text));
 
   if (!user) {
     status = "noauth";
     return;
   }
 
+  await refresh(api);
+}
+
+async function refresh({ net }) {
   try {
     const res = await net.userRequest("GET", "/api/mail");
     if (res.status === 200) {
@@ -50,9 +63,54 @@ async function boot({ user, gizmo, hud, net, ui, screen }) {
   }
 }
 
+// Post whatever's in the compose field, then fall back to the inbox.
+async function send(api, raw) {
+  const body = raw.trim();
+  input.text = "";
+  input.showBlink = false;
+  input.mute = true;
+  api.send({ type: "keyboard:text:replace", content: { text: "" } });
+  api.send({ type: "keyboard:close" });
+
+  const gap = body.indexOf(" ");
+  if (gap < 1) {
+    composeNote = "who? try: @handle your message";
+    return;
+  }
+
+  const to = body.slice(0, gap);
+  const text = body.slice(gap + 1).trim();
+  if (!text) {
+    composeNote = "nothing to say yet";
+    return;
+  }
+
+  const res = await api.net.userRequest("POST", "/api/mail", { to, text });
+  if (res.status === 200) {
+    composeNote = null;
+    view = "sent";
+    await refresh(api);
+  } else if (res.status === 404) {
+    composeNote = `no one answers to ${to}`;
+  } else {
+    composeNote = "couldn't send that";
+  }
+}
+
+// Open compose, optionally already addressed to someone.
+function compose(api, to) {
+  view = "compose";
+  composeNote = null;
+  input.text = to ? `${to} ` : "";
+  input.mute = false;
+  api.send({ type: "keyboard:text:replace", content: { text: input.text } });
+  api.send({ type: "keyboard:open" });
+}
+
 // 🧮 Sim
-function sim({ clock }) {
-  ellipsisTicker?.update(clock.time());
+function sim(api) {
+  ellipsisTicker?.update(api.clock.time());
+  if (view === "compose") input.sim(api);
 }
 
 const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
@@ -73,6 +131,19 @@ function tab(name) {
 }
 
 const PERMA = /^ac\d\d[a-z]{5}@/;
+
+// 📬 The corner envelope — shut and grey when the box is empty, lit with its
+// flap open when something is waiting.
+function envelope(api, x, y, unread) {
+  const { ink } = api;
+  const w = 15;
+  const h = 10;
+  ink(unread ? [0, 120, 140] : [46, 44, 56]).box(x, y, w, h);
+  ink(unread ? [120, 255, 255] : [96, 92, 114]).box(x, y, w, h, "outline");
+  ink(unread ? [190, 255, 255] : [70, 68, 84]);
+  api.line(x, y, x + (w >> 1), y + (h >> 1));
+  api.line(x + w - 1, y, x + (w >> 1), y + (h >> 1));
+}
 
 // How long ago, short enough to sit next to a handle.
 function ago(when) {
@@ -112,15 +183,23 @@ function paint(api) {
     return;
   }
 
+  if (view === "compose") {
+    input.paint(api);
+    if (composeNote) {
+      ink(255, 130, 130).write(composeNote, { x: 6, y: screen.height - 12 });
+    }
+    return;
+  }
+
   const x = 6;
   const wide = screen.width - x * 2;
   let y = 6; // the hud label is already the title — don't write a second one
 
+  const envX = screen.width - 21;
+  envelope(api, envX, y - 2, mail.unread);
   if (mail.unread > 0) {
-    ink(0, 255, 255).write(`${mail.unread} new`, {
-      x: screen.width - 42,
-      y,
-    });
+    const count = `${mail.unread}`;
+    ink(0, 255, 255).write(count, { x: envX - 4 - count.length * 6, y });
   }
   y += 16;
 
@@ -153,6 +232,18 @@ function paint(api) {
   prefsBtn.paint(api, tab("prefs"));
   y += 18;
 
+  writeBtn.reposition({ x, y, screen });
+  writeBtn.paint(api, [[28, 54, 42], [110, 210, 155], [205, 255, 225]]);
+  ink(96, 104, 118).write(
+    "or from the prompt:  mail @handle your message",
+    { x: x + 44, y: y + 6 },
+    undefined,
+    undefined,
+    false,
+    "MatrixChunky8",
+  );
+  y += 18;
+
   ink(60).box(x, y, wide, 1);
   y += 8;
 
@@ -181,6 +272,7 @@ function paint(api) {
   }
 
   const bounds = wide - 10;
+  rows = [];
 
   letters.forEach((letter, i) => {
     if (y > screen.height - 14) return;
@@ -195,6 +287,8 @@ function paint(api) {
       wide,
       body + 17,
     );
+
+    rows.push({ y0: y - 3, y1: y + body + 14, who });
 
     if (unread) ink(0, 255, 255).box(x + 2, y + 2, 3, 3);
     ink(unread ? [170, 220, 255] : [130, 140, 170]).write(who, {
@@ -270,8 +364,20 @@ function paintPrefs(api, x, y, wide) {
 }
 
 // 🎪 Act
-function act({ event: e, net, needsPaint }) {
+function act(api) {
+  const { event: e, net, needsPaint } = api;
   if (status !== "loaded") return;
+
+  if (view === "compose") {
+    if (e.is("keyboard:down:escape")) {
+      view = "inbox";
+      api.send({ type: "keyboard:close" });
+      needsPaint();
+      return;
+    }
+    input.act(api);
+    return;
+  }
 
   inboxBtn?.act(e, () => {
     view = "inbox";
@@ -283,6 +389,11 @@ function act({ event: e, net, needsPaint }) {
     needsPaint();
   });
 
+  writeBtn?.act(e, () => {
+    compose(api);
+    needsPaint();
+  });
+
   prefsBtn?.act(e, async () => {
     view = "prefs";
     needsPaint();
@@ -291,6 +402,16 @@ function act({ event: e, net, needsPaint }) {
     if (res.status === 200) prefs = res;
     needsPaint();
   });
+
+  // Tap a letter to answer it — the field opens already addressed.
+  if (e.is("touch") && (view === "inbox" || view === "sent")) {
+    const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
+    if (row?.who?.startsWith("@")) {
+      compose(api, row.who);
+      needsPaint();
+      return;
+    }
+  }
 
   if (busy) return;
 
