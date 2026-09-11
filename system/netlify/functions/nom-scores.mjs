@@ -6,9 +6,13 @@ import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { compareNomRuns, normalizeNomRun } from "../../public/aesthetic.computer/lib/nom-score.mjs";
 
+// The ladder is per-game and the list is closed on purpose: an open `game`
+// parameter would let anyone mint unlimited ranked collections in this
+// collection. A new game joins by being named here.
 const GAMES = new Set([
   "numbnom", "engnom", "mexinom", "dannom", "rusnom", "catnom", "notenom", "artnom",
   "numrank", // mental-math sprint — shares the per-user best-run ladder
+  "kokazo", // catching game — scores only, no level or correct count
 ]);
 
 function gameFrom(event, body = {}) {

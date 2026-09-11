@@ -509,8 +509,14 @@ function clearPoints(level, beatsLeft) {
 
 function normalizeNomRun(value = {}) {
   const score = Math.trunc(Number(value.score));
-  const level = Math.trunc(Number(value.level));
-  const correct = Math.trunc(Number(value.correct));
+  // Levels and correct answers are Nom's shape, not every game's. A catching
+  // game or a survival run has a score and nothing else, and should not have to
+  // invent numbers that mean nothing to it — so an absent field takes the
+  // identity value rather than failing. A field that IS sent is still checked,
+  // so `level: 0` remains the error it always was.
+  const blank = (field) => field === undefined || field === null;
+  const level = blank(value.level) ? 1 : Math.trunc(Number(value.level));
+  const correct = blank(value.correct) ? 0 : Math.trunc(Number(value.correct));
   if (
     !Number.isFinite(score) || score < 0 || score > NOM_SCORE_LIMIT ||
     !Number.isFinite(level) || level < 1 || level > 10_000 ||
