@@ -64,6 +64,9 @@ journalctl -u session-autopublish -n 50          # what it decided and did
 systemctl disable --now session-autopublish.timer  # stop watching
 ```
 
+Proven end to end on 2026-09-11: a `session-server/` commit pushed to knot
+reached the box and redeployed it with nobody touching the box.
+
 A tick with nothing to do logs nothing. A tick that deploys logs the same
 `RESULT=` line the hand path prints — `ok:`, `rolledback:`, or `fail:stale*`
 when the GitHub mirror has not caught up yet, which is not an unwell server,
