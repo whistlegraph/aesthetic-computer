@@ -1,0 +1,6 @@
+# Renders, not sources. A .wav is `nsscore-bake-audio.mjs` applied to the score
+# beside it, and a -diagram.mp4 is `render-notespatial-diagram.mjs` applied to
+# the same pair — both regenerable, and between 7 and 95 MB each. The .nsscore
+# files they come from are committed, because those are the composition.
+*.wav
+*-diagram.mp4
