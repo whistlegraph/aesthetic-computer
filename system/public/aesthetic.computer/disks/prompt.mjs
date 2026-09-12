@@ -2025,16 +2025,11 @@ async function halt($, text) {
     if (openExternalFromIframe(menuBandUrl)) return true;
     jump(`out:${menuBandUrl}`);
     return true;
-  } else if (slug === "easel" || slug === "cli" || slug === "terminal") {
-    // 🎨 Easel — the terminal editor. A CLI cannot be jumped to, so hand over
-    // the one line that installs it rather than a page about a page.
-    notice("curl -fsSL prompt.ac/easel.sh | sh", ["white", "purple"], {
-      wrap: "char",
-    });
-    // Set explicitly: makeFlash reads the module-level colour, so without this
-    // the flash inherits whatever the last command happened to leave there.
-    flashColor = [120, 80, 180];
-    makeFlash($);
+  } else if (slug === "cli" || slug === "terminal") {
+    // 🎨 The terminal editor answers to what people actually type looking for
+    // it. `easel` itself needs no branch — it is a piece, and the ordinary
+    // loader finds it.
+    jump("easel");
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page
