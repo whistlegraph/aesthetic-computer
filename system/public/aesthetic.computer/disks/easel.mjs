@@ -33,7 +33,7 @@ const MUTED = [130, 110, 165];
 const WARN = [255, 160, 60];
 
 let version = null;
-let copyBtn, copied = 0, blink = 0;
+let copyBtn, copied = 0;
 
 async function fetchVersion() {
   try {
@@ -56,7 +56,13 @@ function paint({ wipe, ink, screen, ui, num }) {
 
   const cx = screen.width / 2;
   const narrow = screen.width < 320;
-  let y = narrow ? 16 : 26;
+
+  // Centre the block rather than starting from the top: this page is short and
+  // most screens are not, so anchoring it high leaves a void underneath that
+  // reads as something failing to load. The floor keeps it clear of the corner
+  // label the system paints at (6, 6), which is how anyone gets back.
+  const blockHeight = narrow ? 176 : 218;
+  let y = Math.max(narrow ? 16 : 26, Math.round((screen.height - blockHeight) / 2));
 
   ink(PURPLE).write("EASEL", { x: cx, y, center: "x", size: narrow ? 2 : 3 });
   y += narrow ? 20 : 30;
@@ -105,7 +111,6 @@ function paint({ wipe, ink, screen, ui, num }) {
 
 function sim() {
   if (copied > 0) copied -= 1;
-  blink += 1;
 }
 
 function act({ event: e, send, needsPaint }) {
