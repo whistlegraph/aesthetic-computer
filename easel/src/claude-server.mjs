@@ -34,7 +34,8 @@ import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
-const VERSION = "0.4.0";
+import { VERSION } from "./version.mjs";
+
 
 // What a session opens on. Fable is the model this harness was built for and
 // where it wants to land, but the account it runs on cannot bill Fable today
