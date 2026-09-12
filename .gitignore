@@ -578,3 +578,6 @@ tmp/nopaint-sheets/
 
 # agent/PR worktree scratch (client work checked out beside the repo)
 /.tmp-pr*/
+
+# Built by `node easel/bin/pack.mjs` from easel/ — derived, not source.
+system/public/easel.tar.gz

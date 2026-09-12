@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { ACSession } from "./ac-session.mjs";
 import { Audience } from "./audience.mjs";
@@ -134,14 +135,36 @@ const STYLE_GUIDES = [
   ["HAND.md", "how the code reads"],
 ];
 
+// The same knowledge, carried inside the install. A session opened in the
+// Aesthetic Computer repository reads the repo's own copies, which are newer by
+// definition; a session opened anywhere else — which is every session, once this
+// is installed rather than cloned — reads these. Without them Easel is a general
+// editor that happens to publish to a URL, and there is no reason to install it
+// over the vendor CLI it is already driving.
+const BUNDLED_CONTEXT = [
+  ["context/pieces.md", "the piece authoring guide"],
+  ["context/screen.md", "how a piece draws on the AC canvas"],
+  ["context/hand.md", "how the code reads"],
+  ["context/kidlisp.md", "the KidLisp language"],
+];
+
+const easelRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 function styleInstructions() {
+  // The working directory wins when it has the guides: inside the monorepo they
+  // are the living documents and the bundle is a stale copy of them.
   const present = STYLE_GUIDES.filter(([file]) => existsSync(path.join(cwd, file)));
-  if (present.length === 0) return [];
-  const named = present
+  const source = present.length
+    ? present.map(([file, subject]) => [file, subject])
+    : BUNDLED_CONTEXT.map(([file, subject]) => [path.join(easelRoot, file), subject]).filter(
+        ([file]) => existsSync(file),
+      );
+  if (source.length === 0) return [];
+  const named = source
     .map(([file, subject]) => `${file} (${subject})`)
     .join(" and ");
   const lines = [
-    `Style: this repo's guides are ${named} — read them before writing a piece, and follow them over your own defaults.`,
+    `Style: the Aesthetic Computer guides are ${named} — read them before writing a piece, and follow them over your own defaults.`,
   ];
   // The one rule that gets broken on a first draft, inlined because a model
   // that skips the read still has to know it. Lua pieces draw through
@@ -1139,9 +1162,14 @@ publishBlankOnce();
 // someone types is worse than a published blank. The local file is still
 // discarded on exit if it was never edited; the published copy stays.
 live.on("push", () => {
+  slabSession.flow("live");
   if (live.pristine || autopublishBlocker()) return;
   autopublish.note(live.source());
 });
+// A save has landed and the channel has not heard about it yet. The rock's
+// neighbour — the preview of the very address the rock encodes — says so, so
+// that an old frame never passes for the current one.
+live.on("dirty", () => slabSession.flow("ahead"));
 state.piece = `${live.slug}${live.runtime.extension}`;
 refreshQr();
 audience.start();

@@ -728,6 +728,26 @@
         redir https://prompt.ac/prompt~channel%20{re.promptacchannel.1}~!autorun 302
     }
 
+    # The installer and its tarball, served as files from both hosts. Must sit
+    # above @promptac, which otherwise hands every non-root path to the resolver
+    # and would turn `curl prompt.ac/easel.sh` into a redirect to a piece.
+    #
+    # prompt.ac because it is nine bytes shorter than aesthetic.computer and an
+    # install line is read aloud and typed by hand more often than it is copied.
+    @easel_install {
+        host prompt.ac aesthetic.computer
+        path /easel.sh /easel.tar.gz
+    }
+    handle @easel_install {
+        root * /opt/ac/system/public
+        header /easel.sh Content-Type "text/plain; charset=utf-8"
+        header /easel.tar.gz Content-Type "application/gzip"
+        # A stale installer is worse than a slow one: it points at a tarball
+        # that may no longer be there.
+        header Cache-Control "public, max-age=300"
+        file_server
+    }
+
     # --- prompt.ac routes ---
     # Non-root paths pass through lith's conflict-aware Whistlegraph resolver.
     # It sends live codes to whistlegraph.org and preserves the historical

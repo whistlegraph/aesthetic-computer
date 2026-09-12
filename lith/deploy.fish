@@ -289,6 +289,13 @@ else if test -f $SPACES_ENV_GPG
     end
 end
 
+# The tarball easel.sh downloads is built from easel/, not committed, so it is
+# packed on the box after the pull. Building it here rather than locally means
+# the installer can never point at a version older than the source that shipped
+# with it.
+echo -e "$GREEN-> Packing the Easel installer tarball...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node easel/bin/pack.mjs" 2>&1 | tail -2
+
 echo -e "$GREEN-> Refreshing notepat.com.amxd build stream...$NC"
 if test $SPACES_READY = true
     scp -i $SSH_KEY -q $TMP_SPACES $LITH_USER@$TARGET_HOST:/tmp/notepat-spaces.env
