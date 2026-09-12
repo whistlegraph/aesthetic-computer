@@ -2,7 +2,6 @@
 
 set -euo pipefail
 
-VERSION="0.4.0"
 DEFAULT_BACKEND="${EASEL_BACKEND:-claude}"
 DEFAULT_CLAUDE_MODEL="claude-opus-5"
 script_path="${BASH_SOURCE[0]}"
@@ -16,6 +15,12 @@ while [[ -L "$script_path" ]]; do
     fi
 done
 PROJECT_DIR="$(cd "$(dirname "$script_path")/.." && pwd -P)"
+
+# One source of truth. This used to be a literal, which meant that after a
+# self-update the launcher went on reporting the version it was written with
+# while package.json — the file the updater actually compares — had moved on.
+# Two places to change a version is one place to forget.
+VERSION="$(node -p "require('$PROJECT_DIR/package.json').version" 2>/dev/null || echo "?")"
 
 usage() {
     cat <<'EOF'

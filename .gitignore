@@ -581,3 +581,7 @@ tmp/nopaint-sheets/
 
 # Built by `node easel/bin/pack.mjs` from easel/ — derived, not source.
 system/public/easel.tar.gz
+
+# Written beside a real install by the updater; a checkout never makes one.
+easel/.update-check.json
+easel/install.json

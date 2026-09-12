@@ -857,10 +857,32 @@ async function submitInput() {
       state.entries = [];
       return redraw();
     }
+    if (command === "/update") {
+      if (!installed()) {
+        addEntry("notice", `Easel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
+        return redraw();
+      }
+      addEntry("notice", "Checking for a newer Easel…");
+      redraw();
+      try {
+        const update = await checkForUpdate({ force: true });
+        if (!update) {
+          addEntry("notice", `Easel ${currentVersion()} is the latest.`);
+          return redraw();
+        }
+        addEntry("notice", `Installing Easel ${update.version}…`);
+        redraw();
+        const version = await applyUpdate({ manifest: update });
+        addEntry("notice", `Easel ${version} installed. Restart to run it.`);
+      } catch (error) {
+        addEntry("error", `Update failed: ${errorText(error)}`);
+      }
+      return redraw();
+    }
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /update · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -1155,6 +1177,20 @@ session.watch().on("change", () => {
 live.create();
 live.watch(liveError);
 publishBlankOnce();
+
+// 🆕 Ask once a day, in the background, and say nothing unless there is news.
+// Deliberately not automatic: replacing the tool someone is mid-sentence with
+// is the wrong kind of surprise, and a line they can ignore costs nothing.
+checkForUpdate()
+  .then((update) => {
+    if (!update) return;
+    addEntry(
+      "notice",
+      `Easel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
+    );
+    redraw();
+  })
+  .catch(() => {});
 // Every save that reaches the phone is a candidate for the public URL too, and
 // so is the blank. That reverses an earlier rule — an untouched session used to
 // leave nothing behind, out there or in the workspace — because the address on

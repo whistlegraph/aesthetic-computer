@@ -10,7 +10,8 @@
 //
 //   node easel/bin/pack.mjs    → system/public/easel.tar.gz
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, statSync, writeFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,10 +19,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const EASEL = join(HERE, "..");
 const REPO = join(EASEL, "..");
 const OUT = join(REPO, "system", "public", "easel.tar.gz");
+const MANIFEST = join(REPO, "system", "public", "easel.json");
+// Written into the tarball so an install can tell what it is. Its absence is
+// how a git checkout knows never to overwrite itself with a release.
+const STAMP = join(EASEL, "install.json");
 
-const INCLUDE = ["bin", "src", "shell", "context", "package.json", "README.md", "LICENSE"];
+const INCLUDE = ["bin", "src", "shell", "context", "package.json", "README.md", "LICENSE", "install.json"];
 
 const version = JSON.parse(readFileSync(join(EASEL, "package.json"), "utf8")).version;
+
+// The stamp is part of the archive, so it is written before tarring and removed
+// after: a working checkout must not acquire one by having run this script.
+writeFileSync(STAMP, JSON.stringify({ version, packedAt: new Date().toISOString() }, null, 2) + "\n");
 
 for (const entry of INCLUDE) {
   try {
@@ -43,6 +52,19 @@ execFileSync("tar", [
   ...INCLUDE,
 ], { stdio: "inherit" });
 
-const size = statSync(OUT).size;
-console.log(`easel.tar.gz — v${version}, ${(size / 1024).toFixed(0)} KB`);
+rmSync(STAMP, { force: true });
+
+const bytes = readFileSync(OUT);
+const sha256 = createHash("sha256").update(bytes).digest("hex");
+
+// What a running Easel fetches to decide whether it is behind. Kept to the four
+// facts an updater needs, so it stays cheap enough to poll once a day.
+writeFileSync(
+  MANIFEST,
+  JSON.stringify({ version, sha256, bytes: bytes.length, tarball: "/easel.tar.gz" }, null, 2) + "\n",
+);
+
+console.log(`easel.tar.gz — v${version}, ${(bytes.length / 1024).toFixed(0)} KB`);
+console.log(`  sha256 ${sha256.slice(0, 16)}…`);
 console.log(`  ${OUT}`);
+console.log(`  ${MANIFEST}`);

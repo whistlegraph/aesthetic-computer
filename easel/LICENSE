@@ -1,7 +1,21 @@
 Copyright (c) 2026 Aesthetic Computer
 
-All rights reserved.
+Permission is granted, free of charge, to any person obtaining a copy of this
+software to install it, run it, and use it for any purpose, including
+commercially, and to modify it for their own use.
 
-This software and its source code are proprietary and confidential. No right
-to use, copy, modify, distribute, sublicense, or create derivative works is
-granted without prior written permission from Aesthetic Computer.
+Redistribution is not granted. You may not publish, sublicense, sell, or
+otherwise distribute this software or a derivative of it, in source or compiled
+form, whether alone or as part of another product. Aesthetic Computer
+distributes it, from https://prompt.ac/easel.sh.
+
+Forking it to run your own copy is use, and is fine. Handing your copy to
+someone else is distribution, and is not.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
