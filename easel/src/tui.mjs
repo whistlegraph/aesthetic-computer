@@ -12,6 +12,7 @@ import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, easelFrame, easelNextFrame, easelWidth } from "./easel.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
+import { applyUpdate, checkForUpdate, currentVersion, installed } from "./updates.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
 import { cleanText, color, easelInk, renderBoot, renderFrame } from "./render.mjs";
