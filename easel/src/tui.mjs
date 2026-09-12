@@ -228,6 +228,18 @@ function openEngine({ resume = "" } = {}) {
     resumeThreadId: resume,
     model,
     developerInstructions: developerInstructions(),
+    // The hosted bridge has no subprocess and no file tools, so it needs the
+    // two things a CLI would have found for itself: which file is the piece,
+    // and a token to pay for the turn. The other bridges ignore both.
+    piece: live,
+    token: async () => {
+      if (!session.signedIn) return null;
+      try {
+        return await session.token();
+      } catch {
+        return null;
+      }
+    },
     environment: {
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,

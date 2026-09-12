@@ -9,6 +9,7 @@
 // Claude is the default. Codex was the first and still works exactly as it
 // did; the two differ mainly in where the model name comes from, which is why
 // each one carries its own answer for `/model`.
+import { AcServer, AC_MODELS, DEFAULT_AC_MODEL } from "./ac-server.mjs";
 import { AppServer } from "./app-server.mjs";
 import { ClaudeServer, DEFAULT_CLAUDE_MODEL } from "./claude-server.mjs";
 
@@ -23,6 +24,20 @@ export const BACKENDS = {
     modelSource: "the --model flag",
     Engine: ClaudeServer,
   },
+  // The only bridge that needs nothing installed. It talks to
+  // aesthetic.computer, which buys the inference and meters it against the
+  // caller's @handle — so `command` is empty, because there is no binary to
+  // find and a missing one is not why this bridge would fail.
+  ac: {
+    id: "ac",
+    label: "aesthetic",
+    command: "",
+    defaultModel: DEFAULT_AC_MODEL,
+    modelSource: "aesthetic.computer",
+    hosted: true,
+    models: AC_MODELS,
+    Engine: AcServer,
+  },
   codex: {
     id: "codex",
     label: "codex",
@@ -36,6 +51,9 @@ export const BACKENDS = {
 
 // The names people reach for for the same two bridges.
 export const BACKEND_ALIASES = {
+  aesthetic: "ac",
+  hosted: "ac",
+  free: "ac",
   anthropic: "claude",
   fable: "claude",
   openai: "codex",
