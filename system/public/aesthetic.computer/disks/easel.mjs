@@ -51,7 +51,7 @@ function boot({ ui, screen, typeface }) {
   copyBtn = new ui.Button();
 }
 
-function paint({ wipe, ink, screen, ui, num }) {
+function paint({ wipe, ink, screen, text }) {
   wipe(GROUND);
 
   const cx = screen.width / 2;
@@ -72,16 +72,27 @@ function paint({ wipe, ink, screen, ui, num }) {
   ink(SOFT).write("in your terminal", { x: cx, y, center: "x" });
   y += narrow ? 18 : 24;
 
-  // The install line, in a box you can tap. Wide enough to hold the command at
-  // the narrowest screen the runtime supports, so it never wraps mid-flag.
-  const boxWidth = Math.min(screen.width - 16, INSTALL.length * 6 + 16);
-  const boxHeight = 20;
-  const boxX = Math.round(cx - boxWidth / 2);
-  copyBtn.box = { x: boxX, y, w: boxWidth, h: boxHeight };
+  // The install line, in a box you can tap. Measured rather than estimated: a
+  // guess at six pixels per character was wrong on a phone, and the command ran
+  // out past both edges of its own border with the first and last letters
+  // clipped — on the one line the whole page exists to hand over. Shrink it
+  // until it fits instead, because a command that is hard to read is still a
+  // command, and a truncated one is a broken install.
+  let installScale = 1;
+  let installWidth = text.box(INSTALL, { x: 0, y: 0 }, undefined, 1).box.width;
+  const room = screen.width - 16;
+  while (installWidth + 12 > room && installScale > 0.4) {
+    installScale -= 0.1;
+    installWidth = text.box(INSTALL, { x: 0, y: 0 }, undefined, installScale).box.width;
+  }
+
+  const boxWidth = Math.min(room, Math.round(installWidth) + 12);
+  const boxHeight = Math.round(14 * installScale) + 8;
+  copyBtn.box = { x: Math.round(cx - boxWidth / 2), y, w: boxWidth, h: boxHeight };
 
   ink(copyBtn.down ? PINK : [58, 42, 82]).box(copyBtn.box, "fill");
   ink(copyBtn.down ? INK : PURPLE).box(copyBtn.box, "outline");
-  ink(INK).write(INSTALL, { x: cx, y: y + 6, center: "x" });
+  ink(INK).write(INSTALL, { x: cx, y: y + 5, center: "x", size: installScale });
   y += boxHeight + 6;
 
   // Say what tapping did, rather than leaving the tap unacknowledged.
