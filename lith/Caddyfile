@@ -736,12 +736,13 @@
     # install line is read aloud and typed by hand more often than it is copied.
     @easel_install {
         host prompt.ac aesthetic.computer
-        path /easel.sh /easel.tar.gz
+        path /easel.sh /easel.tar.gz /easel.json
     }
     handle @easel_install {
         root * /opt/ac/system/public
         header /easel.sh Content-Type "text/plain; charset=utf-8"
         header /easel.tar.gz Content-Type "application/gzip"
+        header /easel.json Content-Type "application/json"
         # A stale installer is worse than a slow one: it points at a tarball
         # that may no longer be there.
         header Cache-Control "public, max-age=300"

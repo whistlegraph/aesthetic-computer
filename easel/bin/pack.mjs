@@ -42,11 +42,18 @@ for (const entry of INCLUDE) {
 }
 
 mkdirSync(dirname(OUT), { recursive: true });
-// --no-mac-metadata and a fixed mtime keep the tarball byte-stable across
-// machines, so a rebuild that changed nothing does not look like a new release.
+// BSD tar (macOS) understands --no-mac-metadata; GNU tar (the box this actually
+// packs on) does not and refuses the whole command. Probe once rather than
+// branching on platform, since the tar in PATH is the thing that matters and it
+// is not always the one the platform implies.
+let extraFlags = [];
+try {
+  execFileSync("tar", ["--no-mac-metadata", "--version"], { stdio: "ignore" });
+  extraFlags = ["--no-mac-metadata", "--no-xattrs"];
+} catch {}
+
 execFileSync("tar", [
-  "--no-mac-metadata",
-  "--no-xattrs",
+  ...extraFlags,
   "-czf", OUT,
   "-C", EASEL,
   ...INCLUDE,
