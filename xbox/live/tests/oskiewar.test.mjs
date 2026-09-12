@@ -3934,6 +3934,13 @@ test("a laser bolt outruns a pistol round and spends itself on the hull", () => 
   const { fight, pads, tick } = createFight();
   const stage = fight.stageGeometry();
   const shooter = fight.players[0];
+  // Park the dummy up in the corner and out of the lane. A harness tick runs
+  // several sim frames, and a bolt covers 160 units a frame — with the two of
+  // them three tiles apart the shot is spent on a body before it can be read.
+  const target = fight.players[1];
+  target.x = stage.worldLeft + 90;
+  target.y = stage.ceilingY + 200;
+  shooter.x = (stage.worldLeft + stage.worldRight) / 2;
 
   const fireWith = (mode, ammo) => {
     shooter.gunMode = mode;
@@ -3943,9 +3950,10 @@ test("a laser bolt outruns a pistol round and spends itself on the hull", () => 
     pads[0].down = ["Y"];
     for (let frame = 0; frame < 8 && !fight.bullets.length; frame++) tick();
     pads[0].down = [];
-    tick();
     const shot = fight.bullets[0];
     assert.ok(shot, `${mode} fired nothing`);
+    // Release has to be seen, or the next press is not a new press.
+    tick();
     return shot;
   };
 
@@ -3961,18 +3969,19 @@ test("a laser bolt outruns a pistol round and spends itself on the hull", () => 
   // A round haunts the map: the walls ricochet it so a long-travelling shot
   // stays part of the fight. A bolt is the other half of that pair — four of
   // them, and each one spent outright on first contact, so a miss is a miss.
-  bolt.x = stage.worldRight - 200;
+  bolt.x = stage.worldRight - 300;
+  bolt.y = stage.floorY - 300;
   bolt.vx = Math.abs(bolt.vx);
   bolt.vy = 0;
-  for (let frame = 0; frame < 12 && fight.bullets.length; frame++) tick();
+  for (let frame = 0; frame < 6 && fight.bullets.length; frame++) tick();
   assert.equal(fight.bullets.length, 0, "the bolt burned out on the hull");
 
-  fight.bullets.length = 0;
   const survivor = fireWith("HANDGUN", 6);
-  survivor.x = stage.worldRight - 200;
+  survivor.x = stage.worldRight - 300;
+  survivor.y = stage.floorY - 300;
   survivor.vx = Math.abs(survivor.vx);
   survivor.vy = 0;
-  for (let frame = 0; frame < 12; frame++) tick();
+  for (let frame = 0; frame < 6; frame++) tick();
   assert.equal(fight.bullets.length, 1, "a pistol round ricochets instead");
   assert.ok(fight.bullets[0].vx < 0, "and it comes back off the wall");
 });

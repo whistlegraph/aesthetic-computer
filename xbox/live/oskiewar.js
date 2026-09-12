@@ -156,6 +156,16 @@ const tileTopY = (row) => floorY - (row + 1) * tileSize;
 // wherever tiled computation over the map wants to live.
 const gridField = new Float32Array(gridCols * gridRows);
 const gridFieldIndex = (x, y) => tileRow(y) * gridCols + tileCol(x);
+// Whether a point is on the lattice at all. `tileCol` and `tileRow` CLAMP,
+// which is right for a body pressed into a wall — it still stands somewhere —
+// and wrong for anything that happens off the map, because every one of those
+// lands on the same corner cell. On plaster that was invisible. Against black
+// space it was a lit bar across the top corners of the frame: the title
+// screen's own bouncing letters, stamping heat outside the box, all of it
+// clamped into row thirteen at columns zero and nineteen.
+const onGridField = (x, y) =>
+  x >= gridLeft && x <= gridLeft + gridWidth &&
+  y <= floorY && y >= floorY - gridHeight;
 // The floor stays flat wall to wall — see terrainFloorAt for why the ramps
 // went. A flat floor has nothing finer to say than one sample per tile.
 const terrainAmplitude = 0;
@@ -2256,6 +2266,12 @@ function uploadRoundReplay(now) {
   demo.previousRoundId = demo.roundIndex > 0
     ? replay.roundIds[demo.roundIndex - 1] : "";
   demo.durationTicks = demoTick(now);
+  // The names as they were when the round was PLAYED. `replay.fighters` was
+  // taken when the series opened, which in a versus fight is before the deal
+  // has dressed either seat — so the winner below could be somebody the demo
+  // never listed, and the store refused the round with "Invalid winner".
+  demo.fighters = players.map((player) => player.name);
+  demo.nations = players.map((player) => player.nation || "");
   demo.winner = players[0].score === players[1].score ? null
     : players[0].score > players[1].score ? players[0].name : players[1].name;
   demo.finalRoundWins = players.map((player) => player.roundWins);
@@ -9277,9 +9293,11 @@ function gameSim() {
       // exists without motes — so a hit stamps its cell exactly once, and
       // the overlay on the back wall shows the fight's last half-second as
       // cooling squares.
-      const cell = gridFieldIndex(impact.x, impact.y);
-      gridField[cell] = Math.min(1, gridField[cell] +
-        (impact.explosion ? 1 : impact.death ? .9 : .55));
+      if (onGridField(impact.x, impact.y)) {
+        const cell = gridFieldIndex(impact.x, impact.y);
+        gridField[cell] = Math.min(1, gridField[cell] +
+          (impact.explosion ? 1 : impact.death ? .9 : .55));
+      }
       const count = impact.explosion ? 24 : impact.death ? 10 : 6;
       impact.debris = Array.from({ length: count }, (_, index) => {
         const angle = index / count * Math.PI * 2 +
@@ -12375,7 +12393,7 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
       9, climbEdge);
     return;
   }
-  drawGridOverlay(mixColor(color, [18, 30, 62], .74));
+  drawGridOverlay(mixColor(color, [10, 16, 40], .93), false);
   const pulse = .5 + .5 * Math.sin(runtime().monotonicUs / 520000);
   const field = mixColor([54, 120, 186], [136, 214, 255], .3 + pulse * .35);
   for (const edgeX of [worldLeft, worldRight]) {
@@ -12416,7 +12434,7 @@ function drawSurvivalLava(t) {
 // quads rather than worldLines because the native renderer buries the whole
 // line stratum beneath the world's triangles — the grid would vanish behind
 // its own wall on console, the same way the gun once drew under the floor.
-function drawGridOverlay(shade) {
+function drawGridOverlay(shade, seamInk = null) {
   const gridZ = worldFar - 2;
   const gridTop = floorY - gridHeight;
   const hot = mixColor([255, 138, 92], [204, 58, 46], visualTheme.light);
@@ -12430,7 +12448,20 @@ function drawGridOverlay(shade) {
       { x: left + tileSize, y: bottom, z: gridZ },
       { x: left, y: bottom, z: gridZ }, mixColor(shade, hot, heat * .55));
   }
-  const seam = mixColor(shade, [30, 34, 48], .22);
+  // The climb's lattice is ruled onto plaster and takes its seam from that
+  // plaster. The station has no plaster, and ruling the same seams across
+  // vacuum drew a cage over the whole frame — brighter than the starfield it
+  // was supposed to hang behind, and carrying a hard bright bar wherever the
+  // ceiling row crossed the top of the shot.
+  //
+  // So the space map passes `false` and gets no seams at all. What it keeps
+  // is the half of this that was always the point: the heat. Cold tiles draw
+  // nothing, so the lattice is invisible until a blow lands and then blooms
+  // where it landed — the tile field showing its own contents rather than
+  // its own graph paper. The ruled version stays for the climb, where there
+  // is a wall to rule it onto.
+  if (seamInk === false) return;
+  const seam = seamInk || mixColor(shade, [30, 34, 48], .22);
   const seamZ = gridZ - 1;
   for (let col = 0; col <= gridCols; col++) {
     const x = gridLeft + col * tileSize;
@@ -12533,24 +12564,56 @@ function drawSpaceBackdrop(sky) {
   // frame, drawn as scanlines of a circle whose centre sits well below the
   // screen. Twenty-eight bands is enough for the curve to read and cheap
   // enough not to matter.
-  const limbBands = 28;
+  // Placed so its limb rises ABOVE the deck line rather than behind it. The
+  // hull's own skirt fills the bottom third of a landscape frame, and the
+  // first placement put the whole planet inside that skirt — a backdrop drawn
+  // perfectly and then covered up by the floor in front of it.
   const planetRadius = viewHeight * 1.9;
-  const planetCenterY = viewHeight + planetRadius * .82;
-  const planetCenterX = width * .42;
+  const planetTop = viewHeight * .46;
+  const planetCenterY = planetTop + planetRadius;
+  const planetCenterX = width * .28;
   const rim = mixColor([52, 96, 150], [126, 176, 214], visualTheme.light);
   const body = mixColor([12, 26, 52], [30, 58, 96], visualTheme.light);
-  for (let band = 0; band < limbBands; band++) {
-    const y = planetCenterY - planetRadius +
-      (band / limbBands) * planetRadius * .4;
+  // Scanlines over the VISIBLE arc, not over a fixed slice of the radius. The
+  // first pass spread twenty-eight bands across four tenths of a 2,000-unit
+  // radius, so each band was thirty pixels tall in the one place a circle
+  // turns fastest — and a planet came out as a flight of blue stairs.
+  const limbBands = 64;
+  const bandHeight = Math.ceil((viewHeight - planetTop) / limbBands) + 1;
+  const halfWidthAt = (y) => {
     const dy = planetCenterY - y;
-    const half = Math.sqrt(Math.max(0, planetRadius * planetRadius - dy * dy));
+    return Math.sqrt(Math.max(0, planetRadius * planetRadius - dy * dy));
+  };
+  for (let band = 0; band < limbBands; band++) {
+    const y = planetTop + (band / limbBands) * (viewHeight - planetTop);
+    const half = halfWidthAt(y);
     if (!(half > 0)) continue;
-    const height = Math.ceil(planetRadius * .4 / limbBands) + 1;
-    // The top band is the lit rim; everything under it falls off into the
-    // night side, which is what keeps the planet from reading as a blue hill.
-    const tint = mixColor(rim, body, Math.min(1, band / 3));
+    // The top of the arc is the lit rim; everything under it falls away into
+    // the night side, which is what keeps the planet from reading as a hill.
+    const tint = mixColor(rim, body, Math.min(1, band / 7));
     box(Math.round(planetCenterX - half), Math.round(y),
-      Math.round(half * 2), height, ...tint);
+      Math.round(half * 2), bandHeight, ...tint);
+  }
+  // And one smooth pass along the limb itself. Stacked boxes step wherever
+  // the curve outruns a band's height, and the eye finds every one of those
+  // steps on a silhouette; a line drawn through the same arc buries them and
+  // costs forty segments.
+  // Each edge of the limb is walked on its own, from the crown downward. The
+  // steps are packed toward the crown — `** 1.7` — because that is where a
+  // circle turns fastest and where a scanline stack shows its stairs.
+  const rimLight = mixColor(rim, [236, 248, 255], .45);
+  const steps = 40;
+  for (const side of [-1, 1]) {
+    let previousX = planetCenterX;
+    let previousY = planetTop;
+    for (let step = 1; step <= steps; step++) {
+      const y = planetTop +
+        (step / steps) ** 1.7 * (viewHeight - planetTop) * .6;
+      const x = planetCenterX + side * halfWidthAt(y);
+      line(previousX, previousY, x, y, 3, ...rimLight);
+      previousX = x;
+      previousY = y;
+    }
   }
 }
 
