@@ -370,17 +370,24 @@ echo -e "$GREEN-> Purging Cloudflare cache...$NC"
 if test -z "$CF_AUTH"
     echo -e "$YELLOW   No Cloudflare credentials found — skipping purge (Caddy short TTL still applies).$NC"
 else
-    set CF_ZONE (curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=aesthetic.computer" \
-        $CF_AUTH -H "content-type: application/json" \
-        | python3 -c "import json,sys; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')" 2>/dev/null)
-    if test -z "$CF_ZONE"
-        echo -e "$YELLOW   Could not resolve zone id — skipping purge.$NC"
-    else
-        set CF_RESULT (curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+    # Every zone this deploy serves, not just the apex. prompt.ac is a separate
+    # Cloudflare zone, so purging aesthetic.computer left its edge holding
+    # whatever it had — including a cached 404 for a file that had since been
+    # built, which is exactly how prompt.ac/easel.tar.gz stayed missing after a
+    # deploy that produced it.
+    for CF_HOST in aesthetic.computer prompt.ac
+        set CF_ZONE (curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CF_HOST" \
             $CF_AUTH -H "content-type: application/json" \
-            --data '{"purge_everything":true}' \
-            | python3 -c "import json,sys; d=json.load(sys.stdin); print('ok' if d.get('success') else 'failed: '+str(d.get('errors')))" 2>/dev/null)
-        echo -e "$GREEN   purge: $CF_RESULT$NC"
+            | python3 -c "import json,sys; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')" 2>/dev/null)
+        if test -z "$CF_ZONE"
+            echo -e "$YELLOW   $CF_HOST: could not resolve zone id — skipping.$NC"
+        else
+            set CF_RESULT (curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE/purge_cache" \
+                $CF_AUTH -H "content-type: application/json" \
+                --data '{"purge_everything":true}' \
+                | python3 -c "import json,sys; d=json.load(sys.stdin); print('ok' if d.get('success') else 'failed: '+str(d.get('errors')))" 2>/dev/null)
+            echo -e "$GREEN   purge $CF_HOST: $CF_RESULT$NC"
+        end
     end
 end
 
