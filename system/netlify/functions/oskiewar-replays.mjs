@@ -23,6 +23,24 @@ const MATCH_NAME = new RegExp(
   `^(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 const MATCH_ID = new RegExp(
   `^ow-(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
+// A round summary: everything the ledgers fold, and none of the bulk. A room
+// with five hundred rounds in it must not drag five hundred command streams
+// across the wire to answer "who has played here".
+const ROUND_SUMMARY = { seriesId: 1, seriesName: 1, roundIndex: 1, roomId: 1,
+  roomName: 1, fighters: 1, winner: 1, finalRoundWins: 1, recordedAt: 1 };
+const ROOM_ROUND_LIMIT = 500;
+const FIGHTER_ROUND_LIMIT = 1000;
+const FIGHTER_NAME = /^@?[A-Z0-9_-]{1,24}$/;
+// The same case-folded read of a row's two names that oskiewar-stats uses.
+const FIGHTERS_UPPER =
+  { $map: { input: "$fighters", in: { $toUpper: "$$this" } } };
+
+export function canonicalRoomId(value) {
+  const raw = String(value || "").toLowerCase();
+  const name = raw.startsWith("ow-") ? raw.slice(3) : raw;
+  return MATCH_NAME.test(name) ? `ow-${name}` : null;
+}
+
 const oskiewarAnalytics = createPostHogEventCapture({
   distinctId: "ac-oskiewar-lith-aggregate",
   eventFactory: oskiewarEvent,
@@ -57,6 +75,17 @@ export function validateDemo(value) {
       (value.roundIndex > 0 &&
         value.previousRoundId !== value.roundIds[value.roundIndex - 1])))
     return "Invalid round linkage";
+  // Which room this round was played in. Only a versus fight has one: in the
+  // broadcast lane each round IS its own room and the round id already says
+  // so. It is what makes a room answerable for its own history.
+  if (value.roomId !== undefined &&
+      (!MATCH_ID.test(value.roomId) || typeof value.roomName !== "string" ||
+       value.roomId !== "ow-" + value.roomName)) return "Invalid room";
+  // Whether the round ran on a clock. Versus rounds do not, and a re-run
+  // handed a countdown the original never had ends early on a fight the
+  // original played past. Demos recorded before this field were all timed.
+  if (value.timed !== undefined && typeof value.timed !== "boolean")
+    return "Invalid timing flag";
   if (!finite(value.startedAt, 10000000000000) ||
       !Number.isInteger(value.durationTicks) || value.durationTicks < 0 ||
       value.durationTicks > 216000) return "Invalid timing";
@@ -105,6 +134,143 @@ export function validateDemo(value) {
   if (!Array.isArray(value.rounds) || value.rounds.length > 128 ||
       value.rounds.some((row) => !numericRow(row, 4))) return "Invalid rounds";
   return null;
+}
+
+// A match is won at five rounds — the game's own `matchWins`. Kept in step
+// with oskiewar-stats.mjs, which asks the same question of the same rows.
+const MATCH_WINS = 5;
+// Handles are written uppercase by the piece, but a row is only ever as
+// careful as the build that wrote it, so every comparison here folds case.
+const upper = (value) => String(value || "").toUpperCase();
+// The signed-out seat wears a blank nameplate on purpose. It is a legitimate
+// fighter and its rounds are kept, but it is not a person and cannot hold a
+// record — every anonymous player would otherwise share one.
+const named = (value) => upper(value) !== "";
+
+// Round documents, folded into the matches they belong to. One series is one
+// match: up to 32 rounds sharing a `seriesId`, with `finalRoundWins` carrying
+// the running tally, so the last round of a series holds its final score.
+export function foldMatches(rows = []) {
+  const series = new Map();
+  for (const row of rows) {
+    const id = row?.seriesId || row?._id;
+    if (!id) continue;
+    if (!series.has(id)) series.set(id, []);
+    series.get(id).push(row);
+  }
+  return [...series.values()].map(foldOneMatch)
+    .sort((a, b) => (b.endedAt || "").localeCompare(a.endedAt || ""));
+}
+
+// Which seat won a round. The name on `winner` cannot answer this on its own:
+// a signed-out fighter's nameplate is the empty string on purpose, so a round
+// an anonymous player WON is stored indistinguishably from a tie — and every
+// loss to an anonymous player would quietly vanish from the other player's
+// record. The running tally does answer it: the seat whose `finalRoundWins`
+// went up is the seat that won, and a round where neither moved was a tie.
+// The name is the fallback for the first round of a window that does not
+// start at the beginning of its match.
+function roundWinnerSeat(row, before) {
+  if (before) {
+    const now = row.finalRoundWins || [0, 0];
+    for (let seat = 0; seat < 2; seat++)
+      if ((now[seat] || 0) > (before[seat] || 0)) return seat;
+    return -1;
+  }
+  if (!row.winner) return -1;
+  const seat = (row.fighters || [])
+    .findIndex((name, position) => position < 2 && upper(name) === upper(row.winner));
+  return seat;
+}
+
+function foldOneMatch(rows) {
+  const ordered = rows.slice().sort((a, b) =>
+    (a.roundIndex ?? 0) - (b.roundIndex ?? 0));
+  const newest = ordered[ordered.length - 1];
+  const wins = [0, 0];
+  let ties = 0;
+  let before = ordered[0]?.roundIndex === 0 ? [0, 0] : null;
+  for (const row of ordered) {
+    const seat = roundWinnerSeat(row, before);
+    if (seat >= 0) wins[seat]++; else ties++;
+    before = (row.finalRoundWins || [0, 0]).slice(0, 2);
+  }
+  const times = rows.map((row) => row.recordedAt
+    ? new Date(row.recordedAt).getTime() : 0).filter(Boolean);
+  const score = (newest?.finalRoundWins || [0, 0]).slice(0, 2);
+  const top = Math.max(...score, 0);
+  const seat = score.indexOf(top);
+  const decided = top >= MATCH_WINS && score[1 - seat] < top;
+  const fighters = (newest?.fighters || []).slice(0, 2);
+  const stamp = (value) =>
+    Number.isFinite(value) && value > 0 ? new Date(value).toISOString() : null;
+  return {
+    seriesId: newest?.seriesId || newest?._id || "",
+    seriesName: newest?.seriesName || "",
+    roomId: newest?.roomId || "", roomName: newest?.roomName || "",
+    fighters, score, rounds: ordered.length, roundWins: wins, ties,
+    // An anonymous winner is a real winner wearing a blank nameplate, so the
+    // name may be "" while `complete` says the match was decided.
+    winner: decided ? (fighters[seat] ?? "") : null, complete: decided,
+    roundIds: ordered.map((row) => row._id),
+    startedAt: stamp(times.length ? Math.min(...times) : 0),
+    endedAt: stamp(times.length ? Math.max(...times) : 0),
+  };
+}
+
+// Every named fighter in a set of matches, and how they did. This is the
+// track record: rounds are the honest unit because every round document has a
+// winner, and matches are the ones that reached five.
+export function standings(matches = []) {
+  const players = new Map();
+  const seat = (handle) => {
+    const key = upper(handle);
+    if (!players.has(key)) players.set(key, { handle: key,
+      roundsWon: 0, roundsLost: 0, ties: 0,
+      matchesPlayed: 0, matchesWon: 0, opponents: [], lastAt: null });
+    return players.get(key);
+  };
+  for (const match of matches) {
+    const pair = match.fighters || [];
+    for (let index = 0; index < 2; index++) {
+      if (!named(pair[index])) continue;
+      const player = seat(pair[index]);
+      player.roundsWon += match.roundWins[index] || 0;
+      player.roundsLost += match.roundWins[1 - index] || 0;
+      player.ties += match.ties || 0;
+      player.matchesPlayed++;
+      if (match.complete && upper(match.winner) === upper(pair[index]))
+        player.matchesWon++;
+      if (named(pair[1 - index]) &&
+          !player.opponents.includes(upper(pair[1 - index])))
+        player.opponents.push(upper(pair[1 - index]));
+      if (!player.lastAt || (match.endedAt || "") > player.lastAt)
+        player.lastAt = match.endedAt;
+    }
+  }
+  return [...players.values()]
+    .sort((a, b) => b.matchesWon - a.matchesWon ||
+      b.roundsWon - a.roundsWon || a.handle.localeCompare(b.handle));
+}
+
+// One room's ledger: the matches played at its address, newest first, and
+// what everybody who played there has to show for it.
+export function roomHistory(roomId, rows = []) {
+  const matches = foldMatches(rows);
+  return { roomId, room: String(roomId || "").replace(/^ow-/, ""),
+    matches, rounds: rows.length, players: standings(matches) };
+}
+
+// One handle's track record, across every room they have played in.
+export function trackRecord(handle, rows = []) {
+  const key = upper(handle);
+  const matches = foldMatches(rows)
+    .filter((match) => (match.fighters || []).some((name) => upper(name) === key));
+  const record = standings(matches).find((player) => player.handle === key) ||
+    { handle: key, roundsWon: 0, roundsLost: 0, ties: 0,
+      matchesPlayed: 0, matchesWon: 0, opponents: [], lastAt: null };
+  const rooms = [...new Set(matches.map((match) => match.roomId).filter(Boolean))];
+  return { ...record, rooms, matches };
 }
 
 function sourceDigest(event) {
@@ -173,6 +339,46 @@ export async function handler(event) {
         await database.disconnect();
         return replay ? respond(200, { replay: publicReplay(replay) })
           : respond(404, { error: "Replay not found" });
+      }
+      // A room's own ledger. A versus room is a lasting address — the link a
+      // friend was sent — so it accumulates every match ever played at it,
+      // which is the thing `?series=` below cannot answer: a series is one
+      // match, a room is all of them.
+      if (params.room) {
+        const roomId = canonicalRoomId(params.room);
+        if (!roomId) {
+          await database.disconnect();
+          return respond(400, { error: "Invalid room ID" });
+        }
+        // Declared on the read path because it is idempotent and this
+        // endpoint has no deploy step of its own to hang it off.
+        await collection.createIndex({ roomId: 1, recordedAt: -1 })
+          .catch(() => {});
+        const rows = await collection.find({ roomId }, {
+          projection: ROUND_SUMMARY,
+        }).sort({ recordedAt: -1 }).limit(ROOM_ROUND_LIMIT).toArray();
+        await database.disconnect();
+        return respond(200, roomHistory(roomId, rows), {
+          "Cache-Control": "public, max-age=30",
+        });
+      }
+      // One player's track record, across every room they have played in.
+      if (params.fighter) {
+        const handle = String(params.fighter).toUpperCase();
+        if (!FIGHTER_NAME.test(handle)) {
+          await database.disconnect();
+          return respond(400, { error: "Invalid fighter" });
+        }
+        // Names are matched with case folded, the same way oskiewar-stats
+        // asks the question, so a row written by an older build still counts.
+        const rows = await collection.find({
+          $expr: { $in: [handle, FIGHTERS_UPPER] },
+        }, { projection: ROUND_SUMMARY })
+          .sort({ recordedAt: -1 }).limit(FIGHTER_ROUND_LIMIT).toArray();
+        await database.disconnect();
+        return respond(200, trackRecord(handle, rows), {
+          "Cache-Control": "public, max-age=30",
+        });
       }
       if (params.series) {
         if (!MATCH_ID.test(params.series)) {

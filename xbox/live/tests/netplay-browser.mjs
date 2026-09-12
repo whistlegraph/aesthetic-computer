@@ -1,138 +1,29 @@
 // oskiewar rollback netplay, browser end to end, 26.09.09
 // Two real browsers on one room, joined by a local instance of the real relay
-// and served the real shell. Proves what the unit tests cannot: that the
-// handshake happens through the actual bridge, that both browsers open a
-// rollback session, and that after a fight their state hashes agree.
+// and served the real shell (netplay-stack.mjs). Proves what the unit tests
+// cannot: that the handshake happens through the actual bridge, that both
+// browsers open a rollback session, and that after a fight their state hashes
+// agree. The leave-and-come-back half lives in netplay-rejoin.mjs.
 //
-//   node xbox/live/tests/netplay-browser.mjs [--seconds 20] [--headful]
+//   node xbox/live/tests/netplay-browser.mjs [--seconds 20] [--headful] [--audio]
 //
 // Exits non-zero with a reason if either seat fails to open a session or the
 // two seats disagree. Findings and the streamed-lane analysis it replaces:
 // xbox/live/oskiewar-multiplayer.md
-import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { WebSocketServer } from "ws";
-import puppeteer from "puppeteer";
-import { OskiewarLiveManager } from "../../../session-server/oskiewar-live-manager.mjs";
+import { localStack, openSeat, readStats, play, wait, launchBrowser }
+  from "./netplay-stack.mjs";
 
-const here = resolve(fileURLToPath(new URL("..", import.meta.url)));
-const repo = resolve(here, "../..");
 const args = process.argv.slice(2);
 const seconds = Number(args[args.indexOf("--seconds") + 1]) || 20;
 const headful = args.includes("--headful");
+// Both doors or neither: see launchBrowser in netplay-stack.mjs.
+const audible = args.includes("--audio");
 // Where to leave a frame from each seat, taken mid-fight. Looking at the two
 // pictures is the only way to check the half of this that no hash covers:
 // that both seats are drawing the same fight, with a HUD.
 const shots = args.includes("--shots")
   ? (args[args.indexOf("--shots") + 1] || "").replace(/^-.*/, "") || "." : "";
 const room = "netpl" + String(Math.floor(Math.random() * 90) + 10);
-const chrome = process.env.PUPPETEER_EXECUTABLE_PATH ||
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const mime = new Map([[".html", "text/html; charset=utf-8"],
-  [".js", "text/javascript; charset=utf-8"], [".mjs", "text/javascript; charset=utf-8"],
-  [".ttf", "font/ttf"], [".svg", "image/svg+xml"]]);
-
-function fileFor(pathname) {
-  if (pathname === "/oskiewar.js") return join(here, "oskiewar.js");
-  if (/^\/(oskiewar-(sfx|voice|midi)|frame-driver|round-room|account)\.mjs$/.test(pathname))
-    return join(here, pathname.slice(1));
-  if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
-    return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
-  if (pathname.startsWith("/aesthetic.computer/lib/") ||
-      pathname.startsWith("/aesthetic.computer/cursors/"))
-    return join(repo, "system/public", pathname.slice(1));
-  if (pathname === "/ComicRelief-Regular.ttf")
-    return join(repo,
-      "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
-  if (pathname === "/" || /^\/[a-z0-9-]+\/?$/.test(pathname)) return join(here, "mac-test.html");
-  return "";
-}
-
-// The real relay, in this process, on a local port. Nothing about the room
-// logic is stubbed: this is the class the session server runs.
-async function localStack() {
-  const manager = new OskiewarLiveManager();
-  const server = createServer(async (request, response) => {
-    const url = new URL(request.url, "http://127.0.0.1");
-    if (url.pathname === "/favicon.ico") { response.writeHead(204); response.end(); return; }
-    if (url.pathname === "/api/product-analytics-config" ||
-        url.pathname === "/api/oskiewar-pops" || url.pathname === "/api/oskiewar-country") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end("{}"); return;
-    }
-    if (url.pathname === "/api/oskiewar-replays") {
-      response.writeHead(404, { "content-type": "application/json" });
-      response.end('{"replay":null}'); return;
-    }
-    const path = fileFor(url.pathname);
-    if (!path) { response.writeHead(404); response.end("not found"); return; }
-    try {
-      const body = await readFile(path);
-      response.writeHead(200, { "content-type": mime.get(extname(path)) ||
-        "application/octet-stream", "cache-control": "no-store" });
-      response.end(body);
-    } catch (error) { response.writeHead(500); response.end(error.message); }
-  });
-  const sockets = new WebSocketServer({ server });
-  sockets.on("connection", (ws, request) => {
-    if (manager.handleConnection(ws, request)) return;
-    ws.close(1008, "unknown endpoint");
-  });
-  await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
-  const port = server.address().port;
-  return { server, manager, origin: `http://127.0.0.1:${port}`,
-    wsOrigin: `ws://127.0.0.1:${port}` };
-}
-
-const wait = (ms) => new Promise((done) => setTimeout(done, ms));
-
-// Each seat gets its OWN browser, not another tab: a background tab's frame
-// driver parks and settles its owed ticks in one-second bursts, so two tabs
-// in one window spend most of their ticks holding for each other and read
-// like a netcode fault that is really a harness artifact.
-//
-// The shell hardcodes the production relay, so each page is handed a local
-// one before any of its script runs.
-async function openSeat(browser, origin, wsOrigin, path, label) {
-  const page = (await browser.pages())[0] || await browser.newPage();
-  await page.setViewport({ width: 900, height: 560 });
-  page.on("pageerror", (error) => console.log(`  [${label}] page error: ${error.message}`));
-  page.on("console", (message) => {
-    const text = message.text();
-    if (/error|Error|desync/.test(text)) console.log(`  [${label}] ${text}`);
-  });
-  await page.evaluateOnNewDocument((local) => {
-    const Native = WebSocket;
-    window.WebSocket = function Patched(url, ...rest) {
-      return new Native(String(url)
-        .replace("wss://session-server.aesthetic.computer", local), ...rest);
-    };
-    window.WebSocket.prototype = Native.prototype;
-    Object.assign(window.WebSocket, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 });
-    window.__netplayTelemetry = [];
-  }, wsOrigin);
-  await page.goto(origin + path, { waitUntil: "domcontentloaded" });
-  return page;
-}
-
-const readStats = (page) => page.evaluate(() => ({
-  net: globalThis.__oskiewarNetStats || null,
-  room: globalThis.__oskiewarVersusRoom || "",
-  touchScreen: globalThis.__oskiewarTouch?.screen || "",
-}));
-
-// Hold each key well past one frame: the shell samples at 60 Hz and a
-// sub-frame synthetic press is missed (this is documented behaviour).
-async function play(page, script, beat = 180) {
-  for (const keys of script) {
-    for (const key of keys) await page.keyboard.down(key);
-    await wait(beat);
-    for (const key of keys) await page.keyboard.up(key);
-    await wait(60);
-  }
-}
 
 // WASD, not the arrows. A rollback seat reads `gamepad(0)` whichever chair it
 // sits in — the rival's word is written into pad 1 — so arrow keys drive a pad
@@ -152,15 +43,12 @@ const fail = (reason) => { console.log(`\nFAILED: ${reason}`); process.exitCode 
 
 const stack = await localStack();
 console.log(`local stack on ${stack.origin}, room ${room}`);
-const launch = (left) => puppeteer.launch({ executablePath: chrome,
-  headless: headful ? false : "new",
-  args: ["--autoplay-policy=no-user-gesture-required", "--no-first-run",
-    "--window-size=900,560", `--window-position=${left},60`] });
-const browsers = [await launch(40), await launch(980)];
+const browsers = [await launchBrowser(40, { headful, audible }),
+  await launchBrowser(980, { headful, audible })];
 const browser = { close: () => Promise.all(browsers.map((one) => one.close())) };
 try {
   // Seat one arrives at an empty address, waits out the claim, and hosts.
-  const host = await openSeat(browsers[0], stack.origin, stack.wsOrigin, "/" + room, "host");
+  const host = await openSeat(browsers[0], stack.origin, stack.wsOrigin, "/" + room, "host", { audible });
   await wait(1500);
   await play(host, [["Enter"]]);
   await wait(5000);
@@ -169,7 +57,7 @@ try {
   if (!hosting.room) fail("seat one never claimed the room");
 
   // Seat two arrives at the same address and takes the chair.
-  const guest = await openSeat(browsers[1], stack.origin, stack.wsOrigin, "/" + room, "guest");
+  const guest = await openSeat(browsers[1], stack.origin, stack.wsOrigin, "/" + room, "guest", { audible });
   await wait(1500);
   await play(guest, [["Enter"]]);
   await wait(3000);
@@ -226,6 +114,20 @@ try {
     else console.log(`  hashes agree at the frames they share (last checked ${shared})`);
     if (!process.exitCode) console.log("\nPASSED: two browsers, one fight.");
   }
+  // Whatever the fight managed to file, and anything the store would have
+  // refused. A round only ends on a knockout, so a short movement-only run may
+  // file nothing — but nothing it DOES file may be malformed.
+  if (stack.filed.rejected.length)
+    fail(`the store refused ${stack.filed.rejected.length} round(s): ` +
+      stack.filed.rejected.map((one) => `${one.id} ${one.reason}`).join("; "));
+  if (stack.filed.rounds.length)
+    console.log(`filed ${stack.filed.rounds.length} round(s): ` +
+      stack.filed.rounds.map((one) =>
+        `${one.roundId} in ${one.roomId || "no room"}`).join(", "));
+} catch (error) {
+  // Without this the `process.exit` below swallows the throw whole: the run
+  // stopped mid-script, printed nothing, and exited zero.
+  fail(`${error.message}\n${error.stack}`);
 } finally {
   await browser.close();
   stack.server.close();

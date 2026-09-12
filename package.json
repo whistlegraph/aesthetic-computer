@@ -47,6 +47,7 @@
     "xbox:test:oskiewar:blackbox": "node xbox/live/tests/blackbox-rounds.mjs",
     "xbox:test:oskiewar:netplay": "node --test xbox/live/tests/oskiewar-netplay.test.mjs",
     "xbox:test:oskiewar:netplay:browser": "node xbox/live/tests/netplay-browser.mjs",
+    "xbox:test:oskiewar:rejoin": "node xbox/live/tests/netplay-rejoin.mjs",
     "xbox:watch:reel": "node xbox/live/marketing/reel-watch.mjs",
     "xbox:burn:oskiewar-social": "node xbox/live/render-social-preview.mjs",
     "xbox:check:oskiewar-social": "node xbox/live/render-social-preview.mjs --check",

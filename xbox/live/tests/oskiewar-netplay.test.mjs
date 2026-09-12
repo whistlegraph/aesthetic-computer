@@ -3,6 +3,10 @@
 // delay and loss. The contract under test: fed the same pads, both seats
 // hash the same state frame after frame, however late the packets land.
 import test from "node:test";
+// The store's own reader, so a demo this fight writes is checked against the
+// contract that will actually have to accept it rather than against a copy.
+import { validateDemo, foldMatches }
+  from "../../../system/netlify/functions/oskiewar-replays.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
@@ -15,6 +19,8 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
   let now = 5000000;
   const pad = { connected: true, down: [], leftX: 0, leftY: 0 };
   const counts = { drums: 0, signals: 0, telemetry: [], analytics: 0, published: 0 };
+  // Every demo this seat filed, in the order it filed them.
+  const replays = [];
   const noOp = () => {};
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay",
@@ -38,6 +44,17 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
        netplaySnapshot: () => netSnapshot(),
        netplayRestore: (saved) => netRestore(saved),
        netplayScalarNames: () => Object.keys(netSimScalars()),
+       // What the fight actually ran on, frame by frame: [frame, seat0, seat1].
+       netplayUsed: () => netSession
+         ? [...netSession.used.entries()].map(([frame, inputs]) =>
+             [frame, inputs[0], inputs[1]]) : [],
+       netplayPendingSave: () => replayPendingSaveFrame,
+       setVersusRoom: (name) => { versusRoomName = name; },
+       replayState: () => replay ? { commands: replay.commands.map((row) => row.slice()),
+         checkpoints: replay.checkpoints.length, events: replay.events.length,
+         rounds: replay.rounds.length, roundIds: replay.roundIds.slice(),
+         timed: replay.timed, roomId: replay.roomId || "",
+         seriesId: replay.seriesId, startedMonotonicUs: replay.startedMonotonicUs } : null,
        fighters: () => players.map((player) => ({ name: player.name,
          x: player.x, y: player.y, alive: player.alive, score: player.score,
          roundWins: player.roundWins, remote: player.remote })),
@@ -52,7 +69,8 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
       : { connected: false, down: [], leftX: 0, leftY: 0 },
     () => ({ platform: "web", inputFamily: "keyboard" }),
     (event, detail) => counts.telemetry.push([event, detail]),
-    () => { counts.signals++; }, () => Promise.resolve(true),
+    () => { counts.signals++; },
+    (payload) => { replays.push(payload); return Promise.resolve(true); },
     () => { counts.published++; }, () => { counts.analytics++; },
     () => { counts.drums++; }, noOp, noOp, noOp, noOp, undefined, undefined,
     noOp, noOp, () => viewport,
@@ -70,6 +88,9 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
   globalThis.__oskiewarRoundBridge = null;
   return {
     fight, pad, counts,
+    // Read out here, not from inside the piece: `new Function` sees globals
+    // and its own parameters, never this closure.
+    saved: () => replays.map((one) => JSON.parse(one)),
     press: (...buttons) => { pad.down = buttons; },
     tick: (elapsedUs = 16667) => { now += elapsedUs; fight.sim(); },
     time: () => now,
@@ -433,6 +454,55 @@ test("a hello turns the streamed lane into a rollback fight, and silence leaves 
   globalThis.__oskiewarNetInbox = [];
 });
 
+// A tab that is killed sends no `bye`, so the host waits on four seconds of
+// silence before letting go — and the 1 Hz hello of the person trying to come
+// back used to refresh that clock on every arrival. The host went on
+// simulating against a rival who only ever said hello, the rejoiner never got
+// a deal back, and neither seat could leave. A hello inside a session is never
+// the rival still talking: the challenger stops saying it the moment it has
+// one, so it can only be somebody with no session at all.
+test("a rejoining rival's hello ends the dead session instead of feeding it", () => {
+  const realNow = Date.now;
+  let wall = 1785870000000;
+  Date.now = () => wall;
+  const deals = [];
+  try {
+    const host = createSeat();
+    globalThis.__oskiewarNetSend = (room, content) => { deals.push(content); return true; };
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    host.tick();
+    assert.ok(host.fight.netplayState(), "the host dealt a session");
+    assert.equal(deals.filter((packet) => packet.t === "start").length, 1);
+
+    // A straggler from before the deal must not kill a session one frame old.
+    wall += 500;
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    host.tick();
+    assert.ok(host.fight.netplayState(), "an in-flight hello is not a departure");
+
+    // Their tab is killed — no bye, no more input packets — and they reload
+    // and start announcing themselves again.
+    wall += 3000;
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    host.tick();
+    assert.equal(host.fight.netplayState(), null,
+      "the hello reads as a departure, not as the rival still talking");
+
+    // And the next one seats them again, under their own name.
+    wall += 1000;
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    host.tick();
+    const reopened = deals.filter((packet) => packet.t === "start");
+    assert.equal(reopened.length, 2, "a fresh deal, not a wedged fight");
+    assert.equal(reopened[1].fighters[1].name, "@FRIEND");
+    assert.ok(host.fight.netplayState(), "and the rollback lane is back");
+  } finally {
+    Date.now = realNow;
+    globalThis.__oskiewarNetInbox = [];
+    globalThis.__oskiewarNetSend = undefined;
+  }
+});
+
 test("the challenger takes a deal from its bridge and stops watching the stream", () => {
   const outbound = [];
   const bridge = { name: "sezzi7", seat: "challenger", live: true,
@@ -468,4 +538,230 @@ test("the challenger takes a deal from its bridge and stops watching the stream"
   guest.press("ArrowRight");
   for (let frame = 0; frame < 30; frame++) guest.tick();
   assert.ok(outbound.some((packet) => packet.t === "i"), "its pads go up the net channel");
+});
+
+// A rejoin is a fight dealt by a machine that has already played one, against
+// a machine that has just booted. Frame zero has to be the same state on both
+// or the fight is over before it starts — and until the wedge above was fixed
+// this path could never be reached, so nothing had ever checked it.
+test("a seat that has already fought deals frame zero a fresh rival can match", () => {
+  const host = createSeat();
+  const first = createSeat();
+  const wire = createWire(host, first, { delay: 2 });
+  beginPair(host, first, wire);
+  run(host, first, wire, 240);
+  host.fight.netplayEnd("rival-left");
+  first.fight.netplayEnd("bye");
+
+  const second = createSeat();
+  const rewire = createWire(host, second, { delay: 2 });
+  beginPair(host, second, rewire);
+  assert.equal(host.fight.netplayHash(), second.fight.netplayHash(),
+    "frame zero of the rejoined fight is one state");
+
+  // And it stays one fight under play, the same as a first meeting does.
+  run(host, second, rewire, 600);
+  const seats = { host: host.fight.netplayState(), guest: second.fight.netplayState() };
+  assert.equal(seats.host.stats.desyncs + seats.guest.stats.desyncs, 0,
+    "the rejoined fight does not come apart");
+});
+
+// Frame numbers restart at zero every session, so an input packet from the
+// fight before reads as a perfectly good one — and it lands on frames the new
+// fight has not reached yet, on whichever seat received it and nowhere else.
+// The shell's inbox is not emptied when a session ends and packets stay in
+// flight across the changeover, so both happen. Measured in two browsers: the
+// seats agreed through frame 330 of a rejoined fight and were found apart at
+// the next checkpoint.
+test("a packet from the fight before is not played into this one", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 2 });
+  const first = beginPair(host, guest, wire);
+  run(host, guest, wire, 120);
+  host.fight.netplayEnd("rival-left");
+  guest.fight.netplayEnd("bye");
+
+  const rival = createSeat();
+  const rewire = createWire(host, rival, { delay: 2 });
+  const second = beginPair(host, rival, rewire);
+  assert.notEqual(first.origin, second.origin, "a new deal is a new origin");
+  const clean = host.fight.netplayHash();
+
+  // The old fight's rival, still in the air: real masks on frames this fight
+  // has not simulated, and a farewell that would end it outright.
+  host.fight.netplayInbox({ t: "i", o: first.origin, f: 4, m: [3, 3, 3, 3],
+    a: 100, s: 100, w: Date.now() });
+  host.fight.netplayInbox({ t: "bye", o: first.origin, r: "leaving" });
+  host.tick();
+  rival.tick();
+  assert.ok(host.fight.netplayState(), "the old fight's goodbye does not end this one");
+  assert.equal(host.fight.netplayHash(), clean,
+    "and its presses were not played into it");
+
+  // The same packet, correctly addressed, is still taken.
+  host.fight.netplayInbox({ t: "i", o: second.origin, f: 4, m: [3, 3, 3, 3],
+    a: 0, s: 4, w: Date.now() });
+  host.tick();
+  assert.ok(host.fight.netplayState().remoteFrame >= 7,
+    "this fight's packets still land");
+});
+
+// The claim a recorded rollback fight has to earn. The recorders run on every
+// tick INCLUDING the silent re-simulation after a rollback, so what ends up in
+// the demo has to be the fight that really happened rather than the one this
+// seat guessed at while it waited for the rival's pad. Before replayRewind the
+// command stream held the guesses: a stored versus round replayed into a
+// different fight, which is what "a rollback fight is never a recorded one"
+// meant. The wire below loses a tenth of its packets on purpose so there is
+// plenty to take back.
+test("a recorded rollback round holds the fight that really happened", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 4, jitter: 3, loss: .1, seed: 7 });
+  beginPair(host, guest, wire);
+  // `used` is pruned below the confirmed frontier, so what the fight ran on is
+  // collected as it goes. A frame at or under `confirmed` will never be
+  // rolled back again, so the reading taken there is its final one.
+  //
+  // The hands churn deliberately: a rollback only rewrites the record when it
+  // lands on a frame where the rival's word CHANGED, and the shared
+  // choreography holds a button for many frames at a time, so a fight driven
+  // by it can roll back forty times without a single recorded row moving.
+  const beat = (seat, frame) => frame % (seat ? 2 : 3) === 0
+    ? [] : [["ArrowLeft", "ArrowRight", "A"][(frame + seat) % 3]];
+  const played = new Map();
+  for (let frame = 0; frame < 900; frame++) {
+    host.press(...beat(0, host.fight.netplayState().frame));
+    guest.press(...beat(1, guest.fight.netplayState().frame));
+    host.tick();
+    guest.tick();
+    wire.step();
+    const at = host.fight.netplayState();
+    for (const [frame, seatZero, seatOne] of host.fight.netplayUsed())
+      if (frame <= at.confirmed) played.set(frame, [seatZero, seatOne]);
+  }
+
+  const state = host.fight.netplayState();
+  assert.ok(state.stats.rollbacks > 0,
+    `the wire has to actually cost rollbacks: ${state.stats.rollbacks}`);
+  assert.equal(state.stats.desyncs, 0);
+
+  // Only the host writes the fight down; two authors would race for one id.
+  const record = host.fight.replayState();
+  assert.ok(record, "the host is recording");
+  assert.equal(guest.fight.replayState(), null, "and the challenger is not");
+  assert.equal(record.timed, false, "a versus round is not on a clock");
+
+  // A demo is read strictly forward — `advanceResimCommands` walks the stream
+  // with a cursor that only moves on — so the stream has to be in time order.
+  // Without the rewind it is not: the re-simulation appends the corrected
+  // command for a past tick AFTER the rows it already wrote for later ones,
+  // and the re-run then applies that correction at the wrong moment.
+  for (let index = 1; index < record.commands.length; index++)
+    assert.ok(record.commands[index][0] >= record.commands[index - 1][0],
+      `the command stream runs forward in time: row ${index} is tick ` +
+      `${record.commands[index][0]} after ${record.commands[index - 1][0]}`);
+  const seen = new Set();
+  for (const [tick, pad] of record.commands) {
+    assert.ok(!seen.has(tick + ":" + pad),
+      `one word per seat per tick: ${tick}:${pad} was written twice`);
+    seen.add(tick + ":" + pad);
+  }
+
+  // Expand the delta-encoded command stream back into a mask per seat per
+  // tick. Frame f is simulated at the clock of f + 1, and a demo tick is that
+  // clock measured from the deal's origin, so tick = frame + 1.
+  const held = [0, 0];
+  const recorded = new Map();
+  let cursor = 0;
+  for (let tick = 0; tick <= state.frame; tick++) {
+    while (cursor < record.commands.length && record.commands[cursor][0] <= tick) {
+      const [, pad, mask] = record.commands[cursor++];
+      held[pad] = mask;
+    }
+    recorded.set(tick - 1, held.slice());
+  }
+
+  // Against what the simulation actually ran on.
+  let checked = 0;
+  for (const [frame, inputs] of played) {
+    const written = recorded.get(frame);
+    assert.ok(written, `frame ${frame} reached the demo`);
+    assert.deepEqual(written, inputs,
+      `frame ${frame} was written down as it was played`);
+    checked++;
+  }
+  assert.ok(checked > 600, `and most of the fight was checked: ${checked}`);
+});
+
+// The whole point of recording a versus fight: the round reaches the store,
+// and the store takes it. Checked against the store's OWN validator, so the
+// two halves cannot drift apart the way the checkpoint row and its contract
+// did for seventeen days.
+test("a versus round is filed, and the store accepts what was written", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  host.fight.setVersusRoom("regga890");
+  guest.fight.setVersusRoom("regga890");
+  const wire = createWire(host, guest, { delay: 3, jitter: 2, loss: .05, seed: 11 });
+  beginPair(host, guest, wire);
+  // Long enough for a knockout, the result card, and the next round's bell.
+  run(host, guest, wire, 2400, { settle: 60 });
+
+  const filed = host.saved();
+  assert.ok(filed.length > 0, "the host filed at least one round");
+  assert.equal(guest.saved().length, 0,
+    "and the challenger filed none — two authors would race for one id");
+
+  for (const demo of filed) {
+    assert.equal(validateDemo(demo), null,
+      `the store accepts ${demo.roundId}: ${validateDemo(demo)}`);
+    assert.equal(demo.roomId, "ow-regga890", "stamped with the room it was played in");
+    assert.equal(demo.roomName, "regga890");
+    assert.equal(demo.timed, false, "a versus round runs on no clock");
+    assert.ok(demo.commands.length > 0, "and it carries the fight's inputs");
+  }
+
+  // And those rounds fold into a match the room can show.
+  const rows = filed.map((demo, index) => ({ ...demo, _id: demo.roundId,
+    recordedAt: new Date(1789163404339 + index * 1000) }));
+  const [match] = foldMatches(rows);
+  assert.equal(match.roomId, "ow-regga890");
+  assert.equal(match.rounds, filed.length);
+  assert.equal(match.roundWins[0] + match.roundWins[1] + match.ties, filed.length,
+    "every filed round is accounted for in the match");
+});
+
+// A round is not over while its last frames can still be taken back. The
+// marker is set at the knockout and the round is filed later, from netTick,
+// once both seats have confirmed past it.
+test("a round is not filed until its end can no longer be taken back", () => {
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 6, jitter: 2, seed: 5 });
+  beginPair(host, guest, wire);
+  let waits = 0;
+  // How many rounds had been filed when the round now waiting finished. While
+  // it waits that number must not move: earlier rounds are already in, this
+  // one is not yet.
+  let filedWhenPending = -1;
+  for (let frame = 0; frame < 2400; frame++) {
+    const state = host.fight.netplayState();
+    if (!state) break;
+    host.press(...choreography(0, state.frame));
+    guest.press(...choreography(1, guest.fight.netplayState().frame));
+    host.tick();
+    guest.tick();
+    wire.step();
+    const pending = host.fight.netplayPendingSave();
+    if (pending < 0) { filedWhenPending = -1; continue; }
+    if (filedWhenPending < 0) { filedWhenPending = host.saved().length; waits++; }
+    assert.ok(host.fight.netplayState().confirmed < pending,
+      "a round waiting to be filed is waiting on the confirmed frontier");
+    assert.equal(host.saved().length, filedWhenPending,
+      "and it is not filed while it waits");
+  }
+  assert.ok(waits > 0, "a round did finish and had to wait");
+  assert.ok(host.saved().length > 0, "and was filed once it could be");
 });

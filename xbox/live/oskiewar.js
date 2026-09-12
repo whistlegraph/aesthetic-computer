@@ -99,20 +99,29 @@ const survivalActive = () => gameMode === "survival";
 const lobbyActive = () => gameMode === "fight" && fightOpponent === "versus-lobby";
 const versusActive = () => gameMode === "fight" && fightOpponent === "versus";
 const versusLane = () => lobbyActive() || versusActive();
-// The cube. @jeffrey climbed the tower and asked for the opposite: a small
-// closed box — "like a 10ft by 10ft cube" — with nothing in it but two
-// fighters and a pistol. The map is now a lattice of square tiles
-// rather than a pile of hand numbers: ten tiles wide, ten tiles tall, each
-// tile 90 units on a side, which makes a fighter (180 tall) exactly two
-// tiles and the room exactly the phrase that asked for it. Simulation stays
+// The station. The tower became a cube, and the cube has now been opened to
+// vacuum: @jeffrey asked for "a large space map", and the cube's own comment
+// had already named the condition for growing one — "a tile-authored map is
+// exactly the shape a future rung would be written in." So the lattice is
+// what grew. Twenty tiles wide by fourteen tall at the same 90 units a side,
+// which is four times the cube's floor area and still frames whole on one
+// screen at the widest shot, because a fighter you cannot see is a fighter
+// you cannot read.
+//
+// What changed besides the number: the plaster shell is gone. There is no
+// back wall, no ceiling slab and no side wall, because the map is outside
+// now — stars behind, a planet below the deck, and a hull you stand on
+// rather than a room you are sealed into. Gravity is station gravity, a
+// little over half a G (`spaceGravityScale`), so a jump hangs and the
+// floating decks overhead are reachable on legs alone. Simulation stays
 // continuous — nothing about motion quantizes — but the STRUCTURE is
-// addressable: spawns, pickups and lanes are authored in tile coordinates,
-// a grid overlay draws the lattice on the back wall, and `gridField` below
-// holds one number per tile so per-tile computation (heat, ownership,
+// addressable: spawns, pickups, decks and lanes are authored in tile
+// coordinates, the lattice draws as a faint nav hologram, and `gridField`
+// below holds one number per tile so per-tile computation (heat, ownership,
 // weather) has a surface to run on.
 const tileSize = 90;
-const gridCols = 10;
-const gridRows = 10;
+const gridCols = 20;
+const gridRows = 14;
 // Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
 // every tile edge lands on a clean multiple of 90. The walls stand outside
 // the lattice: the structural shell is one wallThickness beyond each face,
@@ -124,10 +133,15 @@ const gridHeight = gridRows * tileSize;
 const worldLeft = gridLeft - wallThickness;
 const worldRight = gridLeft + gridWidth + wallThickness;
 const ceilingY = floorY - gridHeight - wallThickness;
-// The cube is as deep as it is wide. Fighters live near z = 0; depth is the
-// room's third dimension for the eye, not for the fight.
-const worldNear = -gridWidth / 2;
-const worldFar = gridWidth / 2;
+// Depth is the eye's dimension, not the fight's — fighters live near z = 0 —
+// so it is authored rather than derived. It was the cube's own width back
+// when those were the same number; widening the map to twenty tiles must not
+// also push the far plane twice as far out, because every camera stand-off,
+// every killcam orbit and the whole ±30000 native coordinate budget were
+// tuned against this depth and not against the floor's span.
+const roomDepth = 900;
+const worldNear = -roomDepth / 2;
+const worldFar = roomDepth / 2;
 // Address helpers: world position to tile and back. Rows count UP from the
 // floor, because in a fight the floor is where everything starts. All three
 // clamp, so a body pressed into a wall still names a real tile.
@@ -184,12 +198,14 @@ let stageTop = 112;
 let stageBottom = 930;
 let viewHeight = 1080;
 let cameraAspect = (stageRight - stageLeft) / (stageBottom - stageTop);
-// The lattice is off: a 10x10 cube holds a plain jump (apex 322, tiles are
-// 90) but has no room for a rung a fighter could stand under, and the point
-// of the cube is that there is nowhere to go but at each other. The ledge
-// machinery below stays, because a tile-authored map is exactly the shape a
-// future rung would be written in. The wind flag rides its own switch and is
-// still off.
+// `PLATFORM` is the TOWER's single centre platform, and it stays off. It is
+// not a general "are there ledges" switch, however much it reads like one:
+// the tower hung one slab over a floor, `platformY` still names that slab,
+// and a dormant family of tower-era regressions is gated on this constant
+// being true. The station's decks are a different object with a different
+// shape, so they get their own table below rather than borrowing this flag
+// and waking tests that ask whether a tapped hop clears a platform that no
+// longer exists. The wind flag rides its own switch and is still off.
 const PLATFORM = false;
 const WIND_FLAG = false;
 const survivalLevelCount = 32;
@@ -198,15 +214,87 @@ const survivalCeilingY = floorY - (survivalLevelCount + 2) * survivalStepY;
 // A deterministic, hand-tuned zig-zag. Adjacent decks always overlap a
 // normal jump's horizontal budget and sit below its 322-unit apex; variation
 // comes from where the safe landing moves, not from impossible dice rolls.
+//
+// These numbers were authored against the cube's 900-unit floor and the
+// climb still wants exactly that column of air — so when the station doubled
+// the floor's width the ladder was RECENTRED, not respaced. The rung spacing
+// is the tuned part; where the column stands is not. `survivalFrameWidth` is
+// the cube's old framing kept by the same argument: a lens wide enough for a
+// twenty-tile station would shrink the climb to a thread up the middle.
+const survivalCenterShift = gridWidth / 2 - 450;
+const survivalFrameWidth = 1020;
 const survivalCenters = [450, 280, 620, 390, 680, 250, 520, 710];
 const survivalWidths = [470, 390, 420, 360, 440, 380, 410, 370];
 const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
-  const center = survivalCenters[index % survivalCenters.length];
+  const center = survivalCenters[index % survivalCenters.length] +
+    survivalCenterShift;
   const width = survivalWidths[index % survivalWidths.length];
   return { level: index + 1, left: center - width / 2,
     right: center + width / 2, y: floorY - (index + 1) * survivalStepY };
 });
-const platformsEnabled = () => PLATFORM || survivalActive();
+// The station's decks. This is the sentence the cube's own comment promised —
+// "a tile-authored map is exactly the shape a future rung would be written
+// in" — being cashed. The cube had no room for a deck a fighter could stand
+// under; twenty by fourteen tiles under station gravity has room for five.
+//
+// Said in tiles because the map is a lattice: which column a deck starts at,
+// which row its surface sits on, how many tiles wide it runs. Two low decks
+// out at the flanks, two mid decks pinched toward the middle, one high deck
+// straddling the centre line — so the shape of the map is a funnel upward,
+// and the fighter who takes the top deck has taken the one place both mid
+// decks feed into.
+//
+// The rows are chosen against one number: 586, the apex station gravity buys
+// a held jump. Every step between ADJACENT decks is under it — floor to a low
+// deck is 270, low to mid is 360, mid to top is 270 — and every step that
+// skips a tier is over it. Floor to a mid deck is 630, and that 630 is the
+// whole design: it is what stops the stack from being a straight hop up the
+// middle and makes the climb a route instead. Out to a flank, up, back in
+// along the mid deck, up again.
+//
+// This is what the first layout got wrong. Mid decks at row 6 put them 540
+// off the floor — under the apex, so a player could take one straight up and
+// `jumpReach` would offer it to a bot, and the flanks stopped meaning
+// anything. A deck you can only reach with a perfect double-tap is a deck the
+// bots stand under and stare at; a deck you reach by going somewhere first is
+// a route; and a deck you can reach from anywhere is not a deck, it is a step.
+const spaceDeckPlan = [
+  { col: 3, row: 3, cols: 4 }, { col: 13, row: 3, cols: 4 },
+  { col: 6, row: 7, cols: 3 }, { col: 11, row: 7, cols: 3 },
+  { col: 8, row: 10, cols: 4 },
+];
+const spaceDecks = spaceDeckPlan.map((deck, index) => ({
+  level: index + 1,
+  left: gridLeft + deck.col * tileSize,
+  right: gridLeft + (deck.col + deck.cols) * tileSize,
+  y: floorY - deck.row * tileSize,
+}));
+// Two ladders, one machinery. The climb's thirty-two rungs and the station's
+// five decks are the same shape and are read by the same four routines, but
+// they must never be visible at the same time — a survival runner standing
+// on a station deck would be standing on furniture from another map. So the
+// mode picks the table, once, and everything downstream asks here.
+const activeLedges = () => survivalActive() ? platforms : spaceDecks;
+// The station's landmarks, by column. On a ten-wide cube a bare `3` was
+// readable as "left of centre"; on twenty it is just a digit, and there were
+// a dozen of them scattered through spawn, pickup and re-serve code all
+// meaning something. Name them once.
+//
+// The spawns stayed close. It is tempting to open a map four times the size
+// by standing the fighters four times as far apart, and it is wrong twice
+// over: the opening exchange is the tuned part of this game, and the intro
+// camera and the reel's opening lens are both built to travel between two
+// faces 270 units apart — spreading the spawns whipped the intro at 207px a
+// frame and opened the reel's close lens before the first blow. So the bell
+// is unchanged from the cube: two fighters three tiles apart, astride the
+// centre line. The map's size is where you GO, not where you start, and the
+// corners, the decks and the climb are what spend it.
+const spawnColLeft = 8;
+const spawnColRight = 11;
+const cornerColLeft = 1;
+const cornerColRight = 18;
+const centerX = gridLeft + gridWidth / 2;
+const platformsEnabled = () => survivalActive() || spaceDecks.length > 0;
 // Version-one furniture — the wind flag's pole, the store's demos, the tests —
 // still asks for "the platform" by name. In a one-room cube the floor is the
 // only platform, so the name now means the whole playable span of it.
@@ -218,7 +306,7 @@ const platformY = floorY;
 // ask this, so a rung that moves takes its furniture with it.
 function surfaceYAt(x, y) {
   let surface = terrainFloorAt(x);
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (ledge.y < surface && ledge.y >= y - 1 &&
       x >= ledge.left && x <= ledge.right) surface = ledge.y;
   return surface;
@@ -231,7 +319,7 @@ function surfaceYAt(x, y) {
 function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
   if (!platformsEnabled()) return null;
   let hit = null;
-  for (const ledge of platforms) {
+  for (const ledge of activeLedges()) {
     const top = ledge.y - rise;
     if (previousY > top || y < top) continue;
     if (x < ledge.left + inset || x > ledge.right - inset) continue;
@@ -243,7 +331,7 @@ function ledgeCrossed(x, previousY, y, rise = 0, inset = 0) {
 // know whether it is supported and whether it may be booted.
 function ledgeSupports(x, y, radius = 0) {
   if (!platformsEnabled()) return false;
-  for (const ledge of platforms)
+  for (const ledge of activeLedges())
     if (x >= ledge.left + radius && x <= ledge.right - radius &&
       Math.abs(y - (ledge.y - radius)) <= 2) return true;
   return false;
@@ -369,8 +457,21 @@ const runAcceleration = 820;
 // reach never changed — so every impulse here is paired with a gravity that
 // spends less time getting there. Rise is lighter than fall so the arc reads
 // as intent going up and commitment coming down.
-const riseGravity = 4800;
-const fallGravity = 7200;
+const riseGravityFull = 4800;
+const fallGravityFull = 7200;
+// Station gravity. The space map spins up a little over half a G, and that
+// one number is what makes the floating decks a place you can go: at full
+// weight a jump tops out at 322 units — three and a half tiles — and the
+// lowest deck sits three tiles up with nothing above it worth reaching. At
+// .55 the apex is 586, so the deck stack overhead is climbable on legs, a
+// knocked fighter sails instead of dropping, and the hover board's airtime
+// becomes the traversal it is for. The climb keeps full weight: survival's
+// thirty-two rungs are spaced against the 322 apex, and floating that run
+// would let a runner skip rungs the ladder exists to make them earn.
+const spaceGravityScale = .55;
+const gravityScale = () => survivalActive() ? 1 : spaceGravityScale;
+const riseGravity = () => riseGravityFull * gravityScale();
+const fallGravity = () => fallGravityFull * gravityScale();
 const jumpVelocity = 1760;
 const crouchJumpVelocity = 1960;
 const ultraJumpVelocity = 3960;
@@ -403,6 +504,10 @@ let cameraCenter = (worldLeft + worldRight) / 2;
 let cameraWidth = worldRight - worldLeft;
 let cameraCenterY = floorY - cameraWidth / cameraAspect / 2;
 let cameraContainFloor = 0;
+// What the containment floor was last frame, so its rate of growth can be
+// measured. See `updateCameraDoll` — the doll eases toward the floor, and an
+// ease that is not led always sits behind a target that keeps moving.
+let previousContainmentWidth = 0;
 // Two different distances, because they answer two different questions.
 //
 // `cameraPin` is where a single projected point stops being allowed to get any
@@ -917,17 +1022,25 @@ function displayTheme() {
   }
   return sun;
 }
+// Nameless until somebody says who they are. These two used to boot as
+// @JEFFREY and @OSKIE — the first and third entries of the local roster — and
+// every path that failed to learn a real identity quietly fell through to
+// them. That is how an anonymous visitor alone in a dead room was shown
+// "@JEFFREY vs @OSKIE" and told "YOU ARE @OSKIE — RIGHT SIDE". An empty name
+// is the honest state and the wire already speaks it: spectatorState sends ""
+// as NOBODY, and the HUD reads it as "THE SECOND FIGHTER".
 const players = [
-  { name: "@JEFFREY", rosterIndex: 0, handleColors: fighterRoster[0].colors,
+  { name: "", rosterIndex: -1, handleColors: anonymousFighter.colors,
     // Spawn marks stand on the centers of tiles 3 and 6 — mirrored across
     // the cube's middle, three tiles from the pistol's corner. Three
     // matters: a pickup takes any limb within 90, a standing fighter's arms
     // reach most of a tile past the mark, and two tiles of gap was close
     // enough that the bell handed the weapon out before anyone moved.
-    pad: 0, spawnX: tileCenterX(3), x: tileCenterX(3), y: floorY, z: 0,
+    pad: 0, spawnX: tileCenterX(spawnColLeft), x: tileCenterX(spawnColLeft),
+    y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: 1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
-    lastButtonAt: 0, color: [190, 42, 58], hit: 0,
+    lastButtonAt: 0, color: anonymousFighter.color.slice(), hit: 0,
     hitSegment: -1, hitSegmentUntil: 0, hitStunUntil: 0,
     alive: true, respawnAt: 0, score: 0, inputX: 0, inputY: 0,
     skateboard: false, skateVx: 0, skateWallSide: 0,
@@ -952,9 +1065,10 @@ const players = [
     jumpHeld: false, airJumpsUsed: 0, hopUntil: 0, sinkUntil: 0,
     sinkFrom: 0,
     crouchJump: false, attackMomentum: 1 },
-  { name: "@OSKIE", rosterIndex: 2, handleColors: fighterRoster[2].colors,
+  { name: "", rosterIndex: -1, handleColors: [],
     npc: false, bot: false, remote: false,
-    pad: 1, spawnX: tileCenterX(6), x: tileCenterX(6), y: floorY, z: 0,
+    pad: 1, spawnX: tileCenterX(spawnColRight), x: tileCenterX(spawnColRight),
+    y: floorY, z: 0,
     vx: 0, vy: 0, vz: 0, facing: -1,
     grounded: true, ducking: false, previous: [], lastButton: "NONE",
     lastButtonAt: 0, color: [38, 82, 176], hit: 0,
@@ -1006,18 +1120,47 @@ function spawnImpact(impact) {
 const detachedParts = [];
 const bullets = [];
 const grenades = [];
-// The cube's whole arsenal, said out loud: one pistol, nothing else. The
-// SMG, the rocket launcher and the grenades belonged to a tower where
-// height priced a weapon; a one-room box has no shelf to price them on,
-// and a 900-wide fight gives a spray weapon nothing to miss. The blade
-// came and went inside one build — @jeffrey tried the sword-and-pistol
-// standoff and asked for fists and one gun instead. The pistol sits on a
-// corner tile, three tiles behind the far spawn mark, so the bell opens
-// with a choice instead of a handout: turn your back on the other fighter
-// to arm up, or rush the middle bare-handed.
+// The station's arsenal, said out loud: a pistol on the floor, a space laser
+// at the top of the climb, a light saber over each fighter's own head. The
+// cube could carry exactly one weapon, and the comment here used to say why
+// — "a one-room box has no shelf to price them on". A station HAS shelves.
+// Height is the price again, the way it was in the tower, and each of the
+// three is priced differently on purpose:
+//
+//   pistol — floor, far corner, behind the right spawn. The oldest bargain
+//     in this game and unchanged: turn your back on the other fighter to arm
+//     up, or rush the middle bare-handed. Six rounds that ricochet forever.
+//   space laser — the high centre deck, three jumps up, contested from both
+//     sides. Four bolts, no ricochet, and fast enough that it is a line you
+//     draw rather than a shot you lead. Missing it costs the bolt outright.
+//   light saber — one on each low deck, mirrored, one jump off your own
+//     spawn. It is the only free weapon and the only fair one, and it buys
+//     reach on every hand strike rather than a projectile.
+//
+// The blade came and went inside one build back in the cube — @jeffrey tried
+// a sword-and-pistol standoff and asked for fists and one gun instead. The
+// objection was to a duel in a phone booth, and the whole drawing machinery
+// (`swordHeld`, the hilt pinned to the item forearm) survived it intact. A
+// map with distance in it is the condition that was missing.
+//
+// `cycle` marks the slot the ten-second powerup rotation owns. Only the
+// pistol carries it, so an untouched laser can never stall the reload that
+// keeps the floor fight fed.
 const gunPickups = [
-  { kind: "HANDGUN", amount: 6, x: tileCenterX(9), startsActive: true,
-    y: floorY, z: 0 },
+  { kind: "HANDGUN", amount: 6, x: tileCenterX(cornerColRight),
+    startsActive: true, cycle: true, y: floorY, z: 0 },
+  { kind: "SPACE LASER", amount: 4, x: centerX, startsActive: true,
+    cycle: false, y: spaceDecks[4].y, z: 0 },
+];
+// A saber is not ammunition, so it is not a gun pickup: taking one sets a
+// state a fighter keeps until the arm holding it comes off. Mirrored across
+// the two low decks, centred on each deck rather than on a tile, because the
+// deck is the landmark a player actually reads.
+const saberPickups = [
+  { kind: "LIGHT SABER", x: (spaceDecks[0].left + spaceDecks[0].right) / 2,
+    y: spaceDecks[0].y, z: 0, startsActive: true },
+  { kind: "LIGHT SABER", x: (spaceDecks[1].left + spaceDecks[1].right) / 2,
+    y: spaceDecks[1].y, z: 0, startsActive: true },
 ];
 const grenadePickups = [];
 // No trees. Two grew out of the tower's side walls and were the only thing
@@ -1030,7 +1173,7 @@ const bodyTrees = [];
 const treeRipenUs = 18000000;
 const treeTimeBonusUs = 15000000;
 const airParticles = [];
-for (const pickup of [...gunPickups, ...grenadePickups]) {
+for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
   pickup.active = Boolean(pickup.startsActive);
   pickup.respawnAt = 0;
   // A pickup names its tile and floats seventy above that tile's surface —
@@ -1039,9 +1182,20 @@ for (const pickup of [...gunPickups, ...grenadePickups]) {
   pickup.y = surfaceYAt(pickup.x, pickup.y) - 70;
 }
 // Every kind carries a gravity factor so redressing the match ball in place
-// can never leave a previous kind's float behind. The skateboard is out of
-// the deck — @jeffrey asked for no boards on this map — so the series draw
-// below can only ever deal a ball.
+// can never leave a previous kind's float behind.
+//
+// The board is back, and on this map it is a HOVER BOARD. It left with
+// @jeffrey's "no boards on this map" — a verdict about the cube, where a deck
+// that reaches 4,200 units a second has 900 units to spend it in and the
+// whole thing is a bounce off two walls. A station with five floating decks
+// and gaps between them is the map a board is for: it is how you cross, and
+// the coping tricks the side bounds already do are how you get onto a deck
+// you cannot jump to. The ride physics underneath are the tuned skate
+// physics, untouched, and the rider state below still carries the `skate`
+// names those rules were written in — what changed is that the thing has no
+// wheels, so it hums instead of ticking and it floats a hand off the deck.
+// `series` marks the kinds the match ball draw may deal: a board is furniture
+// on the map, never a ball a round inflates.
 const ballKinds = [
   { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
     bounce: .58, drag: .994, windFactor: .58, gravityFactor: 1 },
@@ -1049,15 +1203,32 @@ const ballKinds = [
     bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
+  { type: "hoverboard", spawnOwner: -1, radius: 52, mass: .9, hitScale: .7,
+    bounce: .34, drag: .992, windFactor: .5, gravityFactor: .5,
+    series: false },
 ];
 let matchBallType = ballKinds[0].type;
-// A match inflates exactly one ball and keeps it for every round.
+const hoverBoardKind = ballKinds.find((kind) => kind.type === "hoverboard");
+// A match inflates exactly one ball and keeps it for every round, and the
+// station parks exactly one board on the floor at centre. Two entries in one
+// array because they are the same kind of object to every routine that
+// touches them — swept contact, ledge support, shadows, the wire format —
+// and because the board's whole mount path is written against a ball rolling
+// into a shin.
 const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
   x: players[0].spawnX, y: floorY - ballKinds[0].radius,
   active: true, serveAt: 0, lastHitBy: 0, safeUntil: 0, safePlayers: 0,
+  heldBy: -1 },
+{ ...hoverBoardKind, z: 0, vx: 0, vy: 0, rotation: 0,
+  x: tileCenterX(cornerColLeft), y: floorY - hoverBoardKind.radius,
+  active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0, safePlayers: 0,
   heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
 const ball = balls[0];
+// The board is not gated by `ballEnabled`. That switch is the ball's — it
+// takes the serve, the cross-wack and the BALLED death off the map together —
+// and the board shares none of them.
+const hoverBoardEnabled = true;
 // The ball is out of the round — @jeffrey asked for the cube bare. All of
 // the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
 // sleeps behind this switch exactly as it always did for the test harness;
@@ -1233,6 +1404,21 @@ function trainingOpponentKind() {
 let versusRoomName = "";
 let versusNextAt = 0;
 let versusRivalName = "";
+// The raw handle the seat last offered, kept beside the name it produced. The
+// comparison that decides whether to re-dress has to be against this and not
+// against the result: an anonymous arrival offers "", which is falsy, so the
+// old guard skipped the re-dress entirely and left the PREVIOUS player's name
+// and colors on the chair. Leaving and rejoining inside the 2.5 s grace is
+// exactly how somebody ends up wearing a stranger.
+let versusRivalOffered = "";
+
+// The handle riding the freshest pad frame, cleaned to the shape a nameplate
+// and the state schema both accept. One reader, so the re-dress test and the
+// dressing itself can never disagree about what was offered.
+function versusOfferedName() {
+  return String(globalThis.__oskiewarRemotePad?.name || "").toUpperCase()
+    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
+}
 // How long an empty wire keeps the rival seated. Long enough to ride out a
 // dropped packet or a phone switching antennas, short enough that a closed
 // tab reads as "they left" while the fighter is still warm.
@@ -1300,6 +1486,15 @@ let windTargetMph = 0;
 let windTargetDirection = 1;
 let nextWindChangeAt = 0;
 let replay = null;
+// Round names in the order they were minted, each with the demo tick it was
+// minted on. A rollback can rewind past a round rollover, so this ledger has
+// to rewind with it — `replay.roundIds` is derived from it rather than being
+// appended to directly, which is what keeps a re-simulated rollover from
+// filing the same round twice.
+let replayRoundMarks = [];
+// The frame a finished round is waiting to be confirmed past before it is
+// filed. -1 when nothing is waiting. See saveRoundReplay.
+let replayPendingSaveFrame = -1;
 let replayLastCommand = [-1, -1];
 let replayNextCheckpointAt = 0;
 let matchName = "";
@@ -1497,7 +1692,7 @@ function trackMatchStarted() {
 
 function startReplay(now) {
   const run = runtime();
-  if (!roundIsTimed()) {
+  if (!roundIsRecorded()) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
@@ -1511,9 +1706,14 @@ function startReplay(now) {
   seedNames(Math.floor(Math.random() * 4294967296));
   const nameSeedUsed = nameSeed;
   seriesName = pronounceableMatchName();
-  matchBallType = seriesBallType(seriesName);
+  // The deal owns the ball in a versus fight — both seats set it from the same
+  // word — so rolling a series ball here would put the two of them in
+  // different fights.
+  if (!versusActive()) matchBallType = seriesBallType(seriesName);
   matchName = "";
   previousRoundName = "";
+  replayRoundMarks = [];
+  replayPendingSaveFrame = -1;
   replay = {
     format: "ac.oskiedemo", version: 1, game: "oskiewar",
     simulation: "oskiewar-physics-1", tickRate: 60,
@@ -1529,6 +1729,15 @@ function startReplay(now) {
       refreshHz: Number(run.refreshHz) || Number(run.measuredHz) || 0,
     },
     startedAt: run.unixMs || 0, startedMonotonicUs: now,
+    // Which room this was played in, so a room can be asked for its own
+    // history. Only a versus fight has one: in the broadcast lane each round
+    // IS its own room and the round id already says so.
+    ...(versusActive() && versusRoomName
+      ? { roomId: "ow-" + versusRoomName, roomName: versusRoomName } : {}),
+    // A versus round runs until somebody falls, so a re-run must not be handed
+    // a clock the original never had. Older demos carry no flag and were all
+    // timed, which is what the reader below assumes.
+    timed: roundIsTimed(),
     nameSeed: nameSeedUsed, ballType: matchBallType,
     fighters: players.map((player) => player.name),
     nations: players.map((player) => player.nation || ""),
@@ -1568,10 +1777,21 @@ function roundIsTimed() {
   // card) so it can be recorded and repainted like any match.
   if (globalThis.__oskiewarTimedTraining === true) return true;
   // Every round that reaches a re-simulation was a timed, recorded round.
-  if (resimActive) return true;
+  if (resimActive) return resimTimed;
   if (fightOpponent === "trainingbot" || versusLane()) return false;
   return !(players[1].npc && !players[1].bot);
 }
+
+// This machine is the one that writes a versus fight down. Both seats
+// simulate it, but the record needs exactly one author or the two would race
+// for the same round id — the same reason only the host narrates the stream.
+const versusRecorder = () =>
+  versusActive() && (!netSession || netSession.seat === 0);
+
+// Which rounds leave a record. Timed rounds always did, and a versus fight
+// does now: a room's history is the point of the room. The clock was never
+// what made a round worth keeping, it was just the only lane that had one.
+const roundIsRecorded = () => roundIsTimed() || versusRecorder();
 
 // The frame numbers the debug HUD already prints, packed for the wire. Only
 // stages the host actually measured go in — a console reports a real frame and
@@ -2000,7 +2220,28 @@ function updateInstantReplay(now, dt) {
     width: cameraWidth, perspective: 0, fov: 55 }, dt, 18);
 }
 
+// A finished round in a rollback fight is not finished yet: the frames that
+// ended it are still inside the rollback window, and a rival pad arriving late
+// can take the knockout back. So the round is marked and filed later, from
+// netTick, once both seats have confirmed past its end. A re-simulation
+// reaches this line again and simply re-marks the frame.
 function saveRoundReplay(now) {
+  if (!replay) return;
+  if (netSession) { replayPendingSaveFrame = netSession.frame; return; }
+  uploadRoundReplay(now);
+}
+
+// Everything that is waiting, filed now whatever the wire is doing. A rival
+// who has gone will never confirm anything, and the round they lost still
+// happened.
+function flushPendingRoundReplay(now) {
+  if (replayPendingSaveFrame < 0 || !replay) return;
+  replayPendingSaveFrame = -1;
+  uploadRoundReplay(now);
+  if (matchOver) finishReplay();
+}
+
+function uploadRoundReplay(now) {
   if (!replay) return;
   recordReplayCheckpoint(now, true);
   const demo = JSON.parse(JSON.stringify(replay));
@@ -2009,7 +2250,11 @@ function saveRoundReplay(now) {
   demo.roundId = demo.matchId;
   demo.roundName = matchName;
   demo.roundIndex = Math.max(0, replay.roundIds.length - 1);
-  demo.previousRoundId = previousRoundName ? "ow-" + previousRoundName : "";
+  // Read off the ledger rather than off `previousRoundName`, so a rollback
+  // that took a rollover back cannot leave the linkage pointing at a round
+  // that no longer exists.
+  demo.previousRoundId = demo.roundIndex > 0
+    ? replay.roundIds[demo.roundIndex - 1] : "";
   demo.durationTicks = demoTick(now);
   demo.winner = players[0].score === players[1].score ? null
     : players[0].score > players[1].score ? players[0].name : players[1].name;
@@ -2035,13 +2280,22 @@ function saveRoundReplay(now) {
 }
 
 function finishReplay() {
+  if (replayPendingSaveFrame >= 0 && replay) {
+    replayPendingSaveFrame = -1;
+    uploadRoundReplay(runtime().monotonicUs);
+  }
+  replayRoundMarks = [];
+  replayPendingSaveFrame = -1;
   replay = null;
 }
 
 function emitSignal(event, player = -1, value = 0, value2 = 0) {
-  if (netSilent) return;
+  // Filed first, and filed even while re-simulating: a rollback truncated
+  // these rows and the silent pass is what puts the corrected ones back. What
+  // the silence is for is the PERFORMANCE below — nobody hears a frame twice.
   if (replay) replay.events.push([demoTick(runtime().monotonicUs), event,
     player, Math.round(value * 1000) / 1000, Math.round(value2 * 1000) / 1000]);
+  if (netSilent) return;
   if (typeof gameSignal === "function") gameSignal(event, player, value, value2);
 }
 
@@ -2515,7 +2769,20 @@ function applyRoster(player, index) {
     }
     return;
   }
-  const rosterIndex = (index + fighterRoster.length) % fighterRoster.length;
+  // A negative index means there is no roster fighter here — an anonymous
+  // seat, or a remote one whose handle has not arrived. It used to wrap: -1
+  // came out as the LAST roster entry, so an unnamed chair was dressed as a
+  // real person, and `Math.max(0, rosterIndex)` at the two versus callers
+  // floored it to the FIRST one instead. Between them an anonymous fight read
+  // as @JEFFREY against @SAT. Nobody is nobody.
+  if (index < 0) {
+    player.rosterIndex = -1;
+    player.name = anonymousFighter.handle;
+    player.color = anonymousFighter.color.slice();
+    player.handleColors = anonymousFighter.colors;
+    return;
+  }
+  const rosterIndex = index % fighterRoster.length;
   const fighter = fighterRoster[rosterIndex];
   const profile = fighterProfile(fighter.handle);
   player.rosterIndex = rosterIndex;
@@ -2537,8 +2804,8 @@ function applyRoster(player, index) {
 function startFightAgainst(kind, now) {
   gameMode = "fight";
   selfPlay = false;
-  players[0].spawnX = tileCenterX(3);
-  players[1].spawnX = tileCenterX(6);
+  players[0].spawnX = tileCenterX(spawnColLeft);
+  players[1].spawnX = tileCenterX(spawnColRight);
   const opponent = players[1];
   fightOpponent = kind;
   opponent.npc = kind === "dummy" || kind === "spiderdummy" ||
@@ -2669,14 +2936,14 @@ function startSurvivalRun(now, botControlled = false) {
   finishReplay();
 
   const runner = players[0];
-  runner.spawnX = tileCenterX(4);
+  runner.spawnX = centerX;
   runner.npc = botControlled;
   runner.bot = botControlled;
   runner.spiderDummy = false;
   applyRoster(runner, botControlled ? -1 : Math.max(0, runner.rosterIndex));
 
   const absent = players[1];
-  absent.spawnX = tileCenterX(9);
+  absent.spawnX = tileCenterX(cornerColRight);
   absent.npc = true;
   absent.bot = false;
   absent.spiderDummy = false;
@@ -2694,13 +2961,14 @@ function startSurvivalRun(now, botControlled = false) {
   survivalPeakLevel = 0;
   cameraCenter = (worldLeft + worldRight) / 2;
   cameraCenterY = floorY - 240;
-  cameraWidth = gridWidth + 120;
+  cameraWidth = survivalFrameWidth;
   cameraContainFloor = 0;
   cameraDoll.snap({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
     position: { x: cameraCenter, y: cameraCenterY,
-      z: -(gridWidth + 120) * 1.35 },
-    width: gridWidth + 120, perspective: 0, fov: 55, roll: 0 });
-  for (const pickup of [...gunPickups, ...grenadePickups]) pickup.active = false;
+      z: -survivalFrameWidth * 1.35 },
+    width: survivalFrameWidth, perspective: 0, fov: 55, roll: 0 });
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
+    pickup.active = false;
   for (const item of balls) item.active = false;
   emitSignal("survival", 0, 1, 0);
 }
@@ -2760,14 +3028,14 @@ function beginVersusLobby(now, { title = false } = {}) {
   if (!versusRoomName) versusRoomName = sessionName;
   globalThis.__oskiewarVersusRoom = versusRoomName;
   const local = players[0];
-  local.spawnX = tileCenterX(3);
+  local.spawnX = tileCenterX(spawnColLeft);
   local.npc = false;
   local.bot = false;
   local.spiderDummy = false;
   local.remote = false;
-  applyRoster(local, Math.max(0, local.rosterIndex));
+  applyRoster(local, local.rosterIndex);
   const chair = players[1];
-  chair.spawnX = tileCenterX(6);
+  chair.spawnX = tileCenterX(spawnColRight);
   chair.npc = true;
   chair.bot = false;
   chair.spiderDummy = false;
@@ -2782,8 +3050,12 @@ function beginVersusLobby(now, { title = false } = {}) {
   chair.respawnAt = Infinity;
   chair.x = worldRight + gridWidth;
   chair.y = floorY;
-  // An empty chair wears no dummy's name — the wire calls it NOBODY.
+  // An empty chair wears no dummy's name — the wire calls it NOBODY. And the
+  // room forgets who was last in it, so the next person to sit down is dressed
+  // from their own offer rather than inheriting the last one's.
   chair.name = "";
+  versusRivalName = "";
+  versusRivalOffered = "";
   // Spend the countdown before the first frame: arriving is moving, and
   // there is nobody here to count in against anyway.
   roundStartedAt = now - roundIntroDurationUs();
@@ -2804,14 +3076,14 @@ function startVersusFight(now, resetMatch = true) {
   selfPlay = false;
   fightOpponent = "versus";
   const local = players[0];
-  local.spawnX = tileCenterX(3);
+  local.spawnX = tileCenterX(spawnColLeft);
   local.npc = false;
   local.bot = false;
   local.spiderDummy = false;
   local.remote = false;
-  applyRoster(local, Math.max(0, local.rosterIndex));
+  applyRoster(local, local.rosterIndex);
   const rival = players[1];
-  rival.spawnX = tileCenterX(6);
+  rival.spawnX = tileCenterX(spawnColRight);
   rival.npc = false;
   rival.bot = false;
   rival.spiderDummy = false;
@@ -2820,6 +3092,9 @@ function startVersusFight(now, resetMatch = true) {
   shellMode = "GAME";
   gameplayStarted = true;
   titleTransitionAt = null;
+  // A fresh match is a fresh series, and a versus series is now recorded like
+  // any other. A round rollover inside a match keeps the one it has.
+  if (resetMatch) startReplay(now);
   resetRound(now, resetMatch);
   dressVersusRival();
   if (resetMatch && typeof analytics === "function") {
@@ -2842,9 +3117,9 @@ function dressVersusRival() {
   const rival = players[1];
   if (!rival.remote) return;
   const remote = globalThis.__oskiewarRemotePad;
-  const offered = String(remote?.name || "").toUpperCase()
-    .replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
-  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "RIVAL";
+  const offered = versusOfferedName();
+  versusRivalOffered = offered;
+  versusRivalName = /^@?[A-Z0-9_-]{1,24}$/.test(offered) ? offered : "";
   rival.name = versusRivalName;
   const colors = (Array.isArray(remote?.colors) ? remote.colors : [])
     .filter((entry) => Array.isArray(entry) && entry.length === 3 &&
@@ -2942,11 +3217,8 @@ function updateVersusSeat(now) {
     beginVersusLobby(now);
     return;
   }
-  if (versusActive() && fresh) {
-    const offered = String(globalThis.__oskiewarRemotePad?.name || "")
-      .toUpperCase().replace(/[^@A-Z0-9_-]/g, "").slice(0, 24);
-    if (offered && offered !== versusRivalName) dressVersusRival();
-  }
+  if (versusActive() && fresh && versusOfferedName() !== versusRivalOffered)
+    dressVersusRival();
 }
 
 // A dead body falling. No input, no collision with anybody, no ledges: a
@@ -2954,7 +3226,7 @@ function updateVersusSeat(now) {
 // alive. It drops, it lands on the ground under it, and it stops.
 function settleCorpse(player, dt) {
   if (player.grounded) return;
-  player.vy += fallGravity * dt;
+  player.vy += fallGravity() * dt;
   player.x += player.vx * dt;
   player.y += player.vy * dt;
   player.vx *= .96;
@@ -3051,7 +3323,7 @@ function returnToTitle(now, reason = "back") {
   cameraCenterY = survivalActive() ? floorY - 240
     : lobbyActive() ? players[0].y - 90
     : (players[0].y + players[1].y) / 2 - 90;
-  cameraWidth = survivalActive() ? gridWidth + 120
+  cameraWidth = survivalActive() ? survivalFrameWidth
     : lobbyActive() ? 980
     : Math.max(980, Math.abs(players[1].x - players[0].x) + 760);
   cameraContainFloor = 0;
@@ -3122,6 +3394,11 @@ function startSelfPlay(now) {
 // build, with nothing lost to the demo schema. State checkpoints remain as a
 // drift meter, not as the picture.
 let resimActive = false;
+// Whether the demo being re-run was a round on a clock. Versus rounds are not,
+// and handing one a countdown it never had would end the re-run early on a
+// fight the original played past. Demos recorded before this field carry no
+// answer and were all timed.
+let resimTimed = true;
 let resimPending = null;
 let resimTick = -1;
 let resimCheckpoints = null;
@@ -3158,6 +3435,7 @@ function advanceResimCommands() {
 function startResim(demo, now) {
   gameMode = "fight";
   resimActive = true;
+  resimTimed = demo.timed !== false;
   // The reset step is demo tick zero; every later sim step counts one.
   resimTick = 0;
   resimCheckpoints = new Map(
@@ -3531,18 +3809,43 @@ function updateWind(dt, now) {
 // the same ball -- the name this hashes used to come straight from
 // Math.random, which silently made ball radius and mass unreproducible.
 function seriesBallType(name) {
+  // Only the kinds marked for the series. The hover board lives in `ballKinds`
+  // because it IS one of these objects to the physics, but a match that
+  // inflated a board as its ball would put two boards on a station that is
+  // supposed to hold exactly one.
+  const deck = ballKinds.filter((kind) => kind.series !== false);
   const roll = hashUnit("ball:" + (name || "oskiewar"));
-  return ballKinds[Math.min(ballKinds.length - 1,
-    Math.floor(roll * ballKinds.length))].type;
+  return deck[Math.min(deck.length - 1, Math.floor(roll * deck.length))].type;
 }
 
 function resetBalls(now) {
   Object.assign(balls[0],
-    ballKinds.find((kind) => kind.type === matchBallType) || ballKinds[0]);
+    ballKinds.find((kind) => kind.type === matchBallType && kind.series !== false) ||
+    ballKinds[0]);
   for (const item of balls) {
+    // The board is placed, not served. It lies in the far floor corner from
+    // the pistol, so the bell offers three ways to spend the same seconds:
+    // rush the middle bare-handed, break left for the board, or break right
+    // for the gun. Putting it on the centre line instead would have made it
+    // the only opening move worth making.
+    if (item.type === "hoverboard") {
+      item.x = tileCenterX(cornerColLeft);
+      item.y = terrainFloorAt(item.x) - item.radius;
+      item.z = 0;
+      item.vx = 0;
+      item.vy = 0;
+      item.rotation = 0;
+      item.heldBy = -1;
+      item.active = hoverBoardEnabled;
+      item.serveAt = 0;
+      item.lastHitBy = -1;
+      item.safeUntil = 0;
+      item.safePlayers = 0;
+      continue;
+    }
     const owner = item.spawnOwner >= 0 ? players[item.spawnOwner] : null;
     item.x = owner ? owner.spawnX + owner.facing * 180
-      : gridLeft + gridWidth / 2;
+      : centerX;
     item.y = owner ? terrainFloorAt(item.x) - item.radius
       : terrainFloorAt(item.x) - gridHeight + item.radius + 40;
     // An unowned ball begins airborne over the cube's center tile seam and
@@ -3882,7 +4185,15 @@ function handleRoundViewer(message) {
   }
   if (netSession && message.type === "state") return;
   if (message.type === "state") {
-    if (roundViewerDemo && !message.live) return;
+    // The room says whether anybody is publishing, and it says so before it
+    // hands over any frame. A frame that arrives while nobody is is the last
+    // thing a host said before it left — kept by the relay and given to
+    // whoever opens the door next. Going LIVE on it paints that frozen round
+    // as a fight in progress, and since one frame can never bracket the
+    // playout clock, nothing in it is ever applied: the fighters keep
+    // whatever names this engine was already holding and the HUD tells the
+    // new arrival which of those two strangers they are.
+    if (!message.live) return;
     if (roundViewerDemo && message.content?.phase === "match") return;
     roundViewerMode = "LIVE";
     queueRoundViewerState(message.content);
@@ -4461,10 +4772,10 @@ function netMakeDeal() {
   return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
     ballType: matchBallType,
     fighters: [
-      { name: netCleanName(local.name, "@HOST"), rosterIndex: local.rosterIndex,
+      { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
         color: local.color.slice(0, 3),
         handleColors: netCleanColors(local.handleColors) },
-      { name: netCleanName(rival.name, "RIVAL"), rosterIndex: -1,
+      { name: netCleanName(rival.name, ""), rosterIndex: -1,
         color: netAverageColor(rivalColors, [38, 82, 176]),
         handleColors: rivalColors },
     ] };
@@ -4524,12 +4835,17 @@ function netBegin(deal, seat, send) {
 // silence timeout; whatever the leaving seat's game did next stands.
 function netLeave(reason) {
   if (!netSession) return;
-  try { netSession.send({ t: "bye", r: reason }); } catch (_) {}
+  try { netSession.send({ t: "bye", o: netSession.originUs, r: reason }); }
+  catch (_) {}
   netEnd(reason);
 }
 
 function netEnd(reason) {
   if (!netSession) return;
+  // A rival who has gone will never confirm anything, and the round they lost
+  // still happened — the frames past the frontier cannot change with nobody
+  // left to press anything.
+  flushPendingRoundReplay(runtime().monotonicUs);
   const stats = netSession.stats;
   // A seat in a rollback fight sends net packets, not pads, so the moment
   // this lane closes the host has heard nothing on the pad wire for as long
@@ -4591,6 +4907,44 @@ function netSimulateFrame(session, frame, silent) {
   }
 }
 
+// A rollback un-happens frames, and the frames it un-happens were written
+// down. Every row in a demo's logs is stamped with the tick it belongs to, so
+// taking the record back to a frame is a truncation — and the silent
+// re-simulation that follows re-files the corrected rows itself, which is why
+// the recorders are NOT muted while it runs. The two cursors that decide when
+// the next row is due are rebuilt from what survives, so they rewind too
+// without having to ride in the snapshot.
+//
+// Without this a versus demo was written from mispredicted frames: it recorded
+// the rival pad this seat had GUESSED, so the stored fight replayed into a
+// different one. That is what "a rollback fight is never a recorded one" meant.
+function replayRewind(session, toFrame) {
+  if (!replay) return;
+  const tick = demoTick(session.originUs + (toFrame + 1) * NET_TICK_US);
+  const keep = (rows) => {
+    if (!Array.isArray(rows)) return rows;
+    let length = rows.length;
+    while (length > 0 && rows[length - 1][0] >= tick) length--;
+    rows.length = length;
+    return rows;
+  };
+  keep(replay.commands);
+  keep(replay.checkpoints);
+  keep(replay.events);
+  keep(replay.impacts);
+  keep(replay.rounds);
+  keep(replayRoundMarks);
+  replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
+  // The dedupe cursor is whatever each pad was last recorded as saying; a
+  // command that was truncated must be writable again.
+  replayLastCommand = [-1, -1];
+  for (const row of replay.commands) replayLastCommand[row[1]] = row[2];
+  replayNextCheckpointAt = replay.checkpoints.length
+    ? session.originUs + (toFrame + 1) * NET_TICK_US : 0;
+  // A round whose end was taken back is not a round to file.
+  if (replayPendingSaveFrame >= toFrame) replayPendingSaveFrame = -1;
+}
+
 // The earliest frame we simulated with a guessed rival pad that has since
 // been contradicted. Frames past `confirmed` are the only candidates.
 function netEarliestMisprediction(session) {
@@ -4609,6 +4963,7 @@ function netRollback(session, toFrame) {
   const started = performance.now();
   const depth = session.frame - toFrame;
   netRestore(session.snapshots.get(toFrame));
+  replayRewind(session, toFrame);
   for (let frame = toFrame; frame < session.frame; frame++)
     netSimulateFrame(session, frame, true);
   session.stats.rollbacks++;
@@ -4641,6 +4996,32 @@ function netDrainInbox(session) {
   const batch = netInbox.splice(0, netInbox.length);
   for (const packet of batch) {
     if (!packet || typeof packet !== "object") continue;
+    // A hello inside a session is never the rival still talking: the
+    // challenger stops saying hello the moment it has one. It is somebody with
+    // no session — the same person having reloaded, or a new arrival in the
+    // chair — and it has to be read that way BEFORE the clock below is
+    // touched. Stamping it as a live packet was the deadlock: a tab that is
+    // killed sends no `bye`, so this seat waited on four seconds of silence
+    // that the rejoiner's own 1 Hz hello refreshed forever. This seat went on
+    // simulating against a rival who only ever said hello, and the rejoiner
+    // never got a deal back. Neither could leave. Treating it as a departure
+    // frees both: the lobby is one tick away, and the next hello a second
+    // later deals a fresh session with the fresh identity.
+    if (packet.t === "hello") {
+      // Except a straggler still in flight from before the deal was made,
+      // which would kill a session one frame old.
+      if (Date.now() - session.startedAt > NET_HELLO_INTERVAL_MS * 2)
+        session.peerLeft = true;
+      continue;
+    }
+    // A straggler from the fight before. The shell's inbox is not emptied when
+    // a session ends and packets stay in flight across the changeover, so
+    // without this the old rival's last presses were written into the new
+    // fight at frames it had not reached — on the seat that received them and
+    // nowhere else. Measured: two seats agreed through frame 330 of a rejoined
+    // fight and were found apart at the next checkpoint. An older build sends
+    // no tag and is taken at its word, as it always was.
+    if (packet.o !== undefined && packet.o !== session.originUs) continue;
     session.lastPacketAt = Date.now();
     session.stats.received++;
     if (packet.t === "bye") { session.peerLeft = true; continue; }
@@ -4718,7 +5099,8 @@ let netLaneBlockedUntil = 0;
 
 function netDesyncRepair(session, frame) {
   netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
-  try { session.send({ t: "desync", f: frame }); } catch (_) {}
+  try { session.send({ t: "desync", o: session.originUs, f: frame }); }
+  catch (_) {}
   netEnd("desync");
 }
 
@@ -4758,8 +5140,12 @@ function netSendInputs(session) {
   const masks = [];
   for (let frame = first; frame <= newest; frame++)
     masks.push(session.local.get(frame) ?? 0);
-  const packet = { t: "i", f: first, m: masks, a: session.remoteFrame,
-    s: session.frame, w: Date.now() };
+  // `o` is the deal's own origin, which is to say: which fight this is. Frame
+  // numbers restart at zero every session, so an input packet from the fight
+  // before is indistinguishable from a current one by its contents alone — and
+  // it lands on frames the new fight has not reached yet, on one seat only.
+  const packet = { t: "i", o: session.originUs, f: first, m: masks,
+    a: session.remoteFrame, s: session.frame, w: Date.now() };
   if (session.peerStamp) packet.e = session.peerStamp;
   if (session.pendingHash) { packet.h = session.pendingHash; session.pendingHash = null; }
   if (session.send(packet)) session.stats.sent++;
@@ -4792,6 +5178,10 @@ function netTick() {
   }
   const earliest = netEarliestMisprediction(session);
   if (earliest !== null) netRollback(session, earliest);
+  // A round whose end is now behind the confirmed frontier is a round that
+  // happened. Past this line no rival pad can reach back and unmake it.
+  if (replayPendingSaveFrame >= 0 && session.confirmed >= replayPendingSaveFrame)
+    flushPendingRoundReplay(runtime().monotonicUs);
   const scheduled = session.frame + session.delay;
   if (!session.local.has(scheduled)) {
     const pad = typeof gamepad === "function" ? gamepad(0) : null;
@@ -4821,6 +5211,11 @@ function netTick() {
   // A window into the lane for the debug overlay, the agent tools and the
   // browser harness: what the fight is costing and whether it is one game.
   globalThis.__oskiewarNetStats = { seat: session.seat, frame: session.frame,
+    // Who this fight believes is in it. A desync hash cannot see an identity
+    // fault — two machines can agree perfectly about a fight between two
+    // people who are not there — so the deal's names ride the same window the
+    // harness and the debug overlay already read.
+    names: session.deal.fighters.map((entry) => entry.name),
     confirmed: session.confirmed, remoteFrame: session.remoteFrame,
     hash: session.hashes.get(session.confirmed) ?? 0,
     hashFrame: session.confirmed, ...session.stats,
@@ -4833,6 +5228,14 @@ function netTick() {
 function netChallengerHello(now) {
   if (netSession || roundViewer?.seat !== "challenger" ||
       typeof roundViewer.sendNet !== "function" || !versusAllowed()) return;
+  // Not before the shell has finished asking who is here. Identity rides this
+  // packet once and is then frozen into the deal for the whole fight, and a
+  // rejoin IS a fresh page load — so the 1 Hz hello below routinely beat the
+  // session check and dealt a signed-in player in under no name at all. Worse,
+  // resetRound re-applies the deal every round, so the wrong name was restamped
+  // even after the real one arrived. A shell with no account system is an older
+  // build, not a visitor still being asked, and is never held here.
+  if (accountState() && !accountReady()) return;
   const at = Date.now();
   if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
@@ -4866,6 +5269,9 @@ function netHandlePreSession(packet) {
 // The host's side of the opening: a fresh challenger who said hello gets a
 // deal instead of the streamed fight.
 function netHostBegin(now) {
+  // Same door, other side: a deal struck before this seat knows its own handle
+  // names the host for the rest of the fight, on both screens.
+  if (accountState() && !accountReady()) return false;
   const deal = netMakeDeal();
   const room = "ow-" + versusRoomName;
   const send = (content) => typeof globalThis.__oskiewarNetSend === "function"
@@ -5012,14 +5418,23 @@ function gameBoot() {
 function resetRound(now, resetMatch = false) {
   if (replay) {
     const nextRoundName = pronounceableMatchName();
-    if (matchName) publishSpectator(now, {
-      target: matchName, nextRoundId: "ow-" + nextRoundName, force: true,
-    });
+    // A versus room is one address for a whole match — the link a friend was
+    // sent, the socket the fight is riding, the code on the wall. Handing over
+    // to a new room between rounds would move every watcher and close the
+    // publisher out from under the fight. Only the broadcast lane hands over,
+    // where each round IS its own room.
+    if (!versusLane()) {
+      if (matchName) publishSpectator(now, {
+        target: matchName, nextRoundId: "ow-" + nextRoundName, force: true,
+      });
+      spectatorQr = typeof qrcode === "function"
+        ? spectatorCode("https://oskiewar.com/" + nextRoundName) : null;
+    }
     previousRoundName = matchName;
     matchName = nextRoundName;
-    replay.roundIds.push("ow-" + matchName);
-    spectatorQr = typeof qrcode === "function"
-      ? spectatorCode("https://oskiewar.com/" + matchName) : null;
+    // Stamped, so a rollback across this rollover takes the entry back with it.
+    replayRoundMarks.push([demoTick(now), matchName]);
+    replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
   }
   // Terrain belongs to the simulation contract, not the spectator URL. A
   // series keeps one landscape across rounds and identical training sims get
@@ -5158,7 +5573,13 @@ function resetRound(now, resetMatch = false) {
     player.lastButton = "NONE";
     player.lastButtonAt = 0;
   }
-  for (const pickup of [...gunPickups, ...grenadePickups]) {
+  // A blade dropped by a severed arm is round furniture, not map furniture:
+  // it exists because a hand stopped existing, and the bell undoes that. Drop
+  // the dropped ones rather than parking them inactive forever, so a long
+  // match cannot walk this array up one entry per lost arm.
+  saberPickups.length = saberPickups.filter((pickup) => pickup.startsActive)
+    .length;
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
     pickup.active = Boolean(pickup.startsActive);
     pickup.respawnAt = 0;
   }
@@ -5382,11 +5803,25 @@ function updateCamera(dt) {
   // Perspective orbit and uneven ground skew the projected silhouette beyond
   // its orthographic pushbox. A small fixed overscan keeps complete bodies in
   // the action-safe rectangle without making the compact room feel distant.
-  const desiredWidth = clamp(rectPackWidth(rect) * 1.08,
-    frameFloorWidth(), maxWidth);
+  const packWidth = rectPackWidth(rect);
+  const desiredWidth = clamp(packWidth * 1.08, frameFloorWidth(), maxWidth);
   const widthSpeed = desiredWidth > cameraWidth ? 17 : 5.5;
   const widthBlend = 1 - Math.exp(-Math.max(0, dt) * widthSpeed);
   cameraWidth += (desiredWidth - cameraWidth) * widthBlend;
+  // An exponential ease always runs a fixed distance behind a target that is
+  // moving steadily, and the distance is the target's rate over the blend —
+  // about 160 units of width when the pair is separating at a walk. In the
+  // cube that debt was invisible: the two walls were 980 apart, so separation
+  // stopped growing before the debt could show. On a station twice that wide
+  // it is ten pixels of fighter hanging outside the action-safe rect, every
+  // frame, for as long as the two of them keep running apart.
+  //
+  // So containment gets a floor, and the ease keeps the rest. `rectPackWidth`
+  // is exactly the width that fits the pack inside the safe rect with nothing
+  // to spare; the 8% overscan above it is comfort and may arrive late. The
+  // camera may therefore be behind on looking good, and never behind on
+  // holding the fight.
+  cameraWidth = Math.max(cameraWidth, Math.min(packWidth, maxWidth));
   const halfWidth = cameraWidth / 2;
   const halfHeight = cameraWidth / cameraAspect / 2;
   // Center comes from the same rect the width did, so the frame pans down as
@@ -5434,7 +5869,7 @@ function updateCameraDoll(dt, now) {
   const introAge = now - roundStartedAt;
   if (survivalActive()) {
     const runner = players[0];
-    const framedWidth = (gridWidth + 120) * playerCameraZoom;
+    const framedWidth = survivalFrameWidth * playerCameraZoom;
     const halfHeight = framedWidth / cameraAspect / 2;
     const desiredY = clamp(runner.y + halfHeight * .18,
       survivalCeilingY + halfHeight, floorY + 40 - halfHeight);
@@ -5605,7 +6040,24 @@ function updateCameraDoll(dt, now) {
   // the safe-zone edge.
   const containmentWidth = fighterContainmentRequiredWidth(
     (now - startedAt) / 1000000) * 1.04;
-  cameraContainFloor = Math.max(cameraContainFloor, containmentWidth);
+  // Lead the floor by exactly the debt the doll's own ease is about to run up.
+  // `track` pulls back at speed * 1.9 — 19 here — so a floor growing at R units
+  // a second settles 19 times slower than that, and the doll sits R/19 units of
+  // width behind it for as long as the growth lasts. In the cube that debt was
+  // unreachable: the walls were 980 apart and separation stopped growing long
+  // before it could accumulate. On a station twice that wide, two fighters
+  // running in opposite directions hold the growth up indefinitely, and the
+  // debt reads as a hand hanging outside the action-safe rect every frame.
+  //
+  // Adding the debt to the target is not a fudge — it is what makes the ease
+  // arrive where the fighters actually are rather than where they were. It
+  // costs nothing when nothing is moving apart, because the growth is zero and
+  // the lead is zero, so a settled fight frames exactly as it always did.
+  const containmentGrowth = dt > 0
+    ? Math.max(0, containmentWidth - previousContainmentWidth) / dt : 0;
+  previousContainmentWidth = containmentWidth;
+  cameraContainFloor = Math.max(cameraContainFloor,
+    containmentWidth + containmentGrowth / 19);
   // A small overscan absorbs animated hands and feet before
   // they reach the action-safe edge without loosening the close fight shot.
   const naturalWidth = cameraWidth * 1.015;
@@ -5673,7 +6125,9 @@ function finishRound(now) {
   playDrum("clap", 1.2, roundPan);
   captureFrameTelemetry(now, true);
   saveRoundReplay(now);
-  if (matchOver) finishReplay();
+  // A deferred round still needs its replay to be filed from; the flush that
+  // files it closes the match out afterwards.
+  if (matchOver && !netSession) finishReplay();
 }
 
 function resultCardText() {
@@ -5754,6 +6208,7 @@ function fireGun(player, input) {
   player.gunAimY = pose.dy;
   const smg = player.gunMode === "RUBBER SMG";
   const rocket = player.gunMode === "ROCKET LAUNCHER";
+  const laser = player.gunMode === "SPACE LASER";
   if (rocket) {
     grenades.push({ x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
       vx: pose.dx * 2850, vy: pose.dy * 2850, owner: player.pad,
@@ -5777,24 +6232,27 @@ function fireGun(player, input) {
   for (let shot = 0; shot < shots; shot++) {
     bullets.push({
       x: pose.muzzle.x, y: pose.muzzle.y, z: pose.muzzle.z,
-      vx: pose.dx * (smg ? 5000 : 4200),
-      vy: pose.dy * (smg ? 5000 : 4200),
-      owner: player.pad, life: 1, rubber: smg, safeUntil: now + 100000,
+      vx: pose.dx * (laser ? 9600 : smg ? 5000 : 4200),
+      vy: pose.dy * (laser ? 9600 : smg ? 5000 : 4200),
+      owner: player.pad, life: 1, rubber: smg, laser,
+      safeUntil: now + 100000,
     });
   }
   while (bullets.length > 24) bullets.shift();
   player.gunAmmo -= shots;
-  player.nextGunShotAt = now + (smg ? 85000 : 220000);
+  player.nextGunShotAt = now + (laser ? 340000 : smg ? 85000 : 220000);
   player.itemAction = "FIRE";
   player.itemActionStartedAt = now;
-  player.itemActionUntil = now + 170000;
-  player.pendingMoveLabel = (smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
+  player.itemActionUntil = now + (laser ? 210000 : 170000);
+  player.pendingMoveLabel =
+    (laser ? "LASER " : smg ? "RUBBER SMG " : "FIRE ") + player.gunAmmo;
   for (let shot = 0; shot < shots; shot++) {
-    playDrum(smg ? "block" : "hat", smg ? .62 + shot * .08 : 1.05,
-      panPlayer(player));
-    playSine((smg ? 310 : 760) + shot * 55, smg ? .055 : .08);
+    playDrum(laser ? "whoosh" : smg ? "block" : "hat",
+      laser ? 1.35 : smg ? .62 + shot * .08 : 1.05, panPlayer(player));
+    playSine(laser ? 1180 : (smg ? 310 : 760) + shot * 55,
+      laser ? .13 : smg ? .055 : .08);
   }
-  emitSignal("bullet", player.pad, pose.dx, pose.dy);
+  emitSignal(laser ? "laser" : "bullet", player.pad, pose.dx, pose.dy);
 }
 
 // The mouth used by both face paint and projectile spawn. Its coordinates are
@@ -5912,6 +6370,30 @@ function updateGunPickups(now) {
   }
 }
 
+// A saber is picked up the way a gun is and kept the way a limb is. It needs
+// a free arm to take, it lives on `swordHeld` rather than in an ammo count,
+// and `meleeSpecFor` is what spends it — every hand strike gets half again
+// its reach while the blade is in the hand. Nothing here fires.
+function updateSaberPickups(now) {
+  const poseTime = (now - startedAt) / 1000000;
+  for (const pickup of saberPickups) {
+    if (!pickup.active) continue;
+    for (const player of players) {
+      if (!player.alive || player.swordHeld ||
+        runnerDistanceToPoint(player, poseTime,
+          pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      player.swordHeld = true;
+      player.itemArm = availableArm(player);
+      pickup.active = false;
+      remember(player, "LIGHT SABER");
+      playDrum("clap", 1.25, panPlayer(player));
+      playSine(520, .14);
+      emitSignal("saber", player.pad, 1, 0);
+      break;
+    }
+  }
+}
+
 function updateGrenadePickups(now) {
   const poseTime = (now - startedAt) / 1000000;
   for (const pickup of grenadePickups) {
@@ -6022,14 +6504,18 @@ function drawBodyTree(tree, t) {
 
 function updatePowerups(now) {
   while (roundElapsedUs >= nextPowerupAtUs) {
-    const occupied = gunPickups.some((pickup) => pickup.active);
+    // Only the slot marked `cycle` is the rotation's business. Asking whether
+    // ANY gun pickup is on the map would let an untouched space laser sitting
+    // on the top deck stall the pistol reload for the whole round.
+    const occupied = gunPickups.some((pickup) => pickup.cycle && pickup.active);
     if (!occupied) {
       // The cycle's whole job is to keep six more rounds of ammo appearing
-      // somewhere worth crossing the cube for — the corner tiles,
+      // somewhere worth crossing the station for — the corner tiles,
       // alternating, so the reload never lives on one fighter's side.
-      const pickup = gunPickups[0];
+      const pickup = gunPickups.find((slot) => slot.cycle);
       pickup.active = true;
-      pickup.x = tileCenterX(powerupSequence % 2 === 0 ? 0 : 9);
+      pickup.x = tileCenterX(powerupSequence % 2 === 0
+        ? cornerColLeft : cornerColRight);
       pickup.y = surfaceYAt(pickup.x, floorY) - 70;
       pickup.z = 0;
       powerupSequence += 1;
@@ -6039,6 +6525,7 @@ function updatePowerups(now) {
     nextPowerupAtUs += powerupIntervalUs;
   }
   updateGunPickups(now);
+  updateSaberPickups(now);
   updateGrenadePickups(now);
 }
 
@@ -6089,6 +6576,24 @@ function updateBullets(dt, now, combat = true) {
     // Held so the ricochets below can be spotted by the sign they flip.
     const enteredVx = bullet.vx;
     const enteredVy = bullet.vy;
+    // A laser bolt does not ricochet. Everything else in this game's ballistics
+    // is built on the opposite rule — "shots have no clock-based expiry, arena
+    // surfaces ricochet them so a long-travelling round remains part of the
+    // fight" — and that rule is what makes the pistol frightening in a closed
+    // room. The bolt is the other half of the pair: four of them, travelling
+    // more than twice as fast, each spent outright the moment it touches
+    // anything. Fast and honest against slow and haunting, and a laser miss is
+    // a miss for good.
+    if (bullet.laser && (bullet.x - 24 <= worldLeft + wallThickness ||
+        bullet.x + 24 >= worldRight - wallThickness ||
+        bullet.y - 24 <= ceilingY + wallThickness ||
+        bullet.y + 24 >= terrainFloorAt(bullet.x) - wallThickness)) {
+      bullet.life = 0;
+      spawnImpact({ x: bullet.x, y: bullet.y, z: bullet.z,
+        life: .14, duration: .14, death: false, explosion: false });
+      playDrum("hat", 1.4, panAt(bullet.x, bullet.z));
+      continue;
+    }
     // Shots have no clock-based expiry. Arena surfaces ricochet them so a
     // long-travelling round remains part of the fight until contact.
     if (bullet.x - 24 <= worldLeft + wallThickness) {
@@ -6635,8 +7140,8 @@ function updateBall(ball, dt, now) {
     ball.active = true;
     // Re-inflate on the far side from wherever it popped, so the fighter who
     // owned the ball's exit does not also own its return.
-    ball.x = ball.x > (worldLeft + worldRight) / 2
-      ? tileCenterX(2) : tileCenterX(7);
+    ball.x = ball.x > centerX
+      ? tileCenterX(cornerColLeft + 1) : tileCenterX(cornerColRight - 1);
     ball.y = ceilingY + ball.radius + 120;
     ball.z = 0;
     ball.vx = 0;
@@ -6750,7 +7255,7 @@ function updateBall(ball, dt, now) {
       ball.x, ball.y, ball.z);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
-    if (ball.type === "skateboard" && headDistance > ball.radius &&
+    if (ball.type === "hoverboard" && headDistance > ball.radius &&
         bodyDistance <= ball.radius && !player.skateboard &&
         // A thrown deck is a weapon until it slows down — nobody catches a
         // board shot out of the air with their shins.
@@ -6758,7 +7263,7 @@ function updateBall(ball, dt, now) {
       player.skateboard = true;
       ball.active = false;
       ball.heldBy = -1;
-      player.lastButton = "SKATEBOARD";
+      player.lastButton = "HOVER BOARD";
       player.lastButtonAt = now;
       playDrum("clap", .9, panPlayer(player));
       emitSignal("skate-mount", player.pad, 1, 0);
@@ -6808,10 +7313,11 @@ function directionTap(player, direction, now) {
       // on takes it like one. The rider pops up off the release.
       // The one-ball economy: like a dismount, the round's ball is
       // redressed as the board so exactly one object ever exists.
-      const board = balls.find((item) => item.type === "skateboard") ||
-        balls[0];
-      Object.assign(board,
-        ballKinds.find((kind) => kind.type === "skateboard"));
+      // The station carries its own board, so there is nothing to redress:
+      // the old one-object economy borrowed the round's ball and handed it
+      // back at the bell, which is exactly the trick that stopped being
+      // necessary when the board became furniture with an entry of its own.
+      const board = balls.find((item) => item.type === "hoverboard");
       player.skateboard = false;
       player.skateVx = 0;
       if (board) {
@@ -7717,15 +8223,21 @@ function updatePlayer(player, pad, dt, now) {
     const terrainSlope = clamp(terrainTangentAt(player.x), -2.5, 2.5);
     player.skateVx += terrainSlope * 1900 * dt;
     player.skateVx = clamp(player.skateVx, -4200, 4200);
-    if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .65);
+    // A hover board has nothing touching the deck, so nothing scrubs it: let
+    // go of the stick and it keeps most of what it had. The old wheeled deck
+    // bled .65 a second into friction it no longer has.
+    if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .26);
     controlledVx = player.skateVx;
-    // The board is audible: wheel ticks come faster and harder with speed,
-    // and a carve against the roll scrapes once as it bites.
+    // The board is audible, but it has no wheels to tick. What was a rolling
+    // click that came faster with speed is now a thruster note that comes
+    // HIGHER with it — same cadence source, a pitch instead of a rhythm, so
+    // the ear still reads the board's speed without hearing a skatepark in
+    // vacuum. The carve keeps its bite; that one is the rider, not the road.
     const skateSpeed = Math.abs(player.skateVx);
     if (skateSpeed > 260 && now >= (player.skateNextRollAt || 0)) {
       const pace = skateSpeed / 4200;
       player.skateNextRollAt = now + (260 - 190 * pace) * 1000;
-      playDrum("hat", .1 + pace * .3, panPlayer(player));
+      playSine(132 + pace * 186, .045 + pace * .03);
       emitSignal("skate-roll", player.pad, Math.round(pace * 100) / 100, 0);
     }
     const carveDir = carving ? Math.sign(skateTarget) : 0;
@@ -7843,7 +8355,7 @@ function updatePlayer(player, pad, dt, now) {
 
   const previousY = player.y;
   const wasGrounded = player.grounded;
-  player.vy += (player.vy < 0 ? riseGravity : fallGravity) * dt;
+  player.vy += (player.vy < 0 ? riseGravity() : fallGravity()) * dt;
   // Keeping DOWN held through a pound drives it down harder. The button is
   // the only thing that makes a pound faster, so the height you fell from and
   // the pressure you kept on it are the two dials on the crater.
@@ -8008,21 +8520,21 @@ function botDown(player, now) {
 //
 // One jump's ceiling, from the same numbers the fighter's legs use: with up
 // held, the rise is v²/2g, and everything above it is out of reach.
-const jumpApex = jumpVelocity * jumpVelocity / (2 * riseGravity);
+const jumpApex = () => jumpVelocity * jumpVelocity / (2 * riseGravity());
 // A jump's horizontal budget onto a deck `dy` above the takeoff: the whole
 // rise, then the fall from the apex down to the deck's height, walked at
 // walking speed. Scaled down hard — the bot is committing to a lip, and a
 // landing at the very end of the arc is a landing it can miss by one frame.
 const botAirCommit = .6;
 function jumpReach(dy) {
-  const riseSeconds = jumpVelocity / riseGravity;
-  const fallSeconds = Math.sqrt(2 * Math.max(0, jumpApex - dy) / fallGravity);
+  const riseSeconds = jumpVelocity / riseGravity();
+  const fallSeconds = Math.sqrt(2 * Math.max(0, jumpApex() - dy) / fallGravity());
   return walkSpeed * (riseSeconds + fallSeconds) * botAirCommit;
 }
 // Where the feet are. Level 0 is the arena floor; a rung answers by its level.
 function botFooting(player) {
   if (!player.grounded) return null;
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (Math.abs(player.y - ledge.y) <= 3 &&
       player.x >= ledge.left && player.x <= ledge.right) return { ...ledge };
   return { level: 0, left: platformLeft, right: platformRight, y: floorY };
@@ -8053,7 +8565,7 @@ function botScene(player, opponent, now) {
   const view = botViewport();
   const footing = botFooting(player);
   const rungs = [];
-  if (platformsEnabled()) for (const ledge of platforms)
+  if (platformsEnabled()) for (const ledge of activeLedges())
     if (rungInView(view, ledge))
       rungs.push({ level: ledge.level, left: ledge.left, right: ledge.right,
         y: ledge.y, dy: player.y - ledge.y });
@@ -8081,7 +8593,7 @@ function botScene(player, opponent, now) {
       attacking: Boolean(opponent.attackKind) && now < opponent.attackUntil,
       attackStartedAt: opponent.attackStartedAt };
   }
-  for (const pickup of [...gunPickups, ...grenadePickups])
+  for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups])
     if (pickup.active && pointInView(view, pickup.x, pickup.y))
       scene.pickups.push({ kind: pickup.kind || "item",
         x: pickup.x, y: pickup.y, dx: pickup.x - player.x });
@@ -8102,7 +8614,7 @@ function botOptions(player, scene) {
   const inset = survivalTune().landingInset;
   for (const rung of scene.rungs) {
     const dy = footing.y - rung.y;
-    if (dy <= 0 || dy > jumpApex) continue;
+    if (dy <= 0 || dy > jumpApex()) continue;
     const landLeft = rung.left + inset;
     const landRight = rung.right - inset;
     if (landRight < landLeft) continue;
@@ -8783,7 +9295,7 @@ function gameSim() {
       });
     }
     for (const mote of impact.debris) {
-      mote.vy += fallGravity * .72 * dt;
+      mote.vy += fallGravity() * .72 * dt;
       mote.x += mote.vx * dt;
       mote.y += mote.vy * dt;
       mote.z += mote.vz * dt;
@@ -8830,7 +9342,7 @@ function updateResultImpactDebris(dt) {
       });
     }
     for (const mote of impact.debris) {
-      mote.vy += fallGravity * .72 * dt;
+      mote.vy += fallGravity() * .72 * dt;
       mote.x += mote.vx * dt; mote.y += mote.vy * dt; mote.z += mote.vz * dt;
       const surface = terrainFloorAt(mote.x) - mote.radius;
       if (mote.y > surface) {
@@ -9849,6 +10361,16 @@ function damagePart(target, segmentIndex, sourceX, sourcePad, now) {
     if (target.grenadeAmmo > 0) grenadePickups.push({
       amount: target.grenadeAmmo, x: target.x, y: target.y - 70, z: target.z,
       active: true, startsActive: false, respawnAt: Infinity });
+    // The blade goes where the hand went. A saber is held, not carried, so
+    // losing the item arm has to put it back on the map — otherwise the one
+    // weapon a fighter can keep all round would quietly cease to exist and
+    // the reach it was buying would vanish with no object to explain it.
+    if (target.swordHeld) {
+      saberPickups.push({ kind: "LIGHT SABER", x: target.x,
+        y: target.y - 70, z: target.z,
+        active: true, startsActive: false, respawnAt: Infinity });
+      target.swordHeld = false;
+    }
     target.gunAmmo = 0;
     target.grenadeAmmo = 0;
     target.itemArm = "";
@@ -9882,8 +10404,8 @@ function dismountSkateboard(target, now) {
   target.skateboard = false;
   target.skateVx = 0;
   target.skateWallSide = 0;
-  const board = balls.find((item) => item.type === "skateboard") || balls[0];
-  Object.assign(board, ballKinds.find((kind) => kind.type === "skateboard"));
+  const board = balls.find((item) => item.type === "hoverboard");
+  if (!board) return true;
   board.active = true;
   board.heldBy = -1;
   board.x = target.x - target.facing * 58;
@@ -10770,7 +11292,8 @@ function drawInventory(player, now, geometry) {
   if (isHeadOnly(player)) return;
   const scale = cameraScale();
   const gunColor = player.gunMode === "ROCKET LAUNCHER" ? [48, 61, 52]
-    : player.gunMode === "RUBBER SMG" ? [38, 53, 72] : [63, 43, 76];
+    : player.gunMode === "RUBBER SMG" ? [38, 53, 72]
+    : player.gunMode === "SPACE LASER" ? [58, 92, 122] : [63, 43, 76];
   const grenadeColor = [255, 105, 105];
   const firing = player.itemAction === "FIRE" && now < player.itemActionUntil;
   const throwing = player.itemAction === "THROW" && now < player.itemActionUntil;
@@ -10802,15 +11325,31 @@ function drawInventory(player, now, geometry) {
       const tipY = hand.y + alongY / length * 118 * scale;
       const acrossX = -alongY / length;
       const acrossY = alongX / length;
+      // Steel became light. Three passes down the same line — a wide halo in
+      // the fighter's OWN color, then a narrower saturated sheath, then a
+      // white core — because a blade drawn in one flat tone reads as a stick,
+      // and because in a versus round the two blades then say which fighter
+      // is which from across the map, the way the handle colors already do.
+      // The hum lives in the halo's width: it breathes on the same clock the
+      // pickups bob on, so a held saber is never a still object.
+      const hum = 1 + .12 * Math.sin(now / 82000);
+      const halo = mixColor(player.color, [14, 20, 36], .35);
       filledCapsule(hand.x, hand.y, tipX, tipY,
-        Math.max(3, 7 * scale), [188, 197, 208]);
-      filledCapsule(hand.x + acrossX * 14 * scale, hand.y + acrossY * 14 * scale,
-        hand.x - acrossX * 14 * scale, hand.y - acrossY * 14 * scale,
-        Math.max(2, 5 * scale), [96, 76, 48]);
+        Math.max(4, 13 * scale * hum), halo);
+      filledCapsule(hand.x, hand.y, tipX, tipY,
+        Math.max(3, 8 * scale), player.color);
+      filledCapsule(hand.x, hand.y, tipX, tipY,
+        Math.max(1.5, 3.5 * scale), [244, 252, 255]);
+      // The hilt stays machined and dark: it is the one part of a saber that
+      // is an object, and it is what keeps the blade from reading as a beam
+      // fired out of a bare fist.
+      filledCapsule(hand.x + acrossX * 11 * scale, hand.y + acrossY * 11 * scale,
+        hand.x - acrossX * 11 * scale, hand.y - acrossY * 11 * scale,
+        Math.max(2, 5 * scale), [148, 156, 172]);
       filledCapsule(hand.x, hand.y,
-        hand.x - alongX / length * 16 * scale,
-        hand.y - alongY / length * 16 * scale,
-        Math.max(2, 5 * scale), [34, 30, 40]);
+        hand.x - alongX / length * 18 * scale,
+        hand.y - alongY / length * 18 * scale,
+        Math.max(2, 6 * scale), [34, 30, 40]);
     }
   }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
@@ -11787,56 +12326,64 @@ function drawTerrainBackWall(left, right, far, color) {
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
-  // One plain sheet — @jeffrey: "can the level background be plain colored?
-  // not stripey?" The sixty checkered plaster panels went with the request,
-  // and the hundred-odd faces they cost every frame went with them. The tint
-  // folds the old checker's average plaster into the theme color, so neither
-  // theme shifts, only flattens. Buried deep beneath the floor for the same
-  // reason the panels were: a 9:16 reel sees far below the fighters' feet,
-  // and a wall that stops short lets the clear layer through as sky.
-  const wallBottom = floorY + 3000;
-  const roomTop = survivalActive() ? top - 500 : ceilingY;
-  const shade = mixColor(color, [226, 172, 168], .12);
-  if (survivalActive()) worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
-    { x: worldRight, y: roomTop, z: worldFar },
-    { x: worldRight, y: wallBottom, z: worldFar },
-    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
-  else worldQuad({ x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: wallBottom, z: worldFar },
-    { x: worldLeft, y: wallBottom, z: worldFar }, shade);
-  if (!survivalActive()) drawGridOverlay(shade);
-  // The left side is a real wall, but only occupies the rear half of the room.
-  // Segmenting it keeps the diorama corner visible without recreating the old
-  // full-depth opaque slab that could pass in front of the camera and blackout
-  // the fight during an orbit.
-  const sideFloor = terrainFloorAt(worldLeft) + 120;
-  // The side wall keeps its four-quad segmentation — that is what stops a
-  // full-depth slab passing in front of an orbiting camera and blacking out
-  // the fight — but wears one plain pigment now, the old checker's average.
-  const sideShade = mixColor(color, [232, 170, 153], .13);
-  for (let row = 0; row < 2; row++) {
-    for (let depth = 0; depth < 2; depth++) {
-      const y1 = lerp(roomTop, sideFloor, row / 2);
-      const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
-      const z1 = lerp(0, worldFar, depth / 2);
-      const z2 = lerp(0, worldFar, (depth + 1) / 2);
-      worldQuad({ x: worldLeft, y: y1, z: z1 },
-        { x: worldLeft, y: y1, z: z2 },
-        { x: worldLeft, y: y2, z: z2 },
-        { x: worldLeft, y: y2, z: z1 }, sideShade);
+  // The station has no room to surface. Every plane this function used to
+  // raise — the plaster sheet behind the fighters, the segmented left wall,
+  // the ceiling cap — existed because the map was an interior, and the space
+  // map is not one: what is behind a fighter here is the starfield the
+  // backdrop already painted, and putting a wall in front of it would be
+  // painting over the map's whole idea to save nothing.
+  //
+  // Two things survive, and both survive because they carry information.
+  //
+  // The heat lattice stays: it is the tile field made visible, and on a
+  // station it reads as a nav hologram hanging in the dark, which is a
+  // better home than the plaster it used to be ruled onto.
+  //
+  // The bounds stay, as a containment field rather than as masonry. This is
+  // not decoration — `resolveRunnerBounds` stops a body at exactly these two
+  // planes and `updateBullets` ricochets a pistol round off them, so a fight
+  // in open space still has two hard edges in it and a player who cannot see
+  // them is a player being lied to. Drawn as a pair of lit lines at the far
+  // plane, pulsing, because a wall you can see through is the only honest
+  // drawing of a rule you cannot walk through.
+  if (survivalActive()) {
+    const wallBottom = floorY + 3000;
+    const roomTop = top - 500;
+    const shade = mixColor(color, [226, 172, 168], .12);
+    worldQuad({ x: worldLeft, y: roomTop, z: worldFar },
+      { x: worldRight, y: roomTop, z: worldFar },
+      { x: worldRight, y: wallBottom, z: worldFar },
+      { x: worldLeft, y: wallBottom, z: worldFar }, shade);
+    const sideFloor = terrainFloorAt(worldLeft) + 120;
+    const sideShade = mixColor(color, [232, 170, 153], .13);
+    for (let row = 0; row < 2; row++) {
+      for (let depth = 0; depth < 2; depth++) {
+        const y1 = lerp(roomTop, sideFloor, row / 2);
+        const y2 = lerp(roomTop, sideFloor, (row + 1) / 2);
+        const z1 = lerp(0, worldFar, depth / 2);
+        const z2 = lerp(0, worldFar, (depth + 1) / 2);
+        worldQuad({ x: worldLeft, y: y1, z: z1 },
+          { x: worldLeft, y: y1, z: z2 },
+          { x: worldLeft, y: y2, z: z2 },
+          { x: worldLeft, y: y2, z: z1 }, sideShade);
+      }
     }
+    const climbEdge = mixColor(color, [64, 78, 72], .24);
+    worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
+      9, climbEdge);
+    worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
+      9, climbEdge);
+    return;
   }
-  const edge = mixColor(color, [64, 78, 72], .24);
-  if (!survivalActive()) worldQuad(
-    { x: worldLeft, y: ceilingY, z: worldNear },
-    { x: worldLeft, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldFar },
-    { x: worldRight, y: ceilingY, z: worldNear }, edge);
-  worldLine(worldLeft, top, worldFar - 4, worldLeft, bottom, worldFar - 4,
-    9, edge);
-  worldLine(worldRight, top, worldFar - 4, worldRight, bottom, worldFar - 4,
-    9, edge);
+  drawGridOverlay(mixColor(color, [18, 30, 62], .74));
+  const pulse = .5 + .5 * Math.sin(runtime().monotonicUs / 520000);
+  const field = mixColor([54, 120, 186], [136, 214, 255], .3 + pulse * .35);
+  for (const edgeX of [worldLeft, worldRight]) {
+    worldLine(edgeX, ceilingY, worldFar - 4, edgeX, floorY, worldFar - 4,
+      9, field);
+    worldLine(edgeX, ceilingY, worldNear + 4, edgeX, floorY, worldNear + 4,
+      5, mixColor(field, [8, 12, 28], .5));
+  }
 }
 
 function drawSurvivalLava(t) {
@@ -11934,7 +12481,81 @@ function drawBoosterPad(t) {
   }
 }
 
+// The station has no sky, so `drawSkyAtmosphere` forks here rather than being
+// two functions with one caller each: survival still climbs under weather,
+// and the space map looks out of a window.
+//
+// Everything below is screen space. That is the whole reason a starfield is
+// affordable at all — the fight's own geometry is a software rasterizer's
+// budget, and a projected sphere of stars would spend the frame on backdrop.
+// Bands, dots and a limb drawn as scanlines cost boxes, which are free.
+function drawSpaceBackdrop(sky) {
+  const width = viewWidth();
+  // Deep space is not black: it is very dark blue with a wash coming off the
+  // planet below, so the bottom of the frame lifts. Six bands, the same count
+  // the atmosphere used, running the other way.
+  const bands = 6;
+  const deep = [4, 5, 16];
+  const lift = mixColor([14, 20, 52], sky, .25);
+  for (let band = 0; band < bands; band++) {
+    const y1 = Math.round(viewHeight * band / bands);
+    const y2 = Math.round(viewHeight * (band + 1) / bands);
+    box(0, y1, width, y2 - y1 + 1,
+      ...mixColor(deep, lift, ((band + .5) / bands) ** 1.6));
+  }
+  // A hundred and twenty stars from one integer hash, parallaxed against the
+  // camera so the field slides as the lens pans and the map reads as somewhere
+  // you are moving through. The parallax is a fifteenth of the camera's travel
+  // — enough to feel, far too little to chase. Cosmetic only: nothing here is
+  // simulation state, so the two seats of a versus round may disagree about a
+  // star and still agree about the fight.
+  const driftX = cameraCenter / 15;
+  const driftY = cameraCenterY / 15;
+  for (let star = 0; star < 120; star++) {
+    let hash = Math.imul(star + 1, 2654435761) >>> 0;
+    hash ^= hash >>> 15;
+    const hx = (hash % 10007) / 10007;
+    const hy = ((hash >>> 7) % 10009) / 10009;
+    const hb = ((hash >>> 13) % 997) / 997;
+    // Wrapped rather than clamped, so a star leaving one edge arrives at the
+    // other instead of piling up in a corner.
+    const x = (((hx * width - driftX) % width) + width) % width;
+    const y = (((hy * viewHeight - driftY) % viewHeight) + viewHeight) %
+      viewHeight;
+    // Three tiers. Most of a real starfield is faint, and a field of equally
+    // bright dots reads as noise rather than as distance.
+    const size = hb > .94 ? 3 : hb > .74 ? 2 : 1;
+    const tone = hb > .94 ? [255, 255, 248] : hb > .74 ? [206, 220, 255]
+      : [128, 144, 196];
+    box(Math.round(x), Math.round(y), size, size, ...tone);
+  }
+  // The planet the station is over: a limb rising into the bottom of the
+  // frame, drawn as scanlines of a circle whose centre sits well below the
+  // screen. Twenty-eight bands is enough for the curve to read and cheap
+  // enough not to matter.
+  const limbBands = 28;
+  const planetRadius = viewHeight * 1.9;
+  const planetCenterY = viewHeight + planetRadius * .82;
+  const planetCenterX = width * .42;
+  const rim = mixColor([52, 96, 150], [126, 176, 214], visualTheme.light);
+  const body = mixColor([12, 26, 52], [30, 58, 96], visualTheme.light);
+  for (let band = 0; band < limbBands; band++) {
+    const y = planetCenterY - planetRadius +
+      (band / limbBands) * planetRadius * .4;
+    const dy = planetCenterY - y;
+    const half = Math.sqrt(Math.max(0, planetRadius * planetRadius - dy * dy));
+    if (!(half > 0)) continue;
+    const height = Math.ceil(planetRadius * .4 / limbBands) + 1;
+    // The top band is the lit rim; everything under it falls off into the
+    // night side, which is what keeps the planet from reading as a blue hill.
+    const tint = mixColor(rim, body, Math.min(1, band / 3));
+    box(Math.round(planetCenterX - half), Math.round(y),
+      Math.round(half * 2), height, ...tint);
+  }
+}
+
 function drawSkyAtmosphere(sky, arena) {
+  if (!survivalActive()) return drawSpaceBackdrop(sky);
   // Broad D2D bands are effectively free compared with projected meshes and
   // make the sky feel spatial without rebuilding a textured skybox each frame.
   const bands = 6;
@@ -12013,6 +12634,12 @@ function projectedBallRadius(ball) {
 // which from the only available angle read as wheels above *and* below the
 // plank. `underside` says which way is down for this board, so a wallride keeps
 // its wheels against the wall instead of hanging them through it.
+// The hover board, drawn the same everywhere it appears: lying on the deck
+// waiting, under a rider's feet, and spinning through the air after a throw.
+// It kept the old board's proportions and lost its wheels — where the trucks
+// and the two yellow wheels used to hang there are now two thruster pads with
+// a lit wash under each, so what the board is doing (holding itself up) is
+// what you can see it doing.
 function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
   const alongX = Math.cos(rotation);
   const alongY = Math.sin(rotation);
@@ -12021,10 +12648,13 @@ function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
   const deck = [236, 76, 118];
   const edge = [34, 25, 39];
   const truck = [174, 184, 202];
-  const wheel = [242, 226, 158];
-  // Board space: `along` runs nose to tail, `down` points at the ground the
-  // wheels are on. Every measurement below is a fraction of the board's reach,
-  // so a pickup-sized board and a ridden one are the same drawing.
+  // The thruster wash breathes rather than holding a flat tone, on the same
+  // clock the pickups bob on, so a parked board is never a dead object.
+  const thrust = mixColor([96, 226, 255], [244, 252, 255],
+    .35 + .35 * Math.sin(runtime().monotonicUs / 140000));
+  // Board space: `along` runs nose to tail, `down` points at the deck the
+  // board is holding itself off. Every measurement below is a fraction of the
+  // board's reach, so a parked board and a ridden one are the same drawing.
   const at = (along, down) => ({
     x: point.x + (alongX * along + downX * down) * radius,
     y: point.y + (alongY * along + downY * down) * radius,
@@ -12040,13 +12670,17 @@ function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
   }
   plank(at(-.7, 0), at(.7, 0), .22, edge);
   plank(at(-.68, 0), at(.68, 0), .14, deck);
-  // The wheels tuck up under the deck rather than dangling off long legs, so
-  // the whole board still reads as one object at ball size.
+  // The pads tuck up under the deck the way the trucks did, so the whole
+  // board still reads as one object at the size it lies on the floor at. The
+  // wash under each is drawn wide and dim first, then narrow and bright, which
+  // is the same three-pass trick the saber blade uses one scale up.
   for (const direction of [-1, 1]) {
-    plank(at(direction * .44, .07), at(direction * .44, .15), .07, truck);
-    const hub = at(direction * .44, .23);
-    filledDisc(hub.x, hub.y, Math.max(.45, radius * .115), wheel);
-    filledDisc(hub.x, hub.y, Math.max(.2, radius * .042), [22, 25, 34]);
+    plank(at(direction * .44, .05), at(direction * .44, .13), .09, truck);
+    plank(at(direction * .5, .16), at(direction * .38, .16), .07, thrust);
+    plank(at(direction * .5, .3), at(direction * .38, .3), .13,
+      mixColor(thrust, [20, 32, 56], .55));
+    plank(at(direction * .47, .24), at(direction * .41, .24), .06,
+      [244, 252, 255]);
   }
 }
 
@@ -12063,7 +12697,7 @@ function drawBall(ball) {
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
   const beach = ball.type === "beach";
-  const skateboard = ball.type === "skateboard";
+  const skateboard = ball.type === "hoverboard";
   const polygon = (x, y, polygonRadius, sides, rotation, color) => {
     for (let side = 0; side < sides; side++) {
       const a = rotation + side * Math.PI * 2 / sides;
@@ -12195,6 +12829,23 @@ function drawGunPickup(pickup, t) {
   const gripWidth = Math.max(2, 4 * scale);
   const smg = pickup.kind === "RUBBER SMG";
   const rocket = pickup.kind === "ROCKET LAUNCHER";
+  if (pickup.kind === "SPACE LASER") {
+    // Short body, long emitter, and a lit coil at the breech so the thing on
+    // the top deck is identifiable as light-bearing from the floor three
+    // decks below. The pulse is on the same 3 Hz bob as every other pickup.
+    const glow = mixColor([96, 226, 255], [236, 255, 255],
+      .4 + .35 * Math.sin(t * 5.2));
+    const shell = mixColor([206, 224, 240], [44, 54, 78], visualTheme.light);
+    worldCapsule(pickup.x - 22, bobY, pickup.z,
+      pickup.x + 14, bobY, pickup.z, barrelWidth * 1.5, shell, -.02);
+    worldCapsule(pickup.x + 14, bobY, pickup.z,
+      pickup.x + 40, bobY, pickup.z, barrelWidth * .7, glow, -.02);
+    worldCapsule(pickup.x - 14, bobY - 9, pickup.z,
+      pickup.x - 2, bobY - 9, pickup.z, barrelWidth * .6, glow, -.02);
+    worldCapsule(pickup.x - 6, bobY + 2, pickup.z,
+      pickup.x - 1, bobY + 22, pickup.z, gripWidth * 1.2, grip, -.02);
+    return;
+  }
   // A handgun-sized world object in gunmetal and grip material, not a glowing
   // pickup glyph with a second silhouette around it.
   // Capsules, not line() — the native renderer buries the whole line
@@ -12221,17 +12872,45 @@ function drawGunPickup(pickup, t) {
   }
 }
 
+// A saber waiting on a deck: the hilt standing upright with a stub of blade
+// lit above it, bobbing on the same clock as every other pickup so the map's
+// loose objects share one heartbeat. Drawn short on purpose — a full-length
+// blade planted in a deck would read as scenery, and this is something you
+// pick up. Capsules rather than lines, for the same reason the pistol is
+// capsules: the native renderer buries the whole line stratum under the
+// world's triangles, and the blade would vanish into the deck it sits on.
+function drawSaberPickup(pickup, t) {
+  if (!pickup.active) return;
+  const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
+  const pulse = .5 + .5 * Math.sin(t * 5.6 + pickup.x * .002);
+  const glow = mixColor([120, 226, 255], [244, 252, 255], .35 + pulse * .4);
+  const hilt = mixColor([172, 182, 198], [46, 52, 68], visualTheme.light);
+  worldCapsule(pickup.x, bobY + 4, pickup.z,
+    pickup.x, bobY - 34, pickup.z, 13, glow, -.02);
+  worldCapsule(pickup.x, bobY + 4, pickup.z,
+    pickup.x, bobY - 30, pickup.z, 6, [244, 252, 255], -.02);
+  worldCapsule(pickup.x, bobY + 6, pickup.z,
+    pickup.x, bobY + 34, pickup.z, 9, hilt, -.02);
+  worldCapsule(pickup.x - 13, bobY + 8, pickup.z,
+    pickup.x + 13, bobY + 8, pickup.z, 5, hilt, -.02);
+}
+
 function drawBullet(bullet) {
   const previous = projectPoint(bullet.previousX ?? bullet.x,
     bullet.previousY ?? bullet.y, bullet.z);
   const point = projectPoint(bullet.x, bullet.y, bullet.z);
   const blink = Math.floor(runtime().monotonicUs / 65000 + bullet.owner) % 2;
+  // A bolt does not blink. The pistol round's alternating white is what makes
+  // a slow ricochet findable against a busy floor; the laser is gone in four
+  // frames and wants to read as one continuous line of light instead.
   const core = bullet.spit
     ? bullet.heavy ? [255, 92, 174] : [118, 255, 196]
+    : bullet.laser ? [236, 255, 255]
     : blink ? [255, 255, 248]
     : bullet.rubber ? [255, 226, 58] : [255, 178, 76];
   const trail = bullet.spit
     ? bullet.heavy ? [182, 48, 116] : [58, 190, 132]
+    : bullet.laser ? [96, 226, 255]
     : blink ? [255, 244, 178]
     : bullet.rubber ? [214, 178, 42] : [224, 116, 62];
   const scale = cameraScale();
@@ -12253,6 +12932,17 @@ function drawBullet(bullet) {
     return;
   }
   drawBulletTrail(bullet, trail, scale);
+  if (bullet.laser) {
+    // Drawn as the stride itself: at 9,600 units a second the gap between two
+    // frames IS the beam, so a wide cyan sheath over a white core along that
+    // gap is the whole shot. No round cap at the tip — a bolt has a leading
+    // edge, not a head.
+    filledCapsule(previous.x, previous.y, point.x, point.y,
+      Math.max(1.2, 9 * scale), trail);
+    filledCapsule(previous.x, previous.y, point.x, point.y,
+      Math.max(.6, 3.5 * scale), core);
+    return;
+  }
   filledCapsule(previous.x, previous.y, point.x, point.y,
     Math.max(.6, (bullet.rubber ? 4 : 3) * scale), trail);
   filledDisc(point.x, point.y, Math.max(.9, 7 * scale), core);
@@ -13420,9 +14110,15 @@ function gamePaint() {
   const reelMinimal = replayOven && reelHud &&
     capabilities().reelFullUi !== true;
   triangleDepth = -1.4;
+  // Survival climbs under weather; the station hangs over a planet. Both keep
+  // day and night, because the theme drives the HUD and the fighters too — on
+  // the station "day" is the sunlit side of the orbit, which lifts the hull
+  // and the planet's rim without ever turning the vacuum blue.
+  const space = !survivalActive();
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
-  const sky = mixColor([7, 8, 28], skyDay, visualTheme.light);
+  const sky = space ? mixColor([6, 8, 22], [18, 26, 58], visualTheme.light)
+    : mixColor([7, 8, 28], skyDay, visualTheme.light);
   // Match the clear color to the arena sky. Camera framing can reveal the
   // clear layer during a jump; a different clear color looked like a flash.
   const outside = sky;
@@ -13432,11 +14128,20 @@ function gamePaint() {
   const arenaDay = mixColor([244, 211, 178], [235, 154, 150],
     visualTheme.sunset * .48);
   const arena = mixColor([24, 18, 42], arenaDay, visualTheme.light);
+  // Earth became hull. The green was a lawn under a tower and then under a
+  // cube; a deck in orbit is plate, and it has to stay dark enough that the
+  // starfield behind it still reads as the brighter thing in the frame.
   const groundDay = mixColor([142, 184, 116], [190, 151, 103],
     visualTheme.sunset * .38);
-  const ground = mixColor([13, 25, 29], groundDay, visualTheme.light);
-  const platformColor = mixColor([24, 29, 46], [211, 198, 171],
-    visualTheme.light);
+  const ground = space
+    ? mixColor([16, 22, 38], [96, 112, 142], visualTheme.light)
+    : mixColor([13, 25, 29], groundDay, visualTheme.light);
+  // The floating decks are lit plate, a step brighter than the hull, because
+  // the one thing a player must never misjudge on this map is where a deck
+  // ends.
+  const platformColor = space
+    ? mixColor([34, 46, 78], [186, 204, 232], visualTheme.light)
+    : mixColor([24, 29, 46], [211, 198, 171], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
   const menuArena = mixColor([7, 10, 26], [235, 241, 248], visualTheme.light);
@@ -13477,7 +14182,10 @@ function gamePaint() {
   drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
-  if (renderFlags.grass !== false) drawTerrainGrass(spanLeft, spanRight, ground);
+  // No grass in vacuum. The blades were the tower's lawn and the cube kept
+  // them out of habit; on a hull they read as moss on a spaceship.
+  if (renderFlags.grass !== false && !space)
+    drawTerrainGrass(spanLeft, spanRight, ground);
   drawBoosterPad(t);
   const platformNear = -520;
   const platformFar = 520;
@@ -13491,7 +14199,7 @@ function gamePaint() {
   // in a room this size its 2600-unit apron usually covers everything — it is
   // here to bound the worst case, not because it culls much today.
   const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
-  if (platformsEnabled()) for (const ledge of platforms) {
+  if (platformsEnabled()) for (const ledge of activeLedges()) {
     if (ledge.right < spanLeft || ledge.left > spanRight) continue;
     if (ledge.y < spanTop || ledge.y > spanBottom) continue;
     const ledgeLeft = Math.max(ledge.left, spanLeft);
@@ -13590,6 +14298,7 @@ function gamePaint() {
   if (!survivalActive()) {
     for (const tree of bodyTrees) drawBodyTree(tree, t);
     for (const pickup of gunPickups) drawGunPickup(pickup, t);
+    for (const pickup of saberPickups) drawSaberPickup(pickup, t);
     for (const pickup of grenadePickups) drawGrenadePickup(pickup, t);
   }
   const showRunnerLabels = matchHud && !reelMinimal &&

@@ -215,6 +215,76 @@ test("the second chair holds one challenger and frees on close", () => {
   assert.ok(third.sent.some((message) => message.type === "oskiewar:seat"));
 });
 
+// A host that leaves takes its last frame with it. Measured on ow-regga890:
+// the room still answered `hasState: true` with a seq 2857 frame of a `fight`
+// between NOBODY and NOBODY long after the host had gone, and it was the first
+// thing handed to anybody who opened that address — who then read a frozen
+// round as a fight they could take a seat in.
+test("a departed publisher's last frame does not outlive it", () => {
+  let now = 100;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  now += 30;
+  host.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:state",
+    content: state(2857) })));
+  const early = new FakeSocket();
+  manager.handleConnection(early, { url });
+  assert.equal(early.sent.at(-1).content.seq, 2857);
+
+  host.close(1006, "tab killed");
+  const late = new FakeSocket();
+  manager.handleConnection(late, { url });
+  const status = late.sent.find((message) => message.type === "oskiewar:status");
+  assert.equal(status.content.live, false);
+  assert.equal(status.content.hasState, false);
+  assert.ok(!late.sent.some((message) => message.type === "oskiewar:state"));
+});
+
+// A chair is held by whoever is still speaking from it. A killed tab sends no
+// close frame, so its socket stays open until the shared ping sweep reaps it
+// two misses later — and for that half minute the person who just refreshed
+// was told the chair was taken and demoted to the grandstand, unable to rejoin
+// as themselves because the relay was holding their own dead socket against
+// them.
+test("a silent chair is reclaimed, a playing one is not", () => {
+  let now = 100000;
+  const manager = new OskiewarLiveManager({ now: () => now });
+  const host = new FakeSocket(), first = new FakeSocket();
+  const url = "/oskiewar-live?match=bafegu-dorimi-kunapo";
+  manager.handleConnection(host, { url: `${url}&role=publisher` });
+  manager.handleConnection(first, { url: `${url}&role=challenger` });
+
+  // Still playing: a second arrival is refused and stays to watch.
+  now += 2000;
+  first.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:input",
+    content: { seq: 1, down: ["A"], leftX: 0, leftY: 0 } })));
+  const rival = new FakeSocket();
+  manager.handleConnection(rival, { url: `${url}&role=challenger` });
+  assert.equal(rival.closed?.code, 4409);
+  assert.equal(first.readyState, 1);
+
+  // Gone quiet past the ghost window: the same person comes back and the seat
+  // is theirs, and the socket that was squatting on it is closed.
+  now += OSKIEWAR_LIVE_LIMITS.CHALLENGER_GHOST_MS + 1;
+  const rejoin = new FakeSocket();
+  manager.handleConnection(rejoin, { url: `${url}&role=challenger` });
+  assert.ok(rejoin.sent.some((message) => message.type === "oskiewar:seat"));
+  assert.equal(rejoin.closed, null);
+  assert.equal(first.closed?.code, 4410);
+
+  // And the evicted socket's own close must not clear the seat it no longer
+  // holds — the newcomer's pads still reach the host.
+  first.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:input",
+    content: { seq: 9, down: ["B"], leftX: 0, leftY: 0 } })));
+  now += 100;
+  rejoin.emit("message", Buffer.from(JSON.stringify({ type: "oskiewar:input",
+    content: { seq: 2, down: ["X"], leftX: 0, leftY: 0 } })));
+  const pads = host.sent.filter((message) => message.type === "oskiewar:input");
+  assert.deepEqual(pads.at(-1).content.down, ["X"]);
+});
+
 // The bare front door asks for one open room. Only a live host with an empty
 // second chair and an untimed round qualifies — the timed rounds are the
 // recorded broadcast farm, television rather than an open chair.

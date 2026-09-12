@@ -818,3 +818,278 @@ rung it would have caught alive), and then it stops.
   are how the meter was eyeballed.
 - Any `oskiewar.js` edit needs `npm run xbox:burn:oskiewar-social`; the social
   manifest is hash-bound and a test pins it.
+
+---
+
+# Part four: leaving and coming back (2026-09-11)
+
+@jeffrey: "in oskiewar.com multiplayer when a player leaves then rejoins they
+cant rejoin as themselves / the identities just get confused".
+
+Seven faults, in two groups: four that stop a rejoin happening at all, and
+three that make the screen name somebody rather than admit it does not know.
+
+## The room that gave it away
+
+`ow-regga890`, read off the production relay with an agent socket:
+
+```
+status  live:false  challenger:false  hasState:true
+state   seq=2857  phase=fight  NOBODY wins=0 vs NOBODY wins=0
+```
+
+A host long gone, and its last frame still in the room. Opening
+`oskiewar.com/regga890` in a signed-out browser drew **@JEFFREY vs @OSKIE** and
+announced **"YOU ARE @OSKIE — RIGHT SIDE"**, while the page's own state said
+`account.signedIn: false`, `bridge.seat: ""`, `bridge.live: false`, and
+`lastState.fighters: [NOBODY, NOBODY]`. Every name on that screen was invented.
+
+## What stopped a rejoin
+
+**A rejoiner's hello held the host's dead session open forever.**
+`netDrainInbox` stamped `session.lastPacketAt` on *every* packet and then had
+no `hello` branch, so it dropped it. A killed tab sends no `bye`, so the host
+waits out `NET_PEER_LOST_MS` — and the returning seat's 1 Hz hello refreshed
+that clock on every arrival. The host went on simulating against a rival who
+only said hello; the rejoiner never got a deal back. Neither could leave, and
+the thing keeping them stuck was the attempt to come back. A hello inside a
+session is now read as what it can only be — somebody with no session — and a
+straggler from before the deal is ignored by age.
+
+**The relay held a dead socket against its own owner.** `addChallenger`
+refused whenever `room.challenger.readyState === 1`, and a killed tab's socket
+is only reaped by the shared 15 s ping sweep: two misses, up to 30 s. For that
+half minute the person who refreshed was told the chair was taken and demoted
+to the grandstand. A seat is now held by whoever is still *speaking* from it —
+a pad heartbeat every 250 ms, an input packet every frame — so a chair silent
+past `CHALLENGER_GHOST_MS` (3 s) is given to the newcomer and the squatter is
+closed with 4410.
+
+**A departed host's last frame outlived it.** Only a *successor* publisher
+cleared `room.state`; leaving did not. Whoever opened the address next was
+handed a frozen `phase: "fight"` before anything else. Cleared on close now,
+the same as on takeover.
+
+**And the client painted it.** `roundViewerMode = "LIVE"` was set on any state
+frame. Because one frame can never bracket the playout clock (part three), the
+frame was then never *applied* — so the fighters kept whatever names the engine
+was already holding and the HUD told the new arrival which of those two
+strangers they were. A frame arriving while the room reports no publisher is
+now refused outright.
+
+## What named the strangers
+
+**There was no unknown identity.** `players` booted holding `@JEFFREY` and
+`@OSKIE` — roster entries 0 and 2 — and every path that failed to learn a real
+name fell through to them. Both seats now boot nameless. The wire already spoke
+this: `spectatorState` sends `""` as NOBODY and the HUD reads it as "THE SECOND
+FIGHTER".
+
+**A negative roster index meant two different people.** `applyRoster` wrapped
+`-1` to the LAST roster entry (@SAT) while `beginVersusLobby` and
+`startVersusFight` floored it to the FIRST with `Math.max(0, …)`. An anonymous
+fight therefore read as @JEFFREY against @SAT. `-1` now means nobody.
+
+**Identity was struck once, and the deal raced the account load.**
+`netChallengerHello` had no readiness gate and `__oskiewarAccount` starts
+`{ready: false, handle: ""}` — and a rejoin *is* a fresh page load, so the 1 Hz
+hello routinely beat the session check and dealt a signed-in player in as
+"RIVAL". Worse, `resetRound` re-applies the deal every round, so the wrong name
+was re-stamped even after the right one arrived. Both seats now wait for the
+shell to finish asking, and an unknown name is written as unknown rather than
+as a stand-in person.
+
+**The chair inherited whoever sat in it last.** The streamed lane's re-dress
+test was `offered && offered !== versusRivalName`, so an anonymous arrival —
+who offers `""` — never triggered one and simply kept the previous player's
+name and colors. The comparison is now against the raw handle last dressed
+from (`versusRivalOffered`), so a change to nothing is still a change.
+
+## The one the wedge was hiding
+
+With the rejoin actually reachable, the rejoined fight desynced at frame 360 —
+having agreed at every checkpoint through 330.
+
+Frame numbers restart at zero every session, so an input packet from the fight
+before is indistinguishable from a current one by its contents, and it lands on
+frames the new fight has not reached yet. The shell's `__oskiewarNetInbox` is
+never emptied when a session ends, and packets stay in flight across the
+changeover — so the old rival's last presses were written into the new fight's
+`session.remote` on the seat that received them and nowhere else. Every packet
+now carries `o`, the deal's origin, and a packet from another fight is dropped.
+A build that sends no tag is taken at its word, as before.
+
+## How it is checked
+
+- `node --test session-server/oskiewar-live-manager.test.mjs` — 23, two new:
+  a departed publisher's frame does not outlive it; a silent chair is
+  reclaimed and a playing one is not.
+- `npm run xbox:test:oskiewar:netplay` — 14, three new: a rejoining rival's
+  hello ends the dead session; a seat that has already fought deals frame zero
+  a fresh rival can match; a packet from the fight before is not played in.
+- `node --test xbox/live/tests/oskiewar.test.mjs` — three new: nobody is
+  nobody; a new face in the chair is never dressed as the last one; a frame
+  from a room with no publisher is not a fight in progress. 36 pre-existing
+  failures, unchanged — baseline-diff, do not chase.
+- **`npm run xbox:test:oskiewar:rejoin`** — the whole thing in two real
+  browsers against the real relay: the guest's tab is killed without a close
+  frame, comes straight back, and has to get its chair, its own name and a
+  fight that does not come apart. The rig it shares with
+  `xbox:test:oskiewar:netplay:browser` is `xbox/live/tests/netplay-stack.mjs`.
+
+Both browser scripts are silent by default and take `--audio` for sound. The
+game's two kinds of sound leave by different doors — drums through WebAudio,
+which headless Chrome renders to no device, and names and calls through
+`speechSynthesis`, which on macOS is the platform's voice and reaches the real
+speakers whatever Chrome is doing — so a background run used to announce every
+round out loud over an otherwise silent fight. Now it is both or neither.
+
+## Still open
+
+- **Identity is fixed at the deal.** Signing in mid-fight does not re-dress
+  the rollback lane; the streamed lane has always re-dressed off the pad.
+- **Desyncs are detected and dropped to the streamed lane, not repaired.**
+  Unchanged from part two.
+- **`CHALLENGER_GHOST_MS` is 3 s against a 250 ms heartbeat.** Comfortable on
+  the measured p99, but it is a timeout, and a seat on a very bad wire can
+  still lose a chair somebody else is waiting for.
+
+---
+
+# Part five: versus rooms keep their history (2026-09-11)
+
+@jeffrey: "vs rooms should always record from now on", "and keep their track
+records in this way", "please update our infrastructure to satisfy these room
+histories".
+
+Versus rounds were the only fights the game never wrote down. Two gates kept
+them out — `roundIsTimed()` is false for `versusLane()`, and `startReplay`
+bailed on any untimed round — and behind those gates sat the real reason, which
+part two stated and did not solve:
+
+> a rollback fight is never a recorded one
+
+## Why a rollback fight could not be recorded
+
+The recorders run inside `gameSim`, which a rollback re-runs. None of them were
+rollback-aware. So a versus demo would have been written from **mispredicted**
+frames: the rival pad this seat GUESSED while it waited, not the one that
+actually arrived. The stored fight would have replayed into a different fight.
+
+Worse, the re-simulation appends: the corrected row for a past tick lands
+*after* the rows already written for later ones, and `advanceResimCommands`
+reads the stream with a cursor that only moves forward. Measured, with a wire
+losing a tenth of its packets and hands that change every frame or two: 430
+rollbacks over 900 frames, and the command stream goes backwards in time at
+row 5.
+
+## What makes the record rewind
+
+A rollback un-happens frames, and the frames it un-happens were written down.
+Every row in a demo's logs is stamped with the tick it belongs to, and a tick
+is stable across a rewind because `netClockUs` pins each frame's clock — so
+taking the record back to a frame is a truncation.
+
+`replayRewind(session, toFrame)` truncates `commands`, `checkpoints`, `events`,
+`impacts`, `rounds` and the round ledger to rows before that tick. The silent
+re-simulation that follows re-files the corrected rows itself, which is why the
+recorders are **not** muted while it runs — the one change needed for that was
+`emitSignal`, which now files the event first and only then checks `netSilent`.
+Silence is for the performance, not for the record.
+
+The two cursors that decide when the next row is due — `replayLastCommand` and
+`replayNextCheckpointAt` — are rebuilt from what survives the truncation, so
+they rewind without having to ride in the snapshot.
+
+**Round names rewind too.** `matchName`, `previousRoundName` and `nameSeed` are
+already snapshot scalars, but `replay.roundIds` is not sim state and would have
+double-filed a re-simulated rollover. Round names are now minted into a
+tick-stamped ledger (`replayRoundMarks`) that truncates with everything else,
+and `roundIds` is derived from it.
+
+## A round is filed when it can no longer be taken back
+
+A knockout inside the rollback window is not a knockout yet — a rival pad
+arriving late can undo it. So the round-end path marks the frame and
+`netTick` files the round once `session.confirmed` has passed it. A rewind past
+that frame clears the mark; the re-simulation re-sets it if the round still
+ends. `netEnd` flushes whatever is waiting, because a rival who has gone will
+never confirm anything and the round they lost still happened.
+
+`finishReplay` no longer runs at the round end of a net fight — it would close
+the record out from under a round waiting to be filed — and flushes first.
+
+## One author
+
+Both seats simulate the fight; exactly one writes it down, the same reason only
+the host narrates the stream. Two authors would race for one round id.
+`versusRecorder()` is seat zero, or the streamed lane's host.
+
+## The room is the ledger
+
+`resetRound` mints a name per round as it always did, but a versus room does
+**not** hand over between rounds: the address is the link a friend was sent,
+the socket the fight is riding and the code on the wall, and retiring it would
+move every watcher and close the publisher out from under the fight. Only the
+broadcast lane, where each round IS its own room, still hands over.
+
+So a versus demo carries two new fields: `roomId`/`roomName` for the address it
+was played at, and `timed: false`, because a re-run handed a countdown the
+original never had ends early on a fight the original played past
+(`roundIsTimed` reads `resimTimed` now). Both are optional; every demo recorded
+before this carries neither and still validates.
+
+## The infrastructure
+
+`/api/oskiewar-replays` answers two new questions, both folded by exported pure
+functions so the arithmetic is testable without a database:
+
+| query | answer |
+|---|---|
+| `?room=ow-<name>` | that address's whole ledger — every match played there, newest first, with fighters, score, round ids to watch, and the standings of everyone who has played there |
+| `?fighter=@handle` | that handle's track record across every room: rounds won and lost, matches played and won, who they have faced, where, and when |
+
+`?series=` still answers the older question, and it is a different one: a series
+is **one match**, a room is all of them.
+
+Both read a projection (`ROUND_SUMMARY`) rather than whole documents — a room
+with five hundred rounds must not drag five hundred command streams across the
+wire to answer "who has played here" — and the room query declares its index on
+the read path, the way `oskiewar-pops` does.
+
+**A round's winner is read from the tally, not from the name.** A signed-out
+fighter's nameplate is the empty string on purpose, so a round an anonymous
+player *won* is stored indistinguishably from a tie — and every loss to an
+anonymous player would have quietly vanished from the other player's record.
+The seat whose `finalRoundWins` went up is the seat that won. This fixes the
+existing rows too, not just the new ones.
+
+Anonymous rounds are kept in full and appear in a room's match list, but hold no
+track record: a blank nameplate is not a person, and every anonymous player
+would otherwise share one.
+
+## How it is checked
+
+- `npm run xbox:test:oskiewar:netplay` — 17. Three new: a recorded rollback
+  round holds the fight that really happened (the command stream is compared,
+  frame by frame, against what the simulation actually ran on — it fails
+  without `replayRewind`); a versus round is filed and the store accepts it,
+  checked against the store's OWN `validateDemo` so the two halves cannot drift
+  the way the checkpoint row and its contract did for seventeen days; and a
+  round is not filed until its end can no longer be taken back.
+- `node --test system/tests/oskiewar-rooms.test.mjs` — 11, all new: folding,
+  standings, anonymous fighters, and the demo's new fields.
+- The browser rigs now serve a real `POST /api/oskiewar-replays` that validates
+  with the store's reader and fails the run if anything malformed is filed.
+
+## Still open
+
+- **A versus demo has not been watched back end to end.** The command stream is
+  proven faithful and the store accepts the document; re-simulating one in a
+  browser and comparing the result to the original fight is the check that
+  would close this, and it is not written.
+- **Track records are computed per request** over a bounded window (500 rounds
+  for a room, 1000 for a handle). Busy rooms will eventually want the fold
+  materialised rather than repeated.
+- **The case-folded fighter query cannot use an index.** It matches the shape
+  `oskiewar-stats` already uses, and it will want a stored uppercase pair.

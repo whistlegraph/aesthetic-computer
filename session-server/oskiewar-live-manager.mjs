@@ -30,6 +30,15 @@ const MIN_PUBLISH_INTERVAL_MS = 25;
 // only change it so fast — the cap is generous for play and stingy for abuse.
 const MAX_INPUT_BYTES = 640;
 const MIN_INPUT_INTERVAL_MS = 15;
+// How long a chair keeps a seat it has stopped talking from. A seated
+// challenger is always speaking — a pad heartbeat every 250 ms on the streamed
+// lane, an input packet every frame on the rollback one — so three seconds of
+// nothing is a socket the far end already abandoned. It matters because a tab
+// that is killed rather than closed sends no close frame, and the only other
+// thing that would reap it is the shared 15 s ping sweep: two misses, so up to
+// 30 s during which whoever just refreshed could not have their own chair
+// back and was demoted to the grandstand instead.
+const CHALLENGER_GHOST_MS = 3000;
 // The rollback lane's own channel between the two seats: input frames with a
 // few frames of redundancy, the match-start deal, and state hashes. Small,
 // frequent, and never rate-limited — a dropped input packet is a rollback
@@ -224,7 +233,8 @@ export class OskiewarLiveManager {
         return true;
       }
       room = { matchId, publisher: null, publisherSurface: "unknown",
-        challenger: null, viewers: new Set(), agents: new Set(), state: null,
+        challenger: null, challengerSeenAt: 0,
+        viewers: new Set(), agents: new Set(), state: null,
         liveStarted: false, updatedAt: this.now(), publishedAt: 0,
         nudgedAt: 0, flaggedAt: 0, inputAt: 0, inputDown: null,
         flushTimer: null, flushedSeq: -1 };
@@ -282,6 +292,19 @@ export class OskiewarLiveManager {
     ws.on("close", () => {
       if (room.publisher !== ws) return;
       room.publisher = null;
+      // And the frame it left behind goes with it. A room that keeps a dead
+      // host's last state hands it to whoever opens the door next, who reads a
+      // frozen `phase: "fight"` as a fight in progress — measured on ow-regga890,
+      // where a host that had gone still answered `hasState: true` with a
+      // seq 2857 frame of NOBODY vs NOBODY. A rejoining player is shown that
+      // frame before anything else and takes their seat inside it. Takeover
+      // already dropped the snapshot for exactly this reason; leaving is the
+      // same event with nobody arriving to trigger it.
+      room.state = null;
+      room.publishedAt = 0;
+      clearTimeout(room.flushTimer);
+      room.flushTimer = null;
+      room.flushedSeq = -1;
       room.updatedAt = this.now();
       this.broadcastStatus(room);
     });
@@ -351,12 +374,27 @@ export class OskiewarLiveManager {
   // back over the same fan-out every phone already reads. A denied seat closes
   // with 4409 so the client knows to stay and watch instead.
   addChallenger(room, ws, surface) {
-    if (room.challenger?.readyState === 1) {
+    // A chair is held by whoever is still speaking from it. An open socket is
+    // not that: a killed tab sends no close frame, so the seat it left stays
+    // technically occupied until the shared ping sweep reaps it two misses
+    // later — and for that half minute the person who just refreshed is told
+    // the chair is taken and demoted to the grandstand. They cannot rejoin as
+    // themselves because the relay is still holding their own dead socket
+    // against them. So a silent incumbent is evicted for the newcomer; a
+    // playing one is not, and the newcomer still gets 4409 and stays to watch.
+    const ghost = room.challenger &&
+      this.now() - room.challengerSeenAt > CHALLENGER_GHOST_MS;
+    if (room.challenger?.readyState === 1 && !ghost) {
       send(ws, "oskiewar:error", { message: "This match already has a challenger" });
       ws.close?.(4409, "Challenger already seated");
       return;
     }
+    const departing = room.challenger;
     room.challenger = ws;
+    // Stamped before the old socket is closed, so its `remove` handler — which
+    // only fires for the seat it still holds — cannot clear the new one.
+    room.challengerSeenAt = this.now();
+    if (departing && departing !== ws) departing.close?.(4410, "Chair reclaimed");
     room.updatedAt = this.now();
     this.analytics.capture("challenger_joined", {
       source_system: "session-server",
@@ -385,6 +423,9 @@ export class OskiewarLiveManager {
   // because one packet came in bent.
   relayInput(room, ws, data) {
     if (room.challenger !== ws) return;
+    // Every word from the chair, before any shape check: a packet this relay
+    // goes on to drop is still proof somebody is sitting there.
+    room.challengerSeenAt = this.now();
     const bytes = Buffer.byteLength(data);
     if (bytes > MAX_NET_BYTES) return;
     let message;
@@ -600,4 +641,5 @@ export class OskiewarLiveManager {
 
 export const OSKIEWAR_LIVE_LIMITS = Object.freeze({ MAX_MESSAGE_BYTES,
   MAX_VIEWERS, MAX_AGENTS, MAX_ROOMS, ROOM_TTL_MS, MIN_PUBLISH_INTERVAL_MS,
-  MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS, MAX_NET_BYTES });
+  MAX_INPUT_BYTES, MIN_INPUT_INTERVAL_MS, MAX_NET_BYTES,
+  CHALLENGER_GHOST_MS });
