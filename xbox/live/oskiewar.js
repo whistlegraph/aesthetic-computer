@@ -12393,7 +12393,10 @@ function drawRoomSurfaces(left, right, top, bottom, color) {
       9, climbEdge);
     return;
   }
-  drawGridOverlay(mixColor(color, [10, 16, 40], .93), false);
+  // The heat's base is the vacuum it hangs in, so a cooling tile fades to
+  // nothing rather than settling into a visible panel with edges. Only the
+  // bloom is meant to be seen.
+  drawGridOverlay(mixColor(color, [6, 8, 20], .97), false);
   const pulse = .5 + .5 * Math.sin(runtime().monotonicUs / 520000);
   const field = mixColor([54, 120, 186], [136, 214, 255], .3 + pulse * .35);
   for (const edgeX of [worldLeft, worldRight]) {
@@ -14199,11 +14202,15 @@ function gamePaint() {
   const ground = space
     ? mixColor([16, 22, 38], [96, 112, 142], visualTheme.light)
     : mixColor([13, 25, 29], groundDay, visualTheme.light);
-  // The floating decks are lit plate, a step brighter than the hull, because
-  // the one thing a player must never misjudge on this map is where a deck
-  // ends.
+  // The floating decks are steel with a lit edge. The plate itself stays
+  // near the hull's own value — a near-white slab against vacuum reads as a
+  // UI bar laid over the game rather than as a thing in it — and the LIP
+  // carries the brightness instead, which is the part a player actually has
+  // to judge. On plaster the relationship is the other way round: the deck is
+  // the pale thing and the lip is the dark line under it, because there the
+  // background is what is bright.
   const platformColor = space
-    ? mixColor([34, 46, 78], [186, 204, 232], visualTheme.light)
+    ? mixColor([26, 36, 60], [104, 124, 160], visualTheme.light)
     : mixColor([24, 29, 46], [211, 198, 171], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
@@ -14261,7 +14268,9 @@ function gamePaint() {
   // the lips cost none. The span clamp is the same one the terrain uses, and
   // in a room this size its 2600-unit apron usually covers everything — it is
   // here to bound the worst case, not because it culls much today.
-  const ledgeInk = mixColor(platformColor, [26, 24, 34], .42);
+  const ledgeInk = space
+    ? mixColor(platformColor, [196, 224, 255], .62)
+    : mixColor(platformColor, [26, 24, 34], .42);
   if (platformsEnabled()) for (const ledge of activeLedges()) {
     if (ledge.right < spanLeft || ledge.left > spanRight) continue;
     if (ledge.y < spanTop || ledge.y > spanBottom) continue;
