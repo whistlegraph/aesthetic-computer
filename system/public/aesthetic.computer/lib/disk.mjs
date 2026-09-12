@@ -2199,6 +2199,7 @@ const sfxProgressReceivers = {},
   sfxSampleReceivers = {},
   sfxKillReceivers = {},
   sfxDurationReceivers = {};
+const sfxDurations = {}; // Lengths BIOS reported when each sound finished decoding.
 let $sampleCount = 0n;
 
 const signals = []; // Easy messages from embedded DOM content.
@@ -12097,6 +12098,9 @@ async function makeFrame({ data: { type, content } }) {
   // 1e. Loading Sound Effects
   if (type === "loaded-sfx-success") {
     if (debug && logs.audio) console.log("Sound load success:", content);
+    // BIOS acknowledges twice — instantly, then again once the buffer is
+    // decoded and its length is known. The second one is where duration lands.
+    if (content.duration) sfxDurations[content.sfx] = content.duration;
     preloadPromises[content.sfx]?.resolve(content.sfx);
     delete preloadPromises[content];
     return;
@@ -13077,6 +13081,13 @@ async function makeFrame({ data: { type, content } }) {
       // TODO: Finish this implementation.
       // timeToRun;
       // content.audioTime;
+    };
+
+    // How long a preloaded sound is, in seconds, or undefined until BIOS has
+    // decoded it. A plain read, unlike `getDuration` — nothing to await and
+    // nothing to hang on, so a piece can ask again next frame.
+    $sound.duration = function duration(id) {
+      return sfxDurations[id];
     };
 
     $sound.getDuration = async function getDuration(id) {

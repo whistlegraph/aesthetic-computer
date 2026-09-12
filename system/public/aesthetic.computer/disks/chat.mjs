@@ -357,6 +357,11 @@ async function voxToggle(message, api) {
         if (vox === my) vox = null;
       },
     });
+    // A linked file carries no timing table, so its length comes from the
+    // decoded buffer. `sim` reads it off the key each frame until it appears —
+    // BIOS reports it when the background decode lands, which can be after the
+    // sound is already audible.
+    my.key = sfx;
     my.startedAt = performance.now();
     my.phase = "playing";
     console.log("🗣️ Vox playing:", message.id, link || `${my.words.length} words`);
@@ -409,6 +414,26 @@ function voxWordElementsFor(message) {
   }
   return spans;
 }
+// 🔗 The url is its own progress bar: the characters already heard take the
+// spoken colour and the rest stay url-blue, so a long clip reads its position
+// off the text it came from. The parsed url element is *split* rather than
+// overlaid — two colour splices across one range corrupt the line, which is
+// the same reason voxWordElementsFor bows out inside a parsed element.
+function voxLinkElementsFor(message) {
+  if (!vox || vox.phase !== "playing" || !vox.linked) return [];
+  if (vox.messageId !== message.id || !vox.played) return [];
+  const parsed = message._parsedElements || [];
+  const url = parsed.find((el) => el.type === "url");
+  if (!url) return [];
+  const cut = url.start + Math.round(vox.played * (url.end - url.start));
+  if (cut <= url.start || cut >= url.end) return [];
+  return parsed.flatMap((el) =>
+    el === url
+      ? [{ ...el, end: cut, type: "voxplayed" }, { ...el, start: cut }]
+      : [el],
+  );
+}
+
 let domApi = null; // Store dom API reference for modal
 let jumpApi = null; // Store jump reference for iOS external-link fallback
 let sendApi = null; // Store send reference (used by receive() for tape callbacks)
@@ -1353,8 +1378,12 @@ function paint(
     // word index join the cache key — the cache rebuilds as the spoken word
     // advances and again when playback ends.
     const voxWordEls = voxWordElementsFor(message);
+    const voxLinkEls = voxLinkElementsFor(message);
     if (vox && vox.messageId === message.id) {
       hoverKey += "vox:" + vox.phase + ":" + vox.wordIndex + ",";
+      // Keyed on the character the url has reached, not the raw fraction, so
+      // the colour lines rebuild once per character rather than once per frame.
+      if (vox.linked) hoverKey += "p:" + Math.round((vox.played || 0) * 200) + ",";
     }
 
     let charPos = 0; // Track position in the full message
@@ -1399,9 +1428,11 @@ function paint(
     // Cache color-coded + shadow lines per message (invalidated by hover state)
     const needsRebuild = !message._colorLineCache || message._colorLineHoverKey !== hoverKey;
     if (needsRebuild) {
-      const paintElements = voxWordEls.length
-        ? parsedElements.concat(voxWordEls)
-        : parsedElements;
+      const paintElements = voxLinkEls.length
+        ? voxLinkEls // Already the full list, with the url split in two.
+        : voxWordEls.length
+          ? parsedElements.concat(voxWordEls)
+          : parsedElements;
       const cachedLines = [];
       let tempCharPos = charPos;
       const mt = Array.isArray(theme.messageText) ? theme.messageText : [200, 200, 200];
@@ -1470,6 +1501,8 @@ function paint(
               color = isHovered ? [255, 130, 130] : [255, 70, 70]; // YouTube red chip
             } else if (element.type === "voxword") {
               color = [190, 255, 80]; // The word being spoken right now.
+            } else if (element.type === "voxplayed") {
+              color = [190, 255, 80]; // The stretch of url already heard.
             } else if (element.type === "email") {
               color = isHovered ? theme.emailHover : theme.email;
             } else if (element.type === "url") {
@@ -4492,9 +4525,20 @@ function sim({ api, num, send, net, store }) {
   // never answers (it fails for the stock `sfx` piece too), and for short
   // clips at speed 1.0 the word timestamps need no correction. The kill
   // callback clears at the exact audio end; the wall clock is the backstop.
-  // A linked file has no word table and no known duration, so it is left to
-  // the kill callback — the wall-clock backstop below would cut it at 1.5s.
-  if (vox?.phase === "playing" && !vox.linked) {
+  // A linked file has no word table, so it advances `played` instead — the
+  // fraction of the url that has been heard. Until its duration arrives there
+  // is nothing to measure against and it is left to the kill callback; the
+  // wall-clock backstop would otherwise cut it at 1.5s.
+  if (vox?.phase === "playing" && vox.linked) {
+    // Optional-called: a piece hot-loads against whatever disk worker the
+    // browser already cached, which can predate `sound.duration`.
+    if (!vox.duration) vox.duration = api.sound.duration?.(vox.key) || 0;
+    if (vox.duration > 0) {
+      const t = (performance.now() - vox.startedAt) / 1000;
+      if (t > vox.duration + 1.5) vox = null;
+      else vox.played = Math.min(1, t / vox.duration);
+    }
+  } else if (vox?.phase === "playing") {
     const t = (performance.now() - vox.startedAt) / 1000;
     if (t > (vox.duration || 0) + 1.5) {
       vox = null;

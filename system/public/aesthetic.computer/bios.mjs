@@ -18707,9 +18707,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               processPendingSfx();
             }
 
+            // The decoded buffer is the only place a sample's length is known
+            // for free. Sending it here is what lets a piece ask how long a
+            // loaded sound is — `sfx:get-duration` polls for a decode that,
+            // for a remote file, it never sees finish.
             send({
               type: "loaded-sfx-success",
-              content: { url, sfx: audioId },
+              content: {
+                url,
+                sfx: audioId,
+                duration: sfx[audioId]?.duration,
+              },
             });
             if (debug && logs.audio)
               console.log(
