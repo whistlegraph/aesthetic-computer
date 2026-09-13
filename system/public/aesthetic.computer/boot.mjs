@@ -1239,6 +1239,25 @@ const params = extractLegitimateParams(window.location.href);
 if (params.has("noauth")) window.acNOAUTH = true;
 if (params.has("nocache")) window.acNOCACHE = true;
 
+// `parse` is handed the piece slug alone — the query string was split off the
+// URL long before this line — so `parsed.search` is empty on every first load,
+// and the piece layer decides `hideLabel` from exactly that. Which is how
+// `?nolabel=true` could be obeyed by boot, which reads `location`, and ignored
+// by the piece, which does not: the corner label kept drawing inside Slab's
+// preview cards, whose whole request is to be rid of it.
+//
+// Only the three flags the piece layer actually reads are handed over, and they
+// are read out of the sanitised set rather than off `location`, so an auth
+// `code` arriving in the same query has no way through.
+if (!parsed.search) {
+  const forPiece = new URLSearchParams();
+  for (const name of ["nolabel", "preview", "icon"]) {
+    if (params.has(name)) forPiece.set(name, params.get(name));
+  }
+  const query = forPiece.toString();
+  if (query) parsed.search = query;
+}
+
 const nogap = params.has("nogap") || params.has("desktop") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
 // Check for nolabel parameter (no localStorage persistence)

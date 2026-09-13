@@ -252,7 +252,12 @@ final class PromptPreview {
         let trimmed = scanURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed != loadedURL else { return }
         loadedURL = trimmed
-        let base = trimmed.contains("://") ? trimmed : "https://" + trimmed
+        // The rock encodes prompt.ac because a QR's payload is measured in
+        // bytes and eleven of them decide whether the symbol needs a bigger
+        // grid. Nothing is scanning this card, so it loads the address AC calls
+        // itself — the same piece, served from the name the work lives under.
+        let named = trimmed.replacingOccurrences(of: "prompt.ac/", with: "aesthetic.computer/")
+        let base = named.contains("://") ? named : "https://" + named
         // `nogap` + `nolabel` strip the runtime's own frame and corner label:
         // the card is small, and the piece should own all of it. (Those two
         // together mean "kidlisp preview" to a runtime running *inside an

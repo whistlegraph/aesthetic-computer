@@ -53,8 +53,8 @@ export class SlabSession {
     this.record = {
       session_id: sessionId,
       cwd,
-      subject: "aesthetic code",
-      summary: "aesthetic code",
+      subject: "easel",
+      summary: "easel",
       tty,
       agent_pid: pid,
       agent_type: "easel",
@@ -134,7 +134,7 @@ export class SlabSession {
     this.#startHeartbeat();
   }
 
-  awaitingInput(message = "aesthetic code needs input") {
+  awaitingInput(message = "easel needs input") {
     this.#stopHeartbeat();
     this.#remove(this.running);
     this.#writeText(this.awaiting, `${message}\n`);

@@ -256,7 +256,7 @@ function openEngine({ resume = "" } = {}) {
     if (closing || opened !== engine) return;
     state.status = "offline";
     addEntry("error", errorText(error));
-    slabSession.awaitingInput("aesthetic code engine bridge is offline");
+    slabSession.awaitingInput("easel engine bridge is offline");
     redraw();
   });
   return opened;
@@ -544,7 +544,7 @@ function handleNotification({ method, params = {} }) {
       const failure = params.turn?.error;
       if (failure) addEntry("error", failure.message || JSON.stringify(failure));
       if (params.turn?.status === "interrupted") slabSession.interrupted();
-      else if (params.turn?.status === "failed") slabSession.awaitingInput("aesthetic code turn failed");
+      else if (params.turn?.status === "failed") slabSession.awaitingInput("easel turn failed");
       else slabSession.complete();
       // Whatever the turn wrote goes out now rather than on the coalescing
       // timer. An interrupted turn publishes too — the user stopped the agent,
@@ -604,8 +604,8 @@ function handleRequest(request) {
     state.approval = { id: request.id, method: request.method, subject };
     slabSession.awaitingInput(
       request.method === "item/commandExecution/requestApproval"
-        ? "aesthetic code needs command approval"
-        : "aesthetic code needs file approval",
+        ? "easel needs command approval"
+        : "easel needs file approval",
     );
     state.status = "approval";
     redraw();

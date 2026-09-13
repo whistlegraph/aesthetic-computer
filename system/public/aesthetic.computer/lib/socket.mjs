@@ -170,7 +170,12 @@ export class Socket {
       // this.kill(); // Don't immmediately kill the socket on reload.
       reload(c);
     } else if (type === "code") {
-      const parsed = JSON.parse(content);
+      // Already-parsed content is the norm on this channel, not the
+      // exception — the `reload` and `left` branches either side of this one
+      // both test for it. Parsing an object stringifies it to
+      // "[object Object]" first, which is where `Unexpected identifier
+      // "object"` came from on every single Easel save.
+      const parsed = typeof content === "string" ? JSON.parse(content) : content;
 
       if (id === "development") {
         reload?.({
