@@ -120,8 +120,8 @@ const versusLane = () => lobbyActive() || versusActive();
 // below holds one number per tile so per-tile computation (heat, ownership,
 // weather) has a surface to run on.
 const tileSize = 90;
-const gridCols = 20;
-const gridRows = 14;
+const gridCols = 40;
+const gridRows = 16;
 // Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
 // every tile edge lands on a clean multiple of 90. The walls stand outside
 // the lattice: the structural shell is one wallThickness beyond each face,
@@ -166,10 +166,79 @@ const gridFieldIndex = (x, y) => tileRow(y) * gridCols + tileCol(x);
 const onGridField = (x, y) =>
   x >= gridLeft && x <= gridLeft + gridWidth &&
   y <= floorY && y >= floorY - gridHeight;
-// The floor stays flat wall to wall — see terrainFloorAt for why the ramps
-// went. A flat floor has nothing finer to say than one sample per tile.
-const terrainAmplitude = 0;
-const terrainSamples = gridCols;
+// The park. The floor stopped being flat.
+//
+// Every piece of this was already here and switched off: `terrainFloorAt` has
+// carried a heightfield since the tower, `terrainTangentAt` differentiates it,
+// and the skate physics have been feeding that slope into `skateVx` all along
+// — `player.skateVx += terrainSlope * 1900 * dt` is a line that has done
+// nothing for months because the amplitude was zero. What was missing was a
+// shape worth riding.
+//
+// So the profile is authored rather than noised. A run of segments in tile
+// coordinates, each one a real skatepark feature, walked left to right:
+//
+//   flat        the ground, and the halfpipe's own flat bottom
+//   transition  a quarter-circle, horizontal where it meets the flat and
+//               vertical at the coping — which is what a transition IS, and
+//               why it is an arc and not a straight ramp
+//   bank        a straight incline, for launching off rather than carving in
+//
+// A transition's run equals its height because a quarter circle's does. That
+// is not a simplification, it is the geometry: radius R gives you R of run
+// and R of rise, tangent flat at the bottom and vertical at the lip.
+// `lift` raises the segment's base off the ground, or — negative — digs it in.
+// That sign is what makes a halfpipe possible in a game seen from the side: a
+// pipe built UP from the floor is two humps with their ridable faces pointing
+// away from you, and you would have to climb the back of one to use it. Dug
+// IN, the same two arcs face each other, the flat bottom is genuinely a floor,
+// and a skater can ride straight through at speed from either end. So the
+// halfpipe here is a bowl, which is what a halfpipe is from the side anyway.
+// Read it left to right and it is a run: drop off the left quarterpipe, carry
+// the speed into the halfpipe, out across the middle, up the kicker and over
+// the funbox, and finish on the right quarterpipe. The middle ten tiles are
+// deliberately flat and deliberately in the middle — that is where the bell
+// rings, and a fight that opens with both fighters sliding down a transition
+// is a fight nobody chose the start of.
+const parkFeatures = [
+  { from: 0,  to: 4,  kind: "transition", rise: 360, dir: -1 },
+  { from: 4,  to: 6,  kind: "flat" },
+  { from: 6,  to: 9,  kind: "transition", rise: 270, dir: -1, lift: -270 },
+  { from: 9,  to: 12, kind: "flat", lift: -270 },
+  { from: 12, to: 15, kind: "transition", rise: 270, dir: 1, lift: -270 },
+  { from: 15, to: 25, kind: "flat" },
+  { from: 25, to: 28, kind: "bank", rise: 180, dir: 1 },
+  { from: 28, to: 30, kind: "flat", lift: 180 },
+  { from: 30, to: 33, kind: "bank", rise: 180, dir: -1 },
+  { from: 33, to: 36, kind: "flat" },
+  { from: 36, to: 40, kind: "transition", rise: 360, dir: 1 },
+];
+// Resolved once into world units so the per-frame walk compares numbers
+// rather than rebuilding them. `terrainFloorAt` runs for every foot, every
+// grass blade and every render sample, so it is worth the twenty bytes.
+const parkSegments = parkFeatures.map((feature) => ({
+  ...feature,
+  left: gridLeft + feature.from * tileSize,
+  right: gridLeft + feature.to * tileSize,
+  lift: feature.lift || 0,
+}));
+const parkLeft = parkSegments[0].left;
+const parkRight = parkSegments[parkSegments.length - 1].right;
+// The lowest and highest ground in the park. `floorY` used to be both — it
+// was the whole world's bottom, and a dozen places lean on that: the camera
+// clamps its aim to it, the ground's near skirt hangs from it, the terrain
+// span stops at it. A bowl dug three tiles into the floor makes every one of
+// those assumptions wrong by exactly the depth of the bowl, and the symptom
+// is a fighter riding out of frame at the bottom of the pipe.
+const parkDeepest = floorY + Math.max(0,
+  ...parkSegments.map((segment) => -segment.lift));
+const parkHighest = floorY - Math.max(0,
+  ...parkSegments.map((segment) => segment.lift +
+    (segment.kind === "flat" ? 0 : segment.rise)));
+// Enough samples that an arc reads as an arc. One per tile drew the halfpipe
+// as a staircase — 90 units is most of a fighter wide, and a transition turns
+// through ninety degrees in three of them.
+const terrainSamples = gridCols * 6;
 let terrainPhase = 0;
 function terrainSeed(value) {
   let hash = 2166136261;
@@ -180,20 +249,32 @@ function terrainSeed(value) {
   return (hash >>> 0) / 4294967296 * Math.PI * 2;
 }
 function terrainFloorAt(x) {
-  // The cube's floor is flat — amplitude zero — and this runs for every
-  // grass blade and every foot every frame. The constant answers first; the
-  // heightfield math below wakes the day the amplitude does.
-  if (!terrainAmplitude) return floorY;
-  const nx = clamp((x - worldLeft) / (worldRight - worldLeft), 0, 1);
-  const edge = Math.sin(nx * Math.PI) ** 2;
-  const broad = Math.sin(nx * Math.PI * 3 + terrainPhase);
-  const detail = Math.sin(nx * Math.PI * 7 - terrainPhase * .63) * .34;
-  // No side skate ramps — @jeffrey asked for them gone back in the tower,
-  // and the cube keeps the verdict: the floor is flat wall to wall, the
-  // walls stand square out of it, and `resolveRunnerBounds` is what keeps a
-  // body off them.
-  const terrainNoise = (broad + detail) * terrainAmplitude * edge;
-  return floorY - terrainNoise;
+  // Outside the park the ground is flat, so the walls have something square
+  // to stand out of and a body pushed past the lip still has a floor.
+  if (x <= parkLeft) return floorY - parkSegments[0].rise;
+  if (x >= parkRight) return floorY -
+    parkSegments[parkSegments.length - 1].rise;
+  for (const segment of parkSegments) {
+    if (x < segment.left || x > segment.right) continue;
+    if (segment.kind === "flat") return floorY - segment.lift;
+    const run = segment.right - segment.left;
+    // How far up the feature we are, measured from ITS bottom: `dir` says
+    // which end that is. A transition rising to the right has its flat end on
+    // the left, and the same arc mirrored has it on the right.
+    const along = segment.dir > 0
+      ? (x - segment.left) / run : (segment.right - x) / run;
+    if (segment.kind === "bank")
+      return floorY - segment.lift - segment.rise * along;
+    // The quarter circle. Centre sits one radius below the flat end, so the
+    // surface leaves the ground horizontally and arrives at the coping
+    // vertical — which is the difference between a transition you can pump
+    // and a ramp you merely climb.
+    const radius = segment.rise;
+    const dx = along * radius;
+    return floorY - segment.lift -
+      (radius - Math.sqrt(Math.max(0, radius * radius - dx * dx)));
+  }
+  return floorY;
 }
 function terrainTangentAt(x, span = 12) {
   const left = terrainFloorAt(clamp(x - span, worldLeft, worldRight));
@@ -268,12 +349,21 @@ const platforms = Array.from({ length: survivalLevelCount }, (_, index) => {
 // anything. A deck you can only reach with a perfect double-tap is a deck the
 // bots stand under and stare at; a deck you reach by going somewhere first is
 // a route; and a deck you can reach from anywhere is not a deck, it is a step.
-const spaceDeckPlan = [
-  { col: 3, row: 3, cols: 4 }, { col: 13, row: 3, cols: 4 },
-  { col: 6, row: 7, cols: 3 }, { col: 11, row: 7, cols: 3 },
-  { col: 8, row: 10, cols: 4 },
+// Decks over the park, not instead of it. The rows are still priced against
+// the 586-unit apex — the flat reaches row 3, row 3 reaches row 7, and the
+// floor does NOT reach row 7 at 630 — so the climb keeps its route. What
+// changed is that the park is now the interesting way to travel and the decks
+// are the high ground above it. The bridge over the halfpipe is reachable
+// from the flat beside the bowl and not from the bottom of it, which is the
+// point of a bowl.
+const parkDeckPlan = [
+  { col: 8,  row: 5, cols: 5 },
+  { col: 15, row: 3, cols: 4 },
+  { col: 21, row: 3, cols: 4 },
+  { col: 18, row: 7, cols: 4 },
+  { col: 31, row: 5, cols: 4 },
 ];
-const spaceDecks = spaceDeckPlan.map((deck, index) => ({
+const parkDecks = parkDeckPlan.map((deck, index) => ({
   level: index + 1,
   left: gridLeft + deck.col * tileSize,
   right: gridLeft + (deck.col + deck.cols) * tileSize,
@@ -284,7 +374,7 @@ const spaceDecks = spaceDeckPlan.map((deck, index) => ({
 // they must never be visible at the same time — a survival runner standing
 // on a station deck would be standing on furniture from another map. So the
 // mode picks the table, once, and everything downstream asks here.
-const activeLedges = () => survivalActive() ? platforms : spaceDecks;
+const activeLedges = () => survivalActive() ? platforms : parkDecks;
 // The station's landmarks, by column. On a ten-wide cube a bare `3` was
 // readable as "left of centre"; on twenty it is just a digit, and there were
 // a dozen of them scattered through spawn, pickup and re-serve code all
@@ -299,12 +389,16 @@ const activeLedges = () => survivalActive() ? platforms : spaceDecks;
 // is unchanged from the cube: two fighters three tiles apart, astride the
 // centre line. The map's size is where you GO, not where you start, and the
 // corners, the decks and the climb are what spend it.
-const spawnColLeft = 8;
-const spawnColRight = 11;
-const cornerColLeft = 1;
-const cornerColRight = 18;
+const spawnColLeft = 18;
+const spawnColRight = 21;
+// Not corners any more: the ends of this map are quarterpipe transitions, and
+// a pistol resting on a vertical wall is a pistol nobody can pick up. These
+// are the two flat aprons either side of the park instead — still a run away
+// from the bell, still costing you your back to reach.
+const cornerColLeft = 5;
+const cornerColRight = 34;
 const centerX = gridLeft + gridWidth / 2;
-const platformsEnabled = () => survivalActive() || spaceDecks.length > 0;
+const platformsEnabled = () => survivalActive() || parkDecks.length > 0;
 // Version-one furniture — the wind flag's pole, the store's demos, the tests —
 // still asks for "the platform" by name. In a one-room cube the floor is the
 // only platform, so the name now means the whole playable span of it.
@@ -469,6 +563,11 @@ const instantReplayMaxFrames = 240;
 // This is load-bearing beyond feel. `jumpReach` prices a bot's jump in
 // walkSpeed, so the arcs it will commit to narrow with the stride, and the
 // deck spacing above stays exactly as reachable as it was.
+// What a pump is worth, and how much upward speed a lip has to be giving you
+// before it counts as an air rather than a bump. The launch floor exists so
+// rolling over a gentle crest does not pop a rider off the ground every time.
+const skatePumpAcceleration = 2600;
+const skateLaunchFloor = 380;
 const walkSpeed = 880;
 const runStartSpeed = 1100;
 const runTopSpeed = 1950;
@@ -1170,17 +1269,17 @@ const gunPickups = [
   { kind: "HANDGUN", amount: 6, x: tileCenterX(cornerColRight),
     startsActive: true, cycle: true, y: floorY, z: 0 },
   { kind: "SPACE LASER", amount: 4, x: centerX, startsActive: true,
-    cycle: false, y: spaceDecks[4].y, z: 0 },
+    cycle: false, y: parkDecks[3].y, z: 0 },
 ];
 // A saber is not ammunition, so it is not a gun pickup: taking one sets a
 // state a fighter keeps until the arm holding it comes off. Mirrored across
 // the two low decks, centred on each deck rather than on a tile, because the
 // deck is the landmark a player actually reads.
 const saberPickups = [
-  { kind: "LIGHT SABER", x: (spaceDecks[0].left + spaceDecks[0].right) / 2,
-    y: spaceDecks[0].y, z: 0, startsActive: true },
-  { kind: "LIGHT SABER", x: (spaceDecks[1].left + spaceDecks[1].right) / 2,
-    y: spaceDecks[1].y, z: 0, startsActive: true },
+  { kind: "LIGHT SABER", x: (parkDecks[1].left + parkDecks[1].right) / 2,
+    y: parkDecks[1].y, z: 0, startsActive: true },
+  { kind: "LIGHT SABER", x: (parkDecks[2].left + parkDecks[2].right) / 2,
+    y: parkDecks[2].y, z: 0, startsActive: true },
 ];
 const grenadePickups = [];
 // No trees. Two grew out of the tower's side walls and were the only thing
@@ -5890,7 +5989,7 @@ function terrainSpan() {
   return { left: Math.max(worldLeft, cameraCenter - reach),
     right: Math.min(worldRight, cameraCenter + reach),
     top: Math.max(worldTop, cameraCenterY - reach),
-    bottom: Math.min(floorY, cameraCenterY + reach) };
+    bottom: Math.min(parkDeepest, cameraCenterY + reach) };
 }
 
 function updateCamera(dt) {
@@ -5965,7 +6064,7 @@ function updateCamera(dt) {
   let desiredCenterY = halfHeight * 2 >= floorY - ceilingY
     ? (ceilingY + floorY) / 2
     : clamp((rect.top + rect.bottom) / 2 + aimLean,
-      ceilingY + halfHeight, floorY + footRoom - halfHeight);
+      ceilingY + halfHeight, parkDeepest + footRoom - halfHeight);
   // Fold containment into the target before easing. Clamping the live camera
   // after easing caused a one-frame reset whenever a fighter crossed the safe
   // edge; the pack width now absorbs that motion while the center remains
@@ -8332,15 +8431,72 @@ function updatePlayer(player, pad, dt, now) {
       controlledVx = player.skateVx;
     } else controlledVx = 0;
   } else if (player.skateboard && player.grounded && !player.blocking) {
+    // Steering, and ONLY while steering. This used to run every frame against
+    // a target of `input.horizontal * 2700`, which on an idle stick is zero —
+    // so a coasting skater was being dragged to a standstill at 3.2 a second
+    // by the same line that turns them. On a flat cube nobody could tell;
+    // dropped into a three-tile bowl it is the difference between a 1,400-unit
+    // drop and a 268-unit one, because the servo ate gravity as fast as
+    // gravity arrived. Let go of the stick now and you coast, which is what
+    // rolling IS.
     const skateTarget = input.horizontal * 2700;
-    const carving = Math.sign(skateTarget) !== 0 &&
+    // Carving is steering against the roll, and it has to stay in scope: the
+    // scrape it makes is played further down, and hoisting the steer into a
+    // block took both of these with it.
+    const carving = Boolean(input.horizontal) &&
       Math.sign(skateTarget) !== Math.sign(player.skateVx);
-    const turnRate = carving ? 1.8 : 3.2;
-    player.skateVx += (skateTarget - player.skateVx) *
-      (1 - Math.exp(-dt * turnRate));
-    const terrainSlope = clamp(terrainTangentAt(player.x), -2.5, 2.5);
-    player.skateVx += terrainSlope * 1900 * dt;
+    if (input.horizontal) {
+      const turnRate = carving ? 1.8 : 3.2;
+      player.skateVx += (skateTarget - player.skateVx) *
+        (1 - Math.exp(-dt * turnRate));
+    }
+    // Gravity along the surface, resolved honestly rather than by a tuned
+    // constant. The old line was `slope * 1900`, and `slope` is tan(angle) —
+    // which runs away to infinity as a transition goes vertical and had to be
+    // clamped at 2.5 to stop it. The horizontal share of gravity on a slope is
+    // g·sin·cos, which in terms of tan is g·t/(1+t²): it peaks at 45° exactly
+    // as it should, falls off toward vertical exactly as it should, and needs
+    // no clamp because it cannot exceed half of g.
+    const terrainSlope = terrainTangentAt(player.x);
+    player.skateVx += fallGravity() * terrainSlope /
+      (1 + terrainSlope * terrainSlope) * dt;
+    // Pumping. The one thing a skater does that a rolling object does not:
+    // crouch through the bottom of a transition and stand up through the
+    // face, and come out with more speed than you went in with. Holding DOWN
+    // on a slope is that, and it is the only way to gain speed in the bowl
+    // without pushing — which is what makes a bowl worth being in rather than
+    // a hole to cross.
+    //
+    // Priced against the slope, so it pays on a transition and pays nothing
+    // on the flat: a crouch in the middle of the park is a crouch, not a
+    // cheat code. Direction comes from the roll rather than the stick,
+    // because pumping adds to the speed you have, it does not steer.
+    const pumping = input.vertical < 0 && Math.abs(terrainSlope) > .18;
+    if (pumping && player.skateVx)
+      player.skateVx += Math.sign(player.skateVx) *
+        Math.abs(terrainSlope) * skatePumpAcceleration * dt;
     player.skateVx = clamp(player.skateVx, -4200, 4200);
+    // Leaving the lip. A rider climbing a transition is carrying real upward
+    // speed -- `skateVx * slope` -- and the moment the ground stops climbing
+    // under them, that speed has nowhere to go but into the air. Reading the
+    // ground a frame ahead is what catches the crest: the coping at the top
+    // of a quarterpipe, the edge of the funbox, the lip of the bowl.
+    //
+    // Without this a skater simply walks over the top of every ramp with the
+    // speed quietly deleted, which is the difference between a skatepark and
+    // a set of hills.
+    const surfaceVy = player.skateVx * terrainSlope;
+    const aheadSlope = clamp(terrainTangentAt(
+      player.x + player.skateVx * .05), -2.5, 2.5);
+    if (surfaceVy < -skateLaunchFloor && aheadSlope > terrainSlope + .2) {
+      player.vy = surfaceVy;
+      player.grounded = false;
+      player.skateAirAt = now;
+      playDrum("whoosh", .5 + Math.min(.45, -surfaceVy / 4000),
+        panPlayer(player));
+      emitSignal("skate-air", player.pad,
+        Math.round(-surfaceVy), Math.round(player.skateVx));
+    }
     // A hover board has nothing touching the deck, so nothing scrubs it: let
     // go of the stick and it keeps most of what it had. The old wheeled deck
     // bled .65 a second into friction it no longer has.
@@ -12469,7 +12625,7 @@ function drawTerrainFrontWall(left, right, near, color) {
   const step = (worldRight - worldLeft) / terrainSamples;
   const reel = reelGroundCamera();
   const wallZ = reel ? 55 : near - 2;
-  const wallBottom = floorY + (reel ? 9000 : 720);
+  const wallBottom = parkDeepest + (reel ? 9000 : 720);
   const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
   const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
   for (let index = first; index < last; index++) {
