@@ -281,7 +281,7 @@ export function renderBoot(elapsed = 0, columns = 80, rows = 24, useColor = true
   const reset = useColor ? color.reset : "";
 
   const { lines: sprite, x } = mascotAt(elapsed);
-  const title = "AESTHETIC CODE";
+  const title = "EASEL";
   // He walks along a baseline under the title, indented to the same margin the
   // interface uses so the two frames agree about where the left edge is.
   const floor = Math.floor(height / 2);
@@ -383,16 +383,15 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const right = `${paint(useColor, state.mode === "local" ? "status" : "highlight", mode)} · ${paint(useColor, statusTone(state.status), status)}`;
   const rightWidth = textWidth(`${mode} · ${status}`);
 
-  // The prompt rock parks itself over the top-right corner of the terminal
-  // window, so the header stops short of it. The rock is a fixed 80 points
-  // wide however this window is sized, which lands between eleven and sixteen
-  // columns across the font sizes anyone reads code in; sixteen clears it, and
-  // the header has the slack to give. A narrow window keeps its status and
-  // spends the gutter instead — nothing is worth hiding the state behind a
-  // rock that might not be there.
-  const rockGutter = width >= 64 ? 16 : 0;
+  // No gutter any more. Slab's corner overlays — the prompt rock, the piece
+  // preview — all park along the top of the window, and the header used to
+  // reserve sixteen columns so it could sit beside the rock. It no longer sits
+  // up there to be sat beside: everything the interface says about itself has
+  // moved to the bottom, and the top is scrollback, which is the one thing that
+  // can be covered without costing anything. Old lines are already read.
+  const rockGutter = 0;
   const room = Math.max(0, width - 3 - rightWidth - rockGutter);
-  const title = "AESTHETIC CODE";
+  const title = "EASEL";
   let account = state.account || "not signed in";
   let piece = state.piece ? clipText(state.piece, 24) : "";
   if (textWidth(`${title}  ${account}  ${piece}`) > room) piece = "";
@@ -494,7 +493,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     width >= 23
       ? ` ${guy}${paint(useColor, "muted", clipText(helpText, width - 5))}`
       : paint(useColor, "muted", clipText(helpText, width));
-  const lines = [header, pathLine, ...body, rule, prompt, help];
+  // Bottom-heavy, so the top of the frame is nothing but scrollback. A preview
+  // window or a prompt rock landing over these rows covers lines that have
+  // already been read, rather than the title, the handle, the piece, the
+  // status, or the thing being typed.
+  const lines = [...body, rule, header, pathLine, prompt, help];
   return lines
     .slice(0, height)
     .map((line) => `${ground}${fit(line, width)}${reset}`)

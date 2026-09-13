@@ -30,7 +30,7 @@ test("renders one branded interface with privacy state and prompt", () => {
     20,
     false,
   );
-  assert.match(frame, /AESTHETIC CODE/);
+  assert.match(frame, /EASEL/);
   assert.match(frame, /REMOTE · READY/);
   assert.match(frame, /YOU  inspect this repository/);
   assert.match(frame, /AC   I found the failing test/);
@@ -54,7 +54,7 @@ test("shows the signed-in handle and the current piece in the header", () => {
     12,
     false,
   );
-  assert.match(frame, /AESTHETIC CODE  @tester  smiley/);
+  assert.match(frame, /EASEL  @tester  smiley/);
   assert.match(frame, /REMOTE · READY/);
   assert.match(frame, /PUB  https:\/\/aesthetic\.computer\/@tester\/smiley/);
   assert.match(renderFrame({ workspace: "/p", mode: "remote", status: "ready", entries: [], input: "" }, 60, 12, false), /not signed in/);
