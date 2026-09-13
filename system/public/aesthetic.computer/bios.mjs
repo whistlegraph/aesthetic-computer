@@ -619,7 +619,24 @@ function setUpdateAutoReload(enabled) {
 function performHistoryRewrite(path, historical) {
   // Skip history manipulation in pack mode (blob/srcdoc context)
   if (checkPackMode()) return;
-  
+
+  // The params that describe the embedding rather than the piece — nogap,
+  // nolabel, autoreload — are no part of a piece's address, so the worker's
+  // rewrite naturally drops them. Anything that reloads the view afterwards
+  // then comes back as a plain page: the corner label returns, and a preview
+  // card starts offering updates nobody can reach it to accept. The update
+  // auto-reload is exactly such a reload, which is how a card that was clean
+  // on arrival grew its label back an hour later.
+  try {
+    const next = new URL(path, window.location.href);
+    for (const [name, value] of Object.entries(preservedParams || {})) {
+      if (value) next.searchParams.set(name, value);
+    }
+    path = next.pathname + next.search + next.hash;
+  } catch (err) {
+    /* An unparseable path is rewritten as given, the way it always was. */
+  }
+
   if (historical) {
     console.log("Rewriting to:", path);
     history.pushState("", document.title, path);
