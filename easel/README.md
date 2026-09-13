@@ -160,6 +160,31 @@ aesthetic doctor
 npm test
 ```
 
+## Designing the furniture
+
+Easel does not draw all of itself. The QR, the live card of the piece and the
+status stone are Slab menubar overlays parked on the terminal, and `frame`
+filters Slab's own windows out of every capture — its usual job is reading the
+machine underneath them. So a screenshot taken to judge the card's padding
+shows the terminal where the card is.
+
+`frame <machine> --overlays` opts out of that exclusion and widens a window
+shot to a padded crop, so the menu bar an overlay is said to be flush against
+is in the same picture.
+
+`easel/bin/design-loop.mjs` is the whole cycle in one command: close the Easel
+session, open a fresh one, wait for its overlays to land, photograph them.
+Fresh because overlays are placed once, when a window appears — editing the
+placement and reinstalling the menubar does not move what is already on screen,
+so the only honest check is a session that has never seen the old numbers.
+
+```sh
+node easel/bin/design-loop.mjs            # restart Easel, then shoot
+node easel/bin/design-loop.mjs --shot     # shoot what is already open
+```
+
+Edit an overlay, run `slab/menubar-swift/install.sh`, then run the loop.
+
 Easel is proprietary. See `LICENSE`.
 
 On Fish installations with existing `ac` or `aesthetic` functions, the
