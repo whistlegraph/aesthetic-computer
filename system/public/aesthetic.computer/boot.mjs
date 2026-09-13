@@ -612,7 +612,7 @@ const LEGITIMATE_PARAMS = [
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'shellhtml',
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
   'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
-  'crossfade', 'maxfps'
+  'crossfade', 'maxfps', 'autoreload'
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed
@@ -1251,7 +1251,7 @@ if (params.has("nocache")) window.acNOCACHE = true;
 // `code` arriving in the same query has no way through.
 if (!parsed.search) {
   const forPiece = new URLSearchParams();
-  for (const name of ["nolabel", "preview", "icon"]) {
+  for (const name of ["nolabel", "preview", "icon", "autoreload"]) {
     if (params.has(name)) forPiece.set(name, params.get(name));
   }
   const query = forPiece.toString();
@@ -1262,6 +1262,12 @@ const nogap = params.has("nogap") || params.has("desktop") || location.search.in
 
 // Check for nolabel parameter (no localStorage persistence)
 const nolabel = params.has("nolabel") || params.has("desktop") || location.search.includes("nolabel");
+
+// An embedded view has nobody to tap the update badge: a green arrow parked
+// in the corner of a 128-point preview card is a control nobody can reach,
+// sitting on top of the piece it is announcing. `autoreload` says take the
+// update instead of offering it — no badge, no chime, just the new piece.
+const autoreload = params.has("autoreload") || location.search.includes("autoreload");
 
 // 🐚 shellhtml — an HTML shell (prompt.ac) hosts the runtime and owns the
 // prompt/corner chrome in DOM; the composited equivalents stand down.
@@ -1395,7 +1401,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, shellhtml, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, autoreload, shellhtml, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();

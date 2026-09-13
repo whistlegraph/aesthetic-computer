@@ -1967,6 +1967,10 @@ let updatePollController = null;
 let updateBadgeBoxScreen = null; // {x, y, w, h} of the rendered badge for hitbox bookkeeping
 let updateBadgeHitboxRegistered = false;
 let globalAutoReload = false;
+// Whether this frame wants updates taken rather than offered. Same shape,
+// and same reason, as `hideLabelForFrame`: it describes the view, it arrives
+// once in the URL, and a live reload carries no query to restate it with.
+let autoUpdateForFrame = false;
 
 // 📱 LAN Dev mode identity (set by session server in dev mode)
 let devIdentity = null; // { name, host, hostIp, mode, connectionId }
@@ -10060,6 +10064,7 @@ async function load(
   if (parsed.search) {
     const searchParams = new URLSearchParams(parsed.search);
     if (searchParams.has("nolabel")) hideLabel = hideLabelForFrame = true;
+    if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
   if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
 
@@ -16784,7 +16789,13 @@ async function makeFrame({ data: { type, content } }) {
 
       // 📦 Top-right update-ready badge — appears in any piece when
       // /api/version detects a new deployment. Tap to reload.
-      if (
+      // An embedded view takes the update instead of advertising it. The
+      // message still goes — it is what arms the reload on the other side —
+      // but it carries no picture, so nothing is drawn over the piece and
+      // there is no green arrow waiting for a tap that cannot come.
+      if (globalUpdateReady && autoUpdateForFrame) {
+        sendData.updateBadge = { silent: true, auto: true };
+      } else if (
         globalUpdateReady &&
         !PREVIEW_OR_ICON &&
         !DEVICE_MODE &&

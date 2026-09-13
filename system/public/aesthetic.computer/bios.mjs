@@ -593,6 +593,29 @@ class TapeManager {
 let pendingUrlRewrite = null;
 let rewriteFocusListenerAttached = false;
 
+// 📦 Opt-in auto-reload for the update badge. `localStorage` is only where the
+// choice is kept between visits — a blocked store (private windows, sandboxed
+// frames) must not make the checkbox untoggleable — so the live answer lives
+// here, and the badge's checkbox is drawn from a copy of it in the worker.
+const UPDATE_AUTO_RELOAD_KEY = "aesthetic:update-auto-reload";
+
+let updateAutoReload = (() => {
+  try {
+    return localStorage.getItem(UPDATE_AUTO_RELOAD_KEY) === "true";
+  } catch (err) {
+    return false;
+  }
+})();
+
+function setUpdateAutoReload(enabled) {
+  updateAutoReload = enabled;
+  try {
+    localStorage.setItem(UPDATE_AUTO_RELOAD_KEY, String(enabled));
+  } catch (err) {
+    /* Storage is blocked; the in-memory answer still stands for this visit. */
+  }
+}
+
 function performHistoryRewrite(path, historical) {
   // Skip history manipulation in pack mode (blob/srcdoc context)
   if (checkPackMode()) return;
@@ -939,6 +962,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   preservedParams = {};
   if (resolution.gap === 0) preservedParams.nogap = "true"; // gap: 0 means nogap was true
   if (resolution.nolabel === true) preservedParams.nolabel = "true";
+  if (resolution.autoreload === true) {
+    preservedParams.autoreload = "true";
+    // Turned on for this view without touching storage: the flag describes
+    // the embedding, not the person, and a preview card that borrowed the
+    // browser's real preference would leave it changed behind it.
+    updateAutoReload = true;
+  }
   if (resolution.shellhtml === true) preservedParams.shellhtml = "true";
   if (resolution.tv === true) preservedParams.tv = "true";
   if (resolution.device === true) preservedParams.device = "true";
@@ -5831,6 +5861,56 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.body.appendChild(modal);
       denyButton.focus();
     });
+  }
+
+  // 📦 Make a hot update feel intentional: a tiny ascending chord and warm
+  // visual pulse, then `graceMs` of room for Xbox/TV output buffers to play it
+  // before the page goes. Both ways in — the badge's checkbox and an update
+  // arriving with auto-reload already on — land here so they sound alike.
+  function armUpdateReload(graceMs, quiet = false) {
+    if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
+    // A chime and a full-screen flash are how a person is told an update is
+    // about to land. A preview card has nobody to tell, so it skips the cue
+    // rather than raising one — this is not an error path.
+    if (quiet) {
+      window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), graceMs);
+      return;
+    }
+    try {
+      const now = audioContext?.currentTime;
+      if (audioContext && Number.isFinite(now)) {
+        [523.25, 659.25, 783.99].forEach((frequency, index) => {
+          const oscillator = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          oscillator.type = index === 2 ? "triangle" : "sine";
+          oscillator.frequency.value = frequency;
+          gain.gain.setValueAtTime(0.0001, now + index * 0.055);
+          gain.gain.exponentialRampToValueAtTime(0.085, now + index * 0.055 + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55 + index * 0.055);
+          oscillator.connect(gain).connect(speakerGain || audioContext.destination);
+          oscillator.start(now + index * 0.055);
+          oscillator.stop(now + 0.65 + index * 0.055);
+        });
+      }
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      const flash = document.createElement("div");
+      Object.assign(flash.style, {
+        position: "fixed", inset: "0", zIndex: "2147483647",
+        pointerEvents: "none", background: "rgba(255,210,40,.48)",
+        transition: reduced ? "opacity .35s ease" : "background .16s ease, opacity .5s ease",
+      });
+      document.body.appendChild(flash);
+      requestAnimationFrame(() => {
+        if (!reduced) flash.style.background = "rgba(255,70,45,.42)";
+      });
+      setTimeout(() => { flash.style.opacity = "0"; }, reduced ? 180 : 360);
+    } catch (error) {
+      console.warn("📦 Update awareness cue unavailable:", error);
+    }
+    window.acUpdateReloadTimer = setTimeout(
+      () => window.location.reload(),
+      graceMs,
+    );
   }
 
   // *** Received Frame ***
@@ -13203,17 +13283,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             window.location.reload();
           }
 
+          // 📦 Auto-reload checkbox. It toggles the flag we hold rather than
+          // re-reading storage, so one tap always flips what the box shows.
           if (content.label === "update-auto-corner") {
-            let enabled = false;
-            try {
-              enabled = localStorage.getItem("aesthetic:update-auto-reload") !== "true";
-              localStorage.setItem("aesthetic:update-auto-reload", String(enabled));
-            } catch {}
+            const enabled = !updateAutoReload;
+            setUpdateAutoReload(enabled);
             send({ type: "update:auto-state", content: enabled });
-            if (window.acUpdateReloadTimer) clearTimeout(window.acUpdateReloadTimer);
-            window.acUpdateReloadTimer = enabled
-              ? setTimeout(() => window.location.reload(), 2500)
-              : null;
+            if (enabled) {
+              armUpdateReload(2500);
+            } else if (window.acUpdateReloadTimer) {
+              clearTimeout(window.acUpdateReloadTimer);
+              window.acUpdateReloadTimer = null;
+            }
           }
 
           if (content.label === "copy") {
@@ -19983,50 +20064,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     buildOverlay("qrFullscreenLabel", content.qrFullscreenLabel);
     buildOverlay("authorOverlay", content.authorOverlay); // 👤 Author attribution for KidLisp pieces
     if (content.updateBadge) {
-      let autoReload = false;
-      try { autoReload = localStorage.getItem("aesthetic:update-auto-reload") === "true"; } catch {}
-      if (window.acUpdateAutoState !== autoReload) {
-        window.acUpdateAutoState = autoReload;
-        send({ type: "update:auto-state", content: autoReload });
+      // The worker draws the checkbox from its own copy of this flag, and that
+      // copy starts `false` in every fresh worker. Whenever the drawn state
+      // disagrees with ours, say it again — otherwise the box sits showing ✗
+      // over a setting that is really on, and the next tap looks like it did
+      // nothing because it toggled away from a state nobody could see.
+      if (content.updateBadge.auto !== updateAutoReload) {
+        send({ type: "update:auto-state", content: updateAutoReload });
       }
-      if (autoReload && !window.acUpdateReloadTimer) {
-        // Make a hot update feel intentional: a tiny ascending chord and warm
-        // visual pulse, then enough grace for Xbox/TV output buffers to play it.
-        try {
-          const now = audioContext?.currentTime;
-          if (audioContext && Number.isFinite(now)) {
-            [523.25, 659.25, 783.99].forEach((frequency, index) => {
-              const oscillator = audioContext.createOscillator();
-              const gain = audioContext.createGain();
-              oscillator.type = index === 2 ? "triangle" : "sine";
-              oscillator.frequency.value = frequency;
-              gain.gain.setValueAtTime(0.0001, now + index * 0.055);
-              gain.gain.exponentialRampToValueAtTime(0.085, now + index * 0.055 + 0.012);
-              gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55 + index * 0.055);
-              oscillator.connect(gain).connect(speakerGain || audioContext.destination);
-              oscillator.start(now + index * 0.055);
-              oscillator.stop(now + 0.65 + index * 0.055);
-            });
-          }
-          const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-          const flash = document.createElement("div");
-          Object.assign(flash.style, {
-            position: "fixed", inset: "0", zIndex: "2147483647",
-            pointerEvents: "none", background: "rgba(255,210,40,.48)",
-            transition: reduced ? "opacity .35s ease" : "background .16s ease, opacity .5s ease",
-          });
-          document.body.appendChild(flash);
-          requestAnimationFrame(() => {
-            if (!reduced) flash.style.background = "rgba(255,70,45,.42)";
-          });
-          setTimeout(() => { flash.style.opacity = "0"; }, reduced ? 180 : 360);
-        } catch (error) {
-          console.warn("📦 Update awareness cue unavailable:", error);
-        }
-        window.acUpdateReloadTimer = setTimeout(() => window.location.reload(), 1250);
+      if (updateAutoReload && !window.acUpdateReloadTimer) {
+        armUpdateReload(1250, content.updateBadge.silent === true);
       }
     }
-    buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)
+    // A silent badge carries no image — it exists only to say an update is
+    // ready, so the arm above can take it.
+    if (!content.updateBadge?.silent) {
+      buildOverlay("updateBadge", content.updateBadge); // 📦 Update-ready ↑ badge (top-right)
+    }
     buildOverlay("merryProgressBar", content.merryProgressBar); // 🎄 Merry pipeline progress bar
     buildOverlay("demoplayCard", content.demoplayCard); // 🎬 Demoplay text card overlay
     buildOverlay("tapeProgressBar", content.tapeProgressBar);

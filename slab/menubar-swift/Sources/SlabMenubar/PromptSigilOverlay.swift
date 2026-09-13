@@ -441,6 +441,10 @@ final class PromptSigilOverlay {
     // to a module, above the three-pixel floor. So it keeps the wall's rhythm
     // instead of being the one tile that shouts.
     static let scanSurfaceSize: CGFloat = 64
+    /// How far the scan card's shadow falls, right and down — the same three
+    /// points the preview card uses, so the two surfaces on one pane are lit
+    /// the same way.
+    private static let scanShadowDrop: CGFloat = 3
 
     /// True when this rock shows a scannable code instead of the tumbling
     /// sigil. Fixed at construction, because it decides the surface's
@@ -609,6 +613,15 @@ final class PromptSigilOverlay {
         if scanSurface {
             rockLayer.isHidden = true
             shadowLayer.mask = nil
+            // A status-coloured square peeking out from behind a QR reads as a
+            // coloured halo, not as a shadow — and around a code, a halo is
+            // noise. The card takes the preview's treatment instead: one dark
+            // offset block, no tint, no bloom, no sun. The status colour still
+            // has a place to live in the pet name underneath.
+            shadowLayer.backgroundColor = NSColor.black.withAlphaComponent(0.38).cgColor
+            shadowLayer.opacity = 1
+            shadowLayer.position = CGPoint(x: boxCenter.x + Self.scanShadowDrop,
+                                           y: boxCenter.y - Self.scanShadowDrop)
             scanLayer.frame = CGRect(x: pad, y: pad + labelH, width: size, height: size)
             // The white ground is only a backstop behind the bitmap's own quiet
             // zone. `setScanCode` shrinks this frame to the code it is given —
@@ -1178,7 +1191,7 @@ final class PromptSigilOverlay {
     func setShadowColor(_ color: NSColor) {
         guard shadowColor != color else { return }
         shadowColor = color
-        shadowLayer.backgroundColor = color.cgColor
+        if !isScanSurface { shadowLayer.backgroundColor = color.cgColor }
         heartbeatTrackLayer.backgroundColor = NSColor(deviceWhite: 0.025, alpha: 0.38).cgColor
         heartbeatTrackLayer.shadowColor = NSColor.black.cgColor
         heartbeatFillLayer.backgroundColor = color.cgColor
@@ -1206,6 +1219,7 @@ final class PromptSigilOverlay {
     /// Loopboy rocks are beacons, not merely status shadows. Give their
     /// silhouette a soft outer bloom; ordinary prompt rocks stay crisp.
     func setShining(_ shining: Bool, color: NSColor) {
+        guard !isScanSurface else { return }
         shadowLayer.shadowColor = shining ? color.cgColor : nil
         shadowLayer.shadowRadius = shining ? 16 : 0
         shadowLayer.shadowOpacity = shining ? 1.0 : 0
@@ -1283,6 +1297,7 @@ final class PromptSigilOverlay {
     /// sun-opposite `drop`.
     private var appliedDrop: CGSize?
     func setLighting(drop: CGSize) {
+        guard !isScanSurface else { return }
         if appliedDrop != drop {
             appliedDrop = drop
             shadowLayer.position = CGPoint(x: boxCenter.x + drop.width,

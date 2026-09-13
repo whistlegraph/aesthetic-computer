@@ -263,7 +263,11 @@ final class PromptPreview {
         // together mean "kidlisp preview" to a runtime running *inside an
         // iframe* — this is a top-level load, so that branch is not in play.)
         let separator = base.contains("?") ? "&" : "?"
-        let url = "\(base)\(separator)nogap=true&nolabel=true&maxfps=\(Self.restFPS)"
+        // `autoreload` because this card has nobody to tap the update badge: a
+        // green arrow in the corner of a 128-point window is a control out of
+        // reach, sitting on the piece it came to announce. The card takes the
+        // deploy silently instead.
+        let url = "\(base)\(separator)nogap=true&nolabel=true&autoreload=true&maxfps=\(Self.restFPS)"
         guard let target = URL(string: url) else { return }
         webView.load(URLRequest(url: target))
     }
