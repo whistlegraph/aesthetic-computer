@@ -67,8 +67,9 @@ Key: `cookie.png`, `cookie-open.png`, `thumbnail.png`, `helvetica.woff`, `helvet
 
 | Method | Path | Auth | What |
 |--------|------|------|------|
-| GET | `/subscribers` | — | Subscriber count |
+| GET | `/subscribers` | — | Active subscriber count |
 | POST | `/subscribe` | — | Stripe Checkout session |
+| POST | `/notification-choice` | Bearer | Record minimized push permission/toggle state |
 | POST | `/subscribed` | Bearer | Check sub + fetch pages/questions |
 | POST | `/cancel` | Bearer | Cancel subscription |
 | POST | `/write-a-page` | 👑 Admin | Draft CRUD + publish |
@@ -130,6 +131,15 @@ Key: `cookie.png`, `cookie-open.png`, `thumbnail.png`, `helvetica.woff`, `helvet
 ```js
 { _id, user, page: ObjectId, when: Date }
 // Unique index on (user, page)
+```
+
+### `sotce-notification-choices`
+```js
+{ user: "sotce-auth0|sub", deviceId, label, platform,
+  choice: "denied"|"dismissed"|"disabled"|"enabled"|"error",
+  source: "auto"|"bell"|"observed"|"register",
+  createdAt: Date, updatedAt: Date,
+  deniedCount?, dismissedCount?, disabledCount?, enabledCount?, errorCount? }
 ```
 
 ### `chat-sotce`
