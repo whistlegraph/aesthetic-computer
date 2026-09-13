@@ -34,6 +34,11 @@ final class FrameCapture {
     // Vision's recognition threshold. The OCR scale uses the same factor so
     // box coords still map back to screen points.
     private let captureScale: Double = 1.0
+    /// How far outside the window an overlay-inclusive frame reaches. The rock
+    /// sits above the title bar and the complaint about it is its distance from
+    /// the menu bar, so a shot that stops at the window edge cannot answer the
+    /// question being asked of it.
+    private static let overlayMargin: Double = 180
     private let overlayLock = NSLock()
     private var overlayWindowIDs = Set<Int>()
     private var ocrOverlayWindow: NSWindow?
@@ -129,7 +134,8 @@ final class FrameCapture {
                 wholeScreen: mode.contains("screen"),
                 virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
                 saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"),
-                showOverlay: !mode.contains("quiet-overlay"))
+                showOverlay: !mode.contains("quiet-overlay"),
+                includeOverlays: mode.contains("overlays"))
         if let pendingClickTarget {
             showPendingClickTarget(at: pendingClickTarget, approvalId: pendingClickApprovalId)
         }
@@ -717,7 +723,8 @@ final class FrameCapture {
     /// so their coordinates remain directly click-ready even for window-only
     /// images.
     private func captureDisplay(crop: CGRect? = nil,
-                                focusedWindowID: CGWindowID? = nil) ->
+                                focusedWindowID: CGWindowID? = nil,
+                                includeOverlays: Bool = false) ->
                                 (image: CGImage?, region: CGRect, scope: String) {
         guard #available(macOS 14.0, *) else { return (nil, .zero, "screen") }
         let sem = DispatchSemaphore(value: 0)
@@ -734,7 +741,18 @@ final class FrameCapture {
                 NSLog("Frame capture: shareable content failed: %@", String(describing: error))
                 return
             }
-            if crop == nil, let focusedWindowID,
+            // Asking for the overlays and then capturing a desktop-independent
+            // window is a contradiction: that path renders the window alone, so
+            // whatever is parked on top of it is exactly what gets dropped.
+            // Widen instead — shoot the display, cropped to the window plus a
+            // margin, so the rock above the title bar and the menu bar it is
+            // said to be flush against both land in the same picture.
+            var cropRect = crop
+            if includeOverlays, crop == nil, let focusedWindowID,
+               let window = content.windows.first(where: { $0.windowID == focusedWindowID }) {
+                cropRect = window.frame.insetBy(dx: -Self.overlayMargin, dy: -Self.overlayMargin)
+            }
+            if cropRect == nil, let focusedWindowID,
                let window = content.windows.first(where: { $0.windowID == focusedWindowID }) {
                 let region = window.frame
                 let filter = SCContentFilter(desktopIndependentWindow: window)
@@ -761,8 +779,13 @@ final class FrameCapture {
             // Suspenders: the explicitly-tracked overlay window ids, in case a
             // window's owning app is momentarily unresolved. A frame is always
             // the machine's real content beneath our overlays — never them.
+            // Hiding our own overlays is right for the usual job — reading the
+            // machine's real content — and exactly wrong when the overlays are
+            // the subject. Adjusting the rock's padding or the preview's shadow
+            // against a capture that filters both out is working blind, so the
+            // exclusion is a default rather than a rule.
             let myBundle = Bundle.main.bundleIdentifier
-            let exclude = content.windows.filter { w in
+            let exclude = includeOverlays ? [] : content.windows.filter { w in
                 if w.owningApplication?.bundleIdentifier == myBundle { return true }
                 self.overlayLock.lock(); defer { self.overlayLock.unlock() }
                 return self.overlayWindowIDs.contains(Int(w.windowID))
@@ -770,10 +793,10 @@ final class FrameCapture {
             let filter = SCContentFilter(display: display, excludingWindows: exclude)
             let cfg = SCStreamConfiguration()
             var region = CGRect(x: 0, y: 0, width: display.width, height: display.height)
-            if let crop = crop {
-                region = crop.intersection(CGRect(x: 0, y: 0, width: display.width, height: display.height))
+            if let wanted = cropRect {
+                region = wanted.intersection(CGRect(x: 0, y: 0, width: display.width, height: display.height))
                 cfg.sourceRect = region
-                capturedScope = "crop"
+                capturedScope = (includeOverlays && crop == nil) ? "window+overlays" : "crop"
             }
             capturedRegion = region
             cfg.width = Int(Double(region.width) * self.captureScale)
@@ -1066,7 +1089,8 @@ final class FrameCapture {
     private func produce(noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
-                         includeDiff: Bool = false, showOverlay: Bool = true) {
+                         includeDiff: Bool = false, showOverlay: Bool = true,
+                         includeOverlays: Bool = false) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         var env: [String: Any] = [:]
@@ -1102,7 +1126,8 @@ final class FrameCapture {
         env["meta"] = mt
         t = nowNs()
         let captured = captureDisplay(crop: boundedCrop,
-            focusedWindowID: wholeScreen ? nil : target)
+            focusedWindowID: wholeScreen ? nil : target,
+            includeOverlays: includeOverlays)
         let cg = captured.image
         let captureRegion = captured.region
         env["capture_scope"] = captured.scope

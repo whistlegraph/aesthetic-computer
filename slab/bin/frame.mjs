@@ -408,7 +408,7 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
   if (name === XBOX_TARGET) {
     if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
       throw new Error("xbox is an observe-only Frame target; use the native gamepad/live-publish loop for control");
@@ -453,7 +453,7 @@ async function captureFrame(name, { noOCR = false, fast = false, screen = false,
     console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
     process.exit(1);
   }
-  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
+  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", overlays ? "overlays" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
     .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
@@ -606,7 +606,7 @@ const pointOpt = (f) => {
 if (!cmd || cmd === "-h" || cmd === "--help") {
   console.log(
     "frame — capture the focused window (pixels + OCR + AX + state) of a remote Mac\n\n" +
-      "  frame <machine> [--screen] [--no-ocr] [--fast] [--cursor] [--target-at x,y] [--target-id id] [--manual-check id] [--press-at x,y] [--action-only] [--clear-target] [--clear-overlays] [--quiet-overlay] [--direct] [--preview] [--out file.jpg] [--json]\n" +
+      "  frame <machine> [--screen] [--no-ocr] [--fast] [--cursor] [--target-at x,y] [--target-id id] [--manual-check id] [--press-at x,y] [--action-only] [--clear-target] [--clear-overlays] [--quiet-overlay] [--overlays] [--direct] [--preview] [--out file.jpg] [--json]\n" +
       "      --screen: capture the complete display instead of the focused window\n" +
       "      --fast: Vision .fast OCR (lower latency, less accurate on small text)\n" +
       "      --cursor: draw a high-contrast virtual marker at the mouse position\n" +
@@ -618,6 +618,7 @@ if (!cmd || cmd === "-h" || cmd === "--help") {
       "      --clear-target: clear the persistent proposed-click marker\n" +
       "      --clear-overlays: retire all Frame-owned transient overlay windows\n" +
       "      --quiet-overlay: perform OCR without drawing its on-screen boxes\n" +
+      "      --overlays: keep slab's own rocks and previews in the shot (for designing them)\n" +
       "      --direct: bypass the resident server, do a one-shot ssh\n" +
       "      --preview: pop a labeled preview window of the pulled frame on THIS Mac\n" +
       "  frame view <machine>        capture + open the badged preview window (= --preview)\n" +
@@ -667,4 +668,4 @@ else if (cmd === "view") {
     label: opt("--label"),
   });
   console.log(JSON.stringify(r, null, 2));
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), overlays: flag("--overlays"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });

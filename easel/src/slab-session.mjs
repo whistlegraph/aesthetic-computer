@@ -65,6 +65,11 @@ export class SlabSession {
       // up to, rather than seventeen rows of half-blocks inside the transcript.
       piece: "",
       scan_url: "",
+      // How the piece at that address stands against the file on disk. The
+      // preview parked opposite the rock renders the address; these say whether
+      // what it is showing is the current save, a save still on its way, or a
+      // push in flight. Without them a frozen frame and a live one look alike.
+      flow: "live",
       provider_agent_type: "codex",
       provider_session_id: "",
       updated: now(),
@@ -103,6 +108,19 @@ export class SlabSession {
       piece: String(piece || ""),
       scan_url: String(scanUrl || ""),
     });
+  }
+
+  // Where the file stands against what the address is serving:
+  //   live     — the channel has the current save
+  //   ahead    — saved, not pushed yet
+  //   pushing  — the push is in flight
+  // Deliberately one word rather than three booleans: the overlay draws one
+  // badge, and a state that can be both "ahead" and "pushing" at once is a
+  // question about which to draw that nobody has to answer if it cannot arise.
+  flow(state = "live") {
+    const clean = ["live", "ahead", "pushing"].includes(state) ? state : "live";
+    if (this.record.flow === clean) return;
+    this.#update({ flow: clean });
   }
 
   working(prompt = "") {

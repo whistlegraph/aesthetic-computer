@@ -111,6 +111,12 @@ struct ClaudeSession {
     /// by a second unrelated word drawn from its session id.
     var piece: String = ""
 
+    /// How the file on disk stands against what `scanURL` is serving —
+    /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
+    /// parked opposite the rock renders that address, and this is the only
+    /// thing that can tell a current frame from one save behind.
+    var flow: String = "live"
+
     /// Native provider thread id. Claude uses `sessionId`; Codex's tracked
     /// wrapper has its own rock id, so the watcher records the rollout id here.
     var providerSessionId: String = ""
@@ -378,6 +384,7 @@ enum ClaudeSessionReader {
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
         session.scanURL = (obj["scan_url"] as? String) ?? ""
         session.piece = (obj["piece"] as? String) ?? ""
+        session.flow = (obj["flow"] as? String) ?? "live"
         return session
     }
 

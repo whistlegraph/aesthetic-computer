@@ -77,6 +77,9 @@ export class LivePiece extends EventEmitter {
     this.debounce = null;
     this.sending = false;
     this.pushes = 0;
+    // A save is on disk that the channel has not been told about yet. Set when
+    // the watcher arms, cleared when the push it armed lands.
+    this.ahead = false;
   }
 
   get file() {
@@ -216,6 +219,7 @@ export class LivePiece extends EventEmitter {
       this.sending = false;
     }
     this.pushes += 1;
+    this.ahead = false;
     this.emit("push", this.pushes);
     return true;
   }
@@ -236,6 +240,14 @@ export class LivePiece extends EventEmitter {
       this.watcher = watch(this.directory, (_event, name) => {
         if (name && name !== basename(this.file)) return;
         clearTimeout(this.debounce);
+        // The save has landed on disk and has not left for the channel yet.
+        // Anything watching the piece — the preview in the corner of the pane
+        // most of all — is showing the version before this one until the push
+        // goes, and would otherwise have no way to know it.
+        if (!this.ahead) {
+          this.ahead = true;
+          this.emit("dirty");
+        }
         this.debounce = setTimeout(() => {
           this.push().catch(onError);
         }, 250);

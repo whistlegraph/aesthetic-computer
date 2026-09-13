@@ -162,7 +162,7 @@ const recentActionTrails = new Map();
 const recentFrames = new Map();
 const visionCache = new Map();
 
-async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   // A unique path matters now that an action trail may capture while another
   // session asks for a normal frame of the same machine.
@@ -182,6 +182,7 @@ async function captureFrame({ machine, ocr = true, fast = false, screen = false,
   if (clearTarget) args.push("--clear-target");
   if (clearOverlays) args.push("--clear-overlays");
   if (quietOverlay) args.push("--quiet-overlay");
+  if (overlays) args.push("--overlays");
   if (crop) args.push("--crop", crop.join(","));
   if (baseline) args.push("--baseline");
   if (diff) args.push("--diff");
@@ -1063,6 +1064,7 @@ const TOOLS = [
         ocr: { type: "boolean", description: "Run OCR (default true). Set false for a faster pixels+AX-only frame." },
         fast: { type: "boolean", description: "Use Vision .fast OCR — lower latency, less accurate on small text (default false)." },
         cursor: { type: "boolean", description: "Draw a high-contrast virtual cursor at the current mouse position (default true)." },
+        overlays: { type: "boolean", description: "Keep slab's own overlays — prompt rocks, the QR, the piece preview — in the shot instead of filtering them out, and widen the window crop to reach the menu bar. Use it when the overlays themselves are what you are designing (default false)." },
       },
       required: ["machine"],
     },

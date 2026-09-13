@@ -1345,7 +1345,11 @@ final class PromptSigilOverlay {
     /// snaps (no spring from off-screen). No z-order touched here.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
         terminalFrameCG = CGRect(x: b.0, y: b.1, width: b.2, height: b.3)
-        let titleBar: CGFloat = 30, rightInset: CGFloat = 10
+        // 30 clears the title bar; the 12 after it is air. Parked at the bar
+        // exactly, the stone reads as window chrome, and on a pane tiled to the
+        // top of the screen it lands flush against the menu bar. Kept equal to
+        // PromptPreview.topPad so the rock and the card share one horizon.
+        let titleBar: CGFloat = 30 + 12, rightInset: CGFloat = 10
         // Window is padded around the rock; shift origin by -pad so the rock
         // itself (centred in the window) still lands at the top-right spot.
         // The label strip hangs below the rock, so drop by labelH too.
@@ -1964,6 +1968,16 @@ final class PromptSigilOverlayController {
     private var scanCodes: [String: CGImage] = [:]
     private var unscannableURLs: Set<String> = []
 
+    /// One live preview card per session that has minted a piece, parked in the
+    /// opposite corner from that session's rock. Keyed like `overlays` and torn
+    /// down by the same membership pass, so a card can never outlive the prompt
+    /// it belongs to.
+    private var previews: [String: PromptPreview] = [:]
+    /// The session whose card is currently grown under the pointer. Separate
+    /// from `hoverTarget` (the rocks') because the two corners are far apart —
+    /// pointing at one has nothing to say about the other.
+    private var previewHoverTarget: String?
+
     /// Hover/click plumbing for the rocks. The badge windows stay
     /// mouse-transparent (clicks still reach the terminal beneath); GLOBAL
     /// event monitors watch the pointer instead, so pointing at a rock costs
@@ -2182,9 +2196,42 @@ final class PromptSigilOverlayController {
     /// Hover is visual feedback only. Cards are deliberately click-to-open so
     /// moving across a wall of prompt rocks never fills the desktop with an
     /// unsolicited share card.
+    /// Raise, point and dress one session's preview card. Called from `sync`,
+    /// which runs several times a second — everything here is idempotent, and
+    /// `load` ignores an address it is already showing, so a piece is never
+    /// restarted by the tick that merely re-states where it lives.
+    private func syncPreview(for s: ClaudeSession) {
+        guard !s.scanURL.isEmpty else {
+            // The session let go of its piece (or never had one). Take the card
+            // away rather than leave the last frame standing as if it were current.
+            if let pv = previews.removeValue(forKey: s.sessionId) {
+                pv.close()
+                if previewHoverTarget == s.sessionId { previewHoverTarget = nil }
+            }
+            return
+        }
+        let pv: PromptPreview
+        if let existing = previews[s.sessionId] {
+            pv = existing
+        } else {
+            pv = PromptPreview()
+            previews[s.sessionId] = pv
+        }
+        pv.load(scanURL: s.scanURL)
+        // `paused` is not decided here — `reposition` owns it, because only the
+        // window-stack test knows whether these pixels are still being painted.
+        var next = PromptPreviewState()
+        next.flow = PromptFlow(s.flow)
+        next.working = (s.state == .working || s.state == .rendering)
+        next.piece = s.piece
+        next.paused = !pv.isOnScreen
+        pv.setState(next)
+    }
+
     private func handleMouseMoved() {
         if bubble.isSharing { return }
         let point = NSEvent.mouseLocation
+        updatePreviewHover(at: point)
         let hit = overlayAt(point)
         if hit?.sessionId == hoverTarget { return }
         if let old = hoverTarget, let oldOv = overlays[old] { oldOv.setHovered(false) }
@@ -2193,6 +2240,26 @@ final class PromptSigilOverlayController {
             hit.setHovered(true)
             hit.playHoverSound()
         }
+    }
+
+    /// The card under the pointer grows; whichever grew before shrinks back.
+    /// Gated the same way a rock's hover is — the card floats above the whole
+    /// normal-window stack and takes no events of its own, so a bare rect test
+    /// would wake a card buried under another application.
+    private func updatePreviewHover(at point: NSPoint) {
+        let screenH = NSScreen.main?.frame.height ?? 0
+        let cg = CGPoint(x: point.x, y: screenH - point.y)
+        var hit: String?
+        for (sid, pv) in previews where pv.isOnScreen && pv.hitRect.contains(point) {
+            guard let ov = overlays[sid], let num = binding[ov.tty] else { continue }
+            if let top = lastStack.first(where: { $0.rect.contains(cg) })?.num, top != num { continue }
+            hit = sid
+            break
+        }
+        guard hit != previewHoverTarget else { return }
+        if let old = previewHoverTarget { previews[old]?.setHovered(false) }
+        previewHoverTarget = hit
+        if let hit { previews[hit]?.setHovered(true) }
     }
 
     /// Primary AppKit interaction path. Unlike the global event monitor, this
@@ -2681,6 +2748,10 @@ final class PromptSigilOverlayController {
 
         var membershipChanged = false
         var liveScanURLs = Set<String>()
+        for (sid, pv) in previews where !liveIds.contains(sid) {
+            pv.close(); previews.removeValue(forKey: sid)
+            if previewHoverTarget == sid { previewHoverTarget = nil }
+        }
         for (sid, ov) in overlays where !liveIds.contains(sid) {
             ov.close(); overlays.removeValue(forKey: sid); membershipChanged = true
             if bubbleFor == sid {
@@ -2699,6 +2770,11 @@ final class PromptSigilOverlayController {
             let scanCode = scanCode(for: s)
             let scanSurface = scanCode != nil
             if scanSurface { liveScanURLs.insert(s.scanURL) }
+            // The card shows the same address the code encodes. It follows the
+            // scan URL rather than the code's renderability: a destination too
+            // long to fit in a QR is still a piece worth watching, so the rock
+            // keeps its stone while this corner keeps the preview.
+            syncPreview(for: s)
             defer { if scanSurface { overlays[s.sessionId]?.scanURL = s.scanURL } }
             let ov: PromptSigilOverlay
             if let existing = overlays[s.sessionId], existing.tty == bare,
@@ -2857,6 +2933,9 @@ final class PromptSigilOverlayController {
         timer?.invalidate(); timer = nil
         for (_, ov) in overlays { ov.close() }
         overlays.removeAll()
+        for (_, pv) in previews { pv.close() }
+        previews.removeAll()
+        previewHoverTarget = nil
         binding.removeAll()
         particleColors.removeAll()
         scanCodes.removeAll()
@@ -2990,6 +3069,18 @@ final class PromptSigilOverlayController {
                 heartbeat: ownedBy(num, at: points.heartbeat),
                 platformTarget: ownedBy(num, at: points.platformTarget))
             if !rockVisible { dropInteraction(for: ov) }
+            if let pv = previews[ov.sessionId] {
+                pv.place(bounds: b, screenHeight: screenH)
+                // A covered card is a card WebKit has stopped painting, so the
+                // same test that hides it is the one that knows its pixels have
+                // gone stale. Said out loud on the badge: a frozen frame and a
+                // live one are otherwise identical, and that is the one lie a
+                // preview must never tell.
+                let visible = ownedBy(num, at: pv.visibilityPoints)
+                pv.setVisible(visible)
+                pv.setPaused(!visible)
+                if !visible, previewHoverTarget == ov.sessionId { previewHoverTarget = nil }
+            }
             seen[num] = b
             if let prev = lastBoundsByNum[num], prev != b {
                 // A tracked window moved/resized — hold display rate for a short
