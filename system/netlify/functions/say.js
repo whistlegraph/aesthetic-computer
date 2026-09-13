@@ -188,9 +188,10 @@ async function generateElevenLabs(text, gender, set, scream) {
   };
 }
 
-// Pruttivox uses Prutti's consented IVC. Arbitrary text is deliberately
-// producer-gated below; the public chat lane remains message-id-only in
-// `netlify/functions/pruttivox.mjs`.
+// Pruttivox uses Prutti's consented IVC. Arbitrary text is open to any
+// signed-in handle — the community lane in marketing/klokkentales/SCORE.md,
+// where Prutti hears every clip and can veto it. The anonymous chat lane
+// remains message-id-only in `netlify/functions/pruttivox.mjs`.
 async function generatePrutti(text) {
   const voiceId = process.env.PRUTTI_ELEVENLABS_VOICE_ID;
   if (!voiceId || !process.env.ELEVENLABS_API_KEY) {
@@ -233,13 +234,15 @@ async function generatePrutti(text) {
 }
 
 async function authorizePruttivox(event) {
-  const { authorize, handleFor, hasAdmin } = await import("../../backend/authorization.mjs");
+  const { authorize, handleFor } = await import("../../backend/authorization.mjs");
   const user = await authorize(event.headers);
-  if (!user?.sub || !user.email_verified) return null;
+  if (!user?.sub) return null;
 
+  // Any handle may send a text. A handle already implies a verified email
+  // (handle.mjs won't mint one otherwise), and it's logged with the render,
+  // so a clip can always be traced back to whoever asked for it.
   const handle = String(await handleFor(user.sub) || "").toLowerCase();
-  const allowed = handle === "prutti" || await hasAdmin(user, "aesthetic");
-  return allowed ? `@${handle}` : null;
+  return handle ? `@${handle}` : null;
 }
 
 // ── Jeffrey: Professional Voice Clone (PVC) ──────────────────────────
@@ -385,7 +388,7 @@ exports.handler = async (event) => {
     const gender = body.voice?.split(":")[0]?.toLowerCase() || "neutral";
 
     // Provider: "jeffrey" (default PVC), "openai", "google", "eleven",
-    // or producer-gated "prutti".
+    // or handle-gated "prutti".
     // Can be set via body.provider; falls back to Jeffrey for parity
     // with the `say` piece default.
     const provider = body.provider || "jeffrey";
@@ -413,7 +416,7 @@ exports.handler = async (event) => {
         return {
           statusCode: 403,
           headers,
-          body: JSON.stringify({ message: "Pruttivox is available to its approved producers." }),
+          body: JSON.stringify({ message: "Pruttivox needs a signed-in handle." }),
         };
       }
       if (utterance.length > 1200) {

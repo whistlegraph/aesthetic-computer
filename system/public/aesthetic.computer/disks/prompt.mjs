@@ -6626,10 +6626,14 @@ function paint($) {
       $.line(ex + w - 1, ey, ex + (w >> 1), ey + (h >> 1));
 
       if (label) {
+        // MatrixChunky8 digits are 3×7 and sit at rows 0–6 of the cell, so
+        // a 9-tall badge with the glyph at +2 left no room underneath.
+        // 11 tall gives the number two clear pixels above and below.
         const bx = ex + w - 3;
-        const by = ey - 4;
-        $.ink(hot ? [255, 60, 70] : [220, 30, 40]).box(bx, by, badgeW, 9);
-        $.ink(hot ? [255, 180, 185] : [255, 120, 130]).box(bx, by, badgeW, 9, "outline");
+        const by = ey - 5;
+        const badgeH = 11;
+        $.ink(hot ? [255, 60, 70] : [220, 30, 40]).box(bx, by, badgeW, badgeH);
+        $.ink(hot ? [255, 180, 185] : [255, 120, 130]).box(bx, by, badgeW, badgeH, "outline");
         $.ink(255, 240, 240).write(
           label,
           { x: bx + 3, y: by + 2 },

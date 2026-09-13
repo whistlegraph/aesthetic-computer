@@ -112,7 +112,7 @@ function paint({ wipe, ink, screen }) {
   let footer = "TAP TO SPEAK";
   let color = [190, 160, 185];
   if (status === "authorizing") {
-    footer = "CHECKING PRODUCER ACCESS";
+    footer = "CHECKING YOUR HANDLE";
     color = [255, 210, 100];
   } else if (status === "speaking") {
     footer = `SPEAKING ${Math.min(chunkIndex + 1, chunks.length + 1)} / ${chunks.length + 1}`;
@@ -121,7 +121,7 @@ function paint({ wipe, ink, screen }) {
     footer = "COMPLETE · TAP TO REPLAY";
     color = [190, 255, 100];
   } else if (status === "error") {
-    footer = "UNAVAILABLE · SIGN IN AS AN APPROVED PRODUCER";
+    footer = "UNAVAILABLE · SIGN IN WITH A HANDLE";
     color = [255, 110, 110];
   }
   ink(...color).write(footer, { center: "x", screen, y: screen.height - 24 });
