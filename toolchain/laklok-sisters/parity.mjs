@@ -50,7 +50,8 @@ function regexLiteral(src, constName) {
 // ── 2. Theme roster — LAK_THEMES keys ↔ data-theme blocks + tema chips ────
 {
   const themesBlock = raster.match(/const LAK_THEMES = \{([\s\S]*?)\n\};/)?.[1] || "";
-  const rasterThemes = [...themesBlock.matchAll(/^ {2}(\w+): \{/gm)].map((m) => m[1]);
+  // A theme is a literal block or, for `realtime`, a call that builds one.
+  const rasterThemes = [...themesBlock.matchAll(/^ {2}(\w+): /gm)].map((m) => m[1]);
   const vectorCss = [...vector.matchAll(/data-theme="(\w+)"/g)].map((m) => m[1]);
   const vectorChips = [...vector.matchAll(/data-tema="(\w+)"/g)].map((m) => m[1]);
   const same = (x, y) => x.length && x.join() === [...new Set(y)].join();
@@ -64,6 +65,15 @@ function regexLiteral(src, constName) {
     same(rasterThemes, vectorChips),
     `raster: ${rasterThemes.join(", ")} · vector chips: ${vectorChips.join(", ")}`,
   );
+}
+
+// ── 2b. Realtime tema — the drift cycles are the theme's identity ─────────
+{
+  const cycles = (src, name) => src.match(new RegExp(`const ${name} = \\[([^\\]]*)\\]`))?.[1]?.replace(/\s/g, "");
+  const a = cycles(raster, "LAK_REALTIME_CYCLES");
+  const b = cycles(vector, "REALTIME_CYCLES");
+  check("realtime cycles (LAK_REALTIME_CYCLES ↔ REALTIME_CYCLES)", !!a && a === b,
+    a === b ? a : `raster: ${a} · vector: ${b}`);
 }
 
 // ── 3. Settings pane — mode + filter chips exist on both sides ────────────

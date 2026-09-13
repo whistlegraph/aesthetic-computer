@@ -29,6 +29,8 @@ same change — an unmirrored constant is future drift.
 | --- | --- | --- | --- |
 | Circus marquee "Laer Klokken" | laklok.mjs `paintLaerKlokkenSign` | `.marquee` + `CIRCUS` | colors checked |
 | Themes ler/nat/skov/lakrids | `LAK_THEMES` | `:root[data-theme]` vars | roster checked |
+| `realtime` ambient tema (date-driven drift) | `realtimeTheme` + `realtimeTick` | `realtimeTheme` + `paintRealtime` | cycles checked; raster refills the slot per minute in `sim`, vector on a 60s interval |
+| Theme census → `/api/laklok-theme` | `reportTheme` (boot + chip) | `reportTheme` (sign-in + chip) | GET the endpoint for counts |
 | Settings pane (mode/tema/filter) | `paintSettings` | `#settings` | chips checked |
 | Media-links filter | `chatView()` + `LAK_MEDIA_LINK` | `body.filter-links` + `MEDIA_LINK` | regex checked verbatim |
 | Corner QR → laklok.com | `paintQR` (@akamfoad/qr dep) | `#qrlink` canvas (same dep) | URL checked |

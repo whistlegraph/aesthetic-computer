@@ -14,6 +14,7 @@
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
+import { hslToRgb } from "../lib/num.mjs";
 
 let client;
 
@@ -23,6 +24,64 @@ const LAK_TOP_MARGIN = 34;
 
 // 📱 laklok.com QR rendered in the top-right corner (see paintQR).
 let lakQRCells = null;
+
+// 🌅 `realtime` — the ambient tema: a palette that is a pure function of the
+// date, so the room is a little different every day and the same for
+// everyone in it. `t` is fractional UTC days; the hue walks ~6° a day around
+// a 61-day lap while saturation and lightness breathe on their own cycles,
+// so no midnight is a cut. Text sits at a fixed lightness above the ground.
+// Mirrored in the vector client as `realtimeTheme` — same cycles, same slots.
+const LAK_REALTIME_CYCLES = [61, 23, 17]; // hue lap, saturation, lightness (days)
+function realtimeTheme(now = Date.now()) {
+  const t = Math.floor(now / 60000) / 1440; // quantized to the minute
+  const [hueDays, satDays, lightDays] = LAK_REALTIME_CYCLES;
+  const hue = (t * 360) / hueDays;
+  const sat = 34 + 12 * Math.sin((t * 2 * Math.PI) / satDays);
+  const light = 22 + 5 * Math.sin((t * 2 * Math.PI) / lightDays + 2);
+  const c = (h, s, l) => hslToRgb(((h % 360) + 360) % 360, s, l);
+  const bg = c(hue, sat, light);
+  return {
+    bg,
+    stripeA: c(hue, sat + 6, light * 0.62),
+    stripeB: c(hue, sat + 6, light * 0.8),
+    chat: {
+      background: bg,
+      chromeBg: bg,
+      lines: [...c(hue, sat, 62), 64],
+      scrollbar: c(hue, 60, 78),
+      messageText: c(hue, 30, 95),
+      messageBox: c(hue, 45, 85),
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: c(hue + 30, 80, 80),
+      handleHover: [255, 240, 120],
+      url: c(hue + 180, 85, 80),
+      urlHover: [255, 240, 120],
+      prompt: c(hue + 120, 80, 80),
+      promptContent: c(hue + 180, 85, 80),
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: c(hue + 60, 85, 80),
+      paintingHover: [255, 240, 120],
+      kidlisp: c(hue + 300, 85, 80),
+      kidlispHover: [255, 240, 120],
+      timestamp: c(hue, 25, 68),
+      timestampHover: [255, 240, 120],
+      heart: [255, 220, 240],
+    },
+  };
+}
+
+// The `realtime` slot in LAK_THEMES is refilled once a minute while it is the
+// active tema (sim). Returns true when the palette actually moved.
+let realtimeMinute = 0;
+function realtimeTick() {
+  const minute = Math.floor(Date.now() / 60000);
+  if (minute === realtimeMinute) return false;
+  realtimeMinute = minute;
+  Object.assign(LAK_THEMES.realtime, realtimeTheme());
+  return true;
+}
 
 // 🎨 Themes — each recolors the whole room. `ler` (clay) is the historical
 // terracotta; the others keep the same relationships in new light. The vector
@@ -148,6 +207,7 @@ const LAK_THEMES = {
       heart: [255, 210, 230],
     },
   },
+  realtime: realtimeTheme(), // 🌅 ambient — see realtimeTheme / realtimeTick
 };
 
 // ⚙️ Settings pane state — mode (raster here / vector on laklok.com/html),
@@ -178,7 +238,14 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-function boot({ api, wipe, debug, send, hud, store, colon, params, jump }) {
+// 📊 Theme census — tell /api/laklok-theme which tema this visitor is on (boot
+// = heartbeat, chip tap = switch). Needs a login; anonymous visitors are not
+// counted. Fire-and-forget: the room never waits on it.
+function reportTheme(net) {
+  net.userRequest("POST", "/api/laklok-theme", { theme: lakTheme });
+}
+
+function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
@@ -220,6 +287,7 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump }) {
       lakTheme = v;
       chat.refresh(client.system);
     }
+    reportTheme(net); // after the saved tema has had its say
   });
   store.retrieve("laklok:links").then((v) => {
     if (!colonLinks && typeof v === "boolean") {
@@ -470,7 +538,7 @@ function paint($) {
 }
 
 function act($) {
-  const { event: e, jump, store, needsPaint } = $;
+  const { event: e, jump, store, needsPaint, net } = $;
 
   const hit = (box) =>
     box && e.x >= box.x && e.x < box.x + box.w && e.y >= box.y && e.y < box.y + box.h;
@@ -494,7 +562,9 @@ function act($) {
           lakTheme = value;
           store["laklok:theme"] = value;
           store.persist("laklok:theme");
+          if (value === "realtime") realtimeTick(); // catch up before first paint
           chat.refresh(client.system); // recolor cached message lines
+          reportTheme(net);
         } else if (type === "links") {
           lakLinksOnly = value;
           store["laklok:links"] = value;
@@ -513,6 +583,8 @@ function act($) {
 }
 
 function sim($) {
+  // 🌅 The ambient tema drifts a hair each minute; recolor when it does.
+  if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
   chat.sim($);
 }
 

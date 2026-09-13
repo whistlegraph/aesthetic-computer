@@ -75,6 +75,23 @@
     --send-bg:   #c8bed2;
     --send-text: #16121a;
   }
+  :root[data-theme="realtime"] {
+    /* 🌅 ambient — every var below is set live by realtimeTheme(); these are
+       only the first-paint ground so nothing flashes white. */
+    --bg:        #2f3a4a;
+    --bg-deep:   #262e3b;
+    --bg-soft:   #3a4658;
+    --stripe-a:  #1d242e;
+    --stripe-b:  #262e3b;
+    --line:      rgba(120,140,170,.26);
+    --text:      #eef1f5;
+    --handle:    #a6c8f0;
+    --time:      #9aa6b8;
+    --input-bg:  #1c232c;
+    --input-line:#4f5f75;
+    --send-bg:   #8fb8f0;
+    --send-text: #0c1219;
+  }
   :root {
     /* Token + status colors shared by every theme (mirror the raster piece). */
     --hover:     #fff078;   /* golden yellow hover */
@@ -355,6 +372,7 @@
         <button class="chip" data-tema="nat">nat</button>
         <button class="chip" data-tema="skov">skov</button>
         <button class="chip" data-tema="lakrids">lakrids</button>
+        <button class="chip" data-tema="realtime">realtime</button>
       </div>
       <div class="row" data-setting="filter">
         <span class="lbl">filter</span>
@@ -432,13 +450,50 @@ import("/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
 // ── Settings (mode / tema / filter) — the raster piece's sister pane ────────
 // Persisted under the same names the raster piece uses; `?theme=`/`?links=`
 // query params override for shareable states and the sisters suite.
-const THEMES = ["ler", "nat", "skov", "lakrids"];
+const THEMES = ["ler", "nat", "skov", "lakrids", "realtime"];
 const query = new URLSearchParams(location.search);
 let theme = query.get("theme") || localStorage.getItem("laklok:theme") || "ler";
 if (!THEMES.includes(theme)) theme = "ler";
 let linksOnly = query.has("links")
   ? query.get("links") !== "0"
   : localStorage.getItem("laklok:links") === "1";
+
+// 🌅 `realtime` — mirror of the raster piece's realtimeTheme: a palette that
+// is a pure function of the date (fractional UTC days, quantized to the
+// minute). Hue laps in 61 days, saturation and lightness breathe on 23 and 17,
+// so everyone in the room sees the same slow drift and no midnight is a cut.
+const REALTIME_CYCLES = [61, 23, 17]; // hue lap, saturation, lightness (days)
+function realtimeTheme(now = Date.now()) {
+  const t = Math.floor(now / 60000) / 1440;
+  const [hueDays, satDays, lightDays] = REALTIME_CYCLES;
+  const hue = (t * 360) / hueDays;
+  const sat = 34 + 12 * Math.sin((t * 2 * Math.PI) / satDays);
+  const light = 22 + 5 * Math.sin((t * 2 * Math.PI) / lightDays + 2);
+  const c = (h, s, l, a = 1) => `hsl(${(h % 360).toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}% / ${a})`;
+  return {
+    "--bg": c(hue, sat, light),
+    "--bg-deep": c(hue, sat + 4, light * 0.8),
+    "--bg-soft": c(hue, sat, light + 6),
+    "--stripe-a": c(hue, sat + 6, light * 0.62),
+    "--stripe-b": c(hue, sat + 6, light * 0.8),
+    "--line": c(hue, sat, 62, 0.26),
+    "--text": c(hue, 30, 95),
+    "--handle": c(hue + 30, 80, 80),
+    "--time": c(hue, 25, 68),
+    "--input-bg": c(hue, sat + 4, light * 0.6),
+    "--input-line": c(hue, sat, light + 16),
+    "--send-bg": c(hue + 30, 80, 70),
+    "--send-text": c(hue, 40, 8),
+  };
+}
+function paintRealtime() {
+  const root = document.documentElement.style;
+  const vars = theme === "realtime" ? realtimeTheme() : {};
+  for (const k of Object.keys(realtimeTheme())) {
+    if (vars[k]) root.setProperty(k, vars[k]); else root.removeProperty(k);
+  }
+}
+setInterval(paintRealtime, 60000); // drifts a hair each minute while active
 
 function applyTheme(name) {
   theme = name;
@@ -447,6 +502,7 @@ function applyTheme(name) {
     chip.classList.toggle("sel", chip.dataset.tema === name);
   }
   localStorage.setItem("laklok:theme", name);
+  paintRealtime();
 }
 function applyLinksFilter(on) {
   linksOnly = on;
@@ -474,7 +530,7 @@ $settings.addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
   if (!chip) return;
   if (chip.dataset.mode === "raster") location.href = "https://laklok.com";
-  if (chip.dataset.tema) applyTheme(chip.dataset.tema);
+  if (chip.dataset.tema) { applyTheme(chip.dataset.tema); reportTheme(); }
   if (chip.dataset.links !== undefined) applyLinksFilter(chip.dataset.links === "1");
 });
 
@@ -1049,6 +1105,17 @@ function setPresence(online, here) {
 // `@@auth0spajs@@…` keys; posting sends the same access token the piece would.
 const auth = { token: null, sub: null, handle: null };
 
+// 📊 Theme census — the same /api/laklok-theme the raster piece reports to:
+// once at sign-in and on every tema chip tap. Anonymous readers aren't counted.
+function reportTheme() {
+  if (!auth.token) return;
+  fetch(`${AC_API}/api/laklok-theme`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${auth.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ theme }),
+  }).catch(() => {});
+}
+
 function decodeJwtSub(token) {
   try {
     const body = token.split(".")[1];
@@ -1096,6 +1163,7 @@ async function initAuth() {
   $input.disabled = false;
   $send.disabled = false;
   setGate("posting live.");
+  reportTheme(); // census heartbeat — the load-time applyTheme ran before sign-in
   try {
     const r = await fetch(`${HANDLE_API}?for=${encodeURIComponent(auth.sub)}`);
     if (r.ok) {
