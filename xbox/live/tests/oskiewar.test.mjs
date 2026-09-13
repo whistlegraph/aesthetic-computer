@@ -3457,16 +3457,24 @@ test("opposite input and wall contact cancel dash lock immediately", () => {
 
 test("a direction held across round reset waits for a real release", () => {
   const { fight, pads, tick } = createFight();
+  // Read the stride out of the source rather than pinning a number beside it.
+  // This assertion was `> 1000` against a 1,060 walk, so the day the legs
+  // slowed a sixth it started failing for having been written next to the
+  // constant instead of against it. What it means is "a full walk", and a
+  // full walk is whatever walkSpeed currently says.
+  const walk = Number(/const walkSpeed = (\d+)/.exec(source)[1]);
   pads[0].down = ["ArrowRight"];
   tick();
   fight.nextRound();
   tick(3000001);
-  assert.ok(fight.players[0].vx < 500);
+  assert.ok(fight.players[0].vx < walk * .5,
+    `a held direction should stay suppressed, not run at ${fight.players[0].vx}`);
   pads[0].down = [];
   tick();
   pads[0].down = ["ArrowRight"];
   tick();
-  assert.ok(fight.players[0].vx > 1000);
+  assert.ok(fight.players[0].vx >= walk * .95,
+    `a real press should walk at ${walk}, not ${fight.players[0].vx}`);
 });
 
 test("X shield repels a grounded melee rush", () => {
@@ -3553,8 +3561,13 @@ test("an airborne fighter can cross over the other fighter", () => {
   jumper.grounded = false;
   standing.x = 510;
   pads[0].down = ["ArrowRight"];
-  for (let frame = 0; frame < 8; frame++) tick(16667);
-  assert.ok(jumper.x > standing.x);
+  // Long enough to cross with room to spare. Eight frames bought 141 units
+  // against a 120-unit gap at the old stride -- twenty-one units of margin,
+  // which the first speed change in the game's life spent. Fly the whole
+  // crossing instead of measuring it to the inch.
+  for (let frame = 0; frame < 16; frame++) tick(16667);
+  assert.ok(jumper.x > standing.x,
+    `the jumper stopped at ${jumper.x.toFixed(0)} short of ${standing.x}`);
   assert.equal(jumper.alive, true);
   assert.equal(standing.alive, true);
 });
@@ -4017,23 +4030,32 @@ test("a light saber is taken with a free arm, lengthens every hand strike, and d
   assert.ok(stage.floorY > 0);
 });
 
-test("the station looks out of a window instead of standing in a room", () => {
-  // Screen space, not geometry: the fight's own faces are the rasterizer's
-  // budget, so the backdrop is bands, dots and a limb drawn as scanlines.
-  const backdrop = source.match(/function drawSpaceBackdrop[\s\S]*?\n}\n/)[0];
-  assert.match(backdrop, /for \(let star = 0; star < 120; star\+\+\)/);
-  assert.doesNotMatch(backdrop, /worldQuad\(/);
-  assert.doesNotMatch(backdrop, /worldCapsule\(/);
-  // The field parallaxes against the camera, so panning the map reads as
-  // moving through somewhere.
-  assert.match(backdrop, /const driftX = cameraCenter \/ 15/);
-  // Stars wrap rather than clamp — a clamped field piles up in a corner.
-  assert.match(backdrop, /% width\) \+ width\) % width/);
-  // Survival still climbs under weather; only the station gets the window.
-  assert.match(source,
-    /if \(!survivalActive\(\)\) return drawSpaceBackdrop\(sky\);/);
-  // No lawn in vacuum.
+test("the station's background is one plain color, not a pattern", () => {
+  // @jeffrey asked this of the cube's checkered plaster and then of the
+  // station's starfield, and the answer was the same both times: a decorative
+  // background is a pattern the eye keeps reading during a fight that has two
+  // small figures in it. The starfield -- 120 parallaxing stars, six gradient
+  // bands, a planet limb with a lit rim -- is gone entirely, along with about
+  // two hundred screen-space draws a frame.
+  assert.doesNotMatch(source, /function drawSpaceBackdrop/);
+  assert.doesNotMatch(source, /star < 120/);
+  assert.doesNotMatch(source, /planetRadius/);
+  // What paints the background now is the frame's own opening wipe, which was
+  // always painting it -- the backdrop was drawn on top. So outside the climb
+  // this draws nothing at all.
+  assert.match(source, /if \(!survivalActive\(\)\) return;\n  \/\/ Broad D2D bands/);
+  assert.match(source, /wipe\(\.\.\.outside\)/);
+  // The climb keeps its weather: it is a shaft with a sky over it, not orbit.
+  const atmosphere = source.match(/function drawSkyAtmosphere[\s\S]*?\n}\n/)[0];
+  assert.match(atmosphere, /const bands = 6/);
+  // And no lawn in vacuum.
   assert.match(source, /renderFlags\.grass !== false && !space/);
+
+  // The plain color is still theme-aware -- "plain" is one color, not one
+  // color forever, and day and night still have to reach the HUD and the
+  // fighters through the same theme.
+  const { fight } = createFight(false, false, "web");
+  assert.doesNotThrow(() => fight.paint());
 });
 
 test("the station parks one hover board, and it is furniture rather than a ball", () => {

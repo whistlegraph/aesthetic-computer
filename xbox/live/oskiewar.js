@@ -459,10 +459,20 @@ const replaySlowest = .18;
 const replayActionLead = 8;
 const replayRampPerSecond = 3.2;
 const instantReplayMaxFrames = 240;
-const walkSpeed = 1060;
-const runStartSpeed = 1320;
-const runTopSpeed = 2350;
-const runAcceleration = 820;
+// Legs, slowed about a sixth on @jeffrey's ear. The station is twice the
+// cube's width, and the first thing a bigger floor does is make a fighter
+// read as skating across it -- the same stride that felt urgent crossing 900
+// units looks weightless crossing 1,800. Every number here moved by the same
+// fraction, including the acceleration, so time-to-top-speed is unchanged and
+// only the ground covered is: a run still winds up over the same beat.
+//
+// This is load-bearing beyond feel. `jumpReach` prices a bot's jump in
+// walkSpeed, so the arcs it will commit to narrow with the stride, and the
+// deck spacing above stays exactly as reachable as it was.
+const walkSpeed = 880;
+const runStartSpeed = 1100;
+const runTopSpeed = 1950;
+const runAcceleration = 690;
 // Vertical feel. The apex is the design constant — how high a fighter can
 // reach never changed — so every impulse here is paired with a gravity that
 // spends less time getting there. Rise is lighter than fall so the arc reads
@@ -12515,113 +12525,20 @@ function drawBoosterPad(t) {
   }
 }
 
-// The station has no sky, so `drawSkyAtmosphere` forks here rather than being
-// two functions with one caller each: survival still climbs under weather,
-// and the space map looks out of a window.
-//
-// Everything below is screen space. That is the whole reason a starfield is
-// affordable at all — the fight's own geometry is a software rasterizer's
-// budget, and a projected sphere of stars would spend the frame on backdrop.
-// Bands, dots and a limb drawn as scanlines cost boxes, which are free.
-function drawSpaceBackdrop(sky) {
-  const width = viewWidth();
-  // Deep space is not black: it is very dark blue with a wash coming off the
-  // planet below, so the bottom of the frame lifts. Six bands, the same count
-  // the atmosphere used, running the other way.
-  const bands = 6;
-  const deep = [4, 5, 16];
-  const lift = mixColor([14, 20, 52], sky, .25);
-  for (let band = 0; band < bands; band++) {
-    const y1 = Math.round(viewHeight * band / bands);
-    const y2 = Math.round(viewHeight * (band + 1) / bands);
-    box(0, y1, width, y2 - y1 + 1,
-      ...mixColor(deep, lift, ((band + .5) / bands) ** 1.6));
-  }
-  // A hundred and twenty stars from one integer hash, parallaxed against the
-  // camera so the field slides as the lens pans and the map reads as somewhere
-  // you are moving through. The parallax is a fifteenth of the camera's travel
-  // — enough to feel, far too little to chase. Cosmetic only: nothing here is
-  // simulation state, so the two seats of a versus round may disagree about a
-  // star and still agree about the fight.
-  const driftX = cameraCenter / 15;
-  const driftY = cameraCenterY / 15;
-  for (let star = 0; star < 120; star++) {
-    let hash = Math.imul(star + 1, 2654435761) >>> 0;
-    hash ^= hash >>> 15;
-    const hx = (hash % 10007) / 10007;
-    const hy = ((hash >>> 7) % 10009) / 10009;
-    const hb = ((hash >>> 13) % 997) / 997;
-    // Wrapped rather than clamped, so a star leaving one edge arrives at the
-    // other instead of piling up in a corner.
-    const x = (((hx * width - driftX) % width) + width) % width;
-    const y = (((hy * viewHeight - driftY) % viewHeight) + viewHeight) %
-      viewHeight;
-    // Three tiers. Most of a real starfield is faint, and a field of equally
-    // bright dots reads as noise rather than as distance.
-    const size = hb > .94 ? 3 : hb > .74 ? 2 : 1;
-    const tone = hb > .94 ? [255, 255, 248] : hb > .74 ? [206, 220, 255]
-      : [128, 144, 196];
-    box(Math.round(x), Math.round(y), size, size, ...tone);
-  }
-  // The planet the station is over: a limb rising into the bottom of the
-  // frame, drawn as scanlines of a circle whose centre sits well below the
-  // screen. Twenty-eight bands is enough for the curve to read and cheap
-  // enough not to matter.
-  // Placed so its limb rises ABOVE the deck line rather than behind it. The
-  // hull's own skirt fills the bottom third of a landscape frame, and the
-  // first placement put the whole planet inside that skirt — a backdrop drawn
-  // perfectly and then covered up by the floor in front of it.
-  const planetRadius = viewHeight * 1.9;
-  const planetTop = viewHeight * .46;
-  const planetCenterY = planetTop + planetRadius;
-  const planetCenterX = width * .28;
-  const rim = mixColor([52, 96, 150], [126, 176, 214], visualTheme.light);
-  const body = mixColor([12, 26, 52], [30, 58, 96], visualTheme.light);
-  // Scanlines over the VISIBLE arc, not over a fixed slice of the radius. The
-  // first pass spread twenty-eight bands across four tenths of a 2,000-unit
-  // radius, so each band was thirty pixels tall in the one place a circle
-  // turns fastest — and a planet came out as a flight of blue stairs.
-  const limbBands = 64;
-  const bandHeight = Math.ceil((viewHeight - planetTop) / limbBands) + 1;
-  const halfWidthAt = (y) => {
-    const dy = planetCenterY - y;
-    return Math.sqrt(Math.max(0, planetRadius * planetRadius - dy * dy));
-  };
-  for (let band = 0; band < limbBands; band++) {
-    const y = planetTop + (band / limbBands) * (viewHeight - planetTop);
-    const half = halfWidthAt(y);
-    if (!(half > 0)) continue;
-    // The top of the arc is the lit rim; everything under it falls away into
-    // the night side, which is what keeps the planet from reading as a hill.
-    const tint = mixColor(rim, body, Math.min(1, band / 7));
-    box(Math.round(planetCenterX - half), Math.round(y),
-      Math.round(half * 2), bandHeight, ...tint);
-  }
-  // And one smooth pass along the limb itself. Stacked boxes step wherever
-  // the curve outruns a band's height, and the eye finds every one of those
-  // steps on a silhouette; a line drawn through the same arc buries them and
-  // costs forty segments.
-  // Each edge of the limb is walked on its own, from the crown downward. The
-  // steps are packed toward the crown — `** 1.7` — because that is where a
-  // circle turns fastest and where a scanline stack shows its stairs.
-  const rimLight = mixColor(rim, [236, 248, 255], .45);
-  const steps = 40;
-  for (const side of [-1, 1]) {
-    let previousX = planetCenterX;
-    let previousY = planetTop;
-    for (let step = 1; step <= steps; step++) {
-      const y = planetTop +
-        (step / steps) ** 1.7 * (viewHeight - planetTop) * .6;
-      const x = planetCenterX + side * halfWidthAt(y);
-      line(previousX, previousY, x, y, 3, ...rimLight);
-      previousX = x;
-      previousY = y;
-    }
-  }
-}
-
 function drawSkyAtmosphere(sky, arena) {
-  if (!survivalActive()) return drawSpaceBackdrop(sky);
+  // The station's background is one plain color, and the `wipe` at the top of
+  // the frame has already painted it -- so the space map draws no backdrop at
+  // all, and this function is the climb's weather again.
+  //
+  // It was a starfield: a hundred and twenty parallaxing stars, six gradient
+  // bands and a planet limb with a lit rim. @jeffrey asked for the same thing
+  // here he asked for of the cube's plaster -- "can the level background be
+  // plain colored? not stripey?" -- and the answer is the same both times. A
+  // decorative background is a pattern the eye keeps reading during a fight
+  // that has two small figures in it, and every one of those stars was
+  // competing with the thing you are supposed to be watching. The pattern went
+  // and about two hundred screen-space draws a frame went with it.
+  if (!survivalActive()) return;
   // Broad D2D bands are effectively free compared with projected meshes and
   // make the sky feel spatial without rebuilding a textured skybox each frame.
   const bands = 6;
