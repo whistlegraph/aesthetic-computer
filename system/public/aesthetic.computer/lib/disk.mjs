@@ -1662,6 +1662,14 @@ let iconMode = false; // Detects ?icon on a piece and yields its
 //                          icon function if it exists.
 let previewOrIconMode;
 let hideLabel = false;
+// Whether this frame ever asked to be rid of the corner label. `hideLabel`
+// is recomputed from the incoming slug on every load, and a live `code`
+// reload carries no query at all — so a piece that arrived with `?nolabel`
+// grew its label back the moment it was edited, which is the one moment a
+// preview card is being watched. Suppression belongs to the view, not to the
+// piece: boot already treats `nolabel` that way, preserving it across every
+// navigation, and this worker serves exactly one view for its whole life.
+let hideLabelForFrame = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
 
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
@@ -10048,10 +10056,10 @@ async function load(
 
   // Parse search parameters properly to check for nolabel
   // Also hide label in pack mode (standalone bundles have no URL params)
-  hideLabel = (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) || false;
+  hideLabel = (typeof window !== "undefined" && window.acPACK_MODE && !window.acKEEP_LABEL) || hideLabelForFrame;
   if (parsed.search) {
     const searchParams = new URLSearchParams(parsed.search);
-    if (searchParams.has("nolabel")) hideLabel = true;
+    if (searchParams.has("nolabel")) hideLabel = hideLabelForFrame = true;
   }
   if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
 
