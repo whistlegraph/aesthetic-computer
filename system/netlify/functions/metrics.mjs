@@ -87,7 +87,9 @@ async function computeMetrics() {
   let sotceSubscribers = null;
   try {
     sotceSubscribers = (
-      await (await fetch("https://sotce.net/sotce-net/subscribers")).json()
+      await (
+        await fetch("https://sotce.net/sotce-net/active-subscribers")
+      ).json()
     ).subscribers;
   } catch (err) {
     shell.error("🔴 Could not retrieve `sotce-net` subscriber count:", err);
