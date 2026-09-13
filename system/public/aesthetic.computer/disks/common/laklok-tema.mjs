@@ -1,0 +1,371 @@
+// laklok-tema — the shared dress of the Laer Klokken rooms: `laklok` (the
+// chat) and `amail` (the post). One roster of temas, one saved choice
+// (`laklok:theme`), one census, and the corner chrome both rooms wear — the
+// QR, the ⚙ gear, the envelope with its count, and the indstillinger pane.
+//
+// The vector sister (system/public/html/index.html) mirrors LAK_THEMES and
+// LAK_REALTIME_CYCLES by name; toolchain/laklok-sisters/parity.mjs reads this
+// file to check them, so add or rename a tema in both places.
+
+import { hslToRgb } from "../../lib/num.mjs";
+import { qrcode as qr, ErrorCorrectLevel } from "../../dep/@akamfoad/qr/qr.mjs";
+
+export const TEMA_KEY = "laklok:theme";
+
+// 🌅 `realtime` — the ambient tema: a palette that is a pure function of the
+// date, so the room is a little different every day and the same for
+// everyone in it. `t` is fractional UTC days; the hue walks ~6° a day around
+// a 61-day lap while saturation and lightness breathe on their own cycles,
+// so no midnight is a cut. Text sits at a fixed lightness above the ground.
+// Mirrored in the vector client as `realtimeTheme` — same cycles, same slots.
+export const LAK_REALTIME_CYCLES = [61, 23, 17]; // hue lap, saturation, lightness (days)
+export function realtimeTheme(now = Date.now()) {
+  const t = Math.floor(now / 60000) / 1440; // quantized to the minute
+  const [hueDays, satDays, lightDays] = LAK_REALTIME_CYCLES;
+  const hue = (t * 360) / hueDays;
+  const sat = 34 + 12 * Math.sin((t * 2 * Math.PI) / satDays);
+  const light = 22 + 5 * Math.sin((t * 2 * Math.PI) / lightDays + 2);
+  const c = (h, s, l) => hslToRgb(((h % 360) + 360) % 360, s, l);
+  const bg = c(hue, sat, light);
+  return {
+    bg,
+    stripeA: c(hue, sat + 6, light * 0.62),
+    stripeB: c(hue, sat + 6, light * 0.8),
+    chat: {
+      background: bg,
+      chromeBg: bg,
+      lines: [...c(hue, sat, 62), 64],
+      scrollbar: c(hue, 60, 78),
+      messageText: c(hue, 30, 95),
+      messageBox: c(hue, 45, 85),
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: c(hue + 30, 80, 80),
+      handleHover: [255, 240, 120],
+      url: c(hue + 180, 85, 80),
+      urlHover: [255, 240, 120],
+      prompt: c(hue + 120, 80, 80),
+      promptContent: c(hue + 180, 85, 80),
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: c(hue + 60, 85, 80),
+      paintingHover: [255, 240, 120],
+      kidlisp: c(hue + 300, 85, 80),
+      kidlispHover: [255, 240, 120],
+      timestamp: c(hue, 25, 68),
+      timestampHover: [255, 240, 120],
+      heart: [255, 220, 240],
+    },
+  };
+}
+
+// The `realtime` slot in LAK_THEMES is refilled once a minute while it is the
+// active tema (sim). Returns true when the palette actually moved.
+let realtimeMinute = 0;
+export function realtimeTick() {
+  const minute = Math.floor(Date.now() / 60000);
+  if (minute === realtimeMinute) return false;
+  realtimeMinute = minute;
+  Object.assign(LAK_THEMES.realtime, realtimeTheme());
+  return true;
+}
+
+// 🎨 Themes — each recolors the whole room. `ler` (clay) is the historical
+// terracotta; the others keep the same relationships in new light. The vector
+// client mirrors these by name, so add/rename in both places.
+export const LAK_THEMES = {
+  ler: {
+    bg: [180, 100, 60],
+    stripeA: [122, 60, 26],
+    stripeB: [150, 78, 34],
+    chat: {
+      background: [180, 100, 60],
+      chromeBg: [180, 100, 60],
+      lines: [220, 150, 100, 64],
+      scrollbar: [255, 180, 100],
+      messageText: [255, 255, 240],
+      messageBox: [255, 220, 180],
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: [255, 160, 120],
+      handleHover: [255, 240, 120],
+      url: [120, 220, 255],
+      urlHover: [255, 240, 120],
+      prompt: [200, 255, 180],
+      promptContent: [120, 220, 255],
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: [255, 200, 140],
+      paintingHover: [255, 240, 120],
+      kidlisp: [255, 140, 200],
+      kidlispHover: [255, 240, 120],
+      timestamp: [220, 180, 150],
+      timestampHover: [255, 240, 120],
+      heart: [255, 220, 240],
+    },
+  },
+  nat: {
+    bg: [26, 30, 62],
+    stripeA: [20, 24, 50],
+    stripeB: [32, 38, 76],
+    chat: {
+      background: [26, 30, 62],
+      chromeBg: [26, 30, 62],
+      lines: [90, 110, 190, 64],
+      scrollbar: [120, 150, 255],
+      messageText: [235, 240, 255],
+      messageBox: [180, 200, 255],
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: [150, 180, 255],
+      handleHover: [255, 240, 120],
+      url: [120, 220, 255],
+      urlHover: [255, 240, 120],
+      prompt: [200, 255, 180],
+      promptContent: [120, 220, 255],
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: [255, 200, 140],
+      paintingHover: [255, 240, 120],
+      kidlisp: [255, 140, 200],
+      kidlispHover: [255, 240, 120],
+      timestamp: [150, 160, 210],
+      timestampHover: [255, 240, 120],
+      heart: [255, 220, 240],
+    },
+  },
+  skov: {
+    bg: [24, 56, 36],
+    stripeA: [18, 44, 28],
+    stripeB: [30, 66, 42],
+    chat: {
+      background: [24, 56, 36],
+      chromeBg: [24, 56, 36],
+      lines: [90, 150, 110, 64],
+      scrollbar: [130, 220, 150],
+      messageText: [235, 255, 240],
+      messageBox: [190, 230, 200],
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: [170, 230, 150],
+      handleHover: [255, 240, 120],
+      url: [120, 220, 255],
+      urlHover: [255, 240, 120],
+      prompt: [220, 255, 170],
+      promptContent: [120, 220, 255],
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: [255, 210, 140],
+      paintingHover: [255, 240, 120],
+      kidlisp: [255, 150, 190],
+      kidlispHover: [255, 240, 120],
+      timestamp: [150, 190, 160],
+      timestampHover: [255, 240, 120],
+      heart: [255, 215, 235],
+    },
+  },
+  lakrids: {
+    bg: [22, 20, 24],
+    stripeA: [14, 12, 16],
+    stripeB: [30, 27, 34],
+    chat: {
+      background: [22, 20, 24],
+      chromeBg: [22, 20, 24],
+      lines: [90, 80, 95, 64],
+      scrollbar: [200, 190, 210],
+      messageText: [240, 238, 244],
+      messageBox: [210, 205, 215],
+      log: [100, 255, 220],
+      logHover: [255, 240, 120],
+      handle: [240, 170, 190],
+      handleHover: [255, 240, 120],
+      url: [130, 210, 255],
+      urlHover: [255, 240, 120],
+      prompt: [190, 240, 170],
+      promptContent: [130, 210, 255],
+      promptHover: [255, 240, 120],
+      promptContentHover: [255, 240, 120],
+      painting: [250, 200, 150],
+      paintingHover: [255, 240, 120],
+      kidlisp: [255, 150, 210],
+      kidlispHover: [255, 240, 120],
+      timestamp: [150, 145, 160],
+      timestampHover: [255, 240, 120],
+      heart: [255, 210, 230],
+    },
+  },
+  realtime: realtimeTheme(), // 🌅 ambient — see realtimeTheme / realtimeTick
+};
+
+export function isTema(name) {
+  return typeof name === "string" && Object.hasOwn(LAK_THEMES, name);
+}
+
+// 👗 Which tema to wear. A colon or `~` token pins one (`laklok:nat`,
+// `amail~skov` — shareable themed URLs); otherwise whatever the store already
+// has synchronously, falling back to `ler`. The retrieved store settles later
+// — see restoreTema.
+export function pickTema(tokens, store) {
+  const pinned = (tokens || []).find((t) => isTema(t));
+  if (pinned) return { name: pinned, pinned: true };
+  return { name: isTema(store[TEMA_KEY]) ? store[TEMA_KEY] : "ler", pinned: false };
+}
+
+// `store.retrieve` resolves via .then — awaiting it in boot stalls the piece
+// (see cal.mjs for the same pattern). Hands the saved tema over when it lands,
+// or null if a token already pinned one or nothing was saved.
+export function restoreTema(store, pinned, onTema) {
+  store.retrieve(TEMA_KEY).then((v) => onTema(!pinned && isTema(v) ? v : null));
+}
+
+export function saveTema(store, name) {
+  store[TEMA_KEY] = name;
+  store.persist(TEMA_KEY);
+}
+
+// 📊 Theme census — tell /api/laklok-theme which tema this visitor is on (boot
+// = heartbeat, chip tap = switch). Needs a login; anonymous visitors are not
+// counted. Fire-and-forget: the room never waits on it.
+export function reportTema(net, name) {
+  net.userRequest("POST", "/api/laklok-theme", { theme: name });
+}
+
+// 📱 A QR's cells for a url, or null when the encoder balks.
+export function makeQR(url) {
+  try {
+    return qr(url, { errorCorrectLevel: ErrorCorrectLevel.L }).modules;
+  } catch (e) {
+    console.error("QR generation failed:", url, e);
+    return null;
+  }
+}
+
+// 1px per cell on a `paper` ground with a 1px border of the same. The two
+// rooms use different paper so their corners read apart at a glance.
+export function paintQR($, cells, x, y, paper = [255, 255, 255]) {
+  const { ink } = $;
+  const size = cells.length;
+  ink(...paper).box(x, y, size + 2, size + 2);
+  for (let cy = 0; cy < size; cy++) {
+    for (let cx = 0; cx < size; cx++) {
+      if (cells[cy][cx]) ink(0, 0, 0).box(x + 1 + cx, y + 1 + cy, 1, 1);
+    }
+  }
+  return { x, y, w: size + 2, h: size + 2 };
+}
+
+// ⚙️ The settings toggle — a little hamburger. Returns its padded hit box.
+export const GEAR = 13;
+export function paintGear($, x, y, open) {
+  const { ink } = $;
+  ink(open ? [255, 240, 120] : [255, 255, 255, 200]).box(x, y, GEAR, GEAR, "outline");
+  const lineCol = open ? [255, 240, 120] : [255, 255, 255, 220];
+  for (let li = 0; li < 3; li++) {
+    ink(...lineCol).box(x + 3, y + 3 + li * 3, GEAR - 6, 1);
+  }
+  return { x: x - 2, y: y - 2, w: GEAR + 4, h: GEAR + 4 };
+}
+
+// 📬 The envelope — shut and grey when the box is empty, lit teal with its
+// flap open when something is waiting. Same palette as the prompt curtain.
+export const ENVELOPE = { w: 15, h: 10 };
+export function paintEnvelope($, x, y, { lit = false, hot = false, down = false } = {}) {
+  const { ink, line } = $;
+  const { w, h } = ENVELOPE;
+  const fill = down
+    ? [0, 80, 100, 235]
+    : lit
+      ? hot ? [0, 150, 175, 230] : [0, 120, 140, 210]
+      : hot ? [40, 46, 58, 205] : [26, 30, 38, 170];
+  const edge = down
+    ? [210, 255, 255]
+    : lit
+      ? hot ? [200, 255, 255] : [120, 255, 255]
+      : hot ? [150, 162, 186] : [80, 88, 104];
+  ink(fill).box(x, y, w, h);
+  ink(edge).box(x, y, w, h, "outline");
+  ink(lit || hot ? [190, 255, 255] : [60, 66, 80]);
+  line(x, y, x + (w >> 1), y + (h >> 1));
+  line(x + w - 1, y, x + (w >> 1), y + (h >> 1));
+}
+
+// 🔴 A red count badge. MatrixChunky8 digits are 3×7 at rows 0–6 of their
+// cell; 11 tall with the glyph at +2 gives them two clear pixels above and
+// below. Returns its width so a caller can centre the cluster it sits on.
+export const BADGE_H = 11;
+export function badgeWidth(label) {
+  return label.length * 4 + 5;
+}
+export function paintBadge($, x, y, label, hot = false) {
+  const { ink } = $;
+  const w = badgeWidth(label);
+  ink(hot ? [255, 60, 70] : [220, 30, 40]).box(x, y, w, BADGE_H);
+  ink(hot ? [255, 180, 185] : [255, 120, 130]).box(x, y, w, BADGE_H, "outline");
+  ink(255, 240, 240).write(label, { x: x + 3, y: y + 2 }, undefined, undefined, false, "MatrixChunky8");
+  return w;
+}
+
+// ⚙️ The indstillinger pane — rows of chips hung from the top-right under the
+// corner chrome. `rows` is [{ label, chips: [{ text, selected, action }] }].
+// Returns the chip hit boxes, with the pane's own bounds on `.pane` so act()
+// can tell a tap inside from a tap that should close it.
+export function paintTemaPane($, { theme, rows, right, top }) {
+  const { ink } = $;
+  const hits = [];
+
+  const chipH = 11;
+  const rowH = 16;
+  const padX = 6;
+  const labelW = 34;
+  const chipFont = "MatrixChunky8";
+  const chipW = (t) => t.length * 5 + 8;
+
+  let paneW = 0;
+  for (const row of rows) {
+    let w = labelW;
+    for (const chip of row.chips) w += chipW(chip.text) + 4;
+    paneW = Math.max(paneW, w);
+  }
+  paneW += padX * 2;
+  const paneH = rows.length * rowH + 14 + 8;
+  const paneX = Math.max(2, right - paneW);
+  const paneY = top;
+
+  ink(theme.stripeA[0], theme.stripeA[1], theme.stripeA[2], 245).box(paneX, paneY, paneW, paneH);
+  ink(255, 240, 120).box(paneX, paneY, paneW, paneH, "outline");
+  ink(255, 240, 120).write("indstillinger", { x: paneX + padX, y: paneY + 4 }, undefined, undefined, false, chipFont);
+
+  let rowY = paneY + 14 + 4;
+  for (const row of rows) {
+    ink(255, 255, 255, 180).write(row.label, { x: paneX + padX, y: rowY + 2 }, undefined, undefined, false, chipFont);
+    let chipX = paneX + padX + labelW;
+    for (const chip of row.chips) {
+      const w = chipW(chip.text);
+      if (chip.selected) {
+        ink(255, 240, 120).box(chipX, rowY, w, chipH);
+        ink(20, 10, 6).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
+      } else {
+        ink(255, 255, 255, 120).box(chipX, rowY, w, chipH, "outline");
+        ink(255, 255, 255, 200).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
+      }
+      hits.push({ x: chipX, y: rowY, w, h: chipH, action: chip.action });
+      chipX += w + 4;
+    }
+    rowY += rowH;
+  }
+
+  hits.pane = { x: paneX, y: paneY, w: paneW, h: paneH };
+  return hits;
+}
+
+// The tema row every room's pane starts with.
+export function temaRow(current) {
+  return {
+    label: "tema",
+    chips: Object.keys(LAK_THEMES).map((name) => ({
+      text: name,
+      selected: current === name,
+      action: { type: "theme", value: name },
+    })),
+  };
+}
