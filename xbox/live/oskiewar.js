@@ -1571,6 +1571,69 @@ let renderFlags = {};
 // Temporary live combat inspector. Keep this explicit so the production view
 // can return to a clean presentation without changing combat geometry.
 let debugHitboxes = false;
+// The frame meter, the way a training mode has one: one pip per simulation
+// frame, colored by what the fighter was DOING on that frame, so a player can
+// read an exchange back instead of guessing at it.
+//
+// Street Fighter 6's legend, kept because it is the one people already know:
+// green is startup, red is active, blue is recovery, yellow is stun. What
+// those mean HERE is a question about this game rather than that one, and the
+// honest answers are not all flattering:
+//
+//   startup  — structurally zero. `startMelee` sets `attackUntil` and
+//              `resolveMelee` gates on nothing but `now < attackUntil`, so a
+//              strike is live on the frame it is thrown. The meter computes
+//              the phase anyway, so the day an anticipation window is added
+//              it lights up on its own rather than needing to be remembered.
+//   active   — the swing can still connect: inside the window, nothing hit.
+//   recovery — the swing is spent. `attackHit` makes a strike land once, so
+//              the rest of its window is a limb hanging out that cannot hurt
+//              anybody, which is exactly what recovery is and exactly what a
+//              player needs to see to know they are being punished for it.
+//   stun     — `hitStunUntil`, hit or shield-broken alike.
+//
+// Shielding gets a color of its own because holding a shield is a stance in
+// this game rather than a reaction, and folding it into stun would say
+// something false about who is in control.
+const frameMeterLength = 120;
+const frameMeterStates = {
+  neutral:  { ink: [92, 100, 124], label: "" },
+  startup:  { ink: [86, 226, 120], label: "STARTUP" },
+  active:   { ink: [255, 66, 72], label: "ACTIVE" },
+  recovery: { ink: [72, 150, 255], label: "RECOVERY" },
+  stun:     { ink: [255, 208, 64], label: "STUN" },
+  shield:   { ink: [186, 118, 255], label: "SHIELD" },
+  airborne: { ink: [54, 62, 86], label: "" },
+};
+const frameMeters = [[], []];
+// What a fighter is on this exact frame, in one word. Ordered by what beats
+// what: being stunned outranks anything you were trying to do, and a swing
+// outranks the shield you are no longer really holding.
+function frameMeterState(player, now) {
+  if (!player.alive) return "neutral";
+  if (now < player.hitStunUntil) return "stun";
+  if (player.attackKind && now < player.attackUntil) {
+    if (player.attackHit) return "recovery";
+    // Kept for the day a startup window exists. `meleeActiveFrom` is zero
+    // today, so this never fires and the meter tells the truth about that.
+    if (now < player.attackStartedAt + meleeActiveFrom) return "startup";
+    return "active";
+  }
+  if (player.blocking) return "shield";
+  if (!player.grounded) return "airborne";
+  return "neutral";
+}
+// Zero, and named rather than absent, so the absence is a decision somebody
+// can find instead of a gap somebody has to infer.
+const meleeActiveFrom = 0;
+function recordFrameMeter(now) {
+  if (!debugHitboxes) return;
+  for (const player of players) {
+    const meter = frameMeters[player.pad];
+    meter.push(frameMeterState(player, now));
+    if (meter.length > frameMeterLength) meter.shift();
+  }
+}
 // One FIGHT_DEBUG_PERF telemetry line per debug toggle, so the console's log
 // can prove the fps row drew without narrating every frame.
 let debugPerfReported = false;
@@ -5615,6 +5678,9 @@ function resetRound(now, resetMatch = false) {
     tree.y = terrainFloorAt(tree.x) - 60;
   }
   gridField.fill(0);
+  // A new round is a new exchange. Carrying the last one's frames across the
+  // bell would draw a history that never happened.
+  for (const meter of frameMeters) meter.length = 0;
   nextPowerupAtUs = powerupIntervalUs;
   powerupSequence = 0;
   roundResult = "";
@@ -9287,6 +9353,9 @@ function gameSim() {
     updateGrenades(dt, now);
     resolveMelee(now);
     resolvePogoAttacks(now);
+    // After the exchange resolves, so a frame that landed a hit reads as the
+    // recovery it has become rather than as the active frame it was.
+    recordFrameMeter(now);
     for (const item of balls) updateBall(item, dt, now);
     updateDetachedParts(dt);
     updateCamera(dt);
@@ -11698,17 +11767,24 @@ function drawDebugHitboxes(player, t) {
   const world = player.replayGeometry || player.frozenGeometry ||
     runnerWorldGeometry(player, t);
   const geometry = projectRunnerWorldGeometry(world);
-  const bodyColor = [58, 222, 255];
-  const headColor = [255, 62, 82];
-  const pushColor = [105, 255, 118];
-  const attackColor = [255, 86, 220];
+  // Training-mode box colors, in the arrangement every fighting game has
+  // agreed on and every hitbox site draws: GREEN is what can be hit, RED is
+  // what is hitting, ORANGE is the space the body occupies. The old palette
+  // said cyan limbs, a red head and a green box, which is the same three
+  // facts wearing the wrong three colors -- red on the head in particular
+  // read as "this is the dangerous part" when the head is the most
+  // vulnerable part there is.
+  const hurtColor = [82, 226, 116];
+  const pushColor = [255, 158, 54];
+  const attackColor = [255, 58, 64];
+  const spentColor = [72, 150, 255];
 
   for (const segment of geometry.segments)
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-      Math.max(2, segment.width * .22), bodyColor);
+      Math.max(2, segment.width * .22), hurtColor);
   filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
     Math.max(0, geometry.head.radius - Math.max(2,
-      geometry.head.radius * .12)), headColor);
+      geometry.head.radius * .12)), hurtColor);
 
   const halfWidth = player.ducking ? 76 : 62;
   const top = player.y - (player.ducking ? 132 : 174);
@@ -11726,11 +11802,77 @@ function drawDebugHitboxes(player, t) {
 
   const displayNow = player.frozenAt || now;
   if (player.attackKind && displayNow < player.attackUntil) {
+    // A swing that has already landed is drawn in recovery blue rather than
+    // hitbox red, because `attackHit` means it cannot hurt anybody again --
+    // and a red box that cannot hit is the single most misleading thing a
+    // training overlay can show you.
+    const live = !player.attackHit;
     for (const segment of geometry.segments) {
       if (!segment.role?.startsWith("attack-")) continue;
       filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-        segment.width + 5, attackColor);
+        segment.width + 5, live ? attackColor : spentColor);
     }
+  }
+}
+
+// The frame meter. One pip per simulation frame, oldest on the left, the
+// frame happening now at the right edge -- so an exchange reads left to
+// right the way it happened, and the thing you just did is under your eye
+// rather than across the screen.
+//
+// Two rows, one per fighter, stacked so the frames line up vertically: that
+// column alignment IS the instrument. Reading "my recovery sits under their
+// active" off two rows is the whole reason a frame meter exists, and it is
+// why this is a stacked pair rather than one row per player somewhere
+// convenient.
+function drawFrameMeter() {
+  if (!debugHitboxes || renderFlags.hud === false) return;
+  if (!frameMeters.some((meter) => meter.length)) return;
+  const safe = hudSafeRect();
+  const pip = Math.max(2, Math.min(7, Math.floor(
+    (safe.right - safe.left) * .55 / frameMeterLength) - 1));
+  const gap = pip > 3 ? 1 : 0;
+  // Tall enough to read a color at a glance. The pips are the resolution;
+  // the row height is only whether you can see them, and a meter you have to
+  // lean toward is a meter nobody reads mid-fight.
+  const rowHeight = Math.max(11, pip * 2);
+  const width = frameMeterLength * (pip + gap);
+  // Centred, and lifted clear of the bottom furniture -- the session name,
+  // the bug and the opponent label all live along that edge, and the first
+  // placement laid the meter straight across them.
+  const left = Math.round((safe.left + safe.right - width) / 2);
+  const top = safe.bottom - rowHeight * 2 - 58;
+  for (const player of players) {
+    const meter = frameMeters[player.pad];
+    const y = top + player.pad * (rowHeight + 3);
+    // The empty track, so a meter that has not filled yet reads as a meter
+    // rather than as nothing having happened.
+    box(left, y, width, rowHeight, 16, 19, 30);
+    for (let index = 0; index < meter.length; index++) {
+      const state = frameMeterStates[meter[index]] || frameMeterStates.neutral;
+      // Right-aligned: the newest frame pins to the right edge and the
+      // history slides left off the front, which is what makes the present
+      // moment sit still while the past moves.
+      const x = left + width - (meter.length - index) * (pip + gap);
+      box(x, y, pip, rowHeight, ...state.ink);
+    }
+    // Whose row this is, in their own color, at the left end where it cannot
+    // sit on top of the frames anybody is actually reading.
+    typeWrite("P" + (player.pad + 1), left - 30, y, 15, ...player.color);
+  }
+  // The legend, once, above the pair -- and only the states the last two
+  // seconds actually contained, because a legend listing colors that are not
+  // on screen is a thing to decode rather than a thing to read.
+  const seen = [];
+  for (const meter of frameMeters) for (const state of meter)
+    if (!seen.includes(state) && frameMeterStates[state]?.label)
+      seen.push(state);
+  let x = left;
+  for (const state of seen) {
+    const entry = frameMeterStates[state];
+    box(x, top - 17, 9, 9, ...entry.ink);
+    typeWrite(entry.label, x + 13, top - 19, 13, 168, 178, 200);
+    x += 20 + entry.label.length * 8;
   }
 }
 
@@ -14340,6 +14482,11 @@ function gamePaint() {
   drawBallHitboxes();
   drawSafeZones();
   triangleDepth = -1.42;
+  // On the SCREEN UI layer, not the debug-geometry one above it. The meter is
+  // an instrument being read rather than scenery in the room, and the layering
+  // test is what caught it sitting at the debug depth where a tall enough
+  // piece of world could have drawn straight through it.
+  drawFrameMeter();
   drawImpacts();
   const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
