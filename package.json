@@ -50,6 +50,7 @@
     "xbox:test:oskiewar:rejoin": "node xbox/live/tests/netplay-rejoin.mjs",
     "xbox:watch:reel": "node xbox/live/marketing/reel-watch.mjs",
     "oskiewar:cull": "node xbox/live/marketing/reel.mjs --insights && node xbox/live/marketing/trim.mjs",
+    "xbox:test:oskiewar:release": "node --test xbox/tools/oskiewar-release.test.mjs",
     "xbox:burn:oskiewar-social": "node xbox/live/render-social-preview.mjs",
     "xbox:check:oskiewar-social": "node xbox/live/render-social-preview.mjs --check",
     "oskiewar:mac:build": "sh xbox/tools/build-macos-app.sh",

@@ -4,6 +4,8 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
+import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +49,57 @@ function run(command, args, options = {}) {
 }
 
 function git(...args) { return run("git", args, { capture: true }).trim(); }
+
+// Where the console lives, read from the same file `live.mjs` reads so the
+// release and the transport can never disagree about which box they mean.
+// A missing config is not a missing console: it is a machine that was never
+// set up to talk to one, and it answers the same way — not here, not broken.
+const devicePortalEnv = () => {
+  const path = process.env.XBOX_DEVICE_PORTAL_ENV || resolve(homedir(),
+    "aesthetic-computer/aesthetic-computer-vault/xbox/device-portal.env");
+  const config = {};
+  if (existsSync(path)) for (const raw of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const match = raw.trim().match(/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match || raw.trim().startsWith("#")) continue;
+    let value = match[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    config[match[1]] = value;
+  }
+  const merged = { ...config, ...process.env };
+  return { host: merged.XBOX_DEVICE_PORTAL_HOST,
+    port: Number(merged.XBOX_DEVICE_PORTAL_PORT || 11443) };
+};
+
+// Is the console awake? A plain TCP connect, with a short fuse.
+//
+// This exists because a switched-off Xbox is not a failed deployment, and the
+// release used to record it as one: `live.mjs` curls the Device Portal, curl
+// spends seventy-five seconds discovering there is nothing at the other end,
+// and the channel lands as "failed · node exited 1" — which reads, in a
+// receipt somebody checks later, exactly like a console that rejected the
+// build. The two need to be distinguishable, because one of them is a
+// problem and the other is a console in a cupboard.
+//
+// Two seconds is long enough for a device on the same LAN and short enough
+// that nobody waits on it. Being unable to answer quickly IS the answer.
+export function probeDevicePortal({ host, port }, timeout = 2000) {
+  if (!host) return Promise.resolve({ reachable: false, reason:
+    "no Device Portal configured on this machine" });
+  return new Promise((settle) => {
+    const socket = connect({ host, port });
+    const done = (reachable, reason) => {
+      socket.destroy();
+      settle({ reachable, reason, host, port });
+    };
+    socket.setTimeout(timeout);
+    socket.once("connect", () => done(true, ""));
+    socket.once("timeout", () => done(false,
+      `${host}:${port} did not answer within ${timeout}ms`));
+    socket.once("error", (error) => done(false,
+      `${host}:${port} ${error.code || error.message}`));
+  });
+}
 function readReceipt() {
   if (!existsSync(receiptPath)) return null;
   try { return JSON.parse(readFileSync(receiptPath, "utf8")); } catch { return null; }
@@ -119,18 +172,39 @@ async function reconcile(receipt, { dryRun = false } = {}) {
 
   if (receipt.channels.xbox.status !== "current") {
     if (dryRun) console.log("would deploy Xbox live source");
-    else try {
-      run("node", ["xbox/tools/live.mjs", "deploy", "xbox/live/oskiewar.js"]);
-      mark(receipt, "xbox", "current", "Device Portal accepted source and launch");
-    } catch (error) { mark(receipt, "xbox", "failed", error.message); }
+    else {
+      // Ask whether the console is there before spending a minute and a
+      // quarter finding out the hard way, and before writing "failed" over a
+      // channel that has nothing wrong with it.
+      const probe = await probeDevicePortal(devicePortalEnv());
+      if (!probe.reachable) {
+        console.log(`→ xbox offline (${probe.reason}); skipping that channel`);
+        mark(receipt, "xbox", "offline", probe.reason);
+      } else try {
+        run("node", ["xbox/tools/live.mjs", "deploy", "xbox/live/oskiewar.js"]);
+        mark(receipt, "xbox", "current", "Device Portal accepted source and launch");
+      } catch (error) { mark(receipt, "xbox", "failed", error.message); }
+    }
   }
   return receipt;
 }
 
+// `parity` is still every channel current — an offline console has not got the
+// build, and saying otherwise would make the receipt lie. What changes is that
+// the run can now say the difference out loud: `blocked` is channels that
+// actually went wrong, and it being empty is what "nothing is broken here"
+// looks like when the Xbox is simply asleep.
 function print(receipt, current = null) {
-  console.log(JSON.stringify({ current, receipt, parity: receipt
-    ? channels.every((name) => receipt.channels[name]?.status === "current")
-    : false }, null, 2));
+  const status = (name) => receipt?.channels?.[name]?.status;
+  const blocked = receipt ? channels.filter((name) => status(name) === "failed") : [];
+  const offline = receipt ? channels.filter((name) => status(name) === "offline") : [];
+  console.log(JSON.stringify({ current, receipt,
+    parity: receipt && channels.every((name) => status(name) === "current"),
+    blocked, offline }, null, 2));
+  if (offline.length && !blocked.length)
+    console.log(`\nNothing failed. ${offline.join(", ")} ` +
+      `${offline.length === 1 ? "is" : "are"} offline — ` +
+      "turn it on and `npm run oskiewar:reconcile` will catch it up.");
 }
 
 async function main() {
@@ -155,6 +229,14 @@ async function main() {
       current.severity, previous);
     receipt.desired.development = true;
     save(receipt);
+    // Asking for the Xbox explicitly and finding it asleep IS a failure of
+    // what you asked for — unlike the unified deploy, there is no other
+    // channel here to succeed. It still says which of the two happened.
+    const probe = await probeDevicePortal(devicePortalEnv());
+    if (!probe.reachable) {
+      mark(receipt, "xbox", "offline", probe.reason);
+      throw new Error(`Xbox is offline: ${probe.reason}`);
+    }
     try {
       run("node", ["xbox/tools/live.mjs", "deploy", "xbox/live/oskiewar.js"]);
       mark(receipt, "xbox", "current", "explicit uncommitted Xbox development release");
