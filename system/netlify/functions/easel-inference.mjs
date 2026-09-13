@@ -178,10 +178,19 @@ export const handler = stream(async (event) => {
                 const json = JSON.parse(line.slice(6));
                 const usage = json?.usage || json?.message?.usage;
                 if (usage) {
+                  // Charge what it costs, not what it counts. A cached prefix
+                  // reads at about a tenth of the price of fresh input, and
+                  // billing it at par undoes the caching entirely: the guides
+                  // are six thousand tokens re-sent every round, so counting
+                  // them at full rate spends a day's allowance in three
+                  // questions whether or not the provider charged for them.
                   spent =
                     (usage.input_tokens || 0) +
                     (usage.output_tokens || 0) +
-                    (usage.cache_read_input_tokens || 0);
+                    Math.round((usage.cache_read_input_tokens || 0) * 0.1) +
+                    // Writing the cache costs slightly more than fresh input,
+                    // once, and then pays for itself.
+                    Math.round((usage.cache_creation_input_tokens || 0) * 1.25);
                 }
               } catch {}
             }

@@ -119,8 +119,20 @@ test("the guides travel in the prompt, because this bridge has no file tools", a
   engine.token = async () => "tok";
   await engine.connect();
   await engine.startTurn("hi");
-  assert.match(sent.system, /INSTRUCTIONS/);
-  assert.match(sent.system, /pieces\.md/, "the piece guide is inlined, not named");
-  assert.ok(sent.system.length > 5000, "the bundle actually travels");
+  const guides = sent.system.find((block) => /pieces\.md/.test(block.text));
+  const instructions = sent.system.find((block) => /INSTRUCTIONS/.test(block.text));
+  assert.ok(guides, "the piece guide is inlined, not named");
+  assert.ok(instructions, "the session's own instructions travel too");
+  assert.ok(guides.text.length > 5000, "the bundle actually travels");
   assert.equal(sent.tools[0].name, "write_piece");
+
+  // The bundle is ~6,000 tokens and is re-sent on every round of the tool loop.
+  // Uncached it costs a whole day's allowance in three questions, so the
+  // breakpoint is not an optimisation — it is what makes the free tier exist.
+  assert.deepEqual(guides.cache_control, { type: "ephemeral" }, "the guides are cached");
+  assert.equal(instructions.cache_control, undefined, "the changing half is not");
+  assert.ok(
+    sent.system.indexOf(guides) < sent.system.indexOf(instructions),
+    "the stable prefix comes first, or the cache breaks on every session",
+  );
 });

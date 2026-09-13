@@ -299,4 +299,48 @@ export class ACSession extends EventEmitter {
     mkdirSync(dirname(this.file), { recursive: true });
     writeFileSync(this.file, `${JSON.stringify(record, null, 2)}\n`, { mode: 0o600 });
   }
+
+  // Claim an @handle for a signed-in account that has none.
+  //
+  // The rules are the server's, mirrored here only so a typo comes back in the
+  // same second rather than after a round trip: letters and digits, separated
+  // by single dots or underscores, sixteen characters at most.
+  //
+  // The server additionally requires a verified email, which a brand-new
+  // account does not have until the confirmation link is clicked. That refusal
+  // is passed through in the server's own words rather than guessed at, because
+  // "check your email" and "that name is taken" are different problems and the
+  // caller cannot tell them apart from a status code.
+  async claimHandle(name) {
+    const handle = String(name || "").trim().replace(/^@/, "");
+    if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle)) {
+      throw new Error("Handles are letters and digits, joined by single dots or underscores.");
+    }
+    if (handle.length > 16) throw new Error("Handles are at most 16 characters.");
+
+    const token = await this.token();
+    const response = await this.fetch(`${this.site}/handle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ handle }),
+    });
+    let body = null;
+    try {
+      body = await response.json();
+    } catch {}
+    if (!response.ok) {
+      throw new Error(body?.message || `could not claim @${handle} (HTTP ${response.status})`);
+    }
+
+    // Write it into the token file so the header and every later request agree
+    // with the server without waiting for the next sign-in.
+    const record = this.read();
+    if (record) {
+      record.user = { ...(record.user || {}), handle };
+      this.#write(record);
+    }
+    this.emit("change", this.state());
+    return handle;
+  }
+
 }

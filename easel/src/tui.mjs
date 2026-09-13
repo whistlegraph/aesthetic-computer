@@ -704,7 +704,9 @@ async function commandLogin() {
     updateEntry(
       id,
       "notice",
-      handle ? `Signed in as @${handle}` : "Signed in · claim a handle at aesthetic.computer/handle",
+      handle
+        ? `Signed in as @${handle}`
+        : "Signed in · you have no handle yet. Type /handle <name> to claim one — it is what pays for hosted inference and what your pieces publish under.",
     );
   } catch (error) {
     updateEntry(id, "error", `Sign-in failed: ${errorText(error)}`);
@@ -870,6 +872,31 @@ async function submitInput() {
       state.entries = [];
       return redraw();
     }
+    if (command === "/handle") {
+      if (!session.signedIn) {
+        addEntry("notice", "Sign in first with /login.");
+        return redraw();
+      }
+      if (!rest) {
+        addEntry(
+          "notice",
+          session.handle
+            ? `You are @${session.handle}.`
+            : "No handle yet. /handle <name> claims one — letters and digits, up to 16.",
+        );
+        return redraw();
+      }
+      const claiming = addEntry("notice", `Claiming @${rest.replace(/^@/, "")}…`);
+      redraw();
+      try {
+        const claimed = await session.claimHandle(rest);
+        refreshAccount();
+        updateEntry(claiming, "notice", `You are @${claimed}. Pieces publish at aesthetic.computer/@${claimed}/…`);
+      } catch (error) {
+        updateEntry(claiming, "error", errorText(error));
+      }
+      return redraw();
+    }
     if (command === "/update") {
       if (!installed()) {
         addEntry("notice", `Easel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
@@ -895,7 +922,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /update · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /handle [name] · /update · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }

@@ -114,9 +114,32 @@ export class AcServer extends EventEmitter {
     this.controller = null;
   }
 
+  // The system prompt, as blocks rather than a string, so the guides can be
+  // marked cacheable.
+  //
+  // This matters more than it looks. The bundle is about six thousand tokens and
+  // it is re-sent on every round of the tool loop — a first measurement spent
+  // 6,786 tokens answering "fill the screen with red", which at a 25,000-token
+  // day is three questions. Cached, that prefix is read at roughly a tenth the
+  // price and the same day holds dozens.
+  //
+  // The order is deliberate: the guides are identical for every session and go
+  // first, so the cache breakpoint falls after them and a changing instruction
+  // line cannot invalidate the expensive half.
   get #system() {
+    const blocks = [];
     const context = bundledContext();
-    return [this.developerInstructions, context].filter(Boolean).join("\n\n");
+    if (context) {
+      blocks.push({
+        type: "text",
+        text: context,
+        cache_control: { type: "ephemeral" },
+      });
+    }
+    if (this.developerInstructions) {
+      blocks.push({ type: "text", text: this.developerInstructions });
+    }
+    return blocks;
   }
 
   async connect() {

@@ -23,12 +23,24 @@ import { connect } from "./database.mjs";
 
 const COLLECTION = "ai-usage";
 
-// Tokens per handle per UTC day. Sized against the models a handle can actually
-// reach: ~25k tokens of gpt-4o is on the order of ten cents, so a day's ceiling
-// is a few dollars a month per active handle rather than a few tens. It is a
-// starting number chosen before there is real usage data to choose from, which
-// is why it is an environment variable and not a constant in a branch.
-export const DAILY_TOKEN_BUDGET = Number(process.env.AI_DAILY_TOKEN_BUDGET) || 25_000;
+// Tokens per handle per UTC day.
+//
+// 25,000 was the first guess and it was sized for chat: one question to
+// /api/ask and one answer. Easel's bridge is an agentic loop carrying six
+// thousand tokens of Aesthetic Computer guides, and against that a
+// 25,000-token day was three questions — measured, not estimated. The first
+// real session spent 6,786 tokens filling the screen with red, and the second
+// hit the ceiling.
+//
+// 200,000 is priced from the models a handle can actually reach rather than
+// picked for feeling generous. At GLM-4.6's $0.43/M in and $1.75/M out that is
+// about fifteen cents a day, or four and a half dollars a month for a handle
+// that spends all of it every day — and almost none will. Cached prefixes are
+// metered at a tenth, so the real ceiling in raw tokens is several times this.
+//
+// Still an environment variable, because this wants a month of real usage to
+// choose properly and has now been wrong once.
+export const DAILY_TOKEN_BUDGET = Number(process.env.AI_DAILY_TOKEN_BUDGET) || 200_000;
 
 // The UTC day a usage document belongs to. UTC rather than local time so a
 // handle does not get two budgets by flying east, and so the bucket a request
