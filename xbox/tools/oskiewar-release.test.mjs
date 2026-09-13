@@ -79,3 +79,57 @@ test("asking for the Xbox explicitly still fails when it is asleep", () => {
   // is a failure of what was asked for — it just says which kind.
   assert.match(source, /throw new Error\(`Xbox is offline: \$\{probe\.reason\}`\)/);
 });
+
+// ── The release stamp ──────────────────────────────────────────────────────
+// `stampBuildVersion` writes, reburns, commits and pushes, so it is not
+// callable from a test without doing all four to this checkout. What IS
+// testable is the arithmetic and the ordering it rests on, which is where the
+// mistakes live: an off-by-one here publishes a version number that disagrees
+// with the code behind it, which is the exact fault the stamp exists to fix.
+
+test("the stamp counts its own commit", () => {
+  const stamp = source.match(/function stampBuildVersion[\s\S]*?\n}\n/)[0];
+  // Counted from the CLEAN tree before the write dirties it, and +1 because
+  // the stamp's own commit is the one that takes the count there.
+  assert.match(stamp, /const next = current\.expectedBuild \+ 1;/);
+  // `expectedBuild` itself already adds 1 when the tree is dirty, so reading
+  // it after the write would double-count.
+  const wroteAt = stamp.indexOf("writeFileSync(sourcePath");
+  const countedAt = stamp.indexOf("current.expectedBuild + 1");
+  assert.ok(countedAt < wroteAt,
+    "the count must be taken before the file is written");
+});
+
+test("the stamp refuses to move a version backwards", () => {
+  const stamp = source.match(/function stampBuildVersion[\s\S]*?\n}\n/)[0];
+  assert.match(stamp, /current\.build > current\.expectedBuild/);
+  assert.match(stamp, /is AHEAD of its/);
+  // And does nothing at all when there is nothing to do.
+  assert.match(stamp, /if \(current\.build === current\.expectedBuild\) return current;/);
+});
+
+test("the stamp carries the hash-bound social preview with it", () => {
+  const stamp = source.match(/function stampBuildVersion[\s\S]*?\n}\n/)[0];
+  const burnedAt = stamp.indexOf("render-social-preview.mjs");
+  const committedAt = stamp.indexOf('"commit"');
+  assert.ok(burnedAt > 0 && burnedAt < committedAt,
+    "the preview is reburned before the commit, or the deploy trades one refusal for another");
+  assert.match(stamp, /"xbox\/live\/oskiewar\.js", "xbox\/live\/social"/);
+});
+
+test("the stamp pushes, because lith deploys pushed state only", () => {
+  const stamp = source.match(/function stampBuildVersion[\s\S]*?\n}\n/)[0];
+  assert.match(stamp, /run\("git", \["push"\]\)/);
+  // A new commit, never an amend: HEAD here is usually already pushed, and
+  // another session commits into this same checkout.
+  assert.doesNotMatch(stamp, /--amend/);
+  // And it verifies the stamp actually landed rather than assuming.
+  assert.match(stamp, /stamp landed at v/);
+});
+
+test("--no-bump keeps the old refusal available", () => {
+  assert.match(source, /args\.includes\("--no-bump"\) \? current/);
+  assert.match(source, /drop --no-bump to stamp it/);
+  // A dry run never writes, commits or pushes anything.
+  assert.match(source, /: dryRun \? current : stampBuildVersion\(current, previous\)/);
+});

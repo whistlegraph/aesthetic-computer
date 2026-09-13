@@ -144,9 +144,11 @@ at all. `reel.mjs --report` rolls it up per market.
 
 `node xbox/live/marketing/trim.mjs` reports underperformers without contacting
 Instagram: live reels from the last 30 days, at least 24 hours old, with fewer
-than 500 measured views. Missing insights are protected. After a human has
-confirmed and completed deletion in Instagram's own activity tool, record the
-exact media ids locally:
+than 1,000 measured views (`trimPolicy.maxViews`). Missing insights are
+protected, and each candidate prints its `permalink` — the address the
+deletion actually happens at, which `reel.mjs --insights` fills in. After a
+human has confirmed and completed deletion in Instagram's own activity tool,
+record the exact media ids locally:
 
 ```sh
 node xbox/live/marketing/trim.mjs --record-deleted 123,456 --confirmed-web-delete

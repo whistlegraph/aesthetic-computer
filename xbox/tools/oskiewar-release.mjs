@@ -151,6 +151,69 @@ async function verifyWeb(hash) {
   if (actual !== hash) throw new Error(`web hash ${actual.slice(0, 12)} != ${hash.slice(0, 12)}`);
 }
 
+// The version stamp, stamped.
+//
+// `buildVersion` is the piece's own count of committed revisions to itself,
+// the release gate compares it against `git rev-list --count`, and nothing
+// moved it — so it drifted every time anybody committed to oskiewar.js without
+// remembering, and the deploy refused. Twice in one afternoon. Both times the
+// piece had been telling players an old version in the corner of the title
+// screen while running new code, which is the part that actually matters: the
+// number is on screen, and a stale one makes every bug report cite a build
+// that is not the build.
+//
+// The gate already knew both numbers at the moment it refused. So it stamps.
+//
+// A NEW commit rather than an amend, which is what I first reached for: the
+// count is a count of commits, so an amend has to reason about whether HEAD
+// already touched this file, and — the real objection — HEAD here is usually
+// already pushed, and rewriting pushed history in a checkout that has another
+// session committing into it is a way to lose somebody's work.
+//
+// It pushes, and it has to. `lith/deploy.fish` deploys from pushed git state
+// only — it resets the box to `origin/main` — so a bump that stayed local
+// would ship the old bytes and then fail its own hash verification, which is
+// a worse failure than the one being fixed.
+function stampBuildVersion(current, previous = null) {
+  if (current.build === current.expectedBuild) return current;
+  if (current.build > current.expectedBuild)
+    throw new Error(`Oskiewar build v${current.build} is AHEAD of its ` +
+      `revision count v${current.expectedBuild}; that is not drift, and it ` +
+      "wants a person");
+
+  // Counted from the clean tree, before the write below dirties it: the
+  // stamp's own commit is the one that takes the count to this number.
+  const next = current.expectedBuild + 1;
+  console.log(`→ stamping oskiewar v${current.build ?? "?"} → v${next}`);
+  const bytes = readFileSync(sourcePath, "utf8");
+  const stamped = bytes.replace(/const buildVersion = \d+;/,
+    `const buildVersion = ${next};`);
+  if (stamped === bytes)
+    throw new Error("could not find `const buildVersion = <n>;` to stamp");
+  writeFileSync(sourcePath, stamped);
+
+  // The social preview is hash-bound to these bytes and the deploy checks it,
+  // so the stamp has to carry it along or it just trades one refusal for
+  // another.
+  run("node", ["xbox/live/render-social-preview.mjs"]);
+  run("git", ["add", "xbox/live/oskiewar.js", "xbox/live/social"]);
+  run("git", ["commit", "-m", `oskiewar v${next}: release stamp`, "-m",
+    "`buildVersion` is the piece's count of committed revisions to itself and " +
+    "the number the title screen shows. Stamped by the release rather than " +
+    "by remembering, so the corner of the screen cannot disagree with the " +
+    "code behind it.\n\n" +
+    "Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"]);
+  run("git", ["push"]);
+
+  // Restated against the SAME baseline, so the stamp commit cannot quietly
+  // change the severity the release was classified at.
+  const restated = sourceState(previous);
+  if (restated.build !== restated.expectedBuild)
+    throw new Error(`stamp landed at v${restated.build} against an expected ` +
+      `v${restated.expectedBuild}`);
+  return restated;
+}
+
 async function reconcile(receipt, { dryRun = false } = {}) {
   const hash = receipt.desired.hash;
   if (receipt.channels.web.status !== "current") {
@@ -211,14 +274,19 @@ async function main() {
   const [command = "status", ...args] = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const previous = readReceipt();
-  const current = sourceState(previous);
+  let current = sourceState(previous);
   if (command === "status") return print(readReceipt(), current);
   if (command === "deploy") {
     if (!current.tracked || current.dirty)
       throw new Error("Oskiewar source must be tracked and committed before a unified release");
-    if (current.build !== current.expectedBuild)
-      throw new Error(`Oskiewar build v${current.build ?? "?"} does not match ` +
-        `its committed source revision count v${current.expectedBuild}`);
+    // `--no-bump` keeps the old behaviour: refuse, and let a person decide.
+    const stamped = args.includes("--no-bump") ? current
+      : dryRun ? current : stampBuildVersion(current, previous);
+    if (stamped.build !== stamped.expectedBuild)
+      throw new Error(`Oskiewar build v${stamped.build ?? "?"} does not match ` +
+        `its committed source revision count v${stamped.expectedBuild}` +
+        (args.includes("--no-bump") ? " (drop --no-bump to stamp it)" : ""));
+    current = stamped;
     const receipt = newRelease(current.hash, current.commit, current.severity, previous);
     save(receipt);
     await reconcile(receipt, { dryRun });
