@@ -123,7 +123,7 @@ function speak(api, name) {
 // 🥾 Boot
 async function boot(api) {
   const { user, gizmo, hud, net, store, colon, params } = api;
-  hud.label("amail");
+  hud.label("Amail");
   ellipsisTicker = new gizmo.EllipsisTicker();
 
   settingsOpen = false;
