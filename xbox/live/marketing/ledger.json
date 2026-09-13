@@ -244,7 +244,9 @@
         "ig_reels_video_view_total_time": 5815270,
         "reels_skip_rate": 43.1
       },
-      "insightsAt": "2026-09-03T01:41:06.447Z"
+      "insightsAt": "2026-09-03T01:41:06.447Z",
+      "deletedAt": "2026-09-13T11:51:05.374Z",
+      "deletedReason": "underperformer trim (<1k views; bulk delete via web Your activity tool, 30-day pool)"
     },
     {
       "mode": "live",
