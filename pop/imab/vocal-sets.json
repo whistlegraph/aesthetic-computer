@@ -27,7 +27,8 @@
       "gain": 1.0
     }
   ],
-  "choir": {
+  "choir-note": "LAYERING IS OFF (@jeffrey 2026-09-08: 'i dont wanna do any layering yet — just successive takes — so we can get them all right'). The Y1 stack landed on pass 2's own door and smeared, because a regulated set keeps its own performance spacing (7427 sings the hook in 9.0s; the lead, retimed to the grid, takes 14.5s). bin/setalign.mjs now warps each set onto the lead's syllable onsets — audition them one at a time in out/imab-sets-successive.mp3, fix each with setscroll + set-fixes, and only then put the choir back by restoring \"choir\" from \"choir-off\".",
+  "choir-off": {
     "at": "Y1",
     "gain": 0.5,
     "takes": [

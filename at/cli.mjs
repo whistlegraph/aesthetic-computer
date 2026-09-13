@@ -9,8 +9,11 @@ import { config } from "dotenv";
 config(); // Load .env from at/ directory
 
 const PDS_URL = process.env.PDS_URL || "https://at.aesthetic.computer";
-const BSKY_SERVICE =
-  process.env.BSKY_SERVICE || "https://public.api.bsky.app";
+// Two endpoints, not one. Reads go to the unauthenticated AppView; writes go
+// to the PDS we hold an app password for. BSKY_SERVICE steers writes only —
+// vault/at/.env points it at bsky.social, and pointing reads there too makes
+// every getProfile 401.
+const BSKY_PUBLIC = process.env.BSKY_PUBLIC || "https://public.api.bsky.app";
 
 // ---------------------------------------------------------------------------
 // Argument parser (same style as memory/cli.mjs)
@@ -119,7 +122,7 @@ async function commandResolve(args) {
   if (!input.startsWith("did:")) {
     console.log(`Resolving handle: ${input}`);
     const profile = await fetchJSON(
-      `${BSKY_SERVICE}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input)}`,
+      `${BSKY_PUBLIC}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input)}`,
     );
     did = profile.did;
     console.log(`  @${input} -> ${did}\n`);
@@ -168,7 +171,7 @@ async function commandResolve(args) {
 async function commandProfile(args) {
   const actor = requireArg(args, 1, "handle-or-did");
   const profile = await fetchJSON(
-    `${BSKY_SERVICE}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`,
+    `${BSKY_PUBLIC}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`,
   );
   const p = profile;
 
@@ -188,7 +191,7 @@ async function commandPosts(args) {
   const limit = parseInt(args.limit) || 10;
 
   const data = await fetchJSON(
-    `${BSKY_SERVICE}/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${limit}`,
+    `${BSKY_PUBLIC}/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${limit}`,
   );
 
   if (!data.feed?.length) {
@@ -246,9 +249,24 @@ async function commandPost(args) {
   if (args.image) {
     const { readFileSync } = await import("fs");
     const imageData = readFileSync(args.image);
-    const { data } = await agent.uploadBlob(imageData, {
-      encoding: "image/png",
-    });
+    // The blob's encoding has to match the bytes, or the post renders broken.
+    // Bluesky also caps a blob near a megabyte, and its error for going over
+    // is not obvious, so say so here instead.
+    const kinds = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+      gif: "image/gif", webp: "image/webp" };
+    const encoding = kinds[args.image.split(".").pop().toLowerCase()];
+    if (!encoding) {
+      console.error(`Unsupported image type: ${args.image}`);
+      process.exit(1);
+    }
+    if (imageData.length > 976_560) {
+      console.error(
+        `${args.image} is ${Math.round(imageData.length / 1024)}KB; Bluesky ` +
+          `accepts about 953KB. Downscale or re-encode it as JPEG first.`,
+      );
+      process.exit(1);
+    }
+    const { data } = await agent.uploadBlob(imageData, { encoding });
     postRecord.embed = {
       $type: "app.bsky.embed.images",
       images: [
@@ -388,7 +406,7 @@ async function commandAccountCheck(args) {
   let did = input;
   if (!input.startsWith("did:")) {
     const profile = await fetchJSON(
-      `${BSKY_SERVICE}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input)}`,
+      `${BSKY_PUBLIC}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(input)}`,
     );
     did = profile.did;
   }
@@ -594,7 +612,8 @@ Environment:
   PDS_ADMIN_PASSWORD   Admin password for PDS operations
   BSKY_IDENTIFIER      Bluesky handle for posting
   BSKY_APP_PASSWORD    Bluesky app password for posting
-  BSKY_SERVICE         Bluesky API (default: https://public.api.bsky.app)
+  BSKY_SERVICE         Bluesky PDS for posting (default: https://bsky.social)
+  BSKY_PUBLIC          Bluesky AppView for reads (default: https://public.api.bsky.app)
 
 Examples:
   ac-at health

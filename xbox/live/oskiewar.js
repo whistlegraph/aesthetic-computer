@@ -4746,8 +4746,17 @@ function netRestoreScalars(saved) {
 }
 const netSimArrays = () => ({
   players, balls, bullets, grenades, impacts, detachedParts,
-  gunPickups, grenadePickups, bodyTrees, gridField, resultReactionPrevious,
-  fightHitMarks,
+  // `saberPickups` belongs here for the same reason every other array does,
+  // and leaving it out was a real desync: a rollback that does not restore it
+  // re-simulates frames in which a blade was already taken, or takes one that
+  // the rewound timeline had not yet dropped. `swordHeld` itself rides on the
+  // player and was always restored -- which is what made this so quiet. The
+  // two seats agreed about every number they hashed while disagreeing about
+  // whether somebody was holding a sword, and a sword is a 1.5x reach
+  // multiplier in `meleeSpecFor`, so they went on agreeing right up until a
+  // strike landed one frame apart on one screen and not the other.
+  gunPickups, saberPickups, grenadePickups, bodyTrees, gridField,
+  resultReactionPrevious, fightHitMarks,
 });
 
 function netSnapshot() {
@@ -4786,13 +4795,24 @@ function netRestore(snapshot) {
 
 // FNV-1a over the state that decides a fight. Exact doubles, not rounded: a
 // last-bit difference is a real desync and must read as one.
+// Debug only: the exact JSON the last hash was taken over, and a ring of it
+// per frame while `__oskiewarHashTrace` is set. A desync report names a
+// frame and two numbers; this is what turns those numbers back into fields.
+let netLastHashText = "";
+const netHashTexts = new Map();
 function netStateHash() {
   const view = players.map((player) => [player.x, player.y, player.z,
     player.vx, player.vy, player.vz, player.facing, player.alive,
     player.grounded, player.ducking, player.blocking, player.score,
     player.roundWins, player.attackKind, player.attackUntil,
     player.hitStunUntil, player.stance, player.gunAmmo, player.grenadeAmmo,
-    player.heldBall, player.removedParts, player.dashUntil]);
+    player.heldBall, player.removedParts, player.dashUntil,
+    // Holding a blade decides how far a hand reaches, so it decides the
+    // fight and belongs in the hash. It is here because it was NOT here: two
+    // seats disagreeing about a sword hashed identically for hundreds of
+    // frames and were found apart only once the reach changed an outcome,
+    // which is the most expensive way to learn about a desync.
+    player.swordHeld]);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
   // Projectiles by position, not just by count. A round whose flight differs
@@ -4807,6 +4827,7 @@ function netStateHash() {
   view.push(roundResult, roundElapsedUs,
     matchOver, roundStartedAt, roundOverAt);
   const text = JSON.stringify(view);
+  if (globalThis.__oskiewarHashTrace) netLastHashText = text;
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {
     hash ^= text.charCodeAt(index);
@@ -5213,6 +5234,11 @@ function netExchangeHash(session) {
     netRestore(live);
   }
   session.hashes.set(frame, hash);
+  if (globalThis.__oskiewarHashTrace) {
+    netHashTexts.set(frame, netLastHashText);
+    if (netHashTexts.size > 600)
+      netHashTexts.delete(netHashTexts.keys().next().value);
+  }
   const theirs = session.peerHashes.get(frame);
   if (theirs !== undefined) netNotePeerHash(session, frame, theirs);
   session.pendingHash = [frame, hash];

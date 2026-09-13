@@ -68,14 +68,22 @@
   html, body { height: 100%; margin: 0; background: var(--bg); }
   /* The shell is a screen, not a document: dragging across it paints no blue
      wash and a long press raises no callout, the way the raster prompt's
-     canvas behaves. The typed line is the one place text is really text. */
+     canvas behaves... */
   body {
     font-family: var(--font); color: var(--text); overflow: hidden;
     cursor: var(--cursor-precise), auto;
     -webkit-user-select: none; user-select: none;
     -webkit-touch-callout: none;
   }
-  #cmd { cursor: var(--cursor-precise), text; -webkit-user-select: text; user-select: text; }
+  /* ...except where the shell is holding real text for you: the line you type
+     and the answers that come back are selectable and copyable. The other
+     interactables — buttons, the label, the candidate rows — stay unselectable
+     on purpose, since each one fires on the release of a drag, so a swipe to
+     highlight one would run it. */
+  #cmd, .reply, .notice {
+    cursor: var(--cursor-precise), text;
+    -webkit-user-select: text; user-select: text;
+  }
   button, .corner { cursor: var(--cursor-active), pointer; }
   ::selection { background: var(--highlight); color: var(--bg); }
 
@@ -229,7 +237,7 @@
     position: absolute; z-index: 4;
     top: max(8px, env(safe-area-inset-top));
     left: max(8px, env(safe-area-inset-left));
-    display: none; cursor: var(--cursor-active), pointer; user-select: none;
+    display: none; cursor: var(--cursor-active), pointer;
     color: #fff; font-family: var(--font);
     font-size: clamp(20px, 2.6vw, 30px); line-height: 1.3;
     text-shadow: 1px 1px 0 rgba(0, 0, 0, .75);

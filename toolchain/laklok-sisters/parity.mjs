@@ -22,6 +22,8 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
 
 const raster = read("system/public/aesthetic.computer/disks/laklok.mjs");
+// The temas moved out of the piece into a module shared with `amail`.
+const tema = read("system/public/aesthetic.computer/disks/common/laklok-tema.mjs");
 const vector = read("system/public/html/index.html");
 const chatDisk = read("system/public/aesthetic.computer/disks/chat.mjs");
 const highlighting = read("system/public/aesthetic.computer/lib/chat-highlighting.mjs");
@@ -49,7 +51,7 @@ function regexLiteral(src, constName) {
 
 // ── 2. Theme roster — LAK_THEMES keys ↔ data-theme blocks + tema chips ────
 {
-  const themesBlock = raster.match(/const LAK_THEMES = \{([\s\S]*?)\n\};/)?.[1] || "";
+  const themesBlock = tema.match(/const LAK_THEMES = \{([\s\S]*?)\n\};/)?.[1] || "";
   // A theme is a literal block or, for `realtime`, a call that builds one.
   const rasterThemes = [...themesBlock.matchAll(/^ {2}(\w+): /gm)].map((m) => m[1]);
   const vectorCss = [...vector.matchAll(/data-theme="(\w+)"/g)].map((m) => m[1]);
@@ -70,7 +72,7 @@ function regexLiteral(src, constName) {
 // ── 2b. Realtime tema — the drift cycles are the theme's identity ─────────
 {
   const cycles = (src, name) => src.match(new RegExp(`const ${name} = \\[([^\\]]*)\\]`))?.[1]?.replace(/\s/g, "");
-  const a = cycles(raster, "LAK_REALTIME_CYCLES");
+  const a = cycles(tema, "LAK_REALTIME_CYCLES");
   const b = cycles(vector, "REALTIME_CYCLES");
   check("realtime cycles (LAK_REALTIME_CYCLES ↔ REALTIME_CYCLES)", !!a && a === b,
     a === b ? a : `raster: ${a} · vector: ${b}`);
@@ -131,7 +133,7 @@ function regexLiteral(src, constName) {
 
 // ── 7. QR — both sisters encode the same URL ──────────────────────────────
 {
-  const a = /qr\("https:\/\/laklok\.com"/.test(raster);
+  const a = /(qr|makeQR)\("https:\/\/laklok\.com"/.test(raster);
   const b = /qrcode\("https:\/\/laklok\.com"/.test(vector);
   check("corner QR encodes https://laklok.com in both", a && b,
     `raster: ${a ? "ok" : "MISSING"} · vector: ${b ? "ok" : "MISSING"}`);

@@ -23,22 +23,45 @@ const WORK = `${process.env.HOME}/.cache/ac/imab`;
 const TAKE = process.argv[2] || "7311159624588070175";
 const PXS = 260;
 
-const spec = readFileSync(`${WORK}/wizard-spec.png`).toString("base64");
-const audio = readFileSync(`${WORK}/wizard-audio.mp3`).toString("base64");
+// per-take inputs (takes/<id>/) — the shared wizard-* files are a fallback
+// from before the wizard was parametric; reading them for every take put
+// one take's audio under five other takes' rectangles.
+const TAKE_DIR = `${WORK}/takes/${TAKE}`;
+const specPath = existsSync(`${TAKE_DIR}/spec.png`) ? `${TAKE_DIR}/spec.png` : `${WORK}/wizard-spec.png`;
+const audioPath = existsSync(`${TAKE_DIR}/audio.mp3`) ? `${TAKE_DIR}/audio.mp3` : `${WORK}/wizard-audio.mp3`;
+if (!specPath.startsWith(TAKE_DIR)) console.warn(`! no takes/${TAKE}/ in the cache — falling back to the shared wizard-* files`);
+const spec = readFileSync(specPath).toString("base64");
+const audio = readFileSync(audioPath).toString("base64");
 const SYLS = [
   ["i'm", 0], ["a", 1], ["but", 2], ["ter", 2], ["fly", 2], ["flap", 3], ["ping", 3],
   ["for", 4], ["you", 5], ["guys", 6], ["just", 7], ["a", 8], ["cos", 9], ["tume", 9],
   ["i", 10], ["put", 11], ["on", 12], ["in", 13], ["my", 14], ["room", 15]];
-let seed = [];
+// seed rectangles: the best boundaries we already have for this take,
+// so drawing starts from a proposal instead of a blank strip.
+//   processed-boundaries / boundaries-drawn  = @jeffrey's hand (lane root)
+//   boundaries-dtw                           = melodyproof's warp of the lead's hand
+//   bounds-<take>.json                       = the old cache seed
+let seed = [], seedFrom = null;
+for (const name of [`processed-boundaries-${TAKE}.json`, `boundaries-drawn-${TAKE}.json`, `boundaries-dtw-${TAKE}.json`]) {
+  const p = resolve(HERE, `../${name}`);
+  if (!existsSync(p)) continue;
+  const by = new Map();
+  for (const s of JSON.parse(readFileSync(p, "utf8")).sylls) if (!by.has(`${s.label}/${s.wi}`)) by.set(`${s.label}/${s.wi}`, s);
+  seed = SYLS.map(([lab, wi]) => { const s = by.get(`${lab}/${wi}`);
+    return s ? { fromMs: s.fromMs, toMs: s.toMs, fLo: s.fLo ?? 0.15, fHi: s.fHi ?? 0.9 } : null; });
+  seedFrom = name; break;
+}
 const bp = `${WORK}/bounds-${TAKE}.json`;
-if (existsSync(bp)) {
+if (!seedFrom && existsSync(bp)) {
   const B = JSON.parse(readFileSync(bp, "utf8"));
   const flat = B.words.flatMap((w) => w.sylls || []);
   seed = SYLS.map(([lab], i) => {
     const s = flat[i];
     return s ? { fromMs: s.fromMs, toMs: s.toMs, fLo: 0.15, fHi: 0.9 } : null;
   });
+  seedFrom = `cache bounds-${TAKE}.json`;
 }
+if (seedFrom) console.log(`→ seeded from ${seedFrom}`);
 
 const html = `<!doctype html><meta charset="utf-8"><title>syllawizard · ${TAKE}</title>
 <style>
@@ -121,4 +144,4 @@ document.getElementById("copy").onclick=()=>navigator.clipboard.writeText(payloa
 refresh();
 </script>`;
 writeFileSync(`${OUT}/syllawizard-${TAKE}.html`, html);
-console.log(`✓ ${OUT}/syllawizard-${TAKE}.html`);
+console.log(`✓ ${OUT}/syllawizard-${TAKE}.html  (audio ${audioPath.replace(process.env.HOME, "~")})`);

@@ -2820,7 +2820,7 @@ function paint(
       actionLabel = "Play tape?";
       actionColor = [255, 120, 200]; // Pink for tapes
     } else if (type === "handle") {
-      actionLabel = "Go to profile?";
+      actionLabel = "Visit or write?";
       actionColor = [255, 150, 200]; // Pink for handles
     } else if (type === "painting") {
       actionLabel = "View painting?";
@@ -2852,29 +2852,48 @@ function paint(
       ink(140, 180, 140).write(truncatedDesc, { x: modalX + 6, y: modalY + 32 }, undefined, undefined, false, "MatrixChunky8");
     }
     
-    // Draw Yes/No buttons (compact)
-    const btnW = 36;
+    // Draw the buttons (compact): yes / no, with an optional third `alt`
+    // action between them — a handle offers the profile *or* an amail.
+    const { alt, yesLabel = "yes" } = linkConfirmModal;
+    const btnW = alt ? 40 : 36;
     const btnH = 14;
     const btnY = modalY + modalH - btnH - 6;
-    const btnGap = 12;
-    const totalBtnW = btnW * 2 + btnGap;
+    const btnGap = alt ? 6 : 12;
+    const btnCount = alt ? 3 : 2;
+    const totalBtnW = btnW * btnCount + btnGap * (btnCount - 1);
     const btnStartX = modalX + Math.floor((modalW - totalBtnW) / 2);
-    
+    const label = (t, bx, color) => {
+      const w = text?.width?.(t, "MatrixChunky8") ?? t.length * 4;
+      ink(...color).write(t, { x: bx + Math.floor((btnW - w) / 2), y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    };
+
     // Store button positions for hit detection
     linkConfirmModal.yesBtn = { x: btnStartX, y: btnY, w: btnW, h: btnH };
-    linkConfirmModal.noBtn = { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH };
-    
+    linkConfirmModal.altBtn = alt ? { x: btnStartX + btnW + btnGap, y: btnY, w: btnW, h: btnH } : null;
+    linkConfirmModal.noBtn = { x: btnStartX + (btnW + btnGap) * (btnCount - 1), y: btnY, w: btnW, h: btnH };
+
     // Yes button - green theme
     const yesHover = linkConfirmModal.hoverYes;
-    ink(yesHover ? [60, 140, 60] : [40, 90, 40]).box(btnStartX, btnY, btnW, btnH);
-    ink(yesHover ? [100, 200, 100] : [70, 130, 70]).box(btnStartX, btnY, btnW, btnH, "outline");
-    ink(yesHover ? [180, 255, 180] : [150, 220, 150]).write("yes", { x: btnStartX + 8, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
-    
-    // No button - red theme  
+    const yb = linkConfirmModal.yesBtn;
+    ink(yesHover ? [60, 140, 60] : [40, 90, 40]).box(yb.x, yb.y, yb.w, yb.h);
+    ink(yesHover ? [100, 200, 100] : [70, 130, 70]).box(yb.x, yb.y, yb.w, yb.h, "outline");
+    label(yesLabel, yb.x, yesHover ? [180, 255, 180] : [150, 220, 150]);
+
+    // Alt button - teal, the envelope's colour
+    if (alt) {
+      const altHover = linkConfirmModal.hoverAlt;
+      const ab = linkConfirmModal.altBtn;
+      ink(altHover ? [0, 150, 175] : [0, 90, 105]).box(ab.x, ab.y, ab.w, ab.h);
+      ink(altHover ? [200, 255, 255] : [120, 255, 255]).box(ab.x, ab.y, ab.w, ab.h, "outline");
+      label(alt.label, ab.x, altHover ? [220, 255, 255] : [170, 240, 240]);
+    }
+
+    // No button - red theme
     const noHover = linkConfirmModal.hoverNo;
-    ink(noHover ? [140, 50, 50] : [90, 35, 35]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH);
-    ink(noHover ? [200, 90, 90] : [130, 60, 60]).box(btnStartX + btnW + btnGap, btnY, btnW, btnH, "outline");
-    ink(noHover ? [255, 180, 180] : [220, 150, 150]).write("no", { x: btnStartX + btnW + btnGap + 11, y: btnY + 3 }, undefined, undefined, false, "MatrixChunky8");
+    const nb = linkConfirmModal.noBtn;
+    ink(noHover ? [140, 50, 50] : [90, 35, 35]).box(nb.x, nb.y, nb.w, nb.h);
+    ink(noHover ? [200, 90, 90] : [130, 60, 60]).box(nb.x, nb.y, nb.w, nb.h, "outline");
+    label("no", nb.x, noHover ? [255, 180, 180] : [220, 150, 150]);
     
     needsPaint(); // Keep modal animating
   }
@@ -3225,30 +3244,35 @@ function act(
   
   // 🔗 Link confirmation modal intercepts all events
   if (linkConfirmModal) {
-    const { yesBtn, noBtn, action } = linkConfirmModal;
-    
+    const { yesBtn, noBtn, altBtn, alt, action } = linkConfirmModal;
+    const inside = (b) => !!b && pen.x >= b.x && pen.x < b.x + b.w &&
+                          pen.y >= b.y && pen.y < b.y + b.h;
+
     // Handle hover states
     if (e.is("move") || e.is("draw")) {
       if (yesBtn && noBtn) {
-        linkConfirmModal.hoverYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
-                                     pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
-        linkConfirmModal.hoverNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
-                                    pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
+        linkConfirmModal.hoverYes = inside(yesBtn);
+        linkConfirmModal.hoverAlt = inside(altBtn);
+        linkConfirmModal.hoverNo = inside(noBtn);
       }
     }
-    
+
     // Handle clicks
     if (e.is("lift") || e.is("touch")) {
       if (yesBtn && noBtn) {
-        const clickedYes = pen.x >= yesBtn.x && pen.x < yesBtn.x + yesBtn.w &&
-                           pen.y >= yesBtn.y && pen.y < yesBtn.y + yesBtn.h;
-        const clickedNo = pen.x >= noBtn.x && pen.x < noBtn.x + noBtn.w &&
-                          pen.y >= noBtn.y && pen.y < noBtn.y + noBtn.h;
-        
+        const clickedYes = inside(yesBtn);
+        const clickedAlt = inside(altBtn);
+        const clickedNo = inside(noBtn);
+
         if (clickedYes) {
           beep();
           hud.label(piece); // Set back label to current piece
           if (action) action(); // Execute the stored action
+          linkConfirmModal = null;
+        } else if (clickedAlt) {
+          beep();
+          hud.label(piece);
+          alt?.action?.();
           linkConfirmModal = null;
         } else if (clickedNo) {
           beep();
@@ -3782,12 +3806,15 @@ function act(
               clickedInteractiveElement = true;
               if (element.type === "handle") {
                 beep();
-                // Show confirmation modal for handle navigation
+                // A handle opens two doors: their profile, or a letter to
+                // them in `amail` with the address already filled in.
                 linkConfirmModal = {
                   type: "handle",
                   text: element.text,
                   displayText: element.text,
-                  description: "View this user's profile",
+                  description: "profile · or write them an amail",
+                  yesLabel: "profile",
+                  alt: { label: "amail", action: () => jump(`amail~${element.text}`) },
                   action: () => jump(element.text)
                 };
                 break;

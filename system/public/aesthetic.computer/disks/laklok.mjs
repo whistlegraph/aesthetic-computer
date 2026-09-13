@@ -9,12 +9,32 @@
   The update path lives in `toolchain/laklok-sisters/PARITY.md`:
   `parity.mjs` diffs the mirrored constants (run it after touching either
   side) and `sisters.mjs` renders them side by side for the visual half.
+
+  The temas themselves, the saved choice, the census and the corner chrome
+  (QR, gear, envelope, pane) live in `common/laklok-tema.mjs`, shared with
+  `amail` so the two rooms always wear the same dress.
  */
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
 import * as chat from "./chat.mjs"; // Import chat everywhere.
-import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
-import { hslToRgb } from "../lib/num.mjs";
+import {
+  LAK_THEMES,
+  realtimeTick,
+  pickTema,
+  restoreTema,
+  saveTema,
+  reportTema,
+  makeQR,
+  paintQR,
+  paintGear,
+  GEAR,
+  paintEnvelope,
+  ENVELOPE,
+  paintBadge,
+  badgeWidth,
+  paintTemaPane,
+  temaRow,
+} from "./common/laklok-tema.mjs";
 
 let client;
 
@@ -22,193 +42,8 @@ let client;
 // marquee so the banner fills the whole header down to the margin line.
 const LAK_TOP_MARGIN = 34;
 
-// 📱 laklok.com QR rendered in the top-right corner (see paintQR).
+// 📱 laklok.com QR rendered in the top-right corner (see paintCorner).
 let lakQRCells = null;
-
-// 🌅 `realtime` — the ambient tema: a palette that is a pure function of the
-// date, so the room is a little different every day and the same for
-// everyone in it. `t` is fractional UTC days; the hue walks ~6° a day around
-// a 61-day lap while saturation and lightness breathe on their own cycles,
-// so no midnight is a cut. Text sits at a fixed lightness above the ground.
-// Mirrored in the vector client as `realtimeTheme` — same cycles, same slots.
-const LAK_REALTIME_CYCLES = [61, 23, 17]; // hue lap, saturation, lightness (days)
-function realtimeTheme(now = Date.now()) {
-  const t = Math.floor(now / 60000) / 1440; // quantized to the minute
-  const [hueDays, satDays, lightDays] = LAK_REALTIME_CYCLES;
-  const hue = (t * 360) / hueDays;
-  const sat = 34 + 12 * Math.sin((t * 2 * Math.PI) / satDays);
-  const light = 22 + 5 * Math.sin((t * 2 * Math.PI) / lightDays + 2);
-  const c = (h, s, l) => hslToRgb(((h % 360) + 360) % 360, s, l);
-  const bg = c(hue, sat, light);
-  return {
-    bg,
-    stripeA: c(hue, sat + 6, light * 0.62),
-    stripeB: c(hue, sat + 6, light * 0.8),
-    chat: {
-      background: bg,
-      chromeBg: bg,
-      lines: [...c(hue, sat, 62), 64],
-      scrollbar: c(hue, 60, 78),
-      messageText: c(hue, 30, 95),
-      messageBox: c(hue, 45, 85),
-      log: [100, 255, 220],
-      logHover: [255, 240, 120],
-      handle: c(hue + 30, 80, 80),
-      handleHover: [255, 240, 120],
-      url: c(hue + 180, 85, 80),
-      urlHover: [255, 240, 120],
-      prompt: c(hue + 120, 80, 80),
-      promptContent: c(hue + 180, 85, 80),
-      promptHover: [255, 240, 120],
-      promptContentHover: [255, 240, 120],
-      painting: c(hue + 60, 85, 80),
-      paintingHover: [255, 240, 120],
-      kidlisp: c(hue + 300, 85, 80),
-      kidlispHover: [255, 240, 120],
-      timestamp: c(hue, 25, 68),
-      timestampHover: [255, 240, 120],
-      heart: [255, 220, 240],
-    },
-  };
-}
-
-// The `realtime` slot in LAK_THEMES is refilled once a minute while it is the
-// active tema (sim). Returns true when the palette actually moved.
-let realtimeMinute = 0;
-function realtimeTick() {
-  const minute = Math.floor(Date.now() / 60000);
-  if (minute === realtimeMinute) return false;
-  realtimeMinute = minute;
-  Object.assign(LAK_THEMES.realtime, realtimeTheme());
-  return true;
-}
-
-// 🎨 Themes — each recolors the whole room. `ler` (clay) is the historical
-// terracotta; the others keep the same relationships in new light. The vector
-// client mirrors these by name, so add/rename in both places.
-const LAK_THEMES = {
-  ler: {
-    bg: [180, 100, 60],
-    stripeA: [122, 60, 26],
-    stripeB: [150, 78, 34],
-    chat: {
-      background: [180, 100, 60],
-      chromeBg: [180, 100, 60],
-      lines: [220, 150, 100, 64],
-      scrollbar: [255, 180, 100],
-      messageText: [255, 255, 240],
-      messageBox: [255, 220, 180],
-      log: [100, 255, 220],
-      logHover: [255, 240, 120],
-      handle: [255, 160, 120],
-      handleHover: [255, 240, 120],
-      url: [120, 220, 255],
-      urlHover: [255, 240, 120],
-      prompt: [200, 255, 180],
-      promptContent: [120, 220, 255],
-      promptHover: [255, 240, 120],
-      promptContentHover: [255, 240, 120],
-      painting: [255, 200, 140],
-      paintingHover: [255, 240, 120],
-      kidlisp: [255, 140, 200],
-      kidlispHover: [255, 240, 120],
-      timestamp: [220, 180, 150],
-      timestampHover: [255, 240, 120],
-      heart: [255, 220, 240],
-    },
-  },
-  nat: {
-    bg: [26, 30, 62],
-    stripeA: [20, 24, 50],
-    stripeB: [32, 38, 76],
-    chat: {
-      background: [26, 30, 62],
-      chromeBg: [26, 30, 62],
-      lines: [90, 110, 190, 64],
-      scrollbar: [120, 150, 255],
-      messageText: [235, 240, 255],
-      messageBox: [180, 200, 255],
-      log: [100, 255, 220],
-      logHover: [255, 240, 120],
-      handle: [150, 180, 255],
-      handleHover: [255, 240, 120],
-      url: [120, 220, 255],
-      urlHover: [255, 240, 120],
-      prompt: [200, 255, 180],
-      promptContent: [120, 220, 255],
-      promptHover: [255, 240, 120],
-      promptContentHover: [255, 240, 120],
-      painting: [255, 200, 140],
-      paintingHover: [255, 240, 120],
-      kidlisp: [255, 140, 200],
-      kidlispHover: [255, 240, 120],
-      timestamp: [150, 160, 210],
-      timestampHover: [255, 240, 120],
-      heart: [255, 220, 240],
-    },
-  },
-  skov: {
-    bg: [24, 56, 36],
-    stripeA: [18, 44, 28],
-    stripeB: [30, 66, 42],
-    chat: {
-      background: [24, 56, 36],
-      chromeBg: [24, 56, 36],
-      lines: [90, 150, 110, 64],
-      scrollbar: [130, 220, 150],
-      messageText: [235, 255, 240],
-      messageBox: [190, 230, 200],
-      log: [100, 255, 220],
-      logHover: [255, 240, 120],
-      handle: [170, 230, 150],
-      handleHover: [255, 240, 120],
-      url: [120, 220, 255],
-      urlHover: [255, 240, 120],
-      prompt: [220, 255, 170],
-      promptContent: [120, 220, 255],
-      promptHover: [255, 240, 120],
-      promptContentHover: [255, 240, 120],
-      painting: [255, 210, 140],
-      paintingHover: [255, 240, 120],
-      kidlisp: [255, 150, 190],
-      kidlispHover: [255, 240, 120],
-      timestamp: [150, 190, 160],
-      timestampHover: [255, 240, 120],
-      heart: [255, 215, 235],
-    },
-  },
-  lakrids: {
-    bg: [22, 20, 24],
-    stripeA: [14, 12, 16],
-    stripeB: [30, 27, 34],
-    chat: {
-      background: [22, 20, 24],
-      chromeBg: [22, 20, 24],
-      lines: [90, 80, 95, 64],
-      scrollbar: [200, 190, 210],
-      messageText: [240, 238, 244],
-      messageBox: [210, 205, 215],
-      log: [100, 255, 220],
-      logHover: [255, 240, 120],
-      handle: [240, 170, 190],
-      handleHover: [255, 240, 120],
-      url: [130, 210, 255],
-      urlHover: [255, 240, 120],
-      prompt: [190, 240, 170],
-      promptContent: [130, 210, 255],
-      promptHover: [255, 240, 120],
-      promptContentHover: [255, 240, 120],
-      painting: [250, 200, 150],
-      paintingHover: [255, 240, 120],
-      kidlisp: [255, 150, 210],
-      kidlispHover: [255, 240, 120],
-      timestamp: [150, 145, 160],
-      timestampHover: [255, 240, 120],
-      heart: [255, 210, 230],
-    },
-  },
-  realtime: realtimeTheme(), // 🌅 ambient — see realtimeTheme / realtimeTick
-};
 
 // ⚙️ Settings pane state — mode (raster here / vector on laklok.com/html),
 // tema, and the media-links filter. The same pane exists on the vector side.
@@ -218,6 +53,12 @@ let settingsOpen = false;
 let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
 let lakTV = false; // 📺 `~tv` colon token — broadcast chrome (no input, no gear)
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
+
+// 📬 The door to `amail`, beside the gear: an envelope, lit when something is
+// waiting, with a red count of what's unread. Only a signed-in visitor has a
+// box, so only they get the door.
+let mailCount = null; // { unread, total } once asked; "asking" in flight
+let mailBox = null; // hit area, or null when the door isn't drawn
 
 // 🔗 What counts as a media link — hosts that ARE media plus direct files.
 // Mirrored verbatim in the vector client; edit both or the sisters drift.
@@ -238,37 +79,28 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-// 📊 Theme census — tell /api/laklok-theme which tema this visitor is on (boot
-// = heartbeat, chip tap = switch). Needs a login; anonymous visitors are not
-// counted. Fire-and-forget: the room never waits on it.
-function reportTheme(net) {
-  net.userRequest("POST", "/api/laklok-theme", { theme: lakTheme });
-}
-
-function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) {
+function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, user }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
 
   // 🚫 chat.boot stamps a prompt.ac/chat QR to the LEFT of the HUD label; clear
-  // it so laklok shows only its own laklok.com QR in the top-right (paintQR).
+  // it so laklok shows only its own laklok.com QR in the top-right (paintCorner).
   hud.qr(null);
 
   // ⚙️ Colon overrides first (`laklok:nat:links` — handy for the sisters
   // suite and shareable themed URLs; `laklok:vector` jumps straight to the
   // vector client), then saved preferences fill whatever colon left alone.
-  // `store.retrieve` resolves via .then — awaiting it in boot stalls the
-  // piece (see cal.mjs for the same pattern).
   settingsOpen = false;
-  lakTheme = "ler";
   lakLinksOnly = false;
   lakTV = false;
-  let colonTheme = false;
+  mailCount = null;
+  mailBox = null;
   let colonLinks = false;
   // URL `~` separators land in params, `:` in colon — `laer-klokken~tv`
   // and `laklok:tv` should both reach the same switches, so scan both.
-  for (const token of [...(colon || []), ...(params || [])]) {
-    if (LAK_THEMES[token]) { lakTheme = token; colonTheme = true; }
+  const tokens = [...(colon || []), ...(params || [])];
+  for (const token of tokens) {
     if (token === "links") { lakLinksOnly = true; colonLinks = true; }
     if (token === "alle") { lakLinksOnly = false; colonLinks = true; }
     if (token === "vector") jump("out:https://laklok.com/html/");
@@ -276,19 +108,18 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) 
     // message bar, no settings gear; the room is the whole picture.
     if (token === "tv") lakTV = true;
   }
-  if (!colonTheme && LAK_THEMES[store["laklok:theme"]]) {
-    lakTheme = store["laklok:theme"];
-  }
+  const tema = pickTema(tokens, store);
+  lakTheme = tema.name;
+  restoreTema(store, tema.pinned, (saved) => {
+    if (saved) {
+      lakTheme = saved;
+      chat.refresh(client.system);
+    }
+    reportTema(net, lakTheme); // after the saved tema has had its say
+  });
   if (!colonLinks && typeof store["laklok:links"] === "boolean") {
     lakLinksOnly = store["laklok:links"];
   }
-  store.retrieve("laklok:theme").then((v) => {
-    if (!colonTheme && LAK_THEMES[v]) {
-      lakTheme = v;
-      chat.refresh(client.system);
-    }
-    reportTheme(net); // after the saved tema has had its say
-  });
   store.retrieve("laklok:links").then((v) => {
     if (!colonLinks && typeof v === "boolean") {
       lakLinksOnly = v;
@@ -297,14 +128,7 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) 
   });
 
   // 📱 Generate the laklok.com QR once; painted top-right each frame.
-  try {
-    lakQRCells = qr("https://laklok.com", {
-      errorCorrectLevel: ErrorCorrectLevel.L,
-    }).modules;
-  } catch (e) {
-    console.error("laklok QR generation failed:", e);
-    lakQRCells = null;
-  }
+  lakQRCells = makeQR("https://laklok.com");
   // 🏷️ Ensure label shows piece name (not "chat"), pinned white so it doesn't
   // ride the red/orange/lime connection-status color.
   hud.label("laklok", "white");
@@ -402,36 +226,37 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   }
 }
 
-// 📱 laklok.com QR code, pinned to the top-right corner with a white border,
-// plus the ⚙ settings toggle just to its left.
-function paintQR($) {
+// 📱 The top-right corner, right to left: the laklok.com QR on white paper,
+// the ⚙ settings toggle, and — for a signed-in visitor — the envelope that
+// opens `amail`, wearing a red count when letters are waiting.
+function paintCorner($) {
   if (!lakQRCells) return;
-  const { ink, screen } = $;
-  const cells = lakQRCells;
-  const size = cells.length; // 1px per cell
-  const qrBoxSize = size + 2;
+  const { screen } = $;
+  const qrBoxSize = lakQRCells.length + 2;
   const rightInset = 3; // Match the QR's 3px top inset (4px below at this height).
   const qrX = screen.width - qrBoxSize - rightInset;
   const qrY = Math.floor((LAK_TOP_MARGIN - qrBoxSize) / 2);
-  ink(255, 255, 255).box(qrX, qrY, size + 2, size + 2); // white background + border
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      if (cells[y][x]) ink(0, 0, 0).box(qrX + 1 + x, qrY + 1 + y, 1, 1);
-    }
-  }
+  paintQR($, lakQRCells, qrX, qrY);
 
-  // ⚙️ Settings toggle — a little hamburger by the QR ("here by the QR").
-  if (lakTV) { gearBox = null; return; } // 📺 no controls on television
-  const gw = 13;
-  const gh = 13;
-  const gx = qrX - gw - 4;
-  const gy = qrY + Math.floor((qrBoxSize - gh) / 2);
-  gearBox = { x: gx - 2, y: gy - 2, w: gw + 4, h: gh + 4 }; // padded hit area
-  ink(settingsOpen ? [255, 240, 120] : [255, 255, 255, 200]).box(gx, gy, gw, gh, "outline");
-  const lineCol = settingsOpen ? [255, 240, 120] : [255, 255, 255, 220];
-  for (let li = 0; li < 3; li++) {
-    ink(...lineCol).box(gx + 3, gy + 3 + li * 3, gw - 6, 1);
-  }
+  if (lakTV) { gearBox = null; mailBox = null; return; } // 📺 no controls on television
+  const gx = qrX - GEAR - 4;
+  const gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
+  gearBox = paintGear($, gx, gy, settingsOpen);
+
+  if (!mailCount || mailCount === "asking") { mailBox = null; return; }
+  const unread = mailCount.unread || 0;
+  const label = unread > 0 ? `${unread}` : null;
+  // The badge overhangs the envelope's top-right corner, so the cluster is
+  // the envelope plus that overhang.
+  const cluster = ENVELOPE.w + (label ? badgeWidth(label) - 3 : 0);
+  const ex = gearBox.x - 6 - cluster;
+  const ey = qrY + Math.floor((qrBoxSize - ENVELOPE.h) / 2);
+  mailBox = { x: ex - 4, y: ey - 6, w: cluster + 8, h: ENVELOPE.h + 12 };
+  const { pen } = $;
+  const hot = !!pen && pen.x >= mailBox.x && pen.x < mailBox.x + mailBox.w &&
+    pen.y >= mailBox.y && pen.y < mailBox.y + mailBox.h;
+  paintEnvelope($, ex, ey, { lit: unread > 0, hot });
+  if (label) paintBadge($, ex + ENVELOPE.w - 3, ey - 5, label, hot);
 }
 
 // ⚙️ The settings pane — mode / tema / filter, drawn under the header by the
@@ -439,8 +264,7 @@ function paintQR($) {
 function paintSettings($) {
   settingsHits = [];
   if (!settingsOpen) return;
-  const { ink, screen } = $;
-  const themed = LAK_THEMES[lakTheme];
+  const { screen } = $;
 
   const rows = [
     {
@@ -450,14 +274,7 @@ function paintSettings($) {
         { text: "vector", selected: false, action: { type: "mode", value: "vector" } },
       ],
     },
-    {
-      label: "tema",
-      chips: Object.keys(LAK_THEMES).map((name) => ({
-        text: name,
-        selected: lakTheme === name,
-        action: { type: "theme", value: name },
-      })),
-    },
+    temaRow(lakTheme),
     {
       label: "filter",
       chips: [
@@ -467,49 +284,12 @@ function paintSettings($) {
     },
   ];
 
-  const chipH = 11;
-  const rowH = 16;
-  const padX = 6;
-  const labelW = 34;
-  const chipFont = "MatrixChunky8";
-  const chipW = (t) => t.length * 5 + 8;
-
-  let paneW = 0;
-  for (const row of rows) {
-    let w = labelW;
-    for (const chip of row.chips) w += chipW(chip.text) + 4;
-    paneW = Math.max(paneW, w);
-  }
-  paneW += padX * 2;
-  const paneH = rows.length * rowH + 14 + 8;
-  const paneX = Math.max(2, screen.width - paneW - 3);
-  const paneY = LAK_TOP_MARGIN + 2;
-
-  ink(themed.stripeA[0], themed.stripeA[1], themed.stripeA[2], 245).box(paneX, paneY, paneW, paneH);
-  ink(255, 240, 120).box(paneX, paneY, paneW, paneH, "outline");
-  ink(255, 240, 120).write("indstillinger", { x: paneX + padX, y: paneY + 4 }, undefined, undefined, false, chipFont);
-
-  let rowY = paneY + 14 + 4;
-  for (const row of rows) {
-    ink(255, 255, 255, 180).write(row.label, { x: paneX + padX, y: rowY + 2 }, undefined, undefined, false, chipFont);
-    let chipX = paneX + padX + labelW;
-    for (const chip of row.chips) {
-      const w = chipW(chip.text);
-      if (chip.selected) {
-        ink(255, 240, 120).box(chipX, rowY, w, chipH);
-        ink(20, 10, 6).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
-      } else {
-        ink(255, 255, 255, 120).box(chipX, rowY, w, chipH, "outline");
-        ink(255, 255, 255, 200).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
-      }
-      settingsHits.push({ x: chipX, y: rowY, w, h: chipH, action: chip.action });
-      chipX += w + 4;
-    }
-    rowY += rowH;
-  }
-
-  // Remember the pane bounds so act() can tell inside from outside.
-  settingsHits.pane = { x: paneX, y: paneY, w: paneW, h: paneH };
+  settingsHits = paintTemaPane($, {
+    theme: LAK_THEMES[lakTheme],
+    rows,
+    right: screen.width - 3,
+    top: LAK_TOP_MARGIN + 2,
+  });
 }
 
 function paint($) {
@@ -522,7 +302,8 @@ function paint($) {
     attachAfterInput: true,
     inputPlaceholder: "Chat...",
     presenceOnlineOnly: true,
-    presenceRightInset: 50, // QR box + gear + breathing room.
+    // QR box + gear + breathing room, and the envelope when it's drawn.
+    presenceRightInset: 50 + (mailBox ? mailBox.w + 2 : 0),
     // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
     // painted under the online counter so the counter stays readable on top.
     paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),
@@ -532,8 +313,8 @@ function paint($) {
 
   // 🎪 The circus marquee is painted as the chat header backdrop (via the
   // paintHeader option above), so it fills the header under the counter.
-  // 📱 laklok.com QR + ⚙ gear, top-right corner (over everything).
-  paintQR($);
+  // 📱 QR + ⚙ gear + 📬 envelope, top-right corner (over everything).
+  paintCorner($);
   paintSettings($);
 }
 
@@ -551,6 +332,12 @@ function act($) {
     return;
   }
 
+  // 📬 The envelope is the door to amail.
+  if (e.is("touch") && !settingsOpen && hit(mailBox)) {
+    jump("amail");
+    return;
+  }
+
   if (settingsOpen && (e.is("touch") || e.is("draw") || e.is("lift"))) {
     if (e.is("touch")) {
       const chip = settingsHits.find((h) => hit(h));
@@ -560,11 +347,10 @@ function act($) {
           jump("out:https://laklok.com/html/");
         } else if (type === "theme") {
           lakTheme = value;
-          store["laklok:theme"] = value;
-          store.persist("laklok:theme");
+          saveTema(store, value);
           if (value === "realtime") realtimeTick(); // catch up before first paint
           chat.refresh(client.system); // recolor cached message lines
-          reportTheme(net);
+          reportTema(net, value);
         } else if (type === "links") {
           lakLinksOnly = value;
           store["laklok:links"] = value;
@@ -585,6 +371,20 @@ function act($) {
 function sim($) {
   // 🌅 The ambient tema drifts a hair each minute; recolor when it does.
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
+
+  // 📬 Ask once whether there's mail waiting — two counts, not the inbox.
+  // Asked from sim, not boot, because the signed-in user can settle a beat
+  // after the piece does (the prompt curtain does the same).
+  if (mailCount === null && $.user && !lakTV) {
+    mailCount = "asking";
+    $.net
+      .userRequest("GET", "/api/mail?count=1")
+      .then((res) => {
+        mailCount = res?.status === 200 ? res : { unread: 0, total: 0 };
+      })
+      .catch(() => (mailCount = { unread: 0, total: 0 }));
+  }
+
   chat.sim($);
 }
 
@@ -592,23 +392,4 @@ function leave() {
   client.kill();
 }
 
-
-// 📚 Library
-
-// function beat() {
-//   // Runs once per system metronome (BPM) tick.
-// }
-
-// function leave() {
-//  // Runs once before the piece is unloaded.
-// }
-
-// function preview({ ink, wipe }) {
-// Render a custom thumbnail image.
-// }
-
-// function icon() {
-// Render an application icon, aka favicon.
-// }
-
-// ⚠️ Also available: `brush` and `filter`.
+export { boot, paint, act, sim, leave };

@@ -1,6 +1,30 @@
-// Mail, 2026.2.12 → 2026.9.11 (inbox added)
-// AC mail. `mail @handle words...` sends from the prompt; `mail` lands here.
+// Amail, 2026.2.12 → 2026.9.13 (was `mail`; that path still aliases here)
+// The post of aesthetic.computer. `amail @handle words...` sends from the
+// prompt; `amail` lands here; `amail~@handle` lands in compose, addressed.
 // Tier 1: nothing leaves aesthetic.computer. See `system/backend/mail.mjs`.
+//
+// Amail wears the same tema as `laklok` — one saved choice, one census — so
+// the two rooms read as one house. Its QR sits on pale blue paper where
+// laklok's sits on white, so the corners tell the rooms apart.
+
+import {
+  LAK_THEMES,
+  realtimeTick,
+  pickTema,
+  restoreTema,
+  saveTema,
+  reportTema,
+  makeQR,
+  paintQR,
+  paintGear,
+  GEAR,
+  paintEnvelope,
+  ENVELOPE,
+  paintBadge,
+  badgeWidth,
+  paintTemaPane,
+  temaRow,
+} from "./common/laklok-tema.mjs";
 
 let view = "inbox"; // inbox · sent · prefs · compose
 let status = "loading"; // loading, loaded, error, noauth
@@ -14,19 +38,64 @@ let busy = false;
 let fields; // to · subject · body, sharing one keyboard (see lib/type.mjs)
 let sendBtn;
 let composeNote = null; // what went wrong with the last send, if anything
+let pendingTo = null; // an address that arrived in the URL, waiting for the box
+
+// 👗 The tema, shared with laklok via the same store key.
+let tema = "ler";
+let settingsOpen = false;
+let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
+let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
+let qrCells = null; // aesthetic.computer/amail, top-right
+const QR_PAPER = [226, 238, 255]; // pale blue — laklok's is white
 
 function meta() {
   return {
-    title: "Mail — aesthetic.computer",
-    desc: "Your aesthetic.computer inbox.",
+    title: "Amail — aesthetic.computer",
+    desc: "Your aesthetic.computer amail — letters between handles.",
   };
+}
+
+// The current palette, read fresh each frame so the `realtime` tema's minute
+// drift shows up without anyone asking.
+const T = () => LAK_THEMES[tema];
+
+// The compose fields dress in the tema too.
+function fieldScheme() {
+  const t = T();
+  return {
+    text: t.chat.messageText,
+    background: [...t.stripeA, 220],
+    block: t.chat.handle,
+    highlight: 0,
+    guideline: [...t.chat.lines.slice(0, 3), 128],
+  };
+}
+
+function wearTema(name) {
+  tema = name;
+  if (fields?.input) fields.input.scheme = fieldScheme();
 }
 
 // 🥾 Boot
 async function boot(api) {
-  const { user, gizmo, hud, net, ui, screen } = api;
-  hud.label("mail");
+  const { user, gizmo, hud, net, ui, screen, store, colon, params } = api;
+  hud.label("amail");
   ellipsisTicker = new gizmo.EllipsisTicker();
+
+  settingsOpen = false;
+  view = "inbox";
+  composeNote = null;
+
+  // 👗 A colon/`~` token pins a tema (`amail~skov`); otherwise the saved one.
+  const tokens = [...(colon || []), ...(params || [])];
+  const picked = pickTema(tokens, store);
+  wearTema(picked.name);
+  restoreTema(store, picked.pinned, (saved) => {
+    if (saved) wearTema(saved);
+    if (user) reportTema(net, tema); // after the saved tema has had its say
+  });
+
+  qrCells = makeQR("https://aesthetic.computer/amail");
 
   inboxBtn = new ui.TextButton("inbox", { screen });
   sentBtn = new ui.TextButton("sent", { screen });
@@ -47,16 +116,12 @@ async function boot(api) {
       { name: "body", label: "say", lines: 4, placeholder: "…" },
     ],
     (letter) => send(api, letter),
-    {
-      scheme: {
-        text: 245,
-        background: [16, 13, 22, 220],
-        block: [120, 210, 255],
-        highlight: 0,
-        guideline: [110, 100, 140, 128],
-      },
-    },
+    { scheme: fieldScheme() },
   );
+
+  // `amail~@handle` — arrived with an address (a tapped handle in laklok);
+  // open straight onto a letter to them once the box has loaded.
+  pendingTo = tokens.find((t) => /^@\w/.test(t) || /^ac\d\d[a-z]{5}$/.test(t)) || null;
 
   if (!user) {
     status = "noauth";
@@ -64,6 +129,7 @@ async function boot(api) {
   }
 
   await refresh(api);
+  if (pendingTo && status === "loaded") compose(api, pendingTo);
 }
 
 async function refresh({ net }) {
@@ -134,6 +200,15 @@ function compose(api, to) {
 function sim(api) {
   ellipsisTicker?.update(api.clock.time());
   if (view === "compose") fields.sim(api);
+  // The signed-in user can settle a beat after boot; when they do, fetch.
+  if (status === "noauth" && api.user) {
+    status = "loading";
+    refresh(api).then(() => {
+      if (status === "loaded" && pendingTo) compose(api, pendingTo);
+    });
+  }
+  // 🌅 The ambient tema drifts a hair each minute; paint reads it live.
+  if (tema === "realtime" && realtimeTick()) wearTema(tema);
 }
 
 const DIM = [[40, 40, 46], [80, 80, 90], [120, 120, 130]];
@@ -148,25 +223,13 @@ const TABS = {
 
 function tab(name) {
   const [r, g, b] = TABS[name];
+  const ground = T().stripeA;
   return view === name
     ? [[r >> 1, g >> 1, b >> 1], [r, g, b], [255, 255, 255]]
-    : [[20, 19, 24], [r >> 2, g >> 2, b >> 2], [r * 0.55, g * 0.55, b * 0.55]];
+    : [ground, [r >> 2, g >> 2, b >> 2], [r * 0.55, g * 0.55, b * 0.55]];
 }
 
 const PERMA = /^ac\d\d[a-z]{5}@/;
-
-// 📬 The corner envelope — shut and grey when the box is empty, lit with its
-// flap open when something is waiting.
-function envelope(api, x, y, unread) {
-  const { ink } = api;
-  const w = 15;
-  const h = 10;
-  ink(unread ? [0, 120, 140] : [46, 44, 56]).box(x, y, w, h);
-  ink(unread ? [120, 255, 255] : [96, 92, 114]).box(x, y, w, h, "outline");
-  ink(unread ? [190, 255, 255] : [70, 68, 84]);
-  api.line(x, y, x + (w >> 1), y + (h >> 1));
-  api.line(x + w - 1, y, x + (w >> 1), y + (h >> 1));
-}
 
 // How long ago, short enough to sit next to a handle.
 function ago(when) {
@@ -181,21 +244,67 @@ function ago(when) {
   });
 }
 
+// 📱 The top-right corner, right to left: the amail QR on pale paper, the ⚙
+// gear, and the envelope with its unread count — the same cluster laklok
+// wears, so the eye finds it in the same place in both rooms.
+function paintCorner(api) {
+  const { screen } = api;
+  if (!qrCells) return;
+  const qrBoxSize = qrCells.length + 2;
+  const qrX = screen.width - qrBoxSize - 3;
+  const qrY = 3;
+  paintQR(api, qrCells, qrX, qrY, QR_PAPER);
+
+  const gx = qrX - GEAR - 4;
+  const gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
+  gearBox = paintGear(api, gx, gy, settingsOpen);
+
+  if (status !== "loaded") return;
+  const unread = mail.unread || 0;
+  const label = unread > 0 ? `${unread}` : null;
+  const cluster = ENVELOPE.w + (label ? badgeWidth(label) - 3 : 0);
+  const ex = gearBox.x - 6 - cluster;
+  const ey = qrY + Math.floor((qrBoxSize - ENVELOPE.h) / 2);
+  paintEnvelope(api, ex, ey, { lit: unread > 0 });
+  if (label) paintBadge(api, ex + ENVELOPE.w - 3, ey - 5, label);
+}
+
+// ⚙️ The indstillinger pane — just the tema row here; mode and filter are
+// the chat's business.
+function paintSettings(api) {
+  settingsHits = [];
+  if (!settingsOpen) return;
+  const { screen } = api;
+  const qrBoxSize = (qrCells?.length || 0) + 2;
+  settingsHits = paintTemaPane(api, {
+    theme: T(),
+    rows: [temaRow(tema)],
+    right: screen.width - 3,
+    top: 3 + qrBoxSize + 4,
+  });
+}
+
 // 🎨 Paint
 function paint(api) {
   const { wipe, ink, screen, text, help } = api;
-  wipe(24, 20, 28);
+  const t = T();
+  const c = t.chat;
+  wipe(...t.bg);
 
   if (status === "loading") {
-    ink(180).write(
+    ink(c.timestamp).write(
       "loading" + ellipsisTicker.text(help.repeat, { pad: false }),
       { center: "xy", size: 1 },
     );
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
 
   if (status === "noauth") {
-    ink(180).write("log in for mail", { center: "xy" });
+    ink(c.messageText).write("log in for amail", { center: "xy" });
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
 
@@ -203,28 +312,22 @@ function paint(api) {
     ink(200, 100, 100).write("error: " + (errorMsg || "unknown"), {
       center: "xy",
     });
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
-
 
   const x = 6;
   const wide = screen.width - x * 2;
   let y = 6; // the hud label is already the title — don't write a second one
-
-  const envX = screen.width - 21;
-  envelope(api, envX, y - 2, mail.unread);
-  if (mail.unread > 0) {
-    const count = `${mail.unread}`;
-    ink(0, 255, 255).write(count, { x: envX - 4 - count.length * 6, y });
-  }
-  y += 16;
+  y += 16; // the corner cluster owns the first row
 
   // The two spellings of this mailbox. The permahandle never moves and reads
   // like a serial number, so it wears MatrixChunky8; the @handle is the human
   // alias and stays in the normal face.
   for (const address of mail.addresses) {
     if (PERMA.test(address)) {
-      ink(110, 200, 165).write(
+      ink(c.log).write(
         address,
         { x, y: y + 1 },
         undefined,
@@ -234,7 +337,7 @@ function paint(api) {
       );
       y += 9;
     } else {
-      ink(150, 170, 225).write(address, { x, y });
+      ink(c.handle).write(address, { x, y });
       y += 11;
     }
   }
@@ -250,8 +353,8 @@ function paint(api) {
 
   writeBtn.reposition({ x, y, screen });
   writeBtn.paint(api, [[28, 54, 42], [110, 210, 155], [205, 255, 225]]);
-  ink(96, 104, 118).write(
-    "or from the prompt:  mail @handle your message",
+  ink(c.timestamp).write(
+    "or from the prompt:  amail @handle your message",
     { x: x + 44, y: y + 6 },
     undefined,
     undefined,
@@ -260,7 +363,7 @@ function paint(api) {
   );
   y += 18;
 
-  ink(60).box(x, y, wide, 1);
+  ink(c.lines).box(x, y, wide, 1);
   y += 8;
 
   // Compose sits in the room instead of replacing it — the addresses and tabs
@@ -277,7 +380,7 @@ function paint(api) {
     const footer = frame.y + frame.height + 4;
     sendBtn.reposition({ x, y: footer, screen });
     sendBtn.paint(api, [[28, 54, 42], [110, 210, 155], [205, 255, 225]]);
-    ink(composeNote ? [255, 130, 130] : [96, 104, 118]).write(
+    ink(composeNote ? [255, 130, 130] : c.timestamp).write(
       composeNote || "enter moves down  ·  tap a row to jump",
       { x: x + 40, y: footer + 6 },
       undefined,
@@ -285,24 +388,30 @@ function paint(api) {
       false,
       "MatrixChunky8",
     );
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
 
   if (view === "prefs") {
     paintPrefs(api, x, y, wide);
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
 
   const letters = view === "inbox" ? mail.inbox : mail.sent;
 
   if (letters.length === 0) {
-    ink(100).write(
-      view === "inbox" ? "no mail yet" : "nothing sent yet",
+    ink(c.timestamp).write(
+      view === "inbox" ? "no amail yet" : "nothing sent yet",
       { x, y },
     );
     if (view === "inbox") {
-      ink(70).write("try: mail @jeffrey hello", { x, y: y + 12 });
+      ink([...c.timestamp, 160]).write("try: amail @jeffrey hello", { x, y: y + 12 });
     }
+    paintCorner(api);
+    paintSettings(api);
     return;
   }
 
@@ -321,8 +430,9 @@ function paint(api) {
     const who = (view === "inbox" ? letter.from : letter.to) || "someone";
     const body = text.box(letter.text, { x: x + 8, y }, bounds).box.height;
 
-    // Stripe the row behind everything, so a long message stays one block.
-    ink(unread ? [30, 42, 56] : i % 2 ? [26, 23, 32] : [33, 29, 40]).box(
+    // Stripe the row behind everything, so a long message stays one block —
+    // the tema's stripes, unread rows on the brighter one.
+    ink(unread ? t.stripeB : i % 2 ? t.stripeA : [...t.stripeA, 110]).box(
       x,
       y - 3,
       wide,
@@ -331,37 +441,41 @@ function paint(api) {
 
     rows.push({ y0: y - 3, y1: y + body + 14, who });
 
-    if (unread) ink(0, 255, 255).box(x + 2, y + 2, 3, 3);
-    ink(unread ? [170, 220, 255] : [130, 140, 170]).write(who, {
+    if (unread) ink(c.log).box(x + 2, y + 2, 3, 3);
+    ink(unread ? c.handle : c.timestamp).write(who, {
       x: x + 8,
       y,
     });
     if (letter.subject) {
-      ink(unread ? [255, 225, 140] : [150, 135, 90]).write(
+      ink(unread ? c.painting : [...c.painting, 150]).write(
         letter.subject,
         { x: x + 8 + (who.length + 1) * 6, y },
         undefined,
         bounds - (who.length + 2) * 6,
       );
     }
-    ink(70).write(ago(letter.when), { x: screen.width - 34, y });
+    ink([...c.timestamp, 160]).write(ago(letter.when), { x: screen.width - 34, y });
     y += 11;
 
-    ink(unread ? 245 : 190).write(letter.text, { x: x + 10, y }, undefined, bounds);
+    ink(unread ? c.messageText : [...c.messageText, 190]).write(letter.text, { x: x + 10, y }, undefined, bounds);
     y += body + 6;
   });
+
+  paintCorner(api);
+  paintSettings(api);
 }
 
 function paintPrefs(api, x, y, wide) {
   const { ink, screen } = api;
+  const c = T().chat;
 
   if (!prefs) {
-    ink(140).write("loading prefs…", { x, y });
+    ink(c.timestamp).write("loading prefs…", { x, y });
     return;
   }
 
   if (prefs.email) {
-    ink(120).write(prefs.email, { x, y });
+    ink(c.timestamp).write(prefs.email, { x, y });
     y += 12;
 
     if (prefs.subscribed) {
@@ -377,19 +491,19 @@ function paintPrefs(api, x, y, wide) {
   }
 
   if (busy) {
-    ink(160).write("updating…", { x, y });
+    ink(c.timestamp).write("updating…", { x, y });
     y += 14;
   }
 
-  ink(160, 140, 200).write("blast history", { x, y });
+  ink(c.kidlisp).write("blast history", { x, y });
   y += 14;
 
   if (!prefs.blasts || prefs.blasts.length === 0) {
-    ink(100).write("no blasts sent yet", { x, y });
+    ink(c.timestamp).write("no blasts sent yet", { x, y });
     return;
   }
 
-  ink(80).write(
+  ink([...c.timestamp, 160]).write(
     `${prefs.count} blast${prefs.count !== 1 ? "s" : ""} · ${prefs.totalSent} sent · ${prefs.totalUnsubscribed} unsub`,
     { x, y },
   );
@@ -404,17 +518,47 @@ function paintPrefs(api, x, y, wide) {
           ? [200, 180, 80]
           : [180, 80, 80];
     ink(...color).write(blast.status, { x, y });
-    ink(140).write(ago(blast.when), { x: x + 80, y });
-    ink(100).write(`${blast.sent}/${blast.totalAttempted}`, { x: x + 130, y });
+    ink(c.timestamp).write(ago(blast.when), { x: x + 80, y });
+    ink([...c.timestamp, 160]).write(`${blast.sent}/${blast.totalAttempted}`, { x: x + 130, y });
     y += 10;
-    ink(80).write(blast.subject || "(no subject)", { x: x + 8, y }, undefined, wide - 10);
+    ink([...c.messageText, 160]).write(blast.subject || "(no subject)", { x: x + 8, y }, undefined, wide - 10);
     y += 14;
   }
 }
 
 // 🎪 Act
 function act(api) {
-  const { event: e, net, needsPaint } = api;
+  const { event: e, net, needsPaint, store } = api;
+
+  const hit = (box) =>
+    box && e.x >= box.x && e.x < box.x + box.w && e.y >= box.y && e.y < box.y + box.h;
+
+  // ⚙️ Gear toggles the pane; while open, the pane owns every pointer event.
+  if (e.is("touch") && hit(gearBox)) {
+    settingsOpen = !settingsOpen;
+    needsPaint();
+    return;
+  }
+
+  if (settingsOpen && (e.is("touch") || e.is("draw") || e.is("lift"))) {
+    if (e.is("touch")) {
+      const chip = settingsHits.find((h) => hit(h));
+      if (chip) {
+        const { type, value } = chip.action;
+        if (type === "theme") {
+          wearTema(value);
+          saveTema(store, value);
+          if (value === "realtime") realtimeTick(); // catch up before first paint
+          if (status === "loaded") reportTema(net, value);
+        }
+      } else if (!hit(settingsHits.pane)) {
+        settingsOpen = false; // Tap outside closes.
+      }
+      needsPaint();
+    }
+    return;
+  }
+
   if (status !== "loaded") return;
 
   if (view === "compose") {

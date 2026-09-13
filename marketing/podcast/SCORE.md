@@ -120,6 +120,11 @@ Flags: `--open` (slab-afplay the result), `--force` (bypass say cache),
 `--stability 0.55 --similarity 0.8 --speed 0.98` (voice tuning),
 `--base <url>` on `feed.mjs` (override the asset host).
 
+For an addressed audio reply, use `--frame reply --nobed`. This retains the
+voice, mastering, and speech QA, omits podcast framing and jingles, and marks
+the audio metadata as a synthesized private reply. Keep its source in the
+private paper directory and its slug outside the publish allowlist.
+
 ## Reused from /pop
 
 - `/api/say` invocation pattern + content-hash caching — lifted from `pop/bin/say.mjs`.

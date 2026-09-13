@@ -114,11 +114,16 @@ test("the rendered code matches the encoder module for module", async () => {
   assert.equal(isFinder(last, last), false, "no finder in the bottom-right");
 });
 
-test("every runtime carries a blank that names itself", () => {
+// The name lives in the blank's header comment only. The system's corner label
+// already shows it on screen, so a blank that also wrote it drew it twice — and
+// the agent's first edit tended to keep the centered placeholder around.
+test("every runtime carries a blank that names itself in a comment, not on screen", () => {
   assert.deepEqual(runtimeIds(), ["mjs", "lisp", "lua"]);
   for (const id of runtimeIds()) {
     const runtime = runtimeFor(id);
-    assert.match(runtime.blank("movika"), /movika/);
+    const blank = runtime.blank("movika");
+    assert.match(blank, /movika/);
+    assert.doesNotMatch(blank, /(?:write|text)\s*\(?\s*"movika"/, `${id} blank writes its name on screen`);
     assert.equal(runtimeForExtension(runtime.extension), runtime);
   }
   assert.equal(runtimeFor(".LISP").id, "lisp");

@@ -207,7 +207,8 @@ function developerInstructions() {
   return [
     "You are running inside Easel, a terminal interface for Aesthetic Computer (AC) work.",
     account,
-    `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece. Edit that file unless the user asks for something else.`,
+    `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece that paints a flat color and nothing else. Edit that file unless the user asks for something else.`,
+    "Do not write the piece's name onto the screen: the system already shows it in the corner label. If the file still carries a placeholder that writes its own name, remove it in your first edit.",
     ...dialect,
     ...styleInstructions(),
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",

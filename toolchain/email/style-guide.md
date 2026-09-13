@@ -58,10 +58,39 @@ and undercuts the work.
 
 ## Drafts and authorization
 
-**Never send any email without prior approval.** This applies to every
-email — new threads, replies, logistics notes, one-liners, all of it.
-There is no "unambiguous intent" exception: even when the prompt says
-"email them," compose the draft, show the headers + body + attachment
-paths in the conversation, and wait for explicit authorization ("send
-it" / "go ahead") before calling `mail_send`. Drafting is the default;
-sending is a separate, explicitly-authorized step every time.
+Sending is the irreversible step, so it has two lanes. Revised by
+@jeffrey 2026-09-11: the previous rule demanded a second "send it" for
+every email, including ones he had just asked for by name, which turned
+a one-line request into three messages.
+
+### Send it — when all of these hold
+
+- @jeffrey asked for **this** email in this conversation, naming the
+  recipient and the purpose ("email Cody about the workshop").
+- It is ordinary correspondence: an invitation, an announcement, a
+  logistics note, a reply on a thread already underway, a one-liner.
+- No attachments.
+- Nothing that commits money, accepts or negotiates terms, carries an
+  apology or bad news, or speaks for anyone other than @jeffrey.
+- One recipient group — not a list, not a blast.
+
+Then send, and print the full headers and body in the reply. A send you
+cannot show afterward is a send you should not have made.
+
+### Draft and wait for explicit authorization ("send it" / "go ahead")
+
+- **You thought of the email.** @jeffrey did not ask for it.
+- First contact with a person or organization he has no prior thread
+  with — the opening line of a relationship is his to write.
+- Anything with an attachment.
+- Money, contracts, legal terms, apologies, bad news, or a negotiation.
+- Any list or mass send.
+
+When unsure which lane applies, draft. Drafting costs one message; a
+wrong send costs a relationship.
+
+### Always
+
+Report what was sent — recipients, subject, body — whichever lane it
+took. Never invent a commitment on @jeffrey's behalf: a date, a price,
+a deliverable, or a yes he has not actually given.

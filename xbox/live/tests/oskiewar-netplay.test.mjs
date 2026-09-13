@@ -27,7 +27,7 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
     "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle",
     "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
     `${source}
-     return { boot, sim, paint,
+     return { boot, sim, paint, saberPickups, players, netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
        netplayBegin: (deal, seat, send) => netBegin(deal, seat, send),
        netplayDeal: () => netMakeDeal(),
        netplayEnd: (reason) => netEnd(reason),
@@ -764,4 +764,56 @@ test("a round is not filed until its end can no longer be taken back", () => {
   }
   assert.ok(waits > 0, "a round did finish and had to wait");
   assert.ok(host.saved().length > 0, "and was filed once it could be");
+});
+
+// A rollback restores the arrays the fight is made of. Any array the sim
+// mutates and the snapshot forgets is a desync waiting for the right fight to
+// happen, and `saberPickups` was exactly that: a blade taken on one timeline
+// stayed taken through a rewind, `swordHeld` came back different on the two
+// seats, and because a sword is a 1.5x reach multiplier the two machines went
+// on agreeing about every number they hashed until a strike landed one frame
+// apart. The hash said frame 330; the cause was hundreds of frames earlier.
+test("a sword survives a rollback the same way on both seats", () => {
+  assert.match(source, /gunPickups, saberPickups, grenadePickups/,
+    "saberPickups is part of the rollback snapshot");
+  assert.match(source, /player\.swordHeld\]\);/,
+    "and holding one is hashed, so disagreeing about it reports itself");
+
+  const host = createSeat();
+  const guest = createSeat();
+  const wire = createWire(host, guest, { delay: 7, jitter: 3, seed: 11 });
+  beginPair(host, guest, wire);
+
+  // Put a blade under each fighter's feet so the pickup happens early and the
+  // rest of the fight is simulated with a sword in play on both timelines.
+  for (const seat of [host, guest])
+    for (const rack of seat.fight.saberPickups) rack.active = true;
+  for (const seat of [host, guest])
+    for (let index = 0; index < seat.fight.players.length; index++) {
+      const blade = seat.fight.saberPickups[index];
+      if (!blade) continue;
+      seat.fight.players[index].x = blade.x;
+      seat.fight.players[index].y = blade.y + 40;
+    }
+
+  let held = false;
+  for (let frame = 0; frame < 600; frame++) {
+    const state = host.fight.netplayState();
+    const guestState = guest.fight.netplayState();
+    assert.ok(state && guestState,
+      `the session ended at frame ${frame} — that is a desync`);
+    host.press(...choreography(0, state.frame));
+    guest.press(...choreography(1, guestState.frame));
+    host.tick();
+    guest.tick();
+    wire.step();
+    if (host.fight.players.some((player) => player.swordHeld)) held = true;
+  }
+  assert.ok(held, "a blade was never picked up, so this proved nothing");
+  // Both seats still talking, and still telling the same story.
+  for (const [a, b] of [[host, guest], [guest, host]])
+    assert.equal(
+      a.fight.players.map((player) => player.swordHeld).join(),
+      b.fight.players.map((player) => player.swordHeld).join(),
+      "the two seats disagree about who is holding a sword");
 });

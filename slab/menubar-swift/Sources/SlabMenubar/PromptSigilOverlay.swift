@@ -2275,6 +2275,9 @@ final class PromptSigilOverlayController {
         if let old = previewHoverTarget { previews[old]?.setHovered(false) }
         previewHoverTarget = hit
         if let hit { previews[hit]?.setHovered(true) }
+        // The rock hides under an open card and returns when it closes; run
+        // that now rather than at the next lazy tick, so the two move as one.
+        scheduleTick(after: 0)
     }
 
     /// Primary AppKit interaction path. Unlike the global event monitor, this
@@ -3071,14 +3074,28 @@ final class PromptSigilOverlayController {
         }
         for (_, ov) in overlays {
             guard let num = binding[ov.tty], let b = snap.terminals[num] else {
-                ov.hide(); dropInteraction(for: ov); continue
+                ov.hide(); dropInteraction(for: ov)
+                // The pane is gone — closed, or not yet bound. The card goes
+                // with the rock, in the same tick: a preview left standing over
+                // where a terminal used to be is the session's ghost, and it
+                // used to haunt the desk until the ledger reaped the record.
+                if let pv = previews[ov.sessionId] {
+                    pv.setVisible(false)
+                    pv.setPaused(true)
+                    if previewHoverTarget == ov.sessionId { previewHoverTarget = nil }
+                }
+                continue
             }
             ov.place(bounds: b, screenHeight: screenH)
             // Recreate a cross-process child relationship: elevated surfaces
             // cannot sink behind their own terminal, but each is gated by the
             // normal window that owns all of its visible sample points.
             let points = ov.visibilityPoints(bounds: b)
+            // An open card is the whole pane, rock's corner included. The rock
+            // steps aside while the card is up rather than float over the
+            // piece it is the code for; it is back the moment the card closes.
             let rockVisible = ownedBy(num, at: points.rock)
+                && previewHoverTarget != ov.sessionId
             ov.setVisible(
                 rock: rockVisible,
                 heartbeat: ownedBy(num, at: points.heartbeat),

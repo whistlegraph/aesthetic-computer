@@ -1,9 +1,11 @@
 // runtimes.mjs — the piece languages Aesthetic Computer can run.
 //
 // A piece is JavaScript, KidLisp, or Lua, chosen by file extension. The blank
-// templates are the starting point for a session's piece: each one paints
-// something on its own so a phone pointed at the QR code has an image
-// immediately, before the agent has written anything.
+// templates are the starting point for a session's piece: each one paints a
+// flat color on its own so a phone pointed at the QR code has an image
+// immediately, before the agent has written anything. The blank does not write
+// its own name — the system's corner label already shows it, and a name left
+// in the source tends to survive the agent's first edit as clutter.
 
 export const RUNTIMES = {
   mjs: {
@@ -16,9 +18,8 @@ export const RUNTIMES = {
     blank: (name) => `// ${name}, ${stamp()}
 // A blank Aesthetic Computer piece.
 
-function paint({ wipe, ink, screen }) {
+function paint({ wipe }) {
   wipe(70, 50, 100);
-  ink(255, 100, 255).write("${name}", { center: "xy" });
   return false; // Painted once; return true to keep painting.
 }
 
@@ -33,8 +34,6 @@ export { paint };
     routable: true,
     blank: (name) => `; ${name}, ${stamp()}
 (wipe "purple")
-(ink "pink")
-(write "${name}" 6 6)
 `,
   },
   lua: {
@@ -62,8 +61,6 @@ end
 
 function draw()
   background(70, 50, 100)
-  fill(255, 100, 255)
-  text("${name}", 6, 16)
 end
 `,
   },

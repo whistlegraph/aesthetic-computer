@@ -54,7 +54,47 @@ pop/.venv/bin/python pop/imab/bin/lyricscroll.py
                                        # the scrolling review clip: alignment-video
                                        #   chassis over the real floor mix, lyric
                                        #   ribbon underneath (needs lyrictrack first)
+pop/.venv/bin/python pop/imab/bin/melodyproof.py [take…]
+                                       # DOES HE SING WHAT WE WROTE? every syllable's
+                                       #   sung pitch vs melody.json, per take, two
+                                       #   stages: SET (vocalset's note-locked render —
+                                       #   proves the render) and RAW (the demucs stem —
+                                       #   the verdict). Register fitted per take in
+                                       #   cents; boundaries from drawn / dtw / notealign.
+                                       #   → out/melodyproof.html (?only=<take-suffix>)
+                                       #   also writes boundaries-dtw-<take>.json (the
+                                       #   lead's hand warped onto each take) for the wizard
+node pop/imab/bin/syllawizard.mjs <take> # draw syllable rectangles on THIS take's
+                                       #   spectrogram (takes/<take>/ in the cache; seeds
+                                       #   from processed → drawn → dtw boundaries)
+pop/.venv/bin/python pop/imab/bin/notealign.py <wav> <notes.json>
+                                       # forced alignment: the written melody DTW'd onto
+                                       #   the f0 track → syllable spans (a proposal)
+node pop/imab/bin/setalign.mjs         # every set retimed onto the lead's syllable
+                                       #   onsets → out/imab-set-<take>-aligned.wav +
+                                       #   imab-sets-successive.mp3 (no layering)
+open pop/imab/review.html              # scroll-through of every demo, take and spine
 ```
+
+### boundary files — which timebase
+
+- `processed-boundaries-<take>.json` — @jeffrey's hand on the **SET** (vocalset's
+  stretched, note-locked wav; the wizard's `takes/<take>/spec.png`). Feeds vocalset.
+- `boundaries-drawn-<take>.json` — @jeffrey's hand on the **RAW** stem. The lead's
+  (Sep 1) carries the a/but mislabel that `lyric-overrides.json` drawnFix corrects;
+  7427's (Sep 9, drawn on neo) is clean.
+- `boundaries-dtw-<take>.json` — melodyproof's warp of the lead's SET hand onto
+  another take's SET, by MFCC+RMS DTW. A seed, not a truth.
+- `melody.json` — the notepat ground truth, one note per syllable. Edit here, not
+  in the scripts.
+
+### where the work lives
+
+The raw takes (`toolchain/whistlegraph/downloads/whistlegraph-<take>.wav`),
+their demucs stems and the full `~/.cache/ac/imab` work dir live on **neo**;
+blueberry holds copies of the six stems + wavs as of 2026-09-13. Uncommitted
+lane work has stranded on both machines before — `git status pop/imab` on
+each before assuming a fix "already happened".
 
 - **out/imab-click-124** — 2-bar count-in, then 64 bars. Beat 1
   accented, brighter door tick at every 8-bar phrase start.

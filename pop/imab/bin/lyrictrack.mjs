@@ -194,7 +194,7 @@ writeFileSync(`${OUT}/imab-gt-targets.json`, JSON.stringify(sylls.map((s, i) => 
 console.log("→ aesthetivox note-lock (targets from current boundaries)");
 sh(PY, [`${REPO}/pop/bin/autotune.py`, `${OUT}/imab-sacredvox.wav`, AVOX,
   "--targets", `${OUT}/imab-gt-targets.json`, "--register-fit",
-  "--strength", "1.0", "--preserve", "0.25", "--glide-ms", "30"]);   // flutish: dead-on, little ride
+  "--strength", "1.0", "--preserve", "0.0", "--glide-ms", "0"]);   // EXTREME: stepped, no scoop, no ride
 let stemFile = "out/imab-sacredvox.wav";
 const gridOvr = Object.entries(ovr.overrides ?? {});
 if (gridOvr.length && existsSync(AVOX)) {

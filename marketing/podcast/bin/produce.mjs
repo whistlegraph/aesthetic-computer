@@ -14,7 +14,7 @@
 //   node bin/produce.mjs ../../opinion/lotus-notes.md --open
 //   flags: --open --force --stability 0.5 --similarity 0.8 --speed 1.0
 //          --bedstyle sosoft|lofi|club  |  --bedfile <wav> --bedbpm N [--bedbeats 3]
-//          --frame reading|daily|log
+//          --frame reading|daily|log|reply
 
 import { writeFileSync, readFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -261,6 +261,7 @@ console.log(`\n${units.length} utterances · body ${bodySec.toFixed(1)}s${BEAT_A
 // 3. Intro + outro voice-over, with the measured length. Two frames:
 // "reading" (the liturgical essay framing) and "daily" (the short-update show).
 const FRAME = flags.frame || "reading";
+const IS_REPLY = FRAME === "reply";
 const introText = FRAME === "daily"
   ? `The daily, from Aesthetic Dot Computer. ${script.title}. Approximately ${lengthText}.`
   : FRAME === "log"
@@ -271,12 +272,13 @@ const outroText = FRAME === "daily"
   : FRAME === "log"
     ? `That's the log so far. Letters to mail at aesthetic dot computer.`
     : `Here ends the reading. Questions and feedback are welcome at mail at aesthetic dot computer. Unless you ask us not to, your letter may be read or mentioned on a future episode.`;
-console.log("Narrating frame…");
-const introVo = await say(introText, "intro");
-const outroVo = await say(outroText, "outro");
+if (!IS_REPLY) console.log("Narrating frame…");
+const introVo = IS_REPLY ? null : await say(introText, "intro");
+const outroVo = IS_REPLY ? null : await say(outroText, "outro");
 
 // 4. Jingles.
-const { intro: introJingle, outro: outroJingle } = renderJingles(resolve(ROOT, "assets"));
+const { intro: introJingle, outro: outroJingle } = IS_REPLY
+  ? {} : renderJingles(resolve(ROOT, "assets"));
 
 // 5. Assemble.
 console.log("\nAssembling…");
@@ -298,9 +300,11 @@ const add = (src) => {
 };
 const gap = (s) => { if (s <= 0) return; const d = resolve(build, `seg_${String(n++).padStart(3, "0")}.wav`); silence(d, s); seq.push(d); clock += s; };
 
-add(introJingle);
-gap(0.35);
-add(introVo);
+if (!IS_REPLY) {
+  add(introJingle);
+  gap(0.35);
+  add(introVo);
+}
 // Push the body to the next bar boundary so the first VOICED onset lands on
 // the downbeat (its lead consonant just ahead of it), and every later
 // sentence onset lands on a beat.
@@ -315,10 +319,12 @@ for (let i = 0; i < units.length; i++) {
   add(units[i].wav);
   cues.push({ start: startSec, end: clock, text: units[i].text });
 }
-gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
-add(outroVo);
-gap(0.3);
-add(outroJingle);
+if (!IS_REPLY) {
+  gap((BEAT_ALIGN ? snapUp(clock, BAR, 0.5) : clock + 0.8) - clock);
+  add(outroVo);
+  gap(0.3);
+  add(outroJingle);
+}
 
 // Write an SRT of the reading (sentence-level, exact from the timeline).
 const srtTime = (s) => {
@@ -471,10 +477,10 @@ execFileSync("ffmpeg", [
   "-disposition:v", "attached_pic",
   "-metadata", `title=${script.title}`,
   "-metadata", `artist=${speaker}`,
-  "-metadata", `album=Aesthetic Computer — Readings`,
+  "-metadata", `album=${IS_REPLY ? "Aesthetic Computer — Private Replies" : "Aesthetic Computer — Readings"}`,
   "-metadata", `genre=Spoken Word`,
   "-metadata", `date=${script.date}`,
-  "-metadata", `comment=A reading of the essay "${script.title}". ${lengthText}.`,
+  "-metadata", `comment=${IS_REPLY ? `Private reply draft. Synthesized with ${VOICE.provider}/${VOICE.voice}.` : `A reading of the essay "${script.title}". ${lengthText}.`}`,
   outMp3,
 ], { stdio: "ignore" });
 
@@ -513,6 +519,7 @@ if (existsSync(sidecarPath)) {
 }
 writeFileSync(sidecarPath, JSON.stringify({
   slug: script.slug, title: script.title, author: speaker, date: script.date,
+  frame: FRAME, voice: VOICE,
   status: hosted(script.slug) ? "publish-cleared" : "draft-unpublished",
   description: script.paragraphs[0], lengthText,
   durationSec: Math.round(total), bytes: readFileSync(outMp3).length,

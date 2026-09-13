@@ -14,8 +14,13 @@
 // What it shows is `scan_url` — the same address the rock encodes — so the two
 // surfaces can never disagree about which piece this session is about. It runs
 // capped (`maxfps`) because a wall of nine panes each animating at display rate
-// is a warm laptop for no one's benefit; under the pointer the cap comes off
-// and the window grows, which is the whole interaction.
+// is a warm laptop for no one's benefit.
+//
+// The piece runs at the pane's own viewport the whole time. The resting card is
+// a small window onto it — a slow Ken Burns crop at 1:1, the way chat.mjs shows
+// a `#painting` — and pointing at the card opens that window up to the whole
+// viewport. Nothing is resized on the way: a live resize of a web view costs a
+// reframe and a black frame or two, and the old card paid both on every hover.
 //
 // The chrome over it is not decoration. A web view that is covered, throttled
 // or simply one save behind shows a frame that looks exactly like a live one,
@@ -126,14 +131,7 @@ final class PromptPreview {
     /// status light at 56 points, but a piece has to be recognisable as itself,
     /// and below about this it is a texture.
     static let restSize = CGSize(width: 128, height: 96)
-    /// The most a pointed-at card will grow to. It is a ceiling, not a size —
-    /// `hoverSize(in:)` fits the card to the pane it belongs to, because a
-    /// tiled grid's panes are all different and a card that grew past its own
-    /// pane would spill onto the neighbour, fail the ownership test that keeps
-    /// companion surfaces honest, and blink out at the exact moment you asked
-    /// to see it.
-    private static let hoverCap = CGSize(width: 456, height: 342)
-    /// Room left between the grown card and its pane's bottom-right, so the
+    /// Room left between the open card and its pane's bottom-right, so the
     /// terminal never looks completely papered over.
     private static let hoverMargin: CGFloat = 12
 
@@ -165,11 +163,23 @@ final class PromptPreview {
     /// which is what a screen on a desk looks like.
     private static let cardRadius: CGFloat = 3
 
+    /// One slow lap of the resting crop around the piece. Matches the
+    /// `#painting` embeds in chat.mjs, which this card is a cousin of.
+    private static let kenBurnsCycle: TimeInterval = 8
+    /// How often the crop moves. A pan of a few points a second at 24 steps
+    /// reads as continuous; the web view is not repainted by it, only
+    /// re-composited.
+    private static let kenBurnsInterval: TimeInterval = 1.0 / 24
+    /// How long the card takes to open or close.
+    private static let openDuration: TimeInterval = 0.16
+
     private let window: NSWindow
     private let webView: WKWebView
     private let badgeHost: NSHostingView<PromptPreviewBadge>
     private let border = CALayer()
-    /// The card proper. The window around it is larger by `shadowDrop`.
+    /// The card proper — the part of the viewport the eye is shown. The
+    /// window is always the whole viewport plus its shadow; the card is a
+    /// clipping frame that opens and closes over it.
     private let card = NSView()
     private let shadow = CALayer()
 
@@ -185,6 +195,28 @@ final class PromptPreview {
     /// terminal underneath it.
     private(set) var hitRect = NSRect.zero
 
+    /// The card in CG screen space (top-left origin) — the coordinate system
+    /// the window stack speaks, as opposed to `hitRect`'s AppKit one.
+    private(set) var cgRect = CGRect.zero
+
+    /// The pane's top-left in AppKit coordinates, where the card's top-left
+    /// always is, open or closed.
+    private var paneOrigin = NSPoint.zero
+    /// The pane this card belongs to. The viewport is sized to it.
+    private var paneSize = CGSize(width: 800, height: 600)
+    /// Kept from the last `place` so a hover can recompute `cgRect` without
+    /// waiting for the next tick to hand the height back.
+    private var screenHeightForCG: CGFloat = 0
+    /// The size the piece is actually rendered at — the pane's own viewport,
+    /// less the card's insets. The web view is only ever this size, so opening
+    /// the card reframes nothing: what was cropped is simply shown.
+    private var viewport = PromptPreview.restSize
+
+    /// Where in the lap this card's crop is; a random phase so a wall of cards
+    /// does not drift in lockstep.
+    private let kenBurnsSeed = Double.random(in: 0..<1)
+    private var kenBurnsTimer: Timer?
+
     init() {
         let config = WKWebViewConfiguration()
         // A wall of previews must stay silent. AC's audio needs a gesture
@@ -193,7 +225,8 @@ final class PromptPreview {
         config.suppressesIncrementalRendering = false
         webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
-        webView.autoresizingMask = [.width, .height]
+        // Positioned by hand: the crop is an offset, never a resize.
+        webView.autoresizingMask = []
 
         badgeHost = NSHostingView(rootView: PromptPreviewBadge(state: PromptPreviewState(),
                                                                expanded: false))
@@ -211,9 +244,10 @@ final class PromptPreview {
         window.ignoresMouseEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
-        // The window is the card plus the room its shadow falls into, so the
-        // shadow is ordinary drawing rather than a compositor effect — and the
-        // card's own rect stays exactly what `hitRect` reports.
+        // The window is the whole viewport plus the room its shadow falls
+        // into. Everything outside the card is transparent, so the window's
+        // size is invisible; it is this big so that opening the card moves no
+        // window and resizes no web view — both of which drop frames.
         let content = NSView(frame: NSRect(x: 0, y: 0,
                                            width: Self.restSize.width + Self.shadowDrop,
                                            height: Self.restSize.height + Self.shadowDrop))
@@ -240,9 +274,9 @@ final class PromptPreview {
         card.addSubview(badgeHost)
         content.addSubview(card)
         window.contentView = content
-        layoutCard()
+        layoutWindow()
+        layoutCard(animated: false)
         redrawChrome()
-        layoutBadge()
     }
 
     /// Point the card at an address. `scanURL` is the bare host+path the rock
@@ -298,98 +332,163 @@ final class PromptPreview {
         ]
     }
 
-    /// The card in CG screen space (top-left origin) — the coordinate system
-    /// the window stack speaks, as opposed to `hitRect`'s AppKit one.
-    private(set) var cgRect = CGRect.zero
-
-    /// Grow under the pointer and shrink when it leaves. The card keeps its
+    /// Open under the pointer and close when it leaves. The card keeps its
     /// top-left corner, so it opens *into* the pane rather than walking across
-    /// the screen, and the piece reframes to the new size the way it would in
-    /// any resized window.
+    /// the screen — and it opens onto the piece already running at the pane's
+    /// own size, so nothing reframes, reloads or goes black on the way.
     func setHovered(_ hovering: Bool) {
         guard hovering != expanded else { return }
         expanded = hovering
-        applyFrame(animated: true)
+        layoutCard(animated: true)
         redrawChrome()
+        syncKenBurns()
     }
 
     /// Park the card in the pane's top-left, under the title bar. `bounds` is
     /// the terminal window in CG screen space (top-left origin), matching what
-    /// the rock controller already hands its overlays.
+    /// the rock controller already hands its overlays. Called every tick, so a
+    /// pane that has not moved costs nothing here.
     func place(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat), screenHeight: CGFloat) {
-        paneOrigin = NSPoint(x: b.0 + Self.leftInset,
+        let origin = NSPoint(x: b.0 + Self.leftInset,
                              y: screenHeight - (b.1 + Self.dropBelowTitle))
-        paneSize = CGSize(width: b.2, height: b.3)
+        let size = CGSize(width: b.2, height: b.3)
+        guard origin != paneOrigin || size != paneSize || screenHeight != screenHeightForCG
+        else { return }
+        paneOrigin = origin
+        paneSize = size
         screenHeightForCG = screenHeight
-        applyFrame(animated: false)
+        layoutWindow()
+        layoutCard(animated: false)
     }
 
-    private var paneOrigin = NSPoint.zero
-    /// The pane this card belongs to, so a hover can size itself to the room
-    /// it actually has rather than to a number chosen for one window.
-    private var paneSize = CGSize(width: 800, height: 600)
-    /// Kept from the last `place` so a hover resize can recompute `cgRect`
-    /// without waiting for the next tick to hand the height back.
-    private var screenHeightForCG: CGFloat = 0
-
-    /// Fit the grown card inside `pane`, keeping the resting card's proportions
-    /// so a piece is never letterboxed by the furniture around it.
-    private func hoverSize(in pane: CGSize) -> CGSize {
-        let ratio = Self.restSize.height / Self.restSize.width
-        let maxW = max(Self.restSize.width,
-                       min(Self.hoverCap.width, pane.width - Self.leftInset - Self.hoverMargin))
-        let maxH = max(Self.restSize.height,
-                       min(Self.hoverCap.height, pane.height - Self.dropBelowTitle - Self.hoverMargin))
-        // Whichever axis runs out first decides; the other follows the ratio.
-        let width = min(maxW, maxH / ratio)
-        return CGSize(width: width, height: width * ratio)
+    /// The piece renders at the pane's viewport: what the terminal shows, less
+    /// the card's own insets. Never smaller than the resting card, so a tiny
+    /// pane still gets a whole card rather than a sliver.
+    private static func viewport(in pane: CGSize) -> CGSize {
+        let width = max(restSize.width, (pane.width - leftInset - hoverMargin).rounded(.down))
+        let height = max(restSize.height, (pane.height - dropBelowTitle - hoverMargin).rounded(.down))
+        return CGSize(width: width, height: height)
     }
 
-    private func applyFrame(animated: Bool) {
-        let size = expanded ? hoverSize(in: paneSize) : Self.restSize
-        // AppKit origins are bottom-left; anchoring the card's TOP-left means
-        // subtracting its height, which is what keeps the corner still while
-        // the card grows downward.
-        let rect = NSRect(x: paneOrigin.x, y: paneOrigin.y - size.height,
+    /// Size the window and the web view to the viewport. This is the only
+    /// place the web view changes size, and it happens only when the pane
+    /// does — which is when the piece would have reframed anyway.
+    private func layoutWindow() {
+        viewport = Self.viewport(in: paneSize)
+        let frame = NSRect(x: paneOrigin.x,
+                           y: paneOrigin.y - viewport.height - Self.shadowDrop,
+                           width: viewport.width + Self.shadowDrop,
+                           height: viewport.height + Self.shadowDrop)
+        if window.frame != frame { window.setFrame(frame, display: false) }
+        if webView.frame.size != viewport {
+            webView.frame = NSRect(origin: webView.frame.origin, size: viewport)
+        }
+    }
+
+    /// The card's size right now: the whole viewport when open, the resting
+    /// card otherwise. Its top-left never moves.
+    private var cardSize: CGSize {
+        expanded ? viewport
+                 : CGSize(width: min(Self.restSize.width, viewport.width),
+                          height: min(Self.restSize.height, viewport.height))
+    }
+
+    /// Fit the card, its shadow and its border to `cardSize`, and slide the
+    /// web view so the card shows the right part of it — everything when
+    /// open, the current crop when closed. Animated, the card unfolds over the
+    /// piece; the piece itself never changes size, which is what keeps the
+    /// unfolding free of the black frames a live resize costs.
+    private func layoutCard(animated: Bool) {
+        guard let content = window.contentView else { return }
+        let size = cardSize
+        let rect = NSRect(x: 0, y: content.bounds.height - size.height,
                           width: size.width, height: size.height)
+        let crop = expanded ? CGPoint.zero : kenBurnsCrop(at: Date())
+        let webOrigin = webOrigin(cardHeight: size.height, crop: crop)
         // The card is what everything else means by "the preview" — the pointer
-        // test, the ownership test, the diff crop. The window is bigger only so
-        // the drawn shadow has somewhere to land, and nothing outside this
-        // method should have to know that.
-        hitRect = rect
-        cgRect = CGRect(x: rect.minX, y: screenHeightForCG - rect.maxY,
-                        width: rect.width, height: rect.height)
-        let frame = NSRect(x: rect.minX, y: rect.minY - Self.shadowDrop,
-                           width: rect.width + Self.shadowDrop,
-                           height: rect.height + Self.shadowDrop)
+        // test, the ownership test. Both read its final rect, not the frame
+        // mid-animation, so a pointer that opened the card is inside it at once.
+        hitRect = NSRect(x: paneOrigin.x, y: paneOrigin.y - size.height,
+                         width: size.width, height: size.height)
+        cgRect = CGRect(x: hitRect.minX, y: screenHeightForCG - hitRect.maxY,
+                        width: hitRect.width, height: hitRect.height)
+        let shadowRect = NSRect(x: rect.minX + Self.shadowDrop, y: rect.minY - Self.shadowDrop,
+                                width: size.width, height: size.height)
+        let borderRect = NSRect(origin: .zero, size: size)
         if animated {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.14
+                context.duration = Self.openDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                window.animator().setFrame(frame, display: true)
+                card.animator().frame = rect
+                webView.animator().frame = NSRect(origin: webOrigin, size: viewport)
             }
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(Self.openDuration)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+            shadow.frame = shadowRect
+            border.frame = borderRect
+            CATransaction.commit()
         } else {
-            window.setFrame(frame, display: false)
+            card.frame = rect
+            webView.frame = NSRect(origin: webOrigin, size: viewport)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            shadow.frame = shadowRect
+            border.frame = borderRect
+            CATransaction.commit()
         }
-        layoutCard()
+        layoutBadge()
     }
 
-    /// Keep the card pinned to the window's top-left and the shadow one step
-    /// down and to the right of it. Called on every frame change because the
-    /// card is positioned, not autoresized — a resize that let the card drift
-    /// would move the piece out from under the pointer that asked for it.
-    private func layoutCard() {
-        guard let content = window.contentView else { return }
-        let size = NSSize(width: content.bounds.width - Self.shadowDrop,
-                          height: content.bounds.height - Self.shadowDrop)
-        card.frame = NSRect(origin: NSPoint(x: 0, y: Self.shadowDrop), size: size)
-        webView.frame = card.bounds
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        border.frame = card.bounds
-        shadow.frame = NSRect(x: Self.shadowDrop, y: 0, width: size.width, height: size.height)
-        CATransaction.commit()
-        layoutBadge()
+    /// Where the web view sits inside a card `cardHeight` tall so that the
+    /// crop's top-left (measured from the piece's top-left, the way a picture
+    /// is cropped) lands in the card's top-left. AppKit's origin is bottom-left,
+    /// so the top edges are aligned by lifting the view by the height it
+    /// overhangs, less the crop.
+    private func webOrigin(cardHeight: CGFloat, crop: CGPoint) -> NSPoint {
+        NSPoint(x: -crop.x, y: cardHeight - viewport.height + crop.y)
+    }
+
+    /// The resting crop's position at `time`: a slow circle around the piece
+    /// at 1:1, the same lap the `#painting` embeds in chat.mjs take. Nothing
+    /// is scaled — the card is a window onto the piece, not a thumbnail of it.
+    private func kenBurnsCrop(at time: Date) -> CGPoint {
+        let size = cardSize
+        let maxX = max(0, viewport.width - size.width)
+        let maxY = max(0, viewport.height - size.height)
+        guard maxX > 0 || maxY > 0 else { return .zero }
+        let progress = (time.timeIntervalSince1970 / Self.kenBurnsCycle + kenBurnsSeed)
+            .truncatingRemainder(dividingBy: 1)
+        let panX = (cos((progress + 0.25) * .pi * 2) + 1) / 2
+        let panY = (sin((progress + 0.65) * .pi * 2) + 1) / 2
+        return CGPoint(x: (maxX * panX).rounded(), y: (maxY * panY).rounded())
+    }
+
+    /// The crop moves only while there is something to move over and someone
+    /// might see it: a closed card on screen. Open, hidden or too small to
+    /// crop, the timer is off.
+    private func syncKenBurns() {
+        let size = cardSize
+        let wants = window.isVisible && !expanded
+            && (viewport.width > size.width || viewport.height > size.height)
+        if wants {
+            guard kenBurnsTimer == nil else { return }
+            let timer = Timer(timeInterval: Self.kenBurnsInterval, repeats: true) { [weak self] _ in
+                self?.stepKenBurns()
+            }
+            timer.tolerance = Self.kenBurnsInterval / 4
+            RunLoop.main.add(timer, forMode: .common)
+            kenBurnsTimer = timer
+        } else {
+            kenBurnsTimer?.invalidate()
+            kenBurnsTimer = nil
+        }
+    }
+
+    private func stepKenBurns() {
+        guard !expanded else { return }
+        let origin = webOrigin(cardHeight: cardSize.height, crop: kenBurnsCrop(at: Date()))
+        if webView.frame.origin != origin { webView.setFrameOrigin(origin) }
     }
 
     private func layoutBadge() {
@@ -422,11 +521,14 @@ final class PromptPreview {
             window.orderOut(nil)
             setHovered(false)
         }
+        syncKenBurns()
     }
 
     var isOnScreen: Bool { window.isVisible }
 
     func close() {
+        kenBurnsTimer?.invalidate()
+        kenBurnsTimer = nil
         webView.stopLoading()
         // Point the view at nothing before tearing down: a WKWebView left
         // holding a running page keeps its content process alive past the
