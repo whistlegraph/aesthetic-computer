@@ -67,7 +67,8 @@ Key: `cookie.png`, `cookie-open.png`, `thumbnail.png`, `helvetica.woff`, `helvet
 
 | Method | Path | Auth | What |
 |--------|------|------|------|
-| GET | `/subscribers` | — | Active subscriber count |
+| GET | `/subscribers` | — | Overall subscriber count shown on the gate |
+| GET | `/active-subscribers` | — | Active subscriber count for internal metrics |
 | POST | `/subscribe` | — | Stripe Checkout session |
 | POST | `/notification-choice` | Bearer | Record minimized push permission/toggle state |
 | POST | `/subscribed` | Bearer | Check sub + fetch pages/questions |

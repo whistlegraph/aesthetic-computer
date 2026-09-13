@@ -342,6 +342,39 @@ export const handler = async (event, context) => {
     }
   }
 
+  // Get the overall count of subscriptions ever created for the product,
+  // including active and ended subscriptions. This is the lifetime readership
+  // number shown on the public gate, not an operational active-user metric.
+  async function getCumulativeSubscriptionCount(productId) {
+    try {
+      const stripe = new Stripe(key);
+      let hasMore = true;
+      let totalSubscriptions = 0;
+      let startingAfter;
+
+      while (hasMore) {
+        const subscriptions = await stripe.subscriptions.list({
+          status: "all",
+          limit: 100,
+          starting_after: startingAfter,
+        });
+
+        totalSubscriptions += subscriptions.data.filter((sub) =>
+          sub.items.data.some((item) => item.price.product === productId),
+        ).length;
+
+        hasMore = subscriptions.has_more;
+        if (hasMore) {
+          startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
+        }
+      }
+
+      return totalSubscriptions;
+    } catch (err) {
+      shell.error("Error fetching cumulative subscription count:", err);
+    }
+  }
+
   const MAX_LINES = 19;
 
   // 🏠 Home, Chat, Page Routes
@@ -10749,10 +10782,7 @@ export const handler = async (event, context) => {
       },
       { "Content-Type": "application/manifest+json; charset=utf-8" },
     );
-  } else if (path === "/subscribers" && method === "get") {
-    // Counting active subscriptions means paginating Stripe, and the logged-out
-    // gate blocks on this response — cache the count and refresh it in the
-    // background once it goes stale.
+  } else if (path === "/active-subscribers" && method === "get") {
     const COUNT_TTL = 15 * 60 * 1000;
     const countCacheKey = "sotce-active-subscriber-count";
 
@@ -10762,7 +10792,7 @@ export const handler = async (event, context) => {
       const raw = await KeyValue.get(countCacheKey, "active");
       if (raw) cached = JSON.parse(raw);
     } catch (err) {
-      shell.error("Subscriber count cache read failed:", err);
+      shell.error("Active subscriber count cache read failed:", err);
     }
 
     const storeCount = async (count) => {
@@ -10773,6 +10803,53 @@ export const handler = async (event, context) => {
           JSON.stringify({ count, at: Date.now() }),
         );
       } catch (err) {
+        shell.error("Active subscriber count cache write failed:", err);
+      }
+    };
+
+    if (cached !== undefined) {
+      if (Date.now() - cached.at > COUNT_TTL) {
+        getActiveSubscriptionCount(productId)
+          .then((count) => {
+            if (count !== undefined && count !== null) return storeCount(count);
+          })
+          .catch((err) =>
+            shell.error("Active subscriber count refresh failed:", err),
+          );
+      }
+      return respond(200, { subscribers: cached.count });
+    }
+
+    const subscribers = await getActiveSubscriptionCount(productId);
+    if (subscribers !== undefined && subscribers !== null) {
+      await storeCount(subscribers);
+      return respond(200, { subscribers });
+    }
+    return respond(500, { message: "Could not get active subscriber count." });
+  } else if (path === "/subscribers" && method === "get") {
+    // The public gate shows overall readership. Counting it means paginating
+    // every Stripe subscription, so cache the result and refresh it in the
+    // background once it goes stale.
+    const COUNT_TTL = 15 * 60 * 1000;
+    const countCacheKey = "sotce-subscriber-count";
+
+    let cached;
+    try {
+      await KeyValue.connect();
+      const raw = await KeyValue.get(countCacheKey, "cumulative");
+      if (raw) cached = JSON.parse(raw);
+    } catch (err) {
+      shell.error("Subscriber count cache read failed:", err);
+    }
+
+    const storeCount = async (count) => {
+      try {
+        await KeyValue.set(
+          countCacheKey,
+          "cumulative",
+          JSON.stringify({ count, at: Date.now() }),
+        );
+      } catch (err) {
         shell.error("Subscriber count cache write failed:", err);
       }
     };
@@ -10780,7 +10857,7 @@ export const handler = async (event, context) => {
     if (cached !== undefined) {
       if (Date.now() - cached.at > COUNT_TTL) {
         // Stale: serve it now, refresh after responding.
-        getActiveSubscriptionCount(productId)
+        getCumulativeSubscriptionCount(productId)
           .then((count) => {
             if (count !== undefined && count !== null) return storeCount(count);
           })
@@ -10789,7 +10866,7 @@ export const handler = async (event, context) => {
       return respond(200, { subscribers: cached.count });
     }
 
-    const subscribers = await getActiveSubscriptionCount(productId);
+    const subscribers = await getCumulativeSubscriptionCount(productId);
 
     if (subscribers !== undefined && subscribers !== null) {
       await storeCount(subscribers);
