@@ -10,9 +10,10 @@
   `parity.mjs` diffs the mirrored constants (run it after touching either
   side) and `sisters.mjs` renders them side by side for the visual half.
 
-  The temas themselves, the saved choice, the census and the corner chrome
-  (QR, gear, envelope, pane) live in `common/laklok-tema.mjs`, shared with
-  `amail` so the two rooms always wear the same dress.
+  The temas themselves, the saved choice, the interface language, the census
+  and the corner chrome (QR, gear, envelope, pane) live in
+  `common/laklok-tema.mjs`, shared with `amail` so the two rooms always wear
+  the same dress.
  */
 
 import { Chat } from "../lib/chat.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -24,6 +25,10 @@ import {
   restoreTema,
   saveTema,
   reportTema,
+  strings,
+  pickLang,
+  restoreLang,
+  saveLang,
   makeQR,
   paintQR,
   paintGear,
@@ -34,6 +39,7 @@ import {
   badgeWidth,
   paintTemaPane,
   temaRow,
+  langRow,
 } from "./common/laklok-tema.mjs";
 
 let client;
@@ -46,8 +52,10 @@ const LAK_TOP_MARGIN = 34;
 let lakQRCells = null;
 
 // ⚙️ Settings pane state — mode (raster here / vector on laklok.com/html),
-// tema, and the media-links filter. The same pane exists on the vector side.
+// tema, the media-links filter, and the interface language. The same pane
+// exists on the vector side.
 let lakTheme = "ler";
+let lakLang = "da"; // the room's mother tongue, until the visitor says otherwise
 let lakLinksOnly = false;
 let settingsOpen = false;
 let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
@@ -79,7 +87,7 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, user }) {
+function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
@@ -116,6 +124,11 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, us
       chat.refresh(client.system);
     }
     reportTema(net, lakTheme); // after the saved tema has had its say
+  });
+  const lang = pickLang(tokens, store, "da");
+  lakLang = lang.name;
+  restoreLang(store, lang.pinned, (saved) => {
+    if (saved) lakLang = saved;
   });
   if (!colonLinks && typeof store["laklok:links"] === "boolean") {
     lakLinksOnly = store["laklok:links"];
@@ -259,29 +272,31 @@ function paintCorner($) {
   if (label) paintBadge($, ex + ENVELOPE.w - 3, ey - 5, label, hot);
 }
 
-// ⚙️ The settings pane — mode / tema / filter, drawn under the header by the
-// QR. Chips register their hit boxes into `settingsHits` for act().
+// ⚙️ The settings pane — mode / tema / filter / sprog, drawn under the header
+// by the QR. Chips register their hit boxes into `settingsHits` for act().
 function paintSettings($) {
   settingsHits = [];
   if (!settingsOpen) return;
   const { screen } = $;
+  const s = strings(lakLang);
 
   const rows = [
     {
-      label: "mode",
+      label: s.mode,
       chips: [
         { text: "raster", selected: true, action: { type: "mode", value: "raster" } },
         { text: "vector", selected: false, action: { type: "mode", value: "vector" } },
       ],
     },
-    temaRow(lakTheme),
+    temaRow(lakTheme, s),
     {
-      label: "filter",
+      label: s.filter,
       chips: [
-        { text: "alle", selected: !lakLinksOnly, action: { type: "links", value: false } },
-        { text: "links", selected: lakLinksOnly, action: { type: "links", value: true } },
+        { text: s.all, selected: !lakLinksOnly, action: { type: "links", value: false } },
+        { text: s.links, selected: lakLinksOnly, action: { type: "links", value: true } },
       ],
     },
+    langRow(lakLang, s),
   ];
 
   settingsHits = paintTemaPane($, {
@@ -289,6 +304,7 @@ function paintSettings($) {
     rows,
     right: screen.width - 3,
     top: LAK_TOP_MARGIN + 2,
+    title: s.settings,
   });
 }
 
@@ -356,6 +372,9 @@ function act($) {
           store["laklok:links"] = value;
           store.persist("laklok:links");
           chat.refresh(client.system); // relayout the filtered feed
+        } else if (type === "lang") {
+          lakLang = value;
+          saveLang(store, value);
         }
       } else if (!hit(settingsHits.pane)) {
         settingsOpen = false; // Tap outside closes.

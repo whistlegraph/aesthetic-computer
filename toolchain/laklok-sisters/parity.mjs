@@ -83,8 +83,10 @@ function regexLiteral(src, constName) {
   const rasterPane =
     /text: "raster"/.test(raster) &&
     /text: "vector"/.test(raster) &&
-    /text: "alle"/.test(raster) &&
-    /text: "links"/.test(raster);
+    // The filter chips are words now (da/en), so their Danish spellings live
+    // in the shared strings table rather than as literals in the piece.
+    /all: "alle"/.test(tema) &&
+    /links: "links"/.test(tema);
   const vectorPane =
     /data-mode="raster"/.test(vector) &&
     /data-mode="vector"/.test(vector) &&

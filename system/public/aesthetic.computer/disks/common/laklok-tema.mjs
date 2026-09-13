@@ -1,7 +1,8 @@
 // laklok-tema — the shared dress of the Laer Klokken rooms: `laklok` (the
 // chat) and `amail` (the post). One roster of temas, one saved choice
-// (`laklok:theme`), one census, and the corner chrome both rooms wear — the
-// QR, the ⚙ gear, the envelope with its count, and the indstillinger pane.
+// (`laklok:theme`), one interface language (`laklok:lang`), one census, and
+// the corner chrome both rooms wear — the QR, the ⚙ gear, the envelope with
+// its count, and the indstillinger pane.
 //
 // The vector sister (system/public/html/index.html) mirrors LAK_THEMES and
 // LAK_REALTIME_CYCLES by name; toolchain/laklok-sisters/parity.mjs reads this
@@ -11,6 +12,7 @@ import { hslToRgb } from "../../lib/num.mjs";
 import { qrcode as qr, ErrorCorrectLevel } from "../../dep/@akamfoad/qr/qr.mjs";
 
 export const TEMA_KEY = "laklok:theme";
+export const LANG_KEY = "laklok:lang";
 
 // 🌅 `realtime` — the ambient tema: a palette that is a pure function of the
 // date, so the room is a little different every day and the same for
@@ -230,6 +232,126 @@ export function reportTema(net, name) {
   net.userRequest("POST", "/api/laklok-theme", { theme: name });
 }
 
+// 🗣️ Interface language — the words on the chrome, not the letters or the
+// chat. `da` is the rooms' mother tongue; `en` for everyone else. One saved
+// choice for both rooms, like the tema. Each room names its own fallback.
+export const LANGS = ["da", "en"];
+const STRINGS = {
+  da: {
+    settings: "indstillinger",
+    mode: "tilstand",
+    tema: "tema",
+    filter: "filter",
+    all: "alle",
+    links: "links",
+    language: "sprog",
+    // amail
+    inbox: "indbakke",
+    sent: "sendt",
+    prefs: "valg",
+    write: "skriv",
+    send: "send",
+    markRead: "markér læst",
+    noMail: "ingen amail endnu",
+    nothingSent: "intet sendt endnu",
+    tryHint: "prøv: amail @jeffrey hej",
+    composeHint: "enter går ned  ·  tryk på en række",
+    whoTo: "til hvem?",
+    nothingToSay: "intet at sige endnu",
+    noOne: "ingen svarer på",
+    couldntSend: "kunne ikke sendes",
+    to: "til",
+    re: "re",
+    say: "sig",
+    optional: "(valgfri)",
+    loading: "henter",
+    loadingPrefs: "henter valg…",
+    updating: "opdaterer…",
+    subscribed: "tilmeldt",
+    unsubscribed: "afmeldt",
+    subscribe: "tilmeld",
+    unsubscribe: "afmeld",
+    blastHistory: "udsendelser",
+    noBlasts: "ingen udsendelser endnu",
+    error: "fejl",
+    adTitle: "breve mellem @handles",
+    adBody:
+      "amail er posten på aesthetic.computer — intet forlader computeren. log ind, tag et @handle, og din boks er klar.",
+    adPrompt: "fra enhver prompt:  amail @handle dine ord",
+    signup: "opret dig",
+    login: "log ind",
+  },
+  en: {
+    settings: "settings",
+    mode: "mode",
+    tema: "theme",
+    filter: "filter",
+    all: "all",
+    links: "links",
+    language: "language",
+    // amail
+    inbox: "inbox",
+    sent: "sent",
+    prefs: "prefs",
+    write: "write",
+    send: "send",
+    markRead: "mark read",
+    noMail: "no amail yet",
+    nothingSent: "nothing sent yet",
+    tryHint: "try: amail @jeffrey hello",
+    composeHint: "enter moves down  ·  tap a row to jump",
+    whoTo: "who is it to?",
+    nothingToSay: "nothing to say yet",
+    noOne: "no one answers to",
+    couldntSend: "couldn't send that",
+    to: "to",
+    re: "re",
+    say: "say",
+    optional: "(optional)",
+    loading: "loading",
+    loadingPrefs: "loading prefs…",
+    updating: "updating…",
+    subscribed: "subscribed",
+    unsubscribed: "unsubscribed",
+    subscribe: "subscribe",
+    unsubscribe: "unsubscribe",
+    blastHistory: "blast history",
+    noBlasts: "no blasts sent yet",
+    error: "error",
+    adTitle: "letters between @handles",
+    adBody:
+      "amail is the post of aesthetic.computer — nothing leaves the computer. log in, take a @handle, and your box is ready.",
+    adPrompt: "from any prompt:  amail @handle your words",
+    signup: "sign up",
+    login: "log in",
+  },
+};
+
+export function isLang(name) {
+  return LANGS.includes(name);
+}
+
+export function strings(lang) {
+  return STRINGS[isLang(lang) ? lang : "en"];
+}
+
+// A `~da` / `:en` token pins the language; otherwise the saved one; otherwise
+// the room's own fallback.
+export function pickLang(tokens, store, fallback = "en") {
+  const pinned = (tokens || []).find((t) => isLang(t));
+  if (pinned) return { name: pinned, pinned: true };
+  return { name: isLang(store[LANG_KEY]) ? store[LANG_KEY] : fallback, pinned: false };
+}
+
+export function restoreLang(store, pinned, onLang) {
+  store.retrieve(LANG_KEY).then((v) => onLang(!pinned && isLang(v) ? v : null));
+}
+
+export function saveLang(store, name) {
+  store[LANG_KEY] = name;
+  store.persist(LANG_KEY);
+}
+
 // 📱 A QR's cells for a url, or null when the encoder balks.
 export function makeQR(url) {
   try {
@@ -305,67 +427,110 @@ export function paintBadge($, x, y, label, hot = false) {
   return w;
 }
 
+// 🏷️ A chip — the unit of the pane and of amail's compact controls. Filled
+// gold when selected, outlined otherwise; `tint` colours an outlined chip so
+// an action can carry its own hue. Returns its hit box.
+export const CHIP_H = 11;
+export const CHIP_FONT = "MatrixChunky8";
+export function chipWidth(text) {
+  return text.length * 5 + 8;
+}
+export function paintChip($, x, y, text, { selected = false, tint = null, dim = false } = {}) {
+  const { ink } = $;
+  const w = chipWidth(text);
+  if (selected) {
+    ink(255, 240, 120).box(x, y, w, CHIP_H);
+    ink(20, 10, 6).write(text, { x: x + 4, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+  } else {
+    const edge = tint ? [...tint, dim ? 110 : 200] : [255, 255, 255, dim ? 70 : 120];
+    const face = tint ? [...tint, dim ? 170 : 255] : [255, 255, 255, dim ? 140 : 200];
+    ink(edge).box(x, y, w, CHIP_H, "outline");
+    ink(face).write(text, { x: x + 4, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+  }
+  return { x, y, w, h: CHIP_H };
+}
+
 // ⚙️ The indstillinger pane — rows of chips hung from the top-right under the
 // corner chrome. `rows` is [{ label, chips: [{ text, selected, action }] }].
 // Returns the chip hit boxes, with the pane's own bounds on `.pane` so act()
 // can tell a tap inside from a tap that should close it.
-export function paintTemaPane($, { theme, rows, right, top }) {
+export function paintTemaPane($, { theme, rows, right, top, title = "indstillinger" }) {
   const { ink } = $;
   const hits = [];
 
-  const chipH = 11;
-  const rowH = 16;
+  const lineH = 16;
   const padX = 6;
-  const labelW = 34;
-  const chipFont = "MatrixChunky8";
-  const chipW = (t) => t.length * 5 + 8;
+  const labelW = 42;
 
+  // The pane is as wide as its widest row wants, but never wider than the
+  // screen allows; a row that doesn't fit flows its chips onto more lines
+  // (phones are ~256px, and the tema row alone is wider than that).
   let paneW = 0;
   for (const row of rows) {
     let w = labelW;
-    for (const chip of row.chips) w += chipW(chip.text) + 4;
+    for (const chip of row.chips) w += chipWidth(chip.text) + 4;
     paneW = Math.max(paneW, w);
   }
-  paneW += padX * 2;
-  const paneH = rows.length * rowH + 14 + 8;
+  paneW = Math.min(paneW + padX * 2, right - 2);
+  const chipsLeft = padX + labelW;
+  const chipsRight = paneW - padX;
+
+  // Lay the chips out once (relative to the pane) so the height is known
+  // before anything is drawn.
+  const placed = []; // [{ chip, x, y }]
+  let lineY = 14 + 4;
+  for (const row of rows) {
+    let chipX = chipsLeft;
+    let y = lineY;
+    for (const chip of row.chips) {
+      const w = chipWidth(chip.text);
+      if (chipX + w > chipsRight && chipX > chipsLeft) {
+        chipX = chipsLeft;
+        y += CHIP_H + 3;
+      }
+      placed.push({ chip, x: chipX, y, label: chipX === chipsLeft && y === lineY ? row.label : null });
+      chipX += w + 4;
+    }
+    lineY = y + lineH;
+  }
+  const paneH = lineY + 4;
   const paneX = Math.max(2, right - paneW);
   const paneY = top;
 
   ink(theme.stripeA[0], theme.stripeA[1], theme.stripeA[2], 245).box(paneX, paneY, paneW, paneH);
   ink(255, 240, 120).box(paneX, paneY, paneW, paneH, "outline");
-  ink(255, 240, 120).write("indstillinger", { x: paneX + padX, y: paneY + 4 }, undefined, undefined, false, chipFont);
+  ink(255, 240, 120).write(title, { x: paneX + padX, y: paneY + 4 }, undefined, undefined, false, CHIP_FONT);
 
-  let rowY = paneY + 14 + 4;
-  for (const row of rows) {
-    ink(255, 255, 255, 180).write(row.label, { x: paneX + padX, y: rowY + 2 }, undefined, undefined, false, chipFont);
-    let chipX = paneX + padX + labelW;
-    for (const chip of row.chips) {
-      const w = chipW(chip.text);
-      if (chip.selected) {
-        ink(255, 240, 120).box(chipX, rowY, w, chipH);
-        ink(20, 10, 6).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
-      } else {
-        ink(255, 255, 255, 120).box(chipX, rowY, w, chipH, "outline");
-        ink(255, 255, 255, 200).write(chip.text, { x: chipX + 4, y: rowY + 2 }, undefined, undefined, false, chipFont);
-      }
-      hits.push({ x: chipX, y: rowY, w, h: chipH, action: chip.action });
-      chipX += w + 4;
+  for (const { chip, x, y, label } of placed) {
+    if (label) {
+      ink(255, 255, 255, 180).write(label, { x: paneX + padX, y: paneY + y + 2 }, undefined, undefined, false, CHIP_FONT);
     }
-    rowY += rowH;
+    const box = paintChip($, paneX + x, paneY + y, chip.text, { selected: chip.selected });
+    hits.push({ ...box, action: chip.action });
   }
 
   hits.pane = { x: paneX, y: paneY, w: paneW, h: paneH };
   return hits;
 }
 
-// The tema row every room's pane starts with.
-export function temaRow(current) {
+// The two rows every room's pane carries: tema and sprog.
+export function temaRow(current, s) {
   return {
-    label: "tema",
+    label: s.tema,
     chips: Object.keys(LAK_THEMES).map((name) => ({
       text: name,
       selected: current === name,
       action: { type: "theme", value: name },
+    })),
+  };
+}
+export function langRow(current, s) {
+  return {
+    label: s.language,
+    chips: LANGS.map((name) => ({
+      text: name,
+      selected: current === name,
+      action: { type: "lang", value: name },
     })),
   };
 }

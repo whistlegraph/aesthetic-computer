@@ -3812,7 +3812,7 @@ function act(
                   type: "handle",
                   text: element.text,
                   displayText: element.text,
-                  description: "profile · or write them an amail",
+                  description: "their profile, or an amail",
                   yesLabel: "profile",
                   alt: { label: "amail", action: () => jump(`amail~${element.text}`) },
                   action: () => jump(element.text)
