@@ -11103,6 +11103,14 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 🗣️ A cloud utterance that never came back: `content` carries the HTTP
+  // status (0 for a network drop) and the provider, so a piece can tell
+  // "sign in" apart from "the voice service is down".
+  if (type === "speech:error") {
+    actAlerts.push({ name: "speech:error", content });
+    return;
+  }
+
   // 🎵 Clock piece sent its cached code for QR display
   if (type === "clock:cached") {
     cachedClockCode = content?.code || null;
@@ -12424,6 +12432,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "laklok" &&
           currentText !== "aa" &&
           currentText !== "mail" && // composing — it leaves on its own terms
+          currentText !== "amail" &&
           currentText !== "sign" &&
           currentText !== "jas" &&
           // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.

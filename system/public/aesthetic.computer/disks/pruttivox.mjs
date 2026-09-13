@@ -11,6 +11,7 @@ let chunkIndex = 0;
 let requestId = null;
 let authToken = null;
 let status = "idle";
+let errorStatus = 0; // HTTP status of the last failed utterance; 0 = network.
 
 function splitPoint(value, limit) {
   const window = value.slice(0, limit + 1);
@@ -77,6 +78,7 @@ async function start(speak, authorize) {
   }
   if (!authToken) {
     status = "error";
+    errorStatus = 401;
     return;
   }
 
@@ -121,7 +123,9 @@ function paint({ wipe, ink, screen }) {
     footer = "COMPLETE · TAP TO REPLAY";
     color = [190, 255, 100];
   } else if (status === "error") {
-    footer = "UNAVAILABLE · SIGN IN WITH A HANDLE";
+    footer = errorStatus === 401 || errorStatus === 403
+      ? "UNAVAILABLE · SIGN IN WITH A HANDLE"
+      : "VOICE UNAVAILABLE · TAP TO RETRY";
     color = [255, 110, 110];
   }
   ink(...color).write(footer, { center: "x", screen, y: screen.height - 24 });
@@ -145,6 +149,7 @@ function act({ event: e, speak, authorize }) {
   if (e.is("speech:error") && e.content?.provider === "prutti") {
     authToken = null;
     status = "error";
+    errorStatus = e.content?.status ?? 0;
   }
 }
 
