@@ -77,6 +77,10 @@ export function reportFor(ledger, options = {}) {
     views: post.insights.views,
     avgWatchMs: post.insights.ig_reels_avg_watch_time ?? null,
     skipRate: post.insights.reels_skip_rate ?? null,
+    // The address, or null for a row published before permalinks were being
+    // kept. A null is not a blocker, it is a round trip: run the insights
+    // pass, which fills it in, and ask again.
+    permalink: post.permalink ?? null,
   }));
 }
 
@@ -94,7 +98,14 @@ function printReport(rows) {
     const skip = row.skipRate == null ? "—" : `${row.skipRate}%`;
     console.log(`${row.publishedAt} · ${row.views} views · ${watch} watch · ` +
       `${skip} skip · ${row.id} · ${row.mediaId}`);
+    // The address on its own line, because this is the line somebody — or
+    // something — actually has to open. A report you have to go and resolve
+    // by hand is not a work list.
+    console.log(`  ${row.permalink || "no permalink recorded — run reel.mjs --insights"}`);
   }
+  const missing = rows.filter((row) => !row.permalink).length;
+  if (missing) console.log(`${missing} candidate${missing === 1 ? " has" : "s have"} ` +
+    "no permalink; `node xbox/live/marketing/reel.mjs --insights` fills them in.");
   console.log("No Instagram action taken.");
 }
 

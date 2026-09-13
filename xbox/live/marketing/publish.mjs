@@ -210,6 +210,22 @@ export async function pullInsights(mediaId, token, metrics = reelMetrics) {
     [row.name, row.values?.[0]?.value ?? row.total_value?.value ?? null]));
 }
 
+// Where a reel lives on Instagram. Nothing in this pipeline knew: the ledger's
+// `urls` are the DO Spaces mp4 and cover that were uploaded FOR the post, not
+// the post, and `mediaId` is an API handle rather than an address a browser can
+// open. A cull is the moment that gap bites — Meta's API has no deletion
+// endpoint, so the only road to deleting a reel is a person or an agent in a
+// browser, and neither can go anywhere without this.
+//
+// Pulled alongside insights rather than at publish time, because a reel that
+// has just been created does not reliably have one yet, and because every live
+// row wants it, not only the ones published since this landed.
+export async function pullPermalink(mediaId, token) {
+  const body = await call(`${host()}/${apiVersion()}/${mediaId}` +
+    `?fields=permalink&access_token=${token}`);
+  return body.permalink || null;
+}
+
 // Insights are the one thing a reel cannot report about itself at publish time:
 // they only exist once people have watched. So they are pulled on a pass of
 // their own, over every live post, and hung on the ledger entry that was left
@@ -221,6 +237,7 @@ export async function pullInsights(mediaId, token, metrics = reelMetrics) {
 export async function refreshInsights(token, {
   log = console.log,
   pull = pullInsights,
+  permalink = pullPermalink,
 } = {}) {
   if (!token) throw new Error("OSKIEWAR_IG_TOKEN required");
   const ledger = readLedger();
@@ -230,6 +247,13 @@ export async function refreshInsights(token, {
     try {
       post.insights = await pull(post.mediaId, token);
       post.insightsAt = new Date().toISOString();
+      // The address, once, on the same pass. A reel that already carries one
+      // is not re-fetched: permalinks do not change, and the pass is already
+      // one round trip per live reel.
+      if (!post.permalink) {
+        try { post.permalink = await permalink(post.mediaId, token); }
+        catch { post.permalink = post.permalink || null; }
+      }
       refreshed.push(post.id);
       log(`📈 ${post.id} · views ${post.insights.views ?? "—"} · ` +
         `reach ${post.insights.reach ?? "—"} · ` +

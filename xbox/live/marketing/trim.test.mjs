@@ -45,6 +45,10 @@ test("trim candidates are measured, sub-1k, 24h–30d live reels", () => {
 
 test("the report carries exact ids and useful review metrics", () => {
   const ledger = { posts: [post("123", "2026-08-20T16:00:00.000Z", 42)] };
+  // `permalink` is the address the deletion actually happens at. A row from
+  // before permalinks were kept reports null rather than being dropped from
+  // the report -- it is still an underperformer, it just needs one insights
+  // pass before anything can go and open it.
   assert.deepEqual(reportFor(ledger, { now }), [{
     id: "reel-123",
     mediaId: "123",
@@ -53,7 +57,13 @@ test("the report carries exact ids and useful review metrics", () => {
     views: 42,
     avgWatchMs: 4200,
     skipRate: 51.2,
+    permalink: null,
   }]);
+
+  const addressed = post("456", "2026-08-20T16:00:00.000Z", 42);
+  addressed.permalink = "https://www.instagram.com/reel/ABC123/";
+  assert.equal(reportFor({ posts: [addressed] }, { now })[0].permalink,
+    "https://www.instagram.com/reel/ABC123/");
 });
 
 test("recording requires confirmation and keeps every ledger row", () => {
