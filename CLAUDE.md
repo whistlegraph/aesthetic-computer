@@ -96,6 +96,15 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 ### Notation
 
 - **compush** - commit & push. If the commit touches live-served paths (`system/public/**`, `system/netlify/functions/**`), follow with `fish lith/deploy.fish` unprompted — pushing alone doesn't put it in production.
+- **oskieploy** - commit & push, then release oskiewar across every surface with
+  `npm run oskiewar:deploy`. That one command carries the lot: it stamps
+  `buildVersion` to match the commit count and reburns the hash-bound social
+  preview (both used to be manual steps the release refused without), runs
+  `fish lith/deploy.fish`, and then reconciles web, iOS and Xbox, verifying the
+  production bytes against the source hash. Report the channel table. A devkit
+  that is switched off comes back `offline` rather than `failed` and is not a
+  problem — `blocked: []` is the line that says nothing went wrong. Catch a
+  sleeping console up later with `npm run oskiewar:reconcile`.
 - **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — translucent, larger-text Stickies note sized to fit and centered. See `toolchain/macos/README.md`.
 
 ## Architecture
