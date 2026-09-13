@@ -53,11 +53,19 @@ export class AppServer extends EventEmitter {
     });
 
     createInterface({ input: this.child.stdout }).on("line", (line) => {
-      if (!line.trim()) return;
+      const trimmed = line.trim();
+      if (!trimmed) return;
       try {
-        this.#receive(JSON.parse(line));
+        this.#receive(JSON.parse(trimmed));
       } catch (error) {
-        this.emit("protocolError", new Error(`invalid engine message: ${error.message}`));
+        // See claude-server.mjs: a line that was meant to be JSON is a protocol
+        // fault; anything else is the CLI addressing a person and belongs in the
+        // log rather than in someone's transcript as an error.
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          this.emit("protocolError", new Error(`invalid engine message: ${error.message}`));
+        } else {
+          this.emit("log", trimmed);
+        }
       }
     });
 

@@ -304,11 +304,26 @@ export class ClaudeServer extends EventEmitter {
     });
 
     createInterface({ input: child.stdout }).on("line", (line) => {
-      if (!line.trim()) return;
+      const trimmed = line.trim();
+      if (!trimmed) return;
       try {
-        this.#receive(JSON.parse(line));
+        this.#receive(JSON.parse(trimmed));
       } catch (error) {
-        this.emit("protocolError", new Error(`invalid engine message: ${error.message}`));
+        // A vendor CLI writes to stdout for two audiences: this protocol, and
+        // the person running it. Connector notices and model-catalog warnings
+        // arrive on the same pipe as the messages, and parsing them as protocol
+        // put "invalid engine message: Unexpected token" in the transcript for
+        // something that was never addressed to us.
+        //
+        // A line that opens with a brace or a bracket was meant to be JSON, and
+        // failing to parse that is a real protocol fault worth surfacing.
+        // Anything else is the CLI talking, and belongs in the log beside the
+        // stderr it would have used if it had chosen the other pipe.
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          this.emit("protocolError", new Error(`invalid engine message: ${error.message}`));
+        } else {
+          this.emit("log", trimmed);
+        }
       }
     });
     createInterface({ input: child.stderr }).on("line", (line) => {

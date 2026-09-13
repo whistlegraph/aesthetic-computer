@@ -32,6 +32,29 @@ case "$url" in
   *)             url="https://aesthetic.computer/$url" ;;  # bare token → AC piece/$code
 esac
 
+# A preview window is small, and two of AC's defaults are tuned for a full
+# screen rather than a tile.
+#
+# The system paints its corner label at (6, 6) so a visitor can get back. In a
+# window a few hundred pixels wide that label is a sizeable fraction of the
+# frame and there is nowhere to go back to, so `nolabel` reclaims it.
+#
+# Density is an upscale factor, not a resolution: a higher number draws each AC
+# pixel across more screen pixels, so the canvas holds fewer, larger ones. The
+# name reads backwards and I had it backwards — measured at 420x300, density=0.5
+# was illegible, 1 was readable, 2 was comfortable. 2 it is: chunkier pixels,
+# which is what a piece being watched out of the corner of an eye wants.
+#
+# Only for aesthetic.computer: a file:// study or an arbitrary URL has no idea
+# what these mean.
+case "$url" in
+  https://aesthetic.computer/*|https://prompt.ac/*)
+    sep="?"
+    case "$url" in *\?*) sep="&" ;; esac
+    url="${url}${sep}nolabel&density=${SLAB_WEB_DENSITY:-2}"
+    ;;
+esac
+
 if [ "$CHROME" = "1" ]; then
   # Real Chrome, --app (frameless) mode, main profile (authed). Invoke the
   # binary directly so a running Chrome forwards the new app window into your
