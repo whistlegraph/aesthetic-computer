@@ -97,6 +97,7 @@ import { broadcastToTopic, sendToUser } from "../../../shared/push.mjs";
 
 import Stripe from "stripe";
 import crypto from "node:crypto";
+import { notificationChoiceUpdate } from "../../backend/notification-choice.mjs";
 
 // The HTML shell is identical for every request to a given path (auth and all
 // dynamic content happen client-side), so render it once per title and serve
@@ -338,45 +339,6 @@ export const handler = async (event, context) => {
       return totalSubscriptions;
     } catch (err) {
       shell.error("Error fetching subscription count:", err);
-    }
-  }
-
-  // Get the cumulative count of all subscriptions ever created for the given
-  // productId (any status — active, canceled, etc.).
-  // TODO: Put this behind a redis cache... 24.10.14.01.23
-  async function getCumulativeSubscriptionCount(productId) {
-    try {
-      const stripe = new Stripe(key);
-
-      // Fetch all subscriptions regardless of status.
-      let hasMore = true;
-      let totalSubscriptions = 0;
-      let startingAfter = undefined;
-
-      while (hasMore) {
-        const subscriptions = await stripe.subscriptions.list({
-          status: "all",
-          limit: 100, // Maximum allowed per request
-          starting_after: startingAfter,
-        });
-
-        // Filter subscriptions by the productId
-        const matchingSubscriptions = subscriptions.data.filter((sub) =>
-          sub.items.data.some((item) => item.price.product === productId),
-        );
-
-        totalSubscriptions += matchingSubscriptions.length;
-
-        // Check if more pages of subscriptions exist
-        hasMore = subscriptions.has_more;
-        if (hasMore) {
-          startingAfter = subscriptions.data[subscriptions.data.length - 1].id;
-        }
-      }
-
-      return totalSubscriptions;
-    } catch (err) {
-      shell.error("Error fetching cumulative subscription count:", err);
     }
   }
 
@@ -4916,8 +4878,10 @@ export const handler = async (event, context) => {
                     // browser's ask right away (or a silent re-register when
                     // permission is already granted). Safari holds prompts
                     // for a tap on the bell itself.
-                    if (!on && !declined && Notification.permission !== "denied") {
-                      enableNotifications()
+                    if (!on && Notification.permission === "denied") {
+                      recordNotificationChoice("denied", "observed");
+                    } else if (!on && !declined) {
+                      enableNotifications("auto")
                         .then(function (ok) {
                           ringing = ok;
                           bell.classList.toggle("on", ok);
@@ -4932,7 +4896,7 @@ export const handler = async (event, context) => {
                     bell.classList.toggle("on", want); // Snap now, settle after.
                     try {
                       if (want) {
-                        const ok = await enableNotifications();
+                        const ok = await enableNotifications("bell");
                         ringing = ok;
                         bell.classList.toggle("on", ok);
                         if (ok) {
@@ -4949,7 +4913,7 @@ export const handler = async (event, context) => {
                           );
                         }
                       } else {
-                        await disableNotifications();
+                        await disableNotifications("bell");
                         ringing = false;
                         declined = "1";
                         try {
@@ -10215,13 +10179,42 @@ export const handler = async (event, context) => {
               }
             }
 
-            async function enableNotifications() {
+            async function recordNotificationChoice(choice, source) {
+              try {
+                const token =
+                  window.sotceTOKEN || (await auth0Client.getTokenSilently());
+                await fetch("/api/sotce-net/notification-choice", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: "Bearer " + token,
+                  },
+                  body: JSON.stringify({
+                    choice,
+                    source,
+                    deviceId: pushDeviceId(),
+                    label: pushDeviceLabel(),
+                    platform: "web",
+                  }),
+                });
+              } catch (err) {
+                console.warn("Notification choice could not be recorded.");
+              }
+            }
+
+            async function enableNotifications(source = "bell") {
               if (!pushSupported()) {
                 alert("This browser does not support notifications.");
                 return false;
               }
               const permission = await Notification.requestPermission();
-              if (permission !== "granted") return false;
+              if (permission !== "granted") {
+                await recordNotificationChoice(
+                  permission === "denied" ? "denied" : "dismissed",
+                  source,
+                );
+                return false;
+              }
               const reg = await navigator.serviceWorker.register("/sw.js");
               await navigator.serviceWorker.ready;
               const keyBytes = Uint8Array.from(
@@ -10257,11 +10250,15 @@ export const handler = async (event, context) => {
                   tenant: "sotce",
                 }),
               });
+              await recordNotificationChoice(
+                res.ok ? "enabled" : "error",
+                res.ok ? source : "register",
+              );
               if (res.ok) console.log("🔔 Notifications enabled.");
               return res.ok;
             }
 
-            async function disableNotifications() {
+            async function disableNotifications(source = "bell") {
               const sub = await pushSubscriptionNow();
               if (!sub) return;
               fetch("/api/register-push-token", {
@@ -10274,6 +10271,7 @@ export const handler = async (event, context) => {
                 }),
               }).catch(function () {});
               await sub.unsubscribe();
+              await recordNotificationChoice("disabled", source);
               console.log("🔕 Notifications disabled.");
             }
 
@@ -10752,16 +10750,16 @@ export const handler = async (event, context) => {
       { "Content-Type": "application/manifest+json; charset=utf-8" },
     );
   } else if (path === "/subscribers" && method === "get") {
-    // Counting means paginating every Stripe subscription ever (seconds of
-    // API calls), and the logged-out gate blocks on this response — so cache
-    // the count and refresh it in the background once it goes stale.
+    // Counting active subscriptions means paginating Stripe, and the logged-out
+    // gate blocks on this response — cache the count and refresh it in the
+    // background once it goes stale.
     const COUNT_TTL = 15 * 60 * 1000;
-    const countCacheKey = "sotce-subscriber-count";
+    const countCacheKey = "sotce-active-subscriber-count";
 
     let cached;
     try {
       await KeyValue.connect();
-      const raw = await KeyValue.get(countCacheKey, "cumulative");
+      const raw = await KeyValue.get(countCacheKey, "active");
       if (raw) cached = JSON.parse(raw);
     } catch (err) {
       shell.error("Subscriber count cache read failed:", err);
@@ -10771,7 +10769,7 @@ export const handler = async (event, context) => {
       try {
         await KeyValue.set(
           countCacheKey,
-          "cumulative",
+          "active",
           JSON.stringify({ count, at: Date.now() }),
         );
       } catch (err) {
@@ -10782,7 +10780,7 @@ export const handler = async (event, context) => {
     if (cached !== undefined) {
       if (Date.now() - cached.at > COUNT_TTL) {
         // Stale: serve it now, refresh after responding.
-        getCumulativeSubscriptionCount(productId)
+        getActiveSubscriptionCount(productId)
           .then((count) => {
             if (count !== undefined && count !== null) return storeCount(count);
           })
@@ -10791,13 +10789,40 @@ export const handler = async (event, context) => {
       return respond(200, { subscribers: cached.count });
     }
 
-    const subscribers = await getCumulativeSubscriptionCount(productId);
+    const subscribers = await getActiveSubscriptionCount(productId);
 
     if (subscribers !== undefined && subscribers !== null) {
       await storeCount(subscribers);
       return respond(200, { subscribers });
     } else {
       return respond(500, { message: "Could not get subscriber count." });
+    }
+  } else if (path === "/notification-choice" && method === "post") {
+    const user = await authorize(event.headers, "sotce");
+    if (!user) return respond(401, { message: "Unauthorized." });
+
+    let operation;
+    try {
+      operation = notificationChoiceUpdate(
+        user.sub,
+        JSON.parse(event.body || "{}"),
+      );
+    } catch (err) {
+      return respond(400, { message: err.message });
+    }
+
+    const database = await connect();
+    try {
+      const choices = database.db.collection("sotce-notification-choices");
+      await choices.createIndex({ user: 1, deviceId: 1 }, { unique: true });
+      await choices.updateOne(
+        operation.filter,
+        operation.update,
+        operation.options,
+      );
+      return respond(200, { status: "recorded" });
+    } finally {
+      await database.disconnect();
     }
   } else if (path === "/subscribe" && method === "post") {
     try {
