@@ -14,7 +14,11 @@ import { shell } from "./shell.mjs";
 import { sendToUser } from "../../shared/push.mjs";
 
 export const MAIL_DOMAIN = "mail.aesthetic.computer"; // tier 2 binds this for real
+// The root domain is Google Workspace's; it catches every unknown
+// @aesthetic.computer address and hands the letter to lith/mail-inbound.mjs.
+export const INBOUND_DOMAINS = ["aesthetic.computer", MAIL_DOMAIN];
 export const MAX_TEXT_LENGTH = 500;
+export const OUTSIDE_TEXT_LENGTH = 2000; // an email runs longer than a tell
 export const MAX_SUBJECT_LENGTH = 80;
 
 const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
@@ -114,6 +118,66 @@ export async function deliver(
     );
   } catch (err) {
     // A silent phone shouldn't eat the letter — it's already in the mailbox.
+    shell.log("🔴 mail push failed:", err?.message || err);
+  }
+
+  return { id: insertedId, fromHandle, toHandle, when, push };
+}
+
+// A letter from outside the wall. Google Workspace catches the address and
+// lith/mail-inbound.mjs hands it here over SMTP. There is no sender `sub` —
+// the sender lives in `fromEmail` (and `fromHandle` carries their name so the
+// inbox reads the same as an inside letter). `messageId` keeps a relay retry
+// from filing the same letter twice.
+export async function deliverFromOutside(
+  { to, fromEmail, fromName, subject, text, messageId },
+  database,
+) {
+  const tells = await mailbox(database);
+  await tells.createIndex({ messageId: 1 }, { unique: true, sparse: true });
+  const toHandle = await nameFor(to, database);
+  const fromHandle = (fromName || "").trim() || fromEmail;
+  const when = new Date();
+
+  let insertedId;
+  try {
+    ({ insertedId } = await tells.insertOne({
+      to,
+      toHandle,
+      from: null,
+      fromHandle,
+      fromEmail,
+      text,
+      ...(subject ? { subject } : {}),
+      ...(messageId ? { messageId } : {}),
+      via: "smtp",
+      when,
+      read: false,
+    }));
+  } catch (err) {
+    if (err?.code === 11000) return { duplicate: true, toHandle }; // relay retried
+    throw err;
+  }
+
+  let push = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
+  try {
+    push = await sendToUser(
+      database.db,
+      to,
+      {
+        title: `${fromHandle} wrote you`,
+        body: subject ? `${subject} — ${text}` : text,
+        data: {
+          kind: "tell",
+          from: fromHandle,
+          tellId: insertedId.toString(),
+          piece: "amail",
+        },
+      },
+      {},
+      shell.log,
+    );
+  } catch (err) {
     shell.log("🔴 mail push failed:", err?.message || err);
   }
 

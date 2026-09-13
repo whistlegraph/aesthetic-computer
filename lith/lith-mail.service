@@ -1,0 +1,19 @@
+[Unit]
+Description=lith-mail — Amail inbound SMTP (Google Workspace routes unknown @aesthetic.computer here)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ac/lith
+EnvironmentFile=/opt/ac/system/.env
+ExecStart=/usr/bin/node mail-inbound.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

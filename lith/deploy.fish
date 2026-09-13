@@ -310,6 +310,8 @@ rm -f $TMP_SPACES
 echo -e "$GREEN-> Updating service + Caddy config...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
+cp $REMOTE_DIR/lith/lith-mail.service /etc/systemd/system/lith-mail.service && \
+systemctl enable -q lith-mail && \
 cp $REMOTE_DIR/lith/Caddyfile /etc/caddy/Caddyfile && \
 mkdir -p /var/lib/aesthetic-computer/gym.anthonyzollo.com && \
 if [ ! -f /var/lib/aesthetic-computer/gym.anthonyzollo.com/index.html ]; then \
@@ -318,9 +320,9 @@ fi && \
 systemctl daemon-reload && \
 systemctl reload caddy"
 
-# Restart lith service
-echo -e "$GREEN-> Restarting lith...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith"
+# Restart lith service, and the Amail SMTP door beside it
+echo -e "$GREEN-> Restarting lith + lith-mail...$NC"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith lith-mail"
 # Purge the Cloudflare cache so new code is served immediately. Runtime .mjs
 # (kidlisp, disk, graph, …) are STATIC sub-imports without the ?v= cache-bust
 # boot.mjs puts on top-level modules, so the edge would otherwise serve stale

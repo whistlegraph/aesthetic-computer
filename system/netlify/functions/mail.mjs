@@ -59,6 +59,7 @@ export async function handler(event) {
         inbox: inbox.map((m) => ({
           id: m._id,
           from: m.fromHandle,
+          fromEmail: m.fromEmail || null, // set when the letter came from outside
           subject: m.subject || null,
           text: m.text,
           when: m.when,

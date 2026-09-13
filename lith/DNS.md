@@ -36,3 +36,13 @@ The primary frontend origin is `209.38.133.33`.
 - No production records in the audited zones point to `aesthetic-computer.netlify.app`.
 - No production records in the audited zones point to `75.2.60.5`.
 - Legacy `duckweedtri.aesthetic.computer` and `duckweedtri.prompt.ac` were stale Netlify 404s during the audit and should resolve through lith-managed redirects instead.
+
+## Amail Inbound (added 2026-09-13)
+
+- `inbound.aesthetic.computer` A → 209.38.133.33, **DNS-only** (Cloudflare does
+  not proxy SMTP). This is the "route to host" target of the Google Workspace
+  default-routing rule that catches unknown `@aesthetic.computer` addresses;
+  `lith/mail-inbound.mjs` (lith-mail.service, :25) files them as Amail.
+  Caddy serves the same name over HTTPS only to hold its STARTTLS certificate.
+- The apex MX stays on Google (`aspmx.l.google.com` et al.) — one human
+  mailbox, `mail@aesthetic.computer`, lives there.

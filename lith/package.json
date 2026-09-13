@@ -11,6 +11,8 @@
     "dev": "node --watch server.mjs"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "mailparser": "^3.7.0",
+    "smtp-server": "^3.13.0"
   }
 }

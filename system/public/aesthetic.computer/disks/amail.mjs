@@ -475,12 +475,19 @@ function paint(api) {
 
     if (unread) ink(c.log).box(x + 2, y + 2, 3, 3);
     ink(unread ? c.handle : c.timestamp).write(who, { x: x + 8, y });
+    // A letter from outside the wall carries the sender's address after
+    // their name, small, so an email reads apart from a handle at a glance.
+    let afterWho = x + 8 + (who.length + 1) * 6;
+    if (letter.fromEmail && letter.fromEmail !== who) {
+      ink([...c.timestamp, 170]).write(letter.fromEmail, { x: afterWho, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+      afterWho += letter.fromEmail.length * 4 + 6;
+    }
     if (letter.subject) {
       ink(unread ? c.painting : [...c.painting, 150]).write(
         letter.subject,
-        { x: x + 8 + (who.length + 1) * 6, y },
+        { x: afterWho, y },
         undefined,
-        bounds - (who.length + 2) * 6,
+        bounds - (afterWho - x - 8) - 6,
       );
     }
     ink([...c.timestamp, 160]).write(ago(letter.when), { x: screen.width - 34, y });
