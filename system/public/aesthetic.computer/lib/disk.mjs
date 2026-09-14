@@ -374,6 +374,56 @@ const HUD_LABEL_TEXT_MARGIN = 0;
 const KIDLISP_HUD_WRAP_CHARACTER_LIMIT = 28;
 const MIN_HUD_WRAP_WIDTH = 120;
 
+// ✨ Corner label hover drift. Each character wanders on its own soft spring —
+// a slow sideways sway plus an upward hop — so the word reads as alive and
+// pressable while staying legible. Amplitudes are px, speeds are rad/ms
+// (periods of 1.5–3s), and the whole thing scales by an eased 0..1 amount so
+// it wakes up and settles instead of snapping. The hit box never moves.
+const HUD_DRIFT_X = 1.5;
+const HUD_DRIFT_Y = 2;
+const HUD_DRIFT_EASE_IN_MS = 220;
+const HUD_DRIFT_EASE_OUT_MS = 380;
+// Golden-ratio scattered phases, so neighbouring letters never move in step.
+const HUD_DRIFT_PHASES = Float32Array.from(
+  { length: 64 },
+  (_, i) => ((i * 0.6180339887) % 1) * Math.PI * 2,
+);
+
+function hudDriftEase(amount) {
+  return amount * amount * (3 - 2 * amount); // smoothstep
+}
+
+function hudDriftX(i, t, ease) {
+  const p = HUD_DRIFT_PHASES[i & 63];
+  return (
+    HUD_DRIFT_X *
+    ease *
+    (0.65 * Math.sin(t * 0.0021 + p) + 0.35 * Math.sin(t * 0.0037 + p * 1.7))
+  );
+}
+
+function hudDriftY(i, t, ease) {
+  const p = HUD_DRIFT_PHASES[(i + 17) & 63];
+  // |sin| hops: sharp at the floor, soft at the top — the bounce.
+  return -HUD_DRIFT_Y * ease * Math.abs(Math.sin(t * 0.0028 + p));
+}
+
+// Resolve a `\code\` (or a shadow's "r,g,b") the way `write` does; `reset`
+// falls back to the label's base color.
+function hudCodeColor(code, base) {
+  if (!code) return base;
+  if (Array.isArray(code)) return code;
+  const s = code.trim();
+  const lower = s.toLowerCase();
+  if (lower === "reset" || lower === "default" || lower === "base") return base;
+  if (s.includes(",")) {
+    const parts = s.split(",").map((n) => parseInt(n.trim(), 10) || 0);
+    while (parts.length < 3) parts.push(0);
+    return parts.slice(0, 4);
+  }
+  return graph.findColor(s) ?? base;
+}
+
 function resolveTypefaceInstance(typefaceRef) {
   if (!typefaceRef) return undefined;
   if (typefaceRef instanceof Typeface) return typefaceRef;
@@ -702,6 +752,61 @@ function drawHudLabelText(
     shouldWrap,
     typefaceName,
   );
+}
+
+// Hover twin of drawHudLabelText: one `write` per character so each can sit
+// on its own drift offset. Two passes — all shadows first, then all glyphs —
+// so no letter's shadow lands on a drifted neighbour. Color codes are walked
+// with splitColorCodes, and `\n` starts a new line; wrapped text doesn't come
+// here. `i` counts drawn characters and picks the phase.
+function drawHudLabelDrift(
+  $,
+  text,
+  { x, y, typefaceName, typeface, textColor, lineStep, t, ease },
+) {
+  if (!text) return;
+  const parts = splitColorCodes(text);
+  const perCodeShadows = parts.length > 1; // plain labels keep a flat black shadow
+  const blockWidth = typeface?.blockWidth || DEFAULT_TYPEFACE_BLOCK_WIDTH;
+  for (let pass = 0; pass < 2; pass++) {
+    const shadow = pass === 0;
+    let color = textColor;
+    let cx = x,
+      cy = y,
+      i = 0;
+    for (let p = 0; p < parts.length; p++) {
+      if (p % 2 === 1) {
+        color = hudCodeColor(parts[p], textColor);
+        continue;
+      }
+      const run = parts[p];
+      for (let j = 0; j < run.length; j++) {
+        const ch = run[j];
+        if (ch === "\n") {
+          cx = x;
+          cy += lineStep;
+          continue;
+        }
+        if (ch !== " ") {
+          const dx = Math.round(cx + hudDriftX(i, t, ease));
+          const dy = Math.round(cy + hudDriftY(i, t, ease));
+          if (shadow) {
+            $.ink(
+              perCodeShadows
+                ? hudCodeColor(getShadowColorForText(color), "black")
+                : "black",
+            );
+            $.write(ch, { x: dx + 1, y: dy + 1 }, undefined, undefined, false, typefaceName);
+          } else {
+            $.ink(color);
+            $.write(ch, { x: dx, y: dy }, undefined, undefined, false, typefaceName);
+          }
+        }
+        cx += typeface?.getAdvance?.(ch) ?? blockWidth;
+        i++;
+      }
+    }
+  }
 }
 
 export const noWorker = { onMessage: undefined, postMessage: undefined };
@@ -1934,6 +2039,8 @@ let currentPath,
   currentHUDButtonActive = false, // Global flag to block other button interactions when HUD is active
   currentHUDButtonDirectTouch = false, // Track if HUD button was directly tapped (not rolled over)
   currentHUDHovered = false, // Pointer is over the corner label (passive, no press)
+  currentHUDHoverAmount = 0, // 0..1 — how far the hover drift has eased in
+  currentHUDHoverClock = 0, // performance.now() of the last ease step
   currentHUDScrub = 0,
   currentHUDScrubReadyState = null, // null | "share" | "edit"
   currentHUDLabelFontName,
@@ -10164,6 +10271,8 @@ async function load(
     currentHUDTextColor = undefined;
     currentHUDStatusColor = "red"; //undefined;
     currentHUDButton = undefined;
+    currentHUDHovered = false;
+    currentHUDHoverAmount = 0;
     currentHUDScrub = 0;
     currentHUDLeftPad = 0;
     currentHUDQR = null; // Reset QR code when loading new piece
@@ -15011,8 +15120,18 @@ async function makeFrame({ data: { type, content } }) {
         hudAnimationState.labelHeight = bufferH;
         h = bufferH;
 
-        // While hovered the label shakes, so it needs a fresh frame each tick.
-        if (currentHUDHovered) $api.needsPaint();
+        // Ease the hover drift in and out (clamped dt so a stalled tab can't
+        // leap), then keep painting until it has fully settled.
+        {
+          const now = performance.now();
+          const dt = Math.min(50, now - currentHUDHoverClock);
+          currentHUDHoverClock = now;
+          currentHUDHoverAmount =
+            currentHUDHovered && !currentHUDButton?.down
+              ? Math.min(1, currentHUDHoverAmount + dt / HUD_DRIFT_EASE_IN_MS)
+              : Math.max(0, currentHUDHoverAmount - dt / HUD_DRIFT_EASE_OUT_MS);
+        }
+        if (currentHUDHovered || currentHUDHoverAmount > 0) $api.needsPaint();
 
         label = $api.painting(bufferW, bufferH, ($) => {
           // Ensure label renders with clean pan state
@@ -15070,42 +15189,61 @@ async function makeFrame({ data: { type, content } }) {
             }
 
             const baseX = currentHUDLeftPad + qrOffset;
-            // ✨ Rollover: tint toward the press green and shake ±1px —
-            // the same "I'm alive" cue a TextButton gives before a press.
-            const hudHovering = currentHUDHovered && !currentHUDButton?.down;
-            const shakeX = hudHovering ? Math.round((Math.random() - 0.5) * 2) : 0;
-            const shakeY = hudHovering ? Math.round((Math.random() - 0.5) * 2) : 0;
+            // ✨ Rollover: tint toward the press green and let each character
+            // drift on its own spring (hudDriftX/Y) — the "I'm alive" cue a
+            // TextButton gives before a press, loosened up per letter.
+            const hoverEase = hudDriftEase(currentHUDHoverAmount);
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
-            const hudTextX =
-              baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub) + shakeX;
-            const hudTextY = 4 + shakeY; // Aligned with the QR (corner-radius safe)
+            const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
+            const hudTextY = 4; // Aligned with the QR (corner-radius safe)
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
-            const baseTextColor = hudHovering
-              ? num.shiftRGB(
-                  graph.findColor(currentHUDTextColor || "white"),
-                  [0, 255, 0],
-                  0.4,
-                )
-              : currentHUDTextColor || "white";
+            const baseTextColor =
+              hoverEase > 0
+                ? num.shiftRGB(
+                    graph.findColor(currentHUDTextColor || "white"),
+                    [0, 255, 0],
+                    0.4 * hoverEase,
+                  )
+                : currentHUDTextColor || "white";
 
             // 🎨 Character wrapping for KidLisp HUD prompts
             // Wrap based on screen width minus padding (6px total: 2px margin + 4px padding)
             // Subtract the left margin since text starts at x=HUD_LABEL_TEXT_MARGIN
             const wrapBounds = isKidlispPiece ? ($api.screen.width - 6 - HUD_LABEL_TEXT_MARGIN) : undefined;
 
-            drawHudLabelText($, text, {
-              x: hudTextX,
-              y: hudTextY,
-              typefaceName: typefaceNameForWrite,
-              textColor: baseTextColor,
-              shadowColor: "black",
-              shadowOffsetX: 1,
-              shadowOffsetY: 1,
-              preserveColors: hasColorCodes,
-              bounds: wrapBounds,
-              // wordWrap defaults to true when bounds is set, enabling character wrapping
-            });
+            // Drift places glyphs itself, so it takes any label that fits on
+            // one line — including kidlisp-flagged ones (a piece named after
+            // a kidlisp word, like `line`, gets wrapBounds too). A label that
+            // really wraps keeps the tint and lets text.box break its lines.
+            const fitsOneLine =
+              !text?.includes("\n") &&
+              (selectedLayout?.wrappedLines?.length ?? 1) <= 1;
+            if (hoverEase > 0 && (wrapBounds === undefined || fitsOneLine)) {
+              drawHudLabelDrift($, text, {
+                x: hudTextX,
+                y: hudTextY,
+                typefaceName: typefaceNameForWrite,
+                typeface: selectedTypeface,
+                textColor: baseTextColor,
+                lineStep: hudBlockHeight + 1,
+                t: currentHUDHoverClock,
+                ease: hoverEase,
+              });
+            } else {
+              drawHudLabelText($, text, {
+                x: hudTextX,
+                y: hudTextY,
+                typefaceName: typefaceNameForWrite,
+                textColor: baseTextColor,
+                shadowColor: "black",
+                shadowOffsetX: 1,
+                shadowOffsetY: 1,
+                preserveColors: hasColorCodes,
+                bounds: wrapBounds,
+                // wordWrap defaults to true when bounds is set, enabling character wrapping
+              });
+            }
 
             // ✨ Custom Superscript (e.g. ".com") - draw after the text in cyan
             if (showCustomSuperscript) {
