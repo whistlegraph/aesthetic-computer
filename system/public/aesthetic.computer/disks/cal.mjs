@@ -80,6 +80,7 @@ let $net = null;
 let $store = null;
 
 // UI buttons (built in boot, painted in paint, handled in act).
+const TOP_PAD = 20; // corner-label zone (SCREEN.md) — buttons + title sit below it
 let prevBtn = null;
 let nextBtn = null;
 let todayBtn = null;
@@ -292,15 +293,16 @@ function isoToDate(iso) {
 
 // 🔘 Buttons ──────────────────────────────────────────────────────────────────
 function buildButtons({ ui, screen }) {
-  prevBtn = new ui.TextButton("<", { left: 4, top: 4, screen });
-  nextBtn = new ui.TextButton(">", { right: 4, top: 4, screen });
+  // Top bar starts under the corner label zone (SCREEN.md: top-left ~20 rows).
+  prevBtn = new ui.TextButton("<", { left: 4, top: TOP_PAD, screen });
+  nextBtn = new ui.TextButton(">", { right: 4, top: TOP_PAD, screen });
   todayBtn = new ui.TextButton("today", { left: 4, bottom: 4, screen });
 }
 
 function syncButtons({ screen }) {
   if (!prevBtn) return;
-  prevBtn.reposition({ left: 4, top: 4, screen });
-  nextBtn.reposition({ right: 4, top: 4, screen });
+  prevBtn.reposition({ left: 4, top: TOP_PAD, screen });
+  nextBtn.reposition({ right: 4, top: TOP_PAD, screen });
   todayBtn.reposition({ left: 4, bottom: 4, screen });
 }
 
@@ -344,14 +346,14 @@ function paintMonthView($) {
   const { ink, screen, text, needsPaint } = $;
   const { width: w, height: h } = screen;
 
-  const topBar = 4 + prevBtn.height + 4;
+  const topBar = TOP_PAD + prevBtn.height + 4;
   const botBar = 4 + todayBtn.height + 4;
 
   // ── Title: "June 2026" centered between the < > buttons.
   const titleStr = `${MONTHS[cursor.month - 1]} ${cursor.year}`;
   const titleW = text.width(titleStr, FONT);
   ink(...COLORS.title).write(
-    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: 8 },
+    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: TOP_PAD + 4 },
     false, undefined, false, FONT,
   );
 
@@ -488,7 +490,7 @@ function paintWeekView($) {
   const { width: w, height: h } = screen;
   const days = weekModel?.days || [];
 
-  const topBar = 4 + prevBtn.height + 4;
+  const topBar = TOP_PAD + prevBtn.height + 4;
   const botBar = 4 + todayBtn.height + 4;
 
   // Title: the week's span, e.g. "Jun 15 – 21".
@@ -501,7 +503,7 @@ function paintWeekView($) {
     : "Week";
   const titleW = text.width(titleStr, FONT);
   ink(...COLORS.title).write(
-    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: 8 },
+    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: TOP_PAD + 4 },
     false, undefined, false, FONT,
   );
 
@@ -576,7 +578,7 @@ function paintDayView($) {
   const { width: w, height: h } = screen;
   const cell = dayModel?.day;
 
-  const topBar = 4 + prevBtn.height + 4;
+  const topBar = TOP_PAD + prevBtn.height + 4;
   const botBar = 4 + todayBtn.height + 4;
 
   // Title: "Mon Jun 15".
@@ -584,7 +586,7 @@ function paintDayView($) {
   const titleW = text.width(titleStr, FONT);
   const isTodayDay = cell?.iso === today.iso;
   ink(...(isTodayDay ? COLORS.today : COLORS.title)).write(
-    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: 8 },
+    titleStr, { x: Math.floor(w / 2 - titleW / 2), y: TOP_PAD + 4 },
     false, undefined, false, FONT,
   );
 
@@ -745,7 +747,7 @@ function switchView(next) {
 function focusAt(e, screen) {
   if (!prevBtn) return;
   const { width: w, height: h } = screen;
-  const topBar = 4 + prevBtn.height + 4;
+  const topBar = TOP_PAD + prevBtn.height + 4;
   const botBar = 4 + todayBtn.height + 4;
   const panelH = 56;
   const headerH = 12;
