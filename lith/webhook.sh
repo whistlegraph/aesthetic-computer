@@ -62,11 +62,18 @@ fi
 if ! node xbox/live/render-social-preview.mjs --check; then
   log "oskiewar social preview is stale; restoring $OLD_HEAD"
   git reset --hard "$OLD_HEAD" --quiet
+  sh xbox/tools/precompress-live.sh
   exit 1
 fi
 
 # Write commit ref for version endpoint
 echo "$NEW_HEAD" > system/public/.commit-ref
+
+# Max-level .br/.zst sidecars for oskiewar.com's `precompressed` file_server.
+# After every checkout, because Caddy serves a sidecar that exists without
+# asking whether its source moved on; only sources newer than their sidecar
+# are rebuilt, so unchanged modules keep their ETags.
+sh xbox/tools/precompress-live.sh
 
 # Get list of changed files
 CHANGED=$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD")
