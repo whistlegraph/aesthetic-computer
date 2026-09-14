@@ -1,0 +1,215 @@
+% !TEX program = xelatex
+% Evidence and consultation record: notes.md, evidence.json, references.bib.
+\documentclass[10pt,letterpaper,twocolumn]{article}
+\usepackage[margin=.72in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=.93]
+\usepackage{graphicx,xcolor,booktabs,tabularx,array,ragged2e,microtype}
+\usepackage{../ac-paper-layout}
+\ClearShipoutPictureBG
+\usepackage{flushend}
+\setlength{\parskip}{.1em}
+\usetikzlibrary{arrows.meta,positioning}
+\graphicspath{{../arxiv-ac/figures/}{../arxiv-whistlegraph/}}
+\renewcommand{\ac}{Aesthetic\acdot Computer}
+\hypersetup{pdftitle={Robloxplorer: An API Path for the Aesthetic Network},pdfauthor={@jeffrey}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcommand{\pathcode}[1]{{\ttfamily\small\path{#1}}}
+\newcommand{\status}[1]{\textbf{#1}}
+\setlength{\emergencystretch}{1.5em}
+\begin{document}
+\twocolumn[{
+\begin{center}
+{\acbold\fontsize{28}{31}\selectfont Robloxplorer}\par\vspace{.4em}
+{\Large An API Path for the Aesthetic Network}\par\vspace{.6em}
+\href{https://prompt.ac/@jeffrey}{@jeffrey}\quad\ac\quad 13 September 2026
+\end{center}
+\begin{abstract}
+Roblox offers a distribution surface for playable art, shared performances, and avatar goods, but its APIs do not reproduce a web runtime or confer unrestricted publishing eligibility. This paper maps the existing \ac{} monorepo to Roblox's public and authenticated interfaces. We distinguish capabilities implemented in robloxplorer, operations documented by Roblox but untested here, and proposed integrations. The most immediate development loop combines source-controlled Luau, reproducible place artifacts, Open Cloud publishing, headless engine tests, and aggregate measurement. A parallel asset loop can turn approved paintings into Roblox images, gallery objects, and clothing designs while retaining authorship and transformation records. Marketplace apparel remains distinct from image upload and from an in-game cosmetic. We recommend a private painting-room experiment and an asset registry before a full creative-language port, cross-platform multiplayer, or a commercial clothing catalog. The result is an implementation agenda supported by repository inspection, official documentation, and bounded account probes, not a claim of measured audience growth.
+\end{abstract}
+\vspace{.8em}
+}]
+
+\section{Question and Method}
+How can an existing creative-computing network develop through Roblox's APIs without rebuilding its entire stack? The intended destination is a recognizable Aesthetic Network presence: people encounter a painting, make a sound, participate in a drawing, or wear an artwork. Robloxplorer is the tool for discovering, preparing, releasing, and observing that presence.
+
+The study consulted the public Papers index, Whistlegraph sub-platter, prior platform, notepat, and identity papers, and their bibliographies~\cite{stack,notepat,identity,whistlegraph}. We inspected the September working tree; Table~\ref{tab:stack} and \pathcode{notes.md} record sources and revision. No private archive media were imported.
+
+Three evidence levels apply throughout. \status{Verified} means a local implementation check or an observed account request. \status{Documented} means official documentation describes a capability, without an end-to-end test here. \status{Proposed} means an engineering or product recommendation. A credential with a scope is evidence of configuration, not of quota, commercial eligibility, successful moderation, or a working integration.
+
+\section{What Exists Today}
+The monorepo's \pathcode{toolchain/robloxplorer/robloxplorer.mjs} implements public creator lookup and search, user and group game lists, group membership lookup, universe details, an endpoint map, a campaign manifest, and a place-upload command. Pagination cursors are retained for game lists. Search is creator search, not a complete index of Roblox's discovery graph.
+
+Publishing accepts a local RBXL or RBXLX file, computes its size and SHA-256, and returns a plan. An explicit live invocation sends the file to the version-publishing endpoint. Four focused tests cover ID validation, a network-free plan, redacted request failure, and a mocked authenticated upload. The live publish path has not been exercised. This distinction prevents a tested HTTP wrapper from being mistaken for a tested game release.
+
+Public discovery resolved Whistlegraph to user 1366409382 and found \emph{Sky Pool}, universe 1650467744 and place 4855797621, as well as the group \emph{whistlegraph's pals}, 5524936. The game's existing description already connects swimming and drawing. An authenticated universe read succeeded during setup. The separate evidence file records this study's fresh probes and their HTTP outcomes; none publish or purchase anything.
+
+\section{Developing Through the API}
+The useful unit of iteration is a release record:
+source revision, build recipe, artifact hash, target universe and place, Roblox version, test result, and asset IDs. Keep these records next to the source. Proposed game code belongs in \pathcode{roblox/}; robloxplorer remains in \pathcode{toolchain/robloxplorer/}. These game directories do not yet exist.
+
+\subsection{Build, upload, test, promote}
+Rojo can compile a filesystem project into a place artifact~\cite{rojo}. Roblox's own archived CI/CD demonstration combines Rojo builds, uploads, and cloud Luau tests~\cite{cicd}. Its architecture is useful precedent; its historical concurrency limits are not current operational guidance. Our proposed pipeline uses Open Cloud for upload rather than the cookie-based upload command in older Rojo documentation.
+
+Use an explicit development target and keep the original Sky Pool version available. A separate development universe also separates Roblox data-store namespaces. First prove a deterministic build of an empty room. Then upload to development, run assertions, inspect the actual client, and promote the reviewed artifact. A rollback republishes a retained known-good artifact; it does not undo data-store migrations or revoke goods already acquired.
+
+The place API creates a new version of an existing place and has instance-type limitations~\cite{publishing}. Creating the initial universe, configuring public eligibility, and verifying visual behavior remain separate tasks. This study does not establish a complete API-only provisioning route. Nor does uploading a saved or published version prove that new public users can join it.
+
+\subsection{Headless execution and editing}
+Open Cloud exposes asynchronous Luau tasks, including a version-specific route, task status, and logs~\cite{luau}. That enables server-side assertions about generated objects, configuration, and modules. A passed task does not demonstrate client input, rendering, sound, avatar fit, or multiplayer feel.
+
+The current Markdown feature guide also describes persistence with \texttt{SavePlaceAsync}. We classify that as documented but unverified; the linked engine reference provides little behavioral detail. The first implementation should therefore use reproducible whole-place uploads and non-persisting tests. A later experiment can prove save behavior against a disposable target rather than assume that temporary engine changes became a release.
+
+The Engine Instances API offers a second editing path: traverse the hierarchy and read or update scripts. Its beta restrictions include a collaborative session, no updates to scripts currently open in Studio, and no updates to packaged scripts~\cite{instances}. It is not a general remote world editor. These two mechanisms deserve separate robloxplorer commands and separate failure reporting.
+
+\begin{table*}[t]
+\centering\small
+\caption{API opportunity map. ``Documented'' does not mean implemented in robloxplorer or verified for this account.}
+\label{tab:capabilities}
+\begin{tabularx}{\textwidth}{@{}p{.17\textwidth}p{.15\textwidth}YY@{}}
+\toprule
+Capability & Evidence & Useful operation & Boundary or next proof \\
+\midrule
+Public exploration & Verified & Follow creators, groups, and their games & No claim of an exhaustive discovery feed. \\
+Place versions & Local + mocked & Upload a hashed build; retain rollback artifact & Verify one development upload and launch. \\
+Headless Luau & Documented & Run assertions against a selected place version & Add task polling, logs, deadlines, and failure handling. \\
+Script inspection & Documented & Traverse instances and update script source & Requires the supported collaborative editing state. \\
+Assets & Documented & Upload images, audio, and supported models & Poll operations and moderation; preserve asset IDs. \\
+Live configuration & Documented & Publish a message consumed by game servers & Requires installed Luau subscribers; not a player-input transport. \\
+Storage & Documented & Read/write Roblox data and memory stores & Design schema, migration, and ownership explicitly. \\
+Analytics & Documented & Query aggregate activity, retention, and revenue & Check metric availability and account responses. \\
+Avatar commerce & Partly documented & Prepare clothing, publish eligible Marketplace goods & Image upload alone creates neither clothing nor a sale listing. \\
+Promotion & Documented & Coordinate game metadata and eligible campaigns & Ad registration and audience rules are separate from API scopes. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Operating a live experience}
+For Roblox-to-AC traffic, server-side \texttt{HttpService} can request a curated manifest from lith and post bounded events~\cite{http}. For AC-to-Roblox traffic, Open Cloud messaging can tell subscribed game servers that a new catalog revision is available~\cite{messaging}. The durable catalog is the source of truth; a message is a prompt to refresh it. Retain the previous valid manifest when the network fails.
+
+An ``endpoint in Roblox'' is therefore best specified as a topic, handler, and schema inside an owned game, paired with an HTTP route on AC. It is not an arbitrary inbound web server. A proposed first command is \texttt{catalog.changed} carrying only a revision identifier. The handler fetches approved asset IDs, checks the schema, and swaps the gallery between interactions. It must never execute arbitrary code supplied by a public HTTP caller.
+
+Roblox handles the game's player replication. AC's session server already carries browser music and arena traffic, but its geckos transport and physics are not drop-in Roblox services. Start with exhibition changes or scheduled score selection across platforms. Defer shared movement and tightly synchronized cross-platform music until a measured latency and authority design exists.
+
+\section{Paintings, Clothing, and Wares}
+An AC painting is already addressable through codes, slugs, image locations, and sometimes an AT Protocol record. The painting lexicon specifies a full-resolution image URL and creation time, while backend endpoints resolve the stored work. These are good ingredients for export, but the inspected schema does not establish merchandising permission.
+
+Add a proposed \emph{export record} before building a catalog. It binds the original painting reference, creator attribution, source hash, permission record, transformation recipe, output hash, Roblox creator, asset ID, moderation state, and product status. A revised painting produces a new export version. Keep asset upload, moderation approval, clothing creation, and on-sale status as separate states; do not compress them into a single ``published'' Boolean.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[node distance=5mm, every node/.style={font=\sffamily\small}, box/.style={draw=acdark!65,rounded corners=2pt,align=center,text width=6.5cm,minimum height=8mm}, link/.style={-{Stealth[length=2mm]},thick,draw=acdark}]
+\node[box] (source) {Painting + creator + permission};
+\node[box,below=of source] (recipe) {Recipe + source and output hashes};
+\node[box,below=of recipe] (asset) {Roblox asset + moderation state};
+\node[box,below=of asset,fill=acpink!7] (use) {Gallery object or eligible avatar product};
+\draw[link] (source)--(recipe);
+\draw[link] (recipe)--(asset);
+\draw[link] (asset)--(use);
+\end{tikzpicture}
+\caption{Proposed export lineage. A product refers to a reviewed asset; it does not replace the source artwork or its authorship record.}
+\label{fig:lineage}
+\end{figure}
+
+\subsection{The shortest useful conversion}
+Start with one artist-approved PNG. Preserve its aspect ratio and meaningful edges, prepare a Roblox-compatible image, and upload it as a supported image/decal asset. The Assets API reports operations and moderation information; the guide currently excludes image-content updates, so a changed painting should receive a new asset and registry entry~\cite{assets}. This same image can supply a framed artwork or a surface on a game object. A visible in-game object is not automatically an inventory item usable across Roblox.
+
+For a classic T-shirt, compose a square front-torso graphic; Roblox gives 512 by 512 pixels as an example. Classic shirts and pants require body templates and seam-aware layout~\cite{clothing}. The local transform can be deterministic: aspect-fit a painting on the torso, reserve a margin, and test the result on supported avatar bodies. Do not blindly crop to a square or treat a whole painting as a repeating cloth texture.
+
+The modern Assets guide does not list classic clothing among its supported content-upload types. This is not proof that every legacy route is impossible; it means an end-to-end key-authenticated clothing-creation and sale workflow remains unverified. Use the documented Creator Dashboard path as the fallback and keep that distinction visible in robloxplorer. Broad scopes cannot manufacture an unsupported endpoint.
+
+\begin{table}[t]
+\centering\small
+\caption{Proposed artwork products, ordered by the size of the first experiment.}
+\label{tab:wares}
+\begin{tabularx}{\columnwidth}{@{}p{.26\columnwidth}YY@{}}
+\toprule
+Output & Reused material & Additional work \\
+\midrule
+Gallery print & Original painting & Frame, scale, attribution \\
+Classic T-shirt & Square composition & Avatar fit; clothing publication \\
+Shirt or pants & Painting fragments & Template mapping and seam tests \\
+Collectible & Painting on a prop & Luau inventory and persistence \\
+3D wearable & Painting texture & Mesh, fitting, validation, listing \\
+Creator kit & Art + reusable code & Package boundaries and support \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Distribution is a separate contract}
+Marketplace wearables add model structure, fitting, technical validation, moderation, and seller requirements~\cite{marketplace}. They are a larger project than applying a texture to a cube. A user-created item inside our game can be useful without being a global Roblox wearable. Name these outcomes precisely when presenting an export button.
+
+The current policy requires identity verification or a linked verified parental account, two-step verification for publishing, and an eligible membership for continued sale~\cite{policy}. These account conditions have not been checked for Whistlegraph. The current fee page lists an 80-Robux upload fee and a 10-Robux publishing advance for classic clothing~\cite{fees}. Treat this as a dated planning reference; the actual submission quote and eligibility screen govern any purchase. No upload, listing, subscription, or advertising spend was made for this study.
+
+Community paintings are not implicitly merchandise stock. Begin with work whose artist explicitly authorizes the intended Roblox use. For community exports, record attribution, permitted products, compensation terms if any, and a withdrawal process. Removing a future listing cannot promise the erasure of copies already distributed. A blockchain token or public AT Protocol record is provenance, not a substitute for the creator's merchandising permission.
+
+\section{Fit Against the Monorepo}
+The existing pieces supply scores, interaction designs, assets, and data formats. A notepat adaptation needs Luau input and audio; KidLisp needs an interpreter or a constrained export format. Table~\ref{tab:stack} maps reuse without assuming that JavaScript pieces execute directly in Roblox.
+
+\begin{table*}[t]
+\centering\small
+\caption{Inspected AC sources and proposed Roblox uses. Long paths are shortened here; \texttt{notes.md} records full paths. Adapters are proposed.}
+\label{tab:stack}
+\begin{tabularx}{\textwidth}{@{}p{.21\textwidth}YY@{}}
+\toprule
+AC component & Inspected source & Proposed Roblox connection \\
+\midrule
+Painting resolution & \pathcode{functions/get-painting.mjs}; \pathcode{painting-metadata.mjs} & Resolve approved works and prepare an export queue. \\
+Provenance & \pathcode{lexicons/.../painting.json}; \pathcode{backend/painting-atproto.mjs} & Preserve painting references and creator attribution in the export ledger. \\
+Assets and media & \pathcode{assets/sync-index.mjs}; \pathcode{oven/kidlisp-mini/render.mjs} & Reuse indexing and selected render recipes; stage uploadable artifacts. \\
+Musical interaction & \pathcode{disks/notepat.mjs} & Port one small instrument interaction to Luau; upload owned samples as needed. \\
+Graphic scores & \pathcode{disks/whistlegraph.mjs}; Whistlegraph sub-platter & Build a learnable drawing-and-sound activity from an approved score. \\
+HTTP backend & \pathcode{lith/server.mjs} & Serve a versioned, curated catalog and narrowly defined game endpoints. \\
+Realtime & \pathcode{session-server/session.mjs}; \pathcode{arena-manager.mjs} in that directory & Borrow event semantics; design a new bridge instead of reusing the transport. \\
+Observability & \pathcode{functions/piece-log.mjs} & Reuse operational review habits; create a minimized Roblox-specific event schema. \\
+Promotion & \pathcode{instagram/reel-app.mjs}; \pathcode{youtube/yt.mjs} & Prepare recordings and release materials after the game proves playable. \\
+Operator tools & \pathcode{slab/bin/paper-mcp.mjs}; \pathcode{toolchain/robloxplorer/} & Add bounded Roblox MCP tools on top of the same tested client. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Three product experiments}
+\textbf{Painting room.} A small Roblox space presents a few approved works, lets a visitor rearrange or select them, and retains a local game collection. This proves image conversion, asset references, attribution, deployment, and one repeatable interaction. It offers the highest reuse of existing paintings with the fewest runtime assumptions.
+
+\textbf{Whistlegraph playground.} A short sequence couples drawing gestures to sounds and invites a second player to repeat it. The prior Whistlegraph paper supplies a project rationale: the work travels through reperformance~\cite{whistlegraph}. Roblox adds shared presence, but the hypothesis that it will attract an audience still needs testing.
+
+\textbf{Wearable editions.} Selected paintings become torso graphics or carefully composed garments. A gallery links the work to an eligible in-platform product. This tests whether carrying the artwork matters to visitors. Start with a small catalog and real fit inspection; postpone automated bulk creation until rights, moderation, fulfillment, and economics are understood.
+
+KidLisp screens, procedural sculpture, creator-store kits, concerts, and avatar accessories remain plausible extensions. A full KidLisp host or synchronized AC--Roblox arena would require substantially more runtime work. These are follow-on research directions, not prerequisites for a credible first release.
+
+\section{Evaluation and Next Steps}
+The evidence file preserves five bounded GET probes at 19:39 UTC on 13 September 2026. Universe and place reads returned HTTP 200. The instance-root request returned HTTP 200 with an operation identifier; its eventual result was not polled, so hierarchy access is not yet proven. Public responses reported 257 Sky Pool visits, five favorites, zero current players, and 58 group members. These are a point-in-time baseline, not a trend. Successful authenticated reads demonstrate access to specific resources only. The study did not run Luau tasks, inspect private player data, or test paid publication.
+
+We recommend the following sequence of implementation gates:
+\begin{enumerate}
+\item \textbf{Inventory and preserve.} Record universe/place configuration, available versions, owned asset references, and a retrievable source artifact for the chosen target. Add authenticated \texttt{inspect} and operation polling to robloxplorer.
+\item \textbf{Prove a release loop.} Add a small Rojo project, an explicit development target, a place build, one upload, one headless assertion, and a release ledger. Inspect rendering and input in a Roblox client before calling the loop complete.
+\item \textbf{Prove one painting export.} Produce a reviewable image, upload it, observe moderation, and render it in the room with the recorded author and source. Test a missing or rejected asset and confirm the room remains usable.
+\item \textbf{Prove a refresh.} Add the lith catalog route and a game-side subscriber. Change the catalog revision, verify that the game updates once, and confirm that outages preserve the previous catalog.
+\item \textbf{Test one garment.} Prepare the graphic, compare avatar fits, establish seller eligibility, and verify the actual upload/listing path and costs. This is a separate release from the room.
+\item \textbf{Measure before scaling.} Add aggregate queries and compare successive small releases before paid campaigns or larger product catalogs.
+\end{enumerate}
+
+Measure upload success, operation duration, moderation turnaround, duplicate exports, and rollback recovery. Product measures include first interaction completion, return visits, and selection of works or instruments. Report small counts without implying causal growth.
+
+The Analytics Query API documents aggregate activity, revenue, and retention queries over date ranges~\cite{analytics}. Keep that separate from public current-player counts and lifetime visits. Collect a baseline before promotion, keep release IDs on observations, and document missing metrics. Do not infer individual conversion from two unrelated platform identities.
+
+\section{Promotion, Privacy, and Limits}
+The marketing goal is best tested by making an encounter worth repeating. Roblox discovery guidance emphasizes user satisfaction and acquisition measurement~\cite{discovery}. An artist's recognizable activity is a stronger first hypothesis than a room of links.
+
+Promotion of an off-platform service can count as advertising even inside the creator's own game. Roblox's current ad-integration guidance requires registration, review, disclosure, and eligibility handling for qualifying material~\cite{ads}. This is a concrete design constraint for an AC marketing destination, not a blanket classification of every artwork as an ad. Review the actual experience and any calls to action before public launch; do not assume that an external URL or a QR code is an unrestricted exit route.
+
+Keep the operator API key outside game content and public clients. A game-to-lith bridge should receive its own bounded credential and schema. The user configured broad operator access in this session; this study does not silently alter that choice. It proposes separating the public product from that authority.
+
+The existing piece-log endpoint collects more runtime context than a minimal Roblox integration requires. Do not reuse its raw payload wholesale. A first aggregate event could contain a game release, approved asset reference, event name, time bucket, and count. No chat transcript, email, persistent cross-platform identity, private source file, or operator session belongs in the default schema. Any later account linking needs an explicit user-facing purpose and consent flow.
+
+This is a feasibility study, not a complete enumeration of every Roblox endpoint. APIs, documentation, quotas, membership conditions, and moderation behavior change. The fetched reference contains inconsistent quota descriptions, so no throughput guarantee is inferred. Our account probes do not establish commercial eligibility. The proposed products have not been implemented, playtested, or evaluated with an audience.
+
+\newpage
+\section{Conclusion}
+Roblox can become a new place where the Aesthetic Network's art is encountered, performed, and carried. The monorepo already supplies artwork addressing, provenance, rendering, backend services, and release habits. The missing work is a small Roblox runtime and an explicit export-and-release contract. Build the painting room and the API release loop first; use that evidence to decide whether the next investment should be a musical playground, wearable editions, or a deeper language integration.
+
+\input{references.tex}
+\end{document}

@@ -1,0 +1,32 @@
+{
+  "source": {
+    "id": "ac-pals",
+    "sourceUrl": "https://assets.aesthetic.computer/aesthetic-inc/pals.png",
+    "title": "Aesthetic Computer Pals",
+    "creator": "Aesthetic Computer",
+    "approved": true
+  },
+  "sha256": "565e2f1128ff55f17502c9164f17d17cb70ed65893536e6d5bf0d19c7199ac3f",
+  "roblox": {
+    "path": "assets/85149608937004",
+    "revisionId": "1",
+    "revisionCreateTime": "2026-09-13T22:20:26.302958900Z",
+    "assetId": "85149608937004",
+    "displayName": "Aesthetic Computer Pals",
+    "description": "AC-owned artwork imported for the Aesthetic Arena media bridge.",
+    "assetType": "Image",
+    "creationContext": {
+      "creator": {
+        "userId": "1366409382"
+      }
+    },
+    "moderationResult": {
+      "moderationState": "Approved"
+    },
+    "state": "Active"
+  },
+  "manifestUrl": "https://assets.aesthetic.computer/roblox/manifest.json",
+  "clientVersion": 18,
+  "clientMediaStatus": "connected revision 1 loaded true",
+  "screenshot": "../arena/build/captures/1789338527705-56e3e8e1.jpg"
+}

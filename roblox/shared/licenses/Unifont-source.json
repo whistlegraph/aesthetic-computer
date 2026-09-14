@@ -1,0 +1,7 @@
+{
+  "source": "https://unifoundry.com/pub/unifont/unifont-17.0.05/font-builds/unifont-17.0.05.hex.gz",
+  "sha256": "2ae5311c8e123e9e85f5331cd012aa99757071df23243f1487fdbf8f3acd86be",
+  "license": "SIL OFL 1.1",
+  "coverage": "Unifont 17.0.05 Plane 0; no shaping or upper-plane glyphs",
+  "glyphCount": 57086
+}

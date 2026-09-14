@@ -1,0 +1,11 @@
+{
+  "name": "Aesthetic Computer — Notepat",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": { "Notepat": { "$path": "src/shared" } },
+    "ServerScriptService": { "NotepatWorld": { "$path": "src/server" } },
+    "StarterPlayer": {
+      "StarterPlayerScripts": { "NotepatClient": { "$path": "src/client" } }
+    }
+  }
+}

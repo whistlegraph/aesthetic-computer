@@ -1,0 +1,48 @@
+{
+  "name": "Aesthetic Network",
+  "channel": "roblox",
+  "account": "whistlegraph",
+  "userId": "1366409382",
+  "status": "draft",
+  "purpose": "Introduce Aesthetic Network through playable music, drawing, and shared art experiences on Roblox.",
+  "experiences": [
+    {
+      "name": "Aesthetic Arena [Test]",
+      "universeId": "10766363015",
+      "placeId": "96347741188039",
+      "url": "https://www.roblox.com/games/96347741188039",
+      "status": "private-development",
+      "source": "roblox/arena",
+      "verifiedVersion": 12
+    }
+  ],
+  "discoveredResources": {
+    "observedAt": "2026-09-13",
+    "experiences": [
+      {
+        "name": "Sky Pool",
+        "universeId": "1650467744",
+        "placeId": "4855797621",
+        "url": "https://www.roblox.com/games/4855797621/Sky-Pool"
+      }
+    ],
+    "groups": [
+      {
+        "name": "whistlegraph's pals",
+        "groupId": "5524936"
+      }
+    ]
+  },
+  "serviceEndpoints": [],
+  "measurement": [
+    "visits",
+    "playing",
+    "favorites"
+  ],
+  "next": [
+    "Playtest Aesthetic Arena with two clients and tune shove combat",
+    "Bring approved AC paintings into the lobby after the game loop is validated",
+    "Register reviewed service endpoints when an AC bridge exists",
+    "Publish and compare aggregate public metrics over time"
+  ]
+}
