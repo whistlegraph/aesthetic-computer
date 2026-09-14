@@ -139,6 +139,12 @@ test("the launch carries the approval contract and the workspace", async (t) => 
   assert.equal(flag("--setting-sources"), "");
   assert.ok(argv.includes("--strict-mcp-config"));
   for (const tool of ["WebFetch", "WebSearch", "Task"]) assert.ok(argv.includes(tool));
+  // Easel's own read-only tools are the one MCP server let through, pre-allowed.
+  const mcp = JSON.parse(flag("--mcp-config"));
+  assert.equal(mcp.mcpServers.ac.command, process.execPath);
+  assert.ok(mcp.mcpServers.ac.args[0].endsWith("tools.mjs"));
+  assert.deepEqual(mcp.mcpServers.ac.args.slice(1), ["--cwd", directory]);
+  assert.equal(flag("--allowedTools"), "mcp__ac");
   assert.equal(flag("--add-dir"), directory);
   assert.equal(flag("--append-system-prompt"), "piece rules");
   assert.ok(argv.includes("--session-id"));

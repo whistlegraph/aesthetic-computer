@@ -30,6 +30,7 @@
 // prompt — but the prompt, not the kernel, is the boundary. See
 // docs/local-contract.md.
 import { spawn } from "node:child_process";
+import { mcpConfig, SERVER_NAME } from "./tools.mjs";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
@@ -77,9 +78,12 @@ export class ClaudeServer extends EventEmitter {
     environment = {},
     developerInstructions = "",
     model = DEFAULT_CLAUDE_MODEL,
+    // Easel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
+    tools = true,
   }) {
     super();
     this.cwd = cwd;
+    this.tools = tools;
     this.command = command;
     this.args = args;
     this.environment = environment;
@@ -241,6 +245,16 @@ export class ClaudeServer extends EventEmitter {
       "--add-dir",
       this.cwd,
     ];
+    // Easel's own tools ride in as the one MCP server the strict config
+    // admits: the API map, call-site search, and the outline/symbol pair that
+    // replaces `sed -n` over a 9,000-line piece. They read local files and
+    // nothing else, so they are allowed up front — an approval prompt for
+    // "what does circle take?" would cost the round trip the tool exists to
+    // save.
+    if (this.tools) {
+      args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd)));
+      args.push("--allowedTools", `mcp__${SERVER_NAME}`);
+    }
     if (this.developerInstructions) {
       args.push("--append-system-prompt", this.developerInstructions);
     }

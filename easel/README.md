@@ -72,6 +72,19 @@ configuration — Codex is pinned to `on-request` approvals and a
 and `--strict-mcp-config` — so nothing but the person watching can approve a
 command in a session, and an `a` is never written to a settings file.
 
+On the Claude bridge the session also carries Easel's own tools, served by
+`src/tools.mjs` as the one MCP server the strict config admits: `ac_api` (the
+piece API — runtime signatures, docs and real call sites, read off
+`lib/disk.mjs` and `lib/graph.mjs` by `bin/build-api-map.mjs` into
+`context/api.json`), `ac_examples` (pieces that call a symbol), `ac_outline`
+(a piece's top-level symbols with line spans) and `ac_symbol` (one symbol's
+source). They exist because the first ten sessions each spent six to twelve
+shell calls — `grep function circle( graph.mjs`, `sed -n 6590,6650p disk.mjs`,
+`grep -rn "synth({" disks/` — rebuilding the same picture before the first
+edit. The guides are inlined into the first turn for the same reason. All four
+tools are read-only and pre-allowed; `npm run context` rebuilds the map and
+`npm test` fails when it is stale.
+
 The two are not equivalent on containment. Codex runs commands inside an
 operating-system sandbox with the network off; Claude Code has no such sandbox,
 so on that bridge the approval prompt is the whole boundary. The difference is

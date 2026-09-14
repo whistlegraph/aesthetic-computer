@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -132,6 +132,7 @@ function autopublishRoute() {
 // the repository that holds them. Naming a path that isn't there teaches the
 // model to ignore the whole instruction.
 const STYLE_GUIDES = [
+  ["system/public/aesthetic.computer/disks/CLAUDE.md", "the piece authoring guide"],
   ["SCREEN.md", "how a piece draws on the AC canvas"],
   ["HAND.md", "how the code reads"],
 ];
@@ -161,11 +162,22 @@ function styleInstructions() {
         ([file]) => existsSync(file),
       );
   if (source.length === 0) return [];
-  const named = source
-    .map(([file, subject]) => `${file} (${subject})`)
-    .join(" and ");
+  // Inlined rather than named. Every session so far opened by reading these
+  // three files — three tool calls and ten seconds before the first thought
+  // about the piece — and the bytes cost the same either way. Here they arrive
+  // with the first turn and are cached for every turn after it.
+  const inlined = source
+    .map(([file, subject]) => {
+      try {
+        return `## ${subject} (${path.relative(cwd, file) || file})\n\n${readFileSync(file, "utf8").trim()}`;
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean);
   const lines = [
-    `Style: the Aesthetic Computer guides are ${named} — read them before writing a piece, and follow them over your own defaults.`,
+    "Style: the Aesthetic Computer guides follow. They are the house rules for a piece and win over your own defaults. Do not re-read them from disk; they are already here.",
+    ...inlined,
   ];
   // The one rule that gets broken on a first draft, inlined because a model
   // that skips the read still has to know it. Lua pieces draw through
@@ -176,6 +188,17 @@ function styleInstructions() {
     );
   }
   return lines;
+}
+
+// The native tools, named so the model reaches for them instead of the shell.
+// The pattern being replaced is specific: grep graph.mjs for a signature, sed a
+// window of disk.mjs, grep disks/ for a call site, page a 9,000-line piece in
+// 80-line slices. Each of those is one call here.
+function toolInstructions() {
+  if (!backend.Engine || backend.id !== "claude") return [];
+  return [
+    "Tools: you have ac_api (the piece API — signatures, docs and real call sites for circle, line, box, write, sound.synth, ui.Button, pens, events…), ac_examples (pieces that call a symbol), ac_outline (a piece's top-level symbols with line spans) and ac_symbol (one symbol's source). Use them instead of grep/sed/head over lib/ and disks/: ask ac_api before opening graph.mjs or disk.mjs, and outline a large piece before reading any of it. Start writing the piece as soon as the request is clear — the guides above are already the context.",
+  ];
 }
 
 function developerInstructions() {
@@ -212,6 +235,7 @@ function developerInstructions() {
     ...dialect,
     ...styleInstructions(),
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
+    ...toolInstructions(),
     ...publishing,
     "Dev servers: do not stop a dev server you were asked to start; say that it is still running.",
   ].join("\n");
