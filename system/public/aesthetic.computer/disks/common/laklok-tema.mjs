@@ -1,5 +1,5 @@
 // laklok-tema — the shared dress of the Laer Klokken rooms: `laklok` (the
-// chat) and `amail` (the post). One roster of temas, one saved choice
+// chat) and `mail` (the post). One roster of temas, one saved choice
 // (`laklok:theme`), one interface language (`laklok:lang`), one census, and
 // the corner chrome both rooms wear — the QR, the ⚙ gear, the envelope with
 // its count, and the indstillinger pane.
@@ -204,7 +204,7 @@ export function isTema(name) {
 }
 
 // 👗 Which tema to wear. A colon or `~` token pins one (`laklok:nat`,
-// `amail~skov` — shareable themed URLs); otherwise whatever the store already
+// `mail~skov` — shareable themed URLs); otherwise whatever the store already
 // has synchronously, falling back to `ler`. The retrieved store settles later
 // — see restoreTema.
 export function pickTema(tokens, store) {
@@ -245,16 +245,16 @@ const STRINGS = {
     all: "alle",
     links: "links",
     language: "sprog",
-    // amail
+    // mail
     inbox: "indbakke",
     sent: "sendt",
     prefs: "valg",
     write: "skriv",
     send: "send",
     markRead: "markér læst",
-    noMail: "ingen Amail endnu",
+    noMail: "ingen post endnu",
     nothingSent: "intet sendt endnu",
-    tryHint: "prøv: amail @jeffrey hej",
+    tryHint: "prøv: mail @jeffrey hej",
     composeHint: "enter går ned  ·  tryk på en række",
     whoTo: "til hvem?",
     nothingToSay: "intet at sige endnu",
@@ -278,8 +278,8 @@ const STRINGS = {
     error: "fejl",
     adTitle: "breve mellem @handles",
     adBody:
-      "Amail er posten på aesthetic.computer — intet forlader computeren. log ind, tag et @handle, og din boks er klar.",
-    adPrompt: "fra enhver prompt:  amail @handle dine ord",
+      "mail er posten på aesthetic.computer — intet forlader computeren. log ind, tag et @handle, og din boks er klar.",
+    adPrompt: "fra enhver prompt:  mail @handle dine ord",
     signup: "opret dig",
     login: "log ind",
   },
@@ -291,16 +291,16 @@ const STRINGS = {
     all: "all",
     links: "links",
     language: "language",
-    // amail
+    // mail
     inbox: "inbox",
     sent: "sent",
     prefs: "prefs",
     write: "write",
     send: "send",
     markRead: "mark read",
-    noMail: "no Amail yet",
+    noMail: "no mail yet",
     nothingSent: "nothing sent yet",
-    tryHint: "try: amail @jeffrey hello",
+    tryHint: "try: mail @jeffrey hello",
     composeHint: "enter moves down  ·  tap a row to jump",
     whoTo: "who is it to?",
     nothingToSay: "nothing to say yet",
@@ -324,8 +324,8 @@ const STRINGS = {
     error: "error",
     adTitle: "letters between @handles",
     adBody:
-      "Amail is the post of aesthetic.computer — nothing leaves the computer. log in, take a @handle, and your box is ready.",
-    adPrompt: "from any prompt:  amail @handle your words",
+      "mail is the post of aesthetic.computer — nothing leaves the computer. log in, take a @handle, and your box is ready.",
+    adPrompt: "from any prompt:  mail @handle your words",
     signup: "sign up",
     login: "log in",
   },
@@ -395,7 +395,7 @@ export function paintGear($, x, y, open) {
 // 📬 The envelope — shut and grey when the box is empty, lit teal with its
 // flap open when something is waiting. Same palette as the prompt curtain.
 export const ENVELOPE = { w: 15, h: 10 };
-export function paintEnvelope($, x, y, { lit = false, hot = false, down = false } = {}) {
+export function paintEnvelope($, x, y, { lit = false, hot = false, down = false, open = false } = {}) {
   const { ink, line } = $;
   const { w, h } = ENVELOPE;
   const fill = down
@@ -411,8 +411,14 @@ export function paintEnvelope($, x, y, { lit = false, hot = false, down = false 
   ink(fill).box(x, y, w, h);
   ink(edge).box(x, y, w, h, "outline");
   ink(lit || hot ? [190, 255, 255] : [60, 66, 80]);
-  line(x, y, x + (w >> 1), y + (h >> 1));
-  line(x + w - 1, y, x + (w >> 1), y + (h >> 1));
+  if (open) {
+    // The flap stands up above the body — the box you are looking into.
+    line(x, y, x + (w >> 1), y - (h >> 1) - 1);
+    line(x + w - 1, y, x + (w >> 1), y - (h >> 1) - 1);
+  } else {
+    line(x, y, x + (w >> 1), y + (h >> 1));
+    line(x + w - 1, y, x + (w >> 1), y + (h >> 1));
+  }
 }
 
 // 🔴 A red count badge. MatrixChunky8 digits are 3×7 at rows 0–6 of their
@@ -431,7 +437,7 @@ export function paintBadge($, x, y, label, hot = false) {
   return w;
 }
 
-// 🏷️ A chip — the unit of the pane and of amail's compact controls. Filled
+// 🏷️ A chip — the unit of the pane and of mail's compact controls. Filled
 // gold when selected, outlined otherwise; `tint` colours an outlined chip so
 // an action can carry its own hue. Returns its hit box.
 export const CHIP_H = 11;

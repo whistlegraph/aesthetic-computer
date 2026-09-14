@@ -12,7 +12,7 @@
 
   The temas themselves, the saved choice, the interface language, the census
   and the corner chrome (QR, gear, envelope, pane) live in
-  `common/laklok-tema.mjs`, shared with `amail` so the two rooms always wear
+  `common/laklok-tema.mjs`, shared with `mail` so the two rooms always wear
   the same dress.
  */
 
@@ -62,7 +62,7 @@ let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
 let lakTV = false; // 📺 `~tv` colon token — broadcast chrome (no input, no gear)
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 
-// 📬 The door to `amail`, beside the gear: an envelope, lit when something is
+// 📬 The door to `mail`, beside the gear: an envelope, lit when something is
 // waiting, with a red count of what's unread. Only a signed-in visitor has a
 // box, so only they get the door.
 let mailCount = null; // { unread, total } once asked; "asking" in flight
@@ -241,7 +241,7 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
 
 // 📱 The top-right corner, right to left: the laklok.com QR on white paper,
 // the ⚙ settings toggle, and — for a signed-in visitor — the envelope that
-// opens `amail`, wearing a red count when letters are waiting.
+// opens `mail`, wearing a red count when letters are waiting.
 function paintCorner($) {
   if (!lakQRCells) return;
   const { screen } = $;
@@ -348,9 +348,9 @@ function act($) {
     return;
   }
 
-  // 📬 The envelope is the door to amail.
+  // 📬 The envelope is the door to mail.
   if (e.is("touch") && !settingsOpen && hit(mailBox)) {
-    jump("amail");
+    jump("mail");
     return;
   }
 

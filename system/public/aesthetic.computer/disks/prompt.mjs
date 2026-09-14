@@ -2919,8 +2919,8 @@ async function halt($, text) {
     makeFlash($);
     return true;
   } else if ((slug === "amail" || slug === "mail") && params.length > 0) {
-    // amail @handle (or ac25namuc) your message — bare `amail` falls through
-    // below and loads the piece instead. `mail` is the old spelling.
+    // mail @handle (or ac25namuc) your message — bare `mail` falls through
+    // below and loads the piece instead. `amail` still answers too.
     const to = params[0];
     const body = params.slice(1).join(" ").trim();
     if (!body) {
@@ -8689,7 +8689,7 @@ function act({
       down: () => downSound(),
       push: () => {
         pushSound();
-        jump("amail");
+        jump("mail");
       },
       cancel: () => cancelSound(),
     });

@@ -194,7 +194,7 @@ export async function deliverFromOutside(
           kind: "tell",
           from: fromHandle,
           tellId: insertedId.toString(),
-          piece: "amail",
+          piece: "mail",
         },
       },
       {},
@@ -209,7 +209,7 @@ export async function deliverFromOutside(
 
 // A letter leaving the wall. Signed by the post office, never as the handle:
 //
-//   From:     @jeffrey via Amail <amail+ac25namuc@aesthetic.computer>
+//   From:     @jeffrey via aesthetic.computer <amail+ac25namuc@aesthetic.computer>
 //   Reply-To: jeffrey@aesthetic.computer
 //
 // The recipient sees who wrote, the signature stays honest (the SPF and DKIM
@@ -237,11 +237,11 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
   const auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
   const common = { port: 587, secure: false, requireTLS: true, name: "inbound.aesthetic.computer", auth };
   const letter = {
-    from: { name: `${fromHandle} via Amail`, address: `${POST_OFFICE}+${code || handle}@${ROOT_DOMAIN}` },
+    from: { name: `${fromHandle} via aesthetic.computer`, address: `${POST_OFFICE}+${code || handle}@${ROOT_DOMAIN}` },
     replyTo: home,
     to: toEmail,
     subject: subject || `a letter from ${fromHandle}`,
-    text: `${text}\n\n— ${fromHandle}, via Amail · reply to ${home}`,
+    text: `${text}\n\n— ${fromHandle}, via aesthetic.computer mail · reply to ${home}`,
   };
   let info;
   try {

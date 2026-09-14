@@ -2853,7 +2853,7 @@ function paint(
     }
     
     // Draw the buttons (compact): yes / no, with an optional third `alt`
-    // action between them — a handle offers the profile *or* an amail.
+    // action between them — a handle offers the profile *or* mail.
     const { alt, yesLabel = "yes" } = linkConfirmModal;
     const btnW = alt ? 40 : 36;
     const btnH = 14;
@@ -3807,14 +3807,14 @@ function act(
               if (element.type === "handle") {
                 beep();
                 // A handle opens two doors: their profile, or a letter to
-                // them in `amail` with the address already filled in.
+                // them in `mail` with the address already filled in.
                 linkConfirmModal = {
                   type: "handle",
                   text: element.text,
                   displayText: element.text,
-                  description: "their profile, or an Amail",
+                  description: "their profile, or mail",
                   yesLabel: "profile",
-                  alt: { label: "Amail", action: () => jump(`amail~${element.text}`) },
+                  alt: { label: "mail", action: () => jump(`mail~${element.text}`) },
                   action: () => jump(element.text)
                 };
                 break;
