@@ -1253,16 +1253,18 @@ gym.anthonyzollo.com {
 # origin cert loaded above is a self-issued *.aesthetic.computer wildcard, and
 # Caddy skips ACME for any name a loaded cert already covers. So certbot
 # fetches it by HTTP-01 through the webroot served below (:80), and the door
-# reads /etc/letsencrypt/live/inbound.aesthetic.computer/.
-inbound.aesthetic.computer {
-    respond "Amail inbound — SMTP on :25" 200
-}
+# reads /etc/letsencrypt/live/inbound.aesthetic.computer/. There is no site
+# block for the host on purpose: one would answer the challenge itself.
 
 :80 {
     # certbot's HTTP-01 challenge files, before the redirect swallows them.
+    # Both are `handle`s on purpose: a bare `redir` sorts ahead of `handle`
+    # in Caddy's directive order and would answer first.
     handle /.well-known/acme-challenge/* {
         root * /var/lib/amail-acme
         file_server
     }
-    redir https://{host}{uri} 301
+    handle {
+        redir https://{host}{uri} 301
+    }
 }
