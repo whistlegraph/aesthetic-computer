@@ -1973,6 +1973,9 @@ let ptyProcessFor3D = null;
 let lastKnownCols = 120;
 let lastKnownRows = 40;
 
+// This handler is app-wide, so register it once, not for every new pane.
+ipcMain.handle('get-terminal-size', () => ({ cols: lastKnownCols, rows: lastKnownRows }));
+
 // Calculate offset position for new windows to avoid overlap
 function getOffsetWindowPosition(sourceWindow, index = 0) {
   const offset = 40; // Pixels to offset each new window
@@ -2170,9 +2173,6 @@ async function openAcPaneWindowInternal(options = {}) {
       }
     }
   });
-  
-  // Allow renderer to query current dimensions
-  ipcMain.handle('get-terminal-size', () => ({ cols: lastKnownCols, rows: lastKnownRows }));
   
   // Register zoom shortcuts for flip view
   globalShortcut.register('CommandOrControl+Plus', () => {
@@ -3083,6 +3083,15 @@ ipcMain.on('move-window', (event, position) => {
 ipcMain.handle('ac-open-window', async (event, { url, index = 0, total = 1 } = {}) => {
   console.log('[main] ac-open-window called with url:', url, 'index:', index, 'total:', total);
   const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+  // The prompt runs in a worker, whose location is the worker script URL.
+  // Use its owning page when '+' passes that URL as the new pane destination.
+  if (url && /\/lib\/disk\.worker(?:\.[^/]+)?\.mjs(?:[?#]|$)/.test(url)) {
+    const guest = require('electron').webContents.getAllWebContents().find(
+      (contents) => contents.getType() === 'webview' &&
+        contents.hostWebContents === sourceWindow?.webContents
+    );
+    url = guest?.getURL() || 'https://aesthetic.computer/prompt';
+  }
   const { window: newWindow } = await openAcPaneWindowInternal({ sourceWindow, index });
   console.log('[main] openAcPaneWindow returned:', !!newWindow);
   if (url && newWindow) {
