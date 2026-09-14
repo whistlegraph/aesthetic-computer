@@ -104,7 +104,7 @@ function boot({ colon, store, net, handle, user, ui, screen }) {
   simClock = 0;
   frameCount = 0;
 
-  signedIn = !!(handle?.() || user);
+  signedIn = !!(handle?.() || user); // may still be false here; sim() upgrades
 
   const now = new Date();
   today = {
@@ -765,7 +765,14 @@ function focusAt(e, screen) {
 }
 
 // 🧮 Sim — keep "now" current so today's highlight survives a midnight rollover.
-function sim() {
+function sim({ handle, user }) {
+  // 🔐 Late sign-in: `session:started` can land after boot, so the boot-time
+  // check sees no user and we start in local mode. Upgrade once auth arrives.
+  if (!signedIn && (handle?.() || user)) {
+    signedIn = true;
+    fetchRange();
+  }
+
   simClock++;
   if (simClock >= 60 * 60) {
     simClock = 0;
