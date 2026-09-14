@@ -2549,7 +2549,11 @@ const store = {
 let fileImport;
 let serverUpload, serverUploadProgressReporter;
 let zipCreation;
-let authorizationRequest;
+// Pending authorize() calls, oldest first. Bios answers them in order, so a
+// queue keeps two requests in flight (a piece's inbox fetch and its census,
+// say) from clobbering each other — with a single slot the first promise
+// never settled and an awaiting boot hung on the noise forever.
+let authorizationRequests = [];
 let fileOpenRequest;
 let fileEncodeRequest;
 let gpuResponse;
@@ -3631,7 +3635,7 @@ const $commonApi = {
     // TODO: This should always fail while running user code.
     // console.log("Sending auth request...");
     const prom = new Promise((resolve, reject) => {
-      authorizationRequest = { resolve, reject };
+      authorizationRequests.push({ resolve, reject });
     });
     send({ type: "authorization:request" });
     return prom;
@@ -12009,13 +12013,13 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // Resolve an authorization request.
-  if (type === "authorization:response" && authorizationRequest) {
+  if (type === "authorization:response" && authorizationRequests.length) {
+    const request = authorizationRequests.shift();
     if (content.result === "success") {
-      authorizationRequest?.resolve(content.data);
+      request.resolve(content.data);
     } else if (content.result === "error") {
-      authorizationRequest?.reject(content.data);
+      request.reject(content.data);
     }
-    authorizationRequest = undefined;
     return;
   }
 

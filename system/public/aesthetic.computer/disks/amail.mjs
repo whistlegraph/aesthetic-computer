@@ -138,7 +138,6 @@ async function boot(api) {
   wearTema(picked.name);
   restoreTema(store, picked.pinned, (saved) => {
     if (saved) wearTema(saved);
-    if (user) reportTema(net, tema); // after the saved tema has had its say
   });
   const spoken = pickLang(tokens, store, "en");
   lang = spoken.name;
@@ -160,6 +159,10 @@ async function boot(api) {
 
   await refresh(api);
   if (pendingTo && status === "loaded") compose(api, pendingTo);
+  // The census waits its turn: two authorized requests in flight at once
+  // used to lose one (disk.mjs kept a single pending authorization), and a
+  // lost inbox fetch left boot hanging on the noise forever.
+  reportTema(net, tema);
 }
 
 async function refresh({ net }) {
