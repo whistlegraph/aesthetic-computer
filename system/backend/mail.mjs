@@ -146,7 +146,13 @@ export async function deliverFromOutside(
 ) {
   const tells = await mailbox(database);
   if (!dedupeIndexed) {
-    await tells.createIndex({ to: 1, messageId: 1 }, { unique: true, sparse: true });
+    // Partial, not sparse: sparse still indexes a row that has `to` but no
+    // messageId (as null), and every inside letter is one of those — the
+    // build collided on the first two and took a real letter down with it.
+    await tells.createIndex(
+      { to: 1, messageId: 1 },
+      { unique: true, partialFilterExpression: { messageId: { $type: "string" } } },
+    );
     await tells.dropIndex("messageId_1").catch(() => {}); // the first cut's global one
     dedupeIndexed = true;
   }
@@ -224,19 +230,30 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
   const fromHandle = handle ? "@" + handle : code;
   const home = `${handle || code}@${ROOT_DOMAIN}`;
 
-  const transporter = nodemailer.createTransport({
-    host: process.env.AMAIL_SMTP_SERVER || "smtp-relay.gmail.com",
-    port: 587,
-    secure: false,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-  const info = await transporter.sendMail({
+  // The relay greets with a 421 unless EHLO names a real host and TLS comes
+  // first. If the relay still won't have us, fall back to plain Gmail SMTP,
+  // which rewrites From to the post office's own address — the name and
+  // Reply-To survive, so a reply still finds its way home.
+  const auth = { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS };
+  const common = { port: 587, secure: false, requireTLS: true, name: "inbound.aesthetic.computer", auth };
+  const letter = {
     from: { name: `${fromHandle} via Amail`, address: `${POST_OFFICE}+${code || handle}@${ROOT_DOMAIN}` },
     replyTo: home,
     to: toEmail,
     subject: subject || `a letter from ${fromHandle}`,
     text: `${text}\n\n— ${fromHandle}, via Amail · reply to ${home}`,
-  });
+  };
+  let info;
+  try {
+    info = await nodemailer
+      .createTransport({ ...common, host: process.env.AMAIL_SMTP_SERVER || "smtp-relay.gmail.com" })
+      .sendMail(letter);
+  } catch (err) {
+    shell.log("🟡 relay refused the letter, trying plain SMTP:", err?.message?.split("\n")[0]);
+    info = await nodemailer
+      .createTransport({ ...common, host: process.env.SMTP_SERVER || "smtp.gmail.com" })
+      .sendMail(letter);
+  }
 
   const tells = await mailbox(database);
   const when = new Date();
