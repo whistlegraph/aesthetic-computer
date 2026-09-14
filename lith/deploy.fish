@@ -202,7 +202,8 @@ else \
   git checkout -B $TARGET_BRANCH origin/$TARGET_BRANCH --quiet; \
 fi && \
 git reset --hard origin/$TARGET_BRANCH --quiet && \
-git rev-parse HEAD > system/public/.commit-ref"
+git rev-parse HEAD > system/public/.commit-ref && \
+sh xbox/tools/precompress-live.sh"
     echo -e "$RED x Failed to check out origin/$TARGET_BRANCH on $TARGET_HOST.$NC"
     exit 1
 end
@@ -213,7 +214,8 @@ if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR && node xbox/live
     ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cd $REMOTE_DIR && \
 git reset --hard $PREVIOUS_HEAD --quiet && \
-git rev-parse HEAD > system/public/.commit-ref"
+git rev-parse HEAD > system/public/.commit-ref && \
+sh xbox/tools/precompress-live.sh"
     exit 1
 end
 
@@ -223,7 +225,8 @@ if not ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node sc
     ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cd $REMOTE_DIR && \
 git reset --hard $PREVIOUS_HEAD --quiet && \
-git rev-parse HEAD > system/public/.commit-ref"
+git rev-parse HEAD > system/public/.commit-ref && \
+sh xbox/tools/precompress-live.sh"
     exit 1
 end
 

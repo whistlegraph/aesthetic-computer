@@ -1043,10 +1043,16 @@ oskiewar.com, midi.oskiewar.com {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html
         header Cache-Control no-cache
-        file_server
+        file_server {
+            precompressed br zstd
+        }
     }
     # The game source and modules share the /oskiewar prefix with the live API
     # route below, so serve them before the proxy matcher claims them.
+    # `precompressed` answers from the max-level .br/.zst sidecars that
+    # xbox/tools/precompress-live.sh writes after every checkout — a fifth
+    # smaller than encoding on the fly — and falls back to `encode` when a
+    # sidecar is missing.
     # `no-cache` here means revalidate, not never-cache: an unchanged file
     # answers 304 against its ETag and loads from disk. Without the header the
     # browser's heuristic kept whole modules stale across deploys — a returning
@@ -1055,7 +1061,9 @@ oskiewar.com, midi.oskiewar.com {
     handle @oskiewarmodules {
         root * /opt/ac/xbox/live
         header Cache-Control no-cache
-        file_server
+        file_server {
+            precompressed br zstd
+        }
     }
     handle /oskiewar* {
         import lith_proxy
@@ -1085,7 +1093,13 @@ oskiewar.com, midi.oskiewar.com {
         file_server
     }
     # The one asset that genuinely never moves between deploys can skip the
-    # revalidation round-trip for a week.
+    # revalidation round-trip for a week. woff2 is the same face at a third
+    # of the bytes; the TTF stays for whatever cannot read it.
+    handle /ComicRelief-Regular.woff2 {
+        root * /opt/ac/system/public/papers.aesthetic.computer/foundry/fonts
+        header Cache-Control "public, max-age=604800"
+        file_server
+    }
     handle /ComicRelief-Regular.ttf {
         root * /opt/ac/system/public/papers.aesthetic.computer/foundry/fonts
         header Cache-Control "public, max-age=604800"
@@ -1103,12 +1117,16 @@ oskiewar.com, midi.oskiewar.com {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html
         header Cache-Control no-cache
-        file_server
+        file_server {
+            precompressed br zstd
+        }
     }
     handle {
         root * /opt/ac/xbox/live
         header Cache-Control no-cache
-        file_server
+        file_server {
+            precompressed br zstd
+        }
     }
 }
 

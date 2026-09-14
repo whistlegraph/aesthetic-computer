@@ -41,6 +41,8 @@ const elsewhere = new Map([
     "system/public/aesthetic.computer/cursors/active.svg"],
   ["/ComicRelief-Regular.ttf",
     "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf"],
+  ["/ComicRelief-Regular.woff2",
+    "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.woff2"],
 ]);
 
 function fileFor(pathname) {

@@ -585,3 +585,7 @@ system/public/easel.tar.gz
 # Written beside a real install by the updater; a checkout never makes one.
 easel/.update-check.json
 easel/install.json
+
+# Max-level sidecars Caddy serves as `precompressed` (xbox/tools/precompress-live.sh)
+xbox/live/*.br
+xbox/live/*.zst
