@@ -1243,6 +1243,16 @@ gym.anthonyzollo.com {
     }
 }
 
+# --- inbound.aesthetic.computer ---
+# Not a website. This is the SMTP door for Amail (lith/mail-inbound.mjs,
+# lith-mail.service on :25) — Google Workspace routes every unknown
+# @aesthetic.computer address here. Caddy serves the host only so it holds a
+# Let's Encrypt certificate the SMTP server offers for STARTTLS. The DNS
+# record is DNS-only (grey cloud): Cloudflare does not proxy port 25.
+inbound.aesthetic.computer {
+    respond "Amail inbound — SMTP on :25" 200
+}
+
 :80 {
     redir https://{host}{uri} 301
 }

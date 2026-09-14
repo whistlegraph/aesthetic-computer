@@ -230,6 +230,21 @@ async function main() {
     );
   });
 
+  // Caddy mints the certificate on its own clock, usually within a minute of
+  // the host first appearing in the Caddyfile. Google's route requires TLS,
+  // so a door without a cert is shut in practice: watch for the files and
+  // step out the moment they land — systemd (Restart=always) brings the door
+  // back up dressed for STARTTLS.
+  if (!tls) {
+    setInterval(() => {
+      if (tlsFor(HOST)) {
+        console.log("🔐 certificate arrived — restarting to offer STARTTLS");
+        server.close(() => process.exit(0));
+        setTimeout(() => process.exit(0), 3000).unref();
+      }
+    }, 30 * 1000).unref();
+  }
+
   for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => server.close(() => process.exit(0)));
   }

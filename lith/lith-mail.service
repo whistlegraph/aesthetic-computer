@@ -8,7 +8,9 @@ User=root
 WorkingDirectory=/opt/ac/lith
 EnvironmentFile=/opt/ac/system/.env
 ExecStart=/usr/bin/node mail-inbound.mjs
-Restart=on-failure
+# `always`, not on-failure: the door exits cleanly on purpose once Caddy has
+# minted its certificate, so it comes back offering STARTTLS.
+Restart=always
 RestartSec=5
 TimeoutStopSec=15
 KillSignal=SIGTERM
