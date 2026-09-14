@@ -1,0 +1,62 @@
+{
+  "observedAt": "2026-09-13T19:39:31.664Z",
+  "method": "Five bounded GET requests. Only public metadata and authenticated capability status retained. No game mutation, uploads, Luau execution or purchases.",
+  "probes": [
+    {
+      "name": "universe",
+      "url": "https://apis.roblox.com/cloud/v2/universes/1650467744",
+      "authenticated": true,
+      "status": 200,
+      "summary": {
+        "path": "universes/1650467744",
+        "displayName": "Sky Pool"
+      }
+    },
+    {
+      "name": "place",
+      "url": "https://apis.roblox.com/cloud/v2/universes/1650467744/places/4855797621",
+      "authenticated": true,
+      "status": 200,
+      "summary": {
+        "path": "universes/1650467744/places/4855797621",
+        "displayName": "Sky Pool"
+      }
+    },
+    {
+      "name": "instance-root",
+      "url": "https://apis.roblox.com/cloud/v2/universes/1650467744/places/4855797621/instances/root:listChildren",
+      "authenticated": true,
+      "status": 200,
+      "summary": {
+        "operationReturned": true,
+        "errorCode": null
+      }
+    },
+    {
+      "name": "public-game",
+      "url": "https://games.roblox.com/v1/games?universeIds=1650467744",
+      "authenticated": false,
+      "status": 200,
+      "summary": {
+        "name": "Sky Pool",
+        "visits": 257,
+        "playing": 0,
+        "favorites": 5
+      }
+    },
+    {
+      "name": "public-groups",
+      "url": "https://groups.roblox.com/v1/users/1366409382/groups/roles",
+      "authenticated": false,
+      "status": 200,
+      "summary": [
+        {
+          "id": 5524936,
+          "name": "whistlegraph's pals",
+          "members": 58,
+          "role": "Owner"
+        }
+      ]
+    }
+  ]
+}

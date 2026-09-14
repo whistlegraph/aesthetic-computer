@@ -1,0 +1,61 @@
+{
+  "name": "Aesthetic Arena",
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "Gravity": 196.2,
+        "FallenPartsDestroyHeight": -80
+      }
+    },
+    "ServerScriptService": {
+      "Arena": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "ArenaClient": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "ClockTime": 14,
+        "Brightness": 2,
+        "Ambient": [
+          0.45,
+          0.45,
+          0.55
+        ]
+      }
+    },
+    "ReplicatedStorage": {
+      "ACUI": {
+        "$path": "../shared/UI.luau",
+        "Glyphs": {
+          "$path": "../shared/Glyphs.luau"
+        },
+        "Unifont": {
+          "$path": "../shared/Unifont.luau"
+        }
+      },
+      "ShoveAnimation": {
+        "$path": "../shared/ShoveAnimation.luau"
+      },
+      "GrenadeMath": {
+        "$path": "../shared/GrenadeMath.luau"
+      },
+      "BlastFX": {
+        "$path": "../shared/BlastFX.luau"
+      }
+    },
+    "HttpService": {
+      "$className": "HttpService",
+      "$properties": {
+        "HttpEnabled": true
+      }
+    }
+  }
+}

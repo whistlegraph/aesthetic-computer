@@ -1,0 +1,21 @@
+-- Run against a saved/published Notepat place version through Open Cloud.
+-- Audio audibility and actual client input still require a Roblox playtest.
+local storage = game.ReplicatedStorage:FindFirstChild("Notepat")
+assert(storage and storage:FindFirstChild("Notes") and storage:FindFirstChild("Holds"), "shared modules packaged")
+assert(game.StarterPlayer.StarterPlayerScripts:FindFirstChild("NotepatClient"), "client entry packaged")
+assert(game.ServerScriptService:FindFirstChild("NotepatWorld"), "server entry packaged")
+local Notes = require(storage.Notes)
+local Holds = require(storage.Holds)
+assert(math.abs(Notes.frequency(10, 4) - 440) < 0.001, "A4 tuning")
+assert(Notes.index("v") == 2 and Notes.index("w") == 7, "AC sharp keys")
+local h = Holds.new()
+assert(h:press("key", 1), "key starts")
+assert(not h:press("touch", 1), "same pad shares voice")
+assert(h:release("key") == nil, "touch remains held")
+assert(h:release("touch") == 1, "last source releases")
+local sound = Instance.new("Sound")
+sound.SoundId = Notes.soundId
+sound.PlaybackSpeed = Notes.speed(1, 4)
+assert(sound.PlaybackSpeed > 0.66 and sound.PlaybackSpeed < 0.67, "engine accepts pitched sample")
+sound:Destroy()
+print("Notepat: 10 headless checks passed; client rendering and audio require playtest")

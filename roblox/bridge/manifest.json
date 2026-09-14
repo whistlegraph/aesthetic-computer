@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "pollSeconds": 60,
+  "items": [{"id":"ac-pals","imageAssetId":"85149608937004","sourceUrl":"https://assets.aesthetic.computer/aesthetic-inc/pals.png","credit":"Aesthetic Computer","approved":true}]
+}

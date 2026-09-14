@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-13",
+  "published": false,
+  "rojoVersion": "7.7.0",
+  "luauVersion": "0.738",
+  "logicChecksPassed": 19,
+  "allScriptsCompile": true,
+  "build": {
+    "path": "build/notepat.rbxlx",
+    "bytes": 12801,
+    "sha256": "7d9cd568e7854db24eae93200db6457ed60ba4647df28db48d0d364359bb1d7f",
+    "expectedScriptsPresent": true
+  },
+  "headlessCloudChecks": "Prepared and compiled, not executed",
+  "clientVisualAndAudioPlaytest": "Not performed",
+  "sample": {
+    "uri": "rbxasset://sounds/volume_slider.ogg",
+    "existsInInstalledMacClient": true,
+    "measuredDominantFrequencyHz": 392,
+    "measurement": "48000Hz mono decode; peak spectral projection from 100–1200Hz over 30–110ms"
+  }
+}

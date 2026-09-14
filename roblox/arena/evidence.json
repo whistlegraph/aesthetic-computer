@@ -1,0 +1,61 @@
+{
+  "verifiedAt": "2026-09-13T22:16:23.163Z",
+  "target": {
+    "name": "Aesthetic Arena [Test]",
+    "userId": "1366409382",
+    "universeId": "10766363015",
+    "placeId": "96347741188039",
+    "url": "https://www.roblox.com/games/96347741188039",
+    "bootstrap": "2026-09-13: authenticated Creator Hub browser POST /universes/v1/universes/create, templatePlaceId 95206881",
+    "audience": "private development"
+  },
+  "release": {
+    "live": true,
+    "url": "https://apis.roblox.com/universes/v1/10766363015/places/96347741188039/versions?versionType=Published",
+    "contentType": "application/xml",
+    "bytes": 3828042,
+    "sha256": "5163a8137c6122e577ed81816fbe98a268bf4b4b55b2f1b0f2d9b2ed550777c0",
+    "result": {
+      "versionNumber": 18
+    }
+  },
+  "headlessTask": {
+    "path": "universes/10766363015/places/96347741188039/versions/18/luau-execution-sessions/b72c10d0-ad87-414c-a5fe-72e95ec40bf8/tasks/b72c10d0-ad87-414c-a5fe-72e95ec40bf8",
+    "createTime": "2026-09-13T22:28:16.153Z",
+    "updateTime": "2026-09-13T22:28:16.153Z",
+    "user": "1366409382",
+    "state": "PROCESSING",
+    "enableBinaryOutput": false
+  },
+  "sourceSha256": {
+    "roblox/arena/src/server/Bot.luau": "2bee93be3de8d622497ea7f9b5a0e13ab3e1d2f3afd1d3e89a2857a1a071d173",
+    "roblox/arena/src/server/Controller.luau": "eb19418d1f0f88f4dfa3992fab9f2013eac2795fae85057e03b159269e305716",
+    "roblox/arena/src/server/Updates.luau": "8c8b5835b6a36186287c9fa333042122c27eb9107756cf10c877095fa4f3bc0c",
+    "roblox/arena/src/server/Match.luau": "62fb68d15aa8ce92ae2b55c0e079c953d19c46fe9fb828e8017de74eb99ad787",
+    "roblox/arena/src/server/Grenades.luau": "a3c79f15dee555096e7262ae5ed7a25f828bd8b2913bdc25b9b988e7d0b5bd2c",
+    "roblox/arena/src/server/Avatars.luau": "8739ce369b36baca1213b60613fcf3c539cc7d384a41b65175306ea134688200",
+    "roblox/arena/src/server/Combat.luau": "749993d488b843d838174baec370965f7d34db3ce0089d4089880a6c4a77db4b",
+    "roblox/arena/src/server/MediaBridge.luau": "f7d333fd17c2bfa034367baf1ab8c75a070e9cf114afa758c9dbf3e215492d0f",
+    "roblox/arena/src/server/World.luau": "2a6152ed5c34d23afdb3a7b2783f402907947b2bdc1db8d76541e48c5701d957",
+    "roblox/arena/src/server/init.server.luau": "e1904a88c97ff00ded104998901537e853fad368f117e89fb940d30adbd85b34",
+    "roblox/arena/src/client/StickMotion.luau": "82d195aeb7a96db419cafc28166f8749b0b1e1eda3cd7be3b6543fe12db2d8ba",
+    "roblox/arena/src/client/init.client.luau": "69df245935200e1dc6a3fd4ac54ff42abf2700739b64c7c7ceda67cbf768af21",
+    "roblox/shared/BlastFX.luau": "925d1c5362bce87d3e1540e14edf2991edbb3dbc33521f729d4c6e258e60ebf9",
+    "roblox/shared/Glyphs.luau": "b39d04f80630a3d43b4b36885e1c9d2c68b5ab7dfb0e2395a3708a75432872c3",
+    "roblox/shared/UI.luau": "aac28dfbfca9d6c0380930d27e40eaa81611416d823e42b6e3c4aef50ffd5265",
+    "roblox/shared/ShoveAnimation.luau": "451d70c7ec241e6875b0b61f4cbd39ba0c72eedd272a630637cc55ca53238106",
+    "roblox/shared/GrenadeMath.luau": "d4d0ae1f2ae59da3d4ccace39d5e3e591f3cd8cf18fb84155a41daf0226343b3",
+    "roblox/shared/Unifont.luau": "9e2c9fb3d0e38c99125b9cc6c50c75558677103420b2afc9b1f5a599682dde27"
+  },
+  "localNodeChecks": 7,
+  "clientPlaytest": {
+    "version": 18,
+    "media": "connected revision 1 loaded true",
+    "visual": "Inspected lobby gallery image and custom stick player in capture 1789338527705-56e3e8e1.jpg",
+    "movement": "New rig movement/combat not yet exercised; host focus moved to another application and input was refused."
+  },
+  "video": "First tape included window movement and lobby; not accepted as explosion evidence.",
+  "localUnicodeCheck": "Passed Latin, Danish, symbol, wide CJK and upper-plane native fallback",
+  "headlessLimit": "Version 18 task remains PROCESSING without logs; previous v17 task archived pending. Last completed headless pass was v16 (68 checks).",
+  "sourceFormatting": "Unifont license line endings and trailing spaces normalized after v18 publication; glyph data unchanged."
+}

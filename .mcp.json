@@ -62,6 +62,13 @@
       "args": [
         "toolchain/mcp/sweep-mcp.mjs"
       ]
+    },
+    "roblox": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/robloxplorer/testing-mcp.mjs"
+      ]
     }
   }
 }

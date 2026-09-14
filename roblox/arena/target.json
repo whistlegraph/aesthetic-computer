@@ -1,0 +1,9 @@
+{
+  "name": "Aesthetic Arena [Test]",
+  "userId": "1366409382",
+  "universeId": "10766363015",
+  "placeId": "96347741188039",
+  "url": "https://www.roblox.com/games/96347741188039",
+  "bootstrap": "2026-09-13: authenticated Creator Hub browser POST /universes/v1/universes/create, templatePlaceId 95206881",
+  "audience": "private development"
+}

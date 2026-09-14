@@ -1,0 +1,14 @@
+import {writeFileSync,mkdirSync} from 'node:fs';
+import {gunzipSync} from 'node:zlib';
+import {createHash} from 'node:crypto';
+const base='https://unifoundry.com';
+const url=base+'/pub/unifont/unifont-17.0.05/font-builds/unifont-17.0.05.hex.gz';
+const r=await fetch(url);if(!r.ok)throw Error(`Download ${r.status}`);
+const bytes=Buffer.from(await r.arrayBuffer());
+const hex=gunzipSync(bytes).toString().trim();
+const license=(await (await fetch(base+'/OFL-1.1.txt')).text()).replace(/\r\n/g,'\n').replace(/[ \t]+$/gm,'');
+mkdirSync(`${import.meta.dirname}/licenses`,{recursive:true});
+writeFileSync(`${import.meta.dirname}/licenses/Unifont-OFL.txt`,license);
+writeFileSync(`${import.meta.dirname}/Unifont.luau`,`-- AC Unicode fallback, derived from GNU Unifont 17.0.05.\n-- Copyright Unifont contributors. SIL OFL 1.1; full license embedded below.\nlocal license = [==[${license}]==]\nlocal data = [==[\n${hex}\n]==]\nlocal cache={}\nlocal Font={license=license}\nfunction Font.glyph(code)\n    if cache[code]~=nil then return cache[code] or nil end\n    local start=string.find(data, "\\n"..string.format("%04X",code)..":",1,true)\n    if not start then cache[code]=false; return nil end\n    local line=string.match(data,"([^\\n]+)",start+6)\n    local width=#line/4\n    if width~=8 and width~=16 then cache[code]=false; return nil end\n    local runs={}\n    for y=0,15 do\n        local row=tonumber(string.sub(line,y*width/4+1,(y+1)*width/4),16)\n        local x=0\n        while x<width do\n            if bit32.band(row,2^(width-1-x))~=0 then\n                local first=x\n                repeat x+=1 until x>=width or bit32.band(row,2^(width-1-x))==0\n                table.insert(runs,{first,y,x-first})\n            else x+=1 end\n        end\n    end\n    local glyph={runs=runs,width=width,height=16}\n    cache[code]=glyph\n    return glyph\nend\nreturn Font\n`);
+writeFileSync(`${import.meta.dirname}/licenses/Unifont-source.json`,JSON.stringify({source:url,sha256:createHash('sha256').update(bytes).digest('hex'),license:'SIL OFL 1.1',coverage:'Unifont 17.0.05 Plane 0; no shaping or upper-plane glyphs',glyphCount:hex.split('\n').length},null,2)+'\n');
+console.log('Generated Unifont Plane 0 fallback');

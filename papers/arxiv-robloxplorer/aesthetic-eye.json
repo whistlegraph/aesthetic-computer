@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "paper": "Robloxplorer: An API Path for the Aesthetic Network",
+  "pdf": "robloxplorer.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "export-lineage",
+      "page": 2,
+      "crop": [
+        0.51,
+        0.05,
+        0.42,
+        0.26
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected final page 2 and prepared crop. Equal-width nodes, centered labels, separated downward arrows, readable caption, no collisions."
+    }
+  ],
+  "pdfSha256": "a5182bd5cb934db654097601e802ea05046e8a6f5b9a6e7f25bd80a728431d79",
+  "reviewedAt": "2026-09-13T19:48:59.342378+00:00",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "design": "pass",
+    "notes": "Inspected all five final page rasters. Body and tables legible, no clipping, conclusion begins in right column, final columns balanced. Shared oversized margin stamps removed from this paper."
+  },
+  "tables": [
+    {
+      "id": "api-opportunities",
+      "page": 3,
+      "design": "pass"
+    },
+    {
+      "id": "artwork-products",
+      "page": 3,
+      "design": "pass"
+    },
+    {
+      "id": "monorepo-map",
+      "page": 4,
+      "design": "pass"
+    }
+  ]
+}
