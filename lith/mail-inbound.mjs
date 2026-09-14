@@ -139,7 +139,13 @@ export function authFrom(parsed) {
       out[m[1].toLowerCase()] ??= m[2].toLowerCase();
     }
   }
-  out.verified = out.dmarc === "pass" || (out.spf === "pass" && out.dkim === "pass");
+  // DMARC passing is the full word; a DKIM signature that checks out is the
+  // sender's own domain vouching, which is enough as long as nothing else
+  // failed outright (mail from inside the same Workspace arrives dkim=pass,
+  // spf=none, with no DMARC line at all).
+  out.verified =
+    out.dmarc === "pass" ||
+    (out.dkim === "pass" && out.spf !== "fail" && out.dmarc !== "fail");
   return out;
 }
 
