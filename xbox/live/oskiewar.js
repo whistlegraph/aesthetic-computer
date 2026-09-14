@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 117;
+const buildVersion = 118;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3768,6 +3768,31 @@ function enterGame(now) {
   if (PAL_SELECT) beginSelect(now);
 }
 
+// Comma and period step the pace mid-fight the way +/- do on the title — a
+// quarter at a time, but never past full speed: slow motion is for reading a
+// bot's tells. A wired fight keeps the clock both seats agreed on, so the
+// keys go dead the moment a rival is real, and a watcher's playout is the
+// host's clock too. Edge-detected against the same unfiltered pad memory the
+// title uses, so a key held across the start steps exactly once.
+const paceLocked = () => netSession !== null || versusActive() ||
+  roundViewer !== null;
+function updateMatchPace(now) {
+  const rawDown = padSnapshots[0]?.down || [];
+  const tap = (button) => rawDown.includes(button) &&
+    !shellRawPrevious.includes(button);
+  const faster = tap("SpeedUp");
+  const slower = tap("SpeedDown");
+  shellRawPrevious = rawDown.slice();
+  if (!faster && !slower) return;
+  const next = paceLocked() ? gameSpeed
+    : clamp(gameSpeed + (faster ? .25 : -.25), .25, 1);
+  if (next === gameSpeed) { playDrum("block", .3, 0); return; }
+  gameSpeed = next;
+  gameSpeedChangedAt = now;
+  playDrum("hat", .55, faster ? .35 : -.35);
+  emitSignal("game-speed", -1, gameSpeed, 0);
+}
+
 function updateShell(now, tapped = false) {
   const pad = padSnapshots[0] || {};
   // The title screen is where the game's pace is set: +/- on a keyboard
@@ -5024,6 +5049,13 @@ function netBegin(deal, seat, send) {
       pings: 0, pingMs: 0 } };
   for (let frame = 0; frame < deal.delay; frame++) session.local.set(frame, 0);
   netSession = session;
+  // The relay's clock is the fight's clock: a host who was reading tells at
+  // quarter speed is back at full the moment the rival is real.
+  if (gameSpeed !== 1) {
+    gameSpeed = 1;
+    gameSpeedChangedAt = 0;
+    emitSignal("game-speed", -1, 1, 0);
+  }
   netClockUs = deal.origin;
   try {
     matchBallType = deal.ballType;
@@ -9320,6 +9352,20 @@ function gameSim() {
     if (Math.abs(push) > .08)
       playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
   }
+  // A mouse or a finger on the shell's canvas orbits the same lens the
+  // right stick does: a drag turns yaw and pitch, the wheel or a pinch
+  // dollies. The shell banks the gesture between ticks and this drains it,
+  // so a fast flick is not lost to a slow frame.
+  const orbit = globalThis.__oskiewarTouch?.orbit;
+  if (orbit) {
+    if (orbit.yaw)
+      playerCameraYaw = clamp(playerCameraYaw + orbit.yaw, -.62, .62);
+    if (orbit.pitch)
+      playerCameraPitch = clamp(playerCameraPitch + orbit.pitch, -.24, .28);
+    if (orbit.zoom)
+      playerCameraZoom = clamp(playerCameraZoom * Math.exp(orbit.zoom), .55, 1.9);
+    orbit.yaw = orbit.pitch = orbit.zoom = 0;
+  }
   // A tap anywhere on the wordmark screen is a start press — read before
   // the tap queue is wiped for the tick. The shell already turns first-visit
   // taps into a button; this catches every visit after that.
@@ -9334,6 +9380,7 @@ function gameSim() {
   // The wordmark screen is a live training round, so the shell reads start
   // and then falls straight through into the fight it is sitting on top of.
   if (shellMode === "MENU") updateShell(now, titleTapped);
+  else updateMatchPace(now);
   // The versus seat watches from the title on — a friend can take the chair
   // while the host is still reading the wordmark, and the fight lifts it.
   updateVersusSeat(now);

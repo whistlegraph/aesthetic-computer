@@ -6339,7 +6339,38 @@ test("held-item shield aim previews the same eight-way body and muzzle vector", 
 
 test("a primary web click maps to use item after the title", () => {
   assert.match(webShell, /event\.button === 0/);
-  assert.match(webShell, /touchPointers\.set\(event\.pointerId, \{ key: "Y" \}\)/);
+  // Decided on release: a still press is the item tap, a press that stays
+  // put is the held item, and travel belongs to the camera.
+  assert.match(webShell, /if \(grab\.item\) \{\n\s+keys\[0\]\.add\("Y"\);/);
+  assert.match(webShell, /grab\.held = true;\n\s+keys\[0\]\.add\("Y"\);/);
+  assert.doesNotMatch(webShell, /touchPointers\.set\(event\.pointerId, \{ key: "Y" \}\)/);
+});
+
+test("comma and period pace a solo fight, capped at full speed and dead once wired", () => {
+  assert.match(webShell, /\["Period", \[0, "SpeedUp"\]\], \["Comma", \[0, "SpeedDown"\]\]/);
+  assert.match(source, /const paceLocked = \(\) => netSession !== null \|\| versusActive\(\) \|\|\n\s+roundViewer !== null;/);
+  assert.match(source, /clamp\(gameSpeed \+ \(faster \? \.25 : -\.25\), \.25, 1\)/);
+  assert.match(source, /else updateMatchPace\(now\);/);
+  // The relay's clock wins the moment a rival is real.
+  assert.match(source, /netSession = session;\n(.*\n){2}\s+if \(gameSpeed !== 1\) \{/);
+});
+
+test("a pointer drag orbits the lens the right stick does, and the wheel dollies", () => {
+  assert.match(webShell, /orbit: \{ yaw: 0, pitch: 0, zoom: 0 \}/);
+  assert.match(webShell, /canvas\.addEventListener\("wheel"/);
+  assert.match(webShell, /const overUi = Boolean\(touch\.hover\) \|\| touch\.titleHover === true/);
+  assert.match(source, /playerCameraZoom \* Math\.exp\(orbit\.zoom\)/);
+  assert.match(source, /orbit\.yaw = orbit\.pitch = orbit\.zoom = 0;/);
+});
+
+test("the game module and its module graph leave with the first byte of the head", () => {
+  assert.match(webShell, /__oskiewarPieceSourceFetch = globalThis\.__fightPieceSource\n\s+\? null : fetch\("\/oskiewar\.js", \{ cache: "no-cache" \}\)/);
+  assert.match(webShell, /<link rel="modulepreload" href="\/oskiewar-sfx\.mjs">/);
+  assert.match(webShell, /<link rel="modulepreload" href="\/aesthetic\.computer\/lib\/auth0-otp\.mjs">/);
+  assert.match(webShell, /__oskiewarOpenRoomFetch = location\.pathname === "\/"/);
+  // Nothing on the way to the first frame waits on analytics.
+  assert.doesNotMatch(webShell, /await fetch\("\/api\/product-analytics-config"/);
+  assert.match(webShell, /voice\.preload = "none";/);
 });
 
 test("Tab is the only PC keyboard debug binding", () => {

@@ -3,6 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script>
+    // The game module is the long pole of the whole load, so its download
+    // starts here — first line of the head, ahead of the stylesheet, the
+    // module graph and every probe the shell makes on the way to booting.
+    // It used to start five round trips in: after the parser reached the
+    // module script, after that script's imports and their imports had all
+    // landed, and after an analytics config fetch nobody was waiting for.
+    // `no-cache` revalidates: an unchanged module answers 304 and loads
+    // from disk instead of shipping half a megabyte again. A native shell
+    // that injects the source skips the fetch the same way the module does.
+    globalThis.__oskiewarPieceSourceFetch = globalThis.__fightPieceSource
+      ? null : fetch("/oskiewar.js", { cache: "no-cache" });
+    // This shell can carry a rival's presses inbound off the relay, which is
+    // what lets the game open as a versus room by default. The native shell
+    // publishes and discards, so it never raises this and keeps the climb —
+    // and so does every harness lane: social previews, oven burns and
+    // self-play casts all want the fronts they were built against.
+    {
+      const harness = new URLSearchParams(location.search);
+      globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
+        !harness.has("replay-oven") && !harness.has("self-play");
+    }
+    // A bare front door asks the relay for one open room, and the first
+    // frame waits on the answer. The ask used to leave only after the whole
+    // module graph had landed; leaving with the first byte hides its round
+    // trip — a second origin, a fresh TLS handshake — under the module
+    // download instead of stacking it on top.
+    globalThis.__oskiewarOpenRoomFetch = location.pathname === "/" &&
+      globalThis.__oskiewarVersusCapable === true
+      ? fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
+          { cache: "no-store", signal: AbortSignal.timeout(2500) })
+        .catch(() => null)
+      : null;
+  </script>
+  <!-- The whole module graph, two levels deep, fetched from the head in one
+       round trip instead of being discovered a level at a time. -->
+  <link rel="modulepreload" href="/oskiewar-sfx.mjs">
+  <link rel="modulepreload" href="/oskiewar-voice.mjs">
+  <link rel="modulepreload" href="/oskiewar-midi.mjs">
+  <link rel="modulepreload" href="/frame-driver.mjs">
+  <link rel="modulepreload" href="/account.mjs">
+  <link rel="modulepreload" href="/round-room.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/dep/@akamfoad/qr/qr.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/product-analytics.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/oskiewar-analytics.mjs">
+  <link rel="modulepreload" href="/aesthetic.computer/lib/auth0-otp.mjs">
+  <link rel="preload" href="/ComicRelief-Regular.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="icon" href="data:,">
   <title>oskiewar</title>
   <meta name="description" content="Play oskiewar in your browser with a keyboard or two gamepads.">
@@ -174,8 +221,16 @@
     const keys = [new Set(), new Set()];
     const touchPointers = new Map();
     const selectTaps = [];
+    // `orbit` banks camera gestures — drag, wheel, pinch — as deltas the
+    // piece drains once a tick, in the same units its right stick moves.
     globalThis.__oskiewarTouch = { taps: selectTaps,
-      pointer: { x: 0, y: 0, active: false } };
+      pointer: { x: 0, y: 0, active: false },
+      orbit: { yaw: 0, pitch: 0, zoom: 0 } };
+    // A press on empty canvas is a grab on the camera until it proves to be
+    // a click: past a few pixels of travel it orbits, and released still it
+    // is the tap it always was.
+    const grabs = new Map();
+    const grabSlop = 6;
     const touchEnabled = new URLSearchParams(location.search).has("touch") ||
       navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches;
     document.body.classList.toggle("touch-enabled", touchEnabled);
@@ -187,16 +242,8 @@
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
       new URLSearchParams(location.search).get("opponent") || "";
-    // This shell can carry a rival's presses inbound off the relay, which is
-    // what lets the game open as a versus room by default. The native shell
-    // publishes and discards, so it never raises this and keeps the climb —
-    // and so does every harness lane: social previews, oven burns and
-    // self-play casts all want the fronts they were built against.
-    {
-      const harness = new URLSearchParams(location.search);
-      globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
-        !harness.has("replay-oven") && !harness.has("self-play");
-    }
+    // `__oskiewarVersusCapable` is raised in the head, beside the fetches
+    // that depend on it.
     let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
@@ -206,10 +253,13 @@
       ["AltLeft", [0, "Y"]], ["AltRight", [0, "Y"]],
       ["Escape", [0, "Menu"]], ["Backspace", [0, "Menu"]],
       ["Tab", [0, "View"]],
-      // Title-screen pace keys: the piece steps its own clock on these and
-      // never reads them as "start".
+      // Pace keys: the piece steps its own clock on these and never reads
+      // them as "start". +/- reach double speed on the title; , and . are
+      // the same keys, and mid-fight the piece caps them at full speed and
+      // ignores them once a rival is wired in.
       ["Equal", [0, "SpeedUp"]], ["NumpadAdd", [0, "SpeedUp"]],
       ["Minus", [0, "SpeedDown"]], ["NumpadSubtract", [0, "SpeedDown"]],
+      ["Period", [0, "SpeedUp"]], ["Comma", [0, "SpeedDown"]],
       ["ArrowUp", [1, "ArrowUp"]], ["ArrowDown", [1, "ArrowDown"]],
       ["ArrowLeft", [1, "ArrowLeft"]], ["ArrowRight", [1, "ArrowRight"]],
       ["KeyK", [1, "A"]], ["KeyL", [1, "B"]], ["Semicolon", [1, "X"]],
@@ -344,12 +394,21 @@
     // elements create a compact feedback echo without requiring cross-origin
     // Web Audio access to the public AC audio CDN.
     const titleVoiceUrl = "https://art.aesthetic.computer/tts-cache/4f0fe9fc3486f07488f3d20685a8b635d1e8a3aad77f00c378f89f70aa77cf23.mp3";
+    // Warmed after boot rather than at parse: three range requests to a
+    // second origin were racing the game module for the first seconds of a
+    // cold load, for a word nobody can hear before the title is tapped.
     const titleVoiceEchoes = [1, .3, .12].map((volume) => {
       const voice = new Audio(titleVoiceUrl);
-      voice.preload = "auto";
+      voice.preload = "none";
       voice.volume = volume;
       return voice;
     });
+    function warmTitleVoice() {
+      for (const voice of titleVoiceEchoes) {
+        voice.preload = "auto";
+        voice.load();
+      }
+    }
     function titleVoice() {
       for (const [index, voice] of titleVoiceEchoes.entries()) {
         setTimeout(() => {
@@ -1147,7 +1206,26 @@
       event.preventDefault();
       keys[mapped[0]].delete(mapped[1]);
     });
+    function releaseGrab(pointerId) {
+      const grab = grabs.get(pointerId);
+      if (!grab) return;
+      grabs.delete(pointerId);
+      clearTimeout(grab.hold);
+      if (grab.held) {
+        keys[0].delete("Y");
+        return;
+      }
+      if (grab.dragging) return;
+      // Released without travel: the tap lands where the press did, and a
+      // click in a fight is still the web's "use item".
+      selectTaps.push({ x: grab.startX, y: grab.startY });
+      if (grab.item) {
+        keys[0].add("Y");
+        setTimeout(() => keys[0].delete("Y"), 90);
+      }
+    }
     function releaseTouch(pointerId) {
+      releaseGrab(pointerId);
       const active = touchPointers.get(pointerId);
       if (!active) return;
       touchPointers.delete(pointerId);
@@ -1179,9 +1257,41 @@
       return null;
     }
     canvas.addEventListener("pointermove", (event) => {
-      Object.assign(globalThis.__oskiewarTouch.pointer,
-        canvasPoint(event), { active: true });
+      const point = canvasPoint(event);
+      Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
+      const grab = grabs.get(event.pointerId);
+      if (!grab) return;
+      if (!grab.dragging &&
+          Math.hypot(point.x - grab.startX, point.y - grab.startY) > grabSlop) {
+        grab.dragging = true;
+        clearTimeout(grab.hold);
+        if (grab.held) { keys[0].delete("Y"); grab.held = false; }
+      }
+      if (grab.dragging) {
+        const orbit = globalThis.__oskiewarTouch.orbit;
+        // A drag across the whole canvas is a full turn of the lens.
+        orbit.yaw += (point.x - grab.x) / logicalWidth * 1.6;
+        orbit.pitch += (point.y - grab.y) / logicalHeight * .9;
+      }
+      grab.x = point.x;
+      grab.y = point.y;
     });
+    // The wheel dollies; a trackpad pinch arrives as a ctrl-wheel and
+    // dollies too; sideways scroll, or shift, turns the lens instead.
+    canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const orbit = globalThis.__oskiewarTouch.orbit;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1;
+      const dx = event.deltaX * unit;
+      const dy = event.deltaY * unit;
+      if (event.ctrlKey || event.metaKey) orbit.zoom += dy * .01;
+      else if (event.shiftKey)
+        orbit.yaw += (Math.abs(dx) > Math.abs(dy) ? dx : dy) * .004;
+      else {
+        orbit.zoom += dy * .0025;
+        orbit.yaw += dx * .004;
+      }
+    }, { passive: false });
     canvas.addEventListener("pointerleave", () => {
       globalThis.__oskiewarTouch.pointer.active = false;
     });
@@ -1208,19 +1318,34 @@
         location.reload();
         return;
       }
-      // A primary mouse/trackpad click is the web equivalent of Y / Use Item.
-      // Title interaction returns above, so starting the game never spends or
-      // fires an item on the same click.
-      if (!touchEnabled && event.button === 0 &&
-          globalThis.__oskiewarTouch?.screen === "game") {
-        canvas.setPointerCapture?.(event.pointerId);
-        touchPointers.set(event.pointerId, { key: "Y" });
-        keys[0].add("Y");
-      }
-      Object.assign(globalThis.__oskiewarTouch.pointer, point, { active: true });
-      selectTaps.push(point);
+      const touch = globalThis.__oskiewarTouch;
+      Object.assign(touch.pointer, point, { active: true });
       unlockAudio();
       event.preventDefault();
+      // Something under the pointer — a menu option, the title's start word,
+      // a grabbable wordmark letter — takes the press as the tap it always
+      // was. Empty canvas is the camera's.
+      const overUi = Boolean(touch.hover) || touch.titleHover === true ||
+        (touch.titleGlyph ?? -1) >= 0;
+      if (overUi) {
+        selectTaps.push(point);
+        return;
+      }
+      canvas.setPointerCapture?.(event.pointerId);
+      // A primary mouse/trackpad click is the web equivalent of Y / Use Item.
+      // Title interaction returns above, so starting the game never spends or
+      // fires an item on the same click. A click is decided on release, but
+      // a press that stays put is a hold — the rubber SMG fires on a held Y.
+      const item = !touchEnabled && event.button === 0 &&
+        touch.screen === "game";
+      const grab = { x: point.x, y: point.y, startX: point.x, startY: point.y,
+        dragging: false, item, held: false, hold: null };
+      if (item) grab.hold = setTimeout(() => {
+        if (grabs.get(event.pointerId) !== grab || grab.dragging) return;
+        grab.held = true;
+        keys[0].add("Y");
+      }, 160);
+      grabs.set(event.pointerId, grab);
     });
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"])
       canvas.addEventListener(type, (event) => releaseTouch(event.pointerId));
@@ -1228,6 +1353,7 @@
     addEventListener("blur", () => {
       keys.forEach((held) => held.clear());
       for (const pointerId of touchPointers.keys()) releaseTouch(pointerId);
+      for (const pointerId of grabs.keys()) releaseGrab(pointerId);
     });
     globalThis.__fightHost = {
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
@@ -1320,15 +1446,25 @@
     }
     // A tab hidden mid-match would otherwise leave its last notes held down.
     addEventListener("pagehide", () => oskiewarMidi.panic());
-    try {
-      const response = await fetch("/api/product-analytics-config", {
-        cache: "no-store",
+    // The analytics config is a round trip the first frame does not need.
+    // It used to be awaited here, ahead of the game module's own fetch —
+    // a full network hop that stood between the visitor and the title.
+    // Actions raised before it lands wait in a short queue.
+    let analyticsReady = false;
+    const analyticsQueue = [];
+    const analytics = (action, properties) => analyticsReady
+      ? captureOskiewarAction(action, properties)
+      : analyticsQueue.push([action, properties]) > 0;
+    fetch("/api/product-analytics-config", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .catch(() => null)
+      .then((config) => {
+        if (config) globalThis.acPostHogConfig = config;
+        initProductAnalytics();
+        analyticsReady = true;
+        for (const [action, properties] of analyticsQueue.splice(0))
+          captureOskiewarAction(action, properties);
       });
-      if (response.ok) globalThis.acPostHogConfig = await response.json();
-    } catch {}
-    initProductAnalytics();
-    const analytics = (action, properties) =>
-      captureOskiewarAction(action, properties);
     globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
     const roundName = roundNameFromPath(location.pathname);
@@ -1336,16 +1472,18 @@
     // starts here, before anything else is awaited. `no-cache` rather than
     // `no-store` lets the browser revalidate: an unchanged module answers
     // 304 and loads from disk instead of shipping half a megabyte again.
-    const pieceSourceFetch = globalThis.__fightPieceSource
-      ? null : fetch("/oskiewar.js", { cache: "no-cache" });
+    const pieceSourceFetch = globalThis.__fightPieceSource ? null
+      : globalThis.__oskiewarPieceSourceFetch ||
+        fetch("/oskiewar.js", { cache: "no-cache" });
     // A bare front door still finds the fight: while the module downloads,
     // the relay is asked for one open room — a live host, an empty second
     // chair — and a hit turns this visit into that room's challenger. A
     // miss, or a slow relay, leaves the visitor hosting a room of their own.
     const openRoom = !roundName && globalThis.__oskiewarVersusCapable === true
-      ? fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
-            { cache: "no-store", signal: AbortSignal.timeout(2500) })
-          .then((response) => response.ok ? response.json() : null)
+      ? (globalThis.__oskiewarOpenRoomFetch ||
+          fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
+            { cache: "no-store", signal: AbortSignal.timeout(2500) }))
+          .then((response) => response?.ok ? response.json() : null)
           .then((body) => roundNameFromPath("/" + (body?.room || "")))
           .catch(() => "")
       : Promise.resolve("");
@@ -1409,6 +1547,7 @@
         source = await response.text();
         setInterval(checkForUpdate, 2000);
       }
+      performance.mark("oskiewar:source");
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
@@ -1419,6 +1558,15 @@
         "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
+      performance.mark("oskiewar:booted");
+      {
+        const at = (name) => Math.round(performance.getEntriesByName(name)[0]?.startTime || 0);
+        console.log(`%c[boot]%c source at ${at("oskiewar:source")}ms · booted at ` +
+          `${at("oskiewar:booted")}ms · compile+boot ` +
+          `${at("oskiewar:booted") - at("oskiewar:source")}ms`,
+          "color:#0f0;font-weight:bold", "color:inherit");
+      }
+      warmTitleVoice();
       // The tally is a title-screen ornament, so it is fetched alongside the
       // first frame rather than gating it, and refreshed slowly — the count
       // only has to be roughly true, and the local bump already covers the
