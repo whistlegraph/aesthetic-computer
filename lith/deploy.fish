@@ -311,6 +311,9 @@ echo -e "$GREEN-> Updating service + Caddy config...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
 cp $REMOTE_DIR/lith/lith-mail.service /etc/systemd/system/lith-mail.service && \
+id -u lith-mail >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir /nonexistent lith-mail && \
+install -m 755 $REMOTE_DIR/lith/lith-mail-renew.sh /etc/letsencrypt/renewal-hooks/deploy/lith-mail.sh 2>/dev/null; \
+sh $REMOTE_DIR/lith/lith-mail-renew.sh && \
 systemctl enable -q lith-mail && \
 cp $REMOTE_DIR/lith/Caddyfile /etc/caddy/Caddyfile && \
 mkdir -p /var/lib/aesthetic-computer/gym.anthonyzollo.com && \

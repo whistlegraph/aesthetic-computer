@@ -4,12 +4,21 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+# Not root. Port 25 comes from the capability alone; the certificate is a
+# copy in /etc/lith-mail owned by this user (see lith-mail-renew.sh).
+User=lith-mail
+Group=lith-mail
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
 WorkingDirectory=/opt/ac/lith
 EnvironmentFile=/opt/ac/system/.env
 ExecStart=/usr/bin/node mail-inbound.mjs
-# `always`, not on-failure: the door exits cleanly on purpose once Caddy has
-# minted its certificate, so it comes back offering STARTTLS.
+# `always`, not on-failure: the door exits cleanly on purpose once its
+# certificate first appears, so it comes back offering STARTTLS.
 Restart=always
 RestartSec=5
 TimeoutStopSec=15

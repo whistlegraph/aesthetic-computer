@@ -108,6 +108,8 @@ export function letterText(parsed) {
 // Caddy's own store is checked second in case that ever changes.
 function tlsFor(host) {
   const places = [
+    // lith-mail-renew.sh copies the pair here for the unprivileged user.
+    ["/etc/lith-mail/privkey.pem", "/etc/lith-mail/fullchain.pem"],
     [`/etc/letsencrypt/live/${host}/privkey.pem`, `/etc/letsencrypt/live/${host}/fullchain.pem`],
     [
       `/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${host}/${host}.key`,
@@ -122,10 +124,69 @@ function tlsFor(host) {
   return null;
 }
 
+// 🛂 What Google's gate found out about the sender. Google stamps
+// Authentication-Results on every letter it accepts; we read spf/dkim/dmarc
+// and call the letter verified when DMARC passed, or SPF and DKIM both did.
+// A DMARC failure the sender's own policy let through (p=none) is refused
+// here — a letter that claims to be from a domain that disowns it.
+export function authFrom(parsed) {
+  const raw = parsed.headers?.get?.("authentication-results");
+  const lines = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const out = {};
+  for (const line of lines) {
+    const text = typeof line === "string" ? line : line?.value || "";
+    for (const m of text.matchAll(/\b(spf|dkim|dmarc)=(\w+)/gi)) {
+      out[m[1].toLowerCase()] ??= m[2].toLowerCase();
+    }
+  }
+  out.verified = out.dmarc === "pass" || (out.spf === "pass" && out.dkim === "pass");
+  return out;
+}
+
+// 🚦 Rate limits, in memory (the door is one process). A sender→box pair
+// gets `perPairPerHour` letters and `pushPerPair` buzzes an hour; the door
+// as a whole takes `perMinute`. Over the pair's share is a 550 (Google
+// bounces it to the sender); over the door's is a 451 (Google tries later).
+export function makeLimiter({ perPairPerHour = 20, pushPerPair = 3, perMinute = 60 } = {}, now = Date.now) {
+  const pairs = new Map();
+  const minute = [];
+  const prune = (arr, span, t) => {
+    while (arr.length && t - arr[0] > span) arr.shift();
+  };
+  return {
+    take(pair) {
+      const t = now();
+      prune(minute, 60_000, t);
+      if (minute.length >= perMinute) return { ok: false, code: 451, why: "The door is busy, try later" };
+      const hits = pairs.get(pair) || [];
+      prune(hits, 3_600_000, t);
+      if (hits.length >= perPairPerHour) return { ok: false, code: 550, why: "Too many letters to this box this hour" };
+      hits.push(t);
+      pairs.set(pair, hits);
+      minute.push(t);
+      if (pairs.size > 5000) for (const [k, v] of pairs) if (!v.length || t - v[v.length - 1] > 3_600_000) pairs.delete(k);
+      return { ok: true, quiet: hits.length > pushPerPair };
+    },
+  };
+}
+
 // 🚪 Build the server. `lookup(local) → sub | undefined` and
-// `file({ sub, rcpt, parsed }) → result` are handed in so a test can run the
-// whole SMTP conversation against a fake mailbox.
-export function createInbound({ lookup, file, domains, relays = null, open = false, tls = null, log = console.log }) {
+// `file({ sub, rcpt, parsed, auth, quiet }) → result` are handed in so a
+// test can run the whole SMTP conversation against a fake mailbox. `secret`
+// is the value Google's routing rule stamps into X-Amail-Route: with it set,
+// a letter that reached us some other way — another tenant's route, say —
+// is refused even though it came from a Google relay.
+export function createInbound({
+  lookup,
+  file,
+  domains,
+  relays = null,
+  open = false,
+  tls = null,
+  secret = null,
+  limiter = makeLimiter(),
+  log = console.log,
+}) {
   const server = new SMTPServer({
     name: HOST,
     banner: "Amail — aesthetic.computer",
@@ -162,14 +223,38 @@ export function createInbound({ lookup, file, domains, relays = null, open = fal
         if (stream.sizeExceeded) {
           return cb(Object.assign(new Error("Letter too large"), { responseCode: 552 }));
         }
+        const sender = (parsed.from?.value?.[0]?.address || "?").toLowerCase();
+
+        // Only letters that came through OUR routing rule carry the stamp.
+        if (secret && parsed.headers?.get?.("x-amail-route") !== secret) {
+          log(`✋ refused ${sender} — no route stamp`);
+          return cb(Object.assign(new Error("Not our route"), { responseCode: 550 }));
+        }
+
+        const auth = authFrom(parsed);
+        if (auth.dmarc === "fail") {
+          log(`✋ refused ${sender} — DMARC failed`);
+          return cb(Object.assign(new Error("Sender's domain disowns this letter"), { responseCode: 550 }));
+        }
+
         const results = [];
+        let refused = null;
         for (const rcpt of session.amail?.values() || []) {
-          results.push(await file({ ...rcpt, parsed, remote: session.remoteAddress }));
+          const gate = limiter.take(`${sender}→${rcpt.sub}`);
+          if (!gate.ok) {
+            refused = refused || gate;
+            log(`✋ ${sender} → ${rcpt.local}: ${gate.why}`);
+            continue;
+          }
+          results.push(await file({ ...rcpt, parsed, auth, quiet: gate.quiet, remote: session.remoteAddress }));
+        }
+        if (!results.length && refused) {
+          return cb(Object.assign(new Error(refused.why), { responseCode: refused.code }));
         }
         const summary = results
-          .map((r) => (r.duplicate ? `${r.toHandle} (again)` : r.toHandle))
+          .map((r) => (r.duplicate ? `${r.toHandle} (again)` : r.quiet ? `${r.toHandle} (quiet)` : r.toHandle))
           .join(", ");
-        log(`📬 ${parsed.from?.value?.[0]?.address || "?"} → ${summary || "nobody"}`);
+        log(`📬 ${sender} → ${summary || "nobody"}${auth.verified ? "" : " · unverified"}`);
         cb();
       } catch (err) {
         log("🔴 letter failed:", err?.message || err);
@@ -207,13 +292,16 @@ async function main() {
   }
 
   const tls = tlsFor(HOST);
+  const secret = process.env.AMAIL_ROUTE_SECRET || null;
+  if (!secret) console.log("🟡 AMAIL_ROUTE_SECRET is unset — any Google tenant's route would be accepted");
   const server = createInbound({
     domains: INBOUND_DOMAINS,
     relays,
     open: OPEN,
     tls,
+    secret,
     lookup: (local) => subFromAddress(local, database),
-    file: async ({ sub, parsed, reply }) => {
+    file: async ({ sub, parsed, reply, auth, quiet }) => {
       const sender = parsed.from?.value?.[0] || {};
       return deliverFromOutside(
         {
@@ -223,6 +311,8 @@ async function main() {
           subject: clean(reply ? `re: ${parsed.subject || ""}` : parsed.subject, MAX_SUBJECT_LENGTH),
           text: clean(letterText(parsed), OUTSIDE_TEXT_LENGTH) || "(an empty letter)",
           messageId: parsed.messageId || null,
+          auth,
+          quiet,
         },
         database,
       );

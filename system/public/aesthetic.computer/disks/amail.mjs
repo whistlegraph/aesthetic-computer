@@ -471,16 +471,27 @@ function paint(api) {
       body + 17,
     );
 
-    rows.push({ y0: y - 3, y1: y + body + 14, who });
+    // An answer to an outside letter goes back out as email; act() reads
+    // `email` off the row for that.
+    const email = view === "inbox" ? letter.fromEmail : letter.toEmail;
+    rows.push({ y0: y - 3, y1: y + body + 14, who, email });
 
     if (unread) ink(c.log).box(x + 2, y + 2, 3, 3);
     ink(unread ? c.handle : c.timestamp).write(who, { x: x + 8, y });
     // A letter from outside the wall carries the sender's address after
-    // their name, small, so an email reads apart from a handle at a glance.
+    // their name, small, so an email reads apart from a handle at a glance —
+    // and a word of warning when Google's gate couldn't vouch for the sender.
     let afterWho = x + 8 + (who.length + 1) * 6;
-    if (letter.fromEmail && letter.fromEmail !== who) {
-      ink([...c.timestamp, 170]).write(letter.fromEmail, { x: afterWho, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
-      afterWho += letter.fromEmail.length * 4 + 6;
+    if (email && email !== who) {
+      ink([...c.timestamp, 170]).write(email, { x: afterWho, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+      afterWho += email.length * 4 + 6;
+    }
+    if (view === "inbox" && letter.fromEmail && letter.auth && !letter.auth.verified) {
+      ink(255, 140, 140).write(s.unverified, { x: afterWho, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+      afterWho += s.unverified.length * 4 + 6;
+    } else if (view === "sent" && letter.toEmail) {
+      ink([...c.timestamp, 170]).write(s.outside, { x: afterWho, y: y + 2 }, undefined, undefined, false, CHIP_FONT);
+      afterWho += s.outside.length * 4 + 6;
     }
     if (letter.subject) {
       ink(unread ? c.painting : [...c.painting, 150]).write(
@@ -670,8 +681,9 @@ function act(api) {
   // Tap a letter to answer it — the field opens already addressed.
   if (e.is("touch") && (view === "inbox" || view === "sent")) {
     const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
-    if (row?.who?.startsWith("@")) {
-      compose(api, row.who);
+    const address = row?.who?.startsWith("@") ? row.who : row?.email;
+    if (address) {
+      compose(api, address);
       needsPaint();
     }
   }

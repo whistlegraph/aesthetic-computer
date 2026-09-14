@@ -273,6 +273,8 @@ const STRINGS = {
     unsubscribe: "afmeld",
     blastHistory: "udsendelser",
     noBlasts: "ingen udsendelser endnu",
+    unverified: "ubekræftet",
+    outside: "udefra",
     error: "fejl",
     adTitle: "breve mellem @handles",
     adBody:
@@ -317,6 +319,8 @@ const STRINGS = {
     unsubscribe: "unsubscribe",
     blastHistory: "blast history",
     noBlasts: "no blasts sent yet",
+    unverified: "unverified",
+    outside: "outside",
     error: "error",
     adTitle: "letters between @handles",
     adBody:

@@ -13,10 +13,15 @@ import { filter } from "./filter.mjs";
 import { shell } from "./shell.mjs";
 import { sendToUser } from "../../shared/push.mjs";
 
-export const MAIL_DOMAIN = "mail.aesthetic.computer"; // tier 2 binds this for real
-// The root domain is Google Workspace's; it catches every unknown
-// @aesthetic.computer address and hands the letter to lith/mail-inbound.mjs.
-export const INBOUND_DOMAINS = ["aesthetic.computer", MAIL_DOMAIN];
+// Since 26.09.13 the root domain is the address: Google Workspace holds its
+// MX, catches every unknown @aesthetic.computer, and hands the letter to
+// lith/mail-inbound.mjs. `mail.` stays an alias for the older spelling.
+export const ROOT_DOMAIN = "aesthetic.computer";
+export const MAIL_DOMAIN = "mail.aesthetic.computer";
+export const INBOUND_DOMAINS = [ROOT_DOMAIN, MAIL_DOMAIN];
+// The post office's own mailbox. Outbound letters are signed by it, with the
+// writer's permahandle in the plus-tag so a reply finds its way home.
+export const POST_OFFICE = "amail";
 export const MAX_TEXT_LENGTH = 500;
 export const OUTSIDE_TEXT_LENGTH = 2000; // an email runs longer than a tell
 export const MAX_SUBJECT_LENGTH = 80;
@@ -27,7 +32,9 @@ const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
 export async function subFromAddress(address, database) {
   let to = (address || "").trim();
   if (!to) return undefined;
-  if (to.endsWith("@" + MAIL_DOMAIN)) to = to.slice(0, -(MAIL_DOMAIN.length + 1));
+  for (const domain of INBOUND_DOMAINS) {
+    if (to.toLowerCase().endsWith("@" + domain)) to = to.slice(0, -(domain.length + 1));
+  }
   if (PERMAHANDLE.test(to)) {
     const user = await database.db
       .collection("users")
@@ -57,8 +64,8 @@ export async function addressesFor(sub, database) {
       .findOne({ _id: sub }, { projection: { code: 1 } }),
   ]);
   const out = [];
-  if (user?.code) out.push(user.code + "@" + MAIL_DOMAIN);
-  if (handle) out.push(handle + "@" + MAIL_DOMAIN);
+  if (user?.code) out.push(user.code + "@" + ROOT_DOMAIN);
+  if (handle) out.push(handle + "@" + ROOT_DOMAIN);
   return out;
 }
 
@@ -127,14 +134,22 @@ export async function deliver(
 // A letter from outside the wall. Google Workspace catches the address and
 // lith/mail-inbound.mjs hands it here over SMTP. There is no sender `sub` —
 // the sender lives in `fromEmail` (and `fromHandle` carries their name so the
-// inbox reads the same as an inside letter). `messageId` keeps a relay retry
-// from filing the same letter twice.
+// inbox reads the same as an inside letter). `auth` is what Google's gate
+// found out about the sender (spf/dkim/dmarc, and `verified`); `quiet` files
+// the letter without buzzing a phone, for a sender who has already buzzed it
+// enough this hour. `messageId` keeps a relay retry from filing the same
+// letter twice — scoped to the box, so nobody can pre-empt another's letter.
+let dedupeIndexed = false;
 export async function deliverFromOutside(
-  { to, fromEmail, fromName, subject, text, messageId },
+  { to, fromEmail, fromName, subject, text, messageId, auth = null, quiet = false },
   database,
 ) {
   const tells = await mailbox(database);
-  await tells.createIndex({ messageId: 1 }, { unique: true, sparse: true });
+  if (!dedupeIndexed) {
+    await tells.createIndex({ to: 1, messageId: 1 }, { unique: true, sparse: true });
+    await tells.dropIndex("messageId_1").catch(() => {}); // the first cut's global one
+    dedupeIndexed = true;
+  }
   const toHandle = await nameFor(to, database);
   const fromHandle = (fromName || "").trim() || fromEmail;
   const when = new Date();
@@ -150,6 +165,7 @@ export async function deliverFromOutside(
       text,
       ...(subject ? { subject } : {}),
       ...(messageId ? { messageId } : {}),
+      ...(auth ? { auth } : {}),
       via: "smtp",
       when,
       read: false,
@@ -160,6 +176,7 @@ export async function deliverFromOutside(
   }
 
   let push = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
+  if (quiet) return { id: insertedId, fromHandle, toHandle, when, push, quiet };
   try {
     push = await sendToUser(
       database.db,
@@ -182,4 +199,59 @@ export async function deliverFromOutside(
   }
 
   return { id: insertedId, fromHandle, toHandle, when, push };
+}
+
+// A letter leaving the wall. Signed by the post office, never as the handle:
+//
+//   From:     @jeffrey via Amail <amail+ac25namuc@aesthetic.computer>
+//   Reply-To: jeffrey@aesthetic.computer
+//
+// The recipient sees who wrote, the signature stays honest (the SPF and DKIM
+// are the post office's), and a reply to either address comes back through
+// the door — the plus-tag carries the permahandle, which outlives a rename.
+// It leaves through Google's SMTP relay with the mail@ credentials; the relay
+// lets any address in the domain sign, which plain smtp.gmail.com would not.
+export async function sendOutside({ from, toEmail, subject, text }, database) {
+  const nodemailer = (await import("nodemailer")).default;
+  const [handle, user] = await Promise.all([
+    handleFor(from),
+    database.db
+      .collection("users")
+      .findOne({ _id: from }, { projection: { code: 1 } }),
+  ]);
+  const code = user?.code;
+  if (!code && !handle) throw new Error("a letter needs a handle to be signed");
+  const fromHandle = handle ? "@" + handle : code;
+  const home = `${handle || code}@${ROOT_DOMAIN}`;
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.AMAIL_SMTP_SERVER || "smtp-relay.gmail.com",
+    port: 587,
+    secure: false,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  const info = await transporter.sendMail({
+    from: { name: `${fromHandle} via Amail`, address: `${POST_OFFICE}+${code || handle}@${ROOT_DOMAIN}` },
+    replyTo: home,
+    to: toEmail,
+    subject: subject || `a letter from ${fromHandle}`,
+    text: `${text}\n\n— ${fromHandle}, via Amail · reply to ${home}`,
+  });
+
+  const tells = await mailbox(database);
+  const when = new Date();
+  const { insertedId } = await tells.insertOne({
+    to: null,
+    toHandle: toEmail,
+    toEmail,
+    from,
+    fromHandle,
+    text,
+    ...(subject ? { subject } : {}),
+    ...(info.messageId ? { messageId: info.messageId } : {}),
+    via: "smtp-out",
+    when,
+    read: true,
+  });
+  return { id: insertedId, fromHandle, toHandle: toEmail, when };
 }

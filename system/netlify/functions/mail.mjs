@@ -16,6 +16,7 @@ import {
   deliver,
   mailbox,
   MAX_SUBJECT_LENGTH,
+  sendOutside,
   subFromAddress,
 } from "../../backend/mail.mjs";
 import { ObjectId } from "mongodb";
@@ -60,6 +61,7 @@ export async function handler(event) {
           id: m._id,
           from: m.fromHandle,
           fromEmail: m.fromEmail || null, // set when the letter came from outside
+          auth: m.auth || null, // what Google's gate found out about that sender
           subject: m.subject || null,
           text: m.text,
           when: m.when,
@@ -68,6 +70,7 @@ export async function handler(event) {
         sent: sent.map((m) => ({
           id: m._id,
           to: m.toHandle,
+          toEmail: m.toEmail || null, // set when the letter left the wall
           subject: m.subject || null,
           text: m.text,
           when: m.when,
@@ -97,7 +100,24 @@ export async function handler(event) {
     if (!text) return respond(400, { message: "Empty message" });
 
     const to = await subFromAddress(body.to, database);
-    if (!to) return respond(404, { message: "Recipient not found" });
+    if (!to) {
+      // Not a handle, and not an email anyone here signed up with: if it
+      // is an address at all, the letter leaves the wall as real email.
+      const toEmail = body.to.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(toEmail)) {
+        return respond(404, { message: "Recipient not found" });
+      }
+      const sent = await sendOutside(
+        { from: user.sub, toEmail, subject, text },
+        database,
+      );
+      return respond(200, {
+        status: "mailed",
+        to: sent.toHandle,
+        when: sent.when,
+        outside: true,
+      });
+    }
 
     const sentMail = await deliver(
       { from: user.sub, to, text, subject, device: body.device },
