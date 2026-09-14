@@ -529,19 +529,22 @@ async function runBuildJob(job) {
       ].join("\n")], repoDir);
 
       // Prove the artifact belongs to THIS build before anything publishes it.
-      // ac-native embeds AC_GIT_HASH as a string literal, so the commit we
-      // asked for has to be findable inside the packed userspace. grep -m1
-      // stops at the first hit, so this costs a partial decompress, not a
-      // full one — cheap next to shipping the wrong month's software.
+      // ac-native embeds AC_GIT_HASH as a string literal and docker-build.sh
+      // writes it to /etc/ac-build, so the commit we asked for has to be
+      // findable inside the packed userspace. grep -c reads the WHOLE stream
+      // on purpose: the earlier `pipefail` + `grep -q -m1` form let grep exit
+      // at the first hit, zcat then died of SIGPIPE (141), and pipefail
+      // reported a correct artifact as a stale one — whether it bit depended
+      // on where the stamp landed in the cpio (2026-09-14, job 64bda6c0-f).
       const stampRef = (job.ref || "").slice(0, 9);
       if (stampRef) {
         await runPhase(job, "verify-initramfs", "bash", ["-c", [
-          "set -o pipefail",
-          `if ! zcat ${initramfsOut} 2>/dev/null | grep -a -q -m1 ${stampRef}; then`,
+          `HITS=$(zcat ${initramfsOut} 2>/dev/null | grep -a -c ${stampRef} || true)`,
+          `if [ "\${HITS:-0}" -eq 0 ]; then`,
           `  echo "initramfs does not contain build stamp ${stampRef} — it is not this build's artifact" >&2`,
           "  exit 1",
           "fi",
-          `echo "initramfs carries ${stampRef}"`,
+          `echo "initramfs carries ${stampRef} (\${HITS} occurrences)"`,
         ].join("\n")], repoDir);
       }
 
