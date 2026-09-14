@@ -333,11 +333,29 @@ enum KeyboardIconRenderer {
     // Heights stay constant (menubar height is fixed); widths flex with
     // the display layout so .fullSlim can keep all 14 whites visible
     // when the menubar is squeezed instead of dropping an octave.
+    /// Thin-key rendering independent of the layout's key COUNT. The
+    /// menu-bar-fit ladder sets this on every squeezed rung so pressure
+    /// first thins all keys (full → fullSlim saves 84px in one step) and
+    /// only then starts hiding thin keys from the right — the piano
+    /// degrades to "fewer slim keys" instead of vanishing outright.
+    /// `.fullSlim` keeps implying it so the legacy forceLayout pin still
+    /// renders slim without this flag.
+    static var slimKeys: Bool = false
+    /// Menu-bar fit can interpolate the full 14-key keyboard between the
+    /// canonical slim and regular widths. Nil preserves the legacy layout
+    /// choice; every draw and hit rect reads the same resolved `whiteW`.
+    static var fittedWhiteW: CGFloat? = nil
+    static let slimWhiteW: CGFloat = 17.0
+    static let regularWhiteW: CGFloat = 23.0
+
     static var whiteW: CGFloat {
-        switch displayLayout {
-        case .fullSlim: return 17.0   // ~74% of full — saves 84px on 14 whites
-        default:        return 23.0
+        if let fittedWhiteW {
+            return min(regularWhiteW, max(slimWhiteW, fittedWhiteW))
         }
+        if slimKeys || displayLayout == .fullSlim {
+            return slimWhiteW   // ~74% of full — saves 84px on 14 whites
+        }
+        return regularWhiteW
     }
     static let baseWhiteH: CGFloat = 21.0
     static let baseBlackH: CGFloat = 12.0
@@ -351,10 +369,8 @@ enum KeyboardIconRenderer {
     static var whiteH: CGFloat { baseWhiteH * keyHeightScale }
     static var blackH: CGFloat { baseBlackH * keyHeightScale }
     static var blackW: CGFloat {
-        switch displayLayout {
-        case .fullSlim: return 10.0   // proportional to slim white
-        default:        return 13.5
-        }
+        let fraction = (whiteW - slimWhiteW) / (regularWhiteW - slimWhiteW)
+        return 10.0 + fraction * 3.5
     }
     static let pad: CGFloat = 0.5
 
@@ -430,7 +446,11 @@ enum KeyboardIconRenderer {
         let oldLayout = displayLayout
         let oldKeymap = activeKeymap
         let oldScale = keyHeightScale
+        let oldSlimKeys = slimKeys
+        let oldFittedWhiteW = fittedWhiteW
         displayLayout = .full
+        slimKeys = false
+        fittedWhiteW = nil
         keyHeightScale = pianoWaveformKeyHeightScale
         if let keymap {
             activeKeymap = keymap
@@ -439,6 +459,8 @@ enum KeyboardIconRenderer {
             displayLayout = oldLayout
             activeKeymap = oldKeymap
             keyHeightScale = oldScale
+            slimKeys = oldSlimKeys
+            fittedWhiteW = oldFittedWhiteW
         }
         return body()
     }
@@ -1730,7 +1752,7 @@ enum KeyboardIconRenderer {
         // mode the whole keycap stack is squashed; the labels were
         // floating too high inside the cap, so push them down 2pt
         // so they sit grounded on the chromatic stripe.
-        let slim = displayLayout == .fullSlim
+        let slim = whiteW < regularWhiteW
         // Only the keys whose own label is uppercased drop lower — so a
         // one-sided shift nudges just that half, not the whole row.
         let baseY: CGFloat = (uppercase ? 2.0 : 3.0) - (slim ? 2.0 : 0)

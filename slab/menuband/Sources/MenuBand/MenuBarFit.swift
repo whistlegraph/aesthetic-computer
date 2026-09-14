@@ -52,9 +52,14 @@ final class MenuBarFit {
     private var maxRung: Int { rungs.count - 1 }
     private var lastClipped = false
     private var pollTimer: Timer?
+    private var isSettling = false
+    private var settleWorkItem: DispatchWorkItem?
+    private var spaceChangeWorkItem: DispatchWorkItem?
     // Broker bookkeeping.
     private var isBroker = false
     private var lastGrowAt: Date = .distantPast
+    private var lastShrinkAt: Date = .distantPast
+    private var lastGrowth: (slug: String, fromRung: Int, at: Date)?
     private var cooldownUntil: [String: Date] = [:]   // slug → don't grow before
 
     // ── paths ────────────────────────────────────────────────────────
@@ -67,7 +72,19 @@ final class MenuBarFit {
     // Freshness / cadence.
     private static let staleAfter: TimeInterval = 8      // ignore states older than this
     private static let lockTTL: TimeInterval = 5         // broker lock considered dead after this
-    private static let growInterval: TimeInterval = 2.5  // min gap between grow commands
+    // Control Center updates its drawn status-item replicant asynchronously.
+    // A rung must settle before it can be judged; otherwise a new width has no
+    // matching replicant yet and looks clipped for the first few milliseconds.
+    private static let settleInterval: TimeInterval = 0.35
+    // Successful probes can advance as soon as the previous rung settles. This
+    // walks Menu Band's fine-grained key ladder in a few seconds, while failed
+    // probes still receive the long revert cooldown below.
+    private static let growInterval: TimeInterval = 0.25
+    // Notification feedback can arrive before the target app marks itself as
+    // settling. Keep this shorter than settleInterval so each fresh sample can
+    // trigger the next shrink without waiting for the 1s heartbeat.
+    private static let shrinkInterval: TimeInterval = 0.25
+    private static let growthFailureWindow: TimeInterval = 1.5
     private static let revertCooldown: TimeInterval = 20 // don't regrow a just-reverted app
 
     // ── init ─────────────────────────────────────────────────────────
@@ -96,6 +113,7 @@ final class MenuBarFit {
         rungs = newRungs
         current = min(current, maxRung)
         applyRung(rungs[current], current)
+        beginRungSettlement()
         writeState()
         postBus()
     }
@@ -104,9 +122,27 @@ final class MenuBarFit {
         ensureDirs()
         clearStaleSelf()
         applyRung(rungs[current], current)   // render at initial rung
+        beginRungSettlement()
         writeState()
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(onBusNote), name: Self.channel, object: nil)
+        let workspaceNotes = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didActivateApplicationNotification,
+                     NSWorkspace.didLaunchApplicationNotification,
+                     NSWorkspace.didTerminateApplicationNotification] {
+            workspaceNotes.addObserver(
+                self,
+                selector: #selector(onAvailableSpaceMayHaveChanged),
+                name: name,
+                object: nil
+            )
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(onAvailableSpaceMayHaveChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
         // 1s heartbeat: sample own clip state, keep the broker lock alive, and
         // (if broker) evaluate. A backstop even if a notification is missed.
         let t = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in self?.tick() }
@@ -117,7 +153,11 @@ final class MenuBarFit {
 
     deinit {
         pollTimer?.invalidate()
+        settleWorkItem?.cancel()
+        spaceChangeWorkItem?.cancel()
         DistributedNotificationCenter.default().removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
         try? FileManager.default.removeItem(atPath: Self.stateDir + "/\(slug).json")
     }
 
@@ -127,9 +167,7 @@ final class MenuBarFit {
         //    fresh — an app that settles at a stable rung must keep heartbeating
         //    or the broker evicts it as stale and loses track of it. Only wake
         //    the bus (notify peers) when the clip state actually flips.
-        let clipped = !isVisible()
-        let clipChanged = (clipped != lastClipped)
-        lastClipped = clipped
+        let clipChanged = isSettling ? false : sampleVisibility()
         writeState()
         if clipChanged { postBus() }
         // 2) Apply any pending command targeted at us.
@@ -145,6 +183,62 @@ final class MenuBarFit {
         if isBroker { evaluate() }
     }
 
+    /// App switches change the width of the left-side application menus;
+    /// launches, quits, and display changes can alter the right-side status
+    /// cluster. Those are real new space conditions, so do not wait out a
+    /// failed probe's 20-second cooldown before trying the next rung again.
+    @objc private func onAvailableSpaceMayHaveChanged() {
+        cooldownUntil.removeAll()
+        spaceChangeWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.spaceChangeWorkItem = nil
+            self.tick()
+            self.postBus()
+        }
+        spaceChangeWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
+    }
+
+    /// Hold negotiation while AppKit and Control Center replace the status-item
+    /// window for a new width. The old implementation sampled synchronously in
+    /// `applyCommandIfAny`; on Tahoe that made every growth look clipped and
+    /// bounce back 10–20ms later.
+    private func beginRungSettlement() {
+        settleWorkItem?.cancel()
+        isSettling = true
+        let expectedRung = current
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.current == expectedRung else { return }
+            self.settleWorkItem = nil
+            self.isSettling = false
+            _ = self.sampleVisibility()
+            self.writeState()
+            // Always wake the broker: it deliberately paused while this state
+            // was settling, even when the final clipped bit did not change.
+            self.postBus()
+            self.electBroker()
+            if self.isBroker { self.evaluate() }
+        }
+        settleWorkItem = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.settleInterval,
+            execute: work
+        )
+    }
+
+    @discardableResult
+    private func sampleVisibility() -> Bool {
+        let clipped = !isVisible()
+        let changed = clipped != lastClipped
+        lastClipped = clipped
+        if changed {
+            NSLog("MenuBarFit[%@] clipped=%d at rung %d (%@)",
+                  slug, clipped ? 1 : 0, current, rungs[current].name)
+        }
+        return changed
+    }
+
     // Test hook: AC_MENUBARFIT_FAKECLIP=slug1,slug2 forces those slugs to report
     // clipped, so the negotiation can be exercised without a genuinely crowded
     // bar. Read once at launch; unset in normal use → no effect.
@@ -157,7 +251,63 @@ final class MenuBarFit {
         if Self.fakeClipped.contains(slug) { return false }
         guard let button = statusItem?.button, let window = button.window else { return false }
         if window.screen == nil { return false }
-        return NSScreen.screens.contains { $0.frame.intersects(window.frame) }
+        if !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) { return false }
+        return Self.replicantVisible(width: window.frame.width, preferredName: slug)
+    }
+
+    // macOS 26 (Tahoe) re-architected status items: the thing actually drawn
+    // in the bar is a Control Center-owned "replicant" window at the status
+    // layer, while the app-side NSWindow is a proxy that keeps a plausible
+    // frame + non-nil screen even after the bar clips the item (its
+    // windowNumber is the sentinel 0x100000000 — no real CG backing). The
+    // screen/frame checks above therefore can't see hiding on Tahoe; the
+    // honest bit is the replicant's kCGWindowIsOnscreen. Match ours by width:
+    // the replicant is exactly the proxy window's width (item length + 16pt
+    // of bar padding), so a ±1.5pt match is unambiguous in practice.
+    // Pre-Tahoe systems have no CC-owned status-layer windows at all → no
+    // replicants seen → return true and let the screen/frame checks above
+    // stay authoritative, which keeps old-OS behavior unchanged.
+    static func replicantVisible(width: CGFloat, preferredName: String? = nil) -> Bool {
+        guard width > 0 else { return true }
+        guard let cc = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.controlcenter").first else { return true }
+        guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID)
+            as? [[String: Any]] else { return true }
+        let statusLayer = 25
+        var sawStatusLayer = false
+        var sawPreferredName = false
+        var namedMatchOnScreen = false
+        var namedWidthMatched = false
+        var widthMatchOnScreen = false
+        var widthMatched = false
+        for info in list {
+            guard let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+                  pid == cc.processIdentifier,
+                  let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue,
+                  layer == statusLayer,
+                  let bounds = info[kCGWindowBounds as String] as? [String: Any],
+                  let w = (bounds["Width"] as? NSNumber)?.doubleValue else { continue }
+            sawStatusLayer = true
+            let on = (info[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
+            if let preferredName,
+               info[kCGWindowName as String] as? String == preferredName {
+                sawPreferredName = true
+                if abs(CGFloat(w) - width) <= 1.5 {
+                    namedWidthMatched = true
+                    if on { namedMatchOnScreen = true }
+                }
+            }
+            if abs(CGFloat(w) - width) <= 1.5 {
+                widthMatched = true
+                if on { widthMatchOnScreen = true }
+            }
+        }
+        if !sawStatusLayer { return true }   // pre-Tahoe: no replicant architecture
+        // Tahoe names Menu Band's replicant "menuband". Prefer that identity
+        // over width so an unrelated same-sized item cannot mask clipping.
+        if sawPreferredName { return namedWidthMatched && namedMatchOnScreen }
+        if !widthMatched { return false }    // replicants exist, ours isn't among them
+        return widthMatchOnScreen
     }
 
     // ── participant state I/O ─────────────────────────────────────────
@@ -169,6 +319,7 @@ final class MenuBarFit {
         var rung: Int
         var rungWidths: [Double]
         var rungNames: [String]
+        var settling: Bool?
         var ts: Double
     }
 
@@ -177,6 +328,7 @@ final class MenuBarFit {
                       priority: priority, clipped: lastClipped, rung: current,
                       rungWidths: rungs.map { Double($0.width) },
                       rungNames: rungs.map { $0.name },
+                      settling: isSettling ? true : nil,
                       ts: Date().timeIntervalSince1970)
         atomicWrite(Self.stateDir + "/\(slug).json", s)
     }
@@ -211,8 +363,10 @@ final class MenuBarFit {
               let cmd = try? JSONDecoder().decode(Command.self, from: data) else { return }
         let target = min(max(0, cmd.rung), maxRung)
         guard target != current else { return }
+        NSLog("MenuBarFit[%@] rung %d → %d (%@)", slug, current, target, rungs[target].name)
         current = target
         applyRung(rungs[current], current)
+        beginRungSettlement()
         writeState()
         postBus()
     }
@@ -249,12 +403,32 @@ final class MenuBarFit {
     private func evaluate() {
         let states = readStates()
         guard !states.isEmpty else { return }
+        let now = Date()
+
+        // One layout mutation at a time. A participant publishes `settling`
+        // while Control Center swaps its replicant, then wakes us with an
+        // authoritative visibility sample.
+        if states.contains(where: { $0.settling == true }) { return }
 
         // Reconcile any state whose command we already issued but that hasn't
         // taken effect yet — treat the *reported* rung as truth.
         let anyClipped = states.contains { $0.clipped }
 
         if anyClipped {
+            // A failed growth probe returns directly to its last known fitting
+            // rung. Remembering the source rung also makes larger future probe
+            // jumps safe if a participant adopts them.
+            if let growth = lastGrowth,
+               now.timeIntervalSince(growth.at) < Self.growthFailureWindow,
+               let grown = states.first(where: { $0.slug == growth.slug }),
+               grown.rung > growth.fromRung {
+                cooldownUntil[growth.slug] = now.addingTimeInterval(Self.revertCooldown)
+                lastGrowth = nil
+                lastShrinkAt = now
+                command(growth.slug, rung: growth.fromRung)
+                return
+            }
+            guard now.timeIntervalSince(lastShrinkAt) >= Self.shrinkInterval else { return }
             // Shrink the lowest-priority app that still can. Tie-break: widest
             // current rung first (frees the most pixels).
             let shrinkable = states.filter { $0.rung > 0 }
@@ -265,19 +439,20 @@ final class MenuBarFit {
             // If we grew someone moments ago and now something is clipped, that
             // grow over-committed — stamp a cooldown on the widest grower so it
             // doesn't immediately bounce back up.
-            if Date().timeIntervalSince(lastGrowAt) < Self.growInterval {
+            if now.timeIntervalSince(lastGrowAt) < Self.growthFailureWindow {
                 if let grower = states.max(by: { widthOf($0) < widthOf($1) }) {
-                    cooldownUntil[grower.slug] = Date().addingTimeInterval(Self.revertCooldown)
+                    cooldownUntil[grower.slug] = now.addingTimeInterval(Self.revertCooldown)
                 }
             }
+            lastGrowth = nil
+            lastShrinkAt = now
             command(victim.slug, rung: victim.rung - 1)
             return
         }
 
         // Slack: grow the highest-priority app that can, respecting cooldowns and
         // a min gap so we probe gently rather than thrash.
-        guard Date().timeIntervalSince(lastGrowAt) >= Self.growInterval else { return }
-        let now = Date()
+        guard now.timeIntervalSince(lastGrowAt) >= Self.growInterval else { return }
         let growable = states.filter {
             $0.rung < ($0.rungWidths.count - 1) && (cooldownUntil[$0.slug].map { now >= $0 } ?? true)
         }
@@ -286,6 +461,7 @@ final class MenuBarFit {
             return widthOf(a) > widthOf(b)   // .max → higher priority, then narrower
         }) else { return }
         lastGrowAt = now
+        lastGrowth = (grower.slug, grower.rung, now)
         command(grower.slug, rung: grower.rung + 1)
     }
 

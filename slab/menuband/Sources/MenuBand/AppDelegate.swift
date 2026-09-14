@@ -142,7 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// becomes its rungs. Supersedes the solo `adaptLayoutForAvailableSpace`
     /// (which is still used when `forceLayout` pins the icon). See MenuBarFit.
     private var fit: MenuBarFit?
-    private var fitLayouts: [KeyboardIconRenderer.DisplayLayout] = []
+    private var fitLayouts: [(layout: KeyboardIconRenderer.DisplayLayout,
+                              fittedWhiteW: CGFloat?)] = []
     /// Live drag-source for the inline tape eject. NSStatusBarButton
     /// doesn't conform to NSDraggingSource so we hand a small adapter
     /// in; this ivar keeps it alive for the duration of the drag.
@@ -2468,7 +2469,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return false }
         guard let window = button.window else { return false }
         if window.screen == nil { return false }
-        return NSScreen.screens.contains { $0.frame.intersects(window.frame) }
+        if !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) { return false }
+        // macOS 26: the drawn item is a Control Center replicant; the checks
+        // above can't see clipping. See MenuBarFit.replicantVisible.
+        return MenuBarFit.replicantVisible(
+            width: window.frame.width,
+            preferredName: "menuband"
+        )
     }
 
     /// `forceLayout` UserDefaults key: lets the user pin the layout to
@@ -3084,26 +3091,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let statusItem, fit == nil else { return }
 
         // Build compact→full by walking `.larger` (the order array is private).
-        var layouts: [KeyboardIconRenderer.DisplayLayout] = []
+        // Partial keyboards use the 17pt keys; once all 14 are present, offer
+        // 18…22pt steps before the ideal 23pt width. That fills the former
+        // 84pt fullSlim→full dead zone instead of leaving usable bar space idle.
+        var layouts: [(layout: KeyboardIconRenderer.DisplayLayout,
+                       fittedWhiteW: CGFloat?)] = []
         var step: KeyboardIconRenderer.DisplayLayout? = .compact
-        while let cur = step { layouts.append(cur); step = cur.larger }
-
-        // Measure each layout's icon width (temporarily swap the global, restore).
-        let saved = KeyboardIconRenderer.displayLayout
-        let rungs: [MenuBarFit.Rung] = layouts.map { lay in
-            KeyboardIconRenderer.displayLayout = lay
-            return .init(name: lay.rawValue, width: KeyboardIconRenderer.imageSize.width)
+        while let cur = step {
+            if cur == .full {
+                for width in stride(from: KeyboardIconRenderer.slimWhiteW,
+                                    to: KeyboardIconRenderer.regularWhiteW,
+                                    by: 1) {
+                    layouts.append((cur, width))
+                }
+                layouts.append((cur, nil))
+            } else {
+                layouts.append((cur, cur == .compact
+                    ? nil
+                    : KeyboardIconRenderer.slimWhiteW))
+            }
+            step = cur.larger
         }
-        KeyboardIconRenderer.displayLayout = saved
+
+        // Measure each rung's icon width (temporarily swap the globals, restore).
+        let savedLayout = KeyboardIconRenderer.displayLayout
+        let savedSlim = KeyboardIconRenderer.slimKeys
+        let savedFittedWhiteW = KeyboardIconRenderer.fittedWhiteW
+        let rungs: [MenuBarFit.Rung] = layouts.map { rung in
+            KeyboardIconRenderer.displayLayout = rung.layout
+            KeyboardIconRenderer.fittedWhiteW = rung.fittedWhiteW
+            KeyboardIconRenderer.slimKeys = (rung.fittedWhiteW ?? KeyboardIconRenderer.regularWhiteW)
+                < KeyboardIconRenderer.regularWhiteW
+            let name: String
+            if rung.fittedWhiteW == KeyboardIconRenderer.slimWhiteW {
+                name = rung.layout.rawValue + "Slim"
+            } else if let width = rung.fittedWhiteW {
+                name = rung.layout.rawValue + "W\(Int(width))"
+            } else {
+                name = rung.layout.rawValue
+            }
+            return .init(name: name, width: KeyboardIconRenderer.imageSize.width)
+        }
+        KeyboardIconRenderer.displayLayout = savedLayout
+        KeyboardIconRenderer.slimKeys = savedSlim
+        KeyboardIconRenderer.fittedWhiteW = savedFittedWhiteW
         fitLayouts = layouts
 
-        let startIdx = layouts.firstIndex(of: saved) ?? layouts.count - 1
+        let startIdx = layouts.lastIndex {
+            $0.layout == savedLayout && $0.fittedWhiteW == savedFittedWhiteW
+        }
+            ?? layouts.count - 1
         // priority 20 (below datewizard's 40): Menu Band yields piano keys before
         // the wand sheds its countdown badge.
         fit = MenuBarFit(slug: "menuband", priority: 20, rungs: rungs,
                          statusItem: statusItem, startAt: startIdx) { [weak self] _, idx in
             guard let self, idx >= 0, idx < self.fitLayouts.count else { return }
-            KeyboardIconRenderer.displayLayout = self.fitLayouts[idx]
+            KeyboardIconRenderer.displayLayout = self.fitLayouts[idx].layout
+            KeyboardIconRenderer.fittedWhiteW = self.fitLayouts[idx].fittedWhiteW
+            KeyboardIconRenderer.slimKeys =
+                (self.fitLayouts[idx].fittedWhiteW ?? KeyboardIconRenderer.regularWhiteW)
+                    < KeyboardIconRenderer.regularWhiteW
             self.updateIcon()
         }
         fit?.start()
