@@ -46,3 +46,9 @@ The primary frontend origin is `209.38.133.33`.
   Caddy serves the same name over HTTPS only to hold its STARTTLS certificate.
 - The apex MX stays on Google (`aspmx.l.google.com` et al.) — one human
   mailbox, `mail@aesthetic.computer`, lives there.
+- Mail authentication for the apex (added 2026-09-14 — there was none before,
+  so every `mail@aesthetic.computer` send had been unauthenticated):
+  `aesthetic.computer TXT "v=spf1 include:_spf.google.com ~all"` and
+  `google._domainkey.aesthetic.computer TXT "v=DKIM1; …"` (key generated in
+  Admin → Gmail → Authenticate email; status "Authenticating email with DKIM").
+  DMARC stays `p=none` for now.
