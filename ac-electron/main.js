@@ -3352,9 +3352,8 @@ app.whenReady().then(async () => {
 
   // Create initial window(s).
   // Default is menubar-daemon mode for EVERY launch — no AC window pops on its
-  // own. The user opens pieces explicitly from the tray (or by re-activating the
-  // app, which fires 'activate' below). We only auto-open a window for an
-  // explicit intent: a slab preview host, or a file opened onto the app.
+  // own. The user opens pieces explicitly from the tray or File menu. We only
+  // auto-open for a slab preview, deep link, or file opened onto the app.
   // 🔗 Cold-launch via an aesthetic:// deep link (Windows/Linux pass it in argv;
   // macOS delivers it through the 'open-url' event instead, handled above).
   const coldLaunchLink = findDeepLinkArg(process.argv.slice(1));
@@ -3371,11 +3370,9 @@ app.whenReady().then(async () => {
     acDropHandleFile(acDropColdLaunchFile);
   }
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      openAcPaneWindow();
-    }
-  });
+  // Activation alone must not create a pane: macOS can activate the app while
+  // the last pane closes and its dock icon disappears. Stay in menubar mode
+  // until an explicit open request (tray, File menu, '+', file, or deep link).
 
   // Keep dock visibility in sync with window state on macOS so the app
   // fades out of the dock / app-switcher whenever all windows close, and
