@@ -103,14 +103,21 @@ export function letterText(parsed) {
     .trim();
 }
 
-// Caddy holds a Let's Encrypt cert for the host (the Caddyfile serves it for
-// exactly this reason). Offer STARTTLS with it when it exists.
+// The host's Let's Encrypt cert, for STARTTLS. certbot keeps it under
+// /etc/letsencrypt (see the Caddyfile for why Caddy can't mint this one);
+// Caddy's own store is checked second in case that ever changes.
 function tlsFor(host) {
-  const dir = `/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${host}`;
-  const key = `${dir}/${host}.key`;
-  const cert = `${dir}/${host}.crt`;
-  if (existsSync(key) && existsSync(cert)) {
-    return { key: readFileSync(key), cert: readFileSync(cert) };
+  const places = [
+    [`/etc/letsencrypt/live/${host}/privkey.pem`, `/etc/letsencrypt/live/${host}/fullchain.pem`],
+    [
+      `/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${host}/${host}.key`,
+      `/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${host}/${host}.crt`,
+    ],
+  ];
+  for (const [key, cert] of places) {
+    if (existsSync(key) && existsSync(cert)) {
+      return { key: readFileSync(key), cert: readFileSync(cert) };
+    }
   }
   return null;
 }

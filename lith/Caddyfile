@@ -1246,13 +1246,23 @@ gym.anthonyzollo.com {
 # --- inbound.aesthetic.computer ---
 # Not a website. This is the SMTP door for Amail (lith/mail-inbound.mjs,
 # lith-mail.service on :25) — Google Workspace routes every unknown
-# @aesthetic.computer address here. Caddy serves the host only so it holds a
-# Let's Encrypt certificate the SMTP server offers for STARTTLS. The DNS
-# record is DNS-only (grey cloud): Cloudflare does not proxy port 25.
+# @aesthetic.computer address here. The DNS record is DNS-only (grey cloud):
+# Cloudflare does not proxy port 25.
+#
+# Its STARTTLS certificate can't come from Caddy's automation: the Cloudflare
+# origin cert loaded above is a self-issued *.aesthetic.computer wildcard, and
+# Caddy skips ACME for any name a loaded cert already covers. So certbot
+# fetches it by HTTP-01 through the webroot served below (:80), and the door
+# reads /etc/letsencrypt/live/inbound.aesthetic.computer/.
 inbound.aesthetic.computer {
     respond "Amail inbound — SMTP on :25" 200
 }
 
 :80 {
+    # certbot's HTTP-01 challenge files, before the redirect swallows them.
+    handle /.well-known/acme-challenge/* {
+        root * /var/lib/amail-acme
+        file_server
+    }
     redir https://{host}{uri} 301
 }
