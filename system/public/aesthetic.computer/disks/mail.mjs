@@ -379,7 +379,10 @@ function paint(api) {
   }
 
   let y = 6; // the hud label is already the title — don't write a second one
-  y += 16; // the corner cluster owns the first row
+  // The corner cluster owns the first row — and the hud label's hitbox is at
+  // least 50×20 from (6,6), swallowing any tap under it, so the address line
+  // starts below that.
+  y += 22;
 
   // 📱 A phone-sized or dense screen switches the room to the chunky face:
   // 4px characters, 9px lines, so more letters fit a screen.
@@ -529,14 +532,12 @@ function paint(api) {
       }
       const agoW = (compact ? 4 : 6) * 5 + 4;
       if (letter.subject) {
-        ink(unread ? c.painting : [...c.painting, 150]).write(
-          letter.subject,
-          { x: afterWho, y: yy },
-          undefined,
-          Math.max(cw * 4, screen.width - x - agoW - afterWho),
-          false,
-          face,
-        );
+        // Cut the subject to the room left before the timestamp — `write`
+        // with a bound and no wrap still runs on under the clock.
+        const room = Math.floor((screen.width - x - agoW - afterWho) / cw);
+        let subject = letter.subject;
+        if (subject.length > room) subject = room > 1 ? subject.slice(0, room - 1) + "…" : "";
+        ink(unread ? c.painting : [...c.painting, 150]).write(subject, { x: afterWho, y: yy }, undefined, undefined, false, face);
       }
       ink([...c.timestamp, 160]).write(ago(letter.when), { x: screen.width - x - agoW + 4, y: yy }, undefined, undefined, false, face);
       ink(unread ? c.messageText : [...c.messageText, 190]).write(body, { x: x + 10, y: yy + lh }, undefined, bounds, true, face);
