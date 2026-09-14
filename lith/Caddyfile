@@ -49,6 +49,15 @@
     @immutable path_regexp ^/aesthetic\.computer/lib/disk\.worker\.[a-f0-9]+\.mjs$
     header @immutable Cache-Control "public, max-age=31536000, immutable"
 
+    # The two modules that must ship updates within seconds. `no-cache` means
+    # store-but-always-revalidate: the browser (and the service worker's
+    # network-first fetch) sends If-None-Match and gets a 304 when nothing
+    # changed, instead of the 60s/300s stale window above or — what boot.mjs
+    # used to do to get around that window — a `?v=<now>` bust that
+    # re-downloaded bios.mjs on every boot. Must come after @code to win.
+    @core path /aesthetic.computer/bios.mjs /aesthetic.computer/lib/disk.mjs
+    header @core Cache-Control "no-cache"
+
     # Static assets: long cache (1h fresh, serve stale for 24h while revalidating)
     @cacheable path *.woff2 *.woff *.ttf *.png *.jpg *.jpeg *.svg *.gif *.webp *.ico *.mp3 *.wav *.mp4 *.json
     header @cacheable Cache-Control "public, max-age=3600, stale-while-revalidate=86400"

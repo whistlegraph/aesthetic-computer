@@ -337,6 +337,10 @@ function hideBootLog() {
   // prompt.ac's corner label — needs this later moment to avoid drawing its
   // chrome over the boot log.
   window.parent?.postMessage({ type: "ac:boot-hidden" }, "*");
+  // Third-party analytics (PostHog's array.js, gtag) wait for this so they
+  // stop competing with the piece's own modules for a slow link during boot.
+  window.acBOOTED = true;
+  try { window.dispatchEvent(new Event("ac:booted")); } catch (e) {}
   // Safety net: if the disk-loaded path somehow never marked success, getting
   // far enough to hide the overlay still counts as a boot.
   markBootSuccess();
@@ -963,13 +967,18 @@ async function importWithRetry(modulePath, retries = IMPORT_MAX_RETRIES, useWsBu
   }
 }
 
-// Load core modules with retry support
-// Use cache-busting query params to ensure fresh code on LAN/remote devices
-// Skip cache-busting in PACK_MODE (NFT bundles use import maps with fixed paths)
-// Skip cache-busting on localhost for faster dev reloads (use hard refresh when needed)
+// Load core modules with retry support.
+// No cache-busting query on the first attempt: `?v=<now>` made every boot
+// re-download bios.mjs (244 KB gz) and parse.mjs a second time, ignoring the
+// copy the HTML's <link rel="modulepreload"> had already fetched, and skipped
+// the service worker (NEVER_CACHE matches `?v=`). Freshness comes from the
+// origin instead — bios.mjs and lib/disk.mjs are served `Cache-Control:
+// no-cache`, so the preload revalidates (ETag → 304 when unchanged) — and the
+// retry path in importWithRetry still appends a unique `r=` on a failed
+// import (the browser pins a failed import() to its specifier).
 // In PACK_MODE, use bare specifiers (no ./) so import maps work from blob URLs
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const cacheBust = window.acPACK_MODE || isLocalhost ? '' : `?v=${Date.now()}`;
+const cacheBust = '';
 const pathPrefix = window.acPACK_MODE ? '' : './';
 
 // Helper to fetch and display source file in boot canvas
@@ -1002,11 +1011,19 @@ async function fetchAndShowSource(path, displayName) {
       }
     }
     
-    // Fallback to HTTP fetch (may fail on localhost due to proxy issues)
+    // Fallback: the browser/SW cache only. This is boot-screen decoration —
+    // by now the module has been imported, so a copy is in the HTTP cache (or
+    // the SW cache); `only-if-cached` shows it without ever touching the
+    // network. It was `fetch('./bios.mjs')`: relative to the page URL that
+    // resolved to /bios.mjs — a wrong path the server happened to answer with
+    // a fresh 244 KB download on every boot, in parallel with the real one.
     // Only try HTTP if not on localhost (where proxy is flaky)
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocalhost) {
-      const response = await fetch(path);
+      const response = await fetch(`/aesthetic.computer/${modulePath}`, {
+        cache: 'only-if-cached',
+        mode: 'same-origin',
+      });
       if (response.ok) {
         const text = await response.text();
         if (window.acBOOT_ADD_FILE) {
@@ -1046,7 +1063,13 @@ try {
   boot = biosModule.boot;
   parse = parseModule.parse;
   slug = parseModule.slug;
-  
+
+  // The core modules and their static imports are in the browser's caches
+  // now; the boot canvas waits for this before it reads them back (cache-only)
+  // to draw source text. Before this signal existed it fetched the same files
+  // over the network while the preloads were still in flight.
+  window.acBOOT_CORE_RESOLVE?.();
+
   // Show source files in boot canvas (non-blocking)
   fetchAndShowSource(`${pathPrefix}bios.mjs`, 'bios.mjs');
   fetchAndShowSource(`${pathPrefix}lib/parse.mjs`, 'lib/parse.mjs');

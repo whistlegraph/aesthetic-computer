@@ -94,15 +94,29 @@ function installPostHogStub(win, doc) {
   if (posthog.__SV) return posthog;
   posthog._i = [];
   posthog.init = function (token, options, name) {
-    const script = doc.createElement("script");
-    script.type = "text/javascript";
-    script.crossOrigin = "anonymous";
-    script.async = true;
-    script.src =
-      options.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
-      "/static/array.js";
-    const firstScript = doc.getElementsByTagName("script")[0];
-    firstScript.parentNode.insertBefore(script, firstScript);
+    // array.js (~97 KB gz) used to start before bios.mjs. On a lossy link it
+    // shared the pipe with boot for 30–95 s; every capture below queues on
+    // the stub, so nothing is lost by inserting the script once the piece is
+    // on screen (boot.mjs fires ac:booted) or 15 s in, whichever comes first.
+    let inserted = false;
+    const insertScript = () => {
+      if (inserted) return;
+      inserted = true;
+      const script = doc.createElement("script");
+      script.type = "text/javascript";
+      script.crossOrigin = "anonymous";
+      script.async = true;
+      script.src =
+        options.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+        "/static/array.js";
+      const firstScript = doc.getElementsByTagName("script")[0];
+      firstScript.parentNode.insertBefore(script, firstScript);
+    };
+    if (win.acBOOTED) insertScript();
+    else {
+      win.addEventListener("ac:booted", insertScript, { once: true });
+      win.setTimeout(insertScript, 15000);
+    }
 
     const instance = name ? (posthog[name] = []) : posthog;
     instance.people = instance.people || [];

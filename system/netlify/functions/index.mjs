@@ -1300,13 +1300,25 @@ async function fun(event, context) {
                 localStorage.removeItem('__sandbox_test');
               }
               
-              // If we're not sandboxed, load analytics
+              // If we're not sandboxed, load analytics — after the piece is
+              // on screen (boot.mjs fires ac:booted), or 15s in, so gtag.js
+              // and its collect beacon don't share a slow link with boot.
               if (!inIframe || window.self === window.top) {
-                var script = document.createElement('script');
-                script.async = true;
-                script.src = 'https://www.googletagmanager.com/gtag/js?id=G-B4TLVYKXVF';
-                document.head.appendChild(script);
-                
+                var gtagLoaded = false;
+                var loadGtag = function () {
+                  if (gtagLoaded) return;
+                  gtagLoaded = true;
+                  var script = document.createElement('script');
+                  script.async = true;
+                  script.src = 'https://www.googletagmanager.com/gtag/js?id=G-B4TLVYKXVF';
+                  document.head.appendChild(script);
+                };
+                if (window.acBOOTED) loadGtag();
+                else {
+                  window.addEventListener('ac:booted', loadGtag, { once: true });
+                  setTimeout(loadGtag, 15000);
+                }
+
                 window.dataLayer = window.dataLayer || [];
                 function gtag() { dataLayer.push(arguments); }
                 gtag('js', new Date());
@@ -2225,12 +2237,19 @@ async function fun(event, context) {
           window.acBOOT_NET_PULSE=function(){if(window.acBootCanvas&&window.acBootCanvas.netPulse)window.acBootCanvas.netPulse();};
           // Fetch MOTD for boot screen
           (async function(){try{var r=await fetch('/api/mood/moods-of-the-day');if(r.ok){var d=await r.json();if(d&&d.mood){window.acBootCanvas.motd=d.mood;if(d.handle)window.acBootCanvas.motdHandle=d.handle;}}}catch(e){}})();
-          // Fetch boot files to display - more variety for cycling display
+          // Source text for the boot canvas. Decoration only, so it is read
+          // back from the browser's caches (cache:'only-if-cached' never goes
+          // to the network) once boot.mjs reports the core modules imported —
+          // every file below is a modulepreload or a static import of bios.
+          // Fetching them plainly, as this used to, downloaded bios.mjs,
+          // disk.mjs and graph.mjs a second time alongside the real loads.
+          window.acBOOT_CORE_READY=new Promise(function(res){window.acBOOT_CORE_RESOLVE=res;setTimeout(res,30000);});
           (async function(){
             var paths=['boot.mjs','bios.mjs','lib/parse.mjs','lib/graph.mjs','lib/num.mjs','lib/disk.mjs','lib/geo.mjs','lib/text.mjs','lib/pen.mjs','lib/help.mjs'];
             // Shuffle paths for variety on each boot
             for(var i=paths.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=paths[i];paths[i]=paths[j];paths[j]=tmp;}
-            for(var i=0;i<paths.length;i++){try{window.acBOOT_NET_PULSE();var r=await fetch('/aesthetic.computer/'+paths[i]);window.acBOOT_NET_PULSE();if(r.ok){var t=await r.text();window.acBOOT_ADD_FILE(paths[i],t);}}catch(e){}}
+            await window.acBOOT_CORE_READY;
+            for(var i=0;i<paths.length;i++){try{window.acBOOT_NET_PULSE();var r=await fetch('/aesthetic.computer/'+paths[i],{cache:'only-if-cached',mode:'same-origin'});window.acBOOT_NET_PULSE();if(r.ok){var t=await r.text();window.acBOOT_ADD_FILE(paths[i],t);}}catch(e){}}
           })();
         </script>
         <div id="console" class="hidden">booting...</div>

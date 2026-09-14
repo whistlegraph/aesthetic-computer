@@ -5,9 +5,9 @@ const CACHE_NAME = 'ac-modules-v10'; // Bump: clear stale capture-session module
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in ms (dev-friendly)
 
 // Critical modules to precache on install. NOTE: bios.mjs and lib/disk.mjs
-// are intentionally absent — they sit at the heart of the rotation/telemetry
-// loop and need to ship updates within seconds, not stale-while-revalidate
-// cycles. NEVER_CACHE below also bypasses runtime caching for them.
+// are intentionally absent — they need to ship updates within seconds, so
+// they ride the network-first path below (conditional revalidate, cached copy
+// only after NETWORK_FIRST_TIMEOUT_MS) rather than a precache.
 const PRECACHE_MODULES = [
   '/aesthetic.computer/boot.mjs',
   '/aesthetic.computer/lib/parse.mjs',
@@ -51,6 +51,12 @@ const CACHEABLE_PATTERNS = [
 const NETWORK_FIRST_PATTERNS = [
   /\/aesthetic\.computer\/lib\/.*\.mjs$/,
   /\/aesthetic\.computer\/systems\/.*\.mjs$/,
+  // bios.mjs (244 KB gz) was NEVER_CACHE — a full download on every boot,
+  // 13–100 s on a lossy link. Network-first keeps it fresh (the origin serves
+  // it no-cache, so the conditional fetch is a 304 when unchanged) and hands
+  // out the last good copy once the link stalls past the timeout. lib/disk.mjs
+  // already matches the lib/ pattern above.
+  /\/aesthetic\.computer\/bios\.mjs$/,
 ];
 
 // How long a network-first module waits for its conditional fetch before the
@@ -76,11 +82,6 @@ const NEVER_CACHE = [
   /\/disks\/.*\.mjs$/, // User pieces should always be fresh
   /\?v=/, // Cache-busted URLs
   /localhost:8889/, // Session server
-  // 🚧 Pinned-to-network while iterating on camera rotation + piece-runs
-  // telemetry. Restore caching for these once the rotation default is
-  // locked in.
-  /\/aesthetic\.computer\/bios\.mjs$/,
-  /\/aesthetic\.computer\/lib\/disk\.mjs$/,
 ];
 
 self.addEventListener('install', (event) => {
@@ -175,12 +176,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // The page asked for a cached copy only (the boot canvas reading module
+  // source back for display). Honor that: never revalidate, never download.
+  // Without a cached copy, pass the request through untouched so the browser
+  // HTTP cache applies the same rule (only-if-cached → 504 on a miss).
+  const cacheOnly = event.request.cache === 'only-if-cached' || event.request.cache === 'force-cache';
+
   if (isCacheable) {
     // Stale-while-revalidate strategy with corruption detection
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
         // Use clean cache key for core modules to ignore query params
         return cache.match(cacheKey).then(async (cachedResponse) => {
+          if (cacheOnly) return cachedResponse || fetch(event.request);
           // Use `cache: 'no-cache'` so the browser sends a conditional request
           // (If-None-Match / If-Modified-Since) instead of serving from the HTTP
           // cache. Origin returns 304 when unchanged (cheap) or 200 with fresh
