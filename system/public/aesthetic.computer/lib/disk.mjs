@@ -4871,7 +4871,13 @@ const $commonApi = {
           }
         }
       } catch (error) {
-        console.error("🚫 Error:", error);
+        // Mail request errors can contain submitted letters. Piece telemetry
+        // captures this console, so discard provider text for these endpoints.
+        if (/^\/api\/(?:mail|mail-status|tell)(?:[/?#]|$)/.test(endpoint)) {
+          console.error("mail.request.failed");
+        } else {
+          console.error("🚫 Error:", error);
+        }
         return { message: "unauthorized" };
       }
     },

@@ -184,7 +184,7 @@ async function refresh({ net }) {
     }
   } catch (err) {
     status = "error";
-    errorMsg = err.message;
+    errorMsg = "Could not load letters";
   }
 }
 
@@ -201,11 +201,18 @@ async function send(api, { to, subject, body }) {
     return;
   }
 
-  const res = await api.net.userRequest("POST", "/api/mail", {
-    to: to.trim(),
-    subject,
-    text,
-  });
+  let res;
+  try {
+    res = await api.net.userRequest("POST", "/api/mail", {
+      to: to.trim(),
+      subject,
+      text,
+    });
+  } catch {
+    // Request errors may embed submitted content. Keep them out of piece logs.
+    composeNote = s.couldntSend;
+    return;
+  }
 
   if (res.status === 200) {
     composeNote = null;
@@ -668,6 +675,8 @@ function act(api) {
         net.userRequest("GET", "/api/mail-status").then((res) => {
           if (res.status === 200) prefs = res;
           needsPaint();
+        }).catch(() => {
+          needsPaint();
         });
       }
     } else if (type === "write") {
@@ -685,11 +694,17 @@ function act(api) {
         }
         busy = false;
         needsPaint();
+      }).catch(() => {
+        busy = false;
+        needsPaint();
       });
     } else if ((type === "subscribe" || type === "unsubscribe") && !busy) {
       busy = true;
       net.userRequest("POST", "/api/mail-status", { action: type }).then((res) => {
         if (res.status === 200) prefs.subscribed = type === "subscribe";
+        busy = false;
+        needsPaint();
+      }).catch(() => {
         busy = false;
         needsPaint();
       });

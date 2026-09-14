@@ -20,10 +20,21 @@ import {
   subFromAddress,
 } from "../../backend/mail.mjs";
 import { ObjectId } from "mongodb";
+import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
 
 const PAGE = 50;
 
 export async function handler(event) {
+  try {
+    return await handleMail(event);
+  } catch (err) {
+    // Includes authorization, connection, and cleanup failures outside the query.
+    console.error("mail.request.error", mailErrorCode(err));
+    return respond(500, { message: "Could not complete mail request" });
+  }
+}
+
+async function handleMail(event) {
   if (event.httpMethod === "OPTIONS") return respond(200, {});
   if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
@@ -131,8 +142,8 @@ export async function handler(event) {
       push: sentMail.push,
     });
   } catch (err) {
-    console.error("🔴 mail error:", err);
-    return respond(500, { message: err?.message || "Server error" });
+    console.error("mail.request.error", mailErrorCode(err));
+    return respond(500, { message: "Could not complete mail request" });
   } finally {
     await database.disconnect();
   }

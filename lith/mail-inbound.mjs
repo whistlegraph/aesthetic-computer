@@ -22,6 +22,7 @@ import { simpleParser } from "mailparser";
 import { BlockList } from "node:net";
 import { resolveTxt } from "node:dns/promises";
 import { existsSync, readFileSync } from "node:fs";
+import { mailErrorCode } from "../shared/mail-privacy.mjs";
 
 const HOST = process.env.AMAIL_INBOUND_HOST || "inbound.aesthetic.computer";
 const args = process.argv.slice(2);
@@ -204,7 +205,7 @@ export function createInbound({
 
     onConnect(session, cb) {
       if (open || isRelay(relays, session.remoteAddress)) return cb();
-      log(`✋ refused ${session.remoteAddress} — not a Google relay`);
+      log("mail.inbound.refused.relay");
       cb(new Error("Only Google Workspace delivers here"));
     },
 
@@ -218,7 +219,7 @@ export function createInbound({
         session.amail.set(address.address, { sub, ...who });
         cb();
       } catch (err) {
-        log("🔴 lookup failed:", err?.message || err);
+        log("mail.inbound.lookup.error", mailErrorCode(err));
         cb(Object.assign(new Error("Try again later"), { responseCode: 451 }));
       }
     },
@@ -233,13 +234,13 @@ export function createInbound({
 
         // Only letters that came through OUR routing rule carry the stamp.
         if (secret && parsed.headers?.get?.("x-amail-route") !== secret) {
-          log(`✋ refused ${sender} — no route stamp`);
+          log("mail.inbound.refused.stamp");
           return cb(Object.assign(new Error("Not our route"), { responseCode: 550 }));
         }
 
         const auth = authFrom(parsed);
         if (auth.dmarc === "fail") {
-          log(`✋ refused ${sender} — DMARC failed`);
+          log("mail.inbound.refused.dmarc");
           return cb(Object.assign(new Error("Sender's domain disowns this letter"), { responseCode: 550 }));
         }
 
@@ -249,7 +250,7 @@ export function createInbound({
           const gate = limiter.take(`${sender}→${rcpt.sub}`);
           if (!gate.ok) {
             refused = refused || gate;
-            log(`✋ ${sender} → ${rcpt.local}: ${gate.why}`);
+            log("mail.inbound.refused.rate");
             continue;
           }
           results.push(await file({ ...rcpt, parsed, auth, quiet: gate.quiet, remote: session.remoteAddress }));
@@ -257,13 +258,15 @@ export function createInbound({
         if (!results.length && refused) {
           return cb(Object.assign(new Error(refused.why), { responseCode: refused.code }));
         }
-        const summary = results
-          .map((r) => (r.duplicate ? `${r.toHandle} (again)` : r.quiet ? `${r.toHandle} (quiet)` : r.toHandle))
-          .join(", ");
-        log(`📬 ${sender} → ${summary || "nobody"}${auth.verified ? "" : " · unverified"}`);
+        log("mail.inbound.filed", {
+          recipients: results.length,
+          duplicates: results.filter((r) => r.duplicate).length,
+          quiet: results.filter((r) => r.quiet).length,
+          verified: auth.verified === true,
+        });
         cb();
       } catch (err) {
-        log("🔴 letter failed:", err?.message || err);
+        log("mail.inbound.file.error", mailErrorCode(err));
         cb(Object.assign(new Error("Could not file that letter"), { responseCode: 451 }));
       }
     },
@@ -292,7 +295,7 @@ async function main() {
       try {
         relays = await googleRelays();
       } catch (err) {
-        console.log("🟡 could not refresh Google relays:", err?.message || err);
+        console.log("mail.inbound.relays.error", mailErrorCode(err));
       }
     }, 60 * 60 * 1000).unref();
   }
@@ -325,7 +328,7 @@ async function main() {
     },
   });
 
-  server.on("error", (err) => console.log("🔴 smtp:", err?.message || err));
+  server.on("error", (err) => console.log("mail.inbound.smtp.error", mailErrorCode(err)));
   server.listen(PORT, () => {
     console.log(
       `📮 Amail inbound on :${PORT} for ${INBOUND_DOMAINS.join(", ")} — ` +
@@ -355,7 +358,7 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   main().catch((err) => {
-    console.error("🔴 mail-inbound failed to start:", err);
+    console.error("mail.inbound.start.error", mailErrorCode(err));
     process.exit(1);
   });
 }

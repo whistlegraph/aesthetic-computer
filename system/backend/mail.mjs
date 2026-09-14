@@ -12,6 +12,7 @@ import { handleFor, userIDFromHandleOrEmail } from "./authorization.mjs";
 import { filter } from "./filter.mjs";
 import { shell } from "./shell.mjs";
 import { sendToUser } from "../../shared/push.mjs";
+import { letterNotification, mailErrorCode, quietMailPush } from "../../shared/mail-privacy.mjs";
 
 // Since 26.09.13 the root domain is the address: Google Workspace holds its
 // MX, catches every unknown @aesthetic.computer, and hands the letter to
@@ -110,22 +111,14 @@ export async function deliver(
     push = await sendToUser(
       database.db,
       to,
-      {
-        title: `${fromHandle} ${verb} you`,
-        body: subject ? `${subject} — ${text}` : text,
-        data: {
-          kind: "tell",
-          from: fromHandle || "",
-          tellId: insertedId.toString(),
-          piece: "mail",
-        },
-      },
+      letterNotification(insertedId),
       { device },
-      shell.log,
+      quietMailPush,
     );
+    if (push.failed) shell.log("mail.push.failed", push.failed);
   } catch (err) {
     // A silent phone shouldn't eat the letter — it's already in the mailbox.
-    shell.log("🔴 mail push failed:", err?.message || err);
+    shell.log("mail.push.error", mailErrorCode(err));
   }
 
   return { id: insertedId, fromHandle, toHandle, when, push };
@@ -187,21 +180,13 @@ export async function deliverFromOutside(
     push = await sendToUser(
       database.db,
       to,
-      {
-        title: `${fromHandle} wrote you`,
-        body: subject ? `${subject} — ${text}` : text,
-        data: {
-          kind: "tell",
-          from: fromHandle,
-          tellId: insertedId.toString(),
-          piece: "mail",
-        },
-      },
+      letterNotification(insertedId),
       {},
-      shell.log,
+      quietMailPush,
     );
+    if (push.failed) shell.log("mail.push.failed", push.failed);
   } catch (err) {
-    shell.log("🔴 mail push failed:", err?.message || err);
+    shell.log("mail.push.error", mailErrorCode(err));
   }
 
   return { id: insertedId, fromHandle, toHandle, when, push };
@@ -249,7 +234,7 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
       .createTransport({ ...common, host: process.env.AMAIL_SMTP_SERVER || "smtp-relay.gmail.com" })
       .sendMail(letter);
   } catch (err) {
-    shell.log("🟡 relay refused the letter, trying plain SMTP:", err?.message?.split("\n")[0]);
+    shell.log("mail.relay.fallback", mailErrorCode(err));
     info = await nodemailer
       .createTransport({ ...common, host: process.env.SMTP_SERVER || "smtp.gmail.com" })
       .sendMail(letter);

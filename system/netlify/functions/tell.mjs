@@ -11,8 +11,18 @@ import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { clean, deliver, subFromAddress } from "../../backend/mail.mjs";
+import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
 
 export async function handler(event) {
+  try {
+    return await handleTell(event);
+  } catch (err) {
+    console.error("mail.tell.error", mailErrorCode(err));
+    return respond(500, { message: "Could not send letter" });
+  }
+}
+
+async function handleTell(event) {
   if (event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
   }
@@ -48,8 +58,8 @@ export async function handler(event) {
       push: told.push,
     });
   } catch (err) {
-    console.error("🔴 tell error:", err);
-    return respond(500, { message: err?.message || "Server error" });
+    console.error("mail.tell.error", mailErrorCode(err));
+    return respond(500, { message: "Could not send letter" });
   } finally {
     await database.disconnect();
   }
