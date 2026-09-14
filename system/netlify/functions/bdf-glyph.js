@@ -13,6 +13,7 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { shell } from "../../backend/shell.mjs";
+import { supplementGlyph } from "../../backend/bdf-supplement.mjs";
 
 const gunzip = promisify(zlib.gunzip);
 
@@ -431,6 +432,12 @@ async function parseGlyphFromBDF(charCodeToFind, charToFind, bdfText, fontParam)
     }
   }
   
+  // Not in the BDF — fall back to a hand-drawn supplement, if one exists.
+  const supplement = supplementGlyph(fontParam, charCodeToFind);
+  if (supplement) {
+    await cacheGlyph(charCodeToFind, supplement, fontParam);
+    return supplement;
+  }
   return null; // Glyph not found
 }
 
@@ -541,10 +548,10 @@ export const handler = async (event) => {
         }
       } catch (error) {
         shell.error("Error in batch bdf-glyph:", error);
-        // Mark unfetched as null
-        for (const { codePointStr } of needsFetch) {
+        // BDF unreachable — supplements still work, everything else is null
+        for (const { codePointStr, charCode } of needsFetch) {
           if (!(codePointStr in results)) {
-            results[codePointStr] = null;
+            results[codePointStr] = supplementGlyph(fontParam, charCode);
           }
         }
       }
@@ -859,6 +866,15 @@ export const handler = async (event) => {
     }
 
     if (!glyphFound) {
+      const supplement = supplementGlyph(fontParam, charCodeToFind);
+      if (supplement) {
+        if (!nocache) await cacheGlyph(charCodeToFind, supplement, fontParam);
+        return {
+          statusCode: 200,
+          body: JSON.stringify(supplement),
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        };
+      }
       shell.log(
         `Glyph for character '${charToFind}' (code ${charCodeToFind}) was not found after parsing the entire file.`,
       );

@@ -19,10 +19,12 @@ def ranges():
         (0x0020, 0x007E),  # ASCII (full unifont parity for FONT_UNIFONT — nom word cells)
         (0x00A0, 0x00FF),  # Latin-1 Supplement (accented chars, typographic)
         (0x0100, 0x017F),  # Latin Extended-A
+        (0x0250, 0x02AF),  # IPA Extensions (laer-klokken chat: ɑ ɓ ɨ ɱ ʊ …)
         (0x0391, 0x03CE),  # Greek (alpha..omega)
         (0x0400, 0x04FF),  # Cyrillic (rusnom boards + labels)
         (0x2010, 0x2027),  # General Punctuation (em-dash, ellipsis, quotes)
         (0x2030, 0x2044),  # Per mille, primes, fractions
+        (0x20D0, 0x20FF),  # Combining Diacritical Marks for Symbols (♫⃠)
         (0x2190, 0x21FF),  # Arrows
         (0x2200, 0x22FF),  # Math operators
         (0x2500, 0x257F),  # Box Drawing
