@@ -987,6 +987,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     updateAutoReload = true;
   }
   if (resolution.shellhtml === true) preservedParams.shellhtml = "true";
+  // The frame-rate cap is the embedding's too: a preview card that reloads
+  // without it runs at display rate, which is the one thing it was told not to do.
+  if (resolution.maxfps) preservedParams.maxfps = String(resolution.maxfps);
   if (resolution.tv === true) preservedParams.tv = "true";
   if (resolution.device === true) preservedParams.device = "true";
   if (resolution.solo === true) preservedParams.solo = "true";
@@ -14518,6 +14521,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               if (currentParams.has(param)) {
                 dawParams.set(param, currentParams.get(param));
               }
+            }
+            // The embedding's own flags ride along too — what boot handed over
+            // as `preservedParams` (nolabel, autoreload, maxfps, …). This is the
+            // URL the update auto-reload comes back to, so a flag dropped here
+            // is a flag the next load never sees: a preview card that asked
+            // to be rid of the corner label got it back on its first reload
+            // exactly this way, while `nogap`, listed above, survived.
+            for (const [name, value] of Object.entries(preservedParams || {})) {
+              if (value && !dawParams.has(name)) dawParams.set(name, value);
             }
             const queryString = dawParams.toString();
             // Keep caret "bag" URLs literal (^pads): ^ is legal in a URL path per

@@ -2156,6 +2156,14 @@ final class PromptSigilOverlayController {
         if let move = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
             self?.handleMouseMoved()
         }) { mouseMonitors.append(move) }
+        // An open preview card takes the pointer, and a global monitor is not
+        // told about moves over Slab's own windows — so without this twin the
+        // card would never learn the pointer had left it.
+        if let localMove = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: {
+            [weak self] event in
+            self?.handleMouseMoved()
+            return event
+        }) { mouseMonitors.append(localMove) }
         // Clicks received by Slab's own non-activating card panel do not reach
         // a global monitor. Keep a local twin so card → native share is
         // reliable regardless of which side of macOS's event routing wins.
