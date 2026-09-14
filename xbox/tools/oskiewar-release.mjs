@@ -11,7 +11,17 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sourcePath = resolve(root, "xbox/live/oskiewar.js");
-const receiptPath = resolve(root, ".git/oskiewar-parity.json");
+// The receipt lives beside the repository's shared git state. Asked for by
+// name rather than assumed at `.git/`: in a worktree that path is a file
+// pointing at the common dir, and a release run from one used to die on
+// `mkdir .git` before it had deployed anything.
+const gitCommonDir = (() => {
+  const probe = spawnSync("git", ["rev-parse", "--git-common-dir"],
+    { cwd: root, encoding: "utf8" });
+  const dir = (probe.stdout || "").trim();
+  return dir ? resolve(root, dir) : resolve(root, ".git");
+})();
+const receiptPath = resolve(gitCommonDir, "oskiewar-parity.json");
 const channels = ["web", "ios", "xbox"];
 
 export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
