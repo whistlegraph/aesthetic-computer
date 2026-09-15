@@ -3,7 +3,7 @@
   const emulator=window.WasmBoy?.WasmBoy,held={};let loaded=false,playing=false;
   const update=()=>{if(loaded)emulator.setJoypadState({...held});};
   const release=()=>{for(const key of Object.keys(held))held[key]=false;update();};
-  const keys={ArrowUp:'UP',ArrowDown:'DOWN',ArrowLeft:'LEFT',ArrowRight:'RIGHT',x:'A',X:'A',z:'B',Z:'B',Enter:'START',Shift:'SELECT'};
+  const keys={ArrowUp:'UP',w:'UP',W:'UP',ArrowDown:'DOWN',s:'DOWN',S:'DOWN',ArrowLeft:'LEFT',a:'LEFT',A:'LEFT',ArrowRight:'RIGHT',d:'RIGHT',D:'RIGHT',' ':'A',x:'A',X:'A',Enter:'B',z:'B',Z:'B',p:'START',P:'START',Shift:'SELECT'};
   for(const name of ['keydown','keyup'])canvas.addEventListener(name,event=>{const key=keys[event.key];if(!key)return;event.preventDefault();held[key]=name==='keydown';update();});
   canvas.addEventListener('blur',release);
   for(const button of document.querySelectorAll('[data-key]')){
@@ -28,7 +28,7 @@
         if(failed)return;await emulator.loadROM(new Uint8Array(bytes));if(failed)return;emulator.disableDefaultJoypad();loaded=true;await emulator.play();playing=true;if(failed){await emulator.pause();return;}await first;
       };
       await Promise.race([initialize(),first]);
-      status.textContent='Arrows · X/Z · Enter/Shift — sound off';pause.hidden=false;
+      status.textContent='WASD / arrows · Space: A · Enter: B · P: Start · Shift: Select — sound off';pause.hidden=false;
     }catch(error){failed=true;status.textContent=error.message||'Game Boy could not start.';await emulator.pause().catch(()=>{});}
     finally{clearTimeout(timer);}
   };
