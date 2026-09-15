@@ -51,20 +51,21 @@
     header h1 { margin: 0; color: var(--ink); font: 22px/1.5 "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace; }
     header h1 a { color: inherit; text-decoration: none; }
     nav#boards {
-      text-align: center;
+      display: flex; flex-wrap: wrap; gap: 0.4em 0.8em;
+      text-align: left;
       padding: 0.6em 1em;
       border-top: 1px solid var(--card-edge);
       border-bottom: 1px solid var(--card-edge);
       margin: 0.8em 0 1em;
       font-size: 0.9em;
     }
-    nav#boards a { margin: 0 0.4em; white-space: nowrap; }
+    nav#boards a { overflow-wrap: anywhere; }
     nav#boards a[aria-current="page"] { color: var(--ink); font-weight: bold; }
     nav#boards:empty { display: none; }
     details { margin-bottom: 1em; }
     summary { cursor: pointer; color: var(--link); margin-bottom: 0.5em; }
     .pages { display: flex; justify-content: space-between; margin-top: 1em; }
-    main { max-width: 52em; margin: 0 auto; padding: 0 1em; }
+    main { width: 100%; max-width: 80rem; margin: 0; padding: 0 1em; }
     h2 { color: var(--ink); font-size: 1.2em; }
     h2 a { color: inherit; }
 
@@ -85,6 +86,8 @@
       font: inherit;
     }
     form#post textarea { min-height: 4.5em; resize: vertical; }
+    form#post input[readonly] { color: var(--ink); border-color: transparent; background: transparent; }
+    form#post input[type="file"] { max-width: 100%; min-width: 0; }
     form#post .filerow { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
     form#post button {
       background: var(--ink); color: var(--paper);
@@ -119,9 +122,9 @@
     .post .meta a { color: var(--dim); }
     .post .filemeta { font-size: 0.8em; color: var(--dim); margin: 0.2em 0; }
     .post .filemeta a.typelink { color: var(--green); }
-    .post .body { white-space: pre-wrap; margin-top: 0.4em; }
+    .post .body { white-space: pre-wrap; margin-top: 0.4em; max-width: 72ch; }
     .post .body .gt { color: var(--green); }
-    .post img, .post video { max-width: 100%; max-height: 24em; display: block; }
+    .post img, .post video { max-width: 100%; max-height: 70vh; height: auto; display: block; }
     .post audio { width: 100%; max-width: 28em; display: block; }
     .post iframe.doc { width: 100%; height: 24em; border: 1px solid var(--card-edge); background: #fff; }
     .post pre.textfile {
@@ -135,9 +138,14 @@
     }
     .omitted { color: var(--dim); font-size: 0.85em; margin: 0.3em 0; }
     .replies { margin-left: 1.5em; }
-    @media (max-width: 40em) { .replies { margin-left: 0.6em; } }
+    @media (max-width: 40em) {
+      .replies { margin-left: 0; }
+      header, nav#boards { padding-left: 0.75rem; padding-right: 0.75rem; }
+      main { padding: 0 0.75rem; }
+      .post { padding: 0.6em; }
+    }
 
-    .dir { display: grid; grid-template-columns: repeat(auto-fill, minmax(14em, 1fr)); gap: 0.5em; }
+    .dir { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr)); gap: 0.5em; }
     .dir a.b {
       background: var(--card); border: 1px solid var(--card-edge);
       padding: 0.6em 0.8em; text-decoration: none; color: var(--body);
@@ -150,7 +158,7 @@
       background: color-mix(in srgb, var(--paper) 80%, transparent);
       color: var(--ink); font-size: 1.4em; pointer-events: none;
     }
-    footer { text-align: center; color: var(--dim); font-size: 0.8em; margin-top: 3em; }
+    footer { text-align: left; color: var(--dim); font-size: 0.8em; margin-top: 3em; padding: 0 1rem; }
   </style>
 </head>
 <body>
@@ -278,6 +286,72 @@ function renderPost(post, isOp, inThread = false, contextBoard) {
   return div;
 }
 
+const AC_CLIENT = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+let identity = { token: null, handle: null };
+let authClientPromise, identityPromise;
+
+function hasAcSession() {
+  try {
+    return Object.keys(localStorage).some((key) => key.startsWith("@@auth0spajs@@" + AC_CLIENT + "@@"));
+  } catch { return false; }
+}
+
+function authClient() {
+  if (!authClientPromise) authClientPromise = (async () => {
+    if (!window.auth0) await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/aesthetic.computer/dep/auth0-spa-js.production.js";
+      script.onload = resolve;
+      script.onerror = () => { script.remove(); reject(new Error("could not load sign-in — try again")); };
+      document.head.append(script);
+    });
+    return new window.auth0.Auth0Client({
+      domain: "https://hi.aesthetic.computer", clientId: AC_CLIENT,
+      cacheLocation: "localstorage", useRefreshTokens: true,
+      authorizationParams: { redirect_uri: location.origin },
+      httpTimeoutInSeconds: 30,
+    });
+  })().catch((error) => { authClientPromise = null; throw error; });
+  return authClientPromise;
+}
+
+function refreshIdentity() {
+  if (identityPromise) return identityPromise;
+  if (!hasAcSession()) {
+    identity = { token: null, handle: null };
+    return Promise.resolve();
+  }
+  identityPromise = (async () => {
+    const client = await authClient();
+    let token;
+    try { token = await client.getTokenSilently(); }
+    catch { throw new Error("sign in again to use your handle"); }
+    const response = await fetch(API + "?me=1", { headers: { Authorization: "Bearer " + token } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "could not verify your handle");
+    identity = { token, handle: data.handle };
+  })().finally(() => { identityPromise = null; });
+  return identityPromise;
+}
+
+function showIdentity(input) {
+  if (identity.token) input.value = identity.handle || "";
+  else if (input.readOnly) input.value = "";
+  input.readOnly = !!identity.token;
+  input.setAttribute("aria-label", identity.token ? "Commenting as" : "Name (optional)");
+}
+
+function updateIdentity() {
+  refreshIdentity().then(() => {
+    const input = view.querySelector('[name="commenter"]');
+    if (input) showIdentity(input);
+  }).catch(() => {});
+}
+window.addEventListener("focus", updateIdentity);
+window.addEventListener("storage", (event) => {
+  if (!event.key || event.key.startsWith("@@auth0spajs@@" + AC_CLIENT + "@@")) updateIdentity();
+});
+
 function postForm(parent) {
   const form = el("form");
   form.id = "post";
@@ -290,84 +364,88 @@ function postForm(parent) {
   text.placeholder = parent ? "comment" : "comment (optional)";
   text.setAttribute("aria-label", parent ? "Comment" : "Comment (optional)");
   text.maxLength = 4000;
-  const filerow = el("div", "filerow");
-  const file = el("input");
-  file.type = "file";
-  file.setAttribute("aria-label", parent ? "Attach a file (optional)" : "File");
-  const dest = el("span");
-  dest.id = "dest";
-  filerow.append(file, dest);
+  name.name = "commenter";
   const button = el("button", null, parent ? "reply" : "post");
   const status = el("span");
   status.id = "status";
   status.setAttribute("role", "status");
-  const hint = el("p", null, "Choose, drop, or paste a file · 8 MB max");
-  hint.id = "formhint";
-  file.setAttribute("aria-describedby", "formhint");
-  if (parent) {
-    const attachment = el("details");
-    attachment.append(el("summary", null, "attach file"), filerow, hint);
-    form.append(text, name, attachment, button, status);
-  } else {
-    form.append(filerow, hint, text, name, button, status);
-  }
+  form.append(text, name, button, status);
+  refreshIdentity().then(() => showIdentity(name)).catch(() => {
+    if (form.isConnected) status.textContent = "sign in again to use your handle";
+  });
 
-  let stagedVersion = 0;
-  const stage = (f) => {
-    const version = ++stagedVersion;
-    pendingFile = null;
-    button.disabled = false;
-    dest.textContent = "";
-    const details = form.closest("details");
-    if (details) details.open = true;
-    const attachment = file.closest("details");
-    if (attachment) attachment.open = true;
-    if (f.size > 8 * 1024 * 1024) { status.textContent = "file over 8 MB"; return; }
-    status.textContent = "reading file…";
-    button.disabled = true;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (version !== stagedVersion || !form.isConnected) return;
+  // Only opening posts accept files. Comments have no picker, paste or drop upload path.
+  document.ondragover = (e) => { e.preventDefault(); };
+  document.ondrop = (e) => { e.preventDefault(); };
+  if (!parent) {
+    const filerow = el("div", "filerow");
+    const file = el("input");
+    file.type = "file";
+    file.setAttribute("aria-label", "File");
+    const dest = el("span");
+    dest.id = "dest";
+    filerow.append(file, dest);
+    const hint = el("p", null, "Choose, drop, or paste a file · 8 MB max");
+    hint.id = "formhint";
+    file.setAttribute("aria-describedby", "formhint");
+    form.prepend(filerow, hint);
+    let stagedVersion = 0;
+    const stage = (f) => {
+      const version = ++stagedVersion;
+      pendingFile = null;
       button.disabled = false;
-      status.textContent = "";
-      pendingFile = { name: f.name, type: fileType(f), data: reader.result.split(",")[1] };
-      dest.textContent = f.name + (parent ? " · " + pendingFile.type : " → /" + pendingFile.type + "/");
+      dest.textContent = "";
+      const details = form.closest("details");
+      if (details) details.open = true;
+      if (f.size > 8 * 1024 * 1024) { status.textContent = "file over 8 MB"; return; }
+      status.textContent = "reading file…";
+      button.disabled = true;
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (version !== stagedVersion || !form.isConnected) return;
+        button.disabled = false;
+        status.textContent = "";
+        pendingFile = { name: f.name, type: fileType(f), data: reader.result.split(",")[1] };
+        dest.textContent = f.name + " → /" + pendingFile.type + "/";
+      };
+      reader.onerror = () => { button.disabled = false; status.textContent = "file unreadable"; };
+      reader.readAsDataURL(f);
     };
-    reader.onerror = () => { button.disabled = false; status.textContent = "file unreadable"; };
-    reader.readAsDataURL(f);
-  };
-  file.onchange = () => file.files[0] && stage(file.files[0]);
-  document.ondragover = (e) => { e.preventDefault(); document.body.classList.add("dragging"); };
-  document.ondragleave = () => document.body.classList.remove("dragging");
-  document.ondrop = (e) => {
-    e.preventDefault();
-    document.body.classList.remove("dragging");
-    if (e.dataTransfer.files[0]) stage(e.dataTransfer.files[0]);
-  };
-  document.onpaste = (e) => {
-    const f = [...(e.clipboardData?.files || [])][0];
-    if (f) stage(f);
-  };
+    file.onchange = () => file.files[0] && stage(file.files[0]);
+    document.ondragover = (e) => { e.preventDefault(); document.body.classList.add("dragging"); };
+    document.ondragleave = () => document.body.classList.remove("dragging");
+    document.ondrop = (e) => {
+      e.preventDefault();
+      document.body.classList.remove("dragging");
+      if (e.dataTransfer.files[0]) stage(e.dataTransfer.files[0]);
+    };
+    document.onpaste = (e) => {
+      const f = [...(e.clipboardData?.files || [])][0];
+      if (f) stage(f);
+    };
+  }
 
   form.onsubmit = async (e) => {
     e.preventDefault();
     if (!parent && !pendingFile) { status.textContent = "choose a file"; return; }
-    if (parent && !text.value.trim() && !pendingFile) { status.textContent = "empty reply"; return; }
+    if (parent && !text.value.trim()) { status.textContent = "empty reply"; return; }
     status.textContent = "posting…";
     button.disabled = true;
     try {
+      await refreshIdentity();
+      showIdentity(name);
       const res = await fetch(API, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.value, text: text.value, parent, file: pendingFile }),
+        headers: { "Content-Type": "application/json", ...(identity.token ? { Authorization: "Bearer " + identity.token } : {}) },
+        body: JSON.stringify({ name: name.value, text: text.value, parent, ...(!parent ? { file: pendingFile } : {}) }),
       });
       const out = await res.json();
       if (!res.ok) { status.textContent = out.error; return; }
       pendingFile = null;
       history.replaceState(null, "", "#/t/" + (parent || out.code));
       await route();
-    } catch {
-      status.textContent = "could not post — try again";
+    } catch (error) {
+      status.textContent = error.message || "could not post — try again";
     } finally {
       button.disabled = false;
     }

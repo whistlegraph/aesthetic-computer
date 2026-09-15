@@ -211,6 +211,7 @@ let login, // A login button in the center of the display.
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
 let giveBtn; // GIVE button (top-right slot)
+let mimeBtn;
 let soBtn, softBtn; // SO SOFT ad buttons
 let osBtn; // OS button (top-right slot)
 let blankAdBtn; // 💻 Blank laptop ad button (top-right slot)
@@ -1996,6 +1997,9 @@ async function halt($, text) {
       giveUrl += `?email=${encodeURIComponent(user.email)}`;
     }
     jump(`out:${giveUrl}`);
+    return true;
+  } else if (slug === "mime") {
+    jump("https://aesthetic.computer/mime/");
     return true;
   } else if (slug === "bills") {
     // 💸 Jump to billing dashboard
@@ -6270,6 +6274,15 @@ function paint($) {
     }
   }
 
+  if (showLoginCurtain && !$.system.prompt.input.canType && !$.system.prompt.input.text && screen.height >= 100) {
+    mimeBtn ||= new $.ui.TextButtonSmall("MIME", { left: 6, bottom: 34, screen });
+    mimeBtn.reposition({ left: 6, bottom: 34, screen });
+    mimeBtn.paint($,
+      $.dark ? [[26, 26, 46], [205, 92, 155], [255, 107, 157]]
+        : [[250, 250, 250], [172, 57, 127], [172, 57, 127]],
+    );
+  } else mimeBtn = null;
+
   if (showLoginCurtain) {
     // Starfield — hidden.
     if (false)
@@ -8212,6 +8225,7 @@ function act({
           ["profile", profile?.btn],
           ["wallet", walletBtn?.btn],
           ["give", giveBtn?.btn],
+          ["mime", mimeBtn?.btn],
           ["so", soBtn?.btn],
           ["soft", softBtn?.btn],
           ["os", osBtn?.btn],
@@ -8229,6 +8243,13 @@ function act({
   }
 
   // 🎮 Process button interactions (must be called early so state is ready for paint)
+  if (curtainVisible && mimeBtn) {
+    mimeBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => { pushSound(); jump("https://aesthetic.computer/mime/"); },
+      cancel: () => cancelSound(),
+    });
+  }
   if (!net.sandboxed) {
     if (login && !login.btn.disabled) {
       login.btn.act(e, {
@@ -8593,6 +8614,7 @@ function act({
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
+      (mimeBtn?.btn.disabled === false && mimeBtn?.btn.box.contains(e)) ||
       isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
@@ -8608,6 +8630,7 @@ function act({
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
+      (mimeBtn?.btn.disabled === false && mimeBtn?.btn.box.contains(e)) ||
       (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
       (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
       (osBtn?.btn?.disabled === false && osBtn?.btn?.box.contains(e)) ||

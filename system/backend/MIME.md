@@ -28,19 +28,24 @@ and are never queried. Removed media threads and their reply attachments return
 - `GET /api/mime?media=painting&code=abc` — resolve a public media code to its thread.
 - `GET /api/mime?thread=painting_<id>` — original media and replies.
 - `GET /api/mime?file=painting_<id>` — resolve current source bytes or storage URL.
+- `GET /api/mime?me=1` — verified handle for the supplied bearer token.
 - `POST /api/mime` — `{ parent, text, name, file }`. A null parent requires a file;
-  a reply requires text or a file. Files use `{ name, type, data }` with base64
-  bytes and an 8 MiB limit. Replies keep their parent's board regardless of the
-  attachment's type. The first 300 replies bump a thread.
+  a reply requires text and rejects files. Opening-post files use
+  `{ name, type, data }` with base64 bytes and an 8 MiB limit. Replies keep their
+  parent's board. The first 300 replies bump a thread.
 
 Source metadata comes from AC records, not request-supplied URLs or attribution.
-Names on manually submitted posts remain unverified, as on the original board.
+Signed-in posts store the verified AC account and display its current handle.
+The composer reuses AC’s same-origin Auth0 session; invalid sessions cannot fall
+back to posting anonymously. Guest names remain unverified. Existing comment
+attachments remain readable, but new comments are text-only.
 Program source is displayed as text. Native HTML previews remain sandboxed.
 Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 
 Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
 The painting viewer includes a Comment button. Other media can be discussed from
 their MIME board or direct entry URL.
+The prompt curtain includes a MIME link; entering `mime` opens the same page.
 
 Legacy piece records without an extension retain the existing JavaScript
 default. Both upload paths now preserve the extension for future records.
@@ -56,5 +61,5 @@ MIME_TEST_MONGO_URI=mongodb://127.0.0.1:27017 node --test system/backend/tests/m
 ```
 
 Tests cover automatic discovery without writes, attribution, concurrent first
-replies, mixed attachments, source visibility, storage URLs, legacy uploads,
+replies, attachment rejection, verified authorship, source visibility, storage URLs, legacy uploads,
 pagination, and identity across tape conversion.

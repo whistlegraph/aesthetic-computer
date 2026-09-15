@@ -1,5 +1,6 @@
 // Mime — discussion on public AC media, organized by MIME type.
 import { connect } from "../../backend/database.mjs";
+import { authorize } from "../../backend/authorization.mjs";
 import { respond as httpRespond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import {
@@ -45,7 +46,7 @@ async function ensureIndexes(collection) {
   await collection.createIndex({ parent: 1, when: 1 }, { name: "mimechan_thread" });
 }
 
-export function createHandler(connectDb = connect) {
+export function createHandler(connectDb = connect, authorizeUser = authorize) {
   return async function handler(event) {
     if (event.httpMethod === "OPTIONS") return respond(200, {});
     if (!["GET", "POST"].includes(event.httpMethod)) return respond(405, { error: "method not allowed" });
@@ -54,7 +55,17 @@ export function createHandler(connectDb = connect) {
       const { db } = await connectDb();
       // Preserve existing uploads, replies and short codes through the rename.
       const posts = db.collection("mimechan");
+      const authorization = event.headers?.authorization || event.headers?.Authorization;
+      let user;
+      if (authorization && (event.httpMethod === "POST" || q.me)) {
+        user = await authorizeUser({ authorization });
+        if (!user?.sub) return respond(401, { error: "sign in again to comment" });
+      }
       if (event.httpMethod === "GET") {
+        if (q.me) {
+          const account = user ? await db.collection("@handles").findOne({ _id: user.sub }) : null;
+          return respond(200, { handle: account?.handle ? "@" + account.handle.replace(/^@/, "") : null });
+        }
         if (q.file) return await serveFile(db, posts, q.file);
         if (q.media) {
           const op = await resolveMedia(db, q.media, q.code);
@@ -69,7 +80,7 @@ export function createHandler(connectDb = connect) {
       catch { return respond(400, { error: "invalid JSON" }); }
       if (!body || typeof body !== "object" || Array.isArray(body)) return respond(400, { error: "invalid post" });
       await ensureIndexes(posts);
-      return await createPost(db, posts, body);
+      return await createPost(db, posts, body, user);
     } catch (err) {
       console.error("mime:", err);
       return respond(500, { error: "mime unavailable" });
@@ -168,13 +179,14 @@ async function getThread(db, posts, code) {
   return respond(200, { op: publicOp, replies: publicReplies }, { "Cache-Control": "no-store" });
 }
 
-async function createPost(db, posts, body) {
+async function createPost(db, posts, body, user) {
   if (body.parent != null && typeof body.parent !== "string") return respond(400, { error: "invalid thread" });
   if (body.text != null && typeof body.text !== "string") return respond(400, { error: "invalid comment" });
   if (body.name != null && typeof body.name !== "string") return respond(400, { error: "invalid name" });
   const parent = body.parent || null;
+  if (parent && body.file != null) return respond(400, { error: "comments are text only" });
   const text = (body.text || "").slice(0, MAX_TEXT).trim();
-  const name = (body.name || "").slice(0, MAX_NAME).trim() || null;
+  const name = user ? null : (body.name || "").slice(0, MAX_NAME).trim() || null;
   let file = null;
   if (body.file != null) {
     const f = body.file;
@@ -188,12 +200,13 @@ async function createPost(db, posts, body) {
   }
   const op = parent ? await findOp(db, posts, parent) : null;
   if (parent && !op) return respond(404, { error: "thread not found" });
-  if (parent && !text && !file) return respond(400, { error: "empty reply" });
+  if (parent && !text) return respond(400, { error: "empty reply" });
   if (!parent && !file) return respond(400, { error: "choose a file" });
   const board = op ? op.board : file.type;
   const now = new Date();
   let code;
   const doc = { parent, board, name, text, file, when: now };
+  if (user) doc.user = user.sub;
   if (!parent) { doc.bumped = now; doc.replies = 0; }
   for (let attempt = 0; attempt < 5; attempt++) {
     code = await generateUniqueCode(posts);

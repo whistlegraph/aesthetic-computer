@@ -100,16 +100,27 @@ test("simultaneous first replies share one thread, with current source metadata"
   assert.equal(thread.replies.length, 8);
 });
 
-test("mixed attachments remain in the original media discussion", { skip: !uri }, async () => {
-  const response = await post({ parent: paintingThread, file: file("sound.wav", "audio/wav") });
-  assert.equal(response.statusCode, 200);
-  assert.equal(body(response).board, "image/png");
-  const reply = body(await get({ thread: paintingThread })).replies.at(-1);
-  assert.equal(reply.file.type, "audio/wav");
-  assert.equal((await get({ file: reply.code })).statusCode, 200);
+test("comments reject attachments without creating a post or changing activity", { skip: !uri }, async () => {
+  const native = body(await post({ file: file("root.txt", "text/plain") })).code;
+  for (const parent of [paintingThread, native]) {
+    const before = body(await get({ thread: parent }));
+    for (const text of ["", "with text"]) {
+      const response = await post({ parent, text, file: file("sound.wav", "audio/wav") });
+      assert.equal(response.statusCode, 400);
+      assert.equal(body(response).error, "comments are text only");
+    }
+    assert.deepEqual(body(await get({ thread: parent })), before);
+    assert.equal((await post({ parent, text: "   " })).statusCode, 400);
+    assert.equal((await post({ parent, text: "text comment", file: null })).statusCode, 200);
+  }
 });
 
 test("hiding a source removes its listing, thread and reply attachments; restore retains replies", { skip: !uri }, async () => {
+  // Existing attachments remain readable, but no new comment can upload one.
+  await db.collection("mimechan").insertOne({
+    code: "legacy_attachment", parent: paintingThread, board: "image/png", when,
+    text: "old attachment", file: { ...file("old.png"), size: 7 },
+  });
   const replies = body(await get({ thread: paintingThread })).replies;
   const attachment = replies.find((r) => r.file);
   await db.collection("paintings").updateOne({ _id: paintingId }, { $set: { nuked: true } });
@@ -123,6 +134,33 @@ test("hiding a source removes its listing, thread and reply attachments; restore
   assert.ok(!body(await get({ board: "image/png" })).threads.some((p) => p.op.code === paintingThread));
   await db.collection("paintings").updateOne({ _id: paintingId }, { $set: { nuked: false } });
   assert.equal(body(await get({ thread: paintingThread })).replies.length, replies.length);
+});
+
+test("signed-in authors use verified current handles and never expose account IDs", { skip: !uri }, async () => {
+  const authenticated = createHandler(async () => ({ db }), async ({ authorization }) =>
+    authorization === "Bearer fixture" ? { sub: "auth0|fixture", email: "private@example.test" } : null);
+  const headers = { Authorization: "Bearer fixture" };
+  const me = await authenticated({ httpMethod: "GET", queryStringParameters: { me: "1" }, headers });
+  assert.equal(body(me).handle, "@renamed");
+  assert.equal(me.headers["Cache-Control"], "no-store");
+  const result = await authenticated({ httpMethod: "POST", headers, body: JSON.stringify({
+    parent: paintingThread, text: "signed in", name: "@someone-else", user: "forged-id",
+  }) });
+  assert.equal(result.statusCode, 200);
+  const stored = await db.collection("mimechan").findOne({ code: body(result).code });
+  assert.equal(stored.user, "auth0|fixture");
+  assert.equal(stored.name, null);
+  let thread = await get({ thread: paintingThread });
+  assert.equal(body(thread).replies.find((r) => r.code === stored.code).name, "@renamed");
+  assert.doesNotMatch(thread.body, /auth0\||private@example|forged-id|someone-else/);
+  await db.collection("@handles").updateOne({ _id: "auth0|fixture" }, { $set: { handle: "new-handle" } });
+  thread = await get({ thread: paintingThread });
+  assert.equal(body(thread).replies.find((r) => r.code === stored.code).name, "@new-handle");
+  const count = await db.collection("mimechan").countDocuments();
+  const invalid = await authenticated({ httpMethod: "POST", headers: { authorization: "Bearer invalid" },
+    body: JSON.stringify({ parent: paintingThread, text: "must not post as guest" }) });
+  assert.equal(invalid.statusCode, 401);
+  assert.equal(await db.collection("mimechan").countDocuments(), count);
 });
 
 test("media files use existing storage and serve program source without executing it", { skip: !uri }, async () => {

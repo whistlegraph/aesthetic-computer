@@ -87,14 +87,14 @@ export async function sourceRecord(db, code) {
 }
 
 export async function publicPosts(db, docs) {
-  const users = [...new Set(docs.map((doc) => doc._media?.user).filter(Boolean))];
+  const users = [...new Set(docs.map((doc) => doc._media?.user || doc.user).filter(Boolean))];
   const handles = users.length ? await db.collection("@handles")
     .find({ _id: { $in: users } }, { projection: { handle: 1 } }).toArray() : [];
   const byUser = new Map(handles.filter((h) => typeof h.handle === "string")
     .map((h) => [h._id, "@" + h.handle.replace(/^@/, "")]));
   return docs.map((doc) => {
     const media = doc._media;
-    const handle = media ? byUser.get(media.user) || null : null;
+    const handle = byUser.get(media?.user || doc.user) || null;
     const extension = {
       "image/png": "png", "video/mp4": "mp4", "application/zip": "zip",
       "text/javascript": "mjs", "text/x-lisp": "lisp", "text/x-lua": "lua",
@@ -113,7 +113,7 @@ export async function publicPosts(db, docs) {
     }
     return {
       code: doc.code, parent: doc.parent, board: doc.board,
-      name: media ? handle : doc.name, text: doc.text, when: doc.when,
+      name: media || doc.user ? handle : doc.name, text: doc.text, when: doc.when,
       replies: doc.replies || 0, file,
       ...(media ? { media: {
         kind: media.kind, id: media.id, code: media.code || null,
