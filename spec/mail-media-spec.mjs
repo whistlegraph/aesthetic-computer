@@ -1,3 +1,15 @@
+import * as mailEvents from "../system/backend/mail-events.mjs";
+const eventMocks = {
+  ...mailEvents,
+  recordMailEvent: (_database, fields) => logs.push(mailEvents.mailEvent(fields)),
+  observeMail: async (transport, options, _database, operation) => {
+    const trace = options.trace || mailEvents.mailTrace();
+    const event = (event, fields = {}) => logs.push(mailEvents.mailEvent({ ...fields, event, transport, trace }));
+    event("started");
+    try { return await operation({ ...options, trace }, event); }
+    catch (error) { event("failed", { error: privacy.mailErrorCode(error) }); throw error; }
+  },
+};
 // node --experimental-vm-modules spec/mail-media-spec.mjs
 // Real MIME/SMTP and production handlers; isolated in-memory mailbox/auth.
 import assert from 'node:assert/strict';
@@ -64,6 +76,7 @@ async function load(path, mocks) {
 }
 context.process = { env: {} };
 const backend = await load('../system/backend/mail.mjs', {
+  "./mail-events.mjs": eventMocks,
   './authorization.mjs': { handleFor: async (sub) => sub, userIDFromHandleOrEmail: async () => 'recipient' },
   './filter.mjs': { filter: (s) => s }, './shell.mjs': { shell: { log: (...args) => logs.push(args) } },
   './mail-media.mjs': media, '../../shared/mail-privacy.mjs': privacy,
@@ -74,6 +87,7 @@ const backend = await load('../system/backend/mail.mjs', {
   } }) } },
 });
 const api = await load('../system/netlify/functions/mail.mjs', {
+      "../../backend/mail-events.mjs": eventMocks,
   '../../backend/authorization.mjs': { authorize: async () => identity },
   '../../backend/database.mjs': { connect: async () => database },
   '../../backend/http.mjs': { respond }, '../../backend/mail.mjs': backend,

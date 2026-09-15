@@ -7,6 +7,7 @@
 // POST /api/mail { action: "read" }    → mark all read (or one, with `id`)
 //   headers: Authorization: Bearer <Auth0 token>
 
+import { mailTrace, recordMailEvent } from "../../backend/mail-events.mjs";
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond as httpRespond } from "../../backend/http.mjs";
@@ -28,16 +29,25 @@ const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cac
 const NO_FILES = { projection: { "attachments.data": 0 } };
 
 export async function handler(event) {
-  try {
-    return await handleMail(event);
-  } catch (err) {
-    // Includes authorization, connection, and cleanup failures outside the query.
-    console.error("mail.request.error", mailErrorCode(err));
-    return respond(500, { message: "Could not complete mail request" });
+  const context = { trace: mailTrace(), action: (event.httpMethod === "GET" ? (event.queryStringParameters?.attachment !== undefined ? "download" : event.queryStringParameters?.count !== undefined ? "count" : "inbox") : "send") };
+  const started = Date.now();
+  let response;
+  try { response = await handleMail(event, context); }
+  catch (err) {
+    recordMailEvent(context.database, { event: "failed", transport: "api", trace: context.trace, error: mailErrorCode(err) });
+    response = respond(500, { message: "Could not complete mail request" });
   }
+  const status = response.statusCode;
+  // Count polls are frequent; keep failures, writes, inbox and file reads.
+  if (!(event.httpMethod === "GET" && event.queryStringParameters?.count !== undefined && status === 200) && event.httpMethod !== "OPTIONS") {
+    recordMailEvent(context.database, { event: "request", transport: "api", trace: context.trace,
+      action: context.action, status, durationMs: Date.now() - started,
+      reason: status === 401 ? "unauthorized" : status === 400 ? "invalid" : status === 404 ? "not_found" : status === 405 ? "method" : status >= 500 ? "request" : undefined });
+  }
+  return { ...response, headers: { ...response.headers, "X-Mail-Trace": context.trace } };
 }
 
-async function handleMail(event) {
+async function handleMail(event, context) {
   if (event.httpMethod === "OPTIONS") return respond(200, {});
   if (event.httpMethod !== "GET" && event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
@@ -47,6 +57,7 @@ async function handleMail(event) {
   if (!user?.sub) return respond(401, { message: "unauthorized" });
 
   const database = await connect();
+  context.database = database;
   try {
     const tells = await mailbox(database);
 
@@ -137,6 +148,7 @@ async function handleMail(event) {
     }
 
     if (body.action === "read") {
+      context.action = "read";
       const where = { to: user.sub, read: { $ne: true } };
       if (body.id) where._id = new ObjectId(body.id);
       const result = await tells.updateMany(where, {
@@ -159,7 +171,7 @@ async function handleMail(event) {
         return respond(404, { message: "Recipient not found" });
       }
       const sent = await sendOutside(
-        { from: user.sub, toEmail, subject, text },
+        { trace: context.trace, from: user.sub, toEmail, subject, text },
         database,
       );
       return respond(200, {
@@ -171,7 +183,7 @@ async function handleMail(event) {
     }
 
     const sentMail = await deliver(
-      { from: user.sub, to, text, subject, device: body.device },
+      { trace: context.trace, from: user.sub, to, text, subject, device: body.device },
       database,
     );
 
@@ -182,7 +194,7 @@ async function handleMail(event) {
       push: sentMail.push,
     });
   } catch (err) {
-    console.error("mail.request.error", mailErrorCode(err));
+    recordMailEvent(database, { event: "failed", transport: "api", trace: context.trace, error: mailErrorCode(err) });
     return respond(500, { message: "Could not complete mail request" });
   } finally {
     await database.disconnect();

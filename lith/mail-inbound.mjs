@@ -17,6 +17,7 @@
 //   node mail-inbound.mjs                  # :25, Google relays only
 //   node mail-inbound.mjs --port 2525 --open   # any sender — local testing
 
+import { mailTrace, recordMailEvent, flushMailEvents } from "../system/backend/mail-events.mjs";
 import { SMTPServer } from "smtp-server";
 import { simpleParser } from "mailparser";
 import { BlockList } from "node:net";
@@ -161,20 +162,41 @@ export function makeLimiter({ perPairPerHour = 20, pushPerPair = 3, perMinute = 
   const prune = (arr, span, t) => {
     while (arr.length && t - arr[0] > span) arr.shift();
   };
-  return {
-    take(pair) {
-      const t = now();
-      prune(minute, 60_000, t);
-      if (minute.length >= perMinute) return { ok: false, code: 451, why: "The door is busy, try later" };
-      const hits = pairs.get(pair) || [];
+  function takeMany(keys) {
+    const t = now();
+    prune(minute, 60_000, t);
+    if (minute.length + keys.length > perMinute) return { ok: false, code: 451, reason: "rate_global", why: "The door is busy, try later" };
+    const planned = new Map();
+    for (const pair of keys) {
+      const hits = planned.get(pair) || [...(pairs.get(pair) || [])];
       prune(hits, 3_600_000, t);
-      if (hits.length >= perPairPerHour) return { ok: false, code: 550, why: "Too many letters to this box this hour" };
+      if (hits.length >= perPairPerHour) return { ok: false, code: 550, reason: "rate_pair", why: "Too many letters to this box this hour" };
       hits.push(t);
-      pairs.set(pair, hits);
-      minute.push(t);
-      if (pairs.size > 5000) for (const [k, v] of pairs) if (!v.length || t - v[v.length - 1] > 3_600_000) pairs.delete(k);
-      return { ok: true, quiet: hits.length > pushPerPair };
-    },
+      planned.set(pair, hits);
+    }
+    for (const [key, hits] of planned) pairs.set(key, hits);
+    for (const key of keys) minute.push(t);
+    if (pairs.size > 5000) for (const [k, v] of pairs) if (!v.length || t - v[v.length - 1] > 3_600_000) pairs.delete(k);
+    let released = false;
+    return {
+      ok: true,
+      gates: keys.map((key) => ({ quiet: planned.get(key).length > pushPerPair })),
+      release() {
+        if (released) return;
+        released = true;
+        for (const key of keys) {
+          const hits = pairs.get(key);
+          const index = hits?.lastIndexOf(t) ?? -1;
+          if (index >= 0) hits.splice(index, 1);
+          const globalIndex = minute.lastIndexOf(t);
+          if (globalIndex >= 0) minute.splice(globalIndex, 1);
+        }
+      },
+    };
+  }
+  return {
+    takeMany,
+    take(pair) { const result = takeMany([pair]); return result.ok ? { ok: true, ...result.gates[0] } : result; },
   };
 }
 
@@ -189,13 +211,31 @@ export function createInbound({
   file,
   domains,
   relays = null,
+  getRelays = () => relays,
   open = false,
   tls = null,
   secret = null,
   limiter = makeLimiter(),
   log = console.log,
+  record = (fields) => recordMailEvent(null, fields, log),
 }) {
+  const event = (session, name, fields = {}) => {
+    session.mailTrace ||= mailTrace();
+    record({ ...fields, event: name, trace: session.mailTrace, transport: "smtp-in" });
+  };
+  const sessions = new Map();
+  const ignore = () => {};
   const server = new SMTPServer({
+    // smtp-server can refuse SIZE/protocol commands before our callbacks.
+    // Consume ONLY response status digits; discard its verbose protocol logs.
+    logger: {
+      trace: ignore, info: ignore, warn: ignore, error: ignore, fatal: ignore,
+      debug(meta, label, payload) {
+        if (meta?.tnx !== "send" || label !== "S:" || typeof payload !== "string") return;
+        const status = Number(payload.match(/^([45]\d\d)\b/)?.[1]);
+        if (status) event(sessions.get(meta.cid) || {}, "smtp_response", { status });
+      },
+    },
     name: HOST,
     banner: "Amail — aesthetic.computer",
     size: MAX_SIZE,
@@ -205,27 +245,46 @@ export function createInbound({
     ...(tls || {}),
 
     onConnect(session, cb) {
-      if (open || isRelay(relays, session.remoteAddress)) return cb();
-      log("mail.inbound.refused.relay");
-      cb(new Error("Only Google Workspace delivers here"));
+      sessions.set(session.id, session);
+      if (open || isRelay(getRelays(), session.remoteAddress)) { event(session, "connected"); return cb(); }
+      event(session, "rejected", { reason: "relay", status: 554 });
+      cb(Object.assign(new Error("Only Google Workspace delivers here"), { responseCode: 554 }));
+    },
+
+    onMailFrom(address, session, cb) {
+      // SMTP connections can carry several independent messages, including RSET.
+      session.amail = new Map();
+      session.mailTrace = mailTrace();
+      sessions.set(session.id, session);
+      event(session, "started");
+      cb();
+    },
+
+    onClose(session) {
+      // Includes protocol/SIZE rejections made by smtp-server before callbacks.
+      const status = Number(String(session.error || "").match(/^([45]\d\d)\b/)?.[1]);
+      event(session, "disconnected", { ...(status ? { status } : {}) });
+      sessions.delete(session.id);
     },
 
     async onRcptTo(address, session, cb) {
       const who = parseRecipient(address.address, domains);
-      if (!who) return cb(Object.assign(new Error("No such mailbox"), { responseCode: 550 }));
+      if (!who) { event(session, "rejected", { reason: "recipient", status: 550 }); return cb(Object.assign(new Error("No such mailbox"), { responseCode: 550 })); }
       try {
         const sub = await lookup(who.local);
-        if (!sub) return cb(Object.assign(new Error(`No handle ${who.local}`), { responseCode: 550 }));
+        if (!sub) { event(session, "rejected", { reason: "recipient", status: 550 }); return cb(Object.assign(new Error("No such mailbox"), { responseCode: 550 })); }
         session.amail = session.amail || new Map();
-        session.amail.set(address.address, { sub, ...who });
+        session.amail.set(sub, { sub, ...who });
+        event(session, "recipient", { recipients: session.amail.size });
         cb();
       } catch (err) {
-        log("mail.inbound.lookup.error", mailErrorCode(err));
+        event(session, "deferred", { reason: "lookup", status: 451, error: mailErrorCode(err) });
         cb(Object.assign(new Error("Try again later"), { responseCode: 451 }));
       }
     },
 
     async onData(stream, session, cb) {
+      let reservation;
       try {
         // Drain an oversized message without buffering it or passing it to
         // mailparser. SMTP's advertised SIZE alone doesn't bound parser memory.
@@ -237,6 +296,7 @@ export function createInbound({
           else chunks.length = 0;
         }
         if (size > MAX_SIZE || stream.sizeExceeded) {
+          event(session, "rejected", { reason: "wire_size", status: 552, bytes: size });
           return cb(Object.assign(new Error("Letter too large"), { responseCode: 552 }));
         }
         const parsed = await simpleParser(Buffer.concat(chunks), { skipImageLinks: true });
@@ -244,13 +304,13 @@ export function createInbound({
 
         // Only letters that came through OUR routing rule carry the stamp.
         if (secret && parsed.headers?.get?.("x-amail-route") !== secret) {
-          log("mail.inbound.refused.stamp");
+          event(session, "rejected", { reason: "route", status: 550 });
           return cb(Object.assign(new Error("Not our route"), { responseCode: 550 }));
         }
 
         const auth = authFrom(parsed);
         if (auth.dmarc === "fail") {
-          log("mail.inbound.refused.dmarc");
+          event(session, "rejected", { reason: "dmarc", status: 550 });
           return cb(Object.assign(new Error("Sender's domain disowns this letter"), { responseCode: 550 }));
         }
 
@@ -258,32 +318,33 @@ export function createInbound({
         // path. Validate the entire letter before filing it for any recipient.
         const attachments = incomingAttachments(parsed.attachments);
 
+        const recipients = [...(session.amail?.values() || [])];
+        // Check and reserve ALL recipients before storing ANY copy. A DATA 250
+        // must never acknowledge a message whose recipients were silently skipped.
+        reservation = limiter.takeMany(recipients.map((rcpt) => `${sender}→${rcpt.sub}`));
+        if (!reservation.ok) {
+          event(session, reservation.code === 451 ? "deferred" : "rejected", { reason: reservation.reason, status: reservation.code, recipients: recipients.length });
+          return cb(Object.assign(new Error(reservation.why), { responseCode: reservation.code }));
+        }
         const results = [];
-        let refused = null;
-        for (const rcpt of session.amail?.values() || []) {
-          const gate = limiter.take(`${sender}→${rcpt.sub}`);
-          if (!gate.ok) {
-            refused = refused || gate;
-            log("mail.inbound.refused.rate");
-            continue;
-          }
-          results.push(await file({ ...rcpt, parsed, attachments, auth, quiet: gate.quiet, remote: session.remoteAddress }));
+        for (const [i, rcpt] of recipients.entries()) {
+          results.push(await file({ ...rcpt, parsed, attachments, auth, quiet: reservation.gates[i].quiet, trace: session.mailTrace, remote: session.remoteAddress }));
         }
-        if (!results.length && refused) {
-          return cb(Object.assign(new Error(refused.why), { responseCode: refused.code }));
-        }
-        log("mail.inbound.filed", {
+        event(session, "accepted", {
+          status: 250, bytes: size, attachments: attachments.length,
           recipients: results.length,
           duplicates: results.filter((r) => r.duplicate).length,
-          quiet: results.filter((r) => r.quiet).length,
           verified: auth.verified === true,
         });
         cb();
       } catch (err) {
+        // A temporary storage outage must not turn retries into quota bounces.
+        reservation?.release?.();
         if (err.responseCode === 552) {
+          event(session, "rejected", { reason: "attachments", status: 552 });
           return cb(Object.assign(new Error("At most 10 files and 8 MiB of attachments per letter"), { responseCode: 552 }));
         }
-        log("mail.inbound.file.error", mailErrorCode(err));
+        event(session, "deferred", { reason: "storage", status: 451, error: mailErrorCode(err) });
         cb(Object.assign(new Error("Could not file that letter"), { responseCode: 451 }));
       }
     },
@@ -304,6 +365,7 @@ async function main() {
   } = await import("../system/backend/mail.mjs");
 
   const database = await connect();
+  const record = (fields) => recordMailEvent(database, { transport: "smtp-in", ...fields });
 
   let relays = null;
   if (!OPEN) {
@@ -311,8 +373,9 @@ async function main() {
     setInterval(async () => {
       try {
         relays = await googleRelays();
+        record({ event: "relays_refreshed" });
       } catch (err) {
-        console.log("mail.inbound.relays.error", mailErrorCode(err));
+        record({ event: "relays_failed", error: mailErrorCode(err) });
       }
     }, 60 * 60 * 1000).unref();
   }
@@ -322,15 +385,17 @@ async function main() {
   if (!secret) console.log("🟡 AMAIL_ROUTE_SECRET is unset — any Google tenant's route would be accepted");
   const server = createInbound({
     domains: INBOUND_DOMAINS,
-    relays,
+    getRelays: () => relays,
+    record,
     open: OPEN,
     tls,
     secret,
     lookup: (local) => subFromAddress(local, database),
-    file: async ({ sub, parsed, attachments, reply, auth, quiet }) => {
+    file: async ({ sub, parsed, attachments, reply, auth, quiet, trace }) => {
       const sender = parsed.from?.value?.[0] || {};
       return deliverFromOutside(
         {
+          trace,
           to: sub,
           fromEmail: (sender.address || "").toLowerCase(),
           fromName: sender.name || "",
@@ -346,8 +411,9 @@ async function main() {
     },
   });
 
-  server.on("error", (err) => console.log("mail.inbound.smtp.error", mailErrorCode(err)));
+  server.on("error", (err) => record({ event: "smtp_error", error: mailErrorCode(err) }));
   server.listen(PORT, () => {
+    record({ event: "ready", tls: !!tls, routeSecret: !!secret, open: OPEN });
     console.log(
       `📮 Amail inbound on :${PORT} for ${INBOUND_DOMAINS.join(", ")} — ` +
         `${OPEN ? "OPEN to any sender" : "Google relays only"}, ${tls ? "STARTTLS" : "no TLS (no cert yet)"}`,
@@ -370,7 +436,7 @@ async function main() {
   }
 
   for (const signal of ["SIGINT", "SIGTERM"]) {
-    process.on(signal, () => server.close(() => process.exit(0)));
+    process.on(signal, () => server.close(async () => { await flushMailEvents(); process.exit(0); }));
   }
 }
 

@@ -1,3 +1,15 @@
+import * as mailEvents from "../system/backend/mail-events.mjs";
+const eventMocks = {
+  ...mailEvents,
+  recordMailEvent: (_database, fields) => logs.push(mailEvents.mailEvent(fields)),
+  observeMail: async (transport, options, _database, operation) => {
+    const trace = options.trace || mailEvents.mailTrace();
+    const event = (event, fields = {}) => logs.push(mailEvents.mailEvent({ ...fields, event, transport, trace }));
+    event("started");
+    try { return await operation({ ...options, trace }, event); }
+    catch (error) { event("failed", { error: privacy.mailErrorCode(error) }); throw error; }
+  },
+};
 // Run: node --experimental-vm-modules spec/mail-privacy-spec.mjs
 // Execute production modules with fake storage/transports; no credentials/network.
 import assert from "node:assert/strict";
@@ -34,15 +46,17 @@ async function load(path, mocks) {
 }
 const cleanJSON = (value) => JSON.parse(JSON.stringify(value));
 const privateFree = (value) => assert.ok(!JSON.stringify(value).includes(marker));
+let storageFails = false;
 const collection = {
   createIndex: async () => {}, dropIndex: async () => {},
-  insertOne: async (row) => { stored.push(row); return { insertedId: "opaque-id" }; },
+  insertOne: async (row) => { if (storageFails) throw failure; stored.push(row); return { insertedId: "opaque-id" }; },
   findOne: async () => ({ code: "ac25abcde" }),
 };
 const database = { db: { collection: () => collection }, disconnect: async () => {} };
 let pushThrows = false;
 let smtpCalls = 0;
 const backend = await load("../system/backend/mail.mjs", {
+  "./mail-events.mjs": eventMocks,
   "./authorization.mjs": {
     handleFor: async () => marker,
     userIDFromHandleOrEmail: async () => "recipient",
@@ -76,6 +90,12 @@ await backend.deliver({ from: "sender", to: "recipient", text: marker }, databas
 await backend.deliverFromOutside({ to: "recipient", fromEmail: marker, text: marker }, database);
 await backend.sendOutside({ from: "sender", toEmail: "test@example.invalid", text: marker, subject: marker }, database);
 assert.equal(smtpCalls, 2, "SMTP fallback remains functional");
+storageFails = true;
+const checkpoint = logs.length;
+await assert.rejects(backend.sendOutside({ from: "sender", toEmail: canaryAddress(), text: marker }, database));
+assert.deepEqual(logs.slice(checkpoint).filter((entry) => entry?.event).map((entry) => entry.event), ["started", "relay_accepted", "failed"], "relay acceptance remains distinguishable from sent-list storage failure");
+storageFails = false;
+function canaryAddress() { return `${marker}@example.invalid`; }
 privateFree(logs);
 privateFree(notes);
 assert.equal(privacy.mailErrorCode({ code: "ETIMEDOUT", message: marker }), "ETIMEDOUT");
@@ -86,6 +106,7 @@ assert.equal(privacy.mailErrorCode(failure), "UNKNOWN");
 for (const api of ["mail", "tell"]) {
   for (const stage of ["operation", "connect", "disconnect", "success"]) {
     const handler = await load(`../system/netlify/functions/${api}.mjs`, {
+      "../../backend/mail-events.mjs": eventMocks,
       "../../backend/authorization.mjs": { authorize: async () => ({ sub: "sender" }) },
       "../../backend/database.mjs": { connect: async () => {
         if (stage === "connect") throw failure;
@@ -113,6 +134,7 @@ privateFree(logs);
 // Exercise inbound callbacks without opening a socket or parsing real mail.
 let parsed = { from: { value: [{ address: `${marker}@example.invalid` }] }, headers: new Map() };
 const inbound = await load("../lith/mail-inbound.mjs", {
+  "../system/backend/mail-events.mjs": eventMocks,
   "smtp-server": { SMTPServer: class { constructor(options) { this.options = options; } } },
   mailparser: { simpleParser: async () => parsed },
   "node:net": { BlockList: class {} },
@@ -128,7 +150,7 @@ for (const stage of ["filed", "failure", "stamp", "lookup", "relay", "rate"]) {
     secret: stage === "stamp" ? "stamp" : null,
     lookup: async () => { throw failure; },
     file: async () => { if (stage === "failure") throw failure; return { toHandle: marker }; },
-    limiter: { take: () => ({ ok: stage !== "rate", why: "Too many letters", code: 451 }) },
+    limiter: { takeMany: () => ({ ok: stage !== "rate", gates: [{ quiet: false }], why: "Too many letters", code: 451 }) },
   });
   let result;
   const cb = (error) => { result = error; };

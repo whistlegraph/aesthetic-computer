@@ -6,9 +6,9 @@
 // permahandle (`ac25namuc`, permanent) and their @handle (follows the rename).
 // The permahandle is canonical; the @handle is an alias over it.
 
+import { observeMail } from "./mail-events.mjs";
 import { handleFor, userIDFromHandleOrEmail } from "./authorization.mjs";
 import { filter } from "./filter.mjs";
-import { shell } from "./shell.mjs";
 import { sendToUser } from "../../shared/push.mjs";
 import { letterNotification, mailErrorCode, quietMailPush } from "../../shared/mail-privacy.mjs";
 import { resolveMailMedia, outsideMediaBody } from "./mail-media.mjs";
@@ -80,10 +80,18 @@ export function clean(text, max = MAX_TEXT_LENGTH) {
   return filter((text || "").trim()).slice(0, max);
 }
 
+export const deliver = (options, database) => observeMail("internal", options, database,
+  (options, event) => deliverInternal(options, database, event));
+export const deliverFromOutside = (options, database) => observeMail("smtp-in", options, database,
+  (options, event) => receiveOutside(options, database, event));
+export const sendOutside = (options, database) => observeMail("smtp-out", options, database,
+  (options, event) => relayOutside(options, database, event));
+
 // Put one message in a mailbox and buzz whatever devices the reader carries.
-export async function deliver(
+async function deliverInternal(
   { from, to, text, subject, device, verb = "mailed" },
   database,
+  event,
 ) {
   const tells = await mailbox(database);
   const [fromHandle, toHandle] = await Promise.all([
@@ -105,6 +113,7 @@ export async function deliver(
     read: false,
   });
 
+  event("stored", { letterId: insertedId });
   let push = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
   try {
     push = await sendToUser(
@@ -114,10 +123,10 @@ export async function deliver(
       { device },
       quietMailPush,
     );
-    if (push.failed) shell.log("mail.push.failed", push.failed);
+    event("push", { letterId: insertedId, ...push, ...(push.attempted === 0 ? { reason: "no_devices" } : {}) });
   } catch (err) {
     // A silent phone shouldn't eat the letter — it's already in the mailbox.
-    shell.log("mail.push.error", mailErrorCode(err));
+    event("push_failed", { letterId: insertedId, error: mailErrorCode(err) });
   }
 
   return { id: insertedId, fromHandle, toHandle, when, push };
@@ -132,9 +141,10 @@ export async function deliver(
 // enough this hour. `messageId` keeps a relay retry from filing the same
 // letter twice — scoped to the box, so nobody can pre-empt another's letter.
 let dedupeIndexed = false;
-export async function deliverFromOutside(
+async function receiveOutside(
   { to, fromEmail, fromName, subject, text, messageId, auth = null, quiet = false, attachments = [] },
   database,
+  event,
 ) {
   const tells = await mailbox(database);
   if (!dedupeIndexed) {
@@ -170,12 +180,16 @@ export async function deliverFromOutside(
       read: false,
     }));
   } catch (err) {
-    if (err?.code === 11000) return { duplicate: true, toHandle }; // relay retried
+    if (err?.code === 11000) { event("duplicate"); return { duplicate: true, toHandle }; } // relay retried
     throw err;
   }
 
+  event("stored", { letterId: insertedId });
   let push = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
-  if (quiet) return { id: insertedId, fromHandle, toHandle, when, push, quiet };
+  if (quiet) {
+    event("push_quiet", { letterId: insertedId, reason: "push_limit" });
+    return { id: insertedId, fromHandle, toHandle, when, push, quiet };
+  }
   try {
     push = await sendToUser(
       database.db,
@@ -184,9 +198,9 @@ export async function deliverFromOutside(
       {},
       quietMailPush,
     );
-    if (push.failed) shell.log("mail.push.failed", push.failed);
+    event("push", { letterId: insertedId, ...push, ...(push.attempted === 0 ? { reason: "no_devices" } : {}) });
   } catch (err) {
-    shell.log("mail.push.error", mailErrorCode(err));
+    event("push_failed", { letterId: insertedId, error: mailErrorCode(err) });
   }
 
   return { id: insertedId, fromHandle, toHandle, when, push };
@@ -202,7 +216,7 @@ export async function deliverFromOutside(
 // the door — the plus-tag carries the permahandle, which outlives a rename.
 // It leaves through Google's SMTP relay with the mail@ credentials; the relay
 // lets any address in the domain sign, which plain smtp.gmail.com would not.
-export async function sendOutside({ from, toEmail, subject, text }, database) {
+async function relayOutside({ from, toEmail, subject, text }, database, event) {
   const nodemailer = (await import("nodemailer")).default;
   const [handle, user] = await Promise.all([
     handleFor(from),
@@ -237,12 +251,13 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
       .createTransport({ ...common, host: process.env.AMAIL_SMTP_SERVER || "smtp-relay.gmail.com" })
       .sendMail(letter);
   } catch (err) {
-    shell.log("mail.relay.fallback", mailErrorCode(err));
+    event("relay_fallback", { error: mailErrorCode(err) });
     info = await nodemailer
       .createTransport({ ...common, host: process.env.SMTP_SERVER || "smtp.gmail.com" })
       .sendMail(letter);
   }
 
+  event("relay_accepted");
   const tells = await mailbox(database);
   const when = new Date();
   const { insertedId } = await tells.insertOne({
@@ -258,5 +273,6 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
     when,
     read: true,
   });
+  event("stored", { letterId: insertedId });
   return { id: insertedId, fromHandle, toHandle: toEmail, when };
 }
