@@ -1145,7 +1145,8 @@ if (
   location.hostname === "nopaint.art" ||
   location.hostname === "www.nopaint.art"
 ) {
-  window.acSTARTING_PIECE = "nopaint";
+  // The front door starts a new canvas; rewritten session URLs resume.
+  window.acSTARTING_PIECE = location.pathname === "/" ? "nopaint~fresh" : "nopaint";
 }
 if (
   location.hostname === "oskiewar.com" ||

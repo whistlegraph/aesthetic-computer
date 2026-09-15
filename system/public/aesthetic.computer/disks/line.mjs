@@ -284,7 +284,17 @@ const nopaintProposal = Object.freeze({
           Math.round(start.y + (end.y - start.y) * t - sway * 0.65))),
       });
     });
-    const thickness = 1 + Math.floor(random() * 50);
+    const shortSide = Math.min(width, height);
+    const maxThickness = Math.max(1, Math.min(50, Math.floor(shortSide * 0.12)));
+    const thickness = 1 + Math.floor(random() * maxThickness);
+    // Keep the whole stroke visible, including rounded caps and a little
+    // breathing room. Scale the path inward so it keeps its shape at edges.
+    const inset = Math.min(Math.floor((shortSide - 1) / 2),
+      Math.ceil(thickness / 2) + Math.max(2, Math.round(shortSide * 0.04)));
+    const insetPoints = points.map(({ x, y }) => Object.freeze({
+      x: Math.round(inset + x / Math.max(1, width - 1) * (width - 1 - inset * 2)),
+      y: Math.round(inset + y / Math.max(1, height - 1) * (height - 1 - inset * 2)),
+    }));
     const alpha = 24 + Math.floor(random() * 169);
     const color = Object.freeze([base.color[0], base.color[1], base.color[2], alpha]);
     const durationFrames = 24 + Math.floor(random() * 97);
@@ -292,7 +302,7 @@ const nopaintProposal = Object.freeze({
       ...base,
       color,
       thickness,
-      points: Object.freeze(points),
+      points: Object.freeze(insetPoints),
       brush: Object.freeze({
         slug: "line",
         params: Object.freeze(color.map(String)),
