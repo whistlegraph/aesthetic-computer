@@ -6652,3 +6652,19 @@ test("undrawn ambient particles cost no simulation work", () => {
   fight.nextRound();
   assert.equal(fight.airParticles.length, 0);
 });
+
+test("the title offers a coach seat and says when one is linked", () => {
+  assert.match(source, /drawCoachLine\(button, transitionInk\)/);
+  const coachSource = source.slice(source.indexOf("function drawCoachLine"),
+    source.indexOf("function titleButtonRect"));
+  // Never on the hash-bound poster: the room name changes every burn.
+  assert.match(coachSource, /capabilities\(\)\.socialPreview === true\) return/);
+  assert.match(coachSource, /"add your coach  oskiewar\.com\/coach  " \+ room/);
+  assert.match(coachSource, /"coach linked  " \+ room/);
+  // The seat the line reports is the relay's agent count, the same number
+  // that lights the antenna beside the debug bug.
+  assert.match(coachSource, /const linked = linkedAgents\(\)/);
+  assert.match(coachSource, /if \(linked\) drawAgentLink\(/);
+  // The room it prints is the one this tab is publishing.
+  assert.match(coachSource, /const room = versusRoomName \|\| sessionName/);
+});

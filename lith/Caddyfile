@@ -1111,6 +1111,15 @@ oskiewar.com, midi.oskiewar.com {
         file_server
     }
 
+    # Add your coach: the page the title screen prints, and (through the
+    # catch-all below) the one file it hands to a player's own agent.
+    handle /coach {
+        root * /opt/ac/xbox/live
+        rewrite * /coach.html
+        header Cache-Control no-cache
+        file_server
+    }
+
     # Playable Canvas/Web Audio build shared with the desktop test harness.
     @oskiewargame path /
     handle @oskiewargame {

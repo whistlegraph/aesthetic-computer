@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>oskiewar — add your coach</title>
+<meta name="description" content="Add your coach: let your own Claude sit in on your oskiewar matches, watch every hit, and tell you what keeps getting you killed.">
+<link rel="canonical" href="https://oskiewar.com/coach">
+<style>
+  :root {
+    --brick:  #c9a58c;
+    --mortar: #b8917a;
+    --grass:  #8fbc6b;
+    --ground: #5e7a4a;
+    --ink:    #241c18;
+    --soft:   #5a4a40;
+    --violet: #ee82ee;
+    --red:    #cd5c5c;
+    --paper:  #f6efe8;
+    --link:   #78e2ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--brick);
+    background-image:
+      linear-gradient(var(--mortar) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mortar) 1px, transparent 1px);
+    background-size: 96px 96px;
+    color: var(--ink);
+    font-family: "Comic Relief", "Comic Sans MS", "Chalkboard SE", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    padding: 40px 16px 0;
+    min-height: 100vh;
+  }
+  main {
+    max-width: 620px;
+    margin: 0 auto 48px;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 10px;
+    padding: 28px 26px 32px;
+  }
+  h1 { font-size: 34px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  .tag { color: var(--soft); margin: 0 0 26px; }
+  h2 {
+    font-size: 20px; margin: 30px 0 8px;
+    border-bottom: 2px solid var(--brick); padding-bottom: 4px;
+  }
+  p, li { margin: 0 0 10px; }
+  ul { padding-left: 22px; }
+  code, kbd {
+    background: #e6dcd2; border: 1px solid #cbbdb0; border-radius: 4px;
+    padding: 1px 6px; font-family: ui-monospace, Menlo, monospace; font-size: 15px;
+  }
+  pre {
+    background: #241c18; color: #f6efe8; border-radius: 6px;
+    padding: 14px 16px; overflow-x: auto; font-size: 15px; line-height: 1.5;
+    margin: 8px 0 14px;
+  }
+  pre code { background: none; border: 0; padding: 0; color: inherit; }
+  .mark {
+    display: inline-block; vertical-align: -3px; margin-right: 6px;
+    width: 18px; height: 18px; image-rendering: pixelated;
+  }
+  a { color: #a8324f; }
+  .said {
+    border-left: 4px solid var(--violet); padding: 4px 12px; margin: 10px 0 16px;
+    color: var(--soft); font-style: italic;
+  }
+  footer {
+    max-width: 620px; margin: 0 auto; padding: 0 0 40px;
+    color: #4a3a30; font-size: 15px;
+  }
+  footer a { color: #7a2438; }
+  .grass {
+    height: 34px; background: var(--grass);
+    border-top: 3px solid var(--ink); margin-top: 34px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>add your coach</h1>
+  <p class="tag">your own Claude, sitting in on your fights.</p>
+
+  <p>
+    Every oskiewar match has a room, and the title screen prints its name
+    under <strong>start</strong>. A coach is an agent that takes the room's
+    read-only seat and reads the same frames every phone in the grandstand
+    reads: every swing, every hit, what you were doing when it landed, how
+    often you block, how you die. It never presses a button. While it is
+    seated the title screen says
+    <svg class="mark" viewBox="0 0 12 12" aria-hidden="true"><rect x="5" y="0" width="2" height="3" fill="#78e2ff"/><rect x="2" y="1" width="2" height="1" fill="#78e2ff"/><rect x="8" y="1" width="2" height="1" fill="#78e2ff"/><rect x="3" y="4" width="6" height="6" fill="#78e2ff"/><rect x="4" y="6" width="1" height="2" fill="#0a101e"/><rect x="7" y="6" width="1" height="2" fill="#0a101e"/></svg><strong>coach linked</strong>.
+  </p>
+
+  <h2>Two lines</h2>
+  <p>
+    The coach is one file with no dependencies. Fetch it, hand it to Claude
+    Code as an MCP server, and Claude has the tools.
+  </p>
+<pre><code>curl -fsSLO https://oskiewar.com/coach.mjs
+claude mcp add coach -- node ./coach.mjs</code></pre>
+  <p>
+    Then open oskiewar, read the room name under <strong>start</strong>, and
+    tell Claude:
+  </p>
+  <p class="said">coach me in regga890</p>
+  <p>
+    Codex and anything else that speaks MCP over stdio works the same way:
+    <code>codex mcp add coach -- node ./coach.mjs</code>. Node 22 or newer is
+    the only requirement.
+  </p>
+
+  <h2>What a coach can do</h2>
+  <ul>
+    <li>
+      <strong>Watch.</strong> <code>coach_watch</code> streams the fight as
+      events: <em>hit by WHIP while airborne at distance 140</em>,
+      <em>blocked KICK</em>, <em>died to BASH while attacking</em>, round
+      results. Ask it to call out what it sees between rounds.
+    </li>
+    <li>
+      <strong>Analyze.</strong> <code>coach_analyze</code> folds everything it
+      has seen: hits taken by attack and by what you were doing, block rate,
+      each move's thrown/landed/blocked/whiffed, air time, spacing. Ask
+      <em>what keeps getting me killed?</em>
+    </li>
+    <li>
+      <strong>Get your data.</strong> <code>coach_record</code> pulls your
+      track record from the replay ledger — rounds and matches won, opponents,
+      every room you have played in — and <code>coach_replay</code> opens any
+      stored round, match or room. Ask for your record against one handle.
+    </li>
+  </ul>
+
+  <h2>Things to say to it</h2>
+  <ul>
+    <li><em>Sit in on regga890 and tell me after each round what to change.</em></li>
+    <li><em>Which of my moves lands least? Should I stop throwing it?</em></li>
+    <li><em>Pull @jeffrey's record and tell me who beats them.</em></li>
+    <li><em>Watch the next two minutes and count how often I jump into a whip.</em></li>
+  </ul>
+
+  <h2>What it can see, and what it cannot</h2>
+  <p>
+    The relay is public and match-scoped: anyone with a room's name can
+    watch it, the same way anyone with the address can join the second chair.
+    A coach reads fighter positions, states, scores and the moves on screen.
+    It does not see your keyboard, your account, or anything outside the room.
+    It cannot press a button, and the game counts it apart from human
+    spectators — the antenna on the title means a machine is reading, not one
+    more person in the stands. Up to four coaches can share one room.
+  </p>
+
+  <div class="grass"></div>
+</main>
+<footer>
+  <a href="https://oskiewar.com/">oskiewar.com</a> ·
+  <a href="https://oskiewar.com/support.html">support</a> ·
+  <a href="https://oskiewar.com/privacy.html">privacy</a> ·
+  source: <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/xbox/live/coach.mjs">coach.mjs</a>
+</footer>
+</body>
+</html>
