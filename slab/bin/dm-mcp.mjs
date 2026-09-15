@@ -296,6 +296,7 @@ async function toolSend({
   attachments,
   linkPreview,
   decorativeReply,
+  decorated,
   confirm,
   machine,
 } = {}) {
@@ -306,6 +307,10 @@ async function toolSend({
   if (!message && !files.length && !linkPreview) {
     throw new Error("provide `text`, `image`/`attachments`, or `linkPreview`");
   }
+
+  if (decorated && ch !== "imessage" && ch !== "imsg") throw new Error("`decorated` (Messages text effects) is iMessage-only");
+  if (decorated && (files.length || linkPreview)) throw new Error("`decorated` applies to a text-only message");
+  if (decorated && !message) throw new Error("`decorated` needs `text` to decorate");
 
   if (ch === "signal") {
     if (to && group) throw new Error("pass either `to` or `group` for a Signal send, not both");
@@ -360,6 +365,14 @@ async function toolSend({
     const toArgs = ["--to", String(to)];
     const { stdout: resolved } = await runBridge(IMSG, ["resolve", ...toArgs], machine, { timeoutMs: 30000 });
     const rcpt = JSON.parse(resolved);
+    // A decorated message is typed into Messages.app and walked character by
+    // character with Format-menu text effects (imsg.mjs sendDecorated). The
+    // preview shows exactly which decoration each character will get.
+    let decor = null;
+    if (decorated) {
+      const { stdout } = await runBridge(IMSG, ["styles", String(decorated), message], machine, { timeoutMs: 30000 });
+      decor = JSON.parse(stdout.trim());
+    }
     if (!confirm) {
       const previewLines = [
         "PREVIEW — not sent. Re-call with confirm:true to send.",
@@ -367,6 +380,7 @@ async function toolSend({
         `to: ${rcpt.displayName}  [requested: "${to}"]`,
         ...files.map((file) => `attachment: ${file.path} (${file.bytes} bytes, sha256 ${file.sha256})`),
         ...(linkPreview ? [`rich link preview: ${linkPreview}`] : []),
+        ...(decor ? [`decorated: ${decor.style} — ${decor.about}`, `per character: ${decor.plan}`, "(types into Messages.app; it must be idle — a draft in the compose field aborts the send)"] : []),
         ...(message ? ["--- message ---", message] : []),
       ];
       return text(
@@ -394,7 +408,11 @@ async function toolSend({
     }
     // If text is exactly the rich-preview URL, the URL balloon already carries
     // it; do not emit a duplicate plain bubble.
-    if (hasDistinctText) {
+    if (hasDistinctText && decor) {
+      // ~0.4 s per decorated character plus the app round-trip.
+      const { stdout } = await runBridge(IMSG, ["send", message, "--decorated", String(decorated), ...toArgs], machine, { timeoutMs: 180000 });
+      receipts.push(JSON.parse(stdout.trim()));
+    } else if (hasDistinctText) {
       const { stdout } = await runBridge(IMSG, ["send", message, ...toArgs], machine, { timeoutMs: 30000 });
       receipts.push({ kind: "text", ...JSON.parse(stdout.trim()) });
     }
@@ -552,6 +570,7 @@ const TOOLS = [
         attachments: { type: "array", items: { type: "string" }, description: "Optional local file paths to attach." },
         linkPreview: { type: "string", description: "iMessage only: URL to send as a rich link preview." },
         decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. true = the whistlegraph pen (🖋️〰️); a string is a custom motif. Shown in the preview." },
+        decorated: { type: "string", description: "iMessage only: a decorated message — Messages' animated text effects applied character by character. A style name (nod, shake, jitter, ripple, bloom, explode, big, small, wobble, seesaw, carnival, ransom, shout, whisper) or a custom comma list that cycles per character (\"nod,big\"; \"+\" stacks: \"big+bold,small\"). Text only, under 280 characters; the preview shows the per-character plan. Typed into Messages.app, so the app must be idle." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
         machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
       },

@@ -21,7 +21,9 @@
 //   imsg index         incrementally refresh the private local FTS index
 //   imsg use <name>    switch the notification/default contact safely
 //   imsg send <text>   send to an explicitly selected contact via Messages.app
-//                      (--media <path> attaches a file, --link-preview <url>)
+//                      (--media <path> attaches a file, --link-preview <url>,
+//                      --decorated <style> animates the type — see `styles`)
+//   imsg styles [<style> <text>]  decorated styles; with text, the per-character plan
 //   imsg react <kind>  classic Tapback on that contact's latest incoming message
 //   imsg tail          live terminal client (prints + BEL on new inbound)
 //   imsg open          open the Messages.app conversation
@@ -707,6 +709,225 @@ end tell`;
   return spec.label;
 }
 
+// ─── send: decorated ─────────────────────────────────────────────────────
+//
+// A "decorated" message carries Messages' own animated type — the Format ▸
+// Text Effects (Big, Small, Shake, Nod, Explode, Ripple, Bloom, Jitter) and
+// text styles (Bold, Italic, Underline, Strikethrough). AppleScript's `send`
+// cannot attach them, so this lane drives Messages.app the way `react` does:
+// open the conversation, type the body, jump to its start, then walk it one
+// character at a time — shift+→ selects the character, the Format menu
+// applies that character's decorations, → collapses the selection — and
+// press return.
+//
+// NSAttributedString coalesces neighbouring characters that share attributes
+// into ONE run (verified 2026-09-15: ten Nod characters stored as a single
+// ten-character run, effect id 8), so "per character" is only visible where
+// neighbours differ. Every style therefore leaves whitespace plain — each
+// word is its own run — and the mixed styles alternate effects so every
+// character moves on its own.
+//
+// Guards, because this lane types into a shared app: the conversation window
+// title must match the recipient before a key is pressed; the compose field
+// must be empty, so a human draft is never clobbered; whatever app was in
+// front is put back afterwards; and the receipt comes from chat.db — the new
+// outbound row in that chat, its body carrying __kIMTextEffectAttributeName.
+
+const TEXT_EFFECTS = ["big", "small", "shake", "nod", "explode", "ripple", "bloom", "jitter"];
+const TEXT_STYLES = ["bold", "italic", "underline", "strikethrough"];
+const FORMAT_MENU = Object.fromEntries(
+  [...TEXT_EFFECTS, ...TEXT_STYLES].map((d) => [d, d[0].toUpperCase() + d.slice(1)]),
+);
+
+// Messages moves the caret by grapheme, so the plan is one entry per
+// grapheme: that character's decorations (empty = plain). `pick` sees only
+// the visible characters, numbered so a pattern flows across word breaks.
+const graphemes = (text) => [...new Intl.Segmenter().segment(text)].map((s) => s.segment);
+function planFor(text, pick) {
+  let n = 0;
+  return graphemes(text).map((ch) => (/^\s+$/.test(ch) ? [] : pick(n++, ch)));
+}
+const every = (...decor) => (text) => planFor(text, () => decor);
+const cycling = (...groups) => (text) => planFor(text, (n) => groups[n % groups.length]);
+
+const DECORATED_STYLES = {
+  ...Object.fromEntries(
+    TEXT_EFFECTS.map((e) => [e, { about: `${FORMAT_MENU[e]} on every word`, plan: every(e) }]),
+  ),
+  wobble: { about: "nod / shake alternating, so each character moves alone", plan: cycling(["nod"], ["shake"]) },
+  seesaw: { about: "big / small alternating", plan: cycling(["big"], ["small"]) },
+  carnival: { about: "all eight effects cycling character by character", plan: cycling(...TEXT_EFFECTS.map((e) => [e])) },
+  ransom: {
+    about: "a ransom note — sizes, jitter and ripple with bold and italic mixed in",
+    plan: cycling(["big", "bold"], ["small"], ["jitter"], ["big", "italic"], ["ripple"], ["small", "bold"], ["shake"], ["bloom", "italic"]),
+  },
+  shout: { about: "big and bold on every word", plan: every("big", "bold") },
+  whisper: { about: "small and italic on every word", plan: every("small", "italic") },
+};
+
+// `spec` is a style name, or a comma list that cycles character by character
+// ("nod,big"); "+" stacks decorations on one character ("big+bold,small").
+function decoratedPlan(spec, text) {
+  const key = String(spec || "").trim().toLowerCase();
+  const style = DECORATED_STYLES[key];
+  if (style) return { style: key, about: style.about, plan: style.plan(text) };
+  const groups = key.split(",").map((g) => g.split("+").map((d) => d.trim()).filter(Boolean)).filter((g) => g.length);
+  const unknown = groups.flat().filter((d) => !FORMAT_MENU[d]);
+  if (!groups.length || unknown.length) {
+    throw new Error(
+      `unknown decorated style "${spec}" — use ${Object.keys(DECORATED_STYLES).join(", ")}, ` +
+      `or a comma list of ${Object.keys(FORMAT_MENU).join(", ")} ("+" stacks)`,
+    );
+  }
+  return { style: key, about: `custom: ${key}`, plan: cycling(...groups)(text) };
+}
+
+// One line per character for previews: "n·nod o·nod p·big …".
+function describePlan(text, plan) {
+  return graphemes(text)
+    .map((ch, i) => (plan[i].length ? `${ch}·${plan[i].join("+")}` : /^\s+$/.test(ch) ? "␣" : ch))
+    .join(" ");
+}
+
+function frontmostApp() {
+  const r = spawnSync("/usr/bin/osascript", [
+    "-e", 'tell application "System Events" to get name of first application process whose frontmost is true',
+  ], { encoding: "utf8" });
+  return r.status === 0 ? r.stdout.trim() : "";
+}
+
+function decoratedScript(plan) {
+  const steps = [];
+  for (const decor of plan) {
+    if (!decor.length) {
+      steps.push("key code 124");
+      continue;
+    }
+    steps.push("key code 124 using shift down", "delay 0.1");
+    for (const d of decor) {
+      steps.push(`click menu item "${FORMAT_MENU[d]}" of menu 1 of menu bar item "Format" of menu bar 1`, "delay 0.18");
+    }
+    steps.push("key code 124", "delay 0.05");
+  }
+  // argv: expected window-title fragment ("" for a raw handle), the "|"-wrapped
+  // list of known contact titles a raw handle must NOT land on, then the
+  // body's lines (option+return between them — a bare return would send the
+  // half-typed message).
+  return `
+on run argv
+  set expected to item 1 of argv
+  set refuse to item 2 of argv
+  tell application "Messages" to activate
+  delay 0.6
+  tell application "System Events"
+    tell process "Messages"
+      set frontmost to true
+      delay 0.3
+      set t to name of window 1
+      if expected is not "" and t does not contain expected then error "wrong conversation: the Messages window is \\"" & t & "\\", expected \\"" & expected & "\\""
+      if expected is "" and refuse contains ("|" & t & "|") then error "wrong conversation: the Messages window is \\"" & t & "\\", a configured contact, not the raw handle asked for"
+      set composeField to missing value
+      set els to entire contents of window 1
+      repeat with e in els
+        if class of e is text field then
+          try
+            if (value of attribute "AXPlaceholderValue" of e) is not "Search" then set composeField to e
+          end try
+        end if
+      end repeat
+      if composeField is missing value then error "compose field not found in the Messages window"
+      set draft to value of composeField
+      if draft is not missing value and draft is not "" then error "compose field already holds a draft: " & draft
+      set value of attribute "AXFocused" of composeField to true
+      delay 0.2
+      repeat with i from 3 to (count of argv)
+        keystroke (item i of argv)
+        if i < (count of argv) then key code 36 using option down
+        delay 0.1
+      end repeat
+      delay 0.3
+      key code 126 using command down
+      delay 0.2
+      ${steps.join("\n      ")}
+      delay 0.3
+      keystroke return
+    end tell
+  end tell
+end run`;
+}
+
+// The receipt: the outbound row this send created, found through the chat's
+// handles, with the attribute names Messages stored on its body.
+function awaitDecorated(handles, beforeRowid, timeoutMs = 20000) {
+  const started = Date.now();
+  const ids = handles.map(sqlString).join(", ");
+  while (Date.now() - started < timeoutMs) {
+    const rows = sqlite(
+      `SELECT m.ROWID AS id, m.text, hex(m.attributedBody) AS body, m.error, m.is_sent
+         FROM message m
+         JOIN chat_message_join cm ON cm.message_id = m.ROWID
+         JOIN chat_handle_join ch ON ch.chat_id = cm.chat_id
+         JOIN handle h ON h.ROWID = ch.handle_id
+        WHERE m.is_from_me = 1 AND m.ROWID > ${beforeRowid} AND h.id IN (${ids})
+        ORDER BY m.ROWID DESC LIMIT 1`,
+    );
+    const row = rows[0];
+    if (row) {
+      const raw = Buffer.from(row.body || "", "hex").toString("latin1");
+      const attributes = [...new Set(raw.match(/__kIM[A-Za-z]+AttributeName/g) || [])]
+        .filter((a) => a !== "__kIMMessagePartAttributeName");
+      return { messageId: row.id, text: decodeBody(row.text, row.body), error: row.error, attributes };
+    }
+    spawnSync("/bin/sleep", ["0.5"]);
+  }
+  return null;
+}
+
+const DECORATED_MAX_CHARS = 280;
+
+function sendDecorated(cfg, rcpt, body, spec) {
+  const text = String(body ?? "");
+  if (!text.trim()) throw new Error("a decorated message needs text");
+  if (graphemes(text).length > DECORATED_MAX_CHARS) {
+    throw new Error(`decorated messages walk the text one character at a time — keep it under ${DECORATED_MAX_CHARS} characters`);
+  }
+  const { style, about, plan } = decoratedPlan(spec, text);
+  const to = String(rcpt.handles[0]);
+  // A configured contact's window is titled with its display name. A raw
+  // handle's reads "Maybe: <suggestion>" or a formatted number, so it cannot
+  // be matched — instead the window must not be any configured contact's.
+  const isContact = rcpt.displayName !== to;
+  const expectedTitle = isContact ? rcpt.displayName : "";
+  const refuse = "|" + Object.values(contactsMap(cfg)).map((c) => c.displayName).filter(Boolean).join("|") + "|";
+  const before = sqlite("SELECT MAX(ROWID) AS id FROM message")[0]?.id ?? 0;
+  const previous = frontmostApp();
+  const opened = spawnSync("/usr/bin/open", [`imessage://${to}`], { encoding: "utf8" });
+  if (opened.status !== 0) throw new Error((opened.stderr || "could not open Messages conversation").trim());
+  spawnSync("/bin/sleep", ["1.2"]);
+  const r = osascript(decoratedScript(plan), [expectedTitle, refuse, ...text.split("\n")]);
+  if (previous && previous !== "Messages") {
+    spawnSync("/usr/bin/osascript", ["-e", `try
+  tell application "${previous.replace(/"/g, '\\"')}" to activate
+end try`], { encoding: "utf8" });
+  }
+  if (r.status !== 0) throw new Error((r.stderr || "decorated send failed").trim().replace(/^\d+:\d+: execution error: /, ""));
+  const receipt = awaitDecorated(rcpt.handles, before);
+  if (!receipt) throw new Error("the decorated message never appeared in chat.db");
+  if (receipt.error) throw new Error(`Messages rejected the decorated message (error ${receipt.error})`);
+  const wantsEffects = plan.some((d) => d.some((x) => TEXT_EFFECTS.includes(x)));
+  const hasEffects = receipt.attributes.includes("__kIMTextEffectAttributeName");
+  return {
+    kind: "decorated",
+    style,
+    about,
+    messageId: receipt.messageId,
+    text: receipt.text,
+    textMatches: receipt.text === text.trim(),
+    attributes: receipt.attributes,
+    ...(wantsEffects && !hasEffects ? { warning: "sent, but no text-effect attribute landed on the body" } : {}),
+  };
+}
+
 // ─── command: status ─────────────────────────────────────────────────────
 
 function cmdStatus() {
@@ -1097,6 +1318,7 @@ try {
       const toArg = take("--to");
       const media = take("--media");
       const linkPreview = take("--link-preview");
+      const decorated = take("--decorated");
       // dm-mcp.mjs guards the recipient before it calls us; the UI transport it
       // once needed is gone, so the flag is accepted and ignored.
       take("--expected-title");
@@ -1104,8 +1326,12 @@ try {
       const body = args.join(" ").trim();
       if (!media && !linkPreview && !body) {
         console.error(
-          "usage: imsg send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>]",
+          "usage: imsg send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>] [--decorated <style>]",
         );
+        process.exit(1);
+      }
+      if (decorated && (media || linkPreview)) {
+        console.error("--decorated applies to a text message only");
         process.exit(1);
       }
       // Every branch prints a JSON receipt — dm-mcp.mjs parses stdout, and an
@@ -1114,6 +1340,8 @@ try {
       const rcpt = resolveRecipient(cfg, toArg);
       if (media) {
         print({ displayName: rcpt.displayName, kind: "media", ...sendMedia(rcpt.handles, media) });
+      } else if (decorated) {
+        print({ displayName: rcpt.displayName, ...sendDecorated(cfg, rcpt, body, decorated) });
       } else {
         sendMessage(rcpt.handles, linkPreview || body);
         print({ displayName: rcpt.displayName, kind: linkPreview ? "link-preview" : "text" });
@@ -1121,6 +1349,23 @@ try {
       const watched = defaultContact(cfg);
       if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
         acknowledge(cfg);
+      }
+      break;
+    }
+    case "styles": {
+      // Every decorated style, and — with text — the per-character plan a
+      // style or custom spec would apply, so dm-mcp can preview it.
+      const spec = rest[0];
+      const text = rest.slice(1).join(" ");
+      if (spec && text) {
+        const { style, about, plan } = decoratedPlan(spec, text);
+        print({ style, about, plan: describePlan(text, plan) });
+      } else {
+        print({
+          styles: Object.fromEntries(Object.entries(DECORATED_STYLES).map(([k, v]) => [k, v.about])),
+          decorations: Object.keys(FORMAT_MENU),
+          custom: 'a comma list cycles character by character ("nod,big"); "+" stacks ("big+bold,small")',
+        });
       }
       break;
     }
@@ -1164,7 +1409,7 @@ try {
       break;
     default:
       console.error(
-        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>]|react <kind> --to <name|handle>|tail|open|config",
+        "usage: imsg status|chats [N]|read [N] [--to <name|handle>]|search <text> [--to <name|handle>] [--limit N]|index [--all] [--rebuild]|use <contact>|ack|resolve [--to] <name|handle>|send <text> [--to <name|handle>] [--media <path>] [--link-preview <url>] [--decorated <style>]|styles [<style> <text>]|react <kind> --to <name|handle>|tail|open|config",
       );
       process.exit(1);
   }
