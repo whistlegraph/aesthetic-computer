@@ -670,7 +670,9 @@ for f in range(NF):
     draw_loudness_meter(dd, LOUDNESS, t, (760, 10, W - 360, 56), f_tiny,
                         target_lufs=LUFS_TARGET, true_peak_ceiling=TP_CEILING,
                         colors={"background": CARD_BG, "outline": CARD_EDGE, "text": INK,
-                                "muted": FOOT, "track": BAR_TRACK})
+                                "muted": FOOT, "track": BAR_TRACK,
+                                **({"short": (168, 118, 20), "integrated": (40, 96, 170),
+                                    "target": (30, 120, 84)} if LIGHT else {})})
     ff.stdin.write(img.tobytes())
     if f % 300 == 0:
         print(f"  frame {f}/{NF}  ({time.time() - t_start:.0f}s)", flush=True)
