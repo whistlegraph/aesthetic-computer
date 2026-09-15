@@ -190,8 +190,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// twice isn't one. See CtrlDoubleTap.
     private var zoomLensTap: CtrlDoubleTap?
 
-    /// Hold bare ⌘⌥ → chime + arrow-key pad showing which arrows currently
-    /// lead to a neighboring prompt pane. Also a modifier-only gesture, so
+    /// Hold bare ⌘⌥ → chime + one arrow centered in each
+    /// destination prompt pane. Also a modifier-only gesture, so
     /// also an event tap rather than a Carbon hotkey. See NavHoldHint.
     private var navHoldTap: NavHoldTap?
 
@@ -345,8 +345,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // whether focus arrived through WindowNav or an ordinary mouse click.
         PromptFocusHighlight.shared.start()
 
-        // Holding bare ⌘⌥ for a beat chimes and floats the arrow-key pad over
-        // the focused pane, previewing where each arrow would jump.
+        // Holding bare ⌘⌥ for a beat shows the current outline and one
+        // arrow on each pane reachable with the next keypress.
         let holdTap = NavHoldTap(
             onHoldStart: { NavHoldHint.shared.beginHold() },
             onHoldEnd: { NavHoldHint.shared.endHold() },

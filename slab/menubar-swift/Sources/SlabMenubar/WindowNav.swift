@@ -33,6 +33,15 @@ enum WindowNav {
             case .down: return (0, 1)
             }
         }
+
+        var glyph: String {
+            switch self {
+            case .left: return "←"
+            case .right: return "→"
+            case .up: return "↑"
+            case .down: return "↓"
+            }
+        }
     }
 
     private struct Window {
@@ -48,7 +57,7 @@ enum WindowNav {
         guard AXTiler.trusted else { return }
         let wins = windows()
         guard !wins.isEmpty else {
-            NavHoldHint.shared.noteJump(local: false)
+            NavHoldHint.shared.noteJump(local: false, focusedWindowID: nil)
             DeskflowSpatialNav.cross(from: dir, alignment: 0.5)
             return
         }
@@ -60,7 +69,7 @@ enum WindowNav {
         }
         guard let focusCenter = lensWindow?.center ?? focusedWindowCenter() else {
             focus(wins[0])
-            NavHoldHint.shared.noteJump(local: true)
+            NavHoldHint.shared.noteJump(local: true, focusedWindowID: wins[0].id)
             return
         }
         let currentIdx = wins.enumerated().min(by: {
@@ -71,34 +80,42 @@ enum WindowNav {
         if let target = directionalWindow(in: wins, from: current,
                                           excluding: currentIdx, direction: dir) {
             focus(target)
-            NavHoldHint.shared.noteJump(local: true)
+            NavHoldHint.shared.noteJump(local: true, focusedWindowID: target.id)
             return
         }
 
         // The local wall ended. Preserve the focused pane's perpendicular
         // position so the receiving host can choose the pane that continues
         // the same visual row/column.
-        NavHoldHint.shared.noteJump(local: false)
+        NavHoldHint.shared.noteJump(local: false, focusedWindowID: nil)
         DeskflowSpatialNav.cross(from: dir, alignment: normalizedAlignment(
             of: current, direction: dir))
     }
 
-    /// What the ⌘⌥-hold pad needs to light itself: the focused pane's frame
-    /// and, per direction, the window an arrow press would land on right now.
+    /// What the ⌘⌥-hold hints need: the focused window and each window reachable with
+    /// one arrow press. Each destination owns exactly one hint.
     /// Same window set, same focus resolution, same neighbor scoring as
     /// `jump` — a hint that disagrees with the key it hints at is worse than
     /// no hint.
     struct HintSnapshot {
-        var originFrame: CGRect?
-        var targets: [Direction: Int]
+        struct Target {
+            var windowID: Int
+            var frame: CGRect
+            var direction: Direction?
+        }
+
+        var current: Target?
+        var targets: [Target]
     }
 
-    static func hintSnapshot() -> HintSnapshot {
-        guard AXTiler.trusted else { return HintSnapshot(originFrame: nil, targets: [:]) }
+    static func hintSnapshot(focusedWindowID: Int? = nil) -> HintSnapshot {
+        guard AXTiler.trusted else { return HintSnapshot(current: nil, targets: []) }
         let wins = windows()
-        guard !wins.isEmpty else { return HintSnapshot(originFrame: nil, targets: [:]) }
+        guard !wins.isEmpty else { return HintSnapshot(current: nil, targets: []) }
         let focusCenter = focusedWindowCenter()
-        let currentIdx = focusCenter.flatMap { fc in
+        let currentIdx = (focusedWindowID ?? ZoomLens.targetWindowID.map(Int.init)).flatMap { id in
+            wins.firstIndex { $0.id == id }
+        } ?? focusCenter.flatMap { fc in
             wins.enumerated().min(by: {
                 dist2($0.element.center, fc) < dist2($1.element.center, fc)
             })?.offset
@@ -106,15 +123,23 @@ enum WindowNav {
         let fallback = NSScreen.main.map { cgFrame(of: $0) }
             .map { CGPoint(x: $0.midX, y: $0.midY) } ?? .zero
         let current = currentIdx.map { wins[$0].center } ?? focusCenter ?? fallback
-        var targets: [Direction: Int] = [:]
-        for dir in Direction.allCases {
-            if let target = directionalWindow(in: wins, from: current,
-                                              excluding: currentIdx, direction: dir) {
-                targets[dir] = target.id
-            }
+        let resolvedIdx = currentIdx ?? wins.enumerated().min(by: {
+            dist2($0.element.center, current) < dist2($1.element.center, current)
+        })?.offset ?? 0
+
+        let currentTarget = HintSnapshot.Target(windowID: wins[resolvedIdx].id,
+                                                frame: wins[resolvedIdx].frame,
+                                                direction: nil)
+        var seen = Set<Int>()
+        let targets = Direction.allCases.compactMap { dir -> HintSnapshot.Target? in
+            guard let target = directionalWindow(in: wins,
+                                                 from: wins[resolvedIdx].center,
+                                                 excluding: resolvedIdx,
+                                                 direction: dir),
+                  seen.insert(target.id).inserted else { return nil }
+            return .init(windowID: target.id, frame: target.frame, direction: dir)
         }
-        return HintSnapshot(originFrame: currentIdx.map { wins[$0].frame },
-                            targets: targets)
+        return HintSnapshot(current: currentTarget, targets: targets)
     }
 
     /// Fleet navigation endpoint: select the prompt nearest the edge through
@@ -256,9 +281,9 @@ enum WindowNav {
         }
         // Raising and app activation complete on the next WindowServer turn;
         // the geometry is already stable, so the acquisition move can fire now.
-        if !ZoomLens.followWindow(id: CGWindowID(window.id), frame: window.frame,
-                                  engage: engageZoom),
-           let screen = screen(containingCG: window.center) {
+        ZoomLens.followWindow(id: CGWindowID(window.id), frame: window.frame,
+                              engage: engageZoom)
+        if let screen = screen(containingCG: window.center) {
             ZoomSpecialMove.fire(around: window.frame, on: screen)
         }
         PopSound.playTransferClick()

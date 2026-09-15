@@ -49,6 +49,9 @@ Double-tap Control over a window to zoom; repeat to exit. Command–Option–arr
 focuses the neighboring prompt and smoothly refits the lens, including across
 Deskflow hosts. Move the pointer deliberately to resume mouse following.
 Full-height windows keep the lens active at 1×. Reduce Motion skips animation.
+Holding Command–Option outlines the current pane and shows one arrow on each
+destination reachable with the next keypress. Zoom entry and arrow jumps retain
+their edge flash and particle burst.
 
 ## Prompt rocks
 

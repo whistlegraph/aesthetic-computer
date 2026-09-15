@@ -109,6 +109,7 @@ enum ZoomLens {
 
         keyboardPointerAnchor = nil
         zoom(to: target, on: screen)
+        ZoomSpecialMove.fire(around: target.frame, on: screen)
         PopSound.play(rising: true)
     }
 
