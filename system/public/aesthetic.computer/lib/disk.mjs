@@ -9752,6 +9752,7 @@ async function load(
       };
 
       sim = module.sim || defaults.sim;
+      receive = module.receive || defaults.receive;
       paint = async ($) => {
         let painted = false;
 
@@ -11288,10 +11289,10 @@ async function makeFrame({ data: { type, content } }) {
     serverUploadProgressReporter?.(content); // Report file upload progress if needed.
 
     // Also forward to current piece (especially video.mjs for tape uploads)
-    if (cachedAPI?.piece?.receive) {
+    if (booted && receive !== defaults.receive) {
       console.log(`📤 Forwarding upload:progress to piece: ${content}`);
       try {
-        cachedAPI.piece.receive({
+        receive({
           type: "upload:progress",
           content,
           is: (name) => name === "upload:progress"
@@ -11306,9 +11307,9 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "upload:status") {
     // Forward backend upload status stages to the active piece.
-    if (cachedAPI?.piece?.receive) {
+    if (booted && receive !== defaults.receive) {
       try {
-        cachedAPI.piece.receive({
+        receive({
           type: "upload:status",
           content,
           is: (name) => name === "upload:status",
@@ -12563,6 +12564,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "amail" &&
           currentText !== "sign" &&
           currentText !== "jas" &&
+          currentText !== "nopaint" && // owns Enter/Escape and locks input while saving
           // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.
           !(
             currentText === "numrank" &&

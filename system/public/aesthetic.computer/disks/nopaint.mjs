@@ -383,6 +383,8 @@ function positionButtons(screen, layout = interfaceLayout(screen)) {
 
 const MARKER_GLYPHS = Object.freeze({
   N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
+  V: [[[0, 0], [0.5, 1], [1, 0]]],
+  w: [[[0, 0.35], [0.2, 1], [0.5, 0.55], [0.8, 1], [1, 0.35]]],
   o: [[[0.2, 0.3], [0.8, 0.3], [1, 0.48], [1, 0.82], [0.8, 1], [0.2, 1], [0, 0.82], [0, 0.48], [0.2, 0.3]]],
   P: [[[0, 1], [0, 0], [0.72, 0], [1, 0.2], [1, 0.45], [0.72, 0.58], [0, 0.58]]],
   a: [[[0, 0.55], [0.2, 0.32], [0.75, 0.32], [0.92, 0.5], [0.92, 1]], [[0.92, 0.55], [0.2, 0.55], [0, 0.72], [0.18, 0.95], [0.92, 0.72]]],
@@ -832,6 +834,8 @@ function testSnapshot() {
     doneCount,
     completion: {
       busy: completionBusy,
+      phase: completionBusy ? completionProgress >= 1 ? "saving" : "uploading"
+        : completionCode ? "saved" : null,
       progress: completionProgress,
       code: completionCode,
       error: completionError,
@@ -861,9 +865,11 @@ function testSnapshot() {
     } : null,
     lastDownload,
     ready: Boolean(proposal && testApi?.system?.nopaint?.buffer),
-    controls: finishMode
-      ? { back: controlBox(backButton), done: controlBox(doneButton) }
-      : { no: controlBox(noButton), paint: controlBox(paintButton) },
+    controls: completionBusy ? {} : completionCode
+      ? { view: controlBox(backButton), new: controlBox(doneButton) }
+      : finishMode
+        ? { back: controlBox(backButton), done: controlBox(doneButton) }
+        : { no: controlBox(noButton), paint: controlBox(paintButton) },
     layout: layout ? {
       paintingViewport: { ...layout.stage },
       paintingResolution: { ...paintingResolution },
@@ -1266,6 +1272,25 @@ function paintStudioWallpaper($, bar) {
   }
 }
 
+function paintUploadProgress($, bar) {
+  const margin = Math.max(12, Math.round(bar.w * 0.08));
+  const width = bar.w - margin * 2;
+  const saving = completionProgress >= 1;
+  const label = saving ? "Saving..." : `Uploading ${Math.round(completionProgress * 100)}%`;
+  const size = Math.max(1, Math.floor(Math.min(bar.h / 32, width / (label.length * 8))));
+  $.ink(255).write(label, { x: margin, y: bar.y + Math.round(bar.h * 0.2), size });
+  const track = { x: margin, y: bar.y + Math.round(bar.h * 0.58), w: width, h: Math.max(12, Math.round(bar.h * 0.2)) };
+  $.ink(65, 65, 70).box(track, "fill");
+  if (completionProgress > 0 && !saving) {
+    $.ink(92, 220, 128).box({ ...track, w: Math.round(width * completionProgress) }, "fill");
+  } else {
+    // Encoding, waiting for storage, and saving the record have no byte total.
+    const segment = Math.round(width * 0.25);
+    const offset = Math.round((Math.sin(wallpaperFrame / 16) + 1) / 2 * (width - segment));
+    $.ink(92, 220, 128).box({ ...track, x: track.x + offset, w: segment }, "fill");
+  }
+}
+
 function paint($) {
   if (!proposal || !$.system.nopaint.buffer) return false;
   stageScreen = {
@@ -1273,7 +1298,8 @@ function paint($) {
     height: $.screen.height,
     pixelLength: $.screen.pixels?.length,
   };
-  renderProposal($);
+  const showingSavedPainting = completionBusy || Boolean(completionCode);
+  if (!showingSavedPainting) renderProposal($);
   $.system.nopaint.needsPresent = true;
 
   const { bar, stage, status, scale } = interfaceLayout($.screen);
@@ -1284,34 +1310,39 @@ function paint($) {
   paintStudioWallpaper($, bar);
   const shadow = Math.max(2, Math.round(Math.min($.screen.width, $.screen.height) / 150));
   $.ink(0, 0, 0, 110).box(stage.x + shadow, stage.y + shadow, stage.w, stage.h);
-  if (proposalPixels) {
+  if (showingSavedPainting) {
+    $.paste($.system.painting, stage.x, stage.y, scale);
+  } else if (proposalPixels) {
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   } else {
     $.paste($.system.painting, stage.x, stage.y, scale);
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   }
-  if (paintingPressed || hoveredDecision === "painting") {
+  if (!showingSavedPainting && (paintingPressed || hoveredDecision === "painting")) {
     $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(surface, "outline");
   }
   const merryRemaining = Math.max(0, 1 - proposalFrame / PROPOSAL_MERRY_FRAMES);
   const merryBarHeight = Math.max(3, Math.round($.screen.height / 240));
-  $.ink(10, 10, 12, 210).box(0, 0, surface.w, merryBarHeight);
-  $.ink(92, 220, 128, 235).box(0, 0, Math.round(surface.w * merryRemaining), merryBarHeight);
+  if (!showingSavedPainting) {
+    $.ink(10, 10, 12, 210).box(0, 0, surface.w, merryBarHeight);
+    $.ink(92, 220, 128, 235).box(0, 0, Math.round(surface.w * merryRemaining), merryBarHeight);
+  }
   const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
-  $.ink(255, 180).write(
-    completionBusy
-      ? `Uploading ${Math.round(completionProgress * 100)}%`
-      : completionCode
-        ? `#${completionCode}`
-        : completionError || definition?.label || proposal.kind,
-    { x: 8, y: merryBarHeight + 6 },
-  );
+  if (completionBusy) {
+    paintUploadProgress($, bar);
+    return false;
+  }
+  $.ink(255, 180).write(completionCode ? `Saved #${completionCode}`
+    : completionError || definition?.label || proposal.kind,
+  { x: 8, y: merryBarHeight + 6 });
 
   positionButtons($.screen);
-  const controls = finishMode
-    ? [[backButton.btn, "Back", "back"], [doneButton.btn, "Done", "done"]]
-    : [[noButton.btn, "No", "no"], [paintButton.btn, "Paint", "paint"]];
+  const controls = completionCode
+    ? [[backButton.btn, "View", "back"], [doneButton.btn, "New", "done"]]
+    : finishMode
+      ? [[backButton.btn, "Back", "back"], [doneButton.btn, "Done", "done"]]
+      : [[noButton.btn, "No", "no"], [paintButton.btn, "Paint", "paint"]];
   const labelScale = Math.min(...controls.map(([button, label]) => markerLabelScale(button, label)));
   for (const [button, label, flavor] of controls) {
     paintDecisionButton($, button, label, flavor, labelScale);
@@ -1325,12 +1356,14 @@ function isAny(e, names) {
 }
 
 async function completePainting($) {
-  if (completionBusy) return;
+  if (completionBusy || completionCode) return;
   playCue($, "done");
   doneCount += 1;
   completionBusy = true;
   completionProgress = 0;
   completionError = null;
+  resetDecisionControls();
+  transition("paused");
   $.needsPaint();
   publishTestState();
 
@@ -1350,27 +1383,6 @@ async function completePainting($) {
     if (!data?.code) throw new Error("Painting upload completed without a code");
     completionCode = data.code;
     completionProgress = 1;
-    sessionSeed = seedFrom(`${sessionSeed}:${doneCount}:${$.num.timestamp()}`);
-    random = seededRandom(sessionSeed);
-    cutFreshSubstrate($, sessionSeed);
-    initializePiece($, sessionSeed);
-    delete $.store["painting:code"];
-    $.store.delete?.("painting:code", "local:db");
-    archiveOrigin = null;
-    delete $.store["nopaint:origin"];
-    $.store.delete?.("nopaint:origin", "local:db");
-    substrateFresh = true;
-    freshStart = true;
-    proposal = null;
-    proposalFrame = 0;
-    proposalNumber = 0;
-    proposalPixels = null;
-    proposalPixelsPresented = false;
-    decisions = [];
-    finishMode = false;
-    $.net.rewrite(`/nopaint:${sessionSeed}`);
-    transition("proposing");
-    chooseProposal($);
   } catch (error) {
     completionError = error?.message || "Upload failed";
     console.error("No Paint upload failed:", completionError);
@@ -1379,6 +1391,55 @@ async function completePainting($) {
     $.needsPaint();
     publishTestState();
   }
+}
+
+function resetDecisionControls() {
+  for (const control of [noButton, paintButton, backButton, doneButton]) {
+    control.btn.down = false;
+    control.btn.over = false;
+  }
+  hoveredDecision = null;
+  paintingPressed = false;
+  heldKeyboardDecision = null;
+  setDecisionHeld(false);
+  stopBrushCue();
+}
+
+function receive(event) {
+  if (completionBusy && event.type === "upload:status") {
+    completionProgress = 1;
+    testApi?.needsPaint();
+    publishTestState();
+  }
+}
+
+function startNewPainting($) {
+  resetDecisionControls();
+  completionCode = null;
+  completionProgress = 0;
+  completionError = null;
+  sessionSeed = seedFrom(`${sessionSeed}:${doneCount}:${$.num.timestamp()}`);
+  random = seededRandom(sessionSeed);
+  cutFreshSubstrate($, sessionSeed);
+  initializePiece($, sessionSeed);
+  delete $.store["painting:code"];
+  $.store.delete?.("painting:code", "local:db");
+  archiveOrigin = null;
+  delete $.store["nopaint:origin"];
+  $.store.delete?.("nopaint:origin", "local:db");
+  substrateFresh = true;
+  freshStart = true;
+  proposal = null;
+  proposalFrame = 0;
+  proposalNumber = 0;
+  proposalPixels = null;
+  proposalPixelsPresented = false;
+  decisions = [];
+  finishMode = false;
+  paintingDragPaused = false;
+  $.net.rewrite(`/nopaint:${sessionSeed}`);
+  transition("proposing");
+  chooseProposal($);
 }
 
 function xboxButtonPush(e) {
@@ -1420,6 +1481,7 @@ function act($) {
     publishTestState();
     return;
   }
+  if (completionBusy) return;
   const xboxButton = xboxButtonPush(e);
   const xboxAction = nopaintXboxAction(xboxButton, finishMode);
   let cursorDeltaX = 0;
@@ -1448,10 +1510,10 @@ function act($) {
   const rightControl = finishMode ? doneButton.btn : paintButton.btn;
   if ((e.device === "mouse" || e.is("move")) && !leftControl.down && !rightControl.down) {
     const target = leftControl.box.contains(e)
-      ? finishMode ? "back" : "no"
+      ? completionCode ? "view" : finishMode ? "back" : "no"
       : rightControl.box.contains(e)
-        ? finishMode ? "done" : "paint"
-        : overSurface(e)
+        ? completionCode ? "new" : finishMode ? "done" : "paint"
+        : !completionCode && overSurface(e)
           ? "painting"
           : null;
     if (target !== hoveredDecision) {
@@ -1471,8 +1533,18 @@ function act($) {
     }
   }
 
+  if (completionCode) {
+    // The viewer publishes /#code after loading. A hash-only browser jump
+    // would change the address without leaving this piece on the home URL.
+    const view = () => $.jump(`painting~${completionCode}`);
+    backButton.btn.act(e, { down: () => playCue($, "button-down"), push: view });
+    doneButton.btn.act(e, { down: () => playCue($, "button-down"), push: () => startNewPainting($) });
+    if (xboxAction === "back" || isAny(e, ["keyboard:up:v", "keyboard:up:arrowleft"])) view();
+    else if (xboxAction === "done" || isAny(e, ["keyboard:up:n", "keyboard:up:arrowright", "keyboard:up:enter"])) startNewPainting($);
+    return;
+  }
+
   if (finishMode) {
-    if (completionBusy) return;
     backButton.btn.act(e, {
       down: () => playCue($, "button-down"),
       push: leaveFinishMode,
@@ -1663,4 +1735,4 @@ export const system = "nopaint:bake-on-leave";
 // Exported so tests can prove a slug resolves to the standalone piece's own
 // contract object rather than a look-alike fallback.
 export { COMPATIBLE_BRUSHES };
-export { act, bake, boot, freshLaunchRequested, leave, meta, paint, sim };
+export { act, bake, boot, freshLaunchRequested, leave, meta, paint, receive, sim };

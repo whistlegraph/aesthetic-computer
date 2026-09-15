@@ -6,6 +6,10 @@ const isNoPaintHost = (hostname) =>
 export function noPaintStartingPiece(url, navigationType, savedSeed) {
   if (!isNoPaintHost(url.hostname)) return null;
   if (url.pathname !== "/") return "nopaint";
+  const code = url.hash.slice(1);
+  if (/^[a-zA-Z0-9]{3,12}$/.test(code) && !["debug", "nodebug"].includes(code)) {
+    return "painting";
+  }
   // Session storage belongs to this tab. A new navigation starts fresh even
   // if the browser copied storage when opening or duplicating a tab.
   return navigationType === "reload" && /^\d+$/.test(savedSeed || "")

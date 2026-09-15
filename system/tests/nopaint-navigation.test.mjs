@@ -25,3 +25,15 @@ test("only branded session URLs are reduced to the home address", () => {
     path: "/nopaint:123", seed: null,
   });
 });
+
+test("saved painting links open the viewer, including on reload", () => {
+  for (const host of ["nopaint.art", "www.nopaint.art"]) {
+    for (const navigation of ["navigate", "reload"]) {
+      assert.equal(noPaintStartingPiece(new URL(`https://${host}/#lhi`), navigation, "123"), "painting");
+    }
+  }
+  for (const hash of ["debug", "nodebug", "", "not-a-code"]) {
+    assert.equal(noPaintStartingPiece(new URL(`https://nopaint.art/#${hash}`), "navigate", null), "nopaint~fresh");
+  }
+  assert.deepEqual(noPaintHistoryTarget("/#lhi", "https://nopaint.art/"), { path: "/#lhi", seed: null });
+});

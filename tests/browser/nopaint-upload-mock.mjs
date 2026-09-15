@@ -3,6 +3,13 @@
 export async function mockNoPaintUploads(page, baseURL) {
   const origin = new URL(baseURL).origin;
   const state = { mode: "success", presigns: 0, puts: 0, saves: 0 };
+  const holds = new Map();
+  state.hold = (stage) => {
+    let release;
+    const promise = new Promise((resolve) => { release = resolve; });
+    holds.set(stage, promise);
+    return () => { holds.delete(stage); release(); };
+  };
   const client = await page.createCDPSession();
   await client.send("Fetch.enable", { patterns: [
     { urlPattern: `${origin}/presigned-upload-url/*` },
@@ -16,6 +23,7 @@ export async function mockNoPaintUploads(page, baseURL) {
     let body = "";
     if (url.pathname.startsWith("/presigned-upload-url/")) {
       state.presigns++;
+      await holds.get("presign");
       status = state.mode === "presign-error" ? 404 : 200;
       body = JSON.stringify({ uploadURL: `${origin}/api/nopaint-test-upload.png`, slug: "nopaint-test.png" });
     } else if (request.method === "PUT") {
@@ -23,8 +31,9 @@ export async function mockNoPaintUploads(page, baseURL) {
       status = state.mode === "storage-error" ? 403 : 200;
     } else if (url.pathname === "/api/track-media-stream") {
       state.saves++;
+      await holds.get("save");
       contentType = "text/event-stream";
-      body = `event: complete\ndata: ${JSON.stringify({ code: state.saves === 1 ? "test" : `test${state.saves}` })}\n\n`;
+      body = `event: complete\ndata: ${JSON.stringify({ code: state.code || (state.saves === 1 ? "test" : `test${state.saves}`) })}\n\n`;
     }
     await client.send("Fetch.fulfillRequest", {
       requestId,

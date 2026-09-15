@@ -508,10 +508,29 @@ try {
         `${mode}: the painting stays intact and Done can retry`);
     }
     uploads.mode = "success";
+    const releaseUpload = uploads.hold("presign");
+    const releaseSave = uploads.hold("save");
     await ac.page.mouse.click(
       rect.x + (done.x + done.w / 2) * scaleX,
       rect.y + (done.y + done.h / 2) * scaleY,
     );
+    await ac.page.waitForFunction(() => window.__acNoPaintTest?.()?.completion?.busy, { timeout: 10000 });
+    await receipt("05-uploading");
+    const uploading = await ac.nopaintState();
+    expect(Object.keys(uploading.controls).length === 0, "uploading replaces the buttons with progress");
+    await ac.page.keyboard.press("ArrowRight");
+    await ac.page.keyboard.press("Escape");
+    await ac.page.mouse.click(rect.x + stage.w / 2 * scaleX, rect.y + stage.h / 2 * scaleY);
+    await ac.page.mouse.click(rect.x + (done.x + done.w / 2) * scaleX, rect.y + (done.y + done.h / 2) * scaleY);
+    const locked = await ac.nopaintState();
+    expect(locked.proposalFrame === uploading.proposalFrame && locked.doneCount === uploading.doneCount &&
+      locked.paintingFingerprint === uploading.paintingFingerprint && locked.audio.hovered === null,
+    "pointer and keyboard input cannot change the painting or repeat the upload while busy");
+    releaseUpload();
+    await ac.page.waitForFunction(() => window.__acNoPaintTest?.()?.completion?.phase === "saving", { timeout: 10000 });
+    await receipt("05-saving");
+    expect((await ac.nopaintState()).completion.busy, "controls stay locked while the uploaded image is being saved");
+    releaseSave();
     await ac.page.waitForFunction(
       () => window.__acNoPaintTest?.()?.completion?.code === "test",
       { timeout: 10000 },
@@ -522,12 +541,26 @@ try {
       "Done encodes and uploads an image before recording its code");
     expect(completed?.completion?.code === "test" && completed?.completion?.stayedInNoPaint === true,
       "Done yields a #code without leaving the No Paint shim");
-    expect(completed?.finishMode === false && completed?.state === "proposing",
-      "Done clears the finished picture and resumes a fresh No Paint session");
-    expect(completed?.paintingFingerprint !== finishing?.paintingFingerprint,
-      "the fresh session starts from a cleared painting");
-    expect(completed.piece.id !== finishing.piece.id && completed.proposalNumber === 1 &&
-      completed.decisions.length === 0, "completion starts a distinct piece and proposal sequence");
+    expect(completed.state === "paused" && Object.keys(completed.controls).join(",") === "view,new",
+      "View and New replace the decisions after saving");
+    expect(completed.paintingFingerprint === finishing.paintingFingerprint && completed.piece.id === finishing.piece.id,
+      "the saved painting stays visible until a choice is made");
+    await receipt("05-saved-view-new");
+    await ac.wait(500);
+    await ac.page.mouse.click(rect.x + stage.w / 2 * scaleX, rect.y + stage.h / 2 * scaleY);
+    const stillSaved = await ac.nopaintState();
+    expect(stillSaved.proposalFrame === completed.proposalFrame && stillSaved.completion.code === "test",
+      "the saved interstitial stays still and ignores painting taps");
+    const newButton = completed.controls.new;
+    await ac.page.mouse.click(rect.x + (newButton.x + newButton.w / 2) * scaleX,
+      rect.y + (newButton.y + newButton.h / 2) * scaleY);
+    await ac.page.waitForFunction(() => window.__acNoPaintTest?.()?.state === "proposing");
+    const fresh = await ac.nopaintState();
+    expect(fresh.completion.code === null && fresh.piece.id !== completed.piece.id && fresh.decisions.length === 0,
+      "New clears the saved code and starts a distinct piece");
+    expect(fresh.paintingFingerprint !== completed.paintingFingerprint && Object.keys(fresh.controls).join(",") === "no,paint",
+      "New restores No and Paint over a fresh canvas");
+    await receipt("05-new-after-save");
 
     await ac.wait(250);
     await ac.measureNopaintDecision("ArrowRight");
@@ -546,7 +579,7 @@ try {
     );
     const completedAgain = await ac.nopaintState();
     expect(uploads.saves === 2 && completedAgain.piece.id !== completed.piece.id &&
-      completedAgain.state === "proposing", "the next piece can also be saved with Done");
+      completedAgain.state === "paused" && completedAgain.controls.view, "the next piece can also be saved with Done");
   });
 
   await scenario("An archive record can become the starting painting", async (expect) => {
