@@ -1,9 +1,11 @@
 # Mime
 
 Discussion on AC media. The frontend is `/mime/`; the API is `/api/mime`.
-The main feed uses square media frames without cropping, loads 12 posts at a
-time while scrolling, and preserves loaded posts and position across thread
-visits. A load-more button also supports manual loading and retries.
+The main feed snaps to one viewport per media item without cropping, following
+the tape viewer (`disks/tv.mjs`). It loads 12 posts at a time and preserves the
+current item across thread visits and orientation changes. Videos play muted
+inline and pause offscreen. A load-more button supports manual loading and
+retries. The feed has no category bar, file composer, or footer.
 `/mimechan/` preserves old hash links through a redirect, and `/api/mimechan`
 remains an alias. Existing uploaded files and replies stay in `mimechan`.
 
@@ -48,7 +50,7 @@ Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 
 Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
 The painting viewer includes a Comment button. Other media can be discussed from
-their MIME board or direct entry URL.
+the main feed or a direct entry URL.
 The prompt curtain includes a MIME link; entering `mime` opens the same page.
 The corner word returns to `/prompt`.
 
