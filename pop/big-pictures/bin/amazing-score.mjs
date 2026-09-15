@@ -37,7 +37,7 @@ const tokens = receipt.words.map((w) => {
 });
 const vocalEvents = receipt.words.flatMap((w) => w.notes.map((n) => ({
   t0: tb(n.start / SPB), t1: +(tb(n.start / SPB + n.beats) - 0.06).toFixed(3),
-  word: w.text, who: "jeffrey", midi: n.midi,
+  word: n.syl || w.text, who: "jeffrey", midi: n.midi,
 })));
 const cellEvents = CELLS.map(([b, len], i) => ({
   t0: tb(b), t1: tb(b + len), word: ["G","G","G","C","G","G","D","G","G","C","C","G","D","G","C"][i], who: null, midi: null,
