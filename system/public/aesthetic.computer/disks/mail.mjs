@@ -1,7 +1,7 @@
 // Mail, 2026.2.12 → 2026.9.14 (`amail` for a day; that path still aliases here)
 // The post of aesthetic.computer. `mail @handle words...` sends from the
 // prompt; `mail` lands here; `mail~@handle` lands in compose, addressed.
-// Tier 1: nothing leaves aesthetic.computer. See `system/backend/mail.mjs`.
+// Public media codes work like chat; outside attachments stay in the mailbox.
 //
 // Mail wears the same tema and speaks the same language as `laklok` — one
 // saved choice each, one census — so the two rooms read as one house. Its QR
@@ -36,6 +36,12 @@ import {
   temaRow,
   langRow,
 } from "./common/laklok-tema.mjs";
+import { MailMedia } from "./common/mail-media.mjs";
+
+const mediaView = new MailMedia();
+let mediaHits = [];
+let mediaNote = null;
+let downloading = false;
 
 let view = "inbox"; // inbox · sent · prefs · compose
 let status = "loading"; // loading, loaded, error, noauth
@@ -112,7 +118,7 @@ function makeFields(api) {
   fields = new api.ui.TextFields(
     api,
     [
-      { name: "to", label: s.to, placeholder: "@handle or ac25namuc" },
+      { name: "to", label: s.to, placeholder: "@handle or email" },
       { name: "subject", label: s.re, placeholder: s.optional },
       { name: "body", label: s.say, lines: 4, placeholder: "…" },
     ],
@@ -137,6 +143,9 @@ async function boot(api) {
   view = "inbox";
   composeNote = null;
   hits = [];
+  mediaView.clear();
+  mediaNote = null;
+  downloading = false;
 
   // 👗 A colon/`~` token pins a tema or language (`mail~skov`, `mail~da`);
   // otherwise the saved ones.
@@ -356,6 +365,7 @@ function paint(api) {
   const c = t.chat;
   const s = S();
   hits = [];
+  mediaHits = [];
   wipe(...t.bg);
 
   const x = 6;
@@ -435,6 +445,10 @@ function paint(api) {
 
   ink(c.lines).box(x, y, wide, 1);
   y += 6;
+  if (mediaNote) {
+    ink(c.timestamp).write(mediaNote, { x, y }, undefined, wide, true, CHIP_FONT);
+    y += text.box(mediaNote, undefined, wide, 1, true, CHIP_FONT).box.height + 4;
+  }
 
   // Compose sits in the room instead of replacing it — the addresses and tabs
   // stay put and the field takes the space the letters were using.
@@ -443,7 +457,7 @@ function paint(api) {
       x,
       y,
       width: wide,
-      height: Math.min(110, Math.max(64, screen.height - y - 30)),
+      height: Math.min(110, Math.max(64, screen.height - y - 40)),
     };
     fields.paint(api, frame);
 
@@ -457,6 +471,7 @@ function paint(api) {
       false,
       CHIP_FONT,
     );
+    ink(c.timestamp).write(s.mediaHint, { x, y: footer + CHIP_H + 4 }, undefined, wide, true, CHIP_FONT);
     paintCorner(api);
     paintSettings(api);
     return;
@@ -498,7 +513,8 @@ function paint(api) {
       if (body.length > most) body = body.slice(0, most) + "…";
     }
     const h = text.box(body, { x: x + 10, y: 0 }, bounds, 1, true, face).box.height;
-    return { letter, body, rowH: h + lh + (compact ? 5 : 8) };
+    const mediaItems = mediaView.layout(api, letter, bounds, s);
+    return { letter, body, mediaItems, textH: h, rowH: h + lh + (compact ? 5 : 8) + mediaItems.reduce((n, item) => n + item.height, 0) };
   });
   const contentH = measured.reduce((sum, m) => sum + m.rowH, 0);
   const maxScroll = Math.max(0, contentH - listH);
@@ -506,7 +522,7 @@ function paint(api) {
 
   mask({ x: 0, y: listTop, width: screen.width, height: listH });
   let ly = listTop - scroll;
-  measured.forEach(({ letter, body, rowH }, i) => {
+  measured.forEach(({ letter, body, rowH, mediaItems, textH }, i) => {
     if (ly + rowH >= listTop && ly < listTop + listH) {
       const unread = view === "inbox" && !letter.read;
       const who = (view === "inbox" ? letter.from : letter.to) || "someone";
@@ -548,6 +564,15 @@ function paint(api) {
       }
       ink([...c.timestamp, 160]).write(ago(letter.when), { x: screen.width - x - agoW + 4, y: yy }, undefined, undefined, false, face);
       ink(unread ? c.messageText : [...c.messageText, 190]).write(body, { x: x + 10, y: yy + lh }, undefined, bounds, true, face);
+      let mediaY = yy + lh + textH + 2;
+      for (const item of mediaItems) {
+        if (mediaY + item.height > listTop && mediaY < screen.height - 4) {
+          mediaView.paint(api, item, x + 10, mediaY, bounds, c.painting, s);
+          mediaHits.push({ x: x + 10, y: Math.max(listTop, mediaY), w: bounds,
+            h: Math.min(screen.height - 4, mediaY + item.height) - Math.max(listTop, mediaY), item });
+        }
+        mediaY += item.height;
+      }
     }
     ly += rowH;
   });
@@ -761,6 +786,18 @@ function act(api) {
   // Tap a letter to answer it — the field opens already addressed. A drag
   // that ended on a letter was a scroll, not a tap.
   if (e.is("lift") && !dragged && listing) {
+    const media = mediaHits.find((box) => hit(box));
+    if (media) {
+      if (!downloading) {
+        downloading = true;
+        mediaNote = media.item.file ? S().downloading : null;
+        mediaView.open(api, media.item).then(() => { mediaNote = null; })
+          .catch(() => { mediaNote = S().downloadFailed; })
+          .finally(() => { downloading = false; needsPaint(); });
+      }
+      needsPaint();
+      return;
+    }
     const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
     const address = row?.who?.startsWith("@") ? row.who : row?.email;
     if (address && e.y >= listTop) {
@@ -770,4 +807,6 @@ function act(api) {
   }
 }
 
-export { meta, boot, sim, paint, act };
+function leave() { mediaView.clear(); }
+
+export { meta, boot, sim, paint, act, leave };

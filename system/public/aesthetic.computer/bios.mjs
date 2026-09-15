@@ -22047,6 +22047,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Downloads both cached files via `data` and network stored files for
   // users and guests.
   async function receivedDownload({ filename, data, modifiers }) {
+    // Mail attachments are exact bytes, never painting/tape inputs. Keep
+    // filenames out of diagnostics and don't dispatch by their extension.
+    if (modifiers?.private && modifiers?.encoding === "binary" && typeof data === "string") {
+      const bytes = Uint8Array.from(data, (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename.split(/[\\/]/).pop();
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 60_000);
+      return;
+    }
     console.log("💾 Downloading:", filename);
     // if (data) console.log("Data:", typeof data);
     // if (modifiers.sharing === true) presharingFile = true;

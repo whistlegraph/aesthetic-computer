@@ -1,7 +1,5 @@
 // mail, 26.09.11
-// Internal AC mail. Nothing leaves the wall yet, so there is no SMTP in here —
-// a message is a row in `tells`, the collection `tell` has been filling since
-// 26.04 with nothing on the other end to read it.
+// AC mail: internal letters and the inbound/outbound SMTP bridge share `tells`.
 //
 // Addressing: a message is filed against the recipient's `sub`, never a handle,
 // so a rename can't orphan a thread. Two spellings reach a person — their
@@ -13,6 +11,7 @@ import { filter } from "./filter.mjs";
 import { shell } from "./shell.mjs";
 import { sendToUser } from "../../shared/push.mjs";
 import { letterNotification, mailErrorCode, quietMailPush } from "../../shared/mail-privacy.mjs";
+import { resolveMailMedia, outsideMediaBody } from "./mail-media.mjs";
 
 // Since 26.09.13 the root domain is the address: Google Workspace holds its
 // MX, catches every unknown @aesthetic.computer, and hands the letter to
@@ -134,7 +133,7 @@ export async function deliver(
 // letter twice — scoped to the box, so nobody can pre-empt another's letter.
 let dedupeIndexed = false;
 export async function deliverFromOutside(
-  { to, fromEmail, fromName, subject, text, messageId, auth = null, quiet = false },
+  { to, fromEmail, fromName, subject, text, messageId, auth = null, quiet = false, attachments = [] },
   database,
 ) {
   const tells = await mailbox(database);
@@ -166,6 +165,7 @@ export async function deliverFromOutside(
       ...(messageId ? { messageId } : {}),
       ...(auth ? { auth } : {}),
       via: "smtp",
+      ...(attachments.length ? { attachments } : {}),
       when,
       read: false,
     }));
@@ -226,7 +226,10 @@ export async function sendOutside({ from, toEmail, subject, text }, database) {
     replyTo: home,
     to: toEmail,
     subject: subject || `a letter from ${fromHandle}`,
-    text: `${text}\n\n— ${fromHandle}, via aesthetic.computer mail · reply to ${home}`,
+    ...outsideMediaBody(
+      `${text}\n\n— ${fromHandle}, via aesthetic.computer mail · reply to ${home}`,
+      await resolveMailMedia(text, database),
+    ),
   };
   let info;
   try {

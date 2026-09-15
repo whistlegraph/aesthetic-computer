@@ -9,7 +9,8 @@
 
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
-import { respond } from "../../backend/http.mjs";
+import { respond as httpRespond } from "../../backend/http.mjs";
+import { attachmentList, attachmentThumbnail, resolveMailMedia } from "../../backend/mail-media.mjs";
 import {
   addressesFor,
   clean,
@@ -23,6 +24,8 @@ import { ObjectId } from "mongodb";
 import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
 
 const PAGE = 50;
+const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "private, no-store", ...headers });
+const NO_FILES = { projection: { "attachments.data": 0 } };
 
 export async function handler(event) {
   try {
@@ -48,6 +51,32 @@ async function handleMail(event) {
     const tells = await mailbox(database);
 
     if (event.httpMethod === "GET") {
+      const query = event.queryStringParameters || {};
+      if (query.attachment !== undefined) {
+        if (!/^[a-f\d]{24}$/i.test(query.id || "") || !/^\d{1,2}$/.test(query.attachment)) {
+          return respond(400, { message: "Invalid attachment" });
+        }
+        // Authorize against the letter, never just a guessable file index.
+        const letter = await tells.findOne({
+          _id: new ObjectId(query.id), $or: [{ to: user.sub }, { from: user.sub }],
+        }, { projection: { attachments: 1 } });
+        const file = letter?.attachments?.[Number(query.attachment)];
+        if (!file) return respond(404, { message: "Attachment not found" });
+        if (query.preview !== undefined) {
+          const preview = await attachmentThumbnail(file);
+          return preview ? respond(200, preview) : respond(404, { message: "Preview unavailable" });
+        }
+        if (query.json !== undefined) return respond(200, { name: file.name, type: file.type, data: file.data });
+        return {
+          ...respond(200, file.data, {
+            "Content-Type": "application/octet-stream",
+            "Content-Disposition": `attachment; filename="file"; filename*=UTF-8''${encodeURIComponent(file.name).replace(/'/g, "%27")}`,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox",
+          }),
+          isBase64Encoded: true,
+        };
+      }
       // `?count` is the cheap one — the prompt asks it on every boot just to
       // know whether to draw the envelope.
       if (event.queryStringParameters?.count !== undefined) {
@@ -59,16 +88,23 @@ async function handleMail(event) {
       }
 
       const [inbox, sent, unread, addresses] = await Promise.all([
-        tells.find({ to: user.sub }).sort({ when: -1 }).limit(PAGE).toArray(),
-        tells.find({ from: user.sub }).sort({ when: -1 }).limit(PAGE).toArray(),
+        tells.find({ to: user.sub }, NO_FILES).sort({ when: -1 }).limit(PAGE).toArray(),
+        tells.find({ from: user.sub }, NO_FILES).sort({ when: -1 }).limit(PAGE).toArray(),
         tells.countDocuments({ to: user.sub, read: { $ne: true } }),
         addressesFor(user.sub, database),
       ]);
 
+      const media = new Map();
+      // Cache repeated text within this request, and recheck media visibility
+      // on each inbox read rather than persisting public preview URLs.
+      const references = (text) => {
+        if (!media.has(text)) media.set(text, resolveMailMedia(text, database));
+        return media.get(text);
+      };
       return respond(200, {
         addresses,
         unread,
-        inbox: inbox.map((m) => ({
+        inbox: await Promise.all(inbox.map(async (m) => ({
           id: m._id,
           from: m.fromHandle,
           fromEmail: m.fromEmail || null, // set when the letter came from outside
@@ -77,15 +113,19 @@ async function handleMail(event) {
           text: m.text,
           when: m.when,
           read: m.read === true,
-        })),
-        sent: sent.map((m) => ({
+          attachments: attachmentList(m.attachments),
+          media: await references(m.text),
+        }))),
+        sent: await Promise.all(sent.map(async (m) => ({
           id: m._id,
           to: m.toHandle,
           toEmail: m.toEmail || null, // set when the letter left the wall
           subject: m.subject || null,
           text: m.text,
           when: m.when,
-        })),
+          attachments: attachmentList(m.attachments),
+          media: await references(m.text),
+        }))),
       });
     }
 

@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import * as privacy from "../shared/mail-privacy.mjs";
+import * as media from "../system/backend/mail-media.mjs";
+import { Readable } from "node:stream";
 
 const marker = "PRIVATE_LETTER_CANARY";
 const failure = Object.assign(new Error(marker), { code: marker, response: marker });
@@ -11,7 +13,7 @@ const logs = [];
 const notes = [];
 const stored = [];
 const log = (...args) => logs.push(args);
-const context = vm.createContext({ console: { log, error: log }, URL, process: { argv: [], env: {} } });
+const context = vm.createContext({ console: { log, error: log }, URL, Buffer, process: { argv: [], env: {} } });
 async function load(path, mocks) {
   const module = new vm.SourceTextModule(await readFile(new URL(path, import.meta.url), "utf8"), {
     context,
@@ -47,6 +49,7 @@ const backend = await load("../system/backend/mail.mjs", {
   },
   "./filter.mjs": { filter: (s) => s },
   "./shell.mjs": { shell: { log } },
+  "./mail-media.mjs": media,
   "../../shared/mail-privacy.mjs": privacy,
   "../../shared/push.mjs": { sendToUser: async (_db, _to, note, options, diagnostic) => {
     notes.push({ note, options });
@@ -89,6 +92,7 @@ for (const api of ["mail", "tell"]) {
         return { ...database, disconnect: async () => { if (stage === "disconnect") throw failure; } };
       } },
       "../../backend/http.mjs": { respond: (status, body) => ({ status, body }) },
+      "../../backend/mail-media.mjs": media,
       "../../backend/mail.mjs": {
         ...backend,
         deliver: async (...args) => {
@@ -115,6 +119,7 @@ const inbound = await load("../lith/mail-inbound.mjs", {
   "node:dns/promises": { resolveTxt: async () => [] },
   "node:fs": { existsSync: () => false, readFileSync: () => "" },
   "../shared/mail-privacy.mjs": privacy,
+  "../system/backend/mail-media.mjs": media,
 });
 const session = { remoteAddress: "127.0.0.1", amail: new Map([["recipient", { sub: "recipient", local: marker }]]) };
 for (const stage of ["filed", "failure", "stamp", "lookup", "relay", "rate"]) {
@@ -129,7 +134,7 @@ for (const stage of ["filed", "failure", "stamp", "lookup", "relay", "rate"]) {
   const cb = (error) => { result = error; };
   if (stage === "lookup") await server.options.onRcptTo({ address: `${marker}@example.invalid` }, session, cb);
   else if (stage === "relay") server.options.onConnect(session, cb);
-  else await server.options.onData({}, session, cb);
+  else await server.options.onData(Readable.from([]), session, cb);
   assert.equal(!!result, stage !== "filed");
   if (result) assert.ok(!result.message.includes(marker));
 }

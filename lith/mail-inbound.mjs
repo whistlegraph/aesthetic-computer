@@ -23,6 +23,7 @@ import { BlockList } from "node:net";
 import { resolveTxt } from "node:dns/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { mailErrorCode } from "../shared/mail-privacy.mjs";
+import { incomingAttachments, MAX_MAIL_WIRE_BYTES } from "../system/backend/mail-media.mjs";
 
 const HOST = process.env.AMAIL_INBOUND_HOST || "inbound.aesthetic.computer";
 const args = process.argv.slice(2);
@@ -33,7 +34,7 @@ const opt = (name, fallback) => {
 };
 const PORT = Number(opt("--port", process.env.AMAIL_INBOUND_PORT || 25));
 const OPEN = flag("--open") || process.env.AMAIL_INBOUND_OPEN === "1";
-const MAX_SIZE = 1_000_000; // a letter, not an attachment service
+const MAX_SIZE = MAX_MAIL_WIRE_BYTES;
 
 // 🏷️ Which mailbox an envelope recipient means. Pure, so it can be tested
 // without a server: returns { local, tag, domain } or null when the address
@@ -226,10 +227,19 @@ export function createInbound({
 
     async onData(stream, session, cb) {
       try {
-        const parsed = await simpleParser(stream, { skipImageLinks: true });
-        if (stream.sizeExceeded) {
+        // Drain an oversized message without buffering it or passing it to
+        // mailparser. SMTP's advertised SIZE alone doesn't bound parser memory.
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of stream) {
+          size += chunk.length;
+          if (size <= MAX_SIZE) chunks.push(chunk);
+          else chunks.length = 0;
+        }
+        if (size > MAX_SIZE || stream.sizeExceeded) {
           return cb(Object.assign(new Error("Letter too large"), { responseCode: 552 }));
         }
+        const parsed = await simpleParser(Buffer.concat(chunks), { skipImageLinks: true });
         const sender = (parsed.from?.value?.[0]?.address || "?").toLowerCase();
 
         // Only letters that came through OUR routing rule carry the stamp.
@@ -244,6 +254,10 @@ export function createInbound({
           return cb(Object.assign(new Error("Sender's domain disowns this letter"), { responseCode: 550 }));
         }
 
+        // Inline MIME images and regular attachments take the same private
+        // path. Validate the entire letter before filing it for any recipient.
+        const attachments = incomingAttachments(parsed.attachments);
+
         const results = [];
         let refused = null;
         for (const rcpt of session.amail?.values() || []) {
@@ -253,7 +267,7 @@ export function createInbound({
             log("mail.inbound.refused.rate");
             continue;
           }
-          results.push(await file({ ...rcpt, parsed, auth, quiet: gate.quiet, remote: session.remoteAddress }));
+          results.push(await file({ ...rcpt, parsed, attachments, auth, quiet: gate.quiet, remote: session.remoteAddress }));
         }
         if (!results.length && refused) {
           return cb(Object.assign(new Error(refused.why), { responseCode: refused.code }));
@@ -266,6 +280,9 @@ export function createInbound({
         });
         cb();
       } catch (err) {
+        if (err.responseCode === 552) {
+          return cb(Object.assign(new Error("At most 10 files and 8 MiB of attachments per letter"), { responseCode: 552 }));
+        }
         log("mail.inbound.file.error", mailErrorCode(err));
         cb(Object.assign(new Error("Could not file that letter"), { responseCode: 451 }));
       }
@@ -310,7 +327,7 @@ async function main() {
     tls,
     secret,
     lookup: (local) => subFromAddress(local, database),
-    file: async ({ sub, parsed, reply, auth, quiet }) => {
+    file: async ({ sub, parsed, attachments, reply, auth, quiet }) => {
       const sender = parsed.from?.value?.[0] || {};
       return deliverFromOutside(
         {
@@ -322,6 +339,7 @@ async function main() {
           messageId: parsed.messageId || null,
           auth,
           quiet,
+          attachments,
         },
         database,
       );
