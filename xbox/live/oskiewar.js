@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 118;
+const buildVersion = 119;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3421,37 +3421,38 @@ function settleCorpse(player, dt) {
   player.grounded = true;
 }
 
-// The waiting room owes its lone fighter a real death. In a fight the
-// round system rebuilds a destroyed body, but the lobby has no rounds — a
-// fighter blasted apart would hop the empty room forever as a ghost among
-// its own scraps. Losing the torso IS dying here, immediately: the card
-// says so, the beat holds long enough to read, and the respawn sweeps the
-// floor and hands back a whole body.
+// Lobby deaths have a respawn beat, but no round or killcam to reset state.
 function updateLobbyMortality(now) {
   if (!lobbyActive()) return;
   const player = players[0];
-  if (!player.alive) {
-    // Deaths from any cause (a self-blast, a shot) arrive here already
-    // down; give them the same readable beat the destruction gets.
-    if (!player.lobbyDeathDressed) {
-      player.lobbyDeathDressed = true;
-      player.respawnAt = Math.max(player.respawnAt || 0, now + 2500000);
-    }
-    return;
+  if (player.alive && hasPart(player, "torso")) return;
+  if (player.lobbyDeathDressed) return;
+  if (player.alive) {
+    player.alive = false;
+    player.lastButton = "DESTROYED";
+    player.lastButtonAt = now;
+    spawnImpact({ x: player.x, y: player.y - 60, z: player.z, life: .55,
+      duration: .55, death: true, explosion: false });
+    playDrum("whoosh", 1.15, panPlayer(player));
   }
-  if (hasPart(player, "torso")) return;
-  player.alive = false;
   player.lobbyDeathDressed = true;
-  player.respawnAt = now + 2500000;
-  // Horizontal drive goes; the fall does not. Zeroing both used to be
-  // invisible because nothing moved the body afterwards either.
-  player.vx = 0;
+  player.respawnAt = Math.max(player.respawnAt || 0, now + 2500000);
+  releaseCarriedBall(player, now);
+  releaseCarriedPart(player, now);
+  releaseCarriedFighter(player, now);
+  dismountSkateboard(player, now);
+  player.attackKind = player.itemAction = "";
+  player.attackUntil = player.itemActionUntil = player.dashUntil = 0;
+  player.attackHit = player.blocking = player.grabHeld = false;
+  player.pounding = player.pogoDive = player.pogoHit = false;
+  player.jumpHeld = false;
+  player.runSince = player.walkSince = 0;
+  player.jumpPoseUntil = player.landPoseUntil = player.hopUntil = 0;
+  player.inputX = player.inputY = player.vx = 0;
   player.stance = "HIT";
-  player.lastButton = "DESTROYED";
-  player.lastButtonAt = now;
-  spawnImpact({ x: player.x, y: player.y - 60, z: player.z, life: .55,
-    duration: .55, death: true, explosion: false });
-  playDrum("whoosh", 1.15, panPlayer(player));
+  delete player.frozenGeometry;
+  delete player.frozenAt;
+  deathCinematic = null;
 }
 
 // Deprecated with PAL_SELECT — see the flag.
@@ -7632,15 +7633,17 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   if (!target.alive) return;
   recordFightHit(killerPad, true);
   releaseCarriedBall(target, now);
-  if (!deathCinematic && killerPad !== target.pad)
-    deathCinematic = { startedAt: now, loserPad: target.pad,
-      winnerPad: killerPad, cause };
-  freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
+  if (!lobbyActive()) {
+    if (!deathCinematic && killerPad !== target.pad)
+      deathCinematic = { startedAt: now, loserPad: target.pad,
+        winnerPad: killerPad, cause };
+    freezeFinalFrame(now, deathCinematic?.winnerPad ?? -1);
+  }
   target.alive = false;
   target.headBustedAt = now;
   target.respawnAt = now + 1200000;
   target.vx = 0;
-  target.vy = 0;
+  if (!lobbyActive()) target.vy = 0;
   target.stance = "HIT";
   target.lastButton = cause;
   target.lastButtonAt = now;
@@ -7651,8 +7654,9 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   spawnImpact({ x: target.x, y: target.y - 120, z: target.z, life: .55,
     duration: .55, death: true, explosion: false });
   playDrum("whoosh", 1.15, panPlayer(target));
-  emitSignal("killcam", killerPad, target.pad, 1);
+  if (!lobbyActive()) emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
+  updateLobbyMortality(now);
   // The training opponent is the one everybody gets for free, and its fight is
   // already running under the title screen — so its head is the one number
   // the whole site can share without anybody signing in. The count follows the
@@ -8226,6 +8230,14 @@ function updatePlayer(player, pad, dt, now) {
         player.partDamage = {};
         player.fallenBodyGeometry = null;
         player.lobbyDeathDressed = false;
+        delete player.frozenGeometry;
+        delete player.frozenAt;
+        delete player.headBustedAt;
+        player.lastTap = {};
+        player.lastRelease = {};
+        player.airJumpsUsed = 0;
+        player.doubleJumpLinesUntil = 0;
+        deathCinematic = null;
         detachedParts.length = 0;
       }
       player.alive = true;
@@ -9569,6 +9581,7 @@ function gameSim() {
     updateGrenades(dt, now);
     resolveMelee(now);
     resolvePogoAttacks(now);
+    updateLobbyMortality(now);
     // After the exchange resolves, so a frame that landed a hit reads as the
     // recovery it has become rather than as the active frame it was.
     recordFrameMeter(now);
