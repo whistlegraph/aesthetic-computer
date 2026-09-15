@@ -51,6 +51,13 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   - stills · https://assets.aesthetic.computer/pop/amazing-grace/sec-{0..5}.jpg (crops of the cover)
   - canvas · https://assets.aesthetic.computer/pop/amazing-grace-canvas.mp4 (`pop/bin/photo-canvas.mjs`,
     2 bars @ 70 = 6.857 s, silent, seamless; to Spotify for Artists once live)
+- **Review video:** `out/amazing-grace/amazing-grace-review-2560x1920.mp4` · 2.5K tall
+  scrolling clip-timeline (`pop/big-pictures/viz/review-amazing.py`, the cult review-score
+  treatment without the tempo warp): sung notes pitch-placed with their syllables, the sine
+  melody, chords per cell, bells/piano + kick/clap from the engine's CELLS, true stems (vox,
+  bed band-split, stamp) as waveform clips, karaoke rail with vowel-stretch + phonics fill,
+  NOTES + CHORDS rails, the hymn act card, live loudness meter. `--preview --from S --to S`
+  for a window; `--light` for paper. Score JSON from `bin/amazing-score.mjs`.
 - **Bake (deterministic, ~1 min):** `bash pop/big-pictures/bin/bake-amazing.sh` →
   `bash pop/big-pictures/bin/stage-amazing-grace-assets.sh` → `npm run pop:assets:up`.
 - **Next:** cover pick → `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/amazing-grace-DISTROKID`

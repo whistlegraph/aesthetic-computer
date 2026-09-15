@@ -206,7 +206,7 @@ const receipt = {
   words: words.map((w, i) => ({
     i, text: w.text, start: +w.start.toFixed(4), beats: w.durBeats,
     take: w.take.id, spokenMs: w.take.spoken, notes: w.notes.map((n) => ({
-      note: n.note, midi: n.midi, start: +(n.startBeat * SPB).toFixed(4), beats: n.durBeats,
+      note: n.note, midi: n.midi, syl: n.word, start: +(n.startBeat * SPB).toFixed(4), beats: n.durBeats,
     })), spec: w.spec, verify: w.verify,
   })),
 };
