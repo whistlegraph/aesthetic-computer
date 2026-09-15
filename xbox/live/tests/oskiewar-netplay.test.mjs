@@ -15,7 +15,7 @@ const source = await readFile(new URL("../oskiewar.js", import.meta.url), "utf8"
 // A seat: the piece loaded headless, with a clock the test owns, a pad the
 // test presses, and every host hook counted rather than performed.
 function createSeat({ viewport = { width: 1920, height: 1080 },
-  roundBridge = null, netSend = null } = {}) {
+  roundBridge = null, netSend = null, knockoutFrame = null } = {}) {
   let now = 5000000;
   const pad = { connected: true, down: [], leftX: 0, leftY: 0 };
   const counts = { drums: 0, signals: 0, telemetry: [], analytics: 0, published: 0 };
@@ -25,9 +25,26 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay",
     "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle",
-    "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
+    "triangle3d", "triangles3d", "write", "systemWrite", "gameView", "knockoutFrame",
     `${source}
+     // Round-lifecycle tests supply a terminal combat outcome at a known tick.
+     // Run the real KO path inside simulation, including on resimulation, so
+     // rollback can undo/reapply its score, effects and replay marks normally.
+     // Ordinary noisy-wire tests keep their unmodified combat choreography.
+     const fixtureKnockouts = [];
+     if (knockoutFrame !== null) {
+       const originalGameSim = gameSim;
+       gameSim = () => {
+         originalGameSim();
+         if (netSession && netClockUs === netSession.originUs +
+             (knockoutFrame + 1) * NET_TICK_US && !roundResult && players[1].alive) {
+           killPlayer(players[1], 0, runtime().monotonicUs, "KO");
+           fixtureKnockouts.push(knockoutFrame);
+         }
+       };
+     }
      return { boot, sim, paint, saberPickups, players, netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
+       fixtureKnockouts: () => fixtureKnockouts.slice(),
        netplayBegin: (deal, seat, send) => netBegin(deal, seat, send),
        netplayDeal: () => netMakeDeal(),
        netplayEnd: (reason) => netEnd(reason),
@@ -73,7 +90,7 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
     (payload) => { replays.push(payload); return Promise.resolve(true); },
     () => { counts.published++; }, () => { counts.analytics++; },
     () => { counts.drums++; }, noOp, noOp, noOp, noOp, undefined, undefined,
-    noOp, noOp, () => viewport,
+    noOp, noOp, () => viewport, knockoutFrame,
   );
   globalThis.__oskiewarVersusCapable = true;
   // A rollback fight has two signed-in seats by definition — versus is behind
@@ -369,12 +386,16 @@ test("the sim state list is not empty and covers the round clock", () => {
 });
 
 test("rounds roll over inside the fight and both seats agree on the score", () => {
-  const host = createSeat();
-  const guest = createSeat();
+  // Skating changes where the scripted fighters meet. This test owns round
+  // rollover, not whether that particular movement script happens to win.
+  const host = createSeat({ knockoutFrame: 500 });
+  const guest = createSeat({ knockoutFrame: 500 });
   const wire = createWire(host, guest, { delay: 3, jitter: 2, loss: .05, seed: 11 });
   beginPair(host, guest, wire);
   // Long enough for a knockout, the result card, and the next round's bell.
   run(host, guest, wire, 2400, { settle: 60 });
+  for (const seat of [host, guest])
+    assert.ok(seat.fight.fixtureKnockouts().includes(500), "the scheduled KO occurred");
   assert.ok(equalize(host, guest, wire));
   assert.equal(host.fight.netplayHash(), guest.fight.netplayHash());
   const hostState = host.fight.netplayState();
@@ -737,8 +758,8 @@ test("a versus round is filed, and the store accepts what was written", () => {
 // marker is set at the knockout and the round is filed later, from netTick,
 // once both seats have confirmed past it.
 test("a round is not filed until its end can no longer be taken back", () => {
-  const host = createSeat();
-  const guest = createSeat();
+  const host = createSeat({ knockoutFrame: 500 });
+  const guest = createSeat({ knockoutFrame: 500 });
   const wire = createWire(host, guest, { delay: 6, jitter: 2, seed: 5 });
   beginPair(host, guest, wire);
   let waits = 0;
@@ -764,6 +785,8 @@ test("a round is not filed until its end can no longer be taken back", () => {
   }
   assert.ok(waits > 0, "a round did finish and had to wait");
   assert.ok(host.saved().length > 0, "and was filed once it could be");
+  for (const seat of [host, guest])
+    assert.ok(seat.fight.fixtureKnockouts().includes(500), "the scheduled KO occurred");
 });
 
 // A rollback restores the arrays the fight is made of. Any array the sim

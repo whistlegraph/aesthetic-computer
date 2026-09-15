@@ -2310,6 +2310,33 @@ test("the connection meter reads the wire it is actually on", () => {
   }
 });
 
+for (const start of ["A", "B", "X", "Y", "ArrowUp", "stick"]) {
+  test(`Start consumes ${start} through release without a gameplay action`, () => {
+    const { fight, pads, tick } = createFight(false, false);
+    const player = fight.players[0];
+    const initial = { x: player.x, y: player.y };
+    if (start === "stick") pads[0].leftY = 1;
+    else pads[0].down = [start];
+    for (let frame = 0; frame < 220; frame++) {
+      tick();
+      assert.equal(player.attackKind, "");
+      assert.equal(player.itemAction, "");
+      assert.equal(player.blocking, false);
+      assert.equal(player.grabHeld, false);
+      assert.equal(player.x, initial.x);
+      assert.equal(player.y, initial.y);
+    }
+    assert.equal(fight.shellState().mode, "GAME");
+    pads[0].down = [];
+    pads[0].leftY = 0;
+    tick();
+    pads[0].down = ["X"];
+    tick();
+    assert.equal(fight.clientErrorState(), "");
+    assert.equal(player.blocking, true, "a fresh press after releasing Start can shield");
+  });
+}
+
 test("start button flashes yellow green lime before lifting off the fight", () => {
   const { fight, pads, signals, drums, tick } = createFight(false, false);
   assert.equal(fight.shellState().mode, "MENU");

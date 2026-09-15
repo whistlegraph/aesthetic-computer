@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 119;
+const buildVersion = 120;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1627,6 +1627,7 @@ let replayOfferPrevious = [];
 let shellMode = "MENU";
 let gameplayStarted = false;
 let shellPrevious = [];
+let startInputPending = false;
 let shellRawPrevious = [];
 // Whether the stick was already leaned last frame, so a held lean reads as
 // one gesture at the title rather than a machine-gun of entries.
@@ -3730,6 +3731,7 @@ function consumeSystemButtons(now) {
 
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
+  startInputPending = true;
   if (survivalActive()) {
     startSurvivalRun(now, false);
     globalThis.__oskiewarStartLine = "climb!";
@@ -3833,6 +3835,7 @@ function updateShell(now, tapped = false) {
     if (typeof titleVoice === "function") titleVoice();
     emitSignal("select", -1, 1, 0);
     titleTransitionAt = now;
+    startInputPending = true;
   }
   shellPrevious = down.slice();
   shellStickLive = stickLive;
@@ -5624,6 +5627,7 @@ function gameBoot() {
   spectatorQr = typeof qrcode === "function"
     ? spectatorCode("https://oskiewar.com") : null;
   shellPrevious = [];
+  startInputPending = false;
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
   if (roundViewer?.start) {
@@ -8541,7 +8545,8 @@ function updatePlayer(player, pad, dt, now) {
     const surfaceVy = player.skateVx * terrainSlope;
     const aheadSlope = clamp(terrainTangentAt(
       player.x + player.skateVx * .05), -2.5, 2.5);
-    if (surfaceVy < -skateLaunchFloor && aheadSlope > terrainSlope + .2) {
+    if (surfaceVy < -skateLaunchFloor &&
+        (aheadSlope - terrainSlope) * Math.sign(player.skateVx) > .2) {
       player.vy = surfaceVy;
       player.grounded = false;
       player.skateAirAt = now;
@@ -8561,6 +8566,10 @@ function updatePlayer(player, pad, dt, now) {
         Math.round(skateSpeed / 42) / 100);
     }
     player.skateCarveDir = carveDir;
+  } else if (player.skateboard && !player.grounded) {
+    // Keep the board's launch momentum instead of borrowing walking speed
+    // in the air and reviving a different skateVx on landing.
+    controlledVx = player.skateVx;
   } else if (!player.skateboard) player.skateVx = 0;
   player.vx = controlledVx + player.windVx + player.knockVx;
   if (inputChanged) telemetry("FIGHT_MOVE", player.name +
@@ -8724,7 +8733,8 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.grounded = true;
     }
-  } else if (player.y >= terrainFloorAt(player.x)) {
+  } else if (player.y >= terrainFloorAt(player.x) &&
+      (!player.skateboard || player.vy >= 0)) {
     const terrainY = terrainFloorAt(player.x);
     player.y = terrainY;
     if (headOnly) {
@@ -8744,6 +8754,19 @@ function updatePlayer(player, pad, dt, now) {
       Math.abs(player.y - contact.y) < Math.max(24, Math.abs(player.vx * dt) * 2.5));
     if (supported && !player.skateWallSide) {
       player.y = contact.y;
+      const tangentX = Math.cos(contact.pitch);
+      const tangentY = Math.sin(contact.pitch);
+      if (!wasGrounded) {
+        // Inelastic contact removes normal velocity. A downward impact at a
+        // lip must count against uphill momentum, not become an upward boost.
+        player.skateVx = (player.vx * tangentX + landingSpeed * tangentY) * tangentX;
+      } else {
+        // Carry tangent speed around the curve; fixed horizontal speed would
+        // invent vertical energy whenever the slope steepens.
+        player.skateVx *= tangentX / Math.max(.001,
+          Math.cos(player.skatePitch || 0));
+      }
+      player.vx = player.skateVx;
       player.skatePitch = contact.pitch;
       player.skateContacts = Number(contact.left) + Number(contact.right);
       player.grounded = true;
@@ -9441,6 +9464,16 @@ function gameSim() {
           : botPad(player, players[player.pad ? 0 : 1], now)
         : player.npc ? { connected: true, down: [], leftX: 0, leftY: 0 }
           : padSnapshots[player.pad];
+  // Start belongs to the shell, including its hold and transition frames.
+  // The first neutral sample releases gameplay for the next fresh press.
+  if (!players[0].bot && !players[0].remote && !netFrameInputs && !resimActive) {
+    const pad = inputPads[0];
+    if (shellMode === "MENU" || startInputPending) {
+      startInputPending = shellMode === "MENU" || pad.down.length > 0 ||
+        Math.abs(pad.leftX || 0) > .08 || Math.abs(pad.leftY || 0) > .08;
+      inputPads[0] = { ...pad, down: [], leftX: 0, leftY: 0 };
+    }
+  }
   if (debugHitboxes && now >= nextInputDebugAt) {
     nextInputDebugAt = now + 500000;
     const values = players.map((player) => {
@@ -13915,8 +13948,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   }
   const versionX = titleX + titleWidth + lockupGap;
   const versionY = titleY + titleSize - versionSize * 1.15;
-  typeWrite(version, versionX + 2, versionY + 3, versionSize,
-    ...mixColor([8, 10, 24], [73, 43, 55], visualTheme.light * .35));
+  const versionEdge = contrastShadow(transitionInk || ink);
+  for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]])
+    typeWrite(version, versionX + dx, versionY + dy, versionSize, ...versionEdge);
   typeWrite(version, versionX, versionY, versionSize,
     ...(transitionInk || ink));
   if (survivalActive()) {
@@ -14592,14 +14626,11 @@ function gamePaint() {
   const reelMinimal = replayOven && reelHud &&
     capabilities().reelFullUi !== true;
   triangleDepth = -1.4;
-  // Survival climbs under weather; the station hangs over a planet. Both keep
-  // day and night, because the theme drives the HUD and the fighters too — on
-  // the station "day" is the sunlit side of the orbit, which lifts the hull
-  // and the planet's rim without ever turning the vacuum blue.
+  // The station uses a plain light or dark backdrop matching the HUD theme.
   const space = !survivalActive();
   const skyDay = mixColor([176, 215, 245], [255, 160, 112],
     visualTheme.sunset * .7);
-  const sky = space ? mixColor([6, 8, 22], [18, 26, 58], visualTheme.light)
+  const sky = space ? mixColor([6, 8, 22], [235, 241, 248], visualTheme.light)
     : mixColor([7, 8, 28], skyDay, visualTheme.light);
   // Match the clear color to the arena sky. Camera framing can reveal the
   // clear layer during a jump; a different clear color looked like a flash.
@@ -14610,13 +14641,11 @@ function gamePaint() {
   const arenaDay = mixColor([244, 211, 178], [235, 154, 150],
     visualTheme.sunset * .48);
   const arena = mixColor([24, 18, 42], arenaDay, visualTheme.light);
-  // Earth became hull. The green was a lawn under a tower and then under a
-  // cube; a deck in orbit is plate, and it has to stay dark enough that the
-  // starfield behind it still reads as the brighter thing in the frame.
+  // Pale steel in light mode stays distinct from the brighter backdrop.
   const groundDay = mixColor([142, 184, 116], [190, 151, 103],
     visualTheme.sunset * .38);
   const ground = space
-    ? mixColor([16, 22, 38], [96, 112, 142], visualTheme.light)
+    ? mixColor([16, 22, 38], [177, 193, 215], visualTheme.light)
     : mixColor([13, 25, 29], groundDay, visualTheme.light);
   // The floating decks are steel with a lit edge. The plate itself stays
   // near the hull's own value — a near-white slab against vacuum reads as a
@@ -14626,7 +14655,7 @@ function gamePaint() {
   // the pale thing and the lip is the dark line under it, because there the
   // background is what is bright.
   const platformColor = space
-    ? mixColor([26, 36, 60], [104, 124, 160], visualTheme.light)
+    ? mixColor([26, 36, 60], [158, 179, 210], visualTheme.light)
     : mixColor([24, 29, 46], [211, 198, 171], visualTheme.light);
   const titleInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   const statusShadow = contrastShadow(titleInk);
