@@ -41,6 +41,10 @@ import {
   recoverNoPaintPiece,
 } from "../lib/nopaint-pieces.mjs";
 
+// Keep this iteration focused on Line. Other recovered brushes remain
+// available as pieces and can rejoin the conductor in a later pass.
+const ACTIVE_PROPOSALS = Object.freeze([proposalDefinition("line")]);
+
 const COMPATIBLE_BRUSHES = Object.freeze(new Map([
   [lineProposal.slug, lineProposal],
   [gridWormProposal.slug, gridWormProposal],
@@ -109,7 +113,8 @@ let stageScreen = null;
 let wallpaperFrame = 0;
 const cueSamples = new Map();
 let cueEvents = [];
-const PROPOSAL_MERRY_FRAMES = 5 * 60;
+// AC sim runs at 120 Hz, independent of the display's refresh rate.
+const PROPOSAL_MERRY_FRAMES = 5 * 120;
 
 const LEGACY_CUES = Object.freeze({
   "no-down": "generic - no button pressed (metal brush).webm",
@@ -392,12 +397,16 @@ const MARKER_GLYPHS = Object.freeze({
   e: [[[0, 0.68], [1, 0.68], [0.88, 0.42], [0.2, 0.3], [0, 0.52], [0.08, 0.88], [0.35, 1], [0.9, 0.92]]],
 });
 
-function paintMarkerLabel($, button, label, color) {
+function markerLabelScale(button, label) {
+  const unitsWide = label.length * 0.72 + Math.max(0, label.length - 1) * 0.3;
+  return Math.max(4, Math.min(button.box.h * 0.42, button.box.w * 0.68 / unitsWide));
+}
+
+function paintMarkerLabel($, button, label, color, scale = markerLabelScale(button, label)) {
   const letters = label.split("");
   const glyphWidth = 0.72;
   const gap = 0.3;
   const unitsWide = letters.length * glyphWidth + Math.max(0, letters.length - 1) * gap;
-  const scale = Math.max(4, Math.min(button.box.h * 0.42, button.box.w * 0.68 / unitsWide));
   const originX = button.box.x + (button.box.w - unitsWide * scale) / 2;
   const originY = button.box.y + (button.box.h - scale) / 2;
   const thickness = Math.max(2, Math.round(scale * 0.11));
@@ -423,7 +432,7 @@ function paintMarkerLabel($, button, label, color) {
   });
 }
 
-function paintDecisionButton($, button, label, flavor = "no") {
+function paintDecisionButton($, button, label, flavor = "no", labelScale) {
   const active = button.down || button.over;
   const palette = flavor === "paint"
     ? { fill: [45, 170, 76, active ? 255 : 235], ink: [245, 255, 245] }
@@ -436,7 +445,7 @@ function paintDecisionButton($, button, label, flavor = "no") {
     .box(button.box, "fill")
     .ink(palette.ink)
     .box(button.box, "outline");
-  paintMarkerLabel($, button, label, palette.ink);
+  paintMarkerLabel($, button, label, palette.ink, labelScale);
 }
 
 function paintOriginalCursor($) {
@@ -522,6 +531,7 @@ function chooseProposal(api) {
     random,
     resolution.width,
     resolution.height,
+    ACTIVE_PROPOSALS,
   );
   const compatibleBrush = COMPATIBLE_BRUSHES.get(baseProposal.kind);
   proposal = compatibleBrush
@@ -604,6 +614,7 @@ async function loadArchivePainting(api, archiveId) {
     const bitmap = loaded?.img || loaded;
     const source = api.painting(256, 256, (p) => p.paste(bitmap, 0, 0));
     api.system.nopaint.replace(api, source, `nopaint-archive:${id}`);
+    paintingResolution = { width: source.width, height: source.height };
     api.system.nopaint.buffer = api.painting(256, 256, (p) =>
       p.wipe(255, 255, 255, 0)
     );
@@ -622,6 +633,7 @@ async function loadArchivePainting(api, archiveId) {
     api.store["nopaint:origin"] = { ...archiveOrigin };
     api.store.persist("nopaint:origin", "local:db");
     console.error(`No Paint archive load failed for ${id}:`, error);
+    publishTestState();
   }
 }
 
@@ -862,6 +874,7 @@ function testSnapshot() {
         width: layout.bar.w,
         height: layout.bar.y + layout.bar.h,
       },
+      screenPixelLength: stageScreen?.pixelLength ?? null,
       controlBar: { ...layout.bar },
       modeline: { ...layout.status },
     } : null,
@@ -1057,8 +1070,9 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
         api.needsPaint();
       })
       .catch(() => {});
-    for (const contract of new Set(COMPATIBLE_BRUSHES.values())) {
-      for (const path of contract.assets || []) {
+    for (const { name } of ACTIVE_PROPOSALS) {
+      const contract = COMPATIBLE_BRUSHES.get(name);
+      for (const path of contract?.assets || []) {
         if (proposalAssets.has(path)) continue;
         // A pending null reserves the path so contracts sharing a sheet do
         // not schedule duplicate fetches.
@@ -1083,6 +1097,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
         .catch(() => {}); // playCue supplies an immediate native synth fallback.
     }
     for (const [kind, filename] of Object.entries(BRUSH_CUES)) {
+      if (!ACTIVE_PROPOSALS.some(({ name }) => kind.split(":")[0] === name)) continue;
       net.preload(`/nopaint.art/media/${filename}`)
         .then((sample) => {
           brushCueSamples.set(kind, sample);
@@ -1106,7 +1121,11 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
 }
 
 // 🧮 Sim
-function sim({ needsPaint }) {
+function sim($) {
+  // Boot's API can retain an old screen after a reframe. Timed proposals
+  // must clear and restore the current frame's drawing target.
+  testApi = $;
+  const { needsPaint } = $;
   wallpaperFrame += 1;
   needsPaint();
   if (cursorWagFrames > 0) {
@@ -1119,7 +1138,7 @@ function sim({ needsPaint }) {
   if (loopState === "proposing" && !decisionHeld) {
     proposalFrame += 1;
     if (proposalFrame >= PROPOSAL_MERRY_FRAMES) {
-      merryProposal(testApi);
+      merryProposal($);
       return;
     }
     needsPaint();
@@ -1252,7 +1271,11 @@ function paintStudioWallpaper($, bar) {
 
 function paint($) {
   if (!proposal || !$.system.nopaint.buffer) return false;
-  stageScreen = { width: $.screen.width, height: $.screen.height };
+  stageScreen = {
+    width: $.screen.width,
+    height: $.screen.height,
+    pixelLength: $.screen.pixels?.length,
+  };
   renderProposal($);
   $.system.nopaint.needsPresent = true;
 
@@ -1271,7 +1294,6 @@ function paint($) {
     $.paste($.system.nopaint.buffer, stage.x, stage.y, scale);
   }
   if (paintingPressed || hoveredDecision === "painting") {
-    $.ink(255, 255, 255, paintingPressed ? 38 : 22).box(surface, "fill");
     $.ink(255, 255, 255, paintingPressed ? 235 : 145).box(surface, "outline");
   }
   const merryRemaining = Math.max(0, 1 - proposalFrame / PROPOSAL_MERRY_FRAMES);
@@ -1290,12 +1312,12 @@ function paint($) {
   );
 
   positionButtons($.screen);
-  if (finishMode) {
-    paintDecisionButton($, backButton.btn, "Back", "back");
-    paintDecisionButton($, doneButton.btn, "Done", "done");
-  } else {
-    paintDecisionButton($, noButton.btn, "No");
-    paintDecisionButton($, paintButton.btn, "Paint", "paint");
+  const controls = finishMode
+    ? [[backButton.btn, "Back", "back"], [doneButton.btn, "Done", "done"]]
+    : [[noButton.btn, "No", "no"], [paintButton.btn, "Paint", "paint"]];
+  const labelScale = Math.min(...controls.map(([button, label]) => markerLabelScale(button, label)));
+  for (const [button, label, flavor] of controls) {
+    paintDecisionButton($, button, label, flavor, labelScale);
   }
   paintOriginalCursor($);
   return loopState === "proposing";
@@ -1376,6 +1398,7 @@ export function nopaintXboxAction(button, completing = false) {
 
 // 🎪 Act — every input surface reaches the same two decision functions.
 function act($) {
+  testApi = $;
   const { event: e } = $;
   if (e.is("reframed")) {
     // Before the first decision, keep a new canvas flush with the stage as
@@ -1431,13 +1454,7 @@ function act($) {
     if (target !== hoveredDecision) {
       hoveredDecision = target;
       cursorFrame = 0;
-      if (target === "painting") {
-        cueEvents.push({
-          name: "painting-hover",
-          path: cueSamples.has("rollover") ? "legacy" : "synth",
-        });
-        playCue($, "rollover");
-      } else if (target) {
+      if (target && target !== "painting") {
         playCue($, "rollover");
       }
     }

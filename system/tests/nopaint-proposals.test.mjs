@@ -138,7 +138,8 @@ test("Paint commits the proposal buffer while No only discards it", () => {
   const painting = {
     width: 2,
     height: 2,
-    pixels: new Uint8ClampedArray(16),
+    // These decision tests start with an existing opaque painting.
+    pixels: new Uint8ClampedArray(16).fill(255),
   };
   const buffer = {
     width: 2,
@@ -254,6 +255,22 @@ test("Paint commits the proposal buffer while No only discards it", () => {
     { number: 2, operation: store["nopaint:session"].decisions[1].operation, decision: "no" },
   ]);
   assert.deepEqual([...buffer.pixels], new Array(16).fill(0));
+
+  const pages = [];
+  const currentFrame = {
+    ...common,
+    screen: { width: 190, height: 400 },
+    page(target) { pages.push(target); return page(target); },
+  };
+  for (let tick = 0; tick < 599; tick += 1) nopaintPiece.sim(currentFrame);
+  assert.equal(pages.length, 0, "the proposal lasts five seconds at AC's 120 Hz");
+  nopaintPiece.sim(currentFrame);
+  assert.equal(pages.at(-1), currentFrame.screen,
+    "automatic advance restores the current screen after a reframe");
+  assert.deepEqual([...painting.pixels], new Array(16).fill(90));
+  assert.equal(system.nopaint.piece, acceptedPiece);
+  assert.equal(store["nopaint:session"].decisions.length, 2,
+    "automatic advance is not a participant decision");
 });
 
 test("pointer Paint survives inherited touch/lift handling before module act", () => {
@@ -283,7 +300,7 @@ test("pointer Paint survives inherited touch/lift handling before module act", (
   const painting = {
     width: 2,
     height: 2,
-    pixels: new Uint8ClampedArray(16),
+    pixels: new Uint8ClampedArray(16).fill(255),
   };
   const buffer = {
     width: 2,

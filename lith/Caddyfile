@@ -1172,6 +1172,12 @@ nopaint.art {
         rewrite * /nopaint
         import lith_proxy
     }
+    # The conductor rewrites / to /nopaint:<seed>. Reloads and shared
+    # sessions must boot AC again instead of matching an archive record.
+    @nopaint_session path /nopaint /nopaint/ /nopaint:* /nopaint~*
+    handle @nopaint_session {
+        import lith_proxy
+    }
     # AC runtime routes used by the native remake at the branded root.
     handle /api/* {
         import lith_proxy

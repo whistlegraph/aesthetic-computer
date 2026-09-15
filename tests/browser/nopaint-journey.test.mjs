@@ -79,7 +79,7 @@ try {
     expect(state?.state === "proposing", `state is proposing (got ${state?.state})`);
     expect(state?.proposalNumber === 1, "first proposal is numbered 1");
     expect(state?.freshStart === true, "query launch requests a fresh painting");
-    expect(state?.operation !== "camera", `seed never begins with Camera (got ${state?.operation})`);
+    expect(state?.operation === "line", `the conductor proposes only Line (got ${state?.operation})`);
     expect(state?.ready === true, "proposal buffer reports ready");
     expect(state?.piece?.schema === "aesthetic.computer/nopaint-piece",
       "the accepted painting is a piece");
@@ -148,6 +148,8 @@ try {
       const { paintingViewport: stage, controlBar: bar, modeline } = state.layout;
       const resolution = state.layout.paintingResolution;
       const screenResolution = state.layout.screenResolution;
+      expect(state.layout.screenPixelLength === screenResolution.width * screenResolution.height * 4,
+        `${viewport.label}: pixel buffer matches the resized screen dimensions`);
       const { no, paint } = state.controls;
       const canvasRect = await ac.page.evaluate(() => {
         const canvas = document.querySelector("canvas");
@@ -293,7 +295,8 @@ try {
     expect(after?.proposalNumber === before.proposalNumber + 1, "release chooses the slid-to button");
     expect(after?.decisions?.at(-1)?.decision === "paint", "sliding No → Paint commits Paint");
     expect(after?.audio?.decisionHeld === false, "release resumes normal proposal playback");
-    const recentCues = after?.audio?.events?.slice(-6).map(({ name }) => name) || [];
+    const recentCues = after?.audio?.events?.slice(before.audio.events.length)
+      .map(({ name }) => name) || [];
     expect(recentCues.includes("no-down"), "hold begins with the No press cue");
     expect(recentCues.includes("paint-down") || recentCues.includes("rollover"), "crossing announces Paint");
     expect(recentCues.includes("paint"), "release emits the Paint cue before the next brush theme");
@@ -322,6 +325,9 @@ try {
       "the original cursor remains active across painting hover transitions");
     expect([0, 1, 2].includes(paintingHovered.cursor?.frame),
       "cursor uses Construct's logical frame replacements rather than atlas cycling");
+    expect(paintingHovered.audio.events.filter(({ name }) => name === "rollover").length ===
+      hovered.audio.events.filter(({ name }) => name === "rollover").length,
+    "moving onto the painting does not play a button rollover sound");
   });
 
   await scenario("Keyboard decisions commit on key-up and support cancellation", async (expect) => {
@@ -512,6 +518,9 @@ try {
     expect(state?.origin?.id === "l4f0ipzy", "archive id remains attached as provenance");
     expect(state?.origin?.status === "ready", `archive pixels load (${state?.origin?.status})`);
     expect(state?.paintingFingerprint !== null, "archive image establishes a painting base");
+    expect(state?.layout?.paintingResolution?.width === 256 &&
+      state?.layout?.paintingResolution?.height === 256,
+    "archive proposals use the imported painting's dimensions");
     expect(state?.proposalNumber === 1, "proposal sequence restarts over the imported painting");
   });
 } finally {

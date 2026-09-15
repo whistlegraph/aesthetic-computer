@@ -12207,7 +12207,12 @@ async function makeFrame({ data: { type, content } }) {
 
   // 1d. Loading Bitmaps
   if (type === "loaded-bitmap-success") {
-    if (debug) console.log("🖼️ Bitmap loaded:", content);
+    // Logging the bitmap itself makes piece-run telemetry JSON-encode every
+    // pixel. No Paint's sprite sheets can stall the worker for seconds.
+    if (debug) console.log("🖼️ Bitmap loaded:", content.url, {
+      width: content.img?.width,
+      height: content.img?.height,
+    });
     preloadPromises[content.url]?.resolve(content);
     delete preloadPromises[content];
     return;
@@ -12355,13 +12360,17 @@ async function makeFrame({ data: { type, content } }) {
       pixels = new Uint8ClampedArray(content.pixels);
       // Only use the transferred buffer if it matches current screen dimensions
       // After a reframe, the buffer from bios may have old dimensions
-      const expectedLength = screen.width * screen.height * 4;
+      const expectedLength = (content.width ?? screen.width) *
+        (content.height ?? screen.height) * 4;
       if (pixels.length === expectedLength) {
         screen.pixels = pixels;
       } else {
         if ($commonApi.rec.presenting) {
           console.log('⚠️ FRAME: Ignoring mismatched buffer from bios. Got:', pixels.length, '| Expected:', expectedLength, '| Keeping reframed buffer');
         }
+        // Screen recreation below also reads this local. A rejected buffer
+        // must not be reused there with the new frame's width and height.
+        pixels = undefined;
         // Keep the current screen.pixels buffer (from reframe)
       }
     }

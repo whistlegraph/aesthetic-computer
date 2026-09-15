@@ -114,8 +114,8 @@ export function pickWeightedProposal(random, catalog = NOPAINT_PROPOSAL_CATALOG)
   return catalog[catalog.length - 1].name;
 }
 
-export function makeProposal(random, width, height) {
-  const kind = pickWeightedProposal(random);
+export function makeProposal(random, width, height, catalog = NOPAINT_PROPOSAL_CATALOG) {
+  const kind = pickWeightedProposal(random, catalog);
   const color = [
     Math.floor(random() * 256),
     Math.floor(random() * 256),
