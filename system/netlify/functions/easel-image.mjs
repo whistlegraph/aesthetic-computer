@@ -9,9 +9,10 @@ export async function handler(event) {
   if(!user?.sub)return respond(401,{error:'Sign in to use hosted image tools.'},headers);
   const handle=await getHandleOrEmail(user.sub);
   if(!handle?.startsWith('@'))return respond(403,{error:'Claim an AC handle first.'},headers);
-  if(!process.env.OPENAI_API_KEY)return respond(503,{error:'Hosted image tools are unavailable.'},headers);
   let input;
   try{input=imageRequest(JSON.parse(event.body));}catch(error){return respond(400,{error:error.message},headers);}
+  const key=process.env[input.provider === 'fal' ? 'FAL_KEY' : 'OPENAI_API_KEY'];
+  if(!key)return respond(503,{error:`Hosted ${input.provider} image tools are unavailable.`},headers);
   const {db}=await connect();
   const jobs=db.collection('easel-image-jobs');
   await jobs.createIndex({expiresAt:1},{expireAfterSeconds:0});
@@ -29,7 +30,7 @@ export async function handler(event) {
   if(!allowed.modifiedCount){await jobs.updateOne({_id:id},{$set:{status:'limited'}});return respond(429,{error:'Today’s five hosted images have been used. Try tomorrow or use your own provider key.'},headers);}
   try {
     await jobs.updateOne({_id:id},{$set:{status:'submitted'}});
-    const result=await generateEaselImage(input,{key:process.env.OPENAI_API_KEY});
+    const result=await generateEaselImage(input,{key});
     await jobs.updateOne({_id:id},{$set:{status:'complete',result}});
     return respond(200,result,headers);
   }catch(error){
