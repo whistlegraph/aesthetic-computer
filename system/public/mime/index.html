@@ -7,7 +7,6 @@
   <title>mime</title>
   <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
-  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
     :root {
       color-scheme: light;
@@ -48,8 +47,11 @@
     :focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
     ::selection { background: var(--ink); color: var(--paper); }
     header { text-align: left; padding: 1em 1em 0.4em; }
-    header h1 { margin: 0; color: var(--ink); font: 22px/1.5 "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace; }
-    header h1 a { color: inherit; text-decoration: none; }
+    header h1 { margin: 0; color: var(--ink); line-height: 1; }
+    .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
+    .wordmark svg { display: block; width: 108px; height: 33px; overflow: visible; }
+    .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
+    .wordmark:active svg { transform: translateY(1px); }
     .pages { display: flex; justify-content: space-between; margin-top: 1em; }
     main { width: 100%; max-width: 80rem; margin: 0; padding: 0 1em; }
     h2 { color: var(--ink); font-size: 1.2em; }
@@ -146,7 +148,7 @@
     .feed-post > .meta { margin: 0 0.75rem; }
     .feed-post > .body { margin: 0 0.75rem; max-height: 15vh; overflow: auto; }
     .feed-post > .discussion { align-self: center; flex-shrink: 0; margin: 0; }
-    .feed-more { position: absolute; top: max(0.6em, env(safe-area-inset-top)); right: 0.75rem; display: flex; align-items: center; gap: 0.5em; max-width: calc(100% - 6rem); }
+    .feed-more { position: absolute; top: max(0.6em, env(safe-area-inset-top)); right: 0.75rem; display: flex; align-items: center; gap: 0.5em; max-width: calc(100% - 9rem); }
     .feed-more button { padding: 0.3em 0.6em; }
     .feed-more [role="status"] { color: var(--dim); font-size: 0.85em; }
     body.feed main > p { margin: 4rem 0.75rem; }
@@ -157,13 +159,24 @@
       header { padding-left: 0.75rem; padding-right: 0.75rem; }
       main { padding: 0 0.75rem; }
       .post { padding: 0.6em; }
-      }
+    }
 
   </style>
 </head>
 <body>
   <header>
-    <h1><a href="/prompt" aria-label="Return to Aesthetic Computer prompt">mime</a></h1>
+    <h1>
+      <a class="wordmark" href="/prompt" aria-label="mime — return to Aesthetic Computer prompt">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 0 36 11" aria-hidden="true" focusable="false">
+          <g fill="currentColor" transform="skewX(-8)">
+            <path id="mime-m" d="M0 10V4H1V3H4V4H5V3H8V4H9V10H7V5H6V10H3V5H2V10Z"/>
+            <path d="M12 0H14V2H12ZM12 4H14V10H12Z"/>
+            <use href="#mime-m" x="17"/>
+            <path fill-rule="evenodd" d="M28 4H29V3H33V4H34V7H30V8H34V10H29V9H28ZM30 5V6H32V5Z"/>
+          </g>
+        </svg>
+      </a>
+    </h1>
   </header>
   <main id="view"></main>
 
