@@ -95,6 +95,16 @@ Three programs, one relay hop between any two of them.
 - **Guest / spectators**: the same shell + engine, attached through
   `xbox/live/round-room.mjs`. The guest is a spectator that holds the one
   `challenger` seat and is allowed to send pads.
+- **Coach**: `xbox/live/coach.mjs`, a dependency-free stdio MCP server served
+  at `oskiewar.com/coach.mjs` (the page is `oskiewar.com/coach`). It takes the
+  `agent` seat on a room and folds the streamed frames into a ledger a model
+  can coach from — hits by attack and by what the victim was doing, blocks,
+  each swing's landed/blocked/whiffed, deaths, round results — and reads the
+  replay ledger for a handle's track record. It never sends a pad. The title
+  screen prints the room name under START as the invitation ("add your
+  coach") and flips to "coach linked" with the antenna mark while one is
+  seated, off the relay's `agents` count. `npm run oskiewar:agent` is the
+  maintainer's raw-frame cousin.
 
 There is no `#guest` mode in the page. Any visitor to `oskiewar.com/<room>`
 asks for the challenger chair (`mac-test.html:1312-1316`); a bare visit asks

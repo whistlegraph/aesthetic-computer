@@ -7,6 +7,13 @@
         "toolchain/mcp/acin-mcp.mjs"
       ]
     },
+    "coach": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "xbox/live/coach.mjs"
+      ]
+    },
     "illy": {
       "type": "stdio",
       "command": "node",

@@ -13782,6 +13782,41 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
   typeWrite(line, x, y, size, ...ink);
 }
 
+// "Add your coach." @jeffrey: "itd be cool so any user can claude into an
+// oskiewar game ... 'coach' would be the feature ... which could then analyze
+// your matches / do things / get ur data". The relay has always counted a
+// read-only `agent` seat apart from the grandstand; this offers that seat on
+// the title as a thing a player can do — hand oskiewar.com/coach.mjs to their
+// own Claude and it sits in on this room, reading every frame a phone reads.
+// The room name is the whole invitation, since it is what a coach attaches
+// to, so it is printed here under START where a newcomer is already looking.
+// Once a coach is seated the line says so, with the antenna the debug
+// read-out lights, and keeps the name up so the player can tell the coach is
+// watching this room and not an earlier one. Never on the poster: the social
+// preview is hash-bound, and a room name changes with every burn.
+function drawCoachLine(button, transitionInk) {
+  if (typeof capabilities !== "function" ||
+      capabilities().socialPreview === true) return;
+  const room = versusRoomName || sessionName;
+  if (!room) return;
+  const compact = compactLayout();
+  const linked = linkedAgents();
+  const line = linked ? "coach linked  " + room
+    : "add your coach  oskiewar.com/coach  " + room;
+  const size = Math.round(hudTypeSize * (compact ? .46 : .56));
+  const width = handleWidth(line, size);
+  const glyph = linked ? Math.round(size * 1.2) : 0;
+  const x = viewCenterX() - (width + glyph) / 2 + glyph;
+  const y = button.y + button.height + (compact ? 6 : 10);
+  if (y + size > viewHeight - 8) return;
+  const ink = transitionInk || (linked ? [120, 226, 255]
+    : mixColor([198, 206, 232], [58, 70, 104], visualTheme.light));
+  typeWrite(line, x + 2, y + 2, size,
+    ...mixColor([8, 10, 26], [226, 234, 246], visualTheme.light));
+  typeWrite(line, x, y, size, ...ink);
+  if (linked) drawAgentLink(x - glyph * .6, y + size * .55, size / 26, linked);
+}
+
 function titleButtonRect() {
   const compact = compactLayout();
   const textSize = hudTypeSize;
@@ -13988,6 +14023,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
       typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
     }
+    drawCoachLine(button, transitionInk);
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.
