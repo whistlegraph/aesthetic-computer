@@ -39,8 +39,9 @@ and are never queried. Removed media threads and their reply attachments return
 
 Source metadata comes from AC records, not request-supplied URLs or attribution.
 Signed-in posts store the verified AC account and display its current handle.
-The composer reuses AC’s same-origin Auth0 session; invalid sessions cannot fall
-back to posting anonymously. Guest names remain unverified. Existing comment
+The composer reuses AC’s same-origin Auth0 session (SDK keys use `::`
+separators) or its encoded `session-aesthetic` host session. Both are verified
+by the API; invalid sessions cannot fall back to posting anonymously. Guest names remain unverified. Existing comment
 attachments remain readable, but new comments are text-only.
 Program source is displayed as text. Native HTML previews remain sandboxed.
 Painting and tape metadata endpoints expose `discussion` URLs for other clients.
@@ -49,6 +50,7 @@ Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
 The painting viewer includes a Comment button. Other media can be discussed from
 their MIME board or direct entry URL.
 The prompt curtain includes a MIME link; entering `mime` opens the same page.
+The corner word returns to `/prompt`.
 
 Legacy piece records without an extension retain the existing JavaScript
 default. Both upload paths now preserve the extension for future records.

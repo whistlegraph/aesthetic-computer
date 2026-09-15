@@ -182,7 +182,7 @@
 </head>
 <body>
   <header>
-    <h1><a href="#/">mime</a></h1>
+    <h1><a href="/prompt" aria-label="Return to Aesthetic Computer prompt">mime</a></h1>
   </header>
   <nav id="boards"></nav>
   <main id="view"></main>
@@ -317,13 +317,23 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
 }
 
 const AC_CLIENT = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+const AC_CACHE_PREFIX = "@@auth0spajs@@::" + AC_CLIENT + "::";
 let identity = { token: null, handle: null };
 let authClientPromise, identityPromise;
 
 function hasAcSession() {
   try {
-    return Object.keys(localStorage).some((key) => key.startsWith("@@auth0spajs@@" + AC_CLIENT + "@@"));
+    return Object.keys(localStorage).some((key) => key.startsWith(AC_CACHE_PREFIX));
   } catch { return false; }
+}
+
+function hostSessionToken() {
+  try {
+    const encoded = localStorage.getItem("session-aesthetic");
+    if (!encoded || encoded === "null") return null;
+    const session = JSON.parse(atob(decodeURIComponent(encoded)));
+    return typeof session.accessToken === "string" && session.account ? session.accessToken : null;
+  } catch { return null; }
 }
 
 function authClient() {
@@ -347,15 +357,18 @@ function authClient() {
 
 function refreshIdentity() {
   if (identityPromise) return identityPromise;
-  if (!hasAcSession()) {
+  const hostToken = hostSessionToken();
+  if (!hostToken && !hasAcSession()) {
     identity = { token: null, handle: null };
     return Promise.resolve();
   }
   identityPromise = (async () => {
-    const client = await authClient();
-    let token;
-    try { token = await client.getTokenSilently(); }
-    catch { throw new Error("sign in again to use your handle"); }
+    let token = hostToken;
+    if (!token) {
+      const client = await authClient();
+      try { token = await client.getTokenSilently(); }
+      catch { throw new Error("sign in again to use your handle"); }
+    }
     const response = await fetch(API + "?me=1", { headers: { Authorization: "Bearer " + token } });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "could not verify your handle");
@@ -379,7 +392,7 @@ function updateIdentity() {
 }
 window.addEventListener("focus", updateIdentity);
 window.addEventListener("storage", (event) => {
-  if (!event.key || event.key.startsWith("@@auth0spajs@@" + AC_CLIENT + "@@")) updateIdentity();
+  if (!event.key || event.key === "session-aesthetic" || event.key.startsWith(AC_CACHE_PREFIX)) updateIdentity();
 });
 
 function postForm(parent) {
