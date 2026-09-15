@@ -591,8 +591,8 @@ function paint({
     printBtn?.paint({ ink });
     downloadBtn?.paint({ ink });
     if (paintingCode && !isNuked && !showMode) {
-      if (!discussBtn) discussBtn = new ui.TextButtonSmall("Comment", { right: 6, top: 24, screen });
-      discussBtn.reposition({ right: 6, top: 24, screen });
+      if (!discussBtn) discussBtn = new ui.TextButtonSmall("Comment", { center: "x", bottom: 6, screen });
+      discussBtn.reposition({ center: "x", bottom: 6, screen });
       discussBtn.paint({ ink });
     } else {
       discussBtn = null;
@@ -737,7 +737,7 @@ function paint({
     );
 
     // Prev & Next Buttons
-    const prevNextMarg = menuBtn || (paintingCode && !isNuked && !showMode) ? 40 : 32;
+    const prevNextMarg = menuBtn ? 40 : 32;
     const prevNextWidth = 32;
 
     if (!prevBtn) {
@@ -817,7 +817,7 @@ function act({
     let discussing = false;
     discussBtn?.act(e, () => {
       discussing = true;
-      net.web(`https://aesthetic.computer/mime/#/media/painting/${encodeURIComponent(paintingCode)}`);
+      net.web(`https://aesthetic.computer/mime/#/media/painting/${encodeURIComponent(paintingCode)}?comment=1`);
     });
     if (discussing || discussBtn?.down) return;
     function next() {

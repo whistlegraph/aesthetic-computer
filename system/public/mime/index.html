@@ -272,7 +272,7 @@ function renderPost(post, isOp, inThread = false, contextBoard) {
   if (post.text) div.append(renderText(post.text));
   if (!post.parent && !inThread) {
     const discuss = el("a", "discussion", "comment" + (post.replies ? " (" + post.replies + ")" : ""));
-    discuss.href = "#/t/" + post.code;
+    discuss.href = "#/t/" + post.code + "?comment=1";
     div.append(discuss);
   }
   return div;
@@ -474,7 +474,8 @@ async function route() {
   document.ondragover = document.ondragleave = document.ondrop = document.onpaste = null;
   document.body.classList.remove("dragging");
   const [hash, query] = location.hash.replace(/^#\/?/, "").split("?");
-  const page = Math.max(0, parseInt(new URLSearchParams(query).get("page")) || 0);
+  const params = new URLSearchParams(query);
+  const page = Math.max(0, parseInt(params.get("page")) || 0);
   view.replaceChildren(el("p", null, "loading…"));
   nav.replaceChildren();
   try {
@@ -486,6 +487,11 @@ async function route() {
       active = await thread(decodeURIComponent(code || ""), kind);
     } else active = await board(decodeURIComponent(hash), page);
     if (hash) await loadNav(active);
+    if (params.get("comment") === "1" && (hash.startsWith("t/") || hash.startsWith("media/"))) {
+      const comment = view.querySelector("#post textarea");
+      comment?.focus();
+      comment?.scrollIntoView({ block: "center" });
+    }
   } catch (error) {
     view.replaceChildren(el("p", null, error.message || "could not load mime"));
   }
