@@ -46,14 +46,15 @@
     a:hover { color: var(--ink); }
     :focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
     ::selection { background: var(--ink); color: var(--paper); }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 1em; text-align: left; padding: 1em 1em 0.4em; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 0.5em; text-align: left; padding: 1em 1em 0.4em; }
     .account { display: flex; align-items: center; justify-content: flex-end; gap: 0.5em; flex-wrap: wrap; font-size: 0.85em; }
     .account button { font: inherit; color: var(--link); background: var(--paper); border: 1px solid var(--card-edge); border-radius: 4px; min-height: 36px; padding: 0.3em 0.6em; cursor: pointer; }
     .account [role="status"] { max-width: 24ch; color: var(--accent); }
     .account [hidden] { display: none; }
-    header h1 { margin: 0; color: var(--ink); line-height: 1; }
+    header h1 { flex-shrink: 0; margin: 0; color: var(--ink); line-height: 1; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
     .wordmark svg { display: block; width: 108px; height: 33px; overflow: visible; }
+    .wordmark .domain-suffix { width: 30px; height: 16px; align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); }
     .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
     .wordmark:active svg { transform: translateY(1px); }
     .pages { display: flex; justify-content: space-between; margin-top: 1em; }
@@ -171,7 +172,7 @@
 <body>
   <header>
     <h1>
-      <a class="wordmark" href="https://aesthetic.computer/prompt" aria-label="mime — return to Aesthetic Computer prompt">
+      <a class="wordmark" href="https://aesthetic.computer/prompt" aria-label="mime.ac — return to Aesthetic Computer prompt">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 0 36 11" aria-hidden="true" focusable="false">
           <g fill="currentColor" transform="skewX(-8)">
             <path id="mime-m" d="M0 10V4H1V3H4V4H5V3H8V4H9V10H7V5H6V10H3V5H2V10Z"/>
@@ -179,6 +180,9 @@
             <use href="#mime-m" x="17"/>
             <path fill-rule="evenodd" d="M28 4H29V3H33V4H34V7H30V8H34V10H29V9H28ZM30 5V6H32V5Z"/>
           </g>
+        </svg>
+        <svg class="domain-suffix" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 8" aria-hidden="true" focusable="false">
+          <path fill="currentColor" fill-rule="evenodd" d="M0 5H2V7H0ZM4 2H8V3H9V7H4V4H7V3H4ZM6 5V6H7V5ZM11 2H14V3H12V4H11V5H12V6H14V7H11V6H10V3H11Z"/>
         </svg>
       </a>
     </h1>

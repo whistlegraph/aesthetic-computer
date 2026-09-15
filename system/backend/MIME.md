@@ -52,7 +52,7 @@ Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
 The painting viewer includes a Comment button. Other media can be discussed from
 the main feed or a direct entry URL.
-The prompt curtain includes a MIME link; entering `mime` opens the same page.
+Entering `mime` in the prompt opens the feed.
 The corner word returns to `/prompt`.
 
 Legacy piece records without an extension retain the existing JavaScript
