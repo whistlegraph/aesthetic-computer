@@ -95,7 +95,8 @@ function runImsg(args, machine, opts) {
   // The remote login shell is fish, whose quoting differs from bash's, and
   // node lives under fnm — so the script goes to `bash -s` over stdin and no
   // remote shell ever parses it. imsg.json (the contacts) must exist there.
-  const script = `eval "$(fnm env --shell bash 2>/dev/null)"; cd ~/aesthetic-computer && node slab/bin/imsg.mjs ${args.map(shq).join(" ")}\n`;
+  // node is under fnm on the MacBooks and a $HOME tarball on poorslice.
+  const script = `export PATH="$HOME/node/bin:$HOME/bin:$PATH"; eval "$(fnm env --shell bash 2>/dev/null)"; cd ~/aesthetic-computer && node slab/bin/imsg.mjs ${args.map(shq).join(" ")}\n`;
   return run("ssh", [sshHost(machine), "bash -s"], { ...opts, input: script });
 }
 
