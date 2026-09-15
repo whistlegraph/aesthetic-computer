@@ -215,8 +215,9 @@ export class Chat {
           const msg = JSON.parse(content);
           console.log("🎨 Handle colors update received:", msg.handle);
           const cleanHandle = msg.handle.startsWith("@") ? msg.handle.slice(1) : msg.handle;
-          handleColorsCache.set(cleanHandle, msg.colors);
-          // Re-colorize all messages from this handle.
+          // The color cache lives in the renderer (disks/chat.mjs), which
+          // receives the parsed update below and recolors that author.
+          content = msg;
           this.system.messages.forEach((message) => {
             const msgHandle = message.from?.startsWith("@") ? message.from.slice(1) : message.from;
             if (msgHandle?.toLowerCase() === cleanHandle.toLowerCase()) {

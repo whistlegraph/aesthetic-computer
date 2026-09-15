@@ -33,6 +33,8 @@
     "test:browser": "node tests/browser/prompt-search.test.mjs",
     "test:browser:headed": "AC_HEADED=1 AC_SLOWMO=60 node tests/browser/prompt-search.test.mjs",
     "test:browser:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/prompt-search.test.mjs",
+    "test:laklok:colors": "node tests/browser/laklok-handle-colors.test.mjs",
+    "test:laklok:colors:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/laklok-handle-colors.test.mjs",
     "xbox:test:mac": "sh xbox/tools/mac-test-app.sh",
     "xbox:play": "node xbox/tools/serve-live.mjs",
     "oskiewar:deploy": "node xbox/tools/oskiewar-release.mjs deploy",

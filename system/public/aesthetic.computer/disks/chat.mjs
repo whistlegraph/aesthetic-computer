@@ -60,8 +60,19 @@ function isChatColorCode(code) {
 }
 
 // 🎨 Handle Colors System
-// Cache for handle colors: Map<handle, Array<{r, g, b}>>
+// Cache for handle colors: Map<handle, Array<{r, g, b}> | null>. A `null`
+// entry means "asked, none set" — cached too, so a plain handle doesn't get
+// re-asked every frame from the presence strip.
 const handleColorsCache = new Map();
+const handleColorsInFlight = new Map(); // handle → Promise, one ask per handle
+let handleColorsFetches = 0; // count of asks made (the e2e test reads this)
+
+// 🧪 Test hook — a BroadcastChannel the browser e2e listens on
+// (tests/browser/laklok-handle-colors.test.mjs). Installed only when the
+// piece booted with `?test=1` or in debug; silent otherwise.
+let chatTestChannel = null;
+let chatTestFrame = 0;
+let chatClient = null; // the room this piece is showing (set in boot)
 
 // Convert a handle to colored text using \color\ syntax
 function colorizeHandle(handle, colors) {
@@ -81,29 +92,98 @@ function colorizeHandle(handle, colors) {
   return result;
 }
 
-// Fetch handle colors from API
-async function fetchHandleColors(handle, api) {
-  // Remove @ if present
-  const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
+// Fetch handle colors from the API — once per handle. A miss (no colors set)
+// is remembered as `null`; a network failure is not, so it can be retried.
+// When colors do arrive the author's lines are relaid so they recolor.
+async function fetchHandleColors(handle) {
+  const cleanHandle = (handle || "").startsWith("@") ? handle.slice(1) : handle;
+  if (!cleanHandle || cleanHandle === "log") return null;
 
-  if (handleColorsCache.has(cleanHandle)) {
-    return handleColorsCache.get(cleanHandle);
-  }
+  if (handleColorsCache.has(cleanHandle)) return handleColorsCache.get(cleanHandle);
+  if (handleColorsInFlight.has(cleanHandle)) return handleColorsInFlight.get(cleanHandle);
 
-  try {
-    const response = await fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(cleanHandle)}`);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.colors) {
-        handleColorsCache.set(cleanHandle, data.colors);
-        return data.colors;
+  const ask = (async () => {
+    try {
+      handleColorsFetches += 1;
+      // The functions path, not /api/ — `netlify dev` only serves the former.
+      const response = await fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(cleanHandle)}`);
+      if (response.ok) {
+        const data = await response.json();
+        const colors = Array.isArray(data.colors) && data.colors.length > 0 ? data.colors : null;
+        handleColorsCache.set(cleanHandle, colors);
+        if (colors) recolorHandle(cleanHandle);
+        return colors;
       }
+    } catch (error) {
+      console.warn(`Failed to fetch colors for @${cleanHandle}:`, error);
+      handleColorsCache.set(cleanHandle, null); // don't re-ask every frame; boot clears
+    } finally {
+      handleColorsInFlight.delete(cleanHandle);
     }
-  } catch (error) {
-    console.warn(`Failed to fetch colors for @${cleanHandle}:`, error);
-  }
+    return null;
+  })();
+  handleColorsInFlight.set(cleanHandle, ask);
+  return ask;
+}
 
-  return null;
+// Drop the cached color lines of every message this handle wrote and ask
+// for a relayout, so the next paint draws the handle in its colors.
+function recolorHandle(cleanHandle) {
+  const target = cleanHandle.toLowerCase();
+  (chatClient?.messages || []).forEach((m) => {
+    const from = m.from?.startsWith("@") ? m.from.slice(1) : m.from;
+    if (from?.toLowerCase() === target) {
+      delete m._colorLineCache;
+      delete m._colorLineHoverKey;
+    }
+  });
+  messagesNeedLayout = true;
+}
+
+// 🧪 Snapshot for the e2e: which authors are cached (and with how many
+// colors), where each visible author handle was painted and whether it went
+// out in custom colors, plus the presence strip.
+function chatTestSnapshot() {
+  const messages = chatClient?.messages || [];
+  const authors = {};
+  messages.forEach((m) => {
+    if (!m.from || m.from === "log") return;
+    const h = m.from.startsWith("@") ? m.from.slice(1) : m.from;
+    if (authors[h]) return;
+    authors[h] = {
+      cached: handleColorsCache.has(h),
+      colors: handleColorsCache.has(h) ? (handleColorsCache.get(h)?.length ?? null) : undefined,
+    };
+  });
+  return {
+    ready: true,
+    connecting: !!chatClient?.connecting,
+    messageCount: messages.length,
+    fetches: handleColorsFetches,
+    authors,
+    presence: chatClient?.onlineHandles || [],
+    visible: messages
+      .filter((m) => m._handleBox)
+      .map((m) => ({ from: m.from, ...m._handleBox })),
+  };
+}
+
+function installChatTestHook({ debug, query }) {
+  chatTestChannel?.close();
+  chatTestChannel = null;
+  if (!debug && !query?.test) return;
+  if (typeof BroadcastChannel === "undefined") return;
+  chatTestChannel = new BroadcastChannel("ac-chat-test");
+  chatTestChannel.onmessage = ({ data }) => {
+    // The test seeds colors for an author it saw in the room, so the paint
+    // path is proven without touching anyone's real colors.
+    if (data?.type === "seed-colors" && data.handle && Array.isArray(data.colors)) {
+      const h = data.handle.startsWith("@") ? data.handle.slice(1) : data.handle;
+      handleColorsCache.set(h, data.colors);
+      recolorHandle(h);
+    }
+    if (data?.type === "snapshot") chatTestChannel?.postMessage(chatTestSnapshot());
+  };
 }
 
 // 🔤 Chat Font System
@@ -732,12 +812,16 @@ async function boot(
     params,
     hud,
     dom,
+    debug,
+    query,
   },
   otherChat,
   options,
 ) {
   // Clear handle colors cache on each boot so edits are picked up.
   handleColorsCache.clear();
+  handleColorsInFlight.clear();
+  handleColorsFetches = 0;
   editingMessage = null; // A pending re-edit never survives a piece switch.
   chatMaxChars = options?.maxChars || 128;
   send({ type: "keyboard:set-max-chars", content: chatMaxChars });
@@ -763,7 +847,9 @@ async function boot(
   rowHeight = typeface.blockHeight + 1;
 
   const client = otherChat || chat;
-  
+  chatClient = client;
+  installChatTestHook({ debug, query });
+
   // Store typeface name from options if provided
   if (options?.typeface) {
     inputTypefaceName = options.typeface;
@@ -811,9 +897,11 @@ async function boot(
     }
   });
 
-  // Fetch colors for all unique handles (async, non-blocking)
+  // Fetch colors for all unique handles (async, non-blocking). The room's
+  // history usually lands after boot, so the paint loop asks again for any
+  // author it meets later — this only warms what is already here.
   uniqueHandles.forEach(handle => {
-    fetchHandleColors(handle, api).catch(err => {
+    fetchHandleColors(handle).catch(err => {
       console.warn(`Failed to prefetch colors for @${handle}:`, err);
     });
   });
@@ -871,6 +959,9 @@ async function boot(
         chatMaxChars = advertised;
         send({ type: "keyboard:set-max-chars", content: chatMaxChars });
       }
+      // 🎨 The room's history is here now — ask once per author, on- or
+      // off-screen, so no handle is met before its colors are known.
+      client.messages.forEach((m) => fetchHandleColors(m.from).catch(() => {}));
       messagesNeedLayout = true;
       return;
     }
@@ -893,8 +984,17 @@ async function boot(
     if (type === "message") {
       const msg = content; // Pre-transformed and stored.
       sound.play(messageSfx);
+      fetchHandleColors(msg?.from).catch(() => {}); // a new voice: ask once
       // delete store["chat:scroll"]; // Reset scroll on new message?
       // return;
+    }
+
+    // 🎨 Someone re-dyed their handle — the lib parsed it; the cache lives here.
+    if (type === "handle:colors" && content?.handle) {
+      const h = content.handle.startsWith("@") ? content.handle.slice(1) : content.handle;
+      const colors = Array.isArray(content.colors) && content.colors.length > 0 ? content.colors : null;
+      handleColorsCache.set(h, colors);
+      recolorHandle(h);
     }
 
     if (extra?.layoutChanged) messagesNeedLayout = true;
@@ -1289,6 +1389,9 @@ function paint(
 
   // console.log(client.messages.length);
 
+  // 🧪 Boxes are re-noted each frame; anything the loop skips is off-screen.
+  if (chatTestChannel) client.messages.forEach((m) => (m._handleBox = null));
+
   for (let i = client.messages.length - 1; i >= 0; i--) {
     const message = client.messages[i];
 
@@ -1308,6 +1411,27 @@ function paint(
 
     const layout = message.layout;
     const y = layout.y;
+
+    // 🎨 Ask once for this author's colors (cached, including "none"), and
+    // note where the handle lands this frame so the e2e can read the pixels.
+    if (message.from && message.from !== "log") {
+      if (!handleColorsCache.has(message.from.replace(/^@/, ""))) {
+        fetchHandleColors(message.from).catch(() => {});
+      }
+      if (chatTestChannel) {
+        const inView =
+          y >= effectiveTopMargin && y + msgRowHeight <= screen.height - bottomMargin;
+        message._handleBox = inView
+          ? {
+              x,
+              y,
+              w: text.width(message.from, msgTypefaceName),
+              h: msgRowHeight,
+              colored: !!message._handleColored,
+            }
+          : null;
+      }
+    }
 
     // 🪧 Paint the message
     
@@ -1493,8 +1617,10 @@ function paint(
                     perCharText += `\\${col.r},${col.g},${col.b}\\${escapeColorCodes(char)}\\${textColorStr}\\`;
                   }
                   customColorCodedText = perCharText;
+                  message._handleColored = true;
                 } else {
                   color = theme.handle;
+                  message._handleColored = false;
                 }
               }
             } else if (element.type === "ytlink") {
@@ -2151,6 +2277,14 @@ function paint(
     needsPaint();
   }
 
+  // 🧪 Tell the e2e what got painted (every few frames, only when hooked).
+  if (chatTestChannel && ++chatTestFrame % 6 === 0) {
+    chatTestChannel.postMessage({
+      ...chatTestSnapshot(),
+      screen: { w: screen.width, h: screen.height },
+    });
+  }
+
   unmask();
 
   // 📜 Scroll bar — only render when content actually exceeds the viewport.
@@ -2588,7 +2722,7 @@ function paint(
             }
           }
         } else {
-          fetchHandleColors(cleanHandle, api).catch(() => {});
+          fetchHandleColors(cleanHandle).catch(() => {});
           ink(0, 0, 0, 180).write(h, {
             x: handleX + 1,
             top: presenceY + 1,
@@ -5447,7 +5581,13 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
 
   for (let i = chat.messages.length - 1; i >= 0; i--) {
     const msg = chat.messages[i];
-    
+
+    // 🎨 Ask once for every author's colors (cached, "none" included) so a
+    // scroll never surfaces a handle that hasn't been asked about yet.
+    if (msg.from && msg.from !== "log" && !handleColorsCache.has(msg.from.replace(/^@/, ""))) {
+      fetchHandleColors(msg.from).catch(() => {});
+    }
+
     // 🔤 Use per-message font settings (computed in computeMessagesHeight)
     // null typeface means "system default", not user's current selection
     const msgTypefaceName = msg.computedTypefaceName; // null = system default
