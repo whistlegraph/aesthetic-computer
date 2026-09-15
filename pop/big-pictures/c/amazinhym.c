@@ -14,21 +14,18 @@
 //   bass_render     — sub bass for low-end weight
 //
 // SCORE — verse 1 of "Amazing Grace, New Britain tune" (William Walker
-// 1835), G major, 70 BPM, 3/4. Length: ~67 s.
+// 1835), G major, 70 BPM, phrased as the .np phrases it: a one-beat
+// pickup then a long syllable, so the bed lives on CELLS of 4 (or 6)
+// beats that start on every strong syllable. See CELLS below.
 //
-//   0..5.14 s     intro — 2 bars: kick pickup + sine pad swell
-//   5.14..59.14   accompaniment — 21 bars under jeffrey-pvc vocal
-//                   (vocal entered by bake-c.mjs delayed +5.14 s):
-//                   • drums (kick on 1, soft clap on 3 — waltz pop)
-//                   • sustained pipe organ chord pad
-//                   • soft sine pad cluster under vocal
-//                   • piano playing the MELODY in time (doubling vocal)
-//                   • glock sparkle on bar boundaries
-//   59.14..64.28  V → I cadence (2 bars): D7 → G with proper resolution
-//   64.28..68     final ring + fade
+//   0..INTRO       tonic pad swell + intro cells (kick, glock, hats)
+//   INTRO          the vocal pickup "a-" (beat 0); "-ma-" is beat 1
+//   beats 1..64    15 cells under the jeffrey-pvc sung lead
+//   beats 64..68   plagal amen: IV
+//   beat 68        I — the resolving hit, then RING_SEC of ring
 //
 // Build: ./build.sh
-// Run:   ./amazing --out out/amazing.wav
+// Run:   ./amazinhym --out out/bed.wav [--intro 6.0] [--bpm 70] [--seconds N]
 
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
@@ -47,8 +44,8 @@
 // ── config ────────────────────────────────────────────────────────────
 static const int SR = 48000;
 static double BPM = 70.0;
-static double TOTAL_SEC = 62.0;          // tight pop length
-static double INTRO_SEC = 0.0;            // vocal starts right away
+static double TOTAL_SEC = 0.0;           // 0 = intro + 68 beats + ring
+static double INTRO_SEC = 6.0;            // pickup "a-" lands here (7 beats)
 static const char *SEED_STR = "amazing";
 static const char *OUT_PATH = NULL;
 
@@ -771,44 +768,17 @@ static void apply_reverb(double wet_mix) {
 // ── SCORE: verse-1 in G major ────────────────────────────────────────
 typedef struct {
     int bass;
-    int chord[3];   // root, third, fifth midi (organ + sine pad register)
+    int chord[3];   // root, third, fifth midi (pad + strings register)
     const char *name;
 } Chord;
 
-// 21 bars to cover the 53.8 s vocal stem.
-#define VERSE_BARS 21
-static const Chord VERSE_CHORDS[VERSE_BARS] = {
-    { 43, {55, 59, 62}, "G" },   // 1  a-mazing
-    { 43, {55, 59, 62}, "G" },   // 2  grace
-    { 48, {52, 60, 64}, "C" },   // 3  how sweet
-    { 43, {55, 59, 62}, "G" },   // 4  the sound
-    { 43, {55, 59, 62}, "G" },   // 5  that
-    { 50, {54, 57, 62}, "D" },   // 6  saved a
-    { 43, {55, 59, 62}, "G" },   // 7  wretch like me
-    { 43, {55, 59, 62}, "G" },   // 8  (turn)
-    { 43, {55, 59, 62}, "G" },   // 9  I once
-    { 48, {52, 60, 64}, "C" },   // 10 was lost
-    { 43, {55, 59, 62}, "G" },   // 11 but now
-    { 43, {55, 59, 62}, "G" },   // 12 am
-    { 50, {54, 57, 62}, "D" },   // 13 found
-    { 43, {55, 59, 62}, "G" },   // 14 (held)
-    { 43, {55, 59, 62}, "G" },   // 15 was
-    { 48, {52, 60, 64}, "C" },   // 16 blind
-    { 43, {55, 59, 62}, "G" },   // 17 but now
-    { 50, {54, 57, 62}, "D" },   // 18 I
-    { 43, {55, 59, 62}, "G" },   // 19 see
-    { 43, {55, 59, 62}, "G" },   // 20 (cadence)
-    { 43, {55, 59, 62}, "G" },   // 21 (final)
-};
-// Tonic G for intro pad
-static const Chord TONIC_G   = { 43, {55, 59, 62}, "G" };
-// Plagal "amen" cadence — IV (C) → I (G). More hymn-appropriate than V7.
-static const Chord CADENCE_V = { 48, {52, 60, 64}, "C" };   // C E G (IV)
-static const Chord CADENCE_I = { 43, {55, 59, 62}, "G" };   // G B D (I)
+static const Chord CH_G = { 43, {55, 59, 62}, "G" };
+static const Chord CH_C = { 48, {52, 60, 64}, "C" };
+static const Chord CH_D = { 50, {54, 57, 62}, "D" };
 
-// ── MELODY (in-time piano doubling under the vocal) ──────────────────
-// Pulled from pop/big-pictures/amazing.np verse 1. Beats are 3/4-grid
-// counts; sum across all four lines = 64 beats = ~21.3 bars.
+// ── MELODY (sine lead doubling the vocal) ────────────────────────────
+// pop/big-pictures/amaythingra.np verse 1: 28 syllables, 64 beats.
+// Beat 0 is the pickup "a-"; the first strong syllable "-ma-" is beat 1.
 typedef struct { int midi; int beats; } MelodyNote;
 static const MelodyNote MELODY[] = {
     // Line 1: a-mazing grace, how sweet the sound
@@ -821,138 +791,211 @@ static const MelodyNote MELODY[] = {
     {59, 1}, {62, 3}, {62, 1}, {59, 3}, {57, 1}, {55, 5},
 };
 #define MELODY_LEN ((int)(sizeof(MELODY) / sizeof(MELODY[0])))
+#define MELODY_BEATS 64
+
+// ── CELLS — the vocal's own accent grid ──────────────────────────────
+// The .np phrases the tune as (1 + 3) beats: a one-beat pickup, then a
+// long syllable. Every long syllable opens a cell that lasts until the
+// next one — four beats, or six where a phrase end is held. The drums,
+// pads and chords live on THIS grid, so the kick lands with "-MA-",
+// "GRACE", "SWEET", "SOUND" … and never argues with the singer.
+// Chords are the standard lead-sheet in G:
+//   Amazing (G) grace how sweet the (C) sound that (G) saved a wretch
+//   like (D) me. I (G) once was lost but (C) now am found, was (G)
+//   blind but (D) now I (G) see.   + a plagal amen (C → G) after.
+typedef struct { int beat; int len; const Chord *chord; int line; } Cell;
+static const Cell CELLS[] = {
+    {  1, 4, &CH_G, 1 },   // -ma-zing
+    {  5, 4, &CH_G, 0 },   // grace how
+    {  9, 4, &CH_G, 0 },   // sweet the
+    { 13, 6, &CH_C, 0 },   // sound — that
+    { 19, 4, &CH_G, 1 },   // saved a
+    { 23, 4, &CH_G, 0 },   // wretch like
+    { 27, 6, &CH_D, 0 },   // me — i
+    { 33, 4, &CH_G, 1 },   // once was
+    { 37, 4, &CH_G, 0 },   // lost but
+    { 41, 4, &CH_C, 0 },   // now am
+    { 45, 6, &CH_C, 0 },   // found — was
+    { 51, 4, &CH_G, 1 },   // blind but
+    { 55, 4, &CH_D, 0 },   // now i
+    { 59, 5, &CH_G, 0 },   // see
+    { 64, 4, &CH_C, 0 },   // a- (amen, IV)
+};
+#define CELL_COUNT ((int)(sizeof(CELLS) / sizeof(CELLS[0])))
+#define AMEN_BEAT 68            // -men (I): the final resolving hit
+#define RING_SEC 5.0            // natural ring after the amen
+
+// Beat → seconds. Beat 0 is the vocal pickup at INTRO_SEC.
+static double SPB_G = 0.0;
+static inline double tb(double beat) { return INTRO_SEC + beat * SPB_G; }
+
+// ── one accompaniment cell ───────────────────────────────────────────
+static void cell_render(const Cell *cl, int idx) {
+    const double SPB = SPB_G;
+    const Chord *c = cl->chord;
+    const double t0 = tb(cl->beat);
+    const double len = cl->len * SPB;
+    const int amen = (cl->beat >= MELODY_BEATS);
+
+    // Low sine pad — one octave down. Main harmonic body.
+    sine_pad_render(t0, len + 0.25,
+                    c->chord[0] - 12, c->chord[1] - 12, c->chord[2] - 12,
+                    (SinePadOpts){ .atk = 0.30, .rel = 0.55,
+                                   .pan = 0.0, .gain = 0.20,
+                                   .wet_send = 0.22,
+                                   .lfo_rate = 0.20, .lfo_depth = 0.18 });
+    // Upper sine pad — original octave, softer, slow wider stereo
+    sine_pad_render(t0, len + 0.25,
+                    c->chord[0], c->chord[1], c->chord[2],
+                    (SinePadOpts){ .atk = 0.40, .rel = 0.60,
+                                   .pan = 0.0, .gain = 0.10,
+                                   .wet_send = 0.24,
+                                   .lfo_rate = 0.16, .lfo_depth = 0.20 });
+    // Strings — warm bowed-pad doubling the chord, third/fifth spread.
+    strings_render(t0, len + 0.20, c->chord[0],
+        (StringsOpts){ .atk = 0.35, .rel = 0.55, .vib_rate = 4.5,
+                       .vib_depth = 7.0, .pan = 0.0,
+                       .gain = 0.10, .wet_send = 0.20 });
+    strings_render(t0, len + 0.20, c->chord[1],
+        (StringsOpts){ .atk = 0.40, .rel = 0.55, .vib_rate = 4.8,
+                       .vib_depth = 8.0, .pan = -0.18,
+                       .gain = 0.08, .wet_send = 0.22 });
+    strings_render(t0, len + 0.20, c->chord[2],
+        (StringsOpts){ .atk = 0.45, .rel = 0.55, .vib_rate = 5.0,
+                       .vib_depth = 8.0, .pan = +0.18,
+                       .gain = 0.08, .wet_send = 0.22 });
+
+    // Drums — kick on the strong syllable, soft clap two beats later,
+    // hats on every 8th. Six-beat cells get a second kick on beat 4 so
+    // the held note keeps walking.
+    kick_render(t0,
+        (KickOpts){ .pan = 0.0, .gain = 0.70,
+                    .pitch_hi = 165, .pitch_lo = 52,
+                    .pitch_dur = 0.045, .decay_s = 0.34 });
+    snare_render(t0 + 2 * SPB,
+        (SnareOpts){ .pan = 0.05, .gain = amen ? 0.20 : 0.28,
+                     .decay_s = 0.10, .brightness = 0.88 });
+    if (cl->len >= 6) {
+        kick_render(t0 + 4 * SPB,
+            (KickOpts){ .pan = 0.0, .gain = 0.52,
+                        .pitch_hi = 160, .pitch_lo = 52,
+                        .pitch_dur = 0.045, .decay_s = 0.30 });
+    }
+    for (int eighth = 0; eighth < cl->len * 2; eighth++) {
+        const double th = t0 + eighth * (SPB * 0.5);
+        const double accent = (eighth % 2 == 0) ? 0.16 : 0.11;
+        hat_render(th,
+            (HatOpts){ .pan = (eighth % 2 == 0 ? -0.15 : 0.20),
+                       .gain = accent,
+                       .decay_s = 0.022, .brightness = 0.95 });
+    }
+    // Shaker on the offbeats between beats 1-2 and 3-4
+    for (int b = 1; b + 1 < cl->len; b += 2) {
+        shaker_render(t0 + SPB * (b + 0.5),
+            (ShakerOpts){ .pan = (b % 4 == 1) ? 0.18 : -0.18,
+                          .gain = (b % 4 == 1) ? 0.14 : 0.12,
+                          .decay_s = 0.05 });
+    }
+
+    // Sub-bass on the strong syllable, and again where the cell is long
+    bass_render(t0, 0.9, c->bass - 12,
+        (BassOpts){ .atk = 0.04, .rel = 0.30, .pan = 0.0, .gain = 0.14 });
+    if (cl->len >= 6)
+        bass_render(t0 + 4 * SPB, 0.9, c->bass - 12,
+            (BassOpts){ .atk = 0.04, .rel = 0.30, .pan = 0.0, .gain = 0.11 });
+
+    // Tambourine on every strong syllable (waltz-pop shimmer)
+    tambourine_render(t0,
+        (TambOpts){ .pan = -0.12, .gain = 0.18, .decay_s = 0.22 });
+
+    // Line openings: kalimba pluck + piano arpeggio + glock sparkle
+    if (cl->line) {
+        kalimba_render(t0 + SPB * 0.5, c->chord[2],
+            (KalimbaOpts){ .decay_s = 1.4, .pan = 0.20,
+                           .gain = 0.20, .wet_send = 0.25 });
+        kalimba_render(t0 + SPB * 1.5, c->chord[2] + 5,
+            (KalimbaOpts){ .decay_s = 1.2, .pan = -0.20,
+                           .gain = 0.16, .wet_send = 0.25 });
+        const int arp[4] = { c->chord[0], c->chord[1],
+                             c->chord[2], c->chord[0] + 12 };
+        for (int a = 0; a < 4; a++) {
+            piano_render(t0 + a * (SPB * 0.5), 1.3, arp[a],
+                (PianoOpts){ .decay_s = 1.0, .velocity = 0.50,
+                             .pan = (a % 2 == 0 ? -0.15 : 0.15),
+                             .gain = 0.18, .wet_send = 0.22 });
+        }
+        glock_render(t0, 1.6, c->chord[2],
+            (GlockOpts){ .decay_s = 1.2, .pan = 0.25,
+                         .gain = 0.20, .wet_send = 0.22 });
+    }
+    (void)idx;
+}
 
 // ── render the full track ────────────────────────────────────────────
 static void render_track(void) {
     const double SPB = 60.0 / BPM;       // 0.857 s
-    const double BAR = 3.0 * SPB;         // 2.571 s in 3/4
-    const double ACC_START = INTRO_SEC;
-    const double ACC_END   = ACC_START + VERSE_BARS * BAR;
-    const double CAD_START = ACC_END;
-    const double CAD_END   = CAD_START + 2.0 * BAR;
+    SPB_G = SPB;
+    const double VOX_START = tb(0);
+    const double VOX_END   = tb(MELODY_BEATS);
+    const double AMEN      = tb(AMEN_BEAT);
 
-    report("amazing: bpm=%.1f, bar=%.3fs, total %.2fs", BPM, BAR, TOTAL_SEC);
-    report("  accomp %.2f..%.2f  ·  plagal cadence %.2f..%.2f",
-           ACC_START, ACC_END, CAD_START, CAD_END);
+    report("amazing: bpm=%.1f, beat=%.3fs, intro %.2fs, total %.2fs",
+           BPM, SPB, INTRO_SEC, TOTAL_SEC);
+    report("  vocal %.2f..%.2f  ·  amen IV %.2f  ·  amen I %.2f  ·  ring %.1fs",
+           VOX_START, VOX_END, tb(64), AMEN, RING_SEC);
 
-    // ── 1 · ACCOMPANIMENT (0..54 s, 21 bars) — sing right away ───────
-    // Per bar:
-    //   • drums:     kick on 1, snare on 3, closed hi-hat on every 8th
-    //                (6 hats per bar), shaker on offbeats for shimmer
-    //   • sine pad:  TWO layered sine_pad calls — one at chord -12 (low,
-    //                main body), one at chord (mid, shimmer). Replaces
-    //                the organ chord pad entirely.
-    //   • bass:      sub-bass on beat 1
-    //   • glock:     sparkle every 4 bars on bar boundary
-    //   • + the melody render below (separate pass)
-    for (int bar = 0; bar < VERSE_BARS; bar++) {
-        const Chord *c = &VERSE_CHORDS[bar];
-        const double t0 = ACC_START + bar * BAR;
-
-        // Low sine pad — one octave down. Main harmonic body.
-        sine_pad_render(t0, BAR + 0.25,
-                        c->chord[0] - 12, c->chord[1] - 12, c->chord[2] - 12,
-                        (SinePadOpts){ .atk = 0.30, .rel = 0.55,
-                                       .pan = 0.0, .gain = 0.20,
-                                       .wet_send = 0.22,
-                                       .lfo_rate = 0.20, .lfo_depth = 0.18 });
-        // Upper sine pad — original octave, softer, slow wider stereo
-        sine_pad_render(t0, BAR + 0.25,
-                        c->chord[0], c->chord[1], c->chord[2],
-                        (SinePadOpts){ .atk = 0.40, .rel = 0.60,
-                                       .pan = 0.0, .gain = 0.10,
-                                       .wet_send = 0.24,
-                                       .lfo_rate = 0.16, .lfo_depth = 0.20 });
-
-        // Strings — warm bowed-pad doubling the chord, slight wider
-        // panning on the third/fifth so it spreads. Sits ABOVE the sine
-        // pads in the harmonic stack, sub-vocal in level.
-        strings_render(t0, BAR + 0.20, c->chord[0],
-            (StringsOpts){ .atk = 0.35, .rel = 0.55, .vib_rate = 4.5,
-                           .vib_depth = 7.0, .pan = 0.0,
-                           .gain = 0.10, .wet_send = 0.20 });
-        strings_render(t0, BAR + 0.20, c->chord[1],
-            (StringsOpts){ .atk = 0.40, .rel = 0.55, .vib_rate = 4.8,
-                           .vib_depth = 8.0, .pan = -0.18,
-                           .gain = 0.08, .wet_send = 0.22 });
-        strings_render(t0, BAR + 0.20, c->chord[2],
-            (StringsOpts){ .atk = 0.45, .rel = 0.55, .vib_rate = 5.0,
-                           .vib_depth = 8.0, .pan = +0.18,
-                           .gain = 0.08, .wet_send = 0.22 });
-
-        // Drums — kick on 1, snare on 3, hi-hats on every 8th
-        kick_render(t0,
-            (KickOpts){ .pan = 0.0, .gain = 0.70,
-                        .pitch_hi = 165, .pitch_lo = 52,
-                        .pitch_dur = 0.045, .decay_s = 0.34 });
-        snare_render(t0 + 2 * SPB,
-            (SnareOpts){ .pan = 0.05, .gain = 0.28,
-                         .decay_s = 0.10, .brightness = 0.88 });
-        // Hi-hat 8ths — 6 per bar in 3/4 (every half-beat)
-        for (int eighth = 0; eighth < 6; eighth++) {
-            const double th = t0 + eighth * (SPB * 0.5);
-            // Accent the downbeats slightly (every 2nd 8th = on the beat)
-            const double accent = (eighth % 2 == 0) ? 0.16 : 0.11;
-            hat_render(th,
-                (HatOpts){ .pan = (eighth % 2 == 0 ? -0.15 : 0.20),
-                           .gain = accent,
-                           .decay_s = 0.022, .brightness = 0.95 });
-        }
-        // Shaker on offbeat 1.5 and 2.5 (between beats) — adds shimmer
-        shaker_render(t0 + SPB * 1.5,
-            (ShakerOpts){ .pan = 0.18, .gain = 0.14, .decay_s = 0.05 });
-        shaker_render(t0 + SPB * 2.5,
-            (ShakerOpts){ .pan = -0.18, .gain = 0.12, .decay_s = 0.05 });
-
-        // Sub-bass note on beat 1 — short pulse
-        bass_render(t0, 0.9, c->bass - 12,
-            (BassOpts){ .atk = 0.04, .rel = 0.30, .pan = 0.0, .gain = 0.14 });
-
-        // Tambourine — on beat 1 of every bar (waltz feel, hymn shimmer)
-        tambourine_render(t0,
-            (TambOpts){ .pan = -0.12, .gain = 0.18, .decay_s = 0.22 });
-        // Kalimba — sparse melodic pluck at the START of each line
-        // (lines start at bars 0, 6, 11, 17 — close to the .np boundaries)
-        if (bar == 0 || bar == 6 || bar == 11 || bar == 17) {
-            // Pluck the chord's fifth — adds melodic interest without
-            // doubling the sine_lead's melody line
-            kalimba_render(t0 + SPB * 0.5, c->chord[2],
-                (KalimbaOpts){ .decay_s = 1.4, .pan = 0.20,
-                               .gain = 0.20, .wet_send = 0.25 });
-            kalimba_render(t0 + SPB * 1.5, c->chord[2] + 5,
-                (KalimbaOpts){ .decay_s = 1.2, .pan = -0.20,
-                               .gain = 0.16, .wet_send = 0.25 });
-        }
-        // Piano arpeggio on line boundaries — root/third/fifth/octave
-        // ascending across the bar, soft hammered hits
-        if (bar == 0 || bar == 6 || bar == 11 || bar == 17) {
-            const int arp[4] = { c->chord[0], c->chord[1],
-                                 c->chord[2], c->chord[0] + 12 };
-            for (int a = 0; a < 4; a++) {
-                piano_render(t0 + a * (SPB * 0.5), 1.3, arp[a],
-                    (PianoOpts){ .decay_s = 1.0, .velocity = 0.50,
-                                 .pan = (a % 2 == 0 ? -0.15 : 0.15),
-                                 .gain = 0.18, .wet_send = 0.22 });
+    // ── 0 · INTRO — tonic pad swell, a soft kick on each intro cell,
+    //        hats arriving on the second so the beat is already walking
+    //        when the pickup "a-" comes in one beat before the downbeat.
+    {
+        const double intro_cells = floor((tb(1) + 0.001) / (4.0 * SPB));
+        const double first = tb(1) - intro_cells * 4.0 * SPB;   // downbeat-aligned
+        sine_pad_render(0.0, tb(1) + 0.25,
+                        CH_G.chord[0] - 12, CH_G.chord[1] - 12, CH_G.chord[2] - 12,
+                        (SinePadOpts){ .atk = 1.8, .rel = 0.55,
+                                       .pan = 0.0, .gain = 0.18,
+                                       .wet_send = 0.26,
+                                       .lfo_rate = 0.16, .lfo_depth = 0.18 });
+        sine_pad_render(0.0, tb(1) + 0.25,
+                        CH_G.chord[0], CH_G.chord[1], CH_G.chord[2],
+                        (SinePadOpts){ .atk = 2.4, .rel = 0.60,
+                                       .pan = 0.0, .gain = 0.08,
+                                       .wet_send = 0.28,
+                                       .lfo_rate = 0.14, .lfo_depth = 0.20 });
+        for (int k = 0; k < (int)intro_cells; k++) {
+            const double t0 = first + k * 4.0 * SPB;
+            if (t0 < 0) continue;
+            kick_render(t0,
+                (KickOpts){ .pan = 0.0, .gain = 0.40 + 0.15 * k,
+                            .pitch_hi = 165, .pitch_lo = 52,
+                            .pitch_dur = 0.045, .decay_s = 0.34 });
+            glock_render(t0, 1.6, CH_G.chord[2] + (k % 2 ? 12 : 0),
+                (GlockOpts){ .decay_s = 1.4, .pan = k % 2 ? -0.25 : 0.25,
+                             .gain = 0.16, .wet_send = 0.26 });
+            if (k >= (int)intro_cells - 1) {
+                for (int eighth = 0; eighth < 8; eighth++) {
+                    hat_render(t0 + eighth * (SPB * 0.5),
+                        (HatOpts){ .pan = (eighth % 2 == 0 ? -0.15 : 0.20),
+                                   .gain = (eighth % 2 == 0) ? 0.12 : 0.08,
+                                   .decay_s = 0.022, .brightness = 0.95 });
+                }
+                snare_render(t0 + 2 * SPB,
+                    (SnareOpts){ .pan = 0.05, .gain = 0.18,
+                                 .decay_s = 0.10, .brightness = 0.88 });
             }
         }
-
-        // Glock sparkle every 4 bars — same octave as chord, not +12
-        if (bar % 4 == 0) {
-            glock_render(t0, 1.6, c->chord[2],
-                (GlockOpts){ .decay_s = 1.2, .pan = 0.25,
-                             .gain = 0.20, .wet_send = 0.22 });
-        }
+        report("  intro (%d cells) rendered", (int)intro_cells);
     }
-    report("  accompaniment (%d bars) rendered", VERSE_BARS);
 
-    // ── 2 · MELODY LEAD (0..54 s) ────────────────────────────────────
-    // Sine lead playing the hymn melody in time. Audible enough to be
-    // an actual accompanying instrument — sits opposite the vocal in
-    // the stereo field for clarity.
+    // ── 1 · ACCOMPANIMENT — one cell per strong syllable ─────────────
+    for (int i = 0; i < CELL_COUNT; i++) cell_render(&CELLS[i], i);
+    report("  accompaniment (%d cells) rendered", CELL_COUNT);
+
+    // ── 2 · MELODY LEAD — sine lead doubling the vocal, opposite side ─
     {
         double beat_cursor = 0.0;
         for (int n = 0; n < MELODY_LEN; n++) {
-            const double t = ACC_START + beat_cursor * SPB;
+            const double t = tb(beat_cursor);
             const double dur_s = MELODY[n].beats * SPB;
             sine_lead_render(t, dur_s * 0.95, MELODY[n].midi,
                 (SineLeadOpts){ .atk = 0.04, .rel = 0.12,
@@ -962,98 +1005,44 @@ static void render_track(void) {
                                  .wet_send = 0.22 });
             beat_cursor += MELODY[n].beats;
         }
-        report("  melody lead (%d notes, %.1f beats) rendered",
+        report("  melody lead (%d notes, %.0f beats) rendered",
                MELODY_LEN, beat_cursor);
     }
 
-    // ── 3 · PLAGAL "AMEN" CADENCE (~54..59 s, 2 bars: IV → I) ────────
-    // After the vocal resolves on tonic, the bed plays C → G "amen" —
-    // the canonical hymn cadence. Bar 22 = C (IV), bar 23 = G (I) big
-    // resolving hit. Then 3 s of natural ring + fade.
+    // ── 3 · AMEN — the plagal cadence resolves on I, then rings ──────
     {
-        // ── Bar 22: IV (C) — gentle subdominant lift
-        const double t22 = CAD_START;
-        sine_pad_render(t22, BAR,
-                        CADENCE_V.chord[0] - 12, CADENCE_V.chord[1] - 12,
-                        CADENCE_V.chord[2] - 12,
-                        (SinePadOpts){ .atk = 0.25, .rel = 0.50,
-                                       .pan = 0.0, .gain = 0.22,
-                                       .wet_send = 0.26,
-                                       .lfo_rate = 0.18, .lfo_depth = 0.20 });
-        sine_pad_render(t22, BAR,
-                        CADENCE_V.chord[0], CADENCE_V.chord[1], CADENCE_V.chord[2],
-                        (SinePadOpts){ .atk = 0.35, .rel = 0.55,
-                                       .pan = 0.0, .gain = 0.12,
-                                       .wet_send = 0.28,
-                                       .lfo_rate = 0.14, .lfo_depth = 0.20 });
-        kick_render(t22,
-            (KickOpts){ .pan = 0.0, .gain = 0.62,
-                        .pitch_hi = 165, .pitch_lo = 52,
-                        .pitch_dur = 0.05, .decay_s = 0.34 });
-        snare_render(t22 + 2 * SPB,
-            (SnareOpts){ .pan = 0.05, .gain = 0.26,
-                         .decay_s = 0.10, .brightness = 0.88 });
-        for (int eighth = 0; eighth < 6; eighth++) {
-            const double th = t22 + eighth * (SPB * 0.5);
-            const double accent = (eighth % 2 == 0) ? 0.16 : 0.11;
-            hat_render(th,
-                (HatOpts){ .pan = (eighth % 2 == 0 ? -0.15 : 0.20),
-                           .gain = accent,
-                           .decay_s = 0.022, .brightness = 0.95 });
-        }
-        shaker_render(t22 + SPB * 1.5,
-            (ShakerOpts){ .pan = 0.18, .gain = 0.14, .decay_s = 0.05 });
-        shaker_render(t22 + SPB * 2.5,
-            (ShakerOpts){ .pan = -0.18, .gain = 0.12, .decay_s = 0.05 });
-        bass_render(t22, BAR, CADENCE_V.bass - 12,
-            (BassOpts){ .atk = 0.04, .rel = 0.40, .pan = 0.0, .gain = 0.16 });
-        // Sine lead doubles the IV chord top note as a sustained "ahhh"
-        sine_lead_render(t22, BAR, CADENCE_V.chord[2],
-            (SineLeadOpts){ .atk = 0.20, .rel = 0.45,
-                             .vib_rate = 4.5, .vib_depth = 8.0,
-                             .pan = -0.20, .gain = 0.24, .wet_send = 0.28 });
-
-        // ── Bar 23: I (G) — final resolution
-        const double t23 = CAD_START + BAR;
-        // Sustained sine pads that ring through into the tail
+        const double t23 = AMEN;
         sine_pad_render(t23, 4.0,
-                        CADENCE_I.chord[0] - 12, CADENCE_I.chord[1] - 12,
-                        CADENCE_I.chord[2] - 12,
+                        CH_G.chord[0] - 12, CH_G.chord[1] - 12, CH_G.chord[2] - 12,
                         (SinePadOpts){ .atk = 0.15, .rel = 3.0,
                                        .pan = 0.0, .gain = 0.24,
                                        .wet_send = 0.32,
                                        .lfo_rate = 0.16, .lfo_depth = 0.20 });
         sine_pad_render(t23, 4.0,
-                        CADENCE_I.chord[0], CADENCE_I.chord[1], CADENCE_I.chord[2],
+                        CH_G.chord[0], CH_G.chord[1], CH_G.chord[2],
                         (SinePadOpts){ .atk = 0.20, .rel = 3.0,
                                        .pan = 0.0, .gain = 0.14,
                                        .wet_send = 0.34,
                                        .lfo_rate = 0.14, .lfo_depth = 0.22 });
-        // Big resolving kick on the I
         kick_render(t23,
             (KickOpts){ .pan = 0.0, .gain = 0.85,
                         .pitch_hi = 175, .pitch_lo = 48,
                         .pitch_dur = 0.06, .decay_s = 0.45 });
-        // Sine lead resolves to the tonic G — final "men"
-        sine_lead_render(t23, 3.5, CADENCE_I.chord[0],
+        sine_lead_render(t23, 3.5, CH_G.chord[0],
             (SineLeadOpts){ .atk = 0.05, .rel = 2.8,
                              .vib_rate = 4.5, .vib_depth = 7.0,
                              .pan = -0.20, .gain = 0.30, .wet_send = 0.32 });
-        // Glock cadence sparkle on the resolution — original octave + up
-        glock_render(t23, 2.4, CADENCE_I.chord[2],
+        glock_render(t23, 2.4, CH_G.chord[2],
             (GlockOpts){ .decay_s = 1.8, .pan = 0.30,
                          .gain = 0.30, .wet_send = 0.28 });
-        glock_render(t23, 3.2, CADENCE_I.chord[0] + 12,
+        glock_render(t23, 3.2, CH_G.chord[0] + 12,
             (GlockOpts){ .decay_s = 2.2, .pan = -0.30,
                          .gain = 0.22, .wet_send = 0.30 });
-        // Bass holds through the resolution
-        bass_render(t23, 3.5, CADENCE_I.bass - 12,
+        bass_render(t23, 3.5, CH_G.bass - 12,
             (BassOpts){ .atk = 0.04, .rel = 1.5, .pan = 0.0, .gain = 0.18 });
-        // One last shimmering shaker hit and a soft trailing snare
         shaker_render(t23 + SPB * 0.5,
             (ShakerOpts){ .pan = 0.0, .gain = 0.10, .decay_s = 0.20 });
-
-        report("  plagal cadence IV → I rendered (bars 22-23)");
+        report("  amen (IV → I) rendered at %.2f", t23);
     }
 
     // ── 4 · APPLY REVERB ──────────────────────────────────────────────
@@ -1131,6 +1120,8 @@ int main(int argc, char **argv) {
     (void)SEED_STR;  // currently unused — kept for future deterministic noise
     if (!OUT_PATH) { fprintf(stderr, "amazing: --out required\n"); return 1; }
 
+    if (TOTAL_SEC <= 0.0)
+        TOTAL_SEC = INTRO_SEC + AMEN_BEAT * (60.0 / BPM) + RING_SEC;
     N = (long)(TOTAL_SEC * SR);
     L  = calloc(N, sizeof(float));
     R  = calloc(N, sizeof(float));

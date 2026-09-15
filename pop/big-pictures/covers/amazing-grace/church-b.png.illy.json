@@ -1,0 +1,46 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-09-15T23:17:55.897Z",
+  "pipeline": "pop-cover",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/pop/big-pictures/covers/amazing-grace/out/amazing-grace-cover-church-b.png",
+  "promptPath": "/Users/jas/Documents/Shelf/gens/amazing-grace-sections/cover/cover-prompt.txt",
+  "promptHash": "69d454035cbc849b4ccb0d0cc314ebf559e05f398cac4867e5c593369ccde6cc",
+  "references": [
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--07.jpg",
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--01.jpg",
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--04.jpg",
+    "/Users/jas/aesthetic-computer/pop/hellsine/assets/whistlegraph-butterfly.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 122.867,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 7365,
+    "input_tokens_details": {
+      "image_tokens": 5510,
+      "text_tokens": 1855
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 14389
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "slug": "amazing-grace",
+  "title": "amazing grace",
+  "artist": "Aesthetic Dot Computer",
+  "album": "pixsies",
+  "bpm": 70,
+  "key": "G major",
+  "meter": "4-beat cells with a pickup",
+  "duration": 69.286,
+  "audio": "https://assets.aesthetic.computer/pop/amazing-grace.mp3",
+  "cover": "https://assets.aesthetic.computer/pop/amazing-grace.jpg",
+  "sections": [
+    {
+      "name": "intro",
+      "t": 0.0,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-0.jpg",
+      "code": "a",
+      "color": [
+        214,
+        180,
+        120
+      ]
+    },
+    {
+      "name": "amazing grace how sweet the sound",
+      "t": 6.0,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-1.jpg",
+      "code": "b",
+      "color": [
+        236,
+        196,
+        96
+      ]
+    },
+    {
+      "name": "that saved a wretch like me",
+      "t": 21.429,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-2.jpg",
+      "code": "c",
+      "color": [
+        196,
+        120,
+        110
+      ]
+    },
+    {
+      "name": "i once was lost but now am found",
+      "t": 33.429,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-3.jpg",
+      "code": "d",
+      "color": [
+        150,
+        120,
+        190
+      ]
+    },
+    {
+      "name": "was blind but now i see",
+      "t": 48.857,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-4.jpg",
+      "code": "e",
+      "color": [
+        230,
+        150,
+        80
+      ]
+    },
+    {
+      "name": "amen",
+      "t": 60.857,
+      "illy": "https://assets.aesthetic.computer/pop/amazing-grace/sec-5.jpg",
+      "code": "f",
+      "color": [
+        250,
+        230,
+        170
+      ]
+    }
+  ],
+  "credits": "Aesthetic Dot Computer. Words John Newton (1779), tune New Britain (William Walker, 1835), both public domain. Sung by jeffrey-pvc through the WORLD speech-to-singing chain; bed from the lane's C engine, phrased on the hymn's own cells. Arranged and produced by Jeffrey Scudder.",
+  "links": {}
+}

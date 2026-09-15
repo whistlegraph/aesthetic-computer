@@ -7,6 +7,58 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## amazing grace — MASTERED · DistroKid packet staged 2026-09-15 (@jeffrey: pick the cover, then submit)
+
+- **Artist:** Aesthetic Dot Computer · **title:** `amazing grace` (lowercase, preserve-caps) ·
+  album **pixsies** · Electronic / Ambient, secondary Pop · songwriters John Newton (words,
+  1779, PD), William Walker (New Britain tune, 1835, PD), Jeffrey Scudder (arrangement) ·
+  performer + producer Jeffrey Scudder. Packet: `~/Documents/Shelf/amazing-grace-DISTROKID/`
+  (MASTER.flac 5.4 MB, cover 3000², release.json) — canonical copy of the metadata in
+  `pop/big-pictures/amazing-grace.release.json`; `distrokid-submit.mjs --dry-run` passes.
+- **Lane:** `pop/big-pictures/` · verse 1 of the hymn · 70 BPM · G major · **1:09**. Reified
+  2026-09-15 on the wannadash-era stack, replacing the 2026-05-20 cli.mjs/cool-sine WIP
+  (whose Shelf masters and illys were gone from every machine):
+  - **sung lead** — `bin/sing-amazing.mjs`: the two archived jeffrey-pvc takes
+    (`assets/pop/big-pictures/amazing{,-7verse}/vocal/`, ElevenLabs word timestamps) sliced
+    per word, the LONGER take of each word chosen, every word run through
+    `cult/bin/sing.py` (the Saitou WORLD recipe — vowel sustained to the note, f0 replaced by
+    the score, singer's formant) at exactly its `.np` duration, placed on the 70 BPM grid.
+    "a" (saved A wretch) is a 20 ms schwa in both takes, so it borrows the opening "a-" of
+    "Amazing". pyin verification within ±8¢ on all 28 notes. Receipt: `out/amazing-grace/vox-receipt.json`.
+  - **bed** — `c/amazinhym.c`, rewritten from a fixed 3/4 bar grid to the vocal's own
+    **cells**: the `.np` phrases the tune as (1 + 3) beats, so every strong syllable opens a
+    4-beat cell (6 where a phrase end is held), the kick lands with "-MA-", "GRACE", "SWEET",
+    "SOUND", chords from the standard G/C/D chart, plagal amen (C → G) after "see". Two intro
+    cells; the pickup "a-" at 6.0 s; amen hit at 64.29 s; ac stamp at 65.8 s.
+  - **mix + master** — `bin/bake-amazing.sh` (vox 1.20 with the cult cathedral IR at 0.20 wet,
+    bed 0.68) → `bin/cut-amazing.sh`: tone (the trancenwaltz brightening) + glue → measure →
+    one static dB → 4× oversampled true-peak limiter. Never a second loudnorm.
+- **Master:** `out/amazing-grace/amazing-grace-release.flac` — **−11.6 LUFS · −2.0 dBTP ·
+  LRA 6.1 · PLR 9.6 · phone loss −1.2 dB** · 69.29 s · 16/44.1 (24/48 WAV alongside). In the
+  house's "wider narrative" band for a hymn (`pop/MASTERING.md`).
+- **Cover:** `pop/big-pictures/covers/amazing-grace/amazing-grace-cover.jpg` (3000²) — the
+  church scene from `bin/gen-amazing-prompts.mjs` via illy / gpt-image-2: jeffrey in a pew
+  with the green Neo across his lap (whistlegraph-butterfly scrap on the lid), congregation
+  singing, honey light through stained glass. Working pick = variant **church-a**
+  (`covers/amazing-grace/out/amazing-grace-cover-cover.png`); **church-b** alongside has the
+  stronger face but paints the piano keys on the outside of the lid. **@jeffrey picks** —
+  re-run `bash pop/big-pictures/bin/stage-amazing-grace-assets.sh <png>` to swap.
+- **On AC:** https://aesthetic.computer/amazing-grace — `disks/amazing-grace.mjs` +
+  `disks/pop/amazing-grace.json` (6 sections: intro, the four lines, amen). CDN:
+  - audio · https://assets.aesthetic.computer/pop/amazing-grace.mp3 (320 k, cover embedded)
+  - cover · https://assets.aesthetic.computer/pop/amazing-grace.jpg (1200²)
+  - master · https://assets.aesthetic.computer/pop/amazing-grace/amazing-grace-master.flac
+  - stills · https://assets.aesthetic.computer/pop/amazing-grace/sec-{0..5}.jpg (crops of the cover)
+  - canvas · https://assets.aesthetic.computer/pop/amazing-grace-canvas.mp4 (`pop/bin/photo-canvas.mjs`,
+    2 bars @ 70 = 6.857 s, silent, seamless; to Spotify for Artists once live)
+- **Bake (deterministic, ~1 min):** `bash pop/big-pictures/bin/bake-amazing.sh` →
+  `bash pop/big-pictures/bin/stage-amazing-grace-assets.sh` → `npm run pop:assets:up`.
+- **Next:** cover pick → `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/amazing-grace-DISTROKID`
+  (stops at the review screen; @jeffrey ticks the attestations + Continue) → paste the Spotify
+  link here → Canvas to S4A → reel → flip to RELEASED.
+
+---
+
 ## wannadash — SUBMITTED-READY (DistroKid form filled 2026-09-01; @jeffrey ticks the attestations + Continue)
 
 - **Artist:** Whistlegraph Dot Org · **title:** `wannadash` (all lowercase, preserve-caps
@@ -743,7 +795,12 @@ DistroKid has a "request Spotify for Artists" shortcut for new artists.
 
 ---
 
-## amazing grace — WIP (1:24 verse-1 single, cool-sine arrangement)
+## amazing grace — SUPERSEDED (the 2026-05-20 cli.mjs / cool-sine WIP; see the 2026-09-15 entry at the top)
+
+> Kept for the record. `amazing.np`/`.txt` were renamed `amaythingra.*` on 2026-06-02, the
+> Shelf masters and illys did not survive, and the lane was rebuilt on the current stack.
+
+### (original entry)
 
 - **Lane:** `pop/big-pictures/` · 70 BPM · 3/4 hymn-pace · G major
   pentatonic · jeffrey-pvc sung lead, **cooler sine instrumentation**
