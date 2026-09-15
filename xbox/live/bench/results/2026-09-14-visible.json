@@ -1,0 +1,436 @@
+{
+  "version": 1,
+  "sourceHash": "cae7d3aae45d3bf9864dbd596ec36c970ddaffde04acae065496d458bb77e129",
+  "traceHash": "bd3c09de9399b6a37cf7faa8c4ea7b5bb75545732e45c117c56b2c1263176e2c",
+  "traceFrames": 60,
+  "triangleRange": [
+    1450,
+    1649
+  ],
+  "omittedCommands": {
+    "line": 468,
+    "box": 2840,
+    "systemWrite": 1320
+  },
+  "generationMs": {
+    "p50": 0.3020000000000209,
+    "p95": 1.7474579999999946
+  },
+  "simulationMs": {
+    "p50": 0.11066700000000651,
+    "p95": 0.28058300000000713
+  },
+  "hardware": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+    "webglVersion": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple A18 Pro, Unspecified Version)",
+    "gpuTimerAvailable": true,
+    "antialias": true,
+    "devicePixelRatio": 1,
+    "visibility": "visible"
+  },
+  "scope": "Identical recorded triangles only. Boxes, lines, text, simulation, and production composition are excluded from replay. Depth testing disabled for painter-order parity. Prepacked mode is a prepacked-trace lower bound, not a dynamic game implementation. rAF intervals are callback pacing, not proof of physical presentation.",
+  "idleBefore": {
+    "rafIntervalMs": {
+      "samples": 120,
+      "p50": 33.30000000000018,
+      "p95": 35.29999999999973,
+      "p99": 35.299999999999955
+    },
+    "callbacksOver25ms": 120
+  },
+  "idleAfter": {
+    "rafIntervalMs": {
+      "samples": 120,
+      "p50": 33.30000000000291,
+      "p95": 35.19999999999709,
+      "p99": 35.30000000000291
+    },
+    "callbacksOver25ms": 120
+  },
+  "errors": [],
+  "results": [
+    {
+      "mode": "canvas",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 2.6000000089406967,
+        "p95": 3.5,
+        "p99": 3.5
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000109,
+        "p95": 34.899999999999636,
+        "p99": 35.29999999999927
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 9.400000005960464,
+        "p95": 30.799999997019768,
+        "p99": 30.799999997019768
+      },
+      "gpuMs": null,
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "1px getImageData forces readback; includes readback overhead"
+    },
+    {
+      "mode": "webgl-stream",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.20000000298023224,
+        "p95": 0.4000000059604645,
+        "p99": 0.4000000059604645
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000109,
+        "p95": 34.79999999999927,
+        "p99": 35.29999999999927
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.29999999701976776,
+        "p95": 0.30000001192092896,
+        "p99": 0.30000001192092896
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 1.856999,
+        "p95": 2.003791,
+        "p99": 2.066333
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-prepacked",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.10000000894069672,
+        "p95": 0.29999999701976776,
+        "p99": 0.30000001192092896
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.29999999999927,
+        "p95": 35,
+        "p99": 35.20000000000073
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.20000000298023224,
+        "p95": 0.29999999701976776,
+        "p99": 0.29999999701976776
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 1.875375,
+        "p95": 2.021375,
+        "p99": 2.032499
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-prepacked",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.10000000894069672,
+        "p95": 0.20000000298023224,
+        "p99": 0.29999999701976776
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.79999999999927,
+        "p99": 35.10000000000218
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "p99": 0.30000001192092896
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 1.875791,
+        "p95": 2.046541,
+        "p99": 2.123124
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-stream",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.20000000298023224,
+        "p95": 0.30000001192092896,
+        "p99": 0.4000000059604645
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.89999999999782,
+        "p99": 35
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.29999999701976776,
+        "p95": 0.4000000059604645,
+        "p99": 0.4000000059604645
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 1.852083,
+        "p95": 2.01275,
+        "p99": 2.054166
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "canvas",
+      "width": 1920,
+      "height": 1080,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 2,
+        "p95": 2.7999999970197678,
+        "p99": 3.2000000029802322
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.599999999998545,
+        "p99": 35
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 9.399999991059303,
+        "p95": 18.200000002980232,
+        "p99": 18.200000002980232
+      },
+      "gpuMs": null,
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "1px getImageData forces readback; includes readback overhead"
+    },
+    {
+      "mode": "canvas",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 2.6000000089406967,
+        "p95": 3.4000000059604645,
+        "p99": 3.5999999940395355
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 35.200000000004366,
+        "p99": 35.30000000000291
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 8.900000005960464,
+        "p95": 14,
+        "p99": 14
+      },
+      "gpuMs": null,
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "1px getImageData forces readback; includes readback overhead"
+    },
+    {
+      "mode": "webgl-stream",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.20000000298023224,
+        "p95": 0.3999999910593033,
+        "p99": 0.4000000059604645
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 35.099999999998545,
+        "p99": 35.299999999995634
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.29999999701976776,
+        "p95": 0.3999999910593033,
+        "p99": 0.3999999910593033
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 0.921375,
+        "p95": 1.024124,
+        "p99": 1.054124
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-prepacked",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.09999999403953552,
+        "p95": 0.20000000298023224,
+        "p99": 0.20000000298023224
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.900000000001455,
+        "p99": 35.099999999998545
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.19999998807907104,
+        "p95": 0.20000000298023224,
+        "p99": 0.20000000298023224
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 0.920833,
+        "p95": 1.023708,
+        "p99": 1.033499
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-prepacked",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.10000000894069672,
+        "p95": 0.20000000298023224,
+        "p99": 0.29999999701976776
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.799999999995634,
+        "p99": 35.299999999995634
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.10000000894069672,
+        "p95": 0.20000000298023224,
+        "p99": 0.20000000298023224
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 0.908625,
+        "p95": 1.012583,
+        "p99": 1.055125
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "webgl-stream",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 0.20000000298023224,
+        "p95": 0.30000001192092896,
+        "p99": 0.4000000059604645
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.39999999999418,
+        "p95": 35.099999999998545,
+        "p99": 35.200000000004366
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 0.29999999701976776,
+        "p95": 0.4000000059604645,
+        "p99": 0.4000000059604645
+      },
+      "gpuMs": {
+        "samples": 120,
+        "p50": 0.912,
+        "p95": 1.054249,
+        "p99": 1.126874
+      },
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "gl.finish forces GPU completion; excludes display/compositor"
+    },
+    {
+      "mode": "canvas",
+      "width": 1280,
+      "height": 720,
+      "cpuMs": {
+        "samples": 120,
+        "p50": 2.3999999910593033,
+        "p95": 3.3999999910593033,
+        "p99": 3.5999999940395355
+      },
+      "rafIntervalMs": {
+        "samples": 120,
+        "p50": 33.30000000000291,
+        "p95": 34.80000000000291,
+        "p99": 35.10000000000582
+      },
+      "callbacksOver25ms": 120,
+      "completionProbeMs": {
+        "samples": 20,
+        "p50": 8.5,
+        "p95": 15.799999997019768,
+        "p99": 15.799999997019768
+      },
+      "gpuMs": null,
+      "gpuDisjoint": false,
+      "pendingQueries": 0,
+      "completionProbe": "1px getImageData forces readback; includes readback overhead"
+    }
+  ],
+  "visualComparison": {
+    "width": 1280,
+    "height": 720,
+    "meanAbsoluteChannelDifference": 0.023472583912037038,
+    "fractionPixelsAbove16": 0.00020833333333333335
+  }
+}
