@@ -385,72 +385,46 @@ function positionButtons(screen, layout = interfaceLayout(screen)) {
   }
 }
 
-const MARKER_GLYPHS = Object.freeze({
-  N: [[[0, 1], [0, 0], [1, 1], [1, 0]]],
-  V: [[[0, 0], [0.5, 1], [1, 0]]],
-  w: [[[0, 0.35], [0.2, 1], [0.5, 0.55], [0.8, 1], [1, 0.35]]],
-  o: [[[0.2, 0.3], [0.8, 0.3], [1, 0.48], [1, 0.82], [0.8, 1], [0.2, 1], [0, 0.82], [0, 0.48], [0.2, 0.3]]],
-  P: [[[0, 1], [0, 0], [0.72, 0], [1, 0.2], [1, 0.45], [0.72, 0.58], [0, 0.58]]],
-  a: [[[0, 0.55], [0.2, 0.32], [0.75, 0.32], [0.92, 0.5], [0.92, 1]], [[0.92, 0.55], [0.2, 0.55], [0, 0.72], [0.18, 0.95], [0.92, 0.72]]],
-  i: [[[0.5, 0.35], [0.5, 1]], [[0.5, 0.08], [0.5, 0.12]]],
-  n: [[[0, 1], [0, 0.35], [0.72, 0.35], [1, 0.55], [1, 1]]],
-  t: [[[0.5, 0.05], [0.5, 0.82], [0.7, 1], [0.95, 0.92]], [[0.12, 0.35], [0.9, 0.35]]],
-  B: [[[0, 1], [0, 0], [0.65, 0], [0.92, 0.18], [0.65, 0.5], [0, 0.5]], [[0.65, 0.5], [1, 0.68], [0.72, 1], [0, 1]]],
-  c: [[[0.95, 0.42], [0.75, 0.3], [0.2, 0.3], [0, 0.5], [0, 0.82], [0.2, 1], [0.8, 1], [1, 0.88]]],
-  k: [[[0, 0], [0, 1]], [[0.9, 0.32], [0, 0.7], [1, 1]]],
-  D: [[[0, 1], [0, 0], [0.55, 0], [1, 0.25], [1, 0.75], [0.55, 1], [0, 1]]],
-  e: [[[0, 0.68], [1, 0.68], [0.88, 0.42], [0.2, 0.3], [0, 0.52], [0.08, 0.88], [0.35, 1], [0.9, 0.92]]],
-});
+// Rasterize the shared AC letters once, then scale their pixels and strokes
+// together. Both buttons use the same whole-pixel scale.
+const buttonLabelBitmaps = new Map();
 
-function markerLabelScale(button, label) {
-  const unitsWide = label.length * 0.72 + Math.max(0, label.length - 1) * 0.3;
-  return Math.max(4, Math.min(button.box.h * 0.42, button.box.w * 0.68 / unitsWide));
+function buttonLabelBitmap($, label) {
+  const key = `${$.typeface.name}:${label}`;
+  if (!buttonLabelBitmaps.has(key)) {
+    if (![...label].every((letter) => $.typeface.glyphs[letter])) return null;
+    buttonLabelBitmaps.set(key, $.painting(
+      $.text.width(label) + 2, $.typeface.blockHeight + 2,
+      (p) => p.wipe(0, 0, 0, 0).ink(255).write(label, { x: 1, y: 1 }),
+    ));
+  }
+  return buttonLabelBitmaps.get(key);
 }
 
-function paintMarkerLabel($, button, label, color, scale = markerLabelScale(button, label)) {
-  const letters = label.split("");
-  const glyphWidth = 0.72;
-  const gap = 0.3;
-  const unitsWide = letters.length * glyphWidth + Math.max(0, letters.length - 1) * gap;
-  const originX = button.box.x + (button.box.w - unitsWide * scale) / 2;
-  const originY = button.box.y + (button.box.h - scale) / 2;
-  const thickness = Math.max(2, Math.round(scale * 0.11));
-
-  letters.forEach((letter, letterIndex) => {
-    const paths = MARKER_GLYPHS[letter] || [];
-    const offsetX = originX + letterIndex * (glyphWidth + gap) * scale;
-    for (let pass = 0; pass < 3; pass += 1) {
-      const jitterX = Math.sin((letterIndex + 1) * 17 + pass * 11) * scale * 0.018;
-      const jitterY = Math.cos((letterIndex + 1) * 13 + pass * 7) * scale * 0.018;
-      paths.forEach((path) => {
-        for (let point = 1; point < path.length; point += 1) {
-          $.ink(color[0], color[1], color[2], pass === 1 ? 175 : 105).line(
-            offsetX + path[point - 1][0] * glyphWidth * scale + jitterX,
-            originY + path[point - 1][1] * scale + jitterY,
-            offsetX + path[point][0] * glyphWidth * scale + jitterX,
-            originY + path[point][1] * scale + jitterY,
-            thickness,
-          );
-        }
-      });
-    }
-  });
+function buttonLabelSize($, button, label) {
+  return Math.max(1, Math.floor(Math.min(
+    button.box.h * 0.72 / ($.typeface.blockHeight + 2),
+    button.box.w * 0.94 / ($.text.width(label) + 2),
+  )));
 }
 
-function paintDecisionButton($, button, label, flavor = "no", labelScale) {
+function paintDecisionButton($, button, label, flavor = "no", labelSize) {
   const active = button.down || button.over;
-  const palette = flavor === "paint"
-    ? { fill: [45, 170, 76, active ? 255 : 235], ink: [245, 255, 245] }
+  const fill = flavor === "paint" || flavor === "done"
+    ? active ? [18, 103, 46] : [26, 127, 58]
     : flavor === "back"
-      ? { fill: [232, 119, 28, active ? 255 : 235], ink: [255, 250, 235] }
-      : flavor === "done"
-        ? { fill: [45, 170, 76, active ? 255 : 235], ink: [245, 255, 245] }
-        : { fill: [205, 38, 48, active ? 255 : 235], ink: [255, 245, 235] };
-  $.ink(palette.fill)
+      ? active ? [146, 62, 6] : [175, 78, 10]
+      : active ? [155, 20, 34] : [185, 30, 43];
+  $.ink(fill)
     .box(button.box, "fill")
-    .ink(palette.ink)
+    .ink(255)
     .box(button.box, "outline");
-  paintMarkerLabel($, button, label, palette.ink, labelScale);
+  const bitmap = buttonLabelBitmap($, label);
+  if (!bitmap) return;
+  $.paste(bitmap,
+    Math.round(button.box.x + (button.box.w - bitmap.width * labelSize) / 2),
+    Math.round(button.box.y + (button.box.h - bitmap.height * labelSize) / 2),
+    labelSize);
 }
 
 function paintOriginalCursor($) {
@@ -1351,9 +1325,9 @@ function paint($) {
     : finishMode
       ? [[backButton.btn, "Back", "back"], [doneButton.btn, "Done", "done"]]
       : [[noButton.btn, "No", "no"], [paintButton.btn, "Paint", "paint"]];
-  const labelScale = Math.min(...controls.map(([button, label]) => markerLabelScale(button, label)));
+  const labelSize = Math.min(...controls.map(([button, label]) => buttonLabelSize($, button, label)));
   for (const [button, label, flavor] of controls) {
-    paintDecisionButton($, button, label, flavor, labelScale);
+    paintDecisionButton($, button, label, flavor, labelSize);
   }
   paintOriginalCursor($);
   return loopState === "proposing";
