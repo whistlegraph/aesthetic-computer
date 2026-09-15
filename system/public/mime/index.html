@@ -5,28 +5,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>mime</title>
+  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
     :root {
-      --paper: #ffffee;
-      --card: #f0e0d6;
-      --card-edge: #d9bfb7;
-      --ink: #800000;
-      --body: #2b1a12;
-      --dim: #9c7a6e;
-      --link: #0000ee;
-      --green: #789922;
-      --accent: #d00;
+      color-scheme: light;
+      --paper: #fafafa;
+      --card: #f0f0f3;
+      --card-edge: #d5d5df;
+      --ink: #ac397f;
+      --body: #1a1a2e;
+      --dim: #63636f;
+      --link: #087c84;
+      --green: #237a53;
+      --accent: #b52c44;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --paper: #1b1b21;
-        --card: #26232b;
-        --card-edge: #3a3542;
-        --ink: #e8a0a0;
-        --body: #d8d2ca;
-        --dim: #8a8494;
-        --link: #8ab4f8;
-        --green: #9fbf4e;
+        color-scheme: dark;
+        --paper: #1a1a2e;
+        --card: #232337;
+        --card-edge: #414156;
+        --ink: #ff6b9d;
+        --body: #e8e8e8;
+        --dim: #a6a6b9;
+        --link: #4ecdc4;
+        --green: #6bcb77;
         --accent: #ff6b6b;
       }
     }
@@ -35,12 +40,15 @@
       margin: 0;
       background: var(--paper);
       color: var(--body);
-      font: 14px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font: 14px/1.5 "Berkeley Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
       padding-bottom: 4em;
     }
     a { color: var(--link); }
+    a:hover { color: var(--ink); }
+    :focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+    ::selection { background: var(--ink); color: var(--paper); }
     header { text-align: left; padding: 1em 1em 0.4em; }
-    header h1 { margin: 0; color: var(--ink); font-size: 2.2em; letter-spacing: -0.04em; }
+    header h1 { margin: 0; color: var(--ink); font: 22px/1.5 "YWFTProcessing-Regular", "Berkeley Mono Variable", monospace; }
     header h1 a { color: inherit; text-decoration: none; }
     nav#boards {
       text-align: center;
@@ -80,8 +88,19 @@
     form#post .filerow { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
     form#post button {
       background: var(--ink); color: var(--paper);
-      border: 0; padding: 0.45em 1.2em; font: inherit; cursor: pointer;
+      border: 0; border-radius: 4px; min-height: 44px;
+      padding: 0.45em 1.2em; font: inherit; cursor: pointer;
       justify-self: start;
+    }
+    a.discussion {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 44px; margin-top: 0.6em; padding: 0.4em 1em;
+      border: 1px solid var(--ink); border-radius: 4px;
+      background: var(--paper); color: var(--ink);
+      font-weight: 500; text-decoration: none;
+    }
+    a.discussion:hover, a.discussion:active {
+      background: var(--ink); color: var(--paper);
     }
     #dest { color: var(--green); font-weight: bold; }
     #formhint { color: var(--dim); font-size: 0.85em; margin: 0; }
@@ -252,7 +271,7 @@ function renderPost(post, isOp, inThread = false, contextBoard) {
   }
   if (post.text) div.append(renderText(post.text));
   if (!post.parent && !inThread) {
-    const discuss = el("a", "discussion", "discuss" + (post.replies ? " (" + post.replies + ")" : ""));
+    const discuss = el("a", "discussion", "comment" + (post.replies ? " (" + post.replies + ")" : ""));
     discuss.href = "#/t/" + post.code;
     div.append(discuss);
   }
