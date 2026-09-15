@@ -42,7 +42,10 @@ import {
   reconcileNoPaintPiece,
 } from "../lib/nopaint-pieces.mjs";
 import { createNoPaintRecording } from "../lib/nopaint-recording.mjs";
+import { decodePaintingState } from "../lib/painting-state.mjs";
+import { PaintingWipSync, paintingWipEditor, readPaintingWip, loadPaintingWipEditors } from "../lib/painting-wip.mjs";
 import { timestamp } from "../lib/num.mjs";
+import { buttonLabelSize, paintDecisionButton } from "../lib/nopaint-buttons.mjs";
 
 // Keep this iteration focused on Line. Other recovered brushes remain
 // available as pieces and can rejoin the conductor in a later pass.
@@ -90,6 +93,7 @@ let decisions = [];
 let saveCount = 0;
 let lastDownload = null;
 let testApi = null;
+let wipSync = null;
 let testChannel = null;
 let archiveOrigin = null;
 let paintingResolution = null;
@@ -385,47 +389,6 @@ function positionButtons(screen, layout = interfaceLayout(screen)) {
   }
 }
 
-// Rasterize the shared AC letters once, then scale their pixels and strokes
-// together. Both buttons use the same whole-pixel scale.
-const buttonLabelBitmaps = new Map();
-
-function buttonLabelBitmap($, label) {
-  const key = `${$.typeface.name}:${label}`;
-  if (!buttonLabelBitmaps.has(key)) {
-    if (![...label].every((letter) => $.typeface.glyphs[letter])) return null;
-    buttonLabelBitmaps.set(key, $.painting(
-      $.text.width(label) + 2, $.typeface.blockHeight + 2,
-      (p) => p.wipe(0, 0, 0, 0).ink(255).write(label, { x: 1, y: 1 }),
-    ));
-  }
-  return buttonLabelBitmaps.get(key);
-}
-
-function buttonLabelSize($, button, label) {
-  return Math.max(1, Math.floor(Math.min(
-    button.box.h * 0.72 / ($.typeface.blockHeight + 2),
-    button.box.w * 0.94 / ($.text.width(label) + 2),
-  )));
-}
-
-function paintDecisionButton($, button, label, flavor = "no", labelSize) {
-  const active = button.down || button.over;
-  const fill = flavor === "paint" || flavor === "done"
-    ? active ? [18, 103, 46] : [26, 127, 58]
-    : flavor === "back"
-      ? active ? [146, 62, 6] : [175, 78, 10]
-      : active ? [155, 20, 34] : [185, 30, 43];
-  $.ink(fill)
-    .box(button.box, "fill")
-    .ink(255)
-    .box(button.box, "outline");
-  const bitmap = buttonLabelBitmap($, label);
-  if (!bitmap) return;
-  $.paste(bitmap,
-    Math.round(button.box.x + (button.box.w - bitmap.width * labelSize) / 2),
-    Math.round(button.box.y + (button.box.h - bitmap.height * labelSize) / 2),
-    labelSize);
-}
 
 function paintOriginalCursor($) {
   if (!cursorSheet || !cursorPoint) return;
@@ -619,6 +582,23 @@ async function loadArchivePainting(api, archiveId) {
 function persistPiece({ store, system }) {
   store[NOPAINT_PIECE_STORE_KEY] = system.nopaint.piece;
   store.persist(NOPAINT_PIECE_STORE_KEY, "local:db");
+  if (wipSync?.pieceId === system.nopaint.piece.id) wipSync.queue(system.nopaint.piece);
+}
+
+function beginWip(api, restored) {
+  const changed = (changed) => {
+    if (wipSync !== changed) return;
+    testApi?.needsPaint();
+    publishTestState();
+  };
+  const previous = api.system.nopaint.wipSync;
+  const sync = !restored && previous?.pieceId === api.system.nopaint.piece.id && previous.editor.status === "wip"
+    ? previous : new PaintingWipSync(api, api.system.nopaint.piece, changed, restored);
+  sync.api = api;
+  sync.onChange = changed;
+  wipSync = sync;
+  api.system.nopaint.wipSync = sync;
+  sync.queue(api.system.nopaint.piece);
 }
 
 const NOPAINT_MIN_SIZE = 8;
@@ -822,6 +802,8 @@ function testSnapshot() {
       error: completionError,
       stayedInNoPaint: true,
     },
+    wip: wipSync ? { code: wipSync.editor.code, revision: wipSync.editor.revision,
+      status: wipSync.editor.status, saving: wipSync.status, error: wipSync.error || null } : null,
     audio: {
       ready: [...cueSamples.keys()],
       brushReady: [...brushCueSamples.keys()],
@@ -870,6 +852,7 @@ function testSnapshot() {
       schema: piece.schema,
       version: piece.version,
       id: piece.id,
+      parent: piece.parent || null,
       layerCount: piece.layers.length,
       compositeFingerprint: paintingFingerprint(piece.composite),
       lastLayer: lastLayer ? {
@@ -918,7 +901,37 @@ function installTestHook(debug) {
 }
 
 // 🥾 Boot
-function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, system, ui, ...api }) {
+async function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, system, ui, ...api }) {
+  wipSync = null;
+  await loadPaintingWipEditors(store);
+  let restoredEditor = null;
+  let startingPiece = null;
+  const sourceCode = ["resume", "from"].includes(params[0]) ? params[1] : null;
+  const resuming = params[0] === "resume";
+  if (sourceCode) {
+    const context = { ...api, net, num, store, system, screen };
+    try {
+      const loaded = await readPaintingWip(context, sourceCode);
+      if (resuming && (!loaded.canEdit || loaded.status !== "wip")) return api.jump(`wip~${sourceCode}`);
+      if (loaded.state) startingPiece = await decodePaintingState(loaded.state);
+      if (resuming) {
+        const { state, canEdit, ...editor } = loaded;
+        restoredEditor = { ...editor, key: paintingWipEditor(store, sourceCode)?.key };
+      }
+    } catch (error) {
+      if (resuming || error.status !== 404) throw error;
+      // Finished paintings made before WIPs still make valid starting canvases.
+      const response = await fetch(`/api/painting-code?code=${encodeURIComponent(sourceCode)}`);
+      if (!response.ok) throw new Error("Starting painting not found");
+      const metadata = await response.json();
+      const loaded = await api.get.painting(sourceCode).by(metadata.handle || "anon");
+      startingPiece = createNoPaintPiece({ seed: sourceCode, ...loaded.img, role: "fork" });
+    }
+    if (!startingPiece) throw new Error("This painting has not saved its first canvas yet");
+    const canvas = startingPiece.composite;
+    system.nopaint.replace(context, { ...canvas, pixels: new Uint8ClampedArray(canvas.pixels) }, "nopaint:start");
+    system.nopaint.piece = startingPiece;
+  }
   // The runtime may rewrite the visible route before the piece boots. The
   // Navigation Timing entry retains the original tutorial/test URL.
   const navigationURL = initialNavigationURL();
@@ -954,6 +967,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     Boolean(requestedSize) ||
     (Object.hasOwn(query, "fresh") &&
       !["0", "false", "no", "off"].includes(String(query.fresh).toLowerCase()));
+  if (sourceCode) freshStart = false;
   // Size tokens consume the params; seeds then come from the colon or query.
   const seedTokens = requestedSize ? [...colon] : [...colon, ...params];
   const launchSeed = seedTokens.find((value) =>
@@ -966,6 +980,10 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     requestedSeed || `${num.timestamp()}-${num.randIntRange(0, 0x7fffffff)}`,
   );
   random = seededRandom(sessionSeed);
+  if (startingPiece && !resuming) {
+    system.nopaint.piece = createNoPaintPiece({ seed: sessionSeed, ...startingPiece.composite, role: "fork" });
+    system.nopaint.piece.parent = sourceCode;
+  }
   proposal = null;
   proposalFrame = 0;
   proposalNumber = 0;
@@ -1035,6 +1053,14 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     persistPiece({ store, system });
     substrateFresh = false;
   }
+  const sealedEditor = paintingWipEditor(store, system.nopaint.piece.id);
+  if (!resuming && sealedEditor?.status === "done") {
+    sessionSeed = seedFrom(`${sessionSeed}:fork:${timestamp()}`);
+    random = seededRandom(sessionSeed);
+    initializePiece({ ...api, store, system }, sessionSeed, "fork");
+    system.nopaint.piece.parent = sealedEditor.code;
+    persistPiece({ store, system });
+  }
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
   testApi = { ...api, hud, net, screen, store, system };
@@ -1101,7 +1127,8 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   installTestHook(debug);
   chooseProposal(testApi);
   publishTestState();
-  if (archiveId) loadArchivePainting(testApi, archiveId);
+  if (archiveId) await loadArchivePainting(testApi, archiveId);
+  beginWip(testApi, restoredEditor);
 }
 
 // 🧮 Sim
@@ -1257,7 +1284,7 @@ function paintUploadProgress($, bar) {
   const margin = Math.max(12, Math.round(bar.w * 0.08));
   const width = bar.w - margin * 2;
   const saving = completionPart === "image" && completionProgress >= 1;
-  const label = saving ? "Saving..."
+  const label = completionPart === "draft" ? "Saving WIP..." : saving ? "Saving..."
     : `Uploading ${completionPart === "steps" ? "steps " : ""}${Math.round(completionProgress * 100)}%`;
   const size = Math.max(1, Math.floor(Math.min(bar.h / 32, width / (label.length * 8))));
   $.ink(255).write(label, { x: margin, y: bar.y + Math.round(bar.h * 0.2), size });
@@ -1309,14 +1336,15 @@ function paint($) {
     $.ink(10, 10, 12, 210).box(0, 0, surface.w, merryBarHeight);
     $.ink(92, 220, 128, 235).box(0, 0, Math.round(surface.w * merryRemaining), merryBarHeight);
   }
-  const definition = proposalDefinition(proposal.kind);
   $.ink(18).box(bar, "fill");
   if (completionBusy) {
     paintUploadProgress($, bar);
     return false;
   }
-  $.ink(255, 180).write(completionCode ? `Saved #${completionCode}`
-    : completionError || definition?.label || proposal.kind,
+  $.ink(255).write(completionCode ? `Done #${completionCode}`
+    : completionError || wipSync?.error || (wipSync?.editor.code
+      ? `WIP #${wipSync.editor.code}${wipSync.status === "saving" ? " Saving..." : ""}`
+      : "Starting WIP..."),
   { x: 8, y: merryBarHeight + 6 });
 
   positionButtons($.screen);
@@ -1351,6 +1379,9 @@ async function completePainting($) {
   publishTestState();
 
   try {
+    completionPart = "draft";
+    await wipSync.flush($.system.nopaint.piece);
+    completionPart = "steps";
     const record = preserveRecording($);
     const reportProgress = (progress) => {
       completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
@@ -1370,9 +1401,11 @@ async function completePainting($) {
     // Authenticated AC paintings pair the PNG and ZIP by this timestamp;
     // anonymous paintings link the separately assigned storage slugs.
     const filename = `painting-${record.at(-1).timestamp}.png`;
-    const data = await $.upload(filename, painting, reportProgress, undefined, zipped.slug);
+    const data = await $.upload(filename, painting, reportProgress, undefined, zipped.slug,
+      { paintingWip: wipSync.reference() });
     if (!data?.code) throw new Error("Painting upload completed without a code");
     completionCode = data.code;
+    wipSync.sealed();
     completionProgress = 1;
   } catch (error) {
     completionError = error?.message || "Upload failed";
@@ -1414,6 +1447,7 @@ function startNewPainting($) {
   random = seededRandom(sessionSeed);
   cutFreshSubstrate($, sessionSeed);
   initializePiece($, sessionSeed);
+  beginWip($);
   delete $.store["painting:code"];
   $.store.delete?.("painting:code", "local:db");
   archiveOrigin = null;
@@ -1712,6 +1746,7 @@ function leave($) {
   // AC brushes append their next strokes to this same recording. Keeping the
   // last accepted frame supplies the boundary for the next No Paint visit.
   if ($?.system?.nopaint?.piece) preserveRecording($);
+  if (wipSync?.editor.status === "wip") wipSync.flush($.system.nopaint.piece).catch(() => {});
   stopBrushCue();
   testApi?.cursor?.("native");
   if (typeof window !== "undefined") delete window.__acNoPaintTest;

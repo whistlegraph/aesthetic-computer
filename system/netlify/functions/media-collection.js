@@ -45,7 +45,7 @@ export async function handler(event, context) {
     // Query the media collection for the specific user.
     // (Ignoring the `nuked` flag.)
     const media = await mediaCollection
-      .find({ user: userSub, nuked: { $ne: true } })
+      .find({ user: userSub, nuked: { $ne: true }, status: { $ne: "wip" } })
       .toArray();
 
     // Only expect `painting` and `piece` for now. 23.10.12.22.32

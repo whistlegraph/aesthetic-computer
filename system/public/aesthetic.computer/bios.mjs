@@ -15432,9 +15432,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "upload") {
       // Extract recordingSlug if present in content
-      const { recordingSlug, ...uploadData } = content;
+      const { recordingSlug, metadata, ...uploadData } = content;
       console.log("🔍 UPLOAD MESSAGE HANDLER: recordingSlug=", recordingSlug, "content keys=", Object.keys(content));
-      receivedUpload(uploadData, "upload", null, recordingSlug);
+      receivedUpload(uploadData, "upload", metadata, recordingSlug);
       return;
     }
 
@@ -21449,6 +21449,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
               const options = { method: "POST", headers };
               const body = { slug, ext };
+              if (ext === "png" && metadata?.paintingWip) body.wip = metadata.paintingWip;
               
               console.log(`🔍 PRE-CHECK: recordingSlug=${recordingSlug}, userMedia=${userMedia}, ext=${ext}`);
               

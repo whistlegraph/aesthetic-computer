@@ -2524,6 +2524,19 @@ async function halt($, text) {
     //                                  ^ "yes!" is always an upload.
     let filename; // Used in painting upload.
     let recordingSlug;
+    let paintingWip;
+    try {
+    if (destination === "upload") {
+      setProgressPhase("SAVING WIP");
+      paintingWip = await system.nopaint.syncWip($);
+      if (paintingWip?.editor.status === "done") {
+        paintingCompletionBusy = false;
+        send({ type: "keyboard:unlock" });
+        jump(`painting~${paintingWip.editor.code}`);
+        return true;
+      }
+      await paintingWip?.flush(system.nopaint.piece);
+    }
 
     if (system.nopaint.recording) {
       console.log("🖌️ Saving recording:", destination);
@@ -2565,6 +2578,18 @@ async function halt($, text) {
       console.warn("🖌️ No recording to save!");
     }
 
+    } catch (err) {
+      console.error("Painting preparation failed:", err);
+      notice(err.message || "Could not save the painting. Try Done again.", ["red"]);
+      progressTrick = null;
+      progressBar = -1;
+      setProgressPhase();
+      progressPercentage = 0;
+      paintingCompletionBusy = false;
+      send({ type: "keyboard:unlock" });
+      return true;
+    }
+
     // Always upload a PNG.
     if (destination === "upload") {
       console.log("🖼️ Uploading painting...");
@@ -2588,7 +2613,8 @@ async function halt($, text) {
             progressPercentage = -1; // Hide percentage
           }
           needsPaint(); // Update display during upload
-        }, undefined, recordingSlug); // Pass bucket as undefined (use auth), recordingSlug as 5th param
+        }, undefined, recordingSlug, paintingWip ? { paintingWip: paintingWip.reference() } : undefined);
+        paintingWip?.sealed();
         console.log("🪄 Painting uploaded:", filename, data);
         if (store["painting:tags"]) {
           delete store["painting:tags"];
@@ -2625,6 +2651,8 @@ async function halt($, text) {
         return true; // Prevent default - we handled the upload
       } catch (err) {
         console.error("🪄 Painting upload failed:", err);
+        send({ type: "keyboard:unlock" });
+        notice(err.message || "Upload failed. Try Done again.", ["red"]);
         flashColor = [255, 0, 0];
         progressBar = -1;
         setProgressPhase();

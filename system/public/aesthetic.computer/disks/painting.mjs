@@ -38,6 +38,7 @@ let printBtn, // Sticker button.
   downloadBtn, // Download button.
   slug; // A url to the loaded image for printing.
 let discussBtn;
+let forkBtn;
 let menuBtn; // A context (...) button that appears for the owner.
 let nukeBtn; // A button inside of the context menu to hide / delete the media.
 let menuOpen = false;
@@ -93,10 +94,12 @@ function boot({
   dom: { html },
   send,
   store,
+  jump: apiJump,
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
   menuBtn = null;
   discussBtn = null;
+  forkBtn = null;
   paintingCode = undefined;
   nukeBtn = null;
   menuOpen = false;
@@ -286,6 +289,7 @@ function boot({
         return null;
       }
       const data = await response.json();
+      if (data?.status === "wip") return data;
       if (data?.slug && data?.handle) {
         return {
           slug: data.slug,
@@ -306,6 +310,10 @@ function boot({
   }
 
   async function loadPaintingFromMetadata(record, { aliasCodes = [] } = {}) {
+    if (record?.status === "wip") {
+      apiJump(`wip~${record.code}`);
+      return;
+    }
     if (!record || !record.slug || !record.handle) {
       console.error("❌ Invalid painting metadata", record);
       return;
@@ -597,8 +605,12 @@ function paint({
       if (!discussBtn) discussBtn = new ui.TextButton("Comment", { center: "x", bottom: 6, screen });
       discussBtn.reposition({ center: "x", bottom: 6, screen });
       discussBtn.paint({ ink });
+      if (!forkBtn) forkBtn = new ui.TextButton("Paint with", { center: "x", bottom: btnBar + 7, screen });
+      forkBtn.reposition({ center: "x", bottom: btnBar + 7, screen });
+      forkBtn.paint({ ink });
     } else {
       discussBtn = null;
+      forkBtn = null;
     }
     //mintBtn?.paint({ ink });
     printBtn?.reposition({ right: 6, bottom: 6, screen });
@@ -813,7 +825,11 @@ function act({
   user,
   canShare,
   download,
+  jump,
 }) {
+  let forking = false;
+  forkBtn?.act(e, () => { forking = true; jump(`nopaint~from~${paintingCode}`); });
+  if (forking || forkBtn?.down) return;
   menuBtn?.act(e, () => (menuOpen = !menuOpen));
 
   if (!menuOpen) {

@@ -25,6 +25,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 import { respond } from "../../backend/http.mjs";
+import { paintingWipPixels } from "../../backend/painting-wips.mjs";
 const dev = process.env.CONTEXT === "dev";
 let nopaintArchiveIds;
 
@@ -81,6 +82,7 @@ async function fun(event, context) {
     const resolution = pre.split("x").map((n) => parseInt(n));
     let slug = params.slice(1).join("/");
     let imageUrl; // Declare imageUrl at function scope
+    let wipImage;
     
     // Check for QR code parameter (for print files that need QR baked in)
     // Usage: /api/pixel/2700x1050:contain-clear/CODE.png?qr=mug~+CODE&via=kidlispcode
@@ -140,7 +142,10 @@ async function fun(event, context) {
         const database = await connect();
         const painting = await database.db.collection('paintings').findOne({ code });
         
-        if (painting) {
+        if (painting?.status === "wip") {
+          const picture = await paintingWipPixels(database.db, painting);
+          wipImage = await sharp(picture.pixels, { raw: { width: picture.width, height: picture.height, channels: 4 } }).png().toBuffer();
+        } else if (painting) {
           // Build slug from painting data
           // Handle combined slugs (split to get image slug only)
           let imageSlug = painting.slug;
@@ -165,6 +170,7 @@ async function fun(event, context) {
         
         await database.disconnect();
       } catch (error) {
+        if (error.status === 404) return respond(404, { message: "Painting not found" });
         console.error(`❌ Error looking up painting code: ${error.message}`);
         // Fall back to guest bucket on DB error too
         imageUrl = `https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/${code}.png`;
@@ -173,15 +179,15 @@ async function fun(event, context) {
     }
     
     // Fall back to constructing URL from slug if not set by code lookup
-    if (!imageUrl) {
+    if (!imageUrl && !wipImage) {
       imageUrl = `https://${event.headers["host"]}/media/${slug}`;
     }
 
-    if (!imageUrl) return respond(400, { message: "Image URL not provided." });
+    if (!imageUrl && !wipImage) return respond(400, { message: "Image URL not provided." });
 
     try {
       const { got } = await import("got");
-      const response = await got(imageUrl, {
+      const response = wipImage ? { body: wipImage } : await got(imageUrl, {
         responseType: "buffer",
         https: {
           rejectUnauthorized: !dev,
@@ -521,6 +527,7 @@ async function fun(event, context) {
         headers: {
           "Content-Type": "image/png",
           "Content-Length": buffer.length.toString(),
+          ...(wipImage ? { "Cache-Control": "no-store" } : {}),
         },
         body: buffer.toString("base64"),
         ttl: 60,

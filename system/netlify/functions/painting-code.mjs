@@ -2,12 +2,14 @@
 // Returns painting slug by short code (e.g., "k3d" or "WDv")
 
 import { connect } from "../../backend/database.mjs";
+import { paintingWipExpired } from "../../backend/painting-wips.mjs";
 
 function respond(statusCode, body) {
   return {
     statusCode,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -36,10 +38,10 @@ export async function handler(event) {
     // Look up painting by code
     const painting = await paintings.findOne(
       { code },
-      { projection: { slug: 1, code: 1, user: 1, nuked: 1, _id: 0 } }
+      { projection: { slug: 1, code: 1, user: 1, nuked: 1, status: 1, "wip.steps": 1, "wip.expiresAt": 1, _id: 0 } }
     );
 
-    if (!painting) {
+    if (!painting || paintingWipExpired(painting)) {
       await database.disconnect();
       return respond(404, { error: "Painting not found" });
     }
@@ -62,6 +64,7 @@ export async function handler(event) {
       slug: painting.slug,
       code: painting.code,
       handle: handle,
+      status: painting.status || "done",
       nuked: painting.nuked || false,
       discussion: `/mime/#/media/painting/${encodeURIComponent(painting.code)}`,
     });

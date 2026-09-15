@@ -12,6 +12,7 @@ import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
+import { sealPaintingWip } from "../../backend/seal-painting-wip.mjs";
 import { createMediaRecord, deleteMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { S3Client, PutObjectAclCommand } from "@aws-sdk/client-s3";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
@@ -67,6 +68,10 @@ export async function handler(event, context) {
     }
 
     const database = await connect();
+    if (event.httpMethod === "POST" && body.ext === "png" && body.wip) {
+      try { return respond(200, await sealPaintingWip(database, body, user)); }
+      catch (error) { return respond(error.status || 500, { error: error.message }); }
+    }
 
     let type, metadata;
     if (body.ext === "png") {

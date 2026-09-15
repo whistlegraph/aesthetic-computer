@@ -11,6 +11,7 @@ export const MEDIA_KINDS = {
 export const MEDIA_THREADS = "mime-media-threads";
 
 const visible = {
+  status: { $ne: "wip" },
   nuked: { $ne: true },
   deleted: { $ne: true },
   private: { $ne: true },

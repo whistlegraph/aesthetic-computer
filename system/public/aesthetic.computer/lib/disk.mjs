@@ -1338,6 +1338,8 @@ const nopaint = {
 
       store.persist("painting", "local:db");
 
+      system.nopaint.syncWip($).catch((error) => console.warn("Painting WIP:", error.message));
+
       // 🎨 Broadcast painting update to other tabs
       $commonApi.broadcastPaintingUpdate("updated", {
         source: "leave",
@@ -1413,6 +1415,15 @@ function addUndoPainting(painting, step = "unspecified") {
   }
 
   undoPosition = undoPaintings.length - 1;
+  if ($commonApi.system.nopaint.wipSync) {
+    clearTimeout($commonApi.system.nopaint.wipTimer);
+    const sync = $commonApi.system.nopaint.wipSync;
+    $commonApi.system.nopaint.wipTimer = setTimeout(() => {
+      if ($commonApi.system.nopaint.wipSync === sync) {
+        $commonApi.system.nopaint.syncWip().catch((error) => console.warn("Painting WIP:", error.message));
+      }
+    }, 120);
+  }
 
   // Note: This could be extended to increase the size of the
   //       undo stack, and images could be diffed? 23.01.31.01.30
@@ -3676,7 +3687,7 @@ const $commonApi = {
   // ***Actually*** upload a file to the server.
   // 📓 The file name can have `media-` which will sort it on the server into
   // a directory via `presigned-url.js`.
-  upload: async (filename, data, progress, bucket, recordingSlug) => {
+  upload: async (filename, data, progress, bucket, recordingSlug, metadata) => {
     const prom = new Promise((resolve, reject) => {
       serverUpload = { resolve, reject };
     });
@@ -3685,7 +3696,7 @@ const $commonApi = {
 
     console.log("Uploading:", filename, { width: data?.width, height: data?.height });
 
-    send({ type: "upload", content: { filename, data, bucket, recordingSlug } });
+    send({ type: "upload", content: { filename, data, bucket, recordingSlug, metadata } });
     return prom;
   },
   code: {
@@ -3899,6 +3910,11 @@ const $commonApi = {
       buffer: null, // An overlapping brush buffer that gets drawn on top of the
       //              painting.
       piece: null, // Canonical code + pixel layer stack for No Paint paintings.
+      syncWip: async (api = cachedAPI) => {
+        if (!api) return null;
+        const { syncACPaintingWip } = await import("./painting-wip.mjs");
+        return syncACPaintingWip(api);
+      },
       recording: false,
       record: [], // Store a recording here.
       gestureRecord: [], // Store the active gesture.
@@ -12025,7 +12041,7 @@ async function makeFrame({ data: { type, content } }) {
       const ext = filename.split(".").pop();
 
       // Only track paintings and pieces in database
-      if (ext === "png" || ext === "mjs" || ext === "lisp" || ext === "lua") {
+      if (!content.data.code && (ext === "png" || ext === "mjs" || ext === "lisp" || ext === "lua")) {
         try {
           // Call track-media POST to create database record with short code
           const trackResponse = await $commonApi.net.userRequest("POST", "/api/track-media", {
@@ -14293,6 +14309,9 @@ async function makeFrame({ data: { type, content } }) {
 
           if (system === "nopaint") nopaint_boot({ ...$api, params: $api.params, colon: $api.colon });
           await boot($api);
+          if (system === "nopaint" && !/^nopaint(?:[:~]|$)/.test($api.slug || "")) {
+            sys.nopaint.syncWip($api).catch((error) => console.warn("Painting WIP:", error.message));
+          }
           const bootEndTime = performance.now();
           diskTimings.bootComplete = Math.round(bootEndTime - diskTimingStart);
           // Silent: boot() completed

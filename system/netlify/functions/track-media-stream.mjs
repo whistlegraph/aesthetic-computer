@@ -12,6 +12,7 @@ import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { S3Client, PutObjectAclCommand } from "@aws-sdk/client-s3";
 import { stream } from "@netlify/functions";
+import { sealPaintingWip } from "../../backend/seal-painting-wip.mjs";
 
 const MAX_TAPE_DURATION = 30;
 const dev = process.env.CONTEXT === "dev";
@@ -81,6 +82,10 @@ export const handler = stream(async (event) => {
 
       await send("progress", { stage: "database", message: "Connecting to database..." });
       database = await connect();
+      if (body.ext === "png" && body.wip) {
+        await send("complete", await sealPaintingWip(database, body, user));
+        return;
+      }
 
       let type;
       let metadata;

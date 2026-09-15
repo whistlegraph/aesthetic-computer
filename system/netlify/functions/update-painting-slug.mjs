@@ -34,7 +34,7 @@ export async function handler(event, context) {
 
     // Find the painting by oldSlug (anonymous paintings have no user field)
     const result = await collection.updateOne(
-      { slug: oldSlug, user: null },
+      { slug: oldSlug, user: null, "wip.id": { $exists: false } },
       { $set: { slug: newSlug } }
     );
 

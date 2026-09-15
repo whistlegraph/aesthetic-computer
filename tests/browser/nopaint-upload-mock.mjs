@@ -1,8 +1,13 @@
 // Exercise PNG encoding, upload requests, progress, and completion callbacks.
 // Limit interception to these endpoints so worker/module loading is untouched.
-export async function mockNoPaintUploads(page, baseURL) {
+import { createPaintingWipService } from "../../system/backend/painting-wips.mjs";
+import { memoryWipRepository } from "../../system/tests/painting-wip-fixture.mjs";
+
+export async function mockNoPaintUploads(page, baseURL, wips = memoryWipRepository()) {
   const origin = new URL(baseURL).origin;
   const state = { mode: "success", presigns: 0, puts: 0, saves: 0, files: {}, tracked: [] };
+  state.wips = wips;
+  state.wipService = createPaintingWipService(wips);
   await page.exposeFunction("__acCaptureNoPaintUpload", (ext, base64) => {
     state.files[ext] = Buffer.from(base64, "base64");
   });
@@ -35,13 +40,28 @@ export async function mockNoPaintUploads(page, baseURL) {
     { urlPattern: `${origin}/presigned-upload-url/*` },
     { urlPattern: `${origin}/api/nopaint-test-upload.*` },
     { urlPattern: `${origin}/api/track-media-stream` },
+    { urlPattern: `${origin}/api/painting-wip*` },
+    { urlPattern: `${origin}/api/painting-code*` },
   ] });
   client.on("Fetch.requestPaused", async ({ requestId, request }) => {
     const url = new URL(request.url);
     let status = 200;
     let contentType = "application/json";
     let body = "";
-    if (url.pathname.startsWith("/presigned-upload-url/")) {
+    if (url.pathname === "/api/painting-wip") {
+      try {
+        const input = JSON.parse(request.postData || "{}");
+        let result;
+        if (input.action === "create") result = await state.wipService.create(input);
+        else if (input.action === "save") result = await state.wipService.save(input);
+        else result = await state.wipService.read(input.code || url.searchParams.get("code"), Boolean(input.state), null, input.key);
+        body = JSON.stringify(result);
+      } catch (error) { status = error.status || 500; body = JSON.stringify({ error: error.message }); }
+    } else if (url.pathname === "/api/painting-code") {
+      const painting = await wips.find({ code: url.searchParams.get("code") });
+      status = painting ? 200 : 404;
+      body = JSON.stringify(painting ? { code: painting.code, slug: painting.slug, status: painting.status, handle: "anon" } : { error: "Not found" });
+    } else if (url.pathname.startsWith("/presigned-upload-url/")) {
       state.presigns++;
       await holds.get("presign");
       status = state.mode === "presign-error" ? 404 : 200;
@@ -55,7 +75,12 @@ export async function mockNoPaintUploads(page, baseURL) {
       state.tracked.push(JSON.parse(request.postData));
       await holds.get("save");
       contentType = "text/event-stream";
-      body = `event: complete\ndata: ${JSON.stringify({ code: state.code || (state.saves === 1 ? "test" : `test${state.saves}`) })}\n\n`;
+      const input = JSON.parse(request.postData);
+      try {
+        const result = input.wip ? await state.wipService.seal(input.wip, null, input.slug)
+          : { code: state.code || (state.saves === 1 ? "test" : `test${state.saves}`) };
+        body = `event: complete\ndata: ${JSON.stringify(result)}\n\n`;
+      } catch (error) { body = `event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`; }
     }
     await client.send("Fetch.fulfillRequest", {
       requestId,

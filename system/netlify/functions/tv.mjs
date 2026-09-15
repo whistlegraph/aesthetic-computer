@@ -38,7 +38,7 @@ function parseLimit(rawLimit) {
 async function fetchPaintings(db, { limit }) {
   const collection = db.collection("paintings");
   const pipeline = [
-    { $match: { nuked: { $ne: true } } },
+    { $match: { nuked: { $ne: true }, status: { $ne: "wip" } } },
     { $sort: { when: -1 } },
     { $limit: limit },
     {
