@@ -7,25 +7,51 @@ APPLY=0
 INSTALL=0
 THIN_SNAPSHOTS=0
 REMOTE_BACKED=0
+AUDIT=0
+MESSAGES_CACHE=""
+UNINSTALL=()
+
+# Open-source tools the cleaner leans on when present (installed by --install):
+#   dust          — the audit tree (like du, sorted, one screen)
+#   mac-cleanup   — mac-cleanup-py; runs a curated module set after our own pass
+#   pearcleaner   — app removal that also takes the app's leftovers
+# Each is optional: the cleaner degrades to its own bash lanes without them.
+MAC_CLEANUP_CONFIG="$HOME/.mac_cleanup_py"
+# Modules that only touch regenerable tool caches. Deliberately absent:
+# system_caches/chrome/arc/chromium_caches (no running-app gate), system_log
+# (logs are kept on this fleet), ios_backups/ios_apps/dropbox/google_drive/
+# steam (user data), docker/xcode_simulators (report-only surfaces above),
+# inactive_memory (not disk).
+MAC_CLEANUP_MODULES="trash brew gem pyenv npm pnpm yarn bun pod go poetry java_cache gradle composer cacher nuget_cache conan dns_cache wget_logs jetbrains adobe obsidian_caches telegram microsoft_teams"
 
 usage() {
   cat <<'EOF'
-Usage: cleaner [--apply] [--remote-backed] [--thin-snapshots] [--install]
+Usage: cleaner [--apply] [--remote-backed] [--thin-snapshots] [--audit]
+               [--messages-cache[=YYYY-MM-DD]] [--uninstall App.app ...] [--install]
 
   (no args)          Report disk use and cleanup candidates; change nothing.
-  --apply            Clear known regenerable user caches when their app is idle.
+  --audit            Add a dust tree of the home folder and the AC checkout,
+                     plus Pearcleaner's orphan count, to the report.
+  --apply            Clear known regenerable user caches when their app is idle,
+                     then run mac-cleanup-py's curated module set if installed.
   --remote-backed    With --apply, verify and clear ignored AC media already
                      recoverable from DigitalOcean Spaces/CDN.
   --thin-snapshots   With --apply, ask tmutil to reclaim local snapshots.
-  --install          Install in ~/.local/bin and enable a weekly LaunchAgent.
+  --messages-cache   With --apply, move iMessage attachments for messages older
+                     than the date (default: one year ago) to the Trash. Only
+                     runs when Messages in iCloud is on, so they redownload.
+  --uninstall APP    Remove an application and its leftovers via Pearcleaner
+                     (falls back to the Trash). Repeatable; explicit only.
+  --install          Install in ~/.local/bin, enable a weekly LaunchAgent, and
+                     brew-install dust, mac-cleanup-py, and Pearcleaner.
 
 The report inventories application caches, developer/build caches, AC generated
 trees, remote-backed mirrors, worktrees, vault Git health, and protected media.
 
 Protected: Git history/worktrees, node_modules, Downloads, Documents/Shelf,
 model weights, Codex/Claude state, mail archives, photo/video libraries, and
-caches owned by a currently running application. Remote-backed cleanup is never
-part of the unattended weekly run.
+caches owned by a currently running application. Remote-backed cleanup, the
+Messages lane, and uninstalls are never part of the unattended weekly run.
 EOF
 }
 
@@ -35,6 +61,12 @@ while (($#)); do
     --remote-backed) REMOTE_BACKED=1 ;;
     --install) INSTALL=1 ;;
     --thin-snapshots) THIN_SNAPSHOTS=1 ;;
+    --audit) AUDIT=1 ;;
+    --messages-cache) MESSAGES_CACHE=$(date -v-1y '+%Y-%m-%d') ;;
+    --messages-cache=*) MESSAGES_CACHE=${1#--messages-cache=} ;;
+    --uninstall)
+      [[ $# -ge 2 ]] || { echo "--uninstall needs an application path" >&2; exit 2; }
+      UNINSTALL+=("$2"); shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -45,6 +77,16 @@ if ((REMOTE_BACKED && !APPLY)); then
   echo "--remote-backed requires --apply" >&2
   exit 2
 fi
+if [[ -n "$MESSAGES_CACHE" ]] && ((!APPLY)); then
+  echo "--messages-cache requires --apply" >&2
+  exit 2
+fi
+if [[ -n "$MESSAGES_CACHE" ]] && ! date -j -f '%Y-%m-%d' "$MESSAGES_CACHE" '+%s' >/dev/null 2>&1; then
+  echo "--messages-cache wants a real YYYY-MM-DD date, got: $MESSAGES_CACHE" >&2
+  exit 2
+fi
+
+have() { command -v "$1" >/dev/null 2>&1; }
 
 resolve_repo() {
   local candidate script_root
@@ -138,6 +180,7 @@ report() {
   row "Homebrew cache" "$(human_size "$HOME/Library/Caches/Homebrew")" "safe when brew idle"
   row "mu mail index vestige" "$(human_size "$HOME/.cache/mu")" "safe; canonical mail lives on jasellite"
   row "Messages cache" "$(human_size "$HOME/Library/Messages/Caches")" "safe when Messages idle"
+  row "Messages attachments" "$(human_size "$HOME/Library/Messages/Attachments")" "$(messages_attachments_policy)"
   row "Slab recordings" "$(human_size "$HOME/.local/share/slab/sessions")" "keeps last 7 days"
   row "Trash" "$(human_size "$HOME/.Trash")" "safe with --apply"
 
@@ -176,9 +219,66 @@ report() {
   row "CoreSimulator user data" "$(human_size "$HOME/Library/Developer/CoreSimulator")" "REPORT; use simctl"
   row "CoreSimulator runtimes" "$(human_size /Library/Developer/CoreSimulator/Volumes)" "REPORT; use simctl"
   echo
+  echo "OPEN-SOURCE HELPERS"
+  row "dust (audit tree)" "$(tool_state dust)" "cleaner --audit"
+  row "mac-cleanup-py (curated modules)" "$(tool_state mac-cleanup)" "$(mac_cleanup_state)"
+  row "Pearcleaner (app + leftovers)" "$(tool_state pearcleaner)" "cleaner --uninstall App.app"
+  if ((AUDIT)); then
+    audit
+  fi
+  echo
   if ((APPLY == 0)); then
     echo "Report only. Run 'cleaner --apply' to clear safe caches."
     echo "For bucket-backed AC media: cleaner --apply --remote-backed"
+    echo "For the iMessage attachment cache: cleaner --apply --messages-cache"
+  fi
+}
+
+tool_state() {
+  have "$1" && echo "installed" || echo "missing"
+}
+
+mac_cleanup_state() {
+  local estimate
+  if ! have mac-cleanup; then echo "cleaner --install adds it"
+  elif [[ ! -f "$MAC_CLEANUP_CONFIG" ]]; then echo "unconfigured; cleaner --install writes the module set"
+  else
+    # Its dry run ends in a Continue? prompt; answering n keeps it an estimate.
+    estimate=$(echo n | mac-cleanup -n -f 2>/dev/null | grep -oE 'Approx [0-9.]+ [KMGT]?B' | sed 's/Approx //' || true)
+    echo "${estimate:+~$estimate; }runs after --apply"
+  fi
+}
+
+messages_icloud_on() {
+  [[ -d "$HOME/Library/Messages/CloudKitMetaData" ]]
+}
+
+messages_attachments_policy() {
+  if messages_icloud_on; then echo "REMOTE-BACKED (Messages in iCloud); --messages-cache"
+  else echo "PROTECTED; Messages in iCloud is off"
+  fi
+}
+
+# The dust tree replaces a dozen du invocations: one screen per root, biggest
+# last, no percent bars so it reads in a log.
+audit() {
+  local root
+  echo
+  echo "AUDIT (dust, depth 1, top 14)"
+  if ! have dust; then
+    echo "  dust is not installed; cleaner --install adds it"
+    return
+  fi
+  for root in "$HOME" "$HOME/Library" "${REPO_ROOT:-}"; do
+    [[ -n "$root" && -d "$root" ]] || continue
+    echo "  $root"
+    dust -d 1 -n 14 -c -b -x -- "$root" 2>/dev/null | sed 's/^/    /'
+  done
+  if have pearcleaner; then
+    local orphans
+    orphans=$(pearcleaner list-orphaned 2>/dev/null | grep -c '^/' || true)
+    echo "  Pearcleaner orphan candidates: ${orphans:-0} (report only — its list includes"
+    echo "  extensions of installed apps, so never automate remove-orphaned)"
   fi
 }
 
@@ -350,7 +450,19 @@ apply_cleanup() {
   if [[ -d "$HOME/.local/share/slab/sessions" ]]; then
     find "$HOME/.local/share/slab/sessions" -maxdepth 1 -type f -mtime +7 -delete
   fi
+
+  if [[ -n "$MESSAGES_CACHE" ]]; then
+    thin_messages_cache "$MESSAGES_CACHE"
+  fi
+
   clean_contents "$HOME/.Trash"
+
+  if have mac-cleanup && [[ -f "$MAC_CLEANUP_CONFIG" ]]; then
+    echo "Running mac-cleanup-py (curated modules)..."
+    # -f accepts its own prompts; the module set in $MAC_CLEANUP_CONFIG is the
+    # only thing it touches. Its summary line is the one worth keeping.
+    mac-cleanup -f 2>&1 | grep -E -i 'removed|freed|error' | sed 's/^/  /' || true
+  fi
 
   if ! pgrep -x brew >/dev/null; then
     if [[ -x /opt/homebrew/bin/brew ]]; then
@@ -373,6 +485,79 @@ apply_cleanup() {
   ((reclaimed < 0)) && reclaimed=0
   echo "Cleanup complete: $(awk -v kb="$reclaimed" 'BEGIN {printf "%.1f MiB", kb / 1024}') reclaimed."
   df -h "$(data_volume)" | awk 'NR == 1 || NR == 2'
+}
+
+# iMessage attachments are a cache only when Messages in iCloud is on: every
+# file here was pulled from the cloud and comes back on view. The chat database
+# maps each file to its message date, so the lane keeps a recent window and
+# trashes the rest. Messages must be closed; the lane never quits it for you.
+thin_messages_cache() {
+  local cutoff="$1" db att dest list rel path count=0 bytes=0 size
+  db="$HOME/Library/Messages/chat.db"
+  att="$HOME/Library/Messages/Attachments"
+  dest="$HOME/.Trash/messages-attachments-before-$cutoff"
+  if ! messages_icloud_on; then skip "Messages in iCloud is off; attachments are the only copy, kept"; return; fi
+  if pgrep -x Messages >/dev/null; then skip "Messages is open; quit it and rerun --messages-cache"; return; fi
+  if ! have sqlite3 || [[ ! -r "$db" ]]; then skip "cannot read chat.db (grant Full Disk Access to the terminal); attachments kept"; return; fi
+  list=$(mktemp /tmp/cleaner-messages.XXXXXX)
+  sqlite3 -readonly "$db" "select replace(a.filename,'~/','$HOME/') from attachment a
+    join message_attachment_join j on j.attachment_id = a.ROWID
+    join message m on m.ROWID = j.message_id
+    where a.filename is not null
+      and (m.date / 1000000000 + 978307200) < cast(strftime('%s', '$cutoff') as integer)
+    group by a.ROWID;" >"$list" 2>/dev/null || { rm -f "$list"; skip "chat.db query failed; attachments kept"; return; }
+  while IFS= read -r path; do
+    [[ -f "$path" && "$path" == "$att"/* ]] || continue
+    rel=${path#"$att"/}
+    size=$(stat -f %z -- "$path" 2>/dev/null || echo 0)
+    mkdir -p "$dest/$(dirname "$rel")"
+    mv -- "$path" "$dest/$rel" && { count=$((count + 1)); bytes=$((bytes + size)); }
+  done <"$list"
+  rm -f "$list"
+  find "$att" -type d -empty -delete 2>/dev/null || true
+  echo "  Messages attachments before $cutoff: $count files, $(human_kb $((bytes / 1024))) moved to the Trash (redownload from iCloud on view)"
+}
+
+# Pearcleaner takes the bundle and the leftovers our own lanes never see
+# (Application Support, Caches, Preferences, launch agents). Without it the app
+# still goes to the Trash so the space comes back on --apply.
+uninstall_apps() {
+  local app
+  for app in "${UNINSTALL[@]}"; do
+    [[ "$app" == /* ]] || app="/Applications/$app"
+    [[ "$app" == *.app ]] || app="$app.app"
+    if [[ ! -d "$app" ]]; then skip "$app is not there"; continue; fi
+    if pgrep -f "^$app/Contents/MacOS/" >/dev/null; then skip "$app is running; quit it first"; continue; fi
+    if have pearcleaner; then
+      echo "Uninstalling $(basename "$app" .app) with Pearcleaner (bundle + leftovers)..."
+      pearcleaner uninstall-all "$app" 2>&1 | sed 's/^/  /' || skip "Pearcleaner could not remove $app"
+    else
+      echo "Pearcleaner missing; moving $(basename "$app") to the Trash (leftovers stay)..."
+      if [[ -w "$app" ]]; then mv -- "$app" "$HOME/.Trash/"; else sudo -n mv -- "$app" "$HOME/.Trash/" || skip "$app is root-owned; sudo declined"; fi
+    fi
+  done
+}
+
+# --install also fetches the helpers so every fleet Mac has the same toolset.
+# mac-cleanup-py insists on an interactive module picker until a config exists,
+# so the curated set is written straight to its TOML file.
+ensure_helpers() {
+  local brew module
+  if [[ -x /opt/homebrew/bin/brew ]]; then brew=/opt/homebrew/bin/brew
+  elif [[ -x /usr/local/bin/brew ]]; then brew=/usr/local/bin/brew
+  else echo "Homebrew missing; dust, mac-cleanup-py, and Pearcleaner not installed"; return; fi
+  have dust || "$brew" install dust >/dev/null 2>&1 || echo "brew install dust failed"
+  have mac-cleanup || "$brew" install mac-cleanup-py >/dev/null 2>&1 || echo "brew install mac-cleanup-py failed"
+  have pearcleaner || "$brew" install --cask pearcleaner >/dev/null 2>&1 || echo "brew install --cask pearcleaner failed"
+  if have mac-cleanup && [[ ! -f "$MAC_CLEANUP_CONFIG" ]]; then
+    {
+      printf 'enabled = ['
+      for module in $MAC_CLEANUP_MODULES; do printf '"%s", ' "$module"; done
+      printf ']\n'
+    } >"$MAC_CLEANUP_CONFIG"
+    echo "Wrote mac-cleanup-py module set to $MAC_CLEANUP_CONFIG"
+  fi
+  echo "Helpers: dust $(tool_state dust), mac-cleanup $(tool_state mac-cleanup), pearcleaner $(tool_state pearcleaner)"
 }
 
 install_utility() {
@@ -410,11 +595,17 @@ EOF
   launchctl bootout "gui/$uid/computer.aesthetic.cleaner" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$uid" "$plist"
   echo "Installed $bin_dir/cleaner (compatibility alias: ac-disk-clean) and weekly LaunchAgent."
+  ensure_helpers
 }
 
 if ((INSTALL)); then
   install_utility
   exit 0
+fi
+
+if ((${#UNINSTALL[@]})); then
+  uninstall_apps
+  ((APPLY)) || exit 0
 fi
 
 report

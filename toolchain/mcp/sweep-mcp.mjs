@@ -81,9 +81,24 @@ async function callTool(name, args = {}) {
       const flags = ["--apply"];
       if (args.remoteBacked) flags.push("--remote-backed");
       if (args.thinSnapshots) flags.push("--thin-snapshots");
+      if (args.messagesCacheBefore) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(args.messagesCacheBefore)) throw new Error("messagesCacheBefore wants YYYY-MM-DD");
+        flags.push(`--messages-cache=${args.messagesCacheBefore}`);
+      }
       const out = await cleaner(flags);
-      const tail = out.split("\n").filter((l) => /reclaimed|skip:|Removing|Avail|Capacity|\/System\/Volumes\/Data/.test(l));
+      const tail = out.split("\n").filter((l) => /reclaimed|skip:|Removing|Messages attachments|mac-cleanup|Avail|Capacity|\/System\/Volumes\/Data/.test(l));
       return text(tail.join("\n") || out.slice(-1500));
+    }
+    case "sweep_audit": {
+      // Report plus the dust tree of ~, ~/Library and the AC checkout, and the
+      // Pearcleaner orphan count. Read-only; slow on a big home (~1 min).
+      const out = await cleaner(["--audit"]);
+      return text(out.slice(out.indexOf("OPEN-SOURCE HELPERS")) || out);
+    }
+    case "sweep_uninstall": {
+      if (!args.app || typeof args.app !== "string" || args.app.includes("..")) throw new Error("app must be an application name or /Applications path");
+      const out = await cleaner(["--uninstall", args.app]);
+      return text(out);
     }
     case "sweep_offload": {
       const lane = LANES[args.lane];
@@ -136,7 +151,22 @@ const TOOLS = [
       properties: {
         remoteBacked: { type: "boolean", description: "Also prune remote-backed AC media after Spaces verification (default false)" },
         thinSnapshots: { type: "boolean", description: "Thin local APFS snapshots (default false)" },
+        messagesCacheBefore: { type: "string", description: "YYYY-MM-DD: also trash iMessage attachments for messages older than this. Only acts when Messages in iCloud is on (they redownload) and Messages is closed." },
       },
+    },
+  },
+  {
+    name: "sweep_audit",
+    description: "Report plus a dust tree (top entries of ~, ~/Library, and the AC checkout) and Pearcleaner's orphan count. Read-only; takes about a minute on a large home folder.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "sweep_uninstall",
+    description: "Remove one application and its leftovers (Application Support, Caches, Preferences, launch agents) via Pearcleaner; falls back to moving the bundle to the Trash. Refuses while the app is running. Explicit per-app action — never bulk.",
+    inputSchema: {
+      type: "object",
+      properties: { app: { type: "string", description: "Application name (e.g. \"LibreOffice\") or full /Applications path" } },
+      required: ["app"],
     },
   },
   {

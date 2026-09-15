@@ -136,12 +136,25 @@ agent state, and active-application caches.
 
 ```bash
 cleaner                            # inventory only
-cleaner --apply                    # known regenerable caches
+cleaner --audit                    # inventory + dust tree of ~, ~/Library, the checkout
+cleaner --apply                    # known regenerable caches, then mac-cleanup-py's curated modules
 cleaner --apply --remote-backed    # verify Spaces/CDN, then prune backed AC media
 cleaner --apply --thin-snapshots   # opt-in APFS snapshot thinning
+cleaner --apply --messages-cache   # iMessage attachments older than a year → Trash (iCloud-gated)
+cleaner --uninstall LibreOffice    # app + leftovers via Pearcleaner; repeatable
 ```
 
-`--install` places it in `~/.local/bin` and enables a weekly user LaunchAgent.
+`--install` places it in `~/.local/bin`, enables a weekly user LaunchAgent,
+and brew-installs the three open-source helpers it leans on: **dust** (the
+audit tree), **mac-cleanup-py** (a curated module set — tool caches only, no
+browser or system caches, no logs, no backups — written to `~/.mac_cleanup_py`
+so it never opens its interactive picker), and **Pearcleaner** (app removal
+that also takes Application Support, Caches, Preferences, and launch agents).
+Each helper is optional; the cleaner degrades to its own bash lanes. Never
+automate Pearcleaner's `remove-orphaned`: its orphan list includes extensions
+of installed apps. The Messages lane only runs when Messages in iCloud is on
+(attachments redownload on view), Messages is closed, and the terminal has
+Full Disk Access to read `chat.db`; it keeps the last year by default.
 The legacy `ac-disk-clean` name remains a compatibility alias.
 Running applications keep ownership of their caches; repositories, downloads,
 models, agent state, and CoreSimulator runtimes are always report-only.
