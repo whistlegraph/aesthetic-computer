@@ -18,7 +18,7 @@ local requests=tonumber(redis.call('GET',KEYS[3]) or '0')
 if requests>=120 then return -4 end
 if ARGV[3]=='live' then
   redis.call('ZREMRANGEBYSCORE',KEYS[2],'-inf',ARGV[8])
-  if not redis.call('ZSCORE',KEYS[2],KEYS[1]) and redis.call('ZCARD',KEYS[2])>=4 then return -3 end
+  if not redis.call('ZSCORE',KEYS[2],KEYS[1]) and redis.call('ZCARD',KEYS[2])>=64 then return -3 end
   local bytes=tonumber(redis.call('GET',KEYS[4]) or '0')
   if requests>=120 or bytes+tonumber(ARGV[11])>67108864 then return -4 end
   redis.call('INCRBY',KEYS[4],ARGV[11]);redis.call('EXPIRE',KEYS[4],60)

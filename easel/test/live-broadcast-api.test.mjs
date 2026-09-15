@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createLiveHandler,redisLiveStore,WRITE_SCRIPT,MAX_FRAME_BYTES,LIVE_TTL} from '../../system/backend/easel-live.mjs';
 const id=n=>n.toString(16).padStart(32,'0');
 function fixture(){let clock=1000000;const rows=new Map(),rates=new Map();let reads=0,writes=0;
- const store={async read(id,frame=false){reads++;const row=rows.get(id);if(!row||Number(row.expiresAt)<=clock){rows.delete(id);return null;}const result={...row};delete result.owner;if(!frame)delete result.data;return result;},async write(id,owner,doc,at){writes++;const previous=rows.get(id);if(previous&&previous.owner!==owner)return -1;if(previous&&doc.sequence<=previous.sequence)return -2;if(!previous&&doc.status==='stopped')return -5;const key=owner+Math.floor(at/60000),rate=rates.get(key)||{count:0,bytes:0};if(rate.count>=120||(doc.status==='live'&&rate.bytes+(doc.bytes||0)>67108864))return -4;if(doc.status==='live'&&!previous&&[...rows.values()].filter(r=>r.owner===owner&&r.status==='live'&&r.expiresAt>at).length>=4)return -3;rates.set(key,{count:rate.count+1,bytes:rate.bytes+(doc.bytes||0)});const row={...previous,...doc,owner,updatedAt:at,expiresAt:at+LIVE_TTL*1000};if(doc.status==='stopped')delete row.data;rows.set(id,row);return 1;}};
+ const store={async read(id,frame=false){reads++;const row=rows.get(id);if(!row||Number(row.expiresAt)<=clock){rows.delete(id);return null;}const result={...row};delete result.owner;if(!frame)delete result.data;return result;},async write(id,owner,doc,at){writes++;const previous=rows.get(id);if(previous&&previous.owner!==owner)return -1;if(previous&&doc.sequence<=previous.sequence)return -2;if(!previous&&doc.status==='stopped')return -5;const key=owner+Math.floor(at/60000),rate=rates.get(key)||{count:0,bytes:0};if(rate.count>=120||(doc.status==='live'&&rate.bytes+(doc.bytes||0)>67108864))return -4;if(doc.status==='live'&&!previous&&[...rows.values()].filter(r=>r.owner===owner&&r.status==='live'&&r.expiresAt>at).length>=64)return -3;rates.set(key,{count:rate.count+1,bytes:rate.bytes+(doc.bytes||0)});const row={...previous,...doc,owner,updatedAt:at,expiresAt:at+LIVE_TTL*1000};if(doc.status==='stopped')delete row.data;rows.set(id,row);return 1;}};
  const handler=createLiveHandler({authorize:async h=>h.authorization?{sub:h.authorization}:null,getHandleOrEmail:async sub=>sub==='nohandle'?'mail@example.test':'@maker',store,now:()=>clock});
  const request=(method,body,owner='owner',query)=>handler({httpMethod:method,headers:owner?{authorization:owner}:{},...(method==='GET'?{queryStringParameters:query}:{body:JSON.stringify(body)})});
  const doc=(n,sequence=1,data=Buffer.from('draft').toString('base64'))=>({id:id(n),sequence,kind:'picture',version:sequence,mime:'image/png',data,status:'live'});
@@ -28,10 +28,10 @@ test('owner writes, anonymous late join, exact sequence reads, stale and foreign
 test('strict schemas reject source/private fields, unsupported media and overlimit payloads; owner sessions and writes bounded',async()=>{
  const f=fixture();for(const patch of [{prompt:'secret'},{source:'hidden'},{mime:'text/html'},{data:'!!!!'},{sequence:0},{status:'published'},{id:'short'}])assert.equal((await f.request('POST',{...f.doc(1),...patch})).statusCode,400);
  assert.equal((await f.request('POST',f.doc(1,1,Buffer.alloc(MAX_FRAME_BYTES+1).toString('base64')))).statusCode,413);
- for(let i=1;i<=4;i++)assert.equal((await f.request('POST',f.doc(i))).statusCode,200);
- assert.equal((await f.request('POST',f.doc(5))).statusCode,429);
- for(let seq=2;seq<=117;seq++)assert.equal((await f.request('POST',f.doc(1,seq))).statusCode,200);
- assert.equal((await f.request('POST',f.doc(1,118))).statusCode,429);
+ for(let i=1;i<=64;i++)assert.equal((await f.request('POST',f.doc(i))).statusCode,200);
+ assert.equal((await f.request('POST',f.doc(65))).statusCode,429);
+ for(let seq=2;seq<=57;seq++)assert.equal((await f.request('POST',f.doc(1,seq))).statusCode,200);
+ assert.equal((await f.request('POST',f.doc(1,58))).statusCode,429);
 });
 test('draft Paper and Game Boy source can be watched before compilation',async()=>{
  const f=fixture();for(const [n,kind] of [[1,'paper'],[2,'gameboy']]){const result=await f.request('POST',{...f.doc(n),kind,mime:'text/plain'});assert.equal(result.statusCode,200);assert.equal(JSON.parse(result.body).kind,kind);}

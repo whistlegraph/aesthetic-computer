@@ -36,7 +36,7 @@ async function display(metadata,bytes,signal){
 let watch;
 try{
   const id=new URLSearchParams(location.search).get('id');
-  watch=new LiveWatch({id,onFrame:display,onStatus:(metadata,sequence)=>{status.textContent=metadata.sequence>sequence?'Updating…':'Live draft';},onEnd:reason=>{clear();label.textContent='Easel preview';status.textContent=reason==='stopped'?'Sharing stopped':'Preview expired';const p=document.createElement('p');p.textContent='This draft is no longer being shared.';artifact.append(p);},onError:message=>status.textContent=message});
+  watch=new LiveWatch({id,onFrame:display,onStatus:(metadata,sequence)=>{status.textContent=metadata.sequence>sequence?'Updating…':'Live draft';},onEnd:reason=>{clear();label.textContent='Easel preview';status.textContent='Waiting for the artifact…';const p=document.createElement('p');p.textContent='The preview will appear here when the maker connects.';artifact.append(p);},onError:message=>status.textContent=message});
   watch.setVisible(!document.hidden);watch.start();
   document.addEventListener('visibilitychange',()=>{watch.setVisible(!document.hidden);if(document.hidden)player?.pause();});
   window.addEventListener('pagehide',()=>{watch.stop();clear();});

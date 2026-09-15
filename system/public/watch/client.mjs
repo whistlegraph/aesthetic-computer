@@ -32,16 +32,16 @@ export class LiveWatch {
     try{
       const options={credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal};
       const response=await this.fetch(`/api/easel-live?id=${this.id}`,options);
-      if(response.status===404||response.status===410){this.stop();this.onEnd(response.status===410?'stopped':'expired');return;}
+      if(response.status===404||response.status===410){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
       if(!response.ok)throw new Error('Could not connect to this preview');
       const metadata=validateMetadata(await response.json(),this.id);
       if(epoch!==this.epoch||!this.running)return;
-      if(metadata.status==='stopped'){this.stop();this.onEnd('stopped');return;}
+      if(metadata.status==='stopped'){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
       this.onStatus(metadata,this.sequence);
       if(metadata.sequence>this.sequence){
         const frame=await this.fetch(`/api/easel-live?id=${this.id}&frame=${metadata.sequence}`,options);
         if(frame.status===409){delay=250;return;}
-        if(frame.status===404||frame.status===410){this.stop();this.onEnd(frame.status===410?'stopped':'expired');return;}
+        if(frame.status===404||frame.status===410){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
         if(!frame.ok)throw new Error('Could not load the new version');
         const bytes=await readFrame(frame);
         if(epoch!==this.epoch||!this.running)return;
