@@ -150,7 +150,6 @@ const tileCol = (x) =>
 const tileRow = (y) =>
   Math.min(gridRows - 1, Math.max(0, Math.floor((floorY - y) / tileSize)));
 const tileCenterX = (col) => gridLeft + (col + .5) * tileSize;
-const tileTopY = (row) => floorY - (row + 1) * tileSize;
 // One number per tile, row-major from the floor-left corner. Today impacts
 // write heat into it and the overlay draws that heat fading; tomorrow it is
 // wherever tiled computation over the map wants to live.
@@ -224,7 +223,7 @@ const parkSegments = parkFeatures.map((feature) => ({
 }));
 const parkLeft = parkSegments[0].left;
 const parkRight = parkSegments[parkSegments.length - 1].right;
-// The lowest and highest ground in the park. `floorY` used to be both — it
+// The lowest ground in the park. `floorY` used to be it — it
 // was the whole world's bottom, and a dozen places lean on that: the camera
 // clamps its aim to it, the ground's near skirt hangs from it, the terrain
 // span stops at it. A bowl dug three tiles into the floor makes every one of
@@ -232,9 +231,6 @@ const parkRight = parkSegments[parkSegments.length - 1].right;
 // is a fighter riding out of frame at the bottom of the pipe.
 const parkDeepest = floorY + Math.max(0,
   ...parkSegments.map((segment) => -segment.lift));
-const parkHighest = floorY - Math.max(0,
-  ...parkSegments.map((segment) => segment.lift +
-    (segment.kind === "flat" ? 0 : segment.rise)));
 // Enough samples that an arc reads as an arc. One per tile drew the halfpipe
 // as a staircase — 90 units is most of a fighter wide, and a transition turns
 // through ninety degrees in three of them.
@@ -1006,8 +1002,6 @@ function worldTriangle(a, b, c, color) {
 function projectPoint(x, y, z = 0) {
   return cameraDoll.project({ x, y, z });
 }
-const screenX = (x, z = 0) => projectPoint(x, cameraCenterY, z).x;
-const screenY = (y, z = 0) => projectPoint(cameraCenter, y, z).y;
 const panAt = (x, z = 0) => clamp(
   (projectPoint(x, cameraCenterY, z).x - viewCenterX()) /
     Math.max(1, (stageRight - stageLeft) / 2 - 55), -1, 1);
@@ -4738,8 +4732,6 @@ const NET_HELLO_INTERVAL_MS = 1000;
 let netInbox = [];
 let netPeerHello = null;
 let netHelloSentAt = 0;
-const netEmptyPad = Object.freeze({ connected: true, down: Object.freeze([]),
-  leftX: 0, leftY: 0, rightX: 0, rightY: 0 });
 const netPadCache = new Map();
 
 // A recorded mask back into the pad shape the sim reads (see resimPad). One
@@ -11037,14 +11029,6 @@ function updateDetachedParts(dt, combat = true) {
   }
 }
 
-function runnerBodyDistanceToPoint(geometry, px, py, pz = 0) {
-  let distance = Infinity;
-  for (const segment of geometry.segments)
-    distance = Math.min(distance,
-      Math.max(0, pointSegmentDistance(px, py, pz, segment) - segment.width / 2));
-  return distance;
-}
-
 // Comic Relief's packaged horizontal metrics, normalized from its 2048-unit
 // em. Colored text is drawn glyph-by-glyph on every host, so using the font's
 // real advances here keeps the web canvas and Xbox DirectWrite runs identical.
@@ -12293,14 +12277,6 @@ function drawPlayerHud(player, x, pad) {
   let label = "P" + (player.pad + 1) + "  " + player.roundWins + "/" +
     matchWins + "  PTS " + player.score;
   typeWrite(label, x, 14, 22, ...color);
-}
-
-function drawFighterData(player, x) {
-  const profile = fighterProfile(player.name);
-  const mood = profile.mood ? "M " + profile.mood.slice(0, 24) : "M —";
-  const chat = profile.lastChat ? "CHAT " + profile.lastChat.slice(0, 34) : "CHAT —";
-  const ink = mixColor([190, 205, 235], [55, 66, 90], visualTheme.light);
-  typeWrite(mood + "  ·  " + chat, x, 82, 15, ...ink);
 }
 
 function visibleHandle(player) {
