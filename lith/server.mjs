@@ -47,6 +47,7 @@ if (typeof globalThis.awslambda === "undefined") {
 }
 
 import express from "express";
+import { sendStream } from "./stream-response.mjs";
 import { userMediaTarget } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
 import { join, dirname } from "path";
@@ -483,17 +484,10 @@ async function handleFunction(req, res) {
     // Handle ReadableStream bodies (from streaming functions like ask, keep-mint)
     if (result.body && typeof result.body === "object" && typeof result.body.getReader === "function") {
       res.status(statusCode);
-      const reader = result.body.getReader();
-      const pump = async () => {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) { res.end(); return; }
-          res.write(value);
-        }
-      };
-      return pump().catch((err) => {
+      return sendStream(res, result.body).catch((err) => {
+        if (res.destroyed) return;
         console.error(`fn/${name} stream error:`, err);
-        res.end();
+        res.destroy(err);
       });
     }
 

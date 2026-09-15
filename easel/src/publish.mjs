@@ -1,3 +1,4 @@
+import { validatePieceSource } from "./revisions.mjs";
 // publish.mjs — put a piece live under the signed-in user's @handle.
 //
 // This mirrors the web prompt's `publish` command exactly: ask the site for a
@@ -72,6 +73,7 @@ export async function publishPiece({
     throw new Error("this file does not export a piece (boot, paint, sim, act, or default)");
   }
 
+  await validatePieceSource(source, plan.path);
   const token = await session.token();
   onStep("requesting upload grant");
   const presign = await fetch(plan.grantUrl, {

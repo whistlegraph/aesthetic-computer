@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { MASCOT_HEIGHT, mascotAt, mascotRow } from "./mascot.mjs";
+import { aboutMap } from "./about.mjs";
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
 const CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
@@ -393,7 +394,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const room = Math.max(0, width - 3 - rightWidth - rockGutter);
   const title = "EASEL";
   let account = state.account || "not signed in";
-  let piece = state.piece ? clipText(state.piece, 24) : "";
+  let piece = state.piece ? `${clipText(state.piece, 24)}${state.pieceVersion ? ` v${state.pieceVersion}` : ""}` : "";
   if (textWidth(`${title}  ${account}  ${piece}`) > room) piece = "";
   if (textWidth(`${title}  ${account}`) > room) account = "";
   const leftPlain = clipText(
@@ -402,9 +403,9 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   );
   const left =
     leftPlain === title || !account
-      ? paint(useColor, "bold text", leftPlain)
-      : `${paint(useColor, "bold text", title)}  ` +
-        `${paint(useColor, account.startsWith("@") ? "handle" : "muted", account)}` +
+      ? paint(useColor, state.hover === "about" ? "block bold" : "bold text", leftPlain)
+      : `${paint(useColor, state.hover === "about" ? "block bold" : "bold text", title)}  ` +
+        `${paint(useColor, state.hover === "profile" ? "block" : account.startsWith("@") ? "handle" : "muted", account)}` +
         `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
   const gap = " ".repeat(
     Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth - rockGutter),
@@ -437,13 +438,17 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // asked for breathing room it never used, which put the cliff at 24 rows and
   // hid the code from a 23-row window for no reason a reader could see.
   const qr =
-    useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height
+    !state.about && useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height
       ? state.qr
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
-  const transcript = state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
-  const visible = transcript.slice(Math.max(0, transcript.length - transcriptRows));
-  while (visible.length < transcriptRows) visible.unshift("");
+  const transcript = state.about
+    ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
+    : state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
+  const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
+    : Math.max(0, transcript.length - transcriptRows - (state.scrollOffset || 0));
+  const visible = transcript.slice(start, start + transcriptRows);
+  while (visible.length < transcriptRows) state.about ? visible.push("") : visible.unshift("");
 
   const body = visible.map((line, index) => {
     const row = ` ${fit(line, contentWidth)}`;
@@ -486,8 +491,12 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     `${paint(useColor, "soft", pose[0])}` +
     `${paint(useColor, "handle", pose[1])}` +
     `${paint(useColor, "soft", pose[2])}`;
-  const helpText = state.busy
-    ? " ctrl-c interrupt"
+  const helpText = state.about ? " Esc back · ↑/↓ scroll"
+    : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
+    : state.hover === "about" ? " About Easel · click"
+    : state.hover === "profile" ? " Open profile in browser · click"
+    : state.busy
+    ? ` ${state.progressBytes ? `${(state.progressBytes / 1024).toFixed(1)} KB received · ` : ""}ctrl-c interrupt`
     : " /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const help =
     width >= 23
@@ -502,4 +511,23 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     .slice(0, height)
     .map((line) => `${ground}${fit(line, width)}${reset}`)
     .join("\n");
+}
+
+export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {
+  const width = Math.max(32, columns), height = Math.max(10, rows);
+  const qr = useColor && state.qr && width >= state.qr.width + 24 && height - 5 >= state.qr.height ? state.qr : null;
+  return state.entries.reduce((count, entry) => count + entryLines(entry, qr ? width - qr.width - 2 : width - 2, false).length, 0);
+}
+
+// Terminal mouse coordinates are one-based, like the displayed header row.
+export function headerAction(state, columns, rows, x, y) {
+  if (columns < 32 || rows < 10 || y !== rows - 3) return "";
+  const mode = state.mode === "local" ? "LOCAL" : "REMOTE";
+  const rightWidth = textWidth(`${mode} · ${String(state.status || "ready").toUpperCase()}`);
+  const room = Math.max(0, columns - 3 - rightWidth);
+  if (room >= 5 && x >= 2 && x <= 6) return "about";
+  const account = state.account || "";
+  if (account.startsWith("@") && textWidth(`EASEL  ${account}`) <= room
+      && x >= 9 && x < 9 + textWidth(account)) return "profile";
+  return "";
 }

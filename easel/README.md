@@ -44,18 +44,46 @@ Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 
 ## Engine bridges
 
-Two bridges ship, and either can drive a session:
+Three bridges can drive a session:
 
 ```sh
 ac                                  # claude, on claude-opus-5
 ac --backend codex                  # codex app-server
+ac --backend ac                     # AC hosted, using your handle's budget
 ac --model claude-opus-5            # a different model on the same bridge
+ac --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
 ```
 
-`/backend` and `/model` do the same thing mid-session — both restart the
-conversation on the new engine and leave the piece, the channel and the QR code
-exactly where they were. `/backend` with no argument says which engine and
-model are running.
+`/backend` and `/model` switch mid-session, preserving the visible conversation,
+piece, channel and QR. A new provider thread receives recent user/assistant
+context (up to 24,000 characters) and the current piece; provider thread IDs and
+tool history are not portable. A failed connection returns to the prior engine.
+`/new` explicitly starts a fresh conversation. `/backend` lists account options;
+`/model` lists hosted choices or accepts a model name for your own vendor CLI.
+
+AC hosted keeps GLM as its default. `/model sonnet` and `/model gpt` select
+premium models and consume the same handle allowance. Model IDs were checked
+against the [OpenRouter catalog](https://openrouter.ai/compare/openai/gpt-5.4/anthropic/claude-sonnet-4.6).
+The allowance measures weighted tokens, not dollars, and is not an atomic spend
+reservation. Unavailable budget checks refuse inference. New hosted choices
+require the matching Lith endpoint deployment.
+
+`/about`, or clicking **EASEL**, opens the feature map. Click **@handle** to open
+your profile in a browser. Header targets highlight on hover in terminals that
+support mouse reporting. `/mouse off` restores terminal selection; `/mouse on`
+enables interaction again. `EASEL_MOUSE=0` disables it at launch.
+
+Wheel and Page Up/Page Down scroll the transcript internally, keeping the input
+and footer fixed. Incoming output preserves your reading position. End with an
+empty input, or `/latest`, returns to the live end. The about map scrolls too;
+Esc returns to the conversation.
+
+`/performance [frames]` measures the current JavaScript piece's headless logic
+with seeded randomness and drawing-call counts. The default is 600 measured
+frames at 800×600 after warmup. It runs in a restricted child with a timeout;
+Ctrl-C cancels it. Browser rendering, rasterization and display latency are
+excluded. Unsupported APIs/imports report an error. It requires Node permission
+support (Node 24 or newer recommended).
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK
@@ -71,6 +99,19 @@ configuration — Codex is pinned to `on-request` approvals and a
 `workspace-write` sandbox, and Claude is launched with `--setting-sources ""`
 and `--strict-mcp-config` — so nothing but the person watching can approve a
 command in a session, and an `a` is never written to a settings file.
+
+On the Claude bridge the session also carries Easel's own tools, served by
+`src/tools.mjs` as the one MCP server the strict config admits: `ac_api` (the
+piece API — runtime signatures, docs and real call sites, read off
+`lib/disk.mjs` and `lib/graph.mjs` by `bin/build-api-map.mjs` into
+`context/api.json`), `ac_examples` (pieces that call a symbol), `ac_outline`
+(a piece's top-level symbols with line spans) and `ac_symbol` (one symbol's
+source). They exist because the first ten sessions each spent six to twelve
+shell calls — `grep function circle( graph.mjs`, `sed -n 6590,6650p disk.mjs`,
+`grep -rn "synth({" disks/` — rebuilding the same picture before the first
+edit. The guides are inlined into the first turn for the same reason. All four
+tools are read-only and pre-allowed; `npm run context` rebuilds the map and
+`npm test` fails when it is stale.
 
 The two are not equivalent on containment. Codex runs commands inside an
 operating-system sandbox with the network off; Claude Code has no such sandbox,
@@ -192,3 +233,17 @@ installer preserves them as `ac-repo` and `aesthetic-platform`.
 
 The product boundary is recorded in
 [`docs/local-contract.md`](docs/local-contract.md).
+
+Each complete piece update gets a local version (`v1`, `v2`, …). `/versions`
+lists snapshots; `/rollback vN` restores one as a new version and sends it through
+the usual live/publish path. Finish or interrupt the current turn and let uploads
+finish first. History persists in `~/.local/share/easel/history/`, keyed by the
+piece's absolute file path; it is not yet shared between machines or accounts.
+
+The AC backend streams text and completed `write_piece` checkpoints as they
+arrive. It shows connecting, waiting, generating, composing, and writing states;
+received kilobytes count stream bytes, not billed tokens. JavaScript checkpoints
+are syntax-checked without executing them, so unfinished fragments keep the last
+working preview. Other runtimes retain their own loader validation. This uses
+ordered HTTPS streaming (SSE); a socket or UDP transport is not required for each
+token to arrive immediately. Disconnects cancel an active response upstream.

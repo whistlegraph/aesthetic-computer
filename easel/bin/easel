@@ -25,6 +25,7 @@ VERSION="$(node -p "require('$PROJECT_DIR/package.json').version" 2>/dev/null ||
 usage() {
     cat <<'EOF'
 Usage: ac [directory] [--runtime mjs|lisp|processing]
+                      [--piece FILE] [--resume THREAD_ID]
                       [--backend claude|codex|ac] [--model NAME]
                       [--autopublish | --no-autopublish]
        aesthetic [directory]
@@ -122,6 +123,7 @@ esac
 target_directory=""
 resume_thread=""
 initial_prompt=""
+initial_piece=""
 runtime=""
 backend=""
 model=""
@@ -142,6 +144,11 @@ while [[ $# -gt 0 ]]; do
             [[ $# -ge 2 ]] || fail "--resume requires a thread id"
             [[ "$2" =~ ^[0-9A-Fa-f-]{36}$ ]] || fail "invalid thread id"
             resume_thread="$2"
+            shift 2
+            ;;
+        --piece)
+            [[ $# -ge 2 ]] || fail "--piece requires a file"
+            initial_piece="$2"
             shift 2
             ;;
         --prompt)
@@ -237,6 +244,7 @@ export EASEL_VERSION="$VERSION"
 arguments=("--cwd" "$target_directory")
 if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
+if [[ -n "$initial_piece" ]]; then arguments+=("--piece" "$initial_piece"); fi
 if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
 if [[ "$autopublish" == "on" ]]; then arguments+=("--autopublish"); fi
 if [[ "$autopublish" == "off" ]]; then arguments+=("--no-autopublish"); fi

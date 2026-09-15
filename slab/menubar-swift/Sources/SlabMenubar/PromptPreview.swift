@@ -13,14 +13,25 @@
 //
 // What it shows is `scan_url` — the same address the rock encodes — so the two
 // surfaces can never disagree about which piece this session is about. It runs
-// capped (`maxfps`) because a wall of nine panes each animating at display rate
-// is a warm laptop for no one's benefit.
+// at display rate: a piece is judged by how it moves, and a card that shows
+// four frames a second answers "is it moving?" but never "is it right?".
 //
 // The piece runs at the pane's own viewport the whole time. The resting card is
-// a small window onto it — a slow Ken Burns crop at 1:1, the way chat.mjs shows
-// a `#painting` — and pointing at the card opens that window up to the whole
-// viewport. Nothing is resized on the way: a live resize of a web view costs a
-// reframe and a black frame or two, and the old card paid both on every hover.
+// that whole viewport composited down to thumbnail size, and pointing at the
+// card scales it back up to 1:1 over the pane. Nothing is resized on the way: a
+// live resize of a web view costs a reframe and a black frame or two, and the
+// old card paid both on every hover.
+//
+// The pane itself resizing is the one time the web view must follow, and it
+// follows late: while the terminal is being dragged the stage only rescales,
+// and the real reframe happens once, after the drag settles, under a snapshot
+// of the last frame that stays up until the piece has painted at its new size.
+// A WKWebView mid-resize shows its window's backing colour — here, the card's
+// black — and that flash was what a resize used to look like.
+//
+// While the card is open it is the piece, not a picture of it: the pointer
+// reaches the web view and so does the keyboard. Pointing at your own work and
+// having it ignore you is the wrong kind of preview.
 //
 // The chrome over it is not decoration. A web view that is covered, throttled
 // or simply one save behind shows a frame that looks exactly like a live one,
@@ -52,6 +63,7 @@ struct PromptPreviewState: Equatable {
     /// timer — read from the same window-stack test that hides the rock.
     var paused = false
     var piece: String = ""
+    var version = 0
 
     /// Nothing to report: the card is showing the current piece, painting, and
     /// the file agrees with it. The overwhelmingly common case, and the one the
@@ -95,7 +107,8 @@ private struct PromptPreviewBadge: View {
     /// place only when there is one. Both absent is the ordinary case, and the
     /// view draws nothing at all.
     private var text: String {
-        let name = expanded ? state.piece : ""
+        let name = [expanded ? state.piece : "", state.version > 0 ? "v\(state.version)" : ""]
+            .filter { !$0.isEmpty }.joined(separator: " · ")
         if state.quiet { return name }
         return name.isEmpty ? state.label : "\(name) · \(state.label)"
     }
@@ -135,10 +148,13 @@ final class PromptPreview {
     /// terminal never looks completely papered over.
     private static let hoverMargin: CGFloat = 12
 
-    /// Frames per second while nobody is looking. Four is enough to see that a
-    /// piece is moving — which is the only question a glance asks — and cheap
-    /// enough to leave running on every pane at once.
-    private static let restFPS = 4
+    /// How long a pane has to hold still before the web view is reframed to
+    /// it. Live-resize ticks arrive every frame; this collapses a drag into one
+    /// reframe at the end of it.
+    private static let resizeSettle: TimeInterval = 0.3
+    /// How long the snapshot stays over the reframed web view. The runtime's own
+    /// resize handler debounces, then repaints; this covers both.
+    private static let coverHold: TimeInterval = 0.6
 
     /// Inset from the pane's left edge, and drop below its title bar. The card
     /// parks *inside* the pane rather than over the title: the top-left of a
@@ -163,18 +179,21 @@ final class PromptPreview {
     /// which is what a screen on a desk looks like.
     private static let cardRadius: CGFloat = 3
 
-    /// One slow lap of the resting crop around the piece. Matches the
-    /// `#painting` embeds in chat.mjs, which this card is a cousin of.
-    private static let kenBurnsCycle: TimeInterval = 8
-    /// How often the crop moves. A pan of a few points a second at 24 steps
-    /// reads as continuous; the web view is not repainted by it, only
-    /// re-composited.
-    private static let kenBurnsInterval: TimeInterval = 1.0 / 24
     /// How long the card takes to open or close.
     private static let openDuration: TimeInterval = 0.16
 
-    private let window: NSWindow
+    private let window: PromptPreviewWindow
     private let webView: WKWebView
+    private let refreshBridge = PromptPreviewRefreshBridge()
+    private var lastRefresh = Date.distantPast
+    /// Scale through AppKit's frame/bounds mapping, not a layer transform.
+    /// WebKit consults the NSView visible rect when deciding which tiles to
+    /// paint; a layer-only scale leaves that rect clipped to the thumbnail.
+    private let stage = PromptPreviewStage()
+    /// The last frame, held over the stage while the web view is reframed.
+    private let cover = NSImageView()
+    private var settleTimer: Timer?
+    private var coverTimer: Timer?
     private let badgeHost: NSHostingView<PromptPreviewBadge>
     private let border = CALayer()
     /// The card proper — the part of the viewport the eye is shown. The
@@ -212,10 +231,10 @@ final class PromptPreview {
     /// the card reframes nothing: what was cropped is simply shown.
     private var viewport = PromptPreview.restSize
 
-    /// Where in the lap this card's crop is; a random phase so a wall of cards
-    /// does not drift in lockstep.
-    private let kenBurnsSeed = Double.random(in: 0..<1)
-    private var kenBurnsTimer: Timer?
+    /// Whoever was frontmost when the card took the keyboard, so closing the
+    /// card hands focus back to the terminal it was over rather than leaving
+    /// a menubar app as the active one.
+    private var yieldTo: NSRunningApplication?
 
     init() {
         let config = WKWebViewConfiguration()
@@ -223,25 +242,33 @@ final class PromptPreview {
         // anyway and this window takes none, but say it rather than rely on it.
         config.mediaTypesRequiringUserActionForPlayback = .all
         config.suppressesIncrementalRendering = false
+        config.userContentController.add(refreshBridge, name: "previewReady")
+        config.userContentController.addUserScript(WKUserScript(source: """
+            window.addEventListener('message', event => {
+              if (event.source === window && event.data?.type === 'ready') {
+                window.webkit.messageHandlers.previewReady.postMessage('ready');
+              }
+            });
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
-        // Positioned by hand: the crop is an offset, never a resize.
         webView.autoresizingMask = []
 
         badgeHost = NSHostingView(rootView: PromptPreviewBadge(state: PromptPreviewState(),
                                                                expanded: false))
 
-        window = NSWindow(contentRect: NSRect(origin: .zero, size: Self.restSize),
-                          styleMask: .borderless, backing: .buffered, defer: false)
+        window = PromptPreviewWindow(contentRect: NSRect(origin: .zero, size: Self.restSize),
+                                     styleMask: .borderless, backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
         // AppKit's window shadow is a soft, untunable bloom. Ours is drawn.
         window.hasShadow = false
         window.level = NSWindow.Level(Int(CGWindowLevelForKey(.normalWindow)) + 1)
-        // Click-through, like the rock's render surface: hover is discovered by
-        // the controller's pointer monitor, never by taking events away from
-        // the terminal.
+        // Click-through at rest, like the rock's render surface: hover is
+        // discovered by the controller's pointer monitor. Open, the card takes
+        // the pointer — see `setHovered`.
         window.ignoresMouseEvents = true
+        window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
 
         // The window is the whole viewport plus the room its shadow falls
@@ -258,8 +285,18 @@ final class PromptPreview {
         card.layer?.masksToBounds = true
         card.layer?.cornerRadius = Self.cardRadius
         card.layer?.backgroundColor = NSColor.black.cgColor
-        webView.frame = card.bounds
-        card.addSubview(webView)
+        stage.wantsLayer = true
+        stage.autoresizesSubviews = false
+        stage.frame = card.bounds
+        webView.frame = stage.bounds
+        stage.addSubview(webView)
+        card.addSubview(stage)
+        cover.imageScaling = .scaleAxesIndependently
+        cover.isHidden = true
+        cover.wantsLayer = true
+        cover.frame = card.bounds
+        cover.autoresizingMask = [.width, .height]
+        card.addSubview(cover)
 
         border.borderWidth = 1
         border.cornerRadius = Self.cardRadius
@@ -274,6 +311,7 @@ final class PromptPreview {
         card.addSubview(badgeHost)
         content.addSubview(card)
         window.contentView = content
+        refreshBridge.onReady = { [weak self] in self?.celebrateRefresh() }
         layoutWindow()
         layoutCard(animated: false)
         redrawChrome()
@@ -301,12 +339,56 @@ final class PromptPreview {
         // green arrow in the corner of a 128-point window is a control out of
         // reach, sitting on the piece it came to announce. The card takes the
         // deploy silently instead.
-        let url = "\(base)\(separator)nogap=true&nolabel=true&autoreload=true&maxfps=\(Self.restFPS)"
+        let url = "\(base)\(separator)nogap=true&nolabel=true&autoreload=true"
         guard let target = URL(string: url) else { return }
         webView.load(URLRequest(url: target))
     }
 
     func setState(_ next: PromptPreviewState) { state = next }
+
+    /// Triggered by the runtime's boot completion, not by token arrivals or
+    /// upload progress. All motion is composited; no permanent animation loop.
+    private func celebrateRefresh() {
+        guard isOnScreen, Date().timeIntervalSince(lastRefresh) > 0.5 else { return }
+        lastRefresh = Date()
+        let blink = CABasicAnimation(keyPath: "borderColor")
+        blink.fromValue = NSColor.white.cgColor
+        blink.toValue = border.borderColor
+        blink.duration = 0.45
+        border.add(blink, forKey: "pieceReady")
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        let shake = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        shake.values = [0, -2, 2, -1, 1, 0]
+        shake.duration = 0.28
+        card.layer?.add(shake, forKey: "pieceReady")
+        guard let root = window.contentView?.layer else { return }
+        let rect = card.frame
+        for i in 0..<8 {
+            let particle = CALayer()
+            particle.frame = CGRect(x: rect.minX + rect.width * CGFloat(i + 1) / 9,
+                                    y: rect.minY + 2, width: 3, height: 3)
+            particle.backgroundColor = NSColor(calibratedHue: CGFloat(i) / 8,
+                                               saturation: 0.65, brightness: 1, alpha: 1).cgColor
+            root.addSublayer(particle)
+            let fall = CABasicAnimation(keyPath: "position")
+            fall.fromValue = NSValue(point: particle.position)
+            fall.toValue = NSValue(point: CGPoint(x: particle.position.x + CGFloat(i % 3 - 1) * 10,
+                                                  y: particle.position.y - 24 - CGFloat(i % 3) * 7))
+            fall.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 1
+            fade.toValue = 0
+            let group = CAAnimationGroup()
+            group.animations = [fall, fade]
+            group.duration = 0.6
+            group.fillMode = .forwards
+            group.isRemovedOnCompletion = false
+            particle.add(group, forKey: "fall")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) {
+                particle.removeFromSuperlayer()
+            }
+        }
+    }
 
     /// Set by the controller from the window-stack test, never from a timer.
     func setPaused(_ paused: Bool) {
@@ -336,12 +418,28 @@ final class PromptPreview {
     /// top-left corner, so it opens *into* the pane rather than walking across
     /// the screen — and it opens onto the piece already running at the pane's
     /// own size, so nothing reframes, reloads or goes black on the way.
+    ///
+    /// Open, the card is live: it takes the pointer, and it takes the keyboard
+    /// too, so the piece under the pointer is the one being played. Closing
+    /// gives both back to whoever had them.
     func setHovered(_ hovering: Bool) {
         guard hovering != expanded else { return }
         expanded = hovering
         layoutCard(animated: true)
         redrawChrome()
-        syncKenBurns()
+        window.ignoresMouseEvents = !hovering
+        if hovering {
+            if !window.isVisible { window.orderFrontRegardless() }
+            let front = NSWorkspace.shared.frontmostApplication
+            if front?.processIdentifier != ProcessInfo.processInfo.processIdentifier { yieldTo = front }
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKey()
+            window.makeFirstResponder(webView)
+        } else {
+            if window.isKeyWindow { window.resignKey() }
+            if let back = yieldTo, !back.isTerminated { back.activate() }
+            yieldTo = nil
+        }
     }
 
     /// Park the card in the pane's top-left, under the title bar. `bounds` is
@@ -370,9 +468,10 @@ final class PromptPreview {
         return CGSize(width: width, height: height)
     }
 
-    /// Size the window and the web view to the viewport. This is the only
-    /// place the web view changes size, and it happens only when the pane
-    /// does — which is when the piece would have reframed anyway.
+    /// Size the window to the viewport, and ask for the web view to follow —
+    /// later. Before anything is loaded the stage takes the size at once, since
+    /// there is no frame to protect; after that the reframe waits for the pane
+    /// to hold still (`settleResize`), and until then the stage is only scaled.
     private func layoutWindow() {
         viewport = Self.viewport(in: paneSize)
         let frame = NSRect(x: paneOrigin.x,
@@ -380,31 +479,82 @@ final class PromptPreview {
                            width: viewport.width + Self.shadowDrop,
                            height: viewport.height + Self.shadowDrop)
         if window.frame != frame { window.setFrame(frame, display: false) }
-        if webView.frame.size != viewport {
-            webView.frame = NSRect(origin: webView.frame.origin, size: viewport)
+        guard stageSize != viewport else { settleTimer?.invalidate(); settleTimer = nil; return }
+        if loadedURL.isEmpty {
+            webView.frame = NSRect(origin: .zero, size: viewport)
+            stage.viewportSize = viewport
+            return
+        }
+        settleTimer?.invalidate()
+        settleTimer = Timer.scheduledTimer(withTimeInterval: Self.resizeSettle, repeats: false) { [weak self] _ in
+            self?.settleResize()
         }
     }
 
-    /// The card's size right now: the whole viewport when open, the resting
-    /// card otherwise. Its top-left never moves.
-    private var cardSize: CGSize {
-        expanded ? viewport
-                 : CGSize(width: min(Self.restSize.width, viewport.width),
-                          height: min(Self.restSize.height, viewport.height))
+    /// The size the web view is actually rendering at. Equal to `viewport`
+    /// except during and just after a pane resize.
+    private var stageSize: CGSize { webView.frame.size }
+
+    /// The one reframe a resize costs, taken under a snapshot of the frame the
+    /// card is showing right now. The snapshot is what the eye sees until the
+    /// piece has painted at the new size; the black the web view shows in
+    /// between happens underneath it.
+    private func settleResize() {
+        settleTimer = nil
+        let target = viewport
+        guard stageSize != target else { return }
+        let reframe = { [weak self] in
+            guard let self else { return }
+            self.webView.frame = NSRect(origin: .zero, size: target)
+            self.stage.viewportSize = target
+            self.layoutCard(animated: false)
+            self.coverTimer?.invalidate()
+            self.coverTimer = Timer.scheduledTimer(withTimeInterval: Self.coverHold, repeats: false) { [weak self] _ in
+                self?.cover.isHidden = true
+                self?.cover.image = nil
+                self?.coverTimer = nil
+            }
+        }
+        guard window.isVisible else { reframe(); return }
+        webView.takeSnapshot(with: nil) { [weak self] image, _ in
+            guard let self else { return }
+            if let image {
+                self.cover.image = image
+                self.cover.isHidden = false
+            }
+            reframe()
+        }
     }
 
-    /// Fit the card, its shadow and its border to `cardSize`, and slide the
-    /// web view so the card shows the right part of it — everything when
-    /// open, the current crop when closed. Animated, the card unfolds over the
-    /// piece; the piece itself never changes size, which is what keeps the
+    /// How far the stage is scaled: to fill the viewport when open (one, once
+    /// the web view has caught up with the pane), and otherwise the largest
+    /// scale at which the whole of it fits the resting card.
+    private var scale: CGFloat {
+        let s = stageSize
+        guard s.width > 0, s.height > 0 else { return 1 }
+        return expanded
+            ? min(viewport.width / s.width, viewport.height / s.height)
+            : min(1, Self.restSize.width / s.width, Self.restSize.height / s.height)
+    }
+
+    /// The card's size right now: the stage at `scale` — the whole viewport
+    /// when open, a thumbnail with the piece's own proportions at rest, rather
+    /// than letterboxing it. Its top-left never moves.
+    private var cardSize: CGSize {
+        let s = scale, size = stageSize
+        return CGSize(width: (size.width * s).rounded(), height: (size.height * s).rounded())
+    }
+
+    /// Fit the card, its shadow and its border to `cardSize`, and scale the
+    /// stage so the whole viewport fills the card — at 1:1 when open, composited
+    /// down when closed. Animated, the card unfolds and the piece grows with
+    /// it; the web view itself never changes size, which is what keeps the
     /// unfolding free of the black frames a live resize costs.
     private func layoutCard(animated: Bool) {
         guard let content = window.contentView else { return }
         let size = cardSize
         let rect = NSRect(x: 0, y: content.bounds.height - size.height,
                           width: size.width, height: size.height)
-        let crop = expanded ? CGPoint.zero : kenBurnsCrop(at: Date())
-        let webOrigin = webOrigin(cardHeight: size.height, crop: crop)
         // The card is what everything else means by "the preview" — the pointer
         // test, the ownership test. Both read its final rect, not the frame
         // mid-animation, so a pointer that opened the card is inside it at once.
@@ -415,12 +565,13 @@ final class PromptPreview {
         let shadowRect = NSRect(x: rect.minX + Self.shadowDrop, y: rect.minY - Self.shadowDrop,
                                 width: size.width, height: size.height)
         let borderRect = NSRect(origin: .zero, size: size)
+        let stageFrame = NSRect(origin: .zero, size: size)
         if animated {
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = Self.openDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 card.animator().frame = rect
-                webView.animator().frame = NSRect(origin: webOrigin, size: viewport)
+                stage.animator().frame = stageFrame
             }
             CATransaction.begin()
             CATransaction.setAnimationDuration(Self.openDuration)
@@ -430,7 +581,7 @@ final class PromptPreview {
             CATransaction.commit()
         } else {
             card.frame = rect
-            webView.frame = NSRect(origin: webOrigin, size: viewport)
+            stage.frame = stageFrame
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             shadow.frame = shadowRect
@@ -438,57 +589,6 @@ final class PromptPreview {
             CATransaction.commit()
         }
         layoutBadge()
-    }
-
-    /// Where the web view sits inside a card `cardHeight` tall so that the
-    /// crop's top-left (measured from the piece's top-left, the way a picture
-    /// is cropped) lands in the card's top-left. AppKit's origin is bottom-left,
-    /// so the top edges are aligned by lifting the view by the height it
-    /// overhangs, less the crop.
-    private func webOrigin(cardHeight: CGFloat, crop: CGPoint) -> NSPoint {
-        NSPoint(x: -crop.x, y: cardHeight - viewport.height + crop.y)
-    }
-
-    /// The resting crop's position at `time`: a slow circle around the piece
-    /// at 1:1, the same lap the `#painting` embeds in chat.mjs take. Nothing
-    /// is scaled — the card is a window onto the piece, not a thumbnail of it.
-    private func kenBurnsCrop(at time: Date) -> CGPoint {
-        let size = cardSize
-        let maxX = max(0, viewport.width - size.width)
-        let maxY = max(0, viewport.height - size.height)
-        guard maxX > 0 || maxY > 0 else { return .zero }
-        let progress = (time.timeIntervalSince1970 / Self.kenBurnsCycle + kenBurnsSeed)
-            .truncatingRemainder(dividingBy: 1)
-        let panX = (cos((progress + 0.25) * .pi * 2) + 1) / 2
-        let panY = (sin((progress + 0.65) * .pi * 2) + 1) / 2
-        return CGPoint(x: (maxX * panX).rounded(), y: (maxY * panY).rounded())
-    }
-
-    /// The crop moves only while there is something to move over and someone
-    /// might see it: a closed card on screen. Open, hidden or too small to
-    /// crop, the timer is off.
-    private func syncKenBurns() {
-        let size = cardSize
-        let wants = window.isVisible && !expanded
-            && (viewport.width > size.width || viewport.height > size.height)
-        if wants {
-            guard kenBurnsTimer == nil else { return }
-            let timer = Timer(timeInterval: Self.kenBurnsInterval, repeats: true) { [weak self] _ in
-                self?.stepKenBurns()
-            }
-            timer.tolerance = Self.kenBurnsInterval / 4
-            RunLoop.main.add(timer, forMode: .common)
-            kenBurnsTimer = timer
-        } else {
-            kenBurnsTimer?.invalidate()
-            kenBurnsTimer = nil
-        }
-    }
-
-    private func stepKenBurns() {
-        guard !expanded else { return }
-        let origin = webOrigin(cardHeight: cardSize.height, crop: kenBurnsCrop(at: Date()))
-        if webView.frame.origin != origin { webView.setFrameOrigin(origin) }
     }
 
     private func layoutBadge() {
@@ -518,22 +618,53 @@ final class PromptPreview {
         if visible {
             if !window.isVisible { window.orderFrontRegardless() }
         } else if window.isVisible {
-            window.orderOut(nil)
             setHovered(false)
+            window.orderOut(nil)
         }
-        syncKenBurns()
     }
 
     var isOnScreen: Bool { window.isVisible }
 
     func close() {
-        kenBurnsTimer?.invalidate()
-        kenBurnsTimer = nil
+        setHovered(false)
+        settleTimer?.invalidate()
+        coverTimer?.invalidate()
         webView.stopLoading()
+        refreshBridge.onReady = nil
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "previewReady")
         // Point the view at nothing before tearing down: a WKWebView left
         // holding a running page keeps its content process alive past the
         // window that owned it.
         webView.loadHTMLString("", baseURL: nil)
         window.orderOut(nil)
     }
+}
+
+private final class PromptPreviewRefreshBridge: NSObject, WKScriptMessageHandler {
+    var onReady: (() -> Void)?
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame, message.body as? String == "ready" else { return }
+        onReady?()
+    }
+}
+
+/// Keep WebKit's logical viewport fixed as the visible card changes size.
+private final class PromptPreviewStage: NSView {
+    var viewportSize = CGSize(width: 128, height: 96) {
+        didSet { super.setBoundsSize(viewportSize) }
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        // Frame animation otherwise scales the bounds too, changing the
+        // logical viewport while WebKit's frame remains fixed.
+        super.setBoundsSize(viewportSize)
+    }
+}
+
+/// A borderless window that can take the keyboard when the piece is played.
+final class PromptPreviewWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

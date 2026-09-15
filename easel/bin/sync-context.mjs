@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build as buildApiMap } from "./build-api-map.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EASEL = join(HERE, "..");
@@ -41,10 +42,20 @@ const header = (from, subject) =>
 
 export function build() {
   mkdirSync(OUT, { recursive: true });
-  return BUNDLE.map(([from, to, subject]) => {
+  const guides = BUNDLE.map(([from, to, subject]) => {
     const body = header(from, subject) + readFileSync(join(REPO, from), "utf8");
     return { path: join(OUT, to), body, from, to, subject };
   });
+  // The API map travels the same way, for the same reason: it is read off the
+  // runtime source, which an installed Easel does not have.
+  guides.push({
+    path: join(OUT, "api.json"),
+    body: buildApiMap(),
+    from: "system/public/aesthetic.computer/lib/{disk,graph,ui,num,geo}.mjs",
+    to: "api.json",
+    subject: "the piece API map",
+  });
+  return guides;
 }
 
 const check = process.argv.includes("--check");

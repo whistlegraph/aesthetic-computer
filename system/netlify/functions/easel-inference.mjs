@@ -23,26 +23,16 @@
 //      so a handle has one allowance across everything AC buys for them rather
 //      than one per endpoint.
 //
-// Cost is read from OpenRouter's own usage block rather than estimated: their
-// response carries dollars per call, so the meter records what was actually
-// spent instead of a token count that drifts from the bill as prices move.
+// Provider usage feeds the shared token allowance, with discounts for cached
+// input. This is not a dollar limit or an atomic reservation; premium models
+// cost more per allowance, and concurrent requests can overshoot the balance.
 
 import { stream } from "@netlify/functions";
+import { relayInference } from "../../backend/easel-stream.mjs";
+import { EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
 
 const OPENROUTER = "https://openrouter.ai/api/v1/messages";
 
-// What AC is willing to buy. Cheap models only: this is a free tier attached to
-// a handle, not a blank cheque, and the whole argument for it is that a
-// GLM-class model writes a small piece perfectly well. Adding a frontier model
-// here multiplies the cost of the free tier by about thirty.
-const MODELS = {
-  "z-ai/glm-4.6": { label: "glm" },
-  "qwen/qwen3-coder": { label: "qwen" },
-  "deepseek/deepseek-chat-v3.1": { label: "deepseek" },
-};
-const DEFAULT_MODEL = "z-ai/glm-4.6";
-
-const MAX_TOKENS = 8192;
 const AUTH_TIMEOUT_MS = 3000;
 
 function fail(statusCode, message) {
@@ -104,7 +94,9 @@ export const handler = stream(async (event) => {
     return fail(400, `Malformed request: ${error.message}`);
   }
 
-  const model = MODELS[body.model] ? body.model : DEFAULT_MODEL;
+  let model, maxTokens;
+  try { ({ model, maxTokens } = inferenceRequest(body)); }
+  catch (error) { return fail(400, error.message); }
 
   // Has this handle spent its day? Over budget is a refusal here rather than a
   // downgrade, because there is nothing cheaper to downgrade to — and a clear
@@ -113,19 +105,17 @@ export const handler = stream(async (event) => {
   try {
     const { checkBudget } = await import("../../backend/ai-budget.mjs");
     budget = await checkBudget(handle);
-    if (budget?.exhausted) {
-      return fail(
-        429,
-        `@${handle} has used today's allowance (${budget.used}/${budget.budget} tokens). It resets at midnight UTC.`,
-      );
-    }
   } catch (error) {
     console.log("🪙 easel: budget unavailable —", error.message);
   }
+  const budgetFailure = inferenceBudgetFailure(budget, handle);
+  if (budgetFailure) return fail(budgetFailure.statusCode, budgetFailure.message);
 
   console.log(`🎨 easel @${handle} — ${MODELS[model].label}${budget ? ` · ${budget.remaining} left` : ""}`);
 
+  const controller = new AbortController();
   const upstream = await fetch(OPENROUTER, {
+    signal: controller.signal,
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -138,7 +128,7 @@ export const handler = stream(async (event) => {
     },
     body: JSON.stringify({
       model,
-      max_tokens: Math.min(Number(body.max_tokens) || MAX_TOKENS, MAX_TOKENS),
+      max_tokens: maxTokens,
       system: body.system,
       messages: body.messages,
       tools: body.tools,
@@ -155,57 +145,11 @@ export const handler = stream(async (event) => {
   // Pass the SSE through untouched, watching for the usage block on the way so
   // the meter records real spend. Tapping the stream rather than buffering it
   // keeps the first token as fast as the provider makes it.
-  const decoder = new TextDecoder();
-  let tail = "";
-  let spent = 0;
-
-  const passthrough = new ReadableStream({
-    async start(controller) {
-      const reader = upstream.body.getReader();
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          controller.enqueue(value);
-
-          tail += decoder.decode(value, { stream: true });
-          let cut = tail.indexOf("\n");
-          while (cut !== -1) {
-            const line = tail.slice(0, cut).trim();
-            tail = tail.slice(cut + 1);
-            if (line.startsWith("data: ")) {
-              try {
-                const json = JSON.parse(line.slice(6));
-                const usage = json?.usage || json?.message?.usage;
-                if (usage) {
-                  // Charge what it costs, not what it counts. A cached prefix
-                  // reads at about a tenth of the price of fresh input, and
-                  // billing it at par undoes the caching entirely: the guides
-                  // are six thousand tokens re-sent every round, so counting
-                  // them at full rate spends a day's allowance in three
-                  // questions whether or not the provider charged for them.
-                  spent =
-                    (usage.input_tokens || 0) +
-                    (usage.output_tokens || 0) +
-                    Math.round((usage.cache_read_input_tokens || 0) * 0.1) +
-                    // Writing the cache costs slightly more than fresh input,
-                    // once, and then pays for itself.
-                    Math.round((usage.cache_creation_input_tokens || 0) * 1.25);
-                }
-              } catch {}
-            }
-            cut = tail.indexOf("\n");
-          }
-        }
-      } finally {
-        controller.close();
-        if (spent) {
-          // After the answer is delivered, never in front of it.
-          import("../../backend/ai-budget.mjs")
-            .then(({ recordUsage }) => recordUsage(handle, spent, { model }))
-            .catch(() => {});
-        }
-      }
+  const passthrough = relayInference(upstream.body, {
+    abort: () => controller.abort(),
+    onUsage: async (spent) => {
+      const { recordUsage } = await import("../../backend/ai-budget.mjs");
+      await recordUsage(handle, spent, { model });
     },
   });
 
@@ -213,7 +157,8 @@ export const handler = stream(async (event) => {
     statusCode: 200,
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
       "Access-Control-Allow-Origin": "*",
     },
     body: passthrough,

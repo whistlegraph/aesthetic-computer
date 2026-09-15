@@ -224,13 +224,17 @@ enum WindowNav {
     }
 
     static func focusedWindow() -> AXUIElement? {
-        let sys = AXUIElementCreateSystemWide()
-        var appRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString,
-                                            &appRef) == .success,
-              let appRef else { return nil }
+        // A hovered preview makes Slab frontmost. Asking system-wide AX for
+        // focus then re-enters our own accessibility implementation while the
+        // main thread holds its lock, freezing previews and the whole daemon.
+        // Resolve the external PID without AX and never message ourselves.
+        guard let front = NSWorkspace.shared.frontmostApplication,
+              front.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        else { return nil }
+        let app = AXUIElementCreateApplication(front.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, 0.2)
         var winRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appRef as! AXUIElement,
+        guard AXUIElementCopyAttributeValue(app,
                                             kAXFocusedWindowAttribute as CFString,
                                             &winRef) == .success,
               let winRef else { return nil }

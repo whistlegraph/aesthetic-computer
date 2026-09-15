@@ -441,10 +441,8 @@ final class PromptSigilOverlay {
     // to a module, above the three-pixel floor. So it keeps the wall's rhythm
     // instead of being the one tile that shouts.
     static let scanSurfaceSize: CGFloat = 64
-    /// How far the scan card's shadow falls, right and down — the same three
-    /// points the preview card uses, so the two surfaces on one pane are lit
-    /// the same way.
-    private static let scanShadowDrop: CGFloat = 3
+    /// A small hard shadow fitted to the actual QR card.
+    private static let scanShadowDrop: CGFloat = 2
 
     /// True when this rock shows a scannable code instead of the tumbling
     /// sigil. Fixed at construction, because it decides the surface's
@@ -937,6 +935,8 @@ final class PromptSigilOverlay {
         guard hovered != h else { return }
         hovered = h
         springScale(nameLayer, to: h ? 1.5 : 1.0)
+        // Keep the QR and its backing aligned while its label responds.
+        guard !isScanSurface else { return }
         springScale(rockLayer, to: h ? 1.12 : 1.0)
         springScale(shadowLayer, to: h ? 1.12 : 1.0)
         retime(nameLayer, speed: h ? 2.2 : 1.0)
@@ -1182,6 +1182,8 @@ final class PromptSigilOverlay {
                 y: pad + labelH + (size - side) / 2,
                 width: side, height: side)
         }
+        shadowLayer.frame = scanLayer.frame.offsetBy(
+            dx: Self.scanShadowDrop, dy: -Self.scanShadowDrop)
         CATransaction.commit()
     }
 
@@ -2156,6 +2158,14 @@ final class PromptSigilOverlayController {
         if let move = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
             self?.handleMouseMoved()
         }) { mouseMonitors.append(move) }
+        // An open preview card takes the pointer, and a global monitor is not
+        // told about moves over Slab's own windows — so without this twin the
+        // card would never learn the pointer had left it.
+        if let localMove = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: {
+            [weak self] event in
+            self?.handleMouseMoved()
+            return event
+        }) { mouseMonitors.append(localMove) }
         // Clicks received by Slab's own non-activating card panel do not reach
         // a global monitor. Keep a local twin so card → native share is
         // reliable regardless of which side of macOS's event routing wins.
@@ -2239,6 +2249,7 @@ final class PromptSigilOverlayController {
         next.flow = PromptFlow(s.flow)
         next.working = (s.state == .working || s.state == .rendering)
         next.piece = s.piece
+        next.version = s.pieceVersion
         next.paused = !pv.isOnScreen
         pv.setState(next)
     }

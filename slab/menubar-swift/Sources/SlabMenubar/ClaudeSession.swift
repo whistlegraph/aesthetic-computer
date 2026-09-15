@@ -110,6 +110,7 @@ struct ClaudeSession {
     /// holding a piece should be addressable by that piece's name rather than
     /// by a second unrelated word drawn from its session id.
     var piece: String = ""
+    var pieceVersion: Int = 0
 
     /// How the file on disk stands against what `scanURL` is serving —
     /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
@@ -384,6 +385,7 @@ enum ClaudeSessionReader {
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
         session.scanURL = (obj["scan_url"] as? String) ?? ""
         session.piece = (obj["piece"] as? String) ?? ""
+        session.pieceVersion = (obj["piece_version"] as? Int) ?? 0
         session.flow = (obj["flow"] as? String) ?? "live"
         return session
     }

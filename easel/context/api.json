@@ -1,0 +1,905 @@
+{
+ "about": "The Aesthetic Computer piece API, read from the runtime. `path` is where it sits on the $api object a piece destructures in paint/act/sim. Signatures are the runtime's own.",
+ "built_from": "system/public/aesthetic.computer/lib/{disk,graph,ui,num,geo}.mjs",
+ "entries": [
+  {
+   "name": "blend",
+   "path": "blend",
+   "signature": "blend(mode = \"blend\")",
+   "doc": "Shortcuts l: graph.line, i: ink, Defaults",
+   "source": "lib/graph.mjs:2851",
+   "examples": []
+  },
+  {
+   "name": "setEraseTarget",
+   "path": "setEraseTarget",
+   "signature": "setEraseTarget(target, targetWidth)",
+   "doc": "",
+   "source": "lib/graph.mjs:2859",
+   "examples": []
+  },
+  {
+   "name": "page",
+   "path": "page",
+   "signature": "page(buffer)",
+   "doc": "Point subsequent drawing at another painting buffer; page(screen) comes back.",
+   "source": "lib/disk.mjs:6391",
+   "examples": [
+    "disks/bits.mjs:33  page(sys.painting)",
+    "disks/breathe.mjs:29  page(screen);",
+    "disks/cal.mjs:34  ← / →            — page (month pages months; week pages weeks; day pages days)"
+   ]
+  },
+  {
+   "name": "edit",
+   "path": "edit",
+   "signature": "edit(changer)",
+   "doc": "Edit pixels by pasing a callback.",
+   "source": "lib/graph.mjs:752",
+   "examples": []
+  },
+  {
+   "name": "ink",
+   "path": "ink",
+   "signature": "ink(r, g, b, a) | ink(gray, a) | ink(\"red\") | ink([r, g, b]) | ink() (random)",
+   "doc": "Set the paint color for everything drawn next. Returns the API so calls chain: ink(255, 0, 0).line(0, 0, 10, 10).",
+   "source": "lib/disk.mjs:6421",
+   "examples": [
+    "disks/$.mjs:168  ink([160, 160, 160]).write(compressedText, { x, y, size: scale });",
+    "disks/$.mjs:195  ink([160, 160, 160]).write(compressedText, { x: startX, y, size: scale });",
+    "disks/$.mjs:204  ink([160, 160, 160]).write(compressedText, { x: loopX, y, size: scale });"
+   ]
+  },
+  {
+   "name": "ink2",
+   "path": "ink2",
+   "signature": "ink2(...color)",
+   "doc": "Secondary color, used by gradient-aware primitives.",
+   "source": "lib/disk.mjs:6425",
+   "examples": []
+  },
+  {
+   "name": "wipe",
+   "path": "wipe",
+   "signature": "wipe(...color)",
+   "doc": "Fill the whole screen with a color; the usual first line of paint().",
+   "source": "lib/disk.mjs:6431",
+   "examples": [
+    "disks/$.mjs:67  wipe(0);",
+    "disks/$.mjs:324  wipe(0);",
+    "disks/$.mjs:705  wipe(\"black\").ink(\"cyan\").write(\"$\", { center: \"xy\", size: 4 });"
+   ]
+  },
+  {
+   "name": "backgroundFill",
+   "path": "backgroundFill",
+   "signature": "backgroundFill(color)",
+   "doc": "Set background fill color for reframe operations (especially for KidLisp pieces)",
+   "source": "lib/disk.mjs:6483",
+   "examples": []
+  },
+  {
+   "name": "clear",
+   "path": "clear",
+   "signature": "clear()",
+   "doc": "Clear the buffer to transparent (unlike wipe, which paints a color).",
+   "source": "lib/graph.mjs:1407",
+   "examples": [
+    "disks/doodle.mjs:53  clear(); // Always clear if the line is changing.",
+    "disks/doodle.mjs:61  clear();",
+    "disks/oldwand.mjs:996  clear(color, segments, segmentMarkers, totalLength, remote = false) {"
+   ]
+  },
+  {
+   "name": "copy",
+   "path": "copy",
+   "signature": "copy(destX, destY, srcX, srcY, src, alpha = 1.0)",
+   "doc": "",
+   "source": "lib/graph.mjs:1835",
+   "examples": [
+    "disks/oldpull.mjs:121  copy(x, y, selection.x + x, selection.y + y, sketch);"
+   ]
+  },
+  {
+   "name": "paste",
+   "path": "paste",
+   "signature": "paste(from, destX = 0, destY = 0, scale = 1, blit = false)",
+   "doc": "",
+   "source": "lib/graph.mjs:2212",
+   "examples": [
+    "disks/25.4.13.19.24.mjs:52  paste(drawing, x, y, scale);",
+    "disks/angel.mjs:65  paste(painting, xposition, screen.height - painting.height);",
+    "disks/arena.mjs:3262  paste(buffer, centerX, centerY);"
+   ]
+  },
+  {
+   "name": "stamp",
+   "path": "stamp",
+   "signature": "stamp(from, x, y, scale, angle)",
+   "doc": "Similar to paste, but always draws from the center of x, y. Has partial support for {center, bottom}. 24.02.15.12.19",
+   "source": "lib/graph.mjs:2797",
+   "examples": [
+    "disks/flap.mjs:50  if (store[`flap~${num}`]) stamp(store[`flap~${num}`], screen.width / 2, screen.height / 2);",
+    "disks/graphics.mjs:28  stamp(",
+    "disks/kokazo.mjs:243  stamp(ink, color, x, y, jx, jy, r);"
+   ]
+  },
+  {
+   "name": "pixel",
+   "path": "pixel",
+   "signature": "pixel(x, y, painting = { width, height, pixels })",
+   "doc": "Return a pixel from the main buffer or from a specified buffer.",
+   "source": "lib/graph.mjs:757",
+   "examples": [
+    "disks/blur.mjs:36  const srcColor = pixel(...xy, system.painting);",
+    "disks/blur.mjs:50  const sampleCol = pixel(...sampleXY, system.painting);",
+    "disks/colplay.mjs:100  const color = pixel(x, y, system.painting);"
+   ]
+  },
+  {
+   "name": "plot",
+   "path": "plot",
+   "signature": "plot(x, y)",
+   "doc": "Where a pixel is a region in which we draw from the upper left corner. (2D)",
+   "source": "lib/graph.mjs:1639",
+   "examples": [
+    "disks/bootpics.mjs:184  plot(ox + x, oy + y);",
+    "disks/doodle.mjs:78  plot(x, y);",
+    "disks/jas.mjs:557  plot(ox + fx * scale, oy + fy * scale);"
+   ]
+  },
+  {
+   "name": "flood",
+   "path": "flood",
+   "signature": "flood(x, y, fillColor = c)",
+   "doc": "Fill pixels with a color using a flood fill technique.",
+   "source": "lib/graph.mjs:778",
+   "examples": [
+    "disks/colplay.mjs:116  flood(x, y, [255, 255, 255, 127]);",
+    "disks/fill.mjs:30  flood(pen.x, pen.y, floodColor);"
+   ]
+  },
+  {
+   "name": "compositeLayers",
+   "path": "compositeLayers",
+   "signature": "compositeLayers(layers)",
+   "doc": "GPU-accelerated multi-layer compositing",
+   "source": "lib/graph.mjs:6087",
+   "examples": []
+  },
+  {
+   "name": "batchedEffects",
+   "path": "batchedEffects",
+   "signature": "batchedEffects(options = {})",
+   "doc": "GPU-accelerated batched effects (zoom+scroll+contrast+brightness in one pass)",
+   "source": "lib/graph.mjs:6182",
+   "examples": []
+  },
+  {
+   "name": "point",
+   "path": "point",
+   "signature": "point(...args)",
+   "doc": "Plots a single pixel within the panned coordinate space. Basically a wrapper over plot, which should ultimately be renamed to set? Accepts x, y or {x, y}",
+   "source": "lib/graph.mjs:1725",
+   "examples": [
+    "disks/i.mjs:102  point(...g.point).line(...g.line[0], ...g.line[1]);",
+    "disks/nail.mjs:166  point(p) {",
+    "disks/pline.mjs:137  const p = point(e);"
+   ]
+  },
+  {
+   "name": "line",
+   "path": "line",
+   "signature": "line(x1, y1, x2, y2) | line({x, y}, {x, y}) | line(x1, y1, x2, y2, thickness)",
+   "doc": "Draw a 1px line between two points in the current ink.",
+   "source": "lib/graph.mjs:3205",
+   "examples": [
+    "disks/ableton.mjs:124  line(x, y + v, x + 1, y + v);",
+    "disks/ableton.mjs:527  const blurbY = labelY + 12;       // label line (10 tall) + 2 gap",
+    "disks/ableton.mjs:528  const buttonsY = blurbY + 14;     // blurb line (10 tall) + 4 gap"
+   ]
+  },
+  {
+   "name": "lineAngle",
+   "path": "lineAngle",
+   "signature": "lineAngle(x1, y1, dist, degrees)",
+   "doc": "Draws a line from a point at a distance... with an angle in degrees.",
+   "source": "lib/graph.mjs:3407",
+   "examples": [
+    "disks/ucla-5.mjs:32  8. - [] Learning `lineAngle(x1, y1, dist, degrees)`",
+    "disks/ucla-6-turtle.mjs:14  8. - [] Learning `lineAngle(x1, y1, dist, degrees)`"
+   ]
+  },
+  {
+   "name": "pline",
+   "path": "pline",
+   "signature": "pline(coords, thickness, shader)",
+   "doc": "",
+   "source": "lib/graph.mjs:3596",
+   "examples": []
+  },
+  {
+   "name": "setBufferAlpha",
+   "path": "setBufferAlpha",
+   "signature": "setBufferAlpha(buffer, alpha)",
+   "doc": "Set the alpha of every non-transparent pixel in a buffer to a uniform value. Useful for per-stroke alpha — must be called after drawing on the buffer.",
+   "source": "lib/disk.mjs:6601",
+   "examples": [
+    "disks/line.mjs:215  setBufferAlpha(nopaint.buffer, strokeAlpha);"
+   ]
+  },
+  {
+   "name": "pppline",
+   "path": "pppline",
+   "signature": "pppline(points, shader)",
+   "doc": "Takes an array of pixel coords `{x, y}` and filters out L shapes. Note: It checks the previous, current, and next pixel and requires a minimum set of 3 before it removes anything. Draws a regular `line` if only two pixels are provided. Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html",
+   "source": "lib/graph.mjs:3346",
+   "examples": []
+  },
+  {
+   "name": "oval",
+   "path": "oval",
+   "signature": "oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1, precision,)",
+   "doc": "",
+   "source": "lib/graph.mjs:3542",
+   "examples": [
+    "disks/flower-eater.mjs:255  oval(x, y + 2, rx, max(1, floor(rx * 0.3)), true);",
+    "disks/lmn-flower.mjs:32  oval(screen.width / 2, screen.height / 2, 20, 10, true )",
+    "disks/lmn-petal.mjs:29  oval(screen.width / 2, screen.height / 2, 80, 17, true);"
+   ]
+  },
+  {
+   "name": "circle",
+   "path": "circle",
+   "signature": "circle(x0, y0, radius, filled = false, thickness, precision)",
+   "doc": "",
+   "source": "lib/graph.mjs:3477",
+   "examples": [
+    "disks/butterflies.mjs:535  circle(voice.pointerX, voice.pointerY, 11);",
+    "disks/butterflies.mjs:537  circle(voice.pointerX, voice.pointerY, 7);",
+    "disks/butterflies.mjs:540  circle(reader.x, reader.y, 8);"
+   ]
+  },
+  {
+   "name": "pie",
+   "path": "pie",
+   "signature": "pie(x0, y0, radius, startAngle, endAngle, precision = 3)",
+   "doc": "Draw a filled pie slice / wedge (for pie charts, progress indicators, etc.) startAngle and endAngle are in radians, 0 = right, PI/2 = down, etc.",
+   "source": "lib/graph.mjs:3521",
+   "examples": []
+  },
+  {
+   "name": "tri",
+   "path": "tri",
+   "signature": "tri(x1, y1, x2, y2, x3, y3, mode = \"fill\")",
+   "doc": "Triangle from three points; mode \"fill\" or \"outline\".",
+   "source": "lib/graph.mjs:4566",
+   "examples": [
+    "disks/blank.mjs:480  tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);",
+    "disks/blank.mjs:481  tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);",
+    "disks/blank.mjs:496  tri(x0, y0, x1, y1, x2, y2);"
+   ]
+  },
+  {
+   "name": "poly",
+   "path": "poly",
+   "signature": "poly(coords)",
+   "doc": "Draws a series of 1px lines without overlapping / overdrawing points. TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]);",
+   "source": "lib/graph.mjs:3571",
+   "examples": [
+    "disks/toss.mjs:496  poly(points);",
+    "disks/toss.mjs:514  poly(points);",
+    "disks/visualizer.mjs:1614  poly(waveformPoints);"
+   ]
+  },
+  {
+   "name": "box",
+   "path": "box",
+   "signature": "box(x, y, size) | box(x, y, w, h) | box(x, y, w, h, mode) | box({x, y, w, h}, mode)",
+   "doc": "Rectangle. `mode` is \"fill\" (default), \"outline\", \"inline\", or \"fill*center\" / \"outline*center\" to draw from the center.",
+   "source": "lib/graph.mjs:3815",
+   "examples": [
+    "disks/1v1.mjs:1490  box(x * squareSize, y * squareSize, squareSize, squareSize);",
+    "disks/1v1.mjs:1516  box(x * squareSize, y * squareSize, squareSize, squareSize);",
+    "disks/a-star.mjs:819  box(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);"
+   ]
+  },
+  {
+   "name": "shape",
+   "path": "shape",
+   "signature": "shape(x1, y1, x2, y2, ...) | shape([[x, y], [x, y], ...], filled = true)",
+   "doc": "Rasterize a filled or outlined polygon from point pairs.",
+   "source": "lib/graph.mjs:4132",
+   "examples": [
+    "disks/flower-eater.mjs:314  shape([[girlX - 7, headY + 16], [girlX + 6, headY + 16],",
+    "disks/oldwipppps.mjs:369  shape([",
+    "disks/oldwipppps.mjs:377  shape(["
+   ]
+  },
+  {
+   "name": "grid",
+   "path": "grid",
+   "signature": "grid({ box: { x, y, w: cols, h: rows }, transform: { scale, angle, width: twidth, height: theight, anchor }, centers = [], }, buffer,)",
+   "doc": "",
+   "source": "lib/graph.mjs:4690",
+   "examples": [
+    "disks/plot.mjs:190  grid("
+   ]
+  },
+  {
+   "name": "draw",
+   "path": "draw",
+   "signature": "draw(drawing, x, y, scale = 1, angle = 0, thickness = 1)",
+   "doc": "Draw a stored vector drawing (from `drawing`/store) at a position.",
+   "source": "lib/graph.mjs:5053",
+   "examples": [
+    "disks/icon.mjs:6  - [] Use angle: `draw(drawing, x, y, scale = 1, angle = 0)`",
+    "disks/wgr.mjs:540  draw({ x, y, pressure }) {"
+   ]
+  },
+  {
+   "name": "setShowClippedWireframes",
+   "path": "setShowClippedWireframes",
+   "signature": "setShowClippedWireframes(enabled)",
+   "doc": "Function to toggle wireframe rendering",
+   "source": "lib/graph.mjs:8174",
+   "examples": [
+    "disks/1v1.mjs:1464  setShowClippedWireframes(showWireframes);",
+    "disks/1v1.mjs:2023  setShowClippedWireframes(showWireframes);",
+    "disks/fps.mjs:326  setShowClippedWireframes(showWireframes);"
+   ]
+  },
+  {
+   "name": "clearWireframeBuffer",
+   "path": "clearWireframeBuffer",
+   "signature": "clearWireframeBuffer()",
+   "doc": "Function to clear wireframe buffer (called at start of frame)",
+   "source": "lib/graph.mjs:8179",
+   "examples": [
+    "disks/1v1.mjs:1469  clearWireframeBuffer();",
+    "disks/fps.mjs:331  clearWireframeBuffer();"
+   ]
+  },
+  {
+   "name": "drawBufferedWireframes",
+   "path": "drawBufferedWireframes",
+   "signature": "drawBufferedWireframes()",
+   "doc": "Function to draw all buffered wireframes (called at end of frame)",
+   "source": "lib/graph.mjs:8357",
+   "examples": [
+    "disks/1v1.mjs:1603  drawBufferedWireframes();",
+    "disks/fps.mjs:402  drawBufferedWireframes();"
+   ]
+  },
+  {
+   "name": "getRenderStats",
+   "path": "getRenderStats",
+   "signature": "getRenderStats()",
+   "doc": "Function to get current render stats",
+   "source": "lib/graph.mjs:8197",
+   "examples": []
+  },
+  {
+   "name": "printLine",
+   "path": "printLine",
+   "signature": "printLine(text, font, startX, startY, blockWidth = 6, scale = 1, xOffset = 0, thickness = 1, rotation = 0, fontMetadata = null, fallbackFont = null,)",
+   "doc": "",
+   "source": "lib/graph.mjs:5316",
+   "examples": []
+  },
+  {
+   "name": "pan",
+   "path": "pan",
+   "signature": "pan(x, y)",
+   "doc": "",
+   "source": "lib/graph.mjs:1795",
+   "examples": [
+    "disks/baktok.mjs:133  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
+    "disks/baktok.mjs:136  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
+    "disks/clock.mjs:3757  const pan = 0;    // Centered pan (could be enhanced later)"
+   ]
+  },
+  {
+   "name": "unpan",
+   "path": "unpan",
+   "signature": "unpan()",
+   "doc": "Undo pan(x, y).",
+   "source": "lib/graph.mjs:1805",
+   "examples": [
+    "disks/baktok.mjs:135  unpan();",
+    "disks/baktok.mjs:138  unpan();",
+    "disks/lmn-petal.mjs:32  unpan();"
+   ]
+  },
+  {
+   "name": "savepan",
+   "path": "savepan",
+   "signature": "savepan()",
+   "doc": "Save the local transform.",
+   "source": "lib/graph.mjs:1813",
+   "examples": [
+    "disks/field.mjs:58  savepan();"
+   ]
+  },
+  {
+   "name": "loadpan",
+   "path": "loadpan",
+   "signature": "loadpan()",
+   "doc": "Restore it.",
+   "source": "lib/graph.mjs:1818",
+   "examples": [
+    "disks/field.mjs:69  loadpan();"
+   ]
+  },
+  {
+   "name": "mask",
+   "path": "mask",
+   "signature": "mask({ x, y, width, height })",
+   "doc": "Clip drawing to a rectangle until unmask().",
+   "source": "lib/graph.mjs:1826",
+   "examples": [
+    "disks/chat.mjs:1278  mask({",
+    "disks/clocks.mjs:152  mask({",
+    "disks/commits.mjs:326  mask({ x: 0, y: topMargin, width: w, height: chatHeight });"
+   ]
+  },
+  {
+   "name": "unmask",
+   "path": "unmask",
+   "signature": "unmask()",
+   "doc": "Lift the clip set by mask().",
+   "source": "lib/graph.mjs:1831",
+   "examples": [
+    "disks/chat.mjs:2154  unmask();",
+    "disks/clocks.mjs:205  unmask(); // End masking",
+    "disks/commits.mjs:485  unmask();"
+   ]
+  },
+  {
+   "name": "steal",
+   "path": "steal",
+   "signature": "steal(x, y, width, height)",
+   "doc": "",
+   "source": "lib/graph.mjs:7733",
+   "examples": []
+  },
+  {
+   "name": "scroll",
+   "path": "scroll",
+   "signature": "scroll(dx = 0, dy = 0)",
+   "doc": "Scroll the entire pixel buffer by x and/or y pixels with wrapping",
+   "source": "lib/graph.mjs:5599",
+   "examples": [
+    "disks/gulmo.mjs:36  let scroll = 0; // continuous forward scroll (fractional rows)",
+    "disks/mibo.mjs:54  let scrollPhase = 0; // accumulated depth-scroll (fly-forward), advances in onSim",
+    "disks/mugs.mjs:35  let scroll = 0; // Negative scroll (like colors.mjs)"
+   ]
+  },
+  {
+   "name": "flip",
+   "path": "flip",
+   "signature": "flip(horizontal = false, vertical = false)",
+   "doc": "Mirror the screen.",
+   "source": "lib/graph.mjs:5725",
+   "examples": [
+    "disks/textfence.mjs:229  const completed = flip();",
+    "disks/textfence.mjs:243  if (flip()) {"
+   ]
+  },
+  {
+   "name": "spin",
+   "path": "spin",
+   "signature": "spin(steps = 0, anchorX = null, anchorY = null)",
+   "doc": "Each ring rotates by exactly 'steps' pixels, preserving all data",
+   "source": "lib/graph.mjs:6274",
+   "examples": []
+  },
+  {
+   "name": "sort",
+   "path": "sort",
+   "signature": "sort()",
+   "doc": "Pixel-sort the screen — a glitch effect.",
+   "source": "lib/graph.mjs:7623",
+   "examples": []
+  },
+  {
+   "name": "zoom",
+   "path": "zoom",
+   "signature": "zoom(level = 1, anchorX = 0.5, anchorY = 0.5)",
+   "doc": "Zoom the entire pixel buffer with 1.0 as neutral (no change) level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right Uses bilinear sampling with hard-edge thresholding for smooth scaling with crisp output",
+   "source": "lib/graph.mjs:6706",
+   "examples": [
+    "disks/wgr.mjs:482  zoom(amt) {"
+   ]
+  },
+  {
+   "name": "suck",
+   "path": "suck",
+   "signature": "suck(strength = 1, centerX, centerY)",
+   "doc": "Radial displacement transformation with pixel-perfect nearest neighbor sampling Creates discrete, lossless pixel movement without blur or center holes",
+   "source": "lib/graph.mjs:7121",
+   "examples": []
+  },
+  {
+   "name": "blur",
+   "path": "blur",
+   "signature": "blur(strength = 1, quality = \"medium\")",
+   "doc": "Efficient Gaussian blur using separable filtering with linear sampling optimization Creates smooth blur effect by applying horizontal then vertical Gaussian convolution",
+   "source": "lib/graph.mjs:7273",
+   "examples": [
+    "disks/notepat.mjs:8583  blur(0.5);"
+   ]
+  },
+  {
+   "name": "sharpen",
+   "path": "sharpen",
+   "signature": "sharpen(strength = 1)",
+   "doc": "Apply sharpening filter to enhance edges and details strength: 0 = no sharpening, 1 = normal sharpening, >1 = aggressive sharpening",
+   "source": "lib/graph.mjs:7514",
+   "examples": [
+    "disks/notepat.mjs:5872  sharpen(sharpenAmount);"
+   ]
+  },
+  {
+   "name": "invert",
+   "path": "invert",
+   "signature": "invert()",
+   "doc": "Invert every pixel's color.",
+   "source": "lib/graph.mjs:2094",
+   "examples": []
+  },
+  {
+   "name": "contrast",
+   "path": "contrast",
+   "signature": "contrast(level = 1.0)",
+   "doc": "Adjust the contrast of the pixel buffer level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast",
+   "source": "lib/graph.mjs:1939",
+   "examples": [
+    "disks/oldwipppps.mjs:55  filter: contrast(1.2) brightness(1.1) saturate(1.1)"
+   ]
+  },
+  {
+   "name": "shear",
+   "path": "shear",
+   "signature": "shear(shearX = 0, shearY = 0)",
+   "doc": "KidPix-style shear function shearX: horizontal shear factor (positive = right lean, negative = left lean) shearY: vertical shear factor (positive = down lean, negative = up lean)",
+   "source": "lib/graph.mjs:7748",
+   "examples": []
+  },
+  {
+   "name": "resetScrollState",
+   "path": "resetScrollState",
+   "signature": "resetScrollState()",
+   "doc": "Reset scroll accumulators - called when pieces change",
+   "source": "lib/graph.mjs:5582",
+   "examples": []
+  },
+  {
+   "name": "noise16",
+   "path": "noise16",
+   "signature": "noise16()",
+   "doc": "",
+   "source": "lib/graph.mjs:5446",
+   "examples": [
+    "disks/graphics.mjs:29  painting(6, 6, ({ noise16 }) => noise16()),",
+    "disks/ordfish.mjs:213  ready <= GO ? noise16(0) : wipe();",
+    "disks/wgr.mjs:185  noise16();"
+   ]
+  },
+  {
+   "name": "noise16DIGITPAIN",
+   "path": "noise16DIGITPAIN",
+   "signature": "noise16DIGITPAIN()",
+   "doc": "",
+   "source": "lib/graph.mjs:5471",
+   "examples": [
+    "disks/hell_-world.mjs:944  noise16DIGITPAIN();",
+    "disks/images.mjs:20  imgToExport = painting(256, 256, ({noise16DIGITPAIN}) => noise16DIGITPAIN());",
+    "disks/noise.mjs:34  noise16DIGITPAIN();"
+   ]
+  },
+  {
+   "name": "noise16Aesthetic",
+   "path": "noise16Aesthetic",
+   "signature": "noise16Aesthetic()",
+   "doc": "",
+   "source": "lib/graph.mjs:5496",
+   "examples": [
+    "disks/login-pattern.mjs:15  noise16Aesthetic().ink(0, 100).box(0, 0, width, height);"
+   ]
+  },
+  {
+   "name": "noise16Sotce",
+   "path": "noise16Sotce",
+   "signature": "noise16Sotce()",
+   "doc": "",
+   "source": "lib/graph.mjs:5521",
+   "examples": []
+  },
+  {
+   "name": "noiseTinted",
+   "path": "noiseTinted",
+   "signature": "noiseTinted(tint, amount, saturation)",
+   "doc": "",
+   "source": "lib/graph.mjs:5546",
+   "examples": [
+    "disks/aframe.mjs:83  noiseTinted([0, 0, 0], 0.9, 0.1);",
+    "disks/decode.mjs:57  noiseTinted([189, 164, 166], 0.8, 0.6);",
+    "disks/noise.mjs:23  noiseTinted(hud.currentStatusColor(), 0.15, 0.1);"
+   ]
+  },
+  {
+   "name": "pasteWithAlpha",
+   "path": "pasteWithAlpha",
+   "signature": "pasteWithAlpha(source, x, y, alpha)",
+   "doc": "🎨 Alpha-blended paste for crossfade compositing",
+   "source": "lib/disk.mjs:6669",
+   "examples": [
+    "disks/merry-fade.mjs:85  if (outAlpha > 0) pasteWithAlpha(outgoing, 0, 0, outAlpha);"
+   ]
+  },
+  {
+   "name": "kidlisp",
+   "path": "kidlisp",
+   "signature": "kidlisp(x = 0, y = 0, width, height, source, options = {})",
+   "doc": "🎯 Simplified KidLisp integration using global singleton instance",
+   "source": "lib/disk.mjs:6705",
+   "examples": [
+    "disks/$.mjs:369  kidlisp(",
+    "disks/cross-tab-test.mjs:76  kidlisp(",
+    "disks/kidlisp-in-js.mjs:64  kidlisp(0, 0, hw, h, \"(wipe green) (ink blue) (box 20 20 60 60)\");"
+   ]
+  },
+  {
+   "name": "synth",
+   "path": "sound.synth",
+   "signature": "sound.synth({ tone = 440, type = \"square\", duration = 0.1, beats = undefined, attack = 0.01, decay = 0.9, volume, pan = 0, immediate = false, probe = null, generator = null, })",
+   "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
+   "source": "lib/disk.mjs:13124",
+   "examples": [
+    "disks/$.mjs:646  sound.synth({",
+    "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
+    "disks/1but.mjs:67  sound.synth({ type: \"triangle\", tone: 1319, attack: 0.06, decay: 0.1, duration: 0.1, volume: 0.2 });"
+   ]
+  },
+  {
+   "name": "play",
+   "path": "sound.play",
+   "signature": "sound.play(sfx, options, callbacks)",
+   "doc": "Play a loaded sample or sfx by id.",
+   "source": "lib/disk.mjs:13039",
+   "examples": [
+    "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
+    "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
+    "disks/booted-by.mjs:211  sound.play(startupSfx); // Play startup sound..."
+   ]
+  },
+  {
+   "name": "Button",
+   "path": "ui.Button",
+   "signature": "new ui.Button(x, y, w, h) | new ui.Button({ x, y, w, h })",
+   "doc": "A button. In paint: btn.paint((b) => { ink(b.down ? \"yellow\" : \"gray\").box(b.box) }). In act: btn.act(e, { push: () => {}, down: () => {}, up: () => {}, cancel: () => {} }). Pass pens() as the 3rd arg to act for multitouch. Rebuild buttons in `reframed`.",
+   "source": "lib/ui.mjs:264",
+   "examples": [
+    "disks/arena.mjs:3554  up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: \"forward\", label: \"↑\", isArrow: true },",
+    "disks/arena.mjs:3556  left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: \"left\", label: \"←\", isArrow: true },",
+    "disks/arena.mjs:3559  view: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: \"view\", label: \"VIEW\", color: [150, 110, 200], isView: true },"
+   ]
+  },
+  {
+   "name": "TextButton",
+   "path": "ui.TextButton",
+   "signature": "new ui.TextButton(text = \"Button\", pos = { x: 0, y: 0 }, typeface = TYPEFACE_UI, gap = null)",
+   "doc": "A labelled button sized to its text.",
+   "source": "lib/ui.mjs:875",
+   "examples": [
+    "disks/ads.mjs:35  chatBtn = new ui.TextButton(\"CHAT\", { center: \"x\", y: Math.floor(screen.height * 0.55), screen });",
+    "disks/amail.mjs:100  inboxBtn = new ui.TextButton(\"inbox\", { screen });",
+    "disks/amail.mjs:101  sentBtn = new ui.TextButton(\"sent\", { screen });"
+   ]
+  },
+  {
+   "name": "label",
+   "path": "hud.label",
+   "signature": "hud.label(text, color, offset)",
+   "doc": "Take over the system's corner label — the only sanctioned way to draw in the top-left.",
+   "source": "lib/disk.mjs:3642",
+   "examples": [
+    "disks/$.mjs:642  hud.label(`Previewing ${entry.codeText}`, \"cyan\");",
+    "disks/amail.mjs:82  hud.label(\"amail\");",
+    "disks/audio.mjs:81  hud.label(\"audio\");"
+   ]
+  },
+  {
+   "name": "write",
+   "path": "write",
+   "signature": "write(text, { x, y, size, center: \"x\" | \"xy\" }) | write(text, x, y)",
+   "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
+   "source": "lib/disk.mjs:5582",
+   "examples": [
+    "disks/arena.mjs:2908  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
+    "disks/arena.mjs:2918  write(t, { x, y }, undefined, undefined, false, font);",
+    "disks/arena.mjs:3094  write(msg1, { x: Math.floor(screen.width / 2 - msg1.length * 2), y: bannerY }, undefined, undefined, false, \"MatrixChunky8\");"
+   ]
+  },
+  {
+   "name": "randInt",
+   "path": "num.randInt",
+   "signature": "num.randInt(n)",
+   "doc": "Random integer in [0, n].",
+   "source": "lib/num.mjs:225",
+   "examples": [
+    "disks/bgm.mjs:26  if (params.length === 0) params[0] = num.randInt(trackCount - 1);",
+    "disks/crayon.mjs:86  let numDots = num.randInt(minNumDots, maxNumDots);",
+    "disks/dafu.mjs:101  const speed = num.randInt(20) / 10 + 0.4;"
+   ]
+  },
+  {
+   "name": "randIntRange",
+   "path": "num.randIntRange",
+   "signature": "num.randIntRange(low, high)",
+   "doc": "Random integer in [low, high].",
+   "source": "lib/num.mjs:248",
+   "examples": [
+    "disks/ant.mjs:56  num.randIntRange(margin, gridW - margin),",
+    "disks/ant.mjs:57  num.randIntRange(margin, gridH - margin),",
+    "disks/ant.mjs:249  angle: num.randIntRange(0, 360) * (Math.PI / 180),"
+   ]
+  },
+  {
+   "name": "lerp",
+   "path": "num.lerp",
+   "signature": "num.lerp(a, b, amount)",
+   "doc": "Linear interpolation a→b by t.",
+   "source": "lib/num.mjs:342",
+   "examples": [
+    "disks/blur.mjs:62  avgCol[i] = num.lerp(srcColor[i], avgCol[i], lerpAmt);",
+    "disks/bubble.mjs:116  radius = num.lerp(radius, currentParams.radius, 0.15);",
+    "disks/bubble.mjs:125  parameterDisplay.fadeAlpha = num.lerp(parameterDisplay.fadeAlpha, 0, 0.02);"
+   ]
+  },
+  {
+   "name": "clamp",
+   "path": "num.clamp",
+   "signature": "num.clamp(value, low, high)",
+   "doc": "Clamp a value between min and max.",
+   "source": "lib/num.mjs:328",
+   "examples": [
+    "disks/bubble.mjs:80  const normalizedDistance = num.clamp(",
+    "disks/bubble.mjs:104  const volume = num.clamp(normalizedEdgeDistance + 0.3, 0.3, 1.0);",
+    "disks/bubble.mjs:291  const normalizedDistance = num.clamp("
+   ]
+  },
+  {
+   "name": "dist",
+   "path": "num.dist",
+   "signature": "num.dist(x1, y1, x2, y2)",
+   "doc": "Distance between two points.",
+   "source": "lib/num.mjs:280",
+   "examples": [
+    "disks/bubble.mjs:79  let distanceFromCenter = num.dist(pointer.x, pointer.y, centerX, centerY);",
+    "disks/bubble.mjs:290  let distanceFromCenter = num.dist(e.x, e.y, centerX, centerY);",
+    "disks/bubble.mjs:356  let distanceFromCenter = num.dist(e.x, e.y, centerX, centerY);"
+   ]
+  },
+  {
+   "name": "map",
+   "path": "num.map",
+   "signature": "num.map(num, inMin, inMax, outMin, outMax)",
+   "doc": "Map a value from one range to another.",
+   "source": "lib/num.mjs:348",
+   "examples": [
+    "disks/bubble.mjs:87  const pan = num.map(pointer.x, 0, screen.width, -1, 1);",
+    "disks/bubble.mjs:90  const rise = num.map(pointer.y, 0, screen.height, 4.0, 0.2);",
+    "disks/bubble.mjs:93  const bubbleRadius = num.map(normalizedDistance, 0, 1, 3, 25);"
+   ]
+  },
+  {
+   "name": "radians",
+   "path": "num.radians",
+   "signature": "num.radians(deg = 0)",
+   "doc": "Degrees to radians.",
+   "source": "lib/num.mjs:317",
+   "examples": [
+    "disks/moods.mjs:595  const osc = (sin(num.radians(bounceCount % 360)) + 1) / 2;",
+    "disks/staka.mjs:105  const radians = $.num.radians(ball.angle);",
+    "disks/staka.mjs:141  const radians = $.num.radians(ball.angle);"
+   ]
+  },
+  {
+   "name": "Box",
+   "path": "geo.Box",
+   "signature": "new geo.Box(x, y, w, h)",
+   "doc": "An axis-aligned rectangle with .x .y .w .h and .contains({x, y}).",
+   "source": "lib/geo.mjs:41",
+   "examples": [
+    "disks/hell_-world.mjs:873  prevBtn.box = new geo.Box(",
+    "disks/hell_-world.mjs:901  nextBtn.box = new geo.Box(",
+    "disks/notepat.mjs:8806  buttons[label].box = new geo.Box(...geometry);"
+   ]
+  },
+  {
+   "name": "Circle",
+   "path": "geo.Circle",
+   "signature": "new geo.Circle(x, y, radius = 8)",
+   "doc": "A circle with .contains(point).",
+   "source": "lib/geo.mjs:8",
+   "examples": [
+    "disks/balls.mjs:17  ball.circle = new geo.Circle(screen.width / 2, screen.height / 2, 8);",
+    "disks/staka.mjs:53  ball.circle = new geo.Circle(screen.width / 2, screen.height / 2 - 100, radius);"
+   ]
+  },
+  {
+   "name": "screen",
+   "path": "screen",
+   "signature": "screen.width, screen.height, screen.pixels, screen.center",
+   "doc": "The canvas. Read width/height in paint(); never write screen.pixels directly (writes can silently drop) — draw into your own painting buffer and paste() it.",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "pen",
+   "path": "pen",
+   "signature": "pen.x, pen.y, pen.drawing, pen.delta",
+   "doc": "The single primary pointer; null when there is none. Read in paint()/sim().",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "pens",
+   "path": "pens",
+   "signature": "pens() → [{ x, y, id, drawing }]",
+   "doc": "Every active pointer, for multitouch. Pass to btn.act(e, callbacks, pens()).",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "event",
+   "path": "act(e)",
+   "signature": "e.is(\"touch\") | e.is(\"draw\") | e.is(\"lift\") | e.is(\"keyboard:down:space\") | e.is(\"reframed\") ; e.x, e.y, e.delta, e.key",
+   "doc": "Events arrive in act({ event: e, ... }). Pointer: touch → draw → lift. Keys: keyboard:down:<key>, keyboard:up:<key>.",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "sim",
+   "path": "sim",
+   "signature": "function sim({ ... }) — runs 120 times per second",
+   "doc": "Physics and timers go here, not in paint(); paint() runs at display rate and only when something needs painting.",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "needsPaint",
+   "path": "needsPaint",
+   "signature": "needsPaint()",
+   "doc": "Ask for another paint() when the piece is static and something changed.",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "painting",
+   "path": "painting",
+   "signature": "painting(w, h, (api) => { ... }) → buffer",
+   "doc": "Make an offscreen buffer by drawing into it; show it later with paste(buffer, x, y).",
+   "source": "lib/disk.mjs",
+   "examples": []
+  },
+  {
+   "name": "help.choose",
+   "path": "help.choose",
+   "signature": "help.choose(...items)",
+   "doc": "Pick one item at random.",
+   "source": "lib/help.mjs",
+   "examples": []
+  },
+  {
+   "name": "help.repeat",
+   "path": "help.repeat",
+   "signature": "help.repeat(n, (i) => { ... })",
+   "doc": "Call a function n times.",
+   "source": "lib/help.mjs",
+   "examples": []
+  }
+ ]
+}

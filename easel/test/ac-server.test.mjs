@@ -136,3 +136,85 @@ test("the guides travel in the prompt, because this bridge has no file tools", a
     "the stable prefix comes first, or the cache breaks on every session",
   );
 });
+
+test("a completed piece checkpoint saves before the response ends", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-checkpoint-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// before\n");
+  let stream;
+  const body = new ReadableStream({ start(c) { stream = c; } });
+  let call = 0;
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: async () => call++ === 0 ? { ok: true, body } : serving(say("done"))() });
+  await engine.connect();
+  const saved = new Promise((resolve) => engine.on("notification", ({ method, params }) => {
+    if (method === "item/completed" && params.item?.type === "fileChange") resolve();
+  }));
+  const turn = engine.startTurn("make a piece in steps");
+  const source = "export function paint({wipe}) { wipe(40); }\n";
+  for (const event of writes(source).slice(0, -1)) stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+  await saved;
+  assert.equal(await readFile(file, "utf8"), source, "saved while the network response is still open");
+  stream.enqueue(new TextEncoder().encode('data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n'));
+  stream.close();
+  await turn;
+});
+
+test("incomplete tool source is rejected and previous working file is preserved", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-invalid-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// working\n");
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: serving(writes("export function paint("), say("I will fix that")) });
+  await engine.connect();
+  await engine.startTurn("edit");
+  assert.equal(await readFile(file, "utf8"), "// working\n");
+  const result = engine.messages.find((m) => Array.isArray(m.content) && m.content[0]?.type === "tool_result");
+  assert.equal(result.content[0].is_error, true);
+});
+
+test("a disconnected response reports failure instead of successful completion", async () => {
+  const engine = new AcServer({ token: async () => "tok", fetch: serving(say("unfinished").slice(0, 1)) });
+  let completed;
+  engine.on("notification", ({ method, params }) => { if (method === "turn/completed") completed = params.turn; });
+  await engine.connect();
+  await engine.startTurn("hi");
+  assert.equal(completed.status, "failed");
+  assert.match(completed.error.message, /stream ended/);
+});
+
+test("hosted engine reads the current piece on every round, including after rollback", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-context-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  let sent;
+  const engine = new AcServer({ piece: { file }, developerInstructions: "Recent conversation: keep the dots purple", token: async () => "tok", fetch: async (_url, options) => { sent = JSON.parse(options.body); return serving(say("ok"))(); } });
+  await writeFile(file, "// source from another engine\n");
+  await engine.connect();
+  await engine.startTurn("continue");
+  assert.ok(sent.system.some((block) => block.text.includes("source from another engine")));
+  assert.ok(sent.system.some((block) => block.text.includes("keep the dots purple")));
+  await writeFile(file, "// restored old source\n");
+  await engine.startTurn("continue from rollback");
+  assert.ok(sent.system.some((block) => block.text.includes("restored old source")));
+  assert.ok(!sent.system.some((block) => block.text.includes("source from another engine")));
+});
+
+test("interrupting a checkpoint during validation cannot write or start another round", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-interrupt-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// working\n");
+  let calls = 0, completed;
+  const serve = serving(writes("export function paint() {}"), say("done"));
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: (...args) => { calls++; return serve(...args); } });
+  engine.on("notification", ({ method, params }) => {
+    if (method === "turn/progress" && params.phase === "writing") engine.interrupt();
+    if (method === "turn/completed") completed = params.turn;
+  });
+  await engine.connect();
+  await engine.startTurn("edit");
+  assert.equal(await readFile(file, "utf8"), "// working\n");
+  assert.equal(calls, 1);
+  assert.equal(completed.status, "interrupted");
+});
