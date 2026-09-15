@@ -2553,8 +2553,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       const script = document.createElement("script");
       script.src = "/aesthetic.computer/dep/jszip.min.js";
 
-      script.onerror = function (err) {
-        reject(err, s);
+      script.onerror = function () {
+        reject(new Error("Could not load the painting recorder"));
       };
 
       script.onload = function handleScriptLoaded() {
@@ -11533,55 +11533,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Zip up some data and download it.
     if (type === "zip") {
-      if (!window.JSZip) await loadJSZip();
-      const zip = new window.JSZip(); // https://github.com/Stuk/jszip
+      try {
+        if (!window.JSZip) await loadJSZip();
+        const zip = new window.JSZip(); // https://github.com/Stuk/jszip
 
-      if (content.painting) {
-        const steps = [];
-        const images = {};
+        if (content.painting) {
+          const steps = [];
+          const images = {};
 
-        // Encode `painting:recording` format.
-        content.painting.record.forEach((step) => {
-          const format = `${step.timestamp} - ${step.label}`;
-          const encodedStep = { step: format };
-          if (step.gesture?.length > 0) encodedStep.gesture = step.gesture;
-          steps.push(encodedStep);
-          if (step.painting) {
-            images[format] = bufferToBlob(step.painting, "image/png");
+          // Encode `painting:recording` format.
+          content.painting.record.forEach((step) => {
+            const format = `${step.timestamp} - ${step.label}`;
+            const encodedStep = { step: format };
+            if (step.gesture?.length > 0) encodedStep.gesture = step.gesture;
+            steps.push(encodedStep);
+            if (step.painting) {
+              images[format] = bufferToBlob(step.painting, "image/png");
+            }
+          });
+
+          const stepFile = JSON.stringify(steps); // Encode a JSON file for steps.
+
+          zip.file("painting.json", stepFile);
+
+          // Add all images based on step and index.
+          keys(images).forEach((label) => {
+            zip.file(`${label}.png`, images[label]);
+          });
+
+          const finalTimestamp =
+            content.painting.record[content.painting.record.length - 1].timestamp;
+
+          const zipped = await zip.generateAsync({ type: "blob" });
+          const filename = `painting-${finalTimestamp}.zip`;
+
+          if (content.destination === "download") {
+            // See also: `receivedDownload`.
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(zipped);
+            a.target = "_blank";
+            a.download = filename; // Remove any extra paths.
+            a.click();
+            URL.revokeObjectURL(a.href);
+            send({ type: "zipped", content: { result: "success", data: true } });
+          } else if (content.destination === "upload") {
+            // TODO: Put this on the S3 server somewhere...
+            console.log("🤐 Uploading zip...", zipped);
+            await receivedUpload({ filename, data: zipped }, "zipped");
           }
-        });
-
-        const stepFile = JSON.stringify(steps); // Encode a JSON file for steps.
-
-        zip.file("painting.json", stepFile);
-
-        // Add all images based on step and index.
-        keys(images).forEach((label) => {
-          zip.file(`${label}.png`, images[label]);
-        });
-
-        const finalTimestamp =
-          content.painting.record[content.painting.record.length - 1].timestamp;
-
-        const zipped = await zip.generateAsync({ type: "blob" });
-        const filename = `painting-${finalTimestamp}.zip`;
-
-        if (content.destination === "download") {
-          // See also: `receivedDownload`.
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(zipped);
-          a.target = "_blank";
-          a.download = filename; // Remove any extra paths.
-          a.click();
-          URL.revokeObjectURL(a.href);
-          send({ type: "zipped", content: { result: "success", data: true } });
-        } else if (content.destination === "upload") {
-          // TODO: Put this on the S3 server somewhere...
-          console.log("🤐 Uploading zip...", zipped);
-          receivedUpload({ filename, data: zipped }, "zipped");
+        } else {
+          send({ type: "zipped", content: { result: "error", data: false } });
         }
-      } else {
-        send({ type: "zipped", content: { result: "error", data: false } });
+      } catch (error) {
+        send({ type: "zipped", content: {
+          result: "error", data: null,
+          error: error?.message || "Could not prepare painting steps",
+        } });
       }
 
       return;

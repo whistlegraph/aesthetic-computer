@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { ACSession, CONFIG, report, scenario } from "./ac-harness.mjs";
 import { captureFrameReceipt } from "./frame-receipts.mjs";
 import { mockNoPaintUploads } from "./nopaint-upload-mock.mjs";
+import JSZip from "jszip";
 
 const ac = await ACSession.open();
 const uploads = await mockNoPaintUploads(ac.page, CONFIG.baseURL);
@@ -537,8 +538,14 @@ try {
     );
     const completed = await ac.nopaintState();
     expect(completed?.doneCount === 3, "Done retries failed uploads and completes in place");
-    expect(uploads.presigns === 3 && uploads.puts === 2 && uploads.saves === 1,
-      "Done encodes and uploads an image before recording its code");
+    expect(uploads.presigns === 4 && uploads.puts === 3 && uploads.saves === 1,
+      "Done uploads the standard recording ZIP and the PNG before recording its code");
+    const zip = await JSZip.loadAsync(uploads.files.zip);
+    const steps = JSON.parse(await zip.file("painting.json").async("string"));
+    expect(steps.length === finishing.piece.layerCount && steps.every(({ step }) => zip.file(`${step}.png`)),
+      "the ZIP contains every accepted painting step in the regular AC format");
+    expect(uploads.tracked[0].slug === "nopaint-test:nopaint-test",
+      "the saved anonymous painting links its step recording");
     expect(completed?.completion?.code === "test" && completed?.completion?.stayedInNoPaint === true,
       "Done yields a #code without leaving the No Paint shim");
     expect(completed.state === "paused" && Object.keys(completed.controls).join(",") === "view,new",
@@ -578,6 +585,10 @@ try {
       { timeout: 10000 },
     );
     const completedAgain = await ac.nopaintState();
+    const nextZip = await JSZip.loadAsync(uploads.files.zip);
+    const nextSteps = JSON.parse(await nextZip.file("painting.json").async("string"));
+    expect(nextSteps.length === completedAgain.piece.layerCount && nextSteps.length === 2,
+      "New starts a separate recording containing only its own base and accepted step");
     expect(uploads.saves === 2 && completedAgain.piece.id !== completed.piece.id &&
       completedAgain.state === "paused" && completedAgain.controls.view, "the next piece can also be saved with Done");
   });

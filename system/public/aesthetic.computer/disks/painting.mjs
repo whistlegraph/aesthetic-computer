@@ -333,13 +333,16 @@ function boot({
     // get.painting() produces an invalid /media/paintings/<full-slug> URL.
     imageCode = canonicalCode || record.slug;
 
-    // Only combined anonymous records carry a separate recording object.
+    // Anonymous recordings have their own object slug. Signed-in recordings
+    // share the PNG's timestamp under /@handle/painting/<timestamp>.zip.
     if (record.slug && record.slug.includes(':')) {
       const [, combinedRecordingCode] = record.slug.split(':');
       recordingCode = combinedRecordingCode || null;
       console.log(`🎨 Resolved combined painting: imageCode=${imageCode}, recordingCode=${recordingCode}`);
     } else {
-      recordingCode = null;
+      const timestamp = record.slug?.split("/").at(-1);
+      recordingCode = handle !== "anon" && /^\d{4}(?:\.\d{1,3}){6}$/.test(timestamp || "")
+        ? timestamp : null;
     }
     
     isNuked = record.nuked || false; // Capture nuked state from metadata

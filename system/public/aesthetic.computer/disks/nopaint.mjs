@@ -40,6 +40,8 @@ import {
   createNoPaintProposalLayer,
   recoverNoPaintPiece,
 } from "../lib/nopaint-pieces.mjs";
+import { createNoPaintRecording } from "../lib/nopaint-recording.mjs";
+import { timestamp } from "../lib/num.mjs";
 
 // Keep this iteration focused on Line. Other recovered brushes remain
 // available as pieces and can rejoin the conductor in a later pass.
@@ -94,6 +96,7 @@ let finishMode = false;
 let doneCount = 0;
 let completionBusy = false;
 let completionProgress = 0;
+let completionPart = null;
 let completionCode = null;
 let completionError = null;
 let paintingDragPaused = false;
@@ -703,6 +706,7 @@ function initializePiece(api, seed, role = "substrate") {
     pixels: api.system.painting.pixels,
     role,
   });
+  api.system.nopaint.piece.layers[0].timestamp = timestamp();
   persistPiece(api);
 }
 
@@ -739,6 +743,7 @@ function commitProposal(api) {
     pixels: api.system.nopaint.buffer.pixels,
     pixelMode: proposalPixels ? "composite" : "overlay",
   });
+  layer.timestamp = timestamp();
 
   if (proposalPixels) api.system.painting.pixels.set(api.system.nopaint.buffer.pixels);
   else api.page(api.system.painting).paste(api.system.nopaint.buffer);
@@ -834,9 +839,10 @@ function testSnapshot() {
     doneCount,
     completion: {
       busy: completionBusy,
-      phase: completionBusy ? completionProgress >= 1 ? "saving" : "uploading"
+      phase: completionBusy ? completionPart === "image" && completionProgress >= 1 ? "saving" : "uploading"
         : completionCode ? "saved" : null,
       progress: completionProgress,
+      part: completionPart,
       code: completionCode,
       error: completionError,
       stayedInNoPaint: true,
@@ -995,6 +1001,7 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   doneCount = 0;
   completionBusy = false;
   completionProgress = 0;
+  completionPart = null;
   completionCode = null;
   completionError = null;
   paintingDragPaused = false;
@@ -1275,8 +1282,9 @@ function paintStudioWallpaper($, bar) {
 function paintUploadProgress($, bar) {
   const margin = Math.max(12, Math.round(bar.w * 0.08));
   const width = bar.w - margin * 2;
-  const saving = completionProgress >= 1;
-  const label = saving ? "Saving..." : `Uploading ${Math.round(completionProgress * 100)}%`;
+  const saving = completionPart === "image" && completionProgress >= 1;
+  const label = saving ? "Saving..."
+    : `Uploading ${completionPart === "steps" ? "steps " : ""}${Math.round(completionProgress * 100)}%`;
   const size = Math.max(1, Math.floor(Math.min(bar.h / 32, width / (label.length * 8))));
   $.ink(255).write(label, { x: margin, y: bar.y + Math.round(bar.h * 0.2), size });
   const track = { x: margin, y: bar.y + Math.round(bar.h * 0.58), w: width, h: Math.max(12, Math.round(bar.h * 0.2)) };
@@ -1361,6 +1369,7 @@ async function completePainting($) {
   doneCount += 1;
   completionBusy = true;
   completionProgress = 0;
+  completionPart = "steps";
   completionError = null;
   resetDecisionControls();
   transition("paused");
@@ -1368,18 +1377,30 @@ async function completePainting($) {
   publishTestState();
 
   try {
+    const record = createNoPaintRecording($, $.system.nopaint.piece);
+    $.system.nopaint.record = record;
+    $.system.nopaint.recording = true;
+    $.store["painting:record"] = record;
+    $.store.persist("painting:record", "local:db");
+    const reportProgress = (progress) => {
+      completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+      $.needsPaint();
+      publishTestState();
+    };
+    const zipped = await $.zip({ destination: "upload", painting: { record } }, reportProgress);
+    if (!zipped?.slug) throw new Error("Painting steps were not uploaded");
+    completionPart = "image";
+    reportProgress(0);
     const painting = {
       width: $.system.painting.width,
       height: $.system.painting.height,
       pixels: $.system.painting.pixels,
       ...($.store["painting:tags"] ? { tags: $.store["painting:tags"] } : {}),
     };
-    const filename = `painting-${$.num.timestamp()}.png`;
-    const data = await $.upload(filename, painting, (progress) => {
-      completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-      $.needsPaint();
-      publishTestState();
-    });
+    // Authenticated AC paintings pair the PNG and ZIP by this timestamp;
+    // anonymous paintings link the separately assigned storage slugs.
+    const filename = `painting-${record.at(-1).timestamp}.png`;
+    const data = await $.upload(filename, painting, reportProgress, undefined, zipped.slug);
     if (!data?.code) throw new Error("Painting upload completed without a code");
     completionCode = data.code;
     completionProgress = 1;
@@ -1417,6 +1438,7 @@ function startNewPainting($) {
   resetDecisionControls();
   completionCode = null;
   completionProgress = 0;
+  completionPart = null;
   completionError = null;
   sessionSeed = seedFrom(`${sessionSeed}:${doneCount}:${$.num.timestamp()}`);
   random = seededRandom(sessionSeed);

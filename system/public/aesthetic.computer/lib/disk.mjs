@@ -12088,7 +12088,7 @@ async function makeFrame({ data: { type, content } }) {
       zipCreation.resolve(content.data);
     } else if (content.result === "error") {
       console.error("Zip failed to be created:", content);
-      zipCreation?.reject(content.data);
+      zipCreation?.reject(new Error(content.error || "Painting steps upload failed"));
     }
     zipCreation = undefined;
     return;
