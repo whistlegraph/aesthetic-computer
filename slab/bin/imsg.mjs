@@ -715,10 +715,10 @@ end tell`;
 // Text Effects (Big, Small, Shake, Nod, Explode, Ripple, Bloom, Jitter) and
 // text styles (Bold, Italic, Underline, Strikethrough). AppleScript's `send`
 // cannot attach them, so this lane drives Messages.app the way `react` does:
-// open the conversation, type the body, jump to its start, then walk it one
-// character at a time — shift+→ selects the character, the Format menu
-// applies that character's decorations, → collapses the selection — and
-// press return.
+// open the conversation, set the body into the compose field, jump to its
+// start, then walk it one character at a time — shift+→ selects the
+// character, the Format menu applies that character's decorations, →
+// collapses the selection — and click Edit ▸ Send Message.
 //
 // NSAttributedString coalesces neighbouring characters that share attributes
 // into ONE run (verified 2026-09-15: ten Nod characters stored as a single
@@ -796,6 +796,13 @@ function frontmostApp() {
   return r.status === 0 ? r.stdout.trim() : "";
 }
 
+// System Events keystrokes go to whichever app is frontmost — not to the
+// process they are addressed to — so a human switching apps mid-walk would
+// receive the arrow keys. The body is therefore set through accessibility,
+// never typed; the send is a menu click, never a return; and every arrow key
+// is preceded by this check, which aborts and leaves the draft in place.
+const GUARD = 'if not frontmost then error "Messages lost the foreground mid-walk; the draft is left in the compose field, unsent"';
+
 function decoratedScript(plan) {
   const steps = [];
   for (const decor of plan) {
@@ -803,54 +810,68 @@ function decoratedScript(plan) {
       steps.push("key code 124");
       continue;
     }
-    steps.push("key code 124 using shift down", "delay 0.1");
+    steps.push(GUARD, "key code 124 using shift down", "delay 0.1");
     for (const d of decor) {
       steps.push(`click menu item "${FORMAT_MENU[d]}" of menu 1 of menu bar item "Format" of menu bar 1`, "delay 0.18");
     }
     steps.push("key code 124", "delay 0.05");
   }
   // argv: expected window-title fragment ("" for a raw handle), the "|"-wrapped
-  // list of known contact titles a raw handle must NOT land on, then the
-  // body's lines (option+return between them — a bare return would send the
-  // half-typed message).
+  // list of known contact titles a raw handle must NOT land on, then the body.
   return `
 on run argv
   set expected to item 1 of argv
   set refuse to item 2 of argv
+  set body to item 3 of argv
   tell application "Messages" to activate
   delay 0.6
   tell application "System Events"
     tell process "Messages"
       set frontmost to true
       delay 0.3
+      -- open imessage:// switches conversations asynchronously; give the
+      -- title a few seconds to land before deciding it is the wrong one.
       set t to name of window 1
-      if expected is not "" and t does not contain expected then error "wrong conversation: the Messages window is \\"" & t & "\\", expected \\"" & expected & "\\""
+      if expected is not "" then
+        repeat with attempt from 1 to 16
+          if t contains expected then exit repeat
+          delay 0.25
+          set t to name of window 1
+        end repeat
+        if t does not contain expected then error "wrong conversation: the Messages window is \\"" & t & "\\", expected \\"" & expected & "\\""
+      end if
       if expected is "" and refuse contains ("|" & t & "|") then error "wrong conversation: the Messages window is \\"" & t & "\\", a configured contact, not the raw handle asked for"
+      -- The window re-renders while it is walked (typing indicators, the
+      -- draft clearing), and touching a vanished element throws — skip it and
+      -- walk again rather than give up.
       set composeField to missing value
-      set els to entire contents of window 1
-      repeat with e in els
-        if class of e is text field then
+      repeat with pass from 1 to 4
+        set els to entire contents of window 1
+        repeat with e in els
           try
-            if (value of attribute "AXPlaceholderValue" of e) is not "Search" then set composeField to e
+            if class of e is text field then
+              if (value of attribute "AXPlaceholderValue" of e) is not "Search" then set composeField to e
+            end if
           end try
-        end if
+        end repeat
+        if composeField is not missing value then exit repeat
+        delay 0.5
       end repeat
       if composeField is missing value then error "compose field not found in the Messages window"
       set draft to value of composeField
       if draft is not missing value and draft is not "" then error "compose field already holds a draft: " & draft
+      set value of composeField to body
+      delay 0.3
+      if (value of composeField) is not body then error "the compose field did not take the body"
       set value of attribute "AXFocused" of composeField to true
       delay 0.2
-      repeat with i from 3 to (count of argv)
-        keystroke (item i of argv)
-        if i < (count of argv) then key code 36 using option down
-        delay 0.1
-      end repeat
-      delay 0.3
+      ${GUARD}
       key code 126 using command down
       delay 0.2
       ${steps.join("\n      ")}
       delay 0.3
-      keystroke return
+      ${GUARD}
+      click menu item "Send Message" of menu 1 of menu bar item "Edit" of menu bar 1
     end tell
   end tell
 end run`;
@@ -904,7 +925,7 @@ function sendDecorated(cfg, rcpt, body, spec) {
   const opened = spawnSync("/usr/bin/open", [`imessage://${to}`], { encoding: "utf8" });
   if (opened.status !== 0) throw new Error((opened.stderr || "could not open Messages conversation").trim());
   spawnSync("/bin/sleep", ["1.2"]);
-  const r = osascript(decoratedScript(plan), [expectedTitle, refuse, ...text.split("\n")]);
+  const r = osascript(decoratedScript(plan), [expectedTitle, refuse, text]);
   if (previous && previous !== "Messages") {
     spawnSync("/usr/bin/osascript", ["-e", `try
   tell application "${previous.replace(/"/g, '\\"')}" to activate
