@@ -43,6 +43,69 @@ function scoreCode(score) {
   };
 }
 
+function nextLayerId(piece) {
+  let index = piece.layers.length;
+  while (piece.layers.some((layer) => layer.id === `${piece.id}:layer:${index}`)) index++;
+  return `${piece.id}:layer:${index}`;
+}
+
+export function sameNoPaintPixels(a, b) {
+  return Boolean(a?.pixels && b?.pixels && a.width === b.width && a.height === b.height &&
+    a.pixels.length === b.pixels.length && a.pixels.every((value, index) => value === b.pixels[index]));
+}
+
+function appendRecordedPainting(piece, painting, step = {}) {
+  if (sameNoPaintPixels(piece.composite, painting)) return piece;
+  const { width, height } = painting;
+  const pixels = layerPixels(painting.pixels, width, height, "composite");
+  if (!pixels) throw new Error("AC painting step has invalid pixels");
+  const layer = {
+    id: nextLayerId(piece),
+    operation: "raster",
+    code: scoreCode({ kind: "raster", role: "ac-brush", label: step.label, width, height }),
+    pixels,
+    ...(step.label ? { label: step.label } : {}),
+    ...(step.timestamp ? { timestamp: step.timestamp } : {}),
+    ...(step.gesture?.length ? { gesture: cloneValue(step.gesture) } : {}),
+  };
+  return appendNoPaintLayer({ ...piece, width, height }, layer, painting.pixels);
+}
+
+// The shared AC canvas is authoritative on re-entry. A cached No Paint score
+// supplies history, never a replacement for pixels edited by another brush.
+export function reconcileNoPaintPiece(piece, painting, record = [], seed, timestamp) {
+  if (piece && sameNoPaintPixels(piece.composite, painting)) return piece;
+  let pending = [];
+  if (piece) {
+    let boundary = -1;
+    for (let index = record.length - 1; index >= 0; index--) {
+      if (sameNoPaintPixels(record[index].painting, piece.composite)) {
+        boundary = index;
+        break;
+      }
+    }
+    if (boundary >= 0) pending = record.slice(boundary + 1);
+  } else {
+    // Import an existing AC recording only when it reaches this canvas.
+    const lastPicture = record.findLast((step) => step.painting)?.painting;
+    pending = sameNoPaintPixels(lastPicture, painting)
+      ? record.filter((step) => step.painting) : [];
+    const first = pending.shift();
+    piece = createNoPaintPiece({ seed, ...(first?.painting || painting), role: "ac-brush" });
+    Object.assign(piece.layers[0], {
+      timestamp: first?.timestamp || timestamp,
+      ...(first?.label ? { label: first.label } : {}),
+      ...(first?.gesture?.length ? { gesture: cloneValue(first.gesture) } : {}),
+    });
+  }
+  for (const step of pending) {
+    if (step.painting) piece = appendRecordedPainting(piece, step.painting, step);
+  }
+  // Also covers edits without a recording, and AC undo/redo entries which
+  // reference prior frames instead of carrying their own pixel snapshot.
+  return appendRecordedPainting(piece, painting, { label: "ac-brush", timestamp });
+}
+
 function layerPixels(pixels, width, height, mode) {
   const full = pixelsFrom(pixels, width * height * 4);
   if (!full) return null;
@@ -121,7 +184,7 @@ export function createNoPaintProposalLayer({
     proposal,
   });
   return {
-    id: `${piece.id}:layer:${proposalNumber}`,
+    id: nextLayerId(piece),
     operation: score.kind,
     code: scoreCode(score),
     pixels: pixelPayload,

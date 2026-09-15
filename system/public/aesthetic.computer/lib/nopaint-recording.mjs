@@ -3,13 +3,16 @@
 // save path existed, without recording rejected or still-running proposals.
 export function createNoPaintRecording(api, piece) {
   if (!piece?.layers?.length) throw new Error("No Paint has no steps to save");
-  const { width, height } = piece;
-  const composite = api.painting(width, height, (p) => p.wipe(0, 0, 0, 0));
+  let composite;
+  const screen = api.screen;
   try {
     return piece.layers.map((layer, index) => {
       const pixels = layer.pixels;
       if (pixels.mode === "composite") {
-        composite.pixels.set(pixels.data);
+        composite = {
+          width: pixels.width, height: pixels.height,
+          pixels: new Uint8ClampedArray(pixels.data),
+        };
       } else if (pixels.width && pixels.height) {
         api.page(composite).paste({
           width: pixels.width,
@@ -21,11 +24,12 @@ export function createNoPaintRecording(api, piece) {
       return {
         timestamp: layer.timestamp || api.num.timestamp(),
         // The index keeps filenames unique even for old layers without times.
-        label: index === 0 ? "nopaint" : `nopaint~${index}~${layer.operation}`,
-        painting: { width, height, pixels: new Uint8ClampedArray(composite.pixels) },
+        label: layer.label || (index === 0 ? "nopaint" : `nopaint~${index}~${layer.operation}`),
+        ...(layer.gesture?.length ? { gesture: layer.gesture } : {}),
+        painting: { ...composite, pixels: new Uint8ClampedArray(composite.pixels) },
       };
     });
   } finally {
-    api.page(api.screen);
+    api.page(screen);
   }
 }

@@ -39,6 +39,7 @@ import {
   createNoPaintPiece,
   createNoPaintProposalLayer,
   recoverNoPaintPiece,
+  reconcileNoPaintPiece,
 } from "../lib/nopaint-pieces.mjs";
 import { createNoPaintRecording } from "../lib/nopaint-recording.mjs";
 import { timestamp } from "../lib/num.mjs";
@@ -1048,18 +1049,17 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
     width: system.painting.width,
     height: system.painting.height,
   };
-  const recoveredPiece = freshStart ? null : recoverNoPaintPiece(
-    system.nopaint.piece || store[NOPAINT_PIECE_STORE_KEY],
-    paintingResolution.width,
-    paintingResolution.height,
-  );
-  if (recoveredPiece) {
-    system.nopaint.piece = recoveredPiece;
-    system.painting.pixels.set(recoveredPiece.composite.pixels);
-    substrateFresh = false;
-  } else {
+  if (needsStarterSubstrate || archiveId) {
     initializePiece({ ...api, store, system }, sessionSeed,
       needsStarterSubstrate ? "substrate" : "legacy-raster");
+  } else {
+    const cachedPiece = system.nopaint.piece || store[NOPAINT_PIECE_STORE_KEY];
+    const recoveredPiece = recoverNoPaintPiece(cachedPiece, cachedPiece?.width, cachedPiece?.height);
+    system.nopaint.piece = reconcileNoPaintPiece(
+      recoveredPiece, system.painting, system.nopaint.record, sessionSeed, timestamp(),
+    );
+    persistPiece({ store, system });
+    substrateFresh = false;
   }
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
@@ -1377,11 +1377,7 @@ async function completePainting($) {
   publishTestState();
 
   try {
-    const record = createNoPaintRecording($, $.system.nopaint.piece);
-    $.system.nopaint.record = record;
-    $.system.nopaint.recording = true;
-    $.store["painting:record"] = record;
-    $.store.persist("painting:record", "local:db");
+    const record = preserveRecording($);
     const reportProgress = (progress) => {
       completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
       $.needsPaint();
@@ -1729,7 +1725,19 @@ function act($) {
 // never commit a proposal behind the participant's back.
 function bake() {}
 
-function leave() {
+function preserveRecording($) {
+  const record = createNoPaintRecording($, $.system.nopaint.piece);
+  $.system.nopaint.record = record;
+  $.system.nopaint.recording = true;
+  $.store["painting:record"] = record;
+  $.store.persist("painting:record", "local:db");
+  return record;
+}
+
+function leave($) {
+  // AC brushes append their next strokes to this same recording. Keeping the
+  // last accepted frame supplies the boundary for the next No Paint visit.
+  if ($?.system?.nopaint?.piece) preserveRecording($);
   stopBrushCue();
   testApi?.cursor?.("native");
   if (typeof window !== "undefined") delete window.__acNoPaintTest;
