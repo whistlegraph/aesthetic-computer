@@ -84,6 +84,21 @@ function runSignalCli(args, machine, opts) {
   return run("ssh", [sshHost(machine), remote], opts);
 }
 
+// imsg.mjs SENDS may run on another Mac signed into the same iMessage account.
+// A decorated send types into that machine's Messages.app and needs it in
+// front, so routing it to an idle one (blueberry) keeps this keyboard free.
+// Reads stay local — see runBridge.
+const shq = (a) => `'${String(a).replace(/'/g, "'\\''")}'`;
+const IMSG_REMOTE_OK = new Set(["send", "resolve", "styles", "ack"]);
+function runImsg(args, machine, opts) {
+  if (isLocal(machine) || !IMSG_REMOTE_OK.has(args[0])) return runBridge(IMSG, args, machine, opts);
+  // The remote login shell is fish, whose quoting differs from bash's, and
+  // node lives under fnm — so the script goes to `bash -s` over stdin and no
+  // remote shell ever parses it. imsg.json (the contacts) must exist there.
+  const script = `eval "$(fnm env --shell bash 2>/dev/null)"; cd ~/aesthetic-computer && node slab/bin/imsg.mjs ${args.map(shq).join(" ")}\n`;
+  return run("ssh", [sshHost(machine), "bash -s"], { ...opts, input: script });
+}
+
 // A node bridge (signal.mjs / imsg.mjs) only runs where its Desktop DB lives.
 function runBridge(bridge, args, machine, opts) {
   if (!isLocal(machine)) {
@@ -363,14 +378,14 @@ async function toolSend({
     // imsg.mjs at send time.
     if (!to) throw new Error("`to` is required for an iMessage send (named contact or raw handle)");
     const toArgs = ["--to", String(to)];
-    const { stdout: resolved } = await runBridge(IMSG, ["resolve", ...toArgs], machine, { timeoutMs: 30000 });
+    const { stdout: resolved } = await runImsg(["resolve", ...toArgs], machine, { timeoutMs: 30000 });
     const rcpt = JSON.parse(resolved);
     // A decorated message is typed into Messages.app and walked character by
     // character with Format-menu text effects (imsg.mjs sendDecorated). The
     // preview shows exactly which decoration each character will get.
     let decor = null;
     if (decorated) {
-      const { stdout } = await runBridge(IMSG, ["styles", String(decorated), message], machine, { timeoutMs: 30000 });
+      const { stdout } = await runImsg(["styles", String(decorated), message], machine, { timeoutMs: 30000 });
       decor = JSON.parse(stdout.trim());
     }
     if (!confirm) {
@@ -388,32 +403,23 @@ async function toolSend({
       );
     }
     const receipts = [];
+    if (files.length && !isLocal(machine)) throw new Error("attachments are local files; send them from the local machine");
     for (const file of files) {
-      const { stdout } = await runBridge(
-        IMSG,
-        ["send", "--media", file.path, ...toArgs],
-        machine,
-        { timeoutMs: 60000 },
-      );
+      const { stdout } = await runImsg(["send", "--media", file.path, ...toArgs], machine, { timeoutMs: 60000 });
       receipts.push({ kind: "attachment", ...JSON.parse(stdout.trim()) });
     }
     if (linkPreview) {
-      const { stdout } = await runBridge(
-        IMSG,
-        ["send", "--link-preview", String(linkPreview), ...toArgs],
-        machine,
-        { timeoutMs: 60000 },
-      );
+      const { stdout } = await runImsg(["send", "--link-preview", String(linkPreview), ...toArgs], machine, { timeoutMs: 60000 });
       receipts.push({ kind: "link-preview", ...JSON.parse(stdout.trim()) });
     }
     // If text is exactly the rich-preview URL, the URL balloon already carries
     // it; do not emit a duplicate plain bubble.
     if (hasDistinctText && decor) {
       // ~0.4 s per decorated character plus the app round-trip.
-      const { stdout } = await runBridge(IMSG, ["send", message, "--decorated", String(decorated), ...toArgs], machine, { timeoutMs: 180000 });
+      const { stdout } = await runImsg(["send", message, "--decorated", String(decorated), ...toArgs], machine, { timeoutMs: 180000 });
       receipts.push(JSON.parse(stdout.trim()));
     } else if (hasDistinctText) {
-      const { stdout } = await runBridge(IMSG, ["send", message, ...toArgs], machine, { timeoutMs: 30000 });
+      const { stdout } = await runImsg(["send", message, ...toArgs], machine, { timeoutMs: 30000 });
       receipts.push({ kind: "text", ...JSON.parse(stdout.trim()) });
     }
     for (const receipt of receipts) {
@@ -572,7 +578,7 @@ const TOOLS = [
         decorativeReply: { anyOf: [{ type: "boolean" }, { type: "string" }], description: "decorative-reply: lead the text with a flourish. true = the whistlegraph pen (🖋️〰️); a string is a custom motif. Shown in the preview." },
         decorated: { type: "string", description: "iMessage only: a decorated message — Messages' animated text effects applied character by character. A style name (nod, shake, jitter, ripple, bloom, explode, big, small, wobble, seesaw, carnival, ransom, shout, whisper) or a custom comma list that cycles per character (\"nod,big\"; \"+\" stacks: \"big+bold,small\"). Text only, under 280 characters; the preview shows the per-character plan. Typed into Messages.app, so the app must be idle." },
         confirm: { type: "boolean", description: "Must be true to actually send. Omit/false = preview only." },
-        machine: { type: "string", description: "Machine (default local; signal-cli sends route over ssh for remote)." },
+        machine: { type: "string", description: "Machine (default local). Signal sends route over ssh. iMessage sends may name another Mac on the same iMessage account (e.g. blueberry) — for a decorated send that keeps this machine's keyboard and focus untouched, since the effects are typed into that machine's Messages.app." },
       },
       required: ["channel", "to"],
     },
