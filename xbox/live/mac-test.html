@@ -34,7 +34,7 @@
       font-display: block;
     }
     * { box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #07081c; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: #07081c; }
     @media (prefers-color-scheme: light) { html, body { background: #ebf1f8; } }
     @supports (height: 100dvh) { html, body { height: 100dvh; } }
     body { display: grid; place-items: center; font-family: "Comic Relief", "Comic Sans MS", Arial, sans-serif;
@@ -280,8 +280,9 @@
       // canvas's backing store while CSS keeps the on-screen size, to price
       // raster area against primitive count on a machine suspected of
       // software-rasterizing the frame.
-      const density = Math.max(1, Math.min(3, window.devicePixelRatio || 1)) *
-        resolutionScale;
+      // Logical coordinates stay at 1080; pixels follow the actual display.
+      const density = Math.min(1, height / logicalHeight *
+        Math.max(1, window.devicePixelRatio || 1)) * resolutionScale;
       const pixelWidth = Math.round(logicalWidth * density);
       const pixelHeight = Math.round(logicalHeight * density);
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -435,9 +436,23 @@
     }
 
     function box(x, y, width, height, ...ink) {
-      flushFaces();
-      context.fillStyle = color(ink);
-      context.fillRect(x, y, width, height);
+      const style = color(ink);
+      // Translucent overlaps must still composite separately.
+      if (ink.length > 3 && ink[3] < 255) {
+        flushFaces();
+        context.fillStyle = style;
+        context.fillRect(x, y, width, height);
+        return;
+      }
+      if (facePath && style !== faceInk) flushFaces();
+      if (!facePath) {
+        context.fillStyle = style;
+        faceInk = style;
+        context.beginPath();
+        facePath = true;
+      }
+      context.rect(Math.min(x, x + width), Math.min(y, y + height),
+        Math.abs(width), Math.abs(height));
     }
 
     function line(x1, y1, x2, y2, width, ...ink) {
@@ -1185,6 +1200,32 @@
     canvas.addEventListener("pointerleave", () => {
       globalThis.__oskiewarTouch.pointer.active = false;
     });
+    globalThis.__oskiewarWheel = { yaw: 0, pitch: 0, zoom: 0 };
+    canvas.addEventListener("wheel", (event) => {
+      if (globalThis.__oskiewarAccountOpen) return;
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1;
+      const wheel = globalThis.__oskiewarWheel;
+      if (event.ctrlKey) wheel.zoom += event.deltaY * unit;
+      else if (event.shiftKey) wheel.zoom += event.deltaY * unit;
+      else {
+        wheel.yaw += event.deltaX * unit;
+        wheel.pitch -= event.deltaY * unit;
+      }
+    }, { passive: false });
+    let pinchScale = 1;
+    canvas.addEventListener("gesturestart", (event) => {
+      if (globalThis.__oskiewarAccountOpen) return;
+      event.preventDefault();
+      pinchScale = event.scale || 1;
+    }, { passive: false });
+    canvas.addEventListener("gesturechange", (event) => {
+      if (globalThis.__oskiewarAccountOpen) return;
+      event.preventDefault();
+      const scale = event.scale || 1;
+      globalThis.__oskiewarWheel.zoom -= Math.log(scale / pinchScale) * 300;
+      pinchScale = scale;
+    }, { passive: false });
     canvas.addEventListener("pointerdown", (event) => {
       const point = canvasPoint(event);
       const touchKey = touchKeyAt(point);

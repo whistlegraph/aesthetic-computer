@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 117;
+const buildVersion = 118;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -809,16 +809,18 @@ class FightCamDoll {
   // that wants to survive contact with the near plane has to see the honest
   // depth first — `project` is where it gets clamped, and a clamp is a lie for
   // anything behind the lens.
-  toView(point) {
+  toView(point, out = {}) {
     if (this.dirty || !this.view) this.prepare();
     const { forward, right, up } = this.view;
-    const delta = { x: point.x - this.position.x, y: point.y - this.position.y,
-      z: point.z - this.position.z };
-    return { x: dot3(delta, right), y: dot3(delta, up),
-      z: dot3(delta, forward) };
+    const x = point.x - this.position.x, y = point.y - this.position.y;
+    const z = point.z - this.position.z;
+    out.x = x * right.x + y * right.y + z * right.z;
+    out.y = x * up.x + y * up.y + z * up.z;
+    out.z = x * forward.x + y * forward.y + z * forward.z;
+    return out;
   }
 
-  projectView(view) {
+  projectView(view, out = {}) {
     if (this.dirty || !this.view) this.prepare();
     const { centerX, centerY, orthoScale, focal } = this.view;
     const depth = Math.max(cameraNear, view.z);
@@ -826,9 +828,10 @@ class FightCamDoll {
     const orthoY = centerY - view.y * orthoScale;
     const perspectiveX = centerX + view.x * focal / depth;
     const perspectiveY = centerY - view.y * focal / depth;
-    return { x: lerp(orthoX, perspectiveX, this.perspective),
-      y: lerp(orthoY, perspectiveY, this.perspective),
-      z: clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4) };
+    out.x = lerp(orthoX, perspectiveX, this.perspective);
+    out.y = lerp(orthoY, perspectiveY, this.perspective);
+    out.z = clamp(depth / 16000 * 2.8 - 1.4, -1.4, 1.4);
+    return out;
   }
 
   // A lone point cannot be clipped, so it is held at the pin rather than
@@ -964,19 +967,22 @@ function bandContains(vertex) {
     vertex.y >= -viewHeight * guardBand &&
     vertex.y <= viewHeight * (1 + guardBand);
 }
+// Scratch vertices never escape synchronous face submission or clipping.
+const triangleView = [{}, {}, {}];
+const triangleScreen = [{}, {}, {}];
 function worldTriangle(a, b, c, color) {
-  const viewA = cameraDoll.toView(a);
-  const viewB = cameraDoll.toView(b);
-  const viewC = cameraDoll.toView(c);
+  const viewA = cameraDoll.toView(a, triangleView[0]);
+  const viewB = cameraDoll.toView(b, triangleView[1]);
+  const viewC = cameraDoll.toView(c, triangleView[2]);
   // Nearly every face a frame submits sits whole in front of the lens and
   // whole inside the guard band, and the console's interpreter was paying
   // for six array allocations per face on the way to discovering that.
   // Plain compares decide the common case; only a face that actually
   // crosses a plane pays for the Sutherland-Hodgman walk.
   if (viewA.z >= cameraNear && viewB.z >= cameraNear && viewC.z >= cameraNear) {
-    const pa = cameraDoll.projectView(viewA);
-    const pb = cameraDoll.projectView(viewB);
-    const pc = cameraDoll.projectView(viewC);
+    const pa = cameraDoll.projectView(viewA, triangleScreen[0]);
+    const pb = cameraDoll.projectView(viewB, triangleScreen[1]);
+    const pc = cameraDoll.projectView(viewC, triangleScreen[2]);
     if (bandContains(pa) && bandContains(pb) && bandContains(pc)) {
       projectedTriangle(pa, pb, pc, color);
       return;
@@ -1303,18 +1309,7 @@ for (const pickup of [...gunPickups, ...saberPickups, ...grenadePickups]) {
 // Every kind carries a gravity factor so redressing the match ball in place
 // can never leave a previous kind's float behind.
 //
-// The board is back, and on this map it is a HOVER BOARD. It left with
-// @jeffrey's "no boards on this map" — a verdict about the cube, where a deck
-// that reaches 4,200 units a second has 900 units to spend it in and the
-// whole thing is a bounce off two walls. A station with five floating decks
-// and gaps between them is the map a board is for: it is how you cross, and
-// the coping tricks the side bounds already do are how you get onto a deck
-// you cannot jump to. The ride physics underneath are the tuned skate
-// physics, untouched, and the rider state below still carries the `skate`
-// names those rules were written in — what changed is that the thing has no
-// wheels, so it hums instead of ticking and it floats a hand off the deck.
-// `series` marks the kinds the match ball draw may deal: a board is furniture
-// on the map, never a ball a round inflates.
+// The skateboard is map furniture; it never replaces the match ball.
 const ballKinds = [
   { type: "soccer", spawnOwner: 0, radius: 38, mass: .72, hitScale: 1.12,
     bounce: .58, drag: .994, windFactor: .58, gravityFactor: 1 },
@@ -1322,12 +1317,12 @@ const ballKinds = [
     bounce: .76, drag: .989, windFactor: .34, gravityFactor: 1 },
   { type: "beach", spawnOwner: -1, radius: 46, mass: .34, hitScale: 1.25,
     bounce: .82, drag: .998, windFactor: 1.35, gravityFactor: .62 },
-  { type: "hoverboard", spawnOwner: -1, radius: 52, mass: .9, hitScale: .7,
+  { type: "skateboard", spawnOwner: -1, radius: 52, mass: .9, hitScale: .7,
     bounce: .34, drag: .992, windFactor: .5, gravityFactor: .5,
     series: false },
 ];
 let matchBallType = ballKinds[0].type;
-const hoverBoardKind = ballKinds.find((kind) => kind.type === "hoverboard");
+const skateBoardKind = ballKinds.find((kind) => kind.type === "skateboard");
 // A match inflates exactly one ball and keeps it for every round, and the
 // station parks exactly one board on the floor at centre. Two entries in one
 // array because they are the same kind of object to every routine that
@@ -1338,8 +1333,8 @@ const balls = [{ ...ballKinds[0], z: 0, vx: 0, vy: 0, rotation: 0,
   x: players[0].spawnX, y: floorY - ballKinds[0].radius,
   active: true, serveAt: 0, lastHitBy: 0, safeUntil: 0, safePlayers: 0,
   heldBy: -1 },
-{ ...hoverBoardKind, z: 0, vx: 0, vy: 0, rotation: 0,
-  x: tileCenterX(cornerColLeft), y: floorY - hoverBoardKind.radius,
+{ ...skateBoardKind, z: 0, vx: 0, vy: 0, rotation: 0,
+  x: tileCenterX(cornerColLeft), y: floorY - skateBoardKind.radius,
   active: true, serveAt: 0, lastHitBy: -1, safeUntil: 0, safePlayers: 0,
   heldBy: -1 }];
 // Version-one replay/spectator consumers still read the first ball by name.
@@ -1347,7 +1342,7 @@ const ball = balls[0];
 // The board is not gated by `ballEnabled`. That switch is the ball's — it
 // takes the serve, the cross-wack and the BALLED death off the map together —
 // and the board shares none of them.
-const hoverBoardEnabled = true;
+const skateBoardEnabled = true;
 // The ball is out of the round — @jeffrey asked for the cube bare. All of
 // the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
 // sleeps behind this switch exactly as it always did for the test harness;
@@ -4016,15 +4011,16 @@ function resetBalls(now) {
     // rush the middle bare-handed, break left for the board, or break right
     // for the gun. Putting it on the centre line instead would have made it
     // the only opening move worth making.
-    if (item.type === "hoverboard") {
+    if (item.type === "skateboard") {
       item.x = tileCenterX(cornerColLeft);
-      item.y = terrainFloorAt(item.x) - item.radius;
+      item.y = skateContact(item.x, terrainFloorAt(item.x)).y - skateAxleDrop - skateWheelRadius;
       item.z = 0;
       item.vx = 0;
       item.vy = 0;
       item.rotation = 0;
+      item.skateSpin = 0;
       item.heldBy = -1;
-      item.active = hoverBoardEnabled;
+      item.active = skateBoardEnabled;
       item.serveAt = 0;
       item.lastHitBy = -1;
       item.safeUntil = 0;
@@ -4911,7 +4907,8 @@ function netStateHash() {
     // seats disagreeing about a sword hashed identically for hundreds of
     // frames and were found apart only once the reach changed an outcome,
     // which is the most expensive way to learn about a desync.
-    player.swordHeld]);
+    player.skateboard, player.skateVx, player.skateWallSide,
+    player.skatePitch || 0, player.skateContacts || 0, player.swordHeld]);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
   // Projectiles by position, not just by count. A round whose flight differs
@@ -5723,9 +5720,7 @@ function resetRound(now, resetMatch = false) {
     player.heldPlayer = -1;
     player.carryArm = "";
     player.grabbedBy = -1;
-    player.skateboard = false;
-    player.skateVx = 0;
-    player.skateWallSide = 0;
+    resetSkate(player);
     player.swordHeld = false;
     player.grabHeld = false;
     player.commandStream = [];
@@ -5822,7 +5817,6 @@ function resetRound(now, resetMatch = false) {
   lastSimAt = now;
   roundStartedAt = now;
   rollWind(now);
-  resetAirParticles();
   resetBalls(now);
   if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
     balls.length]);
@@ -7383,17 +7377,21 @@ function updateBall(ball, dt, now) {
       return;
     }
   }
-  const platformSupported = ledgeSupports(ball.x, ball.y, ball.radius);
-  const floorSupported = ball.y >= terrainFloorAt(ball.x) - ball.radius - 2;
+  const isBoard = ball.type === "skateboard";
+  const contactRadius = isBoard ? skateAxleDrop + skateWheelRadius : ball.radius;
+  const platformSupported = ledgeSupports(ball.x, ball.y, contactRadius);
+  const floorSupported = ball.y >= terrainFloorAt(ball.x) - contactRadius - 2;
   const grounded = (platformSupported || floorSupported) && Math.abs(ball.vy) < 180;
   if (!grounded) ball.vx += windAcceleration * (ball.windFactor || .45) * dt;
   ball.vy += 1900 * (ball.gravityFactor || 1) * dt;
   const previous = { x: ball.x, y: ball.y, z: ball.z };
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
-  if (Math.abs(ball.vx) > 20)
-    ball.rotation += ball.vx * dt / Math.max(1, ball.radius);
-  const inset = wallThickness + ball.radius;
+  if (Math.abs(ball.vx) > 20) {
+    if (isBoard) ball.skateSpin = (ball.skateSpin || 0) + ball.vx * dt / skateWheelRadius;
+    else ball.rotation += ball.vx * dt / Math.max(1, contactRadius);
+  }
+  const inset = wallThickness + contactRadius;
   if (ball.x < worldLeft + inset) {
     ball.x = worldLeft + inset;
     ball.vx = Math.abs(ball.vx);
@@ -7406,20 +7404,28 @@ function updateBall(ball, dt, now) {
     ball.vy = Math.abs(ball.vy);
   }
   const ledge = ball.vy >= 0 &&
-    ledgeCrossed(ball.x, previous.y, ball.y, ball.radius, ball.radius);
+    ledgeCrossed(ball.x, previous.y, ball.y, contactRadius, contactRadius);
   if (ledge) {
-    ball.y = ledge.y - ball.radius;
+    ball.y = ledge.y - contactRadius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .58) : 0;
     ball.vx *= ball.drag || .992;
-  } else if (ball.y > terrainFloorAt(ball.x) - ball.radius) {
-    ball.y = terrainFloorAt(ball.x) - ball.radius;
+  } else if (ball.y > terrainFloorAt(ball.x) - contactRadius) {
+    ball.y = terrainFloorAt(ball.x) - contactRadius;
     ball.vy = Math.abs(ball.vy) > 180
       ? -Math.abs(ball.vy) * (ball.bounce || .62) : 0;
     ball.vx *= ball.drag || .992;
   }
-  const onSurface = (ledgeSupports(ball.x, ball.y, ball.radius) ||
-    ball.y >= terrainFloorAt(ball.x) - ball.radius - 2) && Math.abs(ball.vy) < 180;
+  const onSurface = (ledgeSupports(ball.x, ball.y, contactRadius) ||
+    ball.y >= terrainFloorAt(ball.x) - contactRadius - 2) && Math.abs(ball.vy) < 180;
+  if (isBoard && onSurface) {
+    const contact = skateContact(ball.x, previous.y + contactRadius);
+    ball.y = contact.y - contactRadius;
+    ball.rotation = contact.pitch;
+    const slope = Math.tan(contact.pitch);
+    ball.vx += fallGravity() * slope / (1 + slope * slope) * dt;
+    ball.vx *= Math.exp(-dt * .65);
+  }
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
   for (const player of players) {
@@ -7472,15 +7478,18 @@ function updateBall(ball, dt, now) {
       ball.x, ball.y, ball.z);
     const bodyDistance = bodyContact.bodyDistance;
     if (Math.min(headDistance, bodyDistance) > ball.radius) continue;
-    if (ball.type === "hoverboard" && headDistance > ball.radius &&
+    if (ball.type === "skateboard" && headDistance > ball.radius &&
         bodyDistance <= ball.radius && !player.skateboard &&
         // A thrown deck is a weapon until it slows down — nobody catches a
         // board shot out of the air with their shins.
         Math.hypot(ball.vx, ball.vy) < 900) {
+      resetSkate(player);
       player.skateboard = true;
+      player.skateVx = player.vx;
+      player.skatePitch = skateContact(player.x, player.y).pitch;
       ball.active = false;
       ball.heldBy = -1;
-      player.lastButton = "HOVER BOARD";
+      player.lastButton = "SKATEBOARD";
       player.lastButtonAt = now;
       playDrum("clap", .9, panPlayer(player));
       emitSignal("skate-mount", player.pad, 1, 0);
@@ -7534,9 +7543,8 @@ function directionTap(player, direction, now) {
       // the old one-object economy borrowed the round's ball and handed it
       // back at the bell, which is exactly the trick that stopped being
       // necessary when the board became furniture with an entry of its own.
-      const board = balls.find((item) => item.type === "hoverboard");
-      player.skateboard = false;
-      player.skateVx = 0;
+      const board = balls.find((item) => item.type === "skateboard");
+      resetSkate(player);
       if (board) {
         board.active = true;
         board.heldBy = -1;
@@ -8457,7 +8465,8 @@ function updatePlayer(player, pad, dt, now) {
     // g·sin·cos, which in terms of tan is g·t/(1+t²): it peaks at 45° exactly
     // as it should, falls off toward vertical exactly as it should, and needs
     // no clamp because it cannot exceed half of g.
-    const terrainSlope = terrainTangentAt(player.x);
+    const contact = skateContact(player.x, player.y);
+    const terrainSlope = Math.tan(contact.pitch);
     player.skateVx += fallGravity() * terrainSlope /
       (1 + terrainSlope * terrainSlope) * dt;
     // Pumping. The one thing a skater does that a rolling object does not:
@@ -8497,23 +8506,9 @@ function updatePlayer(player, pad, dt, now) {
       emitSignal("skate-air", player.pad,
         Math.round(-surfaceVy), Math.round(player.skateVx));
     }
-    // A hover board has nothing touching the deck, so nothing scrubs it: let
-    // go of the stick and it keeps most of what it had. The old wheeled deck
-    // bled .65 a second into friction it no longer has.
-    if (!input.horizontal) player.skateVx *= Math.max(0, 1 - dt * .26);
+    if (!input.horizontal) player.skateVx *= Math.exp(-dt * .65);
     controlledVx = player.skateVx;
-    // The board is audible, but it has no wheels to tick. What was a rolling
-    // click that came faster with speed is now a thruster note that comes
-    // HIGHER with it — same cadence source, a pitch instead of a rhythm, so
-    // the ear still reads the board's speed without hearing a skatepark in
-    // vacuum. The carve keeps its bite; that one is the rider, not the road.
     const skateSpeed = Math.abs(player.skateVx);
-    if (skateSpeed > 260 && now >= (player.skateNextRollAt || 0)) {
-      const pace = skateSpeed / 4200;
-      player.skateNextRollAt = now + (260 - 190 * pace) * 1000;
-      playSine(132 + pace * 186, .045 + pace * .03);
-      emitSignal("skate-roll", player.pad, Math.round(pace * 100) / 100, 0);
-    }
     const carveDir = carving ? Math.sign(skateTarget) : 0;
     if (carveDir && skateSpeed > 900 && player.skateCarveDir !== carveDir) {
       playDrum("whoosh", .45 + Math.min(.4, skateSpeed / 4200 * .5),
@@ -8627,6 +8622,7 @@ function updatePlayer(player, pad, dt, now) {
   }
   if (player.pendingMoveLabel) remember(player, player.pendingMoveLabel);
 
+  const previousX = player.x;
   const previousY = player.y;
   const wasGrounded = player.grounded;
   player.vy += (player.vy < 0 ? riseGravity() : fallGravity()) * dt;
@@ -8655,6 +8651,13 @@ function updatePlayer(player, pad, dt, now) {
     if (player.grounded) player.headRollRate = clamp(player.vx / 22, -6, 6);
     player.headRoll = (player.headRoll || 0) + (player.headRollRate || 0) * dt;
   }
+  // Walking down a slope is not a new landing on every other tick.
+  const nextFloor = terrainFloorAt(player.x);
+  const followingFloor = wasGrounded && player.vy >= 0 &&
+    Math.abs(previousY - terrainFloorAt(previousX)) < 3 &&
+    nextFloor - previousY <= Math.max(20, Math.abs(player.vx * dt) * 2.5);
+  if (followingFloor) player.y = Math.max(player.y, nextFloor);
+  const landingSpeed = player.vy;
   player.grounded = false;
   // A sinking fighter is transparent to the rung it left and to nothing else.
   // A window long enough to clear one lip — .25s, 290 units of fall — is
@@ -8690,6 +8693,31 @@ function updatePlayer(player, pad, dt, now) {
       player.vy = 0;
       player.grounded = true;
     }
+  }
+  if (player.skateboard) {
+    const contact = skateContact(player.x, previousY);
+    const supported = player.grounded || (wasGrounded && player.vy >= 0 &&
+      Math.abs(player.y - contact.y) < Math.max(24, Math.abs(player.vx * dt) * 2.5));
+    if (supported && !player.skateWallSide) {
+      player.y = contact.y;
+      player.skatePitch = contact.pitch;
+      player.skateContacts = Number(contact.left) + Number(contact.right);
+      player.grounded = true;
+      player.vy = 0;
+      const distance = (player.x - previousX) / Math.max(.15, Math.cos(contact.pitch));
+      player.skateSpin = (player.skateSpin || 0) + distance / skateWheelRadius;
+      player.skateRollDistance = (player.skateRollDistance || 0) + Math.abs(distance);
+      if (player.skateContacts && player.skateRollDistance >= 100) {
+        player.skateRollDistance %= 100;
+        playDrum("hat", .12 + Math.min(.35, Math.abs(player.vx) / 8400), panPlayer(player));
+        emitSignal("skate-roll", player.pad, Math.round(Math.abs(player.vx)), player.skateContacts);
+      }
+      if (!wasGrounded) {
+        playDrum("clap", clamp(landingSpeed / 2000, .2, 1), panPlayer(player));
+        playDrum("block", clamp(landingSpeed / 2800, .15, .7), panPlayer(player));
+        emitSignal("skate-land", player.pad, Math.round(landingSpeed), player.skateContacts);
+      }
+    } else player.skateContacts = 0;
   }
   if (!wasGrounded && player.grounded) {
     const onBooster = boosterXs.some((x) => Math.abs(player.x - x) <= boosterRadius);
@@ -9265,7 +9293,6 @@ function gameSim() {
   // gates the fight, the claim and the wire, so it is settled once on the tick
   // rather than re-asked by each of them mid-paint.
   updateAccountDoor();
-  simulateAirParticles(dt, now);
   if (resimPending) {
     startResim(resimPending, now);
     resimPending = null;
@@ -9319,6 +9346,13 @@ function gameSim() {
       (Number(cameraPad.rightTrigger) || 0);
     if (Math.abs(push) > .08)
       playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
+  }
+  const wheel = globalThis.__oskiewarWheel;
+  if (wheel) {
+    playerCameraYaw = clamp(playerCameraYaw + wheel.yaw * 1.15 / 700, -.62, .62);
+    playerCameraPitch = clamp(playerCameraPitch + wheel.pitch * .72 / 700, -.24, .28);
+    playerCameraZoom = clamp(playerCameraZoom + wheel.zoom * .003, .55, 1.9);
+    wheel.yaw = wheel.pitch = wheel.zoom = 0;
   }
   // A tap anywhere on the wordmark screen is a start press — read before
   // the tap queue is wiped for the tick. The shell already turns first-visit
@@ -9737,9 +9771,12 @@ function damagedPartColor(color, player, part) {
 
 function drawSkeletonSegments(segments, color, outline, player = null) {
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
-  for (const segment of segments.filter((item) => !item.hitboxOnly))
+  if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
+  for (const segment of segments) {
+    if (segment.hitboxOnly) continue;
     filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       segment.width + edge * 2, outline);
+  }
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
     drawPaletteCapsule(segment, player && !player.npc
@@ -9918,7 +9955,19 @@ function fighterAnimationPhase(player, now = null) {
     frameNow: stateStartedAt + rawTick * replayTickUs };
 }
 
+// Only share poses during one interpolated paint. Simulation and rollback
+// always rebuild, because a hit may change limbs between queries in one tick.
+const renderPoses = new Map();
+let sharingRenderPoses = false;
 function runnerWorldGeometry(player, t) {
+  const cached = sharingRenderPoses && renderPoses.get(player);
+  if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
+  const pose = buildRunnerWorldGeometry(player, t);
+  if (sharingRenderPoses) renderPoses.set(player, { t, pose });
+  return pose;
+}
+
+function buildRunnerWorldGeometry(player, t) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
@@ -10065,7 +10114,7 @@ function runnerWorldGeometry(player, t) {
     segment(x - 48, feet - 12, x + 8, feet, 11, "left-shin");
     segment(x, hipY, x + 48, feet - 12, 11, "right-thigh");
     segment(x + 48, feet - 12, x - 8, feet, 11, "right-shin");
-  } else if (player.skateboard && player.grounded) {
+  } else if (player.skateboard) {
     // The deck is drawn tilted along the terrain, so each foot plants on
     // the deck's own top at its x — flat foot heights ran the board
     // through the shins on every slope.
@@ -10179,6 +10228,50 @@ function runnerWorldGeometry(player, t) {
     segment(x + 30 - arm * .45, elbowY, x + 36 - arm * .6, handY, 10,
       "right-forearm");
   }
+  if (player.skateboard && !headOnly) {
+    const deck = skateFrame(player);
+    const pitch = (player.skatePitch || 0) * .35;
+    const c = Math.cos(pitch), sn = Math.sin(pitch);
+    const transform = (px, py, depth) => ({
+      x: x + (px - x) * c - (py - feet) * sn,
+      y: feet - skateAxleDrop - skateWheelRadius + (px - x) * sn + (py - feet) * c,
+      z: z + depth,
+    });
+    Object.assign(head, transform(head.x, head.y, 0));
+    for (const bone of segments) {
+      const side = bone.part.startsWith("left-") ? -1 : bone.part.startsWith("right-") ? 1 : 0;
+      const depth = side * (bone.part.includes("arm") ? 15 : 9);
+      const a = transform(bone.x1, bone.y1, depth);
+      const b = transform(bone.x2, bone.y2, depth);
+      if (bone.role === "shoulders") {
+        a.z = z - 15;
+        b.z = z + 15;
+      }
+      Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z, x2: b.x, y2: b.y, z2: b.z });
+    }
+    if (player.attackKind !== "KICK" || !attackPulse) {
+      for (const [role, direction, part] of [["lead", player.facing, actionLeg],
+          ["rear", -player.facing, rearLeg]]) {
+        if (!hasPart(player, part)) continue;
+        const side = part === "left-leg" ? -1 : 1;
+        const hip = transform(x, hipY, side * 7);
+        const foot = deck(direction * skateTruck, -4, side * 9);
+        const dx = foot.x - hip.x, dy = foot.y - hip.y, dz = foot.z - hip.z;
+        const distance = Math.hypot(dx, dy, dz) || 1;
+        const length = Math.max(48, distance / 1.98);
+        const bend = Math.sqrt(Math.max(0, length * length - distance * distance / 4));
+        const norm = Math.hypot(dx, dy) || 1;
+        const knee = { x: (hip.x + foot.x) / 2 + dy / norm * bend * player.facing,
+          y: (hip.y + foot.y) / 2 - dx / norm * bend * player.facing,
+          z: (hip.z + foot.z) / 2 };
+        const thigh = segments.find((bone) => bone.role === role + "-thigh");
+        const shin = segments.find((bone) => bone.role === role + "-shin");
+        for (const [bone, a, b] of [[thigh, hip, knee], [shin, knee, foot]])
+          if (bone) Object.assign(bone, { x1: a.x, y1: a.y, z1: a.z,
+            x2: b.x, y2: b.y, z2: b.z });
+      }
+    }
+  }
   return { head, segments };
 }
 
@@ -10245,7 +10338,7 @@ function projectRunnerWorldGeometry(world) {
     segments: world.segments.map((segment) => {
       const a = projectPoint(segment.x1, segment.y1, segment.z1);
       const b = projectPoint(segment.x2, segment.y2, segment.z2);
-      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, depth: (a.z + b.z) / 2,
         width: Math.max(1.5, segment.width * cameraScale()),
         role: segment.role, part: segment.part,
         hitboxOnly: segment.hitboxOnly };
@@ -10678,17 +10771,58 @@ function damageAllLimbs(target, sourceX, sourcePad, now) {
   }
 }
 
+const skateTruck = 32;
+const skateWheelRadius = 8;
+const skateAxleDrop = 10;
+
+function skateContact(x, y) {
+  // Solve the truck chord against the supporting ledge or heightfield.
+  let pitch = 0, left = 0, right = 0;
+  for (let i = 0; i < 6; i++) {
+    const span = skateTruck * Math.cos(pitch);
+    left = surfaceYAt(x - span, y - 2);
+    right = surfaceYAt(x + span, y - 2);
+    pitch = Math.atan2(right - left, span * 2);
+  }
+  const c = Math.cos(pitch), sn = Math.sin(pitch);
+  const wheelX = -sn * skateAxleDrop;
+  left = surfaceYAt(x - skateTruck * c + wheelX, y - 2);
+  right = surfaceYAt(x + skateTruck * c + wheelX, y - 2);
+  const deckY = Math.min(left + skateTruck * sn, right - skateTruck * sn) -
+    skateAxleDrop * c - skateWheelRadius;
+  return { pitch, y: deckY + skateAxleDrop + skateWheelRadius,
+    left: Math.abs(deckY - skateTruck * sn + skateAxleDrop * c + skateWheelRadius - left) < 3,
+    right: Math.abs(deckY + skateTruck * sn + skateAxleDrop * c + skateWheelRadius - right) < 3 };
+}
+
+function skateFrame(player) {
+  const pitch = player.skateWallSide ? Math.PI / 2 : player.skatePitch || 0;
+  const c = Math.cos(pitch), sn = Math.sin(pitch);
+  const down = player.skateWallSide > 0 ? -1 : 1;
+  return (along, height = 0, across = 0) => ({
+    x: player.x + c * along - sn * height * down,
+    y: player.y - skateAxleDrop - skateWheelRadius + sn * along + c * height * down,
+    z: player.z + across,
+  });
+}
+
+function resetSkate(player) {
+  player.skateboard = false;
+  player.skateVx = player.skateWallSide = player.skatePitch = 0;
+  player.skateSpin = player.skateRollDistance = player.skateCarveDir = 0;
+  player.skateContacts = 0;
+  player.walkSince = player.runSince = 0;
+}
+
 function dismountSkateboard(target, now) {
   if (!target.skateboard) return false;
-  target.skateboard = false;
-  target.skateVx = 0;
-  target.skateWallSide = 0;
-  const board = balls.find((item) => item.type === "hoverboard");
+  resetSkate(target);
+  const board = balls.find((item) => item.type === "skateboard");
   if (!board) return true;
   board.active = true;
   board.heldBy = -1;
   board.x = target.x - target.facing * 58;
-  board.y = terrainFloorAt(board.x) - board.radius;
+  board.y = target.y - skateAxleDrop - skateWheelRadius;
   board.z = target.z;
   board.vx = -target.facing * 720;
   board.vy = -260;
@@ -11844,30 +11978,7 @@ function drawRunner(player, t, showLabel = true) {
     ? mixColor([255, 232, 92], [28, 34, 52], visualTheme.light)
     : [8, 12, 24];
   const displayNow = player.frozenAt || runtime().monotonicUs;
-  if (player.skateboard) {
-    const board = projectPoint(player.x, player.y + 5, player.z);
-    // The tilt probes ask for the surface the rider is actually on: bare
-    // terrain reads the arena floor, which would pitch a rung-riding board
-    // toward the storey below the moment the ground under it sloped.
-    const boardSurface = (probeX) =>
-      Math.min(surfaceYAt(probeX, player.y), player.y + 20);
-    const leftEdge = player.skateWallSide
-      ? projectPoint(player.x, player.y - 67, player.z)
-      : projectPoint(player.x - 72,
-        boardSurface(player.x - 72) + 5, player.z);
-    const boardEdge = player.skateWallSide
-      ? projectPoint(player.x, player.y + 77, player.z)
-      : projectPoint(player.x + 72,
-        boardSurface(player.x + 72) + 5, player.z);
-    const reach = Math.max(.5, Math.hypot(boardEdge.x - leftEdge.x,
-      boardEdge.y - leftEdge.y) / 2);
-    const rotation = Math.atan2(boardEdge.y - leftEdge.y,
-      boardEdge.x - leftEdge.x);
-    // The wallride board reads nose-down whichever wall it is on, so the right
-    // wall needs its underside flipped to keep the wheels on the bricks.
-    drawSkateboardSymbol(board, reach, rotation,
-      player.skateWallSide > 0 ? -1 : 1);
-  }
+  if (player.skateboard) drawSkateboard(player);
   drawFighterSilhouette(geometry, color, outline, player);
   const hitNow = runtime().monotonicUs;
   if (player.hitSegment >= 0 && hitNow < player.hitSegmentUntil &&
@@ -11935,6 +12046,37 @@ function drawDoubleJumpMotion(player, t) {
 // over every recording of it. VIEW (tab) is now the only thing that shows
 // them — `impactHitboxesUntil` still times the flash, but only for someone
 // who has already asked to see the geometry.
+// A capsule needs two half-caps, not two overlapping full discs.
+const debugArcs = [3, 4, 6, 8, 10].map((steps) =>
+  Array.from({ length: steps + 1 }, (_, i) => [
+    Math.cos(Math.PI / 2 + i * Math.PI / steps),
+    Math.sin(Math.PI / 2 + i * Math.PI / steps),
+  ]));
+function debugCapsule(x1, y1, x2, y2, width, color) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  const c = length ? dx / length : 1, sn = length ? dy / length : 0;
+  const radius = width / 2;
+  const nx = -sn * radius, ny = c * radius;
+  const [r, g, b] = color;
+  screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
+    x2 + nx, y2 + ny, r, g, b);
+  screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
+    x2 + nx, y2 + ny, r, g, b);
+  const arc = debugArcs[radius < 6 ? 0 : radius < 13 ? 1 : radius < 26 ? 2 : radius < 52 ? 3 : 4];
+  for (let end = 0; end < 2; end++) {
+    const x = end ? x2 : x1, y = end ? y2 : y1;
+    const scale = end ? -radius : radius;
+    for (let i = 1; i < arc.length; i++) {
+      const a = arc[i - 1], next = arc[i];
+      screenTriangle(x, y, x + (a[0] * c - a[1] * sn) * scale,
+        y + (a[0] * sn + a[1] * c) * scale,
+        x + (next[0] * c - next[1] * sn) * scale,
+        y + (next[0] * sn + next[1] * c) * scale, r, g, b);
+    }
+  }
+}
+
 function drawDebugHitboxes(player, t) {
   // The hud experiment flag prices the debug geometry itself — boxes, crops
   // and skeletal overlays — while the fps read-out, bug and session name
@@ -11962,7 +12104,7 @@ function drawDebugHitboxes(player, t) {
   const spentColor = [72, 150, 255];
 
   for (const segment of geometry.segments)
-    filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+    debugCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
       Math.max(2, segment.width * .22), hurtColor);
   filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
     Math.max(0, geometry.head.radius - Math.max(2,
@@ -11978,7 +12120,7 @@ function drawDebugHitboxes(player, t) {
   ];
   for (let index = 0; index < corners.length; index++) {
     const next = corners[(index + 1) % corners.length];
-    filledCapsule(corners[index].x, corners[index].y,
+    debugCapsule(corners[index].x, corners[index].y,
       next.x, next.y, 2, pushColor);
   }
 
@@ -11991,7 +12133,7 @@ function drawDebugHitboxes(player, t) {
     const live = !player.attackHit;
     for (const segment of geometry.segments) {
       if (!segment.role?.startsWith("attack-")) continue;
-      filledCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
+      debugCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
         segment.width + 5, live ? attackColor : spentColor);
     }
   }
@@ -12030,13 +12172,14 @@ function drawFrameMeter() {
     // The empty track, so a meter that has not filled yet reads as a meter
     // rather than as nothing having happened.
     box(left, y, width, rowHeight, 16, 19, 30);
-    for (let index = 0; index < meter.length; index++) {
-      const state = frameMeterStates[meter[index]] || frameMeterStates.neutral;
-      // Right-aligned: the newest frame pins to the right edge and the
-      // history slides left off the front, which is what makes the present
-      // moment sit still while the past moves.
-      const x = left + width - (meter.length - index) * (pip + gap);
-      box(x, y, pip, rowHeight, ...state.ink);
+    // Pips never overlap. Group colors while retaining every one-frame gap.
+    for (const key of new Set(meter)) {
+      const state = frameMeterStates[key] || frameMeterStates.neutral;
+      for (let index = 0; index < meter.length; index++) {
+        if (meter[index] !== key) continue;
+        const x = left + width - (meter.length - index) * (pip + gap);
+        box(x, y, pip, rowHeight, ...state.ink);
+      }
     }
     // Whose row this is, in their own color, at the left end where it cannot
     // sit on top of the frames anybody is actually reading.
@@ -12045,10 +12188,9 @@ function drawFrameMeter() {
   // The legend, once, above the pair -- and only the states the last two
   // seconds actually contained, because a legend listing colors that are not
   // on screen is a thing to decode rather than a thing to read.
-  const seen = [];
+  const seen = new Set();
   for (const meter of frameMeters) for (const state of meter)
-    if (!seen.includes(state) && frameMeterStates[state]?.label)
-      seen.push(state);
+    if (frameMeterStates[state]?.label) seen.add(state);
   let x = left;
   for (const state of seen) {
     const entry = frameMeterStates[state];
@@ -12590,19 +12732,31 @@ function worldQuad(a, b, c, d, color) {
   worldTriangle(a, c, d, lit);
 }
 
-function drawTerrainSurface(left, right, near, far, color) {
+// Preserve the sampled silhouette, merging only collinear edges.
+const terrainProfile = (() => {
+  const points = [];
   const step = (worldRight - worldLeft) / terrainSamples;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    const slope = Math.abs(y2 - y1) / Math.max(1, step);
-    const grain = .5 + .5 * Math.sin(index * 12.9898 + terrainPhase * 4.17);
-    const earthy = mixColor([75, 91, 68], [205, 194, 156], grain * .34);
-    const shade = mixColor(color, earthy, .08 + slope * .22 + grain * .16);
+  for (let i = 0; i <= terrainSamples; i++) {
+    const x = worldLeft + i * step;
+    const point = { x, y: terrainFloorAt(x) };
+    while (points.length > 1) {
+      const a = points[points.length - 2], b = points[points.length - 1];
+      if (Math.abs((b.y - a.y) * (point.x - b.x) -
+          (point.y - b.y) * (b.x - a.x)) > .00001) break;
+      points.pop();
+    }
+    points.push(point);
+  }
+  return points;
+})();
+
+function drawTerrainSurface(left, right, near, far, color) {
+  for (let index = 1; index < terrainProfile.length; index++) {
+    const { x: x1, y: y1 } = terrainProfile[index - 1];
+    const { x: x2, y: y2 } = terrainProfile[index];
+    if (x2 < left || x1 > right) continue;
+    const slope = Math.abs(y2 - y1) / Math.max(1, x2 - x1);
+    const shade = mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
     worldQuad(
       { x: x1, y: y1, z: near }, { x: x2, y: y2, z: near },
       { x: x2, y: y2, z: far }, { x: x1, y: y1, z: far }, shade);
@@ -12622,19 +12776,14 @@ function drawTerrainFrontWall(left, right, near, color) {
   // reels the skirt hangs just behind the fighters' plane instead, deep enough
   // that no frame sees under it, and wears the ground color — so everything
   // below the floor line reads as earth.
-  const step = (worldRight - worldLeft) / terrainSamples;
   const reel = reelGroundCamera();
+  const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
-    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
+  for (let index = 1; index < terrainProfile.length; index++) {
+    const { x: x1, y: y1 } = terrainProfile[index - 1];
+    const { x: x2, y: y2 } = terrainProfile[index];
+    if (x2 < left || x1 > right) continue;
     worldQuad(
       { x: x1, y: y1, z: wallZ },
       { x: x2, y: y2, z: wallZ },
@@ -12655,20 +12804,13 @@ function drawTerrainBackWall(left, right, far, color) {
   // that one where no reel frame ever looks -- pure cost, and a change to
   // footage whose framing is test-enshrined.
   if (reelGroundCamera()) return;
-  const step = (worldRight - worldLeft) / terrainSamples;
+  const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = far + 2;
   const wallBottom = floorY + 720;
-  const first = clamp(Math.floor((left - worldLeft) / step), 0, terrainSamples - 1);
-  const last = clamp(Math.ceil((right - worldLeft) / step), first + 1, terrainSamples);
-  for (let index = first; index < last; index++) {
-    const x1 = worldLeft + index * step;
-    const x2 = worldLeft + (index + 1) * step;
-    const y1 = terrainFloorAt(x1);
-    const y2 = terrainFloorAt(x2);
-    // Same grain walk as the front skirt, so the two edges read as one solid
-    // block of earth rather than two differently-eroded walls.
-    const grain = .5 + .5 * Math.sin(index * 9.71 + terrainPhase * 3.13);
-    const wall = mixColor(color, [63, 54, 46], .3 + grain * .12);
+  for (let index = 1; index < terrainProfile.length; index++) {
+    const { x: x1, y: y1 } = terrainProfile[index - 1];
+    const { x: x2, y: y2 } = terrainProfile[index];
+    if (x2 < left || x1 > right) continue;
     worldQuad(
       { x: x1, y: y1, z: wallZ },
       { x: x2, y: y2, z: wallZ },
@@ -12934,60 +13076,39 @@ function projectedBallRadius(ball) {
   return Math.max(.5, Math.abs(edge.x - center.x));
 }
 
-// A skateboard on this stage is only ever seen from the side, because the
-// fighters ride a single plane, so it is drawn as a side profile rather than as
-// a board in the round: a kicked deck, two trucks hanging under it, and one
-// wheel apiece. The trucks used to straddle the deck with a wheel on each face,
-// which from the only available angle read as wheels above *and* below the
-// plank. `underside` says which way is down for this board, so a wallride keeps
-// its wheels against the wall instead of hanging them through it.
-// The hover board, drawn the same everywhere it appears: lying on the deck
-// waiting, under a rider's feet, and spinning through the air after a throw.
-// It kept the old board's proportions and lost its wheels — where the trucks
-// and the two yellow wheels used to hang there are now two thruster pads with
-// a lit wash under each, so what the board is doing (holding itself up) is
-// what you can see it doing.
-function drawSkateboardSymbol(point, radius, rotation = 0, underside = 1) {
-  const alongX = Math.cos(rotation);
-  const alongY = Math.sin(rotation);
-  const downX = -Math.sin(rotation) * underside;
-  const downY = Math.cos(rotation) * underside;
-  const deck = [236, 76, 118];
-  const edge = [34, 25, 39];
-  const truck = [174, 184, 202];
-  // The thruster wash breathes rather than holding a flat tone, on the same
-  // clock the pickups bob on, so a parked board is never a dead object.
-  const thrust = mixColor([96, 226, 255], [244, 252, 255],
-    .35 + .35 * Math.sin(runtime().monotonicUs / 140000));
-  // Board space: `along` runs nose to tail, `down` points at the deck the
-  // board is holding itself off. Every measurement below is a fraction of the
-  // board's reach, so a parked board and a ridden one are the same drawing.
-  const at = (along, down) => ({
-    x: point.x + (alongX * along + downX * down) * radius,
-    y: point.y + (alongY * along + downY * down) * radius,
-  });
-  const plank = (from, to, width, color) =>
-    filledCapsule(from.x, from.y, to.x, to.y,
-      Math.max(.35, radius * width), color);
-  // Nose and tail kick away from the wheels, so the deck reads as a board and
-  // not as a plank even at the size it drops in at.
-  for (const end of [-1, 1]) {
-    plank(at(end * .66, 0), at(end * .93, -.15), .2, edge);
-    plank(at(end * .66, 0), at(end * .9, -.135), .12, deck);
-  }
-  plank(at(-.7, 0), at(.7, 0), .22, edge);
-  plank(at(-.68, 0), at(.68, 0), .14, deck);
-  // The pads tuck up under the deck the way the trucks did, so the whole
-  // board still reads as one object at the size it lies on the floor at. The
-  // wash under each is drawn wide and dim first, then narrow and bright, which
-  // is the same three-pass trick the saber blade uses one scale up.
-  for (const direction of [-1, 1]) {
-    plank(at(direction * .44, .05), at(direction * .44, .13), .09, truck);
-    plank(at(direction * .5, .16), at(direction * .38, .16), .07, thrust);
-    plank(at(direction * .5, .3), at(direction * .38, .3), .13,
-      mixColor(thrust, [20, 32, 56], .55));
-    plank(at(direction * .47, .24), at(direction * .41, .24), .06,
-      [244, 252, 255]);
+function drawSkateboard(player) {
+  const at = skateFrame(player);
+  const deck = [236, 76, 118], grip = [34, 25, 39], truck = [174, 184, 202];
+  const quad = (a, b, c, d, color) => worldQuad(at(...a), at(...b), at(...c), at(...d), color);
+  const axle = (a, b, width, color) => {
+    const p = at(...a), q = at(...b);
+    worldCapsule(p.x, p.y, p.z, q.x, q.y, q.z, Math.max(.4, width * cameraScale()), color);
+  };
+  // Far wheels, deck, near wheels: preserve occlusion in the Canvas2D host.
+  const wheel = (along, side) => {
+    const spin = player.skateSpin || 0;
+    const center = at(along, skateAxleDrop, side * 15);
+    for (let i = 0; i < 10; i++) {
+      const a = spin + i * Math.PI / 5, b = spin + (i + 1) * Math.PI / 5;
+      worldTriangle(center,
+        at(along + Math.cos(a) * skateWheelRadius,
+          skateAxleDrop + Math.sin(a) * skateWheelRadius, side * 15),
+        at(along + Math.cos(b) * skateWheelRadius,
+          skateAxleDrop + Math.sin(b) * skateWheelRadius, side * 15),
+        i % 5 === 0 ? truck : [243, 210, 103]);
+    }
+  };
+  const near = cameraDoll.position.z < player.z ? -1 : 1;
+  for (const along of [-skateTruck, skateTruck]) wheel(along, -near);
+  quad([-48, -4, -12], [48, -4, -12], [48, -4, 12], [-48, -4, 12], grip);
+  quad([-48, -4, near * 12], [48, -4, near * 12], [48, 0, near * 12], [-48, 0, near * 12], deck);
+  for (const end of [-1, 1])
+    quad([end * 48, -4, -12], [end * 64, -12, -10],
+      [end * 64, -12, 10], [end * 48, -4, 12], deck);
+  for (const along of [-skateTruck, skateTruck]) {
+    axle([along, 0, 0], [along, skateAxleDrop, 0], 4, truck);
+    axle([along, skateAxleDrop, -15], [along, skateAxleDrop, 15], 3, truck);
+    wheel(along, near);
   }
 }
 
@@ -13004,7 +13125,7 @@ function drawBall(ball) {
       point.y - radius > viewHeight) return;
   const soccer = ball.type === "soccer";
   const beach = ball.type === "beach";
-  const skateboard = ball.type === "hoverboard";
+  const skateboard = ball.type === "skateboard";
   const polygon = (x, y, polygonRadius, sides, rotation, color) => {
     for (let side = 0; side < sides; side++) {
       const a = rotation + side * Math.PI * 2 / sides;
@@ -13017,7 +13138,8 @@ function drawBall(ball) {
     }
   };
   if (skateboard) {
-    drawSkateboardSymbol(point, radius, ball.rotation);
+    drawSkateboard({ x: ball.x, y: ball.y + skateAxleDrop + skateWheelRadius,
+      z: ball.z, skatePitch: ball.rotation, skateSpin: ball.skateSpin || 0 });
     return;
   }
   if (beach) {
@@ -14883,13 +15005,18 @@ function paint() {
     return;
   }
   const restore = beginRenderInterpolation(runtime().renderAlpha ?? 1);
+  sharingRenderPoses = true;
   try {
     gamePaint();
   } catch (error) {
     captureClientError("paint", error);
     try { drawClientError(); }
     catch (_) { drawClientErrorFallback(); }
-  } finally { restore(); }
+  } finally {
+    sharingRenderPoses = false;
+    renderPoses.clear();
+    restore();
+  }
 }
 
 function act() {}
