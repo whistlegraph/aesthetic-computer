@@ -1,9 +1,10 @@
 import Foundation
 
-/// Saved Loopboy routing and the live launch identity are deliberately
+/// Saved Loopboy routing and the live session identity are deliberately
 /// separate. A route is operational only when both agree: editing the JSON
-/// registry cannot retrofit the environment, MCP headers, or reduced tool
-/// surface that a guarded Loopboy receives at process launch.
+/// registry alone never badges a session. The marker's `loopboy_contact`
+/// is set at process launch (SLAB_LOOPBOY_CONTACT) or stamped in place by
+/// `prox_bind_notification adopt=true`, which the prompt hook then preserves.
 struct LoopboyRoute {
     let contact: String
     let channel: String

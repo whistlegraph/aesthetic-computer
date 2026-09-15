@@ -42,6 +42,10 @@ if [[ -n "$input" ]]; then
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         started_at=$(jq -r '.started_at // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)
         [[ -n "$started_at" ]] || started_at=$ts
+        # A launched Loopboy carries its contact in the environment; an
+        # adopted one (prox_bind_notification adopt=true) carries it only on
+        # this marker, so keep the stamped value across rewrites.
+        contact=${SLAB_LOOPBOY_CONTACT:-$(jq -r '.loopboy_contact // empty' "$ACTIVE_DIR/$session_id" 2>/dev/null || true)}
 
         # 4–8 word summary used as the live Terminal title and the menubar's
         # short subject. We collapse whitespace, take the first 7 words, and
@@ -68,7 +72,7 @@ if [[ -n "$input" ]]; then
             --arg ts "$ts" \
             --arg started "$started_at" \
             --arg sum "$summary" \
-            --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "${SLAB_LOOPBOY_CONTACT:-}" \
+            --arg nudge "${SLAB_NUDGE_SCREEN:-}" --arg contact "$contact" \
             '{session_id: $sid, cwd: .cwd, subject: (.prompt | tostring | .[0:140]), summary: $sum, tty: $tty, claude_pid: ($pid | tonumber? // 0), agent_pid: ($pid | tonumber? // 0), agent_type: "claude", updated: $ts, state: "working", nudge_screen:$nudge, loopboy_contact:$contact}' \
             > "$ACTIVE_DIR/$session_id" 2>/dev/null
 

@@ -253,3 +253,72 @@ test("a guarded Loopboy can release its route and schedule its own shutdown", as
   const config = JSON.parse(await readFile(join(slabDir, "loopboy.json"), "utf8"));
   assert.equal(config.loops.alex, undefined);
 });
+
+async function ordinaryRock(home, id, extra = {}) {
+  const slabDir = join(home, ".config", "slab");
+  const ledgerDir = join(slabDir, "ledger");
+  const markers = join(home, ".local", "share", "slab", "state", "active-prompts");
+  await mkdir(join(ledgerDir, "peers"), { recursive: true });
+  await mkdir(markers, { recursive: true });
+  const now = Date.now();
+  await writeFile(join(ledgerDir, "local.json"), JSON.stringify({
+    host: "neo", ip: "127.0.0.1", updatedAt: now,
+    entries: [{
+      id, host: "neo", name: "surizu", subject: "for her", agentType: "claude",
+      status: "complete", kind: "session", seed: "9abc", cwd: home,
+      updated: now, started: now - 5_000, ...extra,
+    }],
+  }));
+  await writeFile(join(markers, id), JSON.stringify({
+    session_id: id, cwd: home, subject: "for her", summary: "for her", tty: "ttys006",
+    claude_pid: process.pid, agent_pid: process.pid, agent_type: "claude",
+    updated: new Date(now).toISOString(), state: "complete", nudge_screen: "", loopboy_contact: "",
+  }) + "\n");
+  return { slabDir, marker: join(markers, id) };
+}
+
+test("adopt converts an ordinary Claude rock in place and renames it", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "cccccccc-1111-2222-3333-444444444444";
+  const { slabDir, marker } = await ordinaryRock(home, id);
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
+
+  const refused = await callProx(home, "prox_bind_notification", {
+    handle: "neo:surizu", contact: "fia",
+  }, env);
+  assert.match(refused, /was not launched as a guarded Loopboy; pass adopt=true/);
+  assert.equal(JSON.parse(await readFile(marker, "utf8")).loopboy_contact, "");
+
+  const bound = await callProx(home, "prox_bind_notification", {
+    handle: "neo:surizu", contact: "fia", adopt: true, name: "surizo",
+  }, env);
+  assert.match(bound, /Loopboy bound fia → neo:surizo/);
+  assert.match(bound, /adopted in place: marker cccccccc stamped loopboy_contact=fia/);
+  const stamped = JSON.parse(await readFile(marker, "utf8"));
+  assert.equal(stamped.loopboy_contact, "fia");
+  assert.equal(stamped.claude_pid, process.pid);
+  const config = JSON.parse(await readFile(join(slabDir, "loopboy.json"), "utf8"));
+  assert.equal(config.loops.fia.sessionId, id);
+  assert.equal(config.loops.fia.name, "surizo");
+  assert.equal(config.loops.fia.agent, "claude");
+  assert.equal(config.loops.fia.wake, true);
+});
+
+test("adopt refuses Codex-backed rocks and rocks guarded for someone else", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "dddddddd-1111-2222-3333-444444444444";
+  const { marker } = await ordinaryRock(home, id, { agentType: "codex" });
+  const env = { SLAB_HOME: join(home, ".local", "share", "slab") };
+  const codex = await callProx(home, "prox_bind_notification", {
+    handle: "neo:surizu", contact: "fia", adopt: true,
+  }, env);
+  assert.match(codex, /is a codex session; Codex-backed Loopboys need their contact headers at launch/);
+  assert.equal(JSON.parse(await readFile(marker, "utf8")).loopboy_contact, "");
+
+  const other = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  await ordinaryRock(other, id, { loopboyContact: "alex" });
+  const foreign = await callProx(other, "prox_bind_notification", {
+    handle: "neo:surizu", contact: "fia", adopt: true,
+  }, { SLAB_HOME: join(other, ".local", "share", "slab") });
+  assert.match(foreign, /was launched for alex, not fia/);
+});

@@ -476,22 +476,65 @@ async function toolJob({ host, job = "mediascholar", action = "status" }) {
   return [{ type: "text", text: `${target.host}:${jobName} ${jobAction} — ${detail}` }];
 }
 
-async function toolBindNotification({ handle, contact, event = "imessage", wake = true }) {
+// ── adoption: convert a running ordinary rock into a Loopboy in place ──────
+// A launched Loopboy gets its contact from SLAB_LOOPBOY_CONTACT at process
+// start, and the prompt hook copies that into the session marker on every
+// prompt. Adoption stamps the same field onto a live Claude marker instead;
+// the hook keeps a stamped contact across rewrites, so the menubar verifies
+// the route on its next refresh and the rock re-forms as a gem with the
+// cadence strip — Terminal window and conversation untouched.
+async function adoptRock(r, contactKey) {
+  if (isCodexBacked(r.agentType)) {
+    throw new Error(
+      `${r.host}:${r.name} is a ${r.agentType} session; Codex-backed Loopboys need their ` +
+      `contact headers at launch — start one with prox_launch and loopboyContact=${contactKey}`,
+    );
+  }
+  const path = join(MARKER_DIRS[0], r.id);
+  const marker = await readJson(path);
+  if (!marker) throw new Error(`${r.host}:${r.name} has no live session marker to adopt (is its Terminal still open?)`);
+  const pid = Number(marker.claude_pid || marker.agent_pid || 0);
+  if (!pid || !pidAlive(pid)) throw new Error(`${r.host}:${r.name} marker points at a dead process (pid ${pid || "?"})`);
+  marker.loopboy_contact = contactKey;
+  await writeFile(path, JSON.stringify(marker) + "\n");
+  return `adopted in place: marker ${r.id.slice(0, 8)} stamped loopboy_contact=${contactKey}; the rock re-forms as a gem on the next menubar refresh.`;
+}
+
+async function toolBindNotification({ handle, contact, event = "imessage", wake = true, adopt = false, name = "" }) {
   if (event !== "imessage") throw new Error("only the `imessage` Slab notification is supported");
   if (!handle) throw new Error("`handle` is required (use the stable host:name or session id)");
   const contactKey = String(contact || "").trim().toLowerCase();
   if (!contactKey) throw new Error("`contact` is required (the key from ~/.config/slab/imsg.json)");
+  const petName = String(name || "").trim().toLowerCase();
+  if (petName && !/^[a-z][a-z0-9_-]{1,15}$/.test(petName)) {
+    throw new Error("`name` must be a short lowercase pet name (2–16 letters, digits, - or _)");
+  }
   const hits = resolve(await allRocks(), handle);
   if (!hits.length) throw new Error(`no rock resolves «${handle}» to bind.`);
   if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
   const r = hits[0];
   if (!r.self) throw new Error("iMessage notification wake targets must be a local prox on this machine");
+  const launched = String(r.loopboyContact || "").trim().toLowerCase();
+  if (launched && launched !== contactKey) {
+    throw new Error(`${r.host}:${r.name} was launched for ${launched}, not ${contactKey}`);
+  }
+  let adoption = "";
+  if (!launched) {
+    if (!adopt) {
+      throw new Error(
+        `${r.host}:${r.name} was not launched as a guarded Loopboy; pass adopt=true to convert it in place, ` +
+        `or start a dedicated one with prox_launch and loopboyContact=${contactKey}`,
+      );
+    }
+    adoption = `\n${await adoptRock(r, contactKey)}`;
+  }
   const loop = {
     event: "imessage",
     contact: contactKey,
     sessionId: r.id,
     host: r.host,
-    name: r.name,
+    name: petName || r.name,
+    agent: r.agentType || "claude",
     wake: wake !== false,
     assignedAt: new Date().toISOString(),
   };
@@ -501,7 +544,7 @@ async function toolBindNotification({ handle, contact, event = "imessage", wake 
   cfg.loops ||= {};
   cfg.loops[contactKey] = loop;
   await writeFile(LOOPBOY_CONFIG, JSON.stringify(cfg, null, 2) + "\n", { mode: 0o600 });
-  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${r.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.` }];
+  return [{ type: "text", text: `Loopboy bound ${contactKey} → ${r.host}:${loop.name} (${r.id}) — poke${loop.wake ? " + reactivate" : " only"}.${adoption}` }];
 }
 
 async function toolClose({ handle }) {
@@ -645,6 +688,8 @@ const TOOLS = [
         contact: { type: "string", description: "Contact key from ~/.config/slab/imsg.json, for example alex." },
         event: { type: "string", enum: ["imessage"], default: "imessage" },
         wake: { type: "boolean", default: true, description: "Also reactivate the agent session; false means visual poke only." },
+        adopt: { type: "boolean", default: false, description: "Convert an ordinary running Claude rock into this contact's Loopboy in place: stamps its live marker, keeps the window open, and the rock re-forms as a gem." },
+        name: { type: "string", description: "Optional pet name for the Loopboy, for example surizo. Defaults to the rock's current name." },
       },
       required: ["handle", "contact"],
     },
