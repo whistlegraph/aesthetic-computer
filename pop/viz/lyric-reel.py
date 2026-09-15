@@ -24,6 +24,7 @@
 #                            no title, labels, needle, or progress chrome
 #       [--blur PX]          horizontal motion blur on the words as they fly
 #                            (default 26 with --bare, 0 otherwise)
+#       [--cover PATH]       the record's cover (default: the score's "cover", else wannadash)
 #       [--stamp SPECS]      extra sung tokens absent from the dump, e.g. the
 #                            ident: "whistlegraph@0.05-1.05:jeffrey,org@..."
 #                            (word@t0-t1[:rail], comma-separated)
@@ -904,7 +905,7 @@ def draw_mix_oscilloscope(layer, master_t):
 
 # The single's actual artwork: the blacklight powder field. It rides
 # bottom-center as the identity badge and bumps with the record.
-WANNA_COVER_PATH = f"{REPO}/pop/cult/cover/wannadash-cover-gpt-image-2-field.jpg"
+WANNA_COVER_PATH = argval("--cover", S.get("cover") or f"{REPO}/pop/cult/cover/wannadash-cover-gpt-image-2-field.jpg")
 _wanna_cover = Image.open(WANNA_COVER_PATH).convert("RGB")
 COVER_TILE_CACHE = {}
 

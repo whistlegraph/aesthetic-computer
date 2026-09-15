@@ -1,0 +1,27 @@
+{
+  "title": "amazing grace",
+  "artist": "Aesthetic Dot Computer",
+  "albumTitle": "pixsies",
+  "label": "Aesthetic Dot Computer",
+  "primaryGenre": "Electronic",
+  "secondaryGenre": "Pop",
+  "subgenre": "Ambient",
+  "songwriters": ["John Newton", "William Walker", "Jeffrey Scudder"],
+  "songwriterNotes": "John Newton (lyrics, 1779, public domain); William Walker (New Britain tune, 1835, public domain); Jeffrey Scudder (arrangement).",
+  "instrumental": false,
+  "explicit": false,
+  "language": "English",
+  "year": 2026,
+  "previouslyReleased": false,
+  "releaseDate": "asap",
+  "audioFile": "amazing-grace-MASTER.flac",
+  "coverFile": "amazing-grace-cover.jpg",
+  "preserveCapitalization": true,
+  "featuredInTitle": false,
+  "performers": [ { "name": "Jeffrey Scudder", "role": "Singing & vocals" } ],
+  "producers": [ { "name": "Jeffrey Scudder", "role": "Producer" } ],
+  "master": {
+    "lufs": -11.6, "lra": 6.1, "dbtp": -2.0, "seconds": 69.29,
+    "chain": "pop/big-pictures/bin/bake-amazing.sh (c/amazinhym → bin/sing-amazing.mjs → mix → bin/cut-amazing.sh)"
+  }
+}

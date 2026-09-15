@@ -19,6 +19,40 @@
       "releaseData": null
     },
     {
+      "slug": "amazing-grace",
+      "title": "amazing grace",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 70,
+      "key": "G major",
+      "meter": "4-beat cells with a pickup",
+      "duration": 69.286,
+      "cover": "https://assets.aesthetic.computer/pop/amazing-grace.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/amazing-grace.mp3",
+      "piece": "https://aesthetic.computer/amazing-grace",
+      "links": {},
+      "credits": "Aesthetic Dot Computer. Words John Newton (1779), tune New Britain (William Walker, 1835), both public domain. Sung by jeffrey-pvc through the WORLD speech-to-singing chain; bed from the lane's C engine, phrased on the hymn's own cells. Arranged and produced by Jeffrey Scudder.",
+      "releaseData": null
+    },
+    {
+      "slug": "femrag-plusplus",
+      "title": "Femrag++",
+      "artist": "Aesthetic Dot Computer",
+      "album": "pixsies",
+      "bpm": 144,
+      "key": "A major",
+      "meter": "4/4",
+      "duration": 146.666689,
+      "cover": "https://assets.aesthetic.computer/pop/femrag-plusplus.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/femrag-plusplus.mp3",
+      "piece": "https://aesthetic.computer/femrag-plusplus",
+      "links": {
+        "spotify": "https://open.spotify.com/track/2v7LcVM38kpiIYd0RWQJzm"
+      },
+      "credits": "FEM bell modes from pop/bell. Label stamp spoken by Prutti.",
+      "releaseData": null
+    },
+    {
       "slug": "fluttabap360",
       "title": "fluttabap360",
       "artist": "Aesthetic Dot Computer",
@@ -120,6 +154,38 @@
         "spotify": "https://open.spotify.com/track/4SVH80CTkq2BihSlSyiJhG"
       },
       "credits": "5/4 chill-trance — hellsine gabber kick, odyssey theremin, jeffrey hum, supersaw wall. part of pixsies.",
+      "releaseData": null
+    },
+    {
+      "slug": "wannadash",
+      "title": "wannadash",
+      "artist": "Whistlegraph Dot Org",
+      "album": "wannadash",
+      "bpm": "120–128",
+      "key": "B minor",
+      "meter": "4/4",
+      "duration": 114.125,
+      "cover": "https://assets.aesthetic.computer/pop/wannadash.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/wannadash.mp3",
+      "piece": "https://aesthetic.computer/wannadash",
+      "links": {},
+      "credits": "Whistlegraph Dot Org. Voices: Camille Klein, Alex Freundlich, Jeffrey Scudder. From The Three of Us Are in a Cult (Whistlegraph, 2022). Produced by Jeffrey Scudder / Aesthetic Dot Computer.",
+      "releaseData": null
+    },
+    {
+      "slug": "wattajetta-stone-club",
+      "title": "Wattajetta Stone Club",
+      "artist": "Aesthetic Dot Computer",
+      "album": "Wattajetta Stone Club",
+      "bpm": "127–138",
+      "key": "E minor pentatonic",
+      "meter": "4/4",
+      "duration": 130.716708,
+      "cover": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/wattajetta-stone-club.mp3",
+      "piece": "https://aesthetic.computer/wattajetta-stone-club",
+      "links": {},
+      "credits": "Water-engine stone club single. Composition and production: Aesthetic Dot Computer.",
       "releaseData": null
     }
   ]
