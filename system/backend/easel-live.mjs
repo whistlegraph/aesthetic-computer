@@ -11,6 +11,8 @@ const reply=(statusCode,value)=>({statusCode,headers:{...headers,'Content-Type':
 export const WRITE_SCRIPT=`
 local owner=redis.call('HGET',KEYS[1],'owner')
 if owner and owner~=ARGV[1] then return -1 end
+local alias=redis.call('GET',KEYS[5])
+if alias and alias~=ARGV[12] then return -6 end
 local seq=tonumber(redis.call('HGET',KEYS[1],'sequence') or '0')
 if tonumber(ARGV[2])<=seq then return -2 end
 if ARGV[3]=='stopped' and not owner then return -5 end
@@ -29,12 +31,14 @@ redis.call('HSET',KEYS[1],'owner',ARGV[1],'sequence',ARGV[2],'status',ARGV[3],'u
 if ARGV[3]=='live' then
  redis.call('HSET',KEYS[1],'kind',ARGV[4],'version',ARGV[5],'mime',ARGV[6],'data',ARGV[7])
 else redis.call('HDEL',KEYS[1],'data') end
+redis.call('SET',KEYS[5],ARGV[12],'EX',ARGV[10])
 redis.call('EXPIRE',KEYS[1],ARGV[10])
 return 1`;
 export function redisLiveStore(redis,{prefix='easel-live:'}={}) {
  return {
+  async resolve(code){return redis.get(prefix+'code:'+code);},
   async read(id,frame=false){const fields=frame?[...FIELDS,'data']:FIELDS;const values=await redis.hmGet(prefix+id,fields);if(values[0]===null)return null;return Object.fromEntries(fields.map((key,i)=>[key,values[i]]));},
-  async write(id,owner,document,now){const ownerKey=createHash('sha256').update(owner).digest('hex');const minute=Math.floor(now/60000);return Number(await redis.eval(WRITE_SCRIPT,{keys:[prefix+id,prefix+'owner:'+ownerKey,prefix+'rate:'+ownerKey+':'+minute,prefix+'bytes:'+ownerKey+':'+minute],arguments:[owner,String(document.sequence),document.status,document.kind||'',String(document.version||''),document.mime||'',document.data||'',String(now),String(now+LIVE_TTL*1000),String(LIVE_TTL),String(document.bytes||0)]}));}
+  async write(id,owner,document,now){const ownerKey=createHash('sha256').update(owner).digest('hex');const minute=Math.floor(now/60000);return Number(await redis.eval(WRITE_SCRIPT,{keys:[prefix+id,prefix+'owner:'+ownerKey,prefix+'rate:'+ownerKey+':'+minute,prefix+'bytes:'+ownerKey+':'+minute,prefix+'code:'+id.slice(0,12)],arguments:[owner,String(document.sequence),document.status,document.kind||'',String(document.version||''),document.mime||'',document.data||'',String(now),String(now+LIVE_TTL*1000),String(LIVE_TTL),String(document.bytes||0),id]}));}
  };
 }
 function metadata(id,row){return {id,route:`https://aesthetic.computer/watch/?id=${id}`,kind:row.kind,version:Number(row.version),mime:row.mime,sequence:Number(row.sequence),status:row.status,updatedAt:new Date(Number(row.updatedAt)).toISOString(),expiresAt:new Date(Number(row.expiresAt)).toISOString()};}
@@ -45,7 +49,8 @@ export function createLiveHandler({authorize,getHandleOrEmail,store,now=Date.now
   if(!['GET','POST','DELETE'].includes(method))return reply(405,{error:'Use GET, POST or DELETE'});
   try {
    if(method==='GET'){
-    const {id,frame}=event.queryStringParameters||{};
+    let {id,frame,code}=event.queryStringParameters||{};
+    if(code!==undefined){if(!/^[a-f0-9]{12}$/.test(code)||id!==undefined)return reply(400,{error:'Invalid draft code'});id=await store.resolve(code);if(!id)return reply(404,{error:'Draft not connected'});}
     if(!ID.test(id||'')||(frame!==undefined&&!/^[1-9][0-9]{0,14}$/.test(frame)))return reply(400,{error:'Invalid draft ID or frame sequence'});
     const row=await store.read(id,frame!==undefined);if(!row)return reply(404,{error:'Draft expired or not found'});
     if(frame===undefined)return reply(200,metadata(id,row));

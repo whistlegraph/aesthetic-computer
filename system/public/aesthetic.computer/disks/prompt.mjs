@@ -4681,6 +4681,9 @@ async function halt($, text) {
     // Disconnect from socket server, chat, and udp in 5 seconds...
     net.hiccup();
     return true;
+  } else if (/^#~[a-f0-9]{12}$/i.test(text.trim())) {
+    jump(`https://aesthetic.computer/watch/?code=${text.trim().slice(2).toLowerCase()}`);
+    return true;
   } else if (text.startsWith("#")) {
     // Handle painting short codes like #k3d, #WDv
     const code = text.slice(1).trim();

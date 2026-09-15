@@ -1,6 +1,6 @@
 # Live draft broadcasts
 
-Every signed-in artifact automatically reserves a stable QR and broadcasts its saved preview. Reopening resumes the same link; there is no `/live` command. Waiting viewers reconnect automatically. The selected artifact renews an unchanged frame before its one-hour expiry; closing the app leaves the last frame available until expiry. Publication remains separate.
+Every signed-in artifact automatically reserves a stable QR and broadcasts its saved preview. Reopening resumes the same link; there is no `/live` command. Waiting viewers reconnect automatically. The selected artifact renews an unchanged frame before its one-hour expiry; closing the app leaves the last frame available until expiry. Publication remains separate. The label `#~` plus the first 12 hexadecimal ID characters is a temporary AC command. Redis atomically binds this alias to the full ID, rejects collisions, and expires it with the frame. Both the AC prompt and URL fragment route to the watch viewer.
 
 `/api/easel-live` keeps one current draft frame per broadcast in Redis for one hour. It creates no painting, published piece, or permanent media record. A watch link is a read capability: anyone holding it can view the current draft until stopped or expired. Writes require an authenticated account with an AC handle and remain bound to the stable account subject.
 

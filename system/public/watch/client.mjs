@@ -1,6 +1,6 @@
 export const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 export function validateMetadata(value, id) {
-  if (!value || value.id !== id || !['picture','sound','paper','gameboy','piece'].includes(value.kind)
+  if (!value || (id.length===12 ? !value.id?.startsWith(id) : value.id !== id) || !['picture','sound','paper','gameboy','piece'].includes(value.kind)
     || !Number.isSafeInteger(value.sequence) || value.sequence < 1
     || !Number.isSafeInteger(value.version) || value.version < 1
     || !['live','stopped'].includes(value.status) || typeof value.mime !== 'string') throw new Error('Invalid preview metadata');
@@ -16,7 +16,7 @@ async function readFrame(response) {
 }
 export class LiveWatch {
   constructor({id,fetch=globalThis.fetch.bind(globalThis),onFrame=async()=>{},onStatus=()=>{},onEnd=()=>{},onError=()=>{},schedule=(fn,delay)=>globalThis.setTimeout(fn,delay),cancel=timer=>globalThis.clearTimeout(timer)}={}) {
-    if(!/^[a-f0-9]{32}$/.test(id||''))throw new Error('This watch link is incomplete');
+    if(!/^(?:[a-f0-9]{12}|[a-f0-9]{32})$/.test(id||''))throw new Error('This watch link is incomplete');
     Object.assign(this,{id,fetch,onFrame,onStatus,onEnd,onError,schedule,cancel});
     this.visible=true;this.running=false;this.sequence=0;this.retry=750;this.epoch=0;
   }
@@ -31,7 +31,7 @@ export class LiveWatch {
     let delay=750;
     try{
       const options={credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal};
-      const response=await this.fetch(`/api/easel-live?id=${this.id}`,options);
+      const response=await this.fetch(`/api/easel-live?${this.id.length===12?"code":"id"}=${this.id}`,options);
       if(response.status===404||response.status===410){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
       if(!response.ok)throw new Error('Could not connect to this preview');
       const metadata=validateMetadata(await response.json(),this.id);
@@ -39,7 +39,7 @@ export class LiveWatch {
       if(metadata.status==='stopped'){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
       this.onStatus(metadata,this.sequence);
       if(metadata.sequence>this.sequence){
-        const frame=await this.fetch(`/api/easel-live?id=${this.id}&frame=${metadata.sequence}`,options);
+        const frame=await this.fetch(`/api/easel-live?id=${metadata.id}&frame=${metadata.sequence}`,options);
         if(frame.status===409){delay=250;return;}
         if(frame.status===404||frame.status===410){this.sequence=0;this.onEnd('waiting');delay=3000;return;}
         if(!frame.ok)throw new Error('Could not load the new version');

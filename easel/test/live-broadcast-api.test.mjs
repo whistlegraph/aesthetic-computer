@@ -39,7 +39,7 @@ test('draft Paper and Game Boy source can be watched before compilation',async()
 test('Redis adapter performs one atomic script with hashed owner keys and reads metadata without frame bytes',async()=>{
  let call;const redis={eval:async(script,options)=>{call={script,options};return 1;},hmGet:async(key,fields)=>{assert.ok(!fields.includes('data'));return fields.map(k=>k==='kind'?'picture':null);}};
  const store=redisLiveStore(redis);await store.write(id(1),'private-auth-sub',{sequence:7,status:'live',kind:'picture',mime:'image/png',version:2,data:'eA==',bytes:1},1000);
- assert.equal(call.script,WRITE_SCRIPT);assert.equal(call.options.keys.length,4);assert.ok(call.options.keys.every(k=>!k.includes('private-auth-sub')));assert.equal(call.options.arguments[1],'7');assert.equal(call.options.arguments[9],String(LIVE_TTL));await store.read(id(1));
+ assert.equal(call.script,WRITE_SCRIPT);assert.equal(call.options.keys.length,5);assert.ok(call.options.keys.every(k=>!k.includes('private-auth-sub')));assert.equal(call.options.arguments[1],'7');assert.equal(call.options.arguments[9],String(LIVE_TTL));await store.read(id(1));
 });
 test('30 independent makers and late viewers: 20 updates each, 64 KiB frames, no cross-session leakage',async t=>{
  const f=fixture(),started=performance.now();let transferred=0;

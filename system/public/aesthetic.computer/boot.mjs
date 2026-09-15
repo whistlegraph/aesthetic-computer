@@ -2,6 +2,13 @@ import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-na
 
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 
+// Temporary Easel draft codes open the current live artifact.
+const draftCode = /^#~([a-f0-9]{12})$/i.exec(window.location.hash);
+if (draftCode) {
+  window.location.replace(`https://aesthetic.computer/watch/?code=${draftCode[1].toLowerCase()}`);
+  await new Promise(() => {});
+}
+
 // Painting permalinks belong to Aesthetic Computer. Fragments never reach the
 // server, so branded Laklok hosts must hand them off before booting the piece.
 const laklokHost =
