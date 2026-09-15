@@ -63,17 +63,26 @@ enum DeskflowSpatialNav {
                   screenToken($0.host) == screenToken(target) && $0.promptCount > 0
               }) else { return }
 
+        let carryZoom = ZoomLens.isEngaged
+        let zoomRevision = ZoomLens.revision
         DispatchQueue.global(qos: .userInteractive).async {
             // The controller acknowledges as soon as its edge moves are queued.
             // Queue the destination immediately too, with only enough delay for
             // Deskflow to traverse the actual intermediate edges. This removes
             // the old conservative sleep from every cross-host arrow.
             guard routeOnActiveController(path) else { return }
-            post(ip: targetLedger.ip, endpoint: "/navigate", body: [
+            let accepted = post(ip: targetLedger.ip, endpoint: "/navigate", body: [
                 "direction": (path.last ?? direction).rawValue,
                 "alignment": Double(alignment),
                 "delayMs": max(10, (path.count - 1) * 28 + 10),
+                "zoom": carryZoom,
             ])
+            if accepted && carryZoom {
+                DispatchQueue.main.async {
+                    guard ZoomLens.revision == zoomRevision else { return }
+                    ZoomLens.zoomOut(animated: true)
+                }
+            }
         }
     }
 
@@ -83,9 +92,10 @@ enum DeskflowSpatialNav {
         guard let raw = body["direction"] as? String,
               let direction = WindowNav.Direction(rawValue: raw) else { return false }
         let alignment = CGFloat((body["alignment"] as? NSNumber)?.doubleValue ?? 0.5)
+        let zoom = body["zoom"] as? Bool ?? false
         let delay = min(max((body["delayMs"] as? NSNumber)?.doubleValue ?? 0, 0), 250) / 1000
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            WindowNav.accept(direction, alignment: alignment)
+            WindowNav.accept(direction, alignment: alignment, zoom: zoom)
         }
         return true
     }

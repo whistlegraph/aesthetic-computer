@@ -4,7 +4,8 @@ import CoreGraphics
 
 /// ⌃⌃ zooms in on whatever the pointer is on — the whole thing, scaled to fit,
 /// centred, with a margin of surrounding context. Moving onto another window
-/// follows, refits, and recentres it. ⌃⌃ again zooms back out.
+/// follows, refits, and recentres it. ⌘⌥ arrows carry the lens with window
+/// focus; moving the pointer deliberately resumes following. ⌃⌃ exits.
 ///
 /// "Whatever" means an ordinary window, or a menu bar item. Status items turn out
 /// to be real windows (Control Center hosts one apiece, up at the menu bar
@@ -74,12 +75,29 @@ enum ZoomLens {
     private static var activeTarget: Target?
     private static var lastFollowAt: CFTimeInterval = 0
     private static var panTimer: Timer?
+    private static var targetFactor: CGFloat = 1
+    private static var keyboardPointerAnchor: CGPoint?
+    private(set) static var revision: UInt64 = 0
 
     static var isZoomed: Bool { current().factor > zoomedThreshold }
+    static var isEngaged: Bool { activeTarget != nil }
+    static var targetWindowID: CGWindowID? { activeTarget?.id }
+
+    /// Keyboard navigation owns the camera until the pointer deliberately moves.
+    @discardableResult
+    static func followWindow(id: CGWindowID, frame: CGRect, engage: Bool = false) -> Bool {
+        guard isEngaged || engage,
+              frame.width > 0, frame.height > 0,
+              !FileManager.default.fileExists(atPath: Paths.zoomLensDisabledFlag),
+              let screen = screen(bestContaining: frame) else { return false }
+        keyboardPointerAnchor = CGEvent(source: nil)?.location
+        zoom(to: Target(id: id, frame: frame), on: screen)
+        return true
+    }
 
     static func toggle() {
-        if isZoomed {
-            zoomOut()
+        if isEngaged || isZoomed || panTimer != nil {
+            zoomOut(animated: true)
             PopSound.play(rising: false)
             return
         }
@@ -89,7 +107,8 @@ enum ZoomLens {
             return
         }
 
-        zoom(to: target, on: screen, animated: false)
+        keyboardPointerAnchor = nil
+        zoom(to: target, on: screen)
         PopSound.play(rising: true)
     }
 
@@ -98,7 +117,16 @@ enum ZoomLens {
     /// sized windows still fit and land centred, rather than merely sliding the
     /// old zoom factor across the desktop.
     static func followCursor(to point: CGPoint) {
-        guard activeTarget != nil else { return }
+        guard activeTarget != nil, panTimer == nil else { return }
+
+        // Holding the navigation chord or nudging a stationary mouse must not
+        // undo an arrow-key acquisition. Rebase after the compositor settles.
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        guard !flags.contains(.maskCommand) || !flags.contains(.maskAlternate) else { return }
+        if let anchor = keyboardPointerAnchor {
+            guard hypot(point.x - anchor.x, point.y - anchor.y) >= 12 else { return }
+            keyboardPointerAnchor = nil
+        }
 
         let now = CACurrentMediaTime()
         guard now - lastFollowAt >= followInterval else { return }
@@ -106,7 +134,7 @@ enum ZoomLens {
 
         // Compositor zoom can also be changed outside Slab (for example with
         // Accessibility shortcuts). Notice that promptly and stop following.
-        guard isZoomed else {
+        guard targetFactor <= zoomedThreshold || isZoomed else {
             activeTarget = nil
             return
         }
@@ -114,47 +142,42 @@ enum ZoomLens {
         guard let target = targetUnderCursor(excluding: getpid(), at: point),
               target != activeTarget,
               let screen = screen(bestContaining: target.frame) else { return }
-        zoom(to: target, on: screen, animated: true)
+        zoom(to: target, on: screen)
     }
 
-    private static func zoom(to target: Target, on screen: NSScreen, animated: Bool) {
+    private static func zoom(to target: Target, on screen: NSScreen) {
         // Fit the whole window on the tighter axis, then back off by the margin.
         // The looser axis keeps whatever slack the aspect ratio gives it — which
         // is why a window never fills the screen edge-to-edge, and why you can
         // still see what's around it.
         let fit = min(screen.frame.width / target.frame.width,
                       screen.frame.height / target.frame.height)
-        // Never exceed `fit`: that is the largest factor at which the target's
-        // complete width and height remain visible. Usually `contextMargin`
-        // makes the factor smaller still, but for a tall/full-height window the
-        // requested margin can take it below 1×. The compositor cannot zoom out,
-        // so settle at 1× while retaining the window's unmodified aspect ratio.
-        let factor = min(max(fit / contextMargin, 1.0), fit, maxFactor)
+        // Full-height or oversized windows stay at 1×. Keep the lens engaged
+        // so the next arrow can still magnify a smaller neighboring pane.
+        let factor = max(1.0, min(fit / contextMargin, maxFactor))
         let centre = CGPoint(x: target.frame.midX, y: target.frame.midY)
 
         activeTarget = target
-        if animated {
-            pan(to: centre, factor: factor)
-        } else {
-            panTimer?.invalidate()
-            panTimer = nil
-            apply(origin: centre, factor: factor)
-        }
-        // The particle bloom is punctuation for acquisition, not navigation.
-        // Rebuilding it at every cross-window drag handoff competes with the
-        // compositor pan and makes following feel sticky.
-        if !animated { ZoomSpecialMove.fire(around: target.frame, on: screen) }
+        targetFactor = factor
+        revision &+= 1
+        pan(to: centre, factor: factor)
     }
 
-    static func zoomOut() {
+    static func zoomOut(animated: Bool = false) {
         panTimer?.invalidate()
         panTimer = nil
         activeTarget = nil
+        keyboardPointerAnchor = nil
+        targetFactor = 1
+        revision &+= 1
         lastFollowAt = 0
         guard let screen = NSScreen.main else { return }
         // Factor 1.0 is the exit. The origin is irrelevant at 1×, but hand back
         // the screen centre so a subsequent zoom-by-hand starts somewhere sane.
-        apply(origin: CGPoint(x: screen.frame.midX, y: screen.frame.midY), factor: 1.0)
+        let top = NSScreen.screens.first?.frame.maxY ?? 0
+        let centre = CGPoint(x: screen.frame.midX, y: top - screen.frame.midY)
+        if animated { pan(to: centre, factor: 1.0) }
+        else { apply(origin: centre, factor: 1.0) }
     }
 
     /// Ease both the viewport centre and magnification. Factor is interpolated
@@ -162,6 +185,11 @@ enum ZoomLens {
     /// 8× should feel like 4×, not 5×.
     private static func pan(to destination: CGPoint, factor destinationFactor: CGFloat) {
         panTimer?.invalidate()
+        panTimer = nil
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            apply(origin: destination, factor: destinationFactor)
+            return
+        }
         let start = current()
         let began = CACurrentMediaTime()
         let startLogFactor = log(max(start.factor, 0.001))
@@ -181,7 +209,9 @@ enum ZoomLens {
             if unit >= 1 {
                 timer.invalidate()
                 panTimer = nil
-                PopSound.playTransferClick()
+                if keyboardPointerAnchor != nil {
+                    keyboardPointerAnchor = CGEvent(source: nil)?.location
+                }
             }
         }
         panTimer = timer

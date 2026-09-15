@@ -43,6 +43,13 @@ network, SSD, and GPU. Hover expands it into readable local history rows with
 current values; click pins the same panel. It does not poll or display other
 machines.
 
+## Window zoom
+
+Double-tap Control over a window to zoom; repeat to exit. Command–Option–arrow
+focuses the neighboring prompt and smoothly refits the lens, including across
+Deskflow hosts. Move the pointer deliberately to resume mouse following.
+Full-height windows keep the lens active at 1×. Reduce Motion skips animation.
+
 ## Prompt rocks
 
 `Sources/SlabMenubar/PromptSigilOverlay.swift` — the tumbling stones parked at

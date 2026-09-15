@@ -422,7 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         navHoldTap?.stop()
         NavHoldHint.shared.endHold()
         // Compositor zoom outlives us — never quit leaving the screen magnified.
-        if ZoomLens.isZoomed { ZoomLens.zoomOut() }
+        ZoomLens.zoomOut()
         passphraseServer.stop()
         ResourceGraph.shared.stop()
         LedgerStore.shared.stop()
@@ -2136,7 +2136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             nowOn = false
         }
         state.zoomLens = nowOn
-        if !nowOn, ZoomLens.isZoomed { ZoomLens.toggle() }   // don't strand a zoom
+        if !nowOn { ZoomLens.zoomOut() }
         refresh()
     }
 

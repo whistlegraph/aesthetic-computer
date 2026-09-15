@@ -53,7 +53,12 @@ enum WindowNav {
             return
         }
 
-        guard let focusCenter = focusedWindowCenter() else {
+        // The lens can start over a background pane. Walk from the pane the
+        // user is looking at, including while a previous AX raise is settling.
+        let lensWindow = ZoomLens.targetWindowID.flatMap { id in
+            wins.first { $0.id == Int(id) }
+        }
+        guard let focusCenter = lensWindow?.center ?? focusedWindowCenter() else {
             focus(wins[0])
             NavHoldHint.shared.noteJump(local: true)
             return
@@ -115,7 +120,7 @@ enum WindowNav {
     /// Fleet navigation endpoint: select the prompt nearest the edge through
     /// which the unipointer is arriving, keeping its row/column aligned with
     /// the source pane, then punctuate the focus change with the lens move.
-    static func accept(_ travelDirection: Direction, alignment: CGFloat) {
+    static func accept(_ travelDirection: Direction, alignment: CGFloat, zoom: Bool = false) {
         guard AXTiler.trusted else { return }
         let wins = windows()
         guard !wins.isEmpty else { return }
@@ -124,7 +129,7 @@ enum WindowNav {
             entryScore($0, travelDirection: travelDirection, alignment: a)
                 < entryScore($1, travelDirection: travelDirection, alignment: a)
         } ?? wins[0]
-        focus(target)
+        focus(target, engageZoom: zoom)
     }
 
     /// Called only on the active Deskflow controller. Each synthetic HID move
@@ -241,7 +246,7 @@ enum WindowNav {
         return (winRef as! AXUIElement)
     }
 
-    private static func focus(_ window: Window) {
+    private static func focus(_ window: Window, engageZoom: Bool = false) {
         AXUIElementPerformAction(window.el, kAXRaiseAction as CFString)
         AXUIElementSetAttributeValue(window.el, kAXMainAttribute as CFString, kCFBooleanTrue)
         var pid: pid_t = 0
@@ -251,7 +256,9 @@ enum WindowNav {
         }
         // Raising and app activation complete on the next WindowServer turn;
         // the geometry is already stable, so the acquisition move can fire now.
-        if let screen = screen(containingCG: window.center) {
+        if !ZoomLens.followWindow(id: CGWindowID(window.id), frame: window.frame,
+                                  engage: engageZoom),
+           let screen = screen(containingCG: window.center) {
             ZoomSpecialMove.fire(around: window.frame, on: screen)
         }
         PopSound.playTransferClick()
