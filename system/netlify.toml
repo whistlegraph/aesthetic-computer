@@ -603,7 +603,12 @@ from = "/api/version"
 to = "/.netlify/functions/version"
 status = 200
 
-# Mimechan — imageboard where the boards are mimetypes
+# Mime — discussion on media
+[[redirects]]
+from = "/api/mime"
+to = "/.netlify/functions/mime"
+status = 200
+
 [[redirects]]
 from = "/api/mimechan"
 to = "/.netlify/functions/mimechan"

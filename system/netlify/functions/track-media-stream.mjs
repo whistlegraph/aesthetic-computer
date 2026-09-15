@@ -135,6 +135,7 @@ export const handler = stream(async (event) => {
       const record = {
         code,
         slug,
+        ext: body.ext,
         when,
         bucket: user ? "user-aesthetic-computer" : "art-aesthetic-computer",
       };

@@ -37,6 +37,7 @@ export async function handler(event, context) {
     return respond(200, {
       slug: tape.slug,
       code: tape.code,
+      discussion: `/mime/#/media/tape/${encodeURIComponent(tape.code || tape._id.toString())}`,
       when: tape.when,
       bucket: tape.bucket,
       user: tape.user,

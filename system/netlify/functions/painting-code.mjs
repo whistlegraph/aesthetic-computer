@@ -36,7 +36,7 @@ export async function handler(event) {
     // Look up painting by code
     const painting = await paintings.findOne(
       { code },
-      { projection: { slug: 1, code: 1, user: 1, _id: 0 } }
+      { projection: { slug: 1, code: 1, user: 1, nuked: 1, _id: 0 } }
     );
 
     if (!painting) {
@@ -62,6 +62,8 @@ export async function handler(event) {
       slug: painting.slug,
       code: painting.code,
       handle: handle,
+      nuked: painting.nuked || false,
+      discussion: `/mime/#/media/painting/${encodeURIComponent(painting.code)}`,
     });
 
   } catch (error) {

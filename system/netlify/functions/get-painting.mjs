@@ -44,6 +44,7 @@ export async function handler(event, context) {
     return respond(200, {
       slug: painting.slug,
       code: painting.code,
+      discussion: `/mime/#/media/painting/${encodeURIComponent(painting.code || painting._id.toString())}`,
       when: painting.when,
       bucket: painting.bucket,
       user: painting.user,

@@ -37,6 +37,7 @@ let painting,
 let printBtn, // Sticker button.
   downloadBtn, // Download button.
   slug; // A url to the loaded image for printing.
+let discussBtn;
 let menuBtn; // A context (...) button that appears for the owner.
 let nukeBtn; // A button inside of the context menu to hide / delete the media.
 let menuOpen = false;
@@ -95,6 +96,8 @@ function boot({
 }) {
   showMode = colon[0] === "show"; // A special lightbox mode with no bottom bar.
   menuBtn = null;
+  discussBtn = null;
+  paintingCode = undefined;
   nukeBtn = null;
   menuOpen = false;
   isNuking = false;
@@ -236,6 +239,7 @@ function boot({
       slug: record.slug,
       handle: normalizedHandle,
       code: canonicalCode,
+      nuked: record.nuked || false,
     };
 
     store[`painting-code:${canonicalCode}`] = entry;
@@ -266,6 +270,7 @@ function boot({
         slug: cached.slug,
         handle: (cached.handle || "").replace(/^@+/, ""),
         code: cached.code || normalized,
+        nuked: cached.nuked || false,
       };
       cachePaintingMetadata(sanitized, [normalized, cached.code]);
       return sanitized;
@@ -286,6 +291,7 @@ function boot({
           slug: data.slug,
           handle: (data.handle || "").replace(/^@+/, ""),
           code: data.code || normalized,
+          nuked: data.nuked || false,
         };
       }
     } catch (err) {
@@ -584,6 +590,13 @@ function paint({
     );
     printBtn?.paint({ ink });
     downloadBtn?.paint({ ink });
+    if (paintingCode && !isNuked && !showMode) {
+      if (!discussBtn) discussBtn = new ui.TextButtonSmall("Discuss", { right: 6, top: 24, screen });
+      discussBtn.reposition({ right: 6, top: 24, screen });
+      discussBtn.paint({ ink });
+    } else {
+      discussBtn = null;
+    }
     //mintBtn?.paint({ ink });
     printBtn?.reposition({ right: 6, bottom: 6, screen });
     downloadBtn?.reposition({ left: 6, bottom: 6, screen });
@@ -724,7 +737,7 @@ function paint({
     );
 
     // Prev & Next Buttons
-    const prevNextMarg = menuBtn ? 40 : 32;
+    const prevNextMarg = menuBtn || (paintingCode && !isNuked && !showMode) ? 40 : 32;
     const prevNextWidth = 32;
 
     if (!prevBtn) {
@@ -801,6 +814,12 @@ function act({
   menuBtn?.act(e, () => (menuOpen = !menuOpen));
 
   if (!menuOpen) {
+    let discussing = false;
+    discussBtn?.act(e, () => {
+      discussing = true;
+      net.web(`https://aesthetic.computer/mime/#/media/painting/${encodeURIComponent(paintingCode)}`);
+    });
+    if (discussing || discussBtn?.down) return;
     function next() {
       sfx.push(sound);
       running = false;

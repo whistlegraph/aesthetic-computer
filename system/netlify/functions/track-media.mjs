@@ -146,6 +146,7 @@ export async function handler(event, context) {
         const record = {
           code,
           slug,
+          ext: body.ext,
           when: paintingDate,
           bucket: user ? "user-aesthetic-computer" : "art-aesthetic-computer",
         };
