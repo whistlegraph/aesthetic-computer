@@ -591,7 +591,7 @@ function paint({
     printBtn?.paint({ ink });
     downloadBtn?.paint({ ink });
     if (paintingCode && !isNuked && !showMode) {
-      if (!discussBtn) discussBtn = new ui.TextButtonSmall("Comment", { center: "x", bottom: 6, screen });
+      if (!discussBtn) discussBtn = new ui.TextButton("Comment", { center: "x", bottom: 6, screen });
       discussBtn.reposition({ center: "x", bottom: 6, screen });
       discussBtn.paint({ ink });
     } else {
