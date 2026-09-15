@@ -1313,3 +1313,41 @@ gym.anthonyzollo.com {
         redir https://{host}{uri} 301
     }
 }
+
+# --- mime.ac ---
+# DNS-only on Cloudflare; serve MIME at the apex with its own public TLS.
+mime.ac {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+        protocols tls1.2 tls1.3
+    }
+    encode zstd gzip
+    handle / {
+        root * /opt/ac/system/public/mime
+        header Cache-Control "no-cache"
+        file_server
+    }
+    handle /mime {
+        redir / 302
+    }
+    handle /mime/ {
+        redir / 302
+    }
+    handle /prompt {
+        redir https://aesthetic.computer/prompt 302
+    }
+    handle {
+        import lith_proxy
+    }
+}
+
+www.mime.ac {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
+    redir https://mime.ac{uri} 308
+}

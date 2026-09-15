@@ -46,7 +46,11 @@
     a:hover { color: var(--ink); }
     :focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
     ::selection { background: var(--ink); color: var(--paper); }
-    header { text-align: left; padding: 1em 1em 0.4em; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1em; text-align: left; padding: 1em 1em 0.4em; }
+    .account { display: flex; align-items: center; justify-content: flex-end; gap: 0.5em; flex-wrap: wrap; font-size: 0.85em; }
+    .account button { font: inherit; color: var(--link); background: var(--paper); border: 1px solid var(--card-edge); border-radius: 4px; min-height: 36px; padding: 0.3em 0.6em; cursor: pointer; }
+    .account [role="status"] { max-width: 24ch; color: var(--accent); }
+    .account [hidden] { display: none; }
     header h1 { margin: 0; color: var(--ink); line-height: 1; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
     .wordmark svg { display: block; width: 108px; height: 33px; overflow: visible; }
@@ -121,7 +125,8 @@
       border: 1px dashed var(--card-edge); padding: 0.8em 1.2em;
     }
     body.feed { padding: 0; overflow: hidden; }
-    body.feed header { position: fixed; top: 0; left: 0; z-index: 2; padding-top: max(0.6em, env(safe-area-inset-top)); }
+    body.feed header { width: 100%; pointer-events: none; position: fixed; top: 0; left: 0; z-index: 2; padding-top: max(0.6em, env(safe-area-inset-top)); }
+    body.feed header a, body.feed .account { pointer-events: auto; }
     body.feed header a { background: var(--paper); }
     body.feed main {
       max-width: none; padding: 0; height: 100vh; height: 100dvh;
@@ -148,7 +153,7 @@
     .feed-post > .meta { margin: 0 0.75rem; }
     .feed-post > .body { margin: 0 0.75rem; max-height: 15vh; overflow: auto; }
     .feed-post > .discussion { align-self: center; flex-shrink: 0; margin: 0; }
-    .feed-more { position: absolute; top: max(0.6em, env(safe-area-inset-top)); right: 0.75rem; display: flex; align-items: center; gap: 0.5em; max-width: calc(100% - 9rem); }
+    .feed-more { position: absolute; top: max(3.75rem, calc(env(safe-area-inset-top) + 3rem)); right: 0.75rem; display: flex; align-items: center; gap: 0.5em; max-width: calc(100% - 9rem); }
     .feed-more button { padding: 0.3em 0.6em; }
     .feed-more [role="status"] { color: var(--dim); font-size: 0.85em; }
     body.feed main > p { margin: 4rem 0.75rem; }
@@ -166,7 +171,7 @@
 <body>
   <header>
     <h1>
-      <a class="wordmark" href="/prompt" aria-label="mime — return to Aesthetic Computer prompt">
+      <a class="wordmark" href="https://aesthetic.computer/prompt" aria-label="mime — return to Aesthetic Computer prompt">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 0 36 11" aria-hidden="true" focusable="false">
           <g fill="currentColor" transform="skewX(-8)">
             <path id="mime-m" d="M0 10V4H1V3H4V4H5V3H8V4H9V10H7V5H6V10H3V5H2V10Z"/>
@@ -177,6 +182,11 @@
         </svg>
       </a>
     </h1>
+    <div class="account">
+      <span id="account-handle"></span>
+      <button type="button" id="account-action">sign in</button>
+      <span id="account-status" role="status"></span>
+    </div>
   </header>
   <main id="view"></main>
 
@@ -311,6 +321,10 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
 }
 
 const AC_CLIENT = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt";
+const AUTH_REDIRECT = location.origin + (location.hostname === "mime.ac" ? "/" : "/mime/");
+const accountAction = document.getElementById("account-action");
+const accountHandle = document.getElementById("account-handle");
+const accountStatus = document.getElementById("account-status");
 const AC_CACHE_PREFIX = "@@auth0spajs@@::" + AC_CLIENT + "::";
 let identity = { token: null, handle: null };
 let authClientPromise, identityPromise;
@@ -342,7 +356,7 @@ function authClient() {
     return new window.auth0.Auth0Client({
       domain: "https://hi.aesthetic.computer", clientId: AC_CLIENT,
       cacheLocation: "localstorage", useRefreshTokens: true,
-      authorizationParams: { redirect_uri: location.origin },
+      authorizationParams: { redirect_uri: AUTH_REDIRECT },
       httpTimeoutInSeconds: 30,
     });
   })().catch((error) => { authClientPromise = null; throw error; });
@@ -378,11 +392,39 @@ function showIdentity(input) {
   input.setAttribute("aria-label", identity.token ? "Commenting as" : "Name (optional)");
 }
 
+function showAccount() {
+  accountHandle.textContent = identity.handle || "";
+  accountAction.textContent = identity.token ? "sign out" : "sign in";
+}
+
+accountAction.onclick = async () => {
+  accountAction.disabled = true;
+  accountStatus.textContent = "";
+  try {
+    const client = await authClient();
+    if (identity.token) {
+      localStorage.removeItem("session-aesthetic");
+      await client.logout({ logoutParams: { returnTo: AUTH_REDIRECT } });
+    } else {
+      const form = view.querySelector("#post");
+      if (form) sessionStorage.setItem("mime-comment-draft", JSON.stringify({
+        hash: location.hash, text: form.querySelector("textarea").value,
+      }));
+      await client.loginWithRedirect({ appState: { hash: location.hash || "#/" },
+        authorizationParams: { redirect_uri: AUTH_REDIRECT } });
+    }
+  } catch (error) {
+    accountStatus.textContent = error.message || "could not sign in";
+    accountAction.disabled = false;
+  }
+};
+
 function updateIdentity() {
-  refreshIdentity().then(() => {
+  return refreshIdentity().then(() => {
+    showAccount();
     const input = view.querySelector('[name="commenter"]');
     if (input) showIdentity(input);
-  }).catch(() => {});
+  }).catch(() => { accountStatus.textContent = "sign in again to use your handle"; });
 }
 window.addEventListener("focus", updateIdentity);
 window.addEventListener("storage", (event) => {
@@ -407,6 +449,10 @@ function postForm(parent) {
   status.id = "status";
   status.setAttribute("role", "status");
   form.append(text, name, button, status);
+  try {
+    const draft = JSON.parse(sessionStorage.getItem("mime-comment-draft"));
+    if (draft?.hash === location.hash && typeof draft.text === "string") text.value = draft.text;
+  } catch {}
   refreshIdentity().then(() => showIdentity(name)).catch(() => {
     if (form.isConnected) status.textContent = "sign in again to use your handle";
   });
@@ -429,6 +475,7 @@ function postForm(parent) {
       });
       const out = await res.json();
       if (!res.ok) { status.textContent = out.error; return; }
+      sessionStorage.removeItem("mime-comment-draft");
       history.replaceState(null, "", "#/t/" + (parent || out.code));
       await route();
     } catch (error) {
@@ -644,8 +691,25 @@ window.addEventListener("keydown", (event) => {
   view.scrollTo({ top: index * view.clientHeight,
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
-window.onhashchange = route;
-route();
+async function start() {
+  const params = new URLSearchParams(location.search);
+  if (params.has("state") && (params.has("code") || params.has("error"))) {
+    accountAction.disabled = true;
+    try {
+      const client = await authClient();
+      const { appState } = await client.handleRedirectCallback();
+      const hash = typeof appState?.hash === "string" && appState.hash.startsWith("#/") ? appState.hash : "#/";
+      history.replaceState(null, "", location.pathname + hash);
+    } catch (error) {
+      accountStatus.textContent = error.message || "could not finish sign-in";
+      history.replaceState(null, "", location.pathname + "#/");
+    } finally { accountAction.disabled = false; }
+  }
+  window.onhashchange = route;
+  await route();
+  await updateIdentity();
+}
+start();
 </script>
 </body>
 </html>

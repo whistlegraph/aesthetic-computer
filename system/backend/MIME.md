@@ -1,6 +1,7 @@
 # Mime
 
-Discussion on AC media. The frontend is `/mime/`; the API is `/api/mime`.
+Discussion on AC media. The frontend is `/mime/` and the `https://mime.ac/`
+apex; the API is `/api/mime`. `www.mime.ac` redirects to the apex.
 The main feed snaps to one viewport per media item without cropping, following
 the tape viewer (`disks/tv.mjs`). It loads 12 posts at a time and preserves the
 current item across thread visits and orientation changes. Videos play muted
@@ -70,3 +71,19 @@ MIME_TEST_MONGO_URI=mongodb://127.0.0.1:27017 node --test system/backend/tests/m
 Tests cover automatic discovery without writes, attribution, concurrent first
 replies, attachment rejection, verified authorship, source visibility, storage URLs, legacy uploads,
 pagination, and identity across tape conversion.
+
+## Auth0 domains
+
+MIME uses the existing AC SPA client (`LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt`)
+through `hi.aesthetic.computer`. Keep all existing application URL entries;
+append these exact values in the Auth0 application settings:
+
+- Allowed Callback URLs: `https://mime.ac/`, `https://aesthetic.computer/mime/`
+- Allowed Logout URLs: `https://mime.ac/`, `https://aesthetic.computer/mime/`
+- Allowed Web Origins and Allowed Origins (CORS): `https://mime.ac`
+
+The SDK handles authorization-code callbacks and validates OAuth state. The
+return hash and an in-progress comment survive the login redirect. Account
+handles are still resolved by the API from the verified access token. Browser
+storage is origin-scoped, so MIME offers sign-in on the new domain; it does
+not copy tokens between domains. The wordmark returns to AC's prompt.
