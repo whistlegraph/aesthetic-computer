@@ -87,3 +87,30 @@ return hash and an in-progress comment survive the login redirect. Account
 handles are still resolved by the API from the verified access token. Browser
 storage is origin-scoped, so MIME offers sign-in on the new domain; it does
 not copy tokens between domains. The wordmark returns to AC's prompt.
+
+## Name and history
+
+The name refers to MIME media types (`image/png`, `audio/ogg`, `text/plain`).
+[Content-Type predates MIME](https://www.rfc-editor.org/rfc/rfc1049): RFC 1049
+proposed it for structured Internet messages in March 1988. Nathaniel Borenstein
+and Ned Freed's [RFC 1341](https://www.rfc-editor.org/rfc/rfc1341), June 1992,
+extended mail to carry multiple parts, richer character sets, images, audio,
+and other data. The familiar [RFC 2045](https://www.rfc-editor.org/rfc/rfc2045)
+is a November 1996 revision, not MIME's starting date.
+
+An [early HTTP working draft](https://www.w3.org/History/1995/WWW/Paper/http-spec.html)
+uses MIME representations and discusses replies and separate annotation stores.
+That is a conceptual precedent for discussion attached to media, not a claim
+that MIME itself specifies comment threads.
+
+In this repository, `7f0af85c25` (September 2, 2026) introduced Mimechan:
+each uploaded file's MIME type selected its board. `0c27619279` (September 15)
+made MIME a discussion layer over existing public AC media. The media records
+provide the subjects; comments attach to their stable identities.
+
+The wordmark borrows its compact proportions and slab serifs from early
+workstation typography. [Andrew Messages screenshots from 1994](https://www.cs.cmu.edu/~AUIS/ljdocs/mail/welcome.html)
+show bitmap controls, serif correspondence, and embedded images in one mail
+reader. This is a new AC mark, not a reproduction of an official MIME logo.
+[Borenstein's reconstructed March 1992 demo](https://www.guppylake.com/nsb/mime.html)
+provides another reference: a photograph and audio carried within a message.
