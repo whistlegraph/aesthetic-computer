@@ -1,3 +1,5 @@
+import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
+
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 
 // Painting permalinks belong to Aesthetic Computer. Fragments never reach the
@@ -1145,8 +1147,11 @@ if (
   location.hostname === "nopaint.art" ||
   location.hostname === "www.nopaint.art"
 ) {
-  // The front door starts a new canvas; rewritten session URLs resume.
-  window.acSTARTING_PIECE = location.pathname === "/" ? "nopaint~fresh" : "nopaint";
+  window.acSTARTING_PIECE = noPaintStartingPiece(
+    new URL(location.href),
+    performance.getEntriesByType("navigation")[0]?.type,
+    safeSessionStorageGet(NOPAINT_SESSION_SEED_KEY),
+  );
 }
 if (
   location.hostname === "oskiewar.com" ||

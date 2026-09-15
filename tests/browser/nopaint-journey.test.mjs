@@ -9,8 +9,10 @@ import { join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { ACSession, CONFIG, report, scenario } from "./ac-harness.mjs";
 import { captureFrameReceipt } from "./frame-receipts.mjs";
+import { mockNoPaintUploads } from "./nopaint-upload-mock.mjs";
 
 const ac = await ACSession.open();
+const uploads = await mockNoPaintUploads(ac.page, CONFIG.baseURL);
 const receiptDir = join(CONFIG.shotDir, "nopaint-journey");
 const performanceReceipt = join(receiptDir, "performance.json");
 const performanceResults = { version: 1, url: null, environment: null, proposal: null, decisions: {} };
@@ -489,22 +491,62 @@ try {
     finishing = await ac.nopaintState();
 
     const done = finishing.controls.done;
+    for (const [mode, status] of [["presign-error", 404], ["storage-error", 403]]) {
+      uploads.mode = mode;
+      const attempts = (await ac.nopaintState()).doneCount;
+      await ac.page.mouse.click(
+        rect.x + (done.x + done.w / 2) * scaleX,
+        rect.y + (done.y + done.h / 2) * scaleY,
+      );
+      await ac.page.waitForFunction(({ attempts, status }) => {
+        const state = window.__acNoPaintTest?.();
+        return state?.doneCount > attempts && !state.completion.busy &&
+          state.completion.error?.includes(String(status));
+      }, { timeout: 10000 }, { attempts, status });
+      const failed = await ac.nopaintState();
+      expect(failed.paintingFingerprint === finishing.paintingFingerprint && failed.finishMode,
+        `${mode}: the painting stays intact and Done can retry`);
+    }
+    uploads.mode = "success";
     await ac.page.mouse.click(
       rect.x + (done.x + done.w / 2) * scaleX,
       rect.y + (done.y + done.h / 2) * scaleY,
     );
     await ac.page.waitForFunction(
       () => window.__acNoPaintTest?.()?.completion?.code === "test",
-      { timeout: 3000 },
+      { timeout: 10000 },
     );
     const completed = await ac.nopaintState();
-    expect(completed?.doneCount === 1, "Done invokes one in-place completion transaction");
+    expect(completed?.doneCount === 3, "Done retries failed uploads and completes in place");
+    expect(uploads.presigns === 3 && uploads.puts === 2 && uploads.saves === 1,
+      "Done encodes and uploads an image before recording its code");
     expect(completed?.completion?.code === "test" && completed?.completion?.stayedInNoPaint === true,
       "Done yields a #code without leaving the No Paint shim");
     expect(completed?.finishMode === false && completed?.state === "proposing",
       "Done clears the finished picture and resumes a fresh No Paint session");
     expect(completed?.paintingFingerprint !== finishing?.paintingFingerprint,
       "the fresh session starts from a cleared painting");
+    expect(completed.piece.id !== finishing.piece.id && completed.proposalNumber === 1 &&
+      completed.decisions.length === 0, "completion starts a distinct piece and proposal sequence");
+
+    await ac.wait(250);
+    await ac.measureNopaintDecision("ArrowRight");
+    await ac.page.mouse.click(
+      rect.x + (stage.x + stage.w / 2) * scaleX,
+      rect.y + (stage.y + stage.h / 2) * scaleY,
+    );
+    await ac.wait(200);
+    await ac.page.mouse.click(
+      rect.x + (done.x + done.w / 2) * scaleX,
+      rect.y + (done.y + done.h / 2) * scaleY,
+    );
+    await ac.page.waitForFunction(
+      () => window.__acNoPaintTest?.()?.completion?.code === "test2",
+      { timeout: 10000 },
+    );
+    const completedAgain = await ac.nopaintState();
+    expect(uploads.saves === 2 && completedAgain.piece.id !== completed.piece.id &&
+      completedAgain.state === "proposing", "the next piece can also be saved with Done");
   });
 
   await scenario("An archive record can become the starting painting", async (expect) => {

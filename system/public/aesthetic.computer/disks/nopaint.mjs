@@ -89,7 +89,6 @@ let lastDownload = null;
 let testApi = null;
 let testChannel = null;
 let archiveOrigin = null;
-let testMode = false;
 let paintingResolution = null;
 let finishMode = false;
 let doneCount = 0;
@@ -906,7 +905,6 @@ function installTestHook(debug) {
   const explicitlyTesting = initialNavigationURL()?.searchParams.has("test");
   const windowDebug = typeof window !== "undefined" && window.acDEBUG;
   if (!debug && !explicitlyTesting && !windowDebug) return;
-  testMode = true;
 
   if (typeof BroadcastChannel !== "undefined") {
     testChannel?.close();
@@ -1053,7 +1051,6 @@ function boot({ colon, debug, hud, net, num, params, query = {}, screen, store, 
   store["painting:resolution-lock"] = true;
   store.persist("painting:resolution-lock", "local:db");
   testApi = { ...api, hud, net, screen, store, system };
-  testMode = false;
   api.cursor?.("none");
   stateBeforePause = "proposing";
 
@@ -1328,7 +1325,7 @@ function isAny(e, names) {
 }
 
 async function completePainting($) {
-  if (completionBusy || completionCode) return;
+  if (completionBusy) return;
   playCue($, "done");
   doneCount += 1;
   completionBusy = true;
@@ -1345,32 +1342,38 @@ async function completePainting($) {
       ...($.store["painting:tags"] ? { tags: $.store["painting:tags"] } : {}),
     };
     const filename = `painting-${$.num.timestamp()}.png`;
-    const data = testMode
-      ? { code: "test" }
-      : await $.upload(filename, painting, (progress) => {
-          completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
-          $.needsPaint();
-          publishTestState();
-        });
+    const data = await $.upload(filename, painting, (progress) => {
+      completionProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+      $.needsPaint();
+      publishTestState();
+    });
     if (!data?.code) throw new Error("Painting upload completed without a code");
     completionCode = data.code;
     completionProgress = 1;
-    $.system.painting.code = data.code;
-    $.store["painting:code"] = data.code;
-    $.store.persist?.("painting:code", "local:db");
-    cutFreshSubstrate($, `${sessionSeed}:${doneCount}`);
-    initializePiece($, `${sessionSeed}:${doneCount}`);
+    sessionSeed = seedFrom(`${sessionSeed}:${doneCount}:${$.num.timestamp()}`);
+    random = seededRandom(sessionSeed);
+    cutFreshSubstrate($, sessionSeed);
+    initializePiece($, sessionSeed);
+    delete $.store["painting:code"];
+    $.store.delete?.("painting:code", "local:db");
+    archiveOrigin = null;
+    delete $.store["nopaint:origin"];
+    $.store.delete?.("nopaint:origin", "local:db");
     substrateFresh = true;
-  proposal = null;
-  proposalFrame = 0;
-  proposalPixels = null;
-  proposalPixelsPresented = false;
+    freshStart = true;
+    proposal = null;
+    proposalFrame = 0;
+    proposalNumber = 0;
+    proposalPixels = null;
+    proposalPixelsPresented = false;
     decisions = [];
     finishMode = false;
+    $.net.rewrite(`/nopaint:${sessionSeed}`);
     transition("proposing");
     chooseProposal($);
   } catch (error) {
     completionError = error?.message || "Upload failed";
+    console.error("No Paint upload failed:", completionError);
   } finally {
     completionBusy = false;
     $.needsPaint();

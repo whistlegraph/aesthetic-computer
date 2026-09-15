@@ -1,3 +1,5 @@
+import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
+
 // 💻 BIOS
 
 // 📦 All Imports
@@ -628,6 +630,11 @@ function performHistoryRewrite(path, historical) {
   // auto-reload is exactly such a reload, which is how a card that was clean
   // on arrival grew its label back an hour later.
   try {
+    const session = noPaintHistoryTarget(path, window.location.href);
+    if (session.seed) {
+      try { sessionStorage.setItem(NOPAINT_SESSION_SEED_KEY, session.seed); } catch {}
+      path = session.path;
+    }
     const next = new URL(path, window.location.href);
     for (const [name, value] of Object.entries(preservedParams || {})) {
       if (value) next.searchParams.set(name, value);
@@ -21234,6 +21241,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content: {
           result: "error",
           data: null,
+          error: err?.message || "Upload failed",
         },
       });
     }
@@ -21241,6 +21249,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // Now send a request to the server...
     fetch(prefetchURL, { headers })
       .then(async (res) => {
+        if (!res.ok) throw new Error(`Upload request failed (HTTP ${res.status})`);
         const resData = await res.json();
         
         // Check for error response
@@ -21318,7 +21327,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         xhr.onerror = error;
 
         xhr.onreadystatechange = async function () {
-          if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+          if (xhr.readyState !== XMLHttpRequest.DONE) return;
+          if (xhr.status < 200 || xhr.status >= 300) {
+            error(new Error(`Image upload failed (HTTP ${xhr.status})`));
+            return;
+          }
+          try {
             // Handle tape posting (ZIP frame tapes and MP4 video tapes, with
             // metadata) - works for BOTH user and guest. The `ext` flows
             // straight through to api/track-tape, which sets kind "zip" vs
@@ -21582,6 +21596,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
 
             if (debug) console.log("✔️ File uploaded:", xhr.responseURL);
+          } catch (err) {
+            error(err);
           }
         };
 

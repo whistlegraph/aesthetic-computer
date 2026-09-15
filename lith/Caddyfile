@@ -1188,6 +1188,9 @@ nopaint.art {
         import lith_proxy
     }
     # AC runtime routes used by the native remake at the branded root.
+    handle /presigned-upload-url/* {
+        import lith_proxy
+    }
     handle /api/* {
         import lith_proxy
     }

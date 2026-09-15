@@ -3683,7 +3683,7 @@ const $commonApi = {
     serverUploadProgressReporter = progress;
     serverUploadProgressReporter?.(0);
 
-    console.log("Painting data:", data);
+    console.log("Uploading:", filename, { width: data?.width, height: data?.height });
 
     send({ type: "upload", content: { filename, data, bucket, recordingSlug } });
     return prom;
@@ -12076,7 +12076,7 @@ async function makeFrame({ data: { type, content } }) {
       serverUpload?.resolve(content.data);
     } else if (content.result === "error") {
       console.error("File failed to load:", content);
-      serverUpload?.reject(content.data);
+      serverUpload?.reject(new Error(content.error || "Upload failed"));
     }
     serverUpload = undefined;
     return;
