@@ -1,0 +1,357 @@
+<title>New URLs on AC Fall 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #eef0f2;      /* cool paper */
+    --sheet: #f9f9f7;       /* the broadside stock */
+    --ink: #121417;
+    --ink-2: #4c545c;
+    --rule: #c9ced3;
+    --red: #b3301c;         /* printer's red, the one accent */
+    --red-soft: #f4e2de;
+    --live: #1f6b45;
+    --live-soft: #dfeee4;
+    --warn: #8a5a00;
+    --warn-soft: #f3e8cf;
+    --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #1a1d21; --sheet: #22262b; --ink: #ecedee; --ink-2: #aab1b8; --rule: #3a4048;
+      --red: #e56a55; --red-soft: #46261f; --live: #7fc79b; --live-soft: #1f3a2b; --warn: #e2b458; --warn-soft: #3d3218;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #1a1d21; --sheet: #22262b; --ink: #ecedee; --ink-2: #aab1b8; --rule: #3a4048;
+    --red: #e56a55; --red-soft: #46261f; --live: #7fc79b; --live-soft: #1f3a2b; --warn: #e2b458; --warn-soft: #3d3218;
+  }
+  html, body { background: var(--ground); color: var(--ink); margin: 0; }
+  body { font-family: var(--body); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+
+  /* One fixed sheet: A2 portrait at 96dpi (420 x 594 mm = 1587 x 2245 px). Screen scales it to fit. */
+  .stage { padding: 24px 0; display: flex; justify-content: center; overflow: hidden; }
+  .sheet { width: 1587px; height: 2245px; background: var(--sheet); color: var(--ink); box-sizing: border-box;
+           padding: 64px 72px 56px; display: flex; flex-direction: column; gap: 26px; transform-origin: top center;
+           box-shadow: 0 2px 0 var(--rule); }
+
+  /* Masthead */
+  .mast { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: end; border-bottom: 4px solid var(--ink); padding-bottom: 22px; }
+  .eyebrow { font-family: var(--mono); font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--red); margin: 0 0 10px; }
+  h1 { font-family: var(--display); font-weight: 750; font-size: 118px; line-height: 0.92; letter-spacing: -0.03em; margin: 0; text-wrap: balance; font-variation-settings: "opsz" 96; }
+  h1 em { font-style: normal; color: var(--red); }
+  .standfirst { font-size: 20px; line-height: 1.35; max-width: 62ch; margin: 18px 0 0; color: var(--ink); }
+  .tally { display: grid; grid-template-columns: repeat(3, auto); gap: 10px 26px; text-align: right; }
+  .tally b { display: block; font-family: var(--display); font-size: 54px; line-height: 1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .tally span { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
+
+  /* The map: hosts as columns of addresses */
+  .map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 34px; flex: 1; }
+  .col { display: flex; flex-direction: column; gap: 22px; }
+  .host { border-top: 2px solid var(--ink); padding-top: 10px; }
+  .host h2 { font-family: var(--mono); font-weight: 600; font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .host h2 small { display: block; font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--ink-2); letter-spacing: 0; margin-top: 2px; }
+  .host p.lede { margin: 0 0 12px; font-size: 13.5px; color: var(--ink-2); max-width: 52ch; }
+  .addr { display: grid; grid-template-columns: 1fr; gap: 3px; padding: 9px 0; border-top: 1px solid var(--rule); }
+  .addr:last-child { padding-bottom: 0; }
+  .addr code { font-family: var(--mono); font-size: 14.5px; font-weight: 500; color: var(--ink); overflow-wrap: anywhere; }
+  .addr code .m { color: var(--red); font-weight: 600; margin-right: 6px; }
+  .addr .why { font-size: 13.5px; line-height: 1.38; color: var(--ink); }
+  .addr .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); display: flex; gap: 12px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 7px; border-radius: 2px; }
+  .pill.live { background: var(--live-soft); color: var(--live); }
+  .pill.check { background: var(--warn-soft); color: var(--warn); }
+  .pill.new { background: var(--red-soft); color: var(--red); }
+
+  /* Mail flow strip */
+  .flow { border: 2px solid var(--ink); padding: 14px 18px 16px; display: grid; gap: 10px; }
+  .flow h3 { font-family: var(--mono); font-size: 14px; margin: 0; text-transform: uppercase; letter-spacing: 0.08em; color: var(--red); }
+  .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+  .step { position: relative; padding-right: 8px; }
+  .step + .step::before { content: "→"; position: absolute; left: -14px; top: 0; color: var(--red); font-family: var(--mono); font-size: 16px; }
+  .step code { font-family: var(--mono); font-size: 13px; font-weight: 600; display: block; margin-bottom: 3px; }
+  .step span { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; display: block; }
+
+  /* Footer: changed doors + colophon */
+  .foot { display: grid; grid-template-columns: 2fr 1fr; gap: 34px; border-top: 4px solid var(--ink); padding-top: 16px; }
+  .foot h4 { font-family: var(--mono); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--red); margin: 0 0 8px; }
+  .changed { columns: 2; column-gap: 28px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.4; }
+  .changed li { break-inside: avoid; padding: 3px 0; border-top: 1px solid var(--rule); }
+  .changed code { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .colophon { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+  .colophon b { color: var(--ink); font-weight: 600; }
+
+  @media print {
+    @page { size: 420mm 594mm; margin: 0; }
+    html, body { background: var(--sheet); }
+    .stage { padding: 0; display: block; overflow: visible; }
+    .sheet { transform: none !important; box-shadow: none; }
+  }
+</style>
+
+<div class="stage"><div class="sheet" id="sheet">
+
+  <header class="mast">
+    <div>
+      <p class="eyebrow">Broadside · aesthetic.computer · window 2026-08-16 to 2026-09-15</p>
+      <h1>New URLs on AC, <em>Fall 2026</em></h1>
+      <p class="standfirst">Every address the Aesthetic Computer network learned to answer in the last thirty days, grouped by the host that answers it, in plain words. One sheet: what it is, what it's for, and when it opened.</p>
+    </div>
+    <div class="tally">
+      <div><b>19</b><span>http routes</span></div>
+      <div><b>5</b><span>new hosts</span></div>
+      <div><b>2</b><span>mail doors</span></div>
+      <div><b>6</b><span>socket channels</span></div>
+      <div><b>4</b><span>fleet services</span></div>
+      <div><b>17</b><span>doors changed</span></div>
+    </div>
+  </header>
+
+  <section class="map">
+
+    <!-- COLUMN 1: the main site -->
+    <div class="col">
+      <div class="host">
+        <h2>aesthetic.computer/api/… <small>served by lith, redeploys on every push</small></h2>
+        <p class="lede">The main site's back room. Each file in the functions folder becomes one of these.</p>
+
+        <div class="addr">
+          <code><span class="m">GET/POST</span>/api/mail</code>
+          <div class="why">Your mailbox. Inbox, sent, unread count, and your addresses. Letters written with <code>tell</code> had been piling up here since April with no way to read them.</div>
+          <div class="meta"><span>2026-09-11</span><span>a150032903</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/api/pruttivox?id=…</code>
+          <div class="why">Speaks one of @prutti's chat messages in his consented voice clone, with per-word timing for karaoke. Renders are cached on Spaces.</div>
+          <div class="meta"><span>2026-09-08</span><span>648e73a46e</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">POST</span>/api/prompt-log</code>
+          <div class="why">Records every prompt anyone submits, including the misses. Admin can search it and pull counts.</div>
+          <div class="meta"><span>2026-09-03</span><span>18f1271a5b</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET/POST</span>/api/mimechan</code>
+          <div class="why">An anonymous imageboard where the file's mimetype picks the board. Serves stored files under a sandbox policy.</div>
+          <div class="meta"><span>2026-09-02</span><span>7f0af85c25</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">POST</span>/api/easel-inference</code>
+          <div class="why">Rents AI inference to a signed-in handle so an Easel install needs no vendor CLI. Metered by a daily per-handle budget.</div>
+          <div class="meta"><span>2026-09-12</span><span>34d2f33d3d</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET/POST</span>/api/laklok-theme</code>
+          <div class="why">A census of which tema each laklok visitor wears. Both sister interfaces report on boot and on tap.</div>
+          <div class="meta"><span>2026-09-13</span><span>b7037992a4</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/api/mediascholar-status</code>
+          <div class="why">Public progress of the Mediascholar paper worker. Also answers at papers.aesthetic.computer.</div>
+          <div class="meta"><span>2026-09-05</span><span>467553fedb</span><span class="pill live">live</span></div>
+        </div>
+      </div>
+
+      <div class="host">
+        <h2>inbound.aesthetic.computer:25 <small>SMTP, the mail door</small></h2>
+        <p class="lede">The first way for the outside world to write to an AC handle. Only Google's relays may knock.</p>
+        <div class="addr">
+          <code>&lt;handle&gt;@aesthetic.computer · &lt;permahandle&gt;@ · amail+&lt;permahandle&gt;@</code>
+          <div class="why">Any handle is now an email address. The plus-tagged form is the return address on letters AC sends out, so replies find their way home.</div>
+          <div class="meta"><span>2026-09-13</span><span>f6be8556c6 · e8157fcb36</span><span class="pill live">live</span><span class="pill check">route secret unset</span></div>
+        </div>
+        <div class="addr">
+          <code>smtp-relay.gmail.com <span style="color:var(--ink-2)">(outbound)</span></code>
+          <div class="why">Letters can leave the wall. They go out as "@handle via aesthetic.computer" and the domain now carries SPF and DKIM, so they land in inboxes.</div>
+          <div class="meta"><span>2026-09-13 · 09-14</span><span>e8157fcb36 · d3d9a8486c</span><span class="pill live">live</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMN 2: prompt.ac, sotce.net, whistlegraph -->
+    <div class="col">
+      <div class="host">
+        <h2>prompt.ac <small>the short front door</small></h2>
+        <div class="addr">
+          <code><span class="m">GET</span>prompt.ac/easel.sh · /easel.tar.gz · /easel.json</code>
+          <div class="why">One-line installer for Easel, the terminal coding tool. The tarball and manifest are packed on lith at deploy; the updater reads the manifest.</div>
+          <div class="meta"><span>2026-09-11</span><span>6e02494c08 · f9e68d9576</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>prompt.ac/~&lt;channel&gt;</code>
+          <div class="why">The address a phone actually gets. Drops it straight into a live Aesthetic Code channel.</div>
+          <div class="meta"><span>2026-09-10</span><span>cca4851c9e</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>prompt.ac/&lt;piece&gt;</code>
+          <div class="why">Dotless paths now boot the HTML prompt in place instead of bouncing to aesthetic.computer. The Cloudflare redirect rule was switched off.</div>
+          <div class="meta"><span>2026-09-01</span><span>a3b530ee4d</span><span class="pill live">live</span></div>
+        </div>
+      </div>
+
+      <div class="host">
+        <h2>sotce.net/sotce-net/… <small>the confessional</small></h2>
+        <div class="addr">
+          <code><span class="m">GET</span>/sw.js · /manifest.json</code>
+          <div class="why">A push service worker and web-app manifest so pages, answers and chatter can ring readers' phones, iPhones included.</div>
+          <div class="meta"><span>2026-09-05</span><span>91d70b972a · d0cbaf7c4b</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">POST</span>/notification-choice</code>
+          <div class="why">Remembers each reader's bell choice and keeps a running count of who is opted in.</div>
+          <div class="meta"><span>2026-09-13</span><span>2fed73e172</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/subscribers · /active-subscribers</code>
+          <div class="why">Two numbers, split on purpose: the public subscriber count and the operational one that metrics reads.</div>
+          <div class="meta"><span>2026-09-13</span><span>96bb08a349</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/comment <span style="color:var(--ink-2)">(was /chat)</span> · www → sotce.net</code>
+          <div class="why">The chat room reads as a comment room now, and www folds into one canonical origin so Auth0, push and storage agree.</div>
+          <div class="meta"><span>2026-09-07</span><span>bc12f6990c · 8ab5f40c38</span><span class="pill live">live</span></div>
+        </div>
+      </div>
+
+      <div class="host">
+        <h2>whistlegraph.org <small>and its TV</small></h2>
+        <div class="addr">
+          <code><span class="m">GET</span>tv.whistlegraph.org</code>
+          <div class="why">The archive as broadcast: a zero-chrome fullscreen TV of whistlegraph performances. DNS checked today and answering.</div>
+          <div class="meta"><span>2026-08-16</span><span>e861ac3e84</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/api/wg/verify?receipt=&amp;sig=</code>
+          <div class="why">A free check that a license receipt is genuine. The whole receipt is signed, so a code alone can't forge one.</div>
+          <div class="meta"><span>2026-08-27</span><span>c545a5444f</span><span class="pill live">live</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/stars · /comments · /wild</code>
+          <div class="why">Three static rooms: the sky, what people said, and a field guide to sightings. Claimed by name so they aren't mistaken for codes.</div>
+          <div class="meta"><span>2026-09-01 · 09-03 · 09-05</span><span class="pill live">live</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMN 3: new hosts, session server, fleet -->
+    <div class="col">
+      <div class="host">
+        <h2>new hosts <small>subdomains that did not exist in August</small></h2>
+        <div class="addr">
+          <code>nft.aesthetic.computer <span style="color:var(--ink-2)">+ /data/*.json</span></code>
+          <div class="why">Cross-chain NFT portal with live media and holder snapshots served as plain JSON: catalog, RDP, a2p v2, ten whistlegraphs.</div>
+          <div class="meta"><span>2026-08-31</span><span>d109bf8e1d</span><span class="pill new">new host</span></div>
+        </div>
+        <div class="addr">
+          <code>rdp.aesthetic.computer/json/1…239</code>
+          <div class="why">Byte-faithful recovered metadata for all 239 RDP tokens, so the on-chain pointers resolve again.</div>
+          <div class="meta"><span>2026-08-31</span><span>ff3ed1359a</span><span class="pill new">new host</span></div>
+        </div>
+        <div class="addr">
+          <code>menuband.app → App Store</code>
+          <div class="why">The apex forwards straight to the Mac App Store page.</div>
+          <div class="meta"><span>2026-08-31</span><span>b65327ef01</span><span class="pill new">new host</span></div>
+        </div>
+        <div class="addr">
+          <code>inbound.aesthetic.computer <span style="color:var(--ink-2)">(https, acme only)</span></code>
+          <div class="why">Exists so certbot can mint the mail door's certificate. Says "SMTP on :25" and nothing else.</div>
+          <div class="meta"><span>2026-09-13</span><span>318f1830c0 · ae1933a8b7</span><span class="pill new">new host</span></div>
+        </div>
+      </div>
+
+      <div class="host">
+        <h2>wss://session-server… <small>live sockets; self-deploys every 60 s since 09-11</small></h2>
+        <div class="addr">
+          <code>/agent-presence?room=&lt;handle&gt;&amp;role=agent|surface</code>
+          <div class="why">Claude-in: an agent and a handle's screens can see each other, which lights the crab mark top-right.</div>
+          <div class="meta"><span>2026-09-03</span><span>e72aa69a7b</span></div>
+        </div>
+        <div class="addr">
+          <code>diagnostics:listen · diagnostics:report</code>
+          <div class="why">A running piece can report on its own health, and only its author hears it.</div>
+          <div class="meta"><span>2026-09-11</span><span>dd45600402</span></div>
+        </div>
+        <div class="addr">
+          <code><span class="m">GET</span>/oskiewar-open-room · oskiewar:seat · :input · :net</code>
+          <div class="why">Strangers meet at the front door: the open versus room is public, and both seats now simulate the whole fight with rollback.</div>
+          <div class="meta"><span>2026-09-03 · 09-05 · 09-09</span><span>039b0cda33 · c5121d2f97 · c6a5729862</span></div>
+        </div>
+        <div class="addr">
+          <code>chat:service-message</code>
+          <div class="why">YouTube live-chat viewers appear in the clock room as televised guests, authorised by a service secret rather than a person.</div>
+          <div class="meta"><span>2026-09-01</span><span>c894adb754</span></div>
+        </div>
+      </div>
+
+      <div class="host">
+        <h2>fleet <small>machines behind the site</small></h2>
+        <div class="addr">
+          <code>prox worker :5252 <span style="color:var(--ink-2)">/job · /poke · /status/mediascholar</span></code>
+          <div class="why">Headless Linux job controller for the Mediascholar paper worker, LAN-bound. Its status is what the public status page proxies.</div>
+          <div class="meta"><span>2026-09-05</span><span>ba66817f1d</span></div>
+        </div>
+        <div class="addr">
+          <code>actv · wgtv · wgtv-playout · tvchat</code>
+          <div class="why">Whistlegraph TV and laer-klokken TV, 24/7 to YouTube, with the chat bridge back into the clock room.</div>
+          <div class="meta"><span>2026-09-01</span><span>2d867102e0 · c894adb754</span></div>
+        </div>
+        <div class="addr">
+          <code>Auth0 action: link-email-identity</code>
+          <div class="why">Runs in the Auth0 tenant: an emailed-code login merges into the account that already exists.</div>
+          <div class="meta"><span>2026-09-11</span><span>d3d908bd77</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="flow">
+    <h3>A letter's path</h3>
+    <div class="steps">
+      <div class="step"><code>someone@gmail.com</code><span>writes to prutti@aesthetic.computer</span></div>
+      <div class="step"><code>Google Workspace</code><span>catches the domain, applies a route, relays it on</span></div>
+      <div class="step"><code>inbound:25</code><span>accepts Google's relays only, checks SPF, DKIM and DMARC</span></div>
+      <div class="step"><code>tells collection</code><span>filed as a letter with subject, from-email and the sender's name</span></div>
+      <div class="step"><code>amail piece + push</code><span>the reader's phone buzzes; the reply leaves via Gmail with the plus-tag</span></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>
+      <h4>Doors that were already open but changed shape</h4>
+      <ul class="changed">
+        <li><code>/api/ask</code> daily token budget per handle; anonymous callers get the cheap model only.</li>
+        <li><code>/run</code> a handle/slug channel needs that handle's token; ownership is the token, not the secret name.</li>
+        <li><code>/api/tell</code> now lands in the recipient's mail; letter text kept out of push bodies and logs.</li>
+        <li><code>/api/say</code> any signed-in handle may send text; the prutti voice is producer-gated.</li>
+        <li><code>/api/version</code> long-poll held 45 s instead of 4 s. It was 57% of daily requests.</li>
+        <li><code>/api/oskiewar-replays</code> anonymous seat may upload; rooms named on round summaries.</li>
+        <li><code>/api/register-push-token</code> sotce tenant and topics for pages and chat.</li>
+        <li><code>/api/chat-messages</code> rows carry who relayed them and a YouTube walk-back link.</li>
+        <li><code>/api/piece-hit</code> bots counted but flagged; a stray socket upgrade gets a 426 pointing at the session server.</li>
+        <li><code>/api/nom-scores</code> numrank game added; score-only runs.</li>
+        <li><code>/api/wg/*</code> facilitator signs every call with a fresh Ed25519 JWT.</li>
+        <li><code>caddy cache</code> worker bundle immutable; bios and disk no-cache; oskiewar modules precompressed.</li>
+      </ul>
+    </div>
+    <div class="colophon">
+      <b>How to read this.</b> Every commit named here is on origin/main. lith redeploys itself on push, so the http routes are presumed in production; the session server has watched for its own changes since 2026-09-11. <b>Live</b> was checked by hand today for the mail door, the TV host and the mailbox. <b>Route secret unset</b> means the mail door still logs that any Google tenant's route would be accepted. <b>Not on this sheet:</b> feed worker (no changes), local-only MCP servers, the loopback credential proxy.<br><br>Compiled 2026-09-15 from the git record between 2026-08-16 and 2026-09-15. Set in Bricolage Grotesque, IBM Plex Sans and IBM Plex Mono. aesthetic.computer</div>
+  </footer>
+
+</div></div>
+
+<script>
+  (function () {
+    var sheet = document.getElementById("sheet");
+    function fit() {
+      if (window.matchMedia && window.matchMedia("print").matches) { sheet.style.transform = ""; return; }
+      var s = Math.min(1, (window.innerWidth - 24) / 1587);
+      sheet.style.transform = "scale(" + s + ")";
+      sheet.parentNode.style.height = (2245 * s + 48) + "px";
+    }
+    fit(); window.addEventListener("resize", fit);
+    window.addEventListener("beforeprint", function () { sheet.style.transform = ""; sheet.parentNode.style.height = ""; });
+    window.addEventListener("afterprint", fit);
+  })();
+</script>

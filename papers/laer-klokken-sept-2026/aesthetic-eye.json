@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "Laer Klokken Escapades, September 2026",
+  "pdf": "laer-klokken-sept-2026.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "pdfSha256": "7cde43a604ec842349dde4ce397a7789280c60eb4e67046335460cfadcd29593",
+  "reviewedAt": "2026-09-15T17:19:44Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Single 11 x 17 in broadside. Wordmark in the standfirst, byline and colophon through the \\ac macro with the pink period; lowercase host names carry their own period."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "road-to-stubbekobing",
+      "page": 1,
+      "crop": [
+        0.04,
+        0.745,
+        0.92,
+        0.09
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Five equal boxes in a row, Monday to after Saturday, pink Stealth arrows on a shared centre line; mono date heading over a two-line sans note in each box."
+    }
+  ]
+}

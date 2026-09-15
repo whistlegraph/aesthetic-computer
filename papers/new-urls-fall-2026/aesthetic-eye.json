@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "New URLs on AC, Fall 2026",
+  "pdf": "new-urls-fall-2026.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "pdfSha256": "496e137aa3e4ba0d8197eff113d62618c63192f09a47f49f8cc94c03e5e41723",
+  "reviewedAt": "2026-09-15T16:20:02Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Single 12 x 18 in broadside. Wordmark appears in the standfirst, the byline and the colophon, each through the \\ac macro with the pink period; every other mention is the lowercase host name aesthetic.computer, which carries its own period."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "letters-path",
+      "page": 1,
+      "crop": [
+        0.04,
+        0.795,
+        0.92,
+        0.08
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Five boxes of equal width and height in one row, left to right, pink Stealth arrows between them at a shared centre line; mono heading over a sans explanation in each. Shared padding and gutters; the row sits inside the measure with air on both sides."
+    }
+  ]
+}

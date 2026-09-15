@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "paper": "Laer Klokken Escapades, on cards",
+  "pdf": "laer-klokken-deck-sept-2026.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 0,
+  "visualInference": true,
+  "pdfSha256": "67d29f056057aaaaddaaae7601d26447b40fdcfe082016924f3677cce14c28eb",
+  "reviewedAt": "2026-09-15T18:11:12Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "15-card 4x6 in deck. Wordmark on the title card byline and the letter card through the \\ac macro (renewed over the cards style's small-caps default so the period is pink). Ten emblem illustrations are decorative colored-pencil objects from gpt-image-2.5-sunburst (marketing/campaigns/laer-klokken-cards); the klokkers card and the codes card show the users' own paintings pulled from their public profiles and the #code painting endpoint. None sits in a figure environment."
+  },
+  "figures": [],
+  "diagrams": []
+}

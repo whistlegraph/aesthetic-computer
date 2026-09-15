@@ -1,0 +1,215 @@
+% !TEX program = xelatex
+% Deck (cards format) — hand-authored storybook deck of the laer-klokken week of
+% 14 September 2026. Sibling of ../laer-klokken-sept-2026/ (the broadside);
+% same facts, addressed to the klokkers, one scene per card.
+\documentclass[11pt]{article}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+% Latin Modern by OTF filename (not font name): xelatex on macOS cannot
+% resolve the family by name and silently produces a broken card PDF.
+\setmainfont{lmroman10-regular.otf}[
+  BoldFont=lmroman10-bold.otf,
+  ItalicFont=lmroman10-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf,
+]
+\setsansfont{lmsans10-regular.otf}[
+  BoldFont=lmsans10-bold.otf,
+  ItalicFont=lmsans10-oblique.otf,
+  BoldItalicFont=lmsans10-boldoblique.otf,
+]
+\setmonofont{lmmono10-regular.otf}[Scale=0.88,
+  BoldFont=lmmonolt10-bold.otf,
+  ItalicFont=lmmono10-italic.otf,
+]
+
+\usepackage{graphicx}
+\graphicspath{{figures/}{figures/illys/}{figures/paintings/}{figures/klokkers/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{adjustbox}
+\usepackage{ragged2e}
+\usepackage{microtype}
+
+\makeatletter
+\def\input@path{{../}}
+\makeatother
+\usepackage{ac-paper-cards}
+% the cards style sets \ac in small caps with a plain period; the brand wants the pink dot.
+\renewcommand{\ac}{Aesthetic{\acdot}Computer}
+\newcommand{\dk}[1]{{\itshape #1}}
+\newcommand{\illy}[1]{\begin{center}\includegraphics[width=0.5\textwidth]{#1}\end{center}\vspace{-0.4em}}
+% chat syntax, carried into print: @handle is a tappable profile link, #code opens the painting.
+% chat paints handles pink ([255,150,200] on its dark ground); this is that pink at paper contrast.
+\definecolor{achandle}{RGB}{206,72,132}
+\newcommand{\h}[1]{\href{https://prompt.ac/@#1}{\color{achandle}\textbf{@#1}}}
+\newcommand{\hh}[2]{\href{https://prompt.ac/@#1}{\color{achandle}\textbf{@#2}}}
+\newcommand{\pc}[1]{\href{https://aesthetic.computer/media/paintings/#1.png}{\color{acpurple}\texttt{\##1}}}
+% a painting tile: image, then its code and painter in tiny type
+\newcommand{\tile}[3]{\begin{minipage}[t]{0.29\textwidth}\centering\includegraphics[width=\linewidth]{#1}\\[-0.1em]{\tiny\pc{#2}\ \h{#3}}\end{minipage}}
+\newcommand{\hhtile}{\begin{minipage}[t]{0.184\textwidth}\centering\includegraphics[width=\linewidth]{FM_Vigil}\\[-0.15em]{\fontsize{5pt}{6pt}\selectfont\hh{FM_Vigil}{FM\_Vigil}}\end{minipage}}
+\newcommand{\ktile}[2]{\begin{minipage}[t]{0.184\textwidth}\centering\includegraphics[width=\linewidth]{#1}\\[-0.15em]{\fontsize{5pt}{6pt}\selectfont\h{#2}}\end{minipage}}
+
+\hypersetup{
+  pdftitle={Laer Klokken Escapades --- the week of 14 September 2026, on cards},
+}
+
+\renewcommand{\acpdfbase}{laer-klokken-escapades-26}
+\acdraftfalse
+\begin{document}
+
+% ============================================================
+% TITLE CARD
+% ============================================================
+\thispagestyle{empty}
+\vspace*{0.05em}
+\begin{center}
+\href{https://laklok.com}{\includegraphics[width=0.66\textwidth]{cover}}\par\vspace{0.25em}
+{\acbold\fontsize{18pt}{22pt}\selectfont\color{acdark} Laer Klokken Escapades}\par
+\vspace{0.1em}
+{\fontsize{9pt}{11pt}\selectfont\color{acpink} the week of 14 september 2026, on cards --- for the klokkers, before stubbekøbing}\par
+\vspace{0.2em}
+{\scriptsize\color{acgray}\h{jeffrey}\,\textperiodcentered\,\ac{}\,\textperiodcentered\,laklok.com}\par
+\vspace{0.2em}
+\rule{0.5\textwidth}{0.5pt}\par
+\vspace{0.12em}
+{\scriptsize\color{acgray} tuesday 15 september 2026 \,\textperiodcentered\, read off chat-clock and the git log}\par
+\end{center}
+
+% ============================================================
+% INDEX CARD
+% ============================================================
+\cardindex
+
+% ============================================================
+% LETTER CARD
+% ============================================================
+\clearpage
+\begin{accentcard}
+\cardtitle{dear klokkers}
+
+\noindent here is your week, as i read it off the chat on tuesday --- where you're going on saturday, what happened in the clock channel, and what \ac{} handed you along the way. print it, cut it, pin it up, hand it round at stubbekøbing. the last card is a question. \hfill\textit{---\,\h{jeffrey}}
+\end{accentcard}
+
+% ============================================================
+% BODY
+% ============================================================
+\section{the trip}
+
+\illy{trip}
+
+folkets folkemøde, stubbekøbing, falster --- a people's meeting without lobbyists, one saturday a year. this year it has a clock in it.
+
+\textbf{saturday 19 september, 13:30 to 14:30, rådhuset.} \dk{laer klokken med goodiepal} is in the printed program. their blurb: the composer and clockmaker records a new episode of his unpredictable radio show, about quitting social media for good and building your own computing on \ac{}. visitors are told to try the commands and catch up on old episodes. our pitch, written by someone else --- the best kind.
+
+\section{the klokkers}
+
+the newest painting on each of your profiles, tuesday afternoon. tap a name to visit.
+
+\begin{center}
+\ktile{prutti}{prutti}\hfill\ktile{HendeFraHoeve}{HendeFraHoeve}\hfill\ktile{snakes}{snakes}\hfill\ktile{YouthOrgan}{YouthOrgan}\hfill\ktile{tyttebaer}{tyttebaer}\\[0.9em]
+\ktile{osamakimlarsen}{osamakimlarsen}\hfill\ktile{q13R608tx}{q13R608tx}\hfill\ktile{chigichigi}{chigichigi}\hfill\hhtile\hfill\ktile{alki}{alki}
+\end{center}
+
+\h{oliverstilling} and \h{Wallowing} have no paintings yet. that is a hint, not a complaint.
+
+\section{the plan, seven points}
+
+\illy{plan}
+
+posted by \h{prutti} on tuesday at 09:08, numbering his own:
+
+\begin{enumerate}
+\item record a laer klokken program live.
+\item every klokker in the room gets a segment.
+\item the show runs 56 minutes.
+\item there is no money, because there just isn't any.
+\item a reception on the HVAD record.
+\item a bed in stubbekøbing the night before and after.
+\item a bus down from copenhagen --- if you say you're coming.
+\end{enumerate}
+
+coda: \dk{det bliver super duper}. it will.
+
+\section{the phone line}
+
+\illy{phone}
+
+\dk{ring til Torras telefon. nu.} then \dk{linjen er åben nu} at 10:58, and again at 11:39. \h{tyttebaer} and \h{YouthOrgan} called in while the rest of the channel watched. the clock program is being made live, over a phone, in public, on a tuesday morning. that's the format.
+
+\textbf{who's in so far:} \h{HendeFraHoeve} first (\dk{jeg skal med!}), then \h{snakes}, \h{YouthOrgan}, \h{tyttebaer} --- and \h{oliverstilling}, who said back in august he'd see goodie there. \h{alki} wants \dk{bus intel}. \h{osamakimlarsen} wants to meet up beforehand \dk{og se hvem er folket}. prutti's reply to each: \dk{tjek}.
+
+\section{the chat became a video}
+
+\illy{video}
+
+\hh{FM_Vigil}{FM\_Vigil} recorded the chat and put it on youtube. \h{HendeFraHoeve} cut it three times in one afternoon, chasing bigger text --- \dk{der kommer straks en version med større chat}, then \dk{større men mere uklar}, then \dk{alle gode gange 3}.
+
+prutti watched on an ipad at glasmagasinet in oslo: \dk{chatten er lidt lille men den er fucking fed}.
+
+the room is editing itself now. i just have to keep it running --- and yes, a bigger-chat tema is coming, so the third re-render isn't needed next time.
+
+\section{codes on the wire}
+
+the paintings you dropped bare into the channel this month, as codes --- three characters, no preview, tap it and see. that was the whole idea.
+
+\begin{center}
+\tile{swk}{swk}{q13R608tx}\hfill\tile{w5o}{w5o}{osamakimlarsen}\hfill\tile{n5j}{n5j}{osamakimlarsen}\\[0.5em]
+\tile{v5x}{v5x}{osamakimlarsen}\hfill\tile{ie6}{ie6}{osamakimlarsen}\hfill\tile{6x3}{6x3}{osamakimlarsen}\\[0.5em]
+\tile{aue}{aue}{q13R608tx}\hfill\tile{jzg}{jzg}{q13R608tx}\hfill\tile{4ne}{4ne}{q13R608tx}
+\end{center}
+
+\section{datamusik provenance}
+
+\illy{solder}
+
+\h{q13R608tx} and \h{snakes} spent monday evening on who really made the datamusik records and the V/Vm audio --- ``jansky noise has also confirmed that datamusik 13 and 03 are both made by you.'' snakes: he made more sounds than he remembers.
+
+q13 is \dk{soldering a bunch of wires once more to create a product}, and thanked osama for the stickers and the collage. the archive argues with itself. good.
+
+\section{what the platform handed you}
+
+everything here landed in the last thirty days, most of it built for this room.
+
+\textbf{two laklok sisters, one census} (09-13). the raster laklok piece and the vector laklok.com/html now stay in lockstep, and both report which tema each visitor wears. a \texttt{realtime} tema drifts with the calendar.
+
+\textbf{prutti's words learned to speak} (09-08). a vox chip on every \h{prutti} message --- his consented elevenlabs voice reads the line back, word by word. since 09-13 any signed-in handle can send a text through \texttt{say}.
+
+\textbf{laer-klokken TV, and the bridge back} (09-01). a 24/7 youtube stream of the clock room; youtube viewers appear in chat-clock as televised guests.
+
+\textbf{two things to check before saturday.} \h{snakes} said on 09-04 that goodiepal could not log in --- the host of the show should be able to get into his own show. and \h{kitten.cat} hit a ``verify'' prompt that didn't explain itself.
+
+\section{every klokker is an email address}
+
+\illy{mail}
+
+\texttt{prutti@aesthetic.computer} exists. so does yours: your handle, at aesthetic.computer. the door is open, SPF and DKIM are on, and nobody had told the room until now.
+
+prutti asked on 09-08 where to send three files ``for computer change'' and again on 09-11 --- \dk{what email adress should i use to file things to you?} letters from outside so far: zero. that address is the answer.
+
+\h{q13R608tx} worked it out on his own: ``mail is the new private messaging system basically... but even better because its mail!!'' he's right.
+
+\section{the road to falster}
+
+\illy{road}
+
+\begin{itemize}
+\item \textbf{mon 14} --- the chat is recorded and cut into a video, three times.
+\item \textbf{tue 15} --- the plan is posted and the phone line opens.
+\item \textbf{fri 18} --- prutti comes down from norway to copenhagen. the festival sells bus tickets from there; prutti's own bus needs a headcount.
+\item \textbf{sat 19, 13:30} --- rådhuset, stubbekøbing: 56 minutes recorded live.
+\item \textbf{after} --- the episode joins the archive online.
+\end{itemize}
+
+\section{for saturday}
+
+\illy{bell}
+
+what i can bring to the room without being in it: this deck, printed; a QR to laklok.com on the door; the TV stream running on any screen in the hall; a mail address for every klokker who signs up on the day; a bigger-chat tema for whoever films it.
+
+what else do you need for the gig? a card, a poster, a sound, a piece that only runs in stubbekøbing --- say it in chat-clock and it goes on the list.
+
+\vspace{0.5em}
+\noindent{\small\color{acgray}\dk{vi ses i laer-klokken.}}
+
+\end{document}
