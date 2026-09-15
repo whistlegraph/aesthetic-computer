@@ -89,7 +89,7 @@
     form#post input[readonly] { color: var(--ink); border-color: transparent; background: transparent; }
     form#post input[type="file"] { max-width: 100%; min-width: 0; }
     form#post .filerow { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; }
-    form#post button {
+    form#post button, .feed-more button {
       background: var(--ink); color: var(--paper);
       border: 0; border-radius: 4px; min-height: 44px;
       padding: 0.45em 1.2em; font: inherit; cursor: pointer;
@@ -136,6 +136,24 @@
       display: inline-block; background: var(--paper);
       border: 1px dashed var(--card-edge); padding: 0.8em 1.2em;
     }
+    .feed-list { display: grid; gap: 1em; max-width: 40rem; }
+    .feed-post { margin: 0; padding: 0; overflow: hidden; }
+    .feed-post > .meta { margin: 0.7em 0.85em 0.3em; }
+    .feed-post > .filemeta { margin: 0.3em 0.85em 0.6em; }
+    .feed-media { aspect-ratio: 1; width: 100%; overflow: hidden; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; background: var(--paper); }
+    .feed-media > * { min-width: 0; min-height: 0; }
+    .feed-media > img, .feed-media > video, .feed-media > iframe.doc {
+      width: 100%; height: 100%; max-height: none; min-height: 0; object-fit: contain; border: 0;
+    }
+    .feed-media > pre.textfile { width: 100%; height: 100%; max-height: none; min-height: 0; margin: 0; border: 0; }
+    .feed-media > audio { width: calc(100% - 2em); }
+    .feed-media > .blob { max-width: calc(100% - 2em); }
+    .feed-post > .body { padding: 0 0.85em; }
+    .feed-post > .discussion { margin: 0.7em 0.85em; }
+    .feed-more { max-width: 40rem; padding: 1em 0; display: flex; align-items: center; gap: 1em; }
+    .feed-more [role="status"] { color: var(--dim); }
+    main > details, main > .dir { max-width: 40rem; }
+    main > .dir { margin-bottom: 1em; }
     .omitted { color: var(--dim); font-size: 0.85em; margin: 0.3em 0; }
     .replies { margin-left: 1.5em; }
     @media (max-width: 40em) {
@@ -143,15 +161,16 @@
       header, nav#boards { padding-left: 0.75rem; padding-right: 0.75rem; }
       main { padding: 0 0.75rem; }
       .post { padding: 0.6em; }
+      .feed-post { padding: 0; }
     }
 
-    .dir { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14em), 1fr)); gap: 0.5em; }
+    .dir { display: flex; flex-wrap: wrap; gap: 0.5em; }
     .dir a.b {
       background: var(--card); border: 1px solid var(--card-edge);
-      padding: 0.6em 0.8em; text-decoration: none; color: var(--body);
+      padding: 0.35em 0.6em; text-decoration: none; color: var(--body); overflow-wrap: anywhere;
     }
-    .dir a.b .t { color: var(--ink); font-weight: bold; display: block; }
-    .dir a.b .n { color: var(--dim); font-size: 0.8em; }
+    .dir a.b .t { color: var(--ink); font-weight: bold; }
+    .dir a.b .n { color: var(--dim); font-size: 0.8em; margin-left: 0.5em; }
     body.dragging::after {
       content: "drop file";
       position: fixed; inset: 0; display: grid; place-items: center;
@@ -174,6 +193,12 @@ const API = "/api/mime";
 const view = document.getElementById("view");
 const nav = document.getElementById("boards");
 let pendingFile = null; // { name, type, data } staged for the form
+let routeController;
+let feedCache, activeFeed, feedObserver;
+history.scrollRestoration = "manual";
+window.addEventListener("scroll", () => {
+  if (activeFeed) activeFeed.scrollY = window.scrollY;
+}, { passive: true });
 
 const esc = (s) => s ?? "";
 const el = (tag, cls, text) => {
@@ -256,8 +281,8 @@ function renderText(text) {
   return body;
 }
 
-function renderPost(post, isOp, inThread = false, contextBoard) {
-  const div = el("div", "post" + (isOp ? " op" : ""));
+function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
+  const div = el("div", "post" + (isOp ? " op" : "") + (inFeed ? " feed-post" : ""));
   div.id = post.code;
   const meta = el("div", "meta");
   meta.append(el("span", "name", esc(post.name) || "Anonymous"), document.createTextNode(" · " + ago(post.when) + " · "));
@@ -275,7 +300,12 @@ function renderPost(post, isOp, inThread = false, contextBoard) {
     if (post.file.type !== contextBoard) fm.append(tl, document.createTextNode(" · "));
     if (post.file.size != null) fm.append(document.createTextNode(human(post.file.size) + " · "));
     fm.append(dl);
-    div.append(fm, renderFile(post.file));
+    const file = renderFile(post.file);
+    if (inFeed) {
+      const frame = el("div", "feed-media");
+      frame.append(file);
+      div.append(fm, frame);
+    } else div.append(fm, file);
   }
   if (post.text) div.append(renderText(post.text));
   if (!post.parent && !inThread) {
@@ -441,6 +471,7 @@ function postForm(parent) {
       });
       const out = await res.json();
       if (!res.ok) { status.textContent = out.error; return; }
+      if (!parent) feedCache = null;
       pendingFile = null;
       history.replaceState(null, "", "#/t/" + (parent || out.code));
       await route();
@@ -466,8 +497,8 @@ function fileType(f) {
   return map[ext] || "application/octet-stream";
 }
 
-async function loadNav(active) {
-  const { boards } = await fetch(API).then((r) => r.json());
+async function loadNav(active, signal) {
+  const { boards } = await read(API, signal);
   nav.replaceChildren(...boards.flatMap((b, i) => {
     const a = el("a", null, "/" + b.board + "/");
     a.href = "#/" + b.board;
@@ -493,26 +524,94 @@ function pages(page, hasMore, path) {
   return links;
 }
 
-async function home(page = 0) {
-  const data = await read(API + "?page=" + page);
+async function home(page = 0, signal) {
+  let state = feedCache?.startPage === page ? feedCache : null;
+  if (!state) {
+    const data = await read(API + "?page=" + page, signal);
+    state = { startPage: page, nextPage: page + 1, boards: data.boards,
+      hasMore: data.hasMore, nodes: [], codes: new Set(), scrollY: 0 };
+    for (const post of data.recent) {
+      if (state.codes.has(post.code)) continue;
+      state.codes.add(post.code);
+      state.nodes.push(renderPost(post, false, false, undefined, true));
+    }
+    feedCache = state;
+  }
+  if (signal.aborted) return;
+  const restoreY = state.scrollY;
   const upload = el("details");
   upload.append(el("summary", null, "post file"), postForm(null));
-  view.replaceChildren(upload);
   const dir = el("div", "dir");
-  for (const b of data.boards) {
+  for (const b of state.boards) {
     const a = el("a", "b");
     a.href = "#/" + b.board;
-    a.append(el("span", "t", "/" + b.board + "/"), el("span", "n", b.threads + " thread" + (b.threads === 1 ? "" : "s")));
+    a.setAttribute("aria-label", b.board + ": " + b.threads + " threads");
+    a.append(el("span", "t", "/" + b.board + "/"), el("span", "n", b.threads));
     dir.append(a);
   }
-  if (data.boards.length) view.append(dir);
-  else view.append(el("p", null, "no media yet"));
-  for (const p of data.recent) view.append(renderPost(p, false));
-  view.append(pages(page, data.hasMore, "#/"));
+  const list = el("div", "feed-list");
+  list.setAttribute("aria-label", "Media feed");
+  list.append(...state.nodes);
+  view.replaceChildren(upload, dir, list);
+  if (!state.nodes.length) list.append(el("p", null, "no media yet"));
+  const more = el("div", "feed-more");
+  const button = el("button", null, "load more");
+  button.type = "button";
+  const status = el("span");
+  status.setAttribute("role", "status");
+  more.append(button, status);
+  if (state.hasMore) view.append(more);
+  let loading = false;
+  const loadMore = async () => {
+    if (loading || !state.hasMore || signal.aborted) return;
+    loading = true;
+    button.disabled = true;
+    status.textContent = "loading…";
+    list.setAttribute("aria-busy", "true");
+    feedObserver?.disconnect();
+    try {
+      const data = await read(API + "?page=" + state.nextPage, signal);
+      if (signal.aborted) return;
+      for (const post of data.recent) {
+        if (state.codes.has(post.code)) continue;
+        state.codes.add(post.code);
+        const node = renderPost(post, false, false, undefined, true);
+        state.nodes.push(node);
+        list.append(node);
+      }
+      state.nextPage++;
+      state.hasMore = data.hasMore;
+      status.textContent = "";
+      button.textContent = "load more";
+      if (!state.hasMore) more.remove();
+      else feedObserver?.observe(more);
+    } catch (error) {
+      if (!signal.aborted) {
+        status.textContent = "could not load more posts";
+        button.textContent = "try again";
+      }
+    } finally {
+      loading = false;
+      button.disabled = false;
+      list.removeAttribute("aria-busy");
+    }
+  };
+  button.onclick = loadMore;
+  if ("IntersectionObserver" in window) {
+    feedObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMore();
+    }, { rootMargin: "600px 0px" });
+  }
+  activeFeed = state;
+  requestAnimationFrame(() => {
+    if (signal.aborted) return;
+    window.scrollTo(0, restoreY);
+    if (state.hasMore) feedObserver?.observe(more);
+  });
 }
 
-async function board(name, page = 0) {
-  const data = await read(API + "?board=" + encodeURIComponent(name) + "&page=" + page);
+async function board(name, page = 0, signal) {
+  const data = await read(API + "?board=" + encodeURIComponent(name) + "&page=" + page, signal);
   const upload = el("a", null, "post file");
   upload.href = "#/";
   view.replaceChildren(upload);
@@ -529,8 +628,8 @@ async function board(name, page = 0) {
   return name;
 }
 
-async function thread(code, kind) {
-  const data = await read(API + (kind ? "?media=" + encodeURIComponent(kind) + "&code=" : "?thread=") + encodeURIComponent(code));
+async function thread(code, kind, signal) {
+  const data = await read(API + (kind ? "?media=" + encodeURIComponent(kind) + "&code=" : "?thread=") + encodeURIComponent(code), signal);
   code = data.op.code;
   if (kind) history.replaceState(null, "", "#/t/" + code);
   view.replaceChildren(renderPost(data.op, true, true, data.op.board));
@@ -540,14 +639,23 @@ async function thread(code, kind) {
   return data.op.board;
 }
 
-async function read(url) {
-  const response = await fetch(url);
+async function read(url, signal) {
+  const response = await fetch(url, { signal });
   const data = await response.json();
+  if (signal?.aborted) throw new DOMException("Navigation changed", "AbortError");
   if (!response.ok) throw new Error(data.error || "could not load mime");
   return data;
 }
 
 async function route() {
+  if (activeFeed) activeFeed.scrollY = window.scrollY;
+  activeFeed = null;
+  feedObserver?.disconnect();
+  feedObserver = null;
+  routeController?.abort();
+  routeController = new AbortController();
+  const { signal } = routeController;
+  window.scrollTo(0, 0);
   pendingFile = null;
   document.ondragover = document.ondragleave = document.ondrop = document.onpaste = null;
   document.body.classList.remove("dragging");
@@ -558,19 +666,21 @@ async function route() {
   nav.replaceChildren();
   try {
     let active;
-    if (!hash) await home(page);
-    else if (hash.startsWith("t/")) active = await thread(hash.slice(2));
+    if (!hash) await home(page, signal);
+    else if (hash.startsWith("t/")) active = await thread(hash.slice(2), undefined, signal);
     else if (hash.startsWith("media/")) {
       const [, kind, code] = hash.split("/");
-      active = await thread(decodeURIComponent(code || ""), kind);
-    } else active = await board(decodeURIComponent(hash), page);
-    if (hash) await loadNav(active);
+      active = await thread(decodeURIComponent(code || ""), kind, signal);
+    } else active = await board(decodeURIComponent(hash), page, signal);
+    if (hash) await loadNav(active, signal);
+    if (signal.aborted) return;
     if (params.get("comment") === "1" && (hash.startsWith("t/") || hash.startsWith("media/"))) {
       const comment = view.querySelector("#post textarea");
       comment?.focus();
       comment?.scrollIntoView({ block: "center" });
     }
   } catch (error) {
+    if (signal.aborted) return;
     view.replaceChildren(el("p", null, error.message || "could not load mime"));
   }
 }

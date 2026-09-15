@@ -1,6 +1,9 @@
 # Mime
 
 Discussion on AC media. The frontend is `/mime/`; the API is `/api/mime`.
+The main feed uses square media frames without cropping, loads 12 posts at a
+time while scrolling, and preserves loaded posts and position across thread
+visits. A load-more button also supports manual loading and retries.
 `/mimechan/` preserves old hash links through a redirect, and `/api/mimechan`
 remains an alias. Existing uploaded files and replies stay in `mimechan`.
 
