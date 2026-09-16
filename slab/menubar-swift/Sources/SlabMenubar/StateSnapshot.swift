@@ -124,6 +124,20 @@ struct DeployStatusState {
     var url: String = ""
 }
 
+/// Game Mode's live picture, all of it cheap to read (flag files +
+/// getifaddrs), so the menu can show what GFN itself is seeing.
+struct GameModeState {
+    var on = false                 // the flag file — mode engaged
+    var autoDetect = false         // engage by itself when GeForce NOW opens
+    var helperInstalled = false    // root awdl daemon present
+    /// awdl0 is up. macOS idles this interface down on its own, so "down"
+    /// alone never means Slab is holding it — only the helper plus an
+    /// engaged mode does, which is why the menu reports the two apart.
+    var awdlUp = false
+    var tailnetVisible = true      // a utun carries 100.64/10 — GFN's VPN tell
+    var gfnRunning = false
+}
+
 struct StateSnapshot {
     var lidClosed: Bool = false
     var sleepDisabled: Bool = false
@@ -166,6 +180,8 @@ struct StateSnapshot {
     /// Path to the active recording WAV when callRecording is true.
     /// Empty otherwise.
     var callRecordingPath: String = ""
+    /// GeForce NOW game mode — tailnet paused + AirDrop radio pinned down.
+    var gameMode: GameModeState = GameModeState()
 
     var totalActive: Int { activePrompts + activeSubagents }
     var hasWork: Bool { totalActive > 0 }
@@ -222,6 +238,7 @@ struct StateSnapshot {
         let (rec, recPath) = readCallRecordingState()
         s.callRecording = rec
         s.callRecordingPath = recPath
+        s.gameMode = GameMode.state()
         return s
     }
 
