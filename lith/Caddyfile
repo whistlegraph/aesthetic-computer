@@ -1361,6 +1361,7 @@ www.mime.ac {
 # Aesel uses Cloudflare DNS-only records and its own public certificate.
 aesel.app {
     tls {
+        protocols tls1.2 tls1.3
         issuer acme {
             dir https://acme-v02.api.letsencrypt.org/directory
         }
@@ -1372,5 +1373,11 @@ aesel.app {
     file_server
 }
 www.aesel.app {
+    tls {
+        protocols tls1.2 tls1.3
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
     redir https://aesel.app{uri} 301
 }
