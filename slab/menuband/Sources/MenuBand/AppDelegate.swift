@@ -1785,9 +1785,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.rebuildPopoverForLanguageChange()
         }
+        // `queue: nil` on purpose — the teardown must finish BEFORE the
+        // notice window exists. Hopping through the main OperationQueue
+        // would let the panel appear while quiet focus still owns the
+        // keyboard, and its local key monitor would swallow the Escape
+        // and Return meant for the notice. Posters are all on main.
         NotificationCenter.default.addObserver(
             forName: .menuBandMicPermissionAlertWillShow,
-            object: nil, queue: .main
+            object: nil, queue: nil
         ) { [weak self] _ in
             self?.prepareForModalAlert()
         }
@@ -1928,11 +1933,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if wasShown { showPopover() }
     }
 
+    /// Release every surface that could trap the user behind a notice.
+    ///
+    /// A permission failure is raised from the middle of play, which is
+    /// exactly when Menu Band owns the most of the machine: quiet focus
+    /// has the keyboard through the invisible capture panel, the click
+    /// shield is swallowing physical clicks, the pointer is hidden and
+    /// disassociated, and the visualizer may be covering the screen at
+    /// `.screenSaver`. Leave any of that standing and the notice becomes
+    /// unreachable — the app reads as crashed and permanently focused.
+    /// So hand the machine back FIRST, then let the notice appear.
     private func prepareForModalAlert() {
+        if pitchBendModeLatched || pitchBendCursorLocked
+            || pitchBendCursorPushed {
+            endPitchBendSession()
+        }
+        if visualizerOverlay.isShown {
+            visualizerOverlay.dismiss()
+        }
         if isPopoverPanelShown {
             closePopover()
         }
         pianoWaveformWindowDelegate.dismiss(reason: .programmatic)
+        #if !MAC_APP_STORE
+        stopTrackpadPercussionSystemClickShield()
+        stopTrackpadPercussionLocalClickShield()
+        #endif
+        stopFocusCursorWatchdog()
+        unlockSystemCursorIfNeeded()
+        showSystemCursorIfNeeded()
+        CGAssociateMouseAndMouseCursorPosition(1)
+        if localCapture.isArmed {
+            // `.resignedKey`, not `.cancelled`: cancelling bounces focus
+            // back to whatever app was frontmost before play started,
+            // which would leave the notice visible but unable to take
+            // key — no Escape. Resigning keeps Menu Band active and
+            // plays the usual focus-released cue.
+            localCapture.disarm(reason: .resignedKey)
+        }
+        if menuBand.typeMode {
+            menuBand.disableTypeModeForFocusCapture()
+        }
     }
 
     // MARK: - Global shortcuts

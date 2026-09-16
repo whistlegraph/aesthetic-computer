@@ -1679,39 +1679,33 @@ final class MenuBandSampleVoice {
         return recordedBuffer != nil || !perKeyBuffers.isEmpty
     }
 
-    /// Show an NSAlert explaining how to enable microphone access for
-    /// Menu Band. Called when TCC has already denied the request, OR
-    /// after the user clicks "Don't Allow" on the system prompt.
-    /// Includes a button that opens System Settings → Privacy →
-    /// Microphone directly so the fix is one click away.
-    private static var alertVisible = false
+    /// Explain how to enable microphone access for Menu Band. Called
+    /// when TCC has already denied the request, OR after the user
+    /// clicks "Don't Allow" on the system prompt. Offers a button that
+    /// opens System Settings → Privacy → Microphone so the fix is one
+    /// click away.
+    ///
+    /// Deliberately NOT an `NSAlert.runModal()`. A nested modal loop
+    /// raised while quiet focus is armed is unescapable: the click
+    /// shield eats the button press, Escape belongs to the capture
+    /// monitor, and the app sits frozen and focused forever. This posts
+    /// `menuBandMicPermissionAlertWillShow` so the AppDelegate releases
+    /// the performance surface first, then hands the message to
+    /// `MenuBandNotice`, which never blocks and always times out.
     private static func showMicPermissionAlert(denied: Bool) {
-        guard !alertVisible else { return }
-        alertVisible = true
-        defer { alertVisible = false }
         NotificationCenter.default.post(name: .menuBandMicPermissionAlertWillShow,
                                         object: nil)
-        let alert = NSAlert()
-        alert.messageText = "Menu Band can't reach the microphone"
-        alert.informativeText = denied
+        let body = denied
             ? "Microphone access has been denied. Open System Settings → Privacy & Security → Microphone and toggle Menu Band on, then try the sample voice again. If this debug build was launched from Terminal or Codex, macOS may list Terminal/Codex instead of Menu Band; the installed app bundle will appear as Menu Band after it asks once."
             : "Menu Band needs microphone access to record sample notes. Grant permission when macOS asks. If this debug build was launched from Terminal or Codex, macOS may list Terminal/Codex instead of Menu Band; the installed app bundle will appear as Menu Band after it asks once."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Cancel")
-        // Menu Band keeps its popovers/floating piano at pop-up levels.
-        // A vanilla `runModal()` alert can appear behind those surfaces,
-        // which is especially confusing for a permission failure. Lift
-        // the alert window one notch above our popovers before entering
-        // the modal loop so it is the frontmost Menu Band surface.
-        let window = alert.window
-        window.level = .screenSaver
-        window.collectionBehavior.insert(.canJoinAllSpaces)
-        NSApp.activate(ignoringOtherApps: true)
-        window.orderFrontRegardless()
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            // x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone
+        MenuBandNotice.show(
+            key: "mic-permission",
+            title: "Menu Band can't reach the microphone",
+            body: body,
+            primary: "Open System Settings",
+            secondary: "Cancel"
+        ) { openSettings in
+            guard openSettings else { return }
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
                 NSWorkspace.shared.open(url)
             }
