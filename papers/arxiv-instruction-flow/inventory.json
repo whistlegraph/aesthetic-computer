@@ -1,0 +1,184 @@
+{
+  "observedAt": "2026-09-15T18:44:29.675Z",
+  "head": "275329e763ab6cfb15735434736bd134ef78b70b",
+  "main": "a97038281a06c1ad3aabc15256e84e803f0ec195",
+  "workingEdits": "compushloy definition in SCORE.md and CLAUDE.md",
+  "inventory": [
+    {
+      "path": "AGENTS.md",
+      "kind": "symlink",
+      "target": "SCORE.md",
+      "bytes": 42689,
+      "lines": 738,
+      "sha256": "d432632b39b8137e750b96ae47932241473bf01a4f6267fc6d36e45d5613fe07"
+    },
+    {
+      "path": "CLAUDE.md",
+      "kind": "file",
+      "bytes": 9882,
+      "lines": 161,
+      "sha256": "cfdbfe8473d2a52899af3e8fd94a09b921d4a8d02090c8b4e45ee688d4a1b26e"
+    },
+    {
+      "path": "SCORE.md",
+      "kind": "file",
+      "bytes": 42689,
+      "lines": 738,
+      "sha256": "d432632b39b8137e750b96ae47932241473bf01a4f6267fc6d36e45d5613fe07"
+    },
+    {
+      "path": "crm/SCORE.md",
+      "kind": "file",
+      "bytes": 17694,
+      "lines": 352,
+      "sha256": "d23f91294cec994a1703e070f31a5e90b47824802b127c92fcd41a8043eb1aa6"
+    },
+    {
+      "path": "experiments/intelligent-terrarium/SCORE.md",
+      "kind": "file",
+      "bytes": 6577,
+      "lines": 126,
+      "sha256": "37a9f22ed1b8646fd34d6ef6ccbd826f5f3a1fcac55a6e1b0271857f25ec297f"
+    },
+    {
+      "path": "fedac/SCORE.md",
+      "kind": "file",
+      "bytes": 1256,
+      "lines": 31,
+      "sha256": "4cf30ce58b49ecd5c8691e89cbc06eb605af6bdfb43a19b0f6bfcd57d1e67d81"
+    },
+    {
+      "path": "fedac/native/SCORE.md",
+      "kind": "file",
+      "bytes": 9096,
+      "lines": 240,
+      "sha256": "2f3f7dc5e81ae53739d5d26b9e8d500b9725c379ecf41cc88fca824fe6c59561"
+    },
+    {
+      "path": "grants/SCORE.md",
+      "kind": "file",
+      "bytes": 10212,
+      "lines": 112,
+      "sha256": "1410b6f48a4ccf6acd7e4b83fa59dd30d561d1c5ec13c912cec093d5ba49ae2d"
+    },
+    {
+      "path": "kidlisp/SCORE.md",
+      "kind": "file",
+      "bytes": 7559,
+      "lines": 108,
+      "sha256": "dc8b5bc06530086c59ad4b79c4fe475d779cda8d107c073b1b3c3436b8e88f2c"
+    },
+    {
+      "path": "marketing/SCORE.md",
+      "kind": "file",
+      "bytes": 1690,
+      "lines": 30,
+      "sha256": "7da178c94e5e4772437c905888dc362ee1f45b274a109b129f046712e7a98b68"
+    },
+    {
+      "path": "marketing/essay-reels/SCORE.md",
+      "kind": "file",
+      "bytes": 1311,
+      "lines": 33,
+      "sha256": "cb91b11a34a837bf1bb181086637f11a1d790ba91e786a5c1b442b19bf6c0711"
+    },
+    {
+      "path": "marketing/kidlisp-reels/SCORE.md",
+      "kind": "file",
+      "bytes": 2574,
+      "lines": 63,
+      "sha256": "0cded797aa113ab00b2fd6a038efd3d8cf523974229e19e796df504dbd3ad171"
+    },
+    {
+      "path": "marketing/klokkentales/SCORE.md",
+      "kind": "file",
+      "bytes": 4729,
+      "lines": 110,
+      "sha256": "e1af324ae067f734db7b011429455574726dab4b79f85ac7236aba9667f4c69d"
+    },
+    {
+      "path": "marketing/podcast/SCORE.md",
+      "kind": "file",
+      "bytes": 7290,
+      "lines": 132,
+      "sha256": "6cf7f178ddcc917b7614aae9d76baeaec1dc7b0ab8843b61be10efbab8d2f853"
+    },
+    {
+      "path": "neofarm/SCORE.md",
+      "kind": "file",
+      "bytes": 5802,
+      "lines": 109,
+      "sha256": "755c67ff0d63375d8b38199afea598ee9192170c961a9c4e489447e696293c71"
+    },
+    {
+      "path": "papers/SCORE.md",
+      "kind": "file",
+      "bytes": 43880,
+      "lines": 457,
+      "sha256": "c071b0ba9ef5a65a518f40a34e24985e3115fa94b3dcbd2456f76031eaf74652"
+    },
+    {
+      "path": "papers/mediascholar/SCORE.md",
+      "kind": "file",
+      "bytes": 2147,
+      "lines": 41,
+      "sha256": "e813100f0081fa7b92db0865aa4e71f2c57a2e8de08565e79b1c5fc97f56ad2c"
+    },
+    {
+      "path": "pop/SCORE.md",
+      "kind": "file",
+      "bytes": 16792,
+      "lines": 243,
+      "sha256": "ebda00eb837439a483e759237feb9c7cca86536a9c0a74a09ed21a380df0815e"
+    },
+    {
+      "path": "recap/SCORE.md",
+      "kind": "file",
+      "bytes": 10306,
+      "lines": 216,
+      "sha256": "1d81a482b63000223b90afaec83757da0895e5450005956ffb87557a5813b8ec"
+    },
+    {
+      "path": "slab/menuband/SCORE.md",
+      "kind": "file",
+      "bytes": 13825,
+      "lines": 277,
+      "sha256": "4712c0a8493e936aacf8ee675aab215afb1d327aae8999c6a209b28459ea1591"
+    },
+    {
+      "path": "social/SCORE.md",
+      "kind": "file",
+      "bytes": 14155,
+      "lines": 181,
+      "sha256": "8b2fcb78d2bfdfd40c50104663b63417543ea0a4fd426e44a5bca2fdfc91d4b8"
+    },
+    {
+      "path": "system/public/aesthetic.computer/disks/CLAUDE.md",
+      "kind": "file",
+      "bytes": 4799,
+      "lines": 157,
+      "sha256": "66722cea97ed572b7e452270497594ebe82ebb4e3e69b07c22372deeddcb1bf0"
+    },
+    {
+      "path": "system/public/opinion/SCORE.md",
+      "kind": "file",
+      "bytes": 2028,
+      "lines": 70,
+      "sha256": "e0115214cd9af32991ce873c7cb8fa2ca74c18a0aa4be15b22cb35e321fc44fc"
+    },
+    {
+      "path": "thespianjas/SCORE.md",
+      "kind": "file",
+      "bytes": 2619,
+      "lines": 53,
+      "sha256": "c0b0108b57820c11ecd48bb851067909ba9d661a232833f88a92a683de00841d"
+    },
+    {
+      "path": "toolchain/macos/SCORE.md",
+      "kind": "file",
+      "bytes": 13134,
+      "lines": 312,
+      "sha256": "4511cf6e055d3fe7ce8cc52dc501c512c015dee887436300455e9befcc1b08ab"
+    }
+  ]
+}

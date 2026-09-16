@@ -1,0 +1,167 @@
+{
+  "window_utc": [
+    "2026-09-01",
+    "2026-09-15"
+  ],
+  "scope": "exact repository cwd; no nested cwd; no private text retained",
+  "counts": {
+    "claude_files_scanned": 77,
+    "claude_bytes_scanned": 380752104,
+    "jsonl_lines": 85149,
+    "in_window_records": 55941,
+    "claude_in_scope_records": 32455,
+    "claude_accepted_prompts": 944,
+    "claude_calls": 6961,
+    "claude_tool_result_user_records_excluded": 6964,
+    "claude_eligible_human_queued_prompts": 441,
+    "claude_nonhuman_queued_attachments_excluded": 81,
+    "prompts_empty_or_long_excluded": 56,
+    "nonexact_or_missing_cwd_records_excluded": 9559,
+    "prompts_marked_or_forwarded_excluded": 22,
+    "codex_files_scanned": 20,
+    "codex_bytes_scanned": 353087581,
+    "codex_in_scope_records": 13927,
+    "codex_accepted_prompts": 272,
+    "codex_calls": 1680,
+    "duplicate_prompts_excluded": 44,
+    "exec_non_tool_method_candidates_excluded": 3
+  },
+  "active_sessions": {
+    "claude": 63,
+    "codex": 20
+  },
+  "native_tool_families": [
+    {
+      "name": "Bash",
+      "count": 4541,
+      "sessions": 57
+    },
+    {
+      "name": "exec",
+      "count": 1617,
+      "sessions": 19
+    },
+    {
+      "name": "mcp:claude-in-chrome",
+      "count": 867,
+      "sessions": 21
+    },
+    {
+      "name": "mcp:puppet",
+      "count": 374,
+      "sessions": 7
+    },
+    {
+      "name": "mcp:frame",
+      "count": 21,
+      "sessions": 7
+    },
+    {
+      "name": "mcp:prox",
+      "count": 16,
+      "sessions": 5
+    },
+    {
+      "name": "mcp:paper",
+      "count": 4,
+      "sessions": 1
+    }
+  ],
+  "exec_candidate_families": [
+    {
+      "name": "exec_command",
+      "count": 1221,
+      "sessions": 16
+    },
+    {
+      "name": "apply_patch",
+      "count": 192,
+      "sessions": 10
+    },
+    {
+      "name": "mcp:frame",
+      "count": 156,
+      "sessions": 4
+    },
+    {
+      "name": "mcp:paper",
+      "count": 88,
+      "sessions": 3
+    },
+    {
+      "name": "mcp:puppet",
+      "count": 19,
+      "sessions": 6
+    },
+    {
+      "name": "mcp:prox",
+      "count": 13,
+      "sessions": 6
+    }
+  ],
+  "short_user_prompt_mentions": [
+    {
+      "name": "compush",
+      "count": 28,
+      "sessions": 19
+    },
+    {
+      "name": "prox",
+      "count": 19,
+      "sessions": 13
+    },
+    {
+      "name": "chrome",
+      "count": 16,
+      "sessions": 13
+    },
+    {
+      "name": "easel",
+      "count": 10,
+      "sessions": 6
+    },
+    {
+      "name": "papers_platter",
+      "count": 2,
+      "sessions": 2
+    },
+    {
+      "name": "cdp",
+      "count": 2,
+      "sessions": 2
+    },
+    {
+      "name": "oskieploy",
+      "count": 1,
+      "sessions": 1
+    }
+  ],
+  "term_patterns": {
+    "compush": "\\bcompush(?:ed|ing|es)?\\b",
+    "compushloy": "\\bcompushloy(?:ed|ing|s)?\\b",
+    "oskieploy": "\\boskieploy(?:ed|ing|s)?\\b",
+    "prox": "\\bprox(?:es)?\\b",
+    "easel": "\\beasel\\b",
+    "frame_screenshot": "\\bframe\\s+(?:screenshot|capture)|\\bscreenshot.{0,20}\\bframe\\b",
+    "papers_platter": "(?:/papers\\b|\\bpapers?\\s+stack\\b|\\bplatter\\b)",
+    "sticky": "\\bstick(?:y|ies)\\b",
+    "cleaner": "\\bcleaner\\b",
+    "wordcrust": "\\bwordcrust\\b",
+    "slidecop": "\\bslidecop\\b",
+    "unipointer": "\\bunipointer\\b",
+    "loopboy": "\\bloopboy\\b",
+    "chrome": "\\bchrome\\b",
+    "cdp": "\\bcdp\\b"
+  },
+  "limitations": [
+    "Native call records prove invocation requests, not successful execution.",
+    "Exec regex finds syntactic tools.NAME( candidates; loops/dynamic names/comments/strings are not interpreted.",
+    "Shell counts use single-line direct Bash/exec_command records only; wrappers and all multiline/compound commands omitted.",
+    "Exact cwd intentionally excludes all child directories and worktrees.",
+    "Prompt filtering heuristic; timestamps+content for idless Codex copies; no event_msg prompts counted.",
+    "Claude top-level project logs only; subagent transcript subdirectories excluded.",
+    "Revision2 adds structured Claude queued_command attachments only when commandMode=prompt and origin.kind=human, deduped by source_uuid; prior user-message-only count was underinclusive.",
+    "Cwd inherited from preceding explicit cwd within each native session when an event omits cwd; explicit cwd always wins."
+  ],
+  "parser_sha256": "0b47c85aacb7eafd314235e908131e79b1bd628e1e5c3b29eb955f7b78efd9b9"
+}

@@ -95,7 +95,7 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 
 ### Notation
 
-- **compush** - commit & push. If the commit touches live-served paths (`system/public/**`, `system/netlify/functions/**`), follow with `fish lith/deploy.fish` unprompted — pushing alone doesn't put it in production.
+- **compushloy** - always commit, push, and deploy. Land the changes on the intended deployment branch, deploy from that branch, and verify production serves the pushed revision.
 - **oskieploy** - commit & push, then release oskiewar across every surface with
   `npm run oskiewar:deploy`. That one command carries the lot: it stamps
   `buildVersion` to match the commit count and reburns the hash-bound social

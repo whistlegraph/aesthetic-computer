@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "paper": "The Score and the Session",
+  "pdf": "instruction-flow.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "instruction-routes",
+      "page": 2,
+      "crop": [
+        0.075,
+        0.05,
+        0.85,
+        0.24
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Reviewed all five full-resolution pages, three tables, the all-page overview, and prepared diagram crop. Peer inputs share geometry; arrows and labels are legible and separated; tables have aligned numeric columns; final columns end within 10% of live page height. Project name has the pink period."
+    }
+  ],
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "pdfSha256": "c22cf1aadf682a58f8a7c4ac58c996a84aed430ce83439af114daf3326f4e8ae",
+  "reviewedAt": "2026-09-15T20:07:20.763Z"
+}

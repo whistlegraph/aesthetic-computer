@@ -1,0 +1,108 @@
+{
+  "window": [
+    "2026-09-01",
+    "2026-09-15"
+  ],
+  "source": "Neo memory index; short role=user events only; not native tool logs",
+  "terms": {
+    "compush": {
+      "events": 36,
+      "sessions": 25,
+      "providers": [
+        "claude",
+        "codex"
+      ]
+    },
+    "oskieploy": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "compushloy": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "prox": {
+      "events": 29,
+      "sessions": 21,
+      "providers": [
+        "claude",
+        "codex"
+      ]
+    },
+    "easel": {
+      "events": 2,
+      "sessions": 2,
+      "providers": [
+        "codex",
+        "claude"
+      ]
+    },
+    "chrome": {
+      "events": 18,
+      "sessions": 12,
+      "providers": [
+        "codex",
+        "claude"
+      ]
+    },
+    "papers": {
+      "events": 16,
+      "sessions": 8,
+      "providers": [
+        "claude",
+        "codex"
+      ]
+    },
+    "frame": {
+      "events": 5,
+      "sessions": 5,
+      "providers": [
+        "codex",
+        "claude"
+      ]
+    },
+    "wordcrust": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "slidecop": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "unipointer": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "loopboy": {
+      "events": 2,
+      "sessions": 2,
+      "providers": [
+        "claude"
+      ]
+    },
+    "sticky": {
+      "events": 0,
+      "sessions": 0,
+      "providers": []
+    },
+    "cleaner": {
+      "events": 1,
+      "sessions": 1,
+      "providers": [
+        "claude"
+      ]
+    },
+    "cdp": {
+      "events": 1,
+      "sessions": 1,
+      "providers": [
+        "claude"
+      ]
+    }
+  }
+}
