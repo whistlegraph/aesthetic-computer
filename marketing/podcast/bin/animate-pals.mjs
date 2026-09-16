@@ -16,6 +16,8 @@
 //
 // Flags:
 //   --tier fast|standard   Seedance tier (default standard: nicer facets/light)
+//   --duration N           seconds per clip, 4–15 (default 5; Seedance rejects anything under 4)
+//   --cheap                shorthand for --tier fast --duration 4 (≈ $0.97/pal vs $1.51)
 //   --motion <style>       turntable | pulse | morph | auto (default auto: pulse for glowing
 //                          materials, else turntable; morph is opt-in — it melts the mark)
 //   --concurrency N        parallel fal jobs (default 3)
@@ -41,13 +43,14 @@ const OUT = resolve(STILLS, "turnarounds");
 mkdirSync(OUT, { recursive: true });
 
 const PALS_CDN = "https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com";
-const DURATION = 5; // seconds
 const FPS = 24;
 
 const argv = process.argv.slice(2);
 const flag = (k, d = null) => { const i = argv.indexOf(`--${k}`); return i >= 0 ? argv[i + 1] : d; };
 const has = (k) => argv.includes(`--${k}`);
-const TIER = flag("tier", "standard");
+const CHEAP = has("cheap");
+const TIER = flag("tier", CHEAP ? "fast" : "standard");
+const DURATION = Math.min(15, Math.max(4, Number(flag("duration", CHEAP ? 4 : 5))));
 const MOTION = flag("motion", "auto");
 const CONCURRENCY = Number(flag("concurrency", 3));
 const ENCODE_ONLY = has("encode-only");
