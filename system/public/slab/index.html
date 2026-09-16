@@ -264,6 +264,56 @@
     max-width: 62ch;
   }
 
+  /* ── Download ─────────────────────────────────────────────────────── */
+  .download { margin: 4px 0 26px; }
+  .dl-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 16px 34px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #fff;
+    background: linear-gradient(180deg, #7a4cc4 0%, #5b34a0 100%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.22) inset,
+      0 10px 28px -10px rgba(122, 76, 196, 0.9),
+      0 0 0 1px rgba(255,255,255,0.08);
+    transition: transform 120ms var(--ease, ease), box-shadow 120ms ease;
+  }
+  .dl-button:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.28) inset,
+      0 14px 34px -10px rgba(122, 76, 196, 1),
+      0 0 0 1px rgba(255,255,255,0.14);
+  }
+  .dl-button:active { transform: translateY(1px); }
+  .dl-main {
+    font-family: var(--mono);
+    font-size: 19px;
+    letter-spacing: 0.01em;
+  }
+  .dl-meta {
+    font-size: 12.5px;
+    opacity: 0.82;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-fine {
+    font-size: 13.5px;
+    color: var(--ink-dim);
+    margin: 12px 0 0;
+    line-height: 1.55;
+    max-width: 52ch;
+  }
+  .dl-hash {
+    font-family: var(--mono);
+    font-size: 11px;
+    word-break: break-all;
+    opacity: 0.75;
+  }
+
   /* ── Recent changes ───────────────────────────────────────────────── */
   #recent-commits { list-style: none; padding: 0; margin: 0; max-width: 72ch; }
   #recent-commits li {
@@ -399,14 +449,29 @@
 
   <section id="get">
     <h2>getting it</h2>
-    <p class="lede">Slab is not packaged yet.</p>
-    <p>There is no download, no App Store listing, no one-line installer. It lives inside the Aesthetic Computer monorepo and is built from source on each Mac. If that does not put you off:</p>
+    <p class="lede">Free, signed, and about seven megabytes.</p>
+
+    <div class="download">
+      <a class="dl-button" id="dl" href="https://assets.aesthetic.computer/slab/Slab-1.0.dmg" download>
+        <span class="dl-main">Download Slab</span>
+        <span class="dl-meta" id="dl-meta">for macOS</span>
+      </a>
+      <p class="dl-fine">
+        macOS 11 or later, Intel and Apple&nbsp;Silicon. Notarized by Apple, so it opens without a warning.
+        <br>
+        <span class="dl-hash" id="dl-hash"></span>
+      </p>
+    </div>
+
+    <p>Drag it to Applications and launch it. On first run it asks once whether it may add its hooks to your Claude Code settings, which is how it learns when a session starts, stops, or wants you. It backs up that file before touching it, and the Slab menu can take the hooks back out again.</p>
+    <p>macOS will ask for Accessibility the first time Slab moves a window, and for Screen Recording only if you ask it for a frame. Both live in System Settings under Privacy &amp; Security, and Slab tells you when it needs one.</p>
+    <p class="note">This is the first public build, and it is honest about its age. The fleet half of Slab, the parts that reach across machines, stays quiet until it is configured. If something is wrong, the source is right there and so am I.</p>
+
+    <p>Rather build it yourself? The repo is the studio version, symlinked so an edit lands immediately:</p>
 <pre><code>git clone https://github.com/whistlegraph/aesthetic-computer.git
 cd aesthetic-computer/slab
 ./install.sh --prompt-host        <span class="c"># hooks + session markers; no audio, no sudo</span>
 ./menubar-swift/install.sh        <span class="c"># builds and launches the menu bar</span></code></pre>
-    <p>It wants macOS on Apple silicon, the Xcode command line tools, and Claude Code. Codex and Easel sessions are tracked too. The installer merges hooks into <code>~/.claude/settings.json</code>, installs a launchd agent, and asks for Accessibility so it can move Terminal windows. Screen Recording is only requested the first time something asks for a frame. <code>./uninstall.sh</code> takes it all back out.</p>
-    <p class="note">The lid ambient, the fleet ledger and the multi-Mac navigation are tuned to one studio's machines right now. Expect to read a shell script or two. A build you can just download is the next thing, and interest is what moves it up the list.</p>
     <p><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab">view source</a> · <a href="https://tangled.org/@aesthetic.computer/core/blob/main/slab/README.md">read the README</a></p>
   </section>
 
@@ -462,6 +527,27 @@ cd aesthetic-computer/slab
       poll();
     }
     poll();
+  })();
+
+  // The download button reads manifest.json rather than hardcoding a
+  // version, so publishing a new build is one file to edit and the page
+  // follows. The href in the markup is the fallback if this never lands.
+  (function download() {
+    const button = document.getElementById('dl');
+    const meta = document.getElementById('dl-meta');
+    const hash = document.getElementById('dl-hash');
+    if (!button) return;
+    fetch('/slab/manifest.json', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then((data) => {
+        const latest = (data.versions || []).find((v) => v.version === data.latest);
+        if (!latest || !latest.dmg) return;
+        button.href = latest.dmg;
+        const mb = (latest.size / (1024 * 1024)).toFixed(1);
+        if (meta) meta.textContent = `${latest.version} · ${mb} MB · macOS`;
+        if (hash && latest.sha256) hash.textContent = `sha256 ${latest.sha256}`;
+      })
+      .catch(() => { /* the markup's own href still works */ });
   })();
 
   // Recent changes: the last commits that touched slab/, from the same

@@ -50,12 +50,21 @@ for arg in "$@"; do
 done
 
 # ── 1. Build ──────────────────────────────────────────────────────────────
-say "building release binary"
+# Universal, not native. `swift build -c release` on this Mac produces an
+# arm64-only binary that an Intel Mac cannot launch at all — and the Info.plist
+# advertises macOS 11, which includes plenty of Intel machines. The studio
+# build can be native because every Mac here is Apple silicon; a download
+# cannot make that assumption about anybody.
+say "building release binary (universal)"
 cd "${SCRIPT_DIR}"
-swift build -c release >/dev/null
-BUILT="$(swift build -c release --show-bin-path)/slab-menubar-swift"
+ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release "${ARCHS[@]}" >/dev/null
+BUILT="$(swift build -c release "${ARCHS[@]}" --show-bin-path)/slab-menubar-swift"
 [[ -x "${BUILT}" ]] || { err "no binary at ${BUILT}"; exit 1; }
-ok "built $(du -h "${BUILT}" | awk '{print $1}')"
+SLICES="$(lipo -archs "${BUILT}")"
+[[ "${SLICES}" == *arm64* && "${SLICES}" == *x86_64* ]] \
+    || { err "expected a universal binary, got: ${SLICES}"; exit 1; }
+ok "built $(du -h "${BUILT}" | awk '{print $1}') (${SLICES})"
 
 VERSION="$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${SCRIPT_DIR}/Info.plist")"
 
