@@ -508,12 +508,19 @@ function syncPieceFocus() {
     pieceFocused = focused;
   }, 350);
 }
-// Both kinds are programs AC can run, and they boot the same runtime — they
-// differ only in how they are addressed and whether a thumbnail exists.
-// `poster` is the honest part: oven bundles KidLisp (its fetchPieceSource
-// reads the `kidlisp` collection), so it has nothing to render for a .mjs
-// piece and would hand back a blank frame forever. Those cards wait on the
-// checkerboard until focus boots them instead of showing a permanent blank.
+// Both kinds are programs AC can run, booting the same runtime; they differ in
+// how they are addressed and whether a thumbnail is worth asking for.
+//
+// No poster for pieces: oven hands back a uniform black 256x256 frame for every
+// piece in the collection, byte-identical across different codes. That is not
+// proven to be oven's limit — every record in `pieces` today is a broken MCP
+// test fixture (ql8 calls api.clear(), api.rect() and `this.clicked`, none of
+// which AC has), so black is also the *correct* render, and there is no working
+// published piece to tell the two apart. Either way oven answers 200 with that
+// black PNG rather than an error, so the img error fallback below would never
+// fire and the card would sit on a permanent black square. Waiting on the
+// checkerboard until focus boots the real thing is the better failure. Worth
+// revisiting once a real published piece exists to test against.
 const RUNNABLE = {
   kidlisp: { prefix: "$", label: "KidLisp $", poster: true },
   piece: { prefix: "", label: "piece ", poster: false },

@@ -8,8 +8,10 @@
 // $lookup across collections — mime's opening posts (backend/mime-media.mjs),
 // the TV feed (functions/tv.mjs), plus crm, metrics and atproto-user-stats.
 // The sidecar has no equivalent, so between the KIDLISP_DATOMIC cutover and
-// this module every piece created after it was invisible on mime.ac and
-// /api/tv: 408 pieces, 270 of them handle-owned.
+// this module a piece created after it was invisible on mime.ac and /api/tv.
+// The census when it was caught: 766 pieces, 293 of them handle-owned, the
+// oldest dating to 2026-04-20 — earlier than the cutover, so some pieces had
+// been missing from Mongo before the flag ever went on.
 //
 // So each new Datomic piece also gets an identity-only row here. The row holds
 // exactly what the feeds address, sort and filter by. It deliberately holds

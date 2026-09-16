@@ -31,8 +31,11 @@ stores only reply counts and bump times, starting with the first reply.
 Because thread keys are Mongo `_id`s, a media record that exists only outside
 Mongo is unaddressable here, not merely unlisted. That is what the
 `KIDLISP_DATOMIC` cutover caused: KidLisp writes moved to Datomic, and every
-piece made after it went missing from this feed, `/api/tv`, and oven's
-thumbnails — 408 pieces before it was caught. `backend/kidlisp-projection.mjs`
+piece made after it went missing from this feed and `/api/tv` — 766 pieces
+before it was caught, 293 of them handle-owned, the oldest from 2026-04-20.
+(Oven's thumbnails were never affected: `/grab/` drives a headless browser
+against the live site, so it resolves a piece the same way a visitor does.)
+`backend/kidlisp-projection.mjs`
 now writes an identity-only row for each new piece so it has an `_id` to be
 addressed by; `backend/kidlisp-backfill.mjs` repairs the gap. Nothing mutable
 is mirrored, so `hits` stays Datomic's and `sort=hits` ranks a post-cutover
@@ -70,9 +73,11 @@ KidLisp addressed as `$code`, a piece by its bare code. The frame carries
 `noauth`, which matters because a feed boots these unattended: a card can never
 act as the signed-in viewer. Autoplay, camera and microphone stay denied, and
 only one card runs at a time. KidLisp cards show an oven thumbnail until they
-boot; pieces cannot, since oven's bundler resolves source from the `kidlisp`
-collection alone, so they wait on the checkerboard rather than show a blank
-frame. Uploaded program *files* are still displayed as text, and any record's
+boot; pieces get none, because oven returns a uniform black frame for every
+piece in the collection with a 200 rather than an error, so they wait on the
+checkerboard rather than sit on a black square. Whether that is oven's limit is
+untested — every `pieces` record today is a broken MCP fixture for which black
+is the correct render. Uploaded program *files* are still displayed as text, and any record's
 source stays readable at `?file=`. Native HTML previews remain sandboxed.
 Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 

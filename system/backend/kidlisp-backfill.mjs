@@ -3,11 +3,15 @@
 //
 // Between the KIDLISP_DATOMIC cutover and backend/kidlisp-projection.mjs, new
 // pieces landed only in Datomic. Everything that reads KidLisp by aggregation
-// went stale at that moment: mime.ac's feed and board counts, /api/tv, and —
-// because oven/kidlisp-mini/bundle.mjs resolves source straight out of the
-// same collection — every oven thumbnail, which renders blank for a piece it
-// cannot find. This walks the sidecar corpus and projects anything Mongo is
-// missing, which repairs all of them at once.
+// went stale at that moment: mime.ac's feed and board counts, /api/tv, and
+// oven's /bundle-mini?piece=, which resolves source out of the same collection
+// (oven/kidlisp-mini/bundle.mjs) and 404s for a piece it cannot find. This
+// walks the sidecar corpus and projects anything Mongo is missing, which
+// repairs all of them at once.
+//
+// Oven's *thumbnails* were never part of this. /grab/ drives a headless
+// browser against https://aesthetic.computer, so it resolves a piece the same
+// way a visitor does and never touched the stale collection.
 //
 // Dry run by default; nothing is written without --apply.
 //
@@ -95,8 +99,8 @@ async function main() {
   if (duplicate) console.log(`   ${duplicate} skipped: source already in Mongo under another code`);
   if (incomplete) console.log(`   ${incomplete} skipped: no code or empty source`);
   if (failed) console.log(`   ${failed} failed — re-run to retry, the upsert is idempotent`);
-  console.log("\nThumbnails are rendered on demand, so oven will pick these up");
-  console.log("on first request. Nothing to purge.");
+  console.log("\nNothing to purge: the feeds read Mongo live, and oven's thumbnails");
+  console.log("never depended on it.");
 
   await database.disconnect();
 }
