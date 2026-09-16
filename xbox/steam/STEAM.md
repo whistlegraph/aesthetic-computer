@@ -158,9 +158,32 @@ directory. What remains is one human gate and the buttons behind it.
 | Depots | `depots/depots.mjs --appid=<n>` + `depots/upload.sh` (steamcmd installed via Homebrew) |
 | Appid | **5280790**, assigned 2026-09-15 — the identity review cleared. Depots 5280791 (win), 5280792 (mac), 5280793 (linux). Shell rebuilt against it; `depots/out/` written |
 | Build upload | `STEAM_BUILD_USER=jeffreyscudder sh depots/upload.sh` — interactive (password + Steam Guard), so a human runs it |
-| Store page fill | `store-page/fill.md` is field-ordered for the editor; driven through the Claude Chrome extension once it is un-paused |
+| Store page | **Filled and saved, 2026-09-15.** Every store-presence checklist item is green: basic info, description, content survey (published), release date (Oct 15 2026, shown as Coming Soon), 20 tags, all capsules, 5 screenshots, library set, both icons, controller + accessibility wizards, three launch options |
 | Marketing model | `MARKETING.md`; `bin/wishlists.mjs` pulls wishlist/sales days once a publisher key exists |
 | Build review | Cannot start until the store page is approved |
+
+**What the page still needs** (2026-09-15): a **trailer**, a **price**, and
+the **build upload** — the remaining checklist items (platform support,
+package/depot matching, at least one build) all fall out of the upload.
+Cloud Saves and Steam Achievements stay unticked on purpose; they are
+optional. Then: mark the store page ready for review (3–5 business days),
+coming-soon goes public, and the wishlist window opens.
+
+**Launch options, as configured:** `oskiewar.exe` (Windows x64),
+`oskiewar.app` (macOS x64), `oskiewar` (Linux x64) — the Linux binary is
+named by `executableName` in the shell's package.json, not the npm package
+name. Install folder `oskiewar`.
+
+**Controller support is declared Partial**, deliberately: the shell has no
+pad-reachable quit, so it fails Valve's full-support criteria until that and
+a pad-only boot-to-rematch pass land. Glyphs and local two-pad play already
+qualify.
+
+**The content survey declares** cartoon violence, fights without gore, and
+one piece of generative-AI content: the cached ElevenLabs "Oskie War" clip
+on the title screen (`titleVoiceUrl` in `mac-test.html`). Nothing is
+generated during play and no third-party AI service is contacted. Brazil
+generated a 10-anos rating from it.
 
 **The order from here.** (1) Done — the app is claimed, appid 5280790.
 (2) Fill the store page from `store-page/` and upload `store-page/assets/`;

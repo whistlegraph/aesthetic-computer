@@ -25,7 +25,7 @@
       { "from": "staged", "to": "staged" }
     ],
     "win": { "target": ["dir"] },
-    "linux": { "target": ["dir"], "category": "Game" },
+    "linux": { "target": ["dir"], "category": "Game", "executableName": "oskiewar" },
     "mac": { "target": ["dir"] }
   }
 }
