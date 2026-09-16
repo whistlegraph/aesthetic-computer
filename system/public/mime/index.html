@@ -149,10 +149,10 @@
     .feed-media > img, .feed-media > video, .feed-media > iframe.doc { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; }
     .feed-media > audio { width: calc(100% - 32px); }
     .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; background: var(--card); }
-    .kidlisp-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
-    .kidlisp-preview > img, .kidlisp-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
-    .kidlisp-preview > iframe { position: absolute; inset: 0; background: var(--media); }
-    .kidlisp-preview > a { position: absolute; padding: 12px; background: var(--card); }
+    .piece-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+    .piece-preview > img, .piece-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+    .piece-preview > iframe { position: absolute; inset: 0; background: var(--media); }
+    .piece-preview > a { position: absolute; padding: 12px; background: var(--card); }
     .specimen { padding: 18px; font-size: 32px; }
     .blob { margin: 16px; }
     .post .body { white-space: pre-wrap; margin: 0; padding: 12px 14px; }
@@ -363,7 +363,7 @@ function engagementRecord(code) {
   return engagement.get(code);
 }
 function sampleEngagement() {
-  syncKidlispFocus();
+  syncPieceFocus();
   const now = performance.now();
   // A suspended browser must not turn a delayed timer into hours of attention.
   const elapsed = Math.max(0, Math.min(2000, Math.round(now - exposureAt)));
@@ -470,16 +470,16 @@ const ago = (d) => {
   return Math.floor(s / 86400) + "d ago";
 };
 
-let kidlispFocused = null, kidlispPending = null, kidlispFocusTimer = 0;
-function stopKidlisp() {
-  clearTimeout(kidlispFocusTimer);
-  kidlispFocusTimer = 0;
-  kidlispPending = null;
-  kidlispFocused?.querySelector("iframe")?.remove();
-  kidlispFocused = null;
+let pieceFocused = null, piecePending = null, pieceFocusTimer = 0;
+function stopPiece() {
+  clearTimeout(pieceFocusTimer);
+  pieceFocusTimer = 0;
+  piecePending = null;
+  pieceFocused?.querySelector("iframe")?.remove();
+  pieceFocused = null;
 }
-function syncKidlispFocus() {
-  if (document.hidden || !document.hasFocus()) { stopKidlisp(); return; }
+function syncPieceFocus() {
+  if (document.hidden || !document.hasFocus()) { stopPiece(); return; }
   const top = header.getBoundingClientRect().bottom;
   let focused = null, largest = 0, nearest = Infinity;
   for (const frame of view.querySelectorAll(".feed-media")) {
@@ -488,16 +488,16 @@ function syncKidlispFocus() {
       Math.max(0, Math.min(innerWidth, box.right) - Math.max(0, box.left));
     const distance = Math.abs((box.top + box.bottom - top - innerHeight) / 2);
     if (area > largest || (area > 0 && area === largest && distance < nearest)) {
-      focused = frame.querySelector(".kidlisp-preview"); largest = area; nearest = distance;
+      focused = frame.querySelector(".piece-preview"); largest = area; nearest = distance;
     }
   }
-  if ((focused === kidlispFocused && !kidlispPending) || (focused && focused === kidlispPending)) return;
-  stopKidlisp();
+  if ((focused === pieceFocused && !piecePending) || (focused && focused === piecePending)) return;
+  stopPiece();
   if (!focused) return;
-  kidlispPending = focused;
+  piecePending = focused;
   // Let a scroll settle before booting a runtime.
-  kidlispFocusTimer = setTimeout(() => {
-    kidlispPending = null;
+  pieceFocusTimer = setTimeout(() => {
+    piecePending = null;
     if (!focused.isConnected || document.hidden || !document.hasFocus()) return;
     const iframe = el("iframe");
     iframe.title = focused.dataset.title;
@@ -505,22 +505,39 @@ function syncKidlispFocus() {
     iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
     iframe.src = focused.dataset.player;
     focused.append(iframe);
-    kidlispFocused = focused;
+    pieceFocused = focused;
   }, 350);
 }
-function renderKidlisp(post) {
+// Both kinds are programs AC can run, and they boot the same runtime — they
+// differ only in how they are addressed and whether a thumbnail exists.
+// `poster` is the honest part: oven bundles KidLisp (its fetchPieceSource
+// reads the `kidlisp` collection), so it has nothing to render for a .mjs
+// piece and would hand back a blank frame forever. Those cards wait on the
+// checkerboard until focus boots them instead of showing a permanent blank.
+const RUNNABLE = {
+  kidlisp: { prefix: "$", label: "KidLisp $", poster: true },
+  piece: { prefix: "", label: "piece ", poster: false },
+};
+
+function renderRunnable(post) {
+  const kind = RUNNABLE[post.media.kind];
   const code = post.media.code;
-  const preview = el("div", "kidlisp-preview");
-  preview.dataset.player = "https://aesthetic.computer/$" + encodeURIComponent(code) + "?nogap=true&nolabel=true&noauth=true";
-  preview.dataset.title = "KidLisp $" + code + (post.name ? " by " + post.name : "");
+  const address = kind.prefix + encodeURIComponent(code);
+  const preview = el("div", "piece-preview");
+  // nogap/nolabel strip AC's chrome. noauth is load-bearing, not cosmetic:
+  // a feed boots these unattended, and it withholds the viewer's session so
+  // a card can never act as the signed-in user.
+  preview.dataset.player = "https://aesthetic.computer/" + address + "?nogap=true&nolabel=true&noauth=true";
+  preview.dataset.title = kind.label + code + (post.name ? " by " + post.name : "");
+  if (!kind.poster) return preview;
   const image = el("img");
   image.alt = preview.dataset.title;
   image.loading = "lazy";
-  image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent("$" + code);
+  image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent(kind.prefix + code);
   image.addEventListener("error", () => {
     image.remove();
-    const link = el("a", null, "Open $" + code);
-    link.href = "https://aesthetic.computer/$" + encodeURIComponent(code);
+    const link = el("a", null, "Open " + kind.prefix + code);
+    link.href = "https://aesthetic.computer/" + address;
     preview.prepend(link);
   }, { once: true });
   preview.append(image);
@@ -697,7 +714,8 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
   if (post.file) {
-    const file = post.media?.kind === "kidlisp" && post.media.code ? renderKidlisp(post) : renderFile(post.file);
+    const runnable = post.media?.code && Object.hasOwn(RUNNABLE, post.media.kind);
+    const file = runnable ? renderRunnable(post) : renderFile(post.file);
     const frame = el("div", "feed-media");
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
     frame.append(file);
@@ -1054,7 +1072,7 @@ async function read(url, signal) {
 }
 
 async function route() {
-  stopKidlisp();
+  stopPiece();
   rememberFeed();
   activeFeed = null;
   sampleEngagement();

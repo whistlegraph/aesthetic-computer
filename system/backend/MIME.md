@@ -64,7 +64,16 @@ The composer reuses AC’s same-origin Auth0 session (SDK keys use `::`
 separators) or its encoded `session-aesthetic` host session. Both are verified
 by the API; invalid sessions cannot fall back to posting anonymously. Guest names remain unverified. Existing comment
 attachments remain readable, but new comments are text-only.
-Program source is displayed as text. Native HTML previews remain sandboxed.
+`kidlisp` and `piece` records are programs AC can run, so their cards boot the
+real runtime in a cross-origin iframe once the card is the focused one —
+KidLisp addressed as `$code`, a piece by its bare code. The frame carries
+`noauth`, which matters because a feed boots these unattended: a card can never
+act as the signed-in viewer. Autoplay, camera and microphone stay denied, and
+only one card runs at a time. KidLisp cards show an oven thumbnail until they
+boot; pieces cannot, since oven's bundler resolves source from the `kidlisp`
+collection alone, so they wait on the checkerboard rather than show a blank
+frame. Uploaded program *files* are still displayed as text, and any record's
+source stays readable at `?file=`. Native HTML previews remain sandboxed.
 Painting and tape metadata endpoints expose `discussion` URLs for other clients.
 
 Direct entry: `/mime/#/media/painting/abc` (also `tape`, `piece`, or `kidlisp`).
