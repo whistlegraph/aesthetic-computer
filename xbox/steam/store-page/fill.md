@@ -1,9 +1,14 @@
 # oskiewar — store page fill sheet (appid 5280790)
 
-One row per partner-site field, in the order the editor walks them, with the
-exact value to paste or the file to upload. `copy.md` and `metadata.md` are
-the reasoning; this is the keyboard. Anything marked *human* is a decision,
-not a paste.
+**Filled and saved 2026-09-15.** Every store-presence checklist item is
+green. This sheet stays as the record of what went in, and as the recipe if
+a field has to be re-entered. Anything marked *human* was, or still is, a
+decision rather than a paste.
+
+Still open on the page: **a price**, and the items that fall out of the
+**build upload** (platform support, package/depot matching, at least one
+build). The trailer is rendered by `render-trailer.mjs` and uploads under
+the Trailers tab.
 
 Editor: https://partner.steamgames.com/apps/landing/5280790 → **Edit Store Page**.
 
@@ -15,13 +20,13 @@ Editor: https://partner.steamgames.com/apps/landing/5280790 → **Edit Store Pag
 | Developer | `Jeffrey Alan Scudder` *(human: or "Aesthetic Computer" — public on the page)* |
 | Publisher | same as developer |
 | Franchise | leave blank |
-| Release date | *human* — "Coming soon" now; earliest 2026-10-01 |
+| Release date | Oct 15 2026, 10:00 AM PDT, shown to customers as "Coming Soon" |
 | Supported languages | English — Interface ✓ · Full Audio ✓ · Subtitles ✗ |
 | Genre (primary) | Action |
 | Genre (secondary) | Indie |
 | Tags (first five weigh) | Fighting · 2D Fighter · Local Multiplayer · Physics · Arcade · PvP · Multiplayer · Singleplayer · Action · Indie · Minimalist · Funny · Retro · Controller · Competitive |
 | Categories | Single-player ✓ · Multi-player ✓ · PvP ✓ · Shared/Split Screen PvP ✓ · Full Controller Support — *only after the pad-only pass* · Remote Play Together — *only after a two-network test* |
-| Controller support | Full (Xbox) — same caveat |
+| Controller support | **Partial** (declared via the wizard). The shell has no pad-reachable quit, which is one of Valve's full-support criteria |
 | Accessibility | *human* — no text entry, no chat; nothing to declare yet |
 | Anti-cheat | None |
 | Social links | https://oskiewar.com · https://instagram.com/whistlegraph *(human: which ones)* |
@@ -58,9 +63,18 @@ Editor: https://partner.steamgames.com/apps/landing/5280790 → **Edit Store Pag
 
 ## Trailers
 
-None yet. The page can be submitted without one; Valve's review treats a
-missing trailer as a weakness, not a block. Do not press Release while one
-is still encoding.
+`node xbox/steam/store-page/render-trailer.mjs` renders whole rounds through
+the same Replay Oven the Instagram reels use, at 1920×1080 and 60 fps, and
+encodes to Valve's reference preset (H.264 high, ~20 Mbps, AAC 192k at
+48 kHz, +faststart). Upload `assets/trailer.mp4`; the required thumbnail is
+`assets/trailer-thumbnail.jpg`, which is a frame of the video itself.
+
+Clips use `hud: "reel"` — the reel dress (matchup card, clean round, winner
+called afterwards) rather than the full oven UI, whose intro/fight/outro
+progress bar reads as a video scrubber on a store page. Cuts fall between
+whole rounds, so nothing inside a round is cut.
+
+Do not press Release while a trailer is still encoding — Valve blocks it.
 
 ## Store Settings / Content survey
 

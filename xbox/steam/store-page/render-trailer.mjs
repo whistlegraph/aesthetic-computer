@@ -47,30 +47,51 @@ const CLIPS = [
 const log = (line) => console.log(line);
 mkdirSync(work, { recursive: true });
 
+// One clip per process. Each render drives a headless Chrome through ~2000
+// frames at 1920x1080; four of them in one process exhausted memory on an
+// 8 GB machine and Chrome died mid-clip with a bare "Target closed". A child
+// process per clip hands every byte back between rounds, and the frames
+// (~480 MB each) are pruned once the clip's master exists.
+async function renderClip(clip) {
+  const out = join(work, clip.id);
+  rmSync(out, { recursive: true, force: true });
+  log(`\n🎬 ${clip.id} · ${clip.door} · seed "${clip.seed}"`);
+  const render = await bakeReplay({
+    id: clip.id, kind: "self-play", seed: clip.seed, door: clip.door,
+    // The reel dress, not the full oven UI: a matchup card names both
+    // fighters, the round itself plays under nothing at all, and the
+    // winner is called afterwards. The full HUD drags the oven's
+    // intro/fight/outro scrubber along with it, which on a store page
+    // reads as a video control rather than part of the game.
+    hud: "reel",
+    cap: 45, width: 1920, height: 1080, theme: "dark", out,
+  }, { log });
+  rmSync(join(out, "frames"), { recursive: true, force: true });
+  log(`   → ${render.base} (${render.frames} frames, outcome ${
+    render.outcome?.cause || render.outcome?.mode || "?"})`);
+  return render.base;
+}
+
+const only = flags.get("only");
+if (only) {
+  const clip = CLIPS.find((entry) => entry.id === only) ||
+    { id: only, door: flags.get("door") || "fight", seed: flags.get("seed") || only };
+  await renderClip(clip);
+  process.exit(0);
+}
+
 const clips = [];
-if (!flags.has("encode")) {
-  for (const clip of CLIPS) {
-    const out = join(work, clip.id);
-    rmSync(out, { recursive: true, force: true });
-    log(`\n🎬 ${clip.id} · ${clip.door} · seed "${clip.seed}"`);
-    const render = await bakeReplay({
-      id: clip.id, kind: "self-play", seed: clip.seed, door: clip.door,
-      // The reel dress, not the full oven UI: a matchup card names both
-      // fighters, the round itself plays under nothing at all, and the
-      // winner is called afterwards. The full HUD drags the oven's
-      // intro/fight/outro scrubber along with it, which on a store page
-      // reads as a video control rather than part of the game.
-      hud: "reel",
-      cap: 45, width: 1920, height: 1080, theme: "dark", out,
-    }, { log });
-    clips.push(render.base);
-    log(`   → ${render.base} (${render.frames} frames)`);
+for (const clip of CLIPS) {
+  const base = join(work, clip.id, "base.mp4");
+  if (!flags.has("encode") && !existsSync(base)) {
+    const child = spawnSync(process.execPath,
+      [fileURLToPath(import.meta.url), `--only=${clip.id}`,
+        `--door=${clip.door}`, `--seed=${clip.seed}`],
+      { stdio: "inherit" });
+    if (child.status !== 0) throw new Error(`${clip.id} failed (exit ${child.status})`);
   }
-} else {
-  for (const clip of CLIPS) {
-    const base = join(work, clip.id, "base.mp4");
-    if (existsSync(base)) clips.push(base);
-  }
+  if (existsSync(base)) clips.push(base);
+  else log(`   ⚠ ${clip.id} produced no master — skipping it`);
 }
 if (!clips.length) throw new Error("no clips rendered — drop --encode or check the log");
 
