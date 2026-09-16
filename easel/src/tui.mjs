@@ -24,6 +24,7 @@ import { RuntimeFeedback, readRuntimeFeedback, runtimeFeedbackContext } from "./
 import { createHash } from "node:crypto";
 import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, easelFrame, easelNextFrame, easelWidth } from "./easel.mjs";
+import { Energy, energyReport } from "./energy.mjs";
 import {codexModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
@@ -167,6 +168,10 @@ const state = {
   // What those people's browsers are actually showing — a blank frame, an
   // uncaught error. Null until the relay lets this session listen.
   health: null,
+  // What the session has spent in electricity, as far as the token counts the
+  // engine reports can say. `/energy` prints the working; energy.mjs holds the
+  // arithmetic and the caveat.
+  energy: new Energy(),
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -834,6 +839,9 @@ function handleNotification({ method, params = {} }) {
       engine.turnId = params.turn?.id || engine.turnId;
       slabSession.working();
       break;
+    case "turn/usage":
+      state.energy.add(params.model || state.model || model, params.usage);
+      break;
     case "turn/progress":
       state.status = params.phase || "working";
       state.progressBytes = params.bytes || state.progressBytes || 0;
@@ -879,6 +887,9 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "turn/completed": {
+      // Codex reports what it spent on the turn that closes rather than in a
+      // message of its own, so the meter reads it from here when it is there.
+      if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
       engine.turnId = null;
@@ -1460,6 +1471,10 @@ async function submitInput() {
       return artifactOperation(()=>artifacts.run('generate',{provider:'openai',model:'gpt-image-2',prompt:rest,...(command==='/edit-image'?{reference:'composite.png'}:{})},{paid:true}));
     }
     if (command === "/performance" || command === "/perf") return commandPerformance(rest);
+    if (command === "/energy" || command === "/power") {
+      addEntry("notice", energyReport(state.energy, state.model || model).join("\n"));
+      return redraw();
+    }
     if (command === "/latest") { state.scrollOffset = 0; return redraw(); }
     if (command === "/clear") {
       archivedConversation.push(...state.entries.filter(({ kind }) => kind === "user" || kind === "assistant"));
@@ -1546,7 +1561,7 @@ async function submitInput() {
     if (command === "/help") {
       addEntry(
         "notice",
-        "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /mouse [on|off] · /performance [frames] · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
+        "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }

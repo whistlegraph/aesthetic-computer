@@ -39,7 +39,7 @@ the piece currently being worked on in the header.
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 `/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
 `/backend [claude|codex]`,
-`/model [name]`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
+`/model [name]`, `/energy`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
 `ctrl-c` to interrupt a running turn or exit while idle.
 
 ## Engine bridges
@@ -84,6 +84,23 @@ frames at 800×600 after warmup. It runs in a restricted child with a timeout;
 Ctrl-C cancels it. Browser rendering, rasterization and display latency are
 excluded. Unsupported APIs/imports report an error. It requires Node permission
 support (Node 24 or newer recommended).
+
+`/energy` estimates what the session cost in electricity. Every bridge reports
+the tokens it spent — per round on AC hosted, per turn from the Claude CLI's own
+`modelUsage` — and `src/energy.mjs` turns those counts into watt-hours: a fixed
+cost per generated token plus a part that scales with the model's *active*
+parameters, with prompt tokens at a tenth of a generated one and cached tokens
+at a hundredth. The running total shares the footer's gauge row with the viewer
+count, wearing a `~`.
+
+It is an estimate and cannot be anything else — no provider publishes per-token
+energy. The slope is anchored so a frontier-class answer lands near the only
+published figures (Google's 0.24 Wh median text prompt; Epoch AI's ~0.3 Wh for a
+GPT-4o query), and the open-weight hosted models carry their announced active
+parameter counts, so the *relative* half of the readout — the same conversation
+priced across every model, cheapest first — rests on published numbers rather
+than on guessed hardware. Rows for closed models say that their size is a guess.
+Serving only: no training, no water, and not your own machine.
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK

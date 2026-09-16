@@ -121,6 +121,18 @@ createInterface({ input: process.stdin }).on("line", (line) => {
         ],
       },
     });
-    send({ type: "result", subtype: "success", is_error: false, terminal_reason: "completed", result: "done" });
+    // The real CLI closes a turn with what it spent, both totalled and keyed by
+    // the model that actually ran.
+    send({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      terminal_reason: "completed",
+      result: "done",
+      usage: { input_tokens: 1200, output_tokens: 300, cache_read_input_tokens: 18000, cache_creation_input_tokens: 0 },
+      modelUsage: {
+        "claude-fable-5-1": { inputTokens: 1200, outputTokens: 300, cacheReadInputTokens: 18000, cacheCreationInputTokens: 0 },
+      },
+    });
   }
 });

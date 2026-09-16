@@ -10,7 +10,7 @@ export function aboutMap() {
     "       └─ Your Codex account  · /backend codex",
     "",
     "MAKE    /medium picture|sound|paper|gameboy|piece",
-    "MEASURE /performance · headless logic and drawing-call counts",
+    "MEASURE /performance · headless logic · /energy · estimated electricity",
     "WORK    /artifacts · /select UUID · /artifact",
     "OUTPUT  /open · /export FILE · Pieces: /publish · /qr",
     "ACCOUNT /login · /profile · /logout",

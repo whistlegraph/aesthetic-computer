@@ -236,3 +236,29 @@ test('missing unsaved Claude session recovers only with explicit Easel handoff',
  const c=await engine.connect();assert.notEqual(c.thread.id,'missing');assert.equal(fatals,0);
  const args=launches(argvFile).argvs;assert.equal(args.length,2);assert.match(flagIn(args[1],'--append-system-prompt'),/Retained Easel conversation/);
 });
+// Energy is estimated from token counts, so the counts have to arrive — and
+// under the name of the model that actually ran. The fake CLI reports Fable
+// while the bridge asked for the default, which is the case a readout keyed to
+// the requested model would describe wrongly.
+test("a finished turn reports what it spent, keyed to the model that ran", async (t) => {
+  const engine = bridge(t);
+  const spent = [];
+  const completed = new Promise((resolve) => {
+    engine.on("notification", ({ method, params }) => {
+      if (method === "turn/usage") spent.push(params);
+      if (method === "turn/completed") resolve(params.turn.status);
+    });
+  });
+  engine.on("request", (request) => engine.respond(request.id, { decision: "accept" }));
+
+  await engine.connect();
+  await engine.startTurn("make a piece");
+  assert.equal(await completed, "completed");
+
+  assert.equal(spent.length, 1);
+  assert.equal(spent[0].model, "claude-fable-5-1");
+  assert.equal(spent[0].usage.outputTokens, 300);
+
+  const { joulesFor, readUsage } = await import("../src/energy.mjs");
+  assert.ok(joulesFor(readUsage(spent[0].usage), spent[0].model) > 0);
+});

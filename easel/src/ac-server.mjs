@@ -300,6 +300,11 @@ export class AcServer extends EventEmitter {
     // Tool arguments arrive as a JSON string in fragments, so they are gathered
     // per block index and parsed only once the block closes.
     const partials = new Map();
+    // What this round cost. The counts arrive split across two events —
+    // `message_start` knows the prompt, `message_delta` knows the answer — and
+    // each is cumulative for its own field, so later values replace rather than
+    // add. The interface turns this into watt-hours; see energy.mjs.
+    const usage = {};
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -327,6 +332,9 @@ export class AcServer extends EventEmitter {
           } catch {
             continue;
           }
+
+          const counts = event.usage || event.message?.usage;
+          if (counts) Object.assign(usage, counts);
 
           if (event.type === "content_block_start" || event.type === "content_block_delta") {
             this.emit("notification", { method: "turn/progress", params: {
@@ -377,6 +385,16 @@ export class AcServer extends EventEmitter {
     } finally {
       await reader.cancel?.().catch(() => {});
       reader.releaseLock?.();
+    }
+
+    // Reported per round rather than per turn: a turn that called a tool paid
+    // for two responses, and a readout that showed one of them would understate
+    // the expensive kind of turn.
+    if (Object.keys(usage).length) {
+      this.emit("notification", {
+        method: "turn/usage",
+        params: { model: this.model, usage },
+      });
     }
 
     if (text) {

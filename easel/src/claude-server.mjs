@@ -566,6 +566,18 @@ export class ClaudeServer extends EventEmitter {
     const id = this.turnId || `turn-${this.turns}`;
     this.turnId = null;
     this.textItems.clear();
+    // The CLI closes a turn with what it spent. `modelUsage` is keyed by the
+    // model that actually ran — which is not always the one asked for, and a
+    // fallback is exactly when the energy readout should not lie about which
+    // model it is describing.
+    const perModel = Object.entries(message.modelUsage || {});
+    if (perModel.length) {
+      for (const [model, usage] of perModel) {
+        this.emit("notification", { method: "turn/usage", params: { model, usage } });
+      }
+    } else if (message.usage) {
+      this.emit("notification", { method: "turn/usage", params: { model: this.model, usage: message.usage } });
+    }
     const aborted = String(message.terminal_reason || "").startsWith("aborted");
     const status = aborted ? "interrupted" : message.is_error ? "failed" : "completed";
     const turn = { id, status, items: [] };

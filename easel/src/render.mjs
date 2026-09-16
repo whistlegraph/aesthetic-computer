@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, mascotAt, mascotRow } from "./mascot.mjs";
 import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
+import { formatJoules } from "./energy.mjs";
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
 const CONTROLS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
@@ -353,8 +354,9 @@ export function renderBoot(elapsed = 0, columns = 80, rows = 24, useColor = true
     .join("\n");
 }
 
-// The readout for everything happening on the far side of the QR code: how many
-// people are at the piece, and what their browsers are painting. Parts fall off
+// The gauge row: everything happening on the far side of the QR code — how many
+// people are at the piece, and what their browsers are painting — and, last, the
+// running electricity estimate for the session. Parts fall off
 // the right as the window narrows, worst news first — a blank frame outranks a
 // viewer count, because it is the one thing here that means something is wrong.
 //
@@ -385,6 +387,11 @@ export function audienceReadout(state, room = 80, useColor = true) {
     parts.push({ text: `${frame.colors} colors`, tone: "muted" });
   if (Number.isFinite(state?.online))
     parts.push({ text: `${state.online} on AC`, tone: "muted" });
+  // Last, so it is the first thing the row gives up when the window narrows: a
+  // running estimate is the least urgent number here. The tilde is load-bearing
+  // — see energy.mjs on why this is an estimate and can only be one.
+  if (state?.energy > 0)
+    parts.push({ text: `~${formatJoules(state.energy)}`, tone: "muted" });
 
   if (parts.length === 0) return { plain: "", painted: "" };
 
@@ -473,7 +480,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // eye skips after the first second, and the count is the one number in the
   // interface that changes because of somebody else.
   const audience = audienceReadout(
-    { ...state.audience, frame: state.health?.frame },
+    { ...state.audience, frame: state.health?.frame, energy: state.energy?.joules },
     Math.max(0, width - 4 - textWidth(state.workspace || "workspace")),
     useColor,
   );

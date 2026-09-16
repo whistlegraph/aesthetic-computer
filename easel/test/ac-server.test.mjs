@@ -218,3 +218,45 @@ test("interrupting a checkpoint during validation cannot write or start another 
   assert.equal(calls, 1);
   assert.equal(completed.status, "interrupted");
 });
+// A turn that called a tool paid for two responses. The meter has to see both,
+// or the readout understates exactly the turns that cost the most.
+test("each round reports what it spent, per round rather than per turn", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-energy-"));
+  const file = join(dir, "vopuzi.mjs");
+  await writeFile(file, "// blank\n");
+
+  const metered = (events, output) => [
+    { type: "message_start", message: { usage: { input_tokens: 6000, cache_read_input_tokens: 24000 } } },
+    ...events,
+    { type: "message_delta", delta: { stop_reason: events === none ? "end_turn" : "tool_use" }, usage: { output_tokens: output } },
+  ];
+  const none = [];
+
+  const engine = new AcServer({
+    fetch: serving(
+      metered([
+        { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "t1", name: "write_piece" } },
+        { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify({ source: "function paint({ wipe }) { wipe(0); }" }) } },
+        { type: "content_block_stop", index: 0 },
+      ], 700),
+      metered(none, 40),
+    ),
+    token: async () => "tok",
+    piece: { file },
+    model: "glm",
+  });
+
+  const spent = [];
+  engine.on("notification", ({ method, params }) => {
+    if (method === "turn/usage") spent.push(params);
+  });
+  await engine.connect();
+  await engine.startTurn("paint it black");
+
+  assert.equal(spent.length, 2, "one report per round");
+  assert.equal(spent[0].model, "z-ai/glm-4.6", "reported under the id that ran, not the alias");
+  assert.equal(spent[0].usage.output_tokens, 700);
+  assert.equal(spent[0].usage.cache_read_input_tokens, 24000, "prompt counts from message_start survive the round");
+  assert.equal(spent[1].usage.output_tokens, 40);
+  await rm(dir, { recursive: true, force: true });
+});

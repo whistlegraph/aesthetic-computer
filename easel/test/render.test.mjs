@@ -235,3 +235,26 @@ test("a blank frame is reported, and outranks the rest of the readout", async ()
   const nothing = audienceReadout({ here: null, frame: null }, 80, false);
   assert.equal(nothing.plain, "", "and an unanswered session still claims nothing");
 });
+// The running electricity estimate shares the gauge row, and is the first thing
+// that row gives up: an estimate is the least urgent number on it.
+test("the energy estimate reaches the gauge row and drops first when squeezed", async () => {
+  const { audienceReadout } = await import("../src/render.mjs");
+  const { Energy } = await import("../src/energy.mjs");
+
+  const energy = new Energy();
+  energy.add("z-ai/glm-4.6", { input_tokens: 6200, output_tokens: 900, cache_read_input_tokens: 24000 });
+
+  const frame = renderFrame(
+    {
+      workspace: "/project", mode: "remote", status: "ready",
+      account: "@tester", piece: "kizide.mjs", input: "", entries: [], energy,
+    },
+    100, 24, false,
+  );
+  assert.match(frame, /~[\d.]+ Wh/, "the number wears a tilde, because it is an estimate");
+
+  const full = audienceReadout({ here: 2, peak: 9, energy: 3600 }, 80, false);
+  assert.equal(full.plain, "2 here · 9 peak · ~1.00 Wh");
+  assert.equal(audienceReadout({ here: 2, peak: 9, energy: 3600 }, 16, false).plain, "2 here · 9 peak");
+  assert.equal(audienceReadout({ energy: 0 }, 80, false).plain, "", "an unmetered session claims nothing");
+});
