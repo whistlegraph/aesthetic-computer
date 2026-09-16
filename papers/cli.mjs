@@ -221,6 +221,11 @@ const PAPER_MAP = {
     siteName: "open-schools-26-arxiv",
     title: "Get Closed Source Out of Schools",
   },
+  "arxiv-free-vs-open": {
+    base: "free-vs-open",
+    siteName: "free-vs-open-26-arxiv",
+    title: "Free Versus Nonfree",
+  },
   "arxiv-futures": {
     base: "futures",
     siteName: "five-years-from-now-26-arxiv",
@@ -549,6 +554,7 @@ const CATEGORIES = [
       "arxiv-dead-ends",
       "arxiv-folk-songs",
       "arxiv-futures",
+      "arxiv-free-vs-open",
       "arxiv-holden",
       "arxiv-fraserin",
       "arxiv-score-analysis",
@@ -1051,6 +1057,7 @@ function updateIndex(entries) {
     "citation-diversity-audit-26": 17,
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
+    "free-vs-open-26-arxiv": 19.1,
     "aesthetic-may-26-essay": 19.5,
     "aesthetic-june-26-essay": 19.6,
     "aesthetic-july-4-26-essay": 19.7,
@@ -1252,6 +1259,11 @@ function updateIndex(entries) {
       detail: "",
       abstract:
         "Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.",
+    },
+    "free-vs-open-26-arxiv": {
+      detail: "Stallman's licensing map and where Aesthetic.Computer stands &middot; 6pp",
+      abstract:
+        "Free Versus Nonfree reconstructs Stallman's map of software licensing from his 1998 essay and its 2007 rewrite: one ethical line drawn by four freedoms, copyleft versus lax inside it, commerce as a separate axis. It then applies the map to this repository and finds it source-available, not yet free.",
     },
     "five-years-from-now-26-arxiv": {
       detail: "",

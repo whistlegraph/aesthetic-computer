@@ -1,0 +1,32 @@
+\begin{tikzpicture}[
+  every node/.style={font=\sffamily},
+  tier/.style={draw=acgray!55, rounded corners=2pt, fill=white, align=left, anchor=north west,
+    minimum height=1.62cm, text width=4.55cm, inner xsep=8pt, inner ysep=6pt, text depth=0.72cm},
+  free/.style={tier, draw=acblue!70, fill=acblue!6},
+  nonfree/.style={tier, draw=acpink!80, fill=acpink!7},
+  aside/.style={tier, draw=acgray!55, fill=acgray!6},
+  side/.style={font=\scriptsize\sffamily\bfseries, anchor=east},
+  lab/.style={font=\scriptsize\sffamily, text=acpink, anchor=west, inner xsep=0pt}
+]
+  \def\colA{0}\def\colB{5.45}\def\colC{10.9}
+  \def\rowA{0}\def\rowB{-2.85}
+
+  % free row
+  \node[free] at (\colA,\rowA) {\textbf{public domain}\\[-1pt]{\scriptsize no copyright at all}\\[1pt]{\scriptsize\color{acpink} can be enclosed}};
+  \node[free] at (\colB,\rowA) {\textbf{copyleft}\\[-1pt]{\scriptsize GPL \;\textperiodcentered\; AGPL \;\textperiodcentered\; LGPL}\\[1pt]{\scriptsize\color{acblue}\bfseries cannot be enclosed}};
+  \node[free] at (\colC,\rowA) {\textbf{lax / permissive}\\[-1pt]{\scriptsize MIT \;\textperiodcentered\; BSD \;\textperiodcentered\; Apache \;\textperiodcentered\; ISC}\\[1pt]{\scriptsize\color{acpink} can be enclosed}};
+
+  % the line
+  \draw[dashed, draw=acpink, line width=0.9pt] (-0.1,-2.12) -- (15.85,-2.12);
+  \node[lab, text=acblue] at (0,-1.89) {all four freedoms present};
+  \node[lab] at (0,-2.35) {any one freedom missing};
+
+  % nonfree row
+  \node[nonfree] at (\colA,\rowB) {\textbf{proprietary}\\[-1pt]{\scriptsize use, copying, or change forbidden}\\[1pt]{\scriptsize or allowed only by permission}};
+  \node[nonfree] at (\colB,\rowB) {\textbf{freeware / shareware}\\[-1pt]{\scriptsize gratis, or try then pay}\\[1pt]{\scriptsize no source, no modification}};
+  \node[aside] at (\colC,\rowB) {\textbf{private software}\\[-1pt]{\scriptsize one user, never distributed}\\[1pt]{\scriptsize outside the ethical question}};
+
+  % side labels
+  \node[side, text=acblue] at (-0.3,-0.81) {\rotatebox{90}{free}};
+  \node[side, text=acpink] at (-0.3,-3.66) {\rotatebox{90}{nonfree}};
+\end{tikzpicture}

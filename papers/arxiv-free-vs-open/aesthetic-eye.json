@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "Free Versus Nonfree",
+  "pdf": "free-vs-open.pdf",
+  "pdfSha256": "44b7ced04c2e0184d9691bc857164fa680297a7e1c907d11700ad984e46740ac",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-09-16T06:11:26Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every wordmark goes through the \\ac macro. The pink period is visible in the cover subtitle, the byline, the section 7 heading, body prose, and bibliography entries at full resolution."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "ladder",
+      "page": 3,
+      "crop": [
+        0.06,
+        0.025,
+        0.88,
+        0.215
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Two rows of three equal tiers, uniform height, gutters and inner padding; every third line clears its box border. The dashed free/nonfree line spans the full width with its two labels stacked at the left end, clear of all boxes. Sans labels read at normal page size; the free/nonfree split is carried by color and by the rotated side labels, not color alone. No edges to route: enclosure is stated inside each free tier, and copyleft's bold 'cannot be enclosed' is the only emphasis, which is the intended hierarchy."
+    }
+  ],
+  "expectedFigures": 0,
+  "figures": []
+}

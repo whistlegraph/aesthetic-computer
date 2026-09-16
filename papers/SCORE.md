@@ -255,6 +255,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| Free Versus Nonfree: Stallman's Licensing Map, the 1998 Split, and Where Aesthetic.Computer Stands | arXiv (LaTeX, 6pp first-pass, illy cover) | `arxiv-free-vs-open/free-vs-open.pdf` | `arxiv-free-vs-open/free-vs-open.tex` |
 | aesthetic-computer-media: one fast portable workspace for the fleet | gear guess (LaTeX, guess 1) | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.pdf` | `gear-guess-aesthetic-computer-media/aesthetic-computer-media.tex` |
 | xbox-native-fleet: three native screens and one controller | gear guess (LaTeX, guess 1) | `gear-guess-xbox-native-fleet/xbox-native-fleet.pdf` | `gear-guess-xbox-native-fleet/xbox-native-fleet.tex` |
 | The nom Games: A Muncher Arcade for Aesthetic Computer (numbnom / engnom / mexinom / notenom; one shared engine + virtual synth controller) | arXiv (LaTeX, ~5pp first-pass) | `arxiv-nom/nom.pdf` | `arxiv-nom/nom.tex` |

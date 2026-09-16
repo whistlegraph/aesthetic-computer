@@ -1,0 +1,456 @@
+Why “Free Software” is better than “Open Source”
+- GNU Project - Free Software Foundation
+
+Skip to main text
+
+ Free Software Supporter:
+
+JOIN THE FSF
+
+ GNU Operating System
+ Supported by the
+ Free Software Foundation
+
+ Site navigation
+ Skip
+
+ ABOUT GNU
+
+ = 
+ PHILOSOPHY
+
+ = 
+
+ LICENSES
+
+ EDUCATION
+
+ SOFTWARE
+
+ DISTROS
+
+ DOCS
+
+ MALWARE
+
+ HELP GNU
+
+ AUDIO & VIDEO
+
+ GNU ART
+
+ FUN
+
+ GNU'S WHO?
+
+ SOFTWARE DIRECTORY
+ HARDWARE
+ SITEMAP
+
+ /
+Philosophy /
+Essays & articles /
+
+About free software /
+
+ Free software & open source /
+
+Why “Free Software” is better than “Open Source”
+
+This article has been superseded by a major rewrite,
+“Open
+Source” misses the point of Free Software, which is much
+better. We keep this version for historical reasons.
+
+While free software by any other name would give you the same
+freedom, it makes a big difference which name we use: different words
+convey different ideas.
+
+In 1998, some of the people in the free software community began using
+the term “open source
+software” instead of “free
+software” to describe what they do. The term “open source”
+quickly became associated with a different approach, a different
+philosophy, different values, and even a different criterion for which
+licenses are acceptable. The Free Software movement and the Open
+Source movement are today separate
+movements with different views and goals, although we can and do
+work together on some practical projects.
+
+The fundamental difference between the two movements is in their
+values, their ways of looking at the world. For the Open Source
+movement, the issue of whether software should be open source is a
+practical question, not an ethical one. As one person put it, “Open
+source is a development methodology; free software is a social
+movement.” For the Open Source movement, nonfree software is a
+suboptimal solution. For the Free Software movement, nonfree
+software is a social problem and free software is the solution.
+
+Relationship between the Free Software
+movement and Open Source movement
+
+The Free Software movement and the Open Source movement are like two
+political camps within the free software community.
+
+Radical groups in the 1960s developed a reputation for factionalism:
+organizations split because of disagreements on details of strategy,
+and then treated each other as enemies. Or at least, such is the
+image people have of them, whether or not it was true.
+
+The relationship between the Free Software movement and the Open
+Source movement is just the opposite of that picture. We disagree on
+the basic principles, but agree more or less on the practical
+recommendations. So we can and do work together on many specific
+projects. We don't think of the Open Source movement as an enemy.
+The enemy is
+ proprietary
+software.
+
+We are not against the Open Source movement, but we don't want to be
+lumped in with them. We acknowledge that they have contributed to our
+community, but we created this community, and we want people to know
+this. We want people to associate our achievements with our values
+and our philosophy, not with theirs. We want to be heard, not
+obscured behind a group with different views. To prevent people from
+thinking we are part of them, we take pains to avoid using the word
+“open” to describe free software, or its contrary,
+“closed,” in talking about nonfree software.
+
+So please mention the Free Software movement when you talk about the
+work we have done, and the software we have developed—such as the
+GNU/Linux operating system.
+
+Comparing the two terms
+
+This rest of this article compares the two terms “free software” and
+“open source.” It shows why the term “open source” does not solve
+any problems, and in fact creates some.
+
+Ambiguity
+
+The term “free software” has an ambiguity problem: an unintended
+meaning, “Software you can get for zero price,” fits the term just
+as well as the intended meaning, “software which gives the user
+certain freedoms.” We address this problem by publishing a
+ more precise definition of free
+software, but this is not a perfect solution; it cannot completely
+eliminate the problem. An unambiguously correct term would be better,
+if it didn't have other problems.
+
+Unfortunately, all the alternatives in English have problems of their
+own. We've looked at many alternatives that people have suggested,
+but none is so clearly “right” that switching to it would be a good
+idea. Every proposed replacement for “free software” has a similar
+kind of semantic problem, or worse—and this includes “open source
+software.”
+
+The official definition of “open source software,” as published
+by the Open Source Initiative, is very close to our definition
+of free software; however, it is a little looser in some respects,
+and they have accepted a few licenses that we consider unacceptably
+restrictive of the users.
+
+However, 
+the obvious meaning for the expression “open source software”
+is “You can look at
+the source code.” This is a much weaker criterion than free
+software; it includes free software, but also
+some 
+proprietary programs, including Xv, and Qt under its original license
+(before the QPL).
+
+That obvious meaning for “open source” is not the meaning that its
+advocates intend. The result is that most people misunderstand
+what those advocates are advocating. Here is how writer Neal
+Stephenson defined “open source”:
+
+Linux is “open source” software
+meaning, simply, that anyone can get copies of its source code files.
+
+I don't think he deliberately sought to reject or dispute the
+“official” definition. I think he simply applied the conventions of
+the English language to come up with a meaning for the term. The state
+of Kansas published a similar definition:
+ state of
+Kansas published a similar definition: -->
+
+Make use of open-source software (OSS). OSS is software for which the
+source code is freely and publicly available, though the specific licensing
+agreements vary as to what one is allowed to do with that code.
+
+Of course, the open source people have tried to deal with this by
+publishing a precise definition for the term, just as we have done for
+“free software.”
+
+But the explanation for “free software” is simple—a
+person who has grasped the idea of “free speech, not free
+beer” will not get it wrong again. There is no such succinct
+way to explain the official meaning of “open source” and
+show clearly why the natural definition is the wrong one.
+
+Fear of Freedom
+
+The main argument for the term “open source software” is
+that “free software” makes some people uneasy. That's
+true: talking about freedom, about ethical issues, about
+responsibilities as well as convenience, is asking people to think
+about things they might rather ignore. This can trigger discomfort,
+and some people may reject the idea for that. It does not follow that
+society would be better off if we stop talking about these things.
+
+Years ago, free software developers noticed this discomfort reaction,
+and some started exploring an approach for avoiding it. They figured
+that by keeping quiet about ethics and freedom, and talking only about
+the immediate practical benefits of certain free software, they might
+be able to “sell” the software more effectively to certain
+users, especially business. The term “open source” is
+offered as a way of doing more of this—a way to be “more
+acceptable to business.” The views and values of the Open Source
+movement stem from this decision.
+
+This approach has proved effective, in its own terms. Today many
+people are switching to free software for purely practical reasons.
+That is good, as far as it goes, but that isn't all we need to do!
+Attracting users to free software is not the whole job, just the first
+step.
+
+Sooner or later these users will be invited to switch back to
+proprietary software for some practical advantage. Countless
+companies seek to offer such temptation, and why would users decline?
+Only if they have learned to value the freedom free software
+gives them, for its own sake. It is up to us to spread this
+idea—and in order to do that, we have to talk about freedom. A
+certain amount of the “keep quiet” approach to business
+can be useful for the community, but we must have plenty of freedom
+talk too.
+
+At present, we have plenty of “keep quiet,” but not enough
+freedom talk. Most people involved with free software say little
+about freedom—usually because they seek to be “more
+acceptable to business.” Software distributors especially show
+this pattern. Some
+GNU/Linux operating system
+distributions add proprietary packages to the basic free system, and
+they invite users to consider this an advantage, rather than a step
+backwards from freedom.
+
+We are failing to keep up with the influx of free software users,
+failing to teach people about freedom and our community as fast as
+they enter it. This is why nonfree software (which Qt was when it
+first became popular), and partially nonfree operating system
+distributions, find such fertile ground. To stop using the word
+“free” now would be a mistake; we need more, not less, talk about
+freedom.
+
+If those using the term “open source” draw more users into our
+community, that is a contribution, but the rest of us will have to
+work even harder to bring the issue of freedom to those users'
+attention. We have to say, “It's free software and it gives you
+freedom!”—more and louder than ever before.
+
+Would a Trademark Help?
+
+The advocates of “open source software” tried to make it a
+trademark, saying this would enable them to prevent misuse. This
+initiative was later dropped, the term being too descriptive to
+qualify as a trademark; thus, the legal status of “open source” is
+the same as that of “free software”: there is no legal
+constraint on using it. I have heard reports of a number of
+companies' calling software packages “open source” even though they
+did not fit the official definition; I have observed some instances
+myself.
+
+But would it have made a big difference to use a term that is a
+trademark? Not necessarily.
+
+Companies also made announcements that give the impression that a
+program is “open source software” without explicitly saying so. For
+example, one IBM announcement, about a program that did not fit the
+official definition, said this:
+
+As is common in the open source community, users of the …
+technology will also be able to collaborate with IBM…
+
+This did not actually say that the program was “open
+source,” but many readers did not notice that detail. (I should note
+that IBM was sincerely trying to make this program free software, and
+later adopted a new license which does make it free software and
+“open source”; but when that announcement was made, the program did
+not qualify as either one.)
+
+And here is how Cygnus Solutions, which was formed to be a free
+software company and subsequently branched out (so to speak) into
+proprietary software, advertised some proprietary software products:
+
+Cygnus Solutions is a leader in the open source market and has just
+launched two products into the [GNU/]Linux marketplace. 
+
+Unlike IBM, Cygnus was not trying to make these packages free
+software, and the packages did not come close to qualifying. But
+Cygnus didn't actually say that these are “open source software,”
+they just made use of the term to give careless readers that
+impression.
+
+These observations suggest that a trademark would not have truly
+prevented the confusion that comes with the term “open source.”
+
+Misunderstandings(?) of “Open Source”
+
+The Open Source Definition is clear enough, and it is quite clear that
+the typical nonfree program does not qualify. So you would think
+that “Open Source company” would mean one whose products are free
+software (or close to it), right? Alas, many companies are trying to
+give it a different meaning.
+
+At the “Open Source Developers Day” meeting in August 1998, several
+of the commercial developers invited said they intend to make only a
+part of their work free software (or “open source”). The focus of
+their business is on developing proprietary add-ons (software or
+manuals) to sell to the users of
+this free software. They ask us to regard this as legitimate, as part
+of our community, because some of the money is donated to free
+software development.
+
+In effect, these companies seek to gain the favorable cachet of
+“open source” for their proprietary software
+products—even though those are not “open source
+software”—because they have some relationship to free
+software or because the same company also maintains some free
+software. (One company founder said quite explicitly that they would
+put, into the free package they support, as little of their work as
+the community would stand for.)
+
+Over the years, many companies have contributed to free software
+development. Some of these companies primarily developed nonfree
+software, but the two activities were separate; thus, we could ignore
+their nonfree products, and work with them on free software projects.
+Then we could honestly thank them afterward for their free software
+contributions, without talking about the rest of what they did.
+
+We cannot do the same with these new companies, because they won't let
+us. These companies actively invite the public to lump all their
+activities together; they want us to regard their nonfree software as
+favorably as we would regard a real contribution, although it is not
+one. They present themselves as “open source companies,” hoping
+that we will get a warm fuzzy feeling about them, and that we will be
+fuzzy-minded in applying it.
+
+This manipulative practice would be no less harmful if it were done
+using the term “free software.” But companies do not seem to use
+the term “free software” that way; perhaps its association with
+idealism makes it seem unsuitable. The term “open source” opened
+the door for this.
+
+At a trade show in late 1998, dedicated to the operating system often
+referred to
+as “Linux,” the
+featured speaker was an executive from a prominent software company.
+He was probably invited on account of his company's decision to
+“support” that system. Unfortunately, their form of
+“support” consists of releasing nonfree software that
+works with the system—in other words, using our community as a
+market but not contributing to it.
+
+He said, “There is no way we will make our product open source,
+but perhaps we will make it ‘internal’ open source. If we
+allow our customer support staff to have access to the source code,
+they could fix bugs for the customers, and we could provide a better
+product and better service.” (This is not an exact quote, as I
+did not write his words down, but it gets the gist.)
+
+People in the audience afterward told me, “He just doesn't get the
+point.” But is that so? Which point did he not get?
+
+He did not miss the point of the Open Source movement. That movement
+does not say users should have freedom, only that allowing more people
+to look at the source code and help improve it makes for faster and
+better development. The executive grasped that point completely;
+unwilling to carry out that approach in full, users included, he was
+considering implementing it partially, within the company.
+
+The point that he missed is the point that “open source” was
+designed not to raise: the point that users deserve
+freedom.
+
+Spreading the idea of freedom is a big job—it needs your help.
+That's why we stick to the term “free software” in the GNU
+Project, so we can help do that job. If you feel that freedom and
+community are important for their own sake—not just for the
+convenience they bring—please join us in using the term
+“free software.”
+
+Notes
+
+Joe Barr wrote an article called
+
+Live and let license that gives his perspective on this issue.
+
+Lakhani and Wolf's
+paper on the
+motivation of free software developers says that a considerable
+fraction are motivated by the view that software should be free. This
+was despite the fact that they surveyed the developers on SourceForge,
+a site that does not support the view that this is an ethical issue.
+
+This essay is published in
+Free
+Software, Free Society: The Selected Essays of Richard
+M. Stallman.
+
+ ▲
+
+ BACK TO TOP
+
+ Set language
+
+ Available for this page:
+
+[en] English  
+[bg] български  
+[cs] čeština  
+[de] Deutsch  
+[es] español  
+[fr] français  
+[he] עברית  
+[it] italiano  
+[ko] 한국어  
+[pl] polski  
+[pt-br] português  
+[ro] română  
+[ru] русский  
+[sr] српски  
+[zh-cn] 简体中文  
+[zh-tw] 繁體中文  
+
+ BACK TO TOP ▲
+
+“The Free Software Foundation (FSF) is a nonprofit with a worldwide
+mission to promote computer user freedom. We defend the rights of all
+software users.”
+
+ JOIN
+ DONATE
+ SHOP
+
+Please send general FSF & GNU inquiries to <gnu@gnu.org>. There are also other ways to contact the FSF. Broken links and other
+corrections or suggestions can be sent to <webmasters@gnu.org>.
+
+ <web-translators@gnu.org>.
+
+ For information on coordinating and contributing translations of
+ our web pages, see Translations
+ README. -->
+Please see the Translations README for
+information on coordinating and contributing translations of this article.
+
+Copyright © 1998-2003, 2007, 2010, 2023, 2024 Free Software Foundation,
+Inc.
+
+This page is licensed under a Creative
+Commons Attribution-NoDerivatives 4.0 International License.
+
+Copyright Infringement Notification
+
+Updated:
+
+$Date: 2024/01/01 05:25:36 $
