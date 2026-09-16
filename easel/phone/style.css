@@ -1,0 +1,273 @@
+/* Phone-first, and only phone for now. The desktop already has a client. */
+
+:root {
+  --bg: #463264;
+  --bg-deep: #241d35;
+  --ink: #efe9ff;
+  --dim: #b3a4cf;
+  --rule: #5e4881;
+  --you: #ff4d88;
+  --ac: #b58cff;
+  --edit: #6ee7a8;
+  --bad: #ff7a7a;
+  --gap: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 ui-monospace, "SF Mono", Menlo, monospace;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* The app is a three-row column: preview, transcript, composer. Only the
+   transcript scrolls, so the preview never leaves and the input never hides. */
+#app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100dvh;
+}
+
+#app[hidden] {
+  display: none;
+}
+
+#bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: calc(env(safe-area-inset-top) + 8px) var(--gap) 8px;
+  border-bottom: 1px solid var(--rule);
+}
+
+#piece {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#status {
+  flex: none;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+#status[data-state="working"] {
+  color: var(--ac);
+}
+
+#status[data-state="failed"] {
+  color: var(--bad);
+}
+
+#status[data-state="live"] {
+  color: var(--edit);
+}
+
+/* 4:3 keeps a piece's default frame honest without eating the transcript. */
+#stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-deep);
+  border-bottom: 1px solid var(--rule);
+}
+
+#preview {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+#preview:not([src]) {
+  visibility: hidden;
+}
+
+#stage-empty {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: grid;
+  place-content: center;
+  padding: 0 24px;
+  text-align: center;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+#stage.has-piece #stage-empty {
+  display: none;
+}
+
+#log {
+  margin: 0;
+  padding: var(--gap);
+  list-style: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#log li {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#log .tag {
+  display: inline-block;
+  min-width: 3.2em;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#log .you .tag {
+  color: var(--you);
+}
+
+#log .ac .tag {
+  color: var(--ac);
+}
+
+#log .edit .tag {
+  color: var(--edit);
+}
+
+#log .bad {
+  color: var(--bad);
+}
+
+#log .note {
+  color: var(--dim);
+  font-size: 13px;
+}
+
+#composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px var(--gap) calc(env(safe-area-inset-bottom) + 8px);
+  border-top: 1px solid var(--rule);
+  background: var(--bg);
+}
+
+#input {
+  flex: 1;
+  min-width: 0;
+  max-height: 40vh;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font: inherit;
+  resize: none;
+  /* 16px or iOS zooms the page on focus. */
+  font-size: 16px;
+}
+
+#input:focus {
+  outline: 2px solid var(--ac);
+  outline-offset: -1px;
+}
+
+#composer button {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--you);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+#composer button:disabled {
+  opacity: 0.4;
+}
+
+#stop {
+  background: var(--rule);
+}
+
+#gate {
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  min-height: 100dvh;
+  padding: 24px;
+  text-align: center;
+}
+
+#gate[hidden] {
+  display: none;
+}
+
+#gate h1 {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--dim);
+}
+
+#gate-body {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+#gate input {
+  width: min(420px, 100%);
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--bg-deep);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+#gate button {
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--you);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+}
+
+#gate-note {
+  margin: 0;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+#gate-note.bad {
+  color: var(--bad);
+}

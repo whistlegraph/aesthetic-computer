@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover so the composer can sit in the home-indicator inset
+         rather than above it; interactive-widget keeps the layout from being
+         scrolled out from under the keyboard on iOS. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#463264" />
+    <title>Aesel</title>
+    <link rel="stylesheet" href="/easel/phone/style.css" />
+
+    <!-- Must run before any module: `ac-server.mjs` reads `process.env` at
+         module scope, and an import map cannot supply a bare global. -->
+    <script src="/easel/phone/shim/globals.js"></script>
+
+    <!-- The whole point of this file. `easel/src/ac-server.mjs` is loaded
+         unmodified — the same 426 lines the desktop app runs — and its Node
+         imports are answered here instead of being ported. Anything added to
+         its import list has to be answered here too, which is the intended
+         pressure: the bridge should stay this small. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "node:events": "/easel/phone/shim/events.mjs",
+          "node:fs": "/easel/phone/shim/fs.mjs",
+          "node:path": "/easel/phone/shim/path.mjs",
+          "node:url": "/easel/phone/shim/url.mjs",
+          "node:crypto": "/easel/phone/shim/crypto.mjs",
+          "node:os": "/easel/phone/shim/absent.mjs",
+          "node:http": "/easel/phone/shim/absent.mjs",
+          "node:child_process": "/easel/phone/shim/absent.mjs",
+          "/easel/src/revisions.mjs": "/easel/phone/shim/revisions.mjs"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="app" hidden>
+      <header id="bar">
+        <button id="piece" type="button" aria-label="Piece name">
+          <span id="route">@…/…</span>
+        </button>
+        <span id="status" data-state="idle">idle</span>
+      </header>
+
+      <section id="stage" aria-label="Live preview">
+        <iframe
+          id="preview"
+          title="The piece, live"
+          allow="autoplay; microphone; camera; gyroscope; accelerometer"
+          referrerpolicy="origin"
+        ></iframe>
+        <p id="stage-empty">Your piece appears here, live, as it is written.</p>
+      </section>
+
+      <ol id="log" aria-live="polite" aria-label="Conversation"></ol>
+
+      <form id="composer">
+        <textarea
+          id="input"
+          rows="1"
+          enterkeyhint="send"
+          placeholder="Describe what to make…"
+          autocapitalize="sentences"
+          autocomplete="off"
+          autocorrect="on"
+        ></textarea>
+        <button id="send" type="submit" aria-label="Send">→</button>
+        <button id="stop" type="button" aria-label="Stop" hidden>■</button>
+      </form>
+    </main>
+
+    <section id="gate">
+      <h1>Aesel</h1>
+      <p class="tagline">Make art and software, on your phone.</p>
+      <div id="gate-body">
+        <p id="gate-note">Checking for a session…</p>
+      </div>
+    </section>
+
+    <script type="module" src="/easel/phone/app.mjs"></script>
+  </body>
+</html>
