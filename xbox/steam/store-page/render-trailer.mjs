@@ -22,7 +22,7 @@
 // which must be a frame from the video itself.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bakeReplay } from "../../live/marketing/replay-oven.mjs";
@@ -37,12 +37,23 @@ const flags = new Map(process.argv.slice(2).map((entry) => {
 
 // Seeds are the whole recording: the same string re-renders the same fight,
 // so a trailer that needs one clip swapped does not re-roll the others.
-const CLIPS = [
-  { id: "trailer-1", door: "fight", seed: "steam-trailer#1" },
-  { id: "trailer-2", door: "fight", seed: "steam-trailer#4" },
-  { id: "trailer-3", door: "survival", seed: "steam-trailer#7" },
-  { id: "trailer-4", door: "fight", seed: "steam-trailer#9" },
-].slice(0, Number(flags.get("clips") || 4));
+//
+// These are candidates, not the cut. Evenly-matched bots tie often, and a
+// round that goes the full 30s clock ends on "tie!" — a weak last beat and a
+// long clip. So more fights are rendered than are used and the assembly
+// keeps the knockouts, shortest first. Survival rides along as one glimpse
+// of the other door.
+const CANDIDATES = [
+  { id: "fight-1", door: "fight", seed: "steam-trailer#1" },
+  { id: "fight-2", door: "fight", seed: "steam-trailer#4" },
+  { id: "fight-3", door: "fight", seed: "steam-trailer#9" },
+  { id: "fight-4", door: "fight", seed: "steam-trailer#12" },
+  { id: "fight-5", door: "fight", seed: "steam-trailer#17" },
+  { id: "fight-6", door: "fight", seed: "steam-trailer#23" },
+  { id: "climb-1", door: "survival", seed: "steam-trailer#7", cap: 25 },
+];
+const CLIPS = CANDIDATES.slice(0, Number(flags.get("clips") || CANDIDATES.length));
+const KEEP = Number(flags.get("keep") || 4);
 
 const log = (line) => console.log(line);
 mkdirSync(work, { recursive: true });
@@ -64,11 +75,18 @@ async function renderClip(clip) {
     // intro/fight/outro scrubber along with it, which on a store page
     // reads as a video control rather than part of the game.
     hud: "reel",
-    cap: 45, width: 1920, height: 1080, theme: "dark", out,
+    cap: Number(flags.get("cap") || clip.cap || 45), width: 1920, height: 1080, theme: "dark", out,
   }, { log });
   rmSync(join(out, "frames"), { recursive: true, force: true });
-  log(`   → ${render.base} (${render.frames} frames, outcome ${
-    render.outcome?.cause || render.outcome?.mode || "?"})`);
+  // The outcome is what decides whether this clip makes the cut, and the
+  // assembly runs in a different process, so it goes to disk beside the
+  // master rather than back through a return value.
+  const card = { id: clip.id, door: clip.door, seed: clip.seed,
+    frames: render.frames, seconds: render.frames / 60,
+    cause: render.outcome?.cause || null, winner: render.outcome?.winner ?? null,
+    mode: render.outcome?.mode || clip.door };
+  writeFileSync(join(out, "outcome.json"), JSON.stringify(card, null, 2));
+  log(`   → ${render.base} (${render.frames} frames, ${card.cause || card.mode})`);
   return render.base;
 }
 
@@ -80,19 +98,39 @@ if (only) {
   process.exit(0);
 }
 
-const clips = [];
+const rendered = [];
 for (const clip of CLIPS) {
-  const base = join(work, clip.id, "base.mp4");
+  const dir = join(work, clip.id);
+  const base = join(dir, "base.mp4");
   if (!flags.has("encode") && !existsSync(base)) {
     const child = spawnSync(process.execPath,
       [fileURLToPath(import.meta.url), `--only=${clip.id}`,
-        `--door=${clip.door}`, `--seed=${clip.seed}`],
+        `--door=${clip.door}`, `--seed=${clip.seed}`,
+        ...(clip.cap ? [`--cap=${clip.cap}`] : [])],
       { stdio: "inherit" });
-    if (child.status !== 0) throw new Error(`${clip.id} failed (exit ${child.status})`);
+    // One bad clip is not a bad trailer. A crashed or timed-out render is
+    // noted and the run keeps going; the assembly works with what landed.
+    if (child.status !== 0) log(`   ⚠ ${clip.id} failed (exit ${child.status}) — carrying on`);
   }
-  if (existsSync(base)) clips.push(base);
-  else log(`   ⚠ ${clip.id} produced no master — skipping it`);
+  if (!existsSync(base)) continue;
+  let card = {};
+  try { card = JSON.parse(readFileSync(join(dir, "outcome.json"), "utf8")); } catch {}
+  rendered.push({ ...clip, base, ...card });
 }
+if (!rendered.length) throw new Error("no clips rendered — check the log above");
+
+// The cut: knockouts first, shortest first, then one climb, and never a
+// round that ran out the clock unless nothing better landed.
+const knockouts = rendered.filter((c) => c.door === "fight" && c.cause && c.cause !== "TIE")
+  .sort((a, b) => a.frames - b.frames);
+const climbs = rendered.filter((c) => c.door === "survival");
+const ties = rendered.filter((c) => c.door === "fight" && (!c.cause || c.cause === "TIE"))
+  .sort((a, b) => a.frames - b.frames);
+const cut = [...knockouts, ...climbs.slice(0, 1)].slice(0, KEEP);
+while (cut.length < Math.min(KEEP, 2) && ties.length) cut.push(ties.shift());
+log(`\n🎬 cut: ${cut.map((c) => `${c.id}(${c.cause || c.mode}, ${
+  c.seconds.toFixed(1)}s)`).join(" · ")}`);
+const clips = cut.map((c) => c.base);
 if (!clips.length) throw new Error("no clips rendered — drop --encode or check the log");
 
 // One encode, not two: the clips are concatenated in the filter graph and

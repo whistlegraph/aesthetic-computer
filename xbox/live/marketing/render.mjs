@@ -481,6 +481,10 @@ export async function renderReel(spec, { log = console.log } = {}) {
   const puppeteer = await loadPuppeteer();
   const browser = await puppeteer.launch({
     headless: true, executablePath: chrome,
+    // A long door (survival at a high cap) can hold a single CDP call past
+    // puppeteer's 180s default while the forecast pass runs thousands of
+    // ticks in one evaluate. That is slow, not stuck.
+    protocolTimeout: 900000,
     args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required",
       "--use-gl=angle", "--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist",
       "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows",
