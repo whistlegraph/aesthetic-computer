@@ -4621,8 +4621,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       noauth: window.acNOAUTH || false,
       bootId: window.acBOOT_ID || null,
       pixelRatio: window.devicePixelRatio, // For the worker's `hd()` layer.
+      // The shell may have fetched the piece's source already
+      // (window.acPIECE_SOURCE); ride it down so the worker skips its own
+      // fetch. If it hasn't landed yet it follows as a 'piece-source' message.
+      pieceSource: pieceSourceHint(),
     },
   };
+  function pieceSourceHint() {
+    const h = window.acPIECE_SOURCE;
+    return h && typeof h.code === "string" ? { slug: h.slug, code: h.code } : null;
+  }
 
   // 🔍 Debug logging flags (opt-in; avoids spamming console during normal runs)
   const DEBUG_MESSAGE_FLOW = !!window.acDEBUG_MESSAGE_FLOW;
@@ -4644,6 +4652,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (firstMessageSent) return;
     firstMessageSent = true;
     send(firstMessage);
+    if (!firstMessage.content.pieceSource && window.acPIECE_SOURCE?.promise) {
+      window.acPIECE_SOURCE.promise.then(() => {
+        const late = pieceSourceHint();
+        if (late) send({ type: "piece-source", content: late });
+      });
+    }
     consumeDiskSends(send);
   };
 

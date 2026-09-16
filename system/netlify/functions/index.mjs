@@ -17,7 +17,7 @@ import { respond } from "../../backend/http.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
-import { bootPreloads, workerBundleFilename } from "../../backend/boot-preloads.mjs";
+import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backend/boot-preloads.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
@@ -882,6 +882,15 @@ async function fun(event, context) {
   const workerHintTag = workerFilename
     ? `<script>(function(){var f=${JSON.stringify(workerFilename)},u="/aesthetic.computer/lib/"+f;window.acWORKER_BUNDLE_HINT={filename:f,path:u,warm:fetch(u+location.search,{mode:"same-origin"}).then(function(r){return r.ok?r.arrayBuffer().then(function(){return true}):false}).catch(function(){return false})};})();</script>`
     : "";
+  // The piece itself, for built-in .mjs pieces: fetched at parse time so the
+  // worker finds it in its piece-code cache instead of fetching it only after
+  // its bundle has evaluated and the preamble frames have run. cache:"no-cache"
+  // keeps the freshness the worker's ?v= bust gave, as an ETag 304 when the
+  // file is unchanged rather than a full download every load.
+  const pieceUrl = dev ? null : await builtinPieceUrl(parsed?.text);
+  const pieceHintTag = pieceUrl
+    ? `<script>(function(){var s=${JSON.stringify(parsed.text)},u=${JSON.stringify(pieceUrl)};var h=window.acPIECE_SOURCE={slug:s,url:u,code:null};h.promise=fetch(u,{cache:"no-cache",mode:"same-origin"}).then(function(r){return r.ok?r.text():null}).then(function(t){h.code=t;return t;}).catch(function(){return null});})();</script>`
+    : "";
 
   const body = html`
     <!doctype html>
@@ -1284,6 +1293,7 @@ async function fun(event, context) {
           type="module"
         ></script>
         ${workerHintTag}
+        ${pieceHintTag}
         <script
           src="/aesthetic.computer/boot.mjs"
           type="module"

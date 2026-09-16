@@ -10616,12 +10616,25 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // Runs once on boot.
+  if (type === "piece-source") {
+    // Late arrival of the shell's prefetched piece source (see init-from-bios).
+    if (content?.slug && typeof content.code === "string" && !pieceCodeCache.has(content.slug)) {
+      pieceCodeCache.set(content.slug, { code: content.code, type: "mjs" });
+    }
+    return;
+  }
+
   if (type === "init-from-bios") {
     debug = content.debug;
     setDebug(content.debug);
     ROOT_PIECE = content.rootPiece;
     hdPixelRatio = content.pixelRatio || 1; // 🖼️ For the hd() layer's scale.
     if (content.bootId && typeof self !== "undefined") self.acBOOT_ID = content.bootId;
+    // 🎁 Piece source the shell fetched at parse time: seed the piece-code
+    // cache so load() takes its "Using cached code" path and never fetches.
+    if (content.pieceSource?.slug && typeof content.pieceSource.code === "string") {
+      pieceCodeCache.set(content.pieceSource.slug, { code: content.pieceSource.code, type: "mjs" });
+    }
 
     // 📦 Kick off global version polling (skip preview/icon/pack/objkt where
     // the user can't reload anyway).
@@ -17300,11 +17313,15 @@ async function makeFrame({ data: { type, content } }) {
       });
     }
 
+    // The preamble: frames of the default disk before the requested piece
+    // loads. Nine of them made sense under the animated boot; with the empty
+    // boot they were ~130 ms of nothing on screen. Two keep the display set
+    // up and give session:started its usual chance to land first.
     if (
-      paintCount > 8n &&
+      paintCount > 1n &&
       (sessionStarted || PREVIEW_OR_ICON || $commonApi.net.sandboxed)
     ) {
-      if (paintCount === 9n) {
+      if (paintCount === 2n) {
         const preambleTime = Math.round(performance.now() - diskTimingStart);
         diskTimings.preambleComplete = preambleTime;
         // Silent: preamble complete

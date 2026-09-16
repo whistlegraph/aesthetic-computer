@@ -64,6 +64,22 @@ export function bootPreloads() {
   return preloadPromise;
 }
 
+// The landing piece's own source, so the shell can start that fetch at
+// parse time too. Built-in .mjs pieces only: a plain name that exists under
+// disks/. User (@handle) and $code pieces keep the worker's own path.
+const pieceUrlCache = new Map();
+export async function builtinPieceUrl(slug) {
+  if (typeof slug !== "string" || !/^[a-z0-9][a-z0-9_-]*$/i.test(slug)) return null;
+  if (pieceUrlCache.has(slug)) return pieceUrlCache.get(slug);
+  let url = null;
+  try {
+    await fs.access(path.join(ROOT, "disks", `${slug}.mjs`));
+    url = `/aesthetic.computer/disks/${slug}.mjs`;
+  } catch {}
+  pieceUrlCache.set(slug, url);
+  return url;
+}
+
 let manifestCache = { at: 0, filename: null };
 export async function workerBundleFilename() {
   const now = Date.now();
