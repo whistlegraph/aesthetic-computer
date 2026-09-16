@@ -1,5 +1,13 @@
 # Grants Score
 
+> **The canonical deadline ledger is
+> `system/public/papers.aesthetic.computer/deadlines/index.html`** (the
+> `DEADLINES` array), live at <https://papers.aesthetic.computer/deadlines>.
+> This file is the second of three copies and runs behind it — the vault copy
+> at `aesthetic-computer-vault/grants/SCORE.md` is older still and is history
+> only. Add new opportunities to the tracker first; rows here are a convenience
+> index into the `grants/` folders.
+
 Active applications, deadlines, and status. Newest deadlines first.
 
 ## Open / In Flight
@@ -7,6 +15,8 @@ Active applications, deadlines, and status. Newest deadlines first.
 | Application | Deadline | Amount | Status | Folder |
 |---|---|---|---|---|
 | **.ART Award 2026** | **2026-11-01** (winners Dec 3) | **$15,000** grand prize + residencies (FR/ES) + press + $10k .art domain (pool $50k+) | **RESEARCH + DRAFT v0 scaffolded** (2026-07-19) · spine = *No Paint, 2016–present* at **nopaint.art** — recovered/hash-verified `.c3p` as lineage, native AC remake as the current artwork (`plans/NOPAINT_CONSTRUCT_MIGRATION.md`; step 1 landed `e75489f08`). No fee, no geo gate; multiple entries allowed → optional 2nd entry cancelok/nopad.art, decide mid-Oct. Jury incl. Jerry Saltz + Regina Harsanyi (MoMI). | `dot-art-award-2026/` |
+| **R2I Lab — Work//Shift Fellowship** | **2026-10-26** (rolling review — earlier is better) | **$30,000** stipend, 12 months, ~10 hrs/month | **SOURCED + RESEARCH written** (2026-09-16, from Fía 2026-09-08). Best money-to-effort ratio currently open; no developed project required. **Run by the Center for Cultural Innovation — same funder as CALI Futures (submitted 2026-08-28, decision Nov 17), so the CALI draft is substantially reusable and CCI reads both.** ~8 fellows. Webinar Sept 17 9–10:30 AM PT (calendared) → capture Submittable fields there. Interviews Nov 2–16; first convening Jan 29–30 2027 in Southern California. | `work-shift-fellowship-2027/` (vault) |
+| **Matadero Madrid / Medialab — Situated Research Residencies 2027** | **2026-09-27 (23:59 Madrid)** | **€10,000** (pre-tax) + Fablab + workspace + funded public activities | **SOURCED + RESEARCH written** (2026-09-16, from Fía same day). Proposed spine = KidLisp under the **Synthetic Minds** lab; deliverable register (manuals/essays/documentation) matches the papers stack. Jan–Jul 2027 in Madrid, heavy Mar–Jun. **Unresolved before drafting: travel/accommodation appear uncovered; full Synthetic Minds text not yet pulled; JotForm fields not captured.** Intersects the Spain relocation thread. Lands 3 days after the CultureHub premiere. | `matadero-situated-research-2027/` (vault) |
 | **Restless Egg — Batch 2** (accelerator, London/Berlin) | **2026-06-30** | ~**$100k** + up to ~$175–200k follow-on for **~5% equity** (Shared Earnings side letter) | **Full DRAFT v1 ready** (2026-06-15; + RESEARCH + OUTLINE) · NOT a grant — equity accelerator for "artist-founders" / "luxury tech." Pitch = **Aesthetic Inc. as an instruments studio, notepat flagship** (commons stays open, company productizes instruments). Already have the vehicle: C-corp + aesthetic.direct SAFE model. Apply via sign-in-gated Google Form (open to map fields). **Founder call: dilute ~5% + reconcile booted-by SAFEs.** | `restless-egg-2026/` |
 | **SSRC Just Tech Fellowship** | **2026-06-28 (23:59 EST)** | up to **$60,000 unrestricted** (1 yr, Jan–Dec 2027) | **DRAFT v0 ready** (2026-06-15) · spine = AC as a digital community commons + AC Native low-end creative OS / public device library. Personal statement (~560 words, room to grow) + full work proposal mapped to all 6 required sub-questions; `RESEARCH.md` has exact caps + fellow precedents (incl. p5.js's McCarthy). **Next: confirm portal fields, trim to caps (≤1,000 / ≤3,000 words), pick 2 work samples, refresh number ledger.** | `ssrc-just-tech-2026/` |
 | **transmediale Lattice Labs 2027** (Berlin residency) | **2026-06-07 (23:59 CEST)** | travel + Berlin-week lodging + production budget; FREE to apply (no personal stipend confirmed) | DRAFT v0 ready · pitched to "Reclaiming the Interface" lab (Olia Lialina). **Confirm if 2 letters required — 6-day window** | `transmediale-lattice-labs-2027/` |
