@@ -2631,9 +2631,21 @@ alias ac-llm 'clear; ac; claude'
 alias ac-llm-continue 'clear; ac; claude --continue'
 alias ac-llm-resume 'clear; ac; claude --resume'
 
+# AC letters TUI; bypass fish functions when invoking the installed command.
+function ac-mail --description "Read and send AC letters"
+    if command -q ac-mail
+        command ac-mail $argv
+    else if set -q AC_ROOT; and test -f "$AC_ROOT/toolchain/mail/ac-mail.mjs"
+        command node "$AC_ROOT/toolchain/mail/ac-mail.mjs" $argv
+    else
+        echo "Install Letters: node toolchain/mail/install.mjs" >&2
+        return 127
+    end
+end
+
 # Mail sync (mbsync + mu index for mu4e)
 # Syncs both mail@aesthetic.computer and me@jas.life
-function ac-mail
+function ac-mail-sync
     clear
     set -l mbsyncrc ~/.mbsyncrc
     set -l msmtprc ~/.msmtprc
