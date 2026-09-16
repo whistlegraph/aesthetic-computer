@@ -399,6 +399,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // requested, so no Screen Recording prompt at launch (lazy grant).
         FrameCapture.shared.start()
 
+        // Game Mode watches for GeForce NOW launching/quitting. Opt-in: with
+        // "Auto" off this observes and does nothing, so the wiring is the
+        // same either way and costs a couple of workspace notifications.
+        GameMode.shared.startWatchingGFN()
+
         // `reel` — the moving-picture sibling of frame. Same lazy-grant file
         // watcher; hardware-encodes an SCStream straight to mp4 when asked.
         if #available(macOS 15.0, *) { ScreenRecord.shared.start() }
@@ -1684,6 +1689,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync(Paths.claudeSleep, args: [arg]) { [weak self] in
             DispatchQueue.main.async { self?.refresh() }
         }
+    }
+
+    // ── Game Mode ────────────────────────────────────────────────────────
+    // A clean GeForce NOW client is two unrelated fixes applied together:
+    // pause Tailscale (GFN calls any visible tunnel a VPN) and hold AirDrop's
+    // awdl0 radio down (it hops the Wi-Fi card off-channel mid-stream). See
+    // GameMode.swift for the measurements and the root-helper handshake.
+
+    @objc func toggleGameMode() {
+        GameMode.shared.toggle()
+        // Tailscale's own up/down takes a beat to settle; refresh once now so
+        // the menu is honest immediately, and again once the tunnel is gone.
+        refresh()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.refresh() }
+    }
+
+    @objc func toggleGameModeAuto() {
+        GameMode.shared.setAutoDetect(!state.gameMode.autoDetect)
+        refresh()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in self?.refresh() }
+    }
+
+    @objc func installGameModeHelper() {
+        if let error = GameMode.shared.installHelper() {
+            presentGameModeError("Could not install the radio helper", error)
+        }
+        refresh()
+    }
+
+    @objc func removeGameModeHelper() {
+        if let error = GameMode.shared.removeHelper() {
+            presentGameModeError("Could not remove the radio helper", error)
+        }
+        refresh()
+    }
+
+    private func presentGameModeError(_ title: String, _ detail: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = detail
+        alert.alertStyle = .warning
+        alert.runModal()
     }
 
     @objc func sleepNow() {

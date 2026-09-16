@@ -10,8 +10,16 @@
 # macOS re-raises awdl0 whenever AirDrop/Continuity is touched, so `on`
 # installs a root LaunchDaemon that re-lowers it every 15 s; `off` removes it.
 # Privilege: sudo when there's a TTY, else a macOS admin dialog (works from
-# Claude's `!` runner). Tailscale is left alone: no exit node, so GFN traffic
-# never enters it.
+# Claude's `!` runner). Tailscale is left alone here — but note that GFN's own
+# VPN check does NOT care about routing: a visible utun holding a 100.64/10
+# address is enough for it to refuse to stream, exit node or not.
+#
+# Slab's menu bar now does both halves together (Fleet & System → Game Mode):
+# tailnet paused + this same awdl hold, engaged by hand or automatically when
+# GeForce NOW launches. Installing Slab's helper evicts this script's daemon
+# so the two never fight over the interface — see
+# slab/menubar-swift/Sources/SlabMenubar/GameMode.swift. This script remains
+# the no-Slab path and the measurement tool (`gfn.sh check`).
 
 set -u
 LABEL=computer.aesthetic.gfn-awdl

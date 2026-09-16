@@ -21,6 +21,12 @@ What the menu bar does today:
   rocks, ⌃⌥⌘A flips dark mode fleet-wide.
 - **Status sounds.** Three synthesized cues (complete / awaiting /
   disconnected) that share one voice and differ only in contour.
+- **Game Mode.** GeForce NOW calls Tailscale a VPN on sight of the tunnel
+  interface, even with no exit node routing a single packet. One switch
+  pauses the tailnet and pins AirDrop's `awdl0` radio down (it channel-hops
+  the Wi-Fi card mid-stream), and puts both back on the way out — optionally
+  by itself, the moment GeForce NOW opens.
+  (`menubar-swift/Sources/SlabMenubar/GameMode.swift`)
 - **Fleet.** Every Mac runs the same menu bar; they share a ledger of live
   sessions over the tailnet (`host:name`), `frame` photographs any desk and
   `puppet` acts on it. Rocks are never drawn for remote machines.

@@ -208,6 +208,16 @@ enum Paths {
     /// independent of the ambient mute, which silences the hooks' TTS/pad
     /// layer; this marker exists only once turned off from the menu.
     static var statusSoundsDisabledFlag: String { "\(slabHome)/state/status-sounds-off" }
+
+    /// Game Mode — the GeForce NOW switch (GameMode.swift). Presence of the
+    /// flag means engaged; the root awdl helper reads this exact path, so it
+    /// is the handshake between the menubar and the daemon as well as the
+    /// menu's own state. The auto flag is opt-in, absent by default.
+    static var gameModeFlag: String { "\(slabHome)/state/game-mode" }
+    static var gameModeAutoFlag: String { "\(slabHome)/state/game-mode-auto" }
+    /// AirDrop discoverability as it was before game mode turned it off,
+    /// so leaving the mode restores the user's setting instead of a guess.
+    static var airDropStash: String { "\(slabHome)/state/game-mode-airdrop" }
 }
 
 enum Tools {

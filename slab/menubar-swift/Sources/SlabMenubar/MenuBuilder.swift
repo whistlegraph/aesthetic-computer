@@ -89,6 +89,7 @@ enum MenuBuilder {
         let fleet = NSMenu()
         fleet.addItem(buildSystem(state: state, target: target))
         fleet.addItem(buildTailnet(state: state, target: target))
+        fleet.addItem(buildGameMode(state: state, target: target))
         if state.deskflow.configured {
             fleet.addItem(buildDeskflow(state: state, target: target))
         }
@@ -508,6 +509,73 @@ enum MenuBuilder {
                 sub.addItem(entry)
             }
         }
+        parent.submenu = sub
+        return parent
+    }
+
+    /// "Game Mode" — the GeForce NOW switch. GFN calls Tailscale a VPN on
+    /// sight of the tunnel interface even with no exit node, and AirDrop's
+    /// awdl0 radio hops the Wi-Fi card off-channel mid-stream; this drops
+    /// both together and puts both back. The rows below the switch report
+    /// the machine's real state, including the exact tell GFN reads.
+    private static func buildGameMode(state: StateSnapshot, target: AppDelegate) -> NSMenuItem {
+        let g = state.gameMode
+        let title: String
+        if g.on {
+            var held = ["tailnet down"]
+            if g.helperInstalled && !g.awdlUp { held.append("awdl held") }
+            title = "Game Mode: on · " + held.joined(separator: " · ")
+        } else {
+            title = g.gfnRunning ? "Game Mode: off · GFN open" : "Game Mode: off"
+        }
+        let parent = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        let toggle = item(g.on ? "Leave game mode" : "Enter game mode",
+                          selector: #selector(AppDelegate.toggleGameMode), target: target)
+        toggle.state = g.on ? .on : .off
+        toggle.toolTip = "Pause Tailscale and pin the AirDrop radio down for a clean stream, then restore both on the way out."
+        sub.addItem(toggle)
+
+        let auto = item("Auto when GeForce NOW opens",
+                        selector: #selector(AppDelegate.toggleGameModeAuto), target: target)
+        auto.state = g.autoDetect ? .on : .off
+        auto.toolTip = "Engage on GeForce NOW's launch and stand down when it quits. A hold you switched on by hand is left alone."
+        sub.addItem(auto)
+
+        sub.addItem(.separator())
+        sub.addItem(info(g.tailnetVisible
+            ? "Tailnet: up — GFN reads this as a VPN"
+            : "Tailnet: paused — nothing for GFN to see"))
+        // Down and held are different states: macOS parks awdl0 whenever
+        // nothing is using Continuity, and it raises it again unprompted.
+        // Only the helper plus an engaged mode keeps it down through a match.
+        let radio: String
+        if g.awdlUp {
+            radio = "up — channel-hopping"
+        } else if g.on && g.helperInstalled {
+            radio = "held down by Slab"
+        } else {
+            radio = "down (idle — macOS may raise it any time)"
+        }
+        sub.addItem(info("AirDrop radio: " + radio))
+        sub.addItem(info("GeForce NOW: " + (g.gfnRunning ? "running" : "not running")))
+
+        sub.addItem(.separator())
+        if g.helperInstalled {
+            let remove = item("Remove radio helper…",
+                              selector: #selector(AppDelegate.removeGameModeHelper), target: target)
+            remove.toolTip = "Uninstall the root LaunchDaemon and release awdl0. Game mode keeps working; it just stops touching the radio."
+            sub.addItem(remove)
+        } else {
+            let install = item("Install radio helper…  (one admin prompt)",
+                               selector: #selector(AppDelegate.installGameModeHelper), target: target)
+            install.toolTip = "Holding awdl0 down needs root, and macOS re-raises it constantly. Installs a small daemon once; every toggle after this is free."
+            sub.addItem(install)
+            sub.addItem(info("Without it, game mode pauses the tailnet only"))
+        }
+
         parent.submenu = sub
         return parent
     }
