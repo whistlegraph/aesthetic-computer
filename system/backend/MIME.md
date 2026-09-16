@@ -177,3 +177,8 @@ measured gaze, unique people, or fraud-resistant metrics. Multiple posts may acc
 visible time simultaneously; only one accrues focused time. Thread reading time is
 not included. The feed interleaves paintings, tapes, KidLisp, pieces, and native uploads,
 newest first within each kind. These counters do not change ranking.
+
+KidLisp cards show lazy-loaded WebP previews and run an embedded AC player only
+when their media frame is the most visible one in the foreground window. The
+player unloads on focus change or navigation; a 350 ms delay avoids booting
+programs while scrolling past. The MIME label continues to describe the source.

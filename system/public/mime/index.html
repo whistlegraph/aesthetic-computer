@@ -149,6 +149,10 @@
     .feed-media > img, .feed-media > video, .feed-media > iframe.doc { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; }
     .feed-media > audio { width: calc(100% - 32px); }
     .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; background: var(--card); }
+    .kidlisp-preview { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+    .kidlisp-preview > img, .kidlisp-preview > iframe { width: 100%; height: 100%; object-fit: contain; border: 0; }
+    .kidlisp-preview > iframe { position: absolute; inset: 0; background: var(--media); }
+    .kidlisp-preview > a { position: absolute; padding: 12px; background: var(--card); }
     .specimen { padding: 18px; font-size: 32px; }
     .blob { margin: 16px; }
     .post .body { white-space: pre-wrap; margin: 0; padding: 12px 14px; }
@@ -359,6 +363,7 @@ function engagementRecord(code) {
   return engagement.get(code);
 }
 function sampleEngagement() {
+  syncKidlispFocus();
   const now = performance.now();
   // A suspended browser must not turn a delayed timer into hours of attention.
   const elapsed = Math.max(0, Math.min(2000, Math.round(now - exposureAt)));
@@ -464,6 +469,63 @@ const ago = (d) => {
   if (s < 86400) return Math.floor(s / 3600) + "h ago";
   return Math.floor(s / 86400) + "d ago";
 };
+
+let kidlispFocused = null, kidlispPending = null, kidlispFocusTimer = 0;
+function stopKidlisp() {
+  clearTimeout(kidlispFocusTimer);
+  kidlispFocusTimer = 0;
+  kidlispPending = null;
+  kidlispFocused?.querySelector("iframe")?.remove();
+  kidlispFocused = null;
+}
+function syncKidlispFocus() {
+  if (document.hidden || !document.hasFocus()) { stopKidlisp(); return; }
+  const top = header.getBoundingClientRect().bottom;
+  let focused = null, largest = 0, nearest = Infinity;
+  for (const frame of view.querySelectorAll(".feed-media")) {
+    const box = frame.getBoundingClientRect();
+    const area = Math.max(0, Math.min(innerHeight, box.bottom) - Math.max(top, box.top)) *
+      Math.max(0, Math.min(innerWidth, box.right) - Math.max(0, box.left));
+    const distance = Math.abs((box.top + box.bottom - top - innerHeight) / 2);
+    if (area > largest || (area > 0 && area === largest && distance < nearest)) {
+      focused = frame.querySelector(".kidlisp-preview"); largest = area; nearest = distance;
+    }
+  }
+  if ((focused === kidlispFocused && !kidlispPending) || (focused && focused === kidlispPending)) return;
+  stopKidlisp();
+  if (!focused) return;
+  kidlispPending = focused;
+  // Let a scroll settle before booting a runtime.
+  kidlispFocusTimer = setTimeout(() => {
+    kidlispPending = null;
+    if (!focused.isConnected || document.hidden || !document.hasFocus()) return;
+    const iframe = el("iframe");
+    iframe.title = focused.dataset.title;
+    iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
+    iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
+    iframe.src = focused.dataset.player;
+    focused.append(iframe);
+    kidlispFocused = focused;
+  }, 350);
+}
+function renderKidlisp(post) {
+  const code = post.media.code;
+  const preview = el("div", "kidlisp-preview");
+  preview.dataset.player = "https://aesthetic.computer/$" + encodeURIComponent(code) + "?nogap=true&nolabel=true&noauth=true";
+  preview.dataset.title = "KidLisp $" + code + (post.name ? " by " + post.name : "");
+  const image = el("img");
+  image.alt = preview.dataset.title;
+  image.loading = "lazy";
+  image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent("$" + code);
+  image.addEventListener("error", () => {
+    image.remove();
+    const link = el("a", null, "Open $" + code);
+    link.href = "https://aesthetic.computer/$" + encodeURIComponent(code);
+    preview.prepend(link);
+  }, { once: true });
+  preview.append(image);
+  return preview;
+}
 
 // The type decides the renderer. This is the whole site, really.
 function renderFile(file) {
@@ -635,7 +697,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
   if (post.file) {
-    const file = renderFile(post.file);
+    const file = post.media?.kind === "kidlisp" && post.media.code ? renderKidlisp(post) : renderFile(post.file);
     const frame = el("div", "feed-media");
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
     frame.append(file);
@@ -992,6 +1054,7 @@ async function read(url, signal) {
 }
 
 async function route() {
+  stopKidlisp();
   rememberFeed();
   activeFeed = null;
   sampleEngagement();
