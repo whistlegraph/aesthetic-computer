@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 120;
+const buildVersion = 121;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -229,7 +229,7 @@ const parkRight = parkSegments[parkSegments.length - 1].right;
 // span stops at it. A bowl dug three tiles into the floor makes every one of
 // those assumptions wrong by exactly the depth of the bowl, and the symptom
 // is a fighter riding out of frame at the bottom of the pipe.
-const parkDeepest = floorY + Math.max(0,
+let parkDeepest = floorY + Math.max(0,
   ...parkSegments.map((segment) => -segment.lift));
 // Enough samples that an arc reads as an arc. One per tile drew the halfpipe
 // as a staircase — 90 units is most of a fighter wide, and a transition turns
@@ -1336,12 +1336,192 @@ const ball = balls[0];
 // The board is not gated by `ballEnabled`. That switch is the ball's — it
 // takes the serve, the cross-wack and the BALLED death off the map together —
 // and the board shares none of them.
-const skateBoardEnabled = true;
+let skateBoardEnabled = true;
 // The ball is out of the round — @jeffrey asked for the cube bare. All of
 // the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
 // sleeps behind this switch exactly as it always did for the test harness;
 // flipping it back on is the whole re-installation.
 let ballEnabled = false;
+
+// A map is a recipe, not a baked coordinate dump. The family name says what
+// kind of place it is; the seed chooses a restrained variant inside that
+// family; the resulting id names the exact terrain and loadout for live
+// viewers, replays and rollback peers. Every authored pickup is mirrored
+// around the centre line. A loose weapon created during play is still free to
+// land wherever the fight puts it.
+const OSKIEWAR_MAP_ROUNDS = 1;
+function mapHash(text) {
+  let hash = 2166136261;
+  for (const character of String(text || "oskiewar")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+const mapPick = (seed, channel, values) =>
+  values[mapHash(seed + ":" + channel) % values.length];
+const mirroredPickup = (kind, amount, leftCol, extras = {}) => [
+  { kind, amount, col: leftCol, ...extras },
+  { kind, amount, col: gridCols - 1 - leftCol, ...extras },
+];
+const oskiewarMapLibrary = Object.freeze([
+  {
+    id: "halfpipe", name: "HALFPIPE", ballType: "soccer", skateboard: true,
+    // The first deal is the original station park. Keeping its tuned run as
+    // one library family makes the new rotation additive: opening camera,
+    // bot routes and skateboard muscle memory all begin where they did.
+    features() { return parkFeatures.map((feature) => ({ ...feature })); },
+    guns: mirroredPickup("HANDGUN", 6, 6, { cycle: true }),
+    sabers: mirroredPickup("LIGHT SABER", 0, 14), grenades: [],
+  },
+  {
+    id: "twin-bowls", name: "TWIN BOWLS", ballType: "beach",
+    skateboard: false,
+    features(seed) {
+      const depth = mapPick(seed, "depth", [180, 225, 270]);
+      const lip = mapPick(seed, "lip", [270, 315, 360]);
+      return [
+        { from: 0, to: 4, kind: "transition", rise: lip, dir: -1 },
+        { from: 4, to: 6, kind: "flat" },
+        { from: 6, to: 9, kind: "transition", rise: depth, dir: -1,
+          lift: -depth },
+        { from: 9, to: 14, kind: "flat", lift: -depth },
+        { from: 14, to: 17, kind: "transition", rise: depth, dir: 1,
+          lift: -depth },
+        { from: 17, to: 23, kind: "flat" },
+        { from: 23, to: 26, kind: "transition", rise: depth, dir: -1,
+          lift: -depth },
+        { from: 26, to: 31, kind: "flat", lift: -depth },
+        { from: 31, to: 34, kind: "transition", rise: depth, dir: 1,
+          lift: -depth },
+        { from: 34, to: 36, kind: "flat" },
+        { from: 36, to: 40, kind: "transition", rise: lip, dir: 1 },
+      ];
+    },
+    guns: mirroredPickup("SPACE LASER", 4, 10, { cycle: true }),
+    sabers: [], grenades: mirroredPickup("GRENADE", 2, 17),
+  },
+  {
+    id: "bank-yard", name: "BANK YARD", ballType: "basketball",
+    skateboard: true,
+    features(seed) {
+      const rise = mapPick(seed, "rise", [135, 180, 225]);
+      const lip = mapPick(seed, "lip", [270, 315, 360]);
+      return [
+        { from: 0, to: 4, kind: "transition", rise: lip, dir: -1 },
+        { from: 4, to: 10, kind: "flat" },
+        { from: 10, to: 14, kind: "bank", rise, dir: 1 },
+        { from: 14, to: 26, kind: "flat", lift: rise },
+        { from: 26, to: 30, kind: "bank", rise, dir: -1 },
+        { from: 30, to: 36, kind: "flat" },
+        { from: 36, to: 40, kind: "transition", rise: lip, dir: 1 },
+      ];
+    },
+    guns: mirroredPickup("RUBBER SMG", 12, 7, { cycle: true }),
+    sabers: mirroredPickup("LIGHT SABER", 0, 16), grenades: [],
+  },
+  {
+    id: "kicker-line", name: "KICKER LINE", ballType: "soccer",
+    skateboard: false,
+    features(seed) {
+      const rise = mapPick(seed, "rise", [90, 135, 180]);
+      const lip = mapPick(seed, "lip", [270, 315, 360]);
+      return [
+        { from: 0, to: 4, kind: "transition", rise: lip, dir: -1 },
+        { from: 4, to: 8, kind: "flat" },
+        { from: 8, to: 11, kind: "bank", rise, dir: 1 },
+        { from: 11, to: 14, kind: "flat", lift: rise },
+        { from: 14, to: 17, kind: "bank", rise, dir: -1 },
+        { from: 17, to: 23, kind: "flat" },
+        { from: 23, to: 26, kind: "bank", rise, dir: 1 },
+        { from: 26, to: 29, kind: "flat", lift: rise },
+        { from: 29, to: 32, kind: "bank", rise, dir: -1 },
+        { from: 32, to: 36, kind: "flat" },
+        { from: 36, to: 40, kind: "transition", rise: lip, dir: 1 },
+      ];
+    },
+    guns: mirroredPickup("ROCKET LAUNCHER", 2, 8, { cycle: true }),
+    sabers: [], grenades: mirroredPickup("GRENADE", 1, 15),
+  },
+]);
+let mapSeriesSeed = "oskiewar";
+let mapRoundIndex = -1;
+let currentMapId = "halfpipe-0";
+let currentMapName = "HALFPIPE";
+let currentMapFamily = "halfpipe";
+let currentMapVariant = "0";
+let currentMapSeed = "oskiewar:0:halfpipe";
+let pendingRoundMap = null;
+
+function installMapPickups(target, authored, type) {
+  target.length = 0;
+  for (const entry of authored) {
+    const x = tileCenterX(entry.col);
+    target.push({
+      ...(type === "gun" ? { kind: entry.kind, amount: entry.amount,
+        cycle: Boolean(entry.cycle) } : {}),
+      ...(type === "saber" ? { kind: "LIGHT SABER" } : {}),
+      ...(type === "grenade" ? { amount: entry.amount } : {}),
+      x, y: terrainFloorAt(x) - 70, z: 0,
+      active: true, startsActive: true, respawnAt: 0,
+    });
+  }
+}
+
+function applyOskiewarMap(mapState) {
+  const family = oskiewarMapLibrary.find((entry) => entry.id === mapState?.family) ||
+    oskiewarMapLibrary[0];
+  const seed = String(mapState?.seed || mapSeriesSeed || "oskiewar");
+  const variant = String(mapState?.variant || mapHash(seed).toString(36));
+  const features = family.features(seed);
+  parkSegments.length = 0;
+  parkSegments.push(...features.map((feature) => ({
+    ...feature,
+    left: gridLeft + feature.from * tileSize,
+    right: gridLeft + feature.to * tileSize,
+    lift: feature.lift || 0,
+  })));
+  parkDeepest = floorY + Math.max(0,
+    ...parkSegments.map((segment) => -segment.lift));
+  rebuildTerrainProfile();
+  installMapPickups(gunPickups, family.guns, "gun");
+  installMapPickups(saberPickups, family.sabers, "saber");
+  installMapPickups(grenadePickups, family.grenades, "grenade");
+  matchBallType = family.ballType;
+  skateBoardEnabled = family.skateboard;
+  currentMapFamily = family.id;
+  currentMapVariant = variant;
+  currentMapSeed = seed;
+  currentMapId = family.id + "-" + variant;
+  currentMapName = family.name + " / " + variant.toUpperCase();
+}
+
+function dealRoundMap(resetMatch = false) {
+  if (pendingRoundMap) {
+    mapRoundIndex = Number.isInteger(pendingRoundMap.round)
+      ? pendingRoundMap.round : resetMatch ? 0 : mapRoundIndex + 1;
+    applyOskiewarMap(pendingRoundMap);
+    pendingRoundMap = null;
+    return;
+  }
+  mapRoundIndex = resetMatch ? 0 : mapRoundIndex + 1;
+  const dealIndex = Math.floor(Math.max(0, mapRoundIndex) /
+    OSKIEWAR_MAP_ROUNDS);
+  const family = oskiewarMapLibrary[dealIndex % oskiewarMapLibrary.length];
+  const seed = String(mapSeriesSeed || "oskiewar") + ":" + dealIndex +
+    ":" + family.id;
+  applyOskiewarMap({ family: family.id, seed,
+    variant: mapHash(seed).toString(36).slice(0, 4) });
+  if (replay) {
+    replay.ballType = matchBallType;
+    replay.mapId = currentMapId;
+    replay.mapName = currentMapName;
+    replay.mapFamily = currentMapFamily;
+    replay.mapVariant = currentMapVariant;
+    replay.mapSeed = currentMapSeed;
+    replay.mapRoundIndex = mapRoundIndex;
+  }
+}
 // Physics remains an exact 60 Hz story. Rendering may happen between those
 // authored instants—especially during slow motion—so retain the state that
 // entered each tick and blend only presentation coordinates toward the state
@@ -1771,13 +1951,16 @@ let roundViewerDemoStartedAt = 0;
 // the coast fuse below stopped tripping at all.
 let roundViewerLiveAt = 0;
 // The grandstand's playout buffer. Wire frames are no longer painted the
-// instant they land — they queue here with their arrival time and the render
-// reads a clock held a little behind the newest of them, so every frame is
-// drawn by interpolating the two that bracket it. Extrapolation is what is
-// left when the buffer runs dry, not the normal case: a body that coasts on
+// instant they land — they queue here on the publisher's timeline translated
+// to this wall clock, and the render reads a clock held a little behind them.
+// Every frame is drawn by interpolating the two that bracket it. Extrapolation
+// is what is left when the buffer runs dry, not the normal case: a body that
+// coasts on
 // stale velocity walks through the floor and then snaps back, which is the
 // whole of what "glitchy" meant on a guest screen.
 let roundViewerFrames = [];
+let roundViewerSourceAt = 0;
+let roundViewerTimelineAt = 0;
 // The playout clock, in the same wall milliseconds the queue is stamped in.
 // It advances on the simulation's own dt so the picture moves at the sim's
 // rate, and leans gently toward (now − delay) so it neither runs dry nor
@@ -1868,6 +2051,7 @@ function startReplay(now) {
     seriesName = "";
     matchName = "";
     previousRoundName = "";
+    if (!netSession) mapSeriesSeed = "oskiewar-training";
     // Spiderdummy training carries one plain ball; there is no board to
     // carry anymore.
     matchBallType = "soccer";
@@ -1878,6 +2062,7 @@ function startReplay(now) {
   seedNames(Math.floor(Math.random() * 4294967296));
   const nameSeedUsed = nameSeed;
   seriesName = pronounceableMatchName();
+  if (!netSession) mapSeriesSeed = seriesName;
   // The deal owns the ball in a versus fight — both seats set it from the same
   // word — so rolling a series ball here would put the two of them in
   // different fights.
@@ -1911,6 +2096,7 @@ function startReplay(now) {
     // timed, which is what the reader below assumes.
     timed: roundIsTimed(),
     nameSeed: nameSeedUsed, ballType: matchBallType,
+    mapRounds: [],
     fighters: players.map((player) => player.name),
     nations: players.map((player) => player.nation || ""),
     commands: [], events: [], checkpoints: [], rounds: [], impacts: [],
@@ -1997,6 +2183,9 @@ function spectatorState(now, nextRoundId = "") {
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
     at: run.unixMs || 0, phase,
+    map: { id: currentMapId, name: currentMapName,
+      family: currentMapFamily, variant: currentMapVariant,
+      seed: currentMapSeed, round: mapRoundIndex },
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       // The title's still variant seats a fighter with no name yet, and the
@@ -2011,6 +2200,30 @@ function spectatorState(now, nextRoundId = "") {
       blocking: player.blocking, score: player.score,
       roundWins: player.roundWins, attack: player.attackKind || "",
       removedParts: player.removedParts.slice(),
+      // A live challenger paints this same fighter, not a reduced spectator
+      // puppet. Held equipment and carry/board state therefore belong beside
+      // the pose: without them the host visibly picked up a pistol, saber or
+      // board while the guest kept drawing bare hands and an empty floor.
+      gunAmmo: player.gunAmmo | 0,
+      grenadeAmmo: player.grenadeAmmo | 0,
+      gunMode: player.gunMode || "HANDGUN",
+      gunAimX: player.gunAimX || player.facing,
+      gunAimY: player.gunAimY || 0,
+      gunAimLive: Boolean(player.gunAimLive),
+      itemAimLocked: Boolean(player.itemAimLocked),
+      itemArm: player.itemArm || "",
+      itemAction: player.itemAction || "",
+      itemActionAgeMs: player.itemAction
+        ? Math.max(0, Math.round((now - player.itemActionStartedAt) / 1000)) : 0,
+      itemActionLeftMs: player.itemAction
+        ? Math.max(0, Math.round((player.itemActionUntil - now) / 1000)) : 0,
+      swordHeld: Boolean(player.swordHeld),
+      skateboard: Boolean(player.skateboard),
+      skateVx: player.skateVx || 0,
+      skateWallSide: player.skateWallSide || 0,
+      skatePitch: player.skatePitch || 0,
+      heldBall: Number.isInteger(player.heldBall) ? player.heldBall : -1,
+      grabHeld: Boolean(player.grabHeld),
       // Three numbers the grandstand already knew how to read and had never
       // been sent. `applyRoundViewerState` reconstructs the strike spark, the
       // limb burst and the swing's real arc from them; without them a live
@@ -2053,6 +2266,21 @@ function spectatorState(now, nextRoundId = "") {
       (lob.rocket ? 1 : 0) | (lob.exploding ? 2 : 0),
       Math.round(lob.blastRadius || 0),
       Math.round(Math.max(0, lob.fuse || 0) * 1000)]),
+    // Pickups are mutable world objects: a taken map pickup disappears and a
+    // weapon dropped with a severed arm creates a new one. Sending only the
+    // fighters cannot reconstruct either event on the guest. Flat rows keep
+    // the complete rack small enough for the relay's phone-frame budget.
+    pickups: {
+      guns: gunPickups.map((pickup) => [pickup.active ? 1 : 0,
+        Math.round(pickup.x), Math.round(pickup.y), Math.round(pickup.z || 0),
+        pickup.kind || "HANDGUN", pickup.amount | 0]),
+      sabers: saberPickups.map((pickup) => [pickup.active ? 1 : 0,
+        Math.round(pickup.x), Math.round(pickup.y), Math.round(pickup.z || 0),
+        pickup.kind || "LIGHT SABER"]),
+      grenades: grenadePickups.map((pickup) => [pickup.active ? 1 : 0,
+        Math.round(pickup.x), Math.round(pickup.y), Math.round(pickup.z || 0),
+        pickup.amount | 0]),
+    },
     ball: { active: ball.active, x: ball.x, y: ball.y,
       z: ball.z, radius: ball.radius, type: ball.type, mass: ball.mass },
     balls: balls.map((item) => ({ active: item.active, x: item.x,
@@ -3644,6 +3872,14 @@ function startResim(demo, now) {
   seedNames(demo.nameSeed >>> 0);
   seriesName = demo.seriesName || demo.matchName || "";
   matchBallType = demo.ballType || seriesBallType(seriesName);
+  const savedMap = demo.mapRounds?.[demo.roundIndex] ||
+    (demo.mapFamily ? { id: demo.mapId, name: demo.mapName,
+      family: demo.mapFamily, variant: demo.mapVariant,
+      seed: demo.mapSeed, round: demo.mapRoundIndex } : null);
+  if (savedMap) {
+    mapSeriesSeed = demo.seriesName || demo.matchName || "oskiewar-replay";
+    pendingRoundMap = savedMap;
+  }
   matchName = String(demo.roundName || "").replace(/^ow-/, "");
   if (Array.isArray(demo.spawns))
     players.forEach((player, index) => {
@@ -4132,8 +4368,13 @@ function roundDemoState(demo, now) {
     camera.fov = value(30);
     camera.roll = value(31);
   }
+  const savedMap = demo.mapRounds?.[roundIndex] ||
+    (demo.mapFamily ? { id: demo.mapId, name: demo.mapName,
+      family: demo.mapFamily, variant: demo.mapVariant,
+      seed: demo.mapSeed, round: demo.mapRoundIndex } : null);
   return { phase: "replay", tick, fighters, ball: replayBall,
     balls: [replayBall], camera,
+    ...(savedMap ? { map: savedMap } : {}),
     wind: { direction: round[1], mph: round[2] },
     round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
       (demo.tickRate || 60))), result: nearEnd
@@ -4142,6 +4383,11 @@ function roundDemoState(demo, now) {
 
 function applyRoundViewerState(state, now, dt = 1 / 60) {
   if (!state?.fighters?.length || !state.camera || !state.round) return;
+  if (state.map?.id && state.map.id !== currentMapId) {
+    mapRoundIndex = Number.isInteger(state.map.round)
+      ? state.map.round : mapRoundIndex;
+    applyOskiewarMap(state.map);
+  }
   for (let index = 0; index < players.length; index++) {
     const source = state.fighters[index];
     const player = players[index];
@@ -4154,7 +4400,10 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     const wasHit = player.hit || 0;
     const priorParts = player.removedParts?.slice() || [];
     for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
-      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
+      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts",
+      "gunAmmo", "grenadeAmmo", "gunMode", "gunAimX", "gunAimY", "gunAimLive",
+      "itemAimLocked", "itemArm", "swordHeld", "skateboard", "skateVx",
+      "skateWallSide", "skatePitch", "heldBall", "grabHeld"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
@@ -4172,6 +4421,11 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       ? now - (source.attackTicks != null
         ? source.attackTicks * replayTickUs : 80000) : 0;
     player.attackUntil = player.attackKind ? now + 120000 : 0;
+    player.itemAction = source.itemAction || "";
+    player.itemActionStartedAt = player.itemAction
+      ? now - Math.max(0, source.itemActionAgeMs || 0) * 1000 : 0;
+    player.itemActionUntil = player.itemAction
+      ? now + Math.max(0, source.itemActionLeftMs || 0) * 1000 : 0;
     player.hit = source.hit || 0;
     player.blockFlash = source.blockFlash || 0;
     // The host spawns sparks on a strike, a burst on a lost limb and a
@@ -4228,6 +4482,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
   if (state.shots) applyWireShots(state.shots);
   if (state.lobs) applyWireLobs(state.lobs);
   if (state.impacts) applyWireImpacts(state.impacts);
+  if (state.pickups) applyWirePickups(state.pickups);
   cameraCenter = state.camera.x;
   cameraCenterY = state.camera.y;
   cameraWidth = state.camera.width;
@@ -4265,6 +4520,29 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       { x: cameraCenter, y: cameraCenterY, z: -cameraWidth * 1.35 },
     width: cameraWidth, perspective: state.camera.perspective || 0,
     fov: state.camera.fov || 55, roll: state.camera.roll || 0 }, dt, 1000);
+}
+
+// The viewer never simulates pickup ownership, so each host frame replaces
+// the rack outright. Keep the three live arrays themselves stable: render and
+// debug code retain their references even though their entries may come and go.
+function applyWirePickups(source) {
+  const replace = (target, rows, unpack) => {
+    if (!Array.isArray(rows)) return;
+    target.length = 0;
+    target.push(...rows.map(unpack));
+  };
+  replace(gunPickups, source.guns, (row) => ({
+    active: Boolean(row[0]), x: row[1], y: row[2], z: row[3],
+    kind: row[4] || "HANDGUN", amount: row[5] | 0,
+  }));
+  replace(saberPickups, source.sabers, (row) => ({
+    active: Boolean(row[0]), x: row[1], y: row[2], z: row[3],
+    kind: row[4] || "LIGHT SABER",
+  }));
+  replace(grenadePickups, source.grenades, (row) => ({
+    active: Boolean(row[0]), x: row[1], y: row[2], z: row[3],
+    amount: row[4] | 0,
+  }));
 }
 
 // Shots and lobs arrive as the flat number rows spectatorState packs (owner
@@ -4398,6 +4676,8 @@ function resetRoundViewerPlayout() {
   roundViewerFrames = [];
   roundViewerPlayoutMs = 0;
   roundViewerLiveAt = 0;
+  roundViewerSourceAt = 0;
+  roundViewerTimelineAt = 0;
   roundViewerGapMs = 33;
   roundViewerJitterMs = 0;
   roundViewerLossPct = 0;
@@ -4413,9 +4693,9 @@ function resetRoundViewerPlayout() {
 // the one after finished the jump. So the frame is only filed — stamped with
 // its arrival and measured — and the tick decides when it is due.
 function queueRoundViewerState(state) {
-  const at = Date.now();
-  const gap = roundViewerLiveAt ? at - roundViewerLiveAt : 0;
-  roundViewerLiveAt = at;
+  const arrivedAt = Date.now();
+  const gap = roundViewerLiveAt ? arrivedAt - roundViewerLiveAt : 0;
+  roundViewerLiveAt = arrivedAt;
   if (gap > 0 && gap < 2000) {
     roundViewerGapMs += (gap - roundViewerGapMs) * .12;
     roundViewerJitterMs +=
@@ -4448,7 +4728,17 @@ function queueRoundViewerState(state) {
   // moves slowly: resizing it quickly would time-warp the picture.
   const want = clamp(roundViewerGapMs + roundViewerJitterMs * 2 + 8, 45, 220);
   roundViewerDelayMs += (want - roundViewerDelayMs) * .05;
-  roundViewerFrames.push({ state, at });
+  const sourceAt = Number(state?.at);
+  const sourceGap = sourceAt > 0 && roundViewerSourceAt > 0
+    ? sourceAt - roundViewerSourceAt : 0;
+  // Arrival spacing measures the wire; it must not become animation spacing.
+  // A 33 ms host pair that arrives 12 then 71 ms apart still plays 33 ms
+  // apart. Old hosts with no timestamp and publisher restarts re-anchor here.
+  if (sourceGap > 0 && sourceGap < 1000)
+    roundViewerTimelineAt += sourceGap;
+  else roundViewerTimelineAt = arrivedAt;
+  roundViewerSourceAt = sourceAt > 0 ? sourceAt : 0;
+  roundViewerFrames.push({ state, at: roundViewerTimelineAt, arrivedAt });
   // A ceiling, not a working depth: the playout holds about three frames.
   // This only catches a tab whose simulation parked while the wire kept
   // arriving, and the clock's own thousand-millisecond reset sorts out the
@@ -4735,7 +5025,16 @@ function netSimScalars() {
   return {
     gameMode,
     terrainPhase,
+    parkDeepest,
+    mapSeriesSeed,
+    mapRoundIndex,
+    currentMapId,
+    currentMapName,
+    currentMapFamily,
+    currentMapVariant,
+    currentMapSeed,
     matchBallType,
+    skateBoardEnabled,
     ballEnabled,
     startedAt,
     roundStartedAt,
@@ -4787,7 +5086,16 @@ function netRestoreScalars(saved) {
   ({
     gameMode,
     terrainPhase,
+    parkDeepest,
+    mapSeriesSeed,
+    mapRoundIndex,
+    currentMapId,
+    currentMapName,
+    currentMapFamily,
+    currentMapVariant,
+    currentMapSeed,
     matchBallType,
+    skateBoardEnabled,
     ballEnabled,
     startedAt,
     roundStartedAt,
@@ -4846,7 +5154,7 @@ const netSimArrays = () => ({
   // whether somebody was holding a sword, and a sword is a 1.5x reach
   // multiplier in `meleeSpecFor`, so they went on agreeing right up until a
   // strike landed one frame apart on one screen and not the other.
-  gunPickups, saberPickups, grenadePickups, bodyTrees, gridField,
+  parkSegments, gunPickups, saberPickups, grenadePickups, bodyTrees, gridField,
   resultReactionPrevious, fightHitMarks,
 });
 
@@ -4882,6 +5190,7 @@ function netRestore(snapshot) {
       target.push(...copy);
     }
   }
+  rebuildTerrainProfile();
 }
 
 // FNV-1a over the state that decides a fight. Exact doubles, not rounded: a
@@ -4916,7 +5225,7 @@ function netStateHash() {
   view.push(grenades.map((lob) => [lob.x, lob.y, lob.z, lob.vx, lob.vy,
     lob.owner, lob.fuse, lob.alive, lob.exploding, lob.blastRadius,
     lob.hitPlayers]));
-  view.push(roundResult, roundElapsedUs,
+  view.push(currentMapId, roundResult, roundElapsedUs,
     matchOver, roundStartedAt, roundOverAt);
   const text = JSON.stringify(view);
   if (globalThis.__oskiewarHashTrace) netLastHashText = text;
@@ -4972,6 +5281,7 @@ function netMakeDeal() {
   const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
   const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
   return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
+    mapSeed: versusRoomName || sessionName || "oskiewar-versus",
     ballType: matchBallType,
     fighters: [
       { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
@@ -5019,6 +5329,7 @@ function netBegin(deal, seat, send) {
   netSession = session;
   netClockUs = deal.origin;
   try {
+    mapSeriesSeed = String(deal.mapSeed || "oskiewar-versus");
     matchBallType = deal.ballType;
     // The limb poses that collide are phased off this epoch, so both seats
     // must share it; and a rollback fight is never a recorded one.
@@ -5135,8 +5446,18 @@ function replayRewind(session, toFrame) {
   keep(replay.events);
   keep(replay.impacts);
   keep(replay.rounds);
+  if (Array.isArray(replay.mapRounds))
+    replay.mapRounds.length = Math.min(replay.mapRounds.length,
+      replay.rounds.length);
   keep(replayRoundMarks);
   replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
+  replay.ballType = matchBallType;
+  replay.mapId = currentMapId;
+  replay.mapName = currentMapName;
+  replay.mapFamily = currentMapFamily;
+  replay.mapVariant = currentMapVariant;
+  replay.mapSeed = currentMapSeed;
+  replay.mapRoundIndex = mapRoundIndex;
   // The dedupe cursor is whatever each pad was last recorded as saying; a
   // command that was truncated must be writable again.
   replayLastCommand = [-1, -1];
@@ -5644,10 +5965,11 @@ function resetRound(now, resetMatch = false) {
     replayRoundMarks.push([demoTick(now), matchName]);
     replay.roundIds = replayRoundMarks.map((mark) => "ow-" + mark[1]);
   }
-  // Terrain belongs to the simulation contract, not the spectator URL. A
-  // series keeps one landscape across rounds and identical training sims get
-  // identical ground even when their public room names differ.
-  terrainPhase = terrainSeed("oskiewar-physics-1-hills");
+  // The deal changes at the bell. Its seed is a match fact rather than a
+  // spectator-room fact, so both rollback seats and every replay regenerate
+  // the same named terrain and mirrored rack.
+  dealRoundMap(resetMatch);
+  terrainPhase = terrainSeed(currentMapId);
   impacts.length = 0;
   detachedParts.length = 0;
   bullets.length = 0;
@@ -5815,8 +6137,13 @@ function resetRound(now, resetMatch = false) {
   roundStartedAt = now;
   rollWind(now);
   resetBalls(now);
-  if (replay) replay.rounds.push([demoTick(now), windDirection, windMph,
-    balls.length]);
+  if (replay) {
+    replay.rounds.push([demoTick(now), windDirection, windMph, balls.length]);
+    replay.mapRounds.push({ round: mapRoundIndex, id: currentMapId,
+      name: currentMapName, family: currentMapFamily,
+      variant: currentMapVariant,
+      seed: currentMapSeed });
+  }
   // Live frame one belongs to fighter one: snap to the head, then let the
   // authored sequence cross to the other fighter and pull out. A reel has a
   // shorter contract and takes the whole face-off on frame zero below.
@@ -12563,6 +12890,13 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
         titleSize, ...animatedTitleColor(index, titleTime));
       cursor += advance;
     }
+    const mapLabel = currentMapName.toLowerCase();
+    const mapSize = touch ? 16 : compactLayout() ? 19 : 24;
+    const mapWidth = handleWidth(mapLabel, mapSize);
+    typeWrite(mapLabel, centerX - mapWidth / 2 + 2,
+      centerY + titleSize * .64 + 3, mapSize, ...statusShadow);
+    typeWrite(mapLabel, centerX - mapWidth / 2,
+      centerY + titleSize * .64, mapSize, ...titleInk);
     return;
   }
 }
@@ -12755,7 +13089,8 @@ function worldQuad(a, b, c, d, color) {
 }
 
 // Preserve the sampled silhouette, merging only collinear edges.
-const terrainProfile = (() => {
+const terrainProfile = [];
+function rebuildTerrainProfile() {
   const points = [];
   const step = (worldRight - worldLeft) / terrainSamples;
   for (let i = 0; i <= terrainSamples; i++) {
@@ -12769,8 +13104,10 @@ const terrainProfile = (() => {
     }
     points.push(point);
   }
-  return points;
-})();
+  terrainProfile.length = 0;
+  terrainProfile.push(...points);
+}
+rebuildTerrainProfile();
 
 function drawTerrainSurface(left, right, near, far, color) {
   for (let index = 1; index < terrainProfile.length; index++) {
