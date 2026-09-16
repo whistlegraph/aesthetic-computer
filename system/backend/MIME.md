@@ -131,3 +131,37 @@ Open Graph and Twitter metadata use absolute public image URLs.
 Rebuild the assets from the inline wordmark with
 `node system/scripts/build-mime-brand.mjs` (set `CHROME_PATH` on hosts whose
 Chromium executable is elsewhere). The build uses local bundled fonts.
+
+## Feed engagement metadata
+
+The continuous scrolling feed measures post visibility while the document is
+visible and the browser window has focus. The post with the largest visible area
+is focused; distance to the viewport center breaks ties. DOM attributes expose
+`data-focused-post` on the feed and `data-visible-ratio` / `data-focused` on cards.
+
+`POST /api/mime?engagement=1` receives cumulative per-post counters under a random,
+in-memory page-visit ID. Mongo's `mime-engagement` collection uses that ID plus
+the post code as its key; `$max` makes retries and out-of-order delivery idempotent.
+Only existing public roots qualify. The collector sends no account identifiers,
+comment contents, URLs, cookies, or persistent device identifiers. Request fields
+are allowlisted; batches have at most 24 posts and durations cap at 24 hours per
+post/visit. The existing post/reply collections remain unchanged.
+
+Thread responses expose aggregate `metadata.engagement` (version 1):
+
+- `visibleMs`: any part of the card visible.
+- `partialMs` / `majorityMs`: below 50% / at least 50% of the card visible.
+- `focusedMs`: time as the foreground feed's dominant card.
+- `weightedVisibleMs`: duration multiplied by visible fraction.
+- `maxVisiblePermille`: greatest fraction visible, from 0 to 1000.
+- `impressions`: page visits with at least one second of majority visibility.
+- `commentOpens` / `originalOpens`: clicks on the feed's comment/original actions.
+
+Timers sample each second and on scrolling, with a two-second maximum elapsed
+sample to exclude suspended-browser gaps. Counters flush every 15 seconds and on
+navigation/backgrounding; failures retry while the page remains open. Delivery
+on page exit is best effort. These are client-reported exposure estimates, not
+measured gaze, unique people, or fraud-resistant metrics. Multiple posts may accrue
+visible time simultaneously; only one accrues focused time. Thread reading time is
+not included. Feed selection is still chronological; these counters do not yet
+change ranking.

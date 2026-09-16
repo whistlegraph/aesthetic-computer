@@ -232,3 +232,37 @@ test("reply counts continue after the bump limit, and deletion cannot leave a pu
   assert.equal((await get({ thread: code })).statusCode, 404);
   assert.equal((await post({ parent: code, text: "orphan" })).statusCode, 404);
 });
+
+test("engagement metadata is cumulative, retry-safe, anonymous and public-media-only", { skip: !uri }, async () => {
+  const visit = "b08c2ef9-746d-4d42-a263-e21b35a64743";
+  const counters = { code: paintingThread, visibleMs: 2000, partialMs: 500,
+    majorityMs: 1500, focusedMs: 1700, weightedVisibleMs: 1600,
+    maxVisiblePermille: 950, commentOpens: 1, originalOpens: 0 };
+  const send = (posts, extra = {}) => handler({ httpMethod: "POST", queryStringParameters: { engagement: "1" },
+    body: JSON.stringify({ visit, posts, ...extra }) });
+  const responses = await Promise.all(Array.from({ length: 4 }, () => send([counters])));
+  assert.ok(responses.every((r) => r.statusCode === 200));
+  const newer = { ...counters, visibleMs: 3000, majorityMs: 2500, focusedMs: 2700, weightedVisibleMs: 2400 };
+  await send([newer]);
+  await send([counters]);
+  let stats = body(await get({ thread: paintingThread })).metadata.engagement;
+  assert.equal(stats.visibleMs, 3000);
+  assert.equal(stats.focusedMs, 2700);
+  assert.equal(stats.commentOpens, 1);
+  assert.equal(stats.impressions, 1);
+  await send([counters], { visit: "b08c2ef9-746d-4d42-a263-e21b35a64744" });
+  stats = body(await get({ thread: paintingThread })).metadata.engagement;
+  assert.equal(stats.visibleMs, 5000);
+  assert.equal(stats.impressions, 2);
+  assert.doesNotMatch(JSON.stringify(stats), /visit|auth0|b08c/);
+  assert.equal((await send([{ ...counters, visibleMs: -1 }])).statusCode, 400);
+  assert.equal((await send([{ ...counters, focusedMs: 3000 }])).statusCode, 400);
+  assert.equal((await send([{ ...counters, partialMs: 42 }])).statusCode, 400);
+  assert.equal((await send(Array(25).fill(counters))).statusCode, 400);
+  assert.equal((await send([counters], { visit: "account-id" })).statusCode, 400);
+  const privateId = (await db.collection("paintings").insertOne(fixture("engagement-private", { private: true }))).insertedId;
+  await send([{ ...counters, code: `painting_${privateId}` }, { ...counters, code: "missing-post" }]);
+  assert.equal(await db.collection("mime-engagement").countDocuments(), 2);
+  const stored = await db.collection("mime-engagement").findOne({ code: paintingThread });
+  assert.deepEqual(Object.keys(stored).sort(), ["_id", ...Object.keys(counters)].sort());
+});

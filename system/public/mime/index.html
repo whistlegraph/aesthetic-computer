@@ -307,6 +307,108 @@ view.addEventListener("scroll", () => {
   if (activeFeed?.viewportWidth === view.clientWidth) rememberFeed();
 }, { passive: true });
 
+// Visibility is a proxy for attention, not eye tracking. No account identifier
+// or persistent browser identifier leaves this tracker.
+const engagementVisit = crypto.randomUUID();
+const engagement = new Map();
+let exposure = [], exposureAt = performance.now(), engagementFrame = 0;
+let engagementActive = !document.hidden && document.hasFocus();
+function engagementRecord(code) {
+  if (!engagement.has(code)) engagement.set(code, { code, visibleMs: 0, partialMs: 0,
+    majorityMs: 0, focusedMs: 0, weightedVisibleMs: 0, maxVisiblePermille: 0,
+    commentOpens: 0, originalOpens: 0, dirty: false });
+  return engagement.get(code);
+}
+function sampleEngagement() {
+  const now = performance.now();
+  // A suspended browser must not turn a delayed timer into hours of attention.
+  const elapsed = Math.max(0, Math.min(2000, Math.round(now - exposureAt)));
+  for (const item of exposure) {
+    const record = engagementRecord(item.node.id);
+    const dt = Math.min(elapsed, 86400000 - record.visibleMs);
+    record.visibleMs += dt;
+    record[item.ratio >= 0.5 ? "majorityMs" : "partialMs"] += dt;
+    if (item.focused) record.focusedMs += dt;
+    record.weightedVisibleMs += Math.round(dt * item.ratio);
+    record.dirty = true;
+    delete item.node.dataset.focused;
+    delete item.node.dataset.visibleRatio;
+  }
+  exposureAt = now;
+  exposure = [];
+  delete view.dataset.focusedPost;
+  if (!activeFeed || !engagementActive) return;
+  const bounds = view.getBoundingClientRect();
+  for (const node of activeFeed.nodes) {
+    const box = node.getBoundingClientRect();
+    const width = Math.max(0, Math.min(box.right, bounds.right) - Math.max(box.left, bounds.left));
+    const height = Math.max(0, Math.min(box.bottom, bounds.bottom) - Math.max(box.top, bounds.top));
+    const area = width * height;
+    if (!area || !box.width || !box.height) continue;
+    exposure.push({ node, area, ratio: Math.min(1, area / (box.width * box.height)),
+      distance: Math.abs((box.top + box.bottom - bounds.top - bounds.bottom) / 2) });
+  }
+  // Most visible pixels wins; proximity to the center breaks ties.
+  const focused = [...exposure].sort((a, b) => b.area - a.area || a.distance - b.distance)[0];
+  for (const item of exposure) {
+    item.focused = item === focused;
+    item.node.dataset.visibleRatio = item.ratio.toFixed(3);
+    if (item.focused) {
+      item.node.dataset.focused = "true";
+      view.dataset.focusedPost = item.node.id;
+    }
+    const record = engagementRecord(item.node.id);
+    record.maxVisiblePermille = Math.max(record.maxVisiblePermille, Math.round(item.ratio * 1000));
+    record.dirty = true;
+  }
+}
+function scheduleEngagement() {
+  if (!engagementFrame) engagementFrame = requestAnimationFrame(() => {
+    engagementFrame = 0;
+    sampleEngagement();
+  });
+}
+function flushEngagement() {
+  const dirty = [...engagement.values()].filter((p) => p.dirty);
+  for (let i = 0; i < dirty.length; i += 24) {
+    const records = dirty.slice(i, i + 24);
+    const body = JSON.stringify({ visit: engagementVisit,
+      posts: records.map(({ dirty, ...counters }) => counters) });
+    records.forEach((p) => { p.dirty = false; });
+    fetch(API + "?engagement=1", { method: "POST", credentials: "omit",
+      headers: { "Content-Type": "application/json" }, body, keepalive: true })
+      .then((response) => { if (!response.ok) throw new Error("engagement unavailable"); })
+      .catch(() => records.forEach((p) => { p.dirty = true; }));
+  }
+}
+function engagementForeground(active) {
+  engagementActive = active;
+  sampleEngagement();
+  if (!active) flushEngagement();
+}
+view.addEventListener("scroll", scheduleEngagement, { passive: true });
+window.addEventListener("resize", scheduleEngagement);
+window.addEventListener("blur", () => engagementForeground(false));
+window.addEventListener("focus", () => engagementForeground(!document.hidden));
+document.addEventListener("visibilitychange", () => engagementForeground(!document.hidden && document.hasFocus()));
+window.addEventListener("pagehide", () => engagementForeground(false));
+window.addEventListener("pageshow", () => engagementForeground(!document.hidden && document.hasFocus()));
+setInterval(sampleEngagement, 1000);
+setInterval(() => flushEngagement(), 15000);
+view.addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  const post = link?.closest(".feed-post");
+  if (!post || !event.isTrusted) return;
+  const key = link.matches(".discussion, .all-comments") ? "commentOpens"
+    : link.matches(".source-button, .media-label") && link.origin !== location.origin ? "originalOpens" : null;
+  if (!key) return;
+  sampleEngagement();
+  const record = engagementRecord(post.id);
+  record[key] = Math.min(10000, record[key] + 1);
+  record.dirty = true;
+  flushEngagement();
+});
+
 const esc = (s) => s ?? "";
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -724,6 +826,7 @@ async function home(page = 0, signal) {
     if (signal.aborted) return;
     view.scrollTop = restoreOffset !== null && state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0;
     rememberFeed();
+    sampleEngagement();
     if (state.hasMore) feedObserver?.observe(state.nodes.at(-1) || more);
   });
 }
@@ -771,6 +874,8 @@ async function read(url, signal) {
 async function route() {
   rememberFeed();
   activeFeed = null;
+  sampleEngagement();
+  flushEngagement();
   feedObserver?.disconnect();
   feedObserver = null;
   playbackObserver?.disconnect();

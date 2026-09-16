@@ -79,6 +79,7 @@ export function createHandler(connectDb = connect, authorizeUser = authorize) {
       try { body = JSON.parse(event.body || "{}"); }
       catch { return respond(400, { error: "invalid JSON" }); }
       if (!body || typeof body !== "object" || Array.isArray(body)) return respond(400, { error: "invalid post" });
+      if (q.engagement === "1") return await recordEngagement(db, posts, body);
       await ensureIndexes(posts);
       return await createPost(db, posts, body, user);
     } catch (err) {
@@ -182,7 +183,56 @@ async function getThread(db, posts, code) {
   if (!op) return respond(404, { error: "thread not found" });
   const replies = await posts.find({ parent: code }, NO_DATA).sort({ when: 1, _id: 1 }).toArray();
   const [publicOp, ...publicReplies] = await publicPosts(db, [op, ...replies]);
-  return respond(200, { op: publicOp, replies: publicReplies }, { "Cache-Control": "no-store" });
+  return respond(200, { op: publicOp, replies: publicReplies, metadata: { engagement: await engagementTotals(db, code) } }, { "Cache-Control": "no-store" });
+}
+
+// Anonymous, cumulative counters per page visit and post. Replays and retries
+// use $max, so concurrent/unload deliveries cannot double-count time.
+const ENGAGEMENT = "mime-engagement";
+const TIME_FIELDS = ["visibleMs", "partialMs", "majorityMs", "focusedMs", "weightedVisibleMs"];
+const ENGAGEMENT_FIELDS = [...TIME_FIELDS, "maxVisiblePermille", "commentOpens", "originalOpens"];
+async function recordEngagement(db, posts, body) {
+  if (typeof body.visit !== "string" || !/^[a-f0-9-]{36}$/.test(body.visit) ||
+      !Array.isArray(body.posts) || !body.posts.length || body.posts.length > 24) {
+    return respond(400, { error: "invalid engagement" });
+  }
+  const codes = new Set();
+  for (const p of body.posts) {
+    if (!p || typeof p.code !== "string" || p.code.length > 100 || codes.has(p.code) ||
+        ENGAGEMENT_FIELDS.some((key) => !Number.isSafeInteger(p[key]) || p[key] < 0 ||
+          p[key] > (TIME_FIELDS.includes(key) ? 86400000 : key === "maxVisiblePermille" ? 1000 : 10000)) ||
+        p.partialMs + p.majorityMs !== p.visibleMs || p.focusedMs > p.visibleMs || p.weightedVisibleMs > p.visibleMs) {
+      return respond(400, { error: "invalid engagement counters" });
+    }
+    codes.add(p.code);
+  }
+  const collection = db.collection(ENGAGEMENT);
+  await collection.createIndex({ code: 1 });
+  for (const p of body.posts) {
+    if (!await findOp(db, posts, p.code)) continue;
+    const counters = Object.fromEntries(ENGAGEMENT_FIELDS.map((key) => [key, p[key]]));
+    const _id = p.code + ":" + body.visit;
+    try {
+      await collection.updateOne({ _id }, {
+        $setOnInsert: { code: p.code }, $max: counters,
+      }, { upsert: true });
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      await collection.updateOne({ _id }, { $max: counters });
+    }
+  }
+  return respond(200, { ok: true });
+}
+async function engagementTotals(db, code) {
+  const [totals] = await db.collection(ENGAGEMENT).aggregate([
+    { $match: { code } },
+    { $group: { _id: null,
+      ...Object.fromEntries([...TIME_FIELDS, "commentOpens", "originalOpens"].map((key) => [key, { $sum: "$" + key }])),
+      maxVisiblePermille: { $max: "$maxVisiblePermille" },
+      impressions: { $sum: { $cond: [{ $gte: ["$majorityMs", 1000] }, 1, 0] } },
+    } }, { $project: { _id: 0 } },
+  ]).toArray();
+  return { version: 1, ...(totals || Object.fromEntries([...ENGAGEMENT_FIELDS, "impressions"].map((key) => [key, 0]))) };
 }
 
 async function createPost(db, posts, body, user) {
