@@ -290,6 +290,10 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
     if (source === "otp") return await otp.token();
     try { return await (await spaClient())?.getTokenSilently(); } catch { return null; }
   }
+  // Published on the account record because the consent wall needs it too: a
+  // REGARDE grant has to be keyed to somebody who can come back and withdraw
+  // it, and the wall is a separate module with no other way to ask who is here.
+  account.bearer = bearer;
 
   async function submit() {
     if (busy) return;

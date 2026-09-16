@@ -234,6 +234,9 @@
     // that nobody is signed in.
     globalThis.__oskiewarAccount = {
       ready: false, signedIn: false, handle: "", colors: [],
+      // Replaced by `account.mjs` with the real token accessor. Answering null
+      // until then is the honest state: nobody is signed in yet.
+      bearer: async () => null,
     };
     // The game's way of asking for a panel: "login", "handle", or "" to shut
     // it. `account.mjs` replaces this with an accessor so a press lands on the
@@ -244,6 +247,14 @@
     // the corner button's panel is raised by the shell alone. The input guards
     // below need the fact, not the request.
     globalThis.__oskiewarAccountOpen = false;
+
+    // 🚪 The "add yourself" wall. Declared here, empty, because the game reads
+    // it every frame to decide whether to draw the invitation on the fighter's
+    // head — a ring nobody can open would be worse than no ring. `null` until
+    // `oskiewar-wizard.mjs` mounts, which is exactly what the Xbox and the reel
+    // renderer leave it as.
+    globalThis.__oskiewarWizard = null;
+    globalThis.__oskiewarWizardOpen = false;
 
     // Keep a stable 1080-unit vertical coordinate system while allowing the
     // horizontal game surface to follow the browser's actual aspect ratio.
@@ -379,10 +390,38 @@
       oscillator.stop(now + .14);
     }
 
+    // Is a DOM panel standing in front of the canvas? Sign-in and the consent
+    // wall both take the whole keyboard and the whole pointer while they are
+    // up — they own text fields, checkboxes, Enter and Escape — so the game
+    // beneath them must not also receive the press. One predicate rather than
+    // a growing list at each guard.
+    function panelOpen() {
+      return globalThis.__oskiewarAccountOpen === true ||
+        globalThis.__oskiewarWizardOpen === true;
+    }
+
     function dismissTitle() {
       if (!titleOpen) return false;
       titleOpen = false;
       document.body.classList.remove("title-open");
+      return true;
+    }
+
+    // The head is carved out of the anywhere-button above. `tapTitle` makes the
+    // whole title frame START, which is right for a game somebody wants to
+    // play and wrong for the one place a player who wants to BE the fighter is
+    // already pointing. The circle comes from the game, which is the only
+    // thing that knows where the face went this frame; if no wizard is mounted
+    // the game publishes nothing and the face starts a fight like the rest of
+    // the screen.
+    function tapTitleHead(point) {
+      if (!titleOpen || !point) return false;
+      const head = globalThis.__oskiewarTouch?.titleHead;
+      const wizard = globalThis.__oskiewarWizard;
+      if (!head || !wizard) return false;
+      if (Math.hypot(point.x - head.x, point.y - head.y) > head.radius) return false;
+      unlockAudio();
+      wizard.open();
       return true;
     }
 
@@ -1145,11 +1184,11 @@
 
     addEventListener("keydown", (event) => {
       if (event.target instanceof HTMLButtonElement) return;
-      // Typing an email address must not also throw punches and start the
-      // game. Every unmapped key is "start" down here, so an open account
-      // panel has to take the whole keyboard, not just the mapped half — the
-      // panel handles its own Enter and Escape.
-      if (globalThis.__oskiewarAccountOpen) return;
+      // Typing an email address — or ticking a scope box — must not also throw
+      // punches and start the game. Every unmapped key is "start" down here, so
+      // an open panel has to take the whole keyboard, not just the mapped half;
+      // each panel handles its own Enter and Escape.
+      if (panelOpen()) return;
       const mapped = keyMap.get(event.code);
       if (!mapped) {
         if (tapTitle()) event.preventDefault();
@@ -1206,7 +1245,7 @@
     });
     globalThis.__oskiewarWheel = { yaw: 0, pitch: 0, zoom: 0 };
     canvas.addEventListener("wheel", (event) => {
-      if (globalThis.__oskiewarAccountOpen) return;
+      if (panelOpen()) return;
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas.clientHeight : 1;
       const wheel = globalThis.__oskiewarWheel;
@@ -1219,18 +1258,19 @@
     }, { passive: false });
     let pinchScale = 1;
     canvas.addEventListener("gesturestart", (event) => {
-      if (globalThis.__oskiewarAccountOpen) return;
+      if (panelOpen()) return;
       event.preventDefault();
       pinchScale = event.scale || 1;
     }, { passive: false });
     canvas.addEventListener("gesturechange", (event) => {
-      if (globalThis.__oskiewarAccountOpen) return;
+      if (panelOpen()) return;
       event.preventDefault();
       const scale = event.scale || 1;
       globalThis.__oskiewarWheel.zoom -= Math.log(scale / pinchScale) * 300;
       pinchScale = scale;
     }, { passive: false });
     canvas.addEventListener("pointerdown", (event) => {
+      if (globalThis.__oskiewarWizardOpen) return;
       const point = canvasPoint(event);
       const touchKey = touchKeyAt(point);
       if (touchKey) {
@@ -1242,7 +1282,7 @@
         unlockAudio();
         return;
       }
-      if (tapTitle(point)) {
+      if (tapTitleHead(point) || tapTitle(point)) {
         event.preventDefault();
         return;
       }
@@ -1287,6 +1327,7 @@
     import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
     import mountAccount from "/account.mjs";
+    import mountWizard from "/oskiewar-wizard.mjs";
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
     import {
       captureOskiewarAction,
@@ -1308,6 +1349,16 @@
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
+
+    // 🚪 The consent wall, mounted after the door it depends on. Kept out of a
+    // social-preview render for the same reason the account probe is: that pass
+    // draws a picture of the title and must not grow furniture a viewer of the
+    // picture could never press.
+    if (!socialPreview)
+      globalThis.__oskiewarWizard = mountWizard({
+        sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
+        bearer: () => globalThis.__oskiewarAccount.bearer(),
+      });
 
     // The fighters' throats and the announcer. Same context, same signal bus,
     // separate bank — the drums are the room and the voice is the person in
