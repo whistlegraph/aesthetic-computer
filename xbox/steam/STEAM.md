@@ -156,11 +156,13 @@ directory. What remains is one human gate and the buttons behind it.
 | Trailer | **Not made.** Required in practice; the 16:9 lane is one parameter away from the reel factory |
 | Shell | **Packaged and booting** on macOS with steamworks.js wired; Linux and Windows cross-built (`shell/README.md`) |
 | Depots | `depots/depots.mjs --appid=<n>` + `depots/upload.sh` (steamcmd installed via Homebrew) |
-| Appid | **Blocked on identity review** — filed 2026-09-01, priced at up to 10 business days, which is now. Check the dashboard |
+| Appid | **5280790**, assigned 2026-09-15 — the identity review cleared. Depots 5280791 (win), 5280792 (mac), 5280793 (linux). Shell rebuilt against it; `depots/out/` written |
+| Build upload | `STEAM_BUILD_USER=jeffreyscudder sh depots/upload.sh` — interactive (password + Steam Guard), so a human runs it |
+| Store page fill | `store-page/fill.md` is field-ordered for the editor; driven through the Claude Chrome extension once it is un-paused |
+| Marketing model | `MARKETING.md`; `bin/wishlists.mjs` pulls wishlist/sales days once a publisher key exists |
 | Build review | Cannot start until the store page is approved |
 
-**The order from here.** (1) Dashboard: is the KYC item cleared? If so,
-`Complete Account Creation` unlocks — name the app, take the appid.
+**The order from here.** (1) Done — the app is claimed, appid 5280790.
 (2) Fill the store page from `store-page/` and upload `store-page/assets/`;
 run the content survey; set the price; mark ready for review.
 (3) Coming-soon page goes public on approval — that is the wishlist
