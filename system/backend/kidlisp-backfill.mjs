@@ -22,7 +22,7 @@
 // Safe to re-run: the projection upserts on `code` with $setOnInsert, so an
 // existing row is never modified and a partial run simply resumes.
 
-import { connect } from "./database.mjs";
+import { connect, closePool } from "./database.mjs";
 import { sidecar, kidlispDatomicEnabled } from "./kidlisp-sidecar.mjs";
 import { projectKidlispPiece } from "./kidlisp-projection.mjs";
 
@@ -75,7 +75,6 @@ async function main() {
 
   if (!apply) {
     console.log("🧪 Dry run. Re-run with --apply to write these rows.");
-    await database.disconnect();
     return;
   }
 
@@ -101,11 +100,16 @@ async function main() {
   if (failed) console.log(`   ${failed} failed — re-run to retry, the upsert is idempotent`);
   console.log("\nNothing to purge: the feeds read Mongo live, and oven's thumbnails");
   console.log("never depended on it.");
-
-  await database.disconnect();
 }
 
-main().catch((err) => {
-  console.error("❌ Backfill failed:", err?.message || err);
-  process.exit(1);
-});
+// `connect()` hands back a pooled singleton and its `disconnect()` is a no-op
+// unless AC_DB_CLOSE=1 (see database.mjs) — deliberate, so serverless handlers
+// reuse the pool. A CLI has to close it by hand or the process just sits there
+// after printing its last line, which is exactly what the first run of this
+// script did.
+main()
+  .catch((err) => {
+    console.error("❌ Backfill failed:", err?.message || err);
+    process.exitCode = 1;
+  })
+  .finally(() => closePool());
