@@ -78,6 +78,8 @@ export class ClaudeServer extends EventEmitter {
     environment = {},
     developerInstructions = "",
     model = DEFAULT_CLAUDE_MODEL,
+    effort = "",
+    recoveryInstructions = "",
     // Easel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
     tools = true,
   }) {
@@ -90,6 +92,8 @@ export class ClaudeServer extends EventEmitter {
     this.resumeThreadId = resumeThreadId;
     this.developerInstructions = developerInstructions;
     this.model = model || DEFAULT_CLAUDE_MODEL;
+    this.effort = effort;
+    this.recoveryInstructions = recoveryInstructions;
     this.child = null;
     this.threadId = null;
     this.turnId = null;
@@ -111,7 +115,13 @@ export class ClaudeServer extends EventEmitter {
   }
 
   async connect() {
-    return this.#launch(this.resumeThreadId);
+    try { return await this.#launch(this.resumeThreadId); }
+    catch(error) {
+      if(error.code !== 'MISSING_CONVERSATION' || !this.recoveryInstructions) throw error;
+      this.developerInstructions += '\n\n' + this.recoveryInstructions;
+      this.emit('notification',{method:'warning',params:{message:'Claude session was not saved by its CLI; continuing with the Easel conversation.'}});
+      return this.#launch('');
+    }
   }
 
   // Codex starts a fresh thread inside one long-lived process; a headless
@@ -231,6 +241,7 @@ export class ClaudeServer extends EventEmitter {
       "--verbose",
       "--model",
       this.model,
+      ...(this.effort ? ["--effort", this.effort] : []),
       "--permission-mode",
       "manual",
       "--permission-prompts",
@@ -253,7 +264,7 @@ export class ClaudeServer extends EventEmitter {
     // save.
     if (this.tools) {
       args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd)));
-      args.push("--allowedTools", `mcp__${SERVER_NAME}`);
+      args.push("--allowedTools", `mcp__${SERVER_NAME}`, 'mcp__easel-media');
     }
     if (this.developerInstructions) {
       args.push("--append-system-prompt", this.developerInstructions);
@@ -304,6 +315,7 @@ export class ClaudeServer extends EventEmitter {
     ready.reject = fail;
     this.ready = ready;
 
+    let missingConversation = false;
     child.once("error", (error) => {
       ready.reject(error);
       this.#fatal(error);
@@ -311,8 +323,10 @@ export class ClaudeServer extends EventEmitter {
     child.once("exit", (code, signal) => {
       if (child !== this.child) return; // Replaced by /new; not a failure.
       const suffix = signal ? ` (${signal})` : code === null ? "" : ` (${code})`;
-      const error = new Error(`engine bridge closed${suffix}`);
+      const error = new Error(missingConversation ? "Claude conversation is unavailable" : `engine bridge closed${suffix}`);
+      if(missingConversation) error.code = "MISSING_CONVERSATION";
       ready.reject(error);
+      if(missingConversation && this.recoveryInstructions)return;
       this.#fatal(error);
       this.emit("exit", { code, signal });
     });
@@ -341,6 +355,7 @@ export class ClaudeServer extends EventEmitter {
       }
     });
     createInterface({ input: child.stderr }).on("line", (line) => {
+      if(line.includes("No conversation found with session ID:"))missingConversation=true;
       if (line.trim()) this.emit("log", line.trim());
     });
 

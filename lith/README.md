@@ -37,3 +37,13 @@ Recommended workflow:
 2. Fill in the real production values
 3. Re-run `fish vault-tool.fish status` to confirm `lith/.env` is tracked
 4. Deploy with `fish /workspaces/aesthetic-computer/lith/deploy.fish`
+
+### Easel inference configuration
+
+Production loads `OPENROUTER_API_KEY` from
+`/etc/aesthetic-computer/easel-inference.env` through
+`/etc/systemd/system/lith.service.d/40-easel-inference.conf`. This separate,
+root-only environment survives deploys that replace `/opt/ac/system/.env` with
+an older fleet copy. Keep it synchronized when rotating the key in the vault's
+`lith/.env`, then restart `lith`. The vault `lith/.env.keys` manifest also requires
+this key so deployment validation rejects incomplete environments.

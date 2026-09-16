@@ -1,0 +1,7 @@
+/* Keep the terminal and its footer clear of the persistent companion. */
+:root{--aesel-size:128px}
+#terminal{padding-right:calc(var(--aesel-size) + 16px)}
+#aesel-donkey{position:fixed;right:8px;bottom:8px;width:var(--aesel-size);height:var(--aesel-size);transform:scaleX(-1);image-rendering:pixelated;pointer-events:none;z-index:12}
+#desktop-notice{max-width:calc(100% - var(--aesel-size) - 40px)}
+
+body[data-phase="startup"] #terminal{padding-right:10px}

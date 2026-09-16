@@ -219,3 +219,20 @@ test("a refused turn says why, instead of stopping in silence", async (t) => {
   assert.deepEqual(errors, ["Usage limit reached. Try again at 6pm."],
     "and the reason reaches the interface");
 });
+
+test('passes chosen effort to the Claude CLI',async t=>{
+ const {root,cleanup}=scratch();t.after(cleanup);
+ const argvFile=path.join(root,'args.json');
+ const engine=bridge(t,{effort:'high',model:'sonnet',environment:{FAKE_CLAUDE_ARGV:argvFile}});
+ await engine.connect();
+ assert.equal(flagIn(launches(argvFile).argvs[0],'--effort'),'high');
+ assert.equal(flagIn(launches(argvFile).argvs[0],'--model'),'sonnet');
+});
+
+test('missing unsaved Claude session recovers only with explicit Easel handoff',async t=>{
+ const {root,cleanup}=scratch();t.after(cleanup);const argvFile=path.join(root,'args.json');
+ const engine=bridge(t,{resumeThreadId:'missing',recoveryInstructions:'Retained Easel conversation',environment:{FAKE_CLAUDE_ARGV:argvFile,FAKE_CLAUDE_MISSING:'1'}});
+ let fatals=0;engine.on('fatal',()=>fatals++);
+ const c=await engine.connect();assert.notEqual(c.thread.id,'missing');assert.equal(fatals,0);
+ const args=launches(argvFile).argvs;assert.equal(args.length,2);assert.match(flagIn(args[1],'--append-system-prompt'),/Retained Easel conversation/);
+});

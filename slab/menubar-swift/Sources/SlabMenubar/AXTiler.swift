@@ -76,6 +76,7 @@ enum AXTiler {
             terminal: windowRefs(bundleId: "com.apple.Terminal", liveWindows: liveWindows),
             acPanes: windowRefs(bundleId: "computer.aesthetic.app",
                                 requireStandardSubrole: false, liveWindows: liveWindows)
+                + easelWindowRefs(liveWindows: liveWindows)
         )
     }
 
@@ -92,6 +93,7 @@ enum AXTiler {
                          requireGeometry: false)
             + windowRefs(bundleId: "computer.aesthetic.app", requireStandardSubrole: false,
                          liveWindows: liveWindows, requireGeometry: false)
+            + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
         ).map(\.id).sorted()
     }
 
@@ -109,10 +111,23 @@ enum AXTiler {
                    liveWindows: liveWindowList()).map(\.element)
     }
 
+    static func easelWindows() -> [AXUIElement] {
+        easelWindowRefs(liveWindows: liveWindowList()).map(\.element)
+    }
+
+    private static func easelWindowRefs(liveWindows: [LiveWindow],
+                                         requireGeometry: Bool = true) -> [Window] {
+        EaselWindowIdentity.bundleIDs.flatMap { bundleID in
+            windowRefs(bundleId: bundleID, liveWindows: liveWindows,
+                       requireGeometry: requireGeometry, requireEaselIdentity: true)
+        }
+    }
+
     private static func windowRefs(bundleId: String,
                                    requireStandardSubrole: Bool = true,
                                    liveWindows: [LiveWindow],
-                                   requireGeometry: Bool = true) -> [Window] {
+                                   requireGeometry: Bool = true,
+                                   requireEaselIdentity: Bool = false) -> [Window] {
         let apps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
         let liveIDs = Set(liveWindows.map(\.id))
         var out: [Window] = []
@@ -126,12 +141,18 @@ enum AXTiler {
         var identityCount = 0
         for app in apps {
             let el = AXUIElementCreateApplication(app.processIdentifier)
+            if requireEaselIdentity { AXUIElementSetMessagingTimeout(el, 0.2) }
             var ref: CFTypeRef?
             guard AXUIElementCopyAttributeValue(el, kAXWindowsAttribute as CFString, &ref) == .success,
                   let list = ref as? [AXUIElement] else { continue }
             readSucceeded = true
             rawCount += list.count
             for w in list {
+                if requireEaselIdentity,
+                   !EaselWindowIdentity.accepts(bundleID: bundleId,
+                                               title: stringAttr(w, kAXTitleAttribute) ?? "") {
+                    continue
+                }
                 if bundleId == "com.apple.Terminal", terminalWindowHasNoTabContent(w) {
                     // Terminal retains closed windows as ordinary AXWindow +
                     // live CGWindowID objects. Their content child changes to
@@ -209,7 +230,7 @@ enum AXTiler {
             }
         }
 
-        let cacheKey = "\(bundleId)|\(requireStandardSubrole ? 1 : 0)|g\(requireGeometry ? 1 : 0)"
+        let cacheKey = "\(bundleId)|\(requireStandardSubrole ? 1 : 0)|g\(requireGeometry ? 1 : 0)|e\(requireEaselIdentity ? 1 : 0)"
         let now = Date()
         cacheLock.lock()
         defer { cacheLock.unlock() }

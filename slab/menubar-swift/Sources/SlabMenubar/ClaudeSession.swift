@@ -104,13 +104,18 @@ struct ClaudeSession {
     /// string is the ordinary case and means "no scannable destination yet".
     /// The prompt rock turns this into a QR surface; everything else ignores it.
     var scanURL: String = ""
+    var artifactKind: String = "piece"
+    var artifactPreview: LocalArtifactPreview?
 
     /// The piece this session is writing, with its extension — `balozo.mjs`.
     /// Only Easel sets it, and it names the rock: a session that is
     /// holding a piece should be addressable by that piece's name rather than
     /// by a second unrelated word drawn from its session id.
     var piece: String = ""
+    var piecePublishedAt: String = ""
     var pieceVersion: Int = 0
+    var pieceChannel: String = ""
+    var pieceRevision: String = ""
 
     /// How the file on disk stands against what `scanURL` is serving —
     /// `live`, `ahead` (saved, not pushed yet) or `pushing`. The preview
@@ -384,8 +389,24 @@ enum ClaudeSessionReader {
         session.loopboyResponse = (obj["loopboy_response"] as? String) ?? ""
         session.nudgeScreen = (obj["nudge_screen"] as? String) ?? ""
         session.scanURL = (obj["scan_url"] as? String) ?? ""
+        session.artifactKind = (obj["artifact_kind"] as? String) ?? "piece"
+        if !session.isRemote, let preview = obj["artifact_preview"] as? [String: Any] {
+            session.artifactPreview = LocalArtifactPreview(marker: preview, kind: session.artifactKind)
+        }
+        let publicCode = (obj["artifact_preview"] as? [String: Any])?["publicCode"] as? String ?? ""
+        let publishedPicture = session.artifactKind == "picture" && !publicCode.isEmpty &&
+            session.scanURL.range(of: #"^(https://)?aesthetic\.computer/#[A-Za-z0-9]+$"#, options: .regularExpression) != nil &&
+            session.scanURL.hasSuffix("/#" + publicCode)
+        let liveId = (obj["artifact_preview"] as? [String: Any])?["liveId"] as? String ?? ""
+        let liveDraft = ["picture", "sound", "paper", "gameboy"].contains(session.artifactKind) &&
+            liveId.range(of: #"^[a-f0-9]{32}$"#, options: .regularExpression) != nil &&
+            ["aesthetic.computer/watch/?id=" + liveId, "https://aesthetic.computer/watch/?id=" + liveId].contains(session.scanURL)
+        if session.artifactKind != "piece" && !publishedPicture && !liveDraft { session.scanURL = "" }
         session.piece = (obj["piece"] as? String) ?? ""
+        session.piecePublishedAt = (obj["piece_published_at"] as? String) ?? ""
         session.pieceVersion = (obj["piece_version"] as? Int) ?? 0
+        session.pieceChannel = (obj["piece_channel"] as? String) ?? ""
+        session.pieceRevision = (obj["piece_revision"] as? String) ?? ""
         session.flow = (obj["flow"] as? String) ?? "live"
         return session
     }

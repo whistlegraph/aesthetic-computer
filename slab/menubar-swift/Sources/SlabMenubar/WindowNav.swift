@@ -170,20 +170,22 @@ enum WindowNav {
     }
 
     private static func windows() -> [Window] {
-        let all = bundleIds.flatMap { bid in
-            AXTiler.windows(bundleId: bid).compactMap { el -> Window? in
+        func resolved(_ elements: [AXUIElement]) -> [Window] {
+            elements.compactMap { el -> Window? in
                 var id = CGWindowID(0)
                 guard _WindowNavAXUIElementGetWindow(el, &id) == .success, id != 0,
                       let frame = AXTiler.frame(el) else { return nil }
                 return Window(el: el, id: Int(id), frame: frame)
             }
         }
+        let all = bundleIds.flatMap { resolved(AXTiler.windows(bundleId: $0)) }
+        let easel = resolved(AXTiler.easelWindows())
         // The prompt overlay has already done the expensive tty→window bind.
         // Reuse it so navigation walks actual live prox panes, not an unrelated
         // shell window. During the short startup/rebind gap, retain the old
         // terminal-wide behavior rather than making the shortcut feel dead.
         let promptIDs = PromptSigilOverlayController.shared.promptWindowIDs
-        return promptIDs.isEmpty ? all : all.filter { promptIDs.contains($0.id) }
+        return (promptIDs.isEmpty ? all : all.filter { promptIDs.contains($0.id) }) + easel
     }
 
     private static func directionalWindow(in wins: [Window], from current: CGPoint,

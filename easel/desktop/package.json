@@ -1,0 +1,86 @@
+{
+  "name": "easel-desktop",
+  "productName": "Easel",
+  "version": "0.7.0-preview.1",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "dependencies": {
+    "@xterm/xterm": "5.5.0",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/addon-webgl": "0.18.0",
+    "node-pty": "1.1.0",
+    "electron-updater": "6.6.2"
+  },
+  "devDependencies": {
+    "electron-builder": "25.1.8",
+    "electron": "39.2.7"
+  },
+  "build": {
+    "appId": "computer.aesthetic.easel",
+    "productName": "Easel",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "*.cjs",
+      "*.js",
+      "*.html",
+      "*.css",
+      "fonts/*.woff",
+      "fonts/*LICENSE*",
+      "fonts/*OFL*",
+      "package.json",
+      "vendor/**/*",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../src",
+        "to": "easel/src"
+      },
+      {
+        "from": "../media",
+        "to": "easel/media"
+      },
+      {
+        "from": "../context",
+        "to": "easel/context"
+      },
+      {
+        "from": "../package.json",
+        "to": "easel/package.json"
+      },
+      {
+        "from": "../LICENSE",
+        "to": "easel/LICENSE"
+      },
+      {
+        "from": "../bin",
+        "to": "easel/bin",
+        "filter": [
+          "frame-ocr",
+          "frame-ocr.swift"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        "zip",
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "icon": "build/icon.icns"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://silo.aesthetic.computer/easel/desktop/"
+      }
+    ]
+  }
+}

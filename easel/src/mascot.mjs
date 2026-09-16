@@ -1,8 +1,6 @@
-// The little guy.
+// Aesel, the donkey at the easel.
 //
-// Aesthetic Computer's mark is a period, and oskiewar's fighters are round
-// heads on stick bodies, so the harness's mascot is the same creature at
-// terminal scale: a pink dot with a body under it. He walks in from the left
+// The terminal uses an ASCII version of the pixel-art donkey mascot. He walks in from the left
 // edge when a session opens, waves once he arrives, and then stands in the
 // bottom-left corner for the rest of the session — the opposite corner from
 // the QR code, which owns the right.
@@ -13,36 +11,29 @@
 // the decision about how often to repaint with the interface that owns the
 // screen.
 
-export const MASCOT_WIDTH = 3;
-export const MASCOT_HEIGHT = 3;
+export const MASCOT_WIDTH = 28;
+export const MASCOT_HEIGHT = 8;
 
-// Three rows, three columns, always. A sprite that changes size shifts the
-// text beside it, and a mascot that makes the transcript jitter is a bug
-// wearing a costume.
+// Aesel painting at an easel. Fixed cells keep the canvas and hooves planted.
+const stand = [
+  "   /\\ /\\             /\\",
+  "  ( o o )           /  \\",
+  "  /  ^  \\    __    /----\\",
+  "  \\_____/---/ /-->| *  |",
+  "   /|     |/      |____|",
+  "  / |_____|         ||",
+  "    / / \\ \\        /  \\",
+  "   /_/   \\_\\      /____\\",
+];
+const pose = (changes={}) => stand.map((line,i)=>(changes[i]??line).padEnd(MASCOT_WIDTH));
 const POSES = {
-  stand: [" ● ", "╱│╲", "╱ ╲"],
-  // Mid-stride: the legs close and the arms swing back, which reads as motion
-  // even at three rows because the silhouette changes rather than the position
-  // of one pixel.
-  step: [" ● ", "╲│╱", " ╽ "],
-  wave: ["╲● ", " │╱", "╱ ╲"],
-  // A blink is the smallest thing that says the drawing is alive. The head
-  // keeps its width so the body does not appear to shift under it.
-  blink: [" ▪ ", "╱│╲", "╱ ╲"],
+  stand: pose(),
+  step: pose({6:"     /|  |\\        /  \\",7:"    /_|  |_\\      /____\\"}),
+  wave: pose({0:"   /\\ //             /\\",3:"  \\_____/---/ /--> | *  |"}),
+  blink: pose({1:"  ( - - )           /  \\"}),
 };
-
-// One row, for the footer, where he lives for the rest of the session. Working
-// is the only thing worth animating there: it is the one fact the interface
-// cannot otherwise tell you without spending a row on it, and a figure that
-// moves exactly while the machine is busy needs no label.
-const ONE_ROW = {
-  stand: "\\●/",
-  // Arms down, arms up. Two frames is a dance at this size — the eye reads
-  // alternation as effort, and anything more elaborate is noise in a corner.
-  work: ["\\●/", "/●\\", "—●—", "/●\\"],
-};
-
-export const MASCOT_ROW_WIDTH = 3;
+const ONE_ROW = {stand:"//o>",work:["//o>","\\\\o>","//o>","//->"]};
+export const MASCOT_ROW_WIDTH = 4;
 
 // How fast he dances. Slow enough not to strobe beside text someone is
 // reading, fast enough to read as motion rather than a glitch.
@@ -143,8 +134,8 @@ export function mascotNextFrameIn(elapsed = 0) {
   return since < BLINK_MS ? BLINK_MS - since : BLINK_EVERY_MS - since;
 }
 
-// The sprite as rows of {text, tone} so the renderer can paint the head in the
-// mark's pink and the body in the interface's soft purple without this module
+// The sprite as rows of {text, tone} so the renderer can paint the ears in
+// pink and the body in the interface's soft purple without this module
 // knowing anything about colour.
 export function mascotRows(elapsed = 0) {
   const { lines, x, phase } = mascotAt(elapsed);

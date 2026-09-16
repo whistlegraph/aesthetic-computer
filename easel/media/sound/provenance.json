@@ -1,0 +1,31 @@
+{
+  "toolkit": "ac-pop-easel",
+  "version": 1,
+  "files": [
+    {
+      "source": "pop/dance/synths/bus.mjs",
+      "file": "pop/bus.mjs",
+      "sha256": "e6777d145ab0e2697886775e8414ff76975673e59412262c6166cccf5117bb1b"
+    },
+    {
+      "source": "pop/dance/synths/sinepower.mjs",
+      "file": "pop/sinepower.mjs",
+      "sha256": "c1f6a627df48729bed2c731b70dbef41cc932173fec1d64caf5cf5d616391177"
+    },
+    {
+      "source": "pop/dance/synths/fx.mjs",
+      "file": "pop/fx.mjs",
+      "sha256": "e7d5cfbcb736c3d55e12ee46fa1a1dbaf784ef043fce824cccbb117d84b0fcbf"
+    },
+    {
+      "source": "pop/lib/necklace.mjs",
+      "file": "pop/necklace.mjs",
+      "sha256": "b3576354d7c9a57ef38d5a927954c179ee21f8a27bda086e99965861b04ca0fe"
+    },
+    {
+      "source": "pop/lib/wav.mjs",
+      "file": "pop/wav.mjs",
+      "sha256": "f50c80c0bb1d59dc0c5ee10eb08dab64c38bdd26d90e66332c7a80f9ebd8e4eb"
+    }
+  ]
+}

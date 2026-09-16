@@ -471,6 +471,8 @@ final class PromptSigilOverlay {
     private let shadowLayer = CALayer()      // solid status colour, masked to the rock silhouette
     private let shadowMask = CALayer()       // plays the same frames → the shadow's tumbling shape
     private let nameLayer = CALayer()        // the rock's pet name, under the rock (pixel-text bitmap)
+    private let scanBezelLight = CAShapeLayer()
+    private let scanBezelDark = CAShapeLayer()
     private let scanLayer = CALayer()        // flat white card carrying the QR, on scan surfaces only
     private let heartbeatTrackLayer = CALayer()
     private let heartbeatFillLayer = CALayer()
@@ -630,6 +632,12 @@ final class PromptSigilOverlay {
             scanLayer.magnificationFilter = .nearest
             scanLayer.minificationFilter = .nearest
             container.layer?.addSublayer(scanLayer)
+            for edge in [scanBezelLight, scanBezelDark] {
+                edge.fillColor = nil; edge.lineWidth = 1
+                scanLayer.addSublayer(edge)
+            }
+            scanBezelLight.strokeColor = NSColor.white.withAlphaComponent(0.65).cgColor
+            scanBezelDark.strokeColor = NSColor.black.withAlphaComponent(0.22).cgColor
         }
 
         // Transparent space above/below lets smoke rise and ash fall without
@@ -1029,6 +1037,7 @@ final class PromptSigilOverlay {
         nameLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
         guard !name.isEmpty else { return }
         let font = playfulRockFont(16)
+        let versionStart = isScanSurface ? name.range(of: " v[0-9]+$", options: .regularExpression)?.lowerBound : nil
         let sh = NSShadow()
         sh.shadowColor = shadowColor ?? NSColor.systemGray
         sh.shadowBlurRadius = 0
@@ -1038,9 +1047,11 @@ final class PromptSigilOverlay {
         var layers: [RockCharLayer] = []
         var widths: [CGFloat] = []
         var total: CGFloat = 0
-        for ch in name {
+        for index in name.indices {
+            let ch = name[index]
+            let characterFont = versionStart.map { index >= $0 } == true ? playfulRockFont(12) : font
             let a = NSAttributedString(string: String(ch), attributes: [
-                .font: font,
+                .font: characterFont,
                 .foregroundColor: labelForeground,
                 .strokeColor: NSColor(white: 0.08, alpha: 1),
                 .strokeWidth: -3.5,
@@ -1176,14 +1187,24 @@ final class PromptSigilOverlay {
         // pixels per module and rarely divides the surface exactly, so the
         // leftover used to show as a white frame around a white margin.
         if let image {
-            let side = CGFloat(image.width) / PromptScanCode.renderScale
+            let side = CGFloat(image.width) / PromptScanCode.renderScale + 4
             scanLayer.frame = CGRect(
                 x: pad + (size - side) / 2,
                 y: pad + labelH + (size - side) / 2,
                 width: side, height: side)
         }
-        shadowLayer.frame = scanLayer.frame.offsetBy(
-            dx: Self.scanShadowDrop, dy: -Self.scanShadowDrop)
+        let bounds = scanLayer.bounds.insetBy(dx: 0.5, dy: 0.5)
+        let light = CGMutablePath()
+        light.move(to: CGPoint(x: bounds.minX, y: bounds.minY))
+        light.addLine(to: CGPoint(x: bounds.minX, y: bounds.maxY))
+        light.addLine(to: CGPoint(x: bounds.maxX, y: bounds.maxY))
+        scanBezelLight.path = light
+        let dark = CGMutablePath()
+        dark.move(to: CGPoint(x: bounds.maxX, y: bounds.maxY))
+        dark.addLine(to: CGPoint(x: bounds.maxX, y: bounds.minY))
+        dark.addLine(to: CGPoint(x: bounds.minX, y: bounds.minY))
+        scanBezelDark.path = dark
+        shadowLayer.frame = scanLayer.frame.offsetBy(dx: 1, dy: -2)
         CATransaction.commit()
     }
 
@@ -2226,7 +2247,7 @@ final class PromptSigilOverlayController {
     /// `load` ignores an address it is already showing, so a piece is never
     /// restarted by the tick that merely re-states where it lives.
     private func syncPreview(for s: ClaudeSession) {
-        guard !s.scanURL.isEmpty else {
+        guard !s.scanURL.isEmpty || s.artifactPreview != nil else {
             // The session let go of its piece (or never had one). Take the card
             // away rather than leave the last frame standing as if it were current.
             if let pv = previews.removeValue(forKey: s.sessionId) {
@@ -2240,18 +2261,26 @@ final class PromptSigilOverlayController {
             pv = existing
         } else {
             pv = PromptPreview()
+            pv.onExpansionChanged = { [weak self] in self?.scheduleTick(after: 0) }
             previews[s.sessionId] = pv
         }
-        pv.load(scanURL: s.scanURL)
+        if let artifact = s.artifactPreview {
+            pv.loadArtifact(artifact)
+        } else {
+            pv.load(scanURL: s.scanURL, publication: s.piecePublishedAt)
+        }
         // `paused` is not decided here — `reposition` owns it, because only the
         // window-stack test knows whether these pixels are still being painted.
         var next = PromptPreviewState()
         next.flow = PromptFlow(s.flow)
         next.working = (s.state == .working || s.state == .rendering)
-        next.piece = s.piece
-        next.version = s.pieceVersion
+        next.piece = s.artifactPreview == nil ? s.piece : s.artifactKind.capitalized
+        next.version = s.artifactPreview?.version ?? s.pieceVersion
         next.paused = !pv.isOnScreen
         pv.setState(next)
+        if s.agentType == "easel", !s.isRemote, s.artifactPreview == nil {
+            pv.pollFrameRequests(cwd: s.cwd, channel: s.pieceChannel, revision: s.pieceRevision)
+        }
     }
 
     private func handleMouseMoved() {
@@ -2268,10 +2297,9 @@ final class PromptSigilOverlayController {
         }
     }
 
-    /// The card under the pointer grows; whichever grew before shrinks back.
-    /// Gated the same way a rock's hover is — the card floats above the whole
-    /// normal-window stack and takes no events of its own, so a bare rect test
-    /// would wake a card buried under another application.
+    /// Gate input to the visible card under the pointer. A compact preview is
+    /// interactive too; right-click enlargement stays open when the pointer
+    /// leaves. The optional hover mode uses this same ownership check.
     private func updatePreviewHover(at point: NSPoint) {
         let screenH = NSScreen.main?.frame.height ?? 0
         let cg = CGPoint(x: point.x, y: screenH - point.y)
@@ -2880,7 +2908,10 @@ final class PromptSigilOverlayController {
             // haiku-inferred sentence; until that lands it shows the hook
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
-            ov.setName(SigilRenderer.name(for: s), dark: dark)
+            let draftID = URLComponents(string: "https://" + s.scanURL.replacingOccurrences(of: "https://", with: ""))?.queryItems?.first(where: { $0.name == "id" })?.value
+            let scanName = s.artifactKind != "piece" && draftID?.count == 32 ? "#~" + String(draftID!.prefix(12)) : SigilRenderer.name(for: s)
+            let scanVersion = s.artifactPreview?.version ?? s.pieceVersion
+            ov.setName(scanSurface && scanVersion > 0 ? "\(scanName) v\(scanVersion)" : scanName, dark: dark)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
             ov.tooltipTitle = loopboy ? "↻ Loopboy · \(title)" : title
             // The card says what kind of object this is; a scan rock is not
@@ -3106,7 +3137,7 @@ final class PromptSigilOverlayController {
             // steps aside while the card is up rather than float over the
             // piece it is the code for; it is back the moment the card closes.
             let rockVisible = ownedBy(num, at: points.rock)
-                && previewHoverTarget != ov.sessionId
+                && previews[ov.sessionId]?.isExpanded != true
             ov.setVisible(
                 rock: rockVisible,
                 heartbeat: ownedBy(num, at: points.heartbeat),

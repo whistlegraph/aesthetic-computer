@@ -24,7 +24,7 @@ const MANIFEST = join(REPO, "system", "public", "easel.json");
 // how a git checkout knows never to overwrite itself with a release.
 const STAMP = join(EASEL, "install.json");
 
-const INCLUDE = ["bin", "src", "shell", "context", "package.json", "README.md", "LICENSE", "install.json"];
+const INCLUDE = ["bin", "src", "shell", "context", "media", "package.json", "README.md", "LICENSE", "install.json"];
 
 const version = JSON.parse(readFileSync(join(EASEL, "package.json"), "utf8")).version;
 

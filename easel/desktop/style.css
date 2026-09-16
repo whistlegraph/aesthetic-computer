@@ -1,0 +1,49 @@
+@font-face{font-family:"AC Easel Unifont";src:url("fonts/ac-easel-unifont.woff") format("woff");font-style:normal;font-weight:400;font-display:swap}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#463264;color:white;font-family:"AC Easel Unifont",monospace}
+#terminal{height:calc(100% - 20px);padding:10px}
+#artifact-shell{position:absolute;top:14px;left:14px;width:var(--preview-width,178px);height:var(--preview-height,119.33px);transition:width .18s,height .18s;z-index:2}
+#artifact{position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;background:#1c1728;border:1px solid #ffffff55;border-radius:0;box-shadow:2px 2px #0006;transition:width .18s,height .18s;z-index:2}
+body[data-preview-mode="hover"] #artifact-shell:hover,body[data-preview-mode="hover"] #artifact-shell:focus-within,body[data-preview-mode="pinned"] #artifact-shell{width:var(--preview-expanded-width,434px);height:var(--preview-expanded-height,290px)}
+#preview-viewport{position:absolute;left:0;top:0;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);transform-origin:0 0;image-rendering:pixelated;overflow:hidden}
+#piece{display:flex;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);image-rendering:pixelated}
+#version{position:absolute;right:0;top:calc(100% + 4px);color:#fff;text-shadow:1px 1px #000;font:12px "AC Easel Unifont",monospace;pointer-events:none;white-space:nowrap}
+#version:empty{display:none}
+#artifact.refresh{animation:refresh .35s ease-out}
+@keyframes refresh{20%{transform:translateX(-2px);border-color:white}50%{transform:translateX(2px)}80%{transform:translateX(-1px)}}
+@media(prefers-reduced-motion:reduce){#artifact{transition:none}#artifact.refresh{animation:none;border-color:white}}
+
+#qr-card{position:absolute;top:14px;right:14px;z-index:2;text-align:center}
+#qr{display:block;margin:auto;image-rendering:pixelated;box-shadow:none}
+
+.fullscreen-control{appearance:none;border:1px solid #ffffff66;border-radius:4px;background:#1c1728e8;color:white;padding:4px 7px;font:12px "AC Easel Unifont",Menlo,monospace;cursor:pointer;line-height:16px;z-index:4}
+.fullscreen-control:hover{background:#463264}
+.fullscreen-control:focus-visible{outline:2px solid white;outline-offset:2px}
+#preview-fullscreen{position:absolute;top:5px;right:5px;width:24px;height:24px;padding:2px;font-size:16px}
+body.preview-fullscreen #terminal,body.preview-fullscreen #qr-card,body.preview-fullscreen #version{display:none}
+body.preview-fullscreen #artifact-shell,body.preview-fullscreen[data-preview-mode] #artifact-shell:hover,body.preview-fullscreen[data-preview-mode] #artifact-shell:focus-within{position:fixed;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:var(--preview-fullscreen-width);height:var(--preview-fullscreen-height);z-index:10;transition:none}
+body.preview-fullscreen #artifact{border:0;border-radius:0;box-shadow:none;animation:none;transition:none}
+body.preview-fullscreen #preview-fullscreen{top:12px;right:12px}
+@media(prefers-reduced-motion:reduce){#artifact-shell{transition:none}}
+
+#desktop-notice{position:fixed;left:12px;bottom:12px;max-width:calc(100% - 40px);padding:6px 8px;background:#1c1728f2;border:1px solid #ffffff66;border-radius:4px;font:14px "AC Easel Unifont",Menlo,monospace;overflow-wrap:anywhere;pointer-events:none;z-index:20}
+
+#piece[hidden],#media-preview[hidden]{display:none!important}
+#media-preview{position:absolute;inset:0;overflow:hidden;color:white;font:10px monospace;text-align:center}
+#media-preview img,#media-preview iframe{width:100%;height:100%;object-fit:contain;border:0;image-rendering:pixelated}
+#media-preview canvas{max-width:100%;max-height:100%;object-fit:contain;image-rendering:pixelated}
+#media-preview button{font:10px monospace}
+#media-preview pre{margin:4px;text-align:left;white-space:pre-wrap;font:6px monospace}
+
+html,body{background:var(--easel-background,#463264);color:var(--easel-foreground,#fff)}
+.fullscreen-control,#desktop-notice{background:var(--easel-background,#1c1728);color:var(--easel-foreground,#fff);border-color:var(--easel-foreground,#ffffff66)}
+#version{color:var(--easel-foreground,#fff);text-shadow:none}
+
+.fullscreen-control:hover{background:var(--easel-background,#463264);border-color:var(--easel-accent,#fff)}
+
+#terminal[data-pointer="link"] .xterm, #terminal[data-pointer="link"] .xterm-screen{cursor:pointer}
+
+#qr-card{appearance:none;padding:5px;border:1px solid transparent;border-radius:3px;background:var(--easel-background,#463264);color:inherit;font:inherit;cursor:pointer;box-shadow:inset 1px 1px #ffffff40,inset -1px -1px #0005,1px 2px 2px #0004}
+#qr-card:hover{filter:brightness(1.06)}
+#qr-card:active{transform:translate(1px,1px);box-shadow:inset 1px 1px #0005,inset -1px -1px #ffffff30}
+#qr-card:focus-visible{outline:2px solid var(--easel-accent,#ff64ff);outline-offset:3px}
+#qr-label{display:block}

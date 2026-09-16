@@ -36,7 +36,7 @@ test("only visible header labels are clickable across terminal sizes", () => {
 test("about is a scrollable map that preserves transcript and fits small windows", () => {
   const state = { account: "@jeffrey", entries: [{ kind: "user", text: "keep my drawing" }], about: true };
   const top = renderFrame(state, 80, 24, false);
-  assert.match(top, /You → model → working piece/);
+  assert.match(top, /You → model → artifact/);
   assert.doesNotMatch(top, /keep my drawing/);
   assert.equal(state.entries[0].text, "keep my drawing");
   const bottom = renderFrame({ ...state, aboutScroll: 1000 }, 40, 12, false);

@@ -55,10 +55,10 @@ test("he settles, then only blinks", () => {
     assert.ok(mascotNextFrameIn(ms) > 0, `always schedules forward at ${ms}ms`);
 });
 
-test("the head is the mark and carries its own colour", () => {
+test("the donkey ears carry their own colour", () => {
   const { rows } = mascotRows(3000);
   assert.equal(rows.length, MASCOT_HEIGHT);
   assert.equal(rows[0].tone, "handle", "the head is painted in the mark's pink");
   assert.ok(rows.slice(1).every((row) => row.tone === "soft"));
-  assert.match(rows[0].text, /[●▪]/, "the head is a dot");
+  assert.match(rows[0].text, /\/\\/, "the donkey has long ears");
 });

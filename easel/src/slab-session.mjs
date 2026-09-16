@@ -46,6 +46,7 @@ export class SlabSession {
     this.sessionId = sessionId;
     this.stateDir = join(slabHome, "state");
     this.active = join(this.stateDir, "active-prompts", sessionId);
+    this.fleetActive = process.env.EASEL_DESKTOP === "1" ? join(homedir(), ".local/share/slab/state/active-prompts", sessionId) : null;
     this.awaiting = join(this.stateDir, "awaiting-prompts", sessionId);
     this.running = join(this.stateDir, "running-tools", sessionId);
     this.enabled = false;
@@ -83,6 +84,10 @@ export class SlabSession {
       for (const name of ["active-prompts", "awaiting-prompts", "running-tools"]) {
         mkdirSync(join(this.stateDir, name), { recursive: true, mode: 0o700 });
       }
+      if(this.fleetActive) {
+        try { mkdirSync(dirname(this.fleetActive),{recursive:true,mode:0o700}); }
+        catch { this.fleetActive = null; } // Standalone Easel does not require Slab.
+      }
       this.enabled = true;
       this.#write();
     } catch {
@@ -103,15 +108,22 @@ export class SlabSession {
   // The live piece and its scan address. Called whenever either changes — a
   // session renames its piece, or switches runtime — so the code on the rock
   // always points at what is actually running.
-  live(piece = "", scanUrl = "") {
+  live(piece = "", scanUrl = "", channel = "") {
     this.#update({
       piece: String(piece || ""),
+      piece_channel: String(channel || ""),
       scan_url: String(scanUrl || ""),
     });
   }
 
+  published() { this.#update({piece_published_at:new Date().toISOString()}); }
+
   revision(revision) {
     this.#update({ piece_version: revision.version, piece_revision: revision.revision, piece_updated_at: revision.updatedAt });
+  }
+
+  artifact(kind, preview) {
+    this.#update({ artifact_kind: kind, artifact_preview: preview });
   }
 
   // Where the file stands against what the address is serving:
@@ -169,6 +181,7 @@ export class SlabSession {
   close() {
     this.#stopHeartbeat();
     this.#remove(this.active);
+    if(this.fleetActive)this.#remove(this.fleetActive);
     this.#remove(this.awaiting);
     this.#remove(this.running);
     this.enabled = false;
@@ -200,6 +213,11 @@ export class SlabSession {
     try {
       writeFileSync(temporary, `${JSON.stringify(this.record)}\n`, { mode: 0o600 });
       renameSync(temporary, this.active);
+      if(this.fleetActive && this.fleetActive!==this.active) {
+        const mirror=`${this.fleetActive}.${this.pid}.tmp`;
+        writeFileSync(mirror, `${JSON.stringify({...this.record, host_app:"computer.aesthetic.easel"})}\n`,{mode:0o600});
+        renameSync(mirror,this.fleetActive);
+      }
     } catch {
       this.#remove(temporary);
     }

@@ -9,8 +9,8 @@ end
 
 functions --erase ac easel
 
-function ac --description 'Open Easel'
-    command $HOME/.local/bin/easel $argv
+function ac --description 'Open Easel in this terminal'
+    command $HOME/.local/bin/ac $argv
 end
 
 function easel --description 'Open Easel'

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { createInterface } from "node:readline";
 
+import { codexMcpArgs } from "./tools.mjs";
 import { VERSION } from "./version.mjs";
 
 
@@ -10,21 +11,23 @@ export class AppServer extends EventEmitter {
     cwd,
     resumeThreadId = "",
     command = "codex",
-    args = ["app-server", "--stdio"],
+    args = ["app-server", "--listen", "stdio://"],
     environment = {},
     developerInstructions = "",
     // Empty means "whatever ~/.codex/config.toml says", which is how this
     // bridge has always chosen a model. A name here overrides it per thread.
     model = "",
+    effort = "",
   }) {
     super();
     this.cwd = cwd;
     this.command = command;
-    this.args = args;
+    this.args = args.includes("app-server") ? [...args, ...codexMcpArgs(cwd)] : args;
     this.environment = environment;
     this.resumeThreadId = resumeThreadId;
     this.developerInstructions = developerInstructions;
     this.model = model;
+    this.effort = effort;
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
@@ -121,6 +124,7 @@ export class AppServer extends EventEmitter {
     const result = await this.request("turn/start", {
       threadId: this.threadId,
       input: [{ type: "text", text }],
+      ...(this.effort ? { effort: this.effort } : {}),
     });
     this.turnId = result.turn.id;
     return result;

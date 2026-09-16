@@ -53,7 +53,10 @@ test("the API map is built and answers the questions sessions actually asked", (
   assert.match(button, /ui\.Button/);
   assert.match(apiLookup(map, "zzzznotathing"), /Nothing in the API map/);
   // No query lists everything, one per line.
-  assert.ok(apiLookup(map, "").split("\n").length === map.entries.length);
+  const index = apiLookup(map, "").split("\n");
+  assert.ok(index.length >= map.entries.length);
+  assert.equal(new Set(index.map(line => line.split(" — ")[0])).size, index.length);
+  assert.ok(index.some(line => line.startsWith("typeface — ")));
 });
 
 test("outline reads a flat piece as symbols with spans", () => {
@@ -105,7 +108,7 @@ test("the JSON-RPC surface: initialize, list, call, unknown", () => {
   assert.deepEqual(init.result.capabilities, { tools: {} });
   assert.equal(handle({ jsonrpc: "2.0", method: "notifications/initialized" }, context), null);
   const list = handle({ jsonrpc: "2.0", id: 2, method: "tools/list" }, context);
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["ac_preview", "ac_frame", "ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
   assert.equal(list.result.tools, TOOLS);
   const call = handle({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "ac_api", arguments: { query: "wipe" } } }, context);
   assert.match(call.result.content[0].text, /^wipe\n/);

@@ -1,0 +1,14 @@
+{
+  "source": "https://assets.aesthetic.computer/type/unifont-16.0.03.bdf.gz",
+  "upstream": "https://unifoundry.com/pub/unifont/unifont-16.0.03/font-builds/unifont-16.0.03.bdf.gz",
+  "version": "16.0.03",
+  "family": "AC Easel Unifont",
+  "glyphs": 2923,
+  "license": "SIL OFL 1.1",
+  "selection": "U+0020..052F and U+2000..2BFF; glyph width/advance <= 8; omitted glyphs use system fallback",
+  "sha256": {
+    "unifont-16.0.03.bdf.gz": "7f3d1664ac1c051f59a1a1360dd654f78d82c246a688c342e863cec7f6ba95d4",
+    "ac-easel-unifont.ttf": "f0c5863959306f753a701471ec2f73b9c20e8ad56b942a124678714acd4f8d38",
+    "ac-easel-unifont.woff": "3fb7889f7512dbd1f62118b50be2a956bf35c917b94da3818d6846614fa4718a"
+  }
+}

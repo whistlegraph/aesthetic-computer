@@ -11,13 +11,12 @@
 // your own phone. Neither is a glance. A preview that is simply always up
 // costs one decision fewer every time you want to know what you just made.
 //
-// What it shows is `scan_url` — the same address the rock encodes — so the two
-// surfaces can never disagree about which piece this session is about. It runs
-// at display rate: a piece is judged by how it moves, and a card that shows
-// four frames a second answers "is it moving?" but never "is it right?".
+// Pieces use `scan_url`, the address the rock encodes. Pictures, sounds, and
+// papers use the local versioned `artifact_preview`; these have no phone QR.
+// A successful artifact load updates the visible version and refresh feedback.
 //
-// The piece runs at the pane's own viewport the whole time. The resting card is
-// that whole viewport composited down to thumbnail size, and pointing at the
+// The piece runs at one fixed logical viewport the whole time. The resting card is
+// that whole viewport composited down to thumbnail size, and command-clicking the
 // card scales it back up to 1:1 over the pane. Nothing is resized on the way: a
 // live resize of a web view costs a reframe and a black frame or two, and the
 // old card paid both on every hover.
@@ -41,6 +40,7 @@
 import AppKit
 import SwiftUI
 import WebKit
+import PDFKit
 
 /// Where the file on disk stands against what the previewed address is serving.
 /// Mirrors `flow` in easel's `slab-session.mjs`; unknown strings read as `live`
@@ -64,16 +64,18 @@ struct PromptPreviewState: Equatable {
     var paused = false
     var piece: String = ""
     var version = 0
+    var previewError = false
 
     /// Nothing to report: the card is showing the current piece, painting, and
     /// the file agrees with it. The overwhelmingly common case, and the one the
     /// chrome says NOTHING about — a badge reading "live" over every pane all
     /// day is a label you stop seeing, which makes the four states that matter
     /// harder to notice, not easier. Silence is the resting state.
-    var quiet: Bool { flow == .live && !working && !paused }
+    var quiet: Bool { flow == .live && !working && !paused && !previewError }
 
     /// Only spoken when `quiet` is false.
     var label: String {
+        if previewError { return "preview unavailable" }
         if paused { return "paused" }
         if working { return "working" }
         switch flow {
@@ -140,21 +142,13 @@ private struct PromptPreviewBadge: View {
 }
 
 final class PromptPreview {
-    /// The resting card. Deliberately bigger than the rock: a stone reads as a
-    /// status light at 56 points, but a piece has to be recognisable as itself,
-    /// and below about this it is a texture.
-    static let restSize = CGSize(width: 128, height: 96)
+    /// Desktop's compact reference is eleven 16-point text units (176 points).
+    /// Slab has no terminal cell metrics here, so this is a bounded approximation;
+    /// narrow panes reduce it and the artifact aspect determines its height.
+    static let restSize = CGSize(width: 176, height: 120)
     /// Room left between the open card and its pane's bottom-right, so the
     /// terminal never looks completely papered over.
     private static let hoverMargin: CGFloat = 12
-
-    /// How long a pane has to hold still before the web view is reframed to
-    /// it. Live-resize ticks arrive every frame; this collapses a drag into one
-    /// reframe at the end of it.
-    private static let resizeSettle: TimeInterval = 0.3
-    /// How long the snapshot stays over the reframed web view. The runtime's own
-    /// resize handler debounces, then repaints; this covers both.
-    private static let coverHold: TimeInterval = 0.6
 
     /// Inset from the pane's left edge, and drop below its title bar. The card
     /// parks *inside* the pane rather than over the title: the top-left of a
@@ -177,7 +171,7 @@ final class PromptPreview {
 
     /// A radius this small reads as a cut corner rather than a rounded one,
     /// which is what a screen on a desk looks like.
-    private static let cardRadius: CGFloat = 3
+    private static let cardRadius: CGFloat = 0
 
     /// How long the card takes to open or close.
     private static let openDuration: TimeInterval = 0.16
@@ -192,7 +186,6 @@ final class PromptPreview {
     private let stage = PromptPreviewStage()
     /// The last frame, held over the stage while the web view is reframed.
     private let cover = NSImageView()
-    private var settleTimer: Timer?
     private var coverTimer: Timer?
     private let badgeHost: NSHostingView<PromptPreviewBadge>
     private let border = CALayer()
@@ -205,13 +198,26 @@ final class PromptPreview {
     /// The address currently loaded, so a `sync` that changes nothing does not
     /// restart the piece — a reload is a visible flinch and a lost frame.
     private var loadedURL = ""
+    private var requestedArtifact: LocalArtifactPreview?
+    private var readyArtifact: LocalArtifactPreview?
+    private var artifactLoading = false
+    private var artifactFailed = false
+    private var artifactDirectory: URL?
+    private var artifactNavigation: WKNavigation?
     private var expanded = false
+    private var pointerInside = false
+    var onExpansionChanged: (() -> Void)?
+    var isExpanded: Bool { expanded }
+    /// Hover enlargement matches the desktop without changing the live viewport.
+    private var expandsOnHover: Bool {
+        UserDefaults.standard.string(forKey: "previewInteractionMode") != "compact"
+    }
+    private var displayAspect: CGFloat = 1.5
     private var state = PromptPreviewState() { didSet { if state != oldValue { redrawChrome() } } }
 
     /// Where the card is on screen, in AppKit coordinates. The controller's
-    /// global pointer monitor tests this; the window itself never takes a
-    /// mouse event, so a preview can never swallow a click meant for the
-    /// terminal underneath it.
+    /// global pointer monitor tests this and enables mouse delivery only inside
+    /// the visible card, never across the transparent backing window.
     private(set) var hitRect = NSRect.zero
 
     /// The card in CG screen space (top-left origin) — the coordinate system
@@ -226,8 +232,8 @@ final class PromptPreview {
     /// Kept from the last `place` so a hover can recompute `cgRect` without
     /// waiting for the next tick to hand the height back.
     private var screenHeightForCG: CGFloat = 0
-    /// The size the piece is actually rendered at — the pane's own viewport,
-    /// less the card's insets. The web view is only ever this size, so opening
+    /// Available visual space. The web view keeps its own fixed logical size,
+    /// independent of this containing window, so opening
     /// the card reframes nothing: what was cropped is simply shown.
     private var viewport = PromptPreview.restSize
 
@@ -250,7 +256,7 @@ final class PromptPreview {
               }
             });
             """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = PromptPreviewWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         webView.autoresizingMask = []
 
@@ -264,9 +270,9 @@ final class PromptPreview {
         // AppKit's window shadow is a soft, untunable bloom. Ours is drawn.
         window.hasShadow = false
         window.level = NSWindow.Level(Int(CGWindowLevelForKey(.normalWindow)) + 1)
-        // Click-through at rest, like the rock's render surface: hover is
-        // discovered by the controller's pointer monitor. Open, the card takes
-        // the pointer — see `setHovered`.
+        // The backing window is larger than the card. The controller enables
+        // input only while the pointer is over the visible card, at either size.
+        // That keeps its transparent area from swallowing terminal clicks.
         window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
@@ -311,7 +317,19 @@ final class PromptPreview {
         card.addSubview(badgeHost)
         content.addSubview(card)
         window.contentView = content
-        refreshBridge.onReady = { [weak self] in self?.celebrateRefresh() }
+        window.onPrimaryClick = { [weak self] in self?.takeKeyboard() }
+        webView.navigationDelegate = refreshBridge
+        refreshBridge.onReady = { [weak self] in
+            guard let self else { return }
+            if self.requestedArtifact != nil { self.artifactReady() }
+            else { self.celebrateRefresh() }
+        }
+        refreshBridge.onFailure = { [weak self] in self?.artifactFailure() }
+        refreshBridge.onFinish = { [weak self] navigation in
+            guard let self, let navigation, navigation === self.artifactNavigation,
+                  self.requestedArtifact?.mime == "application/pdf" else { return }
+            self.artifactReady()
+        }
         layoutWindow()
         layoutCard(animated: false)
         redrawChrome()
@@ -320,10 +338,26 @@ final class PromptPreview {
     /// Point the card at an address. `scanURL` is the bare host+path the rock
     /// encodes, so the scheme and the preview's own chrome-suppressing
     /// parameters are added here rather than asked of the session.
-    func load(scanURL: String) {
+    private var publicationToken = ""
+    func load(scanURL: String, publication: String = "") {
         let trimmed = scanURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != loadedURL else { return }
+        guard !trimmed.isEmpty else { return }
+        if trimmed == loadedURL {
+            if !publication.isEmpty && publication != publicationToken { publicationToken = publication; webView.reloadFromOrigin() }
+            return
+        }
+        publicationToken = publication
+        requestedArtifact = nil
+        readyArtifact = nil
+        artifactLoading = false
+        artifactFailed = false
+        refreshBridge.localDirectory = nil
+        refreshBridge.nonce = nil
+        cover.isHidden = true
         loadedURL = trimmed
+        setLogicalSize(CGSize(width: 128 * displayAspect, height: 128))
+        layoutWindow()
+        layoutCard(animated: false)
         // The rock encodes prompt.ac because a QR's payload is measured in
         // bytes and eleven of them decide whether the symbol needs a bigger
         // grid. Nothing is scanning this card, so it loads the address AC calls
@@ -344,7 +378,102 @@ final class PromptPreview {
         webView.load(URLRequest(url: target))
     }
 
-    func setState(_ next: PromptPreviewState) { state = next }
+    /// Stage only the nominated output. HTML is generated here, never loaded
+    /// from an authored project, and the WebKit read grant covers this copy only.
+    func loadArtifact(_ artifact: LocalArtifactPreview) {
+        guard artifact.key != loadedURL else { return }
+        loadedURL = artifact.key
+        requestedArtifact = artifact
+        artifactFailed = false
+        artifactLoading = true
+        let nonce = UUID().uuidString
+        var stagedDirectory: URL?
+        do {
+            let bytes = try artifact.readValidatedFile()
+            let dimensions = artifact.dimensions(bytes)
+            if artifact.kind == "picture", NSImage(data: bytes) == nil { throw CocoaError(.fileReadCorruptFile) }
+            if artifact.mime == "application/pdf", (PDFDocument(data: bytes)?.pageCount ?? 0) == 0 { throw CocoaError(.fileReadCorruptFile) }
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("slab-artifact-\(UUID().uuidString)", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                   attributes: [.posixPermissions: 0o700])
+            stagedDirectory = directory
+            let target: URL
+            if artifact.mime == "application/pdf" {
+                target = directory.appendingPathComponent("artifact.pdf")
+                try bytes.write(to: target, options: .atomic)
+            } else {
+                let text: String?
+                if artifact.kind == "paper" {
+                    guard bytes.count <= 2 * 1024 * 1024, let decoded = String(data: bytes, encoding: .utf8) else { throw CocoaError(.fileReadCorruptFile) }
+                    text = decoded
+                } else {
+                    text = nil
+                    try bytes.write(to: directory.appendingPathComponent("artifact"), options: .atomic)
+                }
+                target = directory.appendingPathComponent("index.html")
+                let waveform = artifact.kind == "sound" ? LocalArtifactPreview.waveform(bytes) : nil
+                try artifact.html(text: text, waveform: waveform, nonce: nonce).write(to: target, atomically: true, encoding: .utf8)
+            }
+            let start = { [weak self] in
+                guard let self, self.requestedArtifact == artifact else {
+                    try? FileManager.default.removeItem(at: directory); return
+                }
+                if let previous = self.artifactDirectory { try? FileManager.default.removeItem(at: previous) }
+                self.setLogicalSize(dimensions)
+                self.layoutWindow()
+                self.layoutCard(animated: false)
+                self.artifactDirectory = directory
+                self.refreshBridge.localDirectory = directory
+                self.refreshBridge.nonce = nonce
+                self.artifactNavigation = self.webView.loadFileURL(target, allowingReadAccessTo: directory)
+            }
+            coverTimer?.invalidate()
+            if readyArtifact != nil && cover.isHidden {
+                webView.takeSnapshot(with: nil) { [weak self] image, _ in
+                    guard let self, self.requestedArtifact == artifact else {
+                        try? FileManager.default.removeItem(at: directory); return
+                    }
+                    if let image { self.cover.image = image; self.cover.isHidden = false }
+                    start()
+                }
+            } else { start() }
+        } catch {
+            if let stagedDirectory { try? FileManager.default.removeItem(at: stagedDirectory) }
+            artifactFailure()
+        }
+    }
+
+    private func artifactReady() {
+        guard let artifact = requestedArtifact, artifactLoading else { return }
+        readyArtifact = artifact
+        artifactLoading = false
+        artifactFailed = false
+        cover.isHidden = true
+        cover.image = nil
+        state.version = artifact.version
+        state.piece = artifact.kind.capitalized
+        state.previewError = false
+        celebrateRefresh()
+    }
+
+    private func artifactFailure() {
+        guard requestedArtifact != nil else { return }
+        artifactLoading = false
+        artifactFailed = true
+        state.previewError = true
+        // The snapshot of the last successful artifact stays visible.
+    }
+
+    func setState(_ next: PromptPreviewState) {
+        var resolved = next
+        if requestedArtifact != nil {
+            resolved.version = readyArtifact?.version ?? 0
+            resolved.piece = (readyArtifact ?? requestedArtifact)?.kind.capitalized ?? next.piece
+            resolved.working = next.working || artifactLoading
+            resolved.previewError = artifactFailed
+        }
+        state = resolved
+    }
 
     /// Triggered by the runtime's boot completion, not by token arrivals or
     /// upload progress. All motion is composited; no permanent animation loop.
@@ -414,32 +543,38 @@ final class PromptPreview {
         ]
     }
 
-    /// Open under the pointer and close when it leaves. The card keeps its
-    /// top-left corner, so it opens *into* the pane rather than walking across
-    /// the screen — and it opens onto the piece already running at the pane's
-    /// own size, so nothing reframes, reloads or goes black on the way.
-    ///
-    /// Open, the card is live: it takes the pointer, and it takes the keyboard
-    /// too, so the piece under the pointer is the one being played. Closing
-    /// gives both back to whoever had them.
+    /// Pointer ownership is independent of enlargement: left-clicks interact
+    /// with the live piece even while compact. Hover enlarges the presentation.
     func setHovered(_ hovering: Bool) {
-        guard hovering != expanded else { return }
-        expanded = hovering
+        pointerInside = hovering
+        window.ignoresMouseEvents = !hovering
+        if expandsOnHover { setExpanded(hovering) }
+    }
+
+    private func setExpanded(_ value: Bool) {
+        guard value != expanded else { return }
+        expanded = value
         layoutCard(animated: true)
         redrawChrome()
-        window.ignoresMouseEvents = !hovering
-        if hovering {
-            if !window.isVisible { window.orderFrontRegardless() }
-            let front = NSWorkspace.shared.frontmostApplication
-            if front?.processIdentifier != ProcessInfo.processInfo.processIdentifier { yieldTo = front }
-            NSApp.activate(ignoringOtherApps: true)
-            window.makeKey()
-            window.makeFirstResponder(webView)
-        } else {
-            if window.isKeyWindow { window.resignKey() }
-            if let back = yieldTo, !back.isTerminated { back.activate() }
-            yieldTo = nil
-        }
+        pointerInside = hitRect.contains(NSEvent.mouseLocation)
+        window.ignoresMouseEvents = !pointerInside
+        if !value { releaseKeyboard() }
+        onExpansionChanged?()
+    }
+
+    private func takeKeyboard() {
+        let front = NSWorkspace.shared.frontmostApplication
+        if front?.processIdentifier != ProcessInfo.processInfo.processIdentifier { yieldTo = front }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKey()
+        window.makeFirstResponder(webView)
+    }
+
+    private func releaseKeyboard() {
+        if window.isKeyWindow { window.resignKey() }
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier,
+           let back = yieldTo, !back.isTerminated { back.activate() }
+        yieldTo = nil
     }
 
     /// Park the card in the pane's top-left, under the title bar. `bounds` is
@@ -450,8 +585,11 @@ final class PromptPreview {
         let origin = NSPoint(x: b.0 + Self.leftInset,
                              y: screenHeight - (b.1 + Self.dropBelowTitle))
         let size = CGSize(width: b.2, height: b.3)
+        let screen = NSScreen.screens.first(where: { $0.frame.contains(origin) }) ?? NSScreen.main
+        let aspect = screen.map { $0.frame.width / max(1, $0.frame.height) } ?? 1.5
         guard origin != paneOrigin || size != paneSize || screenHeight != screenHeightForCG
-        else { return }
+                || aspect != displayAspect else { return }
+        displayAspect = aspect
         paneOrigin = origin
         paneSize = size
         screenHeightForCG = screenHeight
@@ -462,68 +600,33 @@ final class PromptPreview {
     /// The piece renders at the pane's viewport: what the terminal shows, less
     /// the card's own insets. Never smaller than the resting card, so a tiny
     /// pane still gets a whole card rather than a sliver.
-    private static func viewport(in pane: CGSize) -> CGSize {
-        let width = max(restSize.width, (pane.width - leftInset - hoverMargin).rounded(.down))
-        let height = max(restSize.height, (pane.height - dropBelowTitle - hoverMargin).rounded(.down))
-        return CGSize(width: width, height: height)
+    private static func viewport(in pane: CGSize, aspect: CGFloat) -> CGSize {
+        let availableWidth = max(restSize.width, pane.width - leftInset - hoverMargin)
+        let availableHeight = max(restSize.height, pane.height - dropBelowTitle - hoverMargin)
+        let width = min(availableWidth, availableHeight * aspect).rounded(.down)
+        return CGSize(width: width, height: (width / aspect).rounded(.down))
     }
 
-    /// Size the window to the viewport, and ask for the web view to follow —
-    /// later. Before anything is loaded the stage takes the size at once, since
-    /// there is no frame to protect; after that the reframe waits for the pane
-    /// to hold still (`settleResize`), and until then the stage is only scaled.
+    /// Resizing the host only scales the existing surface; it never reflows WK.
     private func layoutWindow() {
-        viewport = Self.viewport(in: paneSize)
+        let size = stageSize
+        let aspect = size.width > 0 && size.height > 0 ? size.width / size.height : displayAspect
+        viewport = Self.viewport(in: paneSize, aspect: aspect)
         let frame = NSRect(x: paneOrigin.x,
                            y: paneOrigin.y - viewport.height - Self.shadowDrop,
                            width: viewport.width + Self.shadowDrop,
                            height: viewport.height + Self.shadowDrop)
         if window.frame != frame { window.setFrame(frame, display: false) }
-        guard stageSize != viewport else { settleTimer?.invalidate(); settleTimer = nil; return }
-        if loadedURL.isEmpty {
-            webView.frame = NSRect(origin: .zero, size: viewport)
-            stage.viewportSize = viewport
-            return
-        }
-        settleTimer?.invalidate()
-        settleTimer = Timer.scheduledTimer(withTimeInterval: Self.resizeSettle, repeats: false) { [weak self] _ in
-            self?.settleResize()
-        }
+        if loadedURL.isEmpty { setLogicalSize(CGSize(width: 128 * displayAspect, height: 128)) }
     }
 
-    /// The size the web view is actually rendering at. Equal to `viewport`
-    /// except during and just after a pane resize.
     private var stageSize: CGSize { webView.frame.size }
 
-    /// The one reframe a resize costs, taken under a snapshot of the frame the
-    /// card is showing right now. The snapshot is what the eye sees until the
-    /// piece has painted at the new size; the black the web view shows in
-    /// between happens underneath it.
-    private func settleResize() {
-        settleTimer = nil
-        let target = viewport
-        guard stageSize != target else { return }
-        let reframe = { [weak self] in
-            guard let self else { return }
-            self.webView.frame = NSRect(origin: .zero, size: target)
-            self.stage.viewportSize = target
-            self.layoutCard(animated: false)
-            self.coverTimer?.invalidate()
-            self.coverTimer = Timer.scheduledTimer(withTimeInterval: Self.coverHold, repeats: false) { [weak self] _ in
-                self?.cover.isHidden = true
-                self?.cover.image = nil
-                self?.coverTimer = nil
-            }
-        }
-        guard window.isVisible else { reframe(); return }
-        webView.takeSnapshot(with: nil) { [weak self] image, _ in
-            guard let self else { return }
-            if let image {
-                self.cover.image = image
-                self.cover.isHidden = false
-            }
-            reframe()
-        }
+    private func setLogicalSize(_ size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        webView.frame = NSRect(origin: .zero, size: size)
+        stage.viewportSize = size
+        layoutCard(animated: false)
     }
 
     /// How far the stage is scaled: to fill the viewport when open (one, once
@@ -534,7 +637,8 @@ final class PromptPreview {
         guard s.width > 0, s.height > 0 else { return 1 }
         return expanded
             ? min(viewport.width / s.width, viewport.height / s.height)
-            : min(1, Self.restSize.width / s.width, Self.restSize.height / s.height)
+            : min(1, min(Self.restSize.width, max(96, paneSize.width * 0.26)) / s.width,
+                  Self.restSize.height / s.height)
     }
 
     /// The card's size right now: the stage at `scale` — the whole viewport
@@ -542,7 +646,7 @@ final class PromptPreview {
     /// than letterboxing it. Its top-left never moves.
     private var cardSize: CGSize {
         let s = scale, size = stageSize
-        return CGSize(width: (size.width * s).rounded(), height: (size.height * s).rounded())
+        return CGSize(width: size.width * s, height: size.height * s)
     }
 
     /// Fit the card, its shadow and its border to `cardSize`, and scale the
@@ -619,18 +723,161 @@ final class PromptPreview {
             if !window.isVisible { window.orderFrontRegardless() }
         } else if window.isVisible {
             setHovered(false)
+            setExpanded(false)
+            releaseKeyboard()
             window.orderOut(nil)
         }
+    }
+
+    // Mirrors easel/src/frame-capture-script.mjs; no request-supplied JavaScript.
+    private static let frameCaptureExpression = #"""
+(()=>{
+ const root=document.getElementById('aesthetic-computer');
+ if(!root)throw new Error('AC display is not ready');
+ const visible=c=>c&&getComputedStyle(c).display!=='none';
+ if(visible(root.querySelector('canvas[data-type="webgpu"]')))throw new Error('WebGPU capture is not supported by this canvas reader');
+ const composite=root.querySelector('canvas[data-type="webgl-composite"]');
+ const gpu=visible(composite)?composite:null;
+ const canvas=gpu||[...root.children].find(c=>c.tagName==='CANVAS'&&!c.dataset.type);
+ if(!canvas)throw new Error('AC software canvas is unavailable');
+ const width=canvas.width,height=canvas.height;
+ if(!width||!height||width>2048||height>2048||width*height>1048576)throw new Error('Canvas exceeds capture limit (1 megapixel)');
+ let surface=canvas;
+ if(gpu){const gl=gpu.getContext('webgl2')||gpu.getContext('webgl');if(!gl?.getContextAttributes()?.preserveDrawingBuffer)throw new Error('WebGL buffer is not preserved for capture');surface=document.createElement('canvas');surface.width=width;surface.height=height;surface.getContext('2d').drawImage(gpu,0,0);}
+ const ctx=surface.getContext('2d');if(!ctx)throw new Error('Pixel buffer unavailable');
+ const data=ctx.getImageData(0,0,width,height).data;
+ let raw='';for(let at=0;at<data.length;at+=8192)raw+=String.fromCharCode(...data.subarray(at,at+8192));
+ return {width,height,rgba:btoa(raw),png:surface.toDataURL('image/png').split(',')[1],source:gpu?'webgl-composite':'software-canvas',renderedRevisionVerified:false,url:location.href};
+})()
+"""#
+
+    private var framePollAt = Date.distantPast
+    private var frameCaptureID: String?
+    private var frameContext = ""
+
+    /// A private request broker, driven by the existing overlay refresh tick.
+    /// Requests select an identity only; they never supply code or output paths.
+    func pollFrameRequests(cwd: String, channel: String, revision: String) {
+        frameContext = "\(cwd)\n\(channel)\n\(revision)"
+        guard !channel.isEmpty, !revision.isEmpty, cwd.hasPrefix("/"),
+              Date().timeIntervalSince(framePollAt) >= 0.25, frameCaptureID == nil else { return }
+        framePollAt = Date()
+        let base = URL(fileURLWithPath: cwd).appendingPathComponent(".easel", isDirectory: true)
+        let requests = base.appendingPathComponent("frame-requests", isDirectory: true)
+        let responses = base.appendingPathComponent("frame-responses", isDirectory: true)
+        guard Self.frameDirectoryIsSafe(base), Self.frameDirectoryIsSafe(requests),
+              Self.frameDirectoryIsSafe(responses),
+              let entries = try? FileManager.default.contentsOfDirectory(at: requests, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]) else { return }
+        for file in entries.prefix(64) {
+            let id = file.deletingPathExtension().lastPathComponent
+            guard file.pathExtension == "json", UUID(uuidString: id) != nil,
+                  !FileManager.default.fileExists(atPath: responses.appendingPathComponent(id + ".json").path),
+                  let info = try? file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]),
+                  info.isRegularFile == true, info.isSymbolicLink != true, (info.fileSize ?? Int.max) <= 4096,
+                  let data = try? Data(contentsOf: file),
+                  let request = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  request["id"] as? String == id,
+                  request["channel"] as? String == channel else { continue }
+            let fail: (String) -> Void = { error in
+                Self.writeFrameResponse(["id": id, "error": error], id: id, directory: responses)
+            }
+            let created: Date?
+            if let ms = request["createdAt"] as? Double {
+                created = Date(timeIntervalSince1970: ms / 1000)
+            } else if let text = request["createdAt"] as? String {
+                let format = ISO8601DateFormatter()
+                format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                created = format.date(from: text) ?? ISO8601DateFormatter().date(from: text)
+            } else { created = nil }
+            guard let created, Date().timeIntervalSince(created) >= -1,
+                  Date().timeIntervalSince(created) <= 15 else { fail("Frame request expired."); continue }
+            guard request["revision"] as? String == revision else { fail("Preview revision changed."); continue }
+            guard requestedArtifact == nil, !webView.isLoading else { fail("Piece preview is not ready."); continue }
+            guard Self.frameURLMatches(webView.url, channel: channel) else {
+                fail("Preview URL does not match the current piece channel."); continue
+            }
+            frameCaptureID = id
+            let context = frameContext
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+                guard let self, self.frameCaptureID == id else { return }
+                self.frameCaptureID = nil
+                fail("Canvas capture timed out.")
+            }
+            webView.evaluateJavaScript(Self.frameCaptureExpression) { [weak self] value, error in
+                guard let self, self.frameCaptureID == id else { return }
+                self.frameCaptureID = nil
+                guard self.frameContext == context, self.requestedArtifact == nil else { fail("Preview changed during capture."); return }
+                if let error {
+                    let detail = (error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String
+                    fail(String((detail ?? "Canvas capture failed.").prefix(500))); return
+                }
+                guard let result = value as? [String: Any] else { fail("Canvas capture failed."); return }
+                guard Self.frameURLMatches(self.webView.url, channel: channel),
+                      let capturedURL = result["url"] as? String,
+                      Self.frameURLMatches(URL(string: capturedURL), channel: channel) else {
+                    fail("Preview navigated during capture."); return
+                }
+                if let message = result["error"] as? String { fail(String(message.prefix(500))); return }
+                guard let source = result["source"] as? String,
+                      ["software-canvas", "webgl-composite"].contains(source),
+                      let width = result["width"] as? Int, let height = result["height"] as? Int,
+                      width > 0, height > 0, width <= 1_048_576 / height,
+                      let png = result["png"] as? String, png.count <= 8_000_000,
+                      let rgba = result["rgba"] as? String, rgba.count <= 6_000_000,
+                      let pixels = Data(base64Encoded: rgba), pixels.count == width * height * 4,
+                      let image = Data(base64Encoded: png), image.starts(with: [137,80,78,71,13,10,26,10]) else {
+                    fail("Canvas returned an invalid or oversized frame."); return
+                }
+                Self.writeFrameResponse(["id": id, "channel": channel, "revision": revision,
+                    "capturedAt": ISO8601DateFormatter().string(from: Date()), "width": width, "height": height,
+                    "png": png, "rgba": rgba, "source": source, "renderedRevisionVerified": false],
+                    id: id, directory: responses)
+            }
+            break
+        }
+    }
+
+    private static func frameURLMatches(_ url: URL?, channel: String) -> Bool {
+        guard let url, url.scheme == "https",
+              ["aesthetic.computer", "prompt.ac"].contains(url.host ?? "") else { return false }
+        return url.path == "/@" + channel
+    }
+
+    private static func frameDirectoryIsSafe(_ directory: URL) -> Bool {
+        guard directory.standardizedFileURL.path == directory.resolvingSymlinksInPath().standardizedFileURL.path,
+              let info = try? directory.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+              info.isDirectory == true, info.isSymbolicLink != true else { return false }
+        return true
+    }
+
+    private static func writeFrameResponse(_ response: [String: Any], id: String, directory: URL) {
+        guard frameDirectoryIsSafe(directory), UUID(uuidString: id) != nil,
+              let data = try? JSONSerialization.data(withJSONObject: response) else { return }
+        let temporary = directory.appendingPathComponent(".\(UUID().uuidString).tmp")
+        let destination = directory.appendingPathComponent(id + ".json")
+        guard FileManager.default.createFile(atPath: temporary.path, contents: data,
+                                             attributes: [.posixPermissions: 0o600]) else { return }
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        // moveItem refuses to overwrite an existing file, including a symlink.
+        try? FileManager.default.moveItem(at: temporary, to: destination)
     }
 
     var isOnScreen: Bool { window.isVisible }
 
     func close() {
+        frameCaptureID = nil
+        frameContext = ""
         setHovered(false)
-        settleTimer?.invalidate()
+        setExpanded(false)
+        releaseKeyboard()
+        window.onPrimaryClick = nil
+        onExpansionChanged = nil
         coverTimer?.invalidate()
         webView.stopLoading()
         refreshBridge.onReady = nil
+        refreshBridge.onFailure = nil
+        refreshBridge.onFinish = nil
+        if let artifactDirectory { try? FileManager.default.removeItem(at: artifactDirectory) }
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "previewReady")
         // Point the view at nothing before tearing down: a WKWebView left
         // holding a running page keeps its content process alive past the
@@ -640,12 +887,36 @@ final class PromptPreview {
     }
 }
 
-private final class PromptPreviewRefreshBridge: NSObject, WKScriptMessageHandler {
+private final class PromptPreviewRefreshBridge: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
     var onReady: (() -> Void)?
+    var onFailure: (() -> Void)?
+    var onFinish: ((WKNavigation?) -> Void)?
+    var localDirectory: URL?
+    var nonce: String?
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame, message.body as? String == "ready" else { return }
-        onReady?()
+        guard message.frameInfo.isMainFrame, let body = message.body as? String else { return }
+        if let nonce {
+            if body == "ready:\(nonce)" { onReady?() }
+            if body == "failed:\(nonce)" { onFailure?() }
+        } else if body == "ready" { onReady?() }
+    }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { onFinish?(navigation) }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { onFailure?() }
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { onFailure?() }
+    }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        if let directory = localDirectory {
+            guard let url = navigationAction.request.url, url.isFileURL,
+                  url.standardizedFileURL.path.hasPrefix(directory.standardizedFileURL.path + "/") else {
+                decisionHandler(.cancel); return
+            }
+        }
+        decisionHandler(.allow)
     }
 }
 
@@ -665,6 +936,17 @@ private final class PromptPreviewStage: NSView {
 
 /// A borderless window that can take the keyboard when the piece is played.
 final class PromptPreviewWindow: NSWindow {
+    var onPrimaryClick: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown { onPrimaryClick?() }
+        super.sendEvent(event)
+    }
+}
+
+/// The first left-click both focuses and reaches the piece's actual controls.
+private final class PromptPreviewWebView: WKWebView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }

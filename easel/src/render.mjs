@@ -1,3 +1,4 @@
+import {drawerOptions,drawerIndex} from "./provider-picker.mjs";
 // render.mjs — one frame of the Easel interface.
 //
 // The palette is the Aesthetic Computer prompt's dark scheme (disks/prompt.mjs
@@ -6,7 +7,8 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { MASCOT_HEIGHT, mascotAt, mascotRow } from "./mascot.mjs";
+import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, mascotAt, mascotRow } from "./mascot.mjs";
+import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 
 const ESCAPE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g;
@@ -43,8 +45,15 @@ function cube(rgb) {
   const [r, g, b] = rgb.map(nearest);
   return 16 + 36 * r + 6 * g + b;
 }
-const fg = (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
-const bg = (rgb) => (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
+const followsSlab = process.env.EASEL_THEME === "slab";
+const themeSlots = new Map(Object.entries({text:7,prompt:13,highlight:3,handle:5,soft:6,muted:8,status:2,error:1,you:9,run:11,edit:10}).map(([role,index]) => [palette[role].join(","),index]));
+export function coloredHandle(account,colors,useColor=true,hover=false){
+  if(!useColor)return account;
+  const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
+  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m';
+}
+const fg = (rgb) => followsSlab ? `\x1b[38;5;${themeSlots.get(rgb.join(",")) ?? 7}m` : (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
+const bg = (rgb) => followsSlab ? (rgb === palette.background ? "\x1b[49m" : "\x1b[48;5;13m") : (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
 
 // Slab tints the whole Terminal window by session status — lifted while the
 // machine works, pulled toward the prompt's pink when it wants you, settled
@@ -373,6 +382,35 @@ export function audienceReadout(state, room = 80, useColor = true) {
   };
 }
 
+// Shared geometry for painting and mouse hit testing, in terminal cells.
+export function modelControls(state, columns) {
+  const p=state.settings||state.providerSettings;
+  if(!p)return [];
+  const apply=state.settings?8:0;
+  const size=Math.max(6,Math.floor((columns-2-apply)/3));
+  const values=[p.backend==='ac'?'AC hosted':`BYO ${p.backend}`,p.model||'CLI default',p.effort||'default'];
+  return ['Provider','Model','Effort',...(state.settings?['Apply']:[])].map((label,i)=>({
+    action:`settings:${i}`,x:2+i*size,width:i===3?apply:size,
+    text:clipText(i===3?'Apply ✓':`${label} ${values[i]} ▾`,i===3?apply-1:size-1),
+    tone:['handle','soft','highlight','status'][i],selected:state.settings?.row===i,
+  }));
+}
+function drawerRows(state,columns,rows,useColor) {
+  const p=state.settings;if(!p)return [];
+  const options=drawerOptions(p),index=p.index??drawerIndex(p);
+  const count=Math.min(6,Math.max(1,rows-8),options.length);
+  const start=Math.max(0,Math.min(index-Math.floor(count/2),options.length-count));
+  const width=columns-2;
+  const title=['Provider','Model','Effort','Apply settings'][p.row];
+  const heading=paint(useColor,'muted','─ ')+paint(useColor,'handle bold',title)+paint(useColor,'muted',' '+ '─'.repeat(Math.max(0,width-title.length-3)));
+  return [heading,...options.slice(start,start+count).map((option,i)=>{
+    const selected=start+i===index;
+    const value=[p.backend,p.model,p.effort,'apply'][p.row];
+    const text=clipText(`${selected?'›':' '} ${option.id===value?'●':'○'} ${option.label}`,width);
+    return paint(useColor,selected?'block bold':['handle','soft','highlight','status'][p.row],text.padEnd(width));
+  })];
+}
+
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns);
   const height = Math.max(10, rows);
@@ -405,7 +443,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     leftPlain === title || !account
       ? paint(useColor, state.hover === "about" ? "block bold" : "bold text", leftPlain)
       : `${paint(useColor, state.hover === "about" ? "block bold" : "bold text", title)}  ` +
-        `${paint(useColor, state.hover === "profile" ? "block" : account.startsWith("@") ? "handle" : "muted", account)}` +
+        `${account.startsWith("@") ? coloredHandle(account,state.handleColors,useColor,state.hover === "profile") : paint(useColor,"muted",account)}` +
         `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
   const gap = " ".repeat(
     Math.max(1, width - 2 - textWidth(leftPlain) - rightWidth - rockGutter),
@@ -445,11 +483,14 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
     : state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
+  const drawer=drawerRows(state,width,height,useColor);
+  const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
-    : Math.max(0, transcript.length - transcriptRows - (state.scrollOffset || 0));
-  const visible = transcript.slice(start, start + transcriptRows);
-  while (visible.length < transcriptRows) state.about ? visible.push("") : visible.unshift("");
+    : Math.max(0, transcript.length - availableRows - (state.scrollOffset || 0));
+  const visible = transcript.slice(start, start + availableRows);
+  while (visible.length < availableRows) state.about ? visible.push("") : visible.unshift("");
 
+  visible.push(...drawer);
   const body = visible.map((line, index) => {
     const row = ` ${fit(line, contentWidth)}`;
     if (!qr) return row;
@@ -487,26 +528,24 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // He dances while the machine has the floor and stands while it is yours —
   // the one fact the interface would otherwise need a row and a word to say.
   const pose = Array.from(mascotRow(state.mascotMs ?? 0, Boolean(state.busy)));
-  const guy =
-    `${paint(useColor, "soft", pose[0])}` +
-    `${paint(useColor, "handle", pose[1])}` +
-    `${paint(useColor, "soft", pose[2])}`;
-  const helpText = state.about ? " Esc back · ↑/↓ scroll"
+  const guy = pose.map((ch,i)=>paint(useColor,i<2?'handle':'soft',ch)).join('');
+  const helpText = state.settings ? " ↑ ↓ choose · Tab field · Enter select · Apply saves · Esc cancel" : state.about ? " Esc back · ↑/↓ scroll"
     : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
     : state.hover === "about" ? " About Easel · click"
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
     ? ` ${state.progressBytes ? `${(state.progressBytes / 1024).toFixed(1)} KB received · ` : ""}ctrl-c interrupt`
-    : " /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
-  const help =
-    width >= 23
-      ? ` ${guy}${paint(useColor, "muted", clipText(helpText, width - 5))}`
-      : paint(useColor, "muted", clipText(helpText, width));
+    : " /settings \u00b7 /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
+  const footerRoom=width-MASCOT_ROW_WIDTH-3;
+  const caption=clipText(helpText,Math.max(1,footerRoom));
+  const help=` ${paint(useColor,"muted",caption)}${" ".repeat(Math.max(1,width-textWidth(caption)-MASCOT_ROW_WIDTH-2))}${process.env.EASEL_DESKTOP==='1'?' '.repeat(MASCOT_ROW_WIDTH):guy} `;
   // Bottom-heavy, so the top of the frame is nothing but scrollback. A preview
   // window or a prompt rock landing over these rows covers lines that have
   // already been read, rather than the title, the handle, the piece, the
   // status, or the thing being typed.
-  const lines = [...body, rule, header, pathLine, prompt, help];
+  const controls=modelControls(state,width);
+  const controlLine=controls.length?' '+controls.map(c=>paint(useColor,c.selected||state.hover===c.action?'block bold':c.tone+' bold',c.text.padEnd(c.width))).join(''):pathLine;
+  const lines = [...body, rule, header, controlLine, prompt, help];
   return lines
     .slice(0, height)
     .map((line) => `${ground}${fit(line, width)}${reset}`)
@@ -521,7 +560,16 @@ export function transcriptLineCount(state, columns = 80, rows = 24, useColor = t
 
 // Terminal mouse coordinates are one-based, like the displayed header row.
 export function headerAction(state, columns, rows, x, y) {
-  if (columns < 32 || rows < 10 || y !== rows - 3) return "";
+  if (columns < 32 || rows < 10) return "";
+  if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
+  if(state.settings){
+    const p=state.settings,options=drawerOptions(p),index=p.index??drawerIndex(p);
+    const count=Math.min(6,Math.max(1,rows-8),options.length);
+    const start=Math.max(0,Math.min(index-Math.floor(count/2),options.length-count));
+    const first=rows-5-count+1;
+    if(y>=first&&y<first+count&&x>=2&&x<columns)return `choice:${start+y-first}`;
+  }
+  if(y!==rows-3)return "";
   const mode = state.mode === "local" ? "LOCAL" : "REMOTE";
   const rightWidth = textWidth(`${mode} · ${String(state.status || "ready").toUpperCase()}`);
   const room = Math.max(0, columns - 3 - rightWidth);

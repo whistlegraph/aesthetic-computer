@@ -20,6 +20,8 @@ function flag(name) {
   return index < 0 ? "" : argv[index + 1] || "";
 }
 
+if(process.env.FAKE_CLAUDE_MISSING && flag("--resume")){console.error("No conversation found with session ID: "+flag("--resume"));process.exit(1);}
+
 function send(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
 }

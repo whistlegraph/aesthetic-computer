@@ -130,6 +130,26 @@ export class LivePiece extends EventEmitter {
     return this.file;
   }
 
+  // Reserve a fresh file without changing or deleting the previous piece.
+  async fresh() {
+    if (this.sending) throw new Error("Wait for the current live upload.");
+    const next = new LivePiece({cwd:this.cwd, directory:this.directory, runtime:this.runtime.id});
+    mkdirSync(next.directory, {recursive:true});
+    for (;;) {
+      next.blank = next.runtime.blank(next.slug);
+      try { writeFileSync(next.file,next.blank,{flag:"wx"}); break; }
+      catch(error) { if(error.code !== "EEXIST") throw error; next.slug=randomSlug(); }
+    }
+    await next.checkpoint();
+    this.unwatch();
+    for (const key of ["slug","runtime","blank","fallbackChannel","revision","revisionFile"])
+      this[key]=next[key];
+    this.ahead=false;this.pushes=0;
+    this.emit("retarget",this.slug);
+    this.emit("revision",this.revision);
+    return this.file;
+  }
+
   // True while the piece is still exactly the blank this session wrote.
   get pristine() {
     if (!this.blank) return false;
@@ -238,6 +258,7 @@ export class LivePiece extends EventEmitter {
   }
 
   async #push() {
+    if(this.broadcastEnabled === false)return false;
     const source = this.source();
     if (!source.trim()) return false;
     if (!await this.checkpoint(source)) return false;

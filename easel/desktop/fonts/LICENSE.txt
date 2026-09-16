@@ -1,0 +1,15 @@
+Misc Fixed 6x10 / AC Easel Pixel
+
+Public domain terminal emulator font.  Share and enjoy.
+
+This is the COPYRIGHT property of the included upstream 6x10.bdf.
+The Unicode extensions retain the original public-domain designation.
+Source and maintainer's copyright statement:
+https://www.cl.cam.ac.uk/~mgk25/ucs-fonts.html#copyright
+https://www.cl.cam.ac.uk/~mgk25/download/ucs-fonts.tar.gz
+
+AC Easel Pixel converts those source pixels to square TrueType outlines.
+Aesthetic Computer dedicates this mechanical conversion's font outputs to the
+public domain as well. This notice applies to the 6x10.bdf and ac-easel-pixel.ttf/.woff only,
+not to GNU Unifont assets or the surrounding Easel application.
+GNU Unifont assets use UNIFONT-OFL-1.1.txt and UNIFONT-COPYRIGHT.txt.

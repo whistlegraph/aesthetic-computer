@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// tick so the bg alternates between its base and pulse palettes.
     private var blinkTimer: Timer?
     private var blinkPhase: Bool = false
+    private var sharedThemeData: Data?
     /// Live-updates the pop-render progress bars while the menu is open.
     /// Re-reads ~/.ac-pop-renders/ (cheap — small dir of small JSON files)
     /// and rewrites each tagged row's title in place. Scheduled in
@@ -2520,7 +2521,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// set switched per tab (it has no per-window RGB / bg-image scripting).
     /// Both blocks are `is running`-guarded so a non-running terminal is a
     /// cheap no-op and is never launched.
+    /// Publish colors only, never session metadata. Standalone clients can
+    /// follow the same palette without depending on Slab to render their UI.
+    private func publishSharedTheme() {
+        let dark = effectiveDark()
+        let states: [ClaudeSession.State] = [.blank, .working, .rendering, .complete, .awaiting, .interrupted, .stale]
+        func rgb(_ color: RGB?) -> [Int] { let c = color ?? (0, 0, 0); return [c.0, c.1, c.2].map { Int((Double($0) / 257.0).rounded()) } }
+        var palettes: [String: Any] = [:]
+        for status in states {
+            let p = Self.statusDecor(for: status, dark: dark, blink: blinkPhase, agentType: "easel").palette
+            palettes[stateName(status)] = ["background": rgb(p.bg), "foreground": rgb(p.text), "bold": rgb(p.bold), "cursor": rgb(p.cursor)]
+        }
+        let payload: [String: Any] = ["version": 1, "enabled": state.themeByStatus, "dark": dark, "palettes": palettes]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), data != sharedThemeData else { return }
+        let directory = URL(fileURLWithPath: Paths.slabHome).appendingPathComponent("state")
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try data.write(to: directory.appendingPathComponent("theme.json"), options: .atomic)
+            sharedThemeData = data
+        } catch { NSLog("Slab theme export failed: %@", error.localizedDescription) }
+    }
+
     private func applyTerminalDecor() {
+        publishSharedTheme()
         guard state.themeByStatus else { return }
         struct Assignment {
             let tty: String; let palette: Palette; let title: String
@@ -3696,6 +3719,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // AC Electron preview windows are frameless (non-standard subrole).
             let acpane = AXTiler.windows(bundleId: "computer.aesthetic.app",
                                          requireStandardSubrole: false)
+                + AXTiler.easelWindows()
             let all = iterm + term + acpane
             NSLog("🎲 [scatter] iterm=\(iterm.count) term=\(term.count) acpane=\(acpane.count)")
             // Read each window's current center so scatter can keep it near its
