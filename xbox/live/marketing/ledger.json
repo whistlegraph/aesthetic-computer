@@ -801,6 +801,38 @@
       },
       "insightsAt": "2026-09-16T04:41:17.273Z",
       "permalink": "https://www.instagram.com/reel/DdFagkciOgF/"
+    },
+    {
+      "mode": "live",
+      "id": "2026-09-16-s0-gen",
+      "slot": 774,
+      "day": "2026-09-16",
+      "index": 0,
+      "segment": "gen",
+      "seed": "2026-09-16#0",
+      "kind": "self-play",
+      "door": "fight",
+      "round": "thimmy307",
+      "audioName": "thimmy307",
+      "outcome": {
+        "mode": "fight",
+        "cause": "TIE",
+        "succeeded": false,
+        "height": null,
+        "level": null,
+        "levels": null,
+        "winner": null,
+        "ticks": 1839,
+        "round": "thimmy307"
+      },
+      "publishedAt": "2026-09-16T16:11:33.718Z",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-16-s0-gen/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/oskiewar/reels/2026-09-16-s0-gen/cover.jpg"
+      },
+      "containerId": "18088575914446357",
+      "mediaId": "18010951784952649",
+      "insights": null
     }
   ]
 }
