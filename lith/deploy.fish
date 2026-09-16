@@ -177,6 +177,20 @@ echo -e "$GREEN-> Verifying origin/$TARGET_BRANCH...$NC"
 git -C $REPO_ROOT fetch origin $TARGET_BRANCH --quiet
 set ORIGIN_HEAD (git -C $REPO_ROOT rev-parse origin/$TARGET_BRANCH)
 
+# A feature branch must carry the current production routes and assets. An old
+# branch deployment previously removed mime.ac and served the AC prompt there.
+if test "$TARGET_BRANCH" != "main"
+    if not git -C $REPO_ROOT fetch origin main --quiet
+        echo -e "$RED x Could not verify current main; leaving production unchanged.$NC"
+        exit 1
+    end
+    if not git -C $REPO_ROOT merge-base --is-ancestor origin/main $ORIGIN_HEAD
+        echo -e "$RED x $TARGET_BRANCH is missing current main; deployment would roll back live changes.$NC"
+        echo -e "$YELLOW   Rebase or merge origin/main into the branch, then push and deploy again.$NC"
+        exit 1
+    end
+end
+
 if test "$LOCAL_BRANCH" = "$TARGET_BRANCH"
     set LOCAL_HEAD (git -C $REPO_ROOT rev-parse HEAD)
     if test "$LOCAL_HEAD" != "$ORIGIN_HEAD"
