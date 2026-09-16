@@ -53,10 +53,21 @@
     .account [hidden] { display: none; }
     header h1 { flex-shrink: 0; margin: 0; color: var(--ink); line-height: 1; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
-    .wordmark svg { display: block; width: 114px; height: 35px; overflow: visible; }
+    .wordmark svg { display: block; width: 124px; height: 43px; overflow: visible; }
+    .mime-sculpture { transform-origin: 50% 60%; animation: mime-float 5s ease-in-out infinite; }
+    .mime-face { transition: filter 160ms ease; }
+    .wordmark:hover .mime-face, .wordmark:focus-visible .mime-face { filter: brightness(1.15); }
+    @keyframes mime-float {
+      0%, 100% { transform: perspective(240px) rotateY(-9deg) rotateZ(-3deg) translateY(1px); }
+      50% { transform: perspective(240px) rotateY(9deg) rotateZ(1deg) translateY(-2px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mime-sculpture { animation: none; }
+      .mime-face { transition: none; }
+    }
     .wordmark .domain-suffix { width: 30px; height: 16px; align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); }
     .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
-    .wordmark:active svg { transform: translateY(1px); }
+    .wordmark:active .mime-sculpture { animation-play-state: paused; }
     .pages { display: flex; justify-content: space-between; margin-top: 1em; }
     main { width: 100%; max-width: 80rem; margin: 0; padding: 0 1em; }
     h2 { color: var(--ink); font-size: 1.2em; }
@@ -173,13 +184,36 @@
   <header>
     <h1>
       <a class="wordmark" href="https://aesthetic.computer/prompt" aria-label="mime.ac — return to Aesthetic Computer prompt">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 126 38" aria-hidden="true" focusable="false">
-          <g fill="currentColor">
-            <path id="mime-m" d="M0 9H9V12C13 8 19 8 22 12C26 8 33 8 33 17V31H36V35H25V31H28V18C28 11 21 12 21 18V31H24V35H13V31H16V18C16 11 9 12 9 18V31H12V35H0V31H4V13H0Z"/>
-            <path d="M44 0H50V6H44ZM40 9H50V31H55V35H40V31H45V13H40Z"/>
-            <use href="#mime-m" x="59"/>
-            <path fill-rule="evenodd" d="M125 23H105C105 29 108 32 113 32C117 32 120 30 122 28L125 31C122 35 117 37 112 36C104 36 99 30 99 23C99 15 104 9 112 9C120 9 125 15 125 21ZM105 19H119C118 15 116 13 112 13C108 13 106 15 105 19Z"/>
+        <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 138 48" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="mime-face" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+              <stop stop-color="#ffe0ee"/>
+              <stop offset="0.3" stop-color="#ff91c3"/>
+              <stop offset="1" stop-color="#eb398c"/>
+            </linearGradient>
+            <linearGradient id="mime-depth" x1="0" y1="0" x2="0.6" y2="1" gradientUnits="objectBoundingBox">
+              <stop stop-color="#8b388a"/>
+              <stop offset="1" stop-color="#40317b"/>
+            </linearGradient>
+            <g id="mime-letters">
+              <path id="mime-m" d="M0 9H9V12C13 8 19 8 22 12C26 8 33 8 33 17V31H36V35H25V31H28V18C28 11 21 12 21 18V31H24V35H13V31H16V18C16 11 9 12 9 18V31H12V35H0V31H4V13H0Z"/>
+              <path d="M44 0H50V6H44ZM40 9H50V31H55V35H40V31H45V13H40Z"/>
+              <use href="#mime-m" x="59"/>
+              <path fill-rule="evenodd" d="M125 23H105C105 29 108 32 113 32C117 32 120 30 122 28L125 31C122 35 117 37 112 36C104 36 99 30 99 23C99 15 104 9 112 9C120 9 125 15 125 21ZM105 19H119C118 15 116 13 112 13C108 13 106 15 105 19Z"/>
+            </g>
+          </defs>
+          <use href="#mime-letters" x="8" y="8" fill="#4ecdc4" stroke="#4ecdc4" stroke-width="1" stroke-linejoin="round"/>
+          <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
+            <use href="#mime-letters" x="7" y="7"/>
+            <use href="#mime-letters" x="6" y="6"/>
+            <use href="#mime-letters" x="5" y="5"/>
+            <use href="#mime-letters" x="4" y="4"/>
+            <use href="#mime-letters" x="3" y="3"/>
+            <use href="#mime-letters" x="2" y="2"/>
+            <use href="#mime-letters" x="1" y="1"/>
           </g>
+          <use class="mime-face" href="#mime-letters" fill="url(#mime-face)" stroke="#a02f72" stroke-width="0.65" stroke-linejoin="round"/>
+          <path d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35M45 0.7H49M41 9.7H49M41 31.7H54M60 9.7H67M60 31.7H70M73 31.7H82M85 31.7H94M106 23.7H123" fill="none" stroke="#ffe9f4" stroke-width="0.8"/>
         </svg>
         <svg class="domain-suffix" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 8" aria-hidden="true" focusable="false">
           <path fill="currentColor" fill-rule="evenodd" d="M0 5H2V7H0ZM4 2H8V3H9V7H4V4H7V3H4ZM6 5V6H7V5ZM11 2H14V3H12V4H11V5H12V6H14V7H11V6H10V3H11Z"/>
