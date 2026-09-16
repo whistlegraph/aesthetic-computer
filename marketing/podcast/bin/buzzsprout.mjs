@@ -87,7 +87,11 @@ if (positional[0] === "publish") {
   const id = JSON.parse(readFileSync(rp, "utf8")).id;
   const fd = new FormData();
   fd.append("private", "false");
-  fd.append("published_at", new Date().toISOString());
+  // --at=<iso> backdates a staged episode (e.g. a daily backfill) to the day
+  // it narrates so the feed keeps its one-per-day order.
+  const at = [...flags].find((f) => f.startsWith("--at="))?.slice(5);
+  if (at && Number.isNaN(Date.parse(at))) { console.error(`✗ bad --at date: ${at}`); process.exit(1); }
+  fd.append("published_at", at ? new Date(at).toISOString() : new Date().toISOString());
   const res = await fetch(`${API}/episodes/${id}.json`, { method: "PUT", headers: auth, body: fd });
   if (!res.ok) { console.error(`✗ publish ${res.status}: ${(await res.text()).slice(0, 300)}`); process.exit(1); }
   const ep = await res.json();
