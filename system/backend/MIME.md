@@ -134,6 +134,12 @@ Chromium executable is elsewhere). The build uses local bundled fonts.
 
 ## Feed engagement metadata
 
+The feed uses native document scrolling, including gestures over the margins and
+header. The sticky header shrinks and centers the logo after scrolling; reduced
+motion disables that transition. The account/profile control stays bottom-right,
+with bottom padding to keep the last content reachable. Visibility measurements
+exclude the sticky header.
+
 The continuous scrolling feed measures post visibility while the document is
 visible and the browser window has focus. The post with the largest visible area
 is focused; distance to the viewport center breaks ties. DOM attributes expose

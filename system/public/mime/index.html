@@ -51,22 +51,29 @@
       }
     }
     * { box-sizing: border-box; }
-    body { margin: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+    html { scroll-padding-top: 76px; overflow-anchor: none; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh;
       background: var(--paper); color: var(--body); font: 16px/1.5 "Berkeley Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
     a { color: var(--link); text-underline-offset: 3px; }
     a:hover { color: var(--ink); }
     :focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
     ::selection { background: var(--ink); color: var(--paper); }
-    header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    header { position: sticky; top: 0; z-index: 10; height: calc(72px + env(safe-area-inset-top));
+      background: var(--paper); transition: height 220ms ease;
       width: 100%; max-width: 660px; margin: 0 auto; padding: max(10px, env(safe-area-inset-top)) 16px 10px;
       border-bottom: 1px solid var(--card-edge); }
-    header h1 { flex-shrink: 0; margin: 0; color: var(--ink); line-height: 1; }
-    .account { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; font-size: 13px; min-width: 0; }
-    #account-handle { overflow-wrap: anywhere; }
+    header h1 { position: absolute; left: 16px; top: calc(10px + env(safe-area-inset-top));
+      transform: translateX(0); transition: left 220ms ease, transform 220ms ease, top 220ms ease; margin: 0; color: var(--ink); line-height: 1; }
+    .account { position: fixed; z-index: 20; right: max(12px, env(safe-area-inset-right));
+      bottom: max(12px, env(safe-area-inset-bottom)); max-width: calc(100vw - 24px);
+      padding: 8px; border: 1px solid var(--card-edge); border-radius: 12px;
+      background: var(--card); box-shadow: 0 3px 0 var(--shadow); display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; font-size: 13px; min-width: 0; }
+    #account-handle { overflow-wrap: anywhere; padding: 4px 6px; }
+    #account-handle:empty { display: none; }
     .account [role="status"] { max-width: 24ch; color: var(--accent); }
     .account [hidden] { display: none; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
-    .wordmark svg { display: block; width: 146px; height: 50px; overflow: visible; }
+    .wordmark svg { display: block; width: 146px; height: 50px; overflow: visible; transition: width 220ms ease, height 220ms ease; }
     .mime-letter { transform-box: fill-box; transform-origin: 50% 65%; animation: mime-float var(--period) ease-in-out var(--phase) infinite; }
     .mime-face { animation: mime-light var(--period) ease-in-out var(--phase) infinite; }
     .mime-shine { animation: mime-shine var(--period) ease-in-out var(--phase) infinite; }
@@ -102,8 +109,8 @@
     button:disabled { opacity: 0.6; cursor: wait; }
     .account button { font-size: 13px; padding: 7px 11px; white-space: nowrap; }
     a.discussion, form#post button { --button: var(--primary); --button-ink: var(--primary-ink); }
-    main { flex: 1; min-height: 0; width: 100%; max-width: 660px; margin: 0 auto;
-      padding: 16px 12px max(32px, env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior-y: contain; }
+    main { width: 100%; max-width: 660px; margin: 0 auto;
+      padding: 16px 12px calc(100px + env(safe-area-inset-bottom)); }
     .feed-list { display: grid; gap: 18px; }
     .post { overflow-wrap: anywhere; }
     .post.media-post { background: var(--card); border: 1px solid var(--card-edge); border-radius: 10px; overflow: hidden;
@@ -160,6 +167,12 @@
       main { padding-inline: 8px; }
       .post-actions { gap: 8px; padding-inline: 10px; }
       .post-actions a { padding-inline: 10px; }
+    }
+    header.compact { height: calc(52px + env(safe-area-inset-top)); }
+    header.compact h1 { left: 50%; transform: translateX(-50%); top: calc(4px + env(safe-area-inset-top)); }
+    header.compact .wordmark svg { width: 108px; height: 37px; }
+    @media (prefers-reduced-motion: reduce) {
+      header, header h1, .wordmark svg { transition: none; }
     }
   </style>
 </head>
@@ -261,13 +274,13 @@
         <sup class="domain-suffix" aria-hidden="true">.ac</sup>
       </a>
     </h1>
+  </header>
+  <main id="view"></main>
     <div class="account">
-      <span id="account-handle"></span>
+      <a id="account-handle" aria-label="Your AC profile"></a>
       <button type="button" id="account-action">sign in</button>
       <span id="account-status" role="status"></span>
     </div>
-  </header>
-  <main id="view"></main>
 
 <script>
 // Like Oskiewar's shifting tab lettering, with a stable title for reduced motion.
@@ -289,21 +302,27 @@ syncTabAnimation();
 
 const API = "/api/mime";
 const view = document.getElementById("view");
+const header = document.querySelector("header");
+function syncHeader() {
+  if (window.scrollY > 80) header.classList.add("compact");
+  else if (window.scrollY < 8) header.classList.remove("compact");
+}
+window.addEventListener("scroll", syncHeader, { passive: true });
 let routeController;
 let feedCache, activeFeed, feedObserver, playbackObserver;
 history.scrollRestoration = "manual";
 function feedTop(node) {
-  return node.getBoundingClientRect().top - view.getBoundingClientRect().top + view.scrollTop;
+  return node.getBoundingClientRect().top + window.scrollY - header.getBoundingClientRect().bottom;
 }
 function rememberFeed() {
   if (!activeFeed) return;
-  const edge = view.getBoundingClientRect().top;
+  const edge = header.getBoundingClientRect().bottom;
   const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
   activeFeed.index = Math.max(0, index);
   const node = activeFeed.nodes[activeFeed.index];
-  activeFeed.offset = node ? view.scrollTop - feedTop(node) : 0;
+  activeFeed.offset = node ? window.scrollY - feedTop(node) : 0;
 }
-view.addEventListener("scroll", () => {
+window.addEventListener("scroll", () => {
   if (activeFeed?.viewportWidth === view.clientWidth) rememberFeed();
 }, { passive: true });
 
@@ -338,7 +357,7 @@ function sampleEngagement() {
   exposure = [];
   delete view.dataset.focusedPost;
   if (!activeFeed || !engagementActive) return;
-  const bounds = view.getBoundingClientRect();
+  const bounds = { top: header.getBoundingClientRect().bottom, bottom: innerHeight, left: 0, right: document.documentElement.clientWidth };
   for (const node of activeFeed.nodes) {
     const box = node.getBoundingClientRect();
     const width = Math.max(0, Math.min(box.right, bounds.right) - Math.max(box.left, bounds.left));
@@ -386,7 +405,7 @@ function engagementForeground(active) {
   sampleEngagement();
   if (!active) flushEngagement();
 }
-view.addEventListener("scroll", scheduleEngagement, { passive: true });
+window.addEventListener("scroll", scheduleEngagement, { passive: true });
 window.addEventListener("resize", scheduleEngagement);
 window.addEventListener("blur", () => engagementForeground(false));
 window.addEventListener("focus", () => engagementForeground(!document.hidden));
@@ -626,6 +645,8 @@ function showIdentity(input) {
 
 function showAccount() {
   accountHandle.textContent = identity.handle || "";
+  if (identity.handle) accountHandle.href = "https://aesthetic.computer/" + encodeURIComponent(identity.handle);
+  else accountHandle.removeAttribute("href");
   accountAction.textContent = identity.token ? "sign out" : "sign in";
 }
 
@@ -775,7 +796,7 @@ async function home(page = 0, signal) {
           else if (media.tagName === "VIDEO" && !document.hidden) media.play().catch(() => {});
         }
       }
-    }, { root: view, threshold: [0, 0.6] });
+    }, { threshold: [0, 0.6] });
     state.nodes.forEach((node) => playbackObserver.observe(node.querySelector(".feed-media") || node));
   }
   let loading = false;
@@ -818,13 +839,13 @@ async function home(page = 0, signal) {
   if ("IntersectionObserver" in window) {
     feedObserver = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) loadMore();
-    }, { root: view, rootMargin: "150% 0px" });
+    }, { rootMargin: "150% 0px" });
   }
   state.viewportWidth = view.clientWidth;
   activeFeed = state;
   requestAnimationFrame(() => {
     if (signal.aborted) return;
-    view.scrollTop = restoreOffset !== null && state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0;
+    window.scrollTo(0, restoreOffset !== null && state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0);
     rememberFeed();
     sampleEngagement();
     if (state.hasMore) feedObserver?.observe(state.nodes.at(-1) || more);
@@ -884,7 +905,8 @@ async function route() {
   routeController?.abort();
   routeController = new AbortController();
   const { signal } = routeController;
-  view.scrollTop = 0;
+  window.scrollTo(0, 0);
+  syncHeader();
   document.ondragover = document.ondragleave = document.ondrop = document.onpaste = null;
   const [hash, query] = location.hash.replace(/^#\/?/, "").split("?");
   document.body.classList.toggle("feed", !hash);
@@ -914,7 +936,7 @@ async function route() {
 window.addEventListener("resize", () => {
   if (activeFeed && activeFeed.viewportWidth !== view.clientWidth) {
     const node = activeFeed.nodes[activeFeed.index];
-    if (node) view.scrollTop = feedTop(node) + activeFeed.offset;
+    if (node) window.scrollTo(0, feedTop(node) + activeFeed.offset);
     activeFeed.viewportWidth = view.clientWidth;
   }
 });
@@ -928,7 +950,7 @@ window.addEventListener("keydown", (event) => {
   if (!step) return;
   event.preventDefault();
   const index = Math.max(0, Math.min(activeFeed.nodes.length - 1, activeFeed.index + step));
-  view.scrollTo({ top: feedTop(activeFeed.nodes[index]),
+  window.scrollTo({ top: feedTop(activeFeed.nodes[index]),
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {
