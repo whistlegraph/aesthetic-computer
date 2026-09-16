@@ -1,0 +1,110 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Aesel session host</title>
+  </head>
+  <body>
+    <!--
+      Nothing is drawn here. This page exists so the shared session can run
+      inside a WKWebView the iOS app keeps off-screen, while SwiftUI does every
+      pixel.
+
+      The webview is not a shortcut around writing Swift — it is what supplies
+      the web platform the shared bridge is written against. `ac-server.mjs`
+      streams with `response.body.getReader()` and decodes with `TextDecoder`,
+      and JavaScriptCore has neither, nor ES modules, nor `fetch`. Oskiewar's
+      Mac app pays that bill (it hands JSC a bundled script and drives Metal),
+      because a webview cannot draw its game. Aesel's renderer is text, and its
+      piece preview has to be a webview on every platform anyway — so hosting
+      the session in one costs an object nobody sees.
+
+      Swift → JS is `window.aesel.*`. JS → Swift is one message handler named
+      `aesel`, carrying the session's events verbatim.
+    -->
+    <script src="/easel/phone/shim/globals.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "node:events": "/easel/phone/shim/events.mjs",
+          "node:fs": "/easel/phone/shim/fs.mjs",
+          "node:path": "/easel/phone/shim/path.mjs",
+          "node:url": "/easel/phone/shim/url.mjs",
+          "node:crypto": "/easel/phone/shim/crypto.mjs",
+          "node:os": "/easel/phone/shim/absent.mjs",
+          "node:http": "/easel/phone/shim/absent.mjs",
+          "node:child_process": "/easel/phone/shim/absent.mjs",
+          "/easel/src/revisions.mjs": "/easel/phone/shim/revisions.mjs"
+        }
+      }
+    </script>
+    <script type="module">
+      import { createSession } from "/easel/phone/session.mjs";
+
+      const native = globalThis.webkit?.messageHandlers?.aesel;
+      const post = (event) => {
+        try {
+          native?.postMessage(event);
+        } catch (error) {
+          console.error("[aesel] could not reach the host", error);
+        }
+      };
+
+      // The host owns persistence: Documents on iOS, so a session survives the
+      // app being killed. `seed` is written by Swift before this page loads.
+      const storage = {
+        get: (key) => globalThis.__aeselSeed?.[key] ?? null,
+        set: (key, value) => {
+          globalThis.__aeselSeed = { ...(globalThis.__aeselSeed || {}), [key]: value };
+          post({ type: "persist", key, value });
+        },
+      };
+
+      const session = createSession({ storage, emit: post });
+
+      // Every call is wrapped so a thrown error reaches Swift as an event
+      // rather than vanishing into an unhandled rejection the host cannot see.
+      const guard = (name, fn) => async (...args) => {
+        try {
+          return await fn(...args);
+        } catch (error) {
+          post({ type: "bad", text: `${name}: ${error.message}` });
+        }
+      };
+
+      globalThis.aesel = {
+        ask: guard("ask", (text) => session.ask(String(text))),
+        stop: () => session.stop(),
+        newPiece: () => session.newPiece(),
+        publish: guard("publish", () => session.publish()),
+        adoptToken: guard("adoptToken", async (token) => {
+          await session.adoptToken(String(token));
+          await session.open();
+        }),
+        restore: guard("restore", async () => {
+          let ok = await session.restore();
+          // No stored session: while this page is served by `serve.mjs
+          // --token`, the laptop will hand over its own ~/.ac-token. That is
+          // the whole of sign-in on device until the Auth0 callback for
+          // ASWebAuthenticationSession is registered.
+          if (!ok) {
+            try {
+              const response = await fetch("/dev-token");
+              if (response.ok) {
+                const { access_token } = await response.json();
+                await session.adoptToken(access_token);
+                ok = true;
+              }
+            } catch {
+              // Not served by the dev server; stay signed out.
+            }
+          }
+          if (ok) await session.open();
+          post({ type: "restored", signedIn: ok });
+        }),
+      };
+
+      await session.begin();
+    </script>
+  </body>
+</html>

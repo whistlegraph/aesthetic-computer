@@ -1,0 +1,25 @@
+name: Aesel
+options:
+  bundleIdPrefix: computer.aesthetic
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: FB5948YR3S
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+targets:
+  Aesel:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.aesel
+        PRODUCT_NAME: Aesel
+        INFOPLIST_FILE: Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+    scheme:
+      gatherCoverageData: false
