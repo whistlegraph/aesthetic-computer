@@ -589,3 +589,6 @@ easel/install.json
 # Max-level sidecars Caddy serves as `precompressed` (xbox/tools/precompress-live.sh)
 xbox/live/*.br
 xbox/live/*.zst
+
+# Slab solo release artifacts (signed DMGs + staging)
+slab/menubar-swift/dist/
