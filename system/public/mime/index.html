@@ -4,8 +4,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>✦ mime.ac</title>
-  <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
+  <title>mime.ac</title>
+  <meta name="description" content="Comments on Aesthetic Computer media. Paintings, tapes, pieces, and the people around them." />
+  <link rel="canonical" href="https://mime.ac/" />
+  <link rel="icon" href="https://mime.ac/favicon.svg?v=1" type="image/svg+xml" />
+  <link rel="icon" href="https://mime.ac/favicon-32.png?v=1" type="image/png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="https://mime.ac/apple-touch-icon.png?v=1" sizes="180x180" />
+  <meta name="theme-color" content="#eee9f1" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#171526" media="(prefers-color-scheme: dark)" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MIME" />
+  <meta property="og:title" content="mime.ac" />
+  <meta property="og:description" content="Comments on Aesthetic Computer media." />
+  <meta property="og:url" content="https://mime.ac/" />
+  <meta property="og:image" content="https://mime.ac/social/mime.jpg?v=1" />
+  <meta property="og:image:secure_url" content="https://mime.ac/social/mime.jpg?v=1" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="mime.ac" />
+  <meta name="twitter:description" content="Comments on Aesthetic Computer media." />
+  <meta name="twitter:image" content="https://mime.ac/social/mime.jpg?v=1" />
+  <meta name="twitter:image:alt" content="MIME in pink, peach, purple, and mint 3D letters, with a raised .ac." />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
@@ -248,6 +270,23 @@
   <main id="view"></main>
 
 <script>
+// Like Oskiewar's shifting tab lettering, with a stable title for reduced motion.
+const tabTitles = ["mime.ac", "𝗺𝗶𝗺𝗲.ac", "𝚖𝚒𝚖𝚎.ac", "𝘮𝘪𝘮𝘦.ac"];
+const tabMotion = matchMedia("(prefers-reduced-motion: reduce)");
+let tabTimer;
+function syncTabAnimation() {
+  clearInterval(tabTimer);
+  document.title = tabTitles[0];
+  if (document.hidden || tabMotion.matches) return;
+  let frame = 0;
+  tabTimer = setInterval(() => { document.title = tabTitles[++frame % tabTitles.length]; }, 1250);
+}
+tabMotion.addEventListener("change", syncTabAnimation);
+document.addEventListener("visibilitychange", syncTabAnimation);
+window.addEventListener("pagehide", () => clearInterval(tabTimer));
+window.addEventListener("pageshow", syncTabAnimation);
+syncTabAnimation();
+
 const API = "/api/mime";
 const view = document.getElementById("view");
 let routeController;
@@ -599,7 +638,7 @@ async function home(page = 0, signal) {
   if (!state) {
     const data = await read(API + "?page=" + page, signal);
     state = { startPage: page, nextPage: page + 1,
-      hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: 0 };
+      hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: null };
     for (const post of data.recent) {
       if (state.codes.has(post.code)) continue;
       state.codes.add(post.code);
@@ -683,7 +722,8 @@ async function home(page = 0, signal) {
   activeFeed = state;
   requestAnimationFrame(() => {
     if (signal.aborted) return;
-    view.scrollTop = state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0;
+    view.scrollTop = restoreOffset !== null && state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0;
+    rememberFeed();
     if (state.hasMore) feedObserver?.observe(state.nodes.at(-1) || more);
   });
 }

@@ -118,3 +118,16 @@ show bitmap controls, serif correspondence, and embedded images in one mail
 reader. This is a new AC mark, not a reproduction of an official MIME logo.
 [Borenstein's reconstructed March 1992 demo](https://www.guppylake.com/nsb/mime.html)
 provides another reference: a photograph and audio carried within a message.
+
+## Tab and share assets
+
+The browser title cycles between Unicode lettering styles every 1.25 seconds,
+following Oskiewar's tab rhythm. It returns to plain `mime.ac` when hidden or
+when reduced motion is enabled. The HTML retains a plain title for crawlers.
+SVG/PNG favicons, an Apple touch icon, and a 1200×630 JPEG share card live in
+`system/public/mime/`; Caddy serves their paths directly on `mime.ac`.
+Open Graph and Twitter metadata use absolute public image URLs.
+
+Rebuild the assets from the inline wordmark with
+`node system/scripts/build-mime-brand.mjs` (set `CHROME_PATH` on hosts whose
+Chromium executable is elsewhere). The build uses local bundled fonts.

@@ -1329,6 +1329,12 @@ mime.ac {
         header Cache-Control "no-cache"
         file_server
     }
+    @mime_brand path /favicon.svg /favicon-32.png /apple-touch-icon.png /social/mime.jpg
+    handle @mime_brand {
+        root * /opt/ac/system/public/mime
+        header Cache-Control "public, max-age=86400"
+        file_server
+    }
     handle /mime {
         redir / 302
     }
