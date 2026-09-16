@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-09-10T01:38:15.687Z</updated>
+  <updated>2026-09-16T05:59:59.000Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,10 +13,46 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
+    <title>Free Versus Nonfree</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/free-vs-open-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/free-vs-open-26-arxiv.pdf</id>
+    <updated>2026-09-16T05:59:59.000Z</updated>
+    <published>2026-09-15T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">Stallman&apos;s licensing map and where Aesthetic.Computer stands · 6pp — Free Versus Nonfree reconstructs Stallman&apos;s map of software licensing from his 1998 essay and its 2007 rewrite: one ethical line drawn by four freedoms, copyleft versus lax inside it, commerce as a separate axis. It then applies the map to this repository and finds it source-available, not yet free.</summary>
+  </entry>
+  <entry>
     <title>Taking Turf</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf</id>
-    <updated>2026-09-10T01:38:15.687Z</updated>
+    <updated>2026-09-16T05:59:11.203Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>KidLisp (ELS 2026)</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
+    <updated>2026-09-16T05:59:10.090Z</updated>
+    <category term="ELS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
+  </entry>
+  <entry>
+    <title>KidLisp &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
+    <updated>2026-09-16T05:59:10.047Z</updated>
+    <category term="JOSS"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
+  </entry>
+  <entry>
+    <title>Close of August &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/close-of-august-26-essay.pdf"/>
+    <id>https://papers.aesthetic.computer/close-of-august-26-essay.pdf</id>
+    <updated>2026-09-16T05:59:09.631Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -24,25 +60,18 @@
     <title>Aesthetic Network Traffic Report</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-network-traffic-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-network-traffic-26-arxiv.pdf</id>
-    <updated>2026-09-10T01:38:15.683Z</updated>
+    <updated>2026-09-16T05:59:09.547Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
   <entry>
-    <title>iOS So Far</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ios-so-far-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/ios-so-far-26-arxiv.pdf</id>
-    <updated>2026-09-10T01:38:15.678Z</updated>
-    <category term="arXiv"/>
+    <title>Aesthetic Computer &apos;26</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
+    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
+    <updated>2026-09-16T05:59:09.540Z</updated>
+    <category term="JOSS"/>
     <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Close of August &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/close-of-august-26-essay.pdf"/>
-    <id>https://papers.aesthetic.computer/close-of-august-26-essay.pdf</id>
-    <updated>2026-09-10T01:38:15.279Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
+    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
   </entry>
   <entry>
     <title>Stack of the Summer &apos;26</title>
@@ -731,32 +760,5 @@
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">501(c)(3) investigative newsroom · IRS 990 + accountability record · arXiv — What is publicly recoverable about ProPublica: origin, nonprofit structure, newsroom and partner network, data tools, people, money, reach, awards, corrections, and disputed work. Fact-surfacing, not argument.</summary>
-  </entry>
-  <entry>
-    <title>Aesthetic Computer &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/aesthetic-computer-26-joss.pdf</id>
-    <updated>2026-05-02T22:01:58.000Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 2pp — A compact JOSS summary of Aesthetic Computer for archival and citation purposes. It distills the platform into a conventional software paper format.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp &apos;26</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-26-joss.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-26-joss.pdf</id>
-    <updated>2026-05-02T22:01:58.000Z</updated>
-    <category term="JOSS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">JOSS Summary · 3pp — A compact JOSS summary of KidLisp for archival and citation purposes. It frames the language as a small but expressive tool for generative art.</summary>
-  </entry>
-  <entry>
-    <title>KidLisp (ELS 2026)</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/kidlisp-els-2026.pdf"/>
-    <id>https://papers.aesthetic.computer/kidlisp-els-2026.pdf</id>
-    <updated>2026-05-02T22:01:58.000Z</updated>
-    <category term="ELS"/>
-    <author><name>@jeffrey</name></author>
-    <summary type="text">A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp — An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.</summary>
   </entry>
 </feed>
