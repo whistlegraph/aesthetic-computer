@@ -131,8 +131,13 @@ where noted; do step 1–3 early because the calendar starts there.
 4. **HUMAN — Name the app.** Claiming the app in Steamworks fixes the name the
    appid is registered under. "oskiewar" is presumably uncontested, but the
    choice is a signature, not a form field.
-5. **HUMAN — Set the price.** Steam pricing is set per-currency from a USD
-   base with suggested conversions. The number is strategy, not engineering.
+5. **HUMAN — Set the price. Decided 2026-09-16: $9.99 USD base**, with
+   per-currency conversions from Valve's suggestion tool. The store package
+   now exists to hold it (1827387, created 2026-09-16 — the app shipped
+   without the standard set, a known Valve bug), but Propose Pricing is
+   refused until this partner account is the one "actively being paid",
+   which waits on the same identity review as everything else in step 3.
+   `store-page/fill.md` carries the exact wording and the route back.
 6. **HUMAN — Press "Mark as ready for review"** on the store page, and later on
    the build — each submission is a deliberate act with a 3–5 day queue behind it.
 7. **HUMAN — Choose the release date and press Release.** Approved titles sit

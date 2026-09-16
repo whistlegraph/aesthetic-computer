@@ -5,10 +5,11 @@ green. This sheet stays as the record of what went in, and as the recipe if
 a field has to be re-entered. Anything marked *human* was, or still is, a
 decision rather than a paste.
 
-Still open on the page: **a price**, and the items that fall out of the
-**build upload** (platform support, package/depot matching, at least one
-build). The trailer is rendered by `render-trailer.mjs` and uploads under
-the Trailers tab.
+Still open on the page: **the price**, which is decided ($9.99) but blocked
+on Valve (see Pricing below), and the items that fall out of the **build
+upload** (platform support, package/depot matching, at least one build).
+The trailer is rendered by `render-trailer.mjs` and uploads under the
+Trailers tab.
 
 Editor: https://partner.steamgames.com/apps/landing/5280790 → **Edit Store Page**.
 
@@ -76,6 +77,15 @@ whole rounds, so nothing inside a round is cut.
 
 Do not press Release while a trailer is still encoding — Valve blocks it.
 
+**Uploaded 2026-09-16** (movie item 1331515): 66.3s, 1920x1080 at 60 fps,
+cut as `dummy-1(KO) · dummy-2(KO) · fight-1(TIE, trimmed) · climb-1(SUMMIT)`.
+Category **Gameplay** — "mostly shows what it's like to play the game",
+which is the literal truth here: whole rounds, no cinematics. *Visible on
+Store* and *Show before screenshots* both came up ticked from the upload and
+were left that way. Steam generated its own poster frame; the slot still
+takes a drag of `assets/trailer-thumbnail.jpg` if a chosen frame is wanted
+over Valve's pick.
+
 ## Store Settings / Content survey
 
 Cartoon violence between stick figures; no blood or gore; no text chat, no
@@ -84,7 +94,36 @@ from the Steam build, which has the community surfaces compiled out.
 
 ## Pricing
 
-*human.* Base USD price with Valve's suggested per-currency conversions.
+**$9.99 USD base. Decided 2026-09-16.** Per-currency conversions from
+Valve's suggestion tool at propose time.
+
+Two things stood between the decision and the field, and only one of them
+yielded.
+
+**The app had no packages at all.** Pricing lives on a store package, not on
+the app, and 5280790 was created without the standard set — Valve's Pricing
+FAQ names this a known app-creation bug and points at the green `Create
+Standard Packages` button on the Associated Items page. Pressed 2026-09-16,
+which minted three: **1827387** `oskiewar` (the store package, hidden until
+release), 1827386 `oskiewar for Beta Testing`, 1827385 `oskiewar Developer
+Comp`.
+
+**Propose Pricing is still refused**, and the wording names the gate:
+
+> This partner account (Jeffrey Alan Scudder) does not have access to edit
+> pricing on this package. Only users in the partner account which is
+> actively being paid can edit pricing on a package.
+
+That is the payee gate, not a permissions checkbox — it lines up with the
+identity review this lane has been waiting on since 2026-09-01, which the
+onboarding page priced at up to 10 business days. Nothing to fix here; the
+field opens when Valve finishes with the paperwork.
+
+When it does: `partner.steamgames.com/store/packagelanding/1827387` →
+**Propose Pricing** → $9.99 USD base → a conversion method → submit. Valve
+reviews pricing in one to two business days, and the two pricing checklist
+items (`Pricing For At Least One Package`, `Published Pricing For At Least
+One Package`) go green from there.
 
 ## Publish
 

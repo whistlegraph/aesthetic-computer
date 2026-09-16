@@ -238,6 +238,11 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     await page.evaluateOnNewDocument((seedValue, wardrobe, opponent) => {
       if (wardrobe) globalThis.__oskiewarWardrobe = wardrobe;
       if (opponent) globalThis.__oskiewarSelfPlayOpponent = opponent;
+      // A dummy bout has no clock of its own, so offline it never ends and
+      // the forecast runs past any cap. The live pass already asks training
+      // for the full round apparatus; the fixed-step pass needs it for the
+      // same reason — a round that cannot finish cannot be recorded.
+      if (opponent === "dummy") globalThis.__oskiewarTimedTraining = true;
       // Survival's ladder and climb bot are both fixed, and so is the round
       // clock under a fixed-step pass — without this the slot's seed never
       // reaches the runner and every reel is the same climb. It was: three
