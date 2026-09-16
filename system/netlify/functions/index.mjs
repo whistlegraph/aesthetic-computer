@@ -1359,14 +1359,18 @@ async function fun(event, context) {
           <p>Aesthetic Computer is an open creative computing platform for making art, games, and tools in the browser using JavaScript and KidLisp. Navigate by typing a piece name (e.g. &quot;painting&quot;, &quot;line&quot;, &quot;wand&quot;, &quot;prompt&quot;) into the command prompt and pressing Enter. See llms.txt for full documentation: https://aesthetic.computer/llms.txt</p>
           <p>Source code: https://tangled.org/aesthetic.computer/core | Pieces (programs): https://tangled.org/aesthetic.computer/core/tree/main/system/public/aesthetic.computer/disks | Runtime: https://tangled.org/aesthetic.computer/core/tree/main/system/public/aesthetic.computer/lib</p>
         </article>
-        <!-- Boot Canvas - VHS style with floating code pages -->
+        <!-- Boot Canvas. Default 'empty': no animation, the canvas is removed at
+             once and the body's flat background stands until the piece paints.
+             ?boot=serious (clean log) and ?boot=aesthetic (VHS) keep the old
+             animations; ?noboot is the legacy spelling of empty. -->
         <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
-          // Check for noboot param - skip all boot animation for clean device display
           var qs=location.search||'';var params=new URLSearchParams(qs);
-          console.log('[BOOT] noboot check:', params.get('noboot'), params.has('noboot'), 'qs:', qs);
-          if(params.has('noboot')||params.get('noboot')==='true'){console.log('[BOOT] noboot - hiding boot canvas');c.style.display='none';return{hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
+          // Boot animation mode: 'empty' (default, nothing drawn), 'serious' (clean log) or 'aesthetic' (VHS/glitch).
+          // The legacy 'spring' raindrop animation is preserved on the raindrops-archive branch.
+          var bootTheme=params.get('boot')||'empty';if(params.has('noboot'))bootTheme='empty';
+          if(bootTheme==='empty'){console.log('[BOOT] empty boot - no boot canvas');c.remove();return{empty:true,hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};}
           var x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;
           // Detect kidlisp.com iframe context and system light/dark mode for themed boot animation
           // Also detect based on nolabel/nogap query params which indicate embedded preview mode
@@ -1391,9 +1395,7 @@ async function fun(event, context) {
           // Menu Band: running inside the macOS menubar app's webview. Gets a
           // minimal, text-free boot visual (no logs / moods / title chrome).
           var isMenuband=qs.indexOf('menuband=true')>=0;
-          // Boot animation mode: 'serious' (clean/refined, default) or 'aesthetic' (VHS/glitch).
-          // The legacy 'spring' raindrop animation is preserved on the raindrops-archive branch.
-          var bootTheme=params.get('boot')||'serious';var isSerious=bootTheme==='serious';
+          var isSerious=bootTheme!=='aesthetic';
           // Density param for scaling (default 1, FF1 uses 8 for 4K)
           var densityMatch=qs.match(/density=(\d+)/);var densityParam=densityMatch?parseInt(densityMatch[1]):1;
           // In the Electron desktop app, follow the runtime's ac-density so the boot
@@ -2235,8 +2237,8 @@ async function fun(event, context) {
           window.acBOOT_LOG_CANVAS=function(m){if(window.acBootCanvas&&window.acBootCanvas.log)window.acBootCanvas.log(m);};
           window.acBOOT_ADD_FILE=function(n,s){if(window.acBootCanvas&&window.acBootCanvas.addFile)window.acBootCanvas.addFile(n,s);};
           window.acBOOT_NET_PULSE=function(){if(window.acBootCanvas&&window.acBootCanvas.netPulse)window.acBootCanvas.netPulse();};
-          // Fetch MOTD for boot screen
-          (async function(){try{var r=await fetch('/api/mood/moods-of-the-day');if(r.ok){var d=await r.json();if(d&&d.mood){window.acBootCanvas.motd=d.mood;if(d.handle)window.acBootCanvas.motdHandle=d.handle;}}}catch(e){}})();
+          // Fetch MOTD for boot screen (decoration: skipped by the empty boot)
+          if(!window.acBootCanvas.empty)(async function(){try{var r=await fetch('/api/mood/moods-of-the-day');if(r.ok){var d=await r.json();if(d&&d.mood){window.acBootCanvas.motd=d.mood;if(d.handle)window.acBootCanvas.motdHandle=d.handle;}}}catch(e){}})();
           // Source text for the boot canvas. Decoration only, so it is read
           // back from the browser's caches (cache:'only-if-cached' never goes
           // to the network) once boot.mjs reports the core modules imported —
@@ -2244,7 +2246,7 @@ async function fun(event, context) {
           // Fetching them plainly, as this used to, downloaded bios.mjs,
           // disk.mjs and graph.mjs a second time alongside the real loads.
           window.acBOOT_CORE_READY=new Promise(function(res){window.acBOOT_CORE_RESOLVE=res;setTimeout(res,30000);});
-          (async function(){
+          if(!window.acBootCanvas.empty)(async function(){
             var paths=['boot.mjs','bios.mjs','lib/parse.mjs','lib/graph.mjs','lib/num.mjs','lib/disk.mjs','lib/geo.mjs','lib/text.mjs','lib/pen.mjs','lib/help.mjs'];
             // Shuffle paths for variety on each boot
             for(var i=paths.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var tmp=paths[i];paths[i]=paths[j];paths[j]=tmp;}
