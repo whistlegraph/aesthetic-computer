@@ -211,6 +211,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
         ResourceGraph.shared.syncEnabled()
 
+        // A Slab that arrived as a download has no hooks behind it, so it
+        // would sit in the menu bar watching nothing. Offer to finish the
+        // install once; silent on every machine that already has a repo
+        // install or has answered this before.
+        FirstRun.offerIfNeeded()
+
         DistributedNotificationCenter.default().addObserver(
             self,
             selector: #selector(menuBandPerformanceFocusChanged(_:)),

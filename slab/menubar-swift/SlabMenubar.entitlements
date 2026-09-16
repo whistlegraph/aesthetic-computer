@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened Runtime, which notarization requires, with no exceptions
+         asked for. Everything Slab does that sounds like it would need one
+         does not:
+
+           • Accessibility (AXUIElement, window tiling) is a TCC grant, not
+             an entitlement.
+           • Screen Recording (ScreenCaptureKit, `frame`) is likewise TCC.
+             SCStreamConfiguration.capturesAudio stays false, so no
+             microphone entitlement is needed either.
+           • CGEvent.tapCreate and Carbon's RegisterEventHotKey both work
+             under default Hardened Runtime. Menu Band proved this on the
+             same team ID; see slab/menuband/MenuBand.entitlements.
+           • Apple Events are declared in Info.plist with a usage string
+             (NSAppleEventsUsageDescription) rather than by entitlement,
+             which is what a non-sandboxed app needs.
+
+         Keeping this list empty is the point. Every exception here is a
+         promise to Apple and a wider attack surface, and a menu bar app that
+         asks for none is one a stranger can reason about. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <false/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <false/>
+</dict>
+</plist>

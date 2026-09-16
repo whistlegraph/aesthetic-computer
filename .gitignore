@@ -585,3 +585,6 @@ system/public/easel.tar.gz
 # Written beside a real install by the updater; a checkout never makes one.
 easel/.update-check.json
 easel/install.json
+
+# Slab solo release artifacts (signed DMGs + staging)
+slab/menubar-swift/dist/

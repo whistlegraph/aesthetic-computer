@@ -104,6 +104,58 @@ ambient audio, lid daemon, or sudoers changes, use:
 This installs the agent wrappers, Claude hooks, and marker state only. Install
 the Swift menu bar separately with `menubar-swift/install.sh`.
 
+## Two Slabs: the studio one and the shipped one
+
+`install.sh` builds the Slab that belongs to this studio. It symlinks scripts
+back into the checkout so an edit takes effect immediately, merges hooks that
+shell out to `jq`, and signs the bundle with a stable *self-signed*
+certificate — chosen deliberately, because ad-hoc signing changes the code
+hash every build and would revoke the Accessibility grant each time.
+
+`menubar-swift/release-solo.sh` builds the other one: the Slab a stranger can
+download.
+
+```sh
+cd menubar-swift
+./release-solo.sh                 # build → sign → notarize → staple → DMG
+./release-solo.sh --no-notarize   # local smoke test; the result will NOT open elsewhere
+```
+
+It produces `menubar-swift/dist/Slab-<version>.dmg`, Developer ID-signed with
+the hardened runtime, notarized and stapled so it opens offline on a Mac that
+has never heard of us. Three things differ from the studio build:
+
+- **Hooks live in the binary.** The shell hooks need `jq` thirteen times and
+  `python3` three times, and macOS ships neither. `slab-menubar hook <event>`
+  (see `Sources/SlabMenubar/HookCLI.swift`) reimplements the marker protocol
+  with `JSONSerialization` and `sysctl`, so the only dependency left is the
+  app itself. Both halves write the same markers; change one shape and the
+  rocks stop reading.
+- **It sets itself up.** On first launch `FirstRun.swift` offers to merge those
+  hooks into `~/.claude/settings.json` and seed the Terminal profiles from a
+  copy bundled in `Contents/Resources/solo`. It refuses outright when
+  `~/.local/bin/claude-prompt-log.sh` is a symlink, which is how it knows a
+  repo install owns the machine and must not be touched.
+- **It is signed by Developer ID.** A Mac holding both builds will be asked to
+  grant Accessibility once more, because the designated requirement is part of
+  what TCC remembers. Delete the old bundle when you switch, or the permission
+  prompt returns on every launch.
+
+`bin/verify-solo-bundle.sh` gates the signing step. It checks the parts are
+present, that the binary references no path inside a home directory, that it
+links only system libraries, and that the `hook` subcommand really writes a
+marker. That check exists because Menu Band once shipped a DMG that ran on the
+machine that built it and crashed everywhere else.
+
+Requires a Mac holding the Developer ID key (blueberry or neo) and the vault's
+`apple/app-specific-password.env` for the notary service.
+
+**To publish**, follow the Menu Band pattern: upload the DMG to
+`assets.aesthetic.computer/slab/`, then record version, size and sha256 in a
+manifest the `/slab` page reads. Do not publish a build that has not been
+launched on a Mac that never ran Slab — the first-run dialog and the TCC
+prompts are the two things no check here can prove.
+
 ## Usage
 
 ```sh
