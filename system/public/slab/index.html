@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slab — a desk for running many coding agents at once</title>
+<meta name="description" content="Slab is a macOS menu bar app from Aesthetic Computer. Every Claude Code, Codex or Easel session on the machine gets a colour, a name, a stone, and a place on the wall.">
+
+<link rel="canonical" href="https://aesthetic.computer/slab">
+<link rel="icon" href="/slab/icon.png">
+<link rel="apple-touch-icon" href="/slab/icon.png">
+<meta name="theme-color" content="#121016">
+
+<meta property="og:title" content="Slab">
+<meta property="og:description" content="A desk for running many coding agents at once.">
+<meta property="og:url" content="https://aesthetic.computer/slab">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Aesthetic Computer">
+<meta property="og:image" content="https://aesthetic.computer/slab/share-card.jpg">
+<meta property="og:image:width" content="1440">
+<meta property="og:image:height" content="900">
+<meta property="og:image:alt" content="Six tiled terminal windows on a Mac, each tinted by the state of the agent inside it, with a small stone in the corner of each">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Slab">
+<meta name="twitter:description" content="A desk for running many coding agents at once.">
+<meta name="twitter:image" content="https://aesthetic.computer/slab/share-card.jpg">
+
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+
+<style>
+  /* Slab is a dark-terminal thing, so the page is dark first. The light
+     theme exists for people who arrive with the system set that way. */
+  :root {
+    --bg:          #121016;
+    --bg-deep:     #0b0a0e;
+    --panel:       #1a171f;
+    --panel-edge:  #2a2632;
+    --ink:         #ece8e1;
+    --ink-soft:    #a8a2ad;
+    --ink-dim:     #6f6975;
+    --rule:        #2c2833;
+    --working:     #2f6d4a;   /* the three tints the terminals wear */
+    --awaiting:    #244a35;
+    --complete:    #7a2233;
+    --glow-a:      #ffb36b;   /* the rune on the icon */
+    --glow-b:      #ff6bb5;
+    --glow-c:      #6bd3ff;
+    --code-bg:     #0e0d12;
+    --shadow:
+      0 1px 2px rgba(0,0,0,0.4),
+      0 12px 32px -8px rgba(0,0,0,0.6);
+    --mono: "Berkeley Mono Variable", "SF Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg:         #f2eff4;
+      --bg-deep:    #e6e2ea;
+      --panel:      #ffffff;
+      --panel-edge: #d9d3de;
+      --ink:        #1b1820;
+      --ink-soft:   #5a5462;
+      --ink-dim:    #8b8492;
+      --rule:       #ddd7e2;
+      --code-bg:    #1a171f;
+      --shadow:
+        0 1px 2px rgba(20,10,40,0.08),
+        0 12px 32px -8px rgba(20,10,40,0.18);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { cursor: url("/aesthetic.computer/cursors/precise.svg") 12 12, auto; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 70% -10%, rgba(120, 60, 160, 0.22), transparent 60%),
+      radial-gradient(900px 500px at 0% 20%, rgba(255, 140, 90, 0.10), transparent 60%),
+      var(--bg);
+    padding: 0 16px 72px;
+    min-height: 100vh;
+  }
+  a { color: inherit; text-decoration: underline; text-decoration-color: var(--ink-dim); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--glow-b); }
+  code, kbd, pre { font-family: var(--mono); }
+  kbd {
+    display: inline-block;
+    padding: 1px 7px;
+    border: 1px solid var(--panel-edge);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--panel);
+    font-size: 0.85em;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+
+  /* AC corner label, same shape as the other html-rendered paths. */
+  #corner-label {
+    font-family: var(--mono);
+    font-size: 18px;
+    position: fixed; top: 12px; left: 16px; z-index: 3;
+    margin: 0; cursor: pointer; user-select: none;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  #corner-label:hover { color: var(--glow-b); }
+  #corner-label:active { color: var(--ink-dim); }
+
+  main { max-width: 960px; margin: 0 auto; }
+
+  /* ── Hero ─────────────────────────────────────────────────────────── */
+  .hero {
+    padding: clamp(84px, 14vh, 150px) 0 28px;
+    text-align: center;
+  }
+  .hero img.icon {
+    width: 176px; height: 176px;
+    display: block; margin: 0 auto 18px;
+    border-radius: 40px;
+    filter: drop-shadow(0 18px 28px rgba(0,0,0,0.55));
+  }
+  .hero h1 {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: clamp(44px, 9vw, 72px);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 0 0 14px;
+  }
+  .hero .tag {
+    font-size: clamp(19px, 3.2vw, 24px);
+    line-height: 1.35;
+    margin: 0 auto 14px;
+    max-width: 34ch;
+  }
+  .hero .sub {
+    color: var(--ink-soft);
+    max-width: 58ch;
+    margin: 0 auto;
+  }
+
+  /* The screenshot sits in a thin mac-ish frame so the menu bar in the
+     capture reads as a menu bar and not as a stripe. */
+  .shot {
+    margin: 36px auto 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow), 0 0 0 1px var(--panel-edge);
+    background: var(--bg-deep);
+  }
+  .shot img { display: block; width: 100%; height: auto; }
+  .caption {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-dim);
+    text-align: center;
+    margin: 12px 0 0;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Sections ─────────────────────────────────────────────────────── */
+  section { padding: 56px 0 8px; }
+  section h2 {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin: 0 0 18px;
+  }
+  section h2::before { content: "// "; color: var(--glow-b); }
+  section p { max-width: 64ch; margin: 0 0 16px; }
+  section p.lede { font-size: 20px; line-height: 1.45; max-width: 44ch; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 12px;
+    padding: 18px 18px 14px;
+    box-shadow: var(--shadow);
+  }
+  .card h3 {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 16px;
+    margin: 0 0 8px;
+  }
+  .card p { font-size: 15px; color: var(--ink-soft); margin: 0; }
+  .card .swatches { display: flex; gap: 6px; margin: 0 0 12px; }
+  .card .swatches span {
+    flex: 1; height: 10px; border-radius: 3px;
+  }
+
+  .rocks {
+    margin: 8px 0 18px;
+    padding: 18px 12px;
+    border-radius: 12px;
+    background: var(--bg-deep);
+    border: 1px solid var(--panel-edge);
+    overflow-x: auto;
+    text-align: center;
+  }
+  .rocks img {
+    height: 128px; width: auto;
+    image-rendering: pixelated;
+    display: inline-block;
+    max-width: none;
+  }
+
+  .keys { list-style: none; padding: 0; margin: 0; max-width: 64ch; }
+  .keys li {
+    display: grid;
+    grid-template-columns: minmax(120px, auto) 1fr;
+    gap: 14px;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .keys li:last-child { border-bottom: 1px solid var(--rule); }
+  .keys li > span:last-child { color: var(--ink-soft); }
+  .keys .combo { color: var(--ink); white-space: nowrap; }
+
+  .sounds { display: grid; gap: 10px; max-width: 64ch; margin-top: 4px; }
+  .sound {
+    display: grid; grid-template-columns: 120px 1fr; gap: 14px;
+    align-items: center;
+    font-size: 15px; color: var(--ink-soft);
+  }
+  .sound b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+  .sound svg { width: 120px; height: 40px; display: block; }
+
+  pre {
+    background: var(--code-bg);
+    color: #ece8e1;
+    border: 1px solid var(--panel-edge);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 13.5px;
+    line-height: 1.7;
+    margin: 0 0 16px;
+  }
+  pre .c { color: #7d7788; }
+  .note {
+    border-left: 3px solid var(--glow-a);
+    padding: 4px 0 4px 14px;
+    color: var(--ink-soft);
+    max-width: 62ch;
+  }
+
+  /* ── Recent changes ───────────────────────────────────────────────── */
+  #recent-commits { list-style: none; padding: 0; margin: 0; max-width: 72ch; }
+  #recent-commits li {
+    display: grid; grid-template-columns: 7ch 1fr; gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  #recent-commits li:last-child { border-bottom: 1px solid var(--rule); }
+  #recent-commits .hash { font-family: var(--mono); color: var(--ink-dim); text-decoration: none; }
+  #recent-commits .hash:hover { color: var(--glow-c); }
+  #recent-commits .msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #recent-commits .commits-empty { color: var(--ink-dim); display: block; }
+  #recent-deployed { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-left: 8px; }
+
+  footer {
+    max-width: 960px; margin: 64px auto 0;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-dim);
+    font-size: 14px;
+    display: flex; flex-wrap: wrap; gap: 8px 22px;
+  }
+  footer a { text-decoration: none; }
+  footer a:hover { color: var(--glow-b); }
+
+  @media (min-width: 640px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) {
+    .hero img.icon { width: 132px; height: 132px; border-radius: 30px; }
+    .keys li { grid-template-columns: 1fr; gap: 4px; }
+    .sound { grid-template-columns: 90px 1fr; }
+    .sound svg { width: 90px; }
+  }
+</style>
+</head>
+<body>
+
+<h1 id="corner-label" title="aesthetic.computer">slab</h1>
+
+<main>
+
+  <header class="hero">
+    <img class="icon" src="/slab/icon.png" alt="Slab icon: a dark stone with a glowing rune carved into it" width="176" height="176">
+    <h1>slab</h1>
+    <p class="tag">A desk for running many coding agents at once.</p>
+    <p class="sub">A macOS menu bar app from Aesthetic Computer. Every Claude Code, Codex or Easel session on the machine gets a colour, a name, a stone, and a place on the wall.</p>
+
+    <figure class="shot" style="margin-left:0;margin-right:0">
+      <img src="/slab/hero.jpg" alt="A Mac desktop with six tiled Terminal windows. Four are tinted green and two red. Each has a small pixel-art stone with a name in its top-right corner. One window is an Easel session with a live preview card." width="2048" height="1281">
+    </figure>
+    <p class="caption">blueberry, a tuesday night. six panes, five rocks, one easel. the text is blurred; everything else is real.</p>
+  </header>
+
+  <section id="looking">
+    <h2>what you're looking at</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="swatches" aria-hidden="true">
+          <span style="background:var(--working)"></span>
+          <span style="background:var(--awaiting)"></span>
+          <span style="background:var(--complete)"></span>
+        </div>
+        <h3>The colour is the state.</h3>
+        <p>Each terminal is re-skinned by the session inside it: one tint while the agent works, another when it stops to ask you something, a third when the turn is done. From across the room you know which pane wants you.</p>
+      </div>
+      <div class="card">
+        <h3>The title is the task.</h3>
+        <p>Slab reads the transcript and titles the window with what the session is doing, so the Window menu reads like a to-do list instead of six copies of <code>bash</code>.</p>
+      </div>
+      <div class="card">
+        <h3>The stone is the session.</h3>
+        <p>Top-right of every pane, a prompt rock. It spins while the agent works, slows when it is waiting, and carries a pet name so you can say "poke veguri" out loud.</p>
+      </div>
+      <div class="card">
+        <h3>The grid is one keystroke.</h3>
+        <p><kbd>⌘⌥T</kbd> tiles every agent terminal into a wall. <kbd>⌘⌥S</kbd> scatters them again. Easel sessions get a live preview of the piece they are making, pinned to their own pane.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="rocks">
+    <h2>prompt rocks</h2>
+    <div class="rocks">
+      <img src="/slab/rocks.png" alt="Five pixel-art stones with names under them: nilemi, veguri, zevo, kepu, vol" height="128">
+    </div>
+    <p class="lede">One rock per live prompt.</p>
+    <p>Its shape grows from the session and the prompt in flight, so the stone re-forms when the work moves on. Its motion is the status channel: spin speed and direction say working, awaiting, complete, and a poke from another session makes it blink and rattle. It carries a pet name in bubble letters. Pointing at a rock wakes a small seeded percussion voice; clicking it reveals what the session has done so far. Sweep across the wall and the rocks are a tiny drum kit.</p>
+    <p>An Easel rock is also a code. Point a phone at it and the piece that session is making opens on the phone.</p>
+  </section>
+
+  <section id="walking">
+    <h2>walking the wall</h2>
+    <p>Slab holds a few global shortcuts. They all work whether or not the menu is open.</p>
+    <ul class="keys">
+      <li><kbd>⌘⌥T</kbd> <span>Tile the agent terminals into a grid.</span></li>
+      <li><kbd>⌘⌥S</kbd> <span>Scatter them back into loose windows.</span></li>
+      <li><span class="combo"><kbd>⌘⌥←</kbd> <kbd>⌘⌥→</kbd> <kbd>⌘⌥↑</kbd> <kbd>⌘⌥↓</kbd></span> <span>Move focus across the wall spatially. At the edge of the screen it keeps going onto the next Mac, if there is one.</span></li>
+      <li><span class="combo"><kbd>⌘⌥</kbd> held</span> <span>A small arrow pad appears over the focused pane, each key lit with the colour of the pane it would land on. Hollow keys point at another machine.</span></li>
+      <li><kbd>⌘⌥X</kbd> <span>Keyboard focus on the rocks themselves. Escape lets go.</span></li>
+      <li><kbd>⌃⌥⌘A</kbd> <span>Dark mode, on this Mac and every other Mac running Slab.</span></li>
+    </ul>
+  </section>
+
+  <section id="sounds">
+    <h2>the ear's version</h2>
+    <p>Three short cues, synthesized so they share one voice and differ only in contour. You learn to tell them apart without looking up.</p>
+    <div class="sounds">
+      <div class="sound">
+        <svg viewBox="0 0 120 40" aria-hidden="true"><path d="M8 12 H48 M64 26 H104" stroke="var(--glow-a)" stroke-width="4" stroke-linecap="round" fill="none"/></svg>
+        <div><b>complete</b> · two notes falling a third. A resolve: "done".</div>
+      </div>
+      <div class="sound">
+        <svg viewBox="0 0 120 40" aria-hidden="true"><path d="M8 32 H34 M46 20 H72 M84 8 H110" stroke="var(--glow-b)" stroke-width="4" stroke-linecap="round" fill="none"/></svg>
+        <div><b>awaiting</b> · three notes climbing a triad. A question: "you?"</div>
+      </div>
+      <div class="sound">
+        <svg viewBox="0 0 120 40" aria-hidden="true"><path d="M8 8 C 40 8, 60 32, 112 32" stroke="var(--glow-c)" stroke-width="4" stroke-linecap="round" fill="none"/></svg>
+        <div><b>disconnected</b> · one tone sliding down an octave, with a beat in it. "gone".</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="origin">
+    <h2>where it came from</h2>
+    <p>Slab started in April 2026 as a sleeping laptop. Close the lid while an agent is still working and the Mac plays a slow pentatonic bed through its own speakers, answers claps and hums with little pluck arpeggios, and puts itself to sleep with a chime when the last job finishes. The name is from that: a closed MacBook on a desk, humming.</p>
+    <p>The lid daemon is still in the box. The menu bar grew around it once the sessions multiplied and one laptop became four Macs on one desk.</p>
+  </section>
+
+  <section id="fleet">
+    <h2>one menu bar on every mac</h2>
+    <p>Each Mac in the studio runs the same Slab. They share a ledger of live sessions over the tailnet, so an agent on one machine can name a session on another as <code>host:name</code> and find it instantly. A <code>frame</code> is a picture of any desk with its text and buttons located; a <code>puppet</code> acts on what the frame saw. Rocks stay local. A machine never draws another machine's stones.</p>
+  </section>
+
+  <section id="get">
+    <h2>getting it</h2>
+    <p class="lede">Slab is not packaged yet.</p>
+    <p>There is no download, no App Store listing, no one-line installer. It lives inside the Aesthetic Computer monorepo and is built from source on each Mac. If that does not put you off:</p>
+<pre><code>git clone https://github.com/whistlegraph/aesthetic-computer.git
+cd aesthetic-computer/slab
+./install.sh --prompt-host        <span class="c"># hooks + session markers; no audio, no sudo</span>
+./menubar-swift/install.sh        <span class="c"># builds and launches the menu bar</span></code></pre>
+    <p>It wants macOS on Apple silicon, the Xcode command line tools, and Claude Code. Codex and Easel sessions are tracked too. The installer merges hooks into <code>~/.claude/settings.json</code>, installs a launchd agent, and asks for Accessibility so it can move Terminal windows. Screen Recording is only requested the first time something asks for a frame. <code>./uninstall.sh</code> takes it all back out.</p>
+    <p class="note">The lid ambient, the fleet ledger and the multi-Mac navigation are tuned to one studio's machines right now. Expect to read a shell script or two. A build you can just download is the next thing, and interest is what moves it up the list.</p>
+    <p><a href="https://tangled.org/@aesthetic.computer/core/tree/main/slab">view source</a> · <a href="https://tangled.org/@aesthetic.computer/core/blob/main/slab/README.md">read the README</a></p>
+  </section>
+
+  <section id="recent">
+    <h2>recent changes<span id="recent-deployed" hidden></span></h2>
+    <ul id="recent-commits"><li class="commits-empty">loading…</li></ul>
+  </section>
+
+</main>
+
+<footer>
+  <span>Slab is made by <a href="https://aesthetic.computer">Aesthetic Computer</a>.</span>
+  <a href="/menuband">Menu Band</a>
+  <a href="/easel">Easel</a>
+  <a href="https://prompt.ac/@jeffrey">@jeffrey</a>
+</footer>
+
+<script>
+  // Corner label → home. Same behaviour as the other html paths on AC.
+  (function cornerLabel() {
+    const el = document.getElementById('corner-label');
+    if (!el) return;
+    el.addEventListener('click', () => {
+      if (location.host === 'aesthetic.computer' || location.host === 'www.aesthetic.computer') {
+        location.href = '/';
+      } else {
+        location.href = 'https://aesthetic.computer';
+      }
+    });
+  })();
+
+  // Live reload on deploy: long-poll /api/version like prompt.mjs does.
+  (function liveReload() {
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return;
+    let deployed = null;
+    async function poll() {
+      try {
+        if (!deployed) {
+          const res = await fetch('/api/version', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          deployed = data.deployed;
+          if (!deployed || deployed === 'unknown') { deployed = null; throw new Error('no deployed hash'); }
+        } else {
+          const res = await fetch('/api/version?current=' + encodeURIComponent(deployed), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          if (data.deployed && data.deployed !== deployed) { location.reload(); return; }
+        }
+      } catch (_) {
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      poll();
+    }
+    poll();
+  })();
+
+  // Recent changes: the last commits that touched slab/, from the same
+  // endpoint the Menu Band page uses.
+  (function recentChanges() {
+    const list = document.getElementById('recent-commits');
+    const chip = document.getElementById('recent-deployed');
+    if (!list) return;
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    fetch('/api/version?path=slab', { cache: 'no-store' })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then((data) => {
+        if (chip && data && data.deployed && data.deployed !== 'unknown') {
+          chip.hidden = false;
+          chip.textContent = '@ ' + data.deployed;
+        }
+        const commits = (data && Array.isArray(data.recentCommits)) ? data.recentCommits : [];
+        if (!commits.length) {
+          list.innerHTML = '<li class="commits-empty">nothing to show yet.</li>';
+          return;
+        }
+        list.innerHTML = commits.slice(0, 10).map((c) => {
+          const hash = String(c.hash || '').slice(0, 7);
+          const msg = esc((c.message || '').split('\n')[0]);
+          const url = 'https://tangled.org/@aesthetic.computer/core/commit/' + hash;
+          return '<li><a class="hash" href="' + url + '">' + hash + '</a><span class="msg" title="' + msg + '">' + msg + '</span></li>';
+        }).join('');
+      })
+      .catch(() => {
+        list.innerHTML = '<li class="commits-empty">could not load the change list.</li>';
+      });
+  })();
+</script>
+
+</body>
+</html>

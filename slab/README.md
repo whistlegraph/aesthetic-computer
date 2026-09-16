@@ -1,5 +1,37 @@
 # slab
 
+A desk for running many coding agents at once. Slab is a macOS menu bar app
+(plus a handful of hooks and scripts) that gives every Claude Code, Codex or
+Easel session on the machine a colour, a name, a stone, and a place on the
+wall. Story page: <https://aesthetic.computer/slab>.
+
+What the menu bar does today:
+
+- **Theme by status.** Each Terminal window is re-skinned by the session
+  inside it: one tint while the agent works, another when it is waiting on
+  you, a third when the turn is complete. Profiles live in `seed/`.
+- **Title by task.** The window title becomes what the session is doing.
+- **Prompt rocks.** One 3D pixel stone per live prompt, parked top-right of
+  its terminal. Shape = identity, spin = status, pet name in bubble letters,
+  a seeded percussion voice on hover, the session summary on click. Easel
+  rocks double as a scannable code for the piece being made.
+  (`menubar-swift/Sources/SlabMenubar/PromptSigilOverlay.swift`)
+- **The wall.** ⌘⌥T tiles the agent terminals, ⌘⌥S scatters them, ⌘⌥ arrows
+  walk focus spatially (and across Macs over Deskflow), ⌘⌥X focuses the
+  rocks, ⌃⌥⌘A flips dark mode fleet-wide.
+- **Status sounds.** Three synthesized cues (complete / awaiting /
+  disconnected) that share one voice and differ only in contour.
+- **Fleet.** Every Mac runs the same menu bar; they share a ledger of live
+  sessions over the tailnet (`host:name`), `frame` photographs any desk and
+  `puppet` acts on it. Rocks are never drawn for remote machines.
+
+Slab is not packaged: no download, no installer script. Clone the monorepo,
+run `./install.sh --prompt-host` for hooks + markers, then
+`menubar-swift/install.sh` to build and launch the bar. The rest of this
+README is mostly about the lid daemon, which is where Slab began.
+
+## The lid (where it started)
+
 A lid-closed ambient + reactive audio system for the MacBook, gated on Claude
 Code activity, with a completion chime that sleeps the Mac when the last
 thread finishes.
