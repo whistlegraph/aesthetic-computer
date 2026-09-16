@@ -527,7 +527,8 @@ export const handler = async (event) => {
         
         let bdfText;
         if (bdfFileName.endsWith('.gz')) {
-          const compressedData = await response.buffer();
+          // native fetch has no .buffer(); node-fetch did
+          const compressedData = Buffer.from(await response.arrayBuffer());
           bdfText = (await gunzip(compressedData)).toString("utf-8");
         } else {
           bdfText = await response.text();
@@ -683,7 +684,7 @@ export const handler = async (event) => {
     let bdfText;
     if (bdfFileName.endsWith('.gz')) {
       // Handle compressed unifont
-      const compressedData = await response.buffer();
+      const compressedData = Buffer.from(await response.arrayBuffer());
       bdfText = (await gunzip(compressedData)).toString("utf-8");
     } else {
       // Handle uncompressed BDF files

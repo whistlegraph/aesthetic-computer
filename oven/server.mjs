@@ -2102,7 +2102,7 @@ app.get('/kidlisp-backdrop/pool', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-app.post('/kidlisp-backdrop/pool/warm', async (req, res) => {
+app.post('/kidlisp-backdrop/pool/warm', requireOSBuildAdmin, async (req, res) => {
   const force = req.query.force === 'true';
   addServerLog('info', '🖼️', `Backdrop pool warm requested${force ? ' (force)' : ''}`);
   warmBackdropPool({ force })
