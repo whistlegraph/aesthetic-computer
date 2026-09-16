@@ -7,6 +7,7 @@
   <title>mime</title>
   <link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
     :root {
       color-scheme: light;
@@ -65,7 +66,7 @@
       .mime-sculpture { animation: none; }
       .mime-face { transition: none; }
     }
-    .wordmark .domain-suffix { width: 30px; height: 16px; align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); }
+    .wordmark .domain-suffix { align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); font: 16px/1 "YWFTProcessing-Regular", sans-serif; }
     .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
     .wordmark:active .mime-sculpture { animation-play-state: paused; }
     .pages { display: flex; justify-content: space-between; margin-top: 1em; }
@@ -215,9 +216,7 @@
           <use class="mime-face" href="#mime-letters" fill="url(#mime-face)" stroke="#a02f72" stroke-width="0.65" stroke-linejoin="round"/>
           <path d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35M45 0.7H49M41 9.7H49M41 31.7H54M60 9.7H67M60 31.7H70M73 31.7H82M85 31.7H94M106 23.7H123" fill="none" stroke="#ffe9f4" stroke-width="0.8"/>
         </svg>
-        <svg class="domain-suffix" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 15 8" aria-hidden="true" focusable="false">
-          <path fill="currentColor" fill-rule="evenodd" d="M0 5H2V7H0ZM4 2H8V3H9V7H4V4H7V3H4ZM6 5V6H7V5ZM11 2H14V3H12V4H11V5H12V6H14V7H11V6H10V3H11Z"/>
-        </svg>
+        <sup class="domain-suffix" aria-hidden="true">.ac</sup>
       </a>
     </h1>
     <div class="account">
