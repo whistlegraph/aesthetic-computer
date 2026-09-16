@@ -210,6 +210,7 @@ let login, // A login button in the center of the display.
   notepatBtn, // 🎹 Notepat button (to the right of the commit button)
   kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
 
+let mimeAdBtn; // MIME promo (top-right ad slot)
 let giveBtn; // GIVE button (top-right slot)
 let soBtn, softBtn; // SO SOFT ad buttons
 let osBtn; // OS button (top-right slot)
@@ -221,9 +222,9 @@ let soSoftLastTinyFont = false;
 let giveBtnParticles = [];
 
 // 🎰 Top-right slot: A/B test — pick one randomly on page load
-const TOP_RIGHT_BTN_CHOICES = ["give", "ad", "os", "products", "blank"];
+const TOP_RIGHT_BTN_CHOICES = ["mime", "give", "ad", "os", "products", "blank"];
 // const topRightBtnChoice = TOP_RIGHT_BTN_CHOICES[Math.floor(Math.random() * TOP_RIGHT_BTN_CHOICES.length)];
-const topRightBtnChoice = "products"; // Curtain product carousel (cycles live Shopify items)
+const topRightBtnChoice = "mime"; // MIME promo; prompt:products still opts into the product carousel
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
@@ -6048,8 +6049,36 @@ function paint($) {
     blankAdBtn = null;
   }
 
-  // 📦 Paint SHOP products in top-right corner (active when slot shows "products")
-  if (topRightBtnChoice === "products" && flairEnabled && productsEnabled) {
+  // MIME occupies the curtain's existing ad slot; typing clears its hit area.
+  if (topRightBtnChoice === "mime" && !productsEnabled && showLoginCurtain && flairEnabled &&
+      !$.system.prompt.input.canType && !$.system.prompt.input.text && screen.width >= 112) {
+    const label = "mime.ac";
+    const pos = { right: 3, top: 3, screen };
+    if (!mimeAdBtn) {
+      mimeAdBtn = new $.ui.TextButton(label, pos, undefined, 5);
+      mimeAdBtn.stickyScrubbing = true;
+    } else mimeAdBtn.reposition(pos, label);
+    const box = mimeAdBtn.btn.box;
+    const down = mimeAdBtn.btn.down;
+    const hover = mimeAdBtn.btn.over;
+    const t = performance.now() / 1000;
+    ink(12, 9, 24).box(box.x + 1, box.y + 2, box.w, box.h, "fill");
+    ink(...(down ? [55, 33, 66] : hover ? [63, 45, 79] : [35, 28, 48])).box(box, "fill");
+    ink(126, 103, 148).box(box, "outline");
+    ink(125, 227, 215).line(box.x + 1, box.y, box.x + box.w - 2, box.y);
+    const colors = [[255, 145, 195], [255, 197, 133], [183, 164, 255], [122, 231, 206]];
+    [...label].forEach((char, i) => {
+      const bob = i < 4 && !down ? Math.round(Math.sin(t * 2.4 + i * 1.3)) : 0;
+      const x = box.x + 5 + i * 6;
+      const y = box.y + 5 + bob + (down ? 1 : 0);
+      ink(86, 45, 108).write(char, { x: x + 1, y: y + 1 });
+      ink(...(i < 4 ? colors[i] : [125, 227, 215])).write(char, { x, y });
+    });
+    $.needsPaint();
+  } else mimeAdBtn = null;
+
+  // 📦 Explicit product mode takes over the same top-right slot.
+  if (flairEnabled && productsEnabled) {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtain && !$.system.prompt.input.canType && !promptHasContent;
     products.paint({ ...$, login, signup }, $.screen, shouldShow);
@@ -7991,12 +8020,10 @@ function sim($) {
     const promptHasContent = $.system.prompt.input.text && $.system.prompt.input.text.length > 0;
     const shouldShow = showLoginCurtainSim && !$.system.prompt.input.canType && !promptHasContent;
     if (shouldShow && flairEnabled && productsEnabled) {
-      if (topRightBtnChoice === "products") {
-        const product = products.getActiveProduct();
-        if (product && product.imageScaled) {
-          products.sim($);
-          $.needsPaint();
-        }
+      const product = products.getActiveProduct();
+      if (product && product.imageScaled) {
+        products.sim($);
+        $.needsPaint();
       }
     }
   }
@@ -8245,6 +8272,7 @@ function act({
           ["signup", signup?.btn],
           ["profile", profile?.btn],
           ["wallet", walletBtn?.btn],
+          ["mime", mimeAdBtn?.btn],
           ["give", giveBtn?.btn],
           ["so", soBtn?.btn],
           ["soft", softBtn?.btn],
@@ -8306,6 +8334,21 @@ function act({
     softBtn.btn.act(e, {
       down: () => downSound(),
       push: () => { pushSound(); if (net.iframe) { send({ type: "post-to-parent", content: { type: "openExternal", url: soSoftUrl } }); } else { jump(soSoftUrl); } },
+      cancel: () => cancelSound(),
+    });
+  }
+
+  // The MIME promo uses the same external-link handling as other curtain ads.
+  if (mimeAdBtn && !mimeAdBtn.btn.disabled && curtainVisible && flairEnabled &&
+      !system.prompt.input.canType && !system.prompt.input.text) {
+    mimeAdBtn.btn.act(e, {
+      down: () => downSound(),
+      push: () => {
+        pushSound();
+        const url = "https://mime.ac/";
+        if (net.iframe) send({ type: "post-to-parent", content: { type: "openExternal", url } });
+        else jump(url);
+      },
       cancel: () => cancelSound(),
     });
   }
@@ -8627,6 +8670,7 @@ function act({
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
+      (mimeAdBtn?.btn.disabled === false && mimeAdBtn?.btn.box.contains(e)) ||
       isOverMotdHandle)
   ) {
     send({ type: "keyboard:lock" });
@@ -8641,6 +8685,7 @@ function act({
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
       (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
+      (mimeAdBtn?.btn.disabled === false && mimeAdBtn?.btn.box.contains(e)) ||
       (giveBtn?.btn.disabled === false && giveBtn?.btn.box.contains(e)) ||
       (soBtn?.btn?.disabled === false && soBtn?.btn?.box.contains(e)) ||
       (softBtn?.btn?.disabled === false && softBtn?.btn?.box.contains(e)) ||
