@@ -77,6 +77,15 @@ whole rounds, so nothing inside a round is cut.
 
 Do not press Release while a trailer is still encoding — Valve blocks it.
 
+**Uploaded 2026-09-16** (movie item 1331515): 66.3s, 1920x1080 at 60 fps,
+cut as `dummy-1(KO) · dummy-2(KO) · fight-1(TIE, trimmed) · climb-1(SUMMIT)`.
+Category **Gameplay** — "mostly shows what it's like to play the game",
+which is the literal truth here: whole rounds, no cinematics. *Visible on
+Store* and *Show before screenshots* both came up ticked from the upload and
+were left that way. Steam generated its own poster frame; the slot still
+takes a drag of `assets/trailer-thumbnail.jpg` if a chosen frame is wanted
+over Valve's pick.
+
 ## Store Settings / Content survey
 
 Cartoon violence between stick figures; no blood or gore; no text chat, no
