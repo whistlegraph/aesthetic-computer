@@ -7,7 +7,11 @@
 // - Translate Datomic-native sidecar responses to the Mongo-era shape.
 // - Join @handles from Mongo for display names (handles stay in Mongo).
 //
-// Writes NEVER touch the Mongo `kidlisp` collection.
+// Writes treat Datomic as the source of truth. The one thing they also put in
+// the Mongo `kidlisp` collection is an identity-only projection row, because
+// the public feeds are Mongo aggregations that no sidecar call can serve — see
+// backend/kidlisp-projection.mjs for what that row may and may not contain.
+// Nothing mutable (hits, keeps, tezos) is ever mirrored there.
 
 import { authorize, getHandleOrEmail } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
@@ -16,6 +20,7 @@ import { generateUniqueCode } from "../../backend/generate-short-code.mjs";
 import { createMediaRecord, MediaTypes } from "../../backend/media-atproto.mjs";
 import { publishProfileEvent } from "../../backend/profile-stream.mjs";
 import { sidecar } from "../../backend/kidlisp-sidecar.mjs";
+import { mirrorKidlispPiece } from "../../backend/kidlisp-projection.mjs";
 import { extractAst } from "../../backend/kidlisp-ast.mjs";
 import crypto from "crypto";
 
@@ -137,6 +142,12 @@ export async function handler(event, context) {
       // Dedup: fast path via sidecar hash lookup
       const existing = await sidecar.lookupByHash(hash);
       if (existing) {
+        // Resubmitting known source is also the moment to notice a piece the
+        // feeds still cannot see, so project it here too — with the sidecar's
+        // own `when`, never today's date, or an old piece would resurface at
+        // the top of every recency feed. Idempotent, so the common case where
+        // the row already exists costs one no-op upsert.
+        await mirrorKidlispPiece(database, { ...existing, hash });
         await database.disconnect();
         return respond(200, { code: existing.code, cached: true });
       }
@@ -205,6 +216,26 @@ export async function handler(event, context) {
         when: new Date(),
         user: user?.sub || null,
       };
+      // Identity projection into Mongo so mime.ac, /api/tv and the other
+      // aggregation-based readers can see this piece at all. Never fails the
+      // request — Datomic has already accepted the write.
+      //
+      // `created.cached` means another writer won the race and the piece is
+      // older than this request, so take its instant from the sidecar rather
+      // than dating it now.
+      //
+      // Awaited, unlike the fire-and-forget calls below it: this branch ends
+      // in `database.disconnect()`, and a projection still in flight when the
+      // connection closes is a row silently lost — the failure this whole
+      // module exists to stop. It swallows its own errors, so awaiting it
+      // cannot fail the request; the cost is one indexed upsert.
+      if (created.cached) {
+        const entity = await sidecar.lookupByCode(finalCode).catch(() => null);
+        if (entity) await mirrorKidlispPiece(database, { ...entity, code: finalCode, hash });
+      } else {
+        await mirrorKidlispPiece(database, savedRecord);
+      }
+
       createMediaRecord(database, MediaTypes.KIDLISP, savedRecord, { userSub: user?.sub })
         .then((result) => {
           if (result?.rkey) {

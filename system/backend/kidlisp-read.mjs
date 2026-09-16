@@ -10,6 +10,10 @@
 // overlay the MongoDB doc if present so caller-specific fields like
 // ipfsMedia, mediaHistory, kept, tezos, and pendingRebake — which still
 // live in Mongo — continue to work for rebake / sync flows.
+//
+// This fixes lookup by code. The readers that cannot use it are the ones that
+// aggregate — mime's feed, /api/tv, oven's thumbnail bundler — and those are
+// served by the identity row in backend/kidlisp-projection.mjs instead.
 
 import { sidecar, kidlispDatomicEnabled } from "./kidlisp-sidecar.mjs";
 

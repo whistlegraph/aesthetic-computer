@@ -28,6 +28,16 @@ Reads combine native uploads with the current source records. No backfill or
 upload hook is required, and source files are not copied. `mime-media-threads`
 stores only reply counts and bump times, starting with the first reply.
 
+Because thread keys are Mongo `_id`s, a media record that exists only outside
+Mongo is unaddressable here, not merely unlisted. That is what the
+`KIDLISP_DATOMIC` cutover caused: KidLisp writes moved to Datomic, and every
+piece made after it went missing from this feed, `/api/tv`, and oven's
+thumbnails — 408 pieces before it was caught. `backend/kidlisp-projection.mjs`
+now writes an identity-only row for each new piece so it has an `_id` to be
+addressed by; `backend/kidlisp-backfill.mjs` repairs the gap. Nothing mutable
+is mirrored, so `hits` stays Datomic's and `sort=hits` ranks a post-cutover
+piece as 0 until it is read through `/api/store-kidlisp`.
+
 Records marked nuked, deleted, hidden, private, draft, or with a non-public
 visibility are excluded. Legacy records without a visibility field follow the
 existing public AC feeds. Private upload drafts live in a separate collection
