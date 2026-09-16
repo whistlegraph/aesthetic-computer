@@ -151,9 +151,15 @@ async function getIndex(db, posts, page) {
   const activity = ids.length ? await db.collection(MEDIA_THREADS).find({ _id: { $in: ids } }).toArray() : [];
   const counts = new Map(activity.map((p) => [p._id, p.replies]));
   for (const p of recent) if (p._media) p.replies = counts.get(p.code) || 0;
+  const publicRecent = await publicPosts(db, recent.slice(0, PAGE_SIZE));
+  await Promise.all(publicRecent.map(async (op) => {
+    if (!op.replies) return;
+    const tail = await posts.find({ parent: op.code }, NO_DATA).sort({ when: -1, _id: -1 }).limit(2).toArray();
+    op.preview = (await publicPosts(db, tail.reverse())).map(({ name, text }) => ({ name, text }));
+  }));
   return respond(200, {
     boards: boards.map((b) => ({ board: b._id, threads: b.threads, bumped: b.bumped })),
-    recent: await publicPosts(db, recent.slice(0, PAGE_SIZE)),
+    recent: publicRecent,
     page, hasMore: recent.length > PAGE_SIZE,
   }, { "Cache-Control": "no-store" });
 }

@@ -9,212 +9,232 @@
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css" />
   <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css" />
   <style>
+
     :root {
       color-scheme: light;
-      --paper: #fafafa;
-      --card: #f0f0f3;
-      --card-edge: #d5d5df;
-      --ink: #ac397f;
-      --body: #1a1a2e;
-      --dim: #63636f;
-      --link: #087c84;
-      --green: #237a53;
-      --accent: #b52c44;
+      --paper: #eee9f1; --card: #fffafc; --card-edge: #b6a5bd;
+      --ink: #a52b72; --body: #30253e; --dim: #74667c; --link: #087980;
+      --green: #257b55; --accent: #bd3851; --shine: #fff;
+      --button: #eed9f0; --button-ink: #592553; --shadow: #86738f;
+      --primary: #bbefb8; --primary-ink: #204e37; --media: #e7e1ed;
     }
     @media (prefers-color-scheme: dark) {
       :root {
         color-scheme: dark;
-        --paper: #1a1a2e;
-        --card: #232337;
-        --card-edge: #414156;
-        --ink: #ff6b9d;
-        --body: #e8e8e8;
-        --dim: #a6a6b9;
-        --link: #4ecdc4;
-        --green: #6bcb77;
-        --accent: #ff6b6b;
+        --paper: #171526; --card: #272237; --card-edge: #625271;
+        --ink: #ff91c5; --body: #f5eefa; --dim: #b4a5c2; --link: #7de3d7;
+        --green: #a6e6b3; --accent: #ff969a; --shine: #796687;
+        --button: #594367; --button-ink: #ffeafa; --shadow: #0b0915;
+        --primary: #afdcb6; --primary-ink: #173b2e; --media: #1b1729;
       }
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--paper);
-      color: var(--body);
-      font: 14px/1.5 "Berkeley Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      padding-bottom: 4em;
-    }
-    a { color: var(--link); }
+    body { margin: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+      background: var(--paper); color: var(--body); font: 16px/1.5 "Berkeley Mono Variable", ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    a { color: var(--link); text-underline-offset: 3px; }
     a:hover { color: var(--ink); }
-    :focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+    :focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
     ::selection { background: var(--ink); color: var(--paper); }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 0.5em; text-align: left; padding: 1em 1em 0.4em; }
-    .account { display: flex; align-items: center; justify-content: flex-end; gap: 0.5em; flex-wrap: wrap; font-size: 0.85em; }
-    .account button { font: inherit; color: var(--link); background: var(--paper); border: 1px solid var(--card-edge); border-radius: 4px; min-height: 36px; padding: 0.3em 0.6em; cursor: pointer; }
+    header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      width: 100%; max-width: 660px; margin: 0 auto; padding: max(10px, env(safe-area-inset-top)) 16px 10px;
+      border-bottom: 1px solid var(--card-edge); }
+    header h1 { flex-shrink: 0; margin: 0; color: var(--ink); line-height: 1; }
+    .account { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; font-size: 13px; min-width: 0; }
+    #account-handle { overflow-wrap: anywhere; }
     .account [role="status"] { max-width: 24ch; color: var(--accent); }
     .account [hidden] { display: none; }
-    header h1 { flex-shrink: 0; margin: 0; color: var(--ink); line-height: 1; }
     .wordmark { display: inline-flex; align-items: center; min-height: 44px; color: inherit; text-decoration: none; }
-    .wordmark svg { display: block; width: 124px; height: 43px; overflow: visible; }
-    .mime-sculpture { transform-origin: 50% 60%; animation: mime-float 5s ease-in-out infinite; }
-    .mime-face { transition: filter 160ms ease; }
-    .wordmark:hover .mime-face, .wordmark:focus-visible .mime-face { filter: brightness(1.15); }
+    .wordmark svg { display: block; width: 146px; height: 50px; overflow: visible; }
+    .mime-letter { transform-box: fill-box; transform-origin: 50% 65%; animation: mime-float var(--period) ease-in-out var(--phase) infinite; }
+    .mime-face { animation: mime-light var(--period) ease-in-out var(--phase) infinite; }
+    .mime-shine { animation: mime-shine var(--period) ease-in-out var(--phase) infinite; }
+    .wordmark:hover .mime-letter, .wordmark:focus-visible .mime-letter { filter: brightness(1.12); }
     @keyframes mime-float {
-      0%, 100% { transform: perspective(240px) rotateY(-9deg) rotateZ(-3deg) translateY(1px); }
-      50% { transform: perspective(240px) rotateY(9deg) rotateZ(1deg) translateY(-2px); }
+      0%, 100% { transform: translateY(1px) rotate(-5deg) skewY(-2deg) scale(0.97, 1.02); }
+      50% { transform: translateY(-2.5px) rotate(4deg) skewY(2deg) scale(1.03, 0.98); }
+    }
+    @keyframes mime-light {
+      0%, 100% { filter: brightness(0.94) hue-rotate(-8deg); }
+      50% { filter: brightness(1.16) hue-rotate(8deg); }
+    }
+    @keyframes mime-shine {
+      0%, 100% { opacity: 0.45; }
+      50% { opacity: 1; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .mime-sculpture { animation: none; }
-      .mime-face { transition: none; }
+      .mime-letter, .mime-face, .mime-shine { animation: none; }
     }
     .wordmark .domain-suffix { align-self: flex-start; margin: 3px 0 0 2px; color: var(--link); font: 16px/1 "YWFTProcessing-Regular", sans-serif; }
     .wordmark:hover, .wordmark:focus-visible { color: var(--link); }
-    .wordmark:active .mime-sculpture { animation-play-state: paused; }
-    .pages { display: flex; justify-content: space-between; margin-top: 1em; }
-    main { width: 100%; max-width: 80rem; margin: 0; padding: 0 1em; }
-    h2 { color: var(--ink); font-size: 1.2em; }
-    h2 a { color: inherit; }
+    .wordmark:active .mime-letter, .wordmark:active .mime-face, .wordmark:active .mime-shine { animation-play-state: paused; }
 
-    form#post {
-      background: var(--card);
-      border: 1px solid var(--card-edge);
-      padding: 0.8em;
-      margin-bottom: 1.5em;
-      display: grid;
-      gap: 0.5em;
+    button, a.discussion, a.back, a.source-button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+      padding: 8px 14px; border: 1px solid var(--card-edge); border-radius: 7px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--button) 76%, white), var(--button));
+      color: var(--button-ink); box-shadow: inset 1px 1px 0 var(--shine), inset -1px -1px 0 var(--card-edge), 0 3px 0 var(--shadow);
+      font: inherit; font-weight: 600; text-decoration: none; cursor: pointer;
     }
-    form#post input[type="text"], form#post textarea {
-      width: 100%;
-      background: var(--paper);
-      color: var(--body);
-      border: 1px solid var(--card-edge);
-      padding: 0.4em;
-      font: inherit;
-    }
-    form#post textarea { min-height: 4.5em; resize: vertical; }
-    form#post input[readonly] { color: var(--ink); border-color: transparent; background: transparent; }
-    form#post button, .feed-more button {
-      background: var(--ink); color: var(--paper);
-      border: 0; border-radius: 4px; min-height: 44px;
-      padding: 0.45em 1.2em; font: inherit; cursor: pointer;
-      justify-self: start;
-    }
-    a.discussion {
-      display: inline-flex; align-items: center; justify-content: center;
-      min-height: 44px; margin-top: 0.6em; padding: 0.4em 1em;
-      border: 1px solid var(--ink); border-radius: 4px;
-      background: var(--paper); color: var(--ink);
-      font-weight: 500; text-decoration: none;
-    }
-    a.discussion:hover, a.discussion:active {
-      background: var(--ink); color: var(--paper);
-    }
-    #status { color: var(--accent); }
-
-    .post {
-      background: var(--card);
-      border: 1px solid var(--card-edge);
-      padding: 0.6em 0.8em;
-      margin: 0.5em 0;
-      overflow-wrap: anywhere;
-    }
-    .post.op { border-left: 3px solid var(--ink); }
-    .post .meta { font-size: 0.85em; color: var(--dim); margin-bottom: 0.3em; }
-    .post .meta .name { color: var(--ink); font-weight: bold; }
-    .post .meta a { color: var(--dim); }
-    .post .filemeta { font-size: 0.8em; color: var(--dim); margin: 0.2em 0; }
-    .post .filemeta a.typelink { color: var(--green); }
-    .post .body { white-space: pre-wrap; margin-top: 0.4em; max-width: 72ch; }
-    .post .body .gt { color: var(--green); }
-    .post img, .post video { max-width: 100%; max-height: 70vh; height: auto; display: block; }
-    .post audio { width: 100%; max-width: 28em; display: block; }
-    .post iframe.doc { width: 100%; height: 24em; border: 1px solid var(--card-edge); background: #fff; }
-    .post pre.textfile {
-      max-height: 18em; overflow: auto; background: var(--paper);
-      border: 1px solid var(--card-edge); padding: 0.6em; font-size: 0.85em;
-    }
-    .post .specimen { font-size: 2em; line-height: 1.2; }
-    .post .blob {
-      display: inline-block; background: var(--paper);
-      border: 1px dashed var(--card-edge); padding: 0.8em 1.2em;
-    }
-    body.feed { padding: 0; overflow: hidden; }
-    body.feed header { width: 100%; pointer-events: none; position: fixed; top: 0; left: 0; z-index: 2; padding-top: max(0.6em, env(safe-area-inset-top)); }
-    body.feed header a, body.feed .account { pointer-events: auto; }
-    body.feed header a { background: var(--paper); }
-    body.feed main {
-      max-width: none; padding: 0; height: 100vh; height: 100dvh;
-      overflow-y: auto; overscroll-behavior-y: contain; scroll-snap-type: y mandatory;
-    }
-    .feed-list { width: 100%; }
-    .post.feed-post {
-      position: relative; height: 100vh; height: 100dvh; margin: 0; border: 0;
-      padding: max(3.5rem, calc(env(safe-area-inset-top) + 2.5rem)) 0 max(0.75rem, env(safe-area-inset-bottom));
-      display: flex; flex-direction: column; gap: 0.5em; overflow: hidden;
-      background: var(--paper); scroll-snap-align: start; scroll-snap-stop: always;
-    }
-    .feed-media {
-      order: -1; flex: 1; min-height: 0; width: 100%; overflow: hidden;
-      display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center;
-    }
+    button:hover, a.discussion:hover, a.back:hover, a.source-button:hover { filter: brightness(1.08); }
+    button:active, a.discussion:active, a.back:active, a.source-button:active { transform: translateY(2px); box-shadow: inset 1px 1px 0 var(--shine), 0 1px 0 var(--shadow); }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .account button { font-size: 13px; padding: 7px 11px; white-space: nowrap; }
+    a.discussion, form#post button { --button: var(--primary); --button-ink: var(--primary-ink); }
+    main { flex: 1; min-height: 0; width: 100%; max-width: 660px; margin: 0 auto;
+      padding: 16px 12px max(32px, env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior-y: contain; }
+    .feed-list { display: grid; gap: 18px; }
+    .post { overflow-wrap: anywhere; }
+    .post.media-post { background: var(--card); border: 1px solid var(--card-edge); border-radius: 10px; overflow: hidden;
+      box-shadow: inset 0 1px 0 var(--shine), 0 3px 0 var(--shadow); }
+    .post .meta { display: flex; align-items: center; gap: 10px; padding: 13px 14px; color: var(--dim); font-size: 12px; }
+    .avatar { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 8px;
+      background: var(--button); border: 1px solid var(--card-edge); box-shadow: inset 1px 1px 0 var(--shine), 1px 1px 0 var(--shadow);
+      color: var(--ink); font: 22px/1 "YWFTProcessing-Regular", sans-serif; }
+    .byline { min-width: 0; flex: 1; }
+    .name { font-weight: 650; color: var(--ink); font-size: 15px; text-decoration: none; }
+    .post time { white-space: nowrap; font-size: 11px; }
+    .media-label { display: block; color: var(--dim); font-size: 11px; text-decoration: none; }
+    .feed-media { width: 100%; aspect-ratio: 1; max-height: 520px; display: grid; place-items: center;
+      grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; background: var(--media);
+      border-block: 1px solid var(--card-edge); }
     .feed-media > * { min-width: 0; min-height: 0; }
-    .feed-media > img, .feed-media > video, .feed-media > iframe.doc {
-      width: 100%; height: 100%; max-height: none; object-fit: contain; border: 0;
+    .feed-media > img, .feed-media > video, .feed-media > iframe.doc { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; }
+    .feed-media > audio { width: calc(100% - 32px); }
+    .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; }
+    .specimen { padding: 18px; font-size: 32px; }
+    .blob { margin: 16px; }
+    .post .body { white-space: pre-wrap; margin: 0; padding: 12px 14px; }
+    .body .gt { color: var(--green); }
+    .post-actions { display: flex; align-items: center; gap: 10px; padding: 13px 14px 15px; flex-wrap: wrap; }
+    .post-actions .source-button { margin-left: auto; font-size: 13px; }
+    .comment-preview { padding: 0 14px 13px; font-size: 14px; }
+    .comment-preview p { margin: 4px 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .comment-preview .name { font-size: inherit; margin-right: 8px; }
+    .comment-preview .all-comments { display: inline-block; padding-top: 4px; color: var(--dim); font-size: 13px; }
+    .feed-more { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 24px 8px 8px; }
+    .feed-more [role="status"], .omitted { color: var(--dim); font-size: 13px; }
+    .back { margin: 0 0 16px; font-size: 14px; }
+    .comments-title { font-size: 17px; margin: 25px 2px 10px; color: var(--body); }
+    .replies { margin-bottom: 16px; }
+    .replies .post { border-bottom: 1px solid var(--card-edge); padding: 12px 0; }
+    .replies .meta { padding: 0; }
+    .replies .avatar { width: 30px; height: 30px; font-size: 18px; }
+    .replies .body { padding: 6px 0 0 40px; }
+    .replies img, .replies video { max-width: 100%; max-height: 320px; }
+    form#post { display: grid; gap: 12px; padding: 16px; background: var(--card);
+      border: 1px solid var(--card-edge); border-radius: 10px; box-shadow: inset 0 1px 0 var(--shine), 0 3px 0 var(--shadow); }
+    form#post input, form#post textarea { width: 100%; min-width: 0; background: var(--paper); color: var(--body); border: 1px solid var(--card-edge);
+      border-radius: 6px; padding: 10px; font: inherit; box-shadow: inset 1px 2px 0 color-mix(in srgb, var(--shadow) 25%, transparent); }
+    form#post textarea { min-height: 110px; resize: vertical; }
+    form#post input[readonly] { color: var(--ink); background: transparent; border: 0; box-shadow: none; padding: 0; }
+    form#post button { justify-self: start; }
+    #status { color: var(--accent); font-size: 13px; }
+    #status:empty { display: none; }
+    .pages { display: flex; justify-content: space-between; margin-top: 20px; }
+    .filemeta { font-size: 12px; padding: 12px; }
+    @media (max-width: 360px) {
+      header { padding-inline: 10px; gap: 6px; }
+      .wordmark svg { width: 130px; height: 45px; }
+      main { padding-inline: 8px; }
+      .post-actions { gap: 8px; padding-inline: 10px; }
+      .post-actions a { padding-inline: 10px; }
     }
-    .feed-media > pre.textfile { width: 100%; height: 100%; max-height: none; margin: 0; border: 0; overscroll-behavior: contain; }
-    .feed-media > audio { width: calc(100% - 2em); }
-    .feed-media > .blob { max-width: calc(100% - 2em); }
-    .feed-post > .meta { margin: 0 0.75rem; }
-    .feed-post > .body { margin: 0 0.75rem; max-height: 15vh; overflow: auto; }
-    .feed-post > .discussion { align-self: center; flex-shrink: 0; margin: 0; }
-    .feed-more { position: absolute; top: max(3.75rem, calc(env(safe-area-inset-top) + 3rem)); right: 0.75rem; display: flex; align-items: center; gap: 0.5em; max-width: calc(100% - 9rem); }
-    .feed-more button { padding: 0.3em 0.6em; }
-    .feed-more [role="status"] { color: var(--dim); font-size: 0.85em; }
-    body.feed main > p { margin: 4rem 0.75rem; }
-    .omitted { color: var(--dim); font-size: 0.85em; margin: 0.3em 0; }
-    .replies { margin-left: 1.5em; }
-    @media (max-width: 40em) {
-      .replies { margin-left: 0; }
-      header { padding-left: 0.75rem; padding-right: 0.75rem; }
-      main { padding: 0 0.75rem; }
-      .post { padding: 0.6em; }
-    }
-
   </style>
 </head>
 <body>
   <header>
     <h1>
       <a class="wordmark" href="https://aesthetic.computer/prompt" aria-label="mime.ac — return to Aesthetic Computer prompt">
-        <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 138 48" aria-hidden="true" focusable="false">
+        <svg class="mime-sculpture" xmlns="http://www.w3.org/2000/svg" viewBox="-4 -5 151 52" aria-hidden="true" focusable="false">
           <defs>
-            <linearGradient id="mime-face" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
-              <stop stop-color="#ffe0ee"/>
-              <stop offset="0.3" stop-color="#ff91c3"/>
-              <stop offset="1" stop-color="#eb398c"/>
+            <linearGradient id="mime-face-0" x1="0" y1="0" x2="0.3" y2="1">
+              <stop stop-color="#ffe7f4"/>
+              <stop offset="0.35" stop-color="#ff91c3"/>
+              <stop offset="1" stop-color="#e93587"/>
             </linearGradient>
-            <linearGradient id="mime-depth" x1="0" y1="0" x2="0.6" y2="1" gradientUnits="objectBoundingBox">
+            <linearGradient id="mime-face-1" x1="0" y1="0" x2="0.3" y2="1">
+              <stop stop-color="#fff4d9"/>
+              <stop offset="0.35" stop-color="#ffc585"/>
+              <stop offset="1" stop-color="#ed765d"/>
+            </linearGradient>
+            <linearGradient id="mime-face-2" x1="0" y1="0" x2="0.3" y2="1">
+              <stop stop-color="#eee8ff"/>
+              <stop offset="0.35" stop-color="#b7a4ff"/>
+              <stop offset="1" stop-color="#8460d7"/>
+            </linearGradient>
+            <linearGradient id="mime-face-3" x1="0" y1="0" x2="0.3" y2="1">
+              <stop stop-color="#e5fff6"/>
+              <stop offset="0.35" stop-color="#7ae7ce"/>
+              <stop offset="1" stop-color="#259caa"/>
+            </linearGradient>
+            <linearGradient id="mime-depth" x1="0" y1="0" x2="0.6" y2="1">
               <stop stop-color="#8b388a"/>
               <stop offset="1" stop-color="#40317b"/>
             </linearGradient>
-            <g id="mime-letters">
-              <path id="mime-m" d="M0 9H9V12C13 8 19 8 22 12C26 8 33 8 33 17V31H36V35H25V31H28V18C28 11 21 12 21 18V31H24V35H13V31H16V18C16 11 9 12 9 18V31H12V35H0V31H4V13H0Z"/>
-              <path d="M44 0H50V6H44ZM40 9H50V31H55V35H40V31H45V13H40Z"/>
-              <use href="#mime-m" x="59"/>
-              <path fill-rule="evenodd" d="M125 23H105C105 29 108 32 113 32C117 32 120 30 122 28L125 31C122 35 117 37 112 36C104 36 99 30 99 23C99 15 104 9 112 9C120 9 125 15 125 21ZM105 19H119C118 15 116 13 112 13C108 13 106 15 105 19Z"/>
-            </g>
+            <path id="mime-m" fill-rule="evenodd" d="M0 9H9V12C13 8 19 8 22 12C26 8 33 8 33 17V31H36V35H25V31H28V18C28 11 21 12 21 18V31H24V35H13V31H16V18C16 11 9 12 9 18V31H12V35H0V31H4V13H0Z"/>
+            <path id="mime-i" fill-rule="evenodd" d="M4 0H10V6H4ZM0 9H10V31H15V35H0V31H5V13H0Z"/>
+            <path id="mime-e" fill-rule="evenodd" d="M26 23H6C6 29 9 32 14 32C18 32 21 30 23 28L26 31C23 35 18 37 13 36C5 36 0 30 0 23C0 15 5 9 13 9C21 9 26 15 26 21ZM6 19H20C19 15 17 13 13 13C9 13 7 15 6 19Z"/>
           </defs>
-          <use href="#mime-letters" x="8" y="8" fill="#4ecdc4" stroke="#4ecdc4" stroke-width="1" stroke-linejoin="round"/>
-          <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
-            <use href="#mime-letters" x="7" y="7"/>
-            <use href="#mime-letters" x="6" y="6"/>
-            <use href="#mime-letters" x="5" y="5"/>
-            <use href="#mime-letters" x="4" y="4"/>
-            <use href="#mime-letters" x="3" y="3"/>
-            <use href="#mime-letters" x="2" y="2"/>
-            <use href="#mime-letters" x="1" y="1"/>
+          <g transform="translate(0 0)">
+            <g class="mime-letter" style="--period: 4.7s; --phase: -0.6s">
+              <use href="#mime-m" x="7" y="7" fill="#ff91c3" stroke="#ff91c3" stroke-width="1" stroke-linejoin="round"/>
+              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
+                <use href="#mime-m" x="6" y="6"/>
+                <use href="#mime-m" x="5" y="5"/>
+                <use href="#mime-m" x="4" y="4"/>
+                <use href="#mime-m" x="3" y="3"/>
+                <use href="#mime-m" x="2" y="2"/>
+                <use href="#mime-m" x="1" y="1"/>
+              </g>
+              <use class="mime-face" href="#mime-m" fill="url(#mime-face-0)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+            </g>
           </g>
-          <use class="mime-face" href="#mime-letters" fill="url(#mime-face)" stroke="#a02f72" stroke-width="0.65" stroke-linejoin="round"/>
-          <path d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35M45 0.7H49M41 9.7H49M41 31.7H54M60 9.7H67M60 31.7H70M73 31.7H82M85 31.7H94M106 23.7H123" fill="none" stroke="#ffe9f4" stroke-width="0.8"/>
+          <g transform="translate(43 0)">
+            <g class="mime-letter" style="--period: 3.9s; --phase: -2.1s">
+              <use href="#mime-i" x="7" y="7" fill="#ffc585" stroke="#ffc585" stroke-width="1" stroke-linejoin="round"/>
+              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
+                <use href="#mime-i" x="6" y="6"/>
+                <use href="#mime-i" x="5" y="5"/>
+                <use href="#mime-i" x="4" y="4"/>
+                <use href="#mime-i" x="3" y="3"/>
+                <use href="#mime-i" x="2" y="2"/>
+                <use href="#mime-i" x="1" y="1"/>
+              </g>
+              <use class="mime-face" href="#mime-i" fill="url(#mime-face-1)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M5 0.7H9M1 9.7H9M1 31.7H14" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+            </g>
+          </g>
+          <g transform="translate(65 0)">
+            <g class="mime-letter" style="--period: 5.3s; --phase: -3.4s">
+              <use href="#mime-m" x="7" y="7" fill="#b7a4ff" stroke="#b7a4ff" stroke-width="1" stroke-linejoin="round"/>
+              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
+                <use href="#mime-m" x="6" y="6"/>
+                <use href="#mime-m" x="5" y="5"/>
+                <use href="#mime-m" x="4" y="4"/>
+                <use href="#mime-m" x="3" y="3"/>
+                <use href="#mime-m" x="2" y="2"/>
+                <use href="#mime-m" x="1" y="1"/>
+              </g>
+              <use class="mime-face" href="#mime-m" fill="url(#mime-face-2)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M1 9.7H8M1 31.7H11M14 31.7H23M26 31.7H35" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+            </g>
+          </g>
+          <g transform="translate(108 0)">
+            <g class="mime-letter" style="--period: 4.3s; --phase: -1.3s">
+              <use href="#mime-e" x="7" y="7" fill="#7ae7ce" stroke="#7ae7ce" stroke-width="1" stroke-linejoin="round"/>
+              <g fill="url(#mime-depth)" stroke="#40317b" stroke-width="0.5" stroke-linejoin="round">
+                <use href="#mime-e" x="6" y="6"/>
+                <use href="#mime-e" x="5" y="5"/>
+                <use href="#mime-e" x="4" y="4"/>
+                <use href="#mime-e" x="3" y="3"/>
+                <use href="#mime-e" x="2" y="2"/>
+                <use href="#mime-e" x="1" y="1"/>
+              </g>
+              <use class="mime-face" href="#mime-e" fill="url(#mime-face-3)" stroke="#633268" stroke-width="0.65" stroke-linejoin="round"/>
+              <path class="mime-shine" d="M7 23.7H24" fill="none" stroke="#fff5fc" stroke-width="0.9"/>
+            </g>
+          </g>
         </svg>
         <sup class="domain-suffix" aria-hidden="true">.ac</sup>
       </a>
@@ -233,10 +253,19 @@ const view = document.getElementById("view");
 let routeController;
 let feedCache, activeFeed, feedObserver, playbackObserver;
 history.scrollRestoration = "manual";
+function feedTop(node) {
+  return node.getBoundingClientRect().top - view.getBoundingClientRect().top + view.scrollTop;
+}
+function rememberFeed() {
+  if (!activeFeed) return;
+  const edge = view.getBoundingClientRect().top;
+  const index = activeFeed.nodes.findIndex((node) => node.getBoundingClientRect().bottom > edge + 1);
+  activeFeed.index = Math.max(0, index);
+  const node = activeFeed.nodes[activeFeed.index];
+  activeFeed.offset = node ? view.scrollTop - feedTop(node) : 0;
+}
 view.addEventListener("scroll", () => {
-  if (activeFeed && activeFeed.viewportHeight === view.clientHeight) {
-    activeFeed.index = Math.round(view.scrollTop / view.clientHeight);
-  }
+  if (activeFeed?.viewportWidth === view.clientWidth) rememberFeed();
 }, { passive: true });
 
 const esc = (s) => s ?? "";
@@ -321,38 +350,63 @@ function renderText(text) {
   return body;
 }
 
+function authorName(name) {
+  const label = name || "Anonymous";
+  const node = el(label.startsWith("@") ? "a" : "span", "name", label);
+  if (node.tagName === "A") node.href = "https://aesthetic.computer/" + encodeURIComponent(label);
+  return node;
+}
 function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) {
-  const div = el(inFeed ? "article" : "div", "post" + (isOp ? " op" : "") + (inFeed ? " feed-post" : ""));
+  const root = !post.parent;
+  const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : ""));
   div.id = post.code;
   const meta = el("div", "meta");
-  meta.append(el("span", "name", esc(post.name) || "Anonymous"), document.createTextNode(" · " + ago(post.when) + " · "));
-  const link = el("a", null, post.media ? (post.media.kind + (post.media.code ? " " + post.media.code : "")) : "No." + post.code);
-  link.href = post.media ? post.media.url : "#/t/" + (post.parent || post.code);
-  meta.append(link);
+  const avatar = el("span", "avatar", (post.name || "?").replace(/^@/, "").slice(0, 1).toLowerCase());
+  avatar.setAttribute("aria-hidden", "true");
+  const byline = el("div", "byline");
+  byline.append(authorName(post.name));
+  if (root) {
+    const source = el("a", "media-label", post.media ? post.media.kind + (post.media.code ? " " + post.media.code : "") : post.file?.name || "post " + post.code);
+    source.href = post.media?.url || "#/t/" + post.code;
+    byline.append(source);
+  }
+  const time = el("time", null, ago(post.when));
+  time.dateTime = post.when;
+  time.title = new Date(post.when).toLocaleString();
+  meta.append(avatar, byline, time);
   div.append(meta);
   if (post.file) {
-    const fm = el("div", "filemeta");
-    const tl = el("a", "typelink", post.file.type);
-    tl.href = "#/" + post.file.type;
-    const dl = el("a", null, esc(post.file.name));
-    dl.href = post.file.url;
-    dl.download = post.file.name;
-    if (post.file.type !== contextBoard) fm.append(tl, document.createTextNode(" · "));
-    if (post.file.size != null) fm.append(document.createTextNode(human(post.file.size) + " · "));
-    fm.append(dl);
     const file = renderFile(post.file);
-    if (inFeed) {
-      const frame = el("div", "feed-media");
-      if (file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
-      frame.append(file);
-      div.append(frame);
-    } else div.append(fm, file);
+    const frame = el("div", "feed-media");
+    if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
+    frame.append(file);
+    div.append(frame);
   }
   if (post.text) div.append(renderText(post.text));
-  if (!post.parent && !inThread) {
-    const discuss = el("a", "discussion", "comment" + (post.replies ? " (" + post.replies + ")" : ""));
+  if (root && !inThread) {
+    const actions = el("div", "post-actions");
+    const discuss = el("a", "discussion", "comment" + (post.replies ? " · " + post.replies : ""));
     discuss.href = "#/t/" + post.code + "?comment=1";
-    div.append(discuss);
+    actions.append(discuss);
+    if (post.media?.url) {
+      const source = el("a", "source-button", "open ↗");
+      source.href = post.media.url;
+      source.setAttribute("aria-label", "Open original " + post.media.kind);
+      actions.append(source);
+    }
+    div.append(actions);
+    if (post.preview?.length) {
+      const preview = el("div", "comment-preview");
+      for (const reply of post.preview) {
+        const line = el("p");
+        line.append(authorName(reply.name), document.createTextNode(reply.text || ""));
+        preview.append(line);
+      }
+      const all = el("a", "all-comments", "view " + post.replies + " comment" + (post.replies === 1 ? "" : "s"));
+      all.href = "#/t/" + post.code;
+      preview.append(all);
+      div.append(preview);
+    }
   }
   return div;
 }
@@ -477,15 +531,15 @@ function postForm(parent) {
   name.setAttribute("aria-label", "Name (optional)");
   name.maxLength = 40;
   const text = el("textarea");
-  text.placeholder = "comment";
+  text.placeholder = "Write a comment…";
   text.setAttribute("aria-label", "Comment");
   text.maxLength = 4000;
   name.name = "commenter";
-  const button = el("button", null, "reply");
+  const button = el("button", null, "comment");
   const status = el("span");
   status.id = "status";
   status.setAttribute("role", "status");
-  form.append(text, name, button, status);
+  form.append(name, text, button, status);
   try {
     const draft = JSON.parse(sessionStorage.getItem("mime-comment-draft"));
     if (draft?.hash === location.hash && typeof draft.text === "string") text.value = draft.text;
@@ -545,7 +599,7 @@ async function home(page = 0, signal) {
   if (!state) {
     const data = await read(API + "?page=" + page, signal);
     state = { startPage: page, nextPage: page + 1,
-      hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0 };
+      hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: 0 };
     for (const post of data.recent) {
       if (state.codes.has(post.code)) continue;
       state.codes.add(post.code);
@@ -555,9 +609,9 @@ async function home(page = 0, signal) {
   }
   if (signal.aborted) return;
   const restoreIndex = state.index;
+  const restoreOffset = state.offset;
   const list = el("div", "feed-list");
   list.setAttribute("aria-label", "Media feed");
-  state.nodes.forEach((node) => node.querySelector(".feed-more")?.remove());
   list.append(...state.nodes);
   view.replaceChildren(list);
   if (!state.nodes.length) list.append(el("p", null, "no media yet"));
@@ -568,7 +622,7 @@ async function home(page = 0, signal) {
   status.setAttribute("role", "status");
   more.append(button, status);
   const attachMore = () => {
-    if (state.hasMore) (state.nodes.at(-1) || list).append(more);
+    if (state.hasMore) view.append(more);
     else more.remove();
   };
   attachMore();
@@ -581,7 +635,7 @@ async function home(page = 0, signal) {
         }
       }
     }, { root: view, threshold: [0, 0.6] });
-    state.nodes.forEach((node) => playbackObserver.observe(node));
+    state.nodes.forEach((node) => playbackObserver.observe(node.querySelector(".feed-media") || node));
   }
   let loading = false;
   const loadMore = async () => {
@@ -600,7 +654,7 @@ async function home(page = 0, signal) {
         const node = renderPost(post, false, false, undefined, true);
         state.nodes.push(node);
         list.append(node);
-        playbackObserver?.observe(node);
+        playbackObserver?.observe(node.querySelector(".feed-media") || node);
       }
       state.nextPage++;
       state.hasMore = data.hasMore;
@@ -625,11 +679,11 @@ async function home(page = 0, signal) {
       if (entries.some((entry) => entry.isIntersecting)) loadMore();
     }, { root: view, rootMargin: "150% 0px" });
   }
-  state.viewportHeight = view.clientHeight;
+  state.viewportWidth = view.clientWidth;
   activeFeed = state;
   requestAnimationFrame(() => {
     if (signal.aborted) return;
-    view.scrollTop = restoreIndex * view.clientHeight;
+    view.scrollTop = state.nodes[restoreIndex] ? feedTop(state.nodes[restoreIndex]) + restoreOffset : 0;
     if (state.hasMore) feedObserver?.observe(state.nodes.at(-1) || more);
   });
 }
@@ -654,12 +708,15 @@ async function thread(code, kind, signal) {
   const data = await read(API + (kind ? "?media=" + encodeURIComponent(kind) + "&code=" : "?thread=") + encodeURIComponent(code), signal);
   code = data.op.code;
   if (kind) history.replaceState(null, "", "#/t/" + code);
-  const back = el("a", null, "← feed");
+  const cachedIndex = feedCache?.nodes.findIndex((node) => node.id === code);
+  if (cachedIndex >= 0) feedCache.nodes[cachedIndex] = renderPost({ ...data.op, preview: data.replies.slice(-2) }, false, false, undefined, true);
+  const back = el("a", "back", "← feed");
   back.href = "#/";
   view.replaceChildren(back, renderPost(data.op, true, true, data.op.board));
   const wrap = el("div", "replies");
   for (const r of data.replies) wrap.append(renderPost(r, false, false, data.op.board));
-  view.append(wrap, postForm(code));
+  const heading = el("h2", "comments-title", data.replies.length + " comment" + (data.replies.length === 1 ? "" : "s"));
+  view.append(heading, wrap, postForm(code));
   return data.op.board;
 }
 
@@ -672,7 +729,7 @@ async function read(url, signal) {
 }
 
 async function route() {
-  if (activeFeed) activeFeed.index = Math.round(view.scrollTop / view.clientHeight);
+  rememberFeed();
   activeFeed = null;
   feedObserver?.disconnect();
   feedObserver = null;
@@ -682,7 +739,7 @@ async function route() {
   routeController?.abort();
   routeController = new AbortController();
   const { signal } = routeController;
-  window.scrollTo(0, 0);
+  view.scrollTop = 0;
   document.ondragover = document.ondragleave = document.ondrop = document.onpaste = null;
   const [hash, query] = location.hash.replace(/^#\/?/, "").split("?");
   document.body.classList.toggle("feed", !hash);
@@ -708,24 +765,25 @@ async function route() {
   }
 }
 
-// Keep the same item through orientation changes, as in the tape viewer.
+// Keep the current card through orientation changes.
 window.addEventListener("resize", () => {
-  if (activeFeed) {
-    view.scrollTop = activeFeed.index * view.clientHeight;
-    activeFeed.viewportHeight = view.clientHeight;
+  if (activeFeed && activeFeed.viewportWidth !== view.clientWidth) {
+    const node = activeFeed.nodes[activeFeed.index];
+    if (node) view.scrollTop = feedTop(node) + activeFeed.offset;
+    activeFeed.viewportWidth = view.clientWidth;
   }
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) view.querySelectorAll("video, audio").forEach((media) => media.pause());
 });
 window.addEventListener("keydown", (event) => {
-  if (!activeFeed || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+  if (!activeFeed?.nodes.length || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
       event.target.closest("input, textarea, button, a, audio, video, pre, [contenteditable]")) return;
   const step = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 }[event.key];
   if (!step) return;
   event.preventDefault();
   const index = Math.max(0, Math.min(activeFeed.nodes.length - 1, activeFeed.index + step));
-  view.scrollTo({ top: index * view.clientHeight,
+  view.scrollTo({ top: feedTop(activeFeed.nodes[index]),
     behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
 });
 async function start() {

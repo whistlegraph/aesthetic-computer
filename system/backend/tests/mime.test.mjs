@@ -86,7 +86,9 @@ test("simultaneous first replies share one thread, with current source metadata"
   let thread = body(await get({ thread: paintingThread }));
   assert.equal(thread.op.replies, 8);
   assert.equal(thread.replies.length, 8);
-  assert.equal(body(await get()).recent.find((p) => p.code === paintingThread).replies, 8);
+  const inFeed = body(await get()).recent.find((p) => p.code === paintingThread);
+  assert.equal(inFeed.replies, 8);
+  assert.deepEqual(inFeed.preview, thread.replies.slice(-2).map(({ name, text }) => ({ name, text })));
   assert.ok(thread.replies.every((r) => r.parent === paintingThread && r.board === "image/png"));
   const board = body(await get({ board: "image/png" }));
   assert.equal(board.threads[0].op.code, paintingThread);

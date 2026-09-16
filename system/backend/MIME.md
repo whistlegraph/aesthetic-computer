@@ -2,9 +2,10 @@
 
 Discussion on AC media. The frontend is `/mime/` and the `https://mime.ac/`
 apex; the API is `/api/mime`. `www.mime.ac` redirects to the apex.
-The main feed snaps to one viewport per media item without cropping, following
-the tape viewer (`disks/tv.mjs`). It loads 12 posts at a time and preserves the
-current item across thread visits and orientation changes. Videos play muted
+The main feed is one responsive column of media cards, with contained media,
+author handles, comment controls, and up to two recent comment previews. It loads
+12 posts at a time and preserves the current card and offset across thread visits
+and orientation changes. Videos play muted
 inline and pause offscreen. A load-more button supports manual loading and
 retries. The feed has no category bar, file composer, or footer.
 `/mimechan/` preserves old hash links through a redirect, and `/api/mimechan`
@@ -29,7 +30,8 @@ and are never queried. Removed media threads and their reply attachments return
 
 ## API
 
-- `GET /api/mime` — boards and recent opening posts; `page=0` by default.
+- `GET /api/mime` — boards and recent opening posts, with up to two text-only
+  `preview` entries (`name`, `text`) per commented post; `page=0` by default.
 - `GET /api/mime?board=image/png&page=0` — 12 threads, three recent replies each.
 - `GET /api/mime?media=painting&code=abc` — resolve a public media code to its thread.
 - `GET /api/mime?thread=painting_<id>` — original media and replies.
@@ -108,7 +110,9 @@ each uploaded file's MIME type selected its board. `0c27619279` (September 15)
 made MIME a discussion layer over existing public AC media. The media records
 provide the subjects; comments attach to their stable identities.
 
-The wordmark borrows its compact proportions and slab serifs from early
+Each extruded letter floats, changes lighting, and gently transforms on its own
+timing; reduced-motion preferences disable these animations. The `.ac` suffix
+uses YWFT Processing. The wordmark borrows its proportions and slab serifs from early
 workstation typography. [Andrew Messages screenshots from 1994](https://www.cs.cmu.edu/~AUIS/ljdocs/mail/welcome.html)
 show bitmap controls, serif correspondence, and embedded images in one mail
 reader. This is a new AC mark, not a reproduction of an official MIME logo.
