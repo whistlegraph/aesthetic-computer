@@ -8,7 +8,7 @@ import { join } from 'path';
 import { randomBytes, createHash } from 'crypto';
 import puppeteer from 'puppeteer';
 import { MongoClient } from 'mongodb';
-import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
 import { readFileSync } from 'fs';
 import { dirname } from 'path';
@@ -4548,6 +4548,137 @@ export async function getLatestBackdropUrl() {
     // No durable object for today - caller should trigger generation.
     return null;
   }
+}
+
+// =============================================================================
+// KidLisp Backdrop POOL - many pieces, a random one on every request.
+// The daily backdrop above renders ONE piece per day; the pool keeps a
+// per-piece object per @jeffrey top piece at backdrop/kidlisp/pool/<code>.webp
+// so /kidlisp-backdrop.webp can 302 to a different clip each hit.
+// =============================================================================
+
+const BACKDROP_POOL_PREFIX = 'backdrop/kidlisp/pool/';
+const BACKDROP_POOL_SIZE = Number(process.env.BACKDROP_POOL_SIZE || 16);
+const BACKDROP_POOL_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // re-render a pool clip after 2 weeks
+const BACKDROP_POOL_LIST_TTL_MS = 5 * 60 * 1000;
+
+const backdropPool = { entries: [], listedAt: 0, warming: false, lastWarm: null };
+
+/**
+ * List the pool objects in Spaces (cached for 5 minutes).
+ * @returns {Array<{ code: string, url: string, key: string, modified: Date, size: number }>}
+ */
+export async function listBackdropPool(force = false) {
+  if (!force && backdropPool.entries.length && Date.now() - backdropPool.listedAt < BACKDROP_POOL_LIST_TTL_MS) {
+    return backdropPool.entries;
+  }
+  const entries = [];
+  let token;
+  do {
+    const page = await spacesClient.send(new ListObjectsV2Command({
+      Bucket: SPACES_BUCKET,
+      Prefix: BACKDROP_POOL_PREFIX,
+      ContinuationToken: token,
+    }));
+    for (const obj of page.Contents || []) {
+      const m = obj.Key.match(/pool\/([a-z0-9]+)\.webp$/i);
+      if (!m) continue;
+      entries.push({ code: m[1], key: obj.Key, url: `${SPACES_CDN_BASE}/${obj.Key}`, modified: obj.LastModified, size: obj.Size });
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  backdropPool.entries = entries;
+  backdropPool.listedAt = Date.now();
+  return entries;
+}
+
+/**
+ * Pick a random backdrop URL from the pool — a different one every call.
+ * `exclude` (a code or URL) is skipped when there is any alternative.
+ * Falls back to today's daily backdrop when the pool is empty.
+ */
+export async function pickBackdropUrl({ code = null, exclude = null } = {}) {
+  let pool = [];
+  try { pool = await listBackdropPool(); } catch (err) { console.error('❌ Backdrop pool list failed:', err.message); }
+  if (code) {
+    const hit = pool.find((e) => e.code === code.replace(/^\$/, ''));
+    if (hit) return { url: hit.url, piece: `$${hit.code}`, pool: pool.length };
+  }
+  const candidates = pool.filter((e) => e.code !== exclude && e.url !== exclude);
+  const from = candidates.length ? candidates : pool;
+  if (from.length) {
+    const hit = from[Math.floor(Math.random() * from.length)];
+    return { url: hit.url, piece: `$${hit.code}`, pool: pool.length };
+  }
+  const daily = await getLatestBackdropUrl();
+  return daily ? { url: daily, piece: backdropCache.piece, pool: 0 } : null;
+}
+
+/**
+ * Warm the pool: render (or refresh) one clip per top @jeffrey piece.
+ * Skips clips younger than BACKDROP_POOL_MAX_AGE_MS unless force. Serial —
+ * grabPiece drives a headless browser and has its own queue.
+ */
+export async function warmBackdropPool({ size = BACKDROP_POOL_SIZE, force = false } = {}) {
+  if (backdropPool.warming) return { skipped: true, reason: 'already warming' };
+  backdropPool.warming = true;
+  const summary = { rendered: [], fresh: [], failed: [], startedAt: new Date().toISOString() };
+  try {
+    const top = await fetchTopKidlispHits(Math.max(size * 4, 60));
+    const picks = top.filter((p) => p.owner?.handle === '@jeffrey').slice(0, size);
+    if (!picks.length) throw new Error('No KidLisp pieces by @jeffrey available for the backdrop pool');
+    const existing = new Map((await listBackdropPool(true)).map((e) => [e.code, e]));
+
+    for (const p of picks) {
+      const code = p.code;
+      const key = `${BACKDROP_POOL_PREFIX}${code}.webp`;
+      const have = existing.get(code);
+      if (!force && have && Date.now() - new Date(have.modified).getTime() < BACKDROP_POOL_MAX_AGE_MS) {
+        summary.fresh.push(code);
+        continue;
+      }
+      try {
+        console.log(`🎨 Backdrop pool: rendering $${code} (${formatHits(p.hits)} hits)`);
+        const result = await grabPiece(`$${code}`, {
+          format: 'webp', width: 256, height: 256, duration: 12000, fps: 7.5,
+          playbackFps: 15, density: 4, quality: 85, skipCache: force, source: 'backdrop',
+        });
+        if (!result.success) throw new Error(result.error || 'grab failed');
+        let buffer = result.buffer;
+        if (!buffer && result.cdnUrl) {
+          const response = await fetch(result.cdnUrl);
+          if (!response.ok) throw new Error(`cached grab fetch ${response.status}`);
+          buffer = Buffer.from(await response.arrayBuffer());
+        }
+        if (!buffer) throw new Error('no bytes from grabPiece');
+        await spacesClient.send(new PutObjectCommand({
+          Bucket: SPACES_BUCKET, Key: key, Body: buffer, ContentType: 'image/webp',
+          ACL: 'public-read', CacheControl: 'public, max-age=31536000, immutable',
+        }));
+        summary.rendered.push(code);
+        console.log(`📤 Backdrop pool: $${code} → ${SPACES_CDN_BASE}/${key}`);
+      } catch (err) {
+        summary.failed.push({ code, error: err.message });
+        console.error(`❌ Backdrop pool: $${code} failed: ${err.message}`);
+      }
+    }
+    await listBackdropPool(true);
+  } finally {
+    backdropPool.warming = false;
+    backdropPool.lastWarm = { ...summary, finishedAt: new Date().toISOString() };
+  }
+  return summary;
+}
+
+export function getBackdropPoolStatus() {
+  return {
+    size: backdropPool.entries.length,
+    target: BACKDROP_POOL_SIZE,
+    warming: backdropPool.warming,
+    lastWarm: backdropPool.lastWarm,
+    listedAt: backdropPool.listedAt ? new Date(backdropPool.listedAt).toISOString() : null,
+    entries: backdropPool.entries.map((e) => ({ piece: `$${e.code}`, url: e.url, modified: e.modified, size: e.size })),
+  };
 }
 
 // =============================================================================

@@ -56,16 +56,56 @@ export const logoSlugs = [
   "pals-wood.png",
 ];
 
-export const turnaroundSlugs = ["nat-amethyst"];
+// Pals with a published looping turnaround (mp4 master + animated webp +
+// apng) at art.aesthetic.computer/pals/turnarounds/v1/. Maintained by
+// marketing/podcast/bin/publish-pals-turnaround.mjs — don't hand-edit.
+export const turnaroundSlugs = [
+  "av-balloon",
+  "cf-electric",
+  "cf-sunset",
+  "chrome",
+  "crystal",
+  "felt",
+  "glass",
+  "ig-bubblegum",
+  "nat-amethyst",
+  "nat-jade",
+  "nat-terracotta",
+  "neon",
+  "wood",
+];
+
+export const turnaroundFormats = ["mp4", "webp", "apng"];
+export const PALS_CDN = "https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com";
+export const ART_CDN = "https://art.aesthetic.computer";
+
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+const stillSlug = (file) => file.replace(/^pals-/, "").replace(/\.png$/, "");
+export const stillSlugs = logoSlugs.map(stillSlug);
 
 export function logoUrl(slug = null) {
-  const file = slug ? `pals-${slug}.png` : logoSlugs[Math.floor(Math.random() * logoSlugs.length)];
-  if (!logoSlugs.includes(file)) return null;
-  return `https://pals-aesthetic-computer.sfo3.cdn.digitaloceanspaces.com/${file}`;
+  const file = slug ? `pals-${slug}.png` : pick(logoSlugs);
+  if (slug && !logoSlugs.includes(file)) return null;
+  return `${PALS_CDN}/${file}`;
 }
 
 export function turnaroundUrl(slug = null, format = "webp") {
-  const selected = slug || turnaroundSlugs[Math.floor(Math.random() * turnaroundSlugs.length)];
-  if (!turnaroundSlugs.includes(selected) || !["mp4", "webp"].includes(format)) return null;
-  return `https://art.aesthetic.computer/pals/turnarounds/v1/${selected}.${format}`;
+  const selected = slug || pick(turnaroundSlugs);
+  if (!turnaroundSlugs.includes(selected) || !turnaroundFormats.includes(format)) return null;
+  return `${ART_CDN}/pals/turnarounds/v1/${selected}.${format}`;
+}
+
+// A random pal, 50/50 still vs animated, never repeating `previous`.
+// `animated` forces the coin: true → turnaround, false → still, null → 50/50.
+export function randomPal({ previous = null, animated = null, format = "webp" } = {}) {
+  let pal;
+  for (let i = 0; i < 8; i++) {
+    const coin = animated ?? Math.random() < 0.5;
+    pal = coin && turnaroundSlugs.length
+      ? { slug: pick(turnaroundSlugs), animated: true, format }
+      : { slug: pick(stillSlugs), animated: false, format: "png" };
+    pal.url = pal.animated ? turnaroundUrl(pal.slug, format) : logoUrl(pal.slug);
+    if (pal.url !== previous) break;
+  }
+  return pal;
 }
