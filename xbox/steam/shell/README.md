@@ -33,31 +33,37 @@ positionally through `new Function`. So the shell supplies a host, not a port.
 - `blur`/`focus` drive the frame driver's `setVisible`, because a backgrounded
   desktop window never fires `visibilitychange` and would otherwise free-run.
 
-## Verified 2026-09-01
+## Verified 2026-09-15
 
-Boots to the title screen at **59.94 fps, 738 render frames against 738
-simulation ticks, zero dropped**, ~2 ms render cost. Three assets 404 and all
-three are expected: `auth0-spa-js.production.js` (deliberately not shipped) and
-`/api/oskiewar-pops` + `/api/oskiewar-country` (already inside catches). Every
-remote the page reaches for is wrapped, so the shell is offline-clean today.
+`npm run build:mac` packages a signed (Developer ID, not notarized) arm64
+app that boots to the real title screen in **~0.8 s** with `[boot]` on
+stdout, `steamworks.js` loaded and `SteamAPI_Init` reached (it fails only
+because no Steam client is running, which is the expected answer on a dev
+box). `build:linux` and `build:win` produce `dir` outputs from macOS too.
+`OSKIEWAR_SHELL_SHOT=/path.png` makes a packaged build write what its window
+shows after eight seconds and quit — the smoke test, with no screen recorder.
+
+The staged page is trimmed at stage time (see `trim()` in `stage.mjs`; every
+cut is an exact-match edit that throws when the live page moves): no Open
+Graph meta, no Auth0 preload, the account corner hidden, the FPS governor
+pinned at full resolution, `qrcode` undefined so the four QR sites collapse,
+the `?midi` lane off, and **not versus-capable** — the web front door opens a
+relay room and prints `fight a friend oskiewar.com/<room>`, which a Steam
+player cannot use, so the Steam build keeps the local front the native shell
+gets. The page's console errors and its `[boot]` line are mirrored to stdout.
+
+Two staging lessons that cost a blank window: `account.mjs` imports
+`auth0-otp.mjs` statically (unstaged, the whole module graph fails), and the
+page prefers the woff2 face since v118. Both are in the maps now, which the
+header comment counts as eight.
 
 ## Still owed
 
-- **`steamworks.js` is an optional dependency and is not installed**, so the
-  shell runs unwired and `initSteam` logs and continues. Install it, then
-  verify `electronEnableSteamOverlay()` on all three OSes — per `../STEAM.md`
-  the overlay is the piece with the most platform variance under Electron, and
-  macOS wants an eyeball before the build submission.
-- **A trimmed page.** The shell currently loads `mac-test.html` unmodified,
-  which is the live oskiewar.com page — do not edit it in place. Copy it here
-  and drop: the `og:*` meta, the Auth0 block and its `log in` button (visible
-  and inert in the shell today), the product-analytics fetch, the MIDI block,
-  `readDummyPops`, `readLocalCountry`, `RoundRoom`, and the `saveReplay` /
-  `publishLive` bodies. Pin `manualResolution = 1` to retire the FPS governor.
-  The QR codes encode oskiewar.com links that are dead ends for a Steam player;
-  omitting `globalThis.qrcode` collapses all four sites through their existing
-  `typeof` guards.
-- **Depot scripts** (`app_build.vdf`) and a Windows/Linux build pass. Steam
-  Deck takes the Linux build natively.
-- **The appid.** `steam_appid.txt` holds **480** (Valve's public Spacewar test
-  app) so the SDK can initialize before oskiewar has one of its own.
+- **Overlay check on all three OSes** — `electronEnableSteamOverlay()` runs,
+  but nobody has seen the overlay draw; macOS is historically the flaky one.
+- **A Windows and Linux boot** on real machines (they are cross-built here
+  and never launched).
+- **A pad-only pass** boot → rematch before ticking Full Controller Support.
+- **The appid.** `steam_appid.txt` holds **480** (Spacewar) until Steamworks
+  assigns one; then `node ../depots/depots.mjs --appid=<n>` writes the depot
+  VDFs and `../depots/upload.sh` pushes all three builds with steamcmd.

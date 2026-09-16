@@ -32,6 +32,13 @@ const elsewhere = new Map([
     "system/public/aesthetic.computer/cursors/active.svg"],
   ["/ComicRelief-Regular.ttf",
     "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf"],
+  ["/ComicRelief-Regular.woff2",
+    "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.woff2"],
+  // account.mjs imports this statically, so without it the page's whole
+  // module graph fails and the window stays blank. It ships inert: the
+  // account corner is hidden by the trim and nothing calls it.
+  ["/aesthetic.computer/lib/auth0-otp.mjs",
+    "system/public/aesthetic.computer/lib/auth0-otp.mjs"],
 ]);
 
 // A module script will not load over a scheme Chromium treats as opaque, and
@@ -119,6 +126,18 @@ app.whenReady().then(() => {
   // set-resolution host call; this is the whole mechanism.
   win.setAspectRatio(16 / 9);
   win.setMenuBarVisibility(false);
+  // The page cycles document.title as a tab toy; a window is not a tab.
+  win.on("page-title-updated", (event) => event.preventDefault());
+  // The page's console is the only place a packaged build says what went
+  // wrong, so it is mirrored to stdout: launch the binary from a terminal
+  // and the boot line (or the exception) is right there.
+  win.webContents.on("console-message", (event) => {
+    const { level, message, lineNumber, sourceId } = event;
+    if (level === "error" || level === "warning" || /\[boot\]/.test(message))
+      console.log(`[page:${level}] ${message} (${sourceId}:${lineNumber})`);
+  });
+  win.webContents.on("render-process-gone", (_, details) =>
+    console.log(`[page] renderer gone: ${details.reason}`));
   win.loadURL("app://local/");
 
   // The frame driver stops on visibilitychange, which a backgrounded desktop
@@ -130,6 +149,17 @@ app.whenReady().then(() => {
   win.on("blur", () => visible(false));
 
   if (steam) console.log(`[steam] player: ${steam.localplayer.getName()}`);
+
+  // OSKIEWAR_SHELL_SHOT=/path.png: boot, wait eight seconds, write what the
+  // window shows, quit. A packaged build's smoke test with no screen recorder
+  // in the loop — screencapture cannot see a window it cannot find.
+  const shot = process.env.OSKIEWAR_SHELL_SHOT;
+  if (shot) setTimeout(async () => {
+    const image = await win.webContents.capturePage();
+    require("node:fs").writeFileSync(shot, image.toPNG());
+    console.log(`[shell] wrote ${shot} (${image.getSize().width}×${image.getSize().height})`);
+    app.quit();
+  }, 8000);
 });
 
 app.on("window-all-closed", () => app.quit());

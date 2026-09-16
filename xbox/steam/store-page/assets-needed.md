@@ -24,6 +24,16 @@ artwork" — no review quotes, no award badges, no body text. Screenshot rule:
 actual gameplay only — no concept art, no cinematics, no marketing copy
 burned in.
 
+## Rendered 2026-09-15
+
+`assets/` holds every image below at Valve's exact size, produced by
+`render-assets.mjs` (capsules, background, event cover, screenshot
+candidates), `render-logo.mjs` (the transparent wordmark, replayed from the
+game's own glyph draws rather than keyed from a screenshot) and
+`xbox/live/snapshot.mjs` (both icons). Screenshots are self-play at
+1920×1080 with QR codes stubbed out; five were picked by eye from 120
+candidates (`assets/shots/`, ignored by git). No trailer yet.
+
 ## Store page (required)
 
 | Asset | Dimensions | Format | Source |

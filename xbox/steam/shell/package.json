@@ -20,10 +20,9 @@
     "productName": "oskiewar",
     "electronVersion": "38.1.2",
     "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "package.json"],
+    "files": ["main.js", "preload.js", "package.json", "steam_appid.txt"],
     "extraResources": [
-      { "from": "staged", "to": "staged" },
-      { "from": "steam_appid.txt", "to": "../steam_appid.txt" }
+      { "from": "staged", "to": "staged" }
     ],
     "win": { "target": ["dir"] },
     "linux": { "target": ["dir"], "category": "Game" },

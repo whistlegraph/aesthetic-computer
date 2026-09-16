@@ -144,6 +144,31 @@ where noted; do step 1–3 early because the calendar starts there.
    automatically. Contesting or fixing-and-requesting-re-review is an operator
    decision.
 
+## Where it stands, 2026-09-15
+
+Everything that does not need the appid is done and checked in under this
+directory. What remains is one human gate and the buttons behind it.
+
+| Piece | State |
+|---|---|
+| Store images | **Rendered** — all nine capsules/library images, both icons, the transparent library logo and five 1920×1080 gameplay screenshots in `store-page/assets/`, straight from the game (`store-page/render-assets.mjs`, `render-logo.mjs`) |
+| Store copy + metadata | Drafted, `store-page/copy.md` and `metadata.md` — paste-ready |
+| Trailer | **Not made.** Required in practice; the 16:9 lane is one parameter away from the reel factory |
+| Shell | **Packaged and booting** on macOS with steamworks.js wired; Linux and Windows cross-built (`shell/README.md`) |
+| Depots | `depots/depots.mjs --appid=<n>` + `depots/upload.sh` (steamcmd installed via Homebrew) |
+| Appid | **Blocked on identity review** — filed 2026-09-01, priced at up to 10 business days, which is now. Check the dashboard |
+| Build review | Cannot start until the store page is approved |
+
+**The order from here.** (1) Dashboard: is the KYC item cleared? If so,
+`Complete Account Creation` unlocks — name the app, take the appid.
+(2) Fill the store page from `store-page/` and upload `store-page/assets/`;
+run the content survey; set the price; mark ready for review.
+(3) Coming-soon page goes public on approval — that is the wishlist
+button. (4) `steam_appid.txt` → the real appid, rebuild, `depots.mjs`,
+`upload.sh`, set the build live on default, mark the build ready.
+(5) Earliest release is the later of fee + 30 days (2026-10-01) and
+coming-soon + 14 days.
+
 ## Buildable now, no account required
 
 - **The shell.** See *Build strategy* below. All of it can land in
