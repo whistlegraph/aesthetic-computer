@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>oskiewar maps</title>
+  <meta name="description" content="The seeded Oskiewar map library.">
+  <link rel="icon" href="data:,">
+  <style>
+    @font-face {
+      font-family: "Comic Relief";
+      src: url("/ComicRelief-Regular.ttf") format("truetype");
+      font-display: swap;
+    }
+    :root { color-scheme: dark; --ink: #f3f6ff; --muted: #aeb8d0;
+      --night: #07081c; --panel: #171b35; --line: #424b70;
+      --yellow: #e6cd5c; --pink: #ff6b9d; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--night); }
+    body { color: var(--ink); font: 18px/1.4 "Comic Relief", "Comic Sans MS", sans-serif;
+      padding: 40px 22px 64px; }
+    main { max-width: 1040px; margin: 0 auto; }
+    nav { display: flex; justify-content: space-between; gap: 20px; align-items: center;
+      margin-bottom: 52px; }
+    a { color: var(--yellow); }
+    .back { color: var(--ink); text-decoration: none; }
+    .back::before { content: "← "; color: var(--pink); }
+    h1 { font-size: clamp(42px, 9vw, 92px); line-height: .9; margin: 0 0 18px;
+      letter-spacing: -.04em; }
+    .lede { max-width: 650px; color: var(--muted); margin: 0 0 44px; }
+    .library { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px; }
+    article { min-height: 245px; padding: 22px; border: 2px solid var(--line);
+      border-radius: 14px; background: var(--panel); box-shadow: 4px 5px 0 #03040d; }
+    article:nth-child(2) { border-color: #66d9ff; }
+    article:nth-child(3) { border-color: #a5e36a; }
+    article:nth-child(4) { border-color: #ff9c70; }
+    h2 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 0 0 18px; color: var(--muted); }
+    ul { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 7px; }
+    li { padding: 4px 8px; border: 1px solid #596384; border-radius: 999px;
+      color: var(--ink); font-size: 14px; }
+    .note { margin-top: 42px; padding-top: 18px; border-top: 1px solid var(--line);
+      color: var(--muted); font-size: 16px; }
+    .play { display: inline-block; margin-top: 28px; padding: 10px 15px;
+      color: var(--night); background: var(--yellow); border-radius: 8px;
+      text-decoration: none; box-shadow: 3px 4px 0 #857728; }
+    @media (max-width: 520px) { body { padding-top: 24px; } nav { margin-bottom: 38px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a class="back" href="/">play oskiewar</a><span>map library</span></nav>
+    <h1>the maps</h1>
+    <p class="lede">Every round gets a named, seeded identity. Terrain, ball, board,
+      and objects change together, so the map is part of the fight—not just a backdrop.</p>
+    <section class="library" aria-label="Oskiewar maps">
+      <article>
+        <h2>Halfpipe</h2>
+        <p>The original station park: transitions, aprons, decks, and a board waiting at the edge.</p>
+        <ul><li>soccer ball</li><li>handguns</li><li>sabers</li><li>skateboard</li></ul>
+      </article>
+      <article>
+        <h2>Twin Bowls</h2>
+        <p>Two deep bowls turn the center into a crossing line and make the high ground contested.</p>
+        <ul><li>beach ball</li><li>space lasers</li><li>grenades</li></ul>
+      </article>
+      <article>
+        <h2>Bank Yard</h2>
+        <p>A raised middle yard with mirrored banks for speed, routes, and rubber ammunition.</p>
+        <ul><li>basketball</li><li>rubber SMGs</li><li>sabers</li><li>skateboard</li></ul>
+      </article>
+      <article>
+        <h2>Kicker Line</h2>
+        <p>Paired kickers make a clean launch lane where every approach has an answer.</p>
+        <ul><li>soccer ball</li><li>rocket launchers</li><li>grenades</li></ul>
+      </article>
+    </section>
+    <p class="note">The suffix on a live identity—like <code>HALFPIPE / ZDY7</code>—comes from the match seed. Same fight, same map, on every screen and replay.</p>
+    <a class="play" href="/">start a fight</a>
+  </main>
+</body>
+</html>
