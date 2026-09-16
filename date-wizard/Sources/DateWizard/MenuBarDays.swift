@@ -17,6 +17,89 @@ private final class HoverResponder: NSResponder {
     override func mouseExited(with event: NSEvent) { onExit?() }
 }
 
+// The instant hover label — a zero-delay stand-in for the OS tooltip (which
+// waits ~1s). A borderless, non-activating panel that floats just under the
+// wand and names the next appointment the moment the pointer arrives, gone the
+// moment it leaves. Mirrors Slab's SigilBubble: mouse-transparent, statusBar
+// level so it clears the menu bar, no window shadow (rapid re-show would
+// flicker it). One shared instance per MenuBarDays.
+private final class InstantHoverLabel {
+    private let panel: NSPanel
+    private let nameField: NSTextField
+    private let subField: NSTextField
+    private let stack: NSStackView
+
+    init() {
+        panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 10, height: 10),
+                        styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: true)
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+
+        let card = NSView()
+        card.wantsLayer = true
+        card.layer?.cornerRadius = 6
+        card.layer?.backgroundColor = NSColor(white: 0.09, alpha: 0.95).cgColor
+        card.layer?.borderWidth = 1
+        card.layer?.borderColor = NSColor(white: 1, alpha: 0.10).cgColor
+
+        nameField = NSTextField(labelWithString: "")
+        nameField.font = .systemFont(ofSize: 12, weight: .semibold)
+        nameField.textColor = .white
+        subField = NSTextField(labelWithString: "")
+        subField.font = .systemFont(ofSize: 11, weight: .regular)
+        subField.textColor = NSColor(white: 1, alpha: 0.62)
+
+        stack = NSStackView(views: [nameField, subField])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 1
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
+        let pad: CGFloat = 7
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: pad),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -pad),
+            stack.topAnchor.constraint(equalTo: card.topAnchor, constant: pad - 2),
+            stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -(pad - 2)),
+        ])
+        panel.contentView = card
+    }
+
+    /// Show the label centered just under `button`, naming the appointment.
+    /// `sub` (short countdown) rides underneath when present. No delay, no
+    /// animation — it's on screen this frame.
+    func show(name: String, sub: String?, below button: NSStatusBarButton) {
+        guard let win = button.window else { return }
+        nameField.stringValue = name
+        subField.stringValue = sub ?? ""
+        subField.isHidden = (sub == nil || sub!.isEmpty)
+
+        panel.layoutIfNeeded()
+        let fit = panel.contentView!.fittingSize
+        let w = max(fit.width, 44), h = fit.height
+        let anchor = win.convertToScreen(button.convert(button.bounds, to: nil))
+        var x = anchor.midX - w / 2
+        var y = anchor.minY - h - 3            // tucked just below the wand
+        if let vis = (button.window?.screen ?? NSScreen.main)?.visibleFrame {
+            x = min(max(vis.minX + 4, x), vis.maxX - w - 4)
+            if y < vis.minY + 4 { y = anchor.maxY + 3 }   // flip above if no room
+        }
+        panel.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true)
+        panel.orderFrontRegardless()
+    }
+
+    func hide() {
+        if panel.isVisible { panel.orderOut(nil) }
+    }
+}
+
 final class MenuBarDays {
 
     // Callbacks wired by the AppDelegate.
@@ -27,6 +110,7 @@ final class MenuBarDays {
     private var statusItem: NSStatusItem!
     private weak var button: NSStatusBarButton?
     private let hover = HoverResponder()
+    private let instantLabel = InstantHoverLabel()
     private var hoveredIndex: Int?
     private var focusedIndex: Int?        // the day showing in the wizard
     private var nextEventDate: Date?      // start of the next appointment (badge)
@@ -60,7 +144,8 @@ final class MenuBarDays {
             button.target = self
             button.action = #selector(clicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "Wizard — calendar + summon (right-click)"
+            // No button.toolTip — the OS tooltip's ~1s delay is exactly what the
+            // instant hover label replaces (see InstantHoverLabel / handleHover).
 
             // Hover tracking — lights the dot under the cursor.
             hover.onMove = { [weak self] ev in self?.handleHover(ev) }
@@ -97,7 +182,6 @@ final class MenuBarDays {
         let had = (nextEventDate != nil)
         nextEventTitle = title
         if date != nextEventDate { nextEventDate = date; refresh() }
-        else { button?.toolTip = nextEventToolTip() }   // same time, refreshed name
         // When an event appears/disappears, reshape the fit ladder so the broker
         // knows whether there's a badge to trade for space.
         if (date != nil) != had { fit?.updateRungs(fitRungs(hasNext: date != nil)) }
@@ -139,7 +223,6 @@ final class MenuBarDays {
         case 1 where hasNext: button.image = wandGlyph(dot: true, dark: dark)
         default:              button.image = wandGlyph(dark: dark)   // bare
         }
-        button.toolTip = nextEventToolTip()
     }
 
     // ── menu-bar-fit negotiation ──────────────────────────────────────
@@ -167,19 +250,6 @@ final class MenuBarDays {
             : [.init(name: "bare", width: 24)]
     }
 
-    private func nextEventToolTip() -> String {
-        let base = "Wizard — calendar + summon (right-click)"
-        guard let d = nextEventDate else { return base }
-        let fmt = DateFormatter(); fmt.dateStyle = .none; fmt.timeStyle = .short
-        let cal = Calendar.current
-        let dayWord: String
-        if cal.isDateInToday(d) { dayWord = "" }
-        else if cal.isDateInTomorrow(d) { dayWord = "tomorrow " }
-        else { let df = DateFormatter(); df.dateFormat = "EEE "; dayWord = df.string(from: d) }
-        let name = (nextEventTitle?.isEmpty == false) ? nextEventTitle! : "appointment"
-        return "\(name) — \(dayWord)\(fmt.string(from: d))\n\(base)"
-    }
-
     // ── input ─────────────────────────────────────────────────────────
     @objc private func clicked(_ sender: NSStatusBarButton) {
         // Right-click → the full daemon menu (calendar controls + summon roster).
@@ -193,13 +263,37 @@ final class MenuBarDays {
 
     private func handleHover(_ event: NSEvent) {
         guard let button else { return }
+        showInstantLabel(on: button)
         let local = button.convert(event.locationInWindow, from: nil)
         let idx = DayStrip.index(atX: local.x, in: button.bounds)
         if idx != hoveredIndex { hoveredIndex = idx; refresh() }
     }
 
     private func handleHoverExit() {
+        instantLabel.hide()
         if hoveredIndex != nil { hoveredIndex = nil; refresh() }
+    }
+
+    // The zero-delay hover label: the moment the pointer lands on the wand,
+    // name the next appointment (with its short countdown underneath). Nothing
+    // upcoming → nothing shown. Idempotent, so it's safe on every mouse-move.
+    private func showInstantLabel(on button: NSStatusBarButton) {
+        guard let d = nextEventDate else { instantLabel.hide(); return }
+        let name = (nextEventTitle?.isEmpty == false) ? nextEventTitle! : "appointment"
+        instantLabel.show(name: name, sub: whenPhrase(d), below: button)
+    }
+
+    /// The label's second line: day-word + clock time, then the live countdown —
+    /// "tomorrow 1:00 PM · 19h34m".
+    private func whenPhrase(_ d: Date) -> String {
+        let cal = Calendar.current
+        let day: String
+        if cal.isDateInToday(d) { day = "today" }
+        else if cal.isDateInTomorrow(d) { day = "tomorrow" }
+        else { let df = DateFormatter(); df.dateFormat = "EEE"; day = df.string(from: d) }
+        let fmt = DateFormatter(); fmt.dateStyle = .none; fmt.timeStyle = .short
+        let when = "\(day) \(fmt.string(from: d))"
+        return countdownText().map { "\(when) · \($0)" } ?? when
     }
 
     private func showMenu(from button: NSStatusBarButton) {
