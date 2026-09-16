@@ -929,8 +929,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     filename: null,
     fallback: null,
   });
-  const workerBundlePathPromise = workerBundleRequested
-    ? fetch("/aesthetic.computer/lib/disk-worker-manifest.json", {
+  // The shell may have named the bundle and started its download already
+  // (window.acWORKER_BUNDLE_HINT): then there is no manifest round trip, and
+  // the script is in the cache by the time the worker asks for it. Waiting on
+  // the warm fetch keeps the worker from starting a second download of the
+  // same bytes; a failed warm-up just hands the path over and lets the
+  // worker's own retry loop deal with it.
+  const workerHint = window.acWORKER_BUNDLE_HINT;
+  const workerHintValid =
+    !!workerHint && /^disk\.worker\.[a-f0-9]{12}\.mjs$/.test(workerHint.filename || "");
+  const workerBundlePathPromise = !workerBundleRequested
+    ? Promise.resolve(null)
+    : workerHintValid
+    ? Promise.race([workerHint.warm, new Promise((r) => setTimeout(r, 8000))]).then(() => {
+        workerBundleState.filename = workerHint.filename;
+        return `/aesthetic.computer/lib/${workerHint.filename}`;
+      })
+    : fetch("/aesthetic.computer/lib/disk-worker-manifest.json", {
         cache: "no-cache",
       })
         .then(async (response) => {
@@ -945,8 +960,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         .catch((error) => {
           workerBundleState.fallback = `manifest: ${error.message}`;
           return null;
-        })
-    : Promise.resolve(null);
+        });
 
   // Expose Loop control to window for boot.mjs
   // Track pause state for kidlisp console snapshots

@@ -17,6 +17,7 @@ import { respond } from "../../backend/http.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
+import { bootPreloads, workerBundleFilename } from "../../backend/boot-preloads.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
@@ -861,6 +862,27 @@ async function fun(event, context) {
   const previewOrIcon = "icon" in qsp || "preview" in qsp;
   const posthogConfig = previewOrIcon ? null : postHogBrowserConfig();
 
+  // Boot screen. 'empty' (the default) ships no canvas and no animation code
+  // at all — the 97 KB block below is only rendered for ?boot=serious or
+  // ?boot=aesthetic. ?noboot is the legacy spelling of empty.
+  const bootTheme = "noboot" in qsp ? "empty" : qsp.boot || "empty";
+  const bootCanvasWanted = bootTheme !== "empty";
+  // What the browser should fetch before boot.mjs runs: the static import
+  // graph of the entry modules (derived, see backend/boot-preloads.mjs) and
+  // the worker bundle, which bios would otherwise ask for only after it has
+  // evaluated and read the manifest. bios appends the page's query string to
+  // the worker URL, so the warm-up fetch carries it too: same URL, same
+  // cache entry, one download.
+  const preloadTags = dev
+    ? `<link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />`
+    : (await bootPreloads())
+        .map((p) => `<link rel="modulepreload" href="/aesthetic.computer/${p}" />`)
+        .join("\n        ");
+  const workerFilename = dev ? null : await workerBundleFilename();
+  const workerHintTag = workerFilename
+    ? `<script>(function(){var f=${JSON.stringify(workerFilename)},u="/aesthetic.computer/lib/"+f;window.acWORKER_BUNDLE_HINT={filename:f,path:u,warm:fetch(u+location.search,{mode:"same-origin"}).then(function(r){return r.ok?r.arrayBuffer().then(function(){return true}):false}).catch(function(){return false})};})();</script>`
+    : "";
+
   const body = html`
     <!doctype html>
     <html>
@@ -1261,32 +1283,13 @@ async function fun(event, context) {
           src="/aesthetic.computer/lib/product-analytics.mjs"
           type="module"
         ></script>
+        ${workerHintTag}
         <script
           src="/aesthetic.computer/boot.mjs"
           type="module"
           defer
         ></script>
-        ${dev ? `<!-- Modulepreload for module-loader (needed for fast WebSocket connection) -->
-        <link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />` : `<!-- Modulepreload hints for critical path modules (parallel fetch) -->
-        <link rel="modulepreload" href="/aesthetic.computer/bios.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/parse.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/disk.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/graph.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/num.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/help.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/geo.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/text.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/ui.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/platform.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/kidlisp.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/type.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/pen.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/keyboard.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/loop.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/store.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/headers.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/logs.mjs" />
-        <link rel="modulepreload" href="/aesthetic.computer/lib/helpers.mjs" />`}
+        ${preloadTags}
         <!-- Google tag (gtag.js) - Skip if in sandboxed iframe -->
         <script>
           (function() {
@@ -1363,7 +1366,7 @@ async function fun(event, context) {
              once and the body's flat background stands until the piece paints.
              ?boot=serious (clean log) and ?boot=aesthetic (VHS) keep the old
              animations; ?noboot is the legacy spelling of empty. -->
-        <canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
+        ${bootCanvasWanted ? `<canvas id="boot-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;z-index:99999;pointer-events:none;margin:0;padding:0;image-rendering:pixelated;image-rendering:crisp-edges;"></canvas>
         <script>
           window.acBootCanvas=(function(){var c=document.getElementById('boot-canvas');if(!c)return{};
           var qs=location.search||'';var params=new URLSearchParams(qs);
@@ -2253,7 +2256,7 @@ async function fun(event, context) {
             await window.acBOOT_CORE_READY;
             for(var i=0;i<paths.length;i++){try{window.acBOOT_NET_PULSE();var r=await fetch('/aesthetic.computer/'+paths[i],{cache:'only-if-cached',mode:'same-origin'});window.acBOOT_NET_PULSE();if(r.ok){var t=await r.text();window.acBOOT_ADD_FILE(paths[i],t);}}catch(e){}}
           })();
-        </script>
+        </script>` : `<script>window.acBootCanvas={empty:true,hide:function(){},log:function(){},netPulse:function(){},addFile:function(){},setHandle:function(){},setSessionConnected:function(){},setErrorMode:function(){}};window.acBOOT_LOG_CANVAS=function(){};window.acBOOT_ADD_FILE=function(){};window.acBOOT_NET_PULSE=function(){};window.acBOOT_CORE_RESOLVE=function(){};window.acBOOT_CORE_READY=Promise.resolve();</script>`}
         <div id="console" class="hidden">booting...</div>
         <script>
           if (window.self !== window.top) document.body.classList.add("embed");
@@ -2319,9 +2322,8 @@ async function fun(event, context) {
     !looksAutomated(event.headers)
   ) {
     const pieceType = parsed.path?.startsWith("@") ? "user" : "system";
-    try {
-      await trackPieceHit(parsed.text, pieceType);
-    } catch (e) { /* silent */ }
+    // Not awaited: the reader gets the page first, the count lands after.
+    trackPieceHit(parsed.text, pieceType).catch(() => {});
   }
 
   return {
