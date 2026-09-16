@@ -7,17 +7,11 @@
 //
 //   1. what Easel is
 //   2. the line that installs it
-//   3. that it drives a vendor CLI you supply
+//   3. that it opens as a standalone desktop app
 //
-// The third is not a footnote. Easel spawns `claude` or `codex` and signs in
-// with that tool's own credentials, so a visitor holding neither installs a
-// correct, well-tested interface attached to nothing. Burying that would trade
-// a minute of honesty for a support thread, so it sits above the fold in its
-// own colour.
-//
-// The install line is tappable and copies itself, because it is going to be
-// typed into a terminal and a page that shows a command you cannot take with
-// you is a screenshot.
+// The download line is tappable and copies itself for the terminal-friendly
+// path. The normal Easel experience uses AC's hosted backend; Claude and Codex
+// are optional bring-your-own-provider modes.
 
 const INSTALL = "curl -fsSL prompt.ac/easel.sh | sh";
 const MANIFEST = "https://aesthetic.computer/easel.json";
@@ -31,6 +25,18 @@ const PURPLE = [150, 110, 220];
 const SOFT = [190, 160, 225];
 const MUTED = [130, 110, 165];
 const WARN = [255, 160, 60];
+
+function donkey({ ink, x, y, scale = 1 }) {
+  // A tiny pixel Fonkey: ears up, looking toward the workbench.
+  const p = (color, dx, dy, w, h) => ink(color).box({ x: x + dx * scale, y: y + dy * scale, w: w * scale, h: h * scale }, "fill");
+  const body = [124, 76, 116], shadow = [48, 32, 68], light = [218, 154, 170], dark = [35, 25, 48], nose = [244, 198, 174];
+  p(shadow, 5, 35, 44, 4); p(body, 15, 16, 27, 18); p(body, 10, 22, 34, 12);
+  p(body, 8, 9, 12, 18); p(body, 12, 2, 7, 12); p(body, 23, 4, 8, 9);
+  p(light, 13, 3, 4, 8); p(light, 25, 5, 4, 7); p(light, 13, 19, 9, 7);
+  p(nose, 34, 13, 10, 9); p(dark, 38, 15, 2, 2); p(dark, 25, 12, 3, 3);
+  p(dark, 14, 31, 5, 7); p(dark, 34, 30, 5, 8); p(light, 18, 27, 7, 4);
+  p(light, 5, 19, 7, 3); p(dark, 3, 17, 4, 3);
+}
 
 let version = null;
 let copyBtn, copied = 0;
@@ -61,11 +67,17 @@ function paint({ wipe, ink, screen, text }) {
   // most screens are not, so anchoring it high leaves a void underneath that
   // reads as something failing to load. The floor keeps it clear of the corner
   // label the system paints at (6, 6), which is how anyone gets back.
-  const blockHeight = narrow ? 176 : 218;
+  const blockHeight = narrow ? 220 : 280;
   let y = Math.max(narrow ? 16 : 26, Math.round((screen.height - blockHeight) / 2));
 
-  ink(PURPLE).write("EASEL", { x: cx, y, center: "x", size: narrow ? 2 : 3 });
-  y += narrow ? 20 : 30;
+  // Framed hero: the same donkey that accompanies the native desktop app.
+  const hero = { x: Math.round(cx - (narrow ? 132 : 190)), y: y - 8, w: narrow ? 264 : 380, h: narrow ? 58 : 72 };
+  ink([58, 42, 82]).box(hero, "fill");
+  ink(PURPLE).box(hero, "outline");
+  donkey({ ink, x: hero.x + hero.w - (narrow ? 58 : 68), y: hero.y + (narrow ? 10 : 12), scale: narrow ? 1 : 1.25 });
+  ink(PURPLE).write("EASEL", { x: cx - (narrow ? 8 : 12), y: y + 8, center: "x", size: narrow ? 2 : 3 });
+  ink(SOFT).write("with fonkey", { x: cx - (narrow ? 8 : 12), y: y + (narrow ? 28 : 36), center: "x", size: narrow ? 0.8 : 1 });
+  y += narrow ? 68 : 82;
 
   ink(SOFT).write("the Aesthetic Computer editor,", { x: cx, y, center: "x" });
   y += 12;
@@ -103,17 +115,16 @@ function paint({ wipe, ink, screen, text }) {
   }
   y += narrow ? 16 : 22;
 
-  // The requirement, in its own colour, above everything else it can do.
-  ink(WARN).write("needs the claude or codex CLI", { x: cx, y, center: "x" });
+  ink(PURPLE).write("a standalone studio for making pieces", { x: cx, y, center: "x" });
   y += 11;
-  ink(MUTED).write("and a subscription to one", { x: cx, y, center: "x" });
+  ink(SOFT).write("pictures · sounds · papers · games", { x: cx, y, center: "x" });
   y += narrow ? 16 : 22;
 
-  ink(SOFT).write("then run  ac", { x: cx, y, center: "x" });
+  ink(WARN).write("AC hosted inference is ready to use", { x: cx, y, center: "x" });
   y += 12;
-  ink(MUTED).write("every save goes live at a URL", { x: cx, y, center: "x" });
+  ink(MUTED).write("Claude and Codex are optional provider modes", { x: cx, y, center: "x" });
   y += 11;
-  ink(MUTED).write("you can scan from the screen", { x: cx, y, center: "x" });
+  ink(MUTED).write("every save goes live at a scannable URL", { x: cx, y, center: "x" });
 
   if (version) {
     ink(MUTED).write(`v${version}`, { x: cx, y: screen.height - 14, center: "x" });
