@@ -19406,12 +19406,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       perf.printReport();
       
       // Fallback: if piece uses default paint (no custom paint), still hide boot canvas after a short delay
-      // This handles edge cases where piece-paint-ready is never sent
-      setTimeout(() => {
-        if (window.acHIDE_BOOT_LOG) {
-          window.acHIDE_BOOT_LOG();
-        }
-      }, 500);
+      // This handles edge cases where piece-paint-ready is never sent.
+      // Only once a real piece is loaded: the worker also sends this event for
+      // its blank init disk, ~200 ms in, before the requested piece is even
+      // fetched. With the old animated boot the mood-of-the-day wait hid that;
+      // the empty boot has no such wait, so this timer declared the page booted
+      // (window.acBOOTED, the ac:booted event that lets analytics load, the
+      // iOS boot:ready ping) while the piece was still downloading.
+      if (currentPiece !== null) {
+        setTimeout(() => {
+          if (window.acHIDE_BOOT_LOG) {
+            window.acHIDE_BOOT_LOG();
+          }
+        }, 500);
+      }
     }
     
     // 🎨 Hide boot canvas when piece's paint function takes over from default noise16
