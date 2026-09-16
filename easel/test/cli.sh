@@ -31,7 +31,7 @@ assert_contains() {
 }
 
 output="$($CLI --version)"
-assert_contains "$output" 'Easel 0.4.0'
+assert_contains "$output" "Aesel $(node -p "require('$PROJECT_DIR/package.json').version")"
 
 output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'

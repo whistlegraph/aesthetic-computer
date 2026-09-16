@@ -21,6 +21,7 @@
 //     handler publishes directly — which is also what makes the preview live.
 
 import { AcServer, AC_MODELS, DEFAULT_AC_MODEL } from "/easel/src/ac-server.mjs";
+import { Energy, energyReport, formatJoules } from "/easel/src/energy.mjs";
 import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
 
@@ -46,6 +47,7 @@ const ui = {
   gateNote: el("gate-note"),
   route: el("route"),
   status: el("status"),
+  watts: el("watts"),
   stage: el("stage"),
   preview: el("preview"),
   log: el("log"),
@@ -111,6 +113,10 @@ function scrollDown() {
   const atBottom = ui.log.scrollHeight - ui.log.scrollTop - ui.log.clientHeight < 80;
   if (atBottom) ui.log.scrollTop = ui.log.scrollHeight;
 }
+
+// What the session has spent in electricity, as far as the reported token
+// counts can say.
+const energy = new Energy();
 
 function setStatus(text, stateName = "idle") {
   ui.status.textContent = text;
@@ -228,6 +234,16 @@ function handle({ method, params }) {
   if (method === "turn/started") {
     state.streaming = null;
     setStatus("thinking", "working");
+    return;
+  }
+
+  // The bridge reports its token counts per round; energy.mjs turns them into
+  // watt-hours. It is an estimate, which is why the chip wears a tilde and the
+  // basis is one tap away.
+  if (method === "turn/usage") {
+    energy.add(params?.model || DEFAULT_AC_MODEL, params?.usage);
+    ui.watts.hidden = !energy.counted;
+    ui.watts.textContent = `~${formatJoules(energy.joules)}`;
     return;
   }
 
@@ -456,6 +472,15 @@ ui.stop.addEventListener("click", () => {
 
 ui.route.parentElement.addEventListener("click", () => {
   if (state.handle) window.open(`${SITE}/@${state.handle}/${state.slug}`, "_blank");
+});
+
+// The chip is a number; the tap is the working behind it — including the same
+// conversation priced across every model, which is the comparison the estimate
+// can actually defend.
+ui.watts.addEventListener("click", () => {
+  for (const text of energyReport(energy, DEFAULT_AC_MODEL)) {
+    if (text) line("note", "", text);
+  }
 });
 
 void boot();

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // sync-context — copy the Aesthetic Computer authoring guides into easel/context/.
 //
-// Easel tells the model how to write an AC piece by naming the repo's guides and
+// Aesel tells the model how to write an AC piece by naming the repo's guides and
 // asking it to read them. That works inside the monorepo and nowhere else: the
-// lookup is existsSync against the working directory, so an installed Easel
+// lookup is existsSync against the working directory, so an installed Aesel
 // opened on someone's Desktop passes along no AC knowledge at all. It becomes a
 // general-purpose editor that happens to publish to a URL.
 //
@@ -23,9 +23,9 @@ import { fileURLToPath } from "node:url";
 import { build as buildApiMap } from "./build-api-map.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EASEL = join(HERE, "..");
-const REPO = join(EASEL, "..");
-const OUT = join(EASEL, "context");
+const AESEL = join(HERE, "..");
+const REPO = join(AESEL, "..");
+const OUT = join(AESEL, "context");
 
 // What a model needs to write a piece, and nothing else. Deliberately not the
 // whole repository: this is the knowledge that is about Aesthetic Computer
@@ -38,7 +38,7 @@ export const BUNDLE = [
 ];
 
 const header = (from, subject) =>
-  `<!-- ${subject}\n     Bundled with Easel from ${from} in the Aesthetic Computer repository.\n     Do not edit here — edit the source and run \`npm run context\`. -->\n\n`;
+  `<!-- ${subject}\n     Bundled with Aesel from ${from} in the Aesthetic Computer repository.\n     Do not edit here — edit the source and run \`npm run context\`. -->\n\n`;
 
 export function build() {
   mkdirSync(OUT, { recursive: true });
@@ -47,7 +47,7 @@ export function build() {
     return { path: join(OUT, to), body, from, to, subject };
   });
   // The API map travels the same way, for the same reason: it is read off the
-  // runtime source, which an installed Easel does not have.
+  // runtime source, which an installed Aesel does not have.
   guides.push({
     path: join(OUT, "api.json"),
     body: buildApiMap(),

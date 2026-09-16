@@ -110,6 +110,10 @@ export class SlabSession {
     });
   }
 
+  revision(revision) {
+    this.#update({ piece_version: revision.version, piece_revision: revision.revision, piece_updated_at: revision.updatedAt });
+  }
+
   // Where the file stands against what the address is serving:
   //   live     — the channel has the current save
   //   ahead    — saved, not pushed yet

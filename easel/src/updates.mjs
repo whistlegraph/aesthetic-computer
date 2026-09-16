@@ -1,4 +1,4 @@
-// updates — notice that a newer Easel exists, and become it.
+// updates — notice that a newer Aesel exists, and become it.
 //
 // A tool installed by a shell script has no package manager behind it, so if it
 // does not look after its own version nobody else will: the copy someone
@@ -8,7 +8,7 @@
 // Two rules shape everything here.
 //
 // It never updates a checkout. `install.json` is written into the tarball by
-// bin/pack.mjs and exists nowhere else, so its absence means this Easel is a
+// bin/pack.mjs and exists nowhere else, so its absence means this Aesel is a
 // working copy of the repository — where overwriting src/ with a release would
 // destroy someone's afternoon. Development is the case that must never be
 // guessed wrong, so it is detected by a file that only a release can have,
@@ -36,7 +36,7 @@ const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
 
-// Once a day. The version changes far less often than Easel opens, and a tool
+// Once a day. The version changes far less often than Aesel opens, and a tool
 // that phones home on every launch is a tool that is slow to start on a bad
 // connection for no benefit.
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -100,7 +100,7 @@ export async function fetchManifest({ fetch = globalThis.fetch, site = SITE } = 
   return manifest;
 }
 
-// Is there a newer Easel? Resolves null for every reason there might not be —
+// Is there a newer Aesel? Resolves null for every reason there might not be —
 // including "not an install" and "asked recently" — so a caller can treat any
 // non-null as news worth showing.
 export async function checkForUpdate({
@@ -128,10 +128,10 @@ export async function checkForUpdate({
 // Download, verify, and swap. Returns the version now installed.
 //
 // The swap is a rename of a fully unpacked directory, which is as close to
-// atomic as this gets: at no point is there a half-written Easel at the path a
+// atomic as this gets: at no point is there a half-written Aesel at the path a
 // terminal is about to launch.
 export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manifest } = {}) {
-  if (!installed()) throw new Error("this Easel is a checkout, not an install — use git");
+  if (!installed()) throw new Error("this Aesel is a checkout, not an install — use git");
   const target = manifest || (await fetchManifest({ fetch, site }));
 
   const response = await fetch(`${site}${target.tarball || "/easel.tar.gz"}`, {
@@ -153,7 +153,7 @@ export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manif
     mkdirSync(unpacked);
     await run("tar", ["-xzf", archive, "-C", unpacked]);
     if (!existsSync(join(unpacked, "bin", "easel"))) {
-      throw new Error("that archive does not look like Easel");
+      throw new Error("that archive does not look like Aesel");
     }
 
     // Keep the previous install until the new one is in place, then drop it.

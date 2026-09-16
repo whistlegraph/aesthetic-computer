@@ -1,5 +1,5 @@
 <!-- how a piece draws on the AC canvas
-     Bundled with Easel from SCREEN.md in the Aesthetic Computer repository.
+     Bundled with Aesel from SCREEN.md in the Aesthetic Computer repository.
      Do not edit here — edit the source and run `npm run context`. -->
 
 # The Screen — a drawing guide for Aesthetic Computer pieces

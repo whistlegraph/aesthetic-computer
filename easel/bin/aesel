@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Canonical Aesel command; the original launcher remains compatible.
+set -euo pipefail
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/easel" "$@"

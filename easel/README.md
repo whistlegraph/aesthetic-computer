@@ -1,4 +1,8 @@
-# Easel
+# Aesel
+
+Aesel by Aesthetic Computer. The canonical command is `aesel`; `ac` and
+`easel` remain compatible. The source directory, `EASEL_*` settings, existing
+thread paths, and bundle ID remain stable so upgrades preserve user data.
 
 A coding interface for the terminal. Lives at `easel/` in the
 Aesthetic Computer repository.
@@ -39,27 +43,72 @@ the piece currently being worked on in the header.
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 `/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
 `/backend [claude|codex]`,
-`/model [name]`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
+`/model [name]`, `/energy`, `/qr`, `/live`, `/new`, `/clear`, `/help`, `/quit`. Press
 `ctrl-c` to interrupt a running turn or exit while idle.
 
 ## Engine bridges
 
-Two bridges ship, and either can drive a session:
+Three bridges can drive a session:
 
 ```sh
 ac                                  # claude, on claude-opus-5
 ac --backend codex                  # codex app-server
+ac --backend ac                     # AC hosted, using your handle's budget
 ac --model claude-opus-5            # a different model on the same bridge
+ac --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
 ```
 
-`/backend` and `/model` do the same thing mid-session — both restart the
-conversation on the new engine and leave the piece, the channel and the QR code
-exactly where they were. `/backend` with no argument says which engine and
-model are running.
+`/backend` and `/model` switch mid-session, preserving the visible conversation,
+piece, channel and QR. A new provider thread receives recent user/assistant
+context (up to 24,000 characters) and the current piece; provider thread IDs and
+tool history are not portable. A failed connection returns to the prior engine.
+`/new` explicitly starts a fresh conversation. `/backend` lists account options;
+`/model` lists hosted choices or accepts a model name for your own vendor CLI.
+
+AC hosted keeps GLM as its default. `/model sonnet` and `/model gpt` select
+premium models and consume the same handle allowance. Model IDs were checked
+against the [OpenRouter catalog](https://openrouter.ai/compare/openai/gpt-5.4/anthropic/claude-sonnet-4.6).
+The allowance measures weighted tokens, not dollars, and is not an atomic spend
+reservation. Unavailable budget checks refuse inference. New hosted choices
+require the matching Lith endpoint deployment.
+
+`/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
+your profile in a browser. Header targets highlight on hover in terminals that
+support mouse reporting. `/mouse off` restores terminal selection; `/mouse on`
+enables interaction again. `EASEL_MOUSE=0` disables it at launch.
+
+Wheel and Page Up/Page Down scroll the transcript internally, keeping the input
+and footer fixed. Incoming output preserves your reading position. End with an
+empty input, or `/latest`, returns to the live end. The about map scrolls too;
+Esc returns to the conversation.
+
+`/performance [frames]` measures the current JavaScript piece's headless logic
+with seeded randomness and drawing-call counts. The default is 600 measured
+frames at 800×600 after warmup. It runs in a restricted child with a timeout;
+Ctrl-C cancels it. Browser rendering, rasterization and display latency are
+excluded. Unsupported APIs/imports report an error. It requires Node permission
+support (Node 24 or newer recommended).
+
+`/energy` estimates what the session cost in electricity. Every bridge reports
+the tokens it spent — per round on AC hosted, per turn from the Claude CLI's own
+`modelUsage` — and `src/energy.mjs` turns those counts into watt-hours: a fixed
+cost per generated token plus a part that scales with the model's *active*
+parameters, with prompt tokens at a tenth of a generated one and cached tokens
+at a hundredth. The running total shares the footer's gauge row with the viewer
+count, wearing a `~`.
+
+It is an estimate and cannot be anything else — no provider publishes per-token
+energy. The slope is anchored so a frontier-class answer lands near the only
+published figures (Google's 0.24 Wh median text prompt; Epoch AI's ~0.3 Wh for a
+GPT-4o query), and the open-weight hosted models carry their announced active
+parameter counts, so the *relative* half of the readout — the same conversation
+priced across every model, cheapest first — rests on published numbers rather
+than on guessed hardware. Rows for closed models say that their size is a guess.
+Serving only: no training, no water, and not your own machine.
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK
-speaks, driven directly over a pipe. That is why Easel still has no
+speaks, driven directly over a pipe. That is why Aesel still has no
 dependencies: a subprocess on stdio is the same shape as `codex app-server
 --stdio`, and it carries streaming, tool calls and approvals without a package
 tree behind it. Each bridge signs in with the vendor CLI's own credentials
@@ -72,7 +121,7 @@ configuration — Codex is pinned to `on-request` approvals and a
 and `--strict-mcp-config` — so nothing but the person watching can approve a
 command in a session, and an `a` is never written to a settings file.
 
-On the Claude bridge the session also carries Easel's own tools, served by
+On the Claude bridge the session also carries Aesel's own tools, served by
 `src/tools.mjs` as the one MCP server the strict config admits: `ac_api` (the
 piece API — runtime signatures, docs and real call sites, read off
 `lib/disk.mjs` and `lib/graph.mjs` by `bin/build-api-map.mjs` into
@@ -92,7 +141,7 @@ written down in [`docs/local-contract.md`](docs/local-contract.md).
 
 ## The session's piece, live on a phone
 
-Opening Easel opens a new blank piece. It gets a random pronounceable
+Opening Aesel opens a new blank piece. It gets a random pronounceable
 name, it is a real file in the workspace, and a QR code for it sits in the
 bottom right of the interface. Scan the code and the piece runs on your phone;
 every edit the agent makes reaches it a moment later.
@@ -135,7 +184,7 @@ comment and declares `setup` or `draw` is taken as Lua at all.
 
 ## Account and publishing
 
-Easel reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
+Aesel reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
 the same file `ac-login` and the AC desktop apps use. `/login` runs the
 Authorization-Code + PKCE flow in your browser with a loopback callback and
 writes that file; a sign-in or sign-out anywhere in the suite updates the
@@ -175,7 +224,7 @@ npm test
 
 ## Designing the furniture
 
-Easel does not draw all of itself. The QR, the live card of the piece and the
+Aesel does not draw all of itself. The QR, the live card of the piece and the
 status stone are Slab menubar overlays parked on the terminal, and `frame`
 filters Slab's own windows out of every capture — its usual job is reading the
 machine underneath them. So a screenshot taken to judge the card's padding
@@ -185,23 +234,37 @@ shows the terminal where the card is.
 shot to a padded crop, so the menu bar an overlay is said to be flush against
 is in the same picture.
 
-`easel/bin/design-loop.mjs` is the whole cycle in one command: close the Easel
+`easel/bin/design-loop.mjs` is the whole cycle in one command: close the Aesel
 session, open a fresh one, wait for its overlays to land, photograph them.
 Fresh because overlays are placed once, when a window appears — editing the
 placement and reinstalling the menubar does not move what is already on screen,
 so the only honest check is a session that has never seen the old numbers.
 
 ```sh
-node easel/bin/design-loop.mjs            # restart Easel, then shoot
+node easel/bin/design-loop.mjs            # restart Aesel, then shoot
 node easel/bin/design-loop.mjs --shot     # shoot what is already open
 ```
 
 Edit an overlay, run `slab/menubar-swift/install.sh`, then run the loop.
 
-Easel is proprietary. See `LICENSE`.
+Aesel is proprietary. See `LICENSE`.
 
 On Fish installations with existing `ac` or `aesthetic` functions, the
 installer preserves them as `ac-repo` and `aesthetic-platform`.
 
 The product boundary is recorded in
 [`docs/local-contract.md`](docs/local-contract.md).
+
+Each complete piece update gets a local version (`v1`, `v2`, …). `/versions`
+lists snapshots; `/rollback vN` restores one as a new version and sends it through
+the usual live/publish path. Finish or interrupt the current turn and let uploads
+finish first. History persists in `~/.local/share/easel/history/`, keyed by the
+piece's absolute file path; it is not yet shared between machines or accounts.
+
+The AC backend streams text and completed `write_piece` checkpoints as they
+arrive. It shows connecting, waiting, generating, composing, and writing states;
+received kilobytes count stream bytes, not billed tokens. JavaScript checkpoints
+are syntax-checked without executing them, so unfinished fragments keep the last
+working preview. Other runtimes retain their own loader validation. This uses
+ordered HTTPS streaming (SSE); a socket or UDP transport is not required for each
+token to arrive immediately. Disconnects cancel an active response upstream.

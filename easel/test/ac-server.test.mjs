@@ -136,3 +136,128 @@ test("the guides travel in the prompt, because this bridge has no file tools", a
     "the stable prefix comes first, or the cache breaks on every session",
   );
 });
+
+test("a completed piece checkpoint saves before the response ends", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-checkpoint-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// before\n");
+  let stream;
+  const body = new ReadableStream({ start(c) { stream = c; } });
+  let call = 0;
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: async () => call++ === 0 ? { ok: true, body } : serving(say("done"))() });
+  await engine.connect();
+  const saved = new Promise((resolve) => engine.on("notification", ({ method, params }) => {
+    if (method === "item/completed" && params.item?.type === "fileChange") resolve();
+  }));
+  const turn = engine.startTurn("make a piece in steps");
+  const source = "export function paint({wipe}) { wipe(40); }\n";
+  for (const event of writes(source).slice(0, -1)) stream.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+  await saved;
+  assert.equal(await readFile(file, "utf8"), source, "saved while the network response is still open");
+  stream.enqueue(new TextEncoder().encode('data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n'));
+  stream.close();
+  await turn;
+});
+
+test("incomplete tool source is rejected and previous working file is preserved", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-invalid-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// working\n");
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: serving(writes("export function paint("), say("I will fix that")) });
+  await engine.connect();
+  await engine.startTurn("edit");
+  assert.equal(await readFile(file, "utf8"), "// working\n");
+  const result = engine.messages.find((m) => Array.isArray(m.content) && m.content[0]?.type === "tool_result");
+  assert.equal(result.content[0].is_error, true);
+});
+
+test("a disconnected response reports failure instead of successful completion", async () => {
+  const engine = new AcServer({ token: async () => "tok", fetch: serving(say("unfinished").slice(0, 1)) });
+  let completed;
+  engine.on("notification", ({ method, params }) => { if (method === "turn/completed") completed = params.turn; });
+  await engine.connect();
+  await engine.startTurn("hi");
+  assert.equal(completed.status, "failed");
+  assert.match(completed.error.message, /stream ended/);
+});
+
+test("hosted engine reads the current piece on every round, including after rollback", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-context-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  let sent;
+  const engine = new AcServer({ piece: { file }, developerInstructions: "Recent conversation: keep the dots purple", token: async () => "tok", fetch: async (_url, options) => { sent = JSON.parse(options.body); return serving(say("ok"))(); } });
+  await writeFile(file, "// source from another engine\n");
+  await engine.connect();
+  await engine.startTurn("continue");
+  assert.ok(sent.system.some((block) => block.text.includes("source from another engine")));
+  assert.ok(sent.system.some((block) => block.text.includes("keep the dots purple")));
+  await writeFile(file, "// restored old source\n");
+  await engine.startTurn("continue from rollback");
+  assert.ok(sent.system.some((block) => block.text.includes("restored old source")));
+  assert.ok(!sent.system.some((block) => block.text.includes("source from another engine")));
+});
+
+test("interrupting a checkpoint during validation cannot write or start another round", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-interrupt-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "piece.mjs");
+  await writeFile(file, "// working\n");
+  let calls = 0, completed;
+  const serve = serving(writes("export function paint() {}"), say("done"));
+  const engine = new AcServer({ piece: { file }, token: async () => "tok", fetch: (...args) => { calls++; return serve(...args); } });
+  engine.on("notification", ({ method, params }) => {
+    if (method === "turn/progress" && params.phase === "writing") engine.interrupt();
+    if (method === "turn/completed") completed = params.turn;
+  });
+  await engine.connect();
+  await engine.startTurn("edit");
+  assert.equal(await readFile(file, "utf8"), "// working\n");
+  assert.equal(calls, 1);
+  assert.equal(completed.status, "interrupted");
+});
+
+// A turn that called a tool paid for two responses. The meter has to see both,
+// or the readout understates exactly the turns that cost the most.
+test("each round reports what it spent, per round rather than per turn", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ac-energy-"));
+  const file = join(dir, "vopuzi.mjs");
+  await writeFile(file, "// blank\n");
+
+  const metered = (events, output) => [
+    { type: "message_start", message: { usage: { input_tokens: 6000, cache_read_input_tokens: 24000 } } },
+    ...events,
+    { type: "message_delta", delta: { stop_reason: events === none ? "end_turn" : "tool_use" }, usage: { output_tokens: output } },
+  ];
+  const none = [];
+
+  const engine = new AcServer({
+    fetch: serving(
+      metered([
+        { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "t1", name: "write_piece" } },
+        { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify({ source: "function paint({ wipe }) { wipe(0); }" }) } },
+        { type: "content_block_stop", index: 0 },
+      ], 700),
+      metered(none, 40),
+    ),
+    token: async () => "tok",
+    piece: { file },
+    model: "glm",
+  });
+
+  const spent = [];
+  engine.on("notification", ({ method, params }) => {
+    if (method === "turn/usage") spent.push(params);
+  });
+  await engine.connect();
+  await engine.startTurn("paint it black");
+
+  assert.equal(spent.length, 2, "one report per round");
+  assert.equal(spent[0].model, "z-ai/glm-4.6", "reported under the id that ran, not the alias");
+  assert.equal(spent[0].usage.output_tokens, 700);
+  assert.equal(spent[0].usage.cache_read_input_tokens, 24000, "prompt counts from message_start survive the round");
+  assert.equal(spent[1].usage.output_tokens, 40);
+  await rm(dir, { recursive: true, force: true });
+});

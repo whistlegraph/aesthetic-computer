@@ -1,6 +1,6 @@
 // live.mjs — the session's piece, and the channel that carries it to a phone.
 //
-// Every Easel session opens on a new blank piece with a random name.
+// Every Aesel session opens on a new blank piece with a random name.
 // The piece is a real file in the workspace, so the agent edits it like any
 // other file, and every save is pushed to Aesthetic Computer's `/run` endpoint
 // on a private code channel. Anything watching that channel — a phone that
@@ -18,6 +18,7 @@
 // on spaces — a tilde-separated argument arrives glued to the command name and
 // the channel is silently dropped, leaving the phone on an empty prompt. An
 // encoded space is what actually reaches `halt` as two tokens.
+import { PieceRevisions, validatePieceSource } from "./revisions.mjs";
 import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
@@ -194,12 +195,53 @@ export class LivePiece extends EventEmitter {
     return this.file;
   }
 
+  get history() { return new PieceRevisions(this.file); }
+
+  async checkpoint(source = this.source()) {
+    const file = this.file;
+    await validatePieceSource(source, file);
+    if (file !== this.file || source !== this.source()) return null;
+    const revision = this.history.capture(source);
+    if (this.revision?.revision !== revision.revision || this.revisionFile !== file) {
+      this.revision = revision;
+      this.revisionFile = file;
+      this.emit("revision", revision);
+    }
+    return revision;
+  }
+
+  async rollback(version) {
+    // Preserve a complete unobserved edit; a broken edit must still be recoverable.
+    const current = this.source();
+    let valid = false;
+    try { await validatePieceSource(current, this.file); valid = true; } catch {}
+    if (valid) this.history.capture(current);
+    const revision = await this.history.restore(version);
+    this.revision = revision;
+    this.revisionFile = this.file;
+    this.emit("revision", revision);
+    return revision;
+  }
+
   // Push the current source onto the code channel.
   async push() {
+    // Serialize uploads so a slow older save cannot arrive after a newer one.
+    if (this.pendingPush) {
+      await this.pendingPush.catch(() => {});
+      return this.push();
+    }
+    this.sending = true;
+    const pending = this.#push();
+    this.pendingPush = pending;
+    try { return await pending; }
+    finally { this.pendingPush = null; this.sending = false; }
+  }
+
+  async #push() {
     const source = this.source();
     if (!source.trim()) return false;
-    this.sending = true;
-    try {
+    if (!await this.checkpoint(source)) return false;
+    {
       // `/run` takes no anonymous pushes: ownership of a channel is the token,
       // not the name. A session with no token can still watch its own piece in
       // a browser, it just cannot put source on anyone else's screen.
@@ -215,12 +257,10 @@ export class LivePiece extends EventEmitter {
         body: JSON.stringify({ piece: this.slug, source, codeChannel: this.channel }),
       });
       if (!response.ok) throw new Error(`live push failed (HTTP ${response.status})`);
-    } finally {
-      this.sending = false;
     }
     this.pushes += 1;
-    this.ahead = false;
-    this.emit("push", this.pushes);
+    this.ahead = source !== this.source();
+    this.emit("push", this.pushes, source);
     return true;
   }
 

@@ -50,6 +50,14 @@ Caveats worth knowing before judging output: the server allowlists three cheap
 models, so this is a deliberately weaker agent than desktop Aesel, and the
 allowance is the same daily one `/api/ask` spends.
 
+The chip beside the status reads `~0.12 Wh`: an estimate of the electricity the
+session's turns took to serve, from the token counts the bridge reports and the
+model's active parameter count. `src/energy.mjs` holds the arithmetic and the
+caveat — it is an estimate, not a measurement. Tapping the chip prints the
+working into the transcript, including the same conversation priced across
+every model, which is the part of the estimate that rests on published
+numbers.
+
 ## Where it is going
 
 This page is the content of the iOS app, not a detour. The Swift shell replaces

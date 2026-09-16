@@ -71,6 +71,21 @@ body {
   color: var(--dim);
 }
 
+#watts {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+}
+
+#watts[hidden] {
+  display: none;
+}
+
 #status[data-state="working"] {
   color: var(--ac);
 }

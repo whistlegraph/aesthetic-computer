@@ -1,10 +1,10 @@
-# A native Easel
+# A native Aesel
 
 Written 2026-09-13. Nothing here is implemented. Line counts, flags and file
 paths were read out of the tree that morning; anything I could not run is
 labelled as such, and there is a list of those at the end.
 
-The question is whether Easel should become an application — a Mac app, a
+The question is whether Aesel should become an application — a Mac app, a
 Windows app, possibly an iOS app — instead of a program you run inside somebody
 else's terminal. The prompt for this memo framed it as packaging the TUI
 together with the Slab overlays that today only work beside it. That framing is
@@ -126,7 +126,7 @@ at all: on this machine both binaries are standalone Mach-O executables
 so the npm-shim problem does not arise. If a Windows user has a `.cmd` shim
 install instead, Node has refused to spawn `.cmd` without `shell: true` since
 18.20.2. Second, and worse: `claude`'s own Bash tool needs a shell, and on
-Windows that has historically meant Git Bash. A Windows Easel could plausibly
+Windows that has historically meant Git Bash. A Windows Aesel could plausibly
 start the bridge and then watch every command the model runs fail. I have no
 Windows machine and there is no Windows evidence anywhere in this repo.
 
@@ -146,7 +146,7 @@ view, and `render.test.mjs` covering half of them.
 
 The stronger argument against the rewrite is not cost. It is that
 `docs/local-contract.md` says, as a boundary rather than a description: *"The
-terminal interface is always Easel. Engines are internal bridges, not alternate
+terminal interface is always Aesel. Engines are internal bridges, not alternate
 client interfaces."* A native view layer would be a second client interface. It
 might be a good one, but it has to be argued for as a product, not slipped in as
 a port. Nothing in the brief for this memo argues for it.
@@ -207,7 +207,7 @@ cross-reference to `easel/` anywhere.
 My read: **build inside ac-electron, not beside it.** A second Electron app with
 a second signing config, a second updater and a second release pipeline is the
 distraction. The daemon it already is — menu bar, tray, updater, deep links,
-`~/.ac-token` — is most of the chrome an Easel window needs around it.
+`~/.ac-token` — is most of the chrome an Aesel window needs around it.
 
 ## 2. What the overlays become
 
@@ -241,13 +241,13 @@ What is lost is more interesting than what is saved.
 sigil exists so you can tell nine sessions apart at a glance across a wall of
 tiled panes. One window with one session has nothing to disambiguate, and the
 rock degrades into decoration. So this is a design constraint, not a detail: a
-native Easel should have panes or tabs, and the rock should be what marks them.
+native Aesel should have panes or tabs, and the rock should be what marks them.
 If it is a single-session window, drop the rock and keep the scan code.
 
 **Cross-application reach is gone.** Today the rocks decorate Terminal.app and
 iTerm2 — someone else's windows. A native app cannot decorate a terminal it does
 not own. If @jeffrey keeps working in Terminal.app under Slab, the native app
-does not replace that; it becomes a second place Easel lives. Two shells to keep
+does not replace that; it becomes a second place Aesel lives. Two shells to keep
 in agreement is a real recurring cost and I do not think it goes away.
 
 **The scan code gets better, not worse.** `PromptScanCode` is 99 lines of
@@ -265,7 +265,7 @@ that the AC-runtime-as-webview constraint works as an inner pane and not just as
 a whole window. It ports directly.
 
 **Keep writing the Slab marker either way.** `SlabSession` writes one JSON file
-per session into `~/.local/share/slab/state`. If a native Easel keeps doing that,
+per session into `~/.local/share/slab/state`. If a native Aesel keeps doing that,
 it appears in the existing menu bar and prox ledger for free, and the fleet does
 not need to learn a new thing. The marker costs nothing and buys continuity.
 
@@ -295,7 +295,7 @@ grammar with its load-bearing encoded space, and the fact that a piece is one
 file. What is duplicated is the agent loop (about 200 lines of `ac-server.mjs`),
 the SSE parser, the publish call, sign-in, and the entire interface.
 
-**(d) Ship no native app.** Worth naming, because Easel's actual barriers today
+**(d) Ship no native app.** Worth naming, because Aesel's actual barriers today
 are `curl | sh`, "you need Node 18", and "you need a Claude or Codex
 subscription", and a window fixes only the first of those. The third is what
 `ac-server.mjs` was built to fix, and it was built without any native work at
@@ -314,7 +314,7 @@ No subprocess means the `ac` bridge only, and that is a sharper limit than
 `z-ai/glm-4.6`, `qwen/qwen3-coder`, `deepseek/deepseek-chat-v3.1` — with a
 comment saying why: *"Adding a frontier model here multiplies the cost of the
 free tier by about thirty."* It requires a token, resolves it to an `@handle`,
-and meters against the same daily budget as `/api/ask`. So an iOS Easel is
+and meters against the same daily budget as `/api/ask`. So an iOS Aesel is
 categorically a weaker agent than the desktop one **by server policy, not by
 porting effort**. No Opus, no Fable, no Codex, and a day's allowance shared with
 everything else AC buys for that handle.
@@ -329,7 +329,7 @@ Sign-in needs rewriting. `ac-session.mjs` runs a loopback HTTP server on port
 `ASWebAuthenticationSession` against a custom scheme. Auth0 supports it; it is
 about ninety lines and a callback URL registration, and it is standard work.
 
-So, plainly: **is an iOS Easel a real editor or a viewer with a prompt?**
+So, plainly: **is an iOS Aesel a real editor or a viewer with a prompt?**
 
 It is a real single-file editor with a deliberately weak model, and the
 interesting thing about it is not the editing. It is that the piece is live and
@@ -340,8 +340,8 @@ and it is arguably a *better* demonstration of what Aesthetic Computer is than
 the desktop app, because the whole live-piece apparatus stops needing a second
 screen to explain itself.
 
-It is not Easel. It is the hosted half of Easel with a touch interface, and it
-should be named and scoped as that rather than shipped as "Easel for iPhone" and
+It is not Aesel. It is the hosted half of Aesel with a touch interface, and it
+should be named and scoped as that rather than shipped as "Aesel for iPhone" and
 then apologised for.
 
 One more consequence: it cannot be a terminal. Nobody drives slash commands and
@@ -372,7 +372,7 @@ with silo, and `electron-updater` points at
 fastlane lanes at `apple/fastlane/`.
 
 **The WKWebView bridge exists.** `apple/aesthetic.computer/ContentView.swift` is
-466 lines and already has the pattern an iOS Easel needs: two message handlers
+466 lines and already has the pattern an iOS Aesel needs: two message handlers
 (`iOSApp`, `iOSAppLog`), a `console.log` monkey-patch at document start, and
 native→JS calls into named globals (`window.iOSReceivePushToken`,
 `iOSAppSwitchPiece`) with a retry loop for the case where the page has not
@@ -383,10 +383,10 @@ only** — `SDKROOT = iphoneos`, no `SUPPORTED_PLATFORMS` override, no Catalyst.
 There is no macOS target in it and never has been. And `fastlane ios build` is
 currently *broken*: `PROGRESS.md` records it failing on 2026-09-11 because Xcode
 26.6 kept the iPhoneOS SDK but has no simulator runtimes, and version 1.1 has
-been sitting in `PREPARE_FOR_SUBMISSION` since. An iOS Easel would inherit a
+been sitting in `PREPARE_FOR_SUBMISSION` since. An iOS Aesel would inherit a
 pipeline that does not presently produce an IPA.
 
-An iOS Easel would be a **new target or a new project**, not a target of
+An iOS Aesel would be a **new target or a new project**, not a target of
 `aesthetic.computer.xcodeproj`. The precedent in this repo is clear: oskiewar,
 trackdrum and tvos-tapes are each their own project, two of them generated by
 XcodeGen from a `project.yml`. Follow that.
@@ -432,7 +432,7 @@ Apple Events (*"App Review routinely rejects it for a menubar instrument"*), no
 MultipeerConnectivity, and *"no broad Downloads, Desktop, Documents, or
 home-directory access."*
 
-Applied to Easel, the equivalent gate is the `claude` and `codex` bridges. The
+Applied to Aesel, the equivalent gate is the `claude` and `codex` bridges. The
 workspace itself is solvable — MenuBand holds
 `com.apple.security.files.user-selected.read-write`, and a folder the user picks
 through an open panel plus a security-scoped bookmark is a normal sandboxed
@@ -454,7 +454,7 @@ execute-outside-the-container rule are documented Apple behaviour, not something
 I ran.
 
 The practical conclusion is cleaner than the policy question, and it is the
-useful part: **a sandboxed Mac App Store Easel would be the `ac` bridge only —
+useful part: **a sandboxed Mac App Store Aesel would be the `ac` bridge only —
 which is the same product as the iOS app.** So MAS and iOS are one decision, not
 two, and Developer ID direct distribution is the only home the CLI bridges can
 have. That is a tidy line, and it means nobody has to litigate App Review to

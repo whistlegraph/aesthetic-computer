@@ -1,6 +1,6 @@
 # Local contract
 
-Easel requires no Easel server.
+Aesel requires no Aesel server.
 
 - No runtime account, telemetry, analytics, cloud sync, or hosted control plane.
 - Configuration, session records, memory, and credentials remain on machines
@@ -42,13 +42,13 @@ workspace paths, no conversation. The channel token is random per session and is
 never reused.
 
 Pushing is the interface's own action, on a file the user can see, and stops
-when the session ends. It is the one thing Easel sends without being
+when the session ends. It is the one thing Aesel sends without being
 asked each time, so it is worth stating plainly: while the interface is open,
 the piece on screen is repeatedly leaving the machine.
 
 ## Inference boundary
 
-The terminal interface is always Easel. Engines are internal bridges,
+The terminal interface is always Aesel. Engines are internal bridges,
 not alternate client interfaces or command shortcuts.
 
 Two bridges exist, both remote: Claude Code in headless stream-json mode (the
@@ -56,7 +56,7 @@ default, on `claude-opus-5`) and Codex app-server. `--backend` and
 `/backend` choose between them and `--model` and `/model` name the model. The
 interface labels remote inference before a prompt is sent. Provider terms
 govern that traffic, and each bridge signs in with its own vendor's existing
-credentials on this machine; Easel stores no key of its own.
+credentials on this machine; Aesel stores no key of its own.
 
 Neither bridge inherits the user's own agent configuration. Codex is started
 with `on-request` approvals and a `workspace-write` sandbox regardless of what
@@ -89,7 +89,7 @@ Codex runs commands under an operating-system sandbox: writes are confined to
 the workspace and `networkAccess` is false, so an approved command still cannot
 reach the network without a second, explicit escalation.
 
-Claude Code has no equivalent sandbox. On that bridge Easel confines
+Claude Code has no equivalent sandbox. On that bridge Aesel confines
 the file tools to the workspace, removes WebFetch and WebSearch, and routes
 every prompt to this terminal — and Claude does prompt before a command that
 touches the network — but the prompt is the whole boundary. A shell command the
@@ -97,7 +97,7 @@ user approves runs with the user's own privileges and can reach the network.
 Read-only commands are auto-approved by Claude's own classifier, as reads
 inside the sandbox are on the Codex bridge.
 
-Easel therefore does not claim that agent tools are network-isolated
+Aesel therefore does not claim that agent tools are network-isolated
 on the Claude bridge. Where that matters, `--backend codex` is the bridge with
 a kernel behind its approvals.
 

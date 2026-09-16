@@ -1,7 +1,7 @@
 // The Aesthetic Computer bridge — inference without a vendor CLI.
 //
 // The other two bridges spawn `claude` or `codex` and speak a line protocol to
-// a subprocess. That is why an installed Easel does nothing for someone holding
+// a subprocess. That is why an installed Aesel does nothing for someone holding
 // neither subscription: the interface is complete and there is no engine under
 // it. This bridge talks HTTP to aesthetic.computer instead, which buys the
 // inference on its own account and meters it against the caller's @handle. An
@@ -23,7 +23,7 @@
 // same 24 KB that ships in easel/context, spent once per thread as cached
 // prefix rather than fetched per question.
 //
-// The tool set is deliberately one tool. Easel is an editor for one piece, and a
+// The tool set is deliberately one tool. Aesel is an editor for one piece, and a
 // turn's whole job is to produce that piece's next version. A general file API
 // would be a larger surface to secure, a larger prompt to pay for, and no closer
 // to what the session is for. `write_piece` is what the loop exists to serve.
@@ -32,6 +32,7 @@ import { EventEmitter } from "node:events";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validatePieceSource } from "./revisions.mjs";
 import { randomUUID } from "node:crypto";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -45,6 +46,8 @@ export const AC_MODELS = {
   glm: "z-ai/glm-4.6",
   qwen: "qwen/qwen3-coder",
   deepseek: "deepseek/deepseek-chat-v3.1",
+  sonnet: "anthropic/claude-sonnet-4.6",
+  gpt: "openai/gpt-5.4",
 };
 
 // The guides, in the order a model should meet them: what a piece is, then how
@@ -73,7 +76,7 @@ function bundledContext() {
 const WRITE_PIECE = {
   name: "write_piece",
   description:
-    "Write the complete new source of the session's piece. Always send the whole file, never a patch or a fragment — what you send replaces the file exactly. Saving pushes it live to anyone watching, so prefer several small writes over one large one.",
+    "Write the complete new source of the session's piece. Always send the whole file, never a patch or a fragment — what you send replaces the file exactly. Saving pushes it live to anyone watching. Build the request in several small, complete working checkpoints: send each checkpoint as a separate write_piece call as soon as it is ready, then continue improving it. Never send unfinished syntax.",
   input_schema: {
     type: "object",
     properties: {
@@ -99,7 +102,7 @@ export class AcServer extends EventEmitter {
   } = {}) {
     super();
     this.cwd = cwd;
-    this.model = AC_MODELS[model] || model || DEFAULT_AC_MODEL;
+    this.model = (Object.hasOwn(AC_MODELS, model) ? AC_MODELS[model] : model) || DEFAULT_AC_MODEL;
     this.developerInstructions = developerInstructions;
     this.piece = piece;
     this.token = token;
@@ -109,7 +112,7 @@ export class AcServer extends EventEmitter {
     this.turnId = null;
     this.turns = 0;
     // The conversation. Held here because there is no process holding it for us
-    // — closing Easel loses it, which is honest: nothing was written anywhere.
+    // — closing Aesel loses it, which is honest: nothing was written anywhere.
     this.messages = [];
     this.controller = null;
   }
@@ -138,6 +141,9 @@ export class AcServer extends EventEmitter {
     }
     if (this.developerInstructions) {
       blocks.push({ type: "text", text: this.developerInstructions });
+    }
+    if (this.piece?.file && existsSync(this.piece.file)) {
+      blocks.push({ type: "text", text: `Current piece (${this.piece.file}); preserve the user's existing work unless asked to change it:\n\n${readFileSync(this.piece.file, "utf8")}` });
     }
     return blocks;
   }
@@ -216,7 +222,8 @@ export class AcServer extends EventEmitter {
 
   // One request, streamed. Returns why the model stopped.
   async #round() {
-    this.controller = new AbortController();
+    const controller = this.controller = new AbortController();
+    this.emit("notification", { method: "turn/progress", params: { phase: "connecting" } });
     const token = await this.token?.();
     if (!token) {
       throw new Error("Hosted inference needs an Aesthetic Computer handle — run /login.");
@@ -224,7 +231,7 @@ export class AcServer extends EventEmitter {
 
     const response = await this.fetch(`${this.site}/api/easel-inference`, {
       method: "POST",
-      signal: this.controller.signal,
+      signal: controller.signal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         model: this.model,
@@ -244,70 +251,112 @@ export class AcServer extends EventEmitter {
       throw new Error(message);
     }
 
+    this.emit("notification", { method: "turn/progress", params: { phase: "waiting" } });
     const messageId = `msg-${this.turns}-${Date.now()}`;
     const blocks = [];
+    const results = [];
+    let received = 0;
+    let finished = false;
     let stop = "end_turn";
     let text = "";
     // Tool arguments arrive as a JSON string in fragments, so they are gathered
     // per block index and parsed only once the block closes.
     const partials = new Map();
+    // What this round cost. The counts arrive split across two events —
+    // `message_start` knows the prompt, `message_delta` knows the answer — and
+    // each is cumulative for its own field, so later values replace rather than
+    // add. The interface turns this into watt-hours; see energy.mjs.
+    const usage = {};
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let tail = "";
 
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      tail += decoder.decode(value, { stream: true });
-      let cut = tail.indexOf("\n");
-      while (cut !== -1) {
-        const line = tail.slice(0, cut).trim();
-        tail = tail.slice(cut + 1);
-        cut = tail.indexOf("\n");
-        if (!line.startsWith("data: ")) continue;
-        const payload = line.slice(6);
-        if (payload === "[DONE]") continue;
-        let event;
-        try {
-          event = JSON.parse(payload);
-        } catch {
-          continue;
-        }
+    try {
+      for (;;) {
+        controller.signal.throwIfAborted();
+        const { done, value } = await reader.read();
+        controller.signal.throwIfAborted();
+        if (done) break;
+        received += value.byteLength;
+        tail += decoder.decode(value, { stream: true });
+        let cut = tail.indexOf("\n");
+        while (cut !== -1) {
+          const line = tail.slice(0, cut).trim();
+          tail = tail.slice(cut + 1);
+          cut = tail.indexOf("\n");
+          if (!line.startsWith("data:")) continue;
+          const payload = line.slice(5).trimStart();
+          if (payload === "[DONE]") continue;
+          let event;
+          try {
+            event = JSON.parse(payload);
+          } catch {
+            continue;
+          }
 
-        if (event.type === "content_block_start") {
-          const block = event.content_block;
-          if (block?.type === "tool_use") {
-            partials.set(event.index, { id: block.id, name: block.name, json: "" });
+          const counts = event.usage || event.message?.usage;
+          if (counts) Object.assign(usage, counts);
+
+          if (event.type === "content_block_start" || event.type === "content_block_delta") {
+            this.emit("notification", { method: "turn/progress", params: {
+              phase: event.delta?.type === "input_json_delta" || event.content_block?.type === "tool_use" ? "composing" : "generating",
+              bytes: received,
+            } });
           }
-        } else if (event.type === "content_block_delta") {
-          const delta = event.delta;
-          if (delta?.type === "text_delta" && delta.text) {
-            text += delta.text;
-            this.emit("notification", {
-              method: "item/agentMessage/delta",
-              params: { itemId: messageId, delta: delta.text },
-            });
-          } else if (delta?.type === "input_json_delta") {
+          if (event.type === "content_block_start") {
+            const block = event.content_block;
+            if (block?.type === "tool_use") {
+              partials.set(event.index, { id: block.id, name: block.name, json: "" });
+            }
+          } else if (event.type === "content_block_delta") {
+            const delta = event.delta;
+            if (delta?.type === "text_delta" && delta.text) {
+              text += delta.text;
+              this.emit("notification", {
+                method: "item/agentMessage/delta",
+                params: { itemId: messageId, delta: delta.text },
+              });
+            } else if (delta?.type === "input_json_delta") {
+              const partial = partials.get(event.index);
+              if (partial) partial.json += delta.partial_json || "";
+            }
+          } else if (event.type === "content_block_stop") {
             const partial = partials.get(event.index);
-            if (partial) partial.json += delta.partial_json || "";
+            if (partial) {
+              let input = {};
+              try {
+                input = JSON.parse(partial.json || "{}");
+              } catch {}
+              const block = { type: "tool_use", id: partial.id, name: partial.name, input };
+              blocks.push(block);
+              // A complete tool block is a checkpoint; do not wait for the next
+              // explanation or the end of this response before showing it.
+              results.push(await this.#runTool(block));
+              partials.delete(event.index);
+            }
+          } else if (event.type === "message_delta") {
+            if (event.delta?.stop_reason) { stop = event.delta.stop_reason; finished = true; }
+          } else if (event.type === "error") {
+            throw new Error(event.error?.message || "inference error");
           }
-        } else if (event.type === "content_block_stop") {
-          const partial = partials.get(event.index);
-          if (partial) {
-            let input = {};
-            try {
-              input = JSON.parse(partial.json || "{}");
-            } catch {}
-            blocks.push({ type: "tool_use", id: partial.id, name: partial.name, input });
-            partials.delete(event.index);
-          }
-        } else if (event.type === "message_delta") {
-          if (event.delta?.stop_reason) stop = event.delta.stop_reason;
-        } else if (event.type === "error") {
-          throw new Error(event.error?.message || "inference error");
         }
       }
+
+      if (!finished || partials.size) throw new Error("Inference stream ended before the response completed. Saved checkpoints are preserved.");
+    } finally {
+      await reader.cancel?.().catch(() => {});
+      reader.releaseLock?.();
+    }
+
+    // Reported per round rather than per turn: a turn that called a tool paid
+    // for two responses, and a readout that showed one of them would understate
+    // the expensive kind of turn.
+    if (Object.keys(usage).length) {
+      this.emit("notification", {
+        method: "turn/usage",
+        params: { model: this.model, usage },
+      });
     }
 
     if (text) {
@@ -324,15 +373,12 @@ export class AcServer extends EventEmitter {
 
     if (stop !== "tool_use" || !blocks.length) return { stop: "end_turn" };
 
-    const results = [];
-    for (const block of blocks) {
-      results.push(await this.#runTool(block));
-    }
     this.messages.push({ role: "user", content: results });
     return { stop: "tool_use" };
   }
 
   async #runTool(block) {
+    const signal = this.controller?.signal;
     const itemId = `tool-${block.id}`;
     const note = String(block.input?.note || "").trim();
     this.emit("notification", {
@@ -366,7 +412,11 @@ export class AcServer extends EventEmitter {
     try {
       const file = this.piece?.file;
       if (!file) throw new Error("no piece is open in this session");
+      this.emit("notification", { method: "turn/progress", params: { phase: "writing" } });
+      await validatePieceSource(source, file);
+      signal?.throwIfAborted();
       writeFileSync(file, source.endsWith("\n") ? source : `${source}\n`);
+      await this.piece?.checkpoint?.();
       this.emit("notification", {
         method: "item/completed",
         params: { item: { id: itemId, type: "fileChange", path: file, status: note || "written" } },

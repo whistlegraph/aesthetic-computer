@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// tools.mjs — the native tools Easel hands the engine, as an MCP server on stdio.
+// tools.mjs — the native tools Aesel hands the engine, as an MCP server on stdio.
 //
-// Read the transcripts of the first ten Easel sessions and they open the same
+// Read the transcripts of the first ten Aesel sessions and they open the same
 // way: the model reads the guides, then spends six to twelve shell calls —
 // `grep -n "function circle(" graph.mjs`, `sed -n 6590,6650p disk.mjs`,
 // `grep -rn "synth({" disks/*.mjs | head` — rebuilding a picture of the API
@@ -30,7 +30,7 @@ import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EASEL = join(HERE, "..");
+const AESEL = join(HERE, "..");
 
 export const SERVER_NAME = "ac";
 export const TOOL_PREFIX = `mcp__${SERVER_NAME}__`;
@@ -44,7 +44,7 @@ export function disksDir(cwd) {
 
 export function loadMap() {
   try {
-    return JSON.parse(readFileSync(join(EASEL, "context", "api.json"), "utf8"));
+    return JSON.parse(readFileSync(join(AESEL, "context", "api.json"), "utf8"));
   } catch {
     return { entries: [] };
   }
@@ -352,7 +352,7 @@ export function serve({ cwd = process.cwd(), input = process.stdin, output = pro
 }
 
 // The MCP configuration the Claude bridge passes with --mcp-config: this file,
-// run by the same node that is running Easel, pointed at the workspace.
+// run by the same node that is running Aesel, pointed at the workspace.
 export function mcpConfig(cwd) {
   return {
     mcpServers: {

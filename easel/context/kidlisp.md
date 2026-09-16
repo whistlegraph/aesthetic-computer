@@ -1,5 +1,5 @@
 <!-- the KidLisp language
-     Bundled with Easel from kidlisp/README.md in the Aesthetic Computer repository.
+     Bundled with Aesel from kidlisp/README.md in the Aesthetic Computer repository.
      Do not edit here — edit the source and run `npm run context`. -->
 
 # KidLisp

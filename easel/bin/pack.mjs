@@ -16,17 +16,17 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EASEL = join(HERE, "..");
-const REPO = join(EASEL, "..");
+const AESEL = join(HERE, "..");
+const REPO = join(AESEL, "..");
 const OUT = join(REPO, "system", "public", "easel.tar.gz");
 const MANIFEST = join(REPO, "system", "public", "easel.json");
 // Written into the tarball so an install can tell what it is. Its absence is
 // how a git checkout knows never to overwrite itself with a release.
-const STAMP = join(EASEL, "install.json");
+const STAMP = join(AESEL, "install.json");
 
 const INCLUDE = ["bin", "src", "shell", "context", "package.json", "README.md", "LICENSE", "install.json"];
 
-const version = JSON.parse(readFileSync(join(EASEL, "package.json"), "utf8")).version;
+const version = JSON.parse(readFileSync(join(AESEL, "package.json"), "utf8")).version;
 
 // The stamp is part of the archive, so it is written before tarring and removed
 // after: a working checkout must not acquire one by having run this script.
@@ -34,7 +34,7 @@ writeFileSync(STAMP, JSON.stringify({ version, packedAt: new Date().toISOString(
 
 for (const entry of INCLUDE) {
   try {
-    statSync(join(EASEL, entry));
+    statSync(join(AESEL, entry));
   } catch {
     console.error(`missing: ${entry}`);
     process.exit(1);
@@ -55,7 +55,7 @@ try {
 execFileSync("tar", [
   ...extraFlags,
   "-czf", OUT,
-  "-C", EASEL,
+  "-C", AESEL,
   ...INCLUDE,
 ], { stdio: "inherit" });
 
@@ -64,7 +64,7 @@ rmSync(STAMP, { force: true });
 const bytes = readFileSync(OUT);
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 
-// What a running Easel fetches to decide whether it is behind. Kept to the four
+// What a running Aesel fetches to decide whether it is behind. Kept to the four
 // facts an updater needs, so it stays cheap enough to poll once a day.
 writeFileSync(
   MANIFEST,

@@ -5,17 +5,21 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { StringDecoder } from "node:string_decoder";
+import { aboutMap, conversationHandoff } from "./about.mjs";
+import { InputDecoder, mouseEvent, MOUSE_ON, MOUSE_OFF } from "./mouse.mjs";
 import { ACSession } from "./ac-session.mjs";
 import { Audience } from "./audience.mjs";
 import { AutoPublisher } from "./autopublish.mjs";
 import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, easelFrame, easelNextFrame, easelWidth } from "./easel.mjs";
+import { Energy, energyReport } from "./energy.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { LivePiece } from "./live.mjs";
 import { applyUpdate, checkForUpdate, currentVersion, installed } from "./updates.mjs";
 import { publishPiece } from "./publish.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, color, easelInk, renderBoot, renderFrame } from "./render.mjs";
+import { cleanText, color, easelInk, renderBoot, renderFrame, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -29,10 +33,14 @@ const flag = (name) => arguments_.includes(name);
 const cwd = path.resolve(option("--cwd") || process.cwd());
 const resumeThreadId = option("--resume");
 const initialPrompt = option("--prompt");
+const initialPiece = option("--piece");
 // Which engine bridge drives the conversation, and on which model. The bridge
 // can be swapped mid-session with /backend, so neither is a constant.
 let backend = backendFor(option("--backend") || process.env.EASEL_BACKEND || DEFAULT_BACKEND);
 let model = option("--model") || backend.defaultModel;
+let handoff = "";
+let archivedConversation = [];
+let mouseEnabled = process.env.EASEL_MOUSE !== "0";
 
 const session = new ACSession();
 // Every session opens on a new blank piece with a random name. It is a real
@@ -52,6 +60,10 @@ const live = new LivePiece({
     }
   },
 });
+if (initialPiece) {
+  const file = path.resolve(cwd, initialPiece);
+  if (!existsSync(file) || !live.retarget(file)) throw new Error("--piece must name an existing supported piece file");
+}
 const state = {
   workspace: cwd,
   mode: "remote",
@@ -77,6 +89,10 @@ const state = {
   // What those people's browsers are actually showing — a blank frame, an
   // uncaught error. Null until the relay lets this session listen.
   health: null,
+  // What the session has spent in electricity, as far as the token counts the
+  // engine reports can say. `/energy` prints the working; energy.mjs holds the
+  // arithmetic and the caveat.
+  energy: new Energy(),
   qr: null,
   // The prompt rock in the menu bar draws this session's code at real pixel
   // resolution, so the transcript does not spend seventeen rows on a worse
@@ -140,7 +156,7 @@ const STYLE_GUIDES = [
 // The same knowledge, carried inside the install. A session opened in the
 // Aesthetic Computer repository reads the repo's own copies, which are newer by
 // definition; a session opened anywhere else — which is every session, once this
-// is installed rather than cloned — reads these. Without them Easel is a general
+// is installed rather than cloned — reads these. Without them Aesel is a general
 // editor that happens to publish to a URL, and there is no reason to install it
 // over the vendor CLI it is already driving.
 const BUNDLED_CONTEXT = [
@@ -224,13 +240,13 @@ function developerInstructions() {
         ]
       : [
           "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
-          "A piece is live only after the user runs the Easel command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
+          "A piece is live only after the user runs the Aesel command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
           "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
         ];
   return [
-    "You are running inside Easel, a terminal interface for Aesthetic Computer (AC) work.",
+    "You are running inside Aesel, a terminal interface for Aesthetic Computer (AC) work.",
     account,
-    `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece that paints a flat color and nothing else. Edit that file unless the user asks for something else.`,
+    `This session's piece is ${live.file} (${live.runtime.label}). Its current source is the source of truth; read it before editing and preserve existing work. Edit that file unless the user asks for something else.`,
     "Do not write the piece's name onto the screen: the system already shows it in the corner label. If the file still carries a placeholder that writes its own name, remove it in your first edit.",
     ...dialect,
     ...styleInstructions(),
@@ -252,7 +268,7 @@ function openEngine({ resume = "" } = {}) {
     cwd,
     resumeThreadId: resume,
     model,
-    developerInstructions: developerInstructions(),
+    developerInstructions: [developerInstructions(), handoff].filter(Boolean).join("\n\n"),
     // The hosted bridge has no subprocess and no file tools, so it needs the
     // two things a CLI would have found for itself: which file is the piece,
     // and a token to pay for the turn. The other bridges ignore both.
@@ -271,9 +287,10 @@ function openEngine({ resume = "" } = {}) {
       SLAB_AGENT_TYPE: "easel",
     },
   });
-  opened.on("notification", handleNotification);
-  opened.on("request", handleRequest);
+  opened.on("notification", (...args) => { if (!closing && opened === engine) handleNotification(...args); });
+  opened.on("request", (...args) => { if (!closing && opened === engine) handleRequest(...args); });
   opened.on("protocolError", (error) => {
+    if (closing || opened !== engine) return;
     addEntry("error", errorText(error));
     redraw();
   });
@@ -289,6 +306,9 @@ function openEngine({ resume = "" } = {}) {
 
 let engine = openEngine({ resume: resumeThreadId });
 let drawing = false;
+let redrawTimer = null;
+let lastDrawAt = 0;
+let lastTranscriptLines = 0;
 let closing = false;
 // The startup easel owns the screen until it is done or dismissed. Declared
 // here rather than beside the splash itself because redraw() reads it, and
@@ -297,6 +317,7 @@ let splashing = false;
 let splashTimer = null;
 let streamedMessageId = null;
 let pasteBuffer = null;
+let performanceAbort = null;
 
 function addEntry(kind, text, id = `entry-${Date.now()}-${Math.random()}`) {
   state.entries.push({ id, kind, text: cleanText(text) });
@@ -338,8 +359,18 @@ function startDance() {
 
 function redraw() {
   if (closing || drawing || splashing) return;
+  // Token bursts coalesce into at most 30 terminal frames/second.
+  const remaining = 33 - (Date.now() - lastDrawAt);
+  if (remaining > 0) {
+    if (!redrawTimer) redrawTimer = setTimeout(() => { redrawTimer = null; redraw(); }, remaining);
+    return;
+  }
+  lastDrawAt = Date.now();
   drawing = true;
   try {
+    const count = transcriptLineCount(state, process.stdout.columns || 80, process.stdout.rows || 24, process.env.NO_COLOR !== "1");
+    if (state.scrollOffset) state.scrollOffset = Math.max(0, state.scrollOffset + count - lastTranscriptLines);
+    lastTranscriptLines = count;
     const frame = renderFrame(state, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
     process.stdout.write(`\x1b[H\x1b[2J${frame}`);
   } finally {
@@ -350,6 +381,7 @@ function redraw() {
 async function finish(code = 0) {
   if (closing) return;
   closing = true;
+  performanceAbort?.abort();
   session.unwatch();
   const pending = autopublish.pending || autopublish.running;
   live.unwatch();
@@ -358,7 +390,7 @@ async function finish(code = 0) {
   engine.close();
   process.stdin.setRawMode(false);
   process.stdin.pause();
-  process.stdout.write("\x1b[?2004l\x1b[?25h\x1b[?1049l");
+  process.stdout.write(MOUSE_OFF + "\x1b[?2004l\x1b[?25h\x1b[?1049l");
   process.exitCode = code;
   // The last save has to land. Quitting a second after an edit would otherwise
   // drop it — auto-publish coalesces, and the timer it was waiting on dies with
@@ -485,6 +517,7 @@ function itemSummary(item) {
   if (item.type === "commandExecution") return { kind: "command", text: item.command };
   if (item.type === "fileChange") {
     const paths = (item.changes || []).map((change) => change.path).filter(Boolean);
+    if (item.path) paths.push(item.path);
     for (const file of paths) notePiece(file);
     return { kind: "change", text: paths.join(", ") || "workspace files" };
   }
@@ -519,11 +552,20 @@ function handleNotification({ method, params = {} }) {
     case "turn/started":
       state.busy = true;
       startDance();
-      state.status = "working";
+      state.status = "waiting";
+      state.progressBytes = 0;
       engine.turnId = params.turn?.id || engine.turnId;
       slabSession.working();
       break;
+    case "turn/progress":
+      state.status = params.phase || "working";
+      state.progressBytes = params.bytes || state.progressBytes || 0;
+      break;
+    case "turn/usage":
+      state.energy.add(params.model || state.model || model, params.usage);
+      break;
     case "item/agentMessage/delta":
+      state.status = "generating";
       if (!streamedMessageId || streamedMessageId !== params.itemId) {
         streamedMessageId = params.itemId;
         addEntry("assistant", "", params.itemId);
@@ -534,6 +576,7 @@ function handleNotification({ method, params = {} }) {
       }
       break;
     case "item/started": {
+      if (params.item?.type === "fileChange") state.status = "writing";
       const summary = itemSummary(params.item);
       if (summary) updateEntry(params.item.id, summary.kind, summary.text);
       break;
@@ -562,6 +605,9 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "turn/completed": {
+      // Codex reports what it spent on the turn that closes rather than in a
+      // message of its own, so the meter reads it from here when it is there.
+      if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
       engine.turnId = null;
@@ -636,7 +682,7 @@ function handleRequest(request) {
     redraw();
     return;
   }
-  engine.reject(request.id, -32601, `Easel does not support ${request.method} yet`);
+  engine.reject(request.id, -32601, `Aesel does not support ${request.method} yet`);
 }
 
 function answerApproval(character) {
@@ -776,12 +822,18 @@ function commandAutopublish(argumentText) {
   return redraw();
 }
 
+let manualPublishInFlight = false;
 async function commandPublish(argumentText) {
+  if (manualPublishInFlight || autopublish.running || state.status === "restoring") {
+    addEntry("notice", "Wait for the current upload or rollback to finish before publishing.");
+    return redraw();
+  }
   const [file = live.file, slug = ""] = argumentText.split(/\s+/).filter(Boolean);
   if (!file) {
     addEntry("error", "Usage: /publish <file> [slug] — no piece has been touched yet.");
     return redraw();
   }
+  manualPublishInFlight = true;
   const id = addEntry("publish", `Publishing ${path.basename(file)}…`);
   redraw();
   try {
@@ -799,6 +851,8 @@ async function commandPublish(argumentText) {
     updateEntry(id, "publish", `${result.route}${result.verified ? "" : " · uploaded, not yet readable"}`);
   } catch (error) {
     updateEntry(id, "error", `Publish failed: ${errorText(error)}`);
+  } finally {
+    manualPublishInFlight = false;
   }
   redraw();
 }
@@ -809,31 +863,50 @@ function engineLabel() {
   return `${backend.label} · ${state.model || model || backend.modelSource}`;
 }
 
-// Open a thread on the current bridge, replacing whatever is running. This is
-// what /new, /backend and /model all come down to: the conversation restarts,
-// the piece and the QR code do not.
-async function restartEngine(note) {
+// Provider thread IDs cannot cross engines; carry recent conversation and
+// keep the old connection available until the replacement connects.
+async function restartEngine(note, nextBackend = backend, nextModel = model) {
+  if (nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
+      && !Object.values(nextBackend.models).includes(nextModel)) {
+    addEntry("error", "Unknown hosted model. Use /model to see available choices.");
+    return redraw();
+  }
+  const previousBackend = backend, previousModel = model, previousLabel = state.model;
+  const previousHandoff = handoff;
+  handoff = conversationHandoff([...archivedConversation, ...state.entries]);
+  backend = nextBackend;
+  model = nextModel;
   state.status = "starting";
+  state.busy = true;
   redraw();
   const previous = engine;
-  engine = openEngine();
-  previous.close();
   try {
+    engine = openEngine();
     const connection = await engine.connect();
+    previous.close();
     slabSession.connected(engine.threadId);
     state.model = connection?.model || model;
-    state.entries = [{ kind: "notice", text: `${note} · ${engineLabel()}`, id: `thread-${Date.now()}` }];
+    addEntry("notice", `${note} · ${engineLabel()} · current piece and recent conversation carried over`);
     state.status = "ready";
   } catch (error) {
+    const failed = engine;
+    engine = previous;
+    if (failed !== previous) failed.close();
+    backend = previousBackend;
+    model = previousModel;
+    state.model = previousLabel;
+    handoff = previousHandoff;
     addEntry("error", errorText(error));
-    state.status = "failed";
+    state.status = "ready";
   }
+  state.busy = false;
   redraw();
+  drainQueue();
 }
 
 async function commandBackend(rest) {
   if (!rest) {
-    addEntry("notice", `${engineLabel()} · backends: ${backendMenu()}`);
+    addEntry("notice", `${engineLabel()}\n/backend ac — AC hosted, handle budget\n/backend claude — your Claude CLI sign-in\n/backend codex — your Codex CLI sign-in\n/model — models on the selected engine`);
     return redraw();
   }
   if (state.busy) {
@@ -848,24 +921,39 @@ async function commandBackend(rest) {
     addEntry("error", errorText(error));
     return redraw();
   }
-  backend = next;
-  model = wantedModel || next.defaultModel;
-  state.model = "";
-  return restartEngine("Engine");
+  return restartEngine("Engine", next, wantedModel || next.defaultModel);
 }
 
 async function commandModel(rest) {
   if (!rest) {
-    addEntry("notice", engineLabel());
+    const choices = backend.models ? Object.entries(backend.models).map(([alias, id]) => `/model ${alias} — ${id}${["sonnet", "gpt"].includes(alias) ? " · premium, uses budget faster" : ""}`).join("\n")
+      : "/model NAME — a model supported by your signed-in CLI";
+    addEntry("notice", `${engineLabel()}\n${choices}\n/backend — switch between AC hosted and your own Claude/Codex`);
     return redraw();
   }
   if (state.busy) {
     addEntry("error", "Interrupt the current turn before switching models.");
     return redraw();
   }
-  model = rest.split(/\s+/)[0];
-  state.model = "";
-  return restartEngine("Model");
+  return restartEngine("Model", backend, rest.split(/\s+/)[0]);
+}
+
+async function commandPerformance(rest) {
+  if (state.busy) { addEntry("notice", "Wait for the current turn before benchmarking."); return redraw(); }
+  performanceAbort = new AbortController();
+  state.busy = true;
+  state.status = "benchmarking";
+  const id = addEntry("notice", `Measuring ${state.piece} · headless logic…`);
+  redraw();
+  try {
+    const { benchmarkPiece } = await import("./perf.mjs");
+    const result = await benchmarkPiece({ file: live.file, frames: rest ? Number(rest) : 600, signal: performanceAbort.signal });
+    const calls = Object.entries(result.drawCalls).map(([name, count]) => `${Number(count).toFixed(1)} ${name}`).join(" · ");
+    updateEntry(id, "notice", `Headless logic · ${result.msPerFrame.toFixed(3)} ms/frame · ${result.frames} frames at ${result.width}×${result.height}\nPer frame: ${calls}\nExcludes browser rendering, rasterization and display latency.`);
+  } catch (error) { updateEntry(id, "error", errorText(error)); }
+  finally { performanceAbort = null; state.busy = false; state.status = "ready"; }
+  redraw();
+  drainQueue();
 }
 
 // Start the next queued line, if the turn that just ended left one. Routed back
@@ -893,8 +981,29 @@ async function submitInput() {
     const [command, ...restWords] = text.split(/\s+/);
     const rest = restWords.join(" ");
     if (command === "/quit" || command === "/exit") return finish();
+    if (command === "/about") {
+      state.about = !state.about;
+      state.aboutScroll = 0;
+      return redraw();
+    }
+    if (command === "/mouse") {
+      mouseEnabled = rest !== "off";
+      process.stdout.write(mouseEnabled ? MOUSE_ON : MOUSE_OFF);
+      state.hover = "";
+      addEntry("notice", `Mouse ${mouseEnabled ? "on · shift-drag selects in supporting terminals" : "off · terminal selection restored"}`);
+      return redraw();
+    }
+    if (command === "/profile") return openProfile();
+    if (command === "/performance" || command === "/perf") return commandPerformance(rest);
+    if (command === "/energy" || command === "/power") {
+      addEntry("notice", energyReport(state.energy, state.model || model).join("\n"));
+      return redraw();
+    }
+    if (command === "/latest") { state.scrollOffset = 0; return redraw(); }
     if (command === "/clear") {
+      archivedConversation.push(...state.entries.filter(({ kind }) => kind === "user" || kind === "assistant"));
       state.entries = [];
+      state.scrollOffset = 0;
       return redraw();
     }
     if (command === "/handle") {
@@ -924,30 +1033,55 @@ async function submitInput() {
     }
     if (command === "/update") {
       if (!installed()) {
-        addEntry("notice", `Easel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
+        addEntry("notice", `Aesel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
         return redraw();
       }
-      addEntry("notice", "Checking for a newer Easel…");
+      addEntry("notice", "Checking for a newer Aesel…");
       redraw();
       try {
         const update = await checkForUpdate({ force: true });
         if (!update) {
-          addEntry("notice", `Easel ${currentVersion()} is the latest.`);
+          addEntry("notice", `Aesel ${currentVersion()} is the latest.`);
           return redraw();
         }
-        addEntry("notice", `Installing Easel ${update.version}…`);
+        addEntry("notice", `Installing Aesel ${update.version}…`);
         redraw();
         const version = await applyUpdate({ manifest: update });
-        addEntry("notice", `Easel ${version} installed. Restart to run it.`);
+        addEntry("notice", `Aesel ${version} installed. Restart to run it.`);
       } catch (error) {
         addEntry("error", `Update failed: ${errorText(error)}`);
       }
       return redraw();
     }
+    if (command === "/versions") {
+      const versions = live.history.list();
+      addEntry("notice", versions.length ? versions.map((entry) => `v${entry.version} · ${entry.updatedAt}${entry.restoredFrom ? ` · restored v${entry.restoredFrom}` : ""}`).join("\n") : "No saved versions yet.");
+      return redraw();
+    }
+    if (command === "/rollback") {
+      if (state.busy || manualPublishInFlight || autopublish.running || live.sending) {
+        addEntry("notice", "Wait for the current turn and uploads to finish before rolling back.");
+        return redraw();
+      }
+      const version = /^v?([1-9]\d*)$/.exec(rest.trim())?.[1];
+      if (!version) { addEntry("notice", "Use /rollback v1 · /versions lists saved versions."); return redraw(); }
+      state.busy = true;
+      state.status = "restoring";
+      autopublish.cancel();
+      try {
+        const revision = await live.rollback(Number(version));
+        addEntry("notice", `Restored v${version} as v${revision.version}.`);
+        await live.push();
+        publishTurn();
+      } catch (error) { addEntry("error", errorText(error)); }
+      finally { state.busy = false; state.status = "ready"; }
+      drainQueue();
+      return redraw();
+    }
     if (command === "/help") {
       addEntry(
         "notice",
-        "/login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /runtime [id] · /backend [id] · /model [name] · /handle [name] · /update · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
+        "/about · /profile · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /backend [id] · /model [name] · /handle [name] · /update · /open · /qr · /live · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -960,8 +1094,8 @@ async function submitInput() {
     }
     if (command === "/publish") return commandPublish(rest);
     if (command === "/autopublish" || command === "/auto") return commandAutopublish(rest);
-    if (command === "/backend" || command === "/engine") return commandBackend(rest);
-    if (command === "/model") return commandModel(rest);
+    if (["/backend", "/engine", "/mode"].includes(command)) return commandBackend(rest);
+    if (command === "/model" || command === "/models") return commandModel(rest);
     if (command === "/piece") {
       if (rest) {
         try {
@@ -1060,6 +1194,8 @@ async function submitInput() {
         state.status = "starting";
         redraw();
         try {
+          handoff = "";
+          archivedConversation = [];
           engine.developerInstructions = developerInstructions();
           await engine.newThread();
           slabSession.connected(engine.threadId);
@@ -1111,6 +1247,36 @@ function replaceInput(value) {
   state.cursor = Array.from(value).length;
 }
 
+function openProfile() {
+  if (!session.handle) {
+    addEntry("notice", "Sign in with /login to open your profile.");
+    return redraw();
+  }
+  const url = `https://aesthetic.computer/@${encodeURIComponent(session.handle)}`;
+  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+  const child = spawn(opener, [url], { stdio: "ignore", detached: true });
+  child.on("error", error => { addEntry("error", `Could not open profile: ${errorText(error)}`); redraw(); });
+  child.unref();
+}
+
+function scrollAbout(delta) {
+  const height = Math.max(10, process.stdout.rows || 24);
+  const width = Math.max(32, process.stdout.columns || 80) - 2;
+  const count = aboutMap().flatMap(line => wrapText(line, width)).length;
+  state.aboutScroll = Math.max(0, Math.min(Math.max(0, count - (height - 5)), (state.aboutScroll || 0) + delta));
+  redraw();
+}
+
+function scrollTranscript(delta) {
+  const height = Math.max(10, process.stdout.rows || 24);
+  const count = transcriptLineCount(state, process.stdout.columns || 80, height, process.env.NO_COLOR !== "1");
+  const offset = state.scrollOffset || 0;
+  state.scrollOffset = Math.max(0, Math.min(Math.max(0, count - (height - 5)),
+    offset + (offset ? count - lastTranscriptLines : 0) + delta));
+  lastTranscriptLines = count;
+  redraw();
+}
+
 function insertText(value) {
   const characters = Array.from(state.input);
   const inserted = Array.from(cleanText(value.replace(/\x1b\[200~|\x1b\[201~/g, "")));
@@ -1120,6 +1286,16 @@ function insertText(value) {
 }
 
 function handleKey(input) {
+  if (state.about && ["\x1b", "\x1b[A", "\x1b[B", "\x1b[5~", "\x1b[6~"].includes(input)) {
+    if (input === "\x1b") { state.about = false; return redraw(); }
+    return scrollAbout(input === "\x1b[A" ? -1 : input === "\x1b[B" ? 1 : input === "\x1b[5~" ? -8 : 8);
+  }
+  if (input === "\x1b[5~") return scrollTranscript(Math.max(1, (process.stdout.rows || 24) - 7));
+  if (input === "\x1b[6~") return scrollTranscript(-Math.max(1, (process.stdout.rows || 24) - 7));
+  if (["\x1b[F", "\x1b[4~", "\x1b[1;2F"].includes(input) && !state.input) {
+    state.scrollOffset = 0;
+    return redraw();
+  }
   // The easel is a greeting, not a gate. Any key puts it away.
   if (splashing) {
     splashing = false;
@@ -1130,6 +1306,7 @@ function handleKey(input) {
   if (answerApproval(input)) return;
 
   if (input === "\u0003") {
+    if (performanceAbort) { performanceAbort.abort(new Error("Benchmark cancelled.")); return; }
     if (state.busy) {
       state.status = "interrupting";
       redraw();
@@ -1172,8 +1349,13 @@ function handleKey(input) {
   redraw();
 }
 
+const inputDecoder = new InputDecoder();
+const utf8Decoder = new StringDecoder("utf8");
+let escapeTimer;
 function handleKeys(buffer) {
-  const tokens = buffer.toString("utf8").match(/\x1b\[[0-9;]*[~A-Za-z]|./gsu) || [];
+  clearTimeout(escapeTimer);
+  const tokens = inputDecoder.push(utf8Decoder.write(buffer));
+  escapeTimer = setTimeout(() => inputDecoder.escape().forEach(handleKey), 35);
   for (const token of tokens) {
     if (token === "\x1b[200~") {
       pasteBuffer = "";
@@ -1184,12 +1366,23 @@ function handleKeys(buffer) {
     } else if (pasteBuffer !== null) {
       pasteBuffer += token;
     } else {
+      const mouse = mouseEvent(token);
+      if (mouse) {
+        if (!mouseEnabled || splashing) continue;
+        if (state.about && mouse.wheel) { scrollAbout(mouse.wheel * 3); continue; }
+        if (mouse.wheel) { scrollTranscript(-mouse.wheel * 3); continue; }
+        const action = headerAction(state, process.stdout.columns || 80, process.stdout.rows || 24, mouse.x, mouse.y);
+        if (state.hover !== action) { state.hover = action; redraw(); }
+        if (mouse.click && action === "about") { state.about = !state.about; state.aboutScroll = 0; redraw(); }
+        if (mouse.click && action === "profile") openProfile();
+        continue;
+      }
       handleKey(token);
     }
   }
 }
 
-process.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?2004h");
+process.stdout.write("\x1b[?1049h\x1b[?25l\x1b[?2004h" + (mouseEnabled ? MOUSE_ON : ""));
 
 // 🎨 Stand the easel up. Each frame reads the live values rather than a
 // snapshot, so the address is written onto the canvas at whatever moment the
@@ -1239,7 +1432,7 @@ session.watch().on("change", () => {
 });
 
 // Mint this session's blank piece and the QR code that opens it on a phone.
-live.create();
+if (!initialPiece) live.create();
 live.watch(liveError);
 publishBlankOnce();
 
@@ -1251,7 +1444,7 @@ checkForUpdate()
     if (!update) return;
     addEntry(
       "notice",
-      `Easel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
+      `Aesel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
     );
     redraw();
   })
@@ -1262,15 +1455,21 @@ checkForUpdate()
 // the rock is now the published one, and a code that resolves to a 404 until
 // someone types is worse than a published blank. The local file is still
 // discarded on exit if it was never edited; the published copy stays.
-live.on("push", () => {
-  slabSession.flow("live");
+live.on("push", (_count, source) => {
+  slabSession.flow(live.ahead ? "ahead" : "live");
   if (live.pristine || autopublishBlocker()) return;
-  autopublish.note(live.source());
+  autopublish.note(source);
 });
 // A save has landed and the channel has not heard about it yet. The rock's
 // neighbour — the preview of the very address the rock encodes — says so, so
 // that an old frame never passes for the current one.
 live.on("dirty", () => slabSession.flow("ahead"));
+live.on("revision", (revision) => {
+  state.pieceVersion = revision.version;
+  slabSession.revision(revision);
+  redraw();
+});
+live.checkpoint().catch(liveError);
 state.piece = `${live.slug}${live.runtime.extension}`;
 refreshQr();
 audience.start();

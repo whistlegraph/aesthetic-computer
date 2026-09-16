@@ -1,6 +1,6 @@
-# Easel command integration for Fish.
+# Aesel command integration for Fish.
 #
-# Easel claims `ac` and `easel`. It deliberately does not claim `aesthetic`
+# Aesel claims `ac` and `easel`. It deliberately does not claim `aesthetic`
 # any more: that name belongs to the Aesthetic Computer platform helper, and
 # the tool only held it while it was still called Aesthetic Code.
 if functions -q ac; and not functions -q ac-repo
@@ -9,10 +9,14 @@ end
 
 functions --erase ac easel
 
-function ac --description 'Open Easel'
+function ac --description 'Open Aesel in this terminal'
+    command $HOME/.local/bin/ac $argv
+end
+
+function easel --description 'Open Aesel'
     command $HOME/.local/bin/easel $argv
 end
 
-function easel --description 'Open Easel'
-    command $HOME/.local/bin/easel $argv
+function aesel --description 'Open Aesel'
+    command $HOME/.local/bin/aesel $argv
 end

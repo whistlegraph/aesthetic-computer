@@ -23,7 +23,7 @@
    "path": "page",
    "signature": "page(buffer)",
    "doc": "Point subsequent drawing at another painting buffer; page(screen) comes back.",
-   "source": "lib/disk.mjs:6391",
+   "source": "lib/disk.mjs:6407",
    "examples": [
     "disks/bits.mjs:33  page(sys.painting)",
     "disks/breathe.mjs:29  page(screen);",
@@ -43,7 +43,7 @@
    "path": "ink",
    "signature": "ink(r, g, b, a) | ink(gray, a) | ink(\"red\") | ink([r, g, b]) | ink() (random)",
    "doc": "Set the paint color for everything drawn next. Returns the API so calls chain: ink(255, 0, 0).line(0, 0, 10, 10).",
-   "source": "lib/disk.mjs:6421",
+   "source": "lib/disk.mjs:6437",
    "examples": [
     "disks/$.mjs:168  ink([160, 160, 160]).write(compressedText, { x, y, size: scale });",
     "disks/$.mjs:195  ink([160, 160, 160]).write(compressedText, { x: startX, y, size: scale });",
@@ -55,7 +55,7 @@
    "path": "ink2",
    "signature": "ink2(...color)",
    "doc": "Secondary color, used by gradient-aware primitives.",
-   "source": "lib/disk.mjs:6425",
+   "source": "lib/disk.mjs:6441",
    "examples": []
   },
   {
@@ -63,7 +63,7 @@
    "path": "wipe",
    "signature": "wipe(...color)",
    "doc": "Fill the whole screen with a color; the usual first line of paint().",
-   "source": "lib/disk.mjs:6431",
+   "source": "lib/disk.mjs:6447",
    "examples": [
     "disks/$.mjs:67  wipe(0);",
     "disks/$.mjs:324  wipe(0);",
@@ -75,7 +75,7 @@
    "path": "backgroundFill",
    "signature": "backgroundFill(color)",
    "doc": "Set background fill color for reframe operations (especially for KidLisp pieces)",
-   "source": "lib/disk.mjs:6483",
+   "source": "lib/disk.mjs:6499",
    "examples": []
   },
   {
@@ -223,7 +223,7 @@
    "path": "setBufferAlpha",
    "signature": "setBufferAlpha(buffer, alpha)",
    "doc": "Set the alpha of every non-transparent pixel in a buffer to a uniform value. Useful for per-stroke alpha — must be called after drawing on the buffer.",
-   "source": "lib/disk.mjs:6601",
+   "source": "lib/disk.mjs:6617",
    "examples": [
     "disks/line.mjs:215  setBufferAlpha(nopaint.buffer, strokeAlpha);"
    ]
@@ -633,7 +633,7 @@
    "path": "pasteWithAlpha",
    "signature": "pasteWithAlpha(source, x, y, alpha)",
    "doc": "🎨 Alpha-blended paste for crossfade compositing",
-   "source": "lib/disk.mjs:6669",
+   "source": "lib/disk.mjs:6685",
    "examples": [
     "disks/merry-fade.mjs:85  if (outAlpha > 0) pasteWithAlpha(outgoing, 0, 0, outAlpha);"
    ]
@@ -643,7 +643,7 @@
    "path": "kidlisp",
    "signature": "kidlisp(x = 0, y = 0, width, height, source, options = {})",
    "doc": "🎯 Simplified KidLisp integration using global singleton instance",
-   "source": "lib/disk.mjs:6705",
+   "source": "lib/disk.mjs:6721",
    "examples": [
     "disks/$.mjs:369  kidlisp(",
     "disks/cross-tab-test.mjs:76  kidlisp(",
@@ -655,7 +655,7 @@
    "path": "sound.synth",
    "signature": "sound.synth({ tone = 440, type = \"square\", duration = 0.1, beats = undefined, attack = 0.01, decay = 0.9, volume, pan = 0, immediate = false, probe = null, generator = null, })",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13124",
+   "source": "lib/disk.mjs:13151",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -667,7 +667,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13039",
+   "source": "lib/disk.mjs:13066",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -703,7 +703,7 @@
    "path": "hud.label",
    "signature": "hud.label(text, color, offset)",
    "doc": "Take over the system's corner label — the only sanctioned way to draw in the top-left.",
-   "source": "lib/disk.mjs:3642",
+   "source": "lib/disk.mjs:3653",
    "examples": [
     "disks/$.mjs:642  hud.label(`Previewing ${entry.codeText}`, \"cyan\");",
     "disks/amail.mjs:82  hud.label(\"amail\");",
@@ -715,7 +715,7 @@
    "path": "write",
    "signature": "write(text, { x, y, size, center: \"x\" | \"xy\" }) | write(text, x, y)",
    "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
-   "source": "lib/disk.mjs:5582",
+   "source": "lib/disk.mjs:5598",
    "examples": [
     "disks/arena.mjs:2908  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
     "disks/arena.mjs:2918  write(t, { x, y }, undefined, undefined, false, font);",
