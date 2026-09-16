@@ -1,4 +1,13 @@
+import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
+
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
+
+// Temporary Easel draft codes open the current live artifact.
+const draftCode = /^#~([a-f0-9]{12})$/i.exec(window.location.hash);
+if (draftCode) {
+  window.location.replace(`https://aesthetic.computer/watch/?code=${draftCode[1].toLowerCase()}`);
+  await new Promise(() => {});
+}
 
 // Painting permalinks belong to Aesthetic Computer. Fragments never reach the
 // server, so branded Laklok hosts must hand them off before booting the piece.
@@ -1146,7 +1155,11 @@ if (
   location.hostname === "nopaint.art" ||
   location.hostname === "www.nopaint.art"
 ) {
-  window.acSTARTING_PIECE = "nopaint";
+  window.acSTARTING_PIECE = noPaintStartingPiece(
+    new URL(location.href),
+    performance.getEntriesByType("navigation")[0]?.type,
+    safeSessionStorageGet(NOPAINT_SESSION_SEED_KEY),
+  );
 }
 if (
   location.hostname === "oskiewar.com" ||
@@ -1454,8 +1467,9 @@ if (!sandboxed && !localStorageBlocked) {
 // If noauth mode OR no Auth0 cache found, skip auth entirely
 const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.search.includes('code=') && !location.search.includes('state='));
 
-// Define login/logout functions when skipping initial auth, for on-demand login
-if (skipAuth && !sandboxed && !window.acNOAUTH) {
+// Login must survive a failed or expired saved session, including early returns
+// from the restore flow below. Install it before attempting authentication.
+if (!sandboxed && !window.acNOAUTH) {
   window.acLOGIN = async (mode) => {
     // Lazy-load Auth0 if not already loaded
     if (!window.auth0Client) {
@@ -1465,9 +1479,14 @@ if (skipAuth && !sandboxed && !window.acNOAUTH) {
     }
     const opts = { prompt: "login" };
     if (mode === "signup") opts.screen_hint = mode;
-    window.auth0Client.loginWithRedirect({ authorizationParams: opts });
+    // An explicit login replaces any session supplied by an embedding host.
+    // Otherwise an expired session-aesthetic masks the fresh Auth0 callback.
+    safeLocalStorageRemove("session-aesthetic");
+    return window.auth0Client.loginWithRedirect({ authorizationParams: opts });
   };
+}
 
+if (skipAuth && !sandboxed && !window.acNOAUTH) {
   window.acLOGOUT = () => {
     console.log("⚠️ Not logged in, nothing to log out from.");
   };
@@ -1694,12 +1713,6 @@ if (!sandboxed && !skipAuth) {
           history.pushState({}, "", cleanUrl);
         }
       }
-
-      window.acLOGIN = async (mode) => {
-        const opts = { prompt: "login" }; // Never skip the login screen.
-        if (mode === "signup") opts.screen_hint = mode;
-        auth0Client.loginWithRedirect({ authorizationParams: opts });
-      };
 
       if (location.pathname === "/hi") window.acLOGIN();
 
