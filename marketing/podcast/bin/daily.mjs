@@ -103,6 +103,9 @@ Hard rules:
   allowed to sound quiet.
 - 240 to 320 words of body across 2-3 paragraphs.
 
+Print the script to stdout and nothing else — do not create, write, or
+save any file, and do not preface the script with a note.
+
 Output EXACTLY this shape (frontmatter then body, nothing else):
 
 ---
@@ -117,7 +120,7 @@ The day's commit subjects:
 ${subjects.map((s) => `- ${s}`).join("\n")}`;
 
 console.log("Writing script… (claude -p)");
-const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text"], {
+const w = spawnSync("claude", ["-p", "--model", "sonnet", "--output-format", "text", "--tools", ""], {
   input: PROMPT, encoding: "utf8", timeout: 300000, maxBuffer: 1 << 22,
 });
 if (w.status !== 0 || !w.stdout) {
@@ -130,9 +133,19 @@ if (w.status !== 0 || !w.stdout) {
 let script = w.stdout.trim();
 // Some wrappers fence the output; unwrap one fence if present.
 script = script.replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/m, "$1").trim();
+// And drop any preamble the model put ahead of the frontmatter ("here's the
+// script:") — the episode starts at the first `---` line that opens a title.
+const fmAt = script.search(/(^|\n)---\n[\s\S]*?\btitle:/);
+if (fmAt > 0) script = script.slice(fmAt).trim();
 
+// Close an unclosed frontmatter block — the model occasionally drops the
+// second `---` and runs the keys straight into the first paragraph.
+if (!/^---\n[\s\S]*?\n---\n/.test(script)) script = script.replace(/^(---\n(?:[^\n]+\n)+?)\n/, "$1---\n\n");
 const fm = script.match(/^---\n[\s\S]*?\btitle:\s*(.+?)\n[\s\S]*?\n---\n([\s\S]+)$/);
 if (!fm) { console.error("✗ script missing frontmatter; refusing to produce.\n" + script.slice(0, 300)); process.exit(1); }
+// The model sometimes swaps in its own "today" — the episode's date is the
+// day being narrated (matters for --date backfills), so pin it here.
+script = script.replace(/^date:.*$/m, `date: ${spokenDate}`);
 const words = fm[2].trim().split(/\s+/).length;
 if (words < 150 || words > 420) { console.error(`✗ script body is ${words} words (want 240-320); refusing.`); process.exit(1); }
 if (REDACT.some((re) => re.test(script))) { console.error("✗ redacted term leaked into the script; refusing."); process.exit(1); }
