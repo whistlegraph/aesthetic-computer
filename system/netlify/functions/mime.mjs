@@ -137,17 +137,28 @@ function allRoots(activity = true, board) {
 }
 
 async function getIndex(db, posts, page) {
-  const [boards, recent] = await Promise.all([
+  const end = (page + 1) * PAGE_SIZE;
+  const order = [{ $sort: { when: -1, code: 1 } }, { $limit: end + 1 }];
+  const [boards, streams] = await Promise.all([
     posts.aggregate([
       ...allRoots(false),
       { $group: { _id: "$board", threads: { $sum: 1 }, bumped: { $max: "$bumped" } } },
       { $sort: { bumped: -1, _id: 1 } },
     ]).toArray(),
-    posts.aggregate([...allRoots(false), { $sort: { when: -1, code: 1 } },
-      { $skip: page * PAGE_SIZE }, { $limit: PAGE_SIZE + 1 }]).toArray(),
+    Promise.all([
+      ...["painting", "tape", "kidlisp", "piece"].map((kind) =>
+        db.collection(MEDIA_KINDS[kind]).aggregate([...mediaPipeline(kind, {}, false), ...order]).toArray()),
+      posts.aggregate([{ $match: { parent: null } }, { $project: { "file.data": 0 } }, ...order]).toArray(),
+    ]),
   ]);
-  // The home feed sorts by publication date. Resolve reply counts only for
-  // this page, rather than looking up activity for the entire media archive.
+  // Round-robin newest-first streams so a burst of one format cannot bury
+  // the others. Take enough from each stream to preserve page boundaries.
+  const mixed = [];
+  for (let i = 0; mixed.length <= end && streams.some((stream) => i < stream.length); i++) {
+    for (const stream of streams) if (stream[i]) mixed.push(stream[i]);
+  }
+  const recent = mixed.slice(page * PAGE_SIZE, end + 1);
+  // Resolve activity only for the requested page.
   const ids = recent.filter((p) => p._media).map((p) => p.code);
   const activity = ids.length ? await db.collection(MEDIA_THREADS).find({ _id: { $in: ids } }).toArray() : [];
   const counts = new Map(activity.map((p) => [p._id, p.replies]));
@@ -155,8 +166,8 @@ async function getIndex(db, posts, page) {
   const publicRecent = await publicPosts(db, recent.slice(0, PAGE_SIZE));
   await Promise.all(publicRecent.map(async (op) => {
     if (!op.replies) return;
-    const tail = await posts.find({ parent: op.code }, NO_DATA).sort({ when: -1, _id: -1 }).limit(2).toArray();
-    op.preview = (await publicPosts(db, tail.reverse())).map(({ name, text }) => ({ name, text }));
+    const first = await posts.find({ parent: op.code }, NO_DATA).sort({ when: 1, _id: 1 }).limit(1).toArray();
+    op.preview = (await publicPosts(db, first)).map(({ name, text }) => ({ name, text }));
   }));
   return respond(200, {
     boards: boards.map((b) => ({ board: b._id, threads: b.threads, bumped: b.bumped })),

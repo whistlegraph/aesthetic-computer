@@ -88,7 +88,7 @@ test("simultaneous first replies share one thread, with current source metadata"
   assert.equal(thread.replies.length, 8);
   const inFeed = body(await get()).recent.find((p) => p.code === paintingThread);
   assert.equal(inFeed.replies, 8);
-  assert.deepEqual(inFeed.preview, thread.replies.slice(-2).map(({ name, text }) => ({ name, text })));
+  assert.deepEqual(inFeed.preview, thread.replies.slice(0, 1).map(({ name, text }) => ({ name, text })));
   assert.ok(thread.replies.every((r) => r.parent === paintingThread && r.board === "image/png"));
   const board = body(await get({ board: "image/png" }));
   assert.equal(board.threads[0].op.code, paintingThread);
@@ -201,6 +201,12 @@ test("archive pagination is stable and new uploads appear without a sync job", {
   assert.equal(new Set([...first.threads, ...second.threads].map((t) => t.op.code)).size, 24);
   const recent = body(await get());
   assert.equal(recent.hasMore, true);
+  for (const kind of ["painting", "tape", "kidlisp", "piece"]) {
+    assert.ok(recent.recent.some((p) => p.media?.kind === kind), kind + " stays visible during a painting burst");
+  }
+  const next = body(await get({ page: "1" }));
+  assert.equal(new Set([...recent.recent, ...next.recent].map((p) => p.code)).size,
+    recent.recent.length + next.recent.length);
 });
 
 test("conversion changes the tape renderer while preserving its discussion", { skip: !uri }, async () => {

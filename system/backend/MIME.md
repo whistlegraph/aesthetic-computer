@@ -3,11 +3,17 @@
 Discussion on AC media. The frontend is `/mime/` and the `https://mime.ac/`
 apex; the API is `/api/mime`. `www.mime.ac` redirects to the apex.
 The main feed is one responsive column of media cards, with contained media,
-author handles, comment controls, and up to two recent comment previews. It loads
+author-colored handles and avatars, comment controls, and the first comment preview.
+Letterboxing uses a slowly drifting, author-tinted checkerboard; reduced motion
+keeps it still. It loads
 12 posts at a time and preserves the current card and offset across thread visits
 and orientation changes. Videos play muted
 inline and pause offscreen. A load-more button supports manual loading and
-retries. The feed has no category bar, file composer, or footer.
+retries. The feed has no category bar, file composer, or footer. Each post shows its full
+MIME type and a bookmark ribbon. Saved favorites live in browser storage as post
+IDs; the Saved view rechecks current public visibility and supports removal.
+Failed media previews show an explicit fallback link. ZIP tapes remain downloads;
+MP4 tapes autoplay muted while visible and pause offscreen.
 `/mimechan/` preserves old hash links through a redirect, and `/api/mimechan`
 remains an alias. Existing uploaded files and replies stay in `mimechan`.
 
@@ -169,5 +175,5 @@ navigation/backgrounding; failures retry while the page remains open. Delivery
 on page exit is best effort. These are client-reported exposure estimates, not
 measured gaze, unique people, or fraud-resistant metrics. Multiple posts may accrue
 visible time simultaneously; only one accrues focused time. Thread reading time is
-not included. Feed selection is still chronological; these counters do not yet
-change ranking.
+not included. The feed interleaves paintings, tapes, KidLisp, pieces, and native uploads,
+newest first within each kind. These counters do not change ranking.

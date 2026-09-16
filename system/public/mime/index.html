@@ -119,17 +119,36 @@
     .avatar { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 8px;
       background: var(--button); border: 1px solid var(--card-edge); box-shadow: inset 1px 1px 0 var(--shine), 1px 1px 0 var(--shadow);
       color: var(--ink); font: 22px/1 "YWFTProcessing-Regular", sans-serif; }
+    .post, .name { --author-light: #a52b72; --author-dark: #ff91c5; --author: var(--author-light); }
+    @media (prefers-color-scheme: dark) {
+      .post, .name { --author: var(--author-dark); }
+    }
+    .post .meta { background: color-mix(in srgb, var(--author) 9%, var(--card)); border-top: 3px solid var(--author); }
+    .avatar { background: var(--author); color: var(--card); border-color: var(--author); }
     .byline { min-width: 0; flex: 1; }
-    .name { font-weight: 650; color: var(--ink); font-size: 15px; text-decoration: none; }
+    .name { font-weight: 650; color: var(--author); font-size: 16px; text-decoration: none; }
     .post time { white-space: nowrap; font-size: 11px; }
-    .media-label { display: block; color: var(--dim); font-size: 11px; text-decoration: none; }
+    .media-label { display: block; color: var(--dim); font-size: 12px; text-decoration: none; }
     .feed-media { width: 100%; aspect-ratio: 1; max-height: 520px; display: grid; place-items: center;
       grid-template: minmax(0, 1fr) / minmax(0, 1fr); overflow: hidden; background: var(--media);
       border-block: 1px solid var(--card-edge); }
+    .save-ribbon { min-width: 44px; padding: 8px; color: var(--author); background: transparent; border: 0; box-shadow: none; }
+    .save-ribbon svg { width: 20px; height: 26px; fill: transparent; stroke: currentColor; stroke-width: 2; }
+    .save-ribbon[aria-pressed="true"] svg { fill: currentColor; }
+    .saved-link { padding: 8px; font-size: 13px; font-weight: 650; }
+    .mime-type { display: block; width: fit-content; margin-top: 5px; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--author) 40%, var(--card)); border-radius: 4px; color: var(--author); background: var(--card); font-size: 12px; font-weight: 650; }
+    .media-error { margin: 20px; padding: 16px; background: var(--card); border-radius: 6px; text-align: center; }
+    .feed-media { position: relative; isolation: isolate; }
+    .feed-media::before { content: ""; position: absolute; inset: -32px; z-index: -1; pointer-events: none;
+      background: repeating-conic-gradient(color-mix(in srgb, var(--author) 18%, var(--media)) 0% 25%, var(--media) 0% 50%) 0 0 / 32px 32px;
+      animation: checker-drift 12s linear infinite; animation-play-state: paused; }
+    .post[data-visible-ratio] .feed-media::before { animation-play-state: running; }
+    @keyframes checker-drift { to { transform: translate(32px, 32px); } }
+    @media (prefers-reduced-motion: reduce) { .feed-media::before { animation: none; } }
     .feed-media > * { min-width: 0; min-height: 0; }
     .feed-media > img, .feed-media > video, .feed-media > iframe.doc { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; }
     .feed-media > audio { width: calc(100% - 32px); }
-    .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; }
+    .feed-media > pre.textfile { width: 100%; height: 100%; margin: 0; padding: 18px; overflow: auto; font-size: 14px; white-space: pre-wrap; background: var(--card); }
     .specimen { padding: 18px; font-size: 32px; }
     .blob { margin: 16px; }
     .post .body { white-space: pre-wrap; margin: 0; padding: 12px 14px; }
@@ -278,6 +297,7 @@
   <main id="view"></main>
     <div class="account">
       <a id="account-handle" aria-label="Your AC profile"></a>
+      <a class="saved-link" href="#/saved">saved</a>
       <button type="button" id="account-action">sign in</button>
       <span id="account-status" role="status"></span>
     </div>
@@ -472,7 +492,7 @@ function renderFile(file) {
     media.title = file.name;
   } else if (top === "text" || ["application/json", "application/xml", "application/javascript"].includes(file.type)) {
     media = el("pre", "textfile", "…");
-    fetch(file.url).then((r) => r.text()).then((t) => {
+    fetch(file.url).then((r) => { if (!r.ok) throw new Error("File unavailable"); return r.text(); }).then((t) => {
       media.textContent = t.length > 8000 ? t.slice(0, 8000) + "\n…[truncated]" : t;
     }).catch(() => { media.textContent = "file unavailable"; });
   } else if (top === "font") {
@@ -486,6 +506,16 @@ function renderFile(file) {
     media = el("a", "blob", "download " + file.name);
     media.href = file.url;
     media.download = file.name;
+  }
+  if (["IMG", "VIDEO", "AUDIO"].includes(media.tagName)) {
+    media.addEventListener("error", () => {
+      const fallback = el("div", "media-error");
+      fallback.append(el("p", null, "Preview unavailable"));
+      const link = el("a", null, "Open " + file.name);
+      link.href = file.url;
+      fallback.append(link);
+      media.replaceWith(fallback);
+    }, { once: true });
   }
   return media;
 }
@@ -510,9 +540,74 @@ function renderText(text) {
   return body;
 }
 
+const SAVED_KEY = "mime-saved-v1";
+let savedCodes;
+try {
+  const stored = JSON.parse(localStorage.getItem(SAVED_KEY) || "[]");
+  savedCodes = new Set(Array.isArray(stored) ? stored.filter((code) => typeof code === "string") : []);
+} catch { savedCodes = new Set(); }
+function syncSavedButtons() {
+  for (const button of document.querySelectorAll("[data-save-code]")) {
+    const saved = savedCodes.has(button.dataset.saveCode);
+    button.setAttribute("aria-pressed", String(saved));
+    button.setAttribute("aria-label", saved ? "Remove from saved" : "Save post");
+    button.title = saved ? "Remove from saved" : "Save post";
+  }
+}
+function saveRibbon(code) {
+  const button = el("button", "save-ribbon");
+  button.type = "button";
+  button.dataset.saveCode = code;
+  button.setAttribute("aria-pressed", String(savedCodes.has(code)));
+  button.setAttribute("aria-label", savedCodes.has(code) ? "Remove from saved" : "Save post");
+  button.innerHTML = '<svg viewBox="0 0 20 26" aria-hidden="true"><path d="M3 2h14v22l-7-5-7 5Z"/></svg>';
+  button.onclick = () => {
+    const next = new Set(savedCodes);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    try { localStorage.setItem(SAVED_KEY, JSON.stringify([...next])); }
+    catch { button.setAttribute("aria-label", "Could not save: browser storage unavailable"); button.title = "Browser storage unavailable"; return; }
+    savedCodes = next;
+    syncSavedButtons();
+  };
+  return button;
+}
+async function savedPosts(page, signal) {
+  const codes = [...savedCodes].reverse();
+  const selected = codes.slice(page * 12, (page + 1) * 12);
+  const results = await Promise.all(selected.map(async (code) => {
+    try { return await read(API + "?thread=" + encodeURIComponent(code), signal); }
+    catch (error) { if (signal.aborted) throw error; return { unavailable: code }; }
+  }));
+  if (signal.aborted) return;
+  const back = el("a", "back", "← feed"); back.href = "#/";
+  const list = el("div", "feed-list");
+  view.replaceChildren(back, el("h2", null, "Saved"), el("p", null, "Saved in this browser."), list);
+  for (const data of results) {
+    if (data.unavailable) {
+      const missing = el("article", "post", "Post unavailable ");
+      missing.append(saveRibbon(data.unavailable)); list.append(missing); continue;
+    }
+    data.op.preview = data.replies.slice(0, 1);
+    list.append(renderPost(data.op, false, false, undefined, true));
+  }
+  if (!codes.length) list.append(el("p", null, "Tap a post’s ribbon to save it here."));
+  view.append(pages(page, codes.length > (page + 1) * 12, "#/saved"));
+}
+function tintAuthor(node, name) {
+  // Stable per public name, with separate readable palettes for each theme.
+  const palette = [["#a52b72", "#ff91c5"], ["#087980", "#7de3d7"],
+    ["#7042b3", "#c5a1ff"], ["#a84a20", "#ffb18a"],
+    ["#286d42", "#a6e6b3"], ["#365fc1", "#9ebaff"]];
+  let hash = 0;
+  for (const char of (name || "Anonymous").toLowerCase()) hash = (Math.imul(hash, 31) + char.codePointAt(0)) >>> 0;
+  const [light, dark] = palette[hash % palette.length];
+  node.style.setProperty("--author-light", light);
+  node.style.setProperty("--author-dark", dark);
+}
 function authorName(name) {
   const label = name || "Anonymous";
   const node = el(label.startsWith("@") ? "a" : "span", "name", label);
+  tintAuthor(node, label);
   if (node.tagName === "A") node.href = "https://aesthetic.computer/" + encodeURIComponent(label);
   return node;
 }
@@ -520,6 +615,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
   const root = !post.parent;
   const div = el("article", "post" + (root ? " media-post" : "") + (inFeed ? " feed-post" : ""));
   div.id = post.code;
+  tintAuthor(div, post.name);
   const meta = el("div", "meta");
   const avatar = el("span", "avatar", (post.name || "?").replace(/^@/, "").slice(0, 1).toLowerCase());
   avatar.setAttribute("aria-hidden", "true");
@@ -529,11 +625,14 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const source = el("a", "media-label", post.media ? post.media.kind + (post.media.code ? " " + post.media.code : "") : post.file?.name || "post " + post.code);
     source.href = post.media?.url || "#/t/" + post.code;
     byline.append(source);
+    const mime = el("span", "mime-type", post.file?.type || post.board || "text/plain");
+    byline.append(mime);
   }
   const time = el("time", null, ago(post.when));
   time.dateTime = post.when;
   time.title = new Date(post.when).toLocaleString();
   meta.append(avatar, byline, time);
+  if (root) meta.append(saveRibbon(post.code));
   div.append(meta);
   if (post.file) {
     const file = renderFile(post.file);
@@ -873,7 +972,7 @@ async function thread(code, kind, signal) {
   code = data.op.code;
   if (kind) history.replaceState(null, "", "#/t/" + code);
   const cachedIndex = feedCache?.nodes.findIndex((node) => node.id === code);
-  if (cachedIndex >= 0) feedCache.nodes[cachedIndex] = renderPost({ ...data.op, preview: data.replies.slice(-2) }, false, false, undefined, true);
+  if (cachedIndex >= 0) feedCache.nodes[cachedIndex] = renderPost({ ...data.op, preview: data.replies.slice(0, 1) }, false, false, undefined, true);
   const back = el("a", "back", "← feed");
   back.href = "#/";
   view.replaceChildren(back, renderPost(data.op, true, true, data.op.board));
@@ -915,12 +1014,14 @@ async function route() {
   view.replaceChildren(el("p", null, "loading…"));
   try {
     if (!hash) await home(page, signal);
+    else if (hash === "saved") await savedPosts(page, signal);
     else if (hash.startsWith("t/")) await thread(hash.slice(2), undefined, signal);
     else if (hash.startsWith("media/")) {
       const [, kind, code] = hash.split("/");
       await thread(decodeURIComponent(code || ""), kind, signal);
     } else await board(decodeURIComponent(hash), page, signal);
     if (signal.aborted) return;
+    syncSavedButtons();
     if (params.get("comment") === "1" && (hash.startsWith("t/") || hash.startsWith("media/"))) {
       const comment = view.querySelector("#post textarea");
       comment?.focus();
