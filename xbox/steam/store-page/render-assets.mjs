@@ -127,7 +127,10 @@ try {
     await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
     await page.evaluateOnNewDocument(() => { globalThis.__oskiewarRenderFlags = { hud: false, keys: false }; });
     await page.setViewport({ width: 3840, height: 1240, deviceScaleFactor: 1 });
-    await page.goto(`${origin}/?self-play&opponent=fight`, { waitUntil: "networkidle2" });
+    // `replay-oven` without `reel-hud` puts the game in matchHud=false: no
+    // nameplates, no clock, no corner furniture. Valve rejects a hero with
+    // any text on it, because the library logo is overlaid on top.
+    await page.goto(`${origin}/?replay-oven&self-play&opponent=fight`, { waitUntil: "networkidle2" });
     await page.evaluate(() => document.fonts.ready);
     await sleep(9000);
     await page.screenshot({ path: join(output, "library-hero.png"), type: "png" });
