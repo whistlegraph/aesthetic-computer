@@ -2023,6 +2023,11 @@ async function halt($, text) {
     if (openExternalFromIframe(nelaUrl)) return true;
     jump(`out:${nelaUrl}`);
     return true;
+  } else if (slug === "aesel" || slug === "easel") {
+    const aeselUrl = "https://aesel.app";
+    if (openExternalFromIframe(aeselUrl)) return true;
+    jump(`out:${aeselUrl}`);
+    return true;
   } else if (slug === "menuband") {
     // 🎹 Jump to Menu Band
     const menuBandUrl = "https://menuband.app";
@@ -2033,7 +2038,7 @@ async function halt($, text) {
     // 🎨 The terminal editor answers to what people actually type looking for
     // it. `easel` itself needs no branch — it is a piece, and the ordinary
     // loader finds it.
-    jump("easel");
+    jump("out:https://aesel.app");
     return true;
   } else if (slug === "desktop" || slug === "app" || slug === "electron") {
     // 💻 Jump to Desktop app download page

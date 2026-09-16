@@ -1357,3 +1357,20 @@ www.mime.ac {
     }
     redir https://mime.ac{uri} 308
 }
+
+# Aesel uses Cloudflare DNS-only records and its own public certificate.
+aesel.app {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
+    encode zstd gzip
+    root * /opt/ac/system/public/aesel
+    header X-Content-Type-Options nosniff
+    header Referrer-Policy strict-origin-when-cross-origin
+    file_server
+}
+www.aesel.app {
+    redir https://aesel.app{uri} 301
+}
