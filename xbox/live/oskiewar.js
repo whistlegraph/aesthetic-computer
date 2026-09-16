@@ -14586,6 +14586,66 @@ function drawSafeZones() {
   drawCornerCrops(actionSafeRect(), 34, 2, [105, 255, 118]);
 }
 
+// The head is the second door on the title screen. START is still anywhere —
+// `tapTitle` in the shell makes the whole frame the button — so the one place
+// that must NOT start a fight is the face, because that is where a player who
+// wants to BE the fighter is already looking. The game publishes the head's
+// screen circle and the shell hit-tests it ahead of the anywhere-button; the
+// ring is drawn here rather than in the shell because only the game knows
+// where the head went this frame.
+//
+// Nothing is drawn unless a wizard is actually mounted (`__oskiewarWizard`),
+// so the Xbox and the reel renderer — which have no DOM to open — never show
+// an affordance that would dud.
+function drawTitleHeadDoor(t, ink, suppressed) {
+  const touch = globalThis.__oskiewarTouch;
+  if (!touch) return;
+  const onTitle = shellMode === "MENU" && titleTransitionAt === null;
+  if (!onTitle || suppressed || !globalThis.__oskiewarWizard) {
+    if (touch.titleHead) touch.titleHead = null;
+    return;
+  }
+  // Only over a seat that is actually yours. The attract loop's "action"
+  // variant dresses BOTH fighters as bots (`beginTraining`), and a ring that
+  // says "add yourself" on a bot's head invites a player to replace somebody
+  // who was never there. No local body on screen, no door.
+  const seat = players[0];
+  if (!seat || !seat.alive || seat.npc || seat.bot) { touch.titleHead = null; return; }
+  const head = runnerWorldGeometry(seat, t).head;
+  if (!head) { touch.titleHead = null; return; }
+  // Radius in screen units is measured, not guessed: the title camera pushes
+  // in and out across the attract loop, and a fixed pixel radius would drift
+  // off the face. Same idiom the killcam tears use.
+  const point = projectPoint(head.x, head.y, head.z);
+  const edge = projectPoint(head.x + head.radius, head.y, head.z);
+  const radius = Math.max(9, Math.hypot(edge.x - point.x, edge.y - point.y));
+  const reach = radius * 1.22;
+  touch.titleHead = { x: point.x, y: point.y, radius: reach };
+  // On the screen-UI lane, so a fighter standing in front of their own face
+  // cannot draw through the invitation.
+  triangleDepth = -1.42;
+  const pulse = (Math.sin(t * 2.4) + 1) / 2;
+  // Gold on its own rather than mixed toward the title ink: ink is near-white
+  // on the night sky and near-black at noon, so mixing gave a different — and
+  // on the light theme, muddy — colour every hour. The dark under-ring is what
+  // carries it across both, the same trick the type beside it uses.
+  const glow = mixColor([230, 205, 92], [255, 250, 226], pulse * .55);
+  const stroke = Math.max(1.5, radius * .085);
+  circle(point.x, point.y, reach, stroke * 2.1, [16, 20, 34]);
+  circle(point.x, point.y, reach, stroke, glow);
+  // The words ride a plate. A meditating fighter fills the whole column under
+  // their own chin, so unplated type landed on shoulders and arms and read as
+  // part of the body; the plate is dark on both themes because the gold is.
+  const label = "add yourself";
+  const size = Math.max(11, Math.round(radius * .44));
+  const width = handleWidth(label, size);
+  const padX = Math.round(size * .55), padY = Math.round(size * .34);
+  const left = point.x - width / 2;
+  const top = point.y + reach + size * .45;
+  box(left - padX, top - padY, width + padX * 2, size + padY * 2, 16, 20, 34);
+  typeWrite(label, left, top, size, ...glow);
+}
+
 function gamePaint() {
   syncGameView();
   const run = runtime();
@@ -14886,6 +14946,7 @@ function gamePaint() {
   // piece of world could have drawn straight through it.
   drawFrameMeter();
   drawImpacts();
+  drawTitleHeadDoor(t, titleInk, reelMinimal);
   const counting = !roundResult && introAge < roundIntroDurationUs();
   // The matchup card announces two names in the middle of the screen, which
   // is exactly where the wordmark sits. On the entry fight the word wins.

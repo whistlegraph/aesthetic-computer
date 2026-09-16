@@ -25,6 +25,9 @@ function fileFor(pathname) {
   if (pathname === "/oskiewar-voice.mjs") return join(here, "oskiewar-voice.mjs");
   if (pathname === "/frame-driver.mjs") return join(here, "frame-driver.mjs");
   if (pathname === "/round-room.mjs") return join(here, "round-room.mjs");
+  if (pathname === "/oskiewar-midi.mjs") return join(here, "oskiewar-midi.mjs");
+  if (pathname === "/oskiewar-wizard.mjs") return join(here, "oskiewar-wizard.mjs");
+  if (pathname === "/account.mjs") return join(here, "account.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
     return join(repo, "system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs");
   if (pathname === "/aesthetic.computer/lib/product-analytics.mjs")

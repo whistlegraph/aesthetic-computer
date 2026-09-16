@@ -1057,7 +1057,7 @@ oskiewar.com, midi.oskiewar.com {
     # answers 304 against its ETag and loads from disk. Without the header the
     # browser's heuristic kept whole modules stale across deploys — a returning
     # visitor once ran a months-old round-room.mjs against the current relay.
-    @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-voice.mjs /oskiewar-midi.mjs
+    @oskiewarmodules path /oskiewar.js /oskiewar-sfx.mjs /oskiewar-voice.mjs /oskiewar-midi.mjs /oskiewar-wizard.mjs
     handle @oskiewarmodules {
         root * /opt/ac/xbox/live
         header Cache-Control no-cache
