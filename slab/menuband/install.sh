@@ -149,16 +149,47 @@ cd "${SCRIPT_DIR}"
 # lipo them together — works equally well with full Xcode or CLT.
 ARM_TRIPLE="arm64-apple-macosx12.0"
 X86_TRIPLE="x86_64-apple-macosx12.0"
+SLICE_DIR="${SCRIPT_DIR}/.build/slices"
+mkdir -p "${SLICE_DIR}"
+
+# Build one slice and hand back a path that the NEXT slice cannot clobber.
+#
+# Xcode 27's SwiftPM (Swift 6.4, the .build/out/Products/Release layout)
+# reports the SAME --show-bin-path for every --triple, so the second build
+# overwrites the first in place and lipo is handed one file twice:
+# "lipo: same architectures (x86_64) found". Copy each slice out under an
+# arch-tagged name the moment it is built, and assert it really is the arch
+# we asked for, so a toolchain that ignores --triple fails here and loudly
+# rather than shipping a half-universal binary.
+build_slice() {
+    local triple="$1" arch="$2" product="$3"
+    shift 3
+    swift build -c release --triple "${triple}" "$@" >/dev/null
+    local binpath
+    binpath="$(swift build -c release --triple "${triple}" "$@" --show-bin-path)"
+    local built="${binpath}/${product}"
+    [[ -x "${built}" ]] || { echo "${product} ${arch} build missing at ${built}"; exit 1; }
+    local out="${SLICE_DIR}/${product}-${arch}"
+    cp -f "${built}" "${out}"
+    local got
+    got="$(lipo -archs "${out}" 2>/dev/null || echo "")"
+    [[ "${got}" == *"${arch}"* ]] || {
+        echo "${product} slice is '${got}', expected ${arch} — toolchain ignored --triple ${triple}"
+        exit 1
+    }
+    printf '%s' "${out}"
+}
 
 say "building MenuBand arm64 slice"
-swift build -c release --triple "${ARM_TRIPLE}" >/dev/null
-ARM_BIN="$(swift build -c release --triple "${ARM_TRIPLE}" --show-bin-path)/MenuBand"
-[[ -x "${ARM_BIN}" ]] || { echo "arm64 build missing at ${ARM_BIN}"; exit 1; }
+ARM_BIN="$(build_slice "${ARM_TRIPLE}" arm64 MenuBand)"
 
 say "building MenuBand x86_64 slice (Intel Macs)"
-swift build -c release --triple "${X86_TRIPLE}" >/dev/null
-X86_BIN="$(swift build -c release --triple "${X86_TRIPLE}" --show-bin-path)/MenuBand"
-[[ -x "${X86_BIN}" ]] || { echo "x86_64 build missing at ${X86_BIN}"; exit 1; }
+X86_BIN="$(build_slice "${X86_TRIPLE}" x86_64 MenuBand)"
+
+# Where SwiftPM actually leaves the build products. ARM_BIN/X86_BIN are
+# arch-tagged COPIES (see build_slice), so their dirname is the slice
+# staging dir, not the products dir the resource bundle lives in.
+PRODUCTS_DIR="$(swift build -c release --triple "${ARM_TRIPLE}" --show-bin-path)"
 
 say "lipo'ing slices into universal binary"
 BUILT="${SCRIPT_DIR}/.build/universal/MenuBand"
@@ -175,14 +206,10 @@ ok "built universal (${ARCHS}): ${BUILT}"
 # that relaunches Menu Band when the double-tap right-⌘ gesture fires
 # while the main process isn't running.
 say "building MenuBandLauncher arm64 slice"
-swift build -c release --target MenuBandLauncher --triple "${ARM_TRIPLE}" >/dev/null
-ARM_LAUNCHER="$(swift build -c release --target MenuBandLauncher --triple "${ARM_TRIPLE}" --show-bin-path)/MenuBandLauncher"
-[[ -x "${ARM_LAUNCHER}" ]] || { echo "launcher arm64 build missing at ${ARM_LAUNCHER}"; exit 1; }
+ARM_LAUNCHER="$(build_slice "${ARM_TRIPLE}" arm64 MenuBandLauncher --target MenuBandLauncher)"
 
 say "building MenuBandLauncher x86_64 slice (Intel Macs)"
-swift build -c release --target MenuBandLauncher --triple "${X86_TRIPLE}" >/dev/null
-X86_LAUNCHER="$(swift build -c release --target MenuBandLauncher --triple "${X86_TRIPLE}" --show-bin-path)/MenuBandLauncher"
-[[ -x "${X86_LAUNCHER}" ]] || { echo "launcher x86_64 build missing at ${X86_LAUNCHER}"; exit 1; }
+X86_LAUNCHER="$(build_slice "${X86_TRIPLE}" x86_64 MenuBandLauncher --target MenuBandLauncher)"
 
 say "lipo'ing launcher slices"
 BUILT_LAUNCHER="${SCRIPT_DIR}/.build/universal/MenuBandLauncher"
@@ -227,7 +254,14 @@ fi
 # (BUILT is the lipo'd universal binary which has no sibling
 # resource bundle of its own).
 PKG_BUNDLE_NAME="MenuBand_MenuBand.bundle"
-PKG_BUNDLE_SRC="$(dirname "${ARM_BIN}")/${PKG_BUNDLE_NAME}"
+PKG_BUNDLE_SRC="${PRODUCTS_DIR}/${PKG_BUNDLE_NAME}"
+# Xcode 27's SwiftPM emits a REAL bundle (resources under
+# Contents/Resources/); older toolchains emitted a flat directory. Flatten
+# from whichever level actually holds the files, so the copy below lands
+# abc-*.aiff and friends directly in the app's Resources either way.
+if [[ -d "${PKG_BUNDLE_SRC}/Contents/Resources" ]]; then
+    PKG_BUNDLE_SRC="${PKG_BUNDLE_SRC}/Contents/Resources"
+fi
 if [[ -d "${PKG_BUNDLE_SRC}" ]]; then
     # FLATTEN the SwiftPM resource bundle's contents directly into
     # Contents/Resources. The app reads them via Bundle.appResources →
