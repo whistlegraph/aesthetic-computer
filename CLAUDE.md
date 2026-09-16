@@ -95,16 +95,27 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 
 ### Notation
 
-- **compushloy** - always commit, push, and deploy. Land the changes on the intended deployment branch, deploy from that branch, and verify production serves the pushed revision.
-- **oskieploy** - commit & push, then release oskiewar across every surface with
-  `npm run oskiewar:deploy`. That one command carries the lot: it stamps
-  `buildVersion` to match the commit count and reburns the hash-bound social
-  preview (both used to be manual steps the release refused without), runs
-  `fish lith/deploy.fish`, and then reconciles web, iOS and Xbox, verifying the
-  production bytes against the source hash. Report the channel table. A devkit
-  that is switched off comes back `offline` rather than `failed` and is not a
-  problem — `blocked: []` is the line that says nothing went wrong. Catch a
-  sleeping console up later with `npm run oskiewar:reconcile`.
+- **compushloy** - always commit, push, and deploy. Land the changes on the
+  intended deployment branch, deploy from that branch, and verify production
+  serves the pushed revision — by comparing bytes, not status codes.
+  **If the change touches oskiewar, the release is part of the word**, not a
+  second errand: run `npm run oskiewar:deploy`. That one command carries the
+  lot: it stamps `buildVersion` to match the commit count and reburns the
+  hash-bound social preview (both used to be manual steps the release refused
+  without), runs `fish lith/deploy.fish`, and then reconciles web, iOS and
+  Xbox, verifying the production bytes against the source hash. Report the
+  channel table. A devkit that is switched off comes back `offline` rather than
+  `failed` and is not a problem — `blocked: []` is the line that says nothing
+  went wrong. Catch a sleeping console up later with
+  `npm run oskiewar:reconcile`.
+  <br>*`oskieploy` was the old word for the oskiewar half. It is deprecated:
+  one word covers the whole job, because splitting them is how a release ends
+  up pushed but never stamped.*
+  <br>Run `lith/deploy.fish` with `DEPLOY_BRANCH=main` from anywhere that is
+  not itself on `main` — it takes its target from the *current* branch, so a
+  worktree or feature branch makes it verify an `origin/<branch>` that does not
+  exist and exit 1. `npm run oskiewar:deploy` reports that only as
+  `"detail": "fish exited 1"`.
 - **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — translucent, larger-text Stickies note sized to fit and centered. See `toolchain/macos/README.md`.
 
 ## Architecture
