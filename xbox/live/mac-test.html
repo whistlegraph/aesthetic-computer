@@ -187,6 +187,10 @@
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
       new URLSearchParams(location.search).get("opponent") || "";
+    // The map catalog can hand the title screen a family to start with. The
+    // engine still owns the deal and seed; this is only the opening choice.
+    globalThis.__oskiewarMap =
+      new URLSearchParams(location.search).get("map") || "";
     // This shell can carry a rival's presses inbound off the relay, which is
     // what lets the game open as a versus room by default. The native shell
     // publishes and discards, so it never raises this and keeps the climb —

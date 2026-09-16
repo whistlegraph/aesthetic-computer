@@ -1452,6 +1452,7 @@ let currentMapFamily = "halfpipe";
 let currentMapVariant = "0";
 let currentMapSeed = "oskiewar:0:halfpipe";
 let pendingRoundMap = null;
+let mapStartIndex = 0;
 
 function installMapPickups(target, authored, type) {
   target.length = 0;
@@ -1507,7 +1508,14 @@ function dealRoundMap(resetMatch = false) {
   mapRoundIndex = resetMatch ? 0 : mapRoundIndex + 1;
   const dealIndex = Math.floor(Math.max(0, mapRoundIndex) /
     OSKIEWAR_MAP_ROUNDS);
-  const family = oskiewarMapLibrary[dealIndex % oskiewarMapLibrary.length];
+  if (resetMatch) {
+    const requested = String(globalThis.__oskiewarMap || "").toLowerCase();
+    const requestedIndex = oskiewarMapLibrary.findIndex((entry) =>
+      entry.id === requested);
+    if (requestedIndex >= 0) mapStartIndex = requestedIndex;
+  }
+  const family = oskiewarMapLibrary[(mapStartIndex + dealIndex) %
+    oskiewarMapLibrary.length];
   const seed = String(mapSeriesSeed || "oskiewar") + ":" + dealIndex +
     ":" + family.id;
   applyOskiewarMap({ family: family.id, seed,
@@ -5028,6 +5036,7 @@ function netSimScalars() {
     parkDeepest,
     mapSeriesSeed,
     mapRoundIndex,
+    mapStartIndex,
     currentMapId,
     currentMapName,
     currentMapFamily,
@@ -5089,6 +5098,7 @@ function netRestoreScalars(saved) {
     parkDeepest,
     mapSeriesSeed,
     mapRoundIndex,
+    mapStartIndex,
     currentMapId,
     currentMapName,
     currentMapFamily,
@@ -5142,6 +5152,9 @@ function netRestoreScalars(saved) {
     hudLeftPad,
     dummyGuideStartedAt,
   } = saved);
+  // Replays/snapshots written before map selection was added have no start
+  // index; keep their deterministic rotation anchored at the first family.
+  if (!Number.isFinite(mapStartIndex)) mapStartIndex = 0;
 }
 const netSimArrays = () => ({
   players, balls, bullets, grenades, impacts, detachedParts,
@@ -5277,11 +5290,16 @@ function netAverageColor(colors, fallback) {
 function netMakeDeal() {
   const local = players[0];
   const rival = netPeerHello || {};
+  const requestedMap = String(globalThis.__oskiewarMap || "").toLowerCase();
+  const requestedMapIndex = oskiewarMapLibrary.findIndex((entry) =>
+    entry.id === requestedMap);
+  if (requestedMapIndex >= 0) mapStartIndex = requestedMapIndex;
   const rivalColors = netCleanColors(rival.colors);
   const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
   const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
   return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
     mapSeed: versusRoomName || sessionName || "oskiewar-versus",
+    mapFamily: oskiewarMapLibrary[mapStartIndex]?.id || "halfpipe",
     ballType: matchBallType,
     fighters: [
       { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
@@ -5330,6 +5348,9 @@ function netBegin(deal, seat, send) {
   netClockUs = deal.origin;
   try {
     mapSeriesSeed = String(deal.mapSeed || "oskiewar-versus");
+    const dealMapIndex = oskiewarMapLibrary.findIndex((entry) =>
+      entry.id === deal.mapFamily);
+    if (dealMapIndex >= 0) mapStartIndex = dealMapIndex;
     matchBallType = deal.ballType;
     // The limb poses that collide are phased off this epoch, so both seats
     // must share it; and a rollback fight is never a recorded one.
