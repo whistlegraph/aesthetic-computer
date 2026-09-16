@@ -4561,6 +4561,9 @@ const BACKDROP_POOL_PREFIX = 'backdrop/kidlisp/pool/';
 const BACKDROP_POOL_SIZE = Number(process.env.BACKDROP_POOL_SIZE || 16);
 const BACKDROP_POOL_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000; // re-render a pool clip after 2 weeks
 const BACKDROP_POOL_LIST_TTL_MS = 5 * 60 * 1000;
+// A grab that comes back as a single static frame is ~2KB; a real 12s clip is
+// hundreds of KB. Anything under this is a blank/static render, not a backdrop.
+const BACKDROP_MIN_BYTES = 40 * 1024;
 
 const backdropPool = { entries: [], listedAt: 0, warming: false, lastWarm: null };
 
@@ -4583,6 +4586,7 @@ export async function listBackdropPool(force = false) {
     for (const obj of page.Contents || []) {
       const m = obj.Key.match(/pool\/([a-z0-9]+)\.webp$/i);
       if (!m) continue;
+      if (obj.Size < BACKDROP_MIN_BYTES) { console.warn(`⚠️ Backdrop pool: ignoring static/blank $${m[1]} (${obj.Size} bytes)`); continue; }
       entries.push({ code: m[1], key: obj.Key, url: `${SPACES_CDN_BASE}/${obj.Key}`, modified: obj.LastModified, size: obj.Size });
     }
     token = page.IsTruncated ? page.NextContinuationToken : undefined;
@@ -4651,6 +4655,7 @@ export async function warmBackdropPool({ size = BACKDROP_POOL_SIZE, force = fals
           buffer = Buffer.from(await response.arrayBuffer());
         }
         if (!buffer) throw new Error('no bytes from grabPiece');
+        if (buffer.length < BACKDROP_MIN_BYTES) throw new Error(`static/blank render (${buffer.length} bytes) — not pooled`);
         await spacesClient.send(new PutObjectCommand({
           Bucket: SPACES_BUCKET, Key: key, Body: buffer, ContentType: 'image/webp',
           ACL: 'public-read', CacheControl: 'public, max-age=31536000, immutable',
