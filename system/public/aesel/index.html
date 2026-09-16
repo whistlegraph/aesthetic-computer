@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Aesel — a little studio for big ideas</title>
-  <meta name="description" content="Make pieces, pictures, sounds, papers and Game Boy games with Aesel by Aesthetic Computer. A desktop studio with a donkey by your side.">
+  <title>Aesel — Aesthetic Computer</title>
+  <meta name="description" content="Make pieces, pictures, sounds, papers and Game Boy games with Aesel by Aesthetic Computer. A desktop app by Aesthetic Computer.">
   <meta name="theme-color" content="#f4eddb"><link rel="canonical" href="https://aesel.app/">
-  <meta property="og:title" content="Aesel by Aesthetic Computer"><meta property="og:description" content="A little studio for big ideas."><meta property="og:image" content="https://aesel.app/icon.png">
+  <meta property="og:title" content="Aesel by Aesthetic Computer"><meta property="og:description" content="Make art and software with AI."><meta property="og:image" content="https://aesel.app/icon.png">
   <link rel="icon" href="icon.png"><link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,21 +13,20 @@
 <main>
   <section class="hero" aria-labelledby="title">
     <div class="intro"><h1 id="title" aria-label="Aesel"><span aria-hidden="true"><i>A</i><i>e</i><i>s</i><i>e</i><i>l</i></span></h1>
-    <h2>A little studio<br>for big ideas.</h2><p>Tell it what you’re imagining.<br>Make something you can play, see, hear, or share.</p>
-    <a class="button primary" href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-arm64.dmg">Get Aesel for Mac <span aria-hidden="true">↓</span></a>
+    <p class="description">Make art and software with AI.</p>
+    <a class="button primary" href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-arm64.dmg">Download for Mac <span aria-hidden="true">↓</span></a>
     <div class="download-note">Apple silicon · macOS 12+ · <a href="#download">Linux &amp; more</a></div>
     </div>
     <div class="studio" id="studio">
-      <div class="studio-top"><span class="dots" aria-hidden="true">● ● ●</span><span>A little Aesel demo</span><span aria-hidden="true">✦</span></div>
-      <div class="canvas-wrap"><canvas id="art" width="480" height="360" aria-label="Interactive colorful piece demo" tabindex="0"></canvas><article id="paper" hidden><small>NOTES FROM THE STUDIO</small><h3>On making<br>small things.</h3><p>A sketch is a question you can look at.</p><p>Begin with a color. Give it a shape. Let the shape make a sound. Keep the part that surprises you.</p><div class="paper-rule"></div><span>1</span></article><button id="remix" aria-label="Remix the preview">↻</button><span id="demo-hint">Click to change the colors</span></div>
+      <div class="studio-top"><span class="dots" aria-hidden="true">● ● ●</span><span>Interactive demo</span><span aria-hidden="true">✦</span></div>
+      <div class="canvas-wrap"><canvas id="art" width="480" height="360" aria-label="Interactive colorful piece demo" tabindex="0"></canvas><article id="paper" hidden><h3>Drawing<br>with code.</h3><p>A circle can be described by its center and radius.</p><p>x = r cos(t)<br>y = r sin(t)</p><div class="paper-rule"></div><span>1</span></article><button id="remix" aria-label="Remix the preview">↻</button><span id="demo-hint">Click to change the colors</span></div>
       <div class="workbench"><div class="prompt"><span aria-hidden="true">›</span><span id="prompt">make a garden that dances</span><span class="cursor" aria-hidden="true">▌</span></div><div class="donkey" aria-label="Aesel the pixel donkey"></div></div>
       <div class="media" role="group" aria-label="Try a medium"><button data-mode="piece" aria-pressed="true">Piece</button><button data-mode="picture" aria-pressed="false">Picture</button><button data-mode="sound" aria-pressed="false">Sound</button><button data-mode="paper" aria-pressed="false">Paper</button><button data-mode="game" aria-pressed="false">Game Boy</button></div>
     </div>
   </section>
-  <section class="possibilities"><h2>Start with a “what if…”</h2><div class="ideas"><p><span>01 / MAKE</span>A tiny game.<br>A very loud picture.<br>A paper about a sound.</p><p><span>02 / KEEP GOING</span>Talk it through.<br>Watch the preview change.<br>Take it somewhere new.</p><p><span>03 / LET IT OUT</span>Keep your versions.<br>Share a live link.<br>Publish to Aesthetic Computer.</p></div></section>
-  <section class="downloads" id="download"><div><h2>Your next thing<br>starts here.</h2><p>Aesel runs as its own desktop app.<br>Sign in with your Aesthetic Computer account.</p><p class="small">Use AC’s hosted provider, or bring your own Claude or Codex setup.</p></div><div class="download-list"><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-arm64.dmg"><span>Mac <small>Apple silicon · DMG</small></span><b>↓</b></a><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-linux-amd64.deb"><span>Linux <small>Ubuntu / Debian · x86-64</small></span><b>↓</b></a><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-linux-x86_64.AppImage"><span>AppImage <small>Other Linux desktops · x86-64</small></span><b>↓</b></a><details><summary>Prefer the terminal?</summary><code>curl -fsSL https://aesthetic.computer/aesel.sh | sh</code><p class="small">Requires Node.js 18+. Run <code>ac</code> after installing.</p></details><p class="small release">Early release · v0.7.0<br>Current downloads still carry the earlier name, Easel.</p></div></section>
-  <aside class="privacy"><strong>A shared learning studio.</strong> Using Aesel requires sharing conversations and artifact revision references with authorized Aesthetic Computer staff for product improvement, including when using your own provider. You’ll review this disclosure before use. <a href="https://aesthetic.computer/privacy">Privacy</a></aside>
+  <section class="downloads" id="download"><div><h2>Downloads</h2><p>Sign in with Aesthetic Computer.<br>Use AC, Claude, or Codex.</p></div><div class="download-list"><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-arm64.dmg"><span>Mac <small>Apple silicon · DMG</small></span><b>↓</b></a><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-linux-amd64.deb"><span>Linux <small>Ubuntu / Debian · x86-64</small></span><b>↓</b></a><a href="https://releases.aesthetic.computer/easel/desktop/Easel-0.7.0-linux-x86_64.AppImage"><span>AppImage <small>Other Linux desktops · x86-64</small></span><b>↓</b></a><details><summary>Terminal</summary><code>curl -fsSL https://aesthetic.computer/aesel.sh | sh</code><p class="small">Requires Node.js 18+. Run <code>ac</code> after installing.</p></details><p class="small release">Early release · v0.7.0<br>Current downloads still carry the earlier name, Easel.</p></div></section>
+  <aside class="privacy">Aesel shares conversations and artifact revision references with authorized AC staff for product improvement. This is required, including with your own provider, and disclosed before use. <a href="https://aesthetic.computer/privacy">Privacy</a></aside>
 </main>
-<footer><span>Aesel <span aria-hidden="true">✦</span> Aesthetic Computer</span><a href="mailto:mail@aesthetic.computer">Say hello ↗</a><a href="https://releases.aesthetic.computer/easel/desktop/SHA256SUMS">Checksums</a></footer>
+<footer><span>Aesel <span aria-hidden="true">✦</span> Aesthetic Computer</span><a href="mailto:mail@aesthetic.computer">Contact ↗</a><a href="https://releases.aesthetic.computer/easel/desktop/SHA256SUMS">Checksums</a></footer>
 <script src="site.js" defer></script>
 </body></html>
