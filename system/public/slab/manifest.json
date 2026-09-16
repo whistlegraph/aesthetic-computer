@@ -1,0 +1,14 @@
+{
+  "_comment": "Release index for the Slab direct download, served by lith at /slab/manifest.json and read by the download button on /slab. The DMG itself lives on assets.aesthetic.computer; this file is the bookkeeping that points at it. Written alongside slab/menubar-swift/release-solo.sh — see slab/README.md. Keep older versions in versions[] so an archival link never dies.",
+  "latest": "1.0",
+  "versions": [
+    {
+      "version": "1.0",
+      "dmg": "https://assets.aesthetic.computer/slab/Slab-1.0.dmg",
+      "size": 6924404,
+      "sha256": "5db38b4faf957e6669a3c5dd18c10e05dfe1ea29cd37e5fbd87178f83d3b9365",
+      "releasedAt": "2026-09-16",
+      "requirements": "macOS 11+ · Universal (Intel + Apple Silicon)"
+    }
+  ]
+}

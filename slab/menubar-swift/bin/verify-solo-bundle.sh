@@ -72,8 +72,21 @@ else
     printf '      %s\n' ${LEAKS}
 fi
 
+# ── Universal binary ──────────────────────────────────────────────────────
+# Info.plist advertises macOS 11, which includes Intel Macs. An arm64-only
+# binary there does not degrade, it refuses to launch.
+SLICES="$(lipo -archs "${BIN}" 2>/dev/null)"
+if [[ "${SLICES}" == *arm64* && "${SLICES}" == *x86_64* ]]; then
+    pass "universal (${SLICES})"
+else
+    fail "not universal — got '${SLICES}'"
+fi
+
 # ── Linked libraries are all system ───────────────────────────────────────
-NONSYSTEM="$(otool -L "${BIN}" 2>/dev/null | tail -n +2 | awk '{print $1}' \
+# A fat binary prints one "<path> (architecture x86_64):" header per slice, so
+# dropping just the first line is not enough — the header repeats. Dependency
+# lines are the indented ones; the headers are not.
+NONSYSTEM="$(otool -L "${BIN}" 2>/dev/null | grep -E '^[[:space:]]' | awk '{print $1}' \
     | grep -vE '^(/usr/lib/|/System/)' | sort -u)"
 if [[ -z "${NONSYSTEM}" ]]; then
     pass "links only system libraries"
