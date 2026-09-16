@@ -4,6 +4,7 @@
 //   node xbox/steam/store-page/render-assets.mjs capsules   # title lockups only
 //   node xbox/steam/store-page/render-assets.mjs shots      # 1920x1080 gameplay
 //   node xbox/steam/store-page/render-assets.mjs logo       # transparent logotype
+//   node xbox/steam/store-page/render-assets.mjs hero       # wordless 3840x1240 fight
 //
 // Every capsule is a real render at its own viewport — the game lays itself
 // out per shape, so nothing is resampled. The shot-list and Valve's sizes are
@@ -116,6 +117,22 @@ try {
       }
       console.log(`🖼  ${capsule.name} ${capsule.width}×${capsule.height}`);
     }
+  }
+
+  if (wants("hero")) {
+    // Valve rejects a hero that carries the wordmark ("appears to contain
+    // text or a logo") because the library logo is overlaid on it. So the
+    // hero is a wordless fight, mid-round, at the full 3840x1240.
+    const page = await browser.newPage();
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    await page.evaluateOnNewDocument(() => { globalThis.__oskiewarRenderFlags = { hud: false, keys: false }; });
+    await page.setViewport({ width: 3840, height: 1240, deviceScaleFactor: 1 });
+    await page.goto(`${origin}/?self-play&opponent=fight`, { waitUntil: "networkidle2" });
+    await page.evaluate(() => document.fonts.ready);
+    await sleep(9000);
+    await page.screenshot({ path: join(output, "library-hero.png"), type: "png" });
+    await page.close();
+    console.log("🖼  library-hero (wordless fight, 3840×1240)");
   }
 
   if (wants("logo")) {
