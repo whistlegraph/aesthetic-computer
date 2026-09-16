@@ -74,11 +74,17 @@ export const doors = ["survival", "fight"];
 export function doorForSeed(seed) {
   return doors[(seed32(seed) >>> 9) & 1];
 }
+// `hud`: true is the full game HUD plus the oven's intro/fight/outro
+// progress bar; "reel" is the reel dress — matchup card, no furniture during
+// play, winner celebration — which is what a trailer wants and what the
+// progress bar would otherwise sit on top of; false is bare pixels.
 export function offlineDemoAddress(origin, door,
     { hud = true, timeScale = 1 } = {}) {
   if (!doors.includes(door)) throw new Error(`unknown door "${door}"`);
+  const dress = hud === "reel" ? "&reel-hud"
+    : hud ? "&reel-hud&reel-full-ui" : "";
   return `${origin}/?social-preview&replay-oven&offline-render` +
-    `&opponent=${door}` + (hud ? "&reel-hud&reel-full-ui" : "") +
+    `&opponent=${door}` + dress +
     (timeScale === 1 ? "" : `&time-scale=${encodeURIComponent(timeScale)}`);
 }
 

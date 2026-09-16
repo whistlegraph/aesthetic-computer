@@ -31,16 +31,23 @@ export const survivalLevelFor = (height) =>
 
 const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-voice.mjs",
   "oskiewar-midi.mjs",
+  // account.mjs is imported by the page unconditionally, and it statically
+  // imports auth0-otp below. A miss here 404s the whole module graph, so the
+  // page never boots and the render waits out its timeout on
+  // __oskiewarOfflineReady with nothing in the log to say why.
+  "account.mjs",
   "frame-driver.mjs", "round-room.mjs"];
 const fromPublic = ["aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "aesthetic.computer/lib/product-analytics.mjs",
   "aesthetic.computer/lib/oskiewar-analytics.mjs",
+  "aesthetic.computer/lib/auth0-otp.mjs",
   "aesthetic.computer/cursors/precise.svg",
   "aesthetic.computer/cursors/active.svg"];
 
 const mime = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"], [".ttf", "font/ttf"],
+  [".woff2", "font/woff2"],
   [".svg", "image/svg+xml"], [".json", "application/json"],
 ]);
 
@@ -48,8 +55,9 @@ export function fileFor(pathname) {
   const name = pathname.replace(/^\//, "");
   if (fromLive.includes(name)) return join(live, name);
   if (fromPublic.includes(name)) return join(repo, "system/public", name);
-  if (name === "ComicRelief-Regular.ttf") return join(repo,
-    "system/public/papers.aesthetic.computer/foundry/fonts/ComicRelief-Regular.ttf");
+  // The page has preferred the woff2 since v118 and falls back to the ttf.
+  if (name.startsWith("ComicRelief-Regular.")) return join(repo,
+    "system/public/papers.aesthetic.computer/foundry/fonts", name);
   // `/` is the game; `/roundname` is that round's replay room. Both are the
   // same page — `roundNameFromPath` reads the address.
   if (pathname === "/" || pathname === "/mac-test.html" ||
