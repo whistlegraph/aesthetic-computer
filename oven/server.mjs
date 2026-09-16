@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, listBackdropPool, pickBackdropUrl, warmBackdropPool, getBackdropPoolStatus, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
 import archiver from 'archiver';
 import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createJSLibraryBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
@@ -1117,6 +1117,7 @@ app.get('/tools', (req, res) => {
     <div><a href="/news-og/ncd2.png">/news-og/:code.png</a><span class="desc">News article OG image</span></div>
     <div><a href="/kidlisp-backdrop.webp">/kidlisp-backdrop.webp</a><span class="desc">KidLisp backdrop animation</span></div>
     <div><a href="/kidlisp-backdrop">/kidlisp-backdrop</a><span class="desc">KidLisp backdrop page</span></div>
+    <div><a href="/kidlisp-backdrop/pool">/kidlisp-backdrop/pool</a><span class="desc">Backdrop pool status (POST /pool/warm to render)</span></div>
   </div>
 
   <h2>App Screenshots</h2>
@@ -2056,34 +2057,58 @@ app.get('/news-og/:code.png', async (req, res) => {
 // KidLisp Backdrop - Animated WebP for login screens, Auth0, etc.
 // =============================================================================
 
-// Fast redirect to CDN-cached 1024px animated webp
+// A random pool clip on every hit (302 + no-store so nothing pins one).
+//   ?piece=$code   a specific pool piece
+//   ?not=$code     skip this one (client-side "next")
+// Falls back to the daily backdrop while the pool is empty.
 app.get('/kidlisp-backdrop.webp', async (req, res) => {
   try {
-    // Get cached URL without triggering generation (fast!)
-    const url = await getLatestBackdropUrl();
-    
-    if (url) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.setHeader('X-Cache', 'CDN');
-      return res.redirect(301, url);
+    const pick = await pickBackdropUrl({
+      code: typeof req.query.piece === 'string' ? req.query.piece : null,
+      exclude: typeof req.query.not === 'string' ? req.query.not.replace(/^\$/, '') : null,
+    });
+    if (pick?.url) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Cache', pick.pool ? 'POOL' : 'CDN');
+      res.setHeader('X-Backdrop-Piece', pick.piece || 'unknown');
+      res.setHeader('X-Backdrop-Pool', String(pick.pool || 0));
+      if (!pick.pool) warmBackdropPool().catch(() => {});
+      return res.redirect(302, pick.url);
     }
-    
-    // No cached backdrop - generate synchronously (first request will be slow)
+
+    // Nothing anywhere yet - render today's daily backdrop synchronously.
     addServerLog('warn', '⚠️', 'Backdrop cache miss, generating...');
-    
     const result = await generateKidlispBackdrop(false);
+    warmBackdropPool().catch(() => {});
     if (result.url) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Cache-Control', 'no-store');
       res.setHeader('X-Cache', 'MISS');
       return res.redirect(302, result.url);
     }
-    
     res.status(503).json({ error: 'Backdrop generation in progress, try again shortly' });
-    
   } catch (error) {
     console.error('Backdrop error:', error);
     res.status(500).json({ error: 'Failed to get backdrop', message: error.message });
   }
+});
+
+// Pool status + manual warm
+app.get('/kidlisp-backdrop/pool', async (req, res) => {
+  try {
+    await listBackdropPool(req.query.refresh === 'true');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(getBackdropPoolStatus());
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.post('/kidlisp-backdrop/pool/warm', async (req, res) => {
+  const force = req.query.force === 'true';
+  addServerLog('info', '🖼️', `Backdrop pool warm requested${force ? ' (force)' : ''}`);
+  warmBackdropPool({ force })
+    .then((s) => addServerLog('success', '🎨', `Backdrop pool warm: ${s.rendered?.length ?? 0} rendered, ${s.fresh?.length ?? 0} fresh, ${s.failed?.length ?? 0} failed`))
+    .catch((err) => addServerLog('error', '❌', `Backdrop pool warm failed: ${err.message}`));
+  res.json({ started: true, force });
 });
 
 // Dynamic backdrop generation (may regenerate on-demand)
@@ -4410,6 +4435,17 @@ if (dev) {
       });
     }, 10000); // Wait 10s for server to fully initialize
     
+    // Warm the KidLisp backdrop pool (one clip per top @jeffrey piece) after
+    // the OG pass, then top it up daily so new top pieces join the rotation.
+    const warmPool = (why) => {
+      addServerLog('info', '🖼️', `Backdrop pool warm (${why})...`);
+      warmBackdropPool().then((s) => {
+        if (!s.skipped) addServerLog('success', '🎨', `Backdrop pool: ${s.rendered.length} rendered, ${s.fresh.length} fresh, ${s.failed.length} failed`);
+      }).catch(err => addServerLog('error', '❌', `Backdrop pool warm failed: ${err.message}`));
+    };
+    setTimeout(() => warmPool('startup'), 90000);
+    setInterval(() => warmPool('daily'), 24 * 60 * 60 * 1000);
+
     // Schedule periodic regeneration (every 6 hours)
     setInterval(() => {
       addServerLog('info', '🖼️', 'Scheduled OG regeneration starting...');
