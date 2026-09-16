@@ -114,6 +114,25 @@ export const easelInk = {
   reset: color.reset + color.ground,
 };
 
+// Static, low-contrast grain. SGR styling and selected control backgrounds survive.
+export function woodgrain(line,row=0) {
+  let x=0,explicit=false,last='',out='';
+  for(const token of line.match(/\x1b\[[0-?]*[ -/]*[@-~]|[^\x1b]/gu)||[]) {
+    if(token.startsWith('\x1b')) {
+      if(token.endsWith('m')) { const codes=token.slice(2,-1).split(';').map(Number);if(codes[0]===0||codes[0]===49)explicit=false;if(codes[0]===48||(codes[0]>=40&&codes[0]<=47))explicit=true;last=''; }
+      out+=token;continue;
+    }
+    if(!explicit) {
+      const tone=(Math.floor(x/5)+row*3+Math.floor(x/17))%9;
+      const rgb=tone===0?[67,45,30]:tone<3?[58,39,28]:[51,35,27];
+      const escape=truecolor?'\x1b[48;2;'+rgb.join(';')+'m':'\x1b[48;5;'+(tone===0?237:tone<3?236:235)+'m';
+      if(last!==escape){out+=escape;last=escape;}
+    }
+    out+=token;x+=charWidth(token);
+  }
+  return out;
+}
+
 export function cleanText(value) {
   return String(value ?? "")
     .replace(ESCAPE, "")
@@ -439,10 +458,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     `${title}${account ? `  ${account}` : ""}${piece ? `  ${piece}` : ""}`,
     room,
   );
+  const titleInk=text=>!useColor?text:Array.from(text).map((ch,i)=>paint(true, (state.hover==='about'?'block ':'')+['highlight','handle','status','soft','prompt'][i%5],ch)).join('');
   const left =
     leftPlain === title || !account
-      ? paint(useColor, state.hover === "about" ? "block bold" : "bold text", leftPlain)
-      : `${paint(useColor, state.hover === "about" ? "block bold" : "bold text", title)}  ` +
+      ? titleInk(leftPlain)
+      : `${titleInk(title)}  ` +
         `${account.startsWith("@") ? coloredHandle(account,state.handleColors,useColor,state.hover === "profile") : paint(useColor,"muted",account)}` +
         `${piece ? `  ${paint(useColor, "soft", piece)}` : ""}`;
   const gap = " ".repeat(
@@ -548,7 +568,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const lines = [...body, rule, header, controlLine, prompt, help];
   return lines
     .slice(0, height)
-    .map((line) => `${ground}${fit(line, width)}${reset}`)
+    .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
     .join("\n");
 }
 

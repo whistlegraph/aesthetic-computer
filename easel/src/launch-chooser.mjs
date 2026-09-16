@@ -47,7 +47,7 @@ export async function chooseLaunch({threads,input=process.stdin,output=process.s
   function draw(){output.write(diff.update(renderChooser(state,threads,output.columns||80,output.rows||24),output.columns||80));}
   input.setRawMode(true);input.resume();output.write('\x1b[?25l');output.on('resize',draw);draw();
   return new Promise(resolve=>{
-    const finish=value=>{clearTimeout(escapeTimer);output.off('resize',draw);input.off('data',onData);input.setRawMode(Boolean(priorRaw));input.pause();output.write('\x1b[2J\x1b[H');resolve(value);};
+    const finish=value=>{clearTimeout(escapeTimer);output.off('resize',draw);input.off('data',onData);input.setRawMode(Boolean(priorRaw));input.pause();if(value || !process.env.EASEL_DESKTOP)output.write('\x1b[2J\x1b[H');resolve(value);};
     function onData(chunk){clearTimeout(escapeTimer);buffer+=chunk.toString();
       while(buffer){let key=buffer[0];if(key==='\x1b'){const sequence=buffer.match(/^\x1b\[[0-?]*[ -/]*[@-~]/);if(!sequence){if(buffer.length>1 && buffer[1]!=='['){buffer=buffer.slice(1);continue;}escapeTimer=setTimeout(()=>{buffer='';},40);return;}key=sequence[0];}buffer=buffer.slice(key.length);
         if(key==='\x03'||key==='\x04')return finish(null);

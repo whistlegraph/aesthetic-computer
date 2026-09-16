@@ -50,9 +50,10 @@ window.easel.onDisplay(display => {
     if (!window.currentPreviewMedium || window.currentPreviewMedium === 'piece') window.setPreviewDimensions(...pieceDimensions);
   }
 });
+function sizeShelf(){const screen=document.querySelector('.xterm-screen')?.getBoundingClientRect();if(screen)document.documentElement.style.setProperty('--easel-shelf-height',`${innerHeight-screen.top-screen.height+(screen.height/terminal.rows)*4}px`);}
 function resize() {
   if (resizeFrame || fullscreenState.preview) return;
-  resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; sizePreviewBox(); if (fullscreenState.preview) return; fit.fit(); window.easel.size(terminal.cols, terminal.rows); });
+  resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; sizePreviewBox(); if (fullscreenState.preview) return; fit.fit(); sizeShelf(); window.easel.size(terminal.cols, terminal.rows); });
 }
 window.easel.onNotice(message => {
   const notice = document.getElementById('desktop-notice');
@@ -82,7 +83,7 @@ let draggingSelection = false, pendingOutput = '', pastedInput = false;
 let clickOrigin = null;
 let lastHoverCell = '', hoverFrame = 0, pendingHover = null;
 terminal.parser.registerOscHandler(777, data => {
-  if(data.startsWith('easel-phase:')) { document.body.dataset.phase=data.slice(12); resize(); return true; }
+  if(data.startsWith('easel-phase:')) { document.body.dataset.phase=data.slice(12); if(data.slice(12)==='closing') window.easel.closing(); else resize(); return true; }
   if (!data.startsWith('easel-pointer:')) return false;
   const action=data.slice('easel-pointer:'.length);
   terminalElement.dataset.pointer = (['about','profile'].includes(action)||action.startsWith('settings:')||action.startsWith('choice:')) ? 'link' : '';
@@ -289,6 +290,7 @@ window.easel.onState(state => {
 preview.addEventListener('did-finish-load', () => { artifact.classList.remove('refresh'); requestAnimationFrame(() => artifact.classList.add('refresh')); });
 sizePreviewBox();
 fit.fit();
+sizeShelf();
 window.easel.size(terminal.cols, terminal.rows);
 window.easel.ready();
 terminal.focus();

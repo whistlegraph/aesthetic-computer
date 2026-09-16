@@ -76,8 +76,8 @@ const desktopUpdater = createUpdater({app, canUpdateBinary, requestRestart, prep
 function send(channel, data) { if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
 function start() {
   if (terminal) return;
-  const args = [join(root, 'src/tui.mjs'), '--cwd', workspace, '--backend', option('--backend') || 'ac'];
-  for (const name of ['--piece', '--resume', '--model']) if (option(name)) args.push(name, option(name));
+  const args = [join(root, 'src/tui.mjs'), '--cwd', workspace];
+  for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name)) args.push(name, option(name));
   if (continueSession) args.push('--continue-session');
   if (supplied.includes('--no-autopublish')) args.push('--no-autopublish');
   const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
@@ -209,6 +209,7 @@ app.whenReady().then(() => {
   });
 });
 ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); sendDisplay(true); start(); } });
+ipcMain.on('closing', event => { if(event.sender===window?.webContents) window.hide(); });
 ipcMain.on('input', (event, data) => { if (event.sender === window?.webContents && typeof data === 'string' && data.length < 1_048_576) terminal?.write(data); });
 ipcMain.on('size', (event, { cols, rows } = {}) => {
   if (event.sender === window?.webContents && Number.isInteger(cols) && Number.isInteger(rows) && cols >= 32 && cols <= 500 && rows >= 10 && rows <= 300) { terminalSize={cols,rows}; terminal?.resize(cols, rows); }
@@ -258,6 +259,7 @@ ipcMain.on('open-piece', (event, value) => {
 ipcMain.on('fullscreen', (event, value) => { if (isWindow(event)) toggleFullscreen(typeof value === 'string' ? value : value?.target); });
 app.on('web-contents-created', (_event, contents) => {
   contents.on('before-input-event', (event, input) => {
+    if(input.type==='keyDown' && input.control && !input.meta && !input.alt && input.key.toLowerCase()==='c') { event.preventDefault(); terminal?.write('\x03'); return; }
     if (input.type === 'keyDown' && (input.meta || input.control) && !input.alt && ['+','=','-','0'].includes(input.key)) {
       event.preventDefault(); send('text-size', input.key === '0' ? 'reset' : input.key === '-' ? 'smaller' : 'larger'); return;
     }

@@ -3,6 +3,7 @@ contextBridge.exposeInMainWorld('easel', {
   input: data => { if (typeof data === 'string') ipcRenderer.send('input', data); },
   size: (cols, rows) => ipcRenderer.send('size', { cols, rows }),
   ready: () => ipcRenderer.send('ready'),
+  closing: () => ipcRenderer.send('closing'),
   fullscreen: target => {
     if (target === 'app' || target === 'preview') ipcRenderer.send('fullscreen', target);
   },

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {API_WORKFLOW} from "./api-context.mjs";
 
@@ -102,9 +103,14 @@ const initialPrompt = desktopRestored ? "" : option("--prompt");
 const initialPiece = desktopRestored?.live.file || option("--piece");
 // Which engine bridge drives the conversation, and on which model. The bridge
 // can be swapped mid-session with /backend, so neither is a constant.
-let backend = backendFor(desktopRestored?.backend || option("--backend") || process.env.EASEL_BACKEND || DEFAULT_BACKEND);
-let model = desktopRestored?.model ?? (option("--model") || backend.defaultModel);
-let effort = desktopRestored?.effort || option("--effort") || "";
+let savedProvider=await readProviderPreferences();
+if(!savedProvider) { try { const previous=await readDesktopSession(localSessionPath,cwd);if(previous)savedProvider={backend:previous.backend,model:previous.model,effort:previous.effort||''}; }catch{} }
+const providerChoice=chooseProviderPreferences({restored:desktopRestored, saved:savedProvider,
+ explicit:{backend:option('--backend')||process.env.EASEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.EASEL_DESKTOP?'ac':DEFAULT_BACKEND});
+let backend=backendFor(providerChoice.backend);
+let model=providerChoice.model??backend.defaultModel;
+let effort=providerChoice.effort;
+async function rememberProvider(){try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
 let handoff = desktopRestored?.handoff || "";
 let archivedConversation = desktopRestored?.archivedConversation || [];
 let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : (desktopRestored?.options?.mouseEnabled ?? true);
@@ -617,9 +623,9 @@ async function finish(code = 0) {
         });
       }
       process.stdin.pause();
-      await transcriptPending.catch(() => {});
       await desktopSave.catch(() => {});
       await writeDesktopSession(localSessionPath, captureDesktop());
+      if(desktopSessionPath) process.stdout.write('\x1b]777;easel-phase:closing\x07');
     } catch (error) {
       addEntry("error", `Cannot quit safely: desktop state could not be saved (${error.message}).`);
       finishing = false;
@@ -639,7 +645,7 @@ async function finish(code = 0) {
   draftBroadcast.close();
   process.stdin.setRawMode(false);
   process.stdin.pause();
-  process.stdout.write(MOUSE_OFF + "\x1b[?2004l\x1b[?25h\x1b[?1049l");
+  if(!desktopSessionPath) process.stdout.write(MOUSE_OFF + "\x1b[?2004l\x1b[?25h\x1b[?1049l");
   process.exitCode = code;
   // The last save has to land. Quitting a second after an edit would otherwise
   // drop it — auto-publish coalesces, and the timer it was waiting on dies with
@@ -657,6 +663,8 @@ async function finish(code = 0) {
   // The blank goes last: an untouched piece is deleted, and deleting it before
   // a flush would publish an empty file or nothing at all.
   // Keep the saved thread’s piece, including an untouched blank, resumable.
+  // All durable saves/uploads above have settled; sockets must not delay desktop exit.
+  if(desktopSessionPath) process.exit(code);
 }
 
 function errorText(error) {
@@ -1179,6 +1187,8 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
     previous.close();
     slabSession.connected(engine.threadId);
     state.model = connection?.model || model;
+    await rememberProvider();
+    saveDesktopIdle();
     addEntry("notice", `${note} · ${engineLabel()} · current piece and recent conversation carried over`);
     state.status = "ready";
   } catch (error) {
@@ -2008,6 +2018,7 @@ try {
   slabSession.connected(connection?.thread?.id || engine.threadId);
   state.status = "ready";
   state.model = connection?.model || model;
+  await rememberProvider();
   if (desktopRestored) {
     addEntry("notice", `Desktop thread restored · ${engineLabel()}`);
   } else if (resumeThreadId && !restoreThread(connection.thread)) {

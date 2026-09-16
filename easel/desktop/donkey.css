@@ -5,3 +5,7 @@
 #desktop-notice{max-width:calc(100% - var(--aesel-size) - 40px)}
 
 body[data-phase="startup"] #terminal{padding-right:10px}
+
+/* One wooden shelf continues underneath the terminal and Aesel's feet. */
+body:not([data-phase="startup"])::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--easel-shelf-height,84px);background:repeating-linear-gradient(177deg,#33231b 0 5px,#3a271c 6px 7px,#33231b 8px 14px,#432d1e 15px 16px);pointer-events:none}
+#terminal{position:relative}
