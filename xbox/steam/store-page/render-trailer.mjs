@@ -43,14 +43,18 @@ const flags = new Map(process.argv.slice(2).map((entry) => {
 // long clip. So more fights are rendered than are used and the assembly
 // keeps the knockouts, shortest first. Survival rides along as one glimpse
 // of the other door.
+//
+// Two evenly-matched bots poke at each other and run out the 30s clock: every
+// bot-versus-bot seed tried so far ends on "tie!", which is both the weakest
+// last beat available and the longest possible clip. The training dummy is
+// the honest way to a decisive ending — it is a real mode, it is in the store
+// copy, and the round ends when he does.
 const CANDIDATES = [
+  { id: "dummy-1", door: "fight", seed: "steam-trailer#31", opponent: "dummy" },
+  { id: "dummy-2", door: "fight", seed: "steam-trailer#33", opponent: "dummy" },
+  { id: "climb-1", door: "survival", seed: "steam-trailer#7", cap: 25 },
   { id: "fight-1", door: "fight", seed: "steam-trailer#1" },
   { id: "fight-2", door: "fight", seed: "steam-trailer#4" },
-  { id: "fight-3", door: "fight", seed: "steam-trailer#9" },
-  { id: "fight-4", door: "fight", seed: "steam-trailer#12" },
-  { id: "fight-5", door: "fight", seed: "steam-trailer#17" },
-  { id: "fight-6", door: "fight", seed: "steam-trailer#23" },
-  { id: "climb-1", door: "survival", seed: "steam-trailer#7", cap: 25 },
 ];
 const CLIPS = CANDIDATES.slice(0, Number(flags.get("clips") || CANDIDATES.length));
 const KEEP = Number(flags.get("keep") || 4);
@@ -74,7 +78,7 @@ async function renderClip(clip) {
     // winner is called afterwards. The full HUD drags the oven's
     // intro/fight/outro scrubber along with it, which on a store page
     // reads as a video control rather than part of the game.
-    hud: "reel",
+    hud: "reel", opponent: clip.opponent || flags.get("opponent") || "",
     cap: Number(flags.get("cap") || clip.cap || 45), width: 1920, height: 1080, theme: "dark", out,
   }, { log });
   rmSync(join(out, "frames"), { recursive: true, force: true });
@@ -93,7 +97,8 @@ async function renderClip(clip) {
 const only = flags.get("only");
 if (only) {
   const clip = CLIPS.find((entry) => entry.id === only) ||
-    { id: only, door: flags.get("door") || "fight", seed: flags.get("seed") || only };
+    { id: only, door: flags.get("door") || "fight", seed: flags.get("seed") || only,
+      opponent: flags.get("opponent") || "" };
   await renderClip(clip);
   process.exit(0);
 }
@@ -106,7 +111,8 @@ for (const clip of CLIPS) {
     const child = spawnSync(process.execPath,
       [fileURLToPath(import.meta.url), `--only=${clip.id}`,
         `--door=${clip.door}`, `--seed=${clip.seed}`,
-        ...(clip.cap ? [`--cap=${clip.cap}`] : [])],
+        ...(clip.cap ? [`--cap=${clip.cap}`] : []),
+        ...(clip.opponent ? [`--opponent=${clip.opponent}`] : [])],
       { stdio: "inherit" });
     // One bad clip is not a bad trailer. A crashed or timed-out render is
     // noted and the run keeps going; the assembly works with what landed.
@@ -119,24 +125,35 @@ for (const clip of CLIPS) {
 }
 if (!rendered.length) throw new Error("no clips rendered — check the log above");
 
-// The cut: knockouts first, shortest first, then one climb, and never a
-// round that ran out the clock unless nothing better landed.
-const knockouts = rendered.filter((c) => c.door === "fight" && c.cause && c.cause !== "TIE")
+// The cut: action first, a decisive ending last. Two evenly-matched bots
+// reliably run out the clock, so a fight clip is trimmed just short of its
+// result card and cuts on movement instead of on "tie!"; the climb keeps its
+// ending and goes last, so the trailer finishes on "summit!".
+const knockouts = rendered.filter((c) => c.mode !== "survival" && c.cause && c.cause !== "TIE")
   .sort((a, b) => a.frames - b.frames);
-const climbs = rendered.filter((c) => c.door === "survival");
-const ties = rendered.filter((c) => c.door === "fight" && (!c.cause || c.cause === "TIE"))
+const climbs = rendered.filter((c) => c.mode === "survival" || c.door === "survival");
+const ties = rendered.filter((c) => c.door === "fight" && c.mode !== "survival" &&
+  (!c.cause || c.cause === "TIE"))
   .sort((a, b) => a.frames - b.frames);
-const cut = [...knockouts, ...climbs.slice(0, 1)].slice(0, KEEP);
-while (cut.length < Math.min(KEEP, 2) && ties.length) cut.push(ties.shift());
+const opener = [...knockouts, ...ties].slice(0, Math.max(1, KEEP - 1));
+const cut = [...opener, ...climbs.slice(0, 1)];
+if (!cut.length) throw new Error("nothing worth cutting");
+// The result hold is about three seconds of card after the round ends.
+// Keeping it on a tie is the one beat a trailer cannot afford.
+const RESULT_HOLD = 3.3;
+for (const clip of cut)
+  clip.take = clip.cause === "TIE" ? Math.max(4, clip.seconds - RESULT_HOLD) : clip.seconds;
 log(`\n🎬 cut: ${cut.map((c) => `${c.id}(${c.cause || c.mode}, ${
-  c.seconds.toFixed(1)}s)`).join(" · ")}`);
+  c.take.toFixed(1)}s${c.take < c.seconds - 0.05 ? " trimmed" : ""})`).join(" · ")}`);
 const clips = cut.map((c) => c.base);
 if (!clips.length) throw new Error("no clips rendered — drop --encode or check the log");
 
 // One encode, not two: the clips are concatenated in the filter graph and
 // written straight to Valve's preset, so nothing is transcoded twice.
 const trailer = join(output, "trailer.mp4");
-const inputs = clips.flatMap((file) => ["-i", file]);
+const inputs = cut.flatMap((clip) =>
+  clip.take < clip.seconds - 0.05 ? ["-t", clip.take.toFixed(3), "-i", clip.base]
+    : ["-i", clip.base]);
 const graph = clips.map((_, index) => `[${index}:v][${index}:a]`).join("") +
   `concat=n=${clips.length}:v=1:a=1[v][a]`;
 const encoded = spawnSync("ffmpeg", ["-y", ...inputs,
