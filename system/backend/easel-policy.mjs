@@ -1,13 +1,15 @@
 // Explicit hosted selections. The account budget is token-based, not a dollar
 // ceiling; premium models are never substituted for the inexpensive default.
 export const EASEL_MODELS = {
+  "openai/gpt-5.6-luna": { label: "Luna" },
+  "anthropic/claude-opus-5": { label: "Opus (premium)" },
   "z-ai/glm-4.6": { label: "glm" },
   "qwen/qwen3-coder": { label: "qwen" },
   "deepseek/deepseek-chat-v3.1": { label: "deepseek" },
   "anthropic/claude-sonnet-4.6": { label: "sonnet (premium)" },
   "openai/gpt-5.4": { label: "gpt (premium)" },
 };
-export const DEFAULT_EASEL_MODEL = "z-ai/glm-4.6";
+export const DEFAULT_EASEL_MODEL = "openai/gpt-5.6-luna";
 const MAX_TOKENS = 8192;
 
 export function inferenceRequest(body) {

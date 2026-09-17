@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AC_MODELS } from "../src/ac-server.mjs";
+import { AC_MODELS, DEFAULT_AC_MODEL } from "../src/ac-server.mjs";
 import { EASEL_MODELS, inferenceRequest, inferenceBudgetFailure } from "../../system/backend/easel-policy.mjs";
 const messages = [{ role: "user", content: "hello" }];
 
 test("hosted defaults remain inexpensive and each advertised model is explicitly allowed", () => {
-  assert.equal(inferenceRequest({ messages }).model, "z-ai/glm-4.6");
+  assert.equal(inferenceRequest({ messages }).model, "openai/gpt-5.6-luna");
+  assert.equal(DEFAULT_AC_MODEL, inferenceRequest({ messages }).model);
+  assert.equal(AC_MODELS.luna, DEFAULT_AC_MODEL);
+  assert.equal(AC_MODELS.opus, "anthropic/claude-opus-5");
   for (const model of Object.values(AC_MODELS)) {
     assert.ok(Object.hasOwn(EASEL_MODELS, model));
     assert.equal(inferenceRequest({ model, messages }).model, model);

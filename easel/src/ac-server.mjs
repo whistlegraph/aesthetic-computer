@@ -40,11 +40,13 @@ import { createHash, randomUUID } from "node:crypto";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
 
-export const DEFAULT_AC_MODEL = "z-ai/glm-4.6";
+export const DEFAULT_AC_MODEL = "openai/gpt-5.6-luna";
 
 // Names a person would type, mapped to what the endpoint allowlists. The server
 // decides in the end; these exist so `/model glm` works.
 export const AC_MODELS = {
+  luna: "openai/gpt-5.6-luna",
+  opus: "anthropic/claude-opus-5",
   glm: "z-ai/glm-4.6",
   qwen: "qwen/qwen3-coder",
   deepseek: "deepseek/deepseek-chat-v3.1",
