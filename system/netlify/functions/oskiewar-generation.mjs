@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { authorize } from '../../backend/authorization.mjs';
 import { connect } from '../../backend/database.mjs';
-import { pseudonym } from './oskiewar-consent.mjs';
+import { pseudonym, frozenFields } from './oskiewar-consent.mjs';
 import { gateRoutes, verifyGenerationCapability, readGrantedPhoto, generateAppearance, RECIPE } from '../../backend/oskiewar-generation.mjs';
 const respond = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(body) });
 export async function handler(event) {
@@ -15,6 +15,22 @@ export async function handler(event) {
 
 // Trusted host entry point for recovering an authenticated player's own job.
 export async function generateForUser(input, userSub) {
+  if (input?.action === 'withdraw') {
+    const { REGARDE_GATEWAY_URL: gateway, REGARDE_SUBJECT_SALT: salt, REGARDE_GATEWAY_TOKEN: token } = process.env;
+    if (!gateway || !salt || !token) return respond(503, { message: 'REGARDE is unavailable.' });
+    try {
+      const url = new URL(gateRoutes(gateway).media); url.pathname = url.pathname.replace(/media$/, 'withdraw');
+      const ff = frozenFields({ source: ['appearance'], outputs: ['fighter_mesh'], distribution: ['private_preview', 'local_gameplay'], retention: 'bound_to_purpose_scope' });
+      const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subject: pseudonym(userSub, salt), venue: 'oskiewar', operation_type: 'DATA_OPERATION',
+          idempotency_key: randomUUID(), operation_descriptor: { purpose: 'oskiewar_fighter_generation', description: 'Withdraw my Oskiewar material.' },
+          frozen_fields: { ...ff, operation_kind: 'WITHDRAW_CONSENT', retention_constraint: 'propagate_to_named_processors', data_handling_chain: ['oskiewar'] } }),
+        signal: AbortSignal.timeout(10000) });
+      const result = await response.json();
+      if (!response.ok || !['withdrawn', 'nothing-to-withdraw'].includes(result.outcome)) return respond(502, { message: 'Withdrawal was not confirmed. Try again.' });
+      return respond(200, { status: result.outcome });
+    } catch { return respond(502, { message: 'Withdrawal was not confirmed. Try again.' }); }
+  }
   if (!['generate', 'status'].includes(input?.action) || !/^[a-f0-9]{64}$/.test(input?.hash) || typeof input.capability !== 'string' || input.capability.length > 20000)
     return respond(400, { message: 'A stored photo and capability are required.' });
   const { REGARDE_GATEWAY_URL: gateway, REGARDE_SUBJECT_SALT: salt, REGARDE_GATEWAY_TOKEN: token, OPENAI_API_KEY: key } = process.env;

@@ -355,6 +355,23 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
   // Keep a granted appearance only in this page's memory. Current authority is
   // checked while equipped; expiry, sign-out, withdrawal or loss of contact
   // removes it. There is no public asset URL, localStorage copy or replay data.
+  const withdraw = document.createElement("button");
+  withdraw.type = "button";
+  withdraw.textContent = "Withdraw my material";
+  withdraw.style.cssText = "flex:none;background:transparent;color:#900;border:0;padding:4px;font-size:14px;text-decoration:underline";
+  card.append(withdraw);
+  withdraw.addEventListener("click", async () => {
+    if (busy) return;
+    const token = await bearer();
+    if (!token) { say("Sign in to withdraw your material.", "trouble"); return; }
+    working(true);
+    try {
+      await generationRequest(token, "withdraw", {});
+      clearFighter(); candidate = null; submitted = null; capability = null;
+      upload.replaceChildren(); working(false); go.disabled = true;
+      say("Withdrawn. Your stored material is removed and future use is blocked.", "settled");
+    } catch (error) { working(false); say(error.message, "trouble"); }
+  });
   let checking = false;
   setInterval(async () => {
     if (!accepted || checking) return;

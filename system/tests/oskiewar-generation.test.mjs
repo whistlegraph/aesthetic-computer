@@ -101,3 +101,17 @@ test('generated appearance is local practice presentation only, and expires', as
   selected.__oskiewarFighterAppearance.validUntil=1;
   assert.equal(read(selected,null,false,()=>false,()=>false,'GAME')({pad:0}),null);
 });
+
+test('withdrawal uses the signed-in subject and works without a generation token or model key', async () => {
+  const saved={...process.env}, originalFetch=globalThis.fetch;
+  Object.assign(process.env,{REGARDE_GATEWAY_URL:'https://gate.invalid/v0/gateway',REGARDE_SUBJECT_SALT:'fixture',REGARDE_GATEWAY_TOKEN:'deployer'});
+  delete process.env.OPENAI_API_KEY;
+  let sent;
+  globalThis.fetch=async(url,options)=>{assert.equal(url,'https://gate.invalid/v0/withdraw');sent=JSON.parse(options.body);return Response.json({outcome:'withdrawn'});};
+  try {
+    const result=await handler({httpMethod:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify({action:'withdraw',subject:'another-person'})});
+    assert.equal(result.statusCode,200);
+    assert.equal(sent.subject,pseudonym('auth0|fixture','fixture'));
+    assert.equal(sent.frozen_fields.operation_kind,'WITHDRAW_CONSENT');
+  }finally{globalThis.fetch=originalFetch;for(const key of ['REGARDE_GATEWAY_URL','REGARDE_SUBJECT_SALT','REGARDE_GATEWAY_TOKEN','OPENAI_API_KEY']){if(saved[key]===undefined)delete process.env[key];else process.env[key]=saved[key];}}
+});
