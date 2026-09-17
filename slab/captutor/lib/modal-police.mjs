@@ -14,7 +14,11 @@ function walk(e,depth){
  let role='',subrole='';try{subrole=e.subrole();}catch{}try{role=e.role();}catch{return {texts:[],buttons:[],modal:false};}
  if(role==='AXWebArea')return {texts:[],buttons:[],modal:false};
  const texts=[text(e)],buttons=[];
- if(role==='AXButton')buttons.push({name:text(e),element:e});
+ if(role==='AXButton'){
+  const labels=[];for(const k of ['name','description'])try{labels.push(String(e[k]()));}catch{}
+  const name=labels.find(v=>/^(allow|close|dismiss)( (notification|banner|infobar|info bar))?$/i.test(v))||text(e);
+  buttons.push({name,element:e});
+ }
  let modal=false,children=[];try{children=e.uiElements();}catch{}
  for(const c of children){const r=walk(c,depth+1);texts.push(...r.texts);buttons.push(...r.buttons);modal=modal||r.modal;}
  const all=texts.join(' ');
@@ -22,7 +26,7 @@ function walk(e,depth){
  const close=buttons.filter(b=>/^(close|dismiss)( (notification|banner|infobar|info bar))?$/i.test(b.name));
  const allow=buttons.filter(b=>/^allow$/i.test(b.name));
  const actionable=kind==='remote-debugging'?allow:close;
- if(!modal&&((kind&&actionable.length===1&&['AXGroup','AXUnknown','AXDialog','AXSheet'].includes(role))||['AXDialog','AXSheet'].includes(role)||['AXDialog','AXSystemDialog'].includes(subrole))){
+ if(!modal&&((kind&&actionable.length===1&&['AXGroup','AXUnknown','AXDialog','AXSheet','AXToolbar'].includes(role))||['AXDialog','AXSheet'].includes(role)||['AXDialog','AXSystemDialog'].includes(subrole))){
   hits.push({kind:kind||'unknown',title:kind||texts.filter(Boolean).join(' ').slice(0,400),buttons:buttons.map(b=>b.name),element:actionable.length===1?actionable[0].element:null});modal=true;
  }
  return {texts,buttons,modal};

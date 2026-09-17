@@ -45,3 +45,12 @@ test('native scan deduplicates Chrome sheets and excludes web content',()=>{
  });
  const hits=JSON.parse(result);assert.equal(hits.length,1);assert.equal(hits[0].kind,'remote-debugging');assert.deepEqual(hits[0].buttons,['Cancel','Allow']);
 });
+
+test('native banner recognition includes toolbar infobars without choosing tab close',()=>{
+ const e=(role,name,children=[])=>({role:()=>role,subrole:()=>'',name:()=>name,description:()=>name,value:()=>'',uiElements:()=>children,position:()=>[20,30]});
+ const close=e('AXButton','Close');close.description=()=> 'Close button';
+ const infobar=e('AXToolbar','',[e('AXStaticText','Chrome is being controlled by automated test software'),e('AXButton','Turn off in settings'),close]);
+ const window=e('AXWindow','',[infobar,e('AXButton','Close')]);
+ const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,buttons})=>({kind,buttons})))',{Application:()=>({processes:{byName:()=>({windows:()=>[window]})}})});
+ assert.deepEqual(JSON.parse(result),[{kind:'automation-banner',buttons:['Turn off in settings','Close']}]);
+});

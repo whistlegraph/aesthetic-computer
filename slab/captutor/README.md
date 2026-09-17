@@ -43,3 +43,5 @@ watcher yields to the renderer's guards instead of racing their clicks.
 Status, events and service logs live in `~/.local/share/captutor/nag-fighter/`.
 The loop waits 1.5 seconds between native scans; scans add several seconds.
 Use `node slab/captutor/bin/nag-fighter.mjs --once` for a single inspection.
+
+Stage Mode checks Chrome’s “Always Show Bookmarks Bar” menu state, hides it only when visible, and restores the previous setting on exit. The recording guard rejects a bar reopened during capture; `chrome-presentation.json` records `chromeBookmarksHidden`. English Chrome menu labels are required.
