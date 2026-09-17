@@ -28,7 +28,9 @@ const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 // card without bleeding into what comes next.
 const resultCardMs = 3000;
 const cardClearMs = resultCardMs + 250;
-const tailHoldMs = resultCardMs - 400;
+// Keep the result readable without manufacturing a >=2.5s silent tail,
+// which verifySync correctly rejects even when the match audio is aligned.
+const tailHoldMs = 2000;
 
 // One 32-bit seed out of any string. Same string, same fight, forever.
 export function seed32(text) {
