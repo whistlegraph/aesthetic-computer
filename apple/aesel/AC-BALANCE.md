@@ -1,10 +1,12 @@
-# AC balance
+# AC stones
 
 Product definition · September 17, 2026
 
-**AC balance is prepaid account credit for paid Aesthetic.Computer services. Add funds once, then pay for usage from the same account across aesel and participating AC apps.**
+**AC stones are prepaid units for paid Aesthetic.Computer services, shared across aesel and participating AC apps through one AC account.**
 
-The public name is **AC balance**. The purchase action is **Add funds**. Show money directly; there is no separate coin, point, or credit-to-dollar conversion to learn. “Account credit” describes the prepaid funds, not a new denomination.
+The public name is **AC stones**: singular **stone**, plural **stones**. The purchase action is **Add stones**. Use lowercase in quantities, such as **120 stones**. “Balance” remains the name of the account field; stones are its displayed units. Show the money conversion at purchase and use. The name does not imply a blockchain, resale, or cash withdrawal.
+
+Naming decision: stones supersedes the earlier money-only display. The report remains the historical comparison that preceded this choice. The number of stones per dollar is still to be chosen before implementation; example quantities below are not a price commitment.
 
 This defines the proposed product. Paid billing is not live, and this document does not authorize charging existing users. It supersedes the invented-unit recommendation in [CREDITS-EXPLORATION.md](CREDITS-EXPLORATION.md). The comparative research is in [What to Call a Balance](../../papers/arxiv-ac-credits/ac-credits.pdf).
 
@@ -12,26 +14,26 @@ This defines the proposed product. Paid billing is not live, and this document d
 
 | Place | Label or behavior |
 | --- | --- |
-| Account menu | **AC balance · US$5.00** |
-| Purchase action | **Add funds** |
+| Account menu | **AC stones · 120 stones** |
+| Purchase action | **Add stones** |
 | Balance detail | **Available**, **Pending usage**, **History** |
 | Before paid work | Selected model, estimated cost, and **Maximum spend** |
 | After paid work | Actual charge and remaining available balance |
-| Insufficient funds | **Add funds to continue**; preserve the draft |
+| Insufficient funds | **Add stones to continue**; preserve the draft |
 | Payment awaiting confirmation | **Payment pending**; do not increase available funds yet |
 | Usage awaiting settlement | **Pending usage**; show the reserved amount and request |
 
-The amounts above are interface examples, not pack prices. Use **US$** where the currency could be ambiguous. VoiceOver should read monetary values and model names in full. Balance is accessible from the account menu behind the top-right handle; keep the personalized handle colors and the Aesel home action.
+The quantities above are interface examples, not pack prices. Pair purchase offers and usage estimates with monetary value; do not show only a stone icon. Use **US$** where the currency could be ambiguous. VoiceOver should read stone quantities, monetary values, and model names in full. Balance is accessible from the account menu behind the top-right handle; keep the personalized handle colors and the Aesel home action.
 
 The user can inspect a request's estimate and maximum before spending. A maximum applies to the whole turn, including its permitted tool/model steps and retries. Saving a default maximum is allowed; raising it requires an explicit user action. Show the actual served model in the receipt. A premium model cannot silently replace the chosen model.
 
 ## Value and precision
 
-The initial service denomination is **USD**: US$1 of AC balance buys US$1 of services at the published AC tariff. This states service value, not a cash-withdrawal promise. It does not promise that the checkout total equals delivered balance: taxes, regional purchase currency, and any platform-specific offer must be itemized before purchase.
+The underlying accounting denomination remains **USD**: US$1 of prepaid service value buys US$1 of services at the published AC tariff. Stones are a display denomination over that value. Choose and publish one fixed stones-per-dollar conversion before selling them, and preserve it for purchased stones. Do not vary it by model or payment route. This states service value, not a cash-withdrawal promise. It does not promise that the checkout total equals delivered balance: taxes, regional purchase currency, and any platform-specific offer must be itemized before purchase.
 
 Keep internal amounts as integer millionths of a US dollar: `1 USD = 1_000_000 microUSD`. Never use floating-point values for ledger arithmetic. Calculate fractional metered charges at higher precision and round once per settled turn to the nearest microUSD, half up. Do not round each token, stream event, or tool step into a separate charge.
 
-The compact balance shows two decimal places rounded down so it never overstates available funds. For a positive balance below one cent, show **< US$0.01**. Balance detail and usage receipts expose up to six decimal places, trimming trailing zeros; a nonzero charge must never appear as US$0.00. All arithmetic uses the full stored amount.
+The compact balance shows stones with enough precision for the chosen conversion, rounded down so it never overstates available funds. Permit fractional stones; do not impose a whole-stone minimum charge. Balance detail and usage receipts also expose monetary service value up to six decimal places, trimming trailing zeros. A nonzero charge must never appear as zero stones or US$0.00; use a less-than display when necessary. Final stone display precision depends on the conversion. All arithmetic uses the full stored amount.
 
 Retail pricing is separate from provider cost. Each turn pins a server-owned tariff version before reservation. Tariffs specify rates, billable dimensions, and any disclosed minimum; there is no implicit minimum charge. Price changes apply to future requests. They do not reduce the monetary face value of funds already added.
 
@@ -45,9 +47,9 @@ Retail pricing is separate from provider cost. Each turn pins a server-owned tar
 - Anonymous exploration may use a separately bounded free allowance. Adding paid funds requires AC sign-in so ownership and cross-device recovery are unambiguous.
 - Local work using the user's own provider subscription does not debit AC balance unless a distinct AC service charge is explicitly offered and accepted.
 
-## Add funds
+## Add stones
 
-The purchase screen states the monetary service value delivered, checkout currency and total, tax treatment, and payment method. A purchase increases available funds only after server verification and durable delivery. A success page, client callback, or pending payment is not proof of payment.
+The purchase screen states the number of stones, fixed conversion, monetary service value delivered, checkout currency and total, tax treatment, and payment method. A purchase increases available funds only after server verification and durable delivery. A success page, client callback, or pending payment is not proof of payment.
 
 The intended launch routes are web checkout and native in-app purchase. Their implementation must satisfy the applicable storefront and payment-provider requirements at launch. Purchased value is recorded in the shared account ledger, with the original currency, payment amount, tax data, product, and provider transaction retained separately.
 
@@ -97,4 +99,4 @@ Implementation sequence:
 4. Verify sandbox purchases, duplicate/out-of-order notifications, account switching, refunds, and interrupted delivery.
 5. Publish final tariffs, purchase offers, free-allowance terms, and supported storefronts before enabling paid access.
 
-Still to set from measured costs: retail tariffs, top-up amounts, free-allowance size, initial regions, and maximum account/turn limits. These do not change the core definition: **add money to AC balance; spend it on explicitly priced AC services.**
+Still to set: the fixed stones-per-dollar conversion and display precision; retail tariffs, top-up amounts, free-allowance size, initial regions, and maximum account/turn limits informed by measured costs. The public name is decided: **AC stones**. Add stones to the account; spend them on explicitly priced AC services.

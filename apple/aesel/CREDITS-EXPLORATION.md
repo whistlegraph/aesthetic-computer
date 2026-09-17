@@ -1,6 +1,6 @@
 # Aesthetic Computer credits
 
-Superseded product recommendation: use **AC balance** in money with an **Add funds** action. See [AC-BALANCE.md](AC-BALANCE.md) for the current definition. The credit denomination and coin treatment below are historical exploration, not the selected product contract.
+Superseded product recommendation: the selected public name is **AC stones**, with an **Add stones** action and a disclosed money conversion. See [AC-BALANCE.md](AC-BALANCE.md) for the current definition. The credit denomination and coin treatment below are historical exploration.
 
 Research and proposed contract, September 17, 2026. No credits, purchases, wallets, or tokens have been created by this work.
 
