@@ -107,7 +107,7 @@ test('withdrawal uses the signed-in subject and works without a generation token
   Object.assign(process.env,{REGARDE_GATEWAY_URL:'https://gate.invalid/v0/gateway',REGARDE_SUBJECT_SALT:'fixture',REGARDE_GATEWAY_TOKEN:'deployer'});
   delete process.env.OPENAI_API_KEY;
   let sent;
-  globalThis.fetch=async(url,options)=>{assert.equal(url,'https://gate.invalid/v0/withdraw');sent=JSON.parse(options.body);return Response.json({outcome:'withdrawn'});};
+  globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://gate.invalid/v0/withdraw');sent=JSON.parse(options.body);return Response.json({outcome:'withdrawn'});};
   try {
     const result=await handler({httpMethod:'POST',headers:{authorization:'Bearer fixture'},body:JSON.stringify({action:'withdraw',subject:'another-person'})});
     assert.equal(result.statusCode,200);
