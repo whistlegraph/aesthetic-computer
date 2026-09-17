@@ -6,6 +6,7 @@ import {
   oskiewarEvent,
   oskiewarSurface,
 } from "../system/public/aesthetic.computer/lib/oskiewar-analytics.mjs";
+import { validateMap } from "../xbox/live/oskiewar-map.mjs";
 import { createPostHogEventCapture } from "../shared/posthog-event-capture.mjs";
 
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
@@ -14,7 +15,7 @@ const MATCH_NAME = new RegExp(
 const MATCH_ID = new RegExp(
   `^ow-(?:${MATCH_WORD}-${MATCH_WORD}-${MATCH_WORD}|[a-z]{4,7}[0-9]{1,3})$`);
 const PHASES = new Set(["select", "intro", "fight", "round", "match", "replay"]);
-const MAX_MESSAGE_BYTES = 8192;
+const MAX_MESSAGE_BYTES = 16384; // Includes bounded workshop geometry for spectators.
 const MAX_VIEWERS = 64;
 // Agents watch the same fan-out as a phone but are counted and capped on their
 // own, so a room full of spectators can never lock a maintainer out of the
@@ -129,6 +130,9 @@ function perf(value) {
 }
 
 export function validateOskiewarLiveState(value) {
+  if (value?.map?.workshop !== undefined) {
+    try { validateMap(value.map.workshop); } catch { return "Invalid workshop map"; }
+  }
   if (!value || value.format !== "ac.oskiewar.live" || value.version !== 1)
     return "Unsupported live state";
   if (!integer(value.seq, 0, 2147483647) || !finite(value.at, 10000000000000))
@@ -358,7 +362,7 @@ export class OskiewarLiveManager {
     // wants a remote nudge. The relay forwards the bare instruction and
     // nothing else, at most once per five seconds per room, and the shell
     // decides when reloading is actually safe.
-    ws.on("message", (data) => this.nudge(room, data));
+    ws.on("message", (data) => this.nudge(room, data, ws));
     const remove = () => {
       room.agents.delete(ws);
       room.updatedAt = this.now();
@@ -477,10 +481,28 @@ export class OskiewarLiveManager {
     send(target, "oskiewar:net", content);
   }
 
-  nudge(room, data) {
-    if (Buffer.byteLength(data) > 512) return;
+  nudge(room, data, ws) {
+    if (Buffer.byteLength(data) > 16384) return;
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
+    if (message.type === "oskiewar:workshop") {
+      const content = message.content;
+      if (!content || typeof content.id !== "string" || content.id.length > 80 ||
+          !content.command || typeof content.command !== "object") return;
+      const now = this.now();
+      room.workshopPending ||= new Map();
+      for (const [id, entry] of room.workshopPending)
+        if (entry.expires < now) room.workshopPending.delete(id);
+      const refuse = error => send(ws, "oskiewar:workshop-result",
+        { id: content.id, ok: false, error });
+      if (!room.publisher) return refuse("No live publisher");
+      if (room.workshopPending.size >= 8) return refuse("Workshop is busy");
+      const id = String(room.workshopSequence = (room.workshopSequence || 0) + 1);
+      room.workshopPending.set(id, { ws, id: content.id, expires: now + 15000 });
+      send(room.publisher, "oskiewar:workshop", { id, command: content.command });
+      return;
+    }
+    if (Buffer.byteLength(data) > 512) return;
     if (message.type === "oskiewar:reload") {
       const now = this.now();
       if (room.nudgedAt && now - room.nudgedAt < 5000) return;
@@ -511,8 +533,21 @@ export class OskiewarLiveManager {
 
   publish(room, ws, data) {
     if (room.publisher !== ws) return;
+    if (Buffer.byteLength(data) <= 32768) {
+      let reply;
+      try { reply = JSON.parse(data.toString()); } catch {}
+      if (reply?.type === "oskiewar:workshop-result") {
+        const entry = room.workshopPending?.get(reply.content?.id);
+        if (entry) {
+          room.workshopPending.delete(reply.content.id);
+          if (entry.expires >= this.now() && room.agents.has(entry.ws))
+            send(entry.ws, reply.type, { ...reply.content, id: entry.id });
+        }
+        return;
+      }
+    }
     if (Buffer.byteLength(data) > MAX_MESSAGE_BYTES) {
-      send(ws, "oskiewar:error", { message: "Live state exceeds 8 KiB" });
+      send(ws, "oskiewar:error", { message: "Live state exceeds 16 KiB" });
       return;
     }
     let message;

@@ -147,7 +147,7 @@ test("the handshake and tool list answer without a relay", async () => {
   assert.equal(init.result.protocolVersion, "test-version");
   assert.equal(init.result.serverInfo.name, "oskiewar-coach");
   const list = await handleMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["coach_in",
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["coach_workshop", "coach_in",
     "coach_status", "coach_watch", "coach_analyze", "coach_record",
     "coach_replay", "coach_out"]);
   const status = await handleMessage({ jsonrpc: "2.0", id: 3,

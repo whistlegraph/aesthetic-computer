@@ -23,7 +23,7 @@
     {
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
-        !harness.has("replay-oven") && !harness.has("self-play");
+        !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop");
     }
     // A bare front door asks the relay for one open room, and the first
     // frame waits on the answer. The ask used to leave only after the whole
@@ -242,7 +242,8 @@
     // Pal select is intentionally retired; this keeps Spiderdummy reachable
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
-      new URLSearchParams(location.search).get("opponent") || "";
+      new URLSearchParams(location.search).get("opponent") ||
+      (new URLSearchParams(location.search).has("workshop") ? "dummy" : "");
     // `__oskiewarVersusCapable` is raised in the head, beside the fetches
     // that depend on it.
     let titleOpen = true;
@@ -1198,6 +1199,18 @@
               resizeCanvas();
             }
           }
+          if (message.type === "oskiewar:workshop") {
+            const { id, command } = message.content || {};
+            Promise.resolve().then(() => {
+              if (!globalThis.__oskiewarWorkshopRequest) throw new Error("Workshop unavailable");
+              return globalThis.__oskiewarWorkshopRequest(command);
+            }).then(result => ({ id, ok: true, result }),
+              error => ({ id, ok: false, error: error.message }))
+              .then(content => {
+                if (socket.readyState === WebSocket.OPEN)
+                  socket.send(JSON.stringify({ type: "oskiewar:workshop-result", content }));
+              });
+          }
           if (message.type === "oskiewar:reload") {
             if (globalThis.__oskiewarTouch?.screen === "title") {
               document.querySelector("#status").textContent = "updating";
@@ -1439,6 +1452,8 @@
     import createFrameDriver from "/frame-driver.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
+    import { mountWorkshop } from "/oskiewar-workshop.mjs";
+    if (!socialPreview) await mountWorkshop();
     import { qrcode } from "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
     import {
       captureOskiewarAction,

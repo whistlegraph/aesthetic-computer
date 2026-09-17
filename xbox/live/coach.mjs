@@ -7,7 +7,7 @@
 //   curl -fsSLO https://oskiewar.com/coach.mjs
 //   claude mcp add coach -- node ./coach.mjs
 //
-// The coach takes the relay's read-only `agent` seat on a match room — the one
+// The coach takes the relay's `agent` seat on a match room — the one
 // the title screen prints under START — and reads the same frames every phone
 // in the grandstand reads. It never presses a button. From those frames it
 // keeps a ledger a model can coach from: every hit, who threw it, what you
@@ -16,7 +16,7 @@
 // them; `coach_record` pulls your track record from the replay ledger. While
 // it is seated the title screen says "coach linked".
 //
-// Runs on Node 22+ (global WebSocket and fetch). Nothing here writes anywhere.
+// Runs on Node 22+. Workshop writes require the player to enable Coach editing.
 
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
@@ -269,6 +269,10 @@ export function createLedger() {
 // The seat. One attachment at a time; a round room hands off to the next and
 // the session room is the forwarding address when a round goes quiet.
 
+const workshopPending = new Map();
+let workshopSequence = 0;
+let workshopNextRoom = null;
+
 const state = {
   socket: null, room: null, wantRoom: null, sessionRoom: "", label: "coach",
   generation: 0, quietTimer: null, retryTimer: null, status: null,
@@ -325,6 +329,19 @@ function open(room) {
       if (mine !== state.generation) return;
       let message;
       try { message = JSON.parse(event.data); } catch { return; }
+      if (message.type === "oskiewar:workshop-result") {
+        const pending = workshopPending.get(message.content?.id);
+        if (pending) {
+          workshopPending.delete(message.content.id);
+          clearTimeout(pending.timer);
+          message.content.ok ? pending.resolve(text(message.content.result))
+            : pending.reject(new Error(message.content.error || "Workshop command failed"));
+        }
+        if (workshopNextRoom) {
+          const next = workshopNextRoom; workshopNextRoom = null; follow(next);
+        }
+        return;
+      }
       if (message.type === "oskiewar:error") {
         done(new Error(String(message.content?.message || "relay error")));
         return;
@@ -343,8 +360,10 @@ function open(room) {
       state.ledger.observe(frame);
       done();
       armQuiet();
-      if (frame.nextRoundId && frame.nextRoundId !== state.room)
-        follow(frame.nextRoundId);
+      if (frame.nextRoundId && frame.nextRoundId !== state.room) {
+        if (workshopPending.size) workshopNextRoom = frame.nextRoundId;
+        else follow(frame.nextRoundId);
+      }
     });
     socket.addEventListener("close", () => {
       if (mine !== state.generation) return;
@@ -365,6 +384,7 @@ function open(room) {
 }
 
 function detach() {
+  workshopNextRoom = null;
   state.wantRoom = null;
   state.generation++;
   stopTimers();
@@ -515,9 +535,51 @@ function toolOut() {
     note: `Left ${room}. The title screen's "coach linked" goes dark.` });
 }
 
+function toolWorkshop(command) {
+  if (!state.socket || state.socket.readyState !== 1)
+    throw new Error("Call coach_in and wait for a live connection first");
+  if (workshopPending.size) throw new Error("Wait for the previous workshop command");
+  const id = String(++workshopSequence);
+  const packet = JSON.stringify({ type: "oskiewar:workshop", content: { id, command } });
+  if (Buffer.byteLength(packet) > 16384) throw new Error("Workshop command exceeds 16 KiB");
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      workshopPending.delete(id);
+      if (workshopNextRoom) { const next = workshopNextRoom; workshopNextRoom = null; follow(next); }
+      reject(new Error("No workshop acknowledgement. Inspect before retrying; the operation may have completed."));
+    }, 15000);
+    workshopPending.set(id, { resolve, reject, timer });
+    try { state.socket.send(packet); } catch (error) {
+      clearTimeout(timer); workshopPending.delete(id); reject(error);
+    }
+  });
+}
+
 const TOOLS = [
+  { name: "coach_workshop",
+    description: "Edit a local practice map while the player plays. Player must enable Coach editing. " +
+      "Start with inspect: returns the complete map, revision and player positions. " +
+      "apply replaces the map with your edited document; drop adds an item; undo restores the previous map. " +
+      "reset-round preserves round wins; restart-level clears them. Both keep the edited map. " +
+      "highlight shows spawn markers. save stores a named private draft; publish creates an immutable public version " +
+      "using the player's signed-in account. list lists public maps (mine:true lists own drafts and publications); " +
+      "load applies a saved map by id. Use the latest revision for every mutation/save/publish/load. " +
+      "Map version 1: format ac.oskiewar.map, name, features (ordered contiguous from/to covering 0–40, " +
+      "kind flat/bank/transition, lift -450–720, rise 0–720, dir -1/1), decks (col,cols,row), " +
+      "two spawns (columns 0–39), pickups (kind,col,amount), skateboard boolean. " +
+      "Item kinds: HANDGUN, SPACE LASER, RUBBER SMG, ROCKET LAUNCHER, LIGHT SABER, GRENADE. " +
+      "Read the returned map after changes, then watch play and iterate. Network/survival/replay editing is unavailable.",
+    inputSchema: { type: "object", additionalProperties: false, required: ["op"], properties: {
+      op: { type: "string", enum: ["inspect", "apply", "drop", "undo", "reset-round", "restart-level",
+        "highlight", "save", "publish", "load", "list"] },
+      revision: { type: "integer", minimum: 0 }, map: { type: "object" },
+      item: { type: "object", required: ["kind", "col", "amount"], properties: {
+        kind: { type: "string" }, col: { type: "number" }, amount: { type: "integer" } } },
+      enabled: { type: "boolean" }, name: { type: "string", maxLength: 60 },
+      id: { type: "string" }, mine: { type: "boolean" },
+    } } },
   { name: "coach_in",
-    description: "Add your coach: take the read-only agent seat on an " +
+    description: "Add your coach: take the agent seat on an " +
       "oskiewar match room so this session can watch the fight. Give the " +
       "room name printed under START on the title screen, or a handle to " +
       "sit in their most recent versus room. The title screen shows " +
@@ -571,6 +633,7 @@ const TOOLS = [
 
 async function callTool(name, args = {}) {
   switch (name) {
+    case "coach_workshop": return toolWorkshop(args);
     case "coach_in": return toolIn(args);
     case "coach_status": return toolStatus();
     case "coach_watch": return toolWatch(args);
@@ -590,13 +653,13 @@ export async function handleMessage(message) {
         return { jsonrpc: "2.0", id, result: {
           protocolVersion: params?.protocolVersion || "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "oskiewar-coach", version: "1.0.0" },
+          serverInfo: { name: "oskiewar-coach", version: "1.1.0" },
           instructions: "Claude Coach for oskiewar. coach_in seats this " +
-            "session as a read-only agent on a match room (the name under " +
+            "session as an agent on a match room (the name under " +
             "START on the title screen); coach_watch streams hits, blocks, " +
             "swings and deaths as they happen; coach_analyze folds them into " +
             "numbers to coach from; coach_record and coach_replay read the " +
-            "replay ledger. The coach never presses a button." } };
+            "replay ledger. coach_workshop edits local practice maps and saves or publishes them when the player enables Coach editing. Inspect before editing and use the returned revision." } };
       case "initialized":
       case "notifications/initialized": return null;
       case "ping": return { jsonrpc: "2.0", id, result: {} };

@@ -6668,3 +6668,80 @@ test("the title offers a coach seat and says when one is linked", () => {
   // The room it prints is the one this tab is publishing.
   assert.match(coachSource, /const room = versusRoomName \|\| sessionName/);
 });
+
+test('workshop edits, drops, undo and round resets preserve authored maps', async () => {
+  const { validateMap } = await import('../oskiewar-map.mjs');
+  globalThis.__oskiewarValidateMap = validateMap;
+  const { fight, tick, lines } = createFight();
+  const command = globalThis.__oskiewarWorkshopCommand;
+  try {
+    assert.throws(() => command({ op: 'inspect' }), /off/);
+    globalThis.__oskiewarWorkshopEnabled = true;
+    let state = command({ op: 'inspect' });
+    const original = state.map;
+    const edited = { ...original, name: 'Coach park', spawns: [8, 30],
+      features: [{ from: 0, to: 40, kind: 'flat', lift: 90 }],
+      decks: [{ col: 8, cols: 4, row: 5 }] };
+    state = command({ op: 'apply', revision: state.revision, map: edited });
+    assert.equal(state.map.name, 'Coach park');
+    assert.equal(fight.players[0].spawnX, 765);
+    assert.equal(fight.platformTable().length, 1);
+    assert.throws(() => command({ op: 'apply', revision: 0, map: original }), /changed/);
+    assert.throws(() => command({ op: 'apply', revision: state.revision,
+      map: { ...edited, spawns: [Infinity, 2] } }), /spawn/);
+    assert.equal(command({ op: 'inspect' }).revision, state.revision);
+    state = command({ op: 'drop', revision: state.revision,
+      item: { kind: 'ROCKET LAUNCHER', col: 12, amount: 2 } });
+    assert.equal(fight.gunPickups.at(-1).kind, 'ROCKET LAUNCHER');
+    state = command({ op: 'undo', revision: state.revision });
+    assert.equal(state.map.pickups.length, original.pickups.length);
+    fight.players[0].roundWins = 2;
+    state = command({ op: 'reset-round', revision: state.revision });
+    assert.equal(fight.players[0].roundWins, 2);
+    assert.equal(fight.players[0].x, 765);
+    state = command({ op: 'restart-level', revision: state.revision });
+    assert.equal(fight.players[0].roundWins, 0);
+    assert.equal(state.map.name, 'Coach park');
+    command({ op: 'highlight', enabled: true });
+    tick(); fight.paint();
+    assert.ok(lines.length > 0);
+    assert.equal(fight.clientErrorState(), "");
+    fight.nextRound();
+    assert.equal(command({ op: 'inspect' }).map.name, 'Coach park');
+    globalThis.__oskiewarWorkshopEnabled = false;
+    fight.nextRound();
+    assert.notEqual(fight.players[0].spawnX, 765);
+    assert.throws(() => command({ op: 'reset-round', revision: state.revision }), /off/);
+  } finally {
+    delete globalThis.__oskiewarWorkshopEnabled;
+    delete globalThis.__oskiewarValidateMap;
+  }
+});
+
+test('workshop public maps survive rounds without granting coach editing', async () => {
+  const { validateMap } = await import('../oskiewar-map.mjs');
+  globalThis.__oskiewarValidateMap = validateMap;
+  globalThis.__oskiewarPublishedMap = validateMap({ format: 'ac.oskiewar.map', version: 1,
+    name: 'Public park', features: [{ from: 0, to: 40, kind: 'flat' }],
+    decks: [], spawns: [4, 35], pickups: [], skateboard: false });
+  try {
+    const { fight } = createFight();
+    assert.equal(fight.players[0].spawnX, 405);
+    fight.nextRound();
+    assert.equal(fight.players[0].spawnX, 405);
+    assert.equal(fight.platformTable().length, 0);
+    assert.throws(() => globalThis.__oskiewarWorkshopCommand({ op: 'inspect' }), /off/);
+  } finally {
+    delete globalThis.__oskiewarPublishedMap;
+    delete globalThis.__oskiewarValidateMap;
+  }
+});
+
+test('workshop cannot mutate a versus lobby', async () => {
+  const { fight } = createFight();
+  globalThis.__oskiewarWorkshopEnabled = true;
+  try {
+    fight.enterLobby();
+    assert.throws(() => globalThis.__oskiewarWorkshopCommand({ op: 'inspect' }), /local practice/);
+  } finally { delete globalThis.__oskiewarWorkshopEnabled; }
+});

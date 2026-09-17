@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 128;
+const buildVersion = 129;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -229,7 +229,7 @@ const parkRight = parkSegments[parkSegments.length - 1].right;
 // span stops at it. A bowl dug three tiles into the floor makes every one of
 // those assumptions wrong by exactly the depth of the bowl, and the symptom
 // is a fighter riding out of frame at the bottom of the pipe.
-const parkDeepest = floorY + Math.max(0,
+let parkDeepest = floorY + Math.max(0,
   ...parkSegments.map((segment) => -segment.lift));
 // Enough samples that an arc reads as an arc. One per tile drew the halfpipe
 // as a staircase — 90 units is most of a fighter wide, and a transition turns
@@ -1336,12 +1336,144 @@ const ball = balls[0];
 // The board is not gated by `ballEnabled`. That switch is the ball's — it
 // takes the serve, the cross-wack and the BALLED death off the map together —
 // and the board shares none of them.
-const skateBoardEnabled = true;
+let skateBoardEnabled = true;
 // The ball is out of the round — @jeffrey asked for the cube bare. All of
 // the ball's machinery (serve, boot, carry, cross-wack, the BALLED death)
 // sleeps behind this switch exactly as it always did for the test harness;
 // flipping it back on is the whole re-installation.
 let ballEnabled = false;
+
+function mapHash(text) {
+  let hash = 2166136261;
+  for (const character of String(text || "oskiewar")) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+let currentMapName = "HALFPIPE";
+let currentMapId = "halfpipe";
+let workshopBase = null;
+// Workshop edits are local practice state. They never enter rollback matches
+// or the competitive replay ledger; documents are saved separately.
+let workshopMap = null;
+let workshopRevision = 0;
+let workshopHistory = [];
+let workshopHighlight = false;
+let workshopTainted = false;
+
+function workshopSnapshot() {
+  return { format: "ac.oskiewar.map", version: 1,
+    name: workshopMap?.name || currentMapName,
+    features: parkSegments.map(({ from, to, kind, lift, rise, dir }) =>
+      ({ from, to, kind, lift: lift || 0, rise: rise || 0, dir: dir || 1 })),
+    decks: parkDecks.map(d => ({ col: (d.left - gridLeft) / tileSize,
+      cols: (d.right - d.left) / tileSize, row: (floorY - d.y) / tileSize })),
+    spawns: players.map(p => (p.spawnX - gridLeft) / tileSize - .5),
+    pickups: workshopMap?.pickups.map(p => ({ ...p })) ||
+      [...gunPickups, ...saberPickups, ...grenadePickups].filter(p => p.startsActive)
+        .map(p => ({ kind: p.kind || "GRENADE", col: tileCol(p.x), amount: p.amount || 0 })),
+    skateboard: skateBoardEnabled };
+}
+
+function installWorkshopMap(map) {
+  workshopMap = map;
+  parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
+    left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
+  parkDeepest = floorY + Math.max(0, ...parkSegments.map(s => -s.lift));
+  rebuildTerrainProfile();
+  parkDecks.splice(0, parkDecks.length, ...map.decks.map((d, i) => ({ level: i + 1,
+    left: gridLeft + d.col * tileSize, right: gridLeft + (d.col + d.cols) * tileSize,
+    y: floorY - d.row * tileSize })));
+  players.forEach((p, i) => { p.spawnX = tileCenterX(map.spawns[i]); });
+  installMapPickups(gunPickups, map.pickups.filter(p =>
+    !["GRENADE", "LIGHT SABER"].includes(p.kind)), "gun");
+  installMapPickups(saberPickups, map.pickups.filter(p => p.kind === "LIGHT SABER"), "saber");
+  installMapPickups(grenadePickups, map.pickups.filter(p => p.kind === "GRENADE"), "grenade");
+  skateBoardEnabled = map.skateboard;
+  currentMapName = map.name;
+  currentMapId = "workshop-" + mapHash(JSON.stringify(map)).toString(36);
+  // Reconcile newly raised floors without restarting the players' exchange.
+  for (const p of players) {
+    const ground = terrainFloorAt(p.x);
+    if (p.y > ground || p.grounded) { p.y = ground; p.vy = 0; p.grounded = true; }
+  }
+  renderPreviousState = null;
+}
+
+function workshopCommand(command) {
+  if (!globalThis.__oskiewarWorkshopEnabled) throw new Error("Coach editing is off");
+  if (netSession || roundViewer || versusLane() || survivalActive() || resimActive)
+    throw new Error("Use local practice for map editing; leave the network/survival/replay lane first");
+  if (!command || typeof command !== "object") throw new Error("Expected a workshop command");
+  const { op } = command;
+  if (op === "inspect") return { revision: workshopRevision, map: workshopSnapshot(),
+    highlights: workshopHighlight, undo: workshopHistory.length,
+    units: { columns: gridCols, tileSize, floorY },
+    players: players.map(p => ({ x: p.x, y: p.y, spawnX: p.spawnX })) };
+  if (op === "highlight") {
+    if (typeof command.enabled !== "boolean") throw new Error("Supply enabled: true or false");
+    workshopHighlight = command.enabled;
+    return workshopCommand({ op: "inspect" });
+  }
+  if (command.revision !== workshopRevision) throw new Error("Map changed; inspect and use its revision");
+  if (!["apply", "drop", "undo", "reset-round", "restart-level"].includes(op))
+    throw new Error("Unknown workshop operation");
+  let map;
+  if (op === "undo") {
+    if (!workshopHistory.length) throw new Error("Nothing to undo");
+    map = workshopHistory[workshopHistory.length - 1];
+  } else {
+    map = op === "apply" ? command.map : workshopSnapshot();
+    if (op === "drop") map.pickups.push(command.item);
+  }
+  map = globalThis.__oskiewarValidateMap(map);
+  if (op === "undo") workshopHistory.pop();
+  else if (!["reset-round", "restart-level"].includes(op)) {
+    workshopHistory.push(workshopSnapshot());
+    if (workshopHistory.length > 20) workshopHistory.shift();
+  }
+  workshopTainted = true;
+  workshopRevision++;
+  installWorkshopMap(map);
+  if (op === "reset-round" || op === "restart-level")
+    resetRound(runtime().monotonicUs, op === "restart-level");
+  return workshopCommand({ op: "inspect" });
+}
+
+function installMapPickups(target, authored, type) {
+  target.length = 0;
+  for (const entry of authored) {
+    const x = tileCenterX(entry.col);
+    target.push({
+      ...(type === "gun" ? { kind: entry.kind, amount: entry.amount,
+        cycle: Boolean(entry.cycle) } : {}),
+      ...(type === "saber" ? { kind: "LIGHT SABER" } : {}),
+      ...(type === "grenade" ? { amount: entry.amount } : {}),
+      x, y: terrainFloorAt(x) - 70, z: 0,
+      active: true, startsActive: true, respawnAt: 0,
+    });
+  }
+}
+
+function resetWorkshopMap() {
+  if (!workshopMap) return;
+  if ((globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
+      !versusLane() && !survivalActive() && !roundViewer && !resimActive) {
+    installWorkshopMap(workshopMap);
+    return;
+  }
+  const spawns = players.map(p => p.spawnX);
+  installWorkshopMap(workshopBase);
+  workshopMap = null;
+  workshopHistory = [];
+  workshopRevision++;
+  currentMapName = "HALFPIPE";
+  currentMapId = "halfpipe";
+  if (versusLane() || survivalActive()) players.forEach((p, i) => { p.spawnX = spawns[i]; });
+}
+
+
 // Physics remains an exact 60 Hz story. Rendering may happen between those
 // authored instants—especially during slow motion—so retain the state that
 // entered each tick and blend only presentation coordinates toward the state
@@ -1996,6 +2128,8 @@ function spectatorState(now, nextRoundId = "") {
     Math.round((roundDurationUs - roundElapsedUs) / 1000));
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
+    map: { id: currentMapId, name: currentMapName,
+      ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
@@ -2414,7 +2548,7 @@ function flushPendingRoundReplay(now) {
 }
 
 function uploadRoundReplay(now) {
-  if (!replay) return;
+  if (!replay || workshopTainted) return;
   recordReplayCheckpoint(now, true);
   const demo = JSON.parse(JSON.stringify(replay));
   demo.matchId = "ow-" + matchName;
@@ -4167,6 +4301,17 @@ function roundDemoState(demo, now) {
 
 function applyRoundViewerState(state, now, dt = 1 / 60) {
   if (!state?.fighters?.length || !state.camera || !state.round) return;
+  if (state.map?.id && state.map.id !== currentMapId) {
+    if (state.map.workshop && globalThis.__oskiewarValidateMap) {
+      try { installWorkshopMap(globalThis.__oskiewarValidateMap(state.map.workshop)); }
+      catch { return; }
+    } else if (workshopMap) {
+      installWorkshopMap(workshopBase);
+      workshopMap = null;
+      currentMapId = "halfpipe";
+      currentMapName = "HALFPIPE";
+    }
+  }
   for (let index = 0; index < players.length; index++) {
     const source = state.fighters[index];
     const player = players[index];
@@ -5592,6 +5737,12 @@ function replayViewerImpacts(tick, dt) {
 }
 
 function gameBoot() {
+  globalThis.__oskiewarWorkshopCommand = workshopCommand;
+  workshopBase ||= workshopSnapshot();
+  if (globalThis.__oskiewarPublishedMap && globalThis.__oskiewarValidateMap) {
+    workshopMap = globalThis.__oskiewarValidateMap(globalThis.__oskiewarPublishedMap);
+    workshopTainted = true;
+  }
   syncGameView();
   // The reel harness may boot with the debug overlay lit — safe-zone crops,
   // stat chassis, input read-outs — to diagnose framing on a rendered reel.
@@ -5656,6 +5807,7 @@ function gameBoot() {
 }
 
 function resetRound(now, resetMatch = false) {
+  resetWorkshopMap();
   if (replay) {
     const nextRoundName = pronounceableMatchName();
     // A versus room is one address for a whole match — the link a friend was
@@ -12795,7 +12947,8 @@ function worldQuad(a, b, c, d, color) {
 }
 
 // Preserve the sampled silhouette, merging only collinear edges.
-const terrainProfile = (() => {
+const terrainProfile = [];
+function rebuildTerrainProfile() {
   const points = [];
   const step = (worldRight - worldLeft) / terrainSamples;
   for (let i = 0; i <= terrainSamples; i++) {
@@ -12809,8 +12962,9 @@ const terrainProfile = (() => {
     }
     points.push(point);
   }
-  return points;
-})();
+  terrainProfile.splice(0, terrainProfile.length, ...points);
+}
+rebuildTerrainProfile();
 
 function drawTerrainSurface(left, right, near, far, color) {
   for (let index = 1; index < terrainProfile.length; index++) {
@@ -14801,6 +14955,15 @@ function gamePaint() {
       { x: ledgeLeft, y: ledge.y, z: platformFar }, platformColor);
     worldLine(ledgeLeft, ledge.y, platformNear,
       ledgeRight, ledge.y, platformNear, 5, ledgeInk);
+  }
+  if (workshopHighlight && globalThis.__oskiewarWorkshopEnabled) {
+    for (const player of players) {
+      const x = player.spawnX, y = terrainFloorAt(x);
+      const ink = player.pad === 0 ? [80, 240, 255] : [255, 100, 210];
+      worldLine(x - 55, y - 4, -50, x + 55, y - 4, -50, 6, ink);
+      worldLine(x, y, 0, x, y - 240, 0, 6, ink);
+      worldLine(x, y - 240, 0, x + 65, y - 210, 0, 6, ink);
+    }
   }
   drawSurvivalLava(t);
   const shadowInk = mixColor([3, 5, 14], [92, 99, 101],

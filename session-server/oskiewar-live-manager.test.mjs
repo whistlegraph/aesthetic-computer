@@ -617,3 +617,30 @@ test("the rollback lane's packets pass seat to seat and never reach the grandsta
   assert.equal(host.sent.length, 2);
   assert.equal(host.sent[1].type, "oskiewar:input");
 });
+
+test('workshop routes acknowledgements only to the requesting agent', () => {
+  const manager = new OskiewarLiveManager();
+  const host = new FakeSocket(), agent = new FakeSocket(), other = new FakeSocket(), viewer = new FakeSocket();
+  for (const [ws, role] of [[host, 'publisher'], [agent, 'agent'], [other, 'agent'], [viewer, 'viewer']])
+    manager.handleConnection(ws, { url: '/oskiewar-live?match=sezzi7&role=' + role });
+  const packet = Buffer.from(JSON.stringify({ type: 'oskiewar:workshop',
+    content: { id: 'same', command: { op: 'inspect' } } }));
+  const count = host.sent.length;
+  viewer.emit('message', packet);
+  assert.equal(host.sent.length, count);
+  agent.emit('message', packet);
+  const first = host.sent.at(-1).content.id;
+  other.emit('message', packet);
+  const second = host.sent.at(-1).content.id;
+  assert.notEqual(first, second);
+  const reply = id => Buffer.from(JSON.stringify({ type: 'oskiewar:workshop-result',
+    content: { id, ok: true, result: { revision: 7 } } }));
+  agent.emit('message', reply(first)); // Agents cannot forge publisher replies.
+  assert.notEqual(agent.sent.at(-1).type, 'oskiewar:workshop-result');
+  host.emit('message', reply(first));
+  assert.equal(agent.sent.at(-1).content.id, 'same');
+  assert.equal(agent.sent.at(-1).content.result.revision, 7);
+  assert.notEqual(other.sent.at(-1).type, 'oskiewar:workshop-result');
+  host.emit('message', reply(second));
+  assert.equal(other.sent.at(-1).content.id, 'same');
+});

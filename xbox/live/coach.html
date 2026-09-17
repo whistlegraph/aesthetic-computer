@@ -135,6 +135,22 @@ claude mcp add coach -- node ./coach.mjs</code></pre>
     </li>
   </ul>
 
+  <h2>Build a map while playing</h2>
+  <p>Open the <a href="/?workshop=1">map workshop</a>, enable
+    <strong>Coach editing</strong>, and connect your coach to the room shown
+    on the title. <code>coach_workshop</code> can reshape terrain and platforms,
+    move and highlight spawns, drop items, undo edits, reset the round, or
+    restart the level. The edited map stays in place between rounds.</p>
+  <p>Ask: <em>Raise the middle platform, put a rocket launcher on the left,
+    highlight the spawns, and restart so I can try it.</em> Then:
+    <em>Save this as Moon Yard. Publish it and give me the play link.</em></p>
+  <p>Sign in to save private drafts or publish. Each save keeps a separate
+    version; published versions have a permanent play link. The coach can
+    list and load them later. Editing currently works in local practice in
+    the browser. Edited sessions do not upload competitive replays; reload
+    before returning to recorded matches. Turning Coach editing off prevents
+    further commands; an already submitted save may still finish.</p>
+
   <h2>Things to say to it</h2>
   <ul>
     <li><em>Sit in on regga890 and tell me after each round what to change.</em></li>
@@ -149,7 +165,9 @@ claude mcp add coach -- node ./coach.mjs</code></pre>
     watch it, the same way anyone with the address can join the second chair.
     A coach reads fighter positions, states, scores and the moves on screen.
     It does not see your keyboard, your account, or anything outside the room.
-    It cannot press a button, and the game counts it apart from human
+    Editing is off by default. When you enable it, attached coaches may edit
+    the practice map and save or publish it through your signed-in account.
+    The game counts coaches apart from human
     spectators — the antenna on the title means a machine is reading, not one
     more person in the stands. Up to four coaches can share one room.
   </p>
