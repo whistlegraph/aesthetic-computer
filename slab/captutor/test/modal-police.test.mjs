@@ -54,3 +54,8 @@ test('native banner recognition includes toolbar infobars without choosing tab c
  const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,buttons})=>({kind,buttons})))',{Application:()=>({processes:{byName:()=>({windows:()=>[window]})}})});
  assert.deepEqual(JSON.parse(result),[{kind:'automation-banner',buttons:['Turn off in settings','Close']}]);
 });
+
+test('connection watcher rescans a moved consent dialog instead of abandoning it',async()=>{
+ let checks=0;const result=await connectWithModalPolice(async()=>{await new Promise(r=>setTimeout(r,20));return 'connected';},{intervalMs:1,police:{check:async()=>{if(++checks===1)throw Error('Modal changed or action ambiguous');}}});
+ assert.equal(result,'connected');assert.ok(checks>1);
+});

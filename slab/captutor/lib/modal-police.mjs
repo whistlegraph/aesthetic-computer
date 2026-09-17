@@ -89,7 +89,7 @@ export function approvedDebuggingPolicy() {
 // Watch only this connection attempt; never leave an unattended consent clicker.
 export async function connectWithModalPolice(connect,{police=createModalPolice({allowRemoteDebugging:approvedDebuggingPolicy()}),intervalMs=500}={}) {
  let pending=true;let failure;
- const watch=(async()=>{while(pending){await new Promise(r=>{setTimeout(r,intervalMs);});if(!pending)break;try{await police.check('connecting',{mayHandle:()=>pending});}catch(error){failure=error;break;}}})();
+ const watch=(async()=>{while(pending){await new Promise(r=>{setTimeout(r,intervalMs);});if(!pending)break;try{await police.check('connecting',{mayHandle:()=>pending});}catch(error){if(/Modal changed or action ambiguous|Modal fingerprint changed/.test(String(error.stderr||error.message)))continue;failure=error;break;}}})();
  let result;
  try{result=await connect();}finally{pending=false;await watch;}
  if(failure){await result?.close?.();throw failure;}
