@@ -32,3 +32,14 @@ Do not run multiple watchers against the same Chrome session/cache concurrently.
 
 Validate with `node --test slab/captutor/test/*.test.mjs`.
 Keep these modules and tests identical to their `captutor/` counterparts in Iris.
+
+## Nag-fighter
+
+`node slab/captutor/bin/install-nag-fighter.mjs` installs a persistent macOS
+launch agent. It clears the known Chrome automation banner between takes,
+remembers matches, and flags other dialogs. It never grants remote-debugging
+consent. Stage Mode owns the desk while `stage-mode.json` exists, so the idle
+watcher yields to the renderer's guards instead of racing their clicks.
+Status, events and service logs live in `~/.local/share/captutor/nag-fighter/`.
+The loop waits 1.5 seconds between native scans; scans add several seconds.
+Use `node slab/captutor/bin/nag-fighter.mjs --once` for a single inspection.
