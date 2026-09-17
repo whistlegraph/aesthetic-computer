@@ -47,7 +47,7 @@ export function fingerprintModal(hit) {
 }
 export function createModalPolice({
  directory=join(homedir(),'.local/share/captutor/modal-police'),
- scan=()=>native(), act=(kind,hit)=>native(kind,hit), onEvent=()=>{},
+ scan=()=>native(), act=(kind,hit)=>native(kind,hit), onEvent=event=>process.stderr.write(JSON.stringify({source:"modal-police",...event})+"\n"),
  allowRemoteDebugging=false,
 }={}) {
  mkdirSync(directory,{recursive:true});
