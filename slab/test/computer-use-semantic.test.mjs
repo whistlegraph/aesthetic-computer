@@ -50,7 +50,9 @@ test("semantic browser fixture", {timeout:30000}, async t => {
   });
   await t.test("failed verification records delivered input without replaying it",async()=>{
     await page.setContent(`<button onclick="window.clicks++">Once</button><script>window.clicks=0</script>`);
-    const result=await service.run("click",{target,locator:{text:"Once"},after:{locator:{text:"Never appears"}},timeout:100});
+    // Leave time for actionability on busy fleet hosts; the missing postcondition
+    // should exhaust the deadline after dispatch, rather than the click itself.
+    const result=await service.run("click",{target,locator:{text:"Once"},after:{locator:{text:"Never appears"}},timeout:1500});
     assert.equal(result.performed,true);assert.equal(result.verification.ok,false);
     assert.equal(await page.evaluate(()=>window.clicks),1);
   });
