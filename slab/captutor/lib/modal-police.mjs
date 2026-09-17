@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync } fr
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 const run = promisify(execFile);
-const nativeScript = `
+export const CHROME_MODAL_SCRIPT = `
 const chrome=Application('System Events').processes.byName('Google Chrome');
 const hits=[];
 function text(e){const a=[];for(const k of ['name','description','value'])try{const v=String(e[k]());if(v&&v!=='undefined')a.push(v);}catch{}return [...new Set(a)].join(' ').slice(0,1000);}
@@ -28,12 +28,18 @@ function walk(e,depth){
  return {texts,buttons,modal};
 }
 for(const w of chrome.windows())walk(w,0);
+// Chrome may expose the same sheet both below its window and as a window.
+const uniqueHits=[];const seen=new Set();
+for(const h of hits){let position=null;try{position=h.element.position();}catch{}
+ const key=JSON.stringify([h.kind,h.title,h.buttons,position]);
+ if(!seen.has(key)){seen.add(key);uniqueHits.push(h);}
+}
 `;
-async function native(action) {
+async function native(action,expected) {
  const tail=action
-  ? `const h=hits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');h[0].element.click();JSON.stringify(true);`
-  : `JSON.stringify(hits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
- const {stdout}=await run('/usr/bin/osascript',['-l','JavaScript','-e',nativeScript+tail],{timeout:10000,maxBuffer:128*1024});
+  ? `const h=uniqueHits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');if(JSON.stringify([h[0].kind,h[0].title,[...h[0].buttons].sort()])!==${JSON.stringify(JSON.stringify(expected?[expected.kind,expected.title,[...expected.buttons].sort()]:null))})throw Error('Modal fingerprint changed');h[0].element.click();JSON.stringify(true);`
+  : `JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
+ const {stdout}=await run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:10000,maxBuffer:128*1024});
  return JSON.parse(stdout);
 }
 export function fingerprintModal(hit) {
@@ -41,7 +47,7 @@ export function fingerprintModal(hit) {
 }
 export function createModalPolice({
  directory=join(homedir(),'.local/share/captutor/modal-police'),
- scan=()=>native(), act=kind=>native(kind), onEvent=()=>{},
+ scan=()=>native(), act=(kind,hit)=>native(kind,hit), onEvent=()=>{},
  allowRemoteDebugging=false,
 }={}) {
  mkdirSync(directory,{recursive:true});
@@ -63,7 +69,7 @@ export function createModalPolice({
     const entry=memo[id]||{kind:hit.kind,firstSeen:at,count:0};
     entry.lastSeen=at;entry.count++;entry.response=allowed?(hit.kind==='remote-debugging'?'allow':'dismiss'):'flag';memo[id]=entry;
     // The memo is recognition evidence, never authority to click a future dialog.
-    if(allowed&&mayHandle()){await act(hit.kind);emit({type:'handled',id,kind:hit.kind,response:entry.response,remembered,at});}
+    if(allowed&&mayHandle()){await act(hit.kind,hit);emit({type:'handled',id,kind:hit.kind,response:entry.response,remembered,at});}
     else{if(!active.has(id))emit({type:'blocked',id,kind:hit.kind,remembered,at});blocked=hit.kind;}
    }
    const tmp=memoPath+'.'+process.pid+'.tmp';writeFileSync(tmp,JSON.stringify(memo,null,2));renameSync(tmp,memoPath);active=seen;

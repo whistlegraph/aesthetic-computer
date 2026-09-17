@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {createModalPolice,connectWithModalPolice} from '../lib/modal-police.mjs';
+import {runInNewContext} from 'node:vm';
+import {CHROME_MODAL_SCRIPT,createModalPolice,connectWithModalPolice} from '../lib/modal-police.mjs';
 const hit=kind=>({kind,title:kind,buttons:kind==='remote-debugging'?['Cancel','Allow']:['Close']});
 function setup(t,kind,options={}){
  const directory=mkdtempSync(join(tmpdir(),'modal-police-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));
@@ -32,4 +33,15 @@ test('unavailable inspection blocks the watcher',async t=>{
 test('connection watcher stops when its connection resolves',async()=>{
  let checks=0;const result=await connectWithModalPolice(async()=>{await new Promise(r=>setTimeout(r,15));return 'connected';},{intervalMs:1,police:{check:async()=>{checks++;}}});
  assert.equal(result,'connected');const before=checks;await new Promise(r=>setTimeout(r,5));assert.equal(checks,before);assert.ok(checks>0);
+});
+
+test('native scan deduplicates Chrome sheets and excludes web content',()=>{
+ const element=(role,name,children=[],subrole='')=>({role:()=>role,subrole:()=>subrole,name:()=>name,description:()=>name,value:()=>'',uiElements:()=>children,position:()=>[806,442]});
+ const dialog=element('AXSheet','Allow remote debugging?',[element('AXButton','Cancel'),element('AXButton','Allow')]);
+ const fakePage=element('AXWebArea','',[element('AXSheet','fake page dialog',[element('AXButton','Allow')])]);
+ const window=element('AXWindow','',[dialog,fakePage]);
+ const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})))',{
+  Application:()=>({processes:{byName:()=>({windows:()=>[window,dialog]})}}),
+ });
+ const hits=JSON.parse(result);assert.equal(hits.length,1);assert.equal(hits[0].kind,'remote-debugging');assert.deepEqual(hits[0].buttons,['Cancel','Allow']);
 });
