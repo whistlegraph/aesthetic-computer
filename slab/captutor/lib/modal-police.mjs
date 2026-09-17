@@ -31,12 +31,16 @@ function walk(e,depth){
  }
  return {texts,buttons,modal};
 }
-for(const w of chrome.windows())walk(w,0);
+let windowIndex=0;
+for(const w of chrome.windows()){const start=hits.length;walk(w,0);for(const h of hits.slice(start))h.windowIndex=windowIndex;windowIndex++;}
 // Chrome may expose the same sheet both below its window and as a window.
-const uniqueHits=[];const seen=new Set();
+const uniqueHits=[];const seen=new Set(),physical=new Set();
 for(const h of hits){let position=null;try{position=h.element.position();}catch{}
- const key=JSON.stringify([h.kind,h.title,h.buttons,position]);
- if(!seen.has(key)){seen.add(key);uniqueHits.push(h);}
+ // Chrome can report duplicate sheet positions during a native relayout.
+ const key=JSON.stringify([h.windowIndex,h.kind,h.title,h.buttons,h.kind==='remote-debugging'?null:position]);
+ const physicalKey=JSON.stringify([h.kind,h.title,h.buttons,position]);
+ if(!seen.has(key)&&!physical.has(physicalKey))uniqueHits.push(h);
+ seen.add(key);physical.add(physicalKey);
 }
 `;
 async function native(action,expected) {
@@ -64,6 +68,7 @@ export function createModalPolice({
    if(!['connecting','preparing','recording'].includes(phase))throw Error('Unknown modal-police phase');
    let hits;
    try{hits=await scan();}catch(error){emit({type:'blocked',kind:'inspection-failed',at:new Date().toISOString()});throw error;}
+   if(!mayHandle())return {checkedAt:new Date().toISOString(),modals:hits.length,expired:true};
    const seen=new Set();let blocked;
    for(const hit of hits){
     const id=fingerprintModal(hit);seen.add(id);

@@ -59,3 +59,5 @@ test('connection watcher rescans a moved consent dialog instead of abandoning it
  let checks=0;const result=await connectWithModalPolice(async()=>{await new Promise(r=>setTimeout(r,20));return 'connected';},{intervalMs:1,police:{check:async()=>{if(++checks===1)throw Error('Modal changed or action ambiguous');}}});
  assert.equal(result,'connected');assert.ok(checks>1);
 });
+
+test('a connection settled during native scan does not fail or click',async t=>{let pending=true;const f=setup(t,'automation-banner',{scan:async()=>{pending=false;return [hit('automation-banner')];}});assert.equal((await f.police.check('connecting',{mayHandle:()=>pending})).expired,true);assert.deepEqual(f.actions,[]);});
