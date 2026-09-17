@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "paper": "What to Call a Balance",
+  "pdf": "ac-credits.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 0,
+  "visualInference": true,
+  "pdfSha256": "335abe030bdd3da8cf87a823bf6b35c9662400cea775a60b27dc930ee83b6d41",
+  "reviewedAt": "2026-09-17T18:27:43.285663+00:00",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [],
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "design": "pass",
+    "notes": "Inspected all five final page rasters. Legible two-column body, clean table rules and captions, no collisions or clipping. Final columns balanced; paperclip and disclaimer visible."
+  },
+  "tables": [
+    {
+      "id": "platforms",
+      "page": 2,
+      "design": "pass",
+      "notes": "Inspected at full-page reading scale; all rows, citations and headers readable."
+    },
+    {
+      "id": "games",
+      "page": 3,
+      "design": "pass",
+      "notes": "Inspected at full-page reading scale; all rows, citations and headers readable."
+    },
+    {
+      "id": "naming-routes",
+      "page": 4,
+      "design": "pass",
+      "notes": "Inspected at full-page reading scale; all rows, citations and headers readable."
+    }
+  ]
+}

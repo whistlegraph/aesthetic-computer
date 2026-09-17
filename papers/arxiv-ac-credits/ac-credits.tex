@@ -1,0 +1,198 @@
+% !TEX program = xelatex
+\documentclass[10pt,letterpaper,twocolumn]{article}
+\usepackage[margin=.75in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique]
+\usepackage{xcolor,booktabs,tabularx,ragged2e,graphicx,titlesec,fancyhdr,microtype}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{balance}
+\usepackage{../ac-source-bundle}
+\definecolor{acpink}{HTML}{B44887}
+\definecolor{acpurple}{HTML}{7850B4}
+\newcommand{\ac}{Aesthetic{\color{acpink}.}Computer}
+\hypersetup{colorlinks=true,urlcolor=acpurple,linkcolor=acpurple,citecolor=acpurple,pdftitle={What to Call a Balance},pdfauthor={@jeffrey}}
+\titleformat{\section}{\normalsize\bfseries}{\thesection.}{.5em}{}
+\titleformat{\subsection}{\small\bfseries}{\thesubsection}{.5em}{}
+\setlength{\columnsep}{22pt}
+\setlength{\parskip}{3pt}
+\setlength{\emergencystretch}{2em}
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\fancyhead[C]{\small\ac}\fancyfoot[C]{\small\thepage}
+\newcommand{\refitem}[4]{\bibitem{#1} #2. \emph{#3}. \href{#4}{Official source}. Accessed September 17, 2026.}
+\begin{document}
+\twocolumn[\begin{center}
+{\LARGE\bfseries What to Call a Balance}\par\vspace{6pt}
+{\large Game currencies and naming options for \ac}\par\vspace{9pt}
+\href{https://prompt.ac/@jeffrey}{@jeffrey}\quad September 17, 2026
+\end{center}
+\begin{quote}\small\textbf{Abstract.}
+Aesel needs an understandable way to pay for remote creative work. This report compares the money balances of Xbox, PlayStation, and Steam with currencies in six games, including Street Fighter 6. Official documentation reveals three different objects often collapsed into the word currency: a monetary account balance, a purchased service or content unit, and an earned reward. Their names do not reliably identify their economic rules. For \ac{}, the strongest initial choices are \emph{AC credits} for clarity, \emph{dots} for a distinctive creative identity, or an ordinary money balance if an extra denomination proves unnecessary. The Porkbun account-credit comparison strengthens the simplest starting point: a monetary AC balance with an Add funds action. Credits and dots remain alternatives to test if a separate unit improves usability. Tez is considered separately as a possible funding asset, rather than the default unit. This is a design proposal, not a launched currency, pricing commitment, or user-study result.
+\end{quote}\vspace{8pt}]
+
+\section{The decision}
+The immediate problem is paying for remote generation in aesel without making a friendly creative tool feel like a cryptocurrency product. The brief explicitly rejects \emph{coin}. That is a product preference, not a claim that every game using coins involves a blockchain. Street Fighter 6 provides a direct counterexample.
+
+The name has to work beyond one provider or medium. A user may make a piece today and later request an image, sound, or document. The selected model and amount of work may change the cost. A unit that implies one fixed operation, such as a ticket, therefore carries a promise the product might not be able to keep.
+
+Three decisions should be made separately: what the balance is called, how usage is priced, and how money reaches the account. A playful name does not require a tradable asset. Accepting a payment asset does not require denominating every price in it.
+
+\section{Method and related work}
+We used a purposive sample: the three platforms named in the brief, Street Fighter 6, and five contrasting games or creator platforms. Porkbun was added as a service-account comparison after the initial game survey. For each, we recorded the official label, acquisition route, spending role, and an exception that could mislead a comparison. Sources are first-party support pages, publisher announcements, and publisher store listings, checked on September 17, 2026. Tables summarize terminology, not a complete audit of each economy.
+
+The local Papers Platter, the sustainability paper and its bibliography, the inference-turnstile report, and the naming sub-platter informed the project context. \emph{Who Pays for Creative Tools?} frames the maintenance burden behind creative software~\cite{sustainability}. \emph{Paying for Strangers} examines the need to associate inference use with an accountable user~\cite{turnstile}. Neither establishes that a branded currency improves willingness to pay. This report addresses the smaller interface decision that follows metering.
+
+Candidate names below are proposals generated for this brief. They are not presented as attested vocabulary from the project's first-hand lexicon. Assessments such as ``playful'' or ``clear'' are design hypotheses. No interviews, conversion experiment, trademark search, or jurisdiction-specific legal review has been performed.
+
+\section{Platforms name the container}
+Xbox uses a \emph{Microsoft account balance}; PlayStation uses a \emph{wallet}; Steam uses the \emph{Steam Wallet}. These are containers for money, rather than a shared invented game unit. Gift cards fund the container. Separate reward systems can sit alongside it (Table~\ref{tab:platforms}).
+
+That distinction answers the original comparison: AC does not need to invent the equivalent of a coin merely because it has an account balance. A direct display such as ``Balance: US\$5.00'' is a complete design candidate.
+
+\begin{table*}[t]
+\small\renewcommand{\arraystretch}{1.2}
+\caption{Platform balances and separate rewards. Current terminology; reward programs are not interchangeable with spending money.}\label{tab:platforms}
+\begin{tabularx}{\textwidth}{@{}p{.8in}p{1.45in}XX@{}}\toprule
+Platform & Spending balance & Separate reward label & Interpretation for AC \\\midrule
+Xbox & Microsoft account balance~\cite{microsoft} & Microsoft Rewards points; redeemable for available rewards~\cite{rewards} & A literal account balance can coexist with earned benefits. \\
+PlayStation & Wallet / wallet funds~\cite{playstation} & PlayStation Stars Points; program closing November 2, 2026~\cite{stars} & Do not copy a closing rewards program as a current spending unit. \\
+Steam & Steam Wallet~\cite{steam} & Steam Points; purchase-linked rewards for Points Shop community content~\cite{steampoints} & Wallet money and reward points have different jobs. \\\bottomrule
+\end{tabularx}
+\end{table*}
+
+The timing matters. PlayStation Stars stopped accepting new members on May 21, 2025; Sony says the program ends November 2, 2026. Existing members can redeem unexpired points under its terms~\cite{stars}. Treating Stars as the ordinary name for PlayStation money would misrepresent both its role and its status.
+
+For AC, \emph{balance} is a useful heading even if the underlying units are credits or dots. It describes how much remains without introducing a second denomination. ``Wallet'' is recognizable but may suggest a broader set of payment and transfer functions than a small prepaid creative service needs.
+
+\section{Games name the unit}
+Table~\ref{tab:games} shows that familiar words are reused for very different contracts. Coins can be ordinary premium game units. Credits can be earned rather than purchased. A fictional noun can support both buying and creator earnings. The label alone does not explain whether a balance is transferable or redeemable.
+
+\subsection{Street Fighter 6}
+Capcom sells \emph{Fighter Coins} as premium currency~\cite{sfcoins}. \emph{Drive Tickets} are available through challenges and campaigns and buy selected items such as avatar gear and music~\cite{sftickets}. They are also included in certain paid editions or passes~\cite{sfeditions}. Calling the latter simply ``the free currency'' would conceal that exception.
+
+This pairing makes different acquisition and spending paths visible, but it also makes players learn two units. AC has no demonstrated need to reproduce that split. A free starter grant and a purchased top-up can contribute to one displayed service balance while remaining distinct in the internal ledger.
+
+The World Tour mode also has a local economy. The consulted Capcom article describes part-time jobs and purchases of clothing and food, but does not explicitly name that currency~\cite{sfeditions}. We therefore do not treat the commonly reported name Zenny as independently verified in this evidence set. The naming recommendation does not depend on that missing detail.
+
+\subsection{Other patterns}
+Fortnite's V-Bucks combine purchase and pass-related acquisition~\cite{fortnite}. Roblox adds creator earnings to the picture: Robux may be bought or earned by creating and selling content; eligible Earned Robux participate in a separate developer exchange program~\cite{roblox}. That is a materially larger promise than prepaid access to generation.
+
+Minecraft demonstrates a platform boundary: Minecoins on supported non-PlayStation platforms and Minecraft Tokens on PlayStation~\cite{minecraft,minecraftps}. For an AC account intended to work on desktop and iPhone, fragmentation like this is something to evaluate explicitly, not accidentally inherit from a payment implementation.
+
+VALORANT distinguishes purchased VP, Radianite Points for upgrading eligible skins, and play-earned Kingdom Credits~\cite{valorant,kingdom}. Apex Legends uses premium, earned, crafting, and scarce cosmetic units~\cite{apex}. These examples provide naming vocabulary, but a complex game's retention economy is not evidence that a creative tool needs several balances.
+
+\begin{table*}[t]
+\small\renewcommand{\arraystretch}{1.17}
+\caption{Game currency sample. Acquisition summaries are deliberately qualified; editions, passes, regions, and platform rules can change.}\label{tab:games}
+\begin{tabularx}{\textwidth}{@{}p{.9in}p{1.5in}XX@{}}\toprule
+Game & Unit & Acquisition / role & Relevant naming lesson \\\midrule
+Street Fighter 6 & Fighter Coins; Drive Tickets & Coins purchased; Tickets from activities and some paid bundles~\cite{sfcoins,sftickets,sfeditions} & A unit name does not establish whether acquisition is paid or earned. \\
+Fortnite & V-Bucks & Purchased and available through pass progression; content purchases~\cite{fortnite} & A distinctive name can cover several acquisition routes. \\
+Roblox & Robux & Purchased or creator-earned; qualifying earnings have separate cash-out rules~\cite{roblox} & Spending credit and creator income need distinct accounting. \\
+Minecraft & Minecoins; Minecraft Tokens & Purchased Marketplace units; PlayStation uses Tokens~\cite{minecraft,minecraftps} & Platform portability must be a deliberate promise. \\
+VALORANT & VP; Radianite Points; Kingdom Credits & Purchased content units; skin upgrades; earned unlocks respectively~\cite{valorant,kingdom} & Even ``credits'' can name an earned-only unit. \\
+Apex Legends & Apex Coins; Legend Tokens; Crafting Metals & Premium purchases; play-earned unlocks; crafting cosmetics~\cite{apex} & Several units organize several economic roles, with a learning cost. \\\bottomrule
+\end{tabularx}
+\end{table*}
+
+\section{Three viable routes for AC}
+The shared entry is an authenticated account with a visible remaining balance. From there the choice branches: show money directly, introduce a functional service unit, or give that unit a distinctive name. Table~\ref{tab:names} makes the choice before the detailed argument. Tickets are retained as a narrower alternative, not a fourth general-purpose recommendation.
+
+\subsection{Money: AC balance}
+The contract is simple: show a monetary amount and quote the same denomination before use. This is strongest when the product can represent small charges legibly and maintain a clear regional pricing policy. It should never imply a bank account, transfer facility, or cash-out service unless those capabilities actually exist.
+
+The drawback is presentation at very small scales. If a request costs a fraction of a cent, a two-decimal balance may hide movement. Aggregation, more precision, or minimum charge rules would need explanation. Switching to credits only changes the display scale; it does not solve the underlying billing decision.
+
+\subsection{The Porkbun comparison}
+Porkbun explicitly lets customers buy account credit in advance, then use it for later purchases, including automatic renewals. Its help page calls the action ``buy account credit'' and the account section ``Pre-fund Your Account''~\cite{porkbun}. This is a close reference for the requested experience: add funds once, then spend from a remaining monetary balance.
+
+For AC, a first prototype could show ``AC balance: US\$5.00,'' an ``Add funds'' button, and a per-request estimate in the same denomination. Account credit describes the prepaid relationship; it need not introduce 500 fictional units. The comparison supports the interaction pattern, not an assumption that domain purchases and variable inference have identical settlement rules.
+
+\subsection{Service units: AC credits}
+\emph{Credits} is the clearest working name for a general prepaid service balance. It can cover multiple models and media without pretending that every operation costs the same. Use sentence case: ``250 credits,'' ``Add credits,'' and ``Estimated cost: 4--8 credits.'' The conversion must be visible at purchase and understandable at use.
+
+This route should never absorb a loyalty score or a reputation metric. Earned community recognition deserves a separate label if it is introduced at all. ``Credit'' has other meanings, including borrowing, so the purchase screen should make prepayment explicit.
+
+\subsection{Distinctive units: dots}
+\emph{Dots} is the strongest characterful candidate in this set. It is short, easy to pluralize, and connected to marks and digital making without naming a provider. The account could show ``250 dots'' and an action ``Add dots.'' Its intended contract is still prepaid creative use: the first encounter should say ``Dots are AC usage credits.''
+
+The risk is ambiguity. Dots can sound like a collectible, a drawing primitive, or a score. Their creative association is a hypothesis, not demonstrated comprehension. A dot symbol alone is insufficient for accessible labels or prices. This route should never hide the money conversion behind the cute unit.
+
+\begin{table*}[t]
+\small\renewcommand{\arraystretch}{1.22}
+\caption{Naming routes for the same proposed balance. These are qualitative design judgments, not measured rankings.}\label{tab:names}
+\begin{tabularx}{\textwidth}{@{}p{1.0in}p{1.3in}XX@{}}\toprule
+Route & Example display & Best fit & Main constraint \\\midrule
+Money & Balance: US\$5.00 & Immediate understanding of spending value & Tiny charges and regional money display need care. \\
+Functional units & 500 credits & Multiple media and variable model costs & Explain conversion; distinguish prepaid use from rewards. \\
+Distinctive units & 500 dots & A playful, shared AC identity & Teach the meaning without concealing the price. \\
+Fixed admission & 5 tickets & A well-defined session, workshop, or fixed package & Avoid implying one ticket equals an arbitrary generation. \\\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Names to set aside}
+\emph{Tickets} suits discrete admission or fixed bundles. It becomes awkward for streaming conversations, retries, and providers with different costs. \emph{Points} suggests rewards or achievement in this sample. \emph{Tokens} collides with language-model accounting as well as blockchain terminology: one AC unit should not be mistaken for one model token.
+
+\emph{Ink} and \emph{pixels} are evocative but privilege visual work over sound and code. \emph{Energy} or \emph{charge} could suggest physical energy or a battery-like replenishment cycle. \emph{Coins} is excluded by the brief. These are reasons to narrow the test, not declarations that the words are unusable in every product.
+
+\section{Tez: asset or payment route?}
+Tezos documentation identifies tez as the native currency of the network~\cite{tez}. Calling the AC balance tez would associate the product with that external asset and its wallet conventions. It would not satisfy the brief's desire to move away from crypto associations merely by avoiding the word coin.
+
+There are two different proposals here. One would denominate user balances and prices in tez. Another would accept a tez payment and credit an ordinary AC service balance at an explicitly quoted conversion. The second preserves the naming and pricing contract across funding methods. It is an architectural option, not a recommendation to launch it now.
+
+The initial system should prove demand and accurate accounting with a conventional balance first. Any later asset funding route needs explicit treatment of conversion timing, payment finality, fees, failed payments, and refunds. No token issuance, transfer market, or speculative appreciation is needed to fund a drawing or a coding session.
+
+\section{Implementation implications}
+These proposals build on the local credits exploration, which remains a design document rather than a live paid ledger. Keep the internal accounting unit neutral, stable, and integral at sufficient precision. Renaming credits to dots should change presentation, not historical amounts or payment identifiers.
+
+A proposed request flow is: identify the account, show the selected model and estimate, reserve an upper bound, run the work, settle actual usage, and release the remainder. Retries need idempotent identifiers so a repeated request cannot debit twice. Purchased grants and promotional allowances need provenance even when the interface shows one usable total.
+
+A single displayed balance should not silently promise equal work across models. A low-cost default and a premium model can debit different amounts, with the selection and estimate visible before the request. Provider price changes should affect a documented service tariff, not secretly redefine an existing unit balance. The exchange rate, margin, minimum charge, and rounding policy remain undecided.
+
+Account identity should survive a changed handle. On iPhone and desktop, access to the same account should recover the same eligible balance and history. Store receipts and web payments are funding records; they are not the identity itself. Apple describes consumable in-app purchases as an applicable product category for items such as game currency~\cite{apple}. Actual purchase and cross-platform rules must be validated for the final product and storefront; a naming report does not establish App Review acceptance.
+
+If creator payouts are added later, treat earnings as a separately specified obligation. Buying service credits should not imply that the purchaser can withdraw money, resell units, or profit from holding them. Likewise, model usage telemetry need not store prompt text to explain a debit: an account reference, request ID, provider/model, metered quantity, tariff version, amount, and settlement state can provide the basic audit trail.
+
+\section{Evaluation before adoption}
+Test \emph{credits}, \emph{dots}, and the monetary baseline using the same screens, prices, and tasks. Changing the artwork or generosity alongside the name would confound the result. A small formative round of five to eight participants can reveal misunderstandings; it cannot establish a statistically reliable conversion uplift.
+
+Ask each participant to explain what a top-up buys, estimate how much a displayed request will consume, identify which selected model is more expensive, and explain what happens to an unused reservation after a failure. Also ask whether they believe the balance can be sold or cashed out. Record answers before teaching the rules, then repeat after the minimal explanatory copy.
+
+The main criterion is comprehension of cost and remaining value. Secondary criteria are fit with AC's tone, recall of the label, and whether explanatory copy feels burdensome. If dots requires substantially more explanation, use credits. If both are equally understood and dots is preferred, the playful label has earned its place. If both obscure prices relative to money, keep the ordinary balance.
+
+The numerical examples in Table~\ref{tab:names} illustrate language only. They do not establish that 500 credits or dots will cost US\$5.00. Pricing should be chosen from real operating costs, payment overhead, refunds, and a sustainable margin, then tested transparently.
+
+\section{Ethics and limitations}
+A cute denomination can make expenditure harder to perceive. Show the purchase price, unit conversion, and estimated consumption without requiring mental arithmetic across several exchange rates. Avoid countdown pressure, forced oversized bundles, or a second premium currency introduced only to hide effective prices. Free exploration can be a grant of the same service units, with clear limits and provenance.
+
+The sample is intentionally small and English-language. Publisher rules vary and pages change. Acquisition pathways in the tables are summaries, not exhaustive entitlement specifications. This report does not show that any sampled economy is fair, that copying its terminology improves retention, or that a candidate name is legally available. No new currency or payment system was deployed as part of the research.
+
+\balance
+\section{Recommendation}
+Start with \textbf{AC balance} and an \textbf{Add funds} action, following the ordinary prepaid-account pattern illustrated by Porkbun. Show monetary value directly. Keep \textbf{AC credits} as the functional-unit alternative and \textbf{dots} as the playful candidate to test if the money display proves awkward. Keep \emph{tickets} for an actual fixed admission product if one emerges. Keep tez separate as a possible future funding route. The durable commitment should be a comprehensible price and an accountable balance; the final noun remains open.
+
+\begin{thebibliography}{99}\small
+\bibitem{sustainability} @jeffrey. \emph{Who Pays for Creative Tools?} Working paper, 2026. \href{https://papers.aesthetic.computer/arxiv-sustainability/sustainability.pdf}{Papers Platter}.
+\bibitem{turnstile} @jeffrey. \emph{Paying for Strangers}. Field report, September 11, 2026. \href{https://papers.aesthetic.computer/arxiv-inference-turnstile/inference-turnstile.pdf}{Papers Platter}.
+\refitem{microsoft}{Microsoft}{Add money to your Microsoft account}{https://support.microsoft.com/en-us/accounts-billing/add-money-to-your-microsoft-account}
+\refitem{rewards}{Microsoft}{How to redeem Microsoft Rewards points}{https://support.microsoft.com/en-au/accounts-billing/rewards/how-to-redeem-microsoft-rewards-points}
+\refitem{playstation}{Sony Interactive Entertainment}{How to add funds to your wallet on PlayStation Store}{https://www.playstation.com/en-us/support/store/ps-store-top-up-wallet/}
+\refitem{stars}{Sony Interactive Entertainment}{PlayStation Stars: program ending FAQ}{https://www.playstation.com/en-us/playstation-stars/}
+\refitem{steam}{Valve}{Steam Gift Cards}{https://store.steampowered.com/digitalgiftcards/howtopurchase/?l=english}
+\refitem{steampoints}{Valve}{Steam Points support}{https://help.steampowered.com/en/wizard/HelpWithPoints}
+\refitem{sfcoins}{Capcom / PlayStation Store}{Street Fighter 6: add-ons}{https://store.playstation.com/concept/10001615}
+\refitem{sftickets}{Capcom}{Street Fighter 6: Drive Tickets announcement}{https://steamcommunity.com/games/1364780/announcements/detail/534337229868237778}
+\refitem{sfeditions}{Capcom / PlayStation Blog}{Street Fighter 6 launch and edition details}{https://blog.playstation.com/?p=372958}
+\refitem{fortnite}{Epic Games}{How do I get more V-Bucks in Fortnite?}{https://www.epicgames.com/help/c-34254770/c-39884448/a21722612?lang=en-US}
+\refitem{roblox}{Roblox}{Ways to Get Robux}{https://en.help.roblox.com/hc/en-us/articles/203313200-Ways-to-Get-Robux}
+\refitem{minecraft}{Mojang}{Buy Minecoins}{https://www.minecraft.net/en-us/marketplace/buy-minecoins}
+\refitem{minecraftps}{Sony Interactive Entertainment}{A parent's guide to Minecraft}{https://www.playstation.com/en-us/games/minecraft/parents-guide-to-minecraft/}
+\refitem{valorant}{Riot Games}{VALORANT store and cosmetic content}{https://playvalorant.com/en-gb/news/dev/valorant-store-and-cosmetic-content/}
+\refitem{kingdom}{Riot Games}{Progression Update Explainer + FAQ}{https://playvalorant.com/en-gb/news/game-updates/progression-update-explainer-faq/}
+\refitem{apex}{Electronic Arts}{Crafting and currency in Apex Legends}{https://help.ea.com/en/articles/apex-legends/crafting-and-currency/}
+\refitem{tez}{Tezos}{Glossary: tez}{https://docs.tezos.com/overview/glossary}
+\refitem{porkbun}{Porkbun}{How to add funds to your Porkbun account}{https://kb.porkbun.com/article/286-how-to-add-funds-to-your-porkbun-account}
+\refitem{apple}{Apple}{In-app purchase types}{https://developer.apple.com/help/app-store-connect/reference/in-app-purchases-and-subscriptions/in-app-purchase-types/}
+\end{thebibliography}
+\end{document}
