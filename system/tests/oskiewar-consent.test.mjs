@@ -91,8 +91,8 @@ test("photo and voice map to narrow, valid REGARDE asks", async () => {
     const answer = scopeForMedia({ photo, voice });
     assert.equal(readScope(answer).error, undefined);
     assert.deepEqual(answer.source, [...(photo ? ["appearance"] : []), ...(voice ? ["voice"] : [])]);
-    assert.deepEqual(answer.outputs, [...(photo ? ["portrait"] : []), ...(voice ? ["match_audio"] : [])]);
-    assert.deepEqual(answer.distribution, ["private_preview"]);
+    assert.deepEqual(answer.outputs, [...(photo ? ["fighter_mesh"] : []), ...(voice ? ["match_audio"] : [])]);
+    assert.deepEqual(answer.distribution, ["private_preview", "local_gameplay"]);
     assert.equal(answer.retention, "bound_to_purpose_scope");
     for (const key of SEPARATE) assert.equal(answer[key], false);
   }

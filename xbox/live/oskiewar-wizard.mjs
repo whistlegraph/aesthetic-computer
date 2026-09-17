@@ -17,6 +17,8 @@
 // retry loop, because asking the same desk the same question until it says yes
 // is how a consent wall becomes a nag screen.
 
+import { mountFighterPreview } from "./oskiewar-fighter.mjs";
+
 const ENDPOINT = "/api/oskiewar-consent";
 
 // The pilot offers just two materials. The remaining scope is narrow and
@@ -29,8 +31,8 @@ const MATERIALS = [
 export function scopeForMedia({ photo, voice }) {
   return {
     source: [...(photo ? ["appearance"] : []), ...(voice ? ["voice"] : [])],
-    outputs: [...(photo ? ["portrait"] : []), ...(voice ? ["match_audio"] : [])],
-    distribution: ["private_preview"],
+    outputs: [...(photo ? ["fighter_mesh"] : []), ...(voice ? ["match_audio"] : [])],
+    distribution: ["private_preview", "local_gameplay"],
     retention: "bound_to_purpose_scope",
     marketing: false, merchandise: false, model_training: false,
   };
@@ -86,7 +88,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     <form id="wizard-card" role="dialog" aria-modal="true" aria-labelledby="wizard-title" novalidate>
       <div id="wizard-brand" aria-label="REGARDE">regarde</div>
       <h2 id="wizard-title">Add yourself</h2>
-      <p id="wizard-bargain">OSKIEWAR asks to make a portrait or game voice for your private preview. Kept until you withdraw.</p>
+      <p id="wizard-bargain">Make a fighter from your photo for private preview and local practice. OpenAI reads the photo to choose its appearance. Your grant controls access; withdraw to stop future use.</p>
       <div id="wizard-sections"></div>
       <p id="wizard-note" role="status" aria-live="polite"></p>
       <p id="wizard-receipt"></p>
@@ -105,6 +107,11 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
   const back = panel.querySelector("#wizard-back");
   let busy = false;
   let capability = null;
+  let submitted = null;
+  let candidate = null;
+  let accepted = null;
+  let reviewSession = 0;
+  const clearFighter = () => { accepted = null; globalThis.__oskiewarFighterAppearance = null; };
   const upload = document.createElement("div");
   sections.after(upload);
 
@@ -146,10 +153,17 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
 
   function open() {
     if (!panel.hidden) return;
+    if (busy) { panel.hidden = false; globalThis.__oskiewarWizardOpen = true; return; }
+    reviewSession++;
     capability = null;
+    submitted = null;
+    candidate = null;
     upload.replaceChildren();
     sections.hidden = false;
+    panel.querySelector("#wizard-bargain").hidden = false;
+    panel.querySelector("#wizard-title").textContent = "Add yourself";
     go.textContent = "Allow";
+    back.textContent = "Not now";
     go.disabled = false;
     panel.hidden = false;
     globalThis.__oskiewarWizardOpen = true;
@@ -163,7 +177,6 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     if (panel.hidden) return;
     panel.hidden = true;
     globalThis.__oskiewarWizardOpen = false;
-    working(false);
   }
 
   back.addEventListener("click", close);
@@ -185,6 +198,16 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
         "trouble");
       return;
     }
+    if (candidate) {
+      if (Date.now() >= candidate.validUntil) { say("This preview expired. Open Add yourself to ask again.", "trouble"); return; }
+      accepted = { ...candidate, token };
+      globalThis.__oskiewarFighterAppearance = { appearance: candidate.appearance, validUntil: candidate.validUntil };
+      say("Ready for local practice. Online matches keep the standard fighter.", "settled");
+      go.disabled = true;
+      back.textContent = "Done";
+      return;
+    }
+    if (submitted) { await generate(token); return; }
     if (capability) {
       const selected = [...upload.querySelectorAll('input[type="file"]')]
         .filter(input => input.files.length);
@@ -207,12 +230,14 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || "Submission refused.");
-        upload.replaceChildren();
-        capability = null;
-        working(false);
-        go.disabled = true;
-        say(result.purge_at ? `Submitted. Purge scheduled for ${new Date(result.purge_at).toLocaleString()}. Nothing generated yet.`
-          : "Submitted. Kept while your grant stands. Nothing generated yet.", "settled");
+        const photo = result.manifest?.find(item => item.source === "appearance");
+        if (!photo) {
+          working(false); go.disabled = true;
+          say("Voice stored. Voice generation is not available yet.", "settled");
+          return;
+        }
+        submitted = { hash: photo.hash.replace(/^sha256:/, ""), capability: capability.jws };
+        await generate(token);
       } catch (error) { working(false); say(error.message, "trouble"); }
       return;
     }
@@ -260,6 +285,21 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
           upload.append(label);
         }
         go.textContent = "Submit";
+        try {
+          const prior = await fetch("/api/oskiewar-submission", {
+            method: "POST", headers: { "Content-Type": "application/json", authorization: "Bearer " + token },
+            body: JSON.stringify({ action: "status", capability: capability.jws }), signal: AbortSignal.timeout(10000),
+          });
+          if (prior.ok) {
+            const photo = (await prior.json()).manifest?.find(item => item.source === "appearance");
+            if (photo) {
+              submitted = { hash: photo.hash.replace(/^sha256:/, ""), capability: capability.jws };
+              go.textContent = "Make fighter";
+              say("Your stored photo is ready.", "settled");
+              return;
+            }
+          }
+        } catch { /* Upload remains available if there is no recoverable manifest. */ }
       }
       sfx("hit", .9, 0);
       say("Allowed. Choose your files.", "settled");
@@ -280,6 +320,55 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
       "trouble");
     receiptLine.textContent = "";
   });
+
+
+  async function generationRequest(token, action, source = submitted) {
+    const response = await fetch("/api/oskiewar-generation", {
+      method: "POST", headers: { "Content-Type": "application/json", authorization: "Bearer " + token },
+      body: JSON.stringify({ ...source, action }), signal: AbortSignal.timeout(100000),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Fighter generation failed.");
+    return result;
+  }
+  async function generate(token) {
+    const session = reviewSession;
+    working(true); say("Making your fighter…");
+    try {
+      const result = await generationRequest(token, "generate");
+      if (session !== reviewSession) return;
+      if (result.status === "running") {
+        working(false); go.textContent = "Check generation";
+        say("Your fighter is being made. Check again in a moment."); return;
+      }
+      panel.querySelector("#wizard-bargain").hidden = true;
+      panel.querySelector("#wizard-title").textContent = "Your fighter";
+      const appearance = mountFighterPreview(upload, result.fighter);
+      candidate = { ...result, appearance, source: { ...submitted } };
+      working(false); go.textContent = "Use in practice";
+      say("Review your fighter before using it. Available for this short practice session.", "settled");
+    } catch (error) {
+      working(false); go.textContent = "Check generation";
+      say(error.message, "trouble");
+    }
+  }
+  // Keep a granted appearance only in this page's memory. Current authority is
+  // checked while equipped; expiry, sign-out, withdrawal or loss of contact
+  // removes it. There is no public asset URL, localStorage copy or replay data.
+  let checking = false;
+  setInterval(async () => {
+    if (!accepted || checking) return;
+    const selected = accepted;
+    if (Date.now() >= selected.validUntil) { clearFighter(); return; }
+    checking = true;
+    try {
+      const token = await bearer();
+      if (!token || token !== selected.token) { clearFighter(); return; }
+      await generationRequest(token, "status", selected.source);
+    } catch { if (accepted === selected) clearFighter(); }
+    finally { checking = false; }
+  }, 15000);
+  addEventListener("pagehide", clearFighter);
 
   return { open, close, get isOpen() { return !panel.hidden; } };
 }

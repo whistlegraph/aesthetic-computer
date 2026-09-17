@@ -10018,6 +10018,20 @@ function damagedPartColor(color, player, part) {
   return mixColor(color, [244, 34, 50], amount);
 }
 
+function generatedAppearance(player) {
+  const selected = globalThis.__oskiewarFighterAppearance;
+  if (!selected || Date.now() >= selected.validUntil || player?.pad !== 0 || player.npc ||
+      netSession || roundViewer || versusLane() || survivalActive() || shellMode !== "GAME") return null;
+  return selected.appearance;
+}
+function generatedPartColor(appearance, segment) {
+  const role = segment.role || "";
+  if (/foot/.test(role)) return appearance.shoes;
+  if (/thigh|shin|leg/.test(role)) return appearance.pants;
+  if (/forearm|hand/.test(role) && appearance.sleeves === "short") return appearance.skin;
+  return appearance.shirt;
+}
+
 function drawSkeletonSegments(segments, color, outline, player = null) {
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
@@ -10028,8 +10042,9 @@ function drawSkeletonSegments(segments, color, outline, player = null) {
   }
   for (const [index, segment] of segments.entries()) {
     if (segment.hitboxOnly) continue;
-    drawPaletteCapsule(segment, player && !player.npc
-      ? player.handleColors : null, index, color, player);
+    const appearance = generatedAppearance(player);
+    drawPaletteCapsule(segment, appearance ? null : player && !player.npc
+      ? player.handleColors : null, index, appearance ? generatedPartColor(appearance, segment) : color, player);
   }
 }
 
@@ -10091,9 +10106,24 @@ function drawFighterSilhouette(geometry, color, outline, player = null) {
     geometry.head.radius + headEdge, outline);
   // AC stores the @ glyph first; the face is the identity anchor for the same
   // palette that distorts continuously across the body below it.
-  const headColor = player && !player.npc && player.handleColors?.length
+  const appearance = generatedAppearance(player);
+  const headColor = appearance ? appearance.skin : player && !player.npc && player.handleColors?.length
     ? player.handleColors[0] : color;
   filledDisc(geometry.head.x, geometry.head.y, geometry.head.radius, headColor);
+  if (appearance) {
+    const { x, y, radius: r } = geometry.head;
+    if (appearance.hairStyle !== "none") {
+      filledCapsule(x - r * .7, y - r * .65, x + r * .7, y - r * .65,
+        r * (appearance.hairStyle === "curly" ? .75 : .48), appearance.hair);
+      if (appearance.hairStyle === "long") for (const side of [-1, 1])
+        filledCapsule(x + side * r * .86, y - r * .3, x + side * r * .86, y + r * .85, r * .3, appearance.hair);
+    }
+    if (appearance.beard) filledCapsule(x - r * .4, y + r * .68, x + r * .4, y + r * .68, r * .4, appearance.hair);
+    if (appearance.glasses) {
+      for (const side of [-1, 1]) circle(x + side * r * .34, y - r * .08, r * .23, Math.max(1, r * .08), [18, 20, 28]);
+      filledCapsule(x - r * .1, y - r * .08, x + r * .1, y - r * .08, Math.max(1, r * .06), [18, 20, 28]);
+    }
+  }
   if (player && isHeadOnly(player)) {
     // The shell rolls from distance travelled while the face is drawn later in
     // stable screen space. A visible chord makes circular geometry's rotation

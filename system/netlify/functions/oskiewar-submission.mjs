@@ -12,23 +12,23 @@ export async function handler(event) {
   if (typeof event.body !== 'string' || Buffer.byteLength(event.body) > 1500000) return fail(413, 'Upload at most 1 MiB total.');
   let body;
   try { body = JSON.parse(event.body); } catch { return fail(400, 'Unreadable submission.'); }
-  if (!body || typeof body.capability !== 'string' || !Array.isArray(body.files)) return fail(400, 'A capability and files are required.');
+  if (!body || typeof body.capability !== 'string' || (body.action !== 'status' && !Array.isArray(body.files))) return fail(400, 'A capability and files are required.');
   const { REGARDE_GATEWAY_URL: gateway, REGARDE_SUBJECT_SALT: salt,
     REGARDE_GATEWAY_TOKEN: token } = process.env;
   if (!gateway || !salt || !token) return fail(503, 'The submission desk is unavailable.');
   try {
     const url = new URL(gateway);
-    url.pathname = url.pathname.replace(/\/gateway\/?$/, '/submission');
-    if (!url.pathname.endsWith('/submission')) return fail(503, 'The submission desk is unconfigured.');
+    url.pathname = url.pathname.replace(/\/gateway\/?$/, body.action === 'status' ? '/manifest' : '/submission');
+    if (!url.pathname.endsWith(body.action === 'status' ? '/manifest' : '/submission')) return fail(503, 'The submission desk is unconfigured.');
     const upstream = await fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ capability: body.capability, subject: pseudonym(user.sub, salt),
-        files: body.files.map(file => ({ source: file?.source, base64: file?.base64 })) }),
+        ...(body.action === 'status' ? {} : { files: body.files.map(file => ({ source: file?.source, base64: file?.base64 })) }) }),
       signal: AbortSignal.timeout(10000),
     });
     const result = await upstream.json();
     if (!upstream.ok) return fail(upstream.status, result.error || 'Submission refused.');
-    return { statusCode: 201, headers, body: JSON.stringify({ manifest: result.manifest,
+    return { statusCode: body.action === 'status' ? 200 : 201, headers, body: JSON.stringify({ manifest: result.manifest,
       retention: result.retention, purge_at: result.purge_at }) };
   } catch { return fail(502, 'Submission did not complete. Check your connection before trying again.'); }
 }
