@@ -21,7 +21,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { serveShell, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
+import { serveShell, logShellErrors, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
 import { seed32 } from "./source.mjs";
 
 const argv = process.argv.slice(2);
@@ -77,7 +77,7 @@ async function climb({ browser, shell, seed, tune, cap = 240, log }) {
     // The sim does not care how big the canvas is, and a small one keeps this
     // affordable on an 8 GB box running other work.
     await page.setViewport({ width: 480, height: 854, deviceScaleFactor: 1 });
-    page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 140)}`));
+    logShellErrors(page, log);
     await page.evaluateOnNewDocument((seedValue, tuneValue) => {
       globalThis.__oskiewarSurvivalTune = tuneValue;
       let state = seedValue >>> 0;

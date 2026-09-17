@@ -35,7 +35,8 @@ const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-voice.mjs",
   // imports auth0-otp below. A miss here 404s the whole module graph, so the
   // page never boots and the render waits out its timeout on
   // __oskiewarOfflineReady with nothing in the log to say why.
-  "account.mjs",
+  "account.mjs", "oskiewar-wizard.mjs",
+  "oskiewar-workshop.mjs", "oskiewar-map.mjs",
   "frame-driver.mjs", "round-room.mjs"];
 const fromPublic = ["aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "aesthetic.computer/lib/product-analytics.mjs",
@@ -173,4 +174,18 @@ export async function serveShell({ replays = "stub", log = () => {},
     },
     close: () => new Promise((closed) => server.close(closed)),
   };
+}
+
+// Module-load failures appear as console/network errors, not pageerror events.
+export function logShellErrors(page, log) {
+  page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 300)}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") log(`  ⚠ browser ${message.text().slice(0, 500)}`);
+  });
+  page.on("response", (response) => {
+    if (response.status() >= 400) {
+      const url = new URL(response.url());
+      log(`  ⚠ HTTP ${response.status()} ${url.origin}${url.pathname}`);
+    }
+  });
 }

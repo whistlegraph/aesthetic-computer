@@ -78,6 +78,12 @@ if [ -n "$(git -C "$CHECKOUT" branch --show-current 2>/dev/null)" ]; then
 fi
 git -C "$CHECKOUT" fetch origin main --quiet || { say "fetch failed"; exit 1; }
 git -C "$CHECKOUT" reset --hard origin/main --quiet || { say "reset failed"; exit 1; }
+# Publication calls these after Instagram succeeds. Sparse automation checkouts
+# must carry both the syndication entry point and its YouTube uploader.
+if [ "$(git -C "$CHECKOUT" config --bool core.sparseCheckout)" = "true" ]; then
+  git -C "$CHECKOUT" sparse-checkout add toolchain/social toolchain/youtube \
+    || { say "could not include syndication tools"; exit 1; }
+fi
 say "▸ $MODE $INDEX · node $("$NODE" --version) · $(git -C "$CHECKOUT" rev-parse --short HEAD)"
 
 [ -d "$CHECKOUT/node_modules" ] || say "warning: $CHECKOUT/node_modules is missing; deps may fail"
@@ -126,6 +132,7 @@ case "$MODE" in
     STAGE="pricing the climb bot against recent outcomes"
     "$NODE" xbox/live/marketing/survival-tune.mjs 2>&1 | tee -a "$LOG"
     status=${PIPESTATUS[0]}
+    [ "$status" -eq 0 ] || exit "$status"
     STAGE="done"
     say "✓ tune complete"
     exit "$status"

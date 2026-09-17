@@ -108,7 +108,7 @@ if (!failures.length && flags.force !== true) {
 
 log(`\n▸ sweeping ${Object.keys(grid).length} knob(s) over ${runs} seed(s) each`);
 const seeds = judgingSeeds(runs);
-const lab = await openLab({ log: () => {} });
+const lab = await openLab({ log });
 const findings = [];
 let baseline;
 

@@ -13,7 +13,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { serveShell, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
+import { serveShell, logShellErrors, repo, survivalLadder, survivalLevelFor } from "./shell.mjs";
 
 const wait = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -234,7 +234,7 @@ async function renderOfflineSelfPlay({ browser, shell, spec, frames, started,
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([
       { name: "prefers-color-scheme", value: theme === "light" ? "light" : "dark" }]);
-    page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 140)}`));
+    logShellErrors(page, log);
     await page.evaluateOnNewDocument((seedValue, wardrobe, opponent) => {
       if (wardrobe) globalThis.__oskiewarWardrobe = wardrobe;
       if (opponent) globalThis.__oskiewarSelfPlayOpponent = opponent;
@@ -510,7 +510,7 @@ export async function renderReel(spec, { log = console.log } = {}) {
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.emulateMediaFeatures([
       { name: "prefers-color-scheme", value: theme === "light" ? "light" : "dark" }]);
-    page.on("pageerror", (error) => log(`  ⚠ page ${error.message.slice(0, 140)}`));
+    logShellErrors(page, log);
 
     // Everything below runs before a byte of the game does.
     await page.evaluateOnNewDocument((seedValue, selfPlay, wardrobe, timedTraining, opponent) => {
