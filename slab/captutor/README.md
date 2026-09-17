@@ -45,3 +45,9 @@ The loop waits 1.5 seconds between native scans; scans add several seconds.
 Use `node slab/captutor/bin/nag-fighter.mjs --once` for a single inspection.
 
 Stage Mode checks Chrome’s “Always Show Bookmarks Bar” menu state, hides it only when visible, and restores the previous setting on exit. The recording guard rejects a bar reopened during capture; `chrome-presentation.json` records `chromeBookmarksHidden`. English Chrome menu labels are required.
+
+## Native-display capture
+
+Use `node bin/stage.mjs --native render <screenplay>` to retain the current display mode and browser window. Stage cleanup still runs. Output uses measured display pixels and refuses resizing or cropping; native mode currently supports the docs format. Do not combine it with portrait rotation. Inspect the rendered result at normal viewing size.
+
+A stock narrator must explicitly select a provider: `voice: "eleven:neutral:0"` requests ElevenLabs River with timestamps. Unknown voice names fail instead of silently selecting Jeffrey. Narration caches include the full provider request.

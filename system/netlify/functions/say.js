@@ -156,7 +156,7 @@ const ELEVEN_VOICES = {
 };
 
 // Generate audio with ElevenLabs TTS
-async function generateElevenLabs(text, gender, set, scream) {
+async function generateElevenLabs(text, gender, set, scream, withTimestamps = false) {
   const voiceList = ELEVEN_VOICES[gender] || ELEVEN_VOICES.neutral;
   const voiceId = voiceList[set % voiceList.length];
 
@@ -164,7 +164,7 @@ async function generateElevenLabs(text, gender, set, scream) {
     ? { stability: 0.1, similarity_boost: 0.7, style: 1.0, use_speaker_boost: true }
     : { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true };
 
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}${withTimestamps ? "/with-timestamps" : ""}`, {
     method: "POST",
     headers: {
       "xi-api-key": process.env.ELEVENLABS_API_KEY,
@@ -182,6 +182,10 @@ async function generateElevenLabs(text, gender, set, scream) {
     throw new Error(`ElevenLabs API error ${response.status}: ${err}`);
   }
 
+  if (withTimestamps) {
+    const json = await response.json();
+    return {buffer: Buffer.from(json.audio_base64, "base64"), voiceId: `eleven-${voiceId.slice(0, 8)}`, alignment: json.alignment, normalizedAlignment: json.normalized_alignment};
+  }
   return {
     buffer: Buffer.from(await response.arrayBuffer()),
     voiceId: `eleven-${voiceId.slice(0, 8)}`,
@@ -531,7 +535,7 @@ exports.handler = async (event) => {
       if (provider === "google") {
         result = await generateGoogle(text, gender, set, isSSML);
       } else if (provider === "eleven") {
-        result = await generateElevenLabs(text, gender, set, scream);
+        result = await generateElevenLabs(text, gender, set, scream, withTimestamps);
       } else if (provider === "prutti") {
         result = await generatePrutti(text);
       } else if (provider === "jeffrey") {
