@@ -4,6 +4,8 @@
 #   oskiewar-clockwork publish 0     # bake slot 0 on the oven and post it
 #   oskiewar-clockwork insights      # pull Meta's figures onto the ledger
 #   oskiewar-clockwork tune          # price the climb bot if reels failed (proposes only)
+#   oskiewar-clockwork pause         # persistently stop publish + tune on this host
+#   oskiewar-clockwork resume        # remove the pause; does not edit cron
 #
 # This exists because the crontab used to call `bash -lc '... node ...'` directly
 # and every part of that was wrong in a way that failed silently:
@@ -34,6 +36,7 @@ IG_ENV="${OSKIEWAR_IG_ENV:-$HOME/aesthetic-computer-vault/oskiewar/instagram.env
 STATE="${OSKIEWAR_CLOCKWORK_STATE:-$HOME/.local/state}"
 LOG="$STATE/oskiewar-reels.log"
 BEAT="$STATE/oskiewar-clockwork.json"
+PAUSE="$STATE/oskiewar-clockwork.paused"
 LEDGER="xbox/live/marketing/ledger.json"
 
 mkdir -p "$STATE"
@@ -57,6 +60,30 @@ finish() {
   exit $code
 }
 trap finish EXIT
+
+# This lives outside the checkout so updates and crontab reinstalls cannot
+# silently restart creation. Insights remain available while paused.
+case "$MODE" in
+  pause)
+    STAGE="paused"
+    printf '%s\n' "$STARTED" > "$PAUSE" || exit 1
+    say "publish and tune paused"
+    exit 0
+    ;;
+  resume)
+    STAGE="resumed"
+    rm -f "$PAUSE" || exit 1
+    say "pause removed; cron schedule unchanged"
+    exit 0
+    ;;
+  publish|tune)
+    if [ -f "$PAUSE" ]; then
+      STAGE="paused"
+      say "$MODE skipped: creation paused (oskiewar-clockwork resume to clear)"
+      exit 0
+    fi
+    ;;
+esac
 
 # --- node, resolved from installations rather than from a shell's PATH ---
 STAGE="resolving node"
@@ -138,7 +165,7 @@ case "$MODE" in
     exit "$status"
     ;;
   *)
-    say "unknown mode '$MODE' (want: publish | insights | tune)"; exit 2 ;;
+    say "unknown mode '$MODE' (want: publish | insights | tune | pause | resume)"; exit 2 ;;
 esac
 
 # --- send the figures where the wall can see them now ---

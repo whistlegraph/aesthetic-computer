@@ -36,7 +36,7 @@ const fromLive = ["oskiewar.js", "oskiewar-sfx.mjs", "oskiewar-voice.mjs",
   // page never boots and the render waits out its timeout on
   // __oskiewarOfflineReady with nothing in the log to say why.
   "account.mjs", "oskiewar-wizard.mjs",
-  "oskiewar-workshop.mjs", "oskiewar-map.mjs",
+  "oskiewar-workshop.mjs", "oskiewar-map.mjs", "oskiewar-fighter.mjs",
   "frame-driver.mjs", "round-room.mjs"];
 const fromPublic = ["aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
   "aesthetic.computer/lib/product-analytics.mjs",
