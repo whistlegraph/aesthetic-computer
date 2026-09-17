@@ -1,0 +1,87 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync, renameSync, appendFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+const run = promisify(execFile);
+const nativeScript = `
+const chrome=Application('System Events').processes.byName('Google Chrome');
+const hits=[];
+function text(e){const a=[];for(const k of ['name','description','value'])try{const v=String(e[k]());if(v&&v!=='undefined')a.push(v);}catch{}return [...new Set(a)].join(' ').slice(0,1000);}
+function walk(e,depth){
+ if(depth>14)return {texts:[],buttons:[],modal:false};
+ let role='',subrole='';try{subrole=e.subrole();}catch{}try{role=e.role();}catch{return {texts:[],buttons:[],modal:false};}
+ if(role==='AXWebArea')return {texts:[],buttons:[],modal:false};
+ const texts=[text(e)],buttons=[];
+ if(role==='AXButton')buttons.push({name:text(e),element:e});
+ let modal=false,children=[];try{children=e.uiElements();}catch{}
+ for(const c of children){const r=walk(c,depth+1);texts.push(...r.texts);buttons.push(...r.buttons);modal=modal||r.modal;}
+ const all=texts.join(' ');
+ const kind=/Allow remote debugging\\?/i.test(all)?'remote-debugging':/Chrome is being controlled by automated test software/i.test(all)?'automation-banner':null;
+ const close=buttons.filter(b=>/^(close|dismiss)( (notification|banner|infobar|info bar))?$/i.test(b.name));
+ const allow=buttons.filter(b=>/^allow$/i.test(b.name));
+ const actionable=kind==='remote-debugging'?allow:close;
+ if(!modal&&((kind&&actionable.length===1&&['AXGroup','AXUnknown','AXDialog','AXSheet'].includes(role))||['AXDialog','AXSheet'].includes(role)||['AXDialog','AXSystemDialog'].includes(subrole))){
+  hits.push({kind:kind||'unknown',title:kind||texts.filter(Boolean).join(' ').slice(0,400),buttons:buttons.map(b=>b.name),element:actionable.length===1?actionable[0].element:null});modal=true;
+ }
+ return {texts,buttons,modal};
+}
+for(const w of chrome.windows())walk(w,0);
+`;
+async function native(action) {
+ const tail=action
+  ? `const h=hits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');h[0].element.click();JSON.stringify(true);`
+  : `JSON.stringify(hits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
+ const {stdout}=await run('/usr/bin/osascript',['-l','JavaScript','-e',nativeScript+tail],{timeout:10000,maxBuffer:128*1024});
+ return JSON.parse(stdout);
+}
+export function fingerprintModal(hit) {
+ return createHash('sha256').update(JSON.stringify([hit.kind,hit.title,[...hit.buttons].sort()])).digest('hex').slice(0,20);
+}
+export function createModalPolice({
+ directory=join(homedir(),'.local/share/captutor/modal-police'),
+ scan=()=>native(), act=kind=>native(kind), onEvent=()=>{},
+ allowRemoteDebugging=false,
+}={}) {
+ mkdirSync(directory,{recursive:true});
+ const memoPath=join(directory,'memo.json');
+ let memo={};try{memo=JSON.parse(readFileSync(memoPath,'utf8'));}catch(error){if(error.code!=='ENOENT')throw error;}
+ let active=new Set();
+ const emit=event=>{appendFileSync(join(directory,'events.jsonl'),JSON.stringify(event)+'\n');onEvent(event);};
+ return {
+  async check(phase='recording',{mayHandle=()=>true}={}) {
+   if(!['connecting','preparing','recording'].includes(phase))throw Error('Unknown modal-police phase');
+   let hits;
+   try{hits=await scan();}catch(error){emit({type:'blocked',kind:'inspection-failed',at:new Date().toISOString()});throw error;}
+   const seen=new Set();let blocked;
+   for(const hit of hits){
+    const id=fingerprintModal(hit);seen.add(id);
+    const remembered=Boolean(memo[id]);
+    const allowed=phase!=='recording'&&hit.kind==='automation-banner'||phase==='connecting'&&allowRemoteDebugging&&hit.kind==='remote-debugging';
+    const at=new Date().toISOString();
+    const entry=memo[id]||{kind:hit.kind,firstSeen:at,count:0};
+    entry.lastSeen=at;entry.count++;entry.response=allowed?(hit.kind==='remote-debugging'?'allow':'dismiss'):'flag';memo[id]=entry;
+    // The memo is recognition evidence, never authority to click a future dialog.
+    if(allowed&&mayHandle()){await act(hit.kind);emit({type:'handled',id,kind:hit.kind,response:entry.response,remembered,at});}
+    else{if(!active.has(id))emit({type:'blocked',id,kind:hit.kind,remembered,at});blocked=hit.kind;}
+   }
+   const tmp=memoPath+'.'+process.pid+'.tmp';writeFileSync(tmp,JSON.stringify(memo,null,2));renameSync(tmp,memoPath);active=seen;
+   if(blocked){const error=Error('Modal police blocked capture: '+blocked);error.code='CAPTUTOR_MODAL_BLOCKED';throw error;}
+   return {checkedAt:new Date().toISOString(),modals:hits.length};
+  },
+ };
+}
+export function approvedDebuggingPolicy() {
+ if(process.env.CAPTUTOR_ALLOW_REMOTE_DEBUGGING==='1')return true;
+ try{return JSON.parse(readFileSync(join(homedir(),'.config/captutor/modal-police.json'),'utf8')).allowRemoteDebugging===true;}catch{return false;}
+}
+// Watch only this connection attempt; never leave an unattended consent clicker.
+export async function connectWithModalPolice(connect,{police=createModalPolice({allowRemoteDebugging:approvedDebuggingPolicy()}),intervalMs=500}={}) {
+ let pending=true;let failure;
+ const watch=(async()=>{while(pending){await new Promise(r=>{setTimeout(r,intervalMs);});if(!pending)break;try{await police.check('connecting',{mayHandle:()=>pending});}catch(error){failure=error;break;}}})();
+ let result;
+ try{result=await connect();}finally{pending=false;await watch;}
+ if(failure){await result?.close?.();throw failure;}
+ return result;
+}
