@@ -6745,3 +6745,21 @@ test('workshop cannot mutate a versus lobby', async () => {
     assert.throws(() => globalThis.__oskiewarWorkshopCommand({ op: 'inspect' }), /local practice/);
   } finally { delete globalThis.__oskiewarWorkshopEnabled; }
 });
+
+
+test('workshop publishes its coach session without requiring the debug overlay', () => {
+  const { fight, tick, liveFrames } = createFight();
+  try {
+    assert.equal(fight.debugState(), false);
+    const sessionFrames = () => liveFrames.filter(([room]) => room === "ow-" + fight.sessionState());
+    const before = sessionFrames().length;
+    globalThis.__oskiewarWorkshopEnabled = true;
+    tick(500000);
+    assert.ok(sessionFrames().length > before);
+    assert.ok(liveFrames.at(-1)[1].sessionId);
+    globalThis.__oskiewarWorkshopEnabled = false;
+    const after = sessionFrames().length;
+    tick(500000);
+    assert.equal(sessionFrames().length, after);
+  } finally { delete globalThis.__oskiewarWorkshopEnabled; }
+});

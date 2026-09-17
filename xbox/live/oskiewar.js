@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 129;
+const buildVersion = 130;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2253,7 +2253,8 @@ function publishSpectator(now, { target = matchName, nextRoundId = "",
 // which both points any watcher at the fight and retires this room's publisher
 // so the native shell's single socket is free to follow.
 function publishSession(now) {
-  if (!debugHitboxes || !sessionName || livePublishFailed ||
+  if ((!debugHitboxes && !globalThis.__oskiewarWorkshopEnabled) ||
+      !sessionName || livePublishFailed ||
       typeof publishLive !== "function") return;
   const liveRound = roundIsTimed() && matchName ? matchName : "";
   if (liveRound) {
