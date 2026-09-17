@@ -224,10 +224,20 @@ export async function handler(event) {
       receipt,
       scope: request.frozen_fields.purpose_scope,
       counter: answer?.counter?.frozen_fields?.purpose_scope ?? null,
-      // Slice 1 proves the wall. The generation capability is the next thing
-      // to land behind it, and it stays null until there is a worker whose
-      // reach this grant can actually bound.
-      capability: null,
+      // The desk mints this on an allow and only on an allow — an edit is an
+      // offer the player has not taken, and authority on the strength of terms
+      // nobody accepted is the failure this wall exists to prevent.
+      //
+      // It is narrow on purpose: the approved source categories and outputs,
+      // and nothing about distribution, marketing, merchandise or training.
+      // Those govern a finished bundle, not what a worker may touch. It
+      // expires in minutes, because a capability is for one job run.
+      //
+      // No worker consumes it yet. It is passed through rather than withheld
+      // because the next stage binds to it, and because a player who has just
+      // been told "allowed, and recorded" should be able to see the shape of
+      // what they permitted.
+      capability: answer?.capability ?? null,
     }),
   };
 }
