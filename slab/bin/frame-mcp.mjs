@@ -11,7 +11,7 @@
 //
 // Hand-rolled JSON-RPC over stdio (newline-delimited), matching the house style
 // of artery/emacs-mcp.mjs and ants/mail-mcp — no SDK, only node builtins. It
-// shells out to the sibling frame.mjs, so it needs no PATH setup and travels
+// imports the sibling frame.mjs capture transport, so it needs no PATH setup and travels
 // with the repo. The machine registry still lives in the untracked
 // ~/.config/slab/puppet.json that `frame` already reads.
 import { execFile } from "node:child_process";
@@ -22,8 +22,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
-import { clickPoint, hoverPoint, sendKeys } from "./macos.mjs";
+import { clickPointAsync as clickPoint, hoverPointAsync as hoverPoint, sendKeysAsync as sendKeys } from "./macos.mjs";
 import { buildHoverProbes, changesNearPoint } from "../lib/frame-hover-atlas.mjs";
+import { withFrameSession, frameSessionId, nativeFrameSession, frameStateKey, FrameStateMap } from "../lib/frame-session.mjs";
+import { assertFrameTarget } from "../lib/frame-target.mjs";
+import { withMachineLease } from "../lib/computer-use-lease.mjs";
+import { FRAME_GUIDANCE } from "../lib/computer-use-guidance.mjs";
+import { captureFrame as captureNativeFrame } from "./frame.mjs";
 import { recordTape } from "../lib/frame-tape.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -95,6 +100,8 @@ function runFrame(args, { timeoutMs = 30000 } = {}) {
 function digest(env) {
   const L = [];
   L.push(`capture: ${env.capture}`);
+  if (env.sessionId) L.push(`sessionId: ${env.sessionId}`);
+  if (env.observation) L.push(`observation: ${JSON.stringify(env.observation)}`);
   const m = env.meta || {};
   if (m.frontmost) L.push(`frontmost: ${m.frontmost.app} (${m.frontmost.bundle})`);
   if (m.screen) L.push(`screen: ${m.screen.w}×${m.screen.h} @${m.screen.scale}x`);
@@ -157,60 +164,41 @@ function inferenceEvidence(env) {
 }
 
 // ── the capture tool: frame a machine, return image + digest ────────────────
-const stagedClicks = new Map();
-const recentActionTrails = new Map();
-const recentFrames = new Map();
+const stagedClicks = new FrameStateMap();
+const recentActionTrails = new FrameStateMap();
+const recentFrames = new FrameStateMap();
 const visionCache = new Map();
 
-async function captureFrame({ machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ expectedTargetId, machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
-  // A unique path matters now that an action trail may capture while another
-  // session asks for a normal frame of the same machine.
-  const out = join(tmpdir(), `frame-mcp-${machine}-${process.pid}-${randomUUID()}.jpg`);
-  const args = [machine, "--json", "--out", out];
-  if (screen) args.push("--screen");
-  if (!ocr) args.push("--no-ocr");
-  if (fast) args.push("--fast");
-  if (cursorAt) args.push("--cursor-at", `${cursorAt[0]},${cursorAt[1]}`);
-  else if (cursor) args.push("--cursor");
-  if (targetAt) args.push("--target-at", `${targetAt[0]},${targetAt[1]}`);
-  if (targetId) args.push("--target-id", String(targetId));
-  if (manualCheck) args.push("--manual-check", String(manualCheck));
-  if (pressAt) args.push("--press-at", `${pressAt[0]},${pressAt[1]}`, "--press-count", String(pressCount));
-  if (pressTitle) args.push("--press-title", String(pressTitle));
-  if (actionOnly) args.push("--action-only");
-  if (clearTarget) args.push("--clear-target");
-  if (clearOverlays) args.push("--clear-overlays");
-  if (quietOverlay) args.push("--quiet-overlay");
-  if (overlays) args.push("--overlays");
-  if (crop) args.push("--crop", crop.join(","));
-  if (baseline) args.push("--baseline");
-  if (diff) args.push("--diff");
-
-  const { stdout } = await runFrame(args);
-  let env;
-  try {
-    env = JSON.parse(stdout);
-  } catch {
-    throw new Error(`frame ${machine} returned no envelope — is SlabMenubar running there? (frame_doctor)`);
-  }
-
-  let jpg;
-  if (env.capture === "permission_needed") {
-    // The envelope remains useful: Accessibility can still preserve a DOM-like
-    // state even when screen pixels are unavailable.
-  } else {
+  // Xbox uses synchronous curl/GPG helpers; keep that optional backend in a
+  // child process so it cannot block fleet Mac requests in the shared server.
+  if (machine === "xbox") {
+    if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
+      throw new Error("xbox is an observe-only Frame target");
+    }
+    const out = join(tmpdir(), `frame-xbox-${randomUUID()}.jpg`);
     try {
-      jpg = await readFile(out);
-    } catch {
-      /* no pixels on disk — the envelope still carries text state */
+      const { stdout } = await runFrame([machine, "--json", "--out", out]);
+      return { env: JSON.parse(stdout), jpg: await readFile(out) };
+    } finally {
+      await unlink(out).catch(() => {});
     }
   }
-  try { await unlink(out); } catch {}
-  return { env, jpg };
+  // Share the native transport directly: no Node cold-start or JPEG round-trip
+  // through a temporary file for each MCP observation.
+  const result = await captureNativeFrame(machine, {
+    session: nativeFrameSession(), expectedTargetId,
+    memory: true, noOCR: !ocr, fast, screen, cursor, cursorAt, targetAt,
+    targetId, manualCheck, pressAt, pressCount, pressTitle, actionOnly,
+    clearTarget, clearOverlays, quietOverlay, overlays, crop, baseline, diff,
+  });
+  result.env.sessionId = frameSessionId();
+  return result;
 }
 
 function frameContent({ env, jpg }, machine) {
+  if (env.observation && env.capture_scope === "window") recentFrames.set(frameStateKey(machine), env);
   const content = [{ type: "text", text: digest(env) }];
   if (env.capture === "permission_needed") {
     content.push({
@@ -230,7 +218,7 @@ async function toolFrame(options = {}) {
 // FRAME establishes the stable observation baseline used by later reframes.
 async function toolInitialFrame(options = {}) {
   const capture = await captureFrame({ ...options, baseline: true });
-  recentFrames.set(options.machine, capture.env);
+  recentFrames.set(frameStateKey(options.machine), capture.env);
   return frameContent(capture, options.machine);
 }
 
@@ -794,7 +782,7 @@ async function recordActionTrail({ machine, label, baselineEnv, cursorAt, clearT
     samples,
     representative,
   };
-  recentActionTrails.set(machine, trail);
+  recentActionTrails.set(frameStateKey(machine), trail);
   return trail;
 }
 
@@ -810,7 +798,7 @@ async function toolHover({ machine, x, y, width = 720, height = 520, ocr = true,
   x = Number(x); y = Number(y);
   const crop = [Math.round(x - width / 2), Math.round(y - height / 2), Math.round(width), Math.round(height)];
   await captureFrame({ machine, ocr: false, cursor: false, crop, baseline: true, quietOverlay: true });
-  hoverPoint(machineSpec(machine), x, y);
+  await hoverPoint(machineSpec(machine), x, y);
   await settle(350);
   return toolFrame({ machine, ocr, fast, cursorAt: [x, y], crop, diff: true,
     baseline: true, quietOverlay: true });
@@ -844,11 +832,11 @@ async function toolHoverAtlas({
     machine, ocr: false, fast: true, cursor: false,
     baseline: true, quietOverlay: true,
   });
-  recentFrames.set(machine, initial.env);
+  recentFrames.set(frameStateKey(machine), initial.env);
   const probes = buildHoverProbes(initial.env, { mode, x, y, radius, steps });
   const results = [];
   for (const probe of probes) {
-    hoverPoint(spec, probe.x, probe.y);
+    await hoverPoint(spec, probe.x, probe.y);
     await settle(settleMs);
     const capture = await captureFrame({
       machine, ocr: false, fast: true, cursor: false,
@@ -862,7 +850,7 @@ async function toolHoverAtlas({
   const representative = ranked.find((result) => result.near.cells > 0) || ranked[0];
   const content = [{ type:"text", text:hoverAtlasText(mode, results) }];
   if (representative) {
-    hoverPoint(spec, representative.probe.x, representative.probe.y);
+    await hoverPoint(spec, representative.probe.x, representative.probe.y);
     await settle(settleMs);
     const bounds = captureBounds(initial.env);
     const crop = clampCrop([
@@ -881,7 +869,7 @@ async function toolHoverAtlas({
   }
   const original = initial.env?.meta?.cursor;
   if (Number.isFinite(original?.x) && Number.isFinite(original?.y)) {
-    hoverPoint(spec, original.x, original.y);
+    await hoverPoint(spec, original.x, original.y);
   }
   return content;
 }
@@ -896,8 +884,17 @@ async function toolWiggle(args = {}) {
 
 // Native exploration primitives return the post-action frame in the SAME MCP
 // response. Agents need one tool round-trip, not act → wait → call frame again.
-async function toolClick({ machine, x, y, count = 1, ocr = true, fast = true }) {
-  clickPoint(machineSpec(machine), Number(x), Number(y), { count });
+async function verifyNativeTarget(machine, observationId, before = recentFrames.get(frameStateKey(machine))) {
+  if (!before?.observation?.id || (observationId && observationId !== before.observation.id)) {
+    throw new Error("Observation is missing or superseded; capture frame again in this session before acting");
+  }
+  const current = await captureFrame({ machine, ocr: false, cursor: false, quietOverlay: true });
+  assertFrameTarget(before, current.env, observationId);
+}
+
+async function toolClick({ machine, observationId, x, y, count = 1, ocr = true, fast = true }) {
+  await verifyNativeTarget(machine, observationId);
+  await clickPoint(machineSpec(machine), Number(x), Number(y), { count });
   await settle();
   return toolFrame({ machine, ocr, fast, cursorAt: [Number(x), Number(y)] });
 }
@@ -907,7 +904,7 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
   if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error("x and y must be finite numbers");
   if (![1, 2, 3].includes(count)) throw new Error("count must be 1, 2, or 3");
   const approvalId = randomUUID();
-  hoverPoint(machineSpec(machine), x, y);
+  await hoverPoint(machineSpec(machine), x, y);
   await settle(80);
   const capture = await captureFrame({
     machine, ocr, fast, cursorAt: [x, y], targetAt: [x, y], targetId: approvalId,
@@ -915,7 +912,7 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
   });
   const target = clickTargetPrediction(capture.env, x, y);
   label = String(label || target.title || "Confirm click").trim();
-  stagedClicks.set(machine, {
+  stagedClicks.set(frameStateKey(machine), {
     approvalId, x, y, count, label,
     targetTitle: target.title,
     targetConfidence: target.probability,
@@ -931,11 +928,11 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
     });
     if (check.env.manual_action?.approval_id !== approvalId) continue;
 
-    const pending = stagedClicks.get(machine);
+    const pending = stagedClicks.get(frameStateKey(machine));
     if (!pending || pending.approvalId !== approvalId) {
       throw new Error("The manually approved click was superseded by a newer staged action.");
     }
-    stagedClicks.delete(machine);
+    stagedClicks.delete(frameStateKey(machine));
     await settle(220);
     const post = await captureFrame({ machine, ocr, fast, cursorAt: [x, y] });
     const current = visibleText(post.env);
@@ -944,7 +941,7 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
     const removed = [...pending.baselineText]
       .filter(([key]) => !current.has(key)).map(([, text]) => text);
     const sample = { atMs: 220, added, removed, capture: post };
-    recentActionTrails.set(machine, {
+    recentActionTrails.set(frameStateKey(machine), {
       machine, label: pending.label, recordedAt: new Date().toISOString(),
       durationMs: 220, samples: [sample], representative: sample,
     });
@@ -961,10 +958,11 @@ async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fas
 }
 
 async function toolCommitClick({ machine, approvalId, ocr = true, fast = true }) {
-  const pending = stagedClicks.get(machine);
+  const pending = stagedClicks.get(frameStateKey(machine));
   if (!pending || pending.approvalId !== approvalId) {
     throw new Error("No matching staged click. Stage it again so the human can inspect the current target.");
   }
+  await verifyNativeTarget(machine, pending.baselineEnv.observation?.id, pending.baselineEnv);
   // Run the approved action inside the Accessibility-trusted native process.
   // It uses AXPress for semantic controls and a physical click fallback for
   // canvases/custom surfaces, after synchronously removing its own overlay.
@@ -974,12 +972,13 @@ async function toolCommitClick({ machine, approvalId, ocr = true, fast = true })
     fast: true,
     cursor: false,
     clearTarget: true,
+    expectedTargetId: approvalId,
     pressAt: [pending.x, pending.y],
     pressCount: pending.count,
     pressTitle: pending.targetTitle,
     actionOnly: true,
   });
-  stagedClicks.delete(machine);
+  stagedClicks.delete(frameStateKey(machine));
   const trail = await recordActionTrail({
     machine,
     label: pending.label,
@@ -993,25 +992,26 @@ async function toolCommitClick({ machine, approvalId, ocr = true, fast = true })
 }
 
 async function toolActionTrail({ machine }) {
-  const trail = recentActionTrails.get(machine);
+  const trail = recentActionTrails.get(frameStateKey(machine));
   if (!trail) throw new Error(`No recorded action trail for ${machine}.`);
   return actionTrailContent(trail);
 }
 
 async function toolRejectClick({ machine, approvalId, ocr = true, fast = true }) {
-  const pending = stagedClicks.get(machine);
+  const pending = stagedClicks.get(frameStateKey(machine));
   if (!pending || pending.approvalId !== approvalId) {
     throw new Error("No matching staged click to reject.");
   }
-  stagedClicks.delete(machine);
-  const content = await toolFrame({ machine, ocr, fast, cursor: false, clearTarget: true });
+  stagedClicks.delete(frameStateKey(machine));
+  const content = await toolFrame({ machine, ocr, fast, cursor: false, clearTarget: true, expectedTargetId: approvalId });
   content.push({ type: "text", text: `\nREJECTED CLICK ${approvalId} — no click occurred.` });
   return content;
 }
 
-async function toolKey({ machine, key, mod, ocr = true, fast = true }) {
+async function toolKey({ machine, observationId, key, mod, ocr = true, fast = true }) {
+  await verifyNativeTarget(machine, observationId);
   const mods = Array.isArray(mod) ? mod : (mod ? String(mod).split(",").filter(Boolean) : []);
-  sendKeys(machineSpec(machine), key, mods);
+  await sendKeys(machineSpec(machine), key, mods);
   await settle();
   return toolFrame({ machine, ocr, fast, cursor: true });
 }
@@ -1301,6 +1301,15 @@ const TOOLS = [
   },
 ];
 
+for (const tool of TOOLS) {
+  if (["frame_click", "frame_key"].includes(tool.name)) tool.inputSchema.properties.observationId = {
+    type: "string", description: "Expected latest window observation ID in this session. The frontmost window and bounds are checked again before input.",
+  };
+  if (tool.inputSchema.properties.machine) tool.inputSchema.properties.sessionId = {
+    type: "string", description: "Observation session. Reuse the sessionId returned by frame; required for HTTP reframe and staged-action followups.",
+  };
+}
+
 async function callTool(name, args) {
   switch (name) {
     case "frame": return toolInitialFrame(args || {});
@@ -1326,7 +1335,7 @@ async function callTool(name, args) {
   }
 }
 
-async function handleMessage(message) {
+async function handleMessage(message, context) {
   const { id, method, params } = message;
   try {
     switch (method) {
@@ -1336,6 +1345,7 @@ async function handleMessage(message) {
           result: {
             protocolVersion: "2024-11-05",
             capabilities: { tools: {} },
+            instructions: FRAME_GUIDANCE,
             serverInfo: { name: "frame-mcp", version: "1.0.0" },
           },
         };
@@ -1347,7 +1357,13 @@ async function handleMessage(message) {
       case "tools/list":
         return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
       case "tools/call": {
-        const content = await callTool(params?.name, params?.arguments);
+        const content = await withFrameSession(params?.arguments, { ...context, tool: params?.name }, () => {
+          // Keep native input and its verification capture together. Staging
+          // does not hold a lease while waiting for a human decision.
+          const run = () => callTool(params?.name, params?.arguments);
+          return ["frame_click", "frame_key", "frame_hover", "frame_wander", "frame_wiggle", "frame_commit_click"].includes(params?.name)
+            ? withMachineLease(machineSpec(params?.arguments?.machine), run) : run();
+        });
         return { jsonrpc: "2.0", id, result: { content } };
       }
       default:
@@ -1365,8 +1381,8 @@ async function handleMessage(message) {
 
 // stdio by default (Claude spawns one process per session), or `--http [port]`
 // for one resident daemon every session shares — installed by
-// toolchain/mcp/install-daemons.sh. Each capture shells out fresh, so there is
-// no per-session state to keep.
+// toolchain/mcp/install-daemons.sh. Capture transport is shared; frame baselines
+// and staged-click records are isolated by observation session.
 const port = httpPort(process.argv, 7767);
 if (port) serveHttp({ handleMessage, port, banner: "🖼  frame-mcp shared daemon" });
 else serveStdio({ handleMessage, banner: "🖼  frame-mcp started (observe + native click/key exploration)" });

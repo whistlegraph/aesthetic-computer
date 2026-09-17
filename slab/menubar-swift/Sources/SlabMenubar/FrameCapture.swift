@@ -46,7 +46,9 @@ final class FrameCapture {
     private var pendingClickMonitor: Any?
     private var pendingClickApprovalId: String?
     private var pendingClickScreenRect: CGRect?
-    private var diffBaseline: (rect: CGRect, image: CGImage)?
+    private var diffBaselines: [String: (rect: CGRect, image: CGImage, window: CGWindowID?, used: UInt64)] = [:]
+    private let maxDiffSessions = 4 // full-resolution CGImages: bound host memory
+
     private func registerOverlay(_ w: NSWindow) {
         overlayLock.lock(); overlayWindowIDs.insert(w.windowNumber); overlayLock.unlock()
     }
@@ -68,6 +70,7 @@ final class FrameCapture {
     private func tick() {
         guard fm.fileExists(atPath: Paths.frameReq) else { return }
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
+        let flags = Set(mode.split(separator: " ").map(String.init))
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("manual-check=") }) {
@@ -118,6 +121,20 @@ final class FrameCapture {
                 approvedClickTitle = String(data: data, encoding: .utf8)
             }
         }
+        if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("expect-target=") }) {
+            let expected = String(token.dropFirst("expect-target=".count))
+            var matches = false
+            DispatchQueue.main.sync { matches = self.pendingClickApprovalId == expected }
+            if !matches {
+                let error = ["error": "Staged target changed or was cleared; no action sent. Stage again."]
+                if let data = try? JSONSerialization.data(withJSONObject: error) {
+                    try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+                }
+                try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+                fm.createFile(atPath: Paths.frameDone, contents: nil)
+                return
+            }
+        }
         if mode.split(separator: " ").contains("target-clear") {
             clearPendingClickTarget()
         }
@@ -130,12 +147,14 @@ final class FrameCapture {
                 return
             }
         }
-        produce(noOCR: mode.contains("noocr"), fast: mode.contains("fast"),
-                wholeScreen: mode.contains("screen"),
-                virtualCursor: mode.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
-                saveBaseline: mode.contains("baseline"), includeDiff: mode.contains("diff"),
-                showOverlay: !mode.contains("quiet-overlay"),
-                includeOverlays: mode.contains("overlays"))
+        let session = mode.split(separator: " ").first(where: { $0.hasPrefix("session=") })
+            .map { String($0.dropFirst("session=".count)) } ?? "legacy"
+        produce(session: session, noOCR: flags.contains("noocr"), fast: flags.contains("fast"),
+                wholeScreen: flags.contains("screen"),
+                virtualCursor: flags.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
+                saveBaseline: flags.contains("baseline"), includeDiff: flags.contains("diff"),
+                showOverlay: !flags.contains("quiet-overlay"),
+                includeOverlays: flags.contains("overlays"))
         if let pendingClickTarget {
             showPendingClickTarget(at: pendingClickTarget, approvalId: pendingClickApprovalId)
         }
@@ -1086,13 +1105,14 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
+    private func produce(session: String = "legacy", noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
                          includeDiff: Bool = false, showOverlay: Bool = true,
                          includeOverlays: Bool = false) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
+        let started = nowNs()
         var env: [String: Any] = [:]
         var tm: [String: Double] = [:]
         let reelActive: Bool
@@ -1144,17 +1164,28 @@ final class FrameCapture {
         var jpgBytes = 0
         if let cg = cg {
             let region = captureRegion
+            let diffBaseline = diffBaselines[session]
             if includeDiff {
-                if let baseline = diffBaseline, baseline.rect.equalTo(region) {
+                if let baseline = diffBaseline, baseline.rect.equalTo(region), baseline.window == target {
                     t = nowNs(); env["diff"] = differenceMap(baseline.image, cg,
                         origin: region.origin, scale: captureScale); tm["diff"] = msSince(t)
                     env["diff_baseline"] = "matched"
                 } else {
                     env["diff"] = []
-                    env["diff_baseline"] = diffBaseline == nil ? "missing" : "geometry-changed"
+                    env["diff_baseline"] = diffBaseline == nil ? "missing" : "target-or-geometry-changed"
                 }
             } else { env["diff"] = [] }
-            if saveBaseline { diffBaseline = (region, cg) }
+            if saveBaseline {
+                if diffBaselines[session] == nil, diffBaselines.count >= maxDiffSessions,
+                   let oldest = diffBaselines.min(by: { $0.value.used < $1.value.used })?.key {
+                    diffBaselines.removeValue(forKey: oldest)
+                }
+                diffBaselines[session] = (region, cg, target, nowNs())
+            }
+            env["observation"] = ["id": UUID().uuidString, "session": session,
+                "capturedAt": ISO8601DateFormatter().string(from: Date()),
+                "coordinateSpace": "macos-global-points", "windowId": target.map { $0 as Any } ?? NSNull(),
+                "captureScale": captureScale]
             if noOCR {
                 env["ocr"] = []
             } else {
@@ -1214,8 +1245,7 @@ final class FrameCapture {
         // A denied/failed ScreenCaptureKit request has no image and therefore
         // no thumbnail timing. Keep the permission-needed envelope alive
         // instead of trapping while trying to report that failure.
-        tm["wall"] = ((tm["meta"] ?? 0) + (tm["capture"] ?? 0) +
-                      (tm["ocr"] ?? 0) + (tm["thumb"] ?? 0))  // serial part; ax overlapped
+        tm["wall"] = msSince(started)
         env["timings_ms"] = tm
         if let d = try? JSONSerialization.data(withJSONObject: env, options: []) {
             try? d.write(to: URL(fileURLWithPath: Paths.frameOut))

@@ -19,7 +19,8 @@ import net from "node:net";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
-import { termList, typeText, sendKeys } from "./macos.mjs";
+import { PUPPET_GUIDANCE } from "../lib/computer-use-guidance.mjs";
+import { termListAsync as termList, typeTextAsync as typeText, sendKeysAsync as sendKeys } from "./macos.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH = process.env.SLAB_PUPPET_CONFIG || join(HOME, ".config", "slab", "puppet.json");
@@ -105,17 +106,43 @@ async function toolCursor({ machine, x, y, target }) {
 
 // ── OS automation (ssh + osascript; no daemon needed) ───────────────────────
 async function toolType({ machine, text: t, tty, paste = false, clear = false, enter = false }) {
-  return text(typeText(machineSpec(machine), t, { tty, paste, clear, enter }));
+  return text(await typeText(machineSpec(machine), t, { tty, paste, clear, enter }));
 }
 async function toolKeys({ machine, key, mod }) {
   const mods = Array.isArray(mod) ? mod : (mod ? String(mod).split(",").filter(Boolean) : []);
-  return text(sendKeys(machineSpec(machine), key, mods));
+  return text(await sendKeys(machineSpec(machine), key, mods));
 }
 async function toolTerm({ machine }) {
-  return text(termList(machineSpec(machine)));
+  return text(await termList(machineSpec(machine)));
 }
 
+async function toolSemantic(action, args) {
+  const result = await rpc({ cmd: "semantic", machine: args.machine, args: { ...args, action } }, { timeoutMs: 45000 });
+  const { image, ...evidence } = result;
+  return [...(image ? [{ type: "image", data: image, mimeType: "image/jpeg" }] : []), ...text(evidence)];
+}
+const LOCATOR = { type: "object", description: "Exactly one selector; role also requires name. Matching is exact and strict.", properties: {
+  role: { type: "string" }, name: { type: "string" }, label: { type: "string" },
+  text: { type: "string" }, testId: { type: "string" }, css: { type: "string" },
+} };
+const WAIT_STATE = { type: "string", enum: ["visible", "hidden", "attached", "detached"] };
+const SEMANTIC_TOOLS = ["snapshot", "click", "fill", "wait"].map(action => ({
+  name: `puppet_${action}`, act: ["click", "fill"].includes(action),
+  description: action === "snapshot" ? "OBSERVE an exact browser page: accessibility snapshot plus observation ID; optional JPEG. Get page IDs from puppet_list pages."
+    : action === "wait" ? "WAIT for a semantic locator state, with a bounded timeout and no input. No fixed sleep."
+    : `ACT: ${action} a strict semantic locator on an exact browser page, with Playwright actionability checks. Optional after condition verifies the result. performed=true means input happened even if verification failed: do not repeat it automatically.`,
+  inputSchema: { type: "object", properties: {
+    machine: { type: "string" }, target: { type: "string", description: "Exact page ID from puppet_list pages; no URL substring." },
+    ...(action !== "snapshot" ? { locator: LOCATOR } : {}),
+    ...(action === "fill" ? { value: { type: "string" } } : {}),
+    ...(action === "wait" ? { state: WAIT_STATE } : { image: { type: "boolean" } }),
+    ...(["click", "fill"].includes(action) ? { after: { type: "object", properties: { locator: LOCATOR, state: WAIT_STATE }, required: ["locator"] } } : {}),
+    timeout: { type: "number", description: "Action/wait budget, 1–10000 ms; default 5000. Connection setup is separately bounded." },
+  }, required: ["machine", "target", ...(action === "snapshot" ? [] : ["locator"]), ...(action === "fill" ? ["value"] : [])] },
+}));
+
 const TOOLS = [
+  ...SEMANTIC_TOOLS,
   { name: "puppet_list", act: false,
     description: "List registered machines with CDP connection state and open page targets (from the puppet daemon). Read-only.",
     inputSchema: { type: "object", properties: {} } },
@@ -161,6 +188,7 @@ const TOOLS = [
 ];
 
 const HANDLERS = {
+  ...Object.fromEntries(["snapshot", "click", "fill", "wait"].map(action => [`puppet_${action}`, args => toolSemantic(action, args)])),
   puppet_list: toolList, puppet_eval: toolEval, puppet_upload: toolUpload, puppet_waitfor: toolWaitFor,
   puppet_nav: toolNav, puppet_reload: toolReload, puppet_shot: toolShot,
   puppet_stroke: toolStroke, puppet_gesture: toolGesture, puppet_key: toolKey,
@@ -172,7 +200,7 @@ async function handleMessage(message) {
   try {
     switch (method) {
       case "initialize":
-        return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "puppet-mcp", version: "1.0.0" } } };
+        return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, instructions: PUPPET_GUIDANCE, serverInfo: { name: "puppet-mcp", version: "1.0.0" } } };
       case "initialized":
       case "notifications/initialized":
         return null;

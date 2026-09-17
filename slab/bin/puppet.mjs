@@ -60,8 +60,10 @@ import { execFileSync, execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { withMachineLease } from "../lib/computer-use-lease.mjs";
+import { SemanticBrowser } from "../lib/puppet-semantic.mjs";
 import { logHit, overlayDrawExpr, overlayClearExpr, scanExpr } from "./analysis-layer.mjs";
 import { termList, typeText, sendKeys } from "./macos.mjs";
 
@@ -115,10 +117,11 @@ function cmdConfig() {
 
 // ─── daemon: one Machine per registry entry ──────────────────────────────
 
-class Machine {
+export class Machine {
   constructor(name, spec) {
     this.name = name;
     this.spec = spec; // { cdpUrl, tunnelCmd? }
+    this.semantic = new SemanticBrowser(() => this.browser?.url);
     this.browser = null; // browser-level WebSocket
     this.nextId = 1;
     this.pending = new Map(); // id -> {resolve, reject}
@@ -126,6 +129,7 @@ class Machine {
     this.targets = new Map(); // targetId -> {url, title, attached}
     this.consoleSubs = new Set(); // client sockets tailing console
     this.watches = new Map(); // sessionId -> live frame path (shot fast-path)
+    this.liveFrames = new Map(); // sessionId -> { data, at }; bounded, memory-only shot cache
     this.frameHandlers = new Map(); // sessionId -> screencast frame sink
     this.connected = false;
     this.lastError = null;
@@ -184,6 +188,7 @@ class Machine {
       }
       this.connected = false;
       this.browser = null;
+      this.liveFrames.clear();
       this.sessions.clear();
       this.targets.clear();
       writeStatus();
@@ -300,8 +305,10 @@ class Machine {
     clearTimeout(this.idleTimer);
     this.idleTimer = null;
     try { this.browser?.close(); } catch {}
+    await this.semantic.close().catch(() => {});
     this.browser = null;
     this.connected = false;
+    this.liveFrames.clear();
     this.sessions.clear();
     this.targets.clear();
     if (this.spec.tunnelReleaseCmd) {
@@ -358,9 +365,11 @@ class Machine {
     ws.onmessage = e => this.onMessage(JSON.parse(e.data));
     ws.onclose = () => {
       this.log("browser socket closed");
+      this.semantic.close().catch(() => {});
       for (const p of this.pending.values()) p.reject(new Error("socket closed"));
       this.pending.clear();
       this.connected = false;
+      this.liveFrames.clear();
       this.onClose?.();
     };
     await this.call("Target.setDiscoverTargets", { discover: true });
@@ -370,7 +379,14 @@ class Machine {
     writeStatus();
   }
 
+  invalidateFrame(method, sessionId) {
+    if (/^(Input\.|Runtime\.evaluate$|Page\.(navigate|reload)$)/.test(method)) {
+      this.liveFrames.delete(sessionId);
+    }
+  }
+
   call(method, params = {}, sessionId) {
+    this.invalidateFrame(method, sessionId);
     return new Promise((resolve, reject) => {
       const id = this.nextId++;
       const timer = setTimeout(() => {
@@ -394,6 +410,7 @@ class Machine {
   // preserves ordering on the socket, so streams of input events stay in
   // sequence; await only the calls whose results matter.
   callNoWait(method, params = {}, sessionId) {
+    this.invalidateFrame(method, sessionId);
     this.browser.send(JSON.stringify({ id: this.nextId++, method, params, sessionId }));
   }
 
@@ -410,6 +427,10 @@ class Machine {
       const t = params.targetInfo;
       if (t.type === "page") this.targets.set(t.targetId, { url: t.url, title: t.title });
     } else if (method === "Target.targetDestroyed") {
+      const sessionId = this.sessions.get(params.targetId);
+      this.liveFrames.delete(sessionId);
+      this.watches.delete(sessionId);
+      this.frameHandlers.delete(sessionId);
       this.targets.delete(params.targetId);
       this.sessions.delete(params.targetId);
     } else if (method === "Page.screencastFrame" && msg.sessionId) {
@@ -454,8 +475,11 @@ class Machine {
   pickTarget(filter) {
     const pages = [...this.targets.entries()].map(([id, t]) => ({ id, ...t }));
     if (filter) {
-      const m = pages.find(p => p.id.includes(filter) || (p.url || "").includes(filter));
-      if (m) return m;
+      const exact = pages.find(p => p.id === filter);
+      if (exact) return exact;
+      const matches = pages.filter(p => p.id.includes(filter) || (p.url || "").includes(filter));
+      if (matches.length > 1) throw new Error("Ambiguous browser target; use an exact page ID from puppet_list");
+      if (matches.length === 1) return matches[0];
       // A caller that names a target is asserting ownership. Falling back to
       // the most-recent page can write one flow's prompt into another flow
       // when its tab closes or moves between windows.
@@ -561,14 +585,11 @@ class Machine {
   // bytes of JPEG — prefer .jpg outputs for iteration loops.
   async shot(filter, opts = {}) {
     const sessionId = await this.session(filter);
-    const live = this.watches?.get(sessionId);
-    if (live && opts.format === "jpeg" && !opts.fresh) {
-      try {
-        const fs = await import("node:fs");
-        const data = fs.readFileSync(live).toString("base64"); // 0ms: latest screencast frame
-        this.analysisScan(sessionId);
-        return data;
-      } catch {}
+    const live = this.liveFrames.get(sessionId);
+    // A stopped/occluded screencast must not answer indefinitely with old pixels.
+    if (live && opts.format === "jpeg" && !opts.fresh && Date.now() - live.at <= 250) {
+      this.analysisScan(sessionId);
+      return live.data;
     }
     const params = { format: opts.format ?? "png" };
     if (params.format === "jpeg") params.quality = opts.quality ?? 80;
@@ -771,7 +792,9 @@ c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";
     this.frameHandlers ??= new Map();
     this.watches ??= new Map(); // sessionId -> outPath (lets shot read the live frame)
     this.watches.set(sessionId, outPath);
+    this.liveFrames.delete(sessionId);
     this.frameHandlers.set(sessionId, msg => {
+      this.liveFrames.set(sessionId, { data: msg.params.data, at: Date.now() });
       fs.writeFileSync(outPath + ".tmp", Buffer.from(msg.params.data, "base64"));
       fs.renameSync(outPath + ".tmp", outPath);
       this.call("Page.screencastFrameAck", { sessionId: msg.params.sessionId }, sessionId).catch(() => {});
@@ -794,6 +817,7 @@ c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";
     await this.call("Page.stopScreencast", {}, sessionId).catch(() => {});
     this.frameHandlers?.delete(sessionId);
     this.watches?.delete(sessionId);
+    this.liveFrames.delete(sessionId);
     return "stopped";
   }
 
@@ -813,6 +837,7 @@ c.style.background=${pressed} ? "rgba(255,64,129,.9)" : "rgba(255,64,129,.45)";
       lastActiveAt: this.lastActiveAt ? new Date(this.lastActiveAt).toISOString() : null,
       lastError: this.lastError,
       targets: [...this.targets.values()].map(t => t.url),
+      pages: [...this.targets.entries()].map(([id,t]) => ({id,...t})),
     };
   }
 }
@@ -827,6 +852,18 @@ function writeStatus() {
 }
 
 async function handleRequest(req, sock) {
+  const actions = new Set(["semantic", "eval", "upload", "nav", "reload", "newtab", "close", "stroke", "key", "gesture", "cursor"]);
+  if (req.machine && actions.has(req.cmd) && (req.cmd !== "semantic" || ["click", "fill"].includes(req.args?.action))) {
+    const spec = machines.get(req.machine)?.spec;
+    if (!spec) throw new Error(`unknown machine: ${req.machine}`);
+    const leaseSpec = spec.local || req.machine === "local" ? { local: true }
+      : { sshHost: spec.sshHost || spec.ssh || req.machine };
+    return withMachineLease(leaseSpec, () => handleRequestUnlocked(req, sock));
+  }
+  return handleRequestUnlocked(req, sock);
+}
+
+async function handleRequestUnlocked(req, sock) {
   const { cmd, machine, args = {} } = req;
   const ensure = async name => {
     const m = machines.get(name);
@@ -841,7 +878,7 @@ async function handleRequest(req, sock) {
     return m;
   };
   const directBrowserCommands = new Set([
-    "eval", "waitFor", "evalAll", "upload", "nav", "newtab", "close", "shot",
+    "semantic", "eval", "waitFor", "evalAll", "upload", "nav", "newtab", "close", "shot",
     "stroke", "key", "gesture", "cursor", "scan", "watch", "unwatch", "tail",
   ]);
   if (machine && (directBrowserCommands.has(cmd) || cmd === "reload")) {
@@ -852,6 +889,13 @@ async function handleRequest(req, sock) {
       const out = {};
       for (const [name, m] of machines) out[name] = m.info();
       return out;
+    }
+    case "semantic": {
+      const m = one(machine);
+      if (!m.targets.has(args.target)) throw new Error("An exact existing page target ID is required (puppet_list pages)");
+      const sessionId = m.sessions.get(args.target);
+      m.liveFrames.delete(sessionId);
+      return m.semantic.run(args.action, args);
     }
     case "eval":
       return one(machine).eval(args.expr, args.target);
@@ -1107,6 +1151,21 @@ async function main() {
     case "list":
       console.log(JSON.stringify(await rpc({ cmd: "list" }), null, 2));
       return;
+    case "snapshot":
+    case "click":
+    case "fill":
+    case "wait": {
+      const result = await rpc({cmd: "semantic", machine: args[0], args: {
+        action: cmd, target: flags.target,
+        ...(args[1] ? {locator: JSON.parse(args[1])} : {}),
+        ...(cmd === "fill" ? {value: args[2]} : {}),
+        ...(flags.after ? {after: JSON.parse(flags.after)} : {}),
+        ...(flags.state ? {state: flags.state} : {}),
+        timeout: Number(flags.timeout || 5000),
+      }}, {timeoutMs: 45000});
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
     case "eval":
       console.log(
         JSON.stringify(
@@ -1386,7 +1445,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(err => {
   console.error(String(err.message || err));
   process.exit(1);
 });

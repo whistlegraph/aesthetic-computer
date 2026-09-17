@@ -28,8 +28,10 @@
 import { execFileSync, spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
+import { withMachineLease } from "../lib/computer-use-lease.mjs";
 
 const HOME = process.env.HOME;
 const CONFIG_PATH =
@@ -155,6 +157,7 @@ while IFS= read -r mode; do
 done`;
 const AGENT_REMOTE_PATH = "~/.local/share/slab/frame-agent.sh";
 
+let localMachineName;
 function loadMachines() {
   let machines = {};
   if (existsSync(CONFIG_PATH)) {
@@ -164,11 +167,14 @@ function loadMachines() {
   // fragile). Expose it under its LocalHostName as a `local: true` machine —
   // synthetic, so it never has to live in puppet.json (which puppet's daemon
   // also reads and would try to CDP-connect).
-  let self = "local";
-  try {
-    self = execFileSync("scutil", ["--get", "LocalHostName"], { encoding: "utf8" }).trim() || "local";
-  } catch {}
-  if (!machines[self]) machines[self] = { local: true };
+  if (!localMachineName) {
+    try {
+      localMachineName = execFileSync("scutil", ["--get", "LocalHostName"], { encoding: "utf8" }).trim();
+    } catch {}
+    localMachineName ||= "local";
+  }
+  machines.local = { local: true };
+  if (!machines[localMachineName]) machines[localMachineName] = { local: true };
   return machines;
 }
 
@@ -358,14 +364,18 @@ function runServer() {
 function requestViaServer(machine, mode, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const sock = net.createConnection(SOCK_PATH);
-    let buf = Buffer.alloc(0);
+    let buf = Buffer.alloc(0), received = false;
     const timer = setTimeout(() => { sock.destroy(); reject(new Error("server rpc timeout")); }, timeoutMs);
+    sock.on("close", () => {
+      clearTimeout(timer);
+      if (!received) reject(new Error("frame server closed before returning a frame"));
+    });
     sock.on("error", (e) => { clearTimeout(timer); reject(e); });
     sock.on("connect", () => sock.write(JSON.stringify({ machine, mode }) + "\n"));
     sock.on("data", (chunk) => {
       buf = Buffer.concat([buf, chunk]);
       const r = parseFrame(buf);
-      if (r && r.frame) { clearTimeout(timer); sock.end(); resolve(r.frame); }
+      if (r && r.frame) { received = true; clearTimeout(timer); sock.end(); resolve(r.frame); }
     });
   });
 }
@@ -408,7 +418,15 @@ function directFrame(name, machines, mode, timeoutMs = 15000) {
   });
 }
 
-async function captureFrame(name, { noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+export async function captureFrame(name, options = {}) {
+  if (name === XBOX_TARGET) return captureFrameUnlocked(name, options);
+  const spec = loadMachines()[name];
+  if (!spec) throw new Error(`unknown machine "${name}"`);
+  return withMachineLease(spec.local ? spec : { sshHost: sshHostFor(name, loadMachines()) },
+    () => captureFrameUnlocked(name, options));
+}
+
+async function captureFrameUnlocked(name, { memory = false, session, expectedTargetId, noOCR = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
   if (name === XBOX_TARGET) {
     if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
       throw new Error("xbox is an observe-only Frame target; use the native gamepad/live-publish loop for control");
@@ -440,6 +458,7 @@ async function captureFrame(name, { noOCR = false, fast = false, screen = false,
         ],
       },
     };
+    if (memory) return { env, jpg };
     const outPath = out || join(FRAMES_DIR, "xbox.jpg");
     mkdirSync(dirname(outPath), { recursive: true });
     writeFileSync(outPath, jpg);
@@ -450,31 +469,38 @@ async function captureFrame(name, { noOCR = false, fast = false, screen = false,
   }
   const machines = loadMachines();
   if (!machines[name]) {
-    console.error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
-    process.exit(1);
+    throw new Error(`unknown machine "${name}" — known: ${Object.keys(machines).join(", ") || "(none)"}`);
   }
-  const mode = [screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", overlays ? "overlays" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
+  if (session !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(session)) throw new Error("Invalid native frame session");
+  if (expectedTargetId !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(expectedTargetId)) throw new Error("Invalid staged target ID");
+  const mode = [expectedTargetId ? `expect-target=${expectedTargetId}` : "", session ? `session=${session}` : "", screen ? "screen" : "window", noOCR ? "noocr" : "full", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", overlays ? "overlays" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
     .filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
   // the JPEG is raw bytes, never base64.
   let frame = null;
   if (!direct && existsSync(SOCK_PATH)) {
-    try { frame = await requestViaServer(name, mode); } catch { frame = null; }
+    try { frame = await requestViaServer(name, mode); } catch (error) {
+      // Retry only a failed connection. A timeout may follow a delivered click.
+      if (!["ENOENT", "ECONNREFUSED"].includes(error.code)) throw error;
+    }
   }
   if (!frame) {
     try { frame = await directFrame(name, machines, mode); } catch (e) {
-      console.error(`${name} unreachable: ${String(e.message || e).split("\n")[0]}`);
-      process.exit(1);
+      throw new Error(`${name} unreachable: ${String(e.message || e).split("\n")[0]}`);
     }
   }
   let env;
   try {
     env = JSON.parse(frame.json);
   } catch {
-    console.error(`no frame from ${name} — is SlabMenubar running there? (frame doctor ${name})`);
-    process.exit(1);
+    throw new Error(`no frame from ${name} — is SlabMenubar running there? (frame doctor ${name})`);
   }
+  if (env.error) throw new Error(env.error);
+  if (session && (baseline || diff) && env.capture === "ok" && env.observation?.session !== session) {
+    throw new Error("Native Frame does not support isolated sessions yet; update SlabMenubar on this machine");
+  }
+  if (memory) return { env, jpg: frame.jpg?.length ? frame.jpg : undefined };
   if (env.capture === "permission_needed") {
     console.error(
       `${name}: Screen Recording not granted to SlabMenubar yet.\n` +
@@ -588,7 +614,8 @@ function list() {
   console.log("xbox\t-> Device Portal /ext/screenshot (observe-only)");
 }
 
-// ---- arg parse ----
+// ---- arg parse (imports must not run the CLI or write to MCP stdout) ----
+async function main() {
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 const flag = (f) => argv.includes(f);
@@ -646,7 +673,7 @@ else if (cmd === "view") {
   // Sugar for `frame <machine> --preview` so it reads like the slab-video /
   // slab-pdf "show me this" verbs.
   if (!argv[1]) { console.error("usage: frame view <machine>"); process.exit(1); }
-  await captureFrame(argv[1], { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
+  await captureFrame(argv[1], { session: opt("--session"), noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), direct: flag("--direct"), out: opt("--out"), preview: true });
 } else if (cmd === "tape") {
   // `frame tape <machine> [secs] …` — the CLI face of frame-tape.mjs / frame_tape.
   // Recording (reel) + crop (ffmpeg) live in the shared lib so the MCP tool and
@@ -668,4 +695,9 @@ else if (cmd === "view") {
     label: opt("--label"),
   });
   console.log(JSON.stringify(r, null, 2));
-} else await captureFrame(cmd, { noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), overlays: flag("--overlays"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+} else await captureFrame(cmd, { session: opt("--session"), noOCR: flag("--no-ocr"), fast: flag("--fast"), screen: flag("--screen"), cursor: flag("--cursor"), cursorAt: pointOpt("--cursor-at"), targetAt: pointOpt("--target-at"), targetId: opt("--target-id"), manualCheck: opt("--manual-check"), pressAt: pointOpt("--press-at"), pressCount: Number(opt("--press-count") || 1), pressTitle: opt("--press-title"), actionOnly: flag("--action-only"), clearTarget: flag("--clear-target"), clearOverlays: flag("--clear-overlays"), quietOverlay: flag("--quiet-overlay"), overlays: flag("--overlays"), crop: opt("--crop")?.split(",").map(Number), baseline: flag("--baseline"), diff: flag("--diff"), direct: flag("--direct"), out: opt("--out"), json: flag("--json"), preview: flag("--preview") });
+
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(error => { console.error(error.message); process.exitCode = 1; });
+}
