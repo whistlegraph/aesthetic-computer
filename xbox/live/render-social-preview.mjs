@@ -44,7 +44,7 @@ function fileFor(pathname) {
   // and the capture comes out empty rather than loudly wrong.
   if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
       "/oskiewar-midi.mjs", "/frame-driver.mjs", "/account.mjs",
-      "/oskiewar-wizard.mjs", "/oskiewar-workshop.mjs", "/oskiewar-map.mjs",
+      "/oskiewar-wizard.mjs", "/oskiewar-fighter.mjs", "/oskiewar-workshop.mjs", "/oskiewar-map.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
   if (pathname === "/aesthetic.computer/lib/auth0-otp.mjs")
     return join(repo, "system/public/aesthetic.computer/lib/auth0-otp.mjs");
