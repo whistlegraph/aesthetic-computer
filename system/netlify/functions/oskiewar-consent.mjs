@@ -76,7 +76,7 @@ function subsetOf(values, vocabulary) {
 // different purpose — an oskiewar grant cannot be correlated against any other
 // REGARDE operation AC might one day run — and hashed so this side of the wire
 // is the last place the Auth0 subject exists.
-function pseudonym(sub, salt) {
+export function pseudonym(sub, salt) {
   return "sub_" + createHash("sha256").update(`${salt}:${PURPOSE}:${sub}`)
     .digest("hex").slice(0, 32);
 }
@@ -233,11 +233,8 @@ export async function handler(event) {
       // Those govern a finished bundle, not what a worker may touch. It
       // expires in minutes, because a capability is for one job run.
       //
-      // No worker consumes it yet. It is passed through rather than withheld
-      // because the next stage binds to it, and because a player who has just
-      // been told "allowed, and recorded" should be able to see the shape of
-      // what they permitted.
-      capability: answer?.capability ?? null,
+      // Submission consumes this authority before storing any player media.
+      capability: outcome === "allow" ? answer?.capability ?? null : null,
     }),
   };
 }

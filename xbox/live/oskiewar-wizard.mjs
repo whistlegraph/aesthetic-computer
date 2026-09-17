@@ -136,6 +136,9 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
   const go = panel.querySelector("#wizard-go");
   const back = panel.querySelector("#wizard-back");
   let busy = false;
+  let capability = null;
+  const upload = document.createElement("div");
+  sections.after(upload);
 
   const row = (name, kind, { value, label, note: hint, on }) => {
     const wrap = document.createElement("label");
@@ -184,6 +187,11 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
 
   function open() {
     if (!panel.hidden) return;
+    capability = null;
+    upload.replaceChildren();
+    sections.hidden = false;
+    go.textContent = "allow this much";
+    go.disabled = false;
     panel.hidden = false;
     globalThis.__oskiewarWizardOpen = true;
     say("");
@@ -218,6 +226,37 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
         "trouble");
       return;
     }
+    if (capability) {
+      const selected = [...upload.querySelectorAll('input[type="file"]')]
+        .filter(input => input.files.length);
+      if (!selected.length) { say("Choose material to submit.", "trouble"); return; }
+      if (selected.reduce((sum, input) => sum + input.files[0].size, 0) > 1024 * 1024) {
+        say("Choose files totaling at most 1 MiB.", "trouble"); return;
+      }
+      working(true);
+      say("Submitting…");
+      try {
+        const files = await Promise.all(selected.map(async input => {
+          const bytes = new Uint8Array(await input.files[0].arrayBuffer());
+          let binary = "";
+          for (const byte of bytes) binary += String.fromCharCode(byte);
+          return { source: input.name, base64: btoa(binary) };
+        }));
+        const response = await fetch("/api/oskiewar-submission", {
+          method: "POST", headers: { "Content-Type": "application/json", authorization: "Bearer " + token },
+          body: JSON.stringify({ capability: capability.jws, files }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Submission refused.");
+        upload.replaceChildren();
+        capability = null;
+        working(false);
+        go.disabled = true;
+        say(result.purge_at ? `Submitted. Purge scheduled for ${new Date(result.purge_at).toLocaleString()}. Nothing generated yet.`
+          : "Submitted. Kept while your grant stands. Nothing generated yet.", "settled");
+      } catch (error) { working(false); say(error.message, "trouble"); }
+      return;
+    }
     const answer = {
       source: picked("source"),
       outputs: picked("outputs"),
@@ -245,6 +284,27 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     working(false);
 
     if (result?.outcome === "allow") {
+      if (result.capability?.jws && Array.isArray(result.capability.sources)) {
+        capability = result.capability;
+        sections.hidden = true;
+        upload.replaceChildren();
+        const hint = document.createElement("p");
+        hint.textContent = "Choose your own material. At most 1 MiB total.";
+        upload.append(hint);
+        for (const source of capability.sources) {
+          const label = document.createElement("label");
+          label.style.display = "block";
+          label.textContent = SECTIONS[0].rows.find(row => row.value === source)?.label ?? source;
+          const input = document.createElement("input");
+          input.type = "file";
+          input.style.display = "block";
+          input.style.margin = "6px 0 12px";
+          input.name = source;
+          label.append(input);
+          upload.append(label);
+        }
+        go.textContent = "submit material";
+      }
       sfx("hit", .9, 0);
       say("Allowed, and recorded. Nothing has been generated yet.", "settled");
       receiptLine.textContent = result.receipt?.hash
