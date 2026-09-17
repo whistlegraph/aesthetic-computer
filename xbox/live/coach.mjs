@@ -16,7 +16,7 @@
 // them; `coach_record` pulls your track record from the replay ledger. While
 // it is seated the title screen says "coach linked".
 //
-// Runs on Node 22+. Workshop writes require the player to enable Coach editing.
+// Runs on Node 22+. Room tools are available by default; edits are applied by the room host.
 
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
@@ -557,7 +557,7 @@ function toolWorkshop(command) {
 
 const TOOLS = [
   { name: "coach_workshop",
-    description: "Edit a local practice map while the player plays. Player must enable Coach editing. " +
+    description: "Edit the hosted room while the player plays. Room tools are enabled by default. " +
       "Start with inspect: returns the complete map, revision and player positions. " +
       "apply replaces the map with your edited document; drop adds an item; undo restores the previous map. " +
       "reset-round preserves round wins; restart-level clears them. Both keep the edited map. " +
@@ -568,7 +568,7 @@ const TOOLS = [
       "kind flat/bank/transition, lift -450–720, rise 0–720, dir -1/1), decks (col,cols,row), " +
       "two spawns (columns 0–39), pickups (kind,col,amount), skateboard boolean. " +
       "Item kinds: HANDGUN, SPACE LASER, RUBBER SMG, ROCKET LAUNCHER, LIGHT SABER, GRENADE. " +
-      "Read the returned map after changes, then watch play and iterate. Network/survival/replay editing is unavailable.",
+      "Read the returned map after changes, then watch play and iterate. Network edits switch both players to the host stream. Survival/replay editing is unavailable.",
     inputSchema: { type: "object", additionalProperties: false, required: ["op"], properties: {
       op: { type: "string", enum: ["inspect", "apply", "drop", "undo", "reset-round", "restart-level",
         "highlight", "save", "publish", "load", "list"] },
@@ -659,7 +659,7 @@ export async function handleMessage(message) {
             "START on the title screen); coach_watch streams hits, blocks, " +
             "swings and deaths as they happen; coach_analyze folds them into " +
             "numbers to coach from; coach_record and coach_replay read the " +
-            "replay ledger. coach_workshop edits local practice maps and saves or publishes them when the player enables Coach editing. Inspect before editing and use the returned revision." } };
+            "replay ledger. coach_workshop edits hosted room maps and saves or publishes them. Tools are available by default; /workshop opens the room controls. Inspect before editing and use the returned revision." } };
       case "initialized":
       case "notifications/initialized": return null;
       case "ping": return { jsonrpc: "2.0", id, result: {} };

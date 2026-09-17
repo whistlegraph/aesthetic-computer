@@ -23,7 +23,7 @@
     {
       const harness = new URLSearchParams(location.search);
       globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
-        !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop");
+        !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
     // A bare front door asks the relay for one open room, and the first
     // frame waits on the answer. The ask used to leave only after the whole
@@ -243,7 +243,7 @@
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
       new URLSearchParams(location.search).get("opponent") ||
-      (new URLSearchParams(location.search).has("workshop") ? "dummy" : "");
+      ((new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");
     // `__oskiewarVersusCapable` is raised in the head, beside the fetches
     // that depend on it.
     let titleOpen = true;
@@ -1563,7 +1563,9 @@
       });
     globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
-    const roundName = roundNameFromPath(location.pathname);
+    const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
+    const roundName = roundNameFromPath(location.pathname) || (workshopRoute
+      ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");
     // The game module download is the long pole of the whole load, so it
     // starts here, before anything else is awaited. `no-cache` rather than
     // `no-store` lets the browser revalidate: an unchanged module answers
@@ -1575,7 +1577,7 @@
     // the relay is asked for one open room — a live host, an empty second
     // chair — and a hit turns this visit into that room's challenger. A
     // miss, or a slow relay, leaves the visitor hosting a room of their own.
-    const openRoom = !roundName && globalThis.__oskiewarVersusCapable === true
+    const openRoom = !workshopRoute && !roundName && globalThis.__oskiewarVersusCapable === true
       ? (globalThis.__oskiewarOpenRoomFetch ||
           fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
             { cache: "no-store", signal: AbortSignal.timeout(2500) }))
@@ -1584,7 +1586,7 @@
           .catch(() => "")
       : Promise.resolve("");
     const joinName = roundName || await openRoom;
-    if (joinName && !roundName)
+    if (joinName && !roundName && !workshopRoute)
       history.replaceState(null, "", "/" + joinName);
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
@@ -1599,7 +1601,7 @@
     // fight.
     setInterval(() => {
       const room = globalThis.__oskiewarVersusRoom;
-      if (room && location.pathname !== "/" + room)
+      if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
         history.replaceState(null, "", "/" + room);
     }, 500);
     // A challenger who glances at another tab stops simulating — the frame

@@ -136,8 +136,8 @@ claude mcp add coach -- node ./coach.mjs</code></pre>
   </ul>
 
   <h2>Build a map while playing</h2>
-  <p>Open the <a href="/?workshop=1">map workshop</a>, enable
-    <strong>Coach editing</strong>, and connect your coach to the room shown
+  <p>Open the <a href="/workshop">map workshop</a> from the tools icon in the top-right,
+    and connect your coach to the room shown
     on the title. <code>coach_workshop</code> can reshape terrain and platforms,
     move and highlight spawns, drop items, undo edits, reset the round, or
     restart the level. The edited map stays in place between rounds.</p>
@@ -146,10 +146,9 @@ claude mcp add coach -- node ./coach.mjs</code></pre>
     <em>Save this as Moon Yard. Publish it and give me the play link.</em></p>
   <p>Sign in to save private drafts or publish. Each save keeps a separate
     version; published versions have a permanent play link. The coach can
-    list and load them later. Editing currently works in local practice in
-    the browser. Edited sessions do not upload competitive replays; reload
-    before returning to recorded matches. Turning Coach editing off prevents
-    further commands; an already submitted save may still finish.</p>
+    list and load them later. Room editing is enabled by default. In network games, the host applies edits
+    and streams the updated game to the other player. Edited sessions do not upload competitive replays; reload
+    before returning to recorded matches. Ranked play is not implemented yet; this workshop is for casual rooms.</p>
 
   <h2>Things to say to it</h2>
   <ul>
@@ -165,8 +164,8 @@ claude mcp add coach -- node ./coach.mjs</code></pre>
     watch it, the same way anyone with the address can join the second chair.
     A coach reads fighter positions, states, scores and the moves on screen.
     It does not see your keyboard, your account, or anything outside the room.
-    Editing is off by default. When you enable it, attached coaches may edit
-    the practice map and save or publish it through your signed-in account.
+    Attached coaches can edit your hosted room and save or publish maps
+    through your signed-in account.
     The game counts coaches apart from human
     spectators — the antenna on the title means a machine is reading, not one
     more person in the stands. Up to four coaches can share one room.

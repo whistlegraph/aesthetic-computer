@@ -35,7 +35,7 @@ export function createMapsHandler({ authorize, connect }) {
           owner, published, map, createdAt: new Date().toISOString(),
         } }, { upsert: true });
         return reply(201, { id, published, map,
-          ...(published ? { url: 'https://oskiewar.com/?workshop=' + id } : {}) });
+          ...(published ? { url: 'https://oskiewar.com/workshop?map=' + id } : {}) });
       }
       if (query.id) {
         const row = await collection.findOne({ _id: query.id,

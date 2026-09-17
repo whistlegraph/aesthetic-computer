@@ -41,7 +41,7 @@ test('map drafts are private; published versions are immutable, named and playab
   assert.equal((await get(draft.id, 'bob')).statusCode, 404);
   assert.equal((await get(draft.id, 'alice')).statusCode, 200);
   const published = JSON.parse((await post('alice', true)).body);
-  assert.match(published.url, /\?workshop=[a-f0-9]{64}$/);
+  assert.match(published.url, /\/workshop\?map=[a-f0-9]{64}$/);
   assert.equal((await get(published.id)).statusCode, 200);
   assert.equal(JSON.parse((await post('alice', true)).body).id, published.id);
   const changed = JSON.parse((await post('alice', true, { ...map(), name: 'Moon yard 2' })).body);

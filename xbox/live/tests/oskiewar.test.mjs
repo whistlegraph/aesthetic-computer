@@ -6737,15 +6737,26 @@ test('workshop public maps survive rounds without granting coach editing', async
   }
 });
 
-test('workshop cannot mutate a versus lobby', async () => {
+test('workshop edits the hosted room and keeps its map between rounds', async () => {
+  const { validateMap } = await import('../oskiewar-map.mjs');
   const { fight } = createFight();
   globalThis.__oskiewarWorkshopEnabled = true;
+  globalThis.__oskiewarValidateMap = validateMap;
   try {
     fight.enterLobby();
-    assert.throws(() => globalThis.__oskiewarWorkshopCommand({ op: 'inspect' }), /local practice/);
-  } finally { delete globalThis.__oskiewarWorkshopEnabled; }
+    const command = globalThis.__oskiewarWorkshopCommand;
+    const current = command({ op: 'inspect' });
+    const changed = command({ op: 'apply', revision: current.revision,
+      map: { ...current.map, name: 'Our room', spawns: [7, 31] } });
+    assert.ok(changed.room.startsWith('ow-'));
+    fight.nextRound();
+    assert.equal(command({ op: 'inspect' }).map.name, 'Our room');
+    assert.equal(fight.players[0].spawnX, 675);
+  } finally {
+    delete globalThis.__oskiewarWorkshopEnabled;
+    delete globalThis.__oskiewarValidateMap;
+  }
 });
-
 
 test('workshop publishes its coach session without requiring the debug overlay', () => {
   const { fight, tick, liveFrames } = createFight();

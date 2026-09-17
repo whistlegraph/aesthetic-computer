@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 130;
+const buildVersion = 131;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1403,11 +1403,12 @@ function installWorkshopMap(map) {
 
 function workshopCommand(command) {
   if (!globalThis.__oskiewarWorkshopEnabled) throw new Error("Coach editing is off");
-  if (netSession || roundViewer || versusLane() || survivalActive() || resimActive)
-    throw new Error("Use local practice for map editing; leave the network/survival/replay lane first");
+  if ((netSession && netSession.seat !== 0) || roundViewer || survivalActive() || resimActive)
+    throw new Error("Edit through the room host; survival and replay editing are unavailable");
   if (!command || typeof command !== "object") throw new Error("Expected a workshop command");
   const { op } = command;
-  if (op === "inspect") return { revision: workshopRevision, map: workshopSnapshot(),
+  if (op === "inspect") return { room: "ow-" + (versusRoomName || sessionName),
+    revision: workshopRevision, map: workshopSnapshot(),
     highlights: workshopHighlight, undo: workshopHistory.length,
     units: { columns: gridCols, tileSize, floorY },
     players: players.map(p => ({ x: p.x, y: p.y, spawnX: p.spawnX })) };
@@ -1428,6 +1429,14 @@ function workshopCommand(command) {
     if (op === "drop") map.pickups.push(command.item);
   }
   map = globalThis.__oskiewarValidateMap(map);
+  if (netSession) {
+    const session = netSession;
+    if (session.send({ t: "workshop", o: session.originUs }) === false)
+      throw new Error("The peer connection is not ready for editing");
+    workshopTainted = true;
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("workshop");
+  }
   if (op === "undo") workshopHistory.pop();
   else if (!["reset-round", "restart-level"].includes(op)) {
     workshopHistory.push(workshopSnapshot());
@@ -1459,7 +1468,7 @@ function installMapPickups(target, authored, type) {
 function resetWorkshopMap() {
   if (!workshopMap) return;
   if ((globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
-      !versusLane() && !survivalActive() && !roundViewer && !resimActive) {
+      !survivalActive() && !roundViewer && !resimActive) {
     installWorkshopMap(workshopMap);
     return;
   }
@@ -2128,7 +2137,7 @@ function spectatorState(now, nextRoundId = "") {
     Math.round((roundDurationUs - roundElapsedUs) / 1000));
   const state = {
     format: "ac.oskiewar.live", version: 1, seq: liveSequence++,
-    map: { id: currentMapId, name: currentMapName,
+    map: { id: currentMapId, name: currentMapName, highlights: workshopHighlight,
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
@@ -4302,6 +4311,7 @@ function roundDemoState(demo, now) {
 
 function applyRoundViewerState(state, now, dt = 1 / 60) {
   if (!state?.fighters?.length || !state.camera || !state.round) return;
+  workshopHighlight = state.map?.highlights === true;
   if (state.map?.id && state.map.id !== currentMapId) {
     if (state.map.workshop && globalThis.__oskiewarValidateMap) {
       try { installWorkshopMap(globalThis.__oskiewarValidateMap(state.map.workshop)); }
@@ -5233,7 +5243,7 @@ function netEnd(reason) {
   // chair resets the match — which would turn a repaired desync into a lost
   // score. The grace covers the changeover; a rival who has genuinely gone
   // still times out, just three seconds later.
-  if (reason === "desync" || reason === "desync-peer")
+  if (reason === "desync" || reason === "desync-peer" || reason === "workshop")
     versusSeatGraceUntil = Date.now() + 3000;
   // The stream this seat is about to start watching again is a new timeline.
   if (roundViewer) resetRoundViewerPlayout();
@@ -5404,6 +5414,7 @@ function netDrainInbox(session) {
     if (packet.o !== undefined && packet.o !== session.originUs) continue;
     session.lastPacketAt = Date.now();
     session.stats.received++;
+    if (packet.t === "workshop" && session.seat === 1) { session.peerWorkshop = true; continue; }
     if (packet.t === "bye") { session.peerLeft = true; continue; }
     // The rival noticed the divergence first. Same repair from this side, and
     // no answering packet: a desync that echoed would ping-pong.
@@ -5547,6 +5558,11 @@ function netTick() {
   // The rival told us the two fights came apart. Drop to the streamed lane,
   // where there is only one authority, and stay out of the rollback lane long
   // enough that the next hello is not just the same divergence again.
+  if (session.peerWorkshop) {
+    netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
+    netEnd("workshop");
+    return;
+  }
   if (session.peerDesync) {
     netLaneBlockedUntil = Date.now() + NET_DESYNC_COOLDOWN_MS;
     netEnd("desync-peer");
@@ -5611,6 +5627,7 @@ function netTick() {
 // with a deal; a host that never answers is an older build, and the fight
 // falls back to the streamed lane it always had.
 function netChallengerHello(now) {
+  if (workshopMap) return;
   if (netSession || roundViewer?.seat !== "challenger" ||
       typeof roundViewer.sendNet !== "function" || !versusAllowed()) return;
   // Not before the shell has finished asking who is here. Identity rides this
@@ -5654,6 +5671,7 @@ function netHandlePreSession(packet) {
 // The host's side of the opening: a fresh challenger who said hello gets a
 // deal instead of the streamed fight.
 function netHostBegin(now) {
+  if (workshopMap) return false;
   // Same door, other side: a deal struck before this seat knows its own handle
   // names the host for the rest of the fight, on both screens.
   if (accountState() && !accountReady()) return false;

@@ -43,7 +43,9 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          }
        };
      }
-     return { boot, sim, paint, saberPickups, players, netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
+     return { boot, sim, paint, saberPickups, players, workshopCommand,
+       workshopFrame: () => spectatorState(runtime().monotonicUs),
+       workshopView: (frame) => applyRoundViewerState(frame, runtime().monotonicUs), netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
        fixtureKnockouts: () => fixtureKnockouts.slice(),
        netplayBegin: (deal, seat, send) => netBegin(deal, seat, send),
        netplayDeal: () => netMakeDeal(),
@@ -839,4 +841,37 @@ test("a sword survives a rollback the same way on both seats", () => {
       a.fight.players.map((player) => player.swordHeld).join(),
       b.fight.players.map((player) => player.swordHeld).join(),
       "the two seats disagree about who is holding a sword");
+});
+
+
+test('a coach map edit moves both network seats to the host stream', async () => {
+  const { validateMap } = await import('../oskiewar-map.mjs');
+  const host = createSeat(), guest = createSeat();
+  const wire = createWire(host, guest, { delay: 0 });
+  beginPair(host, guest, wire);
+  globalThis.__oskiewarValidateMap = validateMap;
+  globalThis.__oskiewarWorkshopEnabled = true;
+  try {
+    assert.throws(() => guest.fight.workshopCommand({ op: 'inspect' }), /room host/);
+    let current = host.fight.workshopCommand({ op: 'inspect' });
+    assert.throws(() => host.fight.workshopCommand({ op: 'apply', revision: current.revision,
+      map: { ...current.map, spawns: [NaN, 2] } }), /spawn/);
+    assert.ok(host.fight.netplayState(), 'Invalid edits leave rollback running');
+    current = host.fight.workshopCommand({ op: 'apply', revision: current.revision,
+      map: { ...current.map, name: 'Shared room', spawns: [8, 30],
+        decks: [{ col: 10, cols: 5, row: 4 }] } });
+    assert.equal(host.fight.netplayState(), null);
+    wire.step(); guest.tick();
+    assert.equal(guest.fight.netplayState(), null);
+    assert.ok(guest.fight.netplayLaneBlocked());
+    guest.fight.workshopView(host.fight.workshopFrame());
+    assert.deepEqual(guest.fight.workshopCommand({ op: 'inspect' }).map, current.map);
+    current = host.fight.workshopCommand({ op: 'restart-level', revision: current.revision });
+    guest.fight.workshopView(host.fight.workshopFrame());
+    assert.equal(host.fight.players[0].x, guest.fight.players[0].x);
+    assert.equal(current.map.name, 'Shared room');
+  } finally {
+    delete globalThis.__oskiewarValidateMap;
+    delete globalThis.__oskiewarWorkshopEnabled;
+  }
 });

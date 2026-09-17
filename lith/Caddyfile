@@ -1121,7 +1121,7 @@ oskiewar.com, midi.oskiewar.com {
     }
 
     # Playable Canvas/Web Audio build shared with the desktop test harness.
-    @oskiewargame path /
+    @oskiewargame path / /workshop /workshop/
     handle @oskiewargame {
         root * /opt/ac/xbox/live
         rewrite * /mac-test.html
