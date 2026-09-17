@@ -149,9 +149,10 @@ export async function handler(event) {
 
   const gateway = process.env.REGARDE_GATEWAY_URL;
   const salt = process.env.REGARDE_SUBJECT_SALT;
+  const gatewayToken = process.env.REGARDE_GATEWAY_TOKEN;
   // Unconfigured is refused rather than waved through. This is the branch that
   // would otherwise quietly become "generation works, the wall is decorative."
-  if (!gateway || !salt)
+  if (!gateway || !salt || !gatewayToken)
     return fail(503, "The consent desk is not reachable right now.");
 
   const request = {
@@ -177,7 +178,16 @@ export async function handler(event) {
   try {
     const upstream = await fetch(gateway, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // The gate treats a deployer relaying a player's choice as exactly
+        // that: a deployer. The token proves which deployer is asking, never
+        // that the person answered — the gate says so in its own standing
+        // limits, and so does this comment, so neither of us can forget it.
+        ...(process.env.REGARDE_GATEWAY_TOKEN
+          ? { Authorization: `Bearer ${process.env.REGARDE_GATEWAY_TOKEN}` }
+          : {}),
+      },
       body: JSON.stringify(request),
       signal: controller.signal,
     });
