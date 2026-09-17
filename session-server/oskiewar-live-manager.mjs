@@ -6,7 +6,6 @@ import {
   oskiewarEvent,
   oskiewarSurface,
 } from "../system/public/aesthetic.computer/lib/oskiewar-analytics.mjs";
-import { validateMap } from "../xbox/live/oskiewar-map.mjs";
 import { createPostHogEventCapture } from "../shared/posthog-event-capture.mjs";
 
 const MATCH_WORD = "[bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou][bdfgklmnprstvz][aeiou]";
@@ -130,9 +129,6 @@ function perf(value) {
 }
 
 export function validateOskiewarLiveState(value) {
-  if (value?.map?.workshop !== undefined) {
-    try { validateMap(value.map.workshop); } catch { return "Invalid workshop map"; }
-  }
   if (!value || value.format !== "ac.oskiewar.live" || value.version !== 1)
     return "Unsupported live state";
   if (!integer(value.seq, 0, 2147483647) || !finite(value.at, 10000000000000))

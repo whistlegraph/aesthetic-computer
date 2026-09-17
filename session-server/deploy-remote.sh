@@ -50,6 +50,7 @@ deploy_and_check() {
     return 1
   }
   echo "→ systemctl restart session-server"
+  systemctl reset-failed session-server || return 1
   systemctl restart session-server || return 1
   # Health gate: wait for :8889 to bind (slow boot loads chat history first).
   for i in $(seq 1 "$BOOT_BUDGET"); do
