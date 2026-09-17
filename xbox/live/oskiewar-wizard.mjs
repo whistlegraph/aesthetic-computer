@@ -19,90 +19,58 @@
 
 const ENDPOINT = "/api/oskiewar-consent";
 
-// The scope card, in the order a person thinks about it: what of mine, to
-// make what, seen where, kept how long. `note` is the sentence that stops a
-// reasonable wrong assumption before it is made.
-const SECTIONS = [
-  { key: "source", legend: "what of yours", kind: "check", rows: [
-    { value: "appearance", label: "how you look",
-      note: "photos or a description you write", on: true },
-    { value: "movement", label: "how you move" },
-    { value: "voice", label: "your voice",
-      note: "a recording, used only for what you tick below" },
-    { value: "biography", label: "something about you" },
-  ] },
-  { key: "outputs", legend: "to make", kind: "check", rows: [
-    { value: "portrait", label: "a portrait", on: true },
-    { value: "fighter_mesh", label: "a body to fight in" },
-    { value: "fighter_animation", label: "the way that body moves" },
-    { value: "match_audio", label: "a voice in the match",
-      note: "needs the voice sample above" },
-  ] },
-  { key: "distribution", legend: "seen where", kind: "check", rows: [
-    { value: "private_preview", label: "only you, as a preview", on: true },
-    { value: "local_gameplay", label: "fights on your own machine" },
-    { value: "online_play", label: "fights against other people" },
-    { value: "tournament_display", label: "shown at a tournament" },
-  ] },
-  { key: "retention", legend: "kept how long", kind: "radio", rows: [
-    { value: "bound_to_purpose_scope", label: "only while this grant stands",
-      on: true },
-    { value: "pilot_deadline", label: "until the pilot ends, then purged" },
-  ] },
+// The pilot offers just two materials. The remaining scope is narrow and
+// stated on the card, not an unseen expansion of permission.
+const MATERIALS = [
+  { value: "appearance", label: "Photo", on: true },
+  { value: "voice", label: "Voice" },
 ];
 
-// Held apart from the card above, and worded as refusals, because these are
-// the three a player is most likely to agree to by momentum. Nothing here is
-// a degree of playing the game; each is a different thing being done with a
-// person.
-const SEPARATE = [
-  { value: "marketing", label: "may advertise the game" },
-  { value: "merchandise", label: "may be printed on something sold" },
-  { value: "model_training", label: "may train a model" },
-];
+export function scopeForMedia({ photo, voice }) {
+  return {
+    source: [...(photo ? ["appearance"] : []), ...(voice ? ["voice"] : [])],
+    outputs: [...(photo ? ["portrait"] : []), ...(voice ? ["match_audio"] : [])],
+    distribution: ["private_preview"],
+    retention: "bound_to_purpose_scope",
+    marketing: false, merchandise: false, model_training: false,
+  };
+}
 
 const STYLE = `
-#wizard-panel { position: fixed; inset: 0; z-index: 21;
-  display: grid; place-items: center; padding: 20px;
-  background: rgba(4, 7, 18, .86); backdrop-filter: blur(3px); }
+#wizard-panel { position: fixed; inset: 0; z-index: 21; display: grid;
+  place-items: center; padding: 20px; background: rgba(0,0,0,.65); }
 #wizard-panel[hidden] { display: none; }
-#wizard-card { width: 100%; max-width: 31rem; max-height: 88vh; overflow: auto;
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 22px; border: 3px solid #6e768d; border-radius: 14px;
-  background: #171b28; box-shadow: 5px 7px 0 rgba(4, 7, 18, .55);
-  font: 400 16px/1.4 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-  color: #f3f6ff; }
-#wizard-card h2 { margin: 0; font-size: 26px; font-weight: 700; }
-#wizard-bargain { margin: 0; font-size: 15px; color: #b0b8ca; }
-#wizard-card fieldset { margin: 0; padding: 12px 13px; border: 2px solid #3b4256;
-  border-radius: 9px; display: flex; flex-direction: column; gap: 9px; }
-#wizard-card legend { padding: 0 6px; font-size: 14px; color: #b0b8ca;
-  text-transform: lowercase; }
-#wizard-card fieldset.separate { border-color: #7a5560; }
-#wizard-card label.row { display: flex; gap: 10px; align-items: flex-start;
-  cursor: pointer; }
-#wizard-card label.row input { margin: 3px 0 0; width: 20px; height: 20px;
-  accent-color: #e6cd5c; flex: 0 0 auto; }
-#wizard-card .row span { display: block; }
-#wizard-card .row .note { font-size: 13px; color: #b0b8ca; }
-#wizard-note { margin: 0; min-height: 1.4em; font-size: 15px; color: #b0b8ca; }
-#wizard-note.trouble { color: #ff9a8a; }
-#wizard-note.settled { color: #9ce6a8; }
-#wizard-receipt { margin: 0; font-size: 13px; color: #b0b8ca;
-  word-break: break-all; }
-#wizard-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-#wizard-panel button { appearance: none; flex: 1 1 auto;
-  padding: 11px 14px; border: 2px solid #6e768d; border-radius: 9px;
-  background: #b0b8ca; color: #171b28;
-  font: 700 17px/1 "Comic Relief", "Comic Sans MS", Arial, sans-serif;
-  box-shadow: 2px 3px 0 rgba(4, 7, 18, .45); cursor: pointer; }
-#wizard-panel button:hover { background: #d9dfee; }
-#wizard-panel button:focus-visible { outline: 3px solid #e6cd5c;
-  outline-offset: 2px; }
-#wizard-panel button[disabled] { opacity: .55; cursor: default; }
-#wizard-panel #wizard-back { flex: 0 1 auto; background: #3b4256;
-  color: #e8ecf8; }
-#wizard-panel #wizard-back:hover { background: #4d566f; }
+#wizard-card { box-sizing: border-box; width: 100%; max-width: 26rem;
+  max-height: 88vh; overflow: auto; display: flex; flex-direction: column;
+  gap: 20px; padding: 28px; border: 1px solid #777; border-radius: 0;
+  background: #f5f5f0; color: #090909;
+  box-shadow: 0 12px 60px #0006; font: 16px/1.45 Arial, Helvetica, sans-serif; }
+#wizard-brand { font-size: 21px; font-weight: 700; letter-spacing: -.04em; }
+#wizard-brand::after { content: ""; display: inline-block; width: 9px;
+  height: 9px; margin-left: 7px; background: #e31b23; }
+#wizard-card h2 { margin: 0; font-size: 30px; line-height: 1.1; letter-spacing: -.03em; }
+#wizard-bargain { margin: 0; color: #444; }
+#wizard-card fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 12px; }
+#wizard-card legend { position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); }
+#wizard-card label.row { display: flex; gap: 12px; align-items: center;
+  padding: 14px; border: 1px solid #777; cursor: pointer; font-size: 19px; }
+#wizard-card label.row input { width: 22px; height: 22px; margin: 0; accent-color: #090909; }
+#wizard-note, #wizard-receipt { margin: 0; font-size: 14px; }
+#wizard-note:empty, #wizard-receipt:empty { display: none; }
+#wizard-note.trouble { color: #b00014; }
+#wizard-note.settled { color: #006b3c; }
+#wizard-receipt { color: #555; overflow-wrap: anywhere; }
+#wizard-actions { display: flex; gap: 10px; }
+#wizard-panel button { flex: 1; padding: 12px; border: 1px solid #090909;
+  border-radius: 0; font: 700 16px/1.2 Arial, Helvetica, sans-serif;
+  background: #090909; color: #f5f5f0; cursor: pointer; }
+#wizard-panel button:hover { background: #333; }
+#wizard-panel button:focus-visible, #wizard-panel input:focus-visible {
+  outline: 3px solid #003399; outline-offset: 3px; }
+#wizard-panel button[disabled] { opacity: .5; cursor: default; }
+#wizard-panel #wizard-back { background: transparent; color: #090909; }
+#wizard-panel #wizard-back:hover { background: #e4e4df; }
 #wizard-panel.working #wizard-card { opacity: .7; }
 `;
 
@@ -115,16 +83,16 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
   panel.id = "wizard-panel";
   panel.hidden = true;
   panel.innerHTML = `
-    <form id="wizard-card" novalidate>
-      <h2>add yourself</h2>
-      <p id="wizard-bargain">You decide which parts of you the game may use.
-        Nothing is collected and nothing is generated until you answer.</p>
+    <form id="wizard-card" role="dialog" aria-modal="true" aria-labelledby="wizard-title" novalidate>
+      <div id="wizard-brand" aria-label="REGARDE">regarde</div>
+      <h2 id="wizard-title">Add yourself</h2>
+      <p id="wizard-bargain">OSKIEWAR asks to make a portrait or game voice for your private preview. Kept until you withdraw.</p>
       <div id="wizard-sections"></div>
       <p id="wizard-note" role="status" aria-live="polite"></p>
       <p id="wizard-receipt"></p>
       <div id="wizard-actions">
-        <button id="wizard-go" type="submit">allow this much</button>
-        <button id="wizard-back" type="button">never mind</button>
+        <button id="wizard-go" type="submit">Allow</button>
+        <button id="wizard-back" type="button">Not now</button>
       </div>
     </form>`;
   document.body.append(panel);
@@ -155,20 +123,11 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     return wrap;
   };
 
-  for (const section of SECTIONS) {
-    const set = document.createElement("fieldset");
-    const legend = document.createElement("legend");
-    legend.textContent = section.legend;
-    set.append(legend, ...section.rows.map((r) => row(section.key, section.kind, r)));
-    sections.append(set);
-  }
-  const separate = document.createElement("fieldset");
-  separate.className = "separate";
-  const separateLegend = document.createElement("legend");
-  separateLegend.textContent = "asked separately, off unless you say so";
-  separate.append(separateLegend,
-    ...SEPARATE.map((r) => row("separate", "check", r)));
-  sections.append(separate);
+  const set = document.createElement("fieldset");
+  const legend = document.createElement("legend");
+  legend.textContent = "Material OSKIEWAR may use";
+  set.append(legend, ...MATERIALS.map(material => row("source", "check", material)));
+  sections.append(set);
 
   const picked = (name) => [...card.querySelectorAll(`input[name="${name}"]`)]
     .filter((input) => input.checked).map((input) => input.value);
@@ -190,7 +149,7 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
     capability = null;
     upload.replaceChildren();
     sections.hidden = false;
-    go.textContent = "allow this much";
+    go.textContent = "Allow";
     go.disabled = false;
     panel.hidden = false;
     globalThis.__oskiewarWizardOpen = true;
@@ -257,16 +216,12 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
       } catch (error) { working(false); say(error.message, "trouble"); }
       return;
     }
-    const answer = {
-      source: picked("source"),
-      outputs: picked("outputs"),
-      distribution: picked("distribution"),
-      retention: picked("retention")[0],
-    };
-    for (const { value } of SEPARATE) answer[value] = picked("separate").includes(value);
+    const chosen = picked("source");
+    const answer = scopeForMedia({ photo: chosen.includes("appearance"), voice: chosen.includes("voice") });
+    if (!answer.source.length) { say("Choose photo, voice, or both.", "trouble"); return; }
 
     working(true);
-    say("Asking the consent desk…");
+    say("Asking REGARDE…");
     let result;
     try {
       const response = await fetch(ENDPOINT, {
@@ -294,19 +249,20 @@ export default function mountWizard({ sfx = () => {}, bearer = async () => null 
         for (const source of capability.sources) {
           const label = document.createElement("label");
           label.style.display = "block";
-          label.textContent = SECTIONS[0].rows.find(row => row.value === source)?.label ?? source;
+          label.textContent = MATERIALS.find(row => row.value === source)?.label ?? source;
           const input = document.createElement("input");
           input.type = "file";
           input.style.display = "block";
           input.style.margin = "6px 0 12px";
           input.name = source;
+          input.accept = source === "appearance" ? "image/*" : "audio/*";
           label.append(input);
           upload.append(label);
         }
-        go.textContent = "submit material";
+        go.textContent = "Submit";
       }
       sfx("hit", .9, 0);
-      say("Allowed, and recorded. Nothing has been generated yet.", "settled");
+      say("Allowed. Choose your files.", "settled");
       receiptLine.textContent = result.receipt?.hash
         ? `receipt ${result.receipt.hash}` : "";
       return;

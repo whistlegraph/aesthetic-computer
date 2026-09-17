@@ -7,7 +7,7 @@
 // regarde/proposals/oskiewar-regarde) for the grant these fields become.
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readScope, frozenFields, SOURCES, OUTPUTS, DISTRIBUTION, SEPARATE }
+import { readScope, frozenFields, SEPARATE }
   from "../netlify/functions/oskiewar-consent.mjs";
 
 // The narrowest answer the wall can send: look at me, make a picture, show
@@ -85,13 +85,16 @@ test("duplicate ticks cannot inflate a category", () => {
   assert.deepEqual(scope.source, ["appearance"]);
 });
 
-test("the wall and the endpoint agree on the vocabulary", async () => {
-  // The card the player reads is built from its own copy of these lists. If
-  // the two drift, a box a player can tick becomes an unregistered term and
-  // the ask fails at the desk with nothing on screen to explain why.
-  const { readFile } = await import("node:fs/promises");
-  const card = await readFile(
-    new URL("../../xbox/live/oskiewar-wizard.mjs", import.meta.url), "utf8");
-  for (const value of [...SOURCES, ...OUTPUTS, ...DISTRIBUTION, ...SEPARATE])
-    assert.ok(card.includes(`"${value}"`), `wall is missing ${value}`);
+test("photo and voice map to narrow, valid REGARDE asks", async () => {
+  const { scopeForMedia } = await import("../../xbox/live/oskiewar-wizard.mjs");
+  for (const [photo, voice] of [[true, false], [false, true], [true, true]]) {
+    const answer = scopeForMedia({ photo, voice });
+    assert.equal(readScope(answer).error, undefined);
+    assert.deepEqual(answer.source, [...(photo ? ["appearance"] : []), ...(voice ? ["voice"] : [])]);
+    assert.deepEqual(answer.outputs, [...(photo ? ["portrait"] : []), ...(voice ? ["match_audio"] : [])]);
+    assert.deepEqual(answer.distribution, ["private_preview"]);
+    assert.equal(answer.retention, "bound_to_purpose_scope");
+    for (const key of SEPARATE) assert.equal(answer[key], false);
+  }
+  assert.ok(readScope(scopeForMedia({ photo: false, voice: false })).error);
 });
