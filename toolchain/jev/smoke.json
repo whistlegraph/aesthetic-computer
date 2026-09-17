@@ -1,0 +1,14 @@
+{
+  "state": "In a practice round, fighter 0 took 12 hits, blocked none, and landed 8 of 10 attacks.",
+  "questions": {
+    "practice": {
+      "type": "choice",
+      "instructions": "Which skill should fighter 0 practice next based on these statistics?",
+      "criteria": {
+        "blocking": "Prevent incoming hits with defensive blocking.",
+        "accuracy": "Improve the fraction of attacks that land.",
+        "observe": "Gather more evidence before choosing a focus."
+      }
+    }
+  }
+}
