@@ -82,7 +82,7 @@ final class MenuBandSurfaceCue {
     /// chime so rapid Tab presses always hear the freshest destination —
     /// `scheduleBuffer` on a live player appends, it does not replace.
     func playPadSwitch(toTrackDrum: Bool) -> Bool {
-        guard attached, let engine, engine.isRunning else { return false }
+        guard attached, let engine, engine.isRenderingLive else { return false }
         guard let buffer = makePadSwitchBuffer(toTrackDrum: toTrackDrum) else {
             return false
         }
@@ -96,7 +96,7 @@ final class MenuBandSurfaceCue {
     /// per-event travel. The level snaps up to the target (a rub needs no
     /// attack — the loop has no transient) and the timer eases it back down.
     func rub(intensity: Float) {
-        guard attached, let engine, engine.isRunning,
+        guard attached, let engine, engine.isRenderingLive,
               let loop = rubLoop else { return }
         let target = max(0, min(1, intensity)) * Self.rubLevelCeiling
         rubLevel = max(rubLevel, target)
@@ -222,5 +222,38 @@ final class MenuBandSurfaceCue {
         for i in 0..<trimmed { data[i] = data[i + fade] }
         buffer.frameLength = AVAudioFrameCount(trimmed)
         return buffer
+    }
+}
+
+/// `AVAudioPlayerNode.play()` blocks its calling thread inside
+/// `AVAudioClock awaitIOCycle` until the engine's render thread completes a
+/// cycle. `engine.isRunning` is not proof that cycles are happening: after a
+/// device pull, a hog-mode/device-override churn, or a pause racing in from
+/// another thread, the flag can read true while the output unit is not
+/// pulling. Both surface cues call `play()` from the main thread, so a
+/// stalled engine froze the whole app mid-gesture — status item, key
+/// capture panel and the locked pitch-bend cursor all wedged in place
+/// (2026-09-18, main thread parked 130 s in `MenuBandSurfaceCue.rub`).
+///
+/// The output node's `lastRenderTime` advances only when a cycle really
+/// ran, so its age is the honest liveness signal. A cue is a preview, not a
+/// note: when the engine has not rendered within the window it is skipped
+/// rather than awaited.
+extension AVAudioEngine {
+    /// Longest gap between render cycles still treated as alive. IO buffers
+    /// here are 256–512 frames (≈3–12 ms), so a quarter second is far past
+    /// any legitimate cycle and well short of what a person feels as a hang.
+    fileprivate static let liveRenderWindow: TimeInterval = 0.25
+
+    /// True only when the engine is running AND its output rendered within
+    /// `liveRenderWindow`. Nil / host-time-invalid render times count as not
+    /// live: a fresh `start()` populates them within one cycle, and a cue
+    /// skipped in that first few milliseconds is inaudible.
+    var isRenderingLive: Bool {
+        guard isRunning, let last = outputNode.lastRenderTime,
+              last.isHostTimeValid else { return false }
+        let age = AVAudioTime.seconds(forHostTime: mach_absolute_time())
+            - AVAudioTime.seconds(forHostTime: last.hostTime)
+        return age >= 0 && age <= Self.liveRenderWindow
     }
 }
