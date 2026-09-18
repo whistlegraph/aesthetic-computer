@@ -22,7 +22,7 @@ let tabPrefix = "";   // what was typed before tab
 let PIECE_NAMES = [];
 // Built-in non-piece commands
 const BUILTIN_COMMANDS = [
-  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "link", "login", "midi",
+  "version", "reboot", "off", "clear", "help", "ssh", "hi", "bye", "ls", "papers", "link", "login", "midi", "mono",
 ];
 // All completable commands (built in boot)
 let COMMANDS = [];
@@ -436,6 +436,17 @@ function execute(cmd, system) {
   }
   if (lower === "help") {
     message = "type a piece name or kidlisp — tab to complete";
+    messageFrame = 0;
+    return;
+  }
+  if (baseWord === "mono") {
+    // `mono` toggles, `mono on` / `mono off` set. Folds the output to one
+    // centred signal (same as Menu Band's Mono box) and persists across boots.
+    const arg = spaceIdx >= 0 ? lower.slice(spaceIdx + 1).trim() : "";
+    const on = arg === "on" ? true : arg === "off" ? false : !system?.mono;
+    system?.setMono?.(on);
+    system?.saveConfig?.("mono", on ? "true" : "false");
+    message = on ? "mono — output folded to one signal" : "stereo";
     messageFrame = 0;
     return;
   }

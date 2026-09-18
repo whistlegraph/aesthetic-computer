@@ -1241,6 +1241,14 @@ static JSValue js_set_master_volume(JSContext *ctx, JSValueConst this_val, int a
     return JS_UNDEFINED;
 }
 
+// sound.volume.setMono(bool) / system.setMono(bool) — fold output to mono
+static JSValue js_set_mono(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
+    (void)this_val;
+    if (argc < 1 || !current_rt->audio) return JS_UNDEFINED;
+    audio_set_mono(current_rt->audio, JS_ToBool(ctx, argv[0]));
+    return JS_UNDEFINED;
+}
+
 // sound.drive.setMix(value) — tanh soft-clip dry/wet blend (0..1)
 static JSValue js_set_drive_mix(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv) {
     (void)this_val;
@@ -3210,6 +3218,8 @@ static JSValue build_sound_obj(JSContext *ctx, ACRuntime *rt) {
     JSValue volume = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, volume, "setMix", JS_NewCFunction(ctx, js_set_master_volume, "setMix", 1));
     JS_SetPropertyStr(ctx, volume, "mix", JS_NewFloat64(ctx, rt->audio ? rt->audio->master_volume : 1.0));
+    JS_SetPropertyStr(ctx, volume, "setMono", JS_NewCFunction(ctx, js_set_mono, "setMono", 1));
+    JS_SetPropertyStr(ctx, volume, "mono", JS_NewBool(ctx, rt->audio ? rt->audio->mono : 0));
     JS_SetPropertyStr(ctx, sound, "volume", volume);
 
     // drive (tanh soft-clip saturation)
@@ -7683,6 +7693,11 @@ static JSValue build_system_obj(JSContext *ctx) {
     // Config persistence
     JS_SetPropertyStr(ctx, sys, "saveConfig",
                       JS_NewCFunction(ctx, js_save_config, "saveConfig", 2));
+
+    // Mono audio fold (also on sound.volume; here so prompt commands reach it)
+    JS_SetPropertyStr(ctx, sys, "setMono", JS_NewCFunction(ctx, js_set_mono, "setMono", 1));
+    JS_SetPropertyStr(ctx, sys, "mono",
+                      JS_NewBool(ctx, current_rt && current_rt->audio ? current_rt->audio->mono : 0));
 
     // SSH daemon
     JS_SetPropertyStr(ctx, sys, "startSSH",

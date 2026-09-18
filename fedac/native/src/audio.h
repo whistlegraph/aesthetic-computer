@@ -330,6 +330,13 @@ typedef struct {
     float master_volume;
     float target_master_volume;
 
+    // Mono mode: fold the finished stereo mix to one centred signal, in
+    // place, right before soft clip (so both channels clip identically and
+    // the HDMI/secondary feeds see the same fold). A flag the render thread
+    // reads each sample — no graph surgery, same shape as Menu Band's Mono.
+    // Persisted in /mnt/config.json as "mono": true.
+    int mono;
+
     // Drive / tanh soft-saturation (dry/wet blend). 0.0 = clean pass-through,
     // 1.0 = fully driven (pre-gain 6× → tanh → attenuation). Adds harmonic
     // warmth at low settings and obvious distortion at high settings.
@@ -511,6 +518,8 @@ void audio_set_room_mix(ACAudio *audio, float mix);
 void audio_set_glitch_mix(ACAudio *audio, float mix);
 void audio_set_fx_mix(ACAudio *audio, float mix);
 void audio_set_master_volume(ACAudio *audio, float value);
+// Mono fold on/off (see ACAudio.mono).
+void audio_set_mono(ACAudio *audio, int enabled);
 void audio_set_drive_mix(ACAudio *audio, float value);
 void audio_set_wobble_mix(ACAudio *audio, float value);
 

@@ -739,6 +739,7 @@ extern int drm_acquire_master(void *display);
 
 // Boot title — defaults to "notepat", overridden by config.json handle
 int wifi_disabled = 0; // set from config.json "wifi":false (extern'd in js-bindings.c)
+int config_mono = 0;   // set from config.json "mono":true — applied once audio is up
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
 static int boot_title_colors_len = 0;
@@ -909,6 +910,13 @@ static void load_boot_visual_config(void) {
     if (parse_config_bool(json, "\"wifi\"", &wifi_val)) {
         wifi_disabled = !wifi_val;
         ac_log("[config] wifi: %s\n", wifi_disabled ? "disabled" : "enabled");
+    }
+
+    // Read mono flag (default: stereo)
+    int mono_val = 0;
+    if (parse_config_bool(json, "\"mono\"", &mono_val)) {
+        config_mono = mono_val ? 1 : 0;
+        ac_log("[config] audio: %s\n", config_mono ? "mono" : "stereo");
     }
 
     // Bake Claude/GitHub tokens early so boot-fade badge check (access())
@@ -3861,6 +3869,7 @@ int main(int argc, char *argv[]) {
 
     // Init audio + TTS early (needed for boot animation speech)
     ACAudio *audio = audio_init();
+    if (audio && config_mono) audio_set_mono(audio, 1);
     ACTts *tts = NULL;
     ACWifi *wifi = NULL;
     ACSecondaryDisplay *hdmi = NULL;
@@ -4318,6 +4327,7 @@ int main(int argc, char *argv[]) {
         // Reclaim DRM and continue in DRM mode (fallback)
         drm_acquire_master(display);
         audio = audio_init();
+        if (audio && config_mono) audio_set_mono(audio, 1);
         ac_log("[cage-transition] Reclaimed DRM, continuing in DRM mode\n");
     }
 #endif

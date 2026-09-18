@@ -2236,6 +2236,13 @@ static void *audio_thread_fn(void *arg) {
                 mix_r *= vol;
             }
 
+            // Mono fold: average the channels in place when asked.
+            if (audio->mono) {
+                float m = 0.5f * (mix_l + mix_r);
+                mix_l = m;
+                mix_r = m;
+            }
+
             // Soft clip and convert to int16
             mix_l = soft_clip(mix_l);
             mix_r = soft_clip(mix_r);
@@ -3863,6 +3870,11 @@ void audio_set_master_volume(ACAudio *audio, float value) {
     if (value < 0.0f) value = 0.0f;
     if (value > 2.0f) value = 2.0f;
     audio->target_master_volume = value;
+}
+
+void audio_set_mono(ACAudio *audio, int enabled) {
+    if (!audio) return;
+    audio->mono = enabled ? 1 : 0;
 }
 
 // Drive amount 0..1 dry/wet blend. 0 = clean bypass, 1 = fully driven
