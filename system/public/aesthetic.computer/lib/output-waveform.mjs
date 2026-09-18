@@ -1,7 +1,8 @@
 // A lazy, silent tap of the piece's speaker outputs. No audio is rerouted.
 export function createOutputWaveform(getSources) {
   const taps = new Map();
-  const read = () => {
+  const read = (sampleCount = 128) => {
+    const count = Number.isFinite(sampleCount) ? Math.max(16, Math.min(512, Math.round(sampleCount))) : 128;
     const sources = new Set(
       getSources().filter((source) => source?.context?.state === "running"),
     );
@@ -11,14 +12,14 @@ export function createOutputWaveform(getSources) {
       taps.delete(source);
     }
     if (!sources.size) return [];
-    const mixed = new Array(128).fill(0);
+    const mixed = new Array(count).fill(0);
     for (const source of sources) {
       let tap = taps.get(source);
       if (!tap) {
         const owned = typeof source.getFloatTimeDomainData !== "function";
         const analyser = owned ? source.context.createAnalyser() : source;
         if (owned) {
-          analyser.fftSize = 512;
+          analyser.fftSize = 2048;
           source.connect(analyser);
         }
         tap = { analyser, owned, samples: new Float32Array(analyser.fftSize) };

@@ -84,6 +84,7 @@ let win;
   const points = [...waveform.matchAll(/[ML][\d.]+ ([\d.]+)/g)].map(
     (m) => +m[1],
   );
+  assert.equal(points.length,512,'512 samples along the full height');
   assert(Math.max(...points) - Math.min(...points) > 5);
   assert.equal(
     await js(
@@ -99,7 +100,7 @@ let win;
   );
   await js(`document.getElementById('piece').dispatchEvent(new Event('did-start-loading'));document.getElementById('piece').dispatchEvent(new Event('did-stop-loading'))`);await delay(250);
   assert.equal(await js(`document.getElementById('preview-waveform').classList.contains('sounding')`),true,'Resume polling after a load without another dom-ready');
-  assert.equal(await js(`(()=>{const w=document.getElementById('preview-waveform').getBoundingClientRect();return Math.abs(w.right-(innerWidth-2))<2&&w.width===16&&Math.abs(w.height-innerHeight)<2})()`),true,'Waveform runs vertically at the right edge');
+  assert.equal(await js(`(()=>{const w=document.getElementById('preview-waveform').getBoundingClientRect();return Math.abs(w.right-(innerWidth-12))<2&&w.width===16&&Math.abs(w.height-innerHeight)<2})()`),true,'Waveform runs vertically at the right edge');
   await js(`(()=>{window.updateProviderFooter({backend:'ac',model:'Luna',busy:true,models:[],versions:[]});document.getElementById('credit-label').click();const v=document.querySelector('input[aria-label="Preview volume"]');v.value='50';v.dispatchEvent(new Event('input'))})()`);
   await delay(100);assert(Math.abs(await guest.executeJavaScript('gain.gain.value')-.06)<.001);
   await js(`document.querySelector('.preview-mute').click()`);await delay(250);

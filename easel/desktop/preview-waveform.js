@@ -2,7 +2,7 @@ window.installPreviewWaveform = (preview) => {
   const ns = "http://www.w3.org/2000/svg";
   const line = document.createElementNS(ns, "svg");
   line.id = "preview-waveform";
-  line.setAttribute("viewBox", "0 0 32 127");
+  line.setAttribute("viewBox", "0 0 32 511");
   line.setAttribute("preserveAspectRatio", "none");
   line.setAttribute("aria-hidden", "true");
   const path = document.createElementNS(ns, "path");
@@ -14,11 +14,29 @@ window.installPreviewWaveform = (preview) => {
   let ready = false,
     timer = 0,
     generation = 0,
+    frame = 0,
+    previousFrame = 0,
+    target = [],
+    displayed = [],
     lastSound = 0;
   const clear = () => {
     line.classList.remove("sounding");
     lastSound = 0;
+    cancelAnimationFrame(frame);
+    frame = 0;
+    previousFrame = 0;
+    target = [];
+    displayed = [];
   };
+  function animate(now) {
+    frame = 0;
+    if (!ready || document.hidden || !line.classList.contains("sounding")) return;
+    const blend = 1 - Math.exp(-Math.min(64, now - (previousFrame || now - 16)) / 35);
+    previousFrame = now;
+    displayed = target.map((v, i) => (displayed[i] ?? v) + (v - (displayed[i] ?? v)) * blend);
+    path.setAttribute("d", displayed.map((v, i) => `${i ? "L" : "M"}${i} ${(16 - Math.tanh(v * 4) * 13).toFixed(2)}`).join(""));
+    frame = requestAnimationFrame(animate);
+  }
   async function poll() {
     const current = generation;
     let active = false;
@@ -34,12 +52,12 @@ window.installPreviewWaveform = (preview) => {
         return;
       }
       const samples = await preview.executeJavaScript(
-        "window.AC?.readOutputWaveform?.() || []",
+        "window.AC?.readOutputWaveform?.(512) || []",
       );
       if (current !== generation || !ready) return;
       const values = Array.isArray(samples)
         ? samples
-            .slice(0, 128)
+            .slice(0, 512)
             .map((v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0))
         : [];
       active = values.some((v) => Math.abs(v) > 0.0005);
@@ -49,22 +67,23 @@ window.installPreviewWaveform = (preview) => {
         !!lastSound && performance.now() - lastSound < 600,
       );
       if (!line.classList.contains("sounding")) return;
-      path.setAttribute(
-        "d",
-        motion.matches || !active
-          ? "M0 16H127"
-          : values
-              .map(
-                (v, i) =>
-                  `${i ? "L" : "M"}${(i * 127) / Math.max(1, values.length - 1)} ${(16 - Math.tanh(v * 4) * 13).toFixed(2)}`,
-              )
-              .join(""),
-      );
+      if (motion.matches) {
+        cancelAnimationFrame(frame); frame = 0;
+        path.setAttribute("d", "M0 16H511");
+      } else {
+        // Resample older guests too, so a loading piece never changes geometry.
+        target = Array.from({length:512}, (_, i) => {
+          const at = i * Math.max(0, values.length - 1) / 511;
+          const lo = Math.floor(at), fraction = at - lo;
+          return (values[lo] || 0) * (1 - fraction) + (values[Math.min(lo + 1, values.length - 1)] || 0) * fraction;
+        });
+        if (!frame) frame = requestAnimationFrame(animate);
+      }
     } catch {
       clear();
     } finally {
       if (current === generation && ready)
-        timer = setTimeout(poll, active && !motion.matches ? 50 : 200);
+        timer = setTimeout(poll, active && !motion.matches ? 33 : 200);
     }
   }
   const stop = () => {
