@@ -5,11 +5,12 @@ import AudioToolbox
 ///
 /// Folds the finished stereo output down to one centred signal. It hangs a
 /// post-render notify on an engine's output unit (the AUHAL that hands
-/// frames to the device) and, when enabled, averages the channels in place
-/// so both speakers carry the same mix. Nothing in the render graph moves:
-/// no reconnects, no format changes, no engine restart — the toggle is a
-/// flag the render thread reads on its next cycle. Averaging is idempotent,
-/// so a notify that lands twice is harmless.
+/// frames to the device) and, when enabled, sums the channels in place so
+/// both speakers carry the same mix (level: see `monoFoldGain`). Nothing in
+/// the render graph moves: no reconnects, no format changes, no engine
+/// restart — the toggle is a flag the render thread reads on its next
+/// cycle. A frame that is already mono is left alone, so a notify that
+/// lands twice cannot stack gain.
 ///
 /// Why a notify and not a mono-format mixer: AVAudioMixerNode's stereo→mono
 /// behaviour is undocumented, and reconnecting the limiter → mainMixer edge
@@ -50,6 +51,24 @@ enum MenuBandMonoFold {
     }
 }
 
+/// Fold gain. Menu Band pans each key across the full field (pan 0…127 by
+/// x within the key), so a plain average (L+R)/2 lands a hard-panned note
+/// 6 dB down — "way too quiet". The −3 dB sum (L+R)/√2 keeps a hard-panned
+/// note within 3 dB and a centred note at its true mono level. That can
+/// exceed the limiter's ceiling for loud centred content, so the sum runs
+/// through a soft knee that stays below full scale instead of clipping.
+private let monoFoldGain: Float = 0.70710678
+private let monoFoldKnee: Float = 0.9
+
+@inline(__always)
+private func monoFoldShape(_ x: Float) -> Float {
+    let a = abs(x)
+    guard a > monoFoldKnee else { return x }
+    let over = (a - monoFoldKnee) / (1 - monoFoldKnee)
+    let shaped = monoFoldKnee + (1 - monoFoldKnee) * tanh(over)
+    return x < 0 ? -shaped : shaped
+}
+
 /// The render notify. Fires pre- and post-render; only the post-render pass
 /// carries the finished frames, and only then is the fold applied.
 private func menuBandMonoFoldNotify(
@@ -78,11 +97,15 @@ private func menuBandMonoFoldNotify(
                   let data = buffer.mData else { return noErr }
             channels.append(data.assumingMemoryBound(to: Float.self))
         }
-        let scale = 1 / Float(channels.count)
+        // Already mono (or folded once by a stacked notify): nothing to do.
+        var identical = true
+        for i in 0..<frames where channels[0][i] != channels[1][i] { identical = false; break }
+        if identical { return noErr }
+        let scale = channels.count == 2 ? monoFoldGain : 1 / Float(channels.count)
         for i in 0..<frames {
             var sum: Float = 0
             for channel in channels { sum += channel[i] }
-            let mono = sum * scale
+            let mono = monoFoldShape(sum * scale)
             for channel in channels { channel[i] = mono }
         }
     } else if buffers.count == 1 {
@@ -93,12 +116,15 @@ private func menuBandMonoFoldNotify(
               buffer.mDataByteSize >= byteFloor * UInt32(channelCount),
               let data = buffer.mData else { return noErr }
         let samples = data.assumingMemoryBound(to: Float.self)
-        let scale = 1 / Float(channelCount)
+        var identical = true
+        for i in 0..<frames where samples[i * channelCount] != samples[i * channelCount + 1] { identical = false; break }
+        if identical { return noErr }
+        let scale = channelCount == 2 ? monoFoldGain : 1 / Float(channelCount)
         for i in 0..<frames {
             let base = i * channelCount
             var sum: Float = 0
             for c in 0..<channelCount { sum += samples[base + c] }
-            let mono = sum * scale
+            let mono = monoFoldShape(sum * scale)
             for c in 0..<channelCount { samples[base + c] = mono }
         }
     }
