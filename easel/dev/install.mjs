@@ -48,7 +48,13 @@ if(fs.existsSync(app)){
 }
 fs.renameSync(stage,app);
 const bin=path.join(os.homedir(),'.local/bin');fs.mkdirSync(bin,{recursive:true});
-fs.writeFileSync(path.join(bin,'aesel-dev'),`#!/bin/bash\nexec "$HOME/.local/share/aesel-dev/current/easel/bin/easel-desktop" --dev "$@"\n`,{mode:0o755});
+const previousLaunchers=path.join(home,'previous-launchers');fs.mkdirSync(previousLaunchers,{recursive:true});
+for(const name of ['aesel','easel','aesel-dev']){
+  const target=path.join(bin,name),backup=path.join(previousLaunchers,name);
+  if(fs.existsSync(target)&&!fs.existsSync(backup))fs.copyFileSync(target,backup);
+  const temp=target+'.dev-install';
+  fs.writeFileSync(temp,`#!/bin/bash\nexec "$HOME/.local/share/aesel-dev/current/easel/bin/easel-desktop" ${name==='aesel-dev'?'--dev ':''}"$@"\n`,{mode:0o755});fs.chmodSync(temp,0o755);fs.renameSync(temp,target);
+}
 const xml=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const plist=path.join(os.homedir(),'Library/LaunchAgents/computer.aesthetic.aesel-dev-sync.plist');
 fs.mkdirSync(path.dirname(plist),{recursive:true});
