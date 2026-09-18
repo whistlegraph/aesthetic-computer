@@ -322,3 +322,5 @@ body.preview-fullscreen #preview-waveform{display:none}
 #notebook-activity[hidden]{display:none}
 #notebook-activity #prompt-feedback{flex:none}
 #notebook-activity #activity-caption{flex:0 1 auto;min-width:0;max-width:34ch;box-sizing:border-box;translate:0 var(--activity-bounce,0px)}
+
+#activity-text{display:block;max-height:7.8em;overflow-y:auto;overscroll-behavior:contain;pointer-events:auto;scrollbar-width:thin}

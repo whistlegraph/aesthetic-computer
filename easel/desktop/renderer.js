@@ -176,6 +176,8 @@ const promptLine=document.createElement('div');promptLine.id='prose-prompt';prom
 promptLine.setAttribute('aria-hidden','true');document.getElementById('notebook-page').append(promptLine);
 const promptFeedback=document.createElement('span');promptFeedback.id='prompt-feedback';promptFeedback.hidden=true;document.body.append(promptFeedback);
 const activityCaption=document.createElement('span');activityCaption.id='activity-caption';activityCaption.hidden=true;activityCaption.setAttribute('role','status');activityCaption.setAttribute('aria-live','off');
+const activityText=document.createElement('span');activityText.id='activity-text';
+const activityTextNode=document.createTextNode('');activityText.append(activityTextNode);activityCaption.append(activityText);
 const activityGroup=document.createElement('span');activityGroup.id='notebook-activity';activityGroup.hidden=true;activityGroup.append(promptFeedback,activityCaption);document.body.append(activityGroup);
 window.installNotebookDonkey(promptFeedback);
 window.placeNotebookActivity=()=>{
@@ -198,7 +200,13 @@ function updatePrompt(value){
  promptState=value;promptLine.hidden=!!value.hidden;positionPrompt();
  activityGroup.hidden=!!value.hidden||!value.feedback;
  activityCaption.hidden=activityGroup.hidden||!value.activity;
- activityCaption.textContent=activityCaption.hidden?'':`(${value.activity})`;
+ const caption=activityCaption.hidden?'':String(value.activity||'');
+ const followsText=activityText.scrollHeight-activityText.clientHeight-activityText.scrollTop<3;
+ const continuesText=caption.startsWith(activityTextNode.data);
+ if(activityTextNode.data!==caption){
+  activityTextNode.data=caption;
+  if(followsText||!continuesText)activityText.scrollTop=activityText.scrollHeight;
+ }
  promptFeedback.textContent='';promptFeedback.setAttribute('role','img');promptFeedback.setAttribute('aria-label',value.feedback||'Idle');promptFeedback.hidden=!!value.hidden||!value.feedback;
  const chars=Array.from(value.text||''),index=Math.max(0,Math.min(chars.length,value.cursor??chars.length));
  const before=document.createTextNode(chars.slice(0,index).join(''));

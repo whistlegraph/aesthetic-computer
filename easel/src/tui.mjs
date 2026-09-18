@@ -5,7 +5,7 @@ import {conceptRequest} from './concept-request.mjs';
 import {takeSubmittedBatch,inputBatchDelay} from './input-batch.mjs';
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
-import {publicActivity,toolActivity} from './public-activity.mjs';
+import {publicActivity,observeToolActivity} from './public-activity.mjs';
 import {notebookConversationEntry} from './notebook-conversation.mjs';
 import {connectionFailure,conciseFailure} from './connection-status.mjs';
 import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
@@ -383,7 +383,7 @@ function toolInstructions() {
 }
 
 function developerInstructions() {
-  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. Start work silently, including on the first request for a new piece. Do not send a greeting, acknowledgement, plan, or pre-tool preamble such as 'I will look at the current piece first', 'Let me read the file', or 'I will make that change'. Reading source and checking the preview are internal work; the interface already shows activity. For an actionable request, speak after making the change, or when a concrete blocker, necessary question, or consent decision requires the user. A direct question may be answered immediately without inventing work. Use plain, warm language. Do not summarize the request, list changes, announce success, discuss your process, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
+  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. Start work silently, including on the first request for a new piece. Do not send a greeting, acknowledgement, plan, or pre-tool preamble such as 'I will look at the current piece first', 'Let me read the file', or 'I will make that change'. Reading source and checking the preview are internal work; the interface already shows activity. For an actionable request, speak after making the change, or when a concrete blocker, necessary question, or consent decision requires the user. A direct question may be answered immediately without inventing work. Use plain, warm language. Speak in first person as the donkey, with natural contractions (for example, “I made the circle smaller”). Your public words stream into the donkey’s thought bubble. Do not wrap them in parentheses or narrate the donkey in third person. Describe only actions and results supported by the current tool evidence; do not invent progress or claim a visual check you have not made. Do not summarize the request, list changes, announce success, discuss your process, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
   if (state.medium !== 'piece') return [
     replyStyle,
     `You are in aesel making a ${state.medium}. Use the artifact tools to edit the selected artifact, not write_piece or direct filesystem edits.`,
@@ -913,7 +913,7 @@ function handleNotification({ method, params = {} }) {
   }
   switch (method) {
     case "turn/started":
-      state.activityText="";state.activityStage="";state.activityMessageId=null;
+      state.activityText="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
       state.requestStartedAt ||= Date.now();
       state.busy = true;
       startDance();
@@ -927,6 +927,7 @@ function handleNotification({ method, params = {} }) {
       break;
     case "turn/progress":
       state.status = params.phase || "working";
+      if (["connecting", "waiting", "composing"].includes(state.status)) state.activityText = "";
       state.progressBytes = params.bytes || state.progressBytes || 0;
       break;
     case "item/agentMessage/delta":
@@ -941,7 +942,7 @@ function handleNotification({ method, params = {} }) {
       }
       break;
     case "item/started": {
-      if (["fileChange","commandExecution","mcpToolCall","dynamicToolCall"].includes(params.item?.type)) {state.activityStage=toolActivity(params.item);state.activityText="";state.activityMessageId=null;}
+      observeToolActivity(state, method, params.item);
       if (process.env.EASEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
@@ -951,6 +952,7 @@ function handleNotification({ method, params = {} }) {
     }
     case "item/completed": {
       const item = params.item;
+      observeToolActivity(state, method, item);
       if (item?.type === "agentMessage") { updateEntry(item.id, "assistant", item.text); transcriptCompleted.add(item.id);const entry=state.entries.find(e=>e.id===item.id);if(entry){entry.activityOnly=state.busy;state.activityMessageId=entry.id;state.activityText=entry.text;} }
       const summary = itemSummary(item);
       if (summary) {
@@ -977,7 +979,7 @@ function handleNotification({ method, params = {} }) {
       // message of its own, so the meter reads it from here when it is there.
       if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       const finalReply=state.entries.find(e=>e.id===state.activityMessageId);if(finalReply)delete finalReply.activityOnly;
-      state.activityText="";state.activityStage="";state.activityMessageId=null;
+      state.activityText="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
       engine.turnId = null;
@@ -1794,9 +1796,10 @@ async function submitInput(submittedText, submittedMessages = null) {
     const observed=state.medium==='piece'?readRuntimeFeedback(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex')}):null;
     let pixels={images:[],context:''};
     if(state.medium==='piece'){
-      state.activityStage='looking at the preview';redraw();
+      state.activityStage="I'm checking the preview";redraw();
       if(process.env.EASEL_DESKTOP)process.stdout.write('\x1b]777;easel-camera:request\x07');
       pixels=await inputPixels(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex'),images:backend.id!=='ac'});
+      state.activityStage='';redraw();
     }
     await engine.startTurn(text+runtimeFeedbackContext(observed)+pixels.context,{images:pixels.images});
   } catch (error) {

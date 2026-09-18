@@ -76,7 +76,7 @@ let win;
   await delay(100);
   assert.equal(
     await js(`document.getElementById('activity-caption').textContent`),
-    "(testing the keys)",
+    "testing the keys",
   );
   assert.equal(
     await js(

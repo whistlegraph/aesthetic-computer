@@ -78,7 +78,7 @@ const assert = require("node:assert/strict");
     await win.webContents.executeJavaScript(
       `document.querySelector('#activity-caption')?.textContent||''`,
     ),
-    "(Reading the piece)",
+    "Reading the piece",
   );
   assert.equal(
     await win.webContents.executeJavaScript(
@@ -92,6 +92,22 @@ const assert = require("node:assert/strict");
     ),
     2,
   );
+  // Real OSC token updates keep one text node, stay in the bubble, and remain
+  // scrollable when a requested explanation grows beyond a short sentence.
+  await win.webContents.executeJavaScript(`window.captionNode=document.getElementById('activity-text').firstChild`);
+  const reply="I've made the circle smaller. ".repeat(20);
+  for (const activity of ["I", "I've", "I've made", reply]) {
+    win.webContents.send('output', '\x1b]777;easel-prompt:' + JSON.stringify({text:'',cursor:0,activity,feedback:'Receiving reply'}) + '\x07');
+    await delay(50);
+    assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-caption').textContent`),activity);
+    assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-text').firstChild===window.captionNode`),true);
+    assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('#notebook-page article').length`),2);
+  }
+  assert.equal(await win.webContents.executeJavaScript(`(()=>{const t=document.getElementById('activity-text');return t.scrollHeight>t.clientHeight&&t.scrollHeight-t.clientHeight-t.scrollTop<3})()`),true);
+  await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollTop=0`);
+  win.webContents.send('output', '\x1b]777;easel-prompt:' + JSON.stringify({text:'',cursor:0,activity:reply+'More.',feedback:'Receiving reply'}) + '\x07');
+  await delay(50);
+  assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollTop`),0);
   win.webContents.send(
     "output",
     "\x1b]777;easel-prompt:" +
