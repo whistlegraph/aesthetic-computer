@@ -991,6 +991,18 @@ function normalizeColorInput(value) {
 
 // Parse a color from a variety of inputs..
 function findColor() {
+  // Fast path: plain numeric rgb / rgba. This is what every shaded 3D
+  // triangle and most generated pieces send, so it skips the parser below.
+  const n = arguments.length;
+  if (n === 3 || n === 4) {
+    const r = arguments[0], g = arguments[1], b = arguments[2];
+    const a = n === 4 ? arguments[3] : 255;
+    if (
+      typeof r === "number" && typeof g === "number" &&
+      typeof b === "number" && typeof a === "number" &&
+      r === r && g === g && b === b && a === a
+    ) return [r, g, b, a];
+  }
   let args = [...arguments];
 
   if (args.length === 1 && args[0] !== undefined) {
@@ -4560,12 +4572,77 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
   }
 }
 
+// Solid opaque triangle fill that writes whole spans into the pixel buffer.
+// Covers exactly the pixels fillShape + point + plot would (same half-open
+// scanline rule, same pan, same mask clip) but skips the per-pixel call
+// chain. Returns false when the current ink needs plot's general path
+// (alpha, erase, fade, skips), so the caller falls back.
+let span32 = null, span32Pixels = null;
+const littleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+function fillTriSolid(x1, y1, x2, y2, x3, y3) {
+  if (!pixels || pixels.byteLength === 0 || skips.length > 0) return false;
+  if (typeof c[0] !== "number" || c[0] === -1 || c[3] !== 255) return false;
+  if (span32Pixels !== pixels) {
+    if (pixels.byteOffset % 4 !== 0) return false;
+    span32 = new Uint32Array(pixels.buffer, pixels.byteOffset, pixels.byteLength >> 2);
+    span32Pixels = pixels;
+  }
+  const r = c[0], g = c[1], b = c[2];
+  const packed = littleEndian
+    ? ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0
+    : ((r << 24) | (g << 16) | (b << 8) | 255) >>> 0;
+  const px = panTranslation.x, py = panTranslation.y;
+  let left = 0, top = 0, right = width, bottom = height;
+  if (activeMask) {
+    left = max(left, activeMask.x);
+    top = max(top, activeMask.y);
+    right = min(right, activeMask.x + activeMask.width);
+    bottom = min(bottom, activeMask.y + activeMask.height);
+  }
+  const xs = [x1, x2, x3], ys = [y1, y2, y3];
+  const minY = min(y1, y2, y3), maxY = max(y1, y2, y3);
+  for (let y = minY; y <= maxY; y++) {
+    const sy = y + py;
+    if (sy < top || sy >= bottom) continue;
+    let a = Infinity, bx = -Infinity, hits = 0;
+    for (let i = 0; i < 3; i++) {
+      const j = i === 2 ? 0 : i + 1;
+      const yi = ys[i], yj = ys[j];
+      if ((yi <= y && y < yj) || (yj <= y && y < yi)) {
+        const x = ((y - yi) * (xs[j] - xs[i])) / (yj - yi) + xs[i];
+        if (x < a) a = x;
+        if (x > bx) bx = x;
+        hits++;
+      }
+    }
+    if (hits < 2) continue;
+    let sx0 = floor(a) + px, sx1 = ceil(bx) + px;
+    if (sx0 < left) sx0 = left;
+    if (sx1 > right) sx1 = right;
+    if (sx0 >= sx1) continue;
+    span32.fill(packed, sy * width + sx0, sy * width + sx1);
+  }
+  return true;
+}
+
 // Draws a triangle from three points, with optional fill mode.
 // Usage: tri(x1, y1, x2, y2, x3, y3, mode = "fill")
 // mode can be "fill", "outline", "out", or "inline", "in"
 function tri() {
   let x1, y1, x2, y2, x3, y3;
   let mode = "fill";
+
+  // Fast path: six finite numbers, filled. Skips the argument juggling below.
+  if (
+    arguments.length === 6 &&
+    Number.isFinite(arguments[0]) && Number.isFinite(arguments[1]) &&
+    Number.isFinite(arguments[2]) && Number.isFinite(arguments[3]) &&
+    Number.isFinite(arguments[4]) && Number.isFinite(arguments[5]) &&
+    fillTriSolid(
+      floor(arguments[0]), floor(arguments[1]), floor(arguments[2]),
+      floor(arguments[3]), floor(arguments[4]), floor(arguments[5]),
+    )
+  ) return;
 
   // Apply the TODO: If any argument is NaN then just make it 'undefined'
   for (let i = 0; i < arguments.length; i++) {
@@ -4656,6 +4733,7 @@ function tri() {
   y3 = floor(y3);
 
   if (mode === "fill" || mode === "") {
+    if (fillTriSolid(x1, y1, x2, y2, x3, y3)) return;
     // Use the existing fillShape function
     const points = [[x1, y1], [x2, y2], [x3, y3]];
     fillShape(points);
