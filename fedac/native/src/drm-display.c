@@ -635,7 +635,66 @@ void display_present(ACDisplay *d, ACFramebuffer *screen, int scale) {
 // Secondary HDMI display — solid color fill
 // ============================================================
 
-ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
+// Pixel budget for the CPU-scaled dumb buffer. Above this the per-frame copy
+// (32-bit, uncached write-combined memory) costs tens of ms on the upcycled
+// laptops we run on, and 4K sinks usually only offer 30Hz over old HDMI
+// anyway — so 1080p/1200p class modes win unless nothing smaller fits.
+#define AC_HDMI_MAX_PIXELS (1920 * 1200)
+
+// Choose the HDMI mode for mirroring a screen_w×screen_h framebuffer.
+// Ranking, most important first:
+//   1. within the pixel budget (cheap to fill every frame)
+//   2. largest integer scale of the screen that fits (crisp, no resampling)
+//   3. aspect closest to the screen's (less letterbox)
+//   4. highest refresh (60 over 50/30/24)
+//   5. the sink's preferred flag, then larger area, then list order
+// Interlaced and doublescan modes are skipped. Returns the index into
+// conn->modes; never fails when count_modes > 0.
+static int drm_pick_secondary_mode(drmModeConnector *conn, int screen_w, int screen_h,
+                                   char *why, size_t why_len) {
+    int best = 0;
+    long best_key[6] = {0};
+    int have_best = 0;
+    if (screen_w < 1) screen_w = 1;
+    if (screen_h < 1) screen_h = 1;
+    for (int i = 0; i < conn->count_modes; i++) {
+        drmModeModeInfo *m = &conn->modes[i];
+        if (m->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN)) continue;
+        if (m->hdisplay == 0 || m->vdisplay == 0) continue;
+        long pixels = (long)m->hdisplay * m->vdisplay;
+        int sx = m->hdisplay / screen_w, sy = m->vdisplay / screen_h;
+        int scale = sx < sy ? sx : sy;
+        // aspect distance ×1000, smaller is better → negate so bigger wins
+        long aspect = -labs((long)m->hdisplay * 1000 / m->vdisplay
+                            - (long)screen_w * 1000 / screen_h);
+        // A screen bigger than every mode (scale 0) gets clipped, so there
+        // the largest mode matters more than its aspect.
+        long key[6] = {
+            pixels <= AC_HDMI_MAX_PIXELS ? 1 : 0,
+            scale,
+            scale > 0 ? aspect : pixels,
+            m->vrefresh,
+            (m->type & DRM_MODE_TYPE_PREFERRED) ? 1 : 0,
+            pixels,
+        };
+        int better = !have_best;
+        for (int k = 0; k < 6 && !better; k++) {
+            if (key[k] > best_key[k]) better = 1;
+            else if (key[k] < best_key[k]) break;
+        }
+        if (better) { best = i; memcpy(best_key, key, sizeof(key)); have_best = 1; }
+    }
+    if (why) {
+        drmModeModeInfo *m = &conn->modes[best];
+        long pixels = (long)m->hdisplay * m->vdisplay;
+        snprintf(why, why_len, "scale=%ld budget=%s aspect_err=%ld/1000 %s",
+                 best_key[1], pixels <= AC_HDMI_MAX_PIXELS ? "ok" : "over",
+                 -best_key[2], (m->type & DRM_MODE_TYPE_PREFERRED) ? "preferred" : "");
+    }
+    return best;
+}
+
+ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary, int screen_w, int screen_h) {
     if (!primary || primary->is_fbdev || primary->fd < 0) return NULL;
     if (primary->is_sdl) return NULL;
 
@@ -659,18 +718,37 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     drmModeFreeResources(res);
 
     if (!conn) {
-        fprintf(stderr, "[drm-secondary] No HDMI/DP display found\n");
+        ac_log("[drm-secondary] No HDMI/DP display found\n");
         return NULL;
     }
+
+    // Log what the sink offers (first few + total) so /logs shows the menu
+    // the picker chose from.
+    {
+        char menu[256]; int off = 0;
+        for (int i = 0; i < conn->count_modes && off < (int)sizeof(menu) - 24; i++) {
+            off += snprintf(menu + off, sizeof(menu) - (size_t)off, "%s%dx%d@%d%s",
+                            i ? " " : "", conn->modes[i].hdisplay, conn->modes[i].vdisplay,
+                            conn->modes[i].vrefresh,
+                            (conn->modes[i].flags & DRM_MODE_FLAG_INTERLACE) ? "i" : "");
+        }
+        ac_log("[drm-secondary] connector %u type %u: %d modes: %s%s\n",
+               conn->connector_id, conn->connector_type, conn->count_modes, menu,
+               off >= (int)sizeof(menu) - 24 ? " ..." : "");
+    }
+
+    char why[128] = "";
+    int mi = drm_pick_secondary_mode(conn, screen_w, screen_h, why, sizeof(why));
 
     ACSecondaryDisplay *s = calloc(1, sizeof(ACSecondaryDisplay));
     s->fd = primary->fd;
     s->connector_id = conn->connector_id;
-    s->mode = conn->modes[0];
+    s->mode = conn->modes[mi];
     s->width = s->mode.hdisplay;
     s->height = s->mode.vdisplay;
-    fprintf(stderr, "[drm-secondary] HDMI: %dx%d @ %dHz\n",
-            s->width, s->height, s->mode.vrefresh);
+    s->present_every = ((long)s->width * s->height <= AC_HDMI_MAX_PIXELS) ? 1 : 8;
+    ac_log("[drm-secondary] picked %dx%d@%dHz for screen %dx%d (%s) every=%d\n",
+           s->width, s->height, s->mode.vrefresh, screen_w, screen_h, why, s->present_every);
 
     drmModeEncoder *enc = NULL;
     if (conn->encoder_id) enc = drmModeGetEncoder(primary->fd, conn->encoder_id);
@@ -683,7 +761,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     }
     drmModeFreeConnector(conn);
 
-    if (!enc) { fprintf(stderr, "[drm-secondary] No encoder\n"); free(s); return NULL; }
+    if (!enc) { ac_log("[drm-secondary] No encoder\n"); free(s); return NULL; }
 
     s->crtc_id = enc->crtc_id;
     if (!s->crtc_id) {
@@ -700,7 +778,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     }
     drmModeFreeEncoder(enc);
 
-    if (!s->crtc_id) { fprintf(stderr, "[drm-secondary] No free CRTC\n"); free(s); return NULL; }
+    if (!s->crtc_id) { ac_log("[drm-secondary] No free CRTC\n"); free(s); return NULL; }
 
     s->saved_crtc = drmModeGetCrtc(primary->fd, s->crtc_id);
 
@@ -708,7 +786,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     for (int b = 0; b < 2; b++) {
         struct drm_mode_create_dumb create = { .width = s->width, .height = s->height, .bpp = 32 };
         if (drmIoctl(s->fd, DRM_IOCTL_MODE_CREATE_DUMB, &create) < 0) {
-            fprintf(stderr, "[drm-secondary] Create dumb buffer %d failed\n", b); free(s); return NULL;
+            ac_log("[drm-secondary] Create dumb buffer %d failed\n", b); free(s); return NULL;
         }
         s->bufs[b].handle = create.handle;
         s->bufs[b].pitch  = create.pitch;
@@ -716,7 +794,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
 
         if (drmModeAddFB(s->fd, s->width, s->height, 24, 32,
                          s->bufs[b].pitch, s->bufs[b].handle, &s->bufs[b].fb_id) < 0) {
-            fprintf(stderr, "[drm-secondary] AddFB %d failed\n", b);
+            ac_log("[drm-secondary] AddFB %d failed\n", b);
             struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
             drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
             free(s); return NULL;
@@ -724,7 +802,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
 
         struct drm_mode_map_dumb map_req = { .handle = s->bufs[b].handle };
         if (drmIoctl(s->fd, DRM_IOCTL_MODE_MAP_DUMB, &map_req) < 0) {
-            fprintf(stderr, "[drm-secondary] Map %d failed\n", b);
+            ac_log("[drm-secondary] Map %d failed\n", b);
             drmModeRmFB(s->fd, s->bufs[b].fb_id);
             struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
             drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
@@ -733,7 +811,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
         s->bufs[b].map = mmap(0, s->bufs[b].size, PROT_READ | PROT_WRITE,
                                MAP_SHARED, s->fd, map_req.offset);
         if (s->bufs[b].map == MAP_FAILED) {
-            fprintf(stderr, "[drm-secondary] mmap %d failed\n", b);
+            ac_log("[drm-secondary] mmap %d failed\n", b);
             drmModeRmFB(s->fd, s->bufs[b].fb_id);
             struct drm_mode_destroy_dumb destroy = { .handle = s->bufs[b].handle };
             drmIoctl(s->fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy);
@@ -746,7 +824,7 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     s->buf_front = 0;
     if (drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[0].fb_id, 0, 0,
                        &s->connector_id, 1, &s->mode) < 0) {
-        fprintf(stderr, "[drm-secondary] SetCrtc failed\n");
+        ac_log("[drm-secondary] SetCrtc failed\n");
         for (int b = 0; b < 2; b++) {
             munmap(s->bufs[b].map, s->bufs[b].size);
             drmModeRmFB(s->fd, s->bufs[b].fb_id);
@@ -761,12 +839,12 @@ ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary) {
     int sh = (s->height + 7) / 8;
     s->small_fb = fb_create(sw, sh);
     if (!s->small_fb) {
-        fprintf(stderr, "[drm-secondary] fb_create small failed\n");
+        ac_log("[drm-secondary] fb_create small failed\n");
         // non-fatal — will fall back to full-res if NULL
     }
 
     s->active = 1;
-    fprintf(stderr, "[drm-secondary] HDMI output active %dx%d (small %dx%d)\n",
+    ac_log("[drm-secondary] HDMI output active %dx%d (small %dx%d)\n",
             s->width, s->height, sw, sh);
     return s;
 }
@@ -856,6 +934,43 @@ void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
     fb_copy_scaled(render_fb, s->bufs[back].map, s->width, s->height, dst_stride, 8);
 
     // Async page flip
+    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
+                               DRM_MODE_PAGE_FLIP_ASYNC, NULL);
+    if (ret != 0) {
+        drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
+                       &s->connector_id, 1, &s->mode);
+    }
+    s->buf_front = back;
+}
+
+void drm_secondary_present_mirror(ACSecondaryDisplay *s, ACFramebuffer *screen) {
+    if (!s || !s->active || !screen || screen->width < 1 || screen->height < 1) return;
+
+    int sw = screen->width, sh = screen->height;
+    if (sw != s->mirror_w || sh != s->mirror_h) {
+        int sx = s->width / sw, sy = s->height / sh;
+        int scale = sx < sy ? sx : sy;
+        if (scale < 1) scale = 1; // screen larger than the sink: clip, don't shrink
+        s->mirror_scale = scale;
+        s->mirror_x = (s->width  - sw * scale) / 2; if (s->mirror_x < 0) s->mirror_x = 0;
+        s->mirror_y = (s->height - sh * scale) / 2; if (s->mirror_y < 0) s->mirror_y = 0;
+        s->mirror_w = sw; s->mirror_h = sh;
+        // Letterbox bars change with the source size — reblack both buffers.
+        for (int b = 0; b < 2; b++)
+            if (s->bufs[b].map && s->bufs[b].map != MAP_FAILED)
+                memset(s->bufs[b].map, 0, s->bufs[b].size);
+        ac_log("[drm-secondary] mirror %dx%d x%d at %d,%d on %dx%d\n",
+               sw, sh, scale, s->mirror_x, s->mirror_y, s->width, s->height);
+    }
+
+    int back = 1 - s->buf_front;
+    int stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
+    int dst_w = sw * s->mirror_scale, dst_h = sh * s->mirror_scale;
+    if (dst_w > s->width  - s->mirror_x) dst_w = s->width  - s->mirror_x;
+    if (dst_h > s->height - s->mirror_y) dst_h = s->height - s->mirror_y;
+    uint32_t *dst = s->bufs[back].map + (size_t)s->mirror_y * stride + s->mirror_x;
+    fb_copy_scaled(screen, dst, dst_w, dst_h, stride, s->mirror_scale);
+
     int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
                                DRM_MODE_PAGE_FLIP_ASYNC, NULL);
     if (ret != 0) {

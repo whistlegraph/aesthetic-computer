@@ -82,10 +82,24 @@ typedef struct {
     int buf_front;          // Which buffer is currently displayed
     drmModeCrtc *saved_crtc;
     ACFramebuffer *small_fb; // 1/8-scale internal render target (fast)
+
+    // Mirror state — the primary `screen` framebuffer is blown up by an
+    // integer factor and centered (letterboxed) on the HDMI buffer.
+    int mirror_w, mirror_h;   // last mirrored source size (0 = none yet)
+    int mirror_scale;         // integer scale used for that source
+    int mirror_x, mirror_y;   // letterbox offset of the mirrored image
+    int present_every;        // mirror cadence in main-loop frames (1 = every frame)
 } ACSecondaryDisplay;
 
-// Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI)
-ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary);
+// Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI).
+// screen_w/screen_h are the primary `screen` framebuffer dimensions — the mode
+// is chosen so that an integer multiple of them fits with as little waste as
+// the CPU dumb-buffer path can afford (see drm_pick_secondary_mode).
+ACSecondaryDisplay *drm_init_secondary(ACDisplay *primary, int screen_w, int screen_h);
+
+// Mirror the primary screen framebuffer to the HDMI back buffer (integer
+// scale, centered) and flip. Cheap enough for every frame at 1080p.
+void drm_secondary_present_mirror(ACSecondaryDisplay *s, ACFramebuffer *screen);
 
 // Check if an HDMI/DP connector (other than primary) is connected
 int drm_secondary_is_connected(ACDisplay *primary);

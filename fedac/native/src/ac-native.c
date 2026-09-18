@@ -3989,7 +3989,7 @@ int main(int argc, char *argv[]) {
 
         // Init secondary HDMI display (if connected)
         if (display && !display->is_fbdev) {
-            hdmi = drm_init_secondary(display);
+            hdmi = drm_init_secondary(display, screen->width, screen->height);
             if (hdmi) ac_log("[ac-native] HDMI secondary: %dx%d\n", hdmi->width, hdmi->height);
         }
     }
@@ -5262,19 +5262,21 @@ int main(int argc, char *argv[]) {
 
             clock_gettime(CLOCK_MONOTONIC, &_pf_pres0);
             ac_display_present(display, screen, pixel_scale);
-            clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
-            // HDMI: render waveform at ~7.5Hz (every 8 frames) — 4K dumb-buf is slow
-            if (hdmi && audio && main_frame % 8 == 0) {
-                drm_secondary_present_waveform(hdmi, &graph,
-                    audio->waveform_left, AUDIO_WAVEFORM_SIZE, audio->waveform_pos);
+            // HDMI: mirror the screen. Cadence comes from the picked mode
+            // (every frame within the pixel budget, every 8th on a 4K-only
+            // sink). Counted inside the present window so [perf] pres_max
+            // shows what it costs.
+            if (hdmi && main_frame % hdmi->present_every == 0) {
+                drm_secondary_present_mirror(hdmi, screen);
             }
+            clock_gettime(CLOCK_MONOTONIC, &_pf_pres1);
 
             // HDMI hotplug detection every ~180 frames (~3s)
             if (main_frame % 180 == 0 && display && !display->is_fbdev) {
                 int hdmi_connected = drm_secondary_is_connected(display);
                 if (hdmi_connected && !hdmi) {
-                    hdmi = drm_init_secondary(display);
+                    hdmi = drm_init_secondary(display, screen->width, screen->height);
                     rt->hdmi = hdmi;
                     if (hdmi) {
                         ac_log("[ac-native] HDMI plugged in: %dx%d\n", hdmi->width, hdmi->height);
