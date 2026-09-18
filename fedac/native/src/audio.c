@@ -2236,9 +2236,13 @@ static void *audio_thread_fn(void *arg) {
                 mix_r *= vol;
             }
 
-            // Mono fold: average the channels in place when asked.
+            // Mono fold: sum the channels at -3 dB, in place, when asked.
+            // A plain average puts a hard-panned voice 6 dB down ("way too
+            // quiet" — Menu Band's fold moved to (L+R)/sqrt(2) for the same
+            // reason); the soft clip right after keeps the sum below full
+            // scale.
             if (audio->mono) {
-                float m = 0.5f * (mix_l + mix_r);
+                float m = 0.70710678f * (mix_l + mix_r);
                 mix_l = m;
                 mix_r = m;
             }
