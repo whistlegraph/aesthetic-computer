@@ -9,6 +9,7 @@ import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
 import { Gamepad } from "./lib/gamepad.mjs";
+import { createOutputWaveform } from "./lib/output-waveform.mjs";
 import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
 import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
@@ -3164,6 +3165,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   wrapper.appendChild(backgroundMusicEl);
 
   let analyserCtx, analyserSrc, analyser, frequencyData;
+  window.AC ||= {};
+  window.AC.readOutputWaveform = createOutputWaveform(() => [
+    speakerGain,
+    ...(!backgroundMusicEl?.paused && !backgroundMusicEl?.muted ? [analyser] : []),
+    ...Object.values(streamAudio).filter(entry => !entry.audio.paused && !entry.audio.muted).map(entry => entry.analyser),
+  ]);
   let currentBackgroundTrack;
 
   function playBackgroundMusic(n, volume) {

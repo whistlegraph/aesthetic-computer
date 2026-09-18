@@ -311,3 +311,14 @@ body:not(.preview-fullscreen) #artifact-shell[data-resized]{width:var(--resized-
 #activity-caption::before{width:5px;height:5px;left:-9px}
 #activity-caption::after{width:2px;height:2px;left:-15px;top:72%}
 #activity-caption[hidden]{display:none}
+
+#preview-waveform{position:fixed;left:14px;width:calc(100% - 28px);height:32px;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s;overflow:hidden}
+#preview-waveform.sounding{opacity:.45}
+#preview-waveform path{fill:none;stroke:var(--aesel-accent,#ff78b2);stroke-width:1;stroke-linejoin:round;stroke-linecap:round}
+body.preview-fullscreen #preview-waveform{display:none}
+@media(prefers-reduced-motion:reduce){#preview-waveform{transition:none}}
+
+#notebook-activity{display:inline-flex;flex-wrap:nowrap;align-items:center;vertical-align:middle;max-width:100%;white-space:normal}
+#notebook-activity[hidden]{display:none}
+#notebook-activity #prompt-feedback{flex:none}
+#notebook-activity #activity-caption{flex:0 1 auto;min-width:0;max-width:34ch;box-sizing:border-box;translate:0 var(--activity-bounce,0px)}

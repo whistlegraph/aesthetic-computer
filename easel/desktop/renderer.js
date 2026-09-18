@@ -176,12 +176,12 @@ const promptLine=document.createElement('div');promptLine.id='prose-prompt';prom
 promptLine.setAttribute('aria-hidden','true');document.getElementById('notebook-page').append(promptLine);
 const promptFeedback=document.createElement('span');promptFeedback.id='prompt-feedback';promptFeedback.hidden=true;document.body.append(promptFeedback);
 const activityCaption=document.createElement('span');activityCaption.id='activity-caption';activityCaption.hidden=true;activityCaption.setAttribute('role','status');activityCaption.setAttribute('aria-live','off');
+const activityGroup=document.createElement('span');activityGroup.id='notebook-activity';activityGroup.hidden=true;activityGroup.append(promptFeedback,activityCaption);document.body.append(activityGroup);
 window.installNotebookDonkey(promptFeedback);
 window.placeNotebookActivity=()=>{
  const last=Array.from(document.querySelectorAll('#notebook-page article[data-kind="user"]')).at(-1);
  const target=promptState?.text?promptLine:(last?.lastElementChild||last||promptLine);
- if(promptFeedback.parentElement!==target)target.append(promptFeedback);
- if(activityCaption.parentElement!==target||promptFeedback.nextSibling!==activityCaption)promptFeedback.after(activityCaption);
+ if(activityGroup.parentElement!==target)target.append(activityGroup);
 };
 let promptState=null;
 function positionPrompt(){
@@ -196,7 +196,8 @@ function updatePrompt(value){
  document.body.dataset.notebookReady='true';
  const draftChanged=promptState&&(promptState.text!==value.text||promptState.cursor!==value.cursor);
  promptState=value;promptLine.hidden=!!value.hidden;positionPrompt();
- activityCaption.hidden=!!value.hidden||!value.feedback||!value.activity;
+ activityGroup.hidden=!!value.hidden||!value.feedback;
+ activityCaption.hidden=activityGroup.hidden||!value.activity;
  activityCaption.textContent=activityCaption.hidden?'':`(${value.activity})`;
  promptFeedback.textContent='';promptFeedback.setAttribute('role','img');promptFeedback.setAttribute('aria-label',value.feedback||'Idle');promptFeedback.hidden=!!value.hidden||!value.feedback;
  const chars=Array.from(value.text||''),index=Math.max(0,Math.min(chars.length,value.cursor??chars.length));
@@ -446,6 +447,7 @@ window.addEventListener('blur',()=>forwardGamepad([]));
 
 const artifact = document.getElementById('artifact');
 window.installPreviewShutter(artifact);
+window.installPreviewWaveform(preview);
 document.getElementById('version').setAttribute('aria-label','Piece version');
 const previewViewport = document.getElementById('preview-viewport');
 // The guest keeps a display-aspect viewport, 128 pixels high. Only its composited surface

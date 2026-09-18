@@ -13,7 +13,11 @@ window.installNotebookDonkey=anchor=>{
   canvas.style.left=`${Math.max(10,Math.min(innerWidth-width-8,rect.left+8))}px`;
   canvas.style.top=`${Math.max(sheet.top,rect.top+(rect.height-size)/2)}px`;
   const dpr=Math.min(devicePixelRatio||1,2),pixels=Math.round(size*dpr),pixelWidth=Math.round(width*dpr);if(canvas.width!==pixelWidth||canvas.height!==pixels){canvas.width=pixelWidth;canvas.height=pixels;}
-  const box=boxes[reduced.matches?0:Math.floor(performance.now()/90)%8],scale=Math.min(pixelWidth/box.width,pixels/box.height);
+  const step=reduced.matches?0:Math.floor(performance.now()/90)%8;
+  const bounce=reduced.matches?0:[0,-1,-2,-1,0,1,2,1][step];
+  canvas.style.translate=`0 ${bounce}px`;
+  anchor.parentElement.style.setProperty('--activity-bounce',`${bounce}px`);
+  const box=boxes[step],scale=Math.min(pixelWidth/box.width,pixels/box.height);
   context.clearRect(0,0,pixelWidth,pixels);context.drawImage(source,box.x,box.y,box.width,box.height,(pixelWidth-box.width*scale)/2,(pixels-box.height*scale)/2,box.width*scale,box.height*scale);
   canvas.hidden=false;if(!reduced.matches){timer=setTimeout(paint,90);}
  }

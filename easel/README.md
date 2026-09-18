@@ -77,7 +77,11 @@ manually resized footprint, with no hover zoom. Clicking it gives the piece its
 keyboard; clicking the notebook returns to message input. The donkey's temporary
 parenthetical thought bubble follows public activity and clears when the run ends.
 New desktop windows show a themed notebook on first paint, before engine startup;
-terminal initialization stays hidden.
+terminal initialization stays hidden. A thin waveform behind the title follows
+actual speaker output and fades away in silence. The donkey and thought bubble
+stay together and share a small bounce (still with reduced motion enabled).
+Preview wrapping settles before paint so window-height changes do not rebound
+through the conversation; new replies follow the bottom only when you are there.
 
 `/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
 your profile in a browser. Header targets highlight on hover in terminals that

@@ -82,7 +82,7 @@ let win;
     await js(
       `getComputedStyle(document.getElementById('activity-caption')).display`,
     ),
-    "inline-block",
+    "block",
   );
   fs.writeFileSync(
     "/tmp/aesel-thought-bubble.png",

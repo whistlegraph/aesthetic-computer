@@ -8,12 +8,10 @@
  const prose=document.createElement('div');prose.id='notebook-content';paper.append(prose);
  window.alignNotebookRuling=()=>{
   const spacing=parseFloat(getComputedStyle(view).lineHeight)||24;
-  const titleHeight=title&&!title.hidden?title.getBoundingClientRect().height:0;
-  paper.style.minHeight=`${Math.max(0,Math.floor((view.clientHeight-titleHeight)/spacing))*spacing}px`;
   const origin=paper.getBoundingClientRect().top;
-  const clipped=Math.max(0,view.getBoundingClientRect().top-origin);
-  const clip=Math.ceil((clipped-.01)/spacing)*spacing;
-  paper.style.clipPath='none';
+  const pageTop=origin-view.getBoundingClientRect().top+view.scrollTop;
+  const minimum=`${Math.max(0,Math.floor((view.clientHeight-pageTop)/spacing))*spacing}px`;
+  if(paper.style.minHeight!==minimum)paper.style.minHeight=minimum;
   document.documentElement.style.setProperty('--notebook-offset',`${origin%spacing}px`);
   window.layoutNotebookPreview?.();
  };
@@ -53,7 +51,7 @@
   const newestAssistant=value.entries.filter(entry=>entry.kind==='assistant'&&entry.text?.trim()).at(-1)?.id;
   latest=value;
   view.hidden=!!value.hidden;
-  const stick=view.scrollHeight-view.scrollTop-view.clientHeight<40;
+  const stick=view.scrollHeight-view.scrollTop-view.clientHeight<=2;
   const selection=window.getSelection();
   if(selection&&!selection.isCollapsed&&view.contains(selection.anchorNode)){view.pending=value;return;}
   const ids=new Set();
