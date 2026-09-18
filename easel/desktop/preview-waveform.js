@@ -2,11 +2,12 @@ window.installPreviewWaveform = (preview) => {
   const ns = "http://www.w3.org/2000/svg";
   const line = document.createElementNS(ns, "svg");
   line.id = "preview-waveform";
-  line.setAttribute("viewBox", "0 0 127 32");
+  line.setAttribute("viewBox", "0 0 32 127");
   line.setAttribute("preserveAspectRatio", "none");
   line.setAttribute("aria-hidden", "true");
   const path = document.createElementNS(ns, "path");
   path.setAttribute("vector-effect", "non-scaling-stroke");
+  path.setAttribute("transform", "matrix(0 1 1 0 0 0)");
   line.append(path);
   document.body.append(line);
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -48,8 +49,6 @@ window.installPreviewWaveform = (preview) => {
         !!lastSound && performance.now() - lastSound < 600,
       );
       if (!line.classList.contains("sounding")) return;
-      const box = document.getElementById("artifact-shell").getBoundingClientRect();
-      line.style.top = `${Math.max(0, box.top + box.height / 2 - 24)}px`;
       path.setAttribute(
         "d",
         motion.matches || !active
