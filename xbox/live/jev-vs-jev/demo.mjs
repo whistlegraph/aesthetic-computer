@@ -47,7 +47,8 @@ async function drive(seat, session) {
     let releaseMs = 210;
     pending++;
     try {
-      const result = await post({ ticket: session, seat, scene: f.scene });
+      const scene = { ...f.scene, strikes: f.scene.strikeOptions?.() };
+      const result = await post({ ticket: session, seat, scene });
       f.failures = 0;
       // Account for successful requests even when Stop was pressed in flight.
       f.count++; f.cost += result.usage.costUsd; f.input += result.usage.inputTokens; f.output += result.usage.outputTokens;

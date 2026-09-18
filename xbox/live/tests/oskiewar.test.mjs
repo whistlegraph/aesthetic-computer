@@ -131,7 +131,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -167,8 +167,10 @@ function createFight(startImmediately = true, enterGame = true,
   if (enterGame) fight.enterGame();
 
   const tick = (elapsedUs = 16667) => {
+    const existingError = fight.clientErrorState();
     now += elapsedUs;
     fight.sim();
+    if (!existingError) assert.ok(!fight.clientErrorState(), JSON.stringify(fight.clientErrorDetailState()));
   };
   const tap = (pad, button, gapUs = 70000) => {
     pads[pad].down = [button];
@@ -1436,11 +1438,10 @@ test("web UI drums route through the unlocked procedural sound bank", () => {
 test("debug off hides safe-zone boxes including frozen round impacts", () => {
   assert.match(source,
     /function drawSafeZones\(\) \{\n  if \(!debugHitboxes \|\| renderFlags\.hud === false\) return;/);
-  // Two sessions left two different spellings of this line behind, neither of
-  // them the one that shipped. The impact flash is debug-only, so `debugHitboxes`
-  // gates it first and the round-result freeze only decides how long it lasts.
-  assert.match(source,
-    /const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil/);
+  const draw=source.match(/function drawDebugHitboxes[\s\S]*?\n}\n/)[0];
+  assert.match(draw,/!debugHitboxes/);
+  assert.match(draw,/sampleCombatBoxes/);
+
 });
 
 // @jeffrey: "legs seem to get rly long when jumping on platforms". The
@@ -3199,9 +3200,10 @@ test("death camera culls balls that project outside native triangle bounds", () 
 });
 
 test("melee and movement edges emit bounded Ableton signals", () => {
-  const { signals, tap } = createFight();
+  const { signals, tap, tick } = createFight();
   tap(0, "A");
   assert.ok(signals.some(([event, player]) => event === "kick" && player === 0));
+  for(let f=0;f<26;f++)tick(); // Recovery cannot be overwritten by another attack.
   tap(0, "B");
   assert.ok(signals.some(([event, player]) => event === "punch" && player === 0));
   tap(0, "ArrowRight");
@@ -3755,24 +3757,49 @@ test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
   assert.ok(fight.players[1].hitStunUntil > 0);
 });
 
-test("melee collision uses the animated attacking limb capsules", () => {
-  const { fight, pads, tick, now } = createFight();
-  fight.players[0].x = 5940;
-  fight.players[1].x = 6060;
-  pads[0].down = ["B"];
-  tick();
-  tick(70000);
-  const geometry = fight.runnerWorldGeometry(fight.players[0], now() / 1000000);
-  assert.deepEqual(geometry.segments
-    .filter((segment) => segment.role?.startsWith("attack-"))
-    .map((segment) => segment.role), ["attack-upper-arm", "attack-forearm"]);
-  const contact = fight.meleeLimbContact(
-    fight.players[0], fight.players[1], now() / 1000000);
-  assert.ok(contact);
-  assert.ok(Number.isFinite(contact.separation));
-  assert.match(source, /function segmentSegmentClosest/);
-  assert.doesNotMatch(source.match(/function resolveMelee[\s\S]*?\n}\n\nfunction resolvePlayerPushboxes/)[0],
-    /runnerContactToPoint/);
+test("melee collision uses active attack boxes against hurtboxes", () => {
+  const {fight,now}=createFight();
+  const a=fight.players[0],b=fight.players[1];
+  a.x=1800;b.x=1930;a.y=b.y=1800;
+  fight.startAttack('PUNCH');
+  const start=now();
+  assert.equal(fight.sampleCombatBoxes(a,start).hit.length,0);
+  const active=fight.sampleCombatBoxes(a,start+5*16667);
+  const target=fight.sampleCombatBoxes(b,start+5*16667);
+  assert.equal(active.hit.length,1);
+  assert.ok(fight.combatBoxContact(active,target));
+  assert.equal(fight.sampleCombatBoxes(a,start+8*16667).hit.length,0);
+});
+
+for(const [kind,startup,active,total] of [['PUNCH',5,3,17],['KICK',8,4,26]])
+  test(kind+' hitboxes exist only on authored active frames',()=>{
+    const {fight,now}=createFight();const a=fight.players[0];
+    fight.startAttack(kind);const start=now();
+    for(let f=0;f<total+2;f++)assert.equal(fight.sampleCombatBoxes(a,start+f*16667).hit.length,
+      f>=startup&&f<startup+active?1:0,'frame '+(f+1));
+    a.attackHit=true;
+    assert.equal(fight.sampleCombatBoxes(a,start+startup*16667).hit.length,0);
+  });
+
+test('Jev probes see a ground head missed by a high punch and reached by a low kick',()=>{
+  const {fight,now}=createFight();const a=fight.players[0],b=fight.players[1];
+  a.x=1800;b.x=1930;a.y=b.y=1800;b.removedParts=[...limbPartsForTest,'torso'];
+  const before=JSON.stringify([a,b]);
+  const probes=fight.jevStrikeOptions(a,b,now());
+  assert.equal(probes.punch.canHit,false);
+  assert.equal(probes.low_kick.canHit,true);
+  assert.equal(probes.low_kick.headshot,true);
+  assert.equal(JSON.stringify([a,b]),before,'probes must not advance or mutate players');
+});
+
+test('box tree matches exhaustive rectangle queries including split boundaries',()=>{
+  const {fight}=createFight();
+  const boxes=Array.from({length:31},(_,i)=>fight.combatRect(String(i),i*13,i%4*20,i*13+20,i%4*20+35));
+  const tree=fight.buildBoxTree(boxes);
+  for(let x=-20;x<450;x+=17){
+    const area=fight.combatRect('q',x,10,x+42,75);
+    assert.deepEqual(fight.queryBoxTree(tree,area).map(b=>b.id).sort(),boxes.filter(b=>fight.boxesOverlap(b,area)).map(b=>b.id).sort());
+  }
 });
 
 test("arms and legs take localized damage and detach from collision geometry", () => {
@@ -4187,22 +4214,14 @@ test("a light saber is taken with a free arm, lengthens every hand strike, and d
   assert.ok(stage.floorY > 0);
 });
 
-test("training boxes use the colors every fighting game agreed on", () => {
+test("training boxes draw the actual combat rectangles", () => {
   const draw = source.match(/function drawDebugHitboxes[\s\S]*?\n}\n/)[0];
-  // Green is what can be hit, red is what is hitting, orange is the space the
-  // body occupies. The old palette had a RED head, which read as "this is the
-  // dangerous part" about the most vulnerable part there is.
   assert.match(draw, /const hurtColor = \[82, 226, 116\]/);
-  assert.match(draw, /const pushColor = \[255, 158, 54\]/);
   assert.match(draw, /const attackColor = \[255, 58, 64\]/);
-  // Both the limbs and the head wear the hurt color; nothing else does.
-  assert.match(draw, /segment\.width \* \.22\), hurtColor\)/);
-  assert.match(draw, /geometry\.head\.radius \* \.12\)\), hurtColor\)/);
-  // A spent swing is not drawn as a live hitbox. `attackHit` means it cannot
-  // hurt anybody again, and a red box that cannot hit is the most misleading
-  // thing a training overlay can show.
-  assert.match(draw, /const live = !player\.attackHit/);
-  assert.match(draw, /live \? attackColor : spentColor/);
+  assert.match(draw, /boxes\.hurt/);
+  assert.match(draw, /boxes\.hit/);
+  assert.match(draw, /boxes\.guard/);
+  assert.doesNotMatch(draw, /geometry\.segments|segment\.width/);
 });
 
 test("the frame meter records what a fighter was doing, frame by frame", () => {
@@ -4217,7 +4236,7 @@ test("the frame meter records what a fighter was doing, frame by frame", () => {
   // but the window, so a strike in this game is live on the frame it is
   // thrown and the meter says so.
   fight.startAttack("PUNCH");
-  assert.equal(fight.frameMeterState(0), "active");
+  assert.equal(fight.frameMeterState(0), "startup");
   // Once it lands it becomes RECOVERY -- the limb is still out and can no
   // longer hurt anybody, which is exactly what a player is being punished
   // for when they get hit during it.
@@ -4409,7 +4428,7 @@ test("simultaneous body strikes recoil without player-order bias", () => {
   fight.players[1].x = 6060;
   pads[0].down = ["B"];
   pads[1].down = ["B"];
-  for (let frame = 0; frame < 5; frame++) tick(16667);
+  for (let frame = 0; frame < 9; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
   assert.equal(fight.players[1].alive, true);
   assert.ok(fight.players[0].hitStunUntil > 0);
@@ -4479,7 +4498,7 @@ test("crouch and jump use readable multi-frame pose transitions", () => {
   assert.equal(jump.fight.players[0].grounded, true);
   jump.tick(50000);
   assert.ok(jump.fight.players[0].vy < 0);
-  assert.match(source, /const animation = fighterAnimationPhase\(player\)/);
+  assert.match(source, /const animation = fighterAnimationPhase\(player, at\)/);
   assert.match(source, /function drawFighterSilhouette/);
 });
 

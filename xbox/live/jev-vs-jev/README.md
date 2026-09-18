@@ -14,6 +14,15 @@ neutral input; stale responses and old-round responses are discarded.
 Transient provider failures leave a fighter neutral while it requests a fresh
 decision; three consecutive failures stop the match.
 
+Combat now uses rectangular hurtboxes, active attack boxes and guard boxes. Tab
+shows those same collision boxes. Punches have 5 startup / 3 active / 9 recovery
+frames; kicks have 8 / 4 / 14. Recovery cannot be canceled by another strike.
+Crouch-punch, low-kick, crouch-block and timed jump-attack sequences are available.
+Each observation includes box-based strike reach probes, posture and remaining
+recovery. The probes hold positions fixed; the 200 ms velocity estimate is only
+an estimate, not a simulated future. A bounding-volume tree narrows collision
+and nearby-platform queries. Full combo planning and hitstop remain future work.
+
 The page shows separate provider-reported cost, input/output tokens, decision
 counts, and browser round-trip latency. Simulation stays at its normal rate
 while decisions arrive asynchronously. It is not frame-by-frame inference.

@@ -74,3 +74,24 @@ test('Jev chooses from usable attacks after dismemberment',()=>{
   assert.match(choices.punch,/Spit/);assert.match(choices.kick,/Spit/);
   assert.equal(choices.block,undefined);
 });
+test('crouch and aerial attacks are timed sequences with separate button edges',()=>{
+  const low=controlPlan('still','low_kick');
+  assert.deepEqual(controlsAt(low,0),['ArrowDown']);
+  assert.deepEqual(controlsAt(low,120),['ArrowDown','A']);
+  assert.deepEqual(controlsAt(low,300),['ArrowDown']);
+  assert.deepEqual(controlsAt(low,700),[]);
+  const jump=controlPlan('right','jump_punch');
+  assert.deepEqual(controlsAt(jump,0),['ArrowRight','ArrowUp']);
+  assert.deepEqual(controlsAt(jump,260),['ArrowRight','ArrowUp','B']);
+  assert.ok(jump.releaseMs>=524,'next command waits for the delayed attack recovery');
+});
+test('bounded box evidence and movement estimates survive observation normalization',()=>{
+  const value=cleanScene({self:{x:100,y:200,vx:0},opponent:{x:200,y:200,dx:100,dy:0,vx:-100,ducking:true,headOnly:true},
+    strikes:{low_kick:{canHit:true,headshot:true,clearance:0,startupMs:133,totalMs:434,private:'SECRET'}},
+    options:[{kind:'jump',reach:350,cost:80,landLeft:20,landRight:100}]});
+  assert.equal(value.relative.predictedDx200ms,80);
+  assert.equal(value.opponent.headOnly,true);
+  assert.equal(value.strikes.low_kick.canHit,true);
+  assert.equal(value.options[0].reach,350);
+  assert.doesNotMatch(JSON.stringify(value),/SECRET|private/);
+});

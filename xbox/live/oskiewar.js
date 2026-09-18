@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 131;
+const buildVersion = 132;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -526,16 +526,16 @@ const meleeSpecFor = (player, kind) => {
 };
 const meleeSpecs = {
   PUNCH: { reach: 58, swell: 50, span: 58, height: 115, radius: 28,
-    windowUs: 220000, force: 1200, lift: 140,
+    windowUs: 17 * 16667, force: 1200, lift: 140,
     cue: ["snare", 1.05], thud: ["block", 1] },
   KICK: { reach: 75, swell: 62, span: 74, height: 55, radius: 35,
-    windowUs: 220000, force: 1550, lift: 220,
+    windowUs: 26 * 16667, force: 1550, lift: 220,
     cue: ["kick", 1.05], thud: ["block", 1] },
   WHIP: { reach: 92, swell: 74, span: 76, height: 122, radius: 24,
-    windowUs: 190000, force: 1000, lift: 110,
+    windowUs: 15 * 16667, force: 1000, lift: 110,
     cue: ["whoosh", 1.15], thud: ["hat", 1.35] },
   BASH: { reach: 62, swell: 40, span: 58, height: 108, radius: 40,
-    windowUs: 280000, force: 1750, lift: 210,
+    windowUs: 28 * 16667, force: 1750, lift: 210,
     cue: ["kick", 1.3], thud: ["kick", 1.4] },
 };
 // One lookup serves both Y and the loaded punch, so the thing you can see in
@@ -1812,17 +1812,9 @@ let debugHitboxes = false;
 // those mean HERE is a question about this game rather than that one, and the
 // honest answers are not all flattering:
 //
-//   startup  — structurally zero. `startMelee` sets `attackUntil` and
-//              `resolveMelee` gates on nothing but `now < attackUntil`, so a
-//              strike is live on the frame it is thrown. The meter computes
-//              the phase anyway, so the day an anticipation window is added
-//              it lights up on its own rather than needing to be remembered.
-//   active   — the swing can still connect: inside the window, nothing hit.
-//   recovery — the swing is spent. `attackHit` makes a strike land once, so
-//              the rest of its window is a limb hanging out that cannot hurt
-//              anybody, which is exactly what recovery is and exactly what a
-//              player needs to see to know they are being punished for it.
-//   stun     — `hitStunUntil`, hit or shield-broken alike.
+// Startup, active and recovery come from the same integer-frame table as
+// the collision sampler. A landed strike remains in recovery until its
+// original action deadline. Stun still takes precedence over the action.
 //
 // Shielding gets a color of its own because holding a shield is a stance in
 // this game rather than a reaction, and folding it into stun would say
@@ -1846,18 +1838,12 @@ function frameMeterState(player, now) {
   if (now < player.hitStunUntil) return "stun";
   if (player.attackKind && now < player.attackUntil) {
     if (player.attackHit) return "recovery";
-    // Kept for the day a startup window exists. `meleeActiveFrom` is zero
-    // today, so this never fires and the meter tells the truth about that.
-    if (now < player.attackStartedAt + meleeActiveFrom) return "startup";
-    return "active";
+    return meleeFrame(player, now).phase;
   }
   if (player.blocking) return "shield";
   if (!player.grounded) return "airborne";
   return "neutral";
 }
-// Zero, and named rather than absent, so the absence is a decision somebody
-// can find instead of a gap somebody has to infer.
-const meleeActiveFrom = 0;
 function recordFrameMeter(now) {
   if (!debugHitboxes) return;
   for (const player of players) {
@@ -7106,8 +7092,9 @@ function updateBullets(dt, now, combat = true) {
     // Flipping `owner` lets the returned shot hurt whoever fired it.
     if (target.blocking) {
       const shield = shieldGeometry(target);
-      if (Math.hypot(bullet.x - shield.x, bullet.y - shield.y,
-          bullet.z - shield.z) <= shield.radius + 24) {
+      const guard = sampleCombatBoxes(target,now).guard[0];
+      if (guard && segmentBoxEntry({x1:bullet.previousX??bullet.x,y1:bullet.previousY??bullet.y,
+          z1:bullet.z,x2:bullet.x,y2:bullet.y,z2:bullet.z},guard,24)!==null) {
         let nx = bullet.x - shield.x;
         let ny = bullet.y - shield.y;
         const normalLength = Math.hypot(nx, ny);
@@ -7133,7 +7120,7 @@ function updateBullets(dt, now, combat = true) {
         continue;
       }
     }
-    const contact = attackCapsuleContact([{
+    const contact = sweptProjectileContact([{
       x1: bullet.previousX ?? bullet.x, y1: bullet.previousY ?? bullet.y,
       z1: bullet.z, x2: bullet.x, y2: bullet.y, z2: bullet.z,
       width: 48, role: "bullet", part: "bullet",
@@ -7259,6 +7246,7 @@ function updateGrenades(dt, now, combat = true) {
 
 function startMelee(player, kind, now) {
   if (isHeadOnly(player) || isPogo(player)) return;
+  if (player.attackKind && now < player.attackUntil) return;
   const spec = meleeSpecs[kind];
   if (!spec) return;
   const attackingPart = kind === "KICK"
@@ -7308,9 +7296,27 @@ const itemSwinging = (player, now) =>
 
 function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
-  const phase = (now - player.attackStartedAt) /
-    (player.attackUntil - player.attackStartedAt);
-  return Math.sin(Math.max(0, Math.min(1, phase)) * Math.PI);
+  const { frame, startup, active, recovery, phase } = meleeFrame(player, now);
+  if (phase === 'startup') return .25 * frame / startup;
+  if (phase === 'active') return 1;
+  return Math.max(0, 1 - (frame - startup - active) / recovery);
+}
+
+// Authored gameplay windows. Frame 1 is the accepted input frame; drawing
+// may interpolate, but no collision exists in startup or recovery.
+const meleeFrames = {
+  PUNCH: { startup: 5, active: 3, recovery: 9 },
+  KICK: { startup: 8, active: 4, recovery: 14 },
+  WHIP: { startup: 4, active: 3, recovery: 8 },
+  BASH: { startup: 8, active: 4, recovery: 16 },
+};
+function meleeFrame(player, now) {
+  const timing = meleeFrames[player.attackKind];
+  if (!timing || now < player.attackStartedAt || now >= player.attackUntil)
+    return { frame: 0, phase: 'neutral', startup: 0, active: 0, recovery: 0 };
+  const frame = Math.floor((now - player.attackStartedAt) / replayTickUs + 1e-7) + 1;
+  return { ...timing, frame, phase: frame <= timing.startup ? 'startup'
+    : frame <= timing.startup + timing.active ? 'active' : 'recovery' };
 }
 
 function meleeTarget(player, now) {
@@ -7326,7 +7332,8 @@ function meleeTarget(player, now) {
   return {
     x: player.x + player.facing * (spec.reach + spec.swell * pulse +
       (lowKick ? 34 * pulse : 0)),
-    y: lowKick ? sweepY : player.y - spec.height,
+    y: lowKick ? sweepY : player.y - (player.attackKind !== 'KICK' &&
+      (player.ducking || player.crouchBlend > .35) ? 68 : spec.height),
     z: player.z,
   };
 }
@@ -7634,13 +7641,12 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
-    if (!player.attackHit && now < player.attackUntil) {
-      const strike = meleeStrike(player, now);
-      const distance = Math.hypot(ball.x - strike.x, ball.y - strike.y,
-        ball.z - strike.z);
-      if (distance <= ball.radius + strike.radius)
-        hitters.push({ player, contact: clamp(1 - distance /
-          (ball.radius + strike.radius), 0, 1) });
+    const boxes = sampleCombatBoxes(player, now);
+    for (const strike of boxes.hit) {
+      const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
+      if (distance <= ball.radius) {
+        hitters.push({ player, contact: clamp(1-distance/ball.radius,0,1) }); break;
+      }
     }
   }
   if (hitters.length >= 2) {
@@ -7657,24 +7663,21 @@ function updateBall(ball, dt, now) {
         now < ball.safeUntil))
       continue;
     if (player.blocking) {
-      const shield = shieldGeometry(player);
-      const centerDistance = Math.hypot(ball.x - shield.x, ball.y - shield.y,
-        ball.z - shield.z);
-      const surfaceDistance = Math.max(0, centerDistance - ball.radius);
-      if (surfaceDistance <= shield.radius) {
-        const proximity = clamp(1 - surfaceDistance / shield.radius, 0, 1);
+      const guard = sampleCombatBoxes(player, now).guard[0];
+      const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
+      if (distance <= ball.radius) {
+        const shield = shieldGeometry(player);
+        const proximity = clamp(1-Math.max(0,Math.hypot(ball.x-shield.x,
+          ball.y-shield.y,ball.z-shield.z)-ball.radius)/shield.radius,0,1);
         returnBall(ball, player, now, true, proximity);
         return;
       }
     }
-    const geometry = runnerWorldGeometry(player, poseTime);
-    const currentHeadDistance = Math.max(0, Math.hypot(
-      ball.x - geometry.head.x, ball.y - geometry.head.y,
-      ball.z - geometry.head.z) - geometry.head.radius);
-    const sweptHeadDistance = Math.max(0, pointSegmentDistance(
-      geometry.head.x, geometry.head.y, geometry.head.z,
+    const headBox = sampleCombatBoxes(player,now).hurt.find(b=>b.part==='head');
+    const currentHeadDistance = pointBoxDistance(headBox,ball.x,ball.y,ball.z);
+    const sweptHeadDistance = segmentBoxEntry(
       { x1: previous.x, y1: previous.y, z1: previous.z,
-        x2: ball.x, y2: ball.y, z2: ball.z }) - geometry.head.radius);
+        x2: ball.x, y2: ball.y, z2: ball.z },headBox,ball.radius)!==null ? 0 : Infinity;
     const headDistance = Math.min(currentHeadDistance, sweptHeadDistance);
     const bodyContact = runnerContactToPoint(player, poseTime,
       ball.x, ball.y, ball.z);
@@ -7940,27 +7943,25 @@ function groundPound(player, now) {
 function resolveMelee(now) {
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
+  const samples = players.map(player => sampleCombatBoxes(player, now));
   for (const attacker of players) {
-    if (!attacker.alive || attacker.attackHit || now >= attacker.attackUntil) continue;
-    const attackingLimbs = runnerWorldGeometry(attacker, poseTime).segments
-      .filter((segment) => segment.role?.startsWith("attack-"));
+    const attacking = samples[attacker.pad];
+    if (!attacker.alive || !attacking.hit.length) continue;
     for (const fragment of detachedParts) {
-      let closest = null;
-      for (const limb of attackingLimbs) {
-        const candidate = segmentSegmentClosest(limb, fragment);
-        const separation = candidate.distance - (limb.width + fragment.width) / 2;
-        if (!closest || separation < closest.separation)
-          closest = { ...candidate, separation };
-      }
-      if (!closest || closest.separation > 3) continue;
+      const r = fragment.width/2;
+      const bounds = combatRect('fragment',Math.min(fragment.x1,fragment.x2)-r,
+        Math.min(fragment.y1,fragment.y2)-r,Math.max(fragment.x1,fragment.x2)+r,
+        Math.max(fragment.y1,fragment.y2)+r,(fragment.z1+fragment.z2)/2,
+        Math.abs(fragment.z2-fragment.z1)/2+r);
+      if (!attacking.hit.some(hit=>boxesOverlap(hit,bounds))) continue;
       const spec = meleeSpecFor(attacker, attacker.attackKind);
       fragment.vx += attacker.facing * spec.force * .8;
       fragment.vy -= Math.max(220, spec.lift);
       fragment.owner = attacker.pad;
       fragment.hitAfter = now + 120000;
       attacker.attackHit = true;
-      spawnImpact({ x: closest.secondPoint.x, y: closest.secondPoint.y,
-        z: closest.secondPoint.z, life: .18, duration: .18,
+      spawnImpact({ x: (bounds.left+bounds.right)/2, y: (bounds.top+bounds.bottom)/2,
+        z: (bounds.near+bounds.far)/2, life: .18, duration: .18,
         death: false, explosion: false });
       playDrum("clap", .82, panPlayer(attacker));
       emitSignal("part-hit", attacker.pad, -1, spec.force);
@@ -7969,7 +7970,7 @@ function resolveMelee(now) {
     if (attacker.attackHit) continue;
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const contact = meleeLimbContact(attacker, target, poseTime);
+    const contact = combatBoxContact(attacking, samples[target.pad]);
     if (contact?.separation <= 3) {
       attacker.attackHit = true;
       contacts.push({ attacker, target,
@@ -8047,15 +8048,9 @@ function resolvePogoAttacks(now) {
   for (const attacker of players) {
     if (!attacker.alive || !isPogo(attacker) || attacker.grounded ||
         attacker.pogoHit) continue;
-    const geometry = runnerWorldGeometry(attacker, poseTime);
-    const torso = geometry.segments.find((segment) => segment.role === "torso");
-    if (!torso) continue;
-    const bottom = { x1: torso.x2, y1: torso.y2, z1: torso.z2,
-      x2: torso.x2, y2: torso.y2, z2: torso.z2,
-      width: torso.width + 6, role: "attack-pogo", part: "torso" };
     const target = players[attacker.pad === 0 ? 1 : 0];
     if (!target.alive) continue;
-    const contact = attackCapsuleContact([bottom], target, poseTime);
+    const contact = combatBoxContact(sampleCombatBoxes(attacker,now),sampleCombatBoxes(target,now));
     if (!contact || contact.separation > 3) continue;
     attacker.pogoHit = true;
     attacker.vy = Math.min(attacker.vy, -985);
@@ -8074,8 +8069,8 @@ function resolvePogoAttacks(now) {
 function resolvePlayerPushboxes() {
   if (!players[0].alive || !players[1].alive) return;
   const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
-  const firstBounds = runnerBounds(players[0], poseTime);
-  const secondBounds = runnerBounds(players[1], poseTime);
+  const firstBounds = combatPushbox(players[0]);
+  const secondBounds = combatPushbox(players[1]);
   const verticalOverlap = Math.min(firstBounds.bottom, secondBounds.bottom) -
     Math.max(firstBounds.top, secondBounds.top);
   // Grounded fighters nudge one another. Once a jumper is clearly above the
@@ -8085,7 +8080,7 @@ function resolvePlayerPushboxes() {
        Math.abs(players[0].y - players[1].y) > 58)) return;
   const left = players[0].x <= players[1].x ? players[0] : players[1];
   const right = left === players[0] ? players[1] : players[0];
-  const pushRadius = (player) => isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const pushRadius = (player) => (combatPushbox(player).right-combatPushbox(player).left)/2;
   const minimumGap = pushRadius(left) + pushRadius(right);
   const overlap = minimumGap - (right.x - left.x);
   if (overlap <= 0) return;
@@ -8480,7 +8475,7 @@ function updatePlayer(player, pad, dt, now) {
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
+  player.blocking = !carrying && !headOnly && !(player.attackKind && now < player.attackUntil) && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
@@ -9146,7 +9141,13 @@ function botOptions(player, scene) {
   options.push({ kind: "walk", level: footing.level, y: footing.y,
     left: footing.left, right: footing.right });
   const inset = survivalTune().landingInset;
-  for (const rung of scene.rungs) {
+  const visible = new Set(scene.rungs.map(r=>r.level));
+  const maxReach = jumpReach(0);
+  const nearby = queryBoxTree(platformBoxTree(), combatRect('jump-window',
+    footing.left-maxReach, footing.y-jumpApex(), footing.right+maxReach, footing.y));
+  for (const box of nearby) {
+    const rung = box.ledge;
+    if (!visible.has(rung.level)) continue;
     const dy = footing.y - rung.y;
     if (dy <= 0 || dy > jumpApex()) continue;
     const landLeft = rung.left + inset;
@@ -9178,6 +9179,17 @@ function botOptions(player, scene) {
   return options;
 }
 
+let platformTreeSource = null, platformTreeRevision = -1, platformTree = null;
+function platformBoxTree() {
+  const ledges = activeLedges();
+  if (platformTreeSource !== ledges || platformTreeRevision !== workshopRevision) {
+    platformTreeSource = ledges; platformTreeRevision = workshopRevision;
+    platformTree = buildBoxTree(ledges.map(ledge => combatRect('platform-'+ledge.level,
+      ledge.left,ledge.y,ledge.right,ledge.y+12,0,18,{ledge})));
+  }
+  return platformTree;
+}
+
 // The climb's subgoal: the highest deck one jump reaches from this footing,
 // the nearest of them when two tie. On the ladder that is the deck above —
 // two decks is 470 and the apex is 322 — but the choice is made from the
@@ -9195,6 +9207,9 @@ function highestJump(options) {
 function botPad(player, opponent, now) {
   if (selfPlay && typeof globalThis.__oskiewarJevPad === 'function') {
     const scene = botScene(player, opponent, now);
+    scene.self.ducking = player.ducking;
+    scene.self.attackFrame = meleeFrame(player, now).frame;
+    scene.self.recoveryMs = Math.max(0, (player.attackUntil-now)/1000);
     scene.self.combat = {
       punch: Boolean(availableArm(player)),
       kickLeft: hasPart(player, 'left-leg'), kickRight: hasPart(player, 'right-leg'),
@@ -9204,6 +9219,16 @@ function botPad(player, opponent, now) {
     if (scene.opponent) {
       scene.opponent.grounded = opponent.grounded;
       scene.opponent.vx = opponent.vx; scene.opponent.vy = opponent.vy;
+      scene.opponent.ducking = opponent.ducking;
+      scene.opponent.headOnly = isHeadOnly(opponent);
+      scene.opponent.pogo = isPogo(opponent);
+      scene.opponent.blocking = opponent.blocking;
+      scene.opponent.attackFrame = meleeFrame(opponent, now).frame;
+      scene.opponent.recoveryMs = Math.max(0, (opponent.attackUntil-now)/1000);
+      // The parent calls this only when preparing a model request, not every
+      // simulation tick. Probes read clones and never advance the live fight.
+      scene.strikeOptions = () => jevStrikeOptions(player, opponent,
+        runtime().simMonotonicUs || runtime().monotonicUs);
     }
     const down = globalThis.__oskiewarJevPad(player.pad, { ...scene,
       round: matchName, alive: player.alive && opponent.alive });
@@ -10215,8 +10240,10 @@ function fighterAnimationPhase(player, now = null) {
   } else if (Math.abs(player.vx) > 40) {
     state = "WALK";
   }
-  const [steps, authoredTicksPerStep, basePhase, loop] =
+  const [authoredSteps, authoredTicksPerStep, basePhase, loop] =
     fighterAnimationSpecs[state] || fighterAnimationSpecs.IDLE;
+  const timing = meleeFrames[state];
+  const steps = timing ? timing.startup+timing.active+timing.recovery : authoredSteps;
   // Descending terrain advances planted-foot exchanges faster. The result is
   // still integer-tick animation, but the legs keep pace with downhill speed
   // instead of the body skating through a leisurely flat-ground cycle.
@@ -10233,8 +10260,8 @@ function fighterAnimationPhase(player, now = null) {
   const rawStep = Math.floor(rawTick / ticksPerStep);
   const step = loop ? rawStep % steps : Math.min(steps - 1, rawStep);
   let phase = basePhase;
-  if (["PUNCH", "KICK", "WHIP", "BASH", "FIRE", "THROW", "REACH"]
-      .includes(state)) {
+  if (timing) phase = meleeFrame(player,now).phase.toUpperCase();
+  else if (["FIRE", "THROW", "REACH"].includes(state)) {
     const section = step / Math.max(1, steps - 1);
     phase = section < .3 ? "STARTUP" : section < .68 ? "ACTIVE" : "RECOVERY";
   } else if (state === "JUMP" || state === "FALL") {
@@ -10265,11 +10292,11 @@ function runnerWorldGeometry(player, t) {
   return pose;
 }
 
-function buildRunnerWorldGeometry(player, t) {
+function buildRunnerWorldGeometry(player, t, at = null) {
   if (player.spiderDummy) return spiderDummyWorldGeometry(player, t);
   // Rendering consumes the same fixed 60 Hz phase clock as simulation. The
   // display can remain uncapped without inventing in-between combat poses.
-  const animation = fighterAnimationPhase(player);
+  const animation = fighterAnimationPhase(player, at);
   const poseNow = animation.frameNow;
   const poseCycle = animation.progress * Math.PI * 2;
   const speed = Math.min(1, Math.abs(player.vx) / 1500);
@@ -10909,47 +10936,188 @@ function segmentSegmentClosest(first, second) {
       firstPoint.y - secondPoint.y, firstPoint.z - secondPoint.z) };
 }
 
-function attackCapsuleContact(attackingLimbs, target, t) {
-  const targetGeometry = runnerWorldGeometry(target, t);
-  if (!attackingLimbs.length) return null;
-  const head = targetGeometry.head;
-  const headCapsule = { x1: head.x, y1: head.y, z1: head.z,
-    x2: head.x, y2: head.y, z2: head.z, width: head.radius * 2 };
-  let headContact = null;
-  let bodyContact = null;
-  for (const attackingLimb of attackingLimbs) {
-    const headClosest = segmentSegmentClosest(attackingLimb, headCapsule);
-    const headSeparation = headClosest.distance -
-      (attackingLimb.width + headCapsule.width) / 2;
-    if (!headContact || headSeparation < headContact.separation)
-      headContact = { closest: headClosest, separation: headSeparation };
-    for (let index = 0; index < targetGeometry.segments.length; index++) {
-      const targetLimb = targetGeometry.segments[index];
-      const closest = segmentSegmentClosest(attackingLimb, targetLimb);
-      const separation = closest.distance -
-        (attackingLimb.width + targetLimb.width) / 2;
-      if (!bodyContact || separation < bodyContact.separation)
-        bodyContact = { closest, separation, segmentIndex: index };
-    }
-  }
-  const headshot = headContact.separation <= 3;
-  const contact = headshot ? headContact : bodyContact;
-  if (!contact) return null;
-  return {
-    x: (contact.closest.firstPoint.x + contact.closest.secondPoint.x) / 2,
-    y: (contact.closest.firstPoint.y + contact.closest.secondPoint.y) / 2,
-    z: (contact.closest.firstPoint.z + contact.closest.secondPoint.z) / 2,
-    separation: contact.separation,
-    segmentIndex: headshot ? -1 : contact.segmentIndex,
-    headshot,
-  };
-}
 
 function meleeLimbContact(attacker, target, t) {
-  const attackingGeometry = runnerWorldGeometry(attacker, t);
-  const attackingLimbs = attackingGeometry.segments.filter((segment) =>
-    segment.role?.startsWith("attack-"));
-  return attackCapsuleContact(attackingLimbs, target, t);
+  const now = runtime().simMonotonicUs || runtime().monotonicUs;
+  return combatBoxContact(sampleCombatBoxes(attacker, now), sampleCombatBoxes(target, now));
+}
+
+// World-space rectangles with a shallow Z interval. Visual line width never
+// changes these authored radii. The same records feed collision, Tab and Jev.
+function combatRect(id, left, top, right, bottom, z = 0, depth = 18, extra = {}) {
+  return { id, left, top, right, bottom, near: z - depth, far: z + depth, ...extra };
+}
+function boxesOverlap(a, b) {
+  return a.left <= b.right && a.right >= b.left && a.top <= b.bottom &&
+    a.bottom >= b.top && a.near <= b.far && a.far >= b.near;
+}
+function boxBounds(items) {
+  return { left: Math.min(...items.map(b => b.left)), right: Math.max(...items.map(b => b.right)),
+    top: Math.min(...items.map(b => b.top)), bottom: Math.max(...items.map(b => b.bottom)),
+    near: Math.min(...items.map(b => b.near)), far: Math.max(...items.map(b => b.far)) };
+}
+function buildBoxTree(items) {
+  if (!items.length) return null;
+  const bounds = boxBounds(items);
+  if (items.length <= 3) return { bounds, items };
+  const horizontal = bounds.right - bounds.left >= bounds.bottom - bounds.top;
+  const sorted = items.slice().sort((a,b) => horizontal
+    ? (a.left+a.right)-(b.left+b.right) : (a.top+a.bottom)-(b.top+b.bottom));
+  const middle = Math.floor(sorted.length / 2);
+  return { bounds, children: [buildBoxTree(sorted.slice(0,middle)), buildBoxTree(sorted.slice(middle))] };
+}
+function queryBoxTree(tree, area, found = []) {
+  if (!tree || !boxesOverlap(tree.bounds, area)) return found;
+  if (tree.items) for (const item of tree.items) { if (boxesOverlap(item, area)) found.push(item); }
+  else for (const child of tree.children) queryBoxTree(child, area, found);
+  return found;
+}
+function pointBoxDistance(box, x, y, z = 0) {
+  return Math.hypot(Math.max(box.left-x,0,x-box.right),
+    Math.max(box.top-y,0,y-box.bottom), Math.max(box.near-z,0,z-box.far));
+}
+// Slab test on an expanded AABB: a fast projectile cannot skip a thin hurtbox.
+function segmentBoxEntry(segment, box, radius = 0) {
+  let enter = 0, leave = 1;
+  for (const [axis,low,high] of [['x','left','right'],['y','top','bottom'],['z','near','far']]) {
+    const origin = segment[axis+'1'], delta = segment[axis+'2']-origin;
+    if (Math.abs(delta)<1e-9) {
+      if (origin<box[low]-radius || origin>box[high]+radius) return null;
+    } else {
+      const a=(box[low]-radius-origin)/delta,b=(box[high]+radius-origin)/delta;
+      enter=Math.max(enter,Math.min(a,b));leave=Math.min(leave,Math.max(a,b));
+      if(enter>leave)return null;
+    }
+  }
+  return enter;
+}
+function sweptProjectileContact(segments,target,t) {
+  const now=runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes=sampleCombatBoxes(target,now);
+  let result=null;
+  for(const s of segments) {
+    const r=s.width/2;
+    const area=combatRect('sweep',Math.min(s.x1,s.x2)-r,Math.min(s.y1,s.y2)-r,
+      Math.max(s.x1,s.x2)+r,Math.max(s.y1,s.y2)+r,(s.z1+s.z2)/2,Math.abs(s.z2-s.z1)/2+r);
+    for(const hurt of queryBoxTree(boxes.tree,area)) {
+      const amount=segmentBoxEntry(s,hurt,r);
+      if(amount===null || (result && amount>=result.amount))continue;
+      result={amount,x:s.x1+(s.x2-s.x1)*amount,y:s.y1+(s.y2-s.y1)*amount,
+        z:s.z1+(s.z2-s.z1)*amount,separation:0,headshot:hurt.part==='head',segmentIndex:hurt.segmentIndex};
+    }
+  }
+  return result;
+}
+function combatPushbox(player) {
+  const half = isHeadOnly(player) ? 24 : isPogo(player) ? 38 : 69;
+  const height = isHeadOnly(player) ? 44 : isPogo(player) ? 116 : player.ducking ? 118 : 180;
+  return combatRect('push', player.x-half, player.y-height, player.x+half, player.y, player.z);
+}
+function sampleCombatBoxes(player, now, world = null) {
+  world ||= runnerWorldGeometry(player, (now-startedAt)/1e6);
+  const hurt = [];
+  const head = world.head;
+  hurt.push(combatRect('head', head.x-22, head.y-22, head.x+22, head.y+22, head.z, 22,
+    { part: 'head', segmentIndex: -1 }));
+  for (let i=0; i<world.segments.length; i++) {
+    const s = world.segments[i];
+    // Each independently damageable region has its own rectangle, including
+    // limbs extended during recovery. Missing limbs never produce hurtboxes.
+    const radius = s.part === 'torso' ? 14 : s.hitboxOnly ? 16 : 10;
+    hurt.push(combatRect(s.role+'-'+i, Math.min(s.x1,s.x2)-radius,
+      Math.min(s.y1,s.y2)-radius, Math.max(s.x1,s.x2)+radius,
+      Math.max(s.y1,s.y2)+radius, (s.z1+s.z2)/2,
+      Math.abs(s.z2-s.z1)/2+radius, { part:s.part, segmentIndex:i }));
+  }
+  const frame = meleeFrame(player, now);
+  const hit = [];
+  if(player.alive && isPogo(player) && !player.grounded && !player.pogoHit) {
+    const torso=world.segments.find(s=>s.role==='torso');
+    if(torso)hit.push(combatRect('pogo',torso.x2-10,torso.y2-10,
+      torso.x2+10,torso.y2+10,torso.z2,10,{part:'torso'}));
+  }
+  if (player.alive && !player.attackHit && !player.blocking && now >= player.hitStunUntil &&
+      frame.phase === 'active' && !isHeadOnly(player) && !isPogo(player)) {
+    const kick = player.attackKind === 'KICK';
+    const part = kick ? player.facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
+    if (part && hasPart(player, part)) {
+      const tip = meleeTarget(player, now);
+      const halfX = kick ? 26 : 22;
+      const halfY = kick && player.lowKick ? 17 : 20;
+      const inner = player.x+player.facing*(kick ? 42 : 30);
+      const outer = tip.x+player.facing*halfX;
+      hit.push(combatRect(player.attackKind.toLowerCase(), Math.min(inner,outer),
+        tip.y-halfY, Math.max(inner,outer), tip.y+halfY, tip.z, 18, { part }));
+    }
+  }
+  const guard = [];
+  if (player.blocking) {
+    const shield = shieldGeometry(player);
+    guard.push(combatRect('guard', shield.x-shield.radius, shield.y-shield.radius,
+      shield.x+shield.radius, shield.y+shield.radius, shield.z, shield.radius));
+  }
+  return { hurt, hit, guard, push: combatPushbox(player), frame,
+    tree: buildBoxTree(hurt) };
+}
+function combatBoxContact(attacker, target) {
+  let result = null;
+  for (const hit of attacker.hit) {
+    const overlaps = queryBoxTree(target.tree, hit).sort((a,b) =>
+      (a.part === 'head' ? -1 : b.part === 'head' ? 1 : a.segmentIndex-b.segmentIndex));
+    const hurt = overlaps[0];
+    if (!hurt) continue;
+    result = { x:(Math.max(hit.left,hurt.left)+Math.min(hit.right,hurt.right))/2,
+      y:(Math.max(hit.top,hurt.top)+Math.min(hit.bottom,hurt.bottom))/2,
+      z:(Math.max(hit.near,hurt.near)+Math.min(hit.far,hurt.far))/2,
+      separation: 0, headshot:hurt.part === 'head', segmentIndex:hurt.segmentIndex,
+      hitbox:hit.id, hurtbox:hurt.id };
+    if (result.headshot) break;
+  }
+  return result;
+}
+
+// Sample the game's real strike capsules against the opponent's current
+// hurtboxes. This is reach evidence at fixed positions, not a predicted hit:
+// travel, input latency, shields and the opponent's next move can change it.
+function jevStrikeOptions(player, opponent, now) {
+  if (!player.alive || !opponent.alive || isHeadOnly(player) || isPogo(player)) return {};
+  const t = (now - startedAt) / 1000000;
+  const target = sampleCombatBoxes(opponent, now);
+  const facing = Math.sign(opponent.x - player.x) || player.facing;
+  const result = {};
+  for (const [action, kind, crouched] of [
+    ['punch', itemMelee[heldItem(player)] || 'PUNCH', false],
+    ['kick', 'KICK', false], ['low_kick', 'KICK', true],
+    ['crouch_punch', itemMelee[heldItem(player)] || 'PUNCH', true],
+  ]) {
+    const part = kind === 'KICK' ? facing > 0 ? 'right-leg' : 'left-leg' : itemHand(player);
+    if (!part || !hasPart(player, part) || (crouched && !player.grounded)) continue;
+    const probe = { ...player, facing, vx: 0, blocking: false,
+      ducking: crouched, crouchBlend: crouched ? 1 : 0,
+      grabHeld: false, itemAction: '', hitStunUntil: 0, attackHit: false,
+      attackKind: kind, lowKick: crouched && kind === 'KICK',
+      attackStartedAt: now, attackUntil: now + meleeSpecs[kind].windowUs };
+    let closest = null, clearance = Infinity;
+    const timing = meleeFrames[kind];
+    for (let frame=timing.startup; frame<timing.startup+timing.active; frame++) {
+      const at = now + replayTickUs * frame;
+      const geometry = buildRunnerWorldGeometry(probe, t, at);
+      const sample = sampleCombatBoxes(probe, at, geometry);
+      for (const hit of sample.hit) for (const hurt of target.hurt)
+        clearance = Math.min(clearance,Math.hypot(
+          Math.max(hit.left-hurt.right,hurt.left-hit.right,0),
+          Math.max(hit.top-hurt.bottom,hurt.top-hit.bottom,0),
+          Math.max(hit.near-hurt.far,hurt.near-hit.far,0)));
+      const contact = combatBoxContact(sample, target);
+      if (contact && (!closest || contact.separation < closest.separation)) closest = contact;
+    }
+    result[action] = { canHit: Boolean(closest && closest.separation <= 3),
+      clearance: Number.isFinite(clearance) ? Math.round(clearance) : null,
+      headshot: Boolean(closest?.headshot), facing,
+      startupMs:Math.round(timing.startup*replayTickUs/1000),
+      totalMs:Math.round(meleeSpecs[kind].windowUs/1000) };
+  }
+  return result;
 }
 
 function runnerDistanceToPoint(player, t, px, py, pz = 0) {
@@ -10958,20 +11126,13 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
 }
 
 function runnerContactToPoint(player, t, px, py, pz = 0) {
-  const geometry = runnerWorldGeometry(player, t);
-  const headDistance = Math.max(0,
-    Math.hypot(px - geometry.head.x, py - geometry.head.y,
-      pz - geometry.head.z) - geometry.head.radius);
-  let bodyDistance = Infinity;
-  let segmentIndex = -1;
-  for (let index = 0; index < geometry.segments.length; index++) {
-    const segment = geometry.segments[index];
-    const distance = Math.max(0,
-      pointSegmentDistance(px, py, pz, segment) - segment.width / 2);
-    if (distance < bodyDistance) {
-      bodyDistance = distance;
-      segmentIndex = index;
-    }
+  const now = runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes = sampleCombatBoxes(player, now);
+  let headDistance = Infinity, bodyDistance = Infinity, segmentIndex = -1;
+  for (const hurt of boxes.hurt) {
+    const distance = pointBoxDistance(hurt, px, py, pz);
+    if (hurt.part === 'head') headDistance = distance;
+    else if (distance < bodyDistance) { bodyDistance=distance;segmentIndex=hurt.segmentIndex; }
   }
   return { headDistance, bodyDistance, segmentIndex };
 }
@@ -12368,65 +12529,26 @@ function debugCapsule(x1, y1, x2, y2, width, color) {
 }
 
 function drawDebugHitboxes(player, t) {
-  // The hud experiment flag prices the debug geometry itself — boxes, crops
-  // and skeletal overlays — while the fps read-out, bug and session name
-  // stay up, because the instrument that measures must not vanish with the
-  // scaffolding it is measuring.
-  if (renderFlags.hud === false) return;
-  const now = runtime().monotonicUs;
-  const impactDebug = debugHitboxes && !roundResult && now < impactHitboxesUntil;
-  if ((!debugHitboxes && !impactDebug) || (!player.alive && !roundResult)) return;
-  const cinematicAge = deathCinematicAge(now);
-  if (deathCinematic?.loserPad === player.pad && cinematicAge >= .11) return;
-  const world = player.replayGeometry || player.frozenGeometry ||
-    runnerWorldGeometry(player, t);
-  const geometry = projectRunnerWorldGeometry(world);
-  // Training-mode box colors, in the arrangement every fighting game has
-  // agreed on and every hitbox site draws: GREEN is what can be hit, RED is
-  // what is hitting, ORANGE is the space the body occupies. The old palette
-  // said cyan limbs, a red head and a green box, which is the same three
-  // facts wearing the wrong three colors -- red on the head in particular
-  // read as "this is the dangerous part" when the head is the most
-  // vulnerable part there is.
+  if (renderFlags.hud === false || !debugHitboxes || !player.alive) return;
+  const now = player.frozenAt || runtime().simMonotonicUs || runtime().monotonicUs;
+  const boxes = sampleCombatBoxes(player, now);
   const hurtColor = [82, 226, 116];
   const pushColor = [255, 158, 54];
   const attackColor = [255, 58, 64];
-  const spentColor = [72, 150, 255];
-
-  for (const segment of geometry.segments)
-    debugCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-      Math.max(2, segment.width * .22), hurtColor);
-  filledRing(geometry.head.x, geometry.head.y, geometry.head.radius,
-    Math.max(0, geometry.head.radius - Math.max(2,
-      geometry.head.radius * .12)), hurtColor);
-
-  const halfWidth = player.ducking ? 76 : 62;
-  const top = player.y - (player.ducking ? 132 : 174);
-  const corners = [
-    projectPoint(player.x - halfWidth, top, player.z),
-    projectPoint(player.x + halfWidth, top, player.z),
-    projectPoint(player.x + halfWidth, player.y, player.z),
-    projectPoint(player.x - halfWidth, player.y, player.z),
-  ];
-  for (let index = 0; index < corners.length; index++) {
-    const next = corners[(index + 1) % corners.length];
-    debugCapsule(corners[index].x, corners[index].y,
-      next.x, next.y, 2, pushColor);
-  }
-
-  const displayNow = player.frozenAt || now;
-  if (player.attackKind && displayNow < player.attackUntil) {
-    // A swing that has already landed is drawn in recovery blue rather than
-    // hitbox red, because `attackHit` means it cannot hurt anybody again --
-    // and a red box that cannot hit is the single most misleading thing a
-    // training overlay can show you.
-    const live = !player.attackHit;
-    for (const segment of geometry.segments) {
-      if (!segment.role?.startsWith("attack-")) continue;
-      debugCapsule(segment.x1, segment.y1, segment.x2, segment.y2,
-        segment.width + 5, live ? attackColor : spentColor);
+  const guardColor = [186, 118, 255];
+  const draw = (b, color, width = 2) => {
+    const z = (b.near+b.far)/2;
+    const points = [[b.left,b.top],[b.right,b.top],[b.right,b.bottom],[b.left,b.bottom]]
+      .map(([x,y])=>projectPoint(x,y,z));
+    for (let i=0;i<4;i++) {
+      const a=points[i], next=points[(i+1)%4];
+      debugCapsule(a.x,a.y,next.x,next.y,width,color);
     }
-  }
+  };
+  for (const b of boxes.hurt) draw(b,hurtColor);
+  draw(boxes.push,pushColor);
+  for (const b of boxes.guard) draw(b,guardColor,3);
+  for (const b of boxes.hit) draw(b,attackColor,4);
 }
 
 // The frame meter. One pip per simulation frame, oldest on the left, the
