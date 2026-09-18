@@ -684,10 +684,6 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     strncpy(creds[cred_count].ssid, "Plot", WIFI_SSID_MAX - 1);
     strncpy(creds[cred_count].pass, "blanketfort", WIFI_PASS_MAX - 1);
     cred_count++;
-    // CultureHub LA guest network
-    strncpy(creds[cred_count].ssid, "CULTUREHUB_Guest", WIFI_SSID_MAX - 1);
-    strncpy(creds[cred_count].pass, "Eleven2024$", WIFI_PASS_MAX - 1);
-    cred_count++;
     // CultureHub LA staff network
     strncpy(creds[cred_count].ssid, "CULTUREHUB LA", WIFI_SSID_MAX - 1);
     strncpy(creds[cred_count].pass, "LaMama47!", WIFI_PASS_MAX - 1);

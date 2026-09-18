@@ -353,7 +353,6 @@ WIFI_PRESETS_JSON='[
   {"ssid":"Eightfold Coffee","pass":"wecloseat430"},
   {"ssid":"TP-Link_F12F","pass":"32139297"},
   {"ssid":"Plot","pass":"blanketfort"},
-  {"ssid":"CULTUREHUB_Guest","pass":"Eleven2024$"},
   {"ssid":"CULTUREHUB LA","pass":"LaMama47!"}
 ]'
 
