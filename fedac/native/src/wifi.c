@@ -244,6 +244,7 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
         wifi->dhcp_pid = 0;
     }
     run_cmd("killall wpa_supplicant 2>/dev/null; killall dhclient 2>/dev/null");
+    usleep(300000); // let a just-killed wpa_supplicant release wlan0 + its ctrl socket
 
     // Write wpa_supplicant config
     FILE *fp = fopen("/tmp/wpa.conf", "w");
@@ -295,6 +296,47 @@ static void wifi_do_connect(ACWifi *wifi, const char *ssid, const char *password
     }
     wifi->wpa_pid = pid;
     waitpid(pid, NULL, 0); // Wait for wpa_supplicant to daemonize (-B)
+
+    // Confirm the daemon actually came up: -B forks and the parent exits, so a
+    // failed start (interface still busy from the previous connect, exec not
+    // found) leaves nothing listening and wpa_cli reports an empty state for
+    // the whole 60s poll. Wait briefly for the ctrl socket, retrying the start
+    // once, before committing to the poll loop. Bug seen on CULTUREHUB LA
+    // reconnects right after another network came up.
+    {
+        char sock_path[128];
+        snprintf(sock_path, sizeof(sock_path),
+                 "/var/run/wpa_supplicant/%s", wifi->iface);
+        int up = 0;
+        for (int attempt = 0; attempt < 2 && !up; attempt++) {
+            for (int w = 0; w < 20; w++) { // up to ~1s
+                if (access(sock_path, F_OK) == 0) { up = 1; break; }
+                usleep(50000);
+            }
+            if (up) break;
+            wifi_log(wifi, "wpa_supplicant didn't come up, restarting (attempt %d)", attempt + 1);
+            run_cmd("killall wpa_supplicant 2>/dev/null");
+            usleep(300000);
+            unlink(sock_path);
+            pid_t rpid = fork();
+            if (rpid == 0) {
+                const char *wpa_paths[] = {
+                    "/bin/wpa_supplicant", "/usr/bin/wpa_supplicant",
+                    "/usr/sbin/wpa_supplicant", "/sbin/wpa_supplicant", NULL
+                };
+                for (int i = 0; wpa_paths[i]; i++)
+                    if (file_exists(wpa_paths[i]))
+                        execl(wpa_paths[i], "wpa_supplicant",
+                              "-i", wifi->iface, "-c", "/tmp/wpa.conf",
+                              "-B", "-P", "/tmp/wpa.pid", NULL);
+                _exit(1);
+            }
+            wifi->wpa_pid = rpid;
+            waitpid(rpid, NULL, 0);
+        }
+        if (!up)
+            wifi_log(wifi, "wpa_supplicant not responding for '%s' — will poll anyway", ssid);
+    }
 
     pthread_mutex_lock(&wifi->lock);
     strncpy(wifi->connected_ssid, ssid, WIFI_SSID_MAX - 1);
