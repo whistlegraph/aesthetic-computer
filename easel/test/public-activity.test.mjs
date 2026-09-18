@@ -34,7 +34,7 @@ test('parallel tools remain accurate as calls finish out of order', () => {
   observeToolActivity(state,'item/completed',{id:'advice',type:'dynamicToolCall',tool:'jev'});
   assert.equal(publicActivity(state), "I'm looking at the preview");
   observeToolActivity(state,'item/completed',frame);
-  assert.equal(publicActivity(state), "I'm working on it");
+  assert.equal(publicActivity(state), 'old reply');
   assert.equal(state.status,'working');
 });
 
@@ -43,4 +43,19 @@ test('only known operations receive specific captions; arguments never appear', 
   assert.equal(toolActivity({type:'dynamicToolCall',tool:'Write · /private/file'}), "I'm editing the piece");
   assert.equal(toolActivity({type:'dynamicToolCall',tool:'Bash · secret command'}), "I'm running a command");
   assert.equal(toolActivity({type:'mcpToolCall',tool:'unknown',arguments:{secret:'private'}}), "I'm using a tool");
+});
+
+
+test('contextual public intent survives tool preparation, but cannot override inspection or a stop', () => {
+  const state = {busy:true,status:'composing',activityIntent:"I'm untangling that roof overlap"};
+  assert.equal(publicActivity(state), state.activityIntent);
+  const frame = {id:'frame',type:'dynamicToolCall',tool:'ac_frame'};
+  observeToolActivity(state,'item/started',frame);
+  assert.equal(publicActivity(state), "I'm looking at the preview");
+  observeToolActivity(state,'item/completed',frame);
+  assert.equal(publicActivity(state), state.activityIntent);
+  state.status='interrupting';
+  assert.equal(publicActivity(state), "I'm stopping");
+  state.busy=false;
+  assert.equal(publicActivity(state), '');
 });

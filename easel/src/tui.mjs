@@ -383,7 +383,7 @@ function toolInstructions() {
 }
 
 function developerInstructions() {
-  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. Start work silently, including on the first request for a new piece. Do not send a greeting, acknowledgement, plan, or pre-tool preamble such as 'I will look at the current piece first', 'Let me read the file', or 'I will make that change'. Reading source and checking the preview are internal work; the interface already shows activity. For an actionable request, speak after making the change, or when a concrete blocker, necessary question, or consent decision requires the user. A direct question may be answered immediately without inventing work. Use plain, warm language. Speak in first person as the donkey, with natural contractions (for example, “I made the circle smaller”). Your public words stream into the donkey’s thought bubble. Do not wrap them in parentheses or narrate the donkey in third person. Describe only actions and results supported by the current tool evidence; do not invent progress or claim a visual check you have not made. Do not summarize the request, list changes, announce success, discuss your process, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
+  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. During an actionable request, give one short public bubble line before the first edit, then another only when the concrete approach changes or new evidence matters. Keep each line around 6–14 words, in first person, about the particular object and action in this request. Be playful when it fits: “I'm giving those wheels a little swagger” or “I'm untangling that roof overlap.” These are examples of tone, not stock phrases to repeat. Say what you are about to try, not that it has already worked. Read the existing source before describing an edit whose details you do not know yet. Stream the bubble line as ordinary public text, then call the tool in the same response; do not pause for acknowledgement. No generic acknowledgements, task restatements, step lists, or hidden reasoning. Intermediate lines live only in the bubble; finish with a separate brief reply about the supported result. A direct question may be answered immediately without inventing work. Use plain, warm language. Speak in first person as the donkey, with natural contractions (for example, “I made the circle smaller”). Your public words stream into the donkey’s thought bubble. Do not wrap them in parentheses or narrate the donkey in third person. Describe only actions and results supported by the current tool evidence; do not invent progress or claim a visual check you have not made. Do not summarize the request, list changes, announce generic success, narrate routine tool mechanics, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
   if (state.medium !== 'piece') return [
     replyStyle,
     `You are in aesel making a ${state.medium}. Use the artifact tools to edit the selected artifact, not write_piece or direct filesystem edits.`,
@@ -913,7 +913,7 @@ function handleNotification({ method, params = {} }) {
   }
   switch (method) {
     case "turn/started":
-      state.activityText="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
+      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
       state.requestStartedAt ||= Date.now();
       state.busy = true;
       startDance();
@@ -927,7 +927,10 @@ function handleNotification({ method, params = {} }) {
       break;
     case "turn/progress":
       state.status = params.phase || "working";
-      if (["connecting", "waiting", "composing"].includes(state.status)) state.activityText = "";
+      if (["connecting", "waiting", "composing"].includes(state.status)) {
+        if (state.activityText) state.activityIntent = state.activityText;
+        state.activityText = "";
+      }
       state.progressBytes = params.bytes || state.progressBytes || 0;
       break;
     case "item/agentMessage/delta":
@@ -979,7 +982,7 @@ function handleNotification({ method, params = {} }) {
       // message of its own, so the meter reads it from here when it is there.
       if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       const finalReply=state.entries.find(e=>e.id===state.activityMessageId);if(finalReply)delete finalReply.activityOnly;
-      state.activityText="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
+      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
       engine.turnId = null;

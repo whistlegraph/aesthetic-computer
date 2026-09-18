@@ -8,6 +8,7 @@ const assert = require("node:assert/strict");
   const root = process.cwd();
   const errors = [];
   let opened = "";
+  const inputs=[];ipcMain.on("input",(_event,text)=>inputs.push(text));
   ipcMain.handle("native-prox-title", (_, value) =>
     JSON.parse(
       require("node:child_process").execFileSync(
@@ -146,7 +147,7 @@ const assert = require("node:assert/strict");
   );
   assert.equal(
     await win.webContents.executeJavaScript(
-      `document.querySelector('#provider-menu select')`,
+      `document.querySelector('#provider-menu select[aria-label="Model"]')`,
     ),
     null,
   );
@@ -162,6 +163,13 @@ const assert = require("node:assert/strict");
     ),
     "Remote inference · thinking · Reading the piece",
   );
+  assert.deepEqual(await win.webContents.executeJavaScript(`Array.from(document.querySelector('select[aria-label="Provider"]').options,o=>o.textContent)`),['AC · Braincells','Claude','Codex']);
+  await win.webContents.executeJavaScript(`window.providerDropdown=document.querySelector('select[aria-label="Provider"]');providerDropdown.focus();window.updateProviderFooter({backend:'ac',model:'Luna',status:'ready',mode:'remote',activity:'A new status',models:[],versions:[]})`);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelector('select[aria-label="Provider"]')===window.providerDropdown`),true,'Status updates preserve the open dropdown');
+  await win.webContents.executeJavaScript(`providerDropdown.value='2';providerDropdown.dispatchEvent(new Event('change'))`);
+  await delay(40);assert(inputs.includes('\x1b[99;2~'));
+  await win.webContents.executeJavaScript(`window.updateProviderFooter({backend:'claude',model:'sonnet',selectedModel:'sonnet',models:[{id:'sonnet',label:'Sonnet'},{id:'opus',label:'Opus'}],versions:[]});document.getElementById('credit-label').click();const m=document.querySelector('select[aria-label="Model"]');m.value='1';m.dispatchEvent(new Event('change'))`);
+  await delay(40);assert(inputs.includes('\x1b[99;4;1;1~'));
   await win.webContents.executeJavaScript(
     `document.querySelector('#provider-menu header button').click()`,
   );

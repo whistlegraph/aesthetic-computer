@@ -634,7 +634,10 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   button.addEventListener('click',action);menu.append(button);return button;
  }
  function rebuildMenu(){
-  const nextKey=JSON.stringify([provider,credits,buildInfo]);if(nextKey===menuKey)return;menuKey=nextKey;
+  const nextKey=JSON.stringify([provider,credits,buildInfo]);if(nextKey===menuKey)return;
+  // Live activity must not tear down an open native dropdown mid-selection.
+  if(menu.open&&menu.contains(document.activeElement)&&document.activeElement.tagName==='SELECT'&&!provider?.busy)return;
+  menuKey=nextKey;
   const focused=document.activeElement?.textContent;
   const scroll=menu.scrollTop;const previewHost=menu.querySelector('.history-preview-host');const historyOpen=menu.querySelector('details')?.open??true;
   menu.replaceChildren();const n=balance();
@@ -643,10 +646,17 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   if(buildInfo){const status=document.createElement('p');status.className='build-status';status.dataset.status=buildInfo.status;status.title=buildInfo.revision?`Source commit ${buildInfo.revision}`:'';const channel=buildInfo.channel==='dev'?'Dev':buildInfo.channel==='release'?'Release':'Local';const state={current:'Up to date',ready:'Update ready',modified:'Local changes · sync paused',checking:'Checking…',syncing:'Downloading dev build…',downloading:'Downloading update…',unknown:'Unable to verify'}[buildInfo.status]||'Unable to verify';status.textContent=[channel,buildInfo.version,(buildInfo.tree||buildInfo.revision)?.slice(0,8),state].filter(Boolean).join(' · ');menu.append(status);item('Check for updates',()=>window.aesel.checkBuildUpdates());}
   const current=document.createElement('p');current.textContent=[provider?.backend==='ac'?'Braincells · automatic model':provider?.backend==='codex'?'Codex':'Claude',provider?.backend==='ac'?'':provider?.model].filter(Boolean).join(' · ');menu.append(current);
 
-  for(const [index,id,name] of [[0,'ac','AC'],[1,'claude','Claude'],[2,'codex','Codex']]){
-   const choice=item(name,()=>{close();if(provider?.backend!==id)window.aesel.input(`\x1b[99;${index}~`);},{selected:provider?.backend===id,disabled:!!provider?.busy});
-   const icon=new Image();icon.src=`assets/provider-${id}.svg`;icon.alt='';icon.className='provider-mark';choice.prepend(icon);
+  const providerLabel=document.createElement('label');providerLabel.textContent='Provider';providerLabel.className='settings-field';
+  const providerSelect=document.createElement('select');providerSelect.setAttribute('aria-label','Provider');providerSelect.disabled=!!provider?.busy;
+  for(const [index,id,name] of [[0,'ac','AC · Braincells'],[1,'claude','Claude'],[2,'codex','Codex']]){
+   const option=document.createElement('option');option.value=String(index);option.textContent=name;option.selected=provider?.backend===id;providerSelect.append(option);
   }
+  providerSelect.addEventListener('change',()=>{
+   const index=Number(providerSelect.value),id=['ac','claude','codex'][index];
+   if(provider?.busy||!id||provider?.backend===id)return;
+   close();window.aesel.input(`\x1b[99;${index}~`);
+  });
+  providerLabel.append(providerSelect);menu.append(providerLabel);
   if(provider?.backend!=='ac'){
   const modelLabel=document.createElement('label');modelLabel.textContent='Model';modelLabel.className='settings-field';
   const modelSelect=document.createElement('select');modelSelect.setAttribute('aria-label','Model');modelSelect.disabled=!!provider?.busy||!provider?.models?.length;
@@ -656,7 +666,7 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   }
   if(![...(provider?.models||[])].some(model=>model.id===(provider.selectedModel??provider.model)))modelSelect.selectedIndex=0;
   const backendIndex=['ac','claude','codex'].indexOf(provider?.backend);
-  modelSelect.addEventListener('change',()=>{window.aesel.input(`\x1b[99;4;${backendIndex};${modelSelect.value}~`);});
+  modelSelect.addEventListener('change',()=>{if(provider?.busy)return;window.aesel.input(`\x1b[99;4;${backendIndex};${modelSelect.value}~`);});
   modelLabel.append(modelSelect);menu.append(modelLabel);
   }
 
@@ -688,6 +698,7 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   if(menu.open)[...menu.querySelectorAll('button')].find(button=>button.textContent===focused)?.focus({preventScroll:true});
   menu.scrollTop=scroll;
  }
+ menu.addEventListener('focusout',()=>queueMicrotask(rebuildMenu));
  async function render(){
   const n=balance();const hosted=provider?.backend==='ac';
   footer.hidden=!provider;

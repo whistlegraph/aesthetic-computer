@@ -19,6 +19,7 @@ export function observeToolActivity(state, method, item) {
   state.activityTools ||= new Map();
   if (method === 'item/started') {
     state.activityTools.set(item.id, toolActivity(item));
+    if (state.activityText) state.activityIntent = state.activityText;
     state.activityText = '';
     state.activityMessageId = null;
   } else if (method === 'item/completed') {
@@ -36,12 +37,12 @@ export function publicActivity(state) {
   if (state.status === 'interrupting') return "I'm stopping";
   const text = String(state.activityText || '').replace(/\s+/g, ' ').trim();
   if (text) return text;
-  return state.activityStage || ({
+  return state.activityStage || String(state.activityIntent || '').replace(/\s+/g, ' ').trim() || ({
     preparing: "I'm on my way",
     connecting: "I'm connecting",
     waiting: "I'm waiting for a response",
     generating: "I'm putting my reply together",
     composing: "I'm preparing my next step",
     writing: "I'm saving the changes",
-  }[state.status]) || "I'm working on it";
+  }[state.status]) || "I'm considering the next move";
 }
