@@ -37,7 +37,7 @@ for(const name of ['app.asar','app.asar.unpacked','easel','app-update.yml'])fs.r
 fs.mkdirSync(path.join(resources,'app'),{recursive:true});
 fs.writeFileSync(path.join(resources,'app/package.json'),JSON.stringify({name:'aesel-dev',version:pkg.version,main:'main.cjs'}));
 fs.writeFileSync(path.join(resources,'app/main.cjs'),`const fs=require('node:fs'),path=require('node:path');const home=path.join(require('node:os').homedir(),'.local/share/aesel-dev');const root=path.join(fs.realpathSync(path.join(home,'current')),'easel');process.env.AESEL_DEV_HOME=home;process.env.AESEL_DEV_ROOT=root;require(path.join(root,'desktop/main.cjs'));\n`);
-for(const [key,value] of Object.entries({CFBundleIdentifier:'computer.aesthetic.aesel.dev',CFBundleName:'Aesel Dev',CFBundleDisplayName:'Aesel Dev'})){
+for(const [key,value] of Object.entries({CFBundleIdentifier:'computer.aesthetic.aesel.dev',CFBundleDisplayName:'Aesel Dev'})){
  try{execFileSync('/usr/libexec/PlistBuddy',['-c',`Set :${key} ${value}`,path.join(stage,'Contents/Info.plist')],{stdio:'pipe'});}catch{execFileSync('/usr/libexec/PlistBuddy',['-c',`Add :${key} string ${value}`,path.join(stage,'Contents/Info.plist')]);}
 }
 execFileSync('/usr/bin/codesign',['--force','--deep','--sign','-','--preserve-metadata=entitlements,requirements,flags',stage],{stdio:'inherit',timeout:120000});

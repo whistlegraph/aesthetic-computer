@@ -129,10 +129,11 @@ function requestRestart(action = 'restart') {
 const canUpdateBinary = !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, onStatus:(status,info)=>buildStatus.release(status,info), requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
-let pendingDevRoot=null,pendingDevUI=false;
+let pendingDevRoot=null,pendingDevUI=false,pendingDevAction=null;
+function applyPendingDev(){if(!pendingDevAction||!lastVisibleState||pendingRestart)return;const action=pendingDevAction;pendingDevAction=null;requestRestart(action);}
 const buildStatus=require('./build-status.cjs').createBuildStatus({app,devHome,root,send,channel:canUpdateBinary||process.mas?'release':'local',onDevReady:(next,compatibility)=>{
   pendingDevRoot=next;pendingDevUI=!compatibility.sameUI;
-  requestRestart(compatibility.sameHost?'restart':'update');
+  pendingDevAction=compatibility.sameHost?'restart':'update';applyPendingDev();
 }});
 function checkBuildUpdates(){
   if(devHome){const child=spawn(process.execPath,[join(devHome,'sync-runner.mjs')],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore'});child.on('error',()=>buildStatus.poll());child.on('exit',()=>buildStatus.poll());}
@@ -140,7 +141,8 @@ function checkBuildUpdates(){
 }
 ipcMain.on('check-build-updates',event=>{if(event.sender===window?.webContents)checkBuildUpdates();});
 
-function send(channel, data) { if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
+function send(channel, data) { if(channel==='build-status'){const item=Menu.getApplicationMenu()?.getMenuItemById('aesel-build-status');if(item)item.label=[data.channel==='dev'?'Dev':data.channel==='release'?'Release':'Local',data.version,data.revision?.slice(0,8),({current:'Up to date',ready:'Update ready',modified:'Local changes',unknown:'Unable to verify',checking:'Checking…',syncing:'Syncing…',downloading:'Downloading…'})[data.status]||'Unable to verify'].filter(Boolean).join(' · ');}
+if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
 function start() {
   if (terminal) return;
   const args = [join(root, 'src/tui.mjs'), '--cwd', workspace];
@@ -211,7 +213,7 @@ function start() {
             catch (error) { currentPaperPath=currentPreviewPath=currentPreviewMime=currentPreviewName='';previewData = {previewError:error.message}; }
           }
           lastVisibleState = {...JSON.parse(visible), qr, ...previewData};
-          send('state', lastVisibleState);
+          send('state', lastVisibleState);applyPendingDev();
         }
       }
     } catch {}
@@ -232,7 +234,8 @@ function openNewWindow(){
 app.whenReady().then(() => {
   if (!primaryInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'Aesel', submenu: [
+    { label: devHome?'Aesel Dev':'Aesel', submenu: [
+      {id:'aesel-build-status',label:devHome?'Dev · checking…':'Release · checking…',enabled:false},
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
       {label:'Check for Updates…', click:checkBuildUpdates},
       {label:'Restart Agent', click:()=>requestRestart('restart')},
