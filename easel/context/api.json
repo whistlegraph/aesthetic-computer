@@ -7,7 +7,7 @@
    "path": "blend",
    "signature": "blend(mode = \"blend\")",
    "doc": "Shortcuts l: graph.line, i: ink, Defaults",
-   "source": "lib/graph.mjs:2851",
+   "source": "lib/graph.mjs:2863",
    "examples": []
   },
   {
@@ -15,7 +15,7 @@
    "path": "setEraseTarget",
    "signature": "setEraseTarget(target, targetWidth)",
    "doc": "",
-   "source": "lib/graph.mjs:2859",
+   "source": "lib/graph.mjs:2871",
    "examples": []
   },
   {
@@ -23,7 +23,7 @@
    "path": "page",
    "signature": "page(buffer)",
    "doc": "Point subsequent drawing at another painting buffer; page(screen) comes back.",
-   "source": "lib/disk.mjs:6524",
+   "source": "lib/disk.mjs:6537",
    "examples": [
     "disks/bits.mjs:33  page(sys.painting)",
     "disks/breathe.mjs:29  page(screen);",
@@ -43,7 +43,7 @@
    "path": "ink",
    "signature": "ink(r, g, b, a) | ink(gray, a) | ink(\"red\") | ink([r, g, b]) | ink() (random)",
    "doc": "Set the paint color for everything drawn next. Returns the API so calls chain: ink(255, 0, 0).line(0, 0, 10, 10).",
-   "source": "lib/disk.mjs:6554",
+   "source": "lib/disk.mjs:6567",
    "examples": [
     "disks/$.mjs:168  ink([160, 160, 160]).write(compressedText, { x, y, size: scale });",
     "disks/$.mjs:195  ink([160, 160, 160]).write(compressedText, { x: startX, y, size: scale });",
@@ -55,7 +55,7 @@
    "path": "ink2",
    "signature": "ink2(...color)",
    "doc": "Secondary color, used by gradient-aware primitives.",
-   "source": "lib/disk.mjs:6558",
+   "source": "lib/disk.mjs:6571",
    "examples": []
   },
   {
@@ -63,7 +63,7 @@
    "path": "wipe",
    "signature": "wipe(...color)",
    "doc": "Fill the whole screen with a color; the usual first line of paint().",
-   "source": "lib/disk.mjs:6564",
+   "source": "lib/disk.mjs:6577",
    "examples": [
     "disks/$.mjs:67  wipe(0);",
     "disks/$.mjs:324  wipe(0);",
@@ -75,7 +75,7 @@
    "path": "backgroundFill",
    "signature": "backgroundFill(color)",
    "doc": "Set background fill color for reframe operations (especially for KidLisp pieces)",
-   "source": "lib/disk.mjs:6616",
+   "source": "lib/disk.mjs:6629",
    "examples": []
   },
   {
@@ -83,7 +83,7 @@
    "path": "clear",
    "signature": "clear()",
    "doc": "Clear the buffer to transparent (unlike wipe, which paints a color).",
-   "source": "lib/graph.mjs:1407",
+   "source": "lib/graph.mjs:1419",
    "examples": [
     "disks/doodle.mjs:53  clear(); // Always clear if the line is changing.",
     "disks/doodle.mjs:61  clear();",
@@ -95,7 +95,7 @@
    "path": "copy",
    "signature": "copy(destX, destY, srcX, srcY, src, alpha = 1.0)",
    "doc": "",
-   "source": "lib/graph.mjs:1835",
+   "source": "lib/graph.mjs:1847",
    "examples": [
     "disks/oldpull.mjs:121  copy(x, y, selection.x + x, selection.y + y, sketch);"
    ]
@@ -105,7 +105,7 @@
    "path": "paste",
    "signature": "paste(from, destX = 0, destY = 0, scale = 1, blit = false)",
    "doc": "",
-   "source": "lib/graph.mjs:2212",
+   "source": "lib/graph.mjs:2224",
    "examples": [
     "disks/25.4.13.19.24.mjs:52  paste(drawing, x, y, scale);",
     "disks/angel.mjs:65  paste(painting, xposition, screen.height - painting.height);",
@@ -117,7 +117,7 @@
    "path": "stamp",
    "signature": "stamp(from, x, y, scale, angle)",
    "doc": "Similar to paste, but always draws from the center of x, y. Has partial support for {center, bottom}. 24.02.15.12.19",
-   "source": "lib/graph.mjs:2797",
+   "source": "lib/graph.mjs:2809",
    "examples": [
     "disks/flap.mjs:50  if (store[`flap~${num}`]) stamp(store[`flap~${num}`], screen.width / 2, screen.height / 2);",
     "disks/graphics.mjs:28  stamp(",
@@ -141,7 +141,7 @@
    "path": "plot",
    "signature": "plot(x, y)",
    "doc": "Where a pixel is a region in which we draw from the upper left corner. (2D)",
-   "source": "lib/graph.mjs:1639",
+   "source": "lib/graph.mjs:1651",
    "examples": [
     "disks/bootpics.mjs:184  plot(ox + x, oy + y);",
     "disks/doodle.mjs:78  plot(x, y);",
@@ -164,7 +164,7 @@
    "path": "compositeLayers",
    "signature": "compositeLayers(layers)",
    "doc": "GPU-accelerated multi-layer compositing",
-   "source": "lib/graph.mjs:6087",
+   "source": "lib/graph.mjs:6166",
    "examples": []
   },
   {
@@ -172,7 +172,7 @@
    "path": "batchedEffects",
    "signature": "batchedEffects(options = {})",
    "doc": "GPU-accelerated batched effects (zoom+scroll+contrast+brightness in one pass)",
-   "source": "lib/graph.mjs:6182",
+   "source": "lib/graph.mjs:6261",
    "examples": []
   },
   {
@@ -180,7 +180,7 @@
    "path": "point",
    "signature": "point(...args)",
    "doc": "Plots a single pixel within the panned coordinate space. Basically a wrapper over plot, which should ultimately be renamed to set? Accepts x, y or {x, y}",
-   "source": "lib/graph.mjs:1725",
+   "source": "lib/graph.mjs:1737",
    "examples": [
     "disks/i.mjs:102  point(...g.point).line(...g.line[0], ...g.line[1]);",
     "disks/nail.mjs:166  point(p) {",
@@ -192,7 +192,7 @@
    "path": "line",
    "signature": "line(x1, y1, x2, y2) | line({x, y}, {x, y}) | line(x1, y1, x2, y2, thickness)",
    "doc": "Draw a 1px line between two points in the current ink.",
-   "source": "lib/graph.mjs:3205",
+   "source": "lib/graph.mjs:3217",
    "examples": [
     "disks/ableton.mjs:124  line(x, y + v, x + 1, y + v);",
     "disks/ableton.mjs:527  const blurbY = labelY + 12;       // label line (10 tall) + 2 gap",
@@ -204,7 +204,7 @@
    "path": "lineAngle",
    "signature": "lineAngle(x1, y1, dist, degrees)",
    "doc": "Draws a line from a point at a distance... with an angle in degrees.",
-   "source": "lib/graph.mjs:3407",
+   "source": "lib/graph.mjs:3419",
    "examples": [
     "disks/ucla-5.mjs:32  8. - [] Learning `lineAngle(x1, y1, dist, degrees)`",
     "disks/ucla-6-turtle.mjs:14  8. - [] Learning `lineAngle(x1, y1, dist, degrees)`"
@@ -215,7 +215,7 @@
    "path": "pline",
    "signature": "pline(coords, thickness, shader)",
    "doc": "",
-   "source": "lib/graph.mjs:3596",
+   "source": "lib/graph.mjs:3608",
    "examples": []
   },
   {
@@ -223,7 +223,7 @@
    "path": "setBufferAlpha",
    "signature": "setBufferAlpha(buffer, alpha)",
    "doc": "Set the alpha of every non-transparent pixel in a buffer to a uniform value. Useful for per-stroke alpha — must be called after drawing on the buffer.",
-   "source": "lib/disk.mjs:6734",
+   "source": "lib/disk.mjs:6747",
    "examples": [
     "disks/line.mjs:215  setBufferAlpha(nopaint.buffer, strokeAlpha);"
    ]
@@ -233,7 +233,7 @@
    "path": "pppline",
    "signature": "pppline(points, shader)",
    "doc": "Takes an array of pixel coords `{x, y}` and filters out L shapes. Note: It checks the previous, current, and next pixel and requires a minimum set of 3 before it removes anything. Draws a regular `line` if only two pixels are provided. Transcribed from: https://rickyhan.com/jekyll/update/2018/11/22/pixel-art-algorithm-pixel-perfect.html",
-   "source": "lib/graph.mjs:3346",
+   "source": "lib/graph.mjs:3358",
    "examples": []
   },
   {
@@ -241,7 +241,7 @@
    "path": "oval",
    "signature": "oval(x0, y0, radiusX, radiusY, filled = false, thickness = 1, precision,)",
    "doc": "",
-   "source": "lib/graph.mjs:3542",
+   "source": "lib/graph.mjs:3554",
    "examples": [
     "disks/flower-eater.mjs:255  oval(x, y + 2, rx, max(1, floor(rx * 0.3)), true);",
     "disks/lmn-flower.mjs:32  oval(screen.width / 2, screen.height / 2, 20, 10, true )",
@@ -253,7 +253,7 @@
    "path": "circle",
    "signature": "circle(x0, y0, radius, filled = false, thickness, precision)",
    "doc": "",
-   "source": "lib/graph.mjs:3477",
+   "source": "lib/graph.mjs:3489",
    "examples": [
     "disks/butterflies.mjs:535  circle(voice.pointerX, voice.pointerY, 11);",
     "disks/butterflies.mjs:537  circle(voice.pointerX, voice.pointerY, 7);",
@@ -265,7 +265,7 @@
    "path": "pie",
    "signature": "pie(x0, y0, radius, startAngle, endAngle, precision = 3)",
    "doc": "Draw a filled pie slice / wedge (for pie charts, progress indicators, etc.) startAngle and endAngle are in radians, 0 = right, PI/2 = down, etc.",
-   "source": "lib/graph.mjs:3521",
+   "source": "lib/graph.mjs:3533",
    "examples": []
   },
   {
@@ -273,7 +273,7 @@
    "path": "tri",
    "signature": "tri(x1, y1, x2, y2, x3, y3, mode = \"fill\")",
    "doc": "Triangle from three points; mode \"fill\" or \"outline\".",
-   "source": "lib/graph.mjs:4566",
+   "source": "lib/graph.mjs:4632",
    "examples": [
     "disks/blank.mjs:480  tri(proj[a][0], proj[a][1], proj[b][0], proj[b][1], proj[c][0], proj[c][1]);",
     "disks/blank.mjs:481  tri(proj[a][0], proj[a][1], proj[c][0], proj[c][1], proj[d][0], proj[d][1]);",
@@ -285,7 +285,7 @@
    "path": "poly",
    "signature": "poly(coords)",
    "doc": "Draws a series of 1px lines without overlapping / overdrawing points. TODO: Add closed mode? Example: ink(handPalette.w).poly([...w, w[0]]);",
-   "source": "lib/graph.mjs:3571",
+   "source": "lib/graph.mjs:3583",
    "examples": [
     "disks/toss.mjs:496  poly(points);",
     "disks/toss.mjs:514  poly(points);",
@@ -297,7 +297,7 @@
    "path": "box",
    "signature": "box(x, y, size) | box(x, y, w, h) | box(x, y, w, h, mode) | box({x, y, w, h}, mode)",
    "doc": "Rectangle. `mode` is \"fill\" (default), \"outline\", \"inline\", or \"fill*center\" / \"outline*center\" to draw from the center.",
-   "source": "lib/graph.mjs:3815",
+   "source": "lib/graph.mjs:3827",
    "examples": [
     "disks/1v1.mjs:1490  box(x * squareSize, y * squareSize, squareSize, squareSize);",
     "disks/1v1.mjs:1516  box(x * squareSize, y * squareSize, squareSize, squareSize);",
@@ -309,7 +309,7 @@
    "path": "shape",
    "signature": "shape(x1, y1, x2, y2, ...) | shape([[x, y], [x, y], ...], filled = true)",
    "doc": "Rasterize a filled or outlined polygon from point pairs.",
-   "source": "lib/graph.mjs:4132",
+   "source": "lib/graph.mjs:4144",
    "examples": [
     "disks/flower-eater.mjs:314  shape([[girlX - 7, headY + 16], [girlX + 6, headY + 16],",
     "disks/oldwipppps.mjs:369  shape([",
@@ -321,7 +321,7 @@
    "path": "grid",
    "signature": "grid({ box: { x, y, w: cols, h: rows }, transform: { scale, angle, width: twidth, height: theight, anchor }, centers = [], }, buffer,)",
    "doc": "",
-   "source": "lib/graph.mjs:4690",
+   "source": "lib/graph.mjs:4769",
    "examples": [
     "disks/plot.mjs:190  grid("
    ]
@@ -331,7 +331,7 @@
    "path": "draw",
    "signature": "draw(drawing, x, y, scale = 1, angle = 0, thickness = 1)",
    "doc": "Draw a stored vector drawing (from `drawing`/store) at a position.",
-   "source": "lib/graph.mjs:5053",
+   "source": "lib/graph.mjs:5132",
    "examples": [
     "disks/icon.mjs:6  - [] Use angle: `draw(drawing, x, y, scale = 1, angle = 0)`",
     "disks/wgr.mjs:540  draw({ x, y, pressure }) {"
@@ -342,7 +342,7 @@
    "path": "setShowClippedWireframes",
    "signature": "setShowClippedWireframes(enabled)",
    "doc": "Function to toggle wireframe rendering",
-   "source": "lib/graph.mjs:8174",
+   "source": "lib/graph.mjs:8253",
    "examples": [
     "disks/1v1.mjs:1464  setShowClippedWireframes(showWireframes);",
     "disks/1v1.mjs:2023  setShowClippedWireframes(showWireframes);",
@@ -354,7 +354,7 @@
    "path": "clearWireframeBuffer",
    "signature": "clearWireframeBuffer()",
    "doc": "Function to clear wireframe buffer (called at start of frame)",
-   "source": "lib/graph.mjs:8179",
+   "source": "lib/graph.mjs:8258",
    "examples": [
     "disks/1v1.mjs:1469  clearWireframeBuffer();",
     "disks/fps.mjs:331  clearWireframeBuffer();"
@@ -365,7 +365,7 @@
    "path": "drawBufferedWireframes",
    "signature": "drawBufferedWireframes()",
    "doc": "Function to draw all buffered wireframes (called at end of frame)",
-   "source": "lib/graph.mjs:8357",
+   "source": "lib/graph.mjs:8436",
    "examples": [
     "disks/1v1.mjs:1603  drawBufferedWireframes();",
     "disks/fps.mjs:402  drawBufferedWireframes();"
@@ -376,7 +376,7 @@
    "path": "getRenderStats",
    "signature": "getRenderStats()",
    "doc": "Function to get current render stats",
-   "source": "lib/graph.mjs:8197",
+   "source": "lib/graph.mjs:8276",
    "examples": []
   },
   {
@@ -384,7 +384,7 @@
    "path": "printLine",
    "signature": "printLine(text, font, startX, startY, blockWidth = 6, scale = 1, xOffset = 0, thickness = 1, rotation = 0, fontMetadata = null, fallbackFont = null,)",
    "doc": "",
-   "source": "lib/graph.mjs:5316",
+   "source": "lib/graph.mjs:5395",
    "examples": []
   },
   {
@@ -392,7 +392,7 @@
    "path": "pan",
    "signature": "pan(x, y)",
    "doc": "",
-   "source": "lib/graph.mjs:1795",
+   "source": "lib/graph.mjs:1807",
    "examples": [
     "disks/baktok.mjs:133  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
     "disks/baktok.mjs:136  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
@@ -404,7 +404,7 @@
    "path": "unpan",
    "signature": "unpan()",
    "doc": "Undo pan(x, y).",
-   "source": "lib/graph.mjs:1805",
+   "source": "lib/graph.mjs:1817",
    "examples": [
     "disks/baktok.mjs:135  unpan();",
     "disks/baktok.mjs:138  unpan();",
@@ -416,7 +416,7 @@
    "path": "savepan",
    "signature": "savepan()",
    "doc": "Save the local transform.",
-   "source": "lib/graph.mjs:1813",
+   "source": "lib/graph.mjs:1825",
    "examples": [
     "disks/field.mjs:58  savepan();"
    ]
@@ -426,7 +426,7 @@
    "path": "loadpan",
    "signature": "loadpan()",
    "doc": "Restore it.",
-   "source": "lib/graph.mjs:1818",
+   "source": "lib/graph.mjs:1830",
    "examples": [
     "disks/field.mjs:69  loadpan();"
    ]
@@ -436,7 +436,7 @@
    "path": "mask",
    "signature": "mask({ x, y, width, height })",
    "doc": "Clip drawing to a rectangle until unmask().",
-   "source": "lib/graph.mjs:1826",
+   "source": "lib/graph.mjs:1838",
    "examples": [
     "disks/chat.mjs:1378  mask({",
     "disks/clocks.mjs:152  mask({",
@@ -448,7 +448,7 @@
    "path": "unmask",
    "signature": "unmask()",
    "doc": "Lift the clip set by mask().",
-   "source": "lib/graph.mjs:1831",
+   "source": "lib/graph.mjs:1843",
    "examples": [
     "disks/chat.mjs:2288  unmask();",
     "disks/clocks.mjs:205  unmask(); // End masking",
@@ -460,7 +460,7 @@
    "path": "steal",
    "signature": "steal(x, y, width, height)",
    "doc": "",
-   "source": "lib/graph.mjs:7733",
+   "source": "lib/graph.mjs:7812",
    "examples": []
   },
   {
@@ -468,7 +468,7 @@
    "path": "scroll",
    "signature": "scroll(dx = 0, dy = 0)",
    "doc": "Scroll the entire pixel buffer by x and/or y pixels with wrapping",
-   "source": "lib/graph.mjs:5599",
+   "source": "lib/graph.mjs:5678",
    "examples": [
     "disks/gulmo.mjs:36  let scroll = 0; // continuous forward scroll (fractional rows)",
     "disks/mibo.mjs:54  let scrollPhase = 0; // accumulated depth-scroll (fly-forward), advances in onSim",
@@ -480,7 +480,7 @@
    "path": "flip",
    "signature": "flip(horizontal = false, vertical = false)",
    "doc": "Mirror the screen.",
-   "source": "lib/graph.mjs:5725",
+   "source": "lib/graph.mjs:5804",
    "examples": [
     "disks/textfence.mjs:229  const completed = flip();",
     "disks/textfence.mjs:243  if (flip()) {"
@@ -491,7 +491,7 @@
    "path": "spin",
    "signature": "spin(steps = 0, anchorX = null, anchorY = null)",
    "doc": "Each ring rotates by exactly 'steps' pixels, preserving all data",
-   "source": "lib/graph.mjs:6274",
+   "source": "lib/graph.mjs:6353",
    "examples": []
   },
   {
@@ -499,7 +499,7 @@
    "path": "sort",
    "signature": "sort()",
    "doc": "Pixel-sort the screen — a glitch effect.",
-   "source": "lib/graph.mjs:7623",
+   "source": "lib/graph.mjs:7702",
    "examples": []
   },
   {
@@ -507,7 +507,7 @@
    "path": "zoom",
    "signature": "zoom(level = 1, anchorX = 0.5, anchorY = 0.5)",
    "doc": "Zoom the entire pixel buffer with 1.0 as neutral (no change) level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right Uses bilinear sampling with hard-edge thresholding for smooth scaling with crisp output",
-   "source": "lib/graph.mjs:6706",
+   "source": "lib/graph.mjs:6785",
    "examples": [
     "disks/wgr.mjs:482  zoom(amt) {"
    ]
@@ -517,7 +517,7 @@
    "path": "suck",
    "signature": "suck(strength = 1, centerX, centerY)",
    "doc": "Radial displacement transformation with pixel-perfect nearest neighbor sampling Creates discrete, lossless pixel movement without blur or center holes",
-   "source": "lib/graph.mjs:7121",
+   "source": "lib/graph.mjs:7200",
    "examples": []
   },
   {
@@ -525,7 +525,7 @@
    "path": "blur",
    "signature": "blur(strength = 1, quality = \"medium\")",
    "doc": "Efficient Gaussian blur using separable filtering with linear sampling optimization Creates smooth blur effect by applying horizontal then vertical Gaussian convolution",
-   "source": "lib/graph.mjs:7273",
+   "source": "lib/graph.mjs:7352",
    "examples": [
     "disks/notepat.mjs:8583  blur(0.5);"
    ]
@@ -535,7 +535,7 @@
    "path": "sharpen",
    "signature": "sharpen(strength = 1)",
    "doc": "Apply sharpening filter to enhance edges and details strength: 0 = no sharpening, 1 = normal sharpening, >1 = aggressive sharpening",
-   "source": "lib/graph.mjs:7514",
+   "source": "lib/graph.mjs:7593",
    "examples": [
     "disks/notepat.mjs:5872  sharpen(sharpenAmount);"
    ]
@@ -545,7 +545,7 @@
    "path": "invert",
    "signature": "invert()",
    "doc": "Invert every pixel's color.",
-   "source": "lib/graph.mjs:2094",
+   "source": "lib/graph.mjs:2106",
    "examples": []
   },
   {
@@ -553,7 +553,7 @@
    "path": "contrast",
    "signature": "contrast(level = 1.0)",
    "doc": "Adjust the contrast of the pixel buffer level: 1.0 = no change, >1.0 = more contrast, <1.0 = less contrast",
-   "source": "lib/graph.mjs:1939",
+   "source": "lib/graph.mjs:1951",
    "examples": [
     "disks/oldwipppps.mjs:55  filter: contrast(1.2) brightness(1.1) saturate(1.1)"
    ]
@@ -563,7 +563,7 @@
    "path": "shear",
    "signature": "shear(shearX = 0, shearY = 0)",
    "doc": "KidPix-style shear function shearX: horizontal shear factor (positive = right lean, negative = left lean) shearY: vertical shear factor (positive = down lean, negative = up lean)",
-   "source": "lib/graph.mjs:7748",
+   "source": "lib/graph.mjs:7827",
    "examples": []
   },
   {
@@ -571,7 +571,7 @@
    "path": "resetScrollState",
    "signature": "resetScrollState()",
    "doc": "Reset scroll accumulators - called when pieces change",
-   "source": "lib/graph.mjs:5582",
+   "source": "lib/graph.mjs:5661",
    "examples": []
   },
   {
@@ -579,7 +579,7 @@
    "path": "noise16",
    "signature": "noise16()",
    "doc": "",
-   "source": "lib/graph.mjs:5446",
+   "source": "lib/graph.mjs:5525",
    "examples": [
     "disks/graphics.mjs:29  painting(6, 6, ({ noise16 }) => noise16()),",
     "disks/ordfish.mjs:213  ready <= GO ? noise16(0) : wipe();",
@@ -591,7 +591,7 @@
    "path": "noise16DIGITPAIN",
    "signature": "noise16DIGITPAIN()",
    "doc": "",
-   "source": "lib/graph.mjs:5471",
+   "source": "lib/graph.mjs:5550",
    "examples": [
     "disks/hell_-world.mjs:944  noise16DIGITPAIN();",
     "disks/images.mjs:20  imgToExport = painting(256, 256, ({noise16DIGITPAIN}) => noise16DIGITPAIN());",
@@ -603,7 +603,7 @@
    "path": "noise16Aesthetic",
    "signature": "noise16Aesthetic()",
    "doc": "",
-   "source": "lib/graph.mjs:5496",
+   "source": "lib/graph.mjs:5575",
    "examples": [
     "disks/login-pattern.mjs:15  noise16Aesthetic().ink(0, 100).box(0, 0, width, height);"
    ]
@@ -613,7 +613,7 @@
    "path": "noise16Sotce",
    "signature": "noise16Sotce()",
    "doc": "",
-   "source": "lib/graph.mjs:5521",
+   "source": "lib/graph.mjs:5600",
    "examples": []
   },
   {
@@ -621,7 +621,7 @@
    "path": "noiseTinted",
    "signature": "noiseTinted(tint, amount, saturation)",
    "doc": "",
-   "source": "lib/graph.mjs:5546",
+   "source": "lib/graph.mjs:5625",
    "examples": [
     "disks/aframe.mjs:83  noiseTinted([0, 0, 0], 0.9, 0.1);",
     "disks/decode.mjs:57  noiseTinted([189, 164, 166], 0.8, 0.6);",
@@ -633,7 +633,7 @@
    "path": "pasteWithAlpha",
    "signature": "pasteWithAlpha(source, x, y, alpha)",
    "doc": "🎨 Alpha-blended paste for crossfade compositing",
-   "source": "lib/disk.mjs:6802",
+   "source": "lib/disk.mjs:6815",
    "examples": [
     "disks/merry-fade.mjs:85  if (outAlpha > 0) pasteWithAlpha(outgoing, 0, 0, outAlpha);"
    ]
@@ -643,7 +643,7 @@
    "path": "kidlisp",
    "signature": "kidlisp(x = 0, y = 0, width, height, source, options = {})",
    "doc": "🎯 Simplified KidLisp integration using global singleton instance",
-   "source": "lib/disk.mjs:6838",
+   "source": "lib/disk.mjs:6851",
    "examples": [
     "disks/$.mjs:369  kidlisp(",
     "disks/cross-tab-test.mjs:76  kidlisp(",
@@ -655,7 +655,7 @@
    "path": "sound.synth",
    "signature": "sound.synth({ tone = 440, type = \"square\", duration = 0.1, beats = undefined, attack = 0.01, decay = 0.9, volume, pan = 0, immediate = false, probe = null, generator = null, })",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13283",
+   "source": "lib/disk.mjs:13296",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -667,7 +667,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13198",
+   "source": "lib/disk.mjs:13211",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -715,7 +715,7 @@
    "path": "write",
    "signature": "write(text, { x, y, size, center: \"x\" | \"xy\" }) | write(text, x, y)",
    "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
-   "source": "lib/disk.mjs:5715",
+   "source": "lib/disk.mjs:5728",
    "examples": [
     "disks/arena.mjs:2908  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
     "disks/arena.mjs:2918  write(t, { x, y }, undefined, undefined, false, font);",
