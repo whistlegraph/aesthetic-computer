@@ -440,11 +440,20 @@ newfs_msdos -F 32 -v ACEFI  "${RAW2}" >/dev/null
 # --- mount ---
 M1=$(mktemp -d /tmp/ac-main.XXXXXX)
 M2=$(mktemp -d /tmp/ac-efi.XXXXXX)
-trap "umount '${M1}' 2>/dev/null; umount '${M2}' 2>/dev/null; rmdir '${M1}' '${M2}' 2>/dev/null; rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null; true" EXIT
+trap "umount '${M1}' 2>/dev/null || diskutil unmount '${M1}' >/dev/null 2>&1; umount '${M2}' 2>/dev/null || diskutil unmount '${M2}' >/dev/null 2>&1; rmdir '${M1}' '${M2}' 2>/dev/null; rm -f '${PRESERVE_WIFI}' '${BAKED_INITRAMFS:-}' 2>/dev/null; true" EXIT
 
+# macOS 27 refuses to load the legacy msdosfs kext ("Bad code signature"),
+# so mount_msdos dies with "msdos filesystem is not available". diskutil
+# mounts FAT through FSKit there and still works on older releases, so it
+# goes first; mount_msdos stays as the fallback for anything diskutil
+# won't mount at an explicit mount point.
+mount_fat() {  # $1=partition device  $2=mount point
+    diskutil mount -mountPoint "$2" "$1" >/dev/null 2>&1 && return 0
+    mount_msdos "$1" "$2"
+}
 log "Mounting partitions…"
-mount_msdos "${P1}" "${M1}"
-mount_msdos "${P2}" "${M2}"
+mount_fat "${P1}" "${M1}"
+mount_fat "${P2}" "${M2}"
 
 # --- layout ACBOOT (kernel-direct + config) ---
 log "Writing ACBOOT (kernel-direct boot tree)…"
