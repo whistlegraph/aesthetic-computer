@@ -7,6 +7,9 @@
 // its own name — the system's corner label already shows it, and a name left
 // in the source tends to survive the agent's first edit as clutter.
 
+const randomBackdrop=()=>Array.from({length:3},()=>Math.floor(Math.random()*256));
+const randomCSSBackdrop=()=> '#'+randomBackdrop().map(n=>n.toString(16).padStart(2,'0')).join('');
+
 export const RUNTIMES = {
   mjs: {
     id: "mjs",
@@ -19,7 +22,7 @@ export const RUNTIMES = {
 // A blank Aesthetic Computer piece.
 
 function paint({ wipe }) {
-  wipe(70, 50, 100);
+  wipe("${randomCSSBackdrop()}");
   return false; // Painted once; return true to keep painting.
 }
 
@@ -33,7 +36,7 @@ export { paint };
     mime: "text/x-lisp; charset=utf-8",
     routable: true,
     blank: (name) => `; ${name}, ${stamp()}
-(wipe "purple")
+(wipe "${randomCSSBackdrop()}")
 `,
   },
   lua: {
@@ -60,7 +63,7 @@ function setup()
 end
 
 function draw()
-  background(70, 50, 100)
+  background(${randomBackdrop().join(", ")})
 end
 `,
   },

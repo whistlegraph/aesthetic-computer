@@ -2,3 +2,5 @@
 .build/
 dist/
 *.log
+
+native/gamepad

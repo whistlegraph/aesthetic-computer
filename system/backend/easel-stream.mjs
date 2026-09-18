@@ -10,7 +10,7 @@ export function relayInference(body, { onUsage = () => {}, abort = () => {} } = 
   function finish() {
     if (finished) return;
     finished = true;
-    if (spent) Promise.resolve().then(() => onUsage(spent)).catch(() => {});
+    Promise.resolve().then(() => onUsage(spent)).catch(() => {});
     reader.releaseLock();
   }
   function meter(bytes) {

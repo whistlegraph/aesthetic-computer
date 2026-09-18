@@ -73,7 +73,12 @@ export class AutoPublisher extends EventEmitter {
   note(source) {
     if (!this.enabled) return false;
     const text = String(source ?? "");
-    if (!text.trim() || text === this.published) return false;
+    if (!text.trim()) return false;
+    if (text === (this.current ? this.inFlightSource : this.published)) {
+      this.queued = null;
+      this.#disarm();
+      return false;
+    }
     this.queued = text;
     this.#arm();
     return true;
@@ -119,10 +124,11 @@ export class AutoPublisher extends EventEmitter {
     const source = this.queued;
     if (source === null || this.current) return null;
     this.queued = null;
+    this.inFlightSource = source;
     this.emit("start");
     this.current = (async () => {
       try {
-        const result = await this.publish();
+        const result = await this.publish(source);
         // Record the bytes that were sent, not what the file says afterwards:
         // a save landing during the upload must still count as unpublished.
         this.published = source;

@@ -32,6 +32,28 @@
     const media=scope.matchMedia('(prefers-reduced-motion: reduce)'),image=new scope.Image();
     let animations=ANIMATIONS,loaded=false,destroyed=false,timer=null,status='ready',lastActivity=clock(),awakeUntil=lastActivity+2500,phase=null,phaseStarted=lastActivity,lastFrame=-1,matrix=null,version=0,pixelScale=2;
     const scene=scope.CompanionScene;
+    const stage=doc.createElement('canvas'),stageContext=stage.getContext('2d');
+    function drawCompanion(sample){
+      const box=scene.layout(matrix);
+      stage.width=box.width;stage.height=box.height;
+      scene.draw(stageContext,image,sample);
+      const pixels=stageContext.getImageData(0,0,box.width,box.height).data;
+      let left=box.width,top=box.height,right=-1,bottom=-1;
+      for(let y=0;y<box.height;y++)for(let x=0;x<box.width;x++){
+        if(pixels[(y*box.width+x)*4+3]>8){left=Math.min(left,x);top=Math.min(top,y);right=Math.max(right,x);bottom=Math.max(bottom,y);}
+      }
+      if(right<left)return;
+      const gutter=2,w=right-left+1,h=bottom-top+1;
+      canvas.width=w+gutter*2;canvas.height=h+gutter*2;
+      context.imageSmoothingEnabled=false;
+      context.drawImage(stage,left,top,w,h,gutter,gutter,w,h);
+      // Keep a constant pixel scale across poses instead of stretching each frame.
+      canvas.style.setProperty('--donkey-ink-width',`${canvas.width*1.75}px`);
+      canvas.style.setProperty('--donkey-ink-height',`${canvas.height*1.75}px`);
+      canvas.style.setProperty('--donkey-ink-left',`${8+(left-24)*1.75}px`);
+      canvas.style.setProperty('--donkey-ink-top',`${8+(top-24)*1.75}px`);
+    }
+
     let player=null,actionStarted=clock(),lastSample="";
     scope.DonkeyActions?.loadActions().then(actions=>{player=scope.DonkeyActions.createActionPlayer(actions,{seed:clock(),state:phase||"idle",now:clock(),reducedMotion:media.matches});actionStarted=clock();lastFrame=-1;tick();}).catch(()=>{});
     function geometry(){
@@ -48,7 +70,7 @@
     function tick(){
       clear();if(destroyed||doc.hidden)return;
       const now=clock(),nextPhase=phaseFor({status,now,lastActivity,awakeUntil});
-      if(nextPhase!==phase){phase=nextPhase;phaseStarted=now;player?.setState(phase,now);actionStarted=now;canvas.dataset.state=phase;canvas.setAttribute('aria-label',`aesel the donkey: ${phase}`);}
+      if(nextPhase!==phase){phase=nextPhase;phaseStarted=now;player?.setState(phase,now);actionStarted=now;canvas.dataset.state=phase;canvas.setAttribute('aria-label',`Aesel the donkey: ${phase}`);}
       const frame=animationFrame(phase,now-phaseStarted,media.matches,animations);
       let delay=frame.delay;
       if(player){
@@ -56,9 +78,9 @@
         let sample=player.sample(now);
         if(!media.matches&&(sample?.done||now-actionStarted>Math.max(8000,(sample?.duration||0)*3))){sample=player.next(now);actionStarted=now;}
         const key=sample?`${sample.id}:${sample.frameIndex}`:'';
-        if(loaded&&sample&&(key!==lastSample||lastFrame===-1)){geometry();scene.draw(context,image,sample);lastSample=key;lastFrame=sample.pose;canvas.dataset.action=sample.id;canvas.setAttribute('aria-label',`aesel: ${sample.label}`);}
+        if(loaded&&sample&&(key!==lastSample||lastFrame===-1)){geometry();drawCompanion(sample);lastSample=key;lastFrame=sample.pose;canvas.dataset.action=sample.id;canvas.setAttribute('aria-label',`Aesel: ${sample.label}`);}
         delay=sample?.nextDelay??null;
-      }else if(loaded&&frame.frame!==lastFrame){geometry();scene.draw(context,image,frame.frame);lastFrame=frame.frame;}
+      }else if(loaded&&frame.frame!==lastFrame){geometry();drawCompanion(frame.frame);lastFrame=frame.frame;}
       if(statusPhase(status)==='ready'){
         const deadline=now<awakeUntil?awakeUntil:lastActivity+60000;
         if(deadline>now)delay=delay===null?deadline-now:Math.min(delay,deadline-now);

@@ -65,7 +65,7 @@ export const handler = stream(async (event) => {
   }
 
   // Who is asking, and may they?
-  let handle = "";
+  let handle = "", userSub = "";
   try {
     const { authorize, getHandleOrEmail } = await import("../../backend/authorization.mjs");
     const user = await Promise.race([
@@ -73,6 +73,7 @@ export const handler = stream(async (event) => {
       new Promise((_, reject) => setTimeout(() => reject(new Error("auth timeout")), AUTH_TIMEOUT_MS)),
     ]);
     if (!user?.sub) return fail(401, "That token is not valid.");
+    userSub = user.sub;
     const handleOrEmail = await getHandleOrEmail(user.sub);
     if (typeof handleOrEmail === "string" && handleOrEmail.startsWith("@")) {
       handle = handleOrEmail.slice(1);
@@ -109,12 +110,25 @@ export const handler = stream(async (event) => {
     console.log("🪙 easel: budget unavailable —", error.message);
   }
   const budgetFailure = inferenceBudgetFailure(budget, handle);
-  if (budgetFailure) return fail(budgetFailure.statusCode, budgetFailure.message);
+  let paidHold = null;
+  if (budgetFailure) {
+    if (budgetFailure.statusCode !== 429) return fail(budgetFailure.statusCode, budgetFailure.message);
+    try {
+      const {authorizePaidRequest}=await import("../../backend/easel-paid-credits.mjs");
+      paidHold=await authorizePaidRequest({user:userSub,model,body,maxTokens});
+    } catch(error) { return fail(error.statusCode||503,error.message); }
+  }
+  const settlePaid = async spent => {
+    if(!paidHold)return;
+    const {withWallets,settle}=await import("../../backend/easel-paid-credits.mjs");
+    await withWallets(w=>settle(paidHold,spent,w));
+  };
 
   console.log(`🎨 easel @${handle} — ${MODELS[model].label}${budget ? ` · ${budget.remaining} left` : ""}`);
 
   const controller = new AbortController();
-  const upstream = await fetch(OPENROUTER, {
+  let upstream;
+  try { upstream = await fetch(OPENROUTER, {
     signal: controller.signal,
     method: "POST",
     headers: {
@@ -136,7 +150,10 @@ export const handler = stream(async (event) => {
     }),
   });
 
+  } catch(error) { await settlePaid(0); return fail(502,"Inference provider could not be reached."); }
+
   if (!upstream.ok) {
+    await settlePaid(0);
     const detail = await upstream.text();
     console.log(`🎨 easel upstream ${upstream.status}: ${detail.slice(0, 200)}`);
     return fail(upstream.status, `Inference provider returned ${upstream.status}.`);
@@ -149,7 +166,11 @@ export const handler = stream(async (event) => {
     abort: () => controller.abort(),
     onUsage: async (spent) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
-      await recordUsage(handle, spent, { model });
+      if(paidHold) await settlePaid(spent);
+      else {
+        const {braincellRate,reservationSize}=await import("../../backend/easel-paid-credits.mjs");
+        await recordUsage(handle, Math.ceil(spent*braincellRate(model,reservationSize(body,0,{validateMedia:false}))), { model });
+      }
     },
   });
 

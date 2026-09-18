@@ -238,7 +238,7 @@ test("renaming and retargeting follow the piece without changing the channel", a
   assert.equal(live.file, join(root, "smiley.lisp"));
   assert.equal(live.runtime.label, "kidlisp");
   assert.equal(existsSync(join(root, "movika.mjs")), false, "the untouched blank moved rather than piling up");
-  assert.match(await readFile(live.file, "utf8"), /\(wipe "purple"\)/);
+  assert.match(await readFile(live.file, "utf8"), /\(wipe "#[0-9a-f]{6}"\)/);
   assert.equal(live.scanUrl, scan, "the QR stays valid across a rename");
 
   assert.equal(live.retarget(join(root, "other.lisp")), true);
@@ -319,4 +319,14 @@ test("a push carries the session's token, and omits the header without one", asy
   const signedOut = new LivePiece({ cwd: root, slug: "murafi", fetch: fetchStub });
   await signedOut.push();
   assert.equal(calls[1].headers.Authorization, undefined, "no token, no header");
+});
+
+test('concurrent pushes of identical bytes send once; failure remains retryable', async context => {
+ const cwd=await workspace(context);let calls=0,fail=true;
+ const live=new LivePiece({cwd,slug:'dedup',fetch:async()=>{calls++;return new Response('',{status:fail?500:200});}});live.create();
+ await assert.rejects(live.push()); fail=false;
+ await Promise.all([live.push(),live.push(),live.push()]);assert.equal(calls,2);
+ await live.push();assert.equal(calls,2);
+ await writeFile(live.file,'export function paint({wipe}) { wipe("red"); }');await live.push();assert.equal(calls,3);
+ live.handle='another';await live.push();assert.equal(calls,4);
 });

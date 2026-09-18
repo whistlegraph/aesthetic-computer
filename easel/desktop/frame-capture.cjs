@@ -1,6 +1,13 @@
 const {join}=require('node:path');
 const fs=require('node:fs/promises');
 const {pathToFileURL}=require('node:url');
+function matchesPreview(view,channel){
+ try {
+  const actual=new URL(view.getURL());
+  if(!['https://aesthetic.computer','https://prompt.ac'].includes(actual.origin))return false;
+  return actual.pathname==='/@'+channel || (view.aeselLiveChannel===channel && actual.pathname==='/'+channel.split('/').at(-1));
+ }catch{return false;}
+}
 function startFrameCapture({workspace,root,context,guest}){
  let busy=false;
  const script=import(pathToFileURL(join(root,'src/frame-capture-script.mjs')).href);
@@ -15,8 +22,7 @@ function startFrameCapture({workspace,root,context,guest}){
     let request;try{request=JSON.parse(await fs.readFile(file,'utf8'));}catch{continue;}
     const current=context(),view=guest();if(!current||!view||view.isDestroyed()||request.id+'.json'!==name||request.channel!==current.channel||request.revision!==current.revision||Date.now()-request.createdAt>15000||Date.now()<request.createdAt)continue;
     let result;try{
-     const expected='/@'+current.channel;
-     if(new URL(view.getURL()).pathname!==expected)throw new Error('Preview URL does not match the current piece channel');
+     if(!matchesPreview(view,current.channel))throw new Error('Preview URL does not match the current piece channel; capture unavailable, do not repeatedly retry');
      const capture=await Promise.race([view.executeJavaScript((await script).CAPTURE_SCRIPT),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Canvas capture timed out')),3000))]);
      if(context()?.revision!==current.revision||context()?.channel!==current.channel)throw new Error('Piece changed during capture');
      result={...capture,id:request.id,channel:current.channel,revision:current.revision,capturedAt:new Date().toISOString()};
@@ -26,4 +32,4 @@ function startFrameCapture({workspace,root,context,guest}){
   }catch{}finally{busy=false;}
  },200);timer.unref();return ()=>clearInterval(timer);
 }
-module.exports={startFrameCapture};
+module.exports={startFrameCapture,matchesPreview};

@@ -23,22 +23,21 @@
   return c;
  }
  const wood=woodTile();document.documentElement.style.setProperty('--aesel-wood-tile',`url(${wood.toDataURL()})`);let theme='#463264',last='';
- function tile(){const c=make(32,32),g=c.getContext('2d');g.fillStyle=theme;g.fillRect(0,0,32,32);
-  g.fillStyle='#ffffff04';for(let y=0;y<32;y+=4)g.fillRect(0,y,32,1);
-  g.fillStyle='#0000000b';for(let x=0;x<32;x+=4)g.fillRect(x,0,1,32);
-  g.fillStyle='#ffffff06';g.fillRect(0,0,1,1);g.fillRect(16,16,1,1);return c;
- }
+ // The DOM ruling follows transcript scroll; this canvas supplies paper color.
+ function tile(){const c=make(32,32),g=c.getContext('2d');g.fillStyle=theme;g.fillRect(0,0,32,32);return c;}
+
  let cloth=tile();
  window.SpriteLand={
   theme(color){if(!color||color===theme)return;theme=color;cloth=tile();last='';},
-  layout({scale=2,shelf=84,startup=false}={}){
+  layout({scale=2,shelf=84,shelfTop=innerHeight-shelf,startup=false}={}){
    const width=Math.ceil(innerWidth/scale),height=Math.ceil(innerHeight/scale),rail=Math.ceil(shelf/scale);
-   const key=[width,height,rail,scale,startup,theme].join(':');if(last===key)return;last=key;
+   const key=[width,height,rail,shelfTop,scale,startup,theme].join(':');if(last===key)return;last=key;
    for(const canvas of [background,foreground]){canvas.width=width;canvas.height=height;canvas.style.width=width*scale+'px';canvas.style.height=height*scale+'px';}
    const bg=background.getContext('2d');bg.imageSmoothingEnabled=false;bg.fillStyle=bg.createPattern(cloth,'repeat');bg.fillRect(0,0,width,height);
    const fg=foreground.getContext('2d');fg.imageSmoothingEnabled=false;fg.clearRect(0,0,width,height);if(startup)return;
-   const top=height-rail;fg.fillStyle=fg.createPattern(wood,'repeat');fg.fillRect(0,top,width,rail);
-   for(const [dy,color] of [[0,'#211c18'],[1,'#6c5039'],[2,'#453126'],[rail-3,'#382319'],[rail-2,'#24180f']]){fg.fillStyle=color;fg.fillRect(0,top+dy,width,1);}
+   foreground.height=rail;foreground.style.top=shelfTop+'px';foreground.style.height=rail*scale+'px';
+   const top=0;fg.fillStyle=fg.createPattern(wood,'repeat');fg.fillRect(0,top,width,rail);
+   for(const [dy,color] of [[0,'#211c18'],[1,'#b68b5d'],[2,'#795538'],[3,'#302016'],[rail-3,'#382319'],[rail-2,'#24180f']]){fg.fillStyle=color;fg.fillRect(0,top+dy,width,1);}
    // Inlaid pins, kept outside the text-bearing center of the rail.
    for(const x of [3,width-5]){fg.fillStyle='#211810';fg.fillRect(x,top+5,2,2);fg.fillStyle='#9b7148';fg.fillRect(x,top+5,1,1);}
   }

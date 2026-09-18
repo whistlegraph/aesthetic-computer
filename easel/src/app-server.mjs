@@ -119,11 +119,11 @@ export class AppServer extends EventEmitter {
     return result;
   }
 
-  async startTurn(text) {
+  async startTurn(text, {images=[]}={}) {
     if (!this.threadId) throw new Error("thread is not ready");
     const result = await this.request("turn/start", {
       threadId: this.threadId,
-      input: [{ type: "text", text }],
+      input: [{ type: "text", text },...images.map(image=>({type:"image",url:`data:${image.mimeType};base64,${image.data}`}))],
       ...(this.effort ? { effort: this.effort } : {}),
     });
     this.turnId = result.turn.id;

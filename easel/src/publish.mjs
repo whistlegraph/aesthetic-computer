@@ -1,4 +1,5 @@
-import { validatePieceSource } from "./revisions.mjs";
+import {createHash} from 'node:crypto';
+import { PieceRevisions, validatePieceSource } from "./revisions.mjs";
 // publish.mjs — put a piece live under the signed-in user's @handle.
 //
 // This mirrors the web prompt's `publish` command exactly: ask the site for a
@@ -55,6 +56,7 @@ export async function publishPiece({
   cwd = process.cwd(),
   site = SITE,
   onStep = () => {},
+  source: snapshot,
 }) {
   const handle = session.handle;
   if (!handle) {
@@ -65,7 +67,7 @@ export async function publishPiece({
     );
   }
   const plan = planPublish({ file, slug, handle, cwd, site });
-  const source = readFileSync(plan.path, "utf8");
+  const source = snapshot ?? readFileSync(plan.path, "utf8");
   if (source.length > MAX_SOURCE_LENGTH) {
     throw new Error(`source is ${source.length} characters; the limit is ${MAX_SOURCE_LENGTH}`);
   }
@@ -99,5 +101,11 @@ export async function publishPiece({
     verified = check.ok && (await check.text()).trim() === source.trim();
   } catch {}
 
-  return { ...plan, handle, verified, bytes: Buffer.byteLength(source) };
+  let registration=null;
+  const savedVersion=new PieceRevisions(plan.path).list().findLast(v=>v.revision===createHash('sha256').update(source).digest('hex'))?.version;
+  if(verified&&Number.isInteger(savedVersion)&&savedVersion>=2){
+    try{const response=await fetch(`${site}/api/register-piece`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','User-Agent':USER_AGENT},body:JSON.stringify({version:savedVersion,slug:plan.slug,ext:plan.extension.slice(1),revision:createHash('sha256').update(source).digest('hex')}),signal:AbortSignal.timeout(10000)});const data=await response.json();registration=response.ok?data:{error:data.error||'Feed registration unavailable'};}
+    catch{registration={error:'Feed registration unavailable'};}
+  }
+  return { ...plan, handle, verified, registration, bytes: Buffer.byteLength(source) };
 }

@@ -127,6 +127,7 @@ export class LivePiece extends EventEmitter {
     }
     this.blank = this.runtime.blank(this.slug);
     writeFileSync(this.file, this.blank);
+    this.history.capture(this.blank);
     return this.file;
   }
 
@@ -261,6 +262,9 @@ export class LivePiece extends EventEmitter {
     if(this.broadcastEnabled === false)return false;
     const source = this.source();
     if (!source.trim()) return false;
+    const identity = JSON.stringify([this.site, this.channel, this.slug, source]);
+    if (identity === this.lastSentIdentity) { this.ahead = false; return false; }
+    const channel = this.channel, slug = this.slug;
     if (!await this.checkpoint(source)) return false;
     {
       // `/run` takes no anonymous pushes: ownership of a channel is the token,
@@ -275,12 +279,13 @@ export class LivePiece extends EventEmitter {
       const response = await this.fetch(`${this.site}/run`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ piece: this.slug, source, codeChannel: this.channel }),
+        body: JSON.stringify({ piece: slug, source, codeChannel: channel }),
       });
       if (!response.ok) throw new Error(`live push failed (HTTP ${response.status})`);
     }
+    this.lastSentIdentity = identity;
     this.pushes += 1;
-    this.ahead = source !== this.source();
+    this.ahead = source !== this.source() || channel !== this.channel || slug !== this.slug;
     this.emit("push", this.pushes, source);
     return true;
   }
@@ -297,9 +302,13 @@ export class LivePiece extends EventEmitter {
   // one-line server bug was rent, not architecture.
   watch(onError = () => {}) {
     this.unwatch();
+    let observed = this.source();
     try {
       this.watcher = watch(this.directory, (_event, name) => {
         if (name && name !== basename(this.file)) return;
+        const saved = this.source();
+        if (saved === observed) return;
+        observed = saved;
         clearTimeout(this.debounce);
         // The save has landed on disk and has not left for the channel yet.
         // Anything watching the piece — the preview in the corner of the pane
@@ -311,7 +320,7 @@ export class LivePiece extends EventEmitter {
         }
         this.debounce = setTimeout(() => {
           this.push().catch(onError);
-        }, 250);
+        }, 80);
         this.debounce.unref?.();
       });
       this.watcher.unref?.();

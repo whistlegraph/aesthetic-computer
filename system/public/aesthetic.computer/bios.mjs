@@ -618,17 +618,9 @@ function setUpdateAutoReload(enabled) {
   }
 }
 
-function performHistoryRewrite(path, historical) {
-  // Skip history manipulation in pack mode (blob/srcdoc context)
-  if (checkPackMode()) return;
-
-  // The params that describe the embedding rather than the piece — nogap,
-  // nolabel, autoreload — are no part of a piece's address, so the worker's
-  // rewrite naturally drops them. Anything that reloads the view afterwards
-  // then comes back as a plain page: the corner label returns, and a preview
-  // card starts offering updates nobody can reach it to accept. The update
-  // auto-reload is exactly such a reload, which is how a card that was clean
-  // on arrival grew its label back an hour later.
+// Presentation flags belong to the view, not the piece address. Use this for
+// every history write so a later browser reload boots the same embedded view.
+function preserveViewParams(path) {
   try {
     const session = noPaintHistoryTarget(path, window.location.href);
     if (session.seed) {
@@ -637,13 +629,17 @@ function performHistoryRewrite(path, historical) {
     }
     const next = new URL(path, window.location.href);
     for (const [name, value] of Object.entries(preservedParams || {})) {
-      if (value) next.searchParams.set(name, value);
+      if (value !== undefined && value !== null) next.searchParams.set(name, value);
     }
-    path = next.pathname + next.search + next.hash;
+    return next.pathname + next.search + next.hash;
   } catch (err) {
-    /* An unparseable path is rewritten as given, the way it always was. */
+    return path;
   }
+}
 
+function performHistoryRewrite(path, historical) {
+  if (checkPackMode()) return;
+  path = preserveViewParams(path);
   if (historical) {
     console.log("Rewriting to:", path);
     history.pushState("", document.title, path);
@@ -1016,11 +1012,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.solo === true) preservedParams.solo = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
-  // Only preserve density/zoom/duration if they were actually in the URL (not from localStorage)
+  // Preserve URL-provided view options, never auth callbacks or piece arguments.
   const currentParams = new URLSearchParams(location.search);
-  if (currentParams.has("density")) preservedParams.density = currentParams.get("density");
-  if (currentParams.has("zoom")) preservedParams.zoom = currentParams.get("zoom");
-  if (currentParams.has("duration")) preservedParams.duration = currentParams.get("duration");
+  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon"]) {
+    if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
+  }
 
   if (debug) {
     if (window.isSecureContext) {
@@ -13884,7 +13880,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         frozenUrlPath = content?.path || window.location.pathname + window.location.search + window.location.hash;
         try {
           if (!checkPackMode()) {
-            window.history.replaceState({}, "", frozenUrlPath);
+            performHistoryRewrite(frozenUrlPath, false);
           }
         } catch (e) {
           /* Ignore in restricted context */
@@ -14528,9 +14524,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Use pushState instead of replaceState to preserve history navigation
             try {
               if (!content.fromHistory) {
-                window.history.pushState({}, "", encodedPath);
+                performHistoryRewrite(encodedPath, true);
               } else {
-                window.history.replaceState({}, "", encodedPath);
+                performHistoryRewrite(encodedPath, false);
               }
             } catch (e) { /* Ignore in restricted context */ }
           } else if (content.text && isKidlispSource(content.text)) {
@@ -14539,9 +14535,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             // Use pushState instead of replaceState to preserve history navigation
             try {
               if (!content.fromHistory) {
-                window.history.pushState({}, "", encodedPath);
+                performHistoryRewrite(encodedPath, true);
               } else {
-                window.history.replaceState({}, "", encodedPath);
+                performHistoryRewrite(encodedPath, false);
               }
             } catch (e) { /* Ignore in restricted context */ }
           } else if (content.clockShortcode) {
@@ -14549,37 +14545,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             const clockPath = "/" + content.clockShortcode;
             try {
               if (!content.fromHistory) {
-                window.history.pushState({}, "", clockPath);
+                performHistoryRewrite(clockPath, true);
               } else {
-                window.history.replaceState({}, "", clockPath);
+                performHistoryRewrite(clockPath, false);
               }
             } catch (e) { /* Ignore in restricted context */ }
           } else {
-            // For regular pieces, clear parameters but keep the basic path structure
-            // Preserve DAW-related params for M4L integration
-            const currentParams = new URLSearchParams(window.location.search);
-            const dawParams = new URLSearchParams();
-            for (const param of ['daw', 'density', 'nogap', 'width', 'height']) {
-              if (currentParams.has(param)) {
-                dawParams.set(param, currentParams.get(param));
-              }
-            }
-            // The embedding's own flags ride along too — what boot handed over
-            // as `preservedParams` (nolabel, autoreload, maxfps, …). This is the
-            // URL the update auto-reload comes back to, so a flag dropped here
-            // is a flag the next load never sees: a preview card that asked
-            // to be rid of the corner label got it back on its first reload
-            // exactly this way, while `nogap`, listed above, survived.
-            for (const [name, value] of Object.entries(preservedParams || {})) {
-              if (value && !dawParams.has(name)) dawParams.set(name, value);
-            }
-            const queryString = dawParams.toString();
-            // Keep caret "bag" URLs literal (^pads): ^ is legal in a URL path per
-            // WHATWG, but the omnibox encodes it to %5E on first navigation. Decode
-            // it back so the address bar reads ^pads through and through.
-            const newUrl = (window.location.pathname + (queryString ? '?' + queryString : '')).replace(/%5[eE]/g, "^");
+            // Drop piece arguments, retaining the embedding flags on every load.
+            const newUrl = window.location.pathname.replace(/%5[eE]/g, "^");
             try {
-              window.history.replaceState({}, "", newUrl);
+              performHistoryRewrite(newUrl, false);
             } catch (e) { /* Ignore in restricted context */ }
           }
         }
@@ -14814,11 +14789,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             urlPath = "/" + encodedText;
           }
 
-          history.pushState(
-            "",
-            document.title,
-            urlPath, // Replace "prompt" with "/".
-          );
+          performHistoryRewrite(urlPath, true);
           window.parent?.postMessage(
             {
               type: "url:updated",
@@ -14883,7 +14854,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             }
 
             if (!checkPackMode()) {
-              history.replaceState("", document.title, urlPath);
+              performHistoryRewrite(urlPath, false);
             }
           } catch (err) {
             console.warn("⚠️ Couldn't change url state. Going too fast!? ➿🚗");
@@ -15304,28 +15275,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "refresh") {
-      // Reconstruct URL with preserved parameters (nogap, nolabel, duration)
-      const currentUrl = new URL(window.location);
-
-      // Add preserved parameters back to the URL
-      if (preservedParams.nogap) {
-        currentUrl.searchParams.set("nogap", preservedParams.nogap);
-      }
-      if (preservedParams.nolabel) {
-        currentUrl.searchParams.set("nolabel", preservedParams.nolabel);
-      }
-      if (preservedParams.shellhtml) {
-        currentUrl.searchParams.set("shellhtml", preservedParams.shellhtml);
-      }
-      if (preservedParams.duration) {
-        currentUrl.searchParams.set("duration", preservedParams.duration);
-      }
-      if (preservedParams.solo) {
-        currentUrl.searchParams.set("solo", preservedParams.solo);
-      }
-
-      // Update the URL and reload
-      window.location.href = currentUrl.toString();
+      // Use the same contract as history rewrites, including autoreload/zoom.
+      window.location.href = new URL(preserveViewParams(window.location.href), window.location.href).href;
       return;
     }
 

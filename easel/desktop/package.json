@@ -8,7 +8,10 @@
     "start": "electron .",
     "dist:mac": "electron-builder --mac --publish never",
     "dist:mas": "scripts/build-mas.sh",
-    "dist:linux": "electron-builder --linux AppImage deb tar.gz --x64 --publish never"
+    "dist:linux": "electron-builder --linux AppImage deb tar.gz --x64 --publish never",
+    "build:credit-label": "bash scripts/build-credit-label.sh",
+    "prestart": "npm run build:credit-label",
+    "predist:mac": "npm run build:credit-label"
   },
   "dependencies": {
     "@xterm/xterm": "5.5.0",
@@ -38,7 +41,8 @@
       "package.json",
       "vendor/**/*",
       "assets/**/*",
-      "donkey-actions/*.json"
+      "donkey-actions/*.json",
+      "native/*"
     ],
     "extraResources": [
       {
@@ -68,6 +72,10 @@
           "frame-ocr",
           "frame-ocr.swift"
         ]
+      },
+      {
+        "from": "../native",
+        "to": "easel/native"
       }
     ],
     "mac": {
@@ -119,7 +127,10 @@
       "afterInstall": "scripts/after-install-linux.sh",
       "compression": "gz"
     },
-    "afterAllArtifactBuild": "scripts/notarize-dmg.cjs"
+    "afterAllArtifactBuild": "scripts/notarize-dmg.cjs",
+    "asarUnpack": [
+      "native/*"
+    ]
   },
   "description": "Make pieces, pictures, sounds, papers and Game Boy games with Aesthetic Computer.",
   "author": {
