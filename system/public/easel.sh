@@ -25,8 +25,7 @@ set -eu
 SITE="${EASEL_SITE:-https://aesthetic.computer}"
 PREFIX="${EASEL_PREFIX:-$HOME/.local/share/easel}"
 BIN="${EASEL_BIN:-$HOME/.local/bin}"
-# Node 18 is where fetch, and therefore both engine bridges, stopped needing a
-# flag. Below it nothing works and the failure is obscure, so check up front.
+# Match the runtime APIs used by the desktop harness, including util.parseEnv.
 MIN_NODE=22
 
 say() { printf '%s\n' "$*"; }
