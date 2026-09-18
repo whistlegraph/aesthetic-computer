@@ -3782,7 +3782,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return NSPoint(x: local.x - xOff, y: yLocal - yOff)
         }
 
-        let initialHitPt = imagePoint(from: downEvent.locationInWindow)
+        // macOS 27 hands the status-item action an event whose
+        // locationInWindow is the button's centre, not the pointer — every
+        // click read as the middle key and the chips were unreachable. The
+        // pointer itself is still truthful, so hit-test from the screen
+        // location and only fall back to the event.
+        func liveWindowPoint(fallback: NSPoint) -> NSPoint {
+            guard let window = button.window else { return fallback }
+            return window.convertPoint(fromScreen: NSEvent.mouseLocation)
+        }
+
+        let initialHitPt = imagePoint(from: liveWindowPoint(fallback: downEvent.locationInWindow))
         let initial = KeyboardIconRenderer.hit(at: initialHitPt)
         debugLog("hit pt=(\(initialHitPt.x),\(initialHitPt.y)) -> \(String(describing: initial))")
         let startDisplayNote: UInt8
@@ -3801,7 +3811,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .tape:
             handleTapeMouseDown(button: button,
                                 downEvent: downEvent,
-                                imagePoint: imagePoint)
+                                imagePoint: { imagePoint(from: liveWindowPoint(fallback: $0)) })
             return
         case .tapeRew:
             menuBand.rewindTape()
@@ -3861,7 +3871,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let initialPt = imagePoint(from: downEvent.locationInWindow)
+        let initialPt = initialHitPt
         let initialShift = downEvent.modifierFlags.contains(.shift)
             || downEvent.modifierFlags.contains(.capsLock)
 
@@ -3911,7 +3921,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 stopCurrentVoice()
                 break
             }
-            let pt = imagePoint(from: next.locationInWindow)
+            let pt = imagePoint(from: liveWindowPoint(fallback: next.locationInWindow))
             let hoveredDisplay = KeyboardIconRenderer.noteAt(pt)
             if hoveredDisplay != currentDisplay {
                 stopCurrentVoice()
