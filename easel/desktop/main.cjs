@@ -1,5 +1,5 @@
 const {chmodSync}=require('node:fs');
-const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, MenuItem, clipboard, screen, nativeImage } = require('electron');
 const pty = require('node-pty');
 const { spawn } = require('node:child_process');
 const { join, resolve } = require('node:path');
@@ -145,7 +145,7 @@ function send(channel, data) {
   if(channel==='build-status'){
     const menu=Menu.getApplicationMenu(),item=menu?.getMenuItemById('aesel-build-status');
     const label=[data.channel==='dev'?'Dev':data.channel==='release'?'Release':'Local',data.version,(data.tree||data.revision)?.slice(0,8),({current:'Up to date',ready:'Update ready',modified:'Local changes',unknown:'Unable to verify',checking:'Checking…',syncing:'Syncing…',downloading:'Downloading…'})[data.status]||'Unable to verify'].filter(Boolean).join(' · ');
-    if(item&&item.label!==label){item.label=label;Menu.setApplicationMenu(menu);}
+    if(item&&item.label!==label){const submenu=menu.items.find(entry=>entry.submenu?.items.includes(item))?.submenu;if(submenu){const index=submenu.items.indexOf(item);submenu.remove(item);submenu.insert(index,new MenuItem({id:'aesel-build-status',label,enabled:false}));Menu.setApplicationMenu(menu);}}
   }
   if(window&&!window.isDestroyed())window.webContents.send(channel,data);
 }
