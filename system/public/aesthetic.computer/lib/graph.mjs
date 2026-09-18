@@ -4599,28 +4599,29 @@ function fillTriSolid(x1, y1, x2, y2, x3, y3) {
     right = min(right, activeMask.x + activeMask.width);
     bottom = min(bottom, activeMask.y + activeMask.height);
   }
-  const xs = [x1, x2, x3], ys = [y1, y2, y3];
-  const minY = min(y1, y2, y3), maxY = max(y1, y2, y3);
+  let minY = y1 < y2 ? y1 : y2; if (y3 < minY) minY = y3;
+  let maxY = y1 > y2 ? y1 : y2; if (y3 > maxY) maxY = y3;
+  if (minY + py < top) minY = top - py;
+  if (maxY + py >= bottom) maxY = bottom - 1 - py;
   for (let y = minY; y <= maxY; y++) {
-    const sy = y + py;
-    if (sy < top || sy >= bottom) continue;
-    let a = Infinity, bx = -Infinity, hits = 0;
-    for (let i = 0; i < 3; i++) {
-      const j = i === 2 ? 0 : i + 1;
-      const yi = ys[i], yj = ys[j];
-      if ((yi <= y && y < yj) || (yj <= y && y < yi)) {
-        const x = ((y - yi) * (xs[j] - xs[i])) / (yj - yi) + xs[i];
-        if (x < a) a = x;
-        if (x > bx) bx = x;
-        hits++;
-      }
-    }
+    // Half-open edge rule, one test per edge, no per-row arrays. Most
+    // triangles from a shaded mesh are a few pixels wide, so short spans
+    // are stored in a plain loop; fill() only pays off on wide ones.
+    let a = Infinity, bx = -Infinity, hits = 0, x;
+    if ((y1 <= y && y < y2) || (y2 <= y && y < y1)) { x = ((y - y1) * (x2 - x1)) / (y2 - y1) + x1; if (x < a) a = x; if (x > bx) bx = x; hits++; }
+    if ((y2 <= y && y < y3) || (y3 <= y && y < y2)) { x = ((y - y2) * (x3 - x2)) / (y3 - y2) + x2; if (x < a) a = x; if (x > bx) bx = x; hits++; }
+    if ((y3 <= y && y < y1) || (y1 <= y && y < y3)) { x = ((y - y3) * (x1 - x3)) / (y1 - y3) + x3; if (x < a) a = x; if (x > bx) bx = x; hits++; }
     if (hits < 2) continue;
     let sx0 = floor(a) + px, sx1 = ceil(bx) + px;
     if (sx0 < left) sx0 = left;
     if (sx1 > right) sx1 = right;
     if (sx0 >= sx1) continue;
-    span32.fill(packed, sy * width + sx0, sy * width + sx1);
+    const row = (y + py) * width;
+    if (sx1 - sx0 < 32) {
+      for (let i = row + sx0, e = row + sx1; i < e; i++) span32[i] = packed;
+    } else {
+      span32.fill(packed, row + sx0, row + sx1);
+    }
   }
   return true;
 }

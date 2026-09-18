@@ -5626,6 +5626,19 @@ const LINE = {
 // TODO: Add better hex support via: https://stackoverflow.com/a/53936623/8146077
 
 function ink() {
+  // Fast path: plain numeric rgb / rgba goes straight to the colour setter.
+  // Shaded 3D pieces call this once per triangle, so the general parser
+  // (and its argument copies) would otherwise run thousands of times a frame.
+  const n = arguments.length;
+  if ((n === 3 || n === 4) && !inkFloodLoggingEnabled()) {
+    const r = arguments[0], g = arguments[1], b = arguments[2];
+    const a = n === 4 ? arguments[3] : 255;
+    if (
+      typeof r === "number" && typeof g === "number" &&
+      typeof b === "number" && typeof a === "number" &&
+      r === r && g === g && b === b && a === a
+    ) return graph.color(r, g, b, a);
+  }
   const foundColor = graph.findColor(...arguments);
   if (inkFloodLoggingEnabled()) {
     console.log(
