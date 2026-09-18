@@ -60,7 +60,7 @@
   });
   new MutationObserver(window.layoutNotebookPreview).observe(document.body, {
     attributes: true,
-    attributeFilter: ["class", "data-preview-mode", "data-preview-engaged"],
+    attributeFilter: ["class"],
   });
   view.addEventListener("scroll", window.layoutNotebookPreview, {
     passive: true,

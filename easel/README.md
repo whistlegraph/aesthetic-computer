@@ -72,7 +72,12 @@ credit. The equivalent uses the server's pack rate ($5 per million braincells),
 not the underlying provider's token price. Claude and Codex keep their model controls.
 
 Desktop notebook text wraps beside the preview and returns to full width below it;
-scrolling and preview resizing update the available space.
+scrolling and preview resizing update the available space. The preview has one
+manually resized footprint, with no hover zoom. Clicking it gives the piece its
+keyboard; clicking the notebook returns to message input. The donkey's temporary
+parenthetical thought bubble follows public activity and clears when the run ends.
+New desktop windows show a themed notebook on first paint, before engine startup;
+terminal initialization stays hidden.
 
 `/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
 your profile in a browser. Header targets highlight on hover in terminals that

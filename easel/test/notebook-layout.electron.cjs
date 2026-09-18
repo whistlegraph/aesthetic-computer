@@ -78,6 +78,43 @@ const assert = require("node:assert/strict");
     await win.webContents.executeJavaScript(
       `document.querySelector('#activity-caption')?.textContent||''`,
     ),
+    "(Reading the piece)",
+  );
+  assert.equal(
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#activity-caption').previousSibling.id`,
+    ),
+    "prompt-feedback",
+  );
+  assert.equal(
+    await win.webContents.executeJavaScript(
+      `document.querySelectorAll('#notebook-page article').length`,
+    ),
+    2,
+  );
+  win.webContents.send(
+    "output",
+    "\x1b]777;easel-prompt:" +
+      JSON.stringify({
+        text: "",
+        cursor: 0,
+        activity: "Stale activity",
+        feedback: "",
+        hidden: false,
+      }) +
+      "\x07",
+  );
+  await delay(60);
+  assert.equal(
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#activity-caption').hidden`,
+    ),
+    true,
+  );
+  assert.equal(
+    await win.webContents.executeJavaScript(
+      `document.querySelector('#activity-caption').textContent`,
+    ),
     "",
   );
   win.webContents.send("credits", {
@@ -142,11 +179,11 @@ const assert = require("node:assert/strict");
   ]) {
     if (name === "expanded")
       await win.webContents.executeJavaScript(
-        `document.body.dataset.previewEngaged='true'`,
+        `{const shell=document.getElementById('artifact-shell');shell.dataset.resized='true';for(const [key,value] of Object.entries({width:540,height:364,right:14,top:14}))shell.style.setProperty('--resized-preview-'+key,value+'px')}`,
       );
     if (name === "resized")
       await win.webContents.executeJavaScript(
-        `document.body.dataset.previewEngaged='false';const shell=document.getElementById('artifact-shell');shell.dataset.resized='true';for(const [key,value] of Object.entries({'compact-width':280,'compact-height':210,right:30,top:70}))shell.style.setProperty('--resized-preview-'+key,value+'px')`,
+        `{const shell=document.getElementById('artifact-shell');shell.dataset.resized='true';for(const [key,value] of Object.entries({width:280,height:210,right:30,top:70}))shell.style.setProperty('--resized-preview-'+key,value+'px')}`,
       );
     await win.webContents.executeJavaScript(
       `document.getElementById('conversation').scrollTop=${scroll}`,

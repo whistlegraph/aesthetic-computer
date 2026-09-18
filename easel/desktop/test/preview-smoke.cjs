@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
   assert.equal(await win.webContents.executeJavaScript("document.getElementById('qr-card').tagName"),'BUTTON');
   win.webContents.sendInputEvent({type:'mouseMove',x:50,y:50});
   await delay(300);
-  assert((await geometry()).width>compact.width,'Hover must enlarge the preview');
+  assert.deepEqual(await geometry(),compact,'Hover must preserve preview size');
   win.webContents.sendInputEvent({type:'mouseMove',x:700,y:450});
   await delay(300);
   assert.deepEqual(await geometry(),compact,'Leaving must restore compact preview');
@@ -60,7 +60,7 @@ app.whenReady().then(async () => {
   win.webContents.send('preview-mode','pinned');
   await delay(250);
   const enlarged = await geometry();
-  assert(enlarged.width>compact.width);
+  assert.equal(enlarged.width,compact.width);
   assert(Math.abs(enlarged.canvasWidth-(enlarged.width-2))<.1);
   assert(Math.abs(enlarged.canvasHeight-(enlarged.height-2))<.1);
   win.webContents.send('preview-mode','compact');

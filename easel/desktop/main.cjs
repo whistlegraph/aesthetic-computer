@@ -14,7 +14,7 @@ const { tmpdir, homedir } = require('node:os');
 const devHome=process.env.AESEL_DEV_HOME||'';
 app.setName(devHome?'Aesel Dev':'aesel');
 app.setPath('userData', join(app.getPath('appData'), devHome?'Aesel Dev':'Easel'));
-let window, terminal, timer, quitting = false;
+let window, terminal, timer, quitting = false, windowPainted = false;
 let lastVisibleState = null, keepPreviewOnStart = false;
 let terminalSize = {cols:100,rows:32};
 let currentTheme = FALLBACK;
@@ -77,13 +77,13 @@ function releaseAddress(){
 }
 app.once('will-quit',()=>{releaseAddress();try{rmSync(dragDir,{recursive:true,force:true});}catch{}});
 process.once('exit',releaseAddress);
-app.on('second-instance',()=>{if(!window||window.isDestroyed())return;if(window.isMinimized())window.restore();window.show();window.focus();});
+app.on('second-instance',()=>{if(!window||window.isDestroyed()||!windowPainted)return;if(window.isMinimized())window.restore();window.show();window.focus();});
 // `open -a Easel` activates an existing macOS process without necessarily
 // launching a second instance. A checkpointed restart can therefore leave the
 // process healthy but its previously hidden window unreachable unless the app
 // handles the ordinary Dock/reopen activation itself.
 app.on('activate', () => {
-  if (!window || window.isDestroyed()) return;
+  if (!window || window.isDestroyed() || !windowPainted) return;
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
@@ -236,7 +236,7 @@ function openNewWindow(){
  const cwd=join(app.getPath('userData'),'projects',id);
  mkdirSync(cwd,{recursive:true,mode:0o700});
  const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;
- const args=[...(app.isPackaged?[]:[app.getAppPath()]),'--instance',id,'--cwd',cwd];
+ const args=[...(app.isPackaged?[]:[app.getAppPath()]),'--instance',id,'--cwd',cwd,'--window-requested-at',String(Date.now())];
  const child=spawn(process.execPath,args,{detached:true,stdio:'ignore',env});
  child.on('error',error=>send('desktop-notice',`Could not open a window: ${error.message}`));child.unref();
 }
@@ -264,17 +264,13 @@ app.whenReady().then(() => {
       { label: 'Bitmap Font', type: 'radio', checked: true, accelerator: 'CmdOrCtrl+Shift+B', click: () => send('font', true) },
       { label: 'Smooth Font', type: 'radio', accelerator: 'CmdOrCtrl+Shift+M', click: () => send('font', false) },
       {type:'separator'},
-      {label:'Preview',submenu:[
-        {label:'Compact',type:'radio',click:()=>send('preview-mode','compact')},
-        {label:'Zoom on Hover',type:'radio',checked:true,click:()=>send('preview-mode','hover')},
-        {label:'Always Open',type:'radio',click:()=>send('preview-mode','pinned')},
-      ]},
     ] },
     { role: 'windowMenu' },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
-  window = new BrowserWindow({ width: 760, height: 540, title: devHome?'Aesel Dev':'aesel', backgroundColor: '#463264',
-    webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
+  window = new BrowserWindow({ show:false, width: 760, height: 540, title: devHome?'Aesel Dev':'aesel', backgroundColor: currentTheme.background,
+    webPreferences: { additionalArguments:[`--aesel-initial-theme=${JSON.stringify(currentTheme)}`], preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
+  window.once('ready-to-show',()=>{windowPainted=true;window.show();console.log(JSON.stringify({event:'window-presented',ms:Date.now()-startedAt,requestedMs:option('--window-requested-at')?Date.now()-Number(option('--window-requested-at')):undefined}));});
   const creditLabel = require('./credit-label.cjs').startCreditLabel({app, window, root});
   require('./credit-checkout.cjs').startCreditCheckout({app,window,root,ipcMain,shell,refresh:creditLabel.refresh});
   require('./native-title.cjs').registerNativeTitle({ipcMain, window, app});

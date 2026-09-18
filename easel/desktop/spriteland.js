@@ -22,7 +22,7 @@
   }
   return c;
  }
- const wood=woodTile();document.documentElement.style.setProperty('--aesel-wood-tile',`url(${wood.toDataURL()})`);let theme='#463264',last='';
+ const wood=woodTile();document.documentElement.style.setProperty('--aesel-wood-tile',`url(${wood.toDataURL()})`);let theme=window.aesel?.initialTheme?.background||'#463264',last='';
  // The DOM ruling follows transcript scroll; this canvas supplies paper color.
  function tile(){const c=make(32,32),g=c.getContext('2d');g.fillStyle=theme;g.fillRect(0,0,32,32);return c;}
 

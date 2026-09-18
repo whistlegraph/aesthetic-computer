@@ -1,6 +1,6 @@
 // Route ordinary window clicks back to typing without swallowing UI actions.
 window.installNotebookFocus = ({ focusInput, sendInput, preview }) => {
- const controls='button,a,input,textarea,select,summary,[contenteditable="true"],[role="button"],[role="menu"],dialog';
+ const controls='button,a,input,textarea,select,summary,[contenteditable="true"],[role="button"],[role="menu"],dialog,webview,#artifact-shell';
  const blocked=()=>document.body.classList.contains('preview-fullscreen')||!!document.querySelector('dialog[open]')||!!document.querySelector('#aesel-context-menu:not([hidden])');
  const focus=()=>{if(!blocked())focusInput();};
  let down=null;
@@ -31,8 +31,7 @@ window.installNotebookFocus = ({ focusInput, sendInput, preview }) => {
  window.addEventListener('focus',()=>{
   if(!document.activeElement?.closest?.(controls))requestAnimationFrame(focus);
  });
- // Embedded pages do not bubble pointer events into the notebook document.
- preview?.addEventListener('focus',()=>requestAnimationFrame(focus));
+ // A focused preview owns its keyboard. Clicking the notebook returns to typing.
 };
 
 window.setNotebookInk = background => {

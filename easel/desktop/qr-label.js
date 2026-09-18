@@ -32,7 +32,7 @@
     label.setAttribute('aria-label', text);
     const previousText=label.dataset.title||'';
     const previousLetters=Array.from(label.children);
-    const retain=id==='version'&&previousLetters.every(node=>node.classList.contains('qr-letter'));
+    const retain=id==='version'&&previousLetters.length>0&&previousLetters.every(node=>node.classList.contains('qr-letter'));
     label.dataset.title = text;
     const fallback = document.createElement('span');
     fallback.textContent = text;

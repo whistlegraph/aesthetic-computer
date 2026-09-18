@@ -1,9 +1,8 @@
 @font-face{font-family:"AC aesel Unifont";src:url("fonts/ac-easel-unifont.woff") format("woff");font-style:normal;font-weight:400;font-display:swap}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#463264;color:white;font-family:"AC aesel Unifont",monospace}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--aesel-background,#463264);color:var(--aesel-foreground,white);font-family:"AC aesel Unifont",monospace}
 #terminal{height:calc(100% - 20px);padding:10px}
-#artifact-shell{position:absolute;top:14px;right:14px;width:var(--preview-width,178px);height:var(--preview-height,119.33px);transition:width .18s,height .18s;z-index:2}
-#artifact{position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;background:#1c1728;border:1px solid #ffffff55;border-radius:0;box-shadow:2px 2px #0006;transition:width .18s,height .18s;z-index:2}
-body[data-preview-mode="hover"][data-preview-engaged="true"] #artifact-shell,body[data-preview-mode="hover"] #artifact-shell:focus-within,body[data-preview-mode="pinned"] #artifact-shell{width:var(--preview-expanded-width,434px);height:var(--preview-expanded-height,290px)}
+#artifact-shell{position:absolute;top:14px;right:14px;width:var(--preview-width,178px);height:var(--preview-height,119.33px);transition:none;z-index:2}
+#artifact{position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;background:#1c1728;border:1px solid #ffffff55;border-radius:0;box-shadow:2px 2px #0006;transition:none;z-index:2}
 #preview-viewport{position:absolute;left:0;top:0;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);transform-origin:0 0;image-rendering:pixelated;overflow:hidden}
 #piece{display:flex;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);image-rendering:pixelated}
 #version{position:absolute;right:0;top:calc(100% + 4px);color:#fff;text-shadow:1px 1px #000;font:calc(var(--aesel-qr-label-size,16px) * .75) "AC aesel Unifont",monospace;pointer-events:none;white-space:nowrap}
@@ -20,7 +19,7 @@ body[data-preview-mode="hover"][data-preview-engaged="true"] #artifact-shell,bod
 .fullscreen-control:focus-visible{outline:2px solid white;outline-offset:2px}
 #preview-fullscreen{position:absolute;top:5px;right:5px;width:24px;height:24px;padding:2px;font-size:16px}
 body.preview-fullscreen #terminal,body.preview-fullscreen #qr-card,body.preview-fullscreen #qr-label,body.preview-fullscreen #version{display:none}
-body.preview-fullscreen #artifact-shell,body.preview-fullscreen[data-preview-mode] #artifact-shell:hover,body.preview-fullscreen[data-preview-mode] #artifact-shell:focus-within{position:fixed;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:var(--preview-fullscreen-width);height:var(--preview-fullscreen-height);z-index:10;transition:none}
+body.preview-fullscreen #artifact-shell{position:fixed;inset:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:var(--preview-fullscreen-width);height:var(--preview-fullscreen-height);z-index:10;transition:none}
 body.preview-fullscreen #artifact{border:0;border-radius:0;box-shadow:none;animation:none;transition:none}
 body.preview-fullscreen #preview-fullscreen{top:12px;right:12px}
 @media(prefers-reduced-motion:reduce){#artifact-shell{transition:none}}
@@ -91,3 +90,5 @@ body.preview-fullscreen #artifact-shell{padding:0;border:0;box-shadow:none;backg
 #aesel-context-menu button:hover:not(:disabled),#aesel-context-menu button:focus-visible{background:#69436e;outline:none}
 #aesel-context-menu button:disabled{opacity:.4;cursor:default}
 #aesel-context-menu hr{border:0;border-top:1px solid #dc9ccc40;margin:4px 5px}
+
+body:not([data-notebook-ready]) #terminal{opacity:0}

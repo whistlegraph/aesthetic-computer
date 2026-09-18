@@ -1,6 +1,6 @@
 // Native-resolution prose above the terminal's input and approval controls.
 (() => {
- const view=document.createElement('section');view.id='conversation';view.hidden=true;
+ const view=document.createElement('section');view.id='conversation';view.hidden=false;
  view.setAttribute('aria-label','Conversation');view.setAttribute('role','log');
  view.setAttribute('aria-live','off');document.body.append(view);
  const title=document.getElementById('qr-label');if(title)view.append(title);

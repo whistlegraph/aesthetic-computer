@@ -1,7 +1,7 @@
 async function boot() {
 const donkey = {setScale(){},update(){},destroy(){}};
 window.addEventListener("beforeunload",()=>donkey.destroy(),{once:true});
-await document.fonts.load('16px "AC aesel Unifont"');
+void document.fonts.load('16px "AC aesel Unifont"').catch(()=>{});
 let savedTextSize = 16;
 try { const size = Number(localStorage.getItem('easel-text-size')); if (size >= 8 && size <= 48) savedTextSize = size; } catch {}
 let bitmapFont = false;
@@ -67,16 +67,11 @@ function sizePreviewBox() {
   // Keep the page above the mascot/shelf region. The preview is absolutely
   // positioned, so this changes only its visual footprint—not terminal or
   // bottom-interface column widths.
-  const paperExpanded=Math.min(innerWidth*.88,availablePreviewHeight*previewAspect);
-  const expanded=window.currentPreviewMedium==='paper'
-    ? Math.max(compact,paperExpanded)
-    : Math.min(compact*3,innerWidth*.78,availablePreviewHeight*previewAspect);
   layoutProperty("--preview-qr-size",`${Math.max(1,Math.floor((Math.min(compact,compact/previewAspect)-4)*dpr/modules))*modules/dpr}px`);
   layoutProperty("--donkey-qr-size",`${largeQr}px`);
   layoutProperty("--donkey-qr-bottom",`${stageHeight+20}px`);
   for (const [key,value] of Object.entries({
     'preview-width':compact+12,'preview-height':compact/previewAspect+12,
-    'preview-expanded-width':expanded+12,'preview-expanded-height':expanded/previewAspect+12,
     'preview-logical-width':previewWidth,'preview-logical-height':previewHeight,
     'preview-fullscreen-width':Math.min(innerWidth,innerHeight*previewAspect),
     'preview-fullscreen-height':Math.min(innerWidth/previewAspect,innerHeight),
@@ -180,11 +175,13 @@ const terminalElement = document.getElementById('terminal');
 const promptLine=document.createElement('div');promptLine.id='prose-prompt';promptLine.hidden=true;
 promptLine.setAttribute('aria-hidden','true');document.getElementById('notebook-page').append(promptLine);
 const promptFeedback=document.createElement('span');promptFeedback.id='prompt-feedback';promptFeedback.hidden=true;document.body.append(promptFeedback);
+const activityCaption=document.createElement('span');activityCaption.id='activity-caption';activityCaption.hidden=true;activityCaption.setAttribute('role','status');activityCaption.setAttribute('aria-live','off');
 window.installNotebookDonkey(promptFeedback);
 window.placeNotebookActivity=()=>{
  const last=Array.from(document.querySelectorAll('#notebook-page article[data-kind="user"]')).at(-1);
  const target=promptState?.text?promptLine:(last?.lastElementChild||last||promptLine);
  if(promptFeedback.parentElement!==target)target.append(promptFeedback);
+ if(activityCaption.parentElement!==target||promptFeedback.nextSibling!==activityCaption)promptFeedback.after(activityCaption);
 };
 let promptState=null;
 function positionPrompt(){
@@ -196,8 +193,11 @@ function positionPrompt(){
 }
 
 function updatePrompt(value){
+ document.body.dataset.notebookReady='true';
  const draftChanged=promptState&&(promptState.text!==value.text||promptState.cursor!==value.cursor);
  promptState=value;promptLine.hidden=!!value.hidden;positionPrompt();
+ activityCaption.hidden=!!value.hidden||!value.feedback||!value.activity;
+ activityCaption.textContent=activityCaption.hidden?'':`(${value.activity})`;
  promptFeedback.textContent='';promptFeedback.setAttribute('role','img');promptFeedback.setAttribute('aria-label',value.feedback||'Idle');promptFeedback.hidden=!!value.hidden||!value.feedback;
  const chars=Array.from(value.text||''),index=Math.max(0,Math.min(chars.length,value.cursor??chars.length));
  const before=document.createTextNode(chars.slice(0,index).join(''));
@@ -449,13 +449,13 @@ window.installPreviewShutter(artifact);
 document.getElementById('version').setAttribute('aria-label','Piece version');
 const previewViewport = document.getElementById('preview-viewport');
 // The guest keeps a display-aspect viewport, 128 pixels high. Only its composited surface
-// scales; hover/pinned/fullscreen never change the piece's layout or resolution.
+// scales; fullscreen never changes the piece's layout or resolution.
 function scalePreview() {
   const rect = artifact.getBoundingClientRect();
   const border = fullscreenState.preview ? 0 : 2;
   const width = rect.width - border, height = rect.height - border;
   if((!window.currentPreviewMedium||window.currentPreviewMedium==='piece')&&width>0&&height>0){
-    // Reframe only when the user changes the logical viewport. Hover and
+    // Reframe only when the user changes the logical viewport.
     // notebook redraws composite its existing surface without guest resizes.
     previewViewport.style.transform=`scale(${width/previewWidth},${height/previewHeight})`;return;
   }
@@ -471,10 +471,7 @@ window.addEventListener('resize', () => {
   resizeEndTimer=setTimeout(()=>document.body.classList.remove('window-resizing'),150);
   resize();
 });
-window.aesel.onPreviewMode(mode => {
-  document.body.dataset.previewMode = mode;
-  scalePreview();
-});
+
 sizePreviewBox(); scalePreview();
 let focusBeforePreview = null;
 window.aesel.onFullscreenState(state => {
@@ -602,7 +599,7 @@ window.aesel.ready();
 const reportConnection=()=>window.aesel.input(navigator.onLine?'\x1b[99;9;1~':'\x1b[99;9;0~');window.addEventListener('online',reportConnection);window.addEventListener('offline',reportConnection);if(!navigator.onLine)reportConnection();
 terminal.focus();
 }
-boot().catch(error => { document.getElementById('terminal').textContent = `Could not start terminal: ${error.message}`; });
+boot().catch(error => { document.body.dataset.notebookReady='true';document.getElementById('terminal').textContent = `Could not start terminal: ${error.message}`; });
 
 // The footer is the provider selector. Only hosted AC work displays a balance.
 (() => {

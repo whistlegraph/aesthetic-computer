@@ -1,5 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
+let initialTheme;
+try { const value=JSON.parse(process.argv.find(arg=>arg.startsWith('--aesel-initial-theme='))?.slice('--aesel-initial-theme='.length)||'null');if(value&&['background','foreground','cursor'].every(key=>/^#[0-9a-f]{6}$/i.test(value[key])))initialTheme=value; } catch {}
 contextBridge.exposeInMainWorld('aesel', {
+  initialTheme,
   renderProxTitle: (text, size) => ipcRenderer.invoke('native-prox-title', {text, size}),
   nativeContextMenu: items => ipcRenderer.invoke('notebook-context-menu',items),
   buyCredits: () => ipcRenderer.invoke('buy-ac-credits'),
@@ -18,7 +21,6 @@ contextBridge.exposeInMainWorld('aesel', {
   openPiece: url => { if (typeof url === 'string') ipcRenderer.send('open-piece',url); },
   openPaper: () => ipcRenderer.send('open-paper'),
   dragPreview: () => ipcRenderer.send('preview-drag'),
-  onPreviewMode: fn => ipcRenderer.on('preview-mode', (_event, mode) => { if (['compact', 'hover', 'pinned'].includes(mode)) fn(mode); }),
   onNotice: fn => ipcRenderer.on('desktop-notice', (_event, message) => { if (typeof message === 'string') fn(message.slice(0, 2000)); }),
   onFullscreenState: fn => ipcRenderer.on('fullscreen-state', (_event, state) => {
     if (state && typeof state.app === 'boolean' && typeof state.preview === 'boolean') fn({ app: state.app, preview: state.preview });
