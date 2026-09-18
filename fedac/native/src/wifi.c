@@ -743,10 +743,38 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
         wifi_log(wifi, "Auto-connect: no saved creds, preset only");
     }
 
+    // Step 2b: Preferred networks win over signal order. When one of these
+    // is in range and we hold its credentials, try it first; only if it
+    // fails do we fall through to strongest-known-first below.
+    static const char *PREFERRED_SSIDS[] = { "CULTUREHUB LA" };
+    char tried_preferred[WIFI_SSID_MAX] = "";
+    for (size_t pi = 0; pi < sizeof(PREFERRED_SSIDS) / sizeof(PREFERRED_SSIDS[0]); pi++) {
+        const char *want = PREFERRED_SSIDS[pi];
+        int cj = -1;
+        for (int j = 0; j < cred_count; j++)
+            if (strcmp(creds[j].ssid, want) == 0) { cj = j; break; }
+        if (cj < 0) continue;
+        int seen = 0, sig = 0;
+        pthread_mutex_lock(&wifi->lock);
+        for (int i = 0; i < wifi->network_count; i++)
+            if (strcmp(wifi->networks[i].ssid, want) == 0) { seen = 1; sig = wifi->networks[i].signal; break; }
+        pthread_mutex_unlock(&wifi->lock);
+        if (!seen) continue;
+        wifi_log(wifi, "Trying preferred '%s' (%d dBm)", want, sig);
+        wifi_do_connect(wifi, creds[cj].ssid, creds[cj].pass);
+        if (wifi->state == WIFI_STATE_CONNECTED) {
+            wifi_log(wifi, "Auto-connect: success (preferred)!");
+            return;
+        }
+        wifi_log(wifi, "preferred '%s' failed, falling back to signal order", want);
+        strncpy(tried_preferred, want, WIFI_SSID_MAX - 1);
+    }
+
     // Step 3: Match scanned networks against saved creds (by signal strength)
     // Networks are already sorted by signal (strongest first) from wifi_do_scan
     pthread_mutex_lock(&wifi->lock);
     for (int i = 0; i < wifi->network_count; i++) {
+        if (tried_preferred[0] && strcmp(wifi->networks[i].ssid, tried_preferred) == 0) continue;
         for (int j = 0; j < cred_count; j++) {
             if (strcmp(wifi->networks[i].ssid, creds[j].ssid) == 0) {
                 char ssid[WIFI_SSID_MAX], pass[WIFI_PASS_MAX];
