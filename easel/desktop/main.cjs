@@ -129,6 +129,7 @@ function requestRestart(action = 'restart') {
 const canUpdateBinary = !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, onStatus:(status,info)=>buildStatus.release(status,info), requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
+let applicationMenuTemplate=null;
 let pendingDevRoot=null,pendingDevUI=false,pendingDevAction=null,agentReady=false,agentReadyBuffer='';
 function applyPendingDev(){if(!pendingDevAction||!agentReady||!lastVisibleState||pendingRestart)return;const action=pendingDevAction;pendingDevAction=null;requestRestart(action);}
 const buildStatus=require('./build-status.cjs').createBuildStatus({app,devHome,root,send,channel:canUpdateBinary||process.mas?'release':'local',onDevReady:(next,compatibility)=>{
@@ -143,9 +144,9 @@ ipcMain.on('check-build-updates',event=>{if(event.sender===window?.webContents)c
 
 function send(channel, data) {
   if(channel==='build-status'){
-    const menu=Menu.getApplicationMenu(),item=menu?.getMenuItemById('aesel-build-status');
+    const item=applicationMenuTemplate?.[0]?.submenu?.[0];
     const label=[data.channel==='dev'?'Dev':data.channel==='release'?'Release':'Local',data.version,(data.tree||data.revision)?.slice(0,8),({current:'Up to date',ready:'Update ready',modified:'Local changes',unknown:'Unable to verify',checking:'Checking…',syncing:'Syncing…',downloading:'Downloading…'})[data.status]||'Unable to verify'].filter(Boolean).join(' · ');
-    if(item&&item.label!==label){item.label=label;Menu.setApplicationMenu(menu);}
+    if(item&&item.label!==label){item.label=label;Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));}
   }
   if(window&&!window.isDestroyed())window.webContents.send(channel,data);
 }
@@ -241,7 +242,7 @@ function openNewWindow(){
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return;
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  applicationMenuTemplate=[
     { label: devHome?'Aesel Dev':'Aesel', submenu: [
       {id:'aesel-build-status',label:devHome?'Dev · checking…':'Release · checking…',enabled:false},
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
@@ -270,7 +271,8 @@ app.whenReady().then(() => {
       ]},
     ] },
     { role: 'windowMenu' },
-  ]));
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
   window = new BrowserWindow({ width: 760, height: 540, title: devHome?'Aesel Dev':'aesel', backgroundColor: '#463264',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
   const creditLabel = require('./credit-label.cjs').startCreditLabel({app, window, root});
