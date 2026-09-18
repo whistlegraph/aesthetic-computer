@@ -30,10 +30,13 @@ export function pruneBuilds(home, retain=3) {
   // Keep recent builds, live PTY roots, and any locally edited snapshot.
   let processes;try{processes=execFileSync('/bin/ps',['-axo','command='],{encoding:'utf8',maxBuffer:4*1024*1024});}catch{return;}
   const current=fs.realpathSync(path.join(home,'current'));
+  const pinned=new Set();
+  const pins=path.join(home,'running');
+  if(fs.existsSync(pins))for(const name of fs.readdirSync(pins)){if(!/^\d+\.json$/.test(name))continue;const file=path.join(pins,name);try{const pin=JSON.parse(fs.readFileSync(file));if(!Number.isInteger(pin.pid)||pin.pid<=0||!(/^[a-f0-9]{40}$/.test(pin.tree)))continue;process.kill(pin.pid,0);pinned.add(pin.tree);}catch(error){if(error.code==='ESRCH')fs.rmSync(file,{force:true});}}
   const versions=path.join(home,'versions');
   const builds=fs.readdirSync(versions).filter(name=>/^[a-f0-9]{40}$/.test(name)).map(name=>path.join(versions,name)).filter(dir=>fs.existsSync(path.join(dir,'build.json'))).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs);
   for(const dir of builds.slice(retain)){
-    if(dir===current||processes.includes(dir))continue;
+    if(dir===current||pinned.has(path.basename(dir))||processes.includes(dir))continue;
     try{const manifest=JSON.parse(fs.readFileSync(path.join(dir,'build.json')));if(!modifiedFiles(path.join(dir,'easel'),manifest).length)fs.rmSync(dir,{recursive:true});}catch{}
   }
 }

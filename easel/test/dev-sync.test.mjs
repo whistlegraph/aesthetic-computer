@@ -17,6 +17,6 @@ test('failed staging keeps current build and marks freshness unknown',t=>{const 
 test('retention removes only old unmodified snapshots',t=>{
  const f=fixture(t),args={home:f.home,fetch:false,build:()=>{}};sync(args);const edited=fs.realpathSync(path.join(f.home,'current'));
  const next=i=>{fs.writeFileSync(path.join(f.repo,'easel/desktop/main.cjs'),'// revision '+i);f.commit();sync(args);return fs.realpathSync(path.join(f.home,'current'));};
- const old=next(1);fs.writeFileSync(path.join(edited,'easel/desktop/main.cjs'),'local edit');for(let i=2;i<=5;i++)next(i);
- assert(fs.existsSync(edited));assert(!fs.existsSync(old));assert.equal(fs.readdirSync(path.join(f.home,'versions')).length,4);
+ const old=next(1);fs.writeFileSync(path.join(edited,'easel/desktop/main.cjs'),'local edit');const unpinned=next(2);fs.mkdirSync(path.join(f.home,'running'));fs.writeFileSync(path.join(f.home,'running',process.pid+'.json'),JSON.stringify({pid:process.pid,tree:path.basename(old)}));for(let i=3;i<=6;i++)next(i);
+ assert(fs.existsSync(edited));assert(fs.existsSync(old));assert(!fs.existsSync(unpinned));assert.equal(fs.readdirSync(path.join(f.home,'versions')).length,5);
 });

@@ -164,7 +164,7 @@ function start() {
       ? require('./mas-terminal.cjs').createMasTerminal(args, { ...terminalSize, cwd: workspace, env })
       : pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
     agentReady=false;agentReadyBuffer='';
-    terminal.onData(data => {send('output', data);if(!agentReady){agentReadyBuffer=(agentReadyBuffer+data).slice(-256);if(agentReadyBuffer.includes('\x1b]777;easel-agent-ready\x07')){agentReady=true;applyPendingDev();}}});
+    terminal.onData(data => {send('output', data);if(!agentReady){agentReadyBuffer+=data;if(agentReadyBuffer.includes('\x1b]777;easel-agent-ready\x07')){agentReady=true;applyPendingDev();}agentReadyBuffer=agentReadyBuffer.slice(-64);}});
     terminal.onExit(({ exitCode }) => {
       terminal = null;
       if (exitCode === 75 && existsSync(controlFile)) {
