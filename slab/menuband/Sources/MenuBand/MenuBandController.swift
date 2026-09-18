@@ -2459,6 +2459,14 @@ final class MenuBandController {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             if isDown {
+                // Recording is the sample voice's gesture: land on that
+                // backend before the take starts, so notes under the held
+                // key never fall through to the GM synth and the release
+                // has nothing to "go back" to. (Before the take, so the
+                // recorder's output gate still closes for its duration.)
+                if self.instrumentBackend != .sample {
+                    self.setSampleBackend(true)
+                }
                 // "Home" gesture: clear all per-key custom samples, then
                 // record a fresh global sample while held. ⌃ picks chromatic
                 // (pitch-corrected) vs the default normal (C4 = raw) mode.
@@ -2469,12 +2477,15 @@ final class MenuBandController {
                 self.onInstrumentVisualChange?()
             } else {
                 let usable = self.synth.stopSampleRecording()
-                if usable {
+                if usable || self.sampleVoiceHasRecording {
+                    // A fresh take, or a discarded one with an earlier
+                    // sample still loaded: stay on the sample voice.
                     self.setSampleBackend(true)
                 } else {
-                    // Recording was too short / discarded — still need to
-                    // repaint so the icon drops the red tint.
-                    self.onInstrumentVisualChange?()
+                    // Nothing to play at all — only then fall back to the
+                    // last GM voice rather than leave the keys silent.
+                    NSLog("MenuBand SampleVoice: no sample to play — restoring GM voice")
+                    self.setSampleBackend(false)
                 }
             }
         }
@@ -3519,6 +3530,7 @@ final class MenuBandController {
             // rewinds from "now"; release banks the playhead; the next press
             // RESUMES from that same reverse point. Playing a note re-anchors
             // the cursor at the live head (see MenuBandRewindVoice).
+            debugLog("space \(isDown ? "down" : "up") repeat=\(isRepeat) rewinding=\(isRewinding)")
             if isDown {
                 if !isRepeat { rewind() }
             } else {

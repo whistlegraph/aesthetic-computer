@@ -141,7 +141,11 @@ final class MenuBandSampleVoice {
     /// separate from the synth/playback engine avoids AUHAL device-routing
     /// conflicts when the output graph is pinned to a Multi-Output device or
     /// other output-only hardware.
-    private let recordEngine = AVAudioEngine()
+    /// Replaceable: an AVAudioEngine's input node keeps the format of the
+    /// device it was first built on, and neither `reset()` nor a stop/start
+    /// makes it re-read a new default input. When the device moves under a
+    /// stopped engine, `rebuildRecordEngine()` swaps in a fresh one.
+    private var recordEngine = AVAudioEngine()
     private let inputMonitorPlayer = AVAudioPlayerNode()
     private let inputMonitorGain = AVAudioUnitEQ(numberOfBands: 0)
     private var inputMonitoringEnabled = false
@@ -272,13 +276,7 @@ final class MenuBandSampleVoice {
         // Mirrors `KPBJRadioStream.crossfadeMixer.outputVolume`.
         voiceMixer.outputVolume = 0.0
         attached = true
-        if monitorConfigObserver == nil {
-            monitorConfigObserver = NotificationCenter.default.addObserver(
-                forName: .AVAudioEngineConfigurationChange,
-                object: recordEngine,
-                queue: .main
-            ) { [weak self] _ in self?.scheduleMonitorConfigurationRecovery() }
-        }
+        observeRecordEngineConfiguration()
         // Pre-build the melodic sample playback graph before the host
         // engine starts. Lazy attachment after AVAudioEngine is already
         // running can produce silent player nodes on some CoreAudio graphs.
@@ -435,11 +433,30 @@ final class MenuBandSampleVoice {
         NSLog("MenuBand SampleVoice: recording started instantly (input format ch=\(format.channelCount) sr=\(format.sampleRate) recordEngineRunning=\(recordEngine.isRunning))")
     }
 
-    private func ensureHotMicRunning() -> Bool {
+    private func ensureHotMicRunning(retrying: Bool = false) -> Bool {
         if inputTapInstalled, recordEngine.isRunning { return true }
         selectPreferredHardwareInput()
         let input = recordEngine.inputNode
-        let format = input.inputFormat(forBus: 0)
+        var format = input.inputFormat(forBus: 0)
+        // The default-input switch above lands asynchronously in CoreAudio;
+        // a node built in the same instant can answer 0 ch / 0 Hz for a
+        // beat (seen on macOS 27 with the Scarlett taking over from the
+        // built-in mic). Give it up to half a second, then rebuild the
+        // engine once so a node that latched onto "no device" is replaced.
+        var waits = 0
+        while (format.channelCount == 0 || format.sampleRate == 0) && waits < 10 {
+            usleep(50_000)
+            waits += 1
+            format = input.inputFormat(forBus: 0)
+        }
+        if waits > 0 {
+            NSLog("MenuBand SampleVoice: input format settled after \(waits * 50) ms (ch=\(format.channelCount) sr=\(format.sampleRate))")
+        }
+        if (format.channelCount == 0 || format.sampleRate == 0) && !retrying {
+            NSLog("MenuBand SampleVoice: input format still unusable — rebuilding record engine")
+            rebuildRecordEngine()
+            return ensureHotMicRunning(retrying: true)
+        }
         // Some virtual input devices return a 0-channel / 0-Hz format
         // when no real device is selected. Bail loudly so the synth
         // doesn't think it has a usable buffer when the user releases.
@@ -509,12 +526,21 @@ final class MenuBandSampleVoice {
                 recordEngine.prepare()
                 try recordEngine.start()
             } catch {
+                // -10868 (format not supported) here means the input node is
+                // holding the format of the device it was first built on:
+                // the default input moved (Scarlett ↔ built-in mic) while
+                // this engine was stopped and the node never re-read it.
+                // `reset()` does not help (verified on macOS 27); a fresh
+                // engine on the same device starts fine, so rebuild and
+                // run this once more.
+                NSLog("MenuBand SampleVoice: hot mic start failed: \(error) — input node was ch=\(format.channelCount) sr=\(format.sampleRate); \(retrying ? "giving up" : "rebuilding record engine")")
                 if inputTapInstalled {
                     input.removeTap(onBus: 0)
                     inputTapInstalled = false
                 }
-                NSLog("MenuBand SampleVoice: hot mic start failed: \(error)")
-                return false
+                guard !retrying else { return false }
+                rebuildRecordEngine()
+                return ensureHotMicRunning(retrying: true)
             }
             // Belt + suspenders: assert silence again after start in
             // case AVAudioEngine's internal connect happened during
@@ -523,6 +549,44 @@ final class MenuBandSampleVoice {
         }
         NSLog("MenuBand SampleVoice: hot mic ready (input format ch=\(format.channelCount) sr=\(format.sampleRate) buffer=\(inputTapBufferFrames))")
         return true
+    }
+
+    private func observeRecordEngineConfiguration() {
+        if let observer = monitorConfigObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        monitorConfigObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: recordEngine,
+            queue: .main
+        ) { [weak self] _ in self?.scheduleMonitorConfigurationRecovery() }
+    }
+
+    /// Drop the input engine and start over with a fresh one. Taps and the
+    /// monitor nodes are detached from the old engine first so they can be
+    /// re-attached on the next `ensureHotMicRunning`; nothing about the
+    /// recorded samples or the playback graph is touched.
+    private func rebuildRecordEngine() {
+        let old = recordEngine
+        if inputTapInstalled {
+            old.inputNode.removeTap(onBus: 0)
+            inputTapInstalled = false
+        }
+        if monitorOutputTapInstalled {
+            old.mainMixerNode.removeTap(onBus: 0)
+            monitorOutputTapInstalled = false
+        }
+        old.stop()
+        if inputMonitorConnected {
+            old.detach(inputMonitorGain)
+            old.detach(inputMonitorPlayer)
+            inputMonitorConnected = false
+        }
+        inputFormat = nil
+        inputConverter = nil
+        recordEngine = AVAudioEngine()
+        observeRecordEngineConfiguration()
+        NSLog("MenuBand SampleVoice: record engine rebuilt")
     }
 
     /// Public re-run of the input-device preference, for the headphone
