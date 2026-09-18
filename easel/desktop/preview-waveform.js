@@ -10,6 +10,19 @@ window.installPreviewWaveform = (preview) => {
   path.setAttribute("transform", "matrix(0 1 1 0 0 0)");
   line.append(path);
   document.body.append(line);
+  let version;
+  const align = () => {
+    const inset = version?.offsetWidth ? version.offsetWidth + (parseFloat(getComputedStyle(version).right) || 0) + 12 : 80;
+    document.documentElement.style.setProperty("--preview-audio-inset", `${inset}px`);
+  };
+  const placement = new ResizeObserver(align);
+  queueMicrotask(() => {
+    version = document.getElementById("credit-label");
+    if (version) placement.observe(version);
+    align();
+  });
+  window.addEventListener("resize", align);
+  align();
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   let ready = false,
     timer = 0,
@@ -107,5 +120,5 @@ window.installPreviewWaveform = (preview) => {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clear();
   });
-  window.addEventListener("beforeunload", stop, { once: true });
+  window.addEventListener("beforeunload", () => { stop(); placement.disconnect(); window.removeEventListener("resize", align); }, { once: true });
 };

@@ -312,7 +312,7 @@ body:not(.preview-fullscreen) #artifact-shell[data-resized]{width:var(--resized-
 #activity-caption::after{width:2px;height:2px;left:-15px;top:72%}
 #activity-caption[hidden]{display:none}
 
-#preview-waveform{position:fixed;left:auto;right:12px;top:0;bottom:0;width:16px;height:100%;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s;overflow:hidden}
+#preview-waveform{position:fixed;left:auto;right:var(--preview-audio-inset,80px);top:0;bottom:0;width:16px;height:100%;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s;overflow:hidden}
 #preview-waveform.sounding{opacity:.65}
 #preview-waveform path{fill:none;stroke:var(--aesel-accent,#ff78b2);stroke-width:1;stroke-linejoin:round;stroke-linecap:round}
 body.preview-fullscreen #preview-waveform{display:none}
@@ -348,6 +348,6 @@ body.preview-fullscreen #preview-waveform{display:none}
 #provider-menu .provider-options button{display:flex;align-items:center;gap:8px;white-space:nowrap}
 #provider-menu .provider-options [aria-selected=true]{background:color-mix(in srgb,currentColor 12%,transparent)}
 
-#notebook-page{padding-right:38px}
+#notebook-page{padding-right:calc(var(--preview-audio-inset,80px) + 26px)}
 
 .user-time{opacity:.6;font:inherit;color:var(--user-ink)}
