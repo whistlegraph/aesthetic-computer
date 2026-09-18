@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f4eddb">
+  <title>Aesel — make a piece</title>
+  <link rel="icon" href="/icon.png">
+  <link rel="stylesheet" href="./app.css">
+  <script defer src="./auth0.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <header><a class="brand" href="/">Aesel<span>by Aesthetic Computer</span></a><div class="account"><span id="credits"></span><span id="handle"></span><button id="logout" hidden>Sign out</button></div></header>
+  <main id="gate">
+    <img src="/icon.png" width="112" height="112" alt="">
+    <h1>What shall we make?</h1>
+    <p>Describe a piece. Play it as it takes shape.</p>
+    <button id="login" class="primary" disabled>Sign in with Aesthetic Computer</button>
+    <p id="gate-status" role="status">Loading…</p>
+    <p class="disclosure">Pieces publish to your public @handle as you work. Conversations and revisions are shared with authorized AC staff. <a href="/privacy.html">Privacy</a></p>
+    <noscript>Enable JavaScript to use Aesel.</noscript>
+  </main>
+  <main id="workspace" hidden>
+    <nav class="pieces" aria-label="Saved pieces"><button id="new">+ New piece</button><label for="history">Saved here</label><select id="history" aria-label="Saved pieces in this browser"></select><span id="status" role="status"></span></nav>
+    <div class="workbench">
+      <section class="notebook" aria-label="Conversation">
+        <ol id="log" aria-label="Messages"></ol>
+        <form id="composer"><label class="sr-only" for="input">Describe your piece</label><textarea id="input" rows="3" placeholder="Make a garden that dances…" maxlength="24000"></textarea><div class="compose-actions"><span>AC braincells</span><button id="stop" type="button" hidden>Stop</button><button id="send" class="primary">Make it</button></div></form>
+      </section>
+      <section class="preview-panel" aria-label="Piece preview"><div class="preview-title"><a id="piece-link" target="_blank" rel="noopener" hidden>Open piece ↗</a><button id="download" disabled>Download source</button></div><div class="stage"><p id="empty">Your piece appears here.</p><iframe id="preview" title="Your piece" hidden sandbox="allow-scripts allow-same-origin allow-pointer-lock" allow="autoplay; fullscreen" referrerpolicy="origin"></iframe></div><p id="publish-note">Edits publish to your public @handle. Drafts stay in this browser.</p></section>
+    </div>
+  </main>
+</body>
+</html>

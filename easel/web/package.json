@@ -1,0 +1,15 @@
+{
+  "name": "aesel-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node serve.mjs",
+    "test": "node --test storage.test.mjs",
+    "test:browser": "node browser.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}
