@@ -570,7 +570,17 @@ export class ClaudeServer extends EventEmitter {
   }
 
   #result(message) {
-    const id = this.turnId || `turn-${this.turns}`;
+    // A result with no turn in flight is the launch itself failing — the CLI
+    // answers a `--resume` it cannot find with an empty error result before
+    // it exits — and reporting that as a failed turn puts "turn failed" in
+    // front of someone who has not typed anything yet. The exit handler owns
+    // that case; this only logs what the CLI said.
+    if (!this.turnId) {
+      const said = message.result || message.terminal_reason || message.subtype || "";
+      if (message.is_error) this.emit("log", `engine result before any turn: ${said}`.trim());
+      return;
+    }
+    const id = this.turnId;
     this.turnId = null;
     this.textItems.clear();
     this.codeItems.clear();

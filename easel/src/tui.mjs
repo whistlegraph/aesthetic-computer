@@ -1289,7 +1289,11 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
   redraw();
   const previous = engine;
   try {
-    engine = openEngine({resume: nextBackend.id === previousBackend.id && nextBackend.id !== "ac" ? previous.threadId : ""});
+    // A Claude thread is only on disk once a turn has run; resuming a thread
+    // that never had one is answered with an error the CLI prints before it
+    // exits. Engines that do not count turns resume as they always have.
+    const resumable = nextBackend.id === previousBackend.id && nextBackend.id !== "ac" && previous.turns !== 0;
+    engine = openEngine({resume: resumable ? previous.threadId : ""});
     if(nextBackend.id === "ac" && previousBackend.id === "ac") { engine.messages = structuredClone(previous.messages); engine.turns = previous.turns; }
     const connection = await engine.connect();
     previous.close();

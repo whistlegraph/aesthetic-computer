@@ -236,7 +236,10 @@ test('missing unsaved Claude session recovers only with explicit aesel handoff',
  const {root,cleanup}=scratch();t.after(cleanup);const argvFile=path.join(root,'args.json');
  const engine=bridge(t,{resumeThreadId:'missing',recoveryInstructions:'Retained aesel conversation',environment:{FAKE_CLAUDE_ARGV:argvFile,FAKE_CLAUDE_MISSING:'1'}});
  let fatals=0;engine.on('fatal',()=>fatals++);
- const c=await engine.connect();assert.notEqual(c.thread.id,'missing');assert.equal(fatals,0);
+ // The CLI's empty error result for the missing session is not a turn, and
+ // must not reach the interface as "turn failed" before anything was typed.
+ const completed=[];engine.on('notification',n=>{if(n.method==='turn/completed')completed.push(n.params.turn);});
+ const c=await engine.connect();assert.notEqual(c.thread.id,'missing');assert.equal(fatals,0);assert.deepEqual(completed,[]);
  const args=launches(argvFile).argvs;assert.equal(args.length,2);assert.match(flagIn(args[1],'--append-system-prompt'),/Retained aesel conversation/);
 });
 // Energy is estimated from token counts, so the counts have to arrive — and

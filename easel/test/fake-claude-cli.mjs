@@ -20,7 +20,12 @@ function flag(name) {
   return index < 0 ? "" : argv[index + 1] || "";
 }
 
-if(process.env.FAKE_CLAUDE_MISSING && flag("--resume")){console.error("No conversation found with session ID: "+flag("--resume"));process.exit(1);}
+// The real CLI answers a resume it cannot find with an empty error result on
+// stdout, then the reason on stderr, then exit 1 — in that order.
+if(process.env.FAKE_CLAUDE_MISSING && flag("--resume")){
+  process.stdout.write(JSON.stringify({type:"result",subtype:"error_during_execution",is_error:true,num_turns:0,session_id:flag("--resume"),usage:{},modelUsage:{}})+"\n");
+  console.error("No conversation found with session ID: "+flag("--resume"));process.exit(1);
+}
 
 function send(message) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
