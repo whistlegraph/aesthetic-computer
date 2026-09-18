@@ -268,6 +268,8 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
       try {
         say("status", { text: "publishing", kind: "working" });
         await publishPiece({
+          // Phone threads preserve drafts, but have no desktop revision ledger.
+          version: null,
           file: state.file,
           slug: state.slug,
           cwd: "/piece",

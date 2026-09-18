@@ -617,7 +617,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // status, or the thing being typed.
   const controls=modelControls(state,width);
   const controlLine=controls.length?' '+controls.map(c=>paint(useColor,c.selected||state.hover===c.action?'block bold':c.tone+' bold',c.text.padEnd(c.width))).join(''):pathLine;
-  const lines = [...body, rule, header, controlLine, prompt, help];
+  const desktop = state.desktop || state.desktopProsePrompt;
+  const lines = [...body, desktop ? "" : rule, desktop ? "" : header, desktop ? "" : controlLine, prompt, desktop ? "" : help];
   return lines
     .slice(0, height)
     .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && !process.env.EASEL_DESKTOP && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})

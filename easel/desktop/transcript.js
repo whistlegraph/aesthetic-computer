@@ -58,7 +58,7 @@
   const newestUser=value.entries.filter(entry=>entry.kind==='user'&&entry.text?.trim()).at(-1)?.id;
   for(const entry of value.entries){
    if(typeof entry.id!=='string'||typeof entry.text!=='string')continue;
-   if(['command','change','tool','publish'].includes(entry.kind)||!entry.text.trim())continue;
+   if(!['user','assistant','error'].includes(entry.kind)||!entry.text.trim())continue;
    if(entry.kind==='notice'&&/^New [^\n]+\nPrevious thread saved: /.test(entry.text))continue;
    if(entry.kind==='notice'&&/^(?:Engine|Model|Settings|Medium|Artifact) · .* · current piece and recent conversation carried over$/.test(entry.text))continue;
    if(entry.kind==='notice'&&/^(?:Desktop thread restored|Desktop (?:restart|update|home) queued|Ran: |Queued(?: \(\d+ queued\))? · )/.test(entry.text))continue;

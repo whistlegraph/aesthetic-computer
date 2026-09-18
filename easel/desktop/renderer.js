@@ -180,13 +180,11 @@ const terminalElement = document.getElementById('terminal');
 const promptLine=document.createElement('div');promptLine.id='prose-prompt';promptLine.hidden=true;
 promptLine.setAttribute('aria-hidden','true');document.getElementById('notebook-page').append(promptLine);
 const promptFeedback=document.createElement('span');promptFeedback.id='prompt-feedback';promptFeedback.hidden=true;document.body.append(promptFeedback);
-const activityCaption=document.createElement('span');activityCaption.id='activity-caption';activityCaption.hidden=true;activityCaption.setAttribute('role','status');activityCaption.setAttribute('aria-live','off');
 window.installNotebookDonkey(promptFeedback);
 window.placeNotebookActivity=()=>{
  const last=Array.from(document.querySelectorAll('#notebook-page article[data-kind="user"]')).at(-1);
  const target=promptState?.text?promptLine:(last?.lastElementChild||last||promptLine);
  if(promptFeedback.parentElement!==target)target.append(promptFeedback);
- if(activityCaption.parentElement!==target||promptFeedback.nextSibling!==activityCaption)promptFeedback.after(activityCaption);
 };
 let promptState=null;
 function positionPrompt(){
@@ -200,7 +198,6 @@ function positionPrompt(){
 function updatePrompt(value){
  const draftChanged=promptState&&(promptState.text!==value.text||promptState.cursor!==value.cursor);
  promptState=value;promptLine.hidden=!!value.hidden;positionPrompt();
- activityCaption.textContent=value.activity?`(${value.activity})`:'';activityCaption.hidden=!!value.hidden||!value.activity;
  promptFeedback.textContent='';promptFeedback.setAttribute('role','img');promptFeedback.setAttribute('aria-label',value.feedback||'Idle');promptFeedback.hidden=!!value.hidden||!value.feedback;
  const chars=Array.from(value.text||''),index=Math.max(0,Math.min(chars.length,value.cursor??chars.length));
  const before=document.createTextNode(chars.slice(0,index).join(''));
@@ -654,6 +651,8 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
   modelSelect.addEventListener('change',()=>{window.aesel.input(`\x1b[99;4;${backendIndex};${modelSelect.value}~`);});
   modelLabel.append(modelSelect);menu.append(modelLabel);
 
+  const stateLine=document.createElement('p');stateLine.className='inference-status';stateLine.textContent=[provider?.mode==='local'?'Local inference':'Remote inference',provider?.status,provider?.activity].filter(Boolean).join(' · ');menu.append(stateLine);
+  if(provider?.notice){const notice=document.createElement('p');notice.className='session-notice';notice.textContent=provider.notice;menu.append(notice);}
   if(provider?.backend==='ac'){const count=document.createElement('p');count.className='braincell-balance';const icon=new Image();icon.src='assets/braincell.svg';icon.alt='';icon.className='provider-mark';count.append(icon,`${n===null?'—':n.toLocaleString('en-US')} braincells`);menu.append(count);}
   if(provider?.backend==='ac'&&credits?.offer){
    const buy=item('Buy 1,000,000 braincells · $5',async()=>{

@@ -6,6 +6,7 @@ import {takeSubmittedBatch,inputBatchDelay} from './input-batch.mjs';
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
 import {publicActivity,toolActivity} from './public-activity.mjs';
+import {notebookConversationEntry} from './notebook-conversation.mjs';
 import {connectionFailure,conciseFailure} from './connection-status.mjs';
 import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
@@ -562,7 +563,7 @@ function redraw() {
     if(historyKey!==desktopHistoryKey){desktopHistoryKey=historyKey;try{desktopHistory=live.history.list().map(({version,updatedAt,restoredFrom,summary})=>({version,updatedAt,restoredFrom,summary}));}catch{desktopHistory=[];}}
     const bindingKey=state.medium==='piece'?`${live.file}:${live.revision?.revision||''}`:'';
     if(bindingKey!==bindingSnapshotKey){bindingSnapshotKey=bindingKey;bindingSnapshot=state.medium==='piece'&&live.revision?.source?notebookBindings(live.revision.source,live.file):{revision:'',bindings:[]};}
-    const provider = JSON.stringify({feedPending:!!state.feedPending,notebookBindings:bindingSnapshot,backend:backend.id,model:state.model||model,effort,busy:state.busy,selectedModel:model,models:pickerModels({backend:backend.id,model,catalog:modelCatalog||[]}),versions:desktopHistory});
+    const provider = JSON.stringify({status:state.status,mode:state.mode,activity:publicActivity(state),notice:state.entries.findLast(e=>e.kind==='notice')?.text||'',feedPending:!!state.feedPending,notebookBindings:bindingSnapshot,backend:backend.id,model:state.model||model,effort,busy:state.busy,selectedModel:model,models:pickerModels({backend:backend.id,model,catalog:modelCatalog||[]}),versions:desktopHistory});
     if (provider !== lastProvider) { lastProvider = provider; process.stdout.write(`\x1b]777;easel-provider:${provider}\x07`); }
   }
   if (closing || drawing || splashing) return;
@@ -582,10 +583,10 @@ function redraw() {
     if (process.env.EASEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
-      const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>e.id!=='feed-registration'&&!e.activityOnly&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
+      const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
-    const frame = renderFrame(process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,entries:[],desktopProsePrompt:!state.approval} : state, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
+    const frame = renderFrame(process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP}, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
     const output = frameDiff.update(frame, process.stdout.columns);
     if (process.env.EASEL_DESKTOP) {
       const layout = JSON.stringify(frameLayout(state, process.stdout.rows));

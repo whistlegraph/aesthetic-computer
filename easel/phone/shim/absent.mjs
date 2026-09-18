@@ -14,6 +14,7 @@ export const spawn = absent("spawn");
 export const execFile = absent("execFile");
 export const execFileSync = absent("execFileSync");
 export const createServer = absent("createServer");
+export const createInterface = absent("createInterface");
 export const homedir = () => "/home";
 export const tmpdir = () => "/tmp";
 export const networkInterfaces = () => ({});

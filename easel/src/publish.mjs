@@ -57,6 +57,8 @@ export async function publishPiece({
   site = SITE,
   onStep = () => {},
   source: snapshot,
+  // Hosts without a desktop revision ledger can explicitly supply null.
+  version: snapshotVersion,
 }) {
   const handle = session.handle;
   if (!handle) {
@@ -102,7 +104,7 @@ export async function publishPiece({
   } catch {}
 
   let registration=null;
-  const savedVersion=new PieceRevisions(plan.path).list().findLast(v=>v.revision===createHash('sha256').update(source).digest('hex'))?.version;
+  const savedVersion=snapshotVersion === undefined ? new PieceRevisions(plan.path).list().findLast(v=>v.revision===createHash('sha256').update(source).digest('hex'))?.version : snapshotVersion;
   if(verified&&Number.isInteger(savedVersion)&&savedVersion>=2){
     try{const response=await fetch(`${site}/api/register-piece`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','User-Agent':USER_AGENT},body:JSON.stringify({version:savedVersion,slug:plan.slug,ext:plan.extension.slice(1),revision:createHash('sha256').update(source).digest('hex')}),signal:AbortSignal.timeout(10000)});const data=await response.json();registration=response.ok?data:{error:data.error||'Feed registration unavailable'};}
     catch{registration={error:'Feed registration unavailable'};}

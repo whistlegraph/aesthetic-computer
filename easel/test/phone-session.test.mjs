@@ -4,6 +4,30 @@ import {register} from 'node:module';
 register(new URL('./phone-loader.mjs', import.meta.url));
 const {createSession} = await import('../phone/session.mjs');
 
+test('phone publication verifies uploaded source without desktop revision storage', async () => {
+  const source='export function paint({wipe}) {wipe("orange")}';
+  const originalFetch=globalThis.fetch;
+  const calls=[];
+  globalThis.fetch=async (url,options={})=>{
+    calls.push(url);
+    if(url.includes('/presigned-upload-url/'))return Response.json({uploadURL:'https://upload.test/piece'});
+    if(options.method==='PUT')return new Response('');
+    return new Response(source);
+  };
+  try {
+    const values=new Map([['session',JSON.stringify({slug:'phone-test',source})]]);
+    const events=[];
+    const session=createSession({storage:{get:k=>values.get(k),set:(k,v)=>values.set(k,v)},emit:e=>events.push(e)});
+    await session.open();
+    session.state.token='test-token';session.state.handle='test';
+    await session.publish();
+    assert.equal(session.state.published,true);
+    assert.equal(calls.length,3);
+    assert.equal(events.some(e=>e.type==='bad'),false);
+    assert(events.some(e=>e.type==='preview'));
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('phone threads preserve source, transcript and engine context without account credentials', async () => {
   const source = 'export function paint({wipe}) {wipe("orange")}';
   const values = new Map([['session', JSON.stringify({slug:'legacy',source,published:true,token:'fake-token',handle:'test'})]]);
