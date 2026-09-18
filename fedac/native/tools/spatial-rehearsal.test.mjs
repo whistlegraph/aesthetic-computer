@@ -82,3 +82,21 @@ test('line reaches every assigned seat, conserves power and never wraps', () => 
   assert.equal(hasFocus(line, line.seatOrder[0], 6, half), false);
   assert.equal(hasFocus(line, line.seatOrder[1], 6, half), false);
 });
+
+test('polyrhythm has three melody attacks per two drum pulses and independent paths', () => {
+  const s = JSON.parse(readFileSync(new URL('../scores/polyrhythm-bounce.nsscore', import.meta.url)));
+  const melody = s.lanes[0].events, pulses = s.lanes[1].events.filter(e => e.hz === 6500);
+  assert.equal(melody.length / pulses.length, 3 / 2);
+  assert.equal(voicePosition(s, 0, 0).line, 1);
+  assert.equal(voicePosition(s, 1, 0).line, 0);
+  for (let lane = 0; lane < 2; lane++) {
+    const events = lane === 0 ? melody : pulses;
+    for (const [i, e] of events.entries()) {
+      const seat = (i + (lane === 0 ? 1 : 0)) % 2;
+      assert.ok(sourceGain(s, voicePosition(s, lane, e.t), seat, 2) > .999);
+    }
+  }
+  // Neither idle routing position should light a laptop in a silent gap.
+  assert.equal(hasFocus(s, 0, 2, .3), false);
+  assert.equal(hasFocus(s, 1, 2, .3), false);
+});

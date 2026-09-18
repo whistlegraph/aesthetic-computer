@@ -28,7 +28,8 @@ export function rotationAt(score, t) {
 
 export function voicePosition(score, i, t) {
   if (score.geometry === 'line') {
-    let u = ribbon(score, 'linePosition', t);
+    const lanePath = score.lanes[i].linePosition;
+    let u = ribbon(lanePath ? { dur: score.dur, linePosition: lanePath } : score, 'linePosition', t);
     if (score.linePasses?.length) {
       let pass = score.linePasses[0];
       for (const next of score.linePasses) { if (next.at > t) break; pass = next; }
@@ -74,5 +75,6 @@ export function seatGain(angle, seat, seats) {
 
 // Light only the seat holding at least 90% of a source's routed power.
 export function hasFocus(score, seat, seats, t) {
-  return score.lanes.some((_, i) => sourceGain(score, voicePosition(score, i, t), seat, seats) ** 2 >= .9);
+  return score.lanes.some((lane, i) => lane.events?.some(e => t >= e.t && t < e.t + e.dur) &&
+    sourceGain(score, voicePosition(score, i, t), seat, seats) ** 2 >= .9);
 }

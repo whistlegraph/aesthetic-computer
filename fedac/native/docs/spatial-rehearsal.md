@@ -47,3 +47,7 @@ node fedac/native/tools/spatial-rehearsal.mjs cue 192.168.1.236 192.168.1.237
 ```
 
 This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both devices confirmed speaker output with microphones closed.
+
+## Rhythm tests
+
+`compose-rhythm-bounce.mjs` writes a 112 BPM melody-and-percussion score that alternates on the beat. `compose-polyrhythm.mjs` writes `polyrhythm-bounce.nsscore`: three melody attacks against two drum pulses, independently bouncing across the line for 68.57 seconds. Deploy either with `--score rhythm-bounce` or `--score polyrhythm-bounce`, then cue both hosts. Per-lane `linePosition` arrays override the shared path. Focused brightness now requires an active note as well as 90% of that source's routed power.

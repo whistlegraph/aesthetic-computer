@@ -127,7 +127,7 @@ Show registered seats with live output, battery, phase, score time, data age, an
 
 ## Spatial view
 
-The current composition is the two-seat **Sine Line** (`sine-duet.nsscore`): 40.32 seconds, one source, 48 notes, and 24 passes. It sweeps seat 1 → seat 2 at varying speeds, then resets silently. The deployed score remains readable at `/pieces/spatial-rehearsal.nsscore`. Build labels, duration, source count, geometry, and seat order from fresh runtime data so the UI follows score changes. The laptop displays share this fixed line and highlight their own position.
+The current composition is **3 against 2** (`polyrhythm-bounce.nsscore`): 112 BPM, 68.57 seconds, two sources, and 64 cycles. Three melodic attacks occupy the same time as two drum pulses. Each source bounces independently between seat 1 and seat 2; the deployed score remains readable at `/pieces/spatial-rehearsal.nsscore`. Read each source's live position independently. Build labels, duration, source count, geometry, and seat order from fresh runtime data. The earlier `sine-duet.nsscore` remains available for the 40.32-second, 48-note line test.
 
 Use `data.sources` directly to draw the world. Each source contains `{lane, name, color, position, seatGain, active}`. `lane` is its zero-based score index and `color` is an RGB array. In line geometry, `position.line` runs from 0 (leftmost seat) to 1 (rightmost); `x` spans −1.6 to 1.6 in virtual units, and `y`/`z` are zero. `angle` is a zero placeholder here: do not use it to draw the line. In ring geometry, `position.angle` is in radians. Coordinates describe the score, not measured room positions.
 
@@ -143,3 +143,5 @@ Playback is currently output-only: a controller estimates each local audio clock
 - Seat 5 later went offline after reporting 2% battery during the six-seat rehearsal.
 - Moved to CULTUREHUB LA Wi-Fi for a two-machine rehearsal: seat 1 `ac-device` at `192.168.1.236`, seat 2 `ac5` at `192.168.1.237`, both on `dusted-mantella-tideline`. The controller is `192.168.1.235`; Sine Line now uses the 40.32-second duet, with only these two seats in the bridge and presence feed.
 - Current work deploys local pieces and tracks source changes in Git. No OTA release was requested.
+
+- Added Rhythm Bounce and 3-against-2 polyrhythm tests. Per-source line paths allow independent movement; idle sources no longer trigger focused brightness.

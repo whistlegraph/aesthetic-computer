@@ -176,9 +176,12 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   ink(230, 235, 245);
   if (isLine) {
     line(lineX(0),cy,lineX(1),cy);
-    write('LEFT TO RIGHT', { x: lineX(0), y: cy - 55, font: '6x10' });
+    write(score.motion === 'bounce' ? 'BACK AND FORTH' : 'LEFT TO RIGHT', { x: lineX(0), y: cy - 55, font: '6x10' });
     line(lineX(0),cy+48,lineX(1),cy+48);
     line(lineX(1),cy+48,lineX(1)-7,cy+43); line(lineX(1),cy+48,lineX(1)-7,cy+53);
+    if (score.motion === 'bounce') {
+      line(lineX(0),cy+48,lineX(0)+7,cy+43); line(lineX(0),cy+48,lineX(0)+7,cy+53);
+    }
   } else write('YOU', { x: cx - 9, y: cy - 4, font: '6x10' });
   if (!isLine) { line(cx, cy - 14, cx, cy - 30);
   line(cx, cy - 30, cx - 4, cy - 24); line(cx, cy - 30, cx + 4, cy - 24); }
