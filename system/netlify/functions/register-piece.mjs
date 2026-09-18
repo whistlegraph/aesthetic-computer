@@ -11,8 +11,9 @@ export function createHandler({authenticate=authorize,database=connect,request=g
   let db;
   try{
    const user=await authenticate(event.headers||{});if(!user?.sub)return respond(401,{error:'Sign in to register a piece'});
-   const {slug,ext,revision}=JSON.parse(event.body||'{}');
+   const {slug,ext,revision,version}=JSON.parse(event.body||'{}');
    if(typeof slug!=='string'||! /^[a-zA-Z0-9_-]{1,100}$/.test(slug)||!['mjs','lisp','lua'].includes(ext)||! /^[a-f0-9]{64}$/.test(revision||''))return respond(400,{error:'Invalid piece identity'});
+   if(!Number.isInteger(version)||version<2)return respond(200,{eligible:false});
    const key=`${user.sub}/piece/${slug}.${ext}`;
    const upload=await request('https://user-aesthetic-computer.sfo3.digitaloceanspaces.com/'+key.split('/').map(encodeURIComponent).join('/'),{redirect:'error',signal:AbortSignal.timeout(8000)});
    if(!upload.ok)return respond(409,{error:'Published source is not readable yet'});
