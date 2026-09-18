@@ -14,7 +14,7 @@ also reload the interface. Host changes checkpoint and relaunch the Dev app.
 Active requests finish before the checkpoint. Project files are never synced
 between machines, and working Git checkouts are never reset.
 
-Settings shows Dev/Release/Local, app version, dev revision, and update state.
+Settings shows Dev/Release/Local, app version, content-based dev build ID, and update state. Hover the settings status for its Git commit. Identical Aesel source keeps the same build ID even when other projects change.
 Piece versions such as v3 are separate. Offline or old checks say they cannot
 verify freshness. Local edits inside an installed dev snapshot pause syncing
 and show “Local changes”; move them into a source checkout before republishing.
@@ -32,7 +32,7 @@ node easel/dev/install.mjs --repo ~/aesthetic-computer \
 The installer creates `~/Applications/Aesel Dev.app`, `~/.local/bin/aesel-dev`,
 and the launch agent `computer.aesthetic.aesel-dev-sync`. State, logs, immutable
 source snapshots, and the atomic `current` link live in
-`~/.local/share/aesel-dev/`. The native Electron shell is not replaced by source
+`~/.local/share/aesel-dev/`. The last three snapshots, any live PTY snapshot, and locally edited snapshots are retained. The native Electron shell is not replaced by source
 sync. If Electron or npm dependency requirements change, syncing stops visibly
 until this installer is rerun with matching dependencies. No signing credentials
 are copied; the development shell is signed locally with an ad-hoc identity.

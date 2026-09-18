@@ -26,6 +26,20 @@ export function modifiedFiles(directory, manifest) {
   return [...new Set([...Object.keys(actual),...Object.keys(expected)])].filter(name=>actual[name]!==expected[name]);
 }
 export function dependencyKey(pkg) { return digest(JSON.stringify({dependencies:pkg.dependencies,electron:pkg.devDependencies?.electron})); }
+export function pruneBuilds(home, retain=3) {
+  // Keep recent builds, live PTY roots, and any locally edited snapshot.
+  let processes;try{processes=execFileSync('/bin/ps',['-axo','command='],{encoding:'utf8',maxBuffer:4*1024*1024});}catch{return;}
+  const current=fs.realpathSync(path.join(home,'current'));
+  const pinned=new Set();
+  const pins=path.join(home,'running');
+  if(fs.existsSync(pins))for(const name of fs.readdirSync(pins)){if(!/^\d+\.json$/.test(name))continue;const file=path.join(pins,name);try{const pin=JSON.parse(fs.readFileSync(file));if(!Number.isInteger(pin.pid)||pin.pid<=0||!(/^[a-f0-9]{40}$/.test(pin.tree)))continue;process.kill(pin.pid,0);pinned.add(pin.tree);}catch(error){if(error.code==='ESRCH')fs.rmSync(file,{force:true});}}
+  const versions=path.join(home,'versions');
+  const builds=fs.readdirSync(versions).filter(name=>/^[a-f0-9]{40}$/.test(name)).map(name=>path.join(versions,name)).filter(dir=>fs.existsSync(path.join(dir,'build.json'))).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs);
+  for(const dir of builds.slice(retain)){
+    if(dir===current||pinned.has(path.basename(dir))||processes.includes(dir))continue;
+    try{const manifest=JSON.parse(fs.readFileSync(path.join(dir,'build.json')));if(!modifiedFiles(path.join(dir,'easel'),manifest).length)fs.rmSync(dir,{recursive:true});}catch{}
+  }
+}
 function writeJSON(file,value){const temp=file+'.tmp';fs.writeFileSync(temp,JSON.stringify(value,null,2)+'\n');fs.renameSync(temp,file);}
 export function sync({home=path.join(os.homedir(),'.local/share/aesel-dev'),fetch=true,build=source=>execFileSync('/bin/bash',[path.join(source,'desktop/scripts/build-credit-label.sh')],{timeout:120000,stdio:['ignore','pipe','pipe']})}={}) {
   const config=JSON.parse(fs.readFileSync(path.join(home,'config.json')));
@@ -66,7 +80,7 @@ export function sync({home=path.join(os.homedir(),'.local/share/aesel-dev'),fetc
       const next=path.join(home,`current-${process.pid}`);fs.symlinkSync(target,next);fs.renameSync(next,current);
       installed=manifest;
     }
-    state.installed={revision:installed.revision,tree:installed.tree};state.state='current';writeJSON(stateFile,state);return state;
+    state.installed={revision:installed.revision,tree:installed.tree};state.state='current';writeJSON(stateFile,state);pruneBuilds(home);return state;
   } catch(error) {
     const state={...previous,channel:'dev',state:'error',online:false,attemptedAt:new Date().toISOString(),error:String(error.message).split('\n')[0].slice(0,180)};
     writeJSON(stateFile,state);throw error;

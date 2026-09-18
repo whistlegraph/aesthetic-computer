@@ -10,7 +10,8 @@ function devStatus(running,state){
 function createBuildStatus({app,devHome,root,send,onDevReady,channel=app.isPackaged?'release':'local'}){
   let running=devHome?JSON.parse(fs.readFileSync(path.join(root,'../build.json'))):null;
   let latest={channel,version:app.getVersion(),status:'unknown'};
-  let requested='',timer;
+  let requested='',timer,pin='';
+  if(devHome){const dir=path.join(devHome,'running');fs.mkdirSync(dir,{recursive:true});pin=path.join(dir,process.pid+'.json');fs.writeFileSync(pin,JSON.stringify({pid:process.pid,tree:running.tree}));process.once('exit',()=>{try{fs.unlinkSync(pin);}catch{}});}
   const emit=()=>send('build-status',latest);
   function poll(){
     if(!devHome)return emit();
@@ -25,6 +26,6 @@ function createBuildStatus({app,devHome,root,send,onDevReady,channel=app.isPacka
     }catch{latest={...latest,status:'unknown'};emit();}
   }
   if(devHome){timer=setInterval(poll,3000);timer.unref();}
-  return {poll,emit,release(status,info={}){if(!devHome){latest={...latest,status,latest:info.version||latest.latest,checkedAt:new Date().toISOString()};emit();}},adopt(nextRoot){running=JSON.parse(fs.readFileSync(path.join(nextRoot,'../build.json')));requested='';poll();},close(){clearInterval(timer);}};
+  return {poll,emit,release(status,info={}){if(!devHome){latest={...latest,status,latest:info.version||latest.latest,checkedAt:new Date().toISOString()};emit();}},adopt(nextRoot){running=JSON.parse(fs.readFileSync(path.join(nextRoot,'../build.json')));requested='';poll();},close(){clearInterval(timer);if(pin)try{fs.unlinkSync(pin);}catch{}}};
 }
 module.exports={devStatus,createBuildStatus};
