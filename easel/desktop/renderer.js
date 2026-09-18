@@ -180,6 +180,7 @@ const activityText=document.createElement('span');activityText.id='activity-text
 const activityTextNode=document.createTextNode('');activityText.append(activityTextNode);activityCaption.append(activityText);
 const activityGroup=document.createElement('span');activityGroup.id='notebook-activity';activityGroup.hidden=true;activityGroup.append(promptFeedback,activityCaption);document.body.append(activityGroup);
 window.installNotebookDonkey(promptFeedback);
+const tokenGrass=window.installTokenGrass(promptFeedback);
 window.placeNotebookActivity=()=>{
  const last=Array.from(document.querySelectorAll('#notebook-page article[data-kind="user"]')).at(-1);
  const target=promptState?.text?promptLine:(last?.lastElementChild||last||promptLine);
@@ -225,6 +226,7 @@ let draggingSelection = false, pendingOutput = '', pastedInput = false;
 let clickOrigin = null;
 let lastHoverCell = '', hoverFrame = 0, pendingHover = null;
 terminal.parser.registerOscHandler(777, data => {
+  if(data.startsWith('easel-token-grass:')){try{tokenGrass.receive(JSON.parse(data.slice('easel-token-grass:'.length)));}catch{}return true;}
   if(data==='easel-camera:request'){window.flashPreviewCapture?.();return true;}
   if(data.startsWith('easel-gamepad:')){try{forwardGamepad(JSON.parse(data.slice('easel-gamepad:'.length)));}catch{}return true;}
   if(data.startsWith('easel-prompt:')){try{updatePrompt(JSON.parse(data.slice('easel-prompt:'.length)));}catch{}return true;}

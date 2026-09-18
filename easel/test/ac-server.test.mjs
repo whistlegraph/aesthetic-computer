@@ -303,3 +303,17 @@ test("upstream reported model stays distinct from the requested model", async ()
   assert.deepEqual(reported, {requested:"requested/model", reported:"reported/model"});
   assert.equal(engine.model, "requested/model");
 });
+
+
+test('code grass gets generated write arguments, never thinking or tool results', async t => {
+  const dir=await mkdtemp(join(tmpdir(),'ac-grass-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const file=join(dir,'piece.mjs');await writeFile(file,'// start');
+  const output=[], code='// rolling wheels';
+  const engine=new AcServer({piece:{file},jev:null,token:async()=>'tok',fetch:serving([
+    {type:'content_block_delta',index:8,delta:{type:'thinking_delta',thinking:'private reasoning'}},
+    ...writes(code)
+  ],say('Ready'))});
+  engine.on('notification',({method,params})=>{if(method==='item/modelCode/delta')output.push(params.delta)});
+  await engine.startTurn('roll');
+  assert.deepEqual(output,[JSON.stringify({source:code,note:'first draft'})]);
+});

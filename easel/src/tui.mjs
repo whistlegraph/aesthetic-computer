@@ -500,6 +500,8 @@ restoreDesktopEngine(engine, desktopRestored);
 let drawing = false;
 let redrawTimer = null;
 let lastDrawAt = 0;
+let pendingModelGlyphs = "", resetModelGlyphs = false;
+function queueModelGlyphs(delta) { if (process.env.EASEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-256); }
 let modelCatalog = null, desktopHistoryKey = "", desktopHistory = [];
 let lastLayout = "", lastProvider = "", lastConversation = "", lastPrompt = "";
 if (process.env.EASEL_DESKTOP) {
@@ -583,6 +585,7 @@ function redraw() {
     if (process.env.EASEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
+      if(pendingModelGlyphs || resetModelGlyphs){process.stdout.write(`\x1b]777;easel-token-grass:${JSON.stringify({delta:pendingModelGlyphs,reset:resetModelGlyphs})}\x07`);pendingModelGlyphs="";resetModelGlyphs=false;}
       const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
@@ -913,6 +916,7 @@ function handleNotification({ method, params = {} }) {
   }
   switch (method) {
     case "turn/started":
+      pendingModelGlyphs="";resetModelGlyphs=true;
       state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
       state.requestStartedAt ||= Date.now();
       state.busy = true;
@@ -933,7 +937,11 @@ function handleNotification({ method, params = {} }) {
       }
       state.progressBytes = params.bytes || state.progressBytes || 0;
       break;
+    case "item/modelCode/delta":
+      queueModelGlyphs(params.delta);
+      break;
     case "item/agentMessage/delta":
+      queueModelGlyphs(params.delta);
       state.status = "generating";
       if (!streamedMessageId || streamedMessageId !== params.itemId) {
         streamedMessageId = params.itemId;

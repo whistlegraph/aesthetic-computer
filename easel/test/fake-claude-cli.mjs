@@ -78,6 +78,13 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     for (const delta of ["Writing ", "the piece."]) {
       send({ type: "stream_event", event: { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: delta } } });
     }
+    for (const event of [
+      {type:'content_block_delta',index:8,delta:{type:'thinking_delta',thinking:'private reasoning'}},
+      {type:'content_block_start',index:1,content_block:{type:'tool_use',name:'Write'}},
+      {type:'content_block_delta',index:1,delta:{type:'input_json_delta',partial_json:'{"content":"// hi"}'}},
+      {type:'content_block_stop',index:1},
+      {type:'content_block_delta',index:1,delta:{type:'input_json_delta',partial_json:'stale'}},
+    ]) send({type:'stream_event',event});
     send({
       type: "assistant",
       message: {

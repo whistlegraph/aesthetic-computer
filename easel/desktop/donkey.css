@@ -329,3 +329,6 @@ body.preview-fullscreen #preview-waveform{display:none}
 #activity-caption::before{animation-delay:.25s}
 @keyframes aesel-thought-dot{0%,100%{opacity:.5;transform:translateY(1px) scale(.8)}50%{opacity:1;transform:translateY(-1px) scale(1.12)}}
 @media(prefers-reduced-motion:reduce){#activity-caption::before,#activity-caption::after{animation:none}}
+
+#token-grass{position:fixed;z-index:3;pointer-events:none}
+#token-grass[hidden],body.preview-fullscreen #token-grass{display:none}

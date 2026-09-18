@@ -46,10 +46,12 @@ test("drives a turn, streams text, and routes the approval to the interface", as
   const engine = bridge(t, { environment: { FAKE_CLAUDE_DECISION: decisionFile } });
 
   const deltas = [];
+  const codeDeltas = [];
   const items = [];
   const completed = new Promise((resolve) => {
     engine.on("notification", ({ method, params }) => {
       if (method === "item/agentMessage/delta") deltas.push(params.delta);
+      if (method === "item/modelCode/delta") codeDeltas.push(params.delta);
       if (method === "item/started") items.push(params.item);
       if (method === "item/completed") items.push(params.item);
       if (method === "turn/completed") resolve(params.turn.status);
@@ -68,6 +70,7 @@ test("drives a turn, streams text, and routes the approval to the interface", as
   assert.equal(turn.turn.status, "inProgress");
   assert.equal(await completed, "completed");
   assert.equal(deltas.join(""), "Writing the piece.");
+  assert.deepEqual(codeDeltas,['{"content":"// hi"}']);
 
   // The interface follows the piece through fileChange items.
   const started = items.find((item) => item.type === "fileChange");

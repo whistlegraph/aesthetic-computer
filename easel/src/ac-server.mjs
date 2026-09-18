@@ -380,7 +380,10 @@ export class AcServer extends EventEmitter {
               });
             } else if (delta?.type === "input_json_delta") {
               const partial = partials.get(event.index);
-              if (partial) partial.json += delta.partial_json || "";
+              if (partial) {
+                partial.json += delta.partial_json || "";
+                if (partial.name === 'write_piece') this.emit('notification', {method:'item/modelCode/delta',params:{delta:delta.partial_json || ''}});
+              }
             }
           } else if (event.type === "content_block_stop") {
             const partial = partials.get(event.index);

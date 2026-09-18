@@ -111,6 +111,7 @@ export class ClaudeServer extends EventEmitter {
     // Text streaming state for the message being written right now.
     this.messageId = "";
     this.textItems = new Map();
+    this.codeItems = new Set();
     this.streamedText = false;
   }
 
@@ -435,9 +436,15 @@ export class ClaudeServer extends EventEmitter {
     if (event.type === "message_start") {
       this.messageId = event.message?.id || `message-${Date.now()}`;
       this.textItems.clear();
+      this.codeItems.clear();
       this.streamedText = false;
       return;
     }
+    if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use' && ['Write','Edit','MultiEdit','write_piece'].includes(event.content_block.name)) this.codeItems.add(event.index);
+    if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta' && this.codeItems.has(event.index)) {
+      this.emit('notification',{method:'item/modelCode/delta',params:{delta:event.delta.partial_json || ''}});
+    }
+    if (event.type === 'content_block_stop') this.codeItems.delete(event.index);
     if (event.type === "content_block_start" && event.content_block?.type === "text") {
       this.textItems.set(event.index, `${this.messageId}:${event.index}`);
       return;
@@ -566,6 +573,7 @@ export class ClaudeServer extends EventEmitter {
     const id = this.turnId || `turn-${this.turns}`;
     this.turnId = null;
     this.textItems.clear();
+    this.codeItems.clear();
     // The CLI closes a turn with what it spent. `modelUsage` is keyed by the
     // model that actually ran — which is not always the one asked for, and a
     // fallback is exactly when the energy readout should not lie about which
