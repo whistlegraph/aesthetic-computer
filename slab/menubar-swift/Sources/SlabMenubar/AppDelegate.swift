@@ -1141,9 +1141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
                                             &raw) == .success,
               let window = (raw as? [AXUIElement])?.first(where: { element in
-                  var number: CFTypeRef?
-                  AXUIElementCopyAttributeValue(element, "AXWindowNumber" as CFString, &number)
-                  return (number as? NSNumber)?.intValue == windowID
+                  return AXTiler.windowID(element).map(Int.init) == windowID
               }) else {
             completion(2); return
         }
