@@ -132,6 +132,7 @@ const marker = Date.now();
 const subject = `e2e ${marker}`;
 const text = `thank you &lt;3 &amp; <3 e2e-${marker}`;
 let letter = null; // the inbox entry for the marker letter
+let unreadBefore = 0; // the box's unread count before the e2e letter, restored by cleanup
 
 try {
   await scenario("signed-in inbox matches the API", async (expect) => {
@@ -155,6 +156,7 @@ try {
       count.unread === st.unread && count.total === st.total,
       `piece counts match the API (piece ${st.unread}/${st.total}, api ${count.unread}/${count.total})`,
     );
+    unreadBefore = count.unread ?? 0;
   });
 
   await scenario("a heart survives the send (piece path)", async (expect) => {
@@ -225,24 +227,38 @@ try {
       `red badge ${unread > 0 ? "painted" : "absent"} top-right for ${unread} unread (${before.hits} badge-red px at ${JSON.stringify(before.clip)})`,
     );
     if (READONLY) return expect(true, "mark-read half skipped (AC_MAIL_READONLY)");
+    expect(!!letter?.id, `have the e2e letter's id (${letter?.id})`);
+    if (!letter?.id) return;
 
+    // Only the e2e letter is marked read — real letters in the box stay
+    // unread, so the badge drops by exactly one and vanishes only when the
+    // e2e letter was the last unread one.
     const asks0 = st.asks;
-    const read = await api("POST", { action: "read" });
-    expect(read.status === 200, `POST /api/mail {action:"read"} → ${read.status}`);
-    st = await waitFor("laklok", (s) => s.asks >= asks0 + 2 && s.mail?.unread === 0, {
-      timeout: 45000, label: `laklok to re-poll twice (asks ${asks0}) and see zero unread`,
+    const want = unread - 1;
+    const read = await api("POST", { action: "read", id: letter.id });
+    expect(read.status === 200 && read.read === 1, `POST /api/mail {action:"read", id} → ${read.status}, read ${read.read}`);
+    st = await waitFor("laklok", (s) => s.asks >= asks0 + 2 && s.mail?.unread === want, {
+      timeout: 45000, label: `laklok to re-poll twice (asks ${asks0}) and count ${want} unread`,
     });
     await ac.wait(600);
     const after = await badgeReds("mail-journey/05-laklok-clear");
-    expect(after.hits < 5, `badge gone after read (${after.hits} badge-red px; asks ${asks0} → ${st.asks})`);
+    expect(
+      want > 0 ? after.hits >= 10 : after.hits < 5,
+      `badge ${want > 0 ? "still painted" : "gone"} for ${want} unread after reading the e2e letter (${after.hits} badge-red px; asks ${asks0} → ${st.asks})`,
+    );
   });
 
   await scenario("cleanup", async (expect) => {
     if (READONLY) return expect(true, "skipped (AC_MAIL_READONLY)");
-    const read = await api("POST", { action: "read" });
-    expect(read.status === 200, `box marked read again (${read.status})`);
+    if (letter?.id) {
+      const read = await api("POST", { action: "read", id: letter.id });
+      expect(read.status === 200, `e2e letter marked read again, idempotent (${read.status})`);
+    }
     const count = await api("GET");
-    expect(count.unread === 0, `API reports 0 unread (${count.unread}/${count.total})`);
+    expect(
+      count.unread === unreadBefore,
+      `the box's unread count is back where it started (${count.unread}, was ${unreadBefore}; ${count.total} total)`,
+    );
     console.log(`  ℹ️  e2e letter left in @${handle}'s box, subject "${subject}"`);
   });
 } finally {
