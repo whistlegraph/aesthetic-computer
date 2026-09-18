@@ -9195,6 +9195,16 @@ function highestJump(options) {
 function botPad(player, opponent, now) {
   if (selfPlay && typeof globalThis.__oskiewarJevPad === 'function') {
     const scene = botScene(player, opponent, now);
+    scene.self.combat = {
+      punch: Boolean(availableArm(player)),
+      kickLeft: hasPart(player, 'left-leg'), kickRight: hasPart(player, 'right-leg'),
+      item: Boolean(heldItem(player)), stunned: now < player.hitStunUntil,
+      headOnly: isHeadOnly(player), pogo: isPogo(player),
+    };
+    if (scene.opponent) {
+      scene.opponent.grounded = opponent.grounded;
+      scene.opponent.vx = opponent.vx; scene.opponent.vy = opponent.vy;
+    }
     const down = globalThis.__oskiewarJevPad(player.pad, { ...scene,
       round: matchName, alive: player.alive && opponent.alive });
     return { connected: true, down: Array.isArray(down) ? down.filter(button =>

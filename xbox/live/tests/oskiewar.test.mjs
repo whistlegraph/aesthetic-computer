@@ -66,6 +66,28 @@ test('Jev self-play uses only the external controller and becomes neutral when i
   }
 });
 
+test('Jev observes missing limbs and airborne opponents before choosing attacks', () => {
+  const saved=globalThis.__oskiewarJevPad;
+  try {
+    const scenes=[];
+    globalThis.__oskiewarJevPad=(seat,scene)=>{scenes[seat]=scene;return [];};
+    const {fight,tick}=createFight(false);
+    fight.startSelfPlay();tick(3000001);tick();
+    fight.players[0].removedParts=['left-arm','right-arm','right-leg'];
+    fight.players[1].grounded=false;
+    fight.players[1].y-=120;fight.players[1].vy=-300;
+    tick();
+    assert.equal(scenes[0].self.combat.punch,false);
+    assert.equal(scenes[0].self.combat.kickLeft,true);
+    assert.equal(scenes[0].self.combat.kickRight,false);
+    assert.equal(scenes[0].opponent.grounded,false);
+    assert.ok(scenes[0].opponent.vy<0);
+  } finally {
+    if(saved===undefined)delete globalThis.__oskiewarJevPad;
+    else globalThis.__oskiewarJevPad=saved;
+  }
+});
+
 // `triangleHost` picks which of the three drawing entries the host offers:
 // "triangles3d" is the Xbox BIOS batch, "triangle3d" the per-face 3D call, and
 // "triangle" the flat 2D fallback the web shell ships with.

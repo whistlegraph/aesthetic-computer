@@ -1,6 +1,6 @@
-import { buttons } from './model.mjs';
+import { controlPlan, controlsAt } from './model.mjs';
 const $ = id => document.getElementById(id);
-const empty = () => ({ scene: null, at: 0, down: [], until: 0, count: 0, cost: 0, input: 0, output: 0, latency: 0, move: 'Waiting', failures: 0 });
+const empty = () => ({ scene: null, at: 0, plan: null, issuedAt: 0, count: 0, cost: 0, input: 0, output: 0, latency: 0, move: 'Waiting', failures: 0 });
 let fighters = [empty(), empty()], running = false, ticket = '', endAt = 0, pending = 0;
 let frame = null;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -9,7 +9,8 @@ globalThis.__jevArena = {
     const f = fighters[seat];
     if (!f) return [];
     f.scene = scene; f.at = performance.now();
-    return running && scene.alive && performance.now() < f.until ? f.down : [];
+    if (!running || !scene.alive) return [];
+    return controlsAt(f.plan, performance.now() - f.issuedAt);
   },
   frame(value) { frame = value; },
   inspect() { return { running, frame, fighters: fighters.map(f => ({ ...f, scene: f.scene })) }; },
@@ -27,7 +28,7 @@ function render() {
 }
 function stop(message = 'Stopped') {
   running = false;
-  for (const f of fighters) { f.down = []; f.until = 0; }
+  for (const f of fighters) f.plan = null;
   $('status').textContent = message;
   render();
 }
@@ -43,6 +44,7 @@ async function drive(seat, session) {
     const f = fighters[seat];
     if (!f.scene?.alive || performance.now()-f.at > 250 || frame?.phase !== 'fight') { await sleep(100); continue; }
     const started = performance.now(), round = f.scene.round;
+    let releaseMs = 210;
     pending++;
     try {
       const result = await post({ ticket: session, seat, scene: f.scene });
@@ -52,15 +54,16 @@ async function drive(seat, session) {
       f.latency = Math.round(performance.now() - started); f.move = result.motion+' + '+result.action;
       if (running && ticket === session && round === f.scene?.round && f.scene.alive &&
           frame?.phase === 'fight' && performance.now() - started < 1500) {
-        f.down = buttons(result.motion, result.action); f.until = performance.now() + (result.action === 'jump' ? 450 : 250);
+        f.plan = controlPlan(result.motion, result.action); f.issuedAt = performance.now();
+        releaseMs = f.plan.releaseMs;
       }
     } catch (error) {
-      f.down = []; f.until = 0; f.failures++; f.move = 'Waiting for Jev';
+      f.plan = null; f.failures++; f.move = 'Waiting for Jev';
       if (error.status !== 503 || f.failures >= 3) stop(error.message);
     }
     finally { pending--; render(); }
     // Let a button release before its next press; all chosen holds are bounded.
-    await sleep(f.down.includes('ArrowUp') ? 500 : 300);
+    await sleep(releaseMs);
   }
 }
 $('start').addEventListener('click', async () => {
