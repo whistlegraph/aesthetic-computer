@@ -43,12 +43,26 @@ for(const h of hits){let position=null;try{position=h.element.position();}catch{
  seen.add(key);physical.add(physicalKey);
 }
 `;
+export async function readNativeModalScan(execute){
+ for(let attempt=0;attempt<3;attempt++){
+  const {stdout}=await execute();
+  if(!stdout.trim()){
+   if(attempt<2){await new Promise(resolve=>setTimeout(resolve,150));continue;}
+   throw Error('Native modal inspection returned no result after 3 scans');
+  }
+  const hits=JSON.parse(stdout);
+  if(!Array.isArray(hits)||hits.some(h=>!h||typeof h.kind!=='string'||typeof h.title!=='string'||!Array.isArray(h.buttons)||h.buttons.some(b=>typeof b!=='string')))throw Error('Invalid native modal inspection result');
+  return hits;
+ }
+}
 async function native(action,expected) {
  const tail=action
   ? `const h=uniqueHits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');if(JSON.stringify([h[0].kind,h[0].title,[...h[0].buttons].sort()])!==${JSON.stringify(JSON.stringify(expected?[expected.kind,expected.title,[...expected.buttons].sort()]:null))})throw Error('Modal fingerprint changed');h[0].element.click();JSON.stringify(true);`
   : `JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
- const {stdout}=await run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:10000,maxBuffer:128*1024});
- return JSON.parse(stdout);
+ const execute=()=>run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:10000,maxBuffer:128*1024});
+ // Never replay a click. Only retry a read-only scan with an empty response.
+ if(!action)return readNativeModalScan(execute);
+ return JSON.parse((await execute()).stdout);
 }
 export function fingerprintModal(hit) {
  return createHash('sha256').update(JSON.stringify([hit.kind,hit.title,[...hit.buttons].sort()])).digest('hex').slice(0,20);

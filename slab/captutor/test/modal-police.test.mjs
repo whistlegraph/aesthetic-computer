@@ -4,7 +4,7 @@ import {mkdtempSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {runInNewContext} from 'node:vm';
-import {CHROME_MODAL_SCRIPT,createModalPolice,connectWithModalPolice} from '../lib/modal-police.mjs';
+import {CHROME_MODAL_SCRIPT,createModalPolice,connectWithModalPolice,readNativeModalScan} from '../lib/modal-police.mjs';
 const hit=kind=>({kind,title:kind,buttons:kind==='remote-debugging'?['Cancel','Allow']:['Close']});
 function setup(t,kind,options={}){
  const directory=mkdtempSync(join(tmpdir(),'modal-police-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));
@@ -61,3 +61,14 @@ test('connection watcher rescans a moved consent dialog instead of abandoning it
 });
 
 test('a connection settled during native scan does not fail or click',async t=>{let pending=true;const f=setup(t,'automation-banner',{scan:async()=>{pending=false;return [hit('automation-banner')];}});assert.equal((await f.police.check('connecting',{mayHandle:()=>pending})).expired,true);assert.deepEqual(f.actions,[]);});
+
+test('empty native scan retries without treating missing output as clean',async()=>{
+ let calls=0;const hits=await readNativeModalScan(async()=>({stdout:++calls<2?'':'[{"kind":"unknown","title":"Blocking sheet","buttons":[]}]'}));assert.equal(calls,2);assert.equal(hits[0].kind,'unknown');
+});
+test('persistent empty native scan still blocks recording',async()=>{
+ let calls=0;await assert.rejects(readNativeModalScan(async()=>{calls++;return {stdout:''};}),/no result after 3 scans/);assert.equal(calls,3);
+});
+test('invalid native scan is never interpreted as clean',async()=>{
+ await assert.rejects(readNativeModalScan(async()=>({stdout:'{}'})),/Invalid native/);
+ await assert.rejects(readNativeModalScan(async()=>({stdout:'[null]'})),/Invalid native/);
+});
