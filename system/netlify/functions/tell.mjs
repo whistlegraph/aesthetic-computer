@@ -65,6 +65,7 @@ async function handleTell(event, context) {
       to: told.toHandle,
       when: told.when,
       push: told.push,
+      nudge: told.nudge,
     });
   } catch (err) {
     recordMailEvent(database, { event: "failed", transport: "tell", trace: context.trace, error: mailErrorCode(err) });

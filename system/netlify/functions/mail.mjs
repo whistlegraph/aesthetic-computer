@@ -192,6 +192,7 @@ async function handleMail(event, context) {
       to: sentMail.toHandle,
       when: sentMail.when,
       push: sentMail.push,
+      nudge: sentMail.nudge,
     });
   } catch (err) {
     recordMailEvent(database, { event: "failed", transport: "api", trace: context.trace, error: mailErrorCode(err) });

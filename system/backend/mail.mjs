@@ -25,6 +25,7 @@ export const POST_OFFICE = "amail";
 export const MAX_TEXT_LENGTH = 500;
 export const OUTSIDE_TEXT_LENGTH = 2000; // an email runs longer than a tell
 export const MAX_SUBJECT_LENGTH = 80;
+export const NUDGE_EVERY = 6 * 60 * 60 * 1000; // one email nudge per reader per six hours
 
 const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
 
@@ -76,8 +77,21 @@ export async function mailbox(database) {
   return tells;
 }
 
+// A client once escaped a heart on the way in (`thank you &lt;3`), so the
+// server undoes HTML entities before anything looks at the letter. `&amp;`
+// goes last: `&amp;lt;` is a literal `&lt;`, not a `<`.
+const NAMED = { lt: "<", gt: ">", quot: '"', apos: "'" };
+const codepoint = (match, n) => (n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : match);
+export function decodeEntities(text) {
+  return (text || "")
+    .replace(/&#x([0-9a-f]{1,6});/gi, (m, hex) => codepoint(m, parseInt(hex, 16)))
+    .replace(/&#(\d{1,7});/g, (m, dec) => codepoint(m, Number(dec)))
+    .replace(/&(lt|gt|quot|apos);/g, (_, name) => NAMED[name])
+    .replace(/&amp;/g, "&");
+}
+
 export function clean(text, max = MAX_TEXT_LENGTH) {
-  return filter((text || "").trim()).slice(0, max);
+  return filter(decodeEntities(text).trim()).slice(0, max);
 }
 
 export const deliver = (options, database) => observeMail("internal", options, database,
@@ -128,8 +142,74 @@ async function deliverInternal(
     // A silent phone shouldn't eat the letter — it's already in the mailbox.
     event("push_failed", { letterId: insertedId, error: mailErrorCode(err) });
   }
+  const nudge = push.succeeded > 0
+    ? { status: "pushed" }
+    : await nudgeReader({ to, toHandle, fromHandle, letterId: insertedId }, database, event);
 
-  return { id: insertedId, fromHandle, toHandle, when, push };
+  return { id: insertedId, fromHandle, toHandle, when, push, nudge };
+}
+
+// Most readers carry no push device, so a letter used to land in silence. When
+// no phone buzzed, one plain email says a letter is waiting — never what it
+// says — and a reader hears from us at most once per NUDGE_EVERY. The throttle
+// row is claimed first and atomically (unique `user`), so two letters landing
+// together send one note and never two Auth0 lookups apiece.
+let nudgesIndexed = false;
+export async function nudgeReader({ to, toHandle, fromHandle, letterId }, database, event) {
+  let status = "failed";
+  try {
+    const nudges = database.db.collection("mail-nudges");
+    if (!nudgesIndexed) {
+      await nudges.createIndex({ user: 1 }, { unique: true });
+      nudgesIndexed = true;
+    }
+    const now = new Date();
+    try {
+      await nudges.updateOne(
+        { user: to, $or: [{ lastNudgedAt: { $exists: false } }, { lastNudgedAt: { $lt: new Date(now - NUDGE_EVERY) } }] },
+        { $set: { lastNudgedAt: now }, $inc: { count: 1 } },
+        { upsert: true },
+      );
+    } catch (err) {
+      if (err?.code !== 11000) throw err;
+      status = "throttled"; // someone else's letter just took this window
+      event("nudge", { letterId, status });
+      return { status };
+    }
+
+    // Lazy like email(): the Auth0 lookup is only paid for once a nudge is due.
+    const { userEmailFromID } = await import("./authorization.mjs");
+    const found = await userEmailFromID(to);
+    const address = found?.email_verified ? (found.email || "").trim().toLowerCase() : "";
+    if (!address) {
+      status = "no_email";
+    } else if (await database.db.collection("email-blast-unsubscribes").findOne({ email: address })) {
+      status = "unsubscribed";
+    } else {
+      const { email } = await import("./email.mjs"); // lazy: no SMTP in local dev is a quiet "failed"
+      const who = (fromHandle || "").replace(/[\r\n]+/g, " ").trim().slice(0, 60);
+      const writer = who ? `${who} wrote you a letter` : "Someone wrote you a letter";
+      const sent = await email({
+        from: `${ROOT_DOMAIN} <mail@${ROOT_DOMAIN}>`,
+        to: address,
+        subject: `${writer} on ${ROOT_DOMAIN}`,
+        text: [
+          `${writer} on ${ROOT_DOMAIN}${toHandle ? ` — it's waiting for ${toHandle}` : ""}.`,
+          "",
+          `Read it at https://${ROOT_DOMAIN}/mail`,
+          "",
+          "You'll get at most one of these notes every few hours, and only when no device of yours could be buzzed.",
+        ].join("\n"),
+      });
+      status = sent ? "sent" : "failed";
+    }
+    event("nudge", { letterId, status });
+  } catch (err) {
+    // A silent nudge shouldn't eat the letter — it's already in the mailbox.
+    status = "failed";
+    event("nudge_failed", { letterId, error: mailErrorCode(err) });
+  }
+  return { status };
 }
 
 // A letter from outside the wall. Google Workspace catches the address and
@@ -159,7 +239,8 @@ async function receiveOutside(
     dedupeIndexed = true;
   }
   const toHandle = await nameFor(to, database);
-  const fromHandle = (fromName || "").trim() || fromEmail;
+  const name = (fromName || "").trim();
+  const fromHandle = name || fromEmail;
   const when = new Date();
 
   let insertedId;
@@ -188,7 +269,7 @@ async function receiveOutside(
   let push = { attempted: 0, succeeded: 0, failed: 0, pruned: 0 };
   if (quiet) {
     event("push_quiet", { letterId: insertedId, reason: "push_limit" });
-    return { id: insertedId, fromHandle, toHandle, when, push, quiet };
+    return { id: insertedId, fromHandle, toHandle, when, push, quiet, nudge: { status: "skipped" } };
   }
   try {
     push = await sendToUser(
@@ -202,8 +283,13 @@ async function receiveOutside(
   } catch (err) {
     event("push_failed", { letterId: insertedId, error: mailErrorCode(err) });
   }
+  // The nudge names the sender by display name only; a raw address is theirs
+  // to share, not ours — with no name they are "someone".
+  const nudge = push.succeeded > 0
+    ? { status: "pushed" }
+    : await nudgeReader({ to, toHandle, fromHandle: name, letterId: insertedId }, database, event);
 
-  return { id: insertedId, fromHandle, toHandle, when, push };
+  return { id: insertedId, fromHandle, toHandle, when, push, nudge };
 }
 
 // A letter leaving the wall. Signed by the post office, never as the handle:

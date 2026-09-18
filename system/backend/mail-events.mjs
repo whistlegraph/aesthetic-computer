@@ -4,7 +4,7 @@ import { mailErrorCode } from "../../shared/mail-privacy.mjs";
 
 export const mailTrace = () => randomUUID();
 const events = new Set([
-  "started", "stored", "duplicate", "push", "push_failed", "push_quiet",
+  "started", "stored", "duplicate", "push", "push_failed", "push_quiet", "nudge", "nudge_failed",
   "relay_accepted", "relay_fallback", "failed", "request", "connected",
   "recipient", "rejected", "deferred", "accepted", "disconnected",
   "smtp_response", "ready", "relays_refreshed", "relays_failed", "smtp_error",
@@ -14,6 +14,7 @@ const reasons = new Set([
   "dmarc", "rate_pair", "rate_global", "storage", "smtp", "no_devices",
   "push_limit", "unauthorized", "invalid", "not_found", "method", "request",
 ]);
+const nudges = new Set(["sent", "throttled", "pushed", "no_email", "unsubscribed", "failed", "skipped"]);
 const counts = ["recipients", "duplicates", "attachments", "bytes", "attempted", "succeeded", "failed", "pruned", "durationMs", "status"];
 const uuid = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
 export function mailEvent(fields = {}) {
@@ -26,6 +27,7 @@ export function mailEvent(fields = {}) {
   if (reasons.has(fields.reason)) row.reason = fields.reason;
   if (fields.error) row.error = mailErrorCode({ code: fields.error });
   for (const key of counts) if (Number.isSafeInteger(fields[key]) && fields[key] >= 0) row[key] = fields[key];
+  if (nudges.has(fields.status)) row.status = fields.status; // a nudge outcome, beside the HTTP status the counts carry
   for (const key of ["verified", "tls", "routeSecret", "open"]) if (typeof fields[key] === "boolean") row[key] = fields[key];
   return row;
 }
