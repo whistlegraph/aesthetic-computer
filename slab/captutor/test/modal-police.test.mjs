@@ -72,3 +72,13 @@ test('invalid native scan is never interpreted as clean',async()=>{
  await assert.rejects(readNativeModalScan(async()=>({stdout:'{}'})),/Invalid native/);
  await assert.rejects(readNativeModalScan(async()=>({stdout:'[null]'})),/Invalid native/);
 });
+
+test('active Chrome sheet takes precedence over abandoned dialog group copies',()=>{
+ const e=(role,name,kids=[])=>({role:()=>role,subrole:()=>'',name:()=>name,description:()=>name,value:()=>'',uiElements:()=>kids,position:()=>[20,30]});
+ const sheet=e('AXSheet','Allow remote debugging?',[e('AXButton','Cancel'),e('AXButton','Allow')]);
+ const ghost=e('AXGroup','Allow remote debugging?',[e('AXButton','Allow')]);
+ const w=e('AXWindow','Chrome',[ghost,sheet]);w.sheets=()=>[sheet];
+ w.uiElements=()=>assert.fail('Do not traverse stale groups behind the active sheet');
+ const result=runInNewContext(CHROME_MODAL_SCRIPT+';JSON.stringify(uniqueHits.map(({kind})=>kind))',{Application:()=>({processes:{byName:()=>({windows:()=>[w]})}})});
+ assert.deepEqual(JSON.parse(result),['remote-debugging']);
+});

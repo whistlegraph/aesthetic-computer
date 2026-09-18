@@ -32,7 +32,10 @@ function walk(e,depth){
  return {texts,buttons,modal};
 }
 let windowIndex=0;
-for(const w of chrome.windows()){const start=hits.length;walk(w,0);for(const h of hits.slice(start))h.windowIndex=windowIndex;windowIndex++;}
+for(const w of chrome.windows()){const start=hits.length;let sheets=[];try{sheets=w.sheets();}catch{}
+ // Chrome can retain off-screen AX group copies of expired consent dialogs.
+ // A real attached sheet is the active blocking surface; inspect it first.
+ for(const root of sheets.length?sheets:[w])walk(root,0);for(const h of hits.slice(start))h.windowIndex=windowIndex;windowIndex++;}
 // Chrome may expose the same sheet both below its window and as a window.
 const uniqueHits=[];const seen=new Set(),physical=new Set();
 for(const h of hits){let position=null;try{position=h.element.position();}catch{}
@@ -59,7 +62,7 @@ async function native(action,expected) {
  const tail=action
   ? `const h=uniqueHits.filter(h=>h.kind===${JSON.stringify(action)});if(h.length!==1||!h[0].element)throw Error('Modal changed or action ambiguous');if(JSON.stringify([h[0].kind,h[0].title,[...h[0].buttons].sort()])!==${JSON.stringify(JSON.stringify(expected?[expected.kind,expected.title,[...expected.buttons].sort()]:null))})throw Error('Modal fingerprint changed');h[0].element.click();JSON.stringify(true);`
   : `JSON.stringify(uniqueHits.map(({kind,title,buttons})=>({kind,title,buttons})));`;
- const execute=()=>run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:10000,maxBuffer:128*1024});
+ const execute=()=>run('/usr/bin/osascript',['-l','JavaScript','-e',CHROME_MODAL_SCRIPT+tail],{timeout:30000,maxBuffer:128*1024});
  // Never replay a click. Only retry a read-only scan with an empty response.
  if(!action)return readNativeModalScan(execute);
  return JSON.parse((await execute()).stdout);
