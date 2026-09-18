@@ -1,6 +1,7 @@
 #include "drm-display.h"
 #include "font.h"
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
@@ -933,13 +934,13 @@ void drm_secondary_present_waveform(ACSecondaryDisplay *s, ACGraph *g,
     int dst_stride = (int)(s->bufs[back].pitch / sizeof(uint32_t));
     fb_copy_scaled(render_fb, s->bufs[back].map, s->width, s->height, dst_stride, 8);
 
-    // Async page flip
-    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
-                               DRM_MODE_PAGE_FLIP_ASYNC, NULL);
-    if (ret != 0) {
-        drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
-                       &s->connector_id, 1, &s->mode);
-    }
+    // Vblank-synced flip (see drm_secondary_present_mirror for why no
+    // event flag and why -EBUSY just drops the frame).
+    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, NULL);
+    if (ret == 0) { s->buf_front = back; return; }
+    if (ret == -EBUSY) { s->flips_dropped++; return; }
+    drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
+                   &s->connector_id, 1, &s->mode);
     s->buf_front = back;
 }
 
@@ -971,12 +972,22 @@ void drm_secondary_present_mirror(ACSecondaryDisplay *s, ACFramebuffer *screen) 
     uint32_t *dst = s->bufs[back].map + (size_t)s->mirror_y * stride + s->mirror_x;
     fb_copy_scaled(screen, dst, dst_w, dst_h, stride, s->mirror_scale);
 
-    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id,
-                               DRM_MODE_PAGE_FLIP_ASYNC, NULL);
-    if (ret != 0) {
-        drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
-                       &s->connector_id, 1, &s->mode);
+    // Plain vblank-synced flip, no event: the primary's drm_flip waits on
+    // this same fd for *its* flip event, so the secondary must not emit
+    // any. -EBUSY means the previous flip is still queued (the two panels'
+    // 60Hz clocks drift) — drop this frame rather than tear or block.
+    int ret = drmModePageFlip(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, NULL);
+    if (ret == 0) { s->buf_front = back; return; }
+    if (ret == -EBUSY) { s->flips_dropped++; return; }
+    // Flip refused outright (driver won't flip this CRTC/buffer). Fall back
+    // to a full mode-set — but say so once; doing this silently every frame
+    // was the visible flicker on HDMI.
+    if (!s->flip_refused_logged) {
+        ac_log("[drm-secondary] page flip refused (%d) — falling back to SetCrtc\n", ret);
+        s->flip_refused_logged = 1;
     }
+    drmModeSetCrtc(s->fd, s->crtc_id, s->bufs[back].fb_id, 0, 0,
+                   &s->connector_id, 1, &s->mode);
     s->buf_front = back;
 }
 

@@ -89,6 +89,8 @@ typedef struct {
     int mirror_scale;         // integer scale used for that source
     int mirror_x, mirror_y;   // letterbox offset of the mirrored image
     int present_every;        // mirror cadence in main-loop frames (1 = every frame)
+    unsigned flips_dropped;   // frames skipped because a flip was still queued
+    int flip_refused_logged;  // SetCrtc fallback announced once
 } ACSecondaryDisplay;
 
 // Initialize secondary HDMI display (call after drm_init, returns NULL if no HDMI).
