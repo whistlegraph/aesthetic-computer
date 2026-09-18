@@ -690,7 +690,7 @@ static void wifi_do_autoconnect(ACWifi *wifi) {
     cred_count++;
     // CultureHub LA staff network
     strncpy(creds[cred_count].ssid, "CULTUREHUB LA", WIFI_SSID_MAX - 1);
-    strncpy(creds[cred_count].pass, "LAMAMA47!", WIFI_PASS_MAX - 1);
+    strncpy(creds[cred_count].pass, "LaMama47!", WIFI_PASS_MAX - 1);
     cred_count++;
 
     FILE *fp = fopen("/mnt/wifi_creds.json", "r");

@@ -354,7 +354,7 @@ WIFI_PRESETS_JSON='[
   {"ssid":"TP-Link_F12F","pass":"32139297"},
   {"ssid":"Plot","pass":"blanketfort"},
   {"ssid":"CULTUREHUB_Guest","pass":"Eleven2024$"},
-  {"ssid":"CULTUREHUB LA","pass":"LAMAMA47!"}
+  {"ssid":"CULTUREHUB LA","pass":"LaMama47!"}
 ]'
 
 INFO=$(diskutil info "${USB_DEV}" 2>/dev/null) || die "diskutil info failed for ${USB_DEV}"
