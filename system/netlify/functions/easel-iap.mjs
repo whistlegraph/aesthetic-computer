@@ -6,11 +6,9 @@
 // the Apple transaction id, so a retried redemption or a duplicate
 // notification cannot credit twice. App Store Server Notifications (REFUND)
 // arrive at the same address with a `signedPayload` and take the pack back.
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { SignedDataVerifier, Environment } from '@apple/app-store-server-library';
 import { authorize } from '../../backend/authorization.mjs';
+import { appleRootCertificates } from '../../backend/apple-roots.mjs';
 import { IAP_PRODUCTS, withWallets, fulfillGrant, revokeGrant } from '../../backend/easel-paid-credits.mjs';
 
 export const BUNDLE_ID='computer.aesthetic.easel';
@@ -18,11 +16,7 @@ export const APP_APPLE_ID=6812823093;
 const headers={'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const reply=(statusCode,value)=>({statusCode,headers,body:JSON.stringify(value)});
 
-function appleRoots(){
-  const dir=join(dirname(fileURLToPath(import.meta.url)),'../../backend/apple-roots');
-  return readdirSync(dir).filter(name=>name.endsWith('.cer')).map(name=>readFileSync(join(dir,name)));
-}
-export function makeVerifiers({roots=appleRoots(),sandbox=process.env.AC_IAP_ALLOW_SANDBOX==='true',online=true}={}){
+export function makeVerifiers({roots=appleRootCertificates(),sandbox=process.env.AC_IAP_ALLOW_SANDBOX==='true',online=true}={}){
   const list=[new SignedDataVerifier(roots,online,Environment.PRODUCTION,BUNDLE_ID,APP_APPLE_ID)];
   if(sandbox)list.push(new SignedDataVerifier(roots,online,Environment.SANDBOX,BUNDLE_ID,APP_APPLE_ID));
   return list;
