@@ -349,3 +349,5 @@ body.preview-fullscreen #preview-waveform{display:none}
 #provider-menu .provider-options [aria-selected=true]{background:color-mix(in srgb,currentColor 12%,transparent)}
 
 #notebook-page{padding-right:28px}
+
+.user-time{opacity:.6;font:inherit;color:var(--user-ink)}

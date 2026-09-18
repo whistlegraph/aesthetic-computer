@@ -49,6 +49,10 @@ const assert = require("node:assert/strict");
     url: "https://aesthetic.computer/blank",
   });
   await delay(300);
+  await win.webContents.executeJavaScript(`window.setNotebookHandle('jeffrey');window.updateConversation({entries:[{id:'entry-1789700000000-first',kind:'user',text:'Give her fingers'},{id:'entry-1789700001000-last',kind:'user',text:'and make them move'},{id:'a',kind:'assistant',text:'Done'}]})`);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('.user-handle').length`),1);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelector('.user-time').dateTime`),new Date(1789700001000).toISOString());
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelector('article[data-kind="user"]').querySelector('.user-handle')`),null);
   await win.webContents.executeJavaScript(
     `window.updateConversation({entries:[{id:'status',kind:'notice',text:'REMOTE INFERENCE'}, {id:'u1',kind:'user',text:'Make a small moving circle.'},{id:'a1',kind:'assistant',text:'The circle follows your pointer.\\n\\nTry changing its **size** or **color**.'}]})`,
   );

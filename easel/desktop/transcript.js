@@ -55,8 +55,9 @@
   const selection=window.getSelection();
   if(selection&&!selection.isCollapsed&&view.contains(selection.anchorNode)){view.pending=value;return;}
   const ids=new Set();
-  const newestUser=value.entries.filter(entry=>entry.kind==='user'&&entry.text?.trim()).at(-1)?.id;
-  for(const entry of value.entries){
+  const visible=value.entries.filter(entry=>typeof entry.id==='string'&&typeof entry.text==='string'&&['user','assistant','error'].includes(entry.kind)&&entry.text.trim());
+  const author=entry=>String(entry?.handle||window.notebookHandle||'').replace(/^@/,'');
+  for(const [index,entry] of visible.entries()){
    if(typeof entry.id!=='string'||typeof entry.text!=='string')continue;
    if(!['user','assistant','error'].includes(entry.kind)||!entry.text.trim())continue;
    if(entry.kind==='notice'&&/^New [^\n]+\nPrevious thread saved: /.test(entry.text))continue;
@@ -65,10 +66,15 @@
    ids.add(entry.id);let node=nodes.get(entry.id);
    if(!node){node=document.createElement('article');nodes.set(entry.id,node);prose.append(node);}
    node.dataset.kind=entry.kind;node.setAttribute('aria-label',entry.kind==='user'?'You':entry.kind==='assistant'?'Aesel':entry.kind);
-   const handle=entry.kind==='user'&&entry.id!==newestUser?String(entry.handle||window.notebookHandle||'').replace(/^@/,''):'';
-   if(node.raw!==entry.text||node.handle!==handle||node.palette!==window.notebookPalette){
+   const next=visible[index+1];
+   const handle=entry.kind==='user'&&!(next?.kind==='user'&&author(next)===author(entry))?author(entry):'';
+   // Older local entries already encode their actual send time in their IDs.
+   const at=Number.isFinite(entry.at)?entry.at:Number(/^entry-(\d{13})-/.exec(entry.id)?.[1]);
+   const timestamp=handle&&Number.isFinite(at)&&Number.isFinite(new Date(at).getTime())?new Date(at):null;
+   const stamp=timestamp?.toISOString()||'';
+   if(node.raw!==entry.text||node.handle!==handle||node.stamp!==stamp||node.palette!==window.notebookPalette){
     const previousInk=node.textContent;
-    if(entry.kind==='assistant'&&window.renderNotebookRich)window.renderNotebookRich(node,entry.text);else content(node,entry.text);node.raw=entry.text;node.handle=handle;node.palette=window.notebookPalette;
+    if(entry.kind==='assistant'&&window.renderNotebookRich)window.renderNotebookRich(node,entry.text);else content(node,entry.text);node.raw=entry.text;node.handle=handle;node.stamp=stamp;node.palette=window.notebookPalette;
     if(entry.kind==='assistant')window.decorateNotebookReply?.(node);
     if(animate&&entry.kind==='assistant'&&entry.id===newestAssistant)window.landNotebookInk?.(node,previousInk);
     if(handle){
@@ -80,6 +86,7 @@
       glyph.style.color=Array.isArray(rgb)&&rgb.length>=3&&rgb.slice(0,3).every(n=>Number.isFinite(n)&&n>=0&&n<=255)?`rgb(${rgb.slice(0,3).join(',')})`:fallback[index%fallback.length];
       mention.append(glyph);
      });
+     if(timestamp){const time=document.createElement('time');time.className='user-time';time.dateTime=stamp;time.title=timestamp.toLocaleString();time.textContent=' · '+timestamp.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});mention.append(time);}
      (node.lastElementChild||node).append(mention);
     }
    }

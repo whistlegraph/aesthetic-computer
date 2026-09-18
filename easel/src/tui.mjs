@@ -520,7 +520,7 @@ let pasteBuffer = null;
 let performanceAbort = null;
 
 function addEntry(kind, text, id = `entry-${Date.now()}-${Math.random()}`) {
-  state.entries.push({ id, kind, text: cleanText(text) });
+  state.entries.push({ id, kind, text: cleanText(text), at: Date.now() });
   if (state.entries.length > 300) state.entries.splice(0, state.entries.length - 300);
   return id;
 }
@@ -586,7 +586,7 @@ function redraw() {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
       if(pendingModelGlyphs || resetModelGlyphs){process.stdout.write(`\x1b]777;easel-token-grass:${JSON.stringify({delta:pendingModelGlyphs,reset:resetModelGlyphs})}\x07`);pendingModelGlyphs="";resetModelGlyphs=false;}
-      const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
+      const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,at:e.at,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
     const frame = renderFrame(process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP}, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
