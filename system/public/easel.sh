@@ -27,7 +27,7 @@ PREFIX="${EASEL_PREFIX:-$HOME/.local/share/easel}"
 BIN="${EASEL_BIN:-$HOME/.local/bin}"
 # Node 18 is where fetch, and therefore both engine bridges, stopped needing a
 # flag. Below it nothing works and the failure is obscure, so check up front.
-MIN_NODE=18
+MIN_NODE=22
 
 say() { printf '%s\n' "$*"; }
 die() { printf '\n  %s\n\n' "$*" >&2; exit 1; }

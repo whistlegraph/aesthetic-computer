@@ -24,9 +24,10 @@ async function main() {
   const lines = (await existing.text()).trim().split('\n').filter(line => !line.endsWith('  ' + zip) && !line.endsWith('  ' + dmg));
   lines.push(...[zip, dmg].map(name => `${digest(name, 'sha256', 'hex')}  ${name}`));
   fs.writeFileSync(path.join(dir, 'SHA256SUMS'), lines.join('\n') + '\n');
+  fs.copyFileSync(path.join(__dirname, 'linux-download.html'), path.join(dir, 'index.html'));
   const client = new S3Client({ endpoint: process.env.SPACES_ENDPOINT || 'https://sfo3.digitaloceanspaces.com', region: 'us-east-1', credentials: { accessKeyId: process.env.SPACES_KEY, secretAccessKey: process.env.SPACES_SECRET }, requestChecksumCalculation: 'WHEN_REQUIRED', responseChecksumValidation: 'WHEN_REQUIRED' });
-  for (const name of [zip, zip + '.blockmap', dmg, 'SHA256SUMS', 'latest-mac.yml']) {
-    await client.send(new PutObjectCommand({ Bucket: 'releases-aesthetic-computer', Key: 'easel/desktop/' + name, Body: fs.readFileSync(path.join(dir, name)), ACL: 'public-read', ContentType: name.endsWith('.yml') ? 'text/yaml' : 'application/octet-stream', CacheControl: name.startsWith('aesel-') ? 'public, max-age=31536000, immutable' : 'no-cache' }));
+  for (const name of [zip, zip + '.blockmap', dmg, 'SHA256SUMS', 'latest-mac.yml', 'index.html']) {
+    await client.send(new PutObjectCommand({ Bucket: 'releases-aesthetic-computer', Key: 'easel/desktop/' + name, Body: fs.readFileSync(path.join(dir, name)), ACL: 'public-read', ContentType: name.endsWith('.html') ? 'text/html; charset=utf-8' : name.endsWith('.yml') ? 'text/yaml' : 'application/octet-stream', CacheControl: name.startsWith('aesel-') ? 'public, max-age=31536000, immutable' : 'no-cache' }));
     console.log('Published ' + name);
   }
 }
