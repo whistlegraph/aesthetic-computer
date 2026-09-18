@@ -45,3 +45,8 @@ test("HTTP adapter delivers data before generation ends and cancels on disconnec
   abort.abort();
   await cancelled;
 });
+
+test('cancel before metered output settles the reservation with zero usage',async()=>{
+ let calls=[];const reader=relayInference(new ReadableStream({}),{onUsage:n=>calls.push(n)}).getReader();
+ await reader.cancel();await Promise.resolve();assert.deepEqual(calls,[0]);
+});

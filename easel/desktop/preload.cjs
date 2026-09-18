@@ -1,5 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('aesel', {
+  renderProxTitle: (text, size) => ipcRenderer.invoke('native-prox-title', {text, size}),
+  nativeContextMenu: items => ipcRenderer.invoke('notebook-context-menu',items),
+  buyCredits: () => ipcRenderer.invoke('buy-ac-credits'),
+  onCredits: fn => ipcRenderer.on('credits', (_event, value) => { if (typeof value?.text === 'string' && typeof value?.description === 'string' && (!value.image || /^data:image\/png;base64,/.test(value.image))) fn(value); }),
   input: data => { if (typeof data === 'string') ipcRenderer.send('input', data); },
   size: (cols, rows) => ipcRenderer.send('size', { cols, rows }),
   titleGeometry: value => ipcRenderer.send('title-geometry',value),

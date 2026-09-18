@@ -1,0 +1,2 @@
+AC pals: Aesthetic Computer, system/public/purple-pals.svg
+Claude and Codex: https://github.com/lobehub/lobe-icons (MIT); respective marks belong to their owners.

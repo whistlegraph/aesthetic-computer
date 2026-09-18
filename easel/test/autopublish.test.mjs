@@ -160,3 +160,16 @@ test("a failure does not retry on its own", async () => {
   await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(attempts, 1, "a broken publish would otherwise spin all session");
 });
+
+test('identical saves during an upload do not publish twice', async () => {
+  let release, calls = 0;
+  const auto = new AutoPublisher({enabled:true, settle:60000, publish:async source=>{calls++; await new Promise(r=>release=r); return {source};}});
+  auto.note('A'); const pending=auto.flush(); auto.note('A'); release(); await pending; await auto.flush();
+  assert.equal(calls,1); auto.cancel();
+});
+test('reverting during an upload restores the earlier bytes', async () => {
+  let release; const seen=[];
+  const auto = new AutoPublisher({enabled:true,settle:60000,publish:async source=>{seen.push(source); if(source==='B')await new Promise(r=>release=r); return {};}});
+  auto.note('A'); await auto.flush(); auto.note('B'); const pending=auto.flush(); auto.note('A'); release(); await pending; await auto.flush();
+  assert.deepEqual(seen,['A','B','A']); auto.cancel();
+});

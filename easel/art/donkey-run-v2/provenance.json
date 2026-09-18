@@ -1,0 +1,25 @@
+{
+  "provider": "fal",
+  "model": "openai/gpt-image-2.5/sunburst/text-to-image",
+  "requestId": "01a0b225-1d98-7271-a5de-e4140da78eb6",
+  "input": {
+    "prompt": "Use case: illustration-story\nAsset: eight-frame seamless side-view donkey running animation for Aesel's notebook activity indicator.\n\nA sincere colored-pencil drawing, limited basic palette. All tone from visible hatching and parallel striping, strokes showing direction and pressure; tapered open edges and paper tooth inside the drawing. Colors mix optically where strokes cross. Confident observed hand-drawn marks, crisp focus. Small indigo-gray donkey, restrained anatomy, long ears, dark mane and tail, warm muzzle. No oversized cartoon eyes or plush baby proportions. No smudging, blur, soft wash, airbrush, digital gradients, vector outlines, glow, ground shadow, text, or decorations.\n\nSprite sheet: exactly eight equal cells arranged four columns by two rows. Read top row left to right, then bottom row left to right. Same donkey, same size, same right-facing side view, same body anchor in every cell. Genuine transparent alpha background. No paper rectangle. Entire body, ears, hooves and tail remain inside each cell with a clear transparent gutter. Body occupies about 75% of each cell's width. Do not repeat frames.\n\nDraw eight distinct consecutive phases of a springy four-legged canter. Near and far legs remain visually distinct: far legs lighter and slightly offset. Each of the FOUR legs must change its shoulder/hip, knee/hock and hoof position across the cycle. No planted or frozen leg repeated through the sheet. Include an unmistakable gathered suspension and an unmistakable extended suspension. Hooves sweep backward during contact and lift forward for recovery. Vary the front and hind pairs out of phase, keeping anatomy plausible. A small vertical rise/fall of the torso, ears and tail follows the stride. The eighth pose leads smoothly into the first; it is not a duplicate of it.\n",
+    "image_size": {
+      "width": 2048,
+      "height": 1024
+    },
+    "background": "transparent",
+    "quality": "high",
+    "num_images": 1,
+    "output_format": "png"
+  },
+  "output": {
+    "url": "https://v3b.fal.media/files/b/0aaadbad/M5WfHbCsXbbL6E9zp1rif_6QRTfcKa.png",
+    "content_type": "image/png",
+    "file_name": "M5WfHbCsXbbL6E9zp1rif_6QRTfcKa.png",
+    "file_size": null,
+    "width": null,
+    "height": null
+  },
+  "generatedAt": "2026-09-18T01:33:22.463Z"
+}

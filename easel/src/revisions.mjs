@@ -1,3 +1,4 @@
+import {revisionSummary} from './revision-summary.mjs';
 // Complete piece snapshots stay on this machine; rollback appends, never erases.
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -30,19 +31,29 @@ export class PieceRevisions {
   list() {
     let names;
     try { names = readdirSync(this.directory); } catch (error) { if (error.code === "ENOENT") return []; throw error; }
-    return names.filter((name) => /^v\d+\.json$/.test(name)).map((name) => JSON.parse(readFileSync(join(this.directory, name), "utf8")))
+    const entries=names.filter((name) => /^v\d+\.json$/.test(name)).map((name) => JSON.parse(readFileSync(join(this.directory, name), "utf8")))
       .sort((a, b) => a.version - b.version);
+    return entries.map((entry,index)=>({...entry,summary:entry.summary||revisionSummary(entries[index-1]?.source,entry.source,entry)}));
   }
   capture(source, { restoredFrom } = {}) {
     const entries = this.list();
     const revision = digest(source);
     const previous = entries.at(-1);
     if (previous?.revision === revision) return previous;
-    const entry = { version: (previous?.version || 0) + 1, revision, updatedAt: new Date().toISOString(), source, ...(restoredFrom ? { restoredFrom } : {}) };
+    const entry = { version: previous ? previous.version + 1 : 0, revision, updatedAt: new Date().toISOString(), source, summary:revisionSummary(previous?.source,source,{restoredFrom}), ...(restoredFrom !== undefined ? { restoredFrom } : {}) };
     mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     // Exclusive final creation prevents two sessions silently overwriting a version.
     writeFileSync(join(this.directory, `v${entry.version}.json`), `${JSON.stringify(entry)}\n`, { flag: "wx", mode: 0o600 });
     return entry;
+  }
+  annotate(version,summary,expectedRevision) {
+    const file=join(this.directory,`v${Number(version)}.json`);
+    const entry=JSON.parse(readFileSync(file,'utf8'));
+    if(entry.revision!==expectedRevision)return false;
+    const clean=String(summary).replace(/https?:\/\/\S+/g,'').replace(/[`*_#]/g,'').replace(/\s+/g,' ').trim().slice(0,160);
+    if(!clean)return false;
+    const temporary=file+'.'+randomUUID()+'.tmp';
+    writeFileSync(temporary,JSON.stringify({...entry,summary:clean})+'\n',{flag:'wx',mode:0o600});renameSync(temporary,file);return true;
   }
   async restore(version) {
     const entry = this.list().find((item) => item.version === Number(version));

@@ -320,3 +320,13 @@ test("a push carries the session's token, and omits the header without one", asy
   await signedOut.push();
   assert.equal(calls[1].headers.Authorization, undefined, "no token, no header");
 });
+
+test('concurrent pushes of identical bytes send once; failure remains retryable', async context => {
+ const cwd=await workspace(context);let calls=0,fail=true;
+ const live=new LivePiece({cwd,slug:'dedup',fetch:async()=>{calls++;return new Response('',{status:fail?500:200});}});live.create();
+ await assert.rejects(live.push()); fail=false;
+ await Promise.all([live.push(),live.push(),live.push()]);assert.equal(calls,2);
+ await live.push();assert.equal(calls,2);
+ await writeFile(live.file,'export function paint({wipe}) { wipe("red"); }');await live.push();assert.equal(calls,3);
+ live.handle='another';await live.push();assert.equal(calls,4);
+});

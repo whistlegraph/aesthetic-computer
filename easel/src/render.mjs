@@ -1,3 +1,4 @@
+import {requestFeedback} from "./request-feedback.mjs";
 import {syntaxSpans,syntaxLine} from "./syntax.mjs";
 import {drawerOptions,drawerIndex} from "./provider-picker.mjs";
 // render.mjs — one frame of the aesel interface.
@@ -323,6 +324,7 @@ function entryLines(entry, width, useColor) {
       rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));offset++;
     }
   }
+  if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
   return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
 
@@ -471,6 +473,12 @@ function drawerRows(state,columns,rows,useColor) {
   })];
 }
 
+export function frameLayout(state, rows = 24) {
+  const height = Math.max(10, rows);
+  const trayRows = 4;
+  return {rows:height, trayStartRow:height-trayRows, trayRows};
+}
+
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns);
   const height = Math.max(10, rows);
@@ -559,13 +567,14 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     return band >= 0 ? `${row} ${qr.lines[band]}` : row;
   });
 
+  const controlsWidth = process.env.EASEL_DESKTOP ? Math.max(22,width-10) : width;
   let prompt;
   if (state.approval) {
     // The subject gets whatever the label and the three answers leave, measured
     // rather than guessed: a hand-counted margin was two columns short, and the
     // row it overflowed wrapped every approval into a scroll.
     const choices = "  y once  a session  n deny";
-    const room = Math.max(4, width - textWidth("ALLOW ") - textWidth(choices));
+    const room = Math.max(4, controlsWidth - textWidth("ALLOW ") - textWidth(choices));
     const subject = clipText(state.approval.subject || "requested action", room);
     prompt = `${paint(useColor, "highlight bold", "ALLOW")} ${subject}  ${paint(useColor, "bold", cleanText(state.approval.choicesText || "y once  a session  n deny"))}`;
   } else {
@@ -582,6 +591,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     prompt = `${paint(useColor, "prompt bold", "›")} ${start > 0 ? "‹" : ""}${before}${cursorCell}${after}`;
   }
 
+  if (state.desktopProsePrompt) prompt = "";
+
   const rule = paint(useColor, "muted", "─".repeat(width));
   // The little guy keeps the far corner from the QR code. He is one row and he
   // does not move: an animated footer costs a full repaint every few seconds
@@ -595,11 +606,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.hover === "about" ? " aesel home · click"
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
-    ? ` ${state.progressBytes ? `${(state.progressBytes / 1024).toFixed(1)} KB received · ` : ""}ctrl-c interrupt`
-    : " /settings \u00b7 /help \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
+    ? ` ${requestFeedback(state)}`
+    : process.env.EASEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const footerRoom=width-MASCOT_ROW_WIDTH-3;
   const caption=clipText(helpText,Math.max(1,footerRoom));
-  const help=` ${paint(useColor,"muted",caption)}${" ".repeat(Math.max(1,width-textWidth(caption)-MASCOT_ROW_WIDTH-2))}${process.env.EASEL_DESKTOP==='1'?' '.repeat(MASCOT_ROW_WIDTH):guy} `;
+  const help=state.desktopProsePrompt ? "" : ` ${paint(useColor,"muted",caption)}${" ".repeat(Math.max(1,width-textWidth(caption)-MASCOT_ROW_WIDTH-2))}${process.env.EASEL_DESKTOP==='1'?' '.repeat(MASCOT_ROW_WIDTH):guy} `;
   // Bottom-heavy, so the top of the frame is nothing but scrollback. A preview
   // window or a prompt rock landing over these rows covers lines that have
   // already been read, rather than the title, the handle, the piece, the

@@ -135,13 +135,13 @@ export class ClaudeServer extends EventEmitter {
     return this.#launch(threadId);
   }
 
-  async startTurn(text) {
+  async startTurn(text, {images=[]}={}) {
     if (!this.child) throw new Error("thread is not ready");
     this.turnId = `turn-${++this.turns}`;
     const turn = { id: this.turnId, status: "inProgress", items: [] };
     this.#send({
       type: "user",
-      message: { role: "user", content: [{ type: "text", text }] },
+      message: { role: "user", content: [{ type: "text", text },...images.map(image=>({type:"image",source:{type:"base64",media_type:image.mimeType,data:image.data}}))] },
       parent_tool_use_id: null,
       session_id: this.threadId,
     });

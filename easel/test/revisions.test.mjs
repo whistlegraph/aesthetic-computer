@@ -18,14 +18,14 @@ test("revisions survive restart, deduplicate saves, and rollback appends", async
   const first = "export function paint() {}\n";
   const second = "export function paint({ wipe }) { wipe(0); }\n";
   await writeFile(file, first);
-  assert.equal(history.capture(first).version, 1);
-  assert.equal(history.capture(first).version, 1);
+  assert.equal(history.capture(first).version, 0);
+  assert.equal(history.capture(first).version, 0);
   history.capture(second);
   await writeFile(file, second);
   const reopened = new PieceRevisions(file, { root: join(root, "history") });
-  const restored = await reopened.restore(1);
-  assert.equal(restored.version, 3);
-  assert.equal(restored.restoredFrom, 1);
+  const restored = await reopened.restore(0);
+  assert.equal(restored.version, 2);
+  assert.equal(restored.restoredFrom, 0);
   assert.equal(await readFile(file, "utf8"), first);
   assert.deepEqual(reopened.list().map((v) => v.source), [first, second, first]);
   await assert.rejects(reopened.restore(99), /No saved/);
@@ -42,6 +42,8 @@ test("file watcher versions external edits and never pushes unfinished JavaScrip
   const live = new LivePiece({ directory: root, slug: "piece", fetch: async () => { pushes++; return new Response("ok"); } });
   Object.defineProperty(live, "history", { get: () => history });
   live.create();
+  assert.equal(history.list()[0].version, 0, "blank is saved synchronously before any prompt or checkpoint");
+  assert.equal(history.list()[0].source, live.source());
   await live.checkpoint();
   t.after(() => live.unwatch());
   const errors = [];
@@ -56,8 +58,8 @@ test("file watcher versions external edits and never pushes unfinished JavaScrip
   await landed;
   assert.equal(history.list().length, 2);
   await writeFile(live.file, "export function broken(");
-  const restored = await live.rollback(1);
-  assert.equal(restored.version, 3, "a broken current edit does not prevent recovery");
+  const restored = await live.rollback(0);
+  assert.equal(restored.version, 2, "a broken current edit does not prevent recovery");
 });
 
 test("live uploads serialize so old saves cannot overtake newer versions", async (t) => {

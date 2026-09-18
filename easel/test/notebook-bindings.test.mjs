@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {notebookBindings,editNotebookBinding,bindingRequest} from '../src/notebook-bindings.mjs';
+const source=`// coral 12 stays a comment\nconst speed=12, size=-4, tint='coral';\nconst label="12";\nexport function paint({wipe,ink}){wipe(255, 127, 80);ink('coral');}\n`;
+const before=notebookBindings(source,'test.mjs');assert.equal(before.bindings.filter(b=>b.kind==='number').length,2);assert.equal(before.bindings.filter(b=>b.value==='coral').length,2);
+const speed=before.bindings.find(b=>b.label==='speed');const result=editNotebookBinding(source,{revision:before.revision,document:before.document,id:speed.id,value:20},'test.mjs');assert.equal(result.source,source.replace('speed=12','speed=20'));assert.throws(()=>editNotebookBinding(source+' ',{revision:before.revision,document:before.document,id:speed.id,value:20},'test.mjs'),/changed/);assert.throws(()=>editNotebookBinding(source,{revision:before.revision,document:before.document,id:speed.id,value:'0;evil()'},'test.mjs'));
+const color=before.bindings.find(b=>b.format==='rgb');const recolored=editNotebookBinding(source,{revision:before.revision,document:before.document,id:color.id,value:'#0088ff'},'test.mjs').source;assert(recolored.includes('wipe(0, 136, 255)'));assert(recolored.includes("ink('coral')"));
+const string=before.bindings.find(b=>b.label==='tint');assert(editNotebookBinding(source,{revision:before.revision,document:before.document,id:string.id,value:'#00000080'},'test.mjs').source.includes("tint='#00000080'"));
+assert.equal(notebookBindings('not valid {').bindings.length,0);assert.equal(notebookBindings('(wipe "red")','test.lisp').bindings.length,0);
+const request={request:'edit-123',revision:before.revision,document:before.document,id:speed.id,value:18};assert.deepEqual(bindingRequest('\x1b[99;7;'+[...Buffer.from(JSON.stringify(request))].join(';')+'~'),request);
+console.log('AST bindings: precise numeric/color edits, ambiguity retained, stale revisions rejected, injection rejected.');

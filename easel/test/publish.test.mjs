@@ -31,6 +31,7 @@ test("plans the handle route from the file name", () => {
 
 test("publishes through the presigned user-bucket flow and verifies", async (context) => {
   const { file } = await piece(context);
+  const {PieceRevisions}=await import('../src/revisions.mjs');const history=new PieceRevisions(file);history.capture('// blank');history.capture('// first edit');history.capture(SOURCE);
   const calls = [];
   const session = { handle: "tester", signedIn: true, token: async () => "tok" };
   const result = await publishPiece({
@@ -44,13 +45,17 @@ test("publishes through the presigned user-bucket flow and verifies", async (con
           headers: { "content-type": "application/json" },
         });
       }
+      if (url.endsWith("/api/register-piece")) return new Response(JSON.stringify({id:"piece-id",code:"stable-code"}));
       if (options.method === "PUT") return new Response("", { status: 200 });
       return new Response(SOURCE, { status: 200 });
     },
   });
   assert.equal(result.route, "https://aesthetic.computer/@tester/smiley");
   assert.equal(result.verified, true);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
+  assert.equal(result.registration.code,"stable-code");
+  assert.equal(calls[3].url,"https://aesthetic.computer/api/register-piece");
+  assert.equal(JSON.parse(calls[3].options.body).slug,"smiley");
   assert.equal(calls[0].url, "https://aesthetic.computer/presigned-upload-url/mjs/piece-smiley.mjs/user");
   assert.equal(calls[0].options.headers.Authorization, "Bearer tok");
   assert.match(calls[0].options.headers["User-Agent"], /Mozilla/);

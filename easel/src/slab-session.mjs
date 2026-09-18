@@ -115,6 +115,7 @@ export class SlabSession {
   // always points at what is actually running.
   live(piece = "", scanUrl = "", channel = "") {
     this.#update({
+      ...(this.record.scan_url !== String(scanUrl || "") ? {piece_published_at:""} : {}),
       piece: String(piece || ""),
       piece_channel: String(channel || ""),
       scan_url: String(scanUrl || ""),

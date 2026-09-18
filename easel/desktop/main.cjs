@@ -1,9 +1,10 @@
+const {chmodSync}=require('node:fs');
 const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen } = require('electron');
 const pty = require('node-pty');
 const { join, resolve } = require('node:path');
 const { mkdirSync, readdirSync, readFileSync, writeFileSync, watch, existsSync, rmSync, renameSync } = require('node:fs');
 const {followSlabTheme,FALLBACK} = require('./slab-theme.cjs');
-const {createHash} = require('node:crypto');
+const {createHash,randomUUID} = require('node:crypto');
 const {localPreview} = require('./local-preview.cjs');
 const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
@@ -25,7 +26,10 @@ const launchFile = join(app.getPath('userData'), 'last-workspace.json');
 let lastWorkspace = '';
 try { const saved = JSON.parse(readFileSync(launchFile,'utf8')); if (typeof saved.cwd === 'string' && existsSync(saved.cwd)) lastWorkspace = saved.cwd; } catch {}
 const workspace = resolve(option('--cwd') || lastWorkspace || join(app.getPath('userData'), 'projects', 'first-piece'));
-const primaryInstance = app.requestSingleInstanceLock({workspace,restart:supplied.includes('--restart')});
+const instance = option('--instance') || 'default';
+const independentWindow = /^window-[a-f0-9-]{36}$/.test(instance);
+if(independentWindow){const sessionData=join(app.getPath('userData'),'window-sessions',instance);mkdirSync(sessionData,{recursive:true,mode:0o700});app.setPath('sessionData',sessionData);}
+const primaryInstance = independentWindow || app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
 else { mkdirSync(app.getPath('userData'),{recursive:true,mode:0o700}); writeFileSync(launchFile,JSON.stringify({cwd:workspace}),{mode:0o600}); }
 app.on('second-instance', (_event, _argv, _cwd, data) => {
@@ -83,12 +87,17 @@ function start({home = false} = {}) {
   for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name) && !(home && ['--piece','--resume'].includes(name))) args.push(name, option(name));
   if (continueSession && !home) args.push('--continue-session');
   if (supplied.includes('--no-autopublish')) args.push('--no-autopublish');
-  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_HOST_PID:String(process.pid), EASEL_HOST_WINDOW_ID:window.getMediaSourceId().split(':')[1], EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_KEEP_PREVIEW:keepPreviewOnStart?'1':'0', EASEL_HOST_PID:String(process.pid), EASEL_HOST_WINDOW_ID:window.getMediaSourceId().split(':')[1], EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
   delete env.NODE_OPTIONS;
   delete env.NO_COLOR;
   env.FORCE_COLOR = '3';
   env.EASEL_GROUND = 'paint';
   try {
+    // Native extraction can discard mode bits; repair only our own launcher.
+    if(process.platform!=='win32'&&!process.mas){
+      const helper=join(app.isPackaged?join(process.resourcesPath,'app.asar.unpacked'):__dirname,'node_modules/node-pty/build/Release/spawn-helper');
+      if(existsSync(helper))chmodSync(helper,0o755);
+    }
     terminal = process.mas
       ? require('./mas-terminal.cjs').createMasTerminal(args,{...terminalSize,cwd:workspace,env})
       : pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
@@ -104,7 +113,13 @@ function start({home = false} = {}) {
           send('output', '\x1b]777;easel-phase:startup\x07\x1b[2J\x1b[H');
           return start({home:true});
         }
-        if (['restart','update'].includes(request.action)) {
+        if (request.action === 'restart') {
+          pendingRestart = false; continueSession = true; keepPreviewOnStart = true;
+          timer?.close();
+          send('desktop-notice','Agent restarted. Your window and preview stay open.');
+          start(); return;
+        }
+        if (request.action === 'update') {
           quitting = true;
           timer?.close();
           return desktopUpdater.afterCheckpoint(request.action);
@@ -112,7 +127,7 @@ function start({home = false} = {}) {
       }
       if (exitCode === 0) { quitting = true; app.quit(); return; }
       pendingRestart = false; send('output', `\r\naesel closed (${exitCode}). Close this window to finish.\r\n`); if (quitting) app.quit(); });
-  } catch (error) { send('output', `Could not start aesel: ${error.message}\r\n`); }
+  } catch (error) { console.error('Agent startup failed:',error); send('desktop-notice','The agent could not start. Use Restart Agent to retry.'); }
   let previous = '', qrUrl = '', qr = null, previewKey = '', previewData = {};
   const dir = join(slabHome, 'state/active-prompts');
   mkdirSync(dir, {recursive:true});
@@ -128,7 +143,7 @@ function start({home = false} = {}) {
         previewContext=(state.artifact_kind||'piece')==='piece'&&state.piece_channel?{channel:state.piece_channel,revision:state.piece_revision,version:state.piece_version}:null;
         let proxName=null;
         try {const ledger=JSON.parse(readFileSync(join(app.getPath('home'),'.config/slab/ledger/local.json'),'utf8'));const entry=ledger.entries?.find(e=>e.id===state.session_id&&e.agentType==='easel');if(entry?.proxNamespace==='easel'&&entry.proxName?.length<=100&&/^[a-z0-9_-]+(?:\/[a-z0-9_-]+)?$/.test(entry.proxName))proxName=entry.proxName;}catch{}
-        const visible = JSON.stringify({ proxName, handle:state.handle||"",handleColors:state.handle_colors||null, piece: state.piece, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
+        const visible = JSON.stringify({ proxName, handle:state.handle||"",handleColors:state.handle_colors||null, piece: state.piece, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", channel:state.piece_channel || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
         if (visible !== previous) {
           previous = visible;
           if (state.scan_url !== qrUrl) {
@@ -142,7 +157,8 @@ function start({home = false} = {}) {
             try { previewData = {localPreview:await localPreview(workspace,state.artifact_preview)}; }
             catch (error) { previewData = {previewError:error.message}; }
           }
-          send('state', {...JSON.parse(visible), qr, ...previewData});
+          lastVisibleState = {...JSON.parse(visible), qr, ...previewData};
+          send('state', lastVisibleState);
         }
       }
     } catch {}
@@ -151,6 +167,15 @@ function start({home = false} = {}) {
   timer = watch(dir, () => { update(); });
   try {ledgerWatcher=watch(join(app.getPath('home'),'.config/slab/ledger'),(_,file)=>{if(String(file)==='local.json')update();});}catch{}
   update();
+}
+function openNewWindow(){
+ const id=`window-${randomUUID()}`;
+ const cwd=join(app.getPath('userData'),'projects',id);
+ mkdirSync(cwd,{recursive:true,mode:0o700});
+ const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;
+ const args=[...(app.isPackaged?[]:[app.getAppPath()]),'--instance',id,'--cwd',cwd];
+ const child=spawn(process.execPath,args,{detached:true,stdio:'ignore',env});
+ child.on('error',error=>send('desktop-notice',`Could not open a window: ${error.message}`));child.unref();
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return;
@@ -162,6 +187,7 @@ app.whenReady().then(() => {
       {type:'separator'}, {role:'hide'}, {role:'hideOthers'}, {role:'unhide'},
       {type:'separator'}, {role:'quit'},
     ] },
+    {label:'File',submenu:[{label:'New Window',accelerator:'CmdOrCtrl+N',click:openNewWindow}]},
     { role: 'editMenu' },
     { label: 'View', submenu: [
       {label:'aesel Actions…',click:()=>{const gallery=new BrowserWindow({parent:window,width:1120,height:850,title:'aesel actions',backgroundColor:'#241d35',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});gallery.loadFile(join(__dirname,'donkey-gallery.html'));}},
@@ -182,7 +208,12 @@ app.whenReady().then(() => {
   ]));
   window = new BrowserWindow({ width: 760, height: 540, title: 'aesel', backgroundColor: '#463264',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
+  const creditLabel = require('./credit-label.cjs').startCreditLabel({app, window, root});
+  require('./credit-checkout.cjs').startCreditCheckout({app,window,root,ipcMain,shell,refresh:creditLabel.refresh});
+  require('./native-title.cjs').registerNativeTitle({ipcMain, window, app});
+  const historySessions=new WeakSet();
   window.webContents.on('will-attach-webview', (event, preferences, params) => {
+    if(String(params.partition||'').startsWith('aesel-history-'))historySessions.add(require('electron').session.fromPartition(params.partition));
     delete preferences.preload;
     preferences.nodeIntegration = false;
     preferences.contextIsolation = true;
@@ -191,7 +222,16 @@ app.whenReady().then(() => {
     catch { event.preventDefault(); }
   });
   window.webContents.on('did-attach-webview',(_event,contents)=>{
+    if(historySessions.has(contents.session))return;
     previewGuest=contents;
+    contents.on('did-navigate',(_event,address)=>{
+      contents.aeselLiveChannel = null;
+      try {
+        const route=new URL(address);
+        const match=/^\/prompt~channel%20([^~]+)~!autorun$/.exec(route.pathname);
+        if(route.origin==='https://aesthetic.computer'&&match)contents.aeselLiveChannel=decodeURIComponent(match[1]);
+      } catch {}
+    });
     contents.on('console-message',(details,level,message,line,sourceId)=>{
       const severity=details.level || ['debug','info','warning','error'][level];
       previewDiagnostic(severity==='warning'?'warn':severity,details.message || message,details.sourceId || sourceId,details.lineNumber || line);
@@ -207,7 +247,7 @@ app.whenReady().then(() => {
       const target = resolve(option('--diagnostics'));
       mkdirSync(target, {recursive:true});
       const renderer = await window.webContents.executeJavaScript(`({font:document.fonts.check('16px "AC aesel Unifont"'), canvases:document.querySelectorAll('.xterm canvas').length, qr:!document.getElementById('qr-card').hidden})`);
-      writeFileSync(join(target, 'gpu.json'), JSON.stringify({features:app.getGPUFeatureStatus(),info:await app.getGPUInfo('complete'),renderer},null,2));
+      writeFileSync(join(target, 'gpu.json'), JSON.stringify({features:app.getGPUFeatureStatus(),info:await app.getGPUInfo('complete'),renderer,layout:await window.webContents.executeJavaScript('window.aeselLayoutSnapshot?.()')},null,2));
       writeFileSync(join(target, 'window.png'), (await window.webContents.capturePage()).toPNG());
     }, 3000);
   });
@@ -215,7 +255,8 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', sendDisplay);
   window.on('enter-full-screen', fullscreenState);
   window.on('leave-full-screen', () => { previewFullscreen = false; fullscreenState(); });
-  window.loadFile(join(__dirname, 'index.html'));
+  const uiRoot = existsSync(join(root,'desktop-ui','index.html')) ? join(root,'desktop-ui') : __dirname;
+  window.loadFile(join(uiRoot, 'index.html'));
   if (canUpdateBinary) {
     const firstCheck = setTimeout(() => desktopUpdater.check(), 30000); firstCheck.unref();
   }
@@ -248,7 +289,7 @@ ipcMain.on('title-geometry',(event,value)=>{
     checkNativeTitle();
   }catch(error){console.warn('aesel rock layout:',error.message);}
 });
-ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); sendDisplay(true); start(); } });
+ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); sendDisplay(true); if(lastVisibleState)send('state',lastVisibleState); if(terminal)terminal.kill('SIGWINCH'); else start(); } });
 ipcMain.on('closing', event => { if(event.sender===window?.webContents) window.hide(); });
 ipcMain.on('input', (event, data) => { if (event.sender === window?.webContents && typeof data === 'string' && data.length < 1_048_576) terminal?.write(data); });
 ipcMain.on('size', (event, { cols, rows } = {}) => {
@@ -308,4 +349,14 @@ app.on('web-contents-created', (_event, contents) => {
       event.preventDefault(); toggleFullscreen('preview');
     }
   });
+});
+
+// Native menus live outside the renderer viewport; return only the chosen index.
+ipcMain.handle('notebook-context-menu', (event, items) => {
+ if(!isWindow(event)||!Array.isArray(items)||items.length>32)return -1;
+ return new Promise(resolve=>{
+  let chosen=-1;
+  const template=items.map((item,index)=>item?.separator?{type:'separator'}:{label:String(item?.label||'').slice(0,160),enabled:item?.enabled!==false,click:()=>{chosen=index;}});
+  Menu.buildFromTemplate(template).popup({window,callback:()=>resolve(chosen)});
+ });
 });

@@ -1,0 +1,35 @@
+@font-face{font-family:AeselRoman;src:url('vendor/rich/fonts/KaTeX_Main-Regular.woff2')}@font-face{font-family:AeselRoman;src:url('vendor/rich/fonts/KaTeX_Main-Bold.woff2');font-weight:700}@font-face{font-family:AeselRoman;src:url('vendor/rich/fonts/KaTeX_Main-Italic.woff2');font-style:italic}
+#conversation article.rich-reply{font-family:AeselRoman,Georgia,serif;white-space:normal}
+.rich-reply p,.rich-reply ul,.rich-reply ol,.rich-reply blockquote,.rich-reply figure,.rich-reply table,.rich-reply [data-math="block"]{margin:0 0 var(--notebook-line-height,24px)}
+.rich-reply>:last-child{margin-bottom:0}
+.rich-reply h1,.rich-reply h2,.rich-reply h3{font:700 1.1em/var(--notebook-line-height,24px) AeselRoman,Georgia,serif;margin:var(--notebook-line-height,24px) 0 0}
+.rich-reply ul,.rich-reply ol{padding-left:1.4em}.rich-reply blockquote{border-left:2px solid currentColor;padding-left:.7em;margin-left:0;opacity:.85}
+.rich-reply table{border-collapse:collapse;max-width:100%;display:block;overflow:auto;font:inherit}.rich-reply th,.rich-reply td{padding:0 .7em;border-bottom:1px solid color-mix(in srgb,currentColor 25%,transparent);text-align:left}
+.rich-reply figure{max-width:100%;overflow:auto}.rich-reply figure svg{display:block;max-width:100%;height:auto;color:var(--aesel-foreground);background:var(--aesel-background)}
+.rich-reply figure svg .node rect,.rich-reply figure svg .node polygon,.rich-reply figure svg .node circle{fill:var(--aesel-background);stroke:var(--aesel-foreground)}
+.rich-reply figure svg .flowchart-link{fill:none;stroke:var(--aesel-foreground)}.rich-reply figure svg text{fill:var(--aesel-foreground)}
+.rich-reply .katex-display{overflow-x:auto;overflow-y:hidden;margin:0;padding:.3em 0}.rich-reply .katex{font-size:1.05em}
+
+#conversation article.rich-reply{font-size:1.08em;line-height:var(--notebook-line-height,24px)}
+#conversation .rich-reply a[href]{color:var(--user-ink);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.18em}
+#conversation .rich-reply code{font-family:Menlo,monospace;font-size:.82em;background:color-mix(in srgb,var(--aesel-foreground) 7%,transparent);border-radius:3px;padding:0 .15em}
+#conversation .rich-reply pre{background:color-mix(in srgb,var(--aesel-foreground) 5%,transparent);padding:var(--notebook-line-height,24px) .6em;border-radius:4px;tab-size:2}
+#conversation .rich-reply pre code{font-size:inherit;background:none;padding:0}
+.highlighted-code .hljs-keyword,.highlighted-code .hljs-selector-tag,.highlighted-code .hljs-literal{color:var(--user-ink);font-weight:600}
+.highlighted-code .hljs-string,.highlighted-code .hljs-attr{color:color-mix(in srgb,var(--aesel-foreground) 65%,#249769)}
+.highlighted-code .hljs-number,.highlighted-code .hljs-title,.highlighted-code .hljs-built_in{color:color-mix(in srgb,var(--aesel-foreground) 65%,#8070dd)}
+.highlighted-code .hljs-comment{opacity:.65;font-style:italic}
+
+.notebook-word{border-radius:2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.notebook-word:hover{background:color-mix(in srgb,var(--user-ink) 18%,transparent);text-decoration:none}
+.notebook-number,.highlighted-code .hljs-number{color:var(--number-ink,#a64112);font-variant-numeric:lining-nums}
+.color-token::before{content:"";display:inline-block;width:.62em;height:.62em;margin:0 .2em 0 .05em;vertical-align:baseline;background:var(--sample-color);border:1px solid color-mix(in srgb,var(--aesel-foreground) 40%,transparent);border-radius:2px}
+
+/* A retired source color remains readable, but its swatch is visibly disconnected. */
+.color-token.color-inactive{cursor:default}
+.color-token.color-inactive:hover{background:transparent}
+.color-token.color-inactive::before{opacity:.42;filter:saturate(.25);background:linear-gradient(135deg,transparent 43%,var(--aesel-foreground,#555) 44%,var(--aesel-foreground,#555) 55%,transparent 56%),var(--sample-color);border-style:dashed}
+
+.source-number-active{animation:notebook-value-pulse 2.4s ease-in-out infinite;cursor:pointer}
+@keyframes notebook-value-pulse{0%,100%{opacity:1}50%{opacity:.62}}
+@media(prefers-reduced-motion:reduce){.source-number-active{animation:none;background:color-mix(in srgb,var(--user-ink) 12%,transparent)}}
