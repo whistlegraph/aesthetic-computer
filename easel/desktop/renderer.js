@@ -614,7 +614,7 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
  const menu=document.createElement('dialog');menu.id='provider-menu';menu.setAttribute('aria-label','Settings');menu.hidden=true;
  document.body.append(footer,menu);
  window.installProxHover(footer,document.getElementById('version'));
- let provider=null,credits=null,generation=0,lastText='',menuKey='';
+ let provider=null,credits=null,buildInfo=null,generation=0,lastText='',menuKey='';
  const balance=()=>{
   if(!credits)return null;
   if(Number.isFinite(credits.remaining)&&Number.isFinite(credits.purchased))return credits.remaining+credits.purchased;
@@ -630,12 +630,13 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
   button.addEventListener('click',action);menu.append(button);return button;
  }
  function rebuildMenu(){
-  const nextKey=JSON.stringify([provider,credits]);if(nextKey===menuKey)return;menuKey=nextKey;
+  const nextKey=JSON.stringify([provider,credits,buildInfo]);if(nextKey===menuKey)return;menuKey=nextKey;
   const focused=document.activeElement?.textContent;
   const scroll=menu.scrollTop;const previewHost=menu.querySelector('.history-preview-host');const historyOpen=menu.querySelector('details')?.open??true;
   menu.replaceChildren();const n=balance();
   const header=document.createElement('header');const title=document.createElement('h2');title.textContent='Settings';
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','Close settings');dismiss.addEventListener('click',close);header.append(title,dismiss);menu.append(header);
+  if(buildInfo){const status=document.createElement('p');status.className='build-status';status.dataset.status=buildInfo.status;const channel=buildInfo.channel==='dev'?'Dev':buildInfo.channel==='release'?'Release':'Local';const state={current:'Up to date',ready:'Update ready · saving session',modified:'Local changes · sync paused',checking:'Checking…',syncing:'Downloading dev build…',downloading:'Downloading update…',unknown:'Unable to verify'}[buildInfo.status]||'Unable to verify';status.textContent=[channel,buildInfo.version,buildInfo.revision?.slice(0,8),state].filter(Boolean).join(' · ');menu.append(status);item('Check for updates',()=>window.aesel.checkBuildUpdates());}
   const current=document.createElement('p');current.textContent=[provider?.backend==='ac'?'AC':provider?.backend==='codex'?'Codex':'Claude',provider?.model].filter(Boolean).join(' · ');menu.append(current);
 
   for(const [index,id,name] of [[0,'ac','AC'],[1,'claude','Claude'],[2,'codex','Codex']]){
@@ -691,6 +692,7 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
   footer.append(document.getElementById('version'));
  }
  window.updateProviderFooter=value=>{if(!['ac','claude','codex'].includes(value?.backend))return;provider=value;window.updateNotebookBindings?.(value);render();};
+ window.aesel.onBuildStatus?.(value=>{buildInfo=value;render();});
  window.aesel.onCredits(value=>{credits=value;render();});
  footer.addEventListener('click',()=>{if(menu.hidden){menu.hidden=false;menu.showModal();window.aesel.input('\x1b[99;5~');footer.setAttribute('aria-expanded','true');menu.querySelector('button:not(:disabled)')?.focus();}else close();});
  document.addEventListener('pointerdown',event=>{if(!footer.contains(event.target)&&!menu.contains(event.target))close();});

@@ -302,3 +302,5 @@ body:not(.preview-fullscreen) #artifact-shell{box-shadow:1px 1px 0 #282130,3px 3
 #notebook-thinking-donkey{opacity:1;filter:none}
 
 #prompt-feedback{width:calc(var(--donkey-size)*512/416 + 16px)}
+
+#provider-menu .build-status{font-size:12px;opacity:.8;overflow-wrap:anywhere}#provider-menu .build-status[data-status=ready],#provider-menu .build-status[data-status=modified]{color:var(--aesel-accent);opacity:1}

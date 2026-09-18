@@ -1,21 +1,21 @@
 // Binary updates are owned by the desktop host, never by the CLI tar updater.
-function createUpdater({app, notify, requestRestart, prepareRelaunch = () => {}, canUpdateBinary = app.isPackaged, load = () => require('electron-updater').autoUpdater}) {
+function createUpdater({app, notify, requestRestart, prepareRelaunch = () => {}, onStatus = () => {}, canUpdateBinary = app.isPackaged, load = () => require('electron-updater').autoUpdater}) {
   let updater, downloaded = false, applying = false;
   function configure() {
     if (updater || !canUpdateBinary) return updater;
     updater = load();
     updater.autoDownload = true;
     updater.autoInstallOnAppQuit = false; // Session checkpoint must succeed first.
-    updater.on('error', error => notify(`Update failed: ${error.message}`));
-    updater.on('update-not-available', () => notify('aesel is up to date.'));
-    updater.on('update-available', info => notify(`Downloading aesel ${info.version}…`));
-    updater.on('update-downloaded', () => { downloaded = true; if (!applying) requestRestart('update'); });
+    updater.on('error', error => { onStatus('unknown'); notify(`Update failed: ${error.message}`); });
+    updater.on('update-not-available', info => { onStatus('current',info); notify('aesel is up to date.'); });
+    updater.on('update-available', info => { onStatus('downloading',info); notify(`Downloading aesel ${info.version}…`); });
+    updater.on('update-downloaded', info => { onStatus('ready',info); downloaded = true; if (!applying) requestRestart('update'); });
     return updater;
   }
   return {
     async check() {
       if (!canUpdateBinary) { notify('Reloading this development build…'); requestRestart('restart'); return; }
-      try { await configure().checkForUpdates(); } catch (error) { notify(`Update failed: ${error.message}`); }
+      try { onStatus('checking'); await configure().checkForUpdates(); } catch (error) { onStatus('unknown'); notify(`Update failed: ${error.message}`); }
     },
     async afterCheckpoint(action) {
       if (applying) return;

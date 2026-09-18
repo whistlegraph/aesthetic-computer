@@ -11,8 +11,9 @@ const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
 const { tmpdir, homedir } = require('node:os');
 
-app.setName('aesel');
-app.setPath('userData', join(app.getPath('appData'), 'Easel'));
+const devHome=process.env.AESEL_DEV_HOME||'';
+app.setName(devHome?'Aesel Dev':'aesel');
+app.setPath('userData', join(app.getPath('appData'), devHome?'Aesel Dev':'Easel'));
 let window, terminal, timer, quitting = false;
 let lastVisibleState = null, keepPreviewOnStart = false;
 let terminalSize = {cols:100,rows:32};
@@ -35,7 +36,7 @@ try { systemTextWatcher = watch(join(homedir(), '.local', 'share', 'slab', 'stat
 readSystemTextSize();
 const themeFollower = followSlabTheme(theme => { currentTheme = theme; if (window && !window.isDestroyed()) { window.setBackgroundColor(theme.background); send('theme',theme); } });
 const startedAt = Date.now();
-const root = app.isPackaged ? join(process.resourcesPath, 'easel') : resolve(__dirname, '..');
+let root = process.env.AESEL_DEV_ROOT || (app.isPackaged ? join(process.resourcesPath, 'easel') : resolve(__dirname, '..'));
 const qrEncoder = import(require('node:url').pathToFileURL(join(root, 'src/vendor/qr.mjs')).href);
 const slabHome = join(tmpdir(), `easel-desktop-${process.pid}`);
 const supplied = process.argv.slice(app.isPackaged ? 1 : 2);
@@ -125,8 +126,19 @@ function requestRestart(action = 'restart') {
   writeFileSync(intentFile, JSON.stringify({action}), {mode:0o600});
   terminal.kill('SIGUSR2');
 }
-const canUpdateBinary = app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
-const desktopUpdater = createUpdater({app, canUpdateBinary, requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
+const canUpdateBinary = !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
+const desktopUpdater = createUpdater({app, canUpdateBinary, onStatus:(status,info)=>buildStatus.release(status,info), requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
+
+let pendingDevRoot=null,pendingDevUI=false;
+const buildStatus=require('./build-status.cjs').createBuildStatus({app,devHome,root,send,channel:canUpdateBinary||process.mas?'release':'local',onDevReady:(next,compatibility)=>{
+  pendingDevRoot=next;pendingDevUI=!compatibility.sameUI;
+  requestRestart(compatibility.sameHost?'restart':'update');
+}});
+function checkBuildUpdates(){
+  if(devHome){const child=spawn(process.execPath,[join(devHome,'sync-runner.mjs')],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore'});child.on('error',()=>buildStatus.poll());child.on('exit',()=>buildStatus.poll());}
+  else void desktopUpdater.check();
+}
+ipcMain.on('check-build-updates',event=>{if(event.sender===window?.webContents)checkBuildUpdates();});
 
 function send(channel, data) { if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
 function start() {
@@ -143,7 +155,7 @@ function start() {
   try {
     // Native extraction can discard mode bits; repair only our own launcher.
     if(process.platform!=='win32'&&!process.mas){
-      const helper=join(app.isPackaged?join(process.resourcesPath,'app.asar.unpacked'):__dirname,'node_modules/node-pty/build/Release/spawn-helper');
+      const helper=join(devHome?join(root,'desktop'):app.isPackaged?join(process.resourcesPath,'app.asar.unpacked'):__dirname,'node_modules/node-pty/build/Release/spawn-helper');
       if(existsSync(helper))chmodSync(helper,0o755);
     }
     terminal = process.mas
@@ -159,6 +171,7 @@ function start() {
           pendingRestart = false; continueSession = true; keepPreviewOnStart = true;
           timer?.close();
           send('desktop-notice','Agent restarted. Your window and preview stay open.');
+          if(pendingDevRoot){root=pendingDevRoot;pendingDevRoot=null;buildStatus.adopt(root);if(pendingDevUI){pendingDevUI=false;window.loadFile(join(root,'desktop/index.html'));return;}}
           start(); return;
         }
         if (request.action === 'update') {
@@ -221,7 +234,7 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'Aesel', submenu: [
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
-      {label:'Check for Updates…', click:()=>desktopUpdater.check()},
+      {label:'Check for Updates…', click:checkBuildUpdates},
       {label:'Restart Agent', click:()=>requestRestart('restart')},
       {label:'Reload Interface', click:()=>window.webContents.reload()},
       {label:'Restart App', click:()=>requestRestart('update')},
@@ -247,7 +260,7 @@ app.whenReady().then(() => {
     ] },
     { role: 'windowMenu' },
   ]));
-  window = new BrowserWindow({ width: 760, height: 540, title: 'aesel', backgroundColor: '#463264',
+  window = new BrowserWindow({ width: 760, height: 540, title: devHome?'Aesel Dev':'aesel', backgroundColor: '#463264',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
   const creditLabel = require('./credit-label.cjs').startCreditLabel({app, window, root});
   require('./credit-checkout.cjs').startCreditCheckout({app,window,root,ipcMain,shell,refresh:creditLabel.refresh});
@@ -296,7 +309,7 @@ app.whenReady().then(() => {
   screen.on('display-metrics-changed', sendDisplay);
   window.on('enter-full-screen', fullscreenState);
   window.on('leave-full-screen', () => { previewFullscreen = false; fullscreenState(); });
-  const uiRoot = existsSync(join(root,'desktop-ui','index.html')) ? join(root,'desktop-ui') : __dirname;
+  const uiRoot = devHome ? join(root,'desktop') : existsSync(join(root,'desktop-ui','index.html')) ? join(root,'desktop-ui') : __dirname;
   window.loadFile(join(uiRoot, 'index.html'));
   if (canUpdateBinary) {
     const firstCheck = setTimeout(() => desktopUpdater.check(), 30000); firstCheck.unref();
@@ -305,7 +318,7 @@ app.whenReady().then(() => {
     if (terminal) { event.preventDefault(); if (!quitting) { quitting = true; terminal.kill('SIGTERM'); setTimeout(() => { if (terminal) { quitting = false; send('desktop-notice','The session is still saving or working. Retry closing when it is ready.'); } }, 6000).unref(); } }
   });
 });
-ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); send('instance-label',address.label); if(systemTextSize)send('system-text-size',systemTextSize); sendDisplay(true); if(lastVisibleState)send('state',lastVisibleState); if(terminal)terminal.kill('SIGWINCH'); else start(); } });
+ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); buildStatus.poll(); send('instance-label',address.label); if(systemTextSize)send('system-text-size',systemTextSize); sendDisplay(true); if(lastVisibleState)send('state',lastVisibleState); if(terminal)terminal.kill('SIGWINCH'); else start(); } });
 // Only hide while the user is actually quitting. A stale or replayed closing
 // phase must not make a healthy restarted window unreachable.
 ipcMain.on('closing', event => { if(event.sender===window?.webContents && quitting) window.hide(); });
@@ -313,7 +326,7 @@ ipcMain.on('input', (event, data) => { if (event.sender === window?.webContents 
 ipcMain.on('size', (event, { cols, rows } = {}) => {
   if (event.sender === window?.webContents && Number.isInteger(cols) && Number.isInteger(rows) && cols >= 32 && cols <= 500 && rows >= 10 && rows <= 300) { if(cols!==terminalSize.cols||rows!==terminalSize.rows){terminalSize={cols,rows};terminal?.resize(cols,rows);} }
 });
-app.on('window-all-closed', () => { timer?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
+app.on('window-all-closed', () => { buildStatus.close();systemTextWatcher?.close(); timer?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
 
 const isWindow = event => event.sender === window?.webContents;
 ipcMain.on('copy-text', (event, text) => { if (isWindow(event) && typeof text === 'string' && text.length <= 1048576) clipboard.writeText(text); });

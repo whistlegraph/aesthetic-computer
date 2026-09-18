@@ -11,7 +11,7 @@ function registerNativeTitle({ipcMain, window, app}) {
     // Bound helper concurrency when titles change rapidly.
     if (pending) await pending;
     if (cache.has(key)) return cache.get(key);
-    const nativeRoot = app.isPackaged ? join(process.resourcesPath,'app.asar.unpacked') : __dirname;
+    const nativeRoot = process.env.AESEL_DEV_ROOT ? join(process.env.AESEL_DEV_ROOT,'desktop') : app.isPackaged ? join(process.resourcesPath,'app.asar.unpacked') : __dirname;
     pending = new Promise(resolve => execFile(join(nativeRoot,'native','credit-label'),[value.text,String(size),'--glyphs'],{encoding:'buffer',timeout:5000,maxBuffer:2*1024*1024},(error,data)=>{try{resolve(error?null:JSON.parse(data.toString('utf8')));}catch{resolve(null);}}));
     const image = await pending;
     pending = null;
