@@ -9,25 +9,25 @@ const lanes = [
 ];
 const chords = [[72,76,79], [69,72,76], [65,69,72], [67,71,74]];
 const hz = n => 440 * 2 ** ((n - 69) / 12);
-function event(lane, t, length, frequency, g, wave = 'sine', decay = .04) {
-  lanes[lane].events.push({t, dur:length, hz:frequency, g, wave, attack:.003, decay});
+function event(lane, t, length, frequency, g, wave = 'sine', decay = .075) {
+  lanes[lane].events.push({t, dur:length, hz:frequency, g, wave, attack:.012, decay});
 }
 for (let c = 0; c < cycles; c++) {
   const chord = chords[Math.floor(c / 4) % chords.length];
   for (let j = 0; j < 3; j++) {
     const t = c * cycle + j * cycle / 3;
-    event(0, t, cycle / 3 * .62, hz(chord[j] + (c >= 32 && c < 48 ? 12 : 0)), .58);
+    event(0, t, cycle / 3 * .68, hz(chord[j] + (c >= 32 && c < 48 ? 12 : 0)), .35);
   }
   for (let j = 0; j < 2; j++) {
     const t = c * cycle + j * cycle / 2;
     if (j === 0) {
-      event(1, t, .045, 160, .22);
-      event(1, t + .025, .14, 95, .3, 'triangle', .10);
+      event(1, t, .075, 145, .10);
+      event(1, t + .025, .15, 100, .14, 'sine', .11);
     } else {
-      event(1, t, .085, 2500, .15, 'noise', .065);
-      event(1, t, .095, 190, .21, 'triangle', .07);
+      event(1, t, .075, 440, .055, 'sine', .055);
+      event(1, t, .10, 220, .065, 'sine', .08);
     }
-    event(1, t, .024, 6500, .065, 'noise', .017);
+    event(1, t, .035, 1100, .018, 'sine', .025);
   }
 }
 const points = Math.ceil(dur * 200);
@@ -42,7 +42,7 @@ for (let i = 0; i <= points; i++) {
   }
 }
 for (const lane of lanes) lane.events.sort((a,b)=>a.t-b.t);
-const score = {name:'3 against 2', bpm, geometry:'line', motion:'bounce',
-  seatOrder:[0,1], dur, gain:.65, lanes};
+const score = {name:'Soft 3 against 2', bpm, geometry:'line', motion:'bounce',
+  seatOrder:[0,1], dur, gain:.42, lanes};
 await writeFile(new URL('../scores/polyrhythm-bounce.nsscore', import.meta.url), JSON.stringify(score)+'\n');
 console.log(`3 against 2: ${bpm} BPM, ${dur.toFixed(2)} seconds, ${cycles} cycles`);

@@ -85,7 +85,7 @@ test('line reaches every assigned seat, conserves power and never wraps', () => 
 
 test('polyrhythm has three melody attacks per two drum pulses and independent paths', () => {
   const s = JSON.parse(readFileSync(new URL('../scores/polyrhythm-bounce.nsscore', import.meta.url)));
-  const melody = s.lanes[0].events, pulses = s.lanes[1].events.filter(e => e.hz === 6500);
+  const melody = s.lanes[0].events, pulses = s.lanes[1].events.filter(e => e.hz === 1100);
   assert.equal(melody.length / pulses.length, 3 / 2);
   assert.equal(voicePosition(s, 0, 0).line, 1);
   assert.equal(voicePosition(s, 1, 0).line, 0);

@@ -51,3 +51,7 @@ This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both
 ## Rhythm tests
 
 `compose-rhythm-bounce.mjs` writes a 112 BPM melody-and-percussion score that alternates on the beat. `compose-polyrhythm.mjs` writes `polyrhythm-bounce.nsscore`: three melody attacks against two drum pulses, independently bouncing across the line for 68.57 seconds. Deploy either with `--score rhythm-bounce` or `--score polyrhythm-bounce`, then cue both hosts. Per-lane `linePosition` arrays override the shared path. Focused brightness now requires an active note as well as 90% of that source's routed power.
+
+## Soft Swing Echo
+
+`compose-soft-swing.mjs` writes `soft-swing-echo.nsscore`: the same 3:2 phrase count with 60:40 swing, quiet sine taps, 55 ms melody attacks and 430 ms decays. Three diminishing delayed copies alternate across the speakers; three quiet reflections give a diffuse tail. These are synthesized score echoes, not a microphone or convolution reverb. The score includes 2.4 seconds for tails and lasts 70.97 seconds. Deploy with `--score soft-swing-echo` and cue both laptops.
