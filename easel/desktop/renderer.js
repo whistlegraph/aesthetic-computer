@@ -646,7 +646,6 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   menu.replaceChildren();const n=balance();
   const header=document.createElement('header');const title=document.createElement('h2');title.textContent='Settings';
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','Close settings');dismiss.addEventListener('click',close);header.append(title,dismiss);menu.append(header);
-  if(buildInfo){const status=document.createElement('p');status.className='build-status';status.dataset.status=buildInfo.status;status.title=buildInfo.revision?`Source commit ${buildInfo.revision}`:'';const channel=buildInfo.channel==='dev'?'Dev':buildInfo.channel==='release'?'Release':'Local';const state={current:'Up to date',ready:'Update ready',modified:'Local changes · sync paused',checking:'Checking…',syncing:'Downloading dev build…',downloading:'Downloading update…',unknown:'Unable to verify'}[buildInfo.status]||'Unable to verify';status.textContent=[channel,buildInfo.version,(buildInfo.tree||buildInfo.revision)?.slice(0,8),state].filter(Boolean).join(' · ');menu.append(status);}
   const choices=document.createElement('div');choices.className='provider-model-row';menu.append(choices);
   choices.append(window.createProviderPicker({backend:provider?.backend,busy:!!provider?.busy,onSelect:index=>{
    if(provider?.busy||provider?.backend===['ac','claude','codex'][index])return;

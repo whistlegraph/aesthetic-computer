@@ -1,13 +1,15 @@
-:root{color-scheme:dark;--aesel-background:#463264;--aesel-foreground:#fffbea;--user-ink:#efb3d7;--number-ink:#ffc687;--notebook-line-height:28px}
+/* The desktop notebook's metrics: 16px Helvetica prose on a 24px ruling. */
+:root{color-scheme:dark;--aesel-background:#463264;--aesel-foreground:#fff;--user-ink:#e9b5d5;--number-ink:#ffd17c;--notebook-line-height:24px;--prose-font-size:16px}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:20px/28px -apple-system,sans-serif}
-#conversation{position:absolute;inset:0;overflow:auto;padding:12px 16px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;line-height:var(--notebook-line-height)}
-#notebook-page{background:repeating-linear-gradient(transparent 0,transparent 27px,#ffffff18 27px,#ffffff18 28px);padding-bottom:28px;overflow-wrap:anywhere}
-article{margin:0 0 28px;white-space:pre-wrap}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
+#conversation{position:absolute;inset:0;overflow:auto;padding:0 14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;line-height:var(--notebook-line-height)}
+#notebook-page{background:repeating-linear-gradient(to bottom,transparent 0,transparent 23px,#ffffff1f 23px,#ffffff1f 24px);padding-bottom:24px;overflow-wrap:anywhere}
+article{margin:0 0 24px;white-space:pre-wrap}
 article[data-kind=user]{color:var(--user-ink)}
-article[data-kind=error]{color:#ff9999}
-article[data-kind=notice]{color:#c4aad9;font-size:17px}
-pre{max-width:100%;overflow:auto;white-space:pre;font:15px/24px Menlo,monospace}
-a{color:var(--user-ink)}
-.user-handle{font:14px -apple-system,sans-serif}
+article[data-kind=error]{color:#ff9898}
+article[data-kind=notice]{opacity:.7;font-size:14px}
+pre{max-width:100%;overflow:auto;white-space:pre;margin:24px 0;font:14px/24px Menlo,monospace}
+code{font:.88em Menlo,monospace}
+a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+.user-handle{font:inherit;opacity:.5}
 @media(prefers-contrast:more){#notebook-page{background:none}}

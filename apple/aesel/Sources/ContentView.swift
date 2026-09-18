@@ -88,9 +88,9 @@ struct ContentView: View {
             Button {
                 if let url = session.shareURL { openURL(url) }
             } label: {
-                Text(session.route.isEmpty ? "new piece" : session.route)
-                    .font(.system(size: 21, weight: .semibold, design: .rounded))
-                    .lineLimit(1).truncationMode(.middle)
+                AeselTitle(text: session.route.isEmpty ? "new piece" : session.route,
+                           colors: session.handleColors, status: session.status)
+                    .lineLimit(1).minimumScaleFactor(0.6)
             }
             .buttonStyle(.plain)
             .disabled(session.shareURL == nil)
@@ -114,9 +114,10 @@ struct ContentView: View {
             .accessibilityLabel(expandedPreview ? "Return to aesel" : "Expand piece")
         }
         .padding(expandedPreview ? 0 : 5)
-        .background { AeselWood() }
-        .overlay { Rectangle().stroke(Color(rgb: 0x9e7548), lineWidth: 1) }
-        .shadow(color: .black.opacity(0.3), radius: 0, x: 3, y: 3)
+        .background(Paint.frame)
+        .overlay { Rectangle().stroke(Paint.frameEdge, lineWidth: 1) }
+        .shadow(color: Paint.accent, radius: 0, x: 3, y: 3)
+        .shadow(color: Paint.accent.opacity(0.45), radius: 0, x: 5, y: 5)
         .padding(.horizontal, expandedPreview ? 0 : 16).padding(.top, expandedPreview ? 0 : 12)
     }
 
@@ -137,7 +138,7 @@ struct ContentView: View {
     private var shelf: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("make something…", text: $draft, axis: .vertical)
-                .font(Paint.font(22)).lineLimit(1...4).textFieldStyle(.plain)
+                .font(Paint.font()).lineLimit(1...4).textFieldStyle(.plain)
                 .tint(Paint.you).focused($writing).submitLabel(.send)
                 .onSubmit { send() }.autocorrectionDisabled()
                 .padding(.vertical, 10)
@@ -149,7 +150,7 @@ struct ContentView: View {
             .disabled(!session.busy && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityLabel(session.busy ? "Stop" : "Send")
             Button { writing = false; showSettings = true; host.refreshCredits() } label: {
-                Text("v\(appVersion)").font(Paint.font(16)).foregroundStyle(Paint.dim)
+                AeselTitle(text: "v\(appVersion)", shadow: Paint.accent, size: 16)
                     .frame(minHeight: 44)
             }
             .accessibilityLabel("Version \(appVersion). Settings")
@@ -201,7 +202,6 @@ struct ContentView: View {
                         Button("Sign out") { showSettings = false; host.signOut() }
                     }
                 }
-                Text("Aesel \(appVersion)").foregroundStyle(Paint.dim)
             }
             .scrollContentBackground(.hidden)
             .background { AeselCloth().ignoresSafeArea() }

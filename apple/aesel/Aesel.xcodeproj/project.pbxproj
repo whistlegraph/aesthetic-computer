@@ -11,13 +11,9 @@
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE6904A010A2BEC894D13C /* AeselApp.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
-		45F9F1BEFDE1DA054142C04D /* UNIFONT-COPYRIGHT.txt in Resources */ = {isa = PBXBuildFile; fileRef = BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
 		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
-		85656270F7033893DDF7CC12 /* aesel.png in Resources */ = {isa = PBXBuildFile; fileRef = DB0FC013DFC41F9D9094BE2A /* aesel.png */; };
 		A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
-		A2F701E804CFBFA1C1CC5088 /* ac-easel-unifont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */; };
-		B637527F3CE86BDA9157F007 /* UNIFONT-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */; };
 		B8236CE8844912F069905928 /* AeselScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */; };
 		C48716DE150CDF3FE383298E /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
 		C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
@@ -32,14 +28,10 @@
 		505E152C400C5CE69463B39F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
 		7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselScene.swift; sourceTree = "<group>"; };
-		AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ac-easel-unifont.ttf"; sourceTree = "<group>"; };
 		B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHost.swift; sourceTree = "<group>"; };
 		B7CE6904A010A2BEC894D13C /* AeselApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselApp.swift; sourceTree = "<group>"; };
 		BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotebook.swift; sourceTree = "<group>"; };
-		BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "UNIFONT-COPYRIGHT.txt"; sourceTree = "<group>"; };
-		C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "UNIFONT-OFL-1.1.txt"; sourceTree = "<group>"; };
 		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
-		DB0FC013DFC41F9D9094BE2A /* aesel.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = aesel.png; sourceTree = "<group>"; };
 		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -81,11 +73,7 @@
 		CF2FDCFF84387B5BBA01E415 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */,
-				DB0FC013DFC41F9D9094BE2A /* aesel.png */,
 				228E709932A29DC953A73B71 /* Assets.xcassets */,
-				BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */,
-				C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -152,10 +140,6 @@
 			files = (
 				7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */,
 				C48716DE150CDF3FE383298E /* Session in Resources */,
-				45F9F1BEFDE1DA054142C04D /* UNIFONT-COPYRIGHT.txt in Resources */,
-				B637527F3CE86BDA9157F007 /* UNIFONT-OFL-1.1.txt in Resources */,
-				A2F701E804CFBFA1C1CC5088 /* ac-easel-unifont.ttf in Resources */,
-				85656270F7033893DDF7CC12 /* aesel.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

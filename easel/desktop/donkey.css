@@ -106,7 +106,7 @@ body #aesel-donkey {display:none!important;}
 #credit-label{width:28px;min-height:28px;padding:5px;color:var(--aesel-foreground,#fff);opacity:.7}
 #credit-label:hover,#credit-label:focus-visible{opacity:1}
 #credit-label svg{width:18px;height:18px;display:block}
-#provider-menu{inset:0;margin:auto;width:min(340px,calc(100vw - 40px));min-width:0;max-height:85vh;box-sizing:border-box;overflow:auto;padding:16px;border:1px solid color-mix(in srgb,var(--aesel-foreground,#fff) 18%,transparent);border-radius:16px;background:var(--aesel-background,#24152a);color:var(--aesel-foreground,#fff);box-shadow:0 20px 60px #0003;font:15px/1.4 Helvetica,Arial,sans-serif}
+#provider-menu{inset:0;margin:auto;width:min(560px,calc(100vw - 48px));min-width:0;max-height:85vh;box-sizing:border-box;overflow:auto;padding:20px 24px;border:1px solid color-mix(in srgb,var(--aesel-foreground,#fff) 18%,transparent);border-radius:16px;background:var(--aesel-background,#24152a);color:var(--aesel-foreground,#fff);box-shadow:0 20px 60px #0003;font:15px/1.4 Helvetica,Arial,sans-serif}
 #provider-menu::backdrop{background:#0006;backdrop-filter:blur(4px)}
 #provider-menu header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 #provider-menu h2{margin:0;font:700 20px "Comic Sans MS",sans-serif}
@@ -302,7 +302,6 @@ body:not(.preview-fullscreen) #artifact-shell{box-shadow:1px 1px 0 #282130,3px 3
 
 #prompt-feedback{width:calc(var(--donkey-size)*512/416 + 16px)}
 
-#provider-menu .build-status{font-size:12px;opacity:.8;overflow-wrap:anywhere}#provider-menu .build-status[data-status=ready],#provider-menu .build-status[data-status=modified]{color:var(--aesel-accent);opacity:1}
 
 /* Preview sizing belongs to the frame grips, never hover or keyboard focus. */
 body:not(.preview-fullscreen) #artifact-shell[data-resized]{width:var(--resized-preview-width);height:var(--resized-preview-height);right:var(--resized-preview-right);top:var(--resized-preview-top);transition:none}
