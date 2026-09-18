@@ -55,3 +55,7 @@ This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both
 ## Soft Swing Echo
 
 `compose-soft-swing.mjs` writes `soft-swing-echo.nsscore`: the same 3:2 phrase count with 60:40 swing, quiet sine taps, 55 ms melody attacks and 430 ms decays. Three diminishing delayed copies alternate across the speakers; three quiet reflections give a diffuse tail. These are synthesized score echoes, not a microphone or convolution reverb. The score includes 2.4 seconds for tails and lasts 70.97 seconds. Deploy with `--score soft-swing-echo` and cue both laptops.
+
+## Octave Climb
+
+`node fedac/native/tools/compose-soft-swing.mjs --climb` writes `octave-climb.nsscore`. Four 17-second phrases rise by an octave each time, spanning three octave lifts. High-register gain tapers gently. A sparse seventh source adds two-note answering phrases and faint delayed returns above the melody. The soft 3:2 swing, taps, spatial echoes and 70.97-second duration remain. Deploy with `--score octave-climb`, then cue the two laptops.

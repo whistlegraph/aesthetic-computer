@@ -2,6 +2,7 @@
 import { writeFile } from 'node:fs/promises';
 
 // Gentle 3:2, with 60:40 swing and synthesized spatial delay/room taps.
+const climb = process.argv.includes('--climb');
 const bpm = 112, cycle = 120 / bpm, cycles = 64, musicEnd = cycle * cycles;
 const dur = musicEnd + 2.4, gain = .36;
 const lanes = [
@@ -12,6 +13,7 @@ const lanes = [
   {name:'echo 3', color:[145,145,195]},
   {name:'room tail', color:[130,160,180]},
 ].map(l => ({...l, events:[], linePosition:[]}));
+if (climb) lanes.push({name:'little top line',color:[225,235,170],events:[],linePosition:[]});
 const chords = [[72,76,79],[69,72,76],[65,69,72],[67,71,74]];
 const hz = n => 440 * 2 ** ((n - 69) / 12);
 const swing = u => u <= .5 ? u * 1.2 : .6 + (u - .5) * .8;
@@ -22,15 +24,25 @@ function note(lane, t, length, frequency, g, attack, decay) {
 }
 for (let c = 0; c < cycles; c++) {
   const chord = chords[Math.floor(c / 4) % 4];
+  const register = climb ? Math.floor(c / 16) : 0;
+  const octave = climb ? (register - 1) * 12 : 0;
+  const softness = climb ? .86 ** register : 1;
   for (let j = 0; j < 3; j++) {
-    const t = (c + swing(j / 3)) * cycle, frequency = hz(chord[j]);
+    const t = (c + swing(j / 3)) * cycle, frequency = hz(chord[j] + octave);
     melodyTimes.push(t);
-    note(0,t,.64,frequency,.26,.055,.43);
+    note(0,t,.64,frequency,.26*softness,.055,.43);
     for (let k = 0; k < delays.length; k++)
-      note(k+2,t+delays[k],.72,frequency,.26*[.42,.22,.11][k],.07,.56);
+      note(k+2,t+delays[k],.72,frequency,.26*softness*[.42,.22,.11][k],.07,.56);
     // Quiet, closely spaced reflections provide a diffuse trailing sound.
     for (const [delay,level] of [[.061,.045],[.113,.030],[.197,.020]])
-      note(5,t+delay,.83,frequency,level,.09,.68);
+      note(5,t+delay,.83,frequency,level*softness,.09,.68);
+  }
+  if (climb && c % 2 === 1) {
+    const t = (c + .18) * cycle;
+    const high = Math.min(106, chord[1] + octave + 12);
+    note(6,t,.40,hz(high),.055*softness,.065,.28);
+    note(6,t+cycle*.23,.52,hz(Math.min(108,high+2)),.04*softness,.08,.39);
+    note(6,t+cycle*.76,.62,hz(high),.016*softness,.09,.48);
   }
   for (let j = 0; j < 2; j++) {
     const t = (c + swing(j / 2)) * cycle;
@@ -58,9 +70,10 @@ for(let i=0;i<=points;i++){
     lanes[k+2].linePosition.push(k%2===0?1-p:p);
   }
   lanes[5].linePosition.push(.5+.2*Math.sin(t*.55));
+  if (climb) lanes[6].linePosition.push(path(melodyTimes,t-cycle*.18,0));
 }
 for(const lane of lanes)lane.events.sort((a,b)=>a.t-b.t);
-const score={name:'Soft Swing Echo',bpm,geometry:'line',motion:'bounce',seatOrder:[0,1],
+const score={name:climb?'Octave Climb':'Soft Swing Echo',bpm,geometry:'line',motion:'bounce',seatOrder:[0,1],
   dur,gain,swing:.6,lanes};
-await writeFile(new URL('../scores/soft-swing-echo.nsscore',import.meta.url),JSON.stringify(score)+'\n');
-console.log(`Soft Swing Echo: ${bpm} BPM, ${dur.toFixed(2)} seconds, 3:2 with 60:40 swing`);
+await writeFile(new URL(`../scores/${climb?'octave-climb':'soft-swing-echo'}.nsscore`,import.meta.url),JSON.stringify(score)+'\n');
+console.log(`${score.name}: ${bpm} BPM, ${dur.toFixed(2)} seconds, 3:2 with 60:40 swing`);

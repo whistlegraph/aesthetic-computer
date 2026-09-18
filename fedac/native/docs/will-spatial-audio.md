@@ -127,7 +127,7 @@ Show registered seats with live output, battery, phase, score time, data age, an
 
 ## Spatial view
 
-The current composition is **Soft Swing Echo** (`soft-swing-echo.nsscore`): 112 BPM, 70.97 seconds including tails, six sources, and 64 cycles. Three melodic attacks occupy the same time as two soft tap pulses, with 60:40 swing. Melody and taps bounce independently; three diminishing echo sources alternate across the laptops and a quiet reflection source adds a diffuse tail. These are synthesized repeats, not microphone input or convolution reverb. Read each source's live position independently. The deployed score remains readable at `/pieces/spatial-rehearsal.nsscore`; derive duration, sources and layout from fresh data. Earlier Sine Line, Rhythm Bounce and 3-against-2 scores remain available.
+The current composition is **Octave Climb** (`octave-climb.nsscore`): 112 BPM, 70.97 seconds including tails, seven sources, and 64 cycles. Four successive registers rise by an octave every 16 cycles; the seventh source adds sparse high-note answering phrases. Three melodic attacks occupy the same time as two soft tap pulses, with 60:40 swing. Melody and taps bounce independently; three diminishing echo sources alternate across the laptops and a quiet reflection source adds a diffuse tail. These are synthesized repeats, not microphone input or convolution reverb. Read each source's live position independently. The deployed score remains readable at `/pieces/spatial-rehearsal.nsscore`; derive duration, sources and layout from fresh data. Earlier Sine Line, Rhythm Bounce and 3-against-2 scores remain available.
 
 Use `data.sources` directly to draw the world. Each source contains `{lane, name, color, position, seatGain, active}`. `lane` is its zero-based score index and `color` is an RGB array. In line geometry, `position.line` runs from 0 (leftmost seat) to 1 (rightmost); `x` spans −1.6 to 1.6 in virtual units, and `y`/`z` are zero. `angle` is a zero placeholder here: do not use it to draw the line. In ring geometry, `position.angle` is in radians. Coordinates describe the score, not measured room positions.
 
@@ -147,3 +147,5 @@ Playback is currently output-only: a controller estimates each local audio clock
 - Added Rhythm Bounce and 3-against-2 polyrhythm tests. Per-source line paths allow independent movement; idle sources no longer trigger focused brightness.
 
 - Softened the rhythm test and added Soft Swing Echo with longer attacks/decays, swing and spatial echo tails.
+
+- Added Octave Climb: three octave rises, gentler high registers and a seventh source for little top-line phrases.
