@@ -85,8 +85,19 @@ let win;
   const points = [...waveform.matchAll(/[ML][\d.]+ ([\d.]+)/g)].map(
     (m) => +m[1],
   );
-  assert.equal(points.length,512,'512 samples along the full height');
+  assert(points.length > 12, 'A scrolling envelope retains multiple audio slices');
   assert(Math.max(...points) - Math.min(...points) > 5);
+  assert.equal(await js(`getComputedStyle(document.getElementById('preview-waveform')).transitionDuration`), '0s', 'Sound onset never fades in');
+  // Four real 75 ms notes make the bottom-up history visible and inspectable.
+  guest.setAudioMuted(true); await delay(100);
+  await guest.executeJavaScript(`gain.gain.setValueAtTime(0,ctx.currentTime)`);
+  guest.setAudioMuted(false); await delay(220);
+  await guest.executeJavaScript(`(()=>{const t=ctx.currentTime+.05;for(let i=0;i<4;i++){gain.gain.setValueAtTime(.06,t+i);gain.gain.setValueAtTime(0,t+i+.075);}})()`);
+  await delay(3400);
+  fs.writeFileSync('/tmp/aesel-waveform-rhythm.png',(await win.webContents.capturePage()).toPNG());
+  const bands = await js(`(()=>{const points=[...document.querySelector('#preview-waveform path').getAttribute('d').matchAll(/[ML]([\\d.]+) ([\\d.]+)/g)].map(m=>({at:+m[1],amp:Math.abs(+m[2]-16)}));return points.filter(p=>p.amp>2).map(p=>Math.floor(p.at/128));})()`);
+  assert(new Set(bands).size >= 3, 'Short notes remain separated across the scrolling history');
+  await guest.executeJavaScript(`gain.gain.setValueAtTime(.12,ctx.currentTime)`);
   assert.equal(
     await js(
       `getComputedStyle(document.getElementById('preview-waveform')).pointerEvents`,
@@ -140,13 +151,13 @@ let win;
   );
   guest.setAudioMuted(false);
   await guest.executeJavaScript("gain.gain.value=0");
-  await delay(900);
+  await delay(4200);
   assert.equal(
     await js(
       `document.getElementById('preview-waveform').classList.contains('sounding')`,
     ),
     false,
-    "Silence hides the line",
+    "Silence hides the line when the four-second history has scrolled out",
   );
   await guest.executeJavaScript("gain.gain.value=.12");
   await delay(300);
@@ -177,7 +188,7 @@ let win;
     "0px",
   );
   console.log(
-    "PASS: live audio, silence, mute, navigation, narrow thought-bubble row, shared bounce, reduced motion.",
+    "PASS: live audio, short-note history, immediate opacity, silence, mute, navigation, narrow thought-bubble row, shared bounce, reduced motion.",
   );
 })()
   .catch((e) => {

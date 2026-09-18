@@ -71,3 +71,37 @@ setting recolor the terminal live.
 Media previews support Picture PNG, Sound WAV with waveform/playback, Paper
 source/PDF, and Game Boy ROMs through AC's bundled WasmBoy core. Game Boy building
 uses AC's GBDK stack; the compiler is installed separately. See `../media/gameboy`.
+
+### Project apps (local macOS prototype)
+
+App mode gives a project its own Dock name, icon and stable bundle ID. The
+Projects menu and Dock menu share a registry of installed projects, mark running
+apps, and open or focus the selected app. The existing Aesel installation remains
+available. A single-icon Studio with multiple windows is the other intended
+presentation; this prototype does not implement that window-host refactor.
+
+```sh
+node easel/bin/piece-app.mjs --cwd /path/to/project --name sefo \
+  --piece sefo.mjs --icon /path/to/piece-frame.png --open
+```
+
+The installer uses the installed `~/Applications/aesel.app` as its base (override
+with `--base`), creates an APFS clone in `~/Applications/Aesel Pieces/`, renames
+and signs its native helpers, and verifies a local PTY launch before installation.
+It requires the repo's desktop development dependencies for ASAR extraction.
+These are locally signed prototypes, not notarized apps for distribution. The
+runtime is frozen in each clone; binary auto-update is disabled so an Aesel
+release cannot replace the project's identity. Existing apps must be closed
+before rerunning the installer; replaced bundles are retained beside their
+registry entry for rollback.
+
+The project stores its identity in `.easel/app.json`; the shared registry is
+`~/Library/Application Support/Easel/piece-apps/<id>/`. Renaming with the installer
+preserves the bundle ID and installed path, so Dock shortcuts stay valid. The
+current piece selects its existing saved session, including the case where a
+project originally opened in a separate window was later reopened as the default
+Aesel window. `--instance` explicitly selects a session identity when needed.
+Reopening the app resumes its conversation and draft; opening it twice focuses
+the existing process. Agent activity still appears in the prox ledger. The
+registry currently provides discovery, liveness and launch/focus—not automatic
+crash recovery or a separate supervisor daemon.

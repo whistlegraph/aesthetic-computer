@@ -61,6 +61,7 @@ export class SlabSession {
       agent_type: "easel",
       ...(process.env.EASEL_DESKTOP === '1' ? {
         host_app:'computer.aesthetic.easel',
+        host_bundle_id:process.env.EASEL_HOST_BUNDLE_ID || 'computer.aesthetic.easel',
         host_pid:Number(process.env.EASEL_HOST_PID)||process.ppid,
         host_window_id:Number(process.env.EASEL_HOST_WINDOW_ID)||0,
       }:{}),

@@ -24,35 +24,40 @@ window.installPreviewWaveform = (preview) => {
   window.addEventListener("resize", align);
   align();
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  const historyMs = 4000; // Two 4/4 bars at 120 BPM, oldest at the top.
+  let history = [];
   let ready = false,
     timer = 0,
     generation = 0,
-    frame = 0,
-    previousFrame = 0,
-    target = [],
-    displayed = [],
-    lastSound = 0;
+    previousRead = 0,
+    peakEnvelope = 0,
+    frame = 0;
   const clear = () => {
     line.classList.remove("sounding");
-    lastSound = 0;
+    path.setAttribute("d", "M0 16H511");
+    previousRead = 0;
+    peakEnvelope = 0;
+    history = [];
     cancelAnimationFrame(frame);
     frame = 0;
-    previousFrame = 0;
-    target = [];
-    displayed = [];
   };
-  function animate(now) {
+  function draw(now) {
     frame = 0;
-    if (!ready || document.hidden || !line.classList.contains("sounding")) return;
-    const blend = 1 - Math.exp(-Math.min(64, now - (previousFrame || now - 16)) / 35);
-    previousFrame = now;
-    displayed = target.map((v, i) => (displayed[i] ?? v) + (v - (displayed[i] ?? v)) * blend);
-    path.setAttribute("d", displayed.map((v, i) => `${i ? "L" : "M"}${i} ${(16 - Math.tanh(v * 4) * 13).toFixed(2)}`).join(""));
-    frame = requestAnimationFrame(animate);
+    if (!ready || document.hidden || preview.hidden || preview.isAudioMuted() || document.body.classList.contains("preview-fullscreen")) { clear(); return; }
+    history = history.filter(point => now - point.at < historyMs);
+    if (!history.some(point => point.active)) { clear(); return; }
+    line.classList.add("sounding");
+    // Envelope slices retain transients instead of aliasing an entire audio
+    // cycle down to a pixel. Their timestamps set the upward scroll speed.
+    const position = point => (511 * (1 - (now - point.at) / historyMs)).toFixed(2);
+    const edge = (point, side) => `${position(point)} ${(16 + point[side] * 13).toFixed(2)}`;
+    path.setAttribute("d", `M${position(history[0])} 16${history.map(point => `L${edge(point, "low")}`).join("")}L511 16${history.toReversed().map(point => `L${edge(point, "high")}`).join("")}Z`);
+    frame = requestAnimationFrame(draw);
   }
   async function poll() {
     const current = generation;
-    let active = false;
+    const started = performance.now();
+    let interval = 200;
     try {
       if (
         !ready ||
@@ -64,6 +69,9 @@ window.installPreviewWaveform = (preview) => {
         clear();
         return;
       }
+      // Keep listening during silence: the bird's whole first note is 75 ms.
+      // Only one guest read is in flight, and hidden/muted previews back off.
+      interval = motion.matches ? 33 : 16;
       const samples = await preview.executeJavaScript(
         "window.AC?.readOutputWaveform?.(512) || []",
       );
@@ -73,30 +81,33 @@ window.installPreviewWaveform = (preview) => {
             .slice(0, 512)
             .map((v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0))
         : [];
-      active = values.some((v) => Math.abs(v) > 0.0005);
-      if (active) lastSound = performance.now();
-      line.classList.toggle(
-        "sounding",
-        !!lastSound && performance.now() - lastSound < 600,
-      );
-      if (!line.classList.contains("sounding")) return;
+      const mean = values.reduce((sum, v) => sum + v, 0) / (values.length || 1);
+      const centered = values.map(v => v - mean);
+      const peak = centered.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+      const active = peak > 0.0005;
+      const now = performance.now();
+      // Normalize the display only. Follow peaks immediately, release gain
+      // gently, and cap amplification so near-silence doesn't fill the strip.
+      peakEnvelope = Math.max(peak, peakEnvelope * Math.exp(-(now - previousRead) / 180));
+      previousRead = now;
+      const gain = Math.min(32, 0.85 / (peakEnvelope || 1));
       if (motion.matches) {
-        cancelAnimationFrame(frame); frame = 0;
+        cancelAnimationFrame(frame); frame = 0; history = [];
+        line.classList.toggle("sounding", active);
         path.setAttribute("d", "M0 16H511");
       } else {
-        // Resample older guests too, so a loading piece never changes geometry.
-        target = Array.from({length:512}, (_, i) => {
-          const at = i * Math.max(0, values.length - 1) / 511;
-          const lo = Math.floor(at), fraction = at - lo;
-          return (values[lo] || 0) * (1 - fraction) + (values[Math.min(lo + 1, values.length - 1)] || 0) * fraction;
-        });
-        if (!frame) frame = requestAnimationFrame(animate);
+        // Normalization changes only each new slice, never the recorded past.
+        history.push({at: now, active,
+          low: active ? Math.min(...centered) * gain : 0,
+          high: active ? Math.max(...centered) * gain : 0});
+        // No second animation loop or queue of guest requests.
+        if (!frame) draw(now);
       }
     } catch {
       clear();
     } finally {
       if (current === generation && ready)
-        timer = setTimeout(poll, active && !motion.matches ? 33 : 200);
+        timer = setTimeout(poll, Math.max(4, interval - (performance.now() - started)));
     }
   }
   const stop = () => {

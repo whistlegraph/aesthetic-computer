@@ -11,10 +11,15 @@ const NetClock = require('./net-clock.js');
 const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
 const { tmpdir, homedir } = require('node:os');
+const {readPieceApp, registerRunning, listProjects} = require('./piece-app.cjs');
+const pieceApp = readPieceApp(join(process.resourcesPath, 'piece-app.json'));
 
 const devHome=process.env.AESEL_DEV_HOME||'';
-app.setName(devHome?'Aesel Dev':'aesel');
-app.setPath('userData', join(app.getPath('appData'), devHome?'Aesel Dev':'Easel'));
+app.setName(pieceApp?.name || (devHome?'Aesel Dev':'aesel'));
+const stateRoot = pieceApp?.stateRoot || join(app.getPath('appData'), devHome?'Aesel Dev':'Easel');
+// Each named app gets its own OS singleton; saved project sessions remain shared
+// with Studio, so switching presentation never forks the conversation.
+app.setPath('userData', pieceApp ? join(stateRoot, 'app-profiles', pieceApp.id) : stateRoot);
 let window, terminal, timer, quitting = false, windowPainted = false;
 let lastVisibleState = null, keepPreviewOnStart = false;
 let terminalSize = {cols:100,rows:32};
@@ -41,19 +46,21 @@ let root = process.env.AESEL_DEV_ROOT || (app.isPackaged ? join(process.resource
 const qrEncoder = import(require('node:url').pathToFileURL(join(root, 'src/vendor/qr.mjs')).href);
 const slabHome = join(tmpdir(), `easel-desktop-${process.pid}`);
 const supplied = process.argv.slice(app.isPackaged ? 1 : 2);
-const option = name => { const at = supplied.indexOf(name); return at < 0 ? '' : supplied[at + 1] || ''; };
+const option = name => { const at = supplied.indexOf(name); return at < 0 ? (name === '--piece' ? pieceApp?.piece || '' : '') : supplied[at + 1] || ''; };
 const launchFile = join(app.getPath('userData'), 'last-workspace.json');
 let lastWorkspace = '';
 try { const saved = JSON.parse(readFileSync(launchFile,'utf8')); if (typeof saved.cwd === 'string' && existsSync(saved.cwd)) lastWorkspace = saved.cwd; } catch {}
-const workspace = resolve(option('--cwd') || lastWorkspace || join(app.getPath('userData'), 'projects', 'first-piece'));
-const instance = option('--instance') || 'default';
+const workspace = resolve(pieceApp?.workspace || option('--cwd') || lastWorkspace || join(app.getPath('userData'), 'projects', 'first-piece'));
+const instance = pieceApp?.instance || option('--instance') || 'default';
 const independentWindow = /^window-[a-f0-9-]{36}$/.test(instance);
-if(independentWindow){const sessionData=join(app.getPath('userData'),'window-sessions',instance);mkdirSync(sessionData,{recursive:true,mode:0o700});app.setPath('sessionData',sessionData);}
-const primaryInstance = independentWindow || app.requestSingleInstanceLock();
-if (!primaryInstance) app.quit();
+if(independentWindow){const sessionData=join(stateRoot,'window-sessions',instance);mkdirSync(sessionData,{recursive:true,mode:0o700});app.setPath('sessionData',sessionData);}
+const primaryInstance = pieceApp ? app.requestSingleInstanceLock() : independentWindow || app.requestSingleInstanceLock();
+if (!primaryInstance) { app.quit(); return; }
+const releaseProject = pieceApp ? registerRunning(pieceApp) : () => {};
+process.once('exit', releaseProject);
 mkdirSync(app.getPath('userData'),{recursive:true,mode:0o700});
 writeFileSync(launchFile,JSON.stringify({cwd:workspace}),{mode:0o600});
-const addressDir = join(app.getPath('userData'), 'instance-addresses');
+const addressDir = join(stateRoot, 'instance-addresses');
 mkdirSync(addressDir,{recursive:true,mode:0o700});
 function claimAddress() {
   for (let index=0; index<26; index++) {
@@ -90,15 +97,15 @@ app.on('activate', () => {
   window.focus();
 });
 mkdirSync(workspace, { recursive: true });
-const sessionDir = join(app.getPath('userData'), 'sessions');
+const sessionDir = join(stateRoot, 'sessions');
 mkdirSync(sessionDir, {recursive:true,mode:0o700});
 const sessionFile = join(sessionDir, createHash('sha256').update(`${workspace}\0${instance}`).digest('hex') + '.json');
 const continuationFile = sessionFile + '.continue';
-let continueSession = false;
+let continueSession = !!pieceApp && existsSync(sessionFile);
 if (primaryInstance) {
   try {
     const marker = JSON.parse(readFileSync(continuationFile,'utf8'));
-    continueSession = marker.cwd === workspace && Date.now()-marker.at >= 0 && Date.now()-marker.at < 120000;
+    continueSession ||= marker.cwd === workspace && Date.now()-marker.at >= 0 && Date.now()-marker.at < 120000;
     rmSync(continuationFile,{force:true});
   } catch {}
 }
@@ -127,7 +134,7 @@ function requestRestart(action = 'restart') {
   writeFileSync(intentFile, JSON.stringify({action}), {mode:0o600});
   terminal.kill('SIGUSR2');
 }
-const canUpdateBinary = !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
+const canUpdateBinary = !pieceApp && !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, onStatus:(status,info)=>buildStatus.release(status,info), requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
 let applicationMenuTemplate=null;
@@ -138,7 +145,8 @@ const buildStatus=require('./build-status.cjs').createBuildStatus({app,devHome,r
   pendingDevAction=compatibility.sameHost?'restart':'update';applyPendingDev();
 }});
 function checkBuildUpdates(){
-  if(devHome){const child=spawn(process.execPath,[join(devHome,'sync-runner.mjs')],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore'});child.on('error',()=>buildStatus.poll());child.on('exit',()=>buildStatus.poll());}
+  if(pieceApp){void shell.openPath(pieceApp.baseApp);send('desktop-notice','Manage runtime updates in Aesel. This project app keeps its own identity.');}
+  else if(devHome){const child=spawn(process.execPath,[join(devHome,'sync-runner.mjs')],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},stdio:'ignore'});child.on('error',()=>buildStatus.poll());child.on('exit',()=>buildStatus.poll());}
   else void desktopUpdater.check();
 }
 ipcMain.on('check-build-updates',event=>{if(event.sender===window?.webContents)checkBuildUpdates();});
@@ -160,13 +168,14 @@ function start() {
   if (supplied.includes('--no-autopublish')) args.push('--no-autopublish');
   const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_KEEP_PREVIEW:keepPreviewOnStart?'1':'0', EASEL_HOST_PID:String(process.pid), EASEL_HOST_WINDOW_ID:window.getMediaSourceId().split(':')[1], EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
   delete env.NODE_OPTIONS;
+  env.EASEL_HOST_BUNDLE_ID = pieceApp?.bundleId || 'computer.aesthetic.easel';
   delete env.NO_COLOR;
   env.FORCE_COLOR = '3';
   env.EASEL_GROUND = 'paint';
   try {
     // Native extraction can discard mode bits; repair only our own launcher.
     if(process.platform!=='win32'&&!process.mas){
-      const helper=join(devHome?join(root,'desktop'):app.isPackaged?join(process.resourcesPath,'app.asar.unpacked'):__dirname,'node_modules/node-pty/build/Release/spawn-helper');
+      const helper=join(devHome?join(root,'desktop'):app.isPackaged&&app.getAppPath().endsWith('.asar')?join(process.resourcesPath,'app.asar.unpacked'):__dirname,'node_modules/node-pty/build/Release/spawn-helper');
       if(existsSync(helper))chmodSync(helper,0o755);
     }
     terminal = process.mas
@@ -234,17 +243,17 @@ function start() {
 }
 function openNewWindow(){
  const id=`window-${randomUUID()}`;
- const cwd=join(app.getPath('userData'),'projects',id);
+ const cwd=join(stateRoot,'projects',id);
  mkdirSync(cwd,{recursive:true,mode:0o700});
  const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;
  const args=[...(app.isPackaged?[]:[app.getAppPath()]),'--instance',id,'--cwd',cwd,'--window-requested-at',String(Date.now())];
- const child=spawn(process.execPath,args,{detached:true,stdio:'ignore',env});
+ const child=spawn(pieceApp?.baseExecutable || process.execPath,args,{detached:true,stdio:'ignore',env});
  child.on('error',error=>send('desktop-notice',`Could not open a window: ${error.message}`));child.unref();
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return;
   applicationMenuTemplate=[
-    { label: devHome?'Aesel Dev':'Aesel', submenu: [
+    { label: pieceApp?.name || (devHome?'Aesel Dev':'Aesel'), submenu: [
       {id:'aesel-build-status',label:devHome?'Dev · checking…':'Release · checking…',enabled:false},
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
       {label:'Check for Updates…', click:checkBuildUpdates},
@@ -255,6 +264,7 @@ app.whenReady().then(() => {
       {type:'separator'}, {role:'quit'},
     ] },
     {label:'File',submenu:[{label:'New Window',accelerator:'CmdOrCtrl+N',click:openNewWindow}]},
+    {id:'piece-apps',label:'Projects',submenu:[]},
     { role: 'editMenu' },
     { label: 'View', submenu: [
       {label:'Aesel Actions…',click:()=>{const gallery=new BrowserWindow({parent:window,width:1120,height:850,title:'Aesel actions',backgroundColor:'#241d35',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});gallery.loadFile(join(__dirname,'donkey-gallery.html'));}},
@@ -269,8 +279,29 @@ app.whenReady().then(() => {
     { role: 'windowMenu' },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
-  window = new BrowserWindow({ show:false, width: 760, height: 540, title: devHome?'Aesel Dev':'aesel', backgroundColor: currentTheme.background,
+  let projectMenuState = '';
+  const refreshProjects = () => {
+    const projects = listProjects(stateRoot);
+    const key = JSON.stringify(projects.map(p => [p.id,p.name,p.pid,p.installed,p.appPath]));
+    if (key === projectMenuState) return;
+    projectMenuState = key;
+    const items = projects.map(p => ({label:p.name,type:'checkbox',checked:!!p.pid,enabled:p.installed,click:()=>shell.openPath(p.appPath)}));
+    if (pieceApp) items.push({type:'separator'},{label:'Open Aesel',click:()=>shell.openPath(pieceApp.baseApp)});
+    if (!items.length) items.push({label:'No project apps yet',enabled:false});
+    applicationMenuTemplate.find(item=>item.id==='piece-apps').submenu=items;
+    Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate));
+    if (app.dock) app.dock.setMenu(Menu.buildFromTemplate(items));
+  };
+  refreshProjects();
+  const projectMenuTimer = setInterval(refreshProjects, 3000); projectMenuTimer.unref();
+  app.once('will-quit', () => { clearInterval(projectMenuTimer); releaseProject(); });
+  if (pieceApp && app.dock) {
+    const icon = nativeImage.createFromPath(join(process.resourcesPath, 'piece-app.png'));
+    if (!icon.isEmpty()) app.dock.setIcon(icon);
+  }
+  window = new BrowserWindow({ show:false, width: 760, height: 540, title: pieceApp?.name || (devHome?'Aesel Dev':'aesel'), backgroundColor: currentTheme.background,
     webPreferences: { additionalArguments:[`--aesel-initial-theme=${JSON.stringify(currentTheme)}`], preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
+  if (pieceApp) window.on('page-title-updated', event => event.preventDefault());
   window.once('ready-to-show',()=>{windowPainted=true;window.show();console.log(JSON.stringify({event:'window-presented',ms:Date.now()-startedAt,requestedMs:option('--window-requested-at')?Date.now()-Number(option('--window-requested-at')):undefined}));});
   const creditLabel = require('./credit-label.cjs').startCreditLabel({app, window, root});
   require('./credit-checkout.cjs').startCreditCheckout({app,window,root,ipcMain,shell,refresh:creditLabel.refresh});
