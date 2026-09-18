@@ -163,13 +163,15 @@ const assert = require("node:assert/strict");
     ),
     "Remote inference · thinking · Reading the piece",
   );
-  assert.deepEqual(await win.webContents.executeJavaScript(`Array.from(document.querySelector('select[aria-label="Provider"]').options,o=>o.textContent)`),['AC · Braincells','Claude','Codex']);
-  await win.webContents.executeJavaScript(`window.providerDropdown=document.querySelector('select[aria-label="Provider"]');providerDropdown.focus();window.updateProviderFooter({backend:'ac',model:'Luna',status:'ready',mode:'remote',activity:'A new status',models:[],versions:[]})`);
-  assert.equal(await win.webContents.executeJavaScript(`document.querySelector('select[aria-label="Provider"]')===window.providerDropdown`),true,'Status updates preserve the open dropdown');
-  await win.webContents.executeJavaScript(`providerDropdown.value='2';providerDropdown.dispatchEvent(new Event('change'))`);
+  assert.deepEqual(await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('#provider-options [role=option]'),o=>o.textContent)`),['AC','Claude','Codex']);
+  await win.webContents.executeJavaScript(`window.providerDropdown=document.querySelector('button[aria-label="Provider"]');providerDropdown.click();window.updateProviderFooter({backend:'ac',model:'Luna',status:'ready',mode:'remote',activity:'A new status',models:[],versions:[]})`);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Provider"]')===window.providerDropdown`),true,'Status updates preserve the open dropdown');
+  await win.webContents.executeJavaScript(`document.querySelectorAll('#provider-options [role=option]')[2].click()`);
   await delay(40);assert(inputs.includes('\x1b[99;2~'));
   await win.webContents.executeJavaScript(`window.updateProviderFooter({backend:'claude',model:'sonnet',selectedModel:'sonnet',models:[{id:'sonnet',label:'Sonnet'},{id:'opus',label:'Opus'}],versions:[]});document.getElementById('credit-label').click();const m=document.querySelector('select[aria-label="Model"]');m.value='1';m.dispatchEvent(new Event('change'))`);
   await delay(40);assert(inputs.includes('\x1b[99;4;1;1~'));
+  assert.equal(await win.webContents.executeJavaScript(`(()=>{const a=document.querySelector('.provider-toggle').getBoundingClientRect(),b=document.querySelector('select[aria-label="Model"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&b.left>a.right})()`),true);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('#provider-options [role=option] img').length`),3);
   await win.webContents.executeJavaScript(
     `document.querySelector('#provider-menu header button').click()`,
   );

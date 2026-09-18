@@ -67,8 +67,9 @@ let win;
     )
     .replace("export function", "function");
   await guest.executeJavaScript(
-    `${meter}\nwindow.ctx=new AudioContext();window.gain=ctx.createGain();gain.gain.value=.12;window.quiet=ctx.createGain();quiet.gain.value=0;gain.connect(quiet).connect(ctx.destination);window.osc=ctx.createOscillator();osc.frequency.value=220;osc.connect(gain);osc.start();window.AC={readOutputWaveform:createOutputWaveform(()=>[gain])};ctx.resume();`,
+    `${meter}\nwindow.ctx=new AudioContext();window.gain=ctx.createGain();gain.gain.value=.12;window.quiet=ctx.createGain();quiet.gain.value=0;gain.connect(quiet).connect(ctx.destination);window.osc=ctx.createOscillator();osc.frequency.value=220;osc.connect(gain);osc.start();window.AC={readOutputWaveform:createOutputWaveform(()=>[gain]),setMasterVolume:v=>{gain.gain.value=.12*v;return v}};ctx.resume();`,
   );
+  await js(`window.previewAudio.set({volume:1,muted:false})`);
   await delay(550);
   assert.equal(
     await js(
@@ -96,6 +97,17 @@ let win;
     ),
     "true",
   );
+  await js(`document.getElementById('piece').dispatchEvent(new Event('did-start-loading'));document.getElementById('piece').dispatchEvent(new Event('did-stop-loading'))`);await delay(250);
+  assert.equal(await js(`document.getElementById('preview-waveform').classList.contains('sounding')`),true,'Resume polling after a load without another dom-ready');
+  assert.equal(await js(`(()=>{const w=document.getElementById('preview-waveform').getBoundingClientRect(),p=document.getElementById('artifact-shell').getBoundingClientRect();return Math.abs(w.top+w.height/2-p.top-p.height/2)<2})()`),true,'Waveform runs behind the visual');
+  await js(`(()=>{window.updateProviderFooter({backend:'ac',model:'Luna',busy:true,models:[],versions:[]});document.getElementById('credit-label').click();const v=document.querySelector('input[aria-label="Preview volume"]');v.value='50';v.dispatchEvent(new Event('input'))})()`);
+  await delay(100);assert(Math.abs(await guest.executeJavaScript('gain.gain.value')-.06)<.001);
+  await js(`document.querySelector('.preview-mute').click()`);await delay(250);
+  assert.equal(guest.isAudioMuted(),true);
+  assert.equal(await js(`document.getElementById('preview-waveform').classList.contains('sounding')`),false);
+  await js(`(()=>{document.querySelector('.preview-mute').click();const v=document.querySelector('input[aria-label="Preview volume"]');v.value='100';v.dispatchEvent(new Event('input'));document.querySelector('#provider-menu header button').click()})()`);await delay(300);
+  assert.equal(guest.isAudioMuted(),false);
+  assert(Math.abs(await guest.executeJavaScript('gain.gain.value')-.12)<.001);
   for (const width of [380, 900]) {
     win.setSize(width, 650);
     await delay(220);

@@ -48,11 +48,8 @@ window.installPreviewWaveform = (preview) => {
         !!lastSound && performance.now() - lastSound < 600,
       );
       if (!line.classList.contains("sounding")) return;
-      const title = document.getElementById("qr-label").getBoundingClientRect();
-      const top = document
-        .getElementById("artifact-shell")
-        .getBoundingClientRect().top;
-      line.style.top = `${Math.max(0, (title.height ? title.top + title.height / 2 : top + 8) - 16)}px`;
+      const box = document.getElementById("artifact-shell").getBoundingClientRect();
+      line.style.top = `${Math.max(0, box.top + box.height / 2 - 24)}px`;
       path.setAttribute(
         "d",
         motion.matches || !active
@@ -79,11 +76,16 @@ window.installPreviewWaveform = (preview) => {
   };
   preview.addEventListener("did-start-loading", stop);
   preview.addEventListener("destroyed", stop);
-  preview.addEventListener("dom-ready", () => {
-    stop();
+  const start = () => {
+    if (ready) return;
     ready = true;
     void poll();
-  });
+  };
+  preview.addEventListener("dom-ready", start);
+  // Loading can restart without a fresh DOM (including same-document loads).
+  preview.addEventListener("did-stop-loading", start);
+  // The guest may already be ready when this optional decoration is installed.
+  queueMicrotask(() => { try { if (preview.getWebContentsId() && !preview.isLoading()) start(); } catch {} });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clear();
   });
