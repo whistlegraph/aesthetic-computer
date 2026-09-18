@@ -594,6 +594,11 @@ final class MenuBandSynth {
             return
         }
         debugLog("synth.start: engine started")
+        // Mono mode rides the output unit as a post-render notify, so the
+        // persisted pick is honoured from the first buffer without touching
+        // the graph. Idempotent per unit.
+        MenuBandMonoFold.enabled = UserDefaults.standard.bool(forKey: "notepat.monoOutput")
+        MenuBandMonoFold.install(on: engine, label: "synth")
         // Dedicated rewind-capture tap on the limiter (pre-mainMixer, so the
         // reverse playback is excluded). Always-on: the ring keeps recording
         // everything the user plays, even while a reverse is sounding.

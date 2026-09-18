@@ -419,6 +419,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Spotify source; App Store builds use the same deck for radio stations.
     private var cdjRadioView: MenuBandCDJRadioView?
     private var abcLayerCheckbox: NSButton?
+    private var monoOutputCheckbox: NSButton?
     private var inputMonitorButton: NSButton?
     /// Right-click menu on the headset button: audio input device /
     /// monitored input channel / output device. Rebuilt on every open so
@@ -1170,6 +1171,18 @@ final class MenuBandPopoverViewController: NSViewController {
         abcCheckbox.setContentHuggingPriority(.required, for: .horizontal)
         abcLayerCheckbox = abcCheckbox
 
+        let monoCheckbox = NSButton(
+            checkboxWithTitle: "Mono", target: self,
+            action: #selector(toggleMonoOutput(_:))
+        )
+        monoCheckbox.controlSize = .small
+        monoCheckbox.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        monoCheckbox.state = menuBand?.monoOutputEnabled == true ? .on : .off
+        monoCheckbox.toolTip = "Mix the output down to mono"
+        monoCheckbox.setAccessibilityLabel("Mono output")
+        monoCheckbox.setContentHuggingPriority(.required, for: .horizontal)
+        monoOutputCheckbox = monoCheckbox
+
         let monitorButton = HoverFeedbackButton()
         monitorButton.bezelStyle = .inline
         monitorButton.isBordered = false
@@ -1198,6 +1211,7 @@ final class MenuBandPopoverViewController: NSViewController {
         listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         listeningRow.addArrangedSubview(listeningSpacer)
         listeningRow.addArrangedSubview(abcCheckbox)
+        listeningRow.addArrangedSubview(monoCheckbox)
 #if !MAC_APP_STORE
         listeningRow.addArrangedSubview(jukeButton)
 #endif
@@ -1587,6 +1601,7 @@ final class MenuBandPopoverViewController: NSViewController {
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
         abcLayerCheckbox?.state = n.abcLayerEnabled ? .on : .off
+        monoOutputCheckbox?.state = n.monoOutputEnabled ? .on : .off
         midiSwitch.state = n.midiMode ? .on : .off
         midiInlineLabel?.isHidden = !n.midiMode
         refreshHeldNotes()
@@ -2674,6 +2689,10 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func toggleABCLayer(_ sender: NSButton) {
         menuBand?.abcLayerEnabled = sender.state == .on
+    }
+
+    @objc private func toggleMonoOutput(_ sender: NSButton) {
+        menuBand?.monoOutputEnabled = sender.state == .on
     }
 
     @objc private func toggleInputMonitoring(_ sender: Any?) {

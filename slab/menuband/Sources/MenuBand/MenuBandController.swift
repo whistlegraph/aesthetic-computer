@@ -210,6 +210,7 @@ final class MenuBandController {
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
     private let abcLayerKey = "notepat.abcLayer"
+    private let monoOutputKey = "notepat.monoOutput"
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
     private let percussionRightKey = KeyboardIconRenderer.percussionRightDefaultsKey
     private let percussionVolumeKey = "notepat.percussionVolume"
@@ -827,6 +828,18 @@ final class MenuBandController {
         get { UserDefaults.standard.bool(forKey: abcLayerKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: abcLayerKey)
+            onChange?()
+        }
+    }
+
+    /// Mono mode: fold the finished stereo output to one centred signal.
+    /// Persisted; the fold itself lives in `MenuBandMonoFold` and reads
+    /// this on the render thread.
+    var monoOutputEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: monoOutputKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: monoOutputKey)
+            MenuBandMonoFold.enabled = newValue
             onChange?()
         }
     }
