@@ -48,12 +48,13 @@ let status = "loading"; // loading, loaded, error, noauth
 let mail = null;
 let prefs = null; // blast subscription + history, fetched when prefs opens
 let errorMsg = null;
-let rows = []; // [{ y0, y1, who }] — paint measures them, act replies to them
+let rows = []; // [{ y0, y1, who, email, subject }] — paint measures them, act replies to them
 let ellipsisTicker;
 let busy = false;
 let fields; // to · subject · body, sharing one keyboard (see lib/type.mjs)
 let composeNote = null; // what went wrong with the last send, if anything
 let pendingTo = null; // an address that arrived in the URL, waiting for the box
+let replyTo = null; // { who } while compose is an answer to a letter — painted as a note
 
 // 🎛️ The compact controls — tabs and chips — register hit boxes each paint,
 // the way the pane's chips do, instead of carrying Button objects around.
@@ -74,6 +75,62 @@ let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 let qrCells = null; // aesthetic.computer/mail, top-right
 const QR_PAPER = [226, 238, 255]; // pale blue — laklok's is white
+
+// 🧪 Test hook — a BroadcastChannel the browser e2e listens on
+// (tests/browser/mail-journey.test.mjs), the chat.mjs pattern: a snapshot
+// after boot, every refresh, every view change and every send; a few
+// messages that do what the controls do. Only when booted with `?test=1`.
+let testChannel = null;
+let testApi = null; // boot's api, kept for the hook's handlers
+function installMailTestHook(api) {
+  testChannel?.close();
+  testChannel = null;
+  if (!api.query?.test || typeof BroadcastChannel === "undefined") return;
+  testApi = api;
+  testChannel = new BroadcastChannel("ac-mail-test");
+  testChannel.onmessage = async ({ data }) => {
+    const api = testApi;
+    if (!data?.type || !api) return;
+    if (data.type === "compose") {
+      if (status === "loaded") {
+        compose(api, data.to);
+        fields.values.to = data.to || "";
+        fields.values.subject = data.subject || "";
+        fields.values.body = data.text || "";
+        await send(api, { ...fields.values });
+      }
+    } else if (data.type === "read") {
+      await markAllRead(api);
+    } else if (data.type === "reply") {
+      const letter = mail?.inbox.find((l) => l.id === data.id);
+      if (letter) answer(api, letter.from, letter.fromEmail, letter.subject);
+    } else if (data.type === "refresh") {
+      await refresh(api);
+    } else if (data.type === "view") {
+      showView(api, data.value);
+    }
+    api.needsPaint();
+    tell();
+  };
+}
+function tell() {
+  if (!testChannel) return;
+  const composing = view === "compose";
+  testChannel.postMessage({
+    ready: true,
+    piece: "mail",
+    status,
+    view,
+    unread: mail?.unread ?? 0,
+    total: mail?.inbox?.length ?? 0,
+    addresses: mail?.addresses ?? [],
+    inbox: (mail?.inbox ?? []).map(({ id, from, subject, text, read }) => ({ id, from, subject, text, read })),
+    sent: (mail?.sent ?? []).map(({ id, to, subject, text }) => ({ id, to, subject, text })),
+    composeTo: composing ? fields.values.to : null,
+    composeSubject: composing ? fields.values.subject : null,
+    composeNote,
+  });
+}
 
 function meta() {
   return {
@@ -142,7 +199,9 @@ async function boot(api) {
   settingsOpen = false;
   view = "inbox";
   composeNote = null;
+  replyTo = null;
   hits = [];
+  installMailTestHook(api);
   mediaView.clear();
   mediaNote = null;
   downloading = false;
@@ -170,11 +229,13 @@ async function boot(api) {
 
   if (!user) {
     status = "noauth";
+    tell();
     return;
   }
 
   await refresh(api);
   if (pendingTo && status === "loaded") compose(api, pendingTo);
+  tell();
   // The census waits its turn: two authorized requests in flight at once
   // used to lose one (disk.mjs kept a single pending authorization), and a
   // lost inbox fetch left boot hanging on the noise forever.
@@ -195,6 +256,7 @@ async function refresh({ net }) {
     status = "error";
     errorMsg = "Could not load letters";
   }
+  tell();
 }
 
 // Post the letter, then show it in `sent`.
@@ -233,26 +295,75 @@ async function send(api, { to, subject, body }) {
   } else {
     composeNote = s.couldntSend;
   }
+  tell();
 }
 
 // Put the fields away and go somewhere.
 function leaveCompose(api, to) {
   view = to;
   composeNote = null;
+  replyTo = null;
   fields.input.mute = true;
   api.send({ type: "keyboard:close" });
+  tell();
 }
 
 // Open compose, optionally already addressed to someone — a reply lands on the
-// subject, since the `to` is already answered.
-function compose(api, to) {
+// subject, since the `to` is already answered; with the subject answered too
+// (`Re: …`), on the body.
+function compose(api, to, subject) {
   view = "compose";
   composeNote = null;
+  replyTo = null; // answer() sets it after
   fields.input.mute = false;
   // `focus` syncs the live buffer back into the field it is leaving first, so
   // the address has to land after the focus has moved off the `to` row.
-  fields.focus(to ? 1 : 0, api);
+  fields.focus(subject ? 2 : to ? 1 : 0, api);
   if (to) fields.values.to = to;
+  if (subject) fields.values.subject = subject;
+  tell();
+}
+
+// Answer a letter: compose to whoever sent it — outside letters go back out
+// as email — with the subject carried over under `Re:`.
+function answer(api, who, email, subject) {
+  const address = who?.startsWith("@") ? who : email;
+  if (!address) return;
+  const re = subject && !/^re:/i.test(subject) ? `Re: ${subject}` : subject || null;
+  compose(api, address, re);
+  replyTo = { who: address };
+}
+
+// Switch tabs; leaving compose puts the fields away first.
+function showView(api, value) {
+  if (view === "compose") leaveCompose(api, value);
+  else view = value;
+  scroll = 0;
+  if (value === "prefs" && !prefs) {
+    api.net.userRequest("GET", "/api/mail-status").then((res) => {
+      if (res.status === 200) prefs = res;
+      api.needsPaint();
+    }).catch(() => {
+      api.needsPaint();
+    });
+  }
+  tell();
+}
+
+// The mark-all-read control.
+async function markAllRead(api) {
+  if (busy) return;
+  busy = true;
+  try {
+    const res = await api.net.userRequest("POST", "/api/mail", { action: "read" });
+    if (res.status === 200) {
+      mail.unread = 0;
+      mail.inbox.forEach((letter) => (letter.read = true));
+    }
+  } catch {}
+  busy = false;
+  api.needsPaint();
+  tell();
 }
 
 // 🧮 Sim
@@ -453,6 +564,11 @@ function paint(api) {
   // Compose sits in the room instead of replacing it — the addresses and tabs
   // stay put and the field takes the space the letters were using.
   if (view === "compose") {
+    if (replyTo) {
+      ink(c.timestamp).write(s.replyingTo, { x, y }, undefined, undefined, false, CHIP_FONT);
+      ink(c.handle).write(replyTo.who, { x: x + (s.replyingTo.length + 1) * 4, y }, undefined, undefined, false, CHIP_FONT);
+      y += 10;
+    }
     const frame = {
       x,
       y,
@@ -530,11 +646,13 @@ function paint(api) {
       // `email` off the row for that.
       const email = view === "inbox" ? letter.fromEmail : letter.toEmail;
       const yy = ly + 3;
+      const { pen } = api;
+      const hot = !!pen && pen.y >= Math.max(ly, listTop) && pen.y < ly + rowH;
 
       // Stripe the row behind everything, so a long message stays one block —
       // the tema's stripes, unread rows on the brighter one.
       ink(unread ? t.stripeB : i % 2 ? t.stripeA : [...t.stripeA, 110]).box(x, ly, wide, rowH);
-      rows.push({ y0: ly, y1: ly + rowH, who, email });
+      rows.push({ y0: ly, y1: ly + rowH, who, email, subject: letter.subject });
 
       if (unread) ink(c.log).box(x + 2, yy + 2, 3, 3);
       ink(unread ? c.handle : c.timestamp).write(who, { x: x + 8, y: yy }, undefined, undefined, false, face);
@@ -553,16 +671,27 @@ function paint(api) {
         ink([...c.timestamp, 170]).write(s.outside, { x: afterWho, y: yy + smallTint }, undefined, undefined, false, CHIP_FONT);
         afterWho += s.outside.length * 4 + 6;
       }
-      const agoW = (compact ? 4 : 6) * 5 + 4;
+      // The reply chip sits at the row's right end, the clock beside it —
+      // the whole row answers the letter, the chip just says so. It wakes
+      // on the hot row; inbox only, since `sent` rows aren't answers.
+      let right = screen.width - x;
+      if (view === "inbox") {
+        const chipW = chipWidth(s.reply);
+        right -= chipW;
+        paintChip(api, right, yy - (compact ? 2 : 1), s.reply, { tint: WRITE, dim: !hot });
+        right -= 4;
+      }
+      const agoW = cw * 5 + 4;
+      right -= agoW;
       if (letter.subject) {
         // Cut the subject to the room left before the timestamp — `write`
         // with a bound and no wrap still runs on under the clock.
-        const room = Math.floor((screen.width - x - agoW - afterWho) / cw);
+        const room = Math.floor((right - afterWho) / cw);
         let subject = letter.subject;
         if (subject.length > room) subject = room > 1 ? subject.slice(0, room - 1) + "…" : "";
         ink(unread ? c.painting : [...c.painting, 150]).write(subject, { x: afterWho, y: yy }, undefined, undefined, false, face);
       }
-      ink([...c.timestamp, 160]).write(ago(letter.when), { x: screen.width - x - agoW + 4, y: yy }, undefined, undefined, false, face);
+      ink([...c.timestamp, 160]).write(ago(letter.when), { x: right + 4, y: yy }, undefined, undefined, false, face);
       ink(unread ? c.messageText : [...c.messageText, 190]).write(body, { x: x + 10, y: yy + lh }, undefined, bounds, true, face);
       let mediaY = yy + lh + textH + 2;
       for (const item of mediaItems) {
@@ -692,37 +821,15 @@ function act(api) {
     if (type === "signup") net.signup();
     else if (type === "login") net.login();
     else if (type === "perma") showPerma = !showPerma;
-    else if (type === "view") {
-      if (view === "compose") leaveCompose(api, value);
-      else view = value;
-      scroll = 0;
-      if (value === "prefs" && !prefs) {
-        net.userRequest("GET", "/api/mail-status").then((res) => {
-          if (res.status === 200) prefs = res;
-          needsPaint();
-        }).catch(() => {
-          needsPaint();
-        });
-      }
-    } else if (type === "write") {
+    else if (type === "view") showView(api, value);
+    else if (type === "write") {
       if (view === "compose") leaveCompose(api, "inbox");
       else compose(api);
     } else if (type === "send") {
       fields.sync();
       send(api, { ...fields.values });
-    } else if (type === "read" && !busy) {
-      busy = true;
-      net.userRequest("POST", "/api/mail", { action: "read" }).then((res) => {
-        if (res.status === 200) {
-          mail.unread = 0;
-          mail.inbox.forEach((letter) => (letter.read = true));
-        }
-        busy = false;
-        needsPaint();
-      }).catch(() => {
-        busy = false;
-        needsPaint();
-      });
+    } else if (type === "read") {
+      markAllRead(api);
     } else if ((type === "subscribe" || type === "unsubscribe") && !busy) {
       busy = true;
       net.userRequest("POST", "/api/mail-status", { action: type }).then((res) => {
@@ -783,8 +890,8 @@ function act(api) {
     }
   }
 
-  // Tap a letter to answer it — the field opens already addressed. A drag
-  // that ended on a letter was a scroll, not a tap.
+  // Tap a letter (or its reply chip — same thing) to answer it: the field
+  // opens already addressed. A drag that ended on a letter was a scroll.
   if (e.is("lift") && !dragged && listing) {
     const media = mediaHits.find((box) => hit(box));
     if (media) {
@@ -799,14 +906,21 @@ function act(api) {
       return;
     }
     const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
-    const address = row?.who?.startsWith("@") ? row.who : row?.email;
-    if (address && e.y >= listTop) {
-      compose(api, address);
+    if (row && e.y >= listTop) {
+      // A sent letter's row just writes to them again — not a reply.
+      const address = row.who?.startsWith("@") ? row.who : row.email;
+      if (view === "inbox") answer(api, row.who, row.email, row.subject);
+      else if (address) compose(api, address);
       needsPaint();
     }
   }
 }
 
-function leave() { mediaView.clear(); }
+function leave() {
+  mediaView.clear();
+  testChannel?.close();
+  testChannel = null;
+  testApi = null;
+}
 
 export { meta, boot, sim, paint, act, leave };

@@ -65,8 +65,58 @@ let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 // 📬 The door to `mail`, beside the gear: an envelope, lit when something is
 // waiting, with a red count of what's unread. Only a signed-in visitor has a
 // box, so only they get the door.
-let mailCount = null; // { unread, total } once asked; "asking" in flight
+let mailCount = null; // { unread, total } once asked
 let mailBox = null; // hit area, or null when the door isn't drawn
+let mailAsking = false; // one count request in flight at a time
+let mailAskedAt = 0; // when the last count was asked, ms
+let mailAsks = 0; // how many times, for the test hook
+// People sit in this room all day, so the count is re-asked on a cadence
+// and again when the window comes back into focus. `let` so a test can
+// shorten it (see installLakTestHook).
+let mailPollMs = 60_000;
+
+// 🧪 Test hook — a BroadcastChannel the browser e2e listens on
+// (tests/browser/mail-journey.test.mjs), like chat.mjs' own hook but for the
+// envelope: one snapshot per resolved count. Only when booted with `?test=1`.
+let lakTestChannel = null;
+function installLakTestHook(query) {
+  lakTestChannel?.close();
+  lakTestChannel = null;
+  if (!query?.test || typeof BroadcastChannel === "undefined") return;
+  lakTestChannel = new BroadcastChannel("ac-mail-test");
+  lakTestChannel.onmessage = ({ data }) => {
+    if (data?.type === "mail-poll" && Number.isFinite(data.every)) {
+      mailPollMs = Math.max(1000, data.every);
+    }
+  };
+}
+function tellLakTest() {
+  lakTestChannel?.postMessage({
+    ready: true,
+    piece: "laklok",
+    mail: mailCount ? { unread: mailCount.unread || 0, total: mailCount.total || 0 } : null,
+    asks: mailAsks,
+  });
+}
+
+// 📬 Ask whether there's mail waiting — two counts, not the inbox. The badge
+// repaints when the count moved.
+function askMail($) {
+  mailAsking = true;
+  mailAskedAt = Date.now();
+  mailAsks += 1;
+  const settle = (count) => {
+    mailAsking = false;
+    const moved = count.unread !== mailCount?.unread || count.total !== mailCount?.total;
+    mailCount = count;
+    if (moved) $.needsPaint?.();
+    tellLakTest();
+  };
+  $.net
+    .userRequest("GET", "/api/mail?count=1")
+    .then((res) => settle(res?.status === 200 ? res : { unread: 0, total: 0 }))
+    .catch(() => settle({ unread: 0, total: 0 }));
+}
 
 // 🔗 What counts as a media link — hosts that ARE media plus direct files.
 // Mirrored verbatim in the vector client; edit both or the sisters drift.
@@ -87,7 +137,7 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) {
+function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, query }) {
   client = new Chat(debug, send);
   client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system); // Use default font
@@ -104,6 +154,10 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net }) 
   lakTV = false;
   mailCount = null;
   mailBox = null;
+  mailAsking = false;
+  mailAskedAt = 0;
+  mailAsks = 0;
+  installLakTestHook(query);
   let colonLinks = false;
   // URL `~` separators land in params, `:` in colon — `laer-klokken~tv`
   // and `laklok:tv` should both reach the same switches, so scan both.
@@ -256,7 +310,7 @@ function paintCorner($) {
   const gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
   gearBox = paintGear($, gx, gy, settingsOpen);
 
-  if (!mailCount || mailCount === "asking") { mailBox = null; return; }
+  if (!mailCount) { mailBox = null; return; }
   const unread = mailCount.unread || 0;
   const label = unread > 0 ? `${unread}` : null;
   // The badge overhangs the envelope's top-right corner, so the cluster is
@@ -354,6 +408,10 @@ function act($) {
     return;
   }
 
+  // Back from another tab or window: the count is due now, not next minute.
+  // (bios forwards window focus; a plain visibilitychange never reaches act.)
+  if (e.is("focus")) mailAskedAt = 0;
+
   if (settingsOpen && (e.is("touch") || e.is("draw") || e.is("lift"))) {
     if (e.is("touch")) {
       const chip = settingsHits.find((h) => hit(h));
@@ -391,17 +449,10 @@ function sim($) {
   // 🌅 The ambient tema drifts a hair each minute; recolor when it does.
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
 
-  // 📬 Ask once whether there's mail waiting — two counts, not the inbox.
-  // Asked from sim, not boot, because the signed-in user can settle a beat
-  // after the piece does (the prompt curtain does the same).
-  if (mailCount === null && $.user && !lakTV) {
-    mailCount = "asking";
-    $.net
-      .userRequest("GET", "/api/mail?count=1")
-      .then((res) => {
-        mailCount = res?.status === 200 ? res : { unread: 0, total: 0 };
-      })
-      .catch(() => (mailCount = { unread: 0, total: 0 }));
+  // 📬 Ask whether there's mail waiting — once the signed-in user has settled
+  // (a beat after boot, like the prompt curtain), then every mailPollMs.
+  if ($.user && !lakTV && !mailAsking && Date.now() - mailAskedAt >= mailPollMs) {
+    askMail($);
   }
 
   chat.sim($);
@@ -409,6 +460,8 @@ function sim($) {
 
 function leave() {
   client.kill();
+  lakTestChannel?.close();
+  lakTestChannel = null;
 }
 
 export { boot, paint, act, sim, leave };
