@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var showHome = true
     @State private var showHelp = false
     @State private var showSettings = false
+    private enum SettingsDestination { case signIn, help }
+    @State private var settingsDestination: SettingsDestination?
     @State private var expandedPreview = false
     @State private var previewHidden = false
     @FocusState private var writing: Bool
@@ -41,7 +43,15 @@ struct ContentView: View {
             #endif
         }
         .sheet(isPresented: $showHelp) { help }
-        .sheet(isPresented: $showSettings) { settings }
+        .sheet(isPresented: $showSettings, onDismiss: {
+            let destination = settingsDestination
+            settingsDestination = nil
+            switch destination {
+            case .signIn: host.signIn()
+            case .help: showHelp = true
+            case nil: break
+            }
+        }) { settings }
         .sheet(isPresented: Binding(get: { session.showSignIn }, set: { session.showSignIn = $0 })) {
             VStack(spacing: 0) {
                 HStack {
@@ -170,7 +180,7 @@ struct ContentView: View {
                         }
                         .buttonStyle(.plain).accessibilityHint("Refresh balance")
                     } else {
-                        Button("Sign in") { showSettings = false; host.signIn() }
+                        Button("Sign in") { settingsDestination = .signIn; showSettings = false }
                     }
                     Text("Braincells · automatic model")
                     Text(session.status).foregroundStyle(Paint.dim)
@@ -186,7 +196,7 @@ struct ContentView: View {
                     if session.previewURL != nil {
                         Toggle("Show preview", isOn: Binding(get: { !previewHidden }, set: { previewHidden = !$0 }))
                     }
-                    Button("Help") { showSettings = false; showHelp = true }
+                    Button("Help") { settingsDestination = .help; showSettings = false }
                     if session.signedIn {
                         Button("Sign out") { showSettings = false; host.signOut() }
                     }
