@@ -3,3 +3,6 @@ const mock=windows=>({send:async(method,p)=>{if(method==='Target.getTargets')ret
 test('one recording tab accepts other windows without mutation',async()=>assert.equal((await assertSingleRecordingTab(mock([1,2,2]))).tabCount,1));
 test('extra recording tab fails without closing it',async()=>assert.rejects(assertSingleRecordingTab(mock([1,1])),/2 tabs/));
 test('missing recording target fails closed',async()=>assert.rejects(assertSingleRecordingTab(mock([2])),/0 tabs/));
+
+test('Stage rejects a second window without closing it',async()=>assert.rejects(assertSingleRecordingTab(mock([1,2]),{singleWindow:true}),/2 Chrome windows/));
+test('Stage accepts exactly one window and tab',async()=>assert.equal((await assertSingleRecordingTab(mock([1]),{singleWindow:true})).windowCount,1));
