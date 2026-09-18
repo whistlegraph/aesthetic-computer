@@ -3,7 +3,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#463264;col
 #terminal{height:calc(100% - 20px);padding:10px}
 #artifact-shell{position:absolute;top:14px;right:14px;width:var(--preview-width,178px);height:var(--preview-height,119.33px);transition:width .18s,height .18s;z-index:2}
 #artifact{position:relative;width:100%;height:100%;box-sizing:border-box;overflow:hidden;background:#1c1728;border:1px solid #ffffff55;border-radius:0;box-shadow:2px 2px #0006;transition:width .18s,height .18s;z-index:2}
-body[data-preview-mode="hover"] #artifact-shell:focus-within,body[data-preview-mode="pinned"] #artifact-shell{width:var(--preview-expanded-width,434px);height:var(--preview-expanded-height,290px)}
+body[data-preview-mode="hover"][data-preview-engaged="true"] #artifact-shell,body[data-preview-mode="hover"] #artifact-shell:focus-within,body[data-preview-mode="pinned"] #artifact-shell{width:var(--preview-expanded-width,434px);height:var(--preview-expanded-height,290px)}
 #preview-viewport{position:absolute;left:0;top:0;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);transform-origin:0 0;image-rendering:pixelated;overflow:hidden}
 #piece{display:flex;width:var(--preview-logical-width,192px);height:var(--preview-logical-height,128px);image-rendering:pixelated}
 #version{position:absolute;right:0;top:calc(100% + 4px);color:#fff;text-shadow:1px 1px #000;font:calc(var(--aesel-qr-label-size,16px) * .75) "AC aesel Unifont",monospace;pointer-events:none;white-space:nowrap}
@@ -31,6 +31,10 @@ body.preview-fullscreen #preview-fullscreen{top:12px;right:12px}
 #media-preview{position:absolute;inset:0;overflow:hidden;color:white;font:10px monospace;text-align:center}
 #media-preview img,#media-preview iframe{width:100%;height:100%;object-fit:contain;border:0;image-rendering:pixelated}
 #media-preview canvas{max-width:100%;max-height:100%;object-fit:contain;image-rendering:pixelated}
+#media-preview canvas.tape-player{width:100%;height:100%;cursor:grab;outline:none}
+#media-preview canvas.tape-player:active{cursor:grabbing}
+#media-preview canvas.tape-player:focus-visible{box-shadow:inset 0 0 0 2px var(--aesel-accent,#ff64ff)}
+#media-preview iframe{pointer-events:none}
 #media-preview button{font:10px monospace}
 #media-preview pre{margin:4px;text-align:left;white-space:pre-wrap;font:6px monospace}
 

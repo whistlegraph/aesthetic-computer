@@ -56,9 +56,26 @@
 @media (prefers-reduced-motion: reduce) {
   #qr-label { transition: none; }
   :is(#qr-label,#version) .qr-letter-ink { animation: none; }
-  #qr-card:hover #qr-label,
-  #qr-card:focus-within #qr-label { transform: scale(1); }
+  #qr-label:hover,
+  #qr-label:focus-visible { transform: scale(1); }
 }
 
-:is(#qr-label,#version) .qr-version { font-size: 12px; }
+:is(#qr-label,#version) .qr-version { font-size: .75em; }
 :is(#qr-label,#version) .qr-version .qr-letter-ink { -webkit-text-stroke-width: .42px; }
+
+body[data-phase="startup"] #qr-label{display:none}
+
+body[data-prox-rock="true"] #qr-label {left:14px;}
+
+#qr-label {top:5px;left:5px;max-width:calc(100vw - 30px);font-size:28px;z-index:15;}
+:is(#qr-label,#version) .native-prox-title {display:block;height:auto;max-width:100%;}
+body[data-native-title="true"] #qr-label {opacity:1;}
+body[data-prox-rock="true"] #qr-label {left:5px;}
+
+body[data-native-title] #qr-label:has(.native-prox-title) {opacity:1;}
+
+#qr-label[data-swift-letters="true"] {padding:9px;max-width:calc(100vw - 30px);}
+:is(#qr-label,#version) .native-prox-letter {position:relative;vertical-align:top;}
+:is(#qr-label,#version) .native-prox-letter .qr-letter-ink {position:absolute;inset:0;}
+:is(#qr-label,#version) .native-prox-letter img {position:absolute;left:-9px;top:-9px;max-width:none;pointer-events:none;}
+body[data-native-title] #qr-label[data-swift-letters="true"] {opacity:1;}

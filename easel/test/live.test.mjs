@@ -238,7 +238,7 @@ test("renaming and retargeting follow the piece without changing the channel", a
   assert.equal(live.file, join(root, "smiley.lisp"));
   assert.equal(live.runtime.label, "kidlisp");
   assert.equal(existsSync(join(root, "movika.mjs")), false, "the untouched blank moved rather than piling up");
-  assert.match(await readFile(live.file, "utf8"), /\(wipe "purple"\)/);
+  assert.match(await readFile(live.file, "utf8"), /\(wipe "#[0-9a-f]{6}"\)/);
   assert.equal(live.scanUrl, scan, "the QR stays valid across a rename");
 
   assert.equal(live.retarget(join(root, "other.lisp")), true);

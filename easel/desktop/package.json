@@ -72,6 +72,10 @@
           "frame-ocr",
           "frame-ocr.swift"
         ]
+      },
+      {
+        "from": "../native",
+        "to": "easel/native"
       }
     ],
     "mac": {
@@ -83,14 +87,6 @@
       "hardenedRuntime": true,
       "icon": "build/icon.icns",
       "notarize": true
-    },
-    "mas": {
-      "target": "mas",
-      "provisioningProfile": "build/Easel-Mac-App-Store.provisionprofile",
-      "entitlements": "build/entitlements.mas.plist",
-      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
-      "hardenedRuntime": false,
-      "artifactName": "aesel-${version}-mas-${arch}.${ext}"
     },
     "mas": {
       "target": "mas",

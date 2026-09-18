@@ -1,20 +1,38 @@
 const {chmodSync}=require('node:fs');
-const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen, nativeImage } = require('electron');
 const pty = require('node-pty');
+const { spawn } = require('node:child_process');
 const { join, resolve } = require('node:path');
-const { mkdirSync, readdirSync, readFileSync, writeFileSync, watch, existsSync, rmSync, renameSync } = require('node:fs');
+const { closeSync, copyFileSync, mkdirSync, openSync, readdirSync, readFileSync, writeFileSync, watch, existsSync, rmSync, renameSync } = require('node:fs');
 const {followSlabTheme,FALLBACK} = require('./slab-theme.cjs');
 const {createHash,randomUUID} = require('node:crypto');
 const {localPreview} = require('./local-preview.cjs');
 const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
-const { tmpdir } = require('node:os');
+const { tmpdir, homedir } = require('node:os');
 
 app.setName('aesel');
 app.setPath('userData', join(app.getPath('appData'), 'Easel'));
-let window, terminal, timer, ledgerWatcher, quitting = false;
+let window, terminal, timer, quitting = false;
+let lastVisibleState = null, keepPreviewOnStart = false;
 let terminalSize = {cols:100,rows:32};
 let currentTheme = FALLBACK;
+let currentPaperPath = '';
+let currentPreviewPath = '', currentPreviewMime = '', currentPreviewName = '';
+const dragDir=join(tmpdir(),`easel-drag-${process.pid}`);
+let systemTextSize = null, systemTextWatcher = null;
+const systemTextSizePath = join(homedir(), '.local', 'share', 'slab', 'state', 'prompt-text-size.json');
+function readSystemTextSize() {
+  try {
+    const value = JSON.parse(readFileSync(systemTextSizePath, 'utf8'));
+    if (Number.isInteger(value.fontSize) && value.fontSize >= 8 && value.fontSize <= 48) {
+      systemTextSize = {fontSize:value.fontSize, mode:['far','near','tiny'].includes(value.mode) ? value.mode : ''};
+      send('system-text-size', systemTextSize);
+    }
+  } catch {}
+}
+try { systemTextWatcher = watch(join(homedir(), '.local', 'share', 'slab', 'state'), (_event,name) => { if (name === 'prompt-text-size.json') readSystemTextSize(); }); } catch {}
+readSystemTextSize();
 const themeFollower = followSlabTheme(theme => { currentTheme = theme; if (window && !window.isDestroyed()) { window.setBackgroundColor(theme.background); send('theme',theme); } });
 const startedAt = Date.now();
 const root = app.isPackaged ? join(process.resourcesPath, 'easel') : resolve(__dirname, '..');
@@ -31,15 +49,48 @@ const independentWindow = /^window-[a-f0-9-]{36}$/.test(instance);
 if(independentWindow){const sessionData=join(app.getPath('userData'),'window-sessions',instance);mkdirSync(sessionData,{recursive:true,mode:0o700});app.setPath('sessionData',sessionData);}
 const primaryInstance = independentWindow || app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
-else { mkdirSync(app.getPath('userData'),{recursive:true,mode:0o700}); writeFileSync(launchFile,JSON.stringify({cwd:workspace}),{mode:0o600}); }
-app.on('second-instance', (_event, _argv, _cwd, data) => {
-  if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
-  if (data?.restart && data.workspace === workspace) requestRestart('restart');
+mkdirSync(app.getPath('userData'),{recursive:true,mode:0o700});
+writeFileSync(launchFile,JSON.stringify({cwd:workspace}),{mode:0o600});
+const addressDir = join(app.getPath('userData'), 'instance-addresses');
+mkdirSync(addressDir,{recursive:true,mode:0o700});
+function claimAddress() {
+  for (let index=0; index<26; index++) {
+    const label=String.fromCharCode(65+index), path=join(addressDir,`${label}.json`);
+    try {
+      const owner=JSON.parse(readFileSync(path,'utf8'));
+      try { process.kill(Number(owner.pid),0); continue; } catch { rmSync(path,{force:true}); }
+    } catch {}
+    try {
+      const fd=openSync(path,'wx',0o600);
+      writeFileSync(fd,JSON.stringify({pid:process.pid,instance,workspace,startedAt:Date.now()}));
+      closeSync(fd);
+      return {label,path};
+    } catch {}
+  }
+  return {label:String(process.pid),path:''};
+}
+const address=primaryInstance?claimAddress():{label:'',path:''};
+function releaseAddress(){
+  if(!address.path)return;
+  try { const owner=JSON.parse(readFileSync(address.path,'utf8')); if(Number(owner.pid)===process.pid)rmSync(address.path,{force:true}); } catch {}
+}
+app.once('will-quit',()=>{releaseAddress();try{rmSync(dragDir,{recursive:true,force:true});}catch{}});
+process.once('exit',releaseAddress);
+app.on('second-instance',()=>{if(!window||window.isDestroyed())return;if(window.isMinimized())window.restore();window.show();window.focus();});
+// `open -a Easel` activates an existing macOS process without necessarily
+// launching a second instance. A checkpointed restart can therefore leave the
+// process healthy but its previously hidden window unreachable unless the app
+// handles the ordinary Dock/reopen activation itself.
+app.on('activate', () => {
+  if (!window || window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
 });
 mkdirSync(workspace, { recursive: true });
 const sessionDir = join(app.getPath('userData'), 'sessions');
 mkdirSync(sessionDir, {recursive:true,mode:0o700});
-const sessionFile = join(sessionDir, createHash('sha256').update(workspace).digest('hex') + '.json');
+const sessionFile = join(sessionDir, createHash('sha256').update(`${workspace}\0${instance}`).digest('hex') + '.json');
 const continuationFile = sessionFile + '.continue';
 let continueSession = false;
 if (primaryInstance) {
@@ -74,18 +125,15 @@ function requestRestart(action = 'restart') {
   writeFileSync(intentFile, JSON.stringify({action}), {mode:0o600});
   terminal.kill('SIGUSR2');
 }
-// Mac App Store owns updates for its sandboxed build. The Developer ID build
-// uses aesel's generic signed feed; never let electron-updater compete with
-// Store receipts or present a non-Store update inside the MAS app.
 const canUpdateBinary = app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
 function send(channel, data) { if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
-function start({home = false} = {}) {
+function start() {
   if (terminal) return;
   const args = [join(root, 'src/tui.mjs'), '--cwd', workspace];
-  for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name) && !(home && ['--piece','--resume'].includes(name))) args.push(name, option(name));
-  if (continueSession && !home) args.push('--continue-session');
+  for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name)) args.push(name, option(name));
+  if (continueSession) args.push('--continue-session');
   if (supplied.includes('--no-autopublish')) args.push('--no-autopublish');
   const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_KEEP_PREVIEW:keepPreviewOnStart?'1':'0', EASEL_HOST_PID:String(process.pid), EASEL_HOST_WINDOW_ID:window.getMediaSourceId().split(':')[1], EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
   delete env.NODE_OPTIONS;
@@ -99,7 +147,7 @@ function start({home = false} = {}) {
       if(existsSync(helper))chmodSync(helper,0o755);
     }
     terminal = process.mas
-      ? require('./mas-terminal.cjs').createMasTerminal(args,{...terminalSize,cwd:workspace,env})
+      ? require('./mas-terminal.cjs').createMasTerminal(args, { ...terminalSize, cwd: workspace, env })
       : pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
     terminal.onData(data => send('output', data));
     terminal.onExit(({ exitCode }) => {
@@ -107,12 +155,6 @@ function start({home = false} = {}) {
       if (exitCode === 75 && existsSync(controlFile)) {
         const request = JSON.parse(readFileSync(controlFile, 'utf8'));
         rmSync(controlFile, {force:true});
-        if (request.action === 'home') {
-          timer?.close(); ledgerWatcher?.close();
-          pendingRestart = false;
-          send('output', '\x1b]777;easel-phase:startup\x07\x1b[2J\x1b[H');
-          return start({home:true});
-        }
         if (request.action === 'restart') {
           pendingRestart = false; continueSession = true; keepPreviewOnStart = true;
           timer?.close();
@@ -126,7 +168,7 @@ function start({home = false} = {}) {
         }
       }
       if (exitCode === 0) { quitting = true; app.quit(); return; }
-      pendingRestart = false; send('output', `\r\naesel closed (${exitCode}). Close this window to finish.\r\n`); if (quitting) app.quit(); });
+      pendingRestart = false; send('output', `\r\nAesel closed (${exitCode}). Close this window to finish.\r\n`); if (quitting) app.quit(); });
   } catch (error) { console.error('Agent startup failed:',error); send('desktop-notice','The agent could not start. Use Restart Agent to retry.'); }
   let previous = '', qrUrl = '', qr = null, previewKey = '', previewData = {};
   const dir = join(slabHome, 'state/active-prompts');
@@ -141,9 +183,7 @@ function start({home = false} = {}) {
         const state = JSON.parse(readFileSync(join(dir, name), 'utf8'));
         themeFollower.setStatus(state.state);
         previewContext=(state.artifact_kind||'piece')==='piece'&&state.piece_channel?{channel:state.piece_channel,revision:state.piece_revision,version:state.piece_version}:null;
-        let proxName=null;
-        try {const ledger=JSON.parse(readFileSync(join(app.getPath('home'),'.config/slab/ledger/local.json'),'utf8'));const entry=ledger.entries?.find(e=>e.id===state.session_id&&e.agentType==='easel');if(entry?.proxNamespace==='easel'&&entry.proxName?.length<=100&&/^[a-z0-9_-]+(?:\/[a-z0-9_-]+)?$/.test(entry.proxName))proxName=entry.proxName;}catch{}
-        const visible = JSON.stringify({ proxName, handle:state.handle||"",handleColors:state.handle_colors||null, piece: state.piece, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", channel:state.piece_channel || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
+        const visible = JSON.stringify({ piece: state.piece, handle:state.handle || "", handleColors:state.handle_colors || null, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", channel:state.piece_channel || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
         if (visible !== previous) {
           previous = visible;
           if (state.scan_url !== qrUrl) {
@@ -154,8 +194,8 @@ function start({home = false} = {}) {
           const nextPreviewKey = JSON.stringify(state.artifact_preview || null);
           if (nextPreviewKey !== previewKey) {
             previewKey = nextPreviewKey;
-            try { previewData = {localPreview:await localPreview(workspace,state.artifact_preview)}; }
-            catch (error) { previewData = {previewError:error.message}; }
+            try { const loaded=await localPreview(workspace,state.artifact_preview);currentPaperPath=loaded?.mime==='application/pdf'?loaded.internalPath:'';currentPreviewPath=loaded?.internalPath||'';currentPreviewMime=loaded?.mime||'';currentPreviewName=state.piece||'';if(loaded)delete loaded.internalPath;previewData={localPreview:loaded}; }
+            catch (error) { currentPaperPath=currentPreviewPath=currentPreviewMime=currentPreviewName='';previewData = {previewError:error.message}; }
           }
           lastVisibleState = {...JSON.parse(visible), qr, ...previewData};
           send('state', lastVisibleState);
@@ -165,7 +205,6 @@ function start({home = false} = {}) {
     finally {updating=false;if(updateAgain){updateAgain=false;void update();}}
   };
   timer = watch(dir, () => { update(); });
-  try {ledgerWatcher=watch(join(app.getPath('home'),'.config/slab/ledger'),(_,file)=>{if(String(file)==='local.json')update();});}catch{}
   update();
 }
 function openNewWindow(){
@@ -180,17 +219,19 @@ function openNewWindow(){
 app.whenReady().then(() => {
   if (!primaryInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'aesel', submenu: [
+    { label: 'Aesel', submenu: [
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
       {label:'Check for Updates…', click:()=>desktopUpdater.check()},
-      {label:'Restart aesel', click:()=>requestRestart('restart')},
+      {label:'Restart Agent', click:()=>requestRestart('restart')},
+      {label:'Reload Interface', click:()=>window.webContents.reload()},
+      {label:'Restart App', click:()=>requestRestart('update')},
       {type:'separator'}, {role:'hide'}, {role:'hideOthers'}, {role:'unhide'},
       {type:'separator'}, {role:'quit'},
     ] },
     {label:'File',submenu:[{label:'New Window',accelerator:'CmdOrCtrl+N',click:openNewWindow}]},
     { role: 'editMenu' },
     { label: 'View', submenu: [
-      {label:'aesel Actions…',click:()=>{const gallery=new BrowserWindow({parent:window,width:1120,height:850,title:'aesel actions',backgroundColor:'#241d35',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});gallery.loadFile(join(__dirname,'donkey-gallery.html'));}},
+      {label:'Aesel Actions…',click:()=>{const gallery=new BrowserWindow({parent:window,width:1120,height:850,title:'Aesel actions',backgroundColor:'#241d35',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});gallery.loadFile(join(__dirname,'donkey-gallery.html'));}},
       {label:'Larger Text',accelerator:'CmdOrCtrl+=',click:()=>send('text-size','larger')},
       {label:'Smaller Text',accelerator:'CmdOrCtrl+-',click:()=>send('text-size','smaller')},
       {label:'Reset Text Size',accelerator:'CmdOrCtrl+0',click:()=>send('text-size','reset')},
@@ -264,38 +305,15 @@ app.whenReady().then(() => {
     if (terminal) { event.preventDefault(); if (!quitting) { quitting = true; terminal.kill('SIGTERM'); setTimeout(() => { if (terminal) { quitting = false; send('desktop-notice','The session is still saving or working. Retry closing when it is ready.'); } }, 6000).unref(); } }
   });
 });
-let rockLayoutPath='',lastRockLayout='',rockLayoutWatcher;
-function checkNativeTitle(){
-  try{
-    const ack=JSON.parse(readFileSync(rockLayoutPath+'.ack','utf8')),expected=JSON.parse(lastRockLayout);
-    send('native-title',ack.title===expected.title&&ack.fontSize===expected.titleFontSize&&['titleX','titleY','titleWidth','titleHeight'].every(k=>Math.abs(ack[k]-expected[k])<1));
-  }catch{send('native-title',false);}
-}
-
-ipcMain.on('title-geometry',(event,value)=>{
-  if(event.sender!==window?.webContents||!value||!['x','y','size'].every(k=>Number.isFinite(value[k]))||typeof value.visible!=='boolean')return;
-  const bounds=window.getBounds(),content=window.getContentBounds();
-  if(value.x<0||value.y<0||value.x>content.width||value.y>content.height||value.size<16||value.size>96)return;
-  const layout={x:value.x+content.x-bounds.x,y:value.y+content.y-bounds.y,size:value.size,visible:value.visible};
-  if(typeof value.title==='string'&&value.title.length<=120&&['titleX','titleY','titleWidth','titleHeight','titleFontSize'].every(k=>Number.isFinite(value[k])&&value[k]>=0)){
-    Object.assign(layout,{title:value.title,titleX:value.titleX+content.x-bounds.x,titleY:value.titleY+content.y-bounds.y,titleWidth:value.titleWidth,titleHeight:value.titleHeight,titleFontSize:value.titleFontSize,titleColors:Array.isArray(value.titleColors)?value.titleColors.slice(0,120).map(c=>Array.isArray(c)&&c.length===3&&c.every(n=>Number.isFinite(n)&&n>=0&&n<=255)?c:[255,255,255]):[]});
-  }
-  const serialized=JSON.stringify(layout);if(serialized===lastRockLayout)return;lastRockLayout=serialized;
-  try{
-    const dir=join(app.getPath('home'),'.local/share/slab/state/easel-layout');mkdirSync(dir,{recursive:true,mode:0o700});
-    rockLayoutPath=join(dir,`${process.pid}-${window.getMediaSourceId().split(':')[1]}.json`);
-    writeFileSync(rockLayoutPath+'.tmp',serialized,{mode:0o600});renameSync(rockLayoutPath+'.tmp',rockLayoutPath);
-    if(!rockLayoutWatcher)rockLayoutWatcher=watch(dir,(_,file)=>{if(rockLayoutPath.endsWith(String(file).replace(/\.ack$/,''))&&String(file).endsWith('.ack'))checkNativeTitle();});
-    checkNativeTitle();
-  }catch(error){console.warn('aesel rock layout:',error.message);}
-});
-ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); sendDisplay(true); if(lastVisibleState)send('state',lastVisibleState); if(terminal)terminal.kill('SIGWINCH'); else start(); } });
-ipcMain.on('closing', event => { if(event.sender===window?.webContents) window.hide(); });
+ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); send('instance-label',address.label); if(systemTextSize)send('system-text-size',systemTextSize); sendDisplay(true); if(lastVisibleState)send('state',lastVisibleState); if(terminal)terminal.kill('SIGWINCH'); else start(); } });
+// Only hide while the user is actually quitting. A stale or replayed closing
+// phase must not make a healthy restarted window unreachable.
+ipcMain.on('closing', event => { if(event.sender===window?.webContents && quitting) window.hide(); });
 ipcMain.on('input', (event, data) => { if (event.sender === window?.webContents && typeof data === 'string' && data.length < 1_048_576) terminal?.write(data); });
 ipcMain.on('size', (event, { cols, rows } = {}) => {
   if (event.sender === window?.webContents && Number.isInteger(cols) && Number.isInteger(rows) && cols >= 32 && cols <= 500 && rows >= 10 && rows <= 300) { if(cols!==terminalSize.cols||rows!==terminalSize.rows){terminalSize={cols,rows};terminal?.resize(cols,rows);} }
 });
-app.on('window-all-closed', () => { rockLayoutWatcher?.close();if(rockLayoutPath){rmSync(rockLayoutPath,{force:true});rmSync(rockLayoutPath+'.ack',{force:true});} timer?.close(); ledgerWatcher?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
+app.on('window-all-closed', () => { timer?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
 
 const isWindow = event => event.sender === window?.webContents;
 ipcMain.on('copy-text', (event, text) => { if (isWindow(event) && typeof text === 'string' && text.length <= 1048576) clipboard.writeText(text); });
@@ -337,6 +355,13 @@ ipcMain.on('open-piece', (event, value) => {
     const url = new URL(value.startsWith('https://') ? value : `https://${value}`);
     if (url.protocol === 'https:' && ['prompt.ac','aesthetic.computer'].includes(url.hostname) && !url.username && !url.password) shell.openExternal(url.href);
   } catch {}
+});
+ipcMain.on('open-paper', event => { if(isWindow(event)&&currentPaperPath&&process.platform==='darwin')try{spawn('/usr/bin/open',['-a','Preview',currentPaperPath],{detached:true,stdio:'ignore'}).unref();}catch{} });
+ipcMain.on('preview-drag', event => {
+  if(!isWindow(event)||!currentPreviewPath||!existsSync(currentPreviewPath))return;
+  const ext={'image/png':'.png','audio/wav':'.wav','application/pdf':'.pdf','application/x-gameboy-rom':'.gb'}[currentPreviewMime];if(!ext)return;
+  const stem=String(currentPreviewName||'easel').replace(/\.(mjs|lisp|lua)$/i,'').replace(/[^a-z0-9._-]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,80)||'easel';
+  try{mkdirSync(dragDir,{recursive:true,mode:0o700});const file=join(dragDir,stem+ext);copyFileSync(currentPreviewPath,file);let icon=currentPreviewMime==='image/png'?nativeImage.createFromPath(file):nativeImage.createFromPath(join(__dirname,'assets/aesel-icon.png'));if(icon.isEmpty())return;icon=icon.resize({width:64,height:64});event.sender.startDrag({file,icon});}catch{}
 });
 ipcMain.on('fullscreen', (event, value) => { if (isWindow(event)) toggleFullscreen(typeof value === 'string' ? value : value?.target); });
 app.on('web-contents-created', (_event, contents) => {

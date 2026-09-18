@@ -13,7 +13,10 @@ async function localPreview(workspace, preview) {
   if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Preview must be inside the media project.');
   const stat = fs.statSync(target);
   if (!stat.isFile() || stat.size > 32*1024*1024) throw new Error('Preview exceeds the 32 MiB display limit.');
-  let dimensions;
+  // A PDF page is displayed as US Letter portrait unless platform metadata
+  // proves otherwise. This also fixes page geometry off macOS, where `sips`
+  // is unavailable and the old generic 3:2 card made papers look landscape.
+  let dimensions = preview.mime === 'application/pdf' ? {width:612,height:792} : undefined;
   if (preview.mime === 'application/pdf' && process.platform === 'darwin') {
     const key = JSON.stringify([target,preview.version,stat.size,stat.mtimeMs]);
     if (!dimensionsCache.has(key)) {
@@ -27,9 +30,9 @@ async function localPreview(workspace, preview) {
       if (dimensionsCache.size >= 32) dimensionsCache.delete(dimensionsCache.keys().next().value);
       dimensionsCache.set(key,result);
     }
-    dimensions = dimensionsCache.get(key);
+    dimensions = dimensionsCache.get(key) || dimensions;
   }
   const bytes = fs.readFileSync(target);
-  return {...dimensions,mime:preview.mime, data:`data:${preview.mime};base64,${bytes.toString('base64')}`,text:preview.mime==='text/plain'?bytes.toString('utf8').slice(0,100000):undefined};
+  return {...dimensions,mime:preview.mime,internalPath:target,data:`data:${preview.mime};base64,${bytes.toString('base64')}`,text:preview.mime==='text/plain'?bytes.toString('utf8').slice(0,100000):undefined};
 }
 module.exports = {localPreview};

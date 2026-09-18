@@ -120,8 +120,7 @@
    "source": "lib/graph.mjs:2797",
    "examples": [
     "disks/flap.mjs:50  if (store[`flap~${num}`]) stamp(store[`flap~${num}`], screen.width / 2, screen.height / 2);",
-    "disks/graphics.mjs:28  stamp(",
-    "disks/kokazo.mjs:243  stamp(ink, color, x, y, jx, jy, r);"
+    "disks/graphics.mjs:28  stamp("
    ]
   },
   {
@@ -731,7 +730,7 @@
    "examples": [
     "disks/bgm.mjs:26  if (params.length === 0) params[0] = num.randInt(trackCount - 1);",
     "disks/crayon.mjs:86  let numDots = num.randInt(minNumDots, maxNumDots);",
-    "disks/dafu.mjs:101  const speed = num.randInt(20) / 10 + 0.4;"
+    "disks/doodle.mjs:76  const x = points[i][0] + -1 + num.randInt(2);"
    ]
   },
   {

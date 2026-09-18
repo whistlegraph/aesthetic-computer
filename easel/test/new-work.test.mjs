@@ -11,7 +11,7 @@ test('fresh piece preserves old blank and revisions while replacing name, QR and
  const cwd=await fixture(t);const live=new LivePiece({cwd});live.create();await live.checkpoint();
  const file=live.file,source=live.source(),channel=live.channel,url=live.scanUrl,history=await live.history.list();
  await live.fresh();assert.notEqual(live.file,file);assert.notEqual(live.channel,channel);assert.notEqual(live.scanUrl,url);
- assert.equal(await readFile(file,'utf8'),source);assert.equal(live.revision.version,1);assert.equal(live.pristine,true);
+ assert.equal(await readFile(file,'utf8'),source);assert.equal(live.revision.version,0);assert.equal(live.pristine,true);
  const old=new LivePiece({cwd,slug:file.split('/').at(-1).replace('.mjs','')});assert.deepEqual(await old.history.list(),history);
  live.sending=true;const next=live.file;await assert.rejects(live.fresh(),/upload/);assert.equal(live.file,next);
 });

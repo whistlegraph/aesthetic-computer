@@ -14,7 +14,7 @@ terminal.loadAddon(fit);
 terminal.open(document.getElementById('terminal'));
 terminal.write('\x1b[?25l'); // The proportional input owns the visible caret, including after UI reload.
 terminal.options.linkHandler={activate:(_event,url)=>window.aesel.openLink(url)};
-const terminalLinks=window.AeselTerminalLinks.attach(terminal,{open:url=>window.aesel.openLink(url),onError:console.error});
+const terminalLinks={isLinkAtClientPoint:()=>false,dispose:()=>{}};
 window.aesel.onTheme(theme => {
   terminal.options.theme = {...theme,background:"#00000000"};
   window.SpriteLand.theme(theme.background);
@@ -54,13 +54,23 @@ function sizePreviewBox() {
   sizeQr();
   // Unifont has 16 source pixels per em; companion pixels are twice that scale.
   layoutProperty("--aesel-size", `${terminal.options.fontSize * 8}px`);
-  const compact = Math.min(176, innerWidth * .7, innerHeight * .65 * previewAspect);
+  const availablePreviewHeight=Math.max(24,innerHeight-110);
+  const ordinaryCompact = Math.min(availablePreviewHeight*previewAspect,176, innerWidth * .28, innerHeight * .32 * previewAspect);
+  const compact = window.currentPreviewMedium === 'paper'
+    ? Math.min(ordinaryCompact, innerWidth * .28, innerHeight * .34 * previewAspect)
+    : ordinaryCompact;
   const modules=(document.getElementById("qr").width||82)/2;
   const dpr=window.devicePixelRatio||1;
   const stageHeight=112*terminal.options.fontSize/8;
   const largeQr=modules*Math.max(3,Math.round(terminal.options.fontSize/4));
   const hasQr=!document.getElementById("donkey-qr-card").hidden;
-  const expanded=Math.min(compact*3,innerWidth*.7,(hasQr?Math.max(compact/previewAspect,innerHeight-stageHeight-largeQr-52):innerHeight*.65)*previewAspect);
+  // Keep the page above the mascot/shelf region. The preview is absolutely
+  // positioned, so this changes only its visual footprint—not terminal or
+  // bottom-interface column widths.
+  const paperExpanded=Math.min(innerWidth*.88,availablePreviewHeight*previewAspect);
+  const expanded=window.currentPreviewMedium==='paper'
+    ? Math.max(compact,paperExpanded)
+    : Math.min(compact*3,innerWidth*.78,availablePreviewHeight*previewAspect);
   layoutProperty("--preview-qr-size",`${Math.max(1,Math.floor((Math.min(compact,compact/previewAspect)-4)*dpr/modules))*modules/dpr}px`);
   layoutProperty("--donkey-qr-size",`${largeQr}px`);
   layoutProperty("--donkey-qr-bottom",`${stageHeight+20}px`);
@@ -128,6 +138,7 @@ function resize() {
     reportTitleGeometry();
   });
 }
+let noticeTimer = null;
 window.aesel.onNotice(message => {
   const notice = document.getElementById('desktop-notice');
   if(/^(?:Agent restarted\.|Desktop thread restored|Reloading this development build|.*up to date)/i.test(message)){notice.hidden=true;notice.textContent='';clearTimeout(noticeTimer);return;}
@@ -149,8 +160,9 @@ window.aesel.onTextSize(action => {
   const maximum = Math.min(48, Math.floor((document.getElementById('terminal').clientWidth - 20) / (32 * (bitmapFont ? .5 : .61))));
   const size = action === 'reset' ? (bitmapFont ? 16 : 14) : terminal.options.fontSize + (action === 'larger' ? 2 : -2);
   terminal.options.fontSize = Math.max(8, Math.min(maximum, size));
+  textSizeMode = '';
   try { localStorage.setItem('easel-text-size', String(terminal.options.fontSize)); } catch {}
-  resize(); terminal.focus();
+  reportZoom(); resize(); terminal.focus();
 });
 window.aesel.onFont(bitmap => {
   bitmapFont = bitmap;
@@ -158,7 +170,7 @@ window.aesel.onFont(bitmap => {
   terminal.options.fontSize = bitmap ? 16 : 14;
   terminal.options.fontWeightBold = bitmap ? '400' : '500';
   terminal.options.lineHeight = bitmap ? 1 : 1.15;
-  resize();
+  textSizeMode = ''; reportZoom(); resize();
   terminal.focus();
 });
 // The desktop starts the TUI with EASEL_MOUSE=0, leaving ordinary drags to
@@ -337,7 +349,7 @@ document.addEventListener('contextmenu', event => {
     contextItem('Open on Wikipedia',()=>window.aesel.openLink('https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(concept)));
     contextSeparator();
   }
-  contextItem('Copy', () => window.aesel.copyText(selection), !selection);
+  contextItem('Copy', () => window.aesel.copyText(selection||concept), !selection&&!concept);
   contextItem('Paste', () => window.aesel.requestPaste());
   contextItem('Select all', () => { const page=document.getElementById('notebook-page');if(page&&!document.getElementById('conversation').hidden){const range=document.createRange();range.selectNodeContents(page);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}else{terminal.selectAll();terminal.focus();} });
   contextSeparator();
@@ -494,29 +506,54 @@ titleLabel.addEventListener('click',()=>{if(shareUrl)window.aesel.openPiece(shar
 titleLabel.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();titleLabel.click();}});
 window.installProxHover(titleLabel);
 window.installPreviewResize?.();
-const showQr=show=>{document.body.dataset.qrPreview=String(show&&!document.getElementById('qr-card').hidden);};
-titleLabel.addEventListener('pointerenter',()=>showQr(true));titleLabel.addEventListener('pointerleave',()=>showQr(false));
-titleLabel.addEventListener('focus',()=>showQr(true));titleLabel.addEventListener('blur',()=>showQr(false));
-window.addEventListener('blur',()=>showQr(false));
+const showQr=()=>{document.body.dataset.qrPreview='false';};
 window.aesel.onNativeTitle?.(ready=>{document.body.dataset.nativeTitle=String(ready);});
 for(const id of ['qr-card','donkey-qr-card'])document.getElementById(id).addEventListener('click',()=>{if(shareUrl)window.aesel.openPiece(shareUrl);});
 const hoverPreview=document.getElementById('artifact-shell');
-hoverPreview.addEventListener('pointerenter',()=>{document.body.dataset.previewQr='true';});
-hoverPreview.addEventListener('pointerleave',()=>{document.body.dataset.previewQr='false';});
+hoverPreview.addEventListener('pointerenter',()=>{document.body.dataset.previewQr='false';});
+
+hoverPreview.addEventListener('click',()=>{if(window.currentPreviewMedium==='paper')window.aesel.openPaper?.();});
 let shareUrl = '';
 let url = '', version = 0, qrFingerprint = '';
+let instanceLabel = '', titlePiece = '', textSizeMode = '';
+function reportZoom() {
+  const label=document.getElementById('instance-label');label.textContent=instanceLabel;
+  label.title=textSizeMode?`Slab ${textSizeMode[0].toUpperCase()+textSizeMode.slice(1)} text · ${terminal.options.fontSize} pt`:`${terminal.options.fontSize} pt`;
+}
+function updateWindowTitle() {
+  const mark = /^[A-Z]$/.test(instanceLabel) ? String.fromCodePoint(0x1D56C + instanceLabel.charCodeAt(0) - 65) : `[${instanceLabel}]`;
+  document.title = titlePiece || 'Aesel';
+}
+window.aesel.onInstanceLabel(label => {
+  instanceLabel = label;
+  document.body.dataset.instance = label;
+  reportZoom();
+  updateWindowTitle();
+});
+window.aesel.onSystemTextSize?.(value => {
+  textSizeMode = value.mode || '';
+  // Unifont's bitmap body reads smaller than Terminal's Menlo at the same
+  // nominal point size. A three-point optical correction keeps them aligned.
+  const easelSize=Math.min(48,value.fontSize+3);
+  terminal.options.fontSize = easelSize;
+  try { localStorage.setItem('easel-text-size', String(easelSize)); } catch {}
+  reportZoom(); resize();
+});
 window.aesel.onState(state => {
+  if(document.body.dataset.phase==='startup' && state.status) document.body.dataset.phase='ready';
   donkey.update(state);
   resize();
   shareUrl = state.url || ''; 
   document.getElementById('artifact-shell').hidden = !state.url && !state.preview;
   if (state.medium !== 'piece' && url) { preview.src = 'about:blank'; url = ''; }
   window.currentPreviewMedium = state.medium;
+  document.body.dataset.previewMedium = state.medium || '';
   if (state.medium === 'piece') window.setPreviewDimensions(...(window.previewUserDimensions || pieceDimensions || [192, 128]));
   window.renderMediaPreview(state).catch(error => console.error('Preview failed:', error));
   const qr = document.getElementById('qr');
-  document.getElementById('qr-card').hidden = !state.qr || !shareUrl;
-  document.getElementById('donkey-qr-card').hidden = !state.qr || !shareUrl;
+  const hideQr = state.medium === 'paper' || !state.qr || !shareUrl;
+  document.getElementById('qr-card').hidden = hideQr;
+  document.getElementById('donkey-qr-card').hidden = hideQr;
   const draftId = state.medium !== 'piece' ? /[?&]id=([a-f0-9]{32})/.exec(state.url || '')?.[1] : null;
   const scanName = state.preview?.publicCode ? '#' + state.preview.publicCode : draftId ? '#~' + draftId.slice(0,12) : (state.piece || 'easel').replace(/\.(mjs|lisp|lua)$/, '');
   const displayName=(state.piece||scanName).split('/').at(-1).replace(/\.(mjs|lisp|lua)$/,'');
@@ -542,7 +579,8 @@ window.aesel.onState(state => {
     qr.title = state.url;
     sizeQr();
   }
-  document.title = state.piece ? `${state.piece} · Aesel` : 'Aesel';
+  titlePiece = `aesel ${title}` + (Number.isInteger(state.version) ? ` v${state.version}` : '');
+  updateWindowTitle();
   // Owned piece routes subscribe to their live channel themselves. Wait for
   // the first readable publication instead of booting prompt or racing a 403.
   const ownedRoute = /\/@[^/]+\/[^/?#]+/.test(state.url || '');

@@ -19,6 +19,6 @@ test('controls remain on the final two rows as the terminal resizes',()=>{
   assert.equal(lines.length,rows);
   assert.equal(frameLayout(state,rows).trayStartRow,rows-4);
   assert.match(lines.at(-2),/hello/);
-  assert.match(lines.at(-1),/help/);
+  assert.match(lines.at(-1),/settings/);
  }
 });
