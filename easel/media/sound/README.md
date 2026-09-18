@@ -1,10 +1,10 @@
 # Sound toolkit
 
-The first Easel Sound lane composes short instrumental phrases and loops using
+The first Aesel Sound lane composes short instrumental phrases and loops using
 Pop's own sinepower voice, wobble/bitcrush effects, and Bjorklund rhythms.
 No samples, account, network, external executable, or personal voice assets are
 required. Source modules in `pop/` are verbatim copies; `provenance.json` records
-the exact original paths and SHA-256 hashes. The Easel repository license applies.
+the exact original paths and SHA-256 hashes. The Aesel repository license applies.
 
 `score.json` is the editable recipe:
 

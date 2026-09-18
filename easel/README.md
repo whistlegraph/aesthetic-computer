@@ -1,4 +1,8 @@
-# Easel
+# Aesel
+
+Aesel by Aesthetic Computer. The canonical command is `aesel`; `ac` and
+`easel` remain compatible. The source directory, `EASEL_*` settings, existing
+thread paths, and bundle ID remain stable so upgrades preserve user data.
 
 A coding interface for the terminal. Lives at `easel/` in the
 Aesthetic Computer repository.
@@ -68,7 +72,7 @@ The allowance measures weighted tokens, not dollars, and is not an atomic spend
 reservation. Unavailable budget checks refuse inference. New hosted choices
 require the matching Lith endpoint deployment.
 
-`/about`, or clicking **EASEL**, opens the feature map. Click **@handle** to open
+`/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
 your profile in a browser. Header targets highlight on hover in terminals that
 support mouse reporting. `/mouse off` restores terminal selection; `/mouse on`
 enables interaction again. `EASEL_MOUSE=0` disables it at launch.
@@ -104,7 +108,7 @@ Serving only: no training, no water, and not your own machine.
 
 The Claude bridge runs `claude --print --input-format stream-json
 --output-format stream-json`, the same headless protocol the Claude Agent SDK
-speaks, driven directly over a pipe. That is why Easel still has no
+speaks, driven directly over a pipe. That is why Aesel still has no
 dependencies: a subprocess on stdio is the same shape as `codex app-server
 --stdio`, and it carries streaming, tool calls and approvals without a package
 tree behind it. Each bridge signs in with the vendor CLI's own credentials
@@ -117,7 +121,7 @@ configuration — Codex is pinned to `on-request` approvals and a
 and `--strict-mcp-config` — so nothing but the person watching can approve a
 command in a session, and an `a` is never written to a settings file.
 
-On the Claude bridge the session also carries Easel's own tools, served by
+On the Claude bridge the session also carries Aesel's own tools, served by
 `src/tools.mjs` as the one MCP server the strict config admits: `ac_api` (the
 piece API — runtime signatures, docs and real call sites, read off
 `lib/disk.mjs` and `lib/graph.mjs` by `bin/build-api-map.mjs` into
@@ -137,7 +141,7 @@ written down in [`docs/local-contract.md`](docs/local-contract.md).
 
 ## The session's piece, live on a phone
 
-Opening Easel opens a new blank piece. It gets a random pronounceable
+Opening Aesel opens a new blank piece. It gets a random pronounceable
 name, it is a real file in the workspace, and a QR code for it sits in the
 bottom right of the interface. Scan the code and the piece runs on your phone;
 every edit the agent makes reaches it a moment later.
@@ -180,7 +184,7 @@ comment and declares `setup` or `draw` is taken as Lua at all.
 
 ## Account and publishing
 
-Easel reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
+Aesel reads the shared Aesthetic Computer sign-in at `~/.ac-token`,
 the same file `ac-login` and the AC desktop apps use. `/login` runs the
 Authorization-Code + PKCE flow in your browser with a loopback callback and
 writes that file; a sign-in or sign-out anywhere in the suite updates the
@@ -220,7 +224,7 @@ npm test
 
 ## Designing the furniture
 
-Easel does not draw all of itself. The QR, the live card of the piece and the
+Aesel does not draw all of itself. The QR, the live card of the piece and the
 status stone are Slab menubar overlays parked on the terminal, and `frame`
 filters Slab's own windows out of every capture — its usual job is reading the
 machine underneath them. So a screenshot taken to judge the card's padding
@@ -230,20 +234,20 @@ shows the terminal where the card is.
 shot to a padded crop, so the menu bar an overlay is said to be flush against
 is in the same picture.
 
-`easel/bin/design-loop.mjs` is the whole cycle in one command: close the Easel
+`easel/bin/design-loop.mjs` is the whole cycle in one command: close the Aesel
 session, open a fresh one, wait for its overlays to land, photograph them.
 Fresh because overlays are placed once, when a window appears — editing the
 placement and reinstalling the menubar does not move what is already on screen,
 so the only honest check is a session that has never seen the old numbers.
 
 ```sh
-node easel/bin/design-loop.mjs            # restart Easel, then shoot
+node easel/bin/design-loop.mjs            # restart Aesel, then shoot
 node easel/bin/design-loop.mjs --shot     # shoot what is already open
 ```
 
 Edit an overlay, run `slab/menubar-swift/install.sh`, then run the loop.
 
-Easel is proprietary. See `LICENSE`.
+Aesel is proprietary. See `LICENSE`.
 
 On Fish installations with existing `ac` or `aesthetic` functions, the
 installer preserves them as `ac-repo` and `aesthetic-platform`.

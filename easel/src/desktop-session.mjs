@@ -49,7 +49,7 @@ export function restoreDesktopEngine(engine, snapshot) {
   if (snapshot.backend === "ac") { engine.messages = clone(snapshot.engine.messages); engine.turns = snapshot.engine.turns; }
 }
 export async function writeDesktopControl({ sessionPath, controlPath, snapshot, action }) {
-  if (!sessionPath || !controlPath || !["restart", "update"].includes(action)) throw new Error("Desktop restart/update is not configured.");
+  if (!sessionPath || !controlPath || !["restart", "update", "home"].includes(action)) throw new Error("Desktop restart/update is not configured.");
   // A request must never exist unless the exact resumable state was saved.
   await writeDesktopSession(sessionPath, snapshot);
   await atomicJson(controlPath, { action });
@@ -60,6 +60,6 @@ export async function readDesktopIntent(file) {
   try { input = JSON.parse(await readFile(file, "utf8")); }
   catch (error) { if (error.code === "ENOENT") return "restart"; throw error; }
   await rm(file, { force: true });
-  if (!["restart", "update"].includes(input?.action)) throw new Error("Invalid desktop action.");
+  if (!["restart", "update", "home"].includes(input?.action)) throw new Error("Invalid desktop action.");
   return input.action;
 }

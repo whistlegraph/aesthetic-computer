@@ -20,14 +20,14 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 | **@aesthetic.computer** | Instagram | **primary growth target** (1k → Trial Reels) | 🟡 official Reel app staged — `aesthetic-ig.mjs`; separate Meta app/token still needs provisioning |
 | **@aesthetic.computer** | TikTok | primary growth target (391 fo · 2026-07-03) | ⚠️ OAuth app exists (silo); posting still manual |
 | **Aesthetic Dot Computer** | YouTube | primary growth target (4 subs · 70 views) | ✅ **full** — `yt.mjs` (upload/edit/thumb/delete) |
-| **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/*.mjs` app password |
+| **@aesthetic.computer** | Bluesky | changelog + paintings feed (81 fo) | ✅ **full** — `at/cli.mjs post` (link facets) + `x` MCP |
 | **AC Readings** | Podcast (pod.prompt.ac) | essay audio → Spotify/Apple/YT | ✅ publish via Buzzsprout API (`reading` skill) |
 | **@oskiewar** | Instagram | game posts itself (3 reels/day staged; 2 fo · 2026-08-09) | ✅ **full** — xbox/live/marketing/reel.mjs --publish --live; vault/oskiewar/instagram.env |
 | @whistlegraph | Instagram | established funnel source | 🟡 official Reel app staged — `whistlegraph-ig.mjs`; separate Meta app/token still needs provisioning |
 | @whistlegraph | TikTok | established funnel source (2.6M fo · 99M likes) | ⚠️ download/analyze only (`toolchain/whistlegraph/`) |
 | @whistlegraph | YouTube | established funnel source (5.3k subs · 2.1M views) | ✅ **full** — `yt.mjs --as whistlegraph` (2026-07-05) |
-| @promptDOTac | X | dormant AC-brand outlet | ❌ none — no developer app |
-| @whistlegraph | X ([x.com/whistlegraph](https://x.com/whistlegraph)) | dormant funnel | ❌ none |
+| @promptDOTac | X | reviving AC-brand outlet (98 fo · 2026-09-13) | ✅ **full** — `toolchain/x/x.mjs` + `x` MCP; pay-per-use, $25 loaded 2026-09-11 |
+| @whistlegraph | X ([x.com/whistlegraph](https://x.com/whistlegraph)) | dormant funnel | ❌ needs its own developer account, vault file, and credits |
 | Aesthetic Dot Computer | Spotify (artist) | music distribution (via DistroKid) | ⚠️ **S4A claim BLOCKED on an IG post** — see `pop/spotify-for-artists-claim-reply.md` |
 | (jeffrey) | Are.na | curation / research surface | ⚠️ API proven (`gigs/are-na-annual-vol-8/*.mjs`, `ARENA_TOKEN`) — token not vaulted |
 | papers / essays | prompt.ac (self-hosted) | long-form home base | ✅ fully owned — `papers/` → oven → lith; no gatekeeper |
@@ -37,13 +37,13 @@ Two brands, one funnel: **@whistlegraph** (established audience) feeds **@aesthe
 ### API access build-out (next moves, in value order)
 
 1. **Provision the two Instagram apps.** The official multi-account CLI and isolated Whistlegraph/Aesthetic Reel factories are built. Both accounts still need to be Professional; create one Meta app per account with **Instagram API with Instagram Login**, authorize the three business scopes, and store each long-lived token in its own vault directory. Follow `toolchain/instagram/REEL-APPS.md`; leave each `*_IG_AUTO=0` until three staged Reels and one human-triggered live post pass review.
-2. **X developer app** — nothing exists. Free tier (~500 writes/mo) covers a mirror cadence for @promptDOTac + @whistlegraph; a small `x.mjs` CLI posts the same short-form drops as Bluesky. Needs jeffrey to create the app at developer.x.com under whichever account owns the brand.
+2. ~~**X credits**~~ **DONE 2026-09-11** — @promptDOTac posts through `toolchain/x/x.mjs` and the `x` MCP; the first live post announced the CultureHub workshop. X has no free tier: console.x.com is pay-per-use, and $25 in credits is loaded. Recent search is protected by a conservative per-host daily estimate; keep a Billing Cycle Cap in X Console as the fleet-wide limit. Before provisioning @whistlegraph, decide whether a second paid account earns its keep. See `toolchain/x/SETUP.md`.
 3. **TikTok Content Posting API audit** — silo holds the OAuth app (key/secret, callback `silo.aesthetic.computer/api/tiktok/callback`, sessions in Mongo `tiktok-sessions`). Unaudited = private/draft posting only; apply for the audit to get scripted publish where the 2.6M audience is.
 4. **Are.na token → vault** — scripts already speak the API; store `ARENA_TOKEN` at `vault/arena/.env` and lift the gig scripts into a small generic CLI when needed.
 5. **Buzzsprout stats pull** — wire download numbers into `accounts.json` snapshots (podcast id 2628235; publish already works via the `reading` skill).
 6. **YouTube quota bump** — both channels share ~6 uploads/day; request more if cadence grows.
 
-Done: ~~YouTube whistlegraph~~ (2026-07-05, `--as whistlegraph`) · Bluesky (full) · Buzzsprout publish · papers (self-owned).
+Done: ~~YouTube whistlegraph~~ (2026-07-05, `--as whistlegraph`) · Bluesky (full) · Buzzsprout publish · papers (self-owned) · X/Bluesky MCP (2026-09-11).
 
 ---
 

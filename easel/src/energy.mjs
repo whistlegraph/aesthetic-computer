@@ -70,6 +70,9 @@ export const BASIS =
 // counts. The closed ones announce nothing, so they are placed by class — which
 // is a guess, and says so wherever it is printed.
 const HOSTED = {
+  // Closed model: this is a class estimate, not a published parameter count.
+  "openai/gpt-5.6-luna": { label: "luna", active: 40, known: false },
+  "anthropic/claude-opus-5": { label: "opus", active: 500, known: false },
   "z-ai/glm-4.6": { label: "glm", active: 32, known: true },
   "qwen/qwen3-coder": { label: "qwen", active: 35, known: true },
   "deepseek/deepseek-chat-v3.1": { label: "deepseek", active: 37, known: true },

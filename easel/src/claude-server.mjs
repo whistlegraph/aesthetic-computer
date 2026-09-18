@@ -80,7 +80,7 @@ export class ClaudeServer extends EventEmitter {
     model = DEFAULT_CLAUDE_MODEL,
     effort = "",
     recoveryInstructions = "",
-    // Easel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
+    // aesel's native tools (ac_api, ac_examples, ac_outline, ac_symbol).
     tools = true,
   }) {
     super();
@@ -119,7 +119,7 @@ export class ClaudeServer extends EventEmitter {
     catch(error) {
       if(error.code !== 'MISSING_CONVERSATION' || !this.recoveryInstructions) throw error;
       this.developerInstructions += '\n\n' + this.recoveryInstructions;
-      this.emit('notification',{method:'warning',params:{message:'Claude session was not saved by its CLI; continuing with the Easel conversation.'}});
+      this.emit('notification',{method:'warning',params:{message:'Claude session was not saved by its CLI; continuing with the aesel conversation.'}});
       return this.#launch('');
     }
   }
@@ -178,8 +178,8 @@ export class ClaudeServer extends EventEmitter {
         behavior: "deny",
         message:
           decision === "cancel"
-            ? "Cancelled in Easel."
-            : "Denied in Easel.",
+            ? "Cancelled in aesel."
+            : "Denied in aesel.",
       };
     }
     this.#send({
@@ -256,7 +256,7 @@ export class ClaudeServer extends EventEmitter {
       "--add-dir",
       this.cwd,
     ];
-    // Easel's own tools ride in as the one MCP server the strict config
+    // aesel's own tools ride in as the one MCP server the strict config
     // admits: the API map, call-site search, and the outline/symbol pair that
     // replaces `sed -n` over a 9,000-line piece. They read local files and
     // nothing else, so they are allowed up front — an approval prompt for
@@ -295,7 +295,7 @@ export class ClaudeServer extends EventEmitter {
       env: {
         ...process.env,
         ...this.environment,
-        EASEL: "1",
+        aesel: "1",
         EASEL_VERSION: VERSION,
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -532,7 +532,7 @@ export class ClaudeServer extends EventEmitter {
         response: {
           subtype: "error",
           request_id: message.request_id,
-          error: `Easel does not support ${request.subtype} yet`,
+          error: `aesel does not support ${request.subtype} yet`,
         },
       });
       return;

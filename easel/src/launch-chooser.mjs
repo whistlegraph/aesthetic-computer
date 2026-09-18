@@ -31,7 +31,7 @@ export function chooserKey(state,key,threadCount) {
 export function renderChooser(state,threads,columns=80,rows=24) {
   const width=Math.max(1,columns-1),height=Math.max(1,rows-1),box=Math.min(54,Math.max(1,width-4));
   const ink=(tone,text)=>color[tone]+text+color.reset;
-  const title=Array.from('EASEL').map((ch,i)=>ink(['highlight','handle','status','soft','prompt'][i],ch)).join('');
+  const title=Array.from('aesel').map((ch,i)=>ink(['highlight','handle','status','soft','prompt'][i],ch)).join('');
   const tab=(text,selected)=>ink(selected?'block':'muted',` ${text} `);
   const items=state.tab?threads.map(t=>t.label):NEW_MEDIA.map(x=>x==='gameboy'?'Game Boy':x[0].toUpperCase()+x.slice(1));
   const count=Math.max(1,Math.min(10,height-7)),start=Math.max(0,state.index-count+1);
@@ -43,7 +43,7 @@ export function renderChooser(state,threads,columns=80,rows=24) {
 }
 export async function chooseLaunch({threads,input=process.stdin,output=process.stdout}) {
   let state={tab:0,index:0},buffer='',escapeTimer;const priorRaw=input.isRaw;
-  const diff=new FrameDiff();
+  const diff=new FrameDiff({clearOnResize:!process.env.EASEL_DESKTOP});
   function draw(){output.write(diff.update(renderChooser(state,threads,output.columns||80,output.rows||24),output.columns||80));}
   input.setRawMode(true);input.resume();output.write('\x1b[?25l');output.on('resize',draw);draw();
   return new Promise(resolve=>{

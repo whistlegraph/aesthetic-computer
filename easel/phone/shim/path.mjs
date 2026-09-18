@@ -57,3 +57,10 @@ export function resolve(...parts) {
 }
 
 export default { join, normalize, dirname, basename, extname, resolve };
+
+export const isAbsolute = path => path.startsWith('/');
+export function relative(from, to) {
+  const a=resolve(from).split('/').filter(Boolean), b=resolve(to).split('/').filter(Boolean);
+  while(a.length && b.length && a[0]===b[0]){a.shift();b.shift();}
+  return [...a.map(()=>'..'),...b].join('/');
+}

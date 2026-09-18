@@ -20,7 +20,9 @@ do {
           width > 0, height > 0, width <= 1_048_576 / height,
           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("Image exceeds the one-megapixel capture limit or cannot be decoded.") }
     let request = VNRecognizeTextRequest()
-    request.recognitionLevel = .accurate
+    // Fast OCR avoids the accurate recognizer's expensive first-use model compilation.
+    // Confidence remains the native Vision score; callers must not treat it as calibrated.
+    request.recognitionLevel = .fast
     request.usesLanguageCorrection = false
     if #available(macOS 13.0, *) { request.revision = VNRecognizeTextRequestRevision3 }
     try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])

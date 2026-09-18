@@ -17,7 +17,7 @@ async function setup(t) {
   const root = await mkdtemp(join(tmpdir(), "easel-launcher-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin"),
-    app = join(root, "Easel.app"),
+    app = join(root, "aesel.app"),
     workspace = join(root, "project with spaces");
   for (const p of [bin, app, workspace]) await mkdir(p);
   await writeFile(
@@ -85,7 +85,7 @@ test("no arguments activates existing app and leaves last-workspace selection to
 });
 test("help and invalid invocations never call open", async (t) => {
   const f = await setup(t);
-  assert.match(f.run(["--help"]).stdout, /standalone Easel/);
+  assert.match(f.run(["--help"]).stdout, /standalone aesel/);
   for (const args of [
     ["--cwd"],
     ["--model"],

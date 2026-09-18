@@ -19,6 +19,12 @@ the system paints it at `(6, 6)` in the default 6×10 typeface (`lib/disk.mjs`, 
 
 so: **readouts go along the bottom, or right-aligned.** that's the default. a top bar is a decision, not a reflex.
 
+## drawing API essentials
+
+`screen` is an object: use `screen.width` and `screen.height`, never `screen[0]`, `screen[1]`, `screen.w` or `screen.h`.
+Use named colors or numeric RGB channels with `ink(r, g, b)`; CSS `hsl(...)` strings are not a supported color format.
+`circle(x, y, radius, true)` draws a filled circle; omit the final flag for an outline.
+
 ## paint
 
 - return nothing to keep animating; return `false` to paint once and freeze (`disk.mjs`: `noPaint = paintOut === false || …`).

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // sync-context — copy the Aesthetic Computer authoring guides into easel/context/.
 //
-// Easel tells the model how to write an AC piece by naming the repo's guides and
+// aesel tells the model how to write an AC piece by naming the repo's guides and
 // asking it to read them. That works inside the monorepo and nowhere else: the
-// lookup is existsSync against the working directory, so an installed Easel
+// lookup is existsSync against the working directory, so an installed aesel
 // opened on someone's Desktop passes along no AC knowledge at all. It becomes a
 // general-purpose editor that happens to publish to a URL.
 //
@@ -23,14 +23,15 @@ import { fileURLToPath } from "node:url";
 import { build as buildApiMap } from "./build-api-map.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EASEL = join(HERE, "..");
-const REPO = join(EASEL, "..");
-const OUT = join(EASEL, "context");
+const aesel = join(HERE, "..");
+const REPO = join(aesel, "..");
+const OUT = join(aesel, "context");
 
 // What a model needs to write a piece, and nothing else. Deliberately not the
 // whole repository: this is the knowledge that is about Aesthetic Computer
 // rather than about this checkout.
 export const BUNDLE = [
+  ["easel/SCORE.md", "score.md", "the aesel piece workflow"],
   ["SCREEN.md", "screen.md", "how a piece draws on the AC canvas"],
   ["HAND.md", "hand.md", "how the code reads"],
   ["system/public/aesthetic.computer/disks/CLAUDE.md", "pieces.md", "the piece authoring guide"],
@@ -38,7 +39,7 @@ export const BUNDLE = [
 ];
 
 const header = (from, subject) =>
-  `<!-- ${subject}\n     Bundled with Easel from ${from} in the Aesthetic Computer repository.\n     Do not edit here — edit the source and run \`npm run context\`. -->\n\n`;
+  `<!-- ${subject}\n     Bundled with aesel from ${from} in the Aesthetic Computer repository.\n     Do not edit here — edit the source and run \`npm run context\`. -->\n\n`;
 
 export function build() {
   mkdirSync(OUT, { recursive: true });
@@ -47,7 +48,7 @@ export function build() {
     return { path: join(OUT, to), body, from, to, subject };
   });
   // The API map travels the same way, for the same reason: it is read off the
-  // runtime source, which an installed Easel does not have.
+  // runtime source, which an installed aesel does not have.
   guides.push({
     path: join(OUT, "api.json"),
     body: buildApiMap(),
@@ -55,6 +56,10 @@ export function build() {
     to: "api.json",
     subject: "the piece API map",
   });
+  for(const file of ["lib/cam-doll.mjs","lib/graph.mjs","lib/disk.mjs","lib/num.mjs","lib/geo.mjs","lib/ui.mjs","disks/camera.mjs","disks/1v1.mjs","disks/notepat.mjs","disks/blank.mjs"]){
+    const to="reference/"+file,from="system/public/aesthetic.computer/"+file;
+    guides.push({path:join(OUT,to),body:readFileSync(join(REPO,from),"utf8"),from,to});
+  }
   return guides;
 }
 
@@ -68,6 +73,7 @@ for (const file of build()) {
   if (check) {
     console.error(`stale: context/${file.to} no longer matches ${file.from}`);
   } else {
+    mkdirSync(dirname(file.path),{recursive:true});
     writeFileSync(file.path, file.body);
     console.log(`wrote context/${file.to}  (${(file.body.length / 1024).toFixed(1)} KB)`);
   }

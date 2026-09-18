@@ -1,4 +1,4 @@
-// Easel joypad sketch, built with Aesthetic Computer's GBDK workflow.
+// Aesel joypad sketch, built with Aesthetic Computer's GBDK workflow.
 // D-pad moves the original mark. A returns it to the center.
 #include <gb/gb.h>
 #include <stdint.h>
@@ -11,7 +11,7 @@ const uint8_t mark[] = {
 
 void main(void) {
     uint8_t x = 84, y = 88;
-    printf("EASEL\n\nGAME BOY SKETCH\n\nD-PAD: MOVE\nA: CENTER");
+    printf("AESEL\n\nGAME BOY SKETCH\n\nD-PAD: MOVE\nA: CENTER");
     set_sprite_data(0, 1, mark);
     set_sprite_tile(0, 0);
     OBP0_REG = 0xe4;

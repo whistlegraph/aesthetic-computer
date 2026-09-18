@@ -322,3 +322,19 @@ test("adopt refuses Codex-backed rocks and rocks guarded for someone else", asyn
   }, { SLAB_HOME: join(other, ".local", "share", "slab") });
   assert.match(foreign, /was launched for alex, not fia/);
 });
+
+test("Easel namespace is exact, fleet ambiguity is preserved, and local stays local", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-easel-test-"));
+  const dir = join(home, ".config", "slab", "ledger");
+  await mkdir(join(dir, "peers"), { recursive: true });
+  const entry = (host, agentType, id) => ({ id, host, name: "old-piece", proxName: "bugo", proxNamespace: "easel", agentType, kind: "session", status: "complete", updated: Date.now() });
+  await writeFile(join(dir, "local.json"), JSON.stringify({host:"blueberry",entries:[entry("blueberry","easel","one"),entry("blueberry","codex","other")]}));
+  await writeFile(join(dir, "peers", "neo.json"), JSON.stringify({host:"neo",entries:[entry("neo","easel","two")]}));
+  assert.match(await callProx(home,"prox_find",{handle:"prox:easel:bugo"}),/2 match/);
+  const scoped = await callProx(home,"prox_find",{handle:"prox:easel:blueberry:bugo"});
+  assert.match(scoped,/1 match/); assert.match(scoped,/id: +one/);
+  assert.match(await callProx(home,"prox_find",{handle:"prox:easel:bug"}),/no rock resolves/);
+  assert.match(await callProx(home,"prox_find",{handle:"local:one"}),/1 match/);
+  assert.match(await callProx(home,"prox_find",{handle:"local:two"}),/no rock resolves/);
+  assert.match(await callProx(home,"prox_poke",{handle:"prox:easel:bugo"}),/ambiguous/);
+});

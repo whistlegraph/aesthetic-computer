@@ -15,3 +15,10 @@ test('resize and external drawings invalidate the previous screen', () => {
   diff.reset();
   assert.match(diff.update('first', 40), /\x1b\[2J/);
 });
+test('desktop resize repaints complete rows without a blank-screen clear',()=>{
+ const diff=new FrameDiff({clearOnResize:false});
+ assert.match(diff.update('first\nsecond',80),/\x1b\[2J/);
+ const resized=diff.update('first\nsecond',40);
+ assert.ok(!resized.includes('\x1b[2J'));assert.ok(resized.includes('\x1b[1;1Hfirst'));assert.ok(resized.includes('\x1b[2;1Hsecond'));
+ diff.reset();assert.match(diff.update('new',40),/\x1b\[2J/);
+});

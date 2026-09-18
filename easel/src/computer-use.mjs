@@ -1,8 +1,8 @@
 // Optional trusted-host adapter. Importing it grants no tools or screen access.
 // The Aesel host selects the machine, page, and allowlist; model arguments may
 // not redirect an operation to another machine or browser page.
-import { createComputerUseClient } from "../../slab/lib/computer-use-client.mjs";
-import { chooseObservedTarget } from "../../slab/lib/jev-computer-use.mjs";
+import { createComputerUseClient } from "./computer-use-client.mjs";
+import { chooseObservedTarget } from "./jev-computer-use.mjs";
 
 export function createAeselComputerUse({ machine, target, allowedTools = [], ...transport } = {}) {
   if (typeof machine !== "string" || !machine) throw new Error("Aesel computer use needs an explicit machine");

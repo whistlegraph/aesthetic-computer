@@ -5,6 +5,7 @@ struct AeselApp: App {
     @State private var session = Session()
     @State private var host: SessionHost
     @State private var started = false
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let session = Session()
@@ -16,6 +17,9 @@ struct AeselApp: App {
         WindowGroup {
             ContentView(session: session, host: host)
                 .preferredColorScheme(.dark)
+                .onChange(of: scenePhase) { _, phase in
+                    if phase != .active { host.save() }
+                }
                 .task {
                     guard !started else { return }
                     started = true
@@ -24,24 +28,13 @@ struct AeselApp: App {
         }
     }
 
-    /// Where the shared session is served from. While iterating this is the
-    /// laptop running `node easel/phone/serve.mjs --token`, so a JS edit
-    /// reaches the phone on reload with no rebuild. `AeselHostURL` in
-    /// Info.plist is the knob; a shipped build points at a bundled copy.
-    /// Order matters: the environment wins so `run.sh` can point a device at
-    /// whatever address the laptop has today without editing a tracked file.
-    /// A LAN address is not stable — this machine moved from a phone hotspot
-    /// to a Wi-Fi network in the middle of building this, and a baked-in IP
-    /// would have shipped broken.
+    /// Release sessions load immutable app resources. Developers can explicitly
+    /// opt into a hosted session through the launch environment.
     static var hostURL: URL {
         if let text = ProcessInfo.processInfo.environment["AESEL_HOST"],
            let url = URL(string: text) {
             return url
         }
-        if let text = Bundle.main.object(forInfoDictionaryKey: "AeselHostURL") as? String,
-           let url = URL(string: text) {
-            return url
-        }
-        return URL(string: "http://localhost:8770/easel/phone/host.html")!
+        return URL(string: "aesel-bundle://app/easel/phone/host.html")!
     }
 }

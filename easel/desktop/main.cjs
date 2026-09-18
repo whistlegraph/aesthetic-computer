@@ -9,9 +9,9 @@ const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
 const { tmpdir } = require('node:os');
 
-app.setName('Easel');
+app.setName('aesel');
 app.setPath('userData', join(app.getPath('appData'), 'Easel'));
-let window, terminal, timer, quitting = false;
+let window, terminal, timer, ledgerWatcher, quitting = false;
 let terminalSize = {cols:100,rows:32};
 let currentTheme = FALLBACK;
 const themeFollower = followSlabTheme(theme => { currentTheme = theme; if (window && !window.isDestroyed()) { window.setBackgroundColor(theme.background); send('theme',theme); } });
@@ -70,29 +70,40 @@ function requestRestart(action = 'restart') {
   writeFileSync(intentFile, JSON.stringify({action}), {mode:0o600});
   terminal.kill('SIGUSR2');
 }
-const canUpdateBinary = app.isPackaged && existsSync(join(process.resourcesPath,'app-update.yml'));
+// Mac App Store owns updates for its sandboxed build. The Developer ID build
+// uses aesel's generic signed feed; never let electron-updater compete with
+// Store receipts or present a non-Store update inside the MAS app.
+const canUpdateBinary = app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
 function send(channel, data) { if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
-function start() {
+function start({home = false} = {}) {
   if (terminal) return;
   const args = [join(root, 'src/tui.mjs'), '--cwd', workspace];
-  for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name)) args.push(name, option(name));
-  if (continueSession) args.push('--continue-session');
+  for (const name of ['--piece', '--resume', '--model', '--backend', '--effort']) if (option(name) && !(home && ['--piece','--resume'].includes(name))) args.push(name, option(name));
+  if (continueSession && !home) args.push('--continue-session');
   if (supplied.includes('--no-autopublish')) args.push('--no-autopublish');
-  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
+  const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', TERM: 'xterm-256color', COLORTERM: 'truecolor', SLAB_HOME: slabHome, EASEL_DESKTOP: '1', EASEL_HOST_PID:String(process.pid), EASEL_HOST_WINDOW_ID:window.getMediaSourceId().split(':')[1], EASEL_THEME:'slab', EASEL_MOUSE:'0', EASEL_DESKTOP_SESSION:sessionFile, EASEL_DESKTOP_CONTROL:controlFile, EASEL_DESKTOP_INTENT:intentFile, EASEL_PREVIEW_EVENTS:previewEventsFile };
   delete env.NODE_OPTIONS;
   delete env.NO_COLOR;
   env.FORCE_COLOR = '3';
   env.EASEL_GROUND = 'paint';
   try {
-    terminal = pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
+    terminal = process.mas
+      ? require('./mas-terminal.cjs').createMasTerminal(args,{...terminalSize,cwd:workspace,env})
+      : pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
     terminal.onData(data => send('output', data));
     terminal.onExit(({ exitCode }) => {
       terminal = null;
       if (exitCode === 75 && existsSync(controlFile)) {
         const request = JSON.parse(readFileSync(controlFile, 'utf8'));
         rmSync(controlFile, {force:true});
+        if (request.action === 'home') {
+          timer?.close(); ledgerWatcher?.close();
+          pendingRestart = false;
+          send('output', '\x1b]777;easel-phase:startup\x07\x1b[2J\x1b[H');
+          return start({home:true});
+        }
         if (['restart','update'].includes(request.action)) {
           quitting = true;
           timer?.close();
@@ -100,8 +111,8 @@ function start() {
         }
       }
       if (exitCode === 0) { quitting = true; app.quit(); return; }
-      pendingRestart = false; send('output', `\r\nEasel closed (${exitCode}). Close this window to finish.\r\n`); if (quitting) app.quit(); });
-  } catch (error) { send('output', `Could not start Easel: ${error.message}\r\n`); }
+      pendingRestart = false; send('output', `\r\naesel closed (${exitCode}). Close this window to finish.\r\n`); if (quitting) app.quit(); });
+  } catch (error) { send('output', `Could not start aesel: ${error.message}\r\n`); }
   let previous = '', qrUrl = '', qr = null, previewKey = '', previewData = {};
   const dir = join(slabHome, 'state/active-prompts');
   mkdirSync(dir, {recursive:true});
@@ -115,7 +126,9 @@ function start() {
         const state = JSON.parse(readFileSync(join(dir, name), 'utf8'));
         themeFollower.setStatus(state.state);
         previewContext=(state.artifact_kind||'piece')==='piece'&&state.piece_channel?{channel:state.piece_channel,revision:state.piece_revision,version:state.piece_version}:null;
-        const visible = JSON.stringify({ piece: state.piece, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
+        let proxName=null;
+        try {const ledger=JSON.parse(readFileSync(join(app.getPath('home'),'.config/slab/ledger/local.json'),'utf8'));const entry=ledger.entries?.find(e=>e.id===state.session_id&&e.agentType==='easel');if(entry?.proxNamespace==='easel'&&entry.proxName?.length<=100&&/^[a-z0-9_-]+(?:\/[a-z0-9_-]+)?$/.test(entry.proxName))proxName=entry.proxName;}catch{}
+        const visible = JSON.stringify({ proxName, handle:state.handle||"",handleColors:state.handle_colors||null, piece: state.piece, status:state.state, url: state.scan_url, version: state.piece_version, publication:state.piece_published_at || "", flow: state.flow, medium: state.artifact_kind || 'piece', preview: state.artifact_preview || null });
         if (visible !== previous) {
           previous = visible;
           if (state.scan_url !== qrUrl) {
@@ -136,20 +149,22 @@ function start() {
     finally {updating=false;if(updateAgain){updateAgain=false;void update();}}
   };
   timer = watch(dir, () => { update(); });
+  try {ledgerWatcher=watch(join(app.getPath('home'),'.config/slab/ledger'),(_,file)=>{if(String(file)==='local.json')update();});}catch{}
   update();
 }
 app.whenReady().then(() => {
   if (!primaryInstance) return;
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'Easel', submenu: [
+    { label: 'aesel', submenu: [
       {role:'about'}, {type:'separator'}, {role:'close',accelerator:'CmdOrCtrl+W'},
       {label:'Check for Updates…', click:()=>desktopUpdater.check()},
-      {label:'Restart Easel', click:()=>requestRestart('restart')},
+      {label:'Restart aesel', click:()=>requestRestart('restart')},
       {type:'separator'}, {role:'hide'}, {role:'hideOthers'}, {role:'unhide'},
       {type:'separator'}, {role:'quit'},
     ] },
     { role: 'editMenu' },
     { label: 'View', submenu: [
+      {label:'aesel Actions…',click:()=>{const gallery=new BrowserWindow({parent:window,width:1120,height:850,title:'aesel actions',backgroundColor:'#241d35',webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});gallery.loadFile(join(__dirname,'donkey-gallery.html'));}},
       {label:'Larger Text',accelerator:'CmdOrCtrl+=',click:()=>send('text-size','larger')},
       {label:'Smaller Text',accelerator:'CmdOrCtrl+-',click:()=>send('text-size','smaller')},
       {label:'Reset Text Size',accelerator:'CmdOrCtrl+0',click:()=>send('text-size','reset')},
@@ -165,7 +180,7 @@ app.whenReady().then(() => {
     ] },
     { role: 'windowMenu' },
   ]));
-  window = new BrowserWindow({ width: 760, height: 540, title: 'Easel', backgroundColor: '#463264',
+  window = new BrowserWindow({ width: 760, height: 540, title: 'aesel', backgroundColor: '#463264',
     webPreferences: { preload: join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webviewTag: true, plugins:true } });
   window.webContents.on('will-attach-webview', (event, preferences, params) => {
     delete preferences.preload;
@@ -191,7 +206,7 @@ app.whenReady().then(() => {
     setTimeout(async () => {
       const target = resolve(option('--diagnostics'));
       mkdirSync(target, {recursive:true});
-      const renderer = await window.webContents.executeJavaScript(`({font:document.fonts.check('16px "AC Easel Unifont"'), canvases:document.querySelectorAll('.xterm canvas').length, qr:!document.getElementById('qr-card').hidden})`);
+      const renderer = await window.webContents.executeJavaScript(`({font:document.fonts.check('16px "AC aesel Unifont"'), canvases:document.querySelectorAll('.xterm canvas').length, qr:!document.getElementById('qr-card').hidden})`);
       writeFileSync(join(target, 'gpu.json'), JSON.stringify({features:app.getGPUFeatureStatus(),info:await app.getGPUInfo('complete'),renderer},null,2));
       writeFileSync(join(target, 'window.png'), (await window.webContents.capturePage()).toPNG());
     }, 3000);
@@ -208,13 +223,38 @@ app.whenReady().then(() => {
     if (terminal) { event.preventDefault(); if (!quitting) { quitting = true; terminal.kill('SIGTERM'); setTimeout(() => { if (terminal) { quitting = false; send('desktop-notice','The session is still saving or working. Retry closing when it is ready.'); } }, 6000).unref(); } }
   });
 });
+let rockLayoutPath='',lastRockLayout='',rockLayoutWatcher;
+function checkNativeTitle(){
+  try{
+    const ack=JSON.parse(readFileSync(rockLayoutPath+'.ack','utf8')),expected=JSON.parse(lastRockLayout);
+    send('native-title',ack.title===expected.title&&ack.fontSize===expected.titleFontSize&&['titleX','titleY','titleWidth','titleHeight'].every(k=>Math.abs(ack[k]-expected[k])<1));
+  }catch{send('native-title',false);}
+}
+
+ipcMain.on('title-geometry',(event,value)=>{
+  if(event.sender!==window?.webContents||!value||!['x','y','size'].every(k=>Number.isFinite(value[k]))||typeof value.visible!=='boolean')return;
+  const bounds=window.getBounds(),content=window.getContentBounds();
+  if(value.x<0||value.y<0||value.x>content.width||value.y>content.height||value.size<16||value.size>96)return;
+  const layout={x:value.x+content.x-bounds.x,y:value.y+content.y-bounds.y,size:value.size,visible:value.visible};
+  if(typeof value.title==='string'&&value.title.length<=120&&['titleX','titleY','titleWidth','titleHeight','titleFontSize'].every(k=>Number.isFinite(value[k])&&value[k]>=0)){
+    Object.assign(layout,{title:value.title,titleX:value.titleX+content.x-bounds.x,titleY:value.titleY+content.y-bounds.y,titleWidth:value.titleWidth,titleHeight:value.titleHeight,titleFontSize:value.titleFontSize,titleColors:Array.isArray(value.titleColors)?value.titleColors.slice(0,120).map(c=>Array.isArray(c)&&c.length===3&&c.every(n=>Number.isFinite(n)&&n>=0&&n<=255)?c:[255,255,255]):[]});
+  }
+  const serialized=JSON.stringify(layout);if(serialized===lastRockLayout)return;lastRockLayout=serialized;
+  try{
+    const dir=join(app.getPath('home'),'.local/share/slab/state/easel-layout');mkdirSync(dir,{recursive:true,mode:0o700});
+    rockLayoutPath=join(dir,`${process.pid}-${window.getMediaSourceId().split(':')[1]}.json`);
+    writeFileSync(rockLayoutPath+'.tmp',serialized,{mode:0o600});renameSync(rockLayoutPath+'.tmp',rockLayoutPath);
+    if(!rockLayoutWatcher)rockLayoutWatcher=watch(dir,(_,file)=>{if(rockLayoutPath.endsWith(String(file).replace(/\.ack$/,''))&&String(file).endsWith('.ack'))checkNativeTitle();});
+    checkNativeTitle();
+  }catch(error){console.warn('aesel rock layout:',error.message);}
+});
 ipcMain.on('ready', event => { if (event.sender === window?.webContents) { send('theme',currentTheme); sendDisplay(true); start(); } });
 ipcMain.on('closing', event => { if(event.sender===window?.webContents) window.hide(); });
 ipcMain.on('input', (event, data) => { if (event.sender === window?.webContents && typeof data === 'string' && data.length < 1_048_576) terminal?.write(data); });
 ipcMain.on('size', (event, { cols, rows } = {}) => {
-  if (event.sender === window?.webContents && Number.isInteger(cols) && Number.isInteger(rows) && cols >= 32 && cols <= 500 && rows >= 10 && rows <= 300) { terminalSize={cols,rows}; terminal?.resize(cols, rows); }
+  if (event.sender === window?.webContents && Number.isInteger(cols) && Number.isInteger(rows) && cols >= 32 && cols <= 500 && rows >= 10 && rows <= 300) { if(cols!==terminalSize.cols||rows!==terminalSize.rows){terminalSize={cols,rows};terminal?.resize(cols,rows);} }
 });
-app.on('window-all-closed', () => { timer?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
+app.on('window-all-closed', () => { rockLayoutWatcher?.close();if(rockLayoutPath){rmSync(rockLayoutPath,{force:true});rmSync(rockLayoutPath+'.ack',{force:true});} timer?.close(); ledgerWatcher?.close(); stopFrameCapture(); themeFollower.close(); terminal?.kill(); app.quit(); });
 
 const isWindow = event => event.sender === window?.webContents;
 ipcMain.on('copy-text', (event, text) => { if (isWindow(event) && typeof text === 'string' && text.length <= 1048576) clipboard.writeText(text); });
@@ -249,6 +289,7 @@ function toggleFullscreen(target) {
   }
   fullscreenState();
 }
+ipcMain.on('open-link',(event,value)=>{if(!isWindow(event)||typeof value!=='string'||value.length>4096)return;try{const url=new URL(value);if(['http:','https:'].includes(url.protocol)&&!url.username&&!url.password)shell.openExternal(url.href);}catch{}});
 ipcMain.on('open-piece', (event, value) => {
   if (!isWindow(event) || typeof value !== 'string') return;
   try {

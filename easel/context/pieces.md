@@ -1,5 +1,5 @@
 <!-- the piece authoring guide
-     Bundled with Easel from system/public/aesthetic.computer/disks/CLAUDE.md in the Aesthetic Computer repository.
+     Bundled with aesel from system/public/aesthetic.computer/disks/CLAUDE.md in the Aesthetic Computer repository.
      Do not edit here — edit the source and run `npm run context`. -->
 
 # Pieces — Authoring Guide

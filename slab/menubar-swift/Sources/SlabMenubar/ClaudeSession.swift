@@ -84,6 +84,11 @@ struct ClaudeSession {
     /// in the menu. The state/color engine is agent-agnostic, so this is
     /// display-only.
     var agentType: String = "claude"
+    var hostApp: String = ""
+    var hostPid: Int = 0
+    var hostWindowID: Int = 0
+    var isDesktopEasel: Bool { agentType == "easel" && hostApp == "computer.aesthetic.easel" }
+    var overlayBindingKey: String { isDesktopEasel ? "easel-" + sessionId : (tty as NSString).lastPathComponent }
 
     /// Easel owns its UI while using Codex app-server as its current
     /// provider bridge. Provider-thread operations therefore share Codex's
@@ -136,7 +141,7 @@ struct ClaudeSession {
 
     /// Human label for the owning interface.
     var agentLabel: String {
-        if agentType == "easel" { return "Easel" }
+        if agentType == "easel" { return "aesel" }
         return agentType.isEmpty
             ? "Claude"
             : agentType.prefix(1).uppercased() + agentType.dropFirst()
@@ -380,6 +385,9 @@ enum ClaudeSessionReader {
         )
         session.remoteHost = (obj["remote_host"] as? String) ?? ""
         session.agentType = agentType
+        session.hostApp = (obj["host_app"] as? String) ?? ""
+        session.hostPid = (obj["host_pid"] as? Int) ?? 0
+        session.hostWindowID = (obj["host_window_id"] as? Int) ?? 0
         session.providerSessionId = (obj["provider_session_id"] as? String)
             ?? (obj["codex_session_id"] as? String)
             ?? (session.agentType == "claude" ? session.sessionId : "")

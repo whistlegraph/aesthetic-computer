@@ -51,7 +51,7 @@ function centre(text, width) {
 
 // The roles a caller may colour. Anything it leaves out is simply not painted,
 // so a partial ink map is as valid as a full one and an absent one is plain
-// text — which is what keeps the frame measurable (see `easelWidth`).
+// text — which is what keeps the frame measurable (see `aeselWidth`).
 const ROLES = ["frame", "name", "address", "cursor", "legs", "reset"];
 
 function inks(ink) {
@@ -83,7 +83,7 @@ function paintName(text, name, reset) {
 }
 
 // The whole reveal, in milliseconds: name written, pause, address written, hold.
-export function easelDuration(piece = "", address = "") {
+export function aeselDuration(piece = "", address = "") {
   return (
     String(piece).length * WRITE_MS +
     PAUSE_MS +
@@ -108,7 +108,7 @@ function revealed(elapsed, piece, address) {
 // How wide the easel stands, in columns. A painted frame carries escapes that
 // occupy no columns, so a caller that needs to centre it has to ask rather than
 // measure `lines[0].length`.
-export function easelWidth(piece = "", address = "") {
+export function aeselWidth(piece = "", address = "") {
   return innerWidth(String(piece || ""), String(address || "")) + 2;
 }
 
@@ -120,7 +120,7 @@ export function easelWidth(piece = "", address = "") {
 // `ink` is optional and supplies the escapes for each role — `name` may be an
 // array, which paints the name a hue per character. Without it the frame comes
 // back as plain text.
-export function easelFrame(elapsed = 0, { piece = "", address = "" } = {}, ink) {
+export function aeselFrame(elapsed = 0, { piece = "", address = "" } = {}, ink) {
   const name = String(piece || "");
   const where = String(address || "");
   const inner = innerWidth(name, where);
@@ -184,9 +184,9 @@ export function easelFrame(elapsed = 0, { piece = "", address = "" } = {}, ink) 
 
 // When the easel next needs repainting, or null once it is finished standing
 // there and the caller can stop asking.
-export function easelNextFrame(elapsed = 0, { piece = "", address = "" } = {}) {
+export function aeselNextFrame(elapsed = 0, { piece = "", address = "" } = {}) {
   const ms = Math.max(0, Number(elapsed) || 0);
-  if (ms >= easelDuration(piece, address)) return null;
+  if (ms >= aeselDuration(piece, address)) return null;
   const shown = revealed(ms, String(piece), String(address));
   if (shown.piece < String(piece).length) return WRITE_MS;
   if (shown.address < String(address).length) return ADDRESS_MS;

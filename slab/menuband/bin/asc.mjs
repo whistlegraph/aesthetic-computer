@@ -140,17 +140,21 @@ async function post(path, body) {
 
 const [cmd, arg, arg2] = argv;
 
+// Availability and prices are v2 resources, so the typo guard has to let both
+// API versions through rather than pinning everything to /v1/.
+const versioned = (path) => /^\/v[12]\//.test(path ?? "");
+
 if (cmd === "get") {
   console.log(JSON.stringify(await get(arg), null, 2));
 } else if (cmd === "delete") {
-  if (!arg?.startsWith("/v1/")) throw new Error("delete path must start with /v1/");
+  if (!versioned(arg)) throw new Error("delete path must start with /v1/ or /v2/");
   await remove(arg);
 } else if (cmd === "patch") {
-  if (!arg?.startsWith("/v1/")) throw new Error("patch path must start with /v1/");
+  if (!versioned(arg)) throw new Error("patch path must start with /v1/ or /v2/");
   if (!arg2) throw new Error("patch needs a JSON body as the second argument");
   await patch(arg, arg2);
 } else if (cmd === "post") {
-  if (!arg?.startsWith("/v1/")) throw new Error("post path must start with /v1/");
+  if (!versioned(arg)) throw new Error("post path must start with /v1/ or /v2/");
   if (!arg2) throw new Error("post needs a JSON body as the second argument");
   await post(arg, arg2);
 } else if (cmd === "submit") {

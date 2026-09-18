@@ -21,6 +21,7 @@ test('hidden windows cancel animation timers and reduced-motion working stays st
  const doc={hidden:false,addEventListener:(n,f)=>listeners.set(n,f),removeEventListener:n=>listeners.delete(n)};
  const motion={matches:false,addEventListener:(n,f)=>listeners.set('motion',f),removeEventListener:()=>listeners.delete('motion')};
  const window={document:doc,matchMedia:()=>motion,Image:class{},fetch:async()=>({ok:false}),setTimeout:(f,d)=>{timers.set(++serial,{f,d});return serial;},clearTimeout:id=>timers.delete(id)};
+ runInNewContext(readFileSync(new URL('../desktop/companion-scene.js',import.meta.url),'utf8'),{window});
  runInNewContext(readFileSync(new URL('../desktop/donkey.js',import.meta.url),'utf8'),{window});
  const canvas={dataset:{},getContext:()=>({}),setAttribute(){}};
  const companion=window.AeselDonkey.createDonkey({canvas,clock:()=>now});companion.update({status:'working'});assert.equal(timers.size,1);assert.equal([...timers.values()][0].d,180);

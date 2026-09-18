@@ -2,7 +2,7 @@ import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
 //
 // The other two bridges spawn `claude` or `codex` and speak a line protocol to
-// a subprocess. That is why an installed Easel does nothing for someone holding
+// a subprocess. That is why an installed aesel does nothing for someone holding
 // neither subscription: the interface is complete and there is no engine under
 // it. This bridge talks HTTP to aesthetic.computer instead, which buys the
 // inference on its own account and meters it against the caller's @handle. An
@@ -123,7 +123,7 @@ export class AcServer extends EventEmitter {
     this.turnId = null;
     this.turns = 0;
     // The conversation. Held here because there is no process holding it for us
-    // — closing Easel loses it, which is honest: nothing was written anywhere.
+    // — closing aesel loses it, which is honest: nothing was written anywhere.
     this.messages = [];
     this.controller = null;
   }
@@ -352,6 +352,10 @@ export class AcServer extends EventEmitter {
             continue;
           }
 
+          const reportedModel = event.message?.model || event.model;
+          if (typeof reportedModel === "string" && reportedModel) {
+            this.emit("notification", { method: "model/reported", params: { requested: this.model, reported: reportedModel } });
+          }
           const counts = event.usage || event.message?.usage;
           if (counts) Object.assign(usage, counts);
 

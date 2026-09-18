@@ -42,7 +42,7 @@ export class AppServer extends EventEmitter {
       env: {
         ...process.env,
         ...this.environment,
-        EASEL: "1",
+        aesel: "1",
         EASEL_VERSION: VERSION,
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -79,7 +79,7 @@ export class AppServer extends EventEmitter {
     await this.request("initialize", {
       clientInfo: {
         name: "easel",
-        title: "Easel",
+        title: "aesel",
         version: VERSION,
       },
       capabilities: { experimentalApi: true },

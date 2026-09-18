@@ -25,7 +25,7 @@ import { spawn } from "node:child_process";
 import { verifyROM } from "../../media/gameboy/rom.mjs";
 export const kind = "gameboy";
 const install =
-  "Install GBDK-2020 from https://github.com/gbdk-2020/gbdk-2020/releases and set GBDK_HOME to its gbdk directory. Easel uses the same lcc compiler as kidlisp-gameboy/build.sh.";
+  "Install GBDK-2020 from https://github.com/gbdk-2020/gbdk-2020/releases and set GBDK_HOME to its gbdk directory. aesel uses the same lcc compiler as kidlisp-gameboy/build.sh.";
 const schema = (properties = {}, required = []) => ({
   type: "object",
   properties,
@@ -165,7 +165,7 @@ export async function findCompiler(env = process.env) {
 function compile(compiler, cwd) {
   return new Promise((yes, no) => {
     const bin = dirname(compiler),
-      child = spawn(compiler, ["-Wm-ynEASEL", "-o", "game.gb", "main.c"], {
+      child = spawn(compiler, ["-Wm-ynAESEL", "-o", "game.gb", "main.c"], {
         cwd,
         detached: process.platform !== "win32",
         stdio: ["ignore", "pipe", "pipe"],

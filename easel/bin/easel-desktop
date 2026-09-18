@@ -4,22 +4,22 @@ set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Usage: easel [directory] [--backend ac|claude|codex] [--model NAME]
+Usage: aesel [directory] [--backend ac|claude|codex] [--model NAME]
                         [--piece FILE] [--resume THREAD_ID]
                         [--no-autopublish]
-       easel --cwd DIRECTORY [options]
+       aesel --cwd DIRECTORY [options]
        ac [directory] [options]
 
-Open the standalone Easel app. With no directory, reopen its last workspace.
-Use `easel .` to select the current directory when starting the app.
-If Easel is already running, bring its existing window forward; launch options
+Open the standalone aesel app. With no directory, reopen its last workspace.
+Use `aesel .` to select the current directory when starting the app.
+If aesel is already running, bring its existing window forward; launch options
 apply when the app starts. This command does not create a second instance.
 
 `ac` opens the same making interface inside your terminal, with optional Slab.
-Desktop installation: ~/Applications/Easel.app (or EASEL_DESKTOP_APP).
+Desktop installation: ~/Applications/aesel.app (or EASEL_DESKTOP_APP).
 HELP
 }
-fail() { printf 'easel: %s\n' "$*" >&2; exit 1; }
+fail() { printf 'aesel: %s\n' "$*" >&2; exit 1; }
 workspace=''
 arguments=()
 while (($#)); do
@@ -43,14 +43,18 @@ while (($#)); do
                 [[ -z "$workspace" ]] || fail 'supply one workspace directory'
                 workspace="$1"; shift
             fi ;;
-        -*) fail "unknown option: $1 (see easel --help)" ;;
+        -*) fail "unknown option: $1 (see aesel --help)" ;;
         *) [[ -z "$workspace" ]] || fail 'supply one workspace directory'
            workspace="$1"; shift ;;
     esac
 done
 [[ "$(uname -s)" == Darwin ]] || fail 'the standalone launcher currently requires macOS; use ac for the terminal interface'
-app_path="${EASEL_DESKTOP_APP:-$HOME/Applications/Easel.app}"
-[[ -d "$app_path" ]] || fail "Easel.app is not installed at $app_path. Install the standalone app or run ac."
+app_path="${AESEL_DESKTOP_APP:-${EASEL_DESKTOP_APP:-$HOME/Applications/aesel.app}}"
+# Existing installations keep working until the renamed app is installed.
+if [[ ! -d "$app_path" && -z "${AESEL_DESKTOP_APP:-}${EASEL_DESKTOP_APP:-}" && -d "$HOME/Applications/Easel.app" ]]; then
+    app_path="$HOME/Applications/Easel.app"
+fi
+[[ -d "$app_path" ]] || fail "aesel.app is not installed at $app_path. Install the standalone app or run ac."
 if [[ -n "$workspace" ]]; then
     [[ -d "$workspace" ]] || fail "workspace directory does not exist: $workspace"
     workspace="$(cd -- "$workspace" && pwd -P)"

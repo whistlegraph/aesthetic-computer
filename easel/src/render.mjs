@@ -1,5 +1,6 @@
+import {syntaxSpans,syntaxLine} from "./syntax.mjs";
 import {drawerOptions,drawerIndex} from "./provider-picker.mjs";
-// render.mjs — one frame of the Easel interface.
+// render.mjs — one frame of the aesel interface.
 //
 // The palette is the Aesthetic Computer prompt's dark scheme (disks/prompt.mjs
 // `scheme.dark`): purple ground, pink prompt block, orange highlight, magenta
@@ -99,7 +100,7 @@ export const color = {
 // palette's saturated entries in the order they read best left to right — warm
 // through pink into green — skipping `error` and the two purples, which are the
 // interface's own vocabulary and would make a name look like a status.
-export const easelInk = {
+export const aeselInk = {
   frame: fg(palette.soft),
   name: [
     fg(palette.highlight),
@@ -282,14 +283,47 @@ const STYLES = {
   error: ["!", "error"],
 };
 
+function outputRows(text,width,useColor,tone,code=false){
+  const links=Array.from(text.matchAll(/https?:\/\/[^\s<>"'`]+/g),m=>{const url=m[0].replace(/[.,;!?)\]}]+$/g,'');return {start:m.index,end:m.index+url.length,tone:'soft',url};});
+  let sourceOffset=0;
+  const codeSpans=code?text.split('\n').flatMap(line=>{const tokens=syntaxSpans(line).map(s=>({...s,start:s.start+sourceOffset,end:s.end+sourceOffset}));sourceOffset+=line.length+1;return tokens;}):[];
+  const spans=[...codeSpans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start)),...links].sort((a,b)=>a.start-b.start);
+  let cursor=0;
+  return wrapText(text,width).map(line=>{
+    const start=Math.max(cursor,text.indexOf(line,cursor));cursor=start+line.length;
+    return syntaxLine(text,spans,start,cursor,(role,value,span)=>{
+      const ink=paint(useColor,role==='text'?tone:role,value);
+      return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${ink}\x1b[24m\x1b]8;;\x07`:ink;
+    });
+  });
+}
+
 function entryLines(entry, width, useColor) {
   const [label, tone] = STYLES[entry.kind] || STYLES.notice;
   const prefix = `${label.padEnd(4)} `;
   const continuation = " ".repeat(5);
   const bodyTone = entry.kind === "notice" ? "muted" : entry.kind === "error" ? "error" : "text";
-  return wrapText(entry.text, Math.max(1, width - 5)).map(
-    (line, index) => `${paint(useColor, tone, index === 0 ? prefix : continuation)}${paint(useColor, bodyTone, line)}`,
-  );
+  const rows=[],text=cleanText(entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
+  let fenced=false;
+  for(const part of parts){
+    if(/^[ \t]*```/.test(part)){
+      fenced=!fenced;
+      rows.push(paint(useColor,"muted",part.trim()));continue;
+    }
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-5),useColor,bodyTone,entry.kind==='command'||entry.kind==='change'));continue;}
+    const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
+    let offset=0;
+    for(const line of code.split("\n")){
+      let start=offset,used=0;
+      for(const ch of line){
+        const w=charWidth(ch);
+        if(used+w>Math.max(1,width-5)&&used){rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));start=offset;used=0;}
+        offset+=ch.length;used+=w;
+      }
+      rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));offset++;
+    }
+  }
+  return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
 
 function statusTone(status) {
@@ -311,7 +345,7 @@ export function renderBoot(elapsed = 0, columns = 80, rows = 24, useColor = true
   const reset = useColor ? color.reset : "";
 
   const { lines: sprite, x } = mascotAt(elapsed);
-  const title = "EASEL";
+  const title = "aesel";
   // He walks along a baseline under the title, indented to the same margin the
   // interface uses so the two frames agree about where the left edge is.
   const floor = Math.floor(height / 2);
@@ -456,7 +490,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // can be covered without costing anything. Old lines are already read.
   const rockGutter = 0;
   const room = Math.max(0, width - 3 - rightWidth - rockGutter);
-  const title = "EASEL";
+  const title = "Aesel";
   let account = state.account || "not signed in";
   let piece = state.piece ? `${clipText(state.piece, 24)}${state.pieceVersion ? ` v${state.pieceVersion}` : ""}` : "";
   if (textWidth(`${title}  ${account}  ${piece}`) > room) piece = "";
@@ -533,7 +567,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const choices = "  y once  a session  n deny";
     const room = Math.max(4, width - textWidth("ALLOW ") - textWidth(choices));
     const subject = clipText(state.approval.subject || "requested action", room);
-    prompt = `${paint(useColor, "highlight bold", "ALLOW")} ${subject}  ${paint(useColor, "bold", "y")} once  ${paint(useColor, "bold", "a")} session  ${paint(useColor, "bold", "n")} deny`;
+    prompt = `${paint(useColor, "highlight bold", "ALLOW")} ${subject}  ${paint(useColor, "bold", cleanText(state.approval.choicesText || "y once  a session  n deny"))}`;
   } else {
     const input = Array.from(cleanText(state.input || ""));
     const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
@@ -558,7 +592,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const guy = pose.map((ch,i)=>paint(useColor,i<2?'handle':'soft',ch)).join('');
   const helpText = state.settings ? " ↑ ↓ choose · Tab field · Enter select · Apply saves · Esc cancel" : state.about ? " Esc back · ↑/↓ scroll"
     : state.scrollOffset ? ` ${state.scrollOffset} lines above · End latest`
-    : state.hover === "about" ? " About Easel · click"
+    : state.hover === "about" ? " aesel home · click"
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
     ? ` ${state.progressBytes ? `${(state.progressBytes / 1024).toFixed(1)} KB received · ` : ""}ctrl-c interrupt`
@@ -575,7 +609,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const lines = [...body, rule, header, controlLine, prompt, help];
   return lines
     .slice(0, height)
-    .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
+    .map((line,index) => {const fitted=fit(line,width);return `${ground}${useColor && !process.env.EASEL_DESKTOP && index>=height-4?woodgrain(fitted,index-(height-4)):fitted}${reset}`;})
     .join("\n");
 }
 
@@ -602,7 +636,7 @@ export function headerAction(state, columns, rows, x, y) {
   const room = Math.max(0, columns - 3 - rightWidth);
   if (room >= 5 && x >= 2 && x <= 6) return "about";
   const account = state.account || "";
-  if (account.startsWith("@") && textWidth(`EASEL  ${account}`) <= room
+  if (account.startsWith("@") && textWidth(`aesel  ${account}`) <= room
       && x >= 9 && x < 9 + textWidth(account)) return "profile";
   return "";
 }

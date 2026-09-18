@@ -14,9 +14,15 @@ targets:
     platform: iOS
     sources:
       - Sources
+      - path: Resources
+        excludes:
+          - Session
+      - path: Resources/Session
+        type: folder
+        buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.aesel
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.easel
         PRODUCT_NAME: Aesel
         INFOPLIST_FILE: Info.plist
         TARGETED_DEVICE_FAMILY: "1"

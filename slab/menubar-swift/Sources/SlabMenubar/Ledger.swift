@@ -52,6 +52,10 @@ struct LedgerEntry: Codable, Equatable {
     /// holding. Only Easel mints one. Optional both because older
     /// fleet ledgers predate it and because most prompts never have one.
     var scanURL: String?
+    var proxNamespace: String?
+    var proxName: String?
+    var proxIdentity: String?
+    var proxPieceName: String?
 }
 
 struct Ledger: Codable {
@@ -407,6 +411,52 @@ final class LedgerStore {
                 platformTarget: s.platformTarget.isEmpty ? nil : s.platformTarget,
                 loopboyContact: s.loopboyContact.isEmpty ? nil : s.loopboyContact,
                 scanURL: s.scanURL.isEmpty ? nil : s.scanURL)
+        }
+        // Easel namespace follows the current artifact; provider identity stays
+        // stable for resuming. Retain collision choices only for this piece.
+        let previous = (try? JSONDecoder().decode(Ledger.self,
+            from: Data(contentsOf: URL(fileURLWithPath: Self.localFile))))?.entries ?? []
+        let peerFiles = (try? FileManager.default.contentsOfDirectory(atPath: Self.peersDir)) ?? []
+        let peers = peerFiles.filter { $0.hasSuffix(".json") }.flatMap { file -> [LedgerEntry] in
+            (try? JSONDecoder().decode(Ledger.self,
+                from: Data(contentsOf: URL(fileURLWithPath: Self.peersDir + "/" + file))))?.entries ?? []
+        }
+        var used = Set(peers.filter { $0.proxNamespace == "easel" }.compactMap(\.proxName))
+        let easelIndices = entries.indices.filter { entries[$0].agentType == "easel" }.sorted {
+            entries[$0].id < entries[$1].id
+        }
+        for index in easelIndices {
+            let session = sessions[index]
+            let identity = session.providerSessionId.isEmpty ? session.sessionId : session.providerSessionId
+            let filename = (session.piece as NSString).lastPathComponent
+            let stem = (filename as NSString).deletingPathExtension
+            let clean = stem.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == "." }
+            let base = clean.isEmpty ? "untitled" : String(clean.prefix(100))
+            let prior = previous.first { $0.proxIdentity == identity && $0.proxPieceName == base }?.proxName
+            var name = prior ?? base
+            if used.contains(name) {
+                let owner = String(session.pieceChannel.split(separator: "/").first ?? "")
+                    .lowercased().filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+                name = owner.isEmpty ? base : owner + "/" + base
+            }
+            if used.contains(name) {
+                let collisionBase = name
+                let suffix = String(format: "%016llx", SigilRenderer.seed(for: identity + "\u{1}" + selfHost))
+                var length = 4
+                name = collisionBase + "-" + suffix.prefix(length)
+                while used.contains(name), length < suffix.count {
+                    length += 1
+                    name = collisionBase + "-" + suffix.prefix(length)
+                }
+                // A duplicate full hash must still never pick an existing session.
+                var ordinal = 2
+                while used.contains(name) { name = collisionBase + "-" + suffix + "-" + String(ordinal); ordinal += 1 }
+            }
+            used.insert(name)
+            entries[index].proxNamespace = "easel"
+            entries[index].proxName = name
+            entries[index].proxIdentity = identity
+            entries[index].proxPieceName = base
         }
         entries.append(contentsOf: advertisedAgents())
 

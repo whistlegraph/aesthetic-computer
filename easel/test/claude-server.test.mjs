@@ -139,7 +139,7 @@ test("the launch carries the approval contract and the workspace", async (t) => 
   assert.equal(flag("--setting-sources"), "");
   assert.ok(argv.includes("--strict-mcp-config"));
   for (const tool of ["WebFetch", "WebSearch", "Task"]) assert.ok(argv.includes(tool));
-  // Easel's own read-only tools are the one MCP server let through, pre-allowed.
+  // aesel's own read-only tools are the one MCP server let through, pre-allowed.
   const mcp = JSON.parse(flag("--mcp-config"));
   assert.equal(mcp.mcpServers.ac.command, process.execPath);
   assert.ok(mcp.mcpServers.ac.args[0].endsWith("tools.mjs"));
@@ -229,12 +229,12 @@ test('passes chosen effort to the Claude CLI',async t=>{
  assert.equal(flagIn(launches(argvFile).argvs[0],'--model'),'sonnet');
 });
 
-test('missing unsaved Claude session recovers only with explicit Easel handoff',async t=>{
+test('missing unsaved Claude session recovers only with explicit aesel handoff',async t=>{
  const {root,cleanup}=scratch();t.after(cleanup);const argvFile=path.join(root,'args.json');
- const engine=bridge(t,{resumeThreadId:'missing',recoveryInstructions:'Retained Easel conversation',environment:{FAKE_CLAUDE_ARGV:argvFile,FAKE_CLAUDE_MISSING:'1'}});
+ const engine=bridge(t,{resumeThreadId:'missing',recoveryInstructions:'Retained aesel conversation',environment:{FAKE_CLAUDE_ARGV:argvFile,FAKE_CLAUDE_MISSING:'1'}});
  let fatals=0;engine.on('fatal',()=>fatals++);
  const c=await engine.connect();assert.notEqual(c.thread.id,'missing');assert.equal(fatals,0);
- const args=launches(argvFile).argvs;assert.equal(args.length,2);assert.match(flagIn(args[1],'--append-system-prompt'),/Retained Easel conversation/);
+ const args=launches(argvFile).argvs;assert.equal(args.length,2);assert.match(flagIn(args[1],'--append-system-prompt'),/Retained aesel conversation/);
 });
 // Energy is estimated from token counts, so the counts have to arrive — and
 // under the name of the model that actually ran. The fake CLI reports Fable

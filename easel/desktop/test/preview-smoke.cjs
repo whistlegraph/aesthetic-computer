@@ -1,4 +1,4 @@
-// Isolated offscreen Electron window. No PTY, login, or live Easel process.
+// Isolated offscreen Electron window. No PTY, login, or live aesel process.
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { join, resolve } = require('node:path');
 const fs = require('node:fs');

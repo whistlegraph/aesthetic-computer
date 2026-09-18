@@ -1,4 +1,4 @@
-// Bundle AC's actual software drawing functions for the standalone Easel install.
+// Bundle AC's actual software drawing functions for the standalone aesel install.
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';

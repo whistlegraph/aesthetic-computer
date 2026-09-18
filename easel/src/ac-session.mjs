@@ -3,7 +3,7 @@
 // Every AC desktop app reads one file, ~/.ac-token, minted by `ac-login` with
 // Auth0 Authorization-Code + PKCE and a loopback callback. This module reads
 // and watches that file, refreshes the access token, and can run the same
-// sign-in flow itself so Easel needs no other checkout. Only the
+// sign-in flow itself so aesel needs no other checkout. Only the
 // handle is ever displayed; email and name stay in the file.
 import { EventEmitter } from "node:events";
 import { createHash, randomBytes } from "node:crypto";
@@ -26,11 +26,11 @@ const base64url = (buffer) =>
   buffer.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 
 const LANDING = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed in · Easel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Signed in · aesel</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
 background:rgb(70,50,100);color:white;font-family:monospace}main{text-align:center;padding:2em}
 h1{font-weight:normal;color:rgb(255,100,255)}p{color:rgb(220,180,255)}</style></head>
-<body><main><h1>Signed in</h1><p>Return to Easel. You can close this tab.</p></main></body></html>`;
+<body><main><h1>Signed in</h1><p>Return to aesel. You can close this tab.</p></main></body></html>`;
 
 export function openInBrowser(url) {
   const command =
@@ -210,13 +210,13 @@ export class ACSession extends EventEmitter {
           const failure = url.searchParams.get("error");
           if (failure) {
             response.writeHead(400, { "content-type": "text/plain" });
-            response.end("Sign-in failed. Return to Easel.");
+            response.end("Sign-in failed. Return to aesel.");
             settle(reject, new Error(url.searchParams.get("error_description") || failure));
             return;
           }
           if (url.searchParams.get("state") !== state) {
             response.writeHead(400, { "content-type": "text/plain" });
-            response.end("State mismatch. Return to Easel and retry.");
+            response.end("State mismatch. Return to aesel and retry.");
             settle(reject, new Error("sign-in state mismatch — retry /login"));
             return;
           }
@@ -234,6 +234,11 @@ export class ACSession extends EventEmitter {
         onUrl?.(authUrl.toString());
         this.openBrowser(authUrl.toString());
       });
+
+      // The browser callback is complete. Stop accepting connections before
+      // exchanging the code; a slow upstream request must not keep this open.
+      server.close();
+      server.closeIdleConnections();
 
       const exchange = await this.fetch(`https://${this.authDomain}/oauth/token`, {
         method: "POST",
@@ -276,6 +281,7 @@ export class ACSession extends EventEmitter {
     } finally {
       this.signingIn = false;
       server.close();
+      server.closeAllConnections();
     }
   }
 
@@ -339,7 +345,7 @@ export class ACSession extends EventEmitter {
       record.user = { ...(record.user || {}), handle };
       this.#write(record);
     }
-    this.emit("change", this.state());
+    this.emit("change", this.state);
     return handle;
   }
 

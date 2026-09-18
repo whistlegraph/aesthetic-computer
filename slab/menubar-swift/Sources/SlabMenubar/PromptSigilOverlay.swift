@@ -774,6 +774,96 @@ final class PromptSigilOverlay {
 
     /// Set the rock's name label. `dark` is unused now — MacPal's white-fill
     /// + dark-outline bubble letters read over any background.
+    private var desktopTitleWindow: NSWindow?
+    private var desktopTitle: String?
+    private var desktopTitleFontSize: CGFloat = 16
+    private var desktopTitleColors: [NSColor] = []
+    private var desktopTitleKey = ""
+    private var desktopTitleAckPath: String?
+    private var desktopTitleAckData: Data?
+    private var lastDesktopTitleAck: Data?
+    private var desktopTitleBounds: CGRect?
+    private var leadingDesktopRock = false
+    private var desktopGeometry: CGRect?
+    func setDesktopTitle(_ object: [String: Any], bounds: (CGFloat, CGFloat, CGFloat, CGFloat), ackPath: String) {
+        guard let title = object["title"] as? String, !title.isEmpty, title.count <= 100,
+              let x = object["titleX"] as? Double, let y = object["titleY"] as? Double,
+              let width = object["titleWidth"] as? Double, let height = object["titleHeight"] as? Double,
+              let fontSize = object["titleFontSize"] as? Double,
+              [x,y,width,height,fontSize].allSatisfy({ $0.isFinite }),
+              x >= 0, y >= 0, width > 0, height > 0, fontSize >= 8, fontSize <= 96,
+              x + width <= Double(bounds.2), y + height <= Double(bounds.3)
+        else {
+            desktopTitle = nil; desktopTitleBounds = nil
+            nameLayer.isHidden = true; desktopTitleWindow?.orderOut(nil)
+            return
+        }
+        desktopTitleAckPath = ackPath
+        desktopTitleAckData = try? JSONSerialization.data(withJSONObject: [
+            "title":title, "fontSize":fontSize, "titleX":x, "titleY":y,
+            "titleWidth":width, "titleHeight":height], options: [.sortedKeys])
+        let colorValues = Array((object["titleColors"] as? [[Double]] ?? []).prefix(100))
+        let colors = colorValues.map { rgb -> NSColor in
+            guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && $0 >= 0 && $0 <= 255 }) else { return .white }
+            return NSColor(deviceRed: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
+        }
+        let padding: CGFloat = 8
+        if desktopTitleWindow == nil {
+            let panel = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+            panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
+            panel.ignoresMouseEvents = true; panel.level = promptCompanionWindowLevel
+            panel.collectionBehavior = [.fullScreenAuxiliary]
+            let view = NSView(frame: .zero); view.wantsLayer = true
+            view.layer?.masksToBounds = false; panel.contentView = view
+            nameLayer.removeFromSuperlayer(); view.layer?.addSublayer(nameLayer)
+            desktopTitleWindow = panel
+        }
+        let rect = CGRect(x: bounds.0 + x, y: bounds.1 + y, width: width, height: height)
+        desktopTitleBounds = rect
+        let screenH = NSScreen.main?.frame.height ?? 0
+        desktopTitleWindow?.setFrame(NSRect(x: rect.minX - padding,
+            y: screenH - rect.maxY - padding, width: rect.width + padding * 2,
+            height: rect.height + padding * 2), display: false)
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        nameLayer.frame = CGRect(x: padding, y: padding, width: width, height: height)
+        nameLayer.isHidden = false
+        CATransaction.commit()
+        let key = "\(title)|\(width)|\(height)|\(fontSize)|\(colorValues)"
+        desktopTitle = title; desktopTitleFontSize = CGFloat(fontSize); desktopTitleColors = colors
+        if key != desktopTitleKey { desktopTitleKey = key; rebuildName() }
+    }
+
+    var desktopTitleVisibilityPoints: [CGPoint] {
+        guard let r = desktopTitleBounds else { return [] }
+        return [CGPoint(x:r.minX,y:r.midY), CGPoint(x:r.midX,y:r.midY), CGPoint(x:r.maxX,y:r.midY)]
+    }
+
+    private var graphicScale: CGFloat { leadingDesktopRock ? (desktopGeometry?.width ?? size) / size : 1 }
+
+    func setDesktopGeometry(_ rect: CGRect?) {
+        desktopGeometry = rect
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let scale = graphicScale
+        let side = size * scale
+        boxCenter = CGPoint(x: (pad + size / 2) * scale, y: (labelH + pad + size / 2) * scale)
+        rockLayer.bounds.size = CGSize(width: side, height: side)
+        rockLayer.position = boxCenter
+        shadowLayer.bounds.size = CGSize(width: side, height: side)
+        shadowMask.frame = CGRect(x: 0, y: 0, width: side, height: side)
+        let drop = appliedDrop ?? shadowDrop
+        let lift: CGFloat = hovered ? 1.9 : 1
+        shadowLayer.position = CGPoint(x: boxCenter.x + drop.width * scale * lift,
+                                       y: boxCenter.y + drop.height * scale * lift)
+        CATransaction.commit()
+        interactionWindow.setFrame(hitRect, display: false)
+    }
+    func setNameVisible(_ visible: Bool) {
+        nameLayer.isHidden = !visible && desktopTitle == nil
+        leadingDesktopRock = !visible
+        interactionWindow.setFrame(hitRect, display: false)
+    }
+
     func setName(_ newName: String, dark: Bool) {
         guard name != newName else { return }
         name = newName
@@ -952,8 +1042,8 @@ final class PromptSigilOverlay {
         retime(shadowMask, speed: h ? 2.6 : 1.0)
         let drop = appliedDrop ?? shadowDrop
         let k: CGFloat = h ? 1.9 : 1.0
-        shadowLayer.position = CGPoint(x: boxCenter.x + drop.width * k,
-                                       y: boxCenter.y + drop.height * k)
+        shadowLayer.position = CGPoint(x: boxCenter.x + drop.width * k * graphicScale,
+                                       y: boxCenter.y + drop.height * k * graphicScale)
         shadowLayer.opacity = h ? 0.72 : 0.9
     }
 
@@ -1035,8 +1125,9 @@ final class PromptSigilOverlay {
     /// render-server-side like the tumble.
     private func rebuildName() {
         nameLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
+        let name = desktopTitle ?? self.name
         guard !name.isEmpty else { return }
-        let font = playfulRockFont(16)
+        let font = playfulRockFont(desktopTitle == nil ? 16 : desktopTitleFontSize)
         let versionStart = isScanSurface ? name.range(of: " v[0-9]+$", options: .regularExpression)?.lowerBound : nil
         let sh = NSShadow()
         sh.shadowColor = shadowColor ?? NSColor.systemGray
@@ -1052,7 +1143,7 @@ final class PromptSigilOverlay {
             let characterFont = versionStart.map { index >= $0 } == true ? playfulRockFont(12) : font
             let a = NSAttributedString(string: String(ch), attributes: [
                 .font: characterFont,
-                .foregroundColor: labelForeground,
+                .foregroundColor: desktopTitle != nil && layers.count < desktopTitleColors.count ? desktopTitleColors[layers.count] : labelForeground,
                 .strokeColor: NSColor(white: 0.08, alpha: 1),
                 .strokeWidth: -3.5,
                 .shadow: sh,
@@ -1113,6 +1204,7 @@ final class PromptSigilOverlay {
     /// controller's hover/click hit-tests (the badge window itself stays
     /// mouse-transparent; a global monitor does the pointing).
     var hitRect: NSRect {
+        if leadingDesktopRock { return graphicRect }
         let f = window.frame
         return NSRect(x: f.origin.x + pad, y: f.origin.y,
                       width: size, height: labelH + pad + size)
@@ -1121,8 +1213,9 @@ final class PromptSigilOverlay {
     /// Exact screen-space footprint of the stone, excluding its pet name.
     var graphicRect: NSRect {
         let f = window.frame
-        return NSRect(x: f.origin.x + pad, y: f.origin.y + labelH + pad,
-                      width: size, height: size)
+        let scale = graphicScale
+        return NSRect(x: f.origin.x + pad * scale, y: f.origin.y + (labelH + pad) * scale,
+                      width: size * scale, height: size * scale)
     }
 
     /// Install freshly rendered sprite sheets (chunky rock + crisp shadow) and
@@ -1323,8 +1416,8 @@ final class PromptSigilOverlay {
         guard !isScanSurface else { return }
         if appliedDrop != drop {
             appliedDrop = drop
-            shadowLayer.position = CGPoint(x: boxCenter.x + drop.width,
-                                           y: boxCenter.y + drop.height)
+            shadowLayer.position = CGPoint(x: boxCenter.x + drop.width * graphicScale,
+                                           y: boxCenter.y + drop.height * graphicScale)
         }
     }
 
@@ -1391,15 +1484,21 @@ final class PromptSigilOverlay {
         // Window is padded around the rock; shift origin by -pad so the rock
         // itself (centred in the window) still lands at the top-right spot.
         // The label strip hangs below the rock, so drop by labelH too.
-        let originX = b.0 + b.2 - rightInset - size - pad
-        let originY = screenHeight - (b.1 + titleBar + size + pad) - labelH
+        let originX: CGFloat
+        let originY: CGFloat
+        if leadingDesktopRock, let geometry = desktopGeometry {
+            originX = b.0 + geometry.minX - pad * graphicScale
+            originY = screenHeight - (b.1 + geometry.minY + geometry.height) - (labelH + pad) * graphicScale
+        } else {
+            originX = b.0 + b.2 - rightInset - size - pad
+            originY = screenHeight - (b.1 + titleBar + size + pad) - labelH
+        }
         let t = NSPoint(x: originX, y: originY)
         targetOrigin = t
         if currentOrigin == nil {                 // first appearance: snap there
             currentOrigin = t
             window.setFrameOrigin(t)
-            interactionWindow.setFrameOrigin(
-                NSPoint(x: t.x + pad, y: t.y))
+            interactionWindow.setFrame(hitRect, display: false)
         }
 
         // A slim inset keeps the story-style strip aligned to the pane's
@@ -1431,10 +1530,13 @@ final class PromptSigilOverlay {
     /// hiding is preferable to drawing half a rock over another application.
     func visibilityPoints(bounds b: (CGFloat, CGFloat, CGFloat, CGFloat))
         -> (rock: [CGPoint], heartbeat: [CGPoint], platformTarget: [CGPoint]) {
-        let rockRect = CGRect(x: b.0 + b.2 - 10 - size,
-                              y: b.1 + 30,
-                              width: size,
-                              height: size + labelH)
+        let rockRect: CGRect
+        if leadingDesktopRock, let geometry = desktopGeometry {
+            rockRect = geometry.offsetBy(dx: b.0, dy: b.1)
+        } else {
+            rockRect = CGRect(x: b.0 + b.2 - 10 - size, y: b.1 + 30,
+                              width: size, height: size + labelH)
+        }
         let rockInset: CGFloat = 5
         let rock = [
             CGPoint(x: rockRect.midX, y: rockRect.midY),
@@ -1472,6 +1574,13 @@ final class PromptSigilOverlay {
                     platformTarget platformTargetVisible: Bool) {
         if rockVisible {
             if !window.isVisible { window.orderFrontRegardless() }
+            if desktopTitle != nil, desktopTitleWindow?.isVisible != true { desktopTitleWindow?.orderFrontRegardless() }
+            if desktopTitle != nil, desktopTitleWindow?.isVisible == true,
+               let path = desktopTitleAckPath, let data = desktopTitleAckData,
+               data != lastDesktopTitleAck {
+                do { try data.write(to: URL(fileURLWithPath: path), options: [.atomic]); lastDesktopTitleAck = data }
+                catch { /* Keep HTML fallback if the host cannot observe readiness. */ }
+            }
             // The pointer surface has to be on screen to receive anything. It
             // was built, sized and moved with the rock but never ordered in, so
             // `mouseDown` could not fire and a click on a rock did nothing at
@@ -1481,6 +1590,7 @@ final class PromptSigilOverlay {
             if !interactionWindow.isVisible { interactionWindow.orderFrontRegardless() }
         } else {
             setHovered(false)   // a covered rock stops reacting to the pointer
+            desktopTitleWindow?.orderOut(nil)
             if window.isVisible { window.orderOut(nil) }
             if interactionWindow.isVisible { interactionWindow.orderOut(nil) }
         }
@@ -1506,16 +1616,14 @@ final class PromptSigilOverlay {
         guard var cur = currentOrigin else {
             currentOrigin = target
             window.setFrameOrigin(target)
-            interactionWindow.setFrameOrigin(
-                NSPoint(x: target.x + pad, y: target.y))
+            interactionWindow.setFrame(hitRect, display: false)
             return false
         }
         let dx = target.x - cur.x, dy = target.y - cur.y
         if abs(dx) < 0.4 && abs(dy) < 0.4 {
             if cur != target {
                 window.setFrameOrigin(target)
-                interactionWindow.setFrameOrigin(
-                    NSPoint(x: target.x + pad, y: target.y))
+                interactionWindow.setFrame(hitRect, display: false)
                 currentOrigin = target
             }
             return false
@@ -1529,8 +1637,7 @@ final class PromptSigilOverlay {
         cur.y += dy * alpha
         currentOrigin = cur
         window.setFrameOrigin(cur)
-        interactionWindow.setFrameOrigin(
-            NSPoint(x: cur.x + pad, y: cur.y))
+        interactionWindow.setFrame(hitRect, display: false)
         return true
     }
 
@@ -1541,16 +1648,17 @@ final class PromptSigilOverlay {
         guard let target = targetOrigin else { return }
         currentOrigin = target
         window.setFrameOrigin(target)
-        interactionWindow.setFrameOrigin(
-            NSPoint(x: target.x + pad, y: target.y))
+        interactionWindow.setFrame(hitRect, display: false)
     }
 
     func hide() {
+        desktopTitleWindow?.orderOut(nil)
         if window.isVisible { window.orderOut(nil) }
         if interactionWindow.isVisible { interactionWindow.orderOut(nil) }
         if heartbeatWindow.isVisible { heartbeatWindow.orderOut(nil) }
     }
     func close() {
+        desktopTitleWindow?.close()
         window.orderOut(nil)
         interactionWindow.orderOut(nil)
         heartbeatWindow.orderOut(nil)
@@ -1955,6 +2063,7 @@ final class PromptSigilOverlayController {
     private var timer: Timer?
     /// tty (bare) → CGWindowID of its terminal window.
     private var binding: [String: Int] = [:]
+    private var desktopSessions: [String: ClaudeSession] = [:]
     /// Bare tty → the cursor accent used by under-window focus particles.
     private var particleColors: [String: NSColor] = [:]
     /// Current live prox windows, shared with focus navigation/highlighting so
@@ -2247,7 +2356,7 @@ final class PromptSigilOverlayController {
     /// `load` ignores an address it is already showing, so a piece is never
     /// restarted by the tick that merely re-states where it lives.
     private func syncPreview(for s: ClaudeSession) {
-        guard !s.scanURL.isEmpty || s.artifactPreview != nil else {
+        guard !s.isDesktopEasel, !s.scanURL.isEmpty || s.artifactPreview != nil else {
             // The session let go of its piece (or never had one). Take the card
             // away rather than leave the last frame standing as if it were current.
             if let pv = previews.removeValue(forKey: s.sessionId) {
@@ -2731,7 +2840,7 @@ final class PromptSigilOverlayController {
     func focusTerminal(tty: String) -> Bool {
         let bare = (tty as NSString).lastPathComponent
         guard let wanted = binding[bare] else { return false }
-        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"])
+        let bundleIds = Set(["com.apple.Terminal", "com.googlecode.iterm2"] + AeselWindowIdentity.bundleIDs)
         for app in NSWorkspace.shared.runningApplications
             where bundleIds.contains(app.bundleIdentifier ?? "") {
             let axApp = AXUIElementCreateApplication(app.processIdentifier)
@@ -2763,7 +2872,7 @@ final class PromptSigilOverlayController {
     /// QR, or one that would only fit at a module size no camera can resolve,
     /// comes back nil and the session keeps an ordinary rock.
     private func scanCode(for s: ClaudeSession) -> CGImage? {
-        guard s.agentType == "easel" else { return nil }
+        guard s.agentType == "easel", !s.isDesktopEasel else { return nil }
         let url = s.scanURL
         guard !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !unscannableURLs.contains(url) else { return nil }
@@ -2785,7 +2894,8 @@ final class PromptSigilOverlayController {
         installMouseMonitorsIfNeeded()
         installObservedObserverIfNeeded()
 
-        let live = sessions.filter { !$0.tty.isEmpty && $0.remoteHost.isEmpty }
+        let live = sessions.filter { (!$0.tty.isEmpty || $0.isDesktopEasel) && $0.remoteHost.isEmpty }
+        desktopSessions = Dictionary(uniqueKeysWithValues: live.filter(\.isDesktopEasel).map { ($0.overlayBindingKey, $0) })
         let liveIds = Set(live.map { $0.sessionId })
         let loopContacts = LoopboyRoutes.verifiedBySession(live)
         verifiedLoopboyContacts = loopContacts
@@ -2817,7 +2927,7 @@ final class PromptSigilOverlayController {
             }
         }
         for s in live {
-            let bare = (s.tty as NSString).lastPathComponent
+            let bare = s.overlayBindingKey
             liveParticleTtys.insert(bare)
             // An Easel session is holding a piece, and the client for
             // that piece is a phone. When the marker says where to send it, the
@@ -2855,6 +2965,7 @@ final class PromptSigilOverlayController {
             // "yes", blank); the prompt makes the rock re-form as the session
             // moves to a new prompt.
             let seed = SigilRenderer.seed(for: s.sessionId + "\u{1}" + s.subject)
+            ov.setNameVisible(!s.isDesktopEasel)
             ov.soundSeed = seed
             ov.setScanCode(scanCode)
             // Re-render the sprite sheet only when the rock or the sun moved.
@@ -2909,7 +3020,7 @@ final class PromptSigilOverlayController {
             // summary and prompt excerpt, deduped (the hook line is usually
             // the prompt's own first words — repeating both said nothing).
             let draftID = URLComponents(string: "https://" + s.scanURL.replacingOccurrences(of: "https://", with: ""))?.queryItems?.first(where: { $0.name == "id" })?.value
-            let scanName = s.artifactKind != "piece" && draftID?.count == 32 ? "#~" + String(draftID!.prefix(12)) : SigilRenderer.name(for: s)
+            let scanName = scanSurface && s.artifactKind != "piece" && draftID?.count == 32 ? "#~" + String(draftID!.prefix(12)) : SigilRenderer.name(for: s)
             let scanVersion = s.artifactPreview?.version ?? s.pieceVersion
             ov.setName(scanSurface && scanVersion > 0 ? "\(scanName) v\(scanVersion)" : scanName, dark: dark)
             let title = s.emoji.isEmpty ? ov.name : "\(s.emoji) \(ov.name)"
@@ -3074,6 +3185,10 @@ final class PromptSigilOverlayController {
         let pids = Set(NSWorkspace.shared.runningApplications
             .filter { Self.terminalBundleIds.contains($0.bundleIdentifier ?? "") }
             .map { $0.processIdentifier })
+        let desktopApps = Dictionary(uniqueKeysWithValues: NSWorkspace.shared.runningApplications
+            .filter { AeselWindowIdentity.bundleIDs.contains($0.bundleIdentifier ?? "") }
+            .map { ($0.processIdentifier, $0.bundleIdentifier ?? "") })
+        for key in binding.keys where key.hasPrefix("easel-") { binding.removeValue(forKey: key) }
         let transparentWindowIDs = PromptFocusHighlight.shared.transparentWindowIDs
         guard let infos = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
         else { return ([:], []) }
@@ -3092,11 +3207,42 @@ final class PromptSigilOverlayController {
             if !transparentWindowIDs.contains(num) {
                 stack.append((num, CGRect(x: x, y: y, width: w, height: h)))
             }
+            if let pid = ownerPid, let bundle = desktopApps[pid],
+               AeselWindowIdentity.accepts(bundleID: bundle, title: info[kCGWindowName as String] as? String ?? "") {
+                let matches = desktopSessions.filter { $0.value.hostPid == Int(pid) && $0.value.hostWindowID == num }
+                if matches.count == 1, let match = matches.first {
+                    binding[match.key] = num
+                    terminals[num] = (x, y, w, h)
+                }
+            }
             if let pid = ownerPid, pids.contains(pid) {
                 terminals[num] = (x, y, w, h)
             }
         }
         return (terminals, stack)
+    }
+
+    /// Renderer-measured title geometry, tied to the exact live host window.
+    /// Missing, hidden or invalid data fails closed instead of guessing a corner.
+    private func desktopRockGeometry(for session: ClaudeSession, overlay: PromptSigilOverlay,
+                                     bounds: (CGFloat, CGFloat, CGFloat, CGFloat)) -> CGRect? {
+        let path = "\(NSHomeDirectory())/.local/share/slab/state/easel-layout/\(session.hostPid)-\(session.hostWindowID).json"
+        let url = URL(fileURLWithPath: path)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              attrs[.type] as? FileAttributeType == .typeRegular,
+              let bytes = attrs[.size] as? NSNumber, bytes.intValue <= 4096,
+              let data = try? Data(contentsOf: url),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["visible"] as? Bool == true,
+              let x = object["x"] as? Double, let y = object["y"] as? Double,
+              let size = object["size"] as? Double,
+              x.isFinite, y.isFinite, size.isFinite,
+              x >= 0, y >= 0, size >= 16, size <= 128,
+              x + size <= Double(bounds.2), y + size <= Double(bounds.3)
+        else { return nil }
+        if let id = object["sessionId"] as? String, id != session.sessionId { return nil }
+        overlay.setDesktopTitle(object, bounds: bounds, ackPath: path + ".ack")
+        return CGRect(x: x, y: y, width: size, height: size)
     }
 
     /// Reposition every badge from the in-process window snapshot. Detects
@@ -3128,6 +3274,13 @@ final class PromptSigilOverlayController {
                 }
                 continue
             }
+            if let desktop = desktopSessions[ov.tty] {
+                guard let geometry = desktopRockGeometry(for: desktop, overlay: ov, bounds: b) else {
+                    ov.hide(); dropInteraction(for: ov)
+                    continue
+                }
+                ov.setDesktopGeometry(geometry)
+            }
             ov.place(bounds: b, screenHeight: screenH)
             // Recreate a cross-process child relationship: elevated surfaces
             // cannot sink behind their own terminal, but each is gated by the
@@ -3136,12 +3289,12 @@ final class PromptSigilOverlayController {
             // An open card is the whole pane, rock's corner included. The rock
             // steps aside while the card is up rather than float over the
             // piece it is the code for; it is back the moment the card closes.
-            let rockVisible = ownedBy(num, at: points.rock)
+            let rockVisible = ownedBy(num, at: points.rock + ov.desktopTitleVisibilityPoints)
                 && previews[ov.sessionId]?.isExpanded != true
             ov.setVisible(
                 rock: rockVisible,
-                heartbeat: ownedBy(num, at: points.heartbeat),
-                platformTarget: ownedBy(num, at: points.platformTarget))
+                heartbeat: desktopSessions[ov.tty] == nil && ownedBy(num, at: points.heartbeat),
+                platformTarget: desktopSessions[ov.tty] == nil && ownedBy(num, at: points.platformTarget))
             if !rockVisible { dropInteraction(for: ov) }
             if let pv = previews[ov.sessionId] {
                 pv.place(bounds: b, screenHeight: screenH)

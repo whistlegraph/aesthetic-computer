@@ -1,5 +1,5 @@
 <!-- how the code reads
-     Bundled with Easel from HAND.md in the Aesthetic Computer repository.
+     Bundled with aesel from HAND.md in the Aesthetic Computer repository.
      Do not edit here — edit the source and run `npm run context`. -->
 
 # The Hand — a code style guide for Aesthetic Computer

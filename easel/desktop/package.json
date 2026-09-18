@@ -1,12 +1,14 @@
 {
-  "name": "easel-desktop",
-  "productName": "Easel",
-  "version": "0.7.0-preview.1",
+  "name": "aesel-desktop",
+  "productName": "aesel",
+  "version": "0.7.2",
   "private": true,
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
-    "dist:mac": "electron-builder --mac --publish never"
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:mas": "scripts/build-mas.sh",
+    "dist:linux": "electron-builder --linux AppImage deb tar.gz --x64 --publish never"
   },
   "dependencies": {
     "@xterm/xterm": "5.5.0",
@@ -21,7 +23,7 @@
   },
   "build": {
     "appId": "computer.aesthetic.easel",
-    "productName": "Easel",
+    "productName": "aesel",
     "directories": {
       "output": "dist"
     },
@@ -35,7 +37,8 @@
       "fonts/*OFL*",
       "package.json",
       "vendor/**/*",
-      "assets/**/*"
+      "assets/**/*",
+      "donkey-actions/*.json"
     ],
     "extraResources": [
       {
@@ -74,13 +77,51 @@
       ],
       "category": "public.app-category.developer-tools",
       "hardenedRuntime": true,
-      "icon": "build/icon.icns"
+      "icon": "build/icon.icns",
+      "notarize": true
+    },
+    "mas": {
+      "target": "mas",
+      "provisioningProfile": "build/Easel-Mac-App-Store.provisionprofile",
+      "entitlements": "build/entitlements.mas.plist",
+      "entitlementsInherit": "build/entitlements.mas.inherit.plist",
+      "hardenedRuntime": false,
+      "artifactName": "aesel-${version}-mas-${arch}.${ext}"
     },
     "publish": [
       {
         "provider": "generic",
-        "url": "https://silo.aesthetic.computer/easel/desktop/"
+        "url": "https://releases.aesthetic.computer/easel/desktop/"
       }
-    ]
-  }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Graphics",
+      "icon": "build/icon.png",
+      "artifactName": "aesel-${version}-linux-${arch}.${ext}",
+      "executableName": "aesel",
+      "desktop": {
+        "entry": {
+          "Name": "aesel",
+          "Comment": "Make art and software with Aesthetic Computer",
+          "StartupWMClass": "aesel"
+        }
+      }
+    },
+    "deb": {
+      "afterInstall": "scripts/after-install-linux.sh",
+      "compression": "gz"
+    },
+    "afterAllArtifactBuild": "scripts/notarize-dmg.cjs"
+  },
+  "description": "Make pieces, pictures, sounds, papers and Game Boy games with Aesthetic Computer.",
+  "author": {
+    "name": "Aesthetic Computer",
+    "email": "mail@aesthetic.computer"
+  },
+  "homepage": "https://aesthetic.computer"
 }

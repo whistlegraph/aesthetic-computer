@@ -7,18 +7,38 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A337044339282DB88573A0 /* AeselPieceView.swift */; };
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE6904A010A2BEC894D13C /* AeselApp.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		45F9F1BEFDE1DA054142C04D /* UNIFONT-COPYRIGHT.txt in Resources */ = {isa = PBXBuildFile; fileRef = BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
+		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
+		85656270F7033893DDF7CC12 /* aesel.png in Resources */ = {isa = PBXBuildFile; fileRef = DB0FC013DFC41F9D9094BE2A /* aesel.png */; };
+		A2F701E804CFBFA1C1CC5088 /* ac-easel-unifont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */; };
+		B637527F3CE86BDA9157F007 /* UNIFONT-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */; };
+		B8236CE8844912F069905928 /* AeselScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */; };
+		C48716DE150CDF3FE383298E /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
+		C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
+		FBC8984584385405A83CB639 /* AeselHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B505C3279E0F8DB5292B86 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		22509229E839210D9200B4AA /* Aesel.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Aesel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		228E709932A29DC953A73B71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		47AE0766266534A8EE665542 /* Session */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Session; path = Resources/Session; sourceTree = SOURCE_ROOT; };
 		505E152C400C5CE69463B39F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
+		7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselScene.swift; sourceTree = "<group>"; };
+		AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ac-easel-unifont.ttf"; sourceTree = "<group>"; };
 		B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHost.swift; sourceTree = "<group>"; };
 		B7CE6904A010A2BEC894D13C /* AeselApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselApp.swift; sourceTree = "<group>"; };
+		BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "UNIFONT-COPYRIGHT.txt"; sourceTree = "<group>"; };
+		C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "UNIFONT-OFL-1.1.txt"; sourceTree = "<group>"; };
+		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
+		DB0FC013DFC41F9D9094BE2A /* aesel.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = aesel.png; sourceTree = "<group>"; };
+		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -26,6 +46,10 @@
 			isa = PBXGroup;
 			children = (
 				B7CE6904A010A2BEC894D13C /* AeselApp.swift */,
+				CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */,
+				F26176753E43E445E2CF551D /* AeselModelPicker.swift */,
+				72A337044339282DB88573A0 /* AeselPieceView.swift */,
+				7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */,
 				505E152C400C5CE69463B39F /* ContentView.swift */,
 				13B505C3279E0F8DB5292B86 /* Session.swift */,
 				B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */,
@@ -36,6 +60,8 @@
 		34716D2929B4074C97E662AE = {
 			isa = PBXGroup;
 			children = (
+				47AE0766266534A8EE665542 /* Session */,
+				CF2FDCFF84387B5BBA01E415 /* Resources */,
 				10821474428BA314BB316CD0 /* Sources */,
 				AB4E40D4AB00182B8B99E0D0 /* Products */,
 			);
@@ -49,6 +75,18 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		CF2FDCFF84387B5BBA01E415 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AF88A30677AA0D7671B393F9 /* ac-easel-unifont.ttf */,
+				DB0FC013DFC41F9D9094BE2A /* aesel.png */,
+				228E709932A29DC953A73B71 /* Assets.xcassets */,
+				BDD34AEBA3C87153FB573037 /* UNIFONT-COPYRIGHT.txt */,
+				C1222F5DEDEE9240C904FFA6 /* UNIFONT-OFL-1.1.txt */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -57,6 +95,7 @@
 			buildConfigurationList = 828F9F6A9A08AA43646DA0CF /* Build configuration list for PBXNativeTarget "Aesel" */;
 			buildPhases = (
 				637239781D81E75E1E756D3E /* Sources */,
+				9B16354BD258F58AE2915677 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -103,12 +142,32 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		9B16354BD258F58AE2915677 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */,
+				C48716DE150CDF3FE383298E /* Session in Resources */,
+				45F9F1BEFDE1DA054142C04D /* UNIFONT-COPYRIGHT.txt in Resources */,
+				B637527F3CE86BDA9157F007 /* UNIFONT-OFL-1.1.txt in Resources */,
+				A2F701E804CFBFA1C1CC5088 /* ac-easel-unifont.ttf in Resources */,
+				85656270F7033893DDF7CC12 /* aesel.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		637239781D81E75E1E756D3E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */,
+				FBC8984584385405A83CB639 /* AeselHomeView.swift in Sources */,
+				C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */,
+				06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */,
+				B8236CE8844912F069905928 /* AeselScene.swift in Sources */,
 				1F53641C03321161A7665F3B /* ContentView.swift in Sources */,
 				3661DCFA19E2594688511C86 /* Session.swift in Sources */,
 				6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */,
@@ -186,7 +245,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.aesel;
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.easel;
 				PRODUCT_NAME = Aesel;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;
@@ -269,7 +328,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.aesel;
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.easel;
 				PRODUCT_NAME = Aesel;
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = NO;

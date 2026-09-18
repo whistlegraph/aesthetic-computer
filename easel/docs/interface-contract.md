@@ -1,6 +1,6 @@
-# Easel interface contract
+# Aesel interface contract
 
-`easel` opens the standalone desktop app. `ac` opens Easel inside the current
+`easel` opens the standalone desktop app. `ac` opens Aesel inside the current
 terminal, with optional Slab integration. They are two hosts for the same making
 interface and the same project data. Neither interface may introduce a separate
 conversation model, command dialect, artifact history, or meaning for an action.
@@ -15,7 +15,7 @@ conversation model, command dialect, artifact history, or meaning for an action.
 | `ac` / `ac DIRECTORY` | Run the shared TUI in this terminal, defaulting to the current directory. |
 | `easel --help` | Explain desktop launch options without starting the app. |
 
-The macOS desktop launcher uses `open -a ~/Applications/Easel.app`, without
+The macOS desktop launcher uses `open -a ~/Applications/Aesel.app`, without
 `-n`. It does not create another app instance. If the app is already running,
 macOS activates it; new workspace/backend/model arguments are startup options,
 not a promise to replace an active session. Quit the app before starting it with
@@ -37,7 +37,7 @@ restarts bypass this chooser.
 Keep the same visible layout, labels, actions, keyboard shortcuts, and state:
 
 - The conversation scrolls internally above a fixed composer/footer.
-- EASEL opens `/about`; the @handle opens that user's profile.
+- AESEL opens `/about`; the @handle opens that user's profile.
 - Medium, current artifact/version, and conversation engine remain visible.
 - Picture, Sound, Piece, Paper, and Game Boy use the same `/medium` and artifact
   selection actions. `/new` starts fresh work in the current medium; `/new thread`
@@ -58,7 +58,7 @@ Keep the same visible layout, labels, actions, keyboard shortcuts, and state:
 Host primitives may differ: Electron supplies a window, PTY, clipboard, browser,
 and embedded preview; a native terminal supplies its own text surface and Slab
 can supply the preview/window controls. This permits different implementation
-code, not a visibly different Easel product. Slab must remain optional: the
+code, not a visibly different Aesel product. Slab must remain optional: the
 standalone app works without its daemon, and `ac` still works without overlays.
 
 ## Shared actions and storage

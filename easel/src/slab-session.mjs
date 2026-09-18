@@ -59,6 +59,11 @@ export class SlabSession {
       tty,
       agent_pid: pid,
       agent_type: "easel",
+      ...(process.env.EASEL_DESKTOP === '1' ? {
+        host_app:'computer.aesthetic.easel',
+        host_pid:Number(process.env.EASEL_HOST_PID)||process.ppid,
+        host_window_id:Number(process.env.EASEL_HOST_WINDOW_ID)||0,
+      }:{}),
       handle: "",
       // The piece this session is writing, and the address a phone reaches it
       // at. The menubar draws these as a scannable code on the rock, which is
@@ -86,7 +91,7 @@ export class SlabSession {
       }
       if(this.fleetActive) {
         try { mkdirSync(dirname(this.fleetActive),{recursive:true,mode:0o700}); }
-        catch { this.fleetActive = null; } // Standalone Easel does not require Slab.
+        catch { this.fleetActive = null; } // Standalone aesel does not require Slab.
       }
       this.enabled = true;
       this.#write();
@@ -101,8 +106,8 @@ export class SlabSession {
   }
 
   // Which @handle this rock acts as (display only; never email or name).
-  identity(handle = "") {
-    this.#update({ handle: String(handle || "").replace(/^@/, "") });
+  identity(handle = "", colors = null) {
+    this.#update({ handle: String(handle || "").replace(/^@/, ""),handle_colors:colors });
   }
 
   // The live piece and its scan address. Called whenever either changes — a

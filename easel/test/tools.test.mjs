@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { apiLookup, loadMap, outline, symbolText, outlineText, examples, handle, mcpConfig, TOOLS } from "../src/tools.mjs";
+import { apiLookup, loadMap, outline, symbolText, outlineText, referencesText, examples, handle, mcpConfig, TOOLS } from "../src/tools.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "..", "..");
@@ -108,7 +108,7 @@ test("the JSON-RPC surface: initialize, list, call, unknown", () => {
   assert.deepEqual(init.result.capabilities, { tools: {} });
   assert.equal(handle({ jsonrpc: "2.0", method: "notifications/initialized" }, context), null);
   const list = handle({ jsonrpc: "2.0", id: 2, method: "tools/list" }, context);
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["ac_preview", "ac_frame", "ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["ac_references", "ac_preview", "ac_frame", "ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
   assert.equal(list.result.tools, TOOLS);
   const call = handle({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "ac_api", arguments: { query: "wipe" } } }, context);
   assert.match(call.result.content[0].text, /^wipe\n/);
@@ -133,4 +133,36 @@ test("the server runs on stdio and the config points the CLI at it", async () =>
   assert.equal(replies.length, 2);
   assert.equal(replies[0].result.serverInfo.name, "easel-ac");
   assert.match(replies[1].result.content[0].text, /notepat\.mjs — \d+ lines/);
+});
+
+ test("AST spans handle indentation, multiline declarations and method bodies",()=>{
+  const result=outline(`  export function paint(
+ {ink}
+ ) { const literal="function fake() {}"; }
+ class Game {
+   step() { return 1; }
+ }`);
+  assert.deepEqual(result.items.map(x=>x.name),['paint','Game','Game.step']);
+  assert.equal(result.items[0].end,3);
+  assert.equal(result.items[2].end,5);
+ });
+ test("installed workspaces can navigate bundled runtime references",()=>{
+  const {root,cleanup}=workspace();try{
+   assert.match(outlineText(root,'lib/cam-doll.mjs'),/CamDoll/);
+   assert.match(examples(root,'synth'),/synth/);
+   assert.throws(()=>outlineText(root,'../package.json'),/no such piece/);
+  }finally{cleanup();}
+ });
+
+test("identifier lookup excludes comment and string lookalikes",()=>{
+ const {root,cleanup}=workspace();try{
+  writeFileSync(path.join(root,'refs.mjs'),'// target\nconst text="target"; const target=1; console.log(target);');
+  const result=referencesText(root,'refs.mjs','target');
+  assert.match(result,/2 syntactic occurrences/);
+ }finally{cleanup();}
+});
+
+test("exact API lookups return only the requested symbol",()=>{
+ const result=apiLookup(loadMap(),'circle');
+ assert.match(result,/^circle\n/);assert.doesNotMatch(result,/\n\ngeo\.Circle/);
 });

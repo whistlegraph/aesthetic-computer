@@ -1,4 +1,4 @@
-// Aesel: a status companion. No animation-frame loop or remote resources.
+// aesel: a status companion. No animation-frame loop or remote resources.
 (function(scope){
   const ANIMATIONS={idle:{frames:[0,1],durations:[1400,180]},awake:{frames:[2,3],durations:[500,500]},sleeping:{frames:[4,5,6,7],durations:[900,900,900,900]},working:{frames:[8,9,10,11],durations:[180,180,180,180]},running:{frames:[12,13,14,15],durations:[120,120,120,120]}};
   function statusPhase(status){
@@ -27,19 +27,38 @@
     }return result;
   }
   function createDonkey({canvas,document:doc=scope.document,clock=()=>Date.now()}={}){
-    if(!canvas)return {update(){},destroy(){}};
-    const context=canvas.getContext('2d');if(!context)return {update(){},destroy(){}};
+    if(!canvas)return {update(){},setScale(){},destroy(){}};
+    const context=canvas.getContext('2d');if(!context)return {update(){},setScale(){},destroy(){}};
     const media=scope.matchMedia('(prefers-reduced-motion: reduce)'),image=new scope.Image();
-    let animations=ANIMATIONS,loaded=false,destroyed=false,timer=null,status='ready',lastActivity=clock(),awakeUntil=lastActivity+2500,phase=null,phaseStarted=lastActivity,lastFrame=-1;
+    let animations=ANIMATIONS,loaded=false,destroyed=false,timer=null,status='ready',lastActivity=clock(),awakeUntil=lastActivity+2500,phase=null,phaseStarted=lastActivity,lastFrame=-1,matrix=null,version=0,pixelScale=2;
+    const scene=scope.CompanionScene;
+    let player=null,actionStarted=clock(),lastSample="";
+    scope.DonkeyActions?.loadActions().then(actions=>{player=scope.DonkeyActions.createActionPlayer(actions,{seed:clock(),state:phase||"idle",now:clock(),reducedMotion:media.matches});actionStarted=clock();lastFrame=-1;tick();}).catch(()=>{});
+    function geometry(){
+      const box=scene.layout(matrix);
+      if(canvas.width!==box.width||canvas.height!==box.height){canvas.width=box.width;canvas.height=box.height;lastFrame=-1;}
+      if(canvas.style){canvas.style.width=box.width*pixelScale+'px';canvas.style.height=box.height*pixelScale+'px';}
+      const style=doc.documentElement?.style;
+      style?.setProperty('--aesel-scene-width',box.width*pixelScale+'px');
+      if(box.qr){const q=box.qr;style?.setProperty('--aesel-qr-right',(8+(box.width-q.x-q.width)*pixelScale)+'px');style?.setProperty('--aesel-qr-bottom',(8+(box.height-q.y-q.height)*pixelScale)+'px');style?.setProperty('--aesel-qr-size',q.width*pixelScale+'px');}
+      return box;
+    }
     canvas.width=canvas.height=64;context.imageSmoothingEnabled=false;
     function clear(){if(timer!==null)scope.clearTimeout(timer);timer=null;}
     function tick(){
       clear();if(destroyed||doc.hidden)return;
       const now=clock(),nextPhase=phaseFor({status,now,lastActivity,awakeUntil});
-      if(nextPhase!==phase){phase=nextPhase;phaseStarted=now;canvas.dataset.state=phase;canvas.setAttribute('aria-label',`Aesel the donkey: ${phase}`);}
+      if(nextPhase!==phase){phase=nextPhase;phaseStarted=now;player?.setState(phase,now);actionStarted=now;canvas.dataset.state=phase;canvas.setAttribute('aria-label',`aesel the donkey: ${phase}`);}
       const frame=animationFrame(phase,now-phaseStarted,media.matches,animations);
-      if(loaded&&frame.frame!==lastFrame){context.clearRect(0,0,64,64);context.drawImage(image,(frame.frame%4)*64,Math.floor(frame.frame/4)*64,64,64,0,0,64,64);lastFrame=frame.frame;}
       let delay=frame.delay;
+      if(player){
+        player.setReducedMotion(media.matches);
+        let sample=player.sample(now);
+        if(!media.matches&&(sample?.done||now-actionStarted>Math.max(8000,(sample?.duration||0)*3))){sample=player.next(now);actionStarted=now;}
+        const key=sample?`${sample.id}:${sample.frameIndex}`:'';
+        if(loaded&&sample&&(key!==lastSample||lastFrame===-1)){geometry();scene.draw(context,image,sample);lastSample=key;lastFrame=sample.pose;canvas.dataset.action=sample.id;canvas.setAttribute('aria-label',`aesel: ${sample.label}`);}
+        delay=sample?.nextDelay??null;
+      }else if(loaded&&frame.frame!==lastFrame){geometry();scene.draw(context,image,frame.frame);lastFrame=frame.frame;}
       if(statusPhase(status)==='ready'){
         const deadline=now<awakeUntil?awakeUntil:lastActivity+60000;
         if(deadline>now)delay=delay===null?deadline-now:Math.min(delay,deadline-now);
@@ -53,7 +72,8 @@
     scope.fetch('assets/aesel.json').then(r=>r.ok?r.json():null).then(value=>{animations=manifestAnimations(value);tick();}).catch(()=>{});
     doc.addEventListener('pointermove',wake,{passive:true});doc.addEventListener('pointerdown',wake,{passive:true});doc.addEventListener('keydown',wake);doc.addEventListener('visibilitychange',visibility);media.addEventListener('change',tick);tick();
     return {
-      update(state={}){const next=String(state.status||'ready').toLowerCase();if(statusPhase(next)!==statusPhase(status)){if(statusPhase(next)==='ready'){lastActivity=clock();awakeUntil=lastActivity+2500;}status=next;tick();}else status=next;},
+      setScale(value){if(value===pixelScale)return;pixelScale=value;geometry();lastFrame=-1;tick();},
+      update(state={}){if(JSON.stringify(state.qr||null)!==JSON.stringify(matrix)||version!==(state.version||0)){matrix=state.qr||null;version=state.version||0;geometry();lastFrame=-1;tick();}const next=String(state.status||'ready').toLowerCase();if(statusPhase(next)!==statusPhase(status)){if(statusPhase(next)==='ready'){lastActivity=clock();awakeUntil=lastActivity+2500;}status=next;tick();}else status=next;},
       destroy(){destroyed=true;clear();doc.removeEventListener('pointermove',wake);doc.removeEventListener('pointerdown',wake);doc.removeEventListener('keydown',wake);doc.removeEventListener('visibilitychange',visibility);media.removeEventListener('change',tick);},
     };
   }

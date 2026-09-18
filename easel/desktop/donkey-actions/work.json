@@ -1,0 +1,2508 @@
+[
+  {
+    "id": "work-contour",
+    "label": "Trace a contour",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 360,
+        "prop": "pencil"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "x": -3,
+        "y": 1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "x": -1,
+        "y": -3,
+        "rotate": -4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 3,
+        "y": -2,
+        "rotate": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "x": 5,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 550,
+        "prop": "pencil"
+      }
+    ]
+  },
+  {
+    "id": "work-hatch",
+    "label": "Crosshatch",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 120,
+        "x": -2,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 120,
+        "x": 2,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 8,
+        "duration": 120,
+        "x": -1,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 120,
+        "x": 3,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 140,
+        "x": 3,
+        "y": -2,
+        "rotate": -6,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 140,
+        "x": -2,
+        "y": 2,
+        "rotate": -6,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 0,
+        "duration": 400,
+        "prop": "pencil"
+      }
+    ]
+  },
+  {
+    "id": "work-dots",
+    "label": "Stipple",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 280,
+        "prop": "pencil"
+      },
+      {
+        "pose": 8,
+        "duration": 100,
+        "x": -3,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 140,
+        "x": -3,
+        "y": -2,
+        "prop": "pencil"
+      },
+      {
+        "pose": 9,
+        "duration": 100,
+        "x": 1,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 140,
+        "x": 1,
+        "y": -2,
+        "prop": "pencil"
+      },
+      {
+        "pose": 10,
+        "duration": 100,
+        "x": 4,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "prop": "pencil"
+      }
+    ]
+  },
+  {
+    "id": "work-erase",
+    "label": "Erase a mark",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 300,
+        "prop": "eraser"
+      },
+      {
+        "pose": 8,
+        "duration": 100,
+        "x": -4,
+        "rotate": 4,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 9,
+        "duration": 100,
+        "x": 4,
+        "rotate": -4,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 10,
+        "duration": 100,
+        "x": -4,
+        "rotate": 4,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 11,
+        "duration": 140,
+        "x": 3,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 2,
+        "duration": 240,
+        "y": -2,
+        "prop": "eraser"
+      },
+      {
+        "pose": 0,
+        "duration": 500,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-measure",
+    "label": "Measure a line",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 220,
+        "prop": "ruler"
+      },
+      {
+        "pose": 8,
+        "duration": 440,
+        "y": 2,
+        "rotate": 5,
+        "prop": "ruler",
+        "effect": "scan"
+      },
+      {
+        "pose": 9,
+        "duration": 200,
+        "x": -4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 200,
+        "x": 4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 480,
+        "prop": "ruler"
+      },
+      {
+        "pose": 2,
+        "duration": 260,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-spiral",
+    "label": "Draw a spiral",
+    "category": "drawing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 140,
+        "x": -1,
+        "y": -1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 140,
+        "x": 1,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 140,
+        "x": 3,
+        "y": 0,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 140,
+        "x": 2,
+        "y": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "x": -3,
+        "y": 3,
+        "rotate": -5,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "x": -5,
+        "y": -2,
+        "rotate": -8,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 420,
+        "prop": "pencil"
+      }
+    ]
+  },
+  {
+    "id": "work-mix",
+    "label": "Mix a color",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 250,
+        "prop": "palette"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "y": 3,
+        "rotate": 5,
+        "prop": "brush"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "x": -2,
+        "y": 3,
+        "rotate": -6,
+        "prop": "palette",
+        "effect": "paint"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 2,
+        "y": 2,
+        "rotate": 6,
+        "prop": "palette",
+        "effect": "paint"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "y": 1,
+        "rotate": -3,
+        "prop": "palette",
+        "effect": "paint"
+      },
+      {
+        "pose": 2,
+        "duration": 650,
+        "y": -2,
+        "prop": "palette"
+      }
+    ]
+  },
+  {
+    "id": "work-wash",
+    "label": "Lay a wash",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": -6,
+        "y": -2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 9,
+        "duration": 220,
+        "x": 0,
+        "y": -2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 10,
+        "duration": 220,
+        "x": 6,
+        "y": -2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 11,
+        "duration": 220,
+        "x": 6,
+        "y": 2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 9,
+        "duration": 220,
+        "x": 0,
+        "y": 2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": -6,
+        "y": 2,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 0,
+        "duration": 350,
+        "prop": "brush"
+      }
+    ]
+  },
+  {
+    "id": "work-dab",
+    "label": "Dab highlights",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 260,
+        "y": 3,
+        "prop": "palette"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "y": -2,
+        "prop": "brush"
+      },
+      {
+        "pose": 9,
+        "duration": 100,
+        "x": -2,
+        "y": 1,
+        "scaleY": 0.96,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 3,
+        "duration": 160,
+        "x": -2,
+        "y": -3,
+        "prop": "brush"
+      },
+      {
+        "pose": 10,
+        "duration": 100,
+        "x": 3,
+        "y": 1,
+        "scaleY": 0.96,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 2,
+        "duration": 420,
+        "prop": "brush"
+      }
+    ]
+  },
+  {
+    "id": "work-roller",
+    "label": "Paint an edge",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "y": 4,
+        "rotate": -3,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 9,
+        "duration": 200,
+        "y": 1,
+        "rotate": -3,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 10,
+        "duration": 200,
+        "y": -2,
+        "rotate": -3,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 11,
+        "duration": 260,
+        "y": -5,
+        "rotate": -3,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 3,
+        "duration": 220,
+        "x": -3,
+        "prop": "brush"
+      },
+      {
+        "pose": 1,
+        "duration": 400,
+        "prop": "ruler",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-spatter",
+    "label": "Flick paint",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 260,
+        "x": -3,
+        "rotate": -10,
+        "prop": "brush"
+      },
+      {
+        "pose": 9,
+        "duration": 90,
+        "x": -1,
+        "rotate": -5,
+        "prop": "brush"
+      },
+      {
+        "pose": 11,
+        "duration": 90,
+        "x": 5,
+        "rotate": 9,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 10,
+        "duration": 130,
+        "x": 2,
+        "rotate": 3,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "x": -2,
+        "prop": "palette"
+      },
+      {
+        "pose": 2,
+        "duration": 650,
+        "effect": "spark"
+      }
+    ]
+  },
+  {
+    "id": "work-clean-brush",
+    "label": "Clean the brush",
+    "category": "painting",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 250,
+        "y": 4,
+        "prop": "brush"
+      },
+      {
+        "pose": 9,
+        "duration": 150,
+        "x": -2,
+        "y": 4,
+        "rotate": -5,
+        "prop": "brush"
+      },
+      {
+        "pose": 10,
+        "duration": 150,
+        "x": 2,
+        "y": 4,
+        "rotate": 5,
+        "prop": "brush"
+      },
+      {
+        "pose": 9,
+        "duration": 150,
+        "x": -2,
+        "y": 4,
+        "rotate": -5,
+        "prop": "brush"
+      },
+      {
+        "pose": 3,
+        "duration": 130,
+        "y": -2,
+        "rotate": 7,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "rotate": -5,
+        "prop": "brush",
+        "effect": "paint"
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "work-sentence",
+    "label": "Write a sentence",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": -4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "x": -1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 460,
+        "x": 1,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "x": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "x": 5,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 220,
+        "x": -4,
+        "y": 2,
+        "prop": "paper"
+      }
+    ]
+  },
+  {
+    "id": "work-paragraph",
+    "label": "Start a paragraph",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 600,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 240,
+        "x": -2,
+        "y": 2,
+        "prop": "pencil"
+      },
+      {
+        "pose": 8,
+        "duration": 170,
+        "x": 0,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 170,
+        "x": 2,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 170,
+        "x": 4,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 0,
+        "duration": 300,
+        "prop": "paper"
+      }
+    ]
+  },
+  {
+    "id": "work-strikeout",
+    "label": "Cross out a phrase",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 420,
+        "prop": "paper"
+      },
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": -4,
+        "rotate": -4,
+        "prop": "pencil"
+      },
+      {
+        "pose": 11,
+        "duration": 100,
+        "x": 5,
+        "rotate": 5,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "y": -2,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "x": -1,
+        "y": -3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 2,
+        "y": -3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 0,
+        "duration": 420,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-outline",
+    "label": "Outline an idea",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 200,
+        "x": -3,
+        "y": -3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 200,
+        "x": 0,
+        "y": 0,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "prop": "paper"
+      },
+      {
+        "pose": 10,
+        "duration": 200,
+        "x": 3,
+        "y": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 650,
+        "prop": "paper",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-proofread",
+    "label": "Proofread",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 420,
+        "y": -3,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 0,
+        "duration": 420,
+        "y": 0,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 1,
+        "duration": 420,
+        "y": 3,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 280,
+        "y": -1,
+        "rotate": -4,
+        "prop": "magnifier"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "y": -1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-sign",
+    "label": "Sign the page",
+    "category": "writing",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 300,
+        "prop": "paper"
+      },
+      {
+        "pose": 8,
+        "duration": 150,
+        "x": -4,
+        "y": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 150,
+        "x": -1,
+        "y": 4,
+        "rotate": 4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 150,
+        "x": 3,
+        "y": 2,
+        "rotate": -4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 130,
+        "x": 5,
+        "y": -1,
+        "rotate": -8,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 600,
+        "y": -2,
+        "prop": "paper",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-type-code",
+    "label": "Type code",
+    "category": "coding",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 100,
+        "x": -1,
+        "prop": "keyboard",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 100,
+        "x": 1,
+        "prop": "keyboard",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 100,
+        "x": -1,
+        "prop": "keyboard",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "y": 2,
+        "scaleY": 0.97,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 2,
+        "duration": 200,
+        "y": -1,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 1,
+        "duration": 450,
+        "prop": "keyboard",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-debug",
+    "label": "Track a bug",
+    "category": "coding",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 320,
+        "x": -4,
+        "prop": "magnifier",
+        "effect": "scan"
+      },
+      {
+        "pose": 0,
+        "duration": 320,
+        "x": 0,
+        "prop": "magnifier",
+        "effect": "scan"
+      },
+      {
+        "pose": 1,
+        "duration": 320,
+        "x": 4,
+        "prop": "magnifier",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "x": 4,
+        "rotate": 5,
+        "prop": "magnifier",
+        "effect": "thought"
+      },
+      {
+        "pose": 9,
+        "duration": 120,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 2,
+        "duration": 500,
+        "prop": "keyboard",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-compile",
+    "label": "Compile",
+    "category": "coding",
+    "states": [
+      "working",
+      "running"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "y": 3,
+        "prop": "gear"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "rotate": -5,
+        "prop": "gear",
+        "effect": "spark"
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "rotate": 0,
+        "prop": "gear",
+        "effect": "spark"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "rotate": 5,
+        "prop": "gear",
+        "effect": "spark"
+      },
+      {
+        "pose": 3,
+        "duration": 240,
+        "y": -3,
+        "prop": "gear"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-test",
+    "label": "Run checks",
+    "category": "coding",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 9,
+        "duration": 120,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 0,
+        "duration": 420,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "prop": "paper",
+        "effect": "check"
+      },
+      {
+        "pose": 1,
+        "duration": 380,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "prop": "paper",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-refactor",
+    "label": "Rearrange code",
+    "category": "coding",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": -4,
+        "y": 2,
+        "prop": "gear"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "x": -4,
+        "y": -3,
+        "prop": "gear"
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "x": 2,
+        "y": -3,
+        "flip": true,
+        "prop": "gear"
+      },
+      {
+        "pose": 10,
+        "duration": 220,
+        "x": 4,
+        "y": 2,
+        "prop": "gear"
+      },
+      {
+        "pose": 9,
+        "duration": 200,
+        "prop": "keyboard",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-compare-diff",
+    "label": "Compare versions",
+    "category": "coding",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 450,
+        "x": -5,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "prop": "paper"
+      },
+      {
+        "pose": 1,
+        "duration": 450,
+        "x": 5,
+        "flip": true,
+        "prop": "paper",
+        "effect": "scan"
+      },
+      {
+        "pose": 2,
+        "duration": 300,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "x": -1,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 1,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 0,
+        "duration": 450,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-tap-beat",
+    "label": "Tap a beat",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 120,
+        "y": 2,
+        "scaleY": 0.96,
+        "prop": "drum",
+        "effect": "note"
+      },
+      {
+        "pose": 3,
+        "duration": 240,
+        "y": -2,
+        "prop": "drum"
+      },
+      {
+        "pose": 9,
+        "duration": 100,
+        "y": 1,
+        "prop": "drum",
+        "effect": "note"
+      },
+      {
+        "pose": 2,
+        "duration": 120,
+        "y": -1,
+        "prop": "drum"
+      },
+      {
+        "pose": 10,
+        "duration": 100,
+        "y": 1,
+        "prop": "drum",
+        "effect": "note"
+      },
+      {
+        "pose": 0,
+        "duration": 400,
+        "prop": "drum"
+      }
+    ]
+  },
+  {
+    "id": "work-melody",
+    "label": "Pick a melody",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 180,
+        "y": 1,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "y": -1,
+        "rotate": -2,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 10,
+        "duration": 260,
+        "y": -4,
+        "rotate": -4,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 1,
+        "duration": 360,
+        "prop": "note"
+      },
+      {
+        "pose": 11,
+        "duration": 320,
+        "y": 2,
+        "rotate": 3,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 2,
+        "duration": 280
+      }
+    ]
+  },
+  {
+    "id": "work-conduct",
+    "label": "Conduct",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 260,
+        "y": 3,
+        "prop": "pencil",
+        "effect": "note"
+      },
+      {
+        "pose": 9,
+        "duration": 260,
+        "x": -4,
+        "rotate": -7,
+        "prop": "pencil"
+      },
+      {
+        "pose": 10,
+        "duration": 260,
+        "x": 4,
+        "rotate": 7,
+        "prop": "pencil"
+      },
+      {
+        "pose": 11,
+        "duration": 260,
+        "y": -4,
+        "prop": "pencil"
+      },
+      {
+        "pose": 3,
+        "duration": 130,
+        "y": -2,
+        "prop": "pencil"
+      },
+      {
+        "pose": 2,
+        "duration": 130,
+        "prop": "pencil"
+      }
+    ]
+  },
+  {
+    "id": "work-listen",
+    "label": "Listen closely",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 3,
+        "duration": 450,
+        "rotate": -8,
+        "prop": "note"
+      },
+      {
+        "pose": 1,
+        "duration": 700,
+        "rotate": -8,
+        "effect": "note"
+      },
+      {
+        "pose": 0,
+        "duration": 400,
+        "rotate": 5,
+        "prop": "note"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "y": 2,
+        "effect": "note"
+      },
+      {
+        "pose": 3,
+        "duration": 220,
+        "y": -1,
+        "prop": "note"
+      },
+      {
+        "pose": 0,
+        "duration": 380
+      }
+    ]
+  },
+  {
+    "id": "work-sequence",
+    "label": "Arrange a sequence",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": -5,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "x": -3,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "x": 0,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "x": 2,
+        "prop": "paper"
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "x": 5,
+        "prop": "note",
+        "effect": "note"
+      },
+      {
+        "pose": 1,
+        "duration": 650,
+        "prop": "paper",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-record",
+    "label": "Record a take",
+    "category": "music",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 250,
+        "y": 2,
+        "prop": "note"
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "y": -1,
+        "prop": "note"
+      },
+      {
+        "pose": 8,
+        "duration": 180,
+        "rotate": -3,
+        "prop": "keyboard",
+        "effect": "note"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "rotate": 3,
+        "prop": "keyboard",
+        "effect": "note"
+      },
+      {
+        "pose": 10,
+        "duration": 320,
+        "y": -2,
+        "prop": "keyboard",
+        "effect": "note"
+      },
+      {
+        "pose": 11,
+        "duration": 120,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 0,
+        "duration": 600,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-read-source",
+    "label": "Read a source",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400,
+        "prop": "book"
+      },
+      {
+        "pose": 1,
+        "duration": 650,
+        "y": 2,
+        "rotate": 4,
+        "prop": "book",
+        "effect": "scan"
+      },
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": 2,
+        "prop": "book"
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "x": 2,
+        "y": 1,
+        "prop": "book",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 650,
+        "y": -2,
+        "prop": "book",
+        "effect": "thought"
+      },
+      {
+        "pose": 2,
+        "duration": 300,
+        "prop": "book"
+      }
+    ]
+  },
+  {
+    "id": "work-cite",
+    "label": "Add a citation",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 500,
+        "x": -3,
+        "prop": "book",
+        "effect": "scan"
+      },
+      {
+        "pose": 9,
+        "duration": 170,
+        "x": -3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "x": 3,
+        "prop": "paper"
+      },
+      {
+        "pose": 8,
+        "duration": 170,
+        "x": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 170,
+        "x": 4,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "prop": "paper",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-figure",
+    "label": "Lay out a figure",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 300,
+        "x": -3,
+        "y": -2,
+        "prop": "ruler"
+      },
+      {
+        "pose": 10,
+        "duration": 300,
+        "x": 3,
+        "y": -2,
+        "prop": "ruler"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "y": -3,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "y": 2,
+        "prop": "paper"
+      },
+      {
+        "pose": 11,
+        "duration": 200,
+        "x": 2,
+        "y": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "prop": "paper",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-equation",
+    "label": "Work an equation",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 850,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "x": 2,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": -1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 160,
+        "x": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "y": -2,
+        "effect": "spark"
+      }
+    ]
+  },
+  {
+    "id": "work-review",
+    "label": "Review annotations",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 3,
+        "duration": 450,
+        "x": -3,
+        "prop": "paper"
+      },
+      {
+        "pose": 1,
+        "duration": 550,
+        "x": 2,
+        "prop": "book",
+        "effect": "scan"
+      },
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": 4,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "x": 4,
+        "y": 1,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 0,
+        "duration": 320,
+        "prop": "paper"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-bind",
+    "label": "Gather pages",
+    "category": "paper",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": -5,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 220,
+        "x": 5,
+        "flip": true,
+        "prop": "paper"
+      },
+      {
+        "pose": 10,
+        "duration": 220,
+        "y": 3,
+        "prop": "paper"
+      },
+      {
+        "pose": 11,
+        "duration": 280,
+        "y": 4,
+        "scaleY": 0.94,
+        "prop": "book"
+      },
+      {
+        "pose": 3,
+        "duration": 300,
+        "y": -3,
+        "prop": "book"
+      },
+      {
+        "pose": 2,
+        "duration": 550,
+        "prop": "book",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-insert-cartridge",
+    "label": "Insert a cartridge",
+    "category": "gameboy",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 300,
+        "y": -3,
+        "prop": "cartridge"
+      },
+      {
+        "pose": 1,
+        "duration": 350,
+        "prop": "cartridge",
+        "effect": "scan"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "y": 2,
+        "prop": "cartridge"
+      },
+      {
+        "pose": 9,
+        "duration": 150,
+        "y": 4,
+        "scaleY": 0.96,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 0,
+        "duration": 450,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 3,
+        "duration": 450,
+        "prop": "gamepad",
+        "effect": "spark"
+      }
+    ]
+  },
+  {
+    "id": "work-dpad",
+    "label": "Test the D-pad",
+    "category": "gameboy",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 220,
+        "x": -4,
+        "rotate": -5,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 9,
+        "duration": 220,
+        "x": 4,
+        "rotate": 5,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 10,
+        "duration": 220,
+        "y": -3,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 11,
+        "duration": 220,
+        "y": 3,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 1,
+        "duration": 350,
+        "prop": "gamepad",
+        "effect": "scan"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-buttons",
+    "label": "Test A and B",
+    "category": "gameboy",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 110,
+        "x": -1,
+        "prop": "gamepad",
+        "effect": "spark"
+      },
+      {
+        "pose": 2,
+        "duration": 240,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 10,
+        "duration": 110,
+        "x": 1,
+        "prop": "gamepad",
+        "effect": "spark"
+      },
+      {
+        "pose": 3,
+        "duration": 240,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 11,
+        "duration": 220,
+        "y": 2,
+        "scaleY": 0.97,
+        "prop": "gamepad",
+        "effect": "spark"
+      },
+      {
+        "pose": 0,
+        "duration": 400,
+        "prop": "gamepad"
+      }
+    ]
+  },
+  {
+    "id": "work-tile",
+    "label": "Place pixel tiles",
+    "category": "gameboy",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 180,
+        "x": -3,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "x": 3,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "x": 3,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 180,
+        "x": -3,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "prop": "magnifier",
+        "effect": "scan"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "prop": "gamepad"
+      }
+    ]
+  },
+  {
+    "id": "work-build-rom",
+    "label": "Build a ROM",
+    "category": "gameboy",
+    "states": [
+      "working",
+      "running"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 140,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 9,
+        "duration": 140,
+        "prop": "keyboard"
+      },
+      {
+        "pose": 10,
+        "duration": 280,
+        "rotate": -6,
+        "prop": "gear",
+        "effect": "spark"
+      },
+      {
+        "pose": 11,
+        "duration": 280,
+        "rotate": 6,
+        "prop": "gear",
+        "effect": "spark"
+      },
+      {
+        "pose": 0,
+        "duration": 250,
+        "y": 2,
+        "prop": "cartridge"
+      },
+      {
+        "pose": 3,
+        "duration": 550,
+        "y": -3,
+        "prop": "cartridge",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-playtest",
+    "label": "Playtest a level",
+    "category": "gameboy",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 12,
+        "duration": 120,
+        "x": -4,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 13,
+        "duration": 120,
+        "x": -2,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 8,
+        "duration": 150,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 10,
+        "duration": 150,
+        "x": 2,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 14,
+        "duration": 180,
+        "x": 3,
+        "y": -5,
+        "prop": "gamepad",
+        "effect": "spark"
+      },
+      {
+        "pose": 15,
+        "duration": 150,
+        "x": 4,
+        "prop": "gamepad"
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "prop": "gamepad",
+        "effect": "scan"
+      }
+    ]
+  },
+  {
+    "id": "work-ponder",
+    "label": "Ponder",
+    "category": "thinking",
+    "states": [
+      "working"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 450
+      },
+      {
+        "pose": 3,
+        "duration": 550,
+        "rotate": -6,
+        "effect": "thought"
+      },
+      {
+        "pose": 1,
+        "duration": 900,
+        "y": 1,
+        "rotate": -3,
+        "effect": "thought"
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 2,
+        "duration": 500,
+        "y": -2,
+        "effect": "thought"
+      },
+      {
+        "pose": 3,
+        "duration": 350
+      }
+    ]
+  },
+  {
+    "id": "work-hypothesis",
+    "label": "Try a hypothesis",
+    "category": "thinking",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 500,
+        "y": -3,
+        "effect": "thought"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 3,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 1,
+        "duration": 600,
+        "prop": "magnifier",
+        "effect": "scan"
+      },
+      {
+        "pose": 3,
+        "duration": 220,
+        "y": 2,
+        "effect": "check"
+      },
+      {
+        "pose": 2,
+        "duration": 320
+      }
+    ]
+  },
+  {
+    "id": "work-weigh",
+    "label": "Weigh alternatives",
+    "category": "thinking",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 3,
+        "duration": 500,
+        "x": -4,
+        "rotate": -5,
+        "prop": "paper"
+      },
+      {
+        "pose": 1,
+        "duration": 300,
+        "effect": "thought"
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "x": 4,
+        "rotate": 5,
+        "flip": true,
+        "prop": "paper"
+      },
+      {
+        "pose": 0,
+        "duration": 550,
+        "effect": "thought"
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "x": -2,
+        "prop": "paper"
+      },
+      {
+        "pose": 9,
+        "duration": 200,
+        "x": -2,
+        "prop": "pencil",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-eureka",
+    "label": "Find an idea",
+    "category": "thinking",
+    "states": [
+      "working",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 800,
+        "effect": "thought"
+      },
+      {
+        "pose": 0,
+        "duration": 180,
+        "y": 2,
+        "scaleY": 0.95
+      },
+      {
+        "pose": 2,
+        "duration": 130,
+        "y": -3,
+        "scaleY": 1.03,
+        "effect": "spark"
+      },
+      {
+        "pose": 3,
+        "duration": 260,
+        "y": -6,
+        "effect": "spark"
+      },
+      {
+        "pose": 2,
+        "duration": 140,
+        "y": 1,
+        "scaleY": 0.97
+      },
+      {
+        "pose": 0,
+        "duration": 600,
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-plan",
+    "label": "Plan the next steps",
+    "category": "thinking",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 650,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 8,
+        "duration": 160,
+        "x": -4,
+        "y": -2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 9,
+        "duration": 160,
+        "x": 0,
+        "y": 0,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 10,
+        "duration": 160,
+        "x": 4,
+        "y": 2,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 11,
+        "duration": 300,
+        "x": 1,
+        "prop": "ruler",
+        "effect": "scan"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "prop": "paper",
+        "effect": "check"
+      }
+    ]
+  },
+  {
+    "id": "work-reconsider",
+    "label": "Reconsider",
+    "category": "thinking",
+    "states": [
+      "working"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 8,
+        "duration": 160,
+        "prop": "pencil",
+        "effect": "ink"
+      },
+      {
+        "pose": 3,
+        "duration": 300,
+        "x": -3,
+        "rotate": -5,
+        "effect": "thought"
+      },
+      {
+        "pose": 1,
+        "duration": 700,
+        "prop": "paper",
+        "effect": "thought"
+      },
+      {
+        "pose": 9,
+        "duration": 150,
+        "x": 2,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 10,
+        "duration": 150,
+        "x": -2,
+        "prop": "eraser",
+        "effect": "dust"
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "flip": true,
+        "prop": "paper"
+      }
+    ]
+  }
+]

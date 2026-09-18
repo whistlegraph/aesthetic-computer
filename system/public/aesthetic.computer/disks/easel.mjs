@@ -1,19 +1,19 @@
-// Easel, 2026.09.11
+// Aesel, 2026.09.11
 // What the terminal editor is, what it needs, and the one line that installs it.
 //
 // A command-line tool has nowhere to be sent to, so this page is the
 // destination: it has to say the thing rather than link to it. Three facts, in
 // the order someone needs them —
 //
-//   1. what Easel is
+//   1. what Aesel is
 //   2. the line that installs it
 //   3. that it opens as a standalone desktop app
 //
 // The download line is tappable and copies itself for the terminal-friendly
-// path. The normal Easel experience uses AC's hosted backend; Claude and Codex
+// path. The normal Aesel experience uses AC's hosted backend; Claude and Codex
 // are optional bring-your-own-provider modes.
 
-const INSTALL = "curl -fsSL prompt.ac/easel.sh | sh";
+const INSTALL = "curl -fsSL prompt.ac/aesel.sh | sh";
 const MANIFEST = "https://aesthetic.computer/easel.json";
 
 // The prompt's own dark scheme, so the page and the thing it installs agree
@@ -47,7 +47,7 @@ async function fetchVersion() {
     if (!response.ok) return;
     version = (await response.json()).version || null;
   } catch {
-    // The page is about what Easel is, not what version it is on. A failed
+    // The page is about what Aesel is, not what version it is on. A failed
     // lookup drops one line rather than showing an error.
   }
 }
@@ -75,7 +75,7 @@ function paint({ wipe, ink, screen, text }) {
   ink([58, 42, 82]).box(hero, "fill");
   ink(PURPLE).box(hero, "outline");
   donkey({ ink, x: hero.x + hero.w - (narrow ? 58 : 68), y: hero.y + (narrow ? 10 : 12), scale: narrow ? 1 : 1.25 });
-  ink(PURPLE).write("EASEL", { x: cx - (narrow ? 8 : 12), y: y + 8, center: "x", size: narrow ? 2 : 3 });
+  ink(PURPLE).write("AESEL", { x: cx - (narrow ? 8 : 12), y: y + 8, center: "x", size: narrow ? 2 : 3 });
   ink(SOFT).write("with fonkey", { x: cx - (narrow ? 8 : 12), y: y + (narrow ? 28 : 36), center: "x", size: narrow ? 0.8 : 1 });
   y += narrow ? 68 : 82;
 

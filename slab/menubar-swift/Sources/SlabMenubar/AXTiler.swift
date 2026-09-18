@@ -117,7 +117,7 @@ enum AXTiler {
 
     private static func easelWindowRefs(liveWindows: [LiveWindow],
                                          requireGeometry: Bool = true) -> [Window] {
-        EaselWindowIdentity.bundleIDs.flatMap { bundleID in
+        AeselWindowIdentity.bundleIDs.flatMap { bundleID in
             windowRefs(bundleId: bundleID, liveWindows: liveWindows,
                        requireGeometry: requireGeometry, requireEaselIdentity: true)
         }
@@ -149,7 +149,7 @@ enum AXTiler {
             rawCount += list.count
             for w in list {
                 if requireEaselIdentity,
-                   !EaselWindowIdentity.accepts(bundleID: bundleId,
+                   !AeselWindowIdentity.accepts(bundleID: bundleId,
                                                title: stringAttr(w, kAXTitleAttribute) ?? "") {
                     continue
                 }

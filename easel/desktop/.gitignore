@@ -1,3 +1,6 @@
 node_modules/
 node_modules
 dist/
+
+# Per-developer signing material stays in the local keychain/worktree.
+*.provisionprofile

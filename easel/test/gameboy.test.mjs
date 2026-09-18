@@ -49,7 +49,7 @@ test(
     assert.equal(created.preview.mime, "application/x-gameboy-rom");
     const rom = await readFile(join(root, "game.gb")),
       header = verifyROM(rom);
-    assert.equal(header.title, "EASEL");
+    assert.equal(header.title, "AESEL");
     assert.equal(header.bytes, 32768);
     assert.equal(header.cartridgeType, 0);
     assert.equal(header.color, false);

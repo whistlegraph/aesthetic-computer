@@ -67,6 +67,8 @@ test("runs the PKCE sign-in against a loopback callback", async (context) => {
     site: "https://example.test",
     fetch: async (url, options = {}) => {
       if (url.endsWith("/oauth/token")) {
+        // The callback must already be closed while the outgoing exchange runs.
+        await assert.rejects(globalThis.fetch(seen.callback, {headers:{Connection:'close'}}));
         seen.exchange = JSON.parse(options.body);
         return jsonResponse({ access_token: "acc", refresh_token: "ref", id_token: "id", expires_in: 86_400 });
       }
@@ -86,6 +88,7 @@ test("runs the PKCE sign-in against a loopback callback", async (context) => {
       assert.equal(url.searchParams.get("client_id"), CLIENT_ID);
       assert.equal(url.searchParams.get("code_challenge_method"), "S256");
       const callback = new URL(url.searchParams.get("redirect_uri"));
+      seen.callback = callback.toString();
       callback.searchParams.set("code", "the-code");
       callback.searchParams.set("state", url.searchParams.get("state"));
       // Play the browser: land on the loopback callback.
@@ -122,4 +125,27 @@ test("emits change when the shared token file is rewritten", async (context) => 
   await new Promise((resolve) => setTimeout(resolve, 100));
   await writeFile(file, JSON.stringify({ access_token: "t", user: { handle: "tester" } }));
   assert.equal(await changed, "@tester");
+});
+
+test("claiming a handle saves it and emits the new sign-in state", async context => {
+  const file = await scratch(context);
+  await writeFile(file, JSON.stringify({access_token:"t",expires_at:Date.now()+3600000,user:{sub:"review",handle:null}}));
+  const session = new ACSession({file,fetch:async()=>jsonResponse({handle:"newartist"})});
+  let changed;session.on("change",value=>{changed=value;});
+  assert.equal(await session.claimHandle("newartist"),"newartist");
+  assert.equal(session.handle,"newartist");
+  assert.equal(changed,"signed-in");
+});
+
+ test("sign-in timeout closes the listener and permits a retry", async context => {
+  const file = await scratch(context);
+  let callback;
+  const session = new ACSession({file, callbackPort:0, openBrowser:url=>{
+    callback = new URL(url).searchParams.get('redirect_uri');
+  }});
+  for (let attempt=0;attempt<2;attempt++) {
+    await assert.rejects(session.login({timeoutMs:30}), /sign-in timed out/);
+    assert.equal(session.signingIn,false);
+    await assert.rejects(globalThis.fetch(callback,{headers:{Connection:'close'}}));
+  }
 });

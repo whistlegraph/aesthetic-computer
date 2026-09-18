@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // build-api-map — the static map of the piece API, read off the runtime source.
 //
-// Every Easel session so far has opened with the same hunt: grep graph.mjs for
+// Every aesel session so far has opened with the same hunt: grep graph.mjs for
 // `function circle(`, sed a window of disk.mjs to see what `$paintApiUnwrapped`
 // exposes, grep the disks for one piece that already calls `synth(`. Ten
 // sessions, the same eight commands, a minute or two each before the first
@@ -27,10 +27,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EASEL = join(HERE, "..");
-const REPO = join(EASEL, "..");
+const aesel = join(HERE, "..");
+const REPO = join(aesel, "..");
 const AC = join(REPO, "system", "public", "aesthetic.computer");
-const OUT = join(EASEL, "context", "api.json");
+const OUT = join(aesel, "context", "api.json");
 
 const read = (file) => readFileSync(join(AC, file), "utf8").split("\n");
 

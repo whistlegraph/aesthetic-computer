@@ -170,6 +170,9 @@ enum Paths {
     /// cramming many panes onto one screen at the edge of legibility.
     /// Tiny takes priority over near when both are set.
     static var tinyTextFlag: String { "\(slabHome)/state/tile-tiny" }
+    /// Last exact font size chosen by the shared terminal tiler. Native prompt
+    /// hosts such as Easel follow this so all prompt surfaces use one scale.
+    static var promptTextSizeState: String { "\(slabHome)/state/prompt-text-size.json" }
     /// When this file exists, each Terminal window matching a live Claude
     /// session is re-themed by status (working/awaiting), so a wall of
     /// terminals reads as a status display at a glance.

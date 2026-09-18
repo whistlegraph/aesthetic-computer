@@ -2,24 +2,25 @@
 #qr-label {
   --qr-status-shadow: #808080;
   position: absolute;
-  top: calc(100% - 3px);
-  right: 0;
+  top: 10px;
+  left: 14px;
+  right: auto;
   width: max-content;
   max-width: none;
   margin: 0;
-  padding: 0 4px 5px;
+  padding: 0;
   font-family: "Comic Sans MS Bold", "ComicSansMS-Bold", "Chalkboard SE Bold", "ChalkboardSE-Bold", "Comic Sans MS", "Chalkboard SE", system-ui;
-  font-size: 16px;
+  font-size: calc(var(--aesel-qr-label-size,16px) * 2);
   font-weight: 700;
   font-style: normal;
   font-kerning: none;
   letter-spacing: 0;
-  line-height: 1.4;
+  line-height: 1.2;
   white-space: pre;
   color: #fff;
   user-select: none;
   transform: scale(1);
-  transform-origin: right top;
+  transform-origin: left top;
   transition: transform .28s cubic-bezier(.2, 1.5, .5, 1);
   z-index: 1;
 }
@@ -38,14 +39,14 @@
 #qr-label .qr-letter-ink {
   display: inline-block;
   color: #fff;
-  -webkit-text-stroke: .56px #141414;
+  -webkit-text-stroke: .07em #141414;
   paint-order: stroke fill;
-  text-shadow: 1.5px 1.5px 0 var(--qr-status-shadow);
+  text-shadow: .07em .07em 0 var(--qr-status-shadow);
   transform-origin: center;
   animation: qr-name-wiggle 1.8s ease-in-out var(--qr-delay) infinite;
 }
-#qr-card:hover #qr-label,
-#qr-card:focus-within #qr-label { transform: scale(1.5); }
+#qr-label:hover,
+#qr-label:focus-visible { transform: scale(1); }
 /* Native scan surfaces enlarge the name without retiming its letters. */
 @keyframes qr-name-wiggle {
   0%, 100% { transform: translateY(0) rotate(0); }
@@ -55,9 +56,13 @@
 @media (prefers-reduced-motion: reduce) {
   #qr-label { transition: none; }
   #qr-label .qr-letter-ink { animation: none; }
-  #qr-card:hover #qr-label,
-  #qr-card:focus-within #qr-label { transform: scale(1); }
+  #qr-label:hover,
+  #qr-label:focus-visible { transform: scale(1); }
 }
 
-#qr-label .qr-version { font-size: 12px; }
+#qr-label .qr-version { font-size: .75em; }
 #qr-label .qr-version .qr-letter-ink { -webkit-text-stroke-width: .42px; }
+
+body[data-phase="startup"] #qr-label{display:none}
+
+body[data-prox-rock="true"] #qr-label {left:14px;}

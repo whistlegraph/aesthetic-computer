@@ -1,4 +1,4 @@
-# Playtesting inside the Easel preview
+# Playtesting inside the Aesel preview
 
 Status: implementation plan, grounded in the current checkout. No game has been driven or declared playable by this exploration.
 
@@ -23,7 +23,7 @@ Paths beginning `lib/` or `disks/` above are under `system/public/aesthetic.comp
 
 ## First executable slice
 
-Add an Easel-scoped adapter for the existing Puppet action vocabulary, callable through Easel's existing MCP server alongside `ac_frame`. Bind it to the current preview guest using the frame bridge's channel/revision checks. Desktop can dispatch through the guest's existing browser input facility; native Slab needs an equivalent bridge into AC's input path. Report unsupported capabilities explicitly until both adapters exist.
+Add an Aesel-scoped adapter for the existing Puppet action vocabulary, callable through Aesel's existing MCP server alongside `ac_frame`. Bind it to the current preview guest using the frame bridge's channel/revision checks. Desktop can dispatch through the guest's existing browser input facility; native Slab needs an equivalent bridge into AC's input path. Report unsupported capabilities explicitly until both adapters exist.
 
 Proposed tool: `ac_play`, a scoped adapter over existing input primitives, not a second control stack. One request batches a short action segment and its resulting observation. Proposed shape, not an existing tool:
 

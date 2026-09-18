@@ -26,6 +26,20 @@ enum Health: Equatable {
     case failed
 }
 
+struct ModelChoice: Identifiable {
+    let id: String
+    let title: String
+    let premium: Bool
+}
+
+struct SessionSummary: Identifiable {
+    let id: String
+    let title: String
+    let medium: String
+    let route: String
+    let updatedAt: String
+}
+
 /// The whole of what SwiftUI observes. It holds no logic about turns, tools or
 /// publishing — those live in `easel/phone/session.mjs`, shared with the
 /// desktop. This is the projection of that session's event stream into
@@ -33,13 +47,26 @@ enum Health: Equatable {
 @Observable
 final class Session {
     var entries: [Entry] = []
+    var history: [SessionSummary] = []
+    var medium = "piece"
+    var model = ""
+    var modelChoices: [ModelChoice] = []
+    var reportedModel = ""
+    var currentThreadID = ""
+    var currentSessionID: String { currentThreadID }
     var status: String = "starting"
     var health: Health = .idle
     var route: String = ""
     var previewURL: URL?
+    var shareURL: URL?
+    var source = ""
+    var showSignIn = false
+    var signInLoading = false
+    var signInError: String?
     var busy = false
     var signedIn = false
     var handle = ""
+    var handleColors: [String] = []
     /// Set when the host page itself could not start — a missing dev server is
     /// the usual cause, and a blank screen is a bad way to say so.
     var fatal: String?
@@ -65,6 +92,36 @@ final class Session {
     func receive(_ event: [String: Any]) {
         guard let type = event["type"] as? String else { return }
         switch type {
+        case "model":
+            model = event["requested"] as? String ?? model
+            reportedModel = event["reported"] as? String ?? ""
+            if let choices = event["choices"] as? [[String: Any]] {
+                modelChoices = choices.compactMap { choice in
+                    guard let id = choice["id"] as? String else { return nil }
+                    return ModelChoice(id: id, title: choice["title"] as? String ?? id, premium: choice["premium"] as? Bool ?? false)
+                }
+            }
+
+        case "history":
+            history = (event["items"] as? [[String: Any]] ?? []).compactMap { item in
+                guard let id = item["id"] as? String else { return nil }
+                return SessionSummary(id: id, title: item["title"] as? String ?? "Untitled",
+                    medium: item["medium"] as? String ?? "piece", route: item["route"] as? String ?? "",
+                    updatedAt: item["updatedAt"] as? String ?? "")
+            }
+
+        case "thread":
+            reportedModel = ""
+            currentThreadID = event["id"] as? String ?? ""
+            medium = event["medium"] as? String ?? "piece"
+            reset()
+            for entry in event["events"] as? [[String: Any]] ?? [] {
+                if ["you", "note", "bad", "bridge"].contains(entry["type"] as? String ?? "") { receive(entry) }
+            }
+
+        case "hostError":
+            fatal = event["text"] as? String ?? "The session could not start."
+
         case "ready", "restored":
             signedIn = event["signedIn"] as? Bool ?? false
             if type == "restored" { status = signedIn ? "ready" : "signed out" }
@@ -76,11 +133,30 @@ final class Session {
                 append(.note, "Signed in, but this account has no @handle yet. Claim one at aesthetic.computer/handle to publish.")
             }
 
+        case "handleColors":
+            if event["handle"] as? String == handle { handleColors = event["colors"] as? [String] ?? [] }
+
+        case "signedOut":
+            signedIn = false
+            handle = ""
+            handleColors = []
+            status = "signed out"
+
+        case "source":
+            source = event["source"] as? String ?? source
+            previewURL = URL(string: "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true")
+
         case "piece":
+            source = event["source"] as? String ?? source
+            shareURL = nil
+            previewURL = nil
             route = event["route"] as? String ?? ""
 
         case "preview":
-            if let text = event["url"] as? String { previewURL = URL(string: text) }
+            if let text = event["url"] as? String {
+                shareURL = URL(string: text)
+                previewURL = shareURL
+            }
 
         case "status":
             status = event["text"] as? String ?? status
@@ -117,6 +193,10 @@ final class Session {
         let params = event["params"] as? [String: Any] ?? [:]
 
         switch method {
+        case "model/reported":
+            model = params["requested"] as? String ?? model
+            reportedModel = params["reported"] as? String ?? reportedModel
+
         case "turn/started":
             streamingIndex = nil
             status = "thinking"

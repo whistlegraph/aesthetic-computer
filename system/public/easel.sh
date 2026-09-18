@@ -1,5 +1,5 @@
 #!/bin/sh
-# Easel — the Aesthetic Computer terminal editor.
+# Aesel — the Aesthetic Computer terminal editor.
 #
 #   curl -fsSL https://prompt.ac/easel.sh | sh
 #
@@ -33,14 +33,14 @@ say() { printf '%s\n' "$*"; }
 die() { printf '\n  %s\n\n' "$*" >&2; exit 1; }
 
 say ""
-say "  Easel — the Aesthetic Computer terminal editor"
+say "  Aesel — the Aesthetic Computer terminal editor"
 say ""
 
 # --- node ------------------------------------------------------------------
-command -v node >/dev/null 2>&1 || die "Easel needs Node $MIN_NODE or newer. https://nodejs.org"
+command -v node >/dev/null 2>&1 || die "Aesel needs Node $MIN_NODE or newer. https://nodejs.org"
 NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
 [ "$NODE_MAJOR" -ge "$MIN_NODE" ] 2>/dev/null \
-  || die "Easel needs Node $MIN_NODE or newer; found $(node -v 2>/dev/null || echo none)."
+  || die "Aesel needs Node $MIN_NODE or newer; found $(node -v 2>/dev/null || echo none)."
 say "  node $(node -v)"
 
 # --- fetch -----------------------------------------------------------------
@@ -51,7 +51,7 @@ if command -v curl >/dev/null 2>&1; then
 elif command -v wget >/dev/null 2>&1; then
   fetch() { wget -qO "$2" "$1"; }
 else
-  die "Need curl or wget to download Easel."
+  die "Need curl or wget to download Aesel."
 fi
 
 TMP=$(mktemp -d 2>/dev/null || mktemp -d -t easel)
@@ -64,10 +64,10 @@ fetch "$SITE/easel.tar.gz" "$TMP/easel.tar.gz" \
 
 # --- install ---------------------------------------------------------------
 # Unpack beside the target and swap, so an interrupted install cannot leave a
-# half-written Easel where a working one used to be.
+# half-written Aesel where a working one used to be.
 mkdir -p "$TMP/unpack"
 tar -xzf "$TMP/easel.tar.gz" -C "$TMP/unpack" || die "Could not unpack the download."
-[ -f "$TMP/unpack/bin/easel" ] || die "That download does not look like Easel."
+[ -f "$TMP/unpack/bin/easel" ] || die "That download does not look like Aesel."
 
 mkdir -p "$(dirname "$PREFIX")" "$BIN"
 rm -rf "$PREFIX.old"
@@ -77,10 +77,11 @@ rm -rf "$PREFIX.old"
 
 chmod +x "$PREFIX/bin/easel"
 ln -sfn "$PREFIX/bin/easel" "$BIN/easel"
+ln -sfn "$PREFIX/bin/easel" "$BIN/aesel"
 ln -sfn "$PREFIX/bin/easel" "$BIN/ac"
 
 VERSION=$(node -p "require('$PREFIX/package.json').version" 2>/dev/null || echo "?")
-say "  installed Easel $VERSION to $PREFIX"
+say "  installed Aesel $VERSION to $PREFIX"
 
 # --- path ------------------------------------------------------------------
 # Never edit a shell profile without saying so. The check is on the literal
@@ -96,7 +97,7 @@ if [ "$ON_PATH" = "0" ]; then
   say ""
   say "      export PATH=\"\$HOME/.local/bin:\$PATH\""
   say ""
-  say "  …or run Easel by its full path: $BIN/ac"
+  say "  …or run Aesel by its full path: $BIN/ac"
 fi
 
 say ""

@@ -75,6 +75,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
     private var lastTiledFontSize: Int?
+    private func publishPromptTextSize(_ fontSize: Int, mode: TextSize) {
+        let modeName: String
+        switch mode { case .far: modeName = "far"; case .near: modeName = "near"; case .tiny: modeName = "tiny" }
+        let payload: [String: Any] = ["fontSize": fontSize, "mode": modeName, "updated": Date().timeIntervalSince1970]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        let path = Paths.promptTextSizeState
+        try? FileManager.default.createDirectory(atPath: (path as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        try? data.write(to: URL(fileURLWithPath: path), options: .atomic)
+    }
     /// True while the windows are scattered (⌘⌥S) rather than tiled. The 0.6s
     /// decor refresh pins the terminal font to `lastTiledFontSize`, which would
     /// otherwise stomp the tiny scatter font right back to the tile size every
@@ -1101,15 +1110,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func handleLedgerWake(_ note: Notification) {
         guard let sid = note.userInfo?["id"] as? String,
               let prompt = note.userInfo?["prompt"] as? String,
-              !sid.isEmpty, !prompt.isEmpty,
-              let tty = ttyForSession(sid) else { return }
+              !sid.isEmpty, !prompt.isEmpty else { return }
         let session = state.claudeSessions.first(where: { $0.sessionId == sid })
+        if let session, session.agentType == "easel", session.hostPid > 0 {
+            wakeEasel(pid: session.hostPid, windowID: session.hostWindowID, prompt: prompt) { status in
+                NSLog("🪨 [wake] Easel prox \(sid.prefix(8)) finished status=\(status)")
+            }
+            return
+        }
+        guard let tty = ttyForSession(sid) else { return }
         wakeTerminal(tty: tty, prompt: prompt,
                      providerSessionId: session?.providerSessionId ?? "",
                      nudgeScreen: session?.nudgeScreen ?? "",
                      cwd: session?.cwd ?? Paths.acRepo,
                      agentType: session?.agentType ?? "claude") { status in
             NSLog("🪨 [wake] prox \(sid.prefix(8)) finished status=\(status)")
+        }
+    }
+
+    /// Easel owns an embedded PTY, not a Terminal.app window. Focus the exact
+    /// desktop host process advertised by its marker, then use the same trusted
+    /// keyboard event path as Loopboy/prox terminal wakes.
+    private func wakeEasel(pid: Int, windowID: Int, prompt: String,
+                           completion: @escaping (Int32) -> Void) {
+        let previousApp = NSWorkspace.shared.frontmostApplication
+        guard let app = NSRunningApplication(processIdentifier: pid_t(pid)),
+              !app.isTerminated else { completion(2); return }
+        let axApp = AXUIElementCreateApplication(pid_t(pid))
+        var raw: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString,
+                                            &raw) == .success,
+              let window = (raw as? [AXUIElement])?.first(where: { element in
+                  var number: CFTypeRef?
+                  AXUIElementCopyAttributeValue(element, "AXWindowNumber" as CFString, &number)
+                  return (number as? NSNumber)?.intValue == windowID
+              }) else {
+            completion(2); return
+        }
+        _ = app.activate(options: [.activateIgnoringOtherApps])
+        _ = AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString,
+                                         kCFBooleanTrue)
+        _ = AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString,
+                                         kCFBooleanTrue)
+        _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        DispatchQueue.global(qos: .utility).async {
+            Self.typePromptWithCGEvents(prompt)
+            DispatchQueue.main.async {
+                if let previousApp, !previousApp.isTerminated {
+                    _ = previousApp.activate(options: [.activateIgnoringOtherApps])
+                }
+                completion(0)
+            }
         }
     }
 
@@ -3624,6 +3675,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.tilePopulationCandidateSamples = max(2, self.tilePopulationCandidateSamples)
                 guard let pass else { return }
                 self.lastTiledFontSize = pass.fontSize
+                self.publishPromptTextSize(pass.fontSize, mode: textSize)
                 // Reset decor memo so the next refresh re-themes every
                 // window from scratch (a re-pack invalidates prior placement).
                 self.lastTerminalDecor.removeAll()
@@ -3920,6 +3972,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // window from scratch (a re-pack invalidates prior placement).
             DispatchQueue.main.async { [weak self] in
                 self?.lastTiledFontSize = layout.fontSize
+                self?.publishPromptTextSize(layout.fontSize, mode: textSize)
                 self?.lastTerminalDecor.removeAll()
             }
 

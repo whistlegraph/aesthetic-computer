@@ -5,7 +5,7 @@
 // already drifted: after a self-update it went on announcing the version it was
 // written with, while package.json, the file the updater compares, had moved on.
 // The bridges announce themselves to the vendor as EASEL_VERSION, so a stale one
-// there misreports which Easel is in the field.
+// there misreports which aesel is in the field.
 //
 // package.json is the single source, because it is the file the updater and the
 // packer both already read.

@@ -116,7 +116,7 @@
       "url": "https://bsky.app/profile/aesthetic.computer",
       "role": "changelog-and-paintings-feed",
       "goal": "Keep alive via at/ scripts; low-effort mirror",
-      "access": "full API — at/*.mjs (app password in vault/at/.env)",
+      "access": "full API — at/*.mjs (app password in vault/at/.env), plus bluesky_post/bluesky_profile on the `x` MCP. Post via at/cli.mjs so link facets are detected.",
       "snapshots": [
         {
           "date": "2026-07-05",
@@ -148,15 +148,16 @@
       "handle": "@promptDOTac",
       "platform": "x",
       "url": "https://x.com/promptDOTac",
-      "role": "dormant-brand-outlet",
-      "goal": "Revive via x.mjs mirror of Bluesky cadence",
-      "access": "none — no developer app yet",
+      "role": "brand-outlet",
+      "goal": "Selective AC releases, opportunities, and conversation; no automatic mirror",
+      "access": "full API — PROVISIONED 2026-09-11. toolchain/x/x.mjs (--as promptdotac) + the `x` MCP; Read and write OAuth 1.0a credentials in vault/promptdotac/x.env. Pay-per-use with $25 loaded; local search budget plus X Console Billing Cycle Cap.",
       "snapshots": [
         {
-          "date": null,
-          "followers": null,
-          "posts": null,
-          "notes": "TODO: fill in current numbers"
+          "date": "2026-09-13",
+          "followers": 98,
+          "following": 151,
+          "posts": 17,
+          "notes": "Live /2/users/me verification after provisioning"
         }
       ]
     },
@@ -167,7 +168,7 @@
       "url": "https://x.com/whistlegraph",
       "role": "dormant-funnel-source",
       "goal": "Maintain; occasional funnel to primary",
-      "access": "none — no developer app yet",
+      "access": "not provisioned — needs its own developer account, OAuth 1.0a vault file, and paid credits. See toolchain/x/SETUP.md.",
       "snapshots": [
         {
           "date": null,

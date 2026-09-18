@@ -63,6 +63,13 @@
         "toolchain/mcp/sweep-mcp.mjs"
       ]
     },
+    "x": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/x-mcp.mjs"
+      ]
+    },
     "roblox": {
       "type": "stdio",
       "command": "node",

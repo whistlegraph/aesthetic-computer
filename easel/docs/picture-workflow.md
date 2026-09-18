@@ -2,7 +2,7 @@
 
 A Picture gets a public short painting code when its WIP is first saved.
 Accepted changes autosave under that code. Pending proposals stay in the local
-preview until accepted. AC, No Paint, and Easel use the same saved pixel and step
+preview until accepted. AC, No Paint, and Aesel use the same saved pixel and step
 format.
 
 `/done` (also `/publish`) uploads the accepted PNG and AC playback ZIP, then seals

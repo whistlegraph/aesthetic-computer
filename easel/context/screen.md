@@ -1,5 +1,5 @@
 <!-- how a piece draws on the AC canvas
-     Bundled with Easel from SCREEN.md in the Aesthetic Computer repository.
+     Bundled with aesel from SCREEN.md in the Aesthetic Computer repository.
      Do not edit here — edit the source and run `npm run context`. -->
 
 # The Screen — a drawing guide for Aesthetic Computer pieces
@@ -22,6 +22,12 @@ the system paints it at `(6, 6)` in the default 6×10 typeface (`lib/disk.mjs`, 
 - **you can take it over** rather than dodge it: `hud.label(text, color, offset)` replaces it, `hud.label()` hides it, `hud.tinyLabel()` switches to MatrixChunky8, `hud.suffix(".com")` adds a superscript, `hud.currentLabel()` reads it back.
 
 so: **readouts go along the bottom, or right-aligned.** that's the default. a top bar is a decision, not a reflex.
+
+## drawing API essentials
+
+`screen` is an object: use `screen.width` and `screen.height`, never `screen[0]`, `screen[1]`, `screen.w` or `screen.h`.
+Use named colors or numeric RGB channels with `ink(r, g, b)`; CSS `hsl(...)` strings are not a supported color format.
+`circle(x, y, radius, true)` draws a filled circle; omit the final flag for an outline.
 
 ## paint
 

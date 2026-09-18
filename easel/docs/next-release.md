@@ -1,8 +1,24 @@
-# Easel 0.7 — Pictures, Sound, Pieces, Papers
+# Aesel 0.7.2
+
+Includes the desktop companion and preview layout, syntax and link rendering,
+queued provider approvals, bundled structural API references, saved phone threads
+and model picker, and Slab window identity and title integration.
+
+The hosted AC harness includes optional Jev repair triage. The trusted-host
+computer-use adapter and Captutor selector can ask Jev to choose among fresh,
+observed targets. They do not click autonomously, replace the vision model, or
+install an automatic decision layer in every Frame/Puppet MCP call. The phone
+bundle does not contain provider credentials or enable the desktop Jev adapter.
+
+The native OCR helper uses Vision's fast recognizer to avoid accurate-mode cold
+compilation delays. Its confidence scores remain native Vision scores. Jev
+selection still checks observation age, allowed candidates, and previous outcomes.
+
+# Aesel 0.7 — Pictures, Sound, Pieces, Papers
 
 Proposed September 15, 2026. Strategy, not implemented functionality.
 
-Easel should make pictures, sounds, pieces of aesthetic.computer software, and papers through one conversation and
+Aesel should make pictures, sounds, pieces of aesthetic.computer software, and papers through one conversation and
 one version history. Choose the medium first; choose the tools and providers
 within it. An image model, an AC brush, and a hand-drawn stroke can all contribute
 to the same picture.
@@ -81,7 +97,7 @@ contract from [Illy](../../plugins/illy/scripts/illy-mcp.mjs). Its installed
 capability registry currently advertises OpenAI `gpt-image-2` generation/editing
 and fal Flux routes. Resolve supported models at runtime and show the explicit
 selection. Credential availability on the studio machine does not imply access
-for an Easel user. Never silently switch providers after a failed paid request.
+for an Aesel user. Never silently switch providers after a failed paid request.
 
 **Sound:** follow [Pop's compositional direction](../../pop/SCORE.md). Begin with
 short phrases and loops built from instruments, notes, rhythm, and effects,

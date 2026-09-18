@@ -11,9 +11,10 @@ ZSH_PROFILE="${ZDOTDIR:-${HOME}}/.zprofile"
 mkdir -p "$BIN_DIR" "$CONFIG_DIR"
 chmod +x "$PROJECT_DIR/bin/easel"
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/easel"
+ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/aesel"
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/ac"
 
-# The tool was called `aesthetic` before it was called Easel, and that name
+# The tool was called `aesthetic` before it was called Aesel, and that name
 # belongs to the platform helper it displaced. Take it back only if it is still
 # our own symlink — never touch a real file someone else put there.
 if [[ -L "$BIN_DIR/aesthetic" ]] && [[ "$(readlink "$BIN_DIR/aesthetic")" == *"/bin/aesthetic" || "$(readlink "$BIN_DIR/aesthetic")" == *"/bin/easel" ]]; then
@@ -50,6 +51,6 @@ case ":${PATH}:" in
     *) printf 'Add %s to PATH to use the commands.\n' "$BIN_DIR" >&2 ;;
 esac
 
-printf 'Installed Easel:\n'
+printf 'Installed Aesel:\n'
 printf '  %s\n' "$BIN_DIR/ac"
 printf '  %s\n' "$BIN_DIR/easel"

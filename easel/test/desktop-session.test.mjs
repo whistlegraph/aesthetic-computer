@@ -43,11 +43,17 @@ test("failed snapshot writes cannot emit a restart request", async (t) => {
   await writeDesktopControl({ sessionPath: join(root, "session.json"), controlPath, snapshot, action: "update" });
   assert.deepEqual(JSON.parse(await readFile(controlPath)), { action: "update" });
   assert.equal((await stat(controlPath)).mode & 0o777, 0o600);
+  await writeDesktopControl({ sessionPath: join(root, "session.json"), controlPath, snapshot, action: "home" });
+  assert.deepEqual(JSON.parse(await readFile(controlPath)), { action: "home" });
+  const saved = await readDesktopSession(join(root, "session.json"), root);
+  assert.deepEqual(saved.ui, snapshot.ui);
+  assert.deepEqual(saved.engine, snapshot.engine);
 });
-test("desktop intent accepts only restart/update and consumes the request", async (t) => {
+test("desktop intent accepts restart/update/home and consumes the request", async (t) => {
   const { root } = await fixture(t); const file = join(root, "intent.json");
   assert.equal(await readDesktopIntent(file), "restart");
   await writeFile(file, JSON.stringify({ action: "update" })); assert.equal(await readDesktopIntent(file), "update");
   await assert.rejects(stat(file), { code: "ENOENT" });
+  await writeFile(file, JSON.stringify({ action: "home" })); assert.equal(await readDesktopIntent(file), "home");
   await writeFile(file, JSON.stringify({ action: "shell", command: "unsafe" })); await assert.rejects(readDesktopIntent(file), /Invalid/);
 });

@@ -1,7 +1,7 @@
-# Standalone Easel
+# Standalone Aesel
 
 Install this directory's dependencies, then run `npm start -- --cwd /path/to/project --backend ac`.
-The desktop shell runs Easel in a native PTY and uses the existing AC login.
+The desktop shell runs Aesel in a native PTY and uses the existing AC login.
 On launch, Tab switches New media / Threads; arrows select and Enter opens.
 Checkpointed update restarts resume directly.
 
@@ -19,11 +19,38 @@ The top-right QR follows the Piece URL and includes a four-module quiet zone.
 Published Pictures also show their verified painting #code QR. Local artifacts
 without a public URL do not show a QR.
 
-Local app builds are available; signed public distribution is not published yet.
+Linux x86-64 downloads: https://releases.aesthetic.computer/easel/desktop/index.html
 
-`/restart` (or Easel → Restart Easel) saves the active thread, transcript, draft,
+Ubuntu/Debian: download `Easel-0.7.0-linux-amd64.deb`, then run
+`sudo apt install ./Easel-0.7.0-linux-amd64.deb`. Launch **Aesel** from the app menu
+or run `easel`. The installer configures Chromium's sandbox when user namespaces
+are unavailable. Do not launch with `--no-sandbox`.
+
+Other distributions can use the AppImage (`chmod +x` first), or extract the
+tarball and run `./easel`. If FUSE is missing, AppImage supports
+`--appimage-extract-and-run`. Systems restricting user namespaces need an
+installed sandbox; on Ubuntu use the .deb. This initial release targets
+Intel/AMD 64-bit, tested on Ubuntu 24.04; ARM is not included.
+
+An AC account and acceptance of required transcript sharing are needed before
+use. The normal hosted AC provider needs no Claude or Codex installation.
+Bring-your-own Claude or Codex modes remain optional and require their CLI and
+account.
+Game Boy compilation requires GBDK installed separately.
+
+Build on Linux with `npm install` and `npm run dist:linux`. Upload the resulting
+three artifacts, `latest-linux.yml`, and `scripts/linux-download.html` (as
+`index.html`) with `scripts/publish-linux.cjs DIST`, using the existing Spaces
+credentials and AWS S3 SDK. Aesel uses the isolated `easel/desktop/` prefix;
+never register it through AC Desktop's release API. AppImage supports the
+binary update feed; .deb/tar users install a new package manually.
+macOS downloads are available from https://releases.aesthetic.computer/easel/desktop/.
+The Apple-silicon DMG and ZIP are signed and notarized; Intel builds are not
+included in this first release.
+
+`/restart` (or Aesel → Restart Aesel) saves the active thread, transcript, draft,
 model and workspace before replacing the app process. A busy turn or upload
-finishes first. The local checkpoint is private (`0600`). Launching Easel again
+finishes first. The local checkpoint is private (`0600`). Launching Aesel again
 focuses its existing window; `--restart` requests a saved restart.
 
 `/update` is handled by the desktop host. Development builds reload current

@@ -7,7 +7,7 @@ import { extname, join, resolve } from "node:path";
 
 const digest = (source) => createHash("sha256").update(source).digest("hex");
 
-// Parse JavaScript without importing it: user code must never execute in Easel.
+// Parse JavaScript without importing it: user code must never execute in aesel.
 export async function validatePieceSource(source, file) {
   if (typeof source !== "string" || !source.trim()) throw new Error("The piece is empty.");
   if (extname(file) !== ".mjs") return; // Other runtimes retain their own loader validation.

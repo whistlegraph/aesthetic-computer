@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {API_WORKFLOW} from "./api-context.mjs";
@@ -23,7 +24,7 @@ import { AutoPublisher } from "./autopublish.mjs";
 import { RuntimeFeedback, readRuntimeFeedback, runtimeFeedbackContext } from "./runtime-feedback.mjs";
 import { createHash } from "node:crypto";
 import { Diagnostics } from "./diagnostics.mjs";
-import { EASEL_HEIGHT, easelFrame, easelNextFrame, easelWidth } from "./easel.mjs";
+import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mjs";
 import { Energy, energyReport } from "./energy.mjs";
 import {codexModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
@@ -34,7 +35,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, color, easelInk, renderBoot, renderFrame, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
+import { cleanText, color, aeselInk, renderBoot, renderFrame, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -44,7 +45,7 @@ import { needsLaunchChooser, savedThreads, chooseLaunch } from './launch-chooser
 import { archiveThread, replaceWork } from './new-work.mjs';
 import { FrameDiff } from './frame-diff.mjs';
 
-const frameDiff = new FrameDiff();
+const frameDiff = new FrameDiff({clearOnResize:!process.env.EASEL_DESKTOP});
 
 // Prevent terminal replies being echoed before asynchronous startup finishes.
 if(process.env.EASEL_DESKTOP && process.stdin.isTTY) process.stdin.setRawMode(true);
@@ -299,6 +300,7 @@ function autopublishRoute() {
 // the repository that holds them. Naming a path that isn't there teaches the
 // model to ignore the whole instruction.
 const STYLE_GUIDES = [
+  ["easel/SCORE.md", "the aesel piece workflow"],
   ["system/public/aesthetic.computer/disks/CLAUDE.md", "the piece authoring guide"],
   ["SCREEN.md", "how a piece draws on the AC canvas"],
   ["HAND.md", "how the code reads"],
@@ -307,17 +309,18 @@ const STYLE_GUIDES = [
 // The same knowledge, carried inside the install. A session opened in the
 // Aesthetic Computer repository reads the repo's own copies, which are newer by
 // definition; a session opened anywhere else — which is every session, once this
-// is installed rather than cloned — reads these. Without them Easel is a general
+// is installed rather than cloned — reads these. Without them aesel is a general
 // editor that happens to publish to a URL, and there is no reason to install it
 // over the vendor CLI it is already driving.
 const BUNDLED_CONTEXT = [
+  ["context/score.md", "the aesel piece workflow"],
   ["context/pieces.md", "the piece authoring guide"],
   ["context/screen.md", "how a piece draws on the AC canvas"],
   ["context/hand.md", "how the code reads"],
   ["context/kidlisp.md", "the KidLisp language"],
 ];
 
-const easelRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const aeselRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function styleInstructions() {
   // The working directory wins when it has the guides: inside the monorepo they
@@ -325,7 +328,7 @@ function styleInstructions() {
   const present = STYLE_GUIDES.filter(([file]) => existsSync(path.join(cwd, file)));
   const source = present.length
     ? present.map(([file, subject]) => [file, subject])
-    : BUNDLED_CONTEXT.map(([file, subject]) => [path.join(easelRoot, file), subject]).filter(
+    : BUNDLED_CONTEXT.map(([file, subject]) => [path.join(aeselRoot, file), subject]).filter(
         ([file]) => existsSync(file),
       );
   if (source.length === 0) return [];
@@ -371,9 +374,9 @@ function toolInstructions() {
 
 function developerInstructions() {
   if (state.medium !== 'piece') return [
-    `You are in Easel making a ${state.medium}. Use the artifact tools to edit the selected artifact, not write_piece or direct filesystem edits.`,
+    `You are in aesel making a ${state.medium}. Use the artifact tools to edit the selected artifact, not write_piece or direct filesystem edits.`,
     'Call artifact_context (MCP) to read current source and supported action schemas. Apply small complete updates with artifact_action. Do not claim a paper passed visual QA merely because it compiled.',
-    `If these MCP tools are unavailable, use this local CLI via your shell tools: ${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(easelRoot,'src/media-cli.mjs'))} context ${JSON.stringify(cwd)}. Apply an action with: run WORKSPACE ACTION JSON. Shell-quote all arguments safely.`,
+    `If these MCP tools are unavailable, use this local CLI via your shell tools: ${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(aeselRoot,'src/media-cli.mjs'))} context ${JSON.stringify(cwd)}. Apply an action with: run WORKSPACE ACTION JSON. Shell-quote all arguments safely.`,
     'Picture has AC draw tools including real fill, and remote image generation/editing. Use remote image tools only when the user asks for them; use composite.png as the reference for edits. Do not retry a failed paid request without another user request. Accepted painting steps autosave publicly under a short WIP code; /done seals it, and subsequent editing creates a copy.',
   ].join('\n');
   const account = session.handle
@@ -398,11 +401,11 @@ function developerInstructions() {
         ]
       : [
           "Publishing: writing a file under system/public/aesthetic.computer/disks/ or anywhere else does NOT make a piece live.",
-          "A piece is live only after the user runs the Easel command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
+          "A piece is live only after the user runs the aesel command `/publish <file> [slug]`, which uploads it under their @handle at https://aesthetic.computer/@handle/slug.",
           "When you finish a piece, end with the exact /publish command for the user to run. Never tell the user to visit a route that has not been published.",
         ];
   return [
-    "You are running inside Easel, a terminal interface for Aesthetic Computer (AC) work.",
+    "You are running inside aesel, a terminal interface for Aesthetic Computer (AC) work.",
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). Its current source is the source of truth; read it before editing and preserve existing work. Edit that file unless the user asks for something else.`,
     "Do not write the piece's name onto the screen: the system already shows it in the corner label. If the file still carries a placeholder that writes its own name, remove it in your first edit.",
@@ -432,7 +435,7 @@ function openEngine({ resume = "" } = {}) {
     resumeThreadId: resume,
     model,
     effort,
-    recoveryInstructions: conversationHandoff([...archivedConversation, ...state.entries]) || "Continue the currently selected Easel artifact. This new Easel thread has no recorded user conversation yet.",
+    recoveryInstructions: conversationHandoff([...archivedConversation, ...state.entries]) || "Continue the currently selected aesel artifact. This new aesel thread has no recorded user conversation yet.",
     developerInstructions: [developerInstructions(), handoff].filter(Boolean).join("\n\n"),
     // The hosted bridge has no subprocess and no file tools, so it needs the
     // two things a CLI would have found for itself: which file is the piece,
@@ -830,6 +833,11 @@ function restoreThread(thread) {
 }
 
 function handleNotification({ method, params = {} }) {
+  if (method === "serverRequest/resolved") {
+    approvalQueue.resolve(params.requestId, engine);
+    showPendingApproval();
+    return;
+  }
   switch (method) {
     case "turn/started":
       state.busy = true;
@@ -927,72 +935,58 @@ function handleNotification({ method, params = {} }) {
   redraw();
 }
 
-function approvalSubject(method, params) {
-  if (method === "item/commandExecution/requestApproval") {
-    return params.command || params.reason || "command";
+const approvalQueue = new ApprovalQueue();
+
+function showPendingApproval() {
+  const pending = approvalQueue.current;
+  state.approval = pending ? {id:pending.id, method:pending.method, subject:pending.subject, choicesText:pending.choicesText} : null;
+  if (state.approval) {
+    slabSession.awaitingInput("easel needs approval");
+    state.status = "approval";
+  } else {
+    slabSession.resumeWork();
+    state.status = state.busy ? "working" : "ready";
   }
-  if (method === "item/fileChange/requestApproval") {
-    return params.reason || params.grantRoot || "file change";
-  }
-  return method;
+  redraw();
 }
 
 function handleRequest(request) {
-  if (
-    request.method === "item/commandExecution/requestApproval" ||
-    request.method === "item/fileChange/requestApproval"
-  ) {
-    const subject = approvalSubject(request.method, request.params || {});
-    // Allowed without asking, by default. The first real session spent two of
-    // its two hours and nineteen minutes parked on prompts with nobody sitting
-    // in front of them, and that is the failure this default answers.
-    //
-    // The interface stays the approver rather than handing the decision down to
-    // the engine, so every action still arrives here and is still written into
-    // the transcript: you read what ran instead of being asked about it first.
-    // `/ask on` puts the question back for the rest of the session.
-    if (state.autoAllow) {
-      engine.respond(request.id, { decision: "accept" });
-      addEntry("notice", `Ran: ${subject}`);
-      redraw();
-      return;
-    }
-    state.approval = { id: request.id, method: request.method, subject };
-    slabSession.awaitingInput(
-      request.method === "item/commandExecution/requestApproval"
-        ? "easel needs command approval"
-        : "easel needs file approval",
-    );
-    state.status = "approval";
+  if (process.env.EASEL_APPROVAL_DEBUG === "1" && (request.method === "mcpServer/elicitation/request" || request.method === "item/tool/requestUserInput")) {
+    addEntry("notice", `Approval request shape: ${JSON.stringify(approvalShape(request))}`);
+  }
+  const approval = approvalFor(request);
+  if (!approval) {
+    addEntry("error", `Unsupported engine request: ${request.method}`);
+    engine.reject(request.id, -32601, `aesel does not support ${request.method} yet`);
     redraw();
     return;
   }
-  engine.reject(request.id, -32601, `Easel does not support ${request.method} yet`);
+  // Every tool/provider follows the same default YOLO preference as edits/commands.
+  const automatic = state.autoAllow && defaultApprovalResponse(request);
+  if (automatic) {
+    engine.respond(request.id, automatic);
+    addEntry("notice", `Ran: ${approval.subject}`);
+    redraw();
+    return;
+  }
+  approvalQueue.enqueue(request, engine);
+  addEntry(approval.kind === "unsupported" ? "error" : "notice", approval.subject);
+  showPendingApproval();
 }
 
 function answerApproval(character) {
-  const approval = state.approval;
-  if (!approval) return false;
+  if (!state.approval) return false;
+  const answer = approvalQueue.answer(character, engine);
+  if (!answer) {
+    if (!approvalQueue.current) showPendingApproval();
+    return true;
+  }
+  engine.respond(answer.approval.id, answer.response);
   const key = character.toLowerCase();
-  const decision =
-    key === "y"
-      ? "accept"
-      : key === "a"
-        ? "acceptForSession"
-        : key === "n"
-          ? "decline"
-          : character === "\u0003"
-            ? "cancel"
-            : null;
-  if (!decision) return true;
-  engine.respond(approval.id, { decision });
-  const result = decision === "decline" ? "Denied" : decision === "cancel" ? "Cancelled" : "Allowed";
-  addEntry("notice", `${result}: ${approval.subject}`);
-  state.approval = null;
-  if (decision === "cancel") slabSession.interrupted();
-  else slabSession.resumeWork();
-  state.status = state.busy ? "working" : "ready";
-  redraw();
+  const result = key === "n" ? (answer.approval.kind === "unsupported" ? "Dismissed unsupported request" : "Denied") : key === "\u0003" ? "Cancelled" : "Allowed";
+  addEntry("notice", `${result}: ${answer.approval.subject}`);
+  showPendingApproval();
+  if (key === "\u0003" && !state.approval) slabSession.interrupted();
   return true;
 }
 
@@ -1038,11 +1032,11 @@ function refreshAccount(announce = false) {
   if(coloredAccount!==state.account){
     coloredAccount=state.account;const account=state.account;
     state.handleColors=account.startsWith('@')?handleCharacterColors(account):null;
-    if(account.startsWith('@'))fetchHandleColors(account).then(colors=>{if(state.account===account){state.handleColors=colors;redraw();}}).catch(()=>{});
+    if(account.startsWith('@'))fetchHandleColors(account).then(colors=>{if(state.account===account){state.handleColors=colors;slabSession.identity(session.handle,colors);redraw();}}).catch(()=>{});
   }
   const nextBroadcastOwner=session.read()?.user?.sub || '';
   if(broadcastOwner!==nextBroadcastOwner){draftBroadcast.suspend();broadcastOwner=nextBroadcastOwner;draftPublication=null;if(currentArtifact)announceArtifact();}
-  slabSession.identity(session.handle);
+  slabSession.identity(session.handle,state.handleColors);
   live.handle = session.handle || "";
   publishBlankOnce();
   if (announce && previous !== state.account) {
@@ -1507,25 +1501,26 @@ async function submitInput() {
       }
       return redraw();
     }
+    if (command === "/home") return requestDesktop("home");
     if (command === "/restart") return requestDesktop("restart");
     if (command === "/update" && desktopSessionPath) return requestDesktop("update");
     if (command === "/update") {
       if (!installed()) {
-        addEntry("notice", `Easel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
+        addEntry("notice", `aesel ${currentVersion()} — running from a checkout, so there is nothing to update. Use git.`);
         return redraw();
       }
-      addEntry("notice", "Checking for a newer Easel…");
+      addEntry("notice", "Checking for a newer aesel…");
       redraw();
       try {
         const update = await checkForUpdate({ force: true });
         if (!update) {
-          addEntry("notice", `Easel ${currentVersion()} is the latest.`);
+          addEntry("notice", `aesel ${currentVersion()} is the latest.`);
           return redraw();
         }
-        addEntry("notice", `Installing Easel ${update.version}…`);
+        addEntry("notice", `Installing aesel ${update.version}…`);
         redraw();
         const version = await applyUpdate({ manifest: update });
-        addEntry("notice", `Easel ${version} installed. Restart to run it.`);
+        addEntry("notice", `aesel ${version} installed. Restart to run it.`);
       } catch (error) {
         addEntry("error", `Update failed: ${errorText(error)}`);
       }
@@ -1675,7 +1670,7 @@ async function submitInput() {
 
   if(!transcriptJournal || !transcriptSharing || session.read()?.user?.sub!==sharingAcknowledgment.owner){
     state.input=text;state.cursor=Array.from(text).length;
-    addEntry('error','Required transcript sharing is unavailable. Sign back into the accepted account, or restart Easel to review the policy for another account.');return redraw();
+    addEntry('error','Required transcript sharing is unavailable. Sign back into the accepted account, or restart aesel to review the policy for another account.');return redraw();
   }
   if (state.busy) {
     state.queued.push(text);
@@ -1849,7 +1844,7 @@ function handleKeys(buffer) {
           if (desktopSessionPath) process.stdout.write(`\x1b]777;easel-pointer:${action}\x07`);
           redraw();
         }
-        if (mouse.click && action === "about") { state.about = !state.about; state.aboutScroll = 0; redraw(); }
+        if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
         if(mouse.click&&action.startsWith('settings:')){
           const row=Number(action.split(':')[1]);
@@ -1879,14 +1874,14 @@ function splashTick() {
   const canvas = { piece: live.slug, address: live.scanUrl };
   const columns = process.stdout.columns || 80;
   // NO_COLOR gets the plain frame, the same as the entrance does.
-  const lines = easelFrame(elapsed, canvas, process.env.NO_COLOR === "1" ? null : easelInk);
+  const lines = aeselFrame(elapsed, canvas, process.env.NO_COLOR === "1" ? null : aeselInk);
   // Measured, not counted: the painted lines carry escapes that take no columns.
-  const pad = Math.max(0, Math.floor((columns - easelWidth(canvas.piece, canvas.address)) / 2));
+  const pad = Math.max(0, Math.floor((columns - aeselWidth(canvas.piece, canvas.address)) / 2));
   const gap = Math.max(0, Math.floor(((process.stdout.rows || 24) - EASEL_HEIGHT) / 2));
   const body = lines.map((line) => " ".repeat(pad) + line).join("\n");
   process.stdout.write(`\x1b[H\x1b[2J${color.ground}${"\n".repeat(gap)}${body}`);
 
-  const next = easelNextFrame(elapsed, canvas);
+  const next = aeselNextFrame(elapsed, canvas);
   if (next === null) {
     splashing = false;
     splashTimer = null;
@@ -1935,7 +1930,7 @@ checkForUpdate()
     if (!update) return;
     addEntry(
       "notice",
-      `Easel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
+      `aesel ${update.version} is out — you have ${update.current}. Run /update to install it.`,
     );
     redraw();
   })

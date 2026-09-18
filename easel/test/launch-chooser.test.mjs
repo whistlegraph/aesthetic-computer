@@ -28,7 +28,7 @@ test('opening menu fits narrow and wide terminals without leaking thread ANSI',a
   const lines=frame.split('\n');assert.equal(lines.length,23);
   for(const line of lines)assert.ok(textWidth(line)<=columns-1);
   const plain=cleanText(frame);assert.ok(plain.includes('red'));assert.ok(!plain.includes('[31m'));
-  const title=lines.map(cleanText).find(line=>line.includes('EASEL'));
-  assert.ok(Math.abs(title.indexOf('EASEL')-(columns-1-5)/2)<=1);
+  const title=lines.map(cleanText).find(line=>line.includes('aesel'));
+  assert.ok(Math.abs(title.indexOf('aesel')-(columns-1-5)/2)<=1);
  }
 });

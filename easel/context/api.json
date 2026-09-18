@@ -120,7 +120,8 @@
    "source": "lib/graph.mjs:2797",
    "examples": [
     "disks/flap.mjs:50  if (store[`flap~${num}`]) stamp(store[`flap~${num}`], screen.width / 2, screen.height / 2);",
-    "disks/graphics.mjs:28  stamp("
+    "disks/graphics.mjs:28  stamp(",
+    "disks/kokazo.mjs:243  stamp(ink, color, x, y, jx, jy, r);"
    ]
   },
   {
@@ -654,7 +655,7 @@
    "path": "sound.synth",
    "signature": "sound.synth({ tone = 440, type = \"square\", duration = 0.1, beats = undefined, attack = 0.01, decay = 0.9, volume, pan = 0, immediate = false, probe = null, generator = null, })",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13270",
+   "source": "lib/disk.mjs:13283",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -666,7 +667,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13185",
+   "source": "lib/disk.mjs:13198",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -730,7 +731,7 @@
    "examples": [
     "disks/bgm.mjs:26  if (params.length === 0) params[0] = num.randInt(trackCount - 1);",
     "disks/crayon.mjs:86  let numDots = num.randInt(minNumDots, maxNumDots);",
-    "disks/doodle.mjs:76  const x = points[i][0] + -1 + num.randInt(2);"
+    "disks/dafu.mjs:101  const speed = num.randInt(20) / 10 + 0.4;"
    ]
   },
   {

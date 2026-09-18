@@ -22,6 +22,11 @@
       Swift → JS is `window.aesel.*`. JS → Swift is one message handler named
       `aesel`, carrying the session's events verbatim.
     -->
+    <script>
+      const hostError = (text) => window.webkit?.messageHandlers?.aesel?.postMessage({type: "hostError", text});
+      window.addEventListener("error", event => hostError(event.message || "The session module could not load."));
+      window.addEventListener("unhandledrejection", event => hostError(String(event.reason?.message || event.reason)));
+    </script>
     <script src="/easel/phone/shim/globals.js"></script>
     <script type="importmap">
       {
@@ -34,6 +39,8 @@
           "node:os": "/easel/phone/shim/absent.mjs",
           "node:http": "/easel/phone/shim/absent.mjs",
           "node:child_process": "/easel/phone/shim/absent.mjs",
+          "/easel/src/preview-frame.mjs": "/easel/phone/shim/preview-frame.mjs",
+          "/easel/src/jev-advisor.mjs": "/easel/phone/shim/jev-advisor.mjs",
           "/easel/src/revisions.mjs": "/easel/phone/shim/revisions.mjs"
         }
       }
@@ -75,7 +82,11 @@
       globalThis.aesel = {
         ask: guard("ask", (text) => session.ask(String(text))),
         stop: () => session.stop(),
-        newPiece: () => session.newPiece(),
+        signOut: () => session.signOut(),
+        newPiece: guard("newPiece", (medium = "piece") => session.newSession(medium)),
+        resumeSession: guard("resumeSession", (id) => session.resumeSession(String(id))),
+        save: () => session.saveCurrent(),
+        setModel: guard("model", (model) => session.setModel(String(model))),
         publish: guard("publish", () => session.publish()),
         adoptToken: guard("adoptToken", async (token) => {
           await session.adoptToken(String(token));
@@ -83,23 +94,7 @@
         }),
         restore: guard("restore", async () => {
           let ok = await session.restore();
-          // No stored session: while this page is served by `serve.mjs
-          // --token`, the laptop will hand over its own ~/.ac-token. That is
-          // the whole of sign-in on device until the Auth0 callback for
-          // ASWebAuthenticationSession is registered.
-          if (!ok) {
-            try {
-              const response = await fetch("/dev-token");
-              if (response.ok) {
-                const { access_token } = await response.json();
-                await session.adoptToken(access_token);
-                ok = true;
-              }
-            } catch {
-              // Not served by the dev server; stay signed out.
-            }
-          }
-          if (ok) await session.open();
+          await session.open();
           post({ type: "restored", signedIn: ok });
         }),
       };

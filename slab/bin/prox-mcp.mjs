@@ -137,20 +137,31 @@ function line(r) {
   // Tag the owning agent when it isn't the default (Claude), so a mixed
   // fleet reads clearly: "session·codex".
   const agent = r.agentType && r.agentType !== "claude" ? `·${r.agentType}` : "";
-  return `${mark} ${r.host}:${r.name}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
+  const alias = r.proxName ? `  prox:easel:${r.proxName}` : "";
+  return `${mark} ${r.host}:${r.name}${alias}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
 }
 
 // ── resolve a `host:name` / bare-name / fuzzy handle to rock rows ────────────
 function resolve(rocks, handle) {
   if (!handle) return rocks;
   const h = handle.trim().toLowerCase();
+  if (h.startsWith("prox:easel:") || h.startsWith("easel:")) {
+    const parts = h.replace(/^prox:/, "").split(":").slice(1);
+    if (parts.length < 1 || parts.length > 2 || parts.some(p => !p)) return [];
+    const [host, name] = parts.length === 2 ? parts : [null, parts[0]];
+    // Namespace references are exact. Colliding cached peer names remain
+    // ambiguous; mutating callers already reject multiple matches.
+    return rocks.filter(r => r.agentType === "easel" &&
+      (!host || (host === "local" ? r.self : r.host.toLowerCase() === host)) &&
+      (r.proxName || r.name).toLowerCase() === name);
+  }
   let host = null;
   let name = h;
   if (h.includes(":")) {
     [host, name] = h.split(":", 2);
-    host = host === "local" ? null : host; // "local:foo" → any host with name foo on self
+    // local remains a real scope; never match a same-named remote session.
   }
-  const inHost = (r) => !host || r.host.toLowerCase() === host || (host === "local" && r.self);
+  const inHost = (r) => !host || (host === "local" ? r.self : r.host.toLowerCase() === host);
   // Stable session id is the strongest identity; then exact pet name, prefix,
   // and substring — so `neo:reg` still finds regif.
   const id = rocks.filter((r) => inHost(r) && r.id.toLowerCase() === name);
@@ -241,6 +252,7 @@ async function toolFind({ handle }) {
   for (const r of hits) {
     L.push(
       `\n${r.host}:${r.name}  ${r.self ? "(this machine)" : ""}`,
+      ...(r.proxName ? [`  address: prox:easel:${r.proxName} (scoped: prox:easel:${r.host}:${r.proxName})`] : []),
       `  status:  ${r.status}   kind: ${r.kind}   last active: ${age(r.updated)} ago`,
       `  subject: ${(r.subject || "").replace(/\s+/g, " ")}`,
       `  cwd:     ${r.cwd || "?"}`,
@@ -270,6 +282,32 @@ async function toolPoke({ handle, by }) {
     signal: AbortSignal.timeout(5000),
   }).catch((e) => { throw new Error(`poke to ${r.host} (${r.ip}) failed: ${e.message}`); });
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
+}
+
+async function toolWake({ handle, prompt, by }) {
+  if (!handle) throw new Error("`handle` is required (a host:name or prox:easel:name; see prox_find).");
+  const text = String(prompt || "").trim();
+  if (!text) throw new Error("`prompt` is required.");
+  if (text.length > 1000) throw new Error("`prompt` exceeds 1000 characters.");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to wake.`);
+  if (hits.length > 1) {
+    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Wake a specific host:name.` }];
+  }
+  const r = hits[0];
+  if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its ledger server.`);
+  const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const waker = by || `${self}:prox`;
+  const body = JSON.stringify({ by: waker, id: r.id, prompt: text });
+  const res = await fetch(`http://${r.ip}:${PORT}/wake`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    body,
+    signal: AbortSignal.timeout(5000),
+  }).catch((e) => { throw new Error(`wake to ${r.host} (${r.ip}) failed: ${e.message}`); });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok || result.ok === false) throw new Error(result.error || `wake failed (HTTP ${res.status})`);
+  return [{ type: "text", text: `woke ${r.host}:${r.name} as «${waker}» with a bounded continuation.` }];
 }
 
 async function toolDump({ handle, destination } = {}) {
@@ -622,6 +660,20 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_wake",
+    description:
+      "Wake one live Claude, Codex, or Easel rock with a bounded continuation prompt. Easel routes to its exact native window; terminal agents route to their exact tty. Resolves host:name and prox:easel:name handles and refuses ambiguous matches.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "A host:name, session id, or prox:easel:name resolving to exactly one rock." },
+        prompt: { type: "string", description: "Continuation prompt, at most 1000 characters." },
+        by: { type: "string", description: "Optional caller label recorded by the target." },
+      },
+      required: ["handle", "prompt"],
+    },
+  },
+  {
     name: "prox_close",
     description:
       "Close a prompt rock — end that agent session and shut its terminal window. Resolves a `host:name` / fuzzy handle (refuses ambiguous matches), ends the session, and closes its Terminal.app window. DESTRUCTIVE: the running session is terminated; its transcript remains resumable. Only closes rocks on this machine and refuses to close the calling session.",
@@ -701,6 +753,7 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_wake": return toolWake(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_job": return toolJob(args || {});
     case "prox_bind_notification": return toolBindNotification(args || {});

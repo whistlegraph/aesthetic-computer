@@ -1,0 +1,1535 @@
+[
+  {
+    "id": "idle-ear-listen",
+    "label": "Listen with one ear",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 700
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": -6
+      },
+      {
+        "pose": 3,
+        "duration": 450,
+        "rotate": -6
+      },
+      {
+        "pose": 0,
+        "duration": 700
+      }
+    ]
+  },
+  {
+    "id": "idle-ear-sweep",
+    "label": "Sweep both ears",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": -5
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "rotate": 5
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": -3
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-look-left",
+    "label": "Look left",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 450
+      },
+      {
+        "pose": 2,
+        "duration": 300,
+        "flip": true
+      },
+      {
+        "pose": 3,
+        "duration": 900,
+        "flip": true
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-look-right",
+    "label": "Look right",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 450,
+        "flip": true
+      },
+      {
+        "pose": 2,
+        "duration": 300
+      },
+      {
+        "pose": 3,
+        "duration": 900
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-look-up",
+    "label": "Look up",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": -9,
+        "y": -2
+      },
+      {
+        "pose": 3,
+        "duration": 650,
+        "rotate": -9,
+        "y": -2
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-peek-down",
+    "label": "Peek at the floor",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": 9,
+        "y": 2
+      },
+      {
+        "pose": 1,
+        "duration": 650,
+        "rotate": 9,
+        "y": 2
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-double-take",
+    "label": "Double take",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 350
+      },
+      {
+        "pose": 2,
+        "duration": 160,
+        "flip": true
+      },
+      {
+        "pose": 0,
+        "duration": 160
+      },
+      {
+        "pose": 3,
+        "duration": 450,
+        "flip": true,
+        "x": -2
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-curious-tilt",
+    "label": "Curious head tilt",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 350
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "rotate": 8
+      },
+      {
+        "pose": 2,
+        "duration": 350,
+        "rotate": -4
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-slow-blink",
+    "label": "Slow blink",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 1100
+      },
+      {
+        "pose": 1,
+        "duration": 350
+      },
+      {
+        "pose": 0,
+        "duration": 800
+      }
+    ]
+  },
+  {
+    "id": "idle-wink-bow",
+    "label": "Wink and bow",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 450
+      },
+      {
+        "pose": 1,
+        "duration": 250,
+        "rotate": 5,
+        "scaleY": 0.94
+      },
+      {
+        "pose": 3,
+        "duration": 400
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-nod-yes",
+    "label": "Nod yes",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 300
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "rotate": 7,
+        "y": 1
+      },
+      {
+        "pose": 2,
+        "duration": 180
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "rotate": 7,
+        "y": 1
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-shake-no",
+    "label": "Shake no",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 300,
+        "x": -2
+      },
+      {
+        "pose": 3,
+        "duration": 170,
+        "x": 2
+      },
+      {
+        "pose": 2,
+        "duration": 170,
+        "x": -2
+      },
+      {
+        "pose": 3,
+        "duration": 170,
+        "x": 2
+      },
+      {
+        "pose": 0,
+        "duration": 450
+      }
+    ]
+  },
+  {
+    "id": "idle-tiny-bow",
+    "label": "Tiny bow",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 2,
+        "duration": 300,
+        "rotate": 10,
+        "scaleY": 0.9
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "rotate": 10,
+        "scaleY": 0.9
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-proud-stand",
+    "label": "Stand proudly",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 2,
+        "duration": 400,
+        "scaleY": 1.06,
+        "y": -2
+      },
+      {
+        "pose": 3,
+        "duration": 700,
+        "scaleY": 1.06,
+        "y": -2
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-shy-turn",
+    "label": "Shy turn",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 3,
+        "duration": 250
+      },
+      {
+        "pose": 1,
+        "duration": 450,
+        "flip": true,
+        "x": -2
+      },
+      {
+        "pose": 0,
+        "duration": 650,
+        "flip": true
+      },
+      {
+        "pose": 2,
+        "duration": 350
+      }
+    ]
+  },
+  {
+    "id": "idle-hoof-shuffle",
+    "label": "Shuffle hooves",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 12,
+        "duration": 180,
+        "x": -2
+      },
+      {
+        "pose": 13,
+        "duration": 180
+      },
+      {
+        "pose": 14,
+        "duration": 180,
+        "x": 2
+      },
+      {
+        "pose": 15,
+        "duration": 180
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-weight-shift",
+    "label": "Shift weight",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 600,
+        "rotate": -2,
+        "x": -1
+      },
+      {
+        "pose": 2,
+        "duration": 600,
+        "rotate": 2,
+        "x": 1
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-foot-tap",
+    "label": "Tap a hoof",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 400
+      },
+      {
+        "pose": 12,
+        "duration": 160
+      },
+      {
+        "pose": 0,
+        "duration": 200
+      },
+      {
+        "pose": 12,
+        "duration": 160
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-stretch-tall",
+    "label": "Stretch tall",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 350
+      },
+      {
+        "pose": 2,
+        "duration": 400,
+        "scaleY": 1.1,
+        "scaleX": 0.96,
+        "y": -3
+      },
+      {
+        "pose": 3,
+        "duration": 700,
+        "scaleY": 1.1,
+        "scaleX": 0.96,
+        "y": -3
+      },
+      {
+        "pose": 0,
+        "duration": 450
+      }
+    ]
+  },
+  {
+    "id": "idle-stretch-wide",
+    "label": "Stretch wide",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 300
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "scaleX": 1.08,
+        "scaleY": 0.95
+      },
+      {
+        "pose": 3,
+        "duration": 500,
+        "scaleX": 1.08,
+        "scaleY": 0.95
+      },
+      {
+        "pose": 0,
+        "duration": 450
+      }
+    ]
+  },
+  {
+    "id": "idle-shoulder-roll",
+    "label": "Roll shoulders",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": -4,
+        "y": -1
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "rotate": 0,
+        "y": -3
+      },
+      {
+        "pose": 2,
+        "duration": 250,
+        "rotate": 4,
+        "y": -1
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-settle",
+    "label": "Settle into place",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 14,
+        "duration": 180,
+        "y": -2
+      },
+      {
+        "pose": 0,
+        "duration": 200,
+        "scaleY": 0.9,
+        "y": 2
+      },
+      {
+        "pose": 1,
+        "duration": 350,
+        "scaleY": 0.96,
+        "y": 1
+      },
+      {
+        "pose": 0,
+        "duration": 700
+      }
+    ]
+  },
+  {
+    "id": "idle-scratch-ear",
+    "label": "Scratch an ear",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 300
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "rotate": -7
+      },
+      {
+        "pose": 9,
+        "duration": 180,
+        "rotate": -4
+      },
+      {
+        "pose": 10,
+        "duration": 180,
+        "rotate": -7
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-scratch-chin",
+    "label": "Scratch chin",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 350
+      },
+      {
+        "pose": 8,
+        "duration": 350,
+        "rotate": 7
+      },
+      {
+        "pose": 9,
+        "duration": 250,
+        "rotate": 4
+      },
+      {
+        "pose": 3,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-sniff-air",
+    "label": "Sniff the air",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 500
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "x": 2,
+        "y": -1
+      },
+      {
+        "pose": 3,
+        "duration": 180,
+        "x": 3,
+        "y": -2
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "x": 2,
+        "y": -1
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-sniff-floor",
+    "label": "Sniff the floor",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 300
+      },
+      {
+        "pose": 8,
+        "duration": 350,
+        "rotate": 10,
+        "y": 3
+      },
+      {
+        "pose": 9,
+        "duration": 250,
+        "rotate": 7,
+        "x": 2,
+        "y": 3
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-sneeze",
+    "label": "Little sneeze",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 450,
+        "scaleY": 1.04
+      },
+      {
+        "pose": 1,
+        "duration": 200,
+        "rotate": -5
+      },
+      {
+        "pose": 3,
+        "duration": 120,
+        "rotate": 12,
+        "x": 3,
+        "effect": "puff"
+      },
+      {
+        "pose": 0,
+        "duration": 300,
+        "x": -1
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-hiccup",
+    "label": "Hiccup",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 650
+      },
+      {
+        "pose": 3,
+        "duration": 100,
+        "y": -4,
+        "scaleY": 1.04
+      },
+      {
+        "pose": 1,
+        "duration": 180,
+        "scaleY": 0.94
+      },
+      {
+        "pose": 0,
+        "duration": 650
+      }
+    ]
+  },
+  {
+    "id": "idle-yawn",
+    "label": "Yawn",
+    "category": "idle",
+    "states": [
+      "idle",
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 600
+      },
+      {
+        "pose": 3,
+        "duration": 800,
+        "scaleY": 1.06,
+        "rotate": -4
+      },
+      {
+        "pose": 1,
+        "duration": 400
+      },
+      {
+        "pose": 4,
+        "duration": 700
+      }
+    ]
+  },
+  {
+    "id": "idle-doze-nod",
+    "label": "Doze and nod",
+    "category": "idle",
+    "states": [
+      "idle",
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 900
+      },
+      {
+        "pose": 1,
+        "duration": 700,
+        "rotate": 3
+      },
+      {
+        "pose": 4,
+        "duration": 900,
+        "rotate": 7
+      },
+      {
+        "pose": 2,
+        "duration": 180
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-curl-sleep",
+    "label": "Curl up to sleep",
+    "category": "idle",
+    "states": [
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 500
+      },
+      {
+        "pose": 4,
+        "duration": 500,
+        "scaleY": 0.92,
+        "y": 2
+      },
+      {
+        "pose": 5,
+        "duration": 850,
+        "scaleY": 0.86,
+        "y": 4
+      },
+      {
+        "pose": 6,
+        "duration": 1100,
+        "scaleY": 0.86,
+        "y": 4
+      }
+    ]
+  },
+  {
+    "id": "idle-sleep-breathe",
+    "label": "Sleeping breath",
+    "category": "idle",
+    "states": [
+      "sleeping"
+    ],
+    "loop": true,
+    "frames": [
+      {
+        "pose": 4,
+        "duration": 1000,
+        "scaleY": 0.96
+      },
+      {
+        "pose": 5,
+        "duration": 1000,
+        "scaleY": 1.02,
+        "y": -1
+      },
+      {
+        "pose": 6,
+        "duration": 1000,
+        "scaleY": 0.98
+      },
+      {
+        "pose": 7,
+        "duration": 1000
+      }
+    ]
+  },
+  {
+    "id": "idle-sleep-twitch",
+    "label": "Dreaming hoof twitch",
+    "category": "idle",
+    "states": [
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 4,
+        "duration": 1200
+      },
+      {
+        "pose": 6,
+        "duration": 150,
+        "x": 1
+      },
+      {
+        "pose": 5,
+        "duration": 700
+      },
+      {
+        "pose": 7,
+        "duration": 150,
+        "x": -1
+      },
+      {
+        "pose": 4,
+        "duration": 1000
+      }
+    ]
+  },
+  {
+    "id": "idle-dream-trot",
+    "label": "Dream of trotting",
+    "category": "idle",
+    "states": [
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 4,
+        "duration": 900
+      },
+      {
+        "pose": 5,
+        "duration": 350,
+        "y": -1
+      },
+      {
+        "pose": 6,
+        "duration": 350,
+        "x": 1
+      },
+      {
+        "pose": 7,
+        "duration": 350,
+        "y": -1
+      },
+      {
+        "pose": 4,
+        "duration": 900
+      }
+    ]
+  },
+  {
+    "id": "idle-wake-stretch",
+    "label": "Wake and stretch",
+    "category": "idle",
+    "states": [
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 4,
+        "duration": 500
+      },
+      {
+        "pose": 1,
+        "duration": 350
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "scaleY": 1.08,
+        "y": -3
+      },
+      {
+        "pose": 3,
+        "duration": 350
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-startle",
+    "label": "Small startle",
+    "category": "idle",
+    "states": [
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 500
+      },
+      {
+        "pose": 3,
+        "duration": 120,
+        "y": -7
+      },
+      {
+        "pose": 2,
+        "duration": 180,
+        "y": -3
+      },
+      {
+        "pose": 0,
+        "duration": 180,
+        "scaleY": 0.92
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-greet-bow",
+    "label": "Greet with a bow",
+    "category": "idle",
+    "states": [
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 400
+      },
+      {
+        "pose": 8,
+        "duration": 350,
+        "rotate": 8
+      },
+      {
+        "pose": 3,
+        "duration": 500
+      },
+      {
+        "pose": 0,
+        "duration": 650
+      }
+    ]
+  },
+  {
+    "id": "idle-greet-bounce",
+    "label": "Greeting bounce",
+    "category": "idle",
+    "states": [
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 250
+      },
+      {
+        "pose": 3,
+        "duration": 200,
+        "y": -4
+      },
+      {
+        "pose": 2,
+        "duration": 200
+      },
+      {
+        "pose": 3,
+        "duration": 200,
+        "y": -2
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-listen-close",
+    "label": "Lean in to listen",
+    "category": "idle",
+    "states": [
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 350
+      },
+      {
+        "pose": 2,
+        "duration": 450,
+        "x": 4,
+        "rotate": -3
+      },
+      {
+        "pose": 3,
+        "duration": 800,
+        "x": 4,
+        "rotate": -3
+      },
+      {
+        "pose": 0,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-ponder",
+    "label": "Ponder quietly",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 600
+      },
+      {
+        "pose": 9,
+        "duration": 600,
+        "rotate": 6
+      },
+      {
+        "pose": 1,
+        "duration": 350
+      },
+      {
+        "pose": 3,
+        "duration": 700
+      }
+    ]
+  },
+  {
+    "id": "idle-remember",
+    "label": "Remember something",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 1,
+        "duration": 450
+      },
+      {
+        "pose": 2,
+        "duration": 350,
+        "rotate": -4
+      },
+      {
+        "pose": 3,
+        "duration": 250,
+        "y": -2
+      },
+      {
+        "pose": 0,
+        "duration": 600
+      }
+    ]
+  },
+  {
+    "id": "idle-bashful-bob",
+    "label": "Bashful bob",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 3,
+        "duration": 350
+      },
+      {
+        "pose": 1,
+        "duration": 350,
+        "rotate": 6,
+        "x": -1
+      },
+      {
+        "pose": 2,
+        "duration": 350,
+        "rotate": -4
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-content-sway",
+    "label": "Contented sway",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 650,
+        "rotate": -3,
+        "x": -1
+      },
+      {
+        "pose": 1,
+        "duration": 400
+      },
+      {
+        "pose": 0,
+        "duration": 650,
+        "rotate": 3,
+        "x": 1
+      },
+      {
+        "pose": 2,
+        "duration": 400
+      }
+    ]
+  },
+  {
+    "id": "idle-inspect-hoof",
+    "label": "Inspect a hoof",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 350
+      },
+      {
+        "pose": 12,
+        "duration": 500,
+        "rotate": 7
+      },
+      {
+        "pose": 8,
+        "duration": 550,
+        "rotate": 9
+      },
+      {
+        "pose": 0,
+        "duration": 500
+      }
+    ]
+  },
+  {
+    "id": "idle-turn-and-return",
+    "label": "Turn and return",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 450
+      },
+      {
+        "pose": 13,
+        "duration": 250,
+        "flip": true
+      },
+      {
+        "pose": 2,
+        "duration": 600,
+        "flip": true
+      },
+      {
+        "pose": 14,
+        "duration": 250
+      },
+      {
+        "pose": 0,
+        "duration": 450
+      }
+    ]
+  },
+  {
+    "id": "idle-quiet-cheer",
+    "label": "Quiet cheer",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 300
+      },
+      {
+        "pose": 3,
+        "duration": 350,
+        "y": -3,
+        "rotate": -3
+      },
+      {
+        "pose": 2,
+        "duration": 300,
+        "rotate": 3
+      },
+      {
+        "pose": 0,
+        "duration": 550
+      }
+    ]
+  },
+  {
+    "id": "idle-balance",
+    "label": "Balance on a hoof",
+    "category": "idle",
+    "states": [
+      "idle",
+      "awake"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 0,
+        "duration": 350
+      },
+      {
+        "pose": 12,
+        "duration": 500,
+        "rotate": -6,
+        "x": -2
+      },
+      {
+        "pose": 14,
+        "duration": 400,
+        "rotate": 4,
+        "x": 1
+      },
+      {
+        "pose": 0,
+        "duration": 550
+      }
+    ]
+  },
+  {
+    "id": "idle-goodnight",
+    "label": "Goodnight nod",
+    "category": "idle",
+    "states": [
+      "sleeping"
+    ],
+    "loop": false,
+    "frames": [
+      {
+        "pose": 2,
+        "duration": 500
+      },
+      {
+        "pose": 1,
+        "duration": 500,
+        "rotate": 5
+      },
+      {
+        "pose": 4,
+        "duration": 800
+      },
+      {
+        "pose": 5,
+        "duration": 1000
+      }
+    ]
+  }
+]

@@ -1,27 +1,36 @@
 async function boot() {
 const donkey = window.AeselDonkey.createDonkey({canvas:document.getElementById("aesel-donkey")});
 window.addEventListener("beforeunload",()=>donkey.destroy(),{once:true});
-await document.fonts.load('16px "AC Easel Unifont"');
+await document.fonts.load('16px "AC aesel Unifont"');
 let savedTextSize = 16;
 try { const size = Number(localStorage.getItem('easel-text-size')); if (size >= 8 && size <= 48) savedTextSize = size; } catch {}
 let bitmapFont = true;
-const terminal = new Terminal({ fontFamily: '"AC Easel Unifont", Menlo, monospace', fontSize: savedTextSize,
+const terminal = new Terminal({ fontFamily: '"AC aesel Unifont", Menlo, monospace', fontSize: savedTextSize,
   fontWeight: '400', fontWeightBold: '400', lineHeight: 1, letterSpacing: 0, cursorBlink: false, scrollback: 0,
-  theme: { background: '#463264', foreground: '#ffffff', cursor: '#ff64ff' }, allowProposedApi: false });
+  allowTransparency:true,
+  theme: { background: '#00000000', foreground: '#ffffff', cursor: '#ff64ff' }, allowProposedApi: false });
 const fit = new FitAddon.FitAddon();
 terminal.loadAddon(fit);
 terminal.open(document.getElementById('terminal'));
-window.easel.onTheme(theme => {
-  terminal.options.theme = theme;
+terminal.options.linkHandler={activate:(_event,url)=>window.aesel.openLink(url)};
+const terminalLinks=window.AeselTerminalLinks.attach(terminal,{open:url=>window.aesel.openLink(url),onError:console.error});
+window.aesel.onTheme(theme => {
+  terminal.options.theme = {...theme,background:"#00000000"};
+  window.SpriteLand.theme(theme.background);
+  resize();
   document.getElementById('qr-label').style.setProperty('--qr-status-shadow',theme.cursor);
-  for (const [name,value] of Object.entries({background:theme.background,foreground:theme.foreground,accent:theme.cursor})) document.documentElement.style.setProperty('--easel-'+name,value);
+  for (const [name,value] of Object.entries({background:theme.background,foreground:theme.foreground,accent:theme.cursor})) document.documentElement.style.setProperty('--aesel-'+name,value);
 });
 try {
   const gpu = new WebglAddon.WebglAddon();
   gpu.onContextLoss(() => gpu.dispose());
   terminal.loadAddon(gpu);
 } catch (error) { console.info('Terminal using fallback renderer:', error.message); }
-let resizeFrame = 0;
+let resizeFrame = 0, resizeEndTimer = null;
+let sentGrid = "";
+const layoutProperties = new Map();
+function layoutProperty(key,value){if(layoutProperties.get(key)===value)return;layoutProperties.set(key,value);document.documentElement.style.setProperty(key,value);}
+function fitTerminal(){const dimensions=fit.proposeDimensions();if(!dimensions)return;const {cols,rows}=dimensions;if(cols!==terminal.cols||rows!==terminal.rows)terminal.resize(cols,rows);const grid=`${cols}:${rows}`;if(grid!==sentGrid){sentGrid=grid;window.aesel.size(cols,rows);}}
 let publication = "";
 let fullscreenState = { app: false, preview: false };
 let previewAspect = 1.5, previewWidth = 192, previewHeight = 128;
@@ -31,36 +40,65 @@ window.setPreviewDimensions = (width, height) => {
   previewWidth = width; previewHeight = height; previewAspect = width / height;
   sizePreviewBox(); scalePreview();
 };
+function sizeQr() {
+  donkey.setScale(terminal.options.fontSize/8);
+  layoutProperty('--aesel-qr-label-size',`${terminal.options.fontSize}px`);
+  layoutProperty('--ambient-qr-size',`${(document.getElementById('qr').width || 82) / 2 * terminal.options.fontSize / 8}px`);
+}
 function sizePreviewBox() {
+  sizeQr();
   // Unifont has 16 source pixels per em; companion pixels are twice that scale.
-  document.documentElement.style.setProperty("--aesel-size", `${terminal.options.fontSize * 8}px`);
+  layoutProperty("--aesel-size", `${terminal.options.fontSize * 8}px`);
   const compact = Math.min(terminal.options.fontSize * 11, innerWidth * .7, innerHeight * .65 * previewAspect);
-  const expanded = Math.min(compact * 3, innerWidth * .7, innerHeight * .65 * previewAspect);
+  const modules=(document.getElementById("qr").width||82)/2;
+  const dpr=window.devicePixelRatio||1;
+  const stageHeight=112*terminal.options.fontSize/8;
+  const largeQr=modules*Math.max(3,Math.round(terminal.options.fontSize/4));
+  const hasQr=!document.getElementById("donkey-qr-card").hidden;
+  const expanded=Math.min(compact*3,innerWidth*.7,(hasQr?Math.max(compact/previewAspect,innerHeight-stageHeight-largeQr-52):innerHeight*.65)*previewAspect);
+  layoutProperty("--preview-qr-size",`${Math.max(1,Math.floor((Math.min(compact,compact/previewAspect)-4)*dpr/modules))*modules/dpr}px`);
+  layoutProperty("--donkey-qr-size",`${largeQr}px`);
+  layoutProperty("--donkey-qr-bottom",`${stageHeight+20}px`);
   for (const [key,value] of Object.entries({
     'preview-width':compact+2,'preview-height':compact/previewAspect+2,
     'preview-expanded-width':expanded+2,'preview-expanded-height':expanded/previewAspect+2,
     'preview-logical-width':previewWidth,'preview-logical-height':previewHeight,
     'preview-fullscreen-width':Math.min(innerWidth,innerHeight*previewAspect),
     'preview-fullscreen-height':Math.min(innerWidth/previewAspect,innerHeight),
-  })) document.documentElement.style.setProperty('--'+key,value+'px');
+  })) layoutProperty('--'+key,value+'px');
 }
-window.easel.onDisplay(display => {
+window.aesel.onDisplay(display => {
   if (!pieceDimensions) {
     pieceDimensions = [Math.round(128 * display.width / display.height), 128];
     if (!window.currentPreviewMedium || window.currentPreviewMedium === 'piece') window.setPreviewDimensions(...pieceDimensions);
   }
 });
-function sizeShelf(){const screen=document.querySelector('.xterm-screen')?.getBoundingClientRect();if(screen)document.documentElement.style.setProperty('--easel-shelf-height',`${innerHeight-screen.top-screen.height+(screen.height/terminal.rows)*4}px`);}
-function resize() {
-  if (resizeFrame || fullscreenState.preview) return;
-  resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; sizePreviewBox(); if (fullscreenState.preview) return; fit.fit(); sizeShelf(); window.easel.size(terminal.cols, terminal.rows); });
+let shelfHeight=84;
+function paintScene(){window.SpriteLand.layout({scale:terminal.options.fontSize/8,shelf:shelfHeight,startup:document.body.dataset.phase==='startup'});}
+function sizeShelf(){const screen=document.querySelector('.xterm-screen')?.getBoundingClientRect();if(screen){shelfHeight=innerHeight-screen.top-screen.height+(screen.height/terminal.rows)*4;layoutProperty('--aesel-shelf-height',`${shelfHeight}px`);}paintScene();}
+function reportTitleGeometry(){
+  const label=document.getElementById('qr-label'),r=label.getBoundingClientRect();
+  const size=Math.max(24,Math.min(96,terminal.options.fontSize*3));
+  const visible=!label.hidden&&document.body.dataset.phase!=='startup'&&!fullscreenState.preview;
+  window.aesel.titleGeometry?.({x:visible?r.right+6:0,y:visible?Math.max(0,r.top+(r.height-size)/2):0,size,visible,title:label.textContent,titleX:r.x,titleY:r.y,titleWidth:r.width,titleHeight:r.height,titleFontSize:terminal.options.fontSize*2,titleColors:label.titleColors||[]});
 }
-window.easel.onNotice(message => {
+new ResizeObserver(()=>reportTitleGeometry()).observe(document.getElementById('qr-label'));
+function resize() {
+  if (resizeFrame) return;
+  resizeFrame = requestAnimationFrame(() => {
+    resizeFrame = 0;
+    sizePreviewBox();
+    if (!fullscreenState.preview) { fitTerminal(); sizeShelf(); }
+    scalePreview();
+    reportTitleGeometry();
+  });
+}
+window.aesel.onNotice(message => {
   const notice = document.getElementById('desktop-notice');
   notice.textContent = message;
   notice.hidden = !message;
 });
-window.easel.onTextSize(action => {
+window.aesel.onTextSize(action => {
   clearSelectionForInput();
   const maximum = Math.min(48, Math.floor((document.getElementById('terminal').clientWidth - 20) / (32 * (bitmapFont ? .5 : .61))));
   const size = action === 'reset' ? (bitmapFont ? 16 : 14) : terminal.options.fontSize + (action === 'larger' ? 2 : -2);
@@ -68,9 +106,9 @@ window.easel.onTextSize(action => {
   try { localStorage.setItem('easel-text-size', String(terminal.options.fontSize)); } catch {}
   resize(); terminal.focus();
 });
-window.easel.onFont(bitmap => {
+window.aesel.onFont(bitmap => {
   bitmapFont = bitmap;
-  terminal.options.fontFamily = bitmap ? '"AC Easel Unifont", Menlo, monospace' : 'Menlo, monospace';
+  terminal.options.fontFamily = bitmap ? '"AC aesel Unifont", Menlo, monospace' : 'Menlo, monospace';
   terminal.options.fontSize = bitmap ? 16 : 14;
   terminal.options.fontWeightBold = bitmap ? '400' : 'bold';
   resize();
@@ -83,7 +121,7 @@ let draggingSelection = false, pendingOutput = '', pastedInput = false;
 let clickOrigin = null;
 let lastHoverCell = '', hoverFrame = 0, pendingHover = null;
 terminal.parser.registerOscHandler(777, data => {
-  if(data.startsWith('easel-phase:')) { document.body.dataset.phase=data.slice(12); if(data.slice(12)==='closing') window.easel.closing(); else resize(); return true; }
+  if(data.startsWith('easel-phase:')) { document.body.dataset.phase=data.slice(12); if(data.slice(12)==='closing') window.aesel.closing(); else resize(); return true; }
   if (!data.startsWith('easel-pointer:')) return false;
   const action=data.slice('easel-pointer:'.length);
   terminalElement.dataset.pointer = (['about','profile'].includes(action)||action.startsWith('settings:')||action.startsWith('choice:')) ? 'link' : '';
@@ -93,7 +131,7 @@ function sendHover(x,y) {
   const cell=`${x};${y}`;
   if(cell===lastHoverCell)return;
   lastHoverCell=cell;
-  window.easel.input(`\x1b[<35;${cell}M`);
+  window.aesel.input(`\x1b[<35;${cell}M`);
 }
 terminalElement.addEventListener('pointermove', event => {
   if(event.buttons || draggingSelection || terminal.hasSelection())return;
@@ -124,7 +162,7 @@ function clearSelectionForInput() {
   terminal.clearSelection();
   flushOutput();
 }
-window.easel.onOutput(data => {
+window.aesel.onOutput(data => {
   if (typeof data !== 'string') return;
   if (draggingSelection || terminal.hasSelection()) {
     pendingOutput += data;
@@ -143,12 +181,12 @@ function finishSelection() {
   if (!terminal.hasSelection()) flushOutput();
 }
 window.addEventListener('pointerup', event => {
-  if (event.button === 0 && clickOrigin && !terminal.hasSelection() &&
+  if (event.button === 0 && clickOrigin && !terminal.hasSelection() && !terminalLinks.isLinkAtClientPoint(event.clientX,event.clientY) &&
       Math.hypot(event.clientX-clickOrigin.x,event.clientY-clickOrigin.y) < 4) {
     const rect = terminalElement.querySelector('.xterm-screen').getBoundingClientRect();
     const x = Math.floor((event.clientX-rect.left) / (rect.width/terminal.cols))+1;
     const y = Math.floor((event.clientY-rect.top) / (rect.height/terminal.rows))+1;
-    if (x>0 && x<=terminal.cols && y>0 && y<=terminal.rows) window.easel.input(`\x1b[<0;${x};${y}M`);
+    if (x>0 && x<=terminal.cols && y>0 && y<=terminal.rows) window.aesel.input(`\x1b[<0;${x};${y}M`);
   }
   clickOrigin = null;
   finishSelection();
@@ -157,10 +195,10 @@ window.addEventListener('pointercancel', finishSelection);
 window.addEventListener('blur', finishSelection);
 terminalElement.addEventListener('contextmenu', event => {
   event.preventDefault();
-  window.easel.contextMenu(terminal.getSelection());
+  window.aesel.contextMenu(terminal.getSelection());
 });
-window.easel.onSelectAll(() => terminal.selectAll());
-window.easel.onPaste(text => {
+window.aesel.onSelectAll(() => terminal.selectAll());
+window.aesel.onPaste(text => {
   if (!text) return;
   clearSelectionForInput();
   terminal.focus();
@@ -173,12 +211,12 @@ terminal.attachCustomKeyEventHandler(event => {
   const key = event.key.toLowerCase();
   if (command && key === 'c' && terminal.hasSelection()) {
     event.preventDefault();
-    if (event.type === 'keydown') window.easel.copyText(terminal.getSelection());
+    if (event.type === 'keydown') window.aesel.copyText(terminal.getSelection());
     return false;
   }
   if (command && key === 'v') {
     event.preventDefault();
-    if (event.type === 'keydown') window.easel.requestPaste();
+    if (event.type === 'keydown') window.aesel.requestPaste();
     return false;
   }
   if (event.metaKey && key === 'a') {
@@ -197,12 +235,12 @@ terminalElement.addEventListener('wheel', event => {
   wheelDistance += event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 240 : 1);
   if (Math.abs(wheelDistance) < 80) return;
   clearSelectionForInput();
-  window.easel.input(wheelDistance < 0 ? '\x1b[5~' : '\x1b[6~');
+  window.aesel.input(wheelDistance < 0 ? '\x1b[5~' : '\x1b[6~');
   wheelDistance = 0;
 }, { passive: false });
 terminal.onData(data => {
   if (!pastedInput) clearSelectionForInput();
-  window.easel.input(data);
+  window.aesel.input(data);
 });
 new ResizeObserver(resize).observe(document.getElementById('terminal'));
 const preview = document.getElementById('piece');
@@ -220,14 +258,19 @@ function scalePreview() {
   previewViewport.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
 }
 new ResizeObserver(scalePreview).observe(artifact);
-window.addEventListener('resize', () => { sizePreviewBox(); scalePreview(); });
-window.easel.onPreviewMode(mode => {
+window.addEventListener('resize', () => {
+  document.body.classList.add('window-resizing');
+  clearTimeout(resizeEndTimer);
+  resizeEndTimer=setTimeout(()=>document.body.classList.remove('window-resizing'),150);
+  resize();
+});
+window.aesel.onPreviewMode(mode => {
   document.body.dataset.previewMode = mode;
   scalePreview();
 });
 sizePreviewBox(); scalePreview();
 let focusBeforePreview = null;
-window.easel.onFullscreenState(state => {
+window.aesel.onFullscreenState(state => {
   const entering = state.preview && !fullscreenState.preview;
   const leaving = !state.preview && fullscreenState.preview;
   if (entering) focusBeforePreview = document.activeElement;
@@ -245,13 +288,23 @@ window.addEventListener('keydown', event => {
   if (event.key !== 'Escape' || !fullscreenState.preview) return;
   event.preventDefault();
   event.stopImmediatePropagation();
-  window.easel.fullscreen('preview');
+  window.aesel.fullscreen('preview');
 }, true);
-document.getElementById('qr-card').addEventListener('click',()=>{ if(shareUrl)window.easel.openPiece(shareUrl); });
+const titleLabel=document.getElementById('qr-label');titleLabel.tabIndex=0;
+const showQr=show=>{document.body.dataset.qrPreview=String(show&&!document.getElementById('qr-card').hidden);};
+titleLabel.addEventListener('pointerenter',()=>showQr(true));titleLabel.addEventListener('pointerleave',()=>showQr(false));
+titleLabel.addEventListener('focus',()=>showQr(true));titleLabel.addEventListener('blur',()=>showQr(false));
+window.addEventListener('blur',()=>showQr(false));
+window.aesel.onNativeTitle?.(ready=>{document.body.dataset.nativeTitle=String(ready);});
+for(const id of ['qr-card','donkey-qr-card'])document.getElementById(id).addEventListener('click',()=>{if(shareUrl)window.aesel.openPiece(shareUrl);});
+const hoverPreview=document.getElementById('artifact-shell');
+hoverPreview.addEventListener('pointerenter',()=>{document.body.dataset.previewQr='true';});
+hoverPreview.addEventListener('pointerleave',()=>{document.body.dataset.previewQr='false';});
 let shareUrl = '';
 let url = '', version = 0, qrFingerprint = '';
-window.easel.onState(state => {
+window.aesel.onState(state => {
   donkey.update(state);
+  resize();
   shareUrl = state.url || '';
   document.getElementById('artifact-shell').hidden = !state.url && !state.preview;
   if (state.medium !== 'piece' && url) { preview.src = 'about:blank'; url = ''; }
@@ -260,9 +313,17 @@ window.easel.onState(state => {
   window.renderMediaPreview(state).catch(error => console.error('Preview failed:', error));
   const qr = document.getElementById('qr');
   document.getElementById('qr-card').hidden = !state.qr || !shareUrl;
+  document.getElementById('donkey-qr-card').hidden = !state.qr || !shareUrl;
   const draftId = state.medium !== 'piece' ? /[?&]id=([a-f0-9]{32})/.exec(state.url || '')?.[1] : null;
   const scanName = state.preview?.publicCode ? '#' + state.preview.publicCode : draftId ? '#~' + draftId.slice(0,12) : (state.piece || 'easel').replace(/\.(mjs|lisp|lua)$/, '');
-  window.updateQrLabel(scanName + (state.version ? ` v${state.version}` : ''), state.status || 'ready');
+  const displayName=(state.piece||scanName).split('/').at(-1).replace(/\.(mjs|lisp|lua)$/,'');
+  const handle=String(state.handle||'').replace(/^@/,'');
+  window.updateQrLabel(handle?`@${handle}/${displayName}`:displayName, state.status || 'ready');
+  const label=document.getElementById('qr-label');
+  label.titleColors=Array.from(label.textContent).map((_,i)=>handle&&i<=handle.length?state.handleColors?.[i]||[255,255,255]:[255,255,255]);
+  label.querySelectorAll('.qr-letter-ink').forEach((ink,i)=>{ink.style.color=`rgb(${label.titleColors[i]||[255,255,255]})`;});
+  document.body.dataset.proxRock=String(!!state.proxName);
+  document.getElementById('qr-label').hidden=!state.url&&!state.preview;
   if (!document.getElementById('qr-card').hidden && JSON.stringify(state.qr) !== qrFingerprint) {
     qrFingerprint = JSON.stringify(state.qr);
     const scale = 2, quiet = 4, span = state.qr.length + quiet * 2;
@@ -271,9 +332,11 @@ window.easel.onState(state => {
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, qr.width, qr.height);
     ctx.fillStyle = '#000';
     state.qr.forEach((row, y) => row.forEach((dark, x) => { if (dark) ctx.fillRect((x + quiet) * scale, (y + quiet) * scale, scale, scale); }));
+    const companionQr=document.getElementById('donkey-qr');companionQr.width=qr.width;companionQr.height=qr.height;companionQr.getContext('2d').drawImage(qr,0,0);
     qr.title = state.url;
+    sizeQr();
   }
-  document.title = state.piece ? `${state.piece} · Easel` : 'Easel';
+  document.title = state.piece ? `${state.piece} · aesel` : 'aesel';
   if(state.medium==='piece' && state.url===url && state.publication && state.publication!==publication) {
     const target = new URL(preview.src);
     target.searchParams.set('nolabel','true');target.searchParams.set('nogap','true');target.searchParams.set('autoreload','true');
@@ -289,10 +352,9 @@ window.easel.onState(state => {
 });
 preview.addEventListener('did-finish-load', () => { artifact.classList.remove('refresh'); requestAnimationFrame(() => artifact.classList.add('refresh')); });
 sizePreviewBox();
-fit.fit();
+fitTerminal();
 sizeShelf();
-window.easel.size(terminal.cols, terminal.rows);
-window.easel.ready();
+window.aesel.ready();
 terminal.focus();
 }
 boot().catch(error => { document.getElementById('terminal').textContent = `Could not start terminal: ${error.message}`; });

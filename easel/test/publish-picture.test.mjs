@@ -185,7 +185,7 @@ test("signed-out publishing performs no network request", async (t) => {
   );
 });
 
-test('Easel starts a short-code WIP, saves accepted steps, and forks after Done',async t=>{
+test('aesel starts a short-code WIP, saves accepted steps, and forks after Done',async t=>{
  const artifacts=await setup(t),api=server();
  const first=await syncPictureWip({artifacts,session,fetch:api.fetch});
  assert.equal(first.record.code,'vaf');assert.equal(first.record.steps,0);

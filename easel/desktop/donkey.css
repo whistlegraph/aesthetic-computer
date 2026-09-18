@@ -1,11 +1,31 @@
-/* Keep the terminal and its footer clear of the persistent companion. */
-:root{--aesel-size:128px}
-#terminal{padding-right:calc(var(--aesel-size) + 16px)}
-#aesel-donkey{position:fixed;right:8px;bottom:8px;width:var(--aesel-size);height:var(--aesel-size);transform:scaleX(-1);image-rendering:pixelated;pointer-events:none;z-index:12}
-#desktop-notice{max-width:calc(100% - var(--aesel-size) - 40px)}
-
+/* Spriteland: tiles behind selectable text, functional sprites in front. */
+:root{--aesel-size:128px;--aesel-scene-width:128px}
+#scene-background,#scene-foreground{position:fixed;left:0;top:0;pointer-events:none;image-rendering:pixelated}
+#scene-background{z-index:0}#scene-foreground{z-index:1}
+#terminal{position:relative;z-index:2;padding-right:calc(var(--aesel-scene-width) + 16px)}
+#aesel-donkey{position:fixed;right:8px;bottom:8px;width:var(--aesel-size);height:var(--aesel-size);image-rendering:pixelated;pointer-events:none;z-index:12}
+#desktop-notice{max-width:calc(100% - var(--aesel-scene-width) - 40px)}
 body[data-phase="startup"] #terminal{padding-right:10px}
+/* Name hover swaps the preview surface; the QR never floats across it. */
+#qr-card{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:0;background:var(--aesel-background,#463264);box-shadow:none;z-index:13;display:none;align-items:center;justify-content:center;transform:none;opacity:1}
+body[data-qr-preview="true"] #qr-card{display:flex}
+body[data-qr-preview="true"] #preview-viewport,body[data-qr-preview="true"] #media-preview{visibility:hidden}
+#qr-card:hover{filter:none;outline:none}
+#qr-card:active{transform:none;box-shadow:none}
+#qr{display:block;width:var(--preview-qr-size,82px);height:var(--preview-qr-size,82px);image-rendering:pixelated}
+#version{display:block;position:fixed;right:12px;bottom:6px;z-index:12;font:calc(var(--aesel-qr-label-size,16px) * .75) "AC aesel Unifont",monospace;pointer-events:none}
+#aesel-donkey{bottom:8px}
+body.preview-fullscreen #version{display:none}
+@media(prefers-reduced-motion:reduce){#qr-card{transition:none}}
+#qr-label{z-index:14}
+body.preview-fullscreen #aesel-donkey,body.preview-fullscreen #scene-foreground{display:none}
 
-/* One wooden shelf continues underneath the terminal and Aesel's feet. */
-body:not([data-phase="startup"])::before{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--easel-shelf-height,84px);background:repeating-linear-gradient(177deg,#33231b 0 5px,#3a271c 6px 7px,#33231b 8px 14px,#432d1e 15px 16px);pointer-events:none}
-#terminal{position:relative}
+#terminal{box-sizing:content-box;height:calc(100% - var(--aesel-qr-label-size,16px) * 2.4 - 32px);padding-top:calc(var(--aesel-qr-label-size,16px) * 2.4 + 22px)}
+body[data-phase="startup"] #terminal{padding-top:10px;height:calc(100% - 20px)}
+
+body[data-native-title="true"] #qr-label{opacity:0}
+
+#donkey-qr-card{display:none;position:fixed;right:14px;bottom:var(--donkey-qr-bottom,160px);width:var(--donkey-qr-size,164px);height:var(--donkey-qr-size,164px);padding:0;border:0;background:white;box-shadow:2px 2px #0005;z-index:13;cursor:pointer}
+#donkey-qr{display:block;width:100%;height:100%;image-rendering:pixelated}
+body[data-preview-qr="true"] #donkey-qr-card{display:block}
+body[data-qr-preview="true"] #donkey-qr-card,body.preview-fullscreen #donkey-qr-card,#donkey-qr-card[hidden]{display:none}

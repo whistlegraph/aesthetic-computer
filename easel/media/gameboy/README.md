@@ -17,18 +17,18 @@ standard bootable cartridge header. Validation checks its logo, declared ROM
 size, header checksum and global checksum. The source and compiler binary hashes
 are saved with the ROM hash. Source edits keep the last successful preview and
 mark `metadata.sourceAhead`; export requires the source to match the build.
-The shared Easel artifact history owns versioning and rollback.
+The shared Aesel artifact history owns versioning and rollback.
 
 Install [GBDK-2020](https://github.com/gbdk-2020/gbdk-2020/releases), following its
 [getting-started guide](https://gbdk.org/docs/api/docs_getting_started.html).
 Set `GBDK_HOME` to the extracted `gbdk` directory. An explicitly configured but
 missing toolchain is an error, never silently substituted. Otherwise discovery
-checks the monorepo's `kidlisp-gameboy/gbdk`, Easel's optional local GBDK 4.5.0
+checks the monorepo's `kidlisp-gameboy/gbdk`, Aesel's optional local GBDK 4.5.0
 pack, then PATH. The optional pack location is
 `~/.local/share/easel/toolchains/gbdk-4.5.0/gbdk`.
 
 Builds invoke the same `lcc -o game.gb main.c` workflow as AC, adding only a fixed
-EASEL cartridge title. They run in an isolated temporary artifact directory,
+AESEL cartridge title. They run in an isolated temporary artifact directory,
 with fixed arguments, no shell, no forwarded credential environment, a 20-second
 process-group timeout, and bounded diagnostics. Failed compiles preserve the
 previous ROM. Source paths and outputs reject symlinks; project file writes are

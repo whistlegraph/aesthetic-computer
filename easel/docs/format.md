@@ -48,7 +48,7 @@ line after a crash; malformed complete lines remain errors.
 
 ## Required company sharing
 
-Before using Easel, each signed-in account must acknowledge disclosure version 2: future user messages, assistant replies, and artifact revision references are shared with authorized AC staff for product improvement, with a 30-day retention limit. Declining exits before creating a session or transmitting conversation content. Existing private messages are not backfilled. Account changes require a separate acknowledgment. The disclosure is available through `/sharing`; there is no optional private-use mode.
+Before using Aesel, each signed-in account must acknowledge disclosure version 2: future user messages, assistant replies, and artifact revision references are shared with authorized AC staff for product improvement, with a 30-day retention limit. Declining exits before creating a session or transmitting conversation content. Existing private messages are not backfilled. Account changes require a separate acknowledgment. The disclosure is available through `/sharing`; there is no optional private-use mode.
 
 A `.easel` journal remains on disk. Uploads use authenticated batches of at most 100 records / 256 KiB. Recognizable credentials are redacted on both client and server. Failed uploads remain queued; a new generation cannot start until its user message has been journaled and the pending upload succeeds. `/transcript export FILE.easel` exports the local transcript; `/transcript delete` deletes the uploaded copy, while future messages continue under required sharing.
 
@@ -71,7 +71,7 @@ Retries do not renew retention or mutate an accepted stable record ID. A partial
 batch failure is retryable with identical IDs. The unique owner/session/sequence
 index prevents two different events from claiming the same position.
 
-These are company-private application records for improving Easel. They are not
+These are company-private application records for improving Aesel. They are not
 sent to PostHog or automatically forwarded to model providers or training jobs.
 This prototype supplies storage and access controls, not a training pipeline,
 company review UI, or a promise of end-to-end encryption.

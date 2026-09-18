@@ -38,6 +38,10 @@ export async function preload(paths) {
   await Promise.all(
     paths.map(async (path) => {
       try {
+        if (typeof globalThis.__aeselGuides?.[path] === "string") {
+          files.set(path, globalThis.__aeselGuides[path]);
+          return;
+        }
         const response = await fetch(path);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         files.set(path, await response.text());
@@ -79,3 +83,16 @@ export function watch() {
 }
 
 export default { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, watch };
+
+// Read-only structural tools can inspect only explicitly mounted virtual files.
+export const realpathSync = path => path;
+export function statSync(path) {
+  const contents = readFileSync(path);
+  return {isFile:()=>true,isDirectory:()=>false,isSymbolicLink:()=>false,size:new TextEncoder().encode(contents).length};
+}
+export const lstatSync = statSync;
+export function readdirSync(path) {
+  const prefix=path.replace(/\/$/, '')+'/';
+  return [...files.keys()].filter(p=>p.startsWith(prefix)&&!p.slice(prefix.length).includes('/')).map(p=>p.slice(prefix.length));
+}
+export function renameSync(from, to) { const value=readFileSync(from); files.delete(from); writeFileSync(to,value); }

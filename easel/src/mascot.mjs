@@ -1,4 +1,4 @@
-// Aesel, the donkey at the easel.
+// aesel, the donkey at the easel.
 //
 // The terminal uses an ASCII version of the pixel-art donkey mascot. He walks in from the left
 // edge when a session opens, waves once he arrives, and then stands in the
@@ -14,7 +14,7 @@
 export const MASCOT_WIDTH = 28;
 export const MASCOT_HEIGHT = 8;
 
-// Aesel painting at an easel. Fixed cells keep the canvas and hooves planted.
+// aesel painting at an easel. Fixed cells keep the canvas and hooves planted.
 const stand = [
   "   /\\ /\\             /\\",
   "  ( o o )           /  \\",

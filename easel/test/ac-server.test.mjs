@@ -288,3 +288,18 @@ test("each round reports what it spent, per round rather than per turn", async (
   assert.equal(spent[1].usage.output_tokens, 40);
   await rm(dir, { recursive: true, force: true });
 });
+
+test("upstream reported model stays distinct from the requested model", async () => {
+  const engine = new AcServer({
+    model: "requested/model",
+    fetch: serving([{type:"message_start",message:{model:"reported/model"}}, ...say("hello")]),
+    token: async () => "test-token",
+  });
+  let reported;
+  engine.on("notification", ({method, params}) => {
+    if (method === "model/reported") reported = params;
+  });
+  await engine.startTurn("hi");
+  assert.deepEqual(reported, {requested:"requested/model", reported:"reported/model"});
+  assert.equal(engine.model, "requested/model");
+});

@@ -73,3 +73,9 @@ test('required policy version 2 shares only new messages and preserves earlier o
  await journal.append({type:'message',role:'user',text:'new required-sharing turn'});
  await journal.flush();assert.equal(sent[0].header.consent.disclosureVersion,2);assert.deepEqual(sent[0].records.map(r=>r.text),['new required-sharing turn']);
 });
+
+test('AI provider disclosure version 3 round-trips while unknown versions are rejected',()=>{
+ const current={...header,consent:{...header.consent,disclosureVersion:3}};
+ assert.equal(parseTranscript(serializeTranscript(current,[record])).header.consent.disclosureVersion,3);
+ assert.throws(()=>serializeTranscript({...current,consent:{...current.consent,disclosureVersion:4}},[record]),/disclosure/);
+});

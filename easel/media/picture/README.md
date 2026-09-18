@@ -3,7 +3,7 @@
 `src/media/picture.mjs` creates a portable 512 × 512 picture. It stores accepted
 layers and a pending proposal in `picture.json`, renders the current proposal
 in `preview.png`, and exports accepted layers to `composite.png`. Accept adds a
-layer; discard does not touch accepted pixels. The shared Easel artifact store
+layer; discard does not touch accepted pixels. The shared Aesel artifact store
 owns revision numbering and rollback of these files.
 
 `ac-line.mjs` vendors the exact `nopaintProposal` contract from
@@ -12,7 +12,7 @@ owns revision numbering and rollback of these files.
 AC's Line brush. The portable CPU `ink().line()` implementation rasterizes round
 segments without AC runtime dependencies; it does not promise pixel identity
 with every AC renderer. A test compares the vendored proposal with its source.
-The toolkit is distributed by Aesthetic Computer under the Easel license.
+The toolkit is distributed by Aesthetic Computer under the Aesel license.
 
 Use `propose` with a seed and optional RGBA color, thickness, and points, inspect
 its preview, then `accept` or `discard`. `import_png` accepts an existing file

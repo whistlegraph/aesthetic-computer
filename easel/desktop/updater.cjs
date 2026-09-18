@@ -7,8 +7,8 @@ function createUpdater({app, notify, requestRestart, prepareRelaunch = () => {},
     updater.autoDownload = true;
     updater.autoInstallOnAppQuit = false; // Session checkpoint must succeed first.
     updater.on('error', error => notify(`Update failed: ${error.message}`));
-    updater.on('update-not-available', () => notify('Easel is up to date.'));
-    updater.on('update-available', info => notify(`Downloading Easel ${info.version}…`));
+    updater.on('update-not-available', () => notify('aesel is up to date.'));
+    updater.on('update-available', info => notify(`Downloading aesel ${info.version}…`));
     updater.on('update-downloaded', () => { downloaded = true; if (!applying) requestRestart('update'); });
     return updater;
   }

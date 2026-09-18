@@ -15,11 +15,16 @@
 // the off-screen WKWebView the iOS app keeps for exactly this purpose.
 
 import { AcServer, DEFAULT_AC_MODEL } from "/easel/src/ac-server.mjs";
+import { fetchHandleColors, handleCharacterColors } from "/easel/src/handle-colors.mjs";
 import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
 
 export const SITE = "https://aesthetic.computer";
 export const AUTH_DOMAIN = "hi.aesthetic.computer";
+export const MODEL_CHOICES = [
+  { id: "openai/gpt-5.6-luna", alias: "luna", title: "GPT-5.6 Luna", premium: false },
+  { id: "anthropic/claude-opus-5", alias: "opus", title: "Claude Opus 5", premium: true },
+];
 
 // Fetched rather than bundled, at the paths the bridge's own `bundledContext()`
 // builds, so editing a guide reaches the phone on reload.
@@ -28,6 +33,7 @@ const GUIDES = [
   "/easel/context/screen.md",
   "/easel/context/hand.md",
   "/easel/context/kidlisp.md",
+  "/easel/context/api.json",
 ];
 
 const STARTER = `// A new piece.
@@ -92,6 +98,13 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     publishing: null,
     dirty: false,
     published: false,
+    id: "",
+    medium: "piece",
+    transcript: [],
+    engine: null,
+    title: "",
+    owner: "",
+    model: DEFAULT_AC_MODEL,
   };
 
   const read = () => {
@@ -110,9 +123,107 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     }
   };
 
-  // Every notification the hosts render flows through here, so a host never
-  // has to know whether something came from the bridge or from this file.
-  const say = (type, payload = {}) => emit({ type, ...payload });
+  // Credentials stay in the separate account record, never in a thread.
+  const readThreads = () => {
+    try {
+      const value = JSON.parse(storage.get("threads") || "{}");
+      return value.schema === 1 && Array.isArray(value.items) ? value.items : [];
+    } catch { return []; }
+  };
+  let saveTimer;
+  const say = (type, payload = {}) => {
+    const event = { type, ...payload };
+    if (state.id && ["you", "note", "bad", "bridge"].includes(type)) {
+      const last = state.transcript.at(-1);
+      if (type === "bridge" && payload.method === "item/agentMessage/delta" && last?.method === payload.method) {
+        last.params.delta += payload.params?.delta || "";
+      } else {
+        state.transcript.push(JSON.parse(JSON.stringify(event)));
+      }
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveCurrent, 250);
+    }
+    emit(event);
+  };
+
+  function history() {
+    return readThreads().sort((a, b) => b.savedAt.localeCompare(a.savedAt)).map(item => ({
+      id: item.id, title: item.title || item.slug, medium: item.medium,
+      route: item.handle ? `@${item.handle}/${item.slug}` : item.slug,
+      updatedAt: item.savedAt,
+    }));
+  }
+
+  function saveCurrent() {
+    clearTimeout(saveTimer);
+    if (!state.id || !state.file) return;
+    const engine = state.server ? {
+      threadId: state.server.threadId || "", messages: state.server.messages || [], turns: state.server.turns || 0, model: state.model,
+    } : state.engine;
+    const item = {
+      id: state.id, title: state.title || state.slug, medium: state.medium, model: state.model,
+      savedAt: new Date().toISOString(), handle: state.owner || state.handle, slug: state.slug,
+      source: vfs.readFileSync(state.file), published: state.published,
+      events: state.transcript, engine,
+    };
+    const items = readThreads().filter(entry => entry.id !== state.id);
+    items.push(item);
+    try {
+      const encoded = JSON.stringify({schema: 1, items});
+      if (encoded.length > 32 * 1024 * 1024) throw new Error("Saved threads exceed 32 MB.");
+      storage.set("threads", encoded);
+      write({ threadID: state.id });
+      emit({ type: "history", items: history() });
+    } catch (error) {
+      emit({type: "bad", text: `Could not save this thread: ${error.message}`});
+    }
+  }
+
+  async function settleCurrent() {
+    stop();
+    const deadline = Date.now() + 15000;
+    while (state.busy || state.publishing) {
+      if (Date.now() > deadline) throw new Error("Wait for the current turn or upload to finish before switching threads.");
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    saveCurrent();
+  }
+
+  function loadThread(item) {
+    state.id = item.id;
+    state.owner = item.handle || state.handle;
+    state.medium = item.medium || "piece";
+    state.title = item.title || item.slug;
+    state.transcript = Array.isArray(item.events) ? item.events : [];
+    state.engine = item.engine || null;
+    state.model = item.model || item.engine?.model || DEFAULT_AC_MODEL;
+    mountPiece(item.slug, item.source || STARTER);
+    state.published = Boolean(item.published && (!item.handle || item.handle === state.handle));
+    write({ threadID: state.id, published: state.published });
+    emit({type: "thread", id: state.id, medium: state.medium, events: state.transcript});
+    say("model", {requested: state.model, choices: MODEL_CHOICES});
+    if (state.published && state.handle) say("preview", {url: pieceUrl()});
+    else if (item.source && item.source !== STARTER) say("source", {source: item.source});
+    say("status", {text: state.token ? "ready" : "signed out", kind: "idle"});
+  }
+
+  async function resumeSession(id) {
+    let item = readThreads().find(entry => entry.id === id);
+    if (!item) throw new Error("That saved thread could not be found.");
+    if (item.medium !== "piece") throw new Error("This medium is not supported on iPhone yet.");
+    await settleCurrent();
+    item = readThreads().find(entry => entry.id === id);
+    loadThread(item);
+    emit({type: "history", items: history()});
+  }
+
+  async function newSession(medium = "piece") {
+    if (medium !== "piece") throw new Error("This medium is not supported on iPhone yet.");
+    await settleCurrent();
+    const slug = freshSlug();
+    loadThread({id: `${Date.now()}-${slug}`, slug, medium, source: STARTER, events: [], published: false});
+    saveCurrent();
+  }
 
   function route() {
     return state.handle ? `@${state.handle}/${state.slug}` : state.slug;
@@ -129,13 +240,15 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     state.file = `/piece/${slug}.mjs`;
     state.server = null; // a new piece is a new conversation
     vfs.mount(state.file, source);
-    write({ slug, source });
+    state.published = false;
+    write({ slug, source, published: false });
     say("piece", { route: route(), slug, source });
   }
 
   function onWritten(path, source) {
     if (path !== state.file) return;
     write({ slug: state.slug, source });
+    saveCurrent();
     state.dirty = true;
     say("source", { source });
     void publish();
@@ -169,7 +282,9 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
           },
         });
         state.published = true;
+        state.owner = state.handle;
         write({ published: true });
+        saveCurrent();
         say("status", { text: "live", kind: "live" });
         say("preview", { url: pieceUrl() });
       } catch (error) {
@@ -186,7 +301,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
   function buildServer() {
     const server = new AcServer({
       cwd: "/piece",
-      model: DEFAULT_AC_MODEL,
+      model: state.model,
       piece: { file: state.file },
       // The bridge awaits `token()` per turn so a desktop session can refresh
       // a stale one mid-conversation; the phone has nothing to refresh yet.
@@ -196,12 +311,40 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
       // throws "Illegal invocation" unless window.fetch is bound to window.
       fetch: globalThis.fetch.bind(globalThis),
     });
-    server.on("notification", ({ method, params }) => say("bridge", { method, params }));
+    if (state.engine) {
+      server.threadId = state.engine.threadId || "";
+      server.messages = JSON.parse(JSON.stringify(state.engine.messages || []));
+      server.turns = state.engine.turns || 0;
+    }
+    server.on("notification", ({ method, params }) => {
+      if (method === "model/reported") say("model", {requested: params.requested, reported: params.reported});
+      say("bridge", { method, params });
+    });
     return server;
   }
 
+  function setModel(input) {
+    if (state.busy || state.publishing) throw new Error("Wait for this turn and upload to finish before changing models.");
+    const choice = MODEL_CHOICES.find(item => item.id === input || item.alias === String(input).trim().toLowerCase());
+    if (!choice) throw new Error("Choose /model luna or /model opus.");
+    state.model = choice.id;
+    if (state.server) state.server.model = choice.id;
+    if (state.engine) state.engine.model = choice.id;
+    say("model", {requested: state.model, choices: MODEL_CHOICES});
+    saveCurrent();
+    return state.model;
+  }
+
   async function ask(text) {
+    const command = text.trim().match(/^\/model(?:\s+(.+))?$/i);
+    if (command) {
+      if (command[1]) setModel(command[1]);
+      else say("note", {text: `Requested model: ${state.model}. Choose /model luna or /model opus.`});
+      return;
+    }
     if (!text.trim() || state.busy) return;
+    if (!state.token) { say("bad", { text: "Sign in to AC to make a piece." }); return; }
+    if (!state.title || state.title === state.slug) state.title = text.trim().slice(0, 120);
     say("you", { text });
     state.busy = true;
     say("busy", { busy: true });
@@ -214,6 +357,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     } finally {
       state.busy = false;
       say("busy", { busy: false });
+      saveCurrent();
     }
   }
 
@@ -237,12 +381,20 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     return String(data?.handle || "").replace(/^@/, "");
   }
 
+  async function loadHandleColors(handle) {
+    let colors = handleCharacterColors(`@${handle}`);
+    try { colors = await fetchHandleColors(`@${handle}`); } catch { }
+    if (state.handle !== handle) return;
+    say("handleColors", {handle, colors: colors.map(rgb => "#" + rgb.map(n => n.toString(16).padStart(2, "0")).join(""))});
+  }
+
   async function adoptToken(token) {
     const handle = await resolveHandle(token);
     state.token = token;
     state.handle = handle;
     write({ token, handle });
     say("signedIn", { handle });
+    void loadHandleColors(handle);
     return handle;
   }
 
@@ -255,24 +407,46 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
       state.handle = await resolveHandle(saved.token);
       write({ handle: state.handle });
       say("signedIn", { handle: state.handle });
+      void loadHandleColors(state.handle);
       return true;
     } catch {
+      state.token = "";
+      state.handle = "";
+      write({ token: "", handle: "" });
       return false;
     }
   }
 
+  function signOut() {
+    saveCurrent();
+    stop();
+    state.token = "";
+    state.handle = "";
+    state.server = null;
+    write({ token: "", handle: "" });
+    say("signedOut");
+  }
+
   async function open() {
     const saved = read();
-    mountPiece(saved.slug || freshSlug(), saved.source || STARTER);
-    state.published = Boolean(saved.published && saved.slug === state.slug);
-    if (state.handle && state.published) say("preview", { url: pieceUrl() });
-    say("status", { text: "ready", kind: "idle" });
+    const prior = readThreads().find(item => item.id === saved.threadID);
+    if (prior) {
+      loadThread(prior);
+    } else {
+      const slug = saved.slug || freshSlug();
+      loadThread({id: `${Date.now()}-${slug}`, slug, source: saved.source || STARTER,
+        published: Boolean(saved.published), handle: saved.handle || state.handle,
+        medium: "piece", events: []});
+      saveCurrent();
+    }
+    emit({type: "history", items: history()});
   }
 
   async function begin() {
     vfs.setWriteHandler(onWritten);
     const missing = await vfs.preload(GUIDES);
     if (missing.length) say("note", { text: `Guides missing: ${missing.join(", ")}` });
+    say("model", { requested: state.model, choices: MODEL_CHOICES });
     say("ready", { signedIn: Boolean(state.token) });
   }
 
@@ -280,12 +454,18 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     state,
     begin,
     restore,
+    signOut,
     adoptToken,
     open,
     ask,
     stop,
     publish,
-    newPiece: () => mountPiece(freshSlug(), STARTER),
+    newPiece: newSession,
+    newSession,
+    resumeSession,
+    saveCurrent,
+    setModel,
+    history,
     route,
     pieceUrl,
   };

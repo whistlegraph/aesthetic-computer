@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// design-loop — look at Easel's own furniture, change it, look again.
+// design-loop — look at aesel's own furniture, change it, look again.
 //
-// Easel does not draw all of itself. The QR you scan, the little live card of
+// aesel does not draw all of itself. The QR you scan, the little live card of
 // the piece, the stone that carries the session's status: those are Slab
 // menubar overlays parked on top of the terminal, and they are the first thing
 // anyone sees. Adjusting them used to be guesswork, for two reasons that
@@ -18,11 +18,11 @@
 //      already on screen in any way you can trust, so the only honest check is
 //      a *fresh* session. That is the restart this tool performs.
 //
-// So: close the Easel session, open a new one, wait for its overlays to exist,
+// So: close the aesel session, open a new one, wait for its overlays to exist,
 // point the camera at them. One command per iteration, and the picture that
 // comes back is the thing being designed.
 //
-//   node easel/bin/design-loop.mjs              # restart Easel, then shoot
+//   node easel/bin/design-loop.mjs              # restart aesel, then shoot
 //   node easel/bin/design-loop.mjs --shot       # shoot what is already open
 //   node easel/bin/design-loop.mjs --out ~/x.jpg
 //
@@ -70,10 +70,10 @@ async function prox(name, args = {}) {
   return text;
 }
 
-/// Every live Easel session on this machine, newest marker first. Read from
+/// Every live aesel session on this machine, newest marker first. Read from
 /// the marker files rather than asked of prox: this runs between a close and a
 /// launch, when the ledger cache is the one thing guaranteed to be stale.
-async function easelSessions() {
+async function aeselSessions() {
   let names = [];
   try { names = await readdir(MARKERS); } catch { return []; }
   const out = [];
@@ -87,7 +87,7 @@ async function easelSessions() {
   return out.sort((a, b) => String(b.updated || "").localeCompare(String(a.updated || "")));
 }
 
-/// Wait for an Easel session that is not one we already knew about, and that
+/// Wait for an aesel session that is not one we already knew about, and that
 /// has got far enough to own a terminal and a piece. `scan_url` is the signal
 /// that matters: it is set at the moment the session has an address to encode,
 /// which is the moment the QR and the preview card come into existence. Waiting
@@ -95,7 +95,7 @@ async function easelSessions() {
 async function waitForFreshSession(known, timeoutMs = 45_000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    for (const session of await easelSessions()) {
+    for (const session of await aeselSessions()) {
       if (known.has(session.id)) continue;
       if (session.tty && session.scan_url) return session;
     }
@@ -162,7 +162,7 @@ const out = opt("--out") || join(tmpdir(), `easel-design-${Date.now()}.jpg`);
 
 if (flag("--help") || flag("-h")) {
   console.log([
-    "design-loop — restart Easel and photograph its overlays",
+    "design-loop — restart aesel and photograph its overlays",
     "",
     "  node easel/bin/design-loop.mjs [--shot] [--out file.jpg] [--cwd dir]",
     "",
@@ -176,25 +176,25 @@ if (flag("--help") || flag("-h")) {
   process.exit(0);
 }
 
-let session = (await easelSessions())[0] || null;
+let session = (await aeselSessions())[0] || null;
 
 if (!flag("--shot")) {
   const host = await selfHost();
   if (!host) throw new Error(`no local ledger at ${LEDGER} — is the Slab menubar running?`);
-  const known = new Set((await easelSessions()).map((s) => s.id));
+  const known = new Set((await aeselSessions()).map((s) => s.id));
 
   if (session) {
     console.log(`⟲ closing ${host}:easel (${session.piece || session.id.slice(0, 8)})`);
     await prox("prox_close", { handle: session.id });
   } else {
-    console.log("⟲ no Easel session open — launching a first one");
+    console.log("⟲ no aesel session open — launching a first one");
   }
 
-  console.log("⟳ launching a fresh Easel");
+  console.log("⟳ launching a fresh aesel");
   await prox("prox_launch", { host, agent: "easel", cwd: opt("--cwd") || REPO, by: "easel:design-loop" });
 
   session = await waitForFreshSession(known);
-  if (!session) throw new Error("the new Easel never reported a scan URL — nothing to photograph.");
+  if (!session) throw new Error("the new aesel never reported a scan URL — nothing to photograph.");
   // The marker is written the moment the address exists; the overlays are
   // placed on the menubar's next walk of the window list, which is a separate
   // clock this tool cannot read. Measured at about three seconds on blueberry —
@@ -205,7 +205,7 @@ if (!flag("--shot")) {
   await sleep(Number(opt("--settle")) * 1000 || 4000);
 }
 
-if (!session) throw new Error("no Easel session is open — drop --shot to launch one.");
+if (!session) throw new Error("no aesel session is open — drop --shot to launch one.");
 if (!(await focusTty(session.tty))) {
   console.log(`! could not focus /dev/${session.tty} — shooting whatever is frontmost`);
 }

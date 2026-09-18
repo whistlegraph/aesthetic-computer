@@ -3,7 +3,7 @@ import { Artifacts } from './artifacts.mjs';
 const at=process.argv.indexOf('--cwd');
 const store=new Artifacts(at>=0?process.argv[at+1]:process.cwd());
 const tools=[
-  {name:'artifact_context',description:'Read the selected Easel artifact and its supported action schemas. Call before editing pictures, sounds, papers or GameBoy projects.',inputSchema:{type:'object',properties:{}}},
+  {name:'artifact_context',description:'Read the selected aesel artifact and its supported action schemas. Call before editing pictures, sounds, papers or GameBoy projects.',inputSchema:{type:'object',properties:{}}},
   {name:'artifact_action',description:'Apply a supported action to the selected artifact. Validated output becomes a new version. Remote image generation/editing is available when requested by the user; visual-QA approval uses direct user controls.',inputSchema:{type:'object',properties:{action:{type:'string'},input:{type:'object'}},required:['action']}},
 ];
 let queue=Promise.resolve();
