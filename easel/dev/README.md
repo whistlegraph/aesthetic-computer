@@ -32,7 +32,7 @@ node easel/dev/install.mjs --repo ~/aesthetic-computer \
 The installer creates `~/Applications/Aesel Dev.app`, `~/.local/bin/aesel-dev`,
 and the launch agent `computer.aesthetic.aesel-dev-sync`. State, logs, immutable
 source snapshots, and the atomic `current` link live in
-`~/.local/share/aesel-dev/`. The native Electron shell is not replaced by source
+`~/.local/share/aesel-dev/`. The last three snapshots, any live PTY snapshot, and locally edited snapshots are retained. The native Electron shell is not replaced by source
 sync. If Electron or npm dependency requirements change, syncing stops visibly
 until this installer is rerun with matching dependencies. No signing credentials
 are copied; the development shell is signed locally with an ad-hoc identity.
