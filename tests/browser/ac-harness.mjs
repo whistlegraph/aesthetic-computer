@@ -129,6 +129,24 @@ export class ACSession {
     return new Promise((r) => setTimeout(r, ms));
   }
 
+  // Sign the next boot in as a hosted session — the same shape the vscode
+  // extension and prompt.ac hand boot.mjs (`{ accessToken, account: { id,
+  // label } }`). Seeding `session-aesthetic` (and an Auth0 cache marker, so
+  // the fast anonymous boot doesn't skip Auth0 and strand `authorize()`)
+  // before navigation lets boot validate the token via /api/authorized and
+  // send `session:started` with the user, exactly as production does.
+  // Call before boot(); a later postMessage({ type: "setSession" }) still
+  // works as a fallback once the page is up.
+  async signIn(session) {
+    await this.page.evaluateOnNewDocument((encoded) => {
+      try {
+        localStorage.setItem("session-aesthetic", encoded);
+        localStorage.setItem("@@auth0spajs@@::ac-e2e", "1");
+      } catch {}
+    }, btoa(JSON.stringify(session)));
+    return this;
+  }
+
   // AC captures keys globally, but a tap focuses/activates the keyboard
   // (mobile-style). Click low-center where the prompt input sits.
   async focusPrompt() {
