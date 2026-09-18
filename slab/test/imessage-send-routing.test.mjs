@@ -102,6 +102,17 @@ test("requires an attachment transfer before confirming media delivery", () => {
   );
 });
 
+test("an uploaded attachment is not a sent message", () => {
+  assert.deepEqual(
+    classifyMessagesAttachment({ service: "RCS", error: 0, is_sent: 0, is_delivered: 0, transfer_state: 5 }),
+    { status: "pending", service: "RCS", error: 0, transferState: 5 },
+  );
+  assert.deepEqual(
+    classifyMessagesAttachment({ service: "SMS", error: 4, is_sent: 0, transfer_state: 5 }),
+    { status: "failed", service: "SMS", error: 4 },
+  );
+});
+
 test("refuses a focused Messages conversation that is not the recipient", () => {
   assert.equal(conversationTitleMatches("Alex Freundlich", "Alex"), true);
   assert.equal(conversationTitleMatches("Alexis", "Alex"), false);

@@ -42,6 +42,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join, dirname, basename } from "node:path";
+import { chooseMessagesRoute, classifyMessagesDelivery, classifyMessagesAttachment } from "../lib/imessage-send-routing.mjs";
 
 const HOME = homedir();
 const CONFIG_PATH =
@@ -570,30 +571,87 @@ function osascript(script, args) {
   });
 }
 
-function sendMessage(handles, body) {
-  const to = String(handles[0]);
-  // buddy-of-first-service path is the most reliable across macOS versions.
+// Preserve the established direct conversation's routing (including RCS).
+// Never select a group merely because one of its members is the recipient,
+// or let a newer failed send displace the last working conversation.
+function directSendRoute(handles) {
+  const latest = sqlite(
+    `SELECT c.guid, h.id AS handle, m.service FROM chat c
+       JOIN chat_handle_join ch ON ch.chat_id = c.ROWID
+       JOIN handle h ON h.ROWID = ch.handle_id
+       JOIN chat_message_join cm ON cm.chat_id = c.ROWID
+       JOIN message m ON m.ROWID = cm.message_id
+      WHERE h.id IN (${handles.map(sqlString).join(", ")})
+        AND c.chat_identifier = h.id
+        AND (SELECT COUNT(*) FROM chat_handle_join peers WHERE peers.chat_id = c.ROWID) = 1
+        AND IFNULL(m.error, 0) = 0
+        AND (m.is_from_me = 0 OR m.is_sent = 1 OR m.is_delivered = 1)
+      ORDER BY m.is_from_me ASC, m.date DESC LIMIT 1`,
+  )[0];
+  // Inbound service is the recipient's demonstrated capability. A fallback
+  // SMS we sent must not downgrade a working RCS conversation on the next send.
+  return { ...chooseMessagesRoute(handles, latest), chatGuid: latest?.guid || "" };
+}
+
+function dispatchMessage(handles, payload, media = false) {
+  const route = directSendRoute(handles);
   const script = `
 on run argv
-  set msg to item 1 of argv
+  set payload to item 1 of argv
   set dest to item 2 of argv
+  set chatId to item 3 of argv
+  if item 4 of argv is "media" then set payload to POSIX file payload
+  set preferredService to item 5 of argv
   tell application "Messages"
-    set svc to 1st account whose service type = iMessage
-    set bud to participant dest of svc
-    send msg to bud
+    if preferredService is "RCS" then
+      set svc to 1st account whose service type = RCS
+      send payload to participant dest of svc
+    else if preferredService is "SMS" and chatId is not "" then
+      send payload to chat id chatId
+    else
+      set svc to 1st account whose service type = iMessage
+      send payload to participant dest of svc
+    end if
   end tell
 end run`;
-  const r = osascript(script, [body, to]);
-  if (r.status !== 0) {
-    // Fallback: SMS/last-used service via the generic `buddy` form.
-    const fb = `on run argv
-  tell application "Messages" to send (item 1 of argv) to buddy (item 2 of argv)
-end run`;
-    const r2 = osascript(fb, [body, to]);
-    if (r2.status !== 0) {
-      throw new Error((r.stderr || r2.stderr || "send failed").trim());
+  const r = osascript(script, [payload, route.handle, route.chatGuid, media ? "media" : "text", route.appleService]);
+  // Do not retry an ambiguous AppleScript failure automatically: it may have
+  // queued the message before returning an error.
+  if (r.status !== 0) throw new Error((r.stderr || "Messages dispatch failed; check delivery before retrying").trim());
+}
+
+function awaitSend(query, classify, accept = () => true, timeoutMs = 20000) {
+  const started = Date.now();
+  let row = null;
+  let delivery = classify(null);
+  while (Date.now() - started < timeoutMs) {
+    row = sqlite(query).find(accept) || null;
+    delivery = classify(row);
+    if (delivery.status === "failed") {
+      throw new Error(`Messages send ${row?.id} failed (service ${delivery.service}, error ${delivery.error}, transfer ${delivery.transferState ?? "n/a"})`);
     }
+    if (delivery.status === "delivered") break;
+    spawnSync("/bin/sleep", ["0.5"]);
   }
+  if (delivery.status === "pending") {
+    throw new Error(`Messages send ${row?.id ?? "unknown"} is still pending; delivery is unconfirmed. Check its status before retrying.`);
+  }
+  return { messageId: row.id, ...delivery, bytes: row.total_bytes };
+}
+
+function sendMessage(handles, body) {
+  const before = sqlite("SELECT IFNULL(MAX(ROWID), 0) AS id FROM message")[0].id;
+  dispatchMessage(handles, body);
+  return awaitSend(
+    `SELECT m.ROWID AS id, m.text, hex(m.attributedBody) AS body,
+            m.service, m.error, m.is_sent, m.is_delivered
+       FROM message m JOIN handle h ON h.ROWID = m.handle_id
+      WHERE m.ROWID > ${before} AND m.is_from_me = 1
+        AND h.id IN (${handles.map(sqlString).join(", ")})
+      ORDER BY m.ROWID ASC`,
+    classifyMessagesDelivery,
+    (row) => decodeBody(row.text, row.body) === body.trim(),
+  );
 }
 
 // ─── send: media ─────────────────────────────────────────────────────────
@@ -625,48 +683,23 @@ function stageAttachment(path) {
 
 // The receipt has to come from chat.db, not from osascript's exit code — a
 // failed transfer exits 0 too. Poll for the row this send created.
-function awaitTransfer(staged, timeoutMs = 25000) {
-  const started = Date.now();
+function awaitTransfer(staged) {
   const where = `a.filename = ${sqlString(staged.replace(HOME, "~"))}`;
-  while (Date.now() - started < timeoutMs) {
-    const rows = sqlite(
-      `SELECT m.ROWID AS id, m.is_sent, m.error, a.total_bytes, a.transfer_state
+  return awaitSend(
+      `SELECT m.ROWID AS id, m.service, m.is_sent, m.is_delivered, m.error, a.total_bytes, a.transfer_state
          FROM message m
          JOIN message_attachment_join maj ON maj.message_id = m.ROWID
          JOIN attachment a ON a.ROWID = maj.attachment_id
         WHERE ${where}
         ORDER BY m.ROWID DESC LIMIT 1`,
-    );
-    const row = rows[0];
-    // 5 = transferred. 6 = failed. Anything else is still in flight.
-    if (row && (row.transfer_state === 5 || row.error)) return row;
-    spawnSync("/bin/sleep", ["0.5"]);
-  }
-  return null;
+      classifyMessagesAttachment,
+  );
 }
 
 function sendMedia(handles, path) {
-  const to = String(handles[0]);
   const staged = stageAttachment(path);
-  const script = `
-on run argv
-  set f to POSIX file (item 1 of argv)
-  set dest to item 2 of argv
-  tell application "Messages"
-    set svc to 1st account whose service type = iMessage
-    send f to participant dest of svc
-  end tell
-end run`;
-  const r = osascript(script, [staged, to]);
-  if (r.status !== 0) throw new Error((r.stderr || "media send failed").trim());
-  const row = awaitTransfer(staged);
-  if (!row) throw new Error(`attachment did not finish transferring: ${staged}`);
-  if (row.error || row.transfer_state !== 5) {
-    throw new Error(
-      `Messages rejected the attachment (error ${row.error}, transfer_state ${row.transfer_state}): ${staged}`,
-    );
-  }
-  return { staged, bytes: row.total_bytes, messageId: row.id };
+  dispatchMessage(handles, staged, true);
+  return { staged, ...awaitTransfer(staged) };
 }
 
 const TAPBACKS = new Map([
@@ -1364,8 +1397,7 @@ try {
       } else if (decorated) {
         print({ displayName: rcpt.displayName, ...sendDecorated(cfg, rcpt, body, decorated) });
       } else {
-        sendMessage(rcpt.handles, linkPreview || body);
-        print({ displayName: rcpt.displayName, kind: linkPreview ? "link-preview" : "text" });
+        print({ displayName: rcpt.displayName, kind: linkPreview ? "link-preview" : "text", ...sendMessage(rcpt.handles, linkPreview || body) });
       }
       const watched = defaultContact(cfg);
       if (watched && rcpt.handles.some((h) => watched.handles.includes(h))) {
