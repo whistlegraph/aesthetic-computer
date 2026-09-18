@@ -6,6 +6,7 @@ struct AeselHomeView: View {
     let host: SessionHost
     let resume: () -> Void
     @State private var tab = 0
+    @Environment(\.paint) private var paint
 
     private let media: [(id: String, name: String)] = [
         ("piece", "Piece"), ("picture", "Picture"), ("sound", "Sound"),
@@ -16,13 +17,13 @@ struct AeselHomeView: View {
         VStack(spacing: 0) {
             HStack {
                 if !session.route.isEmpty {
-                    Button("/resume", action: resume).foregroundStyle(Paint.dim)
+                    Button("/resume", action: resume).foregroundStyle(paint.dim)
                 }
                 Spacer()
                 if session.signedIn {
                     AeselHandle(handle: session.handle, colors: session.handleColors)
                 } else {
-                    Button("/login") { host.signIn() }.foregroundStyle(Paint.dim)
+                    Button("/login") { host.signIn() }.foregroundStyle(paint.dim)
                 }
             }
             .font(Paint.font(20))
@@ -48,12 +49,12 @@ struct AeselHomeView: View {
                                     Text(medium.name)
                                     Spacer(minLength: 0)
                                     if medium.id != "piece" {
-                                        Text("desktop").font(Paint.font(17)).foregroundStyle(Paint.dim)
+                                        Text("desktop").font(Paint.font(17)).foregroundStyle(paint.dim)
                                     }
                                 }
                                 .padding(.horizontal, 12)
                                 .frame(height: 48)
-                                .foregroundStyle(medium.id == "piece" ? Paint.ink : Paint.dim)
+                                .foregroundStyle(medium.id == "piece" ? paint.ink : paint.dim)
                                 .background(medium.id == "piece" ? Color(rgb: 0xc81e64) : .clear)
                             }
                             .disabled(medium.id != "piece" || session.busy)
@@ -64,7 +65,7 @@ struct AeselHomeView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 2) {
                             if session.history.isEmpty {
-                                Text("No saved threads").foregroundStyle(Paint.dim).padding(.vertical, 12)
+                                Text("No saved threads").foregroundStyle(paint.dim).padding(.vertical, 12)
                             }
                             ForEach(session.history) { thread in
                                 Button {
@@ -74,17 +75,17 @@ struct AeselHomeView: View {
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text("› " + thread.title)
                                             .lineLimit(2)
-                                            .foregroundStyle(Paint.ink)
+                                            .foregroundStyle(paint.ink)
                                         Text(thread.medium + " · " + date(thread.updatedAt))
                                             .font(Paint.font(17))
-                                            .foregroundStyle(Paint.dim)
+                                            .foregroundStyle(paint.dim)
                                         if !thread.route.isEmpty {
-                                            Text(thread.route).font(Paint.font(17)).foregroundStyle(Paint.dim).lineLimit(1)
+                                            Text(thread.route).font(Paint.font(17)).foregroundStyle(paint.dim).lineLimit(1)
                                         }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(12)
-                                    .background(thread.id == session.currentSessionID ? Paint.deep.opacity(0.65) : .clear)
+                                    .background(thread.id == session.currentSessionID ? paint.deep.opacity(0.65) : .clear)
                                 }
                                 .disabled(session.busy)
                             }
@@ -103,7 +104,7 @@ struct AeselHomeView: View {
 
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Paint.ink)
+        .foregroundStyle(paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
     }
 
@@ -111,7 +112,7 @@ struct AeselHomeView: View {
         Button { tab = index } label: {
             Text(label)
                 .padding(.horizontal, 8).padding(.vertical, 7)
-                .foregroundStyle(tab == index ? Paint.ink : Paint.dim)
+                .foregroundStyle(tab == index ? paint.ink : paint.dim)
                 .background(tab == index ? Color(rgb: 0xc81e64) : .clear)
         }
         .accessibilityAddTraits(tab == index ? [.isSelected] : [])

@@ -472,6 +472,8 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     setModel,
     history,
     refreshCredits: credits.refresh,
+    buyCredits: credits.buy,
+    checkCheckout: credits.check,
     route,
     pieceUrl,
   };

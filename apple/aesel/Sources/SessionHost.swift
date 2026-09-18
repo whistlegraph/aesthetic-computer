@@ -97,6 +97,7 @@ final class SessionHost: NSObject {
     func adopt(token: String) { call("void aesel.adoptToken(\(quote(token)));") }
     func restore() { call("void aesel.restore();") }
     func refreshCredits() { call("void aesel.refreshCredits();") }
+    func accessToken() -> String? { store.token() }
 
     var signInView: WKWebView {
         if let loginWebView { return loginWebView }
@@ -347,6 +348,17 @@ final class SessionStore {
     }
 
     func clearToken() { SecItemDelete(tokenQuery as CFDictionary) }
+
+    /// The signed-in AC access token, for the app's own calls to AC.
+    func token() -> String? {
+        var query = tokenQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data, let token = String(data: data, encoding: .utf8), !token.isEmpty else { return nil }
+        return token
+    }
 
     private func saveToken(_ token: String) {
         clearToken()

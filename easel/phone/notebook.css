@@ -1,9 +1,11 @@
-/* The desktop notebook's metrics: 16px Helvetica prose on a 24px ruling. */
+/* The desktop notebook's metrics: 16px Helvetica prose on a 24px ruling.
+   The page is one pane of the app's own scrolling sheet, which draws the
+   ruling and owns the scroll; this document only grows to fit its prose. */
 :root{color-scheme:dark;--aesel-background:#463264;--aesel-foreground:#fff;--user-ink:#e9b5d5;--number-ink:#ffd17c;--notebook-line-height:24px;--prose-font-size:16px}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
-#conversation{position:absolute;inset:0;overflow:auto;padding:0 14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;line-height:var(--notebook-line-height)}
-#notebook-page{background:repeating-linear-gradient(to bottom,transparent 0,transparent 23px,#ffffff1f 23px,#ffffff1f 24px);padding-bottom:24px;overflow-wrap:anywhere}
+html,body{margin:0;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
+#conversation{padding:0 10px;line-height:var(--notebook-line-height)}
+#notebook-page{overflow-wrap:anywhere}
 article{margin:0 0 24px;white-space:pre-wrap}
 article[data-kind=user]{color:var(--user-ink)}
 article[data-kind=error]{color:#ff9898}
@@ -12,4 +14,12 @@ pre{max-width:100%;overflow:auto;white-space:pre;margin:24px 0;font:14px/24px Me
 code{font:.88em Menlo,monospace}
 a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .user-handle{font:inherit;opacity:.5}
-@media(prefers-contrast:more){#notebook-page{background:none}}
+/* The desktop's pencil companion: two rows tall beside the latest user prose, behind the ink. */
+#notebook-activity{white-space:nowrap}
+#notebook-activity[hidden]{display:none}
+#prompt-feedback{position:relative;display:inline-block;width:calc(clamp(36px,var(--prose-font-size,16px)*2.8,64px) + 12px);height:calc(var(--notebook-line-height,24px)*2);vertical-align:middle}
+#prompt-feedback[hidden]{display:none}
+#activity-caption{display:inline;font:italic .75em/1.3 Helvetica,Arial,sans-serif;opacity:.62;overflow-wrap:anywhere;white-space:normal;pointer-events:none}
+#activity-caption[hidden]{display:none}
+#notebook-thinking-donkey{position:fixed;z-index:3;pointer-events:none;opacity:.3;filter:saturate(.8)}
+#notebook-thinking-donkey[hidden]{display:none}

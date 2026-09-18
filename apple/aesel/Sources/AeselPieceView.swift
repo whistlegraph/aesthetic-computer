@@ -8,6 +8,7 @@ struct PieceView: View {
     let source: String
     @State private var failure: String?
     @State private var attempt = 0
+    @Environment(\.paint) private var paint
     var body: some View {
         ZStack {
             PieceWebView(url: url, source: source, failure: $failure).id(attempt)
@@ -18,9 +19,9 @@ struct PieceView: View {
                     Text("Preview could not load").font(Paint.font(20))
                     Text(failure).font(Paint.font(16)).multilineTextAlignment(.center)
                     Button("/retry") { self.failure = nil; attempt += 1 }
-                        .font(Paint.font(18)).foregroundStyle(Paint.you).buttonStyle(.plain)
+                        .font(Paint.font(18)).foregroundStyle(paint.you).buttonStyle(.plain)
                 }.padding().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Paint.deep)
+                    .background(paint.deep)
             }
         }
     }

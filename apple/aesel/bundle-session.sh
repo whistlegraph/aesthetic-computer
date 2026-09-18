@@ -8,7 +8,7 @@ done
 # Use the desktop's sanitized rich-text renderer on iPhone as well.
 mkdir -p Resources/Session/easel/desktop/vendor
 rsync -a --delete ../../easel/desktop/vendor/rich/ Resources/Session/easel/desktop/vendor/rich/
-cp ../../easel/desktop/{transcript,reply-details}.js Resources/Session/easel/desktop/
+cp ../../easel/desktop/{transcript,reply-details,notebook-donkey}.js Resources/Session/easel/desktop/
 cp ../../easel/desktop/rich.css Resources/Session/easel/desktop/
 # The desktop's pencil companion sheet, drawn natively by AeselDonkey.
 mkdir -p Resources/Session/easel/desktop/assets

@@ -38,6 +38,16 @@ struct AeselApp: App {
                         session.purchasedDollars = 1.41
                         session.append(.you, "Make a little orange circle.")
                         session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
+                        if ProcessInfo.processInfo.environment["AESEL_PREVIEW_PIECE"] == "1" {
+                            session.previewURL = URL(string: "https://aesthetic.computer/blank")
+                            session.source = "wipe(\"orange\");"
+                        }
+                        if ProcessInfo.processInfo.environment["AESEL_PREVIEW_BUSY"] == "1" {
+                            session.append(.you, "Now make it bounce.")
+                            session.busy = true
+                            session.status = "writing"
+                            session.health = .working
+                        }
                         return
                     }
                     #endif

@@ -11,10 +11,14 @@
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE6904A010A2BEC894D13C /* AeselApp.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
 		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
 		A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
+		AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
+		B7D0EF78D26BBA38AB801393 /* slab-theme.json in Resources */ = {isa = PBXBuildFile; fileRef = AACC6D25723505FB156B46F0 /* slab-theme.json */; };
 		B8236CE8844912F069905928 /* AeselScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */; };
+		C27DB5FE92281B28965A6535 /* Braincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */; };
 		C48716DE150CDF3FE383298E /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
 		C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
 		FBC8984584385405A83CB639 /* AeselHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */; };
@@ -25,9 +29,13 @@
 		22509229E839210D9200B4AA /* Aesel.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Aesel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		228E709932A29DC953A73B71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		47AE0766266534A8EE665542 /* Session */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Session; path = Resources/Session; sourceTree = SOURCE_ROOT; };
+		4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "COMIC-RELIEF-OFL-1.1.txt"; sourceTree = "<group>"; };
 		505E152C400C5CE69463B39F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Braincells.swift; sourceTree = "<group>"; };
 		72A337044339282DB88573A0 /* AeselPieceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselPieceView.swift; sourceTree = "<group>"; };
 		7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselScene.swift; sourceTree = "<group>"; };
+		99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Bold.ttf"; sourceTree = "<group>"; };
+		AACC6D25723505FB156B46F0 /* slab-theme.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "slab-theme.json"; sourceTree = "<group>"; };
 		B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHost.swift; sourceTree = "<group>"; };
 		B7CE6904A010A2BEC894D13C /* AeselApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselApp.swift; sourceTree = "<group>"; };
 		BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotebook.swift; sourceTree = "<group>"; };
@@ -45,6 +53,7 @@
 				BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */,
 				72A337044339282DB88573A0 /* AeselPieceView.swift */,
 				7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */,
+				5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */,
 				505E152C400C5CE69463B39F /* ContentView.swift */,
 				13B505C3279E0F8DB5292B86 /* Session.swift */,
 				B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */,
@@ -74,6 +83,9 @@
 			isa = PBXGroup;
 			children = (
 				228E709932A29DC953A73B71 /* Assets.xcassets */,
+				4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */,
+				99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */,
+				AACC6D25723505FB156B46F0 /* slab-theme.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -139,7 +151,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */,
+				44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */,
+				AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */,
 				C48716DE150CDF3FE383298E /* Session in Resources */,
+				B7D0EF78D26BBA38AB801393 /* slab-theme.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -156,6 +171,7 @@
 				A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */,
 				06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */,
 				B8236CE8844912F069905928 /* AeselScene.swift in Sources */,
+				C27DB5FE92281B28965A6535 /* Braincells.swift in Sources */,
 				1F53641C03321161A7665F3B /* ContentView.swift in Sources */,
 				3661DCFA19E2594688511C86 /* Session.swift in Sources */,
 				6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */,

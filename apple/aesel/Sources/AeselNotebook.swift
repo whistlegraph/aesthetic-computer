@@ -4,6 +4,8 @@ import WebKit
 /// Desktop rich replies, packaged locally; the agent host remains separate.
 struct AeselNotebook: UIViewRepresentable {
     let session: Session
+    var paint = Paint.base
+    @Binding var height: CGFloat
     var openLink: (URL) -> Void
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -12,6 +14,7 @@ struct AeselNotebook: UIViewRepresentable {
         var payload = "{}"
         var lastPayload = ""
         var openLink: (URL) -> Void
+        var reportHeight: (CGFloat) -> Void = { _ in }
         init(openLink: @escaping (URL) -> Void) { self.openLink = openLink }
         func render(_ view: WKWebView) {
             guard ready, payload != lastPayload else { return }
@@ -26,7 +29,12 @@ struct AeselNotebook: UIViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.frameInfo.isMainFrame,
                   message.webView?.url?.scheme == "aesel-bundle",
-                  let body = message.body as? [String: Any], let text = body["url"] as? String,
+                  let body = message.body as? [String: Any] else { return }
+            if let height = body["height"] as? Double, height.isFinite, height >= 0, height < 200_000 {
+                reportHeight(CGFloat(height))
+                return
+            }
+            guard let text = body["url"] as? String,
                   let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
             openLink(url)
         }
@@ -47,6 +55,7 @@ struct AeselNotebook: UIViewRepresentable {
         view.backgroundColor = .clear
         view.scrollView.backgroundColor = .clear
         view.scrollView.isScrollEnabled = false
+        view.scrollView.contentInsetAdjustmentBehavior = .never
         view.load(URLRequest(url: URL(string: "aesel-bundle://app/easel/phone/notebook.html")!))
         return view
     }
@@ -62,11 +71,16 @@ struct AeselNotebook: UIViewRepresentable {
             guard value.count == 7, let rgb = UInt32(value.dropFirst(), radix: 16) else { return nil }
             return [Int((rgb >> 16) & 255), Int((rgb >> 8) & 255), Int(rgb & 255)]
         }
-        let payload: [String: Any] = ["entries": entries, "handle": session.handle, "colors": colors]
+        let payload: [String: Any] = ["entries": entries, "handle": session.handle, "colors": colors, "theme": paint.css,
+                                     "busy": session.busy, "activity": session.busy ? session.status : ""]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
            let json = String(data: data, encoding: .utf8) {
             context.coordinator.payload = json
             context.coordinator.openLink = openLink
+            let height = $height
+            context.coordinator.reportHeight = { value in
+                DispatchQueue.main.async { if height.wrappedValue != value { height.wrappedValue = value } }
+            }
             context.coordinator.render(view)
         }
     }

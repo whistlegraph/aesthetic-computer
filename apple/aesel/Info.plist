@@ -18,6 +18,8 @@
   <string>0.7.5</string>
   <key>CFBundleVersion</key>
   <string>2</string>
+  <key>UIAppFonts</key>
+  <array><string>ComicRelief-Bold.ttf</string></array>
   <key>UILaunchScreen</key>
   <dict>
     <key>UIColorName</key>

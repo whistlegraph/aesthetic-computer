@@ -2,6 +2,8 @@
 import { randomUUID } from 'node:crypto';
 import { connect } from './database.mjs';
 export const CREDIT_PACK = Object.freeze({ id:'braincells-1m-v1', amount:500, currency:'usd', credits:1_000_000, unit:'braincells' });
+// The same pack sold through Apple in-app purchase; Apple keeps the price.
+export const IAP_PRODUCTS = Object.freeze({ 'computer.aesthetic.easel.braincells.1m': Object.freeze({ credits:1_000_000, unit:'braincells' }) });
 const COLLECTION='ac-credit-wallets';
 export async function withWallets(fn) {
   const connection=await connect();
@@ -23,12 +25,25 @@ export function paidCheckout(session, {live}={}) {
   if(![CREDIT_PACK.id,'luna-1m-v1'].includes(m.pack)||!m.userSub||session.client_reference_id!==m.userSub||session.amount_total!==CREDIT_PACK.amount||session.currency!==CREDIT_PACK.currency||typeof session.id!=='string'||!session.id.startsWith('cs_')||(live!==undefined&&session.livemode!==live))throw new Error('Credit checkout does not match the server offer');
   return {user:m.userSub,id:session.id,credits:CREDIT_PACK.credits};
 }
+// A single-document conditional increment makes webhook retries and a
+// simultaneous checkout-return reconciliation safe across server processes.
+export async function fulfillGrant(grant,wallets) {
+  if(!grant?.user||typeof grant.id!=='string'||!Number.isSafeInteger(grant.credits)||grant.credits<1)return false;
+  await ensureWallet(grant.user,wallets);
+  const result=await wallets.updateOne({_id:grant.user,grants:{$ne:grant.id}},{$inc:{balance:grant.credits},$addToSet:{grants:grant.id},$set:{updatedAt:new Date()}});
+  return result.modifiedCount===1;
+}
 export async function fulfillCheckout(session,wallets,options) {
   const grant=paidCheckout(session,options); if(!grant)return false;
-  await ensureWallet(grant.user,wallets);
-  // A single-document conditional increment makes webhook retries and a
-  // simultaneous checkout-return reconciliation safe across server processes.
-  const result=await wallets.updateOne({_id:grant.user,grants:{$ne:grant.id}},{$inc:{balance:grant.credits},$addToSet:{grants:grant.id},$set:{updatedAt:new Date()}});
+  return fulfillGrant(grant,wallets);
+}
+// Take back a granted pack (an Apple refund). Cumulative per grant, so a
+// redelivered notification converges; spent credit becomes debt.
+export async function revokeGrant(grant,wallets) {
+  if(!grant?.user||typeof grant.id!=='string'||!Number.isSafeInteger(grant.credits)||grant.credits<1)return false;
+  await fulfillGrant(grant,wallets);
+  const path=`refunds.${grant.id}`;
+  const result=await wallets.updateOne({_id:grant.user},[{$set:{balance:{$subtract:['$balance',{$max:[0,{$subtract:[grant.credits,{$ifNull:[`$${path}`,0]}]}]}]},[path]:{$max:[grant.credits,{$ifNull:[`$${path}`,0]}]},updatedAt:'$$NOW'}}]);
   return result.modifiedCount===1;
 }
 export function reservationSize(body,maxTokens,{validateMedia=true}={}) {

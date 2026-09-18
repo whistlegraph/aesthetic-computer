@@ -53,6 +53,7 @@
   "homepage": "https://github.com/whistlegraph/system#readme",
   "comment:dependencies": "Only packages imported by server code (backend/, netlify/functions/, and the lith + oven runtimes). Production installs with `npm install --omit=dev`, so anything the browser gets from a vendored copy in public/aesthetic.computer/dep/ belongs in devDependencies, not here.",
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@atproto/api": "^0.20.28",
     "@aws-sdk/client-s3": "^3.1020.0",
     "@aws-sdk/s3-request-presigner": "^3.1020.0",
