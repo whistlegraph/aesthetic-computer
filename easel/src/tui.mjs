@@ -2224,3 +2224,6 @@ try {
   addEntry("error", errorText(error));
   redraw();
 }
+
+// The desktop may now request a checkpoint safely, including after a failed connection.
+if(process.env.EASEL_DESKTOP)process.stdout.write('\x1b]777;easel-agent-ready\x07');

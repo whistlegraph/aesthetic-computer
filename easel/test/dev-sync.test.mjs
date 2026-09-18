@@ -14,3 +14,9 @@ test('sync installs immutable builds atomically and ignores unrelated commits',t
 });
 test('local modifications are visible and never overwritten',t=>{const f=fixture(t),args={home:f.home,fetch:false,build:()=>{}};sync(args);const file=path.join(f.home,'current/easel/desktop/main.cjs');fs.writeFileSync(file,'local work');fs.writeFileSync(path.join(f.repo,'easel/desktop/main.cjs'),'remote work');f.commit();const status=sync(args);assert.equal(status.state,'modified');assert.equal(fs.readFileSync(file,'utf8'),'local work');});
 test('failed staging keeps current build and marks freshness unknown',t=>{const f=fixture(t),args={home:f.home,fetch:false,build:()=>{}};sync(args);const original=fs.realpathSync(path.join(f.home,'current'));fs.writeFileSync(path.join(f.repo,'easel/desktop/main.cjs'),'remote');f.commit();assert.throws(()=>sync({...args,build(){throw Error('build failed');}}),/build failed/);assert.equal(fs.realpathSync(path.join(f.home,'current')),original);assert.equal(JSON.parse(fs.readFileSync(path.join(f.home,'status.json'))).online,false);});
+test('retention removes only old unmodified snapshots',t=>{
+ const f=fixture(t),args={home:f.home,fetch:false,build:()=>{}};sync(args);const edited=fs.realpathSync(path.join(f.home,'current'));
+ const next=i=>{fs.writeFileSync(path.join(f.repo,'easel/desktop/main.cjs'),'// revision '+i);f.commit();sync(args);return fs.realpathSync(path.join(f.home,'current'));};
+ const old=next(1);fs.writeFileSync(path.join(edited,'easel/desktop/main.cjs'),'local edit');for(let i=2;i<=5;i++)next(i);
+ assert(fs.existsSync(edited));assert(!fs.existsSync(old));assert.equal(fs.readdirSync(path.join(f.home,'versions')).length,4);
+});

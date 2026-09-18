@@ -7,6 +7,6 @@ test('local edits outrank a staged update',()=>{assert.equal(devStatus(running,{
 test('automatic application waits until the session is initialized',()=>{
  const fs=require('node:fs'),vm=require('node:vm');const source=fs.readFileSync(require.resolve('../main.cjs'),'utf8');
  const start=source.indexOf('function applyPendingDev()'),end=source.indexOf('\nconst buildStatus=',start);
- const calls=[],context={pendingDevAction:'restart',lastVisibleState:null,pendingRestart:false,requestRestart:action=>calls.push(action)};
- vm.createContext(context);vm.runInContext(source.slice(start,end),context);context.applyPendingDev();assert.deepEqual(calls,[]);assert.equal(context.pendingDevAction,'restart');context.lastVisibleState={status:'working'};context.applyPendingDev();assert.deepEqual(calls,['restart']);context.applyPendingDev();assert.equal(calls.length,1);
+ const calls=[],context={pendingDevAction:'restart',agentReady:false,lastVisibleState:null,pendingRestart:false,requestRestart:action=>calls.push(action)};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);context.applyPendingDev();assert.deepEqual(calls,[]);assert.equal(context.pendingDevAction,'restart');context.lastVisibleState={status:'working'};context.applyPendingDev();assert.deepEqual(calls,[]);context.agentReady=true;context.applyPendingDev();assert.deepEqual(calls,['restart']);context.applyPendingDev();assert.equal(calls.length,1);
 });

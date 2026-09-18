@@ -129,8 +129,8 @@ function requestRestart(action = 'restart') {
 const canUpdateBinary = !devHome && app.isPackaged && !process.mas && existsSync(join(process.resourcesPath,'app-update.yml'));
 const desktopUpdater = createUpdater({app, canUpdateBinary, onStatus:(status,info)=>buildStatus.release(status,info), requestRestart, prepareRelaunch: () => writeFileSync(continuationFile,JSON.stringify({cwd:workspace,at:Date.now()}),{mode:0o600}), notify: message => send('desktop-notice', message)});
 
-let pendingDevRoot=null,pendingDevUI=false,pendingDevAction=null;
-function applyPendingDev(){if(!pendingDevAction||!lastVisibleState||pendingRestart)return;const action=pendingDevAction;pendingDevAction=null;requestRestart(action);}
+let pendingDevRoot=null,pendingDevUI=false,pendingDevAction=null,agentReady=false,agentReadyBuffer='';
+function applyPendingDev(){if(!pendingDevAction||!agentReady||!lastVisibleState||pendingRestart)return;const action=pendingDevAction;pendingDevAction=null;requestRestart(action);}
 const buildStatus=require('./build-status.cjs').createBuildStatus({app,devHome,root,send,channel:canUpdateBinary||process.mas?'release':'local',onDevReady:(next,compatibility)=>{
   pendingDevRoot=next;pendingDevUI=!compatibility.sameUI;
   pendingDevAction=compatibility.sameHost?'restart':'update';applyPendingDev();
@@ -163,7 +163,8 @@ function start() {
     terminal = process.mas
       ? require('./mas-terminal.cjs').createMasTerminal(args, { ...terminalSize, cwd: workspace, env })
       : pty.spawn(process.execPath, args, { name: 'xterm-256color', ...terminalSize, cwd: workspace, env });
-    terminal.onData(data => send('output', data));
+    agentReady=false;agentReadyBuffer='';
+    terminal.onData(data => {send('output', data);if(!agentReady){agentReadyBuffer=(agentReadyBuffer+data).slice(-256);if(agentReadyBuffer.includes('\x1b]777;easel-agent-ready\x07')){agentReady=true;applyPendingDev();}}});
     terminal.onExit(({ exitCode }) => {
       terminal = null;
       if (exitCode === 75 && existsSync(controlFile)) {
