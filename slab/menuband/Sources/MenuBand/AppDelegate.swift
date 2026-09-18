@@ -1736,6 +1736,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return consumed
         }
+        localCapture.isOwnStatusItemPress = { [weak self] in
+            guard let self, let window = self.statusItem.button?.window else { return false }
+            return NSEvent.pressedMouseButtons & 1 != 0
+                && window.frame.contains(NSEvent.mouseLocation)
+        }
         localCapture.onCaptureEnd = { [weak self] reason in
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging. Only the

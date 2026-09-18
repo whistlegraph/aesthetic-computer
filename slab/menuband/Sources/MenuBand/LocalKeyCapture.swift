@@ -37,6 +37,12 @@ final class LocalKeyCapture {
     /// Ordinary registered primary-button state from a physical trackpad click.
     var onTrackpadPhysicalClick: ((Bool) -> Void)?
     var cancelShortcut: MenuBandShortcut?
+    /// Answers whether the mouse is currently pressed on Menu Band's own
+    /// status item. On macOS 27 a mouse-down in the menu bar deactivates an
+    /// accessory app even when the press lands on its own piano, so the
+    /// panel resigns key ~70 ms before `statusClicked` runs. That resign is
+    /// not a focus exit: the mouse-up re-arms. Set by the AppDelegate.
+    var isOwnStatusItemPress: (() -> Bool)?
     /// TrackDrum's permission-free click shield is a non-activating panel in
     /// a helper process. AppKit can still report our hidden key panel as
     /// resigned for that swallowed click. While percussion owns the trackpad,
@@ -83,7 +89,13 @@ final class LocalKeyCapture {
         // Activate the app + make panel key so keyDown events route here
         // instead of the previously-foreground app. Without `activate`, our
         // panel can't become key and keys go elsewhere.
+        let frontBefore = NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil"
+        let activeBefore = NSApp.isActive
         NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            let key = NSApp.keyWindow.map { "\(type(of: $0))" } ?? "none"
+            debugLog("capture.arm: before active=\(activeBefore) front=\(frontBefore) → active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil") key=\(key) panelKey=\(self?.panel?.isKeyWindow ?? false) armed=\(self?.isArmed ?? false)")
+        }
         // If another window in our app is already key (e.g. the
         // popover), DON'T steal key — `addLocalMonitorForEvents`
         // catches keys at the app level regardless of which specific
@@ -138,7 +150,17 @@ final class LocalKeyCapture {
             ) { [weak self] _ in
                 guard let self = self else { return }
                 let stillKeyInApp = NSApp.windows.contains { $0.isKeyWindow }
+                let visible = NSApp.windows.filter { $0.isVisible }.map { "\(type(of: $0))" }.joined(separator: ",")
+                debugLog("capture.panel resigned key: stillKeyInApp=\(stillKeyInApp) active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.localizedName ?? "nil") visible=[\(visible)]")
                 guard !stillKeyInApp else { return }
+                if self.isOwnStatusItemPress?() == true {
+                    // A press on our own piano. Hold capture through the
+                    // click; `statusClicked` re-arms after the mouse-up.
+                    // If the press ends and nothing re-keyed us, let go.
+                    debugLog("local capture: holding across status-item press")
+                    self.disarmAfterStatusItemPressIfOrphaned()
+                    return
+                }
                 if self.keepsCaptureArmedOnResign {
                     // The helper's non-activating click sink can briefly make
                     // this panel resign. Wait a turn for the matching contact
@@ -165,6 +187,24 @@ final class LocalKeyCapture {
             }
         }
         isArmed = true
+    }
+
+    /// After a status-item press held capture across a resign: wait for the
+    /// mouse-up, give the click handler a beat to re-arm, and disarm only if
+    /// no window of ours is key and the app is still inactive.
+    private func disarmAfterStatusItemPressIfOrphaned() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.isArmed else { return }
+            if NSEvent.pressedMouseButtons != 0 {
+                self.disarmAfterStatusItemPressIfOrphaned()
+                return
+            }
+            let keyInApp = NSApp.windows.contains { $0.isKeyWindow }
+            if !keyInApp && !NSApp.isActive {
+                debugLog("local capture: status-item press left us orphaned")
+                self.disarm(reason: .resignedKey)
+            }
+        }
     }
 
     /// Tear down the panel + monitor. Called when the user clicks another
