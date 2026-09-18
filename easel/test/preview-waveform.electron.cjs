@@ -100,9 +100,9 @@ let win;
     win.setSize(width, 650);
     await delay(220);
     const row = await js(
-      `(()=>{const a=document.getElementById('prompt-feedback').getBoundingClientRect(),b=document.getElementById('activity-caption').getBoundingClientRect(),g=document.getElementById('notebook-activity').getBoundingClientRect();return {sameRow:Math.abs(a.top+a.height/2-b.top-b.height/2)<3,beside:b.left>=a.right,width:g.width,available:innerWidth,donkey:getComputedStyle(document.getElementById('notebook-thinking-donkey')).translate,bubble:getComputedStyle(document.getElementById('activity-caption')).translate}})()`,
+      `(()=>{const a=document.getElementById('prompt-feedback').getBoundingClientRect(),b=document.getElementById('activity-caption').getBoundingClientRect(),g=document.getElementById('notebook-activity').getBoundingClientRect();return {raised:b.top+b.height/2<a.top+a.height/2,beside:b.left>=a.right,width:g.width,available:innerWidth,donkey:getComputedStyle(document.getElementById('notebook-thinking-donkey')).translate,bubble:getComputedStyle(document.getElementById('activity-caption')).translate}})()`,
     );
-    assert(row.sameRow && row.beside, JSON.stringify(row));
+    assert(row.raised && row.beside, JSON.stringify(row));
     assert(row.width <= row.available);
     assert.equal(
       row.donkey,

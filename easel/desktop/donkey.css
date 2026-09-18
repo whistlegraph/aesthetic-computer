@@ -321,6 +321,11 @@ body.preview-fullscreen #preview-waveform{display:none}
 #notebook-activity{display:inline-flex;flex-wrap:nowrap;align-items:center;vertical-align:middle;max-width:100%;white-space:normal}
 #notebook-activity[hidden]{display:none}
 #notebook-activity #prompt-feedback{flex:none}
-#notebook-activity #activity-caption{flex:0 1 auto;min-width:0;max-width:34ch;box-sizing:border-box;translate:0 var(--activity-bounce,0px)}
+#notebook-activity #activity-caption{top:-.8em;flex:0 1 auto;min-width:0;max-width:34ch;box-sizing:border-box;translate:0 var(--activity-bounce,0px)}
 
-#activity-text{display:block;max-height:7.8em;overflow-y:auto;overscroll-behavior:contain;pointer-events:auto;scrollbar-width:thin}
+#activity-text{display:block;box-sizing:border-box;max-width:100%;max-height:7.8em;padding-inline:.2em;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;pointer-events:auto;scrollbar-width:thin}
+
+#activity-caption::before,#activity-caption::after{animation:aesel-thought-dot 1.6s ease-in-out infinite}
+#activity-caption::before{animation-delay:.25s}
+@keyframes aesel-thought-dot{0%,100%{opacity:.5;transform:translateY(1px) scale(.8)}50%{opacity:1;transform:translateY(-1px) scale(1.12)}}
+@media(prefers-reduced-motion:reduce){#activity-caption::before,#activity-caption::after{animation:none}}
