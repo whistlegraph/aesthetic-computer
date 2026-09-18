@@ -7,6 +7,49 @@
   window.addEventListener('pointerup',()=>{draggingPreview=false;dragSent=false;});
   let key='', player=null, playerFrame=0, emulator=null, generation=0;
   const ready = () => { const box=document.getElementById('artifact'); box.classList.remove('refresh'); requestAnimationFrame(()=>box.classList.add('refresh')); };
+  // The shared music clock (net-clock.js). Main measures the offset against
+  // /api/clock; here it is adopted and beats are counted from it, never from
+  // Date.now or the AudioContext alone. Loaded like the emulator: this file is
+  // wired in index.html, the clock rides along with it.
+  const netClock=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='net-clock.js';script.onload=()=>resolve(window.NetClock);script.onerror=()=>reject(new Error('Could not load the net clock.'));document.head.append(script);});
+  let clock=null,syncedAt=0;
+  const syncClock=async(force)=>{if(!clock||(!force&&performance.now()-syncedAt<5000))return;syncedAt=performance.now();try{const s=await window.aesel.clock?.();if(s)clock.adopt(s.offset);}catch{}};
+  netClock.then(NetClock=>{clock=NetClock.createClock();window.aeselClock=clock;}).catch(()=>{});
+  // One AudioContext for every tape; 24 kHz matches the rendered WAV so the
+  // decoded samples are the file's samples.
+  let deckContext=null;const audioContext=()=>deckContext||(deckContext=new AudioContext({sampleRate:24000}));
+  // A tape deck over Web Audio. A loop starts at the phase the shared clock
+  // says the loop is at right now: clock.time() and context.currentTime are
+  // read as a pair, then everything is scheduled on the context's timeline. Two
+  // machines with the same score wrap on the same beat. A one-shot phrase waits
+  // for the next shared beat, like a sync button.
+  const tapeDeck=(NetClock,buffer,grid)=>{
+    const context=audioContext(),loopSec=grid?.loop?buffer.duration:0;
+    let source=null,anchor=0,head=0; // anchor: the context time where tape position 0 sits
+    const stop=()=>{if(source){source.onended=null;try{source.stop();}catch{}source=null;}};
+    const position=()=>{const t=context.currentTime-anchor;return loopSec?((t%loopSec)+loopSec)%loopSec:Math.min(Math.max(0,t),buffer.duration);};
+    const start=offset=>{
+      const lead=.05,at=clock.time()+lead*1000;let when=context.currentTime+lead;
+      if(grid&&loopSec)offset=NetClock.loop(at,grid).phase*loopSec;
+      else if(grid)when+=(NetClock.nextBeat(at,grid.bpm)-at)/1000;
+      source=context.createBufferSource();source.buffer=buffer;source.loop=!!loopSec;
+      source.onended=()=>{source=null;head=0;deck.paused=true;deck.onended?.();};
+      source.connect(context.destination);source.start(when,offset);anchor=when-offset;
+      if(grid)console.log(`🕰️ deck ${loopSec?'loop':'phrase'} on shared beat ${NetClock.beat(at,grid.bpm).index} (offset ${Math.round(clock.offset)}ms, rtt ${Math.round(clock.rtt)}ms)`);
+    };
+    const deck={
+      paused:true,loop:!!loopSec,duration:buffer.duration,onplay:null,onpause:null,onended:null,
+      get currentTime(){return deck.paused?head:position();},
+      set currentTime(v){head=Math.max(0,Math.min(buffer.duration,v));if(!deck.paused&&!loopSec){stop();start(head);}}, // a loop stays locked
+      async play(){if(!deck.paused)return;await context.resume();await syncClock(true);start(head);deck.paused=false;deck.onplay?.();},
+      pause(){if(deck.paused)return;head=position();stop();deck.paused=true;deck.onpause?.();},
+      // A resync or the buffer's sample rounding can walk a running loop off the grid; snap it back.
+      relock(){if(deck.paused||!loopSec)return;const drift=position()-NetClock.loop(clock.time(),grid).phase*loopSec;if(Math.abs(drift)>.02&&Math.abs(drift)<loopSec-.02){stop();start();}},
+      // The beat under the head, for the readout.
+      beat(){return loopSec?NetClock.loop(clock.time(),grid).beat:Math.floor(deck.currentTime*grid.bpm/60);},
+    };
+    return deck;
+  };
   window.renderMediaPreview = async state => {
     if (state.medium === 'piece') {
       ++generation;
@@ -28,18 +71,20 @@
       if(preview.mime==='image/png') {
         const img=new Image();img.alt=state.piece||'Picture';img.draggable=false;img.onload=()=>{if(current!==generation)return;window.setPreviewDimensions(img.naturalWidth,img.naturalHeight);ready();};img.src=preview.data;host.append(img);
       } else if(preview.mime==='audio/wav') {
-        player=new Audio(preview.data);const audio=player;
-        const canvas=document.createElement('canvas');canvas.className='tape-player';canvas.width=192;canvas.height=128;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label','Play sound; drag to scrub; drag beyond the Easel window to export');host.append(canvas);
-        const context=new OfflineAudioContext(1,1,24000);
-        const buffer=await context.decodeAudioData(await(await fetch(preview.data)).arrayBuffer());
+        const NetClock=await netClock;
+        const buffer=await audioContext().decodeAudioData(await(await fetch(preview.data)).arrayBuffer());
         if(current!==generation)return;
+        const grid=preview.grid||null,audio=tapeDeck(NetClock,buffer,grid);player=audio;void syncClock();
+        const canvas=document.createElement('canvas');canvas.className='tape-player';canvas.width=192;canvas.height=128;canvas.tabIndex=0;canvas.setAttribute('role','button');canvas.setAttribute('aria-label',`Play sound; drag to scrub${audio.loop?' (a loop stays locked to the shared beat)':''}; drag beyond the Easel window to export`);host.append(canvas);
         const samples=buffer.getChannelData(0),ctx=canvas.getContext('2d'),peaks=[];
         for(let x=0;x<192;x++){let peak=0;for(let i=Math.floor(x*samples.length/192);i<Math.floor((x+1)*samples.length/192);i++)peak=Math.max(peak,Math.abs(samples[i]));peaks.push(peak);}
-        const draw=()=>{cancelAnimationFrame(playerFrame);playerFrame=0;if(current!==generation)return;const progress=audio.duration?audio.currentTime/audio.duration:0;
+        const draw=()=>{cancelAnimationFrame(playerFrame);playerFrame=0;if(current!==generation)return;audio.relock();void syncClock();const progress=audio.duration?audio.currentTime/audio.duration:0;
           ctx.fillStyle='#07182c';ctx.fillRect(0,0,192,128);
+          if(grid){ctx.fillStyle='#ffffff14';for(let b=1;b<grid.beats;b++)ctx.fillRect(Math.round(b/grid.beats*192),0,1,123);}
           ctx.fillStyle='#ffc80033';for(let x=0;x<192;x++)ctx.fillRect(x,64-peaks[x]*52,1,Math.max(1,peaks[x]*104));
           ctx.fillStyle='#ffc800aa';for(let x=0;x<Math.floor(progress*192);x++)ctx.fillRect(x,64-peaks[x]*52,1,Math.max(1,peaks[x]*104));
-          ctx.fillStyle='#3c4b5fdd';ctx.fillRect(151,5,36,13);ctx.strokeStyle='#6e829f';ctx.strokeRect(151.5,5.5,35,12);ctx.fillStyle='#ffff00';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText(audio.paused?'0.00x':'1.00x',169,14);
+          ctx.fillStyle='#3c4b5fdd';ctx.fillRect(151,5,36,13);ctx.strokeStyle='#6e829f';ctx.strokeRect(151.5,5.5,35,12);ctx.fillStyle='#ffff00';ctx.font='8px monospace';ctx.textAlign='center';
+          if(grid){const beat=audio.beat();canvas.dataset.beat=String(beat);canvas.dataset.head=String(Math.round(audio.currentTime*1000));ctx.fillText(audio.paused?`${grid.bpm}bpm`:`${beat+1}/${grid.beats}`,169,14);}else ctx.fillText(audio.paused?'0.00x':'1.00x',169,14);
           if(audio.paused){ctx.fillStyle='#ffffffdd';ctx.beginPath();ctx.moveTo(88,48);ctx.lineTo(88,80);ctx.lineTo(113,64);ctx.closePath();ctx.fill();}
           ctx.fillStyle='#ffffff2d';ctx.fillRect(0,125,192,3);ctx.fillStyle='#ff3344';ctx.fillRect(0,125,Math.max(1,Math.floor(progress*192)),3);ctx.fillStyle='#fff';ctx.fillRect(Math.min(188,Math.floor(progress*188)),123,4,5);
           if(!audio.paused)playerFrame=requestAnimationFrame(draw);

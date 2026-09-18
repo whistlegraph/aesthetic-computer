@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('aesel', {
   openPiece: url => { if (typeof url === 'string') ipcRenderer.send('open-piece',url); },
   openPaper: () => ipcRenderer.send('open-paper'),
   dragPreview: () => ipcRenderer.send('preview-drag'),
+  clock: () => ipcRenderer.invoke('net-clock'),
   onNotice: fn => ipcRenderer.on('desktop-notice', (_event, message) => { if (typeof message === 'string') fn(message.slice(0, 2000)); }),
   onFullscreenState: fn => ipcRenderer.on('fullscreen-state', (_event, state) => {
     if (state && typeof state.app === 'boolean' && typeof state.preview === 'boolean') fn({ app: state.app, preview: state.preview });

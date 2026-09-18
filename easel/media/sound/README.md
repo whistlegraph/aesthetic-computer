@@ -24,6 +24,17 @@ the exact original paths and SHA-256 hashes. The Aesel repository license applie
 ```
 
 Times are beats (quarter notes). Presets are `lead`, `pad`, and `stab`.
+
+Beats are a shared grid, not a local stopwatch. The desktop deck
+(`easel/desktop/net-clock.js`, after AC's `clock.mjs` and the `clock` disk api)
+syncs a virtual UTC against `/api/clock` and counts beat `floor(time / (60000 /
+bpm))` from the epoch, so `bpm` is the music rate every open Aesel agrees on.
+A loop of `beats` beats wraps on every beat whose index is a multiple of
+`beats`, and playing it starts at that shared phase; a one-shot phrase waits for
+the next shared beat. Two machines holding the same `bpm`, `beats` and `loop`
+therefore land on the same beat. To compose against it: keep `at` on beats or
+simple subdivisions, make loops a whole number of beats (required) and whole
+bars — 4, 8, 16 — when you want them to line up with other loops.
 `set_score` validates and renders a full recipe. `render` reads the saved recipe.
 `rhythm` replaces notes using `{ "hits": 3, "pulses": 8, "midi": 60 }` and enables
 looping. `analyze` measures the saved WAV without changing its audio.

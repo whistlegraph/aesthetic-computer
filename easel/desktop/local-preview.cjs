@@ -33,6 +33,9 @@ async function localPreview(workspace, preview) {
     dimensions = dimensionsCache.get(key) || dimensions;
   }
   const bytes = fs.readFileSync(target);
-  return {...dimensions,mime:preview.mime,internalPath:target,data:`data:${preview.mime};base64,${bytes.toString('base64')}`,text:preview.mime==='text/plain'?bytes.toString('utf8').slice(0,100000):undefined};
+  // A sound carries its beat grid so the deck can lock the loop to the shared clock.
+  let grid;
+  if (preview.mime === 'audio/wav') try { const score = JSON.parse(fs.readFileSync(path.join(path.dirname(target),'score.json'),'utf8')); if ([score.bpm,score.beats].every(n=>Number.isFinite(n)&&n>0)) grid = {bpm:score.bpm,beats:score.beats,loop:score.loop===true}; } catch {}
+  return {...dimensions,grid,mime:preview.mime,internalPath:target,data:`data:${preview.mime};base64,${bytes.toString('base64')}`,text:preview.mime==='text/plain'?bytes.toString('utf8').slice(0,100000):undefined};
 }
 module.exports = {localPreview};

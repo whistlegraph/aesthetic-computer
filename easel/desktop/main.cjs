@@ -1,5 +1,5 @@
 const {chmodSync}=require('node:fs');
-const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, clipboard, screen, nativeImage, net } = require('electron');
 const pty = require('node-pty');
 const { spawn } = require('node:child_process');
 const { join, resolve } = require('node:path');
@@ -7,6 +7,7 @@ const { closeSync, copyFileSync, mkdirSync, openSync, readdirSync, readFileSync,
 const {followSlabTheme,FALLBACK} = require('./slab-theme.cjs');
 const {createHash,randomUUID} = require('node:crypto');
 const {localPreview} = require('./local-preview.cjs');
+const NetClock = require('./net-clock.js');
 const {createUpdater} = require('./updater.cjs');
 const {startFrameCapture} = require('./frame-capture.cjs');
 const { tmpdir, homedir } = require('node:os');
@@ -398,6 +399,16 @@ app.on('web-contents-created', (_event, contents) => {
   });
 });
 
+// The shared music clock. Chromium's stack carries a browser user agent, which
+// Cloudflare wants; the renderer's CSP cannot reach the site itself. The
+// renderer asks whenever it is playing; fetches are throttled here.
+const netClock = NetClock.createClock({ sample: () => NetClock.sample({ fetch: net.fetch, site: process.env.EASEL_SITE || 'https://aesthetic.computer' }) });
+let netClockAt = 0;
+ipcMain.handle('net-clock', async event => {
+ if (!isWindow(event)) return null;
+ if (Date.now() - netClockAt > 5000) { netClockAt = Date.now(); try { await netClock.resync(); } catch {} }
+ return netClock.toJSON();
+});
 // Native menus live outside the renderer viewport; return only the chosen index.
 ipcMain.handle('notebook-context-menu', (event, items) => {
  if(!isWindow(event)||!Array.isArray(items)||items.length>32)return -1;

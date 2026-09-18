@@ -1,4 +1,10 @@
 // Portable compositional Pop lane. No provider, samples, or executable score code.
+//
+// Time is a shared grid. Playback (desktop net-clock.js, after AC's clock.mjs)
+// counts beats from the UTC epoch at the score's bpm, so `bpm` is the music
+// rate every open Aesel agrees on and a loop of N beats wraps on every beat
+// whose index is a multiple of N. Notes sit at beat offsets from the loop's
+// start; a loop is a whole number of beats — whole bars (4, 8, 16) compose best.
 import { readFile, writeFile, mkdir, lstat, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -22,6 +28,7 @@ export function validateScore(raw) {
   if (instrument !== 'sinepower') throw new Error('Available instrument: sinepower');
   const loop = raw.loop ?? false;
   if(typeof loop !== 'boolean') throw new Error('loop must be boolean');
+  if(loop && !Number.isInteger(beats)) throw new Error('A loop must be a whole number of beats so it wraps on the shared beat grid');
   if (!Array.isArray(raw.notes) || raw.notes.length > 128) throw new Error('notes must be an array of at most 128 events');
   let work = 0;
   const notes = raw.notes.map(n => {
@@ -41,6 +48,10 @@ export function validateScore(raw) {
     throw new Error('Available effects: wobble, bitcrush');
   });
   return {format:1,bpm,beats,instrument,preset,loop,notes,effects};
+}
+// The grid a score plays on: seconds per beat, the loop's length, and how it sits in bars.
+export function scoreGrid({bpm,beats}) {
+  return {bpm,beats,beatSec:60/bpm,loopSec:beats*60/bpm,bars:beats%4===0?beats/4:null};
 }
 export function renderScore(raw) {
   const score=validateScore(raw), length=Math.round(score.beats*60/score.bpm*RATE);
@@ -85,13 +96,14 @@ async function save(root,raw) {
   await atomic(root,'analysis.json',JSON.stringify(analysis)+'\n');
   await atomic(root,'provenance.json',JSON.stringify(provenance,null,2)+'\n');
   await atomic(root,'score.json',scoreBytes);
-  return {files:OUTPUTS,preview:{path:'sound.wav',mime:'audio/wav'},summary:`${score.notes.length} notes · ${analysis.duration.toFixed(2)}s · ${score.preset}${score.loop?' loop':''}`,analysis};
+  const grid=scoreGrid(score);
+  return {files:OUTPUTS,preview:{path:'sound.wav',mime:'audio/wav'},summary:`${score.notes.length} notes · ${analysis.duration.toFixed(2)}s · ${score.preset}${score.loop?' loop':''} · ${score.beats} beats${grid.bars?` (${grid.bars} bar${grid.bars===1?'':'s'})`:''} @ ${score.bpm}bpm`,analysis,grid};
 }
 const noteSchema={type:'object',properties:{at:{type:'number'},midi:{type:'integer'},duration:{type:'number'},gain:{type:'number'}},required:['at','midi'],additionalProperties:false};
 export const actions=[
-  {name:'set_score',description:'Compose and render a short Pop sinepower phrase. Beats are quarter notes; MIDI 24–96, bpm 30–300, at most 30 seconds and 128 notes. Presets lead/pad/stab. Optional wobble or bitcrush effects.',inputSchema:{type:'object',properties:{score:{type:'object',properties:{bpm:{type:'number'},beats:{type:'number'},preset:{type:'string',enum:['lead','pad','stab']},loop:{type:'boolean'},notes:{type:'array',items:noteSchema},effects:{type:'array',items:{type:'object'}}},required:['notes']}},required:['score'],additionalProperties:false}},
+  {name:'set_score',description:'Compose and render a short Pop sinepower phrase. Beats are quarter notes on a beat grid shared by every open Aesel (bpm is the shared music rate); note.at is the beat offset from the loop start, so put onsets on beats or simple subdivisions. A loop must be a whole number of beats and composes best as whole bars (4, 8, 16); loops start on shared beat boundaries when played. MIDI 24–96, bpm 30–300, at most 30 seconds and 128 notes. Presets lead/pad/stab. Optional wobble or bitcrush effects.',inputSchema:{type:'object',properties:{score:{type:'object',properties:{bpm:{type:'number'},beats:{type:'number'},preset:{type:'string',enum:['lead','pad','stab']},loop:{type:'boolean'},notes:{type:'array',items:noteSchema},effects:{type:'array',items:{type:'object'}}},required:['notes']}},required:['score'],additionalProperties:false}},
   {name:'render',description:'Render current editable score.json into sound.wav.',inputSchema:{type:'object',properties:{},additionalProperties:false}},
-  {name:'rhythm',description:'Replace notes with a maximally even Pop Bjorklund rhythm; preserve tempo, timbre and effects.',inputSchema:{type:'object',properties:{pulses:{type:'integer',minimum:1,maximum:64},hits:{type:'integer',minimum:0,maximum:64},midi:{type:'integer',minimum:24,maximum:96}},required:['pulses','hits'],additionalProperties:false}},
+  {name:'rhythm',description:'Replace notes with a maximally even Pop Bjorklund rhythm over the loop, pulses dividing its beats; preserve tempo, timbre and effects. Pulses equal to or a multiple of the beat count keep every onset on the shared grid.',inputSchema:{type:'object',properties:{pulses:{type:'integer',minimum:1,maximum:64},hits:{type:'integer',minimum:0,maximum:64},midi:{type:'integer',minimum:24,maximum:96}},required:['pulses','hits'],additionalProperties:false}},
   {name:'analyze',description:'Measure the saved WAV: peak, RMS, duration and waveform. Does not regenerate audio.',inputSchema:{type:'object',properties:{},additionalProperties:false}},
 ];
 export async function create({root}) {return save(root,{bpm:100,beats:8,preset:'stab',notes:[60,64,67,72].map((midi,i)=>({at:i*1.5,midi,duration:1,gain:.3}))});}
