@@ -141,7 +141,7 @@ function checkBuildUpdates(){
 }
 ipcMain.on('check-build-updates',event=>{if(event.sender===window?.webContents)checkBuildUpdates();});
 
-function send(channel, data) { if(channel==='build-status'){const item=Menu.getApplicationMenu()?.getMenuItemById('aesel-build-status');if(item)item.label=[data.channel==='dev'?'Dev':data.channel==='release'?'Release':'Local',data.version,data.revision?.slice(0,8),({current:'Up to date',ready:'Update ready',modified:'Local changes',unknown:'Unable to verify',checking:'Checking…',syncing:'Syncing…',downloading:'Downloading…'})[data.status]||'Unable to verify'].filter(Boolean).join(' · ');}
+function send(channel, data) { if(channel==='build-status'){const item=Menu.getApplicationMenu()?.getMenuItemById('aesel-build-status');if(item)item.label=[data.channel==='dev'?'Dev':data.channel==='release'?'Release':'Local',data.version,(data.tree||data.revision)?.slice(0,8),({current:'Up to date',ready:'Update ready',modified:'Local changes',unknown:'Unable to verify',checking:'Checking…',syncing:'Syncing…',downloading:'Downloading…'})[data.status]||'Unable to verify'].filter(Boolean).join(' · ');}
 if (window && !window.isDestroyed()) window.webContents.send(channel, data); }
 function start() {
   if (terminal) return;

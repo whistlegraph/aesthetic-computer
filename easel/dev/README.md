@@ -14,7 +14,7 @@ also reload the interface. Host changes checkpoint and relaunch the Dev app.
 Active requests finish before the checkpoint. Project files are never synced
 between machines, and working Git checkouts are never reset.
 
-Settings shows Dev/Release/Local, app version, dev revision, and update state.
+Settings shows Dev/Release/Local, app version, content-based dev build ID, and update state. Hover the settings status for its Git commit. Identical Aesel source keeps the same build ID even when other projects change.
 Piece versions such as v3 are separate. Offline or old checks say they cannot
 verify freshness. Local edits inside an installed dev snapshot pause syncing
 and show “Local changes”; move them into a source checkout before republishing.
