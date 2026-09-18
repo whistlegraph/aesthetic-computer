@@ -4,6 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <script>
+    const jevDemo = new URLSearchParams(location.search).has('jev-vs-jev');
+    if (jevDemo) {
+      globalThis.__oskiewarSelfPlay = true;
+      globalThis.__oskiewarJevPad = (seat, scene) => parent.__jevArena?.pad(seat, scene) || [];
+    }
     // The game module is the long pole of the whole load, so its download
     // starts here — first line of the head, ahead of the stylesheet, the
     // module graph and every probe the shell makes on the way to booting.
@@ -242,7 +247,7 @@
     // Pal select is intentionally retired; this keeps Spiderdummy reachable
     // without restoring a screen that no longer matches the front door.
     globalThis.__oskiewarOpponent =
-      new URLSearchParams(location.search).get("opponent") ||
+      (jevDemo ? 'bot' : new URLSearchParams(location.search).get("opponent")) ||
       ((new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");
     // `__oskiewarVersusCapable` is raised in the head, beside the fetches
     // that depend on it.
@@ -877,7 +882,7 @@
     let localCountry = "";
     let updateAvailable = false;
     const popsEndpoint = "/api/oskiewar-pops";
-    const socialPreview = new URLSearchParams(location.search).has("social-preview");
+    const socialPreview = jevDemo || new URLSearchParams(location.search).has("social-preview");
     const replayOven = new URLSearchParams(location.search).has("replay-oven");
     const reelHud = new URLSearchParams(location.search).has("reel-hud");
     const reelFullUi = new URLSearchParams(location.search).has("reel-full-ui");
@@ -1107,6 +1112,7 @@
     }
 
     async function saveReplay(payload) {
+      if (jevDemo) return true;
       try {
         const response = await fetch("https://aesthetic.computer/api/oskiewar-replays?surface=web", {
           method: "POST", headers: { "content-type": "application/json" }, body: payload,
@@ -1140,6 +1146,7 @@
     const liveFrame = (payload) =>
       '{"type":"oskiewar:state","content":' + payload + "}";
     function publishLive(matchId, payload) {
+      if (jevDemo) { parent.__jevArena?.frame(JSON.parse(payload)); return; }
       const retiresRoom = /"nextRoundId":"ow-/.test(payload);
       let state = liveSockets.get(matchId);
       if (!state) {
@@ -1548,10 +1555,10 @@
     // Actions raised before it lands wait in a short queue.
     let analyticsReady = false;
     const analyticsQueue = [];
-    const analytics = (action, properties) => analyticsReady
+    const analytics = (action, properties) => jevDemo ? false : analyticsReady
       ? captureOskiewarAction(action, properties)
       : analyticsQueue.push([action, properties]) > 0;
-    fetch("/api/product-analytics-config", { cache: "no-store" })
+    if (!jevDemo) fetch("/api/product-analytics-config", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
       .catch(() => null)
       .then((config) => {

@@ -80,3 +80,29 @@ inside this repository's seven-day package cooldown.
 Local tests mock the gateway and cover request shape, response validation,
 evidence filtering and coach delegation. The adapter has also completed a real
 Jev choice request with zero data retention enabled; `--smoke` repeats that check.
+
+## OpenRouter and harness benchmark
+
+`openrouter.mjs` exports `evaluateChoices(request)` with the same `{state,
+questions}` choice input. Set `OPENROUTER_API_KEY`. It uses
+`POST /api/alpha/decisions`, model `~typesafe/jev-latest`, and `provider.zdr: true`.
+This alpha endpoint is documented in OpenRouter's
+[Decisions SDK implementation](https://github.com/OpenRouterTeam/go-sdk/blob/main/decisions.go).
+It does not use chat completions. The existing coach still defaults to Vercel.
+
+Run the paid, synthetic benchmark with credentials exported or Node env files:
+
+```sh
+node --env-file="$HOME/.config/aesthetic-computer/jev.env" \
+  toolchain/jev/benchmark.mjs --provider vercel --repeats 3 --output /tmp/jev-benchmark.json
+# With both API keys in the environment, omit --provider to compare routes.
+```
+
+Ten cases cover Oskiewar practice choices and proposed Aesel harness decisions:
+API lookup, preview inspection, focused repair, escalation, and continuing the
+existing flow. Three repetitions across both providers make 60 paid requests.
+The runner sends only synthetic fixtures, alternates provider order by repetition,
+and records full round-trip latency, reported cost, choices and probabilities.
+The first request is reported separately; later requests reuse the process and
+connection pool. Expected-label agreement is a small smoke check, not a general
+accuracy or end-to-end speed claim. No live harness behavior changes.

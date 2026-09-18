@@ -26,6 +26,10 @@ export async function evaluate({ state, questions }, {
   // Do not echo upstream error bodies, which may contain submitted state.
   if (!response.ok) throw new Error(`Jev gateway returned HTTP ${response.status}.`);
   const result = await response.json();
+  return validateAnswers(result, questions);
+}
+
+export function validateAnswers(result, questions) {
   for (const [id, question] of Object.entries(questions)) {
     const answer = result.answers?.[id];
     if (!answer || answer.type !== question.type)

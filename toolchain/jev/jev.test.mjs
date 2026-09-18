@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { evaluate } from './evaluate.mjs';
+import { evaluateChoices } from './openrouter.mjs';
 import { createHandler, decisionRequest } from './coach.mjs';
 
 const report = { room: 'private-room', frames: 100, seconds: 5, rounds: 1,
@@ -14,6 +15,24 @@ const result = { answers: { practice: { type: 'choice', choice: 'defense',
   probabilities: { defense: .9, observe: .1 } } } };
 const call = { jsonrpc: '2.0', id: 42, method: 'tools/call',
   params: { name: 'coach_jev', arguments: { seat: 0 } } };
+
+test('OpenRouter uses Decisions with ZDR and validates the selected choice', async () => {
+  const options = { apiKey: 'test-key', fetchImpl: async (url, init) => {
+    assert.equal(url, 'https://openrouter.ai/api/alpha/decisions');
+    assert.equal(init.headers.Authorization, 'Bearer test-key');
+    assert.equal(init.redirect, 'error');
+    assert.deepEqual(JSON.parse(init.body), { model: '~typesafe/jev-latest',
+      ...request, provider: { zdr: true } });
+    return Response.json(result);
+  } };
+  assert.deepEqual(await evaluateChoices(request, options), result);
+  await assert.rejects(evaluateChoices(request, { ...options, apiKey: '' }), /OPENROUTER_API_KEY/);
+  await assert.rejects(evaluateChoices({ state: 'x', questions: { ok: { type: 'boolean' } } }, options), /typed choice/);
+  await assert.rejects(evaluateChoices(request, { apiKey: 'x', fetchImpl: async () =>
+    Response.json({ answers: { practice: { type: 'choice', choice: 'publish' } } }) }), /Unknown choice/);
+  await assert.rejects(evaluateChoices(request, { apiKey: 'x', fetchImpl: async () =>
+    new Response('private upstream content', { status: 503 }) }), /^Error: Jev OpenRouter returned HTTP 503\.$/);
+});
 
 test('Gateway protocol sends typed questions and requires credentials', async () => {
   let calls = 0;

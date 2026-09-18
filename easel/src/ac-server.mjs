@@ -36,6 +36,7 @@ import { readRuntimeFeedback, runtimeFeedbackContext } from "./runtime-feedback.
 import { PREVIEW_TOOL, TOOLS, callTool, loadMap } from "./tools.mjs";
 import { API_WORKFLOW } from "./api-context.mjs";
 import { createHash, randomUUID } from "node:crypto";
+import { configuredJev } from "./jev-advisor.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
@@ -104,6 +105,7 @@ export class AcServer extends EventEmitter {
     token = null,
     fetch = globalThis.fetch,
     site = SITE,
+    jev = configuredJev(),
   } = {}) {
     super();
     this.cwd = cwd;
@@ -116,6 +118,7 @@ export class AcServer extends EventEmitter {
     this.token = token;
     this.fetch = fetch;
     this.site = site;
+    this.jev = jev;
     this.threadId = resumeThreadId || "";
     this.turnId = null;
     this.turns = 0;
@@ -204,6 +207,8 @@ export class AcServer extends EventEmitter {
   }
 
   async startTurn(text) {
+    this.jev?.beginTurn();
+    this.pendingTriage = null;
     this.imageRequested = false;
     this.turnId = `turn-${++this.turns}`;
     const turn = { id: this.turnId, status: "inProgress", items: [] };
@@ -215,7 +220,8 @@ export class AcServer extends EventEmitter {
       // Round and round until the model stops asking for tools. Bounded because
       // a model that loops is a model spending someone's daily budget on a loop.
       for (let round = 0; round < 12; round += 1) {
-        const result = await this.#round();
+        const result = await this.#round(round < 11);
+        this.controller?.signal.throwIfAborted();
         if (result.stop !== "tool_use") {
           this.emit("notification", {
             method: "turn/completed",
@@ -245,7 +251,7 @@ export class AcServer extends EventEmitter {
   }
 
   // One request, streamed. Returns why the model stopped.
-  async #round() {
+  async #round(advise = true) {
     const controller = this.controller = new AbortController();
     this.emit("notification", { method: "turn/progress", params: { phase: "connecting" } });
     const token = await this.token?.();
@@ -263,6 +269,17 @@ export class AcServer extends EventEmitter {
     }
     const feedback=this.runtimeFeedback();
     const messages=[...this.messages];
+    if (this.pendingTriage) {
+      const advice = this.pendingTriage;
+      this.pendingTriage = null;
+      let current;
+      try { current = createHash('sha256').update(readFileSync(this.piece.file)).digest('hex'); } catch {}
+      if (advice.revision === current && messages.at(-1)?.role === 'user') {
+        const last = messages.at(-1);
+        messages[messages.length-1] = { ...last, content: [...(Array.isArray(last.content) ? last.content : [{type:'text',text:last.content}]),
+          { type:'text', text:`[Harness suggestion for the current revision; preserve the user's request.] ${advice.cue}` }] };
+      }
+    }
     if(feedback) {
       const diagnostic={type:'text',text:runtimeFeedbackContext(feedback)};
       const last=messages.at(-1);
@@ -414,6 +431,22 @@ export class AcServer extends EventEmitter {
     if (stop !== "tool_use" || !blocks.length) return { stop: "end_turn" };
 
     this.messages.push({ role: "user", content: results });
+    if (advise && this.jev && this.javascriptPiece && existsSync(this.piece?.file)) {
+      const before = this.runtimeFeedback();
+      const revision = createHash('sha256').update(readFileSync(this.piece.file)).digest('hex');
+      const recommendation = await this.jev.advise({ feedback: before, blocks, results, signal: controller.signal });
+      controller.signal.throwIfAborted();
+      if (recommendation?.usage) this.emit('notification', { method: 'turn/usage', params: {
+        model: recommendation.model || '~typesafe/jev-latest', usage: recommendation.usage } });
+      let current;
+      try { current = createHash('sha256').update(readFileSync(this.piece.file)).digest('hex'); } catch {}
+      if (recommendation?.cue && revision === current) {
+        this.pendingTriage = { revision, cue: recommendation.cue };
+        this.emit('notification', { method: 'item/completed', params: { item: {
+          id: `jev-${this.turns}-${this.messages.length}`, type: 'dynamicToolCall', tool: recommendation.local ? 'harness_triage' : 'jev',
+          status: `${recommendation.choice}${recommendation.elapsedMs === undefined ? '' : ` · ${recommendation.elapsedMs} ms`}` } } });
+      }
+    }
     return { stop: "tool_use" };
   }
 

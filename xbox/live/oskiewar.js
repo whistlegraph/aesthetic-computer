@@ -1095,6 +1095,8 @@ const hueOf = ([red, green, blue]) => {
 };
 
 function selfPlayWardrobe(pad) {
+  if (typeof globalThis.__oskiewarJevPad === 'function')
+    return { name: pad === 0 ? 'JEV PINK' : 'JEV BLUE', rgb: pad === 0 ? [255, 90, 170] : [65, 195, 255] };
   const round = matchName || seriesName;
   const first = cssColorBook[Math.floor(
     hashUnit(round + " one") * cssColorBook.length) % cssColorBook.length];
@@ -9191,6 +9193,13 @@ function highestJump(options) {
 }
 
 function botPad(player, opponent, now) {
+  if (selfPlay && typeof globalThis.__oskiewarJevPad === 'function') {
+    const scene = botScene(player, opponent, now);
+    const down = globalThis.__oskiewarJevPad(player.pad, { ...scene,
+      round: matchName, alive: player.alive && opponent.alive });
+    return { connected: true, down: Array.isArray(down) ? down.filter(button =>
+      ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','A','B','X','Y'].includes(button)) : [], leftX: 0, leftY: 0 };
+  }
   if (!player.bot) {
     player.botPresses = {};
     return { connected: true, down: [], leftX: 0, leftY: 0 };
@@ -14693,6 +14702,7 @@ function drawNetHealth(ink) {
 }
 
 function drawSpectatorQr(ink, placement = null) {
+  if (typeof globalThis.__oskiewarJevPad === 'function') return;
   if (typeof capabilities === "function" && capabilities().socialPreview) return;
   const qr = placement || spectatorQrBox();
   if (!qr) return;

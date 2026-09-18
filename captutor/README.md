@@ -15,6 +15,7 @@ node bin/stage.mjs --vertical render <screenplay> --format vertical
 node bin/brand-video.mjs --input take.mp4 --format docs --theme themes/fuser.mjs
 node bin/fuser-frame.mjs --locale en --compact  # semantic DOM/state frame
 node bin/fuser-frame.mjs --infer                # add screenshot-based visual QA
+node bin/jev-frame.mjs --target PAGE_ID --goal 'Start the match' # semantic target suggestion, no click
 node bin/fuser-atlas.mjs --source ~/Developer/fuser # all nodes, settings, behaviors
 node bin/fuser-pack.mjs                         # dry-run a measured tidy layout
 node bin/app-intelligence.mjs describe fuser imagePassthrough --locale en
@@ -26,6 +27,15 @@ ffmpeg -framerate 60 -i /tmp/fuser-spin/fuser-metaballs-spin-%03d.png \
 ```
 
 ## App intelligence
+
+`bin/jev-frame.mjs` adds a text-only Jev fast path for one exact browser page
+(`--cdp` defaults to `http://127.0.0.1:9222`). Set `OPENROUTER_API_KEY` or use
+Node's `--env-file` flag. It sends your bounded goal and up to 40 visible control
+labels/roles to OpenRouter with zero data retention requested. It returns an
+observed target, latency, usage and reported cost; it never clicks. Refresh or
+use vision on uncertainty, and recheck actionability before any input. Native
+Frame clients can pass observed OCR/Accessibility candidates to the shared
+`slab/lib/jev-computer-use.mjs` selector; no native capture is sent automatically.
 
 `app-intelligence/` gives Captutor client-specific product understanding without
 putting client logic into the recorder. A definition binds localized vocabulary,

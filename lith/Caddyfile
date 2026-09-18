@@ -1120,6 +1120,14 @@ oskiewar.com, midi.oskiewar.com {
         file_server
     }
 
+    @jevdemo path /jev-vs-jev /jev-vs-jev/
+    handle @jevdemo {
+        root * /opt/ac/xbox/live
+        rewrite * /jev-vs-jev/index.html
+        header Cache-Control no-cache
+        file_server
+    }
+
     # Playable Canvas/Web Audio build shared with the desktop test harness.
     @oskiewargame path / /workshop /workshop/
     handle @oskiewargame {

@@ -35,6 +35,34 @@ const say = (text) => [
   { type: "message_delta", delta: { stop_reason: "end_turn" } },
 ];
 
+test('Jev steers one following round, never persists its cue, and discards changed-source advice', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'ac-jev-'));
+  t.after(() => rm(dir, {recursive:true,force:true}));
+  const file = join(dir, 'piece.mjs');
+  for (const change of [false,true]) {
+    await writeFile(file, '// start\n');
+    let requestNumber=0, sent, adviceCalls=0;
+    const serve=serving(writes('// next'),say('done'));
+    const engine=new AcServer({piece:{file},token:async()=>'tok',
+      jev:{beginTurn(){},async advise(){adviceCalls++;if(change)await writeFile(file,'// external edit\n');return {choice:'inspect_api',cue:'CHECK API NOW'};}},
+      fetch:async(url,options)=>{if(++requestNumber===2)sent=JSON.parse(options.body);return serve();}});
+    await engine.startTurn('edit');
+    assert.equal(adviceCalls,1);
+    assert.equal(JSON.stringify(sent.messages).includes('CHECK API NOW'),!change);
+    assert.doesNotMatch(JSON.stringify(engine.messages),/CHECK API NOW/);
+  }
+});
+
+test('interrupting Jev prevents another coding round',async t=>{
+  const dir=await mkdtemp(join(tmpdir(),'ac-jev-stop-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+  const file=join(dir,'piece.mjs');await writeFile(file,'// start');
+  let requests=0,completed;
+  const engine=new AcServer({piece:{file},token:async()=>'tok',fetch:async()=>{requests++;return serving(writes('// next'))();},
+    jev:{beginTurn(){},async advise(){await engine.interrupt();return {cue:'IGNORE',choice:'repair'};}}});
+  engine.on('notification',({method,params})=>{if(method==='turn/completed')completed=params.turn;});
+  await engine.startTurn('edit');assert.equal(requests,1);assert.equal(completed.status,'interrupted');
+});
+
 const writes = (source) => [
   { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "t1", name: "write_piece" } },
   {
