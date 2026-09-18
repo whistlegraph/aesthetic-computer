@@ -16,6 +16,7 @@
 #   ac-inscribe --for-handle <h>  # admin: inscribe for another user
 #   ac-inscribe --mood <text>     # override boot splash subtitle (else uses the handle's AC mood)
 #   ac-inscribe --city <city>     # preset first-boot greeting city until the device geolocates (e.g. "Ridgewood")
+#   ac-inscribe --mono            # boot with the system-wide mono audio fold on (config "mono": true)
 #
 # Exit codes:
 #   0  inscription written and valid
@@ -54,6 +55,7 @@ MOOD_OVERRIDE_SET=0
 CITY_OVERRIDE=""
 CITY_OVERRIDE_SET=0
 ACI_CITY=""   # config "city"; only set via --city (no account fetch), so default empty under `set -u`
+ACI_MONO=""   # config "mono": "1" via --mono → device boots with the audio fold on
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -65,6 +67,7 @@ while [ $# -gt 0 ]; do
         --for-handle)  FOR_HANDLE="${2#@}"; shift ;;
         --mood)        MOOD_OVERRIDE="$2"; MOOD_OVERRIDE_SET=1; shift ;;
         --city)        CITY_OVERRIDE="$2"; CITY_OVERRIDE_SET=1; shift ;;
+        --mono)        ACI_MONO=1 ;;
         --help|-h)
             sed -n '2,28p' "$0" | sed 's/^# *//'
             exit 0

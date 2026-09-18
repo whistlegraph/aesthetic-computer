@@ -472,6 +472,7 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
             if (c.city) cfg.city = c.city;
             if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
             if (c.mood) cfg.mood = c.mood;
+            if (c.mono) cfg.mono = true;
         } catch (e) { /* no inscription (anon/legacy) — base fields only */ }
         fs.writeFileSync(dest, JSON.stringify(cfg) + "\n");
     ' "$1" "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" "$2" "${INSCRIPTION_FILE}"

@@ -253,10 +253,10 @@ aci_collect_local_claude() {
 # to stdout. Inputs: ACI_HANDLE/ACI_SUB/ACI_EMAIL/ACI_ACCESS_TOKEN +
 # optional ACI_CLAUDE_TOKEN/ACI_GITHUB_PAT/ACI_CLAUDE_CREDS/ACI_CLAUDE_STATE
 # + boot personalization: ACI_HANDLE_COLORS_JSON (raw JSON array string)
-# and ACI_MOOD (plain string).
+# and ACI_MOOD (plain string), ACI_CITY, ACI_MONO ("1" = boot in mono).
 aci_build_usb_config_json() {
     node -e "
-        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood, city] = process.argv.slice(1);
+        const [handle, sub, email, token, claudeToken, githubPat, claudeCreds, claudeState, colorsJson, mood, city, mono] = process.argv.slice(1);
         const cfg = { handle, sub, email, token };
         if (claudeToken) cfg.claudeToken = claudeToken;
         if (githubPat)   cfg.githubPat   = githubPat;
@@ -270,11 +270,12 @@ aci_build_usb_config_json() {
         } catch (e) {}
         if (mood) cfg.mood = mood;
         if (city) cfg.city = city;
+        if (mono === '1') cfg.mono = true; // boot with the audio fold on (config.json \"mono\")
         process.stdout.write(JSON.stringify(cfg));
     " "${ACI_HANDLE:-}" "${ACI_SUB:-}" "${ACI_EMAIL:-}" "${ACI_ACCESS_TOKEN:-}" \
       "${ACI_CLAUDE_TOKEN:-}" "${ACI_GITHUB_PAT:-}" \
       "${ACI_CLAUDE_CREDS:-}" "${ACI_CLAUDE_STATE:-}" \
-      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}" "${ACI_CITY:-}"
+      "${ACI_HANDLE_COLORS_JSON:-}" "${ACI_MOOD:-}" "${ACI_CITY:-}" "${ACI_MONO:-}"
 }
 
 # aci_build_inscription_json <out_path>
