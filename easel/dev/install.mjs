@@ -14,6 +14,7 @@ const deps=option('--dependencies',path.join(source,'desktop/node_modules'));
 const app=path.join(os.homedir(),'Applications/Aesel Dev.app');
 const pkg=JSON.parse(fs.readFileSync(path.join(source,'desktop/package.json')));
 if(process.platform!=='darwin')throw Error('The fleet dev installer currently supports macOS.');
+if(fs.existsSync(app)&&execFileSync('/bin/ps',['-axo','command='],{encoding:'utf8'}).split('\n').some(line=>line.startsWith(path.join(app,'Contents/MacOS')+'/')))throw Error('Quit Aesel Dev before updating its Electron shell or dependencies.');
 if(!fs.existsSync(base)||!fs.existsSync(deps))throw Error('Provide an installed Electron app and its extracted production node_modules.');
 fs.mkdirSync(home,{recursive:true});fs.mkdirSync(path.join(home,'dependencies'),{recursive:true});
 // Copy production Electron dependencies, including the matching node-pty binary.
