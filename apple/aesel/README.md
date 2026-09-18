@@ -6,12 +6,20 @@ a separate WKWebView opens the signed-in user's published piece. Unpublished
 edits can preview through AC's JavaScript `dropped:piece` interface. Fresh
 sessions show the native canvas placeholder until a piece is available. The runtime and model still need an internet connection.
 
+The notebook bundles the desktop's sanitized rich-reply renderer: ruled pages,
+Markdown, highlighted code, math, diagrams and color swatches. Tap the piece
+title to open its published URL, or the eye to hide/show the preview. The
+account's daily and purchased braincells refresh after turns and on foreground;
+tap the balance to retry. Desktop source-value editing, version scrubbing and
+hover interactions are not yet available on iPhone.
+
 ```sh
 ./run.sh                  # simulator
 ./run.sh device           # USB-connected iPhone
 ```
 
-The script copies `easel/{src,context,phone}` into the app, generates the Xcode
+The script copies `easel/{src,context,phone}` and the desktop notebook renderer
+into the app, generates the Xcode
 project and builds with two compiler jobs. It starts no local HTTP server and
 shares no laptop credentials. `./bundle-session.sh` refreshes these resources
 before a manual Xcode build. Keep the iPhone unlocked for installation/launch;

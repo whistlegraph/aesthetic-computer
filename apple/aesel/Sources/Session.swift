@@ -67,6 +67,8 @@ final class Session {
     var signedIn = false
     var handle = ""
     var handleColors: [String] = []
+    var braincells: Double?
+    var creditsStatus = "Sign in to view braincells"
     /// Set when the host page itself could not start — a missing dev server is
     /// the usual cause, and a blank screen is a bad way to say so.
     var fatal: String?
@@ -92,6 +94,10 @@ final class Session {
     func receive(_ event: [String: Any]) {
         guard let type = event["type"] as? String else { return }
         switch type {
+        case "credits":
+            braincells = event["total"] as? Double
+            creditsStatus = event["status"] as? String ?? "Braincells unavailable"
+
         case "model":
             model = event["requested"] as? String ?? model
             reportedModel = event["reported"] as? String ?? ""
@@ -127,6 +133,8 @@ final class Session {
             if type == "restored" { status = signedIn ? "ready" : "signed out" }
 
         case "signedIn":
+            braincells = nil
+            creditsStatus = "Loading braincells"
             signedIn = true
             handle = event["handle"] as? String ?? ""
             if handle.isEmpty {
@@ -137,6 +145,8 @@ final class Session {
             if event["handle"] as? String == handle { handleColors = event["colors"] as? [String] ?? [] }
 
         case "signedOut":
+            braincells = nil
+            creditsStatus = "Sign in to view braincells"
             signedIn = false
             handle = ""
             handleColors = []

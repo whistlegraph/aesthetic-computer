@@ -19,10 +19,25 @@ struct AeselApp: App {
                 .preferredColorScheme(.dark)
                 .onChange(of: scenePhase) { _, phase in
                     if phase != .active { host.save() }
+                    else if started { host.refreshCredits() }
                 }
                 .task {
                     guard !started else { return }
                     started = true
+                    #if DEBUG
+                    if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
+                        session.signedIn = true
+                        session.handle = "jeffrey"
+                        session.route = "@jeffrey/notebook"
+                        session.shareURL = URL(string: "https://aesthetic.computer/blank")
+                        session.model = "openai/gpt-5.6-luna"
+                        session.status = "ready"
+                        session.braincells = 482000
+                        session.append(.you, "Make a little orange circle.")
+                        session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
+                        return
+                    }
+                    #endif
                     host.start(hostURL: Self.hostURL)
                 }
         }

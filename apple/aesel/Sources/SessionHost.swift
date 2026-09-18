@@ -96,6 +96,7 @@ final class SessionHost: NSObject {
     func setModel(id: String) { setModel(model: id) }
     func adopt(token: String) { call("void aesel.adoptToken(\(quote(token)));") }
     func restore() { call("void aesel.restore();") }
+    func refreshCredits() { call("void aesel.refreshCredits();") }
 
     var signInView: WKWebView {
         if let loginWebView { return loginWebView }
@@ -390,7 +391,8 @@ final class BundleSchemeHandler: NSObject, WKURLSchemeHandler {
             NSLog("[aesel] Missing bundle resource: %@ root: %@", file.path, root.path)
             urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist)); return
         }
-        let types = ["html": "text/html", "mjs": "text/javascript", "js": "text/javascript", "md": "text/plain"]
+        let types = ["html": "text/html", "mjs": "text/javascript", "js": "text/javascript", "md": "text/plain",
+                     "css": "text/css", "woff": "font/woff", "woff2": "font/woff2", "ttf": "font/ttf", "svg": "image/svg+xml"]
         urlSchemeTask.didReceive(URLResponse(url: url, mimeType: types[file.pathExtension] ?? "application/octet-stream", expectedContentLength: data.count, textEncodingName: "utf-8"))
         urlSchemeTask.didReceive(data)
         urlSchemeTask.didFinish()

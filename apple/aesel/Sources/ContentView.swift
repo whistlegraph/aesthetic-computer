@@ -8,13 +8,14 @@ struct ContentView: View {
     @State private var showHome = true
     @State private var showHelp = false
     @State private var expandedPreview = false
+    @State private var previewHidden = false
     @FocusState private var writing: Bool
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 0) {
             if !expandedPreview { title }
-            if session.previewURL != nil { preview }
+            if session.previewURL != nil && !previewHidden { preview }
             if !expandedPreview {
                 transcript
                 shelf
@@ -29,7 +30,12 @@ struct ContentView: View {
         .foregroundStyle(Paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
         .background(HostCarrier(host: host).frame(width: 0, height: 0))
-        .onChange(of: session.currentSessionID) { draft = "" }
+        .onChange(of: session.currentSessionID) { draft = ""; previewHidden = false; expandedPreview = false }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" { showHome = false }
+            #endif
+        }
         .sheet(isPresented: $showHelp) { help }
         .sheet(isPresented: Binding(get: { session.showSignIn }, set: { session.showSignIn = $0 })) {
             VStack(spacing: 0) {
@@ -104,37 +110,31 @@ struct ContentView: View {
     }
 
     private var transcript: some View {
-        ScrollViewReader { scroller in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if session.entries.isEmpty {
-                        Text(session.signedIn ? "what shall we make?" : "sign in to make something.")
-                            .foregroundStyle(Paint.dim)
-                    }
-                    if let fatal = session.fatal {
-                        Text(fatal).foregroundStyle(Paint.bad)
-                        Button("/retry") { host.restore() }
-                    }
-                    ForEach(session.entries) { entry in
-                        VStack(alignment: .leading, spacing: 3) {
-                            if entry.kind == .you { Text("› " + entry.text).foregroundStyle(Paint.you) }
-                            else {
-                                Text(entry.text)
-                                    .foregroundStyle(colour(entry.kind))
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .id(entry.id)
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button {
+                    if let url = session.shareURL { openURL(url) }
+                } label: {
+                    Text(session.route.isEmpty ? "new piece" : session.route)
+                        .font(.system(size: 21, weight: .semibold, design: .rounded))
+                        .lineLimit(1).truncationMode(.middle)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .buttonStyle(.plain)
+                .disabled(session.shareURL == nil)
+                .accessibilityLabel("Open piece in browser")
+                Spacer(minLength: 0)
+                if session.previewURL != nil {
+                    Button { previewHidden.toggle(); writing = false } label: {
+                        Image(systemName: previewHidden ? "eye.slash" : "eye")
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(previewHidden ? "Show preview" : "Hide preview")
+                }
             }
-            .scrollDismissesKeyboard(.interactively)
-            .onChange(of: session.entries.last?.text) {
-                guard let last = session.entries.last else { return }
-                scroller.scrollTo(last.id, anchor: .bottom)
+            .padding(.horizontal, 16)
+            AeselNotebook(session: session) { openURL($0) }
+            if session.fatal != nil {
+                Button("/retry") { host.restore() }.padding(8)
             }
         }
         .frame(maxHeight: .infinity)
@@ -145,16 +145,26 @@ struct ContentView: View {
             HStack(alignment: .bottom, spacing: 0) {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack(spacing: 8) {
-                        Text("REMOTE").foregroundStyle(.orange)
-                        Text("·")
                         Text(session.status.uppercased()).foregroundStyle(session.busy ? Paint.ac : session.health == .failed ? Paint.bad : Paint.edit)
                     }
                     .font(Paint.font(18))
                     if !session.model.isEmpty {
                         AeselModelPicker(session: session, host: host)
                     }
-                    Text(session.route.isEmpty ? "aesel" : session.route)
-                        .foregroundStyle(Paint.dim).lineLimit(1).truncationMode(.middle)
+                    if session.signedIn {
+                        Button { host.refreshCredits() } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "brain")
+                                if let balance = session.braincells {
+                                    Text("\(balance.formatted(.number.precision(.fractionLength(0)))) braincells")
+                                } else { Text("— braincells") }
+                            }
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(Paint.dim)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(session.braincells.map { "\(Int($0)) braincells. Refresh balance" } ?? session.creditsStatus)
+                    }
                 }
                 .padding(.bottom, 10)
                 Spacer(minLength: 0)

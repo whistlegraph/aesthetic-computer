@@ -18,6 +18,7 @@ import { AcServer, DEFAULT_AC_MODEL } from "/easel/src/ac-server.mjs";
 import { fetchHandleColors, handleCharacterColors } from "/easel/src/handle-colors.mjs";
 import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
+import { createCredits } from "./credits.mjs";
 
 export const SITE = "https://aesthetic.computer";
 export const AUTH_DOMAIN = "hi.aesthetic.computer";
@@ -106,6 +107,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     owner: "",
     model: DEFAULT_AC_MODEL,
   };
+  const credits = createCredits({ token: () => state.token, emit, site: SITE });
 
   const read = () => {
     try {
@@ -358,6 +360,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
       state.busy = false;
       say("busy", { busy: false });
       saveCurrent();
+      void credits.refresh();
     }
   }
 
@@ -395,6 +398,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     write({ token, handle });
     say("signedIn", { handle });
     void loadHandleColors(handle);
+    void credits.refresh();
     return handle;
   }
 
@@ -408,11 +412,13 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
       write({ handle: state.handle });
       say("signedIn", { handle: state.handle });
       void loadHandleColors(state.handle);
+      void credits.refresh();
       return true;
     } catch {
       state.token = "";
       state.handle = "";
       write({ token: "", handle: "" });
+      credits.clear();
       return false;
     }
   }
@@ -425,6 +431,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     state.server = null;
     write({ token: "", handle: "" });
     say("signedOut");
+    credits.clear();
   }
 
   async function open() {
@@ -466,6 +473,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     saveCurrent,
     setModel,
     history,
+    refreshCredits: credits.refresh,
     route,
     pieceUrl,
   };
