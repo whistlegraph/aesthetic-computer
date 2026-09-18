@@ -6,7 +6,7 @@ usage() {
     cat <<'HELP'
 Usage: aesel [directory] [--backend ac|claude|codex] [--model NAME]
                         [--piece FILE] [--resume THREAD_ID]
-                        [--no-autopublish]
+                        [--no-autopublish] [--dev]
        aesel --cwd DIRECTORY [options]
        ac [directory] [options]
 
@@ -21,9 +21,11 @@ HELP
 }
 fail() { printf 'aesel: %s\n' "$*" >&2; exit 1; }
 workspace=''
+dev=false
 arguments=()
 while (($#)); do
     case "$1" in
+        --dev) dev=true; shift ;;
         -h|--help) usage; exit 0 ;;
         --cwd)
             (($# >= 2)) && [[ -n "$2" ]] || fail '--cwd needs a directory'
@@ -50,8 +52,9 @@ while (($#)); do
 done
 [[ "$(uname -s)" == Darwin ]] || fail 'the standalone launcher currently requires macOS; use ac for the terminal interface'
 app_path="${AESEL_DESKTOP_APP:-${EASEL_DESKTOP_APP:-$HOME/Applications/aesel.app}}"
+if $dev; then app_path="$HOME/Applications/Aesel Dev.app"; fi
 # Existing installations keep working until the renamed app is installed.
-if [[ ! -d "$app_path" && -z "${AESEL_DESKTOP_APP:-}${EASEL_DESKTOP_APP:-}" && -d "$HOME/Applications/Easel.app" ]]; then
+if ! $dev && [[ ! -d "$app_path" && -z "${AESEL_DESKTOP_APP:-}${EASEL_DESKTOP_APP:-}" && -d "$HOME/Applications/Easel.app" ]]; then
     app_path="$HOME/Applications/Easel.app"
 fi
 [[ -d "$app_path" ]] || fail "aesel.app is not installed at $app_path. Install the standalone app or run ac."

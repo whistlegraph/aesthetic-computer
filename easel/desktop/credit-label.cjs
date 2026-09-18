@@ -2,7 +2,7 @@
 const {execFile} = require('node:child_process');
 const {join} = require('node:path');
 const {pathToFileURL} = require('node:url');
-function startCreditLabel({app, window, root, nativeRoot = app.isPackaged ? join(process.resourcesPath,'app.asar.unpacked') : __dirname}) {
+function startCreditLabel({app, window, root, nativeRoot = process.env.AESEL_DEV_ROOT ? join(process.env.AESEL_DEV_ROOT,'desktop') : app.isPackaged ? join(process.resourcesPath,'app.asar.unpacked') : __dirname}) {
   let timer, disposed = false, busy = false, lastText = '', lastPayload, offer = null;
   let sessionPromise;
   const session = () => sessionPromise ||= import(pathToFileURL(join(root,'src/ac-session.mjs')).href).then(({ACSession})=>new ACSession());

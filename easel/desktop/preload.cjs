@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('aesel', {
   input: data => { if (typeof data === 'string') ipcRenderer.send('input', data); },
   size: (cols, rows) => ipcRenderer.send('size', { cols, rows }),
   titleGeometry: value => ipcRenderer.send('title-geometry',value),
+  onBuildStatus: fn => ipcRenderer.on('build-status',(_event,value)=>{if(value&&['dev','release','local'].includes(value.channel))fn(value);}),
+  checkBuildUpdates: () => ipcRenderer.send('check-build-updates'),
   ready: () => ipcRenderer.send('ready'),
   closing: () => ipcRenderer.send('closing'),
   fullscreen: target => {
