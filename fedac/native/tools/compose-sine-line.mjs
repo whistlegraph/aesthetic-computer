@@ -3,6 +3,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 // Seat numbers are given left to right. A silent gap returns to the left.
 const order = process.argv[2] ? process.argv[2].split(',').map(n => Number(n) - 1) : [0,1,2,3,4,5];
 if (order.length < 2 || order.some(n => !Number.isInteger(n) || n < 0 || n > 15) || new Set(order).size !== order.length) throw Error('Use unique seat numbers, e.g. 1,2,3,4,5,6');
+const scoreFile = process.argv[3] || 'sine-line';
+if (!/^[a-z0-9-]+$/.test(scoreFile)) throw Error('Invalid score filename');
 const events = [], passes = [];
 let time = 0;
 for (let pass = 0; pass < 24; pass++) {
@@ -24,5 +26,5 @@ const score = { name: 'Sine Line', geometry: 'line', seatOrder: order, linePasse
   lanes: [{ name: 'sine', color: [255,210,80], events }] };
 const dir = new URL('../scores/', import.meta.url);
 await mkdir(dir, { recursive: true });
-await writeFile(new URL('sine-line.nsscore', dir), JSON.stringify(score)+'\n');
+await writeFile(new URL(scoreFile + '.nsscore', dir), JSON.stringify(score)+'\n');
 console.log(`Sine Line: ${dur.toFixed(1)} seconds, 24 left-to-right passes, seats ${order.map(i=>i+1).join(' → ')}`);

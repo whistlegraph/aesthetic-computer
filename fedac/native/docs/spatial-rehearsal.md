@@ -35,3 +35,15 @@ Validation: `node --test fedac/native/tools/spatial-rehearsal.test.mjs`.
 - Added shared physical maps, battery, speaker-driven brightness and expired/offline connectivity.
 - Expanded to six seats, corrected line order to 1 → 2 → 3 → 4 → 5 → 6, added LAN identity and focused brightness. Seat 5 subsequently lost connectivity at 2% battery; kept its place and continued with the remaining five.
 - Included rehearsal assets in the next ACOS build and published the code checkpoint. No OTA release triggered.
+
+## Two-laptop rehearsal on CULTUREHUB LA
+
+The current line uses seat 1 at 192.168.1.236 on the left and seat 2 at 192.168.1.237 on the right. The bridge is now http://192.168.1.235:8787 and follows these two hosts. Generate a separate score without overwriting the six-seat version:
+
+```sh
+node fedac/native/tools/compose-sine-line.mjs 1,2 sine-duet
+node fedac/native/tools/spatial-rehearsal.mjs deploy --score sine-duet 192.168.1.236 192.168.1.237
+node fedac/native/tools/spatial-rehearsal.mjs cue 192.168.1.236 192.168.1.237
+```
+
+This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both devices confirmed speaker output with microphones closed.

@@ -1,27 +1,25 @@
 # CultureHub spatial audio — Will’s Codex handoff
 
-Build a read-only web UI for the ACOS spatial audio fleet on this Wi-Fi. Six seats form a physical line from left to right: **1 → 2 → 3 → 4 → 5 → 6**. Seat 1 has returned and seat 6 is newly added. Seat 5 subsequently went offline after reporting 2% battery; retain its place and use live connectivity to determine whether it has returned. Each laptop synthesizes its own speaker output and shows the shared spatial score. Microphones must stay closed; do not request microphone access, record audio, or issue device commands.
+Build a read-only web UI for the current two-machine ACOS rehearsal on **CULTUREHUB LA** Wi-Fi. **Seat 1 is left; seat 2 is right.** Both are online and synthesize their own speaker output from the shared spatial score. Microphones must stay closed; do not request microphone access, record audio, or issue device commands.
 
-The rehearsal host provides a read-only bridge at **`http://192.168.2.79:8787`**. Start with `GET /api/seats` or subscribe to `/events`; no source checkout or credentials are needed to consume the running bridge. Addresses are local to this Wi-Fi.
+The rehearsal host provides a read-only bridge at **`http://192.168.1.235:8787`**. Start with `GET /api/seats` or subscribe to `/events`; no source checkout or credentials are needed to consume the running bridge. Addresses are local to this Wi-Fi.
 
 ## Connect
 
 Current rehearsal addresses, September 18, 2026:
 
-| Screen label | JSON `seat` | HTTP base |
-| --- | --- | --- |
-| Seat 1 | 0 | `http://192.168.2.81` |
-| Seat 2 | 1 | `http://192.168.2.82` |
-| Seat 3 | 2 | `http://192.168.2.83` |
-| Seat 4 | 3 | `http://192.168.2.84` |
-| Seat 5 | 4 | `http://192.168.2.85` |
-| Seat 6 | 5 | `http://192.168.2.87` |
+| Screen label | JSON `seat` | Name | HTTP base |
+| --- | --- | --- | --- |
+| Seat 1 — left | 0 | `ac-device` | `http://192.168.1.236` |
+| Seat 2 — right | 1 | `ac5` | `http://192.168.1.237` |
 
-Use explicit IPs; some devices share the hostname `ac-device`. Read each snapshot’s `machineName` and `ip`, also shown on its screen. DHCP addresses can change; verify the runtime identity and seat assignment whenever connecting. Preserve seat numbers when a device goes offline; do not renumber the remaining laptops.
+Both currently run build `dusted-mantella-tideline`. Only these two machines are in the active bridge and presence feed.
+
+Use explicit IPs. Read each snapshot’s `machineName` and `ip`, also shown on its screen. DHCP addresses can change; verify the runtime identity and seat assignment whenever connecting. Preserve seat numbers when a device goes offline; do not renumber the remaining laptops.
 
 ```sh
-curl --fail --max-time 2 http://192.168.2.82/status
-curl --fail --max-time 2 http://192.168.2.82/pieces/spatial-rehearsal-status.json
+curl --fail --max-time 2 http://192.168.1.237/status
+curl --fail --max-time 2 http://192.168.1.237/pieces/spatial-rehearsal-status.json
 ```
 
 | Read endpoint | Meaning |
@@ -39,8 +37,8 @@ These reads need no credentials. Keep this integration to GET requests.
 | Field | Interpretation |
 | --- | --- |
 | `machineName`, `ip` | Device name and current IP, also displayed on its screen. |
-| `seat`, `seats` | Original zero-based seat index and registered ensemble size. Currently six seats, indices 0–5. |
-| `geometry`, `seatOrder` | Runtime layout and ordered zero-based seat indices. Currently `"line"` and `[0,1,2,3,4,5]`: displayed seats 1 → 2 → 3 → 4 → 5 → 6. Build the layout from these fields. |
+| `seat`, `seats` | Original zero-based seat index and registered ensemble size. Currently two seats, indices 0–1. |
+| `geometry`, `seatOrder` | Runtime layout and ordered zero-based seat indices. Currently `"line"` and `[0,1]`: seat 1 left, seat 2 right. Build the layout from these fields. |
 | `connectivity` | `{stale, seats: [{seat, state}]}` from a separate controller presence publisher. States are `online`, `offline`, `unstable`, `unknown`, or `error`. Honor `stale`; this is separate from the bridge’s polling health. |
 | `phase` | `ready`, `prepared`, `countdown`, `playing`, `finished`, or `error`. |
 | `mode` | `beeps` or `score`. Beep mode gives each laptop the same scheduled pulse. |
@@ -69,9 +67,9 @@ Treat missing or additional fields defensively. This is a rehearsal interface wi
 
 | Bridge endpoint | Response |
 | --- | --- |
-| `http://192.168.2.79:8787/api/seats` | Latest `{updatedAt, seats: [...]}` snapshot. |
-| `http://192.168.2.79:8787/events` | Server-Sent Events named `seats`, carrying the same JSON snapshot. |
-| `http://192.168.2.79:8787/health` | Bridge health. Check seat freshness separately. |
+| `http://192.168.1.235:8787/api/seats` | Latest `{updatedAt, seats: [...]}` snapshot. |
+| `http://192.168.1.235:8787/events` | Server-Sent Events named `seats`, carrying the same JSON snapshot. |
+| `http://192.168.1.235:8787/health` | Bridge health. Check seat freshness separately. |
 
 Each item in `seats` is `{host, connected, stale, ageMs, receivedAt, data, error}`. `data` is the native snapshot described above; it is `null` before the first successful read. `updatedAt` and `receivedAt` are host-side ISO timestamps; `receivedAt` is the last valid fetch time. `ageMs` measures time since the last change in that seat’s `audioTime`, or is `null` before any sample. `connected` describes the latest poll; `error` is `null` on success. Failed reads retain the last valid `data`.
 
@@ -95,7 +93,7 @@ function renderFleet(data) {
 function showBridgeDisconnected() {
   connection.textContent = 'Bridge disconnected; reconnecting. Last data below.';
 }
-const base = 'http://192.168.2.79:8787';
+const base = 'http://192.168.1.235:8787';
 async function loadSnapshot() {
   const response = await fetch(base + '/api/seats', {
     cache: 'no-store', signal: AbortSignal.timeout(2000),
@@ -120,7 +118,7 @@ If running your own bridge from a source checkout:
 
 ```sh
 node fedac/native/tools/spatial-data.mjs --bind 127.0.0.1 --port 8787 \
-  192.168.2.81 192.168.2.82 192.168.2.83 192.168.2.84 192.168.2.85 192.168.2.87
+  192.168.1.236 192.168.1.237
 ```
 
 For a custom polling implementation, fetch with `cache: 'no-store'`, bounded timeouts, and no overlapping requests per host. Files can be read during a write: keep the last valid JSON and retry on the next tick. Track host receive time and when `audioTime` last advanced; a stale file can still return HTTP 200. Verify `/status` and seat assignments on connection and periodically.
@@ -129,7 +127,7 @@ Show registered seats with live output, battery, phase, score time, data age, an
 
 ## Spatial view
 
-The current composition is **Sine Line**, 97.92 seconds with one source, 144 notes, and 24 passes. It sweeps seats 1 → 2 → 3 → 4 → 5 → 6 at varying speeds, then resets silently. Build labels, duration, source count, geometry, and seat order from fresh runtime data so the UI follows score changes. The laptop displays share this fixed line and highlight their own position.
+The current composition is the two-seat **Sine Line** (`sine-duet.nsscore`): 40.32 seconds, one source, 48 notes, and 24 passes. It sweeps seat 1 → seat 2 at varying speeds, then resets silently. The deployed score remains readable at `/pieces/spatial-rehearsal.nsscore`. Build labels, duration, source count, geometry, and seat order from fresh runtime data so the UI follows score changes. The laptop displays share this fixed line and highlight their own position.
 
 Use `data.sources` directly to draw the world. Each source contains `{lane, name, color, position, seatGain, active}`. `lane` is its zero-based score index and `color` is an RGB array. In line geometry, `position.line` runs from 0 (leftmost seat) to 1 (rightmost); `x` spans −1.6 to 1.6 in virtual units, and `y`/`z` are zero. `angle` is a zero placeholder here: do not use it to draw the line. In ring geometry, `position.angle` is in radians. Coordinates describe the score, not measured room positions.
 
@@ -142,4 +140,6 @@ Playback is currently output-only: a controller estimates each local audio clock
 - Established output-only synthesis, coordinated starts, battery displays, and a read-only HTTP/SSE feed; microphones stay closed.
 - Explored Monosine and Melodic Orbit, then moved to Sine Line with four active seats while seat 1 was offline.
 - Restored seat 1 on a newer build and added seat 6 at `.87`; expanded the line to 1 → 2 → 3 → 4 → 5 → 6 and Sine Line to 97.92 seconds. Added device names/IPs and focused-seat brightness.
+- Seat 5 later went offline after reporting 2% battery during the six-seat rehearsal.
+- Moved to CULTUREHUB LA Wi-Fi for a two-machine rehearsal: seat 1 `ac-device` at `192.168.1.236`, seat 2 `ac5` at `192.168.1.237`, both on `dusted-mantella-tideline`. The controller is `192.168.1.235`; Sine Line now uses the 40.32-second duet, with only these two seats in the bridge and presence feed.
 - Current work deploys local pieces and tracks source changes in Git. No OTA release was requested.
