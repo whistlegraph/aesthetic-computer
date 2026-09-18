@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pickerKey,pickerEfforts,pickerLines,drawerKey,drawerSelect} from '../src/provider-picker.mjs';
+import {pickerModels,pickerKey,pickerEfforts,pickerLines,drawerKey,drawerSelect} from '../src/provider-picker.mjs';
 import {AppServer} from '../src/app-server.mjs';
 import {renderFrame,headerAction,modelControls} from '../src/render.mjs';
 const catalog=[{model:'example',displayName:'Example',isDefault:true,supportedReasoningEfforts:[{reasoningEffort:'low'},{reasoningEffort:'high'}]},{model:'other',supportedReasoningEfforts:[{reasoningEffort:'medium'}]}];
@@ -40,4 +40,11 @@ test('bottom controls and dropdown share click geometry and preserve transcript'
  assert.equal(drawerKey(next,'\x1b').action,'cancel');
  assert.equal(drawerKey({...next,row:3,index:0},'\r').action,'apply');
  const colored=renderFrame(state,80,24,true);assert.match(colored,/\x1b\[48;/);
+});
+
+test('braincell picker cannot expose saved or custom model choices',()=>{
+ for(const model of ['opus','anthropic/claude-opus-5','custom']){
+  const p={backend:'ac',model,row:1};
+  assert.deepEqual(pickerModels(p),[{id:'openai/gpt-5.6-luna',label:'Automatic'}]);
+ }
 });

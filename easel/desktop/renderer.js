@@ -634,12 +634,13 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
   const header=document.createElement('header');const title=document.createElement('h2');title.textContent='Settings';
   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','Close settings');dismiss.addEventListener('click',close);header.append(title,dismiss);menu.append(header);
   if(buildInfo){const status=document.createElement('p');status.className='build-status';status.dataset.status=buildInfo.status;status.title=buildInfo.revision?`Source commit ${buildInfo.revision}`:'';const channel=buildInfo.channel==='dev'?'Dev':buildInfo.channel==='release'?'Release':'Local';const state={current:'Up to date',ready:'Update ready',modified:'Local changes · sync paused',checking:'Checking…',syncing:'Downloading dev build…',downloading:'Downloading update…',unknown:'Unable to verify'}[buildInfo.status]||'Unable to verify';status.textContent=[channel,buildInfo.version,(buildInfo.tree||buildInfo.revision)?.slice(0,8),state].filter(Boolean).join(' · ');menu.append(status);item('Check for updates',()=>window.aesel.checkBuildUpdates());}
-  const current=document.createElement('p');current.textContent=[provider?.backend==='ac'?'AC':provider?.backend==='codex'?'Codex':'Claude',provider?.model].filter(Boolean).join(' · ');menu.append(current);
+  const current=document.createElement('p');current.textContent=[provider?.backend==='ac'?'Braincells · automatic model':provider?.backend==='codex'?'Codex':'Claude',provider?.backend==='ac'?'':provider?.model].filter(Boolean).join(' · ');menu.append(current);
 
   for(const [index,id,name] of [[0,'ac','AC'],[1,'claude','Claude'],[2,'codex','Codex']]){
    const choice=item(name,()=>{close();if(provider?.backend!==id)window.aesel.input(`\x1b[99;${index}~`);},{selected:provider?.backend===id,disabled:!!provider?.busy});
    const icon=new Image();icon.src=`assets/provider-${id}.svg`;icon.alt='';icon.className='provider-mark';choice.prepend(icon);
   }
+  if(provider?.backend!=='ac'){
   const modelLabel=document.createElement('label');modelLabel.textContent='Model';modelLabel.className='settings-field';
   const modelSelect=document.createElement('select');modelSelect.setAttribute('aria-label','Model');modelSelect.disabled=!!provider?.busy||!provider?.models?.length;
   for(const [index,model] of (provider?.models||[]).entries()){
@@ -650,10 +651,14 @@ boot().catch(error => { document.getElementById('terminal').textContent = `Could
   const backendIndex=['ac','claude','codex'].indexOf(provider?.backend);
   modelSelect.addEventListener('change',()=>{window.aesel.input(`\x1b[99;4;${backendIndex};${modelSelect.value}~`);});
   modelLabel.append(modelSelect);menu.append(modelLabel);
+  }
 
   const stateLine=document.createElement('p');stateLine.className='inference-status';stateLine.textContent=[provider?.mode==='local'?'Local inference':'Remote inference',provider?.status,provider?.activity].filter(Boolean).join(' · ');menu.append(stateLine);
   if(provider?.notice){const notice=document.createElement('p');notice.className='session-notice';notice.textContent=provider.notice;menu.append(notice);}
-  if(provider?.backend==='ac'){const count=document.createElement('p');count.className='braincell-balance';const icon=new Image();icon.src='assets/braincell.svg';icon.alt='';icon.className='provider-mark';count.append(icon,`${n===null?'—':n.toLocaleString('en-US')} braincells`);menu.append(count);}
+  if(provider?.backend==='ac'){const count=document.createElement('p');count.className='braincell-balance';const icon=new Image();icon.src='assets/braincell.svg';icon.alt='';icon.className='provider-mark';const dollars=credits?.dollars;const usd=value=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(value);
+   const valid=dollars?.currency==='USD'&&[dollars.total,dollars.free,dollars.purchased].every(value=>Number.isFinite(value)&&value>=0);
+   count.append(icon,`${valid?usd(dollars.total)+' · ':''}${n===null?'—':n.toLocaleString('en-US')} braincells`);menu.append(count);
+   if(valid){const detail=document.createElement('p');detail.className='braincell-value';detail.textContent=`${usd(dollars.free)} daily · ${usd(dollars.purchased)} purchased`;detail.title='Dollar equivalent at $5 per million braincells. Daily allowance resets at midnight UTC.';menu.append(detail);} }
   if(provider?.backend==='ac'&&credits?.offer){
    const buy=item('Buy 1,000,000 braincells · $5',async()=>{
     buy.disabled=true;buy.textContent='Opening checkout…';

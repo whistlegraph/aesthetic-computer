@@ -172,6 +172,10 @@ body.preview-fullscreen::before{display:none;}
 #conversation{left:0;right:0;bottom:8px;overflow-x:hidden;overflow-y:auto;scrollbar-width:auto;scrollbar-color:auto;overflow-anchor:none}
 #notebook-page{display:flex;flex-direction:column;box-sizing:border-box;padding:0 10px}
 #notebook-page>article{flex:none}
+#notebook-content{display:flow-root;flex:none;min-width:0}
+#notebook-preview-space{float:right;pointer-events:none}
+#notebook-preview-space[hidden]{display:none}
+#conversation>#qr-label{overflow:hidden}
 #notebook-page>#prose-prompt{position:relative;inset:auto;z-index:auto;flex:none;margin-top:auto;margin-right:100px;height:auto;overflow:visible;background:none;line-height:var(--notebook-line-height,24px)}
 #prompt-feedback{bottom:14px;right:110px}
 

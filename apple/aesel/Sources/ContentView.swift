@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var draft = ""
     @State private var showHome = true
     @State private var showHelp = false
+    @State private var showSettings = false
     @State private var expandedPreview = false
     @State private var previewHidden = false
     @FocusState private var writing: Bool
@@ -33,10 +34,14 @@ struct ContentView: View {
         .onChange(of: session.currentSessionID) { draft = ""; previewHidden = false; expandedPreview = false }
         .onAppear {
             #if DEBUG
-            if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" { showHome = false }
+            if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
+                showHome = false
+                showSettings = ProcessInfo.processInfo.environment["AESEL_SETTINGS_PREVIEW"] == "1"
+            }
             #endif
         }
         .sheet(isPresented: $showHelp) { help }
+        .sheet(isPresented: $showSettings) { settings }
         .sheet(isPresented: Binding(get: { session.showSignIn }, set: { session.showSignIn = $0 })) {
             VStack(spacing: 0) {
                 HStack {
@@ -69,24 +74,20 @@ struct ContentView: View {
     }
 
     private var title: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(spacing: 12) {
             Button {
-                writing = false
-                expandedPreview = false
-                showHome = true
-            } label: { AeselWordmark(text: "Aesel") }
-                .buttonStyle(.plain)
-                .accessibilityLabel("aesel title screen")
-            Spacer(minLength: 0)
-            if session.signedIn {
-                AeselHandle(handle: session.handle, colors: session.handleColors)
-            } else {
-                Button("/login") { host.signIn() }.foregroundStyle(Paint.dim)
-                    .accessibilityLabel("Sign in to Aesthetic Computer")
+                if let url = session.shareURL { openURL(url) }
+            } label: {
+                Text(session.route.isEmpty ? "new piece" : session.route)
+                    .font(.system(size: 21, weight: .semibold, design: .rounded))
+                    .lineLimit(1).truncationMode(.middle)
             }
+            .buttonStyle(.plain)
+            .disabled(session.shareURL == nil)
+            .accessibilityLabel("Open piece in browser")
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .overlay(alignment: .bottom) { Rectangle().fill(Paint.rule).frame(height: 1).padding(.horizontal, 16) }
     }
 
     private var preview: some View {
@@ -111,27 +112,6 @@ struct ContentView: View {
 
     private var transcript: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Button {
-                    if let url = session.shareURL { openURL(url) }
-                } label: {
-                    Text(session.route.isEmpty ? "new piece" : session.route)
-                        .font(.system(size: 21, weight: .semibold, design: .rounded))
-                        .lineLimit(1).truncationMode(.middle)
-                }
-                .buttonStyle(.plain)
-                .disabled(session.shareURL == nil)
-                .accessibilityLabel("Open piece in browser")
-                Spacer(minLength: 0)
-                if session.previewURL != nil {
-                    Button { previewHidden.toggle(); writing = false } label: {
-                        Image(systemName: previewHidden ? "eye.slash" : "eye")
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel(previewHidden ? "Show preview" : "Hide preview")
-                }
-            }
-            .padding(.horizontal, 16)
             AeselNotebook(session: session) { openURL($0) }
             if session.fatal != nil {
                 Button("/retry") { host.restore() }.padding(8)
@@ -140,81 +120,85 @@ struct ContentView: View {
         .frame(maxHeight: .infinity)
     }
 
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
     private var shelf: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .bottom, spacing: 0) {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(session.status.uppercased()).foregroundStyle(session.busy ? Paint.ac : session.health == .failed ? Paint.bad : Paint.edit)
-                    }
-                    .font(Paint.font(18))
-                    if !session.model.isEmpty {
-                        AeselModelPicker(session: session, host: host)
-                    }
+        HStack(alignment: .bottom, spacing: 8) {
+            TextField("make something…", text: $draft, axis: .vertical)
+                .font(Paint.font(22)).lineLimit(1...4).textFieldStyle(.plain)
+                .tint(Paint.you).focused($writing).submitLabel(.send)
+                .onSubmit { send() }.autocorrectionDisabled()
+                .padding(.vertical, 10)
+            Button { session.busy ? host.stop() : send() } label: {
+                Text(session.busy ? "■" : "↵")
+                    .font(Paint.font(28)).frame(width: 44, height: 44)
+                    .foregroundStyle(Paint.you)
+            }
+            .disabled(!session.busy && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(session.busy ? "Stop" : "Send")
+            Button { writing = false; showSettings = true; host.refreshCredits() } label: {
+                Text("v\(appVersion)").font(Paint.font(16)).foregroundStyle(Paint.dim)
+                    .frame(minHeight: 44)
+            }
+            .accessibilityLabel("Version \(appVersion). Settings")
+        }
+        .buttonStyle(.plain).padding(.leading, 16).padding(.trailing, 8)
+    }
+
+    private var settings: some View {
+        NavigationStack {
+            List {
+                Section {
                     if session.signedIn {
+                        AeselHandle(handle: session.handle, colors: session.handleColors)
                         Button { host.refreshCredits() } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "brain")
+                            VStack(alignment: .leading, spacing: 4) {
+                                if let dollars = session.braincellDollars {
+                                    Text(dollars, format: .currency(code: "USD"))
+                                        .font(.system(size: 28, weight: .medium, design: .rounded))
+                                }
                                 if let balance = session.braincells {
                                     Text("\(balance.formatted(.number.precision(.fractionLength(0)))) braincells")
-                                } else { Text("— braincells") }
+                                } else { Text(session.creditsStatus) }
+                                if let free = session.freeDollars, let paid = session.purchasedDollars {
+                                    Text("\(free.formatted(.currency(code: "USD"))) daily · \(paid.formatted(.currency(code: "USD"))) purchased")
+                                        .font(.footnote).foregroundStyle(Paint.dim)
+                                }
                             }
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
-                            .foregroundStyle(Paint.dim)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(session.braincells.map { "\(Int($0)) braincells. Refresh balance" } ?? session.creditsStatus)
+                        .buttonStyle(.plain).accessibilityHint("Refresh balance")
+                    } else {
+                        Button("Sign in") { showSettings = false; host.signIn() }
+                    }
+                    Text("Braincells · automatic model")
+                    Text(session.status).foregroundStyle(Paint.dim)
+                } footer: {
+                    Text("Dollar equivalent at $5 per million braincells. Daily allowance resets at midnight UTC.")
+                }
+                Section {
+                    Button("New piece / threads") { showSettings = false; showHome = true }
+                    Button("Publish") { host.publish() }
+                        .disabled(!session.signedIn || session.busy)
+                    Button("Open in browser") { if let url = session.shareURL { openURL(url) } }
+                        .disabled(session.shareURL == nil)
+                    if session.previewURL != nil {
+                        Toggle("Show preview", isOn: Binding(get: { !previewHidden }, set: { previewHidden = !$0 }))
+                    }
+                    Button("Help") { showSettings = false; showHelp = true }
+                    if session.signedIn {
+                        Button("Sign out") { showSettings = false; host.signOut() }
                     }
                 }
-                .padding(.bottom, 10)
-                Spacer(minLength: 0)
-                AeselDonkey(busy: session.busy, failed: session.health == .failed)
-                    .frame(height: 86, alignment: .bottom)
+                Text("Aesel \(appVersion)").foregroundStyle(Paint.dim)
             }
-            .padding(.horizontal, 16)
-
-            VStack(spacing: 0) {
-                HStack(alignment: .center, spacing: 9) {
-                    Text("›").foregroundStyle(Paint.you)
-                    TextField("make something…", text: $draft, axis: .vertical)
-                        .font(Paint.font(22))
-                        .lineLimit(1...4)
-                        .textFieldStyle(.plain)
-                        .tint(Paint.you)
-                        .focused($writing)
-                        .submitLabel(.send)
-                        .onSubmit { send() }
-                        .autocorrectionDisabled()
-                    Button { session.busy ? host.stop() : send() } label: {
-                        Text(session.busy ? "■" : "↵")
-                            .font(Paint.font(28))
-                            .frame(width: 44, height: 44)
-                            .foregroundStyle(Paint.you)
-                    }
-                    .disabled(!session.busy && draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityLabel(session.busy ? "Stop" : "Send")
-                }
-                .padding(.leading, 12)
-                .background(Paint.deep.opacity(0.8))
-                .overlay { Rectangle().stroke(Paint.rule, lineWidth: 1) }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 20) {
-                        Button("/new") { writing = false; showHome = true }
-                        Button("/publish") { host.publish() }.disabled(!session.signedIn || session.busy)
-                        Button("/open") { if let url = session.shareURL { openURL(url) } }
-                            .disabled(session.shareURL == nil)
-                        Button(session.signedIn ? "/logout" : "/login") { session.signedIn ? host.signOut() : host.signIn() }
-                        Button("/help") { showHelp = true }
-                    }
-                    .font(Paint.font(19)).foregroundStyle(Paint.dim)
-                    .buttonStyle(.plain)
-                    .frame(height: 44)
-                }
-            }
-            .padding(.horizontal, 12).padding(.top, 9)
-            .background { AeselWood().ignoresSafeArea(edges: .bottom) }
-            .overlay(alignment: .top) { Rectangle().fill(Color(rgb: 0x9e7548)).frame(height: 1) }
+            .scrollContentBackground(.hidden)
+            .background { AeselCloth().ignoresSafeArea() }
+            .navigationTitle("Settings").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showSettings = false } } }
         }
+        .tint(Paint.you).presentationDetents([.medium, .large])
     }
 
     private var help: some View {
@@ -242,20 +226,13 @@ struct ContentView: View {
         case "/login": host.signIn()
         case "/logout": host.signOut()
         case "/open": if let url = session.shareURL { openURL(url) }
+        case "/settings": writing = false; showSettings = true; host.refreshCredits()
         case "/help": showHelp = true
         default: host.ask(text)
         }
     }
 
-    private func colour(_ kind: Entry.Kind) -> Color {
-        switch kind {
-        case .you: return Paint.you
-        case .ac: return Paint.ink
-        case .edit: return Paint.edit
-        case .bad: return Paint.bad
-        case .note: return Paint.dim
-        }
-    }
+
 }
 
 /// Puts the hidden session webview in the hierarchy without drawing it.

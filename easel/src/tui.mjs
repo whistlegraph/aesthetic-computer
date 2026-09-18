@@ -118,7 +118,7 @@ if(!savedProvider) { try { const previous=await readDesktopSession(localSessionP
 const providerChoice=chooseProviderPreferences({restored:desktopRestored, saved:savedProvider,
  explicit:{backend:option('--backend')||process.env.EASEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.EASEL_DESKTOP?'ac':DEFAULT_BACKEND});
 let backend=backendFor(providerChoice.backend);
-let model=providerChoice.model??backend.defaultModel;
+let model=backend.id==='ac'?backend.defaultModel:providerChoice.model??backend.defaultModel;
 let effort=providerChoice.effort;
 async function rememberProvider(){try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
 let handoff = desktopRestored?.handoff || "";
@@ -1259,6 +1259,7 @@ function engineLabel() {
 // Provider thread IDs cannot cross engines; carry recent conversation and
 // keep the old connection available until the replacement connects.
 async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "") {
+  if(nextBackend.id==='ac')nextModel=nextBackend.defaultModel;
   if (nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
       && !Object.values(nextBackend.models).includes(nextModel)) {
     addEntry("error", "Unknown hosted model. Use /model to see available choices.");
@@ -1329,6 +1330,7 @@ async function commandBackend(rest) {
 }
 
 async function commandModel(rest) {
+  if(backend.id==='ac')return openSettings(0);
   if (!rest) return openSettings(1);
   if (state.busy) {
     addEntry("error", "Interrupt the current turn before switching models.");
@@ -1896,7 +1898,7 @@ function handleKey(input) {
   }
   const desktopModel=process.env.EASEL_DESKTOP && /^\x1b\[99;4;(\d+);(\d+)~$/.exec(input);
   if(desktopModel){
-    if(state.busy||['ac','claude','codex'][Number(desktopModel[1])]!==backend.id)return;
+    if(state.busy||backend.id==='ac'||['ac','claude','codex'][Number(desktopModel[1])]!==backend.id)return;
     const choice=pickerModels({backend:backend.id,model,catalog:modelCatalog||[]})[Number(desktopModel[2])];
     if(choice)return void restartEngine('Model',backend,choice.id);
     return;

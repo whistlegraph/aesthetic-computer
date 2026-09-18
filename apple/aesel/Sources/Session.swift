@@ -68,6 +68,9 @@ final class Session {
     var handle = ""
     var handleColors: [String] = []
     var braincells: Double?
+    var braincellDollars: Double?
+    var freeDollars: Double?
+    var purchasedDollars: Double?
     var creditsStatus = "Sign in to view braincells"
     /// Set when the host page itself could not start — a missing dev server is
     /// the usual cause, and a blank screen is a bad way to say so.
@@ -96,6 +99,10 @@ final class Session {
         switch type {
         case "credits":
             braincells = event["total"] as? Double
+            let dollars = event["dollars"] as? [String: Any]
+            braincellDollars = dollars?["total"] as? Double
+            freeDollars = dollars?["free"] as? Double
+            purchasedDollars = dollars?["purchased"] as? Double
             creditsStatus = event["status"] as? String ?? "Braincells unavailable"
 
         case "model":
@@ -134,6 +141,9 @@ final class Session {
 
         case "signedIn":
             braincells = nil
+            braincellDollars = nil
+            freeDollars = nil
+            purchasedDollars = nil
             creditsStatus = "Loading braincells"
             signedIn = true
             handle = event["handle"] as? String ?? ""
@@ -146,6 +156,9 @@ final class Session {
 
         case "signedOut":
             braincells = nil
+            braincellDollars = nil
+            freeDollars = nil
+            purchasedDollars = nil
             creditsStatus = "Sign in to view braincells"
             signedIn = false
             handle = ""

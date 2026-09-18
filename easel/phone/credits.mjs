@@ -22,7 +22,9 @@ export function createCredits({ token, emit, site, fetch: request = (...args) =>
       const value = await response.json();
       if (![value.remaining, value.purchased].every(n => Number.isFinite(n) && n >= 0)) throw new Error("Invalid allowance");
       if (current !== generation || credential !== token()) return;
-      emit({ type: "credits", total: value.remaining + value.purchased, status: "ready" });
+      const dollars = value.dollars;
+      const validDollars = dollars?.currency === "USD" && [dollars.total, dollars.free, dollars.purchased].every(n => Number.isFinite(n) && n >= 0);
+      emit({ type: "credits", total: value.remaining + value.purchased, ...(validDollars ? { dollars } : {}), status: "ready" });
     } catch {
       if (current === generation && credential === token()) {
         emit({ type: "credits", total: null, status: "Braincells unavailable · tap to retry" });

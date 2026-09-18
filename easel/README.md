@@ -63,14 +63,16 @@ piece, channel and QR. A new provider thread receives recent user/assistant
 context (up to 24,000 characters) and the current piece; provider thread IDs and
 tool history are not portable. A failed connection returns to the prior engine.
 `/new` explicitly starts a fresh conversation. `/backend` lists account options;
-`/model` lists hosted choices or accepts a model name for your own vendor CLI.
+`/model` accepts a model name for your own vendor CLI.
 
-AC hosted keeps GLM as its default. `/model sonnet` and `/model gpt` select
-premium models and consume the same handle allowance. Model IDs were checked
-against the [OpenRouter catalog](https://openrouter.ai/compare/openai/gpt-5.4/anthropic/claude-sonnet-4.6).
-The allowance measures weighted tokens, not dollars, and is not an atomic spend
-reservation. Unavailable budget checks refuse inference. New hosted choices
-require the matching Lith endpoint deployment.
+AC braincell inference uses an automatic model. Saved manual model choices are
+normalized when a hosted thread resumes. Desktop version settings show braincells
+and their USD equivalent, separating the daily free allowance from purchased
+credit. The equivalent uses the server's pack rate ($5 per million braincells),
+not the underlying provider's token price. Claude and Codex keep their model controls.
+
+Desktop notebook text wraps beside the preview and returns to full width below it;
+scrolling and preview resizing update the available space.
 
 `/about`, or clicking **AESEL**, opens the feature map. Click **@handle** to open
 your profile in a browser. Header targets highlight on hover in terminals that

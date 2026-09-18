@@ -68,6 +68,9 @@ source. Returning home leaves the current preview alive.
 
 Picture, Sound, Paper and Game Boy are desktop-only until their actual render
 and tool backends are ported; their chooser rows do not create pretend sessions.
-The model label distinguishes the requested model from an identifier reported by
-the inference stream. Account character colors come from AC's saved palette,
+The editor keeps only the piece title, preview, notebook and message input visible.
+The version button opens account, status, balance and thread controls. Braincell
+models are automatic, including resumed threads with old manual choices. Dollar
+values come from the allowance endpoint and distinguish free from purchased credit.
+Account character colors come from AC's saved palette,
 including the `@` character, with the same fallback palette as desktop.

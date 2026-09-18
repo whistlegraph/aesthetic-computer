@@ -5,6 +5,7 @@
  view.setAttribute('aria-live','off');document.body.append(view);
  const title=document.getElementById('qr-label');if(title)view.append(title);
  const paper=document.createElement('div');paper.id='notebook-page';view.append(paper);
+ const prose=document.createElement('div');prose.id='notebook-content';paper.append(prose);
  window.alignNotebookRuling=()=>{
   const spacing=parseFloat(getComputedStyle(view).lineHeight)||24;
   const titleHeight=title&&!title.hidden?title.getBoundingClientRect().height:0;
@@ -14,6 +15,7 @@
   const clip=Math.ceil((clipped-.01)/spacing)*spacing;
   paper.style.clipPath='none';
   document.documentElement.style.setProperty('--notebook-offset',`${origin%spacing}px`);
+  window.layoutNotebookPreview?.();
  };
  view.addEventListener('scroll',window.alignNotebookRuling,{passive:true});
  new ResizeObserver(window.alignNotebookRuling).observe(view);
@@ -63,7 +65,7 @@
    if(entry.kind==='notice'&&/^(?:Engine|Model|Settings|Medium|Artifact) · .* · current piece and recent conversation carried over$/.test(entry.text))continue;
    if(entry.kind==='notice'&&/^(?:Desktop thread restored|Desktop (?:restart|update|home) queued|Ran: |Queued(?: \(\d+ queued\))? · )/.test(entry.text))continue;
    ids.add(entry.id);let node=nodes.get(entry.id);
-   if(!node){node=document.createElement('article');nodes.set(entry.id,node);paper.insertBefore(node,document.getElementById('prose-prompt'));}
+   if(!node){node=document.createElement('article');nodes.set(entry.id,node);prose.append(node);}
    node.dataset.kind=entry.kind;node.setAttribute('aria-label',entry.kind==='user'?'You':entry.kind==='assistant'?'Aesel':entry.kind);
    const handle=entry.kind==='user'&&entry.id!==newestUser?String(entry.handle||window.notebookHandle||'').replace(/^@/,''):'';
    if(node.raw!==entry.text||node.handle!==handle||node.palette!==window.notebookPalette){

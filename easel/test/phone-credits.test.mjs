@@ -40,3 +40,14 @@ test('failed or malformed allowances clear the displayed balance', async () => {
   await credits.refresh();
   assert.equal(events.at(-1).total, null);
 });
+
+test('dollar values are forwarded only with a valid USD balance', async () => {
+ const events=[];
+ const dollars={currency:'USD',total:6,free:1,purchased:5};
+ let payload={remaining:200000,purchased:1000000,dollars};
+ const credits=createCredits({token:()=> 'token',emit:event=>events.push(event),site:'https://example.test',fetch:async()=>Response.json(payload)});
+ await credits.refresh();assert.deepEqual(events.at(-1).dollars,dollars);
+ payload={...payload,dollars:{...dollars,total:'6'}};
+ await credits.refresh();assert.equal(events.at(-1).dollars,undefined);
+ credits.clear();assert.equal(events.at(-1).dollars,undefined);
+});

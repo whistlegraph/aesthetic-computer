@@ -22,10 +22,7 @@ import { createCredits } from "./credits.mjs";
 
 export const SITE = "https://aesthetic.computer";
 export const AUTH_DOMAIN = "hi.aesthetic.computer";
-export const MODEL_CHOICES = [
-  { id: "openai/gpt-5.6-luna", alias: "luna", title: "GPT-5.6 Luna", premium: false },
-  { id: "anthropic/claude-opus-5", alias: "opus", title: "Claude Opus 5", premium: true },
-];
+export const MODEL_CHOICES = []; // Braincell routing is managed by AC.
 
 // Fetched rather than bundled, at the paths the bridge's own `bundledContext()`
 // builds, so editing a guide reaches the phone on reload.
@@ -198,7 +195,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     state.title = item.title || item.slug;
     state.transcript = Array.isArray(item.events) ? item.events : [];
     state.engine = item.engine || null;
-    state.model = item.model || item.engine?.model || DEFAULT_AC_MODEL;
+    state.model = DEFAULT_AC_MODEL;
     mountPiece(item.slug, item.source || STARTER);
     state.published = Boolean(item.published && (!item.handle || item.handle === state.handle));
     write({ threadID: state.id, published: state.published });
@@ -329,11 +326,10 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
 
   function setModel(input) {
     if (state.busy || state.publishing) throw new Error("Wait for this turn and upload to finish before changing models.");
-    const choice = MODEL_CHOICES.find(item => item.id === input || item.alias === String(input).trim().toLowerCase());
-    if (!choice) throw new Error("Choose /model luna or /model opus.");
-    state.model = choice.id;
-    if (state.server) state.server.model = choice.id;
-    if (state.engine) state.engine.model = choice.id;
+    if (input !== DEFAULT_AC_MODEL) throw new Error("Braincell models are managed automatically.");
+    state.model = DEFAULT_AC_MODEL;
+    if (state.server) state.server.model = state.model;
+    if (state.engine) state.engine.model = state.model;
     say("model", {requested: state.model, choices: MODEL_CHOICES});
     saveCurrent();
     return state.model;
@@ -343,7 +339,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     const command = text.trim().match(/^\/model(?:\s+(.+))?$/i);
     if (command) {
       if (command[1]) setModel(command[1]);
-      else say("note", {text: `Requested model: ${state.model}. Choose /model luna or /model opus.`});
+      else say("note", {text: "Braincell models are managed automatically."});
       return;
     }
     if (!text.trim() || state.busy) return;

@@ -33,6 +33,9 @@ struct AeselApp: App {
                         session.model = "openai/gpt-5.6-luna"
                         session.status = "ready"
                         session.braincells = 482000
+                        session.braincellDollars = 2.41
+                        session.freeDollars = 1
+                        session.purchasedDollars = 1.41
                         session.append(.you, "Make a little orange circle.")
                         session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
                         return

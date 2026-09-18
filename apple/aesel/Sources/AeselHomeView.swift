@@ -100,8 +100,7 @@ struct AeselHomeView: View {
             Spacer(minLength: 20)
             AeselDonkey(busy: session.busy, failed: session.health == .failed)
                 .padding(.bottom, 10)
-            Rectangle().fill(Color(rgb: 0x9e7548)).frame(height: 1)
-            AeselWood().frame(height: 40).ignoresSafeArea(edges: .bottom)
+
         }
         .buttonStyle(.plain)
         .foregroundStyle(Paint.ink)

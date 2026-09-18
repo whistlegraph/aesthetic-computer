@@ -21,6 +21,7 @@ export function codexModels({command='codex',args=['app-server','--listen','stdi
 }
 export function pickerModels(p) {
   const backend=BACKENDS[p.backend];
+  if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
   const choices=p.backend==='ac'?Object.entries(backend.models).map(([label,id])=>({id,label}))
     :p.backend==='claude'?['fable','opus','sonnet','haiku'].map(id=>({id,label:id}))
     :[{id:'',label:'CLI default'},...(p.catalog||[]).filter(x=>!x.hidden).map(x=>({id:x.model,label:x.displayName||x.model}))];
@@ -51,7 +52,7 @@ export function pickerLines(p) {
     `Effort     ${p.backend==='ac'?'provider managed':p.effort||'default'}`,
     'Apply',
   ].map((line,i)=>(p.row===i?'› ':'  ')+line),'',p.loading?'Loading Codex models…':p.error||'↑ ↓ / Tab field · ← → choice · Enter next/apply · Esc cancel',
-  'Custom model: /model NAME · Settings apply to the next turn'];
+  p.backend==='ac'?'Braincell models are managed automatically':'Custom model: /model NAME · Settings apply to the next turn'];
 }
 
 export function drawerOptions(p) {

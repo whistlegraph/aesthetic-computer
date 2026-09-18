@@ -77,32 +77,21 @@ test('expired account tokens are cleared while saved drafts remain', async () =>
   } finally { globalThis.fetch = originalFetch; }
 });
 
-test('model choices persist per thread and cannot change during a turn or upload', async () => {
+test('braincell model stays automatic across old threads and model commands', async () => {
   const {DEFAULT_AC_MODEL} = await import('../src/ac-server.mjs');
   const values = new Map();
   const storage = {get:key=>values.get(key),set:(key,value)=>values.set(key,value)};
   const session = createSession({storage});
   await session.open();
-  const initialID = session.state.id;
   assert.equal(session.state.model, DEFAULT_AC_MODEL);
-  await session.ask('/model opus');
-  assert.equal(session.state.model, 'anthropic/claude-opus-5');
-  assert.equal(JSON.parse(values.get('threads')).items[0].model, 'anthropic/claude-opus-5');
-  session.state.busy = true;
-  assert.throws(()=>session.setModel('luna'), /Wait for this turn/);
-  assert.equal(session.state.model, 'anthropic/claude-opus-5');
-  session.state.busy = false;
-  session.state.publishing = Promise.resolve();
-  assert.throws(()=>session.setModel('luna'), /Wait for this turn/);
-  session.state.publishing = null;
-  await session.newSession('piece');
-  assert.equal(session.state.model, DEFAULT_AC_MODEL);
-  await session.resumeSession(initialID);
-  assert.equal(session.state.model, 'anthropic/claude-opus-5');
-  const relaunched = createSession({storage});
-  await relaunched.open();
-  assert.equal(relaunched.state.model, 'anthropic/claude-opus-5');
-  relaunched.setModel('luna');
-  assert.equal(relaunched.state.model, 'openai/gpt-5.6-luna');
-  assert.throws(()=>relaunched.setModel('unknown'), /Choose/);
+  await assert.rejects(session.ask('/model opus'), /managed automatically/);
+  assert.throws(()=>session.setModel('unknown'), /managed automatically/);
+  // A pre-update thread may still have a manually chosen premium model.
+  const stored = JSON.parse(values.get('threads'));
+  stored.items[0].model = 'anthropic/claude-opus-5';
+  if (stored.items[0].engine) stored.items[0].engine.model = stored.items[0].model;
+  values.set('threads', JSON.stringify(stored));
+  const restored = createSession({storage});
+  await restored.open();
+  assert.equal(restored.state.model, DEFAULT_AC_MODEL);
 });
