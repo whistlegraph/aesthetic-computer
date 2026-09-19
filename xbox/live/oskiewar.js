@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 137;
+const buildVersion = 138;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -526,16 +526,16 @@ const meleeSpecFor = (player, kind) => {
 };
 const meleeSpecs = {
   PUNCH: { reach: 58, swell: 50, span: 58, height: 115, radius: 28,
-    windowUs: 17 * 16667, force: 1200, lift: 140,
+    windowUs: 220000, force: 1200, lift: 140,
     cue: ["snare", 1.05], thud: ["block", 1] },
   KICK: { reach: 75, swell: 62, span: 74, height: 55, radius: 35,
-    windowUs: 26 * 16667, force: 1550, lift: 220,
+    windowUs: 220000, force: 1550, lift: 220,
     cue: ["kick", 1.05], thud: ["block", 1] },
   WHIP: { reach: 92, swell: 74, span: 76, height: 122, radius: 24,
-    windowUs: 15 * 16667, force: 1000, lift: 110,
+    windowUs: 190000, force: 1000, lift: 110,
     cue: ["whoosh", 1.15], thud: ["hat", 1.35] },
   BASH: { reach: 62, swell: 40, span: 58, height: 108, radius: 40,
-    windowUs: 28 * 16667, force: 1750, lift: 210,
+    windowUs: 280000, force: 1750, lift: 210,
     cue: ["kick", 1.3], thud: ["kick", 1.4] },
 };
 // One lookup serves both Y and the loaded punch, so the thing you can see in
@@ -3898,6 +3898,11 @@ function consumeSystemButtons(now) {
   for (let index = 0; index < padSnapshots.length; index++) {
     const down = padSnapshots[index]?.down || [];
     const previous = navigationPrevious[index];
+    if (down.includes("RightStick") && !previous.includes("RightStick")) {
+      playerCameraYaw = 0;
+      playerCameraPitch = 0;
+      playerCameraZoom = 1;
+    }
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
       debugPerfReported = false;
@@ -7310,7 +7315,8 @@ function updateGrenades(dt, now, combat = true) {
 
 function startMelee(player, kind, now) {
   if (isHeadOnly(player) || isPogo(player)) return;
-  if (player.attackKind && now < player.attackUntil) return;
+  // Every fresh press starts a strike, including during the previous swing.
+  // updatePlayer detects the edge; holding a button does not auto-repeat.
   const spec = meleeSpecs[kind];
   if (!spec) return;
   const attackingPart = kind === "KICK"
@@ -7360,19 +7366,18 @@ const itemSwinging = (player, now) =>
 
 function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
-  const { frame, startup, active, recovery, phase } = meleeFrame(player, now);
-  if (phase === 'startup') return .25 * frame / startup;
-  if (phase === 'active') return 1;
-  return Math.max(0, 1 - (frame - startup - active) / recovery);
+  const phase = (now - player.attackStartedAt) /
+    (player.attackUntil - player.attackStartedAt);
+  return Math.sin(clamp(phase, 0, 1) * Math.PI);
 }
 
-// Authored gameplay windows. Frame 1 is the accepted input frame; drawing
-// may interpolate, but no collision exists in startup or recovery.
+// Collision starts on the input frame and lasts through the original short
+// swing. A landed strike still hits only once; another tap starts a new one.
 const meleeFrames = {
-  PUNCH: { startup: 5, active: 3, recovery: 9 },
-  KICK: { startup: 8, active: 4, recovery: 14 },
-  WHIP: { startup: 4, active: 3, recovery: 8 },
-  BASH: { startup: 8, active: 4, recovery: 16 },
+  PUNCH: { startup: 0, active: 14, recovery: 0 },
+  KICK: { startup: 0, active: 14, recovery: 0 },
+  WHIP: { startup: 0, active: 12, recovery: 0 },
+  BASH: { startup: 0, active: 17, recovery: 0 },
 };
 function meleeFrame(player, now) {
   const timing = meleeFrames[player.attackKind];
@@ -8539,9 +8544,11 @@ function updatePlayer(player, pad, dt, now) {
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && !(player.attackKind && now < player.attackUntil) && pad.down.includes("X") &&
+  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
+    player.attackKind = "";
+    player.attackUntil = 0;
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
       player.crouchBlend >= .35;
     player.shieldVx = 0;
@@ -9672,9 +9679,11 @@ function gameSim() {
     consumeSystemButtons(now);
     return;
   }
-  const cameraPad = padSnapshots[0] || {};
-  const cameraX = Number(cameraPad.rightX) || 0;
-  const cameraY = Number(cameraPad.rightY) || 0;
+  const cameraPads = localVersusActive() ? padSnapshots : [padSnapshots[0]];
+  const cameraX = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightX) || 0), 0), -1, 1);
+  const cameraY = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightY) || 0), 0), -1, 1);
   if (Math.abs(cameraX) > .08)
     playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
   if (Math.abs(cameraY) > .08)
@@ -9682,13 +9691,12 @@ function gameSim() {
   // Triggers zoom, but only on a pad whose triggers are analog -- on anything
   // else the shell is still aliasing them to A and X, and stealing those two
   // buttons would cost a small pad its item and shield.
-  if (cameraPad.analogTriggers) {
-    // Right pulls in, left pushes out, and they cancel when both are held.
-    const push = (Number(cameraPad.leftTrigger) || 0) -
-      (Number(cameraPad.rightTrigger) || 0);
-    if (Math.abs(push) > .08)
-      playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
-  }
+  // Either couch seat can steer the shared camera. Digital M30 shoulders
+  // remain combat buttons, even beside a controller with analog triggers.
+  const push = clamp(cameraPads.reduce((sum, pad) => sum + (pad?.analogTriggers
+    ? (Number(pad.leftTrigger) || 0) - (Number(pad.rightTrigger) || 0) : 0), 0), -1, 1);
+  if (Math.abs(push) > .08)
+    playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
   // A mouse or a finger on the shell's canvas orbits the same lens the
   // right stick does: a drag turns yaw and pitch, the wheel or a pinch
   // dollies. The shell banks the gesture between ticks and this drains it,

@@ -741,9 +741,9 @@
     // the fight ever read those, so on a small pad — the 8BitDo Micro, whose
     // L2 and R2 are ordinary digital shoulders — two buttons did nothing at
     // all. They are aliases, not a new vocabulary: the triggers raise the same
-    // attacks as the face buttons, which also means holding both is the A+X
-    // grab chord without reaching across the pad.
-    const padAliases = { LeftTrigger: "A", RightTrigger: "X" };
+    // actions as the face buttons. Stick-click is another way to jump.
+    const padAliases = { LeftTrigger: "A", RightTrigger: "X",
+      LeftStick: "ArrowUp" };
 
     // ...but only on pads that need them. A full-size pad's analog triggers
     // drive the camera zoom instead, and a pad cannot do both: aliasing LT to
@@ -757,7 +757,8 @@
     // rest and full travel, which a digital shoulder never does. Latching is
     // deliberate -- an analog trigger passes back through 0 constantly, and a
     // pad that forgot what it was would flicker between zooming and kicking.
-    const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i];
+    const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i,
+      /8bitdo\s+ultimate/i];
     // The 8BitDo M30 wears Microsoft's 045e id, but its "triggers" are the C
     // face button and the top-edge R — ordinary digital switches. The vendor
     // guess would latch them analog and feed every C press to the camera, so
@@ -804,8 +805,10 @@
       }
       const present = (padIndex) => live.some((pad) => pad.index === padIndex);
       for (let seat = 0; seat < padSeats.length; seat++)
-        if (padSeats[seat] !== null && !present(padSeats[seat]))
+        if (padSeats[seat] !== null && !present(padSeats[seat])) {
+          analogTriggerPads.delete(padSeats[seat]);
           padSeats[seat] = null;
+        }
       for (const pad of live) {
         if (padSeats.includes(pad.index)) continue;
         const seat = padSeats.indexOf(null);
