@@ -39,7 +39,7 @@ settings:
     # The direct-download build keeps its own literals in Info.plist (SwiftPM
     # never sees these settings); bump both when releasing.
     MARKETING_VERSION: "1.6.13"
-    CURRENT_PROJECT_VERSION: "173"
+    CURRENT_PROJECT_VERSION: "174"
 
 packages:
   ACMacAudio:

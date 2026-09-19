@@ -257,12 +257,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// side (or a lapsed window) restarts the run.
     private var quietFocusMonitorGlobal: Any?
     private var quietFocusMonitorLocal: Any?
-    /// Both builds prefer a listen-only CGEventTap over an NSEvent global
-    /// keyboard monitor. Store builds because the monitor asks for
-    /// Accessibility trust the sandbox can't have (Input Monitoring covers
-    /// the tap instead) — direct builds because the monitor has silently
-    /// delivered zero keyDowns while flagsChanged kept flowing, which let
-    /// ⌘C read as a bare ⌘ tap (MenuBandLauncher's header tells the story).
+    /// The direct build prefers a listen-only CGEventTap over an NSEvent
+    /// global keyboard monitor, which has silently delivered zero keyDowns
+    /// while flagsChanged kept flowing and let ⌘C read as a bare ⌘ tap
+    /// (MenuBandLauncher's header tells the story). The Store build installs
+    /// neither: a keyboard tap needs Input Monitoring, and App Review rejects
+    /// a Mac App Store app that asks for it (2.4.5(v), 1.6.13 build 173).
     private var quietFocusTap: CFMachPort?
     private var quietFocusTapSource: CFRunLoopSource?
     private var quietFocusTapHandler: ((NSEvent.EventType, UInt16, NSEvent.ModifierFlags) -> Void)?
@@ -2987,16 +2987,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         quietFocusTapHandler = handler
 #if MAC_APP_STORE
-        if CGPreflightListenEventAccess() || CGRequestListenEventAccess() {
-            if !installQuietFocusTap() {
-                NSLog("MenuBand: Input Monitoring granted but Command gesture tap failed")
-            }
-        } else {
-            NSLog("MenuBand: Input Monitoring not granted; Command gesture is local-only")
-            quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
-                matching: Self.quietFocusMonitorMask
-            ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
-        }
+        // Store build: never ask for Input Monitoring. App Review rejected
+        // 1.6.13 (build 173) under 2.4.5(v) for the prompt that
+        // `CGRequestListenEventAccess` raises at launch, and a keyboard
+        // CGEventTap raises the same prompt on its own. The gesture is
+        // local-only here: it works while Menu Band is the focused app,
+        // which is where quiet focus is armed from anyway.
+        quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
+            matching: Self.quietFocusMonitorMask
+        ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
 #else
         // Direct build: the tap is the primary route here too. The NSEvent
         // global monitor has silently stopped delivering keyDowns while
