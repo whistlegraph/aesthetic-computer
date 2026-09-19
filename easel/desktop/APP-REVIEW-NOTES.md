@@ -32,5 +32,6 @@ Information on September 17, 2026. On September 18, 2026 the explanation was
 posted as a reply to the 2.4.5 message, added as the version's App Sandbox
 Information entry for `com.apple.security.network.server`, and 0.7.1 (build
 0.7.2) was resubmitted: submission 42d779ac-c8b1-45ce-bb01-c6d2566f9f83,
-Waiting for Review. Build 0.7.3 (listener stops before the code exchange) was
-never uploaded; it can follow in the next version.
+Waiting for Review. The build with the listener stopping before the code
+exchange was uploaded on September 18, 2026 as 0.7.14 (build 0.7.14), for the
+version that follows 0.7.1.

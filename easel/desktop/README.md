@@ -51,7 +51,9 @@ included in this first release.
 `/restart` (or Aesel → Restart Aesel) saves the active thread, transcript, draft,
 model and workspace before replacing the app process. A busy turn or upload
 finishes first. The local checkpoint is private (`0600`). Launching Aesel again
-focuses its existing window; `--restart` requests a saved restart.
+focuses its existing window; launching it with a directory (`--cwd`) opens that
+workspace as another window of the running Studio, or focuses the window that
+already has it. `--restart` requests a saved restart.
 
 `/update` is handled by the desktop host. Development builds reload current
 source. Packaged builds use electron-updater's binary download and verification
@@ -72,13 +74,23 @@ Media previews support Picture PNG, Sound WAV with waveform/playback, Paper
 source/PDF, and Game Boy ROMs through AC's bundled WasmBoy core. Game Boy building
 uses AC's GBDK stack; the compiler is installed separately. See `../media/gameboy`.
 
+### The Studio
+
+Aesel is one process with one Dock icon and any number of windows. File → New
+Window (⌘N) opens a fresh workspace beside the current one; each window runs
+its own agent, preview, and letter (𝔄, 𝔅, ℭ…), and the Slab menubar tells them
+apart by window. Closing a window ends only its session; the app quits when the
+last one closes. Restart App and binary updates checkpoint every open window
+and reopen them all afterwards. `main.cjs` hosts the windows; the pure naming,
+resume and addressing rules live in `studio.cjs`.
+
 ### Project apps (local macOS prototype)
 
 App mode gives a project its own Dock name, icon and stable bundle ID. The
 Projects menu and Dock menu share a registry of installed projects, mark running
 apps, and open or focus the selected app. The existing Aesel installation remains
-available. A single-icon Studio with multiple windows is the other intended
-presentation; this prototype does not implement that window-host refactor.
+available. New Window from a project app opens in the Studio, not in the
+project's own identity.
 
 ```sh
 node easel/bin/piece-app.mjs --cwd /path/to/project --name sefo \

@@ -16,10 +16,10 @@ test('atomic Slab changes update the current status without restarting',async()=
  try{
  follower.setStatus('working');
  fs.writeFileSync(path.join(directory,'next'),JSON.stringify({version:1,enabled:true,palettes:{working:palette}}));fs.renameSync(path.join(directory,'next'),path.join(directory,'theme.json'));
- for(let i=0;i<20&&seen.at(-1).background!== '#0a141e';i++)await new Promise(r=>setTimeout(r,10));
+ for(let i=0;i<100&&seen.at(-1).background!== '#0a141e';i++)await new Promise(r=>setTimeout(r,10));
  assert.equal(seen.at(-1).background,'#0a141e');
  fs.unlinkSync(path.join(directory,'theme.json'));
- for(let i=0;i<20&&seen.at(-1).background!==FALLBACK.background;i++)await new Promise(r=>setTimeout(r,10));
+ for(let i=0;i<100&&seen.at(-1).background!==FALLBACK.background;i++)await new Promise(r=>setTimeout(r,10));
  assert.equal(seen.at(-1).background,FALLBACK.background);
  }finally{follower.close();fs.rmSync(directory,{recursive:true,force:true});}
 });

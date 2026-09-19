@@ -66,3 +66,18 @@ The rebuilt package is `dist/mas-arm64/aesel-0.7.1-mas-arm64.pkg`, build 0.7.3.
 App and installer signatures were verified. Detailed entitlement notes have
 been saved in App Store Connect; upload, build selection, and resubmission
 remain separate release steps.
+
+## September 18 build 0.7.14
+
+The second upload attempt failed with ITMS-90284 ("must be signed with the
+certificate that is contained in the provisioning profile"): two Mac App Store
+distribution certificates exist for the team, and the `Easel Mac App Store`
+profile (`5725cc89…`) names the one whose key is not in this Mac's keychain.
+The profile that matches the keychain certificate (serial
+`50B926628E5F7ADA7B0923C229026E65`) is **Aesel Mac App Store 2026**
+(`d0efb03f-200a-4feb-ace8-14194ca9f4ce`); `build-mas.sh` now refuses to build
+when the profile and signing certificate disagree, and defaults the build
+number to the package version. Version 0.7.14 build 0.7.14 was uploaded on
+September 18, 2026 (delivery `95813f6c-8b44-4aee-803e-8e252f29ee98`) with the
+listener stopping before the token exchange. It is the build for the version
+after 0.7.1, which was still waiting for review at upload time.

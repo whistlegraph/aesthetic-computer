@@ -2,7 +2,9 @@ const {randomUUID}=require('node:crypto');
 const {join}=require('node:path');
 const {pathToFileURL}=require('node:url');
 const {readFileSync,writeFileSync,unlinkSync}=require('node:fs');
-function startCreditCheckout({app,window,root,ipcMain,shell,refresh}) {
+// The host registers one 'buy-ac-credits' handler and routes it to the
+// sender's window; each window keeps its own checkout state here.
+function startCreditCheckout({app,window,root,shell,refresh}) {
  const statePath=join(app.getPath('userData'),'credit-checkout.json');
  let busy=false;
  const account=()=>import(pathToFileURL(join(root,'src/ac-session.mjs')).href).then(({ACSession})=>new ACSession());
@@ -14,8 +16,8 @@ function startCreditCheckout({app,window,root,ipcMain,shell,refresh}) {
   busy=true;
   try{const status=await request({sessionId:saved.sessionId});if(status.paid||status.status==='expired'){unlinkSync(statePath);await refresh();if(status.paid)window.webContents.send('desktop-notice','Payment received. Your AC credits are ready.');}}catch{}finally{busy=false;}
  }
- ipcMain.handle('buy-ac-credits',async event=>{
-  if(event.sender!==window.webContents||busy)return {error:'Checkout is already opening.'};busy=true;
+ async function buy(){
+  if(busy)return {error:'Checkout is already opening.'};busy=true;
   try{
    let saved;try{saved=JSON.parse(readFileSync(statePath,'utf8'));}catch{}
    // Reuse a pending checkout through double-clicks and app restarts.
@@ -27,9 +29,9 @@ function startCreditCheckout({app,window,root,ipcMain,shell,refresh}) {
    writeFileSync(statePath,JSON.stringify({...saved,sessionId:checkout.sessionId}),{mode:0o600});
    await shell.openExternal(url.href);return {opened:true};
   }catch(error){return {error:error.message};}finally{busy=false;}
- });
+ }
  window.on('focus',reconcile);const timer=setInterval(reconcile,10000);timer.unref();
- window.once('closed',()=>{clearInterval(timer);ipcMain.removeHandler('buy-ac-credits');});
- return {reconcile};
+ window.once('closed',()=>clearInterval(timer));
+ return {reconcile,buy};
 }
 module.exports={startCreditCheckout};
