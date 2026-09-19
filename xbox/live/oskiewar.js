@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 138;
+const buildVersion = 139;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1364,6 +1364,45 @@ let workshopHistory = [];
 let workshopHighlight = false;
 let workshopTainted = false;
 
+let localMapIndex = -1;
+let localMapInstalled = false;
+const localMapVariants = [null, {
+  name: "BOWL",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "transition", rise: 360, dir: -1, lift: -360 },
+    { from: 16, to: 24, kind: "flat", lift: -360 },
+    { from: 24, to: 28, kind: "transition", rise: 360, dir: 1, lift: -360 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 9, cols: 4, row: 3 }, { col: 27, cols: 4, row: 3 }],
+}, {
+  name: "HIGH GROUND",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "bank", rise: 270, dir: 1 },
+    { from: 16, to: 24, kind: "flat", lift: 270 },
+    { from: 24, to: 28, kind: "bank", rise: 270, dir: -1 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 7, cols: 4, row: 3 }, { col: 18, cols: 4, row: 7 },
+    { col: 29, cols: 4, row: 3 }],
+}];
+
+function rotateLocalMap(keepMap) {
+  if (!localVersusActive() || workshopTainted ||
+      globalThis.__oskiewarPublishedMap) return;
+  if (!keepMap || localMapIndex < 0)
+    localMapIndex = (localMapIndex + 1) % localMapVariants.length;
+  const variant = localMapVariants[localMapIndex];
+  const map = variant ? { ...workshopBase, ...variant,
+    features: variant.features.map(f => ({ lift: 0, rise: 0, dir: 1, ...f })) }
+    : workshopBase;
+  installWorkshopMap(map);
+  currentMapId = ["halfpipe", "bowl", "high-ground"][localMapIndex];
+  localMapInstalled = true;
+}
+
 function workshopSnapshot() {
   return { format: "ac.oskiewar.map", version: 1,
     name: workshopMap?.name || currentMapName,
@@ -1379,6 +1418,7 @@ function workshopSnapshot() {
 }
 
 function installWorkshopMap(map) {
+  localMapInstalled = false;
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
     left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
@@ -1469,7 +1509,8 @@ function installMapPickups(target, authored, type) {
 
 function resetWorkshopMap() {
   if (!workshopMap) return;
-  if ((globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
+  if (!localMapInstalled &&
+      (globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
       !survivalActive() && !roundViewer && !resimActive) {
     installWorkshopMap(workshopMap);
     return;
@@ -3196,7 +3237,7 @@ function updateLocalVersus(now) {
     // Restart the interrupted round with the match tally intact. Absolute
     // attack/death timers cannot safely resume after an arbitrary unplug.
     if (matchOver) startLocalVersus(now);
-    else resetRound(now, false);
+    else resetRound(now, false, true);
     startInputPending = true;
     navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
   }
@@ -5882,8 +5923,9 @@ function gameBoot() {
   } else beginTraining(startedAt);
 }
 
-function resetRound(now, resetMatch = false) {
+function resetRound(now, resetMatch = false, keepMap = false) {
   resetWorkshopMap();
+  rotateLocalMap(keepMap);
   if (replay) {
     const nextRoundName = pronounceableMatchName();
     // A versus room is one address for a whole match — the link a friend was
@@ -12990,6 +13032,14 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
   const nameSize = touch ? 28 : compactLayout() ? 38 : 54;
+  const safe = hudSafeRect();
+  const mapLabel = currentMapName.toLowerCase();
+  const mapSize = Math.min(nameSize, nameSize * (safe.right - safe.left) /
+    Math.max(1, handleWidth(mapLabel, nameSize)));
+  const mapX = centerX - handleWidth(mapLabel, mapSize) / 2;
+  const mapY = safe.top + hudTypeSize + 26;
+  typeWrite(mapLabel, mapX + 2, mapY + 3, mapSize, ...statusShadow);
+  typeWrite(mapLabel, mapX, mapY, mapSize, ...titleInk);
   const drawHeadName = (player) => {
     const head = runnerWorldGeometry(player,
       (runtime().monotonicUs - startedAt) / 1000000).head;
@@ -14674,19 +14724,11 @@ function drawDebugBug(x, y, scale = 1) {
   filledDisc(x + 2 * scale, y - 7 * scale, 1.2 * scale, detail);
 }
 
-// The round QR owns the top-right corner whenever it is up, so the HUD clock
-// asks for its footprint before choosing a lane.
-// The versus lane's whole premise is the shareable address, so its QR stays
-// up in play; every other untimed round keeps the code off the fight.
+// The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
+  if (shellMode === "GAME") return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  // A watcher is looking at the one thing the code is for. `versusLane()` is a
-  // fact about the fight on THIS machine, and a watcher's machine is not in
-  // one — so an untimed versus round, watched, used to lose its address at
-  // exactly the moment somebody might want to pass it on.
-  if (!versusLane() && !(roundViewer && roundViewerMode === "LIVE"))
-    if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
