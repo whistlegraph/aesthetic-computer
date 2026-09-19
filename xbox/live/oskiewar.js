@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 136;
+const buildVersion = 137;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -11847,8 +11847,8 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
 function drawControlLegend(ink) {
-  if (typeof capabilities === "function" &&
-      capabilities().inputFamily === "touch") return;
+  const device = typeof capabilities === "function" ? capabilities() : {};
+  if (device.showControlLegend === false || device.inputFamily === "touch") return;
   const safe = hudSafeRect();
   const pad = localPad();
   const held = pad.down || [];

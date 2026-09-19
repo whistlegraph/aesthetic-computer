@@ -899,6 +899,7 @@
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
       return { platform: mac ? "macos" : "web",
+        showControlLegend: false,
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
