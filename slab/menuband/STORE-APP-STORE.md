@@ -42,6 +42,16 @@ sandbox-safe TrackDrum companion bridge and the focused percussion/slider UX.
 **PUBLISHED — v1.6.9 (build 169), 2026-08-07.** App Store Connect reports
 `READY_FOR_SALE`.
 
+**SUBMITTED — v1.6.13 (build 173), 2026-09-18.** ABC letter layer, Mono
+fold, macOS 27 click fixes, sampler + monitor persistence, stall-safe cues.
+Two lane changes worth knowing: Xcode 27 refuses a macOS 11.0 deployment
+target ("supported range is 12.0 to 27.0.x"), so `project.yml` and
+`Info-AppStore.plist` now say **12.0**; and the DMX room lane
+(`DMXOut.swift`) is `#if MAC_APP_STORE`-gated to a no-op, since the sandbox
+has no serial entitlement. Imported-symbol diff against the approved build
+170 showed no new privileged API. The store price is **$9.99** (not the
+$4.99 it launched at). Archive/export/upload/ship ran from blueberry.
+
 **SUBMITTED — v1.6.10 (build 170), 2026-08-09.** App Store Connect reports
 `WAITING_FOR_REVIEW`. Fixes TrackDrum focus activation, physical-click focus
 loss, and false Command-gesture activation. Automatic release is enabled.

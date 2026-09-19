@@ -31,6 +31,10 @@ INSTALLED_APP_DIR="${REPO_HOME}/Applications/Menu Band.app"
 # running signed app invalidates executable pages that macOS has not faulted in
 # yet (SIGKILL/CODESIGNING "Invalid Page"). A sibling staging directory keeps
 # the final rename on the same filesystem and therefore atomic.
+# Sweep staging dirs an earlier run left behind (a SIGKILL — the parity deploy,
+# a hung codesign — skips the EXIT trap). Each one is a bundle with Menu Band's
+# id sitting next to the real app, which is exactly what poisons TCC.
+find "${REPO_HOME}/Applications" -maxdepth 1 -name '.menuband-install.*' -exec rm -rf {} + 2>/dev/null || true
 STAGE_ROOT="$(mktemp -d "${REPO_HOME}/Applications/.menuband-install.XXXXXX")"
 APP_DIR="${STAGE_ROOT}/Menu Band.app"
 APP_BIN_DIR="${APP_DIR}/Contents/MacOS"
@@ -41,7 +45,7 @@ APP_RES="${APP_DIR}/Contents/Resources"
 cleanup_stage() {
     rm -rf "${STAGE_ROOT}"
 }
-trap cleanup_stage EXIT
+trap cleanup_stage EXIT INT TERM HUP
 
 say() { printf "%s• %s%s\n" "$CYAN" "$1" "$RESET"; }
 ok()  { printf "%s✓ %s%s\n" "$GREEN" "$1" "$RESET"; }

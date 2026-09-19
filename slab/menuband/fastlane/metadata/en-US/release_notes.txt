@@ -1,3 +1,7 @@
-The polyrhythm trainer now gives every rhythm its own circle, side by side, instead of stacking them in one ring. Each finger can hold its own grid: strike the left circle for the threes, the right for the twos, and each strike is scored against that circle's own beat rather than whichever beat happened to be nearest. Press / on the TrackDrum surface to cycle 3:2, 4:3, 5:4, and 3:4:5, and - or = to change tempo. Every circle keeps a distinct click so you can hear the parts apart.
+Letters can now ride the keys. Turn on the ABC layer and each key shows and speaks its letter as you play, so a keyboard becomes a spelling instrument as easily as a musical one. A Mono checkbox beside it folds the output to a single signal for rooms with one speaker.
 
-The free TrackDrum companion now keeps itself up to date.
+Clicked keys now hold for as long as you hold the mouse, and clicks on the menu-bar piano land on the key under the pointer, so the far ends of the strip are reachable again on the newest system. The menu-bar keys also refit themselves when the screen or bar changes size.
+
+The hold-to-sample microphone voice survives switching input devices, and your chosen studio monitor stays selected across launches. When the audio engine stalls, the surface cues now skip instead of freezing the app.
+
+The permission notice no longer traps the board in focus, and the TrackDrum polyrhythm trainer draws its lanes on the skin.

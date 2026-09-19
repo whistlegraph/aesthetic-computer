@@ -2492,6 +2492,9 @@ final class MenuBandSynth {
         triggerMelodicDuck(depth: depth, velocity: velocity,
                            hold: drum == .kick ? 0.105 : 0.055)
         let g = percussion.noteOn(drum, velocity: velocity, pan: p, accent: accent)
+        // Roomward: a TrackDrum hit flashes its own pars (no-op without a
+        // widget) — routed apart from the keys, see DMXOut.fixtures.
+        DMXOut.shared.drum(drum, velocity: Int(velocity))
         if !keepEngineWarm { scheduleIdleSuspendAfterPercussion() }
         return g
     }

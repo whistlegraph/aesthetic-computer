@@ -21,7 +21,7 @@ name: MenuBand
 options:
   bundleIdPrefix: computer.aestheticcomputer
   deploymentTarget:
-    macOS: "11.0"
+    macOS: "12.0"
   createIntermediateGroups: true
 
 settings:
@@ -38,8 +38,8 @@ settings:
     # sat a build behind through the whole 1.5.3 release.
     # The direct-download build keeps its own literals in Info.plist (SwiftPM
     # never sees these settings); bump both when releasing.
-    MARKETING_VERSION: "1.6.12"
-    CURRENT_PROJECT_VERSION: "172"
+    MARKETING_VERSION: "1.6.13"
+    CURRENT_PROJECT_VERSION: "173"
 
 packages:
   ACMacAudio:
@@ -49,7 +49,7 @@ targets:
   MenuBand:
     type: application
     platform: macOS
-    deploymentTarget: "11.0"
+    deploymentTarget: "12.0"
 
     sources:
       # All Swift under Sources/MenuBand (incl. KidLisp/ + PianoWaveformWindow/
@@ -176,7 +176,7 @@ targets:
   ScorePreview:
     type: app-extension
     platform: macOS
-    deploymentTarget: "11.0"
+    deploymentTarget: "12.0"
     sources:
       - path: quicklook/Preview/PreviewViewController.swift
     settings:
@@ -195,7 +195,7 @@ targets:
   ScoreThumbnail:
     type: app-extension
     platform: macOS
-    deploymentTarget: "11.0"
+    deploymentTarget: "12.0"
     sources:
       - path: quicklook/Thumbnail/ThumbnailProvider.swift
     settings:
