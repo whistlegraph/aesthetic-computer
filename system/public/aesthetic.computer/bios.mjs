@@ -20318,11 +20318,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               overlayCan.style.display = "none";
             }
             // Force sync rendering during tape playback for immediate UI updates
-            {
-              const d = imageData.data;
-              const mid = Math.floor(d.length / 2);
-              console.log(`🎬 BIOS putImageData: ${imageData.width}×${imageData.height} corner=[${d[0]},${d[1]},${d[2]},${d[3]}] mid=[${d[mid]},${d[mid+1]},${d[mid+2]},${d[mid+3]}]`);
-            }
             ctx.putImageData(imageData, 0, bumperOffset);
           } else if (!forceSynchronousRendering && window.pixelOptimizer && window.pixelOptimizer.asyncRenderingSupported) {
             try {

@@ -688,6 +688,7 @@ function beginTapeDraft(rec, send) {
 function finalizeTapeDraft(send) {
   if (!tapeDraft || tapeDraftState !== "ready") return false;
   tapeDraftState = "finalizing";
+  finalizeWhenReady = false;
   send({
     type: "tape:draft-finalize",
     content: {
@@ -3371,7 +3372,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
   };
 
   if (e.is("recorder:compact")) {
-    console.log("🎥 compact:", JSON.stringify(e.content));
+    if (debug) console.log("🎥 compact:", JSON.stringify(e.content));
     if (typeof e.content?.bytes === "number") tapeBytes = e.content.bytes;
     requestPaint();
     return true;
@@ -3379,14 +3380,14 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
   
   // Handle upload progress (from 90% to 100% as file uploads)
   if (e.is("upload:progress")) {
-    console.log("📤 Upload progress:", e.content);
+    if (debug) console.log("📤 Upload progress:", e.content);
     
     // Map upload progress from 0-1 to 90-100% of overall progress
     // Transcode goes 0-90%, upload goes 90-100%
     const uploadProgress = typeof e.content === "number" ? e.content : 0;
     printProgress = 0.9 + (uploadProgress * 0.1); // 90% + (0-10%)
     
-    console.log(`📊 Upload progress: ${Math.floor(uploadProgress * 100)}% -> Overall: ${Math.floor(printProgress * 100)}%`);
+    if (debug) console.log(`📊 Upload progress: ${Math.floor(uploadProgress * 100)}% -> Overall: ${Math.floor(printProgress * 100)}%`);
     
     requestPaint();
     return true;
@@ -3395,7 +3396,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
   if (e.is("tape:draft-progress")) {
     tapeDraftState = "uploading";
     if (finalizeWhenReady) {
-      printProgress = 0.85 + Math.max(0, Math.min(1, e.content || 0)) * 0.1;
+      printProgress = 0.9 + Math.max(0, Math.min(1, e.content || 0)) * 0.05;
       requestPaint();
     }
     return true;
@@ -3420,6 +3421,10 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
       finalizeWhenReady = false;
       isPostingTape = false;
       isPrinting = false;
+      currentExportType = "";
+      currentExportPhase = "";
+      exportStatusMessage = "";
+      printProgress = 0;
       if (postBtn) postBtn.disabled = false;
       completionMessage = "PRE-UPLOAD FAILED — TAP DONE TO RETRY";
       completionMessageTimer = 180;
@@ -3430,7 +3435,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
   
   // Handle tape:posted callback (successful tape upload)
   if (e.is("tape:posted")) {
-    console.log("✅ Tape posted successfully:", e.content);
+    if (debug) console.log("✅ Tape posted successfully:", e.content);
     
     const { code, slug } = e.content || {};
     
@@ -3443,8 +3448,8 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
     // Complete the export flow (sets progress to 100%)
     completeExport("post", code ? `POSTED! !${code}` : "POSTED!");
     
-    console.log(`📼 Tape posted: code=!${code}, slug=${slug}`);
-    console.log(`📼 POST button will show "POSTED" (disabled), HUD will show !${code}`);
+    if (debug) console.log(`📼 Tape posted: code=!${code}, slug=${slug}`);
+    if (debug) console.log(`📼 POST button will show "POSTED" (disabled), HUD will show !${code}`);
     
     requestPaint(); // Force repaint to show new button state
     
@@ -3456,8 +3461,18 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
     console.error("❌ Tape post error:", e.content);
     
     isPrinting = false;
+    isPostingTape = false;
+    finalizeWhenReady = false;
+    // Keep an uploaded draft available when finalization fails.
+    if (tapeDraftState === "finalizing") tapeDraftState = "ready";
     currentExportType = "";
-    postBtn.disabled = false;
+    currentExportPhase = "";
+    exportStatusMessage = "";
+    printProgress = 0;
+    if (postBtn) postBtn.disabled = false;
+    if (gifBtn) gifBtn.disabled = false;
+    if (mp4Btn) mp4Btn.disabled = false;
+    if (zipBtn) zipBtn.disabled = false;
     
     completionMessage = "POST FAILED";
     completionMessageTimer = 180; // 3 seconds at 60fps
@@ -3469,7 +3484,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
   
   // Handle detailed export status messages
   if (e.is("recorder:export-status")) {
-    console.log("🎯 Video piece received status:", e.content);
+    if (debug) console.log("🎯 Video piece received status:", e.content);
     
     if (e.content?.message) {
       exportStatusMessage = e.content.message;
@@ -3485,8 +3500,8 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
 
   // Handle export progress updates for all export types
   if (e.is("recorder:export-progress") || e.is("recorder:transcode-progress")) {
-    console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
-    console.log("🎯 Current export state - isPrinting:", isPrinting, "isPostingTape:", isPostingTape, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
+    if (debug) console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
+    if (debug) console.log("🎯 Current export state - isPrinting:", isPrinting, "isPostingTape:", isPostingTape, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
     
     if (e.progress !== undefined || (e.is("recorder:transcode-progress") && typeof e.content === "number")) {
       // Handle both message formats: {progress, type} and direct number content
@@ -3495,7 +3510,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
         ? (e.content?.type || currentExportType || "gif")
         : currentExportType || "video"; // For export-progress, fall back to current export type
       
-      console.log("🎯 Processing progress update:", progress, "for type:", exportType);
+      if (debug) console.log("🎯 Processing progress update:", progress, "for type:", exportType);
       
       // Update status message if provided
       if (e.message || e.content?.message) {
@@ -3516,7 +3531,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
         // Handle transcode progress for any active export
         (e.is("recorder:transcode-progress") && (isPrinting || isPostingTape || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames));
         
-      console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
+      if (debug) console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
         videoAndPrinting: exportType === "video" && isPrinting,
         gifAndExporting: exportType === "gif" && isExportingGIF,
         postAndPosting: exportType === "post" && (isPrinting || isPostingTape),
@@ -3529,7 +3544,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
         const oldProgress = printProgress;
         printProgress = progress;
         
-        console.log(`📊 Export progress updated: ${Math.floor(progress * 100)}% (was ${Math.floor(oldProgress * 100)}%) - type: ${exportType}`);
+        if (debug) console.log(`📊 Export progress updated: ${Math.floor(progress * 100)}% (was ${Math.floor(oldProgress * 100)}%) - type: ${exportType}`);
         
         // Track progress history for ETA calculation
         const now = performance.now();
@@ -3546,7 +3561,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
           rec.tapeProgress = Math.min(Math.max(progress, 0.01), 0.999);
         }
 
-        console.log(`📊 Export progress: ${Math.floor(progress * 100)}% (${exportType}) - ${exportStatusMessage}`);
+        if (debug) console.log(`📊 Export progress: ${Math.floor(progress * 100)}% (${exportType}) - ${exportStatusMessage}`);
         requestPaint();
 
         if (exportType === "frames" && progress >= 0.999 && isExportingFrames) {
@@ -3562,7 +3577,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
 
   // Handle export completion for all export types
   if (e.is("recorder:export-complete")) {
-    console.log("🎯 Video piece received completion:", e);
+    if (debug) console.log("🎯 Video piece received completion:", e);
     const exportType = e.content?.type; // Get the actual export type from content
     const isValidExportComplete = 
       (exportType === "gif" && isExportingGIF) ||
@@ -3572,7 +3587,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
       (exportType === "frames" && isExportingFrames) ||
       (exportType === "video" && isPrinting);
       
-    console.log("🎯 Completion validation:", {
+    if (debug) console.log("🎯 Completion validation:", {
       messageType: e.type,
       exportType: exportType,
       isExportingGIF,
@@ -3581,7 +3596,7 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
     });
       
     if (isValidExportComplete) {
-      console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed successfully!`, e.content?.filename || "");
+      if (debug) console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed successfully!`, e.content?.filename || "");
       completeExport(exportType, `${exportType?.toUpperCase() || "EXPORT"} COMPLETED!`);
       if (typeof rec?.present === "function") {
         rec.present();
@@ -3609,16 +3624,26 @@ function handleSystemMessage({ event: e, rec, needsPaint, jump }) {
 
 // 📨 Receive (Handles direct messages from the system)
 function receive(e) {
-  console.log("🎯 Video receive() called with event:", e?.type, e);
+  if (debug) console.log("🎯 Video receive() called with event:", e?.type);
   
   if (!e || typeof e.is !== "function") {
     console.warn("🎯 Event missing or e.is() not a function");
     return false;
   }
 
+  // Worker events may arrive through act() or directly through receive().
+  // Both paths must advance the same draft/upload state machine.
+  if (
+    e.is("tape:draft-progress") || e.is("tape:draft-ready") ||
+    e.is("tape:draft-error") || e.is("tape:posted") ||
+    e.is("tape:post-error") || e.is("upload:progress")
+  ) {
+    return handleSystemMessage({ event: e });
+  }
+
   // Handle tape info reply from BIOS
   if (e.is("tape:info-reply")) {
-    console.log("📼 Received tape info:", e.content);
+    if (debug) console.log("📼 Received tape info:", e.content);
     tapeInfo = e.content;
     return true;
   }
@@ -3651,7 +3676,7 @@ function receive(e) {
 
   // Handle AudioContext state updates from BIOS
   if (e.is("tape:audio-context-state")) {
-    console.log("🎵 ✅ Video piece received AudioContext state:", e.content);
+    if (debug) console.log("🎵 ✅ Video piece received AudioContext state:", e.content);
     audioContextState = e.content?.state || "suspended";
     hasAudioContext = !!e.content?.hasAudio;
     audioDiag = {
@@ -3659,13 +3684,13 @@ function receive(e) {
       ctxRate: e.content?.ctxRate || audioDiag.ctxRate || 0,
       latencyMs: e.content?.latencyMs ?? audioDiag.latencyMs ?? 0,
     };
-    console.log(`🎵 ✅ AudioContext state updated: ${audioContextState}, hasAudio: ${hasAudioContext}`);
+    if (debug) console.log(`🎵 ✅ AudioContext state updated: ${audioContextState}, hasAudio: ${hasAudioContext}`);
     return true;
   }
 
   // Debug: Log all message types to see what we're missing
   if (e.type && e.type.includes("audio") || e.type && e.type.includes("tape")) {
-    console.log("🎯 🎵 AUDIO/TAPE MESSAGE:", e.type, e);
+    if (debug) console.log("🎯 🎵 AUDIO/TAPE MESSAGE:", e.type, e);
   }
 
   // Helper function to complete export and reset UI
@@ -3695,7 +3720,7 @@ function receive(e) {
 
   // Handle export completion
   if (e.is("recorder:export-complete")) {
-    console.log("🎯 Video receive() handling export-complete:", e);
+    if (debug) console.log("🎯 Video receive() handling export-complete:", e);
     const exportType = e.content?.type;
     const isValidExportComplete = 
       (exportType === "gif" && isExportingGIF) ||
@@ -3705,7 +3730,7 @@ function receive(e) {
       (exportType === "frames" && isExportingFrames) ||
       (exportType === "video" && isPrinting);
       
-    console.log("🎯 Export completion validation:", {
+    if (debug) console.log("🎯 Export completion validation:", {
       exportType,
       isExportingGIF,
       isPrinting,
@@ -3713,7 +3738,7 @@ function receive(e) {
     });
       
     if (isValidExportComplete) {
-      console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed in receive()!`, e.content?.filename || "");
+      if (debug) console.log(`✅ ${exportType?.toUpperCase() || "Export"} completed in receive()!`, e.content?.filename || "");
       completeExport(exportType, `${exportType?.toUpperCase() || "EXPORT"} COMPLETED!`);
     }
     return true;
@@ -3721,8 +3746,8 @@ function receive(e) {
 
   // Handle export progress updates for all export types
   if (e.is("recorder:export-progress") || e.is("recorder:transcode-progress")) {
-    console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
-    console.log("🎯 Current export state - isPrinting:", isPrinting, "isPostingTape:", isPostingTape, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
+    if (debug) console.log("🎯 Video piece received progress:", e.is("recorder:export-progress") ? "export-progress" : "transcode-progress", e);
+    if (debug) console.log("🎯 Current export state - isPrinting:", isPrinting, "isPostingTape:", isPostingTape, "isExportingGIF:", isExportingGIF, "currentExportType:", currentExportType);
     
     if (e.progress !== undefined || (e.is("recorder:transcode-progress") && typeof e.content === "number")) {
       // Handle both message formats: {progress, type} and direct number content
@@ -3731,7 +3756,7 @@ function receive(e) {
         ? (e.content?.type || currentExportType || "gif")
         : currentExportType || "video"; // For export-progress, fall back to current export type
       
-      console.log("🎯 Processing progress update:", progress, "for type:", exportType);
+      if (debug) console.log("🎯 Processing progress update:", progress, "for type:", exportType);
       
       // Update status message if provided
       if (e.message || e.content?.message) {
@@ -3752,7 +3777,7 @@ function receive(e) {
         // Handle transcode progress for any active export
         (e.is("recorder:transcode-progress") && (isPrinting || isPostingTape || isExportingGIF || isExportingWebP || isExportingAnimWebP || isExportingAPNG || isExportingFrames));
         
-      console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
+      if (debug) console.log("🎯 isValidExport check:", isValidExport, "- conditions:", {
         videoAndPrinting: exportType === "video" && isPrinting,
         gifAndExporting: exportType === "gif" && isExportingGIF,
         postAndPosting: exportType === "post" && (isPrinting || isPostingTape),
@@ -3765,7 +3790,7 @@ function receive(e) {
         const oldProgress = printProgress;
         printProgress = progress;
         
-        console.log(`📊 GIF Export progress: ${Math.floor(progress * 100)}% (printProgress updated from ${Math.floor(oldProgress * 100)}% to ${Math.floor(printProgress * 100)}%) - type: ${exportType}`);
+        if (debug) console.log(`📊 GIF Export progress: ${Math.floor(progress * 100)}% (printProgress updated from ${Math.floor(oldProgress * 100)}% to ${Math.floor(printProgress * 100)}%) - type: ${exportType}`);
         
         // Track progress history for ETA calculation
         const now = performance.now();
@@ -3860,65 +3885,11 @@ function receive(e) {
     return true;
   }
   
-  // Handle tape:posted callback (successful tape upload)
-  if (e.is("tape:posted")) {
-    console.log("✅ Tape posted successfully:", e.content);
-    
-    const { code, slug } = e.content || {};
-    
-    // Store the code for HUD label display
-    postedTapeCode = code;
-    
-    // Set progress to 100% and complete the export
-    printProgress = 1.0;
-    completionMessage = code ? `POSTED! !${code}` : "POSTED!";
-    completionMessageTimer = 180;
-    isPrinting = false;
-    isPostingTape = false;
-    currentExportType = "";
-    currentExportPhase = "";
-    exportStatusMessage = "";
-    exportStartTime = 0;
-    progressHistory = [];
-    
-    // Re-enable other export buttons, but POST button will be disabled by paint logic
-    if (gifBtn) gifBtn.disabled = false;
-    if (mp4Btn) mp4Btn.disabled = false;
-    if (zipBtn) zipBtn.disabled = false;
-    
-    console.log(`📼 Tape posted: code=!${code}, slug=${slug}`);
-    console.log(`📼 POST button will show "POSTED" (disabled), HUD will show !${code}`);
-    
-    requestPaint();
-    
-    return true;
-  }
-  
   // Handle waveform data response from tape audio
   if (e.is("tape:waveform")) {
-    console.log("🌊 Received tape waveform data:", e.content?.length, "samples");
+    if (debug) console.log("🌊 Received tape waveform data:", e.content?.length, "samples");
     tapeWaveform = e.content;
     requestPaint();
-    return true;
-  }
-  
-  // Handle tape:post-error callback (failed tape upload)
-  if (e.is("tape:post-error")) {
-    console.error("❌ Tape post error:", e.content);
-    
-    completionMessage = "UPLOAD FAILED!";
-    completionMessageTimer = 180;
-    isPrinting = false;
-    isPostingTape = false;
-    currentExportType = "";
-    exportStatusMessage = "";
-    printProgress = 0;
-    if (postBtn) postBtn.disabled = false;
-    if (gifBtn) gifBtn.disabled = false;
-    if (mp4Btn) mp4Btn.disabled = false;
-    if (zipBtn) zipBtn.disabled = false;
-    requestPaint();
-    
     return true;
   }
   

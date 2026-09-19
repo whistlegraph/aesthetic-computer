@@ -11550,7 +11550,7 @@ async function makeFrame({ data: { type, content } }) {
   // Media Recorder Events
 
   if (type === "recorder:transcode-progress") {
-    console.log("📼 🚨 DISK.MJS caught transcode-progress EARLY - updating rec.printProgress:", content);
+    if (debug) console.log("📼 Transcode progress:", content);
     $commonApi.rec.printProgress = content;
     if (content === 1) {
       send({ type: "signal", content: "recorder:transcoding-done" });
@@ -11570,6 +11570,9 @@ async function makeFrame({ data: { type, content } }) {
     type === "recorder:export-complete" ||
     type === "tape:posted" ||
     type === "tape:post-error" ||
+    type === "tape:draft-progress" ||
+    type === "tape:draft-ready" ||
+    type === "tape:draft-error" ||
     type === "tape:download-progress" ||
     type === "tape:load-progress" ||
     type === "tape:preloaded" ||
@@ -11619,7 +11622,7 @@ async function makeFrame({ data: { type, content } }) {
         progress: type === "recorder:transcode-progress" ? content : undefined
       };
       try {
-        if (!getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
+        if (debug && !getPackMode()) console.log("📼 ✅ Calling receive directly for export event:", type);
         receive(event);
         return; // Successfully delivered to piece
       } catch (e) {
