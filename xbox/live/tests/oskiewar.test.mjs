@@ -416,6 +416,30 @@ test("local rounds rotate distinct terrain and wrap without repeating", () => {
   }
 });
 
+test("local maps survive powerup timers and replenish collected pistols", () => {
+  const { fight, pads, tick, signals } = createFight(false, false, "web");
+  for (const pad of pads) pad.localController = true;
+  tick();
+  for (const name of ["HALFPIPE", "BOWL", "HIGH GROUND"]) {
+    assert.equal(fight.mapState().name, name);
+    tick(3100000);
+    for (let i = 0; i < 260; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 10000000);
+    const pistol = fight.gunPickups.find(p => p.cycle);
+    assert.ok(pistol, "built-in maps retain the replenishing pistol");
+    pistol.active = false;
+    const before = signals.filter(s => s[0] === "powerup").length;
+    for (let i = 0; i < 250; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 20000000);
+    assert.equal(pistol.active, true);
+    assert.equal(signals.filter(s => s[0] === "powerup").length, before + 1);
+    for (let i = 0; i < 600 && fight.mapState().name === name; i++) tick(40000);
+    assert.notEqual(fight.mapState().name, name, "the completed round advances maps");
+  }
+  fight.startFightAgainst("dummy");
+  assert.ok(fight.gunPickups.some(p => p.cycle), "base map restores its pistol cycle");
+});
+
 test("local controller arrival leaves self-play and a remote viewer alone", () => {
   const demo = createFight(false, false, "web");
   demo.fight.startSelfPlay();
@@ -6978,7 +7002,10 @@ test('workshop public maps survive rounds without granting coach editing', async
     name: 'Public park', features: [{ from: 0, to: 40, kind: 'flat' }],
     decks: [], spawns: [4, 35], pickups: [], skateboard: false });
   try {
-    const { fight } = createFight();
+    const { fight, tick } = createFight();
+    for (let i = 0; i < 525; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 20000000);
+    assert.equal(fight.gunPickups.length, 0, "empty maps do not acquire automatic weapons");
     assert.equal(fight.players[0].spawnX, 405);
     fight.nextRound();
     assert.equal(fight.players[0].spawnX, 405);

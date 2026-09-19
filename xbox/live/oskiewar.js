@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 139;
+const buildVersion = 140;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1398,7 +1398,7 @@ function rotateLocalMap(keepMap) {
   const map = variant ? { ...workshopBase, ...variant,
     features: variant.features.map(f => ({ lift: 0, rise: 0, dir: 1, ...f })) }
     : workshopBase;
-  installWorkshopMap(map);
+  installWorkshopMap(map, true);
   currentMapId = ["halfpipe", "bowl", "high-ground"][localMapIndex];
   localMapInstalled = true;
 }
@@ -1417,7 +1417,7 @@ function workshopSnapshot() {
     skateboard: skateBoardEnabled };
 }
 
-function installWorkshopMap(map) {
+function installWorkshopMap(map, cycleHandgun = false) {
   localMapInstalled = false;
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
@@ -1430,6 +1430,9 @@ function installWorkshopMap(map) {
   players.forEach((p, i) => { p.spawnX = tileCenterX(map.spawns[i]); });
   installMapPickups(gunPickups, map.pickups.filter(p =>
     !["GRENADE", "LIGHT SABER"].includes(p.kind)), "gun");
+  // Portable maps contain authored pickups, not the built-in refill policy.
+  const pistol = gunPickups.find(p => p.kind === "HANDGUN");
+  if (cycleHandgun && pistol) pistol.cycle = true;
   installMapPickups(saberPickups, map.pickups.filter(p => p.kind === "LIGHT SABER"), "saber");
   installMapPickups(grenadePickups, map.pickups.filter(p => p.kind === "GRENADE"), "grenade");
   skateBoardEnabled = map.skateboard;
@@ -1516,7 +1519,7 @@ function resetWorkshopMap() {
     return;
   }
   const spawns = players.map(p => p.spawnX);
-  installWorkshopMap(workshopBase);
+  installWorkshopMap(workshopBase, true);
   workshopMap = null;
   workshopHistory = [];
   workshopRevision++;
@@ -4413,7 +4416,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       try { installWorkshopMap(globalThis.__oskiewarValidateMap(state.map.workshop)); }
       catch { return; }
     } else if (workshopMap) {
-      installWorkshopMap(workshopBase);
+      installWorkshopMap(workshopBase, true);
       workshopMap = null;
       currentMapId = "halfpipe";
       currentMapName = "HALFPIPE";
@@ -7017,12 +7020,12 @@ function updatePowerups(now) {
     // Only the slot marked `cycle` is the rotation's business. Asking whether
     // ANY gun pickup is on the map would let an untouched space laser sitting
     // on the top deck stall the pistol reload for the whole round.
-    const occupied = gunPickups.some((pickup) => pickup.cycle && pickup.active);
-    if (!occupied) {
+    const pickup = gunPickups.find((slot) => slot.cycle);
+    // Authored maps may intentionally have no replenishing weapon.
+    if (pickup && !pickup.active) {
       // The cycle's whole job is to keep six more rounds of ammo appearing
       // somewhere worth crossing the station for — the corner tiles,
       // alternating, so the reload never lives on one fighter's side.
-      const pickup = gunPickups.find((slot) => slot.cycle);
       pickup.active = true;
       pickup.x = tileCenterX(powerupSequence % 2 === 0
         ? cornerColLeft : cornerColRight);
