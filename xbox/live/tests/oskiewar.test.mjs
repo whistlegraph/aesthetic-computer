@@ -302,7 +302,7 @@ function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
   const status = { textContent: "" };
   const host = new Function("navigator", "keys", "touchEnabled", "matchMedia",
     "location", "document", "addEventListener", "mouseFighting",
-    `${webShell.slice(opens, closes)}
+    `const jevDemo = false;\n${webShell.slice(opens, closes)}
      return { scanPads, sampleGamepads, gamepad, controllers, capabilities,
        seats: () => padSeats.slice() };`)(
     { userAgent: agent, getGamepads: () => pads },
@@ -322,6 +322,83 @@ function fakePad(index, { mapping = "standard", pressed = [],
     buttons: Array.from({ length: 16 }, (unused, at) =>
       ({ pressed: pressed.includes(at), value: pressed.includes(at) ? 1 : 0 })) };
 }
+
+test("local versus requires two physical controllers, not keyboard seats", () => {
+  const host = createPadHost({ pads: [fakePad(0)] });
+  host.keys[1].add("A");
+  host.sampleGamepads();
+  assert.equal(host.gamepad(0).localController, true);
+  assert.equal(host.gamepad(1).connected, true);
+  assert.equal(host.gamepad(1).localController, false);
+  const { fight, pads, tick } = createFight(false, false, "web");
+  Object.assign(pads[0], host.gamepad(0));
+  Object.assign(pads[1], host.gamepad(1));
+  tick();
+  assert.notEqual(fight.lobbyState().lane, "local");
+  host.pads.push(fakePad(5));
+  host.keys[1].clear();
+  host.sampleGamepads();
+  Object.assign(pads[1], host.gamepad(1));
+  tick();
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.shellState().mode, "GAME");
+  assert.deepEqual(fight.players.map((p) => p.name), ["PLAYER 1", "PLAYER 2"]);
+  assert.ok(fight.players.every((p) => !p.npc && !p.bot && !p.remote));
+  tick(3100000);
+  pads[0].down = ["ArrowRight"];
+  pads[1].down = ["ArrowLeft"];
+  tick();
+  assert.deepEqual(fight.inputPadDown(0), ["ArrowRight"]);
+  assert.deepEqual(fight.inputPadDown(1), ["ArrowLeft"]);
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("local versus replaces the waiting room and preserves rounds and seats", () => {
+  const { fight, pads, tick, tap } = createFight(false, false, "web");
+  fight.enterLobby();
+  for (const pad of pads) pad.localController = true;
+  tick();
+  assert.equal(fight.lobbyState().lane, "local");
+  fight.players[0].roundWins = 1;
+  pads[0].localController = false;
+  const before = fight.players.map((p) => [p.x, p.y]);
+  tick(5000000);
+  assert.deepEqual(fight.players.map((p) => [p.x, p.y]), before);
+  pads[0].localController = true;
+  tick();
+  assert.equal(fight.players[0].roundWins, 1);
+  assert.ok(fight.players.every((p) => p.alive));
+  tick(3100000);
+  fight.knockOut();
+  tick();
+  tick(30000000);
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.players[0].roundWins, 2);
+  assert.equal(fight.roundState().roundResult, "");
+  tap(0, "Menu");
+  assert.equal(fight.shellState().mode, "MENU");
+  tick();
+  assert.equal(fight.shellState().mode, "MENU", "Menu does not auto-rejoin");
+  fight.enterGame();
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.players[0].roundWins, 0);
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("local controller arrival leaves self-play and a remote viewer alone", () => {
+  const demo = createFight(false, false, "web");
+  demo.fight.startSelfPlay();
+  for (const pad of demo.pads) pad.localController = true;
+  demo.tick();
+  assert.equal(demo.fight.selfPlayState(), true);
+  assert.notEqual(demo.fight.lobbyState().lane, "local");
+  const bridge = { name: "test-room", start: () => () => {} };
+  const viewer = createFight(false, false, "web", bridge);
+  for (const pad of viewer.pads) pad.localController = true;
+  viewer.tick();
+  assert.equal(viewer.fight.viewerState().active, true);
+  assert.notEqual(viewer.fight.lobbyState().lane, "local");
+});
 
 test("a browser pad takes a player seat from whatever index it landed on", () => {
   // Browsers recycle freed slots, so the pad the player is holding is often

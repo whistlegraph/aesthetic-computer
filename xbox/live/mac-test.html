@@ -830,7 +830,8 @@
       // a verification code also throws a kick. The seat stays connected so a
       // versus room does not read the pause as somebody walking away.
       if (globalThis.__oskiewarAccountOpen)
-        return { connected: Boolean(source) || seat === 0, down: [],
+        return { connected: Boolean(source) || seat === 0,
+          localController: Boolean(source), down: [],
           leftX: 0, leftY: 0, rightX: 0, rightY: 0,
           leftTrigger: 0, rightTrigger: 0,
           analogTriggers: hasAnalogTriggers(source) };
@@ -846,6 +847,7 @@
       });
       return {
         connected: Boolean(source) || down.size > 0 || seat === 0,
+        localController: Boolean(source),
         down: [...down],
         // Sticks stay raw. `quantizedInput` gates at .48, the same number the
         // console reads, so a deadzone here would only stack onto that one.
@@ -1592,7 +1594,11 @@
           .then((body) => roundNameFromPath("/" + (body?.room || "")))
           .catch(() => "")
       : Promise.resolve("");
-    const joinName = roundName || await openRoom;
+    const offeredRoom = await openRoom;
+    // Controllers may become visible while the room lookup is in flight.
+    // An explicit room link still watches/joins that room; the front door
+    // seats two local players before accepting an automatic online match.
+    const joinName = roundName || (scanPads().length >= 2 ? "" : offeredRoom);
     if (joinName && !roundName && !workshopRoute)
       history.replaceState(null, "", "/" + joinName);
     // A visitor arriving through a shared address asks for the second chair
@@ -1607,6 +1613,10 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
+      if (globalThis.__oskiewarLocalVersus) {
+        if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
+        return;
+      }
       const room = globalThis.__oskiewarVersusRoom;
       if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
         history.replaceState(null, "", "/" + room);

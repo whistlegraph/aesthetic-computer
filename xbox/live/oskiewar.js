@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 132;
+const buildVersion = 136;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3023,6 +3023,7 @@ function fighterProfile(handle) {
 }
 
 function syncSignedInFighter() {
+  if (localVersusActive()) return;
   const identity = acFeed?.player;
   if (!identity?.handle || players[0].npc) return;
   const handle = String(identity.handle).toUpperCase();
@@ -3039,6 +3040,13 @@ function syncSignedInFighter() {
 }
 
 function applyRoster(player, index) {
+  if (localVersusActive()) {
+    player.rosterIndex = player.pad === 0 ? 0 : 2;
+    player.name = "PLAYER " + (player.pad + 1);
+    player.color = fighterRoster[player.rosterIndex].color.slice();
+    player.handleColors = [];
+    return;
+  }
   if (player.npc) {
     const fighter = selfPlay && player.bot ? selfPlayFighters[player.pad]
       : player.bot ? botFighter
@@ -3143,6 +3151,56 @@ function survivalRequested() {
   // and discards, so a versus room there would be a post that never hits
   // back. The web shell raises the capability flag; nothing else does.
   return !requested && globalThis.__oskiewarVersusCapable !== true;
+}
+
+const localVersusActive = () => fightOpponent === "local";
+const localControllerPair = () =>
+  padSnapshots.every((pad) => pad?.localController === true);
+let localControllerPairSeen = false;
+let localControllerMissing = -1;
+
+function startLocalVersus(now) {
+  finishReplay();
+  fightOpponent = "local";
+  for (const player of players) {
+    player.npc = false;
+    player.bot = false;
+    player.spiderDummy = false;
+    player.remote = false;
+  }
+  applyRoster(players[0], Math.max(0, players[0].rosterIndex));
+  localControllerMissing = -1;
+  globalThis.__oskiewarVersusRoom = "";
+  gameSpeed = 1;
+  startFightAgainst("local", now);
+  startInputPending = true;
+  navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+}
+
+function updateLocalVersus(now) {
+  const paired = localControllerPair();
+  const arrived = paired && !localControllerPairSeen;
+  localControllerPairSeen = paired;
+  // A second local pad must never take over a remote fight or a recording.
+  if (roundViewer || netSession || selfPlay || resimActive || versusActive())
+    return false;
+  if (arrived && !localVersusActive()) startLocalVersus(now);
+  if (!localVersusActive()) { localControllerMissing = -1; return false; }
+  if (!paired) {
+    localControllerMissing = padSnapshots.findIndex(
+      (pad) => pad?.localController !== true);
+    return true;
+  }
+  if (localControllerMissing !== -1) {
+    localControllerMissing = -1;
+    // Restart the interrupted round with the match tally intact. Absolute
+    // attack/death timers cannot safely resume after an arbitrary unplug.
+    if (matchOver) startLocalVersus(now);
+    else resetRound(now, false);
+    startInputPending = true;
+    navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+  }
+  return false;
 }
 
 function versusRequested() {
@@ -3858,6 +3916,10 @@ function consumeSystemButtons(now) {
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
   startInputPending = true;
+  if (localControllerPair() && !roundViewer && !netSession && !versusActive()) {
+    startLocalVersus(now);
+    return;
+  }
   if (survivalActive()) {
     startSurvivalRun(now, false);
     globalThis.__oskiewarStartLine = "climb!";
@@ -5778,6 +5840,8 @@ function gameBoot() {
     ? spectatorCode("https://oskiewar.com") : null;
   shellPrevious = [];
   startInputPending = false;
+  localControllerPairSeen = false;
+  localControllerMissing = -1;
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
   if (roundViewer?.start) {
@@ -9604,6 +9668,10 @@ function gameSim() {
   padSnapshots[1] = gamepad(1);
   inputPads[0] = padSnapshots[0];
   inputPads[1] = padSnapshots[1];
+  if (updateLocalVersus(now)) {
+    consumeSystemButtons(now);
+    return;
+  }
   const cameraPad = padSnapshots[0] || {};
   const cameraX = Number(cameraPad.rightX) || 0;
   const cameraY = Number(cameraPad.rightY) || 0;
@@ -9793,6 +9861,10 @@ function gameSim() {
       else if (versusActive() && versusChallengerFresh())
         startVersusFight(now, matchOver);
       else if (versusActive()) beginVersusLobby(now);
+      else if (localVersusActive()) {
+        if (matchOver) startLocalVersus(now);
+        else resetRound(now, false);
+      }
       else returnToTitle(now, "round-end");
     }
     return;
@@ -14993,6 +15065,7 @@ function drawTitleHeadDoor(t, ink, suppressed) {
 
 function gamePaint() {
   syncGameView();
+  globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
@@ -15415,6 +15488,15 @@ function gamePaint() {
     drawSpectatorQr(titleInk);
     if (!reelMinimal) drawNetHealth(titleInk);
     drawTouchControls();
+    if (localVersusActive() && localControllerMissing !== -1) {
+      const label = "reconnect player " + (localControllerMissing + 1);
+      const size = compactLayout() ? 30 : 48;
+      const width = handleWidth(label, size);
+      const left = viewCenterX() - width / 2;
+      const top = viewHeight * .43;
+      box(left - 20, top - 16, width + 40, size + 32, 9, 12, 22);
+      typeWrite(label, left, top, size, 255, 235, 130);
+    }
   }
 }
 
