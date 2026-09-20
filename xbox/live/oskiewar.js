@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 144;
+const buildVersion = 145;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3526,6 +3526,19 @@ function survivalRequested() {
 }
 
 const localVersusActive = () => fightOpponent === "local";
+// The web shell marks a pad `localController` when a physical gamepad is
+// behind it; the console's pad object (QuickJsEngine PadObject) never
+// carried the field, so `localControllerPair()` was false on the Xbox with
+// three controllers plugged in and the dummy's chair never went to player
+// two — @jeffrey, 2026-09-20: "it only sees one controller hmm". A connected
+// native pad with a hardware name is a local controller.
+function samplePad(index) {
+  const pad = gamepad(index);
+  if (pad && nativeTrianglePass && pad.connected === true &&
+      pad.localController === undefined && (pad.name || pad.id))
+    pad.localController = true;
+  return pad;
+}
 const localControllerPair = () =>
   padSnapshots.every((pad) => pad?.localController === true);
 let localControllerPairSeen = false;
@@ -10091,7 +10104,7 @@ function gameSim() {
     // inputPads[0], and the debug toggle wants a View edge — none of that
     // may wait on the host's echo, so the local pad is sampled here exactly
     // as it would be in a hosted fight.
-    padSnapshots[0] = gamepad(0);
+    padSnapshots[0] = samplePad(0);
     inputPads[0] = padSnapshots[0];
     const down = padSnapshots[0]?.down || [];
     if (down.includes("View") && !viewerSystemPrevious.includes("View")) {
@@ -10109,8 +10122,8 @@ function gameSim() {
     updateVersusClaim(now);
     return;
   }
-  padSnapshots[0] = gamepad(0);
-  padSnapshots[1] = gamepad(1);
+  padSnapshots[0] = samplePad(0);
+  padSnapshots[1] = samplePad(1);
   inputPads[0] = padSnapshots[0];
   inputPads[1] = padSnapshots[1];
   if (updateLocalVersus(now)) {
@@ -15290,12 +15303,21 @@ function spectatorQrBox() {
   return { left: safe.right - size, top, size, cell, count, quiet };
 }
 
+// Where the bare frame rate shows with the overlay off: the console, in a
+// fight. The debug read-out itself never asks which screen it is on.
+const bareFrameRateShown = () => nativeTrianglePass && shellMode === "GAME";
 function drawDebugPerformance(ink) {
   // The wordmark screen used to hide this row, but the title is a running
   // fight with a frame budget of its own — debug mode reads the machine, not
   // the match, so the numbers stay up wherever the bug is lit. Only a round's
   // result card still clears the lane, because the card owns it.
-  if (!debugHitboxes || roundResult) return;
+  if (roundResult) return;
+  // The console keeps a bare frame rate on the HUD through a fight even
+  // with the debug overlay off — @jeffrey, 2026-09-20: "when game is
+  // playing lets still show fps in hud". One short word, so the read-out
+  // costs the frame it measures almost nothing.
+  const bare = !debugHitboxes;
+  if (bare && !bareFrameRateShown()) return;
   const metaSize = debugReadoutMetaSize();
   const run = runtime();
   // Every line waits for a real measurement. The read-out used to answer with
@@ -15310,6 +15332,11 @@ function drawDebugPerformance(ink) {
   // an instrument, so it rides behind the number that actually moves.
   const rate = Math.round(displayFps || 0) + " fps" +
     (refreshHz ? " @ " + refreshHz.toFixed(0) + " Hz" : "");
+  if (bare) {
+    const lane = playerHandleLayout(players[0], 0);
+    typeWrite(rate, lane.x, lane.y - metaSize - 6, metaSize, ...ink);
+    return;
+  }
   const renderWidth = Math.round(Number(run.renderWidth) || Number(run.width) || 0);
   const renderHeight = Math.round(Number(run.renderHeight) || Number(run.height) || 0);
   const aa = Math.max(1, Math.round(Number(run.antialiasingSamples) || 1));
