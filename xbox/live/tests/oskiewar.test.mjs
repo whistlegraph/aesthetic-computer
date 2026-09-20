@@ -4083,11 +4083,12 @@ test("the front door is versus, and the climb keeps its named entrance", () => {
   const previousCapable = globalThis.__oskiewarVersusCapable;
   globalThis.__oskiewarOpponent = "";
   try {
-    // A shell that cannot carry a rival's presses inbound still opens on the
-    // climb: a versus room there would be a post that never hits back.
+    // A shell that cannot carry a rival's presses inbound opens on the
+    // training fight, not the climb: a versus room there would be a post
+    // that never hits back, and the console asked for a fight, not a climb.
     delete globalThis.__oskiewarVersusCapable;
     const native = createFight(false, false);
-    assert.equal(native.fight.survivalState().active, true);
+    assert.equal(native.fight.survivalState().active, false);
     // The web shell raises the flag, and the door becomes the invitation.
     globalThis.__oskiewarVersusCapable = true;
     const web = createFight(false, false);

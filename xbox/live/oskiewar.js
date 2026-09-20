@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 140;
+const buildVersion = 142;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3459,14 +3459,16 @@ function startFightAgainst(kind, now) {
 }
 
 function survivalRequested() {
-  const requested = String(globalThis.__oskiewarOpponent || "")
-    .trim().toLowerCase();
-  if (requested === "survival") return true;
-  // The empty front door still opens on the climb wherever the shell cannot
-  // carry a rival's presses inbound — the native publisher reads the relay
-  // and discards, so a versus room there would be a post that never hits
-  // back. The web shell raises the capability flag; nothing else does.
-  return !requested && globalThis.__oskiewarVersusCapable !== true;
+  // The climb is a door asked for by name, and only by name. It used to be
+  // the empty door on any shell that could not raise the versus flag — the
+  // native consoles, whose publisher reads the relay and discards — which
+  // left the Xbox opening on the climb every boot. @jeffrey, on the console:
+  // "i dont like the climbing mode / map ... i want it in vs / dummy mode".
+  // So where versus cannot happen the empty door is the training fight
+  // (`beginTraining`, a sparring partner on the floor), the same landing the
+  // web gets when the relay is out of reach.
+  return String(globalThis.__oskiewarOpponent || "")
+    .trim().toLowerCase() === "survival";
 }
 
 const localVersusActive = () => fightOpponent === "local";
@@ -6205,7 +6207,8 @@ function gameBoot() {
     // A harness cast keeps the pre-versus reading of the empty door: nobody
     // is holding a controller, so "no opponent" means the climb, never a
     // lobby waiting on a friend who cannot exist.
-    if (survivalRequested() || versusRequested())
+    if (!String(globalThis.__oskiewarOpponent || "").trim() ||
+        survivalRequested())
       startSurvivalRun(startedAt, true);
     else startSelfPlay(startedAt);
     return;
