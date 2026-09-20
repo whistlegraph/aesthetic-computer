@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 145;
+const buildVersion = 146;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -3530,13 +3530,26 @@ const localVersusActive = () => fightOpponent === "local";
 // behind it; the console's pad object (QuickJsEngine PadObject) never
 // carried the field, so `localControllerPair()` was false on the Xbox with
 // three controllers plugged in and the dummy's chair never went to player
-// two — @jeffrey, 2026-09-20: "it only sees one controller hmm". A connected
-// native pad with a hardware name is a local controller.
+// two — @jeffrey, 2026-09-20: "it only sees one controller hmm". The native
+// pad object carries no name or id either (PadObject: index, connected,
+// sticks, triggers, down). What the console does have is `controllers()`,
+// its enumeration of real hardware — a pad whose index sits inside that
+// list is a local controller. The test harness stubs `gamepad` with two
+// always-connected pads and defines no `controllers`, so its fights stay
+// what they were; "connected" alone turned every harness fight into local
+// versus (131 tests).
+let nativeControllerCount = 0;
+let nativeControllerPolls = 0;
 function samplePad(index) {
   const pad = gamepad(index);
-  if (pad && nativeTrianglePass && pad.connected === true &&
-      pad.localController === undefined && (pad.name || pad.id))
-    pad.localController = true;
+  if (pad && pad.localController === undefined && pad.connected === true &&
+      typeof controllers === "function") {
+    // Re-enumerate about twice a second; a pad joining mid-title waits at
+    // most that long for its chair.
+    if (index === 0 && nativeControllerPolls++ % 30 === 0)
+      nativeControllerCount = controllers().length;
+    if (index < nativeControllerCount) pad.localController = true;
+  }
   return pad;
 }
 const localControllerPair = () =>
