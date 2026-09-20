@@ -1,0 +1,47 @@
+\begin{tikzpicture}[
+  every node/.style={font=\sffamily},
+  cell/.style={draw=acgray!55, rounded corners=2pt, fill=white, align=left, anchor=north west,
+    minimum height=1.55cm, text width=4.35cm, inner xsep=8pt, inner ysep=6pt, text depth=0.62cm},
+  engine/.style={cell, draw=acdark!60, fill=acdark!5},
+  table/.style={cell, draw=acblue!70, fill=acblue!6},
+  none/.style={cell, draw=acgray!55, fill=acgray!6},
+  human/.style={cell, draw=acgreen!75, fill=acgreen!7},
+  machine/.style={cell, draw=acpink!80, fill=acpink!7},
+  head/.style={font=\sffamily\bfseries, anchor=base west, text=acdark},
+  side/.style={font=\scriptsize\sffamily\bfseries, anchor=east, text=acgray},
+  lab/.style={font=\scriptsize\sffamily, text=acpink, anchor=west, inner xsep=0pt}
+]
+  \def\colA{0}\def\colB{5.25}\def\colC{10.5}
+  \def\rowA{0}\def\rowB{-2.05}\def\rowC{-4.10}
+
+  % column heads
+  \node[head] at (\colA,0.25) {the \texttt{nom} family};
+  \node[head] at (\colB,0.25) {KidLisp cards};
+  \node[head] at (\colC,0.25) {oskiewar with its coach};
+
+  % row: fixed engine
+  \node[engine] at (\colA,\rowA) {\textbf{engine}\\[-1pt]{\scriptsize \texttt{lib/nom.mjs}, 3,182 lines}\\[1pt]{\scriptsize board, beat, troggles, munch}};
+  \node[engine] at (\colB,\rowA) {\textbf{language}\\[-1pt]{\scriptsize 118 built-ins, no recursion}\\[1pt]{\scriptsize flat so a program fits a card}};
+  \node[engine] at (\colC,\rowA) {\textbf{simulation}\\[-1pt]{\scriptsize fixed-timestep 3D match}\\[1pt]{\scriptsize native client, browser spectator}};
+
+  % row: swappable table
+  \node[table] at (\colA,\rowB) {\textbf{content table}\\[-1pt]{\scriptsize 8 editions, 18--21 lines each}\\[1pt]{\scriptsize a subject is a list, or a query}};
+  \node[table] at (\colB,\rowB) {\textbf{the card}\\[-1pt]{\scriptsize one 2--4 line program}\\[1pt]{\scriptsize a deck is a sequence}};
+  \node[table] at (\colC,\rowB) {\textbf{the room}\\[-1pt]{\scriptsize match rooms, workshop maps}\\[1pt]{\scriptsize every phone reads the same frames}};
+
+  % row: watcher
+  \node[none] at (\colA,\rowC) {\textbf{nobody}\\[-1pt]{\scriptsize a spoken rule at board start}\\[1pt]{\scriptsize a ranked score afterward}};
+  \node[human] at (\colB,\rowC) {\textbf{a person}\\[-1pt]{\scriptsize a teacher with a deck}\\[1pt]{\scriptsize the cohort across the table}};
+  \node[machine] at (\colC,\rowC) {\textbf{a process}\\[-1pt]{\scriptsize \texttt{coach.mjs}: agent seat, no buttons}\\[1pt]{\scriptsize a ledger a model coaches from}};
+
+  % side labels
+  \node[side] at (-0.3,-0.78) {\rotatebox{90}{fixed}};
+  \node[side] at (-0.3,-2.83) {\rotatebox{90}{varies}};
+  \node[side] at (-0.3,-4.88) {\rotatebox{90}{watches}};
+
+  % the feedback arrow on the coach column: ledger back to the player as language
+  % boxes are 4.35cm text width + 2 x 8pt inner xsep = 4.91cm wide
+  \draw[-{Stealth[length=5pt]}, draw=acpink, line width=0.9pt]
+    (\colC+5.02,\rowC-0.78) -- ++(0.5,0) |- (\colC+5.02,\rowA-0.78);
+  \node[lab, rotate=90, anchor=north] at (\colC+5.62,\rowB-0.78) {says why, in words};
+\end{tikzpicture}

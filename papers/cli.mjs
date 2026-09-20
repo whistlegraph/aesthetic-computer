@@ -226,6 +226,11 @@ const PAPER_MAP = {
     siteName: "free-vs-open-26-arxiv",
     title: "Free Versus Nonfree",
   },
+  "arxiv-gaming-education": {
+    base: "gaming-education",
+    siteName: "gaming-education-26-arxiv",
+    title: "Eat the Right Answer",
+  },
   "arxiv-futures": {
     base: "futures",
     siteName: "five-years-from-now-26-arxiv",
@@ -560,6 +565,7 @@ const CATEGORIES = [
       "arxiv-score-analysis",
       "arxiv-comp-strats",
       "arxiv-nom",
+      "arxiv-gaming-education",
       "arxiv-ios-so-far",
       "arxiv-granularity",
       "arxiv-turf",
@@ -1058,6 +1064,7 @@ function updateIndex(entries) {
     "open-schools-26-arxiv": 18,
     "five-years-from-now-26-arxiv": 19,
     "free-vs-open-26-arxiv": 19.1,
+    "gaming-education-26-arxiv": 19.2,
     "aesthetic-may-26-essay": 19.5,
     "aesthetic-june-26-essay": 19.6,
     "aesthetic-july-4-26-essay": 19.7,
@@ -1264,6 +1271,11 @@ function updateIndex(entries) {
       detail: "Stallman's licensing map and where Aesthetic.Computer stands &middot; 6pp",
       abstract:
         "Free Versus Nonfree reconstructs Stallman's map of software licensing from his 1998 essay and its 2007 rewrite: one ethical line drawn by four freedoms, copyleft versus lax inside it, commerce as a separate axis. It then applies the map to this repository and finds it source-available, not yet free.",
+    },
+    "gaming-education-26-arxiv": {
+      detail: "Gaming and education, tested against the nom drills, KidLisp cards, and the oskiewar coach &middot; 6pp",
+      abstract:
+        "Eat the Right Answer reads three objects built inside Aesthetic.Computer against the games-and-learning literature: the nom family of muncher drills, whose June paper's prediction is tested against three months of commits; KidLisp cards, a program on a card handed to a UCLA cohort; and the oskiewar coach, a spectator process that never presses a button and keeps a ledger for a model. All three share a seam: a fixed engine, a swappable table, and a watcher on the outside. The drill has no watcher. That is the next table to write.",
     },
     "five-years-from-now-26-arxiv": {
       detail: "",

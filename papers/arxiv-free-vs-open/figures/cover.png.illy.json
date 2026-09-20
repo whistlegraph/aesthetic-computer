@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-09-16T06:08:52.696Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/papers/arxiv-free-vs-open/figures/cover.png",
+  "promptPath": "/Users/jas/aesthetic-computer/papers/arxiv-free-vs-open/figures/cover-prompt.txt",
+  "promptHash": "20d0460cb8c5f7788b0c12b6fa21caa4acf4649d793f36f4f19216de1310ac3a",
+  "references": [
+    "/Users/jas/aesthetic-computer/papers/arxiv-open-schools/figures/cover.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 122.783,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1749,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 725
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8773
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-09-19T21:22:42.426Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/papers/arxiv-gaming-education/figures/cover.png",
+  "promptPath": "/Users/jas/aesthetic-computer/papers/arxiv-gaming-education/figures/cover-prompt.txt",
+  "promptHash": "f1abe22968d6a66f1b1dbd4f1e53f088e756849b8cbedf707c048bf73b6a9071",
+  "references": [
+    "/Users/jas/aesthetic-computer/papers/arxiv-open-schools/figures/cover.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "durationSeconds": 103.807,
+  "archived": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1747,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 723
+    },
+    "output_tokens": 7024,
+    "output_tokens_details": {
+      "image_tokens": 7024,
+      "text_tokens": 0
+    },
+    "total_tokens": 8771
+  }
+}
