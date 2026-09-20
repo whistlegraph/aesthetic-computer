@@ -315,6 +315,9 @@ let bootCompleted = false;
 function markBootSuccess() {
   if (bootCompleted) return;
   bootCompleted = true;
+  if (connectionRetryTimer) clearTimeout(connectionRetryTimer);
+  connectionRetryTimer = null;
+  try { sessionStorage.removeItem(CONNECTION_RETRY_KEY); } catch {}
   bootTelemetry.complete({
     elapsedTotal: Math.round(performance.now() - bootStartTime),
     timings: window._bootTimings || [],
@@ -355,14 +358,29 @@ function hideBootLog() {
   markBootSuccess();
 }
 
-// Show connection error and retry UI
-let retryCount = 0;
+// Bound connection recovery across page reloads. A page-local counter resets
+// on every retry and can never reach its limit.
+const CONNECTION_RETRY_KEY = "aesthetic:connection-retries";
 const MAX_RETRIES = 5;
 const RETRY_DELAY = 2000;
+let connectionRetryTimer = null;
+let connectionErrorHandled = false;
 
 function showConnectionError(error) {
-  retryCount++;
-  const message = retryCount <= MAX_RETRIES 
+  // Background requests must not tear down a piece that already booted.
+  if (bootCompleted || connectionErrorHandled) return;
+  connectionErrorHandled = true;
+  let retryCount = MAX_RETRIES + 1;
+  try {
+    const previous = Number(sessionStorage.getItem(CONNECTION_RETRY_KEY) || 0);
+    retryCount = Number.isInteger(previous) && previous >= 0
+      ? previous + 1 : MAX_RETRIES + 1;
+    sessionStorage.setItem(CONNECTION_RETRY_KEY, String(retryCount));
+  } catch {
+    // Without persistent accounting, leave retrying to the visitor.
+    retryCount = MAX_RETRIES + 1;
+  }
+  const message = retryCount <= MAX_RETRIES
     ? `⚠️ connection error - retrying (${retryCount}/${MAX_RETRIES})...`
     : `❌ connection failed - please refresh`;
   bootLog(message);
@@ -371,9 +389,9 @@ function showConnectionError(error) {
     retryCount,
     maxRetries: MAX_RETRIES,
   });
-  
+
   if (retryCount <= MAX_RETRIES) {
-    setTimeout(() => {
+    connectionRetryTimer = setTimeout(() => {
       bootLog(`🔄 retry attempt ${retryCount}...`);
       window.location.reload();
     }, RETRY_DELAY);

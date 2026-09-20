@@ -208,7 +208,7 @@ export default async (request) => {
         {
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
+            "Cache-Control": "no-store",
           },
         }
       );
@@ -242,7 +242,7 @@ export default async (request) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=60", // Cache for 1 minute
+          "Cache-Control": "no-store", // Deployment state must survive reloads fresh.
         },
       }
     );
@@ -257,7 +257,7 @@ export default async (request) => {
         status: 200, // Return 200 even on error so UI can handle gracefully
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=30",
+          "Cache-Control": "no-store",
         },
       }
     );

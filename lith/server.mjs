@@ -105,7 +105,7 @@ const BOOT_TIME = Date.now();
 const responseCache = new Map(); // key → { body, headers, statusCode, expires }
 const CACHE_TTLS = {
   "handle-colors": 60_000,  // 1 min (colors rarely change)
-  "version": 30_000,        // 30s (git state)
+  "version": 0,             // Live deployment state; never cache long-poll replies.
   "handles": 60_000,        // 1 min
   "mood": 30_000,           // 30s
   "tv": 30_000,             // 30s

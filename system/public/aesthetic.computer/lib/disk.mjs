@@ -10414,7 +10414,7 @@ async function startGlobalVersionPoll() {
 
   const fetchVersion = async () => {
     try {
-      const res = await fetch("/api/version");
+      const res = await fetch("/api/version", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       globalVersionInfo = debug
@@ -10440,21 +10440,33 @@ async function startGlobalVersionPoll() {
     return;
   }
 
-  // Long-poll loop: detect new deployments within ~5 seconds.
+  // Long-poll loop: only a different, valid deployed hash signals an update.
   while (true) {
     try {
       if (!globalVersionInfo?.deployed) {
         await new Promise((r) => setTimeout(r, 5000));
+        await fetchVersion();
         continue;
       }
       updatePollController = new AbortController();
       const res = await fetch(
         `/api/version?current=${globalVersionInfo.deployed}`,
-        { signal: updatePollController.signal },
+        { signal: updatePollController.signal, cache: "no-store" },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.changed === false) continue; // Server already waited ~4s
+      if (data.changed === false) continue; // Server held the request open.
+      if (!/^[a-f0-9]{7}$/i.test(data.deployed || "") ||
+          data.deployed === globalVersionInfo.deployed) {
+        // Cached full responses and transient version lookup failures are not
+        // deployments. Back off if a proxy answered without long-polling.
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      if (!/^[a-f0-9]{7}$/i.test(globalVersionInfo.deployed)) {
+        globalVersionInfo = data;
+        continue; // Establish a baseline after an unavailable initial lookup.
+      }
       globalUpdateReady = true;
       globalVersionInfo = data;
       globalRecentCommits = data.recentCommits || [];
