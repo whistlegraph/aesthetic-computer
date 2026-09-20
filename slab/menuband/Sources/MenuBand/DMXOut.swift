@@ -15,7 +15,10 @@ import Foundation
 /// no-op until a USB DMX serial widget appears; unplug/replug self-heals.
 /// Bench the widget and fixtures from the shell with `ac-dmx-cli`
 /// (slab/bin) — same framing, same port.
+/// `MENUBAND_DMX_PROTOCOL=pro|open` selects Enttec framing or a bare FTDI
+/// adapter. Open DMX sends its own BREAK and refreshes on every tick.
 final class DMXOut {
+    enum Dialect: String { case pro, open }
     static let shared = DMXOut()
 
     // MARK: - Rig
@@ -142,6 +145,8 @@ final class DMXOut {
     private var held: [Int: Held] = [:]
     private var flashes: [Flash] = []
     private var fd: Int32 = -1
+    private var proto: Dialect = .pro
+    private var breakViaIoctl = true
     private var lastSlots: [UInt8] = []
     private var lastSendAt = 0.0
     private var lastOpenAttempt = 0.0
@@ -252,7 +257,7 @@ final class DMXOut {
             }
             Self.paint(c, layout: f.layout, into: &slots, at: f.address - 1)
         }
-        if slots != lastSlots || now - lastSendAt > 1 { send(slots) }
+        if proto == .open || slots != lastSlots || now - lastSendAt > 1 { send(slots) }
     }
 
     /// Weighted average picks the COLOUR; summed activity sets the LEVEL.
@@ -316,9 +321,8 @@ final class DMXOut {
 
     private func send(_ slots: [UInt8]) {
         guard fd >= 0 else { return }
-        let pkt = Self.frame(slots)
-        let n = pkt.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
-        if n == pkt.count {
+        let ok = proto == .open ? sendOpen(slots) : writeAll(Self.frame(slots))
+        if ok {
             lastSlots = slots
             lastSendAt = now()
         } else {
@@ -339,6 +343,76 @@ final class DMXOut {
         return pkt
     }
 
+    // Keep the serial descriptor nonblocking. A disconnected or stalled
+    // adapter must not trap the DMX queue in write/drain/close indefinitely.
+    private func writeAll(_ packet: [UInt8]) -> Bool {
+        let deadline = now() + 0.1
+        return packet.withUnsafeBytes { bytes in
+            var offset = 0
+            while offset < bytes.count {
+                let count = write(fd, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
+                if count > 0 { offset += count }
+                else if count < 0 && errno != EAGAIN && errno != EINTR { return false }
+                if now() >= deadline { return false }
+                if count <= 0 { usleep(500) }
+            }
+            return true
+        }
+    }
+
+    private func drainOutput() -> Bool {
+        let deadline = now() + 0.1
+        while now() < deadline {
+            var pending: Int32 = 0
+            guard ioctl(fd, TIOCOUTQ, &pending) == 0 else { return false }
+            if pending == 0 { return true }
+            usleep(500)
+        }
+        return false
+    }
+
+    // ioctl numbers Swift can't import from <sys/ttycom.h> / <IOKit/serial/ioss.h>:
+    //   TIOCSBRK  = _IO('t', 123)             — assert line BREAK
+    //   TIOCCBRK  = _IO('t', 122)             — clear line BREAK
+    //   IOSSIOSPEED = _IOW('T', 2, speed_t)   — arbitrary baud (speed_t is 8 bytes)
+    private static let TIOCSBRK_: UInt = 0x2000747B
+    private static let TIOCCBRK_: UInt = 0x2000747A
+    private static let IOSSIOSPEED_: UInt = 0x80085402
+    private static let dmxBaud: speed_t = 250_000
+    private static let breakBaud: speed_t = 90_000  // fallback BREAK: 0x00 at 90k ≈ 100µs low
+
+    private func setBaud(_ b: speed_t) -> Bool {
+        var s = b
+        return ioctl(fd, Self.IOSSIOSPEED_, &s) == 0
+    }
+
+    /// Open DMX frame: BREAK (≥92µs) → MAB (≥12µs) → start code 0 + slots,
+    /// drained so the next BREAK can't land before the last slot leaves the
+    /// FTDI's FIFO. BREAK is the line-break ioctl when the driver honors it,
+    /// else a 0x00 byte at 90 kbaud (9 low bit-times ≈ 100µs, stop bits = MAB).
+    private func sendOpen(_ slots: [UInt8]) -> Bool {
+        if breakViaIoctl {
+            if ioctl(fd, Self.TIOCSBRK_) == 0 {
+                usleep(176)
+                guard ioctl(fd, Self.TIOCCBRK_) == 0 else { return false }
+                usleep(16)
+            } else {
+                breakViaIoctl = false
+                NSLog("MenuBand DMX: driver has no line-break ioctl — using baud-drop BREAK")
+            }
+        }
+        if !breakViaIoctl {
+            guard setBaud(Self.breakBaud), writeAll([0x00]) else { return false }
+            guard drainOutput() else { return false }
+            guard setBaud(Self.dmxBaud) else { return false }
+        }
+        var pkt: [UInt8] = [0x00]
+        pkt.append(contentsOf: slots)
+        guard writeAll(pkt) else { return false }
+        guard drainOutput() else { return false }
+        return true
+    }
+
     private func openWidget() {
         guard let path = Self.discoverWidget() else { return }
         let f = open(path, O_RDWR | O_NOCTTY | O_NONBLOCK)
@@ -347,7 +421,8 @@ final class DMXOut {
         if tcgetattr(f, &t) == 0 {
             cfmakeraw(&t)                     // frame bytes must pass untouched
             cfsetspeed(&t, speed_t(B115200))  // Pro widgets ignore baud; set anyway
-            t.c_cflag |= tcflag_t(CSTOPB)     // 8N2
+            t.c_cflag |= tcflag_t(CSTOPB | CLOCAL) // 8N2
+            t.c_cflag &= ~tcflag_t(CRTSCTS)
             t.c_cflag &= ~tcflag_t(HUPCL)     // keep DTR up on close: the
                                               // widget stops transmitting
                                               // when it drops, and the pars
@@ -355,8 +430,20 @@ final class DMXOut {
             tcsetattr(f, TCSANOW, &t)
         }
         fd = f
+        proto = Self.detectProtocol()
+        breakViaIoctl = true
+        if proto == .open, !setBaud(Self.dmxBaud) {
+            NSLog("MenuBand DMX: 250k baud refused on \(path)")
+            dropPort()
+            return
+        }
         lastSlots = []  // force a fresh frame to the new widget
         NSLog("MenuBand DMX: opened \(path)")
+    }
+
+    private static func detectProtocol() -> Dialect {
+        let selected = ProcessInfo.processInfo.environment["MENUBAND_DMX_PROTOCOL"]?.lowercased()
+        return selected.flatMap(Dialect.init(rawValue:)) ?? .pro
     }
 
     /// First USB serial widget wins — covers FTDI (usbserial), Silicon Labs

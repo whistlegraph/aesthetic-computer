@@ -6,6 +6,7 @@ import { checkPackMode } from "./pack-mode.mjs";
 import Synth from "./sound/synth.mjs";
 import Bubble from "./sound/bubble.mjs";
 import Fart from "./sound/fart.mjs";
+import { createOrganic } from "./sound/organic.mjs";
 import { lerp, within, clamp } from "./num.mjs";
 
 const { abs, round, floor } = Math;
@@ -272,6 +273,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
 
             this.#queue.push(fart);
           });
+        }
+
+        // 🐾 Organic voices: { id, kind, params }
+        if (soundData.organics) {
+          for (const o of soundData.organics) this.#organic(o);
         }
 
         // Process sounds array (existing logic should handle this via other messages)
@@ -553,8 +559,10 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         // Trigger the sound...
 
         // TODO: Use the `when` value to trigger the sound here.        //if (msg.data.when === "now") {
-          // Prepare options with generator for custom type
-          let synthOptions = msg.data.options || { tone: msg.data.tone };
+          // Prepare options with generator for custom type. Synth reads
+          // `tone` from options, so it rides along whether the piece sent
+          // a bare tone or a full expression bag (slide, vibrato, ...).
+          let synthOptions = { tone: msg.data.tone, ...msg.data.options };
           if (msg.data.type === "custom" && msg.data.generator) {
             synthOptions = { ...synthOptions, generator: msg.data.generator };
           }
@@ -655,7 +663,20 @@ class SpeakerProcessor extends AudioWorkletProcessor {
         this.#queue.push(fart);
         return;
       }
+
+      // 🐾 One message for every organic generator; `kind` picks the class.
+      if (msg.type === "organic") {
+        this.#organic(msg.data);
+        return;
+      }
     };
+  }
+
+  #organic(data) {
+    const voice = createOrganic(data);
+    if (!voice) return;
+    if (data.id !== undefined) this.#running[data.id] = voice;
+    this.#queue.push(voice);
   }
   
   process(inputs, outputs) {

@@ -7,7 +7,7 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const LIMIT = 32 * 1024 * 1024;
 export function desktopSnapshot({ cwd, backend, model, effort = "", live, state, options, engine, handoff = "", archivedConversation = [] }) {
   return clone({ schema: 1, cwd: resolve(cwd), savedAt: new Date().toISOString(), backend, model, effort,
-    live: { file: live.file, runtime: live.runtime?.id || live.runtime, channel: live.fallbackChannel || live.channel },
+    live: { file: live.file, runtime: live.runtime?.id || live.runtime, channel: live.fallbackChannel || live.channel, genre: live.genre?.id || "piece" },
     ui: Object.fromEntries(["entries", "input", "cursor", "history", "historyIndex", "queued", "medium", "livePaused", "showQr", "autoAllow", "scrollOffset"].map((key) => [key, state[key]]).filter(([, value]) => value !== undefined)),
     options: { autopublish: options.autopublish, mouseEnabled: options.mouseEnabled },
     engine: { threadId: engine.threadId || "", ...(backend === "ac" ? { messages: engine.messages || [], turns: engine.turns || 0 } : {}) }, handoff, archivedConversation });
@@ -15,6 +15,7 @@ export function desktopSnapshot({ cwd, backend, model, effort = "", live, state,
 export function validateDesktopSession(snapshot, cwd) {
   if (snapshot?.schema !== 1 || snapshot.cwd !== resolve(cwd) || !["ac", "claude", "codex"].includes(snapshot.backend)) throw new Error("Invalid desktop session or workspace mismatch.");
   if (typeof snapshot.model !== "string" || typeof snapshot.live?.file !== "string" || !["mjs", "lisp", "lua"].includes(snapshot.live.runtime)) throw new Error("Invalid desktop piece or model.");
+  if (snapshot.live.genre !== undefined && (!["piece", "nopaint"].includes(snapshot.live.genre) || (snapshot.live.genre === "nopaint" && snapshot.live.runtime !== "mjs"))) throw new Error("Invalid desktop piece genre.");
   if (snapshot.artifactId !== undefined && (!/^[a-f0-9-]{36}$/.test(snapshot.artifactId) || !Number.isSafeInteger(snapshot.artifactVersion) || snapshot.artifactVersion < 1)) throw new Error("Invalid saved artifact reference.");
   if (snapshot.effort !== undefined && (typeof snapshot.effort !== "string" || !/^[a-z0-9-]{0,40}$/.test(snapshot.effort))) throw new Error("Invalid saved effort.");
   const ui = snapshot.ui;

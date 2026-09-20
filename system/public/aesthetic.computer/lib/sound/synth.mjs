@@ -1,5 +1,6 @@
 import { within, lerp, clamp } from "../num.mjs";
-const { abs, floor, sin, PI, min, max, random } = Math;
+import { FormantBank, vowelBands } from "./formant.mjs";
+const { abs, floor, round, sin, cos, PI, min, max, random, pow } = Math;
 
 export default class Synth {
   // Generic for all instruments.
@@ -104,6 +105,30 @@ export default class Synth {
   #customGenerator; // Function that generates waveform data
   #customBuffer = []; // Buffer for streaming waveform data
   #customBufferSize = 1024; // Size of the streaming buffer
+
+  // 🐦 Expression — slide, vibrato, drift bend the pitch; noise, formant and
+  // lowpass shape the source; tremolo rides the level. Everything stays off
+  // (null / 0) unless asked for, so a plain voice renders exactly as before.
+  #slideLeft = 0; // samples left in the exponential glide
+  #slideRatio = 1; // per-sample frequency multiplier while sliding
+  #slideTarget = 0; // snapped to at the end so rounding never leaves it off-pitch
+  #vibrato = null; // { rate, depth, delay } — depth in semitones, delay in samples
+  #vibratoPhase = 0;
+  #drift = 0; // semitones of wander
+  #driftPos = 0; // smoothed position, -1..1
+  #driftTarget = 0;
+  #driftCountdown = 0; // samples until the walk picks a new target
+  #liveFrequency; // the modulated pitch the last sample was rendered at
+  #noise = 0; // white-noise mix, 0..1
+  #formant = null; // FormantBank
+  #lowpass = null; // { cutoff, q } — RBJ lowpass, coefficients cached below
+  #lpB0 = 0; #lpB1 = 0; #lpA1 = 0; #lpA2 = 0;
+  #lpX1 = 0; #lpX2 = 0; #lpY1 = 0; #lpY2 = 0;
+  #lpSweepLeft = 0; // samples left in the cutoff sweep
+  #lpSweepRatio = 1;
+  #lpSweepTarget = 0;
+  #tremolo = null; // { rate, depth }
+  #tremoloPhase = 0;
 
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
     // console.log("New Synth:", arguments);
@@ -294,10 +319,9 @@ export default class Synth {
       this.#noiseFilterState4 = 0;
     }
 
-    // this.#frequency = tone || 1; // Frequency in samples.
-    // ❤️‍🔥 TODO: Calculate slide based on frequency...
     this.#wavelength = sampleRate / this.#frequency;
     this.#futureFrequency = this.#frequency;
+    this.#liveFrequency = this.#frequency;
 
     this.#attack = attack;
 
@@ -312,7 +336,93 @@ export default class Synth {
     this.volume = volume;
     this.#futureVolume = this.volume;
 
+    // A slide or sweep with no duration of its own runs the length of the
+    // note; a held voice has no length, so it takes a quarter second.
+    if (this.type !== "sample") {
+      const span = this.#duration < Infinity ? this.#duration / sampleRate : 0.25;
+      this._express(options, span);
+    }
+
     // console.log("〰️", this);
+  }
+
+  // Parse the expression options shared by the constructor and update().
+  // `span` is the fallback glide length in seconds.
+  _express(o, span) {
+    if (o.slide > 0 && this.#frequency > 0) {
+      const seconds = o.slideDuration > 0 ? o.slideDuration : span;
+      this.#slideTarget = o.slide;
+      this.#slideLeft = max(1, round(seconds * sampleRate));
+      this.#slideRatio = pow(o.slide / this.#frequency, 1 / this.#slideLeft);
+      this.#futureFrequency = o.slide;
+    }
+    if (o.vibrato !== undefined) {
+      const v = typeof o.vibrato === "number" ? { depth: o.vibrato } : o.vibrato;
+      this.#vibrato = v && (v.depth ?? 0.5) > 0
+        ? { rate: v.rate ?? 5, depth: v.depth ?? 0.5, delay: (v.delay ?? 0) * sampleRate }
+        : null;
+      this.#vibratoPhase = 0;
+    }
+    if (o.tremolo !== undefined) {
+      const t = typeof o.tremolo === "number" ? { depth: o.tremolo } : o.tremolo;
+      this.#tremolo = t && (t.depth ?? 0.3) > 0
+        ? { rate: t.rate ?? 6, depth: min(1, t.depth ?? 0.3) }
+        : null;
+      this.#tremoloPhase = 0;
+    }
+    if (o.drift !== undefined) this.#drift = o.drift > 0 ? o.drift : 0;
+    if (o.noise !== undefined) this.#noise = clamp(o.noise, 0, 1) || 0;
+    if (o.formant !== undefined) {
+      const f = o.formant;
+      const bands = f == null ? null
+        : typeof f === "string" || Array.isArray(f) ? vowelBands(f)
+        : vowelBands(f.vowel ?? f.bands, f.scale ?? 1);
+      if (!bands) this.#formant = null;
+      else if (this.#formant) this.#formant.set(bands);
+      else this.#formant = new FormantBank(bands, sampleRate);
+    }
+    if (o.lowpass !== undefined) {
+      const lp = typeof o.lowpass === "number" ? { cutoff: o.lowpass } : o.lowpass;
+      if (!lp || !(lp.cutoff > 0)) {
+        this.#lowpass = null;
+        this.#lpSweepLeft = 0;
+      } else {
+        // resonance 0..1 → Q: 0.707 (flat) up to ~11 (a whistle on the knee).
+        const q = 0.7071 * pow(2, clamp(lp.resonance ?? 0.2, 0, 1) * 4);
+        const fresh = !this.#lowpass;
+        if (fresh) this.#lpX1 = this.#lpX2 = this.#lpY1 = this.#lpY2 = 0;
+        // A live voice glides to the new cutoff instead of stepping; a
+        // fresh one starts there and only moves if asked to sweep.
+        const from = fresh ? lp.cutoff : this.#lowpass.cutoff;
+        const to = lp.sweep > 0 ? lp.sweep : lp.cutoff;
+        this.#lowpass = { cutoff: from, q };
+        this._lowpassCoefficients();
+        if (to !== from) {
+          const seconds = lp.sweepDuration > 0 ? lp.sweepDuration : span;
+          this.#lpSweepTarget = to;
+          this.#lpSweepLeft = max(1, round(seconds * sampleRate));
+          this.#lpSweepRatio = pow(to / from, 1 / this.#lpSweepLeft);
+        } else {
+          this.#lpSweepLeft = 0;
+        }
+      }
+    }
+  }
+
+  _lowpassCoefficients() {
+    const { cutoff, q } = this.#lowpass;
+    const w0 = (2 * PI * min(cutoff, sampleRate * 0.45)) / sampleRate;
+    const c = cos(w0);
+    const alpha = sin(w0) / (2 * q);
+    const a0 = 1 + alpha;
+    // Resonance lifts the knee by Q; pulling the whole band down by √Q keeps
+    // a swept sawtooth from clipping while the peak still stands proud of the
+    // passband — the same bass-loss a ladder filter has when you turn it up.
+    const gain = q > 0.7071 ? 1 / Math.sqrt(q / 0.7071) : 1;
+    this.#lpB0 = ((1 - c) / 2 / a0) * gain; // b2 = b0
+    this.#lpB1 = ((1 - c) / a0) * gain;
+    this.#lpA1 = (-2 * c) / a0;
+    this.#lpA2 = (1 - alpha) / a0;
   }
 
   next(channelIndex) {
@@ -340,6 +450,46 @@ export default class Synth {
       this.#volumeUpdatesLeft -= 1;
     }
 
+    // 🐦 Pitch expression — one effective frequency drives every source.
+    // The slide moves `#frequency` itself (a constant ratio per sample is an
+    // exponential glide, which is how a throat moves), so a later linear
+    // update({tone}) still departs from wherever the pitch actually is.
+    // Vibrato and drift only bend the sample being rendered.
+    let freq = this.#frequency;
+    if (this.#slideLeft > 0) {
+      this.#slideLeft -= 1;
+      this.#frequency = this.#slideLeft === 0 ? this.#slideTarget : this.#frequency * this.#slideRatio;
+      freq = this.#frequency;
+      this.#wavelength = sampleRate / freq;
+    }
+    if (this.#vibrato || this.#drift > 0) {
+      let cents = 0;
+      if (this.#vibrato) {
+        const v = this.#vibrato;
+        // Fade in over 150ms once the delay has passed — a straight singer
+        // lands the note first, then lets it shimmer.
+        const amount = min(1, max(0, (this.#progress - v.delay) / (0.15 * sampleRate)));
+        this.#vibratoPhase += (2 * PI * v.rate) / sampleRate;
+        if (this.#vibratoPhase > 2 * PI) this.#vibratoPhase -= 2 * PI;
+        cents += v.depth * amount * sin(this.#vibratoPhase);
+      }
+      if (this.#drift > 0) {
+        // A random walk that picks a new target about twice a second and
+        // eases toward it through a ~2 Hz one-pole, so the pitch wanders
+        // rather than jitters.
+        if (this.#driftCountdown <= 0) {
+          this.#driftTarget = random() * 2 - 1;
+          this.#driftCountdown = round(sampleRate * (0.3 + random() * 0.4));
+        }
+        this.#driftCountdown -= 1;
+        this.#driftPos += (this.#driftTarget - this.#driftPos) * ((2 * PI * 2) / sampleRate);
+        cents += this.#drift * this.#driftPos;
+      }
+      freq *= pow(2, cents / 12);
+      this.#wavelength = sampleRate / freq;
+    }
+    this.#liveFrequency = freq;
+
     // 🎸🎙️ Waveform Sources 🎹
     let value;
     if (this.type === "square") {
@@ -362,7 +512,7 @@ export default class Synth {
     } else if (this.type === "sine") {
       // 🟣 Sine Wave
       // Generate using a 'Phase Increment' method.
-      const increment = (2 * PI * this.#frequency) / sampleRate;
+      const increment = (2 * PI * freq) / sampleRate;
       this.#phase += increment;
       if (this.#phase > 2 * PI) {
         this.#phase -= 2 * PI;
@@ -388,10 +538,10 @@ export default class Synth {
       
       // Apply resonant low-pass filter centered on the frequency
       // This makes the noise "pitched" by emphasizing frequencies around the tone
-      if (this.#frequency && this.#frequency > 0) {
+      if (freq && freq > 0) {
         // Calculate filter coefficients based on frequency
         // Normalize frequency to 0-1 range (0 = DC, 1 = Nyquist frequency)
-        const normalizedFreq = (this.#frequency * 2) / sampleRate;
+        const normalizedFreq = (freq * 2) / sampleRate;
         const clampedFreq = clamp(normalizedFreq, 0.001, 0.99);
         
         // Sharp resonant filter coefficients
@@ -432,7 +582,7 @@ export default class Synth {
       // below the oscillators at the same `volume`. Mirror of C
       // generate_harp_sample (fedac/native/src/audio.c).
       const N = this.#harpBuf.length;
-      const stringDelay = clamp(sampleRate / this.#frequency, 2, N - 2);
+      const stringDelay = clamp(sampleRate / freq, 2, N - 2);
       // Fractional-delay read with linear interpolation.
       let rd = this.#harpW - stringDelay;
       while (rd < 0) rd += N;
@@ -467,8 +617,8 @@ export default class Synth {
       this.#whistleNoiseSeed = s;
       const white = (s / 0xFFFFFFFF) * 2 - 1;
       const breath = this.#whistleBreath * (1 + 0.08 * white + vibrato);
-      const freq = clamp(this.#frequency, 30, sampleRate * 0.20);
-      let boreDelay = sampleRate / freq;
+      const pitch = clamp(freq, 30, sampleRate * 0.20);
+      let boreDelay = sampleRate / pitch;
       let jetDelay = boreDelay * 0.32;
       if (boreDelay > BORE_N - 2) boreDelay = BORE_N - 2;
       if (jetDelay > JET_N - 2)  jetDelay  = JET_N - 2;
@@ -742,6 +892,34 @@ export default class Synth {
       }
     }
 
+    // 🐦 Timbre expression — breath into the source, then the throat, then
+    // the mouth, then the level. Samples keep their own shape.
+    if (this.type !== "sample") {
+      if (this.#noise > 0) {
+        value = value * (1 - this.#noise * 0.5) + (random() * 2 - 1) * this.#noise;
+      }
+      if (this.#formant) value = this.#formant.process(value);
+      if (this.#lowpass) {
+        if (this.#lpSweepLeft > 0) {
+          this.#lpSweepLeft -= 1;
+          this.#lowpass.cutoff = this.#lpSweepLeft === 0
+            ? this.#lpSweepTarget : this.#lowpass.cutoff * this.#lpSweepRatio;
+          this._lowpassCoefficients();
+        }
+        const y = this.#lpB0 * (value + this.#lpX2) + this.#lpB1 * this.#lpX1
+          - this.#lpA1 * this.#lpY1 - this.#lpA2 * this.#lpY2;
+        this.#lpX2 = this.#lpX1; this.#lpX1 = value;
+        this.#lpY2 = this.#lpY1; this.#lpY1 = y;
+        value = y;
+      }
+      if (this.#tremolo) {
+        const t = this.#tremolo;
+        this.#tremoloPhase += (2 * PI * t.rate) / sampleRate;
+        if (this.#tremoloPhase > 2 * PI) this.#tremoloPhase -= 2 * PI;
+        value *= 1 - t.depth * (0.5 + 0.5 * sin(this.#tremoloPhase));
+      }
+    }
+
     // 🦈 Attack & Decay Computation 📉
     // Only use attack or decay envelopes on self-terminating sounds.
     if (this.#duration < Infinity) {
@@ -817,12 +995,16 @@ export default class Synth {
     return out;
   }
 
-  update({ tone, volume, shift, sampleSpeed, samplePosition, sampleData, pitch, duration = 0.1 }) {
+  update({ tone, volume, shift, sampleSpeed, samplePosition, sampleData, pitch, duration = 0.1, ...expression }) {
     // 🎼 Live independent pitch factor (tempo-preserving shifter).
     if (typeof pitch === "number" && pitch > 0) {
       this.#pitch = pitch;
       if (pitch === 1) this.#pitchPhase = 0;
     }
+    // 🐦 slide / vibrato / tremolo / drift / noise / lowpass / formant —
+    // each replaces its setting; slide and a sweep-less lowpass glide from
+    // where the voice is now over `duration`.
+    if (this.type !== "sample") this._express(expression, duration);
     if (typeof tone === "number" && tone > 0) {
       this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration * sampleRate;
@@ -950,7 +1132,8 @@ export default class Synth {
       // Generate new samples for the buffer
       const bufferSize = this.#customBufferSize - this.#customBuffer.length;
       const newSamples = this.#customGenerator({
-        frequency: this.#frequency,
+        frequency: this.#liveFrequency, // follows slide/vibrato/drift, block by block
+
         sampleRate: sampleRate,
         progress: this.#progress,
         time: this.#progress / sampleRate,

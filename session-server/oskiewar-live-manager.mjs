@@ -71,6 +71,9 @@ function fighter(value) {
     typeof value.grounded === "boolean" && typeof value.ducking === "boolean" &&
     typeof value.blocking === "boolean" && integer(value.score, 0, 99) &&
     integer(value.roundWins, 0, 5) &&
+    (value.ropeIndex === undefined || integer(value.ropeIndex, -1, 2)) &&
+    (value.ropeLink === undefined || (finite(value.ropeLink, 16) && value.ropeLink >= 2)) &&
+    (value.skateRotation === undefined || finite(value.skateRotation, 7)) &&
     (value.attack === "" || /^[A-Z0-9 _-]{1,24}$/.test(value.attack));
 }
 
@@ -144,6 +147,14 @@ export function validateOskiewarLiveState(value) {
     return "Invalid next round ID";
   if (!Array.isArray(value.fighters) || value.fighters.length !== 2 ||
       value.fighters.some((entry) => !fighter(entry))) return "Invalid fighters";
+  const course = value.course ?? (typeof value.map === "string" ? value.map : "station");
+  if (!["station", "skatepark"].includes(course))
+    return "Invalid map";
+  if (value.ropes !== undefined && (!Array.isArray(value.ropes) ||
+      value.ropes.length !== (course === "skatepark" ? 3 : 0) ||
+      value.ropes.some((nodes) => !Array.isArray(nodes) || nodes.length !== 17 ||
+        nodes.some((row) => !Array.isArray(row) || row.length !== 4 ||
+          row.some((n) => !finite(n, 100000)))))) return "Invalid ropes";
   if (!ball(value.ball)) return "Invalid ball";
   if (value.balls !== undefined && (!Array.isArray(value.balls) ||
       value.balls.length < 1 || value.balls.length > 4 ||

@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Composer of Instruments · Princeton Arts Fellowship 2027–29</title>
+<meta name="description" content="Jeffrey Alan Scudder's application for the Princeton Arts Fellowship 2027–29 (music): a composer who builds his own instruments — notepat, KidLisp, whistlegraph notation — bringing the laptop-orchestra lineage back to the campus that invented it, at 1/100th the cost of a seat.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #1c1812;
+    --text: #ecdfc1;
+    --dim: #b8a47e;          /* was #907d5e — bumped contrast vs bg */
+    --pink: #d4929d;
+    --cyan: #a8bcc1;
+    --purple: #b3a4ce;
+    --gold: #dab87e;
+    --green: #b8c895;
+    --red: #d6a098;
+    --box-bg: rgba(228,216,188,0.05);
+    --box-border: rgba(228,216,188,0.18);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f0e6cf;
+      --text: #2d2014;
+      --dim: #5e4a30;        /* was #8a7356 — darker for more contrast */
+      --pink: #8e3a5b;
+      --cyan: #2f5566;
+      --purple: #4a3878;
+      --gold: #6e4f10;
+      --green: #3f4f25;
+      --red: #762522;
+      --box-bg: rgba(61,46,31,0.06);
+      --box-border: rgba(61,46,31,0.24);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+    font-feature-settings: "ss01", "cv11";
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  .mono, code {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  .wip-banner {
+    background: var(--gold);
+    color: #1c1208;
+    padding: 0.7em 1em;
+    margin: -1em -1em 1.6em -1em;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    border-radius: 4px;
+  }
+  .wip-banner strong { font-size: 1.05em; }
+  .wip-banner .blink {
+    display: inline-block;
+    color: #5a3a08;
+    animation: blink 1.4s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.78em;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .eyebrow .tag { color: var(--purple); }
+  .eyebrow .wip { color: var(--gold); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Inter', sans-serif;
+    font-size: clamp(34px, 5.8vw, 60px);
+    font-weight: normal;
+    letter-spacing: -0.01em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em { font-style: normal; color: var(--cyan); }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.3em 1.4em;
+    padding: 1em 1.2em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.94em;
+  }
+  .meta dt { color: var(--dim); font-size: 0.92em; padding-top: 0.12em; font-weight: 500; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+  .meta .partner { color: var(--purple); }
+
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 1.35em;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.005em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.4em;
+    font-family: 'Inter', sans-serif;
+  }
+  h2 .count { float: right; color: var(--dim); font-size: 0.78em; padding-top: 0.7em; font-family: 'Inter', sans-serif; font-weight: normal; letter-spacing: 0; }
+
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+  }
+  .glance .hint { color: var(--dim); font-size: 0.85em; margin-bottom: 1em; font-style: italic; }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.86em;
+    font-weight: 600;
+    padding-top: 0.32em;
+    align-self: start;
+    letter-spacing: 0;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82em;
+    margin-top: 0.2em;
+    font-weight: normal;
+    letter-spacing: 0;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 1em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.6;
+    font-size: 1em;
+  }
+  .glance dl > div:last-of-type dd,
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--pink); font-style: normal; }
+  .glance .statement { font-size: 0.96em; color: var(--text); line-height: 1.6; }
+  .glance .excerpt { color: var(--dim); font-size: 0.96em; margin: 0 0 0.5em; line-height: 1.6; }
+  .glance .jump {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.84em;
+    color: var(--cyan);
+    letter-spacing: 0;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
+  .pitch p { margin: 0 0 1em; font-size: 1.02em; line-height: 1.65; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.25em;
+    color: var(--cyan);
+    display: block;
+    margin: 1.4em 0 0.6em;
+  }
+  .pitch em { color: var(--pink); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch q { quotes: "“" "”"; color: var(--gold); font-style: italic; }
+  .pitch code {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-family: 'Inter', sans-serif;
+    font-size: 1.1em;
+    font-weight: normal;
+    margin-bottom: 0.3em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.94em; line-height: 1.55; }
+
+  /* Platter inventory bar — visual byte-budget */
+  .platter-bar {
+    display: flex;
+    width: 100%;
+    height: 2.8em;
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.6em 0 0.4em;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8em;
+    font-weight: 500;
+  }
+  .platter-bar .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1c1208;
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 1px solid rgba(28,18,8,0.28);
+    padding: 0 0.55em;
+    letter-spacing: 0;
+  }
+  .platter-bar .seg:last-child { border-right: none; }
+  .platter-bar .seg.papers { background: var(--gold); }
+  .platter-bar .seg.figures { background: var(--cyan); }
+  .platter-bar .seg.dossiers { background: var(--purple); color: #fffef5; }
+  .platter-bar .seg.reader { background: var(--pink); color: #fffef5; }
+  .platter-bar .seg.subplatters { background: var(--green); }
+  .platter-bar .seg.lectures-cv { background: var(--red); color: #fffef5; }
+  .platter-bar .seg.scaffolds { background: var(--dim); color: #1c1208; }
+  .platter-legend {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.9em;
+    color: var(--dim);
+    margin-top: 0.5em;
+    line-height: 1.75;
+  }
+  .platter-legend .swatch {
+    display: inline-block;
+    width: 0.7em;
+    height: 0.7em;
+    margin-right: 0.3em;
+    vertical-align: -1px;
+    border-radius: 2px;
+  }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.75em 0.95em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.94em;
+    line-height: 1.55;
+  }
+  .feat b { color: var(--purple); font-family: 'Inter', sans-serif; font-weight: normal; display: block; margin-bottom: 0.25em; font-size: 1.06em; }
+  .feat.planned { border-left-color: var(--gold); }
+  .feat.planned b { color: var(--gold); }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
+  .feat .meta-line {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.86em;
+    color: var(--dim);
+    margin-top: 0.35em;
+    line-height: 1.45;
+  }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--pink); font-style: normal; }
+
+  /* Sample queries — looks like a card index */
+  .queries { display: grid; gap: 0.4em; margin: 1em 0; }
+  .query {
+    padding: 0.7em 0.9em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--cyan);
+    border-radius: 3px;
+    font-size: 0.92em;
+  }
+  .query .q {
+    font-family: 'Inter', sans-serif;
+    color: var(--cyan);
+    margin-bottom: 0.25em;
+    font-size: 1.1em;
+  }
+  .query .a {
+    color: var(--text);
+    font-size: 0.96em;
+    line-height: 1.55;
+  }
+  .query .a code { color: var(--gold); }
+  .query .src {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85em;
+    color: var(--dim);
+    margin-top: 0.45em;
+    letter-spacing: 0;
+  }
+  .query .src .pin { color: var(--pink); }
+
+  .check { list-style: none; padding: 0; font-size: 0.96em; line-height: 1.6; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { font-family: 'Inter', sans-serif; width: 1em; text-align: center; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.86em;
+    letter-spacing: 0;
+    line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="wip-banner">
+    <strong>▸ WIP · NOT YET SUBMITTED</strong> · deadline <strong>Mon 8 Sep 2026 · 11:59 p.m. ET</strong> · <span class="blink">●</span> <em>drafted against mirrors of the call; every field verifies against the live portal before submit</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">Princeton Arts Fellowship · Lewis Center for the Arts</span> · 2027–29 · <span class="wip">drafting</span></div>
+    <h1>Composer of<br>Instruments<span class="dot">.</span></h1>
+    <p class="sub" style="font-family: 'Inter', sans-serif;font-size:1.05em;color:var(--dim);margin-top:-0.3em;margin-bottom:0.9em">A music application: instruments written as software, performed live, released as records · the laptop-orchestra lineage, back at the campus that invented it, at 1/100th the cost of a seat</p>
+    <p class="sub">Application by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Deadline</dt><dd class="due">Mon, 8 Sep 2026 · 11:59 p.m. ET</dd>
+      <dt>Fellowship</dt><dd>Two academic years at Princeton · Sept 2027 – Jul 2029 · <strong>$93,000/yr</strong> as Associate Professional Specialist + research fund · teach one course per semester</dd>
+      <dt>Discipline</dt><dd><span class="partner">Music</span> · this cycle is open to dance, music, and theater artists only</dd>
+      <dt>Materials</dt><dd>CV · 750-word proposal in three 250-word sections · three references · work samples with 150-word notes <em style="color:var(--gold)">(per recent cycles — verifying on the live portal)</em></dd>
+      <dt>Cap</dt><dd>Lifetime limit of two applications · this is № 1</dd>
+      <dt>Call</dt><dd><a href="https://arts.princeton.edu/fellowships/princeton-arts-fellowship/">arts.princeton.edu/fellowships</a> · lca-fellowships@princeton.edu</dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/princeton-arts-2026">grants/princeton-arts-2026/</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/arxiv-plork">papers/arxiv-plork/</a></dd>
+    </dl>
+  </header>
+
+  <!-- ── APPLICATION AT A GLANCE (form mirror) ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft · verifies against the live portal</span></h2>
+    <p class="hint">The 750-word proposal runs in three 250-word sections. Current drafts inline, at 244–247 words each.</p>
+
+    <dl>
+      <dt>Who is applying</dt>
+      <dd><strong>A composer who builds his own instruments.</strong> For six years the instruments have been software he wrote himself — notepat, a polyphonic touch instrument in any browser; a chromatic sampler; drum machines in a menu bar; and KidLisp, a live-coding language where the score and the synthesizer are the same text. He composes bottom-up on them, performs them live, and releases the results as records.</dd>
+
+      <dt>1 · The work<span class="cap">250 w max · at 244</span></dt>
+      <dd>
+        <p class="excerpt">Princeton is where the ensemble I care about was invented. The Princeton Laptop Orchestra proved in 2005 that a room of networked laptops is a real instrument, and I have published on its lineage; my contribution is dropping the cost of a seat by two orders of magnitude, onto surplus laptops and browser tabs. The fellowship would buy the thing my practice has never had: two years to be a composer-in-residence for my own instrument family — a body of concert works, engraved as readable scores others can re-perform, made with the people who built the laptop orchestra across the hall.</p>
+        <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/princeton-arts-2026/DRAFT.md">Full section in DRAFT.md</a>
+      </dd>
+
+      <dt>2 · Undergraduates<span class="cap">250 w max · at 245</span></dt>
+      <dd>
+        <p class="excerpt"><strong>Build an instrument, then perform on it.</strong> Each student writes a small software instrument; the class becomes an ensemble that must learn one another's instruments, compose for them, and end the term with a concert. The instrument is the composition exam: if no one else can play it, it is not finished. Second semester: graphic scores, surplus hardware, and a published repertoire the next class inherits. Outside class, an open instrument clinic — and the existing laptop-orchestra community as collaborator, not citation.</p>
+        <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/princeton-arts-2026/DRAFT.md">Full section in DRAFT.md</a>
+      </dd>
+
+      <dt>3 · Inclusion<span class="cap">250 w max · at 247</span></dt>
+      <dd>
+        <p class="excerpt">The contribution is economic and material: <strong>remove the price of admission to computer music.</strong> Instruments that run free in any browser tab; an operating system that boots a fifty-dollar surplus laptop into a complete instrument in seven seconds. A laptop-orchestra seat that cost $1,500 in 2005 now costs less than a textbook. Practiced weekly at the NELA Computer Club in Los Angeles; at Princeton, extended to Trenton with donated surplus hardware, and a course with no prerequisites in either music or programming.</p>
+        <a class="jump" href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/princeton-arts-2026/DRAFT.md">Full section in DRAFT.md</a>
+      </dd>
+
+      <dt>References<span class="cap">three · contact info</span></dt>
+      <dd><em style="color:var(--gold)">Open — choosing three:</em> one for the music/instrument practice, one for teaching, one for the community work.</dd>
+    </dl>
+  </section>
+
+  <!-- ── PITCH ───────────────────────────────── -->
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">§</span>Pitch</h2>
+
+    <p>Most computer musicians compose on instruments someone else made. For six years I have written my own — not plugins inside a commercial DAW, but complete instruments that live at web addresses anyone can open. I compose on them bottom-up the way one writes for acoustic instruments, perform them live, and release the results as records under my own imprints. The instrument, the performance, and the recording are one material, and all of it is made in public.</p>
+
+    <span class="drop">The homecoming argument.</span>
+
+    <p>In 2005 the Princeton Laptop Orchestra proved that a room of networked laptops is a real ensemble — and at $1,500 a seat, the form stayed locked inside wealthy universities. My instruments run in any browser tab, and my operating system boots a fifty-dollar surplus laptop into a complete instrument in seven seconds. That is the laptop orchestra at 1/100th the cost of a seat, able to leave the campus — and this fellowship is the chance to bring the result home to argue with its origin, in the one music community where that lineage is a living practice rather than a citation.</p>
+
+    <span class="drop">What two years buys.</span>
+
+    <p>A body of concert works composed for these instruments, performed live, and engraved as scores a stranger can both read and re-run — <em>whistlegraph</em> notation on one face, the literal source on the other. And a course that is the practice itself: <strong>build an instrument, then perform on it</strong>, run as an ensemble with a concert at the end and a published repertoire the next class inherits.</p>
+  </section>
+
+  <!-- ── WORK SAMPLES ─────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Work Samples<span class="count">candidates · specs verify on portal</span></h2>
+    <div class="queries">
+      <div class="query">
+        <div class="q">notepat, performed</div>
+        <div class="a">A composed piece performed live on the polyphonic touch instrument — self-built, browser-native, 32 voices.</div>
+      </div>
+      <div class="query">
+        <div class="q">A released record</div>
+        <div class="a">Composed bottom-up on the instrument family and released to streaming — nothing generated end-to-end.</div>
+      </div>
+      <div class="query">
+        <div class="q">KidLisp, live-coded</div>
+        <div class="a">The language as instrument: the audience watches the score being typed as it sounds. Score = synthesizer = text.</div>
+      </div>
+      <div class="query">
+        <div class="q">A whistlegraph</div>
+        <div class="a">Drawn notation performed in real time — the gesture is the envelope. From a corpus with over a billion combined views.</div>
+      </div>
+      <div class="query">
+        <div class="q">The fifty-dollar seat</div>
+        <div class="a">A surplus ThinkPad cold-boots into the instrument in about seven seconds and gets played. The orchestra-seat cost collapse, on camera.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Status<span class="count">▸ drafting toward 2026-09-08</span></h2>
+    <ul class="check">
+      <li class="done">Eligibility checked · music lane confirmed as this cycle's opening (dance / music / theater only)</li>
+      <li class="done">Lifetime cap confirmed clear · first-ever application · relocation confirmed</li>
+      <li class="done">Research file · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/princeton-arts-2026/RESEARCH.md">RESEARCH.md</a></li>
+      <li class="done">750-word proposal drafted · three sections at 244–247 words · <a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/grants/princeton-arts-2026/DRAFT.md">DRAFT.md</a></li>
+      <li class="todo">Open the live portal in a real browser · capture <em>exact</em> section prompts, word caps, and music work-sample specs</li>
+      <li class="todo">Choose three references and collect contact info</li>
+      <li class="todo">Assemble the music-forward CV</li>
+      <li class="todo">Select and stage 3–5 work samples with 150-word notes</li>
+      <li class="todo">Submit before <em>Mon 8 Sep 2026, 11:59 p.m. ET</em></li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/princeton-2026">aesthetic.computer/princeton-2026</a> · WIP draft · deadlines <a href="https://papers.aesthetic.computer/deadlines/">papers.aesthetic.computer/deadlines</a> · source <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/grants/princeton-arts-2026">grants/princeton-arts-2026/</a>
+  </footer>
+
+</main>
+</body>
+</html>

@@ -3,6 +3,7 @@ import Carbon.HIToolbox
 import Darwin
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private var tileWindowObserver: TilePopulationObserver?
     private var statusItem: NSStatusItem!
     /// One stable menu instance owned for the app's lifetime. We rebuild its
     /// *contents* lazily in `menuNeedsUpdate(_:)` rather than swapping the
@@ -111,11 +112,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var pendingTileResetZoom = false
     private var pendingTileExpectedSignature: [CGWindowID]?
     private var pendingTileIsUnconditional = false
-    /// Exact pixel placements from the newest successful AX tile. Terminal
-    /// decor/profile changes are allowed to recolor and retitle a window, then
-    /// reapply this frozen map so character-row reflow cannot grow one pane.
-    /// Read and written only on `tileQueue`.
-    private var lastAXPass: AXPass?
     private var rainbowPhase: CGFloat = 0
     private var rotationPhase: CGFloat = 0
     private var mailTickCount = 0
@@ -308,6 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Two matching samples are required before a population becomes the
         // grid source, filtering the transient empty AX replies Terminal emits
         // while its font menu is being automated.
+        tileWindowObserver = TilePopulationObserver { [weak self] in self?.beginFastTilePopulationWatch() }
         let populationTimer = Timer(timeInterval: 0.20, repeats: true) { [weak self] _ in
             self?.probeTilePopulation()
         }
@@ -3004,22 +3001,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Terminal profile assignment can mutate font and character rows. Run
         // it on the same serial queue as tile font normalization so a heartbeat
-        // decor pass can never interleave with snap → font → settle. Once the
-        // script's own short settles finish, restore the latest canonical AX
-        // placements without re-counting or issuing another tile transaction.
-        tileFontQueue.async { [weak self] in
+        // decor pass can never interleave with snap → font → settle. The script
+        // restores Terminal's captured bounds itself. Do not reapply a tile:
+        // a status change must not move Aesel or any other window back into an
+        // old grid, including after a manual tile with auto-tiling disabled.
+        tileFontQueue.async {
             _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", tmScript])
-            guard let self else { return }
-            self.tileQueue.async {
-                guard let pass = self.lastAXPass else { return }
-                // The script has already restored Terminal's exact native
-                // bounds. AX size writes are character-cell quantized for
-                // Terminal and can undo that correction by a whole row.
-                Self.repin(pass, includeTerminal: false)
-                DispatchQueue.main.async {
-                    PromptSigilOverlayController.shared.terminalsDidRetile()
-                }
-            }
         }
     }
 
@@ -3539,6 +3526,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func beginFastTilePopulationWatch() {
         tilePopulationFastUntil = Date().addingTimeInterval(1.2)
         probeTilePopulation(force: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in self?.probeTilePopulation(force: true) }
     }
 
     /// Sample the complete tileable population off-main. A candidate must be
@@ -3611,7 +3599,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scatterMode = false  // tiling supersedes a prior scatter; restore tile font
         let textSize = state.textSize
         guard AXTiler.trusted else {
-            tileQueue.async { [weak self] in self?.lastAXPass = nil }
             tileNowLegacy(resetZoom: resetZoom, geom: geom, textSize: textSize)
             return
         }
@@ -3665,7 +3652,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return
             }
             let pass = Self.axTilePass(snapshot: snapshot, geom: geom, textSize: textSize)
-            self.lastAXPass = pass
             DispatchQueue.main.async {
                 guard generation == self.tileRequestGeneration else { return }
                 self.lastTiledWindowSignature = snapshot.signature
@@ -3810,9 +3796,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSLog("🎲 [scatter] skipped — Accessibility not trusted")
             return
         }
-        // Decor completions must not restore the previous tiled wall while the
-        // user is intentionally scattered.
-        tileQueue.async { [weak self] in self?.lastAXPass = nil }
         // Enter scatter mode so the decor refresh pins the tiny font instead of
         // bouncing it back to the tile size every 0.6s tick.
         scatterMode = true

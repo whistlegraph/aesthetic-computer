@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 // SigilRenderer's live-session naming overload references these two types;
 // the standalone exporter only needs their tiny surface and never calls it.
-struct ClaudeSession { let sessionId: String }
+struct ClaudeSession { let sessionId: String; let agentType: String; let piece: String }
 enum Paths { static let loopboyConfig = "" }
 struct LoopboyRoute { let name: String }
 enum LoopboyRoutes {
@@ -14,15 +14,19 @@ enum LoopboyRoutes {
 
 guard CommandLine.arguments.count >= 3,
       let seed = UInt64(CommandLine.arguments[1], radix: 16) else {
-    fputs("usage: prox-sigil-export <hex-seed> <bundle.prox> [dark|light]\n", stderr)
+    fputs("usage: prox-sigil-export <hex-seed> <bundle.prox> [dark|light] [px] [frames]\n", stderr)
     exit(2)
 }
 let bundle = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
 let dark = CommandLine.arguments.count < 4 || CommandLine.arguments[3] != "light"
+// Optional raster size and frame count: the menubar wants 160 px × 48 frames,
+// a print sheet wants one big still.
+let px = CGFloat(CommandLine.arguments.count >= 5 ? Int(CommandLine.arguments[4]) ?? 160 : 160)
+let frameCount = CommandLine.arguments.count >= 6 ? Int(CommandLine.arguments[5]) ?? 48 : 48
 let frames = SigilRockFrames.render(
     seed: seed, dark: dark,
     sunHx: -0.45, sunElevation: 0.72, sunIntensity: 0.8,
-    frameCount: 48, px: 160)
+    frameCount: frameCount, px: px)
 guard let first = frames.first else {
     fputs("prox-sigil-export: rock renderer returned no frames\n", stderr)
     exit(1)

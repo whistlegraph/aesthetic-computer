@@ -599,6 +599,13 @@ final class PromptSigilOverlay {
         rockLayer.magnificationFilter = .nearest
         rockLayer.minificationFilter = .nearest
         rockLayer.contentsScale = 1
+        // A tight contact shadow separates the model from its coloured
+        // silhouette. Derive it from the animated alpha so every pose stays
+        // outlined, including hover scaling and rattles.
+        rockLayer.shadowColor = NSColor.black.cgColor
+        rockLayer.shadowOpacity = 0.9
+        rockLayer.shadowRadius = 1
+        rockLayer.shadowOffset = CGSize(width: 0.5, height: -0.5)
         container.layer?.addSublayer(rockLayer)
 
         // A scan surface keeps the rock's place in the world and gives up its

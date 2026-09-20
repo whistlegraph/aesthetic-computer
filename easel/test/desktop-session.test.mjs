@@ -35,6 +35,19 @@ test("corrupt and cross-workspace snapshots are rejected without rewriting them"
   assert.equal(await readFile(file, "utf8"), "{bad");
   await writeDesktopSession(file, snapshot); await assert.rejects(readDesktopSession(file, join(root, "other")), /workspace/);
 });
+test("desktop brush sessions preserve genre and reject incompatible runtimes", async (t) => {
+  const { root, snapshot } = await fixture(t);
+  const file = join(root, "brush.json");
+  assert.equal(snapshot.live.genre, "piece");
+  snapshot.live.genre = "nopaint";
+  await writeDesktopSession(file, snapshot);
+  assert.equal((await readDesktopSession(file, root)).live.genre, "nopaint");
+  snapshot.live.runtime = "lisp";
+  await assert.rejects(writeDesktopSession(file, snapshot), /genre/);
+  delete snapshot.live.genre; // Older desktop sessions remain readable.
+  await writeDesktopSession(file, snapshot);
+  assert.equal((await readDesktopSession(file, root)).live.runtime, "lisp");
+});
 test("failed snapshot writes cannot emit a restart request", async (t) => {
   const { root, snapshot } = await fixture(t); const blocked = join(root, "blocked"); await writeFile(blocked, "file");
   const controlPath = join(root, "control.json");

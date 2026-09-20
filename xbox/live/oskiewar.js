@@ -120,7 +120,7 @@ const versusLane = () => lobbyActive() || versusActive();
 // below holds one number per tile so per-tile computation (heat, ownership,
 // weather) has a surface to run on.
 const tileSize = 90;
-const gridCols = 40;
+let gridCols = 40;
 const gridRows = 16;
 // Tile (0, 0) starts flush at the floor-left corner of the PLAYABLE box, so
 // every tile edge lands on a clean multiple of 90. The walls stand outside
@@ -128,10 +128,10 @@ const gridRows = 16;
 // and `resolveRunnerBounds` pushes off the faces themselves.
 const wallThickness = 40;
 const gridLeft = 0;
-const gridWidth = gridCols * tileSize;
+let gridWidth = gridCols * tileSize;
 const gridHeight = gridRows * tileSize;
 const worldLeft = gridLeft - wallThickness;
-const worldRight = gridLeft + gridWidth + wallThickness;
+let worldRight = gridLeft + gridWidth + wallThickness;
 const ceilingY = floorY - gridHeight - wallThickness;
 // Depth is the eye's dimension, not the fight's — fighters live near z = 0 —
 // so it is authored rather than derived. It was the cube's own width back
@@ -153,7 +153,7 @@ const tileCenterX = (col) => gridLeft + (col + .5) * tileSize;
 // One number per tile, row-major from the floor-left corner. Today impacts
 // write heat into it and the overlay draws that heat fading; tomorrow it is
 // wherever tiled computation over the map wants to live.
-const gridField = new Float32Array(gridCols * gridRows);
+let gridField = new Float32Array(gridCols * gridRows);
 const gridFieldIndex = (x, y) => tileRow(y) * gridCols + tileCol(x);
 // Whether a point is on the lattice at all. `tileCol` and `tileRow` CLAMP,
 // which is right for a body pressed into a wall — it still stands somewhere —
@@ -215,14 +215,14 @@ const parkFeatures = [
 // Resolved once into world units so the per-frame walk compares numbers
 // rather than rebuilding them. `terrainFloorAt` runs for every foot, every
 // grass blade and every render sample, so it is worth the twenty bytes.
-const parkSegments = parkFeatures.map((feature) => ({
+let parkSegments = parkFeatures.map((feature) => ({
   ...feature,
   left: gridLeft + feature.from * tileSize,
   right: gridLeft + feature.to * tileSize,
   lift: feature.lift || 0,
 }));
 const parkLeft = parkSegments[0].left;
-const parkRight = parkSegments[parkSegments.length - 1].right;
+let parkRight = parkSegments[parkSegments.length - 1].right;
 // The lowest ground in the park. `floorY` used to be it — it
 // was the whole world's bottom, and a dozen places lean on that: the camera
 // clamps its aim to it, the ground's near skirt hangs from it, the terrain
@@ -234,8 +234,267 @@ let parkDeepest = floorY + Math.max(0,
 // Enough samples that an arc reads as an arc. One per tile drew the halfpipe
 // as a staircase — 90 units is most of a fighter wide, and a transition turns
 // through ninety degrees in three of them.
-const terrainSamples = gridCols * 6;
+let terrainSamples = gridCols * 6;
 let terrainPhase = 0;
+// The long park is selected by ?map=skatepark; the host's deal owns the map.
+let skateparkMap = globalThis.__oskiewarMap === "skatepark";
+const skateLoops = [
+  { x: 6300, radius: 320 }, { x: 15300, radius: 420 },
+  { x: 24300, radius: 500 },
+];
+const skateBoosts = [2400, 5400, 10800, 14400, 19800, 23400, 27000]
+  .map((x) => ({ left: x, right: x + 240, speed: 3900 }));
+const skateRopes = [];
+const chainLinks = 16;
+const chainLength = 44;
+
+function configureWorldMap(name) {
+  // A normal round keeps its current workshop/local variant. Only entering
+  // or leaving the long course needs to replace the world dimensions.
+  if (name !== "skatepark" && !skateparkMap) return;
+  skateparkMap = name === "skatepark";
+  gridCols = skateparkMap ? 320 : 40;
+  gridWidth = gridCols * tileSize;
+  if (gridField.length !== gridCols * gridRows) gridField = new Float32Array(gridCols * gridRows);
+  worldRight = gridLeft + gridWidth + wallThickness;
+  const features = skateparkMap ? [
+    ...parkFeatures.slice(0, -1),
+    { from: 36, to: 40, kind: "flat" },
+    ...[40, 140, 240].flatMap((from) => [
+      { from, to: from + 40, kind: "flat" },
+      { from: from + 40, to: from + 46, kind: "bank", rise: 270, dir: 1 },
+      { from: from + 46, to: from + 50, kind: "flat", lift: 270 },
+      { from: from + 50, to: from + 56, kind: "bank", rise: 270, dir: -1 },
+      { from: from + 56, to: Math.min(320, from + 100), kind: "flat" },
+    ]),
+  ] : parkFeatures;
+  parkSegments = features.map((feature) => ({ ...feature,
+    left: gridLeft + feature.from * tileSize,
+    right: gridLeft + feature.to * tileSize, lift: feature.lift || 0 }));
+  parkRight = gridLeft + gridWidth;
+  terrainSamples = gridCols * 6;
+}
+
+function resetSkateRopes() {
+  skateRopes.length = 0;
+  if (!skateparkMap) return;
+  for (const x of [3600, 9900, 18900]) {
+    const anchorY = floorY - 850;
+    skateRopes.push({ x, y: anchorY, z: 0,
+      nodes: Array.from({ length: chainLinks + 1 }, (_, index) => ({
+        x, y: anchorY + index * chainLength,
+        px: x, py: anchorY + index * chainLength,
+      })) });
+  }
+}
+
+function releaseSkateRope(player) {
+  const rope = skateRopes[player.ropeIndex];
+  const node = rope?.nodes[Math.round(player.ropeLink)];
+  if (node) {
+    player.vx = clamp((node.x - node.px) / (rope.dt || 1 / 60), -4200, 4200);
+    player.vy = clamp((node.y - node.py) / (rope.dt || 1 / 60), -4200, 4200);
+    player.skateVx = player.vx;
+    player.knockVx = player.skateboard ? 0 : player.vx;
+  }
+  player.ropeIndex = -1;
+  player.grounded = false;
+}
+
+// Hold grab through a crossing to latch. A fresh grab edge detaches.
+function skateRopeInput(player, input, grabHeld, dt, grabPressed = grabHeld) {
+  if (!grabHeld) player.ropeGrabLocked = false;
+  if (player.ropeIndex >= 0 && (!player.alive || isHeadOnly(player) ||
+      isPogo(player) || player.hitStunUntil > runtime().monotonicUs)) {
+    releaseSkateRope(player);
+    return false;
+  }
+  if (player.ropeIndex >= 0 && grabPressed) {
+    releaseSkateRope(player);
+    player.ropeGrabLocked = true;
+    return false;
+  }
+  if (player.ropeIndex < 0 && grabHeld && !player.ropeGrabLocked && player.heldBall < 0 &&
+      player.heldPart < 0 && player.heldPlayer < 0) {
+    let nearest = null;
+    // Test the swept hand volume against each link, so a fast crossing counts.
+    const hand = { x1: player.x, y1: player.y - 125, z1: player.z,
+      x2: player.x + player.vx * dt, y2: player.y - 125 + player.vy * dt,
+      z2: player.z, width: 64 };
+    skateRopes.forEach((rope, ropeIndex) => {
+      rope.nodes.slice(1).forEach((node, index) => {
+        const before = rope.nodes[index];
+        const box = { left: Math.min(node.x, before.x) - 6,
+          right: Math.max(node.x, before.x) + 6,
+          top: Math.min(node.y, before.y) - 6, bottom: Math.max(node.y, before.y) + 6,
+          near: rope.z - 8, far: rope.z + 8 };
+        const hit = segmentBoxEntry(hand, box, hand.width / 2);
+        const distance = Math.hypot(node.x - hand.x1, node.y - hand.y1);
+        if (hit !== null && (!nearest || distance < nearest.distance))
+          nearest = { ropeIndex, link: index + 1, distance };
+      });
+    });
+    if (nearest) {
+      player.ropeIndex = nearest.ropeIndex;
+      player.ropeLink = nearest.link;
+      const node = skateRopes[player.ropeIndex].nodes[nearest.link];
+      node.px = node.x - clamp(player.vx, -3000, 3000) / 60;
+      node.py = node.y - clamp(player.vy, -3000, 3000) / 60;
+      player.skateLoop = -1;
+      player.lastButton = "ROPE";
+      emitSignal("rope-grab", player.pad, nearest.ropeIndex, nearest.link);
+    }
+  }
+  if (!(player.ropeIndex >= 0)) return false;
+  player.ropeLink = clamp(player.ropeLink - input.vertical * dt * 3,
+    2, chainLinks);
+  const rope = skateRopes[player.ropeIndex];
+  const node = rope.nodes[Math.round(player.ropeLink)];
+  node.px -= input.horizontal * 2100 * dt * dt;
+  player.inputX = input.horizontal;
+  player.inputY = input.vertical;
+  player.grounded = false;
+  player.attackKind = "";
+  player.attackUntil = 0;
+  player.blocking = false;
+  player.stance = "ROPE";
+  return true;
+}
+
+// Verlet chain with a fixed anchor and distance constraints, stepped once per
+// simulation tick. Nodes, previous positions and attachments all roll back.
+function updateSkateRopes(dt) {
+  if (!skateparkMap || survivalActive()) return;
+  for (const rope of skateRopes) {
+    const timeScale = dt / (rope.dt || dt);
+    rope.dt = dt;
+    for (let i = 1; i < rope.nodes.length; i++) {
+      const node = rope.nodes[i];
+      const vx = (node.x - node.px) * .997 * timeScale;
+      const vy = (node.y - node.py) * .997 * timeScale;
+      node.px = node.x; node.py = node.y;
+      node.x += vx; node.y += vy + fallGravity() * dt * dt;
+    }
+    const riders = players.filter((player) => player.alive &&
+      skateRopes[player.ropeIndex] === rope);
+    const inverseMass = (index) => index === 0 ? 0 :
+      riders.some((rider) => Math.abs(rider.ropeLink - index) < 1) ? .125 : 1;
+    for (let pass = 0; pass < 32; pass++) {
+      rope.nodes[0].x = rope.x; rope.nodes[0].y = rope.y;
+      for (let i = 1; i < rope.nodes.length; i++) {
+        const a = rope.nodes[i - 1], b = rope.nodes[i];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const length = Math.hypot(dx, dy) || 1;
+        const error = (length - chainLength) / length;
+        const wa = inverseMass(i - 1), wb = inverseMass(i);
+        const sum = wa + wb;
+        b.x -= dx * error * wb / sum; b.y -= dy * error * wb / sum;
+        a.x += dx * error * wa / sum; a.y += dy * error * wa / sum;
+      }
+    }
+  }
+  for (const player of players) {
+    if (!(player.ropeIndex >= 0)) continue;
+    if (!player.alive) { releaseSkateRope(player); continue; }
+    const rope = skateRopes[player.ropeIndex];
+    const link = Math.floor(player.ropeLink), blend = player.ropeLink - link;
+    const a = rope.nodes[link], b = rope.nodes[Math.min(link + 1, chainLinks)];
+    const x = lerp(a.x, b.x, blend), y = lerp(a.y, b.y, blend) + 125;
+    player.vx = (x - player.x) / Math.max(dt, .001);
+    player.vy = (y - player.y) / Math.max(dt, .001);
+    player.x = x; player.y = y; player.z = rope.z;
+    player.grounded = false;
+  }
+}
+
+function skateLoopStep(player, input, dt, now) {
+  if (!(player.skateLoop >= 0)) {
+    if (!player.skateboard || !player.grounded || Math.abs(player.skateVx) < 1300)
+      return false;
+    const nextX = player.x + player.skateVx * dt;
+    const index = skateLoops.findIndex((loop) =>
+      Math.min(player.x, nextX) <= loop.x && Math.max(player.x, nextX) >= loop.x &&
+      Math.abs(player.y - floorY) < 30 && Math.abs(player.z) < 90 &&
+      now >= (player.loopCooldownUntil || 0));
+    if (index < 0) return false;
+    player.skateLoop = index;
+    player.loopAngle = 0;
+    player.loopSpeed = player.skateVx;
+  }
+  const loop = skateLoops[player.skateLoop];
+  const angle = player.loopAngle;
+  player.loopSpeed += (-fallGravity() * Math.sin(angle) + input.horizontal * 500) * dt;
+  player.loopAngle += player.loopSpeed / loop.radius * dt;
+  const theta = player.loopAngle;
+  player.x = loop.x + Math.sin(theta) * loop.radius;
+  player.y = floorY - loop.radius + Math.cos(theta) * loop.radius;
+  player.vx = Math.cos(theta) * player.loopSpeed;
+  player.vy = -Math.sin(theta) * player.loopSpeed;
+  player.grounded = false;
+  player.skateRotation = -theta;
+  const completed = Math.abs(theta) >= Math.PI * 2;
+  const lostGrip = Math.cos(theta) < 0 && player.loopSpeed ** 2 / loop.radius <
+    -fallGravity() * Math.cos(theta);
+  if (completed || lostGrip || !player.skateboard) {
+    if (completed) { player.x = loop.x + Math.sign(player.loopSpeed) * 12;
+      player.y = floorY; player.vy = 0; player.grounded = true; }
+    player.skateVx = player.vx;
+    player.skateLoop = -1;
+    player.skateRotation = 0;
+    player.loopCooldownUntil = now + 600000;
+  }
+  return true;
+}
+
+function skateBoostStep(player, previousX, now) {
+  if (!skateparkMap || !player.skateboard || !player.grounded ||
+      Math.abs(player.y - terrainFloorAt(player.x)) > 12 ||
+      Math.abs(player.z) > 100 || now < (player.boostUntil || 0)) return;
+  const pad = skateBoosts.find((pad) => Math.max(previousX, player.x) >= pad.left &&
+    Math.min(previousX, player.x) <= pad.right);
+  if (!pad) return;
+  player.skateVx = (Math.sign(player.skateVx) || player.facing) * pad.speed;
+  player.vx = player.skateVx;
+  player.boostUntil = now + 350000;
+  player.lastButton = "BOOST";
+  player.lastButtonAt = now;
+  emitSignal("skate-boost", player.pad, player.facing, pad.speed);
+  playDrum("whoosh", 1, panPlayer(player));
+}
+
+function drawSkateParkFeatures() {
+  if (!skateparkMap || survivalActive()) return;
+  const visible = (x, radius = 0) => Math.abs(x - cameraCenter) < cameraWidth + radius;
+  for (const loop of skateLoops) {
+    if (!visible(loop.x, loop.radius)) continue;
+    for (let i = 0; i < 96; i++) {
+      const a = i / 96 * Math.PI * 2, b = (i + 1) / 96 * Math.PI * 2;
+      for (const z of [-90, 90]) worldCapsule(
+        loop.x + Math.sin(a) * loop.radius, floorY - loop.radius + Math.cos(a) * loop.radius, z,
+        loop.x + Math.sin(b) * loop.radius, floorY - loop.radius + Math.cos(b) * loop.radius, z,
+        10, [92, 212, 240]);
+    }
+  }
+  for (const pad of skateBoosts) {
+    if (!visible(pad.left, 240)) continue;
+    for (let x = pad.left; x < pad.right; x += 40) {
+      const y = terrainFloorAt(x) - 8;
+      worldCapsule(x, y, -70, x + 22, y, 0, 9, [255, 212, 66]);
+      worldCapsule(x + 22, y, 0, x, y, 70, 9, [255, 212, 66]);
+    }
+  }
+  for (const rope of skateRopes) {
+    if (!visible(rope.x, chainLinks * chainLength)) continue;
+    worldCapsule(rope.x - 70, rope.y, rope.z, rope.x + 70, rope.y, rope.z,
+      18, [108, 130, 150]);
+    for (let i = 1; i < rope.nodes.length; i++) {
+      const a = rope.nodes[i - 1], b = rope.nodes[i];
+      worldCapsule(a.x, a.y, rope.z, b.x, b.y, rope.z, 8,
+        i % 2 ? [220, 225, 236] : [120, 150, 178]);
+    }
+  }
+}
+
 function terrainSeed(value) {
   let hash = 2166136261;
   for (const character of String(value || "oskiewar")) {
@@ -247,9 +506,10 @@ function terrainSeed(value) {
 function terrainFloorAt(x) {
   // Outside the park the ground is flat, so the walls have something square
   // to stand out of and a body pushed past the lip still has a floor.
-  if (x <= parkLeft) return floorY - parkSegments[0].rise;
+  if (x <= parkLeft) return floorY - parkSegments[0].lift - (parkSegments[0].rise || 0);
   if (x >= parkRight) return floorY -
-    parkSegments[parkSegments.length - 1].rise;
+    (parkSegments[parkSegments.length - 1].rise || 0) -
+    parkSegments[parkSegments.length - 1].lift;
   for (const segment of parkSegments) {
     if (x < segment.left || x > segment.right) continue;
     if (segment.kind === "flat") return floorY - segment.lift;
@@ -1390,7 +1650,7 @@ const localMapVariants = [null, {
 }];
 
 function rotateLocalMap(keepMap) {
-  if (!localVersusActive() || workshopTainted ||
+  if (skateparkMap || !localVersusActive() || workshopTainted ||
       globalThis.__oskiewarPublishedMap) return;
   if (!keepMap || localMapIndex < 0)
     localMapIndex = (localMapIndex + 1) % localMapVariants.length;
@@ -1418,6 +1678,7 @@ function workshopSnapshot() {
 }
 
 function installWorkshopMap(map, cycleHandgun = false) {
+  if (skateparkMap) { configureWorldMap("station"); resetSkateRopes(); }
   localMapInstalled = false;
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
@@ -2084,6 +2345,7 @@ function startReplay(now) {
     // timed, which is what the reader below assumes.
     timed: roundIsTimed(),
     nameSeed: nameSeedUsed, ballType: matchBallType,
+    map: skateparkMap ? "skatepark" : "station",
     fighters: players.map((player) => player.name),
     nations: players.map((player) => player.nation || ""),
     commands: [], events: [], checkpoints: [], rounds: [], impacts: [],
@@ -2172,6 +2434,9 @@ function spectatorState(now, nextRoundId = "") {
     map: { id: currentMapId, name: currentMapName, highlights: workshopHighlight,
       ...(workshopMap ? { workshop: workshopMap } : {}) },
     at: run.unixMs || 0, phase,
+    course: skateparkMap ? "skatepark" : "station",
+    ropes: skateRopes.map((rope) => rope.nodes.map((node) =>
+      [node.x, node.y, node.px, node.py].map((value) => Math.round(value * 100) / 100))),
     previousRoundId: previousRoundName ? "ow-" + previousRoundName : "",
     fighters: players.map((player) => ({
       // The title's still variant seats a fighter with no name yet, and the
@@ -2180,6 +2445,9 @@ function spectatorState(now, nextRoundId = "") {
       name: player.name || "NOBODY", nation: player.nation || "", color: player.color,
       x: player.x, y: player.y,
       z: player.z, vx: player.vx, vy: player.vy, vz: player.vz,
+      skateboard: player.skateboard,
+      ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
+      skateRotation: player.skateRotation,
       facing: player.facing, alive: player.alive,
       grounded: player.grounded, ducking: player.ducking,
       sinking: now < player.sinkUntil,
@@ -2390,11 +2658,14 @@ function recordReplayCheckpoint(now, force = false) {
 function makeRoundReplayFrame(now) {
   const poseTime = (now - startedAt) / 1000000;
   return {
+    ropes: structuredClone(skateRopes),
     players: players.map((player) => ({
       x: player.x, y: player.y, z: player.z,
       vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, grounded: player.grounded,
       ducking: player.ducking, alive: player.alive,
+      ropeIndex: player.ropeIndex, ropeLink: player.ropeLink,
+      skateRotation: player.skateRotation, skateboard: player.skateboard,
       blocking: player.blocking, blockFlash: player.blockFlash, hit: player.hit,
       attackKind: player.attackKind,
       attackStartedOffset: player.attackStartedAt - now,
@@ -2445,12 +2716,13 @@ function captureFrameTelemetry(now, force = false) {
 }
 
 function applyRoundReplayFrame(frame, now) {
+  if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...structuredClone(frame.ropes));
   for (let index = 0; index < players.length; index++) {
     const player = players[index];
     const state = frame.players[index];
     for (const key of ["x", "y", "z", "vx", "vy", "vz", "facing",
       "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
-      "attackKind"]) player[key] = state[key];
+      "attackKind", "ropeIndex", "ropeLink", "skateRotation", "skateboard"]) player[key] = state[key];
     player.attackStartedAt = now + state.attackStartedOffset;
     player.attackUntil = now + state.attackUntilOffset;
     player.replayGeometry = state.geometry;
@@ -3846,6 +4118,7 @@ function advanceResimCommands() {
   }
 }
 function startResim(demo, now) {
+  configureWorldMap(demo.map);
   gameMode = "fight";
   resimActive = true;
   resimTimed = demo.timed !== false;
@@ -4400,7 +4673,7 @@ function roundDemoState(demo, now) {
     camera.fov = value(30);
     camera.roll = value(31);
   }
-  return { phase: "replay", tick, fighters, ball: replayBall,
+  return { phase: "replay", map: demo.map || "station", tick, fighters, ball: replayBall,
     balls: [replayBall], camera,
     wind: { direction: round[1], mph: round[2] },
     round: { remainingMs: Math.max(0, Math.round((endTick - tick) * 1000 /
@@ -4422,6 +4695,16 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       currentMapName = "HALFPIPE";
     }
   }
+  if (((state.course || state.map) === "skatepark") !== skateparkMap) {
+    configureWorldMap(state.course || state.map); resetSkateRopes();
+  }
+  if (skateparkMap && Array.isArray(state.ropes) && state.ropes.length === skateRopes.length)
+    state.ropes.forEach((nodes, index) => {
+      if (!Array.isArray(nodes) || nodes.length !== chainLinks + 1 ||
+          nodes.some((row) => !Array.isArray(row) || row.length !== 4 ||
+            row.some((n) => !Number.isFinite(n) || Math.abs(n) > 100000))) return;
+      skateRopes[index].nodes = nodes.map(([x, y, px, py]) => ({ x, y, px, py }));
+    });
   for (let index = 0; index < players.length; index++) {
     const source = state.fighters[index];
     const player = players[index];
@@ -4434,7 +4717,8 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
     const wasHit = player.hit || 0;
     const priorParts = player.removedParts?.slice() || [];
     for (const key of ["name", "nation", "color", "x", "y", "z", "facing", "alive",
-      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts"])
+      "grounded", "ducking", "blocking", "score", "roundWins", "removedParts",
+      "ropeIndex", "ropeLink", "skateRotation", "skateboard"])
       if (source[key] !== undefined) player[key] = source[key];
     player.vx = source.vx ?? (player.x - previousX) / Math.max(.001, dt);
     player.vy = source.vy ?? (player.y - previousY) / Math.max(.001, dt);
@@ -5014,6 +5298,7 @@ function netPadFromMask(mask) {
 function netSimScalars() {
   return {
     gameMode,
+    skateparkMap,
     terrainPhase,
     matchBallType,
     ballEnabled,
@@ -5066,6 +5351,7 @@ function netSimScalars() {
 function netRestoreScalars(saved) {
   ({
     gameMode,
+    skateparkMap,
     terrainPhase,
     matchBallType,
     ballEnabled,
@@ -5116,7 +5402,7 @@ function netRestoreScalars(saved) {
   } = saved);
 }
 const netSimArrays = () => ({
-  players, balls, bullets, grenades, impacts, detachedParts,
+  players, balls, bullets, grenades, impacts, detachedParts, skateRopes,
   // `saberPickups` belongs here for the same reason every other array does,
   // and leaving it out was a real desync: a rollback that does not restore it
   // re-simulates frames in which a blade was already taken, or takes one that
@@ -5142,6 +5428,7 @@ function netSnapshot() {
 // grew since the snapshot are removed too — a key the sim added later must not
 // survive a rewind.
 function netRestore(snapshot) {
+  configureWorldMap(snapshot.scalars.skateparkMap ? "skatepark" : "station");
   netRestoreScalars(structuredClone(snapshot.scalars));
   const live = netSimArrays();
   for (const [name, saved] of Object.entries(snapshot.arrays)) {
@@ -5184,7 +5471,9 @@ function netStateHash() {
     // frames and were found apart only once the reach changed an outcome,
     // which is the most expensive way to learn about a desync.
     player.skateboard, player.skateVx, player.skateWallSide,
-    player.skatePitch || 0, player.skateContacts || 0, player.swordHeld]);
+    player.skatePitch || 0, player.skateContacts || 0, player.swordHeld, player.ropeIndex, player.ropeLink, player.ropeGrabLocked, player.skateLoop,
+    player.loopAngle, player.loopSpeed, player.loopCooldownUntil, player.skateRotation, player.boostUntil]);
+  view.push(skateparkMap, skateRopes);
   view.push(balls.map((item) => [item.active, item.x, item.y, item.z,
     item.vx, item.vy, item.heldBy]));
   // Projectiles by position, not just by count. A round whose flight differs
@@ -5251,8 +5540,8 @@ function netMakeDeal() {
   const rivalColors = netCleanColors(rival.colors);
   const hostNow = Math.max(NET_ORIGIN_US, runtime().monotonicUs);
   const origin = Math.ceil((hostNow + NET_TICK_US) / NET_TICK_US) * NET_TICK_US;
-  return { t: "start", v: 1, origin, delay: NET_INPUT_DELAY,
-    ballType: matchBallType,
+  return { t: "start", v: 2, origin, delay: NET_INPUT_DELAY,
+    ballType: matchBallType, map: skateparkMap ? "skatepark" : "station",
     fighters: [
       { name: netCleanName(local.name, ""), rosterIndex: local.rosterIndex,
         color: local.color.slice(0, 3),
@@ -5306,6 +5595,7 @@ function netBegin(deal, seat, send) {
   }
   netClockUs = deal.origin;
   try {
+    configureWorldMap(deal.map);
     matchBallType = deal.ballType;
     // The limb poses that collide are phased off this epoch, so both seats
     // must share it; and a rollback fight is never a recorded one.
@@ -5741,7 +6031,7 @@ function netChallengerHello(now) {
   if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
   netHelloSentAt = at;
-  roundViewer.sendNet({ t: "hello", v: 1, ...netLocalIdentity() });
+  roundViewer.sendNet({ t: "hello", v: 2, ...netLocalIdentity() });
 }
 
 // Packets that arrive before a session exists: the challenger's hello lands
@@ -5752,12 +6042,13 @@ function netHandlePreSession(packet) {
   // A packet from the lane we have just fallen out of. Both ends are watching
   // the same cooldown, so this is a straggler in flight, not an offer.
   if (Date.now() < netLaneBlockedUntil) return;
+  if (packet.t === "hello" && packet.v !== 2) return;
   if (packet.t === "hello" && !roundViewer) {
     netPeerHello = { name: packet.name, colors: packet.colors, at: Date.now() };
     return;
   }
   if (packet.t === "start" && roundViewer?.seat === "challenger" &&
-      packet.v === 1 && Number.isInteger(packet.origin) &&
+      packet.v === 2 && Number.isInteger(packet.origin) &&
       Number.isInteger(packet.delay) && Array.isArray(packet.fighters) &&
       packet.fighters.length === 2) {
     const bridge = roundViewer;
@@ -5952,6 +6243,8 @@ function resetRound(now, resetMatch = false, keepMap = false) {
   // Terrain belongs to the simulation contract, not the spectator URL. A
   // series keeps one landscape across rounds and identical training sims get
   // identical ground even when their public room names differ.
+  configureWorldMap(skateparkMap ? "skatepark" : "station");
+  resetSkateRopes();
   terrainPhase = terrainSeed("oskiewar-physics-1-hills");
   impacts.length = 0;
   detachedParts.length = 0;
@@ -6023,6 +6316,16 @@ function resetRound(now, resetMatch = false, keepMap = false) {
     player.carryArm = "";
     player.grabbedBy = -1;
     resetSkate(player);
+    player.skateboard = skateparkMap && !survivalActive();
+    player.ropeIndex = -1;
+    player.ropeGrabLocked = false;
+    player.ropeLink = chainLinks;
+    player.skateLoop = -1;
+    player.skateRotation = 0;
+    player.loopCooldownUntil = 0;
+    player.boostUntil = 0;
+    player.skateVx = 0;
+    player.skateWallSide = 0;
     player.swordHeld = false;
     player.grabHeld = false;
     player.commandStream = [];
@@ -6289,7 +6592,7 @@ function terrainSpan() {
 }
 
 function updateCamera(dt) {
-  if (survivalActive()) return;
+  if (survivalActive() || skateparkMap) return;
   const rect = fighterFrameRect();
   // Look slightly ahead of fast movement so zoom starts before a fighter
   // reaches the safe edge instead of reacting after the crossing.
@@ -6379,6 +6682,22 @@ function updateCamera(dt) {
 }
 
 function updateCameraDoll(dt, now) {
+  if (skateparkMap && !survivalActive() && shellMode === "GAME") {
+    const rider = players[netSession?.seat || 0];
+    const width = Math.max(1100, 900 * cameraAspect) * playerCameraZoom;
+    const half = width / 2;
+    const desiredX = clamp(rider.x + clamp(rider.vx * .18, -300, 300),
+      worldLeft + half, worldRight - half);
+    const desiredY = rider.y - 180;
+    const blend = 1 - Math.exp(-dt * 9);
+    cameraCenter += (desiredX - cameraCenter) * blend;
+    cameraCenterY += (desiredY - cameraCenterY) * blend;
+    cameraWidth = width;
+    cameraDoll.track({ target: { x: cameraCenter, y: cameraCenterY, z: 0 },
+      position: { x: cameraCenter, y: cameraCenterY, z: -width * 1.35 },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
   const introAge = now - roundStartedAt;
   if (survivalActive()) {
     const runner = players[0];
@@ -8181,6 +8500,7 @@ function resolvePogoAttacks(now) {
 }
 
 function resolvePlayerPushboxes() {
+  if (players.some((p) => p.ropeIndex >= 0 || p.skateLoop >= 0)) return;
   if (!players[0].alive || !players[1].alive) return;
   const poseTime = (runtime().monotonicUs - startedAt) / 1000000;
   const firstBounds = combatPushbox(players[0]);
@@ -8478,6 +8798,7 @@ function shieldBash(player, now) {
 }
 
 function updatePlayer(player, pad, dt, now) {
+  const parkPreviousX = player.x;
   player.previousY = player.y;
   if (player.grabbedBy >= 0) {
     const carrier = players[player.grabbedBy];
@@ -8621,6 +8942,14 @@ function updatePlayer(player, pad, dt, now) {
     ? { horizontal: 0, vertical: player.shieldCrouched ? -1 : 0 } : rawInput;
   const grabHeld = armCount > 0 && !pogo && !hitStunned && !player.blocking &&
     pad.down.includes("A") && pad.down.includes("B");
+  if (skateparkMap && !survivalActive()) {
+    const ropeHeld = skateRopeInput(player, input, grabHeld, dt, grabHeld && !player.grabHeld);
+    if (ropeHeld || skateLoopStep(player, input, dt, now)) {
+      player.previous = pad.down.slice();
+      player.grabHeld = grabHeld;
+      return;
+    }
+  }
   if (grabHeld && !player.grabHeld && player.heldBall < 0 &&
       player.heldPart < 0 &&
       player.heldPlayer < 0) {
@@ -9083,6 +9412,7 @@ function updatePlayer(player, pad, dt, now) {
     } else player.airJumpsUsed = 0;
   }
   resolveRunnerBounds(player, (now - startedAt) / 1000000);
+  skateBoostStep(player, parkPreviousX, now);
   player.hit = Math.max(0, player.hit - dt * 4);
   player.blockFlash = Math.max(0, player.blockFlash - dt * 6);
   player.previous = pad.down.slice();
@@ -9978,6 +10308,7 @@ function gameSim() {
     updateWind(dt, now);
     updatePlayer(players[0], inputPads[0], dt, now);
     updatePlayer(players[1], inputPads[1], dt, now);
+    updateSkateRopes(dt);
     resolvePlayerStanding(now);
     resolvePlayerPushboxes();
     updatePowerups(now);
@@ -10413,6 +10744,16 @@ function runnerWorldGeometry(player, t) {
   const cached = sharingRenderPoses && renderPoses.get(player);
   if (cached && (!player.spiderDummy || cached.t === t)) return cached.pose;
   const pose = buildRunnerWorldGeometry(player, t);
+  if (player.skateRotation) {
+  const c = Math.cos(player.skateRotation), s = Math.sin(player.skateRotation);
+  const rotate = (x, y) => ({ x: player.x + (x - player.x) * c - (y - player.y) * s,
+    y: player.y + (x - player.x) * s + (y - player.y) * c });
+  Object.assign(pose.head, rotate(pose.head.x, pose.head.y));
+  for (const segment of pose.segments) {
+    const a = rotate(segment.x1, segment.y1), b = rotate(segment.x2, segment.y2);
+    segment.x1 = a.x; segment.y1 = a.y; segment.x2 = b.x; segment.y2 = b.y;
+  }
+  }
   if (sharingRenderPoses) renderPoses.set(player, { t, pose });
   return pose;
 }
@@ -10621,10 +10962,10 @@ function buildRunnerWorldGeometry(player, t, at = null) {
       10, "right-upper-arm");
     segment(x + 42, elbowY - 10 + balance, x + 66, handY + balance,
       10, "right-forearm");
-  } else if (player.grabHeld) {
+  } else if (player.grabHeld || player.ropeIndex >= 0) {
     const held = player.heldBall >= 0 ? balls[player.heldBall] : null;
-    const clutchX = held?.x ?? x + player.facing * 126;
-    const clutchY = held?.y ?? feet - 92;
+    const clutchX = player.ropeIndex >= 0 ? x : held?.x ?? x + player.facing * 126;
+    const clutchY = player.ropeIndex >= 0 ? feet - 125 : held?.y ?? feet - 92;
     const spread = held ? Math.max(12, held.radius * .34) : 20;
     const hands = [
       { shoulderX: leftShoulderX, x: clutchX - player.facing * 5,
@@ -10860,6 +11201,7 @@ function fighterContainmentRequiredWidth(t) {
 // aspect-aware correction recenters their shared frame and moves the dolly
 // back far enough for landscape, portrait, live, and replay projection alike.
 function containFighters(t) {
+  if (skateparkMap && !survivalActive()) return;
   const gameplayContainment = !roundResult &&
     runtime().monotonicUs - roundStartedAt >= roundIntroDurationUs();
   if (gameplayContainment) {
@@ -10945,9 +11287,7 @@ function containFighters(t) {
 }
 
 function resolveRunnerBounds(player, t) {
-  // Walls use a stable fighting-game pushbox. Animated hands and feet remain
-  // the actual hit geometry, but cannot shove the root back and forth at an
-  // arena edge as a pose changes.
+  // Walls use a stable pushbox independent of the character renderer.
   const halfWidth = isHeadOnly(player) ? 24 : isPogo(player) ? 38
     : player.ducking ? 76 : 62;
   const leftWall = worldLeft + wallThickness;
@@ -11005,9 +11345,7 @@ function pointSegmentDistance(px, py, pz, segment) {
     py - (segment.y1 + dy * amount), pz - (segment.z1 + dz * amount));
 }
 
-// Closest points between two finite 3D line segments. Fighter limbs use the
-// rendered capsule width around these lines, so collision and silhouette share
-// the same geometry instead of maintaining a hidden rectangular hitbox.
+// Closest points for loose debris, independent of the character renderer.
 function segmentSegmentClosest(first, second) {
   const d1x = first.x2 - first.x1;
   const d1y = first.y2 - first.y1;
@@ -13446,25 +13784,56 @@ function drawSurvivalLava(t) {
   }
 }
 
-// The map's addressing, made visible: the same ten-by-ten lattice the spawn
-// marks and pickups are authored on, ruled onto the back wall, with one tint
-// per heated cell of `gridField` fading as the field cools. Seams are thin
-// quads rather than worldLines because the native renderer buries the whole
-// line stratum beneath the world's triangles — the grid would vanish behind
-// its own wall on console, the same way the gun once drew under the floor.
+// The map's addressing, made visible: the same lattice the spawn marks and
+// pickups are authored on, with the heat of `gridField` showing where the
+// last half-second of the fight landed. Seams are thin quads rather than
+// worldLines because the native renderer buries the whole line stratum
+// beneath the world's triangles — the grid would vanish behind its own wall
+// on console, the same way the gun once drew under the floor.
+//
+// A heated cell used to paint its entire ninety-unit face — a square as tall
+// as a standing fighter, and a busy exchange flipped a dozen of them on and
+// off at once. That is the stripes and the starfield again: a pattern the eye
+// keeps reading behind the two things it is supposed to be watching. On the
+// light theme it was worse than busy, because the slab's base is the vacuum,
+// so what bloomed over the arena was a dark panel rather than heat.
+//
+// So the cell keeps its job and loses its size. Each hot tile draws a small
+// jittered grain patch at its own centre, under half a tile across so two lit
+// neighbours can never fuse back into a checker square. Heat sets how many
+// specks are lit as well as how bright, so cooling reads as a patch thinning
+// out — texture, at a scale that stays decoration.
 function drawGridOverlay(shade, seamInk = null) {
   const gridZ = worldFar - 2;
   const gridTop = floorY - gridHeight;
   const hot = mixColor([255, 138, 92], [204, 58, 46], visualTheme.light);
+  // Sixteen specks over a patch half a tile across, each of them a few units
+  // on a side against the tile's ninety, so the grain is a texture with air in
+  // it rather than a smaller solid square.
+  const grainSteps = 4;
+  const grainSpan = tileSize * .5;
   for (let cell = 0; cell < gridField.length; cell++) {
     const heat = gridField[cell];
-    if (heat < .03) continue;
-    const left = gridLeft + (cell % gridCols) * tileSize;
-    const bottom = floorY - Math.floor(cell / gridCols) * tileSize;
-    worldQuad({ x: left, y: bottom - tileSize, z: gridZ },
-      { x: left + tileSize, y: bottom - tileSize, z: gridZ },
-      { x: left + tileSize, y: bottom, z: gridZ },
-      { x: left, y: bottom, z: gridZ }, mixColor(shade, hot, heat * .55));
+    if (heat < .05) continue;
+    const centerX = gridLeft + (cell % gridCols + .5) * tileSize;
+    const centerY = floorY - (Math.floor(cell / gridCols) + .5) * tileSize;
+    const ink = mixColor(shade, hot, .4 + heat * .55);
+    for (let speck = 0; speck < grainSteps * grainSteps; speck++) {
+      // Hashed off the cell and the speck rather than noised, so a replayed
+      // round grains exactly the way the live one did.
+      const seed = .5 + .5 * Math.sin(cell * 12.9898 + speck * 78.233);
+      // Cooling puts specks out one at a time instead of dimming the lot.
+      if (seed > heat) continue;
+      const size = 2 + seed * 2 + heat * 2.5;
+      const x = centerX + (speck % grainSteps / (grainSteps - 1) - .5) *
+        grainSpan + (seed - .5) * 11;
+      const y = centerY + (Math.floor(speck / grainSteps) / (grainSteps - 1) -
+        .5) * grainSpan + (.5 - seed) * 11;
+      worldQuad({ x: x - size, y: y - size, z: gridZ },
+        { x: x + size, y: y - size, z: gridZ },
+        { x: x + size, y: y + size, z: gridZ },
+        { x: x - size, y: y + size, z: gridZ }, ink);
+    }
   }
   // The climb's lattice is ruled onto plaster and takes its seam from that
   // plaster. The station has no plaster, and ruling the same seams across
@@ -15240,6 +15609,7 @@ function gamePaint() {
   drawTerrainBackWall(spanLeft, spanRight, worldFar, ground);
   drawTerrainSurface(spanLeft, spanRight, groundNear, worldFar, ground);
   drawTerrainFrontWall(spanLeft, spanRight, groundNear, ground);
+  drawSkateParkFeatures();
   // No grass in vacuum. The blades were the tower's lawn and the cube kept
   // them out of habit; on a hull they read as moss on a spaceship.
   if (renderFlags.grass !== false && !space)

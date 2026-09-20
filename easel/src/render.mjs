@@ -390,6 +390,37 @@ export function renderBoot(elapsed = 0, columns = 80, rows = 24, useColor = true
     .join("\n");
 }
 
+// The only gate before the interface. There are exactly two starts, passed by
+// the genre catalog, and each gets one visible label. The active route is
+// readable from its arrow and colour rather than a second explanatory line.
+export function renderGenrePicker(choices, selected = 0, columns = 80, rows = 24, useColor = true) {
+  const width = Math.max(32, columns);
+  const height = Math.max(10, rows);
+  const ground = useColor ? color.ground : "";
+  const reset = useColor ? color.reset : "";
+  const labels = Array.from(choices || [], (choice) => cleanText(choice));
+  const start = Math.max(3, Math.floor(height / 2) - 3);
+  const lines = Array.from({ length: height }, () => "");
+
+  const centred = (text, tone) => {
+    const clipped = clipText(text, Math.max(1, width - 4));
+    const pad = Math.max(1, Math.floor((width - textWidth(clipped)) / 2));
+    return `${" ".repeat(pad)}${paint(useColor, tone, clipped)}`;
+  };
+
+  lines[start - 2] = centred("AESTHETIC CODE", "bold text");
+  lines[start] = centred("CHOOSE A GENRE", "muted");
+  labels.forEach((label, index) => {
+    const active = index === selected;
+    lines[start + 2 + index] = centred(`${active ? "›" : " "} ${label}`, active ? "prompt bold" : "soft");
+  });
+  lines[height - 2] = centred("↑↓ choose · enter", "muted");
+
+  return lines
+    .map((line) => `${ground}${fit(line, width)}${reset}`)
+    .join("\n");
+}
+
 // The gauge row: everything happening on the far side of the QR code — how many
 // people are at the piece, and what their browsers are painting — and, last, the
 // running electricity estimate for the session. Parts fall off

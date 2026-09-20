@@ -31,7 +31,8 @@ assert_contains() {
 }
 
 output="$($CLI --version)"
-assert_contains "$output" "aesel $(node -p "require('$PROJECT_DIR/package.json').version")"
+expected_version="$(node -p "require('$PROJECT_DIR/package.json').version")"
+assert_contains "$output" "aesel $expected_version"
 
 output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'interface=easel'
@@ -77,6 +78,16 @@ assert_contains "$output" 'runtime=lisp'
 
 output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
 assert_contains "$output" 'runtime=mjs'
+assert_contains "$output" 'genre=choose'
+
+output="$(EASEL_DRY_RUN=1 "$CLI" --genre nopaint "$WORK_DIR")"
+assert_contains "$output" 'genre=nopaint'
+assert_contains "$output" 'runtime=mjs'
+
+if EASEL_DRY_RUN=1 "$CLI" --genre nopaint --runtime lisp "$WORK_DIR" >/dev/null 2>&1; then
+    printf 'Expected a nopaint brush to reject a non-JavaScript runtime.\n' >&2
+    exit 1
+fi
 
 # Publishing is outward-facing, so it is off unless this session asked for it —
 # by flag or by environment, with the flag able to say no to the environment.

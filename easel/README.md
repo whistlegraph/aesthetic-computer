@@ -40,6 +40,12 @@ The interface uses the Aesthetic Computer prompt's palette (purple ground, pink
 prompt, orange highlight, magenta handle) and shows the signed-in `@handle` and
 the piece currently being worked on in the header.
 
+At startup Easel offers exactly two surfaces: `AC piece (blank)` keeps the
+existing piece-authoring flow; `nopaint.art brush` starts a JavaScript brush
+whose exported `brush` function runs inside No Paint's existing canvas,
+gesture, undo, pan/zoom, and bake pipeline. `--genre piece|nopaint` chooses one
+without the picker.
+
 Inside the TUI: `/login`, `/logout`, `/whoami`, `/publish [file] [slug]`,
 `/autopublish [on|off]`, `/piece [name]`, `/runtime [mjs|lisp|processing]`,
 `/backend [claude|codex]`,
@@ -152,7 +158,8 @@ written down in [`docs/local-contract.md`](docs/local-contract.md).
 
 ## The session's piece, live on a phone
 
-Opening Aesel opens a new blank piece. It gets a random pronounceable
+Opening Aesel asks whether to open a blank AC piece or a nopaint.art brush.
+Either gets a random pronounceable
 name, it is a real file in the workspace, and a QR code for it sits in the
 bottom right of the interface. Scan the code and the piece runs on your phone;
 every edit the agent makes reaches it a moment later.

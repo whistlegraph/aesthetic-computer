@@ -38,6 +38,7 @@ import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mj
 import { Energy, energyReport } from "./energy.mjs";
 import {codexModels,pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
+import { GENRES, genreFor } from "./genres.mjs";
 import { LivePiece } from "./live.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
 import { applyUpdate, checkForUpdate, currentVersion, installed } from "./updates.mjs";
@@ -45,7 +46,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, color, aeselInk, renderBoot, renderFrame, frameLayout, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
+import { cleanText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -111,6 +112,61 @@ currentArtifact=await artifacts.selected();
 const resumeThreadId = desktopRestored?.engine.threadId || option("--resume");
 const initialPrompt = desktopRestored ? "" : option("--prompt");
 const initialPiece = desktopRestored?.live.file || option("--piece");
+const requestedGenre = option("--genre") || desktopRestored?.live.genre;
+
+async function chooseGenre() {
+  if (requestedGenre) return genreFor(requestedGenre);
+  if (desktopSessionPath || desktopRestored || initialPiece || currentArtifact.kind !== "piece" || !process.stdin.isTTY || !process.stdout.isTTY) return genreFor();
+
+  let selected = 0;
+  const labels = GENRES.map(({ label }) => label);
+  const draw = () => {
+    const frame = renderGenrePicker(
+      labels,
+      selected,
+      process.stdout.columns,
+      process.stdout.rows,
+      process.env.NO_COLOR !== "1",
+    );
+    process.stdout.write(`\x1b[H\x1b[2J${frame}`);
+  };
+
+  process.stdout.write("\x1b[?1049h\x1b[?25l");
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  draw();
+
+  return new Promise((resolve) => {
+    const finishChoice = (choice) => {
+      process.stdin.off("data", onData);
+      process.stdout.off("resize", draw);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+      if (!choice) process.stdout.write("\x1b[?25h\x1b[?1049l");
+      resolve(choice);
+    };
+    const onData = (buffer) => {
+      const keys = buffer.toString("utf8").match(/\x1b\[[0-9;]*[~A-Za-z]|./gsu) || [];
+      for (const key of keys) {
+        if (key === "\u0003" || key === "\u0004") return finishChoice(null);
+        if (key === "\x1b[A" || key === "\x1b[D") {
+          selected = (selected - 1 + GENRES.length) % GENRES.length;
+          draw();
+        } else if (key === "\x1b[B" || key === "\x1b[C" || key === "\t") {
+          selected = (selected + 1) % GENRES.length;
+          draw();
+        } else if (key === "\r" || key === "\n") {
+          return finishChoice(GENRES[selected]);
+        }
+      }
+    };
+    process.stdin.on("data", onData);
+    process.stdout.on("resize", draw);
+  });
+}
+
+const genre = await chooseGenre();
+if (!genre) process.exit(130);
 // Which engine bridge drives the conversation, and on which model. The bridge
 // can be swapped mid-session with /backend, so neither is a constant.
 let savedProvider=await readProviderPreferences();
@@ -129,7 +185,8 @@ let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : (desktopRestored?.o
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
 const live = new LivePiece({
   cwd,
-  runtime: desktopRestored?.live.runtime || option("--runtime") || DEFAULT_RUNTIME,
+  genre: genre.id,
+  runtime: genre.runtime || desktopRestored?.live.runtime || option("--runtime") || DEFAULT_RUNTIME,
   ...(desktopRestored?.live.channel ? { channel: desktopRestored.live.channel } : {}),
   // `/run` accepts a push only from the handle that owns the channel, so a
   // push carries the session's own token. A signed-out session resolves null
@@ -333,6 +390,7 @@ const BUNDLED_CONTEXT = [
 const aeselRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function styleInstructions() {
+  if (live.genre.id === "nopaint") return [];
   // The working directory wins when it has the guides: inside the monorepo they
   // are the living documents and the bundle is a stale copy of them.
   const present = STYLE_GUIDES.filter(([file]) => existsSync(path.join(cwd, file)));
@@ -403,6 +461,17 @@ function developerInstructions() {
           "Keep the file's first line a `--` comment and keep a top-level `function setup(` or `function draw(`. The live channel sends no file extension, so those two things are the only way the piece is recognised as Lua rather than compiled as JavaScript — drop either and the phone goes blank.",
         ]
       : [];
+  const surface =
+    live.genre.id === "nopaint"
+      ? [
+          `This session's piece is ${live.file} (nopaint.art brush, javascript). It already exists as a starter brush. Edit that file unless the user asks for something else.`,
+          "Keep it a No Paint brush, not a full-canvas AC piece. Export `brush({ pen, ink })`; the existing runtime supplies the persistent painting, gesture state, undo, pan, zoom, and bake-on-lift. Reuse that infrastructure instead of rebuilding it.",
+          "During a stroke, `pen` supplies x, y, pressure, and dragBox. Add boot, paint, act, lift, bake, or metadata only when the brush itself needs them.",
+        ]
+      : [
+          `This session's piece is ${live.file} (${live.runtime.label}). It already exists as a blank piece that paints a flat color and nothing else. Edit that file unless the user asks for something else.`,
+          "Do not write the piece's name onto the screen: the system already shows it in the corner label. If the file still carries a placeholder that writes its own name, remove it in your first edit.",
+        ];
   // With auto-publish on, telling the user to run /publish is wrong twice: the
   // work is already done, and the URL it would print is one they already have.
   const publishing =
@@ -425,10 +494,12 @@ function developerInstructions() {
     "Visual default for AC pieces generated in Aesel: let the piece stand on its own. Omit on-screen instructions, tutorial overlays, control hints (such as 'drag to steer' or 'press space'), captions, decorative headings, and explanatory labels unless the user explicitly requests them or they are essential to the piece's purpose. Prefer discoverable interaction and visual feedback. Put any necessary usage explanation briefly in the chat response instead of painting it into the piece. Preserve requested text, meaningful artwork text, accessibility support, and necessary safety or consent controls.",
     "Each piece request includes a fresh canvas capture and its actual pixel dimensions when the bridge is available. Use that evidence to judge the current resolution, density, edge quality, and composition; do not confuse CSS display size with drawable pixels. Avoid subpixel strokes and overly dense patterns that alias or shimmer unless intentional. Missing captures are explicitly marked; never invent their contents.",
     "Responsive composition is the default: contain the complete subject within the current drawable viewport, with a modest proportional margin. Read the runtime's current canvas dimensions, not fixed desktop sizes or outer window dimensions; recompute layout or camera framing when they change. Fit against both width and height (contain, not cover), preserve object proportions, and account for full bounds including strokes, rotation, and motion so important objects are not accidentally cropped in narrow, wide, or small previews. Adapt spacing and camera distance rather than stretching geometry. Keep input coordinates aligned with the drawing transform and preserve simulation state during resizing. Use intentional cropping, edge-to-edge artwork, or off-screen motion only when the piece's purpose or the user calls for it. Verify framing in the current preview and, when available, a contrasting aspect ratio; never claim an untested size was checked.",
+    ...(live.genre.id === "nopaint" ? surface : []),
     ...dialect,
     ...styleInstructions(),
     ...(live.runtime.id === "mjs" ? [
       "When adding sound, default to the shared network clock for musical timing: call clock.resync() in boot, periodically resync, and derive beats from clock.time().getTime(). Use 120 BPM and Unix epoch zero as the common beat origin unless the user requests another tempo or transport. Derive pattern position and rhythmic visuals from that absolute beat; join on the next boundary and skip missed notes after stalls. Do not use sim/frame counters, performance.now(), timers, or a piece-local start time as the musical clock. Keep direct touch/key sounds immediate unless quantization is requested. The API is clock.time(), not net.time().",
+      "Named sounds (roar, bray, bark, wind, bird) are a pitch contour plus a noise layer plus an envelope, never a fixed-pitch oscillator stab: build them with slide, vibrato, noise, formant and lowpass on sound.synth, or with the organic generators sound.howl, sound.growl, sound.breath and sound.chirp. Two or three layered voices at most; see the Sound section of the piece guide.",
     ] : []),
     "Every save of that file is pushed live to a phone that scanned the interface's QR code, so small frequent edits are better than one big rewrite.",
     ...toolInstructions(),

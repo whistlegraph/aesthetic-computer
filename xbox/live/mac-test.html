@@ -36,6 +36,8 @@
     // trip — a second origin, a fresh TLS handshake — under the module
     // download instead of stacking it on top.
     globalThis.__oskiewarOpenRoomFetch = location.pathname === "/" &&
+      !new URLSearchParams(location.search).has("map") &&
+      !new URLSearchParams(location.search).has("opponent") &&
       globalThis.__oskiewarVersusCapable === true
       ? fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
           { cache: "no-store", signal: AbortSignal.timeout(2500) })
@@ -246,6 +248,7 @@
     // Direct native/web route for the large destructible training opponent.
     // Pal select is intentionally retired; this keeps Spiderdummy reachable
     // without restoring a screen that no longer matches the front door.
+    globalThis.__oskiewarMap = new URLSearchParams(location.search).get("map") || "station";
     globalThis.__oskiewarOpponent =
       (jevDemo ? 'bot' : new URLSearchParams(location.search).get("opponent")) ||
       ((new URLSearchParams(location.search).has("workshop") || new URLSearchParams(location.search).has("map")) ? "dummy" : "");

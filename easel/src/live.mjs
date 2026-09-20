@@ -23,6 +23,7 @@ import { EventEmitter } from "node:events";
 import { existsSync, mkdirSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { USER_AGENT } from "./ac-session.mjs";
+import { genreFor } from "./genres.mjs";
 import { randomChannel, randomSlug } from "./names.mjs";
 import { DEFAULT_RUNTIME, runtimeFor, runtimeForExtension } from "./runtimes.mjs";
 
@@ -46,6 +47,7 @@ export class LivePiece extends EventEmitter {
     cwd = process.cwd(),
     slug = randomSlug(),
     runtime = DEFAULT_RUNTIME,
+    genre = "piece",
     channel = randomChannel(),
     directory = pieceDirectory(cwd),
     fetch = globalThis.fetch,
@@ -57,7 +59,8 @@ export class LivePiece extends EventEmitter {
     super();
     this.cwd = cwd;
     this.slug = slug;
-    this.runtime = runtimeFor(runtime);
+    this.genre = genreFor(genre);
+    this.runtime = runtimeFor(this.genre.runtime || runtime);
     // The channel a signed-out session falls back to. It is unguessable because
     // nothing about it says whose it is, which is the only thing protecting it:
     // `/run` will take a push to an opaque channel from any signed-in account.
@@ -125,7 +128,7 @@ export class LivePiece extends EventEmitter {
       this.blank = "";
       return this.file;
     }
-    this.blank = this.runtime.blank(this.slug);
+    this.blank = this.genre.blank(this.slug, this.runtime);
     writeFileSync(this.file, this.blank);
     this.history.capture(this.blank);
     return this.file;
@@ -187,6 +190,7 @@ export class LivePiece extends EventEmitter {
     const path = resolve(this.cwd, file);
     const runtime = runtimeForExtension(extname(path));
     if (!runtime) return false;
+    if (this.genre.runtime && runtime.id !== this.genre.runtime) return false;
     const slug = basename(path, runtime.extension);
     if (path === this.file) return false;
     const previous = this.file;
@@ -208,8 +212,12 @@ export class LivePiece extends EventEmitter {
     }
     const previous = this.file;
     const previousBlank = this.blank;
+    const runtime = runtimeFor(runtimeId);
+    if (this.genre.runtime && runtime.id !== this.genre.runtime) {
+      throw new Error(`${this.genre.label} uses javascript`);
+    }
     this.slug = slug;
-    this.runtime = runtimeFor(runtimeId);
+    this.runtime = runtime;
     this.blank = "";
     this.create();
     if (previous !== this.file) this.#discard(previous, previousBlank);

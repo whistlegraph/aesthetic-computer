@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { LivePiece, pieceDirectory } from "../src/live.mjs";
+import { GENRES, genreFor, genreLabels } from "../src/genres.mjs";
 import { randomChannel, randomSlug } from "../src/names.mjs";
 import { qrBlock } from "../src/qr.mjs";
 import { runtimeFor, runtimeForExtension, runtimeIds, runtimeMenu } from "../src/runtimes.mjs";
@@ -137,6 +138,29 @@ test("every runtime carries a blank that names itself in a comment, not on scree
   assert.equal(runtimeFor("kidlisp").id, "lisp");
   assert.equal(runtimeFor("js").id, "mjs");
   assert.match(runtimeMenu(), /lua \(processing\)/);
+});
+
+test("startup offers only an AC blank or a nopaint.art brush", () => {
+  assert.deepEqual(genreLabels(), ["AC piece (blank)", "nopaint.art brush"]);
+  assert.equal(GENRES.length, 2);
+  assert.equal(genreFor("ac").id, "piece");
+  assert.equal(genreFor("brush").id, "nopaint");
+  assert.throws(() => genreFor("game"), /unknown genre/);
+});
+
+test("the nopaint start uses the runtime's existing brush contract", async (context) => {
+  const root = await workspace(context);
+  const live = new LivePiece({ cwd: root, slug: "movika", genre: "nopaint", runtime: "lisp" });
+  assert.equal(live.runtime.id, "mjs", "brushes run as JavaScript even when another runtime was requested");
+  live.create();
+  const source = await readFile(live.file, "utf8");
+  assert.match(source, /function brush\(\{ ink, pen \}\)/);
+  assert.match(source, /const system = "nopaint"/);
+  assert.match(source, /export \{ brush, meta, system \}/);
+  assert.doesNotMatch(source, /function paint\(/, "the brush does not duplicate the canvas lifecycle");
+  assert.equal(live.retarget(join(root, "other.lisp")), false);
+  assert.throws(() => live.rename("other", "lisp"), /uses javascript/);
+  assert.equal(live.cleanup(), true);
 });
 
 // A live push carries no extension, so the client reads the source to decide

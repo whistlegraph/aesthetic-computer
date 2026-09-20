@@ -6604,9 +6604,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             PitchBendCursor.neutral.push()
             pitchBendCursorPushed = true
             hideSystemCursorIfNeeded()
-            showPitchBendOverlay()
         }
-        updatePitchBendOverlayImage()
+        // Focus can own the cursor while the overlay is still hidden, and
+        // the previous surface may have an idle fade pending. Every active
+        // slide must reveal the chart and cancel that fade independently
+        // of whether the cursor was already pushed.
+        showPitchBendOverlay()
         // No idle timeout: a finger resting still on the trackpad
         // emits no .mouseMoved deltas, so any silence-based timer
         // would release the fx while the user is deliberately

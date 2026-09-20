@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cleanText, renderFrame, textWidth, wrapText } from "../src/render.mjs";
+import { cleanText, renderFrame, renderGenrePicker, textWidth, wrapText } from "../src/render.mjs";
 
 test("cleans terminal control sequences", () => {
   assert.equal(cleanText("safe\x1b[2J\x00 text"), "safe text");
@@ -10,6 +10,19 @@ test("wraps content to the available width", () => {
   const lines = wrapText("aesthetic code owns the terminal interface", 12);
   assert.ok(lines.length > 1);
   assert.ok(lines.every((line) => Array.from(line).length <= 12));
+});
+
+test("renders the two starting genres as a keyboard choice", () => {
+  const labels = ["AC piece (blank)", "nopaint.art brush"];
+  const first = renderGenrePicker(labels, 0, 54, 16, false);
+  const second = renderGenrePicker(labels, 1, 54, 16, false);
+  assert.match(first, /› AC piece \(blank\)/);
+  assert.match(second, /› nopaint\.art brush/);
+  for (const label of labels) {
+    assert.equal(first.split(label).length - 1, 1, `${label} has one visible label`);
+  }
+  assert.equal(first.split("\n").length, 16);
+  for (const row of first.split("\n")) assert.equal(textWidth(row), 54);
 });
 
 test("renders one branded interface with privacy state and prompt", () => {

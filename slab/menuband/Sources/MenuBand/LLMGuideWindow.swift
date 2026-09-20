@@ -84,17 +84,19 @@ final class LLMGuideWindowController: NSWindowController, NSWindowDelegate {
         blurb.translatesAutoresizingMaskIntoConstraints = false
 
         // Monospaced, selectable, scrollable guide text.
-        let textView = NSTextView()
+        // Let AppKit initialize the scrolling document and its text layout
+        // together, with width tracking and room to grow vertically.
+        let scroll = NSTextView.scrollableTextView()
+        let textView = scroll.documentView as! NSTextView
         textView.string = Self.guide
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = true
         textView.backgroundColor = .textBackgroundColor
+        textView.textColor = .textColor
         textView.font = .monospacedSystemFont(ofSize: 10.5, weight: .regular)
         textView.textContainerInset = NSSize(width: 10, height: 10)
 
-        let scroll = NSScrollView()
-        scroll.documentView = textView
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
         scroll.translatesAutoresizingMaskIntoConstraints = false

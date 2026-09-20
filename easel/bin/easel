@@ -26,6 +26,7 @@ usage() {
     cat <<'EOF'
 Usage: ac [directory] [--runtime mjs|lisp|processing]
                       [--piece FILE] [--resume THREAD_ID]
+                      [--genre piece|nopaint]
                       [--backend claude|codex|ac] [--model NAME]
                       [--autopublish | --no-autopublish]
        aesthetic [directory]
@@ -37,8 +38,9 @@ Open the aesel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
 your @handle at https://aesthetic.computer/@handle/slug.
 
-Each session opens on a new blank piece and shows a QR code that runs it
-live on a phone. --runtime picks the language of that piece.
+Each session starts by choosing an AC blank piece or a nopaint.art brush,
+then shows a QR code that runs it live on a phone. --genre makes that
+choice at launch; --runtime picks an AC piece's language.
 
 --backend picks the engine bridge. claude (the default, on claude-opus-5)
 and codex each drive that vendor's CLI and need a subscription to it. ac
@@ -125,6 +127,7 @@ resume_thread=""
 initial_prompt=""
 initial_piece=""
 runtime=""
+genre=""
 backend=""
 model=""
 # Empty means "whatever the environment says"; the interface reads
@@ -185,6 +188,15 @@ while [[ $# -gt 0 ]]; do
             esac
             shift 2
             ;;
+        --genre)
+            [[ $# -ge 2 ]] || fail "--genre requires piece or nopaint"
+            case "$2" in
+                piece|ac|blank) genre="piece" ;;
+                nopaint|brush) genre="nopaint" ;;
+                *) fail "unknown genre: $2 (piece, nopaint)" ;;
+            esac
+            shift 2
+            ;;
         --)
             shift
             [[ $# -le 1 ]] || fail "expected one workspace directory"
@@ -205,6 +217,10 @@ done
 target_directory="${target_directory:-$PWD}"
 [[ -d "$target_directory" ]] || fail "directory does not exist: $target_directory"
 target_directory="$(cd "$target_directory" && pwd -P)"
+
+if [[ "$genre" == "nopaint" && -n "$runtime" && "$runtime" != "mjs" && "$runtime" != "js" ]]; then
+    fail "nopaint brushes use the javascript runtime"
+fi
 
 has_command node || fail "Node.js is required"
 
@@ -230,7 +246,8 @@ if [[ "${EASEL_DRY_RUN:-0}" == "1" ]]; then
     printf 'directory=%s\n' "$target_directory"
     printf 'resume=%s\n' "$([[ -n "$resume_thread" ]] && printf yes || printf no)"
     printf 'initial_prompt=%s\n' "$([[ -n "$initial_prompt" ]] && printf yes || printf no)"
-    printf 'runtime=%s\n' "${runtime:-mjs}"
+    printf 'runtime=%s\n' "$([[ "$genre" == nopaint ]] && printf mjs || printf '%s' "${runtime:-mjs}")"
+    printf 'genre=%s\n' "${genre:-choose}"
     printf 'autopublish=%s\n' "${autopublish:-$([[ "${EASEL_AUTOPUBLISH:-0}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
     printf 'backend=%s\n' "$selected_backend"
     printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
@@ -246,6 +263,7 @@ if [[ -n "$resume_thread" ]]; then arguments+=("--resume" "$resume_thread"); fi
 if [[ -n "$initial_prompt" ]]; then arguments+=("--prompt" "$initial_prompt"); fi
 if [[ -n "$initial_piece" ]]; then arguments+=("--piece" "$initial_piece"); fi
 if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
+if [[ -n "$genre" ]]; then arguments+=("--genre" "$genre"); fi
 if [[ "$autopublish" == "on" ]]; then arguments+=("--autopublish"); fi
 if [[ "$autopublish" == "off" ]]; then arguments+=("--no-autopublish"); fi
 arguments+=("--backend" "$selected_backend")

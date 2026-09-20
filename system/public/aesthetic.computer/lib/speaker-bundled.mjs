@@ -10,14 +10,11 @@ var volume2 = {
   apply
 };
 
-// public/aesthetic.computer/lib/help.mjs
-var { floor } = Math;
-
 // public/aesthetic.computer/lib/num.mjs
 var {
   abs,
   round,
-  floor: floor2,
+  floor,
   ceil,
   random,
   PI,
@@ -363,17 +360,100 @@ var remainingColors = Object.keys(cssColors).filter(
 );
 var completeColorIndex = [...organizedColorIndex, ...remainingColors];
 
+// public/aesthetic.computer/lib/sound/formant.mjs
+var { sin: sin2, cos: cos2, PI: PI2, max: max2, min: min2 } = Math;
+var VOWELS = {
+  a: [{ freq: 730, bw: 80, gain: 1 }, { freq: 1090, bw: 90, gain: 0.5 }, { freq: 2440, bw: 120, gain: 0.25 }],
+  e: [{ freq: 530, bw: 60, gain: 1 }, { freq: 1840, bw: 90, gain: 0.5 }, { freq: 2480, bw: 120, gain: 0.2 }],
+  i: [{ freq: 270, bw: 60, gain: 1 }, { freq: 2290, bw: 90, gain: 0.35 }, { freq: 3010, bw: 100, gain: 0.2 }],
+  o: [{ freq: 570, bw: 80, gain: 1 }, { freq: 840, bw: 90, gain: 0.5 }, { freq: 2410, bw: 120, gain: 0.2 }],
+  u: [{ freq: 300, bw: 60, gain: 1 }, { freq: 870, bw: 90, gain: 0.35 }, { freq: 2240, bw: 120, gain: 0.15 }]
+};
+function vowelBands(spec, scale = 1) {
+  const bands = typeof spec === "string" ? VOWELS[spec.toLowerCase()] : spec;
+  if (!bands) return null;
+  return bands.map(({ freq, bw, gain = 1 }) => ({ freq: freq * scale, bw, gain }));
+}
+var FormantBank = class {
+  #n = 0;
+  #sr;
+  #b0;
+  #a1;
+  #a2;
+  // RBJ constant-peak bandpass: b1 = 0, b2 = -b0.
+  #gain;
+  #x1;
+  #x2;
+  #y1;
+  #y2;
+  // Direct Form I history, per band.
+  #norm = 1;
+  // `sr` defaults to the AudioWorklet global; pass one when running elsewhere.
+  constructor(bands, sr = globalThis.sampleRate) {
+    this.#sr = sr;
+    this.set(bands);
+  }
+  set(bands) {
+    const n = bands.length;
+    if (n !== this.#n) {
+      this.#n = n;
+      this.#b0 = new Float64Array(n);
+      this.#a1 = new Float64Array(n);
+      this.#a2 = new Float64Array(n);
+      this.#gain = new Float64Array(n);
+      this.#x1 = new Float64Array(n);
+      this.#x2 = new Float64Array(n);
+      this.#y1 = new Float64Array(n);
+      this.#y2 = new Float64Array(n);
+    }
+    const nyq = this.#sr * 0.45;
+    let peak = 0;
+    for (let i = 0; i < n; i++) {
+      const freq = min2(max2(bands[i].freq, 20), nyq);
+      const bw = max2(bands[i].bw, 1);
+      const w0 = 2 * PI2 * freq / this.#sr;
+      const alpha = sin2(w0) * (bw / freq) / 2;
+      const a0 = 1 + alpha;
+      this.#b0[i] = alpha / a0;
+      this.#a1[i] = -2 * cos2(w0) / a0;
+      this.#a2[i] = (1 - alpha) / a0;
+      const gain = bands[i].gain ?? 1;
+      this.#gain[i] = gain;
+      peak = max2(peak, gain);
+    }
+    this.#norm = peak > 0 ? 1 / peak : 1;
+  }
+  process(x) {
+    let out = 0;
+    for (let i = 0; i < this.#n; i++) {
+      const y = this.#b0[i] * (x - this.#x2[i]) - this.#a1[i] * this.#y1[i] - this.#a2[i] * this.#y2[i];
+      this.#x2[i] = this.#x1[i];
+      this.#x1[i] = x;
+      this.#y2[i] = this.#y1[i];
+      this.#y1[i] = y;
+      out += y * this.#gain[i];
+    }
+    return out * this.#norm;
+  }
+};
+
 // public/aesthetic.computer/lib/sound/synth.mjs
-var { abs: abs2, floor: floor3, sin: sin2, PI: PI2, min: min2, max: max2, random: random2 } = Math;
-var Synth = class {
+var { abs: abs2, floor: floor2, round: round2, sin: sin3, cos: cos3, PI: PI3, min: min3, max: max3, random: random2, pow: pow2 } = Math;
+var Synth = class _Synth {
   // Generic for all instruments.
   playing = true;
   id;
   // Unique for every playing instrument.
+  // 🍿 Shortest release any kill can ask for. Below ~2ms the ramp stops
+  // rounding the waveform's corner and starts sounding like the cut it
+  // replaced.
+  static MIN_RELEASE = 2e-3;
   fading = false;
   // If we are fading and then stopping playback.
   fadeGain = 1;
+  // Release multiplier — walks 1 → 0 and never back up.
   fadeStep = 0;
+  // How much `fadeGain` drops per sample.
   fadeProgress;
   fadeDuration;
   type;
@@ -402,22 +482,43 @@ var Synth = class {
   #sampleData;
   // Specific to `sample`.
   #sampleIndex = 0;
+  #declick = 0;
+  // Samples left in the post-relocation attack ramp
+  #declickTotal = 1;
+  #pitch = 1;
+  // Independent pitch factor (1 = none) — tempo untouched
+  #pitchPhase = 0;
+  // Sweep phase of the two-tap delay-line shifter
   #sampleEndIndex = 0;
   #sampleStartIndex = 0;
   #sampleSpeed = 0.25;
   #sampleLoop = false;
+  #preserveDuration = false;
+  // If true, pitch shift without changing duration (granular)
+  #targetDurationSamples = 0;
+  // Original duration in samples when preserving
+  #playedSamples = 0;
+  // Track how many samples we've output
   // Time stretch + pitch shift fields
   #timeStretchEnabled = false;
+  // If true, stretch sample to targetDuration, then pitch shift
   #targetDurationMs = 0;
+  // Target duration in milliseconds (for time stretch mode)
   #timeStretchRatio = 1;
+  // How much to stretch/compress time (>1 = slower, <1 = faster)
   #outputSamplesNeeded = 0;
-  #playedSamples = 0;
-  // Granular synthesis fields
+  // How many output samples to produce
+  // Granular pitch shifting fields
   #grainSize = 2048;
+  // Size of each grain in samples (~46ms at 44100Hz)
   #grainOverlap = 4;
+  // Number of overlapping grains (more = smoother)
   #grains = [];
+  // Array of active grains
   #grainPhase = 0;
+  // Phase for spawning new grains
   #sourcePosition = 0;
+  // Position in source buffer (independent of output)
   #up = false;
   // Specific to `square`.
   #step = 0;
@@ -426,6 +527,36 @@ var Synth = class {
   #noiseFilterState2 = 0;
   #noiseFilterState3 = 0;
   #noiseFilterState4 = 0;
+  // Specific to `harp` — Karplus-Strong plucked string.
+  // Refs: Karplus & Strong (1983); Jaffe & Smith EKS (1983);
+  //       Smith, "Physical Audio Signal Processing" — CCRMA Stanford.
+  // Mirrors the C generate_harp_sample in fedac/native/src/audio.c.
+  #harpBuf = null;
+  // Float32Array — string delay line
+  #harpW = 0;
+  // write index
+  #harpLp1 = 0;
+  // 1-pole moving-average LPF state
+  // Specific to `whistle` — Cook/STK digital waveguide flute model.
+  // Mirrors the C generate_whistle_sample in fedac/native/src/audio.c.
+  #whistleBoreBuf = null;
+  // bore delay line
+  #whistleBoreW = 0;
+  #whistleJetBuf = null;
+  // jet delay line
+  #whistleJetW = 0;
+  #whistleBreath = 0;
+  // smoothed breath pressure
+  #whistleVibratoPhase = 0;
+  // 5 Hz LFO phase
+  #whistleLp1 = 0;
+  // 1-pole loop LPF state
+  #whistleHpX1 = 0;
+  // 1-pole DC blocker — last input
+  #whistleHpY1 = 0;
+  // 1-pole DC blocker — last output
+  #whistleNoiseSeed = 0;
+  // xorshift32 state
   // Custom waveform generation
   #customGenerator;
   // Function that generates waveform data
@@ -433,9 +564,49 @@ var Synth = class {
   // Buffer for streaming waveform data
   #customBufferSize = 1024;
   // Size of the streaming buffer
+  // 🐦 Expression — slide, vibrato, drift bend the pitch; noise, formant and
+  // lowpass shape the source; tremolo rides the level. Everything stays off
+  // (null / 0) unless asked for, so a plain voice renders exactly as before.
+  #slideLeft = 0;
+  // samples left in the exponential glide
+  #slideRatio = 1;
+  // per-sample frequency multiplier while sliding
+  #slideTarget = 0;
+  // snapped to at the end so rounding never leaves it off-pitch
+  #vibrato = null;
+  // { rate, depth, delay } — depth in semitones, delay in samples
+  #vibratoPhase = 0;
+  #drift = 0;
+  // semitones of wander
+  #driftPos = 0;
+  // smoothed position, -1..1
+  #driftTarget = 0;
+  #driftCountdown = 0;
+  // samples until the walk picks a new target
+  #liveFrequency;
+  // the modulated pitch the last sample was rendered at
+  #noise = 0;
+  // white-noise mix, 0..1
+  #formant = null;
+  // FormantBank
+  #lowpass = null;
+  // { cutoff, q } — RBJ lowpass, coefficients cached below
+  #lpB0 = 0;
+  #lpB1 = 0;
+  #lpA1 = 0;
+  #lpA2 = 0;
+  #lpX1 = 0;
+  #lpX2 = 0;
+  #lpY1 = 0;
+  #lpY2 = 0;
+  #lpSweepLeft = 0;
+  // samples left in the cutoff sweep
+  #lpSweepRatio = 1;
+  #lpSweepTarget = 0;
+  #tremolo = null;
+  // { rate, depth }
+  #tremoloPhase = 0;
   constructor({ type, id, options, duration, attack, decay, volume, pan }) {
-    // 🌊 Alias "noise" → "noise-white" to match fedac/native/src/js-bindings.c
-    // so shared percussion (lib/percussion.mjs) plays correctly on the web.
     if (type === "noise") type = "noise-white";
     this.type = type;
     if (id === void 0 || id === null || id === NaN)
@@ -443,60 +614,75 @@ var Synth = class {
     this.id = id;
     if (type === "square" || type === "sine" || type === "triangle" || type === "sawtooth") {
       this.#frequency = options.tone;
+    } else if (type === "harp" || type === "pluck" || type === "guitar" || type === "string") {
+      this.#frequency = options.tone;
+      const N = 2048;
+      this.#harpBuf = new Float32Array(N);
+      const stringDelay = clamp(sampleRate / this.#frequency, 2, N - 2);
+      const n = Math.floor(stringDelay);
+      let last = 0;
+      for (let i = 0; i < n; i++) {
+        const white = random2() * 2 - 1;
+        const filt = 0.5 * (white + last);
+        last = white;
+        this.#harpBuf[i] = filt;
+      }
+      this.#harpW = n;
+      this.type = "harp";
+    } else if (type === "whistle" || type === "ocarina" || type === "flute" || type === "skullwhistle" || type === "skull-whistle") {
+      this.#frequency = options.tone;
+      this.#whistleBoreBuf = new Float32Array(2048);
+      this.#whistleJetBuf = new Float32Array(512);
+      this.#whistleNoiseSeed = (Number(id) || 1) * 2654435761 >>> 0;
+      this.type = "whistle";
     } else if (type === "sample") {
       this.#frequency = null;
       this.#sampleData = options.buffer;
+      this.sampleLabel = options.label;
       this.#sampleSpeed = options.speed || 1;
       this.#sampleLoop = options.loop || false;
+      this.#preserveDuration = options.preserveDuration || false;
+      if (this.#preserveDuration) {
+      }
+      const sampleLength = this.#sampleData.channels?.[0]?.length ?? this.#sampleData.length;
       this.#sampleStartIndex = clamp(
         options.startSample,
         0,
-        this.#sampleData.length - 1
+        sampleLength - 1
       );
       this.#sampleEndIndex = clamp(
         options.endSample,
         0,
-        this.#sampleData.length - 1
+        sampleLength - 1
       );
       this.#sampleIndex = this.#sampleSpeed < 0 ? this.#sampleEndIndex : this.#sampleStartIndex;
-      
-      // Time stretch + pitch shift mode
       if (options.targetDuration > 0) {
         this.#timeStretchEnabled = true;
         this.#targetDurationMs = options.targetDuration;
-        this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+        const sampleRate2 = options.sampleRate || 44100;
+        this.#outputSamplesNeeded = Math.floor(this.#targetDurationMs / 1e3 * sampleRate2);
         const sourceSamples = this.#sampleEndIndex - this.#sampleStartIndex;
         this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
-        console.log("🎤 SPEAKER-BUNDLED timeStretch init:", {
-          targetDurationMs: this.#targetDurationMs,
-          sourceSamples,
-          outputSamplesNeeded: this.#outputSamplesNeeded,
-          timeStretchRatio: this.#timeStretchRatio,
-          speed: this.#sampleSpeed
-        });
-        
-        console.log("🎤 BUNDLED timeStretch INIT:", {
-          targetDurationMs: this.#targetDurationMs,
-          sourceSamples,
-          outputSamplesNeeded: this.#outputSamplesNeeded,
-          timeStretchRatio: this.#timeStretchRatio,
-          speed: this.#sampleSpeed,
-          sampleRate
-        });
-        
-        // Minimum duration check
         const minDurationMs = 50;
         if (this.#targetDurationMs < minDurationMs) {
           this.#targetDurationMs = minDurationMs;
-          this.#outputSamplesNeeded = Math.floor((this.#targetDurationMs / 1000) * sampleRate);
+          this.#outputSamplesNeeded = Math.floor(this.#targetDurationMs / 1e3 * sampleRate2);
           this.#timeStretchRatio = sourceSamples / this.#outputSamplesNeeded;
         }
-        
         this.#playedSamples = 0;
         this.#sourcePosition = this.#sampleStartIndex;
         this.#grains = [];
         this.#grainPhase = 0;
         this.#grainSize = Math.min(2048, Math.floor(sourceSamples / 8));
+        this.#grainSize = Math.max(256, this.#grainSize);
+      } else if (this.#preserveDuration) {
+        this.#targetDurationSamples = this.#sampleEndIndex - this.#sampleStartIndex;
+        this.#playedSamples = 0;
+        this.#sourcePosition = this.#sampleStartIndex;
+        this.#grains = [];
+        this.#grainPhase = 0;
+        const sampleDuration = this.#targetDurationSamples;
+        this.#grainSize = Math.min(2048, Math.floor(sampleDuration / 8));
         this.#grainSize = Math.max(256, this.#grainSize);
       }
     } else if (type === "custom") {
@@ -524,6 +710,7 @@ var Synth = class {
     }
     this.#wavelength = sampleRate / this.#frequency;
     this.#futureFrequency = this.#frequency;
+    this.#liveFrequency = this.#frequency;
     this.#attack = attack;
     this.#duration = this.type === "sample" ? Infinity : duration;
     this.#decay = decay;
@@ -531,10 +718,77 @@ var Synth = class {
     this.#pan = pan;
     this.volume = volume;
     this.#futureVolume = this.volume;
+    if (this.type !== "sample") {
+      const span = this.#duration < Infinity ? this.#duration / sampleRate : 0.25;
+      this._express(options, span);
+    }
+  }
+  // Parse the expression options shared by the constructor and update().
+  // `span` is the fallback glide length in seconds.
+  _express(o, span) {
+    if (o.slide > 0 && this.#frequency > 0) {
+      const seconds = o.slideDuration > 0 ? o.slideDuration : span;
+      this.#slideTarget = o.slide;
+      this.#slideLeft = max3(1, round2(seconds * sampleRate));
+      this.#slideRatio = pow2(o.slide / this.#frequency, 1 / this.#slideLeft);
+      this.#futureFrequency = o.slide;
+    }
+    if (o.vibrato !== void 0) {
+      const v = typeof o.vibrato === "number" ? { depth: o.vibrato } : o.vibrato;
+      this.#vibrato = v && (v.depth ?? 0.5) > 0 ? { rate: v.rate ?? 5, depth: v.depth ?? 0.5, delay: (v.delay ?? 0) * sampleRate } : null;
+      this.#vibratoPhase = 0;
+    }
+    if (o.tremolo !== void 0) {
+      const t = typeof o.tremolo === "number" ? { depth: o.tremolo } : o.tremolo;
+      this.#tremolo = t && (t.depth ?? 0.3) > 0 ? { rate: t.rate ?? 6, depth: min3(1, t.depth ?? 0.3) } : null;
+      this.#tremoloPhase = 0;
+    }
+    if (o.drift !== void 0) this.#drift = o.drift > 0 ? o.drift : 0;
+    if (o.noise !== void 0) this.#noise = clamp(o.noise, 0, 1) || 0;
+    if (o.formant !== void 0) {
+      const f = o.formant;
+      const bands = f == null ? null : typeof f === "string" || Array.isArray(f) ? vowelBands(f) : vowelBands(f.vowel ?? f.bands, f.scale ?? 1);
+      if (!bands) this.#formant = null;
+      else if (this.#formant) this.#formant.set(bands);
+      else this.#formant = new FormantBank(bands, sampleRate);
+    }
+    if (o.lowpass !== void 0) {
+      const lp = typeof o.lowpass === "number" ? { cutoff: o.lowpass } : o.lowpass;
+      if (!lp || !(lp.cutoff > 0)) {
+        this.#lowpass = null;
+        this.#lpSweepLeft = 0;
+      } else {
+        const q = 0.7071 * pow2(2, clamp(lp.resonance ?? 0.2, 0, 1) * 4);
+        const fresh = !this.#lowpass;
+        if (fresh) this.#lpX1 = this.#lpX2 = this.#lpY1 = this.#lpY2 = 0;
+        const from = fresh ? lp.cutoff : this.#lowpass.cutoff;
+        const to = lp.sweep > 0 ? lp.sweep : lp.cutoff;
+        this.#lowpass = { cutoff: from, q };
+        this._lowpassCoefficients();
+        if (to !== from) {
+          const seconds = lp.sweepDuration > 0 ? lp.sweepDuration : span;
+          this.#lpSweepTarget = to;
+          this.#lpSweepLeft = max3(1, round2(seconds * sampleRate));
+          this.#lpSweepRatio = pow2(to / from, 1 / this.#lpSweepLeft);
+        } else {
+          this.#lpSweepLeft = 0;
+        }
+      }
+    }
+  }
+  _lowpassCoefficients() {
+    const { cutoff, q } = this.#lowpass;
+    const w0 = 2 * PI3 * min3(cutoff, sampleRate * 0.45) / sampleRate;
+    const c = cos3(w0);
+    const alpha = sin3(w0) / (2 * q);
+    const a0 = 1 + alpha;
+    const gain = q > 0.7071 ? 1 / Math.sqrt(q / 0.7071) : 1;
+    this.#lpB0 = (1 - c) / 2 / a0 * gain;
+    this.#lpB1 = (1 - c) / a0 * gain;
+    this.#lpA1 = -2 * c / a0;
+    this.#lpA2 = (1 - alpha) / a0;
   }
   next(channelIndex) {
-    // 🍿 A finished voice must stay silent — the mixer prunes its queue only
-    // between render quanta. Mirrors lib/sound/synth.mjs.
     if (!this.playing) return 0;
     if (this.#frequencyUpdatesLeft > 0) {
       this.#frequency += this.#frequencyUpdateSlice;
@@ -545,21 +799,51 @@ var Synth = class {
       this.volume += this.#volumeUpdateSlice;
       this.#volumeUpdatesLeft -= 1;
     }
+    let freq = this.#frequency;
+    if (this.#slideLeft > 0) {
+      this.#slideLeft -= 1;
+      this.#frequency = this.#slideLeft === 0 ? this.#slideTarget : this.#frequency * this.#slideRatio;
+      freq = this.#frequency;
+      this.#wavelength = sampleRate / freq;
+    }
+    if (this.#vibrato || this.#drift > 0) {
+      let cents = 0;
+      if (this.#vibrato) {
+        const v = this.#vibrato;
+        const amount2 = min3(1, max3(0, (this.#progress - v.delay) / (0.15 * sampleRate)));
+        this.#vibratoPhase += 2 * PI3 * v.rate / sampleRate;
+        if (this.#vibratoPhase > 2 * PI3) this.#vibratoPhase -= 2 * PI3;
+        cents += v.depth * amount2 * sin3(this.#vibratoPhase);
+      }
+      if (this.#drift > 0) {
+        if (this.#driftCountdown <= 0) {
+          this.#driftTarget = random2() * 2 - 1;
+          this.#driftCountdown = round2(sampleRate * (0.3 + random2() * 0.4));
+        }
+        this.#driftCountdown -= 1;
+        this.#driftPos += (this.#driftTarget - this.#driftPos) * (2 * PI3 * 2 / sampleRate);
+        cents += this.#drift * this.#driftPos;
+      }
+      freq *= pow2(2, cents / 12);
+      this.#wavelength = sampleRate / freq;
+    }
+    this.#liveFrequency = freq;
     let value;
     if (this.type === "square") {
+      const halfWavelength = this.#wavelength / 2;
       this.#step += 1;
-      if (this.#step >= this.#wavelength) {
+      if (this.#step >= halfWavelength) {
         this.#up = !this.#up;
-        this.#step -= this.#wavelength;
+        this.#step -= halfWavelength;
       }
       value = this.#up ? 1 : -1;
     } else if (this.type === "sine") {
-      const increment = 2 * PI2 * this.#frequency / sampleRate;
+      const increment = 2 * PI3 * freq / sampleRate;
       this.#phase += increment;
-      if (this.#phase > 2 * PI2) {
-        this.#phase -= 2 * PI2;
+      if (this.#phase > 2 * PI3) {
+        this.#phase -= 2 * PI3;
       }
-      value = sin2(this.#phase);
+      value = sin3(this.#phase);
     } else if (this.type === "triangle") {
       const stepSize = 4 / this.#wavelength;
       const adjustedStep = (this.#step + this.#wavelength / 4) % this.#wavelength;
@@ -572,19 +856,19 @@ var Synth = class {
       if (this.#step >= this.#wavelength) this.#step = 0;
     } else if (this.type === "noise-white") {
       const noise = random2() * 2 - 1;
-      if (this.#frequency && this.#frequency > 0) {
-        const normalizedFreq = this.#frequency * 2 / sampleRate;
+      if (freq && freq > 0) {
+        const normalizedFreq = freq * 2 / sampleRate;
         const clampedFreq = clamp(normalizedFreq, 1e-3, 0.99);
         const resonance = 0.1;
-        const omega = clampedFreq * PI2;
-        const sin3 = Math.sin(omega);
-        const cos2 = Math.cos(omega);
-        const alpha = sin3 / (2 * (1 / resonance));
-        const b0 = (1 - cos2) / 2;
-        const b1 = 1 - cos2;
-        const b2 = (1 - cos2) / 2;
+        const omega = clampedFreq * PI3;
+        const sin8 = Math.sin(omega);
+        const cos5 = Math.cos(omega);
+        const alpha = sin8 / (2 * (1 / resonance));
+        const b0 = (1 - cos5) / 2;
+        const b1 = 1 - cos5;
+        const b2 = (1 - cos5) / 2;
         const a0 = 1 + alpha;
-        const a1 = -2 * cos2;
+        const a1 = -2 * cos5;
         const a2 = 1 - alpha;
         const output = (b0 * noise + b1 * this.#noiseFilterState1 + b2 * this.#noiseFilterState2 - a1 * this.#noiseFilterState3 - a2 * this.#noiseFilterState4) / a0;
         this.#noiseFilterState2 = this.#noiseFilterState1;
@@ -595,49 +879,93 @@ var Synth = class {
       } else {
         value = noise;
       }
+    } else if (this.type === "harp") {
+      const N = this.#harpBuf.length;
+      const stringDelay = clamp(sampleRate / freq, 2, N - 2);
+      let rd = this.#harpW - stringDelay;
+      while (rd < 0) rd += N;
+      const i0 = floor2(rd) | 0;
+      const i1 = (i0 + 1) % N;
+      const f = rd - i0;
+      const delayed = this.#harpBuf[i0] * (1 - f) + this.#harpBuf[i1] * f;
+      const filtered = 0.5 * (delayed + this.#harpLp1);
+      this.#harpLp1 = delayed;
+      const stretch = this.#decay > 0 && this.#decay < 0.2 ? 0.99 : 0.9985;
+      const decayed = filtered * stretch;
+      this.#harpBuf[this.#harpW] = decayed;
+      this.#harpW = (this.#harpW + 1) % N;
+      value = 2.5 * decayed;
+    } else if (this.type === "whistle") {
+      const BORE_N = 2048, JET_N = 512;
+      const env = 1;
+      const breathTarget = 0.18 + 0.82 * Math.sqrt(env);
+      const breathSlew = env > this.#whistleBreath ? 0.012 : 3e-3;
+      this.#whistleBreath += (breathTarget - this.#whistleBreath) * breathSlew;
+      this.#whistleVibratoPhase += 5 / sampleRate;
+      if (this.#whistleVibratoPhase >= 1) this.#whistleVibratoPhase -= 1;
+      const vibrato = sin3(2 * PI3 * this.#whistleVibratoPhase) * 0.03;
+      let s = this.#whistleNoiseSeed;
+      s ^= s << 13;
+      s >>>= 0;
+      s ^= s >>> 17;
+      s ^= s << 5;
+      s >>>= 0;
+      this.#whistleNoiseSeed = s;
+      const white = s / 4294967295 * 2 - 1;
+      const breath = this.#whistleBreath * (1 + 0.08 * white + vibrato);
+      const pitch = clamp(freq, 30, sampleRate * 0.2);
+      let boreDelay = sampleRate / pitch;
+      let jetDelay = boreDelay * 0.32;
+      if (boreDelay > BORE_N - 2) boreDelay = BORE_N - 2;
+      if (jetDelay > JET_N - 2) jetDelay = JET_N - 2;
+      let rd = this.#whistleBoreW - boreDelay;
+      while (rd < 0) rd += BORE_N;
+      let i0 = floor2(rd) | 0;
+      let i1 = (i0 + 1) % BORE_N;
+      let frac = rd - i0;
+      const boreOut = this.#whistleBoreBuf[i0] * (1 - frac) + this.#whistleBoreBuf[i1] * frac;
+      this.#whistleLp1 = 0.35 * -boreOut + 0.65 * this.#whistleLp1;
+      const temp = this.#whistleLp1;
+      let pd = breath - 0.5 * temp;
+      this.#whistleJetBuf[this.#whistleJetW] = pd;
+      this.#whistleJetW = (this.#whistleJetW + 1) % JET_N;
+      rd = this.#whistleJetW - jetDelay;
+      while (rd < 0) rd += JET_N;
+      i0 = floor2(rd) | 0;
+      i1 = (i0 + 1) % JET_N;
+      frac = rd - i0;
+      pd = this.#whistleJetBuf[i0] * (1 - frac) + this.#whistleJetBuf[i1] * frac;
+      pd = pd * (pd * pd - 1);
+      if (pd > 1) pd = 1;
+      if (pd < -1) pd = -1;
+      const y = pd - this.#whistleHpX1 + 0.995 * this.#whistleHpY1;
+      this.#whistleHpX1 = pd;
+      this.#whistleHpY1 = y;
+      const intoBore = y + 0.5 * temp;
+      this.#whistleBoreBuf[this.#whistleBoreW] = intoBore;
+      this.#whistleBoreW = (this.#whistleBoreW + 1) % BORE_N;
+      value = 0.3 * intoBore;
     } else if (this.type === "sample") {
       const bufferData = this.#sampleData.channels[0];
-      
-      // Time stretch + pitch shift mode using granular synthesis
-      if (this.#timeStretchEnabled) {
+      if (this.#preserveDuration) {
         this.#playedSamples++;
-        
-        // Log every 10000 samples to track progress without spam
-        if (this.#playedSamples === 1 || this.#playedSamples % 10000 === 0) {
-          console.log("🎤 BUNDLED timeStretch RENDER:", {
-            playedSamples: this.#playedSamples,
-            outputNeeded: this.#outputSamplesNeeded,
-            sourcePos: this.#sourcePosition.toFixed(0),
-            grains: this.#grains.length
-          });
-        }
-        
         const grainSpacing = this.#grainSize / this.#grainOverlap;
-        
-        // Spawn new grain when needed
         this.#grainPhase++;
         if (this.#grainPhase >= grainSpacing && this.#sourcePosition < this.#sampleEndIndex) {
           this.#grainPhase = 0;
           this.#grains.push({
             sourceStart: this.#sourcePosition,
-            position: 0,
+            position: 0
+            // Position within grain (0 to grainSize)
           });
         }
-        
-        // Advance source position based on time stretch ratio
-        this.#sourcePosition += this.#timeStretchRatio;
-        
-        // Mix all active grains
+        this.#sourcePosition += 1;
         value = 0;
         const activeGrains = [];
-        
         for (const grain of this.#grains) {
           const grainProgress = grain.position / this.#grainSize;
-          const envelope = 0.5 * (1 - Math.cos(2 * Math.PI * grainProgress));
-          
-          // Read from source at pitch-shifted rate
-          const sourceIdx = grain.sourceStart + (grain.position * this.#sampleSpeed);
-          
+          const envelope2 = 0.5 * (1 - Math.cos(2 * Math.PI * grainProgress));
+          const sourceIdx = grain.sourceStart + grain.position * this.#sampleSpeed;
           if (sourceIdx >= this.#sampleEndIndex || sourceIdx < this.#sampleStartIndex) {
             grain.position++;
             if (grain.position < this.#grainSize) {
@@ -645,35 +973,91 @@ var Synth = class {
             }
             continue;
           }
-          
-          // Linear interpolation
-          const idx0 = floor3(sourceIdx);
+          const idx0 = floor2(sourceIdx);
           const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : idx0;
           const frac = sourceIdx - idx0;
           const sample0 = bufferData[idx0] || 0;
           const sample1 = bufferData[idx1] || 0;
           const interpolatedSample = sample0 + frac * (sample1 - sample0);
-          
-          value += interpolatedSample * envelope;
+          value += interpolatedSample * envelope2;
           grain.position++;
-          
           if (grain.position < this.#grainSize) {
             activeGrains.push(grain);
           }
         }
-        
         this.#grains = activeGrains;
-        value /= (this.#grainOverlap / 2);
-        
-        // Stop when done
-        if (this.#playedSamples >= this.#outputSamplesNeeded || 
-            (this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex)) {
+        value /= this.#grainOverlap / 2;
+        if (this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex) {
+          this.playing = false;
+          return 0;
+        }
+      } else if (this.#timeStretchEnabled) {
+        this.#playedSamples++;
+        const grainSpacing = this.#grainSize / this.#grainOverlap;
+        this.#grainPhase++;
+        if (this.#grainPhase >= grainSpacing && this.#sourcePosition < this.#sampleEndIndex) {
+          this.#grainPhase = 0;
+          this.#grains.push({
+            sourceStart: this.#sourcePosition,
+            position: 0
+            // Position within grain (0 to grainSize)
+          });
+        }
+        this.#sourcePosition += this.#timeStretchRatio;
+        value = 0;
+        const activeGrains = [];
+        for (const grain of this.#grains) {
+          const grainProgress = grain.position / this.#grainSize;
+          const envelope2 = 0.5 * (1 - Math.cos(2 * Math.PI * grainProgress));
+          const sourceIdx = grain.sourceStart + grain.position * this.#sampleSpeed;
+          if (sourceIdx >= this.#sampleEndIndex || sourceIdx < this.#sampleStartIndex) {
+            grain.position++;
+            if (grain.position < this.#grainSize) {
+              activeGrains.push(grain);
+            }
+            continue;
+          }
+          const idx0 = floor2(sourceIdx);
+          const idx1 = idx0 + 1 < this.#sampleEndIndex ? idx0 + 1 : idx0;
+          const frac = sourceIdx - idx0;
+          const sample0 = bufferData[idx0] || 0;
+          const sample1 = bufferData[idx1] || 0;
+          const interpolatedSample = sample0 + frac * (sample1 - sample0);
+          value += interpolatedSample * envelope2;
+          grain.position++;
+          if (grain.position < this.#grainSize) {
+            activeGrains.push(grain);
+          }
+        }
+        this.#grains = activeGrains;
+        value /= this.#grainOverlap / 2;
+        if (this.#playedSamples >= this.#outputSamplesNeeded || this.#grains.length === 0 && this.#sourcePosition >= this.#sampleEndIndex) {
           this.playing = false;
           return 0;
         }
       } else {
-        // Normal sample playback
-        value = bufferData[floor3(this.#sampleIndex)];
+        if (this.#pitch !== 1 && this.#sampleLoop) {
+          const W = 2048;
+          this.#pitchPhase = (this.#pitchPhase + (this.#pitch - 1) * this.#sampleSpeed + W) % W;
+          const offA = this.#pitchPhase;
+          const offB = (offA + W / 2) % W;
+          const range = this.#sampleEndIndex - this.#sampleStartIndex;
+          const rd = (off) => {
+            let ix = this.#sampleIndex - off;
+            while (ix < this.#sampleStartIndex) ix += range;
+            while (ix >= this.#sampleEndIndex) ix -= range;
+            return bufferData[floor2(ix)];
+          };
+          const gA = Math.sin(Math.PI * offA / W);
+          const gB = Math.sin(Math.PI * offB / W);
+          value = rd(offA) * gA + rd(offB) * gB;
+        } else {
+          value = bufferData[floor2(this.#sampleIndex)];
+        }
+        if (this.#declick > 0) {
+          value *= 1 - this.#declick / this.#declickTotal;
+          this.#declick -= 1;
+        }
         this.#sampleIndex += this.#sampleSpeed;
         if (this.#sampleLoop) {
           if (this.#sampleIndex > this.#sampleEndIndex) {
@@ -705,17 +1089,42 @@ var Synth = class {
         this._fillCustomBuffer();
       }
     }
+    if (this.type !== "sample") {
+      if (this.#noise > 0) {
+        value = value * (1 - this.#noise * 0.5) + (random2() * 2 - 1) * this.#noise;
+      }
+      if (this.#formant) value = this.#formant.process(value);
+      if (this.#lowpass) {
+        if (this.#lpSweepLeft > 0) {
+          this.#lpSweepLeft -= 1;
+          this.#lowpass.cutoff = this.#lpSweepLeft === 0 ? this.#lpSweepTarget : this.#lowpass.cutoff * this.#lpSweepRatio;
+          this._lowpassCoefficients();
+        }
+        const y = this.#lpB0 * (value + this.#lpX2) + this.#lpB1 * this.#lpX1 - this.#lpA1 * this.#lpY1 - this.#lpA2 * this.#lpY2;
+        this.#lpX2 = this.#lpX1;
+        this.#lpX1 = value;
+        this.#lpY2 = this.#lpY1;
+        this.#lpY1 = y;
+        value = y;
+      }
+      if (this.#tremolo) {
+        const t = this.#tremolo;
+        this.#tremoloPhase += 2 * PI3 * t.rate / sampleRate;
+        if (this.#tremoloPhase > 2 * PI3) this.#tremoloPhase -= 2 * PI3;
+        value *= 1 - t.depth * (0.5 + 0.5 * sin3(this.#tremoloPhase));
+      }
+    }
     if (this.#duration < Infinity) {
       if (this.type === "noise-white") {
-        const sharpAttack = min2(1, this.#progress / (this.#attack * 0.1));
+        const sharpAttack = min3(1, this.#progress / (this.#attack * 0.1));
         if (sharpAttack) value *= sharpAttack;
         const decayProgress = (this.#progress - this.#decayStart) / (this.#decay * 0.05);
-        const sharpDecay = min2(1, 1 - Math.pow(decayProgress, 3));
-        value *= max2(0, sharpDecay);
+        const sharpDecay = min3(1, 1 - Math.pow(decayProgress, 3));
+        value *= max3(0, sharpDecay);
       } else {
-        const attack2 = min2(1, this.#progress / this.#attack);
+        const attack2 = min3(1, this.#progress / this.#attack);
         if (attack2) value *= attack2;
-        const decay2 = min2(
+        const decay2 = min3(
           1,
           1 - (this.#progress - this.#decayStart) / this.#decay
         );
@@ -723,7 +1132,7 @@ var Synth = class {
       }
     } else {
       if (this.#attack > 0) {
-        const attack2 = min2(1, this.#progress / this.#attack);
+        const attack2 = min3(1, this.#progress / this.#attack);
         value *= attack2;
       }
     }
@@ -746,7 +1155,12 @@ var Synth = class {
     }
     return out;
   }
-  update({ tone, volume: volume3, shift, sampleSpeed, samplePosition, duration: duration2 = 0.1 }) {
+  update({ tone, volume: volume3, shift, sampleSpeed, samplePosition, sampleData, pitch, duration: duration2 = 0.1, ...expression }) {
+    if (typeof pitch === "number" && pitch > 0) {
+      this.#pitch = pitch;
+      if (pitch === 1) this.#pitchPhase = 0;
+    }
+    if (this.type !== "sample") this._express(expression, duration2);
     if (typeof tone === "number" && tone > 0) {
       this.#futureFrequency = tone;
       this.#frequencyUpdatesTotal = duration2 * sampleRate;
@@ -760,13 +1174,38 @@ var Synth = class {
       this.#volumeUpdateSlice = (this.#futureVolume - this.volume) / this.#volumeUpdatesTotal;
     }
     if (typeof shift === "number") {
+      const oldSpeed = this.#sampleSpeed;
       this.#sampleSpeed += shift;
     }
     if (typeof sampleSpeed === "number") {
       this.#sampleSpeed = sampleSpeed;
     }
     if (typeof samplePosition === "number" && this.#sampleData) {
-      this.#sampleIndex = floor3(samplePosition * this.#sampleData.length);
+      const len = this.#sampleData.channels?.[0]?.length ?? this.#sampleData.length;
+      this.#sampleIndex = floor2(samplePosition * len);
+      this.#declickTotal = Math.max(1, Math.floor(sampleRate * 4e-3));
+      this.#declick = this.#declickTotal;
+    }
+    if (sampleData && this.type === "sample") {
+      const oldLength = this.#sampleData?.channels?.[0]?.length ?? this.#sampleData?.length ?? 1;
+      const newLength = sampleData.channels?.[0]?.length ?? sampleData.length ?? 1;
+      const progress = this.#sampleIndex / oldLength;
+      this.#sampleData = sampleData;
+      this.#sampleEndIndex = clamp(
+        Math.floor(this.#sampleEndIndex / oldLength * newLength),
+        0,
+        newLength - 1
+      );
+      this.#sampleStartIndex = clamp(
+        Math.floor(this.#sampleStartIndex / oldLength * newLength),
+        0,
+        newLength - 1
+      );
+      this.#sampleIndex = clamp(
+        Math.floor(progress * newLength),
+        this.#sampleStartIndex,
+        this.#sampleEndIndex
+      );
     }
   }
   // Stereo
@@ -779,12 +1218,25 @@ var Synth = class {
     return frame;
   }
   // Use a 25ms fade by default.
+  //
+  // 🍿 Two rules keep a release from clicking, and both are about the *step*
+  // in amplitude, not the length of the tail:
+  //
+  //   1. Every kill ramps. `kill(0)` used to drop `playing` on the spot,
+  //      cutting the waveform wherever it happened to be — a full-scale
+  //      discontinuity, which is the definition of a click. The floor below
+  //      is short enough to still read as "immediate" and long enough to
+  //      round the corner.
+  //   2. A kill on an already-fading voice may only *shorten* the tail.
+  //      Notepat routinely kills the same voice twice (the button `up`
+  //      handler, then `cleanupOrphanedSounds`); restarting the ramp meant
+  //      the gain jumped from wherever it had faded to back up to 1 — a pop
+  //      louder than the note. Carrying `fadeGain` across kills and only
+  //      raising `fadeStep` makes the second call a no-op or a speed-up.
   kill(fade = 0.025) {
-    // Every kill ramps, and a kill on an already-releasing voice may only
-    // shorten the tail — never restart it louder. See lib/sound/synth.mjs.
-    const seconds = Math.max(fade || 0, 2e-3);
+    const seconds = max3(fade || 0, _Synth.MIN_RELEASE);
     const step = this.fadeGain / (seconds * sampleRate);
-    this.fadeStep = this.fading ? Math.max(this.fadeStep, step) : step;
+    this.fadeStep = this.fading ? max3(this.fadeStep, step) : step;
     this.fading = true;
     this.fadeProgress = 0;
     this.fadeDuration = seconds * sampleRate;
@@ -804,7 +1256,8 @@ var Synth = class {
     try {
       const bufferSize = this.#customBufferSize - this.#customBuffer.length;
       const newSamples = this.#customGenerator({
-        frequency: this.#frequency,
+        frequency: this.#liveFrequency,
+        // follows slide/vibrato/drift, block by block
         sampleRate,
         progress: this.#progress,
         time: this.#progress / sampleRate,
@@ -851,8 +1304,6 @@ var Bubble = class {
   playing = true;
   fading = false;
   // If we are fading and then stopping playback.
-  fadeGain = 1;
-  fadeStep = 0;
   fadeProgress;
   fadeDuration;
   #volume = 1;
@@ -960,8 +1411,6 @@ var Bubble = class {
     console.log(`\u{1F9CB} disableSustain() for bubble ${this.id || "unknown"}`);
   }
   next() {
-    // 🍿 A finished voice must stay silent — the mixer prunes its queue only
-    // between render quanta. Mirrors lib/sound/synth.mjs.
     if (!this.playing) return 0;
     if (this.#radiusUpdatesLeft > 0) {
       this.#radius += this.#radiusUpdateSlice;
@@ -1002,15 +1451,14 @@ var Bubble = class {
     if (out > this.#maxOut) this.#maxOut = out;
     out = out / this.#maxOut;
     if (this.fading) {
-      this.fadeGain -= this.fadeStep;
-      if (this.fadeGain <= 0) {
-        this.fadeGain = 0;
+      if (this.fadeProgress < this.fadeDuration) {
+        this.fadeProgress += 1;
+        out *= 1 - this.fadeProgress / this.fadeDuration;
+      } else {
         this.fading = false;
         this.playing = false;
         return 0;
       }
-      this.fadeProgress += 1;
-      out *= this.fadeGain;
     }
     return out;
   }
@@ -1029,19 +1477,599 @@ var Bubble = class {
   }
   // Use a 25ms fade by default.
   kill(fade = 0.025) {
-    // Every kill ramps, and a kill on an already-releasing voice may only
-    // shorten the tail — never restart it louder. See lib/sound/synth.mjs.
-    const seconds = Math.max(fade || 0, 2e-3);
-    const step = this.fadeGain / (seconds * sampleRate);
-    this.fadeStep = this.fading ? Math.max(this.fadeStep, step) : step;
-    this.fading = true;
-    this.fadeProgress = 0;
-    this.fadeDuration = seconds * sampleRate;
+    if (!fade) {
+      this.playing = false;
+    } else {
+      this.fading = true;
+      this.fadeProgress = 0;
+      this.fadeDuration = fade * sampleRate;
+    }
   }
 };
 
+// public/aesthetic.computer/lib/sound/fart.mjs
+var Fart = class {
+  // Generic for all instruments.
+  playing = true;
+  fading = false;
+  // If we are fading and then stopping playback.
+  fadeProgress;
+  fadeDuration;
+  #volume = 1;
+  // 0 to 1
+  #pan2 = 0;
+  // -1 to 1
+  #pressure;
+  // 0 to 1 - how hard you squeeze
+  #pitch2;
+  // Hz - fundamental frequency
+  #rasp;
+  // 0 to 1 - noise component (0 = pure tone, 1 = mostly noise)
+  #amp;
+  #decay2;
+  #gain;
+  #phase2;
+  #lastOut;
+  #timestep;
+  #out = 0;
+  #maxOut = 1;
+  #progress2 = 0;
+  #QUIET = 1e-6;
+  // Noise generation state
+  #noiseState = 0;
+  // Parameter update properties for smooth transitions
+  #futurePressure;
+  #futurePitch;
+  #futureRasp;
+  #futureVolume2;
+  #futurePan;
+  #pressureUpdatesTotal;
+  #pressureUpdatesLeft;
+  #pressureUpdateSlice;
+  #pitchUpdatesTotal;
+  #pitchUpdatesLeft;
+  #pitchUpdateSlice;
+  #raspUpdatesTotal;
+  #raspUpdatesLeft;
+  #raspUpdateSlice;
+  #volumeUpdatesTotal2;
+  #volumeUpdatesLeft2;
+  #volumeUpdateSlice2;
+  #panUpdatesTotal;
+  #panUpdatesLeft;
+  #panUpdateSlice;
+  #sustain = false;
+  constructor(pressure, pitch, rasp, volume3, pan2, id2) {
+    this.id = id2;
+    this.start(pressure, pitch, rasp, volume3, pan2);
+  }
+  start(pressure = this.#pressure, pitch = this.#pitch2, rasp = this.#rasp, volume3 = this.#volume, pan2 = this.#pan2) {
+    this.#pan2 = pan2;
+    this.#volume = volume3;
+    this.#pressure = Math.max(0.01, Math.min(1, pressure));
+    this.#pitch2 = Math.max(20, Math.min(8e3, pitch));
+    this.#rasp = Math.max(0, Math.min(1, rasp));
+    this.#futurePressure = this.#pressure;
+    this.#futurePitch = this.#pitch2;
+    this.#futureRasp = this.#rasp;
+    this.#futureVolume2 = this.#volume;
+    this.#futurePan = this.#pan2;
+    this.#timestep = 1 / sampleRate;
+    this.#lastOut = this.#out;
+    this.#amp = 0.3 * this.#pressure;
+    this.#decay2 = 0.8 + this.#pitch2 / 8e3 * 0.2;
+    this.#gain = Math.exp(-this.#decay2 * this.#timestep);
+    this.#phase2 = 0;
+  }
+  update({ pressure, pitch, rasp, volume: volume3, pan: pan2, sustain, duration: duration2 = 0.1 }) {
+    if (typeof sustain === "boolean") {
+      this.#sustain = sustain;
+      console.log(`\u{1F4A8} UPDATE: Sustain set to ${sustain} for fart ${this.id || "unknown"}`);
+    }
+    if (typeof pressure === "number" && pressure >= 0) {
+      this.#futurePressure = Math.max(0.01, Math.min(1, pressure));
+      this.#pressureUpdatesTotal = duration2 * sampleRate;
+      this.#pressureUpdatesLeft = this.#pressureUpdatesTotal;
+      this.#pressureUpdateSlice = (this.#futurePressure - this.#pressure) / this.#pressureUpdatesTotal;
+    }
+    if (typeof pitch === "number" && pitch > 0) {
+      this.#futurePitch = Math.max(20, Math.min(8e3, pitch));
+      this.#pitchUpdatesTotal = duration2 * sampleRate;
+      this.#pitchUpdatesLeft = this.#pitchUpdatesTotal;
+      this.#pitchUpdateSlice = (this.#futurePitch - this.#pitch2) / this.#pitchUpdatesTotal;
+    }
+    if (typeof rasp === "number" && rasp >= 0) {
+      this.#futureRasp = Math.max(0, Math.min(1, rasp));
+      this.#raspUpdatesTotal = duration2 * sampleRate;
+      this.#raspUpdatesLeft = this.#raspUpdatesTotal;
+      this.#raspUpdateSlice = (this.#futureRasp - this.#rasp) / this.#raspUpdatesTotal;
+    }
+    if (typeof volume3 === "number") {
+      this.#futureVolume2 = volume3;
+      this.#volumeUpdatesTotal2 = duration2 * sampleRate;
+      this.#volumeUpdatesLeft2 = this.#volumeUpdatesTotal2;
+      this.#volumeUpdateSlice2 = (this.#futureVolume2 - this.#volume) / this.#volumeUpdatesTotal2;
+    }
+    if (typeof pan2 === "number") {
+      this.#futurePan = pan2;
+      this.#panUpdatesTotal = duration2 * sampleRate;
+      this.#panUpdatesLeft = this.#panUpdatesTotal;
+      this.#panUpdateSlice = (this.#futurePan - this.#pan2) / this.#panUpdatesTotal;
+    }
+  }
+  // Sustain control methods
+  setSustain(sustain) {
+    this.#sustain = sustain;
+    console.log(`\u{1F4A8} setSustain(${sustain}) for fart ${this.id || "unknown"}`);
+  }
+  enableSustain() {
+    this.#sustain = true;
+    console.log(`\u{1F4A8} enableSustain() for fart ${this.id || "unknown"}`);
+  }
+  disableSustain() {
+    this.#sustain = false;
+    console.log(`\u{1F4A8} disableSustain() for fart ${this.id || "unknown"}`);
+  }
+  // Linear congruential generator for pseudo-random noise
+  _noise() {
+    this.#noiseState = this.#noiseState * 1103515245 + 12345 & 2147483647;
+    return this.#noiseState / 2147483647 * 2 - 1;
+  }
+  next() {
+    if (!this.playing) return 0;
+    if (this.#pressureUpdatesLeft > 0) {
+      this.#pressure += this.#pressureUpdateSlice;
+      this.#pressureUpdatesLeft -= 1;
+    }
+    if (this.#pitchUpdatesLeft > 0) {
+      this.#pitch2 += this.#pitchUpdateSlice;
+      this.#pitchUpdatesLeft -= 1;
+    }
+    if (this.#raspUpdatesLeft > 0) {
+      this.#rasp += this.#raspUpdateSlice;
+      this.#raspUpdatesLeft -= 1;
+    }
+    if (this.#volumeUpdatesLeft2 > 0) {
+      this.#volume += this.#volumeUpdateSlice2;
+      this.#volumeUpdatesLeft2 -= 1;
+    }
+    if (this.#panUpdatesLeft > 0) {
+      this.#pan2 += this.#panUpdateSlice;
+      this.#panUpdatesLeft -= 1;
+    }
+    if (!this.#sustain && this.#amp < this.#QUIET) {
+      this.playing = false;
+      return 0;
+    }
+    const phaseStep = this.#pitch2 / sampleRate * Math.PI * 2;
+    const tone = Math.sin(this.#phase2) * this.#pressure;
+    const noise = this._noise() * this.#rasp;
+    const mixed = tone * (1 - this.#rasp) + noise;
+    this.#out = this.#lastOut * 0.3 + mixed * this.#amp * 0.7;
+    this.#lastOut = this.#out;
+    this.#phase2 += phaseStep;
+    if (this.#phase2 > Math.PI * 2) {
+      this.#phase2 -= Math.PI * 2;
+    }
+    if (!this.#sustain) {
+      this.#amp *= this.#gain;
+    }
+    this.#progress2 += 1;
+    let out = this.#out * this.#volume;
+    if (Math.abs(out) > this.#maxOut) this.#maxOut = Math.abs(out);
+    out = out / this.#maxOut;
+    if (this.fading) {
+      if (this.fadeProgress < this.fadeDuration) {
+        this.fadeProgress += 1;
+        out *= 1 - this.fadeProgress / this.fadeDuration;
+      } else {
+        this.fading = false;
+        this.playing = false;
+        return 0;
+      }
+    }
+    return out;
+  }
+  // Stereo panning
+  pan(channel, frame) {
+    if (channel === 0) {
+      if (this.#pan2 > 0) {
+        frame *= 1 - this.#pan2;
+      }
+    } else if (channel === 1) {
+      if (this.#pan2 < 0) {
+        frame *= 1 - Math.abs(this.#pan2);
+      }
+    }
+    return frame;
+  }
+  // Use a 25ms fade by default.
+  kill(fade = 0.025) {
+    if (!fade) {
+      this.playing = false;
+    } else {
+      this.fading = true;
+      this.fadeProgress = 0;
+      this.fadeDuration = fade * sampleRate;
+    }
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/voice.mjs
+var Voice = class {
+  playing = true;
+  fading = false;
+  fadeGain = 1;
+  // The mixer reads `volume` and `fadeGain` for auto-mixing.
+  id;
+  p;
+  // Current params — the glided values a `render` reads.
+  t = 0;
+  // Seconds since the voice began.
+  dt = 1 / sampleRate;
+  #glides = [];
+  // { key, step, left }
+  #fadeStep = 0;
+  #stiff;
+  // Param names that snap instead of glide.
+  constructor(params, id2, defaults, stiff = []) {
+    this.id = id2;
+    this.p = { volume: 1, pan: 0, ...defaults };
+    for (const k in params) if (params[k] !== void 0) this.p[k] = params[k];
+    if (this.p.duration === "\u{1F501}") this.p.duration = Infinity;
+    this.#stiff = /* @__PURE__ */ new Set(["duration", ...stiff]);
+  }
+  get volume() {
+    return this.p.volume;
+  }
+  // Numeric params glide over `duration` seconds; anything else (a vowel, a
+  // direction) snaps, then `retune` lets the generator react.
+  update({ duration: duration2 = 0.1, ...props }) {
+    const n = Math.max(1, Math.round(duration2 * sampleRate));
+    for (const key in props) {
+      const v = props[key];
+      if (v === void 0) continue;
+      if (typeof v === "number" && typeof this.p[key] === "number" && !this.#stiff.has(key)) {
+        this.#glides = this.#glides.filter((g) => g.key !== key);
+        this.#glides.push({ key, step: (v - this.p[key]) / n, left: n });
+      } else this.p[key] = v;
+    }
+    this.retune?.(props, duration2);
+  }
+  next() {
+    if (!this.playing) return 0;
+    for (let i = this.#glides.length - 1; i >= 0; i--) {
+      const g = this.#glides[i];
+      this.p[g.key] += g.step;
+      if (--g.left <= 0) this.#glides.splice(i, 1);
+    }
+    let out = this.render(this.t) * this.p.volume;
+    this.t += this.dt;
+    if (this.fading) {
+      this.fadeGain -= this.#fadeStep;
+      if (this.fadeGain <= 0) {
+        this.fadeGain = 0;
+        this.fading = false;
+        this.playing = false;
+        return 0;
+      }
+      out *= this.fadeGain;
+    } else if (this.t >= this.p.duration) {
+      this.playing = false;
+      return 0;
+    }
+    return out > 1 ? 1 : out < -1 ? -1 : out;
+  }
+  pan(channel, frame) {
+    const p = this.p.pan;
+    if (channel === 0 && p > 0) return frame * (1 - p);
+    if (channel === 1 && p < 0) return frame * (1 + p);
+    return frame;
+  }
+  kill(fade = 0.025) {
+    if (!fade) {
+      this.playing = false;
+      return;
+    }
+    this.fading = true;
+    this.#fadeStep = this.fadeGain / (fade * sampleRate);
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/parts.mjs
+var { sin: sin4, cos: cos4, exp, log, PI: PI4, min: min4, max: max4 } = Math;
+var clamp2 = (x, lo, hi) => x < lo ? lo : x > hi ? hi : x;
+var smooth = (x) => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+function glide(a, b, u) {
+  if (u <= 0) return a;
+  if (u >= 1) return b;
+  return a * exp(u * log(b / a));
+}
+function envelope(t, attack2, release, duration2) {
+  const a = attack2 > 0 ? smooth(t / attack2) : 1;
+  const r = duration2 === Infinity || release <= 0 ? 1 : smooth((duration2 - t) / release);
+  return a * r;
+}
+var Noise = class {
+  #s;
+  constructor(seed = 2654435769) {
+    this.#s = seed >>> 0 || 1;
+  }
+  next() {
+    let x = this.#s;
+    x ^= x << 13;
+    x >>>= 0;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    x >>>= 0;
+    this.#s = x;
+    return x / 2147483648 - 1;
+  }
+};
+var Smoother = class {
+  #a;
+  y = 0;
+  constructor(cutoff) {
+    this.#a = 1 - exp(-2 * PI4 * cutoff / sampleRate);
+  }
+  next(x) {
+    this.y += this.#a * (x - this.y);
+    return this.y;
+  }
+};
+var Biquad = class {
+  #b0 = 1;
+  #b1 = 0;
+  #b2 = 0;
+  #a1 = 0;
+  #a2 = 0;
+  #x1 = 0;
+  #x2 = 0;
+  #y1 = 0;
+  #y2 = 0;
+  lowpass(freq, q = 0.707) {
+    const w0 = 2 * PI4 * min4(freq, sampleRate * 0.45) / sampleRate;
+    const alpha = sin4(w0) / (2 * q);
+    const c = cos4(w0);
+    const a0 = 1 + alpha;
+    this.#b0 = (1 - c) / 2 / a0;
+    this.#b1 = (1 - c) / a0;
+    this.#b2 = this.#b0;
+    this.#a1 = -2 * c / a0;
+    this.#a2 = (1 - alpha) / a0;
+    return this;
+  }
+  bandpass(freq, q = 1) {
+    const w0 = 2 * PI4 * min4(freq, sampleRate * 0.45) / sampleRate;
+    const alpha = sin4(w0) / (2 * q);
+    const a0 = 1 + alpha;
+    this.#b0 = alpha / a0;
+    this.#b1 = 0;
+    this.#b2 = -this.#b0;
+    this.#a1 = -2 * cos4(w0) / a0;
+    this.#a2 = (1 - alpha) / a0;
+    return this;
+  }
+  process(x) {
+    const y = this.#b0 * x + this.#b1 * this.#x1 + this.#b2 * this.#x2 - this.#a1 * this.#y1 - this.#a2 * this.#y2;
+    this.#x2 = this.#x1;
+    this.#x1 = x;
+    this.#y2 = this.#y1;
+    this.#y1 = y;
+    return y;
+  }
+};
+var Glottis = class {
+  #phase2 = 0;
+  #noise2;
+  #period = 1;
+  // Per-cycle pitch multiplier, redrawn at each closure.
+  #cycle = 0;
+  open = 0;
+  // 0..1 — how far the folds are apart, for aspiration noise.
+  oq = 0.6;
+  // Open quotient: fraction of the period the folds are open.
+  jitter = 0;
+  sub = 0;
+  constructor(seed = 1) {
+    this.#noise2 = new Noise(seed);
+  }
+  next(freq) {
+    const tp = this.oq * 0.7;
+    const tn = this.oq - tp;
+    const p = this.#phase2;
+    let out;
+    if (p < tp) {
+      const s = sin4(PI4 * p / tp);
+      this.open = 0.5 * (1 - cos4(PI4 * p / tp));
+      out = tn / tp * s;
+    } else if (p < this.oq) {
+      const q = (p - tp) / tn;
+      this.open = cos4(PI4 * q / 2);
+      out = -sin4(PI4 * q / 2);
+    } else {
+      this.open = 0;
+      out = 0;
+    }
+    if (this.#cycle & 1) out *= 1 - this.sub;
+    this.#phase2 += freq * this.#period / sampleRate;
+    if (this.#phase2 >= 1) {
+      this.#phase2 -= 1;
+      this.#cycle += 1;
+      this.#period = 1 + this.jitter * 0.08 * this.#noise2.next();
+    }
+    return out;
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/growl.mjs
+var { sin: sin5, exp: exp2, PI: PI5 } = Math;
+var GAIN = 1.1;
+var Growl = class extends Voice {
+  #glottis = new Glottis(7);
+  #noise2 = new Noise(11);
+  #wander = new Smoother(2);
+  // Slow drift of the tremor rate.
+  #body;
+  #chest = new Biquad();
+  // Keeps the fundamental the formants can't pass.
+  #tremor = 0;
+  constructor(params, id2) {
+    super(params, id2, { pitch: 55, rasp: 0.6, size: 1, tremor: 0.5, duration: 1.2 }, ["size"]);
+    this.#glottis.oq = 0.5;
+    this.#body = new FormantBank(vowelBands("o", 1 / this.p.size));
+    this.#chest.lowpass(220 / this.p.size, 1.2);
+  }
+  retune(props) {
+    if (!("size" in props)) return;
+    this.#body.set(vowelBands("o", 1 / this.p.size));
+    this.#chest.lowpass(220 / this.p.size, 1.2);
+  }
+  render(t) {
+    const p = this.p;
+    const rasp = clamp2(p.rasp, 0, 1);
+    this.#glottis.jitter = rasp;
+    this.#glottis.sub = rasp * 0.5;
+    const f = p.pitch * (1 + 0.18 * exp2(-t / 0.08));
+    const pulse = this.#glottis.next(f);
+    const hiss = this.#noise2.next() * this.#glottis.open;
+    const src = pulse * (1 - 0.4 * rasp) + hiss * rasp * 0.7;
+    const rate = 25 + this.#wander.next(this.#noise2.next()) * 400;
+    this.#tremor += 2 * PI5 * rate / sampleRate;
+    const trem = 1 - clamp2(p.tremor, 0, 1) * 0.6 * (0.5 + 0.5 * sin5(this.#tremor));
+    const out = this.#body.process(src) * 0.7 + this.#chest.process(src) * 0.6;
+    return out * trem * envelope(t, 0.06, 0.25, p.duration) * GAIN;
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/breath.mjs
+var { exp: exp3, pow: pow3, abs: abs3, sqrt: sqrt2 } = Math;
+var GAIN2 = 0.8;
+var Breath = class extends Voice {
+  #noise2 = new Noise(5);
+  #lp = new Biquad();
+  #chest = new Biquad().bandpass(650, 2);
+  #cutoff = 0;
+  // Cutoff the lowpass was last built for.
+  constructor(params, id2) {
+    super(params, id2, { pressure: 0.6, cutoff: 1200, direction: "out", duration: 0.8 });
+  }
+  // The reference length: a held breath keeps the first 0.8 s of shape.
+  #length() {
+    return this.p.duration === Infinity ? 0.8 : this.p.duration;
+  }
+  #shape(t) {
+    const L = this.#length();
+    if (this.p.direction === "in") {
+      const rise2 = 0.85 * L;
+      return t < rise2 ? pow3(smooth(t / rise2), 1.5) : 1;
+    }
+    const rise = 0.12 * L;
+    return t < rise ? smooth(t / rise) : 0.3 + 0.7 * exp3(-(t - rise) / (0.35 * L));
+  }
+  render(t) {
+    const p = this.p;
+    const pressure = clamp2(p.pressure, 0, 1);
+    const e = this.#shape(t);
+    const fc = p.cutoff * (1 + 0.3 * pressure * e);
+    if (abs3(fc - this.#cutoff) > this.#cutoff * 0.01) {
+      this.#lp.lowpass(fc, 1.4);
+      this.#cutoff = fc;
+    }
+    const n = this.#noise2.next();
+    const out = this.#lp.process(n) + this.#chest.process(n) * 0.5;
+    const release = p.direction === "in" ? 0.05 : 0.15 * this.#length();
+    const even = fc > 1200 ? sqrt2(1200 / fc) : 1;
+    return out * e * envelope(t, 0, release, p.duration) * (0.3 + 0.7 * pressure) * even * GAIN2;
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/howl.mjs
+var { sin: sin6, exp: exp4, pow: pow4, max: max5, PI: PI6 } = Math;
+var GAIN3 = 1.3;
+var Howl = class extends Voice {
+  #glottis = new Glottis(3);
+  #noise2 = new Noise(9);
+  #drift2 = new Smoother(0.7);
+  #tract;
+  constructor(params, id2) {
+    super(
+      params,
+      id2,
+      { pitch: 220, slide: 330, vowel: "o", scale: 1, vibrato: 0.4, rasp: 0.1, attack: 0.08, release: 0.3, duration: 1.5 },
+      ["scale", "attack", "release"]
+    );
+    this.#glottis.oq = 0.65;
+    this.#tract = new FormantBank(this.#bands());
+  }
+  #bands() {
+    return vowelBands(this.p.vowel, this.p.scale) || vowelBands("a", this.p.scale);
+  }
+  retune(props, duration2) {
+    if ("vowel" in props || "scale" in props) this.#tract.set(this.#bands());
+    if ("pitch" in props && !("slide" in props)) this.update({ slide: props.pitch, duration: duration2 });
+  }
+  render(t) {
+    const p = this.p;
+    const rasp = clamp2(p.rasp, 0, 1);
+    this.#glottis.jitter = 0.05 + rasp * 0.6;
+    this.#glottis.sub = rasp * 0.45;
+    const sustain = p.duration === Infinity ? 1 : max5(0.05, p.duration - p.attack - p.release);
+    let f = glide(p.pitch, p.slide, (t - p.attack) / sustain);
+    const k = t / 0.05;
+    f *= 1 + 0.05 * k * exp4(1 - k);
+    const vib = clamp2((t - 0.2) / 0.3, 0, 1) * p.vibrato * sin6(2 * PI6 * 5.5 * t);
+    const drift = this.#drift2.next(this.#noise2.next()) * 25;
+    f *= pow4(2, (vib + drift) / 12);
+    const pulse = this.#glottis.next(f);
+    const hiss = this.#noise2.next() * this.#glottis.open;
+    const src = pulse * (1 - 0.35 * rasp) + hiss * rasp * 0.5;
+    const out = this.#tract.process(src) + src * 0.08;
+    return out * envelope(t, p.attack, p.release, p.duration) * GAIN3;
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic/chirp.mjs
+var { sin: sin7, exp: exp5, floor: floor3, min: min5, PI: PI7 } = Math;
+var GAIN4 = 0.6;
+var Chirp = class extends Voice {
+  #phase2 = 0;
+  #noise2 = new Noise(13);
+  constructor(params, id2) {
+    super(params, id2, { pitch: 2500, slide: 4200, count: 3, rate: 8, duration: 0.5, noise: 0.05 }, ["count", "rate"]);
+  }
+  render(t) {
+    const p = this.p;
+    const gap = 1 / p.rate;
+    const len = min5(gap * 0.6, 0.09);
+    const i = floor3(t / gap);
+    const tau = t - i * gap;
+    if (i >= p.count || i === p.count - 1 && tau >= len) {
+      this.playing = false;
+      return 0;
+    }
+    if (tau >= len) return 0;
+    const f = glide(p.pitch, p.slide, tau / len);
+    this.#phase2 += 2 * PI7 * f / sampleRate;
+    if (this.#phase2 > 2 * PI7) this.#phase2 -= 2 * PI7;
+    const env = smooth(tau / 4e-3) * exp5(-tau / (len * 0.35)) * smooth((len - tau) / 5e-3);
+    return (sin7(this.#phase2) + this.#noise2.next() * p.noise) * env * GAIN4;
+  }
+};
+
+// public/aesthetic.computer/lib/sound/organic.mjs
+var ORGANICS = { growl: Growl, breath: Breath, howl: Howl, chirp: Chirp };
+function createOrganic({ kind, id: id2, params = {} }) {
+  const Kind = ORGANICS[kind];
+  if (!Kind) {
+    console.warn("\u{1F43E} Unknown organic:", kind);
+    return null;
+  }
+  return new Kind(params, id2);
+}
+
 // public/aesthetic.computer/lib/speaker.mjs
-var { abs: abs3, round: round2, floor: floor4 } = Math;
+var { abs: abs4, round: round3, floor: floor4 } = Math;
 var delayTime = 0.12;
 var feedback = 0.6;
 var mix = 0.5;
@@ -1076,6 +2104,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
   // 'auto', 'low', 'disabled'
   #processingTimeHistory = [];
   #lastProcessingTime = 0;
+  #lastTelemetryTime = 0;
   // Frequency analysis
   #frequencyBandsLeft = [];
   #frequencyBandsRight = [];
@@ -1102,8 +2131,17 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
   #energyVariance = 0;
   // Track energy variance for dynamic sensitivity
   #mixDivisor = 1;
+  // 🍿 Pop (discontinuity) listener state.
+  #popPrev = 0;
+  #popCount = 0;
+  #popMax = 0;
+  #popEvents = [];
+  #popLastReport = 0;
+  // Demand gate for frequency analysis (see get-frequencies).
+  #lastFrequencyRequest = -10;
   #reverbLeft;
   #reverbRight;
+  // Glitch effect state
   #glitchHoldCounter = 0;
   #glitchHoldSamples = 1;
   #glitchHeldLeft = 0;
@@ -1114,11 +2152,13 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
   #vstBufferSize = 128;
   // Send samples in chunks
   constructor(options2) {
+    console.log("\u{1F50A} Sound Synthesis Worklet CONSTRUCTOR, bpm:", options2.processorOptions.bpm);
     super();
     this.#lastTime = currentTime;
     this.#bpm = options2.processorOptions.bpm;
     this.#bpmInSec = 60 / this.#bpm;
     this.#ticks = this.#bpmInSec;
+    console.log("\u{1F50A} Worklet initialized: bpm=", this.#bpm, "bpmInSec=", this.#bpmInSec, "ticks=", this.#ticks);
     volume2.amount.val = 0.9;
     this.#reverbLeft = new Reverb(sampleRate, delayTime, feedback, mix);
     this.#reverbRight = new Reverb(sampleRate, delayTime, feedback, mix);
@@ -1146,6 +2186,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         return;
       }
       if (msg.type === "get-frequencies") {
+        this.#lastFrequencyRequest = currentTime;
         this.port.postMessage({
           type: "frequencies",
           content: {
@@ -1158,6 +2199,11 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
             }
           }
         });
+        return;
+      }
+      if (msg.type === "volume") {
+        const nextVolume = clamp(msg.value ?? msg.content ?? msg.data ?? 1, 0, 1);
+        volume2.amount.val = nextVolume;
         return;
       }
       if (msg.type === "vst:enable") {
@@ -1183,6 +2229,13 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         this.port.postMessage({ type: "vst:samples", content: samples });
         return;
       }
+      if (msg.type === "performance:mode") {
+        const mode = msg.content?.mode ?? msg.mode;
+        if (mode === "auto" || mode === "low" || mode === "disabled") {
+          this.#performanceMode = mode;
+        }
+        return;
+      }
       if (msg.type === "beat:skip") {
         console.log("\u{1F3BC} Beat skipped");
         this.#ticks = 0;
@@ -1205,6 +2258,25 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
             }
             this.#queue.push(bubble);
           });
+        }
+        if (soundData.farts) {
+          soundData.farts.forEach((fartData) => {
+            const fart = new Fart(
+              fartData.pressure,
+              fartData.pitch,
+              fartData.rasp,
+              fartData.volume,
+              fartData.pan,
+              fartData.id
+            );
+            if (fartData.id !== void 0) {
+              this.#running[fartData.id] = fart;
+            }
+            this.#queue.push(fart);
+          });
+        }
+        if (soundData.organics) {
+          for (const o of soundData.organics) this.#organic(o);
         }
         if (soundData.kills) {
           soundData.kills.forEach((killData) => {
@@ -1238,7 +2310,34 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         return;
       }
       if (msg.type === "update") {
-        this.#running[msg.data.id]?.update(msg.data.properties);
+        const soundInstance = this.#running[msg.data.id];
+        soundInstance?.update(msg.data.properties);
+        return;
+      }
+      if (msg.type === "bubble:update") {
+        const soundInstance = this.#running[msg.content.id];
+        soundInstance?.update(msg.content.properties);
+        return;
+      }
+      if (msg.type === "fart:update") {
+        const soundInstance = this.#running[msg.content.id];
+        soundInstance?.update(msg.content.properties);
+        return;
+      }
+      if (msg.type === "sample:update") {
+        const { label, buffer } = msg.data;
+        const runningIds = Object.keys(this.#running);
+        const runningLabels = Object.values(this.#running).map((s) => s?.sampleLabel).filter(Boolean);
+        if (sampleStore[label]) {
+          sampleStore[label] = buffer;
+        }
+        let updatedCount = 0;
+        Object.values(this.#running).forEach((sound) => {
+          if (sound && sound.sampleLabel === label) {
+            sound.update({ sampleData: buffer });
+            updatedCount++;
+          }
+        });
         return;
       }
       if (msg.type === "update-generator") {
@@ -1286,7 +2385,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       }
       if (msg.type === "glitch:toggle") {
         glitchEnabled = !glitchEnabled;
-        console.log("🧩 GLITCH TOGGLE:", glitchEnabled ? "ON" : "OFF");
+        console.log("\u{1F9E9} GLITCH TOGGLE:", glitchEnabled ? "ON" : "OFF");
         this.#report("glitch:state", {
           enabled: glitchEnabled,
           mix: glitchMix,
@@ -1300,8 +2399,8 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         const data = msg.data || {};
         if (data.enabled !== void 0) glitchEnabled = data.enabled;
         if (data.mix !== void 0) glitchMix = clamp(data.mix, 0, 1);
-        if (data.crush !== void 0) glitchCrush = clamp(round2(data.crush), 2, 12);
-        if (data.rate !== void 0) glitchRate = clamp(data.rate, 20, 8000);
+        if (data.crush !== void 0) glitchCrush = clamp(round3(data.crush), 2, 12);
+        if (data.rate !== void 0) glitchRate = clamp(data.rate, 20, 8e3);
         if (data.jitter !== void 0) glitchJitter = clamp(data.jitter, 0, 1);
         this.#glitchHoldSamples = Math.max(1, Math.floor(sampleRate / glitchRate));
         this.#report("glitch:state", {
@@ -1336,7 +2435,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         } else {
           const data = msg.data;
           if (data.beats) {
-            duration2 = round2(sampleRate * (this.#bpmInSec * data.beats));
+            duration2 = round3(sampleRate * (this.#bpmInSec * data.beats));
           } else if (data.options.buffer && !duration2) {
             if (typeof data.options.buffer === "string") {
               data.options.buffer = sampleStore[data.options.buffer];
@@ -1349,18 +2448,18 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
               [from, to] = [to, from];
               data.options.speed = -(data.options.speed || 1);
             }
-            const startSample = round2(from * data.options.buffer.length);
-            const endSample = round2(to * data.options.buffer.length);
+            const startSample = round3(from * data.options.buffer.length);
+            const endSample = round3(to * data.options.buffer.length);
             data.options.startSample = startSample;
             data.options.endSample = endSample;
-            duration2 = round2(
-              (endSample - startSample) / abs3(data.options.speed || 1) / data.options.buffer.sampleRate * sampleRate
+            duration2 = round3(
+              (endSample - startSample) / abs4(data.options.speed || 1) / data.options.buffer.sampleRate * sampleRate
             );
           }
-          attack2 = round2(duration2 * msg.data.attack || 0);
-          decay2 = round2(duration2 * msg.data.decay || 0);
+          attack2 = round3(duration2 * msg.data.attack || 0);
+          decay2 = round3(duration2 * msg.data.decay || 0);
         }
-        let synthOptions = msg.data.options || { tone: msg.data.tone };
+        let synthOptions = { tone: msg.data.tone, ...msg.data.options };
         if (msg.data.type === "custom" && msg.data.generator) {
           synthOptions = { ...synthOptions, generator: msg.data.generator };
         }
@@ -1404,12 +2503,37 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         this.#queue.push(bubble);
         return;
       }
+      if (msg.type === "fart") {
+        const fart = new Fart(
+          msg.data.pressure,
+          msg.data.pitch,
+          msg.data.rasp,
+          msg.data.volume,
+          msg.data.pan,
+          msg.data.id
+        );
+        if (msg.data.id !== void 0) {
+          this.#running[msg.data.id] = fart;
+        }
+        this.#queue.push(fart);
+        return;
+      }
+      if (msg.type === "organic") {
+        this.#organic(msg.data);
+        return;
+      }
     };
+  }
+  #organic(data) {
+    const voice = createOrganic(data);
+    if (!voice) return;
+    if (data.id !== void 0) this.#running[data.id] = voice;
+    this.#queue.push(voice);
   }
   process(inputs, outputs) {
     try {
-      const currentTime2 = this.currentTime;
-      const startTime = currentTime2 * 1e3;
+      const time = currentTime;
+      const startTime = time * 1e3;
       this.#memoryCheckCounter++;
       if (this.#memoryCheckCounter >= sampleRate * 2) {
         this.#memoryCheckCounter = 0;
@@ -1436,43 +2560,60 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
           console.warn("\u26A0\uFE0F Energy history growing too large!", this.#energyHistory.length);
         }
       }
-      const result = this.#processAudio(inputs, outputs, currentTime2);
-      const processingTime = currentTime2 * 1e3 - startTime;
+      if (time - this.#lastTelemetryTime >= 0.25) {
+        this.#lastTelemetryTime = time;
+        this.port.postMessage({
+          type: "telemetry",
+          content: {
+            queueLength: this.#queue.length,
+            runningCount: Object.keys(this.#running).length,
+            performanceMode: this.#performanceMode
+          }
+        });
+      }
+      const result = this.#processAudio(inputs, outputs, time);
+      const processingTime = time * 1e3 - startTime;
       this.#processingTimeHistory.push(processingTime);
       if (this.#processingTimeHistory.length > 100) {
         this.#processingTimeHistory.shift();
       }
       return result;
     } catch (error) {
-      console.error("\u{1F6A8} Audio Worklet Error:", error);
+      console.error("\u{1F6A8} Audio Worklet Error in process():", error, error?.stack);
       return true;
     }
   }
-  #processAudio(inputs, outputs, currentTime2) {
-    if (Math.floor(currentTime2 * 10) % 50 === 0) {
-      console.log(`\u{1F3B5} WORKLET_TIME: ${currentTime2.toFixed(6)}s, sampleRate=${sampleRate}, frame=${currentFrame}`);
+  #processAudio(inputs, outputs, time) {
+    if (this.#lastTime && Math.floor(time) !== Math.floor(this.#lastTime)) {
+    }
+    if (Math.floor(time * 10) % 50 === 0) {
     }
     let waveformLeft = [];
     let waveformRight = [];
     const previousTicks = this.#ticks;
-    this.#ticks += currentTime2 - this.#lastTime;
-    this.#lastTime = currentTime2;
+    this.#ticks += time - this.#lastTime;
+    this.#lastTime = time;
     if (this.#ticks >= this.#bpmInSec) {
-      console.log(`\u{1F3B5} BEAT: ${currentTime2.toFixed(6)}s, bpm=${this.#bpm}, interval=${this.#bpmInSec.toFixed(3)}s, tick_overflow=${(this.#ticks - this.#bpmInSec).toFixed(6)}s`);
       this.#ticks = 0;
-      this.#report("metronome", currentTime2);
+      this.#report("metronome", time);
     }
     const output = outputs[0];
+    if (!output || !output[0] || !output[1]) {
+      console.error("\u{1F6A8} Invalid outputs:", outputs, output);
+      return true;
+    }
     let ampLeft = 0, ampRight = 0;
-    const waveformSize = round2(sampleRate / 200);
+    const waveformSize = round3(sampleRate / 200);
     const waveformRate = 1;
+    for (let i = this.#queue.length - 1; i >= 0; i--) {
+      const instrument = this.#queue[i];
+      if (!instrument.playing) {
+        this.#report("killed", { id: instrument.id });
+        if (instrument.id !== void 0) delete this.#running[instrument.id];
+        this.#queue.splice(i, 1);
+      }
+    }
     for (let s = 0; s < output[0].length; s += 1) {
-      this.#queue = this.#queue.filter((instrument) => {
-        if (!instrument.playing) {
-          this.#report("killed", { id: instrument.id });
-        }
-        return instrument.playing;
-      });
       let voices = 0;
       for (const instrument of this.#queue) {
         const amplitude = instrument.next(s);
@@ -1498,11 +2639,34 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       }
       output[0][s] = volume2.apply(output[0][s] / this.#mixDivisor);
       output[1][s] = volume2.apply(output[1][s] / this.#mixDivisor);
+      {
+        const d = Math.abs(output[0][s] - this.#popPrev);
+        if (d > 0.3) {
+          this.#popCount += 1;
+          if (d > this.#popMax) this.#popMax = d;
+          if (this.#popEvents.length < 16) {
+            const tail = this.#queue[this.#queue.length - 1];
+            this.#popEvents.push({
+              d: +d.toFixed(4),
+              prev: +this.#popPrev.toFixed(4),
+              now: +output[0][s].toFixed(4),
+              voices: this.#queue.length,
+              div: +this.#mixDivisor.toFixed(3),
+              fading: tail ? !!tail.fading : null,
+              gain: tail?.fadeGain !== void 0 ? +tail.fadeGain.toFixed(4) : null
+            });
+          }
+        }
+        this.#popPrev = output[0][s];
+      }
       if (glitchEnabled) {
         if (this.#glitchHoldCounter <= 0) {
           const jitter = glitchJitter ? (Math.random() - 0.5) * glitchJitter * 0.6 : 0;
           const rateSwing = (Math.random() * 0.3 - 0.15) * (0.4 + glitchJitter);
-          const holdSamples = Math.max(1, Math.floor(this.#glitchHoldSamples * (1 + jitter + rateSwing)));
+          const holdSamples = Math.max(
+            1,
+            Math.floor(this.#glitchHoldSamples * (1 + jitter + rateSwing))
+          );
           this.#glitchHoldCounter = holdSamples;
           if (Math.random() < 0.08 + glitchJitter * 0.15) {
             this.#glitchHeldLeft = output[0][s];
@@ -1522,14 +2686,18 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         output[1][s] *= 1 - skipMix;
       }
       if (roomEnabled) {
-        if (s === 0 && Math.floor(currentTime2) !== this._lastReverbLogTime) {
-          this._lastReverbLogTime = Math.floor(currentTime2);
+        if (s === 0 && Math.floor(currentTime) !== this._lastReverbLogTime) {
+          this._lastReverbLogTime = Math.floor(currentTime);
           console.log("\u{1F3E0} REVERB ACTIVE - processing sample, roomEnabled:", roomEnabled);
         }
         output[0][s] = this.#reverbLeft.processSample(output[0][s]);
         output[1][s] = this.#reverbRight.processSample(output[1][s]);
       }
       if (this.#vstBridgeEnabled) {
+        if (!this._vstModeWarningLogged) {
+          console.warn("\u26A0\uFE0F VST Bridge Mode is ACTIVE - Web Audio output is silenced!");
+          this._vstModeWarningLogged = true;
+        }
         this.#vstSampleBuffer.left.push(output[0][s]);
         this.#vstSampleBuffer.right.push(output[1][s]);
         if (this.#vstSampleBuffer.left.length >= this.#vstBufferSize) {
@@ -1544,8 +2712,8 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
         output[0][s] = 0;
         output[1][s] = 0;
       }
-      ampLeft = abs3(output[0][s]) > ampLeft ? abs3(output[0][s]) : ampLeft;
-      ampRight = abs3(output[1][s]) > ampRight ? abs3(output[1][s]) : ampRight;
+      ampLeft = abs4(output[0][s]) > ampLeft ? abs4(output[0][s]) : ampLeft;
+      ampRight = abs4(output[1][s]) > ampRight ? abs4(output[1][s]) : ampRight;
       if (s % waveformRate === 0) {
         waveformLeft.push(output[0][s]);
         waveformRight.push(output[1][s]);
@@ -1560,6 +2728,21 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
     }
     this.#currentAmplitudeLeft = ampLeft;
     this.#currentAmplitudeRight = ampRight;
+    if (this.#popCount > 0 && currentTime - this.#popLastReport > 0.25) {
+      this.#report("pops", {
+        count: this.#popCount,
+        max: +this.#popMax.toFixed(3),
+        at: currentTime,
+        events: this.#popEvents
+      });
+      this.#popCount = 0;
+      this.#popMax = 0;
+      this.#popEvents = [];
+      this.#popLastReport = currentTime;
+    }
+    if (currentTime - (this.#lastFrequencyRequest ?? -10) > 2) {
+      return true;
+    }
     this.#fftBufferLeft.push(...output[0]);
     this.#fftBufferRight.push(...output[1]);
     if (this.#fftBufferLeft.length > this.#fftSize) {
@@ -1568,7 +2751,7 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
     }
     this.#analysisCounter = (this.#analysisCounter || 0) + 1;
     if (this.#performanceMode === "disabled") {
-      return;
+      return true;
     }
     let analysisInterval, beatInterval;
     if (this.#performanceMode === "low") {
@@ -1584,6 +2767,9 @@ var SpeakerProcessor = class extends AudioWorkletProcessor {
       if (this.#analysisCounter % beatInterval === 0) {
         this.#detectBeats(this.#fftBufferLeft);
       }
+    }
+    if (this._processCallCount <= 3) {
+      console.log("\u{1F50A} #processAudio END call:", this._processCallCount);
     }
     return true;
   }

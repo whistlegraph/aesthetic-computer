@@ -1,0 +1,6 @@
+date,territory,source_type,page_type,device,platform_version,units,sales_usd,proceeds_usd
+2026-07-13,US,App Store search,No page,Desktop,macOS 26.5,1,4.99,3.50
+2026-07-13,GB,App Store browse,Product page,Desktop,macOS 26.5,1,6.57,3.81
+2026-07-13,US,App referrer,Product page,Desktop,macOS 26.3,1,4.99,3.50
+2026-07-15,US,App referrer,Product page,Desktop,macOS 14.7,1,4.99,3.50
+2026-08-13,US,App Store search,Product page,Desktop,macOS 12.7,1,4.99,3.50

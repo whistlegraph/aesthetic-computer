@@ -7772,6 +7772,7 @@ sound = {
   sounds: [],
   bubbles: [],
   farts: [],
+  organics: [],
   kills: [],
 };
 
@@ -12401,6 +12402,7 @@ async function makeFrame({ data: { type, content } }) {
     sound.sounds.length = 0; // Empty the sound command buffer.
     sound.bubbles.length = 0;
     sound.farts.length = 0;
+    sound.organics.length = 0;
     sound.kills.length = 0;
     return;
   }
@@ -13310,8 +13312,11 @@ async function makeFrame({ data: { type, content } }) {
 
     $sound.synth = function synth({
       tone = 440, // hz, or musical note
-      type = "square", // "sine", "triangle", "square", "sawtooth", "custom"
-      // "noise-white" <-ignores tone
+      // "sine", "triangle", "square", "sawtooth", "noise-white" (alias
+      // "noise" — tone sets the filter centre), "harp" (aliases "pluck",
+      // "guitar", "string"), "whistle" (aliases "ocarina", "flute"),
+      // "sample", "custom"
+      type = "square",
       duration = 0.1, // In seconds... (where beats is a shortcut)
       beats = undefined, // 🧧 Should this be deprecated?
       attack = 0.01, // How quickly the sound starts.
@@ -13321,6 +13326,15 @@ async function makeFrame({ data: { type, content } }) {
       immediate = false, // Bypass the next frame batch for latency-critical input.
       probe = null, // Opt-in main-thread → AudioWorklet profiling metadata.
       generator = null, // Custom waveform generator function for type "custom"
+      // 🐦 Expression — all optional; see lib/sound/synth.mjs `_express`.
+      slide, // hz or note to glide to (exponentially) over slideDuration
+      slideDuration, // seconds; defaults to the note length (0.25 when held)
+      vibrato, // semitones at 5 Hz, or { rate, depth, delay }
+      tremolo, // depth 0..1 at 6 Hz, or { rate, depth }
+      drift, // semitones of slow random pitch wander
+      noise, // 0..1 white-noise breath mixed into the source
+      lowpass, // cutoff hz, or { cutoff, resonance, sweep, sweepDuration }
+      formant, // "a"|"e"|"i"|"o"|"u", bands, or { vowel|bands, scale }
     } = {}) {
       const id = soundId;
       if (volume === undefined) volume = 1;
@@ -13332,6 +13346,14 @@ async function makeFrame({ data: { type, content } }) {
       // console.log("⛈️ Tone:", tone);
       // Add generator to sound data for custom type
       const soundData = { id, type, tone, beats, attack, decay, volume, pan, probe };
+      // `tone` stays top-level (bios telemetry reads it); the expression
+      // rides in `options`, which is what the worklet hands to Synth.
+      const options = { tone };
+      if (slide !== undefined) options.slide = $sound.freq(slide);
+      for (const [key, val] of Object.entries({ slideDuration, vibrato, tremolo, drift, noise, lowpass, formant })) {
+        if (val !== undefined) options[key] = val;
+      }
+      if (Object.keys(options).length > 1) soundData.options = options;
       if (type === "custom" && generator) {
         soundData.generator = generator.toString(); // Convert function to string for postMessage
       }
@@ -13358,6 +13380,7 @@ async function makeFrame({ data: { type, content } }) {
         },
         update: function (properties) {
           if (properties.tone) properties.tone = $sound.freq(properties.tone);
+          if (properties.slide) properties.slide = $sound.freq(properties.slide);
           send({
             type: "synth:update",
             content: { id, properties },
@@ -13437,6 +13460,30 @@ async function makeFrame({ data: { type, content } }) {
         },
       };
     };
+
+    // 🐾 Organic voices (lib/sound/organic.mjs) all ride one record shape,
+    // so a new generator needs no new plumbing here or in the bios.
+    function organic(kind, params) {
+      if (params.duration === "🔁") params = { ...params, duration: Infinity };
+      const id = soundId;
+      sound.organics.push({ id, kind, params });
+      soundId += 1n;
+      return {
+        startedAt: soundTime,
+        id,
+        kind,
+        kill: function (fade) {
+          sound.kills.push({ id, fade });
+        },
+        update: function (properties) {
+          send({ type: "synth:update", content: { id, properties } });
+        },
+      };
+    }
+    $sound.growl = (p = {}) => organic("growl", p);
+    $sound.breath = (p = {}) => organic("breath", p);
+    $sound.howl = (p = {}) => organic("howl", p);
+    $sound.chirp = (p = {}) => organic("chirp", p);
 
     $sound.kill = function (id, fade) {
       sound.kills.push({ id, fade });
@@ -17293,6 +17340,7 @@ async function makeFrame({ data: { type, content } }) {
       sound.sounds.length = 0; // Empty the sound command buffer.
       sound.bubbles.length = 0;
       sound.farts.length = 0;
+      sound.organics.length = 0;
       sound.kills.length = 0;
 
       twoDCommands.length = 0; // Empty the 2D GPU command buffer.

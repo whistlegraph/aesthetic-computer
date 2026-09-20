@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "paper": "iOS So Far",
+  "pdf": "ios-so-far.pdf",
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "pdfSha256": "0760a0b3271d80884e25cfe296a3933f9e7ef42c1b87f5933ae43929b3aba1f9",
+  "reviewedAt": "2026-09-10T00:37:31Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Verified at 600 dpi on the page-1 byline and again in the page-6 bibliography entry; the period renders in AC pink against gray and black text in both. The iOS app's App Store listing is titled in lowercase without a period, which the text extractor cannot distinguish from the project wordmark, so the paper writes it in house style throughout and preserves the verbatim listing string in data/app-records.csv."
+  },
+  "diagrams": [
+    {
+      "id": "timeline",
+      "page": 3,
+      "crop": [
+        0.06,
+        0.235,
+        0.87,
+        0.19
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Rebuilt twice. First render overflowed the review bars off the figure and collided year labels with data; second render clipped the right-hand count gutter past the text block. Final layout moves counts into a left column, drops the burst brackets so the figure carries one claim, and labels only the peak bar. Release lanes, axis, and review bars read top to bottom with a single leader line to the annotation."
+    },
+    {
+      "id": "pipeline-stages",
+      "page": 4,
+      "crop": [
+        0.15,
+        0.065,
+        0.35,
+        0.13
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Replaced an earlier flow-chart render whose annotation tags printed on top of the stage boxes and whose arrows crossed unrelated nodes. Recast as a stage matrix: rows are apps, columns are the four release stages, filled marks are completed stages. The connecting line survives only on the row that completes the pipeline, so the stalled rows read by absence."
+    }
+  ],
+  "history": [
+    {
+      "reviewedAt": "2026-09-10T00:37:31Z",
+      "notes": "Re-reviewed after opening 1 was corrected against the App Store Connect API: the submission is not one command away (asc.mjs was pinned to Menu Band's application identifier and MAC_OS, the listing is empty on both platforms, and build 7's pre-release version records MAC_OS so it cannot serve the iOS record). The oskiewar iOS build became its own entry, so the openings went from eight to nine and the closing item-number sentence was renumbered. Pages 4 and 5 re-inspected at full size: nine items, the italic correction note, and the renumbered sentence all set cleanly with no overflow. Neither diagram changed; their verdicts carry forward and Figure 2 was re-checked in the page render."
+    }
+  ]
+}

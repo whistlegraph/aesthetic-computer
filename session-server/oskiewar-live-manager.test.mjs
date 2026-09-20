@@ -644,3 +644,21 @@ test('workshop routes acknowledgements only to the requesting agent', () => {
   host.emit('message', reply(second));
   assert.equal(other.sent.at(-1).content.id, 'same');
 });
+
+
+test("skatepark live frames bound chain state and attachment indices", () => {
+  const frame = { ...state(), map: "skatepark", ropes: Array.from({ length: 3 }, () =>
+    Array.from({ length: 17 }, (_, i) => [3600, 11000 + i * 44, 3600, 11000 + i * 44])) };
+  frame.fighters[0].ropeIndex = 0;
+  frame.fighters[0].ropeLink = 12.5;
+  frame.fighters[0].skateRotation = 0;
+  assert.equal(validateOskiewarLiveState(frame), null);
+  frame.ropes[0][3][0] = Infinity;
+  assert.equal(validateOskiewarLiveState(frame), "Invalid ropes");
+  frame.ropes[0][3][0] = 3600;
+  frame.fighters[0].ropeIndex = 3;
+  assert.equal(validateOskiewarLiveState(frame), "Invalid fighters");
+  frame.fighters[0].ropeIndex = 0;
+  frame.ropes[0].push([0, 0, 0, 0]);
+  assert.equal(validateOskiewarLiveState(frame), "Invalid ropes");
+});

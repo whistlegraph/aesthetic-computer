@@ -75,7 +75,7 @@ export const RUNTIME_ALIASES = { processing: "lua", l5: "lua", js: "mjs", kidlis
 
 export const DEFAULT_RUNTIME = "mjs";
 
-function stamp(date = new Date()) {
+export function stamp(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0");
   return [
     String(date.getFullYear()).slice(2),

@@ -43,7 +43,7 @@ function createSeat({ viewport = { width: 1920, height: 1080 },
          }
        };
      }
-     return { boot, sim, paint, saberPickups, players, workshopCommand,
+     return { configureWorldMap, skateRopes, boot, sim, paint, saberPickups, players, workshopCommand,
        workshopFrame: () => spectatorState(runtime().monotonicUs),
        workshopView: (frame) => applyRoundViewerState(frame, runtime().monotonicUs), netHashTextAt: (f) => netHashTexts.get(f), netHashFrames: () => [...netHashTexts.keys()],
        fixtureKnockouts: () => fixtureKnockouts.slice(),
@@ -375,7 +375,7 @@ test("a desync drops both seats to the lane with one authority", () => {
   assert.deepEqual(host.fight.fighters().map((fighter) => fighter.roundWins),
     wins, "and keeps the score");
   // A straggler from the closed lane is not an invitation to reopen it.
-  host.fight.netplayPreSession({ t: "hello", v: 1, name: "@RIVAL", colors: [] });
+  host.fight.netplayPreSession({ t: "hello", v: 2, name: "@RIVAL", colors: [] });
   assert.equal(host.fight.netplayState(), null);
 });
 
@@ -463,7 +463,7 @@ test("a hello turns the streamed lane into a rollback fight, and silence leaves 
   // host answers with a deal on the same channel.
   const rollback = createSeat({ netSend: (room, content) => { sent.push([room, content]); return true; } });
   sent.length = 0;
-  globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@NEWRIVAL", colors: [[9, 9, 9]] }];
+  globalThis.__oskiewarNetInbox = [{ t: "hello", v: 2, name: "@NEWRIVAL", colors: [[9, 9, 9]] }];
   globalThis.__oskiewarNetSend = (room, content) => { sent.push([room, content]); return true; };
   rollback.tick();
   const state = rollback.fight.netplayState();
@@ -492,28 +492,28 @@ test("a rejoining rival's hello ends the dead session instead of feeding it", ()
   try {
     const host = createSeat();
     globalThis.__oskiewarNetSend = (room, content) => { deals.push(content); return true; };
-    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 2, name: "@FRIEND", colors: [] }];
     host.tick();
     assert.ok(host.fight.netplayState(), "the host dealt a session");
     assert.equal(deals.filter((packet) => packet.t === "start").length, 1);
 
     // A straggler from before the deal must not kill a session one frame old.
     wall += 500;
-    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 2, name: "@FRIEND", colors: [] }];
     host.tick();
     assert.ok(host.fight.netplayState(), "an in-flight hello is not a departure");
 
     // Their tab is killed — no bye, no more input packets — and they reload
     // and start announcing themselves again.
     wall += 3000;
-    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 2, name: "@FRIEND", colors: [] }];
     host.tick();
     assert.equal(host.fight.netplayState(), null,
       "the hello reads as a departure, not as the rival still talking");
 
     // And the next one seats them again, under their own name.
     wall += 1000;
-    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 1, name: "@FRIEND", colors: [] }];
+    globalThis.__oskiewarNetInbox = [{ t: "hello", v: 2, name: "@FRIEND", colors: [] }];
     host.tick();
     const reopened = deals.filter((packet) => packet.t === "start");
     assert.equal(reopened.length, 2, "a fresh deal, not a wedged fight");
@@ -537,7 +537,7 @@ test("the challenger takes a deal from its bridge and stops watching the stream"
   // Seated and watching: the challenger announces itself.
   guest.tick();
   assert.ok(outbound.some((packet) => packet.t === "hello"), "it says hello");
-  const deal = { t: "start", v: 1, origin: 16667000, delay: 2, ballType: "soccer",
+  const deal = { t: "start", v: 2, origin: 16667000, delay: 2, ballType: "soccer",
     fighters: [{ name: "@HOST", rosterIndex: 0, color: [190, 42, 58], handleColors: [] },
       { name: "@ME", rosterIndex: -1, color: [38, 82, 176], handleColors: [] }] };
   bridge.listener({ type: "net", content: deal, roundName: "sezzi7", live: true });
@@ -801,7 +801,7 @@ test("a round is not filed until its end can no longer be taken back", () => {
 test("a sword survives a rollback the same way on both seats", () => {
   assert.match(source, /gunPickups, saberPickups, grenadePickups/,
     "saberPickups is part of the rollback snapshot");
-  assert.match(source, /player\.swordHeld\]\);/,
+  assert.match(source, /player\.swordHeld,/,
     "and holding one is hashed, so disagreeing about it reports itself");
 
   const host = createSeat();
@@ -874,4 +874,35 @@ test('a coach map edit moves both network seats to the host stream', async () =>
     delete globalThis.__oskiewarValidateMap;
     delete globalThis.__oskiewarWorkshopEnabled;
   }
+});
+
+
+test("networked skatepark ropes converge after delayed grab, climb and swing inputs", () => {
+  const host = createSeat(), guest = createSeat();
+  host.fight.configureWorldMap("skatepark");
+  const wire = createWire(host, guest, { delay: 6, jitter: 3, loss: .12 });
+  const deal = beginPair(host, guest, wire);
+  assert.equal(deal.map, "skatepark");
+  for (const seat of [host, guest]) seat.fight.players.forEach((player, index) => {
+    const node = seat.fight.skateRopes[index].nodes[14];
+    Object.assign(player, { x: node.x, y: node.y + 125, grounded: false });
+  });
+  for (let frame = 0; frame < 520; frame++) {
+    for (const seat of [host, guest]) {
+      const f = seat.fight.netplayState().frame;
+      seat.press(...(f < 205 ? ["A", "B"] : f < 280 ? ["ArrowUp", "ArrowRight"]
+        : f < 350 ? ["ArrowDown", "ArrowLeft"] : ["ArrowRight"]));
+      seat.tick();
+    }
+    wire.step();
+  }
+  host.press(); guest.press();
+  for (let frame = 0; frame < 100; frame++) { host.tick(); guest.tick(); wire.step(); }
+  assert.ok(equalize(host, guest, wire));
+  assert.equal(host.fight.netplayHash(), guest.fight.netplayHash());
+  assert.ok(host.fight.netplayState().stats.rollbacks > 0 ||
+    guest.fight.netplayState().stats.rollbacks > 0);
+  assert.equal(host.fight.players[0].ropeIndex, 0);
+  assert.equal(host.fight.players[1].ropeIndex, 1);
+  assert.deepEqual(host.fight.skateRopes, guest.fight.skateRopes);
 });
