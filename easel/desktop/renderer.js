@@ -123,14 +123,22 @@ function reportTitleGeometry(){
   window.aesel.titleGeometry?.({x:visible?r.right+6:0,y:visible?Math.max(0,r.top+(r.height-size)/2):0,size,visible,title:label.dataset.title||label.textContent,titleX:r.x,titleY:r.y,titleWidth:r.width,titleHeight:r.height,titleFontSize:16,titleColors:label.titleColors||[]});
 }
 new ResizeObserver(()=>reportTitleGeometry()).observe(document.getElementById('qr-label'));
+// A live drag delivers a resize every frame. Refitting the terminal each time
+// rebuilds xterm's WebGL surface and waits on the GPU, so during the drag the
+// grid refits at most every 80 ms and settles once the drag ends; the preview
+// scale is a transform and still tracks every frame.
+// During the drag only the preview transform tracks the window; the terminal
+// grid, shelf, notebook ruling and prompt settle once, 150 ms after the last
+// resize event, on the 'aesel-resize-settled' event the modules listen for.
 function resize() {
   if (resizeFrame) return;
   resizeFrame = requestAnimationFrame(() => {
     resizeFrame = 0;
-    if (!fullscreenState.preview) { fitTerminal(); sizeShelf(); }
+    const dragging = document.body.classList.contains('window-resizing');
+    if (!fullscreenState.preview && !dragging) { fitTerminal(); sizeShelf(); }
     sizePreviewBox();
     scalePreview();
-    reportTitleGeometry();
+    if (!dragging) reportTitleGeometry();
   });
 }
 let noticeTimer = null;
@@ -188,6 +196,7 @@ window.placeNotebookActivity=()=>{
 };
 let promptState=null;
 function positionPrompt(){
+ if(document.body.classList.contains('window-resizing'))return;
  const rowHeight=terminal.options.fontSize*1.5;
  promptLine.style.fontSize=`${terminal.options.fontSize}px`;
  promptLine.style.lineHeight=`${rowHeight}px`;
@@ -220,7 +229,7 @@ function updatePrompt(value){
 }
 promptLine.addEventListener('pointerdown',event=>{event.preventDefault();terminal.focus();});
 new ResizeObserver(positionPrompt).observe(terminalElement);
-window.addEventListener('resize',positionPrompt);
+window.addEventListener('aesel-resize-settled',positionPrompt);
 
 let draggingSelection = false, pendingOutput = '', pastedInput = false;
 let clickOrigin = null;
@@ -478,10 +487,29 @@ function scalePreview() {
   previewViewport.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
 }
 new ResizeObserver(scalePreview).observe(artifact);
+// macOS resizes a window synchronously and waits for every embedded frame,
+// and the piece guest is busy painting at 60 fps, so each drag step waited on
+// it (~75 ms of a ~100 ms step). For the drag the guest is swapped for a
+// snapshot of its last frame and hidden; hidden, a step takes ~25 ms.
+const previewFreeze=new Image();previewFreeze.id='preview-freeze';previewFreeze.alt='';previewFreeze.hidden=true;previewViewport.append(previewFreeze);
+let freezing=false;
+function freezePreview(){
+  if(freezing||fullscreenState.preview||preview.hidden||window.currentPreviewMedium&&window.currentPreviewMedium!=='piece')return;
+  freezing=true;
+  preview.capturePage().then(image=>{
+    if(!document.body.classList.contains('window-resizing')||image.isEmpty())return;
+    previewFreeze.src=image.toDataURL();previewFreeze.hidden=false;preview.style.visibility='hidden';
+  }).catch(()=>{});
+}
+function thawPreview(){
+  freezing=false;preview.style.visibility='';
+  requestAnimationFrame(()=>{previewFreeze.hidden=true;previewFreeze.removeAttribute('src');});
+}
 window.addEventListener('resize', () => {
   document.body.classList.add('window-resizing');
+  freezePreview();
   clearTimeout(resizeEndTimer);
-  resizeEndTimer=setTimeout(()=>document.body.classList.remove('window-resizing'),150);
+  resizeEndTimer=setTimeout(()=>{document.body.classList.remove('window-resizing');thawPreview();resize();window.dispatchEvent(new Event('aesel-resize-settled'));},150);
   resize();
 });
 
@@ -529,7 +557,7 @@ function reportZoom() {
 }
 function updateWindowTitle() {
   const mark = /^[A-Z]$/.test(instanceLabel) ? String.fromCodePoint(0x1D56C + instanceLabel.charCodeAt(0) - 65) : `[${instanceLabel}]`;
-  document.title = titlePiece || 'Aesel';
+  document.title = titlePiece || 'aesel';
 }
 window.aesel.onInstanceLabel(label => {
   instanceLabel = label;
@@ -652,16 +680,13 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
    close();window.aesel.input(`\x1b[99;${index}~`);
   }}));
   if(provider?.backend!=='ac'){
-  const modelLabel=document.createElement('label');modelLabel.textContent='Model';modelLabel.className='settings-field';
-  const modelSelect=document.createElement('select');modelSelect.setAttribute('aria-label','Model');modelSelect.disabled=!!provider?.busy||!provider?.models?.length;
-  for(const [index,model] of (provider?.models||[]).entries()){
-    const option=document.createElement('option');option.value=String(index);option.textContent=model.label;
-    option.selected=model.id===(provider.selectedModel??provider.model);modelSelect.append(option);
-  }
-  if(![...(provider?.models||[])].some(model=>model.id===(provider.selectedModel??provider.model)))modelSelect.selectedIndex=0;
+  const models=provider?.models||[];
+  const chosen=provider?.selectedModel??provider?.model;
   const backendIndex=['ac','claude','codex'].indexOf(provider?.backend);
-  modelSelect.addEventListener('change',()=>{if(provider?.busy)return;window.aesel.input(`\x1b[99;4;${backendIndex};${modelSelect.value}~`);});
-  modelLabel.append(modelSelect);choices.append(modelLabel);
+  choices.append(window.createChoicePicker({label:'Model',options:models.map(model=>({id:model.id,label:model.label,detail:model.detail})),current:Math.max(0,models.findIndex(model=>model.id===chosen)),busy:!!provider?.busy||!models.length,onSelect:index=>{
+   if(provider?.busy||models[index]?.id===chosen)return;
+   window.aesel.input(`\x1b[99;4;${backendIndex};${index}~`);
+  }}));
   }
 
   const audioLabel=document.createElement('label');audioLabel.className='settings-field';audioLabel.textContent='Preview volume';
@@ -673,7 +698,7 @@ boot().catch(error => { document.body.dataset.notebookReady='true';document.getE
   volume.addEventListener('input',()=>{level.textContent=volume.value+'%';window.previewAudio?.set({volume:Number(volume.value)/100});});
   mute.addEventListener('click',()=>{window.previewAudio?.set({muted:!window.previewAudio.muted});updateMute();});
   audioRow.append(volume,level,mute);audioLabel.append(audioRow);menu.append(audioLabel);
-  const stateLine=document.createElement('p');stateLine.className='inference-status';stateLine.textContent=[provider?.mode==='local'?'Local inference':'Remote inference',provider?.status,provider?.activity].filter(Boolean).join(' · ');menu.append(stateLine);
+  const stateLine=document.createElement('p');stateLine.className='inference-status';stateLine.textContent=[provider?.mode==='local'?'Local inference':'Remote inference',provider?.status,provider?.activity,provider?.backend!=='ac'&&provider?.model?`running ${provider.model}`:''].filter(Boolean).join(' · ');menu.append(stateLine);
   if(provider?.notice){const notice=document.createElement('p');notice.className='session-notice';notice.textContent=provider.notice;menu.append(notice);}
   if(provider?.backend==='ac'){const count=document.createElement('p');count.className='braincell-balance';const icon=new Image();icon.src='assets/braincell.svg';icon.alt='';icon.className='provider-mark';const dollars=credits?.dollars;const usd=value=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(value);
    const valid=dollars?.currency==='USD'&&[dollars.total,dollars.free,dollars.purchased].every(value=>Number.isFinite(value)&&value>=0);

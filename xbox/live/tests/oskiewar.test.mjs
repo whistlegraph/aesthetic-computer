@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { validateMap } from "../oskiewar-map.mjs";
 import { qrcode } from
   "../../../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs";
 import { decodeDump, dumpRows } from
@@ -131,7 +132,7 @@ function createFight(startImmediately = true, enterGame = true,
   const drawLine = (...values) => lines.push(values);
   const fight = new Function(
     "runtime", "gamepad", "capabilities", "telemetry", "gameSignal", "saveReplay", "publishLive", "analytics", "drum", "wipe", "box", "line", "triangle", "triangle3d", "triangles3d", "write", "systemWrite", "gameView",
-    `${source}\nreturn { boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
+    `${source}\nreturn { boot, sim, paint, playDrum, airParticles, countPoseBuilds: (run) => { const original = buildRunnerWorldGeometry; let count = 0; buildRunnerWorldGeometry = (...args) => { count++; return original(...args); }; try { run(); } finally { buildRunnerWorldGeometry = original; } return count; }, skateContact, skateFrame, resetSkate, dismountSkateboard, terrainProfile, terrainSamples, captureClientError, drawDetachedPart, clientErrorState: () => clientError, clientErrorDetailState: () => clientErrorDetail, errorReportStatus, errorRestartSeconds, combatLegend, commandFade, dummyPopLine, filledDisc, spectatorCode, runShadow, glyphColor, contrastShadow, stateDumpRows, dumpTokens, dumpTokenInk, clientErrorDumpState: () => ({ url: clientErrorDumpUrl, modules: clientErrorQr ? clientErrorQr.getModuleCount() : 0 }), controlLocale, animatedTitleColor, comicGlyphAdvance, handleWidth, displayTheme, players, ball, balls, bullets, grenades, impacts, gunPickups, saberPickups, grenadePickups, bodyTrees, treeFruit, detachedParts, runnerWorldGeometry, fighterAnimationPhase, sampleCombatBoxes, combatBoxContact, jevStrikeOptions, combatRect, buildBoxTree, queryBoxTree, boxesOverlap, runnerDistanceToPoint, segmentSegmentClosest, meleeLimbContact, damagePart, isPogo, isHeadOnly, resultCardText, pacificTimeLabel, projectedBallRadius, deathCinematicState: () => deathCinematic ? { ...deathCinematic, age: deathCinematicAge() } : null, disableBall: () => { ballEnabled = false; for (const item of balls) item.active = false; }, enableBall: (index = 0) => { ballEnabled = true; const item = balls[index]; item.active = true; item.serveAt = 0; item.safeUntil = 0; item.safePlayers = 0; }, setWind: (value) => { windAcceleration = value; }, setDebugHitboxes: (value) => { debugHitboxes = Boolean(value); }, debugState: () => debugHitboxes, frameMeterState: (index) => frameMeterState(players[index], runtime().monotonicUs), frameMeters: () => frameMeters.map((meter) => meter.slice()), windState: () => ({ direction: windDirection, mph: windMph }), nextRound: () => resetRound(runtime().monotonicUs, false), killLocal: () => killPlayer(players[0], 0, runtime().monotonicUs, "BLASTED"), knockOut: () => killPlayer(players[1], 0, runtime().monotonicUs, "KO"), selfBallDummy: () => killPlayer(players[1], 1, runtime().monotonicUs, "BALLED"), startAttack: (kind) => startMelee(players[0], kind, runtime().monotonicUs), bootFirstBall: () => bootBall(ball, players[0], runtime().monotonicUs), wackBall: () => { players[0].attackKind = "KICK"; returnBall(ball, players[0], runtime().monotonicUs, false); }, shieldBall: () => returnBall(ball, players[0], runtime().monotonicUs, true), crossWackBall: (contact = 1) => crossWackBall(ball, players.map((player) => ({ player, contact })), runtime().monotonicUs), enterGame: () => enterGame(runtime().monotonicUs), shellState: () => ({ mode: shellMode }), startFight: () => { shellMode = "GAME"; selecting = false; players[1].npc = false; players[1].bot = false; applyRoster(players[1], 2); startReplay(runtime().monotonicUs); matchBallType = "soccer"; resetRound(runtime().monotonicUs, true); }, startFightAgainst: (kind) => startFightAgainst(kind, runtime().monotonicUs), startSurvival: (bot = false) => startSurvivalRun(runtime().monotonicUs, bot), survivalState: () => ({ active: survivalActive(), lavaY: survivalLavaY, height: survivalHeight, bestHeight: survivalBestHeight, peakLevel: survivalPeakLevel }), palSelect: () => PAL_SELECT, titleToyState: () => ({ title: titleToys.map((toy) => ({ ...toy })), prompt: promptToys.map((toy) => ({ ...toy })), bounce: promptBounce }), selectionState: () => ({ selecting, step: selectionStep, cursor: selectionCursor, ready: selectionReady.slice() }), selectionOptions: () => selectionOptions().map((option) => ({ kind: option.kind, label: option.fighter.handle, disabled: Boolean(option.disabled) })), cameraInputState: () => ({ yaw: playerCameraYaw, pitch: playerCameraPitch, zoom: playerCameraZoom }), cameraState: () => ({ cameraWidth, cameraCenter, cameraCenterY, cameraAspect, stageRight, stageTop, stageBottom, viewHeight, cameraContainFloor, doll: { width: cameraDoll.width, target: { ...cameraDoll.target }, position: { ...cameraDoll.position }, perspective: cameraDoll.perspective, roll: cameraDoll.roll } }), screenBounds: () => players.map((player) => runnerScreenBounds(player, runtime().monotonicUs / 1e6)), dumpTokens, dumpTokenInk, drawCornerCrops, playerStatLines, playerHandleLayout, statStackHeight, setBallKind: (type) => { matchBallType = type; resetBalls(runtime().monotonicUs); }, ballTypeState: () => matchBallType, seriesBallType, seriesState: () => seriesName, sessionState: () => sessionName, selectionLayout: selectionTouchLayout, actionSafeRect, hudSafeRect, projectPoint, terrainSpan, terrainFloorAt, terrainTangentAt, stageGeometry: () => ({ platformY, platformLeft, platformRight, floorY, ceilingY, worldLeft, worldRight, worldNear, worldFar }), platformTable: () => activeLedges().map((rung) => ({ ...rung })), backToTitle: () => returnToTitle(runtime().monotonicUs, "test"), enterLobby: () => beginVersusLobby(runtime().monotonicUs), lobbyState: () => ({ lane: fightOpponent, lobby: lobbyActive() }), botSceneState: (index = 0) => players[index].botScene, botSceneNow: (index = 0) => botScene(players[index], players[index ? 0 : 1], runtime().monotonicUs), botSubgoalState: (index = 0) => players[index].botSubgoal, frameRect: () => fighterFrameRect(), liveFrameCount: () => liveSequence, roundState: () => ({ roundResult, roundElapsedUs, matchOver, gameplayStarted, roundStartedAt, timed: roundIsTimed(), introAge: runtime().monotonicUs - roundStartedAt, introLimit: roundIntroDurationUs() }), viewerState: () => ({ active: Boolean(roundViewer), mode: roundViewerMode, status: roundViewerStatus, name: matchName }), netHealth, qrBox: spectatorQrBox, mapState: () => ({ name: currentMapName, id: currentMapId, map: workshopSnapshot() }), versusAllowed, versusDoor, setVersusRequiresAccount: (value) => { versusRequiresAccount = Boolean(value); }, wireHealth: () => ({ gapMs: roundViewerGapMs, jitterMs: roundViewerJitterMs, lossPct: roundViewerLossPct, delayMs: roundViewerDelayMs, queued: roundViewerFrames.length }), instantReplayState: () => instantReplay ? { active: true, paused: instantReplay.paused, cursor: instantReplay.cursor, frames: instantReplay.frames.length, speed: instantReplay.speed, action: instantReplay.action } : { active: false }, replayFrameCount: () => roundReplayFrames.length, inputPadDown: (index) => inputPads[index]?.down?.slice() || [], startSelfPlay: () => startSelfPlay(runtime().monotonicUs), selfPlayState: () => selfPlay, gameSpeedState: () => gameSpeed, replayActionCurve, replayRampStep, startInstantReplay: (now) => startInstantReplay(now) };`
   )(
     () => ({ monotonicUs: now, unixMs: 1785870000000 + Math.floor(now / 1000),
       simCount: Math.floor(now / 16667), paintCount: 0,
@@ -244,7 +245,7 @@ test("mobile controls live in the canvas rather than DOM buttons", () => {
 test("touch controls need no duplicate tutorial legend", () => {
   const legend = source.slice(source.indexOf("function drawControlLegend"),
     source.indexOf("function drawTouchControls"));
-  assert.match(legend, /capabilities\(\)\.inputFamily === "touch"\) return/);
+  assert.match(legend, /device\.inputFamily === "touch"\) return/);
   assert.match(webShell, /\.touch-enabled #account/);
 });
 
@@ -302,7 +303,7 @@ function createPadHost({ pads = [], touch = false, agent = "Mac" } = {}) {
   const status = { textContent: "" };
   const host = new Function("navigator", "keys", "touchEnabled", "matchMedia",
     "location", "document", "addEventListener", "mouseFighting",
-    `${webShell.slice(opens, closes)}
+    `const jevDemo = false;\n${webShell.slice(opens, closes)}
      return { scanPads, sampleGamepads, gamepad, controllers, capabilities,
        seats: () => padSeats.slice() };`)(
     { userAgent: agent, getGamepads: () => pads },
@@ -322,6 +323,224 @@ function fakePad(index, { mapping = "standard", pressed = [],
     buttons: Array.from({ length: 16 }, (unused, at) =>
       ({ pressed: pressed.includes(at), value: pressed.includes(at) ? 1 : 0 })) };
 }
+
+test("local versus requires two physical controllers, not keyboard seats", () => {
+  const host = createPadHost({ pads: [fakePad(0)] });
+  host.keys[1].add("A");
+  host.sampleGamepads();
+  assert.equal(host.gamepad(0).localController, true);
+  assert.equal(host.gamepad(1).connected, true);
+  assert.equal(host.gamepad(1).localController, false);
+  const { fight, pads, tick } = createFight(false, false, "web");
+  Object.assign(pads[0], host.gamepad(0));
+  Object.assign(pads[1], host.gamepad(1));
+  tick();
+  assert.notEqual(fight.lobbyState().lane, "local");
+  host.pads.push(fakePad(5));
+  host.keys[1].clear();
+  host.sampleGamepads();
+  Object.assign(pads[1], host.gamepad(1));
+  tick();
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.shellState().mode, "GAME");
+  assert.deepEqual(fight.players.map((p) => p.name), ["PLAYER 1", "PLAYER 2"]);
+  assert.ok(fight.players.every((p) => !p.npc && !p.bot && !p.remote));
+  tick(3100000);
+  pads[0].down = ["ArrowRight"];
+  pads[1].down = ["ArrowLeft"];
+  tick();
+  assert.deepEqual(fight.inputPadDown(0), ["ArrowRight"]);
+  assert.deepEqual(fight.inputPadDown(1), ["ArrowLeft"]);
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("local versus replaces the waiting room and preserves rounds and seats", () => {
+  const { fight, pads, tick, tap } = createFight(false, false, "web");
+  fight.enterLobby();
+  for (const pad of pads) pad.localController = true;
+  tick();
+  assert.equal(fight.lobbyState().lane, "local");
+  fight.players[0].roundWins = 1;
+  const firstMap = fight.mapState();
+  pads[0].localController = false;
+  const before = fight.players.map((p) => [p.x, p.y]);
+  tick(5000000);
+  assert.deepEqual(fight.players.map((p) => [p.x, p.y]), before);
+  pads[0].localController = true;
+  tick();
+  assert.equal(fight.players[0].roundWins, 1);
+  assert.deepEqual(fight.mapState(), firstMap, "reconnect keeps the map");
+  assert.ok(fight.players.every((p) => p.alive));
+  tick(3100000);
+  fight.knockOut();
+  tick();
+  tick(30000000);
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.players[0].roundWins, 2);
+  assert.notEqual(fight.mapState().id, firstMap.id, "next round changes maps");
+  assert.equal(fight.roundState().roundResult, "");
+  tap(0, "Menu");
+  assert.equal(fight.shellState().mode, "MENU");
+  tick();
+  assert.equal(fight.shellState().mode, "MENU", "Menu does not auto-rejoin");
+  fight.enterGame();
+  assert.equal(fight.lobbyState().lane, "local");
+  assert.equal(fight.players[0].roundWins, 0);
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("local rounds rotate distinct terrain and wrap without repeating", () => {
+  const previous = globalThis.__oskiewarWorkshopEnabled;
+  globalThis.__oskiewarWorkshopEnabled = true;
+  try {
+    const { fight, pads, tick } = createFight(false, false, "web");
+    for (const pad of pads) pad.localController = true;
+    tick();
+    const maps = [];
+    for (let i = 0; i < 4; i++) {
+      maps.push(fight.mapState());
+      assert.deepEqual(validateMap(maps.at(-1).map), maps.at(-1).map);
+      assert.ok(fight.players.every(p => Number.isFinite(p.y) &&
+        p.y === fight.terrainFloorAt(p.x)), "both players spawn on the new floor");
+      assert.equal(fight.qrBox(), null);
+      fight.nextRound();
+    }
+    assert.deepEqual(maps.map(m => m.name), ["HALFPIPE", "BOWL", "HIGH GROUND", "HALFPIPE"]);
+    assert.equal(new Set(maps.slice(0, 3).map(m => JSON.stringify(m.map.features))).size, 3);
+    fight.startFightAgainst("dummy");
+    assert.equal(fight.mapState().name, "HALFPIPE", "leaving local play restores the base map");
+    assert.equal(fight.clientErrorState(), "");
+  } finally {
+    if (previous === undefined) delete globalThis.__oskiewarWorkshopEnabled;
+    else globalThis.__oskiewarWorkshopEnabled = previous;
+  }
+});
+
+test("local maps survive powerup timers and replenish collected pistols", () => {
+  const { fight, pads, tick, signals } = createFight(false, false, "web");
+  for (const pad of pads) pad.localController = true;
+  tick();
+  for (const name of ["HALFPIPE", "BOWL", "HIGH GROUND"]) {
+    assert.equal(fight.mapState().name, name);
+    tick(3100000);
+    for (let i = 0; i < 260; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 10000000);
+    const pistol = fight.gunPickups.find(p => p.cycle);
+    assert.ok(pistol, "built-in maps retain the replenishing pistol");
+    pistol.active = false;
+    const before = signals.filter(s => s[0] === "powerup").length;
+    for (let i = 0; i < 250; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 20000000);
+    assert.equal(pistol.active, true);
+    assert.equal(signals.filter(s => s[0] === "powerup").length, before + 1);
+    for (let i = 0; i < 600 && fight.mapState().name === name; i++) tick(40000);
+    assert.notEqual(fight.mapState().name, name, "the completed round advances maps");
+  }
+  fight.startFightAgainst("dummy");
+  assert.ok(fight.gunPickups.some(p => p.cycle), "base map restores its pistol cycle");
+});
+
+test("local controller arrival leaves self-play and a remote viewer alone", () => {
+  const demo = createFight(false, false, "web");
+  demo.fight.startSelfPlay();
+  for (const pad of demo.pads) pad.localController = true;
+  demo.tick();
+  assert.equal(demo.fight.selfPlayState(), true);
+  assert.notEqual(demo.fight.lobbyState().lane, "local");
+  const bridge = { name: "test-room", start: () => () => {} };
+  const viewer = createFight(false, false, "web", bridge);
+  for (const pad of viewer.pads) pad.localController = true;
+  viewer.tick();
+  assert.equal(viewer.fight.viewerState().active, true);
+  assert.notEqual(viewer.fight.lobbyState().lane, "local");
+});
+
+const connectedControllerIds = [
+  "8BitDo Ultimate 2 Wireless (STANDARD GAMEPAD Vendor: 2dc8 Product: 6012)",
+  "8BitDo M30 gamepad (STANDARD GAMEPAD)",
+];
+for (const order of [[0, 1], [1, 0]]) {
+  test("Ultimate and M30 map all game controls independently in seats " + order, () => {
+    const devices = order.map((model, seat) => ({ ...fakePad(seat * 2),
+      id: connectedControllerIds[model] }));
+    const host = createPadHost({ pads: devices });
+    const standard = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder",
+      "LeftTrigger", "RightTrigger", "View", "Menu", "LeftStick", "RightStick",
+      "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+    for (let seat = 0; seat < 2; seat++) {
+      for (let button = 0; button < 16; button++) {
+        devices[seat].buttons[button] = { pressed: true, value: 1 };
+        host.sampleGamepads();
+        const expected = [standard[button]];
+        if (button === 10) expected.push("ArrowUp");
+        if (order[seat] === 1 && button === 6) expected.push("A");
+        if (order[seat] === 1 && button === 7) expected.push("X");
+        assert.deepEqual(host.gamepad(seat).down, expected,
+          devices[seat].id + " button " + button);
+        assert.deepEqual(host.gamepad(1 - seat).down, [], "no cross-seat input");
+        assert.equal(host.gamepad(seat).analogTriggers, order[seat] === 0,
+          "Ultimate full trigger pulls must never become attacks");
+        devices[seat].buttons[button] = { pressed: false, value: 0 };
+      }
+      devices[seat].axes = [.7, -.8, -.6, .9];
+      host.sampleGamepads();
+      const pad = host.gamepad(seat);
+      assert.deepEqual([pad.leftX, pad.leftY, pad.rightX, pad.rightY], [.7, .8, -.6, -.9]);
+      devices[seat].axes = [0, 0, 0, 0];
+    }
+  });
+}
+
+test("both players can rapidly retrigger attacks and shield immediately", () => {
+  const { fight, pads, tick } = createFight();
+  fight.players[0].x = 700;
+  fight.players[1].x = 2600;
+  for (const seat of [0, 1]) {
+    const player = fight.players[seat];
+    for (const button of ["B", "A", "B", "A"]) {
+      const previous = player.attackStartedAt;
+      pads[seat].down = [button];
+      tick();
+      assert.equal(player.attackKind, button === "B" ? "PUNCH" : "KICK");
+      assert.ok(player.attackStartedAt > previous, "every new tap starts an attack");
+      assert.equal(fight.sampleCombatBoxes(player, player.attackStartedAt).hit.length, 1,
+        "no startup delay before an attack can connect");
+      assert.equal(player.attackUntil - player.attackStartedAt, 220000);
+      const started = player.attackStartedAt;
+      tick();
+      assert.equal(player.attackStartedAt, started, "holding does not invent repeat presses");
+      pads[seat].down = [];
+      tick();
+    }
+    pads[seat].down = ["X"];
+    tick();
+    assert.equal(player.blocking, true, "shield responds during the previous swing");
+    assert.equal(player.attackKind, "", "shield cancels the swing");
+    pads[seat].down = [];
+    tick();
+  }
+  assert.equal(fight.clientErrorState(), "");
+});
+
+test("either local player can orbit, zoom and reset the shared camera", () => {
+  const { fight, pads, tick, tap } = createFight(false, false, "web");
+  for (const pad of pads) pad.localController = true;
+  tick();
+  for (const seat of [0, 1]) {
+    Object.assign(pads[seat], { rightX: .8, rightY: .6,
+      analogTriggers: true, rightTrigger: .8 });
+    tick();
+    const camera = fight.cameraInputState();
+    assert.ok(camera.yaw > 0 && camera.pitch > 0 && camera.zoom < 1);
+    Object.assign(pads[seat], { rightX: 0, rightY: 0, rightTrigger: 0 });
+    tap(seat, "RightStick");
+    assert.deepEqual(fight.cameraInputState(), { yaw: 0, pitch: 0, zoom: 1 });
+    Object.assign(pads[seat], { analogTriggers: false, leftTrigger: 1 });
+    tick();
+    assert.equal(fight.cameraInputState().zoom, 1, "digital shoulder never zooms");
+    pads[seat].leftTrigger = 0;
+  }
+});
 
 test("a browser pad takes a player seat from whatever index it landed on", () => {
   // Browsers recycle freed slots, so the pad the player is holding is often
@@ -1770,10 +1989,7 @@ test("a watcher gets the match HUD and the round's own clock", () => {
       "fight");
     assert.equal(fight.roundState().timed, true);
     assert.equal(fight.roundState().roundElapsedUs, 9000000);
-    // And the address stays up. `spectatorQrBox` asks `versusLane()`, a fact
-    // about the fight on THIS machine — so an untimed versus round, watched,
-    // used to lose its code at exactly the moment somebody might pass it on.
-    assert.ok(fight.qrBox(), "a watcher keeps the round's code");
+    assert.equal(fight.qrBox(), null, "watching a running map hides the code");
   } finally {
     Date.now = realNow;
     if (realQr) globalThis.qrcode = realQr; else delete globalThis.qrcode;
@@ -3748,8 +3964,8 @@ test("a falling fighter can stand on the opponent head hitbox", () => {
 
 test("a neutral fighter cannot defeat an attacking fighter by contact", () => {
   const { fight, pads, tick } = createFight();
-  fight.players[0].x = 5940;
-  fight.players[1].x = 6060;
+  fight.players[0].x = 1700;
+  fight.players[1].x = 1820;
   pads[0].down = ["B"];
   for (let frame = 0; frame < 10; frame++) tick(16667);
   assert.equal(fight.players[0].alive, true);
@@ -3763,15 +3979,15 @@ test("melee collision uses active attack boxes against hurtboxes", () => {
   a.x=1800;b.x=1930;a.y=b.y=1800;
   fight.startAttack('PUNCH');
   const start=now();
-  assert.equal(fight.sampleCombatBoxes(a,start).hit.length,0);
+  assert.equal(fight.sampleCombatBoxes(a,start).hit.length,1);
   const active=fight.sampleCombatBoxes(a,start+5*16667);
   const target=fight.sampleCombatBoxes(b,start+5*16667);
   assert.equal(active.hit.length,1);
   assert.ok(fight.combatBoxContact(active,target));
-  assert.equal(fight.sampleCombatBoxes(a,start+8*16667).hit.length,0);
+  assert.equal(fight.sampleCombatBoxes(a,start+220000).hit.length,0);
 });
 
-for(const [kind,startup,active,total] of [['PUNCH',5,3,17],['KICK',8,4,26]])
+for(const [kind,startup,active,total] of [['PUNCH',0,14,14],['KICK',0,14,14],['WHIP',0,12,12],['BASH',0,17,17]])
   test(kind+' hitboxes exist only on authored active frames',()=>{
     const {fight,now}=createFight();const a=fight.players[0];
     fight.startAttack(kind);const start=now();
@@ -4236,7 +4452,7 @@ test("the frame meter records what a fighter was doing, frame by frame", () => {
   // but the window, so a strike in this game is live on the frame it is
   // thrown and the meter says so.
   fight.startAttack("PUNCH");
-  assert.equal(fight.frameMeterState(0), "startup");
+  assert.equal(fight.frameMeterState(0), "active");
   // Once it lands it becomes RECOVERY -- the limb is still out and can no
   // longer hurt anybody, which is exactly what a player is being punished
   // for when they get hit during it.
@@ -4424,8 +4640,8 @@ test("damaged limbs redden without perpendicular segmentation marks", () => {
 
 test("simultaneous body strikes recoil without player-order bias", () => {
   const { fight, pads, tick } = createFight();
-  fight.players[0].x = 5940;
-  fight.players[1].x = 6060;
+  fight.players[0].x = 1700;
+  fight.players[1].x = 1820;
   pads[0].down = ["B"];
   pads[1].down = ["B"];
   for (let frame = 0; frame < 9; frame++) tick(16667);
@@ -6786,7 +7002,10 @@ test('workshop public maps survive rounds without granting coach editing', async
     name: 'Public park', features: [{ from: 0, to: 40, kind: 'flat' }],
     decks: [], spawns: [4, 35], pickups: [], skateboard: false });
   try {
-    const { fight } = createFight();
+    const { fight, tick } = createFight();
+    for (let i = 0; i < 525; i++) tick(40000);
+    assert.ok(fight.roundState().roundElapsedUs >= 20000000);
+    assert.equal(fight.gunPickups.length, 0, "empty maps do not acquire automatic weapons");
     assert.equal(fight.players[0].spawnX, 405);
     fight.nextRound();
     assert.equal(fight.players[0].spawnX, 405);

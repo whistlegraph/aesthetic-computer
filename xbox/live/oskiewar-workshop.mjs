@@ -5,13 +5,7 @@ export async function mountWorkshop() {
   globalThis.__oskiewarWorkshopEnabled = true;
   const style = document.createElement('style');
   style.textContent = `
-    #workshop-entry { position:fixed; z-index:12;
-      top:max(12px,env(safe-area-inset-top)); right:max(12px,env(safe-area-inset-right));
-      display:grid; place-items:center; width:46px; height:46px; border:2px solid #6e768d;
-      border-radius:10px; color:#171b28; background:#d9dfee; box-shadow:2px 3px #14192655; }
-    #workshop-entry:hover { background:#fff; }
-    #workshop-entry:focus-visible, #workshop-panel :focus-visible { outline:3px solid #00bfea; outline-offset:3px; }
-    body:not(.title-open):not(.workshop-open) #workshop-entry { display:none; }
+    #workshop-panel :focus-visible { outline:3px solid #00bfea; outline-offset:3px; }
     #workshop-panel { position:fixed; z-index:12; top:max(68px,calc(env(safe-area-inset-top) + 56px));
       right:max(12px,env(safe-area-inset-right)); width:min(280px,calc(100vw - 24px));
       max-height:calc(100dvh - 90px); overflow:auto; padding:16px; border:2px solid #6e768d;
@@ -26,10 +20,6 @@ export async function mountWorkshop() {
     #workshop-note:empty { display:none; }
   `;
   document.head.append(style);
-  const entry = document.createElement('a');
-  entry.id = 'workshop-entry'; entry.href = '/workshop';
-  entry.title = 'Workshop'; entry.setAttribute('aria-label', 'Workshop');
-  entry.innerHTML = '<svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.3 17.7 9.5 21 6.2a6 6 0 0 1-7.6 7.6L6.2 21a2.3 2.3 0 0 1-3.2-3.2l7.2-7.2A6 6 0 0 1 17.8 3z"/></svg>';
   const panel = document.createElement('section');
   panel.id = 'workshop-panel'; panel.setAttribute('aria-label', 'Workshop tools');
   panel.innerHTML = `<h2>Workshop</h2><div id="workshop-actions">
@@ -39,23 +29,15 @@ export async function mountWorkshop() {
     <input id="workshop-name" aria-label="Map name" placeholder="Map name" maxlength="60">
     <button data-op="save">Save</button> <button data-op="publish">Publish</button>
     <p id="workshop-note" role="status" aria-live="polite"></p>`;
-  document.body.append(entry, panel);
+  document.body.append(panel);
   const note = panel.querySelector('#workshop-note');
   const onWorkshop = () => /^\/workshop\/?$/.test(location.pathname);
   const show = () => {
     panel.hidden = !onWorkshop();
     document.body.classList.toggle('workshop-open', !panel.hidden);
-    entry.setAttribute('aria-expanded', String(!panel.hidden));
   };
-  entry.addEventListener('click', event => {
-    event.preventDefault(); event.stopPropagation();
-    const room = globalThis.__oskiewarVersusRoom;
-    const target = onWorkshop() ? (room ? '/' + room : '/')
-      : '/workshop' + (room ? '?room=' + encodeURIComponent(room) : '');
-    history.pushState(null, '', target); show();
-  });
-  for (const element of [entry, panel]) for (const event of ['pointerdown', 'pointerup', 'keydown', 'keyup'])
-    element.addEventListener(event, e => e.stopPropagation());
+  for (const event of ['pointerdown', 'pointerup', 'keydown', 'keyup'])
+    panel.addEventListener(event, e => e.stopPropagation());
   addEventListener('popstate', show); show();
   panel.addEventListener('click', async event => {
     const button = event.target.closest('button');

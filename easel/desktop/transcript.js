@@ -7,6 +7,7 @@
  const paper=document.createElement('div');paper.id='notebook-page';view.append(paper);
  const prose=document.createElement('div');prose.id='notebook-content';paper.append(prose);
  window.alignNotebookRuling=()=>{
+  if(document.body.classList.contains('window-resizing'))return;
   const spacing=parseFloat(getComputedStyle(view).lineHeight)||24;
   const origin=paper.getBoundingClientRect().top;
   const pageTop=origin-view.getBoundingClientRect().top+view.scrollTop;
@@ -16,6 +17,7 @@
   window.layoutNotebookPreview?.();
  };
  view.addEventListener('scroll',window.alignNotebookRuling,{passive:true});
+ window.addEventListener('aesel-resize-settled',window.alignNotebookRuling);
  new ResizeObserver(window.alignNotebookRuling).observe(view);
  if(title)new ResizeObserver(window.alignNotebookRuling).observe(title);
  const nodes=new Map();

@@ -12,6 +12,7 @@ window.installPreviewWaveform = (preview) => {
   document.body.append(line);
   let version;
   const align = () => {
+    if (document.body.classList.contains("window-resizing")) return;
     const inset = version?.offsetWidth ? version.offsetWidth + (parseFloat(getComputedStyle(version).right) || 0) + 12 : 80;
     document.documentElement.style.setProperty("--preview-audio-inset", `${inset}px`);
   };
@@ -21,32 +22,41 @@ window.installPreviewWaveform = (preview) => {
     if (version) placement.observe(version);
     align();
   });
-  window.addEventListener("resize", align);
+  window.addEventListener("aesel-resize-settled", align);
   align();
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const historyMs = 4000; // Two 4/4 bars at 120 BPM, oldest at the top.
+  // The host owns muting (preview-audio.js), so its state answers without a
+  // synchronous guest call. webview.isAudioMuted() blocks this thread on the
+  // main process, which stalls for hundreds of milliseconds mid-resize.
+  const silenced = () => { const audio = window.previewAudio; return !!audio && (audio.muted || audio.volume === 0); };
+  const paused = () => !ready || document.hidden || preview.hidden || silenced() || document.body.classList.contains("preview-fullscreen");
   let history = [];
   let ready = false,
     timer = 0,
     generation = 0,
     previousRead = 0,
     peakEnvelope = 0,
-    frame = 0;
+    frame = 0,
+    cleared = true,
+    lastActiveAt = -Infinity;
   const clear = () => {
-    line.classList.remove("sounding");
-    path.setAttribute("d", "M0 16H511");
-    previousRead = 0;
-    peakEnvelope = 0;
-    history = [];
     cancelAnimationFrame(frame);
     frame = 0;
+    history = [];
+    previousRead = 0;
+    peakEnvelope = 0;
+    if (cleared) return; // Silence is the steady state; leave the DOM alone.
+    cleared = true;
+    line.classList.remove("sounding");
+    path.setAttribute("d", "M0 16H511");
   };
   function draw(now) {
     frame = 0;
-    if (!ready || document.hidden || preview.hidden || preview.isAudioMuted() || document.body.classList.contains("preview-fullscreen")) { clear(); return; }
+    if (paused()) { clear(); return; }
     history = history.filter(point => now - point.at < historyMs);
     if (!history.some(point => point.active)) { clear(); return; }
-    line.classList.add("sounding");
+    if (cleared) { cleared = false; line.classList.add("sounding"); }
     // Envelope slices retain transients instead of aliasing an entire audio
     // cycle down to a pixel. Their timestamps set the upward scroll speed.
     const position = point => (511 * (1 - (now - point.at) / historyMs)).toFixed(2);
@@ -59,19 +69,18 @@ window.installPreviewWaveform = (preview) => {
     const started = performance.now();
     let interval = 200;
     try {
-      if (
-        !ready ||
-        document.hidden ||
-        document.body.classList.contains("preview-fullscreen") ||
-        preview.hidden ||
-        preview.isAudioMuted()
-      ) {
+      if (paused()) {
         clear();
         return;
       }
-      // Keep listening during silence: the bird's whole first note is 75 ms.
-      // Only one guest read is in flight, and hidden/muted previews back off.
-      interval = motion.matches ? 33 : 16;
+      // A live window resize already saturates the main process, which every
+      // guest read crosses. Let the drag finish first.
+      if (document.body.classList.contains("window-resizing")) { interval = 100; return; }
+      // Read at frame rate while sound plays and for a beat after it stops, so
+      // the strip keeps its tail. Silence backs off to eight reads a second:
+      // the main-process round trip is the app's whole idle cost otherwise.
+      const listening = performance.now() - lastActiveAt < 1500;
+      interval = listening ? (motion.matches ? 33 : 16) : 125;
       const samples = await preview.executeJavaScript(
         "window.AC?.readOutputWaveform?.(512) || []",
       );
@@ -86,6 +95,7 @@ window.installPreviewWaveform = (preview) => {
       const peak = centered.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
       const active = peak > 0.0005;
       const now = performance.now();
+      if (active) { if (!listening) interval = motion.matches ? 33 : 16; lastActiveAt = now; }
       // Normalize the display only. Follow peaks immediately, release gain
       // gently, and cap amplification so near-silence doesn't fill the strip.
       peakEnvelope = Math.max(peak, peakEnvelope * Math.exp(-(now - previousRead) / 180));
@@ -93,9 +103,8 @@ window.installPreviewWaveform = (preview) => {
       const gain = Math.min(32, 0.85 / (peakEnvelope || 1));
       if (motion.matches) {
         cancelAnimationFrame(frame); frame = 0; history = [];
-        line.classList.toggle("sounding", active);
-        path.setAttribute("d", "M0 16H511");
-      } else {
+        if (active === cleared) { cleared = !active; line.classList.toggle("sounding", active); path.setAttribute("d", "M0 16H511"); }
+      } else if (active || !cleared) {
         // Normalization changes only each new slice, never the recorded past.
         history.push({at: now, active,
           low: active ? Math.min(...centered) * gain : 0,
@@ -131,5 +140,5 @@ window.installPreviewWaveform = (preview) => {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) clear();
   });
-  window.addEventListener("beforeunload", () => { stop(); placement.disconnect(); window.removeEventListener("resize", align); }, { once: true });
+  window.addEventListener("beforeunload", () => { stop(); placement.disconnect(); window.removeEventListener("aesel-resize-settled", align); }, { once: true });
 };

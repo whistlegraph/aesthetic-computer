@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const dir = path.resolve(process.argv[2] || 'dist');
 const version = require('../package.json').version;
-const zip = `aesel-${version}-arm64-mac.zip`;
+const zip = `aesel-${version}-arm64.zip`;
 const dmg = `aesel-${version}-arm64.dmg`;
 const digest = (name, algorithm, encoding) => crypto.createHash(algorithm).update(fs.readFileSync(path.join(dir, name))).digest(encoding);
 async function main() {

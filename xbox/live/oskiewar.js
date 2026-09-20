@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 132;
+const buildVersion = 140;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -526,16 +526,16 @@ const meleeSpecFor = (player, kind) => {
 };
 const meleeSpecs = {
   PUNCH: { reach: 58, swell: 50, span: 58, height: 115, radius: 28,
-    windowUs: 17 * 16667, force: 1200, lift: 140,
+    windowUs: 220000, force: 1200, lift: 140,
     cue: ["snare", 1.05], thud: ["block", 1] },
   KICK: { reach: 75, swell: 62, span: 74, height: 55, radius: 35,
-    windowUs: 26 * 16667, force: 1550, lift: 220,
+    windowUs: 220000, force: 1550, lift: 220,
     cue: ["kick", 1.05], thud: ["block", 1] },
   WHIP: { reach: 92, swell: 74, span: 76, height: 122, radius: 24,
-    windowUs: 15 * 16667, force: 1000, lift: 110,
+    windowUs: 190000, force: 1000, lift: 110,
     cue: ["whoosh", 1.15], thud: ["hat", 1.35] },
   BASH: { reach: 62, swell: 40, span: 58, height: 108, radius: 40,
-    windowUs: 28 * 16667, force: 1750, lift: 210,
+    windowUs: 280000, force: 1750, lift: 210,
     cue: ["kick", 1.3], thud: ["kick", 1.4] },
 };
 // One lookup serves both Y and the loaded punch, so the thing you can see in
@@ -1364,6 +1364,45 @@ let workshopHistory = [];
 let workshopHighlight = false;
 let workshopTainted = false;
 
+let localMapIndex = -1;
+let localMapInstalled = false;
+const localMapVariants = [null, {
+  name: "BOWL",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "transition", rise: 360, dir: -1, lift: -360 },
+    { from: 16, to: 24, kind: "flat", lift: -360 },
+    { from: 24, to: 28, kind: "transition", rise: 360, dir: 1, lift: -360 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 9, cols: 4, row: 3 }, { col: 27, cols: 4, row: 3 }],
+}, {
+  name: "HIGH GROUND",
+  features: [
+    { from: 0, to: 12, kind: "flat" },
+    { from: 12, to: 16, kind: "bank", rise: 270, dir: 1 },
+    { from: 16, to: 24, kind: "flat", lift: 270 },
+    { from: 24, to: 28, kind: "bank", rise: 270, dir: -1 },
+    { from: 28, to: 40, kind: "flat" },
+  ],
+  decks: [{ col: 7, cols: 4, row: 3 }, { col: 18, cols: 4, row: 7 },
+    { col: 29, cols: 4, row: 3 }],
+}];
+
+function rotateLocalMap(keepMap) {
+  if (!localVersusActive() || workshopTainted ||
+      globalThis.__oskiewarPublishedMap) return;
+  if (!keepMap || localMapIndex < 0)
+    localMapIndex = (localMapIndex + 1) % localMapVariants.length;
+  const variant = localMapVariants[localMapIndex];
+  const map = variant ? { ...workshopBase, ...variant,
+    features: variant.features.map(f => ({ lift: 0, rise: 0, dir: 1, ...f })) }
+    : workshopBase;
+  installWorkshopMap(map, true);
+  currentMapId = ["halfpipe", "bowl", "high-ground"][localMapIndex];
+  localMapInstalled = true;
+}
+
 function workshopSnapshot() {
   return { format: "ac.oskiewar.map", version: 1,
     name: workshopMap?.name || currentMapName,
@@ -1378,7 +1417,8 @@ function workshopSnapshot() {
     skateboard: skateBoardEnabled };
 }
 
-function installWorkshopMap(map) {
+function installWorkshopMap(map, cycleHandgun = false) {
+  localMapInstalled = false;
   workshopMap = map;
   parkSegments.splice(0, parkSegments.length, ...map.features.map(f => ({ ...f,
     left: gridLeft + f.from * tileSize, right: gridLeft + f.to * tileSize })));
@@ -1390,6 +1430,9 @@ function installWorkshopMap(map) {
   players.forEach((p, i) => { p.spawnX = tileCenterX(map.spawns[i]); });
   installMapPickups(gunPickups, map.pickups.filter(p =>
     !["GRENADE", "LIGHT SABER"].includes(p.kind)), "gun");
+  // Portable maps contain authored pickups, not the built-in refill policy.
+  const pistol = gunPickups.find(p => p.kind === "HANDGUN");
+  if (cycleHandgun && pistol) pistol.cycle = true;
   installMapPickups(saberPickups, map.pickups.filter(p => p.kind === "LIGHT SABER"), "saber");
   installMapPickups(grenadePickups, map.pickups.filter(p => p.kind === "GRENADE"), "grenade");
   skateBoardEnabled = map.skateboard;
@@ -1469,13 +1512,14 @@ function installMapPickups(target, authored, type) {
 
 function resetWorkshopMap() {
   if (!workshopMap) return;
-  if ((globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
+  if (!localMapInstalled &&
+      (globalThis.__oskiewarWorkshopEnabled || globalThis.__oskiewarPublishedMap) &&
       !survivalActive() && !roundViewer && !resimActive) {
     installWorkshopMap(workshopMap);
     return;
   }
   const spawns = players.map(p => p.spawnX);
-  installWorkshopMap(workshopBase);
+  installWorkshopMap(workshopBase, true);
   workshopMap = null;
   workshopHistory = [];
   workshopRevision++;
@@ -3023,6 +3067,7 @@ function fighterProfile(handle) {
 }
 
 function syncSignedInFighter() {
+  if (localVersusActive()) return;
   const identity = acFeed?.player;
   if (!identity?.handle || players[0].npc) return;
   const handle = String(identity.handle).toUpperCase();
@@ -3039,6 +3084,13 @@ function syncSignedInFighter() {
 }
 
 function applyRoster(player, index) {
+  if (localVersusActive()) {
+    player.rosterIndex = player.pad === 0 ? 0 : 2;
+    player.name = "PLAYER " + (player.pad + 1);
+    player.color = fighterRoster[player.rosterIndex].color.slice();
+    player.handleColors = [];
+    return;
+  }
   if (player.npc) {
     const fighter = selfPlay && player.bot ? selfPlayFighters[player.pad]
       : player.bot ? botFighter
@@ -3143,6 +3195,56 @@ function survivalRequested() {
   // and discards, so a versus room there would be a post that never hits
   // back. The web shell raises the capability flag; nothing else does.
   return !requested && globalThis.__oskiewarVersusCapable !== true;
+}
+
+const localVersusActive = () => fightOpponent === "local";
+const localControllerPair = () =>
+  padSnapshots.every((pad) => pad?.localController === true);
+let localControllerPairSeen = false;
+let localControllerMissing = -1;
+
+function startLocalVersus(now) {
+  finishReplay();
+  fightOpponent = "local";
+  for (const player of players) {
+    player.npc = false;
+    player.bot = false;
+    player.spiderDummy = false;
+    player.remote = false;
+  }
+  applyRoster(players[0], Math.max(0, players[0].rosterIndex));
+  localControllerMissing = -1;
+  globalThis.__oskiewarVersusRoom = "";
+  gameSpeed = 1;
+  startFightAgainst("local", now);
+  startInputPending = true;
+  navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+}
+
+function updateLocalVersus(now) {
+  const paired = localControllerPair();
+  const arrived = paired && !localControllerPairSeen;
+  localControllerPairSeen = paired;
+  // A second local pad must never take over a remote fight or a recording.
+  if (roundViewer || netSession || selfPlay || resimActive || versusActive())
+    return false;
+  if (arrived && !localVersusActive()) startLocalVersus(now);
+  if (!localVersusActive()) { localControllerMissing = -1; return false; }
+  if (!paired) {
+    localControllerMissing = padSnapshots.findIndex(
+      (pad) => pad?.localController !== true);
+    return true;
+  }
+  if (localControllerMissing !== -1) {
+    localControllerMissing = -1;
+    // Restart the interrupted round with the match tally intact. Absolute
+    // attack/death timers cannot safely resume after an arbitrary unplug.
+    if (matchOver) startLocalVersus(now);
+    else resetRound(now, false, true);
+    startInputPending = true;
+    navigationPrevious = padSnapshots.map((pad) => pad?.down?.slice() || []);
+  }
+  return false;
 }
 
 function versusRequested() {
@@ -3840,6 +3942,11 @@ function consumeSystemButtons(now) {
   for (let index = 0; index < padSnapshots.length; index++) {
     const down = padSnapshots[index]?.down || [];
     const previous = navigationPrevious[index];
+    if (down.includes("RightStick") && !previous.includes("RightStick")) {
+      playerCameraYaw = 0;
+      playerCameraPitch = 0;
+      playerCameraZoom = 1;
+    }
     if (down.includes("View") && !previous.includes("View")) {
       debugHitboxes = !debugHitboxes;
       debugPerfReported = false;
@@ -3858,6 +3965,10 @@ function consumeSystemButtons(now) {
 // Start lifts the wordmark off a fight that is already running underneath.
 function enterGame(now) {
   startInputPending = true;
+  if (localControllerPair() && !roundViewer && !netSession && !versusActive()) {
+    startLocalVersus(now);
+    return;
+  }
   if (survivalActive()) {
     startSurvivalRun(now, false);
     globalThis.__oskiewarStartLine = "climb!";
@@ -4305,7 +4416,7 @@ function applyRoundViewerState(state, now, dt = 1 / 60) {
       try { installWorkshopMap(globalThis.__oskiewarValidateMap(state.map.workshop)); }
       catch { return; }
     } else if (workshopMap) {
-      installWorkshopMap(workshopBase);
+      installWorkshopMap(workshopBase, true);
       workshopMap = null;
       currentMapId = "halfpipe";
       currentMapName = "HALFPIPE";
@@ -5778,6 +5889,8 @@ function gameBoot() {
     ? spectatorCode("https://oskiewar.com") : null;
   shellPrevious = [];
   startInputPending = false;
+  localControllerPairSeen = false;
+  localControllerMissing = -1;
   navigationPrevious = [[], []];
   roundViewer = globalThis.__oskiewarRoundBridge || null;
   if (roundViewer?.start) {
@@ -5813,8 +5926,9 @@ function gameBoot() {
   } else beginTraining(startedAt);
 }
 
-function resetRound(now, resetMatch = false) {
+function resetRound(now, resetMatch = false, keepMap = false) {
   resetWorkshopMap();
+  rotateLocalMap(keepMap);
   if (replay) {
     const nextRoundName = pronounceableMatchName();
     // A versus room is one address for a whole match — the link a friend was
@@ -6906,12 +7020,12 @@ function updatePowerups(now) {
     // Only the slot marked `cycle` is the rotation's business. Asking whether
     // ANY gun pickup is on the map would let an untouched space laser sitting
     // on the top deck stall the pistol reload for the whole round.
-    const occupied = gunPickups.some((pickup) => pickup.cycle && pickup.active);
-    if (!occupied) {
+    const pickup = gunPickups.find((slot) => slot.cycle);
+    // Authored maps may intentionally have no replenishing weapon.
+    if (pickup && !pickup.active) {
       // The cycle's whole job is to keep six more rounds of ammo appearing
       // somewhere worth crossing the station for — the corner tiles,
       // alternating, so the reload never lives on one fighter's side.
-      const pickup = gunPickups.find((slot) => slot.cycle);
       pickup.active = true;
       pickup.x = tileCenterX(powerupSequence % 2 === 0
         ? cornerColLeft : cornerColRight);
@@ -7246,7 +7360,8 @@ function updateGrenades(dt, now, combat = true) {
 
 function startMelee(player, kind, now) {
   if (isHeadOnly(player) || isPogo(player)) return;
-  if (player.attackKind && now < player.attackUntil) return;
+  // Every fresh press starts a strike, including during the previous swing.
+  // updatePlayer detects the edge; holding a button does not auto-repeat.
   const spec = meleeSpecs[kind];
   if (!spec) return;
   const attackingPart = kind === "KICK"
@@ -7296,19 +7411,18 @@ const itemSwinging = (player, now) =>
 
 function meleePulse(player, now) {
   if (now >= player.attackUntil || player.attackUntil <= player.attackStartedAt) return 0;
-  const { frame, startup, active, recovery, phase } = meleeFrame(player, now);
-  if (phase === 'startup') return .25 * frame / startup;
-  if (phase === 'active') return 1;
-  return Math.max(0, 1 - (frame - startup - active) / recovery);
+  const phase = (now - player.attackStartedAt) /
+    (player.attackUntil - player.attackStartedAt);
+  return Math.sin(clamp(phase, 0, 1) * Math.PI);
 }
 
-// Authored gameplay windows. Frame 1 is the accepted input frame; drawing
-// may interpolate, but no collision exists in startup or recovery.
+// Collision starts on the input frame and lasts through the original short
+// swing. A landed strike still hits only once; another tap starts a new one.
 const meleeFrames = {
-  PUNCH: { startup: 5, active: 3, recovery: 9 },
-  KICK: { startup: 8, active: 4, recovery: 14 },
-  WHIP: { startup: 4, active: 3, recovery: 8 },
-  BASH: { startup: 8, active: 4, recovery: 16 },
+  PUNCH: { startup: 0, active: 14, recovery: 0 },
+  KICK: { startup: 0, active: 14, recovery: 0 },
+  WHIP: { startup: 0, active: 12, recovery: 0 },
+  BASH: { startup: 0, active: 17, recovery: 0 },
 };
 function meleeFrame(player, now) {
   const timing = meleeFrames[player.attackKind];
@@ -8475,9 +8589,11 @@ function updatePlayer(player, pad, dt, now) {
   // A broken shield stays down until X is let go, so the opening it bought is
   // spent on attacking rather than on re-guarding by reflex.
   if (player.shieldLocked && !pad.down.includes("X")) player.shieldLocked = false;
-  player.blocking = !carrying && !headOnly && !(player.attackKind && now < player.attackUntil) && pad.down.includes("X") &&
+  player.blocking = !carrying && !headOnly && pad.down.includes("X") &&
     !player.shieldLocked;
   if (player.blocking && !wasBlocking) {
+    player.attackKind = "";
+    player.attackUntil = 0;
     player.shieldCrouched = rawInput.vertical < 0 || player.ducking ||
       player.crouchBlend >= .35;
     player.shieldVx = 0;
@@ -9604,9 +9720,15 @@ function gameSim() {
   padSnapshots[1] = gamepad(1);
   inputPads[0] = padSnapshots[0];
   inputPads[1] = padSnapshots[1];
-  const cameraPad = padSnapshots[0] || {};
-  const cameraX = Number(cameraPad.rightX) || 0;
-  const cameraY = Number(cameraPad.rightY) || 0;
+  if (updateLocalVersus(now)) {
+    consumeSystemButtons(now);
+    return;
+  }
+  const cameraPads = localVersusActive() ? padSnapshots : [padSnapshots[0]];
+  const cameraX = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightX) || 0), 0), -1, 1);
+  const cameraY = clamp(cameraPads.reduce((sum, pad) =>
+    sum + (Number(pad?.rightY) || 0), 0), -1, 1);
   if (Math.abs(cameraX) > .08)
     playerCameraYaw = clamp(playerCameraYaw + cameraX * dt * 1.15, -.62, .62);
   if (Math.abs(cameraY) > .08)
@@ -9614,13 +9736,12 @@ function gameSim() {
   // Triggers zoom, but only on a pad whose triggers are analog -- on anything
   // else the shell is still aliasing them to A and X, and stealing those two
   // buttons would cost a small pad its item and shield.
-  if (cameraPad.analogTriggers) {
-    // Right pulls in, left pushes out, and they cancel when both are held.
-    const push = (Number(cameraPad.leftTrigger) || 0) -
-      (Number(cameraPad.rightTrigger) || 0);
-    if (Math.abs(push) > .08)
-      playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
-  }
+  // Either couch seat can steer the shared camera. Digital M30 shoulders
+  // remain combat buttons, even beside a controller with analog triggers.
+  const push = clamp(cameraPads.reduce((sum, pad) => sum + (pad?.analogTriggers
+    ? (Number(pad.leftTrigger) || 0) - (Number(pad.rightTrigger) || 0) : 0), 0), -1, 1);
+  if (Math.abs(push) > .08)
+    playerCameraZoom = clamp(playerCameraZoom + push * dt * .9, .55, 1.9);
   // A mouse or a finger on the shell's canvas orbits the same lens the
   // right stick does: a drag turns yaw and pitch, the wheel or a pinch
   // dollies. The shell banks the gesture between ticks and this drains it,
@@ -9793,6 +9914,10 @@ function gameSim() {
       else if (versusActive() && versusChallengerFresh())
         startVersusFight(now, matchOver);
       else if (versusActive()) beginVersusLobby(now);
+      else if (localVersusActive()) {
+        if (matchOver) startLocalVersus(now);
+        else resetRound(now, false);
+      }
       else returnToTitle(now, "round-end");
     }
     return;
@@ -11775,8 +11900,8 @@ function drawM30Cluster(x, y, size, held, directionActive, ink) {
 // logout button now sit in that corner and the legend used to run straight
 // through them on a narrow view.
 function drawControlLegend(ink) {
-  if (typeof capabilities === "function" &&
-      capabilities().inputFamily === "touch") return;
+  const device = typeof capabilities === "function" ? capabilities() : {};
+  if (device.showControlLegend === false || device.inputFamily === "touch") return;
   const safe = hudSafeRect();
   const pad = localPad();
   const held = pad.down || [];
@@ -12910,6 +13035,14 @@ function drawFightIntro(introSeconds, titleInk, statusShadow) {
   const touch = typeof capabilities === "function" &&
     capabilities().inputFamily === "touch";
   const nameSize = touch ? 28 : compactLayout() ? 38 : 54;
+  const safe = hudSafeRect();
+  const mapLabel = currentMapName.toLowerCase();
+  const mapSize = Math.min(nameSize, nameSize * (safe.right - safe.left) /
+    Math.max(1, handleWidth(mapLabel, nameSize)));
+  const mapX = centerX - handleWidth(mapLabel, mapSize) / 2;
+  const mapY = safe.top + hudTypeSize + 26;
+  typeWrite(mapLabel, mapX + 2, mapY + 3, mapSize, ...statusShadow);
+  typeWrite(mapLabel, mapX, mapY, mapSize, ...titleInk);
   const drawHeadName = (player) => {
     const head = runnerWorldGeometry(player,
       (runtime().monotonicUs - startedAt) / 1000000).head;
@@ -14594,19 +14727,11 @@ function drawDebugBug(x, y, scale = 1) {
   filledDisc(x + 2 * scale, y - 7 * scale, 1.2 * scale, detail);
 }
 
-// The round QR owns the top-right corner whenever it is up, so the HUD clock
-// asks for its footprint before choosing a lane.
-// The versus lane's whole premise is the shareable address, so its QR stays
-// up in play; every other untimed round keeps the code off the fight.
+// The title owns the share code; active maps keep the corner clear.
 function spectatorQrBox() {
+  if (shellMode === "GAME") return null;
   if (typeof capabilities === "function" && capabilities().socialPreview)
     return null;
-  // A watcher is looking at the one thing the code is for. `versusLane()` is a
-  // fact about the fight on THIS machine, and a watcher's machine is not in
-  // one — so an untimed versus round, watched, used to lose its address at
-  // exactly the moment somebody might want to pass it on.
-  if (!versusLane() && !(roundViewer && roundViewerMode === "LIVE"))
-    if (shellMode === "GAME" && !roundIsTimed()) return null;
   if (!spectatorQr || typeof spectatorQr.getModuleCount !== "function")
     return null;
   const safe = hudSafeRect();
@@ -14993,6 +15118,7 @@ function drawTitleHeadDoor(t, ink, suppressed) {
 
 function gamePaint() {
   syncGameView();
+  globalThis.__oskiewarLocalVersus = localVersusActive();
   const run = runtime();
   if (globalThis.__oskiewarTouch) {
     globalThis.__oskiewarTouch.screen = shellMode === "MENU"
@@ -15415,6 +15541,15 @@ function gamePaint() {
     drawSpectatorQr(titleInk);
     if (!reelMinimal) drawNetHealth(titleInk);
     drawTouchControls();
+    if (localVersusActive() && localControllerMissing !== -1) {
+      const label = "reconnect player " + (localControllerMissing + 1);
+      const size = compactLayout() ? 30 : 48;
+      const width = handleWidth(label, size);
+      const left = viewCenterX() - width / 2;
+      const top = viewHeight * .43;
+      box(left - 20, top - 16, width + 40, size + 32, 9, 12, 22);
+      typeWrite(label, left, top, size, 255, 235, 130);
+    }
   }
 }
 

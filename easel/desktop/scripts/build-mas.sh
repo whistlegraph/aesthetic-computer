@@ -18,7 +18,7 @@ env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron-builder \
   -c.mac.identity=null \
   -c.mas.identity="$identity" \
   -c.mas.provisioningProfile="$profile"
-app="dist/mas-arm64/aesel.app"
+app="dist/mas-arm64/Aesel.app"
 pkg="dist/mas-arm64/aesel-$version-mas-arm64.pkg"
 codesign --verify --deep --strict "$app"
 pkgutil --check-signature "$pkg"

@@ -741,9 +741,9 @@
     // the fight ever read those, so on a small pad — the 8BitDo Micro, whose
     // L2 and R2 are ordinary digital shoulders — two buttons did nothing at
     // all. They are aliases, not a new vocabulary: the triggers raise the same
-    // attacks as the face buttons, which also means holding both is the A+X
-    // grab chord without reaching across the pad.
-    const padAliases = { LeftTrigger: "A", RightTrigger: "X" };
+    // actions as the face buttons. Stick-click is another way to jump.
+    const padAliases = { LeftTrigger: "A", RightTrigger: "X",
+      LeftStick: "ArrowUp" };
 
     // ...but only on pads that need them. A full-size pad's analog triggers
     // drive the camera zoom instead, and a pad cannot do both: aliasing LT to
@@ -757,7 +757,8 @@
     // rest and full travel, which a digital shoulder never does. Latching is
     // deliberate -- an analog trigger passes back through 0 constantly, and a
     // pad that forgot what it was would flicker between zooming and kicking.
-    const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i];
+    const analogTriggerIds = [/xbox/i, /vendor:\s*045e/i, /\b045e\b/i,
+      /8bitdo\s+ultimate/i];
     // The 8BitDo M30 wears Microsoft's 045e id, but its "triggers" are the C
     // face button and the top-edge R — ordinary digital switches. The vendor
     // guess would latch them analog and feed every C press to the camera, so
@@ -804,8 +805,10 @@
       }
       const present = (padIndex) => live.some((pad) => pad.index === padIndex);
       for (let seat = 0; seat < padSeats.length; seat++)
-        if (padSeats[seat] !== null && !present(padSeats[seat]))
+        if (padSeats[seat] !== null && !present(padSeats[seat])) {
+          analogTriggerPads.delete(padSeats[seat]);
           padSeats[seat] = null;
+        }
       for (const pad of live) {
         if (padSeats.includes(pad.index)) continue;
         const seat = padSeats.indexOf(null);
@@ -830,7 +833,8 @@
       // a verification code also throws a kick. The seat stays connected so a
       // versus room does not read the pause as somebody walking away.
       if (globalThis.__oskiewarAccountOpen)
-        return { connected: Boolean(source) || seat === 0, down: [],
+        return { connected: Boolean(source) || seat === 0,
+          localController: Boolean(source), down: [],
           leftX: 0, leftY: 0, rightX: 0, rightY: 0,
           leftTrigger: 0, rightTrigger: 0,
           analogTriggers: hasAnalogTriggers(source) };
@@ -846,6 +850,7 @@
       });
       return {
         connected: Boolean(source) || down.size > 0 || seat === 0,
+        localController: Boolean(source),
         down: [...down],
         // Sticks stay raw. `quantizedInput` gates at .48, the same number the
         // console reads, so a deadzone here would only stack onto that one.
@@ -897,6 +902,7 @@
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
       return { platform: mac ? "macos" : "web",
+        showControlLegend: false,
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
         colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
@@ -1592,7 +1598,11 @@
           .then((body) => roundNameFromPath("/" + (body?.room || "")))
           .catch(() => "")
       : Promise.resolve("");
-    const joinName = roundName || await openRoom;
+    const offeredRoom = await openRoom;
+    // Controllers may become visible while the room lookup is in flight.
+    // An explicit room link still watches/joins that room; the front door
+    // seats two local players before accepting an automatic online match.
+    const joinName = roundName || (scanPads().length >= 2 ? "" : offeredRoom);
     if (joinName && !roundName && !workshopRoute)
       history.replaceState(null, "", "/" + joinName);
     // A visitor arriving through a shared address asks for the second chair
@@ -1607,6 +1617,10 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
+      if (globalThis.__oskiewarLocalVersus) {
+        if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
+        return;
+      }
       const room = globalThis.__oskiewarVersusRoom;
       if (room && !/^\/workshop\/?$/.test(location.pathname) && location.pathname !== "/" + room)
         history.replaceState(null, "", "/" + room);

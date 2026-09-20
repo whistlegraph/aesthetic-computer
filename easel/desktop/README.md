@@ -97,7 +97,7 @@ node easel/bin/piece-app.mjs --cwd /path/to/project --name sefo \
   --piece sefo.mjs --icon /path/to/piece-frame.png --open
 ```
 
-The installer uses the installed `~/Applications/aesel.app` as its base (override
+The installer uses the installed `~/Applications/Aesel.app` as its base (override
 with `--base`), creates an APFS clone in `~/Applications/Aesel Pieces/`, renames
 and signs its native helpers, and verifies a local PTY launch before installation.
 It requires the repo's desktop development dependencies for ASAR extraction.

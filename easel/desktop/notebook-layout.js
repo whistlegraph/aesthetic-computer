@@ -19,6 +19,7 @@
   };
   const layout = () => {
     frame = 0;
+    if (document.body.classList.contains("window-resizing")) return;
     const height = view.clientHeight;
     const pin =
       view.scrollHeight - view.scrollTop - height <= 2 ||
@@ -67,6 +68,7 @@
   window.layoutNotebookPreview = () => {
     if (!frame) frame = requestAnimationFrame(layout);
   };
+  window.addEventListener("aesel-resize-settled", window.layoutNotebookPreview);
   const observer = new ResizeObserver(window.layoutNotebookPreview);
   observer.observe(preview);
   observer.observe(view);
