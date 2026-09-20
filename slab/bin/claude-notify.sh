@@ -20,7 +20,15 @@ mkdir -p "$(dirname "$LOG")" "$AWAITING_DIR"
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
 message=$(echo "$input" | jq -r '.message // empty' 2>/dev/null)
-echo "$(date '+%Y-%m-%d %H:%M:%S') Notification: session=${session_id:-?} msg=${message:-?}" >> "$LOG"
+ntype=$(echo "$input" | jq -r '.notification_type // empty' 2>/dev/null)
+echo "$(date '+%Y-%m-%d %H:%M:%S') Notification: session=${session_id:-?} type=${ntype:-?} msg=${message:-?}" >> "$LOG"
+
+# "Claude Code login successful" is a Notification too, but nobody is being
+# asked for anything: no awaiting marker (the menubar would flip the session
+# to amber and chime "needs input"), no ambient fade, no "help me".
+if [[ "$ntype" == "auth_success" || "$message" == *"login successful"* ]]; then
+    exit 0
+fi
 
 # Mark paused before fading so the daemon sees the flag on its next tick.
 : > "$PAUSE_FLAG"
