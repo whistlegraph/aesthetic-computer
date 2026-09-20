@@ -1,6 +1,6 @@
 {
   "name": "aesel-desktop",
-  "productName": "aesel",
+  "productName": "Aesel",
   "version": "0.7.16",
   "private": true,
   "main": "main.cjs",
@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "computer.aesthetic.easel",
-    "productName": "aesel",
+    "productName": "Aesel",
     "directories": {
       "output": "dist"
     },
@@ -84,10 +84,7 @@
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
-      "extendInfo": {
-        "CFBundleName": "Aesel",
-        "CFBundleDisplayName": "Aesel"
-      },
+      "artifactName": "aesel-${version}-${arch}.${ext}",
       "hardenedRuntime": true,
       "icon": "build/icon.icns",
       "notarize": true,
