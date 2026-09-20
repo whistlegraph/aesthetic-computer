@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 142;
+const buildVersion = 143;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1139,6 +1139,53 @@ function screenRect(x, y, width, height, color) {
   const [r, g, b] = color;
   screenTriangle(x, y, x + width, y, x + width, y + height, r, g, b);
   screenTriangle(x, y, x + width, y + height, x, y + height, r, g, b);
+}
+// On the native shell `box` and `line` are CPU-composited UNDER every GPU
+// triangle — App.cpp paints rects, lines and block text into the CPU frame,
+// uploads that as the scene texture, then draws the depth pass over it — so
+// the frame meter, keycaps, clock and bot scaffolding sank behind the
+// fighters and terrain. @jeffrey on the console, 2026-09-20: "the frame
+// counter and stuff in the debug ui ... feels like its behind stuff". HUD
+// boxes and lines ride the triangle pass there, at a depth in front of any
+// body (bodies bottom out near -1.42; the shell maps (z + 1.5) / 3 into the
+// depth buffer, LESS_EQUAL). The web shell keeps box/line as they were.
+const nativeTrianglePass = typeof triangle3d === "function";
+const hudDepth = -1.48;
+function hudBox(x, y, width, height, ...color) {
+  if (!nativeTrianglePass) { box(x, y, width, height, ...color); return; }
+  const previous = triangleDepth;
+  triangleDepth = hudDepth;
+  screenRect(x, y, width, height, color);
+  triangleDepth = previous;
+}
+function hudLine(x1, y1, x2, y2, width, ...color) {
+  if (!nativeTrianglePass) { line(x1, y1, x2, y2, width, ...color); return; }
+  const dx = x2 - x1, dy = y2 - y1;
+  const length = Math.hypot(dx, dy) || 1;
+  const nx = -dy / length * Math.max(1, width) / 2;
+  const ny = dx / length * Math.max(1, width) / 2;
+  const previous = triangleDepth;
+  triangleDepth = hudDepth;
+  const [r, g, b] = color;
+  screenTriangle(x1 + nx, y1 + ny, x2 + nx, y2 + ny, x2 - nx, y2 - ny, r, g, b);
+  screenTriangle(x1 + nx, y1 + ny, x2 - nx, y2 - ny, x1 - nx, y1 - ny, r, g, b);
+  triangleDepth = previous;
+}
+function hudWorldLine(x1, y1, z1, x2, y2, z2, width, color) {
+  const segment = worldSegment(x1, y1, z1, x2, y2, z2);
+  if (!segment) return;
+  hudLine(segment.from.x, segment.from.y, segment.to.x, segment.to.y,
+    width, ...color);
+}
+function hudCircle(x, y, radius, width, color) {
+  let lastX = x + radius, lastY = y;
+  for (let i = 1; i <= 12; i++) {
+    const angle = i * Math.PI * 2 / 12;
+    const nextX = x + Math.cos(angle) * radius;
+    const nextY = y + Math.sin(angle) * radius;
+    hudLine(lastX, lastY, nextX, nextY, width, ...color);
+    lastX = nextX; lastY = nextY;
+  }
 }
 function screenStrokeRect(x, y, width, height, thickness, color) {
   screenRect(x, y, width, thickness, color);
@@ -3197,16 +3244,16 @@ function drawDumpIcon(kind, x, y, size) {
   try {
     if (kind === "build")
       for (let row = 0; row < 3; row++)
-        box(x, y + row * unit * 3, size - row * unit * 2, unit * 2, ...ink);
+        hudBox(x, y + row * unit * 3, size - row * unit * 2, unit * 2, ...ink);
     else if (kind === "camera") {
       strokeBox(x, y + unit, size, size - unit * 2, unit, ink);
-      box(x + unit * 3, y + unit * 3, size - unit * 6, size - unit * 6, ...ink);
+      hudBox(x + unit * 3, y + unit * 3, size - unit * 6, size - unit * 6, ...ink);
     } else if (kind === "player") {
-      box(x + unit * 2, y, size - unit * 4, unit * 3, ...ink);
-      box(x, y + unit * 4, size, size - unit * 4, ...ink);
+      hudBox(x + unit * 2, y, size - unit * 4, unit * 3, ...ink);
+      hudBox(x, y + unit * 4, size, size - unit * 4, ...ink);
     } else if (kind === "ball") {
-      box(x + unit * 2, y, size - unit * 4, size, ...ink);
-      box(x, y + unit * 2, size, size - unit * 4, ...ink);
+      hudBox(x + unit * 2, y, size - unit * 4, size, ...ink);
+      hudBox(x, y + unit * 2, size, size - unit * 4, ...ink);
     } else strokeBox(x, y, size, size, unit, ink);
   } catch (_) {}
 }
@@ -3230,12 +3277,12 @@ function errorQrGeometry(width, height) {
 // coalesce into horizontal runs so a full code stays a few hundred draws.
 function drawErrorQr(qr) {
   if (!qr) return;
-  box(qr.left, qr.top, qr.size, qr.size, 250, 250, 247);
+  hudBox(qr.left, qr.top, qr.size, qr.size, 250, 250, 247);
   for (let row = 0; row < qr.count; row++) {
     let run = 0;
     for (let column = 0; column <= qr.count; column++) {
       if (column < qr.count && clientErrorQr.isDark(row, column)) { run++; continue; }
-      if (run) box(qr.left + (column - run + qr.quiet) * qr.cell,
+      if (run) hudBox(qr.left + (column - run + qr.quiet) * qr.cell,
         qr.top + (row + qr.quiet) * qr.cell, run * qr.cell, qr.cell, 7, 8, 14);
       run = 0;
     }
@@ -10623,7 +10670,7 @@ function drawFighterSilhouette(geometry, color, outline, player = null) {
     }
     if (appearance.beard) filledCapsule(x - r * .4, y + r * .68, x + r * .4, y + r * .68, r * .4, appearance.hair);
     if (appearance.glasses) {
-      for (const side of [-1, 1]) circle(x + side * r * .34, y - r * .08, r * .23, Math.max(1, r * .08), [18, 20, 28]);
+      for (const side of [-1, 1]) hudCircle(x + side * r * .34, y - r * .08, r * .23, Math.max(1, r * .08), [18, 20, 28]);
       filledCapsule(x - r * .1, y - r * .08, x + r * .1, y - r * .08, Math.max(1, r * .06), [18, 20, 28]);
     }
   }
@@ -12104,9 +12151,9 @@ function drawKeycap(label, x, y, size, pressed, fade = 1) {
     ? mixColor([210, 220, 240], [40, 46, 62], visualTheme.light)
     : mixColor([112, 122, 146], [96, 104, 124], visualTheme.light));
   if (!pressed)
-    box(x + 2, y + 4, width, height, ...veil(mixColor([6, 8, 18], [92, 99, 112],
+    hudBox(x + 2, y + 4, width, height, ...veil(mixColor([6, 8, 18], [92, 99, 112],
       visualTheme.light * .7)));
-  box(x, y + drop, width, height, ...face);
+  hudBox(x, y + drop, width, height, ...face);
   strokeBox(x, y + drop, width, height, 2, edge);
   typeWrite(label, x + padX, y + drop + Math.round((height - size) / 2), size,
     ...veil(pressed ? [12, 14, 26] : [238, 242, 252]));
@@ -12733,7 +12780,7 @@ function drawInventory(player, now, geometry) {
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    circle(hand.x, hand.y, Math.max(5, 15 * scale),
+    hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
       Math.max(2, 5 * scale), grenadeColor);
   }
 }
@@ -13049,14 +13096,14 @@ function drawFrameMeter() {
     const y = top + player.pad * (rowHeight + 3);
     // The empty track, so a meter that has not filled yet reads as a meter
     // rather than as nothing having happened.
-    box(left, y, width, rowHeight, 16, 19, 30);
+    hudBox(left, y, width, rowHeight, 16, 19, 30);
     // Pips never overlap. Group colors while retaining every one-frame gap.
     for (const key of new Set(meter)) {
       const state = frameMeterStates[key] || frameMeterStates.neutral;
       for (let index = 0; index < meter.length; index++) {
         if (meter[index] !== key) continue;
         const x = left + width - (meter.length - index) * (pip + gap);
-        box(x, y, pip, rowHeight, ...state.ink);
+        hudBox(x, y, pip, rowHeight, ...state.ink);
       }
     }
     // Whose row this is, in their own color, at the left end where it cannot
@@ -13072,7 +13119,7 @@ function drawFrameMeter() {
   let x = left;
   for (const state of seen) {
     const entry = frameMeterStates[state];
-    box(x, top - 17, 9, 9, ...entry.ink);
+    hudBox(x, top - 17, 9, 9, ...entry.ink);
     typeWrite(entry.label, x + 13, top - 19, 13, 168, 178, 200);
     x += 20 + entry.label.length * 8;
   }
@@ -13483,8 +13530,8 @@ function drawReelSectionProgress(now, titleInk) {
     const width = index === widths.length - 1
       ? safe.right - x : Math.round(available * widths[index]);
     const amount = index < section ? 1 : index === section ? progress : 0;
-    box(x, barY, width, barHeight, ...track);
-    if (amount > 0) box(x, barY, width * amount, barHeight,
+    hudBox(x, barY, width, barHeight, ...track);
+    if (amount > 0) hudBox(x, barY, width * amount, barHeight,
       ...(index === section ? titleInk : done));
     if (index === 1) {
       const markWidth = compactLayout() ? 5 : 6;
@@ -13492,7 +13539,7 @@ function drawReelSectionProgress(now, titleInk) {
         const markX = x + clamp(mark.at, 0, 1) * width;
         const reached = roundElapsedUs / roundDurationUs >= mark.at;
         const impactInk = mark.decisive ? [226, 42, 66] : mark.color;
-        box(markX - markWidth / 2, barY - 3,
+        hudBox(markX - markWidth / 2, barY - 3,
           markWidth, barHeight + 6,
           ...(reached ? impactInk : mixColor(track, impactInk, .72)));
       }
@@ -13589,7 +13636,7 @@ function worldCapsule(x1, y1, z1, x2, y2, z2, width, color,
   triangleDepth = previousDepth;
 }
 
-function worldQuad(a, b, c, d, color) {
+function litQuadColor(a, b, c, color) {
   // Lighting is decided in world space, off the surface the quad names, so it
   // is the same shade however the clipper ends up cutting the face up. The
   // cross, normalize and dot run in scalars: this is every wall panel every
@@ -13603,9 +13650,12 @@ function worldQuad(a, b, c, d, color) {
   const toward = (nx * -globalLight.x + ny * -globalLight.y +
     nz * -globalLight.z) / magnitude;
   const illumination = .72 + Math.max(0, toward) * .28;
-  const lit = [Math.round(color[0] * illumination),
+  return [Math.round(color[0] * illumination),
     Math.round(color[1] * illumination),
     Math.round(color[2] * illumination)];
+}
+function worldQuad(a, b, c, d, color) {
+  const lit = litQuadColor(a, b, c, color);
   worldTriangle(a, b, c, lit);
   worldTriangle(a, c, d, lit);
 }
@@ -13630,17 +13680,90 @@ function rebuildTerrainProfile() {
 }
 rebuildTerrainProfile();
 
-function drawTerrainSurface(left, right, near, far, color) {
+// The three terrain passes (surface, front wall, back wall) used to hand
+// `worldQuad` four fresh corner objects per segment, and each quad ran its
+// six vertices through the camera — so every profile point was projected
+// twelve times per pass, and the terrain alone cost 8.4 ms of the console's
+// interpreted frame (measured on the Xbox 2026-09-20; sim 5.6 + paint 14 ms
+// at 1080p). Each pass now projects each point ONCE for its top vertex and
+// once for its bottom, keeps the results in two flat scratch arrays, and
+// reads a segment's four corners back from them. Segments that sit wholly
+// in front of the camera and inside the guard band — nearly all of them —
+// go straight to `projectedTriangle`; the rest fall back to `worldQuad`, so
+// the near-plane and band clipping is exactly what it was.
+const terrainScratch = { top: [], bottom: [] };
+function terrainVertex(slot, index, x, y, z) {
+  let vertex = slot[index];
+  if (!vertex) vertex = slot[index] = { view: { x: 0, y: 0, z: 0 },
+    screen: { x: 0, y: 0, z: 0 }, front: false, inBand: false, x: 0, y: 0, z: 0 };
+  vertex.x = x; vertex.y = y; vertex.z = z;
+  const view = cameraDoll.toView(vertex, vertex.view);
+  vertex.front = view.z >= cameraNear;
+  vertex.inBand = vertex.front &&
+    bandContains(cameraDoll.projectView(view, vertex.screen));
+  return vertex;
+}
+// `bottomY` null: the bottom vertex shares the profile's y (the surface
+// pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
+// vertices at `zTop`, the bottom one dropped to `bottomY`.
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
+  const { top, bottom } = terrainScratch;
+  const wall = bottomY !== null;
+  const count = terrainProfile.length;
+  let previous = -1;
+  for (let index = 0; index < count; index++) {
+    const point = terrainProfile[index];
+    const next = terrainProfile[index + 1];
+    // A point is projected only when a drawn segment touches it.
+    const inSpan = (next && !(next.x < left || point.x > right)) ||
+      (index > 0 && !(point.x < left || terrainProfile[index - 1].x > right));
+    if (!inSpan) { previous = -1; continue; }
+    const a = terrainVertex(top, index, point.x, point.y, zTop);
+    const b = terrainVertex(bottom, index, point.x, wall ? bottomY : point.y,
+      wall ? zTop : zBottom);
+    if (previous >= 0 && previous === index - 1 &&
+        !(point.x < left || terrainProfile[previous].x > right)) {
+      const a1 = top[previous], b1 = bottom[previous];
+      const shade = shadeOf(previous);
+      if (a1.front && a.front && b.front && b1.front) {
+        const lit = litQuadColor(a1, a, b, shade);
+        if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
+          projectedTriangle(a1.screen, a.screen, b.screen, lit);
+          projectedTriangle(a1.screen, b.screen, b1.screen, lit);
+        } else {
+          // Off the guard band on one side: clip the projected quad once
+          // rather than re-projecting it as two triangles.
+          const face = clipScreenBand([a1.screen, a.screen, b.screen, b1.screen]);
+          for (let corner = 2; corner < face.length; corner++)
+            projectedTriangle(face[0], face[corner - 1], face[corner], lit);
+        }
+      } else worldQuad(a1, a, b, b1, shade);
+    }
+    previous = index;
+  }
+}
+// Per-segment surface shade, cached against the ground color it was mixed
+// from: the slope never changes between rebuilds, and mixing 240 colours a
+// frame was measurable on the console.
+let terrainShadeKey = "";
+const terrainShades = [];
+function terrainSurfaceShades(color) {
+  const key = color.join(",") + "/" + terrainProfile.length;
+  if (key === terrainShadeKey) return terrainShades;
+  terrainShadeKey = key;
+  terrainShades.length = 0;
   for (let index = 1; index < terrainProfile.length; index++) {
     const { x: x1, y: y1 } = terrainProfile[index - 1];
     const { x: x2, y: y2 } = terrainProfile[index];
-    if (x2 < left || x1 > right) continue;
     const slope = Math.abs(y2 - y1) / Math.max(1, x2 - x1);
-    const shade = mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
-    worldQuad(
-      { x: x1, y: y1, z: near }, { x: x2, y: y2, z: near },
-      { x: x2, y: y2, z: far }, { x: x1, y: y1, z: far }, shade);
+    terrainShades[index - 1] =
+      mixColor(color, [110, 120, 90], .16 + Math.min(1, slope) * .22);
   }
+  return terrainShades;
+}
+function drawTerrainSurface(left, right, near, far, color) {
+  const shades = terrainSurfaceShades(color);
+  terrainPass(left, right, near, far, null, (segment) => shades[segment]);
 }
 
 function drawTerrainFrontWall(left, right, near, color) {
@@ -13660,16 +13783,7 @@ function drawTerrainFrontWall(left, right, near, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  for (let index = 1; index < terrainProfile.length; index++) {
-    const { x: x1, y: y1 } = terrainProfile[index - 1];
-    const { x: x2, y: y2 } = terrainProfile[index];
-    if (x2 < left || x1 > right) continue;
-    worldQuad(
-      { x: x1, y: y1, z: wallZ },
-      { x: x2, y: y2, z: wallZ },
-      { x: x2, y: wallBottom, z: wallZ },
-      { x: x1, y: wallBottom, z: wallZ }, wall);
-  }
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
@@ -13687,16 +13801,7 @@ function drawTerrainBackWall(left, right, far, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = far + 2;
   const wallBottom = floorY + 720;
-  for (let index = 1; index < terrainProfile.length; index++) {
-    const { x: x1, y: y1 } = terrainProfile[index - 1];
-    const { x: x2, y: y2 } = terrainProfile[index];
-    if (x2 < left || x1 > right) continue;
-    worldQuad(
-      { x: x1, y: y1, z: wallZ },
-      { x: x2, y: y2, z: wallZ },
-      { x: x2, y: wallBottom, z: wallZ },
-      { x: x1, y: wallBottom, z: wallZ }, wall);
-  }
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
 }
 
 function drawRoomSurfaces(left, right, top, bottom, color) {
@@ -14130,19 +14235,19 @@ function drawBotScene(player) {
   const scene = player.botScene;
   const seen = [58, 222, 255];
   for (const rung of scene.rungs)
-    worldLine(rung.left, rung.y, 0, rung.right, rung.y, 0, 3, seen);
+    hudWorldLine(rung.left, rung.y, 0, rung.right, rung.y, 0, 3, seen);
   const goal = player.botSubgoal;
   if (goal && goal.kind === "jump") {
     const band = [120, 255, 120];
-    worldLine(goal.landLeft, goal.y, 0, goal.landRight, goal.y, 0, 6, band);
-    worldLine(goal.aim, goal.y, 0, goal.aim, goal.y - 40, 0, 3, band);
+    hudWorldLine(goal.landLeft, goal.y, 0, goal.landRight, goal.y, 0, 6, band);
+    hudWorldLine(goal.aim, goal.y, 0, goal.aim, goal.y - 40, 0, 3, band);
     const footing = scene.self.footing;
     if (footing)
-      worldLine(goal.takeoffLeft, footing.y, 0, goal.takeoffRight,
+      hudWorldLine(goal.takeoffLeft, footing.y, 0, goal.takeoffRight,
         footing.y, 0, 6, [255, 214, 90]);
   }
   if (scene.lava)
-    worldLine(worldLeft, scene.lava.y, 0, worldRight, scene.lava.y, 0, 3,
+    hudWorldLine(worldLeft, scene.lava.y, 0, worldRight, scene.lava.y, 0, 3,
       [255, 110, 70]);
 }
 
@@ -14514,11 +14619,11 @@ function drawSelectPortrait(player, x, y, scale, t) {
   const head = { x, y: y - 130 * scale, radius: 34 * scale };
   filledDisc(head.x, head.y, head.radius + Math.max(2, 3 * scale), [8, 12, 24]);
   filledDisc(head.x, head.y, head.radius, color);
-  line(x, y - 94 * scale, x, y + 20 * scale, 12 * scale, ...color);
-  line(x, y - 65 * scale, x - 62 * scale, y - 8 * scale, 10 * scale, ...color);
-  line(x, y - 65 * scale, x + 62 * scale, y - 8 * scale, 10 * scale, ...color);
-  line(x, y + 20 * scale, x - 48 * scale, y + 112 * scale, 11 * scale, ...color);
-  line(x, y + 20 * scale, x + 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  hudLine(x, y - 94 * scale, x, y + 20 * scale, 12 * scale, ...color);
+  hudLine(x, y - 65 * scale, x - 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  hudLine(x, y - 65 * scale, x + 62 * scale, y - 8 * scale, 10 * scale, ...color);
+  hudLine(x, y + 20 * scale, x - 48 * scale, y + 112 * scale, 11 * scale, ...color);
+  hudLine(x, y + 20 * scale, x + 48 * scale, y + 112 * scale, 11 * scale, ...color);
   drawFace(player, head, contrastShadow(color), t);
 }
 
@@ -14710,10 +14815,10 @@ const pointInCell = (point, x, y, width, height) => point && x <= point.x &&
 
 // Screen-space outline, four boxes, no projection — safe anywhere.
 function strokeBox(x, y, width, height, thickness, color) {
-  box(x, y, width, thickness, ...color);
-  box(x, y + height - thickness, width, thickness, ...color);
-  box(x, y, thickness, height, ...color);
-  box(x + width - thickness, y, thickness, height, ...color);
+  hudBox(x, y, width, thickness, ...color);
+  hudBox(x, y + height - thickness, width, thickness, ...color);
+  hudBox(x, y, thickness, height, ...color);
+  hudBox(x + width - thickness, y, thickness, height, ...color);
 }
 
 function drawTitleScreen(t, ink, transitionAge = -1) {
@@ -14748,7 +14853,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       const y = viewHeight *
         (.5 + .45 * Math.cos(t * (.043 + index % 4 * .012) + phase * 1.7));
       const radius = (compact ? 2 : 3) + (index % 3);
-      circle(x, y, radius, Math.max(1.5, radius * .48),
+      hudCircle(x, y, radius, Math.max(1.5, radius * .48),
         animatedTitleColor(index, t * .7));
     }
 
@@ -14827,7 +14932,7 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     strokeBox(titleX, titleY, titleWidth, titleSize, 2, [92, 132, 255]);
     for (const [x, y, advance] of glyphCells) {
       strokeBox(x, y, advance, titleSize, 2, [255, 92, 116]);
-      box(x, y, 2, titleSize, 116, 255, 184);
+      hudBox(x, y, 2, titleSize, 116, 255, 184);
     }
   }
 
@@ -14966,17 +15071,17 @@ function hudClockBox(unixMs) {
 // more pixels than the corner owns. Shadowed like the type beside it so it
 // flies on any sky.
 function drawUsFlag(x, y, width, height, ink) {
-  box(x + 2, y + 2, width, height, ...contrastShadow(ink));
+  hudBox(x + 2, y + 2, width, height, ...contrastShadow(ink));
   const stripes = 7;
   for (let stripe = 0; stripe < stripes; stripe++) {
     const top = y + Math.round(stripe * height / stripes);
     const bottom = y + Math.round((stripe + 1) * height / stripes);
-    box(x, top, width, bottom - top,
+    hudBox(x, top, width, bottom - top,
       ...(stripe % 2 ? [238, 242, 247] : [188, 32, 46]));
   }
   const cantonWidth = Math.round(width * .44);
   const cantonHeight = Math.round(height * 4 / stripes);
-  box(x, y, cantonWidth, cantonHeight, 38, 52, 122);
+  hudBox(x, y, cantonWidth, cantonHeight, 38, 52, 122);
   for (let star = 0; star < 6; star++)
     filledDisc(x + Math.round(cantonWidth * (.22 + (star % 3) * .28)),
       y + Math.round(cantonHeight * (star < 3 ? .3 : .7)),
@@ -15013,7 +15118,7 @@ function drawHudClock(clock, y, ink, unixMs) {
       clock.dialX + Math.cos(end) * clock.dialRadius,
       centerY + Math.sin(end) * clock.dialRadius, ...syntax[2]);
   }
-  circle(clock.dialX, centerY, clock.dialRadius, 2, ink);
+  hudCircle(clock.dialX, centerY, clock.dialRadius, 2, ink);
 }
 
 function hudStatusTray(clock = null) {
@@ -15035,9 +15140,9 @@ function hudStatusTray(clock = null) {
 function drawStatusPiano(x, y, lit) {
   const width = 21, height = 14, key = width / 7;
   const left = Math.round(x - width / 2), top = Math.round(y - height / 2);
-  box(left, top, width, height, ...(lit ? [108, 240, 168] : [176, 184, 202]));
+  hudBox(left, top, width, height, ...(lit ? [108, 240, 168] : [176, 184, 202]));
   for (const step of [1, 2, 4, 5, 6])
-    box(Math.round(left + step * key) - 1, top, 2, Math.round(height * .58),
+    hudBox(Math.round(left + step * key) - 1, top, 2, Math.round(height * .58),
       23, 27, 40);
 }
 
@@ -15473,8 +15578,8 @@ function drawTitleHeadDoor(t, ink, suppressed) {
   // carries it across both, the same trick the type beside it uses.
   const glow = mixColor([230, 205, 92], [255, 250, 226], pulse * .55);
   const stroke = Math.max(1.5, radius * .085);
-  circle(point.x, point.y, reach, stroke * 2.1, [16, 20, 34]);
-  circle(point.x, point.y, reach, stroke, glow);
+  hudCircle(point.x, point.y, reach, stroke * 2.1, [16, 20, 34]);
+  hudCircle(point.x, point.y, reach, stroke, glow);
   // The words ride a plate. A meditating fighter fills the whole column under
   // their own chin, so unplated type landed on shoulders and arms and read as
   // part of the body; the plate is dark on both themes because the gold is.
@@ -15484,7 +15589,7 @@ function drawTitleHeadDoor(t, ink, suppressed) {
   const padX = Math.round(size * .55), padY = Math.round(size * .34);
   const left = point.x - width / 2;
   const top = point.y + reach + size * .45;
-  box(left - padX, top - padY, width + padX * 2, size + padY * 2, 16, 20, 34);
+  hudBox(left - padX, top - padY, width + padX * 2, size + padY * 2, 16, 20, 34);
   typeWrite(label, left, top, size, ...glow);
 }
 
@@ -16035,7 +16140,6 @@ function paint() {
     restore();
   }
 }
-
 function act() {}
 function leave() {
   try {
