@@ -3897,13 +3897,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @discardableResult
     private static func axTilePass(snapshot: AXTiler.Snapshot,
                                    geom: ScreenGeom, textSize: TextSize) -> AXPass? {
-        let all = snapshot.all
-        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d",
-              all.count, snapshot.signature.map(String.init).joined(separator: ","),
-              snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count)
-        guard !all.isEmpty,
-              let layout = computeTileLayout(count: all.count, geom: geom, size: textSize)
-        else { return nil }
+        NSLog("🧩 [tile] windows=%d ids=%@ iterm=%d term=%d acpane=%d stage=%d",
+              snapshot.all.count,
+              snapshot.signature.map(String.init).joined(separator: ","),
+              snapshot.iterm.count, snapshot.terminal.count, snapshot.acPanes.count,
+              snapshot.stage.count)
+        // A stage window (GeForce NOW) is an ordinary, equal grid cell first.
+        // Only when the app clamps above its cell — its configured floor is
+        // bigger than the grid can offer — does it get a column of its own,
+        // so the terminals never end up packed underneath it.
+        let stageID = snapshot.stage.first?.id
+        let (pass, overflow) = axTilePassImpl(snapshot: snapshot, geom: geom,
+                                              textSize: textSize, columnStage: false)
+        guard overflow, stageID != nil else { return pass }
+        NSLog("🧩 [tile] stage overflowed its cell; falling back to a column")
+        return axTilePassImpl(snapshot: snapshot, geom: geom,
+                              textSize: textSize, columnStage: true).pass
+    }
+
+    /// One placement pass. With `columnStage` the first stage window takes a
+    /// column and the rest grid beside it; without, every window is a cell.
+    /// `overflow` reports a stage window that accepted a frame larger than
+    /// its cell (only meaningful in the equal-cell mode).
+    private static func axTilePassImpl(snapshot: AXTiler.Snapshot,
+                                       geom: ScreenGeom, textSize: TextSize,
+                                       columnStage: Bool) -> (pass: AXPass?, overflow: Bool) {
+        let stage = columnStage ? snapshot.stage.first : nil
+        let stageIDs = Set(snapshot.stage.map(\.id))
+        let all = snapshot.all.filter { $0.id != stage?.id }
+        var overflow = false
+        var gridGeom = geom
+        var stagePlacement: AXPlacement?
+        if let stage {
+            stagePlacement = placeStage(stage, geom: geom, alone: all.isEmpty,
+                                        gridGeom: &gridGeom)
+        }
+        guard !all.isEmpty else {
+            guard let stagePlacement,
+                  let solo = computeTileLayout(count: 1, geom: geom, size: textSize)
+            else { return (nil, false) }
+            return (AXPass(nIterm: 0, nTerm: 0, fontSize: solo.fontSize,
+                           placements: [stagePlacement], terminalPlacements: [],
+                           misfitTerminalIDs: []), false)
+        }
+        guard let layout = computeTileLayout(count: all.count, geom: gridGeom, size: textSize)
+        else { return (nil, false) }
         // Assign windows to grid cells by spatial locality so a window keeps
         // its region instead of jumping to wherever its app+z-order index fell.
         // Cell centers (top-left-origin px) from the layout; window centers from
@@ -3915,7 +3953,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let windowCenters: [CGPoint] = all.enumerated().map { i, w in
             AXTiler.center(w.element) ?? cellCenters[i]
         }
-        let pick = localityAssignment(windowCenters: windowCenters, cellCenters: cellCenters)
+        var pick: [Int]
+        if !columnStage, let si = all.firstIndex(where: { stageIDs.contains($0.id) }) {
+            // Equal-cell mode: hand the stage the roomiest cell first (a
+            // sparse bottom row's stretched cell), so a floor-clamped stream
+            // fits whenever any cell can. Ties go to the later, lower cell.
+            let areas = (0..<all.count).map { i -> Int in
+                let b = layout.cellAt(index: i).bounds
+                return (b.right - b.left) * (b.bottom - b.top)
+            }
+            let best = areas.indices.max { a, b in
+                areas[a] < areas[b] || (areas[a] == areas[b] && a < b)
+            } ?? 0
+            let restW = all.indices.filter { $0 != si }
+            let restC = cellCenters.indices.filter { $0 != best }
+            let sub = localityAssignment(windowCenters: restW.map { windowCenters[$0] },
+                                         cellCenters: restC.map { cellCenters[$0] })
+            pick = Array(repeating: -1, count: cellCenters.count)
+            pick[best] = si
+            for (k, c) in restC.enumerated() where sub[k] >= 0 { pick[c] = restW[sub[k]] }
+        } else {
+            pick = localityAssignment(windowCenters: windowCenters, cellCenters: cellCenters)
+        }
         let terminalIDs = Set(snapshot.terminal.map(\.id))
         var placements: [AXPlacement] = []
         var terminalPlacements: [AXPlacement] = []
@@ -3925,6 +3984,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let wi = pick[c]
             guard wi >= 0 else { continue }
             let cell = layout.cellAt(index: c).bounds
+            if stageIDs.contains(all[wi].id) { AXTiler.exitFullScreen(all[wi].element) }
             let residual = AXTiler.setFrameFitting(
                 all[wi].element, left: cell.left, top: cell.top,
                 right: cell.right, bottom: cell.bottom)
@@ -3934,15 +3994,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                abs(residual.width) > 1 || abs(residual.height) > 1 {
                 misfitTerminalIDs.append(all[wi].id)
             }
+            // A stage window that came back bigger than its cell hit the
+            // app's floor: the equal grid cannot hold it.
+            if stageIDs.contains(all[wi].id),
+               let residual,
+               residual.width > 2 || residual.height > 2 {
+                overflow = true
+            }
             let placement = AXPlacement(window: all[wi].element, id: all[wi].id,
                                         isTerminal: isTerminal, bounds: cell)
             placements.append(placement)
             if isTerminal { terminalPlacements.append(placement) }
         }
-        return AXPass(nIterm: snapshot.iterm.count, nTerm: snapshot.terminal.count,
-                      fontSize: layout.fontSize, placements: placements,
-                      terminalPlacements: terminalPlacements,
-                      misfitTerminalIDs: misfitTerminalIDs)
+        if let stagePlacement { placements.append(stagePlacement) }
+        return (AXPass(nIterm: snapshot.iterm.count, nTerm: snapshot.terminal.count,
+                       fontSize: layout.fontSize, placements: placements,
+                       terminalPlacements: terminalPlacements,
+                       misfitTerminalIDs: misfitTerminalIDs), overflow)
+    }
+
+    /// Share of the visible width the stage column takes when it has grid
+    /// neighbours. Half keeps a 16:9 stream readable on a 1408-wide laptop
+    /// while two terminals still fit beside it.
+    static let stageShare = 0.5
+
+    /// Frame the stage window as one full-height column on the side it is
+    /// already nearest, then shrink `gridGeom` to the remainder. The app may
+    /// refuse part of the request (GeForce NOW clamps to its configured
+    /// floor); the column is widened to whatever it actually accepted so the
+    /// grid never packs underneath it.
+    private static func placeStage(_ stage: AXTiler.Window, geom: ScreenGeom,
+                                   alone: Bool,
+                                   gridGeom: inout ScreenGeom) -> AXPlacement {
+        AXTiler.exitFullScreen(stage.element)
+        let screenMidX = Double(geom.originX) + Double(geom.width) / 2
+        let onRight = !alone && (AXTiler.center(stage.element).map { $0.x > screenMidX } ?? false)
+        var stageWidth = alone ? geom.width : Int(Double(geom.width) * stageShare)
+        func column(_ width: Int) -> (left: Int, top: Int, right: Int, bottom: Int) {
+            let left = onRight ? geom.originX + geom.width - width : geom.originX
+            return (left + tileGutter, geom.originY + tileGutter,
+                    left + width - tileGutter, geom.originY + geom.height - tileGutter)
+        }
+        var cell = column(stageWidth)
+        AXTiler.setFrame(stage.element, left: cell.left, top: cell.top,
+                         right: cell.right, bottom: cell.bottom)
+        if let actual = AXTiler.frame(stage.element) {
+            let acceptedWidth = Int(actual.width.rounded()) + 2 * tileGutter
+            if acceptedWidth > stageWidth {
+                stageWidth = min(geom.width, acceptedWidth)
+                cell = column(stageWidth)
+                AXTiler.setFrame(stage.element, left: cell.left, top: cell.top,
+                                 right: cell.right, bottom: cell.bottom)
+            }
+        }
+        if !alone {
+            gridGeom = ScreenGeom(
+                originX: onRight ? geom.originX : geom.originX + stageWidth,
+                originY: geom.originY,
+                width: max(1, geom.width - stageWidth),
+                height: geom.height)
+        }
+        return AXPlacement(window: stage.element, id: stage.id,
+                           isTerminal: false, bounds: cell)
     }
 
     private static func repin(_ pass: AXPass, includeTerminal: Bool = true) {

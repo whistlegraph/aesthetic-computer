@@ -43,9 +43,28 @@ enum AXTiler {
         let iterm: [Window]
         let terminal: [Window]
         let acPanes: [Window]
+        /// Stage windows: a game stream (GeForce NOW) that wants one big
+        /// column of its own rather than a grid cell. Only the first stage
+        /// window is staged; any extra ones fall into the ordinary grid.
+        let stage: [Window]
 
-        var all: [Window] { iterm + terminal + acPanes }
+        var all: [Window] { iterm + terminal + acPanes + stage }
         var signature: [CGWindowID] { all.map(\.id).sorted() }
+    }
+
+    /// Apps whose main window is staged as a big column beside the terminal
+    /// grid. GeForce NOW's stream window is the reason this exists; its floor
+    /// (`nv-min-window-size` in the bundle's GeForceNOW.json) is honored by
+    /// measuring what the window accepted rather than assuming.
+    static let stageBundleIDs = [GameMode.gfnBundleID]
+
+    /// Leave native full screen (own Space) so the window can be framed on
+    /// this Space. Returns true when the attribute was set and cleared.
+    @discardableResult
+    static func exitFullScreen(_ w: AXUIElement) -> Bool {
+        guard boolAttr(w, "AXFullScreen") == true else { return false }
+        return AXUIElementSetAttributeValue(w, "AXFullScreen" as CFString,
+                                            kCFBooleanFalse) == .success
     }
 
     private struct CachedWindows {
@@ -76,7 +95,10 @@ enum AXTiler {
             terminal: windowRefs(bundleId: "com.apple.Terminal", liveWindows: liveWindows),
             acPanes: windowRefs(bundleId: "computer.aesthetic.app",
                                 requireStandardSubrole: false, liveWindows: liveWindows)
-                + easelWindowRefs(liveWindows: liveWindows)
+                + easelWindowRefs(liveWindows: liveWindows),
+            stage: stageBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows)
+            }
         )
     }
 
@@ -94,6 +116,9 @@ enum AXTiler {
             + windowRefs(bundleId: "computer.aesthetic.app", requireStandardSubrole: false,
                          liveWindows: liveWindows, requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
+            + stageBundleIDs.flatMap {
+                windowRefs(bundleId: $0, liveWindows: liveWindows, requireGeometry: false)
+            }
         ).map(\.id).sorted()
     }
 
