@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 143;
+const buildVersion = 144;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1995,8 +1995,15 @@ function trainingOpponentKind() {
   if (requested === "dummy" || requested === "spiderdummy" ||
       requested === "trainingbot") return requested;
   // One kind for the whole visit: a title returned to after a knockout must
-  // not re-deal the opponent out from under the player.
-  if (!trainingOpponent) trainingOpponent = "trainingbot";
+  // not re-deal the opponent out from under the player. The web's empty
+  // door spars with the bot; the console's stands a dummy up instead —
+  // @jeffrey on the Xbox, 2026-09-20: "make it so we can play against dummy
+  // as opposed to bot ... the dummy goes away and gets replaced by players"
+  // (a second local controller promotes that chair through
+  // `updateLocalVersus`). An inert dummy is also one bot brain fewer in the
+  // console's interpreted sim.
+  if (!trainingOpponent) trainingOpponent =
+    globalThis.__oskiewarVersusCapable === true ? "trainingbot" : "dummy";
   return trainingOpponent;
 }
 // The versus lane's room. One name for the whole visit — the shell writes it
@@ -7238,8 +7245,8 @@ function updateGunPickups(now) {
   for (const pickup of gunPickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.gunAmmo = Math.min(30, player.gunAmmo + pickup.amount);
       player.gunMode = pickup.kind || "HANDGUN";
       player.itemArm = availableArm(player);
@@ -7262,6 +7269,7 @@ function updateSaberPickups(now) {
     if (!pickup.active) continue;
     for (const player of players) {
       if (!player.alive || player.swordHeld ||
+        !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
         runnerDistanceToPoint(player, poseTime,
           pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.swordHeld = true;
@@ -7281,8 +7289,8 @@ function updateGrenadePickups(now) {
   for (const pickup of grenadePickups) {
     if (!pickup.active) continue;
     for (const player of players) {
-      if (!player.alive || runnerDistanceToPoint(player, poseTime,
-        pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
+      if (!player.alive || !nearRunner(player, pickup.x, pickup.y, pickup.z, 90) ||
+          runnerDistanceToPoint(player, poseTime, pickup.x, pickup.y, pickup.z) > 90 || !availableArm(player)) continue;
       player.grenadeAmmo = Math.min(4, player.grenadeAmmo + pickup.amount);
       player.itemArm = availableArm(player);
       pickup.active = false;
@@ -8120,10 +8128,14 @@ function updateBall(ball, dt, now) {
   }
   const poseTime = (now - startedAt) / 1000000;
   const hitters = [];
+  // The head test below sweeps from `previous`, so the reach margin carries
+  // this tick's travel as well as the ball's radius.
+  const travel = Math.hypot(ball.x - previous.x, ball.y - previous.y);
   for (const player of players) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
     const boxes = sampleCombatBoxes(player, now);
     for (const strike of boxes.hit) {
       const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
@@ -8145,6 +8157,7 @@ function updateBall(ball, dt, now) {
     if (!player.alive || ((ball.safePlayers & (1 << player.pad)) &&
         now < ball.safeUntil))
       continue;
+    if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
     if (player.blocking) {
       const guard = sampleCombatBoxes(player, now).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
@@ -11633,6 +11646,20 @@ function jevStrikeOptions(player, opponent, now) {
   return result;
 }
 
+// A cheap reject in front of a pose build. Nothing attached to a fighter
+// reaches farther than `runnerReach` from a point ninety units above where
+// it stands (a body is ~190 tall, an outstretched leg ~150 wide), so a
+// point beyond reach + its own contact margin cannot touch it and the
+// exact answer is not worth building. The three pickup updaters and the
+// ball asked `runnerContactToPoint`/`sampleCombatBoxes` — the whole limb
+// tree — for every pair every tick: 4.4 ms + 3 ms of the console's frame
+// with nobody near anything (phase table, Xbox Series X, 2026-09-20).
+const runnerReach = 300;
+function nearRunner(player, x, y, z, margin) {
+  const dx = x - player.x, dy = y - (player.y - 90), dz = (z || 0) - (player.z || 0);
+  const reach = runnerReach + margin;
+  return dx * dx + dy * dy + dz * dz <= reach * reach;
+}
 function runnerDistanceToPoint(player, t, px, py, pz = 0) {
   const contact = runnerContactToPoint(player, t, px, py, pz);
   return Math.min(contact.headDistance, contact.bodyDistance);
@@ -13677,6 +13704,42 @@ function rebuildTerrainProfile() {
     points.push(point);
   }
   terrainProfile.splice(0, terrainProfile.length, ...points);
+  rebuildTerrainDrawProfile();
+}
+// The drawn silhouette. `terrainProfile` keeps every sampled height exactly
+// (physics and the fidelity test read it); the console draws each profile
+// point as six projections and two faces per pass, so the passes read this
+// thinned copy instead — a point is dropped while every point it stood for
+// stays within `terrainDrawTolerance` world units of the chord that
+// replaces it (about a pixel at fight zoom). Flats were already one edge;
+// this is for the ramps, where six samples a tile all survived.
+const terrainDrawProfile = [];
+const terrainDrawTolerance = 1;
+function rebuildTerrainDrawProfile() {
+  const kept = [];
+  let anchor = 0;
+  kept.push(terrainProfile[0]);
+  for (let index = 2; index <= terrainProfile.length; index++) {
+    const a = terrainProfile[anchor];
+    const candidate = terrainProfile[index] || null;
+    // Try to stretch the chord from the anchor over `index - 1` to `index`;
+    // when a point in between falls off it, `index - 1` becomes the anchor.
+    let fits = candidate !== null;
+    if (fits) {
+      const dx = candidate.x - a.x, dy = candidate.y - a.y;
+      const length = Math.hypot(dx, dy) || 1;
+      for (let between = anchor + 1; between < index; between++) {
+        const point = terrainProfile[between];
+        const distance = Math.abs((point.x - a.x) * dy - (point.y - a.y) * dx) / length;
+        if (distance > terrainDrawTolerance) { fits = false; break; }
+      }
+    }
+    if (!fits) {
+      anchor = index - 1;
+      kept.push(terrainProfile[anchor]);
+    }
+  }
+  terrainDrawProfile.splice(0, terrainDrawProfile.length, ...kept);
 }
 rebuildTerrainProfile();
 
@@ -13709,6 +13772,7 @@ function terrainVertex(slot, index, x, y, z) {
 function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
   const { top, bottom } = terrainScratch;
   const wall = bottomY !== null;
+  const terrainProfile = terrainDrawProfile;
   const count = terrainProfile.length;
   let previous = -1;
   for (let index = 0; index < count; index++) {
@@ -13748,6 +13812,7 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
 let terrainShadeKey = "";
 const terrainShades = [];
 function terrainSurfaceShades(color) {
+  const terrainProfile = terrainDrawProfile;
   const key = color.join(",") + "/" + terrainProfile.length;
   if (key === terrainShadeKey) return terrainShades;
   terrainShadeKey = key;

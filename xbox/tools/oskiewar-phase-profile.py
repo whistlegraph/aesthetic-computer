@@ -98,8 +98,8 @@ function paint() {
   profPaint += ms; if (ms > profPaintMax) profPaintMax = ms;
   profileFlush();
 }'''
-PAINT_MARKS=[(29,"p:view"),(91,"p:prep"),(110,"p:wipe+sky"),(122,"p:room"),(125,"p:terrain"),(130,"p:skatepark"),(284,"p:mid"),(300,"p:renderables"),(310,"p:debug"),(312,"p:meter+impacts"),(412,"p:title+hud")]
-SIM_MARKS=[(10,"s:view"),(97,"s:door+pads"),(101,"s:shell"),(108,"s:seat+lobby"),(143,"s:players"),(328,"s:physics"),(373,"s:impacts")]
+PAINT_MARKS=[(29,"p:view"),(91,"p:prep"),(110,"p:wipe+sky"),(122,"p:room"),(125,"p:terrain"),(130,"p:skatepark"),(284,"p:mid"),(300,"p:renderables"),(310,"p:debug"),(312,"p:meter+impacts"),(412,"p:title+hud"),(413,"p:debugPerf")]
+SIM_MARKS=[(10,"s:view"),(97,"s:door+pads"),(101,"s:shell"),(108,"s:seat+lobby"),(143,"s:pads"),(149,"s:replay+publish"),(251,"s:result"),(254,"s:select"),(284,"s:intro"),(305,"s:p1"),(306,"s:p2"),(307,"s:ropes"),(308,"s:standing"),(309,"s:pushboxes"),(310,"s:powerups"),(311,"s:trees"),(312,"s:bullets"),(313,"s:grenades"),(314,"s:melee"),(315,"s:pogo"),(318,"s:mortality"),(320,"s:meter"),(321,"s:detached"),(322,"s:camera"),(323,"s:cameraDoll"),(324,"s:frameTelemetry"),(325,"s:roundReplay"),(326,"s:checkpoint"),(328,"s:drift"),(373,"s:impacts")]
 def strip(s):
     s="\n".join(l for l in s.split("\n") if not re.match(r'^\s*profMark\("',l))
     i=s.find(BLOCK_START)
