@@ -80,6 +80,21 @@ node pop/maytrax/bin/render-femrag-plusplus.mjs
 # → out/femrag-plusplus.mp3
 ```
 
+To watch the released track as a scrolling instrument score:
+
+```bash
+# Restore timing receipts if they are missing locally.
+node pop/bin/remote-workspace.mjs fetch maytrax/femrag-plusplus.events.json
+node pop/bin/remote-workspace.mjs fetch maytrax/femrag-plusplus.struct.json
+node pop/maytrax/bin/score-video-femrag-plusplus.mjs --open
+# → out/femrag-plusplus-score.mp4 (1280×720, 24 fps)
+```
+
+Uses `out/femrag-plusplus-release.mp3`; `--audio` selects another matching
+render. `--frame 34` exports a still for inspection. Bell and bass height
+follows MIDI pitch; reverse bells are wedges, and throat bass is violet.
+Percussion widths represent display envelopes where the receipt has no duration.
+
 ## conventions
 
 - bpm: 138–142 (prodigy classic; `firestarter`=140, `breathe`=137)

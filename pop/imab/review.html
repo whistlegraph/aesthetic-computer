@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imab · review</title>
+<style>
+  :root {
+    --bg: #f7f6fb; --panel: #ffffff; --panel2: #f0eef6; --line: #e2deec;
+    --ink: #1b1826; --dim: #6b6580; --mute: #9a94ad;
+    --pink: #d61a94; --cyan: #0b8fa3; --gold: #b07a00; --green: #1f8f3a;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+    --sans: -apple-system, "Helvetica Neue", Inter, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+
+  nav {
+    position: sticky; top: 0; z-index: 10; background: rgba(247,246,251,0.92);
+    backdrop-filter: blur(10px); border-bottom: 1px solid var(--line);
+    display: flex; gap: 2px; padding: 8px 16px; overflow-x: auto; white-space: nowrap;
+  }
+  nav a { color: var(--dim); font-size: 13px; padding: 6px 10px; border-radius: 6px; }
+  nav a:hover { background: var(--panel2); color: var(--ink); text-decoration: none; }
+  nav .brand { color: var(--pink); font-weight: 700; letter-spacing: 0.04em; margin-right: 8px; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 120px; }
+  section { margin: 56px 0; }
+  h1 { font-size: 44px; line-height: 1.05; margin: 0 0 8px; letter-spacing: -0.02em; }
+  h1 small { display: block; font-size: 16px; color: var(--dim); font-weight: 400; letter-spacing: 0; margin-top: 6px; }
+  h2 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 .n { color: var(--pink); font-family: var(--mono); font-size: 14px; margin-right: 10px; vertical-align: middle; }
+  .lede { color: var(--dim); margin: 0 0 20px; max-width: 760px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  .hero { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+  @media (min-width: 820px) { .hero { grid-template-columns: 220px 1fr; } }
+  .glyph { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+  .headers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .headers img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
+  video { width: 100%; border-radius: 10px; background: #000; display: block; }
+  .hero video { width: auto; max-width: 100%; max-height: 420px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px 12px; margin: 12px 0;
+  }
+  .card.lead { border-color: var(--pink); box-shadow: 0 0 0 1px rgba(214,26,148,0.2) inset; }
+  .card.pick { border-color: var(--gold); }
+  .row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .row h3 { margin: 0; font-size: 16px; font-weight: 600; }
+  .row .file { color: var(--mute); font-family: var(--mono); font-size: 12px; }
+  .row .dur { color: var(--dim); font-family: var(--mono); font-size: 12px; margin-left: auto; }
+  .tag { font-size: 11px; font-family: var(--mono); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+  .tag.pink { color: var(--pink); border-color: rgba(214,26,148,0.35); }
+  .tag.gold { color: var(--gold); border-color: rgba(176,122,0,0.35); }
+  .tag.cyan { color: var(--cyan); border-color: rgba(11,143,163,0.35); }
+  .tag.green { color: var(--green); border-color: rgba(31,143,58,0.35); }
+  .note { color: var(--dim); font-size: 14px; margin: 6px 0 8px; }
+  .note b { color: var(--ink); font-weight: 600; }
+
+  .wave { position: relative; height: 64px; margin: 8px 0 6px; border-radius: 6px; overflow: hidden;
+          background: var(--panel2); cursor: pointer; }
+  .wave img { width: 100%; height: 100%; object-fit: fill; display: block; opacity: 0.85; }
+  .wave .head { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--gold); pointer-events: none; }
+  .wave .played { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: rgba(176,122,0,0.10); pointer-events: none; }
+  audio { width: 100%; height: 32px; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 820px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  .grid3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 820px) { .grid3 { grid-template-columns: 1fr 1fr 1fr; } }
+
+  .spec { display: block; width: 100%; height: 72px; object-fit: fill; border-radius: 6px; background: #000; border: 1px solid var(--line); }
+
+  pre.score {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+    overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; color: var(--ink); margin: 12px 0;
+  }
+  pre.score .c { color: var(--mute); }
+  pre.score .hi { color: var(--pink); }
+  pre.score .k { color: var(--cyan); }
+  .lyric { font-size: 22px; line-height: 1.35; margin: 6px 0 14px; letter-spacing: -0.01em; }
+  .lyric em { color: var(--pink); font-style: normal; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  td.mono { color: var(--dim); white-space: nowrap; }
+  tr.door td { color: var(--gold); }
+
+  .kit { display: flex; flex-wrap: wrap; gap: 6px; }
+  .kit button {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px; font: 12px var(--mono); cursor: pointer;
+  }
+  .kit button:hover { border-color: var(--cyan); color: var(--cyan); }
+  .kit button.on { border-color: var(--pink); color: var(--pink); }
+
+  ol.q { padding-left: 22px; }
+  ol.q li { margin: 10px 0; }
+  ol.q b { color: var(--gold); }
+  .timeline { border-left: 2px solid var(--line); margin-left: 6px; padding-left: 18px; }
+  .timeline .day { position: relative; margin: 18px 0; }
+  .timeline .day::before { content: ""; position: absolute; left: -24px; top: 7px; width: 10px; height: 10px; border-radius: 50%; background: var(--pink); }
+  .timeline .date { font-family: var(--mono); color: var(--pink); font-size: 13px; }
+  .timeline ul { margin: 4px 0 0; padding-left: 18px; color: var(--dim); }
+  .timeline li { margin: 2px 0; }
+  .timeline li b { color: var(--ink); font-weight: 600; }
+
+  .status { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 820px) { .status { grid-template-columns: 1fr 1fr; } }
+  .status .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .ok { color: var(--green); } .warn { color: var(--gold); } .bad { color: var(--pink); }
+  footer { color: var(--mute); font-size: 12px; margin-top: 60px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">imab</span>
+  <a href="#source">source</a>
+  <a href="#hook">the hook</a>
+  <a href="#takes">takes</a>
+  <a href="#vocals">vocal chain</a>
+  <a href="#practice">click · guide</a>
+  <a href="#spines">the three spines</a>
+  <a href="#floor">floor map</a>
+  <a href="#samples">samples</a>
+  <a href="#log">what we did</a>
+  <a href="#open">what's open</a>
+</nav>
+
+<main>
+
+<!-- ───────────────────────── SOURCE ───────────────────────── -->
+<section id="source">
+  <div class="hero">
+    <div>
+      <img class="glyph" src="../../system/public/whistlegraph.org/glyphs/imab.jpg" alt="imab glyph">
+    </div>
+    <div>
+      <h1>i'm a butterfly
+        <small>imab · Whistlegraph Dot Org · the dance track · 124 BPM · four on the floor</small>
+      </h1>
+      <p class="lede">
+        The club cousin of flutterbap. Built bottom-up from AC instruments and sung around one
+        hook. The source is <b>Butterfly Cosplayer (2019)</b>, whistlegraph code <code>imab</code>,
+        138M views at mint. The minted code promises its holder the <b>first edition and a royalty
+        split</b> when this record ships. So this is the first release that has to honor that.
+      </p>
+      <video controls preload="metadata" src="../../system/public/whistlegraph.org/canonical/imab.mp4"></video>
+      <p class="note">canonical whistlegraph · 0:19 · <a href="https://whistlegraph.org/imab">whistlegraph.org/imab</a> · <a href="https://assets.aesthetic.computer/whistlegraph/butterfly-cosplayer/butterfly-cosplayer-score.png">the graphic score</a></p>
+    </div>
+  </div>
+  <div class="headers">
+    <img src="../artist/whistlegraph-dot-org/wgdo-header-imab-crystal-night-2660.jpg" alt="WDO header · crystal night">
+    <img src="../artist/whistlegraph-dot-org/wgdo-header-imab-neon-wall-2660.jpg" alt="WDO header · neon wall">
+  </div>
+  <p class="note">Whistlegraph Dot Org artist headers cut from imab · <code>pop/artist/whistlegraph-dot-org/</code></p>
+</section>
+
+<!-- ───────────────────────── HOOK ───────────────────────── -->
+<section id="hook">
+  <h2><span class="n">01</span>the hook</h2>
+  <p class="lede">The melody is <b>measured, not composed</b>. Thirty-five performances of the song from
+    @whistlegraph (2020–2026) were statistically skeletonised, then @jeffrey punched the definitive line
+    into notepat on Aug 31. Where the stats and the singer disagree, the singer wins.</p>
+
+  <p class="lyric">I'm a butterfly, <em>flapping</em> for you guys, just a costume, I put on, in my room.</p>
+
+<pre class="score"><span class="c"># ground truth · notepat form · 2026-08-31 · h = the high C</span>
+<span class="hi">c g c c c   ·   c h c c c   ·   g f e d e e d c c c</span>
+
+i'm(<span class="k">C4</span>) a(<span class="k">G4</span>) but-ter-fly(<span class="k">C4 C4 C4</span>)
+flap(<span class="k">C4</span>)-PING(<span class="k">C5</span>) for you guys(<span class="k">C4 C4 C4</span>)      <span class="c">← the one octave flare</span>
+just(<span class="k">G4</span>) a(<span class="k">F4</span>) cos(<span class="k">E4</span>)-tume(<span class="k">D4</span>)                 <span class="c">← the walk down, major third = MAJOR</span>
+i(<span class="k">E4</span>) put(<span class="k">E4</span>) on(<span class="k">D4</span>) · in my room(<span class="k">C4 C4 C4</span>)      <span class="c">← home; "room" held longest</span>
+
+<span class="c"># shape: a TONIC CHANT with one flare. source tempo ≈ 115 · the dance cut runs 124.
+# harmony implied by the chant: tonic drone · IV under "just a costume" · home.
+# dance-cut bed: Am | Am | G | G | C | C | F | G (8-bar loop), bass roots A2 A2 G2 G2 C3 C3 F2 G2.</span></pre>
+
+  <div class="card pick">
+    <div class="row"><h3>melodyproof · does he sing what we wrote?</h3><span class="tag gold">new · Sep 13</span><span class="file">out/melodyproof.html</span></div>
+    <p class="note">Every syllable's sung pitch in every take, measured against this line. Two stages: the note-locked SET (proves the render) and the RAW stem (the verdict). Click a block to hear that syllable; ▶ melody plays the written notes on the take's timing. <a href="out/melodyproof.html">open the proof</a> · one take: <a href="out/melodyproof.html?only=070175">lead</a> · <a href="out/melodyproof.html?only=986079">7427</a> · <a href="out/melodyproof.html?only=263646">7656</a></p>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>notepat melody proof</h3><span class="file">out/imab-melody-check.mp3</span><span class="dur">0:24</span></div>
+    <p class="note">The corrected line rendered as notes (holyvox notecheck, all targets hit). Listen to this before anything else.</p>
+    <div class="wave" data-for="a-melody"><img src="out/waves/imab-melody-check.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="a-melody" controls preload="none" src="out/imab-melody-check.mp3"></audio>
+  </div>
+</section>
+
+<!-- ───────────────────────── TAKES ───────────────────────── -->
+<section id="takes">
+  <h2><span class="n">02</span>the six takes</h2>
+  <p class="lede">Six TikTok performances pulled into the lane (17.4 s each, spectrogram strips from the
+    syllawizard). <b>7311…070175 is the lead</b>: its syllable boundaries were drawn by hand on Sep 9 and
+    committed Sep 10 as the ground truth the aesthetivox chain reads. Two others have grid addresses in
+    the vocal-set registry; all five non-leads stack as the <b>choir at Y1</b>. Each syllawizard link opens the
+    interactive rectangle-drawing instrument for that take.</p>
+
+  <div class="card lead">
+    <div class="row"><h3>7311159624588070175</h3><span class="tag pink">LEAD</span><span class="tag">boundaries drawn</span><span class="file">~/.cache/ac/imab/takes/</span><span class="dur">0:17</span></div>
+    <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7311159624588070175/spec.png" alt="">
+    <div class="wave" data-for="t1"><img src="out/waves/take-7311159624588070175.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="t1" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7311159624588070175/audio.mp3"></audio>
+    <p class="note"><a href="out/syllawizard-7311159624588070175.html">syllawizard</a> · <code>processed-boundaries-7311159624588070175.json</code> · <code>set-fixes/7311159624588070175.json</code> · <code>lyric-overrides.json</code> (@jeffrey's dictated retiming, Sep 3)</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="row"><h3>7427025009693986079</h3><span class="tag gold">set @ J1</span><span class="dur">0:17</span></div>
+      <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7427025009693986079/spec.png" alt="">
+      <div class="wave" data-for="t2"><img src="out/waves/take-7427025009693986079.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="t2" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7427025009693986079/audio.mp3"></audio>
+      <p class="note"><a href="out/syllawizard-7427025009693986079.html">syllawizard</a> · has a set-fixes overlay</p>
+    </div>
+    <div class="card">
+      <div class="row"><h3>7656469190517263646</h3><span class="tag gold">set @ Q1</span><span class="dur">0:17</span></div>
+      <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7656469190517263646/spec.png" alt="">
+      <div class="wave" data-for="t3"><img src="out/waves/take-7656469190517263646.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="t3" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7656469190517263646/audio.mp3"></audio>
+      <p class="note"><a href="out/syllawizard-7656469190517263646.html">syllawizard</a></p>
+    </div>
+    <div class="card">
+      <div class="row"><h3>7311185009245818143</h3><span class="tag">choir only</span><span class="dur">0:17</span></div>
+      <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7311185009245818143/spec.png" alt="">
+      <div class="wave" data-for="t4"><img src="out/waves/take-7311185009245818143.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="t4" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7311185009245818143/audio.mp3"></audio>
+      <p class="note"><a href="out/syllawizard-7311185009245818143.html">syllawizard</a></p>
+    </div>
+    <div class="card">
+      <div class="row"><h3>7335667959647456555</h3><span class="tag">choir only</span><span class="dur">0:17</span></div>
+      <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7335667959647456555/spec.png" alt="">
+      <div class="wave" data-for="t5"><img src="out/waves/take-7335667959647456555.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="t5" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7335667959647456555/audio.mp3"></audio>
+      <p class="note"><a href="out/syllawizard-7335667959647456555.html">syllawizard</a></p>
+    </div>
+    <div class="card">
+      <div class="row"><h3>7601670541833014558</h3><span class="tag">choir only</span><span class="dur">0:17</span></div>
+      <img class="spec" src="file:///Users/jas/.cache/ac/imab/takes/7601670541833014558/spec.png" alt="">
+      <div class="wave" data-for="t6"><img src="out/waves/take-7601670541833014558.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="t6" controls preload="none" src="file:///Users/jas/.cache/ac/imab/takes/7601670541833014558/audio.mp3"></audio>
+      <p class="note"><a href="out/syllawizard-7601670541833014558.html">syllawizard</a></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>takes review · the scrolling set video</h3><span class="tag cyan">Sep 9</span><span class="file">out/imab-takes-review.mp4</span><span class="dur">1:47</span></div>
+    <p class="note">Every placed vocal set in succession over the real floor mix, the lead's lyric ribbon underneath (setscroll / lyricscroll). Same audio as <em>sets-successive</em> below.</p>
+    <video controls preload="metadata" src="out/imab-takes-review.mp4"></video>
+  </div>
+</section>
+
+<!-- ───────────────────────── VOCAL CHAIN ───────────────────────── -->
+<section id="vocals">
+  <h2><span class="n">03</span>the vocal chain, generation by generation</h2>
+  <p class="lede">Every route we tried to get the hook sung, in order. Same 63 s accompaniment bed under most of
+    them so they compare fairly. Raw takes never ship: everything here is aesthetivoxed. The
+    arc goes <b>TTS → WORLD resynthesis → chopped real words → one continuous real phrase → half-time sacred</b>.</p>
+
+  <div class="card">
+    <div class="row"><h3>0 · the spoken source</h3><span class="tag">Aug 31 08:30</span><span class="file">out/imab-hook-vocal.mp3</span><span class="dur">0:11</span></div>
+    <p class="note">The full lyric spoken by jeffrey's ElevenLabs voice via spinging <code>say</code>. Cached at hash <code>c181725e2034d814</code>; never re-spend the call. Whisper word sidecar alongside.</p>
+    <div class="wave" data-for="v0"><img src="out/waves/imab-hook-vocal.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="v0" controls preload="none" src="out/imab-hook-vocal.mp3"></audio>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="row"><h3>1 · hookvox</h3><span class="tag">sing-hook.mjs</span><span class="dur">0:16</span></div>
+      <p class="note">Sung derivative of the TTS: sliced, WORLD-snapped to the composed hook, transposed −12.</p>
+      <div class="wave" data-for="v1"><img src="out/waves/imab-hookvox.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v1" controls preload="none" src="out/imab-hookvox.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>demo 1 · hookvox over the bed</h3><span class="tag">sing-hook.mjs</span><span class="dur">1:03</span></div>
+      <div class="wave" data-for="v1b"><img src="out/waves/imab-vox-demo.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v1b" controls preload="none" src="out/imab-vox-demo.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>demo 2 · resing</h3><span class="tag">resing.mjs</span><span class="dur">1:03</span></div>
+      <p class="note">One continuous WORLD line through the full spinging engine on the <b>measured</b> melody: guided phoneme alignment, legato bridging, self-choir on vowels, reverb halo. Replaced the sliced route. The bare line is <code>imab-line-vocal.mp3</code> (0:05).</p>
+      <div class="wave" data-for="v2"><img src="out/waves/imab-vox-demo2.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v2" controls preload="none" src="out/imab-vox-demo2.mp3"></audio>
+      <audio id="v2l" controls preload="none" src="out/imab-line-vocal.mp3" style="margin-top:6px"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>demo 3 · voxcut</h3><span class="tag">voxcut.mjs</span><span class="dur">1:03</span></div>
+      <p class="note">First use of the <b>real recordings</b>: jeffrey's sung words sliced from a take by whisper timing, quantized to the 124 grid, then WORLD f0-replaced onto his own notes.</p>
+      <div class="wave" data-for="v3"><img src="out/waves/imab-vox-demo3.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v3" controls preload="none" src="out/imab-vox-demo3.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>demo 5 · modelvox</h3><span class="tag">modelvox.py</span><span class="dur">1:03</span></div>
+      <p class="note">The averaged-Hz vocal model: the band tunes to jeffrey's measured pitch centres rather than the reverse.</p>
+      <div class="wave" data-for="v5"><img src="out/waves/imab-vox-demo5.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v5" controls preload="none" src="out/imab-vox-demo5.mp3"></audio>
+    </div>
+    <div class="card pick">
+      <div class="row"><h3>demo 6 · sacredvox</h3><span class="tag gold">the law</span><span class="tag">sacredvox.mjs</span><span class="dur">1:03</span></div>
+      <p class="note"><b>The vocal IS the original recording.</b> Demucs-separated, kept as one continuous phrase, no WORLD, no slicing, one formant-preserving tempo-fit to 124, bed transposed to his key. Its ×6.00 gain law became the floor's cap. This is the posture the floor and hitbaker inherited.</p>
+      <div class="wave" data-for="v6"><img src="out/waves/imab-vox-demo6.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v6" controls preload="none" src="out/imab-vox-demo6.mp3"></audio>
+    </div>
+  </div>
+
+  <h3 style="margin:22px 0 6px">demo 7 · coolvox, three takes</h3>
+  <p class="note">sacredvox plus the aesthetivox sheen: loner's autotune in NOTE mode, C major, strength 0.92 with scoop. One render per candidate take so the take itself could be chosen by ear.</p>
+  <div class="grid3">
+    <div class="card lead">
+      <div class="row"><h3>…070175</h3><span class="tag pink">lead</span><span class="dur">1:03</span></div>
+      <div class="wave" data-for="v7a"><img src="out/waves/imab-vox-demo7-7311159624588070175.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v7a" controls preload="none" src="out/imab-vox-demo7-7311159624588070175.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>…986079</h3><span class="dur">1:03</span></div>
+      <div class="wave" data-for="v7b"><img src="out/waves/imab-vox-demo7-7427025009693986079.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v7b" controls preload="none" src="out/imab-vox-demo7-7427025009693986079.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>…263646</h3><span class="dur">1:03</span></div>
+      <div class="wave" data-for="v7c"><img src="out/waves/imab-vox-demo7-7656469190517263646.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="v7c" controls preload="none" src="out/imab-vox-demo7-7656469190517263646.mp3"></audio>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>demo 8 · holyvox</h3><span class="tag cyan">newest · Sep 11</span><span class="tag">holyvox.mjs</span><span class="file">out/imab-vox-demo8.mp3</span><span class="dur">2:07</span></div>
+    <p class="note">The <b>half-time sacred vocal</b>: note-locked to the notepat truth and verified by notecheck, haloed on the vocal bus. This is the last thing rendered in the lane. It leads imabclub draft 1 and enters the floor at bar 30 as the tissue under the kickless break.</p>
+    <div class="wave" data-for="v8"><img src="out/waves/imab-vox-demo8.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="v8" controls preload="none" src="out/imab-vox-demo8.mp3"></audio>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>sets, successive</h3><span class="tag">vocalset.mjs</span><span class="tag">Sep 8</span><span class="file">out/imab-sets-successive.mp3</span><span class="dur">1:47</span></div>
+    <p class="note">Every regulated vocal set from <code>vocal-sets.json</code> placed in a row on the floor: the lead on the pass doors, 7427… at J1, 7656… at Q1, the five-take choir at Y1 at half gain. Each sample tunes from its own measured base frequency.</p>
+    <div class="wave" data-for="vs"><img src="out/waves/imab-sets-successive.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="vs" controls preload="none" src="out/imab-sets-successive.mp3"></audio>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>the syllawizard spectrum</h3><span class="file">~/.cache/ac/imab/wizard-spec.png</span></div>
+    <p class="note">The 4529 × 520 spectrogram the wizard draws rectangles on, one band per syllable. Scroll it sideways.</p>
+    <div style="overflow-x:auto; border-radius:8px; border:1px solid var(--line)"><img src="file:///Users/jas/.cache/ac/imab/wizard-spec.png" style="height:260px; display:block; max-width:none" alt=""></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── PRACTICE ───────────────────────── -->
+<section id="practice">
+  <h2><span class="n">04</span>click · guide · accompaniment</h2>
+  <p class="lede">For cutting real takes against. Record at 48 kHz with one ear in, drop files in
+    <code>performances/</code>, log every take in the manifest immediately. <b>No human take has been
+    recorded yet</b>: the manifest holds only the TTS source.</p>
+  <div class="grid3">
+    <div class="card">
+      <div class="row"><h3>click 124</h3><span class="dur">2:09</span></div>
+      <p class="note">2-bar count-in then 64 bars. Beat 1 accented, brighter door tick at every 8-bar phrase start.</p>
+      <div class="wave" data-for="p1"><img src="out/waves/imab-click-124.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="p1" controls preload="none" src="out/imab-click-124.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>guide 124</h3><span class="dur">2:09</span></div>
+      <p class="note">Same click with the hook melody on xylophone and the bass roots looping.</p>
+      <div class="wave" data-for="p2"><img src="out/waves/imab-guide-124.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="p2" controls preload="none" src="out/imab-guide-124.mp3"></audio>
+    </div>
+    <div class="card">
+      <div class="row"><h3>accompaniment</h3><span class="dur">1:03</span></div>
+      <p class="note">The demo bed under every vox demo (gen-accomp.mjs). A ×3 variant sits beside it.</p>
+      <div class="wave" data-for="p3"><img src="out/waves/imab-accomp-124.png" alt=""><div class="played"></div><div class="head"></div></div>
+      <audio id="p3" controls preload="none" src="out/imab-accomp-124.mp3"></audio>
+      <audio id="p3b" controls preload="none" src="out/imab-accomp-124-x3.mp3" style="margin-top:6px"></audio>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── SPINES ───────────────────────── -->
+<section id="spines">
+  <h2><span class="n">05</span>the three spines</h2>
+  <p class="lede">Three full arrangements exist and <b>none has been chosen</b>. Listen to them in the order
+    they were made. The word-level vocal score is written against hitbaker, which makes it the
+    de facto lead, but the decision is still yours.</p>
+
+  <div class="card">
+    <div class="row"><h3>A · imabclub draft 1</h3><span class="tag">Aug 31</span><span class="tag">96 bars · holyvox-led</span><span class="file">out/imabclub-draft1.mp3</span><span class="dur">3:10</span></div>
+    <p class="note">Everything the first day learned in one arrangement: the note-locked half-time vocal, a sine choir assembling act by act, kick five four-on-the-floor with a kickless break, offbeat sub in C, eager hats and shaker, click-rush doors, a reversed-vocal riser into the drop. A click-overlaid print sits beside it for checking the grid. Review video generator: <code>imabreview.mjs</code>.</p>
+    <div class="wave" data-for="s1"><img src="out/waves/imabclub-draft1.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="s1" controls preload="none" src="out/imabclub-draft1.mp3"></audio>
+    <p class="note" style="margin-top:10px">with click:</p>
+    <audio id="s1c" controls preload="none" src="out/imabclub-draft1-click.mp3"></audio>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>B · the floor, demo 1</h3><span class="tag">Sep 5</span><span class="tag">72 bars · sacredvox palindrome</span><span class="file">out/imab-floor-demo1.mp3</span><span class="dur">2:22</span></div>
+    <p class="note">The clubber360 discipline applied: one grid, the floor assembles act by act, reduces to a shaker seed in the kickless break, returns whole at the drop, peels in reverse. Sacredvox placed whole at bars 16 / 40 / 56, holyvox as tissue from 30. Printed at <b>−11.7 LUFS · LRA 13.3 · TP −1.6</b> via the cut-wax law: measure, one static dB, true-peak limit. Full bar map below.</p>
+    <div class="wave" data-for="s2"><img src="out/waves/imab-floor-demo1.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="s2" controls preload="none" src="out/imab-floor-demo1.mp3"></audio>
+  </div>
+
+  <div class="card pick">
+    <div class="row"><h3>C · hitbaker, demo 1</h3><span class="tag gold">de facto lead</span><span class="tag">Sep 5</span><span class="tag">104-bar chart form</span><span class="file">out/imab-hitbaker-demo1.mp3</span><span class="dur">1:32</span></div>
+    <p class="note">The chart-calibrated arrangement, single-study: cold open, verse / pre / chorus form with choruses at bars 24 / 56 / 76, a G-pedal break, terminal-lift finale. Jazz comp keys, bass chords, real CC0 Freesound drum kit, vocal bus with group and a butterfly choir, house master. Drives the <b>word score</b> (<code>vocal-score.json</code>: verse 1 is the Shatner monologue, every word its own event) and the <b>pitch gate</b>, which measures targets and iterates until they hit. Track video: <code>preview-hitbaker.mjs</code>. <b>This render predates the Sep 10 boundaries</b>, so it wants a re-bake.</p>
+    <div class="wave" data-for="s3"><img src="out/waves/imab-hitbaker-demo1.png" alt=""><div class="played"></div><div class="head"></div></div>
+    <audio id="s3" controls preload="none" src="out/imab-hitbaker-demo1.mp3"></audio>
+  </div>
+</section>
+
+<!-- ───────────────────────── FLOOR MAP ───────────────────────── -->
+<section id="floor">
+  <h2><span class="n">06</span>floor map · spine B</h2>
+  <p class="lede">The palindrome from <code>FLOOR-NOTES.md</code>. Doors at 8, 16, 24, 32, 40, 48, 56, 64, 72 get click rushes;
+    breath rests floor the decoratives in the last half-bar before each door. Kick, sub, bass and both voices are never gated.</p>
+  <table>
+    <tr><th>bars</th><th>act</th><th>what plays</th></tr>
+    <tr><td class="mono">0–4</td><td>kick alone</td><td>kit kick four on the floor at 0.9 the whole record; one door tick at 0</td></tr>
+    <tr><td class="mono">4–8</td><td>+ closed hats</td><td>offbeat eighths</td></tr>
+    <tr><td class="mono">8–12</td><td>+ open / shaker / sub</td><td>open-hat exhale every 2 bars, shaker 16ths (the seed that ticks through everything until 66), offbeat C1 tanh sub</td></tr>
+    <tr><td class="mono">12–16</td><td>+ bass / sines</td><td>marimba bass roots soft, sine choir 3 voices</td></tr>
+    <tr class="door"><td class="mono">16–24</td><td>PASS 1</td><td>sacredvox at the door (dry, ×6.00), bass full, vibraphone chords, wub on, reverse-bell into the door</td></tr>
+    <tr><td class="mono">24–32</td><td>lift</td><td>vox out; snare answers on odd bars, sines 4v, shaker gathering into 32</td></tr>
+    <tr><td class="mono">30–40</td><td>holyvox</td><td>half-time tissue enters, 2-bar fade-in, haloed; its tail lands exactly at the drop door</td></tr>
+    <tr class="door"><td class="mono">32–40</td><td>KICKLESS BREAK</td><td>no kick / sub / bass / hats; sines 5v swelling, shaker alone; snare roll 36–40, reverse-kick, biggest click rush</td></tr>
+    <tr class="door"><td class="mono">40–48</td><td>DROP · PASS 2</td><td>everything: sacredvox, sines 6v, vibes, open hats every offbeat, wub 0.17, side-fold inhale into 40</td></tr>
+    <tr><td class="mono">48–56</td><td>peak</td><td>vox out; xylophone chant echo up an octave in C at 48 / 50 / 52 / 54; wub swells free</td></tr>
+    <tr class="door"><td class="mono">56–64</td><td>PASS 3 · farewell</td><td>sacredvox once more over the peel; vibes / xylo / snares gone at 56, sub + open + bass out at 60, sines fade 60–64</td></tr>
+    <tr><td class="mono">64–68</td><td>peel</td><td>closed offbeats thinning, shaker out by 66</td></tr>
+    <tr><td class="mono">68–72</td><td>kick alone</td><td>plus one last hit at 72, ringing into the fade</td></tr>
+  </table>
+  <p class="note">Act RMS arc: −19.7 → −11.4 → −8.7…−9.2 → break −13.0 → PASS 3 −10.6 → peel −19.8. The palindrome holds.</p>
+</section>
+
+<!-- ───────────────────────── SAMPLES ───────────────────────── -->
+<section id="samples">
+  <h2><span class="n">07</span>samples</h2>
+  <p class="lede">Tap to audition. <b>kit/</b> is sample-free, rendered from the AC engines (perc kit, bass-perc, xylophone hook notes, click ticks).
+    <b>real/</b> is the CC0 Freesound drum kit hitbaker prefers, provenance in <code>kit-real.json</code>.</p>
+  <h3 style="margin:14px 0 6px; font-size:14px; color:var(--dim)">samples/real · CC0 Freesound</h3>
+  <div class="kit" data-dir="samples/real">
+    <button>kick</button><button>snare</button><button>clap</button><button>hat-closed</button><button>hat-open</button><button>shaker</button><button>material</button><button>fan</button><button>spokes</button><button>cards</button>
+  </div>
+  <h3 style="margin:18px 0 6px; font-size:14px; color:var(--dim)">samples/kit · AC engines</h3>
+  <div class="kit" data-dir="samples/kit">
+    <button>kick-deep</button><button>shaker</button><button>click-lo</button><button>click-door</button><button>reverse-bell</button>
+    <button>bass-A2</button><button>bass-G2</button><button>bass-F2</button><button>bassperc-A1</button><button>bassperc-A2</button>
+    <button>xylo-C5</button><button>xylo-D5</button><button>xylo-E5</button><button>xylo-B5</button><button>xylo-D6</button><button>xylo-E6</button>
+  </div>
+</section>
+
+<!-- ───────────────────────── LOG ───────────────────────── -->
+<section id="log">
+  <h2><span class="n">08</span>what we did</h2>
+  <p class="lede">Twenty-eight commits, all on <code>origin/main</code>. blueberry is clean and level with the knot.</p>
+  <div class="timeline">
+    <div class="day"><span class="date">Aug 31 · bootstrap</span>
+      <ul>
+        <li><b>Lane bootstrap</b> plus the whistlegraph song-corpus statistical melody tools.</li>
+        <li><b>The measured melody</b>: a 35-take skeleton replaces the composed hook; then <b>corrected to the notepat truth</b> (cgccc · chccc · gfedeedccc).</li>
+        <li><b>Averaged-Hz vocal model</b>: the band tunes to jeffrey, not the reverse.</li>
+        <li><b>holyvox</b>: half-time sacred vocal, note-locked and verified. <b>boundfix</b> and timemap.</li>
+        <li><b>imabclub draft 1</b>, the lyricline proof video, grand piano accompaniment, cult-style score video with an events receipt.</li>
+        <li><b>aesthetivox-alignment-video</b>, the named scrutiny feature; SYNC_MS 50 measured on synccal.</li>
+        <li>Hand boundary overrides (ping no longer swallows "for you"); <b>syllabound</b>, <b>shapebound</b>, <b>syllawizard</b> boundary instruments.</li>
+      </ul>
+    </div>
+    <div class="day"><span class="date">Sep 5 · hitbaker + floor</span>
+      <ul>
+        <li><b>hitbaker</b>: the chart-calibrated arrangement bed; real CC0 drum kit; octaves down, bass chords, aesthetivox by default; cold open, jazz comp, vocal bus + group + butterfly choir, house master; no intro, playful keys, angels, textures.</li>
+        <li><b>The word score</b>: playable lyric placement, duration, harmony. Stretched butter / fly, other-take words, bassy kick thump.</li>
+        <li><b>The pitch gate</b>: measured targets, iterate until hit.</li>
+        <li><b>preview-hitbaker</b> track video on the shared preview primitives, synced to the cold-open form.</li>
+        <li><b>Vocal sets</b>: every sample tunes from its own base frequency, and the ribbon stops lying.</li>
+        <li><b>floor.mjs</b>: the 72-bar sacredvox palindrome, printed and measured (FLOOR-NOTES.md).</li>
+      </ul>
+    </div>
+    <div class="day"><span class="date">Sep 7 · pop sweep</span>
+      <ul><li>The imab <b>choir stacks at one address</b> (Y1); lyricscroll draws choir blocks without ribbon.</li></ul>
+    </div>
+    <div class="day"><span class="date">Sep 9–10 · boundaries</span>
+      <ul>
+        <li>syllawizard run on all six takes (the six HTML instruments above), takes-review mp4.</li>
+        <li><b>Boundaries drawn</b> for the lead take and committed as ground truth, with the set-fixes overlay.</li>
+      </ul>
+    </div>
+    <div class="day"><span class="date">Sep 11 · last render</span>
+      <ul><li>holyvox pass → <b>vox-demo8</b>. Nothing since.</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── OPEN ───────────────────────── -->
+<section id="open">
+  <h2><span class="n">09</span>what's open</h2>
+  <div class="status">
+    <div class="card">
+      <h3>machines</h3>
+      <p class="note"><span class="ok">●</span> <b>blueberry</b>: clean, level with origin/main. All demos here are on its disk.</p>
+      <p class="note"><span class="bad">●</span> <b>neo</b>: unreachable Sep 13. Tailscale says offline since ~12:00 UTC; LAN pings answer slowly, SSH times out on both routes. Matches the pingable-but-unsshable memory-exhaustion state. Any uncommitted imab work there is unverified.</p>
+    </div>
+    <div class="card">
+      <h3>not started</h3>
+      <p class="note"><span class="warn">●</span> no human performance recorded (manifest holds only the TTS source)</p>
+      <p class="note"><span class="warn">●</span> no cover, no canvas, no release bundle</p>
+      <p class="note"><span class="warn">●</span> hitbaker not re-baked against the Sep 10 boundaries</p>
+    </div>
+  </div>
+
+  <h3 style="margin:24px 0 4px">the six questions from FLOOR-NOTES</h3>
+  <ol class="q">
+    <li><b>Three passes or two?</b> PASS 3 at bar 56 sings the hook over the peel as a farewell. Drop it and the record empties out wordless from 56.</li>
+    <li><b>The bar-12 step.</b> The marimba bass arrives +8 dB even at 0.35. Stretch the assembly (bass at 12, chords at 14) or keep the two-stage door (harmony at 12, voice at 16)?</li>
+    <li><b>Snare answers</b> at 24–32 and 48–56 are the closest thing to a backbeat. clubber360 used rims. Keep, thin, or cut?</li>
+    <li><b>Wub audibility</b> at 0.17 under the drop with the follower pulling it under the voice. Worth a solo listen; may want +2 dB or a second harmonic.</li>
+    <li><b>LRA 13.3</b> is wide for a juke print. Kick-alone acts could come up ~3 dB at the cost of the palindrome's hush.</li>
+    <li><b>Which spine gets draft 2?</b> imabclub (A, 96 bars, holyvox-led), the floor (B, 72 bars, sacredvox), or hitbaker (C, 104-bar chart, word score).</li>
+  </ol>
+
+  <div class="card pick">
+    <h3 style="margin:0 0 6px">suggested next move</h3>
+    <p class="note" style="margin:0">Pick <b>C · hitbaker</b> as the spine, answer the six questions, re-bake one fresh demo with the Sep 10 boundaries and the vox-demo8 holyvox tissue, and retire the two older spines to the archive. Then record a real take against the guide.</p>
+  </div>
+</section>
+
+<footer>pop/imab/review.html · rendered 2026-09-13 on blueberry · waveforms in out/waves/ · take audio + spectrograms read from ~/.cache/ac/imab · open with <code>open pop/imab/review.html</code></footer>
+
+</main>
+
+<script>
+  // one thing plays at a time
+  const media = [...document.querySelectorAll('audio, video')];
+  media.forEach(m => m.addEventListener('play', () => media.forEach(o => { if (o !== m) o.pause(); })));
+
+  // waveform strips: click to seek, playhead follows
+  document.querySelectorAll('.wave').forEach(w => {
+    const a = document.getElementById(w.dataset.for);
+    if (!a) return;
+    const head = w.querySelector('.head'), played = w.querySelector('.played');
+    w.addEventListener('click', e => {
+      const r = w.getBoundingClientRect();
+      const f = (e.clientX - r.left) / r.width;
+      const go = () => { a.currentTime = f * a.duration; a.play(); };
+      if (isFinite(a.duration) && a.duration > 0) go();
+      else { a.addEventListener('loadedmetadata', go, { once: true }); a.load(); }
+    });
+    a.addEventListener('timeupdate', () => {
+      if (!a.duration) return;
+      const p = (a.currentTime / a.duration) * 100;
+      head.style.left = p + '%'; played.style.width = p + '%';
+    });
+  });
+
+  // sample kit buttons
+  const kitAudio = new Audio();
+  document.querySelectorAll('.kit').forEach(k => {
+    k.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.kit button.on').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      kitAudio.src = `${k.dataset.dir}/${b.textContent}.wav`;
+      kitAudio.play();
+      kitAudio.onended = () => b.classList.remove('on');
+    }));
+  });
+</script>
+</body>
+</html>

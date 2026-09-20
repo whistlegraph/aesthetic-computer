@@ -1,0 +1,167 @@
+{
+ "take": "7656469190517263646",
+ "derived": "2026-09-13T08:39:48",
+ "method": "DTW (MFCC+RMS) of the lead take's processed-boundaries-7311159624588070175.json onto this take",
+ "sylls": [
+  {
+   "label": "i'm",
+   "wi": 0,
+   "fromMs": 0,
+   "toMs": 1289,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "a",
+   "wi": 1,
+   "fromMs": 1290,
+   "toMs": 1841,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "but",
+   "wi": 2,
+   "fromMs": 2178,
+   "toMs": 2670,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "ter",
+   "wi": 2,
+   "fromMs": 2670,
+   "toMs": 2937,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "fly",
+   "wi": 2,
+   "fromMs": 2937,
+   "toMs": 3868,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "flap",
+   "wi": 3,
+   "fromMs": 3877,
+   "toMs": 4801,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "ping",
+   "wi": 3,
+   "fromMs": 4800,
+   "toMs": 5681,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "for",
+   "wi": 4,
+   "fromMs": 5709,
+   "toMs": 5944,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "you",
+   "wi": 5,
+   "fromMs": 5944,
+   "toMs": 6176,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "guys",
+   "wi": 6,
+   "fromMs": 6179,
+   "toMs": 7258,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "just",
+   "wi": 7,
+   "fromMs": 7273,
+   "toMs": 8209,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "a",
+   "wi": 8,
+   "fromMs": 8249,
+   "toMs": 9669,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "cos",
+   "wi": 9,
+   "fromMs": 9719,
+   "toMs": 10808,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "tume",
+   "wi": 9,
+   "fromMs": 10812,
+   "toMs": 11842,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "i",
+   "wi": 10,
+   "fromMs": 11862,
+   "toMs": 12317,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "put",
+   "wi": 11,
+   "fromMs": 12337,
+   "toMs": 12653,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "on",
+   "wi": 12,
+   "fromMs": 12666,
+   "toMs": 13583,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "in",
+   "wi": 13,
+   "fromMs": 13625,
+   "toMs": 14136,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "my",
+   "wi": 14,
+   "fromMs": 14140,
+   "toMs": 14562,
+   "fLo": 0.15,
+   "fHi": 0.9
+  },
+  {
+   "label": "room",
+   "wi": 15,
+   "fromMs": 14567,
+   "toMs": 15827,
+   "fLo": 0.15,
+   "fHi": 0.9
+  }
+ ]
+}

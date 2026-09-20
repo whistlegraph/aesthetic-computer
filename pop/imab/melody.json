@@ -1,0 +1,27 @@
+{
+  "_": "the imab hook, ground truth. @jeffrey's notepat punch-in, 2026-08-31 (see imab.np). tonic C4; h = the high C. one entry per sung syllable, same order and word index (wi) as syllawizard's SYLS. melodyproof.py fits each take's register to this and reports the miss per syllable.",
+  "tonic": "C4",
+  "notepat": "c g c c c · c h c c c · g f e d · e e d c c c",
+  "sylls": [
+    { "label": "i'm",  "wi": 0,  "note": "C4" },
+    { "label": "a",    "wi": 1,  "note": "G4" },
+    { "label": "but",  "wi": 2,  "note": "C4" },
+    { "label": "ter",  "wi": 2,  "note": "C4" },
+    { "label": "fly",  "wi": 2,  "note": "C4" },
+    { "label": "flap", "wi": 3,  "note": "C4" },
+    { "label": "ping", "wi": 3,  "note": "C5" },
+    { "label": "for",  "wi": 4,  "note": "C4" },
+    { "label": "you",  "wi": 5,  "note": "C4" },
+    { "label": "guys", "wi": 6,  "note": "C4" },
+    { "label": "just", "wi": 7,  "note": "G4" },
+    { "label": "a",    "wi": 8,  "note": "F4" },
+    { "label": "cos",  "wi": 9,  "note": "E4" },
+    { "label": "tume", "wi": 9,  "note": "D4" },
+    { "label": "i",    "wi": 10, "note": "E4" },
+    { "label": "put",  "wi": 11, "note": "E4" },
+    { "label": "on",   "wi": 12, "note": "D4" },
+    { "label": "in",   "wi": 13, "note": "C4" },
+    { "label": "my",   "wi": 14, "note": "C4" },
+    { "label": "room", "wi": 15, "note": "C4" }
+  ]
+}
