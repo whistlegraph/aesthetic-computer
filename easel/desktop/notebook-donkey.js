@@ -6,6 +6,7 @@ window.installNotebookDonkey=anchor=>{
  const active=()=>loaded&&!anchor.hidden&&anchor.isConnected&&!document.hidden;
  function paint(){
   clearTimeout(timer);timer=null;if(!active()){canvas.hidden=true;return;}
+  if(document.body.classList.contains('window-resizing')){timer=setTimeout(paint,160);return;}
   const rect=anchor.getBoundingClientRect(),sheet=document.getElementById('conversation').getBoundingClientRect();
   if(rect.bottom<sheet.top||rect.top>sheet.bottom){canvas.hidden=true;return;}
   const size=Math.max(1,rect.height),width=Math.min(rect.width-16,innerWidth-24);
@@ -30,5 +31,5 @@ window.installNotebookDonkey=anchor=>{
  source.src='assets/donkey-pencil-run-v2.png';
  new MutationObserver(paint).observe(anchor,{attributes:true,attributeFilter:['hidden','aria-label']});
  new MutationObserver(paint).observe(document.getElementById('notebook-page'),{childList:true,subtree:true});
- document.addEventListener('scroll',paint,true);document.addEventListener('visibilitychange',paint);window.addEventListener('resize',paint);reduced.addEventListener('change',paint);
+ document.addEventListener('scroll',paint,true);document.addEventListener('visibilitychange',paint);window.addEventListener('aesel-resize-settled',paint);reduced.addEventListener('change',paint);
 };

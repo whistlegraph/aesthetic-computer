@@ -236,8 +236,10 @@ body::before{left:10px}
 @media(prefers-reduced-motion:reduce){#version[data-unstable="true"]{animation:none}}
 
 #artifact-shell[data-resizing]{transition:none}
+.window-resizing #artifact-shell,.window-resizing #artifact{box-shadow:none!important}
 
 .provider-mark{background:#fff;border-radius:5px;padding:2px;box-sizing:border-box}
+.provider-mark.pal{background:none;padding:0;object-fit:cover}
 
 .version-departing .qr-letter-ink{position:absolute;inset:0}.version-departing img{position:absolute;left:-9px;top:-9px;max-width:none}
 #provider-menu .settings-versions li{display:grid;grid-template-columns:auto 1fr;gap:3px 12px}
@@ -340,7 +342,12 @@ body.preview-fullscreen #preview-waveform{display:none}
 #provider-menu .provider-model-row{display:flex;gap:10px;align-items:start}
 #provider-menu .provider-model-row>.settings-field{flex:1;min-width:0}
 #provider-menu .provider-picker{position:relative}
-#provider-menu .provider-toggle{display:flex;align-items:center;gap:6px;margin-top:5px;padding:8px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:6px;font:15px Helvetica,sans-serif;min-height:36px}
+#provider-menu .provider-toggle{display:flex;align-items:center;gap:6px;margin-top:5px;padding:8px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:6px;font:15px Helvetica,sans-serif;min-height:43px;box-sizing:border-box;width:100%;text-align:left}
+#provider-menu .provider-toggle:disabled{opacity:.55}
+#provider-menu .choice-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#provider-menu .choice-detail{font-size:11px;opacity:.6;white-space:nowrap}
+#provider-menu .provider-options button{min-height:43px;box-sizing:border-box;width:100%;text-align:left}
+#provider-menu .provider-options .choice-detail{margin-left:auto}
 #provider-menu .provider-arrow{margin-left:auto}
 #provider-menu .provider-options{position:absolute;top:100%;left:0;min-width:100%;z-index:10;padding:4px;box-sizing:border-box;border:1px solid color-mix(in srgb,currentColor 30%,transparent);border-radius:6px;background:var(--aesel-background,#24152a);box-shadow:0 4px 14px #0006}
 #provider-menu .provider-options[hidden]{display:none}

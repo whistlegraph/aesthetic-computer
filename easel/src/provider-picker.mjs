@@ -23,9 +23,10 @@ export function pickerModels(p) {
   const backend=BACKENDS[p.backend];
   if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
   const choices=p.backend==='ac'?Object.entries(backend.models).map(([label,id])=>({id,label}))
-    :p.backend==='claude'?['fable','opus','sonnet','haiku'].map(id=>({id,label:id}))
+    // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
+    :p.backend==='claude'?[['fable','Claude Fable 5.1'],['opus','Claude Opus 5'],['sonnet','Claude Sonnet 5'],['haiku','Claude Haiku 4.5']].map(([family,label])=>{const resolved=String(p.model||'').includes(family)?p.model:family;return {id:resolved,label,detail:resolved};})
     :[{id:'',label:'CLI default'},...(p.catalog||[]).filter(x=>!x.hidden).map(x=>({id:x.model,label:x.displayName||x.model}))];
-  if(!choices.some(x=>x.id===p.model))choices.unshift({id:p.model,label:p.model||'CLI default'});
+  if(!choices.some(x=>x.id===p.model))choices.unshift({id:p.model,label:p.model||'CLI default',detail:p.model?'custom':''});
   return choices;
 }
 export function pickerEfforts(p) {

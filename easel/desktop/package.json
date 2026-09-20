@@ -1,7 +1,7 @@
 {
   "name": "aesel-desktop",
   "productName": "aesel",
-  "version": "0.7.15",
+  "version": "0.7.16",
   "private": true,
   "main": "main.cjs",
   "scripts": {
@@ -84,6 +84,10 @@
         "dmg"
       ],
       "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "CFBundleName": "Aesel",
+        "CFBundleDisplayName": "Aesel"
+      },
       "hardenedRuntime": true,
       "icon": "build/icon.icns",
       "notarize": true,
