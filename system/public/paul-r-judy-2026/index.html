@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whistlegraph Chamber · Paul R. Judy Center Grant · 2026 · WIP</title>
+<meta name="description" content="Jeffrey Alan Scudder's draft application to the Paul R. Judy Center for Innovation and Research (Eastman School of Music), October 2026 cycle: Whistlegraph Chamber — a drawing you sing, for four players and a room.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face { font-family: 'YWFT Processing'; src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'); font-weight: normal; font-display: swap; }
+  :root { --bg:#1c1812; --text:#ecdfc1; --dim:#b8a47e; --pink:#d4929d; --cyan:#a8bcc1; --purple:#b3a4ce; --gold:#dab87e; --green:#b8c895; --red:#d6a098; --box-bg:rgba(228,216,188,0.05); --box-border:rgba(228,216,188,0.18); }
+  @media (prefers-color-scheme: light) { :root:not(.dark-mode) { --bg:#f0e6cf; --text:#2d2014; --dim:#5e4a30; --pink:#8e3a5b; --cyan:#2f5566; --purple:#4a3878; --gold:#6e4f10; --green:#3f4f25; --red:#762522; --box-bg:rgba(61,46,31,0.06); --box-border:rgba(61,46,31,0.24); } }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  ::-webkit-scrollbar { display:none; }
+  html, body { background:var(--bg); color:var(--text); }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif; font-size:16.5px; line-height:1.62; -webkit-text-size-adjust:none; padding:1.4em 1.6em 4em; min-height:100vh; }
+  @media (min-width:900px) { body { padding:1.8em 2.2em 5em; } }
+  code { font-family:'Berkeley Mono Variable','Menlo',ui-monospace,monospace; font-size:0.9em; padding:0 0.25em; background:var(--box-bg); border-radius:2px; color:var(--cyan); }
+  a { color:var(--cyan); text-decoration:none; } a:hover { color:var(--pink); }
+  .wrap { max-width:900px; margin:0 auto; }
+  .status-banner { background:var(--gold); color:#2a1f08; padding:0.7em 1em; margin:-1em -1em 1.6em -1em; font-size:0.95em; letter-spacing:0.04em; text-align:center; border-radius:4px; }
+  .status-banner strong { font-size:1.05em; } .status-banner em { font-style:normal; color:#4a380f; }
+  .mast { margin-bottom:2em; }
+  .eyebrow { color:var(--dim); font-size:0.78em; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; }
+  .eyebrow .tag { color:var(--purple); } .eyebrow .wip { color:var(--gold); }
+  h1 { font-family:'YWFT Processing','Inter',sans-serif; font-size:clamp(34px,5.8vw,60px); font-weight:normal; letter-spacing:-0.01em; line-height:1.02; margin:0.2em 0; }
+  h1 .dot { color:var(--pink); } h1 em { font-style:normal; color:var(--cyan); }
+  .sub { color:var(--dim); font-size:0.95em; margin-bottom:1.1em; } .sub strong { color:var(--text); font-weight:normal; }
+  .meta { display:grid; grid-template-columns:max-content 1fr; gap:0.3em 1.4em; padding:1em 1.2em; background:var(--box-bg); border:1px solid var(--box-border); border-radius:4px; font-size:0.94em; }
+  .meta dt { color:var(--dim); font-size:0.92em; padding-top:0.12em; font-weight:500; } .meta dd { margin:0; } .meta .due { color:var(--gold); } .meta .partner { color:var(--purple); }
+  section { margin:2.4em 0; }
+  h2 { font-size:1.35em; font-weight:600; padding-bottom:0.3em; border-bottom:1px solid var(--box-border); margin-bottom:1em; letter-spacing:-0.005em; }
+  h2 .ord { color:var(--pink); margin-right:0.4em; } h2 .count { float:right; color:var(--dim); font-size:0.78em; padding-top:0.7em; font-weight:normal; }
+  .glance { margin:1.4em 0 2.2em; padding:1em 1.2em; background:linear-gradient(180deg,var(--box-bg) 0%,transparent 100%); border:1px solid var(--box-border); border-left:3px solid var(--gold); border-radius:4px; }
+  .glance .hint { color:var(--dim); font-size:0.85em; margin-bottom:1em; font-style:italic; }
+  .glance dl { display:grid; grid-template-columns:170px 1fr; gap:0.8em 1.2em; }
+  .glance dt { color:var(--dim); font-size:0.86em; font-weight:600; padding-top:0.32em; align-self:start; }
+  .glance dt .cap { display:block; color:var(--gold); font-size:0.82em; margin-top:0.2em; font-weight:normal; }
+  .glance dd { margin:0; padding-bottom:1em; border-bottom:1px dotted var(--box-border); line-height:1.6; }
+  .glance dd:last-child { border-bottom:none; padding-bottom:0; } .glance dd strong { color:var(--text); } .glance dd em { color:var(--pink); font-style:normal; }
+  @media (max-width:640px) { .glance dl { grid-template-columns:1fr; gap:0.3em 0; } .glance dt { padding-top:0.8em; } }
+  .pitch p { margin:0 0 1em; font-size:1.02em; line-height:1.65; }
+  .pitch .drop { font-size:1.25em; color:var(--cyan); display:block; margin:1.4em 0 0.6em; }
+  .pitch em { color:var(--pink); font-style:normal; } .pitch strong { color:var(--text); }
+  table { border-collapse:collapse; width:100%; font-size:0.92em; margin:0.6em 0 1em; }
+  th, td { text-align:left; padding:0.4em 0.6em; border-bottom:1px dotted var(--box-border); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; font-size:0.9em; } td.n { text-align:right; font-family:'Berkeley Mono Variable',monospace; white-space:nowrap; }
+  tr.total td { border-top:1px solid var(--box-border); color:var(--gold); font-weight:600; }
+  .tablewrap { overflow-x:auto; }
+  .lineage { display:grid; gap:0.5em; }
+  .lineage .row { display:grid; grid-template-columns:180px 1fr; gap:1em; padding:0.5em 0; border-bottom:1px dotted var(--box-border); font-size:0.92em; }
+  .lineage .row:last-child { border-bottom:none; } .lineage .who { color:var(--cyan); } .lineage .claim em { color:var(--pink); font-style:normal; }
+  .check { list-style:none; font-size:0.96em; line-height:1.6; } .check li { padding:0.35em 0; display:flex; gap:0.6em; }
+  .check li::before { width:1em; text-align:center; } .check .done { color:var(--dim); } .check .done::before { content:"\2713"; color:var(--green); }
+  .check .now::before { content:"\25B8"; color:var(--gold); } .check .now em { color:var(--gold); font-style:normal; }
+  footer { margin-top:4em; padding-top:1em; border-top:1px solid var(--box-border); color:var(--dim); font-size:0.86em; line-height:1.6; } footer a { color:var(--dim); } footer a:hover { color:var(--cyan); }
+  @media (max-width:560px) { body { padding:1.2em 1em 3em; font-size:13px; } .lineage .row { grid-template-columns:1fr; gap:0.1em; } .meta { grid-template-columns:1fr; gap:0.05em; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="status-banner">
+    <strong>&#9656; WIP &middot; NOT YET SUBMITTED</strong> &middot; Paul R. Judy Center Grant, October 2026 cycle &middot; due <strong>2026-10-01, 11:59 pm ET</strong> &middot; <em>this page is the public draft of the proposal</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">Paul R. Judy Center &middot; Eastman School of Music</span> &middot; innovative project grant &middot; <span class="wip">draft</span></div>
+    <h1>Whistlegraph<br><em>Chamber</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-size:1.05em;margin-top:-0.3em;margin-bottom:0.9em">A drawing you sing, for <span style="color:var(--pink)">four players and a room</span> &mdash; the score is drawn in front of the audience, the players read the board, and the last movement is played by everyone present.</p>
+    <p class="sub">Proposal by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) &middot; <a href="https://whistlegraph.org">whistlegraph.org</a> &middot; <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Status</dt><dd class="due">Draft &middot; not yet submitted &middot; due 2026-10-01</dd>
+      <dt>Funder</dt><dd>Paul R. Judy Center for Innovation and Research &middot; Institute for Music Leadership, Eastman School of Music</dd>
+      <dt>Ask</dt><dd>$10,000 &middot; Innovative Project category &middot; decision by Nov 15, 2026</dd>
+      <dt>Ensemble</dt><dd><span class="partner">one drawer, three players</span> &middot; voice, keyboard, a string, and the drawn board</dd>
+      <dt>Deliverables</dt><dd>an eight-movement suite &middot; two performances &middot; a filmed multitrack &middot; an open score-and-workshop edition</dd>
+      <dt>Call</dt><dd><a href="https://iml.esm.rochester.edu/apply-for-funding/grants-and-funding/prjc-grant-program-application/">program page</a> &middot; <a href="https://iml.esm.rochester.edu/forms/paul-r-judy-grant-application/">form</a></dd>
+    </dl>
+  </header>
+
+  <section class="glance" id="glance">
+    <h2><span class="ord">&sect;</span>Application at a Glance<span class="count">the form, answered</span></h2>
+    <p class="hint">The Paul R. Judy Center form fields and the draft answers. Lengths are targets; the form has no hard caps.</p>
+    <dl>
+      <dt>Project title</dt>
+      <dd><strong>Whistlegraph Chamber &mdash; a drawing you sing, for four players and a room</strong></dd>
+
+      <dt>Goal and innovation<span class="cap">~450 words</span></dt>
+      <dd>A twenty-five-minute work for a four-person ensemble in which the score is drawn in front of the audience. One player draws; three play. Every line is a sung or played phrase, the drawing accumulates on a lit board until the picture is the whole piece, and the players read the board rather than stands. A whistlegraph is at once the <em>notation</em>, the <em>conducting gesture</em> (speed and pressure of the hand are the phrasing) and the <em>learning system</em> (memorizable in one viewing), so the ensemble is open at its edges: the audience reads the same page and plays the last movement. The repertoire is a public index of 1,084 coded pieces at whistlegraph.org; the grant funds the first ensemble to prove the book.</dd>
+
+      <dt>Impacted communities</dt>
+      <dd>Los Angeles chamber players who want repertoire without a stand part; general audiences, including children and families, who perform the closing movement themselves; other ensembles and teachers, who receive the open edition. NELA Computer Club is the first place the edition is handed out.</dd>
+
+      <dt>Impact and assessment</dt>
+      <dd>Four counted measures: the share of the house that plays the last movement (target: more than half); rehearsals needed before the players can perform a movement without watching the drawer's hand (target: three or fewer); ensembles and classrooms performing from the edition within six months (target: five); plays of the released recording.</dd>
+
+      <dt>Marketing</dt>
+      <dd>Each movement is published as a short video the day it is finished to the whistlegraph accounts (1.35 billion combined views); whistlegraph.org indexes the suite by code; Aesthetic Computer's network carries the rehearsal diary; NELA Computer Club runs a preview night; the first performance is asked of CultureHub Los Angeles.</dd>
+
+      <dt>Sustainability</dt>
+      <dd>After the second performance the suite is a book &mdash; codes, drawings, recordings, rehearsal guide &mdash; under an open license. Whistlegraph Chamber then runs as a pickup ensemble: I bring the board, local players bring the rest, each city pays its own performance.</dd>
+
+      <dt>Uploads<span class="cap">timeline &middot; budget &middot; CV</span></dt>
+      <dd>Twelve-month timeline, Nov 2026 &ndash; Oct 2027; itemized $10,000 budget below; CV to attach.</dd>
+    </dl>
+  </section>
+
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">&sect;</span>Pitch</h2>
+    <p><strong>A whistlegraph is a short drawing you sing.</strong> Every line you draw is a line of a poem you sing while drawing it, so the finished picture is a score that teaches you how to play it. The form is six years old. It has been performed by a trio in an Oregon cabin, on a twenty-two-minute chalkboard commissioned by Rhizome, and to a combined 1.35 billion views online. It has never been written for an ensemble.</p>
+    <span class="drop">The score is the performance.</span>
+    <p>In Whistlegraph Chamber the drawing happens live. One player draws on a lit board projected for the room; three players read it as it forms. The speed and pressure of the drawing hand are the phrasing, so the drawer conducts by drawing. No stands, no parts, one page that everyone can see.</p>
+    <span class="drop">The audience is in the ensemble.</span>
+    <p>Because a whistlegraph is made to be memorized in one viewing, the audience has been learning the notation for twenty minutes by the time the last movement arrives. <em>The last movement is theirs.</em> That is the innovation claim, in Eastman's own terms: an ensemble whose edges are open because its score is a picture.</p>
+    <span class="drop">A book, not a band.</span>
+    <p>The repertoire is already public: 1,084 whistlegraphs, each addressable by a short code at <code>whistlegraph.org</code>. The grant pays the first cast to prove the book &mdash; compose the suite, rehearse the handoffs between drawing and playing, perform it twice, film it, and publish the edition so the next ensemble does not need me in the room.</p>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>Budget<span class="count">$10,000 &middot; people and performances, not gear</span></h2>
+    <div class="tablewrap">
+    <table>
+      <tr><th>Line</th><th style="text-align:right">Amount</th></tr>
+      <tr><td>Performer fees &mdash; 3 players &times; (6 rehearsals + 2 performances) at $150 per call</td><td class="n">$3,600</td></tr>
+      <tr><td>Composer fee &mdash; eight whistlegraphs and their boards</td><td class="n">$2,000</td></tr>
+      <tr><td>Production &mdash; two rooms, lit drawing board, projection</td><td class="n">$1,200</td></tr>
+      <tr><td>Documentation &mdash; two-camera film and multitrack, both performances</td><td class="n">$1,300</td></tr>
+      <tr><td>Score edition &mdash; printing and video pairs</td><td class="n">$700</td></tr>
+      <tr><td>Travel and lodging &mdash; second performance (no food or beverage)</td><td class="n">$1,200</td></tr>
+      <tr class="total"><td>Total requested</td><td class="n">$10,000</td></tr>
+    </table>
+    </div>
+    <p style="color:var(--dim);font-size:0.9em">In kind from Aesthetic Inc: software, projection laptops, whistlegraph.org. Venue fee for the second performance pending.</p>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>Twelve Months<span class="count">Nov 2026 &ndash; Oct 2027</span></h2>
+    <div class="tablewrap">
+    <table>
+      <tr><th>Month</th><th>Work</th></tr>
+      <tr><td>Nov 2026</td><td>Notification. Confirm the four players and the two rooms.</td></tr>
+      <tr><td>Dec &ndash; Jan</td><td>Compose the eight movements; publish each as a short video as it is finished; draw the boards; build the lit board.</td></tr>
+      <tr><td>Feb &ndash; Apr</td><td>Six rehearsals in Los Angeles; rehearsal logs; audience movement tested at NELA Computer Club; preview night.</td></tr>
+      <tr><td>May 2027</td><td><strong>Performance 1, Los Angeles.</strong> Two-camera film; multitrack.</td></tr>
+      <tr><td>Jun &ndash; Jul</td><td>Edit the recording; assemble and release the edition on whistlegraph.org.</td></tr>
+      <tr><td>Aug &ndash; Sep</td><td>Second city: two rehearsals with the local cast; <strong>Performance 2</strong>, filmed and recorded.</td></tr>
+      <tr><td>Oct 2027</td><td>Count the measures; final report; IML podcast.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>The Lineage<span class="count">established progress</span></h2>
+    <div class="lineage">
+      <div class="row"><div class="who">Whistlegraph trio &middot; 2020</div><div class="claim">Formed in a cabin in Ashland, Oregon with Alex Freundlich and Camille Klein during lockdown. <em>The first ensemble.</em></div></div>
+      <div class="row"><div class="who">Rhizome &middot; 2022</div><div class="claim">"The Longest Whistlegraph Ever (so far)": about twenty-two minutes, chalk on a 4&times;6-foot blackboard with a bell on top. A commissioned long-form proof.</div></div>
+      <div class="row"><div class="who">whistlegraph.org</div><div class="claim">1,084 coded works, each a picture and a recording. <em>The repertoire is already a public book.</em></div></div>
+      <div class="row"><div class="who">CultureHub LA &middot; Sept 24, 2026</div><div class="claim">Two new works premiered in residence; the production team and room the ensemble first rehearses in.</div></div>
+      <div class="row"><div class="who">arXiv</div><div class="claim">A peer-readable description of the notation: <a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a>.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>Status<span class="count">draft</span></h2>
+    <ul class="check">
+      <li class="done">Concept lock &middot; single spine: a participatory whistlegraph chamber work; the drawing is notation, gesture, and lesson</li>
+      <li class="done">Form answered &middot; every Innovative Project field drafted; budget and twelve-month timeline built</li>
+      <li class="now">Before filing &middot; <em>attach CV; confirm three players and two rooms in principle; pick the one video link</em></li>
+      <li class="now">Submit &middot; <em>by Oct 1, 2026, 11:59 pm ET</em></li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/paul-r-judy-2026">aesthetic.computer/paul-r-judy-2026</a> &middot; draft proposal &middot; funder <a href="https://iml.esm.rochester.edu/">Institute for Music Leadership, Eastman</a> &middot; form <a href="https://whistlegraph.org">whistlegraph.org</a> &middot; tracked on the <a href="https://papers.aesthetic.computer/deadlines/">deadlines board</a>
+  </footer>
+
+</main>
+</body>
+</html>

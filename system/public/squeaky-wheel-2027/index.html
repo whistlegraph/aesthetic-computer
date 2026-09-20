@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Note(s)pat(ial) Native — Buffalo · Squeaky Wheel Workspace Residency · 2027 · WIP</title>
+<meta name="description" content="Jeffrey Alan Scudder's draft application to Squeaky Wheel Film & Media Art Center's Workspace Residency, June 11–26, 2027: a spatial piece for surplus laptops booted into AC Native, staged in Buffalo and filmed for the first time.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face { font-family: 'YWFT Processing'; src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2'); font-weight: normal; font-display: swap; }
+  :root { --bg:#1c1812; --text:#ecdfc1; --dim:#b8a47e; --pink:#d4929d; --cyan:#a8bcc1; --purple:#b3a4ce; --gold:#dab87e; --green:#b8c895; --red:#d6a098; --box-bg:rgba(228,216,188,0.05); --box-border:rgba(228,216,188,0.18); }
+  @media (prefers-color-scheme: light) { :root:not(.dark-mode) { --bg:#f0e6cf; --text:#2d2014; --dim:#5e4a30; --pink:#8e3a5b; --cyan:#2f5566; --purple:#4a3878; --gold:#6e4f10; --green:#3f4f25; --red:#762522; --box-bg:rgba(61,46,31,0.06); --box-border:rgba(61,46,31,0.24); } }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  ::-webkit-scrollbar { display:none; }
+  html, body { background:var(--bg); color:var(--text); }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif; font-size:16.5px; line-height:1.62; -webkit-text-size-adjust:none; padding:1.4em 1.6em 4em; min-height:100vh; }
+  @media (min-width:900px) { body { padding:1.8em 2.2em 5em; } }
+  code { font-family:'Berkeley Mono Variable','Menlo',ui-monospace,monospace; font-size:0.9em; padding:0 0.25em; background:var(--box-bg); border-radius:2px; color:var(--cyan); }
+  a { color:var(--cyan); text-decoration:none; } a:hover { color:var(--pink); }
+  .wrap { max-width:900px; margin:0 auto; }
+  .status-banner { background:var(--gold); color:#2a1f08; padding:0.7em 1em; margin:-1em -1em 1.6em -1em; font-size:0.95em; letter-spacing:0.04em; text-align:center; border-radius:4px; }
+  .status-banner strong { font-size:1.05em; } .status-banner em { font-style:normal; color:#4a380f; }
+  .mast { margin-bottom:2em; }
+  .eyebrow { color:var(--dim); font-size:0.78em; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; }
+  .eyebrow .tag { color:var(--purple); } .eyebrow .wip { color:var(--gold); }
+  h1 { font-family:'YWFT Processing','Inter',sans-serif; font-size:clamp(34px,5.8vw,60px); font-weight:normal; letter-spacing:-0.01em; line-height:1.02; margin:0.2em 0; }
+  h1 .dot { color:var(--pink); } h1 em { font-style:normal; color:var(--cyan); }
+  .sub { color:var(--dim); font-size:0.95em; margin-bottom:1.1em; } .sub strong { color:var(--text); font-weight:normal; }
+  .meta { display:grid; grid-template-columns:max-content 1fr; gap:0.3em 1.4em; padding:1em 1.2em; background:var(--box-bg); border:1px solid var(--box-border); border-radius:4px; font-size:0.94em; }
+  .meta dt { color:var(--dim); font-size:0.92em; padding-top:0.12em; font-weight:500; } .meta dd { margin:0; } .meta .due { color:var(--gold); } .meta .partner { color:var(--purple); }
+  section { margin:2.4em 0; }
+  h2 { font-size:1.35em; font-weight:600; padding-bottom:0.3em; border-bottom:1px solid var(--box-border); margin-bottom:1em; letter-spacing:-0.005em; }
+  h2 .ord { color:var(--pink); margin-right:0.4em; } h2 .count { float:right; color:var(--dim); font-size:0.78em; padding-top:0.7em; font-weight:normal; }
+  .glance { margin:1.4em 0 2.2em; padding:1em 1.2em; background:linear-gradient(180deg,var(--box-bg) 0%,transparent 100%); border:1px solid var(--box-border); border-left:3px solid var(--gold); border-radius:4px; }
+  .glance .hint { color:var(--dim); font-size:0.85em; margin-bottom:1em; font-style:italic; }
+  .glance dl { display:grid; grid-template-columns:170px 1fr; gap:0.8em 1.2em; }
+  .glance dt { color:var(--dim); font-size:0.86em; font-weight:600; padding-top:0.32em; align-self:start; }
+  .glance dt .cap { display:block; color:var(--gold); font-size:0.82em; margin-top:0.2em; font-weight:normal; }
+  .glance dd { margin:0; padding-bottom:1em; border-bottom:1px dotted var(--box-border); line-height:1.6; }
+  .glance dd:last-child { border-bottom:none; padding-bottom:0; } .glance dd strong { color:var(--text); } .glance dd em { color:var(--pink); font-style:normal; }
+  @media (max-width:640px) { .glance dl { grid-template-columns:1fr; gap:0.3em 0; } .glance dt { padding-top:0.8em; } }
+  .pitch p { margin:0 0 1em; font-size:1.02em; line-height:1.65; }
+  .pitch .drop { font-size:1.25em; color:var(--cyan); display:block; margin:1.4em 0 0.6em; }
+  .pitch em { color:var(--pink); font-style:normal; } .pitch strong { color:var(--text); }
+  .features { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:0.5em; margin:1em 0; }
+  .feat { padding:0.75em 0.95em; border-left:2px solid var(--purple); background:var(--box-bg); border-radius:0 3px 3px 0; font-size:0.94em; line-height:1.55; }
+  .feat b { color:var(--purple); font-weight:normal; display:block; margin-bottom:0.25em; font-size:1.06em; }
+  .feat.cyan { border-left-color:var(--cyan); } .feat.cyan b { color:var(--cyan); }
+  .feat.gold { border-left-color:var(--gold); } .feat.gold b { color:var(--gold); }
+  .feat.green { border-left-color:var(--green); } .feat.green b { color:var(--green); }
+  .feat.pink { border-left-color:var(--pink); } .feat.pink b { color:var(--pink); }
+  .themes { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0.5em; margin:1em 0; }
+  .theme { padding:0.75em 0.95em; background:var(--box-bg); border:1px solid var(--box-border); border-radius:3px; font-size:0.92em; line-height:1.55; }
+  .theme b { color:var(--gold); font-weight:normal; display:block; margin-bottom:0.2em; }
+  .check { list-style:none; font-size:0.96em; line-height:1.6; } .check li { padding:0.35em 0; display:flex; gap:0.6em; }
+  .check li::before { width:1em; text-align:center; } .check .done { color:var(--dim); } .check .done::before { content:"\2713"; color:var(--green); }
+  .check .now::before { content:"\25B8"; color:var(--gold); } .check .now em { color:var(--gold); font-style:normal; }
+  footer { margin-top:4em; padding-top:1em; border-top:1px solid var(--box-border); color:var(--dim); font-size:0.86em; line-height:1.6; } footer a { color:var(--dim); } footer a:hover { color:var(--cyan); }
+  @media (max-width:560px) { body { padding:1.2em 1em 3em; font-size:13px; } .meta { grid-template-columns:1fr; gap:0.05em; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="status-banner">
+    <strong>&#9656; WIP &middot; NOT YET SUBMITTED</strong> &middot; Squeaky Wheel Workspace Residency 2027 &middot; due <strong>2026-10-02</strong> &middot; <em>this page is the public draft of the proposal</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">Squeaky Wheel Film &amp; Media Art Center &middot; Buffalo</span> &middot; workspace residency &middot; artist track &middot; <span class="wip">draft</span></div>
+    <h1>Note(s)pat(ial) Native<br><em>Buffalo</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-size:1.05em;margin-top:-0.3em;margin-bottom:0.9em">A spatial sound piece whose loudspeakers are <span style="color:var(--pink)">discarded laptops</span>, each booted from a USB stick into AC&nbsp;Native &mdash; staged in Buffalo on machines found in Buffalo, and filmed for the first time.</p>
+    <p class="sub">Proposal by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) &middot; <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Status</dt><dd class="due">Draft &middot; not yet submitted &middot; due 2026-10-02 &middot; decision Dec 18, 2026</dd>
+      <dt>Venue</dt><dd>Squeaky Wheel, Buffalo NY &middot; digital lab, editing suite, cameras &middot; partners: Buffalo Game Space, Silo City, Central Library Launchpad</dd>
+      <dt>Session</dt><dd>June 11&ndash;26, 2027 &middot; two weeks &middot; 25&ndash;30 hours a week</dd>
+      <dt>Support</dt><dd>$1,000 stipend &middot; accommodations &middot; up to $400 travel &middot; up to $300 artist fees &middot; $150 skill-share fee</dd>
+      <dt>System</dt><dd><span class="partner">AC Native</span> &middot; a bootable operating system that turns a laptop into one instrument</dd>
+      <dt>Piece</dt><dd><span class="partner">Note(s)pat(ial) Native</span> &middot; premiered CultureHub Los Angeles, Sept 24, 2026, on six surplus laptops</dd>
+      <dt>Call</dt><dd><a href="https://squeaky.org/workspace-residency/">squeaky.org/workspace-residency</a></dd>
+      <dt>Source</dt><dd><a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">fedac/native/</a></dd>
+    </dl>
+  </header>
+
+  <section class="glance" id="glance">
+    <h2><span class="ord">&sect;</span>Application at a Glance<span class="count">the Google Form, answered</span></h2>
+    <p class="hint">Squeaky Wheel's form fields and the draft answers, at the guide's target lengths.</p>
+    <dl>
+      <dt>Track</dt>
+      <dd><strong>Artist</strong> &mdash; sonic arts, performance, and in its resting state a game.</dd>
+
+      <dt>Project title</dt>
+      <dd><strong>Note(s)pat(ial) Native &mdash; Buffalo: a spatial piece for surplus laptops, and its first film</strong></dd>
+
+      <dt>Project description<span class="cap">~500 words</span></dt>
+      <dd>A fifteen-minute spatial piece in which the loudspeakers are a fleet of discarded laptops, each booted from a USB stick into AC Native and each rendering one voice locally, placed among the audience; a performer turns the field, changes its speed, and hands voices from machine to machine. Premiered at CultureHub LA on Sept 24, 2026. In Buffalo: <em>week one</em>, source six to eight surplus laptops locally and stage the piece for the room; <em>week two</em>, make the first proper film of it with Squeaky Wheel's cameras and editing suite. The fleet stays with a partner as a playable installation; the USB image and score are published open-source.</dd>
+
+      <dt>Time plan<span class="cap">~300 words</span></dt>
+      <dd>Days 1&ndash;2 artist talk and a community call for laptops; 3&ndash;4 boot, assign voices, stage; 5&ndash;6 re-place the composition, rehearse; 7 open rehearsal doubling as camera blocking. Days 8&ndash;9 two-camera shoot plus multitrack; 10 an afternoon in Silo City's Marine A if it can be had; 11&ndash;13 cut and mix in the editing suite; 14 skill-share, hand the fleet to its partner, publish.</dd>
+
+      <dt>Portfolio</dt>
+      <dd><a href="https://aesthetic.computer/culture-hub-2026">culture-hub-2026</a> &middot; <a href="https://aesthetic.computer/notepat">notepat</a> &middot; <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">AC Native source</a> &middot; the CultureHub performance recording (after Sept 24).</dd>
+
+      <dt>Equipment</dt>
+      <dd>Sony FX6 + A7III, tripods, Zoom recorder, Focusrite interface, the editing suite, one projector; a room with power for eight laptops; Buffalo Game Space and the Launchpad as surplus sources and the installation's home.</dd>
+
+      <dt>Skill-share<span class="cap">optional &middot; ~300 words</span></dt>
+      <dd><strong>KidLisp &mdash; a one-line program that draws and sings.</strong> Two hours, 8&ndash;16 people, ages 10 and up, on the Digital Lab's Macs with no install: ten words, three programs each, then sound, then every piece played back on the surplus laptops in sequence.</dd>
+
+      <dt>References</dt>
+      <dd>Casey Reas (UCLA Social Software) and CultureHub Los Angeles, or a CV.</dd>
+    </dl>
+  </section>
+
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">&sect;</span>Pitch</h2>
+    <p><strong>The loudspeakers are old laptops, and the old laptops are the point.</strong></p>
+    <span class="drop">AC Native &mdash; the laptop as one instrument.</span>
+    <p>AC Native is an operating system I build that boots from a USB stick. Put it in almost any laptop from the last fifteen years and the whole machine becomes a single voice: no desktop, no apps, one part of the piece, rendered locally, on time. The machines agree on a downbeat over a network the piece carries with it, so the work needs nothing from a venue but power.</p>
+    <span class="drop">The piece exists.</span>
+    <p>Note(s)pat(ial) Native premiered on September 24, 2026 at CultureHub Los Angeles on six surplus grade-school laptops with the audience seated inside the array. Twelve moving sound bodies orbit, approach and recede; one performer turns the field and hands voices between named, second-hand computers the audience can point at. <em>Squeaky Wheel is the second room, and the first camera.</em></p>
+    <span class="drop">Week one: Buffalo's discard pile.</span>
+    <p>I source six to eight laptops in Buffalo &mdash; school and library surplus, Buffalo Game Space's shelves, whatever the artist talk brings in &mdash; boot each from the same stick, and stage the piece for the room I am given. The method is the claim: an instrument assembled from a city's own e-waste in a week, played, and left behind as a playable installation.</p>
+    <span class="drop">Week two: the film.</span>
+    <p>The piece has only ever been recorded on a phone. With Squeaky Wheel's cameras and editing suite I make its first document: a two-camera performance with the audience inside, close coverage of the handoff gesture, a binaural mix of the multitrack, cut to a short film that can travel to festivals and to ICLC 2027 in Antwerp.</p>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>How It Reads on the Rubric<span class="count">merit &middot; achievability &middot; potential</span></h2>
+    <div class="themes">
+      <div class="theme"><b>Artistic merit</b>A spatial composition where the diffusion bodies are discrete objects among listeners, the handoff between machines is the performable gesture, and the hardware's history names the parts.</div>
+      <div class="theme"><b>Achievability</b>The software ships and the piece premiered in September 2026. Two weeks is exactly one source&ndash;boot&ndash;stage&ndash;film cycle; the only support needed is laptops and a room with power.</div>
+      <div class="theme"><b>Potential</b>The film goes to festivals and ICLC 2027; the fleet stays in Buffalo as an installation; the USB image and score are released so the next city can do the same.</div>
+    </div>
+  </section>
+
+  <section id="calendar">
+    <h2><span class="ord">&sect;</span>Two Weeks<span class="count">June 11&ndash;26, 2027</span></h2>
+    <div class="features">
+      <div class="feat cyan"><b>Source</b>Artist talk and a community call for laptops; Buffalo Game Space and the Library Launchpad for surplus. Days 1&ndash;2.</div>
+      <div class="feat"><b>Boot &amp; stage</b>Each machine booted from the stick, read, named, assigned a voice; the fleet staged in the room; the composition re-placed. Days 3&ndash;6.</div>
+      <div class="feat gold"><b>Open rehearsal</b>An invited audience inside the array, which is also the camera blocking. Day 7.</div>
+      <div class="feat pink"><b>Film</b>Two-camera shoot, multitrack, an afternoon in Silo City's Marine A if it can be had. Days 8&ndash;10.</div>
+      <div class="feat"><b>Cut &amp; mix</b>The short film and the binaural mix in the editing suite. Days 11&ndash;13.</div>
+      <div class="feat green"><b>Hand over</b>KidLisp skill-share; the fleet to its partner; USB image and score published. Day 14.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="ord">&sect;</span>Status<span class="count">draft</span></h2>
+    <ul class="check">
+      <li class="done">Concept lock &middot; single spine: AC Native, a bootable laptop instrument; the Buffalo edition and its first film</li>
+      <li class="done">Form answered &middot; bio, description, time plan, equipment, and skill-share drafted at the guide's lengths</li>
+      <li class="now">Before filing &middot; <em>add the CultureHub performance recording; confirm two references or export a CV</em></li>
+      <li class="now">Submit &middot; <em>Google Form by Oct 2, 2026</em></li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/squeaky-wheel-2027">aesthetic.computer/squeaky-wheel-2027</a> &middot; draft proposal &middot; venue <a href="https://squeaky.org/">Squeaky Wheel</a> &middot; system <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/fedac/native">AC Native</a> &middot; tracked on the <a href="https://papers.aesthetic.computer/deadlines/">deadlines board</a>
+  </footer>
+
+</main>
+</body>
+</html>
