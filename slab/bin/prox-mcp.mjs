@@ -26,6 +26,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { clip, toon } from "../../shared/toon.mjs";
 
 const pexec = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -126,21 +127,6 @@ function age(ms) {
   return `${Math.round(m / 60)}h`;
 }
 
-const STATUS_MARK = {
-  working: "●", awaiting: "◐", complete: "○",
-  rendering: "◍", blank: "·", interrupted: "✕",
-};
-
-function line(r) {
-  const mark = STATUS_MARK[r.status] || "•";
-  const subj = (r.subject || "").replace(/\s+/g, " ").slice(0, 64);
-  // Tag the owning agent when it isn't the default (Claude), so a mixed
-  // fleet reads clearly: "session·codex".
-  const agent = r.agentType && r.agentType !== "claude" ? `·${r.agentType}` : "";
-  const alias = r.proxName ? `  prox:easel:${r.proxName}` : "";
-  return `${mark} ${r.host}:${r.name}${alias}  [${r.status}] ${r.kind}${agent}  ·${age(r.updated)}  ${subj}`;
-}
-
 // ── resolve a `host:name` / bare-name / fuzzy handle to rock rows ────────────
 function resolve(rocks, handle) {
   if (!handle) return rocks;
@@ -225,23 +211,42 @@ end tell`;
 }
 
 // ── tools ─────────────────────────────────────────────────────────────────────
-async function toolList({ host, status, kind, agent } = {}) {
+// Finished rocks that have not moved in a day are ledger residue, not fleet
+// state. The default list hides them and says how many it hid; `all` shows
+// every row and an explicit `status` filter is never second-guessed.
+const STALE_MS = 24 * 3600 * 1000;
+const FINISHED = new Set(["complete", "interrupted", "blank"]);
+const ROCK_FIELDS = ["host", "name", "status", "kind", "age", "subject", "alias"];
+
+async function toolList({ host, status, kind, agent, all } = {}) {
   let rocks = await allRocks();
   if (host) rocks = rocks.filter((r) => r.host.toLowerCase() === host.toLowerCase());
   if (status) rocks = rocks.filter((r) => r.status === status);
   if (kind) rocks = rocks.filter((r) => r.kind === kind);
   if (agent) rocks = rocks.filter((r) => (r.agentType || "claude").toLowerCase() === agent.toLowerCase());
-  if (!rocks.length) return [{ type: "text", text: "(no prompt rocks match — is SlabMenubar running? try again in a few seconds)" }];
-  // group by host, self first
-  rocks.sort((a, b) => (a.self === b.self ? a.host.localeCompare(b.host) : a.self ? -1 : 1) || 0);
-  const byHost = new Map();
-  for (const r of rocks) (byHost.get(r.host) || byHost.set(r.host, []).get(r.host)).push(r);
-  const L = [`${rocks.length} prompt rock(s) across ${byHost.size} machine(s):`];
-  for (const [hst, rs] of byHost) {
-    L.push(`\n${hst} (${rs.length}):`);
-    for (const r of rs.sort((a, b) => (b.updated || 0) - (a.updated || 0))) L.push("  " + line(r));
+  let hidden = 0;
+  if (!all && !status) {
+    const now = Date.now();
+    const live = rocks.filter((r) => !(FINISHED.has(r.status) && now - (r.updated || 0) > STALE_MS));
+    hidden = rocks.length - live.length;
+    rocks = live;
   }
-  return [{ type: "text", text: L.join("\n") }];
+  // self first, then by host, newest first within a host
+  rocks.sort((a, b) => (a.self === b.self ? 0 : a.self ? -1 : 1) || a.host.localeCompare(b.host) || (b.updated || 0) - (a.updated || 0));
+  const rows = rocks.map((r) => ({
+    host: r.host,
+    name: r.name,
+    status: r.status,
+    kind: r.agentType && r.agentType !== "claude" ? `${r.kind}·${r.agentType}` : r.kind,
+    age: age(r.updated),
+    subject: clip(r.subject, 64),
+    alias: r.proxName ? `prox:easel:${r.proxName}` : "",
+  }));
+  const notes = [];
+  if (hidden) notes.push(`${hidden} finished rock(s) idle >24h hidden — all:true to include`);
+  if (!rows.length && !hidden) notes.push("no rocks in the ledger — is SlabMenubar running? try again in a few seconds");
+  notes.push("one rock in full: prox_find <host:name>");
+  return [{ type: "text", text: toon("rocks", rows, ROCK_FIELDS, { note: notes.join(" · ") }) }];
 }
 
 async function toolFind({ handle }) {
@@ -623,14 +628,15 @@ const TOOLS = [
   {
     name: "prox_list",
     description:
-      "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Easel session and headless agent the menubar advertises, as host:name with its status, kind, owning interface, age, and subject. Reads the local fleet ledger cache (no SSH).",
+      "List the prompt rocks across the Slab fleet — every live Claude, Codex, or Easel session and headless agent the menubar advertises — as one compact table: host, name, status, kind, age, subject, alias. Finished rocks idle for more than a day are hidden by default (the footer counts them). Reads the local fleet ledger cache (no SSH).",
     inputSchema: {
       type: "object",
       properties: {
         host: { type: "string", description: "Only rocks on this machine (e.g. neo, blueberry, panda)." },
-        status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted." },
+        status: { type: "string", description: "Filter by status: working | awaiting | complete | rendering | blank | interrupted. Disables the stale-rock hiding." },
         kind: { type: "string", description: "Filter by kind: session | agent." },
         agent: { type: "string", description: "Filter by owning interface: claude | codex | easel." },
+        all: { type: "boolean", description: "Include finished rocks idle for more than 24h (hidden by default)." },
       },
     },
   },

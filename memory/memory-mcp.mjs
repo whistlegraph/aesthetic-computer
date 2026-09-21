@@ -24,6 +24,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { httpPort, serveHttp, serveStdio } from "../toolchain/mcp/http-front.mjs";
+import { shortWhen, toon } from "../shared/toon.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = homedir();
@@ -269,15 +270,18 @@ async function toolSearch(a) {
 
   hits.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
 
-  lines.push(`${hits.length} match${hits.length === 1 ? "" : "es"} for "${a.query}" across ${results.length - failures.length} machine(s)`);
-  if (failures.length) lines.push(`\nunreachable (their history is NOT in these results):\n${failures.join("\n")}`);
-  lines.push("");
-
-  for (const hit of hits) {
-    lines.push(`${hit.when}  [${hit.machine}]  ${hit.role || "?"}  ${hit.session_id}#${hit.seq}`);
-    lines.push(`  ${hit.snippet}`);
-  }
-  if (!hits.length) lines.push("(nothing — try fewer words, or --regex, or widen --since)");
+  // One TOON row per hit; `ref` is session#seq, what memory_search takes back.
+  const rows = hits.map((hit) => ({
+    when: shortWhen(hit.when),
+    machine: hit.machine,
+    role: hit.role || "?",
+    ref: `${hit.session_id}#${hit.seq}`,
+    snippet: hit.snippet,
+  }));
+  const notes = [`query "${a.query}" over ${results.length - failures.length} machine(s)`];
+  if (failures.length) notes.push(`UNREACHABLE (not searched): ${failures.map((f) => f.trim()).join("; ")}`);
+  if (!hits.length) notes.push("nothing — try fewer words, regex:true, or a wider since");
+  lines.push(toon("hits", rows, ["when", "machine", "role", "ref", "snippet"], { note: notes.join(" · ") }));
 
   return [{ type: "text", text: lines.join("\n") }];
 }
@@ -285,19 +289,24 @@ async function toolSearch(a) {
 async function toolSessions(a) {
   const args = ["list", ...flag("limit", a.limit ?? 15), ...flag("project", a.project)];
   const results = await fanOut(a.machine, args);
-  const lines = [];
+  const rows = [];
+  const failures = [];
 
   for (const entry of results) {
     if (entry.error) {
-      lines.push(`[${entry.name}] unreachable: ${entry.error}`);
+      failures.push(`${entry.name}: ${entry.error}`);
       continue;
     }
-    lines.push(`[${entry.name}]`);
+    const machine = entry.name === "local" ? SELF : entry.name;
     for (const s of entry.result || []) {
-      lines.push(`  ${s.updated_at}  ${s.session_id}  seq=${s.last_seq}  project=${s.project}  "${s.title}"`);
+      rows.push({ machine, updated: shortWhen(s.updated_at), sortTime: Date.parse(s.updated_at) || 0, id: s.session_id, seq: s.last_seq, project: s.project, title: s.title });
     }
   }
-  return [{ type: "text", text: lines.join("\n") || "(no sessions)" }];
+  rows.sort((x, y) => y.sortTime - x.sortTime);
+  const notes = [];
+  if (failures.length) notes.push(`UNREACHABLE (not listed): ${failures.join("; ")}`);
+  notes.push("search inside one: memory_search with query (+ project/since)");
+  return [{ type: "text", text: toon("sessions", rows, ["machine", "updated", "id", "seq", "project", "title"], { note: notes.join(" · ") }) }];
 }
 
 async function toolMachines() {

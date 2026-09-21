@@ -32,6 +32,7 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { withMachineLease } from "../lib/computer-use-lease.mjs";
+import { localFrame } from "../lib/frame-local.mjs";
 
 const HOME = process.env.HOME;
 const CONFIG_PATH =
@@ -486,7 +487,11 @@ async function captureFrameUnlocked(name, { memory = false, session, expectedTar
     }
   }
   if (!frame) {
-    try { frame = await directFrame(name, machines, mode); } catch (e) {
+    try {
+      frame = machines[name]?.local && !direct
+        ? await localFrame(join(HOME, ".local", "share", "slab", "state"), mode)
+        : await directFrame(name, machines, mode);
+    } catch (e) {
       throw new Error(`${name} unreachable: ${String(e.message || e).split("\n")[0]}`);
     }
   }

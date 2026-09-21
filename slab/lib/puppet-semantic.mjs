@@ -19,14 +19,14 @@ function timeout(value=5000) {
 }
 
 export class SemanticBrowser {
-  constructor(endpoint) { this.endpoint=endpoint;this.connection=null;this.pages=new Map();this.queues=new Map(); }
+  constructor(endpoint) { this.endpoint=endpoint;this.connection=null;this.inspector=null;this.pages=new Map();this.queues=new Map(); }
   async browser() {
     if(!this.connection) {
       this.connection=(async()=>{
         const {chromium}=await import("playwright-core");
         // Attach without changing the user's media/focus/download preferences.
         const browser=await chromium.connectOverCDP(this.endpoint(),{noDefaults:true,timeout:10000});
-        browser.on("disconnected",()=>{this.connection=null;this.pages.clear();});
+        browser.on("disconnected",()=>{this.connection=null;this.inspector=null;this.pages.clear();});
         return browser;
       })();
       this.connection.catch(()=>{this.connection=null;});
@@ -35,15 +35,21 @@ export class SemanticBrowser {
   }
   async close() {
     if(this.connection) await (await this.connection).close().catch(()=>{});
-    this.connection=null;this.pages.clear();
+    this.connection=null;this.inspector=null;this.pages.clear();
   }
   async page(target) {
     if(typeof target!=="string" || !target) throw new Error("An exact browser target ID is required (puppet_list pages)");
     const browser=await this.browser();
-    const inspector=await browser.newBrowserCDPSession();
+    // Keep the inspector warm, but still validate the exact target every time:
+    // another client's page-close event can lag behind isClosed().
+    if (!this.inspector) {
+      const pending = browser.newBrowserCDPSession();
+      this.inspector = pending;
+      pending.catch(() => { if (this.inspector === pending) this.inspector = null; });
+    }
+    const inspector=await this.inspector;
     try { await inspector.send("Target.getTargetInfo",{targetId:target}); }
     catch { throw new Error("Browser target is gone or does not match exactly; no action sent"); }
-    finally { await inspector.detach(); }
     const cached=this.pages.get(target);
     if(cached && !cached.isClosed()) return cached;
     for(const context of browser.contexts()) for(const page of context.pages()) {

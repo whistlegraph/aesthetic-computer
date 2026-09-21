@@ -20,6 +20,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { PUPPET_GUIDANCE } from "../lib/computer-use-guidance.mjs";
+import { clip, toon } from "../../shared/toon.mjs";
 import { termListAsync as termList, typeTextAsync as typeText, sendKeysAsync as sendKeys } from "./macos.mjs";
 
 const HOME = homedir();
@@ -66,8 +67,19 @@ function rpc(req, { timeoutMs = 20000 } = {}) {
 const text = (t) => [{ type: "text", text: typeof t === "string" ? t : JSON.stringify(t, null, 2) }];
 
 // ── CDP verbs (via the warm daemon) ─────────────────────────────────────────
-async function toolList() {
-  return text(await rpc({ cmd: "list" }));
+async function toolList({ full = false } = {}) {
+  const machines = await rpc({ cmd: "list" });
+  if (full) return text(machines);
+  const rows = Object.entries(machines).map(([machine, state]) => ({
+    machine, connected: state.connected, lazy: state.lazy,
+    pages: state.pages?.length || 0, error: state.lastError,
+  }));
+  const pages = Object.entries(machines).flatMap(([machine, state]) =>
+    (state.pages || []).map(page => ({ machine, id: page.id, title: clip(page.title, 80), url: page.url })));
+  return text([
+    toon("machines", rows, ["machine", "connected", "lazy", "pages", "error"]),
+    toon("pages", pages, ["machine", "id", "title", "url"], { note: "Use exact page id as target; full:true for raw state." }),
+  ].join("\n"));
 }
 async function toolEval({ machine, js, target }) {
   return text(await rpc({ cmd: "eval", machine, args: { expr: js, target } }));
@@ -144,8 +156,8 @@ const SEMANTIC_TOOLS = ["snapshot", "click", "fill", "wait"].map(action => ({
 const TOOLS = [
   ...SEMANTIC_TOOLS,
   { name: "puppet_list", act: false,
-    description: "List registered machines with CDP connection state and open page targets (from the puppet daemon). Read-only.",
-    inputSchema: { type: "object", properties: {} } },
+    description: "List machines and exact browser page IDs in compact tables. Read-only; full:true returns raw JSON state.",
+    inputSchema: { type: "object", properties: { full: { type: "boolean", description: "Return complete JSON state instead of compact tables." } } } },
   { name: "puppet_eval", act: false,
     description: "Evaluate a JavaScript expression in the active page of a machine's browser (via CDP) and return the value. Reads/inspects page state; can also mutate the DOM.",
     inputSchema: { type: "object", properties: { machine: { type: "string" }, js: { type: "string", description: "Expression to evaluate (awaited if it returns a promise)." }, target: { type: "string", description: "Optional target url/id substring; defaults to most-recent http(s) page." } }, required: ["machine", "js"] } },

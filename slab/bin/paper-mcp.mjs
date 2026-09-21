@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { createSourceBundle } from "../../papers/source-bundle.mjs";
+import { toon } from "../../shared/toon.mjs";
 
 const pexec = promisify(execFile);
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -236,7 +237,10 @@ function fmtPaper(rec) {
   ].join("\n");
 }
 
-async function toolList({ query, scope, kind, limit = 30 } = {}) {
+// The default list is a TOON table of id, kind, date, title — enough to pick a
+// paper. Paths repeat the same long roots thirty times over, so they come only
+// with `full` or from paper_find for one paper.
+async function toolList({ query, scope, kind, limit = 30, full = false } = {}) {
   let rows = await catalog();
   if (scope) rows = rows.filter((rec) => rec.scope === String(scope).toLowerCase());
   if (kind) rows = rows.filter((rec) => rec.kind === String(kind).toLowerCase());
@@ -247,8 +251,21 @@ async function toolList({ query, scope, kind, limit = 30 } = {}) {
       .map((item) => item.rec);
   }
   const capped = rows.slice(0, Math.max(1, Math.min(100, Number(limit) || 30)));
-  if (!capped.length) return [{ type: "text", text: "(no papers match)" }];
-  return [{ type: "text", text: `${capped.length}${rows.length > capped.length ? ` of ${rows.length}` : ""} paper(s):\n\n${capped.map(fmtPaper).join("\n\n")}` }];
+  if (full) {
+    if (!capped.length) return [{ type: "text", text: "papers[0]: no papers match" }];
+    return [{ type: "text", text: `${capped.length}${rows.length > capped.length ? ` of ${rows.length}` : ""} paper(s):\n\n${capped.map(fmtPaper).join("\n\n")}` }];
+  }
+  const table = capped.map((rec) => ({
+    id: rec.id,
+    kind: rec.kind,
+    pdf: rec.pdfPath ? "pdf" : "",
+    updated: fmtDate(rec.updatedAt),
+    title: rec.title,
+  }));
+  const note = capped.length
+    ? "paths for one paper: paper_find <id> · every path: full:true"
+    : "no papers match — try a shorter query or drop the scope/kind filter";
+  return [{ type: "text", text: toon("papers", table, ["id", "kind", "pdf", "updated", "title"], { total: rows.length, note }) }];
 }
 
 async function toolFind({ paper } = {}) {
@@ -620,6 +637,7 @@ const TOOLS = [
         scope: { type: "string", enum: ["public", "private", "vault", "fuser", "configured"], description: "Optional paper-root filter." },
         kind: { type: "string", enum: ["tex", "md", "pdf"], description: "Optional preferred-source kind." },
         limit: { type: "integer", minimum: 1, maximum: 100, default: 30 },
+        full: { type: "boolean", description: "Include source and PDF paths for every row. Default is a compact id/kind/pdf/date/title table; paper_find returns one paper's paths." },
       },
     },
   },

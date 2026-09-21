@@ -3,6 +3,11 @@
 Screen-recorded, narrated, captioned software tutorials for fuser — assembled
 from tooling AC already had, plus one new primitive.
 
+Native audit captures use Frame in process and run concurrently with post-action
+DOM inspection. Custom `CAPTUTOR_FRAME` CLI overrides remain supported. See
+[computer-use latency](../slab/COMPUTER-USE-PERFORMANCE.md) for measurements and
+the isolated browser benchmark.
+
 ```
 node captutor.mjs narrate <screenplay>   # just the voice — check pacing (cheap)
 node captutor.mjs render  <screenplay>   # narrate → record → drive → mp4 + vtt

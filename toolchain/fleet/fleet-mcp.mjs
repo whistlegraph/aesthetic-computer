@@ -24,6 +24,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { httpPort, serveHttp, serveStdio } from "../mcp/http-front.mjs";
+import { toon } from "../../shared/toon.mjs";
 
 const HOME = homedir();
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -120,24 +121,25 @@ function statusGlyph(live) {
 }
 
 // ── tool implementations ────────────────────────────────────────────────────
+// One TOON table, sorted by role then name. Capabilities are space-joined so
+// the cell never needs quoting; `live` is up / down / ? / self.
 async function toolList() {
-  const { machines, path } = loadRegistry();
+  const { machines } = loadRegistry();
   const nodes = await tailscaleStatus();
-  const lines = [`fleet (${Object.keys(machines).length} machines) — source: ${path}`, ""];
-  // group by designation for legibility
-  const groups = {};
-  for (const [name, m] of Object.entries(machines)) (groups[m.designation || "unclassified"] ||= []).push([name, m]);
-  for (const [designation, entries] of Object.entries(groups)) {
-    lines.push(`── ${designation} ──`);
-    for (const [name, m] of entries) {
-      const live = liveFor(name, m, nodes);
-      const caps = (m.capabilities || []).join(",") || "—";
-      const flag = m._review ? " ⚠review" : "";
-      lines.push(`  ${statusGlyph(live)} ${(m.emoji || "").padEnd(2)} ${name} — [${caps}]${flag}`);
-    }
-    lines.push("");
-  }
-  return [{ type: "text", text: lines.join("\n").trimEnd() }];
+  const rows = Object.entries(machines).map(([name, m]) => {
+    const live = liveFor(name, m, nodes);
+    return {
+      name,
+      role: m.designation || "unclassified",
+      live: live.online === true ? (live.self ? "self" : "up") : live.online === false ? "down" : "?",
+      caps: (m.capabilities || []).join(" "),
+      flags: m._review ? "review" : "",
+    };
+  }).sort((a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name));
+  const text = toon("machines", rows, ["name", "role", "live", "caps", "flags"], {
+    note: "live via tailscale · roles: fleet_designations · one machine in full: fleet_machine <name>",
+  });
+  return [{ type: "text", text }];
 }
 
 async function toolMachine({ name }) {
@@ -201,7 +203,7 @@ async function toolCleaner({ apply = true, thinSnapshots = false, remoteBacked =
 const TOOLS = [
   {
     name: "fleet_list",
-    description: "List every machine @jeffrey has access to, grouped by fleet designation, with a live online/offline glyph (🟢 online · ⚪ offline · ❔ unknown) and a one-line capability summary. The single source of truth for 'what machines do I have?'. Merges the private vault registry with live `tailscale status`.",
+    description: "List every machine @jeffrey has access to as one compact table: name, role (fleet designation), live (up/down/?/self via tailscale), capability tags, flags. The single source of truth for 'what machines do I have?'. Merges the private vault registry with live `tailscale status`; fleet_machine gives one machine in full.",
     inputSchema: { type: "object", properties: {} },
   },
   {

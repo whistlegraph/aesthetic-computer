@@ -66,6 +66,7 @@ import {
   DirectorChannel, directorBeatState, resolveDirectorGoal,
 } from "./lib/director-channel.mjs";
 import { masterPopDelivery } from "./lib/pop-audio-master.mjs";
+import { createFrameClient } from "./lib/frame-client.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -82,6 +83,7 @@ const FRAME = process.env.CAPTUTOR_FRAME
   || (existsSync(INSTALLED_FRAME) ? INSTALLED_FRAME
     : existsSync(REPO_FRAME) ? REPO_FRAME
       : join(resolve(HERE, "../../.."), "slab", "bin", "frame.mjs"));
+const captureNativeFrame = createFrameClient(FRAME, { cli: Boolean(process.env.CAPTUTOR_FRAME) });
 const FUSER = process.env.FUSER_REPO || `${process.env.HOME}/Developer/fuser`;
 const DOCS_PUBLIC = join(FUSER, "apps", "docs", "public");
 
@@ -116,11 +118,9 @@ const PASSIVE_FRAME_AUDIT = STAGE_MODE
 // capture can film one. Retire every Frame-owned transient immediately before
 // the reel starts. If Frame is installed, failure is a capture-safety failure:
 // it is better to abort a take than ship tooling UI inside the tutorial.
-function clearFrameOverlays() {
+async function clearFrameOverlays() {
   if (!existsSync(FRAME)) return;
-  execFileSync(process.execPath, [
-    FRAME, "local", "--clear-overlays", "--quiet-overlay", "--no-ocr", "--json",
-  ], { encoding: "utf8", timeout: 10_000, stdio: ["ignore", "pipe", "pipe"] });
+  await captureNativeFrame({ clearOverlays: true });
 }
 
 // Some filming seats (notably clamshell Macs on native-only external panels)
@@ -448,7 +448,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   };
   const frameAuditDir = join(workDir, "frame-audit", String(Date.now()));
   let frameAuditSequence = 0;
-  const passiveFrameAudit = (kind) => {
+  const passiveFrameAudit = async (kind) => {
     if (!PASSIVE_FRAME_AUDIT || !["click", "drag", "type"].includes(kind)) return null;
     if (!existsSync(FRAME)) {
       throw new Error("passive Frame audit is required in Stage Mode but Frame is unavailable");
@@ -458,10 +458,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     const image = join(frameAuditDir, `${sequence}-${kind}.jpg`);
     let envelope;
     try {
-      envelope = JSON.parse(execFileSync(process.execPath, [
-        FRAME, "local", "--screen", "--no-ocr", "--quiet-overlay",
-        "--out", image, "--json",
-      ], { encoding:"utf8", timeout:15_000, stdio:["ignore", "pipe", "pipe"] }));
+      envelope = await captureNativeFrame({ screen: true, out: image });
     } catch (error) {
       throw new Error(`passive Frame audit failed after ${kind}: ${error.message}`);
     }
@@ -483,8 +480,8 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
     let frameAudit = null;
     try {
       const result = await action();
-      const after = await uiSnapshot();
-      frameAudit = passiveFrameAudit(kind);
+      const [after, audit] = await Promise.all([uiSnapshot(), passiveFrameAudit(kind)]);
+      frameAudit = audit;
       const forbiddenRoute = (sp.forbiddenRouteFragments || []).find((fragment) => {
         try { return new URL(after.url).pathname.includes(fragment); }
         catch { return false; }
@@ -732,7 +729,7 @@ async function cmdRender(sp, workDir, locale, format, attempt = 1) {
   await cdp.send("Page.bringToFront");
   await sleep(600);
 
-  clearFrameOverlays();
+  await clearFrameOverlays();
 
   // /json retains the original Fuser URL and title after a renderer dies, so
   // those fields are not a health check. Require the page itself to answer just

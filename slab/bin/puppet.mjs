@@ -171,6 +171,9 @@ export class Machine {
   }
 
   async connectLoop() {
+    // Native-only fleet entries share this registry. They have no browser to
+    // reconnect, so don't wake every three seconds to parse an undefined URL.
+    if (!this.spec.cdpUrl && !this.spec.acquireCmd) return;
     for (;;) {
       try {
         await this.connect();
@@ -211,6 +214,9 @@ export class Machine {
   }
 
   async ensureConnected() {
+    if (!this.spec.cdpUrl && !this.spec.acquireCmd) {
+      throw new Error(`${this.name} has no browser configured; native tools remain available`);
+    }
     if (this.connected) {
       this.markActive();
       return;

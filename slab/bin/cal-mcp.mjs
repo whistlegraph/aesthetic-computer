@@ -23,6 +23,7 @@
 // no SDK, only node builtins + the shared http-front.
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { UA, loadTokens } from "../../toolchain/mcp/ac-token.mjs";
+import { clip, toon } from "../../shared/toon.mjs";
 
 const API = "https://aesthetic.computer/api/cal";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -81,7 +82,7 @@ function fmtEvent(ev) {
 }
 
 // ── tools ─────────────────────────────────────────────────────────────────────
-async function toolList({ from, to } = {}) {
+async function toolList({ from, to, full = false } = {}) {
   const range = new URLSearchParams();
   if (from) range.set("from", from);
   if (to) range.set("to", to);
@@ -96,10 +97,28 @@ async function toolList({ from, to } = {}) {
   const events = [...mine, ...fed];
   if (!events.length) {
     const label = from || to ? ` in [${from || "…"} → ${to || "…"}]` : " this month";
-    return [{ type: "text", text: `(no AesthetiCal events${label})` }];
+    return [{ type: "text", text: `events[0]: no AesthetiCal events${label}` }];
   }
   events.sort((a, b) => String(a.start).localeCompare(String(b.start)));
-  return [{ type: "text", text: `${events.length} event(s):\n\n${events.map(fmtEvent).join("\n")}` }];
+  if (full) return [{ type: "text", text: `${events.length} event(s):\n\n${events.map(fmtEvent).join("\n")}` }];
+  // Compact table: uid is what cal_update / cal_delete take; flags fold the
+  // rare columns (visibility other than private, repeat, read-only feed, note).
+  const rows = events.map((ev) => ({
+    uid: ev.uid,
+    start: ev.allDay ? String(ev.start || "").slice(0, 10) : ev.start,
+    end: ev.allDay ? String(ev.end || "").slice(0, 10) : ev.end,
+    title: ev.title || "(untitled)",
+    flags: [
+      ev.allDay ? "allday" : "",
+      ev.visibility && ev.visibility !== "private" ? ev.visibility : "",
+      ev.rrule ? `repeat:${ev.rrule}` : "",
+      ev.readOnly ? "feed" : "",
+      ev.note ? `note:${clip(ev.note, 40)}` : "",
+    ].filter(Boolean).join(" "),
+  }));
+  return [{ type: "text", text: toon("events", rows, ["uid", "start", "end", "title", "flags"], {
+    note: "full notes and per-event detail: full:true",
+  }) }];
 }
 
 async function toolAdd(args = {}) {
@@ -166,6 +185,7 @@ const TOOLS = [
       properties: {
         from: { type: "string", description: "Range start, ISO 8601 (e.g. 2026-07-01). Omit for the current month." },
         to: { type: "string", description: "Range end, ISO 8601. Omit for the current month." },
+        full: { type: "boolean", description: "Per-event detail with whole notes. Default is a compact uid/start/end/title/flags table." },
       },
     },
   },

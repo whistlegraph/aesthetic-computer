@@ -34,6 +34,20 @@ test("semantic browser fixture", {timeout:30000}, async t => {
     assert.equal(result.performed,true);assert.equal(await page.locator("input").inputValue(),"hello");
     assert.equal((await service.run("wait",{target,locator:{text:"Changed"},state:"visible"})).verified,true);
   });
+  await t.test("cached exact targets avoid inspector setup and reject closed pages", async()=>{
+    const browser = await service.browser();
+    const original = browser.newBrowserCDPSession;
+    browser.newBrowserCDPSession = () => { throw new Error("unexpected inspector setup"); };
+    try { assert.equal(await service.page(target), service.pages.get(target)); }
+    finally { browser.newBrowserCDPSession = original; }
+    const extra = await context.newPage();
+    const session = await context.newCDPSession(extra);
+    const { targetInfo } = await session.send("Target.getTargetInfo");
+    await session.detach();
+    const cached = await service.page(targetInfo.targetId);
+    await cached.close();
+    await assert.rejects(service.page(targetInfo.targetId), /gone|exactly/);
+  });
   await t.test("a waiting client does not block another client's action", async()=>{
     await page.setContent(`<button onclick="document.querySelector('output').textContent='Ready'">Start</button><output>Pending</output>`);
     const waiting=service.run("wait",{target,locator:{text:"Ready"},timeout:1500});

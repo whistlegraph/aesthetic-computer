@@ -75,6 +75,13 @@ function browser() {
   machine.call = async (method, params) => { calls.push({method, params}); return {data: 'fresh-image'}; };
   return {machine, calls};
 }
+test('native-only Puppet machines never enter the browser reconnect loop', async () => {
+  const machine = new Machine('native', { local: true });
+  machine.connect = () => { throw new Error('must not connect'); };
+  await machine.connectLoop();
+  assert.equal(machine.info().lastError, null);
+  await assert.rejects(machine.ensureConnected(), /no browser configured/);
+});
 test('Puppet uses recent in-memory JPEG without a CDP screenshot', async () => {
   const {machine, calls} = browser();
   machine.liveFrames.set('session', {data: 'live-image', at: Date.now()});
@@ -100,4 +107,27 @@ test('Puppet invalidates only the acted-on browser session', () => {
   }
   machine.invalidateFrame('Page.screencastFrameAck', 'other');
   assert.equal(machine.liveFrames.has('other'), true);
+});
+
+test('Puppet compact list retains exact page IDs and URLs with a full-state escape hatch', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'puppet-list-'));
+  const socket = join(dir, 'puppet.sock');
+  const state = { fixture: { connected: true, lazy: false, managedLifecycle: false, lastActiveAt: null, lastError: null,
+    targets: ['https://example.test/path?q=a,b'],
+    pages: [{ id: 'exact-page-id', title: 'Page, title', url: 'https://example.test/path?q=a,b' }] } };
+  const server = net.createServer(sock => sock.once('data', () => sock.end(JSON.stringify({ result: state }) + '\n')));
+  await new Promise(resolve => server.listen(socket, resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); });
+  const call = full => new Promise((resolve, reject) => {
+    const child = execFile(process.execPath, ['slab/bin/puppet-mcp.mjs'], {
+      env: { ...process.env, SLAB_PUPPET_SOCK: socket },
+    }, (error, stdout) => error ? reject(error) : resolve(JSON.parse(stdout).result.content[0].text));
+    child.stdin.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'puppet_list', arguments: { full } } }) + '\n');
+  });
+  const compact = await call(false), full = await call(true);
+  assert.match(compact, /pages\[1\]\{machine,id,title,url\}/);
+  assert.match(compact, /fixture,exact-page-id,"Page, title","https:\/\/example.test\/path\?q=a,b"/);
+  assert.deepEqual(JSON.parse(full), state);
+  assert.ok(Buffer.byteLength(compact) < Buffer.byteLength(full));
+  t.diagnostic(`Puppet fixture list bytes: ${Buffer.byteLength(full)} → ${Buffer.byteLength(compact)}`);
 });
