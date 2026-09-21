@@ -1,3 +1,4 @@
+import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
 //
@@ -102,6 +103,7 @@ export class AcServer extends EventEmitter {
     // turn. Both are injected so this file can be tested without either.
     piece = null,
     artifacts = null,
+    settings = null,
     token = null,
     fetch = globalThis.fetch,
     site = SITE,
@@ -113,6 +115,7 @@ export class AcServer extends EventEmitter {
     this.developerInstructions = developerInstructions;
     this.piece = piece;
     this.artifacts = artifacts;
+    this.settings = settings;
     this.artifactContext = '';
     this.apiMap = loadMap();
     this.token = token;
@@ -150,6 +153,7 @@ export class AcServer extends EventEmitter {
         cache_control: { type: "ephemeral" },
       });
     }
+    if (!this.artifactContext && !this.developerInstructions) blocks.push({type:"text",text:PIECE_INSTRUCTIONS});
     if (this.developerInstructions) {
       blocks.push({ type: "text", text: this.developerInstructions });
     }
@@ -262,6 +266,7 @@ export class AcServer extends EventEmitter {
     this.artifactContext = await this.artifacts?.context() || '';
     const tools = [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE]),
       {name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}];
+    if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.javascriptPiece) {
       const api=TOOLS.find(tool=>tool.name==='ac_api');
       tools.push({name:FRAME_TOOL.name,description:FRAME_TOOL.description+' Hosted mode returns local analysis/OCR only; pixels are not sent to this hosted model.',input_schema:{...FRAME_TOOL.inputSchema,properties:{...FRAME_TOOL.inputSchema.properties,image:{type:'boolean',enum:[false]}}}});
@@ -460,6 +465,19 @@ export class AcServer extends EventEmitter {
   async #runTool(block) {
     const signal = this.controller?.signal;
     const itemId = `tool-${block.id}`;
+    if(block.name===SETTINGS_TOOL.name) {
+      signal?.throwIfAborted();
+      this.emit('notification',{method:'item/started',params:{item:{id:itemId,type:'dynamicToolCall',tool:block.name}}});
+      try{
+        if(!this.settings)throw Error('Aesel settings are unavailable');
+        const result=await this.settings(block.input||{});
+        this.emit('notification',{method:'item/completed',params:{item:{id:itemId,type:'dynamicToolCall',tool:block.name,status:result.status}}});
+        return {type:'tool_result',tool_use_id:block.id,content:JSON.stringify(result)};
+      }catch(error){
+        this.emit('notification',{method:'item/completed',params:{item:{id:itemId,type:'dynamicToolCall',tool:block.name,status:'failed'}}});
+        return {type:'tool_result',tool_use_id:block.id,is_error:true,content:error.message};
+      }
+    }
     if(block.name==='ac_api') {
       signal?.throwIfAborted();
       if(!this.javascriptPiece)return {type:'tool_result',tool_use_id:block.id,is_error:true,content:'ac_api is available for JavaScript Pieces.'};

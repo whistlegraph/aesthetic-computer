@@ -3,6 +3,7 @@ const toolTypes = new Set(['fileChange', 'commandExecution', 'mcpToolCall', 'dyn
 
 export function toolActivity(item = {}) {
   const name = String(item.tool || '').split(' · ')[0];
+  if (/(?:^|__)aesel_settings$/.test(name)) return "I'm checking Aesel’s settings";
   if (item.type === 'fileChange' || /(?:^|__)(?:write_piece|Write|Edit|apply_patch)$/.test(name)) return "I'm editing the piece";
   if (/(?:^|__)ac_frame$/.test(name)) return "I'm looking at the preview";
   if (/(?:^|__)ac_preview$/.test(name)) return "I'm checking the preview";

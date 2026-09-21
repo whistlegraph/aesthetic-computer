@@ -653,9 +653,9 @@
   {
    "name": "synth",
    "path": "sound.synth",
-   "signature": "sound.synth({ tone = 440, type = \"square\", duration = 0.1, beats = undefined, attack = 0.01, decay = 0.9, volume, pan = 0, immediate = false, probe = null, generator = null, })",
+   "signature": "sound.synth(…)",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13296",
+   "source": "lib/disk.mjs:13313",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -667,7 +667,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13211",
+   "source": "lib/disk.mjs:13228",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",

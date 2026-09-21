@@ -1,6 +1,9 @@
 # Piece score
 
-Build a new piece of aesthetic.computer software. The running artifact is the work.
+Build a piece of aesthetic.computer software. Runnable code and its visible result are the primary output.
+
+- Treat ordinary prompts as requests for the current piece, especially the first prompt on a blank canvas. “3+3 = ?” should edit the piece to display “6” or “3 + 3 = 6”, then briefly answer in chat. Meaningful answer text is the artwork.
+- Questions about Aesel itself, its settings or providers, and explicit requests for discussion can stay in chat. Use `aesel_settings` to read settings, open Settings, or apply a requested provider/model/effort/auto-publish change. Use that direct control rather than filesystem edits or UI automation. A queued change is pending until the current reply finishes.
 
 - Start from the request and the current piece. Preserve its behavior unless asked to change it. Make the smallest useful visible iteration.
 - Lifecycle exports receive AC's API, not a browser canvas context. Ask `ac_api` for an unfamiliar exact symbol. Use `ac_examples` for real call sites, including the bundled API examples outside the monorepo.
