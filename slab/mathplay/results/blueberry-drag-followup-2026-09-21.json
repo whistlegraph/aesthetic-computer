@@ -1,0 +1,149 @@
+{
+  "at": "2026-09-21T21:51:21.411Z",
+  "host": "blueberry",
+  "runtimeRevision": "77418028cd5d5f68c65b33e6fd99ef1461c4b875",
+  "defaultsChanged": false,
+  "interference": "User reported brief manual intervention during the timing experiments. Exact interval is unknown; exclude 32/64 and 64/32 follow-ups from default selection. The earlier failed 32/32 trial remains recorded, but its cause is unresolved.",
+  "decision": "Keep 32 ms movement / 32 ms destination dwell; clean rerun passed 100 drags across five fresh pages. No new execution-speed gain claimed.",
+  "output": {
+    "rawBytes": 254980,
+    "summaryBytes": 730,
+    "reductionPercent": 99.71
+  },
+  "runs": {
+    "clean32": {
+      "at": "2026-09-21T21:47:16.514Z",
+      "ok": true,
+      "reportPath": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-followup/clean32.json",
+      "scope": "Tool action and result checks; excludes model inference and fixture startup.",
+      "installedFrame": true,
+      "dragBatches": 5,
+      "drags": {
+        "hold=0,path=32,release=32": {
+          "attempted": 100,
+          "verified": 100,
+          "successful": {
+            "samples": 100,
+            "medianMs": 140.19,
+            "p95Ms": 183.91,
+            "maxMs": 227.39,
+            "under100ms": 0
+          },
+          "failed": {
+            "samples": 0
+          }
+        }
+      },
+      "checks": {},
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png"
+    },
+    "interrupted32_64": {
+      "at": "2026-09-21T21:45:12.280Z",
+      "ok": false,
+      "reportPath": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-followup/interrupted32_64.json",
+      "error": "Drag/release not verified; input not repeated",
+      "scope": "Tool action and result checks; excludes model inference and fixture startup.",
+      "installedFrame": true,
+      "dragBatches": 1,
+      "drags": {
+        "hold=0,path=32,release=64": {
+          "attempted": 69,
+          "verified": 68,
+          "successful": {
+            "samples": 68,
+            "medianMs": 179.53,
+            "p95Ms": 208.94,
+            "maxMs": 247.06,
+            "under100ms": 0
+          },
+          "failed": {
+            "samples": 1,
+            "medianMs": 726.62,
+            "p95Ms": 726.62,
+            "maxMs": 726.62,
+            "under100ms": 0
+          }
+        }
+      },
+      "checks": {}
+    },
+    "interrupted64_32": {
+      "at": "2026-09-21T21:45:40.380Z",
+      "ok": true,
+      "reportPath": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-followup/interrupted64_32.json",
+      "scope": "Tool action and result checks; excludes model inference and fixture startup.",
+      "installedFrame": true,
+      "dragBatches": 1,
+      "drags": {
+        "hold=0,path=64,release=32": {
+          "attempted": 100,
+          "verified": 100,
+          "successful": {
+            "samples": 100,
+            "medianMs": 175.81,
+            "p95Ms": 210.62,
+            "maxMs": 224.26,
+            "under100ms": 0
+          },
+          "failed": {
+            "samples": 0
+          }
+        }
+      },
+      "checks": {},
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png"
+    },
+    "integration": {
+      "at": "2026-09-21T21:49:55.809Z",
+      "ok": true,
+      "reportPath": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-followup/integration.json",
+      "scope": "Tool action and result checks; excludes model inference and fixture startup.",
+      "installedFrame": true,
+      "dragBatches": 2,
+      "drags": {
+        "hold=0,path=32,release=32": {
+          "attempted": 10,
+          "verified": 10,
+          "successful": {
+            "samples": 10,
+            "medianMs": 130.42,
+            "p95Ms": 182.96,
+            "maxMs": 182.96,
+            "under100ms": 0
+          },
+          "failed": {
+            "samples": 0
+          }
+        }
+      },
+      "checks": {},
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png"
+    },
+    "math": {
+      "at": "2026-09-21T21:51:20.403Z",
+      "ok": true,
+      "reportPath": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-followup/math.json",
+      "scope": "Tool action and result checks; excludes model inference and fixture startup.",
+      "installedFrame": false,
+      "game": {
+        "complete": true,
+        "correct": 30,
+        "initialObservationMs": 205.85,
+        "elapsedMs": 1028.85,
+        "medianClickMs": 33.63,
+        "p95ClickMs": 38.14,
+        "maxClickMs": 55.7,
+        "under100ms": 30,
+        "scope": "Local HTTP/MCP, rendered-question parsing, deterministic arithmetic, click, verification and next observation. Excludes language-model inference."
+      },
+      "checks": {},
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/mathplay-2026-09-21T21-51-20-403Z-57460-verified.png"
+    }
+  },
+  "validation": {
+    "summaryTests": 2,
+    "liveTraceChecks": 10,
+    "freshPageDragChecks": 100,
+    "mathAnswers": 30
+  }
+}

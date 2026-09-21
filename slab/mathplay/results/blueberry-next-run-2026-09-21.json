@@ -1,0 +1,163 @@
+{
+  "measuredAt": "2026-09-21T21:43:18.743Z",
+  "host": "blueberry",
+  "revision": "77418028cd5d5f68c65b33e6fd99ef1461c4b875",
+  "scope": "Warm local HTTP/MCP action loops; native input uses installed Frame and resident Swift. Puppet source hashes match installed release. Includes verification; excludes model inference and fixture startup. Math uses a headless disposable browser; clicks and drags use a visible disposable Chrome window.",
+  "clicks": {
+    "ok": true,
+    "samples": 100,
+    "medianMs": 44.56,
+    "p95Ms": 66.08,
+    "maxMs": 100.11,
+    "under100ms": 99,
+    "prior": {
+      "n": 25,
+      "medianMs": 46.87,
+      "p95Ms": 72.29,
+      "maxMs": 93.07,
+      "within24fpsBudget": 7
+    },
+    "stages": {
+      "guard": {
+        "samples": 100,
+        "medianMs": 4.32,
+        "p95Ms": 10.203208,
+        "maxMs": 26.722125,
+        "under100ms": 100
+      },
+      "input": {
+        "samples": 100,
+        "medianMs": 0.03,
+        "p95Ms": 0.066917,
+        "maxMs": 0.204417,
+        "under100ms": 100
+      },
+      "verification": {
+        "samples": 100,
+        "medianMs": 30.55,
+        "p95Ms": 46.314584,
+        "maxMs": 77.831833,
+        "under100ms": 100
+      }
+    },
+    "guard": {
+      "ms": 7.26,
+      "nativeMs": 5.850834,
+      "pixels": false,
+      "staleRejected": true,
+      "movedRejected": true,
+      "counterUnchanged": true
+    },
+    "recovery": {
+      "alreadyTrueRejected": true,
+      "wrongRoleRejected": true,
+      "timeoutReturnedPixels": true,
+      "clickNotRepeated": true,
+      "consumedRejected": true
+    },
+    "multiClick": [
+      {
+        "count": 2,
+        "holdMs": 0,
+        "verifiedCount": 104
+      },
+      {
+        "count": 3,
+        "holdMs": 0,
+        "verifiedCount": 107
+      }
+    ]
+  },
+  "dragsDefault": {
+    "ok": false,
+    "attempted": 1,
+    "verified": 0,
+    "holdMs": 0,
+    "durationMs": 32,
+    "releaseMs": 32,
+    "error": "Drag/release not verified; input not repeated",
+    "receipt": {
+      "holdMs": 0,
+      "durationMs": 32,
+      "releaseMs": 32,
+      "ms": 685.47,
+      "receipt": {
+        "releaseMs": 32,
+        "status": "dispatched",
+        "holdMs": 0,
+        "releasePosted": true,
+        "durationMs": 32,
+        "verification": {
+          "ok": false,
+          "before": "Released: 0",
+          "attribute": "AXValue",
+          "expected": "Released: 1",
+          "role": "AXStaticText",
+          "ms": 527.222958,
+          "observed": "Released: 0"
+        },
+        "inputMs": 77.4005,
+        "observationId": "BF8DB765-5BAA-4A29-9ECF-9518E3D02A69",
+        "kind": "drag",
+        "guardMs": 1.016667
+      },
+      "drops": "Drops: 0",
+      "released": "Released: 0",
+      "rejected": "Rejected: 1"
+    },
+    "prior": {
+      "ok": true,
+      "timings": {
+        "hold=0,path=32,release=32": {
+          "n": 100,
+          "medianMs": 146.96,
+          "p95Ms": 206.67,
+          "maxMs": 283.14,
+          "within24fpsBudget": 0,
+          "verified": 100
+        }
+      }
+    }
+  },
+  "dragsConservative": {
+    "ok": true,
+    "verified": 100,
+    "holdMs": 0,
+    "durationMs": 64,
+    "releaseMs": 64,
+    "samples": 100,
+    "medianMs": 212,
+    "p95Ms": 242.28,
+    "maxMs": 265.19,
+    "under100ms": 0
+  },
+  "math": {
+    "complete": true,
+    "correct": 30,
+    "initialObservationMs": 190.89,
+    "elapsedMs": 1041.39,
+    "medianClickMs": 33.25,
+    "p95ClickMs": 47.39,
+    "maxClickMs": 59.9,
+    "under100ms": 30,
+    "scope": "Local HTTP/MCP, rendered-question parsing, deterministic arithmetic, click, verification and next observation. Excludes language-model inference.",
+    "prior": {
+      "medianClickMs": 48.97,
+      "p95ClickMs": 68,
+      "elapsedMs": 1497.36
+    }
+  },
+  "rawReports": "/Users/jas/.local/share/slab/computer-use/benchmarks/blueberry-2026-09-21-next",
+  "notes": [
+    "100 zero-hold clicks passed; one took 100.11 ms.",
+    "Default drag failed on its first attempt; browser recorded Rejected: 1 and zero drops. No replay was sent.",
+    "Fresh 64 ms movement / 64 ms release fixture passed 100 drops and releases. This is not a guarantee for arbitrary apps or Finder transfers.",
+    "Defaults were not changed by this benchmark.",
+    "All fixture browser windows and daemons closed through harness cleanup.",
+    "Run-to-run differences are descriptive, not a controlled causal estimate."
+  ],
+  "followup": {
+    "report": "blueberry-drag-followup-2026-09-21.json",
+    "note": "User reported brief manual intervention during the timing experiments. Exact interval is unknown; exclude 32/64 and 64/32 follow-ups from default selection. The earlier failed 32/32 trial remains recorded, but its cause is unresolved."
+  }
+}

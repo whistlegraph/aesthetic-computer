@@ -9,6 +9,13 @@ button {font:inherit;width:180px;height:120px;border:2px solid #245781;border-ra
 <output id="drops">Drops: 0</output><output id="releases">Released: 0</output><output id="rejects">Rejected: 0</output>
 <script>
 let drops=0,releases=0,rejects=0,accepted=false;
+// Bounded fixture-only evidence. Read after input; never used to dispatch it.
+window.dragTrace=[];
+for(const kind of ['dragstart','dragenter','dragover','drop','dragend'])document.addEventListener(kind,e=>{
+if(kind==='dragstart')window.dragTrace=[];
+window.dragTrace.push({kind,at:performance.now(),target:e.target.id,x:e.clientX,y:e.clientY,trusted:e.isTrusted});
+if(window.dragTrace.length>32)window.dragTrace.splice(1,1);
+},true);
 source.addEventListener('dragstart',e=>{if(!e.isTrusted)return;accepted=false;e.dataTransfer.setData('text/plain','frame-fixture');e.dataTransfer.effectAllowed='move';});
 target.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
 target.addEventListener('drop',e=>{e.preventDefault();if(e.isTrusted&&e.dataTransfer.getData('text/plain')==='frame-fixture'){accepted=true;document.querySelector('#drops').textContent=`Drops: ${++drops}`;}});

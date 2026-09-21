@@ -15,6 +15,7 @@ import { playWordplay } from "../lib/wordplay-run.mjs";
 import { playMathplay } from "../lib/mathplay-run.mjs";
 import { playNativeDrag } from '../lib/native-drag-run.mjs';
 import { captureFrame as nativeCapture } from './frame.mjs';
+import { summarizeBenchmark } from '../lib/computer-use-bench-report.mjs';
 
 const dragBench = process.argv.includes('--drag-bench');
 const holdBench = process.argv.includes('--hold-bench');
@@ -36,6 +37,8 @@ if (wordplay && native) throw new Error('Use --wordplay for browser play or --na
 const root = resolve(import.meta.dirname, "../..");
 const dir = await mkdtemp(join(tmpdir(), "computer-use-smoke-"));
 const report = { at: new Date().toISOString(), browser: [], native: [], jev: [] };
+const reportName = mathplay ? 'mathplay' : wordplay ? 'wordplay' : 'computer-use-smoke';
+const runName = `${reportName}-${report.at.replace(/[:.]/g, '-')}-${process.pid}`;
 report.installedFrame = installedFrame;
 if (nativeClickBench) { report.nativeInputMode = legacyInput ? 'legacy' : compactBench ? 'compact' : 'resident'; report.transport = process.env.SLAB_FRAME_TRANSPORT || 'socket'; }
 const children = [];
@@ -277,7 +280,7 @@ try {
   }
   }
   // Only the generated fixture is retained; the browser profile is removed.
-  const artifact = join(tmpdir(), mathplay ? "mathplay-verified.png" : wordplay ? "wordplay-verified.png" : "computer-use-smoke-verified.png");
+  const artifact = join(tmpdir(), `${runName}-verified.png`);
   await page.screenshot({ path: artifact }); report.screenshot = artifact;
   if (!wordplay && !mathplay && !dragBench) {
   const navigation = JSON.parse(text(await call("puppet_click", { ...browser, locator: { role: "link", name: "Second page" }, after: { locator: { text: "Navigation verified" } } })));
@@ -293,6 +296,10 @@ try {
   await context?.close();
   if (site) await new Promise(resolve => site.close(resolve));
   await rm(dir, { recursive: true, force: true });
-  await writeFile(join(tmpdir(), mathplay ? "mathplay-report.json" : wordplay ? "wordplay-report.json" : "computer-use-smoke-report.json"), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify(report, null, 2));
+  const reportPath = join(tmpdir(), `${runName}.json`);
+  const raw = JSON.stringify(report, null, 2);
+  await writeFile(reportPath, raw);
+  // Retain the historical latest-report path for existing local consumers.
+  await writeFile(join(tmpdir(), `${reportName}-report.json`), raw);
+  console.log(JSON.stringify(process.argv.includes('--full-report') ? report : summarizeBenchmark(report, reportPath), null, 2));
 }
