@@ -15,14 +15,15 @@ const { floor, min, max } = Math;
 let state = "empty"; // "empty" | "loading" | "ready" | "error"
 let promptText = "";
 let presetName = "kidlisp";
-let bitmap = null;        // { width, height, pixels: Uint8ClampedArray }
+let bitmap = null; // { width, height, pixels: Uint8ClampedArray }
 let errorMsg = "";
-let seedNum = null;       // null = let server roll
+let seedNum = null; // null = let server roll
 let elapsedMs = 0;
 let providerName = "";
 let ellipsis = 0;
 let frame = 0;
 let abortController = null;
+let retryAt = 0;
 
 function boot({ params, colon, hud }) {
   hud.label("see");
@@ -39,7 +40,7 @@ function meta() {
 }
 
 async function generate() {
-  if (!promptText) return;
+  if (!promptText || Date.now() < retryAt) return;
   state = "loading";
   bitmap = null;
   errorMsg = "";
@@ -62,23 +63,30 @@ async function generate() {
 
     const data = await res.json();
     if (!data.ok) {
+      const retrySeconds = Number(
+        res.headers.get("Retry-After") || data.retry_after,
+      );
+      retryAt =
+        Number.isFinite(retrySeconds) && retrySeconds > 0
+          ? Date.now() + retrySeconds * 1000
+          : 0;
       state = "error";
       errorMsg =
         data.reason === "filtered"
           ? "blocked by safety filter — try different wording"
           : data.reason === "no_key"
-          ? "server has no image provider key"
-          : data.reason === "timeout"
-          ? "timed out — NVIDIA may be slow, tap to retry"
-          : data.reason === "temporarily_unavailable"
-          ? `NVIDIA is unavailable — retry in ${data.retry_after || 60}s`
-          : data.reason === "fallback_budget_exhausted"
-          ? `image budget resets in ${data.retry_after || 60}s`
-          : data.reason === "upstream"
-          ? "NVIDIA error — tap to retry"
-          : data.reason === "fallback_upstream"
-          ? "fallback error — tap to retry"
-          : `error: ${data.reason || "unknown"}`;
+            ? "server has no image provider key"
+            : data.reason === "timeout"
+              ? "timed out — NVIDIA may be slow, tap to retry"
+              : data.reason === "temporarily_unavailable"
+                ? "image generation is temporarily unavailable"
+                : data.reason === "fallback_budget_exhausted"
+                  ? "image generation is temporarily unavailable"
+                  : data.reason === "upstream"
+                    ? "NVIDIA error — tap to retry"
+                    : data.reason === "fallback_upstream"
+                      ? "fallback error — tap to retry"
+                      : `error: ${data.reason || "unknown"}`;
       return;
     }
 
@@ -150,7 +158,14 @@ function paint({ wipe, ink, paste, write, screen }) {
   if (state === "error") {
     ink(255, 80, 120).write("✗", { center: "x", y: floor(h / 2) - 20 });
     ink(255, 200, 200).write(errorMsg, { center: "xy" }, undefined, w - 20);
-    ink(120).write("tap to retry", { center: "x", y: floor(h / 2) + 24 });
+    const retrySeconds = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+    ink(120).write(
+      retrySeconds ? `retry in ${retrySeconds}s` : "tap to retry",
+      {
+        center: "x",
+        y: floor(h / 2) + 24,
+      },
+    );
     return;
   }
 

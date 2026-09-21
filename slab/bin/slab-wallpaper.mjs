@@ -30,15 +30,19 @@ import { createHash } from "node:crypto";
 import { promises as fs, existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { wallpaperBackoff } from "./wallpaper-backoff.mjs";
 
-const HOME = os.homedir();
+const WALLPAPER_HOME = os.homedir();
 const SLAB_HOME =
-  process.env.SLAB_HOME || path.join(HOME, ".local/share/slab");
+  process.env.SLAB_HOME || path.join(WALLPAPER_HOME, ".local/share/slab");
 const WALL_DIR = path.join(SLAB_HOME, "wallpaper");
 const STATUS_DIR = path.join(WALL_DIR, "status");
 const SUBJECT_DIR = path.join(WALL_DIR, "subject");
 const LOCK_DIR = path.join(WALL_DIR, ".lock"); // atomic mkdir lock
 const LOG = path.join(SLAB_HOME, "logs/wallpaper.log");
+
+const backoff = wallpaperBackoff(WALL_DIR);
 
 const FLUX_DIRECT =
   "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
@@ -108,7 +112,7 @@ function loadKey() {
   if (process.env.NVIDIA_API_KEY) return process.env.NVIDIA_API_KEY.trim();
   const candidates = [
     path.join(SLAB_HOME, ".env"),
-    path.join(HOME, "aesthetic-computer/lith/.env"),
+    path.join(WALLPAPER_HOME, "aesthetic-computer/lith/.env"),
   ];
   for (const f of candidates) {
     try {
@@ -195,22 +199,27 @@ async function withLock(fn) {
   return null; // couldn't acquire — caller falls back to cache/default
 }
 
-async function fetchBuf(url, opts, ms) {
+async function fetchJSON(url, opts, ms) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
   try {
-    return await fetch(url, { ...opts, signal: ctl.signal });
+    const response = await fetch(url, { ...opts, signal: ctl.signal });
+    // The provider can send headers and then stall the image payload. Keep
+    // the same deadline active until JSON is fully read, not just headers.
+    const data = response.ok ? await response.json() : null;
+    if (!response.ok) await response.body?.cancel();
+    return { response, data };
   } finally {
     clearTimeout(t);
   }
 }
 
 // Returns a JPEG Buffer or null. Tries direct NVIDIA, then prod proxy.
-async function generate(prompt) {
+export async function generate(prompt) {
   const key = loadKey();
-  if (key) {
+  if (key && !(await backoff.active("direct"))) {
     try {
-      const r = await fetchBuf(
+      const { response: r, data: d } = await fetchJSON(
         FLUX_DIRECT,
         {
           method: "POST",
@@ -234,7 +243,6 @@ async function generate(prompt) {
         35000,
       );
       if (r.ok) {
-        const d = await r.json();
         const art = d?.artifacts?.[0];
         if (art?.finishReason === "SUCCESS" && art.base64) {
           log("gen ok via direct nvidia");
@@ -243,22 +251,31 @@ async function generate(prompt) {
         log("direct nvidia non-success", art?.finishReason || "?");
       } else {
         log("direct nvidia http", r.status);
+        if (r.status === 429 || r.status >= 500) {
+          await backoff.defer("direct", r.headers.get("Retry-After"));
+        }
       }
     } catch (e) {
       log("direct nvidia err", e.name || String(e));
+      await backoff.defer("direct");
     }
-  } else {
-    log("no NVIDIA_API_KEY — skipping direct, trying proxy");
   }
 
+  if (await backoff.active("proxy")) return null;
   try {
-    const r = await fetchBuf(
+    const { response: r, data: d } = await fetchJSON(
       FLUX_PROXY,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "slab-wallpaper/1",
+        },
         body: JSON.stringify({
           prompt,
+          // Background decoration waits for NVIDIA; keep the bounded paid
+          // fallback available for explicit visitor requests.
+          allow_fallback: false,
           preset: PRESET,
           width: W,
           height: H,
@@ -267,7 +284,6 @@ async function generate(prompt) {
       35000,
     );
     if (r.ok) {
-      const d = await r.json();
       if (d?.ok && typeof d.png === "string" && d.png.startsWith("data:")) {
         log("gen ok via prod proxy");
         return Buffer.from(d.png.split(",", 2)[1], "base64");
@@ -275,9 +291,13 @@ async function generate(prompt) {
       log("proxy not ok", d?.reason || "?");
     } else {
       log("proxy http", r.status);
+      if (r.status === 429 || r.status >= 500) {
+        await backoff.defer("proxy", r.headers.get("Retry-After"));
+      }
     }
   } catch (e) {
     log("proxy err", e.name || String(e));
+    await backoff.defer("proxy");
   }
   return null;
 }
@@ -422,4 +442,8 @@ async function main() {
   }
 }
 
-main();
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+)
+  main();

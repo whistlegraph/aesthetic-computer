@@ -128,3 +128,123 @@ test("client errors remain visible without opening the outage circuit", async ()
   assert.equal(second.statusCode, 502);
   assert.equal(requests, 2);
 });
+
+test("background requests never spend fallback during a provider outage", async () => {
+  process.env.NVIDIA_API_KEY = "nvidia-test-key";
+  process.env.OPENAI_API_KEY = "openai-test-key";
+  const requests = [];
+  globalThis.fetch = async (url) => {
+    requests.push(url);
+    throw new DOMException("timed out", "AbortError");
+  };
+  const event = {
+    httpMethod: "POST",
+    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
+  };
+  assert.equal((await handler(event)).statusCode, 503);
+  assert.equal((await handler(event)).statusCode, 503);
+  assert.equal(requests.length, 1);
+  assert.match(requests[0], /nvidia.com/);
+  // Opting out did not reserve any of the ten paid attempts.
+  delete process.env.NVIDIA_API_KEY;
+  globalThis.fetch = async () =>
+    Response.json({ data: [{ b64_json: "jpeg" }] });
+  for (let i = 0; i < 10; i++) {
+    assert.equal(
+      (await handler({ ...event, body: JSON.stringify({ prompt: "square" }) }))
+        .statusCode,
+      200,
+    );
+  }
+});
+
+test("recovery backs off repeated failures and admits only one probe", async (t) => {
+  t.mock.method(Date, "now", () => now);
+  let now = 1000000;
+  process.env.NVIDIA_API_KEY = "test-key";
+  delete process.env.OPENAI_API_KEY;
+  const event = {
+    httpMethod: "POST",
+    body: JSON.stringify({ prompt: "square" }),
+  };
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests++;
+    throw new DOMException("timeout", "AbortError");
+  };
+  assert.equal((await handler(event)).headers["Retry-After"], "60");
+  now += 60000;
+  let resolveProbe;
+  globalThis.fetch = () => {
+    requests++;
+    return new Promise((resolve) => {
+      resolveProbe = resolve;
+    });
+  };
+  const probe = handler(event);
+  const duringProbe = await handler({
+    ...event,
+    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
+  });
+  assert.equal(duringProbe.statusCode, 503);
+  assert.equal(duringProbe.headers["Retry-After"], "30");
+  assert.equal(requests, 2);
+  resolveProbe(new Response("unavailable", { status: 503 }));
+  assert.equal((await probe).headers["Retry-After"], "120");
+  now += 120000;
+  globalThis.fetch = async () =>
+    Response.json({
+      artifacts: [{ finishReason: "SUCCESS", base64: "jpeg", seed: 1 }],
+    });
+  assert.equal((await handler(event)).statusCode, 200);
+  globalThis.fetch = async () => {
+    throw new DOMException("timeout", "AbortError");
+  };
+  assert.equal((await handler(event)).headers["Retry-After"], "60");
+});
+
+test("paid exhaustion does not hide the earlier NVIDIA recovery probe", async (t) => {
+  t.mock.method(Date, "now", () => 1000000);
+  process.env.NVIDIA_API_KEY = "test-key";
+  process.env.OPENAI_API_KEY = "test-key";
+  globalThis.fetch = async (url) => {
+    if (url.includes("nvidia.com"))
+      throw new DOMException("timeout", "AbortError");
+    return Response.json({ data: [{ b64_json: "jpeg" }] });
+  };
+  const event = {
+    httpMethod: "POST",
+    body: JSON.stringify({ prompt: "square" }),
+  };
+  for (let i = 0; i < 10; i++)
+    assert.equal((await handler(event)).statusCode, 200);
+  const exhausted = await handler(event);
+  assert.equal(JSON.parse(exhausted.body).reason, "fallback_budget_exhausted");
+  assert.equal(exhausted.headers["Retry-After"], "60");
+});
+
+test("NVIDIA timeout includes reading the response body", async (t) => {
+  process.env.NVIDIA_API_KEY = "test-key";
+  delete process.env.OPENAI_API_KEY;
+  const originalSetTimeout = globalThis.setTimeout;
+  t.mock.method(globalThis, "setTimeout", (callback, ms) =>
+    originalSetTimeout(callback, ms === 30000 ? 5 : ms),
+  );
+  globalThis.fetch = async (url, { signal }) => ({
+    ok: true,
+    json: () =>
+      new Promise((resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("timeout", "AbortError")),
+          { once: true },
+        );
+      }),
+  });
+  const result = await handler({
+    httpMethod: "POST",
+    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
+  });
+  assert.equal(result.statusCode, 503);
+  assert.equal(result.headers["Retry-After"], "60");
+});

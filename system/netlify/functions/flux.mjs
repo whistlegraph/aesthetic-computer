@@ -13,6 +13,7 @@
 // On safety-filter rejection: { ok: false, reason: "filtered" } (200, so the
 // piece can react gracefully). Transient provider failures return 503.
 //
+// Background callers can set allow_fallback:false to avoid paid generation.
 // Env: NVIDIA_API_KEY or OPENAI_API_KEY. Lives in lith/.env in production.
 
 import { respond } from "../../backend/http.mjs";
@@ -22,11 +23,14 @@ const FLUX_URL =
 const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
 const FLUX_TIMEOUT_MS = 30000;
 const FLUX_OUTAGE_COOLDOWN_MS = 60000;
+const FLUX_MAX_OUTAGE_COOLDOWN_MS = 15 * 60000;
 const OPENAI_FALLBACK_TIMEOUT_MS = 90000;
 const OPENAI_FALLBACK_WINDOW_MS = 60 * 60 * 1000;
 const OPENAI_FALLBACK_LIMIT = 10;
 
 let outageUntil = 0;
+let outageFailures = 0;
+let recoveryProbeInFlight = false;
 let fallbackWindowStartedAt = 0;
 let fallbackCount = 0;
 
@@ -43,11 +47,19 @@ function temporarilyUnavailable(
 }
 
 function openOutageCircuit(now = Date.now()) {
-  outageUntil = now + FLUX_OUTAGE_COOLDOWN_MS;
+  outageFailures += 1;
+  outageUntil =
+    now +
+    Math.min(
+      FLUX_OUTAGE_COOLDOWN_MS * 2 ** Math.min(outageFailures - 1, 4),
+      FLUX_MAX_OUTAGE_COOLDOWN_MS,
+    );
 }
 
 export function resetFluxOutageCircuit() {
   outageUntil = 0;
+  outageFailures = 0;
+  recoveryProbeInFlight = false;
 }
 
 export function resetFluxFallbackBudget() {
@@ -81,14 +93,33 @@ function openAIImageSize(width, height) {
   return { size: "1024x1024", width: 1024, height: 1024 };
 }
 
-async function generateWithOpenAI({ fullPrompt, width, height, presetName, t0 }) {
-  if (!process.env.OPENAI_API_KEY) return temporarilyUnavailable();
+async function generateWithOpenAI({
+  fullPrompt,
+  width,
+  height,
+  presetName,
+  t0,
+  allowFallback = true,
+}) {
+  const providerRetryMs = process.env.NVIDIA_API_KEY
+    ? Math.max(
+        recoveryProbeInFlight ? FLUX_TIMEOUT_MS : 1000,
+        outageUntil - Date.now(),
+      )
+    : Infinity;
+  if (!allowFallback || !process.env.OPENAI_API_KEY) {
+    return temporarilyUnavailable(
+      Number.isFinite(providerRetryMs)
+        ? providerRetryMs
+        : FLUX_OUTAGE_COOLDOWN_MS,
+    );
+  }
 
   const budget = reserveOpenAIFallback();
   if (!budget.allowed) {
     console.warn("flux: OpenAI fallback hourly budget exhausted");
     return temporarilyUnavailable(
-      budget.retryAfterMs,
+      Math.min(budget.retryAfterMs, providerRetryMs),
       "fallback_budget_exhausted",
     );
   }
@@ -101,6 +132,7 @@ async function generateWithOpenAI({ fullPrompt, width, height, presetName, t0 })
   );
 
   let upstream;
+  let data;
   try {
     upstream = await fetch(OPENAI_IMAGE_URL, {
       method: "POST",
@@ -119,18 +151,12 @@ async function generateWithOpenAI({ fullPrompt, width, height, presetName, t0 })
       }),
       signal: controller.signal,
     });
+    data = await upstream.json();
   } catch (err) {
     console.error("flux: OpenAI fallback failed", err?.name || "unknown");
     return temporarilyUnavailable();
   } finally {
     clearTimeout(timeoutId);
-  }
-
-  let data;
-  try {
-    data = await upstream.json();
-  } catch {
-    data = null;
   }
 
   if (!upstream.ok) {
@@ -231,13 +257,25 @@ export async function handler(event) {
     : Math.floor(Math.random() * 1e9);
 
   const now = Date.now();
-  if (outageUntil > now) {
-    return generateWithOpenAI({ fullPrompt, width, height, presetName, t0: now });
+  const allowFallback = body.allow_fallback !== false;
+  if (
+    outageUntil > now ||
+    recoveryProbeInFlight ||
+    !process.env.NVIDIA_API_KEY
+  ) {
+    return generateWithOpenAI({
+      fullPrompt,
+      width,
+      height,
+      presetName,
+      t0: now,
+      allowFallback,
+    });
   }
 
-  if (!process.env.NVIDIA_API_KEY) {
-    return generateWithOpenAI({ fullPrompt, width, height, presetName, t0: now });
-  }
+  // Only one request probes recovery after an outage. Concurrent callers
+  // retain the bounded fallback instead of all waiting on a failing provider.
+  if (outageFailures > 0) recoveryProbeInFlight = true;
 
   // 30s timeout — FLUX schnell normally returns in 1-4s. NVIDIA has been
   // observed hanging for minutes before 504'ing during outages; fail fast
@@ -248,79 +286,112 @@ export async function handler(event) {
   const t0 = Date.now();
   let upstream;
   try {
-    upstream = await fetch(FLUX_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        prompt: fullPrompt,
-        cfg_scale: 0,
-        steps: 4,
-        seed,
+    try {
+      upstream = await fetch(FLUX_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          prompt: fullPrompt,
+          cfg_scale: 0,
+          steps: 4,
+          seed,
+          width,
+          height,
+          mode: "base",
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === "AbortError") {
+        openOutageCircuit();
+        console.warn("flux: upstream timed out; outage circuit opened");
+        return generateWithOpenAI({
+          fullPrompt,
+          width,
+          height,
+          presetName,
+          t0,
+          allowFallback,
+        });
+      }
+      console.error("flux: upstream fetch failed", err);
+      openOutageCircuit();
+      return generateWithOpenAI({
+        fullPrompt,
         width,
         height,
-        mode: "base",
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err.name === "AbortError") {
-      openOutageCircuit();
-      console.warn("flux: upstream timed out; outage circuit opened");
-      return generateWithOpenAI({ fullPrompt, width, height, presetName, t0 });
+        presetName,
+        t0,
+        allowFallback,
+      });
     }
-    console.error("flux: upstream fetch failed", err);
-    openOutageCircuit();
-    return generateWithOpenAI({ fullPrompt, width, height, presetName, t0 });
+
+    if (!upstream.ok) {
+      const detail = await upstream.text().catch(() => "");
+      console.error("flux: upstream", upstream.status, detail.slice(0, 300));
+      if (upstream.status === 429 || upstream.status >= 500) {
+        openOutageCircuit();
+        return generateWithOpenAI({
+          fullPrompt,
+          width,
+          height,
+          presetName,
+          t0,
+          allowFallback,
+        });
+      }
+      return respond(502, {
+        ok: false,
+        reason: "upstream",
+        status: upstream.status,
+      });
+    }
+
+    let data;
+    try {
+      data = await upstream.json();
+    } catch {
+      openOutageCircuit();
+      return generateWithOpenAI({
+        fullPrompt,
+        width,
+        height,
+        presetName,
+        t0,
+        allowFallback,
+      });
+    }
+
+    const art = data?.artifacts?.[0];
+    if (!art) return respond(502, { ok: false, reason: "no_artifact" });
+    resetFluxOutageCircuit();
+
+    if (art.finishReason !== "SUCCESS") {
+      // Safety filter — return 200 so the piece can react.
+      return respond(200, {
+        ok: false,
+        reason: "filtered",
+        finish: art.finishReason,
+      });
+    }
+
+    const elapsed_ms = Date.now() - t0;
+    return respond(200, {
+      ok: true,
+      png: `data:image/jpeg;base64,${art.base64}`,
+      width,
+      height,
+      seed: art.seed,
+      provider: "nvidia",
+      preset: presetName,
+      elapsed_ms,
+    });
   } finally {
     clearTimeout(timeoutId);
+    recoveryProbeInFlight = false;
   }
-
-  if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => "");
-    console.error("flux: upstream", upstream.status, detail.slice(0, 300));
-    if (upstream.status === 429 || upstream.status >= 500) {
-      openOutageCircuit();
-      return generateWithOpenAI({ fullPrompt, width, height, presetName, t0 });
-    }
-    return respond(502, {
-      ok: false,
-      reason: "upstream",
-      status: upstream.status,
-    });
-  }
-
-  let data;
-  try {
-    data = await upstream.json();
-  } catch {
-    return respond(502, { ok: false, reason: "bad_upstream_json" });
-  }
-
-  const art = data?.artifacts?.[0];
-  if (!art) return respond(502, { ok: false, reason: "no_artifact" });
-
-  if (art.finishReason !== "SUCCESS") {
-    // Safety filter — return 200 so the piece can react.
-    return respond(200, {
-      ok: false,
-      reason: "filtered",
-      finish: art.finishReason,
-    });
-  }
-
-  const elapsed_ms = Date.now() - t0;
-  return respond(200, {
-    ok: true,
-    png: `data:image/jpeg;base64,${art.base64}`,
-    width,
-    height,
-    seed: art.seed,
-    provider: "nvidia",
-    preset: presetName,
-    elapsed_ms,
-  });
 }
