@@ -85,6 +85,10 @@ final class Session {
     var approval: ProviderApproval?
     var hostOperationID: String?
     var providerNotice: String { providers.first { $0.id == provider }?.notice ?? "" }
+    var providerReady: Bool {
+        provider == "ac" ? signedIn : providers.contains { $0.id == provider && $0.available }
+    }
+    var canStartTurn: Bool { providerReady && !busy && hostOperationID == nil && fatal == nil }
     var reportedModel = ""
     var currentThreadID = ""
     var currentSessionID: String { currentThreadID }

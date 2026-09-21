@@ -447,7 +447,8 @@ struct ContentView: View {
         case "/buy": openSettings(); Task { await braincells.buy() }
         case "/help": showHelp = true
         default:
-            guard session.signedIn else { host.signIn(); return }
+            if session.provider == "ac" && !session.signedIn { host.signIn(); return }
+            guard session.canStartTurn else { openSettings(); return }
             host.ask(text)
         }
         draft = ""
@@ -465,8 +466,9 @@ struct ContentView: View {
             ("home.open", "Show saved threads", !showHome), ("home.close", "Return to notebook", showHome),
             ("help.open", "Open help", !showHelp), ("help.close", "Close help", showHelp),
             ("composer.set", "Set message draft", true), ("composer.clear", "Clear message draft", true),
-            ("composer.send", "Send message; may run inference and publish", session.signedIn && !session.busy && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
+            ("composer.send", "Send message; may run inference and publish", session.canStartTurn && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
             ("turn.stop", "Stop current turn", session.busy),
+            ("turn.reconnect", "Check current host turn without resending it", session.hostOperationID != nil && !session.busy),
             ("session.retry", "Restore failed session", session.fatal != nil),
             ("session.new", "Start a blank piece", !session.busy), ("session.resume", "Resume a saved thread", !session.busy),
             ("preview.expand", "Expand preview", previewVisible && !expandedPreview),
@@ -497,6 +499,11 @@ struct ContentView: View {
                 "title": ["opacity": 1, "linked": titleURL != nil], "footer": "v\(session.currentRevision)",
                 "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn,
                             "entryCount": session.entries.count, "history": session.history.map { ["id": $0.id, "title": $0.title, "route": $0.route] }],
+                "provider": ["selected": session.provider, "ready": session.providerReady,
+                             "model": session.model, "reportedModel": session.reportedModel,
+                             "operationID": session.hostOperationID ?? "",
+                             "choices": session.providers.map { ["id": $0.id, "available": $0.available, "notice": $0.notice] },
+                             "models": session.modelChoices.map { ["id": $0.id, "title": $0.title] }],
                 "preview": ["visible": previewVisible, "expanded": expandedPreview, "width": previewBounds.width, "height": previewBounds.height, "right": previewBounds.right, "top": previewBounds.top],
                 "layout": ["uiScale": uiScale, "compact": compact, "width": sheetSize.width, "height": sheetSize.height, "row": row, "paperTop": paperTop, "previewBlockHeight": previewBlockHeight, "composerHeight": composerHeight],
                 "notebook": ["visible": !expandedPreview && !showHome && !showSettings && !showHelp && !session.showSignIn],
@@ -521,6 +528,7 @@ struct ContentView: View {
         case "composer.clear": draft = ""
         case "composer.send": send()
         case "turn.stop": host.stop()
+        case "turn.reconnect": host.resumeHostTurn()
         case "session.retry": host.restore()
         case "session.new": host.newSession(medium: "piece"); showHome = false
         case "session.resume":

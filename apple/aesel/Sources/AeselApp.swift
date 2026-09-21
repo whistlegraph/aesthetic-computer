@@ -61,11 +61,21 @@ struct AeselApp: App {
                     started = true
                     #if DEBUG
                     if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
+                        session.currentThreadID = "notebook-preview"
                         session.signedIn = true
                         session.handle = "jeffrey"
                         session.route = "@jeffrey/notebook"
                         session.shareURL = URL(string: "https://aesthetic.computer/blank")
                         session.model = "openai/gpt-5.6-luna"
+                        if let provider = ProcessInfo.processInfo.environment["AESEL_PREVIEW_PROVIDER"],
+                           ["claude", "codex"].contains(provider) {
+                            session.signedIn = false
+                            session.handle = ""
+                            session.provider = provider
+                            session.providers = [ProviderChoice(id: provider, available: true, notice: "")]
+                            session.model = ""
+                            session.modelChoices = [ModelChoice(id: "", title: "CLI default", premium: false)]
+                        }
                         session.status = "ready"
                         session.braincells = 482000
                         session.braincellDollars = 2.41

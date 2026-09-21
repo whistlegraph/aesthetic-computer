@@ -536,7 +536,10 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     }
     if (!text.trim() || state.busy) return;
     if (state.hostOperation) throw new Error("Reconnect to resolve the previous host turn before sending another request.");
-    if (!state.token) { say("bad", { text: "Sign in to AC to make a piece." }); return; }
+    if (state.provider === "ac" && !state.token) { say("bad", { text: "Sign in to AC to make a piece." }); return; }
+    if (state.provider !== "ac" && !hostProviders.some(p => p.id === state.provider && p.available)) {
+      say("bad", { text: "This provider is not connected. Refresh the connection in Settings." }); return;
+    }
     if (!state.title || state.title === state.slug) state.title = text.trim().slice(0, 120);
     say("you", { text });
     state.busy = true;

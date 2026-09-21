@@ -11,6 +11,9 @@ export const DEFAULT_DIRECTORY = join(homedir(), 'Library/Containers/computer.ae
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function request(method, params = {}, options = {}) {
+  if (method === 'action' && (typeof params.expectedSessionID !== 'string' || !params.expectedSessionID.trim())) {
+    throw new Error('expectedSessionID is required; read aesel_state and use session.id before acting');
+  }
   const directory = options.directory || process.env.AESEL_AUTOMATION_DIR || DEFAULT_DIRECTORY;
   const metadata = await lstat(directory).catch(() => { throw new Error('Aesel automation is unavailable. Start an MCP-enabled Aesel Native build; this tool never opens or focuses the app.'); });
   if (!metadata.isDirectory() || metadata.isSymbolicLink() || (metadata.mode & 0o077) || metadata.uid !== process.getuid()) throw new Error('Automation directory must be private and owned by the current user');
@@ -48,7 +51,16 @@ const object = properties => ({ type: 'object', properties, additionalProperties
 export const TOOLS = [
   { name: 'aesel_map', description: 'Map the running native app: stable control IDs, enabled states, visible screen and overlays. Unsupported features remain explicitly disabled. Does not activate the app.', inputSchema: object({}), annotations: {readOnlyHint: true} },
   { name: 'aesel_state', description: 'Read Aesel UI and session state, piece revision, preview URL/query flags, draft length and saved-thread metadata. Does not return tokens, transcript text or source.', inputSchema: object({}), annotations: {readOnlyHint: true} },
-  { name: 'aesel_act', description: 'Operate a named enabled control from aesel_map. composer.set accepts text; session.resume accepts sessionId; window.resize accepts width/height. Send can consume inference credits and auto-publish; piece.publish writes publicly; credits.buy opens App Store confirmation; piece.open opens a browser. Use only when that specific action is authorized. Returns acceptance and observed UI state; async work may still be pending. Never focuses the main app.', inputSchema: { ...object({ id: {type:'string'}, text: {type:'string',maxLength:32768}, sessionId: {type:'string'}, width:{type:'number',minimum:360,maximum:2400},height:{type:'number',minimum:420,maximum:1800} }), required:['id'] }, annotations: {readOnlyHint:false, destructiveHint:true, openWorldHint:true} },
+  { name: 'aesel_act',
+    description: 'Operate a named enabled control from aesel_map. First read aesel_state; pass its session.id as expectedSessionID. composer.set accepts text; session.resume accepts sessionId; provider.select accepts provider; model.select accepts model (empty string means CLI default); ui.scale accepts scale; window.resize and preview.resize accept width/height. turn.reconnect checks an existing turn without resending it. Send can consume provider usage or AC credits and auto-publish; piece.publish writes publicly; credits.buy opens App Store confirmation; piece.open opens a browser. Use only when that specific action is authorized. Returns acceptance and observed state; async work may still be pending. Never focuses the main app.',
+    inputSchema: { ...object({
+      id: {type:'string'}, expectedSessionID: {type:'string',minLength:1},
+      text: {type:'string',maxLength:32768}, sessionId: {type:'string'},
+      provider: {type:'string',enum:['ac','claude','codex']}, model: {type:'string'},
+      scale: {type:'number',minimum:0.7,maximum:1.75},
+      width: {type:'number',minimum:96,maximum:2400}, height: {type:'number',minimum:72,maximum:1800}
+    }), required:['id','expectedSessionID'] },
+    annotations: {readOnlyHint:false, destructiveHint:true, openWorldHint:true} },
   { name: 'aesel_events', description: 'Read the bounded local diagnostic event ring after a sequence number. Event kinds and timestamps only; no prompt, source, token or raw bridge payload. No analytics export.', inputSchema: object({after:{type:'integer',minimum:0}}), annotations:{readOnlyHint:true} },
   { name: 'aesel_preview', description: 'Inspect the actual embedded WebKit URL, query flags, runtime readiness and canvas dimensions. No arbitrary JavaScript execution.', inputSchema: object({}), annotations:{readOnlyHint:true} },
   { name: 'aesel_capture', description: 'Capture native app chrome, notebook WebKit, or preview WebKit without focusing or opening a window. Capture each visible surface for acceptance. Optional window capture requires existing Screen Recording permission and never requests it. Captures can contain visible user content.', inputSchema: object({target:{type:'string',enum:['app','notebook','preview','window'],default:'app'}}), annotations:{readOnlyHint:true} },

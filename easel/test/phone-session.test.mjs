@@ -201,3 +201,48 @@ test('piece revision starts at zero, counts changed source, and survives thread 
     assert.equal(events.filter(e=>e.type==='piece').at(-1).version,1);
   } finally {globalThis.fetch=originalFetch;}
 });
+
+test('connected Claude and Codex update signed-out drafts without AC inference or publication', async () => {
+  const originalFetch = globalThis.fetch;
+  const network = [];
+  const previousGuides = globalThis.__aeselGuides;
+  globalThis.__aeselGuides = Object.fromEntries(['pieces.md','screen.md','hand.md','kidlisp.md','api.json'].map(name=>['/easel/context/'+name,'fixture guide']));
+  globalThis.fetch = async url => { network.push(url); throw new Error('Unexpected AC request'); };
+  try {
+    for (const provider of ['claude', 'codex']) {
+      const events = [], calls = [];
+      let available = true;
+      const source = 'export function paint({wipe}) { wipe("purple") }';
+      const hostRPC = async (method, params) => {
+        calls.push({method, params});
+        if (method === 'capabilities') return {providers: [{id:provider, available, models:[{id:'',title:'CLI default'}]}]};
+        if (method === 'configure') return {sequence:0};
+        if (method === 'turn') return {id:params.operationID,status:'running'};
+        if (method === 'events') return {
+          oldest:1, events:[{sequence:1,operation:params.operationID,type:'source',source}],
+          operation:{id:params.operationID,status:'completed'}, approvals:[]
+        };
+        throw new Error(`Unexpected RPC: ${method}`);
+      };
+      const session = createSession({hostRPC,emit:e=>events.push(e)});
+      await session.begin(); await session.open(); await session.refreshProviders(); session.setProvider(provider);
+      assert.equal(session.state.token, '');
+      await session.ask('Make purple');
+      assert.equal(calls.filter(c=>c.method==='turn').length, 1);
+      assert.equal(calls.find(c=>c.method==='configure').params.provider, provider);
+      assert.equal(session.state.revisions.at(-1).source, source);
+      assert(!session.state.published);
+      assert.equal(session.state.hostOperation, null);
+      assert.equal(events.some(e=>e.type==='bad'), false);
+      available = false; await session.refreshProviders();
+      await session.ask('Do not lose this request');
+      assert.equal(calls.filter(c=>c.method==='turn').length, 1);
+      assert.equal(session.state.provider, provider);
+      assert(events.some(e=>e.type==='bad' && e.text.includes('not connected')));
+      session.setProvider('ac');
+      await session.ask('AC still needs login');
+      assert(events.some(e=>e.type==='bad' && e.text.includes('Sign in to AC')));
+    }
+    assert.deepEqual(network, []);
+  } finally { globalThis.fetch = originalFetch; globalThis.__aeselGuides = previousGuides; }
+});

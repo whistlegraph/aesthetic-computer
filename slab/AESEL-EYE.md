@@ -12,6 +12,8 @@ This workflow extends [the papers gate](../papers/aesthetic-eye.mjs) to an inter
    surface and overlays. Disabled or unported features remain explicit.
 3. Exercise the affected controls with `aesel_act`, then read `aesel_state` and
    `aesel_events`. An accepted action can still have asynchronous work pending.
+   Pass the observed `session.id` as `expectedSessionID` on every action. A
+   thread switch invalidates that observation; inspect again before continuing.
 4. Capture notebook, settings, expanded preview and narrow notebook. Add loading,
    failure, account or other states whenever the change affects them.
 5. Inspect each image at its intended size. Review type, contrast, spacing,
@@ -70,6 +72,18 @@ instance with `AESEL_AUTOMATION_NAMESPACE=eye` to use `automation-eye` separatel
 from the everyday app. This is especially useful with the existing debug
 notebook fixture; fixture tests do not demonstrate account, inference or purchase
 success. Physical-device transport and whole-window iOS capture are not provided.
+
+State includes the selected provider, its availability, model catalog and pending
+operation ID. `provider.select` takes `provider`, `model.select` takes `model`
+(an empty string selects CLI default), and `turn.reconnect` checks the existing
+operation without resending it. `ui.scale` takes `scale`; `preview.resize` takes
+`width` and `height`. The native action validates each control's bounds.
+
+For signed-out provider UI checks, the debug notebook fixture accepts
+`AESEL_PREVIEW_PROVIDER=claude` or `codex`. This supplies test readiness only;
+it does not connect a CLI or prove inference. Both fixtures use the stable
+`notebook-preview` thread ID. Shared-session tests separately exercise source
+updates through a fake provider and assert that no AC request is made.
 
 Diagnostics record event names and timestamps, not prompts, tokens, source or
 bridge payloads. State inspection includes visible piece/thread metadata.
