@@ -69,8 +69,8 @@ mechanisms keep it honest, both in `deskflow-role-watchdog` (45s):
   against a dead address only loops. It acts only on a genuine change, so a
   server that is really offline does not get its conf rewritten every tick.
 - A **server** keeps the `address` in `~/.config/slab/deskflow-handoff.json`
-  matched to its live interface, so a trackpad claim fans out a reachable address
-  rather than the one it happened to hold at install time.
+  matched to its explicit `transportAddress`, or its live LAN interface when
+  none is configured, so a trackpad claim fans out the intended address.
 
 `serverName` is threaded through `deskflow-set-role`'s optional 4th argument by
 `claim-control`, `yield-control`, `retarget-client`, and `install.sh --server-name`.
@@ -79,13 +79,16 @@ mechanisms keep it honest, both in `deskflow-role-watchdog` (45s):
 `grep remoteHost ~/Library/Deskflow/Deskflow-client-role.conf` on a client
 against `ipconfig getifaddr en0` on the server.
 
-`deskflow-resolve-ipv4` prefers the `.local` form for bare names on purpose — via
-MagicDNS a bare name can return the tailnet address of a long-offline node — and
-discards loopback answers, since mDNS resolves a machine's own name to 127.0.0.1.
+`deskflow-resolve-ipv4` first checks the handoff config's `transportPeers` map
+(machine name without `.local` → explicit IPv4). Without a mapping, it prefers
+the `.local` form for bare names — MagicDNS can return a long-offline namesake —
+and discards loopback answers.
 
 Deskflow transport uses each machine's stable Tailscale address. On the Fuser
 Wi-Fi this keeps Chicken and Panda pointer latency far steadier than the direct
-access-point route. Role-control SSH uses those addresses too; Bonjour `.local`
+access-point route. `transportAddress` pins the local address and `transportPeers`
+pins name resolution; both must stay aligned with the fleet registry. Role-control
+SSH uses those addresses too; Bonjour `.local`
 resolution can select a stalled link-local IPv6 route after wake. Neo's existing
 `computer.aesthetic.deskflow-tailscale-ensure` agent heals a stopped tailnet
 before it can strand the clients. The peer controller is switched synchronously;
