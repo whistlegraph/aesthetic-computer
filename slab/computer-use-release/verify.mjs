@@ -6,11 +6,11 @@ import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { captureFrame } from '../bin/frame.mjs';
-import { createComputerUseClient } from '../lib/computer-use-client.mjs';
-import { inspectMachineLeases } from '../lib/computer-use-lease.mjs';
-
-const root = resolve(import.meta.dirname, '../..');
+// A newer verifier can check an already-installed immutable release unchanged.
+const root = process.argv[2] ? resolve(process.argv[2]) : resolve(import.meta.dirname, '../..');
+const { captureFrame } = await import(pathToFileURL(join(root, 'slab/bin/frame.mjs')));
+const { createComputerUseClient } = await import(pathToFileURL(join(root, 'slab/lib/computer-use-client.mjs')));
+const { inspectMachineLeases } = await import(pathToFileURL(join(root, 'slab/lib/computer-use-lease.mjs')));
 const manifest = JSON.parse(readFileSync(join(root, 'release.json')));
 for (const [path, expected] of Object.entries(manifest.sha256)) {
   assert.equal(createHash('sha256').update(readFileSync(join(root, path))).digest('hex'), expected, path);
@@ -31,7 +31,7 @@ for (const name of ['frame_click', 'frame_drag']) {
   const schema = catalog.tools.find(t => t.name === name).inputSchema.properties;
   assert(schema.holdMs && schema.verify && schema.settleMs, name + ' speed controls');
 }
-const { chromium } = await import('playwright-core');
+const { chromium } = await import(pathToFileURL(join(root, 'node_modules/playwright-core/index.mjs')));
 assert.equal(typeof chromium.connectOverCDP, 'function');
 assert.deepEqual(inspectMachineLeases(), [], 'Do not interrupt active input');
 const session = 'deploy_' + Date.now();
@@ -41,6 +41,7 @@ const b = await captureFrame('local', { ...options, session: session + 'b', base
 const diff = await captureFrame('local', { ...options, session: session + 'a', diff: true });
 for (const { env, jpg } of [a, b, diff]) {
   assert.equal(env.capture, 'ok', 'Native capture permission/availability');
+  assert.equal(env.ax?.trusted, true, 'Native Accessibility permission required for input');
   assert(jpg?.length, 'Native pixels');
   for (const cap of ['target-guard-v1', 'guarded-click-v1', 'ax-verify-v1', 'click-hold-v1', 'guarded-drag-v1'])
     assert(env.nativeCapabilities.includes(cap), cap);
@@ -50,4 +51,4 @@ assert.equal(diff.env.diff_baseline, 'matched');
 assert.deepEqual(inspectMachineLeases(), []);
 console.log(JSON.stringify({ ok: true, revision: manifest.revision, nativeUUID: uuid,
   hashes: Object.keys(manifest.sha256).length, mcp: 'Frame + Puppet', nativeCapture: true,
-  sessionIsolation: true, captutorFrameImport: true, captutor: installed.captutor }));
+  accessibility: true, sessionIsolation: true, captutorFrameImport: true, captutor: installed.captutor }));
