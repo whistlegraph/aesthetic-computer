@@ -17,6 +17,7 @@ import {
   clean,
   deliver,
   mailbox,
+  INBOUND_DOMAINS,
   MAX_SUBJECT_LENGTH,
   sendOutside,
   subFromAddress,
@@ -167,7 +168,8 @@ async function handleMail(event, context) {
       // Not a handle, and not an email anyone here signed up with: if it
       // is an address at all, the letter leaves the wall as real email.
       const toEmail = body.to.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(toEmail)) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(toEmail) ||
+          INBOUND_DOMAINS.some((domain) => toEmail.endsWith("@" + domain))) {
         return respond(404, { message: "Recipient not found" });
       }
       const sent = await sendOutside(

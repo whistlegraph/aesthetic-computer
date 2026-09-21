@@ -48,7 +48,9 @@ let status = "loading"; // loading, loaded, error, noauth
 let mail = null;
 let prefs = null; // blast subscription + history, fetched when prefs opens
 let errorMsg = null;
-let rows = []; // [{ y0, y1, who, email, subject }] — paint measures them, act replies to them
+let rows = []; // painted letter bounds and their explicit reply controls
+let expandedId = null;
+const reading = new Set();
 let ellipsisTicker;
 let busy = false;
 let fields; // to · subject · body, sharing one keyboard (see lib/type.mjs)
@@ -201,6 +203,9 @@ async function boot(api) {
   composeNote = null;
   replyTo = null;
   hits = [];
+  rows = [];
+  expandedId = null;
+  scroll = 0;
   installMailTestHook(api);
   mediaView.clear();
   mediaNote = null;
@@ -291,7 +296,7 @@ async function send(api, { to, subject, body }) {
     leaveCompose(api, "sent");
     await refresh(api);
   } else if (res.status === 404) {
-    composeNote = `${s.noOne} ${to.trim()}`;
+    composeNote = `${s.noOne} ${to.trim()}. ${s.fullHandle}`;
   } else {
     composeNote = s.couldntSend;
   }
@@ -327,7 +332,7 @@ function compose(api, to, subject) {
 // Answer a letter: compose to whoever sent it — outside letters go back out
 // as email — with the subject carried over under `Re:`.
 function answer(api, who, email, subject) {
-  const address = who?.startsWith("@") ? who : email;
+  const address = who?.startsWith("@") || /^ac\d\d[a-z]{5}$/.test(who || "") ? who : email;
   if (!address) return;
   const re = subject && !/^re:/i.test(subject) ? `Re: ${subject}` : subject || null;
   compose(api, address, re);
@@ -339,6 +344,7 @@ function showView(api, value) {
   if (view === "compose") leaveCompose(api, value);
   else view = value;
   scroll = 0;
+  expandedId = null;
   if (value === "prefs" && !prefs) {
     api.net.userRequest("GET", "/api/mail-status").then((res) => {
       if (res.status === 200) prefs = res;
@@ -348,6 +354,25 @@ function showView(api, value) {
     });
   }
   tell();
+}
+
+// A letter is read when opened, not merely when its preview is painted.
+async function markLetterRead(api, letter) {
+  if (letter.read || reading.has(letter.id)) return;
+  const box = mail;
+  reading.add(letter.id);
+  try {
+    const res = await api.net.userRequest("POST", "/api/mail", { action: "read", id: letter.id });
+    if (res.status === 200 && !letter.read) {
+      letter.read = true;
+      box.unread = Math.max(0, box.unread - 1);
+    }
+  } catch {} // The letter stays open; its unread state can be retried later.
+  finally {
+    reading.delete(letter.id);
+    api.needsPaint();
+    tell();
+  }
 }
 
 // The mark-all-read control.
@@ -476,6 +501,7 @@ function paint(api) {
   const c = t.chat;
   const s = S();
   hits = [];
+  rows = [];
   mediaHits = [];
   wipe(...t.bg);
 
@@ -579,15 +605,18 @@ function paint(api) {
 
     const footer = frame.y + frame.height + 4;
     const sendBox = control(api, x, footer, s.send, { type: "send" }, { selected: true });
+    const note = composeNote || s.composeHint;
+    const noteWidth = wide - sendBox.w - 6;
     ink(composeNote ? [255, 130, 130] : c.timestamp).write(
-      composeNote || s.composeHint,
+      note,
       { x: sendBox.x + sendBox.w + 6, y: footer + 2 },
       undefined,
-      wide - sendBox.w - 6,
-      false,
+      noteWidth,
+      true,
       CHIP_FONT,
     );
-    ink(c.timestamp).write(s.mediaHint, { x, y: footer + CHIP_H + 4 }, undefined, wide, true, CHIP_FONT);
+    const noteH = text.box(note, undefined, noteWidth, 1, true, CHIP_FONT).box.height;
+    ink(c.timestamp).write(s.mediaHint, { x, y: footer + Math.max(CHIP_H, noteH + 2) + 4 }, undefined, wide, true, CHIP_FONT);
     paintCorner(api);
     paintSettings(api);
     return;
@@ -623,8 +652,9 @@ function paint(api) {
   rows = [];
 
   const measured = letters.map((letter) => {
-    let body = letter.text;
-    if (compact) {
+    const expanded = letter.id === expandedId;
+    let body = expanded && letter.subject ? `${letter.subject}\n${letter.text}` : letter.text;
+    if (compact && !expanded) {
       const most = Math.floor(bounds / cw) * 2 - 1;
       if (body.length > most) body = body.slice(0, most) + "…";
     }
@@ -652,7 +682,8 @@ function paint(api) {
       // Stripe the row behind everything, so a long message stays one block —
       // the tema's stripes, unread rows on the brighter one.
       ink(unread ? t.stripeB : i % 2 ? t.stripeA : [...t.stripeA, 110]).box(x, ly, wide, rowH);
-      rows.push({ y0: ly, y1: ly + rowH, who, email, subject: letter.subject });
+      const row = { y0: ly, y1: ly + rowH, letter, who, email, reply: null };
+      rows.push(row);
 
       if (unread) ink(c.log).box(x + 2, yy + 2, 3, 3);
       ink(unread ? c.handle : c.timestamp).write(who, { x: x + 8, y: yy }, undefined, undefined, false, face);
@@ -671,19 +702,17 @@ function paint(api) {
         ink([...c.timestamp, 170]).write(s.outside, { x: afterWho, y: yy + smallTint }, undefined, undefined, false, CHIP_FONT);
         afterWho += s.outside.length * 4 + 6;
       }
-      // The reply chip sits at the row's right end, the clock beside it —
-      // the whole row answers the letter, the chip just says so. It wakes
-      // on the hot row; inbox only, since `sent` rows aren't answers.
+      // Only the reply chip composes; the rest of the row opens the letter.
       let right = screen.width - x;
       if (view === "inbox") {
         const chipW = chipWidth(s.reply);
         right -= chipW;
-        paintChip(api, right, yy - (compact ? 2 : 1), s.reply, { tint: WRITE, dim: !hot });
+        row.reply = paintChip(api, right, yy - (compact ? 2 : 1), s.reply, { tint: WRITE, dim: !hot });
         right -= 4;
       }
       const agoW = cw * 5 + 4;
       right -= agoW;
-      if (letter.subject) {
+      if (letter.subject && letter.id !== expandedId) {
         // Cut the subject to the room left before the timestamp — `write`
         // with a bound and no wrap still runs on under the clock.
         const room = Math.floor((right - afterWho) / cw);
@@ -890,8 +919,8 @@ function act(api) {
     }
   }
 
-  // Tap a letter (or its reply chip — same thing) to answer it: the field
-  // opens already addressed. A drag that ended on a letter was a scroll.
+  // A tap opens the whole letter; the reply chip alone starts an answer.
+  // A drag that ended on a letter was a scroll.
   if (e.is("lift") && !dragged && listing) {
     const media = mediaHits.find((box) => hit(box));
     if (media) {
@@ -906,11 +935,13 @@ function act(api) {
       return;
     }
     const row = rows.find((r) => e.y >= r.y0 && e.y < r.y1);
-    if (row && e.y >= listTop) {
-      // A sent letter's row just writes to them again — not a reply.
-      const address = row.who?.startsWith("@") ? row.who : row.email;
-      if (view === "inbox") answer(api, row.who, row.email, row.subject);
-      else if (address) compose(api, address);
+    if (row && e.y >= listTop && e.x >= 6 && e.x < api.screen.width - 6) {
+      if (view === "inbox" && hit(row.reply)) {
+        answer(api, row.who, row.email, row.letter.subject);
+      } else {
+        expandedId = expandedId === row.letter.id ? null : row.letter.id;
+        if (expandedId && view === "inbox") markLetterRead(api, row.letter);
+      }
       needsPaint();
     }
   }
