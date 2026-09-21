@@ -22,7 +22,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir, tmpdir } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
-import { clickPointAsync as clickPoint, hoverPointAsync as hoverPoint, sendKeysAsync as sendKeys } from "./macos.mjs";
+import { clickPointAsync as clickPoint, hoverPointAsync as hoverPoint, dragPointAsync as dragPoint, sendKeysAsync as sendKeys } from "./macos.mjs";
 import { buildHoverProbes, changesNearPoint } from "../lib/frame-hover-atlas.mjs";
 import { withFrameSession, frameSessionId, nativeFrameSession, frameStateKey, FrameStateMap } from "../lib/frame-session.mjs";
 import { assertFrameTarget } from "../lib/frame-target.mjs";
@@ -1012,12 +1012,19 @@ async function toolRejectClick({ machine, approvalId, ocr = true, fast = true })
   return content;
 }
 
-async function toolKey({ machine, observationId, key, mod, ocr = true, fast = true }) {
+async function toolKey({ machine, observationId, key, mod, ocr = true, fast = true, visual = true }) {
   await verifyNativeTarget(machine, observationId);
   const mods = Array.isArray(mod) ? mod : (mod ? String(mod).split(",").filter(Boolean) : []);
   await sendKeys(machineSpec(machine), key, mods);
   await settle();
-  return toolFrame({ machine, ocr, fast, cursor: true });
+  return toolFrame({ machine, ocr, fast, visual, cursor: true });
+}
+
+async function toolDrag({ machine, observationId, from, to, durationMs = 500, ocr = true, fast = true, visual = true }) {
+  await verifyNativeTarget(machine, observationId);
+  await dragPoint(machineSpec(machine), from, to, { durationMs });
+  await settle();
+  return toolFrame({ machine, ocr, fast, visual, cursorAt: to });
 }
 
 async function toolList() {
@@ -1252,6 +1259,17 @@ const TOOLS = [
     },
   },
   {
+    name: "frame_drag",
+    description: "ACTS + OBSERVES: native drag between global macOS screen points, including Finder-to-browser file drops. Observe both endpoints first; the source must be in the last window-scoped frame. Rechecks the source window before input, then returns a fresh frame. Verify the result before another drag; never retry an unknown outcome automatically.",
+    inputSchema: { type: "object", properties: {
+      machine: { type: "string" },
+      from: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+      to: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+      durationMs: { type: "number", minimum: 250, maximum: 2000 },
+      ocr: { type: "boolean" }, fast: { type: "boolean" }, visual: { type: "boolean" },
+    }, required: ["machine", "from", "to"] },
+  },
+  {
     name: "frame_key",
     description: "ACTS + OBSERVES: send one navigation key/chord to the frontmost native app, then immediately return a fresh frame. Intended for reversible exploration such as tab, escape, arrows, space, and enter.",
     inputSchema: {
@@ -1259,7 +1277,7 @@ const TOOLS = [
       properties: {
         machine: { type: "string" }, key: { type: "string" },
         mod: { type: "string", description: "Optional comma-separated modifiers: cmd,shift,opt,ctrl." },
-        ocr: { type: "boolean" }, fast: { type: "boolean" },
+        ocr: { type: "boolean" }, fast: { type: "boolean" }, visual: { type: "boolean", description: "Detect supplemental contours in the returned frame (default true)." },
       },
       required: ["machine", "key"],
     },
@@ -1310,7 +1328,7 @@ const TOOLS = [
 ];
 
 for (const tool of TOOLS) {
-  if (["frame_click", "frame_key"].includes(tool.name)) tool.inputSchema.properties.observationId = {
+  if (["frame_click", "frame_key", "frame_drag"].includes(tool.name)) tool.inputSchema.properties.observationId = {
     type: "string", description: "Expected latest window observation ID in this session. The frontmost window and bounds are checked again before input.",
   };
   if (tool.inputSchema.properties.machine) tool.inputSchema.properties.sessionId = {
@@ -1335,6 +1353,7 @@ async function callTool(name, args) {
     case "frame_reject_click": return toolRejectClick(args || {});
     case "frame_action_trail": return toolActionTrail(args || {});
     case "frame_key": return toolKey(args || {});
+    case "frame_drag": return toolDrag(args || {});
     case "frame_list": return toolList();
     case "frame_doctor": return toolDoctor(args || {});
     case "frame_setup": return toolSetup(args || {});
@@ -1369,7 +1388,7 @@ async function handleMessage(message, context) {
           // Keep native input and its verification capture together. Staging
           // does not hold a lease while waiting for a human decision.
           const run = () => callTool(params?.name, params?.arguments);
-          return ["frame_click", "frame_key", "frame_hover", "frame_wander", "frame_wiggle", "frame_commit_click"].includes(params?.name)
+          return ["frame_click", "frame_key", "frame_drag", "frame_hover", "frame_wander", "frame_wiggle", "frame_commit_click"].includes(params?.name)
             ? withMachineLease(machineSpec(params?.arguments?.machine), run) : run();
         });
         return { jsonrpc: "2.0", id, result: { content } };

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finder Quest</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f1e8;color:#20332b;font:17px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:28px}header{display:flex;align-items:center;justify-content:space-between;gap:16px}h1{font-size:34px;letter-spacing:-1.3px;margin:0}#clock{font-size:28px;font-variant-numeric:tabular-nums}#goal{max-width:720px;line-height:1.5;margin:24px 0}button,a.download{font:inherit;background:#234e3c;color:white;border:0;border-radius:9px;padding:12px 17px;text-decoration:none;cursor:pointer;display:inline-block}button.secondary{background:#e0e6d7;color:#20332b}nav{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:28px}#score{font-size:23px;font-weight:700;margin:24px 0 16px}.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:28px}h2{font-size:20px;margin:0 0 15px}.file{padding:11px 0;border-bottom:1px solid #d5dbce;display:flex;justify-content:space-between;gap:12px}.name{font-family:ui-monospace,monospace;font-size:14px;overflow-wrap:anywhere}.status{font-size:13px;color:#586859;white-space:nowrap}.good{color:#2c6b31}.downloads{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}a.download{background:white;color:#234e3c;border:1px solid #bdcdbb}#drop{border:2px dashed #7c9d78;background:#e7eddf;border-radius:16px;padding:32px 20px;text-align:center;min-height:190px;display:flex;flex-direction:column;justify-content:center;gap:12px}#drop.over{background:#cfdfbd;border-color:#244e30}#drop strong{font-size:24px}#drop small{font-size:15px;line-height:1.45}#message{line-height:1.4;min-height:24px}#path{font-size:13px;color:#586859;overflow-wrap:anywhere;margin:18px 0}#returned{padding-left:20px;line-height:1.7}input{max-width:100%;margin:15px auto 0}#finish{font-weight:700;font-size:25px;margin-top:24px}[hidden]{display:none!important}@media(max-width:720px){.grid{grid-template-columns:1fr}main{padding:22px}h1{font-size:28px}}
+</style>
+<style>@media(min-width:601px) and (max-width:720px){.grid{grid-template-columns:1fr 1fr}main{padding:20px}.name{font-size:12px}.status{white-space:normal}#drop{padding:20px 12px}#drop strong{font-size:21px}}</style>
+<main>
+<header><h1>Finder Quest</h1><output id="clock">0:00</output></header>
+<p id="goal">Sort the mess in Finder: images → Pictures, text → Notes, sounds → Audio. Download the three missing files, move them out of Downloads, then drag those three files back here.</p>
+<nav><button id="start">Start run</button><button class="secondary" id="finder">Open quest folder</button><button class="secondary" id="downloads">Open Downloads</button><button class="secondary" id="new">New round</button></nav>
+<div id="score" aria-live="polite">Loading…</div>
+<div class="grid"><section><h2>Sort 12 files</h2><div id="files"></div><p id="path"></p></section>
+<section><h2>Download the missing three</h2><div id="links" class="downloads"></div>
+<div id="drop" tabindex="0" role="region" aria-label="Return sorted quest files"><strong>Drop the three downloads here</strong><small>First move them into their correct quest folders.<br>Files stay on this Mac.</small><input id="picker" type="file" multiple aria-label="Choose sorted quest files"></div>
+<p id="message" role="status"></p><ul id="returned"></ul><div id="finish" hidden>All sorted. All returned.</div>
+</section></div>
+</main><script type="module" src="./app.mjs"></script></html>

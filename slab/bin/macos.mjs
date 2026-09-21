@@ -86,6 +86,7 @@ function asyncOperation(fn, spec, args, optionIndex) {
 
 export const clickPointAsync = (spec, x, y, options) => asyncOperation(clickPointCore, spec, [x, y, options], 2);
 export const hoverPointAsync = (spec, x, y) => asyncOperation(hoverPointCore, spec, [x, y], 2);
+export const dragPointAsync = (spec, from, to, options) => asyncOperation(dragPointCore, spec, [from, to, options], 2);
 export const sendKeysAsync = (spec, key, mods = []) => asyncOperation(sendKeysCore, spec, [key, mods], 2);
 export const termListAsync = (spec) => asyncOperation(termList, spec, [], 0);
 export const typeTextAsync = (spec, text, options) => asyncOperation(typeTextCore, spec, [text, options], 1);
@@ -124,6 +125,31 @@ function hoverPointCore(spec, x, y, { run = sh } = {}) {
 const p = $.CGPointMake(${Math.round(x)}, ${Math.round(y)});
 const e = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, p, $.kCGMouseButtonLeft);
 $.CGEventPost($.kCGHIDEventTap, e);`, { run });
+}
+
+// Native, global-screen drag. Browser CDP gestures cannot carry a Finder file
+// across application windows. Always release the mouse, including on errors.
+export function dragPointCore(spec, from, to, { durationMs = 500, run = sh } = {}) {
+  if (![from, to].every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)))
+    throw new Error('Drag endpoints must be pairs of finite screen coordinates');
+  if (!Number.isFinite(durationMs) || durationMs < 250 || durationMs > 2000)
+    throw new Error('Drag duration must be 250–2000 ms');
+  const [x, y] = from.map(Math.round), [tx, ty] = to.map(Math.round);
+  const steps = Math.ceil(durationMs / 16);
+  return jxa(spec, `ObjC.import("CoreGraphics");
+let current = $.CGPointMake(${x}, ${y});
+try {
+  $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseDown, current, $.kCGMouseButtonLeft));
+  delay(0.08);
+  for (let i = 1; i <= ${steps}; i++) {
+    const t = i / ${steps};
+    current = $.CGPointMake(${x} + (${tx - x}) * t, ${y} + (${ty - y}) * t);
+    $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseDragged, current, $.kCGMouseButtonLeft));
+    delay(${durationMs / steps / 1000});
+  }
+} finally {
+  $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseUp, current, $.kCGMouseButtonLeft));
+}`, { run });
 }
 
 // AppleScript string literal: quote it, escape backslash + quote.
