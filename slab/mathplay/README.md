@@ -17,6 +17,11 @@ Every click must produce a new correct-round result and exactly one score
 increment. It uses no answer key, game-state access, DOM mutation, or Jev call.
 This measures the tool loop; it does not include language-model inference.
 
+Benchmark stdout contains a compact JSON summary and `reportPath`. The unique
+report file retains every sample, native receipt, and fixture event trace;
+`--full-report` also prints it. The historical `*-report.json` file still holds
+the latest run. Successful and failed timing samples are summarized separately.
+
 Blueberry, September 21, 2026: two runs scored **60/60**. All clicks verified in
 under 100 ms. Run medians were **34.03 / 48.97 ms**, p95 **52.94 / 68.00 ms**,
 and maxima **55.56 / 92.10 ms**. The 30-round loops took **1.13 / 1.50 seconds**
@@ -128,3 +133,17 @@ median / 206.67 ms p95**. Unverified and cross-window movement stays at 500 ms;
 this experiment does not establish Finder/file-transfer minimum timings.
 
 [Complete gesture evidence](results/blueberry-gesture-timing-2026-09-21.json).
+
+For repeated fresh-page checks, set `SLAB_DRAG_BATCHES`; repeat counts apply to
+each batch. The run stops on the first unverified drag, with no replay. Keep the
+mouse and keyboard idle; mark interrupted trials as inconclusive.
+
+```sh
+SLAB_DRAG_DEFAULTS=1 SLAB_DRAG_SWEEP=32 SLAB_DRAG_REPEATS=20 SLAB_DRAG_BATCHES=5 node slab/bin/computer-use-smoke.mjs --drag-bench --installed-frame
+```
+
+The follow-up clean run passed 100/100 drops across five fresh pages at the
+existing 32/32 ms timing: 140.20 ms median / 183.91 ms p95. A user reported
+manual intervention during surrounding experiments, so those trials do not
+justify changing the default. Native click verification remains the largest
+measured click stage (30.55 ms median in the preceding 100-click run).
