@@ -54,16 +54,25 @@ this key so deployment validation rejects incomplete environments.
 1024×1024. Set `CLOUDFLARE_ACCOUNT_ID` and a scoped `CLOUDFLARE_AI_TOKEN`
 in the canonical Lith env. `IMAGE_MONTHLY_BUDGET_USD` defaults to 5;
 `IMAGE_DAILY_BUDGET_USD` defaults to 0.5. Set either to 0 to stop inference.
+Set `IMAGE_FAL_KEY` to enable fal.ai Sana for new requests after Cloudflare
+reports daily-quota exhaustion. This separate variable avoids enabling other
+products that use `FAL_KEY`. Sana returns 768×768 JPEGs at 18 steps.
 
 Mongo collection `image-generation-budget` reserves 634 micro-USD per
-attempt before the provider request, including failed attempts. Both caps
+Cloudflare attempt and 1,000 micro-USD per Sana attempt before the provider
+request, including failed attempts. Both caps
 are shared across processes and survive restarts, resetting at UTC month/day
 boundaries. Database failure stops generation. There are no automatic paid
-retries or premium fallbacks. The Cloudflare free quota can stop requests
-earlier; free-quota exhaustion returns 429 until midnight UTC.
+retries or premium fallbacks. Cloudflare quota exhaustion returns 429; with
+Sana configured, the next request can use Sana after one second. Without
+Sana, requests wait until midnight UTC. Cloudflare is selected again at
+midnight. Provider timeouts and other failures never trigger a second paid
+request. Both providers debit the same historical `cloudflare-flux:YYYY-MM`
+record, so enabling Sana cannot reset the cap.
 
 The reservation rounds up the September 2026 four-step image rate of
 $0.0006336. Revisit it when changing the model, dimensions, steps, or
 [Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
-Caps cover this endpoint's inference, excluding account plan fees and other
-Cloudflare workloads.
+Sana reserves a full megapixel at its $0.001/megapixel rate despite requesting
+only 768×768. Caps cover this endpoint's inference, excluding account plan
+fees and other workloads.

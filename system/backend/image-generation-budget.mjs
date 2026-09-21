@@ -2,6 +2,13 @@
 // Cloudflare FLUX Schnell, 1024 square / four steps: $0.0006336, rounded up.
 export const IMAGE_COST_MICRO_USD = 634;
 
+function providerCost(provider) {
+  if (provider === "cloudflare") return IMAGE_COST_MICRO_USD;
+  // fal Sana at 768x768 remains within its one-megapixel price tier.
+  if (provider === "fal-sana") return 1000;
+  throw new Error("Unknown image generation provider");
+}
+
 function cap(value, fallback) {
   const dollars = Number(value ?? fallback);
   if (!Number.isFinite(dollars) || dollars < 0 || dollars > 1000)
@@ -10,13 +17,15 @@ function cap(value, fallback) {
 }
 
 export function createMongoImageBudget(collection, { env = process.env, now = Date.now } = {}) {
-  return async function reserve() {
+  return async function reserve({ provider = "cloudflare" } = {}) {
+    const cost = providerCost(provider);
     const at = new Date(now());
     const month = at.toISOString().slice(0, 7);
     const day = at.toISOString().slice(0, 10);
     const monthly = cap(env.IMAGE_MONTHLY_BUDGET_USD, 5);
     const daily = cap(env.IMAGE_DAILY_BUDGET_USD, 0.5);
-    const cost = IMAGE_COST_MICRO_USD;
+    // Keep the historical Cloudflare key: changing providers must not reset
+    // spend already reserved this month. Daily/monthly totals include both.
     const id = `cloudflare-flux:${month}`;
     const field = `days.${day}`;
     const dayEnd = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate() + 1);
@@ -47,8 +56,9 @@ export function createMongoImageBudget(collection, { env = process.env, now = Da
   };
 }
 
-export async function reserveImageBudget() {
+export async function reserveImageBudget({ provider = "cloudflare" } = {}) {
+  providerCost(provider); // Reject unknown providers before opening the database.
   const { connect } = await import("./database.mjs");
   const { db } = await connect();
-  return createMongoImageBudget(db.collection("image-generation-budget"))();
+  return createMongoImageBudget(db.collection("image-generation-budget"))({ provider });
 }

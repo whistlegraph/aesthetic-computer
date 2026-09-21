@@ -292,3 +292,229 @@ test("Cloudflare free-quota exhaustion waits for midnight without more reservati
   assert.equal((await handler(event())).statusCode, 200);
   assert.equal(reservations, 2);
 });
+
+const quota = () =>
+  Response.json({ success: false, errors: [{ code: 3036 }] }, { status: 429 });
+const sanaImage = () => ({
+  png: "data:image/jpeg;base64,sana-image",
+  width: 768,
+  height: 768,
+  seed: 17,
+});
+
+test("confirmed Cloudflare quota routes only a subsequent request to separately reserved Sana", async () => {
+  const reservations = [],
+    calls = [];
+  const handler = createHandler({
+    env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+    reserveBudget: async (request) => {
+      reservations.push(request);
+      return { allowed: true };
+    },
+    fetch: async () => {
+      calls.push("cloudflare");
+      return quota();
+    },
+    generateSana: async ({ prompt, key, signal, fetchImpl }) => {
+      assert.equal(prompt, "a square");
+      assert.equal(key, "synthetic-fal");
+      assert.equal(signal.aborted, false);
+      assert.equal(typeof fetchImpl, "function");
+      calls.push("fal-sana");
+      return sanaImage();
+    },
+  });
+  const first = await handler(
+    event({ prompt: "a square", preset: "raw", provider: "fal-sana" }),
+  );
+  assert.equal(first.statusCode, 429);
+  assert.equal(first.headers["Retry-After"], "1");
+  assert.equal(JSON.parse(first.body).reason, "provider_quota");
+  assert.deepEqual(
+    calls,
+    ["cloudflare"],
+    "caller cannot select provider or trigger same-request failover",
+  );
+  assert.deepEqual(reservations, [{ provider: "cloudflare" }]);
+  const second = await handler(event());
+  assert.equal(second.statusCode, 200);
+  const image = JSON.parse(second.body);
+  assert.equal(image.provider, "fal-sana");
+  assert.equal(image.width, 768);
+  assert.equal(image.height, 768);
+  assert.equal(image.seed, 17);
+  assert.deepEqual(calls, ["cloudflare", "fal-sana"]);
+  assert.deepEqual(reservations, [
+    { provider: "cloudflare" },
+    { provider: "fal-sana" },
+  ]);
+});
+
+test("network errors and capacity429 never select Sana even with its key configured", async () => {
+  for (const failure of [
+    () => {
+      throw new DOMException("timeout", "AbortError");
+    },
+    () =>
+      Response.json(
+        { success: false, errors: [{ code: 3040 }] },
+        { status: 429 },
+      ),
+  ]) {
+    let sanaCalls = 0,
+      reservations = 0;
+    const handler = createHandler({
+      env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+      now: () => 1000,
+      reserveBudget: async ({ provider }) => {
+        assert.equal(provider, "cloudflare");
+        reservations++;
+        return { allowed: true };
+      },
+      fetch: failure,
+      generateSana: async () => {
+        sanaCalls++;
+        return sanaImage();
+      },
+    });
+    assert.equal((await handler(event())).statusCode, 503);
+    assert.equal((await handler(event())).statusCode, 503);
+    assert.equal(sanaCalls, 0);
+    assert.equal(reservations, 1);
+  }
+});
+
+test("shared budget denial prevents Sana and does not try another provider", async () => {
+  const providers = [];
+  let cloudflareCalls = 0,
+    sanaCalls = 0;
+  const handler = createHandler({
+    env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+    reserveBudget: async ({ provider }) => {
+      providers.push(provider);
+      return provider === "cloudflare"
+        ? { allowed: true }
+        : { allowed: false, retryAfterSeconds: 86400 };
+    },
+    fetch: async () => {
+      cloudflareCalls++;
+      return quota();
+    },
+    generateSana: async () => {
+      sanaCalls++;
+      return sanaImage();
+    },
+  });
+  await handler(event());
+  const denied = await handler(event());
+  assert.equal(denied.statusCode, 429);
+  assert.equal(denied.headers["Retry-After"], "86400");
+  assert.equal(JSON.parse(denied.body).reason, "image_budget_exhausted");
+  assert.deepEqual(providers, ["cloudflare", "fal-sana"]);
+  assert.equal(sanaCalls, 0);
+  assert.equal(cloudflareCalls, 1);
+});
+
+test("Sana failure has its own circuit and does not block Cloudflare at midnight", async () => {
+  let now = Date.parse("2026-09-21T23:59:55Z"),
+    sanaCalls = 0,
+    cloudflareCalls = 0;
+  const providers = [];
+  const handler = createHandler({
+    env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+    now: () => now,
+    reserveBudget: async ({ provider }) => {
+      providers.push(provider);
+      return { allowed: true };
+    },
+    fetch: async () => (++cloudflareCalls === 1 ? quota() : success()),
+    generateSana: async () => {
+      sanaCalls++;
+      throw new DOMException("timeout", "AbortError");
+    },
+  });
+  await handler(event());
+  assert.equal((await handler(event())).headers["Retry-After"], "60");
+  assert.equal((await handler(event())).statusCode, 503);
+  assert.equal(
+    sanaCalls,
+    1,
+    "ambiguous Sana failure is not retried or switched",
+  );
+  now += 5000;
+  const reset = await handler(event());
+  assert.equal(reset.statusCode, 200);
+  assert.equal(JSON.parse(reset.body).provider, "cloudflare");
+  assert.deepEqual(providers, ["cloudflare", "fal-sana", "cloudflare"]);
+});
+
+test("Sana filtering is explicit and does not open an availability circuit", async () => {
+  let calls = 0;
+  const handler = createHandler({
+    env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+    reserveBudget: allowed,
+    fetch: async () => quota(),
+    generateSana: async () => {
+      calls++;
+      if (calls === 1)
+        throw Object.assign(new Error("synthetic filter"), {
+          reason: "filtered",
+        });
+      return sanaImage();
+    },
+  });
+  await handler(event());
+  const filtered = await handler(event());
+  assert.equal(filtered.statusCode, 422);
+  assert.equal(JSON.parse(filtered.body).reason, "filtered");
+  assert.equal((await handler(event())).statusCode, 200);
+  assert.equal(calls, 2);
+});
+
+test("in-flight bound also applies to Sana before additional reservations", async () => {
+  let reservations = 0;
+  const pending = [];
+  const handler = createHandler({
+    env: { ...env, IMAGE_FAL_KEY: "synthetic-fal" },
+    reserveBudget: async () => {
+      reservations++;
+      return { allowed: true };
+    },
+    fetch: async () => quota(),
+    generateSana: () => new Promise((resolve) => pending.push(resolve)),
+  });
+  await handler(event());
+  const first = handler(event()),
+    second = handler(event());
+  await new Promise(setImmediate);
+  const busy = await handler(event());
+  assert.equal(busy.statusCode, 429);
+  assert.equal(JSON.parse(busy.body).reason, "busy");
+  assert.equal(reservations, 3, "quota request plus two Sana reservations");
+  for (const resolve of pending) resolve(sanaImage());
+  await Promise.all([first, second]);
+});
+
+test("unrelated FAL_KEY cannot enable image overflow", async () => {
+  let sanaCalls = 0,
+    reservations = 0;
+  const handler = createHandler({
+    env: { ...env, FAL_KEY: "unrelated-easel-key" },
+    now: () => Date.parse("2026-09-21T23:55:00Z"),
+    reserveBudget: async () => {
+      reservations++;
+      return { allowed: true };
+    },
+    fetch: async () => quota(),
+    generateSana: async () => {
+      sanaCalls++;
+      return sanaImage();
+    },
+  });
+  const first = await handler(event());
+  assert.equal(first.headers["Retry-After"], "300");
+  assert.equal(JSON.parse(first.body).reason, "image_budget_exhausted");
+  assert.equal((await handler(event())).statusCode, 429);
+  assert.equal(sanaCalls, 0);
+  assert.equal(reservations, 1);
+});
