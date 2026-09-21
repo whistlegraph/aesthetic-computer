@@ -23,7 +23,7 @@ export function validateHeader(value) {
   if(metadata.title!==undefined)text(metadata.title,160,'title');
   const consent=object(value.consent??{sharing:'private'},['sharing','id','acceptedAt','disclosureVersion']);
   if(!['private','company'].includes(consent.sharing))throw new Error('Invalid sharing setting');
-  if(consent.sharing==='company') {id(consent.id);date(consent.acceptedAt);if(![1,2,3].includes(consent.disclosureVersion))throw new Error('Consent disclosure required');}
+  if(consent.sharing==='company') {id(consent.id);date(consent.acceptedAt);if(![1,2,3,4].includes(consent.disclosureVersion))throw new Error('Consent disclosure required');}
   const provenance=object(value.provenance??{application:'easel'},['application','version']);
   if(provenance.application!=='easel')throw new Error('Invalid provenance');
   if(provenance.version!==undefined)text(provenance.version,40,'application version');

@@ -8,7 +8,10 @@ const ID=/^[a-zA-Z0-9_-]{1,80}$/;
 const reply=(statusCode,value)=>({statusCode,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private'},body:JSON.stringify(value)});
 export async function ensureTranscriptIndexes(db) {
   const collection=db.collection(COLLECTION);
-  await collection.createIndex({expiresAt:1},{expireAfterSeconds:0,name:'easel_transcript_expiry'});
+  // Expiration is a soft marker. Remove the legacy TTL before accepting records.
+  try{await collection.dropIndex('easel_transcript_expiry');}
+  catch(error){if(![26,27].includes(error?.code))throw error;} // Missing collection/index is safe.
+  await collection.createIndex({expiresAt:1},{name:'easel_transcript_expiration_marker'});
   await collection.createIndex({owner:1,sessionId:1,'record.seq':1},{name:'easel_transcript_owner_session',unique:true,partialFilterExpression:{'record.seq':{$gt:0}}});
 }
 export function createTranscriptHandler({authorize,connect,staffSubs=()=>process.env.EASEL_TRANSCRIPT_STAFF_SUBS||'',now=()=>new Date()}={}) {
@@ -33,7 +36,7 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
         const args=event.queryStringParameters||{};
         if(typeof args.owner!=='string'||!args.owner||args.owner.length>200||!ID.test(args.sessionId||''))return reply(400,{error:'Explicit owner and sessionId required'});
         const after=Number(args.afterSeq??0);if(!Number.isSafeInteger(after)||after<0)return reply(400,{error:'Invalid sequence cursor'});
-        query={owner:args.owner,sessionId:args.sessionId,expiresAt:{$gt:now()},'record.seq':{$gt:after}};
+        query={owner:args.owner,sessionId:args.sessionId,'record.seq':{$gt:after}};
       }else{
         let args;try{if(Buffer.byteLength(event.body||'')>1024)throw new Error();args=JSON.parse(event.body||'{}');if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).some(k=>!['sessionId','all'].includes(k)))throw new Error();}catch{return reply(400,{error:'Invalid delete request'});}
         if(!ID.test(args.sessionId||'')&&args.all!==true)return reply(400,{error:'Provide sessionId or explicit all:true'});
@@ -44,8 +47,10 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
       const collection=db.collection(COLLECTION);
       if(event.httpMethod==='DELETE'){const result=await collection.deleteMany(query);return reply(200,{deleted:result.deletedCount});}
       if(event.httpMethod==='GET'){
-        const records=await collection.find(query,{projection:{_id:0,record:1}}).sort({'record.seq':1}).limit(100).toArray();
-        return reply(200,{records:records.map(row=>row.record),nextAfterSeq:records.at(-1)?.record.seq??null});
+        const records=await collection.find(query,{projection:{_id:0,record:1,expiresAt:1}}).sort({'record.seq':1}).limit(100).toArray();
+        const readAt=now();
+        const expiredSeqs=records.filter(row=>row.expiresAt&&row.expiresAt<=readAt).map(row=>row.record.seq);
+        return reply(200,{records:records.map(row=>row.record),expiredSeqs,nextAfterSeq:records.at(-1)?.record.seq??null});
       }
       const receivedAt=now(),expiresAt=new Date(receivedAt.getTime()+30*DAY);
       const records=[{...document.header,seq:0},...document.records];
@@ -55,9 +60,9 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
         const hash=createHash('sha256').update(JSON.stringify(record)).digest('hex');
         return{_id,hash,owner:user.sub,sessionId:document.header.id,recordId,record,receivedAt,expiresAt};
       });
-      // Retry cannot mutate an accepted event or renew its retention deadline.
+      // Retry cannot mutate an accepted event or move its expiration marker.
       await collection.bulkWrite(rows.map(row=>({updateOne:{filter:{_id:row._id,hash:row.hash},update:{$setOnInsert:row},upsert:true}})),{ordered:false});
-      return reply(200,{accepted:document.records.length,sessionId:document.header.id,retentionDays:30});
+      return reply(200,{accepted:document.records.length,sessionId:document.header.id,retentionDays:null,expirationDays:30});
     }catch(error){return reply(error?.code===11000?409:503,{error:error?.code===11000?'Transcript ID already contains different content':'Private transcript storage unavailable'});}
     finally{if(database?.disconnect)await database.disconnect().catch(()=>{});}
   };
