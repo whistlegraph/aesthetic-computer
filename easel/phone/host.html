@@ -68,7 +68,9 @@
         },
       };
 
-      const session = createSession({ storage, emit: post });
+      const hostRPC = globalThis.webkit?.messageHandlers?.aeselHost
+        ? (method, params) => globalThis.webkit.messageHandlers.aeselHost.postMessage({method, params}) : null;
+      const session = createSession({ storage, emit: post, hostRPC });
 
       // Every call is wrapped so a thrown error reaches Swift as an event
       // rather than vanishing into an unhandled rejection the host cannot see.
@@ -88,7 +90,18 @@
         newPiece: guard("newPiece", (medium = "piece") => session.newSession(medium)),
         resumeSession: guard("resumeSession", (id) => session.resumeSession(String(id))),
         save: () => session.saveCurrent(),
+        exportNotebook: guard("exportNotebook", () => session.exportNotebook()),
+        importNotebook: guard("importNotebook", text => session.importNotebook(text)),
+        editSource: guard("editSource", (source,id) => session.editSource(source,id)),
+        previewRevision: guard("previewRevision", (version,id) => session.previewRevision(version,id)),
+        restoreRevision: guard("restoreRevision", (version,id) => session.restoreRevision(version,id)),
+        setAutoPublish: guard("setAutoPublish", enabled => session.setAutoPublish(enabled)),
+        setDraft: guard("draft", (text, threadID) => session.setDraft(String(text), String(threadID))),
         setModel: guard("model", (model) => session.setModel(String(model))),
+        setProvider: guard("provider", (id) => session.setProvider(String(id))),
+        refreshProviders: () => session.refreshProviders(),
+        resumeTurn: guard("reconnect", () => session.resumeTurn()),
+        respondToApproval: guard("approval", (id, decision) => session.respondToApproval(String(id), String(decision))),
         publish: guard("publish", () => session.publish()),
         adoptToken: guard("adoptToken", async (token) => {
           await session.adoptToken(String(token));

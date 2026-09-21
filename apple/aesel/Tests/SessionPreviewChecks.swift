@@ -12,6 +12,7 @@ struct SessionPreviewChecks {
 
         let published = "https://aesthetic.computer/@test/painting"
         session.receive(["type": "preview", "url": published])
+        precondition(session.previewURL == Session.draftPreviewURL)
         let query = URLComponents(url: session.previewURL!, resolvingAgainstBaseURL: false)!.queryItems!
         for flag in ["nogap", "nolabel", "autoreload"] {
             precondition(query.contains(URLQueryItem(name: flag, value: "true")))

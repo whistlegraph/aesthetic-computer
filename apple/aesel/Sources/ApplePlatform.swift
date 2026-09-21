@@ -153,3 +153,59 @@ extension View {
         #endif
     }
 }
+
+#if os(macOS)
+/// Electron used an ordinary compact NSWindow title bar, with the piece name.
+private struct AeselWindowTitle: NSViewRepresentable {
+    let title: String
+    let paper: Color
+    final class Carrier: NSView {
+        var pieceTitle = "Aesel"
+        var paperColor = NSColor.clear
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            DispatchQueue.main.async { [weak self] in self?.configure() }
+        }
+        func updateBacking() {
+            guard let window else { return }
+            // The window and hosting layer resize before SwiftUI's paper does.
+            // Paint both backing surfaces so newly exposed pixels never flash white.
+            window.backgroundColor = paperColor
+            if let content = window.contentView {
+                content.wantsLayer = true
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                content.layer?.backgroundColor = paperColor.cgColor
+                CATransaction.commit()
+            }
+        }
+        func configure() {
+            guard let window else { return }
+            updateBacking()
+            if window.toolbar != nil { window.toolbar = nil }
+            window.toolbarStyle = .expanded
+            window.styleMask.remove([.fullSizeContentView, .unifiedTitleAndToolbar])
+            window.titlebarAppearsTransparent = false
+            window.titleVisibility = .visible
+            if window.title != pieceTitle { window.title = pieceTitle }
+        }
+    }
+    func makeNSView(context: Context) -> Carrier { let view = Carrier(); view.pieceTitle = title; view.paperColor = NSColor(paper); return view }
+    func updateNSView(_ view: Carrier, context: Context) {
+        view.pieceTitle = title
+        view.paperColor = NSColor(paper)
+        view.updateBacking()
+        DispatchQueue.main.async { [weak view] in view?.configure() }
+    }
+}
+#endif
+
+extension View {
+    @ViewBuilder func aeselWindowTitle(_ title: String, paper: Color) -> some View {
+        #if os(macOS)
+        background(AeselWindowTitle(title: title, paper: paper).frame(width: 0, height: 0))
+        #else
+        self
+        #endif
+    }
+}

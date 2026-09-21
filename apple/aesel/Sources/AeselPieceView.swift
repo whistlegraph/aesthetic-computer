@@ -1,82 +1,30 @@
 import SwiftUI
 import WebKit
 
-/// Preview the current draft through AC's existing dropped-JavaScript path.
-/// It does not depend on a successful public upload or a cached handle route.
-struct PieceView: View {
-    let url: URL
-    let source: String
-    var automation: AeselAutomation? = nil
-    @State private var failure: String?
-    @State private var attempt = 0
-    @Environment(\.paint) private var paint
-    var body: some View {
-        ZStack {
-            PieceWebView(url: url, source: source, automation: automation, failure: $failure).id(attempt)
-                .onChange(of: url) { _, _ in failure = nil }
-                .onChange(of: source) { _, _ in failure = nil }
-            if let failure {
-                VStack(spacing: 10) {
-                    Text("Preview could not load").font(Paint.font(20))
-                    Text(failure).font(Paint.font(16)).multilineTextAlignment(.center)
-                    Button("/retry") { self.failure = nil; attempt += 1 }
-                        .font(Paint.font(18)).foregroundStyle(paint.you).buttonStyle(AeselButtonStyle())
-                }.padding().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(paint.deep)
-            }
-        }
-        .onAppear { automation?.retryPreview = { failure = nil; attempt += 1 } }
-        .onChange(of: failure) { _, value in automation?.previewFailure = value }
-        .onDisappear { automation?.previewFailure = nil }
-    }
-}
+/// One runtime retained while moving between the corner and expanded preview.
+@MainActor
+final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
+    @Published var failure: String?
+    @Published var background: Color?
+    @Published var volume: Double = 1 { didSet { updateSource() } }
+    private var source = ""
+    private var requestedURL: URL?
+    private let messages = PreviewMessages()
+    lazy var view: WKWebView = makeView()
 
-private struct PieceWebView: AeselWebViewRepresentable {
-    let url: URL
-    let source: String
-    var automation: AeselAutomation?
-    @Environment(\.colorScheme) private var colorScheme
-
-    @Binding var failure: String?
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var failure: Binding<String?>
-        init(failure: Binding<String?>) { self.failure = failure }
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard message.frameInfo.isMainFrame, let text = message.body as? String else { return }
-            failure.wrappedValue = text
-        }
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            if (error as NSError).code != NSURLErrorCancelled { failure.wrappedValue = error.localizedDescription }
-        }
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            if (error as NSError).code != NSURLErrorCancelled { failure.wrappedValue = error.localizedDescription }
-        }
-        var source = ""
-        var requestedURL: URL?
-        func update(_ view: WKWebView) {
-            guard let data = try? JSONSerialization.data(withJSONObject: [source]),
-                  let json = String(data: data, encoding: .utf8) else { return }
-            view.evaluateJavaScript("window.__aeselSource = \(json)[0]; window.__aeselRender?.();") { [weak self] _, error in
-                if let error { self?.failure.wrappedValue = error.localizedDescription }
-            }
-        }
-        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            update(webView)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(failure: $failure) }
-
-    func makeWebView(context: Context) -> WKWebView {
+    private func makeView() -> WKWebView {
         let configuration = WKWebViewConfiguration()
-        configuration.userContentController.add(context.coordinator, name: "previewFailure")
+        configuration.websiteDataStore = .nonPersistent()
+        messages.owner = self
+        configuration.userContentController.add(messages, name: "previewFailure")
+        configuration.userContentController.add(messages, name: "previewBackdrop")
         #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
         #endif
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.userContentController.addUserScript(WKUserScript(source: """
         (() => {
-          let ready = false, rendered = '', failed = false;
+          let ready = false, rendered = '', failed = false, startupTimedOut = false;
           const reportFailure = message => {
             if (failed) return;
             failed = true;
@@ -89,9 +37,13 @@ private struct PieceWebView: AeselWebViewRepresentable {
             reportFailure(event.reason?.message || 'The preview encountered an unexpected error.');
           });
           setTimeout(() => {
-            if (!ready) reportFailure('The AC runtime did not become ready. Check your internet connection and retry.');
+            if (!ready) {
+              startupTimedOut = true;
+              reportFailure('The AC runtime did not become ready. Check your internet connection and retry.');
+            }
           }, 45000);
           window.__aeselRender = () => {
+            window.AC?.setMasterVolume?.(window.__aeselVolume ?? 1);
             const source = window.__aeselSource;
             if (!ready || !window.acSEND || !source || source === rendered) return;
             rendered = source;
@@ -101,39 +53,123 @@ private struct PieceWebView: AeselWebViewRepresentable {
             for (const key of ['preview', 'icon']) if (query.has(key)) flags.set(key, query.get(key));
             window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, search: flags.toString(), isKidLisp: false}});
           };
+          const becomeReady = () => {
+            if (ready) return;
+            ready = true;
+            if (startupTimedOut) failed = false;
+            window.webkit.messageHandlers.previewFailure.postMessage({ready: true});
+            window.__aeselRender();
+          };
           window.addEventListener('message', event => {
             if (!ready && event.data?.type === 'ready') {
-              ready = true;
-              window.__aeselRender();
+              becomeReady();
             }
           });
           const poll = setInterval(() => {
             if (window.preloaded && window.acSEND) {
-              ready = true;
-              window.__aeselRender();
+              becomeReady();
               clearInterval(poll);
             }
           }, 250);
           setTimeout(() => clearInterval(poll), 45000);
         })();
         """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.navigationDelegate = context.coordinator
-        automation?.preview = view
-        ApplePlatform.configureEmbeddedView(view)
-        return view
+        if let url = Bundle.main.url(forResource: "preview-continuity", withExtension: "js"),
+           let script = try? String(contentsOf: url, encoding: .utf8) {
+            configuration.userContentController.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
+        let web = WKWebView(frame: .zero, configuration: configuration)
+        web.navigationDelegate = self
+        ApplePlatform.configureEmbeddedView(web)
+        #if os(macOS)
+        web.setValue(false, forKey: "drawsBackground")
+        #endif
+        return web
     }
 
-    static func dismantleWebView(_ view: WKWebView, coordinator: Coordinator) {
-        view.configuration.userContentController.removeScriptMessageHandler(forName: "previewFailure")
-    }
-
-    func updateWebView(_ view: WKWebView, context: Context) {
-        ApplePlatform.setAppearance(view, colorScheme: colorScheme)
-        context.coordinator.source = url.path.hasPrefix("/@") ? "" : source
-        if context.coordinator.requestedURL != url {
-            context.coordinator.requestedURL = url
+    func update(url: URL, source: String, scheme: ColorScheme) {
+        ApplePlatform.setAppearance(view, colorScheme: scheme)
+        if self.source != source { failure = nil }
+        self.source = source
+        if requestedURL != url {
+            failure = nil; requestedURL = url
             view.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
-        } else { context.coordinator.update(view) }
+        } else { updateSource() }
+    }
+    private func updateSource() {
+        guard let data = try? JSONSerialization.data(withJSONObject: [source]),
+              let json = String(data: data, encoding: .utf8) else { return }
+        view.evaluateJavaScript("window.__aeselVolume = \(volume); window.__aeselSource = \(json)[0]; window.__aeselRender?.();")
+    }
+    func setBackdrop(_ rgb: [Double]) {
+        guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
+        background = Color(red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255)
+        let color = AeselColor(red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
+        view.underPageBackgroundColor = color
+        #if os(macOS)
+        view.wantsLayer = true
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        view.layer?.backgroundColor = color.cgColor
+        CATransaction.commit()
+        #else
+        view.backgroundColor = color
+        view.scrollView.backgroundColor = color
+        #endif
+    }
+    func reload() { failure = nil; view.reload() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { updateSource() }
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }
+    }
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }
+    }
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        failure = "The preview stopped. Reload to resume your saved piece."
+    }
+}
+
+@MainActor
+private final class PreviewMessages: NSObject, WKScriptMessageHandler {
+    weak var owner: PiecePreview?
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame else { return }
+        if message.name == "previewBackdrop", let rgb = message.body as? [Double] {
+            owner?.setBackdrop(rgb)
+        } else if message.name == "previewFailure", let text = message.body as? String {
+            owner?.failure = text
+        } else if message.name == "previewFailure", let status = message.body as? [String: Bool], status["ready"] == true,
+                  owner?.failure == "The AC runtime did not become ready. Check your internet connection and retry." {
+            owner?.failure = nil
+        }
+    }
+}
+
+struct PieceView: View {
+    let url: URL
+    let source: String
+    @ObservedObject var preview: PiecePreview
+    @Environment(\.paint) private var paint
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            PieceWebView(url: url, source: source, preview: preview)
+            if let failure = preview.failure {
+                VStack(spacing: 10) {
+                    Text(failure).font(Paint.font(14)).multilineTextAlignment(.center)
+                    Button("Reload preview") { preview.reload() }
+                }.padding().frame(maxWidth: .infinity, maxHeight: .infinity).background(paint.deep)
+            }
+        }.background(preview.background ?? paint.bg)
+    }
+}
+private struct PieceWebView: AeselWebViewRepresentable {
+    let url: URL
+    let source: String
+    let preview: PiecePreview
+    @Environment(\.colorScheme) private var colorScheme
+    func makeWebView(context: Context) -> WKWebView { preview.view }
+    func updateWebView(_ view: WKWebView, context: Context) {
+        preview.update(url: url, source: source, scheme: colorScheme)
     }
 }

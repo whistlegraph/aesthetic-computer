@@ -115,7 +115,7 @@ final class AeselAutomation {
             state["previewFailure"] = previewFailure ?? ""
             #if os(macOS)
             if let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) {
-                state["window"] = ["number": window.windowNumber, "width": window.contentView!.bounds.width, "height": window.contentView!.bounds.height, "visible": window.isVisible]
+                state["window"] = ["number": window.windowNumber, "width": window.contentView!.bounds.width, "height": window.contentView!.bounds.height, "visible": window.isVisible, "toolbarStyle": window.toolbarStyle.rawValue, "hasToolbar": window.toolbar != nil, "styleMask": window.styleMask.rawValue, "titlebarHeight": window.frame.height - window.contentLayoutRect.height]
             }
             #endif
             return state
@@ -130,7 +130,7 @@ final class AeselAutomation {
                     "oldest": events.first?["sequence"] ?? sequence, "capacity": 256]
         case "preview":
             guard let preview else { throw failure("Preview is not mounted") }
-            let value = try await preview.evaluateJavaScript("JSON.stringify({url:location.href,ready:!!window.preloaded,flags:Object.fromEntries(new URLSearchParams(location.search)),canvases:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height}))})")
+            let value = try await preview.evaluateJavaScript("JSON.stringify({url:location.href,ready:!!window.preloaded,continuity:window.__aeselContinuity?.inspect?.()??null,flags:Object.fromEntries(new URLSearchParams(location.search)),canvases:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height}))})")
             return ["inspection": value as? String ?? "{}"]
         case "capture":
             let targetName = params["target"] as? String ?? "app"

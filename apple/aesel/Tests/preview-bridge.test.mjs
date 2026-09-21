@@ -21,3 +21,17 @@ test('native source injection carries view flags without forwarding auth paramet
   window.__aeselSource+='\n// revised';window.__aeselRender();
   assert.equal(sent.length,2);assert.equal(sent[1].content.source,window.__aeselSource);
 });
+
+test('a late ready event recovers the startup timeout and injects the saved piece',()=>{
+  const events={},messages=[],sent=[],timeouts=[];
+  const window={__aeselSource:'export function paint({wipe}) { wipe("purple"); }',acSEND:m=>sent.push(m),
+    addEventListener:(name,fn)=>{events[name]=fn},webkit:{messageHandlers:{previewFailure:{postMessage:m=>messages.push(m)}}}};
+  vm.runInNewContext(script,{window,location:{search:''},URLSearchParams,setInterval:()=>1,clearInterval(){},setTimeout:fn=>timeouts.push(fn)});
+  timeouts[0]();
+  assert.match(messages[0],/did not become ready/);
+  events.message({data:{type:'ready'}});
+  assert.equal(messages[1].ready,true);
+  assert.equal(sent.length,1);
+  events.error({message:'A later runtime error'});
+  assert.equal(messages[2],'A later runtime error');
+});

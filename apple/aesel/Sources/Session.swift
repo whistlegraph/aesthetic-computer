@@ -32,6 +32,25 @@ struct ModelChoice: Identifiable {
     let premium: Bool
 }
 
+struct ProviderChoice: Identifiable {
+    let id: String
+    let available: Bool
+    let notice: String
+}
+
+struct ProviderApproval: Identifiable {
+    let id: String
+    let detail: String
+}
+
+struct InspectedRevision { let version: Int; let source: String }
+
+struct SourceRevision: Identifiable {
+    let id: Int
+    let reason: String
+    let at: String
+}
+
 struct SessionSummary: Identifiable {
     let id: String
     let title: String
@@ -61,16 +80,28 @@ final class Session {
     var medium = "piece"
     var model = ""
     var modelChoices: [ModelChoice] = []
+    var provider = "ac"
+    var providers: [ProviderChoice] = []
+    var approval: ProviderApproval?
+    var hostOperationID: String?
+    var providerNotice: String { providers.first { $0.id == provider }?.notice ?? "" }
     var reportedModel = ""
     var currentThreadID = ""
     var currentSessionID: String { currentThreadID }
     var status: String = "starting"
     var health: Health = .idle
     var route: String = ""
-    var pieceVersion = 0
     var previewURL: URL? = Session.draftPreviewURL
     var shareURL: URL?
     var source = ""
+    var composer = ""
+    var revisions: [SourceRevision] = []
+    var inspectedRevision: InspectedRevision?
+    var currentRevision = 0
+    var pieceVersion: Int { currentRevision }
+    var publishedRevision: Int?
+    var autoPublish = true
+    var exportJSON: String?
     var showSignIn = false
     var signInLoading = false
     var signInError: String?
@@ -108,6 +139,36 @@ final class Session {
     func receive(_ event: [String: Any]) {
         guard let type = event["type"] as? String else { return }
         switch type {
+        case "revisionPreview":
+            guard event["threadID"] as? String == currentSessionID,
+                  let version = event["version"] as? Int, let source = event["source"] as? String else { return }
+            inspectedRevision = InspectedRevision(version: version, source: source)
+        case "export":
+            exportJSON = event["json"] as? String
+        case "revisions":
+            revisions = (event["items"] as? [[String: Any]] ?? []).compactMap { item in
+                guard let version = item["version"] as? Int else { return nil }
+                return SourceRevision(id: version, reason: item["summary"] as? String ?? item["reason"] as? String ?? "", at: item["at"] as? String ?? "")
+            }
+            currentRevision = event["current"] as? Int ?? 0
+            publishedRevision = event["published"] as? Int
+            autoPublish = event["autoPublish"] as? Bool ?? true
+        case "publication":
+            shareURL = (event["url"] as? String).flatMap(URL.init(string:))
+        case "providers":
+            provider = event["selected"] as? String ?? provider
+            providers = (event["choices"] as? [[String: Any]] ?? []).compactMap { value in
+                guard let id = value["id"] as? String else { return nil }
+                return ProviderChoice(id: id, available: value["available"] as? Bool ?? false, notice: value["notice"] as? String ?? "")
+            }
+        case "hostOperation":
+            hostOperationID = (event["operation"] as? [String: Any])?["id"] as? String
+        case "approval":
+            if let value = event["approval"] as? [String: Any], let id = value["id"] as? String {
+                let params = value["params"] as? [String: Any] ?? [:]
+                let detail = params["command"] as? String ?? params["reason"] as? String ?? value["method"] as? String ?? "Provider action"
+                approval = ProviderApproval(id: id, detail: detail)
+            } else { approval = nil }
         case "credits":
             braincells = event["total"] as? Double
             let dollars = event["dollars"] as? [String: Any]
@@ -135,6 +196,8 @@ final class Session {
             }
 
         case "thread":
+            inspectedRevision = nil
+            composer = event["composer"] as? String ?? ""
             reportedModel = ""
             currentThreadID = event["id"] as? String ?? ""
             medium = event["medium"] as? String ?? "piece"
@@ -177,13 +240,13 @@ final class Session {
             status = "signed out"
 
         case "source":
+            currentRevision = event["version"] as? Int ?? currentRevision
             source = event["source"] as? String ?? source
-            pieceVersion = event["version"] as? Int ?? pieceVersion
             previewURL = Self.draftPreviewURL
 
         case "piece":
+            currentRevision = event["version"] as? Int ?? 0
             source = event["source"] as? String ?? source
-            pieceVersion = event["version"] as? Int ?? 0
             shareURL = nil
             previewURL = Self.draftPreviewURL
             route = event["route"] as? String ?? ""
@@ -191,7 +254,7 @@ final class Session {
         case "preview":
             if let text = event["url"] as? String {
                 shareURL = URL(string: text)
-                previewURL = shareURL.map(Self.embeddedPreviewURL)
+                previewURL = Self.draftPreviewURL
             }
 
         case "status":

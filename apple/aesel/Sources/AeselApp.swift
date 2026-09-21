@@ -5,7 +5,9 @@ struct AeselApp: App {
     @State private var session = Session()
     @State private var host: SessionHost
     @State private var started = false
+    @AppStorage("aesel.uiScale") private var uiScale = 1.0
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.displayScale) private var displayScale
 
     init() {
         ApplePlatform.registerFonts()
@@ -17,10 +19,26 @@ struct AeselApp: App {
     var body: some Scene {
         #if os(macOS)
         Window("aesel", id: "workspace") {
-            workspace.frame(minWidth: 360, minHeight: 420)
+            GeometryReader { geometry in
+                workspace
+                    .frame(width: ceil(geometry.size.width * displayScale) / displayScale / uiScale,
+                           height: ceil(geometry.size.height * displayScale) / displayScale / uiScale)
+                    .environment(\.aeselUIScale, uiScale)
+                    .scaleEffect(uiScale, anchor: .topLeading)
+            }.frame(minWidth: 220, minHeight: 160).clipped()
         }
+        .windowToolbarStyle(.expanded)
         .defaultSize(width: 840, height: 680)
         .commands {
+            CommandGroup(after: .toolbar) {
+                Button("Larger UI") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
+                    .keyboardShortcut("=", modifiers: .command).disabled(uiScale >= 1.75)
+                Button("Larger UI (+)") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
+                    .keyboardShortcut("+", modifiers: .command).disabled(uiScale >= 1.75)
+                Button("Smaller UI") { uiScale = max(0.7, ((uiScale - 0.1) * 100).rounded() / 100) }
+                    .keyboardShortcut("-", modifiers: .command).disabled(uiScale <= 0.7)
+                Button("Actual UI Size") { uiScale = 1 }.keyboardShortcut("0", modifiers: .command)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Piece") { host.newSession(medium: "piece") }
                     .keyboardShortcut("n")

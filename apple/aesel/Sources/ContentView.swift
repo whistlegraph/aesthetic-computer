@@ -1,35 +1,60 @@
 import SwiftUI
 import WebKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     let session: Session
     let host: SessionHost
-    @State private var draft = ""
+    private var draft: String {
+        get { session.composer }
+        nonmutating set {
+            session.composer = newValue
+            host.setDraft(newValue, threadID: session.currentSessionID)
+        }
+    }
     // Straight onto the notebook; /new or Settings opens the chooser.
     @State private var showHome = false
     @State private var showHelp = false
+    @State private var showSource = false
+    @State private var showImport = false
+    @State private var showExport = false
+    @State private var fileNotice: String?
     @State private var showSettings = false
     @State private var braincells = Braincells()
+    @StateObject private var preview = PiecePreview()
     @State private var expandedPreview = false
     @State private var previewHidden = false
     @State private var notebookHeight: CGFloat = 24
+    @State private var notebookTop: CGFloat = 60
     /// Slab's "complete" is an attention colour that clears once you return to
     /// the window; here, once you touch the draft again.
     @State private var attended = true
-    @FocusState private var writing: Bool
+    @State private var writing = false
+    @State private var composerHeight: CGFloat = 48
+    @State private var sheetSize = CGSize(width: 840, height: 680)
+    @AppStorage("aesel.uiScale") private var uiScale = 1.0
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
 
     /// One ruled row of the sheet, as the desktop's --notebook-line-height.
     private let row: CGFloat = 24
-    /// The desktop's #artifact-shell: a 178×119.33 piece in a 4pt frame, 14pt
-    /// in from the top-right corner. The prose starts on the first ruled row
-    /// clear of it (the desktop reserves the full width when the page is this
-    /// narrow).
-    private let previewSize = CGSize(width: 178, height: 119.33)
-    private let previewInset: CGFloat = 14
-    private var previewVisible: Bool { session.previewURL != nil && !previewHidden }
-    private var previewBlockHeight: CGFloat { previewVisible ? 168 : row }
+    private let paperTop: CGFloat = 12
+    private let edgeInset = PreviewBounds.edgeInset
+    /// The corner stays fixed; notebook prose flows around its frame.
+    @State private var previewBounds = PreviewBounds()
+    private var previewSize: CGSize { CGSize(width: previewBounds.width, height: previewBounds.height) }
+    private var previewInset: CGFloat { previewBounds.right }
+    private var previewVisible: Bool { session.previewURL != nil && !previewHidden && sheetSize.width >= 420 && sheetSize.height >= 300 }
+    private var previewBlockHeight: CGFloat { paperTop + row * 2 }
+    private var notebookExclusion: [String: CGFloat] {
+        guard previewVisible else { return [:] }
+        let width = previewBounds.width + 8 + previewBounds.right + 16 - edgeInset
+        let available = sheetSize.width - edgeInset * 2
+        return ["width": available - width < 220 ? available : width,
+                "height": max(0, previewBounds.top + previewBounds.height + 8 + 16 - notebookTop),
+                "top": max(0, previewBounds.top - 16 - notebookTop)]
+    }
+    private var compact: Bool { sheetSize.width < 340 || sheetSize.height < 240 }
 
     /// Slab's palette for what the session is doing right now.
     private var paint: Paint {
@@ -56,17 +81,23 @@ struct ContentView: View {
         .foregroundStyle(paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
         .background(HostCarrier(host: host).frame(width: 0, height: 0))
+        .aeselWindowTitle(session.route, paper: paint.bg)
         .environment(\.paint, paint)
+        .coordinateSpace(name: "aesel-ui")
         .animation(.easeInOut(duration: 0.5), value: paint)
-        .onChange(of: session.currentSessionID) { draft = ""; previewHidden = false; expandedPreview = false; attended = true }
+        .onChange(of: session.currentSessionID) { previewHidden = false; expandedPreview = false; attended = true }
+        .onChange(of: preview.failure) { host.automation.previewFailure = preview.failure }
         .onChange(of: session.busy) { if session.busy { attended = false } }
         .onChange(of: writing) { if writing { attended = true } }
         .onChange(of: draft) { attended = true }
+        .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
         .onChange(of: session.signedIn) { if session.signedIn { Task { await braincells.load() } } }
         .task { braincells.start(token: { host.accessToken() }, credited: { host.refreshCredits() }) }
         .onAppear {
             host.automation.inspect = { automationState }
             host.automation.perform = { action, params in try await automationAction(action, params) }
+            host.automation.preview = preview.view
+            host.automation.retryPreview = { preview.reload() }
             host.automation.start()
             #if DEBUG
             if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
@@ -75,33 +106,56 @@ struct ContentView: View {
             }
             #endif
         }
+        .sheet(item: Binding(get: { session.approval }, set: { value in
+            if value == nil, let pending = session.approval { host.respondToApproval(id: pending.id, decision: "decline") }
+        })) { request in
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Allow this action?").font(Paint.title(20))
+                ScrollView { Text(request.detail).font(Paint.font(15)).textSelection(.enabled) }
+                HStack {
+                    Button("Deny") { host.respondToApproval(id: request.id, decision: "decline") }
+                    Spacer()
+                    Button("Allow once") { host.respondToApproval(id: request.id, decision: "accept") }
+                }
+            }.padding(24).frame(minWidth: 300, minHeight: 200)
+                .background(paint.bg).foregroundStyle(paint.ink).buttonStyle(AeselButtonStyle())
+        }
+        .onChange(of: session.exportJSON) { if session.exportJSON != nil { showExport = true } }
+        .fileExporter(isPresented: $showExport, document: NotebookDocument(text: session.exportJSON ?? ""), contentType: .json,
+                      defaultFilename: "Aesel Notebook") { result in
+            session.exportJSON = nil
+            if case .failure(let error) = result { fileNotice = error.localizedDescription }
+        }
+        .fileImporter(isPresented: $showImport, allowedContentTypes: [.json]) { result in
+            do {
+                let url = try result.get()
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard size <= 8 * 1024 * 1024 else { throw CocoaError(.fileReadTooLarge) }
+                host.importNotebook(try String(contentsOf: url, encoding: .utf8))
+            } catch { fileNotice = error.localizedDescription }
+        }
+        .alert("Notebook file", isPresented: Binding(get: { fileNotice != nil }, set: { if !$0 { fileNotice = nil } })) {
+            Button("OK") { fileNotice = nil }
+        } message: { Text(fileNotice ?? "") }
+        .sheet(isPresented: $showSource) {
+            AeselSourceView(session: session, host: host).environment(\.paint, paint)
+        }
         .sheet(isPresented: $showHelp) { help }
         .sheet(isPresented: Binding(get: { session.showSignIn }, set: { session.showSignIn = $0 })) {
-            VStack(spacing: 0) {
-                HStack {
-                    AeselWordmark(text: "Aesel")
-                    Spacer()
-                    Button("/close") { session.showSignIn = false }
-                        .font(Paint.font()).foregroundStyle(paint.dim)
-                }.padding(16).background(paint.bg)
-                ZStack {
-                    SignInCarrier(host: host)
-                    if session.signInLoading {
-                        ProgressView("Opening AC sign-in…")
-                            .font(Paint.font()).tint(paint.ac)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(paint.bg)
-                    }
-                    if let error = session.signInError {
-                        VStack(spacing: 18) {
-                            Text(error).multilineTextAlignment(.center)
-                            Button("/retry") { host.signIn() }.foregroundStyle(paint.you)
-                        }
-                        .font(Paint.font()).padding(24)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(paint.bg)
-                    }
+            ZStack(alignment: .topTrailing) {
+                SignInCarrier(host: host)
+                if let error = session.signInError {
+                    VStack(spacing: 18) {
+                        Text(error).multilineTextAlignment(.center)
+                        Button("Retry") { host.signIn() }.foregroundStyle(paint.you)
+                    }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity).background(paint.bg)
                 }
+                Button { session.showSignIn = false } label: {
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .semibold))
+                        .frame(width: 32, height: 32).background(paint.bg, in: Circle())
+                }.accessibilityLabel("Close sign-in").padding(10)
             }
             .buttonStyle(AeselButtonStyle())
             .environment(\.paint, paint)
@@ -119,31 +173,30 @@ struct ContentView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        ZStack(alignment: .topTrailing) {
-                            Color.clear.frame(height: previewBlockHeight)
-                            if previewVisible { previewBox }
-                        }
-                        if !session.signedIn {
-                            Button("Sign in to AC") { host.signIn() }
-                                .buttonStyle(AeselButtonStyle()).foregroundStyle(paint.ink)
-                                .frame(height: row).padding(.horizontal, 10)
-                        }
-                        AeselNotebook(session: session, automation: host.automation, paint: paint, height: $notebookHeight) { openURL($0) }
+                        Color.clear.frame(height: previewBlockHeight)
+                        AeselNotebook(session: session, automation: host.automation, paint: paint, exclusion: notebookExclusion, height: $notebookHeight) { openURL($0) }
                             .frame(height: max(row, notebookHeight))
+                            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("notebook-scroll")).minY } action: { notebookTop = $0 }
                         if session.fatal != nil {
                             Button("/retry") { host.restore() }
-                                .foregroundStyle(paint.you).frame(height: row).padding(.horizontal, 10)
+                                .foregroundStyle(paint.you).frame(height: row).padding(.horizontal, edgeInset)
                         }
-                        Spacer(minLength: 0)
                         prompt.id("prompt")
                     }
-                    .frame(minHeight: geometry.size.height, alignment: .top)
-                    .background(alignment: .top) { AeselRuling(spacing: row) }
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
+                    .background(alignment: .top) { AeselRuling(spacing: row, topInset: paperTop) }
                 }
+                .coordinateSpace(name: "notebook-scroll")
                 .aeselKeyboardScrolling()
+                .overlay(alignment: .topTrailing) {
+                    if previewVisible { previewBox(container: geometry.size) }
+                }
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { sheetSize = $0 }
                 .overlay(alignment: .topLeading) {
                     let clear = previewVisible ? previewSize.width + 8 + 2 + previewInset + 16 : 0
-                    title(availableWidth: max(0, geometry.size.width - 10 - clear))
+                    if !session.route.isEmpty {
+                        title(availableWidth: max(0, geometry.size.width - edgeInset - clear))
+                    }
                 }
                 .onChange(of: notebookHeight) { if session.busy || writing { proxy.scrollTo("prompt", anchor: .bottom) } }
                 .onChange(of: writing) { if writing { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
@@ -152,54 +205,50 @@ struct ContentView: View {
         }
     }
 
-    private func title(availableWidth: CGFloat) -> some View {
-        Group {
-            if let url = session.shareURL {
-                Button { openURL(url) } label: {
-                    AeselTitle(text: session.route.isEmpty ? "new piece" : session.route, colors: session.handleColors, maximumWidth: availableWidth)
-                }
-                .buttonStyle(AeselButtonStyle())
-                .accessibilityLabel("Open piece in browser")
-            } else {
-                AeselTitle(text: session.route.isEmpty ? "new piece" : session.route, colors: session.handleColors, maximumWidth: availableWidth)
-            }
-        }
-        .frame(height: row)
-        .padding(.leading, 10)
+    private var titleURL: URL? {
+        session.shareURL ?? (session.route.isEmpty ? nil : URL(string: "https://aesthetic.computer/")?.appendingPathComponent(session.route))
     }
 
-    /// The little piece at the top-right, in the desktop's tinted frame with
-    /// its accent shadows and the 24pt fullscreen control in its corner.
-    private var previewBox: some View {
+    private func title(availableWidth: CGFloat) -> some View {
+        Button { if let url = titleURL { openURL(url) } } label: {
+            AeselTitle(text: session.route, colors: session.handleColors, size: compact ? 16 : 20,
+                       maximumWidth: availableWidth, horizontalInset: 0,
+                       hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "title") })
+        }
+        .buttonStyle(AeselButtonStyle())
+        .accessibilityLabel("Open piece in browser")
+        .frame(height: row)
+        .padding(.leading, edgeInset).padding(.top, edgeInset)
+    }
+
+    /// The corner piece keeps the original desktop wood grain and resize edges.
+    private func previewBox(container: CGSize) -> some View {
         ZStack(alignment: .topTrailing) {
             if let url = session.previewURL {
-                PieceView(url: url, source: session.source, automation: host.automation)
-                    .frame(width: previewSize.width, height: previewSize.height)
+                PieceView(url: url, source: session.source, preview: preview)
+                    .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
                     .clipped()
+                    .overlay { AeselPreviewInset() }
             }
-            Button { expandedPreview = true; writing = false } label: {
-                Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 12)).frame(width: 24, height: 24)
-                    .background(Color(rgb: 0x1c1728).opacity(0.9))
-                    .overlay { RoundedRectangle(cornerRadius: 4).stroke(Color.white.opacity(0.4), lineWidth: 1) }
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-            .buttonStyle(AeselButtonStyle()).foregroundStyle(.white).padding(5)
-            .accessibilityLabel("Expand piece")
+
         }
         .padding(4)
-        .background(paint.frame)
-        .overlay { Rectangle().stroke(paint.frameEdge, lineWidth: 1) }
-        .shadow(color: Color(rgb: 0x282130), radius: 0, x: 1, y: 1)
-        .shadow(color: paint.accent, radius: 0, x: 3, y: 3)
-        .shadow(color: paint.accent.opacity(0.45), radius: 0, x: 5, y: 5)
-        .padding(.top, previewInset).padding(.trailing, previewInset)
+        .background {
+            AeselWoodFrame()
+                .shadow(color: Color(red: 1, green: 0.176, blue: 0.333).opacity(0.5), radius: 0, x: 1.5, y: 1.5)
+        }
+        .overlay { PreviewResizeOverlay(bounds: $previewBounds, container: container) }
+        .padding(.top, previewBounds.top).padding(.trailing, previewBounds.right)
+        .animation(nil, value: previewBounds)
+        .onChange(of: container) {
+            if container.width >= 420 && container.height >= 300 { previewBounds = previewBounds.fitted(in: container) }
+        }
     }
 
     private var expandedPiece: some View {
         ZStack(alignment: .topTrailing) {
             if let url = session.previewURL {
-                PieceView(url: url, source: session.source, automation: host.automation)
+                PieceView(url: url, source: session.source, preview: preview)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             Button { expandedPreview = false } label: {
@@ -211,46 +260,40 @@ struct ContentView: View {
         }
     }
 
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-    }
-
     /// The draft, written on the sheet's last rows in the user's ink like the
     /// desktop's prose prompt; the trailing 100pt stays clear for the version.
     private var prompt: some View {
         HStack(alignment: .top, spacing: 8) {
-            TextField("", text: $draft, axis: .vertical)
-                .accessibilityLabel("Message")
-                .font(Paint.font(16)).foregroundStyle(paint.userInk).tint(paint.userInk)
-                .lineLimit(1...6).textFieldStyle(.plain)
-                .focused($writing).aeselSendLabel()
-                .onSubmit { send() }.autocorrectionDisabled()
-                .frame(minHeight: row)
+            AeselComposer(text: Binding(get: { draft }, set: { draft = $0 }), height: $composerHeight,
+                          focused: $writing, color: paint.userInk, submit: send)
+                .frame(height: composerHeight)
             if session.busy {
                 Button { host.stop() } label: {
                     Text("■").font(Paint.font(16)).foregroundStyle(paint.you).frame(width: row, height: row)
                 }
                 .accessibilityLabel("Stop")
-            } else if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button { send() } label: {
-                    Text("↵").font(Paint.font(20)).foregroundStyle(paint.you).frame(width: row, height: row)
-                }
-                .accessibilityLabel("Send")
             }
         }
         .buttonStyle(AeselButtonStyle())
-        .padding(.leading, 10).padding(.trailing, 100).padding(.bottom, 8)
+        .overlay(alignment: .bottomTrailing) {
+            if !session.busy && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Button(action: send) { Color.clear.frame(width: row, height: row).contentShape(Rectangle()) }
+                    .accessibilityLabel("Send")
+            }
+        }
+        .padding(.leading, edgeInset).padding(.trailing, compact ? 54 : 80).padding(.bottom, row)
     }
 
     /// The desktop's #credit-label: the version in Prox lettering, 10pt from
     /// the right and 8pt up, and the way into settings.
     private var versionLabel: some View {
         Button { openSettings() } label: {
-            AeselTitle(text: "v\(session.pieceVersion)", size: 16).padding(9)
+            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 12 : 16, horizontalInset: 0, hoverAnchor: .bottomTrailing,
+                       hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "version") })
         }
         .buttonStyle(AeselButtonStyle())
-        .padding(.trailing, 1)
-        .accessibilityLabel("Piece version \(session.pieceVersion). Settings")
+        .padding(.trailing, edgeInset).padding(.bottom, edgeInset)
+        .accessibilityLabel("Piece version \(session.currentRevision). Settings")
     }
 
     // MARK: - Settings
@@ -259,6 +302,7 @@ struct ContentView: View {
         writing = false
         braincells.notice = ""
         host.refreshCredits()
+        host.refreshProviders()
         withAnimation(.easeOut(duration: 0.18)) { showSettings = true }
     }
 
@@ -274,102 +318,52 @@ struct ContentView: View {
     /// model, braincells and the way to buy more.
     private var settingsPane: some View {
         GeometryReader { geometry in
-        ZStack {
-            Color.black.opacity(0.4).ignoresSafeArea()
-                .onTapGesture { closeSettings() }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .center) {
-                        if session.signedIn {
-                            AeselHandle(handle: session.handle, colors: session.handleColors).font(Paint.title(20))
-                        } else {
-                            AeselWordmark(text: "aesel")
-                        }
+            ZStack {
+                Color.black.opacity(0.4).ignoresSafeArea().onTapGesture { closeSettings() }
+                VStack(spacing: 0) {
+                    HStack {
                         Spacer()
                         Button { closeSettings() } label: {
-                            Text("×").font(Paint.font(24)).frame(width: 30, height: 30)
-                        }
-                        .accessibilityLabel("Close settings")
-                    }
-                    .padding(.bottom, 6)
-
-                    settingsField("Provider") {
-                        AeselProviderPicker(busy: session.busy)
-                    }
-                    settingsField("Model") {
-                        Menu {
-                            Button("Automatic") {}
-                        } label: {
-                            HStack {
-                                Text("Automatic")
-                                Spacer()
-                                Image(systemName: "chevron.down").font(.system(size: 11))
+                            Image(systemName: "xmark").font(.system(size: 13, weight: .semibold))
+                                .frame(width: 30, height: 30).background(paint.ink.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+                        }.accessibilityLabel("Close settings")
+                    }.padding(.horizontal, 18).padding(.top, 12)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            let fields = geometry.size.width < 420 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+                            fields {
+                                settingsField("Provider") { AeselProviderPicker(session: session, host: host) }
+                                if session.provider != "ac" {
+                                    settingsField("Model") { AeselModelPicker(session: session, host: host) }
+                                }
                             }
-                            .frame(maxWidth: .infinity).frame(height: 36)
-                        }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                        .frame(height: 36)
-                        .disabled(true)
-                    }
-                    .accessibilityLabel("Model, managed automatically by AC")
-
-                    Text(["Remote inference", session.status].joined(separator: " · "))
-                        .padding(.top, 14)
-                    if let url = session.shareURL {
-                        Text("Auto-publish on · every save goes to \(url.absoluteString)")
-                            .padding(.top, 10)
-                    }
-
-                    if session.signedIn {
-                        Button { host.refreshCredits() } label: { HStack(spacing: 9) {
-                            Image("braincell").resizable().scaledToFit().frame(width: 25, height: 25)
-                            if let dollars = session.braincellDollars, let balance = session.braincells {
-                                Text("\(usd(dollars)) · \(balance.formatted(.number.precision(.fractionLength(0)))) braincells")
-                            } else if let balance = session.braincells {
-                                Text("\(balance.formatted(.number.precision(.fractionLength(0)))) braincells")
-                            } else {
-                                Text(session.creditsStatus)
+                            if !session.providerNotice.isEmpty {
+                                Text(session.providerNotice).font(Paint.font(13)).foregroundStyle(paint.dim)
                             }
-                        } }
-                        .padding(.top, 14)
-                        .accessibilityHint("Refresh balance")
-                        if let free = session.freeDollars, let paid = session.purchasedDollars {
-                            Text("\(usd(free)) daily · \(usd(paid)) purchased")
-                                .font(Paint.font(13)).foregroundStyle(paint.dim).padding(.top, 4)
-                        }
-                        buyButton.padding(.top, 14)
-                        if !braincells.notice.isEmpty {
-                            Text(braincells.notice).font(Paint.font(13)).foregroundStyle(paint.dim).padding(.top, 8)
-                        } else if !braincells.storeStatus.isEmpty {
-                            Text(braincells.storeStatus).font(Paint.font(13)).foregroundStyle(paint.dim).padding(.top, 8)
-                        }
-                    } else {
-                        settingsItem("Sign in to AC") { closeSettings { host.signIn() } }
-                            .padding(.top, 14)
+                            if session.hostOperationID != nil && !session.busy {
+                                settingsItem("Reconnect to current turn") { host.resumeHostTurn() }
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Preview volume").font(Paint.font(13)).foregroundStyle(paint.dim)
+                                HStack(spacing: 10) {
+                                    Slider(value: $preview.volume, in: 0...1).tint(paint.accent).accessibilityLabel("Preview volume")
+                                    Button { preview.volume = preview.volume == 0 ? 1 : 0 } label: {
+                                        Image(systemName: preview.volume == 0 ? "speaker.slash" : "speaker.wave.2")
+                                            .frame(width: 36, height: 32).background(paint.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
+                                    }.accessibilityLabel(preview.volume == 0 ? "Unmute preview" : "Mute preview")
+                                }
+                            }
+                            Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
+                            AeselVersionList(session: session, host: host)
+                        }.padding(.horizontal, 20).padding(.bottom, 20)
                     }
-
-                    settingsDivider
-                    HStack {
-                        Text("Aesel").fontWeight(.semibold)
-                        Spacer()
-                        Text("v\(appVersion)").foregroundStyle(paint.dim)
-                    }
-                    .font(Paint.font(13))
                 }
-                .padding(EdgeInsets(top: 20, leading: 24, bottom: 20, trailing: 24))
-            }
-            .frame(maxWidth: 560)
-            .frame(maxHeight: geometry.size.height * 0.85)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(paint.bg)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay { RoundedRectangle(cornerRadius: 16).stroke(paint.ink.opacity(0.18), lineWidth: 1) }
-            .shadow(color: .black.opacity(0.2), radius: 30, y: 20)
-            .padding(24)
-        }
-        .font(Paint.font(15))
-        .buttonStyle(AeselButtonStyle())
-        .transition(.opacity)
+                .frame(maxWidth: 560).frame(maxHeight: min(560, geometry.size.height * 0.85))
+                .background(paint.bg)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay { RoundedRectangle(cornerRadius: 12).stroke(paint.ink.opacity(0.3), lineWidth: 1) }
+                .shadow(color: .black.opacity(0.25), radius: 20, y: 10).padding(20)
+            }.font(Paint.font(15)).buttonStyle(AeselButtonStyle()).transition(.opacity)
         }
     }
 
@@ -399,13 +393,13 @@ struct ContentView: View {
         .accessibilityLabel("Add one million braincells for \(braincells.price) through the App Store")
     }
 
-    private func settingsField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+    private func settingsField<Content: View>(_ label: String, bordered: Bool = true, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(Paint.font(13))
             content()
                 .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
-                .padding(.horizontal, 8)
-                .overlay { RoundedRectangle(cornerRadius: 6).stroke(paint.ink.opacity(0.25), lineWidth: 1) }
+                .padding(.horizontal, bordered ? 8 : 0)
+                .overlay { if bordered { RoundedRectangle(cornerRadius: 6).stroke(paint.ink.opacity(0.45), lineWidth: 1) } }
         }
         .padding(.top, 14)
     }
@@ -459,6 +453,7 @@ struct ContentView: View {
         draft = ""
     }
 
+
     private var automationState: [String: Any] {
         #if os(macOS)
         let canResize = true
@@ -478,9 +473,11 @@ struct ContentView: View {
             ("preview.collapse", "Return to notebook", expandedPreview),
             ("preview.hide", "Hide preview", previewVisible), ("preview.show", "Show preview", previewHidden),
             ("preview.reload", "Reload embedded preview", previewVisible),
+            ("preview.resize", "Resize corner preview", canResize && previewVisible && !expandedPreview),
             ("preview.retry", "Retry failed preview", host.automation.previewFailure != nil),
             ("window.resize", "Resize app window without focusing it", canResize),
-            ("piece.open", "Open public piece in browser", session.shareURL != nil),
+            ("ui.scale", "Set UI size from 0.7 to 1.75; does not resize the window", canResize),
+            ("piece.open", "Open public piece in browser", titleURL != nil),
             ("piece.publish", "Publish current source", session.signedIn && !session.busy),
             ("account.signin", "Open AC sign-in", !session.signedIn),
             ("account.signin.close", "Close sign-in", session.showSignIn),
@@ -488,23 +485,26 @@ struct ContentView: View {
             ("account.signout", "Sign out of AC", session.signedIn),
             ("balance.refresh", "Refresh balance", session.signedIn),
             ("credits.buy", "Open App Store purchase confirmation", session.signedIn && !braincells.busy && braincells.product != nil),
-            ("provider.select", "AC only; desktop CLI providers are not ported", false),
-            ("model.select", "Model managed automatically by AC", false)
+            ("source.open", "Open source and revisions", !session.busy),
+            ("provider.select", "Choose connected provider", !session.busy && session.hostOperationID == nil),
+            ("model.select", "Choose provider model", session.provider != "ac" && !session.busy && session.hostOperationID == nil)
         ]
         return ["schema": 1, "surface": expandedPreview ? "preview" : showSettings ? "settings" : showHome ? "home" : "notebook",
                 "overlays": ["settings": showSettings, "home": showHome, "help": showHelp, "signin": session.showSignIn],
-                "piece": ["route": session.route, "version": session.pieceVersion, "sourceBytes": session.source.utf8.count,
+                "piece": ["route": session.route, "version": session.currentRevision, "sourceBytes": session.source.utf8.count,
                           "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
                 "composer": ["characters": draft.count, "placeholder": "", "focused": writing],
-                "title": ["opacity": 1, "linked": session.shareURL != nil], "footer": "v\(session.pieceVersion)",
+                "title": ["opacity": 1, "linked": titleURL != nil], "footer": "v\(session.currentRevision)",
                 "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn,
                             "entryCount": session.entries.count, "history": session.history.map { ["id": $0.id, "title": $0.title, "route": $0.route] }],
-                "preview": ["visible": previewVisible, "expanded": expandedPreview],
+                "preview": ["visible": previewVisible, "expanded": expandedPreview, "width": previewBounds.width, "height": previewBounds.height, "right": previewBounds.right, "top": previewBounds.top],
+                "layout": ["uiScale": uiScale, "compact": compact, "width": sheetSize.width, "height": sheetSize.height, "row": row, "paperTop": paperTop, "previewBlockHeight": previewBlockHeight, "composerHeight": composerHeight],
                 "notebook": ["visible": !expandedPreview && !showHome && !showSettings && !showHelp && !session.showSignIn],
                 "controls": controls.map { ["id": $0.0, "label": $0.1, "enabled": $0.2] }]
     }
 
     private func automationAction(_ action: String, _ params: [String: Any]) async throws {
+        guard params["expectedSessionID"] as? String == session.currentSessionID else { throw AeselAutomation.error("Stale or missing expectedSessionID; inspect state before acting") }
         let controls = automationState["controls"] as? [[String: Any]] ?? []
         guard let control = controls.first(where: { $0["id"] as? String == action }) else { throw AeselAutomation.error("Unknown control: \(action)") }
         guard control["enabled"] as? Bool == true else { throw AeselAutomation.error("Control is disabled: \(action)") }
@@ -530,24 +530,45 @@ struct ContentView: View {
         case "preview.collapse": expandedPreview = false
         case "preview.hide": previewHidden = true; expandedPreview = false
         case "preview.show": previewHidden = false
+        case "preview.resize":
+            #if os(macOS)
+            guard let width = params["width"] as? Double, let height = params["height"] as? Double,
+                  (96...2400).contains(width), (72...1800).contains(height),
+                  let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) else { throw AeselAutomation.error("Preview dimensions are out of range") }
+            var bounds = previewBounds
+            bounds.width = width; bounds.height = height
+            previewBounds = bounds.fitted(in: sheetSize)
+            #else
+            throw AeselAutomation.error("Automation resizing is macOS-only")
+            #endif
         case "preview.reload": host.automation.preview?.reload()
         case "preview.retry": host.automation.retryPreview?()
+        case "ui.scale":
+            guard let scale = params["scale"] as? Double, scale.isFinite, (0.7...1.75).contains(scale) else { throw AeselAutomation.error("UI scale must be 0.7–1.75") }
+            uiScale = scale
         case "window.resize":
             #if os(macOS)
             guard let width = params["width"] as? Double, let height = params["height"] as? Double,
-                  (360...2400).contains(width), (420...1800).contains(height),
-                  let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) else { throw AeselAutomation.error("Window width 360–2400 and height 420–1800 are required") }
+                  (220...2400).contains(width), (160...1800).contains(height),
+                  let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) else { throw AeselAutomation.error("Window width 220–2400 and height 160–1800 are required") }
             window.setContentSize(NSSize(width: width, height: height))
             #else
             throw AeselAutomation.error("Window resizing is macOS-only")
             #endif
-        case "piece.open": if let url = session.shareURL { openURL(url) }
+        case "piece.open": if let url = titleURL { openURL(url) }
         case "piece.publish": host.publish()
         case "account.signin", "account.signin.retry": host.signIn()
         case "account.signin.close": session.showSignIn = false
         case "account.signout": host.signOut()
         case "balance.refresh": host.refreshCredits()
         case "credits.buy": await braincells.buy()
+        case "source.open": showSource = true
+        case "provider.select":
+            guard let id = params["provider"] as? String, session.providers.contains(where: { $0.id == id && $0.available }) else { throw AeselAutomation.error("Connected provider required") }
+            host.setProvider(id)
+        case "model.select":
+            guard let id = params["model"] as? String, session.modelChoices.contains(where: { $0.id == id }) else { throw AeselAutomation.error("Known model required") }
+            host.setModel(id: id)
         default: throw AeselAutomation.error("Unsupported control: \(action)")
         }
     }

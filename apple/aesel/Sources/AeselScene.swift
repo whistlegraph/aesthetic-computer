@@ -223,19 +223,33 @@ struct AeselCloth: View {
 /// The desktop's ruled sheet: one faint line per 24px row, from 10px in to
 /// the trailing edge, drawn behind everything so title, prose and the draft
 /// all sit on the same paper.
+private struct UIScaleKey: EnvironmentKey { static let defaultValue: CGFloat = 1 }
+extension EnvironmentValues {
+    var aeselUIScale: CGFloat {
+        get { self[UIScaleKey.self] }
+        set { self[UIScaleKey.self] = newValue }
+    }
+}
+
 struct AeselRuling: View {
     var spacing: CGFloat = 24
+    var topInset: CGFloat = 0
+    @Environment(\.displayScale) private var displayScale
+    @Environment(\.aeselUIScale) private var uiScale
     @Environment(\.paint) private var paint
     var body: some View {
         Canvas { context, size in
-            var y = spacing - 0.5
+            let pixels = displayScale * uiScale
+            let hairline = 1 / pixels
+            var row = 1
             var path = Path()
-            while y < size.height {
+            while topInset + CGFloat(row) * spacing < size.height + hairline {
+                let y = ((topInset + CGFloat(row) * spacing) * pixels).rounded() / pixels - hairline / 2
                 path.move(to: CGPoint(x: 10, y: y))
                 path.addLine(to: CGPoint(x: size.width, y: y))
-                y += spacing
+                row += 1
             }
-            context.stroke(path, with: .color(paint.rule), lineWidth: 1)
+            context.stroke(path, with: .color(paint.rule), lineWidth: hairline)
         }
         .accessibilityHidden(true)
     }
@@ -266,6 +280,11 @@ struct AeselTitle: View {
     var colors: [String] = []
     var size: CGFloat = 20
     var maximumWidth: CGFloat? = nil
+    var horizontalInset: CGFloat = 12
+    var hoverAnchor: UnitPoint = .leading
+    var hoverSound: (() -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovered = false
 
     private static func fnv(_ text: String) -> UInt32 {
         var hash: UInt32 = 2166136261
@@ -282,8 +301,10 @@ struct AeselTitle: View {
     var body: some View {
         let handle = text.hasPrefix("@") ? text.prefix(while: { $0 != "/" }).count : 0
         // Include image overhang and sway when fitting a one-line title.
-        let width = text.reduce(CGFloat(24)) { $0 + (String($1) as NSString).size(withAttributes: [.font: Rock.font(size)]).width }
-        let scale = maximumWidth.map { min(1, max(0, $0) / width) } ?? 1
+        let width = text.reduce(horizontalInset * 2) { $0 + (String($1) as NSString).size(withAttributes: [.font: Rock.font(size)]).width }
+        let limit = maximumWidth.map { max(0, $0) / max(1, width) } ?? CGFloat.greatestFiniteMagnitude
+        let restingScale = min(1, limit)
+        let scale = min(hovered && !reduceMotion ? 1.5 : 1, limit)
         HStack(alignment: .top, spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, letter in
                 let hash = Self.fnv("rock\(index)\(text)")
@@ -295,10 +316,16 @@ struct AeselTitle: View {
                     .offset(y: -(CGFloat(hash % 5) / 2 - 1))
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, horizontalInset)
         .fixedSize()
-        .scaleEffect(scale, anchor: .leading)
-        .frame(width: width * scale, alignment: .leading)
+        .scaleEffect(scale, anchor: hoverAnchor)
+        .animation(reduceMotion ? nil : .interpolatingSpring(mass: 0.8, stiffness: 250, damping: 12, initialVelocity: 0), value: hovered)
+        .frame(width: width * restingScale, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside && !hovered { hoverSound?() }
+            hovered = inside
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text)
     }

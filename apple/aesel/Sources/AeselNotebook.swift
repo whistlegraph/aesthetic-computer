@@ -4,8 +4,9 @@ import WebKit
 /// Desktop rich replies, packaged locally; the agent host remains separate.
 struct AeselNotebook: AeselWebViewRepresentable {
     let session: Session
-    var automation: AeselAutomation? = nil
+    var automation: AeselAutomation?
     var paint = Paint.base
+    var exclusion: [String: CGFloat] = [:]
     @Binding var height: CGFloat
     var openLink: (URL) -> Void
 
@@ -54,6 +55,9 @@ struct AeselNotebook: AeselWebViewRepresentable {
         view.navigationDelegate = context.coordinator
         automation?.notebook = view
         ApplePlatform.configureEmbeddedView(view)
+        #if os(macOS)
+        view.setValue(false, forKey: "drawsBackground")
+        #endif
         view.load(URLRequest(url: URL(string: "aesel-bundle://app/easel/phone/notebook.html")!))
         return view
     }
@@ -63,22 +67,19 @@ struct AeselNotebook: AeselWebViewRepresentable {
             ["id": entry.id.uuidString, "kind": entry.kind == .you ? "user" : entry.kind == .ac ? "assistant" : entry.kind == .bad ? "error" : "notice", "text": entry.text]
         }
         if let fatal = session.fatal { entries.append(["id": "fatal", "kind": "error", "text": fatal]) }
-        if entries.isEmpty {
-            entries.append(["id": "welcome", "kind": "notice", "text": session.signedIn ? "what shall we make?" : "sign in to make something."])
-        }
         let colors: [[Int]] = session.handleColors.compactMap { value in
             guard value.count == 7, let rgb = UInt32(value.dropFirst(), radix: 16) else { return nil }
             return [Int((rgb >> 16) & 255), Int((rgb >> 8) & 255), Int(rgb & 255)]
         }
         let payload: [String: Any] = ["entries": entries, "handle": session.handle, "colors": colors, "theme": paint.css,
-                                     "busy": session.busy, "activity": session.busy ? session.status : ""]
+                                     "exclusion": exclusion, "busy": session.busy, "activity": session.busy ? session.status : ""]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
            let json = String(data: data, encoding: .utf8) {
             context.coordinator.payload = json
             context.coordinator.openLink = openLink
             let height = $height
             context.coordinator.reportHeight = { value in
-                DispatchQueue.main.async { if height.wrappedValue != value { height.wrappedValue = value } }
+                DispatchQueue.main.async { let snapped = ceil(value / 24) * 24; if height.wrappedValue != snapped { height.wrappedValue = snapped } }
             }
             context.coordinator.render(view)
         }

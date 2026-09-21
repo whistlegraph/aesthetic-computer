@@ -3,9 +3,9 @@
    ruling and owns the scroll; this document only grows to fit its prose. */
 :root{color-scheme:dark;--aesel-background:#463264;--aesel-foreground:#fff;--user-ink:#e9b5d5;--number-ink:#ffd17c;--notebook-line-height:24px;--prose-font-size:16px}
 *{box-sizing:border-box}
-html,body{margin:0;overflow:hidden;background:var(--aesel-background);color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
-body{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--notebook-line-height) - 1px),color-mix(in srgb,var(--aesel-foreground) 12%,transparent) calc(var(--notebook-line-height) - 1px),color-mix(in srgb,var(--aesel-foreground) 12%,transparent) var(--notebook-line-height))}
-#conversation{padding:0 10px;line-height:var(--notebook-line-height)}
+html,body{margin:0;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
+
+#conversation{padding:0 14px 24px;line-height:var(--notebook-line-height)}
 #notebook-page{overflow-wrap:anywhere}
 article{margin:0 0 24px;white-space:pre-wrap}
 article[data-kind=user]{color:var(--user-ink)}
@@ -16,13 +16,20 @@ code{font:.88em Menlo,monospace}
 a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 a[href],button:not(:disabled),[role=button]:not([aria-disabled=true]){cursor:pointer}
 button:disabled,[aria-disabled=true]{cursor:default}
-.user-handle{font:inherit;opacity:.5}
+.user-handle{font:inherit;opacity:.5;vertical-align:baseline}
 /* The desktop's pencil companion: two rows tall beside the latest user prose, behind the ink. */
 #notebook-activity{white-space:nowrap}
 #notebook-activity[hidden]{display:none}
-#prompt-feedback{position:relative;display:inline-block;width:calc(clamp(36px,var(--prose-font-size,16px)*2.8,64px) + 12px);height:calc(var(--notebook-line-height,24px)*2);vertical-align:middle}
+#prompt-feedback{position:relative;display:inline-block;width:calc(clamp(36px,var(--prose-font-size,16px)*2.8,64px) + 12px);height:calc(var(--notebook-line-height,24px)*2);vertical-align:bottom}
 #prompt-feedback[hidden]{display:none}
 #activity-caption{display:inline;font:italic .75em/1.3 Helvetica,Arial,sans-serif;opacity:.62;overflow-wrap:anywhere;white-space:normal;pointer-events:none}
 #activity-caption[hidden]{display:none}
 #notebook-thinking-donkey{position:fixed;z-index:3;pointer-events:none;opacity:.3;filter:saturate(.8)}
 #notebook-thinking-donkey[hidden]{display:none}
+
+/* Native owns the only ruling; block extents must remain whole rows. */
+#notebook-page{min-height:0!important}
+#notebook-content{display:flow-root}
+
+#notebook-preview-space{float:right;pointer-events:none}
+#notebook-preview-space[hidden]{display:none}
