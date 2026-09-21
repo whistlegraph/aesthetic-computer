@@ -1,5 +1,21 @@
 // Mail-only previews stay in memory; private bytes never enter the public
 // bitmap loader, persistent browser store, or piece diagnostics.
+export function mailLinks(text) {
+  const links = new Set();
+  for (const match of (text || "").matchAll(/https?:\/\/[^\s<>"']+/gi)) {
+    let raw = match[0].replace(/[.,;]+$/, "");
+    for (const [open, close] of [["(", ")"], ["[", "]"]]) {
+      while (raw.endsWith(close) && raw.split(close).length > raw.split(open).length) raw = raw.slice(0, -1);
+    }
+    try {
+      const url = new URL(raw);
+      if (["https:", "http:"].includes(url.protocol) && !url.username && !url.password) links.add(url.href);
+    } catch {}
+    if (links.size === 10) break;
+  }
+  return [...links];
+}
+
 export class MailMedia {
   previews = new Map();
   active = 0;
@@ -15,6 +31,8 @@ export class MailMedia {
       ...(letter.media || []).map((ref) => ({
         key: ref.label, label: ref.label, image: !!ref.preview, ref,
       })),
+      ...mailLinks(letter.text).filter((url) => !(letter.media || []).some((ref) => ref.url === url))
+        .map((url) => ({ key: url, label: `${words.openLink} ${url}`, url })),
       ...(letter.attachments || []).map((file) => ({
         key: `${letter.id}:${file.index}`, label: `${words.download} ${file.name} (${Math.max(1, Math.ceil(file.size / 1024))} KiB)`,
         image: file.image, file, id: letter.id,
@@ -80,6 +98,7 @@ export class MailMedia {
   }
 
   async open(api, item) {
+    if (item.url) return api.net.web(item.url, true);
     if (item.ref) return api.jump(item.ref.path);
     const res = await api.net.userRequest("GET", `/api/mail?id=${item.id}&attachment=${item.file.index}&json=1`);
     if (res.status !== 200) throw new Error("Download unavailable");

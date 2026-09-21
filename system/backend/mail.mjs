@@ -31,18 +31,30 @@ const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
 
 // `@handle`, `ac25namuc`, `jeffrey@mail.aesthetic.computer`, or an email → sub.
 export async function subFromAddress(address, database) {
-  let to = (address || "").trim();
+  let to = typeof address === "string" ? address.trim() : "";
   if (!to) return undefined;
   for (const domain of INBOUND_DOMAINS) {
     if (to.toLowerCase().endsWith("@" + domain)) to = to.slice(0, -(domain.length + 1));
   }
-  if (PERMAHANDLE.test(to)) {
+  if (to.startsWith("@")) to = to.slice(1);
+  if (!to) return undefined;
+  if (PERMAHANDLE.test(to.toLowerCase())) {
     const user = await database.db
       .collection("users")
-      .findOne({ code: to }, { projection: { _id: 1 } });
+      .findOne({ code: to.toLowerCase() }, { projection: { _id: 1 } });
     return user?._id;
   }
-  return userIDFromHandleOrEmail(to, database);
+  const exact = await userIDFromHandleOrEmail(to, database);
+  if (exact || to.includes("@")) return exact;
+
+  // Preserve exact matches; forgive case only when one full handle matches.
+  // Short nicknames and ambiguous spellings must never pick a recipient.
+  const escaped = to.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = await database.db.collection("@handles")
+    .find({ handle: { $regex: `^${escaped}$`, $options: "i" } }, { projection: { handle: 1 }, maxTimeMS: 2000 })
+    .limit(2).toArray();
+  if (matches.length !== 1) return undefined;
+  return userIDFromHandleOrEmail(matches[0].handle, database);
 }
 
 // How a message signs itself. Deliberately not `getHandleOrEmail` — that falls
