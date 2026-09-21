@@ -24,7 +24,7 @@ export function createFrameClient(path, { cli = false } = {}) {
       module ||= import(pathToFileURL(path).href);
       const { captureFrame } = await module;
       const result = await captureFrame("local", {
-        memory: true, noOCR: true, quietOverlay: true, screen, clearOverlays,
+        memory: true, noOCR: true, noVisual: true, quietOverlay: true, screen, clearOverlays,
       });
       env = result.env;
       if (out && env.capture === "ok" && result.jpg?.length) {

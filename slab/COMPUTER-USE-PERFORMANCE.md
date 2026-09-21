@@ -54,16 +54,63 @@ counts, not tokenizer measurements. Earlier list compaction also covers fleet,
 prox, papers, calendar, and memory. All-day event end dates and memory ordering
 across years are preserved.
 
-The JavaScript runtime from `e678ebb76` is installed on Blueberry and Neo, with
-the prior pinned runtimes and launch-agent backups retained. The native app was
-not rebuilt. All 32 focused local checks pass; all nine semantic-browser checks
-also pass against Neo's installed runtime.
+The first JavaScript runtime (`e678ebb76`) was installed on Blueberry and Neo,
+with prior runtimes and launch-agent backups retained. That round passed 32
+focused local checks and nine semantic-browser checks against Neo's runtime.
+
+The second round adds `visual:false` to Frame capture, focus, reframe, and click
+tools (`--no-visual` in the CLI). This skips supplemental contour detection while
+preserving fresh pixels, accessibility data, and requested OCR. Internal target
+guards, change probes, and Captutor's passive audits skip contours automatically.
+Ordinary Frame captures retain contour detection by default.
+
+On Blueberry, six captures with pixels + AX and no contours took 58–218 ms.
+Six with fast OCR and no contours took 61–132 ms. These were sequential mode
+runs with substantial warm-up effects, not paired evidence of a fixed speedup.
+Native action time additionally includes a fresh target guard, input, settling,
+and the returned frame. The native app was rebuilt with the guarded installer
+and installed on Blueberry and Neo; previous app bundles were retained.
+
+Contour results now reuse one exactly matching bounded analysis buffer. Only
+normalized boxes are cached: global coordinates, scale, and pointer-distance
+ranking are recalculated. Changed pixels or dimensions invalidate it. A static
+light/dark fixture measured approximately 3 ms uncached versus 0.1 ms cached;
+the animated Terminal produced **no cache hits**, so it showed no cache benefit.
+The focused JavaScript checks now pass 33 tests. Standalone Swift fixtures cover
+shape detection, invalidation, origin, scale, and focus ranking.
+
+An additional disposable website exercises the real Puppet HTTP/MCP path,
+including verified clicks, typing, menu selection, a delayed update, and page
+navigation. One complete run measured 16 ms for filling, 32–41 ms for ordinary
+verified clicks, 67 ms for navigation, and 842 ms for the delayed update
+(including its 300 ms application timer). Its first snapshot took 164 ms.
+The native fixture click remains unverified: Blueberry's lock screen caused
+Frame to return `permission_needed`, and the runner refused input.
+
+Optional Jev trials send only generated fixture button labels to the existing
+OpenRouter decision adapter. The first three decisions selected the correct
+button in 261–486 ms; a second set took 172–355 ms, also correct. This is six
+simple selections, not an accuracy study. Jev adds decision latency to a known
+locator; it can help only when replacing a slower reasoning step. No comparison
+against a general-purpose model's end-to-end task time was performed.
 
 Reproduce browser timings (no user tabs or native input):
 
 ```sh
 node slab/bin/computer-use-bench.mjs
 ```
+
+Reproduce the disposable website test (isolated browser profile and daemons):
+
+```sh
+node slab/bin/computer-use-smoke.mjs
+```
+
+Add `--native` to open the fixture visibly and perform one guarded macOS click
+on its observed button. An unlocked display is required. Add `--jev` to measure
+three decisions using `OPENROUTER_API_KEY`; only generated fixture labels leave
+the machine. The runner writes its JSON report and synthetic-page screenshot
+to the system temporary directory, then removes its browser profile.
 
 With an unlocked local display, add `--native` for five quiet captures per OCR
 mode. The report includes native stage timings and excludes failed captures;

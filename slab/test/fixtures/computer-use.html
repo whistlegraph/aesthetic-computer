@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Computer-use check</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px; font: 20px system-ui; color: #18242c; background: #edf3f4; }
+  main { max-width: 880px; margin: auto; }
+  h1 { font-size: 36px; margin: 0 0 24px; }
+  section { background: white; padding: 24px; margin-bottom: 18px; border: 2px solid #bdcbcf; border-radius: 12px; }
+  button, input, a { font: inherit; padding: 12px 18px; margin: 6px; }
+  button { background: #163e61; color: white; border: 0; border-radius: 6px; cursor: pointer; }
+  button:disabled { background: #697984; }
+  output { display: inline-block; margin: 0 16px; font-weight: 650; }
+  [hidden] { display: none !important; }
+  #hover { display: inline-block; padding: 14px; background: #dfeaf9; }
+  #tooltip { display: none; }
+  #hover:hover #tooltip { display: inline; }
+</style>
+<main>
+  <h1>Computer-use check</h1>
+  <section>
+    <button id="add">Add one</button><output id="count" aria-live="polite">Count: 0</output>
+    <button id="delay">Start delayed update</button><output id="delayed" aria-live="polite">Idle</output>
+  </section>
+  <section>
+    <label for="name">Name</label><input id="name" autocomplete="off">
+    <button id="save">Save name</button><output id="saved" aria-live="polite">Unsaved</output>
+  </section>
+  <section>
+    <button id="menu" aria-expanded="false">Open menu</button>
+    <div id="choices" hidden><button id="blue">Choose blue</button></div>
+    <output id="chosen">No selection</output>
+    <span id="hover" tabindex="0">Hover here <span id="tooltip" role="tooltip">Hover works</span></span>
+    <a href="/second">Second page</a>
+  </section>
+</main>
+<script>
+  let count = 0;
+  document.querySelector('#add').onclick = () => document.querySelector('#count').textContent = `Count: ${++count}`;
+  document.querySelector('#save').onclick = () => document.querySelector('#saved').textContent = `Saved: ${document.querySelector('#name').value}`;
+  document.querySelector('#menu').onclick = () => {
+    document.querySelector('#choices').hidden = false;
+    document.querySelector('#menu').setAttribute('aria-expanded', 'true');
+  };
+  document.querySelector('#blue').onclick = () => {
+    document.querySelector('#chosen').textContent = 'Selected: blue';
+    document.querySelector('#choices').hidden = true;
+  };
+  document.querySelector('#delay').onclick = () => {
+    document.querySelector('#delayed').textContent = 'Waiting';
+    document.querySelector('#delay').disabled = true;
+    setTimeout(() => {
+      document.querySelector('#delayed').textContent = 'Ready';
+      document.querySelector('#delay').disabled = false;
+    }, 300);
+  };
+</script>
+</html>

@@ -24,6 +24,7 @@ final class FrameCapture {
     static let shared = FrameCapture()
     private let queue = DispatchQueue(label: "computer.slab.frame", qos: .userInitiated)
     private var timer: DispatchSourceTimer?
+    private let visualDetector = FrameVisualControls()
     private let fm = FileManager.default
 
     // Transient overlay windows we draw (capture flash, OCR boxes). We exclude
@@ -149,7 +150,7 @@ final class FrameCapture {
         }
         let session = mode.split(separator: " ").first(where: { $0.hasPrefix("session=") })
             .map { String($0.dropFirst("session=".count)) } ?? "legacy"
-        produce(session: session, noOCR: flags.contains("noocr"), fast: flags.contains("fast"),
+        produce(session: session, noOCR: flags.contains("noocr"), noVisual: flags.contains("novisual"), fast: flags.contains("fast"),
                 wholeScreen: flags.contains("screen"),
                 virtualCursor: flags.contains("cursor"), cursorOverride: cursorOverride, crop: crop,
                 saveBaseline: flags.contains("baseline"), includeDiff: flags.contains("diff"),
@@ -856,55 +857,6 @@ final class FrameCapture {
         return out
     }
 
-    // Lightweight icon/control awareness for local reframes. OCR intentionally
-    // ignores drawn glyphs such as notification × buttons; contours recover
-    // compact, near-square controls without needing app-specific templates.
-    private func visualControls(_ cg: CGImage, scale: Double, origin: CGPoint,
-                                focus: CGPoint?) -> [[String: Any]] {
-        // Contour cost grows sharply with dense desktop content. Analyze a
-        // bounded local buffer and carry its scale back to global coordinates;
-        // the returned frame pixels remain full quality.
-        var scan = cg
-        var scanScale = scale
-        if cg.width > 512 {
-            let w = 512, h = max(1, Int(Double(cg.height) * Double(w) / Double(cg.width)))
-            if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
-                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
-                ctx.interpolationQuality = .medium
-                ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
-                if let small = ctx.makeImage() {
-                    scan = small
-                    scanScale = scale * Double(w) / Double(cg.width)
-                }
-            }
-        }
-        let dark = VNDetectContoursRequest()
-        dark.contrastAdjustment = 1.5
-        dark.detectsDarkOnLight = true
-        let light = VNDetectContoursRequest()
-        light.contrastAdjustment = 1.5
-        light.detectsDarkOnLight = false
-        try? VNImageRequestHandler(cgImage: scan, options: [:]).perform([dark, light])
-        let observations = [dark.results?.first, light.results?.first].compactMap { $0 }
-        let W = Double(scan.width) / scanScale, H = Double(scan.height) / scanScale
-        var out: [[String: Any]] = []
-        for c in observations.flatMap({ $0.topLevelContours }) {
-            let b = c.normalizedPath.boundingBox
-            let x = origin.x + b.minX * W
-            let y = origin.y + (1 - b.maxY) * H
-            let w = b.width * W, h = b.height * H
-            let ratio = w / max(h, 0.1)
-            guard w >= 10, h >= 10, w <= 46, h <= 46, ratio >= 0.65, ratio <= 1.5 else { continue }
-            let cx = x + w / 2, cy = y + h / 2
-            let distance = focus.map { hypot(cx - $0.x, cy - $0.y) } ?? 0
-            let duplicate = out.contains { abs(($0["cx"] as? Int ?? 0) - Int(cx)) < 3 && abs(($0["cy"] as? Int ?? 0) - Int(cy)) < 3 }
-            if !duplicate { out.append(["kind": "compact-control", "cx": Int(cx), "cy": Int(cy),
-                "r": [Int(x), Int(y), Int(w), Int(h)], "distance": Int(distance)]) }
-        }
-        return out.sorted { ($0["distance"] as? Int ?? 0) < ($1["distance"] as? Int ?? 0) }.prefix(24).map { $0 }
-    }
-
     // MARK: - Accessibility element tree of the frontmost app (trust already held)
 
     // Fetch several attributes in ONE IPC round-trip instead of one call each.
@@ -1105,7 +1057,7 @@ final class FrameCapture {
 
     // MARK: - assemble + write the envelope
 
-    private func produce(session: String = "legacy", noOCR: Bool, fast: Bool = false, wholeScreen: Bool = false,
+    private func produce(session: String = "legacy", noOCR: Bool, noVisual: Bool = false, fast: Bool = false, wholeScreen: Bool = false,
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
                          includeDiff: Bool = false, showOverlay: Bool = true,
@@ -1198,18 +1150,19 @@ final class FrameCapture {
                 CGPoint(x: $0["x"] ?? 0, y: $0["y"] ?? 0)
             }
             let visualOrigin = region.origin
-            if reelActive {
+            if reelActive || noVisual {
                 // VNDetectContours can overlap SCRecordingOutput's
                 // WindowServer/CoreImage work and has repeatedly taken the
                 // host app down mid-reel. It is supplemental to OCR + AX, so
                 // omit only this pass while preserving the audit screenshot.
                 env["visual"] = []
-                env["visual_suppressed"] = "screen-recording"
+                env["visual_suppressed"] = reelActive ? "screen-recording" : "requested"
                 tm["visual"] = 0
             } else {
-                t = nowNs(); env["visual"] = visualControls(cg, scale: captureScale,
+                t = nowNs(); env["visual"] = visualDetector.controls(cg, scale: captureScale,
                     origin: visualOrigin, focus: cursorOverride ?? cursorMeta)
                 tm["visual"] = msSince(t)
+                env["visual_cache_hit"] = visualDetector.cacheHit
             }
             t = nowNs()
             let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil

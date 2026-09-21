@@ -13,7 +13,7 @@ test("Captutor imports Frame once, yields during capture, and writes fresh audit
     let calls = 0;
     export async function captureFrame(machine, options) {
       await new Promise(resolve => setTimeout(resolve, 30));
-      if (machine !== 'local' || !options.noOCR || !options.quietOverlay || !options.memory)
+      if (machine !== 'local' || !options.noOCR || !options.noVisual || !options.quietOverlay || !options.memory)
         throw new Error('incorrect capture options');
       return { env: { capture: options.clearOverlays ? 'action' : 'ok', calls: ++calls }, jpg: Buffer.from('fresh') };
     }

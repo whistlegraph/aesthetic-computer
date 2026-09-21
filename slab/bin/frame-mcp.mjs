@@ -120,6 +120,7 @@ function digest(env) {
     const acts = (e.actions || []).join(",");
     L.push(`  ${e.role} «${title}» @(${e.cx},${e.cy})${acts ? ` [${acts}]` : ""}`);
   }
+  if (env.visual_suppressed) L.push(`visual detection skipped: ${env.visual_suppressed}`);
   const visual = env.visual || [];
   L.push(`\nVISUAL (${visual.length} compact controls) — kind @(cx,cy), distance from hover:`);
   for (const v of visual) L.push(`  ${v.kind} @(${v.cx},${v.cy}) d=${v.distance}`);
@@ -169,7 +170,7 @@ const recentActionTrails = new FrameStateMap();
 const recentFrames = new FrameStateMap();
 const visionCache = new Map();
 
-async function captureFrame({ expectedTargetId, machine, ocr = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ expectedTargetId, machine, ocr = true, visual = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   // Xbox uses synchronous curl/GPG helpers; keep that optional backend in a
   // child process so it cannot block fleet Mac requests in the shared server.
@@ -189,7 +190,7 @@ async function captureFrame({ expectedTargetId, machine, ocr = true, fast = fals
   // through a temporary file for each MCP observation.
   const result = await captureNativeFrame(machine, {
     session: nativeFrameSession(), expectedTargetId,
-    memory: true, noOCR: !ocr, fast, screen, cursor, cursorAt, targetAt,
+    memory: true, noOCR: !ocr, noVisual: !visual, fast, screen, cursor, cursorAt, targetAt,
     targetId, manualCheck, pressAt, pressCount, pressTitle, actionOnly,
     clearTarget, clearOverlays, quietOverlay, overlays, crop, baseline, diff,
   });
@@ -224,7 +225,7 @@ async function toolInitialFrame(options = {}) {
 
 // REFRAME is change-driven: one silent full-window diff probe advances the
 // baseline, then OCR is run only inside the BSP-selected changed partition.
-async function toolReframe({ machine, x, y, ocr = true, fast = true } = {}) {
+async function toolReframe({ machine, x, y, ocr = true, visual = true, fast = true } = {}) {
   const focusX = Number(x);
   const focusY = Number(y);
   const hasX = Number.isFinite(focusX);
@@ -234,6 +235,7 @@ async function toolReframe({ machine, x, y, ocr = true, fast = true } = {}) {
   const probe = await captureFrame({
     machine,
     ocr: false,
+    visual: false,
     cursor: false,
     diff: true,
     baseline: true,
@@ -251,6 +253,7 @@ async function toolReframe({ machine, x, y, ocr = true, fast = true } = {}) {
   const capture = await captureFrame({
     machine,
     ocr,
+    visual,
     fast,
     cursor: false,
     crop,
@@ -267,7 +270,7 @@ async function toolReframe({ machine, x, y, ocr = true, fast = true } = {}) {
 }
 
 // FOCUS is an intentional bounded read, independent of baseline/diff state.
-async function toolFocus({ machine, x, y, width = 720, height = 520, ocr = true, fast = true } = {}) {
+async function toolFocus({ machine, x, y, width = 720, height = 520, ocr = true, visual = true, fast = true } = {}) {
   x = Number(x); y = Number(y); width = Number(width); height = Number(height);
   if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
     throw new Error("x, y, width, and height must be finite; width/height must be positive");
@@ -281,6 +284,7 @@ async function toolFocus({ machine, x, y, width = 720, height = 520, ocr = true,
   const capture = await captureFrame({
     machine,
     ocr,
+    visual,
     fast,
     cursorAt: [x, y],
     crop,
@@ -741,7 +745,7 @@ async function recordActionTrail({ machine, label, baselineEnv, cursorAt, clearT
     // previous baseline before atomically advancing that baseline for the next
     // iteration. No OCR means no on-screen OCR overlay and low latency.
     const probe = await captureFrame({
-      machine, ocr: false, fast: true, cursor: false, diff: true, baseline: true,
+      machine, ocr: false, visual: false, fast: true, cursor: false, diff: true, baseline: true,
       quietOverlay: true,
       clearTarget: clearTarget && samples.length === 0,
     });
@@ -888,15 +892,15 @@ async function verifyNativeTarget(machine, observationId, before = recentFrames.
   if (!before?.observation?.id || (observationId && observationId !== before.observation.id)) {
     throw new Error("Observation is missing or superseded; capture frame again in this session before acting");
   }
-  const current = await captureFrame({ machine, ocr: false, cursor: false, quietOverlay: true });
+  const current = await captureFrame({ machine, ocr: false, visual: false, cursor: false, quietOverlay: true });
   assertFrameTarget(before, current.env, observationId);
 }
 
-async function toolClick({ machine, observationId, x, y, count = 1, ocr = true, fast = true }) {
+async function toolClick({ machine, observationId, x, y, count = 1, ocr = true, fast = true, visual = true }) {
   await verifyNativeTarget(machine, observationId);
   await clickPoint(machineSpec(machine), Number(x), Number(y), { count });
   await settle();
-  return toolFrame({ machine, ocr, fast, cursorAt: [Number(x), Number(y)] });
+  return toolFrame({ machine, ocr, fast, visual, cursorAt: [Number(x), Number(y)] });
 }
 
 async function toolStageClick({ machine, x, y, count = 1, label, ocr = true, fast = true }) {
@@ -1061,7 +1065,8 @@ const TOOLS = [
       properties: {
         machine: { type: "string", description: "Target name (e.g. xbox, neo, blueberry, local). See frame_list." },
         screen: { type: "boolean", description: "Capture the complete display instead of the focused window (default false)." },
-        ocr: { type: "boolean", description: "Run OCR (default true). Set false for a faster pixels+AX-only frame." },
+        ocr: { type: "boolean", description: "Run OCR (default true). Set false to skip text recognition." },
+        visual: { type: "boolean", description: "Detect compact visual controls (default true). Set false to skip contour detection while keeping fresh pixels and AX." },
         fast: { type: "boolean", description: "Use Vision .fast OCR — lower latency, less accurate on small text (default false)." },
         cursor: { type: "boolean", description: "Draw a high-contrast virtual cursor at the current mouse position (default true)." },
         overlays: { type: "boolean", description: "Keep slab's own overlays — prompt rocks, the QR, the piece preview — in the shot instead of filtering them out, and widen the window crop to reach the menu bar. Use it when the overlays themselves are what you are designing (default false)." },
@@ -1080,6 +1085,7 @@ const TOOLS = [
         x: { type: "number", description: "Optional global focus x; supply together with y." },
         y: { type: "number", description: "Optional global focus y; supply together with x." },
         ocr: { type: "boolean", description: "OCR only the changed crop (default true)." },
+        visual: { type: "boolean", description: "Detect visual controls in the changed crop (default true). Diff probes always skip contours." },
         fast: { type: "boolean", description: "Use fast OCR for the changed crop (default true)." },
       },
       required: ["machine"],
@@ -1098,6 +1104,7 @@ const TOOLS = [
         width: { type: "number", minimum: 64, description: "Crop width in screen points (default 720)." },
         height: { type: "number", minimum: 64, description: "Crop height in screen points (default 520)." },
         ocr: { type: "boolean", description: "OCR the focused crop (default true)." },
+        visual: { type: "boolean", description: "Detect compact visual controls in the crop (default true)." },
         fast: { type: "boolean", description: "Use fast OCR (default true)." },
       },
       required: ["machine", "x", "y"],
@@ -1198,6 +1205,7 @@ const TOOLS = [
         count: { type: "number", minimum: 1, maximum: 3, description: "Click count (default 1)." },
         ocr: { type: "boolean", description: "Include OCR in the returned frame (default true)." },
         fast: { type: "boolean", description: "Use fast OCR for the returned frame (default true)." },
+        visual: { type: "boolean", description: "Detect visual controls in the returned frame (default true). Target guards always skip contours." },
       },
       required: ["machine", "x", "y"],
     },

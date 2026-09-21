@@ -40,10 +40,10 @@ test('Frame memory transport preserves fragmented binary images, modes, and erro
     await rm(dir, { recursive: true, force: true });
   });
   const { captureFrame } = await import(`../bin/frame.mjs?test=${Date.now()}`);
-  const result = await captureFrame('fixture', { memory: true, noOCR: true, crop: [40,60,100,80], quietOverlay: true });
+  const result = await captureFrame('fixture', { memory: true, noOCR: true, noVisual: true, crop: [40,60,100,80], quietOverlay: true });
   assert.deepEqual(result.env, envelope);
   assert.deepEqual(result.jpg, jpg);
-  assert.equal(requests[0].mode, 'window noocr quiet-overlay crop=40,60,100,80');
+  assert.equal(requests[0].mode, 'window noocr novisual quiet-overlay crop=40,60,100,80');
   await assert.rejects(captureFrame('missing', { memory: true }), /unknown machine/);
   envelope = { error: 'fixture transport failure' };
   await assert.rejects(captureFrame('fixture', { memory: true, pressAt: [1,2] }), /fixture transport failure/);
@@ -81,6 +81,40 @@ test('native-only Puppet machines never enter the browser reconnect loop', async
   await machine.connectLoop();
   assert.equal(machine.info().lastError, null);
   await assert.rejects(machine.ensureConnected(), /no browser configured/);
+});
+
+test('Frame MCP forwards explicit contour skipping and omits contours on reframe diff probes', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'frame-mcp-visual-'));
+  const socket = join(dir, 'frame.sock'), config = join(dir, 'machines.json');
+  await writeFile(config, JSON.stringify({ machines: { fixture: { local: true } } }));
+  const modes = [];
+  const server = net.createServer(sock => sock.once('data', data => {
+    const { mode } = JSON.parse(String(data));
+    modes.push(mode);
+    const env = { capture: 'ok', capture_scope: 'window', diff: [], diff_baseline: 'matched',
+      visual_suppressed: 'requested', observation: { session: mode.match(/session=([^ ]+)/)[1] } };
+    const json = Buffer.from(JSON.stringify(env)), jpg = Buffer.from([255,216,255,217]);
+    sock.end(Buffer.concat([Buffer.from(`ACF1 ${json.length} ${jpg.length}\n`), json, jpg]));
+  }));
+  await new Promise(resolve => server.listen(socket, resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); });
+  for (const name of ['frame', 'frame_reframe']) {
+    const result = await new Promise((resolve, reject) => {
+      const child = execFile(process.execPath, ['slab/bin/frame-mcp.mjs'], {
+        env: { ...process.env, SLAB_FRAME_SOCK: socket, SLAB_PUPPET_CONFIG: config },
+      }, (error, stdout) => error ? reject(error) : resolve(JSON.parse(stdout).result));
+      child.stdin.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
+        name, arguments: { machine: 'fixture', ...(name === 'frame' ? { visual: false } : {}) },
+      } }) + '\n');
+    });
+    assert.ok(!result.isError, JSON.stringify(result));
+    assert.match(modes.at(-1), /\bnovisual\b/);
+    if (name === 'frame_reframe') {
+      assert.match(modes.at(-1), /\bdiff\b/);
+      assert.match(result.content[0].text, /unchanged/);
+    }
+  }
+  assert.equal(modes.length, 2, 'unchanged reframe must not request another capture');
 });
 test('Puppet uses recent in-memory JPEG without a CDP screenshot', async () => {
   const {machine, calls} = browser();
