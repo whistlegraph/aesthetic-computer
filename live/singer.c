@@ -90,6 +90,12 @@ singer *singer_create(const double *pcm, int n, int fs) {
   singer_params *p = &s->p;
   p->bpm = 124; p->morph = 1.0; p->snap = 0.9; p->depth = 0.15;
   p->level = 2.4; p->f0_floor = 70.0; p->consonant_gain = 1.25;
+  p->sustain_db = 0.0;   // 0 = stretch the whole nucleus (the pre-Sept-21 behaviour)
+  p->gap_ms = 0.0;       // 0 = legato right up to the next onset
+  p->presence_db = 0.0;  // 0 = no consonant-band lift
+  p->voiced_consonant_mix = 0.0;   // 0 = voiced consonants fully vocoded
+  p->sustain_band = 0;   // 0 = total energy picks the sustain zone; 1 = the 400 Hz–4 kHz formant band
+  p->loop_sustain = 0;   // 0 = frozen-spectrum hold (eased); 1 = wander the nucleus at speaking rate
   p->mode = SINGER_SNAP; p->root_pc = 9;              // A
   int sc[5] = {0, 3, 5, 7, 10};                        // minor pentatonic
   memcpy(p->scale, sc, sizeof(sc)); p->n_scale = 5;
@@ -282,8 +288,52 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     o_src[i] = -1.0; o_u[i] = -1;
   }
 
+  // Sustain zone: only the LOUD core of the nucleus stretches. A voiced run
+  // ("born" = b + or + n) is one nucleus to the detector, but stretching the
+  // quieter voiced edges — a b burst, an n murmur, an l — turns them into
+  // syllables of their own ("horn"). Frames more than `sustain_db` below the
+  // run's peak stay at speaking rate as (vocoded) onset/coda transitions.
+  double sustain_db = getenv("SINGER_SUSTAIN_DB") ? atof(getenv("SINGER_SUSTAIN_DB")) : p.sustain_db;
+  int sustain_band = getenv("SINGER_SUSTAIN_BAND") ? atoi(getenv("SINGER_SUSTAIN_BAND")) : p.sustain_band;
+  double sustain_min_frac = getenv("SINGER_SUSTAIN_MINFRAC") ? atof(getenv("SINGER_SUSTAIN_MINFRAC")) : 0.4;
+  double sustain_min_ms   = getenv("SINGER_SUSTAIN_MINMS")   ? atof(getenv("SINGER_SUSTAIN_MINMS"))   : 60.0;
+  double cgain_env = getenv("SINGER_CGAIN") ? atof(getenv("SINGER_CGAIN")) : 0;
+  if (cgain_env > 0) p.consonant_gain = cgain_env;
+  double gap_fr = (getenv("SINGER_GAP_MS") ? atof(getenv("SINGER_GAP_MS")) : p.gap_ms) / fp;
+  double cmix = getenv("SINGER_CMIX") ? atof(getenv("SINGER_CMIX")) : p.voiced_consonant_mix;
+  int loop_sustain = getenv("SINGER_LOOP") ? atoi(getenv("SINGER_LOOP")) : p.loop_sustain;
+  const int XF = getenv("SINGER_XF") ? atoi(getenv("SINGER_XF")) : 8;   // seam crossfade, frames (40 ms)
   for (int i = 0; i < nu; i++) {
     int a = U[i].a, b = U[i].b, vs = U[i].vs, ve = U[i].ve;
+    if (sustain_db > 0 && ve - vs >= 6) {
+      // Which energy tells a vowel from a voiced consonant? Not the total —
+      // a d-murmur or an n hums as loud as the vowel below 400 Hz. The
+      // formant band does: vowels carry 400 Hz–4 kHz, stops and nasals
+      // barely. `sustain_band` measures the zone there.
+      static double eb[65536];
+      int k0 = (int)(400.0 * s->fft_size / s->fs), k1 = (int)(4000.0 * s->fft_size / s->fs);
+      if (k1 > spec) k1 = spec;
+      for (int f = vs; f < ve; f++) {
+        if (sustain_band) { double e = 0; for (int k = k0; k < k1; k++) e += s->sp[f][k]; eb[f - vs] = log(e + 1e-10); }
+        else eb[f - vs] = s->en[f];
+      }
+      int pk = vs;
+      for (int f = vs; f < ve; f++) if (eb[f - vs] > eb[pk - vs]) pk = f;
+      double floor_en = eb[pk - vs] - sustain_db * log(10.0) / 10.0;   // ln(power)
+      int ss = pk, se = pk + 1;
+      while (ss > vs && eb[ss - 1 - vs] >= floor_en) ss--;
+      while (se < ve && eb[se - vs] >= floor_en) se++;
+      // A core can't be a sliver: a 25 ms zone stretched 24x is one frozen
+      // spectrum for a second (Allison's "Neo" → "n-n-n-neeel"). Widen it
+      // around the peak to at least `sustain_min_frac` of the run and
+      // `sustain_min_ms`, so trimming only removes long murmurs.
+      int minlen = (int)lround(fmax((ve - vs) * sustain_min_frac, sustain_min_ms / fp));
+      while (se - ss < minlen && (ss > vs || se < ve)) {
+        int growLeft = ss > vs && (se >= ve || eb[ss - 1 - vs] >= eb[se - vs]);
+        if (growLeft) ss--; else se++;
+      }
+      if (se - ss >= 4) { vs = ss; ve = se; }                        // keep ≥ 20 ms to sing on
+    }
     int c_on = vs - a, c_co = b - ve;
     if (c_co > 36) { c_co = 36; b = ve + 36; }   // a coda is a release, not the silence after it (≤ 180 ms)
     if (c_on > 60) { a = vs - 60; c_on = 60; }   // likewise an onset (≤ 300 ms)
@@ -295,7 +345,9 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     // beats of silence after it.)
     double end = U[i].grid + U[i].slot;
     if (i + 1 < nu) {
-      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph;
+      // stop `gap_fr` before the next onset consonant so a stop's closure
+      // (the silence before a b/d/k burst) is silence, not the held vowel
+      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph - gap_fr;
       if (nextOn < end) end = nextOn;
     }
     double avail = end - U[i].grid - c_co - (i + 1 < nu ? 0.0 : c_on);
@@ -313,20 +365,46 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
 
     int wlen = c_on + vout + c_co;
     int o0 = (int)lround(U[i].grid - c_on * p.morph);
-    const int XF = 8;                          // 40 ms seam crossfade where units overlap
+    if (getenv("SINGER_TRACE")) {
+      double nextOn = i + 1 < nu ? U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph : -1;
+      fprintf(stderr, "  [unit %2d] src a=%d vs=%d ve=%d b=%d (on %d vow %d coda %d fr) → grid %.0f slot %.0f | avail %.0f full %.2f st %.2f vout %d | out %d..%d nextOn %.0f%s\n",
+              i, a, vs, ve, b, c_on, vlen, c_co, U[i].grid, U[i].slot, avail, full, st, vout,
+              o0, o0 + wlen, nextOn, (nextOn >= 0 && o0 + wlen > nextOn) ? "  OVERRUN" : "");
+    }
     for (int j = 0; j < wlen; j++) {
       int o = o0 + j;
       if (o < 0 || o >= total) continue;
       double srcf; int isc;
       if (j < c_on)           { srcf = a + j; isc = 1; }
       else if (j < c_on+vout) {
-        // A singer holds the vowel's FIRST colour and saves the glide for
-        // the end ("naaaa-it", not "naaiiii"): when the vowel is stretched
-        // beyond 2x, ease the source position so most of the output time
-        // sits on the early nucleus and the off-glide happens late.
         double u = (double)(j - c_on) / (vout > 1 ? vout - 1 : 1);
-        double gamma = st > 2.0 ? 2.2 : 1.0;
-        srcf = vs + pow(u, gamma) * (vlen - 1); isc = 0;
+        if (loop_sustain && st > 2.0) {
+          // LOOPED sustain: a held note is not one frozen spectrum. Play the
+          // onset third of the nucleus once at speaking rate, then wander the
+          // middle of the nucleus back and forth at speaking rate (its own
+          // breath, jitter and formant drift come along), and finish with the
+          // off-glide at speaking rate — "naaaa-it" with a living "aaaa".
+          double head = 0.30 * (vlen - 1), tail = 0.25 * (vlen - 1);
+          int jj = j - c_on;
+          int headFr = (int)lround(head), tailFr = (int)lround(tail);
+          if (jj < headFr) srcf = vs + jj;
+          else if (jj >= vout - tailFr) srcf = vs + (vlen - 1) - (vout - 1 - jj);
+          else {
+            double lo = vs + head, span = (vlen - 1) - head - tail;
+            if (span < 4) span = 4;
+            double t = (double)(jj - headFr), per = 2 * span;
+            double ph = fmod(t, per);
+            srcf = lo + (ph <= span ? ph : per - ph);           // ping-pong, no seam
+          }
+        } else {
+          // A singer holds the vowel's FIRST colour and saves the glide for
+          // the end ("naaaa-it", not "naaiiii"): when the vowel is stretched
+          // beyond 2x, ease the source position so most of the output time
+          // sits on the early nucleus and the off-glide happens late.
+          double gamma = st > 2.0 ? 2.2 : 1.0;
+          srcf = vs + pow(u, gamma) * (vlen - 1);
+        }
+        isc = 0;
       }
       else                    { srcf = ve + (j - c_on - vout); isc = 1; }
       int l = clampi((int)floor(srcf), 0, s->nframes - 1);
@@ -414,14 +492,22 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     int fl = clampi((int)floor(fpos), 0, total - 1);
     int fh = clampi(fl + 1, 0, total - 1);
     if (o_src[fl] < 0 || o_src[fh] < 0) continue;
-    if (!(o_c[fl] && o_sf0[fl] <= 0) || !(o_c[fh] && o_sf0[fh] <= 0)) continue;
+    if (!o_c[fl] || !o_c[fh]) continue;                 // a consonant region (onset or coda, natural rate)
+    int unvoiced = (o_sf0[fl] <= 0) && (o_sf0[fh] <= 0);
+    // Unvoiced consonants are always the original recording (the vocoder
+    // has nothing to say about a burst or a hiss). Voiced consonants — b d
+    // g m n l r w — are vocoded at the note by default; `cmix` blends the
+    // spoken original back in over them too: their short natural-pitch
+    // moment is what tells "door" from "your" and "beat" from "eat".
+    double m = unvoiced ? 1.0 : cmix;
+    if (m <= 0) continue;
     double ff = fpos - fl;
     double ss = (o_src[fl] * (1 - ff) + o_src[fh] * ff) * spf;
     int sl = clampi((int)floor(ss), 0, s->nx - 1);
     int sh = clampi(sl + 1, 0, s->nx - 1);
     double sfr = ss - sl;
     orig[n] = s->x[sl] * (1 - sfr) + s->x[sh] * sfr;
-    mask[n] = 1.0;
+    mask[n] = m;
   }
   int xf = (int)(0.012 * s->fs);
   double *msm = (double *)calloc(ylen, sizeof(double));
@@ -446,6 +532,24 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     if (!isfinite(v)) v = 0.0;
     y[n] = v;
     if (fabs(v) > pk) pk = fabs(v);
+  }
+  // Presence: a peaking EQ around 3 kHz (RBJ biquad, Q 0.8) lifts the
+  // consonant band that a vocoded, pitch-locked vowel line buries. 0 = off.
+  double presence_db = getenv("SINGER_PRESENCE_DB") ? atof(getenv("SINGER_PRESENCE_DB")) : p.presence_db;
+  if (presence_db != 0) {
+    double A = pow(10.0, presence_db / 40.0), w0 = 2 * M_PI * 3000.0 / s->fs, Q = 0.8;
+    double alpha = sin(w0) / (2 * Q), cw = cos(w0);
+    double b0 = 1 + alpha * A, b1 = -2 * cw, b2 = 1 - alpha * A;
+    double a0 = 1 + alpha / A, a1 = -2 * cw, a2 = 1 - alpha / A;
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+    double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    pk = 0;
+    for (int n = 0; n < ylen; n++) {
+      double x0 = y[n], v = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      x2 = x1; x1 = x0; y2 = y1; y1 = v;
+      if (!isfinite(v)) v = 0.0;
+      y[n] = v; if (fabs(v) > pk) pk = fabs(v);
+    }
   }
   if (!isfinite(pk) || pk <= 0) pk = 1.0;
   for (int n = 0; n < ylen; n++) y[n] = y[n] / pk * 0.8;

@@ -63,6 +63,19 @@ typedef struct {
   double lock;         // 0 = spoken contour rides on the note, 1 = hard on it
   double vib_hz;       // vibrato rate (profile: 4x battery cycles/day)
   double vib_cents;    // vibrato depth
+  double sustain_db;   // only nucleus frames within this many dB of the
+                       // run's peak are stretched; quieter voiced edges
+                       // (b, n, l, r) keep speaking rate. 0 = whole run.
+  double gap_ms;       // a held vowel stops this long before the next
+                       // unit's onset consonant (a stop's closure). 0 = legato.
+  double presence_db;  // peaking EQ at 3 kHz on the sung output, dB. 0 = off.
+  double voiced_consonant_mix;   // 0…1: how much of the SPOKEN original is
+                       // blended over voiced consonants (b d g m n l r w) in
+                       // onset/coda regions; unvoiced ones are always original.
+  int    sustain_band; // 1 = judge the sustain zone by 400 Hz–4 kHz energy
+                       // (vowel vs voiced consonant), 0 = total energy
+  int    loop_sustain; // 1 = a held vowel wanders its nucleus back and forth
+                       // at speaking rate (alive); 0 = eased frozen hold.
 } singer_params;
 
 typedef struct singer singer;

@@ -61,6 +61,28 @@ machine in Spoken Content; Siri voices are not exposed to apps. The score-format
 `.nsscore`) says `.mbscore` is the host format and proposes a shared
 `sungline` record — see the session report.
 
+## Can the words be heard? — the offline loop (Sept 21)
+
+Jeffrey, hearing the dialogs: "the words are hard to hear / listen to after
+output." The check is objective now, and it never touches a speaker:
+
+- `slab/menuband` builds **`singrender`** — Menu Band's own
+  `MenuBandSinger.swift` (a symlink into the CLI target, one source of truth)
+  driven from the shell into WAV files. What it writes is what the room hears.
+- `bin/hear.mjs <score|glob> --tag NAME` renders every sung line of every
+  voice, runs each WAV back through **Whisper** (`whisper-cli`, small.en in
+  `recap/models/` — base.en was too unsteady a judge on sung words), and
+  scores the transcript against the lyric as **word error rate**. The spoken
+  TTS source is scored too: the ceiling the singing can only fall from.
+  Results land in `hear/<tag>.json`; `--compare A B` tables two runs and
+  lists the lines that moved. `--env K=V` reaches the core's knobs
+  (`SINGER_SUSTAIN_DB`, `SINGER_GAP_MS`, `SINGER_CGAIN`, `SINGER_XF`;
+  `SINGER_TRACE=1` prints every unit's placement).
+- Baseline, Sept 21 10:20, eight dialogs, 421 words, base.en judge: **spoken
+  source 2.6% WER, sung 26.6%.** The singing pass costs the words; the loop
+  exists to win them back. Every change to `live/singer.c` is judged here
+  before it is installed.
+
 ## Sept 20 evening — the set as it stands
 
 - **Voices:** neo = **Noelle (Enhanced)** (jeffrey's pick; the cloned-voice

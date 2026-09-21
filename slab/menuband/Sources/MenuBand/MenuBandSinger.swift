@@ -115,6 +115,21 @@ struct SungRender {
 final class MenuBandSinger {
     private let queue = DispatchQueue(label: "menuband.singer", qos: .userInitiated)
     private let synth = AVSpeechSynthesizer()
+    /// How fast the cast voice SPEAKS the line before it is sung (AVSpeech
+    /// 0…1, default 0.5 = natural). Slower speech = longer consonants for
+    /// the core to keep. Tunable so the offline renderer can search it.
+    static var speechRate: Float = 0.42
+
+    /// Render on the calling thread (the offline renderer, tests).
+    func renderSync(_ line: SungLine, into format: AVAudioFormat) -> SungRender? {
+        renderNow(line, format: format)
+    }
+    /// Just the spoken source, as the core would hear it — the intelligibility
+    /// ceiling for a line, before any singing.
+    func speechOnly(_ line: SungLine) -> (pcm: [Double], fs: Int)? {
+        guard let sp = line.stemPath != nil ? load(line, words: line.words) : speak(line, words: line.words) else { return nil }
+        return (sp.pcm, sp.fs)
+    }
 
     /// Render `line` off the main thread; `completion` lands on main with nil
     /// when the speech source or the core gave nothing to sing.
@@ -178,13 +193,31 @@ final class MenuBandSinger {
             .max { rank($0) < rank($1) }
     }
 
+    /// The offline loop renders the same words hundreds of times while the
+    /// core changes: with SINGER_SPEECH_CACHE=dir set, the spoken source
+    /// (PCM + word onsets) is kept on disk per voice · rate · text. Menu Band
+    /// itself never sets it.
+    private static let speechCacheDir = ProcessInfo.processInfo.environment["SINGER_SPEECH_CACHE"]
+    private func speechCachePath(_ line: SungLine) -> String? {
+        guard let dir = MenuBandSinger.speechCacheDir else { return nil }
+        var h: UInt64 = 14_695_981_039_346_656_037
+        for b in "\(line.voice)|\(MenuBandSinger.speechRate)|\(line.spoken)".utf8 { h = (h ^ UInt64(b)) &* 1_099_511_628_211 }
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        return "\(dir)/\(String(h, radix: 16)).json"
+    }
+
     private func speak(_ line: SungLine, words: [(text: String, nsyl: Int)]) -> Speech? {
+        if let cp = speechCachePath(line), let d = FileManager.default.contents(atPath: cp),
+           let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+           let fs = j["fs"] as? Int, let pcm = j["pcm"] as? [Double], let sp = j["spans"] as? [[Int]], sp.count == words.count {
+            return Speech(pcm: pcm, fs: fs, spans: sp.map { ($0[0], $0[1]) })
+        }
         let cap = Capture()
         synth.delegate = cap
         let utt = AVSpeechUtterance(string: line.spoken)
         let v = MenuBandSinger.voice(named: line.voice)
         utt.voice = v
-        utt.rate = 0.42
+        utt.rate = MenuBandSinger.speechRate
         synth.write(utt) { buf in
             guard let b = buf as? AVAudioPCMBuffer, b.frameLength > 0 else { cap.done.signal(); return }
             cap.append(b)
@@ -210,6 +243,10 @@ final class MenuBandSinger {
         NSLog("🎤 sing: spoke %d samples @%.0f Hz in %@ [%@], %d/%d word ranges",
               n, cap.fs, v?.name ?? "default",
               tierName[min(3, v?.quality.rawValue ?? 1)], cap.onsets.count, nw)
+        if let cp = speechCachePath(line) {
+            let j: [String: Any] = ["fs": Int(cap.fs), "pcm": cap.pcm, "spans": spans.map { [$0.a, $0.b] }]
+            if let d = try? JSONSerialization.data(withJSONObject: j) { try? d.write(to: URL(fileURLWithPath: cp)) }
+        }
         return Speech(pcm: cap.pcm, fs: Int(cap.fs), spans: spans)
     }
 
@@ -343,7 +380,7 @@ final class MenuBandSinger {
         raw.frameLength = AVAudioFrameCount(n)
         let out = raw.floatChannelData![0]
         for i in 0..<n { let f = Float(y[i]); out[i] = f; peak = max(peak, abs(f)) }
-        guard let buf = MenuBandSingerVoice.convert(raw, to: format) else { return nil }
+        guard let buf = MenuBandSinger.convert(raw, to: format) else { return nil }
         NSLog("🎤 sing: analyzed %d frames in %.0f ms; sang %d/%d notes over beats %.0f…%.0f of %.0f in %.0f ms; %.2f s @%.0f Hz peak %.3f — ask→ready %.0f ms",
               singer_total_frames(S), analyzeMs, used, notes.count, first16 / 4, last16 / 4, beat,
               Date().timeIntervalSince(tr) * 1000, Double(buf.frameLength) / format.sampleRate,
@@ -351,99 +388,8 @@ final class MenuBandSinger {
         return SungRender(buffer: buf, spanOffset: spanOffset, notesUsed: Int(used),
                           noteCount: notes.count, peak: peak)
     }
-}
 
-/// The sung voice's place in the engine: one player node on the fx bus.
-/// Connected once at attach with a fixed mono format (the engine resamples
-/// to the device), so scheduling never touches topology.
-final class MenuBandSingerVoice {
-    private let player = AVAudioPlayerNode()
-    private weak var engine: AVAudioEngine?
-    private var attached = false
-    /// The face this voice's meter drives (a sim tile's, or the shared one).
-    var face: SingerFace = .shared
-    /// Stereo place, -1…1 (a sim slot sits its member left or right).
-    var pan: Float = 0 { didSet { player.pan = pan } }
-    private var generation = 0            // bumped on stop; late timers become no-ops
-    let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44_100,
-                               channels: 1, interleaved: false)!
-
-    private static var lastTapLog = 0.0
-
-    func attach(to engine: AVAudioEngine, output: AVAudioNode) {
-        guard !attached else { return }
-        self.engine = engine
-        engine.attach(player)
-        engine.connect(player, to: output, format: format)
-        attached = true
-        // Proof-of-life tap: whenever the singer's node actually renders
-        // audio, log its peak (rate-limited). Silence here = the buffer never
-        // sounded; sound here = a downstream bus (duck/limiter/route) ate it.
-        // Lip-sync meter + proof of life: every ~23 ms, the singer node's
-        // RMS (jaw) and zero-crossing rate (sibilants) go to the face; a
-        // rate-limited peak log says the voice is really sounding.
-        player.pan = pan
-        player.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buf, _ in
-            guard let ch = buf.floatChannelData, buf.frameLength > 0 else { return }
-            let n = Int(buf.frameLength)
-            var peak: Float = 0, sum: Float = 0, cross = 0
-            var prev = ch[0][0]
-            for i in 0..<n {
-                let v = ch[0][i]
-                peak = max(peak, abs(v)); sum += v * v
-                if (v >= 0) != (prev >= 0) { cross += 1 }
-                prev = v
-            }
-            let rms = sqrt(sum / Float(n)), zcr = Float(cross) / Float(n)
-            let face = self?.face ?? .shared
-            DispatchQueue.main.async { face.meter(rms: CGFloat(rms), zcr: CGFloat(zcr)) }
-            guard peak > 0.01 else { return }
-            let now = Date().timeIntervalSince1970
-            if now - MenuBandSingerVoice.lastTapLog > 2.0 {
-                MenuBandSingerVoice.lastTapLog = now
-                NSLog("🎤 tap: singer rendering, peak %.3f", peak)
-            }
-        }
-    }
-
-    /// Sound `render` so its first sample lands at `epoch` (Unix seconds).
-    /// Uses the player's own sample clock when it has one (the engine is
-    /// rendering), else the host clock; a late line is trimmed to start now.
-    /// Main thread — node control. Returns the lead in seconds (negative = late).
-    @discardableResult
-    func schedule(_ render: SungRender, atEpoch epoch: Double) -> Double {
-        guard attached, let engine else { return 0 }
-        let lead = epoch - Date().timeIntervalSince1970
-        let gen = generation
-        // Play the line by waiting for its instant on the main thread, then
-        // scheduling the buffer for immediate playout — the same clock the
-        // drums and key-lights use. Precise sample-time scheduling on a
-        // player node proved unreliable across the engine's idle pause and
-        // restarts (the buffer was accepted but silently skipped — the
-        // silent-voice bug of Sept 20); this always sounds.
-        let fire: () -> Void = { [weak self] in
-            guard let self, self.generation == gen else { return }
-            if !engine.isRunning { try? engine.start() }
-            if !self.player.isPlaying { self.player.play() }
-            guard self.player.isPlaying else { NSLog("🎤 sing: player would not start"); return }
-            self.player.scheduleBuffer(render.buffer, completionHandler: nil)
-            NSLog("🎤 sing: playing %.2f s now",
-                  Double(render.buffer.frameLength) / render.buffer.format.sampleRate)
-        }
-        if lead <= 0.01 {
-            if Thread.isMainThread { fire() } else { DispatchQueue.main.async(execute: fire) }
-        } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + lead, execute: fire)
-        }
-        return lead
-    }
-
-    /// Drop every queued line (stop cancels a pending sung line).
-    func stop() {
-        guard attached else { return }
-        generation += 1
-        player.stop()
-    }
+    // MARK: - format helpers (shared with the voice node)
 
     static func convert(_ pcm: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer? {
         if pcm.format == format { return pcm }
