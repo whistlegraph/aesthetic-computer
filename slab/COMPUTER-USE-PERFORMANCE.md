@@ -112,6 +112,12 @@ three decisions using `OPENROUTER_API_KEY`; only generated fixture labels leave
 the machine. The runner writes its JSON report and synthetic-page screenshot
 to the system temporary directory, then removes its browser profile.
 
+Blueberry's native app and JavaScript services are now running the second round
+(`010366763f`); the live Frame schemas expose all four `visual` options and local
+Puppet is connected. A launchd restart race was recovered before health checks.
+Neo's native app installation succeeded, but it became unreachable over SSH
+before its JavaScript refresh. Its JavaScript runtime remains `e678ebb76`.
+
 With an unlocked local display, add `--native` for five quiet captures per OCR
 mode. The report includes native stage timings and excludes failed captures;
 it stores no screen text or images.
