@@ -26,7 +26,7 @@ function source(path, imports = true) {
   const bytes = git('show', revision + ':' + path);
   put(path, bytes);
   if (!imports || !path.endsWith('.mjs')) return;
-  for (const [, spec] of bytes.toString().matchAll(/(?<![\w.])(?:from\s*|import\s*(?:\(\s*)?)["']([^"']+)["']/g)) {
+  for (const [, spec] of bytes.toString().matchAll(/(?<![\w.])(?:from\s+|import\s*(?:\(\s*)?)["']([^"']+)["']/g)) {
     if (spec.startsWith('.')) source(posix.normalize(posix.join(posix.dirname(path), spec)));
     else if (!spec.startsWith('node:') && spec !== 'playwright-core')
       throw new Error('Unpackaged dependency: ' + spec + ' in ' + path);
