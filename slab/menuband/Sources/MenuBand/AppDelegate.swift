@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var jukeStatusItem: MenuBandJukeStatusItem?
 #endif
     private let menuBand = MenuBandController()
+    /// Speech-to-singing pipeline for `.play` payloads that carry `lyrics`.
+    private let singer = MenuBandSinger()
 #if MAC_APP_STORE
     /// Optional direct-download sensor bridge. It supplies contact frames only;
     /// this sandboxed process continues to own the instrument and its display.
@@ -75,6 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Bumped by a stop to cancel every still-pending onset: each scheduled
     /// closure captures the generation and no-ops if it no longer matches.
     private var playGeneration = 0
+    /// A conducted sung sequence is running (keeps the engine warm; Escape
+    /// cancels it). Set when a synced sung score starts, cleared on stop.
+    private var sungSequenceActive = false
 
     private let hoverResponder = HoverResponder()
     /// Bridges typing in the macOS Stickies app to Menu Band note
@@ -575,10 +580,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Escape must remain available even when the percussion click wall or
         // KeyMap owns AppKit focus. The session tap runs ahead of either local
         // monitor, so this is the reliable way out of a latched trackpad mode.
-        if keyCode == 53 /* kVK_Escape */, isDown,
-           self.pitchBendCursorPushed {
-            DispatchQueue.main.async { self.exitPerformanceFocusFromEscape() }
-            return true
+        if keyCode == 53 /* kVK_Escape */, isDown {
+            // Escape ALWAYS cancels a running conducted sequence, from any app.
+            if self.sungSequenceActive || KeyboardIconRenderer.scoreTitle != nil {
+                DispatchQueue.main.async {
+                    NSLog("⏹ SEQUENCE cancelled by Escape")
+                    self.stopScore(broadcast: true)
+                }
+                return true
+            }
+            if self.pitchBendCursorPushed {
+                DispatchQueue.main.async { self.exitPerformanceFocusFromEscape() }
+                return true
+            }
         }
 
         guard self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive
@@ -4565,12 +4579,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.playGeneration += 1            // pending onsets become no-ops
+            if self.sungSequenceActive {
+                NSLog("⏹ SEQUENCE END")
+                self.sungSequenceActive = false
+                self.menuBand.keepEngineWarm = false
+            }
+            self.menuBand.stopAllSingers()      // drop any queued sung line (sim slots too)
             self.menuBand.panic()               // silence anything ringing
             if self.menuBand.percussionSplit { self.menuBand.percussionSplit = false }
             self.menuBand.octaveShift = 0
             KeyboardIconRenderer.scoreTitle = nil
             KeyboardIconRenderer.scoreStart = 0
             KeyboardIconRenderer.scoreEnd = 0
+            LyricCaption.hideAll()
+            SingerFace.hideAll()
             self.fleetDriveUntil = 0
             self.fleetClearTimer?.invalidate()
             KeyboardIconRenderer.fleetDriving = false
@@ -4688,6 +4710,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             tracks.append(("67:1,72:1,76:1,79:1,81:2,79:1,76:1,74:1,76:1,79:1,76:1,72:3,r:1",
                            velocity))
         }
+        // `lyrics` makes the first track a SUNG voice: its notes light the
+        // keys but the instrument stays silent — the singer sounds them.
+        let sung = SungLine(info: info, bpm: bpm)
+        NSLog("▶ play keys: %@ · lyrics=%@", info.keys.sorted().joined(separator: ","), info["lyrics"].map { "\($0.count) chars" } ?? "nil")
+
+        // Log and bracket each sequence. A synced cue carrying lyrics is a
+        // conducted sung sequence: keep the engine warm for its whole length
+        // so the singer never hits the idle-pause clock hole, and let Escape
+        // cancel it.
+        let isSungSequence = info["lyrics"] != nil && info["startEpoch"] != nil
+        if isSungSequence {
+            NSLog("▶ SEQUENCE START: %@ · bpm=%@ · voice=%@",
+                  info["title"] ?? "(untitled)", info["bpm"] ?? "?", info["singVoice"] ?? "?")
+            self.sungSequenceActive = true
+            self.menuBand.keepEngineWarm = true
+        }
 
         // Fleet tell: a synced cue (carries startEpoch) means a conductor is
         // driving us — light the robot badge through the end of the longest
@@ -4706,6 +4744,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   epoch, recv, (epoch - recv) * 1000, bpm, tracks.count)
         }
 
+        // `sim=i/n`: the simulator — this payload is member i of n, all on
+        // this one machine: its own singer node (panned), a tile-sized face
+        // and caption instead of the whole display.
+        let simSlot = SingerFace.SimSlot(info["sim"])
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             let gen = self.playGeneration   // stop bumps this to cancel onsets
@@ -4808,9 +4850,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            for track in tracks {
+            if let line = sung {
+                // Heavy (speech + WORLD + render) off main; back here only to
+                // check the generation and drop the buffer on the downbeat.
+                // Line by line, in order: each line is scheduled the moment
+                // it is ready, so line 1 sounds on the downbeat while the rest
+                // of a long lyric is still rendering behind it.
+                let voice = simSlot.map { self.menuBand.simSingerVoice($0) } ?? self.menuBand.singerVoice
+                let lines = line.splitLines()
+                func renderLine(_ i: Int) {
+                    guard i < lines.count, self.playGeneration == gen else { return }
+                    self.singer.render(lines[i], into: voice.format) { [weak self] r in
+                        guard let self = self, self.playGeneration == gen else { return }
+                        if let r = r {
+                            let lead = voice.schedule(r, atEpoch: downbeatEpoch + r.spanOffset)
+                            NSLog("🎤 sing: line %d/%d scheduled %.2f s at downbeat %.3f + %.2f s (lead %+.0f ms, %d/%d notes, peak %.3f)",
+                                  i + 1, lines.count, r.duration, downbeatEpoch, r.spanOffset, lead * 1000,
+                                  r.notesUsed, r.noteCount, r.peak)
+                        } else {
+                            NSLog("🎤 sing: line %d/%d — nothing to sing", i + 1, lines.count)
+                        }
+                        renderLine(i + 1)
+                    }
+                }
+                renderLine(0)
+            }
+
+            // Captions: the sung line on screen, the syllable being sung lit.
+            // Follows track 0's onsets — the same clock that lights the keys —
+            // so the words keep time even when the singer runs late.
+            var captionLines: [[String]] = []
+            var lineOfSyllable: [Int] = []
+            var syllableText: [String] = []
+            var lineStart: [Int] = []
+            if let line = sung, info["caption"] != "0" {
+                for lt in line.lineTokens {
+                    let li = captionLines.count
+                    captionLines.append(lt)
+                    lineStart.append(lineOfSyllable.count)
+                    for t in lt { for syl in t.split(separator: "-") { lineOfSyllable.append(li); syllableText.append(String(syl)) } }
+                }
+            }
+            let captionAccent = LyricCaption.color(hex: info["captionColor"])
+            let captionSize = CGFloat(Double(info["captionSize"] ?? "") ?? 0)
+            let caption = LyricCaption.at(simSlot)
+            let face = SingerFace.at(simSlot)
+            // `face=neo|blueberry|blush` puts the member's cartoon face up for
+            // the sung part; its mouth follows the same onsets.
+            let faceMember = (info["face"] ?? "0") == "0" ? nil : info["face"]
+            var sylIndex = 0
+
+            for (ti, track) in tracks.enumerated() {
                 var t = leadIn  // wait for the shared start instant (or 0.2s)
                 let vel = track.vel
+                let lightOnly = sung != nil && ti == 0
                 for token in track.spec.split(separator: ",") {
                     let parts = token.split(separator: ":")
                     guard parts.count == 2, let beats = Double(parts[1]) else { continue }
@@ -4857,6 +4950,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         let display = UInt8(disp)
                         let onEpoch = downbeatEpoch + (onAt - leadIn)
                         let offEpoch = downbeatEpoch + (offAt - leadIn)
+                        if lightOnly {
+                            let si = sylIndex
+                            sylIndex += 1
+                            if si < lineOfSyllable.count {
+                                let li = lineOfSyllable[si], k = si - lineStart[li]
+                                let words = captionLines[li]
+                                let syl = syllableText[si]
+                                if k == 0 {
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.4)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
+                                        if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent) }
+                                    }
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                                    guard let self = self, self.playGeneration == gen else { return }
+                                    caption.highlight(line: li, syllable: k)
+                                }
+                                // lips lead the sound by a frame or two, never behind
+                                if faceMember != nil {
+                                    DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.05)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        face.onset(syl, hold: dur)
+                                    }
+                                }
+                                if si + 1 == lineOfSyllable.count || lineOfSyllable[si + 1] != li {
+                                    DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.2)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        caption.hide(line: li)
+                                    }
+                                }
+                                if si + 1 == lineOfSyllable.count, faceMember != nil {
+                                    DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.8)) { [weak self] in
+                                        guard let self = self, self.playGeneration == gen else { return }
+                                        face.hide()
+                                    }
+                                }
+                            }
+                            // Sung note: the refcounted visual-only lit path
+                            // (drumLitOn is just "hold this cell lit").
+                            DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
+                                guard let self = self, self.playGeneration == gen else { return }
+                                self.menuBand.drumLitOn(display)
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: at(offEpoch)) { [weak self] in
+                                self?.menuBand.drumLitOff(display)
+                            }
+                            t += dur
+                            continue
+                        }
                         DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
                             guard let self = self, self.playGeneration == gen else { return }
                             self.menuBand.startTapNote(midi, velocity: vel, displayNote: display)

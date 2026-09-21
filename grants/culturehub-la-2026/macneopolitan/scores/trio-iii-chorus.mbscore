@@ -1,0 +1,64 @@
+{
+  "title": "The MacNeoPolitan Trio — III. Chorus",
+  "composer": "The machines, arr. compose.mjs",
+  "machines": 3,
+  "bpm": 92,
+  "lead": 3,
+  "description": "Each member sings its own line (neo=Noelle, blueberry=Allison, blush=Junior) in turn, then all three sing the family line together, one tune in three registers.",
+  "unborn": [
+    "blush"
+  ],
+  "outro": [
+    {
+      "voice": 0,
+      "text": "That was us. Thank you."
+    }
+  ],
+  "voices": [
+    {
+      "name": "neo sings (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "56:0.5,56:0.5,56:0.5,59:1,59:0.5,61:0.5,64:1,64:0.5,64:0.5,64:2,r:1,62:0.5,59:1,61:1,62:0.5,64:0.5,62:0.5,61:1,57:2,r:50.5,59:1,59:1,61:1,61:0.5,61:0.5,64:1,62:0.5,64:2,r:1,64:0.5,59:1,61:1,62:0.5,62:0.5,64:1,62:1,59:2,r:1,57:0.5,57:1,57:0.5,66:1,62:1,57:2",
+      "lyrics": "I am the first of my line in this house / I run warm and I am car-ried / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 48,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry sings (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:16,51:0.5,51:0.5,55:1,56:1,58:0.5,58:0.5,58:0.5,56:1,55:1,53:2,r:1,51:1,53:1,56:1,58:1,58:0.5,56:1,51:2,r:33,53:1,53:1,55:1,55:0.5,55:0.5,58:1,56:0.5,58:2,r:1,58:0.5,53:1,55:1,56:0.5,56:0.5,58:1,56:1,53:2,r:1,51:0.5,51:1,51:0.5,60:1,56:1,51:2",
+      "lyrics": "I was born se-cond and I work fas-ter / lid down, most days, and hum-ming / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 48,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blush sings (Junior)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:40,54:0.5,54:0.5,54:0.5,61:1,56:2,r:1,56:0.5,54:0.5,56:1,58:1,59:0.5,59:0.5,61:2,r:1,58:1,59:1,54:2,r:9.5,55:1,55:1,57:1,57:0.5,57:0.5,60:1,58:0.5,60:2,r:1,60:0.5,55:1,57:1,58:0.5,58:0.5,60:1,58:1,55:2,r:1,53:0.5,53:1,53:0.5,62:1,58:1,53:2",
+      "lyrics": "I am the youn-gest / I have no his-to-ry yet / write me one / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
+      "singVoice": "Junior",
+      "singBase": 57,
+      "singVibratoHz": 5,
+      "sayVoice": "Junior",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 48,
+      "doubleTranspose": 24
+    }
+  ]
+}

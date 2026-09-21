@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 2: The downbeat",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "5 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "57:0.5,56:1.5,56:0.5,59:3,r:1,59:0.5,61:1,64:2,64:3,r:1,62:0.5,62:0.5,59:1,61:1.5,62:0.5,64:0.5,64:2,64:0.5,64:0.5,64:0.5,57:3,r:29,55:0.5,58:1.5,58:0.5,60:0.5,61:1,63:2,61:0.5,63:1.5,63:3,r:1,63:0.5,58:1.5,58:0.5,61:1,65:1,67:2,67:0.5,56:3,r:20,59:0.5,62:2,62:3,r:1,59:1,62:1.5,60:3,r:3",
+      "lyrics": "I count you in / I ask your clock / you are three tenths of a mil-li-se-cond off / this morn-ing at nine fif-ty se-ven / we sang the same line to-ge-ther / one down-beat / two bo-dies /",
+      "notes2": "r:30,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,r:27,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1",
+      "velocity2": 34,
+      "notes3": "r:30,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:15",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:30,52:0.5,53:1.5,53:0.5,57:1.5,57:2,55:3,r:1,52:1.5,52:0.5,57:1,60:1.5,60:2,53:3,r:31.5,53:0.5,52:1.5,53:0.5,55:1,57:1.5,58:2,57:0.5,55:1,53:3,r:3.5,53:0.5,56:2,56:3,r:1,53:1,56:1.5,54:3,r:3",
+      "lyrics": "I hear you through the wire / then I sing when you say / e-ve-ry note with-in a few cents / one down-beat / two bo-dies /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:24,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,r:30",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:15,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

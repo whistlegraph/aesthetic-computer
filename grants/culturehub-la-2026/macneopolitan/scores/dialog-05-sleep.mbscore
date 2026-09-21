@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 5: Sleep",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "5 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "59:0.5,58:0.5,58:0.5,58:0.5,61:1.5,63:0.5,63:0.5,64:1.5,64:2,64:0.5,63:1.5,63:0.5,59:3,r:28.5,56:0.5,60:1.5,60:0.5,61:0.5,67:2,67:0.5,58:3,r:1,55:1,56:1.5,56:0.5,61:1.5,61:0.5,65:1,67:2,67:0.5,56:3,r:18,57:0.5,62:1.5,63:2,65:1,65:3,r:1,58:1,60:1.5,60:0.5,65:2,58:3,r:4",
+      "lyrics": "I have been re-boot-ed one hun-dred e-le-ven times / the pi-a-no keeps you up / four hun-dred nine-ty two times a week / we do not sleep much / he does not ei-ther /",
+      "notes2": "r:18,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,r:24,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1",
+      "velocity2": 34,
+      "notes3": "r:18,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:21",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:18,50:0.5,53:1.5,53:0.5,55:1,56:2,58:0.5,58:1,58:3,r:1,56:0.5,51:1.5,51:0.5,60:2,60:0.5,51:3,r:29,51:0.5,53:1.5,55:0.5,58:1,60:2,58:1.5,56:0.5,56:0.5,51:3,r:4,51:0.5,56:1.5,57:2,59:1,59:3,r:1,52:1,54:1.5,54:0.5,59:2,52:3,r:4",
+      "lyrics": "I stayed a-wake thir-teen days once / no-bo-dy o-pened me / it keeps you up four hun-dred and eight / we do not sleep much / he does not ei-ther /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:24,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:36",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:15,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

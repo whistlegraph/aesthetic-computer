@@ -1,0 +1,1334 @@
+{
+  "stem": "/Users/jas/aesthetic-computer/grants/culturehub-la-2026/macneopolitan/members/neo/speech/4da4e1e55d6d/stem.wav",
+  "fs": 22050,
+  "durationMs": 8963,
+  "lyrics": "Mar y had a lit tle lamb lit tle lamb lit tle lamb Mar y had a lit tle lamb its fleece was white as snow",
+  "report": {
+    "lyricWords": 26,
+    "whisperWords": 26,
+    "exact": 26,
+    "inexact": 0,
+    "fallback": 0,
+    "coverage": 1,
+    "witness": {
+      "within120ms": 7,
+      "of": 26,
+      "medianAbsDeltaMs": 1258,
+      "timingFrom": "witness",
+      "distrusted": false,
+      "whisperTimingValid": false,
+      "witnessValid": true
+    },
+    "nuclei": {
+      "measured": 26,
+      "wanted": 26
+    },
+    "ipaSources": {
+      "wiktionary": 21,
+      "espeak": 5
+    }
+  },
+  "words": [
+    {
+      "text": "Mar",
+      "fromMs": 0,
+      "toMs": 267,
+      "whisper": {
+        "fromMs": 70,
+        "toMs": 260,
+        "heard": "Mar",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 0,
+        "toMs": 267,
+        "deltaMs": 70,
+        "text": "Mar"
+      },
+      "ipa": "/mɑɹ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "Mar",
+          "onset": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɑ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "ɹ",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "fromMs": 0,
+          "toMs": 265,
+          "nucleusFromMs": 70,
+          "nucleusToMs": 265,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "y",
+      "fromMs": 313,
+      "toMs": 337,
+      "whisper": {
+        "fromMs": 260,
+        "toMs": 340,
+        "heard": "y",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 313,
+        "toMs": 337,
+        "deltaMs": -53,
+        "text": "y"
+      },
+      "ipa": "/ˈwaɪ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "y",
+          "onset": [
+            {
+              "ipa": "w",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "aɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 315,
+          "toMs": 335,
+          "nucleusFromMs": 320,
+          "nucleusToMs": 330,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "had",
+      "fromMs": 395,
+      "toMs": 522,
+      "whisper": {
+        "fromMs": 340,
+        "toMs": 600,
+        "heard": "had",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 395,
+        "toMs": 522,
+        "deltaMs": -55,
+        "text": "had"
+      },
+      "ipa": "/hæt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "had",
+          "onset": [
+            {
+              "ipa": "h",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 395,
+          "toMs": 520,
+          "nucleusFromMs": 465,
+          "nucleusToMs": 490,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "a",
+      "fromMs": 557,
+      "toMs": 580,
+      "whisper": {
+        "fromMs": 600,
+        "toMs": 680,
+        "heard": "a",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 557,
+        "toMs": 580,
+        "deltaMs": 43,
+        "text": "a"
+      },
+      "ipa": "/eɪ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "a",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "eɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 555,
+          "toMs": 580,
+          "nucleusFromMs": 560,
+          "nucleusToMs": 570,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lit",
+      "fromMs": 627,
+      "toMs": 789,
+      "whisper": {
+        "fromMs": 680,
+        "toMs": 940,
+        "heard": "lit",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 627,
+        "toMs": 789,
+        "deltaMs": 53,
+        "text": "lit"
+      },
+      "ipa": "/ˈlɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lit",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 625,
+          "toMs": 785,
+          "nucleusFromMs": 625,
+          "nucleusToMs": 720,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "tle",
+      "fromMs": 859,
+      "toMs": 1126,
+      "whisper": {
+        "fromMs": 940,
+        "toMs": 1190,
+        "heard": "tle",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 859,
+        "toMs": 1126,
+        "deltaMs": 81,
+        "text": "tle"
+      },
+      "ipa": "/tˌiːˌɛlˈiː/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "tle",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            },
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "fromMs": 860,
+          "toMs": 1125,
+          "nucleusFromMs": 950,
+          "nucleusToMs": 1125,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lamb",
+      "fromMs": 1173,
+      "toMs": 1498,
+      "whisper": {
+        "fromMs": 1190,
+        "toMs": 1540,
+        "heard": "lamb",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 1173,
+        "toMs": 1498,
+        "deltaMs": 17,
+        "text": "lamb"
+      },
+      "ipa": "/ˈlæm/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lamb",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 1175,
+          "toMs": 1500,
+          "nucleusFromMs": 1175,
+          "nucleusToMs": 1250,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lit",
+      "fromMs": 1939,
+      "toMs": 2136,
+      "whisper": {
+        "fromMs": 1540,
+        "toMs": 1800,
+        "heard": "lit",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 1939,
+        "toMs": 2136,
+        "deltaMs": -399,
+        "text": "lit"
+      },
+      "ipa": "/ˈlɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lit",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 1940,
+          "toMs": 2135,
+          "nucleusFromMs": 1980,
+          "nucleusToMs": 2085,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "tle",
+      "fromMs": 2206,
+      "toMs": 2473,
+      "whisper": {
+        "fromMs": 1800,
+        "toMs": 2050,
+        "heard": "tle",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 2206,
+        "toMs": 2473,
+        "deltaMs": -406,
+        "text": "tle"
+      },
+      "ipa": "/tˌiːˌɛlˈiː/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "tle",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            },
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "fromMs": 2205,
+          "toMs": 2475,
+          "nucleusFromMs": 2305,
+          "nucleusToMs": 2475,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lamb",
+      "fromMs": 2519,
+      "toMs": 2833,
+      "whisper": {
+        "fromMs": 2050,
+        "toMs": 2400,
+        "heard": "lamb",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 2519,
+        "toMs": 2833,
+        "deltaMs": -469,
+        "text": "lamb"
+      },
+      "ipa": "/ˈlæm/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lamb",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 2520,
+          "toMs": 2835,
+          "nucleusFromMs": 2525,
+          "nucleusToMs": 2550,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lit",
+      "fromMs": 3344,
+      "toMs": 3541,
+      "whisper": {
+        "fromMs": 2400,
+        "toMs": 2660,
+        "heard": "lit",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 3344,
+        "toMs": 3541,
+        "deltaMs": -944,
+        "text": "lit"
+      },
+      "ipa": "/ˈlɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lit",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 3345,
+          "toMs": 3540,
+          "nucleusFromMs": 3390,
+          "nucleusToMs": 3480,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "tle",
+      "fromMs": 3611,
+      "toMs": 3878,
+      "whisper": {
+        "fromMs": 2660,
+        "toMs": 2950,
+        "heard": "tle",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 3611,
+        "toMs": 3878,
+        "deltaMs": -951,
+        "text": "tle"
+      },
+      "ipa": "/tˌiːˌɛlˈiː/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "tle",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            },
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "fromMs": 3610,
+          "toMs": 3880,
+          "nucleusFromMs": 3675,
+          "nucleusToMs": 3880,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lamb",
+      "fromMs": 3924,
+      "toMs": 4238,
+      "whisper": {
+        "fromMs": 2950,
+        "toMs": 3380,
+        "heard": "lamb",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 3924,
+        "toMs": 4238,
+        "deltaMs": -974,
+        "text": "lamb"
+      },
+      "ipa": "/ˈlæm/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lamb",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 3925,
+          "toMs": 4240,
+          "nucleusFromMs": 3925,
+          "nucleusToMs": 3960,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "Mar",
+      "fromMs": 4841,
+      "toMs": 5050,
+      "whisper": {
+        "fromMs": 3380,
+        "toMs": 3600,
+        "heard": "Mar",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 4841,
+        "toMs": 5050,
+        "deltaMs": -1461,
+        "text": "Mar"
+      },
+      "ipa": "/mɑɹ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "Mar",
+          "onset": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɑ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "ɹ",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "fromMs": 4840,
+          "toMs": 5050,
+          "nucleusFromMs": 4890,
+          "nucleusToMs": 5050,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "y",
+      "fromMs": 5085,
+      "toMs": 5108,
+      "whisper": {
+        "fromMs": 3600,
+        "toMs": 3620,
+        "heard": "y",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5085,
+        "toMs": 5108,
+        "deltaMs": -1485,
+        "text": "y"
+      },
+      "ipa": "/ˈwaɪ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "y",
+          "onset": [
+            {
+              "ipa": "w",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "aɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 5085,
+          "toMs": 5110,
+          "nucleusFromMs": 5090,
+          "nucleusToMs": 5100,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "had",
+      "fromMs": 5155,
+      "toMs": 5271,
+      "whisper": {
+        "fromMs": 3620,
+        "toMs": 3860,
+        "heard": "had",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5155,
+        "toMs": 5271,
+        "deltaMs": -1535,
+        "text": "had"
+      },
+      "ipa": "/hæt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "had",
+          "onset": [
+            {
+              "ipa": "h",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 5155,
+          "toMs": 5270,
+          "nucleusFromMs": 5165,
+          "nucleusToMs": 5245,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "a",
+      "fromMs": 5306,
+      "toMs": 5329,
+      "whisper": {
+        "fromMs": 3860,
+        "toMs": 3940,
+        "heard": "a",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5306,
+        "toMs": 5329,
+        "deltaMs": -1446,
+        "text": "a"
+      },
+      "ipa": "/eɪ/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "a",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "eɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 5305,
+          "toMs": 5330,
+          "nucleusFromMs": 5310,
+          "nucleusToMs": 5320,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lit",
+      "fromMs": 5364,
+      "toMs": 5515,
+      "whisper": {
+        "fromMs": 3940,
+        "toMs": 4200,
+        "heard": "lit",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5364,
+        "toMs": 5515,
+        "deltaMs": -1424,
+        "text": "lit"
+      },
+      "ipa": "/ˈlɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lit",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 5365,
+          "toMs": 5515,
+          "nucleusFromMs": 5365,
+          "nucleusToMs": 5450,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "tle",
+      "fromMs": 5584,
+      "toMs": 5851,
+      "whisper": {
+        "fromMs": 4200,
+        "toMs": 4640,
+        "heard": "tle",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5584,
+        "toMs": 5851,
+        "deltaMs": -1384,
+        "text": "tle"
+      },
+      "ipa": "/tˌiːˌɛlˈiː/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "tle",
+          "onset": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            },
+            {
+              "ipa": "ɛ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            },
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "fromMs": 5585,
+          "toMs": 5850,
+          "nucleusFromMs": 5650,
+          "nucleusToMs": 5850,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "lamb",
+      "fromMs": 5898,
+      "toMs": 6188,
+      "whisper": {
+        "fromMs": 4640,
+        "toMs": 4870,
+        "heard": "lamb",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 5898,
+        "toMs": 6188,
+        "deltaMs": -1258,
+        "text": "lamb"
+      },
+      "ipa": "/ˈlæm/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "lamb",
+          "onset": [
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "m",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "fromMs": 5900,
+          "toMs": 6190,
+          "nucleusFromMs": 5900,
+          "nucleusToMs": 5940,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "its",
+      "fromMs": 6699,
+      "toMs": 6885,
+      "whisper": {
+        "fromMs": 4870,
+        "toMs": 5060,
+        "heard": "its",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 6699,
+        "toMs": 6885,
+        "deltaMs": -1829,
+        "text": "its"
+      },
+      "ipa": "/ɪts/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "its",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "ɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            },
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "fromMs": 6700,
+          "toMs": 6885,
+          "nucleusFromMs": 6830,
+          "nucleusToMs": 6885,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "fleece",
+      "fromMs": 6920,
+      "toMs": 7187,
+      "whisper": {
+        "fromMs": 5060,
+        "toMs": 5590,
+        "heard": "fleece",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 6920,
+        "toMs": 7187,
+        "deltaMs": -1860,
+        "text": "fleece"
+      },
+      "ipa": "/fliːs/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "fleece",
+          "onset": [
+            {
+              "ipa": "f",
+              "cls": "fricative",
+              "voiced": false
+            },
+            {
+              "ipa": "l",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "iː",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "fromMs": 6920,
+          "toMs": 7185,
+          "nucleusFromMs": 6970,
+          "nucleusToMs": 7090,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "was",
+      "fromMs": 7221,
+      "toMs": 7338,
+      "whisper": {
+        "fromMs": 5590,
+        "toMs": 5840,
+        "heard": "was",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 7221,
+        "toMs": 7338,
+        "deltaMs": -1631,
+        "text": "was"
+      },
+      "ipa": "/wˈʌz/",
+      "ipaSource": "espeak",
+      "syllables": [
+        {
+          "text": "was",
+          "onset": [
+            {
+              "ipa": "w",
+              "cls": "approximant",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "ʌ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "z",
+              "cls": "fricative",
+              "voiced": true
+            }
+          ],
+          "fromMs": 7220,
+          "toMs": 7340,
+          "nucleusFromMs": 7220,
+          "nucleusToMs": 7275,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "white",
+      "fromMs": 7419,
+      "toMs": 7721,
+      "whisper": {
+        "fromMs": 5840,
+        "toMs": 6380,
+        "heard": "white",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 7419,
+        "toMs": 7721,
+        "deltaMs": -1579,
+        "text": "white"
+      },
+      "ipa": "/ˈʍaɪt/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "white",
+          "onset": [
+            {
+              "ipa": "ʍ",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "aɪ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "t",
+              "cls": "plosive",
+              "voiced": false
+            }
+          ],
+          "fromMs": 7420,
+          "toMs": 7720,
+          "nucleusFromMs": 7420,
+          "nucleusToMs": 7635,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "as",
+      "fromMs": 7779,
+      "toMs": 8011,
+      "whisper": {
+        "fromMs": 6380,
+        "toMs": 6750,
+        "heard": "as",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 7779,
+        "toMs": 8011,
+        "deltaMs": -1399,
+        "text": "as"
+      },
+      "ipa": "/ˈæs/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "as",
+          "onset": [],
+          "nucleus": [
+            {
+              "ipa": "æ",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            }
+          ],
+          "fromMs": 7780,
+          "toMs": 8010,
+          "nucleusFromMs": 7810,
+          "nucleusToMs": 7885,
+          "measured": true
+        }
+      ]
+    },
+    {
+      "text": "snow",
+      "fromMs": 8185,
+      "toMs": 8963,
+      "whisper": {
+        "fromMs": 6750,
+        "toMs": 30000,
+        "heard": "snow.",
+        "kind": "exact"
+      },
+      "witness": {
+        "fromMs": 8185,
+        "toMs": 8963,
+        "deltaMs": -1435,
+        "text": "snow"
+      },
+      "ipa": "/snoʊ̯/",
+      "ipaSource": "wiktionary",
+      "syllables": [
+        {
+          "text": "snow",
+          "onset": [
+            {
+              "ipa": "s",
+              "cls": "fricative",
+              "voiced": false
+            },
+            {
+              "ipa": "n",
+              "cls": "nasal",
+              "voiced": true
+            }
+          ],
+          "nucleus": [
+            {
+              "ipa": "oʊ̯",
+              "cls": "vowel",
+              "voiced": true
+            }
+          ],
+          "coda": [],
+          "fromMs": 8185,
+          "toMs": 8965,
+          "nucleusFromMs": 8315,
+          "nucleusToMs": 8630,
+          "measured": true
+        }
+      ]
+    }
+  ]
+}
