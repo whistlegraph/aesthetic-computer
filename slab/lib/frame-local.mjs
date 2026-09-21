@@ -1,11 +1,16 @@
 // Same native request/done protocol as the SSH agent, without local processes.
 // The caller holds the machine lease until both sidecars have been read.
+import { socketFrame } from "./frame-socket.mjs";
 import { access, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 
 export async function localFrame(stateDir, mode, { timeoutMs = 15000 } = {}) {
+  if (process.env.SLAB_FRAME_TRANSPORT !== 'files') {
+    const result = await socketFrame(join(stateDir, 'frame-native.sock'), mode, { timeoutMs });
+    if (result) return result;
+  }
   await mkdir(stateDir, { recursive: true });
   const done = join(stateDir, "frame.done");
   await unlink(done).catch(error => { if (error.code !== "ENOENT") throw error; });

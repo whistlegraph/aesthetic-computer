@@ -4,6 +4,10 @@ import CoreGraphics
 import ScreenCaptureKit
 import Vision
 
+@_silgen_name("_AXUIElementGetWindow")
+private func _FrameAXUIElementGetWindow(_ element: AXUIElement,
+                                       _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 /// A "frame" of this machine for fleet automation: pixels (a downscaled
 /// thumbnail) + OCR'd text with click coordinates + the Accessibility element
 /// tree + window/cursor/frontmost state, packed into one JSON envelope. The
@@ -26,6 +30,19 @@ final class FrameCapture {
     private var timer: DispatchSourceTimer?
     private let visualDetector = FrameVisualControls()
     private let fm = FileManager.default
+    private let nativeBindings = FrameNativeBindings()
+    private let socket = FrameSocket()
+    private var socketOutput: (json: Data, jpg: Data)?
+
+    private func writeJSON(_ data: Data) {
+        if socketOutput != nil { socketOutput?.json = data }
+        else { try? data.write(to: URL(fileURLWithPath: Paths.frameOut)) }
+    }
+
+    private func writeJPEG(_ data: Data) {
+        if socketOutput != nil { socketOutput?.jpg = data }
+        else { try? data.write(to: URL(fileURLWithPath: Paths.frameOutJpg)) }
+    }
 
     // Transient overlay windows we draw (capture flash, OCR boxes). We exclude
     // them from the screen capture by windowID so they never appear in a frame
@@ -60,6 +77,17 @@ final class FrameCapture {
     func start() {
         let dir = (Paths.frameReq as NSString).deletingLastPathComponent
         try? fm.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        do {
+            try socket.start(path: dir + "/frame-native.sock") { [self] mode in
+                queue.sync {
+                    socketOutput = (Data("{\"error\":\"Native response unavailable\"}".utf8), Data())
+                    process(mode)
+                    let output = socketOutput!
+                    socketOutput = nil
+                    return (output.json, output.jpg)
+                }
+            }
+        } catch { NSLog("Frame socket unavailable: %@", String(describing: error)) }
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now() + .milliseconds(50), repeating: .milliseconds(30))
         t.setEventHandler { [weak self] in self?.tick() }
@@ -71,19 +99,25 @@ final class FrameCapture {
     private func tick() {
         guard fm.fileExists(atPath: Paths.frameReq) else { return }
         let mode = (try? String(contentsOfFile: Paths.frameReq, encoding: .utf8)) ?? ""
-        let flags = Set(mode.split(separator: " ").map(String.init))
         try? fm.removeItem(atPath: Paths.frameReq)
         try? fm.removeItem(atPath: Paths.frameDone)
+        process(mode)
+        fm.createFile(atPath: Paths.frameDone, contents: nil)
+    }
+
+    private func process(_ mode: String) {
+        let flags = Set(mode.split(separator: " ").map(String.init))
+        if handleNativeInput(mode: mode, flags: flags) {
+            return
+        }
         if let token = mode.split(separator: " ").first(where: { $0.hasPrefix("manual-check=") }) {
             let approvalId = String(token.dropFirst("manual-check=".count))
             writeManualActionAcknowledgement(approvalId: approvalId)
-            fm.createFile(atPath: Paths.frameDone, contents: nil)
             return
         }
         if mode.split(separator: " ").contains("overlay-clear") {
             clearTransientOverlays()
             writeActionAcknowledgement()
-            fm.createFile(atPath: Paths.frameDone, contents: nil)
             return
         }
         var cursorOverride: CGPoint?
@@ -129,11 +163,10 @@ final class FrameCapture {
             if !matches {
                 let error = ["error": "Staged target changed or was cleared; no action sent. Stage again."]
                 if let data = try? JSONSerialization.data(withJSONObject: error) {
-                    try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+                    writeJSON(data)
                 }
-                try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
-                fm.createFile(atPath: Paths.frameDone, contents: nil)
-                return
+                writeJPEG(Data())
+                    return
             }
         }
         if mode.split(separator: " ").contains("target-clear") {
@@ -144,8 +177,7 @@ final class FrameCapture {
                                  title: approvedClickTitle)
             if mode.split(separator: " ").contains("action-only") {
                 writeActionAcknowledgement()
-                fm.createFile(atPath: Paths.frameDone, contents: nil)
-                return
+                    return
             }
         }
         let session = mode.split(separator: " ").first(where: { $0.hasPrefix("session=") })
@@ -159,7 +191,6 @@ final class FrameCapture {
         if let pendingClickTarget {
             showPendingClickTarget(at: pendingClickTarget, approvalId: pendingClickApprovalId)
         }
-        fm.createFile(atPath: Paths.frameDone, contents: nil)
     }
 
     /// Spotlight a proposed click without performing it. Accessibility expands
@@ -552,7 +583,7 @@ final class FrameCapture {
     }
 
     private func writeActionAcknowledgement() {
-        try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+        writeJPEG(Data())
         let acknowledgement: [String: Any] = [
             "capture": "action",
             "capture_scope": "none",
@@ -564,12 +595,12 @@ final class FrameCapture {
             "thumb_bytes": 0,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: acknowledgement) {
-            try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+            writeJSON(data)
         }
     }
 
     private func writeManualActionAcknowledgement(approvalId: String) {
-        try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+        writeJPEG(Data())
         var manualAction: Any = NSNull()
         if let data = try? Data(contentsOf: URL(fileURLWithPath: Paths.frameManualAction)),
            let object = try? JSONSerialization.jsonObject(with: data),
@@ -590,7 +621,7 @@ final class FrameCapture {
             "thumb_bytes": 0,
         ]
         if let data = try? JSONSerialization.data(withJSONObject: acknowledgement) {
-            try? data.write(to: URL(fileURLWithPath: Paths.frameOut))
+            writeJSON(data)
         }
     }
 
@@ -718,7 +749,7 @@ final class FrameCapture {
     /// Find the frontmost app's topmost ordinary window. CGWindowList is in
     /// actual z-order. ScreenCaptureKit supplies the matched window's canonical
     /// global frame after this ID lookup, avoiding geometry drift between APIs.
-    private func focusedWindowID() -> CGWindowID? {
+    private func nativeTarget() -> FrameNativeTarget? {
         guard let front = NSWorkspace.shared.frontmostApplication else { return nil }
         let ownPID = ProcessInfo.processInfo.processIdentifier
         guard front.processIdentifier != ownPID,
@@ -732,9 +763,222 @@ final class FrameCapture {
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
                   let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary),
                   rect.width >= 2, rect.height >= 2 else { continue }
-            return CGWindowID(number)
+            return FrameNativeTarget(windowID: CGWindowID(number), pid: front.processIdentifier, bounds: rect)
         }
         return nil
+    }
+
+    private func focusedWindowID() -> CGWindowID? { nativeTarget()?.windowID }
+
+    private func nativeDesktopAvailable() -> Bool {
+        guard AXIsProcessTrusted(), CGPreflightScreenCaptureAccess(),
+              NSWorkspace.shared.frontmostApplication?.bundleIdentifier != "com.apple.loginwindow",
+              let session = CGSessionCopyCurrentDictionary() as? [String: Any],
+              session[kCGSessionOnConsoleKey as String] as? Bool == true,
+              session["CGSSessionScreenIsLocked"] as? Bool != true else { return false }
+        return true
+    }
+
+    private func nativeReply(_ value: [String: Any]) {
+        writeJPEG(Data())
+        if let data = try? JSONSerialization.data(withJSONObject: value) {
+            writeJSON(data)
+        }
+    }
+
+    /// Hit-test one observed point; never search another window for matching text.
+    private func verificationValue(_ check: FrameNativeVerification, target: FrameNativeTarget) -> String? {
+        guard target.bounds.contains(CGPoint(x: check.x, y: check.y)) else { return nil }
+        let system = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(system, 0.1)
+        var hit: AXUIElement?
+        guard AXUIElementCopyElementAtPosition(system, Float(check.x), Float(check.y), &hit) == .success,
+              let hit else { return nil }
+        AXUIElementSetMessagingTimeout(hit, 0.1)
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(hit, &pid) == .success, pid == target.pid else { return nil }
+        var raw: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(hit,
+            ["AXRole", check.attribute, "AXWindow"] as CFArray,
+            AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
+            let attributes = raw as? [AnyObject], attributes.count == 3,
+            attributes[0] as? String == check.role,
+            let value = attributes[1] as? String,
+            CFGetTypeID(attributes[2]) == AXUIElementGetTypeID() else { return nil }
+        var windowID: CGWindowID = 0
+        guard _FrameAXUIElementGetWindow(attributes[2] as! AXUIElement, &windowID) == .success,
+              windowID == target.windowID else { return nil }
+        return value
+    }
+
+    private func handleNativeInput(mode: String, flags: Set<String>) -> Bool {
+        let tokens = mode.split(separator: " ").map(String.init)
+        let clickToken = tokens.first { $0.hasPrefix("native-click=") || $0.hasPrefix("native-drag=") }
+        let guardToken = tokens.first { $0.hasPrefix("native-guard=") }
+        guard let token = clickToken ?? guardToken else { return false }
+        let session = tokens.first { $0.hasPrefix("session=") }.map { String($0.dropFirst(8)) } ?? "legacy"
+        let prefix = clickToken == nil ? "native-guard=" : (clickToken!.hasPrefix("native-drag=") ? "native-drag=" : "native-click=")
+        guard let data = Data(base64Encoded: String(token.dropFirst(prefix.count))), data.count <= 2048,
+              let body = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let id = body["observationId"] as? String, !id.isEmpty,
+              !(clickToken != nil && guardToken != nil) else {
+            nativeReply(["error": "Invalid native request; no action sent"])
+            return true
+        }
+        let click = clickToken == nil ? nil : try? JSONDecoder().decode(FrameNativeClick.self, from: data)
+        if clickToken != nil && (click?.valid != true || (prefix == "native-drag=") != (click?.drag != nil)) {
+            nativeReply(["error": "Invalid native click; no action sent"])
+            return true
+        }
+        let started = DispatchTime.now().uptimeNanoseconds
+        var failure: String?
+        var guardMs = 0.0
+        var inputMs = 0.0
+        var checkedTarget: FrameNativeTarget?
+        var initialValue: String?
+        // Resolve foreground identity/geometry and send input together in the
+        // Accessibility-trusted process. No AX traversal, pixels, or JPEG here.
+        DispatchQueue.main.sync {
+            checkedTarget = self.nativeTarget()
+            let point = click.map { CGPoint(x: $0.x, y: $0.y) }
+            failure = self.nativeBindings.validate(session: session, id: id,
+                current: checkedTarget, available: self.nativeDesktopAvailable(), point: point)
+            guardMs = Double(DispatchTime.now().uptimeNanoseconds - started) / 1e6
+            guard failure == nil, let click, let point else { return }
+            if let check = click.verify, let target = checkedTarget {
+                initialValue = self.verificationValue(check, target: target)
+                guard let initialValue, initialValue != check.equals else {
+                    failure = "Verification point unavailable, wrong role/window, or condition already true"
+                    return
+                }
+                // AX IPC may yield to the target app. Check the desktop again
+                // immediately before input, after resolving the condition.
+                guard self.nativeTarget() == target, self.nativeDesktopAvailable() else {
+                    failure = "Native target changed during verification setup"
+                    return
+                }
+            }
+            if let drag = click.drag {
+                var displays = [CGDirectDisplayID](repeating: 0, count: 32)
+                var displayCount: UInt32 = 0
+                guard CGGetActiveDisplayList(32, &displays, &displayCount) == .success,
+                      displays.prefix(Int(displayCount)).contains(where: { CGDisplayBounds($0).contains(CGPoint(x: drag.x, y: drag.y)) }) else {
+                    failure = "Drag destination is outside active displays"
+                    return
+                }
+                let end = CGPoint(x: drag.x, y: drag.y)
+                let steps = max(2, Int(ceil(drag.durationMs / 8)))
+                guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left),
+                      let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: end, mouseButton: .left) else {
+                    failure = "Unable to allocate drag events"; return
+                }
+                var moves: [CGEvent] = []
+                for i in 1...steps {
+                    let fraction = Double(i) / Double(steps)
+                    let position = CGPoint(x: point.x + (end.x - point.x) * fraction, y: point.y + (end.y - point.y) * fraction)
+                    guard let move = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDragged, mouseCursorPosition: position, mouseButton: .left) else {
+                        failure = "Unable to allocate drag path"; return
+                    }
+                    moves.append(move)
+                }
+                self.nativeBindings.clear(session)
+                let inputStart = DispatchTime.now().uptimeNanoseconds
+                // All events exist before mouse-down; every dispatch path posts
+                // mouse-up. The optional destination dwell is explicit.
+                do {
+                    defer { up.post(tap: .cghidEventTap) }
+                    down.post(tap: .cghidEventTap)
+                    if click.effectiveHoldMs > 0 { self.yieldMainRunLoop(for: click.effectiveHoldMs / 1000) }
+                    let pathStart = DispatchTime.now().uptimeNanoseconds
+                    for (index, move) in moves.enumerated() {
+                        // Absolute deadlines avoid adding main-run-loop scheduling
+                        // overruns to every step of the path.
+                        let dueMs = drag.durationMs * Double(index + 1) / Double(steps)
+                        let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds - pathStart) / 1e6
+                        if dueMs > elapsedMs { self.yieldMainRunLoop(for: (dueMs - elapsedMs) / 1000) }
+                        move.post(tap: .cghidEventTap)
+                    }
+                    if drag.effectiveReleaseMs > 0 { self.yieldMainRunLoop(for: drag.effectiveReleaseMs / 1000) }
+                }
+                inputMs = Double(DispatchTime.now().uptimeNanoseconds - inputStart) / 1e6
+                return
+            }
+            var events: [(CGEvent, CGEvent)] = []
+            for index in 0..<click.count {
+                guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown,
+                                         mouseCursorPosition: point, mouseButton: .left),
+                      let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp,
+                                       mouseCursorPosition: point, mouseButton: .left) else {
+                    failure = "Unable to allocate mouse events"
+                    return
+                }
+                down.setIntegerValueField(.mouseEventClickState, value: Int64(index + 1))
+                up.setIntegerValueField(.mouseEventClickState, value: Int64(index + 1))
+                events.append((down, up))
+            }
+            // Consume before dispatch. A lost response must never allow replay
+            // of the same observation, even after another client's request.
+            self.nativeBindings.clear(session)
+            let inputStart = DispatchTime.now().uptimeNanoseconds
+            for (index, pair) in events.enumerated() {
+                pair.0.post(tap: .cghidEventTap)
+                if click.effectiveHoldMs > 0 { self.yieldMainRunLoop(for: click.effectiveHoldMs / 1000) }
+                pair.1.post(tap: .cghidEventTap)
+                if index + 1 < events.count { self.yieldMainRunLoop(for: 0.08) }
+            }
+            inputMs = Double(DispatchTime.now().uptimeNanoseconds - inputStart) / 1e6
+        }
+        if let failure {
+            nativeReply(["error": failure + "; no action sent. Capture frame again"])
+            return true
+        }
+        var receipt: [String: Any] = ["observationId": id, "guardMs": guardMs,
+            "inputMs": inputMs, "status": click == nil ? "guarded" : "dispatched"]
+        guard let click else {
+            nativeReply(["capture": "guard", "nativeInput": receipt])
+            return true
+        }
+        receipt["holdMs"] = click.effectiveHoldMs
+        receipt["releasePosted"] = true
+        receipt["kind"] = click.drag == nil ? "click" : "drag"
+        if let drag = click.drag { receipt["durationMs"] = drag.durationMs; receipt["releaseMs"] = drag.effectiveReleaseMs }
+        if click.settleMs > 0 { Thread.sleep(forTimeInterval: click.settleMs / 1000) }
+        if let check = click.verify, let target = checkedTarget {
+            let verifyStart = DispatchTime.now().uptimeNanoseconds
+            var observed: String?
+            var verified = false
+            repeat {
+                observed = verificationValue(check, target: target)
+                var unchanged = false
+                DispatchQueue.main.sync { unchanged = self.nativeTarget() == target && self.nativeDesktopAvailable() }
+                if !unchanged { break }
+                if observed == check.equals { verified = true; break }
+                if Double(DispatchTime.now().uptimeNanoseconds - verifyStart) / 1e6 >= check.timeoutMs { break }
+                Thread.sleep(forTimeInterval: 0.005)
+            } while true
+            receipt["verification"] = ["ok": verified, "role": check.role, "attribute": check.attribute,
+                "expected": check.equals, "before": initialValue ?? "", "observed": observed ?? "",
+                "ms": Double(DispatchTime.now().uptimeNanoseconds - verifyStart) / 1e6]
+            if verified {
+                let nextID = UUID().uuidString
+                nativeBindings.record(session: session, id: nextID, target: target)
+                nativeReply(["capture": "verified", "capture_scope": "window", "thumb_bytes": 0,
+                    "nativeCapabilities": ["target-guard-v1", "guarded-click-v1", "ax-verify-v1", "click-hold-v1", "guarded-drag-v1"],
+                    "meta": ["frontmost": ["pid": target.pid]],
+                    "crop": ["x": Int(target.bounds.minX), "y": Int(target.bounds.minY),
+                             "w": Int(target.bounds.width), "h": Int(target.bounds.height)],
+                    "observation": ["id": nextID, "session": session, "windowId": target.windowID,
+                        "kind": "ax-verification", "coordinateSpace": "macos-global-points"],
+                    "nativeInput": receipt])
+                return true
+            }
+            // The click happened. A full observation is recovery evidence, never a retry.
+        }
+        produce(session: session, noOCR: flags.contains("noocr"), noVisual: flags.contains("novisual"),
+                fast: flags.contains("fast"), virtualCursor: true,
+                cursorOverride: CGPoint(x: click.drag?.x ?? click.x, y: click.drag?.y ?? click.y), showOverlay: !flags.contains("quiet-overlay"),
+                nativeInput: receipt)
+        return true
     }
 
     /// Capture either an explicit global crop, the focused window, or the
@@ -888,12 +1132,29 @@ final class FrameCapture {
         guard let v = v, CFGetTypeID(v) == AXValueGetTypeID() else { return nil }
         var s = CGSize.zero; AXValueGetValue(v as! AXValue, .cgSize, &s); return (s.width, s.height)
     }
-    private func axTree() -> [String: Any] {
+    private func axTree(windowID: CGWindowID?) -> [String: Any] {
         guard AXIsProcessTrusted() else { return ["trusted": false, "elements": []] }
         guard let front = NSWorkspace.shared.frontmostApplication else {
             return ["trusted": true, "elements": []]
         }
         let app = AXUIElementCreateApplication(front.processIdentifier)
+        var root = app
+        if let windowID {
+            // A rectangle filter alone includes obscured controls from other
+            // windows at the same coordinates. Match the captured CG window
+            // before walking AX, reducing both ambiguity and IPC work.
+            var raw: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &raw) == .success,
+                  let windows = raw as? [AXUIElement],
+                  let window = windows.first(where: { element in
+                      var id: CGWindowID = 0
+                      return _FrameAXUIElementGetWindow(element, &id) == .success && id == windowID
+                  }) else {
+                return ["trusted": true, "app": front.localizedName ?? "?",
+                        "scope": "window-unavailable", "windowId": windowID, "elements": []]
+            }
+            root = window
+        }
         let want: Set<String> = ["AXButton", "AXMenuItem", "AXTextField", "AXTextArea",
             "AXCheckBox", "AXRadioButton", "AXLink", "AXPopUpButton", "AXMenuButton",
             "AXSlider", "AXComboBox", "AXToggle"]
@@ -918,8 +1179,10 @@ final class FrameCapture {
                 for k in kids { walk(k, depth + 1) }
             }
         }
-        walk(app, 0)
-        return ["trusted": true, "app": front.localizedName ?? "?", "elements": out]
+        walk(root, 0)
+        return ["trusted": true, "app": front.localizedName ?? "?", "elements": out,
+                "scope": windowID == nil ? "application" : "window",
+                "windowId": windowID.map { $0 as Any } ?? NSNull()]
     }
 
     // MARK: - meta (screen geometry/scale, cursor, frontmost, windows)
@@ -1061,11 +1324,13 @@ final class FrameCapture {
                          virtualCursor: Bool = false, cursorOverride: CGPoint? = nil,
                          crop: CGRect? = nil, saveBaseline: Bool = false,
                          includeDiff: Bool = false, showOverlay: Bool = true,
-                         includeOverlays: Bool = false) {
+                         includeOverlays: Bool = false, nativeInput: [String: Any]? = nil) {
         func nowNs() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
         func msSince(_ t: UInt64) -> Double { (Double(nowNs() - t) / 1e6 * 10).rounded() / 10 }
         let started = nowNs()
         var env: [String: Any] = [:]
+        env["nativeCapabilities"] = ["target-guard-v1", "guarded-click-v1", "ax-verify-v1", "click-hold-v1", "guarded-drag-v1"]
+        if let nativeInput { env["nativeInput"] = nativeInput }
         var tm: [String: Double] = [:]
         let reelActive: Bool
         if #available(macOS 15.0, *) {
@@ -1078,6 +1343,8 @@ final class FrameCapture {
         // of the frontmost app unless the caller explicitly requested screen.
         let boundedCrop = crop.flatMap { c in NSScreen.main.map { c.intersection($0.frame) } }
         let target = (!wholeScreen && boundedCrop == nil) ? focusedWindowID() : nil
+        let targetBefore = nativeTarget()
+        nativeBindings.clear(session)
 
         // The AX walk is independent of the screenshot, so run it CONCURRENTLY
         // with capture+OCR: wall-clock becomes max(ax, capture+ocr) instead of
@@ -1089,7 +1356,7 @@ final class FrameCapture {
         grp.enter()
         let axStart = nowNs()
         DispatchQueue.global(qos: .userInitiated).async {
-            axResult = self.axTree()
+            axResult = self.axTree(windowID: target)
             axMs = msSince(axStart)
             grp.leave()
         }
@@ -1167,13 +1434,13 @@ final class FrameCapture {
             t = nowNs()
             let marker = virtualCursor ? (cursorOverride ?? cursorMeta) : nil
             let jpg = thumbJPEG(cg, maxWidth: 1568, cursor: marker, crop: region) ?? Data()
-            try? jpg.write(to: URL(fileURLWithPath: Paths.frameOutJpg))
+            writeJPEG(jpg)
             jpgBytes = jpg.count
             tm["thumb"] = msSince(t)
             env["capture"] = "ok"
         } else {
             env["ocr"] = []
-            try? Data().write(to: URL(fileURLWithPath: Paths.frameOutJpg)) // truncate stale jpg
+            writeJPEG(Data()) // truncate stale jpg
             // Either Screen Recording isn't granted yet, or this is < macOS 14.
             env["capture"] = "permission_needed"
             env["permission"] = "screen_recording"
@@ -1182,8 +1449,8 @@ final class FrameCapture {
         grp.wait()                 // join the concurrent AX walk
         // Filter only after capture, against the region ScreenCaptureKit
         // actually returned. If a focused window vanished between the CG and
-        // SC lookups, captureDisplay falls back to `screen` and the AX tree
-        // correctly remains unfiltered instead of describing a stale crop.
+        // SC lookups, captureDisplay falls back to `screen`. AX retains its
+        // explicit scope/windowId; never substitute other windows' controls.
         if captured.scope != "screen",
            let elements = axResult["elements"] as? [[String: Any]] {
             axResult["elements"] = elements.filter { element in
@@ -1194,6 +1461,11 @@ final class FrameCapture {
             }
         }
         env["ax"] = axResult
+        if env["capture"] as? String == "ok", captured.scope == "window",
+           let targetBefore, targetBefore.windowID == target, nativeTarget() == targetBefore,
+           let observation = env["observation"] as? [String: Any], let id = observation["id"] as? String {
+            nativeBindings.record(session: session, id: id, target: targetBefore)
+        }
         tm["ax"] = axMs
         // A denied/failed ScreenCaptureKit request has no image and therefore
         // no thumbnail timing. Keep the permission-needed envelope alive
@@ -1201,7 +1473,7 @@ final class FrameCapture {
         tm["wall"] = msSince(started)
         env["timings_ms"] = tm
         if let d = try? JSONSerialization.data(withJSONObject: env, options: []) {
-            try? d.write(to: URL(fileURLWithPath: Paths.frameOut))
+            writeJSON(d)
         }
     }
 }

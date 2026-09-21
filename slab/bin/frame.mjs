@@ -427,9 +427,9 @@ export async function captureFrame(name, options = {}) {
     () => captureFrameUnlocked(name, options));
 }
 
-async function captureFrameUnlocked(name, { memory = false, session, expectedTargetId, noOCR = false, noVisual = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
+async function captureFrameUnlocked(name, { memory = false, session, nativeGuard, nativeClick, nativeDrag, expectedTargetId, noOCR = false, noVisual = false, fast = false, screen = false, cursor = false, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false, out, json = false, direct = false, preview = false } = {}) {
   if (name === XBOX_TARGET) {
-    if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
+    if (nativeGuard || nativeClick || nativeDrag || actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
       throw new Error("xbox is an observe-only Frame target; use the native gamepad/live-publish loop for control");
     }
     const jpg = captureXboxJpeg();
@@ -474,8 +474,14 @@ async function captureFrameUnlocked(name, { memory = false, session, expectedTar
   }
   if (session !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(session)) throw new Error("Invalid native frame session");
   if (expectedTargetId !== undefined && !/^[a-zA-Z0-9_-]{1,64}$/.test(expectedTargetId)) throw new Error("Invalid staged target ID");
+  if ([nativeGuard, nativeClick, nativeDrag].filter(Boolean).length > 1) throw new Error('Choose native guard or click or drag, not multiple operations');
+  if ((nativeGuard || nativeClick || nativeDrag) && (pressAt || targetAt || actionOnly || clearTarget || clearOverlays || manualCheck || screen || crop)) {
+    throw new Error('Native input cannot be combined with another action or capture scope');
+  }
+  const nativeMode = nativeGuard || nativeClick || nativeDrag
+    ? (nativeDrag ? 'native-drag=' : nativeClick ? 'native-click=' : 'native-guard=') + Buffer.from(JSON.stringify(nativeDrag || nativeClick || nativeGuard)).toString('base64') : '';
   const mode = [expectedTargetId ? `expect-target=${expectedTargetId}` : "", session ? `session=${session}` : "", screen ? "screen" : "window", noOCR ? "noocr" : "full", noVisual ? "novisual" : "", fast ? "fast" : "", cursorAt ? `cursor=${cursorAt[0]},${cursorAt[1]}` : cursor ? "cursor" : "", targetAt ? `target=${targetAt[0]},${targetAt[1]}` : "", targetId ? `target-id=${targetId}` : "", manualCheck ? `manual-check=${manualCheck}` : "", pressAt ? `press=${pressAt[0]},${pressAt[1]},${pressCount}` : "", pressTitle ? `press-title=${Buffer.from(pressTitle, "utf8").toString("base64")}` : "", actionOnly ? "action-only" : "", clearTarget ? "target-clear" : "", clearOverlays ? "overlay-clear" : "", quietOverlay ? "quiet-overlay" : "", overlays ? "overlays" : "", crop ? `crop=${crop.join(",")}` : "", baseline ? "baseline" : "", diff ? "diff" : ""]
-    .filter(Boolean).join(" ");
+    .concat(nativeMode).filter(Boolean).join(" ");
   // Use the resident server only if already running (opt-in; see runServer);
   // otherwise a one-shot direct ssh. Both return an ACF1 {json, jpg} frame —
   // the JPEG is raw bytes, never base64.

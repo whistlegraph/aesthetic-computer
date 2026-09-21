@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Frame drag check</title>
+<style>
+body {margin:40px;font:24px system-ui;background:#eef2f6;color:#172638}
+h1 {font-size:32px} main {display:flex;gap:180px;margin:40px 0}
+button {font:inherit;width:180px;height:120px;border:2px solid #245781;border-radius:12px;background:white}
+#target {background:#bddbc5} output {display:block;margin:20px}
+</style>
+<h1>Frame drag check</h1><main><button id="source" draggable="true">Drag token</button><button id="target">Drop here</button></main>
+<output id="drops">Drops: 0</output><output id="releases">Released: 0</output><output id="rejects">Rejected: 0</output>
+<script>
+let drops=0,releases=0,rejects=0,accepted=false;
+source.addEventListener('dragstart',e=>{if(!e.isTrusted)return;accepted=false;e.dataTransfer.setData('text/plain','frame-fixture');e.dataTransfer.effectAllowed='move';});
+target.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
+target.addEventListener('drop',e=>{e.preventDefault();if(e.isTrusted&&e.dataTransfer.getData('text/plain')==='frame-fixture'){accepted=true;document.querySelector('#drops').textContent=`Drops: ${++drops}`;}});
+source.addEventListener('dragend',e=>{if(!e.isTrusted)return;if(accepted){document.querySelector('#releases').textContent=`Released: ${++releases}`;}else{document.querySelector('#rejects').textContent=`Rejected: ${++rejects}`;}});
+</script></html>

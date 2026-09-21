@@ -55,3 +55,48 @@ node --test --test-concurrency=1 slab/finder-quest/quest.test.mjs slab/test/comp
 
 Jev is useful for ambiguous sorting instructions. This round has a deterministic
 file-type rule, so it does not add a model decision to each move.
+
+The hybrid strategy uses Finder to establish the current directory, Puppet to
+download the three assets, and an owned Terminal window for the batch sort.
+`sort.mjs --quest <id> --receipt <path>` checks the active round, exact generated
+filenames and bytes, unique sources, and absent destinations before moving.
+The command does not upload files or mark browser returns complete.
+
+`../lib/terminal-helper.mjs` records the helper window ID and TTY. Cleanup checks
+that it still contains just that idle tab, handles its Close confirmation, and
+verifies the window disappeared. The caller then returns to Finder and checks
+its foreground state. It never quits Terminal with other work open. This is the
+supporting-tool pattern: preserve the parent task, enter a bounded child task,
+verify its result, close only owned resources, and verify the parent context.
+
+`hybrid.mjs <unique-report-name>` runs the existing owned browser fixture
+described by `/tmp/finder-quest-browser.json` and Puppet on port 17869. It uses
+live Frame on 7767 (override with `QUEST_FRAME_URL`). It is a Blueberry fixture,
+not a general desktop agent: the 1408×881 display, browser position, Finder
+icon layout and drag endpoints were visually inspected. It records full-screen
+evidence before the three native returns. Start with an untouched round. POST
+`/new` with `{ "layout": [ ...nine starting folders... ] }` replays a layout;
+permitted starting folders are `""`, `"Loose"`, and `"More stuff"`.
+
+Follow-up evidence on September 21:
+
+- `runs/baseline-2.json`: five verified native moves, then a failed sixth move;
+  the run stopped at 20.4 seconds. Successful drag calls were 2.9–3.2 seconds.
+  This is an incomplete baseline, not an end-to-end comparison.
+- Recovery of that round (`fpvPNI`) reached 12/12 sorted and 3/3 returned. The
+  Terminal command sorted the remaining seven in 25 ms including its scorer
+  check. That excludes opening, typing, closing, and returning to Finder; the
+  initial close dialog prevented a valid full handoff timing. Three subsequent
+  native browser drops verified at 1,497, 1,235 and 1,402 ms.
+- `runs/hybrid-1.json`: macOS locked before the timed run started. No full-run
+  speedup is established. The revised runner records the entire Terminal
+  context phase, and retains errors instead of silently repeating input.
+
+At the time of these runs, Frame's native accessibility tree traversed all
+windows of the foreground app. Cropping to the captured window's rectangle did
+not eliminate controls in overlapping background windows. The experimental
+`run.mjs` baseline now rejects duplicate labels; unique labels can still belong
+to an obscured window. Use visible full-display evidence for drag endpoints.
+The later math-sprint iteration scopes native AX traversal to the captured
+window and verifies exclusion of a background Finder file. This fix is installed
+on Blueberry; the Finder baseline itself has not been rerun with it.

@@ -1,0 +1,40 @@
+{
+  "label": "baseline",
+  "at": "2026-09-21T17:36:29.322Z",
+  "calls": [
+    {
+      "tool": "puppet_reload",
+      "ms": 34
+    },
+    {
+      "tool": "puppet_click",
+      "ms": 115
+    },
+    {
+      "tool": "finder_navigation",
+      "ms": 569
+    },
+    {
+      "tool": "frame",
+      "ms": 321
+    },
+    {
+      "tool": "frame_key",
+      "ms": 145
+    }
+  ],
+  "checks": [],
+  "layout": [
+    "Loose",
+    "More stuff",
+    "More stuff",
+    "",
+    "More stuff",
+    "",
+    "Loose",
+    "More stuff",
+    "More stuff"
+  ],
+  "ok": false,
+  "error": "Native target changed or moved; no action sent. Capture frame again"
+}

@@ -1,0 +1,51 @@
+{
+  "at": "2026-09-21T18:38:06.686Z",
+  "scope": "No native input: subprocess startup/import/wait only",
+  "modes": {
+    "jxa": {
+      "coldMs": 90.22,
+      "medianMs": 24.74,
+      "maxMs": 25.96,
+      "samples": [
+        90.22,
+        25.96,
+        24.66,
+        24.85,
+        24.4,
+        23.76,
+        24.74,
+        25.01
+      ]
+    },
+    "jxa-coregraphics": {
+      "coldMs": 40.8,
+      "medianMs": 30.26,
+      "maxMs": 32.73,
+      "samples": [
+        40.8,
+        32.73,
+        30.26,
+        29.83,
+        29.92,
+        29.65,
+        30.89,
+        30.32
+      ]
+    },
+    "jxa-coregraphics-40ms": {
+      "coldMs": 75.11,
+      "medianMs": 78.91,
+      "maxMs": 81.71,
+      "samples": [
+        75.11,
+        77.16,
+        78.55,
+        79.99,
+        81.71,
+        78.91,
+        75.9,
+        80.55
+      ]
+    }
+  }
+}

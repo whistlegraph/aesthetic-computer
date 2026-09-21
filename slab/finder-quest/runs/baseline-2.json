@@ -1,0 +1,121 @@
+{
+  "label": "baseline-2",
+  "at": "2026-09-21T17:37:10.787Z",
+  "calls": [
+    {
+      "tool": "puppet_reload",
+      "ms": 20
+    },
+    {
+      "tool": "puppet_click",
+      "ms": 93
+    },
+    {
+      "tool": "finder_navigation",
+      "ms": 159
+    },
+    {
+      "tool": "frame",
+      "ms": 256
+    },
+    {
+      "tool": "frame",
+      "ms": 187
+    },
+    {
+      "tool": "frame_key",
+      "ms": 1128
+    },
+    {
+      "tool": "frame_key",
+      "ms": 788
+    },
+    {
+      "tool": "frame_click",
+      "ms": 867
+    },
+    {
+      "tool": "puppet_click",
+      "ms": 64
+    },
+    {
+      "tool": "frame",
+      "ms": 149
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 3153,
+      "durationMs": 500
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 2945,
+      "durationMs": 500
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 2931,
+      "durationMs": 500
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 2897,
+      "durationMs": 500
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 2904,
+      "durationMs": 500
+    },
+    {
+      "tool": "frame_drag",
+      "ms": 2867,
+      "durationMs": 500
+    }
+  ],
+  "checks": [
+    {
+      "description": "sort quest-fpvPNI-orbit.svg",
+      "ok": true,
+      "ms": 8
+    },
+    {
+      "description": "sort quest-fpvPNI-orbit.txt",
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "description": "sort quest-fpvPNI-orbit.wav",
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "description": "sort quest-fpvPNI-meadow.svg",
+      "ok": true,
+      "ms": 5
+    },
+    {
+      "description": "sort quest-fpvPNI-meadow.txt",
+      "ok": true,
+      "ms": 4
+    },
+    {
+      "description": "sort quest-fpvPNI-meadow.wav",
+      "ok": false
+    }
+  ],
+  "layout": [
+    "Loose",
+    "More stuff",
+    "More stuff",
+    "",
+    "More stuff",
+    "",
+    "Loose",
+    "More stuff",
+    "More stuff"
+  ],
+  "ok": false,
+  "error": "Postcondition failed: sort quest-fpvPNI-meadow.wav",
+  "elapsedMs": 20402
+}

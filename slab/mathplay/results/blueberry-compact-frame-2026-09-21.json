@@ -1,0 +1,1983 @@
+{
+  "date": "2026-09-21",
+  "host": "blueberry",
+  "scope": "Warm native CGEvent clicks through local HTTP/MCP and resident Swift, targeted AX or full Frame evidence, plus independent rendered counter check; excludes model inference and fixture startup. Sequential small samples, varying host load; not a controlled attribution of each speedup.",
+  "summary": {
+    "fullFrameFiles": {
+      "0": {
+        "n": 5,
+        "medianMs": 205.88,
+        "minMs": 153.64,
+        "maxMs": 210.03,
+        "under100ms": 0
+      },
+      "180": {
+        "n": 5,
+        "medianMs": 425.98,
+        "minMs": 367.77,
+        "maxMs": 443.81,
+        "under100ms": 0
+      }
+    },
+    "fullFrameSocket": {
+      "0": {
+        "n": 5,
+        "medianMs": 116.57,
+        "minMs": 105.92,
+        "maxMs": 130.85,
+        "under100ms": 0
+      },
+      "180": {
+        "n": 5,
+        "medianMs": 364.23,
+        "minMs": 301.02,
+        "maxMs": 383.42,
+        "under100ms": 0
+      }
+    },
+    "compactIsolated": {
+      "0": {
+        "n": 25,
+        "medianMs": 95.7,
+        "minMs": 58.51,
+        "maxMs": 144.41,
+        "under100ms": 17,
+        "p95Ms": 126.77
+      }
+    },
+    "compactInstalled": {
+      "0": {
+        "n": 25,
+        "medianMs": 99.01,
+        "minMs": 79.73,
+        "maxMs": 170.26,
+        "under100ms": 13,
+        "p95Ms": 135.01,
+        "medianMCPResponseBytes": 717
+      }
+    }
+  },
+  "runs": {
+    "fullFrameFiles": {
+      "at": "2026-09-21T19:10:12.860Z",
+      "browser": [
+        {
+          "tool": "puppet_snapshot",
+          "ms": 224
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Add one",
+          "ms": 29
+        },
+        {
+          "tool": "puppet_fill",
+          "control": "Name",
+          "ms": 21
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Save name",
+          "ms": 36
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Open menu",
+          "ms": 33
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Choose blue",
+          "ms": 32
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Start delayed update",
+          "ms": 828
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Second page",
+          "ms": 83
+        }
+      ],
+      "native": [
+        {
+          "tool": "frame",
+          "ms": 243
+        },
+        {
+          "tool": "frame_click",
+          "ms": 405
+        },
+        {
+          "verified": "native click incremented counter exactly once"
+        },
+        {
+          "tool": "frame",
+          "ms": 137
+        },
+        {
+          "tool": "frame_click",
+          "ms": 440
+        },
+        {
+          "tool": "frame_click",
+          "ms": 208
+        },
+        {
+          "tool": "frame_click",
+          "ms": 423
+        },
+        {
+          "tool": "frame_click",
+          "ms": 206
+        },
+        {
+          "tool": "frame_click",
+          "ms": 365
+        },
+        {
+          "tool": "frame_click",
+          "ms": 204
+        },
+        {
+          "tool": "frame_click",
+          "ms": 402
+        },
+        {
+          "tool": "frame_click",
+          "ms": 159
+        },
+        {
+          "tool": "frame_click",
+          "ms": 428
+        },
+        {
+          "tool": "frame_click",
+          "ms": 151
+        },
+        {
+          "tool": "frame",
+          "ms": 95
+        },
+        {
+          "tool": "frame_reframe",
+          "ms": 83
+        }
+      ],
+      "jev": [],
+      "nativeInputMode": "resident",
+      "transport": "files",
+      "nativeClickLatency": [
+        {
+          "settleMs": 180,
+          "ms": 443.81,
+          "verifiedCount": 3,
+          "nativeInput": {
+            "guardMs": 10.3555,
+            "status": "dispatched",
+            "observationId": "D7D83031-84BD-4048-8BAA-580A1B9AC040",
+            "inputMs": 50.411208
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 210.03,
+          "verifiedCount": 4,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 43.242333,
+            "observationId": "AADA7CA9-3AE5-4B01-84EB-BD10F072ED43",
+            "guardMs": 15.156084
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 425.98,
+          "verifiedCount": 5,
+          "nativeInput": {
+            "observationId": "926D421B-9273-42C2-8F08-969F2B2DFB2B",
+            "status": "dispatched",
+            "inputMs": 47.168584,
+            "guardMs": 8.626291
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 207.74,
+          "verifiedCount": 6,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 55.702125,
+            "observationId": "DC153F6D-1658-4BE1-AF4E-A2DFA4E85776",
+            "guardMs": 2.134084
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 367.77,
+          "verifiedCount": 7,
+          "nativeInput": {
+            "guardMs": 5.184208,
+            "status": "dispatched",
+            "observationId": "2C13414A-AF6D-4F4E-8096-59F09A85C4AA",
+            "inputMs": 44.0195
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 205.88,
+          "verifiedCount": 8,
+          "nativeInput": {
+            "observationId": "29DBD91B-F803-42DA-88F6-A0F48A6D4428",
+            "guardMs": 7.115542,
+            "status": "dispatched",
+            "inputMs": 42.13625
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 404.01,
+          "verifiedCount": 9,
+          "nativeInput": {
+            "guardMs": 1.201541,
+            "status": "dispatched",
+            "observationId": "ABFF85E3-C617-4070-8D16-CF0BDAD98F13",
+            "inputMs": 46.911667
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 160.98,
+          "verifiedCount": 10,
+          "nativeInput": {
+            "guardMs": 5.725917,
+            "status": "dispatched",
+            "observationId": "FAEBF5B5-3E74-40D2-9E9E-1E475109C10B",
+            "inputMs": 58.940667
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 432.52,
+          "verifiedCount": 11,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 72.088208,
+            "observationId": "861504BA-49B0-4483-9A0D-FCF1F05021A3",
+            "guardMs": 4.220167
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 153.64,
+          "verifiedCount": 12,
+          "nativeInput": {
+            "observationId": "4E1E11A5-621F-4B16-9AB9-E2D53FD1A600",
+            "inputMs": 58.22625,
+            "status": "dispatched",
+            "guardMs": 1.052041
+          }
+        }
+      ],
+      "nativeGuard": {
+        "ms": 33.78,
+        "nativeMs": 1.656166,
+        "pixels": false,
+        "staleRejected": true,
+        "movedRejected": true,
+        "counterUnchanged": true
+      },
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+      "ok": true
+    },
+    "fullFrameSocket": {
+      "at": "2026-09-21T19:10:30.813Z",
+      "browser": [
+        {
+          "tool": "puppet_snapshot",
+          "ms": 229
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Add one",
+          "ms": 32
+        },
+        {
+          "tool": "puppet_fill",
+          "control": "Name",
+          "ms": 20
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Save name",
+          "ms": 36
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Open menu",
+          "ms": 33
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Choose blue",
+          "ms": 33
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Start delayed update",
+          "ms": 830
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Second page",
+          "ms": 88
+        }
+      ],
+      "native": [
+        {
+          "tool": "frame",
+          "ms": 148
+        },
+        {
+          "tool": "frame_click",
+          "ms": 347
+        },
+        {
+          "verified": "native click incremented counter exactly once"
+        },
+        {
+          "tool": "frame",
+          "ms": 45
+        },
+        {
+          "tool": "frame_click",
+          "ms": 362
+        },
+        {
+          "tool": "frame_click",
+          "ms": 117
+        },
+        {
+          "tool": "frame_click",
+          "ms": 381
+        },
+        {
+          "tool": "frame_click",
+          "ms": 129
+        },
+        {
+          "tool": "frame_click",
+          "ms": 307
+        },
+        {
+          "tool": "frame_click",
+          "ms": 114
+        },
+        {
+          "tool": "frame_click",
+          "ms": 299
+        },
+        {
+          "tool": "frame_click",
+          "ms": 105
+        },
+        {
+          "tool": "frame_click",
+          "ms": 380
+        },
+        {
+          "tool": "frame_click",
+          "ms": 104
+        },
+        {
+          "tool": "frame",
+          "ms": 46
+        },
+        {
+          "tool": "frame_reframe",
+          "ms": 50
+        }
+      ],
+      "jev": [],
+      "nativeInputMode": "resident",
+      "transport": "socket",
+      "nativeClickLatency": [
+        {
+          "settleMs": 180,
+          "ms": 364.23,
+          "verifiedCount": 3,
+          "nativeInput": {
+            "status": "dispatched",
+            "observationId": "4D1CEB59-B8B4-4876-8B4F-FC6B1E2FD9D9",
+            "inputMs": 46.883416,
+            "guardMs": 11.545
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 118.24,
+          "verifiedCount": 4,
+          "nativeInput": {
+            "status": "dispatched",
+            "observationId": "A6C3136B-53D3-41CA-A305-81BFFF60E0CF",
+            "guardMs": 6.684541,
+            "inputMs": 44.121916
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 383.42,
+          "verifiedCount": 5,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 52.195167,
+            "guardMs": 6.856875,
+            "observationId": "01FFB004-1274-416B-88CF-9AB9A2FD436F"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 130.85,
+          "verifiedCount": 6,
+          "nativeInput": {
+            "status": "dispatched",
+            "observationId": "BF38117A-0586-4E76-B249-E1A1BE85EC89",
+            "guardMs": 3.672917,
+            "inputMs": 53.38175
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 308.95,
+          "verifiedCount": 7,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 42.312625,
+            "observationId": "C90B5E6F-71AE-45E2-B3B3-72F4F65D9DCF",
+            "guardMs": 1.043292
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 116.57,
+          "verifiedCount": 8,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 56.61525,
+            "guardMs": 0.942292,
+            "observationId": "9BF7052E-039C-4C24-83AF-045A3C2529C0"
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 301.02,
+          "verifiedCount": 9,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 41.956958,
+            "observationId": "F135338B-0444-4D8D-9107-EAA381A62971",
+            "guardMs": 0.935333
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 107.14,
+          "verifiedCount": 10,
+          "nativeInput": {
+            "status": "dispatched",
+            "observationId": "E7807330-7EF6-4712-AA86-97BE56464145",
+            "inputMs": 47.229708,
+            "guardMs": 1.048625
+          }
+        },
+        {
+          "settleMs": 180,
+          "ms": 382.38,
+          "verifiedCount": 11,
+          "nativeInput": {
+            "status": "dispatched",
+            "observationId": "4E5B79D2-B0FA-4452-B20D-BC1C197241E1",
+            "guardMs": 1.246208,
+            "inputMs": 58.018625
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 105.92,
+          "verifiedCount": 12,
+          "nativeInput": {
+            "status": "dispatched",
+            "inputMs": 41.58325,
+            "observationId": "0FCC54B5-BEBF-4C89-9C4F-0864D885743F",
+            "guardMs": 1.220875
+          }
+        }
+      ],
+      "nativeGuard": {
+        "ms": 10.04,
+        "nativeMs": 0.748708,
+        "pixels": false,
+        "staleRejected": true,
+        "movedRejected": true,
+        "counterUnchanged": true
+      },
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+      "ok": true
+    },
+    "compactIsolated": {
+      "at": "2026-09-21T19:09:49.806Z",
+      "browser": [
+        {
+          "tool": "puppet_snapshot",
+          "ms": 209
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Add one",
+          "ms": 30
+        },
+        {
+          "tool": "puppet_fill",
+          "control": "Name",
+          "ms": 16
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Save name",
+          "ms": 42
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Open menu",
+          "ms": 34
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Choose blue",
+          "ms": 33
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Start delayed update",
+          "ms": 836
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Second page",
+          "ms": 88
+        }
+      ],
+      "native": [
+        {
+          "tool": "frame",
+          "ms": 128
+        },
+        {
+          "tool": "frame_click",
+          "ms": 403
+        },
+        {
+          "verified": "native click incremented counter exactly once"
+        },
+        {
+          "tool": "frame",
+          "ms": 36
+        },
+        {
+          "tool": "frame_click",
+          "ms": 90
+        },
+        {
+          "tool": "frame_click",
+          "ms": 80
+        },
+        {
+          "tool": "frame_click",
+          "ms": 79
+        },
+        {
+          "tool": "frame_click",
+          "ms": 97
+        },
+        {
+          "tool": "frame_click",
+          "ms": 101
+        },
+        {
+          "tool": "frame_click",
+          "ms": 74
+        },
+        {
+          "tool": "frame_click",
+          "ms": 71
+        },
+        {
+          "tool": "frame_click",
+          "ms": 143
+        },
+        {
+          "tool": "frame_click",
+          "ms": 81
+        },
+        {
+          "tool": "frame_click",
+          "ms": 87
+        },
+        {
+          "tool": "frame_click",
+          "ms": 113
+        },
+        {
+          "tool": "frame_click",
+          "ms": 96
+        },
+        {
+          "tool": "frame_click",
+          "ms": 120
+        },
+        {
+          "tool": "frame_click",
+          "ms": 78
+        },
+        {
+          "tool": "frame_click",
+          "ms": 95
+        },
+        {
+          "tool": "frame_click",
+          "ms": 56
+        },
+        {
+          "tool": "frame_click",
+          "ms": 84
+        },
+        {
+          "tool": "frame_click",
+          "ms": 125
+        },
+        {
+          "tool": "frame_click",
+          "ms": 86
+        },
+        {
+          "tool": "frame_click",
+          "ms": 94
+        },
+        {
+          "tool": "frame_click",
+          "ms": 99
+        },
+        {
+          "tool": "frame_click",
+          "ms": 100
+        },
+        {
+          "tool": "frame_click",
+          "ms": 78
+        },
+        {
+          "tool": "frame_click",
+          "ms": 96
+        },
+        {
+          "tool": "frame_click",
+          "ms": 124
+        },
+        {
+          "tool": "frame_click",
+          "ms": 194
+        },
+        {
+          "tool": "frame",
+          "ms": 46
+        },
+        {
+          "tool": "frame_reframe",
+          "ms": 405
+        }
+      ],
+      "jev": [],
+      "nativeInputMode": "compact",
+      "transport": "socket",
+      "nativeClickLatency": [
+        {
+          "settleMs": 0,
+          "ms": 92.96,
+          "verifiedCount": 3,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 2",
+              "expected": "Count: 3",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 27.687291,
+              "observed": "Count: 3"
+            },
+            "inputMs": 56.676125,
+            "guardMs": 1.013208,
+            "observationId": "4DFA3FD5-86EE-41F5-ADB9-E515ADE8E42A"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 81.85,
+          "verifiedCount": 4,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 4",
+              "before": "Count: 3",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 29.093625,
+              "observed": "Count: 4"
+            },
+            "observationId": "D4F46710-12F7-4CCA-9FA8-1A9739A927A2",
+            "guardMs": 1.380125,
+            "inputMs": 42.380084
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 80.81,
+          "verifiedCount": 5,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 5",
+              "before": "Count: 4",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 21.459291,
+              "observed": "Count: 5"
+            },
+            "inputMs": 43.639875,
+            "guardMs": 8.633916,
+            "observationId": "648614C4-9628-49E2-AD5F-AF195E6CF5D3"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 99.32,
+          "verifiedCount": 6,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 5",
+              "expected": "Count: 6",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 42.365417,
+              "observed": "Count: 6"
+            },
+            "inputMs": 43.094333,
+            "observationId": "BA0E05E4-3442-4BCF-97F1-D5C926A426CA",
+            "guardMs": 5.692917
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 103.72,
+          "verifiedCount": 7,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 7",
+              "before": "Count: 6",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 45.345542,
+              "observed": "Count: 7"
+            },
+            "inputMs": 40.584708,
+            "guardMs": 7.785083,
+            "observationId": "8E5B828D-7DFF-4794-B881-807E2D337288"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 76.04,
+          "verifiedCount": 8,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 8",
+              "before": "Count: 7",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 20.589708,
+              "observed": "Count: 8"
+            },
+            "observationId": "56B25817-FE72-476D-BA1D-AFDC72D8D9CF",
+            "guardMs": 4.051917,
+            "inputMs": 40.831959
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 72.95,
+          "verifiedCount": 9,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 9",
+              "attribute": "AXValue",
+              "before": "Count: 8",
+              "role": "AXStaticText",
+              "ms": 21.086917,
+              "observed": "Count: 9"
+            },
+            "inputMs": 43.177,
+            "guardMs": 1.139625,
+            "observationId": "B33C919D-42D7-45F5-AFC5-47F583E7C11B"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 144.41,
+          "verifiedCount": 10,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 10",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 9",
+              "role": "AXStaticText",
+              "ms": 52.185917,
+              "observed": "Count: 10"
+            },
+            "inputMs": 78.191083,
+            "guardMs": 6.057292,
+            "observationId": "AA6DCB59-2D49-4BEC-8D0D-14A6FFA293DA"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 83.08,
+          "verifiedCount": 11,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 11",
+              "attribute": "AXValue",
+              "before": "Count: 10",
+              "role": "AXStaticText",
+              "ms": 32.630166,
+              "observed": "Count: 11"
+            },
+            "inputMs": 43.320167,
+            "guardMs": 0.800041,
+            "observationId": "6726BDDE-AFAB-406D-94DC-6F39042F7922"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 88.81,
+          "verifiedCount": 12,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "before": "Count: 11",
+              "expected": "Count: 12",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 28.666291,
+              "observed": "Count: 12"
+            },
+            "inputMs": 52.103834,
+            "guardMs": 1.041709,
+            "observationId": "80B75285-F7AC-44C2-934C-4EBCF15305F6"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 115.25,
+          "verifiedCount": 13,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 13",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 12",
+              "role": "AXStaticText",
+              "ms": 47.48225,
+              "observed": "Count: 13"
+            },
+            "observationId": "9C12107E-03A6-4E81-B7C9-7A0B66C6032F",
+            "guardMs": 7.056667,
+            "inputMs": 49.539916
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 97.31,
+          "verifiedCount": 14,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 14",
+              "ok": true,
+              "before": "Count: 13",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 40.783834,
+              "observed": "Count: 14"
+            },
+            "observationId": "198B9B05-3802-4677-8C32-C444A24B0EA0",
+            "guardMs": 6.645708,
+            "inputMs": 41.357916
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 121.04,
+          "verifiedCount": 15,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 15",
+              "ok": true,
+              "before": "Count: 14",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 45.097458,
+              "observed": "Count: 15"
+            },
+            "observationId": "932774D0-984D-4286-867D-DF62408BAF96",
+            "guardMs": 10.283875,
+            "inputMs": 58.813834
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 79.88,
+          "verifiedCount": 16,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 16",
+              "before": "Count: 15",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 25.494458,
+              "observed": "Count: 16"
+            },
+            "observationId": "AB19C012-1EB5-43B4-AB78-528C0009BBEB",
+            "guardMs": 4.340666,
+            "inputMs": 41.993375
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 96.98,
+          "verifiedCount": 17,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 17",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 16",
+              "role": "AXStaticText",
+              "ms": 33.501375,
+              "observed": "Count: 17"
+            },
+            "inputMs": 46.204584,
+            "guardMs": 8.680541,
+            "observationId": "30F8FB8E-58EA-4D80-BC74-8A5D79942D57"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 58.51,
+          "verifiedCount": 18,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 18",
+              "ok": true,
+              "before": "Count: 17",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 5.226125,
+              "observed": "Count: 18"
+            },
+            "observationId": "24B0F069-BAD9-4AC1-925B-3025098B1070",
+            "inputMs": 42.260208,
+            "guardMs": 2.453584
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 86.54,
+          "verifiedCount": 19,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 19",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 18",
+              "role": "AXStaticText",
+              "ms": 30.715542,
+              "observed": "Count: 19"
+            },
+            "inputMs": 45.583083,
+            "guardMs": 1.554834,
+            "observationId": "9379E905-A4AA-4B10-A2A1-957EF6E11448"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 126.77,
+          "verifiedCount": 20,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 20",
+              "ok": true,
+              "before": "Count: 19",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 27.952084,
+              "observed": "Count: 20"
+            },
+            "inputMs": 77.075875,
+            "guardMs": 15.293208,
+            "observationId": "E1A2A7F5-B6C5-4071-93DA-00CB1323502A"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 88.03,
+          "verifiedCount": 21,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 21",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 20",
+              "role": "AXStaticText",
+              "ms": 32.598625,
+              "observed": "Count: 21"
+            },
+            "inputMs": 40.671542,
+            "guardMs": 7.193291,
+            "observationId": "3E580672-D701-4712-81A0-B0AACF0E90EA"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 95.7,
+          "verifiedCount": 22,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 22",
+              "attribute": "AXValue",
+              "before": "Count: 21",
+              "role": "AXStaticText",
+              "ms": 33.003708,
+              "observed": "Count: 22"
+            },
+            "inputMs": 52.662916,
+            "guardMs": 1.687042,
+            "observationId": "1BFEB743-B70E-439D-871B-D04A70F51543"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 100.2,
+          "verifiedCount": 23,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "before": "Count: 22",
+              "attribute": "AXValue",
+              "expected": "Count: 23",
+              "role": "AXStaticText",
+              "ms": 28.328125,
+              "observed": "Count: 23"
+            },
+            "inputMs": 59.568917,
+            "guardMs": 4.739292,
+            "observationId": "36C6DE8E-8CD2-46C9-9BAD-C3F9C62890E0"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 106.52,
+          "verifiedCount": 24,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 24",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 23",
+              "role": "AXStaticText",
+              "ms": 49.453958,
+              "observed": "Count: 24"
+            },
+            "inputMs": 40.307709,
+            "guardMs": 2.842167,
+            "observationId": "2627E991-502F-4A1E-83CC-3F5FC85D1220"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 81.84,
+          "verifiedCount": 25,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 25",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 24",
+              "role": "AXStaticText",
+              "ms": 19.92525,
+              "observed": "Count: 25"
+            },
+            "observationId": "F477CBD2-8A0E-49CB-84F7-0BAE743B6D8C",
+            "guardMs": 1.65125,
+            "inputMs": 48.268333
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 97.55,
+          "verifiedCount": 26,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 25",
+              "ok": true,
+              "attribute": "AXValue",
+              "expected": "Count: 26",
+              "role": "AXStaticText",
+              "ms": 30.46725,
+              "observed": "Count: 26"
+            },
+            "observationId": "07F649A7-ECF0-45CB-ACAB-BA96712B6DE0",
+            "guardMs": 4.413916,
+            "inputMs": 52.989209
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 125.5,
+          "verifiedCount": 27,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 27",
+              "attribute": "AXValue",
+              "before": "Count: 26",
+              "role": "AXStaticText",
+              "ms": 45.662375,
+              "observed": "Count: 27"
+            },
+            "inputMs": 52.093417,
+            "guardMs": 20.362667,
+            "observationId": "5449125D-5029-43A2-AA5B-71F5D9A47DA7"
+          }
+        }
+      ],
+      "compactRecovery": {
+        "alreadyTrueRejected": true,
+        "wrongRoleRejected": true,
+        "timeoutReturnedPixels": true,
+        "clickNotRepeated": true,
+        "consumedRejected": true
+      },
+      "nativeGuard": {
+        "ms": 4.27,
+        "nativeMs": 3.199333,
+        "pixels": false,
+        "staleRejected": true,
+        "movedRejected": true,
+        "counterUnchanged": true
+      },
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+      "ok": true
+    },
+    "compactInstalled": {
+      "at": "2026-09-21T19:14:23.412Z",
+      "browser": [
+        {
+          "tool": "puppet_snapshot",
+          "ms": 210
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Add one",
+          "ms": 22
+        },
+        {
+          "tool": "puppet_fill",
+          "control": "Name",
+          "ms": 26
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Save name",
+          "ms": 35
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Open menu",
+          "ms": 34
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Choose blue",
+          "ms": 32
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Start delayed update",
+          "ms": 822
+        },
+        {
+          "tool": "puppet_click",
+          "control": "Second page",
+          "ms": 82
+        }
+      ],
+      "native": [
+        {
+          "tool": "frame",
+          "ms": 282
+        },
+        {
+          "tool": "frame_click",
+          "ms": 416
+        },
+        {
+          "verified": "native click incremented counter exactly once"
+        },
+        {
+          "tool": "frame",
+          "ms": 57
+        },
+        {
+          "tool": "frame_click",
+          "ms": 96
+        },
+        {
+          "tool": "frame_click",
+          "ms": 119
+        },
+        {
+          "tool": "frame_click",
+          "ms": 92
+        },
+        {
+          "tool": "frame_click",
+          "ms": 113
+        },
+        {
+          "tool": "frame_click",
+          "ms": 133
+        },
+        {
+          "tool": "frame_click",
+          "ms": 122
+        },
+        {
+          "tool": "frame_click",
+          "ms": 117
+        },
+        {
+          "tool": "frame_click",
+          "ms": 103
+        },
+        {
+          "tool": "frame_click",
+          "ms": 131
+        },
+        {
+          "tool": "frame_click",
+          "ms": 114
+        },
+        {
+          "tool": "frame_click",
+          "ms": 93
+        },
+        {
+          "tool": "frame_click",
+          "ms": 85
+        },
+        {
+          "tool": "frame_click",
+          "ms": 78
+        },
+        {
+          "tool": "frame_click",
+          "ms": 82
+        },
+        {
+          "tool": "frame_click",
+          "ms": 85
+        },
+        {
+          "tool": "frame_click",
+          "ms": 125
+        },
+        {
+          "tool": "frame_click",
+          "ms": 98
+        },
+        {
+          "tool": "frame_click",
+          "ms": 88
+        },
+        {
+          "tool": "frame_click",
+          "ms": 163
+        },
+        {
+          "tool": "frame_click",
+          "ms": 79
+        },
+        {
+          "tool": "frame_click",
+          "ms": 84
+        },
+        {
+          "tool": "frame_click",
+          "ms": 89
+        },
+        {
+          "tool": "frame_click",
+          "ms": 128
+        },
+        {
+          "tool": "frame_click",
+          "ms": 100
+        },
+        {
+          "tool": "frame_click",
+          "ms": 85
+        },
+        {
+          "tool": "frame_click",
+          "ms": 197
+        },
+        {
+          "tool": "frame",
+          "ms": 52
+        },
+        {
+          "tool": "frame_reframe",
+          "ms": 305
+        }
+      ],
+      "jev": [],
+      "installedFrame": true,
+      "nativeInputMode": "compact",
+      "transport": "socket",
+      "nativeClickLatency": [
+        {
+          "settleMs": 0,
+          "ms": 98.2,
+          "verifiedCount": 3,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 3",
+              "before": "Count: 2",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 42.491042,
+              "observed": "Count: 3"
+            },
+            "inputMs": 43.354958,
+            "observationId": "0F9F17DD-34CB-450F-BFFA-3E9970832DA2",
+            "guardMs": 1.014459
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 122.21,
+          "verifiedCount": 4,
+          "responseBytes": 713,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 4",
+              "before": "Count: 3",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 49.731083,
+              "observed": "Count: 4"
+            },
+            "observationId": "14DC701E-B2C9-4565-A184-F7A7FC16B5BE",
+            "guardMs": 4.060209,
+            "inputMs": 54.3775
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 94.13,
+          "verifiedCount": 5,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 5",
+              "before": "Count: 4",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 21.457167,
+              "observed": "Count: 5"
+            },
+            "inputMs": 58.465292,
+            "observationId": "FED32F3C-E3A0-413F-ABB4-54D9F2C93CE7",
+            "guardMs": 2.823583
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 115.21,
+          "verifiedCount": 6,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 5",
+              "expected": "Count: 6",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 46.881042,
+              "observed": "Count: 6"
+            },
+            "inputMs": 53.754125,
+            "guardMs": 4.155083,
+            "observationId": "03DAFF5A-27C2-416B-8684-E5158E84A3BF"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 134.83,
+          "verifiedCount": 7,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 6",
+              "expected": "Count: 7",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 65.301292,
+              "observed": "Count: 7"
+            },
+            "observationId": "5D944163-2D3C-4F0C-B614-17F821FF226A",
+            "guardMs": 7.323708,
+            "inputMs": 49.476958
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 129.2,
+          "verifiedCount": 8,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 8",
+              "before": "Count: 7",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 17.312042,
+              "observed": "Count: 8"
+            },
+            "observationId": "CE5F7039-9924-4BE9-9CBF-065A6BAEF4AD",
+            "guardMs": 5.397542,
+            "inputMs": 73.429292
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 118.68,
+          "verifiedCount": 9,
+          "responseBytes": 715,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 9",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 8",
+              "role": "AXStaticText",
+              "ms": 41.503708,
+              "observed": "Count: 9"
+            },
+            "inputMs": 59.468792,
+            "guardMs": 6.201292,
+            "observationId": "FBE65059-6D80-4931-93F5-5166A25422C6"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 104.58,
+          "verifiedCount": 10,
+          "responseBytes": 711,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 10",
+              "before": "Count: 9",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 24.94675,
+              "observed": "Count: 10"
+            },
+            "inputMs": 59.9895,
+            "guardMs": 5.197,
+            "observationId": "69D15477-A649-48D8-9F7E-A3E86598E255"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 135.01,
+          "verifiedCount": 11,
+          "responseBytes": 717,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 11",
+              "before": "Count: 10",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 43.77575,
+              "observed": "Count: 11"
+            },
+            "observationId": "99DBD826-46F2-40C2-99D8-B41BE9D48C24",
+            "guardMs": 33.804334,
+            "inputMs": 42.69025
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 117.38,
+          "verifiedCount": 12,
+          "responseBytes": 717,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 11",
+              "expected": "Count: 12",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 52.716209,
+              "observed": "Count: 12"
+            },
+            "observationId": "8DBE675E-616E-4E16-A5E1-D4E26FCD6FF1",
+            "guardMs": 2.75025,
+            "inputMs": 47.153625
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 94.98,
+          "verifiedCount": 13,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 13",
+              "attribute": "AXValue",
+              "before": "Count: 12",
+              "role": "AXStaticText",
+              "ms": 39.491667,
+              "observed": "Count: 13"
+            },
+            "inputMs": 42.430917,
+            "observationId": "D454D847-53FB-49E1-9EE6-A1CB8A06173B",
+            "guardMs": 2.335333
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 87.54,
+          "verifiedCount": 14,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 13",
+              "ok": true,
+              "attribute": "AXValue",
+              "expected": "Count: 14",
+              "role": "AXStaticText",
+              "ms": 30.347958,
+              "observed": "Count: 14"
+            },
+            "observationId": "AB7FCF98-E8A1-4D1D-A23A-59977B06F23B",
+            "guardMs": 4.101167,
+            "inputMs": 42.911916
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 79.73,
+          "verifiedCount": 15,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 15",
+              "before": "Count: 14",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 17.548291,
+              "observed": "Count: 15"
+            },
+            "inputMs": 49.422708,
+            "guardMs": 1.806041,
+            "observationId": "8812C0F7-4806-45A3-9BF7-BEAD45C5F36E"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 83.46,
+          "verifiedCount": 16,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 16",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 15",
+              "role": "AXStaticText",
+              "ms": 29.897667,
+              "observed": "Count: 16"
+            },
+            "inputMs": 40.359875,
+            "guardMs": 3.556166,
+            "observationId": "9B092020-A186-4C5A-AEF7-47AB6BEA567B"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 86.57,
+          "verifiedCount": 17,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 17",
+              "before": "Count: 16",
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 26.878792,
+              "observed": "Count: 17"
+            },
+            "inputMs": 44.997791,
+            "guardMs": 6.012625,
+            "observationId": "A7BF3523-DCB6-4732-807F-FEA4714C2843"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 127.05,
+          "verifiedCount": 18,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 18",
+              "before": "Count: 17",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 61.282666,
+              "observed": "Count: 18"
+            },
+            "observationId": "46E9A13E-07E7-426C-828D-366889DB6571",
+            "inputMs": 52.053584,
+            "guardMs": 1.567709
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 99.01,
+          "verifiedCount": 19,
+          "responseBytes": 717,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 19",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 18",
+              "role": "AXStaticText",
+              "ms": 31.337625,
+              "observed": "Count: 19"
+            },
+            "inputMs": 52.405334,
+            "guardMs": 6.77175,
+            "observationId": "95AC717C-12CE-4B5E-8F8A-F416F24941B8"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 89.48,
+          "verifiedCount": 20,
+          "responseBytes": 712,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 20",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 19",
+              "role": "AXStaticText",
+              "ms": 30.824625,
+              "observed": "Count: 20"
+            },
+            "inputMs": 51.2,
+            "observationId": "0D6C24B0-37A9-4650-A714-C0F2510BEC87",
+            "guardMs": 0.84575
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 170.26,
+          "verifiedCount": 21,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 21",
+              "ok": true,
+              "attribute": "AXValue",
+              "before": "Count: 20",
+              "role": "AXStaticText",
+              "ms": 58.974209,
+              "observed": "Count: 21"
+            },
+            "inputMs": 92.115916,
+            "observationId": "F4A2A3AF-AFF2-40C9-BD4D-72042819ED6D",
+            "guardMs": 1.497667
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 80.91,
+          "verifiedCount": 22,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 21",
+              "expected": "Count: 22",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 29.937875,
+              "observed": "Count: 22"
+            },
+            "observationId": "006DDC5B-F989-410C-8A98-6E27EC5BCD1F",
+            "guardMs": 1.210833,
+            "inputMs": 40.263042
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 87.8,
+          "verifiedCount": 23,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 23",
+              "before": "Count: 22",
+              "ok": true,
+              "attribute": "AXValue",
+              "role": "AXStaticText",
+              "ms": 22.228958,
+              "observed": "Count: 23"
+            },
+            "inputMs": 51.461334,
+            "observationId": "2FAF1FFE-11E9-41F3-BD38-5750AF134526",
+            "guardMs": 0.961167
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 90.91,
+          "verifiedCount": 24,
+          "responseBytes": 717,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 23",
+              "ok": true,
+              "attribute": "AXValue",
+              "expected": "Count: 24",
+              "role": "AXStaticText",
+              "ms": 30.896916,
+              "observed": "Count: 24"
+            },
+            "inputMs": 44.861708,
+            "guardMs": 2.58175,
+            "observationId": "372964DB-98A8-4580-87F3-41AA1BFC1D29"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 130.39,
+          "verifiedCount": 25,
+          "responseBytes": 717,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "expected": "Count: 25",
+              "before": "Count: 24",
+              "attribute": "AXValue",
+              "ok": true,
+              "role": "AXStaticText",
+              "ms": 55.53925,
+              "observed": "Count: 25"
+            },
+            "observationId": "3BAF48A0-DFB0-405A-91FD-D2CDCA923C5F",
+            "inputMs": 56.924334,
+            "guardMs": 8.203416
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 103.53,
+          "verifiedCount": 26,
+          "responseBytes": 716,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "ok": true,
+              "expected": "Count: 26",
+              "attribute": "AXValue",
+              "before": "Count: 25",
+              "role": "AXStaticText",
+              "ms": 31.17075,
+              "observed": "Count: 26"
+            },
+            "inputMs": 48.195042,
+            "guardMs": 2.10925,
+            "observationId": "71FEDF0A-89F6-440E-B7D7-F36072F7E9F8"
+          }
+        },
+        {
+          "settleMs": 0,
+          "ms": 87.52,
+          "verifiedCount": 27,
+          "responseBytes": 718,
+          "nativeInput": {
+            "status": "dispatched",
+            "verification": {
+              "before": "Count: 26",
+              "ok": true,
+              "attribute": "AXValue",
+              "expected": "Count: 27",
+              "role": "AXStaticText",
+              "ms": 30.021834,
+              "observed": "Count: 27"
+            },
+            "inputMs": 41.994875,
+            "observationId": "172BAA03-1A7A-4EA3-BB81-43ADFAFC6444",
+            "guardMs": 5.185542
+          }
+        }
+      ],
+      "compactRecovery": {
+        "alreadyTrueRejected": true,
+        "wrongRoleRejected": true,
+        "timeoutReturnedPixels": true,
+        "clickNotRepeated": true,
+        "consumedRejected": true
+      },
+      "nativeGuard": {
+        "ms": 1.55,
+        "nativeMs": 0.629083,
+        "pixels": false,
+        "staleRejected": true,
+        "movedRejected": true,
+        "counterUnchanged": true
+      },
+      "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+      "ok": true
+    }
+  },
+  "validation": {
+    "javascriptTests": 23,
+    "swiftPolicyTests": "passed",
+    "nativeBuildAndInstall": "passed",
+    "installedFrameMCPAndCLI": "verified",
+    "fixtureWindowsClosed": true
+  },
+  "earlierTrials": [
+    {
+      "at": "2026-09-21T19:09:19.190Z",
+      "ok": false,
+      "note": "25 compact checks passed; moved-window test initially raced WindowServer; harness now waits for native geometry.",
+      "error": "Missing expected rejection.",
+      "completedTimedClicks": 25
+    },
+    {
+      "at": "2026-09-21T19:12:19.436Z",
+      "ok": false,
+      "note": "Initial fixture control could not be observed; native click withheld.",
+      "error": "Frame must observe the exact fixture control before native input",
+      "completedTimedClicks": 0
+    },
+    {
+      "at": "2026-09-21T19:12:57.045Z",
+      "ok": false,
+      "note": "Fixture was tiled small; heading could not be read; native click withheld.",
+      "error": "The input did not match the regular expression /Computer-use check/. Input:\n\n'capture: ok\\n' +\n  'sessionId: 80dfe703-c459-4aec-92fc-3dc6dac35988\\n' +\n  'observation: {\"capturedAt\":\"2026-09-21T19:12:59Z\",\"id\":\"4A7BA83B-0E0F-4FD0-B84E-50F9518E04B2\",\"session\":\"aa9e9810357eb0667fb665a8bd92f566\",\"windowId\":1247,\"captureScale\":1,\"coordinateSpace\":\"macos-global-points\"}\\n' +\n  'frontmost: Google Chrome (com.google.Chrome)\\n' +\n  'screen: 1408\u00d7881 @2x\\n' +\n  'scope: window\\n' +\n  'frame region: 532\u00d7409 @(98,377) \u2014 coordinates below are global\\n' +\n  'windows: 5\\n' +\n  '\\n' +\n  'OCR (2 regions) \u2014 \u00abtext\u00bb @(cx,cy):\\n' +\n  '  \u00abO \u2022>0ty1$3\u20221\u00bb @(203,411)\\n' +\n  '  \u00abComput8r-usa check\u00bb @(224,488)\\n' +\n  '\\n' +\n  'AX (3 elements, trusted=true) \u2014 role \u00abtitle\u00bb @(cx,cy) actions:\\n' +\n  '  AXTextField \u00abName\u00bb @(293,467) [AXPress,AXShowMenu,AXScrollToVisible]\\n' +\n  '  AXButton \u00abSave name\u00bb @(503,467) [AXPress,AXShowMenu,AXScrollToVisible]\\n' +\n  '  AXButton \u00abOpen menu\u00bb @(183,598) [AXPress,AXShowMenu,AXScrollToVisible]\\n' +\n  'visual detection skipped: requested\\n' +\n  '\\n' +\n  'VISUAL (0 compact controls) \u2014 kind @(cx,cy), distance from hover:\\n' +\n  '\\n' +\n  'DIFF (0 changed regions) \u2014 @(cx,cy), changed grid cells:'\n",
+      "completedTimedClicks": 0
+    },
+    {
+      "at": "2026-09-21T19:13:33.170Z",
+      "ok": false,
+      "note": "Initial native click was dispatched but Count: 2 was not verified. Run stopped without input replay; cause not established. Later installed run completed unchanged input code.",
+      "error": "locator.waitFor: Timeout 3000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Count: 2', { exact: true }) to be visible\u001b[22m\n",
+      "completedTimedClicks": 0
+    }
+  ]
+}

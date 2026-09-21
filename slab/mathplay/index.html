@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Math sprint</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3efdf;color:#182c27;font:20px system-ui,sans-serif}main{max-width:780px;margin:auto;padding:40px 24px}header{display:flex;justify-content:space-between;align-items:center}h1{font-size:24px;margin:0}#score{font-variant-numeric:tabular-nums}#progress{margin-top:60px;color:#52635a}h2{font-size:clamp(52px,10vw,96px);line-height:1.2;margin:20px 0 36px}#answers{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}button{font:inherit;font-size:32px;font-weight:700;min-height:90px;border:2px solid #182c27;border-radius:14px;background:#fffdf5;color:inherit;cursor:pointer}button:hover{background:#d8efae}button:focus-visible{outline:4px solid #da663e;outline-offset:3px}#again{margin:20px 0;padding:0 24px;font-size:24px}#result{min-height:30px}ol{padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:15px;font-variant-numeric:tabular-nums}li{border-top:1px solid #b6bca9;padding:8px 0}.wrong{color:#9c2b16}[hidden]{display:none!important}@media(max-width:500px){#answers{grid-template-columns:repeat(2,1fr)}ol{grid-template-columns:repeat(2,1fr)}}
+</style>
+<main><header><h1>Math sprint</h1><span id="score">Score: 0 / 0</span></header>
+<p id="progress"></p><h2 id="problem"></h2><div id="answers" aria-label="Answers"></div>
+<p id="result" role="status"></p><button id="again" hidden>Play again</button><ol id="history" aria-label="Results"></ol></main>
+<script type="module" src="/game.mjs"></script></html>

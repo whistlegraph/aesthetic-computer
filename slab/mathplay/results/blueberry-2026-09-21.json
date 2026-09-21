@@ -1,0 +1,624 @@
+{
+  "at": "2026-09-21T18:29:08.123Z",
+  "math": [
+    {
+      "at": "2026-09-21T18:24:37.048Z",
+      "ok": true,
+      "complete": true,
+      "correct": 30,
+      "initialObservationMs": 230.76,
+      "elapsedMs": 1126.21,
+      "medianClickMs": 34.03,
+      "p95ClickMs": 52.94,
+      "maxClickMs": 55.56,
+      "under100ms": 30,
+      "rounds": [
+        {
+          "round": 1,
+          "problem": "9 × 11 = ?",
+          "answer": "99",
+          "clickMs": 55.56,
+          "loopMs": 55.61
+        },
+        {
+          "round": 2,
+          "problem": "18 × 12 = ?",
+          "answer": "216",
+          "clickMs": 37.99,
+          "loopMs": 38.03
+        },
+        {
+          "round": 3,
+          "problem": "13 − 9 = ?",
+          "answer": "4",
+          "clickMs": 33.35,
+          "loopMs": 33.36
+        },
+        {
+          "round": 4,
+          "problem": "6 − 6 = ?",
+          "answer": "0",
+          "clickMs": 33.8,
+          "loopMs": 33.81
+        },
+        {
+          "round": 5,
+          "problem": "7 × 8 = ?",
+          "answer": "56",
+          "clickMs": 33.58,
+          "loopMs": 33.6
+        },
+        {
+          "round": 6,
+          "problem": "7 × 4 = ?",
+          "answer": "28",
+          "clickMs": 39.2,
+          "loopMs": 39.21
+        },
+        {
+          "round": 7,
+          "problem": "5 × 11 = ?",
+          "answer": "55",
+          "clickMs": 46.04,
+          "loopMs": 46.05
+        },
+        {
+          "round": 8,
+          "problem": "11 − 9 = ?",
+          "answer": "2",
+          "clickMs": 31.04,
+          "loopMs": 31.07
+        },
+        {
+          "round": 9,
+          "problem": "12 − 12 = ?",
+          "answer": "0",
+          "clickMs": 33.78,
+          "loopMs": 33.79
+        },
+        {
+          "round": 10,
+          "problem": "4 − 3 = ?",
+          "answer": "1",
+          "clickMs": 34.68,
+          "loopMs": 34.69
+        },
+        {
+          "round": 11,
+          "problem": "2 − 12 = ?",
+          "answer": "-10",
+          "clickMs": 33.73,
+          "loopMs": 33.74
+        },
+        {
+          "round": 12,
+          "problem": "12 × 3 = ?",
+          "answer": "36",
+          "clickMs": 30.44,
+          "loopMs": 30.45
+        },
+        {
+          "round": 13,
+          "problem": "10 + 9 = ?",
+          "answer": "19",
+          "clickMs": 34.21,
+          "loopMs": 34.22
+        },
+        {
+          "round": 14,
+          "problem": "6 × 2 = ?",
+          "answer": "12",
+          "clickMs": 35.91,
+          "loopMs": 35.92
+        },
+        {
+          "round": 15,
+          "problem": "16 + 2 = ?",
+          "answer": "18",
+          "clickMs": 49.24,
+          "loopMs": 49.25
+        },
+        {
+          "round": 16,
+          "problem": "20 × 10 = ?",
+          "answer": "200",
+          "clickMs": 52.94,
+          "loopMs": 52.95
+        },
+        {
+          "round": 17,
+          "problem": "2 + 6 = ?",
+          "answer": "8",
+          "clickMs": 48.42,
+          "loopMs": 48.44
+        },
+        {
+          "round": 18,
+          "problem": "10 × 12 = ?",
+          "answer": "120",
+          "clickMs": 46.5,
+          "loopMs": 46.51
+        },
+        {
+          "round": 19,
+          "problem": "19 − 2 = ?",
+          "answer": "17",
+          "clickMs": 33.79,
+          "loopMs": 33.81
+        },
+        {
+          "round": 20,
+          "problem": "2 − 1 = ?",
+          "answer": "1",
+          "clickMs": 35.36,
+          "loopMs": 35.37
+        },
+        {
+          "round": 21,
+          "problem": "20 − 4 = ?",
+          "answer": "16",
+          "clickMs": 34.99,
+          "loopMs": 35
+        },
+        {
+          "round": 22,
+          "problem": "18 × 3 = ?",
+          "answer": "54",
+          "clickMs": 46.84,
+          "loopMs": 46.85
+        },
+        {
+          "round": 23,
+          "problem": "10 × 5 = ?",
+          "answer": "50",
+          "clickMs": 33.2,
+          "loopMs": 33.21
+        },
+        {
+          "round": 24,
+          "problem": "3 × 10 = ?",
+          "answer": "30",
+          "clickMs": 31.19,
+          "loopMs": 31.2
+        },
+        {
+          "round": 25,
+          "problem": "19 + 12 = ?",
+          "answer": "31",
+          "clickMs": 34.03,
+          "loopMs": 34.03
+        },
+        {
+          "round": 26,
+          "problem": "8 + 5 = ?",
+          "answer": "13",
+          "clickMs": 33.58,
+          "loopMs": 33.59
+        },
+        {
+          "round": 27,
+          "problem": "12 × 1 = ?",
+          "answer": "12",
+          "clickMs": 32.11,
+          "loopMs": 32.12
+        },
+        {
+          "round": 28,
+          "problem": "7 − 6 = ?",
+          "answer": "1",
+          "clickMs": 33.11,
+          "loopMs": 33.12
+        },
+        {
+          "round": 29,
+          "problem": "20 × 6 = ?",
+          "answer": "120",
+          "clickMs": 33.21,
+          "loopMs": 33.22
+        },
+        {
+          "round": 30,
+          "problem": "13 − 5 = ?",
+          "answer": "8",
+          "clickMs": 33.85,
+          "loopMs": 33.85
+        }
+      ],
+      "scope": "Local HTTP/MCP, rendered-question parsing, deterministic arithmetic, click, verification and next observation. Excludes language-model inference."
+    },
+    {
+      "at": "2026-09-21T18:25:36.866Z",
+      "ok": true,
+      "complete": true,
+      "correct": 30,
+      "initialObservationMs": 401.47,
+      "elapsedMs": 1497.36,
+      "medianClickMs": 48.97,
+      "p95ClickMs": 68,
+      "maxClickMs": 92.1,
+      "under100ms": 30,
+      "rounds": [
+        {
+          "round": 1,
+          "problem": "12 × 4 = ?",
+          "answer": "48",
+          "clickMs": 92.1,
+          "loopMs": 92.2
+        },
+        {
+          "round": 2,
+          "problem": "1 × 4 = ?",
+          "answer": "4",
+          "clickMs": 63.39,
+          "loopMs": 63.47
+        },
+        {
+          "round": 3,
+          "problem": "2 + 8 = ?",
+          "answer": "10",
+          "clickMs": 65.93,
+          "loopMs": 65.97
+        },
+        {
+          "round": 4,
+          "problem": "7 × 8 = ?",
+          "answer": "56",
+          "clickMs": 43.2,
+          "loopMs": 43.23
+        },
+        {
+          "round": 5,
+          "problem": "2 + 1 = ?",
+          "answer": "3",
+          "clickMs": 52.79,
+          "loopMs": 52.81
+        },
+        {
+          "round": 6,
+          "problem": "9 × 12 = ?",
+          "answer": "108",
+          "clickMs": 46.72,
+          "loopMs": 46.75
+        },
+        {
+          "round": 7,
+          "problem": "16 + 10 = ?",
+          "answer": "26",
+          "clickMs": 68,
+          "loopMs": 68.02
+        },
+        {
+          "round": 8,
+          "problem": "5 − 2 = ?",
+          "answer": "3",
+          "clickMs": 45.15,
+          "loopMs": 45.17
+        },
+        {
+          "round": 9,
+          "problem": "4 + 8 = ?",
+          "answer": "12",
+          "clickMs": 51.45,
+          "loopMs": 51.46
+        },
+        {
+          "round": 10,
+          "problem": "9 × 4 = ?",
+          "answer": "36",
+          "clickMs": 46.01,
+          "loopMs": 46.02
+        },
+        {
+          "round": 11,
+          "problem": "12 − 5 = ?",
+          "answer": "7",
+          "clickMs": 36.44,
+          "loopMs": 36.45
+        },
+        {
+          "round": 12,
+          "problem": "20 + 7 = ?",
+          "answer": "27",
+          "clickMs": 48.13,
+          "loopMs": 48.14
+        },
+        {
+          "round": 13,
+          "problem": "14 + 4 = ?",
+          "answer": "18",
+          "clickMs": 33.39,
+          "loopMs": 33.39
+        },
+        {
+          "round": 14,
+          "problem": "3 − 4 = ?",
+          "answer": "-1",
+          "clickMs": 54.93,
+          "loopMs": 54.94
+        },
+        {
+          "round": 15,
+          "problem": "19 × 9 = ?",
+          "answer": "171",
+          "clickMs": 45.09,
+          "loopMs": 45.11
+        },
+        {
+          "round": 16,
+          "problem": "6 + 2 = ?",
+          "answer": "8",
+          "clickMs": 41.64,
+          "loopMs": 41.78
+        },
+        {
+          "round": 17,
+          "problem": "14 × 12 = ?",
+          "answer": "168",
+          "clickMs": 54.25,
+          "loopMs": 54.27
+        },
+        {
+          "round": 18,
+          "problem": "20 + 1 = ?",
+          "answer": "21",
+          "clickMs": 42.61,
+          "loopMs": 42.62
+        },
+        {
+          "round": 19,
+          "problem": "20 × 9 = ?",
+          "answer": "180",
+          "clickMs": 44.77,
+          "loopMs": 45.17
+        },
+        {
+          "round": 20,
+          "problem": "5 − 7 = ?",
+          "answer": "-2",
+          "clickMs": 51.12,
+          "loopMs": 51.13
+        },
+        {
+          "round": 21,
+          "problem": "11 × 7 = ?",
+          "answer": "77",
+          "clickMs": 48.15,
+          "loopMs": 48.17
+        },
+        {
+          "round": 22,
+          "problem": "14 + 4 = ?",
+          "answer": "18",
+          "clickMs": 34.9,
+          "loopMs": 34.91
+        },
+        {
+          "round": 23,
+          "problem": "9 + 6 = ?",
+          "answer": "15",
+          "clickMs": 52.62,
+          "loopMs": 52.71
+        },
+        {
+          "round": 24,
+          "problem": "2 + 4 = ?",
+          "answer": "6",
+          "clickMs": 46.48,
+          "loopMs": 46.49
+        },
+        {
+          "round": 25,
+          "problem": "16 − 2 = ?",
+          "answer": "14",
+          "clickMs": 50.07,
+          "loopMs": 50.09
+        },
+        {
+          "round": 26,
+          "problem": "15 × 12 = ?",
+          "answer": "180",
+          "clickMs": 48.97,
+          "loopMs": 48.98
+        },
+        {
+          "round": 27,
+          "problem": "3 × 6 = ?",
+          "answer": "18",
+          "clickMs": 33.13,
+          "loopMs": 33.14
+        },
+        {
+          "round": 28,
+          "problem": "2 + 12 = ?",
+          "answer": "14",
+          "clickMs": 51.63,
+          "loopMs": 51.97
+        },
+        {
+          "round": 29,
+          "problem": "1 × 2 = ?",
+          "answer": "2",
+          "clickMs": 50.31,
+          "loopMs": 50.35
+        },
+        {
+          "round": 30,
+          "problem": "15 + 11 = ?",
+          "answer": "26",
+          "clickMs": 52.14,
+          "loopMs": 52.16
+        }
+      ],
+      "scope": "Local HTTP/MCP, rendered-question parsing, deterministic arithmetic, click, verification and next observation. Excludes language-model inference."
+    }
+  ],
+  "browser": {
+    "scope": "local HTTP/MCP + daemon + browser + new counter verification; excludes model inference",
+    "samples": 25,
+    "medianMs": 33.13,
+    "p95Ms": 34.61,
+    "maxMs": 34.76,
+    "under100ms": 25,
+    "timesMs": [
+      32.2,
+      32.05,
+      34.35,
+      33.17,
+      34.33,
+      32.94,
+      34.53,
+      34.76,
+      31.05,
+      33.98,
+      32.75,
+      32.38,
+      33.28,
+      32.75,
+      33.71,
+      33.13,
+      32.9,
+      33.09,
+      33.88,
+      33.22,
+      33.02,
+      32.94,
+      33.1,
+      34.61,
+      33.57
+    ]
+  },
+  "native": {
+    "ok": true,
+    "scope": "Ten alternating local native clicks; includes fresh guard, input, returned pixels/AX, and independent exact-counter verification.",
+    "samples": [
+      {
+        "settleMs": 180,
+        "ms": 513.35,
+        "verifiedCount": 3
+      },
+      {
+        "settleMs": 0,
+        "ms": 300.6,
+        "verifiedCount": 4
+      },
+      {
+        "settleMs": 180,
+        "ms": 549.55,
+        "verifiedCount": 5
+      },
+      {
+        "settleMs": 0,
+        "ms": 276.24,
+        "verifiedCount": 6
+      },
+      {
+        "settleMs": 180,
+        "ms": 459.85,
+        "verifiedCount": 7
+      },
+      {
+        "settleMs": 0,
+        "ms": 306.01,
+        "verifiedCount": 8
+      },
+      {
+        "settleMs": 180,
+        "ms": 532.53,
+        "verifiedCount": 9
+      },
+      {
+        "settleMs": 0,
+        "ms": 335.58,
+        "verifiedCount": 10
+      },
+      {
+        "settleMs": 180,
+        "ms": 440.2,
+        "verifiedCount": 11
+      },
+      {
+        "settleMs": 0,
+        "ms": 318.15,
+        "verifiedCount": 12
+      }
+    ]
+  },
+  "windowScope": {
+    "at": "2026-09-21T18:26:28.514Z",
+    "samples": [
+      {
+        "ms": 4111.86,
+        "stages": {
+          "wall": 3765.7,
+          "meta": 51.7,
+          "visual": 0,
+          "capture": 3365.6,
+          "thumb": 72.7,
+          "ax": 3037.3
+        },
+        "elements": 13
+      },
+      {
+        "ms": 162.11,
+        "stages": {
+          "meta": 0.7,
+          "capture": 58.4,
+          "visual": 0,
+          "thumb": 9.4,
+          "wall": 93.4,
+          "ax": 86.3
+        },
+        "elements": 13
+      },
+      {
+        "ms": 112.17,
+        "stages": {
+          "wall": 66.1,
+          "meta": 0.5,
+          "visual": 0,
+          "thumb": 6.1,
+          "capture": 40.5,
+          "ax": 63
+        },
+        "elements": 13
+      },
+      {
+        "ms": 242.17,
+        "stages": {
+          "wall": 169.3,
+          "meta": 0.8,
+          "visual": 0,
+          "ax": 166.6,
+          "capture": 57.2,
+          "thumb": 65.3
+        },
+        "elements": 13
+      },
+      {
+        "ms": 157.07,
+        "stages": {
+          "wall": 105.8,
+          "capture": 40.5,
+          "meta": 0.7,
+          "visual": 0,
+          "ax": 104.8,
+          "thumb": 7
+        },
+        "elements": 13
+      },
+      {
+        "ms": 142.47,
+        "stages": {
+          "thumb": 31.1,
+          "visual": 0,
+          "wall": 129.7,
+          "meta": 5.7,
+          "ax": 122.1,
+          "capture": 57.5
+        },
+        "elements": 13
+      }
+    ],
+    "ok": true
+  }
+}

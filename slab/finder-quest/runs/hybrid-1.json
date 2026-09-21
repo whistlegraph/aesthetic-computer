@@ -1,0 +1,38 @@
+{
+  "label": "hybrid-1",
+  "at": "2026-09-21T17:50:05.628Z",
+  "strategy": "terminal-batch-native-return",
+  "calls": [
+    {
+      "tool": "puppet_reload",
+      "ms": 32
+    },
+    {
+      "tool": "puppet_snapshot",
+      "ms": 57
+    },
+    {
+      "tool": "puppet_click",
+      "ms": 40
+    },
+    {
+      "tool": "frame",
+      "ms": 49
+    }
+  ],
+  "checks": [],
+  "layout": [
+    "Loose",
+    "More stuff",
+    "More stuff",
+    "",
+    "More stuff",
+    "",
+    "Loose",
+    "More stuff",
+    "More stuff"
+  ],
+  "round": "dJIJOi",
+  "ok": false,
+  "error": "The input did not match the regular expression /frontmost: Finder/. Input:\n\n'capture: permission_needed\\n' +\n  'sessionId: fdf03ea1-00c1-4441-b21c-a8a1970b1d1e\\n' +\n  'frontmost: loginwindow (com.apple.loginwindow)\\n' +\n  'screen: 1408×881 @2x\\n' +\n  'scope: screen\\n' +\n  'windows: 12\\n' +\n  '\\n' +\n  'OCR (0 regions) — «text» @(cx,cy):\\n' +\n  '\\n' +\n  'AX (0 elements, trusted=true) — role «title» @(cx,cy) actions:\\n' +\n  '\\n' +\n  'VISUAL (0 compact controls) — kind @(cx,cy), distance from hover:\\n' +\n  '\\n' +\n  'DIFF (0 changed regions) — @(cx,cy), changed grid cells:\\n' +\n  '\\n' +\n  '⚠️  Screen Recording not granted to SlabMenubar on local — pixels + OCR are blocked (AX + window meta still captured). Run the frame_setup tool for local to fix, then re-frame.'\n"
+}

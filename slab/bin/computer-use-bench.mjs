@@ -9,7 +9,9 @@ import { captureFrame } from "./frame.mjs";
 
 const summarize = values => {
   const sorted = [...values].sort((a, b) => a - b);
-  return { samples: sorted.length, medianMs: sorted[Math.floor(sorted.length / 2)], maxMs: sorted.at(-1) };
+  return { samples: sorted.length, medianMs: sorted[Math.floor(sorted.length / 2)],
+    p95Ms: sorted[Math.ceil(sorted.length * 0.95) - 1], maxMs: sorted.at(-1),
+    under100ms: sorted.filter(ms => ms < 100).length };
 };
 const round = n => +n.toFixed(2);
 const report = { measuredAt: new Date().toISOString(), browser: {}, native: [] };
@@ -22,7 +24,7 @@ try {
   const port = (await readFile(join(dir, "DevToolsActivePort"), "utf8")).split("\n")[0];
   service = new SemanticBrowser(() => `http://127.0.0.1:${port}`);
   const page = context.pages()[0];
-  await page.setContent(`<label>Name<input></label><button onclick="document.querySelector('output').textContent='Saved'">Save</button><output>Pending</output>`);
+  await page.setContent(`<label>Name<input></label><button onclick="document.querySelector('output').textContent='Saved '+(++window.saves)">Save</button><output>Pending</output><script>window.saves=0</script>`);
   const cdp = await context.newCDPSession(page);
   const { targetInfo } = await cdp.send("Target.getTargetInfo");
   await cdp.detach();
@@ -33,10 +35,16 @@ try {
     ["click", { locator: { role: "button", name: "Save" }, after: { locator: { text: "Saved" } } }],
   ]) {
     const times = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 26; i++) {
+      // Every click must cause a NEW transition; an old 'Saved' label is not
+      // evidence that a subsequent click reached the application.
+      const sampleArgs = action === "click"
+        ? { ...args, after: { locator: { text: `Saved ${i + 1}`, exact: true } } }
+        : args;
       const start = performance.now();
-      const result = await service.run(action, { target, ...args });
+      const result = await service.run(action, { target, ...sampleArgs });
       if (result.verification?.ok === false) throw new Error(`fixture ${action} did not verify`);
+      if (action === "click" && result.verification?.ok !== true) throw new Error('Click did not return successful verification');
       times.push(round(performance.now() - start));
     }
     report.browser[action] = { firstMs: times.shift(), ...summarize(times) };

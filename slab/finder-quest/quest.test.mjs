@@ -1,10 +1,50 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, rename, copyFile, writeFile, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, rename, copyFile, writeFile, symlink, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createQuest, scanQuest } from './quest.mjs';
 import { dragPointCore } from '../bin/macos.mjs';
+import { sortQuest } from './sort.mjs';
+
+async function fixture(t) {
+  const parent=await realpath(await mkdtemp(join(tmpdir(),'finder-quest-test-')));
+  t.after(()=>rm(parent,{recursive:true,force:true}));
+  const downloads=join(parent,'Downloads');await mkdir(downloads);
+  const layout=['Loose','More stuff','','Loose','More stuff','','Loose','More stuff',''];
+  const quest=await createQuest(parent,{layout});
+  for(const f of quest.files.filter(f=>f.download))await writeFile(join(downloads,f.name),f.content);
+  return {parent,downloads,quest,layout};
+}
+
+test('replay layout and Terminal batch preserve all twelve assets and leave downloads empty',async t=>{
+  const {downloads,quest,layout}=await fixture(t);
+  assert.deepEqual((await scanQuest(quest,downloads)).layout,layout);
+  assert.equal((await sortQuest(await scanQuest(quest,downloads),downloads)).length,12);
+  const state=await scanQuest(quest,downloads);
+  assert.equal(state.sorted,12);assert.equal(state.returned,0,'shell sorting does not simulate browser returns');
+  assert.equal(state.files.some(f=>f.inDownloads),false);
+  assert.deepEqual(await sortQuest(state,downloads),[],'verified sorting is idempotent');
+  await assert.rejects(createQuest(quest.root,{layout:['../escape']}),/Replay layout/);
+});
+
+test('Terminal preflight refuses duplicates, changed bytes, destinations, and symlinks before moving',async t=>{
+  const {downloads,quest}=await fixture(t);
+  const file=quest.files[0],source=join(quest.root,file.initial),dest=join(quest.root,file.category,file.name);
+  const state=await scanQuest(quest,downloads);
+  await copyFile(source,dest);
+  await assert.rejects(sortQuest(state,downloads),/Destination already exists/);
+  await assert.rejects(sortQuest(await scanQuest(quest,downloads),downloads),/duplicate/);
+  await rm(dest);await writeFile(source,'changed');
+  await assert.rejects(sortQuest(state,downloads),/contents/);
+  await rm(source);await writeFile(dest,file.content);await symlink(dest,source);
+  await assert.rejects(sortQuest(state,downloads),/Symlink source/);
+  await rm(source);await rm(dest);await writeFile(source,file.content);
+  const download=quest.files.find(f=>f.download);
+  await writeFile(join(downloads,download.name),'impostor');
+  await assert.rejects(sortQuest(await scanQuest(quest,downloads),downloads),/contents/);
+  assert.equal((await scanQuest(quest,downloads)).sorted,0,'all preflight checks happen before any move');
+});
 
 test('score verifies exact locations, duplicate copies, contents, downloads, and returns', async t => {
   const parent=await mkdtemp(join(tmpdir(),'finder-quest-test-'));

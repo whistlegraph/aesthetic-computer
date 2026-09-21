@@ -25,7 +25,7 @@ import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.
 import { clickPointAsync as clickPoint, hoverPointAsync as hoverPoint, dragPointAsync as dragPoint, sendKeysAsync as sendKeys } from "./macos.mjs";
 import { buildHoverProbes, changesNearPoint } from "../lib/frame-hover-atlas.mjs";
 import { withFrameSession, frameSessionId, nativeFrameSession, frameStateKey, FrameStateMap } from "../lib/frame-session.mjs";
-import { assertFrameTarget } from "../lib/frame-target.mjs";
+import { assertFrameTarget, nativeInputRequest, assertNativeInputReceipt } from "../lib/frame-target.mjs";
 import { withMachineLease } from "../lib/computer-use-lease.mjs";
 import { FRAME_GUIDANCE } from "../lib/computer-use-guidance.mjs";
 import { captureFrame as captureNativeFrame } from "./frame.mjs";
@@ -102,6 +102,10 @@ function digest(env) {
   L.push(`capture: ${env.capture}`);
   if (env.sessionId) L.push(`sessionId: ${env.sessionId}`);
   if (env.observation) L.push(`observation: ${JSON.stringify(env.observation)}`);
+  if (env.capture === 'verified') {
+    L.push('evidence: targeted AX value changed; no screenshot captured');
+    return L.join('\n');
+  }
   const m = env.meta || {};
   if (m.frontmost) L.push(`frontmost: ${m.frontmost.app} (${m.frontmost.bundle})`);
   if (m.screen) L.push(`screen: ${m.screen.w}×${m.screen.h} @${m.screen.scale}x`);
@@ -170,12 +174,12 @@ const recentActionTrails = new FrameStateMap();
 const recentFrames = new FrameStateMap();
 const visionCache = new Map();
 
-async function captureFrame({ expectedTargetId, machine, ocr = true, visual = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
+async function captureFrame({ nativeGuard, nativeClick, nativeDrag, expectedTargetId, machine, ocr = true, visual = true, fast = false, screen = false, cursor = true, cursorAt, targetAt, targetId, manualCheck, pressAt, pressCount = 1, pressTitle, actionOnly = false, clearTarget = false, clearOverlays = false, quietOverlay = false, overlays = false, crop, baseline = false, diff = false } = {}) {
   if (!machine) throw new Error("`machine` is required (see frame_list)");
   // Xbox uses synchronous curl/GPG helpers; keep that optional backend in a
   // child process so it cannot block fleet Mac requests in the shared server.
   if (machine === "xbox") {
-    if (actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
+    if (nativeGuard || nativeClick || nativeDrag || actionOnly || targetAt || targetId || manualCheck || pressAt || pressTitle || clearTarget || clearOverlays) {
       throw new Error("xbox is an observe-only Frame target");
     }
     const out = join(tmpdir(), `frame-xbox-${randomUUID()}.jpg`);
@@ -189,7 +193,7 @@ async function captureFrame({ expectedTargetId, machine, ocr = true, visual = tr
   // Share the native transport directly: no Node cold-start or JPEG round-trip
   // through a temporary file for each MCP observation.
   const result = await captureNativeFrame(machine, {
-    session: nativeFrameSession(), expectedTargetId,
+    session: nativeFrameSession(), expectedTargetId, nativeGuard, nativeClick, nativeDrag,
     memory: true, noOCR: !ocr, noVisual: !visual, fast, screen, cursor, cursorAt, targetAt,
     targetId, manualCheck, pressAt, pressCount, pressTitle, actionOnly,
     clearTarget, clearOverlays, quietOverlay, overlays, crop, baseline, diff,
@@ -206,7 +210,7 @@ function frameContent({ env, jpg }, machine) {
       type: "text",
       text: `\n⚠️  Screen Recording not granted to SlabMenubar on ${machine} — pixels + OCR are blocked (AX + window meta still captured). Run the frame_setup tool for ${machine} to fix, then re-frame.`,
     });
-  } else if (jpg) {
+  } else if (jpg?.length) {
     content.unshift({ type: "image", data: jpg.toString("base64"), mimeType: "image/jpeg" });
   }
   return content;
@@ -892,14 +896,37 @@ async function verifyNativeTarget(machine, observationId, before = recentFrames.
   if (!before?.observation?.id || (observationId && observationId !== before.observation.id)) {
     throw new Error("Observation is missing or superseded; capture frame again in this session before acting");
   }
+  if (process.env.SLAB_FRAME_NATIVE_INPUT !== 'legacy' && before.nativeCapabilities?.includes('target-guard-v1')) {
+    const request = nativeInputRequest(before, observationId);
+    const result = await captureFrame({ machine, nativeGuard: request, ocr: false, visual: false, cursor: false });
+    assertNativeInputReceipt(result.env, request, 'guarded');
+    return;
+  }
   const current = await captureFrame({ machine, ocr: false, visual: false, cursor: false, quietOverlay: true });
   assertFrameTarget(before, current.env, observationId);
 }
 
-async function toolClick({ machine, observationId, x, y, count = 1, ocr = true, fast = true, visual = true }) {
+async function toolClick({ machine, observationId, x, y, count = 1, ocr = true, fast = true, visual = true, settleMs = 180, verify, holdMs }) {
+  if (!Number.isFinite(settleMs) || settleMs < 0 || settleMs > 1000) throw new Error("settleMs must be between 0 and 1000");
+  const before = recentFrames.get(frameStateKey(machine));
+  if (holdMs === undefined && process.env.SLAB_FRAME_NATIVE_INPUT !== 'legacy' && before?.nativeCapabilities?.includes('click-hold-v1')) holdMs = 0;
+  if (holdMs !== undefined && (process.env.SLAB_FRAME_NATIVE_INPUT === 'legacy' || !before?.nativeCapabilities?.includes('click-hold-v1'))) {
+    throw new Error('Custom mouse hold requires updated native Frame; no action sent');
+  }
+  if (verify && (process.env.SLAB_FRAME_NATIVE_INPUT === 'legacy' || !before?.nativeCapabilities?.includes('ax-verify-v1'))) {
+    throw new Error('Compact verification requires updated native Frame; no action sent');
+  }
+  if (process.env.SLAB_FRAME_NATIVE_INPUT !== 'legacy' && before?.nativeCapabilities?.includes('guarded-click-v1')) {
+    const request = nativeInputRequest(before, observationId, { x: Number(x), y: Number(y), count, settleMs, ...(holdMs !== undefined ? { holdMs } : {}), ...(verify ? { verify: { ...verify, timeoutMs: verify.timeoutMs ?? 250 } } : {}) });
+    const result = await captureFrame({ machine, nativeClick: request, ocr, fast, visual });
+    assertNativeInputReceipt(result.env, request, 'dispatched');
+    const content = frameContent(result, machine);
+    content.push({ type: 'text', text: 'native input: ' + JSON.stringify(result.env.nativeInput) });
+    return content;
+  }
   await verifyNativeTarget(machine, observationId);
   await clickPoint(machineSpec(machine), Number(x), Number(y), { count });
-  await settle();
+  if (settleMs) await settle(settleMs);
   return toolFrame({ machine, ocr, fast, visual, cursorAt: [Number(x), Number(y)] });
 }
 
@@ -1020,10 +1047,28 @@ async function toolKey({ machine, observationId, key, mod, ocr = true, fast = tr
   return toolFrame({ machine, ocr, fast, visual, cursor: true });
 }
 
-async function toolDrag({ machine, observationId, from, to, durationMs = 500, ocr = true, fast = true, visual = true }) {
+async function toolDrag({ machine, observationId, from, to, durationMs, holdMs, releaseMs, settleMs = 180, verify, ocr = true, fast = true, visual = true }) {
+  if (![from,to].every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite)) ||
+      !Number.isFinite(settleMs) || settleMs<0 || settleMs>1000) throw new Error('Invalid drag points or settling; no action sent');
+  const before = recentFrames.get(frameStateKey(machine));
+  if (process.env.SLAB_FRAME_NATIVE_INPUT !== 'legacy' && before?.nativeCapabilities?.includes('guarded-drag-v1')) {
+    const crop = before.crop;
+    const sameWindow = crop && to[0]>=crop.x && to[0]<crop.x+crop.w && to[1]>=crop.y && to[1]<crop.y+crop.h;
+    durationMs ??= verify && sameWindow ? 32 : 500;
+    releaseMs ??= 32;
+    const request = nativeInputRequest(before, observationId, {
+      x:from[0], y:from[1], count:1, holdMs:holdMs ?? 0, settleMs,
+      drag:{x:to[0],y:to[1],durationMs,releaseMs},
+      ...(verify ? {verify:{...verify,timeoutMs:verify.timeoutMs ?? 250}} : {}),
+    });
+    const result=await captureFrame({machine,nativeDrag:request,ocr,fast,visual});
+    assertNativeInputReceipt(result.env,request,'dispatched');
+    return [...frameContent(result,machine),{type:'text',text:'native input: '+JSON.stringify(result.env.nativeInput)}];
+  }
+  if (holdMs !== undefined || (releaseMs !== undefined && releaseMs !== 0) || verify) throw new Error('Custom drag timing/verification requires updated native Frame; no action sent');
   await verifyNativeTarget(machine, observationId);
-  await dragPoint(machineSpec(machine), from, to, { durationMs });
-  await settle();
+  await dragPoint(machineSpec(machine), from, to, { durationMs:durationMs ?? 500 });
+  if (settleMs) await settle(settleMs);
   return toolFrame({ machine, ocr, fast, visual, cursorAt: to });
 }
 
@@ -1204,12 +1249,24 @@ const TOOLS = [
   },
   {
     name: "frame_click",
-    description: "ACTS + OBSERVES: click a native macOS screen coordinate from frame OCR/AX, then immediately return a fresh frame with a virtual marker at the click. Use for low-risk UI exploration; inspect labels and avoid destructive controls.",
+    description: "ACTS + OBSERVES: click a native macOS screen coordinate from frame OCR/AX, then return a fresh frame, or targeted AX evidence when verify is supplied. Use for low-risk UI exploration; inspect labels and avoid destructive controls.",
     inputSchema: {
       type: "object",
       properties: {
         machine: { type: "string" }, x: { type: "number" }, y: { type: "number" },
         count: { type: "number", minimum: 1, maximum: 3, description: "Click count (default 1)." },
+        verify: {
+          type: "object", additionalProperties: false,
+          description: "Optional compact result check at an observed global point. Role and window must match, and the exact attribute must change to equals. Returns AX evidence without pixels on success, a full frame on timeout. Never retries the click. Use settleMs:0 for responsive controls; use a full frame for unfamiliar layouts.",
+          properties: {
+            x: { type: "number" }, y: { type: "number" }, role: { type: "string" },
+            attribute: { type: "string", enum: ["AXValue", "AXTitle", "AXDescription"] },
+            equals: { type: "string", minLength: 1, maxLength: 512 },
+            timeoutMs: { type: "number", minimum: 1, maximum: 2000, description: "Result wait budget, default 250 ms." },
+          }, required: ["x", "y", "role", "attribute", "equals"],
+        },
+        holdMs: { type: "number", minimum: 0, maximum: 1000, description: "Mouse-down duration in ms. Default 0 on updated native Frame; independent of settling/result verification. Requires native click-hold capability." },
+        settleMs: { type: "number", minimum: 0, maximum: 1000, description: "Delay before the returned observation (default 180 ms). Use 0 only with an explicit result check before the next action; an immediate frame does not prove the application finished." },
         ocr: { type: "boolean", description: "Include OCR in the returned frame (default true)." },
         fast: { type: "boolean", description: "Use fast OCR for the returned frame (default true)." },
         visual: { type: "boolean", description: "Detect visual controls in the returned frame (default true). Target guards always skip contours." },
@@ -1260,12 +1317,20 @@ const TOOLS = [
   },
   {
     name: "frame_drag",
-    description: "ACTS + OBSERVES: native drag between global macOS screen points, including Finder-to-browser file drops. Observe both endpoints first; the source must be in the last window-scoped frame. Rechecks the source window before input, then returns a fresh frame. Verify the result before another drag; never retry an unknown outcome automatically.",
+    description: "ACTS + OBSERVES: native drag between global macOS screen points, including Finder-to-browser file drops. Observe both endpoints first; the source must be in the last window-scoped frame. Rechecks the source window before input, then returns a fresh frame or compact AX result verification. Verify the result before another drag; never retry an unknown outcome automatically.",
     inputSchema: { type: "object", properties: {
       machine: { type: "string" },
       from: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
       to: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
-      durationMs: { type: "number", minimum: 250, maximum: 2000 },
+      durationMs: { type: "number", minimum: 0, maximum: 2000, description: "Drag path duration. Default 32 ms with same-window compact verification, otherwise 500 ms. Values below 250 need resident native drag support." },
+      holdMs: { type: "number", minimum: 0, maximum: 1000, description: "Hold before movement; default 0 ms on resident native Frame." },
+      releaseMs: { type: "number", minimum: 0, maximum: 1000, description: "Dwell at the destination before mouse-up; default 32 ms on resident native Frame." },
+      settleMs: { type: "number", minimum: 0, maximum: 1000, description: "Post-release observation delay; default 180 ms." },
+      verify: { type: "object", properties: {
+        x:{type:"number"}, y:{type:"number"}, role:{type:"string"},
+        attribute:{type:"string",enum:["AXValue","AXTitle","AXDescription"]},equals:{type:"string",minLength:1,maxLength:512},
+        timeoutMs:{type:"number",minimum:1,maximum:2000},
+      },required:["x","y","role","attribute","equals"],description:"Optional changed AX value in the source window; returns compact evidence or a full frame on failure." },
       ocr: { type: "boolean" }, fast: { type: "boolean" }, visual: { type: "boolean" },
     }, required: ["machine", "from", "to"] },
   },

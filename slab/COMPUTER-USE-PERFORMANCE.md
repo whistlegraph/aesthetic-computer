@@ -1,5 +1,107 @@
 # Computer-use latency
 
+Zero intentional mouse hold is now the default for `frame_click` on updated
+native hosts. An interleaved sweep tested 40, 10, 5, 2.5, 1, 0.5, 0.1, and 0 ms
+in Chrome and a real AppKit button. All **1,800 single-click timing trials**
+passed, including **100 zero-hold clicks per app** and zero-hold double/triple
+checks. Zero hold means back-to-back event posting, not instantaneous delivery.
+
+| Zero-hold verified loop | Samples | Median | p95 | Within 41.7 ms |
+| --- | ---: | ---: | ---: | ---: |
+| AppKit button | 100 | 18.80 ms | 44.68 ms | 92 |
+| Chrome counter | 100 | 42.31 ms | 62.87 ms | 49 |
+| Installed Frame MCP, Chrome | 25 | 46.87 ms | 72.29 ms | 7 |
+
+24 fps requires 41.67 ms for the entire cycle. These tool-loop measurements
+exclude model inference and startup. All clicks passed, but latency tails still
+miss that budget. Explicit multi-click spacing remains 80 ms.
+
+`frame_drag` now runs in resident Swift. It checks the source observation,
+preallocates the path before mouse-down, uses absolute movement deadlines to
+avoid accumulating scheduling overruns, and posts mouse-up on every dispatch
+path. `holdMs`, `durationMs`, and `releaseMs` independently control pickup,
+movement, and destination dwell. Timings and release posting appear in receipts.
+
+The fast default with same-window compact verification is **0 ms pickup,
+32 ms movement, 32 ms destination dwell**. Without that verification, or across
+windows, movement remains 500 ms. Full-frame observation still defaults to
+180 ms settling; benchmarks explicitly use `settleMs:0`. Older native helpers
+retain their existing input path.
+
+Two runs of the fast drag profile verified **200/200 drops and releases**. The
+installed run measured **146.96 ms median / 206.67 ms p95** for the complete
+verified operation. Destination acknowledgement is substantial; a 64 ms gesture
+is not a 64 ms completed tool call. A zero-duration jump, 16/32 ms path/dwell,
+and 32/16 ms path/dwell failed. One earlier trial may have been affected by a
+human moving the pointer; both shorter profiles also failed in subsequent
+retests. No failed gesture was replayed. Finder/cross-app minimum timings have
+not been established by this fixture.
+
+Validation: 25 focused JavaScript tests, Swift policy tests, native build/install,
+installed-service click/drag checks, and release/count verification. Test apps
+and browser windows were closed. [Raw timing and failure records](mathplay/results/blueberry-gesture-timing-2026-09-21.json).
+
+## Earlier socket and compact-verification comparison
+
+Frame's native socket and opt-in compact AX verification are installed in the
+Blueberry Frame MCP and CLI. The installed-service counter run measured
+**99.01 ms median**, **135.01 ms p95**, with **13/25 below 100 ms**. Every timed
+click changed the counter exactly once. Median MCP response size was 717 bytes,
+with no image. This measures the tool loop plus an independent rendered-counter
+check, excluding model inference and startup; it is not consistently sub-100 ms.
+
+| Warm native path, zero fixed settling | Samples | Median |
+| --- | ---: | ---: |
+| File transport + full returned Frame | 5 | 205.88 ms |
+| Socket transport + full returned Frame | 5 | 116.57 ms |
+| Socket + compact AX check, isolated MCP | 25 | 95.70 ms |
+| Socket + compact AX check, installed MCP | 25 | 99.01 ms |
+
+These sequential trials share the counter fixture but have different host load
+and window layout. They establish working paths, not a precise attribution of
+latency to each change. [Raw results and failed setup trials](mathplay/results/blueberry-compact-frame-2026-09-21.json)
+include the earlier unverified initial click, which stopped without retry.
+
+Local requests now use a same-user Unix socket, bounded framing, and correlated
+request IDs. JPEG bytes remain binary and responses stay in memory. A missing
+or refused socket before connection permits the legacy file path; a timeout,
+disconnect, or mismatched response never replays a request. The legacy native
+file watcher remains for older and remote callers.
+
+`frame_click.verify` identifies an observed global point, AX role, attribute,
+and exact expected string. Frame checks the role/window and requires a readable
+value different from the expectation before sending input. It reads only that
+point until the value matches or the deadline expires, checking foreground
+identity and geometry. Success returns an explicitly labeled AX observation
+with a new single-use token; failure returns a full Frame without another click.
+The result wait uses bounded targeted polling, not AX notifications. Full Frame
+remains the default; use `settleMs:0` explicitly for responsive controls.
+
+That comparison retained machine leases, session binding, locked-desktop checks,
+and the then-current 40 ms button hold. The installed guard probe took 1.55 ms total / 0.63 ms inside Swift.
+Validation: 23 focused JS tests, Swift binding/verification policy checks,
+native build/install, and live stale/moved-window, wrong-role, already-true,
+consumed-token, and timeout-recovery checks. The fixture closes its own browser.
+
+Earlier resident input work removed the pre-click screenshot and per-click
+`osascript`, measuring 277 → 160 ms median in its own zero-settling comparison.
+[Those samples](mathplay/results/blueberry-resident-input-2026-09-21.json) remain
+separate from the current trials.
+
+The [math sprint and native click results](mathplay/README.md) include
+verified dynamic transitions, p95 latency, and the remaining native bottlenecks.
+Puppet's full local HTTP/MCP counter test measured 33.13 ms median / 34.61 ms
+p95 over 25 warm clicks. Two math sprints scored 60/60 with every click under
+100 ms. The optional native `frame_click` setting `settleMs:0` reduced a small
+alternating sample's median from 513 to 306 ms, with independent result checks.
+It retains the default 180 ms settling for existing callers. Native window AX
+scoping and this Frame option are installed on Blueberry; Neo is unchanged.
+
+The benchmark now requires a new counter value after every click, rather than
+accepting a success label left over from the first click. It reports 25 warm
+samples, p95, maximum, and the count under 100 ms. The older measurements below
+retain their original sample sizes and limitations.
+
 Measured on Blueberry, September 21, 2026. The browser fixture is an isolated
 headless Chrome page with one input and one button. These are local tool
 execution times; they exclude model inference, remote network latency, and

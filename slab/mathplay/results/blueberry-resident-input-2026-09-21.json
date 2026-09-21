@@ -1,0 +1,428 @@
+{
+  "at": "2026-09-21T18:54:54.924Z",
+  "scope": "Separate same-fixture runs, five clicks per settle setting; includes explicit counter verification and returned Frame. Excludes model inference.",
+  "summary": {
+    "legacy": {
+      "0": {
+        "n": 5,
+        "median": 276.68,
+        "min": 202.74,
+        "max": 332.54
+      },
+      "180": {
+        "n": 5,
+        "median": 482.98,
+        "min": 437.29,
+        "max": 522.49
+      }
+    },
+    "resident": {
+      "0": {
+        "n": 5,
+        "median": 159.98,
+        "min": 132.39,
+        "max": 190.78
+      },
+      "180": {
+        "n": 5,
+        "median": 418.5,
+        "min": 386.08,
+        "max": 522.11
+      }
+    }
+  },
+  "legacy": {
+    "at": "2026-09-21T18:53:56.393Z",
+    "browser": [
+      {
+        "tool": "puppet_snapshot",
+        "ms": 201
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Add one",
+        "ms": 20
+      },
+      {
+        "tool": "puppet_fill",
+        "control": "Name",
+        "ms": 10
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Save name",
+        "ms": 40
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Open menu",
+        "ms": 33
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Choose blue",
+        "ms": 34
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Start delayed update",
+        "ms": 829
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Second page",
+        "ms": 70
+      }
+    ],
+    "native": [
+      {
+        "tool": "frame",
+        "ms": 180
+      },
+      {
+        "tool": "frame_click",
+        "ms": 593
+      },
+      {
+        "verified": "native click incremented counter exactly once"
+      },
+      {
+        "tool": "frame",
+        "ms": 111
+      },
+      {
+        "tool": "frame_click",
+        "ms": 454
+      },
+      {
+        "tool": "frame_click",
+        "ms": 330
+      },
+      {
+        "tool": "frame_click",
+        "ms": 480
+      },
+      {
+        "tool": "frame_click",
+        "ms": 274
+      },
+      {
+        "tool": "frame_click",
+        "ms": 434
+      },
+      {
+        "tool": "frame_click",
+        "ms": 201
+      },
+      {
+        "tool": "frame_click",
+        "ms": 520
+      },
+      {
+        "tool": "frame_click",
+        "ms": 234
+      },
+      {
+        "tool": "frame_click",
+        "ms": 517
+      },
+      {
+        "tool": "frame_click",
+        "ms": 321
+      },
+      {
+        "tool": "frame_reframe",
+        "ms": 319
+      }
+    ],
+    "jev": [],
+    "nativeInputMode": "legacy",
+    "nativeClickLatency": [
+      {
+        "settleMs": 180,
+        "ms": 458.63,
+        "verifiedCount": 3
+      },
+      {
+        "settleMs": 0,
+        "ms": 332.54,
+        "verifiedCount": 4
+      },
+      {
+        "settleMs": 180,
+        "ms": 482.98,
+        "verifiedCount": 5
+      },
+      {
+        "settleMs": 0,
+        "ms": 276.68,
+        "verifiedCount": 6
+      },
+      {
+        "settleMs": 180,
+        "ms": 437.29,
+        "verifiedCount": 7
+      },
+      {
+        "settleMs": 0,
+        "ms": 202.74,
+        "verifiedCount": 8
+      },
+      {
+        "settleMs": 180,
+        "ms": 522.49,
+        "verifiedCount": 9
+      },
+      {
+        "settleMs": 0,
+        "ms": 236.03,
+        "verifiedCount": 10
+      },
+      {
+        "settleMs": 180,
+        "ms": 519.68,
+        "verifiedCount": 11
+      },
+      {
+        "settleMs": 0,
+        "ms": 324.51,
+        "verifiedCount": 12
+      }
+    ],
+    "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+    "ok": true
+  },
+  "resident": {
+    "at": "2026-09-21T18:53:36.982Z",
+    "browser": [
+      {
+        "tool": "puppet_snapshot",
+        "ms": 216
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Add one",
+        "ms": 27
+      },
+      {
+        "tool": "puppet_fill",
+        "control": "Name",
+        "ms": 29
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Save name",
+        "ms": 32
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Open menu",
+        "ms": 32
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Choose blue",
+        "ms": 34
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Start delayed update",
+        "ms": 840
+      },
+      {
+        "tool": "puppet_click",
+        "control": "Second page",
+        "ms": 69
+      }
+    ],
+    "native": [
+      {
+        "tool": "frame",
+        "ms": 473
+      },
+      {
+        "tool": "frame_click",
+        "ms": 451
+      },
+      {
+        "verified": "native click incremented counter exactly once"
+      },
+      {
+        "tool": "frame",
+        "ms": 133
+      },
+      {
+        "tool": "frame_click",
+        "ms": 437
+      },
+      {
+        "tool": "frame_click",
+        "ms": 161
+      },
+      {
+        "tool": "frame_click",
+        "ms": 390
+      },
+      {
+        "tool": "frame_click",
+        "ms": 131
+      },
+      {
+        "tool": "frame_click",
+        "ms": 380
+      },
+      {
+        "tool": "frame_click",
+        "ms": 157
+      },
+      {
+        "tool": "frame_click",
+        "ms": 515
+      },
+      {
+        "tool": "frame_click",
+        "ms": 131
+      },
+      {
+        "tool": "frame_click",
+        "ms": 413
+      },
+      {
+        "tool": "frame_click",
+        "ms": 188
+      },
+      {
+        "tool": "frame",
+        "ms": 97
+      },
+      {
+        "tool": "frame_reframe",
+        "ms": 657
+      }
+    ],
+    "jev": [],
+    "nativeInputMode": "resident",
+    "nativeClickLatency": [
+      {
+        "settleMs": 180,
+        "ms": 442.8,
+        "verifiedCount": 3,
+        "nativeInput": {
+          "inputMs": 42.916,
+          "status": "dispatched",
+          "guardMs": 6.063541,
+          "observationId": "3457BCA2-ED17-4048-9E03-A1D7C5B820D3"
+        }
+      },
+      {
+        "settleMs": 0,
+        "ms": 163.84,
+        "verifiedCount": 4,
+        "nativeInput": {
+          "observationId": "EECD6C8D-2AD4-45E1-8EB4-F6E188278D25",
+          "inputMs": 50.644792,
+          "guardMs": 2.002625,
+          "status": "dispatched"
+        }
+      },
+      {
+        "settleMs": 180,
+        "ms": 394.65,
+        "verifiedCount": 5,
+        "nativeInput": {
+          "guardMs": 0.886084,
+          "status": "dispatched",
+          "inputMs": 52.199625,
+          "observationId": "9A14BBF2-4CCB-4611-974B-1C81B0219634"
+        }
+      },
+      {
+        "settleMs": 0,
+        "ms": 133.09,
+        "verifiedCount": 6,
+        "nativeInput": {
+          "status": "dispatched",
+          "observationId": "67762468-3E08-4CC3-AC0E-6A8AEB4AFACF",
+          "guardMs": 5.460667,
+          "inputMs": 41.680875
+        }
+      },
+      {
+        "settleMs": 180,
+        "ms": 386.08,
+        "verifiedCount": 7,
+        "nativeInput": {
+          "guardMs": 1.434833,
+          "inputMs": 54.138083,
+          "status": "dispatched",
+          "observationId": "F22FCAAB-FD8E-4011-A96D-7371753EEEBA"
+        }
+      },
+      {
+        "settleMs": 0,
+        "ms": 159.98,
+        "verifiedCount": 8,
+        "nativeInput": {
+          "observationId": "13F21C73-91AA-4A46-9EF0-0D69728D465E",
+          "inputMs": 40.396667,
+          "guardMs": 1.207167,
+          "status": "dispatched"
+        }
+      },
+      {
+        "settleMs": 180,
+        "ms": 522.11,
+        "verifiedCount": 9,
+        "nativeInput": {
+          "status": "dispatched",
+          "inputMs": 56.399042,
+          "guardMs": 22.326625,
+          "observationId": "B9FFFA25-E6DD-4A91-8FDC-98AC564A2E3F"
+        }
+      },
+      {
+        "settleMs": 0,
+        "ms": 132.39,
+        "verifiedCount": 10,
+        "nativeInput": {
+          "guardMs": 1.095125,
+          "status": "dispatched",
+          "observationId": "79979038-858A-4328-BB5A-11C8DEFD13D3",
+          "inputMs": 48.528375
+        }
+      },
+      {
+        "settleMs": 180,
+        "ms": 418.5,
+        "verifiedCount": 11,
+        "nativeInput": {
+          "observationId": "526A8B1F-1840-48E2-93E9-F77CF393F5EE",
+          "guardMs": 0.682,
+          "inputMs": 40.391542,
+          "status": "dispatched"
+        }
+      },
+      {
+        "settleMs": 0,
+        "ms": 190.78,
+        "verifiedCount": 12,
+        "nativeInput": {
+          "observationId": "ABC55551-C412-459A-B957-D726C7F95443",
+          "status": "dispatched",
+          "inputMs": 42.287833,
+          "guardMs": 5.469
+        }
+      }
+    ],
+    "nativeGuard": {
+      "ms": 36.71,
+      "nativeMs": 3.729375,
+      "pixels": false,
+      "staleRejected": true,
+      "movedRejected": true,
+      "counterUnchanged": true
+    },
+    "screenshot": "/var/folders/nl/5tj_95ln62358sk__f6kthjr0000gn/T/computer-use-smoke-verified.png",
+    "ok": true
+  }
+}

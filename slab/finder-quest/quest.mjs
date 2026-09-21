@@ -12,7 +12,10 @@ function sound(index) {
   for (let i = 0; i < samples; i++) b.writeInt16LE(Math.round(Math.sin(i * 2 * Math.PI * (220 + index * 55) / 8000) * 4000 * (1 - i / samples)), 44 + i * 2);
   return b;
 }
-export async function createQuest(parent) {
+export async function createQuest(parent, { layout } = {}) {
+  if (layout !== undefined && (!Array.isArray(layout) || layout.length !== 9 || layout.some(p=>!['','Loose','More stuff'].includes(p))))
+    throw new Error('Replay layout must contain nine permitted starting folders');
+  layout ??= Array.from({length:9},()=>['','Loose','More stuff'][randomInt(3)]);
   const root = await mkdtemp(join(parent, 'Finder Quest '));
   const id = root.slice(-6);
   for (const dir of ['Pictures', 'Notes', 'Audio', 'Loose', 'More stuff']) await mkdir(join(root, dir));
@@ -26,11 +29,11 @@ export async function createQuest(parent) {
     const content = type === 0
       ? Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#e8eef6"/><circle cx="200" cy="140" r="${55 + i * 3}" fill="${['#3577a8','#b65676','#659050','#ad783b'][Math.floor(i / 3)]}"/><text x="200" y="265" text-anchor="middle" font-family="sans-serif" font-size="24">${names[Math.floor(i / 3)]}</text></svg>`)
       : type === 1 ? Buffer.from(`Finder Quest ${id}\n${names[Math.floor(i / 3)]} field notes\nA generated practice file. Sort this into Notes.\n`) : sound(i);
-    const initial = download ? null : join(['', 'Loose', 'More stuff'][randomInt(3)], name);
+    const initial = download ? null : join(layout[i], name);
     if (initial) await writeFile(join(root, initial), content);
     files.push({ id: String(i), name, category, initial, download, hash: hash(content), content });
   }
-  return { id, root, files, uploaded: new Set(), startedAt: null, completedAt: null };
+  return { id, root, layout, files, uploaded: new Set(), startedAt: null, completedAt: null };
 }
 
 // Only traverse this generated game directory. Symlinks are never followed.
@@ -62,13 +65,13 @@ export async function scanQuest(quest, downloads) {
       (name.startsWith(base+' (') && name.endsWith(')'+extension) && /^\d+$/.test(name.slice(base.length+2,-extension.length-1)))) : [];
     const inDownloads = copies.length > 0;
     const sorted = locations.length === 1 && locations[0].path === destination && locations[0].valid && !inDownloads;
-    return { id: file.id, name: file.name, category: file.category, download: file.download,
+    return { id: file.id, name: file.name, hash: file.hash, category: file.category, download: file.download,
       locations, inDownloads, downloadCopies: copies.length, sorted, uploaded: quest.uploaded.has(file.id) };
   }));
   const sorted = files.filter(f => f.sorted).length;
   const returned = files.filter(f => f.download && f.uploaded && f.sorted).length;
   const complete = sorted === files.length && returned === 3;
   if (complete && quest.startedAt && !quest.completedAt) quest.completedAt = Date.now();
-  return { id: quest.id, root: quest.root, startedAt: quest.startedAt, completedAt: complete ? quest.completedAt : null,
+  return { id: quest.id, root: quest.root, layout: quest.layout, startedAt: quest.startedAt, completedAt: complete ? quest.completedAt : null,
     sorted, returned, complete, files };
 }

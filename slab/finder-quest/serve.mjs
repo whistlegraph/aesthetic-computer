@@ -26,7 +26,8 @@ createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/state') return json(200, await scanQuest(quest, downloads));
     if (req.method === 'POST' && url.pathname === '/new') {
-      quest = await createQuest(desktop); return json(200, { ok:true });
+      let body='';for await(const chunk of req){body+=chunk;if(body.length>1024)return json(413,{error:'Replay request too large'});}
+      quest = await createQuest(desktop, body ? JSON.parse(body) : {}); return json(200, { ok:true });
     }
     if (req.method === 'POST' && url.pathname === '/start') { start(); return json(200, { ok:true }); }
     if (req.method === 'POST' && ['/finder','/downloads'].includes(url.pathname)) {
