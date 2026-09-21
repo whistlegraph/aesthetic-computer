@@ -19353,12 +19353,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "disk-loaded-and-booted") {
-      perf.markBoot("disk-loaded-and-booted");
-
-      // 🧾 Boot telemetry: the disk loaded and ran its boot lifecycle — the real
-      // "boot succeeded" moment, fired for every piece whether or not it defines
-      // a custom paint. Idempotent in boot.mjs, so later navigations are no-ops.
-      window.acBOOT_SUCCESS?.();
+      // The worker also boots a blank init disk before the requested piece
+      // loads. Its ready signal cannot finish page telemetry or freeze timings.
+      // A real piece need not define paint; its completed boot is sufficient.
+      if (currentPiece !== null) {
+        perf.markBoot("disk-loaded-and-booted");
+        window.acBOOT_SUCCESS?.(); // Idempotent across later navigations.
+      }
 
       // Skip preload marker on default init piece, and toggle it if necessary.
       if (currentPiece !== null && !window.waitForPreload)

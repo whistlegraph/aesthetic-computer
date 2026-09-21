@@ -130,3 +130,23 @@ test("malformed boot metadata is rejected before opening a database connection",
     assert.equal(result.statusCode,400);
   }
 });
+
+test("blank init disk cannot finish boot telemetry before the requested piece",()=>{
+  const source=readFileSync(new URL("../public/aesthetic.computer/bios.mjs",import.meta.url),"utf8");
+  const start=source.indexOf('    if (type === "disk-loaded-and-booted") {');
+  const handler=source.slice(start,source.indexOf('    // 🎨 Hide boot canvas',start));
+  const marks=[],timers=[];let successes=0;
+  const context=vm.createContext({type:"disk-loaded-and-booted",currentPiece:null,
+    perf:{markBoot:mark=>marks.push(mark),printReport(){}},
+    window:{acBOOT_SUCCESS:()=>successes++,waitForPreload:false},
+    restoreWalletSession:async()=>{},setTimeout:fn=>timers.push(fn)});
+  vm.runInContext(handler,context);
+  assert.equal(successes,0);assert.equal(marks.length,0);assert.equal(timers.length,0);
+  assert.equal(context.window.preloaded,undefined);
+  // No custom paint or preload signal is needed to recognize the real boot.
+  context.currentPiece="aesthetic.computer/disks/synthetic";
+  context.window.waitForPreload=true;
+  vm.runInContext(handler,context);
+  assert.equal(successes,1);assert.deepEqual(marks,["disk-loaded-and-booted"]);
+  assert.equal(timers.length,1);
+});
