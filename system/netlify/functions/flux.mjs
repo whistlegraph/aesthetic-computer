@@ -1,10 +1,11 @@
 // flux, 26.09.21
-// Budgeted Cloudflare FLUX.1 schnell image generation. Provider keys stay server-side.
+// Budgeted Cloudflare FLUX.1 schnell, with Sana for new requests after its daily quota.
 // POST { prompt, preset?: "kidlisp" | "warm" | "raw" }.
-// The hosted model uses four steps and returns a fixed 1024×1024 image.
+// Cloudflare returns 1024×1024 images; Sana returns 768×768. Keys stay server-side.
 
 import { respond } from "../../backend/http.mjs";
 import { reserveImageBudget } from "../../backend/image-generation-budget.mjs";
+import { generateSana } from "../../backend/sana-image.mjs";
 
 const MODEL = "@cf/black-forest-labs/flux-1-schnell";
 const TIMEOUT_MS = 30000;
@@ -62,28 +63,36 @@ const PRESETS = {
 export function createHandler({
   fetch: providerFetch = (...args) => globalThis.fetch(...args),
   reserveBudget = reserveImageBudget,
+  generateSana: sanaGenerate = generateSana,
   env = process.env,
   now = Date.now,
 } = {}) {
-  let outageUntil = 0;
+  const circuits = {
+    cloudflare: { outageUntil: 0, failures: 0, probeInFlight: false },
+    "fal-sana": { outageUntil: 0, failures: 0, probeInFlight: false },
+  };
   let quotaUntil = 0;
-  let failures = 0;
-  let probeInFlight = false;
   let inFlight = 0;
 
-  function openCircuit(providerRetry = 0) {
-    failures += 1;
-    outageUntil =
+  function openCircuit(circuit, providerRetry = 0) {
+    circuit.failures += 1;
+    circuit.outageUntil =
       now() +
       Math.max(
         providerRetry,
-        Math.min(COOLDOWN_MS * 2 ** Math.min(failures - 1, 4), MAX_COOLDOWN_MS),
+        Math.min(
+          COOLDOWN_MS * 2 ** Math.min(circuit.failures - 1, 4),
+          MAX_COOLDOWN_MS,
+        ),
       );
   }
-  function unavailable() {
+  function unavailable(circuit) {
     return retryResponse(
       503,
-      Math.max(probeInFlight ? TIMEOUT_MS : 1000, outageUntil - now()) / 1000,
+      Math.max(
+        circuit.probeInFlight ? TIMEOUT_MS : 1000,
+        circuit.outageUntil - now(),
+      ) / 1000,
     );
   }
 
@@ -113,28 +122,36 @@ export function createHandler({
     const fullPrompt = PRESETS[presetName]
       ? `${prompt} — ${PRESETS[presetName]}`
       : prompt;
-    if (!env.CLOUDFLARE_AI_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
-      return retryResponse(503, 60, "provider_unavailable");
+    // Provider selection happens once, before reservation or inference. Only
+    // a confirmed daily Cloudflare quota switches future requests to Sana.
+    const provider =
+      quotaUntil > now() && env.IMAGE_FAL_KEY ? "fal-sana" : "cloudflare";
+    if (provider === "cloudflare") {
+      if (!env.CLOUDFLARE_AI_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
+        return retryResponse(503, 60, "provider_unavailable");
+      }
+      if (quotaUntil > now()) {
+        return retryResponse(
+          429,
+          (quotaUntil - now()) / 1000,
+          "image_budget_exhausted",
+        );
+      }
     }
-    if (quotaUntil > now()) {
-      return retryResponse(
-        429,
-        (quotaUntil - now()) / 1000,
-        "image_budget_exhausted",
-      );
-    }
-    if (outageUntil > now() || probeInFlight) return unavailable();
+    const circuit = circuits[provider];
+    if (circuit.outageUntil > now() || circuit.probeInFlight)
+      return unavailable(circuit);
     if (inFlight >= MAX_IN_FLIGHT) return retryResponse(429, 5, "busy");
 
-    const isProbe = failures > 0;
-    if (isProbe) probeInFlight = true;
+    const isProbe = circuit.failures > 0;
+    if (isProbe) circuit.probeInFlight = true;
     inFlight += 1;
     let timeout;
     const startedAt = now();
     try {
       let budget;
       try {
-        budget = await reserveBudget();
+        budget = await reserveBudget({ provider });
       } catch {
         console.warn("flux: image budget unavailable");
         return retryResponse(503, 60, "budget_unavailable");
@@ -151,6 +168,43 @@ export function createHandler({
       // Keep the deadline active until the entire image response is read.
       const controller = new AbortController();
       timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      if (provider === "fal-sana") {
+        try {
+          const image = await sanaGenerate({
+            prompt: fullPrompt,
+            fetchImpl: providerFetch,
+            signal: controller.signal,
+            key: env.IMAGE_FAL_KEY,
+          });
+          if (
+            !image?.png?.startsWith("data:image/") ||
+            image.width !== 768 ||
+            image.height !== 768
+          ) {
+            throw new Error("Invalid Sana image response");
+          }
+          circuit.failures = 0;
+          circuit.outageUntil = 0;
+          return reply(200, {
+            ok: true,
+            png: image.png,
+            width: image.width,
+            height: image.height,
+            seed: Number.isInteger(image.seed) ? image.seed : null,
+            provider,
+            preset: presetName,
+            elapsed_ms: now() - startedAt,
+          });
+        } catch (error) {
+          if (error?.reason === "filtered") {
+            return reply(422, { ok: false, reason: "filtered" });
+          }
+          console.warn("flux: Sana request failed", error?.name || "unknown");
+          openCircuit(circuit, retryAfterMs(error?.retryAfter, now()));
+          return unavailable(circuit);
+        }
+      }
+
       const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)}/ai/run/${MODEL}`;
       let upstream, data;
       try {
@@ -169,8 +223,11 @@ export function createHandler({
           "flux: Cloudflare request failed",
           error?.name || "unknown",
         );
-        openCircuit(retryAfterMs(upstream?.headers?.get("Retry-After"), now()));
-        return unavailable();
+        openCircuit(
+          circuit,
+          retryAfterMs(upstream?.headers?.get("Retry-After"), now()),
+        );
+        return unavailable(circuit);
       }
 
       // Cloudflare's free allocation is a daily limit, not transient capacity.
@@ -182,12 +239,14 @@ export function createHandler({
         data.errors.some((error) => Number(error?.code) === 3036)
       ) {
         quotaUntil = (Math.floor(now() / 86400000) + 1) * 86400000;
-        failures = 0;
-        outageUntil = 0;
+        circuit.failures = 0;
+        circuit.outageUntil = 0;
+        // Do not repeat this generation with another provider. The caller may
+        // start a new request once the newly selected route is available.
         return retryResponse(
           429,
-          (quotaUntil - now()) / 1000,
-          "image_budget_exhausted",
+          env.IMAGE_FAL_KEY ? 1 : (quotaUntil - now()) / 1000,
+          env.IMAGE_FAL_KEY ? "provider_quota" : "image_budget_exhausted",
         );
       }
       if (!upstream.ok) {
@@ -199,8 +258,11 @@ export function createHandler({
           upstream.status === 403 ||
           upstream.status >= 500
         ) {
-          openCircuit(retryAfterMs(upstream.headers.get("Retry-After"), now()));
-          return unavailable();
+          openCircuit(
+            circuit,
+            retryAfterMs(upstream.headers.get("Retry-After"), now()),
+          );
+          return unavailable(circuit);
         }
         return reply(502, {
           ok: false,
@@ -215,11 +277,11 @@ export function createHandler({
         !image.length
       ) {
         console.warn("flux: Cloudflare response missing image");
-        openCircuit();
-        return unavailable();
+        openCircuit(circuit);
+        return unavailable(circuit);
       }
-      failures = 0;
-      outageUntil = 0;
+      circuit.failures = 0;
+      circuit.outageUntil = 0;
       return reply(200, {
         ok: true,
         png: `data:image/jpeg;base64,${image}`,
@@ -233,7 +295,7 @@ export function createHandler({
     } finally {
       clearTimeout(timeout);
       inFlight -= 1;
-      if (isProbe) probeInFlight = false;
+      if (isProbe) circuit.probeInFlight = false;
     }
   };
 }

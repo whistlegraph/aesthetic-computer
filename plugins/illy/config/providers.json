@@ -66,6 +66,16 @@
             "reference": "image_url"
           },
           "output": "images.0.url"
+        },
+        "fal-ai/sana": {
+          "modes": [
+            "generate"
+          ],
+          "input": {
+            "prompt": "prompt",
+            "size": "image_size"
+          },
+          "output": "images.0.url"
         }
       }
     }
