@@ -14,8 +14,10 @@ publishing behavior, including the proposed guest AI allowance.
 The [integration roadmap](ROADMAP.md) inventories the remaining ports and their
 acceptance gates, including providers, paired hosts, media, files, and releases.
 The native provider dropdown retains AC, Claude, and Codex with their desktop
-images. Claude and Codex remain disabled until the CLI bridge is ported; AC's
-model is Automatic. The existing Electron app still supports all three.
+images. Claude and Codex use the optional local helper, installed from the repo
+root with `node easel/native/install.mjs`. A connected provider can generate
+without AC sign-in; AC generation and publication retain their account gates.
+AC's model is Automatic. iPhone pairing to the helper is not implemented.
 
 ```sh
 ./run.sh mac               # build and open Aesel Native.app

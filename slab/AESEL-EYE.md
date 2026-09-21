@@ -128,3 +128,19 @@ inspected, including the 420-point layout; this does not substitute for a workin
 native preview. Whole-window capture also lacked Screen Recording permission.
 No account, inference, publication, purchase or physical-iOS result is claimed.
 Rerun the gate on an unlocked test seat before declaring native UI acceptance.
+
+## Follow-up acceptance — 21 September 2026
+
+The same Mac build passed all four required scenarios on an unlocked fleet seat:
+notebook, settings, expanded preview, and 420-point notebook. The injected orange
+source renders in native WebKit with `nogap`, `nolabel`, and `autoreload`; the
+provider/model controls and return button are legible. Transparent notebook
+component captures were reviewed alongside their paper background in the app
+capture. No test window was activated.
+
+Build fingerprint: `ca30ec5997dda22af6c6c6e3ffe6b0225d9b0bfb279769842aff0c7c4a84702b`.
+Mac and iOS compile checks, 21 JavaScript checks, and native provider-readiness
+checks passed. The compiled fixture rejects stale thread actions and enables
+Send for connected Codex while signed out of AC. This accepts the fixture UI;
+it does not claim live provider inference, account, payment, publication, or
+physical-iPhone acceptance. The earlier locked-seat results remain failed.
