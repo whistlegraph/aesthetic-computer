@@ -317,3 +317,17 @@ test('code grass gets generated write arguments, never thinking or tool results'
   await engine.startTurn('roll');
   assert.deepEqual(output,[JSON.stringify({source:code,note:'first draft'})]);
 });
+
+test('hosted settings tool returns its result without writing the piece or interrupting its own reply',async t=>{
+ const dir=await mkdtemp(join(tmpdir(),'ac-settings-'));t.after(()=>rm(dir,{recursive:true,force:true}));
+ const file=join(dir,'piece.mjs'),source='export function paint({wipe}) { wipe(0); }\n';await writeFile(file,source);
+ const calls=[],sent=[],events=[];
+ const tool=[{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'settings-one',name:'aesel_settings'}},{type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({action:'update',provider:'codex'})}},{type:'content_block_stop',index:0},{type:'message_delta',delta:{stop_reason:'tool_use'}}];
+ const respond=serving(tool,say('I queued Codex for the next reply.'));
+ const engine=new AcServer({piece:{file},token:async()=>'fixture',jev:null,settings:async args=>{calls.push(args);return {status:'queued',provider:'claude',pending:{provider:'codex'}};},fetch:async(_url,options)=>{sent.push(JSON.parse(options.body));return respond();}});
+ engine.on('notification',event=>events.push(event));await engine.startTurn('switch to Codex');
+ assert.deepEqual(calls,[{action:'update',provider:'codex'}]);assert(sent[0].tools.some(tool=>tool.name==='aesel_settings'));
+ assert.match(JSON.stringify(sent[1].messages),/queued/);assert.equal((await readFile(file,'utf8')),source);
+ assert.equal(events.findLast(event=>event.method==='turn/completed').params.turn.status,'completed');
+ assert(!events.some(event=>event.params?.item?.type==='fileChange'));
+});

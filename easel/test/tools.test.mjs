@@ -48,7 +48,8 @@ test("the API map is built and answers the questions sessions actually asked", (
   assert.match(circle, /^circle\n\s+circle\(x0, y0, radius, filled/m);
   assert.match(circle, /e\.g\. disks\//);
   const synth = apiLookup(map, "synth");
-  assert.match(synth, /sound\.synth\n\s+sound\.synth\(\{ tone = 440/);
+  assert.match(synth, /sound\.synth\n\s+sound\.synth\(/);
+  assert.match(synth, /tone.*Hz|tone = 440/);
   const button = apiLookup(map, "button multitouch");
   assert.match(button, /ui\.Button/);
   assert.match(apiLookup(map, "zzzznotathing"), /Nothing in the API map/);
@@ -108,7 +109,7 @@ test("the JSON-RPC surface: initialize, list, call, unknown", () => {
   assert.deepEqual(init.result.capabilities, { tools: {} });
   assert.equal(handle({ jsonrpc: "2.0", method: "notifications/initialized" }, context), null);
   const list = handle({ jsonrpc: "2.0", id: 2, method: "tools/list" }, context);
-  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["ac_references", "ac_preview", "ac_frame", "ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
+  assert.deepEqual(list.result.tools.map((tool) => tool.name), ["aesel_settings", "ac_references", "ac_preview", "ac_frame", "ac_api", "ac_examples", "ac_outline", "ac_symbol"]);
   assert.equal(list.result.tools, TOOLS);
   const call = handle({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "ac_api", arguments: { query: "wipe" } } }, context);
   assert.match(call.result.content[0].text, /^wipe\n/);

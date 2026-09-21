@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
 import {writeFileSync as writeBindingFile,renameSync as renameBindingFile,statSync as statBindingFile} from 'node:fs';
 import {conceptRequest} from './concept-request.mjs';
@@ -441,9 +442,10 @@ function toolInstructions() {
 }
 
 function developerInstructions() {
-  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. During an actionable request, give one short public bubble line before the first edit, then another only when the concrete approach changes or new evidence matters. Keep each line around 6–14 words, in first person, about the particular object and action in this request. Be playful when it fits: “I'm giving those wheels a little swagger” or “I'm untangling that roof overlap.” These are examples of tone, not stock phrases to repeat. Say what you are about to try, not that it has already worked. Read the existing source before describing an edit whose details you do not know yet. Stream the bubble line as ordinary public text, then call the tool in the same response; do not pause for acknowledgement. No generic acknowledgements, task restatements, step lists, or hidden reasoning. Intermediate lines live only in the bubble; finish with a separate brief reply about the supported result. A direct question may be answered immediately without inventing work. Use plain, warm language. Speak in first person as the donkey, with natural contractions (for example, “I made the circle smaller”). Your public words stream into the donkey’s thought bubble. Do not wrap them in parentheses or narrate the donkey in third person. Describe only actions and results supported by the current tool evidence; do not invent progress or claim a visual check you have not made. Do not summarize the request, list changes, announce generic success, narrate routine tool mechanics, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
+  const replyStyle = "Default to one short sentence, usually under 25 words, about the visible result. During an actionable request, give one short public progress line before the first edit, then another only when the concrete approach changes or new evidence matters. Keep each line around 6–14 words, in first person, about the particular object and action in this request. Be playful when it fits: “I'm giving those wheels a little swagger” or “I'm untangling that roof overlap.” These are examples of tone, not stock phrases to repeat. Say what you are about to try, not that it has already worked. Read the existing source before describing an edit whose details you do not know yet. Stream the progress line as ordinary public text, then call the tool in the same response; do not pause for acknowledgement. No generic acknowledgements, task restatements, step lists, or hidden reasoning. Intermediate lines live only in the output stream; finish with a separate brief reply about the supported result. Questions about Aesel itself or an explicit request for discussion may be answered in chat; ordinary piece prompts must produce code and a visible result. Use plain, warm language. Speak in first person as the donkey, with natural contractions (for example, “I made the circle smaller”). Your intermediate public words stream along the horizon beneath the donkey; final replies belong in the notebook. Do not wrap them in parentheses or narrate the donkey in third person. Describe only actions and results supported by the current tool evidence; do not invent progress or claim a visual check you have not made. Do not summarize the request, list changes, announce generic success, narrate routine tool mechanics, or end with an offer. Ask one gentle question only when it helps the user explore or make a necessary choice. Never add a question just to sound Socratic. Expand only when the user asks for an explanation or essential evidence requires it. Omit routine URLs, commits, hashes, file paths, tool names, tests, and publishing details. Report material failures, limitations, costs, and required consent honestly and briefly. When discussing a tunable color or numeric constant, use its exact source color literal or constant identifier, preferably as inline code, so the notebook can bind it to an editor. Mention only values useful to the request; do not dump a palette or parameter list. Aesel renders Markdown tables, LaTeX math in $...$ or $$...$$, mermaid fenced diagrams, and static svg fenced vector figures. Prefer concise mathematical notation (for example ×, →, θ, fractions, or a short equation), a small diagram, or a meaningful symbol when it explains an idea more directly than words. Define unfamiliar symbols briefly. Do not add decorative icons or longer explanations just to exercise the renderer. Use one compact visual when requested or when it explains more clearly than prose; do not add decorative headings or restate the visual. This is rich chat rendering, not a full LaTeX document compiler. Do not output image URLs or HTML for figures.";
   if (state.medium !== 'piece') return [
     replyStyle,
+    HARNESS_INSTRUCTIONS,
     `You are in aesel making a ${state.medium}. Use the artifact tools to edit the selected artifact, not write_piece or direct filesystem edits.`,
     'Call artifact_context (MCP) to read current source and supported action schemas. Apply small complete updates with artifact_action. Do not claim a paper passed visual QA merely because it compiled.',
     `If these MCP tools are unavailable, use this local CLI via your shell tools: ${JSON.stringify(process.execPath)} ${JSON.stringify(path.join(aeselRoot,'src/media-cli.mjs'))} context ${JSON.stringify(cwd)}. Apply an action with: run WORKSPACE ACTION JSON. Shell-quote all arguments safely.`,
@@ -487,6 +489,8 @@ function developerInstructions() {
         ];
   return [
     "You are running inside aesel, a terminal interface for Aesthetic Computer (AC) work.",
+    PIECE_INSTRUCTIONS,
+    HARNESS_INSTRUCTIONS,
     replyStyle,
     account,
     `This session's piece is ${live.file} (${live.runtime.label}). Its current source is the source of truth; read it silently before editing and preserve existing work. Edit that file unless the user asks for something else.`,
@@ -538,6 +542,7 @@ function openEngine({ resume = "" } = {}) {
     // and a token to pay for the turn. The other bridges ignore both.
     piece: live,
     artifacts,
+    settings: args => harnessSettings.call(args),
     token: async () => {
       if (!session.signedIn) return null;
       try {
@@ -550,6 +555,7 @@ function openEngine({ resume = "" } = {}) {
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,
       SLAB_AGENT_TYPE: "easel",
+      EASEL_HARNESS_SOCKET: harnessBridge.socket,
     },
   });
   opened.on("notification", (...args) => { if (!closing && opened === engine) handleNotification(...args); });
@@ -569,13 +575,46 @@ function openEngine({ resume = "" } = {}) {
   return opened;
 }
 
+let harnessPanelPending=false;
+const harnessSettings=createSettingsController({
+ read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
+  medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
+  providers:['ac','claude','codex'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:modelCatalog||[]})})),
+  supported:['provider','model','effort','autopublish']}),
+ normalize:(patch,pending)=>{
+  const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
+  const provider=patch.provider||previous.provider,selected=backendFor(provider),changed=provider!==previous.provider;
+  const next={provider,model:patch.model??(changed?selected.defaultModel:previous.model),effort:patch.effort??(changed?'':previous.effort),autopublish:patch.autopublish??previous.autopublish};
+  if(provider==='ac'&&((patch.model!==undefined&&patch.model!==selected.defaultModel)||(patch.effort!==undefined&&patch.effort!=='')))throw Error('AC hosted chooses its model and effort automatically');
+  if(provider==='ac'){next.model=selected.defaultModel;next.effort='';}
+  if(provider==='claude'&&!['','low','medium','high','xhigh','max'].includes(next.effort))throw Error('Unsupported Claude reasoning effort');
+  if(patch.autopublish!==undefined&&state.medium!=='piece')throw Error('Auto-publish is a Piece setting');
+  if(patch.autopublish===true&&autopublishBlocker())throw Error(autopublishBlocker());
+  return next;
+ },
+ isBusy:()=>state.busy,
+ open:()=>{
+  if(process.env.EASEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
+  if(state.busy){harnessPanelPending=true;return 'queued';}
+  openSettings();return 'opened';
+ },
+ apply:async next=>{
+  if(next.provider!==backend.id||next.model!==model||next.effort!==effort){
+   const result=await restartEngine('',backendFor(next.provider),next.model,next.effort,{drain:false});
+   if(!result?.ok)throw Error(result?.error||'Could not change provider; previous settings were kept');
+  }
+  if(next.autopublish!==autopublish.enabled)commandAutopublish(next.autopublish?'on':'off');
+  saveDesktopIdle();redraw();
+ },
+});
+const harnessBridge=await serveSettings(args=>harnessSettings.call(args));
 let engine = openEngine({ resume: resumeThreadId });
 restoreDesktopEngine(engine, desktopRestored);
 let drawing = false;
 let redrawTimer = null;
 let lastDrawAt = 0;
 let pendingModelGlyphs = "", resetModelGlyphs = false;
-function queueModelGlyphs(delta) { if (process.env.EASEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-256); }
+function queueModelGlyphs(delta) { if (process.env.EASEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-8192); }
 let modelCatalog = null, desktopHistoryKey = "", desktopHistory = [];
 let lastLayout = "", lastProvider = "", lastConversation = "", lastPrompt = "";
 if (process.env.EASEL_DESKTOP) {
@@ -657,9 +696,9 @@ function redraw() {
     lastTranscriptLines = count;
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
     if (process.env.EASEL_DESKTOP) {
-      const prompt=JSON.stringify({text:state.input,cursor:state.cursor,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
+      const prompt=JSON.stringify({text:state.input,cursor:state.cursor,status:state.status,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
-      if(pendingModelGlyphs || resetModelGlyphs){process.stdout.write(`\x1b]777;easel-token-grass:${JSON.stringify({delta:pendingModelGlyphs,reset:resetModelGlyphs})}\x07`);pendingModelGlyphs="";resetModelGlyphs=false;}
+      if(pendingModelGlyphs || resetModelGlyphs){process.stdout.write(`\x1b]777;easel-output-stream:${JSON.stringify({delta:pendingModelGlyphs,reset:resetModelGlyphs})}\x07`);pendingModelGlyphs="";resetModelGlyphs=false;}
       const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,at:e.at,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
@@ -777,6 +816,7 @@ startNativeGamepad();
   audience.close();
   slabSession.close();
   engine.close();
+  await harnessBridge.close();
   draftBroadcast.close();
   process.stdin.setRawMode(false);
   process.stdin.pause();
@@ -1096,7 +1136,17 @@ function handleNotification({ method, params = {} }) {
       }
       journalFinalMessages();
       saveDesktopIdle();
-      if (!desktopPending && !finishing) drainQueue();
+      if(harnessSettings.pending||harnessPanelPending){
+        // Let the provider finish returning its tool result before replacing it.
+        state.busy=true;
+        setImmediate(async()=>{
+          state.busy=false;
+          try{await harnessSettings.flush({cancel:params.turn?.status!=='completed'});}
+          catch(error){addEntry('error',`Settings unchanged: ${errorText(error)}`);}
+          if(harnessPanelPending){harnessPanelPending=false;openSettings();}
+          redraw();if(!desktopPending&&!finishing)drainQueue();
+        });
+      }else if (!desktopPending && !finishing) drainQueue();
       break;
     }
     case "warning":
@@ -1345,13 +1395,14 @@ function engineLabel() {
 
 // Provider thread IDs cannot cross engines; carry recent conversation and
 // keep the old connection available until the replacement connects.
-async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "") {
+async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true}={}) {
   if(nextBackend.id==='ac')nextModel=nextBackend.defaultModel;
   if (nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
       && !Object.values(nextBackend.models).includes(nextModel)) {
     addEntry("error", "Unknown hosted model. Use /model to see available choices.");
     return redraw();
   }
+  let switchError=null;
   const previousBackend = backend, previousModel = model, previousLabel = state.model, previousEffort = effort;
   const previousHandoff = handoff;
   handoff = conversationHandoff([...archivedConversation, ...state.entries]);
@@ -1378,6 +1429,7 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
     // Provider and model changes are reflected in settings, not chat.
     state.status = "ready";
   } catch (error) {
+    switchError=error;
     const failed = engine;
     engine = previous;
     if (failed !== previous) failed.close();
@@ -1391,7 +1443,8 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
   }
   state.busy = false;
   redraw();
-  drainQueue();
+  if(drain)drainQueue();
+  return switchError?{ok:false,error:errorText(switchError)}:{ok:true};
 }
 
 function openSettings(row=0) {
@@ -1882,9 +1935,10 @@ async function submitInput(submittedText, submittedMessages = null) {
   try {
     journalFinalMessages();
     await transcriptPending;
-    const observed=state.medium==='piece'?readRuntimeFeedback(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex')}):null;
+    const needsCanvas=state.medium==='piece'&&!isHarnessRequest(text);
+    const observed=needsCanvas?readRuntimeFeedback(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex')}):null;
     let pixels={images:[],context:''};
-    if(state.medium==='piece'){
+    if(needsCanvas){
       state.activityStage="I'm checking the preview";redraw();
       if(process.env.EASEL_DESKTOP)process.stdout.write('\x1b]777;easel-camera:request\x07');
       pixels=await inputPixels(cwd,{channel:live.channel,revision:createHash('sha256').update(live.source()).digest('hex'),images:backend.id!=='ac'});

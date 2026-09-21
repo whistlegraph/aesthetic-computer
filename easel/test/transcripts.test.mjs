@@ -4,7 +4,7 @@ import {mkdtemp,rm,readFile,stat,symlink,mkdir} from 'node:fs/promises';
 import{join}from'node:path';import{tmpdir}from'node:os';
 import {serializeTranscript,parseTranscript,validateRecord,redactTranscriptText} from '../src/transcript-format.mjs';
 import {TranscriptJournal} from '../src/transcript-journal.mjs';
-import {createTranscriptHandler} from '../../system/backend/easel-transcripts.mjs';
+import {createTranscriptHandler,ensureTranscriptIndexes} from '../../system/backend/easel-transcripts.mjs';
 const at='2026-09-15T12:00:00.000Z';
 const header={type:'session',format:'aesthetic.easel',version:1,id:'session-one',createdAt:at,metadata:{medium:'sound'},consent:{sharing:'company',id:'consent-one',acceptedAt:at,disclosureVersion:1},provenance:{application:'easel'}};
 const record={type:'message',id:'message-one',seq:1,at,role:'user',text:'make a bell',backend:'ac',model:'glm'};
@@ -45,15 +45,45 @@ test('revocation aborts an in-flight upload and does not requeue it',async t=>{
 test('journal rejects symlink roots and untrusted upload endpoints',async t=>{
  const{root}=await journalFixture(t);const target=join(root,'target'),link=join(root,'link');await mkdir(target);await symlink(target,link);await assert.rejects(new TranscriptJournal({root:link}).init(),/symlink/);assert.throws(()=>new TranscriptJournal({root,endpoint:'https://example.com'}));
 });
-function memory(){const docs=new Map(),indexes=[];const value=(row,key)=>key.split('.').reduce((v,k)=>v?.[k],row);const matches=(row,query)=>Object.entries(query).every(([key,test])=>test&&typeof test==='object'&&'$gt'in test?value(row,key)>test.$gt:value(row,key)===test);const collection={createIndex:async(keys,opts)=>indexes.push({keys,opts}),bulkWrite:async ops=>{for(const{updateOne:o}of ops){const row=o.update.$setOnInsert;if(docs.has(row._id)&&!matches(docs.get(row._id),o.filter))throw Object.assign(new Error('duplicate'),{code:11000});if(!docs.has(row._id))docs.set(row._id,row);}},find:query=>{let rows=[...docs.values()].filter(row=>matches(row,query));return{sort(){rows.sort((a,b)=>a.record.seq-b.record.seq);return this;},limit(n){rows=rows.slice(0,n);return this;},async toArray(){return rows;}};},deleteMany:async query=>{let deletedCount=0;for(const[id,row]of docs)if(matches(row,query)){docs.delete(id);deletedCount++;}return{deletedCount};}};const db={collection:()=>collection};return{docs,indexes,connect:async()=>({db,disconnect:async()=>{}})};}
+function memory(){const docs=new Map(),indexes=[{keys:{expiresAt:1},opts:{expireAfterSeconds:0,name:'easel_transcript_expiry'}}];const value=(row,key)=>key.split('.').reduce((v,k)=>v?.[k],row);const matches=(row,query)=>Object.entries(query).every(([key,test])=>test&&typeof test==='object'&&'$gt'in test?value(row,key)>test.$gt:value(row,key)===test);const collection={dropIndex:async name=>{const i=indexes.findIndex(index=>index.opts.name===name);if(i<0)throw Object.assign(new Error('missing index'),{code:27});indexes.splice(i,1);},createIndex:async(keys,opts)=>indexes.push({keys,opts}),bulkWrite:async ops=>{for(const{updateOne:o}of ops){const row=o.update.$setOnInsert;if(docs.has(row._id)&&!matches(docs.get(row._id),o.filter))throw Object.assign(new Error('duplicate'),{code:11000});if(!docs.has(row._id))docs.set(row._id,row);}},find:query=>{let rows=[...docs.values()].filter(row=>matches(row,query));return{sort(){rows.sort((a,b)=>a.record.seq-b.record.seq);return this;},limit(n){rows=rows.slice(0,n);return this;},async toArray(){return rows;}};},deleteMany:async query=>{let deletedCount=0;for(const[id,row]of docs)if(matches(row,query)){docs.delete(id);deletedCount++;}return{deletedCount};}};const db={collection:()=>collection};return{docs,indexes,connect:async()=>({db,disconnect:async()=>{}})};}
 function endpointFixture(){const store=memory();let date=new Date(at);const handler=createTranscriptHandler({authorize:async({authorization})=>authorization?{sub:authorization}:null,connect:store.connect,staffSubs:()=> 'auth0|staff',now:()=>date});const request=(method,sub,body='',query={})=>handler({httpMethod:method,headers:{authorization:sub},body,queryStringParameters:query});return{...store,request,setDate:d=>date=d};}
 test('server requires signed-in subject + consent; staff reads are explicit and never email based',async()=>{
  const{request,docs}=endpointFixture();const body=serializeTranscript(header,[record]);assert.equal((await request('POST','',body)).statusCode,401);assert.equal((await request('POST','auth0|user',serializeTranscript({...header,consent:{sharing:'private'}},[record]))).statusCode,400);
  assert.equal((await request('POST','auth0|user',body)).statusCode,200);assert.equal([...docs.values()][0].owner,'auth0|user');assert.equal((await request('GET','auth0|user','',{owner:'auth0|user',sessionId:header.id})).statusCode,403);assert.equal((await request('GET','auth0|staff')).statusCode,400);const read=await request('GET','auth0|staff','',{owner:'auth0|user',sessionId:header.id});assert.equal(JSON.parse(read.body).records[0].text,'make a bell');assert.match(read.headers['Cache-Control'],/no-store/);
 });
-test('server deduplication preserves original retention and rejects changed stable IDs',async()=>{
- const{request,docs,indexes,setDate}=endpointFixture();const body=serializeTranscript(header,[record]);await request('POST','auth0|user',body);const expiry=[...docs.values()][0].expiresAt.getTime();setDate(new Date(Date.parse(at)+86400000));await request('POST','auth0|user',body);assert.equal(docs.size,2);assert.equal([...docs.values()][0].expiresAt.getTime(),expiry);assert.equal((await request('POST','auth0|user',serializeTranscript(header,[{...record,text:'changed'}]))).statusCode,409);assert.ok(indexes.some(i=>i.opts.expireAfterSeconds===0));
- setDate(new Date(Date.parse(at)+31*86400000));const read=await request('GET','auth0|staff','',{owner:'auth0|user',sessionId:header.id});assert.deepEqual(JSON.parse(read.body).records,[]);
+test('expiration flags records without deleting or hiding them; retries preserve the marker',async()=>{
+ const{request,docs,indexes,setDate}=endpointFixture();
+ const body=serializeTranscript(header,[record]);
+ const uploaded=JSON.parse((await request('POST','auth0|user',body)).body);
+ assert.equal(uploaded.retentionDays,null);assert.equal(uploaded.expirationDays,30);
+ const expiry=[...docs.values()][0].expiresAt.getTime();
+ assert.equal(expiry,Date.parse(at)+30*86400000);
+ assert.ok(!indexes.some(i=>'expireAfterSeconds' in i.opts));
+ assert.ok(indexes.some(i=>i.opts.name==='easel_transcript_expiration_marker'));
+ const query={owner:'auth0|user',sessionId:header.id};
+ assert.deepEqual(JSON.parse((await request('GET','auth0|staff','',query)).body).expiredSeqs,[]);
+ setDate(new Date(expiry));
+ const expired=JSON.parse((await request('GET','auth0|staff','',query)).body);
+ assert.deepEqual(expired.records,[record]);assert.deepEqual(expired.expiredSeqs,[1]);
+ assert.equal(expired.nextAfterSeq,1);
+ setDate(new Date(expiry+365*86400000));
+ await request('POST','auth0|user',body);
+ assert.equal(docs.size,2);assert.equal([...docs.values()][0].expiresAt.getTime(),expiry);
+ assert.equal((await request('POST','auth0|user',serializeTranscript(header,[{...record,text:'changed'}]))).statusCode,409);
+ assert.deepEqual(JSON.parse((await request('GET','auth0|staff','',query)).body).records,[record]);
+ assert.equal((await request('GET','auth0|user','',query)).statusCode,403);
+ const nextPage=JSON.parse((await request('GET','auth0|staff','',{...query,afterSeq:1})).body);
+ assert.deepEqual(nextPage.records,[]);assert.deepEqual(nextPage.expiredSeqs,[]);
+ assert.equal(JSON.parse((await request('DELETE','auth0|user',JSON.stringify({sessionId:header.id}))).body).deleted,2);
+ assert.equal(docs.size,0);
+});
+test('index migration tolerates missing legacy storage but propagates unexpected failures',async()=>{
+ for(const code of [26,27]){
+  const created=[];
+  await ensureTranscriptIndexes({collection:()=>({dropIndex:async()=>{throw Object.assign(new Error('missing'),{code});},createIndex:async(keys,opts)=>created.push(opts)})});
+  assert.equal(created.length,2);assert.ok(created.every(opts=>!('expireAfterSeconds' in opts)));
+ }
+ await assert.rejects(ensureTranscriptIndexes({collection:()=>({dropIndex:async()=>{throw new Error('permission denied');}})}),/permission denied/);
 });
 test('owner deletion cannot delete another account and server independently redacts secrets',async()=>{
  const{request,docs}=endpointFixture();const body=serializeTranscript(header,[{...record,text:'Bearer secretvalue'}]);await request('POST','auth0|user',body);await request('POST','auth0|other',body);assert.ok([...docs.values()].filter(r=>r.record.type==='message').every(r=>!r.record.text.includes('secretvalue')));
@@ -74,8 +104,10 @@ test('required policy version 2 shares only new messages and preserves earlier o
  await journal.flush();assert.equal(sent[0].header.consent.disclosureVersion,2);assert.deepEqual(sent[0].records.map(r=>r.text),['new required-sharing turn']);
 });
 
-test('AI provider disclosure version 3 round-trips while unknown versions are rejected',()=>{
- const current={...header,consent:{...header.consent,disclosureVersion:3}};
- assert.equal(parseTranscript(serializeTranscript(current,[record])).header.consent.disclosureVersion,3);
- assert.throws(()=>serializeTranscript({...current,consent:{...current.consent,disclosureVersion:4}},[record]),/disclosure/);
+test('historical and indefinite-retention disclosures round-trip while unknown versions are rejected',()=>{
+ for(const version of [1,2,3,4]){
+ const current={...header,consent:{...header.consent,disclosureVersion:version}};
+ assert.equal(parseTranscript(serializeTranscript(current,[record])).header.consent.disclosureVersion,version);
+ }
+ assert.throws(()=>serializeTranscript({...header,consent:{...header.consent,disclosureVersion:5}},[record]),/disclosure/);
 });

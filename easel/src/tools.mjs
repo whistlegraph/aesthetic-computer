@@ -29,6 +29,8 @@ import { readFileSync, readdirSync, existsSync, statSync, realpathSync } from "n
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
+import {SETTINGS_TOOL} from './harness-contract.mjs';
+import {callSettings} from './harness-client.mjs';
 import { readRuntimeFeedback } from "./runtime-feedback.mjs";
 import { apiEntries } from "./api-context.mjs";
 import { createInterface } from "node:readline";
@@ -262,6 +264,7 @@ export const PREVIEW_TOOL = {
   inputSchema: {type:"object",properties:{channel:{type:"string"},revision:{type:"string",description:"SHA256 of the exact piece source; omit to inspect the latest stored observation."}},additionalProperties:false},
 };
 export const TOOLS = [
+  SETTINGS_TOOL,
   {name:"ac_references",description:"AST identifier occurrences in one JS file; excludes comments and strings. Syntactic, not scope-resolved. Use with ac_outline/ac_symbol.",inputSchema:{type:"object",properties:{file:{type:"string"},name:{type:"string"}},required:["file","name"]}},PREVIEW_TOOL,FRAME_TOOL,
   {
     name: "ac_api",
@@ -351,6 +354,7 @@ export function handle(message, context) {
     case "tools/list":
       return reply({ tools: TOOLS });
     case "tools/call": {
+      if(params?.name === SETTINGS_TOOL.name)return callSettings(params.arguments||{}).then(value=>reply({content:[{type:"text",text:JSON.stringify(value)}]})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       if(params?.name === "ac_frame")return captureFrame(context.cwd,params.arguments||{}).then(content=>reply({content})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       try {
         const text = callTool(params?.name, params?.arguments || {}, context);
@@ -384,24 +388,25 @@ export function serve({ cwd = process.cwd(), input = process.stdin, output = pro
 
 // The MCP configuration the Claude bridge passes with --mcp-config: this file,
 // run by the same node that is running aesel, pointed at the workspace.
-export function codexMcpArgs(cwd) {
-  return Object.entries(mcpConfig(cwd).mcpServers).flatMap(([name, config]) => [
+export function codexMcpArgs(cwd,environment={}) {
+  return Object.entries(mcpConfig(cwd,environment).mcpServers).flatMap(([name, config]) => [
     '-c', `mcp_servers.${name}.command=${JSON.stringify(config.command)}`,
     '-c', `mcp_servers.${name}.args=${JSON.stringify(config.args)}`,
-    ...(config.env ? ['-c', `mcp_servers.${name}.env.ELECTRON_RUN_AS_NODE=${JSON.stringify(config.env.ELECTRON_RUN_AS_NODE)}`] : []),
+    ...Object.entries(config.env||{}).flatMap(([key,value])=>['-c', `mcp_servers.${name}.env.${key}=${JSON.stringify(value)}`]),
   ]);
 }
-export function mcpConfig(cwd) {
+export function mcpConfig(cwd,environment={}) {
+  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...(environment.EASEL_HARNESS_SOCKET?{EASEL_HARNESS_SOCKET:environment.EASEL_HARNESS_SOCKET}:{})};
   return {
     mcpServers: {
       'easel-media': {
         command: process.execPath,
-        ...(process.versions.electron ? {env:{ELECTRON_RUN_AS_NODE:"1"}} : {}),
+        ...(Object.keys(env).length?{env}:{}),
         args: [fileURLToPath(new URL('./media-mcp.mjs', import.meta.url)), '--cwd', cwd],
       },
       [SERVER_NAME]: {
         command: process.execPath,
-        ...(process.versions.electron ? {env:{ELECTRON_RUN_AS_NODE:"1"}} : {}),
+        ...(Object.keys(env).length?{env}:{}),
         args: [fileURLToPath(import.meta.url), "--cwd", cwd],
       },
     },

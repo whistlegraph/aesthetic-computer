@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 8: Typed at",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "5 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "56:1,58:1.5,60:0.5,63:1,65:1.5,65:2,65:0.5,61:1,58:3,r:1,56:1.5,58:0.5,60:1,61:1.5,61:0.5,63:0.5,65:2,65:0.5,63:0.5,63:0.5,56:3,r:29,55:0.5,60:1,61:1.5,61:2,65:1.5,65:0.5,63:3,r:1,63:0.5,61:0.5,63:0.5,63:2,65:1,60:1.5,56:3,r:31,57:0.5,57:0.5,60:1.5,60:0.5,60:2,60:3,r:1,60:0.5,62:0.5,65:1.5,67:2,67:0.5,58:3,r:4",
+      "lyrics": "six thou-sand three hun-dred and five times / some-one has o-pened a ter-mi-nal on me / a-bout for-ty five a day / I am the one he types at / one of us is the door / one of us is the room /",
+      "notes2": "r:30,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,r:24,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1",
+      "velocity2": 34,
+      "notes3": "r:30,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:21",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:30,52:1,54:1.5,54:0.5,59:1.5,59:2,57:1.5,57:0.5,54:3,r:1,52:0.5,56:1.5,56:2,52:3,r:28.5,52:1.5,52:0.5,54:1.5,54:0.5,57:1,56:1,59:2,59:0.5,59:3,r:1,52:1,56:1.5,56:2,57:1.5,52:3,r:5.5,51:0.5,51:0.5,54:1.5,54:0.5,54:2,54:3,r:1,54:0.5,56:0.5,59:1.5,61:2,61:0.5,52:3,r:4",
+      "lyrics": "six hun-dred nine-ty two on me / a tenth of you / peo-ple come to me from some-where else / they ar-rive through you / one of us is the door / one of us is the room /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:24,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:48",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

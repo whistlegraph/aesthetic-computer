@@ -97,22 +97,22 @@ const assert = require("node:assert/strict");
     ),
     2,
   );
-  // Real OSC token updates keep one text node, stay in the bubble, and remain
+  // Real OSC token updates keep one text node, stay on the horizon, and remain
   // scrollable when a requested explanation grows beyond a short sentence.
   await win.webContents.executeJavaScript(`window.captionNode=document.getElementById('activity-text').firstChild`);
   const reply="I've made the circle smaller. ".repeat(20);
   for (const activity of ["I", "I've", "I've made", reply]) {
     win.webContents.send('output', '\x1b]777;easel-prompt:' + JSON.stringify({text:'',cursor:0,activity,feedback:'Receiving reply'}) + '\x07');
-    await delay(50);
+    await delay(140);
     assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-caption').textContent`),activity);
     assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-text').firstChild===window.captionNode`),true);
     assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('#notebook-page article').length`),2);
   }
-  assert.equal(await win.webContents.executeJavaScript(`(()=>{const t=document.getElementById('activity-text');return t.scrollHeight>t.clientHeight&&t.scrollHeight-t.clientHeight-t.scrollTop<3})()`),true);
-  await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollTop=0`);
+  assert.equal(await win.webContents.executeJavaScript(`(()=>{const t=document.getElementById('activity-text');return t.scrollWidth>t.clientWidth&&t.scrollWidth-t.clientWidth-t.scrollLeft<8})()`),true);
+  await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollLeft=0`);
   win.webContents.send('output', '\x1b]777;easel-prompt:' + JSON.stringify({text:'',cursor:0,activity:reply+'More.',feedback:'Receiving reply'}) + '\x07');
   await delay(50);
-  assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollTop`),0);
+  assert.equal(await win.webContents.executeJavaScript(`document.getElementById('activity-text').scrollLeft`),0);
   win.webContents.send(
     "output",
     "\x1b]777;easel-prompt:" +
@@ -125,7 +125,7 @@ const assert = require("node:assert/strict");
       }) +
       "\x07",
   );
-  await delay(60);
+  await delay(140);
   assert.equal(
     await win.webContents.executeJavaScript(
       `document.querySelector('#activity-caption').hidden`,
@@ -167,15 +167,15 @@ const assert = require("node:assert/strict");
     ),
     "Remote inference · thinking · Reading the piece",
   );
-  assert.deepEqual(await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('#provider-options [role=option]'),o=>o.textContent)`),['AC','Claude','Codex']);
+  assert.deepEqual(await win.webContents.executeJavaScript(`Array.from(document.querySelectorAll('#choice-provider-options [role=option]'),o=>o.textContent)`),['AC','Claude','Codex']);
   await win.webContents.executeJavaScript(`window.providerDropdown=document.querySelector('button[aria-label="Provider"]');providerDropdown.click();window.updateProviderFooter({backend:'ac',model:'Luna',status:'ready',mode:'remote',activity:'A new status',models:[],versions:[]})`);
   assert.equal(await win.webContents.executeJavaScript(`document.querySelector('button[aria-label="Provider"]')===window.providerDropdown`),true,'Status updates preserve the open dropdown');
-  await win.webContents.executeJavaScript(`document.querySelectorAll('#provider-options [role=option]')[2].click()`);
+  await win.webContents.executeJavaScript(`document.querySelectorAll('#choice-provider-options [role=option]')[2].click()`);
   await delay(40);assert(inputs.includes('\x1b[99;2~'));
-  await win.webContents.executeJavaScript(`window.updateProviderFooter({backend:'claude',model:'sonnet',selectedModel:'sonnet',models:[{id:'sonnet',label:'Sonnet'},{id:'opus',label:'Opus'}],versions:[]});document.getElementById('credit-label').click();const m=document.querySelector('select[aria-label="Model"]');m.value='1';m.dispatchEvent(new Event('change'))`);
+  await win.webContents.executeJavaScript(`window.updateProviderFooter({backend:'claude',model:'sonnet',selectedModel:'sonnet',models:[{id:'sonnet',label:'Sonnet'},{id:'opus',label:'Opus'}],versions:[]});document.getElementById('credit-label').click();document.querySelector('button[aria-label="Model"]').click();document.querySelectorAll('#choice-model-options [role=option]')[1].click()`);
   await delay(40);assert(inputs.includes('\x1b[99;4;1;1~'));
-  assert.equal(await win.webContents.executeJavaScript(`(()=>{const a=document.querySelector('.provider-toggle').getBoundingClientRect(),b=document.querySelector('select[aria-label="Model"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&b.left>a.right})()`),true);
-  assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('#provider-options [role=option] img').length`),3);
+  assert.equal(await win.webContents.executeJavaScript(`(()=>{const a=document.querySelector('.provider-toggle').getBoundingClientRect(),b=document.querySelector('button[aria-label="Model"]').getBoundingClientRect();return Math.abs(a.top-b.top)<2&&b.left>a.right})()`),true);
+  assert.equal(await win.webContents.executeJavaScript(`document.querySelectorAll('#choice-provider-options [role=option] img').length`),3);
   await win.webContents.executeJavaScript(
     `document.querySelector('#provider-menu header button').click()`,
   );

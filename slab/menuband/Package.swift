@@ -40,11 +40,44 @@ let package = Package(
             path: "Sources/CFluoddity",
             publicHeadersPath: "include"
         ),
+        // The speech-to-singing core, shared verbatim from live/ the same way
+        // CGMSynth is: `singer.c` + `world/*.cpp` (the WORLD vocoder, C++)
+        // are SYMLINKS into live/, so Menu Band sings with the exact DSP the
+        // standalone `livesing` host and fedac/native use. singer.c is C with
+        // an extern "C" header; WORLD is C++ — SwiftPM compiles each by
+        // extension in this one clang target. `world` is the header search
+        // root because both include "world/<name>.h". The -O3/-ffast-math
+        // pair matches live/Makefile — the core's NaN guards were proven
+        // under those flags, and Harvest at -O0 is too slow for a downbeat.
+        .target(
+            name: "CSinger",
+            path: "Sources/CSinger",
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("world"),
+                .unsafeFlags(["-O3", "-ffast-math"]),
+            ],
+            cxxSettings: [
+                .headerSearchPath("world"),
+                .unsafeFlags(["-O3", "-ffast-math"]),
+            ]
+        ),
+        // The singer, offline: Menu Band's own MenuBandSinger.swift (a
+        // SYMLINK, one source of truth) driven from the command line into
+        // WAV files — no device, no window — for the intelligibility loop
+        // that renders every sung line, runs Whisper over it and scores the
+        // words (grants/…/macneopolitan/bin/hear.mjs).
+        .executableTarget(
+            name: "singrender",
+            dependencies: ["CSinger"],
+            path: "Sources/SingRender"
+        ),
         .executableTarget(
             name: "MenuBand",
             dependencies: [
                 "CGMSynth",
                 "CFluoddity",
+                "CSinger",
                 .product(name: "ACMacAudio", package: "macos-audio"),
                 .product(name: "MenuBandJuke", package: "juke-wizard"),
             ],

@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 6: Six minutes",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "5 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "55:0.5,56:0.5,60:1.5,61:0.5,63:1.5,63:0.5,67:2,67:0.5,61:1,60:1.5,56:3,r:32,58:1,59:1.5,59:0.5,59:0.5,64:1.5,66:2,64:0.5,59:3,r:16.5,58:0.5,60:1,62:1,63:2,63:0.5,58:3,r:4",
+      "lyrics": "I was born at thir-ty se-ven past mid-night / six mi-nutes a-part on the clock / we were both born at night /",
+      "notes2": "r:18,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,r:15,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1",
+      "velocity2": 34,
+      "notes3": "r:18,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:15,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:12",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:18,52:0.5,52:0.5,56:1.5,57:0.5,59:1.5,59:2,59:1,57:1,56:1.5,54:3,r:1,51:1.5,51:0.5,54:1,57:1,59:2,52:3,r:19,52:1,57:1,60:2,53:3,r:5,52:0.5,54:1,56:1,57:2,57:0.5,52:3,r:4",
+      "lyrics": "I was born at for-ty three past mid-night / for-ty eight days la-ter / he stays up late / we were both born at night /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:27,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,r:24",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:27,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:12,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

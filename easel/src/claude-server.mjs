@@ -264,7 +264,7 @@ export class ClaudeServer extends EventEmitter {
     // "what does circle take?" would cost the round trip the tool exists to
     // save.
     if (this.tools) {
-      args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd)));
+      args.push("--mcp-config", JSON.stringify(mcpConfig(this.cwd,this.environment)));
       args.push("--allowedTools", `mcp__${SERVER_NAME}`, 'mcp__easel-media');
     }
     if (this.developerInstructions) {

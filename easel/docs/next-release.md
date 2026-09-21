@@ -1,3 +1,10 @@
+# Next development build
+
+Piece-first answers, direct harness settings controls, eight new donkey poses,
+and a full-width intermediate output horizon. See
+[piece and harness routing](piece-and-harness-routing.md) for behavior and checks.
+Transcripts are retained indefinitely; expiration is now a soft marker.
+
 # Aesel 0.7.2
 
 Includes the desktop companion and preview layout, syntax and link rendering,

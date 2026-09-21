@@ -84,11 +84,20 @@ before their official setup dates.
   untouched so it stays the member's voice. Record-grade singing goes
   through the spinging chain; realtime on stage via `live/` singer.c
   (Menu Band adoption open). Native `say` TUNE/PHON singing is dead on
-  macOS 26 (verified) — WORLD is the pitch handle.
+  macOS 26 and still on macOS 27 (verified) — WORLD is the pitch handle.
 
 Refresh before the show so the numbers on stage are true that night.
 
-## From data to score (open, Week 1)
+## The piece (Sept 20 onward)
+
+`PIECE.md` is the form, the runway to Thursday and the open decisions.
+`bin/compose.mjs` turns `members/*/facts.json` into `scores/trio-i-birth`,
+`trio-ii-service`, `trio-iii-chorus` + `scores/setlist.json`; `bin/trio.mjs`
+conducts one movement (or the setlist) across three hosts with skew
+correction, sung lines rendered on each member's own hardware, `--reduce` for
+short-handed rehearsal. Re-run compose after every harvest.
+
+## From data to score (settled Sept 20 — see PIECE.md)
 
 The mapping from autobiography to `.mbscore` voices is a residency decision,
 not settled here. Seeds: birth minutes (:37, :43) as phrase lengths; battery

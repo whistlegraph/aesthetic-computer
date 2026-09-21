@@ -331,8 +331,6 @@ body.preview-fullscreen #preview-waveform{display:none}
 @keyframes aesel-thought-dot{0%,100%{opacity:.5;transform:translateY(1px) scale(.8)}50%{opacity:1;transform:translateY(-1px) scale(1.12)}}
 @media(prefers-reduced-motion:reduce){#activity-caption::before,#activity-caption::after{animation:none}}
 
-#token-grass{position:fixed;z-index:3;pointer-events:none}
-#token-grass[hidden],body.preview-fullscreen #token-grass{display:none}
 
 #provider-menu .preview-audio-controls{display:flex;align-items:center;gap:8px;margin-top:5px}
 #provider-menu .preview-audio-controls input{min-width:0;flex:1;accent-color:var(--aesel-accent,#ff78b2)}
@@ -357,3 +355,15 @@ body.preview-fullscreen #preview-waveform{display:none}
 #notebook-page{padding-right:calc(var(--preview-audio-inset,80px) + 26px)}
 
 .user-time{opacity:.6;font:inherit;color:var(--user-ink)}
+
+/* Intermediate output occupies a stable horizon beneath the companion. */
+#notebook-activity{position:fixed;left:0;right:0;bottom:32px;z-index:7;display:flex;flex-direction:column;align-items:flex-start;width:100%;max-width:none;pointer-events:none;white-space:nowrap}
+#notebook-activity #prompt-feedback{display:block;width:96px;height:76px;margin-left:18px;flex:none}
+#notebook-activity #activity-caption{position:static;display:block;box-sizing:border-box;width:100%;max-width:none;min-width:0;margin:0;padding:0;border:0;border-top:1px solid color-mix(in srgb,var(--aesel-foreground) 25%,transparent);border-radius:0;background:var(--aesel-background);font:16px/32px "AC aesel Unifont",monospace;color:var(--aesel-foreground);opacity:1;translate:none}
+#notebook-activity #activity-caption[hidden],#notebook-activity[hidden]{display:none}
+#activity-caption::before,#activity-caption::after{content:none;animation:none}
+#activity-text{display:block;box-sizing:border-box;width:100%;max-height:none;height:36px;padding:0 14px;white-space:pre;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;pointer-events:auto;user-select:text;scroll-behavior:auto}
+#activity-text:focus-visible{outline:1px solid var(--aesel-accent);outline-offset:-2px}
+#notebook-thinking-donkey{z-index:8;translate:none!important}
+body.output-active #notebook-page{padding-bottom:154px}
+body.preview-fullscreen #notebook-activity{display:none}

@@ -1719,8 +1719,10 @@ test("render experiment flags thin the frame and default to everything", () => {
     globalThis.__oskiewarRenderFlags = { grass: false, shadows: false,
       dust: false, keys: false, bands: 1 };
     fight.paint();
-    assert.ok(lines.length < fullLines,
-      `grass and dust off should shed lines (${lines.length} vs ${fullLines})`);
+    // Keycaps used to be the lines this shed; they ride the triangle pass on
+    // the native host now, so the line count may only hold or fall.
+    assert.ok(lines.length <= fullLines,
+      `grass and dust off should not add lines (${lines.length} vs ${fullLines})`);
     assert.ok(triangles.length < fullTriangles,
       `shadows, keys and bands off should shed faces ` +
       `(${triangles.length} vs ${fullTriangles})`);
@@ -2733,14 +2735,20 @@ test("hovering start bounces its letters and lets them fall back", () => {
 });
 
 test("debug mode boxes every title glyph against its own advance", () => {
-  const { fight, boxes, tick } = createFight(false, false);
+  const { fight, boxes, triangles, tick } = createFight(false, false);
   fight.paint();
-  const quiet = boxes.length;
+  const quiet = boxes.length, quietFaces = triangles.length;
   fight.setDebugHitboxes(true);
   tick();
   fight.paint();
-  const inked = (r, g, b) => boxes.slice(quiet)
-    .filter((values) => values[4] === r && values[5] === g && values[6] === b);
+  // On the native host a HUD box is two faces at `hudDepth` (-1.48), in
+  // front of every body — the CPU rect layer sits under the triangle pass
+  // there. Count each pair as the one box it draws.
+  const inked = (r, g, b) => [...boxes.slice(quiet)
+    .filter((values) => values[4] === r && values[5] === g && values[6] === b),
+  ...Array.from({ length: triangles.slice(quietFaces)
+    .filter((values) => values[2] === -1.48 && values[9] === r &&
+      values[10] === g && values[11] === b).length / 2 })];
   // Four sides around the whole wordmark, four around each of the eight
   // glyphs in "oskiewar", and one advance rule apiece.
   assert.equal(inked(92, 132, 255).length, 4);
@@ -3007,11 +3015,12 @@ test("debug fps survives the title and the bug wears the session name", () => {
   assert.match(perf, /FIGHT_DEBUG_PERF/);
   assert.match(source,
     /typeWrite\(sessionName, viewCenterX\(\) \+ statusCell \* \.62/);
-  const { fight, boxes, tick } = createFight(false, false);
+  const { fight, boxes, triangles, tick } = createFight(false, false);
   fight.setDebugHitboxes(true);
   tick();
   fight.paint();
-  assert.ok(boxes.length > 0);
+  // HUD boxes ride the triangle pass at hudDepth on the native host.
+  assert.ok(boxes.length + triangles.filter((values) => values[2] === -1.48).length > 0);
 });
 
 // Dummy play is free and anonymous, so there is no screen in front of it:
@@ -4083,11 +4092,12 @@ test("the front door is versus, and the climb keeps its named entrance", () => {
   const previousCapable = globalThis.__oskiewarVersusCapable;
   globalThis.__oskiewarOpponent = "";
   try {
-    // A shell that cannot carry a rival's presses inbound still opens on the
-    // climb: a versus room there would be a post that never hits back.
+    // A shell that cannot carry a rival's presses inbound opens on the
+    // training fight, not the climb: a versus room there would be a post
+    // that never hits back, and the console asked for a fight, not a climb.
     delete globalThis.__oskiewarVersusCapable;
     const native = createFight(false, false);
-    assert.equal(native.fight.survivalState().active, true);
+    assert.equal(native.fight.survivalState().active, false);
     // The web shell raises the flag, and the door becomes the invitation.
     globalThis.__oskiewarVersusCapable = true;
     const web = createFight(false, false);

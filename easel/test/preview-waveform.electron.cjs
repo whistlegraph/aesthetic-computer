@@ -126,19 +126,19 @@ let win;
     win.setSize(width, 650);
     await delay(220);
     const row = await js(
-      `(()=>{const a=document.getElementById('prompt-feedback').getBoundingClientRect(),b=document.getElementById('activity-caption').getBoundingClientRect(),g=document.getElementById('notebook-activity').getBoundingClientRect();return {raised:b.top+b.height/2<a.top+a.height/2,beside:b.left>=a.right,width:g.width,available:innerWidth,donkey:getComputedStyle(document.getElementById('notebook-thinking-donkey')).translate,bubble:getComputedStyle(document.getElementById('activity-caption')).translate}})()`,
+      `(()=>{const a=document.getElementById('prompt-feedback').getBoundingClientRect(),b=document.getElementById('activity-caption').getBoundingClientRect(),g=document.getElementById('notebook-activity').getBoundingClientRect();return {under:b.top>=a.bottom-1,full:b.left===0&&b.width===innerWidth,width:g.width,available:innerWidth,donkey:getComputedStyle(document.getElementById('notebook-thinking-donkey')).translate,bubble:getComputedStyle(document.getElementById('activity-caption')).translate}})()`,
     );
-    assert(row.raised && row.beside, JSON.stringify(row));
+    assert(row.under && row.full, JSON.stringify(row));
     assert(row.width <= row.available);
     assert.equal(
       row.donkey,
       row.bubble,
-      "Donkey and bubble share their bounce",
+      "The output horizon stays still",
     );
   }
   await delay(200);
   fs.writeFileSync(
-    "/tmp/aesel-waveform-bubble.png",
+    "/tmp/aesel-waveform-horizon.png",
     (await win.webContents.capturePage()).toPNG(),
   );
   guest.setAudioMuted(true);
@@ -185,10 +185,10 @@ let win;
     await js(
       `getComputedStyle(document.getElementById('activity-caption')).translate`,
     ),
-    "0px",
+    "none",
   );
   console.log(
-    "PASS: live audio, short-note history, immediate opacity, silence, mute, navigation, narrow thought-bubble row, shared bounce, reduced motion.",
+    "PASS: live audio, short-note history, immediate opacity, silence, mute, navigation, full-width output horizon, stable text, reduced motion.",
   );
 })()
   .catch((e) => {

@@ -1,0 +1,48 @@
+{
+  "title": "The MacNeoPolitan Trio — Dialog 3: Wallpaper",
+  "composer": "neo and blueberry, from their records; arr. compose.mjs",
+  "machines": 2,
+  "bpm": 100,
+  "lead": 3,
+  "description": "4 lines between neo (Noelle) and blueberry (Allison). Words: members/dialogs.md.",
+  "voices": [
+    {
+      "name": "neo (Noelle)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "59:1.5,59:0.5,59:0.5,62:1.5,62:2,64:0.5,62:0.5,64:3,r:1,64:0.5,59:1,61:1.5,61:2,59:3,r:1,57:1,61:1,66:2,57:3,r:24,58:0.5,60:1.5,60:0.5,65:1.5,67:2,65:1,62:1.5,60:3,r:1,58:0.5,58:0.5,62:1,65:2,63:0.5,58:3,r:16",
+      "lyrics": "there is a wall-pa-per on me / with your name on it / green pals ri-sing / one hour and for-ty two mi-nutes / I have spent draw-ing it /",
+      "notes2": "r:30,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1,r:24,43:1,50:1,55:1,48:1,55:1,60:1,50:1,57:1,62:1,43:1,50:1,55:1",
+      "velocity2": 34,
+      "notes3": "r:30,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:24,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1",
+      "velocity3": 38,
+      "singVoice": "Noelle",
+      "singBase": 61,
+      "singVibratoHz": 6.4,
+      "sayVoice": "Noelle",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    },
+    {
+      "name": "blueberry (Allison)",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:30,51:0.5,53:0.5,55:1.5,56:2,58:1.5,58:3,r:1,58:0.5,55:1.5,55:2,51:3,r:28,53:1.5,53:0.5,55:0.5,62:2,53:3,r:4.5",
+      "lyrics": "I have ne-ver seen it / my lid is down / draw it for me too /",
+      "notes2": "49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,r:21,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,49:1,56:1,61:1,54:1,61:1,66:1,56:1,63:1,68:1,49:1,56:1,61:1,r:12",
+      "velocity2": 34,
+      "notes3": "k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:21,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,k:1,h:1,h:1,r:12",
+      "velocity3": 38,
+      "singVoice": "Allison",
+      "singBase": 55,
+      "singVibratoHz": 4,
+      "sayVoice": "Allison",
+      "double": true,
+      "doubleProgram": 78,
+      "doubleVelocity": 40,
+      "doubleTranspose": 24
+    }
+  ]
+}

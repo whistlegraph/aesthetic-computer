@@ -1307,6 +1307,18 @@ final class MenuBandController {
         synth.speak(text, languageCode: languageCode)
     }
 
+    /// Where a sung `.play` line sounds (see MenuBandSinger).
+    var singerVoice: MenuBandSingerVoice { synth.singerVoice }
+    /// A sim slot's own singer (`sim=i/n`), made on first use.
+    func simSingerVoice(_ slot: SingerFace.SimSlot) -> MenuBandSingerVoice { synth.simSingerVoice(slot) }
+    func stopAllSingers() { synth.stopAllSingers() }
+    /// Keep the audio engine from idle-pausing (a conducted sung sequence
+    /// must not hit the 60 s pause hole mid-song).
+    var keepEngineWarm: Bool {
+        get { synth.keepEngineWarm }
+        set { synth.keepEngineWarm = newValue }
+    }
+
     /// Secondary alphabet voice used by the popover's ABC checkbox.
     private func playABCLayer(forKeyCode keyCode: UInt16) {
         guard abcLayerEnabled,
