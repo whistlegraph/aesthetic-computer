@@ -1,0 +1,202 @@
+{
+  "at": "2026-09-21T17:06:42.860Z",
+  "game": {
+    "complete": true,
+    "correct": 8,
+    "rounds": [
+      {
+        "round": 1,
+        "clue": "- heading \"Which word means an apparent contradiction that may still be true?\" [level=2]",
+        "answer": "paradox",
+        "correct": true,
+        "decisionMs": 546,
+        "clickMs": 48,
+        "totalMs": 594,
+        "probability": 1
+      },
+      {
+        "round": 2,
+        "clue": "- heading \"Opposite of \u201cdiminish\u201d?\" [level=2]",
+        "answer": "increase",
+        "correct": true,
+        "decisionMs": 243,
+        "clickMs": 40,
+        "totalMs": 282,
+        "probability": 1
+      },
+      {
+        "round": 3,
+        "clue": "- heading \"Which word means to prove a claim false?\" [level=2]",
+        "answer": "refute",
+        "correct": true,
+        "decisionMs": 281,
+        "clickMs": 19,
+        "totalMs": 300,
+        "probability": 1
+      },
+      {
+        "round": 4,
+        "clue": "- heading \"Closest in meaning to \u201cconcise\u201d?\" [level=2]",
+        "answer": "succinct",
+        "correct": true,
+        "decisionMs": 256,
+        "clickMs": 28,
+        "totalMs": 283,
+        "probability": 1
+      },
+      {
+        "round": 5,
+        "clue": "- heading \"Opposite of \u201ctimid\u201d?\" [level=2]",
+        "answer": "bold",
+        "correct": true,
+        "decisionMs": 315,
+        "clickMs": 33,
+        "totalMs": 347,
+        "probability": 1
+      },
+      {
+        "round": 6,
+        "clue": "- heading \"Closest in meaning to \u201cfleeting\u201d?\" [level=2]",
+        "answer": "brief",
+        "correct": true,
+        "decisionMs": 242,
+        "clickMs": 23,
+        "totalMs": 265,
+        "probability": 1
+      },
+      {
+        "round": 7,
+        "clue": "- heading \"Closest in meaning to \u201cobsolete\u201d?\" [level=2]",
+        "answer": "outdated",
+        "correct": true,
+        "decisionMs": 265,
+        "clickMs": 38,
+        "totalMs": 303,
+        "probability": 1
+      },
+      {
+        "round": 8,
+        "clue": "- heading \"Which word means to arrive at a conclusion from evidence?\" [level=2]",
+        "answer": "infer",
+        "correct": true,
+        "decisionMs": 263,
+        "clickMs": 18,
+        "totalMs": 281,
+        "probability": 1
+      }
+    ]
+  },
+  "browser": [
+    {
+      "tool": "puppet_snapshot",
+      "ms": 193
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 546
+    },
+    {
+      "tool": "puppet_click",
+      "control": "paradox",
+      "ms": 48
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 38
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 243
+    },
+    {
+      "tool": "puppet_click",
+      "control": "increase",
+      "ms": 40
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 36
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 281
+    },
+    {
+      "tool": "puppet_click",
+      "control": "refute",
+      "ms": 19
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 32
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 256
+    },
+    {
+      "tool": "puppet_click",
+      "control": "succinct",
+      "ms": 28
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 39
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 315
+    },
+    {
+      "tool": "puppet_click",
+      "control": "bold",
+      "ms": 33
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 31
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 242
+    },
+    {
+      "tool": "puppet_click",
+      "control": "brief",
+      "ms": 23
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 36
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 265
+    },
+    {
+      "tool": "puppet_click",
+      "control": "outdated",
+      "ms": 38
+    },
+    {
+      "tool": "puppet_click",
+      "control": "Next word",
+      "ms": 47
+    },
+    {
+      "tool": "puppet_choose",
+      "ms": 263
+    },
+    {
+      "tool": "puppet_click",
+      "control": "infer",
+      "ms": 18
+    }
+  ]
+}

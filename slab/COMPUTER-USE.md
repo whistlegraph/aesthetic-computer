@@ -54,6 +54,14 @@ resolve the intended element, wait until usable, act once, and check the outcome
   an ambiguous dispatch failure reports `performed: "unknown"`. Neither is an
   invitation to repeat input. Read-only waits do not block actions.
 - MCP initialization supplies the same workflow guidance to any client.
+- `puppet_choose` reads the exact page's named accessible controls and asks Jev
+  to select one for a supplied goal. It returns a strict locator without input;
+  use `puppet_click` with a postcondition after checking the suggestion. Known
+  locators stay direct. Only the goal and at most 40 control labels/roles go to
+  OpenRouter; URLs, IDs, screenshots, field values, and locators stay local.
+  Stale/changed controls, ambiguous labels, unknown previous input, unavailable
+  decisions, and low confidence cause an observe/wait fallback. This is an
+  explicit tool call, not an automatic extra step on every click.
 - `lib/computer-use-client.mjs` provides a fetch-only client for these stateless
   HTTP services. It discovers schemas, preserves image/text/error blocks, uses
   explicit tool allowlists, bounds requests, and never retries lost actions.
@@ -84,6 +92,26 @@ node slab/bin/puppet.mjs wait local '{"text":"Ready"}' --target=PAGE_ID --timeou
 The MCP equivalents use the same names with a `puppet_` prefix and explicit
 `machine`, `target`, and `locator` arguments. Role names, labels, and text match
 exactly; multiple matches fail. Existing pixel/CDP tools remain available.
+
+Jev selection through MCP uses `puppet_choose` with `{machine, target, goal}`.
+Credentials are loaded on demand from `OPENROUTER_API_KEY` or the existing
+`~/.config/aesthetic-computer/jev.env`. Captutor's `bin/jev-frame.mjs` uses the
+same credential source. Neither route executes Jev's suggestion automatically.
+
+Wordplay is a playable, randomized browser exercise for this route:
+
+```sh
+node slab/wordplay/serve.mjs
+# Open http://127.0.0.1:7781
+node --env-file="$HOME/.config/aesthetic-computer/jev.env" slab/bin/computer-use-smoke.mjs --wordplay
+```
+
+The test uses a disposable profile and Puppet daemon. It reads visible clues
+through snapshots, asks `puppet_choose`, then clicks and verifies feedback.
+It never reads the game's answer key. The first eight-round run scored 8/8:
+median choose time 264 ms, answer click plus verification 30.5 ms, combined
+292 ms. This small browser task does not measure native macOS use or prove a
+speedup over another model. Raw round results are in `wordplay/benchmark.json`.
 
 Read-only service check:
 

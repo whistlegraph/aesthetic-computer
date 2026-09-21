@@ -155,6 +155,13 @@ const SEMANTIC_TOOLS = ["snapshot", "click", "fill", "wait"].map(action => ({
 
 const TOOLS = [
   ...SEMANTIC_TOOLS,
+  { name: "puppet_choose", act: false,
+    description: "CHOOSE without clicking: observe an exact page and ask Jev to select a visible named control for a bounded goal. Sends only the goal and up to 40 control labels to OpenRouter. Returns a strict locator or observe/wait fallback. Use when selection needs reasoning; known locators should go directly to puppet_click. Selection grants no authorization.",
+    inputSchema: { type: "object", properties: {
+      machine: { type: "string" }, target: { type: "string", description: "Exact page ID." },
+      goal: { type: "string", minLength: 1, maxLength: 500 },
+      previousOutcome: { type: "string", enum: ["verified", "unknown"], description: "Unknown prior input must be verified before deciding again." },
+    }, required: ["machine", "target", "goal"] } },
   { name: "puppet_list", act: false,
     description: "List machines and exact browser page IDs in compact tables. Read-only; full:true returns raw JSON state.",
     inputSchema: { type: "object", properties: { full: { type: "boolean", description: "Return complete JSON state instead of compact tables." } } } },
@@ -200,6 +207,7 @@ const TOOLS = [
 ];
 
 const HANDLERS = {
+  puppet_choose: args => toolSemantic("choose", args),
   ...Object.fromEntries(["snapshot", "click", "fill", "wait"].map(action => [`puppet_${action}`, args => toolSemantic(action, args)])),
   puppet_list: toolList, puppet_eval: toolEval, puppet_upload: toolUpload, puppet_waitfor: toolWaitFor,
   puppet_nav: toolNav, puppet_reload: toolReload, puppet_shot: toolShot,

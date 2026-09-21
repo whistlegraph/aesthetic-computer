@@ -11,8 +11,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "playwright-core";
 import { createComputerUseClient } from "../lib/computer-use-client.mjs";
 import { chooseObservedTarget } from "../lib/jev-computer-use.mjs";
+import { playWordplay } from "../lib/wordplay-run.mjs";
 
 const native = process.argv.includes("--native"), jev = process.argv.includes("--jev");
+const wordplay = process.argv.includes("--wordplay");
+if (wordplay && native) throw new Error('Use --wordplay for browser play or --native for the native fixture separately');
 const root = resolve(import.meta.dirname, "../..");
 const dir = await mkdtemp(join(tmpdir(), "computer-use-smoke-"));
 const report = { at: new Date().toISOString(), browser: [], native: [], jev: [] };
@@ -42,8 +45,10 @@ async function waitReady(check) {
   throw last || new Error("Fixture startup timed out");
 }
 try {
-  const html = await readFile(join(root, "slab/test/fixtures/computer-use.html"));
+  const html = await readFile(join(root, wordplay ? "slab/wordplay/index.html" : "slab/test/fixtures/computer-use.html"));
+  const game = wordplay ? await readFile(join(root, "slab/wordplay/game.mjs")) : null;
   site = createServer((req, res) => {
+    if (wordplay && req.url === '/game.mjs') { res.setHeader('Content-Type', 'text/javascript'); res.end(game); return; }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.end(req.url === "/second" ? '<!doctype html><title>Second fixture page</title><h1>Navigation verified</h1>' : html);
   });
@@ -71,7 +76,7 @@ try {
   start("slab/bin/puppet-mcp.mjs", ["--http", String(puppetPort)], env);
   if (native) start("slab/bin/frame-mcp.mjs", ["--http", String(framePort)], env);
   const servers = { puppet: `http://127.0.0.1:${puppetPort}/mcp`, ...(native ? { frame: `http://127.0.0.1:${framePort}/mcp` } : {}) };
-  const tools = ["puppet_list", "puppet_snapshot", "puppet_click", "puppet_fill", "puppet_wait", "frame", "frame_click", "frame_reframe"];
+  const tools = ["puppet_list", "puppet_snapshot", "puppet_choose", "puppet_click", "puppet_fill", "puppet_wait", "frame", "frame_click", "frame_reframe"];
   await waitReady(() => readyMCP(puppetPort));
   if (native) await waitReady(() => readyMCP(framePort));
   const client = createComputerUseClient({ servers, allowedTools: tools });
@@ -85,6 +90,11 @@ try {
     return result;
   }
   const browser = { machine: "fixture", target };
+  if (wordplay) {
+    report.game = await playWordplay(call, browser);
+    // Check single delivery and round progression through the rendered score.
+    if (report.game.complete) assert.equal(await page.locator('#score').textContent(), `Score: ${report.game.correct} / 8`);
+  } else {
   const snap = JSON.parse(text(await call("puppet_snapshot", browser)));
   assert.match(snap.tree, /Add one/);
   async function click(name, expected) {
@@ -126,13 +136,17 @@ try {
     const reframe = await call("frame_reframe", { machine: "local", fast: true, visual: false }, "native");
     assert.ok(reframe.content.length > 0);
   }
+  }
   // Only the generated fixture is retained; the browser profile is removed.
-  const artifact = join(tmpdir(), "computer-use-smoke-verified.png");
+  const artifact = join(tmpdir(), wordplay ? "wordplay-verified.png" : "computer-use-smoke-verified.png");
   await page.screenshot({ path: artifact }); report.screenshot = artifact;
+  if (!wordplay) {
   const navigation = JSON.parse(text(await call("puppet_click", { ...browser, locator: { role: "link", name: "Second page" }, after: { locator: { text: "Navigation verified" } } })));
   assert.equal(navigation.verification.ok, true);
   assert.equal(new URL(page.url()).pathname, "/second");
-  report.ok = true;
+  }
+  report.ok = wordplay ? report.game.complete : true;
+  if (!report.ok) process.exitCode = 1;
 } catch (error) {
   report.ok = false; report.error = error.message; process.exitCode = 1;
 } finally {
@@ -140,6 +154,6 @@ try {
   await context?.close();
   if (site) await new Promise(resolve => site.close(resolve));
   await rm(dir, { recursive: true, force: true });
-  await writeFile(join(tmpdir(), "computer-use-smoke-report.json"), JSON.stringify(report, null, 2));
+  await writeFile(join(tmpdir(), wordplay ? "wordplay-report.json" : "computer-use-smoke-report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 }

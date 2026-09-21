@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { choosePageTarget } from "./puppet-choose.mjs";
 
 export function semanticLocator(page, selector) {
   if (!selector || typeof selector !== "object") throw new Error("locator is required");
@@ -73,7 +74,7 @@ export class SemanticBrowser {
   async run(action,args) {
     const {target}=args;
     // Readers/waits must not block the action that satisfies their condition.
-    if (["snapshot", "wait"].includes(action)) return this.perform(action,args);
+    if (["snapshot", "wait", "choose"].includes(action)) return this.perform(action,args);
     // One page's actions are ordered across every client of the daemon.
     const previous=this.queues.get(target)||Promise.resolve();
     const operation=previous.catch(()=>{}).then(()=>this.perform(action,args));
@@ -88,6 +89,7 @@ export class SemanticBrowser {
     const remaining=()=>Math.max(1,deadline-Date.now());
     if(Date.now()>=deadline) throw new Error("Browser connection exhausted operation timeout; no action sent");
     if(action==="snapshot") return this.observe(page,args.target,{...args,timeout:remaining()});
+    if(action==="choose") return choosePageTarget(page,args.target,args);
     const locator=semanticLocator(page,args.locator);
     if(action==="wait") {
       if(!["visible","hidden","attached","detached"].includes(args.state||"visible")) throw new Error("Invalid wait state");
