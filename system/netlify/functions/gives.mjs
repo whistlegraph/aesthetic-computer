@@ -40,7 +40,7 @@ export async function handler(event, context) {
     return respond(200, cachedGives);
   }
 
-  const stripe = Stripe(stripeKey);
+  const stripe = new Stripe(stripeKey);
 
   try {
     const limit = parseInt(event.queryStringParameters?.limit) || 100;

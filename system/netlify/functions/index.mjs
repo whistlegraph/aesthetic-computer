@@ -3,7 +3,7 @@
 import https from "https";
 import path from "path";
 import { promises as fs } from "fs";
-import { URLSearchParams } from "url";
+import { URLSearchParams, fileURLToPath } from "url";
 import he from "he";
 const { encode } = he;
 import * as num from "../../public/aesthetic.computer/lib/num.mjs";
@@ -756,9 +756,7 @@ async function fun(event, context) {
 
     if (sourceCode) {
       const originalCode = sourceCode;
-      let currentDirectory = process.cwd();
-      if (!dev) currentDirectory += "/system";
-      // console.log("🚗 Current Directory:", currentDirectory);
+      const currentDirectory = fileURLToPath(new URL("../../", import.meta.url)).replace(/\/$/, "");
 
       sourceCode = updateCode(
         sourceCode,
