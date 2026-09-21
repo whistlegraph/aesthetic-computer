@@ -47,3 +47,23 @@ root-only environment survives deploys that replace `/opt/ac/system/.env` with
 an older fleet copy. Keep it synchronized when rotating the key in the vault's
 `lith/.env`, then restart `lith`. The vault `lith/.env.keys` manifest also requires
 this key so deployment validation rejects incomplete environments.
+
+### Image generation
+
+`/api/flux` uses Cloudflare Workers AI FLUX Schnell at four steps and
+1024×1024. Set `CLOUDFLARE_ACCOUNT_ID` and a scoped `CLOUDFLARE_AI_TOKEN`
+in the canonical Lith env. `IMAGE_MONTHLY_BUDGET_USD` defaults to 5;
+`IMAGE_DAILY_BUDGET_USD` defaults to 0.5. Set either to 0 to stop inference.
+
+Mongo collection `image-generation-budget` reserves 634 micro-USD per
+attempt before the provider request, including failed attempts. Both caps
+are shared across processes and survive restarts, resetting at UTC month/day
+boundaries. Database failure stops generation. There are no automatic paid
+retries or premium fallbacks. The Cloudflare free quota can stop requests
+earlier; free-quota exhaustion returns 429 until midnight UTC.
+
+The reservation rounds up the September 2026 four-step image rate of
+$0.0006336. Revisit it when changing the model, dimensions, steps, or
+[Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+Caps cover this endpoint's inference, excluding account plan fees and other
+Cloudflare workloads.

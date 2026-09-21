@@ -1,17 +1,9 @@
 #!/usr/bin/env node
 // slab-wallpaper — subject/status-driven terminal wallpaper generator.
 //
-// Generates FLUX images for iTerm2 per-session backgrounds and caches them
-// permanently (content-addressed), so a given prompt is generated exactly
-// once, ever — free-NVIDIA-tier friendly and fully usable offline once warm.
-//
-// Backend chain (max resilience, decided 2026-05-16):
-//   1. direct ai.api.nvidia.com flux.1-schnell  (NVIDIA_API_KEY)
-//   2. prod https://aesthetic.computer/api/flux  (no local secret)
-//   3. cached default status wallpaper           (always-available floor)
-//
-// Key sourcing, first hit wins:
-//   $NVIDIA_API_KEY → ~/.local/share/slab/.env → <repo>/lith/.env
+// Generates budgeted Cloudflare FLUX images through Aesthetic Computer and
+// caches them permanently by subject/status. Cached defaults remain available
+// when the image service or its daily allowance is unavailable.
 //
 // Subcommands:
 //   slab-wallpaper defaults                 ensure all 5 status wallpapers
@@ -27,7 +19,7 @@
 
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { promises as fs, existsSync, readFileSync } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,14 +36,11 @@ const LOG = path.join(SLAB_HOME, "logs/wallpaper.log");
 
 const backoff = wallpaperBackoff(WALL_DIR);
 
-const FLUX_DIRECT =
-  "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
 const FLUX_PROXY = "https://aesthetic.computer/api/flux";
 
-// FLUX's literal allowed dimension set (mirrors system/netlify/functions/
-// flux.mjs). 4:3 landscape suits terminal windows under aspect-fill.
+// The hosted Cloudflare model returns fixed 1024×1024 images.
 const W = 1024;
-const H = 768;
+const H = 1024;
 // "raw" = pass our prompt through verbatim (no AC pixel-art preset — the
 // forced bitmap/CRT look reads as code/UI, which we explicitly don't want).
 const PRESET = "raw";
@@ -59,8 +48,7 @@ const PRESET = "raw";
 // Shared style + anti-text steering appended to every prompt. FLUX schnell
 // has no true negative prompt (cfg 0), but "no X" in the positive prompt
 // biases it away from X (same trick flux.mjs's presets use for "no text").
-// Short and natural on purpose — NVIDIA's safety classifier filters dense
-// modifier/negation piles (a long "no X, no Y…" list reliably trips it).
+// Keep texture descriptions short and natural.
 const STYLE =
   "soft abstract material texture, painterly, low contrast, dim, even";
 const NEG = "no text, no code, no screen, no people";
@@ -108,25 +96,7 @@ const log = (...m) => {
   } catch {}
 };
 
-function loadKey() {
-  if (process.env.NVIDIA_API_KEY) return process.env.NVIDIA_API_KEY.trim();
-  const candidates = [
-    path.join(SLAB_HOME, ".env"),
-    path.join(WALLPAPER_HOME, "aesthetic-computer/lith/.env"),
-  ];
-  for (const f of candidates) {
-    try {
-      if (!existsSync(f)) continue;
-      for (const raw of readFileSync(f, "utf8").split("\n")) {
-        const m = raw.match(/^\s*(?:export\s+)?NVIDIA_API_KEY\s*=\s*(.+)\s*$/);
-        if (m) return m[1].replace(/^["']|["']$/g, "").trim();
-      }
-    } catch {}
-  }
-  return null;
-}
-
-// Pull the safety classifier's teeth: NVIDIA filters clusters of proper
+// Keep subjects abstract by dropping clusters of proper
 // nouns + dense modifiers (see flux.mjs). Drop code/paths/urls/@handles/
 // CamelCase+ALLCAPS identifiers, collapse, cap length, lowercase.
 function sanitize(summary) {
@@ -167,15 +137,25 @@ function subjectPrompt(summary, status) {
   );
 }
 
-function cacheKey(prompt) {
+function cacheKey(prompt, height = H) {
   return createHash("sha1")
-    .update(`${PRESET}|${W}x${H}|${prompt}`)
+    .update(`${PRESET}|${W}x${height}|${prompt}`)
     .digest("hex")
     .slice(0, 16);
 }
 
+// Previously generated landscape textures remain useful. Prefer the current
+// square cache, then reuse the old entry before spending another reservation.
+export function cachedImagePath(dir, prompt) {
+  for (const height of [H, 768]) {
+    const candidate = path.join(dir, `${cacheKey(prompt, height)}.jpg`);
+    if (existsSync(candidate)) return candidate;
+  }
+  return "";
+}
+
 async function withLock(fn) {
-  // Serialize network gens (one at a time → free-tier friendly). Atomic
+  // Serialize network gens (one at a time, with a persistent provider cooldown). Atomic
   // mkdir lock; reclaim if older than 3 min (a crashed gen).
   for (let i = 0; i < 90; i++) {
     try {
@@ -214,53 +194,8 @@ async function fetchJSON(url, opts, ms) {
   }
 }
 
-// Returns a JPEG Buffer or null. Tries direct NVIDIA, then prod proxy.
+// Returns a JPEG Buffer or null. Generation is metered by the shared AC budget.
 export async function generate(prompt) {
-  const key = loadKey();
-  if (key && !(await backoff.active("direct"))) {
-    try {
-      const { response: r, data: d } = await fetchJSON(
-        FLUX_DIRECT,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${key}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            // Prompt is already fully styled by finalize(); the direct
-            // endpoint has no preset mapping, so send it verbatim.
-            prompt,
-            cfg_scale: 0,
-            steps: 4,
-            seed: Math.floor(Math.random() * 1e9),
-            width: W,
-            height: H,
-            mode: "base",
-          }),
-        },
-        35000,
-      );
-      if (r.ok) {
-        const art = d?.artifacts?.[0];
-        if (art?.finishReason === "SUCCESS" && art.base64) {
-          log("gen ok via direct nvidia");
-          return Buffer.from(art.base64, "base64");
-        }
-        log("direct nvidia non-success", art?.finishReason || "?");
-      } else {
-        log("direct nvidia http", r.status);
-        if (r.status === 429 || r.status >= 500) {
-          await backoff.defer("direct", r.headers.get("Retry-After"));
-        }
-      }
-    } catch (e) {
-      log("direct nvidia err", e.name || String(e));
-      await backoff.defer("direct");
-    }
-  }
-
   if (await backoff.active("proxy")) return null;
   try {
     const { response: r, data: d } = await fetchJSON(
@@ -273,12 +208,10 @@ export async function generate(prompt) {
         },
         body: JSON.stringify({
           prompt,
-          // Background decoration waits for NVIDIA; keep the bounded paid
-          // fallback available for explicit visitor requests.
+          // Older servers must not use their premium fallback during rollout.
+          // The Cloudflare-only server ignores this legacy option.
           allow_fallback: false,
           preset: PRESET,
-          width: W,
-          height: H,
         }),
       },
       35000,
@@ -354,9 +287,11 @@ async function tileify(src, dst) {
 async function ensure(dir, prompt) {
   await fs.mkdir(dir, { recursive: true });
   const out = path.join(dir, `${cacheKey(prompt)}.jpg`);
-  if (existsSync(out)) return out;
+  const cached = cachedImagePath(dir, prompt);
+  if (cached) return cached;
   const buf = await withLock(async () => {
-    if (existsSync(out)) return "cached"; // won the race meanwhile
+    const cached = cachedImagePath(dir, prompt);
+    if (cached) return cached; // won the race meanwhile
     const b = await generate(prompt);
     if (!b) return null;
     // Keep .jpg extensions: ImageMagick/ffmpeg infer format from the name,
@@ -383,8 +318,8 @@ async function ensure(dir, prompt) {
       .catch(() => {});
     return out;
   });
-  if (buf) return out;
-  return existsSync(out) ? out : null;
+  if (buf) return buf;
+  return cachedImagePath(dir, prompt) || null;
 }
 
 async function statusPath(name, { gen = true } = {}) {
@@ -428,8 +363,7 @@ async function main() {
     }
     if (cmd === "path" && a1 === "subject") {
       const prompt = subjectPrompt(a2 || "", a3 || "working");
-      const out = path.join(SUBJECT_DIR, `${cacheKey(prompt)}.jpg`);
-      process.stdout.write((existsSync(out) ? out : "") + "\n");
+      process.stdout.write(cachedImagePath(SUBJECT_DIR, prompt) + "\n");
       return;
     }
     process.stderr.write(

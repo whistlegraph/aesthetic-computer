@@ -322,12 +322,30 @@ exports.handler = stream(async (event) => {
     };
   }
 
-  const body = JSON.parse(event.body);
-  let { messages, hint } = body;
-  console.log("🧠 Hint:", hint);
+  let body;
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": origin },
+      body: "Invalid JSON.",
+    };
+  }
+  const { messages: inputMessages, hint = "" } = body || {};
+  if (!Array.isArray(inputMessages) || inputMessages.length === 0 ||
+      typeof hint !== "string" || inputMessages.some((message) =>
+        !message || !["system", "user", "assistant"].includes(message.by) ||
+        typeof message.text !== "string")) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "text/plain", "Access-Control-Allow-Origin": origin },
+      body: "Expected a nonempty messages array with valid roles and text, and a string hint.",
+    };
+  }
 
   try {
-    messages = messages?.map((message) => {
+    const messages = inputMessages.map((message) => {
       return { role: message.by, content: message.text };
     });
 
@@ -444,13 +462,8 @@ exports.handler = stream(async (event) => {
     // Check if it's a Claude model
     const isClaudeModel = model.includes("claude");
     
-    // Extract the last user message as the prompt for logging
-    const lastUserMessage = messages.filter(msg => msg.role === "user").pop();
-    const prompt = lastUserMessage?.content || "No user message found";
-    
-    // Log what's being asked and which model will be used
-    console.log(`🤖 Model: ${model} ${isClaudeModel ? '(Anthropic)' : '(OpenAI)'}`);
-    console.log(`❓ Prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`);
+    // Operational metadata only; conversation text does not belong in logs.
+    console.log(`🤖 Model: ${model} ${isClaudeModel ? '(Anthropic)' : '(OpenAI)'} · ${messages.length} messages`);
     
     if (isClaudeModel) {
       return handleClaudeRequest(messages, model, temperature, top_p, max_tokens, origin, handle);
