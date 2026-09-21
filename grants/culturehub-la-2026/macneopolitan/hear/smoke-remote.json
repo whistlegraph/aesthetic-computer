@@ -1,0 +1,170 @@
+{
+  "tag": "smoke-remote",
+  "at": "2026-09-21T19:51:42.640Z",
+  "model": "ggml-small.en.bin",
+  "flags": {
+    "tag": "smoke-remote",
+    "no-spoken": "1"
+  },
+  "scores": [
+    {
+      "score": "dialog-06-six-minutes.mbscore",
+      "bpm": 100,
+      "voices": [
+        {
+          "member": "neo",
+          "voice": "Noelle",
+          "lines": [
+            {
+              "line": 1,
+              "text": "I was born at thirty seven past midnight",
+              "lyrics": "I was born at thir-ty se-ven past mid-night",
+              "notes": "55:0.5,56:0.5,60:1.5,61:0.5,63:1.5,63:0.5,67:2,67:0.5,61:1,60:1.5,56:3",
+              "duration": 7.799274376417234,
+              "peak": 0.800000011920929,
+              "notesUsed": 11,
+              "noteCount": 11,
+              "renderMs": 555,
+              "heard": "I was born at 37 past midnight.",
+              "wer": 0,
+              "errors": 0,
+              "words": 8,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/neo/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "text": "six minutes apart on the clock",
+              "lyrics": "six mi-nutes a-part on the clock",
+              "notes": "r:45,58:1,59:1.5,59:0.5,59:0.5,64:1.5,66:2,64:0.5,59:3",
+              "duration": 6.8992743764172335,
+              "peak": 0.800000011920929,
+              "notesUsed": 8,
+              "noteCount": 8,
+              "renderMs": 453,
+              "heard": "Six minutes of more t-t-t-t-t lock.",
+              "wer": 1.3333333333333333,
+              "errors": 8,
+              "words": 6,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/neo/line-02.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 3,
+              "text": "we were both born at night",
+              "lyrics": "we were both born at night",
+              "notes": "r:72,58:0.5,60:1,62:1,63:2,63:0.5,58:3",
+              "duration": 5.3992743764172335,
+              "peak": 0.800000011920929,
+              "notesUsed": 6,
+              "noteCount": 6,
+              "renderMs": 315,
+              "heard": "We were both born at night.",
+              "wer": 0,
+              "errors": 0,
+              "words": 6,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/neo/line-03.wav",
+              "spokenWav": null
+            }
+          ]
+        },
+        {
+          "member": "blueberry",
+          "voice": "Allison",
+          "lines": [
+            {
+              "line": 1,
+              "text": "I was born at forty three past midnight",
+              "lyrics": "I was born at for-ty three past mid-night",
+              "notes": "r:18,52:0.5,52:0.5,56:1.5,57:0.5,59:1.5,59:2,59:1,57:1,56:1.5,54:3",
+              "duration": 8.399274376417234,
+              "peak": 0.800000011920929,
+              "notesUsed": 10,
+              "noteCount": 10,
+              "renderMs": 514,
+              "heard": "I was born at 43 past midnight.",
+              "wer": 0,
+              "errors": 0,
+              "words": 8,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/blueberry/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "text": "forty eight days later",
+              "lyrics": "for-ty eight days la-ter",
+              "notes": "r:32,51:1.5,51:0.5,54:1,57:1,59:2,52:3",
+              "duration": 5.999274376417233,
+              "peak": 0.800000011920929,
+              "notesUsed": 6,
+              "noteCount": 6,
+              "renderMs": 312,
+              "heard": "48 days later...",
+              "wer": 0,
+              "errors": 0,
+              "words": 4,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/blueberry/line-02.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 3,
+              "text": "he stays up late",
+              "lyrics": "he stays up late",
+              "notes": "r:60,52:1,57:1,60:2,53:3",
+              "duration": 4.799274376417234,
+              "peak": 0.800000011920929,
+              "notesUsed": 4,
+              "noteCount": 4,
+              "renderMs": 270,
+              "heard": "He stays up late.",
+              "wer": 0,
+              "errors": 0,
+              "words": 4,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/blueberry/line-03.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 4,
+              "text": "we were both born at night",
+              "lyrics": "we were both born at night",
+              "notes": "r:72,52:0.5,54:1,56:1,57:2,57:0.5,52:3",
+              "duration": 5.3992743764172335,
+              "peak": 0.800000011920929,
+              "notesUsed": 6,
+              "noteCount": 6,
+              "renderMs": 296,
+              "heard": "We were both born at night.",
+              "wer": 0,
+              "errors": 0,
+              "words": 6,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/var/folders/zf/sd948w1x57b4nr5b8zkjvk2c0000gn/T/mnp-hear/smoke-remote/dialog-06-six-minutes/blueberry/line-04.wav",
+              "spokenWav": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 8,
+    "words": 42,
+    "wer": 0.19047619047619047,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

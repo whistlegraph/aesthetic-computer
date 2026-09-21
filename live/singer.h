@@ -72,6 +72,13 @@ typedef struct {
   double voiced_consonant_mix;   // 0…1: how much of the SPOKEN original is
                        // blended over voiced consonants (b d g m n l r w) in
                        // onset/coda regions; unvoiced ones are always original.
+  double hold_ms;      // longest a single vowel may sound; the rest of a long
+                       // note is air. 0 = hold it for the whole note.
+  double consonant_balance;   // 0…1: blend toward matching the spliced
+                       // consonant's level to its own vowel's, as spoken,
+                       // instead of to the vocoder's near-silent estimate.
+  double consonant_stretch;   // >1 slows onset/coda consonant regions, the
+                       // way clear speech lengthens them. 1 = speaking rate.
   int    sustain_band; // 1 = judge the sustain zone by 400 Hz–4 kHz energy
                        // (vowel vs voiced consonant), 0 = total energy
   int    loop_sustain; // 1 = a held vowel wanders its nucleus back and forth

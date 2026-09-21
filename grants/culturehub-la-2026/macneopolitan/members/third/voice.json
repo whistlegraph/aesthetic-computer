@@ -34,7 +34,8 @@
     "spoken_median_midi": 56.1,
     "spoken_median_hz": 208.6,
     "register_source": "say -v Junior, 76 words of its autobiography",
-    "register_note": "measured by bin/register.mjs — the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi"
+    "register_note": "measured by bin/register.mjs — the composer aims each line's mean at spoken_median_midi (+1 for brightness) and keeps notes inside register_midi",
+    "f0_floor_experiment": "MEASURED and NOT adopted, 2026-09-21. The floor Harvest is given was far below these voices (90 Hz for a 256 Hz voice), which in principle lets it accept octave-halved candidates and mistrack. Raising it to 0.55 x the spoken median (141 / 102 / 115 Hz) did help the dialogs (18.5% -> 16.6% word error) but slightly hurt the held-out trio movements and ballad (11.9% -> 12.4%). A wash, so the original value stands and the experiment is recorded instead of shipped. See hear/README.md and the f0f* / ho-* runs."
   },
   "derivation": {
     "note": "all singing parameters derive from usage data it does not yet have; run the harvest ritual on its first day and fill these in"

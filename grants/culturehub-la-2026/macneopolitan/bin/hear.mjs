@@ -152,11 +152,17 @@ function kvFor(score, voice) {
     `singVibratoHz=${flags["vib-hz"] ?? voice.singVibratoHz ?? prof.sing?.vibrato_hz ?? 5}`,
     `singVibCents=${flags["vib-cents"] ?? prof.sing?.vibrato_depth_cents ?? 18}`,
     `singLock=${flags.lock ?? prof.sing?.harmony_lock ?? 0.875}`,
-    `singF0Floor=${flags["f0-floor"] ?? prof.f0_floor ?? 55}`];
+    `singF0Floor=${flags["f0-floor"] ?? (flags["floor-was"] != null ? prof.f0_floor_was : null) ?? prof.f0_floor ?? 55}`];
   return { kv: kv.join(";"), member };
 }
 
+// --prime: render only, and skip Whisper entirely. The point is the spoken
+// TTS cache: a line can only be spoken where its voice is installed, so the
+// machine that HAS the voice primes the cache and the evaluation host (which
+// may have neither the voice nor the spare capacity) reads it.
+const primeOnly = flags.prime != null;
 function transcribe(wav) {
+  if (primeOnly) return "";
   const w16 = wav.replace(/\.wav$/, ".16k.wav");
   spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", wav, "-ar", "16000", "-ac", "1", w16], { stdio: "ignore" });
   const r = spawnSync("whisper-cli", ["-m", MODEL, "-f", w16, "-l", "en", "-nt", "-np", "-t", "4"], { encoding: "utf8" });
@@ -179,7 +185,7 @@ for (const sp of scores) {
     const out = resolve(keep, basename(sp, ".mbscore"), member);
     mkdirSync(out, { recursive: true });
     const args = ["--kv", kv, "--bpm", String(bpm), "--out", out];
-    if (spoken) args.push("--spoken");
+    if (spoken && !primeOnly) args.push("--spoken");
     if (flags.rate) args.push("--rate", flags.rate);
     // A render can lose a line to a stalled synthesizer under load (20 s
     // cap) — run again and take the better manifest, so runs stay comparable.

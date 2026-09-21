@@ -244,7 +244,10 @@ final class MenuBandSinger {
               n, cap.fs, v?.name ?? "default",
               tierName[min(3, v?.quality.rawValue ?? 1)], cap.onsets.count, nw)
         if let cp = speechCachePath(line) {
-            let j: [String: Any] = ["fs": Int(cap.fs), "pcm": cap.pcm, "spans": spans.map { [$0.a, $0.b] }]
+            // voice/rate/text are recorded, not just hashed into the name, so
+            // an audit can ask which voice spoke an entry (bin/align-audit.mjs).
+            let j: [String: Any] = ["fs": Int(cap.fs), "pcm": cap.pcm, "spans": spans.map { [$0.a, $0.b] },
+                                    "voice": v?.name ?? line.voice, "rate": MenuBandSinger.speechRate, "text": line.spoken]
             if let d = try? JSONSerialization.data(withJSONObject: j) { try? d.write(to: URL(fileURLWithPath: cp)) }
         }
         return Speech(pcm: cap.pcm, fs: Int(cap.fs), spans: spans)

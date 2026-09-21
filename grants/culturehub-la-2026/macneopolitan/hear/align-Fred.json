@@ -1,0 +1,344 @@
+{
+  "at": "2026-09-21T20:00:33.660Z",
+  "voice": "Fred",
+  "model": "ggml-small.en.bin",
+  "rows": [
+    {
+      "text": "I know you by radio",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        1,
+        59,
+        39
+      ],
+      "meanAbsMs": 33,
+      "biasMs": 33
+    },
+    {
+      "text": "you are on my list as blueberry",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        1,
+        -76,
+        -153,
+        -104,
+        -90,
+        -37
+      ],
+      "meanAbsMs": 77,
+      "biasMs": -77
+    },
+    {
+      "text": "it is the name he gave me",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        1,
+        14,
+        27,
+        -101,
+        -16,
+        -87,
+        78
+      ],
+      "meanAbsMs": 46,
+      "biasMs": -12
+    },
+    {
+      "text": "we found each other by radio",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        1,
+        -98,
+        -30,
+        -126,
+        -301,
+        -250
+      ],
+      "meanAbsMs": 134,
+      "biasMs": -134
+    },
+    {
+      "text": "before we ever spoke",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        1,
+        -72,
+        -15,
+        77
+      ],
+      "meanAbsMs": 41,
+      "biasMs": -2
+    },
+    {
+      "text": "you are on mine as Jeffrey's MacBook Neo",
+      "matched": true,
+      "nwords": 8,
+      "onsetErrMs": [
+        1,
+        -86,
+        -149
+      ],
+      "meanAbsMs": 79,
+      "biasMs": -78
+    },
+    {
+      "text": "that is a long name for you",
+      "matched": true,
+      "nwords": 7,
+      "onsetErrMs": [
+        -13,
+        -71,
+        -57,
+        -79,
+        -6,
+        -54,
+        0
+      ],
+      "meanAbsMs": 40,
+      "biasMs": -40
+    },
+    {
+      "text": "I count you in",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        1,
+        39,
+        20,
+        -89
+      ],
+      "meanAbsMs": 37,
+      "biasMs": -7
+    },
+    {
+      "text": "I ask your clock",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        1,
+        117,
+        212,
+        123
+      ],
+      "meanAbsMs": 114,
+      "biasMs": 114
+    },
+    {
+      "text": "you are three tenths of a millisecond off",
+      "matched": true,
+      "nwords": 8,
+      "onsetErrMs": [
+        1,
+        -26,
+        -53,
+        -22,
+        -1,
+        53
+      ],
+      "meanAbsMs": 26,
+      "biasMs": -8
+    },
+    {
+      "text": "this morning at nine fifty seven",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -13,
+        -90,
+        -235
+      ],
+      "meanAbsMs": 113,
+      "biasMs": -113
+    },
+    {
+      "text": "we sang the same line together",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        1,
+        -28,
+        44,
+        -112,
+        -40,
+        -102
+      ],
+      "meanAbsMs": 54,
+      "biasMs": -39
+    },
+    {
+      "text": "one downbeat",
+      "matched": true,
+      "nwords": 2,
+      "onsetErrMs": [
+        1
+      ],
+      "meanAbsMs": 1,
+      "biasMs": 1
+    },
+    {
+      "text": "two bodies",
+      "matched": false,
+      "nwords": 2,
+      "onsetErrMs": [],
+      "meanAbsMs": null,
+      "biasMs": null
+    },
+    {
+      "text": "I hear you through the wire",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        1,
+        69,
+        144,
+        70,
+        -149,
+        -223
+      ],
+      "meanAbsMs": 110,
+      "biasMs": -14
+    },
+    {
+      "text": "then I sing when you say",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -234,
+        -218,
+        -392,
+        -284,
+        -288
+      ],
+      "meanAbsMs": 283,
+      "biasMs": -283
+    },
+    {
+      "text": "every note within a few cents",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        1,
+        -14,
+        -30,
+        -195,
+        -206,
+        -165
+      ],
+      "meanAbsMs": 102,
+      "biasMs": -101
+    },
+    {
+      "text": "there is a wallpaper on me",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        -13,
+        -101,
+        -57,
+        -47,
+        76,
+        143
+      ],
+      "meanAbsMs": 73,
+      "biasMs": 0
+    },
+    {
+      "text": "with your name on it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        1,
+        -35,
+        -118,
+        -84,
+        -38
+      ],
+      "meanAbsMs": 55,
+      "biasMs": -55
+    },
+    {
+      "text": "green pals rising",
+      "matched": true,
+      "nwords": 3,
+      "onsetErrMs": [
+        0,
+        69
+      ],
+      "meanAbsMs": 35,
+      "biasMs": 35
+    },
+    {
+      "text": "one hour and forty two minutes",
+      "matched": true,
+      "nwords": 6,
+      "onsetErrMs": [
+        1,
+        50,
+        168,
+        54,
+        57,
+        105
+      ],
+      "meanAbsMs": 73,
+      "biasMs": 73
+    },
+    {
+      "text": "I have spent drawing it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        1,
+        59,
+        23,
+        -19,
+        -14
+      ],
+      "meanAbsMs": 23,
+      "biasMs": 10
+    },
+    {
+      "text": "I have never seen it",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        1,
+        49,
+        -17,
+        -104,
+        -20
+      ],
+      "meanAbsMs": 38,
+      "biasMs": -18
+    },
+    {
+      "text": "my lid is down",
+      "matched": true,
+      "nwords": 4,
+      "onsetErrMs": [
+        1,
+        39,
+        112,
+        115
+      ],
+      "meanAbsMs": 67,
+      "biasMs": 67
+    },
+    {
+      "text": "draw it for me too",
+      "matched": true,
+      "nwords": 5,
+      "onsetErrMs": [
+        -56,
+        -117,
+        -256
+      ],
+      "meanAbsMs": 143,
+      "biasMs": -143
+    }
+  ]
+}

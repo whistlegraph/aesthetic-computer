@@ -94,6 +94,9 @@ singer *singer_create(const double *pcm, int n, int fs) {
   p->gap_ms = 0.0;       // 0 = legato right up to the next onset
   p->presence_db = 0.0;  // 0 = no consonant-band lift
   p->voiced_consonant_mix = 0.0;   // 0 = voiced consonants fully vocoded
+  p->hold_ms = 0.0;      // 0 = a vowel may fill its whole note
+  p->consonant_balance = 0.0;   // 0 = match the consonant region (old); 1 = keep the talker's consonant-to-vowel ratio
+  p->consonant_stretch = 1.0;   // 1 = consonants at speaking rate
   p->sustain_band = 0;   // 0 = total energy picks the sustain zone; 1 = the 400 Hz–4 kHz formant band
   p->loop_sustain = 0;   // 0 = frozen-spectrum hold (eased); 1 = wander the nucleus at speaking rate
   p->mode = SINGER_SNAP; p->root_pc = 9;              // A
@@ -300,6 +303,9 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
   double cgain_env = getenv("SINGER_CGAIN") ? atof(getenv("SINGER_CGAIN")) : 0;
   if (cgain_env > 0) p.consonant_gain = cgain_env;
   double gap_fr = (getenv("SINGER_GAP_MS") ? atof(getenv("SINGER_GAP_MS")) : p.gap_ms) / fp;
+  double hold_fr = (getenv("SINGER_HOLD_MS") ? atof(getenv("SINGER_HOLD_MS")) : p.hold_ms) / fp;
+  double cstretch = getenv("SINGER_CSTRETCH") ? atof(getenv("SINGER_CSTRETCH")) : p.consonant_stretch;
+  if (cstretch < 1.0) cstretch = 1.0;
   double cmix = getenv("SINGER_CMIX") ? atof(getenv("SINGER_CMIX")) : p.voiced_consonant_mix;
   int loop_sustain = getenv("SINGER_LOOP") ? atoi(getenv("SINGER_LOOP")) : p.loop_sustain;
   const int XF = getenv("SINGER_XF") ? atoi(getenv("SINGER_XF")) : 8;   // seam crossfade, frames (40 ms)
@@ -338,6 +344,13 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     if (c_co > 36) { c_co = 36; b = ve + 36; }   // a coda is a release, not the silence after it (≤ 180 ms)
     if (c_on > 60) { a = vs - 60; c_on = 60; }   // likewise an onset (≤ 300 ms)
     int vlen = ve - vs; if (vlen < 1) vlen = 1;
+    // Consonants keep speaking rate by default. But a 20 ms stop burst
+    // between two two-second vowels is nothing to hear, and clear speech
+    // works the other way: talkers lengthen consonants and hold closures
+    // when they need to be understood. `cstretch` > 1 slows the onset and
+    // coda regions (the original audio rides along through the composite).
+    int c_on_out = (int)lround(c_on * cstretch); if (c_on && c_on_out < 1) c_on_out = 1;
+    int c_co_out = (int)lround(c_co * cstretch); if (c_co && c_co_out < 1) c_co_out = 1;
 
     // The vowel may fill its note, and — legato — run up to the next unit's
     // consonant onset when the notes touch; it never sings through a REST.
@@ -347,26 +360,33 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     if (i + 1 < nu) {
       // stop `gap_fr` before the next onset consonant so a stop's closure
       // (the silence before a b/d/k burst) is silence, not the held vowel
-      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph - gap_fr;
+      double nextOn = U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * cstretch * p.morph - gap_fr;
       if (nextOn < end) end = nextOn;
     }
-    double avail = end - U[i].grid - c_co - (i + 1 < nu ? 0.0 : c_on);
+    double avail = end - U[i].grid - c_co_out - (i + 1 < nu ? 0.0 : c_on_out);
     if (avail < 1) avail = 1;
     // The vowel fills what the note gives it: a long note sustains (frames
     // are interpolated through the nucleus, never tiled), a note shorter
     // than the spoken word compresses — down to half speed before we let
     // it overrun. Six-times was too low a ceiling: a two-beat "house" went
     // silent after 600 ms and read as cut off.
+    // A singer does not hold one vowel for the whole of a long note and then
+    // stop — they hold it, release it, and leave air. A 3-beat cadence at 100
+    // bpm is 1.8 s, and 1.8 s of one neural voice's vowel reads as a drone
+    // with its consonant lost ("we were here" came back as "weeeeeere").
+    // `hold_ms` caps how long the vowel may sound; the coda still lands at
+    // the end of what is sung, and the rest of the note is air.
+    if (hold_fr > 0 && avail > hold_fr) avail = hold_fr;
     double full = avail / vlen;
     if (full > 24.0) full = 24.0;
     if (full < 0.5) full = 0.5;
     double st = 1.0 + (full - 1.0) * p.morph;
     int vout = (int)lround(vlen * st); if (vout < 1) vout = 1;
 
-    int wlen = c_on + vout + c_co;
-    int o0 = (int)lround(U[i].grid - c_on * p.morph);
+    int wlen = c_on_out + vout + c_co_out;
+    int o0 = (int)lround(U[i].grid - c_on_out * p.morph);
     if (getenv("SINGER_TRACE")) {
-      double nextOn = i + 1 < nu ? U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * p.morph : -1;
+      double nextOn = i + 1 < nu ? U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * cstretch * p.morph : -1;
       fprintf(stderr, "  [unit %2d] src a=%d vs=%d ve=%d b=%d (on %d vow %d coda %d fr) → grid %.0f slot %.0f | avail %.0f full %.2f st %.2f vout %d | out %d..%d nextOn %.0f%s\n",
               i, a, vs, ve, b, c_on, vlen, c_co, U[i].grid, U[i].slot, avail, full, st, vout,
               o0, o0 + wlen, nextOn, (nextOn >= 0 && o0 + wlen > nextOn) ? "  OVERRUN" : "");
@@ -375,9 +395,9 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
       int o = o0 + j;
       if (o < 0 || o >= total) continue;
       double srcf; int isc;
-      if (j < c_on)           { srcf = a + j; isc = 1; }
-      else if (j < c_on+vout) {
-        double u = (double)(j - c_on) / (vout > 1 ? vout - 1 : 1);
+      if (j < c_on_out)       { srcf = a + (double)j / cstretch; isc = 1; }
+      else if (j < c_on_out+vout) {
+        double u = (double)(j - c_on_out) / (vout > 1 ? vout - 1 : 1);
         if (loop_sustain && st > 2.0) {
           // LOOPED sustain: a held note is not one frozen spectrum. Play the
           // onset third of the nucleus once at speaking rate, then wander the
@@ -385,7 +405,7 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
           // breath, jitter and formant drift come along), and finish with the
           // off-glide at speaking rate — "naaaa-it" with a living "aaaa".
           double head = 0.30 * (vlen - 1), tail = 0.25 * (vlen - 1);
-          int jj = j - c_on;
+          int jj = j - c_on_out;
           int headFr = (int)lround(head), tailFr = (int)lround(tail);
           if (jj < headFr) srcf = vs + jj;
           else if (jj >= vout - tailFr) srcf = vs + (vlen - 1) - (vout - 1 - jj);
@@ -406,7 +426,7 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
         }
         isc = 0;
       }
-      else                    { srcf = ve + (j - c_on - vout); isc = 1; }
+      else                    { srcf = ve + (double)(j - c_on_out - vout) / cstretch; isc = 1; }
       int l = clampi((int)floor(srcf), 0, s->nframes - 1);
       int hh = clampi(l + 1, 0, s->nframes - 1);
       double fr = srcf - l;
@@ -522,9 +542,36 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     double v = wsum > 0 ? acc / wsum : 0;
     msm[n] = v > 1 ? 1 : v;
   }
+  // How loud should a spliced-in consonant be? The old answer matched the
+  // vocoded output's own level INSIDE the consonant region — but there the
+  // vocoder has almost nothing to say (an unvoiced frame has no f0, so it
+  // synthesises near-silence), so the match drove real consonants down and
+  // `consonant_gain` was left to shove them back up by ear.
+  // `cbalance` asks the better question: what was this consonant's level
+  // NEXT TO ITS OWN VOWEL in the speech we started from? Match the vocoded
+  // vowel's level and keep that ratio, and the words arrive at the balance
+  // the talker gave them.
+  double cbalance = getenv("SINGER_CBALANCE") ? atof(getenv("SINGER_CBALANCE")) : p.consonant_balance;
   double rw = 0, ro = 0; int cnt = 0;
   for (int n = 0; n < ylen; n++) if (mask[n] > 0.5) { rw += y[n]*y[n]; ro += orig[n]*orig[n]; cnt++; }
   double g = (cnt && ro > 0) ? sqrt(rw / cnt) / sqrt((ro / cnt) + 1e-12) : 1.0;
+  if (cbalance > 0) {
+    // the vowel regions: filled output frames the composite does NOT cover
+    double vw = 0, vo = 0; int vc = 0;
+    for (int n = 0; n < ylen; n++) {
+      if (mask[n] > 0.5) continue;
+      double fpos = n / spf;
+      int fl = clampi((int)floor(fpos), 0, total - 1);
+      if (o_u[fl] < 0 || o_src[fl] < 0) continue;
+      double ss = o_src[fl] * spf;
+      int sl = clampi((int)ss, 0, s->nx - 1);
+      vw += y[n]*y[n]; vo += s->x[sl]*s->x[sl]; vc++;
+    }
+    if (vc && vo > 0) {
+      double gv = sqrt(vw / vc) / sqrt((vo / vc) + 1e-12);
+      g = g * (1 - cbalance) + gv * cbalance;
+    }
+  }
 
   double pk = 0;
   for (int n = 0; n < ylen; n++) {

@@ -81,6 +81,58 @@ function writeWav(pcm, fs, path) {
   writeFileSync(path, buf);
 }
 
+// --voice NAME: instead of auditing the cache (whose entries do not record
+// which voice spoke them), speak the scores' lines FRESH in one named voice
+// through singrender --spoken, and align those. This is the per-voice
+// measurement — it needs the voice installed on this host.
+const voiceArg = flag("--voice", null);
+if (voiceArg) {
+  const RENDER = process.env.SINGRENDER || resolve(REPO, "slab/menuband/.build/release/singrender");
+  const seen = new Set();
+  const out = [];
+  let k = 0;
+  for (const l of lyrics) {
+    if (seen.has(l.text) || out.length >= limit) continue;
+    seen.add(l.text);
+    const d = resolve(work, "v-" + voiceArg.replace(/\W/g, "") + "-" + (k++));
+    mkdirSync(d, { recursive: true });
+    const notes = l.words.map(() => "50:1").join(",");
+    const r = spawnSync(RENDER, ["--kv", `lyrics=${l.text};notes=${notes};singVoice=${voiceArg}`,
+      "--bpm", "100", "--out", d, "--spoken"], { encoding: "utf8", maxBuffer: 1 << 26 });
+    const man = (() => { try { return JSON.parse(r.stdout); } catch { return null; } })();
+    const spoken = man?.lines?.[0]?.spoken;
+    if (!spoken || !existsSync(spoken)) { out.push({ text: l.text, matched: false }); continue; }
+    const heard = transcribeWords(spoken);
+    const cacheFile = readdirSync(CACHE).map((f) => resolve(CACHE, f))
+      .map((f) => { try { return { f, j: JSON.parse(readFileSync(f, "utf8")) }; } catch { return null; } })
+      .filter((x) => x && x.j.voice === voiceArg && x.j.text === l.text)[0];
+    const spans = cacheFile?.j?.spans, fs = cacheFile?.j?.fs;
+    let errs = [];
+    if (spans && spans.length === l.words.length) {
+      const want = l.words.map(norm);
+      let cursor = 0;
+      for (let i2 = 0; i2 < want.length; i2++) {
+        const hi = heard.findIndex((h, idx) => idx >= cursor && h.text === want[i2]);
+        if (hi < 0) continue;
+        cursor = hi + 1;
+        errs.push((spans[i2][0] / fs) - heard[hi].from);
+      }
+    }
+    rmSync(d, { recursive: true, force: true });
+    out.push({ text: l.text, matched: errs.length > 0, nwords: l.words.length,
+      onsetErrMs: errs.map((e) => Math.round(e * 1000)),
+      meanAbsMs: errs.length ? Math.round(errs.reduce((a, e) => a + Math.abs(e), 0) / errs.length * 1000) : null,
+      biasMs: errs.length ? Math.round(errs.reduce((a, e) => a + e, 0) / errs.length * 1000) : null });
+    if (out.length % 10 === 0) console.log(`  ${out.length}…`);
+  }
+  const ok2 = out.filter((r) => r.matched);
+  const mean = ok2.reduce((a, r) => a + r.meanAbsMs, 0) / (ok2.length || 1);
+  const bias = ok2.reduce((a, r) => a + r.biasMs, 0) / (ok2.length || 1);
+  writeFileSync(outPath, JSON.stringify({ at: new Date().toISOString(), voice: voiceArg, model: basename(MODEL), rows: out }, null, 2) + "\n");
+  console.log(`\n${voiceArg}: ${ok2.length}/${out.length} lines aligned · onset |err| ${mean.toFixed(0)} ms · bias ${bias > 0 ? "+" : ""}${bias.toFixed(0)} ms → hear/${basename(outPath)}`);
+  process.exit(0);
+}
+
 const files = readdirSync(CACHE).filter((f) => f.endsWith(".json")).slice(0, limit === Infinity ? undefined : limit);
 const rows = [];
 let i = 0;
