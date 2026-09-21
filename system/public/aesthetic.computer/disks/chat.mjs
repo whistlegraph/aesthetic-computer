@@ -5213,7 +5213,7 @@ async function loadOgPreview(url, preload) {
     }
 
     // If still no image, try common favicon paths
-    if (!imageData && !faviconData) {
+    if (!imageData && !faviconData && !data.unavailable) {
       try {
         const urlObj = new URL(url);
         const defaultFavicon = `${urlObj.origin}/favicon.ico`;

@@ -9,18 +9,21 @@ const isDev = process.env.NETLIFY_DEV === "true" || process.env.CONTEXT === "dev
 // Simple in-memory cache with TTL (1 hour)
 const cache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const UNAVAILABLE_TTL = 5 * 60 * 1000;
+const MAX_HTML_BYTES = 50 * 1024;
+const FETCH_TIMEOUT_MS = 8000;
 
 function getCached(url) {
   const entry = cache.get(url);
   if (!entry) return null;
-  if (Date.now() - entry.timestamp > CACHE_TTL) {
+  if (Date.now() - entry.timestamp >= entry.ttl) {
     cache.delete(url);
     return null;
   }
-  return entry.data;
+  return entry;
 }
 
-function setCache(url, data) {
+function setCache(url, data, ttl = CACHE_TTL) {
   // Limit cache size to prevent memory issues
   if (cache.size > 1000) {
     // Delete oldest entries
@@ -29,7 +32,42 @@ function setCache(url, data) {
       cache.delete(entries[i][0]);
     }
   }
-  cache.set(url, { data, timestamp: Date.now() });
+  cache.set(url, { data, timestamp: Date.now(), ttl });
+}
+
+function previewResponse(data, ttl) {
+  return Response.json(data, { headers: {
+    "Access-Control-Allow-Origin": "*",
+    "Cache-Control": `public, max-age=${Math.max(0, Math.floor(ttl / 1000))}`,
+  } });
+}
+
+function unavailablePreview(url, reason, upstreamStatus) {
+  return {
+    url: url.href, title: url.hostname, siteName: url.hostname,
+    description: null, image: null, favicon: null,
+    unavailable: true, reason, upstreamStatus,
+  };
+}
+
+async function readHtml(response) {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let html = "", bytes = 0;
+  try {
+    while (bytes < MAX_HTML_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value.subarray(0, MAX_HTML_BYTES - bytes);
+      bytes += chunk.byteLength;
+      html += decoder.decode(chunk, { stream: true });
+    }
+    return html + decoder.decode();
+  } finally {
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }
 
 export default async function handler(req) {
@@ -86,14 +124,7 @@ export default async function handler(req) {
   // Check cache
   const cached = getCached(targetUrl);
   if (cached) {
-    return new Response(JSON.stringify(cached), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
+    return previewResponse(cached.data, cached.ttl - (Date.now() - cached.timestamp));
   }
 
   // In dev mode, Netlify Dev intercepts all outbound HTTP from functions,
@@ -120,10 +151,9 @@ export default async function handler(req) {
     });
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    // Use fetch to get the page HTML
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     
     const response = await fetch(targetUrl, {
       headers: {
@@ -134,9 +164,15 @@ export default async function handler(req) {
       redirect: 'follow',
     });
     
-    clearTimeout(timeout);
-    
     if (!response.ok) {
+      await response.body?.cancel().catch(() => {});
+      // A remote site can decline previews while the original link remains
+      // clickable. Return site-only metadata and avoid retrying each view.
+      if ([401, 403, 404, 410].includes(response.status)) {
+        const data = unavailablePreview(parsedUrl, "upstream_unavailable", response.status);
+        setCache(targetUrl, data, UNAVAILABLE_TTL);
+        return previewResponse(data, UNAVAILABLE_TTL);
+      }
       return new Response(JSON.stringify({ error: `HTTP ${response.status}` }), {
         status: 502,
         headers: {
@@ -146,30 +182,32 @@ export default async function handler(req) {
       });
     }
     
-    const html = await response.text();
+    const contentType = (response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (contentType && !["text/html", "application/xhtml+xml"].includes(contentType)) {
+      await response.body?.cancel().catch(() => {});
+      const data = unavailablePreview(parsedUrl, "not_html", response.status);
+      setCache(targetUrl, data);
+      return previewResponse(data, CACHE_TTL);
+    }
+    const html = await readHtml(response);
 
     // Parse Open Graph and other meta tags
-    const resultData = parseMetaTags(html.slice(0, 50 * 1024), targetUrl);
+    const resultData = parseMetaTags(html, targetUrl);
     setCache(targetUrl, resultData);
 
-    return new Response(JSON.stringify(resultData), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
+    return previewResponse(resultData, CACHE_TTL);
   } catch (err) {
     console.error(`[og-preview] Error fetching ${targetUrl}:`, err.message, err.code || '');
     const errorMessage = err.name === "AbortError" ? "Request timed out" : err.message;
     return new Response(JSON.stringify({ error: errorMessage, code: err.code }), {
-      status: 500,
+      status: err.name === "AbortError" ? 504 : 502,
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
       },
     });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
