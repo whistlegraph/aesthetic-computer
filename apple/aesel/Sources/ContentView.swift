@@ -65,6 +65,9 @@ struct ContentView: View {
         .onChange(of: session.signedIn) { if session.signedIn { Task { await braincells.load() } } }
         .task { braincells.start(token: { host.accessToken() }, credited: { host.refreshCredits() }) }
         .onAppear {
+            host.automation.inspect = { automationState }
+            host.automation.perform = { action, params in try await automationAction(action, params) }
+            host.automation.start()
             #if DEBUG
             if ProcessInfo.processInfo.environment["AESEL_NOTEBOOK_PREVIEW"] == "1" {
                 showHome = false
@@ -125,7 +128,7 @@ struct ContentView: View {
                                 .buttonStyle(AeselButtonStyle()).foregroundStyle(paint.ink)
                                 .frame(height: row).padding(.horizontal, 10)
                         }
-                        AeselNotebook(session: session, paint: paint, height: $notebookHeight) { openURL($0) }
+                        AeselNotebook(session: session, automation: host.automation, paint: paint, height: $notebookHeight) { openURL($0) }
                             .frame(height: max(row, notebookHeight))
                         if session.fatal != nil {
                             Button("/retry") { host.restore() }
@@ -170,7 +173,7 @@ struct ContentView: View {
     private var previewBox: some View {
         ZStack(alignment: .topTrailing) {
             if let url = session.previewURL {
-                PieceView(url: url, source: session.source)
+                PieceView(url: url, source: session.source, automation: host.automation)
                     .frame(width: previewSize.width, height: previewSize.height)
                     .clipped()
             }
@@ -196,7 +199,7 @@ struct ContentView: View {
     private var expandedPiece: some View {
         ZStack(alignment: .topTrailing) {
             if let url = session.previewURL {
-                PieceView(url: url, source: session.source)
+                PieceView(url: url, source: session.source, automation: host.automation)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             Button { expandedPreview = false } label: {
@@ -216,7 +219,8 @@ struct ContentView: View {
     /// desktop's prose prompt; the trailing 100pt stays clear for the version.
     private var prompt: some View {
         HStack(alignment: .top, spacing: 8) {
-            TextField("make something…", text: $draft, axis: .vertical)
+            TextField("", text: $draft, axis: .vertical)
+                .accessibilityLabel("Message")
                 .font(Paint.font(16)).foregroundStyle(paint.userInk).tint(paint.userInk)
                 .lineLimit(1...6).textFieldStyle(.plain)
                 .focused($writing).aeselSendLabel()
@@ -242,11 +246,11 @@ struct ContentView: View {
     /// the right and 8pt up, and the way into settings.
     private var versionLabel: some View {
         Button { openSettings() } label: {
-            AeselTitle(text: "v\(appVersion)", size: 16).padding(9)
+            AeselTitle(text: "v\(session.pieceVersion)", size: 16).padding(9)
         }
         .buttonStyle(AeselButtonStyle())
         .padding(.trailing, 1)
-        .accessibilityLabel("Version \(appVersion). Settings")
+        .accessibilityLabel("Piece version \(session.pieceVersion). Settings")
     }
 
     // MARK: - Settings
@@ -455,7 +459,98 @@ struct ContentView: View {
         draft = ""
     }
 
+    private var automationState: [String: Any] {
+        #if os(macOS)
+        let canResize = true
+        #else
+        let canResize = false
+        #endif
+        let controls: [(String, String, Bool)] = [
+            ("settings.open", "Open settings", !showSettings), ("settings.close", "Close settings", showSettings),
+            ("home.open", "Show saved threads", !showHome), ("home.close", "Return to notebook", showHome),
+            ("help.open", "Open help", !showHelp), ("help.close", "Close help", showHelp),
+            ("composer.set", "Set message draft", true), ("composer.clear", "Clear message draft", true),
+            ("composer.send", "Send message; may run inference and publish", session.signedIn && !session.busy && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty),
+            ("turn.stop", "Stop current turn", session.busy),
+            ("session.retry", "Restore failed session", session.fatal != nil),
+            ("session.new", "Start a blank piece", !session.busy), ("session.resume", "Resume a saved thread", !session.busy),
+            ("preview.expand", "Expand preview", previewVisible && !expandedPreview),
+            ("preview.collapse", "Return to notebook", expandedPreview),
+            ("preview.hide", "Hide preview", previewVisible), ("preview.show", "Show preview", previewHidden),
+            ("preview.reload", "Reload embedded preview", previewVisible),
+            ("preview.retry", "Retry failed preview", host.automation.previewFailure != nil),
+            ("window.resize", "Resize app window without focusing it", canResize),
+            ("piece.open", "Open public piece in browser", session.shareURL != nil),
+            ("piece.publish", "Publish current source", session.signedIn && !session.busy),
+            ("account.signin", "Open AC sign-in", !session.signedIn),
+            ("account.signin.close", "Close sign-in", session.showSignIn),
+            ("account.signin.retry", "Retry sign-in", session.showSignIn && session.signInError != nil),
+            ("account.signout", "Sign out of AC", session.signedIn),
+            ("balance.refresh", "Refresh balance", session.signedIn),
+            ("credits.buy", "Open App Store purchase confirmation", session.signedIn && !braincells.busy && braincells.product != nil),
+            ("provider.select", "AC only; desktop CLI providers are not ported", false),
+            ("model.select", "Model managed automatically by AC", false)
+        ]
+        return ["schema": 1, "surface": expandedPreview ? "preview" : showSettings ? "settings" : showHome ? "home" : "notebook",
+                "overlays": ["settings": showSettings, "home": showHome, "help": showHelp, "signin": session.showSignIn],
+                "piece": ["route": session.route, "version": session.pieceVersion, "sourceBytes": session.source.utf8.count,
+                          "previewURL": session.previewURL?.absoluteString ?? "", "shareURL": session.shareURL?.absoluteString ?? ""],
+                "composer": ["characters": draft.count, "placeholder": "", "focused": writing],
+                "title": ["opacity": 1, "linked": session.shareURL != nil], "footer": "v\(session.pieceVersion)",
+                "session": ["id": session.currentSessionID, "busy": session.busy, "status": session.status, "signedIn": session.signedIn,
+                            "entryCount": session.entries.count, "history": session.history.map { ["id": $0.id, "title": $0.title, "route": $0.route] }],
+                "preview": ["visible": previewVisible, "expanded": expandedPreview],
+                "notebook": ["visible": !expandedPreview && !showHome && !showSettings && !showHelp && !session.showSignIn],
+                "controls": controls.map { ["id": $0.0, "label": $0.1, "enabled": $0.2] }]
+    }
 
+    private func automationAction(_ action: String, _ params: [String: Any]) async throws {
+        let controls = automationState["controls"] as? [[String: Any]] ?? []
+        guard let control = controls.first(where: { $0["id"] as? String == action }) else { throw AeselAutomation.error("Unknown control: \(action)") }
+        guard control["enabled"] as? Bool == true else { throw AeselAutomation.error("Control is disabled: \(action)") }
+        switch action {
+        case "settings.open": openSettings()
+        case "settings.close": closeSettings()
+        case "home.open": showHome = true
+        case "home.close": showHome = false
+        case "help.open": showHelp = true
+        case "help.close": showHelp = false
+        case "composer.set":
+            guard let text = params["text"] as? String, text.utf8.count <= 32768 else { throw AeselAutomation.error("text is required, at most 32768 bytes") }
+            draft = text
+        case "composer.clear": draft = ""
+        case "composer.send": send()
+        case "turn.stop": host.stop()
+        case "session.retry": host.restore()
+        case "session.new": host.newSession(medium: "piece"); showHome = false
+        case "session.resume":
+            guard let id = params["sessionId"] as? String, session.history.contains(where: { $0.id == id }) else { throw AeselAutomation.error("Known sessionId is required") }
+            host.resumeSession(id: id); showHome = false
+        case "preview.expand": expandedPreview = true; writing = false
+        case "preview.collapse": expandedPreview = false
+        case "preview.hide": previewHidden = true; expandedPreview = false
+        case "preview.show": previewHidden = false
+        case "preview.reload": host.automation.preview?.reload()
+        case "preview.retry": host.automation.retryPreview?()
+        case "window.resize":
+            #if os(macOS)
+            guard let width = params["width"] as? Double, let height = params["height"] as? Double,
+                  (360...2400).contains(width), (420...1800).contains(height),
+                  let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) else { throw AeselAutomation.error("Window width 360–2400 and height 420–1800 are required") }
+            window.setContentSize(NSSize(width: width, height: height))
+            #else
+            throw AeselAutomation.error("Window resizing is macOS-only")
+            #endif
+        case "piece.open": if let url = session.shareURL { openURL(url) }
+        case "piece.publish": host.publish()
+        case "account.signin", "account.signin.retry": host.signIn()
+        case "account.signin.close": session.showSignIn = false
+        case "account.signout": host.signOut()
+        case "balance.refresh": host.refreshCredits()
+        case "credits.buy": await braincells.buy()
+        default: throw AeselAutomation.error("Unsupported control: \(action)")
+        }
+    }
 }
 
 /// Puts the hidden session webview in the hierarchy without drawing it.

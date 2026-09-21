@@ -95,3 +95,25 @@ test('braincell model stays automatic across old threads and model commands', as
   await restored.open();
   assert.equal(restored.state.model, DEFAULT_AC_MODEL);
 });
+
+test('piece revision starts at zero, counts changed source, and survives thread reload', async () => {
+  const values=new Map();
+  const events=[];
+  const session=createSession({storage:{get:k=>values.get(k),set:(k,v)=>values.set(k,v)},emit:e=>events.push(e)});
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async()=>new Response('fixture guide');
+  try {
+    await session.begin();await session.open();
+    const id=session.state.id;
+    assert.equal(session.state.version,0);
+    const vfs=await import('../phone/shim/fs.mjs');
+    vfs.writeFileSync(session.state.file,'export function paint() {}');
+    assert.equal(session.state.version,1);
+    vfs.writeFileSync(session.state.file,'export function paint() {}');
+    assert.equal(session.state.version,1);
+    assert.equal(events.filter(e=>e.type==='source').at(-1).version,1);
+    await session.newSession();assert.equal(session.state.version,0);
+    await session.resumeSession(id);assert.equal(session.state.version,1);
+    assert.equal(events.filter(e=>e.type==='piece').at(-1).version,1);
+  } finally {globalThis.fetch=originalFetch;}
+});

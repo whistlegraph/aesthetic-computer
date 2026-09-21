@@ -96,6 +96,8 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     publishing: null,
     dirty: false,
     published: false,
+    version: 0,
+    revisionSource: "",
     id: "",
     medium: "piece",
     transcript: [],
@@ -162,7 +164,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     const item = {
       id: state.id, title: state.title || state.slug, medium: state.medium, model: state.model,
       savedAt: new Date().toISOString(), handle: state.owner || state.handle, slug: state.slug,
-      source: vfs.readFileSync(state.file), published: state.published,
+      source: vfs.readFileSync(state.file), published: state.published, version: state.version,
       events: state.transcript, engine,
     };
     const items = readThreads().filter(entry => entry.id !== state.id);
@@ -196,7 +198,7 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
     state.transcript = Array.isArray(item.events) ? item.events : [];
     state.engine = item.engine || null;
     state.model = DEFAULT_AC_MODEL;
-    mountPiece(item.slug, item.source || STARTER);
+    mountPiece(item.slug, item.source || STARTER, item.version);
     state.published = Boolean(item.published && (!item.handle || item.handle === state.handle));
     write({ threadID: state.id, published: state.published });
     emit({type: "thread", id: state.id, medium: state.medium, events: state.transcript});
@@ -231,25 +233,31 @@ export function createSession({ storage = memoryStore(), emit = () => {} } = {})
   function pieceUrl() {
     if (!state.handle) return "";
     // Cache-busted: the URL is stable and the bytes behind it are not.
-    return `${SITE}/@${state.handle}/${state.slug}?nolabel=true&nogap=true#${Date.now()}`;
+    return `${SITE}/@${state.handle}/${state.slug}?nolabel=true&nogap=true&autoreload=true#${Date.now()}`;
   }
 
-  function mountPiece(slug, source) {
+  function mountPiece(slug, source, version = 0) {
     state.slug = slug;
     state.file = `/piece/${slug}.mjs`;
     state.server = null; // a new piece is a new conversation
     vfs.mount(state.file, source);
     state.published = false;
+    state.version = Number.isInteger(version) && version >= 0 ? version : 0;
+    state.revisionSource = source;
     write({ slug, source, published: false });
-    say("piece", { route: route(), slug, source });
+    say("piece", { route: route(), slug, source, version: state.version });
   }
 
   function onWritten(path, source) {
     if (path !== state.file) return;
+    if (source !== state.revisionSource) {
+      state.version += 1;
+      state.revisionSource = source;
+    }
     write({ slug: state.slug, source });
     saveCurrent();
     state.dirty = true;
-    say("source", { source });
+    say("source", { source, version: state.version });
     void publish();
   }
 

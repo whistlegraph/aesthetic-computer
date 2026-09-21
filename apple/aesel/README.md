@@ -113,3 +113,7 @@ models are automatic, including resumed threads with old manual choices. Dollar
 values come from the allowance endpoint and distinguish free from purchased credit.
 Account character colors come from AC's saved palette,
 including the `@` character, with the same fallback palette as desktop.
+
+## MCP and visual acceptance
+
+The native app exposes a private same-user automation mailbox. The monorepo adapter and Aesthetic Eye workflow live at `slab/bin/aesel-mcp.mjs`, `slab/bin/aesel-eye.mjs` and `slab/AESEL-EYE.md`. Tests inspect and act through stable UI control IDs without activating the window. Preview URLs use the same `nogap`, `nolabel` and `autoreload` contract as Electron; the footer shows the persisted piece revision starting at v0.

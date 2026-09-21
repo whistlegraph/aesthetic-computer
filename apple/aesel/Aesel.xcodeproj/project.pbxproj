@@ -31,6 +31,7 @@
 		A4B8792BDBB5F95822088FB0 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
 		A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
 		A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
+		AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
 		AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */; };
 		B7D0EF78D26BBA38AB801393 /* slab-theme.json in Resources */ = {isa = PBXBuildFile; fileRef = AACC6D25723505FB156B46F0 /* slab-theme.json */; };
 		B8236CE8844912F069905928 /* AeselScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */; };
@@ -39,6 +40,7 @@
 		C48716DE150CDF3FE383298E /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
 		C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
 		C5E4BB3C192D944F7CB281FC /* Session in Resources */ = {isa = PBXBuildFile; fileRef = 47AE0766266534A8EE665542 /* Session */; };
+		D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
 		E269C78DB87E568CC6F63CC8 /* AeselProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */; };
 		E9877D833B3CE6FE4FB14192 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
 		EE331E96C91793CBF5E52157 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
@@ -65,6 +67,7 @@
 		B7CE6904A010A2BEC894D13C /* AeselApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselApp.swift; sourceTree = "<group>"; };
 		BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotebook.swift; sourceTree = "<group>"; };
 		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
+		E270B97E651FC0013152574F /* AeselAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselAutomation.swift; sourceTree = "<group>"; };
 		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -73,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				B7CE6904A010A2BEC894D13C /* AeselApp.swift */,
+				E270B97E651FC0013152574F /* AeselAutomation.swift */,
 				A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */,
 				CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */,
 				F26176753E43E445E2CF551D /* AeselModelPicker.swift */,
@@ -230,6 +234,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */,
+				D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */,
 				A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */,
 				FBC8984584385405A83CB639 /* AeselHomeView.swift in Sources */,
 				C5323C1BB9D8D59F14A1FF74 /* AeselModelPicker.swift in Sources */,
@@ -250,6 +255,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4A5FFF82FBF2EF81CD8D158A /* AeselApp.swift in Sources */,
+				AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */,
 				E9877D833B3CE6FE4FB14192 /* AeselButtonStyle.swift in Sources */,
 				8A7F1BBCD12CDD5FE9707061 /* AeselHomeView.swift in Sources */,
 				2026E504A366EFEB32F2F822 /* AeselModelPicker.swift in Sources */,

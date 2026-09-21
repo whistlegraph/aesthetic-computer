@@ -76,6 +76,13 @@
       "args": [
         "toolchain/robloxplorer/testing-mcp.mjs"
       ]
+    },
+    "aesel": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/aesel-mcp.mjs"
+      ]
     }
   }
 }

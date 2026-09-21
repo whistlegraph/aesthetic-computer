@@ -15,6 +15,7 @@ import Security
 /// ES modules. JavaScriptCore has none of those.
 @MainActor
 final class SessionHost: NSObject {
+    let automation = AeselAutomation()
     private var webView: WKWebView!
     private var loginWebView: WKWebView?
     private var loginTimeout: Task<Void, Never>?
@@ -205,6 +206,7 @@ extension SessionHost: WKScriptMessageHandler {
                 return
             }
             let type = body["type"] as? String
+            if let type, type != "persist" { automation.record("session.\(type)") }
             NSLog("[aesel] event \(type ?? "?")")
 
             // `didFinish` is not readiness. It fires when the document has

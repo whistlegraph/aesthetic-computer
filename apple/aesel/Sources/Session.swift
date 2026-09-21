@@ -46,7 +46,16 @@ struct SessionSummary: Identifiable {
 /// something a view can draw.
 @Observable
 final class Session {
-    static let draftPreviewURL = URL(string: "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true")!
+    static let draftPreviewURL = embeddedPreviewURL(URL(string: "https://aesthetic.computer/wipe?noauth=true")!)
+    static func embeddedPreviewURL(_ url: URL) -> URL {
+        guard var target = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        if target.host == "prompt.ac" { target.host = "aesthetic.computer" }
+        let flags = ["nogap", "nolabel", "autoreload"]
+        var query = (target.queryItems ?? []).filter { !flags.contains($0.name) }
+        query += flags.map { URLQueryItem(name: $0, value: "true") }
+        target.queryItems = query
+        return target.url ?? url
+    }
     var entries: [Entry] = []
     var history: [SessionSummary] = []
     var medium = "piece"
@@ -58,6 +67,7 @@ final class Session {
     var status: String = "starting"
     var health: Health = .idle
     var route: String = ""
+    var pieceVersion = 0
     var previewURL: URL? = Session.draftPreviewURL
     var shareURL: URL?
     var source = ""
@@ -168,10 +178,12 @@ final class Session {
 
         case "source":
             source = event["source"] as? String ?? source
+            pieceVersion = event["version"] as? Int ?? pieceVersion
             previewURL = Self.draftPreviewURL
 
         case "piece":
             source = event["source"] as? String ?? source
+            pieceVersion = event["version"] as? Int ?? 0
             shareURL = nil
             previewURL = Self.draftPreviewURL
             route = event["route"] as? String ?? ""
@@ -179,7 +191,7 @@ final class Session {
         case "preview":
             if let text = event["url"] as? String {
                 shareURL = URL(string: text)
-                previewURL = shareURL
+                previewURL = shareURL.map(Self.embeddedPreviewURL)
             }
 
         case "status":

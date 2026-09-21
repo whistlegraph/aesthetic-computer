@@ -4,6 +4,7 @@ import WebKit
 /// Desktop rich replies, packaged locally; the agent host remains separate.
 struct AeselNotebook: AeselWebViewRepresentable {
     let session: Session
+    var automation: AeselAutomation? = nil
     var paint = Paint.base
     @Binding var height: CGFloat
     var openLink: (URL) -> Void
@@ -51,6 +52,7 @@ struct AeselNotebook: AeselWebViewRepresentable {
         config.userContentController.add(context.coordinator, name: "notebook")
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
+        automation?.notebook = view
         ApplePlatform.configureEmbeddedView(view)
         view.load(URLRequest(url: URL(string: "aesel-bundle://app/easel/phone/notebook.html")!))
         return view

@@ -6,12 +6,13 @@ import WebKit
 struct PieceView: View {
     let url: URL
     let source: String
+    var automation: AeselAutomation? = nil
     @State private var failure: String?
     @State private var attempt = 0
     @Environment(\.paint) private var paint
     var body: some View {
         ZStack {
-            PieceWebView(url: url, source: source, failure: $failure).id(attempt)
+            PieceWebView(url: url, source: source, automation: automation, failure: $failure).id(attempt)
                 .onChange(of: url) { _, _ in failure = nil }
                 .onChange(of: source) { _, _ in failure = nil }
             if let failure {
@@ -24,12 +25,16 @@ struct PieceView: View {
                     .background(paint.deep)
             }
         }
+        .onAppear { automation?.retryPreview = { failure = nil; attempt += 1 } }
+        .onChange(of: failure) { _, value in automation?.previewFailure = value }
+        .onDisappear { automation?.previewFailure = nil }
     }
 }
 
 private struct PieceWebView: AeselWebViewRepresentable {
     let url: URL
     let source: String
+    var automation: AeselAutomation?
     @Environment(\.colorScheme) private var colorScheme
 
     @Binding var failure: String?
@@ -90,7 +95,11 @@ private struct PieceWebView: AeselWebViewRepresentable {
             const source = window.__aeselSource;
             if (!ready || !window.acSEND || !source || source === rendered) return;
             rendered = source;
-            window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, isKidLisp: false}});
+            const flags = new URLSearchParams();
+            const query = new URLSearchParams(location.search);
+            for (const key of ['nogap', 'nolabel', 'autoreload']) flags.set(key, 'true');
+            for (const key of ['preview', 'icon']) if (query.has(key)) flags.set(key, query.get(key));
+            window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, search: flags.toString(), isKidLisp: false}});
           };
           window.addEventListener('message', event => {
             if (!ready && event.data?.type === 'ready') {
@@ -110,6 +119,7 @@ private struct PieceWebView: AeselWebViewRepresentable {
         """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
+        automation?.preview = view
         ApplePlatform.configureEmbeddedView(view)
         return view
     }
