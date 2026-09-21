@@ -3,16 +3,19 @@
    ruling and owns the scroll; this document only grows to fit its prose. */
 :root{color-scheme:dark;--aesel-background:#463264;--aesel-foreground:#fff;--user-ink:#e9b5d5;--number-ink:#ffd17c;--notebook-line-height:24px;--prose-font-size:16px}
 *{box-sizing:border-box}
-html,body{margin:0;overflow:hidden;background:transparent;color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
+html,body{margin:0;overflow:hidden;background:var(--aesel-background);color:var(--aesel-foreground);font:var(--prose-font-size)/var(--notebook-line-height) Arial,Helvetica,sans-serif}
+body{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(var(--notebook-line-height) - 1px),color-mix(in srgb,var(--aesel-foreground) 12%,transparent) calc(var(--notebook-line-height) - 1px),color-mix(in srgb,var(--aesel-foreground) 12%,transparent) var(--notebook-line-height))}
 #conversation{padding:0 10px;line-height:var(--notebook-line-height)}
 #notebook-page{overflow-wrap:anywhere}
 article{margin:0 0 24px;white-space:pre-wrap}
 article[data-kind=user]{color:var(--user-ink)}
-article[data-kind=error]{color:#ff9898}
+article[data-kind=error]{color:var(--error-ink,#ff9898)}
 article[data-kind=notice]{opacity:.7;font-size:14px}
 pre{max-width:100%;overflow:auto;white-space:pre;margin:24px 0;font:14px/24px Menlo,monospace}
 code{font:.88em Menlo,monospace}
 a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+a[href],button:not(:disabled),[role=button]:not([aria-disabled=true]){cursor:pointer}
+button:disabled,[aria-disabled=true]{cursor:default}
 .user-handle{font:inherit;opacity:.5}
 /* The desktop's pencil companion: two rows tall beside the latest user prose, behind the ink. */
 #notebook-activity{white-space:nowrap}

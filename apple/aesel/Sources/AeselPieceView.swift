@@ -19,7 +19,7 @@ struct PieceView: View {
                     Text("Preview could not load").font(Paint.font(20))
                     Text(failure).font(Paint.font(16)).multilineTextAlignment(.center)
                     Button("/retry") { self.failure = nil; attempt += 1 }
-                        .font(Paint.font(18)).foregroundStyle(paint.you).buttonStyle(.plain)
+                        .font(Paint.font(18)).foregroundStyle(paint.you).buttonStyle(AeselButtonStyle())
                 }.padding().frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(paint.deep)
             }
@@ -27,9 +27,10 @@ struct PieceView: View {
     }
 }
 
-private struct PieceWebView: UIViewRepresentable {
+private struct PieceWebView: AeselWebViewRepresentable {
     let url: URL
     let source: String
+    @Environment(\.colorScheme) private var colorScheme
 
     @Binding var failure: String?
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -61,10 +62,12 @@ private struct PieceWebView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator(failure: $failure) }
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeWebView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(context.coordinator, name: "previewFailure")
+        #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
+        #endif
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.userContentController.addUserScript(WKUserScript(source: """
         (() => {
@@ -107,15 +110,16 @@ private struct PieceWebView: UIViewRepresentable {
         """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
-        view.scrollView.isScrollEnabled = false
-        view.scrollView.contentInsetAdjustmentBehavior = .never
-        view.isOpaque = false
-        view.backgroundColor = .clear
-        view.isMultipleTouchEnabled = true
+        ApplePlatform.configureEmbeddedView(view)
         return view
     }
 
-    func updateUIView(_ view: WKWebView, context: Context) {
+    static func dismantleWebView(_ view: WKWebView, coordinator: Coordinator) {
+        view.configuration.userContentController.removeScriptMessageHandler(forName: "previewFailure")
+    }
+
+    func updateWebView(_ view: WKWebView, context: Context) {
+        ApplePlatform.setAppearance(view, colorScheme: colorScheme)
         context.coordinator.source = url.path.hasPrefix("/@") ? "" : source
         if context.coordinator.requestedURL != url {
             context.coordinator.requestedURL = url

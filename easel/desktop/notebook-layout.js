@@ -53,11 +53,16 @@
         );
       }
       if (title) {
-        const available = visible
-          ? Math.max(0, box.left - title.getBoundingClientRect().left - gap)
-          : view.clientWidth - 28;
-        const maxWidth = `${available}px`;
-        if (title.style.maxWidth !== maxWidth) title.style.maxWidth = maxWidth;
+        const left = title.getBoundingClientRect().left;
+        const right = visible ? Math.min(box.left - gap, view.getBoundingClientRect().left + view.clientWidth - 14)
+          : view.getBoundingClientRect().left + view.clientWidth - 14;
+        // Keep the full intrinsic title (including its ink padding), then fit
+        // its transform. A max-width clips both the last glyph and long names.
+        const maximum = String(Math.max(0, right - left) / Math.max(1, title.offsetWidth + 1));
+        if (title.dataset.proxMaxScale !== maximum) {
+          title.dataset.proxMaxScale = maximum;
+          title.dispatchEvent(new Event('prox-bounds-change'));
+        }
       }
       if (pin) view.scrollTop = view.scrollHeight;
       if (Math.abs(view.scrollTop - before) < 0.5) break;
@@ -72,6 +77,7 @@
   const observer = new ResizeObserver(window.layoutNotebookPreview);
   observer.observe(preview);
   observer.observe(view);
+  if (title) observer.observe(title);
   new MutationObserver(window.layoutNotebookPreview).observe(preview, {
     attributes: true,
     attributeFilter: ["hidden", "style", "class"],

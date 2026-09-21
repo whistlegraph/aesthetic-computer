@@ -1,10 +1,49 @@
-# aesel for iPhone
+# aesel for Mac and iPhone
+
+`Aesel` (iOS 17+) and `AeselMac` (macOS 14+) compile the same SwiftUI sources.
+`ApplePlatform.swift` adapts WebKit hosting and native image drawing to UIKit or
+AppKit. Both run the bundled JavaScript session, notebook renderer, and AC piece
+preview; the Mac target does not use Electron or start a Node process.
+The live WebKit preview stays in the upper-right corner, including for new
+pieces and thread changes, and can expand to fill the workspace.
+
+Appearance follows the system automatically. Native controls and the notebook
+share the system palette; enabled Mac buttons use a pointing hand.
+The [experience model](EXPERIENCE.md) defines draft, sign-in, generation, and
+publishing behavior, including the proposed guest AI allowance.
+The [integration roadmap](ROADMAP.md) inventories the remaining ports and their
+acceptance gates, including providers, paired hosts, media, files, and releases.
+The native provider dropdown retains AC, Claude, and Codex with their desktop
+images. Claude and Codex remain disabled until the CLI bridge is ported; AC's
+model is Automatic. The existing Electron app still supports all three.
+
+```sh
+./run.sh mac               # build and open Aesel Native.app
+```
+
+The native Mac target currently supports the shared Piece workflow: AC sign-in,
+hosted inference, drafts, publishing, notebook, saved threads and braincells.
+It uses the separate `computer.aesthetic.aesel.native` identity while desktop
+terminal/CLI providers, local media renderers and other Electron integrations
+are ported. It does not replace the installed Electron app or import its
+credentials. Mac sessions live in the app's Application Support directory;
+iPhone sessions retain their existing Documents location. Tokens use Keychain.
+
+To build both targets without installing, run `./bundle-session.sh` and
+`xcodegen generate`, then build schemes `AeselMac` (macOS) and `Aesel`
+(`generic/platform=iOS`, with signing disabled for a compile check).
+
+The preview state transitions have a standalone native check:
+
+```sh
+xcrun swiftc Sources/Session.swift Tests/SessionPreviewChecks.swift -o /tmp/aesel-preview-check
+/tmp/aesel-preview-check
+```
 
 Native SwiftUI chrome uses the desktop palette, typeface, mascot scene and slash
 commands. A hidden WKWebView runs the same JavaScript AC agent as the desktop;
 a separate WKWebView opens the signed-in user's published piece. Unpublished
-edits can preview through AC's JavaScript `dropped:piece` interface. Fresh
-sessions show the native canvas placeholder until a piece is available. The runtime and model still need an internet connection.
+edits can preview through AC's JavaScript `dropped:piece` interface. The runtime and model still need an internet connection.
 
 The notebook bundles the desktop's sanitized rich-reply renderer: ruled pages,
 Markdown, highlighted code, math, diagrams and color swatches. Tap the piece

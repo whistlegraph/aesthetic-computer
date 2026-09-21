@@ -46,6 +46,7 @@ struct SessionSummary: Identifiable {
 /// something a view can draw.
 @Observable
 final class Session {
+    static let draftPreviewURL = URL(string: "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true")!
     var entries: [Entry] = []
     var history: [SessionSummary] = []
     var medium = "piece"
@@ -57,7 +58,7 @@ final class Session {
     var status: String = "starting"
     var health: Health = .idle
     var route: String = ""
-    var previewURL: URL?
+    var previewURL: URL? = Session.draftPreviewURL
     var shareURL: URL?
     var source = ""
     var showSignIn = false
@@ -167,12 +168,12 @@ final class Session {
 
         case "source":
             source = event["source"] as? String ?? source
-            previewURL = URL(string: "https://aesthetic.computer/wipe?nogap=true&nolabel=true&noauth=true")
+            previewURL = Self.draftPreviewURL
 
         case "piece":
             source = event["source"] as? String ?? source
             shareURL = nil
-            previewURL = nil
+            previewURL = Self.draftPreviewURL
             route = event["route"] as? String ?? ""
 
         case "preview":

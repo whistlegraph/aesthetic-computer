@@ -1,5 +1,5 @@
 import SwiftUI
-import UIKit
+
 
 // The desktop's palette, typefaces and mascot, shared without redraws.
 // Title lettering is the desktop's Comic Sans MS Bold. iOS has no Comic Sans,
@@ -71,17 +71,21 @@ struct Paint: Equatable {
         }
     }
 
-    static func slab(status: String, busy: Bool, failed: Bool) -> Paint {
+    static func slab(status: String, busy: Bool, failed: Bool, colorScheme: ColorScheme = .dark) -> Paint {
         let name = slabStatus(status, busy: busy, failed: failed)
-        guard let palette = palettes[name] ?? palettes["blank"] else { return base }
+        let palette = palettes[name] ?? palettes["blank"] ?? Palette(background: [70,50,100], foreground: [255,255,255], bold: [255,255,255], cursor: [255,120,178])
         var paint = base
-        let bg = palette.background, fg = palette.foreground
+        // Prompt's purple night / legal-pad daylight; status tints stay subtle.
+        let dark = colorScheme == .dark
+        let paper: RGB = dark ? [70,50,100] : [252,247,197]
+        let bg = mix(paper, palette.cursor, name == "blank" ? 0 : 0.04)
+        let fg: RGB = dark ? [255,255,255] : [40,30,90]
         paint.bg = color(bg)
-        paint.deep = color(mix(bg, [0, 0, 0], 0.45))
+        paint.deep = color(mix(bg, dark ? [0,0,0] : [255,255,255], 0.25))
         paint.ink = color(fg)
         paint.rule = color(fg).opacity(0.12)
-        paint.accent = color(palette.cursor)
-        paint.you = color(palette.cursor)
+        paint.accent = color(readable(palette.cursor, on: bg))
+        paint.you = paint.accent
         paint.dim = color(readable([170, 150, 205], on: bg))
         paint.ac = color(readable([255, 100, 255], on: bg))
         paint.edit = color(readable([0, 255, 0], on: bg))
@@ -89,9 +93,12 @@ struct Paint: Equatable {
         let frame = mix(bg, palette.cursor, 0.25)
         paint.frame = color(frame)
         paint.frameEdge = color(mix(frame, [255, 255, 255], 0.65))
-        let userInk = mix(fg, [193, 43, 135], 0.35)
+        let userInk = readable(mix(fg, [193, 43, 135], 0.35), on: bg)
         paint.userInk = color(userInk)
-        paint.css = ["background": hex(bg), "foreground": hex(fg), "userInk": hex(userInk)]
+        paint.css = ["background": hex(bg), "foreground": hex(fg), "userInk": hex(userInk),
+                     "error": hex(readable([255,90,90], on: bg)),
+                     "number": hex(readable(dark ? [255,209,124] : [143,61,15], on: bg)),
+                     "colorScheme": dark ? "dark" : "light"]
         return paint
     }
 
@@ -137,32 +144,30 @@ extension EnvironmentValues {
 }
 
 /// The desktop's native Prox lettering (easel/desktop/native/credit-label.swift),
-/// drawn with UIKit: cyan, purple and pink echoes under a thin-outlined face
+/// drawn with the platform graphics context: cyan, purple and pink echoes under a thin-outlined face
 /// with a hard pink shadow, one cached image per letter so the notebook can
 /// tilt and sway each one on its own.
 enum Rock {
     static let inset: CGFloat = 9
-    private static var cache: [String: (UIImage, CGSize)] = [:]
+    private static var cache: [String: (AeselImage, CGSize)] = [:]
 
-    static func font(_ size: CGFloat) -> UIFont {
+    static func font(_ size: CGFloat) -> AeselFont {
         for name in ["ComicRelief-Bold", "ComicSansMS-Bold", "ChalkboardSE-Bold"] {
-            if let font = UIFont(name: name, size: size) { return font }
+            if let font = AeselFont(name: name, size: size) { return font }
         }
         return .systemFont(ofSize: size, weight: .heavy)
     }
 
     /// A letter's image plus its advance box; the image overhangs the box by
     /// `inset` on every side so the echoes and shadow are not clipped.
-    static func glyph(_ text: String, size: CGFloat, face: UIColor = .white) -> (image: UIImage, advance: CGSize) {
+    static func glyph(_ text: String, size: CGFloat, face: AeselColor = .white) -> (image: AeselImage, advance: CGSize) {
         let key = "\(text)|\(size)|\(face)"
         if let hit = cache[key] { return hit }
         let font = font(size)
         let advance = (text as NSString).size(withAttributes: [.font: font])
         let bounds = CGSize(width: ceil(advance.width + inset * 2), height: ceil(advance.height + inset * 2))
-        let format = UIGraphicsImageRendererFormat.default()
-        format.opaque = false
-        let image = UIGraphicsImageRenderer(size: bounds, format: format).image { _ in
-            let echoes: [(UIColor, CGFloat, CGFloat)] = [
+        let image = ApplePlatform.image(size: bounds) {
+            let echoes: [(AeselColor, CGFloat, CGFloat)] = [
                 (.systemCyan.withAlphaComponent(0.28), 4.5, 3),
                 (.systemPurple.withAlphaComponent(0.40), 3, 2),
                 (.systemPink.withAlphaComponent(0.65), 1.5, 1.5),
@@ -172,13 +177,13 @@ enum Rock {
                     .draw(at: CGPoint(x: inset + x, y: inset + y))
             }
             let shadow = NSShadow()
-            shadow.shadowColor = UIColor.systemPink.withAlphaComponent(0.5)
+            shadow.shadowColor = AeselColor.systemPink.withAlphaComponent(0.5)
             shadow.shadowBlurRadius = 0
             shadow.shadowOffset = CGSize(width: 1.5, height: 1.5)
             NSAttributedString(string: text, attributes: [
                 .font: font,
                 .foregroundColor: face.withAlphaComponent(0.94),
-                .strokeColor: UIColor(white: 0.08, alpha: 1),
+                .strokeColor: AeselColor(white: 0.08, alpha: 1),
                 .strokeWidth: -3.5,
                 .shadow: shadow,
             ]).draw(at: CGPoint(x: inset, y: inset))
@@ -202,7 +207,7 @@ extension Color {
     }
 }
 
-extension UIColor {
+extension AeselColor {
     // "#rrggbb" from the account palette, or nil.
     convenience init?(hex: String) {
         guard hex.count == 7, let rgb = UInt32(hex.dropFirst(), radix: 16) else { return nil }
@@ -240,7 +245,7 @@ struct AeselWordmark: View {
     var text = "aesel"
     @Environment(\.paint) private var paint
     var body: some View {
-        let colors: [Color] = [.orange, paint.ac, paint.edit, paint.dim, paint.you]
+        let colors: [Color] = [paint.accent, paint.ac, paint.edit, paint.dim, paint.you]
         HStack(spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, letter in
                 Text(String(letter)).foregroundStyle(colors[index % colors.count])
@@ -260,6 +265,7 @@ struct AeselTitle: View {
     let text: String
     var colors: [String] = []
     var size: CGFloat = 20
+    var maximumWidth: CGFloat? = nil
 
     private static func fnv(_ text: String) -> UInt32 {
         var hash: UInt32 = 2166136261
@@ -268,13 +274,16 @@ struct AeselTitle: View {
     }
 
     // "@handle" letters wear the account palette; the piece name stays white.
-    private func face(_ index: Int, handle: Int) -> UIColor {
-        guard index < handle, colors.indices.contains(index), let color = UIColor(hex: colors[index]) else { return .white }
+    private func face(_ index: Int, handle: Int) -> AeselColor {
+        guard index < handle, colors.indices.contains(index), let color = AeselColor(hex: colors[index]) else { return .white }
         return color
     }
 
     var body: some View {
         let handle = text.hasPrefix("@") ? text.prefix(while: { $0 != "/" }).count : 0
+        // Include image overhang and sway when fitting a one-line title.
+        let width = text.reduce(CGFloat(24)) { $0 + (String($1) as NSString).size(withAttributes: [.font: Rock.font(size)]).width }
+        let scale = maximumWidth.map { min(1, max(0, $0) / width) } ?? 1
         HStack(alignment: .top, spacing: 0) {
             ForEach(Array(text.enumerated()), id: \.offset) { index, letter in
                 let hash = Self.fnv("rock\(index)\(text)")
@@ -286,6 +295,10 @@ struct AeselTitle: View {
                     .offset(y: -(CGFloat(hash % 5) / 2 - 1))
             }
         }
+        .padding(.horizontal, 12)
+        .fixedSize()
+        .scaleEffect(scale, anchor: .leading)
+        .frame(width: width * scale, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(text)
     }
@@ -296,7 +309,7 @@ struct AeselTitle: View {
 private struct RockLetter: View {
     let text: String
     let size: CGFloat
-    let face: UIColor
+    let face: AeselColor
     let beat: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var swaying = false
@@ -306,7 +319,7 @@ private struct RockLetter: View {
         Color.clear
             .frame(width: glyph.advance.width, height: glyph.advance.height)
             .overlay(alignment: .topLeading) {
-                Image(uiImage: glyph.image).offset(x: -Rock.inset, y: -Rock.inset)
+                Image(aeselImage: glyph.image).offset(x: -Rock.inset, y: -Rock.inset)
             }
             .rotationEffect(.degrees(swaying ? 0.8 : -1.2))
             .offset(y: swaying ? 0.8 : -1.2)
@@ -323,12 +336,12 @@ struct AeselDonkey: View {
     var busy: Bool
     var failed: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private static let frames: [UIImage] = {
+    private static let frames: [AeselImage] = {
         guard let url = Bundle.main.url(forResource: "donkey-pencil-run-v2", withExtension: "png", subdirectory: "Session/easel/desktop/assets"),
-              let sheet = UIImage(contentsOfFile: url.path)?.cgImage else { return [] }
+              let sheet = ApplePlatform.cgImage(at: url) else { return [] }
         let cell = sheet.width / 4
         return (0..<8).compactMap { index in
-            sheet.cropping(to: CGRect(x: (index % 4) * cell, y: (index / 4) * sheet.height / 2 + 64, width: cell, height: 416)).map { UIImage(cgImage: $0) }
+            sheet.cropping(to: CGRect(x: (index % 4) * cell, y: (index / 4) * sheet.height / 2 + 64, width: cell, height: 416)).map { ApplePlatform.image(cgImage: $0) }
         }
     }()
 
@@ -336,7 +349,7 @@ struct AeselDonkey: View {
         TimelineView(.animation(minimumInterval: 0.09, paused: reduceMotion || !busy)) { timeline in
             let index = busy && !reduceMotion ? Int(timeline.date.timeIntervalSinceReferenceDate / 0.09) % 8 : 0
             if Self.frames.indices.contains(index) {
-                Image(uiImage: Self.frames[index])
+                Image(aeselImage: Self.frames[index])
                     .resizable()
                     .scaledToFit()
                     .opacity(failed ? 0.5 : 1)

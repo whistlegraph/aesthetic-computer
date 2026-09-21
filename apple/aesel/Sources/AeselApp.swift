@@ -8,15 +8,32 @@ struct AeselApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        ApplePlatform.registerFonts()
         let session = Session()
         _session = State(initialValue: session)
         _host = State(initialValue: SessionHost(session: session, store: SessionStore()))
     }
 
     var body: some Scene {
-        WindowGroup {
+        #if os(macOS)
+        Window("aesel", id: "workspace") {
+            workspace.frame(minWidth: 360, minHeight: 420)
+        }
+        .defaultSize(width: 840, height: 680)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Piece") { host.newSession(medium: "piece") }
+                    .keyboardShortcut("n")
+                    .disabled(session.busy)
+            }
+        }
+        #else
+        WindowGroup { workspace }
+        #endif
+    }
+
+    private var workspace: some View {
             ContentView(session: session, host: host)
-                .preferredColorScheme(.dark)
                 .onChange(of: scenePhase) { _, phase in
                     if phase != .active { host.save() }
                     else if started { host.refreshCredits() }
@@ -38,9 +55,10 @@ struct AeselApp: App {
                         session.purchasedDollars = 1.41
                         session.append(.you, "Make a little orange circle.")
                         session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
+                        session.previewURL = nil
                         if ProcessInfo.processInfo.environment["AESEL_PREVIEW_PIECE"] == "1" {
-                            session.previewURL = URL(string: "https://aesthetic.computer/blank")
-                            session.source = "wipe(\"orange\");"
+                            session.previewURL = Session.draftPreviewURL
+                            session.source = "export function paint({wipe}) { wipe(\"orange\"); }"
                         }
                         if ProcessInfo.processInfo.environment["AESEL_PREVIEW_BUSY"] == "1" {
                             session.append(.you, "Now make it bounce.")
@@ -53,7 +71,6 @@ struct AeselApp: App {
                     #endif
                     host.start(hostURL: Self.hostURL)
                 }
-        }
     }
 
     /// Release sessions load immutable app resources. Developers can explicitly

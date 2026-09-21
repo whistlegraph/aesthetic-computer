@@ -175,7 +175,8 @@ body.preview-fullscreen::before{display:none;}
 #notebook-content{display:flow-root;flex:none;min-width:0}
 #notebook-preview-space{float:right;pointer-events:none}
 #notebook-preview-space[hidden]{display:none}
-#conversation>#qr-label{overflow:hidden}
+/* Native letter images include shadows and sway outside their text advance. */
+#conversation>#qr-label{overflow:visible}
 #notebook-page>#prose-prompt{position:relative;inset:auto;z-index:auto;flex:none;margin-top:auto;margin-right:100px;height:auto;overflow:visible;background:none;line-height:var(--notebook-line-height,24px)}
 #prompt-feedback{bottom:14px;right:110px}
 
@@ -203,7 +204,7 @@ body.preview-fullscreen::before{display:none;}
 @media(prefers-reduced-motion:reduce){.ink-stamp{animation:none}}
 
 /* The title occupies the first ruled row, then sticks while the sheet moves. */
-#conversation>#qr-label,#conversation>#qr-label[data-swift-letters="true"]{position:sticky;top:0;left:auto;margin:0 0 0 10px;padding:0;box-sizing:border-box;height:var(--notebook-line-height,24px);min-height:var(--notebook-line-height,24px);line-height:var(--notebook-line-height,24px);display:flex;align-items:center;width:max-content;z-index:15}
+#conversation>#qr-label,#conversation>#qr-label[data-swift-letters="true"]{position:sticky;top:0;left:auto;margin:0 0 0 10px;padding:0 12px;box-sizing:border-box;height:var(--notebook-line-height,24px);min-height:var(--notebook-line-height,24px);line-height:var(--notebook-line-height,24px);display:flex;align-items:center;width:max-content;max-width:none;z-index:15}
 #conversation>#qr-label[hidden],body[data-phase="startup"] #conversation>#qr-label,body.preview-fullscreen #conversation>#qr-label{display:none}
 #conversation>#qr-label .qr-letter{flex:none}
 body::before{left:10px}

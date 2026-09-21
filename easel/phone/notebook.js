@@ -3,10 +3,11 @@ window.aesel = {openLink(url) {
   if (/^https?:\/\//i.test(url)) window.webkit?.messageHandlers?.notebook?.postMessage({url});
 }};
 window.updatePhoneNotebook = value => {
-  for (const [name, property] of [['background','--aesel-background'],['foreground','--aesel-foreground'],['userInk','--user-ink']]) {
+  for (const [name, property] of [['background','--aesel-background'],['foreground','--aesel-foreground'],['userInk','--user-ink'],['error','--error-ink'],['number','--number-ink']]) {
     const color = value.theme?.[name];
     if (/^#[0-9a-f]{6}$/i.test(color || '')) document.documentElement.style.setProperty(property, color);
   }
+  if (['light','dark'].includes(value.theme?.colorScheme)) document.documentElement.style.colorScheme = value.theme.colorScheme;
   window.setNotebookHandle(value.handle || '', value.colors || []);
   window.updateConversation({entries:value.entries});
   placeActivity(!!value.busy, value.activity || '');

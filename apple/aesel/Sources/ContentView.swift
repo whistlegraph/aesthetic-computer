@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var attended = true
     @FocusState private var writing: Bool
     @Environment(\.openURL) private var openURL
+    @Environment(\.colorScheme) private var colorScheme
 
     /// One ruled row of the sheet, as the desktop's --notebook-line-height.
     private let row: CGFloat = 24
@@ -33,7 +34,7 @@ struct ContentView: View {
     /// Slab's palette for what the session is doing right now.
     private var paint: Paint {
         let status = attended && session.status == "ready" ? "blank" : session.status
-        return Paint.slab(status: status, busy: session.busy, failed: session.health == .failed || session.fatal != nil)
+        return Paint.slab(status: status, busy: session.busy, failed: session.health == .failed || session.fatal != nil, colorScheme: colorScheme)
     }
 
     var body: some View {
@@ -51,6 +52,7 @@ struct ContentView: View {
         }
         .overlay { if showSettings { settingsPane } }
         .font(Paint.font())
+        .buttonStyle(AeselButtonStyle())
         .foregroundStyle(paint.ink)
         .background { AeselCloth().ignoresSafeArea() }
         .background(HostCarrier(host: host).frame(width: 0, height: 0))
@@ -98,6 +100,9 @@ struct ContentView: View {
                     }
                 }
             }
+            .buttonStyle(AeselButtonStyle())
+            .environment(\.paint, paint)
+            .aeselSignInSheet()
         }
     }
 
@@ -115,6 +120,11 @@ struct ContentView: View {
                             Color.clear.frame(height: previewBlockHeight)
                             if previewVisible { previewBox }
                         }
+                        if !session.signedIn {
+                            Button("Sign in to AC") { host.signIn() }
+                                .buttonStyle(AeselButtonStyle()).foregroundStyle(paint.ink)
+                                .frame(height: row).padding(.horizontal, 10)
+                        }
                         AeselNotebook(session: session, paint: paint, height: $notebookHeight) { openURL($0) }
                             .frame(height: max(row, notebookHeight))
                         if session.fatal != nil {
@@ -127,10 +137,10 @@ struct ContentView: View {
                     .frame(minHeight: geometry.size.height, alignment: .top)
                     .background(alignment: .top) { AeselRuling(spacing: row) }
                 }
-                .scrollDismissesKeyboard(.interactively)
+                .aeselKeyboardScrolling()
                 .overlay(alignment: .topLeading) {
                     let clear = previewVisible ? previewSize.width + 8 + 2 + previewInset + 16 : 0
-                    title.frame(maxWidth: max(60, geometry.size.width - 10 - clear), alignment: .leading).clipped()
+                    title(availableWidth: max(0, geometry.size.width - 10 - clear))
                 }
                 .onChange(of: notebookHeight) { if session.busy || writing { proxy.scrollTo("prompt", anchor: .bottom) } }
                 .onChange(of: writing) { if writing { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
@@ -139,15 +149,18 @@ struct ContentView: View {
         }
     }
 
-    private var title: some View {
-        Button {
-            if let url = session.shareURL { openURL(url) }
-        } label: {
-            AeselTitle(text: session.route.isEmpty ? "new piece" : session.route, colors: session.handleColors)
+    private func title(availableWidth: CGFloat) -> some View {
+        Group {
+            if let url = session.shareURL {
+                Button { openURL(url) } label: {
+                    AeselTitle(text: session.route.isEmpty ? "new piece" : session.route, colors: session.handleColors, maximumWidth: availableWidth)
+                }
+                .buttonStyle(AeselButtonStyle())
+                .accessibilityLabel("Open piece in browser")
+            } else {
+                AeselTitle(text: session.route.isEmpty ? "new piece" : session.route, colors: session.handleColors, maximumWidth: availableWidth)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(session.shareURL == nil)
-        .accessibilityLabel("Open piece in browser")
         .frame(height: row)
         .padding(.leading, 10)
     }
@@ -168,7 +181,7 @@ struct ContentView: View {
                     .overlay { RoundedRectangle(cornerRadius: 4).stroke(Color.white.opacity(0.4), lineWidth: 1) }
                     .clipShape(RoundedRectangle(cornerRadius: 4))
             }
-            .buttonStyle(.plain).foregroundStyle(.white).padding(5)
+            .buttonStyle(AeselButtonStyle()).foregroundStyle(.white).padding(5)
             .accessibilityLabel("Expand piece")
         }
         .padding(4)
@@ -190,7 +203,7 @@ struct ContentView: View {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
                     .font(.system(size: 14)).padding(10).background(paint.deep.opacity(0.85))
             }
-            .buttonStyle(.plain).padding(5)
+            .buttonStyle(AeselButtonStyle()).padding(5)
             .accessibilityLabel("Return to aesel")
         }
     }
@@ -206,7 +219,7 @@ struct ContentView: View {
             TextField("make something…", text: $draft, axis: .vertical)
                 .font(Paint.font(16)).foregroundStyle(paint.userInk).tint(paint.userInk)
                 .lineLimit(1...6).textFieldStyle(.plain)
-                .focused($writing).submitLabel(.send)
+                .focused($writing).aeselSendLabel()
                 .onSubmit { send() }.autocorrectionDisabled()
                 .frame(minHeight: row)
             if session.busy {
@@ -221,7 +234,7 @@ struct ContentView: View {
                 .accessibilityLabel("Send")
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AeselButtonStyle())
         .padding(.leading, 10).padding(.trailing, 100).padding(.bottom, 8)
     }
 
@@ -231,7 +244,7 @@ struct ContentView: View {
         Button { openSettings() } label: {
             AeselTitle(text: "v\(appVersion)", size: 16).padding(9)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(AeselButtonStyle())
         .padding(.trailing, 1)
         .accessibilityLabel("Version \(appVersion). Settings")
     }
@@ -250,17 +263,13 @@ struct ContentView: View {
         if let action { DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: action) }
     }
 
-    private var modelName: String {
-        let served = session.reportedModel.isEmpty ? session.model : session.reportedModel
-        return served.isEmpty ? "choosing…" : served
-    }
-
     private func usd(_ value: Double) -> String { value.formatted(.currency(code: "USD")) }
 
     /// The desktop's #provider-menu: a centred card over the blurred sheet,
     /// 15pt Helvetica, hairline sections, with the account, the automatic
     /// model, braincells and the way to buy more.
     private var settingsPane: some View {
+        GeometryReader { geometry in
         ZStack {
             Color.black.opacity(0.4).ignoresSafeArea()
                 .onTapGesture { closeSettings() }
@@ -281,15 +290,24 @@ struct ContentView: View {
                     .padding(.bottom, 6)
 
                     settingsField("Provider") {
-                        HStack(spacing: 9) {
-                            Image("braincell").resizable().scaledToFit().frame(width: 25, height: 25)
-                            Text("Braincells")
+                        AeselProviderPicker(busy: session.busy)
+                    }
+                    settingsField("Model") {
+                        Menu {
+                            Button("Automatic") {}
+                        } label: {
+                            HStack {
+                                Text("Automatic")
+                                Spacer()
+                                Image(systemName: "chevron.down").font(.system(size: 11))
+                            }
+                            .frame(maxWidth: .infinity).frame(height: 36)
                         }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                        .frame(height: 36)
+                        .disabled(true)
                     }
-                    settingsField("Automatic model") {
-                        Text(modelName).lineLimit(1).truncationMode(.middle)
-                    }
-                    .accessibilityLabel("Automatic model, \(modelName)")
+                    .accessibilityLabel("Model, managed automatically by AC")
 
                     Text(["Remote inference", session.status].joined(separator: " · "))
                         .padding(.top, 14)
@@ -299,7 +317,7 @@ struct ContentView: View {
                     }
 
                     if session.signedIn {
-                        HStack(spacing: 9) {
+                        Button { host.refreshCredits() } label: { HStack(spacing: 9) {
                             Image("braincell").resizable().scaledToFit().frame(width: 25, height: 25)
                             if let dollars = session.braincellDollars, let balance = session.braincells {
                                 Text("\(usd(dollars)) · \(balance.formatted(.number.precision(.fractionLength(0)))) braincells")
@@ -308,9 +326,8 @@ struct ContentView: View {
                             } else {
                                 Text(session.creditsStatus)
                             }
-                        }
+                        } }
                         .padding(.top, 14)
-                        .onTapGesture { host.refreshCredits() }
                         .accessibilityHint("Refresh balance")
                         if let free = session.freeDollars, let paid = session.purchasedDollars {
                             Text("\(usd(free)) daily · \(usd(paid)) purchased")
@@ -338,7 +355,7 @@ struct ContentView: View {
                 .padding(EdgeInsets(top: 20, leading: 24, bottom: 20, trailing: 24))
             }
             .frame(maxWidth: 560)
-            .frame(maxHeight: UIScreen.main.bounds.height * 0.85)
+            .frame(maxHeight: geometry.size.height * 0.85)
             .fixedSize(horizontal: false, vertical: true)
             .background(paint.bg)
             .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -347,8 +364,9 @@ struct ContentView: View {
             .padding(24)
         }
         .font(Paint.font(15))
-        .buttonStyle(.plain)
+        .buttonStyle(AeselButtonStyle())
         .transition(.opacity)
+        }
     }
 
     /// The App Store purchase: one big green button with Apple's price.
@@ -415,13 +433,12 @@ struct ContentView: View {
         .font(Paint.font(22)).padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background { AeselCloth().ignoresSafeArea() }
-        .presentationDetents([.medium])
+        .aeselHelpSheet()
     }
 
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        draft = ""
         switch text {
         case "/new", "/home": writing = false; showHome = true
         case "/publish": host.publish()
@@ -431,22 +448,28 @@ struct ContentView: View {
         case "/settings": openSettings()
         case "/buy": openSettings(); Task { await braincells.buy() }
         case "/help": showHelp = true
-        default: host.ask(text)
+        default:
+            guard session.signedIn else { host.signIn(); return }
+            host.ask(text)
         }
+        draft = ""
     }
+
+
 }
 
 /// Puts the hidden session webview in the hierarchy without drawing it.
-private struct HostCarrier: UIViewRepresentable {
+private struct HostCarrier: AeselWebViewRepresentable {
     let host: SessionHost
 
-    func makeUIView(context: Context) -> WKWebView { host.attachable }
-    func updateUIView(_ view: WKWebView, context: Context) {}
+    func makeWebView(context: Context) -> WKWebView { host.attachable }
+    func updateWebView(_ view: WKWebView, context: Context) {}
 }
 
 
-private struct SignInCarrier: UIViewRepresentable {
+private struct SignInCarrier: AeselWebViewRepresentable {
     let host: SessionHost
-    func makeUIView(context: Context) -> WKWebView { host.signInView }
-    func updateUIView(_ view: WKWebView, context: Context) {}
+    @Environment(\.colorScheme) private var colorScheme
+    func makeWebView(context: Context) -> WKWebView { host.signInView }
+    func updateWebView(_ view: WKWebView, context: Context) { ApplePlatform.setAppearance(view, colorScheme: colorScheme) }
 }

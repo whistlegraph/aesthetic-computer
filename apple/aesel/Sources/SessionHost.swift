@@ -105,17 +105,9 @@ final class SessionHost: NSObject {
         controller.add(self, name: "acSignIn")
         controller.addUserScript(WKUserScript(source: """
         if (location.origin === 'https://aesthetic.computer') {
-          let delivered = false, requested = false;
-          const startLogin = new URLSearchParams(location.search).has("aeselLogin");
+          let delivered = false;
           setInterval(async () => {
             if (delivered) return;
-            if (startLogin && !requested && window.acLOGIN) {
-              requested = true;
-              if (!window.auth0Client || !(await window.auth0Client.isAuthenticated())) {
-                window.acLOGIN();
-                return;
-              }
-            }
             if (!window.auth0Client) return;
             try {
               if (!(await window.auth0Client.isAuthenticated())) return;
@@ -129,7 +121,7 @@ final class SessionHost: NSObject {
         config.userContentController = controller
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = self
-        view.alpha = 0
+        view.aeselOpacity = 0
         loginWebView = view
         return view
     }
@@ -138,9 +130,9 @@ final class SessionHost: NSObject {
         session.showSignIn = true
         session.signInError = nil
         session.signInLoading = true
-        signInView.alpha = 0
+        signInView.aeselOpacity = 0
         armLoginTimeout()
-        signInView.load(URLRequest(url: URL(string: "https://aesthetic.computer/?aeselLogin=1")!))
+        signInView.load(URLRequest(url: URL(string: "https://aesthetic.computer/")!))
     }
 
     private func armLoginTimeout() {
@@ -253,7 +245,7 @@ extension SessionHost: WKNavigationDelegate {
         MainActor.assumeIsolated {
             guard webView === loginWebView else { return }
             session.signInLoading = true
-            webView.alpha = 0
+            webView.aeselOpacity = 0
             armLoginTimeout()
         }
     }
@@ -262,10 +254,11 @@ extension SessionHost: WKNavigationDelegate {
         // Deliberately does not mark the host ready; see the `ready` event.
         MainActor.assumeIsolated {
             if webView === loginWebView {
-                let isCallback = webView.url?.host == "aesthetic.computer"
-                session.signInLoading = isCallback
-                webView.alpha = isCallback ? 0 : 1
-                if isCallback { armLoginTimeout() } else { loginTimeout?.cancel() }
+                // Show the actual prompt curtain; its Login / Sign Up actions
+                // open AC authentication. The trusted token bridge stays active.
+                session.signInLoading = false
+                webView.aeselOpacity = 1
+                loginTimeout?.cancel()
             } else { NSLog("[aesel] host page loaded") }
         }
     }
@@ -301,15 +294,20 @@ extension SessionHost: WKNavigationDelegate {
     }
 }
 
-/// A session on disk. One JSON file in Documents, which is the container iOS
-/// actually gives an app — there is no ~/.local/share to keep a piece in.
+/// One atomic session file: iOS Documents or the Mac app's Application Support directory.
 final class SessionStore {
     private let url: URL
     private var values: [String: String]
 
     init() {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        url = documents.appendingPathComponent("session.json")
+        #if os(macOS)
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(Bundle.main.bundleIdentifier ?? "computer.aesthetic.aesel.native", isDirectory: true)
+        #else
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        #endif
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        url = directory.appendingPathComponent("session.json")
         if let data = try? Data(contentsOf: url),
            let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
             values = decoded
@@ -341,9 +339,17 @@ final class SessionStore {
         try? data.write(to: url, options: .atomic)
     }
 
+    private static var keychainService: String {
+        #if os(macOS)
+        return (Bundle.main.bundleIdentifier ?? "computer.aesthetic.aesel.native") + ".session"
+        #else
+        return "computer.aesthetic.aesel.session"
+        #endif
+    }
+
     private var tokenQuery: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "computer.aesthetic.aesel.session",
+         kSecAttrService as String: Self.keychainService,
          kSecAttrAccount as String: "access-token"]
     }
 

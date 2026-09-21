@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 
 /// Desktop rich replies, packaged locally; the agent host remains separate.
-struct AeselNotebook: UIViewRepresentable {
+struct AeselNotebook: AeselWebViewRepresentable {
     let session: Session
     var paint = Paint.base
     @Binding var height: CGFloat
@@ -45,21 +45,18 @@ struct AeselNotebook: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(openLink: openLink) }
-    func makeUIView(context: Context) -> WKWebView {
+    func makeWebView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(context.coordinator.scheme, forURLScheme: "aesel-bundle")
         config.userContentController.add(context.coordinator, name: "notebook")
         let view = WKWebView(frame: .zero, configuration: config)
         view.navigationDelegate = context.coordinator
-        view.isOpaque = false
-        view.backgroundColor = .clear
-        view.scrollView.backgroundColor = .clear
-        view.scrollView.isScrollEnabled = false
-        view.scrollView.contentInsetAdjustmentBehavior = .never
+        ApplePlatform.configureEmbeddedView(view)
         view.load(URLRequest(url: URL(string: "aesel-bundle://app/easel/phone/notebook.html")!))
         return view
     }
-    func updateUIView(_ view: WKWebView, context: Context) {
+    func updateWebView(_ view: WKWebView, context: Context) {
+        ApplePlatform.setAppearance(view, colorScheme: paint.css["colorScheme"] == "light" ? .light : .dark)
         var entries = session.entries.filter { $0.kind != .edit }.map { entry in
             ["id": entry.id.uuidString, "kind": entry.kind == .you ? "user" : entry.kind == .ac ? "assistant" : entry.kind == .bad ? "error" : "notice", "text": entry.text]
         }
@@ -84,7 +81,7 @@ struct AeselNotebook: UIViewRepresentable {
             context.coordinator.render(view)
         }
     }
-    static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
+    static func dismantleWebView(_ view: WKWebView, coordinator: Coordinator) {
         view.configuration.userContentController.removeScriptMessageHandler(forName: "notebook")
     }
 }

@@ -13,3 +13,4 @@ cp ../../easel/desktop/rich.css Resources/Session/easel/desktop/
 # The desktop's pencil companion sheet, drawn natively by AeselDonkey.
 mkdir -p Resources/Session/easel/desktop/assets
 cp ../../easel/desktop/assets/donkey-pencil-run-v2.png Resources/Session/easel/desktop/assets/
+cp ../../easel/desktop/assets/donkey-pencil-thinking-v1.png Resources/Session/easel/desktop/assets/

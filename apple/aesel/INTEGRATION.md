@@ -1,5 +1,11 @@
 # aesel on Mac and iPhone
 
+The current shared-shell contracts and remaining work are in
+[EXPERIENCE.md](EXPERIENCE.md) and [ROADMAP.md](ROADMAP.md). They supersede the
+older launch, appearance, preview, and prototype identity assumptions below.
+The native development Mac target uses `computer.aesthetic.aesel.native`;
+the established product/iOS identity remains `computer.aesthetic.easel`.
+
 The iPhone app should feel like the same workspace: lowercase `aesel`, the same
 pixel font and donkey, purple scene, account label, transcript, composer, and
 live artwork preview. The layout adapts to touch, the keyboard, and safe areas.

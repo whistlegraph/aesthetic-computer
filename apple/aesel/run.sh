@@ -4,6 +4,7 @@
 #   ./run.sh                 → the simulator
 #   ./run.sh device          → the iPhone plugged into this Mac
 #   ./run.sh device "ask…"   → same, running one prompt on launch
+#   ./run.sh mac             → the shared native Mac app
 #
 # The shared JavaScript session is bundled into the app.
 set -euo pipefail
@@ -16,6 +17,15 @@ DERIVED=${DERIVED:-/tmp/aesel-dd}
 ./bundle-session.sh
 
 xcodegen generate >/dev/null
+
+if [ "$MODE" = "mac" ]; then
+  xcodebuild -project Aesel.xcodeproj -scheme AeselMac \
+    -destination 'platform=macOS' -derivedDataPath "$DERIVED" \
+    -jobs 2 CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES build
+  APP="$DERIVED/Build/Products/Debug/Aesel Native.app"
+  open -n "$APP" --env "AESEL_ASK=$ASK"
+  exit 0
+fi
 
 if [ "$MODE" = "device" ]; then
   xcodebuild -project Aesel.xcodeproj -scheme Aesel \
