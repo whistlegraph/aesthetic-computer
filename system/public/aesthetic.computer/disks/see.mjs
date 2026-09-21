@@ -1,6 +1,5 @@
 // see, 26.04.23
-// Image generation via NVIDIA NIM FLUX.1 schnell, with a bounded GPT Image
-// fallback and two AC style presets baked into the proxy at /api/flux.
+// Budgeted Cloudflare FLUX.1 schnell image generation via /api/flux.
 //
 // Usage:
 //   see                              — show usage
@@ -8,7 +7,7 @@
 //   see:warm a happy frog            — soft pastel mascot preset
 //   see:raw photorealistic frog      — no AC style suffix, raw FLUX
 //
-// Tap to roll a new seed. Backspace to clear and re-prompt.
+// Tap to generate another variation. Backspace to clear and re-prompt.
 
 const { floor, min, max } = Math;
 
@@ -35,7 +34,7 @@ function boot({ params, colon, hud }) {
 function meta() {
   return {
     title: "see",
-    desc: "Free FLUX image generation in your AC palette.",
+    desc: "Generate an image in your AC palette.",
   };
 }
 
@@ -47,7 +46,8 @@ async function generate() {
   ellipsis = 0;
 
   abortController?.abort();
-  abortController = new AbortController();
+  const requestController = new AbortController();
+  abortController = requestController;
 
   try {
     const res = await fetch("/api/flux", {
@@ -58,10 +58,11 @@ async function generate() {
         preset: presetName,
         ...(seedNum !== null ? { seed: seedNum } : {}),
       }),
-      signal: abortController.signal,
+      signal: requestController.signal,
     });
 
     const data = await res.json();
+    if (requestController.signal.aborted) return;
     if (!data.ok) {
       const retrySeconds = Number(
         res.headers.get("Retry-After") || data.retry_after,
@@ -74,51 +75,42 @@ async function generate() {
       errorMsg =
         data.reason === "filtered"
           ? "blocked by safety filter — try different wording"
-          : data.reason === "no_key"
-            ? "server has no image provider key"
-            : data.reason === "timeout"
-              ? "timed out — NVIDIA may be slow, tap to retry"
-              : data.reason === "temporarily_unavailable"
-                ? "image generation is temporarily unavailable"
-                : data.reason === "fallback_budget_exhausted"
-                  ? "image generation is temporarily unavailable"
-                  : data.reason === "upstream"
-                    ? "NVIDIA error — tap to retry"
-                    : data.reason === "fallback_upstream"
-                      ? "fallback error — tap to retry"
-                      : `error: ${data.reason || "unknown"}`;
+          : data.reason === "image_budget_exhausted"
+            ? "image allowance is used up"
+            : data.reason === "busy"
+              ? "image generation is busy"
+              : "image generation is temporarily unavailable";
       return;
     }
 
     elapsedMs = data.elapsed_ms;
     const nextSeed = parseInt(data.seed, 10);
     seedNum = Number.isInteger(nextSeed) ? nextSeed : null;
-    providerName = data.provider || "nvidia";
-    bitmap = await dataUrlToBitmap(data.png);
+    providerName = data.provider || "cloudflare";
+    const decoded = await dataUrlToBitmap(data.png, requestController.signal);
+    if (requestController.signal.aborted) return;
+    bitmap = decoded;
     state = "ready";
   } catch (err) {
-    if (err.name === "AbortError") return;
+    if (requestController.signal.aborted || err.name === "AbortError") return;
     state = "error";
     errorMsg = err.message;
   }
 }
 
-// Decode a data:image/jpeg;base64,... URL into an AC-paste-able bitmap.
-function dataUrlToBitmap(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
-      const id = ctx.getImageData(0, 0, img.width, img.height);
-      resolve({ width: img.width, height: img.height, pixels: id.data });
-    };
-    img.onerror = (e) => reject(new Error("decode failed"));
-    img.src = dataUrl;
-  });
+// Pieces run in a worker: decode without DOM Image/document APIs.
+async function dataUrlToBitmap(dataUrl, signal) {
+  const response = await fetch(dataUrl, { signal });
+  const image = await createImageBitmap(await response.blob());
+  try {
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext("2d");
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, image.width, image.height).data;
+    return { width: image.width, height: image.height, pixels };
+  } finally {
+    image.close();
+  }
 }
 
 function paint({ wipe, ink, paste, write, screen }) {
@@ -131,13 +123,14 @@ function paint({ wipe, ink, paste, write, screen }) {
   wipe(0);
 
   if (state === "ready" && bitmap) {
-    // Center, scale-to-fit with integer scale (preserves pixel crispness).
-    const scale = max(1, floor(min(w / bitmap.width, h / bitmap.height)));
+    // Fit the entire image on small screens; retain crisp integer upscaling.
+    const fit = min(w / bitmap.width, h / bitmap.height);
+    const scale = fit >= 1 ? floor(fit) : fit;
     const drawW = bitmap.width * scale;
     const drawH = bitmap.height * scale;
     const x = floor((w - drawW) / 2);
     const y = floor((h - drawH) / 2);
-    paste(bitmap, x, y, { scale });
+    paste(bitmap, x, y, scale);
 
     // Subtle status footer
     const seedLabel = seedNum === null ? "" : ` · seed ${seedNum}`;
@@ -192,10 +185,10 @@ function act({ event: e, sound }) {
 
   if (e.is("touch")) {
     if (state === "error") {
-      // retry with same seed
+      // retry the current subject
       generate();
     } else if (state === "ready") {
-      // roll a new seed
+      // generate another variation
       seedNum = null;
       sound?.synth?.({ type: "sine", tone: 660, duration: 0.04, volume: 0.3 });
       generate();

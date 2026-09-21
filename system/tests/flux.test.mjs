@@ -1,250 +1,294 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  handler,
-  resetFluxFallbackBudget,
-  resetFluxOutageCircuit,
-} from "../netlify/functions/flux.mjs";
+import { createHandler } from "../netlify/functions/flux.mjs";
 
-const originalFetch = globalThis.fetch;
-const originalKey = process.env.NVIDIA_API_KEY;
-const originalOpenAIKey = process.env.OPENAI_API_KEY;
+const env = {
+  CLOUDFLARE_AI_TOKEN: "synthetic-token",
+  CLOUDFLARE_ACCOUNT_ID: "synthetic-account",
+};
+const event = (body = { prompt: "a square", preset: "raw" }) => ({
+  httpMethod: "POST",
+  body: JSON.stringify(body),
+});
+const success = () =>
+  Response.json({ success: true, result: { image: "jpeg-data" }, errors: [] });
+const allowed = async () => ({ allowed: true });
 
-test.afterEach(() => {
-  globalThis.fetch = originalFetch;
-  if (originalKey === undefined) delete process.env.NVIDIA_API_KEY;
-  else process.env.NVIDIA_API_KEY = originalKey;
-  if (originalOpenAIKey === undefined) delete process.env.OPENAI_API_KEY;
-  else process.env.OPENAI_API_KEY = originalOpenAIKey;
-  resetFluxFallbackBudget();
-  resetFluxOutageCircuit();
+test("Cloudflare uses exactly one reserved four-step generation and preserves the image API", async () => {
+  const calls = [],
+    order = [];
+  const handler = createHandler({
+    env,
+    now: () => 1000,
+    reserveBudget: async () => {
+      order.push("reserve");
+      return { allowed: true };
+    },
+    fetch: async (url, options) => {
+      order.push("fetch");
+      calls.push({ url, options });
+      return success();
+    },
+  });
+  const response = await handler(
+    event({
+      prompt: "a square",
+      preset: "raw",
+      seed: 9,
+      width: 768,
+      height: 768,
+      allow_fallback: false,
+    }),
+  );
+  assert.deepEqual(order, ["reserve", "fetch"]);
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0].url,
+    "https://api.cloudflare.com/client/v4/accounts/synthetic-account/ai/run/@cf/black-forest-labs/flux-1-schnell",
+  );
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    prompt: "a square",
+    steps: 4,
+  });
+  assert.equal(
+    calls[0].options.headers.Authorization,
+    "Bearer synthetic-token",
+  );
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    ok: true,
+    png: "data:image/jpeg;base64,jpeg-data",
+    width: 1024,
+    height: 1024,
+    seed: null,
+    provider: "cloudflare",
+    preset: "raw",
+    elapsed_ms: 0,
+  });
+  assert.equal(response.headers["Cache-Control"], "no-store");
 });
 
-test("opens a short outage circuit after an upstream timeout", async () => {
-  process.env.NVIDIA_API_KEY = "test-key";
-  delete process.env.OPENAI_API_KEY;
-  let requests = 0;
-  globalThis.fetch = async () => {
-    requests += 1;
-    throw new DOMException("timed out", "AbortError");
+test("malformed requests and missing configuration never reserve or call a provider", async () => {
+  const unexpected = () => {
+    throw new Error("unexpected external operation");
   };
+  const handler = createHandler({
+    env,
+    fetch: unexpected,
+    reserveBudget: unexpected,
+  });
+  for (const body of [
+    null,
+    [],
+    "string",
+    42,
+    {},
+    { prompt: {} },
+    { prompt: " " },
+    { prompt: "x".repeat(1001) },
+  ]) {
+    assert.equal((await handler(event(body))).statusCode, 400);
+  }
+  assert.equal(
+    (await handler({ httpMethod: "POST", body: "{" })).statusCode,
+    400,
+  );
+  assert.equal((await handler({ httpMethod: "GET" })).statusCode, 405);
+  assert.equal((await handler({ httpMethod: "OPTIONS" })).statusCode, 200);
+  const unconfigured = createHandler({
+    env: {},
+    fetch: unexpected,
+    reserveBudget: unexpected,
+  });
+  assert.equal((await unconfigured(event())).statusCode, 503);
+});
 
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "a square", preset: "raw" }),
+test("budget exhaustion and accounting failures fail closed without generation", async () => {
+  let fetches = 0;
+  const fetch = async () => {
+    fetches++;
+    return success();
   };
-  const first = await handler(event);
-  const second = await handler(event);
+  const exhausted = createHandler({
+    env,
+    fetch,
+    reserveBudget: async () => ({ allowed: false, retryAfterSeconds: 3600 }),
+  });
+  const response = await exhausted(event());
+  assert.equal(response.statusCode, 429);
+  assert.equal(response.headers["Retry-After"], "3600");
+  assert.equal(JSON.parse(response.body).reason, "image_budget_exhausted");
+  const unavailable = createHandler({
+    env,
+    fetch,
+    reserveBudget: async () => {
+      throw new Error("synthetic database failure");
+    },
+  });
+  assert.equal((await unavailable(event())).statusCode, 503);
+  assert.equal(fetches, 0);
+});
 
+test("a failed provider attempt is not retried and cooldown spends no further budget", async () => {
+  let reservations = 0,
+    fetches = 0;
+  const handler = createHandler({
+    env,
+    now: () => 1000,
+    reserveBudget: async () => {
+      reservations++;
+      return { allowed: true };
+    },
+    fetch: async () => {
+      fetches++;
+      throw new DOMException("timeout", "AbortError");
+    },
+  });
+  const first = await handler(event());
   assert.equal(first.statusCode, 503);
   assert.equal(first.headers["Retry-After"], "60");
-  assert.equal(JSON.parse(first.body).reason, "temporarily_unavailable");
-  assert.equal(second.statusCode, 503);
-  assert.equal(requests, 1);
+  assert.equal((await handler(event())).statusCode, 503);
+  assert.equal(reservations, 1);
+  assert.equal(fetches, 1);
 });
 
-test("falls back to bounded low-quality GPT Image after NVIDIA times out", async () => {
-  process.env.NVIDIA_API_KEY = "nvidia-test-key";
-  process.env.OPENAI_API_KEY = "openai-test-key";
-  const requests = [];
-  globalThis.fetch = async (url, options) => {
-    requests.push({ url, options });
-    if (url.includes("nvidia.com")) {
-      throw new DOMException("timed out", "AbortError");
-    }
-    return Response.json({ data: [{ b64_json: "jpeg-data" }] });
-  };
-
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "a square", preset: "raw" }),
-  };
-  const first = await handler(event);
-  const second = await handler(event);
-  const firstBody = JSON.parse(first.body);
-  const openAIRequest = JSON.parse(requests[1].options.body);
-
-  assert.equal(first.statusCode, 200);
-  assert.equal(firstBody.provider, "openai");
-  assert.equal(firstBody.png, "data:image/jpeg;base64,jpeg-data");
-  assert.equal(firstBody.seed, null);
-  assert.deepEqual(openAIRequest, {
-    model: "gpt-image-1-mini",
-    prompt: "a square",
-    n: 1,
-    size: "1024x1024",
-    quality: "low",
-    output_format: "jpeg",
-    moderation: "auto",
+test("recovery permits one probe, backs off failures, then resets after success", async () => {
+  let now = 1000,
+    fetches = 0,
+    resolveProbe;
+  const handler = createHandler({
+    env,
+    now: () => now,
+    reserveBudget: allowed,
+    fetch: async () => {
+      fetches++;
+      if (fetches === 1 || fetches === 4)
+        throw new Error("synthetic network failure");
+      if (fetches === 2)
+        return new Promise((resolve) => {
+          resolveProbe = resolve;
+        });
+      return success();
+    },
   });
-  assert.equal(second.statusCode, 200);
-  assert.equal(requests.length, 3);
-  assert.match(requests[2].url, /api\.openai\.com/);
-});
-
-test("caps paid fallback generation at ten requests per process-hour", async () => {
-  delete process.env.NVIDIA_API_KEY;
-  process.env.OPENAI_API_KEY = "openai-test-key";
-  let requests = 0;
-  globalThis.fetch = async () => {
-    requests += 1;
-    return Response.json({ data: [{ b64_json: "jpeg-data" }] });
-  };
-
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "a square", preset: "raw" }),
-  };
-  const responses = [];
-  for (let i = 0; i < 11; i += 1) responses.push(await handler(event));
-
-  assert.equal(requests, 10);
-  assert.equal(responses[9].statusCode, 200);
-  assert.equal(responses[10].statusCode, 503);
-  assert.equal(
-    JSON.parse(responses[10].body).reason,
-    "fallback_budget_exhausted",
-  );
-});
-
-test("client errors remain visible without opening the outage circuit", async () => {
-  process.env.NVIDIA_API_KEY = "test-key";
-  delete process.env.OPENAI_API_KEY;
-  let requests = 0;
-  globalThis.fetch = async () => {
-    requests += 1;
-    return new Response("bad request", { status: 422 });
-  };
-
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "a square", preset: "raw" }),
-  };
-  const first = await handler(event);
-  const second = await handler(event);
-
-  assert.equal(first.statusCode, 502);
-  assert.equal(JSON.parse(first.body).status, 422);
-  assert.equal(second.statusCode, 502);
-  assert.equal(requests, 2);
-});
-
-test("background requests never spend fallback during a provider outage", async () => {
-  process.env.NVIDIA_API_KEY = "nvidia-test-key";
-  process.env.OPENAI_API_KEY = "openai-test-key";
-  const requests = [];
-  globalThis.fetch = async (url) => {
-    requests.push(url);
-    throw new DOMException("timed out", "AbortError");
-  };
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
-  };
-  assert.equal((await handler(event)).statusCode, 503);
-  assert.equal((await handler(event)).statusCode, 503);
-  assert.equal(requests.length, 1);
-  assert.match(requests[0], /nvidia.com/);
-  // Opting out did not reserve any of the ten paid attempts.
-  delete process.env.NVIDIA_API_KEY;
-  globalThis.fetch = async () =>
-    Response.json({ data: [{ b64_json: "jpeg" }] });
-  for (let i = 0; i < 10; i++) {
-    assert.equal(
-      (await handler({ ...event, body: JSON.stringify({ prompt: "square" }) }))
-        .statusCode,
-      200,
-    );
-  }
-});
-
-test("recovery backs off repeated failures and admits only one probe", async (t) => {
-  t.mock.method(Date, "now", () => now);
-  let now = 1000000;
-  process.env.NVIDIA_API_KEY = "test-key";
-  delete process.env.OPENAI_API_KEY;
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "square" }),
-  };
-  let requests = 0;
-  globalThis.fetch = async () => {
-    requests++;
-    throw new DOMException("timeout", "AbortError");
-  };
-  assert.equal((await handler(event)).headers["Retry-After"], "60");
+  assert.equal((await handler(event())).headers["Retry-After"], "60");
   now += 60000;
-  let resolveProbe;
-  globalThis.fetch = () => {
-    requests++;
-    return new Promise((resolve) => {
-      resolveProbe = resolve;
-    });
-  };
-  const probe = handler(event);
-  const duringProbe = await handler({
-    ...event,
-    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
-  });
-  assert.equal(duringProbe.statusCode, 503);
-  assert.equal(duringProbe.headers["Retry-After"], "30");
-  assert.equal(requests, 2);
-  resolveProbe(new Response("unavailable", { status: 503 }));
+  const probe = handler(event());
+  await new Promise(setImmediate);
+  const waiting = await handler(event());
+  assert.equal(waiting.statusCode, 503);
+  assert.equal(waiting.headers["Retry-After"], "30");
+  assert.equal(fetches, 2);
+  resolveProbe(Response.json({ success: false }, { status: 503 }));
   assert.equal((await probe).headers["Retry-After"], "120");
   now += 120000;
-  globalThis.fetch = async () =>
-    Response.json({
-      artifacts: [{ finishReason: "SUCCESS", base64: "jpeg", seed: 1 }],
-    });
-  assert.equal((await handler(event)).statusCode, 200);
-  globalThis.fetch = async () => {
-    throw new DOMException("timeout", "AbortError");
-  };
-  assert.equal((await handler(event)).headers["Retry-After"], "60");
+  assert.equal((await handler(event())).statusCode, 200);
+  assert.equal((await handler(event())).headers["Retry-After"], "60");
 });
 
-test("paid exhaustion does not hide the earlier NVIDIA recovery probe", async (t) => {
-  t.mock.method(Date, "now", () => 1000000);
-  process.env.NVIDIA_API_KEY = "test-key";
-  process.env.OPENAI_API_KEY = "test-key";
-  globalThis.fetch = async (url) => {
-    if (url.includes("nvidia.com"))
-      throw new DOMException("timeout", "AbortError");
-    return Response.json({ data: [{ b64_json: "jpeg" }] });
-  };
-  const event = {
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "square" }),
-  };
-  for (let i = 0; i < 10; i++)
-    assert.equal((await handler(event)).statusCode, 200);
-  const exhausted = await handler(event);
-  assert.equal(JSON.parse(exhausted.body).reason, "fallback_budget_exhausted");
-  assert.equal(exhausted.headers["Retry-After"], "60");
+test("in-flight limit rejects excess work before reserving its budget", async () => {
+  let reservations = 0;
+  const resolveCalls = [];
+  const handler = createHandler({
+    env,
+    reserveBudget: async () => {
+      reservations++;
+      return { allowed: true };
+    },
+    fetch: () => new Promise((resolve) => resolveCalls.push(resolve)),
+  });
+  const first = handler(event()),
+    second = handler(event());
+  await new Promise(setImmediate);
+  const busy = await handler(event());
+  assert.equal(busy.statusCode, 429);
+  assert.equal(JSON.parse(busy.body).reason, "busy");
+  assert.equal(reservations, 2);
+  for (const resolve of resolveCalls) resolve(success());
+  await Promise.all([first, second]);
 });
 
-test("NVIDIA timeout includes reading the response body", async (t) => {
-  process.env.NVIDIA_API_KEY = "test-key";
-  delete process.env.OPENAI_API_KEY;
+test("provider Retry-After survives a non-JSON error response", async () => {
+  const handler = createHandler({
+    env,
+    reserveBudget: allowed,
+    now: () => 1000,
+    fetch: async () =>
+      new Response("unavailable", {
+        status: 429,
+        headers: { "Retry-After": "300" },
+      }),
+  });
+  const response = await handler(event());
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.headers["Retry-After"], "300");
+});
+
+test("timeout includes stalled provider response-body decoding", async (t) => {
   const originalSetTimeout = globalThis.setTimeout;
   t.mock.method(globalThis, "setTimeout", (callback, ms) =>
     originalSetTimeout(callback, ms === 30000 ? 5 : ms),
   );
-  globalThis.fetch = async (url, { signal }) => ({
-    ok: true,
-    json: () =>
-      new Promise((resolve, reject) => {
-        signal.addEventListener(
-          "abort",
-          () => reject(new DOMException("timeout", "AbortError")),
-          { once: true },
-        );
-      }),
+  const handler = createHandler({
+    env,
+    reserveBudget: allowed,
+    fetch: async (url, { signal }) => ({
+      ok: true,
+      json: () =>
+        new Promise((resolve, reject) =>
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("timeout", "AbortError")),
+            { once: true },
+          ),
+        ),
+    }),
   });
-  const result = await handler({
-    httpMethod: "POST",
-    body: JSON.stringify({ prompt: "square", allow_fallback: false }),
+  assert.equal((await handler(event())).statusCode, 503);
+});
+
+test("an HTTP 200 without a successful image is not reported as generated", async () => {
+  const handler = createHandler({
+    env,
+    reserveBudget: allowed,
+    fetch: async () => Response.json({ success: true, result: {} }),
   });
-  assert.equal(result.statusCode, 503);
-  assert.equal(result.headers["Retry-After"], "60");
+  assert.equal((await handler(event())).statusCode, 503);
+});
+
+test("Cloudflare free-quota exhaustion waits for midnight without more reservations", async () => {
+  let now = Date.parse("2026-09-21T23:55:00Z"),
+    reservations = 0,
+    fetches = 0;
+  const handler = createHandler({
+    env,
+    now: () => now,
+    reserveBudget: async () => {
+      reservations++;
+      return { allowed: true };
+    },
+    fetch: async () => {
+      fetches++;
+      return fetches === 1
+        ? Response.json(
+            {
+              success: false,
+              errors: [{ code: 3036, message: "daily allowance exhausted" }],
+            },
+            { status: 429 },
+          )
+        : success();
+    },
+  });
+  const exhausted = await handler(event());
+  assert.equal(exhausted.statusCode, 429);
+  assert.equal(exhausted.headers["Retry-After"], "300");
+  assert.equal(JSON.parse(exhausted.body).reason, "image_budget_exhausted");
+  now += 120000;
+  assert.equal((await handler(event())).headers["Retry-After"], "180");
+  assert.equal(reservations, 1);
+  assert.equal(fetches, 1);
+  now += 180000;
+  assert.equal((await handler(event())).statusCode, 200);
+  assert.equal(reservations, 2);
 });

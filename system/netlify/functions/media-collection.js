@@ -20,18 +20,36 @@ export async function handler(event, context) {
   if (event.httpMethod !== "GET")
     return respond(405, { error: "Wrong request type!" });
 
-  const path = decodeURIComponent(event.queryStringParameters.for);
-  const splitPath = path.split("/"); // Chop up the path.
-  const sub = splitPath[0];
-  const mediaType = splitPath[1];
+  // This endpoint is also linked without parameters by the public sitemap.
+  // Validate before opening Mongo/Redis: decodeURIComponent(undefined) becomes
+  // the string "undefined", rather than rejecting a missing query parameter.
+  const requestedPath = event.queryStringParameters?.for;
+  if (typeof requestedPath !== "string" || !requestedPath.trim()) {
+    return respond(400, { error: "Expected for=<handle>/<media-type>." });
+  }
+  let path;
+  try {
+    path = decodeURIComponent(requestedPath);
+  } catch {
+    return respond(400, { error: "Invalid media collection path encoding." });
+  }
+  const splitPath = path.split("/");
+  const [sub, mediaType] = splitPath;
+  if (splitPath.length !== 2 || !sub.trim() || !/^[a-z]+$/.test(mediaType || "")) {
+    return respond(400, { error: "Expected for=<handle>/<media-type>." });
+  }
 
   let files;
+  let disconnect;
   try {
-    const { db, disconnect } = await connect();
+    const connection = await connect();
+    const { db } = connection;
+    disconnect = connection.disconnect;
 
     // Convert handle/email to actual Auth0 sub for database query
     const userSub = await userIDFromHandleOrEmail(sub, { db });
-    
+    if (!userSub) return respond(404, { error: "User not found.", files: [] });
+
     // Get human readable id (handle or email) for the response URLs
     const userId = await getHandleOrEmail(userSub);
 
@@ -67,12 +85,13 @@ export async function handler(event, context) {
       return `${baseUrl}/media/${userId}/${path}`;
     });
 
-    disconnect();
   } catch (err) {
     console.log("Error", err);
     return respond(500, {
       error: "Failed to fetch media from the database 😩",
     });
+  } finally {
+    if (disconnect) await disconnect();
   }
 
   return respond(200, { files }); // Return a list of all the files.

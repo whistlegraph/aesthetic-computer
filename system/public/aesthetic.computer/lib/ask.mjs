@@ -87,6 +87,9 @@ export class Conversation {
     // Kept as one promise rather than an await so the timeout race below still
     // starts counting from here. A missing or failed token is not an error: it
     // is the anonymous path, which still answers, just on the cheap model.
+    // Capture before token lookup yields: forgetful conversations clear the
+    // live array below, and later asks can also mutate it while auth is pending.
+    const requestBody = JSON.stringify({ messages: this.messages, hint });
     const responsePromise = (async () => {
       const headers = { "Content-Type": "application/json" };
       try {
@@ -99,7 +102,7 @@ export class Conversation {
         method: "POST",
         signal,
         headers,
-        body: JSON.stringify({ messages: this.messages, hint }),
+        body: requestBody,
       });
     })();
 

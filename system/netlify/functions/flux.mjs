@@ -1,199 +1,40 @@
-// flux, 26.04.23
-// Proxy to NVIDIA NIM FLUX.1 schnell image generation, with a bounded
-// GPT Image fallback when NVIDIA is unavailable. Provider keys stay server-side.
-//
-// Usage from a piece:
-//   const res = await fetch("/api/flux", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({ prompt: "a happy frog", preset: "kidlisp", seed: 7 }),
-//   });
-//   const { ok, png, reason, elapsed_ms, seed } = await res.json();
-//
-// On safety-filter rejection: { ok: false, reason: "filtered" } (200, so the
-// piece can react gracefully). Transient provider failures return 503.
-//
-// Background callers can set allow_fallback:false to avoid paid generation.
-// Env: NVIDIA_API_KEY or OPENAI_API_KEY. Lives in lith/.env in production.
+// flux, 26.09.21
+// Budgeted Cloudflare FLUX.1 schnell image generation. Provider keys stay server-side.
+// POST { prompt, preset?: "kidlisp" | "warm" | "raw" }.
+// The hosted model uses four steps and returns a fixed 1024×1024 image.
 
 import { respond } from "../../backend/http.mjs";
+import { reserveImageBudget } from "../../backend/image-generation-budget.mjs";
 
-const FLUX_URL =
-  "https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.1-schnell";
-const OPENAI_IMAGE_URL = "https://api.openai.com/v1/images/generations";
-const FLUX_TIMEOUT_MS = 30000;
-const FLUX_OUTAGE_COOLDOWN_MS = 60000;
-const FLUX_MAX_OUTAGE_COOLDOWN_MS = 15 * 60000;
-const OPENAI_FALLBACK_TIMEOUT_MS = 90000;
-const OPENAI_FALLBACK_WINDOW_MS = 60 * 60 * 1000;
-const OPENAI_FALLBACK_LIMIT = 10;
+const MODEL = "@cf/black-forest-labs/flux-1-schnell";
+const TIMEOUT_MS = 30000;
+const COOLDOWN_MS = 60000;
+const MAX_COOLDOWN_MS = 15 * 60000;
+const MAX_IN_FLIGHT = 2;
+const HEADERS = { "Cache-Control": "no-store" };
 
-let outageUntil = 0;
-let outageFailures = 0;
-let recoveryProbeInFlight = false;
-let fallbackWindowStartedAt = 0;
-let fallbackCount = 0;
-
-function temporarilyUnavailable(
-  retryAfterMs = FLUX_OUTAGE_COOLDOWN_MS,
-  reason = "temporarily_unavailable",
-) {
-  const retryAfter = Math.max(1, Math.ceil(retryAfterMs / 1000));
-  return respond(
-    503,
+function reply(status, body, headers = {}) {
+  return respond(status, body, { ...HEADERS, ...headers });
+}
+function retryResponse(status, seconds, reason = "temporarily_unavailable") {
+  const retryAfter = Math.max(1, Math.ceil(Number(seconds) || 60));
+  return reply(
+    status,
     { ok: false, reason, retry_after: retryAfter },
-    { "Retry-After": String(retryAfter) },
+    {
+      "Retry-After": String(retryAfter),
+    },
   );
 }
-
-function openOutageCircuit(now = Date.now()) {
-  outageFailures += 1;
-  outageUntil =
-    now +
-    Math.min(
-      FLUX_OUTAGE_COOLDOWN_MS * 2 ** Math.min(outageFailures - 1, 4),
-      FLUX_MAX_OUTAGE_COOLDOWN_MS,
-    );
+function retryAfterMs(value, now) {
+  if (!value) return 0;
+  const seconds = Number(value);
+  const ms = Number.isFinite(seconds)
+    ? seconds * 1000
+    : Date.parse(value) - now;
+  return Number.isFinite(ms) && ms > 0 ? ms : 0;
 }
 
-export function resetFluxOutageCircuit() {
-  outageUntil = 0;
-  outageFailures = 0;
-  recoveryProbeInFlight = false;
-}
-
-export function resetFluxFallbackBudget() {
-  fallbackWindowStartedAt = 0;
-  fallbackCount = 0;
-}
-
-function reserveOpenAIFallback(now = Date.now()) {
-  if (
-    !fallbackWindowStartedAt ||
-    now - fallbackWindowStartedAt >= OPENAI_FALLBACK_WINDOW_MS
-  ) {
-    fallbackWindowStartedAt = now;
-    fallbackCount = 0;
-  }
-
-  if (fallbackCount >= OPENAI_FALLBACK_LIMIT) {
-    return {
-      allowed: false,
-      retryAfterMs: OPENAI_FALLBACK_WINDOW_MS - (now - fallbackWindowStartedAt),
-    };
-  }
-
-  fallbackCount += 1;
-  return { allowed: true, retryAfterMs: 0 };
-}
-
-function openAIImageSize(width, height) {
-  if (width > height) return { size: "1536x1024", width: 1536, height: 1024 };
-  if (height > width) return { size: "1024x1536", width: 1024, height: 1536 };
-  return { size: "1024x1024", width: 1024, height: 1024 };
-}
-
-async function generateWithOpenAI({
-  fullPrompt,
-  width,
-  height,
-  presetName,
-  t0,
-  allowFallback = true,
-}) {
-  const providerRetryMs = process.env.NVIDIA_API_KEY
-    ? Math.max(
-        recoveryProbeInFlight ? FLUX_TIMEOUT_MS : 1000,
-        outageUntil - Date.now(),
-      )
-    : Infinity;
-  if (!allowFallback || !process.env.OPENAI_API_KEY) {
-    return temporarilyUnavailable(
-      Number.isFinite(providerRetryMs)
-        ? providerRetryMs
-        : FLUX_OUTAGE_COOLDOWN_MS,
-    );
-  }
-
-  const budget = reserveOpenAIFallback();
-  if (!budget.allowed) {
-    console.warn("flux: OpenAI fallback hourly budget exhausted");
-    return temporarilyUnavailable(
-      Math.min(budget.retryAfterMs, providerRetryMs),
-      "fallback_budget_exhausted",
-    );
-  }
-
-  const output = openAIImageSize(width, height);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    OPENAI_FALLBACK_TIMEOUT_MS,
-  );
-
-  let upstream;
-  let data;
-  try {
-    upstream = await fetch(OPENAI_IMAGE_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-image-1-mini",
-        prompt: fullPrompt,
-        n: 1,
-        size: output.size,
-        quality: "low",
-        output_format: "jpeg",
-        moderation: "auto",
-      }),
-      signal: controller.signal,
-    });
-    data = await upstream.json();
-  } catch (err) {
-    console.error("flux: OpenAI fallback failed", err?.name || "unknown");
-    return temporarilyUnavailable();
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  if (!upstream.ok) {
-    const code = data?.error?.code || "unknown";
-    console.error("flux: OpenAI fallback", upstream.status, code);
-    if (code === "moderation_blocked") {
-      return respond(200, { ok: false, reason: "filtered" });
-    }
-    if (upstream.status === 429 || upstream.status >= 500) {
-      return temporarilyUnavailable();
-    }
-    return respond(502, {
-      ok: false,
-      reason: "fallback_upstream",
-      status: upstream.status,
-    });
-  }
-
-  const image = data?.data?.[0]?.b64_json;
-  if (!image) return respond(502, { ok: false, reason: "no_artifact" });
-
-  return respond(200, {
-    ok: true,
-    png: `data:image/jpeg;base64,${image}`,
-    width: output.width,
-    height: output.height,
-    seed: null,
-    provider: "openai",
-    preset: presetName,
-    elapsed_ms: Date.now() - t0,
-  });
-}
-
-// Two filter-safe AC style suffixes. The bisect that pinned these down lives
-// in ~/Desktop/nvidia-flux-log/README.md — short version: NVIDIA's safety
-// classifier filters on clusters of proper nouns + dense modifiers, so the
-// suffixes deliberately avoid naming the platform / maker / language.
 const PRESETS = {
   // Soft pastel mascot energy — animals, food, friendly subjects
   warm:
@@ -216,182 +57,185 @@ const PRESETS = {
   raw: "",
 };
 
-const ALLOWED_WIDTHS = [768, 832, 896, 960, 1024, 1088, 1152, 1216, 1280, 1344];
+// A separate factory makes the budget and provider boundary testable without
+// a real account, database connection, or image-generation charge.
+export function createHandler({
+  fetch: providerFetch = (...args) => globalThis.fetch(...args),
+  reserveBudget = reserveImageBudget,
+  env = process.env,
+  now = Date.now,
+} = {}) {
+  let outageUntil = 0;
+  let quotaUntil = 0;
+  let failures = 0;
+  let probeInFlight = false;
+  let inFlight = 0;
 
-export async function handler(event) {
-  if (event.httpMethod === "OPTIONS") {
-    return respond(200, "");
+  function openCircuit(providerRetry = 0) {
+    failures += 1;
+    outageUntil =
+      now() +
+      Math.max(
+        providerRetry,
+        Math.min(COOLDOWN_MS * 2 ** Math.min(failures - 1, 4), MAX_COOLDOWN_MS),
+      );
   }
-  if (event.httpMethod !== "POST") {
-    return respond(405, { ok: false, reason: "method" });
-  }
-
-  if (!process.env.NVIDIA_API_KEY && !process.env.OPENAI_API_KEY) {
-    console.error("flux: no image provider key configured");
-    return respond(500, { ok: false, reason: "no_key" });
-  }
-
-  let body;
-  try {
-    body = JSON.parse(event.body || "{}");
-  } catch {
-    return respond(400, { ok: false, reason: "bad_json" });
-  }
-
-  const prompt = (body.prompt || "").toString().trim();
-  if (!prompt) return respond(400, { ok: false, reason: "no_prompt" });
-  if (prompt.length > 1000)
-    return respond(400, { ok: false, reason: "prompt_too_long" });
-
-  const presetName = body.preset || "kidlisp";
-  const styleSuffix = PRESETS[presetName] ?? PRESETS.kidlisp;
-  const fullPrompt = styleSuffix ? `${prompt} — ${styleSuffix}` : prompt;
-
-  // Width/height clamp to FLUX's literal allowed set. Default 768 (smallest
-  // → fastest, most reliable). Pieces that want bigger pay the latency tail.
-  const width = ALLOWED_WIDTHS.includes(+body.width) ? +body.width : 768;
-  const height = ALLOWED_WIDTHS.includes(+body.height) ? +body.height : width;
-
-  const seed = Number.isInteger(body.seed)
-    ? body.seed
-    : Math.floor(Math.random() * 1e9);
-
-  const now = Date.now();
-  const allowFallback = body.allow_fallback !== false;
-  if (
-    outageUntil > now ||
-    recoveryProbeInFlight ||
-    !process.env.NVIDIA_API_KEY
-  ) {
-    return generateWithOpenAI({
-      fullPrompt,
-      width,
-      height,
-      presetName,
-      t0: now,
-      allowFallback,
-    });
+  function unavailable() {
+    return retryResponse(
+      503,
+      Math.max(probeInFlight ? TIMEOUT_MS : 1000, outageUntil - now()) / 1000,
+    );
   }
 
-  // Only one request probes recovery after an outage. Concurrent callers
-  // retain the bounded fallback instead of all waiting on a failing provider.
-  if (outageFailures > 0) recoveryProbeInFlight = true;
-
-  // 30s timeout — FLUX schnell normally returns in 1-4s. NVIDIA has been
-  // observed hanging for minutes before 504'ing during outages; fail fast
-  // so the piece can show an error and let the user retry.
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FLUX_TIMEOUT_MS);
-
-  const t0 = Date.now();
-  let upstream;
-  try {
+  return async function handler(event) {
+    if (event.httpMethod === "OPTIONS") return reply(200, "");
+    if (event.httpMethod !== "POST")
+      return reply(405, { ok: false, reason: "method" });
+    let body;
     try {
-      upstream = await fetch(FLUX_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          prompt: fullPrompt,
-          cfg_scale: 0,
-          steps: 4,
-          seed,
-          width,
-          height,
-          mode: "base",
-        }),
-        signal: controller.signal,
-      });
-    } catch (err) {
-      if (err.name === "AbortError") {
-        openOutageCircuit();
-        console.warn("flux: upstream timed out; outage circuit opened");
-        return generateWithOpenAI({
-          fullPrompt,
-          width,
-          height,
-          presetName,
-          t0,
-          allowFallback,
-        });
-      }
-      console.error("flux: upstream fetch failed", err);
-      openOutageCircuit();
-      return generateWithOpenAI({
-        fullPrompt,
-        width,
-        height,
-        presetName,
-        t0,
-        allowFallback,
-      });
-    }
-
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => "");
-      console.error("flux: upstream", upstream.status, detail.slice(0, 300));
-      if (upstream.status === 429 || upstream.status >= 500) {
-        openOutageCircuit();
-        return generateWithOpenAI({
-          fullPrompt,
-          width,
-          height,
-          presetName,
-          t0,
-          allowFallback,
-        });
-      }
-      return respond(502, {
-        ok: false,
-        reason: "upstream",
-        status: upstream.status,
-      });
-    }
-
-    let data;
-    try {
-      data = await upstream.json();
+      body = JSON.parse(event.body || "{}");
     } catch {
-      openOutageCircuit();
-      return generateWithOpenAI({
-        fullPrompt,
-        width,
-        height,
-        presetName,
-        t0,
-        allowFallback,
-      });
+      return reply(400, { ok: false, reason: "bad_json" });
     }
-
-    const art = data?.artifacts?.[0];
-    if (!art) return respond(502, { ok: false, reason: "no_artifact" });
-    resetFluxOutageCircuit();
-
-    if (art.finishReason !== "SUCCESS") {
-      // Safety filter — return 200 so the piece can react.
-      return respond(200, {
-        ok: false,
-        reason: "filtered",
-        finish: art.finishReason,
-      });
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return reply(400, { ok: false, reason: "bad_json" });
     }
+    if (typeof body.prompt !== "string" || !body.prompt.trim()) {
+      return reply(400, { ok: false, reason: "no_prompt" });
+    }
+    const prompt = body.prompt.trim();
+    if (prompt.length > 1000)
+      return reply(400, { ok: false, reason: "prompt_too_long" });
+    const presetName =
+      typeof body.preset === "string" && Object.hasOwn(PRESETS, body.preset)
+        ? body.preset
+        : "kidlisp";
+    const fullPrompt = PRESETS[presetName]
+      ? `${prompt} — ${PRESETS[presetName]}`
+      : prompt;
+    if (!env.CLOUDFLARE_AI_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
+      return retryResponse(503, 60, "provider_unavailable");
+    }
+    if (quotaUntil > now()) {
+      return retryResponse(
+        429,
+        (quotaUntil - now()) / 1000,
+        "image_budget_exhausted",
+      );
+    }
+    if (outageUntil > now() || probeInFlight) return unavailable();
+    if (inFlight >= MAX_IN_FLIGHT) return retryResponse(429, 5, "busy");
 
-    const elapsed_ms = Date.now() - t0;
-    return respond(200, {
-      ok: true,
-      png: `data:image/jpeg;base64,${art.base64}`,
-      width,
-      height,
-      seed: art.seed,
-      provider: "nvidia",
-      preset: presetName,
-      elapsed_ms,
-    });
-  } finally {
-    clearTimeout(timeoutId);
-    recoveryProbeInFlight = false;
-  }
+    const isProbe = failures > 0;
+    if (isProbe) probeInFlight = true;
+    inFlight += 1;
+    let timeout;
+    const startedAt = now();
+    try {
+      let budget;
+      try {
+        budget = await reserveBudget();
+      } catch {
+        console.warn("flux: image budget unavailable");
+        return retryResponse(503, 60, "budget_unavailable");
+      }
+      if (!budget?.allowed) {
+        return retryResponse(
+          429,
+          budget?.retryAfterSeconds,
+          "image_budget_exhausted",
+        );
+      }
+
+      // One reserved attempt, no retry after an ambiguous network failure.
+      // Keep the deadline active until the entire image response is read.
+      const controller = new AbortController();
+      timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      const endpoint = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)}/ai/run/${MODEL}`;
+      let upstream, data;
+      try {
+        upstream = await providerFetch(endpoint, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${env.CLOUDFLARE_AI_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt: fullPrompt, steps: 4 }),
+          signal: controller.signal,
+        });
+        data = await upstream.json();
+      } catch (error) {
+        console.warn(
+          "flux: Cloudflare request failed",
+          error?.name || "unknown",
+        );
+        openCircuit(retryAfterMs(upstream?.headers?.get("Retry-After"), now()));
+        return unavailable();
+      }
+
+      // Cloudflare's free allocation is a daily limit, not transient capacity.
+      // Code 3036 resets at midnight UTC; retrying sooner would waste local
+      // budget reservations while the provider cannot generate an image.
+      if (
+        upstream.status === 429 &&
+        Array.isArray(data?.errors) &&
+        data.errors.some((error) => Number(error?.code) === 3036)
+      ) {
+        quotaUntil = (Math.floor(now() / 86400000) + 1) * 86400000;
+        failures = 0;
+        outageUntil = 0;
+        return retryResponse(
+          429,
+          (quotaUntil - now()) / 1000,
+          "image_budget_exhausted",
+        );
+      }
+      if (!upstream.ok) {
+        console.warn("flux: Cloudflare HTTP", upstream.status);
+        if (
+          upstream.status === 408 ||
+          upstream.status === 429 ||
+          upstream.status === 401 ||
+          upstream.status === 403 ||
+          upstream.status >= 500
+        ) {
+          openCircuit(retryAfterMs(upstream.headers.get("Retry-After"), now()));
+          return unavailable();
+        }
+        return reply(502, {
+          ok: false,
+          reason: "upstream",
+          status: upstream.status,
+        });
+      }
+      const image = data?.result?.image;
+      if (
+        data?.success !== true ||
+        typeof image !== "string" ||
+        !image.length
+      ) {
+        console.warn("flux: Cloudflare response missing image");
+        openCircuit();
+        return unavailable();
+      }
+      failures = 0;
+      outageUntil = 0;
+      return reply(200, {
+        ok: true,
+        png: `data:image/jpeg;base64,${image}`,
+        width: 1024,
+        height: 1024,
+        seed: null,
+        provider: "cloudflare",
+        preset: presetName,
+        elapsed_ms: now() - startedAt,
+      });
+    } finally {
+      clearTimeout(timeout);
+      inFlight -= 1;
+      if (isProbe) probeInFlight = false;
+    }
+  };
 }
+
+export const handler = createHandler();
