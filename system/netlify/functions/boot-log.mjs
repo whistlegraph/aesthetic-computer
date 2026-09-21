@@ -1,6 +1,7 @@
 // boot-log.mjs - Store boot telemetry
 // POST /api/boot-log
 
+import { bootTelemetryUpdate, writeBootTelemetry } from "../../backend/boot-telemetry.mjs";
 import { connect } from "../../backend/database.mjs";
 import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { respond } from "../../backend/http.mjs";
@@ -51,8 +52,10 @@ export async function handler(event) {
   }
 
   const { bootId, phase, meta = {}, data = {} } = body || {};
-  if (!bootId || !phase) {
-    return respond(400, { error: "Missing bootId or phase" });
+  const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  if (typeof bootId !== "string" || !bootId.trim() || bootId.length > 128 ||
+      !["start", "log", "error", "complete"].includes(phase) || !object(meta) || !object(data)) {
+    return respond(400, { error: "Invalid boot telemetry" });
   }
 
   try {
@@ -82,89 +85,14 @@ export async function handler(event) {
       referer: headers["referer"] || headers["referrer"] || null,
     };
 
-    // The signed-in user is not known when `start` fires — auth resolves later —
-    // and `start` writes meta with $setOnInsert, so it can never be corrected.
-    // Let any later phase upgrade a null user to a real one, without letting it
-    // rewrite the rest of meta.
-    const lateUser = meta?.user
-      ? { $set: { "meta.user": meta.user } }
-      : null;
-    const withUser = (update) => {
-      if (!lateUser) return update;
-      return { ...update, $set: { ...(update.$set || {}), ...lateUser.$set } };
-    };
-
-    if (phase === "start") {
-      await boots.updateOne(
-        { bootId },
-        {
-          $setOnInsert: {
-            bootId,
-            createdAt: now,
-            meta,
-            server,
-            status: "started",
-          },
-          $set: {
-            updatedAt: now,
-          },
-        },
-        { upsert: true },
-      );
+    const update = bootTelemetryUpdate({ bootId, phase, meta, data, server, now });
+    if (!update) {
       await database.disconnect();
-      return respond(201, { ok: true });
+      return respond(400, { error: "Unknown phase" });
     }
-
-    if (phase === "log") {
-      const events = Array.isArray(data.events) ? data.events : [];
-      await boots.updateOne(
-        { bootId },
-        withUser(
-          events.length
-            ? { $push: { events: { $each: events } }, $set: { updatedAt: now } }
-            : { $set: { updatedAt: now } },
-        ),
-        { upsert: true },
-      );
-      await database.disconnect();
-      return respond(200, { ok: true });
-    }
-
-    if (phase === "error") {
-      await boots.updateOne(
-        { bootId },
-        withUser({
-          $set: {
-            updatedAt: now,
-            status: "error",
-            error: data,
-          },
-        }),
-        { upsert: true },
-      );
-      await database.disconnect();
-      return respond(200, { ok: true });
-    }
-
-    if (phase === "complete") {
-      await boots.updateOne(
-        { bootId },
-        withUser({
-          $set: {
-            updatedAt: now,
-            status: "success",
-            completedAt: now,
-            summary: data,
-          },
-        }),
-        { upsert: true },
-      );
-      await database.disconnect();
-      return respond(200, { ok: true });
-    }
-
+    await writeBootTelemetry(boots, bootId, update);
     await database.disconnect();
-    return respond(400, { error: "Unknown phase" });
+    return respond(phase === "start" ? 201 : 200, { ok: true });
   } catch (err) {
     return respond(500, { error: err.message || "Failed to log boot" });
   }

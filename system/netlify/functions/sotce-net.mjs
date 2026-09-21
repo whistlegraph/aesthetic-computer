@@ -11859,6 +11859,9 @@ export const handler = async (event, context) => {
     `;
     return respond(200, body, { "Content-Type": "text/html; charset=utf-8" });
   }
+  // Unknown paths (including crawler probes) are missing routes, not handler
+  // failures. Always return a response for Lith's adapter.
+  return respond(404, { message: "Not Found." });
 };
 
 async function cancelSubscription(user, key) {

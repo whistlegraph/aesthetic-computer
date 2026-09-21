@@ -4,6 +4,7 @@
 
 import { connect } from '../../system/backend/database.mjs';
 import { handleFor, userIDFromHandle } from '../../system/backend/authorization.mjs';
+import { closeConnection } from '../../system/backend/kv.mjs';
 import { shell } from '../../system/backend/shell.mjs';
 import { AtpAgent } from '@atproto/api';
 import { config } from 'dotenv';
@@ -148,7 +149,7 @@ async function migrateMoodsForUser(handle, dryRun = true) {
     console.error(error.stack);
     throw error;
   } finally {
-    await database.disconnect();
+    await Promise.all([database.disconnect(), closeConnection()]);
   }
 }
 

@@ -1,3 +1,4 @@
+import { createBootDiagnostics } from "./lib/boot-diagnostics.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
 
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
@@ -98,6 +99,18 @@ if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top
 const bootStartTime = performance.now();
 window.acBOOT_START_TIME = bootStartTime;
 
+const bootDiagnostics = createBootDiagnostics({
+  document, window, performance, origin: location.origin, start: bootStartTime,
+  setInterval, clearInterval,
+  onLifecycle(event) {
+    bootTelemetry.enqueue(`page lifecycle: ${event}`);
+    // A final observable checkpoint; absence of completion is not a crash.
+    if (event === "pagehide" || event === "freeze" || event === "hidden") {
+      bootTelemetry.flush("lifecycle");
+    }
+  },
+});
+
 // 🧾 Boot telemetry (logs to /api/boot-log)
 const bootTelemetry = (() => {
   const bootId = (crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
@@ -165,6 +178,8 @@ const bootTelemetry = (() => {
       : null;
 
   async function sendBootEvent(phase, data = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       await fetch("/api/boot-log", {
         method: "POST",
@@ -176,15 +191,18 @@ const bootTelemetry = (() => {
           data,
         }),
         keepalive: true,
+        signal: controller.signal,
       });
     } catch {
-      // ignore telemetry errors
+      // Telemetry must not hold resources indefinitely on a stalled network.
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   function enqueue(message, level = "info") {
     const elapsed = Math.round(performance.now() - bootStartTime);
-    queue.push({ message, level, elapsed, at: Date.now() });
+    queue.push({ message, level, elapsed, at: Date.now(), timing: bootDiagnostics.snapshot() });
     if (queue.length >= 10) flush("batch");
     else if (!flushTimer) flushTimer = setTimeout(() => flush("timer"), 1500);
   }
@@ -212,11 +230,17 @@ const bootTelemetry = (() => {
     enqueue,
     flush,
     error: async (error) => {
-      await sendBootEvent("error", { error });
+      await sendBootEvent("error", { error, timing: bootDiagnostics.snapshot(), resources: bootDiagnostics.resources() });
     },
     complete: async (data = {}) => {
-      await flush("complete");
-      await sendBootEvent("complete", data);
+      // A stalled log POST must not withhold the successful lifecycle signal.
+      // Capture before either request so network latency is not boot duration.
+      const timing = bootDiagnostics.finish();
+      const resources = bootDiagnostics.resources();
+      await Promise.all([
+        flush("complete"),
+        sendBootEvent("complete", { ...data, timing, resources }),
+      ]);
     },
   };
 })();

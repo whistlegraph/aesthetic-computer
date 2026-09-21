@@ -4,6 +4,7 @@
 
 import { connect } from '../../../system/backend/database.mjs';
 import { userEmailFromID, handleFor } from '../../../system/backend/authorization.mjs';
+import { closeConnection } from '../../../system/backend/kv.mjs';
 
 const PDSTEST_SUB = 'auth0|68e99d2f23027e65c0ae6416';
 
@@ -56,7 +57,7 @@ async function main() {
       console.log('   ❌ No user document found');
     }
     
-    await database.disconnect();
+    await Promise.all([database.disconnect(), closeConnection()]);
     console.log('\n✅ Check complete!\n');
     
   } catch (error) {

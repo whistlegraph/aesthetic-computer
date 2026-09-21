@@ -3,6 +3,7 @@
 import { AtpAgent } from '@atproto/api';
 import { connect } from '../../../system/backend/database.mjs';
 import { userIDFromHandle } from '../../../system/backend/authorization.mjs';
+import { closeConnection } from '../../../system/backend/kv.mjs';
 import { config } from 'dotenv';
 
 config({ path: '../../../system/.env' });
@@ -40,5 +41,5 @@ try {
     console.log('Has ref.$link?', record.value.video?.ref?.$link);
   }
 } finally {
-  await database.disconnect();
+  await Promise.all([database.disconnect(), closeConnection()]);
 }
