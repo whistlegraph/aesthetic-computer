@@ -304,23 +304,25 @@ struct AeselTitle: View {
         let width = text.reduce(horizontalInset * 2) { $0 + (String($1) as NSString).size(withAttributes: [.font: Rock.font(size)]).width }
         let limit = maximumWidth.map { max(0, $0) / max(1, width) } ?? CGFloat.greatestFiniteMagnitude
         let restingScale = min(1, limit)
-        let scale = min(hovered && !reduceMotion ? 1.5 : 1, limit)
-        HStack(alignment: .top, spacing: 0) {
-            ForEach(Array(text.enumerated()), id: \.offset) { index, letter in
-                let hash = Self.fnv("rock\(index)\(text)")
-                let face = face(index, handle: handle)
-                RockLetter(text: String(letter), size: size, face: face, beat: Double(index) * 0.12)
-                    // A new letter is a new view, so the sway never crossfades old ink into new.
-                    .id("\(index)|\(letter)|\(face)")
-                    .rotationEffect(.degrees(-Double(Int((hash >> 8) % 9) - 4) * 0.9))
-                    .offset(y: -(CGFloat(hash % 5) / 2 - 1))
+        Color.clear
+            .frame(width: width * restingScale, height: size * 1.6)
+            .overlay(alignment: .leading) {
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(Array(text.enumerated()), id: \.offset) { index, letter in
+                        let hash = Self.fnv("rock\(index)\(text)")
+                        let face = face(index, handle: handle)
+                        RockLetter(text: String(letter), size: size, face: face, beat: Double(index) * 0.12)
+                            // A new letter is a new view, so the sway never crossfades old ink into new.
+                            .id("\(index)|\(letter)|\(face)")
+                            .rotationEffect(.degrees(-Double(Int((hash >> 8) % 9) - 4) * 0.9))
+                            .offset(y: -(CGFloat(hash % 5) / 2 - 1))
+                    }
+                }
+                .padding(.horizontal, horizontalInset)
+                .fixedSize()
+                .scaleEffect(restingScale, anchor: .leading)
+                .allowsHitTesting(false)
             }
-        }
-        .padding(.horizontal, horizontalInset)
-        .fixedSize()
-        .scaleEffect(scale, anchor: hoverAnchor)
-        .animation(reduceMotion ? nil : .interpolatingSpring(mass: 0.8, stiffness: 250, damping: 12, initialVelocity: 0), value: hovered)
-        .frame(width: width * restingScale, alignment: .leading)
         .contentShape(Rectangle())
         .onHover { inside in
             if inside && !hovered { hoverSound?() }

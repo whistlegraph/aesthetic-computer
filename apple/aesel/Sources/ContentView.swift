@@ -25,11 +25,11 @@ struct ContentView: View {
     @State private var expandedPreview = false
     @State private var previewHidden = false
     @State private var notebookHeight: CGFloat = 24
-    @State private var notebookTop: CGFloat = 60
+    @State private var notebookTop: CGFloat = 12
     /// Slab's "complete" is an attention colour that clears once you return to
     /// the window; here, once you touch the draft again.
     @State private var attended = true
-    @State private var writing = false
+    @State private var writing = true
     @State private var composerHeight: CGFloat = 48
     @State private var sheetSize = CGSize(width: 840, height: 680)
     @AppStorage("aesel.uiScale") private var uiScale = 1.0
@@ -45,7 +45,9 @@ struct ContentView: View {
     private var previewSize: CGSize { CGSize(width: previewBounds.width, height: previewBounds.height) }
     private var previewInset: CGFloat { previewBounds.right }
     private var previewVisible: Bool { session.previewURL != nil && !previewHidden && sheetSize.width >= 420 && sheetSize.height >= 300 }
-    private var previewBlockHeight: CGFloat { paperTop + row * 2 }
+    private var previewBlockHeight: CGFloat { paperTop }
+    private var hasNotebook: Bool { session.entries.contains { $0.kind != .edit } || session.fatal != nil }
+    private var transcriptHeight: CGFloat { hasNotebook ? max(row, notebookHeight) : 0 }
     private var notebookExclusion: [String: CGFloat] {
         guard previewVisible else { return [:] }
         let width = previewBounds.width + 8 + previewBounds.right + 16 - edgeInset
@@ -71,9 +73,6 @@ struct ContentView: View {
             if showHome {
                 AeselHomeView(session: session, host: host) { showHome = false }
             }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if !expandedPreview && !showHome && !showSettings { versionLabel }
         }
         .overlay { if showSettings { settingsPane } }
         .font(Paint.font())
@@ -165,44 +164,66 @@ struct ContentView: View {
 
     // MARK: - The sheet
 
-    /// The desktop's notebook: one scrolling ruled sheet holding the preview,
-    /// the prose and the draft, with the title fixed on the first row and the
-    /// version label parked at the bottom-right corner.
+    /// A fixed title strip above one scrolling document, starting on its first row.
     private var sheet: some View {
-        GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Color.clear.frame(height: previewBlockHeight)
-                        AeselNotebook(session: session, automation: host.automation, paint: paint, exclusion: notebookExclusion, height: $notebookHeight) { openURL($0) }
-                            .frame(height: max(row, notebookHeight))
-                            .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("notebook-scroll")).minY } action: { notebookTop = $0 }
-                        if session.fatal != nil {
-                            Button("/retry") { host.restore() }
-                                .foregroundStyle(paint.you).frame(height: row).padding(.horizontal, edgeInset)
+        VStack(spacing: 0) {
+            notebookHeader
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Color.clear.frame(height: previewBlockHeight)
+                            AeselNotebook(session: session, automation: host.automation, paint: paint, exclusion: notebookExclusion, height: $notebookHeight) { openURL($0) }
+                                .frame(height: transcriptHeight)
+                                .clipped()
+                                .allowsHitTesting(hasNotebook)
+                                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("notebook-scroll")).minY } action: { notebookTop = $0 }
+                            if session.fatal != nil {
+                                Button("/retry") { host.restore() }
+                                    .foregroundStyle(paint.you).frame(height: row).padding(.horizontal, edgeInset)
+                            }
+                            prompt(minHeight: max(48, geometry.size.height - paperTop - transcriptHeight - row)).id("prompt")
                         }
-                        prompt.id("prompt")
+                        .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
+                        .background(alignment: .top) { AeselRuling(spacing: row, topInset: paperTop) }
                     }
-                    .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
-                    .background(alignment: .top) { AeselRuling(spacing: row, topInset: paperTop) }
-                }
-                .coordinateSpace(name: "notebook-scroll")
-                .aeselKeyboardScrolling()
-                .overlay(alignment: .topTrailing) {
-                    if previewVisible { previewBox(container: geometry.size) }
-                }
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { sheetSize = $0 }
-                .overlay(alignment: .topLeading) {
-                    let clear = previewVisible ? previewSize.width + 8 + 2 + previewInset + 16 : 0
-                    if !session.route.isEmpty {
-                        title(availableWidth: max(0, geometry.size.width - edgeInset - clear))
+                    .coordinateSpace(name: "notebook-scroll")
+                    .aeselKeyboardScrolling()
+                    .overlay(alignment: .topTrailing) {
+                        if previewVisible { previewBox(container: geometry.size) }
                     }
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { sheetSize = $0 }
+                    .onChange(of: notebookHeight) { if session.busy || writing { proxy.scrollTo("prompt", anchor: .bottom) } }
+                    .onChange(of: writing) { if writing { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
+                    .onChange(of: session.busy) { if session.busy { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
                 }
-                .onChange(of: notebookHeight) { if session.busy || writing { proxy.scrollTo("prompt", anchor: .bottom) } }
-                .onChange(of: writing) { if writing { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
-                .onChange(of: session.busy) { if session.busy { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
             }
         }
+    }
+
+    private var headerReservedWidth: CGFloat {
+        #if os(macOS)
+        72 / uiScale + edgeInset * 2 + 36 + 48
+        #else
+        edgeInset * 2 + 24 + 48
+        #endif
+    }
+
+    private var notebookHeader: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 12) {
+                #if os(macOS)
+                Color.clear.frame(width: 72 / uiScale)
+                #endif
+                title(availableWidth: max(0, geometry.size.width - headerReservedWidth))
+                Spacer(minLength: 8)
+                versionLabel
+            }
+            .padding(.horizontal, edgeInset)
+            .frame(height: 44)
+            .background { AeselWindowDragArea() }
+        }
+        .frame(height: 44)
     }
 
     private var titleURL: URL? {
@@ -211,14 +232,13 @@ struct ContentView: View {
 
     private func title(availableWidth: CGFloat) -> some View {
         Button { if let url = titleURL { openURL(url) } } label: {
-            AeselTitle(text: session.route, colors: session.handleColors, size: compact ? 16 : 20,
+            AeselTitle(text: session.route.isEmpty ? "aesel" : session.route, colors: session.handleColors, size: compact ? 12 : 16,
                        maximumWidth: availableWidth, horizontalInset: 0,
                        hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "title") })
         }
         .buttonStyle(AeselButtonStyle())
         .accessibilityLabel("Open piece in browser")
         .frame(height: row)
-        .padding(.leading, edgeInset).padding(.top, edgeInset)
     }
 
     /// The corner piece keeps the original desktop wood grain and resize edges.
@@ -260,13 +280,12 @@ struct ContentView: View {
         }
     }
 
-    /// The draft, written on the sheet's last rows in the user's ink like the
-    /// desktop's prose prompt; the trailing 100pt stays clear for the version.
-    private var prompt: some View {
+    /// The empty paper remains editable below the conversation.
+    private func prompt(minHeight: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 8) {
             AeselComposer(text: Binding(get: { draft }, set: { draft = $0 }), height: $composerHeight,
                           focused: $writing, color: paint.userInk, submit: send)
-                .frame(height: composerHeight)
+                .frame(height: max(composerHeight, minHeight))
             if session.busy {
                 Button { host.stop() } label: {
                     Text("■").font(Paint.font(16)).foregroundStyle(paint.you).frame(width: row, height: row)
@@ -281,18 +300,20 @@ struct ContentView: View {
                     .accessibilityLabel("Send")
             }
         }
-        .padding(.leading, edgeInset).padding(.trailing, compact ? 54 : 80).padding(.bottom, row)
+        .padding(.leading, edgeInset)
+        .padding(.trailing, previewVisible && notebookTop + transcriptHeight < previewBounds.top + previewBounds.height + 8
+                 ? previewSize.width + previewInset + 24 : edgeInset)
+        .padding(.bottom, row)
     }
 
-    /// The desktop's #credit-label: the version in Prox lettering, 10pt from
-    /// the right and 8pt up, and the way into settings.
+    /// The piece version opens settings from the fixed title strip.
     private var versionLabel: some View {
         Button { openSettings() } label: {
-            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 12 : 16, horizontalInset: 0, hoverAnchor: .bottomTrailing,
+            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 11 : 13, horizontalInset: 0, hoverAnchor: .bottomTrailing,
                        hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "version") })
         }
         .buttonStyle(AeselButtonStyle())
-        .padding(.trailing, edgeInset).padding(.bottom, edgeInset)
+        .frame(height: 32)
         .accessibilityLabel("Piece version \(session.currentRevision). Settings")
     }
 

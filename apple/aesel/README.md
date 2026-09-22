@@ -6,6 +6,9 @@ AppKit. Both run the bundled JavaScript session, notebook renderer, and AC piece
 preview; the Mac target does not use Electron or start a Node process.
 The live WebKit preview stays in the upper-right corner, including for new
 pieces and thread changes, and can expand to fill the workspace.
+The animated title and version share a fixed top strip with the Mac window
+controls. A blank notebook starts editing on its first ruled line; the remaining
+paper accepts clicks. Letter animation never changes the title's hit area.
 
 Appearance follows the system automatically. Native controls and the notebook
 share the system palette; enabled Mac buttons use a pointing hand.
@@ -18,6 +21,14 @@ images. Claude and Codex use the optional local helper, installed from the repo
 root with `node easel/native/install.mjs`. A connected provider can generate
 without AC sign-in; AC generation and publication retain their account gates.
 AC's model is Automatic. iPhone pairing to the helper is not implemented.
+
+Native CLI sessions share Electron's piece-first, responsive-layout, network-clock,
+sound-design and reply instructions, plus the bundled AC guides. Each turn
+includes a fresh preview image when available. `ac_frame` and `ac_preview` inspect
+only the matching native thread; unavailable captures are reported explicitly.
+Native observations distinguish snapshot size from drawable canvas size, but do
+not yet certify the exact rendered source revision or expose the full worker
+console. No preview claim should exceed that evidence.
 
 ```sh
 ./run.sh mac               # build and open Aesel Native.app
@@ -35,9 +46,11 @@ To build both targets without installing, run `./bundle-session.sh` and
 `xcodegen generate`, then build schemes `AeselMac` (macOS) and `Aesel`
 (`generic/platform=iOS`, with signing disabled for a compile check).
 
-The preview state transitions have a standalone native check:
+The editor focus regression and preview transitions have standalone native checks:
 
 ```sh
+xcrun swiftc -parse-as-library Sources/AeselComposer.swift Tests/ComposerFocusChecks.swift -o /tmp/aesel-composer-check
+/tmp/aesel-composer-check
 xcrun swiftc Sources/Session.swift Tests/SessionPreviewChecks.swift -o /tmp/aesel-preview-check
 /tmp/aesel-preview-check
 ```
@@ -118,4 +131,4 @@ including the `@` character, with the same fallback palette as desktop.
 
 ## MCP and visual acceptance
 
-The native app exposes a private same-user automation mailbox. The monorepo adapter and Aesthetic Eye workflow live at `slab/bin/aesel-mcp.mjs`, `slab/bin/aesel-eye.mjs` and `slab/AESEL-EYE.md`. Tests inspect and act through stable UI control IDs without activating the window. Preview URLs use the same `nogap`, `nolabel` and `autoreload` contract as Electron; the footer shows the persisted piece revision starting at v0.
+The native app exposes a private same-user automation mailbox. The monorepo adapter and Aesthetic Eye workflow live at `slab/bin/aesel-mcp.mjs`, `slab/bin/aesel-eye.mjs` and `slab/AESEL-EYE.md`. Tests inspect and act through stable UI control IDs without activating the window. Preview URLs use the same `nogap`, `nolabel` and `autoreload` contract as Electron; the top strip shows the persisted piece revision starting at v0.

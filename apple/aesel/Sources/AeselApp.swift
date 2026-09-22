@@ -25,9 +25,9 @@ struct AeselApp: App {
                            height: ceil(geometry.size.height * displayScale) / displayScale / uiScale)
                     .environment(\.aeselUIScale, uiScale)
                     .scaleEffect(uiScale, anchor: .topLeading)
-            }.frame(minWidth: 220, minHeight: 160).clipped()
+            }.frame(minWidth: 220, minHeight: 160).clipped().ignoresSafeArea(.container, edges: .top)
         }
-        .windowToolbarStyle(.expanded)
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 840, height: 680)
         .commands {
             CommandGroup(after: .toolbar) {
@@ -81,8 +81,10 @@ struct AeselApp: App {
                         session.braincellDollars = 2.41
                         session.freeDollars = 1
                         session.purchasedDollars = 1.41
-                        session.append(.you, "Make a little orange circle.")
-                        session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
+                        if ProcessInfo.processInfo.environment["AESEL_PREVIEW_EMPTY"] != "1" {
+                            session.append(.you, "Make a little orange circle.")
+                            session.append(.ac, "The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)")
+                        }
                         session.previewURL = nil
                         if ProcessInfo.processInfo.environment["AESEL_PREVIEW_PIECE"] == "1" {
                             session.previewURL = Session.draftPreviewURL

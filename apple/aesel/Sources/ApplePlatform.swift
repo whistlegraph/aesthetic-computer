@@ -155,7 +155,7 @@ extension View {
 }
 
 #if os(macOS)
-/// Electron used an ordinary compact NSWindow title bar, with the piece name.
+/// Keep native window controls over the notebook's own title strip.
 private struct AeselWindowTitle: NSViewRepresentable {
     let title: String
     let paper: Color
@@ -184,9 +184,10 @@ private struct AeselWindowTitle: NSViewRepresentable {
             updateBacking()
             if window.toolbar != nil { window.toolbar = nil }
             window.toolbarStyle = .expanded
-            window.styleMask.remove([.fullSizeContentView, .unifiedTitleAndToolbar])
-            window.titlebarAppearsTransparent = false
-            window.titleVisibility = .visible
+            window.styleMask.insert(.fullSizeContentView)
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.titlebarSeparatorStyle = .none
             if window.title != pieceTitle { window.title = pieceTitle }
         }
     }
@@ -209,3 +210,21 @@ extension View {
         #endif
     }
 }
+
+/// Only the empty header drags the window; document clicks belong to editing.
+#if os(macOS)
+struct AeselWindowDragArea: NSViewRepresentable {
+    final class DragView: NSView {
+        override func mouseDown(with event: NSEvent) {
+            if event.clickCount == 2 { window?.zoom(nil) }
+            else { window?.performDrag(with: event) }
+        }
+    }
+    func makeNSView(context: Context) -> DragView { DragView() }
+    func updateNSView(_ view: DragView, context: Context) {}
+}
+#else
+struct AeselWindowDragArea: View {
+    var body: some View { Color.clear }
+}
+#endif

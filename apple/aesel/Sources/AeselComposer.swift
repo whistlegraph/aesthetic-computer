@@ -24,6 +24,15 @@ struct AeselComposer: NSViewRepresentable {
     final class Editor: NSTextView {
         var focusChanged: (Bool) -> Void = { _ in }
         var resized: () -> Void = {}
+        var wantsFocus = false
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.wantsFocus else { return }
+                self.window?.makeFirstResponder(self)
+            }
+        }
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
         override func becomeFirstResponder() -> Bool {
             let result = super.becomeFirstResponder()
             if result { focusChanged(true) }; return result
@@ -36,6 +45,7 @@ struct AeselComposer: NSViewRepresentable {
     }
     final class Coordinator: NSObject, NSTextViewDelegate {
         var owner: AeselComposer
+        var requestedFocus: Bool?
         init(_ owner: AeselComposer) { self.owner = owner }
         func measure(_ view: NSTextView) {
             guard let layout = view.layoutManager, let container = view.textContainer else { return }
@@ -60,7 +70,10 @@ struct AeselComposer: NSViewRepresentable {
     func makeNSView(context: Context) -> Editor {
         let view = Editor(frame: .zero)
         view.isRichText = false; view.allowsUndo = true; view.drawsBackground = false; view.isHorizontallyResizable = false
-        view.isVerticallyResizable = true; view.autoresizingMask = [.width]
+        view.isEditable = true; view.isSelectable = true
+        view.minSize = .zero
+        view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+        view.isVerticallyResizable = false; view.autoresizingMask = [.width]
         view.textContainer?.widthTracksTextView = true
         view.textContainer?.lineFragmentPadding = 0
         view.textContainerInset = NSSize(width: 0, height: 4)
@@ -83,8 +96,14 @@ struct AeselComposer: NSViewRepresentable {
             storage.addAttributes(attributes, range: NSRange(location: 0, length: storage.length))
         }
         view.typingAttributes = attributes; view.insertionPointColor = NSColor(color)
-        if focused && view.window?.firstResponder !== view { view.window?.makeFirstResponder(view) }
-        else if !focused && view.window?.firstResponder === view { view.window?.makeFirstResponder(nil) }
+        // A click reports focus asynchronously. Unrelated SwiftUI updates must
+        // not revoke that click before its binding update arrives.
+        view.wantsFocus = focused
+        if context.coordinator.requestedFocus != focused {
+            context.coordinator.requestedFocus = focused
+            if focused && view.window?.firstResponder !== view { view.window?.makeFirstResponder(view) }
+            else if !focused && view.window?.firstResponder === view { view.window?.makeFirstResponder(nil) }
+        }
         context.coordinator.measure(view)
     }
 }
