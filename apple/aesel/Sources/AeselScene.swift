@@ -144,11 +144,11 @@ extension EnvironmentValues {
 }
 
 /// The desktop's native Prox lettering (easel/desktop/native/credit-label.swift),
-/// drawn with the platform graphics context: cyan, purple and pink echoes under a thin-outlined face
-/// with a hard pink shadow, one cached image per letter so the notebook can
+/// drawn with a solid face, a thin dark edge and one tight pink shadow.
+/// One cached image per letter lets the notebook
 /// tilt and sway each one on its own.
 enum Rock {
-    static let inset: CGFloat = 9
+    static let inset: CGFloat = 4
     private static var cache: [String: (AeselImage, CGSize)] = [:]
 
     static func font(_ size: CGFloat) -> AeselFont {
@@ -167,24 +167,15 @@ enum Rock {
         let advance = (text as NSString).size(withAttributes: [.font: font])
         let bounds = CGSize(width: ceil(advance.width + inset * 2), height: ceil(advance.height + inset * 2))
         let image = ApplePlatform.image(size: bounds) {
-            let echoes: [(AeselColor, CGFloat, CGFloat)] = [
-                (.systemCyan.withAlphaComponent(0.28), 4.5, 3),
-                (.systemPurple.withAlphaComponent(0.40), 3, 2),
-                (.systemPink.withAlphaComponent(0.65), 1.5, 1.5),
-            ]
-            for (color, x, y) in echoes {
-                NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color])
-                    .draw(at: CGPoint(x: inset + x, y: inset + y))
-            }
             let shadow = NSShadow()
-            shadow.shadowColor = AeselColor.systemPink.withAlphaComponent(0.5)
+            shadow.shadowColor = AeselColor.systemPink.withAlphaComponent(0.7)
             shadow.shadowBlurRadius = 0
-            shadow.shadowOffset = CGSize(width: 1.5, height: 1.5)
+            shadow.shadowOffset = CGSize(width: 0.75, height: 0.75)
             NSAttributedString(string: text, attributes: [
                 .font: font,
-                .foregroundColor: face.withAlphaComponent(0.94),
+                .foregroundColor: face,
                 .strokeColor: AeselColor(white: 0.08, alpha: 1),
-                .strokeWidth: -3.5,
+                .strokeWidth: -1,
                 .shadow: shadow,
             ]).draw(at: CGPoint(x: inset, y: inset))
         }
@@ -281,9 +272,8 @@ struct AeselTitle: View {
     var size: CGFloat = 20
     var maximumWidth: CGFloat? = nil
     var horizontalInset: CGFloat = 12
-    var hoverAnchor: UnitPoint = .leading
     var hoverSound: (() -> Void)? = nil
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.paint) private var paint
     @State private var hovered = false
 
     private static func fnv(_ text: String) -> UInt32 {
@@ -292,9 +282,9 @@ struct AeselTitle: View {
         return hash
     }
 
-    // "@handle" letters wear the account palette; the piece name stays white.
+    // Handle letters keep the account palette; the piece name follows the paper ink.
     private func face(_ index: Int, handle: Int) -> AeselColor {
-        guard index < handle, colors.indices.contains(index), let color = AeselColor(hex: colors[index]) else { return .white }
+        guard index < handle, colors.indices.contains(index), let color = AeselColor(hex: colors[index]) else { return AeselColor(paint.ink) }
         return color
     }
 
@@ -314,8 +304,8 @@ struct AeselTitle: View {
                         RockLetter(text: String(letter), size: size, face: face, beat: Double(index) * 0.12)
                             // A new letter is a new view, so the sway never crossfades old ink into new.
                             .id("\(index)|\(letter)|\(face)")
-                            .rotationEffect(.degrees(-Double(Int((hash >> 8) % 9) - 4) * 0.9))
-                            .offset(y: -(CGFloat(hash % 5) / 2 - 1))
+                            .rotationEffect(.degrees(-Double(Int((hash >> 8) % 9) - 4) * 0.2))
+                            .offset(y: -(CGFloat(hash % 5) / 2 - 1) * 0.25)
                     }
                 }
                 .padding(.horizontal, horizontalInset)
@@ -341,21 +331,19 @@ private struct RockLetter: View {
     let face: AeselColor
     let beat: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var swaying = false
-
     var body: some View {
         let glyph = Rock.glyph(text, size: size, face: face)
-        Color.clear
-            .frame(width: glyph.advance.width, height: glyph.advance.height)
-            .overlay(alignment: .topLeading) {
-                Image(aeselImage: glyph.image).offset(x: -Rock.inset, y: -Rock.inset)
-            }
-            .rotationEffect(.degrees(swaying ? 0.8 : -1.2))
-            .offset(y: swaying ? 0.8 : -1.2)
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true).delay(beat)) { swaying = true }
-            }
+        // Time changes only the drawing transform, never the glyph layout.
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { timeline in
+            let wave = reduceMotion ? 0 : sin((timeline.date.timeIntervalSinceReferenceDate - beat) * .pi / 0.9)
+            Color.clear
+                .frame(width: glyph.advance.width, height: glyph.advance.height)
+                .overlay(alignment: .topLeading) {
+                    Image(aeselImage: glyph.image).offset(x: -Rock.inset, y: -Rock.inset)
+                }
+                .rotationEffect(.degrees(wave * 0.35))
+                .offset(y: wave * 0.35)
+        }
     }
 }
 

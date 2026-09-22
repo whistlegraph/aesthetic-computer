@@ -220,10 +220,10 @@ struct ContentView: View {
                 versionLabel
             }
             .padding(.horizontal, edgeInset)
-            .frame(height: 44)
+            .frame(height: 32)
             .background { AeselWindowDragArea() }
         }
-        .frame(height: 44)
+        .frame(height: 32)
     }
 
     private var titleURL: URL? {
@@ -309,7 +309,7 @@ struct ContentView: View {
     /// The piece version opens settings from the fixed title strip.
     private var versionLabel: some View {
         Button { openSettings() } label: {
-            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 11 : 13, horizontalInset: 0, hoverAnchor: .bottomTrailing,
+            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 11 : 13, horizontalInset: 0,
                        hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "version") })
         }
         .buttonStyle(AeselButtonStyle())
