@@ -48,3 +48,14 @@ test('speaker indicator follows audio, holds musical rests and remains reachable
   window.__aeselSource='new piece';tick();assert.equal(reported.length,2);
   samples=[0.2];tick();assert.equal(reported.at(-1).source,'new piece');
 });
+
+test('changing tempo reaches the clock bridge without reinjecting or restarting the piece',()=>{
+  const ticks=[],rates=[],sent=[],events={},confirmed=[];
+  const window={preloaded:true,__aeselSource:'saved piece',__aeselTempo:180,
+    AC:{setClockRate:r=>rates.push(r)},acSEND:m=>sent.push(m),addEventListener:(name,fn)=>events[name]=fn,
+    webkit:{messageHandlers:{previewFailure:{postMessage(){}},previewClock:{postMessage:r=>confirmed.push(r)}}}};
+  vm.runInNewContext(script,{window,location:{search:''},URLSearchParams,setInterval:fn=>ticks.push(fn),clearInterval(){},setTimeout(){}});
+  ticks[1]();assert.equal(rates.at(-1),1.5);assert.equal(sent.length,1);
+  window.__aeselTempo=60;window.__aeselRender();assert.equal(rates.at(-1),0.5);assert.equal(sent.length,1);
+  events['ac-clock-state']({detail:{rate:0.5}});assert.deepEqual(confirmed,[0.5]);
+});

@@ -1,3 +1,4 @@
+import { createPlaybackClock } from "./playback-clock.mjs";
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -2984,6 +2985,7 @@ let baseReal = Date.now(); // Real time at last baseTime
 let clockFetching = false;
 let lastServerTime = undefined;
 let clockOffset = 0; // Smoothed offset from server
+const playbackClock = createPlaybackClock(() => baseTime + (Date.now() - baseReal));
 
 // 🤖 Robo Class - For sending synthetic events through the act system
 // 🤖 Robo: synthetic pen/event dispatcher decoupled from the hardware pen.
@@ -3129,7 +3131,7 @@ const $commonApi = {
     },
 
     time: function () {
-      return new Date(baseTime + (Date.now() - baseReal));
+      return new Date(playbackClock.time());
     },
   },
 
@@ -10872,6 +10874,13 @@ async function makeFrame({ data: { type, content } }) {
       act($api);
     } catch (e) {
       console.warn("️ ✒ Act failure...", e);
+    }
+    return;
+  }
+
+  if (type === "clock:rate") {
+    if (playbackClock.setRate(content?.rate, content?.reset === true)) {
+      send({ type: "clock:state", content: { rate: playbackClock.rate, time: playbackClock.time() } });
     }
     return;
   }

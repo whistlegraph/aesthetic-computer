@@ -246,13 +246,26 @@ struct ContentView: View {
         .buttonStyle(AeselButtonStyle())
         .accessibilityLabel("Volume")
         .popover(isPresented: $showVolume) {
-            HStack(spacing: 10) {
-                Button { preview.volume = preview.volume == 0 ? 1 : 0 } label: {
-                    Image(systemName: preview.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                }.accessibilityLabel(preview.volume == 0 ? "Unmute" : "Mute")
-                Slider(value: $preview.volume, in: 0...1).tint(paint.accent).accessibilityLabel("Volume")
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Button { preview.volume = preview.volume == 0 ? 1 : 0 } label: {
+                        Image(systemName: preview.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    }.accessibilityLabel(preview.volume == 0 ? "Unmute" : "Mute")
+                    Slider(value: $preview.volume, in: 0...1).tint(paint.accent).accessibilityLabel("Volume")
+                }
+                HStack(spacing: 8) {
+                    Image(systemName: "metronome").accessibilityHidden(true)
+                    Text("\(Int(preview.tempo)) BPM").font(Paint.font(13)).monospacedDigit()
+                    Spacer()
+                    Button("Sync") { preview.syncClock() }.font(Paint.font(12))
+                        .accessibilityLabel("Return to the shared 120 BPM clock")
+                }
+                Slider(value: $preview.tempo, in: 30...240, step: 1)
+                    .tint(paint.accent).accessibilityLabel("Metronome rate")
+                    .accessibilityValue("\(Int(preview.tempo)) beats per minute")
+                    .disabled(preview.clockRate == nil)
             }
-            .padding(14).frame(width: 210)
+            .padding(14).frame(width: 240)
             .foregroundStyle(paint.ink).background(paint.bg)
             .buttonStyle(AeselButtonStyle()).presentationCompactAdaptation(.popover)
         }
@@ -583,6 +596,7 @@ struct ContentView: View {
                              "operationID": session.hostOperationID ?? "",
                              "choices": session.providers.map { ["id": $0.id, "available": $0.available, "notice": $0.notice] },
                              "models": session.modelChoices.map { ["id": $0.id, "title": $0.title] }],
+                "audio": ["volume": preview.volume, "tempo": preview.tempo, "clockRate": preview.clockRate ?? 0, "hasAudio": preview.hasAudio],
                 "preview": ["visible": previewVisible, "expanded": expandedPreview, "width": previewBounds.width, "height": previewBounds.height, "right": previewBounds.right, "top": previewBounds.top],
                 "layout": ["uiScale": uiScale, "compact": compact, "width": sheetSize.width, "height": sheetSize.height, "row": row, "paperTop": paperTop, "previewBlockHeight": previewBlockHeight, "composerHeight": composerHeight],
                 "notebook": ["visible": !expandedPreview && !showHome && !showSettings && !showHelp && !session.showSignIn],

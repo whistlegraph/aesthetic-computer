@@ -28,6 +28,10 @@ notebook history. After retries, a temporary notice offers Retry; source remains
 saved locally. AC inference has a 45-second connection deadline and a 60-second
 idle-stream deadline, without replaying paid requests. A speaker beside the title
 opens volume when the preview produces audio; mute remains reachable through silence.
+The sound popover's 30–240 BPM control scales the preview's shared `clock.time()`
+from the default 120 BPM without restarting the piece. Clock-driven sequences and
+visuals follow together. Sync returns to the network clock's epoch grid. JavaScript
+wall-clock timers and audio pitch remain unchanged.
 
 Native CLI sessions share Electron's piece-first, responsive-layout, network-clock,
 sound-design and reply instructions, plus the bundled AC guides. Each turn

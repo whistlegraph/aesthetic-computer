@@ -7,6 +7,8 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var failure: String?
     @Published var background: Color?
     @Published var hasAudio = false
+    @Published var tempo: Double = 120 { didSet { updateSource() } }
+    @Published var clockRate: Double?
     @Published var volume: Double = 1 { didSet { updateSource() } }
     private var source = ""
     private var requestedURL: URL?
@@ -20,6 +22,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         configuration.userContentController.add(messages, name: "previewFailure")
         configuration.userContentController.add(messages, name: "previewBackdrop")
         configuration.userContentController.add(messages, name: "previewAudio")
+        configuration.userContentController.add(messages, name: "previewClock")
         #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
         #endif
@@ -27,6 +30,9 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         configuration.userContentController.addUserScript(WKUserScript(source: """
         (() => {
           let ready = false, rendered = '', failed = false, startupTimedOut = false;
+          window.addEventListener('ac-clock-state', event => {
+            window.webkit.messageHandlers.previewClock.postMessage(event.detail.rate);
+          });
           let audioSource = '', lastSound = -Infinity, audioVisible = false;
           setInterval(() => {
             if (audioSource !== window.__aeselSource) {
@@ -61,6 +67,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
           }, 45000);
           window.__aeselRender = () => {
             window.AC?.setMasterVolume?.(window.__aeselVolume ?? 1);
+            window.AC?.setClockRate?.((window.__aeselTempo ?? 120) / 120);
             const source = window.__aeselSource;
             if (!ready || !window.acSEND || !source || source === rendered) return;
             rendered = source;
@@ -109,14 +116,14 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         if self.source != source { failure = nil; hasAudio = false }
         self.source = source
         if requestedURL != url {
-            failure = nil; requestedURL = url
+            failure = nil; clockRate = nil; requestedURL = url
             view.load(URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData))
         } else { updateSource() }
     }
     private func updateSource() {
         guard let data = try? JSONSerialization.data(withJSONObject: [source]),
               let json = String(data: data, encoding: .utf8) else { return }
-        view.evaluateJavaScript("window.__aeselVolume = \(volume); window.__aeselSource = \(json)[0]; window.__aeselRender?.();")
+        view.evaluateJavaScript("window.__aeselTempo = \(tempo); window.__aeselVolume = \(volume); window.__aeselSource = \(json)[0]; window.__aeselRender?.();")
     }
     func setBackdrop(_ rgb: [Double]) {
         guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
@@ -134,10 +141,14 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         view.scrollView.backgroundColor = color
         #endif
     }
+    func syncClock() {
+        tempo = 120
+        view.evaluateJavaScript("window.AC?.setClockRate?.(1, true);")
+    }
     func setAudio(_ active: Bool, source: String) {
         if self.source == source { hasAudio = active }
     }
-    func reload() { failure = nil; hasAudio = false; view.reload() }
+    func reload() { failure = nil; hasAudio = false; clockRate = nil; view.reload() }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { updateSource() }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }
@@ -155,7 +166,9 @@ private final class PreviewMessages: NSObject, WKScriptMessageHandler {
     weak var owner: PiecePreview?
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame else { return }
-        if message.name == "previewAudio", let audio = message.body as? [String: Any],
+        if message.name == "previewClock", let rate = message.body as? Double, rate.isFinite, (0.25...2).contains(rate) {
+            if owner?.clockRate != rate { owner?.clockRate = rate }
+        } else if message.name == "previewAudio", let audio = message.body as? [String: Any],
            let active = audio["active"] as? Bool, let source = audio["source"] as? String {
             owner?.setAudio(active, source: source)
         } else if message.name == "previewBackdrop", let rgb = message.body as? [Double] {
