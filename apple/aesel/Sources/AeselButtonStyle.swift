@@ -15,7 +15,14 @@ struct AeselButtonPointer: ViewModifier {
     let enabled: Bool
     @ViewBuilder func body(content: Content) -> some View {
         #if os(macOS)
-        content.background(AeselCursorRegion(enabled: enabled))
+        content
+            .background(AeselCursorRegion(enabled: enabled))
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: if enabled { NSCursor.pointingHand.set() }
+                case .ended: NSCursor.arrow.set()
+                }
+            }
         #else
         content.hoverEffect(.highlight, isEnabled: enabled)
         #endif
