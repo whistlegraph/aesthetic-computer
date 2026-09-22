@@ -30,7 +30,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { voicePosition, sourceGain, ringSeats } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -303,7 +303,7 @@ for (let f = 0; f < frames; f++) {
     if (until <= 0 && until > -2) recent++;
     if (end <= 0) continue;
     if (until <= 0 && !landed.has(e)) { landed.add(e); const gk = gainsAt(e.lane, e.t); for (let k = 0; k < SEATS; k++) if (gk[k] * gk[k] >= .5) flash[k] = Math.min(1, flash[k] + Math.sqrt(e.g) * 1.6); }
-    const pos = voicePosition(score, e.lane, e.t), color = tone(destColor(e.lane, e.t));
+    const pos = voicePosition(score, e.lane, e.t), color = tone(noteColor(e.note) || destColor(e.lane, e.t));
     const a = pos.center ? CENTER_STREAM : pos.angle, dock = pos.center ? CENTER_DOCK : R + 6;
     const head = dock + Math.max(0, until) * speed, tail = Math.min(R_OUT + 20, dock + end * speed);
     if (tail <= head + .5) continue;
@@ -347,7 +347,7 @@ for (let f = 0; f < frames; f++) {
     // the machine's actual screen, as pieces/spatial-rehearsal.mjs paints it: a dark
     // field tinted by the glow, a horizon, a front line, and this laptop's notes
     // flying from the horizon to the front, arriving as they sound
-    const glow = lit, screenBg = mix([12, 15, 23], sc.map(v => v * .55), glow);
+    const glow = lit, screenBg = mix([12, 15, 23], sc.map(v => v * .3), glow);
     rect(x - bw / 2, y - bh / 2, bw, bh, screenBg);
     // notes are frames in the display's own aspect: small and centered far
     // off, filling the display exactly as they sound, fading with the note
@@ -361,13 +361,22 @@ for (let f = 0; f < frames; f++) {
     }
     mine.sort((p, q) => q.until - p.until);
     for (const { e, until } of mine) {
-      const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u;
-      const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
-      const scl = sounding ? 1 : .06 + .94 * Math.pow(near, 2.2);
+      const base = noteColor(e.note) || sc, sharp = e.note && e.note.includes('#');
+      const sounding = until <= 0, held = Math.max(.3, e.dur), left = sounding ? Math.max(0, 1 - (-until) / held) : 1;
+      const near = sounding ? left : 1 - Math.max(0, Math.min(1, until / LOOK));
+      const scl = sounding && -until < .08 ? 1 : .06 + .94 * Math.pow(near, sounding ? 1.6 : 2.2);
       const fw = bw * scl, fh = bh * scl, x0 = x - fw / 2, y0 = y - fh / 2;
-      const col = mix(screenBg, sc, sounding ? .35 + .65 * left : .2 + .8 * near);
-      if (sounding) rect(x0, y0, fw, fh, col);
-      else { bar(x0, y0, x0 + fw, y0, 1, col, 1); bar(x0, y0 + fh, x0 + fw, y0 + fh, 1, col, 1); bar(x0, y0, x0, y0 + fh, 1, col, 1); bar(x0 + fw, y0, x0 + fw, y0 + fh, 1, col, 1); }
+      const bright = sounding ? .35 + .65 * left : .3 + .7 * near;
+      const col = base.map(v => v * bright), dark = base.map(v => v * bright * .45);
+      if (sounding && -until < .08) {
+        rect(x0, y0, fw, fh, col);
+        for (let yy = y0 + 2; yy < y0 + fh; yy += 4) bar(x0, yy, x0 + fw, yy, 1, dark, .8);
+      } else {
+        if (scl > .12) for (let yy = y0 + 1.5; yy < y0 + fh - 1; yy += sounding ? 3 : 2) bar(x0 + 1, yy, x0 + fw - 1, yy, .8, dark, .5);
+        const oc = sharp ? [225, 225, 235] : col;
+        bar(x0, y0, x0 + fw, y0, 1, oc, 1); bar(x0, y0 + fh, x0 + fw, y0 + fh, 1, oc, 1); bar(x0, y0, x0, y0 + fh, 1, oc, 1); bar(x0 + fw, y0, x0 + fw, y0 + fh, 1, oc, 1);
+        if (scl > .3) { bar(x0 + 2, y0 + 2, x0 + fw - 2, y0 + 2, 1, dark, 1); bar(x0 + 2, y0 + fh - 2, x0 + fw - 2, y0 + fh - 2, 1, dark, 1); }
+      }
     }
     rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, T.dim);
     // the number sits beside the machine, on the side away from the audience

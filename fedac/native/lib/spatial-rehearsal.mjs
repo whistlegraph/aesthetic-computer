@@ -91,3 +91,17 @@ export function hasFocus(score, seat, seats, t) {
   return score.lanes.some((lane, i) => lane.events?.some(e => t >= e.t && t < e.t + e.dur) &&
     sourceGain(score, voicePosition(score, i, t), seat, seats) ** 2 >= .9);
 }
+
+// Notepat's note colors (system/public/aesthetic.computer/lib/note-colors.mjs):
+// ROYGBIV by letter, dayglo an octave above 4, muted an octave below, sharps
+// black. `name` is like "C#5". Unpitched events return null.
+const NOTE_BASE = { c: [255, 50, 50], d: [255, 160, 0], e: [255, 230, 0], f: [50, 200, 50], g: [50, 120, 255], a: [130, 50, 200], b: [180, 80, 255] };
+const NOTE_DAYGLO = { c: [255, 40, 80], d: [255, 180, 0], e: [255, 255, 50], f: [50, 255, 100], g: [50, 200, 255], a: [180, 50, 255], b: [255, 80, 255] };
+const NOTE_MUTED = { c: [139, 26, 26], d: [180, 100, 0], e: [180, 150, 0], f: [20, 90, 20], g: [20, 60, 120], a: [50, 0, 90], b: [90, 30, 150] };
+export function noteColor(name) {
+  const m = /^([A-Ga-g])(#?)(-?\d+)$/.exec(name || '');
+  if (!m) return null;
+  if (m[2]) return [0, 0, 0];
+  const d = +m[3] - 4, map = d >= 1 ? NOTE_DAYGLO : d <= -1 ? NOTE_MUTED : NOTE_BASE;
+  return map[m[1].toLowerCase()];
+}

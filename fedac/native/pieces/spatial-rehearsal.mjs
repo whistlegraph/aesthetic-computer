@@ -1,6 +1,6 @@
 // Spatial rehearsal, 26.09.18
 // Local synthesis on every seat, coordinated over Wi-Fi. Microphones stay closed.
-import { voicePosition, sourceGain, hasFocus, ringSeats } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
 
 let config, score, error = '', phase = 'ready', origin = null;
 let lastStatus = -1, lastRead = -1, seenCommand = '';
@@ -149,7 +149,7 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   const focused = score && hasFocus(score, config.seat, config.seats, focusTime);
   glow = focused && amp > .002 ? Math.min(1, Math.sqrt(amp) * 2.8) : 0;
   const own = score?.seatColors?.[config?.seat] || [255, 226, 120];
-  wipe(Math.round(12 + (own[0] * .55 - 12) * glow), Math.round(15 + (own[1] * .55 - 15) * glow), Math.round(23 + (own[2] * .55 - 23) * glow));
+  wipe(Math.round(12 + (own[0] * .3 - 12) * glow), Math.round(15 + (own[1] * .3 - 15) * glow), Math.round(23 + (own[2] * .3 - 23) * glow));
   const w = screen.width, h = screen.height;
   const battery = system?.battery;
   let batteryLabel = 'BAT --';
@@ -187,16 +187,24 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   }
   frames.sort((p, q) => q.until - p.until); // far first, so near frames draw on top
   for (const { e, until } of frames) {
-    const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u;
-    const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
-    const sc = sounding ? 1 : .05 + .95 * Math.pow(near, 2.2);
+    const base = noteColor(e.note) || own, sharp = e.note && e.note.includes('#');
+    const sounding = until <= 0, held = Math.max(.3, e.dur), left = sounding ? Math.max(0, 1 - (-until) / held) : 1;
+    // approaching: grows on a square law; hit: one short blink; then it reverses and recedes over the note
+    const near = sounding ? left : 1 - Math.max(0, Math.min(1, until / LOOK));
+    const sc = sounding && -until < .08 ? 1 : .05 + .95 * Math.pow(near, sounding ? 1.6 : 2.2);
     const fw = Math.round(w * sc), fh = Math.round(h * sc), x0 = Math.round(cx - fw / 2), y0 = Math.round(cy - fh / 2);
-    const bright = sounding ? .35 + .65 * left : .25 + .75 * near;
-    ink(...own.map(v => Math.round(v * bright)));
-    if (sounding) box(x0, y0, fw, fh, 'fill'); // the whole screen is the note
-    else { box(x0, y0, fw, fh, 'outline'); if (sc > .3) box(x0 + 1, y0 + 1, fw - 2, fh - 2, 'outline'); }
+    const bright = sounding ? .35 + .65 * left : .3 + .7 * near;
+    const col = base.map(v => Math.round(v * bright)), dark = base.map(v => Math.round(v * bright * .45));
+    if (sounding && -until < .08) { // the blink: the whole screen is the note for a moment
+      ink(...col); box(x0, y0, fw, fh, 'fill');
+      ink(...dark); for (let y = y0 + 4; y < y0 + fh; y += 8) line(x0, y, x0 + fw, y);
+    } else {
+      if (sc > .12) { ink(...dark); const gap = sounding ? 6 : 4; for (let y = y0 + 3; y < y0 + fh - 1; y += gap) line(x0 + 2, y, x0 + fw - 3, y); }
+      ink(...(sharp ? [225, 225, 235] : col)); box(x0, y0, fw, fh, 'outline');
+      if (sc > .25) { ink(...dark); box(x0 + 2, y0 + 2, fw - 4, fh - 4, 'outline'); }
+    }
     if (e.note && sc > .18) {
-      ink(...(sounding ? [20, 22, 30] : own));
+      ink(...(sharp ? [225, 225, 235] : col));
       write(e.note, { x: x0 + 4, y: y0 + 3, font: '6x10', size: sc > .6 ? 3 : sc > .35 ? 2 : 1 });
     }
   }
