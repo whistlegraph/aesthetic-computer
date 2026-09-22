@@ -59,3 +59,7 @@ This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both
 ## Octave Climb
 
 `node fedac/native/tools/compose-soft-swing.mjs --climb` writes `octave-climb.nsscore`. Four 17-second phrases rise by an octave each time, spanning three octave lifts. High-register gain tapers gently. A sparse seventh source adds two-note answering phrases and faint delayed returns above the melody. The soft 3:2 swing, taps, spatial echoes and 70.97-second duration remain. Deploy with `--score octave-climb`, then cue the two laptops.
+
+## Note(s)pat(ial) Native
+
+`compose-notespatial-native.mjs` writes `notespatial-native.nsscore`: the 13:08 performance score for six seats in a ring, plus one file per section rebased to zero. `notespatial-native-check.mjs` prints the routed power per laptop in 20-second windows, the seat of each early hop, and dry-runs the piece against the full score. Form, cue points and risks: `grants/culturehub-la-2026/NOTESPATIAL-ARRANGEMENT.md`. Deploy with `--score notespatial-native` and hosts in seat order 1–6 clockwise from the front.
