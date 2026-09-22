@@ -15,11 +15,7 @@ struct AeselButtonPointer: ViewModifier {
     let enabled: Bool
     @ViewBuilder func body(content: Content) -> some View {
         #if os(macOS)
-        if #available(macOS 15, *) {
-            content.pointerStyle(enabled ? .link : .default)
-        } else {
-            content.background(AeselCursorRegion(enabled: enabled))
-        }
+        content.background(AeselCursorRegion(enabled: enabled))
         #else
         content.hoverEffect(.highlight, isEnabled: enabled)
         #endif
@@ -36,6 +32,10 @@ private struct AeselCursorRegion: NSViewRepresentable {
             if enabled { addCursorRect(visibleRect, cursor: .pointingHand) }
         }
         override func viewDidMoveToWindow() { window?.invalidateCursorRects(for: self) }
+        override func setFrameSize(_ size: NSSize) {
+            super.setFrameSize(size)
+            window?.invalidateCursorRects(for: self)
+        }
     }
     func makeNSView(context: Context) -> CursorView { CursorView() }
     func updateNSView(_ view: CursorView, context: Context) {

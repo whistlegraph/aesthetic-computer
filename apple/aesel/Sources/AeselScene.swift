@@ -278,7 +278,9 @@ struct AeselTitle: View {
     var size: CGFloat = 20
     var maximumWidth: CGFloat? = nil
     var horizontalInset: CGFloat = 12
+    var hoverAnchor: UnitPoint = .leading
     var hoverSound: (() -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovered = false
 
     private static func fnv(_ text: String) -> UInt32 {
@@ -316,6 +318,8 @@ struct AeselTitle: View {
                 .padding(.horizontal, horizontalInset)
                 .fixedSize()
                 .scaleEffect(restingScale, anchor: .leading)
+                .scaleEffect(hovered && !reduceMotion ? 1.2 : 1, anchor: hoverAnchor)
+                .animation(.easeOut(duration: 0.16), value: hovered)
                 .allowsHitTesting(false)
             }
         .contentShape(Rectangle())

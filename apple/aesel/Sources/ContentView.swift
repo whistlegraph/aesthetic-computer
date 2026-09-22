@@ -219,11 +219,12 @@ struct ContentView: View {
                 #endif
                 title(availableWidth: max(0, geometry.size.width - headerReservedWidth))
                 Spacer(minLength: 8)
+                    .frame(height: 32)
+                    .background { AeselWindowDragArea() }
                 versionLabel
             }
             .padding(.horizontal, edgeInset)
             .frame(height: 32)
-            .background { AeselWindowDragArea() }
         }
         .frame(height: 32)
     }
@@ -311,7 +312,7 @@ struct ContentView: View {
     /// The piece version opens settings from the fixed title strip.
     private var versionLabel: some View {
         Button { openSettings() } label: {
-            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 11 : 13, horizontalInset: 0,
+            AeselTitle(text: "v\(session.currentRevision)", size: compact ? 11 : 13, horizontalInset: 0, hoverAnchor: .trailing,
                        hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "version") })
         }
         .buttonStyle(AeselButtonStyle())
