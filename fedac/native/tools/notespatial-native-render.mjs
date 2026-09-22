@@ -21,7 +21,7 @@
 //
 //   node notespatial-native-render.mjs [score.nsscore] [--out x.mp4]
 //        [--from 7:20] [--to 8:00] [--section 5] [--fps 30] [--size 960x540]
-//        [--audio-only] [--fast]
+//        [--audio-only] [--fast] [--light | --dark]   (theme follows macOS unless given)
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -32,7 +32,7 @@ import { voicePosition, sourceGain, ringSeats } from '../lib/spatial-rehearsal.m
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const FLAGS = ['audio-only', 'fast'];
+const FLAGS = ['audio-only', 'fast', 'light', 'dark'];
 const flag = k => args.includes('--' + k);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !FLAGS.includes(args[i - 1].slice(2))));
@@ -211,6 +211,13 @@ const cx = Math.round(W * .38), cy = Math.round(H * .52), R = Math.round(H * .24
 const floor = (a, r) => [cx + Math.sin(a) * r, cy - Math.cos(a) * r];
 const seatAngle = k => ringIndex(k) / RING * Math.PI * 2;
 const CENTER_STREAM = Math.PI; // the held laptop's stream comes up from the bottom gap
+// theme: light or dark; follows the system appearance unless told
+const systemDark = (() => { try { return spawnSync('defaults', ['read', '-g', 'AppleInterfaceStyle'], { encoding: 'utf8' }).stdout.trim() === 'Dark'; } catch { return true; } })();
+const LIGHT = flag('light') || (!flag('dark') && !systemDark);
+const T = LIGHT
+  ? { bg: [247, 245, 239], ink: [28, 30, 38], dim: [118, 122, 136], accent: [176, 108, 0], ringLine: [150, 154, 168], box: [226, 223, 214], boxTint: .22, seg: [[214, 211, 202], [200, 197, 188]], play: [220, 60, 60], streamTint: .18, shade: .82 }
+  : { bg: [9, 9, 13], ink: [235, 238, 245], dim: [120, 130, 150], accent: [255, 222, 110], ringLine: [70, 76, 96], box: [30, 34, 46], boxTint: .18, seg: [[62, 70, 90], [48, 54, 70]], play: [255, 90, 90], streamTint: .22, shade: 1 };
+const tone = c => c.map(v => Math.round(v * T.shade)); // seat colors sit a little darker on paper
 const frames = Math.ceil((span + TAIL) * FPS), perFrame = SR / FPS, dt = 1 / FPS;
 const all = score.lanes.flatMap((l, i) => l.events.map(e => ({ ...e, lane: i }))).sort((a, b) => a.t - b.t);
 let lo = 0; // sliding window over `all`
@@ -236,10 +243,10 @@ const write = buf => new Promise(res => ff.stdin.write(buf, () => res()) || ff.s
 
 for (let f = 0; f < frames; f++) {
   const t = from + f / FPS;
-  for (let i = 0; i < W * H; i++) { const o = i * 3; frame[o] = 9; frame[o + 1] = 9; frame[o + 2] = 13; }
+  for (let i = 0; i < W * H; i++) { const o = i * 3; frame[o] = T.bg[0]; frame[o + 1] = T.bg[1]; frame[o + 2] = T.bg[2]; }
   // faint streams and the two circles
-  for (let k = 0; k < SEATS; k++) { const a = k === CENTER ? CENTER_STREAM : seatAngle(k), r0 = k === CENTER ? 18 : R + 18; const [x0, y0] = floor(a, r0), [x1, y1] = floor(a, R_OUT); bar(x0, y0, x1, y1, 1, mix([9, 9, 13], SEAT_COLORS[k], .22), 1); }
-  ring(cx, cy, R, [70, 76, 96]);
+  for (let k = 0; k < SEATS; k++) { const a = k === CENTER ? CENTER_STREAM : seatAngle(k), r0 = k === CENTER ? 18 : R + 18; const [x0, y0] = floor(a, r0), [x1, y1] = floor(a, R_OUT); bar(x0, y0, x1, y1, 1, mix(T.bg, SEAT_COLORS[k], T.streamTint), 1); }
+  ring(cx, cy, R, T.ringLine);
   // seat levels from the feeds, smoothed: fast up, slow down
   const s0 = Math.floor(f * perFrame), s1 = Math.min(N, Math.floor((f + 1) * perFrame));
   for (let k = 0; k < SEATS; k++) {
@@ -260,7 +267,7 @@ for (let f = 0; f < frames; f++) {
     if (until <= 0 && until > -2) recent++;
     if (end <= 0) continue;
     if (until <= 0 && !landed.has(e)) { landed.add(e); const gk = gainsAt(e.lane, e.t); for (let k = 0; k < SEATS; k++) if (gk[k] * gk[k] >= .5) flash[k] = Math.min(1, flash[k] + Math.sqrt(e.g) * 1.6); }
-    const pos = voicePosition(score, e.lane, e.t), color = destColor(e.lane, e.t);
+    const pos = voicePosition(score, e.lane, e.t), color = tone(destColor(e.lane, e.t));
     const a = pos.center ? CENTER_STREAM : pos.angle, dock = pos.center ? 18 : R + 6;
     const head = dock + Math.max(0, until) * speed, tail = Math.min(R_OUT + 20, dock + end * speed);
     if (tail <= head + .5) continue;
@@ -280,15 +287,15 @@ for (let f = 0; f < frames; f++) {
       }
     }
   }
-  for (const l of labels.values()) text(l.s, l.x | 0, l.y | 0, mix([9, 9, 13], mix([150, 154, 170], l.color, .75), Math.max(0, Math.min(1, l.alpha))));
+  for (const l of labels.values()) text(l.s, l.x | 0, l.y | 0, mix(T.bg, mix(T.dim, l.color, .75), Math.max(0, Math.min(1, l.alpha))));
   // the machines
   for (let k = 0; k < SEATS; k++) {
     const isC = k === CENTER, [x, y] = isC ? [cx, cy] : floor(seatAngle(k), R);
     const bw = isC ? 40 : 46, bh = isC ? 28 : 32, lit = light[k];
-    const sc = SEAT_COLORS[k];
+    const sc = tone(SEAT_COLORS[k]);
     if (flash[k] > .02) for (let o = 1; o <= 4; o++) { const al = flash[k] * (1 - o / 5) * .5; bar(x - bw / 2 - o, y - bh / 2 - o, x + bw / 2 + o, y - bh / 2 - o, 1, sc, al); bar(x - bw / 2 - o, y + bh / 2 + o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); bar(x - bw / 2 - o, y - bh / 2 - o, x - bw / 2 - o, y + bh / 2 + o, 1, sc, al); bar(x + bw / 2 + o, y - bh / 2 - o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); }
-    rect(x - bw / 2, y - bh / 2, bw, bh, mix(mix([30, 34, 46], sc, .18), sc, lit));
-    rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, [120, 128, 150]);
+    rect(x - bw / 2, y - bh / 2, bw, bh, mix(mix(T.box, sc, T.boxTint), sc, lit));
+    rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, T.dim);
     // the machine's own screen: its notes approaching the front edge
     for (let i = lo; i < all.length && all[i].t <= t + LOOK; i++) {
       const e = all[i]; if (e.t < t) continue;
@@ -297,31 +304,31 @@ for (let f = 0; f < frames; f++) {
       const u = (e.t - t) / LOOK, midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
       const sx = x + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (bw * .4) * (.3 + .7 * (1 - u));
       const sy = y - bh / 2 + 3 + (1 - u) * (bh - 6);
-      blend(sx, sy, lit > .5 ? [30, 30, 40] : sc, .9);
+      blend(sx, sy, lit > .5 ? T.bg : sc, .9);
     }
-    text(isC ? 'C' : String(k + 1), x - 6, y - 10, lit > .55 ? [20, 22, 30] : [225, 230, 240], 2);
+    text(isC ? 'C' : String(k + 1), x - 6, y - 10, lit > .55 ? T.bg : T.ink, 2);
   }
   // panel
-  const X = Math.round(W * .68), col0 = [235, 238, 245], dim = [120, 130, 150];
+  const X = Math.round(W * .68), col0 = T.ink, dim = T.dim;
   text(ascii(score.name).toUpperCase(), X, 26, col0, 2);
   const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1) || (score.movements || []).at(-1);
   if (mv) {
-    text(ascii(mv.name), X, 64, [255, 222, 110], 2);
+    text(ascii(mv.name), X, 64, T.accent, 2);
     const words = ascii(mv.sub || '').split(' '); let row = '', y = 92;
-    for (const w of words) { if ((row + ' ' + w).length > Math.floor((W - X - 16) / 6)) { text(row, X, y, [170, 180, 200]); y += 13; row = w; } else row = row ? row + ' ' + w : w; }
-    text(row, X, y, [170, 180, 200]);
+    for (const w of words) { if ((row + ' ' + w).length > Math.floor((W - X - 16) / 6)) { text(row, X, y, mix(T.ink, T.dim, .4)); y += 13; row = w; } else row = row ? row + ' ' + w : w; }
+    text(row, X, y, mix(T.ink, T.dim, .4));
   }
   text(`${mmss(Math.min(Math.max(0, t), score.dur))} / ${mmss(score.dur)}`, X, 156, col0, 2);
   const bpm = tempoAt(t);
-  text(bpm ? `${bpm} BPM` : 'FREE TIME', X, 190, [255, 222, 110], 2);
+  text(bpm ? `${bpm} BPM` : 'FREE TIME', X, 190, T.accent, 2);
   text(`${(recent / 2).toFixed(1).padStart(5)} notes/s   ${String(sounding).padStart(2)} voices`, X, 214, dim);
   text(`ring of ${RING}${CENTER >= 0 ? ' + held center' : ''}   ${useHrtf ? 'KEMAR HRTF' : 'parametric head'}`, X, 230, dim);
-  for (let k = 0; k < SEATS; k++) { const isC = k === CENTER; disc(X + 4, 262 + k * 13, 3, SEAT_COLORS[k]); text(isC ? 'C   held, center, small speaker' : `${k + 1}   ${ringIndex(k) === 0 ? 'front' : 'at ' + Math.round(ringIndex(k) / RING * 360) + ' deg'}`, X + 14, 257 + k * 13, dim); }
+  for (let k = 0; k < SEATS; k++) { const isC = k === CENTER; disc(X + 4, 262 + k * 13, 3, tone(SEAT_COLORS[k])); text(isC ? 'C   held, center, small speaker' : `${k + 1}   ${ringIndex(k) === 0 ? 'front' : 'at ' + Math.round(ringIndex(k) / RING * 360) + ' deg'}`, X + 14, 257 + k * 13, dim); }
   // timeline
   const TX = X, TW = W - X - 16, TY = H - 40;
-  (score.movements || []).forEach((m, i) => rect(TX + m.t0 / score.dur * TW, TY, Math.max(1, (m.t1 - m.t0) / score.dur * TW - 1), 10, i % 2 ? [48, 54, 70] : [62, 70, 90]));
-  if (from > 0 || to < score.dur) rect(TX + from / score.dur * TW, TY - 4, Math.max(1, (to - from) / score.dur * TW), 2, [255, 222, 110]);
-  bar(TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY - 3, TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY + 13, 2, [255, 90, 90], 1);
+  (score.movements || []).forEach((m, i) => rect(TX + m.t0 / score.dur * TW, TY, Math.max(1, (m.t1 - m.t0) / score.dur * TW - 1), 10, T.seg[i % 2]));
+  if (from > 0 || to < score.dur) rect(TX + from / score.dur * TW, TY - 4, Math.max(1, (to - from) / score.dur * TW), 2, T.accent);
+  bar(TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY - 3, TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY + 13, 2, T.play, 1);
   (score.movements || []).forEach(m => text(ascii(m.name).split(' ')[0], TX + m.t0 / score.dur * TW, TY + 14, dim));
   await write(Buffer.from(frame));
 }
