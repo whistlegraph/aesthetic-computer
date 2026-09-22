@@ -6,6 +6,7 @@ import WebKit
 final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
     @Published var failure: String?
     @Published var background: Color?
+    @Published var hasAudio = false
     @Published var volume: Double = 1 { didSet { updateSource() } }
     private var source = ""
     private var requestedURL: URL?
@@ -18,6 +19,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         messages.owner = self
         configuration.userContentController.add(messages, name: "previewFailure")
         configuration.userContentController.add(messages, name: "previewBackdrop")
+        configuration.userContentController.add(messages, name: "previewAudio")
         #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
         #endif
@@ -25,6 +27,21 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         configuration.userContentController.addUserScript(WKUserScript(source: """
         (() => {
           let ready = false, rendered = '', failed = false, startupTimedOut = false;
+          let audioSource = '', lastSound = -Infinity, audioVisible = false;
+          setInterval(() => {
+            if (audioSource !== window.__aeselSource) {
+              audioSource = window.__aeselSource; lastSound = -Infinity; audioVisible = false;
+            }
+            let waveform = [];
+            try { waveform = window.AC?.readOutputWaveform?.(128) || []; } catch { /* Audio can detach while a piece reloads. */ }
+            if (waveform.some(value => Math.abs(value) > 0.001)) lastSound = performance.now();
+            // Hold through short musical rests; keep mute reachable after muting.
+            const active = performance.now() - lastSound < 3000 || (audioVisible && window.__aeselVolume === 0);
+            if (active !== audioVisible) {
+              audioVisible = active;
+              window.webkit.messageHandlers.previewAudio.postMessage({active, source: audioSource || ''});
+            }
+          }, 200);
           const reportFailure = message => {
             if (failed) return;
             failed = true;
@@ -89,7 +106,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
 
     func update(url: URL, source: String, scheme: ColorScheme) {
         ApplePlatform.setAppearance(view, colorScheme: scheme)
-        if self.source != source { failure = nil }
+        if self.source != source { failure = nil; hasAudio = false }
         self.source = source
         if requestedURL != url {
             failure = nil; requestedURL = url
@@ -117,7 +134,10 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         view.scrollView.backgroundColor = color
         #endif
     }
-    func reload() { failure = nil; view.reload() }
+    func setAudio(_ active: Bool, source: String) {
+        if self.source == source { hasAudio = active }
+    }
+    func reload() { failure = nil; hasAudio = false; view.reload() }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { updateSource() }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         if (error as NSError).code != NSURLErrorCancelled { failure = error.localizedDescription }
@@ -135,7 +155,10 @@ private final class PreviewMessages: NSObject, WKScriptMessageHandler {
     weak var owner: PiecePreview?
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame else { return }
-        if message.name == "previewBackdrop", let rgb = message.body as? [Double] {
+        if message.name == "previewAudio", let audio = message.body as? [String: Any],
+           let active = audio["active"] as? Bool, let source = audio["source"] as? String {
+            owner?.setAudio(active, source: source)
+        } else if message.name == "previewBackdrop", let rgb = message.body as? [Double] {
             owner?.setBackdrop(rgb)
         } else if message.name == "previewFailure", let text = message.body as? String {
             owner?.failure = text

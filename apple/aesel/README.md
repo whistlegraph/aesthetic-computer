@@ -16,11 +16,18 @@ The [experience model](EXPERIENCE.md) defines draft, sign-in, generation, and
 publishing behavior, including the proposed guest AI allowance.
 The [integration roadmap](ROADMAP.md) inventories the remaining ports and their
 acceptance gates, including providers, paired hosts, media, files, and releases.
-The native provider dropdown retains AC, Claude, and Codex with their desktop
-images. Claude and Codex use the optional local helper, installed from the repo
+The native provider dropdown lists Aesthetic.Computer, Claude, and Codex.
+Codex uses the OpenAI knot mark; provider artwork comes from the
+[attributed desktop assets](../../easel/desktop/assets/provider-marks.txt). Claude and Codex use the optional local helper, installed from the repo
 root with `node easel/native/install.mjs`. A connected provider can generate
 without AC sign-in; AC generation and publication retain their account gates.
 AC's model is Automatic. iPhone pairing to the helper is not implemented.
+
+Upload interruptions retry twice, with a 20-second deadline per attempt, outside
+notebook history. After retries, a temporary notice offers Retry; source remains
+saved locally. AC inference has a 45-second connection deadline and a 60-second
+idle-stream deadline, without replaying paid requests. A speaker beside the title
+opens volume when the preview produces audio; mute remains reachable through silence.
 
 Native CLI sessions share Electron's piece-first, responsive-layout, network-clock,
 sound-design and reply instructions, plus the bundled AC guides. Each turn

@@ -11,6 +11,22 @@ struct AeselButtonStyle: ButtonStyle {
     }
 }
 
+/// KidLisp's stop interaction: a small lift on hover, press inward.
+struct AeselStopButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovered = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Circle())
+            .scaleEffect(reduceMotion ? 1 : configuration.isPressed ? 0.95 : hovered ? 1.05 : 1)
+            .brightness(configuration.isPressed ? -0.1 : 0)
+            .animation(.easeOut(duration: 0.15), value: hovered)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+            .onHover { hovered = $0 }
+            .modifier(AeselButtonPointer(enabled: true))
+    }
+}
+
 struct AeselButtonPointer: ViewModifier {
     let enabled: Bool
     @ViewBuilder func body(content: Content) -> some View {

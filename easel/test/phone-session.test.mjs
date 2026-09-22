@@ -150,7 +150,7 @@ test('publication never marks newer draft or unverified bytes public',async()=>{
   assert.equal(events.some(e=>e.type==='preview'),false);
   globalThis.fetch=async(url,options={})=>url.includes('/presigned-upload-url/')?Response.json({uploadURL:'https://upload.test/piece'}):new Response(options.method==='PUT'?'':'different source');
   await session.publish();assert.equal(session.state.published,false);
-  assert.equal(events.some(e=>e.type==='bad' && e.text.includes('could not be verified')),true);
+  assert.equal(events.some(e=>e.type==='notice' && e.text.includes('could not be verified')),true);
  }finally{globalThis.fetch=originalFetch;}
 });
 
@@ -245,4 +245,35 @@ test('connected Claude and Codex update signed-out drafts without AC inference o
     }
     assert.deepEqual(network, []);
   } finally { globalThis.fetch = originalFetch; globalThis.__aeselGuides = previousGuides; }
+});
+
+test('upload recovery is ephemeral, preserves the draft, and never retries authorization',async()=>{
+  const originalFetch=globalThis.fetch;
+  try {
+    for(const mode of ['recover','offline','auth']) {
+      const events=[];let grants=0,putSource;
+      const session=createSession({emit:e=>events.push(e),retryOptions:{sleep:async()=>{}}});
+      await session.open();session.setAutoPublish(false);
+      const source='export function paint(){return "saved"}';await session.editSource(source);
+      session.state.token='test';session.state.handle='test';
+      globalThis.fetch=async(url,options={})=>{
+        if(url.includes('/presigned-upload-url/')) {
+          grants++;assert(!Object.keys(options.headers).some(key=>key.toLowerCase()==='user-agent'));
+          if(mode==='auth')return Response.json({error:'expired'},{status:401});
+          if(mode==='offline'||grants===1)throw new TypeError('Load failed');
+          return Response.json({uploadURL:'https://upload.test/piece'});
+        }
+        if(options.method==='PUT'){putSource=options.body;return new Response('');}
+        return new Response(putSource);
+      };
+      await session.publish();
+      assert.equal(grants,mode==='auth'?1:mode==='offline'?3:2);
+      assert.equal(session.state.published,mode==='recover');
+      assert.equal(session.state.revisions.at(-1).source,source);
+      assert(!session.state.transcript.some(e=>e.type==='notice'||e.type==='bad'));
+      const notice=events.filter(e=>e.type==='notice').at(-1);
+      if(mode==='recover')assert.equal(notice.text,'');
+      else {assert.equal(notice.action,mode==='auth'?'signIn':'publish');assert(!notice.text.includes('Load failed'));}
+    }
+  } finally {globalThis.fetch=originalFetch;}
 });

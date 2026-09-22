@@ -331,3 +331,18 @@ test('hosted settings tool returns its result without writing the piece or inter
  assert.equal(events.findLast(event=>event.method==='turn/completed').params.turn.status,'completed');
  assert(!events.some(event=>event.params?.item?.type==='fileChange'));
 });
+
+test('stalled AC headers and streams time out without replaying paid requests', async () => {
+  for (const stage of ['headers','stream']) {
+    let requests=0,signal,completed;
+    const engine=new AcServer({token:async()=>'test',jev:null,networkTimeouts:{connect:10,idle:10},fetch:async(_,options)=>{
+      requests++;signal=options.signal;
+      if(stage==='headers')return new Promise(()=>{});
+      return {ok:true,body:{getReader:()=>({read:()=>new Promise(()=>{}),cancel:async()=>{}})}};
+    }});
+    engine.on('notification',({method,params})=>{if(method==='turn/completed')completed=params.turn;});
+    await engine.startTurn('continue');
+    assert.equal(requests,1);assert.equal(signal.aborted,true);
+    assert.equal(completed.status,'failed');assert.equal(completed.error.network,true);
+  }
+});

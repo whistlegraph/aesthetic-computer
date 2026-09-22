@@ -160,7 +160,7 @@ private struct AeselWindowTitle: NSViewRepresentable {
     let title: String
     let paper: Color
     final class Carrier: NSView {
-        var pieceTitle = "Aesel"
+        var pieceTitle = ""
         var paperColor = NSColor.clear
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()

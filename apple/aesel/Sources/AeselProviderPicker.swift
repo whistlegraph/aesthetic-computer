@@ -31,37 +31,46 @@ struct AeselProviderPicker: View {
         Button { expanded.toggle() } label: {
             HStack(spacing: 9) {
                 mark(session.provider)
-                Text(session.provider == "ac" ? "AC" : session.provider.capitalized)
+                providerName(session.provider)
                 Spacer()
                 Image(systemName: "chevron.down").font(.system(size: 11))
             }
             .frame(maxWidth: .infinity).frame(height: 36)
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .frame(height: 36)
         .disabled(session.busy || session.hostOperationID != nil)
-        .accessibilityLabel("Provider, \(session.provider)")
+        .accessibilityLabel("Provider, \(session.provider == "ac" ? "Aesthetic.Computer" : session.provider.capitalized)")
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .popover(isPresented: $expanded, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
-                option("ac", title: "AC", available: true)
+                option("ac", title: "Aesthetic.Computer", available: true)
                 option("claude", title: "Claude", available: session.providers.first { $0.id == "claude" }?.available == true)
                 option("codex", title: "Codex", available: session.providers.first { $0.id == "codex" }?.available == true)
                 Button("Refresh connection") { host.refreshProviders() }.padding(6)
             }
-            .frame(width: 285)
+            .padding(8)
+            .frame(width: 310)
             .font(Paint.font(15)).foregroundStyle(paint.ink)
-            .background(paint.bg)
+            .background(paint.bg, in: RoundedRectangle(cornerRadius: 14))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .buttonStyle(AeselButtonStyle())
             .presentationCompactAdaptation(.popover)
         }
+    }
+
+    private func providerName(_ provider: String) -> Text {
+        if provider == "ac" {
+            return Text("Aesthetic") + Text(".").foregroundColor(Color(red: 1, green: 0.25, blue: 0.6)) + Text("Computer")
+        }
+        return Text(provider.capitalized)
     }
 
     private func option(_ provider: String, title: String, available: Bool) -> some View {
         Button { host.setProvider(provider); expanded = false } label: {
             HStack(spacing: 9) {
                 mark(provider, size: 28)
-                Text(title)
+                providerName(provider)
                 Spacer()
                 if session.provider == provider {
                     Image(systemName: "checkmark")
@@ -70,7 +79,7 @@ struct AeselProviderPicker: View {
                 }
             }
             .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 40)
-            .contentShape(Rectangle())
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .disabled(!available)
     }

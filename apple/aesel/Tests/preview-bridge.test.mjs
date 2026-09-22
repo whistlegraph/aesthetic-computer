@@ -11,7 +11,7 @@ test('native source injection carries view flags without forwarding auth paramet
   const sent=[],ticks=[];
   const window={preloaded:true,__aeselSource:'export function paint({wipe}) { wipe("orange"); }',acSEND:message=>sent.push(message),addEventListener(){},webkit:{messageHandlers:{previewFailure:{postMessage(){}}}}};
   vm.runInNewContext(script,{window,location:{search:'?noauth=true&nolabel=true&preview&code=private&state=private'},URLSearchParams,setInterval:fn=>(ticks.push(fn),1),clearInterval(){},setTimeout(){}});
-  ticks[0]();ticks[0]();
+  ticks[1]();ticks[1]();
   assert.equal(sent.length,1);
   assert.equal(sent[0].type,'dropped:piece');
   const flags=new URLSearchParams(sent[0].content.search);
@@ -34,4 +34,17 @@ test('a late ready event recovers the startup timeout and injects the saved piec
   assert.equal(sent.length,1);
   events.error({message:'A later runtime error'});
   assert.equal(messages[2],'A later runtime error');
+});
+
+test('speaker indicator follows audio, holds musical rests and remains reachable while muted',()=>{
+  let now=0,samples=[];const ticks=[],reported=[];
+  const window={__aeselSource:'piece',__aeselVolume:1,AC:{readOutputWaveform:()=>samples},addEventListener(){},webkit:{messageHandlers:{previewAudio:{postMessage:m=>reported.push(m)}}}};
+  vm.runInNewContext(script,{window,location:{search:''},URLSearchParams,performance:{now:()=>now},setInterval:fn=>ticks.push(fn),clearInterval(){},setTimeout(){}});
+  const tick=ticks[0];tick();assert.equal(reported.length,0);
+  samples=[0.1];tick();assert.equal(reported.at(-1).active,true);
+  samples=[];now=1000;tick();assert.equal(reported.length,1);
+  window.__aeselVolume=0;now=4000;tick();assert.equal(reported.length,1);
+  window.__aeselVolume=1;tick();assert.equal(reported.at(-1).active,false);
+  window.__aeselSource='new piece';tick();assert.equal(reported.length,2);
+  samples=[0.2];tick();assert.equal(reported.at(-1).source,'new piece');
 });

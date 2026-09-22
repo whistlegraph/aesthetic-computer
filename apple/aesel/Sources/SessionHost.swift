@@ -245,6 +245,9 @@ extension SessionHost: WKScriptMessageHandler {
                 catch { session.fatal = "Your latest changes could not be saved. " + error.localizedDescription }
                 return
             }
+            if type == "diagnostic" {
+                NSLog("[aesel] %@ at %@: %@", body["operation"] as? String ?? "request", body["step"] as? String ?? "response", body["message"] as? String ?? "unknown failure")
+            }
             session.receive(body)
         }
     }

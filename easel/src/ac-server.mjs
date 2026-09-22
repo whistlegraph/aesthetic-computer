@@ -1,3 +1,4 @@
+import {withNetworkDeadline, isTransientNetworkError} from "./network.mjs";
 import {bundledContext} from './piece-context.mjs';
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND} from './piece-prompt.mjs';
 import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
@@ -85,6 +86,7 @@ export class AcServer extends EventEmitter {
     fetch = globalThis.fetch,
     site = SITE,
     jev = configuredJev(),
+    networkTimeouts = {},
   } = {}) {
     super();
     this.cwd = cwd;
@@ -99,6 +101,7 @@ export class AcServer extends EventEmitter {
     this.fetch = fetch;
     this.site = site;
     this.jev = jev;
+    this.networkTimeouts = {connect:45000, idle:60000, ...networkTimeouts};
     this.threadId = resumeThreadId || "";
     this.turnId = null;
     this.turns = 0;
@@ -223,7 +226,7 @@ export class AcServer extends EventEmitter {
           turn: {
             ...turn,
             status: aborted ? "interrupted" : "failed",
-            error: aborted ? undefined : { message: error.message },
+            error: aborted ? undefined : { message: error.message, network: isTransientNetworkError(error) },
           },
         },
       });
@@ -268,7 +271,9 @@ export class AcServer extends EventEmitter {
       if(last?.role==='user')messages[messages.length-1]={...last,content:[...(Array.isArray(last.content)?last.content:[{type:'text',text:last.content}]),diagnostic]};
       else messages.push({role:'user',content:[diagnostic]});
     }
-    const response = await this.fetch(`${this.site}/api/easel-inference`, {
+    const slowConnection = setTimeout(() => this.emit("notification", {method:"turn/progress",params:{phase:"waiting for Aesthetic.Computer"}}), 8000);
+    let response;
+    try { response = await withNetworkDeadline(() => this.fetch(`${this.site}/api/easel-inference`, {
       method: "POST",
       signal: controller.signal,
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -279,7 +284,8 @@ export class AcServer extends EventEmitter {
         tools,
         max_tokens: 8192,
       }),
-    });
+    }), {controller, timeoutMs:this.networkTimeouts.connect}); }
+    finally { clearTimeout(slowConnection); }
 
     if (!response.ok) {
       let message = `inference failed (HTTP ${response.status})`;
@@ -314,7 +320,7 @@ export class AcServer extends EventEmitter {
     try {
       for (;;) {
         controller.signal.throwIfAborted();
-        const { done, value } = await reader.read();
+        const { done, value } = await withNetworkDeadline(() => reader.read(), {controller, timeoutMs:this.networkTimeouts.idle});
         controller.signal.throwIfAborted();
         if (done) break;
         received += value.byteLength;
@@ -532,7 +538,7 @@ export class AcServer extends EventEmitter {
       return {
         type: "tool_result",
         tool_use_id: block.id,
-        content: "Saved. It is live for anyone watching, and published if auto-publish is on.",
+        content: "Saved to the local preview. Publication runs separately; do not claim it is published without confirmation.",
       };
     } catch (error) {
       this.emit("notification", {

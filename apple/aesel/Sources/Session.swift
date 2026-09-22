@@ -43,6 +43,13 @@ struct ProviderApproval: Identifiable {
     let detail: String
 }
 
+struct SessionNotice: Identifiable {
+    let id = UUID()
+    let text: String
+    let action: String?
+    let working: Bool
+}
+
 struct InspectedRevision { let version: Int; let source: String }
 
 struct SourceRevision: Identifiable {
@@ -65,6 +72,19 @@ struct SessionSummary: Identifiable {
 /// something a view can draw.
 @Observable
 final class Session {
+    static func command(for text: String) -> String? {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let aliases = ["logout":"logout", "log out":"logout", "signout":"logout", "sign out":"logout",
+                       "login":"login", "log in":"login", "signin":"login", "sign in":"login",
+                       "settings":"settings", "help":"help", "stop":"stop", "publish":"publish",
+                       "open":"open", "new":"new", "home":"home"]
+        if normalized.hasPrefix("/") {
+            let name = String(normalized.dropFirst())
+            return name == "buy" ? "buy" : aliases[name]
+        }
+        return aliases[normalized]
+    }
+
     static let draftPreviewURL = embeddedPreviewURL(URL(string: "https://aesthetic.computer/wipe?noauth=true")!)
     static func embeddedPreviewURL(_ url: URL) -> URL {
         guard var target = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
@@ -75,6 +95,7 @@ final class Session {
         target.queryItems = query
         return target.url ?? url
     }
+    var notices: [String: SessionNotice] = [:]
     var entries: [Entry] = []
     var history: [SessionSummary] = []
     var medium = "piece"
@@ -127,6 +148,7 @@ final class Session {
     private var streamingIndex: Int?
 
     func reset() {
+        notices.removeAll()
         entries.removeAll()
         streamingIndex = nil
     }
@@ -261,6 +283,11 @@ final class Session {
                 previewURL = Self.draftPreviewURL
             }
 
+        case "notice":
+            let scope = event["scope"] as? String ?? "connection"
+            let text = event["text"] as? String ?? ""
+            notices[scope] = text.isEmpty ? nil : SessionNotice(text: text, action: event["action"] as? String, working: event["working"] as? Bool ?? false)
+
         case "status":
             status = event["text"] as? String ?? status
             health = Self.health(event["kind"] as? String)
@@ -275,7 +302,9 @@ final class Session {
             append(.note, event["text"] as? String ?? "")
 
         case "bad":
-            append(.bad, event["text"] as? String ?? "")
+            let text = event["text"] as? String ?? ""
+            // Old transport failures stay in the saved history, not on the paper.
+            if !text.hasPrefix("Publish failed at") && text != "Load failed" { append(.bad, text) }
             health = .failed
 
         case "bridge":
@@ -338,7 +367,10 @@ final class Session {
             let turn = params["turn"] as? [String: Any] ?? [:]
             if let error = turn["error"] as? [String: Any],
                let message = error["message"] as? String {
-                append(.bad, message)
+                if message != "Load failed" { append(.bad, message) }
+                status = "failed"
+                health = .failed
+            } else if turn["status"] as? String == "failed" {
                 status = "failed"
                 health = .failed
             } else if turn["status"] as? String == "interrupted" {

@@ -16,6 +16,7 @@
 
 import { AcServer, DEFAULT_AC_MODEL } from "/easel/src/ac-server.mjs";
 import { fetchHandleColors, handleCharacterColors } from "/easel/src/handle-colors.mjs";
+import { isTransientNetworkError } from "/easel/src/network.mjs";
 import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
 import { createCredits } from "./credits.mjs";
@@ -88,7 +89,7 @@ const memoryStore = () => {
   };
 };
 
-export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null } = {}) {
+export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, retryOptions = {} } = {}) {
   const state = {
     token: "",
     handle: "",
@@ -386,20 +387,22 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   async function publish() {
     if (state.publishing) return state.publishing;
     if (!state.token || !state.handle) {
-      say("note", { text: "Sign in with an AC @handle to publish." });
+      say("notice", {scope:"publish", text: "Sign in with an Aesthetic.Computer @handle to publish.", action:"signIn" });
       return;
     }
     state.dirty = false;
     const snapshot={source:vfs.readFileSync(state.file),handle:state.handle,token:state.token,
-      version:state.revisions.at(-1)?.version ?? 0,threadID:state.id};
+      version:state.revisions.at(-1)?.version ?? 0,threadID:state.id,file:state.file,slug:state.slug};
     let lastStep = "starting";
     state.publishing = (async () => {
       try {
-        say("status", { text: "publishing", kind: "working" });
+        say("notice", {scope:"publish", text:"Publishing…", working:true});
         const result=await publishPiece({version:null,source:snapshot.source,
-          file:state.file,slug:state.slug,cwd:"/piece",site:SITE,
+          file:snapshot.file,slug:snapshot.slug,cwd:"/piece",site:SITE,
           session:{handle:snapshot.handle,signedIn:true,token:async()=>snapshot.token},fetch:browserFetch,
-          onStep:step=>{lastStep=step;say("status",{text:step,kind:"working"});},
+          retryOptions,
+          onRetry:({attempt})=>say("notice",{scope:"publish",text:`Connection interrupted—retrying upload (${attempt}/2)…`,working:true}),
+          onStep:step=>{lastStep=step;},
         });
         if(!result.verified)throw new Error("Upload sent, but its public bytes could not be verified. Retry Publish to verify the saved source.");
         if(state.id!==snapshot.threadID)return;
@@ -407,14 +410,20 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
         state.published=state.handle===snapshot.handle && vfs.readFileSync(state.file)===snapshot.source;
         state.owner=snapshot.handle;
         write({published:state.published});saveCurrent();reportRevisions();
+        say("notice",{scope:"publish",text:""});
         say("publication",{url:state.published?result.route:null});
         if(state.published) {
           say("status",{text:"live",kind:"live"});
           say("preview",{url:pieceUrl()});
         }
       } catch(error) {
-        say("bad",{text:`Publish failed at "${lastStep}": ${error.message}`});
-        say("status",{text:"not published",kind:"failed"});
+        if(state.id!==snapshot.threadID)return;
+        say("diagnostic",{operation:"publish",step:lastStep,message:error.message});
+        const auth=error.status===401 || error.status===403;
+        const text=isTransientNetworkError(error) ? "Upload paused. Your piece is saved here." :
+          auth ? "Sign in again to publish. Your piece is saved here." :
+          lastStep==="verifying" ? "Your piece is saved here; publication could not be verified." : "Couldn’t publish: "+error.message;
+        say("notice",{scope:"publish",text,action:auth?"signIn":"publish"});
       } finally {
         state.publishing=null;
         if(state.dirty && state.autoPublish)void publish();
@@ -464,6 +473,12 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     }
     server.on("notification", ({ method, params }) => {
       if (method === "model/reported") say("model", {requested: params.requested, reported: params.reported});
+      if(method==="turn/completed" && params.turn?.error) {
+        const error=params.turn.error;
+        say("diagnostic",{operation:"inference",message:error.message});
+        say("notice",{scope:"inference",text:error.network ? "Connection interrupted. Your saved changes are safe. Send a message to continue." : error.message});
+        params={...params,turn:{...params.turn,error:undefined}};
+      }
       say("bridge", { method, params });
     });
     return server;
@@ -541,6 +556,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
       say("bad", { text: "This provider is not connected. Refresh the connection in Settings." }); return;
     }
     if (!state.title || state.title === state.slug) state.title = text.trim().slice(0, 120);
+    say("notice",{scope:"inference",text:""});
     say("you", { text });
     state.busy = true;
     say("busy", { busy: true });

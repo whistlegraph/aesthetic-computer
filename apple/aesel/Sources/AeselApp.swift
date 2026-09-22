@@ -18,7 +18,7 @@ struct AeselApp: App {
 
     var body: some Scene {
         #if os(macOS)
-        Window("aesel", id: "workspace") {
+        Window("", id: "workspace") {
             GeometryReader { geometry in
                 workspace
                     .frame(width: ceil(geometry.size.width * displayScale) / displayScale / uiScale,

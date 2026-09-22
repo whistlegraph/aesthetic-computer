@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var showExport = false
     @State private var fileNotice: String?
     @State private var showSettings = false
+    @State private var showVolume = false
     @State private var braincells = Braincells()
     @StateObject private var preview = PiecePreview()
     @State private var expandedPreview = false
@@ -57,6 +58,7 @@ struct ContentView: View {
                 "height": max(0, previewBounds.top + previewBounds.height + 8 + 16 - notebookTop),
                 "top": max(0, previewBounds.top - 16 - notebookTop)]
     }
+    private var speakerVisible: Bool { preview.hasAudio || preview.volume == 0 || showVolume }
     private var compact: Bool { sheetSize.width < 340 || sheetSize.height < 240 }
 
     /// Slab's palette for what the session is doing right now.
@@ -75,6 +77,7 @@ struct ContentView: View {
                 AeselHomeView(session: session, host: host) { showHome = false }
             }
         }
+        .overlay(alignment: .bottomLeading) { connectionNotices }
         .overlay { if showSettings { settingsPane } }
         .font(Paint.font())
         .buttonStyle(AeselButtonStyle())
@@ -191,6 +194,14 @@ struct ContentView: View {
                     }
                     .coordinateSpace(name: "notebook-scroll")
                     .aeselKeyboardScrolling()
+                    .mask(alignment: .top) {
+                        VStack(spacing: 0) {
+                            let fade = min(1, max(0, (paperTop - notebookTop) / row))
+                            LinearGradient(colors: [.black.opacity(1 - fade), .black], startPoint: .top, endPoint: .bottom)
+                                .frame(height: row)
+                            Rectangle().fill(.black)
+                        }
+                    }
                     .overlay(alignment: .topTrailing) {
                         if previewVisible { previewBox(container: geometry.size) }
                     }
@@ -215,7 +226,8 @@ struct ContentView: View {
     private var headerControls: some View {
         GeometryReader { geometry in
             HStack(spacing: 12) {
-                title(availableWidth: max(0, geometry.size.width - edgeInset * 2 - 24 - 48))
+                title(availableWidth: max(0, geometry.size.width - edgeInset * 2 - 24 - 48 - (speakerVisible ? 36 : 0)))
+                if speakerVisible { speakerControl }
                 Spacer(minLength: 8)
                     .frame(height: 32)
                     .background { AeselWindowDragArea() }
@@ -226,19 +238,69 @@ struct ContentView: View {
         }
     }
 
+    private var speakerControl: some View {
+        Button { showVolume.toggle() } label: {
+            Image(systemName: preview.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 12)).frame(width: 24, height: 24)
+        }
+        .buttonStyle(AeselButtonStyle())
+        .accessibilityLabel("Volume")
+        .popover(isPresented: $showVolume) {
+            HStack(spacing: 10) {
+                Button { preview.volume = preview.volume == 0 ? 1 : 0 } label: {
+                    Image(systemName: preview.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                }.accessibilityLabel(preview.volume == 0 ? "Unmute" : "Mute")
+                Slider(value: $preview.volume, in: 0...1).tint(paint.accent).accessibilityLabel("Volume")
+            }
+            .padding(14).frame(width: 210)
+            .foregroundStyle(paint.ink).background(paint.bg)
+            .buttonStyle(AeselButtonStyle()).presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private var connectionNotices: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(session.notices.keys.sorted(), id: \.self) { scope in
+                if let notice = session.notices[scope] {
+                    HStack(spacing: 10) {
+                        Text(notice.text).font(Paint.font(13)).fixedSize(horizontal: false, vertical: true)
+                        if let action = notice.action {
+                            Button(action == "publish" ? "Retry" : "Sign in") {
+                                if action == "publish" { host.publish() } else { host.signIn() }
+                            }
+                        }
+                        Button { session.notices[scope] = nil } label: {
+                            Image(systemName: "xmark").font(.system(size: 10)).frame(width: 24, height: 24)
+                        }.accessibilityLabel("Dismiss status")
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(paint.bg, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay { RoundedRectangle(cornerRadius: 8).stroke(paint.ink.opacity(0.3), lineWidth: 1) }
+                    .task(id: notice.id) {
+                        guard !notice.working else { return }
+                        try? await Task.sleep(for: .seconds(15))
+                        if !Task.isCancelled && session.notices[scope]?.id == notice.id { session.notices[scope] = nil }
+                    }
+                }
+            }
+        }.padding(12).frame(maxWidth: 460, alignment: .leading)
+    }
+
     private var titleURL: URL? {
         session.shareURL ?? (session.route.isEmpty ? nil : URL(string: "https://aesthetic.computer/")?.appendingPathComponent(session.route))
     }
 
-    private func title(availableWidth: CGFloat) -> some View {
-        Button { if let url = titleURL { openURL(url) } } label: {
-            AeselTitle(text: session.route.isEmpty ? "aesel" : session.route, colors: session.handleColors, size: compact ? 12 : 16,
-                       maximumWidth: availableWidth, horizontalInset: 0,
-                       hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "title") })
+    @ViewBuilder private func title(availableWidth: CGFloat) -> some View {
+        if !session.route.isEmpty {
+            Button { if let url = titleURL { openURL(url) } } label: {
+                AeselTitle(text: session.route, colors: session.handleColors, size: compact ? 12 : 16,
+                           maximumWidth: availableWidth, horizontalInset: 0,
+                           hoverSound: { AeselHoverSound.play(project: session.route, revision: session.currentRevision, control: "title") })
+            }
+            .buttonStyle(AeselButtonStyle())
+            .accessibilityLabel("Open piece in browser")
+            .frame(height: row)
         }
-        .buttonStyle(AeselButtonStyle())
-        .accessibilityLabel("Open piece in browser")
-        .frame(height: row)
     }
 
     /// The corner piece keeps the original desktop wood grain and resize edges.
@@ -288,8 +350,13 @@ struct ContentView: View {
                 .frame(height: max(composerHeight, minHeight))
             if session.busy {
                 Button { host.stop() } label: {
-                    Text("■").font(Paint.font(16)).foregroundStyle(paint.you).frame(width: row, height: row)
+                    RoundedRectangle(cornerRadius: 1.5).fill(.white).frame(width: 8, height: 8)
+                        .frame(width: row, height: row)
+                        .background(Color(red: 0.94, green: 0.325, blue: 0.314), in: Circle())
+                        .overlay { Circle().stroke(.white.opacity(0.25), lineWidth: 0.5) }
+                        .shadow(color: .black.opacity(0.3), radius: 1, y: 1)
                 }
+                .buttonStyle(AeselStopButtonStyle())
                 .accessibilityLabel("Stop")
             }
         }
@@ -364,16 +431,6 @@ struct ContentView: View {
                             if session.hostOperationID != nil && !session.busy {
                                 settingsItem("Reconnect to current turn") { host.resumeHostTurn() }
                             }
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Preview volume").font(Paint.font(13)).foregroundStyle(paint.dim)
-                                HStack(spacing: 10) {
-                                    Slider(value: $preview.volume, in: 0...1).tint(paint.accent).accessibilityLabel("Preview volume")
-                                    Button { preview.volume = preview.volume == 0 ? 1 : 0 } label: {
-                                        Image(systemName: preview.volume == 0 ? "speaker.slash" : "speaker.wave.2")
-                                            .frame(width: 36, height: 32).background(paint.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
-                                    }.accessibilityLabel(preview.volume == 0 ? "Unmute preview" : "Mute preview")
-                                }
-                            }
                             Rectangle().fill(paint.ink.opacity(0.16)).frame(height: 1)
                             AeselVersionList(session: session, host: host)
                         }.padding(.horizontal, 20).padding(.bottom, 20)
@@ -444,7 +501,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 24) {
             AeselWordmark()
             Text("describe a picture, a sound, or a little world. aesel writes it while you watch.")
-            Text("/new     start a piece\n/publish share your piece\n/open    open in your browser\n/login   your AC account")
+            Text("/new     start a piece\n/publish share your piece\n/open    open in your browser\n/login   your AC account\n/logout  sign out")
                 .foregroundStyle(paint.dim)
             Button("/close") { showHelp = false }.foregroundStyle(paint.you)
             Spacer()
@@ -458,15 +515,16 @@ struct ContentView: View {
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        switch text {
-        case "/new", "/home": writing = false; showHome = true
-        case "/publish": host.publish()
-        case "/login": host.signIn()
-        case "/logout": host.signOut()
-        case "/open": if let url = session.shareURL { openURL(url) }
-        case "/settings": openSettings()
-        case "/buy": openSettings(); Task { await braincells.buy() }
-        case "/help": showHelp = true
+        switch Session.command(for: text) {
+        case "new", "home": writing = false; showHome = true
+        case "publish": host.publish()
+        case "login": host.signIn()
+        case "logout": host.signOut()
+        case "stop": host.stop()
+        case "open": if let url = session.shareURL { openURL(url) }
+        case "settings": openSettings()
+        case "buy": openSettings(); Task { await braincells.buy() }
+        case "help": showHelp = true
         default:
             if session.provider == "ac" && !session.signedIn { host.signIn(); return }
             guard session.canStartTurn else { openSettings(); return }
