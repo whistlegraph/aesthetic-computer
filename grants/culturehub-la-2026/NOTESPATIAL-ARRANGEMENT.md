@@ -1,130 +1,135 @@
 # Arrangement — *Note(s)pat(ial) Native*
 
-Thirteen minutes for five laptops in a ring and one held at the center,
-September 24. One score, one cue, no conducting mid-piece.
+A suite in eleven chapters for five laptops in a ring and one held at the
+center. September 24. One score, one cue.
 
 **Score:** `fedac/native/scores/notespatial-native.nsscore`, written by
-`fedac/native/tools/compose-notespatial-native.mjs`.
-**Duration:** 13:12. **Tempo:** free until 1:23, then 96 rising to 124 by
-the Lift, easing to 88 by the Return's end, free again from 12:12.
+`fedac/native/tools/compose-notespatial-native.mjs`. **Duration:** 12:54.
 **Room:** seats 1 to 5 in a pentagon around the audience, seat 1 at the
 front, numbers clockwise. Seat C is the sixth laptop in the performer's
-hands at the center on a small speaker. It is the piece's voice: the
-piece starts there, spreads to the ring, and comes back.
+hands at the center on a small speaker. It is the piece's voice.
 
-The background reading is in `chamber-studies/` here and distilled for
-future `pop/` work in `papers/chamber-platter/`.
+Not one build. Each chapter is its own little ode with its own key,
+meter, tempo, tune and spatial gesture, cut on the downbeat the way a
+cartoon score is, with stingers and silences. What ties them: the theme
+(a diatonic tune in four two-bar phrases), the held voice as narrator,
+and the room.
+
+The reading behind it is in `chamber-studies/` here and, distilled for
+future `pop/` work, in `papers/chamber-platter/`.
 
 ---
 
-## The form
+## The chapters
 
-| | Section | Starts | Length | Tempo | What happens | Where it is |
+| | Chapter | Starts | Length | Key, meter, tempo | What happens | Where it is |
 |---|---|---|---|---|---|---|
-| I | **Appear** | 0:00 | 1:23 | free | The held laptop breathes five long tones, then states the theme's first phrase twice as bells. The ring learns it: the same eight notes hop seat to seat, five passes, each faster, the held laptop keeping the last note under each pass. A scale lap into the first downbeat. | Center, then a circle drawn faster and faster |
-| II | **Ring** | 1:23 | 1:17 | 96 → 102 | Taps front and back set the pulse. The walk (three chord tones per two beats, swung 60:40) plays from the front three seats, then in halves: question from the front, answer from the back. Bass at seat 4. The held laptop sings the theme; in the last phrase the ring echoes it once. | Front–back axis; the melody in the hands |
-| III | **Echoes** | 2:41 | 2:21 | 104 → 112 | Eight phrases. Theme phrases alternate with instrumental ones where the walk laps the whole ring. Echoes of the theme grow from one to three, seated two, three and one seats on from wherever the last echo landed. Pads revolve once a minute. The last phrase does not cadence: the held laptop holds the dominant, G, into the Climb. | Every phrase answered from around the ring |
-| IV | **Climb** | 5:02 | 2:26 | 112 → 124 | Nine phrases in four registers, an octave apart, two phrases each. From the third register a high line glides counter-clockwise against the clockwise walk; from the fourth, hats orbit every five seconds. The last bar is the break: a rising D-major lap, then a beat and a half of silence. | Two directions at once, then a ring on top, then nothing |
-| V | **Lift** | 7:29 | 2:09 | 120 → 124 → 118 | Up a whole step to D. Kick at the front, snare at seat 3, bass pattern at seat 4. The theme leaves the hands and orbits the ring every 12.5 s; the walk drops an octave under it. The second statement adds the counter-orbiting answer and the hats; its bars 16 to 24 lift the phrase tails an octave, the peak. Bar 63: every laptop strikes the D chord and holds two bars. General pause. | Everything, everywhere, spinning; then one chord from all six |
-| VI | **Return** | 9:38 | 2:34 | 112 → 88 | Home in C, the theme back in the hands. Each phrase something leaves: the kick at once, then an echo level, the bass, the pads, the taps. The walk narrows to the front three seats, then to seat 1, then stops. The tempo eases every phrase. The last phrase does not cadence. | The ring closes to the front, then to the center |
-| VII | **Vanish** | 12:12 | 0:59 | free | The ring hands back the theme's last five notes, one laptop at a time, backwards around the room. Three bells from the hands with lengthening silences. A C4 rises out of nothing over 3.5 s and is gone. | A circle drawn backwards, then a point |
+| I | **Overture** | 0:00 | 1:00 | free | The held laptop breathes four long bells and states the theme's first phrase. The ring learns it: the same eight notes hop seat to seat, four passes, each faster. A scale lap into the first downbeat. | Center, then a circle drawn faster |
+| II | **The Walk** | 1:00 | 0:56 | C, 4/4, 100 to 104 | Taps front and back. The walk (three chord tones per two beats, swung) from the front three seats, then in halves. The theme in the hands, echoed once by the ring. | Front–back axis |
+| III | **Waltz** | 1:56 | 1:18 | A minor, 3/4, 132 easing to 112 | Oom at the back (seat 4), pah left (seat 2), pah right (seat 5). A tune in the hands, twice. Then the ring hops the tune around the room while the hands hold a counterline. The tune again with the ring a third below. A tag that eases; every laptop lands on A. | A sway; then melody circling under a held line |
+| IV | **Chase** | 3:15 | 0:47 | F, 4/4, 152 to 200 | A scale runs up and down the ring one seat per eighth; two seats behind, its inversion an octave down gives chase. Three tempo steps, a chromatic pile-up, a cluster, a crash. Silence. The hands say "again" and it runs once more, faster. | Two runners circling |
+| V | **Sneak** | 4:03 | 0:58 | C minor, 4/4, 84 | An offbeat bass creeps one seat a bar around the audience with a tick. The hands tiptoe down a whole-tone stair, then scurry up it. Bar 13: every laptop strikes the chord. Two beats of nothing. The sneak resumes at double speed and ends on a low C. | One seat at a time, behind you |
+| VI | **Lullaby** | 5:01 | 1:14 | F, 6/8, 72 | Arpeggios rock around the room one seat per eighth. The tune in the hands twice, then an octave down, echoed a bar later by the ring. Pads. The whole field turns once over the chapter. The cradle thins to nothing. | A slow cradle; the room revolves |
+| VII | **The Climb** | 6:15 | 1:05 | C, 4/4, 112 to 124 | Four registers an octave apart, one phrase each. A high line glides counter-clockwise against the walk. Hats in the last phrase. The last bar: a rising D-major lap into a beat and a half of silence. | Two directions, then nothing |
+| VIII | **The Lift** | 7:21 | 1:53 | D, 4/4, 120 to 124 to 118 | The blast: the room kicked one seat over and springing back. Kick front, snare seat 3, bass seat 4. The theme leaves the hands and orbits every 12.5 s; the walk drops under it. The answer counter-orbits, hats join. Phrases 4 and 5: the eight-turn spin, every laptop trading channels until the field fuses. Bar 55: the tutti D chord held two bars. General pause. | Everything, spinning; then one chord |
+| IX | **Fanfare** | 9:14 | 0:38 | G, 4/4, 132 | Front pair (1, 2) calls in triangle brass; back pair (3, 4) answers. Tutti dotted chords from every seat while the hands play the theme in G. Call and answer once more, an octave up. A stinger. Silence. | Pairs across the room |
+| X | **Return** | 9:52 | 2:00 | C, 4/4, 104 to 88 | The theme back in the hands. The room takes one slow tour. Phrases 2 and 4 mirror the ring about the front axis. Something leaves every phrase: bass, pads, taps, the walk narrows to the front three seats, then seat 1, then stops. The last phrase does not cadence. | The ring closes to the front, then the center |
+| XI | **Vanish** | 11:53 | 1:01 | free | The ring hands back the theme's last five notes, one laptop at a time, backwards. Three bells from the hands with lengthening silences. A C4 rises out of nothing and is gone. One tap from behind: the hang-up. | A circle drawn backwards, a point, one knock |
 
-Measured on the binaural render, mean level per section rises from
-−28 dB (Appear) through −25, −22, −20 to −18 (Lift), and falls to −26 and
-−30. Peak polyphony is 18 of the runtime's 32 voices.
-
-## Phrase grammar
-
-Every grid section is built from eight-bar phrases:
-
-- Harmony two bars per chord: C, Am, F, then G in bar 7 resolving to C in
-  bar 8. The theme is four two-bar phrases over it.
-- Bar 8 is the cadence breath: the walk plays only the downbeat, the taps
-  only the downbeat, the bass a whole note. Then a fill: a five-note scale
-  lap around the ring in the last two beats, landing on the next downbeat.
-- Dynamics swell 6% a bar into bar 7 and relax in bar 8.
-- Tempo moves only at phrase starts, by 2 to 4 BPM.
-- Joins: half cadence and held dominant (III to IV), break and silence (IV
-  to V), tutti chord and general pause (V to VI), unresolved last phrase
-  into free time (VI to VII).
+Measured on the binaural render, mean level by chapter: −29, −27, −26,
+−26, −31, −27, −21, −19, −24, −26, −31 dB. The Lift is the peak at 71%
+of the piece. Peak polyphony 20 of the runtime's 32 voices.
 
 ## Instruments
 
-Built from the runtime's linear attack and decay:
+Stacks of sine partials under the runtime's linear attack and decay:
 
-- **Bell** (the held voice): fundamental with 4 ms attack and a tail over
-  80% of the note, plus the octave at 28% for 55% of the length and the
-  twelfth at 10% for 30%.
-- **Pluck** (the ring walk): 3 ms attack, tail over 78%, plus the octave at
-  22% for half the length.
+- **Bell** (the held voice): fundamental, 4 ms attack, tail over 80% of
+  the note; octave at 28% for 55% of the length; twelfth at 10% for 30%.
+  A detuned copy ramps in over 0.45 s so the voice warbles; the depth is
+  a ladder by chapter: 4, 6, 0, 0, 8, 16, 22, 0, 9, 0 cents.
+- **Pluck** (the ring): 3 ms attack, tail over 78%, octave at 22% for half
+  the length. **Staccato**: 3 ms attack, 60% tail. **Brass**: triangle
+  body with a sine octave, 12 ms attack, 35% tail.
 - **Echoes**: single sines, 20 ms attack. **Pads**: 600 ms attack.
-- **Taps**: two sine thumps plus a 30 ms noise click. **Kick**: 150 Hz then
-  78 Hz. **Snare**: noise plus a 185 Hz triangle.
+- **Taps**: two sine thumps plus a 30 ms click. **Kick**: 150 then 78 Hz.
+  **Snare**: noise plus a 185 Hz triangle. **Crash**: noise from every seat.
 
 ## How the room is written
 
-- **Pinned** lanes (one laptop): the held voice, the walk and echoes (one
-  lane per ring seat), taps at seats 1, 3 and 4, bass at 4, kick at 1,
-  snare at 3. A hop stays a hop under clock skew.
-- **Orbiting** lanes (equal-power handoff): pads 60 s, top line 24 s
-  counter-clockwise, theme 12.5 s, answer 15 s counter-clockwise, hats 5 s.
-
-No orbit is faster than 5 s, so motion never reads as modulation. The only
-period under 3 s is the hats, which are noise.
+- **Pinned** lanes: the held voice, the walk and echoes (one lane per ring
+  seat), taps at 1, 3 and 4, bass at 4, kick at 1, snare at 3. A hop stays
+  a hop under clock skew.
+- **Orbiting** lanes: pads 60 s, top line 24 s counter-clockwise, theme
+  12.5 s, answer 15 s counter-clockwise, hats 5 s. Nothing but noise
+  orbits faster than 5 s.
+- **The field turns** (`fieldShift`): the whole room rotates, pinned lanes
+  included, so laptops trade channels. Used four times: one tour through
+  the Lullaby, the blast at the Lift's downbeat (0.4 of a turn, springing
+  back at 0.92 Hz, damping 0.58, 4.8 s), the eight-turn quintic spin
+  through the Lift's peak, and a slow lap opening the Return. Zero
+  elsewhere.
+- **Mirror**: the Return flips the ring about the front axis for a phrase
+  at a time; the front-three / back-two map is chiral, so the flip reads.
 
 ## What the screens show
 
-Each laptop's screen looks into the space: its own notes appear far off at
-the horizon and fly at the front of the screen, arriving exactly when they
-sound; the screen glows while the note is in the room, then the glyph
-fades. Melodic notes carry their names. The simulation video shows the same
-thing from above as a radial timeline, with each laptop box carrying a
-miniature of its own screen.
+Each laptop looks into the space: its own notes appear at the horizon and
+fly at the front of the screen, arriving exactly when they sound, glowing
+in the machine's own color while the note is in the room. The video shows
+the room from a raised seat: streams along the floor into each laptop, the
+held laptop's stream from above, every laptop's actual screen on its
+display, every incoming melodic note named with its frequency, chords
+grouped, tempo and note rate at the right.
 
 ## Rehearsal
 
-Hosts in seat order: five ring laptops 1 to 5 clockwise from the front,
-then the held laptop last.
+Hosts in seat order: the five ring laptops 1 to 5 clockwise from the
+front, then the held laptop last.
 
 ```sh
 node fedac/native/tools/compose-notespatial-native.mjs      # rebuild the score
 node fedac/native/tools/notespatial-native-check.mjs        # routing map, dry run, paint smoke test
-node fedac/native/tools/notespatial-native-render.mjs       # the mp4 from the center, about a minute to make
-node fedac/native/tools/notespatial-native-render.mjs --section 5 --fast   # one section in seconds
+node fedac/native/tools/notespatial-native-render.mjs       # the video from the center, ~3 min to make
+node fedac/native/tools/notespatial-native-render.mjs --section 3 --fast   # one chapter in seconds
 node fedac/native/tools/spatial-rehearsal.mjs deploy --score notespatial-native H1 H2 H3 H4 H5 HELD
 node fedac/native/tools/spatial-rehearsal.mjs cue H1 H2 H3 H4 H5 HELD
 node fedac/native/tools/spatial-rehearsal.mjs stop H1 H2 H3 H4 H5 HELD
 ```
 
-Each section is also its own score, rebased to zero, for rehearsing a part
-or cueing in parts if the full run drifts: `--score notespatial-native-5-lift`
-and so on. Renders land beside this file and are not committed.
+Every chapter is also its own score, rebased to zero, for rehearsing a
+part or cueing chapter by chapter if the full run drifts:
+`--score notespatial-native-3-waltz`, `-4-chase`, `-8-the-lift`, and so
+on. Renders land beside this file and are not committed.
 
-Knobs, all in the composer: each section is a list of `phrase()` calls
-with `setTempo()` between them; add or remove a phrase to change length
-(one phrase is 15 to 20 s depending on tempo); `lvl` is the phrase level;
-`register`, `echoes`, `walkWhere` and the instrument switches shape it.
+Knobs, all in the composer: each chapter is a function; the eight-bar
+chapters are lists of `phrase()` calls with `setTempo()` between them,
+the others write their tune as `[midi, beats]` pairs. Add or cut a
+phrase to change length. `warbleCents` before each chapter sets the
+wiggle. `turnsPlan` holds the field turns.
 
 ## Listen for, at the tech
 
-1. **0:00** — the first bell from the held laptop alone. Level of the small
-   speaker against the ring is set here.
-2. **1:23** — the first tap lands on the downbeat the scale lap set up.
-3. **Any hop.** A walked note comes from one machine. Two machines sounding
-   it means a seat is mis-numbered.
-4. **5:02** — the dominant G held in the hands resolves as the Climb begins.
-5. **7:28** — the break: a beat and a half of nothing, then the kick from
-   the front.
-6. **9:32** — the tutti D chord from all six, then the pause.
-7. **12:12 → 12:35** — the backwards lap: 1, 5, 4, 3, 2, then the hands.
+1. **0:00** — the first bell from the held laptop alone. Set the small
+   speaker against the ring here.
+2. **1:00** — the first tap lands on the downbeat the scale lap set up.
+3. **1:56** — oom from seat 4, pah from 2 and 5. If the sway is wrong, the
+   host order is wrong.
+4. **3:15** — the chase: one note per laptop, clockwise. A note from two
+   machines at once means a seat is mis-numbered.
+5. **7:21** — the blast: the kick from the front, and the room lurches one
+   seat and swings back.
+6. **9:12** — the tutti D chord from all six, then the pause.
+7. **11:53 → 12:20** — the backwards lap 1, 5, 4, 3, 2, then the hands,
+   then one tap from seat 4.
 
 ## Risks
 
-- **Drift over 13 minutes.** Six audio clocks are aligned once at the cue
-  and never corrected. The hops are immune; the orbiting lanes, the
-  kick–snare pair and the tutti chord are not. Measure at the tech; if the
-  pair flams by the Lift, cue in sections.
-- **The small speaker.** The held laptop carries the melody. Its level
-  against five house-fed laptops is the one balance to set by ear.
-- **Battery.** Seat 5 died at 2% on September 18. Thirteen minutes on
-  mains, not batteries, and the held laptop charged.
+- **Drift over 13 minutes.** Six audio clocks aligned once at the cue and
+  never corrected. Hops are immune; the orbiting lanes, the kick and
+  snare, the spin and the tutti chords are not. Measure at the tech; if it
+  flams, cue by chapter.
+- **The small speaker.** The held laptop carries the melody in nine of
+  eleven chapters. Its level is the one balance to set by ear.
+- **Battery.** Seat 5 died at 2% on September 18. Mains for the ring, the
+  held laptop charged.

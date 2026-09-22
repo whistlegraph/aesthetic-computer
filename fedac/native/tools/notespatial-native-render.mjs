@@ -280,7 +280,7 @@ for (let f = 0; f < frames; f++) {
   // the notes in flight
   while (lo < all.length && all[lo].t + all[lo].dur + .5 < t) { landed.delete(all[lo]); lo++; }
   let sounding = 0, recent = 0;
-  const labels = new Map();
+  const labels = [], labelCount = new Map(), labelGroups = new Map();
   const speed = (R_OUT - R - 6) / LOOK; // px per second along a stream
   for (let i = lo; i < all.length && all[i].t <= t + LOOK; i++) {
     const e = all[i], lane = score.lanes[e.lane];
@@ -299,39 +299,62 @@ for (let f = 0; f < frames; f++) {
     const alpha = (until > 0 ? .3 + .6 * (1 - until / LOOK) : .95) * born;
     bar(x0, y0, x1, y1, w, color, alpha);
     if (until <= 0) disc(x0 | 0, y0 | 0, Math.round(w * .9 + 1.5), color, .8);
-    if (e.note && (pos.center || MELODIC.test(lane.name)) && until > 0 && until < LOOK * .85) {
-      // one label per stream: the next note to land
-      const key = Math.round(a * 100), prev = labels.get(key);
-      if (!prev || until < prev.until) {
-        const [lx, ly] = streamPoint(pos, head + w + 6);
-        const side = pos.center ? 1 : Math.sin(a + ROT) >= -0.05 ? 1 : -1, s = `${e.note} ${Math.round(e.hz)}`;
-        labels.set(key, { until, x: side > 0 ? lx + w + 5 : lx - w - 5 - s.length * 6, y: ly - 5, s, color, alpha: Math.min(1, (LOOK * .85 - until) / .4) });
+    if (e.note && (pos.center || MELODIC.test(lane.name)) && until > 0 && until < LOOK * .9) {
+      // every incoming melodic note is labeled, so a player can read ahead;
+      // notes landing together on one stream share one label (a chord), and
+      // successive labels on a stream alternate sides so they do not pile up
+      const key = `${Math.round(a * 100)}:${Math.round(until * 16)}`;
+      let L = labelGroups.get(key);
+      if (!L) {
+        const streamKey = Math.round(a * 100), n = (labelCount.get(streamKey) || 0); labelCount.set(streamKey, n + 1);
+        const [lx, ly] = streamPoint(pos, head);
+        const outward = pos.center ? [1, 0] : [Math.sin(a + ROT), -Math.cos(a + ROT) * SQ];
+        const perp = [-outward[1], outward[0]], side = n % 2 ? 1 : -1, off = w + 7;
+        L = { x: lx + perp[0] * off * side, y: ly + perp[1] * off * side - 5, side, notes: [], hz: e.hz, color, alpha: Math.min(1, (LOOK * .9 - until) / .35) * (.55 + .45 * (1 - until / LOOK)) };
+        labelGroups.set(key, L); labels.push(L);
       }
+      if (!L.notes.includes(e.note)) L.notes.push(e.note);
+      L.hz = Math.min(L.hz, e.hz);
     }
   }
-  for (const l of labels.values()) text(l.s, l.x | 0, l.y | 0, mix(T.bg, mix(T.dim, l.color, .75), Math.max(0, Math.min(1, l.alpha))));
+  for (const l of labels) {
+    const s = l.notes.length > 1 ? l.notes.join('+') : `${l.notes[0]} ${Math.round(l.hz)}`;
+    text(s, (l.x - (l.side < 0 ? s.length * 6 : 0)) | 0, l.y | 0, mix(T.bg, mix(T.dim, l.color, .75), Math.max(0, Math.min(1, l.alpha))));
+  }
   // the machines
   const order = Array.from({ length: SEATS }, (_, k) => k).sort((p, q) => (p === CENTER ? hy : floor(seatAngle(p), R)[1]) - (q === CENTER ? hy : floor(seatAngle(q), R)[1]));
   for (const k of order) {
     const isC = k === CENTER;
     let [x, y] = isC ? [hx, hy] : floor(seatAngle(k), R);
     if (isC) { const [fx, fy] = figure(hx, hy + 14, mix(T.ink, T.dim, .3)); x = fx; y = fy - 6; }
-    const bw = isC ? 30 : 46, bh = isC ? 20 : 32, lit = light[k];
+    const bw = isC ? 44 : 66, bh = isC ? 28 : 42, lit = light[k];
     const sc = tone(SEAT_COLORS[k]);
     if (flash[k] > .02) for (let o = 1; o <= 4; o++) { const al = flash[k] * (1 - o / 5) * .5; bar(x - bw / 2 - o, y - bh / 2 - o, x + bw / 2 + o, y - bh / 2 - o, 1, sc, al); bar(x - bw / 2 - o, y + bh / 2 + o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); bar(x - bw / 2 - o, y - bh / 2 - o, x - bw / 2 - o, y + bh / 2 + o, 1, sc, al); bar(x + bw / 2 + o, y - bh / 2 - o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); }
-    rect(x - bw / 2, y - bh / 2, bw, bh, mix(mix(T.box, sc, T.boxTint), sc, lit));
-    rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, T.dim);
-    // the machine's own screen: its notes approaching the front edge
+    // the machine's actual screen, as pieces/spatial-rehearsal.mjs paints it: a dark
+    // field tinted by the glow, a horizon, a front line, and this laptop's notes
+    // flying from the horizon to the front, arriving as they sound
+    const glow = lit, screenBg = mix([12, 15, 23], sc.map(v => v * .55), glow);
+    rect(x - bw / 2, y - bh / 2, bw, bh, screenBg);
+    const hzn = y - bh / 2 + Math.round(bh * .22), frontY = y + bh / 2 - Math.round(bh * .18);
+    bar(x - bw / 2 + 2, frontY, x + bw / 2 - 2, frontY, 1, mix(screenBg, [200, 210, 230], .45), 1);
+    bar(x - 2, hzn, x + 2, hzn, 1, mix(screenBg, [200, 210, 230], .45), 1);
     for (let i = lo; i < all.length && all[i].t <= t + LOOK; i++) {
-      const e = all[i]; if (e.t < t) continue;
+      const e = all[i], until = e.t - t;
+      if (e.t + e.dur + .3 < t) continue;
       const g = sourceGain(score, voicePosition(score, e.lane, e.t), k, SEATS);
       if (g * g < .5) continue;
-      const u = (e.t - t) / LOOK, midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
-      const sx = x + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (bw * .4) * (.3 + .7 * (1 - u));
-      const sy = y - bh / 2 + 3 + (1 - u) * (bh - 6);
-      blend(sx, sy, lit > .5 ? T.bg : sc, .9);
+      const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u, scale = .3 + near * near * 1.4;
+      const midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
+      const sx = x + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (bw * .42) * (.15 + near * .85);
+      const sy = until > 0 ? hzn + Math.pow(near, 1.7) * (frontY - hzn) : frontY;
+      const left = until <= 0 ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
+      const gw = Math.max(1, Math.min(2.5, e.dur) * 9 * scale), gh = Math.max(1, 1.6 * scale);
+      bar(sx - gw / 2, sy, sx + gw / 2, sy, gh, mix(screenBg, sc, (until <= 0 ? .55 + .45 * left : .4 + .6 * near)), 1);
     }
-    if (isC) text('C', x - 3, y - 5, lit > .55 ? T.bg : T.ink, 1); else text(String(k + 1), x - 6, y - 10, lit > .55 ? T.bg : T.ink, 2);
+    rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, T.dim);
+    // the number sits beside the machine, on the side away from the audience
+    if (isC) text('C', x + bw / 2 + 5, y - 5, T.ink, 2);
+    else { const [ox, oy] = floor(seatAngle(k), R + bw * .5 + 14); text(String(k + 1), ox - 6, oy - 10, T.ink, 2); }
   }
   // panel
   const X = Math.round(W * .68), col0 = T.ink, dim = T.dim;
@@ -354,7 +377,7 @@ for (let f = 0; f < frames; f++) {
   (score.movements || []).forEach((m, i) => rect(TX + m.t0 / score.dur * TW, TY, Math.max(1, (m.t1 - m.t0) / score.dur * TW - 1), 10, T.seg[i % 2]));
   if (from > 0 || to < score.dur) rect(TX + from / score.dur * TW, TY - 4, Math.max(1, (to - from) / score.dur * TW), 2, T.accent);
   bar(TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY - 3, TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY + 13, 2, T.play, 1);
-  (score.movements || []).forEach(m => text(ascii(m.name).split(' ')[0], TX + m.t0 / score.dur * TW, TY + 14, dim));
+  (score.movements || []).forEach((m, i) => { const label = ascii(m.name).split(' ')[0], wseg = (m.t1 - m.t0) / score.dur * TW; if (wseg >= label.length * 6 + 4) text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); else if (i % 2) text(label, TX + m.t0 / score.dur * TW + 1, TY + 26, dim); else text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); });
   await write(Buffer.from(frame));
 }
 ff.stdin.end();

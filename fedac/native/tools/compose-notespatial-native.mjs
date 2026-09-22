@@ -62,10 +62,12 @@ PAD.forEach((i, m) => { lanes[i].azOffset = m * TAU / 3 - i / lanes.length * TAU
 for (const l of lanes) if (!(l.center || Number.isFinite(l.az) || l.orbitSeconds > 0)) throw Error(`${l.name}: neither pinned, centered nor orbiting`);
 
 // ── instruments ───────────────────────────────────────────────────────
-function ev(i, t, dur, midi, g, wave = 'sine', attack = .01, decay = .06, freq = null) {
+// label: undefined → named from midi; null → unlabeled (partials, drums). freq overrides the pitch.
+function ev(i, t, dur, midi, g, wave = 'sine', attack = .01, decay = .06, label, freq = null) {
   if (!(dur > 0) || !(g > 0)) return;
+  if (freq === null && midi === null) throw Error('event with neither midi nor freq');
   const e = { t: r4(t), dur: r4(dur), hz: +(freq ?? hz(midi)).toFixed(2), g: +g.toFixed(3), wave, attack: +attack.toFixed(4), decay: +decay.toFixed(4) };
-  if (midi !== null && freq === null) e.note = noteName(midi);
+  if (label === undefined && midi !== null) e.note = noteName(midi);
   lanes[i].events.push(e);
 }
 let warbleCents = 0; // the wannadash wiggle: a detuned copy beating a few Hz, ramped in after the onset
