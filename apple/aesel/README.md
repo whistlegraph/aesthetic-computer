@@ -144,3 +144,17 @@ including the `@` character, with the same fallback palette as desktop.
 ## MCP and visual acceptance
 
 The native app exposes a private same-user automation mailbox. The monorepo adapter and Aesthetic Eye workflow live at `slab/bin/aesel-mcp.mjs`, `slab/bin/aesel-eye.mjs` and `slab/AESEL-EYE.md`. Tests inspect and act through stable UI control IDs without activating the window. Preview URLs use the same `nogap`, `nolabel` and `autoreload` contract as Electron; the top strip shows the persisted piece revision starting at v0.
+
+## Native beta 3 — 22 September 2026
+
+The Blueberry-installed native app identifies `aesel-provider-readiness` in its
+debug symbols; the matching source baseline is `eb8a7aa275`. Blueberry main
+(`547e19b517`) predates the native title-bar work and is not the build source.
+Beta 3 retains that title-bar implementation, matches version/title type sizes,
+and adds AppKit cursor tracking.
+
+Build `AeselMac` in Release with Developer ID signing. Before packaging, sign the
+app explicitly with `--options runtime --timestamp --entitlements Mac.entitlements`
+to omit Xcode's development `get-task-allow` entitlement. Sign the DMG with a secure
+timestamp, submit it to `notarytool`, require `Accepted`, and staple and validate
+the DMG before uploading. No credentials belong in the release or repository.
