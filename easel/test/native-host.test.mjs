@@ -13,7 +13,7 @@ async function until(predicate) {for(let i=0;i<100;i++){if(predicate())return;aw
 class Engine extends EventEmitter {
   constructor(){super();this.turns=[];this.answers=[];this.threadId='thread';}
   async connect(){if(this.wait)await this.wait;}
-  async startTurn(text){this.turns.push(text);}
+  async startTurn(text,options){this.turns.push(text);this.inputOptions=options;}
   respond(id,result){this.answers.push({id,result});}
   async interrupt(){this.emit('notification',{method:'turn/completed',params:{turn:{status:'interrupted'}}});}
   complete(){this.emit('notification',{method:'turn/completed',params:{turn:{status:'completed'}}});}
@@ -21,7 +21,7 @@ class Engine extends EventEmitter {
 }
 function fixture(t){
  const root=mkdtempSync(join(tmpdir(),'aesel-host-')),engine=new Engine();
- const host=new NativeHost({root,engineFactory:()=>engine,discover:id=>id==='claude'?'/fake/claude':null});
+ const host=new NativeHost({root,engineFactory:(provider,options)=>{engine.options=options;return engine;},discover:id=>id==='claude'?'/fake/claude':null,capturePreview:async()=>({context:'',images:[]})});
  t.after(()=>{host.close();rmSync(root,{recursive:true,force:true});});
  return {root,engine,host,configure:()=>host.rpc('configure',{sessionID:'test',provider:'claude',model:'sonnet',source})};
 }
@@ -76,4 +76,21 @@ test('lost turn response retains ID; reconnect observes completion without anoth
  rpc:async method=>{if(method==='configure')return {sequence:0};if(method==='turn'){submits++;throw Error('lost');}if(method==='events')return {oldest:1,events:[],operation:{status:'completed'}};}});
  await assert.rejects(provider.startTurn('draw'),/Reconnect/);assert.ok(persisted?.id);await provider.follow();assert.equal(submits,1);assert.equal(persisted,null);
  const restored=new NativeProvider({operation});restored.operation.after=8;assert.equal(operation.after,3);
+});
+
+test('native turns deliver preview images and cancellation during capture never sends a prompt',async t=>{
+ const {host,engine,configure}=fixture(t);await configure();
+ const image={type:'image',mimeType:'image/png',data:'fixture'};
+ host.capturePreview=async id=>{assert.equal(id,'test');return {context:' current preview',images:[image]};};
+ await host.rpc('turn',{sessionID:'test',operationID:'pixels',text:'draw'});
+ await until(()=>engine.turns.length===1);
+ assert.match(engine.options.developerInstructions,/Responsive composition/);assert.match(engine.options.developerInstructions,/clock.resync/);assert.equal(engine.options.environment.AESEL_NATIVE_SESSION,'test');
+ assert.equal(engine.turns[0],'draw current preview');assert.deepEqual(engine.inputOptions.images,[image]);
+ engine.complete();await until(()=>host.session('test').active===null);
+ let release;host.capturePreview=()=>new Promise(resolve=>release=resolve);
+ await host.rpc('turn',{sessionID:'test',operationID:'cancel-capture',text:'never send'});
+ await until(()=>Boolean(release));
+ await host.rpc('interrupt',{sessionID:'test',operationID:'cancel-capture'});
+ release({context:'',images:[]});await until(()=>host.session('test').active===null);
+ assert.equal(engine.turns.length,1);
 });

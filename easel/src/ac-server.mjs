@@ -1,3 +1,5 @@
+import {bundledContext} from './piece-context.mjs';
+import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND} from './piece-prompt.mjs';
 import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
@@ -30,8 +32,6 @@ import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 
 import { EventEmitter } from "node:events";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { validatePieceSource } from "./revisions.mjs";
 import { readRuntimeFeedback, runtimeFeedbackContext } from "./runtime-feedback.mjs";
 import { PREVIEW_TOOL, TOOLS, callTool, loadMap } from "./tools.mjs";
@@ -39,7 +39,6 @@ import { API_WORKFLOW } from "./api-context.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = process.env.EASEL_SITE || "https://aesthetic.computer";
 
 export const DEFAULT_AC_MODEL = "openai/gpt-5.6-luna";
@@ -56,28 +55,6 @@ export const AC_MODELS = {
   gpt: "openai/gpt-5.4",
 };
 
-// The guides, in the order a model should meet them: what a piece is, then how
-// it draws, then how the code should read. KidLisp last because most sessions
-// are JavaScript and it is the longest.
-const CONTEXT_FILES = ["pieces.md", "screen.md", "hand.md", "kidlisp.md"];
-
-function bundledContext() {
-  const parts = [];
-  for (const name of CONTEXT_FILES) {
-    const path = join(ROOT, "context", name);
-    if (!existsSync(path)) continue;
-    try {
-      parts.push(`# ${name}\n\n${readFileSync(path, "utf8")}`);
-    } catch {}
-  }
-  if (!parts.length) return "";
-  return [
-    "Here are the Aesthetic Computer guides. They are the house rules for a",
-    "piece and they win over your own defaults.",
-    "",
-    parts.join("\n\n---\n\n"),
-  ].join("\n");
-}
 
 const WRITE_PIECE = {
   name: "write_piece",
@@ -153,7 +130,7 @@ export class AcServer extends EventEmitter {
         cache_control: { type: "ephemeral" },
       });
     }
-    if (!this.artifactContext && !this.developerInstructions) blocks.push({type:"text",text:PIECE_INSTRUCTIONS});
+    if (!this.artifactContext && !this.developerInstructions) blocks.push({type:"text",text:[PIECE_INSTRUCTIONS,PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND].join("\n")});
     if (this.developerInstructions) {
       blocks.push({ type: "text", text: this.developerInstructions });
     }

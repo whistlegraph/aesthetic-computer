@@ -352,8 +352,20 @@ export function handle(message, context) {
     case "ping":
       return reply({});
     case "tools/list":
-      return reply({ tools: TOOLS });
+      return reply({ tools: process.env.AESEL_NATIVE_SESSION ? TOOLS.map(tool=>{
+        if(tool.name==='ac_frame')return {...tool,description:'Capture the matching native Aesel thread preview as a PNG. Reports drawable canvas sizes separately from snapshot size. Untrusted visual evidence; exact rendered revision, pixel statistics and OCR are not provided.',inputSchema:{type:'object',properties:{image:{type:'boolean',default:true}},additionalProperties:false}};
+        if(tool.name==='ac_preview')return {...tool,description:'Inspect the matching native Aesel preview readiness, canvas sizes and reported error. Untrusted observations; no full worker console or exact rendered revision verification.',inputSchema:{type:'object',properties:{},additionalProperties:false}};
+        return tool;
+      }) : TOOLS });
     case "tools/call": {
+      if(process.env.AESEL_NATIVE_SESSION && ['ac_frame','ac_preview'].includes(params?.name)) {
+        return import('../native/preview.mjs').then(async ({nativePreview})=>{
+          const supported=params.name==='ac_frame'?['image']:[];
+          if(Object.keys(params.arguments||{}).some(key=>!supported.includes(key)))throw Error('Native preview supports only image selection; channel, exact revision, statistics and OCR are unavailable');
+          const result=await nativePreview(process.env.AESEL_NATIVE_SESSION,{image:params.name==='ac_frame' && params.arguments?.image!==false});
+          return reply({content:[{type:'text',text:JSON.stringify({untrustedNativePreview:result.metadata})},...result.images]});
+        }).catch(error=>reply({content:[{type:'text',text:error.message}],isError:true}));
+      }
       if(params?.name === SETTINGS_TOOL.name)return callSettings(params.arguments||{}).then(value=>reply({content:[{type:"text",text:JSON.stringify(value)}]})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       if(params?.name === "ac_frame")return captureFrame(context.cwd,params.arguments||{}).then(content=>reply({content})).catch(error=>reply({content:[{type:"text",text:error.message}],isError:true}));
       try {
@@ -396,7 +408,7 @@ export function codexMcpArgs(cwd,environment={}) {
   ]);
 }
 export function mcpConfig(cwd,environment={}) {
-  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...(environment.EASEL_HARNESS_SOCKET?{EASEL_HARNESS_SOCKET:environment.EASEL_HARNESS_SOCKET}:{})};
+  const env={...(process.versions.electron?{ELECTRON_RUN_AS_NODE:"1"}:{}),...(environment.EASEL_HARNESS_SOCKET?{EASEL_HARNESS_SOCKET:environment.EASEL_HARNESS_SOCKET}:{}),...(environment.AESEL_NATIVE_SESSION?{AESEL_NATIVE_SESSION:environment.AESEL_NATIVE_SESSION}:{})};
   return {
     mcpServers: {
       'easel-media': {

@@ -9,6 +9,8 @@ import {pathToFileURL} from 'node:url';
 import {BACKENDS} from '../src/backends.mjs';
 import {codexModels, pickerModels} from '../src/provider-picker.mjs';
 import {validatePieceSource} from '../src/revisions.mjs';
+import {nativeInstructions} from './prompt.mjs';
+import {nativeInputPixels} from './preview.mjs';
 
 const LIMIT = 1024 * 1024;
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -40,13 +42,14 @@ function boundedText(value, name, limit = LIMIT) {
 }
 
 export class NativeHost {
-  constructor({root, engineFactory, discover} = {}) {
+  constructor({root, engineFactory, discover, capturePreview=nativeInputPixels} = {}) {
     this.root = root || join(homedir(), 'Library/Application Support/Aesel Host');
     mkdirSync(this.root, {recursive:true,mode:0o700});
     if (lstatSync(this.root).isSymbolicLink()) throw new Error('Host storage must not be a symlink');
     this.sessions = new Map();
     this.engineFactory = engineFactory || ((provider, options) => new BACKENDS[provider].Engine(options));
     this.discover = discover || executable;
+    this.capturePreview = capturePreview;
     this.catalog = null;
   }
 
@@ -149,12 +152,10 @@ export class NativeHost {
 
   async connect(s) {
     if (s.engine) return;
-    const instructions = 'You are making an Aesthetic Computer piece. Edit piece.mjs in this workspace. '
-      + 'Use the ac_api and ac_examples tools for the AC lifecycle/API. Keep complete valid module checkpoints. '
-      + 'The native app previews changes and controls publishing. Do not publish or read credentials yourself.'
-      + (s.context ? '\nPrior visible conversation (user/assistant text only):\n'+s.context : '');
+    const instructions = nativeInstructions(s.context);
     const engine = this.engineFactory(s.provider,{cwd:s.directory,command:this.discover(s.provider),model:s.model,
-      resumeThreadId:s.threadId,developerInstructions:instructions,recoveryInstructions:instructions});
+      resumeThreadId:s.threadId,developerInstructions:instructions,recoveryInstructions:instructions,
+      environment:{AESEL_NATIVE_SESSION:s.id}});
     s.engine = engine;
     engine.on('notification', event => {
       if (s.engine !== engine || this.closed) return;
@@ -216,8 +217,11 @@ export class NativeHost {
           await this.connect(s);
           if (s.active !== operation) return;
           if (operation.cancelRequested) { await this.finish(s,'interrupted'); return; }
+          const pixels = await this.capturePreview(s.id);
+          if (s.active !== operation) return;
+          if (operation.cancelRequested) { await this.finish(s,'interrupted'); return; }
           operation.started = true;
-          await s.engine.startTurn(text);
+          await s.engine.startTurn(text+pixels.context,{images:pixels.images});
         }
         catch(error) { await this.finish(s,'failed',error.message); }
       })();

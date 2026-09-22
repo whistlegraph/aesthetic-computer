@@ -7,6 +7,8 @@ import {randomUUID} from 'node:crypto';
 const directory=join(homedir(),'Library/Containers/computer.aesthetic.aesel.native/Data/Library/Application Support/computer.aesthetic.aesel.native/automation');
 export async function nativeRequest(method,params={}, {root=directory}={}) {
  const instance=JSON.parse(await readFile(join(root,'instance.json'),'utf8'));
+ if(!Number.isInteger(instance.pid) || typeof instance.instance!=='string')throw Error('Invalid native app instance');
+ try{process.kill(instance.pid,0);}catch{throw Error('Native app is not running');}
  const id=randomUUID(),request=join(root,'requests',id+'.json'),response=join(root,'responses',id+'.json');
  await writeFile(request+'.tmp',JSON.stringify({id,instance:instance.instance,createdAt:Date.now()/1000,method,params}),{mode:0o600});await rename(request+'.tmp',request);
  try {
