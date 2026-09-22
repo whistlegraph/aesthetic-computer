@@ -23,6 +23,7 @@
 //        [--from 7:20] [--to 8:00] [--section 5] [--fps 30] [--size 960x540]
 //        [--audio-only] [--fast] [--light | --dark]   (theme follows macOS unless given)
 //        [--plan]   top-down instead of the isometric view
+//        [--solo 3] hear one laptop alone (C is 6)
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -36,6 +37,7 @@ const args = process.argv.slice(2);
 const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso'];
 const flag = k => args.includes('--' + k);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
+const SOLO = opt('solo') !== undefined ? +opt('solo') - 1 : -1; // audition one laptop (1-based; C = 6)
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !FLAGS.includes(args[i - 1].slice(2))));
 const scorePath = positional[0] || join(HERE, '../scores/notespatial-native.nsscore');
 const score = JSON.parse(readFileSync(scorePath, 'utf8'));
@@ -106,7 +108,12 @@ let peak = 0;
 for (const F of feeds) for (let i = 0; i < N; i += 7) peak = Math.max(peak, Math.abs(F[i]));
 const norm = peak > 0 ? .5 / peak : 1;
 for (const F of feeds) for (let i = 0; i < N; i++) F[i] *= norm;
-tick(`feeds: ${voiced} events, ${mmss(span)}`);
+if (SOLO >= 0) for (let k = 0; k < SEATS; k++) if (k !== SOLO) feeds[k].fill(0);
+{ // what each laptop is asked to play, before any head: RMS of its feed
+  const row = feeds.map((F, k) => { let a = 0; for (let i = 0; i < N; i += 3) a += F[i] * F[i]; const rms = Math.sqrt(a / (N / 3)); return `${k === CENTER ? 'C' : k + 1}:${(20 * Math.log10(rms + 1e-9)).toFixed(1)}`; });
+  console.log('feed RMS dBFS per laptop   ' + row.join('  '));
+}
+tick(`feeds: ${voiced} events, ${mmss(span)}${SOLO >= 0 ? `, laptop ${SOLO === CENTER ? 'C' : SOLO + 1} alone` : ''}`);
 
 // ── 2 · the head ─────────────────────────────────────────────────────
 // Ring seats sit at their azimuth; a held center laptop is a small speaker
@@ -135,6 +142,13 @@ if (useHrtf) {
     const a = el0.azimuths.reduce((b, c) => Math.abs(c.az - az) < Math.abs(b.az - az) ? c : b);
     const L = new Float32Array(taps), R = new Float32Array(taps);
     for (let i = 0; i < taps; i++) { L[i] = raw.readInt16LE(a.off + i * 2) / 32768; R[i] = raw.readInt16LE(a.off + taps * 2 + i * 2) / 32768; }
+    // The measured set carries the head's own shadow: a rear source reaches
+    // the ears with about 4 dB less energy than a side one. In the room every
+    // laptop is fed equally, so equalize each seat's total energy here and
+    // keep only the direction cues (delay, spectrum, left-right balance).
+    let e = 0; for (let i = 0; i < taps; i++) e += L[i] * L[i] + R[i] * R[i];
+    const gEq = Math.sqrt(1.84 / e); // 1.84 is the front (az 0) pair's energy
+    for (let i = 0; i < taps; i++) { L[i] *= gEq; R[i] *= gEq; }
     return swap ? [R, L] : [L, R];
   };
   const inputs = [], graph = [];
@@ -147,7 +161,7 @@ if (useHrtf) {
   }
   for (let k = 0; k < SEATS; k++) for (const ear of 'LR') inputs.push('-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', join(work, `ir${k}${ear}.f32`));
   for (let k = 0; k < SEATS; k++) {
-    const w = k === CENTER ? 1.25 : 1; // the small speaker is nearer than the ring
+    const w = k === CENTER ? 1.1 : 1; // the small speaker is nearer than the ring
     graph.push(`[${k}:a]asplit[s${k}a][s${k}b]`);
     graph.push(`[s${k}a][${SEATS + k * 2}:a]afir=gtype=none:dry=1:wet=${w}[l${k}]`);
     graph.push(`[s${k}b][${SEATS + k * 2 + 1}:a]afir=gtype=none:dry=1:wet=${w}[r${k}]`);
@@ -168,7 +182,7 @@ if (useHrtf) {
   for (let k = 0; k < SEATS; k++) {
     const az = seatAzDeg(k) * Math.PI / 180, s = Math.sin(az), c = Math.cos(az);
     const itd = Math.round(Math.abs(s) * .00066 * SR);
-    const farGain = 10 ** (-(4 * Math.abs(s)) / 20), rear = c < 0 ? .78 : 1, near = k === CENTER ? 1.25 : 1;
+    const farGain = 10 ** (-(4 * Math.abs(s)) / 20), rear = c < 0 ? .78 : 1, near = k === CENTER ? 1.1 : 1;
     const cutoff = 1 - Math.exp(-2 * Math.PI * (7000 - 4500 * Math.abs(s)) / SR);
     const [nearEar, farEar] = s >= 0 ? [R, L] : [L, R];
     let lp = 0;
@@ -335,21 +349,25 @@ for (let f = 0; f < frames; f++) {
     // flying from the horizon to the front, arriving as they sound
     const glow = lit, screenBg = mix([12, 15, 23], sc.map(v => v * .55), glow);
     rect(x - bw / 2, y - bh / 2, bw, bh, screenBg);
-    const hzn = y - bh / 2 + Math.round(bh * .22), frontY = y + bh / 2 - Math.round(bh * .18);
-    bar(x - bw / 2 + 2, frontY, x + bw / 2 - 2, frontY, 1, mix(screenBg, [200, 210, 230], .45), 1);
-    bar(x - 2, hzn, x + 2, hzn, 1, mix(screenBg, [200, 210, 230], .45), 1);
+    // notes are frames in the display's own aspect: small and centered far
+    // off, filling the display exactly as they sound, fading with the note
+    const mine = [];
     for (let i = lo; i < all.length && all[i].t <= t + LOOK; i++) {
       const e = all[i], until = e.t - t;
       if (e.t + e.dur + .3 < t) continue;
       const g = sourceGain(score, voicePosition(score, e.lane, e.t), k, SEATS);
       if (g * g < .5) continue;
-      const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u, scale = .3 + near * near * 1.4;
-      const midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
-      const sx = x + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (bw * .42) * (.15 + near * .85);
-      const sy = until > 0 ? hzn + Math.pow(near, 1.7) * (frontY - hzn) : frontY;
-      const left = until <= 0 ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
-      const gw = Math.max(1, Math.min(2.5, e.dur) * 9 * scale), gh = Math.max(1, 1.6 * scale);
-      bar(sx - gw / 2, sy, sx + gw / 2, sy, gh, mix(screenBg, sc, (until <= 0 ? .55 + .45 * left : .4 + .6 * near)), 1);
+      mine.push({ e, until });
+    }
+    mine.sort((p, q) => q.until - p.until);
+    for (const { e, until } of mine) {
+      const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u;
+      const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
+      const scl = sounding ? 1 : .06 + .94 * Math.pow(near, 2.2);
+      const fw = bw * scl, fh = bh * scl, x0 = x - fw / 2, y0 = y - fh / 2;
+      const col = mix(screenBg, sc, sounding ? .35 + .65 * left : .2 + .8 * near);
+      if (sounding) rect(x0, y0, fw, fh, col);
+      else { bar(x0, y0, x0 + fw, y0, 1, col, 1); bar(x0, y0 + fh, x0 + fw, y0 + fh, 1, col, 1); bar(x0, y0, x0, y0 + fh, 1, col, 1); bar(x0 + fw, y0, x0 + fw, y0 + fh, 1, col, 1); }
     }
     rect(x - bw / 2 - 3, y + bh / 2 + 1, bw + 6, 2, T.dim);
     // the number sits beside the machine, on the side away from the audience

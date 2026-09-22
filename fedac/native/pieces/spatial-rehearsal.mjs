@@ -168,13 +168,11 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   const t = origin === null ? -1 : Math.min(runDuration(), sound.time - origin);
   const isCenter = config.seat === score.center;
 
-  // The view into the space: this laptop's notes come from far away and
-  // fly at the screen, arriving at the front line exactly when they
-  // sound. The screen glows while the note is in the room, then it fades.
-  const LOOK = 3, horizonY = 62, frontY = h - 46, cx = w * .5;
-  ink(60, 70, 90);
-  line(0, frontY, w, frontY);
-  line(cx - 3, horizonY, cx + 3, horizonY);
+  // The view into the space: this laptop's notes come from far away as
+  // frames in the screen's own aspect, growing as they approach, filling
+  // the screen exactly when they sound, then fading with the note.
+  const LOOK = 3, cx = w * .5, cy = h * .5;
+  const frames = [];
   for (let i = 0; i < score.lanes.length; i++) {
     const lane = score.lanes[i], evs = lane.events;
     let j = flyCursors[i] || 0;
@@ -184,18 +182,22 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
       const e = evs[k];
       const gain = sourceGain(score, voicePosition(score, i, e.t), config.seat, config.seats);
       if (gain * gain < .5) continue;
-      const until = e.t - t; // seconds until it sounds
-      const u = Math.max(0, Math.min(1, until / LOOK)); // 1 far, 0 at the front
-      const near = 1 - u, scale = .35 + near * near * 1.9;
-      const y = horizonY + Math.pow(near, 1.7) * (frontY - horizonY);
-      const midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
-      const x = cx + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (w * .42) * (.15 + near * .85);
-      const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
-      const c = own.map(v => Math.round(v * (sounding ? .55 + .45 * left : .4 + .6 * near)));
-      ink(...c);
-      const bw = Math.max(3, Math.round(Math.min(2.5, e.dur) * 26 * scale)), bh = Math.max(2, Math.round(3 * scale));
-      box(Math.round(x - bw / 2), Math.round((sounding ? frontY : y) - bh / 2), bw, bh, 'fill');
-      if (scale > 1.3 && e.note) write(e.note, { x: Math.round(x - e.note.length * 3), y: Math.round(y - 14 - 4 * scale), font: '6x10' });
+      frames.push({ e, until: e.t - t });
+    }
+  }
+  frames.sort((p, q) => q.until - p.until); // far first, so near frames draw on top
+  for (const { e, until } of frames) {
+    const u = Math.max(0, Math.min(1, until / LOOK)), near = 1 - u;
+    const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
+    const sc = sounding ? 1 : .05 + .95 * Math.pow(near, 2.2);
+    const fw = Math.round(w * sc), fh = Math.round(h * sc), x0 = Math.round(cx - fw / 2), y0 = Math.round(cy - fh / 2);
+    const bright = sounding ? .35 + .65 * left : .25 + .75 * near;
+    ink(...own.map(v => Math.round(v * bright)));
+    if (sounding) box(x0, y0, fw, fh, 'fill'); // the whole screen is the note
+    else { box(x0, y0, fw, fh, 'outline'); if (sc > .3) box(x0 + 1, y0 + 1, fw - 2, fh - 2, 'outline'); }
+    if (e.note && sc > .18) {
+      ink(...(sounding ? [20, 22, 30] : own));
+      write(e.note, { x: x0 + 4, y: y0 + 3, font: '6x10', size: sc > .6 ? 3 : sc > .35 ? 2 : 1 });
     }
   }
   ink(...own);
@@ -207,7 +209,7 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   placement.forEach((word, i) => write(word, { x: w - 8 - word.length * 12, y: 28 + i * 23, font: '6x10', size: 2 }));
   const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1);
   ink(180, 199, 223);
-  if (mv) write(mv.name.replace(/·/g, '-'), { x: 10, y: frontY + 8, font: '6x10' });
+  if (mv) write(mv.name.replace(/·/g, '-'), { x: 10, y: h - 44, font: '6x10' });
   const connected = Array.from({ length: config.seats }, (_, i) => seatConnection(i, sound.time) === 'online').filter(Boolean).length;
   ink(...(connected === config.seats ? [160, 215, 180] : [255, 180, 110]));
   write(sound.time - presenceSeen > 5 ? 'NETWORK DATA STALE' : connected + '/' + config.seats + ' connected', { x: 10, y: h - 29, font: '6x10' });
