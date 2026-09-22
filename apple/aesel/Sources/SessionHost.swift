@@ -73,6 +73,9 @@ final class SessionHost: NSObject {
         configuration.setURLSchemeHandler(bundleHandler, forURLScheme: "aesel-bundle")
         configuration.userContentController = controller
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        // This view is the session engine, not a background browser tab.
+        // Suspending it also suspends inference replies and their JS deadlines.
+        configuration.preferences.inactiveSchedulingPolicy = .none
 
         webView = WKWebView(frame: .zero, configuration: configuration)
         nativeHost.sessionView = webView
