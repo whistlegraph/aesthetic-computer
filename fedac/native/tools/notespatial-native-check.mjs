@@ -8,12 +8,12 @@ import { voicePosition, sourceGain } from '../lib/spatial-rehearsal.mjs';
 const file = process.argv[2] || new URL('../scores/notespatial-native.nsscore', import.meta.url);
 const score = JSON.parse(readFileSync(file, 'utf8'));
 const seats = score.seats || 6, WIN = 20;
-for (const l of score.lanes) if (!(Number.isFinite(l.az) || l.orbitSeconds > 0)) { console.error(`${l.name}: neither pinned nor orbiting`); process.exit(1); }
+for (const l of score.lanes) if (!(l.center || Number.isFinite(l.az) || l.orbitSeconds > 0)) { console.error(`${l.name}: neither pinned, centered nor orbiting`); process.exit(1); }
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const shade = p => p <= 0 ? '·' : p < .5 ? '░' : p < 2 ? '▒' : p < 6 ? '▓' : '█';
 
 console.log(`${score.name} — ${mmss(score.dur)} — routed power per laptop, ${WIN}s windows (· none  ░ faint  ▒ some  ▓ busy  █ loud)`);
-console.log('time    ' + Array.from({ length: seats }, (_, k) => ` ${k + 1}`).join('') + '   section');
+console.log('time    ' + Array.from({ length: seats }, (_, k) => k === score.center ? ' C' : ` ${k + 1}`).join('') + '   section' + (Number.isInteger(score.center) ? '   (C = the held laptop)' : ''));
 for (let w0 = 0; w0 < score.dur; w0 += WIN) {
   const power = new Array(seats).fill(0);
   score.lanes.forEach((l, i) => l.events.forEach(e => {
@@ -60,6 +60,10 @@ cmd = { id: 'play', action: 'play' }; sound.time = .2; piece.sim(api);
 const t1 = performance.now();
 for (let t = 3; t < 3 + score.dur + 1; t += .025) { sound.time = t; piece.sim(api); maxLive = Math.max(maxLive, live.size); }
 const ms = performance.now() - t1;
+// paint smoke test: the flying notation must draw without throwing for a few frames
+const calls = { write: 0, box: 0 };
+const paintApi = { ...api, wipe() {}, ink() {}, box() { calls.box++; }, line() {}, circle() {}, write() { calls.write++; }, screen: { width: 455, height: 256 } };
+for (const t of [3.5, 3 + score.dur * .3, 3 + score.dur * .6]) { sound.time = t; piece.paint(paintApi); }
 const total = score.lanes.reduce((a, l) => a + l.events.length, 0);
-console.log(`\ndry run seat 3: ${synths}/${total} events voiced, ${updates} gain updates, ${statuses} status writes, sim cost ${(ms / (score.dur * 40)).toFixed(3)} ms/frame on this Mac`);
+console.log(`\ndry run seat 3: ${synths}/${total} events voiced, ${updates} gain updates, ${statuses} status writes, sim cost ${(ms / (score.dur * 40)).toFixed(3)} ms/frame on this Mac; paint drew ${calls.box} boxes, ${calls.write} labels over three frames`);
 if (synths !== total) { console.error('some events were skipped'); process.exit(1); }

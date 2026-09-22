@@ -1,11 +1,11 @@
 // Spatial rehearsal, 26.09.18
 // Local synthesis on every seat, coordinated over Wi-Fi. Microphones stay closed.
-import { voicePosition, sourceGain, hasFocus } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, hasFocus, ringSeats } from '../lib/spatial-rehearsal.mjs';
 
 let config, score, error = '', phase = 'ready', origin = null;
 let lastStatus = -1, lastRead = -1, seenCommand = '';
 let cursors = [], voices = [], mode = 'score', lastBeep = -1;
-let identifyAt = null, glow = 0;
+let identifyAt = null, glow = 0, flyCursors = [];
 let beepCount = 0, outputPeak = 0, maxFrameGap = 0, previousTime = null;
 let networkHalfRttMs = null, runId = null;
 let presence = null, presenceRaw = '', presenceSeen = -Infinity, presencePoll = -Infinity;
@@ -78,7 +78,7 @@ export function sim({ sound, system, screen, wifi }) {
         stopVoices(); origin = cmd.startAt; phase = 'prepared'; runId = cmd.id;
         mode = cmd.mode === 'beeps' ? 'beeps' : 'score';
         networkHalfRttMs = cmd.networkHalfRttMs;
-        cursors = score.lanes.map(() => 0); lastBeep = -1; beepCount = 0; outputPeak = 0; maxFrameGap = 0;
+        cursors = score.lanes.map(() => 0); flyCursors = []; lastBeep = -1; beepCount = 0; outputPeak = 0; maxFrameGap = 0;
       }
       if (cmd.action === 'play' && phase === 'prepared' && origin > now + 0.5) phase = 'countdown';
     }
@@ -148,7 +148,9 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   const focusTime = origin === null ? 0 : Math.max(0, sound.time - origin);
   const focused = score && hasFocus(score, config.seat, config.seats, focusTime);
   glow = focused && amp > .002 ? Math.min(1, Math.sqrt(amp) * 2.8) : 0;
-  wipe(Math.round(12 + 42 * glow), Math.round(15 + 48 * glow), Math.round(23 + 54 * glow));
+  const own = score?.seatColors?.[config?.seat] || [255, 226, 120];
+  wipe(Math.round(12 + (own[0] * .55 - 12) * glow), Math.round(15 + (own[1] * .55 - 15) * glow), Math.round(23 + (own[2] * .55 - 23) * glow));
+  const w = screen.width, h = screen.height;
   const battery = system?.battery;
   let batteryLabel = 'BAT --';
   if (battery?.percent >= 0) {
@@ -157,71 +159,60 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
       batteryLabel += ' ' + Math.floor(battery.minutesLeft / 60) + 'h' + String(battery.minutesLeft % 60).padStart(2, '0');
   }
   ink(...(battery?.percent >= 0 && battery.percent <= 15 ? [255, 165, 120] : [240, 245, 250]));
-  write(batteryLabel, { x: screen.width - 8 - batteryLabel.length * 6, y: 8, font: '6x10', size: 1 });
+  write(batteryLabel, { x: w - 8 - batteryLabel.length * 6, y: 8, font: '6x10', size: 1 });
   ink(210, 225, 240);
   write(config?.machineName || 'ac-device', { x: 75, y: 9, font: '6x10' });
   write(wifi?.ip || config?.ip || 'LAN unavailable', { x: 75, y: 26, font: '6x10' });
   if (error) { ink(255, 140, 130); write(error, { x: 8, y: 55 }); return; }
   if (!score) return;
-  const t = origin === null ? 0 : Math.max(0, Math.min(runDuration(), sound.time - origin));
-  const w = screen.width, h = screen.height;
-  const cx = w * .65, cy = h * .51, radius = Math.min(h * .30, w * .19);
-  // A shared floor plan: front at the top, increasing seat numbers clockwise.
-  // This is the instructed layout, not a sensor estimate of laptop locations.
-  const floor = (angle, r = radius) => [cx + Math.sin(angle) * r, cy - Math.cos(angle) * r];
-  const isLine = score.geometry === 'line', order = isLine ? score.seatOrder : Array.from({length: config.seats}, (_,i)=>i);
-  const lineX = u => w * .36 + u * w * .59;
-  ink(125, 145, 170);
-  if (!isLine) for (let j = 0; j < 64; j++) line(...floor(j / 64 * Math.PI * 2), ...floor((j + 1) / 64 * Math.PI * 2));
-  ink(230, 235, 245);
-  if (isLine) {
-    line(lineX(0),cy,lineX(1),cy);
-    write(score.motion === 'bounce' ? 'BACK AND FORTH' : 'LEFT TO RIGHT', { x: lineX(0), y: cy - 55, font: '6x10' });
-    line(lineX(0),cy+48,lineX(1),cy+48);
-    line(lineX(1),cy+48,lineX(1)-7,cy+43); line(lineX(1),cy+48,lineX(1)-7,cy+53);
-    if (score.motion === 'bounce') {
-      line(lineX(0),cy+48,lineX(0)+7,cy+43); line(lineX(0),cy+48,lineX(0)+7,cy+53);
-    }
-  } else write('YOU', { x: cx - 9, y: cy - 4, font: '6x10' });
-  if (!isLine) { line(cx, cy - 14, cx, cy - 30);
-  line(cx, cy - 30, cx - 4, cy - 24); line(cx, cy - 30, cx + 4, cy - 24); }
+  const t = origin === null ? -1 : Math.min(runDuration(), sound.time - origin);
+  const isCenter = config.seat === score.center;
+
+  // The view into the space: this laptop's notes come from far away and
+  // fly at the screen, arriving at the front line exactly when they
+  // sound. The screen glows while the note is in the room, then it fades.
+  const LOOK = 3, horizonY = 62, frontY = h - 46, cx = w * .5;
+  ink(60, 70, 90);
+  line(0, frontY, w, frontY);
+  line(cx - 3, horizonY, cx + 3, horizonY);
   for (let i = 0; i < score.lanes.length; i++) {
-    const p = voicePosition(score, i, t), xy = isLine ? [lineX(p.line), cy - 30] : floor(p.angle, radius * .74);
-    ink(...score.lanes[i].color.map(c => Math.round(c + (255 - c) * .35)));
-    circle(xy[0], xy[1], 4, true);
-  }
-  for (const i of order) {
-    const p = isLine ? [lineX(order.indexOf(i)/(order.length-1)),cy] : floor(i / config.seats * Math.PI * 2), own = i === config.seat;
-    const state = seatConnection(i, sound.time), online = state === 'online';
-    const lost = state === 'offline' || state === 'error';
-    ink(...(lost ? [255, 105, 105] : !online ? [255, 190, 80] : own ? [255, 219, 90] : [195, 208, 225]));
-    box(p[0] - 17, p[1] - 16, 34, 30, own && online ? 'fill' : 'outline');
-    line(p[0] - 20, p[1] + 17, p[0] + 20, p[1] + 17, 2);
-    if (!online) {
-      const label = state === 'offline' ? 'OFFLINE' : state === 'error' ? 'ERROR' : state === 'unstable' ? 'LINK?' : 'UNKNOWN';
-      write(label, { x: p[0] - label.length * 3, y: p[1] + 21, font: '6x10' });
-      if (lost) { line(p[0] - 19, p[1] - 16, p[0] + 19, p[1] + 14); line(p[0] + 19, p[1] - 16, p[0] - 19, p[1] + 14); }
+    const lane = score.lanes[i], evs = lane.events;
+    let j = flyCursors[i] || 0;
+    while (j < evs.length && evs[j].t + evs[j].dur + .6 < t) j++;
+    flyCursors[i] = j;
+    for (let k = j; k < evs.length && evs[k].t <= t + LOOK; k++) {
+      const e = evs[k];
+      const gain = sourceGain(score, voicePosition(score, i, e.t), config.seat, config.seats);
+      if (gain * gain < .5) continue;
+      const until = e.t - t; // seconds until it sounds
+      const u = Math.max(0, Math.min(1, until / LOOK)); // 1 far, 0 at the front
+      const near = 1 - u, scale = .35 + near * near * 1.9;
+      const y = horizonY + Math.pow(near, 1.7) * (frontY - horizonY);
+      const midi = e.hz > 0 ? 69 + 12 * Math.log2(e.hz / 440) : 72;
+      const x = cx + Math.max(-1, Math.min(1, (midi - 72) / 24)) * (w * .42) * (.15 + near * .85);
+      const sounding = until <= 0, left = sounding ? Math.max(0, 1 - (-until) / Math.max(.3, e.dur)) : 1;
+      const c = own.map(v => Math.round(v * (sounding ? .55 + .45 * left : .4 + .6 * near)));
+      ink(...c);
+      const bw = Math.max(3, Math.round(Math.min(2.5, e.dur) * 26 * scale)), bh = Math.max(2, Math.round(3 * scale));
+      box(Math.round(x - bw / 2), Math.round((sounding ? frontY : y) - bh / 2), bw, bh, 'fill');
+      if (scale > 1.3 && e.note) write(e.note, { x: Math.round(x - e.note.length * 3), y: Math.round(y - 14 - 4 * scale), font: '6x10' });
     }
-    ink(...(own && online ? [20, 25, 35] : [240, 245, 255]));
-    write(String(i + 1), { x: p[0] - 6, y: p[1] - 11, font: '6x10', size: 2 });
   }
-  const placements = [['FRONT'], ['FRONT', 'RIGHT'], ['REAR', 'RIGHT'], ['REAR', 'LEFT'], ['FRONT', 'LEFT']];
-  ink(245, 245, 250);
+  ink(...own);
   write('LAPTOP', { x: 10, y: 10, font: '6x10' });
-  write(String(config.seat + 1), { x: 10, y: 28, font: '6x10', size: 5 });
+  write(isCenter ? 'C' : String(config.seat + 1), { x: 10, y: 28, font: '6x10', size: 5 });
   ink(255, 220, 100);
-  const placement = isLine ? (order.indexOf(config.seat) === 0 ? ['LEFT','END'] : order.indexOf(config.seat) === order.length - 1 ? ['RIGHT','END'] : ['POSITION', String(order.indexOf(config.seat) + 1)]) : config.seats === 5 ? placements[config.seat] : ['AT ' + Math.round(config.seat / config.seats * 360) + ' DEG'];
-  placement.forEach((word, i) => write(word, { x: 10, y: 89 + i * 23, font: '6x10', size: 2 }));
-  ink(215, 225, 240);
-  write(isLine ? 'Facing the laptops:' : 'At center, face 1.', { x: 10, y: 157, font: '6x10' });
-  write(isLine ? order.map(i => i + 1).join(' - ') : 'Speakers inward.', { x: 10, y: 174, font: '6x10' });
-  write('Space evenly.', { x: 10, y: 191, font: '6x10' });
+  const ringN = ringSeats(score, config.seats), ringIdx = config.seat > (score.center ?? 99) ? config.seat - 1 : config.seat;
+  const placement = isCenter ? ['HELD', 'CENTER'] : score.geometry === 'line' ? ['LINE', String(config.seat + 1)] : ringIdx === 0 ? ['FRONT'] : ['AT ' + Math.round(ringIdx / ringN * 360) + ' DEG'];
+  placement.forEach((word, i) => write(word, { x: w - 8 - word.length * 12, y: 28 + i * 23, font: '6x10', size: 2 }));
+  const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1);
+  ink(180, 199, 223);
+  if (mv) write(mv.name.replace(/·/g, '-'), { x: 10, y: frontY + 8, font: '6x10' });
   const connected = Array.from({ length: config.seats }, (_, i) => seatConnection(i, sound.time) === 'online').filter(Boolean).length;
   ink(...(connected === config.seats ? [160, 215, 180] : [255, 180, 110]));
-  write(sound.time - presenceSeen > 5 ? 'NETWORK DATA STALE' : connected + '/' + config.seats + ' connected' + (isLine && seatConnection(0,sound.time) === 'offline' ? ' / 1 OFFLINE' : ''), { x: 10, y: h - 29, font: '6x10' });
+  write(sound.time - presenceSeen > 5 ? 'NETWORK DATA STALE' : connected + '/' + config.seats + ' connected', { x: 10, y: h - 29, font: '6x10' });
   ink(180, 199, 223);
-  write((mode === 'beeps' ? 'Pulse' : score.name) + ' / ' + phase, { x: 10, y: h - 14, font: '6x10' });
-
+  write((mode === 'beeps' ? 'Pulse' : score.name) + ' / ' + phase + (t >= 0 ? '  ' + Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0') : ''), { x: 10, y: h - 14, font: '6x10' });
 }
 
 export function act({ event, system }) { if (event.is('keyboard:down:escape')) system.jump('prompt'); }

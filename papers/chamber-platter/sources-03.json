@@ -1,0 +1,146 @@
+[
+  {
+    "id": "reich-m18",
+    "title": "Music for 18 Musicians (composer's note)",
+    "author": "Steve Reich",
+    "year": 1976,
+    "url": "https://stevereich.com/composition/music-for-18-musicians/",
+    "kind": "composer-note"
+  },
+  {
+    "id": "reich-six-pianos",
+    "title": "Six Pianos",
+    "author": "Wikipedia contributors",
+    "year": 2026,
+    "url": "https://en.wikipedia.org/wiki/Six_Pianos",
+    "kind": "encyclopedia"
+  },
+  {
+    "id": "reich-electric-counterpoint",
+    "title": "Electric Counterpoint (composer's note)",
+    "author": "Steve Reich",
+    "year": 1987,
+    "url": "https://stevereich.com/composition/electric-counterpoint/",
+    "kind": "composer-note"
+  },
+  {
+    "id": "riley-in-c",
+    "title": "In C: Instructions for Beginners",
+    "author": "Terry Riley (ed. Music Institute of Chicago)",
+    "year": 1964,
+    "url": "https://www.musicinst.org/sites/default/files/attachments/In%20C%20Instructions%20for%20Beginners.pdf",
+    "kind": "performance-directions"
+  },
+  {
+    "id": "adams-phrygian-gates",
+    "title": "Phrygian Gates (work page and composer's note)",
+    "author": "John Adams / Wise Music Classical",
+    "year": 1977,
+    "url": "https://www.wisemusicclassical.com/work/23706/Phrygian-Gates--John-Adams/",
+    "kind": "publisher-note"
+  },
+  {
+    "id": "andriessen-hoketus",
+    "title": "Hoketus (work page)",
+    "author": "Louis Andriessen / Boosey & Hawkes",
+    "year": 1976,
+    "url": "https://www.boosey.com/cr/music/Louis-Andriessen-Hoketus/1542",
+    "kind": "publisher-note"
+  },
+  {
+    "id": "eastman-gay-guerrilla",
+    "title": "Assembling, Flaming, Ringing: Listening to Julius Eastman's Gay Guerrilla",
+    "author": "Project MUSE article",
+    "year": 2020,
+    "url": "https://muse.jhu.edu/article/760299",
+    "kind": "journal-article"
+  },
+  {
+    "id": "part-cantus",
+    "title": "Cantus in Memoriam Benjamin Britten",
+    "author": "Wikipedia contributors",
+    "year": 2026,
+    "url": "https://en.wikipedia.org/wiki/Cantus_in_Memoriam_Benjamin_Britten",
+    "kind": "encyclopedia"
+  },
+  {
+    "id": "ghost-rule-of-32",
+    "title": "Rule of 32 Arrangement Playbook",
+    "author": "The Ghost Production",
+    "year": 2025,
+    "url": "https://theghostproduction.com/rule-of-32-playbook/",
+    "kind": "practitioner-guide"
+  },
+  {
+    "id": "quadrophone-arranging",
+    "title": "Arranging Dance Music",
+    "author": "Quadrophone",
+    "year": 2024,
+    "url": "https://quadrophone.com/composition/arranging-dance-music/",
+    "kind": "practitioner-guide"
+  },
+  {
+    "id": "puckette-risset-bell",
+    "title": "Additive synthesis: Risset's bell (The Theory and Technique of Electronic Music)",
+    "author": "Miller Puckette",
+    "year": 2007,
+    "url": "https://msp.ucsd.edu/techniques/latest/book-html/node71.html",
+    "kind": "textbook"
+  },
+  {
+    "id": "arkadyan-risset-sc",
+    "title": "Risset's bell using additive synthesis (SuperCollider SynthDef)",
+    "author": "arkadyan (GitHub gist)",
+    "year": 2013,
+    "url": "https://gist.github.com/arkadyan/5937242",
+    "kind": "code"
+  },
+  {
+    "id": "wikipedia-karplus-strong",
+    "title": "Karplus-Strong string synthesis",
+    "author": "Wikipedia contributors",
+    "year": 2026,
+    "url": "https://en.wikipedia.org/wiki/Karplus%E2%80%93Strong_string_synthesis",
+    "kind": "encyclopedia"
+  },
+  {
+    "id": "euphonics-marimba",
+    "title": "3.3 Marimbas and xylophones",
+    "author": "Jim Woodhouse (Euphonics)",
+    "year": 2021,
+    "url": "https://euphonics.org/3-3-marimbas-and-xylophones/",
+    "kind": "textbook"
+  },
+  {
+    "id": "instrumentalist-vibraphone",
+    "title": "Techniques for Vibraphone",
+    "author": "The Instrumentalist",
+    "year": 2009,
+    "url": "https://theinstrumentalist.com/october-2009/techniques-for-vibraphone/",
+    "kind": "magazine-article"
+  },
+  {
+    "id": "wikipedia-perceptual-attack",
+    "title": "Perceptual attack time",
+    "author": "Wikipedia contributors",
+    "year": 2026,
+    "url": "https://en.wikipedia.org/wiki/Perceptual_attack_time",
+    "kind": "encyclopedia"
+  },
+  {
+    "id": "dev-sample-free-drums",
+    "title": "Sample-Free Drum Synthesis in Web Audio: Kick, Snare, and Hi-Hat from Oscillators",
+    "author": "sendotltd (DEV Community)",
+    "year": 2025,
+    "url": "https://dev.to/sendotltd/sample-free-drum-synthesis-in-web-audio-building-kick-snare-and-hi-hat-from-oscillators-in-60-2c0k",
+    "kind": "practitioner-guide"
+  },
+  {
+    "id": "audacity-risset-drum",
+    "title": "Risset Drum (Audacity Manual)",
+    "author": "Audacity Team",
+    "year": 2024,
+    "url": "https://www.audacityteam.org/manual/generators/risset-drum/",
+    "kind": "software-manual"
+  }
+]

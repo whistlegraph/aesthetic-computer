@@ -26,7 +26,13 @@ export function rotationAt(score, t) {
   return (score.lanes.length > 1 ? 0.15 * t : 0) + Math.PI * area;
 }
 
+// A ring may keep one seat in the middle of the room (score.center = its
+// index; score.ring = how many seats stand on the circle). A lane marked
+// {center: true} sounds only there; every other lane routes around the ring.
+export const ringSeats = (score, seats) => score.ring ?? (Number.isInteger(score.center) ? seats - 1 : seats);
+
 export function voicePosition(score, i, t) {
+  if (score.lanes[i]?.center) return { angle: 0, x: 0, y: 0, z: 0, center: true };
   if (score.geometry === 'line') {
     const lanePath = score.lanes[i].linePosition;
     let u = ribbon(lanePath ? { dur: score.dur, linePosition: lanePath } : score, 'linePosition', t);
@@ -53,6 +59,13 @@ export function voicePosition(score, i, t) {
 }
 
 export function sourceGain(score, position, seat, seats) {
+  if (Number.isInteger(score.center)) {
+    if (position.center) return seat === score.center ? 1 : 0;
+    if (seat === score.center) return 0;
+    const ringIndex = seat > score.center ? seat - 1 : seat;
+    if (score.geometry !== 'line') return seatGain(position.angle, ringIndex, ringSeats(score, seats));
+  }
+  if (position.center) return 0;
   if (score.geometry !== 'line') return seatGain(position.angle, seat, seats);
   const order = score.seatOrder || [], index = order.indexOf(seat);
   if (index < 0 || order.length < 2) return 0;
