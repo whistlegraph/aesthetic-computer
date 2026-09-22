@@ -203,7 +203,7 @@ struct ContentView: View {
 
     private var headerReservedWidth: CGFloat {
         #if os(macOS)
-        72 / uiScale + edgeInset * 2 + 36 + 48
+        52 / uiScale + edgeInset * 2 + 36 + 48
         #else
         edgeInset * 2 + 24 + 48
         #endif
@@ -213,7 +213,7 @@ struct ContentView: View {
         GeometryReader { geometry in
             HStack(spacing: 12) {
                 #if os(macOS)
-                Color.clear.frame(width: 72 / uiScale)
+                Color.clear.frame(width: 52 / uiScale)
                 #endif
                 title(availableWidth: max(0, geometry.size.width - headerReservedWidth))
                 Spacer(minLength: 8)

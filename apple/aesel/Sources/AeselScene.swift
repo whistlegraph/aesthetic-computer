@@ -144,7 +144,7 @@ extension EnvironmentValues {
 }
 
 /// The desktop's native Prox lettering (easel/desktop/native/credit-label.swift),
-/// drawn with a solid face, a thin dark edge and one tight pink shadow.
+/// drawn with a light face, a dark edge and tight cyan, purple and pink accents.
 /// One cached image per letter lets the notebook
 /// tilt and sway each one on its own.
 enum Rock {
@@ -167,6 +167,12 @@ enum Rock {
         let advance = (text as NSString).size(withAttributes: [.font: font])
         let bounds = CGSize(width: ceil(advance.width + inset * 2), height: ceil(advance.height + inset * 2))
         let image = ApplePlatform.image(size: bounds) {
+            for (color, x, y) in [(AeselColor.systemCyan, CGFloat(1.75), CGFloat(1)),
+                                  (AeselColor.systemPurple, CGFloat(1), CGFloat(0.75))] {
+                NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color,
+                    .strokeColor: color, .strokeWidth: -3])
+                    .draw(at: CGPoint(x: inset + x, y: inset + y))
+            }
             let shadow = NSShadow()
             shadow.shadowColor = AeselColor.systemPink.withAlphaComponent(0.7)
             shadow.shadowBlurRadius = 0
@@ -175,7 +181,7 @@ enum Rock {
                 .font: font,
                 .foregroundColor: face,
                 .strokeColor: AeselColor(white: 0.08, alpha: 1),
-                .strokeWidth: -1,
+                .strokeWidth: -3,
                 .shadow: shadow,
             ]).draw(at: CGPoint(x: inset, y: inset))
         }
@@ -273,7 +279,6 @@ struct AeselTitle: View {
     var maximumWidth: CGFloat? = nil
     var horizontalInset: CGFloat = 12
     var hoverSound: (() -> Void)? = nil
-    @Environment(\.paint) private var paint
     @State private var hovered = false
 
     private static func fnv(_ text: String) -> UInt32 {
@@ -282,9 +287,9 @@ struct AeselTitle: View {
         return hash
     }
 
-    // Handle letters keep the account palette; the piece name follows the paper ink.
+    // Handle letters keep the account palette; the light face has a dark outline.
     private func face(_ index: Int, handle: Int) -> AeselColor {
-        guard index < handle, colors.indices.contains(index), let color = AeselColor(hex: colors[index]) else { return AeselColor(paint.ink) }
+        guard index < handle, colors.indices.contains(index), let color = AeselColor(hex: colors[index]) else { return .white }
         return color
     }
 
