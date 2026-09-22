@@ -22,6 +22,7 @@
 //   node notespatial-native-render.mjs [score.nsscore] [--out x.mp4]
 //        [--from 7:20] [--to 8:00] [--section 5] [--fps 30] [--size 960x540]
 //        [--audio-only] [--fast] [--light | --dark]   (theme follows macOS unless given)
+//        [--plan]   top-down instead of the isometric view
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -32,7 +33,7 @@ import { voicePosition, sourceGain, ringSeats } from '../lib/spatial-rehearsal.m
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const FLAGS = ['audio-only', 'fast', 'light', 'dark'];
+const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso'];
 const flag = k => args.includes('--' + k);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !FLAGS.includes(args[i - 1].slice(2))));
@@ -66,7 +67,7 @@ const BLOCK = 256;
 let voiced = 0;
 const gainsAt = (li, t) => { const p = voicePosition(score, li, t); return Array.from({ length: SEATS }, (_, k) => sourceGain(score, p, k, SEATS)); };
 score.lanes.forEach((lane, li) => {
-  const still = lane.center || Number.isFinite(lane.az);
+  const still = lane.center || (Number.isFinite(lane.az) && !score.fieldShift);
   const fixed = still ? gainsAt(li, 0) : null;
   for (const e of lane.events) {
     if (e.t + e.dur <= from || e.t >= to) continue;
@@ -207,10 +208,30 @@ const noteOf = hz => { const m = Math.round(69 + 12 * Math.log2(hz / 440)); retu
 const MELODIC = /voice|walk|theme|answer|top/;
 
 // geometry: ring centered a little left, panel at the right
-const cx = Math.round(W * .38), cy = Math.round(H * .52), R = Math.round(H * .24), R_OUT = Math.round(H * .5) + 8, LOOK = 3.2;
-const floor = (a, r) => [cx + Math.sin(a) * r, cy - Math.cos(a) * r];
+// Isometric by default: the floor is an ellipse seen from a raised seat
+// behind the audience, streams run along the floor to each laptop, and the
+// held laptop's stream drops straight down from above into the hands. The
+// plan is turned half a step so the vertical axis falls in a gap.
+const ISO = !flag('plan');
+const cx = Math.round(W * .38), cy = Math.round(H * (ISO ? .6 : .52)), R = Math.round(H * (ISO ? .3 : .24)), R_OUT = Math.round(H * (ISO ? .62 : .5)) + 8, LOOK = 3.2;
+const SQ = ISO ? .5 : 1, ROT = ISO ? Math.PI / RING : 0;
+const floor = (a, r, h = 0) => [cx + Math.sin(a + ROT) * r, cy - Math.cos(a + ROT) * r * SQ - h];
 const seatAngle = k => ringIndex(k) / RING * Math.PI * 2;
-const CENTER_STREAM = Math.PI; // the held laptop's stream comes up from the bottom gap
+const CENTER_STREAM = Math.PI; // in plan view the held laptop's stream comes up from the bottom gap
+const CENTER_DOCK = ISO ? 16 : 18, CENTER_TOP = ISO ? cy - 28 : null;
+// a point `r` along a stream: ring streams lie on the floor, the center stream stands up
+// the performer wanders a little with the held laptop; the center stream follows the hands
+let hx = cx, hy = cy;
+const wander = t => { hx = cx + (ISO ? 26 : 22) * Math.sin(t * .13) + 9 * Math.sin(t * .31 + 2); hy = cy + (ISO ? 9 : 12) * Math.sin(t * .17 + 1) + 4 * Math.sin(t * .41); };
+const streamPoint = (pos, r) => pos.center ? (ISO ? [hx, hy - 14 - (r - CENTER_DOCK) * .78] : floor(CENTER_STREAM, r).map((v, i) => v + (i ? hy - cy : hx - cx))) : floor(pos.angle, r);
+function figure(x, y, ink) { // a stick figure holding the laptop at chest height
+  const headY = y - 34, hipY = y - 6, footY = y + 12;
+  ring(x, headY, 4, ink); disc(x, headY, 3, ink, .35);
+  bar(x, headY + 4, x, hipY, 1.5, ink, 1);
+  bar(x, hipY, x - 6, footY, 1.5, ink, 1); bar(x, hipY, x + 6, footY, 1.5, ink, 1);
+  bar(x, headY + 10, x - 14, headY + 20, 1.5, ink, 1); bar(x, headY + 10, x + 14, headY + 20, 1.5, ink, 1);
+  return [x, headY + 20]; // where the hands are
+}
 // theme: light or dark; follows the system appearance unless told
 const systemDark = (() => { try { return spawnSync('defaults', ['read', '-g', 'AppleInterfaceStyle'], { encoding: 'utf8' }).stdout.trim() === 'Dark'; } catch { return true; } })();
 const LIGHT = flag('light') || (!flag('dark') && !systemDark);
@@ -243,10 +264,11 @@ const write = buf => new Promise(res => ff.stdin.write(buf, () => res()) || ff.s
 
 for (let f = 0; f < frames; f++) {
   const t = from + f / FPS;
+  wander(t);
   for (let i = 0; i < W * H; i++) { const o = i * 3; frame[o] = T.bg[0]; frame[o + 1] = T.bg[1]; frame[o + 2] = T.bg[2]; }
   // faint streams and the two circles
-  for (let k = 0; k < SEATS; k++) { const a = k === CENTER ? CENTER_STREAM : seatAngle(k), r0 = k === CENTER ? 18 : R + 18; const [x0, y0] = floor(a, r0), [x1, y1] = floor(a, R_OUT); bar(x0, y0, x1, y1, 1, mix(T.bg, SEAT_COLORS[k], T.streamTint), 1); }
-  ring(cx, cy, R, T.ringLine);
+  for (let k = 0; k < SEATS; k++) { const pos = k === CENTER ? { center: true } : { angle: seatAngle(k) }, r0 = k === CENTER ? CENTER_DOCK : R + 18; const [x0, y0] = streamPoint(pos, r0), [x1, y1] = streamPoint(pos, R_OUT); bar(x0, y0, x1, y1, 1, mix(T.bg, SEAT_COLORS[k], T.streamTint), 1); }
+  { const n = 160; for (let i = 0; i < n; i++) { const [x0, y0] = floor(i / n * Math.PI * 2, R), [x1, y1] = floor((i + 1) / n * Math.PI * 2, R); bar(x0, y0, x1, y1, 1, T.ringLine, .9); } }
   // seat levels from the feeds, smoothed: fast up, slow down
   const s0 = Math.floor(f * perFrame), s1 = Math.min(N, Math.floor((f + 1) * perFrame));
   for (let k = 0; k < SEATS; k++) {
@@ -268,10 +290,10 @@ for (let f = 0; f < frames; f++) {
     if (end <= 0) continue;
     if (until <= 0 && !landed.has(e)) { landed.add(e); const gk = gainsAt(e.lane, e.t); for (let k = 0; k < SEATS; k++) if (gk[k] * gk[k] >= .5) flash[k] = Math.min(1, flash[k] + Math.sqrt(e.g) * 1.6); }
     const pos = voicePosition(score, e.lane, e.t), color = tone(destColor(e.lane, e.t));
-    const a = pos.center ? CENTER_STREAM : pos.angle, dock = pos.center ? 18 : R + 6;
+    const a = pos.center ? CENTER_STREAM : pos.angle, dock = pos.center ? CENTER_DOCK : R + 6;
     const head = dock + Math.max(0, until) * speed, tail = Math.min(R_OUT + 20, dock + end * speed);
     if (tail <= head + .5) continue;
-    const [x0, y0] = floor(a, head), [x1, y1] = floor(a, tail);
+    const [x0, y0] = streamPoint(pos, head), [x1, y1] = streamPoint(pos, tail);
     const w = Math.max(1.5, Math.sqrt(e.g) * 5.5);
     const born = Math.min(1, (LOOK - until) / .45); // fade in as it enters the field
     const alpha = (until > 0 ? .3 + .6 * (1 - until / LOOK) : .95) * born;
@@ -281,17 +303,20 @@ for (let f = 0; f < frames; f++) {
       // one label per stream: the next note to land
       const key = Math.round(a * 100), prev = labels.get(key);
       if (!prev || until < prev.until) {
-        const [lx, ly] = floor(a, head + w + 6);
-        const side = Math.sin(a) >= -0.05 ? 1 : -1, s = `${e.note} ${Math.round(e.hz)}`;
+        const [lx, ly] = streamPoint(pos, head + w + 6);
+        const side = pos.center ? 1 : Math.sin(a + ROT) >= -0.05 ? 1 : -1, s = `${e.note} ${Math.round(e.hz)}`;
         labels.set(key, { until, x: side > 0 ? lx + w + 5 : lx - w - 5 - s.length * 6, y: ly - 5, s, color, alpha: Math.min(1, (LOOK * .85 - until) / .4) });
       }
     }
   }
   for (const l of labels.values()) text(l.s, l.x | 0, l.y | 0, mix(T.bg, mix(T.dim, l.color, .75), Math.max(0, Math.min(1, l.alpha))));
   // the machines
-  for (let k = 0; k < SEATS; k++) {
-    const isC = k === CENTER, [x, y] = isC ? [cx, cy] : floor(seatAngle(k), R);
-    const bw = isC ? 40 : 46, bh = isC ? 28 : 32, lit = light[k];
+  const order = Array.from({ length: SEATS }, (_, k) => k).sort((p, q) => (p === CENTER ? hy : floor(seatAngle(p), R)[1]) - (q === CENTER ? hy : floor(seatAngle(q), R)[1]));
+  for (const k of order) {
+    const isC = k === CENTER;
+    let [x, y] = isC ? [hx, hy] : floor(seatAngle(k), R);
+    if (isC) { const [fx, fy] = figure(hx, hy + 14, mix(T.ink, T.dim, .3)); x = fx; y = fy - 6; }
+    const bw = isC ? 30 : 46, bh = isC ? 20 : 32, lit = light[k];
     const sc = tone(SEAT_COLORS[k]);
     if (flash[k] > .02) for (let o = 1; o <= 4; o++) { const al = flash[k] * (1 - o / 5) * .5; bar(x - bw / 2 - o, y - bh / 2 - o, x + bw / 2 + o, y - bh / 2 - o, 1, sc, al); bar(x - bw / 2 - o, y + bh / 2 + o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); bar(x - bw / 2 - o, y - bh / 2 - o, x - bw / 2 - o, y + bh / 2 + o, 1, sc, al); bar(x + bw / 2 + o, y - bh / 2 - o, x + bw / 2 + o, y + bh / 2 + o, 1, sc, al); }
     rect(x - bw / 2, y - bh / 2, bw, bh, mix(mix(T.box, sc, T.boxTint), sc, lit));
@@ -306,7 +331,7 @@ for (let f = 0; f < frames; f++) {
       const sy = y - bh / 2 + 3 + (1 - u) * (bh - 6);
       blend(sx, sy, lit > .5 ? T.bg : sc, .9);
     }
-    text(isC ? 'C' : String(k + 1), x - 6, y - 10, lit > .55 ? T.bg : T.ink, 2);
+    if (isC) text('C', x - 3, y - 5, lit > .55 ? T.bg : T.ink, 1); else text(String(k + 1), x - 6, y - 10, lit > .55 ? T.bg : T.ink, 2);
   }
   // panel
   const X = Math.round(W * .68), col0 = T.ink, dim = T.dim;

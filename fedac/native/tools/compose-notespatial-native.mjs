@@ -278,12 +278,38 @@ ev(VOICE, t, 10, 60, .45, 'sine', 3.5, 5); // C4 rising out of nothing, then gon
 const END = t + 10 + 4;
 movement('VII · Vanish', 'the ring hands the last phrase back; the held laptop closes on C', cursor, END, .3);
 
+// ── the field turns ───────────────────────────────────────────────────
+// fieldShift rotates the WHOLE room, pinned lanes included: laptops trade
+// channels. Used three ways, after Special Sign and wannadash: a spring
+// blast at the drop (the field kicked one seat over and swinging back), an
+// eight-turn super-spin through the peak that fuses into a hum, and a slow
+// tour at the start of the Return. Zero elsewhere so a hop stays a hop.
+const turns = [];
+const V = movements.find(m => m.name.startsWith('V ')), VI = movements.find(m => m.name.startsWith('VI '));
+const lift = tempo.filter(x => x.t >= V.t0 && x.t < V.t1);
+const peak0 = lift[4].t, peak1 = lift[6].t; // phrases 5 and 6 of the Lift
+const ease5 = u => u * u * u * (u * (u * 6 - 15) + 10);
+function shiftAt(t) {
+  let f = 0;
+  if (t >= V.t0 && t < V.t0 + 4.8) { // the blast: one seat over, springing back at 0.92 Hz, damping 0.58
+    const x = t - V.t0, w = 2 * Math.PI * .92;
+    f += .4 * Math.exp(-.58 * w * x) * Math.cos(w * x);
+  }
+  if (t >= peak0 && t < peak1) f += 16 * ease5((t - peak0) / (peak1 - peak0)); // eight turns, quintic
+  else if (t >= peak1) f += 16;
+  if (t >= VI.t0 && t < VI.t0 + 20) f += 2 * ease5((t - VI.t0) / 20); // the tour: one slow lap
+  else if (t >= VI.t0 + 20) f += 2;
+  return f;
+}
+const SHIFT_HZ = 25;
+for (let i = 0; i <= Math.ceil(END * SHIFT_HZ); i++) turns.push(+shiftAt(i / SHIFT_HZ).toFixed(4));
+
 for (const l of lanes) l.events.sort((a, b) => a.t - b.t);
 // Each machine has a dominant color; notes wear the color of the laptop they land on.
 const seatColors = [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 255], [200, 130, 255], [255, 240, 200]];
 const score = {
   name: 'Note(s)pat(ial) Native', geometry: 'ring', seats: SEATS, ring: RING, center: CENTER, seatColors,
-  dur: r4(END), gain: .36, swing: .6, tempo, movements, lanes,
+  dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes,
 };
 
 // ── write ─────────────────────────────────────────────────────────────
@@ -293,7 +319,7 @@ await writeFile(new URL('notespatial-native.nsscore', dir), JSON.stringify(score
 const slug = s => s.toLowerCase().replace(/^[ivx]+ · /, '').replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 await Promise.all(movements.map((m, n) => {
   const part = {
-    ...score, name: `${score.name} — ${m.name}`, dur: r4(m.t1 - m.t0 + 2), movements: [{ ...m, t0: 0, t1: r4(m.t1 - m.t0) }],
+    ...score, fieldShift: undefined, name: `${score.name} — ${m.name}`, dur: r4(m.t1 - m.t0 + 2), movements: [{ ...m, t0: 0, t1: r4(m.t1 - m.t0) }],
     tempo: tempo.filter(x => x.t >= m.t0 && x.t < m.t1).map(x => ({ ...x, t: r4(x.t - m.t0) })),
     lanes: lanes.map(l => ({ ...l, events: l.events.filter(e => e.t >= m.t0 && e.t < m.t1).map(e => ({ ...e, t: r4(e.t - m.t0) })) })),
   };
