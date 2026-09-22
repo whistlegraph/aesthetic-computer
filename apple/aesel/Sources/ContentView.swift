@@ -206,7 +206,9 @@ struct ContentView: View {
                         if previewVisible { previewBox(container: geometry.size) }
                     }
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { sheetSize = $0 }
-                    .onChange(of: notebookHeight) { if session.busy || writing { proxy.scrollTo("prompt", anchor: .bottom) } }
+                    // Scrolling reflows prose around the fixed preview and changes
+                    // notebookHeight. Only editing may bring the input back into view.
+                    .onChange(of: draft) { if writing { proxy.scrollTo("prompt", anchor: .bottom) } }
                     .onChange(of: writing) { if writing { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
                     .onChange(of: session.busy) { if session.busy { withAnimation { proxy.scrollTo("prompt", anchor: .bottom) } } }
                 }
