@@ -346,3 +346,23 @@ test('stalled AC headers and streams time out without replaying paid requests', 
     assert.equal(completed.status,'failed');assert.equal(completed.error.network,true);
   }
 });
+
+test('runtime model identity is grounded and bundled stream progress is coalesced', async () => {
+  const notifications = [];
+  let request;
+  const events = [
+    {type:'content_block_start', index:0, content_block:{type:'text',text:''}},
+    ...['one ', 'two ', 'three'].map(text=>({type:'content_block_delta',index:0,delta:{type:'text_delta',text}})),
+    {type:'content_block_stop',index:0},
+    {type:'message_delta',delta:{stop_reason:'end_turn'}},
+  ];
+  const engine = new AcServer({model:'openai/gpt-5.6-luna',token:async()=>'test',fetch:async(_, options)=>{
+    request=JSON.parse(options.body);
+    return new Response(events.map(event=>`data: ${JSON.stringify(event)}\n`).join(''));
+  }});
+  engine.on('notification', event=>notifications.push(event));
+  await engine.connect();await engine.startTurn('what model are you?');
+  assert.match(request.system.map(block=>block.text).join('\n'),/configured provider model identifier for this request is openai\/gpt-5\.6-luna/);
+  assert.equal(notifications.filter(e=>e.method==='turn/progress'&&e.params.phase==='generating').length,1);
+  assert.equal(notifications.filter(e=>e.method==='item/agentMessage/delta').map(e=>e.params.delta).join(''),'one two three');
+});

@@ -145,9 +145,33 @@ final class Session {
 
     /// The `<li>` currently receiving streamed deltas. Held as an index because
     /// `Entry` is a value type and SwiftUI needs the array mutated in place.
+    var streamingCode = ""
+    private var codeArguments = ""
+    private var codeItemID = ""
     private var streamingIndex: Int?
 
+    // Decode only the source string of an incomplete write_piece JSON object.
+    // A split escape waits for the next token; draft code is never executed.
+    static func partialSource(_ arguments: String) -> String? {
+        guard let start = arguments.range(of: #"(?<!\\)"source"\s*:\s*""#, options: .regularExpression) else { return nil }
+        var encoded = "", escaped = false
+        for character in arguments[start.upperBound...] {
+            if character == "\"" && !escaped { break }
+            encoded.append(character)
+            if escaped { escaped = false }
+            else if character == "\\" { escaped = true }
+        }
+        if escaped { encoded.removeLast() }
+        guard let data = ("\"" + encoded + "\"").data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(String.self, from: data)
+    }
+
+    private func clearCodePreview() {
+        streamingCode = ""; codeArguments = ""; codeItemID = ""
+    }
+
     func reset() {
+        clearCodePreview()
         notices.removeAll()
         entries.removeAll()
         streamingIndex = nil
@@ -266,11 +290,13 @@ final class Session {
             status = "signed out"
 
         case "source":
+            clearCodePreview()
             currentRevision = event["version"] as? Int ?? currentRevision
             source = event["source"] as? String ?? source
             previewURL = Self.draftPreviewURL
 
         case "piece":
+            clearCodePreview()
             currentRevision = event["version"] as? Int ?? 0
             source = event["source"] as? String ?? source
             shareURL = nil
@@ -330,6 +356,7 @@ final class Session {
             reportedModel = params["reported"] as? String ?? reportedModel
 
         case "turn/started":
+            clearCodePreview()
             streamingIndex = nil
             status = "thinking"
             health = .working
@@ -339,6 +366,12 @@ final class Session {
                 status = phase
                 health = .working
             }
+
+        case "item/modelCode/delta":
+            let itemID = params["itemId"] as? String ?? ""
+            if itemID != codeItemID { clearCodePreview(); codeItemID = itemID }
+            codeArguments += params["delta"] as? String ?? ""
+            if let source = Self.partialSource(codeArguments) { streamingCode = source }
 
         case "item/agentMessage/delta":
             let delta = params["delta"] as? String ?? ""
@@ -363,6 +396,7 @@ final class Session {
             }
 
         case "turn/completed":
+            clearCodePreview()
             streamingIndex = nil
             let turn = params["turn"] as? [String: Any] ?? [:]
             if let error = turn["error"] as? [String: Any],

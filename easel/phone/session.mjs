@@ -146,7 +146,8 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   let saveTimer;
   const say = (type, payload = {}) => {
     const event = { type, ...payload };
-    if (state.id && ["you", "note", "bad", "bridge"].includes(type)) {
+    const ephemeral = type === "bridge" && ["turn/progress", "item/modelCode/delta"].includes(payload.method);
+    if (state.id && !ephemeral && ["you", "note", "bad", "bridge"].includes(type)) {
       const last = state.transcript.at(-1);
       if (type === "bridge" && payload.method === "item/agentMessage/delta" && last?.method === payload.method) {
         last.params.delta += payload.params?.delta || "";

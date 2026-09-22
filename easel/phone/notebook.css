@@ -22,9 +22,9 @@ button:disabled,[aria-disabled=true]{cursor:default}
 #notebook-activity[hidden]{display:none}
 #prompt-feedback{position:relative;display:inline-block;width:calc(clamp(36px,var(--prose-font-size,16px)*2.8,64px) + 12px);height:calc(var(--notebook-line-height,24px)*2);vertical-align:bottom}
 #prompt-feedback[hidden]{display:none}
-#activity-caption{display:inline;font:italic .75em/1.3 Helvetica,Arial,sans-serif;opacity:.62;overflow-wrap:anywhere;white-space:normal;pointer-events:none}
+#activity-caption{display:inline;font:italic .75em/1.3 Helvetica,Arial,sans-serif;opacity:1;overflow-wrap:anywhere;white-space:normal;pointer-events:none}
 #activity-caption[hidden]{display:none}
-#notebook-thinking-donkey{position:fixed;z-index:3;pointer-events:none;opacity:.3;filter:saturate(.8)}
+#notebook-thinking-donkey{position:fixed;z-index:3;pointer-events:none;opacity:.85;filter:saturate(.9)}
 #notebook-thinking-donkey[hidden]{display:none}
 
 /* Native owns the only ruling; block extents must remain whole rows. */

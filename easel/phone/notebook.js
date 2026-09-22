@@ -9,7 +9,7 @@ window.updatePhoneNotebook = value => {
   }
   if (['light','dark'].includes(value.theme?.colorScheme)) document.documentElement.style.colorScheme = value.theme.colorScheme;
   layoutPreview(value.exclusion);
-  window.setNotebookHandle(value.handle || '', value.colors || []);
+  window.setNotebookHandle('', []);
   window.updateConversation({entries:value.entries});
   placeActivity(!!value.busy, value.activity || '');
   alignBaselines();

@@ -325,6 +325,11 @@ struct ContentView: View {
                     .frame(width: previewSize.width, height: previewSize.height, alignment: .topTrailing)
                     .clipped()
                     .overlay { AeselPreviewInset() }
+                    .overlay {
+                        if session.busy && !session.streamingCode.isEmpty {
+                            StreamingCodePreview(source: session.streamingCode)
+                        }
+                    }
             }
 
         }
@@ -690,4 +695,26 @@ private struct SignInCarrier: AeselWebViewRepresentable {
     @Environment(\.colorScheme) private var colorScheme
     func makeWebView(context: Context) -> WKWebView { host.signInView }
     func updateWebView(_ view: WKWebView, context: Context) { ApplePlatform.setAppearance(view, colorScheme: colorScheme) }
+}
+
+/// Incoming source occupies the canvas until a complete piece is saved.
+private struct StreamingCodePreview: View {
+    let source: String
+    @Environment(\.paint) private var paint
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView([.vertical, .horizontal]) {
+                Text(String(source.suffix(4000)))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(paint.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .id("code-tail")
+            }
+            .background(paint.bg)
+            .onChange(of: source) { proxy.scrollTo("code-tail", anchor: .bottomLeading) }
+        }
+        .accessibilityLabel("Incoming piece code")
+        .clipped()
+    }
 }

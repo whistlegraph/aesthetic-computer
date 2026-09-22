@@ -305,3 +305,27 @@ test('transient account failures preserve saved sign-in and stay out of the note
   assert(events.some(e=>e.type==='notice'&&e.scope==='account'));assert(!session.state.transcript.some(e=>e.type==='bad'||e.type==='notice'));
  }finally{globalThis.fetch=originalFetch;}
 });
+
+test('generation progress remains live while saved reply deltas stay compact',async()=>{
+ const originalFetch=globalThis.fetch,values=new Map(),events=[];
+ globalThis.fetch=async url=>{
+  if(!String(url).includes('easel-inference'))return Response.json({});
+  return new Response([
+   {type:'content_block_start',index:0,content_block:{type:'text',text:''}},
+   {type:'content_block_delta',index:0,delta:{type:'text_delta',text:'Hello '}},
+   {type:'content_block_delta',index:0,delta:{type:'text_delta',text:'bell'}},
+   {type:'content_block_stop',index:0},
+   {type:'message_delta',delta:{stop_reason:'end_turn'}},
+  ].map(event=>`data: ${JSON.stringify(event)}\n`).join(''));
+ };
+ try {
+  const session=createSession({storage:{get:k=>values.get(k),set:(k,v)=>values.set(k,v)},emit:e=>events.push(e)});
+  await session.open();session.state.token='test';session.state.handle='test';session.setAutoPublish(false);
+  await session.ask('hello');
+  assert(events.some(e=>e.method==='turn/progress'));
+  const stored=JSON.parse(values.get('threads')).items[0].events;
+  assert(!stored.some(e=>e.method==='turn/progress'||e.method==='item/modelCode/delta'));
+  const deltas=stored.filter(e=>e.method==='item/agentMessage/delta');
+  assert.equal(deltas.length,1);assert.equal(deltas[0].params.delta,'Hello bell');
+ }finally{globalThis.fetch=originalFetch;}
+});
