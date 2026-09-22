@@ -30,15 +30,27 @@ function readJSON(system, path) {
 function runDuration() { return mode === 'beeps' ? 20 : (config?.maxSeconds || score?.dur || 20); }
 function stopVoices() { for (const v of voices) v.voice?.kill?.(0.03); voices = []; }
 
-export function boot({ system, sound }) {
+let standalone = false; // seat given on the command line: play the baked score on its own clock
+export function boot({ system, sound, colon, params }) {
   sound.microphone.close();
   try {
-    try { config = readJSON(system, '/pieces/spatial-rehearsal-config.json'); }
-    catch (_) { throw Error('Assign a seat with the spatial controller'); }
+    // `spatial-rehearsal:3` or `spatial-rehearsal:3:6` seats this laptop without the
+    // controller (seat 3 of 6; the sixth seat is the held center) and starts the
+    // baked score a few seconds after boot, for rehearsing one part alone.
+    const arg = colon?.[0] ?? params?.[0];
+    if (arg !== undefined && /^\d+$/.test(String(arg))) {
+      const seats = +(colon?.[1] ?? params?.[1] ?? 6);
+      config = { seat: +arg - 1, seats, machineName: 'ac-device', maxSeconds: 0 };
+      standalone = true;
+    } else {
+      try { config = readJSON(system, '/pieces/spatial-rehearsal-config.json'); }
+      catch (_) { throw Error('Assign a seat with the spatial controller, or jump to spatial-rehearsal:<seat>'); }
+    }
     if (!Number.isInteger(config.seats) || config.seats < 2 || config.seats > 16) throw Error('seats must be 2–16');
     if (!Number.isInteger(config.seat) || config.seat < 0 || config.seat >= config.seats) throw Error('seat outside ensemble');
     score = readJSON(system, '/pieces/spatial-rehearsal.nsscore');
     if (!(score.dur > 0) || !score.lanes?.length) throw Error('invalid score');
+    if (!config.maxSeconds) config.maxSeconds = score.dur;
     cursors = score.lanes.map(() => 0);
     system.startSSH?.();
   } catch (e) { error = e.message; phase = 'error'; }
@@ -46,6 +58,7 @@ export function boot({ system, sound }) {
 
 export function sim({ sound, system, screen, wifi }) {
   const now = sound.time;
+  if (standalone && origin === null && !error && now > 0) { origin = now + 3; phase = 'countdown'; mode = 'score'; runId = 'standalone'; }
   if (now - presencePoll > .25) {
     presencePoll = now;
     try {
