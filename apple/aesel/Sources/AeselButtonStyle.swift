@@ -50,6 +50,23 @@ private struct AeselCursorRegion: NSViewRepresentable {
     let enabled: Bool
     final class CursorView: NSView {
         var enabled = true
+        private var pointerTracking: NSTrackingArea?
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let pointerTracking { removeTrackingArea(pointerTracking) }
+            let area = NSTrackingArea(rect: .zero,
+                options: [.cursorUpdate, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self, userInfo: nil)
+            addTrackingArea(area)
+            pointerTracking = area
+        }
+        override func cursorUpdate(with event: NSEvent) {
+            if enabled { NSCursor.pointingHand.set() }
+        }
+        override func mouseEntered(with event: NSEvent) {
+            if enabled { NSCursor.pointingHand.set() }
+        }
+        override func mouseExited(with event: NSEvent) { NSCursor.arrow.set() }
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
         override func resetCursorRects() {
             if enabled { addCursorRect(visibleRect, cursor: .pointingHand) }

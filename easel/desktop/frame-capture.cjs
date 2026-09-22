@@ -24,6 +24,8 @@ function startFrameCapture({workspace,root,context,guest}){
     let result;try{
      if(!matchesPreview(view,current.channel))throw new Error('Preview URL does not match the current piece channel; capture unavailable, do not repeatedly retry');
      const capture=await Promise.race([view.executeJavaScript((await script).CAPTURE_SCRIPT),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Canvas capture timed out')),3000))]);
+     if(capture?.pending)continue;
+     if(capture?.error)throw new Error(capture.error);
      if(context()?.revision!==current.revision||context()?.channel!==current.channel)throw new Error('Piece changed during capture');
      result={...capture,id:request.id,channel:current.channel,revision:current.revision,capturedAt:new Date().toISOString()};
     }catch(error){result={id:request.id,error:error.message};}
