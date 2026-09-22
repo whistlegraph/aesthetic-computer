@@ -16,7 +16,7 @@
 
 import { AcServer, DEFAULT_AC_MODEL } from "/easel/src/ac-server.mjs";
 import { fetchHandleColors, handleCharacterColors } from "/easel/src/handle-colors.mjs";
-import { isTransientNetworkError } from "/easel/src/network.mjs";
+import { isTransientNetworkError, withNetworkDeadline, httpError } from "/easel/src/network.mjs";
 import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
 import { createCredits } from "./credits.mjs";
@@ -117,6 +117,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   };
   Object.defineProperty(state,"version",{enumerable:true,get:()=>state.revisions.at(-1)?.version ?? 0});
   let hostProviders = [];
+  let accountEpoch = 0;
   const credits = createCredits({ token: () => state.token, emit, site: SITE });
 
   const read = () => {
@@ -582,15 +583,13 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   // Two calls, because a token is worth nothing here without the @handle that
   // says where a piece goes.
   async function resolveHandle(token) {
-    const who = await fetch(`https://${AUTH_DOMAIN}/userinfo`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!who.ok) throw new Error(`Sign-in check failed (HTTP ${who.status}).`);
-    const user = await who.json();
-    const lookup = await fetch(`${SITE}/handle?for=${encodeURIComponent(user.sub)}`, {
-      headers: { Accept: "application/json" },
-    });
-    const data = await lookup.json().catch(() => ({}));
+    const json = (url, headers) => withNetworkDeadline(async signal => {
+      const response = await fetch(url, {headers, signal});
+      if (!response.ok) throw httpError(`Sign-in check failed (HTTP ${response.status}).`, response.status);
+      return response.json();
+    }, {timeoutMs:8000});
+    const user = await json(`https://${AUTH_DOMAIN}/userinfo`, {Authorization:`Bearer ${token}`});
+    const data = await json(`${SITE}/handle?for=${encodeURIComponent(user.sub)}`, {Accept:"application/json"});
     return String(data?.handle || "").replace(/^@/, "");
   }
 
@@ -602,7 +601,9 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   }
 
   async function adoptToken(token) {
+    const epoch = ++accountEpoch;
     const handle = await resolveHandle(token);
+    if (epoch !== accountEpoch) return "";
     state.token = token;
     state.handle = handle;
     write({ token, handle });
@@ -615,25 +616,38 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   // Resolves to true when a stored session was still good.
   async function restore() {
     const saved = read();
+    const epoch = ++accountEpoch;
     if (!saved.token) return false;
+    state.token = saved.token;
+    state.handle = saved.handle || "";
     try {
-      state.token = saved.token;
-      state.handle = await resolveHandle(saved.token);
+      const handle = await resolveHandle(saved.token);
+      if (epoch !== accountEpoch) return false;
+      state.handle = handle;
       write({ handle: state.handle });
       say("signedIn", { handle: state.handle });
       void loadHandleColors(state.handle);
       void credits.refresh();
       return true;
-    } catch {
+    } catch (error) {
+      if (epoch !== accountEpoch) return false;
+      if (error.status !== 401 && error.status !== 403) {
+        // A connection failure is not evidence that the saved login expired.
+        if (state.handle) say("signedIn", {handle:state.handle});
+        say("notice", {scope:"account",text:"Connection interrupted. Your notebook is available offline."});
+        return Boolean(state.handle);
+      }
       state.token = "";
       state.handle = "";
       write({ token: "", handle: "" });
+      say("signedOut");
       credits.clear();
       return false;
     }
   }
 
   function signOut() {
+    accountEpoch++;
     saveCurrent();
     stop();
     state.token = "";

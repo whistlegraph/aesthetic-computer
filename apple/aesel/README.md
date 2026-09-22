@@ -30,7 +30,8 @@ idle-stream deadline, without replaying paid requests. A speaker beside the titl
 opens volume when the preview produces audio; mute remains reachable through silence.
 The sound popover's 30–240 BPM control scales the preview's shared `clock.time()`
 from the default 120 BPM without restarting the piece. Clock-driven sequences and
-visuals follow together. Sync returns to the network clock's epoch grid. JavaScript
+visuals follow together. Sync restarts the preview on the network clock's epoch grid,
+so a backwards clock reset cannot strand a piece's beat counter. JavaScript
 wall-clock timers and audio pitch remain unchanged.
 
 Native CLI sessions share Electron's piece-first, responsive-layout, network-clock,

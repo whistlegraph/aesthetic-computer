@@ -58,4 +58,5 @@ test('changing tempo reaches the clock bridge without reinjecting or restarting 
   ticks[1]();assert.equal(rates.at(-1),1.5);assert.equal(sent.length,1);
   window.__aeselTempo=60;window.__aeselRender();assert.equal(rates.at(-1),0.5);assert.equal(sent.length,1);
   events['ac-clock-state']({detail:{rate:0.5}});assert.deepEqual(confirmed,[0.5]);
+  window.__aeselSyncClock();assert.equal(window.__aeselTempo,120);assert.equal(rates.at(-1),1);assert.equal(sent.length,2);
 });

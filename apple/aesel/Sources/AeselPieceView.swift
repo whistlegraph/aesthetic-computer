@@ -77,6 +77,14 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
             for (const key of ['preview', 'icon']) if (query.has(key)) flags.set(key, query.get(key));
             window.acSEND({type: 'dropped:piece', content: {name: 'aesel-preview', source, search: flags.toString(), isKidLisp: false}});
           };
+          window.__aeselSyncClock = () => {
+            window.__aeselTempo = 120;
+            window.AC?.setClockRate?.(1, true);
+            // A UTC reset can go backwards. Restart beat counters rather than
+            // leaving existing pieces waiting for their old future beat.
+            rendered = '';
+            window.__aeselRender();
+          };
           const becomeReady = () => {
             if (ready) return;
             ready = true;
@@ -95,7 +103,7 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
               clearInterval(poll);
             }
           }, 250);
-          setTimeout(() => clearInterval(poll), 45000);
+          // Keep listening after the notice: a slow runtime can still recover.
         })();
         """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         if let url = Bundle.main.url(forResource: "preview-continuity", withExtension: "js"),
@@ -141,9 +149,14 @@ final class PiecePreview: NSObject, ObservableObject, WKNavigationDelegate {
         view.scrollView.backgroundColor = color
         #endif
     }
+    func runtimeReady() {
+        if failure == "The AC runtime did not become ready. Check your internet connection and retry." { failure = nil }
+        // Runtime readiness can precede navigation completion on a slow network.
+        updateSource()
+    }
     func syncClock() {
         tempo = 120
-        view.evaluateJavaScript("window.AC?.setClockRate?.(1, true);")
+        view.evaluateJavaScript("window.__aeselSyncClock?.();")
     }
     func setAudio(_ active: Bool, source: String) {
         if self.source == source { hasAudio = active }
@@ -175,9 +188,8 @@ private final class PreviewMessages: NSObject, WKScriptMessageHandler {
             owner?.setBackdrop(rgb)
         } else if message.name == "previewFailure", let text = message.body as? String {
             owner?.failure = text
-        } else if message.name == "previewFailure", let status = message.body as? [String: Bool], status["ready"] == true,
-                  owner?.failure == "The AC runtime did not become ready. Check your internet connection and retry." {
-            owner?.failure = nil
+        } else if message.name == "previewFailure", let status = message.body as? [String: Bool], status["ready"] == true {
+            owner?.runtimeReady()
         }
     }
 }

@@ -277,3 +277,31 @@ test('upload recovery is ephemeral, preserves the draft, and never retries autho
     }
   } finally {globalThis.fetch=originalFetch;}
 });
+
+test('saved notebook opens while account lookup is pending; logout wins a late response',async()=>{
+ const originalFetch=globalThis.fetch;let complete;
+ const values=new Map([['session',JSON.stringify({token:'test-token',handle:'test',slug:'keep',source:'export function paint(){}'})]]);
+ globalThis.fetch=()=>new Promise(resolve=>complete=resolve);
+ try {
+  const session=createSession({storage:{get:k=>values.get(k),set:(k,v)=>values.set(k,v)}});
+  const restoring=session.restore();await session.open();
+  assert.equal(session.state.slug,'keep');assert(session.state.id);
+  session.signOut();
+  globalThis.fetch=async()=>Response.json({handle:'test'});
+  complete(Response.json({sub:'user'}));
+  assert.equal(await restoring,false);assert.equal(session.state.token,'');
+  assert.equal(JSON.parse(values.get('session')).token,'');
+ }finally{globalThis.fetch=originalFetch;}
+});
+
+test('transient account failures preserve saved sign-in and stay out of the notebook',async()=>{
+ const originalFetch=globalThis.fetch,events=[];
+ const values=new Map([['session',JSON.stringify({token:'test-token',handle:'test',slug:'keep',source:'export function paint(){}'})]]);
+ globalThis.fetch=async()=>{throw new TypeError('Load failed');};
+ try{
+  const session=createSession({storage:{get:k=>values.get(k),set:(k,v)=>values.set(k,v)},emit:e=>events.push(e)});
+  await session.open();assert.equal(await session.restore(),true);
+  assert.equal(session.state.token,'test-token');assert.equal(JSON.parse(values.get('session')).token,'test-token');
+  assert(events.some(e=>e.type==='notice'&&e.scope==='account'));assert(!session.state.transcript.some(e=>e.type==='bad'||e.type==='notice'));
+ }finally{globalThis.fetch=originalFetch;}
+});

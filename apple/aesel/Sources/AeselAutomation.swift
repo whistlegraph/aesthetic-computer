@@ -130,7 +130,7 @@ final class AeselAutomation {
                     "oldest": events.first?["sequence"] ?? sequence, "capacity": 256]
         case "preview":
             guard let preview else { throw failure("Preview is not mounted") }
-            let value = try await preview.evaluateJavaScript("JSON.stringify({url:location.href,ready:!!window.preloaded,continuity:window.__aeselContinuity?.inspect?.()??null,flags:Object.fromEntries(new URLSearchParams(location.search)),canvases:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height}))})")
+            let value = try await preview.evaluateJavaScript("JSON.stringify({url:location.href,ready:!!window.preloaded,sourceLength:window.__aeselSource?.length??0,clockControl:typeof window.AC?.setClockRate,clock:window.AC?.clockState??null,continuity:window.__aeselContinuity?.inspect?.()??null,flags:Object.fromEntries(new URLSearchParams(location.search)),canvases:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height}))})")
             return ["inspection": value as? String ?? "{}"]
         case "capture":
             let targetName = params["target"] as? String ?? "app"

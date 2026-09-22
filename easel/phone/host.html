@@ -108,8 +108,9 @@
           await session.open();
         }),
         restore: guard("restore", async () => {
-          let ok = await session.restore();
+          const restoring = session.restore();
           await session.open();
+          const ok = await restoring;
           post({ type: "restored", signedIn: ok });
         }),
       };

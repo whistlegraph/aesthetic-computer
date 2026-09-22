@@ -258,7 +258,8 @@ struct ContentView: View {
                     Text("\(Int(preview.tempo)) BPM").font(Paint.font(13)).monospacedDigit()
                     Spacer()
                     Button("Sync") { preview.syncClock() }.font(Paint.font(12))
-                        .accessibilityLabel("Return to the shared 120 BPM clock")
+                        .accessibilityLabel("Restart on the shared 120 BPM clock")
+                        .help("Restart on the shared 120 BPM beat")
                 }
                 Slider(value: $preview.tempo, in: 30...240, step: 1)
                     .tint(paint.accent).accessibilityLabel("Metronome rate")
