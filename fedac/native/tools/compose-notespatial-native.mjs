@@ -79,7 +79,7 @@ const movement = (name, sub, t0, t1, level) => movements.push({ name, sub, t0: r
 // one note per machine, each lap a little faster. Ends back at seat 1.
 let t = 0;
 for (const [pitch, dur, gap] of [[60, 3.2, 2.6], [60, 3.2, 2.2], [67, 3.4, 1.8], [64, 3.0, 1.6], [60, 3.6, 2.0]]) {
-  note(VOICE[0], t, dur, hz(pitch), .9, 'sine', .35, .9);
+  note(VOICE[0], t, dur, hz(pitch), .5, 'sine', .35, .9);
   t += dur + gap;
 }
 let walk = 0;
@@ -87,12 +87,12 @@ const LAPS = 10;
 for (let lap = 0; lap < LAPS; lap++) {
   const step = 1.55 - 1.05 * (lap / (LAPS - 1)) ** 1.4; // 1.55 s → 0.50 s per seat
   for (let k = 0; k < SEATS; k++) {
-    note(VOICE[k], t, step * .92, hz(ARP[walk % ARP.length]), .8, 'sine', .012, Math.min(.08, step * .13));
+    note(VOICE[k], t, step * .92, hz(ARP[walk % ARP.length]), .46, 'sine', .012, Math.min(.08, step * .13));
     walk++; t += step;
   }
   t += step * .8; // breath before the next lap starts at the front
 }
-note(VOICE[0], t, 2.4, hz(60), .85, 'sine', .02, .4);
+note(VOICE[0], t, 2.4, hz(60), .5, 'sine', .02, .4);
 const T0 = t + 2.6; // the grid begins here
 movement('I · Appear', 'one sine breathes at the front, then walks the ring', 0, T0, .3);
 
@@ -148,7 +148,7 @@ for (let c = S.II[0]; c < S.VI[1]; c++) {
       const tn = t0 + swing(j / 3) * cycle;
       const seat = seatsAllowed === 6 ? walkIndex % 6 : seatsAllowed === 3 ? [5, 0, 1][walkIndex % 3] : 0;
       const f = hz(chord[j] + register * 12);
-      const g = .27 * soft * lvl * (n === 1 ? 1.4 : 1);
+      const g = .40 * soft * lvl * (n === 1 ? 1.4 : 1);
       note(VOICE[seat], tn, .64, f, g, 'sine', .055, .43);
       // echoes answer from other laptops: +2 seats, opposite, +1 seat
       const plan = [[cycle * .375, 2, .42], [cycle * .75, 3, .22], [cycle * 1.5, 1, .11]];
@@ -165,8 +165,8 @@ for (let c = S.II[0]; c < S.VI[1]; c++) {
     const tapLvl = inS(c, 'II') ? lerp(.3, 1, frac(c, 'II') * 2.5) : inS(c, 'VI') ? lerp(1, .4, frac(c, 'VI')) : 1;
     for (let j = 0; j < 2; j++) {
       const tn = t0 + swing(j / 2) * cycle, L = j === 0 ? TAP_FRONT : TAP_BACK;
-      note(L, tn, .27, j === 0 ? 130 : 330, (j === 0 ? .12 : .085) * tapLvl * lvl, 'sine', .018, .21);
-      note(L, tn + .022, .31, j === 0 ? 90 : 220, .055 * tapLvl * lvl, 'sine', .025, .25);
+      note(L, tn, .27, j === 0 ? 130 : 330, (j === 0 ? .20 : .14) * tapLvl * lvl, 'sine', .018, .21);
+      note(L, tn + .022, .31, j === 0 ? 90 : 220, .09 * tapLvl * lvl, 'sine', .025, .25);
     }
   }
 
@@ -174,13 +174,13 @@ for (let c = S.II[0]; c < S.VI[1]; c++) {
   if (bass) {
     const root = chord[0] - 24; // two octaves under the chord
     if (inD) for (const b of [0, 1.5]) note(BASS, t0 + b * beat, .42 * beat, hz(root), .55 * lvl, 'triangle', .008, .06);
-    else note(BASS, t0, cycle * .8, hz(root), .34 * lvl, 'triangle', .02, .3);
+    else note(BASS, t0, cycle * .8, hz(root), .46 * lvl, 'triangle', .02, .3);
   }
 
   // pads — the triad revolving slowly around the room, one note per 4 cycles
   if (pads && c % 4 === 0) {
     const padLvl = inS(c, 'VI') ? lerp(1, .2, (c - S.VI[0]) / 96) : inS(c, 'III') ? lerp(.4, 1, (c - S.III[0] - 32) / 32) : 1;
-    chord.forEach((p, m) => note(PAD[m], t0, cycle * 3.8, hz(p - 12), .11 * padLvl * lvl, 'sine', .5, .9));
+    chord.forEach((p, m) => note(PAD[m], t0, cycle * 3.8, hz(p - 12), .15 * padLvl * lvl, 'sine', .5, .9));
   }
 
   // top line — little answering phrases, gliding counter-clockwise
@@ -238,14 +238,14 @@ t = at(S.VI[1]) + .6;
 const DESC = [88, 84, 79, 76, 72, 67];
 for (let k = 0; k < SEATS; k++) {
   const seat = (SEATS - k) % SEATS; // 1, 6, 5, 4, 3, 2
-  note(VOICE[seat], t, 2.6, hz(DESC[k]), .7, 'sine', .3, .8);
+  note(VOICE[seat], t, 2.6, hz(DESC[k]), .42, 'sine', .3, .8);
   t += 3.4 + k * .45;
 }
 for (const [pitch, dur, gap] of [[64, 3.4, 3.0], [60, 3.8, 4.2], [60, 4.4, 5.6]]) {
-  note(VOICE[0], t, dur, hz(pitch), .8, 'sine', .4, 1.0);
+  note(VOICE[0], t, dur, hz(pitch), .46, 'sine', .4, 1.0);
   t += dur + gap;
 }
-note(VOICE[0], t, 11, hz(48), .75, 'sine', 3.5, 3.0); // C3, rising out of nothing, then gone
+note(VOICE[0], t, 11, hz(48), .5, 'sine', 3.5, 3.0); // C3, rising out of nothing, then gone
 const END = t + 11 + 4;
 
 movement('II · Ring', 'the pulse arrives front and back; the walk becomes a swing', at(S.II[0]), at(S.II[1]), .55);
