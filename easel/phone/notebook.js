@@ -68,7 +68,12 @@ function alignBaselines() {
 }
 const reportHeight = () => {
   const content = document.getElementById('notebook-content');
-  const height = Math.max(24, Math.ceil(((content?.getBoundingClientRect().height || 0) + 24) / 24) * 24);
+  // The preview float and the last article's margin are not output. Reserve
+  // one painting row for shifted baselines/descenders; native overlaps that
+  // row with the top of its editor so typing continues on the next rule.
+  const last = content?.querySelector('article:last-of-type');
+  const bottom = last ? last.getBoundingClientRect().bottom - content.getBoundingClientRect().top - (parseFloat(last.style.top) || 0) : 0;
+  const height = Math.max(24, Math.ceil(bottom / 24) * 24 + 24);
   if (height === reported) return;
   reported = height;
   window.webkit?.messageHandlers?.notebook?.postMessage({height});

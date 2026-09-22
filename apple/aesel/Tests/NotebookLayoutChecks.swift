@@ -67,6 +67,19 @@ final class Files: NSObject, WKURLSchemeHandler {
                 let png = try await web.takeSnapshot(configuration:nil)
                 try NSBitmapImageRep(data:png.tiffRepresentation!)!.representation(using:.png,properties:[:])!.write(to:URL(fileURLWithPath:"/tmp/aesel-donkey-flow.png"))
                 print("Busy donkey fits its notebook; first user text flows beside the preview")
+                for width in [555, 320] {
+                    window.setContentSize(NSSize(width:width,height:720))
+                    for output in ["Done.", "This response wraps across several lines when the notebook is narrow, and the draft must still follow its final line."] {
+                        let encoded = String(data: try JSONSerialization.data(withJSONObject: [output]), encoding: .utf8)!
+                        _ = try await web.evaluateJavaScript("window.updatePhoneNotebook({entries:[{id:'reply',kind:'assistant',text:\(encoded)[0]}],exclusion:{width:100,height:360,top:0}})")
+                        try await Task.sleep(nanoseconds:100_000_000)
+                        let gap = try await web.evaluateJavaScript("""
+                        (()=>{const p=document.querySelector('article p');const marker=document.createElement('span');marker.style='display:inline-block;width:0;height:0;vertical-align:baseline';p.append(marker);const lastBaseline=marker.getBoundingClientRect().top;marker.remove();return reported-lastBaseline;})()
+                        """) as! Double
+                        precondition(abs(gap - 24) < 0.01, "Draft is \(gap)pt after output at width \(width), expected one row")
+                    }
+                }
+                print("Draft follows the final output baseline by exactly one row, ignoring preview height")
                 let short = try await web.evaluateJavaScript("window.updatePhoneNotebook({entries:[]}); reported") as! Double
                 precondition(short == 24, "Empty transcript did not shrink")
                 print("Empty transcript shrinks to one row")

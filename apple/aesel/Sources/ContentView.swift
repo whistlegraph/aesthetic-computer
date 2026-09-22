@@ -47,7 +47,8 @@ struct ContentView: View {
     private var previewVisible: Bool { session.previewURL != nil && !previewHidden && sheetSize.width >= 420 && sheetSize.height >= 300 }
     private var previewBlockHeight: CGFloat { paperTop }
     private var hasNotebook: Bool { session.entries.contains { $0.kind != .edit } || session.fatal != nil }
-    private var transcriptHeight: CGFloat { hasNotebook ? max(row, notebookHeight) : 0 }
+    // WebKit reserves a paint row for descenders; the next editor row shares it.
+    private var transcriptHeight: CGFloat { hasNotebook ? max(row, notebookHeight) - row : 0 }
     private var notebookExclusion: [String: CGFloat] {
         guard previewVisible else { return [:] }
         let width = previewBounds.width + 8 + previewBounds.right + 16 - edgeInset
@@ -174,8 +175,9 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 0) {
                             Color.clear.frame(height: previewBlockHeight)
                             AeselNotebook(session: session, automation: host.automation, paint: paint, exclusion: notebookExclusion, height: $notebookHeight) { openURL($0) }
-                                .frame(height: transcriptHeight)
+                                .frame(height: hasNotebook ? max(row, notebookHeight) : 0)
                                 .clipped()
+                                .padding(.bottom, hasNotebook ? -row : 0)
                                 .allowsHitTesting(hasNotebook)
                                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named("notebook-scroll")).minY } action: { notebookTop = $0 }
                             if session.fatal != nil {
