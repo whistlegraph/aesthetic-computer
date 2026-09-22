@@ -49,10 +49,17 @@ Hosts in seat order, 1 to 6 clockwise from the front.
 ```sh
 node fedac/native/tools/compose-notespatial-native.mjs      # rebuild the score
 node fedac/native/tools/notespatial-native-check.mjs        # routing map + dry run
+node fedac/native/tools/notespatial-native-render.mjs       # hear it from the center: mp4, ~20 s to make
+node fedac/native/tools/notespatial-native-render.mjs --section 5 --fast   # one section, parametric head, seconds
 node fedac/native/tools/spatial-rehearsal.mjs deploy --score notespatial-native H1 H2 H3 H4 H5 H6
 node fedac/native/tools/spatial-rehearsal.mjs cue H1 H2 H3 H4 H5 H6
 node fedac/native/tools/spatial-rehearsal.mjs stop H1 H2 H3 H4 H5 H6
 ```
+
+The renderer places the six feeds around a listener at the center with
+measured KEMAR head-related responses (or a parametric head with
+`--fast`); `--from 8:30 --to 9:10` renders a slice, `--audio-only` skips
+the picture. Renders land beside this file and are not committed.
 
 Each section is also written as its own score, rebased to zero, for
 rehearsing one part or for cueing the piece in parts if the full run
