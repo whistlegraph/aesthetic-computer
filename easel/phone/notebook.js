@@ -72,8 +72,18 @@ const reportHeight = () => {
   // one painting row for shifted baselines/descenders; native overlaps that
   // row with the top of its editor so typing continues on the next rule.
   const last = content?.querySelector('article:last-of-type');
-  const bottom = last ? last.getBoundingClientRect().bottom - content.getBoundingClientRect().top - (parseFloat(last.style.top) || 0) : 0;
-  const height = Math.max(24, Math.ceil(bottom / 24) * 24 + 24);
+  const blocks = last?.querySelectorAll('p, h1, h2, h3, li:not(:has(p)), pre');
+  const block = blocks?.length ? blocks[blocks.length - 1] : last;
+  let baseline = 0;
+  if (block) {
+    const marker = document.createElement('span');
+    marker.setAttribute('aria-hidden', 'true');
+    marker.style.cssText = 'display:inline-block;width:0;height:0;padding:0;margin:0;vertical-align:baseline';
+    block.append(marker);
+    baseline = marker.getBoundingClientRect().top - content.getBoundingClientRect().top;
+    marker.remove();
+  }
+  const height = Math.max(24, Math.ceil(baseline / 24) * 24 + 24);
   if (height === reported) return;
   reported = height;
   window.webkit?.messageHandlers?.notebook?.postMessage({height});

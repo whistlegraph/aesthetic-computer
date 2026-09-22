@@ -69,12 +69,12 @@ final class Files: NSObject, WKURLSchemeHandler {
                 print("Busy donkey fits its notebook; first user text flows beside the preview")
                 for width in [555, 320] {
                     window.setContentSize(NSSize(width:width,height:720))
-                    for output in ["Done.", "This response wraps across several lines when the notebook is narrow, and the draft must still follow its final line."] {
+                    for output in ["The **orange** circle follows your pointer.\n\nTry a radius of `24` or a blue background.\n\n```js\nconst radius = 24;\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)", "Done.", "A reply.\n\n```js\nwipe(\"blue\");\n```\n\n[Open Aesthetic Computer](https://aesthetic.computer)", "This response wraps across several lines when the notebook is narrow, and the draft must still follow its final line."] {
                         let encoded = String(data: try JSONSerialization.data(withJSONObject: [output]), encoding: .utf8)!
-                        _ = try await web.evaluateJavaScript("window.updatePhoneNotebook({entries:[{id:'reply',kind:'assistant',text:\(encoded)[0]}],exclusion:{width:100,height:360,top:0}})")
+                        _ = try await web.evaluateJavaScript("window.updatePhoneNotebook({entries:[{id:'question',kind:'user',text:'Make something.'},{id:'reply',kind:'assistant',text:\(encoded)[0]}],exclusion:{width:100,height:360,top:0}})")
                         try await Task.sleep(nanoseconds:100_000_000)
                         let gap = try await web.evaluateJavaScript("""
-                        (()=>{const p=document.querySelector('article p');const marker=document.createElement('span');marker.style='display:inline-block;width:0;height:0;vertical-align:baseline';p.append(marker);const lastBaseline=marker.getBoundingClientRect().top;marker.remove();return reported-lastBaseline;})()
+                        (()=>{const p=Array.from(document.querySelectorAll('article p')).at(-1);const marker=document.createElement('span');marker.style='display:inline-block;width:0;height:0;vertical-align:baseline';p.append(marker);const lastBaseline=marker.getBoundingClientRect().top;marker.remove();return reported-lastBaseline;})()
                         """) as! Double
                         precondition(abs(gap - 24) < 0.01, "Draft is \(gap)pt after output at width \(width), expected one row")
                     }
