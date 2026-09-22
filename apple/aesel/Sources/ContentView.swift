@@ -203,21 +203,19 @@ struct ContentView: View {
         }
     }
 
-    private var headerReservedWidth: CGFloat {
+    @ViewBuilder private var notebookHeader: some View {
         #if os(macOS)
-        52 / uiScale + edgeInset * 2 + 36 + 48
+        AeselTitlebarAccessory { headerControls.environment(\.paint, paint) }
+            .frame(height: 32 / uiScale)
         #else
-        edgeInset * 2 + 24 + 48
+        headerControls.frame(height: 32)
         #endif
     }
 
-    private var notebookHeader: some View {
+    private var headerControls: some View {
         GeometryReader { geometry in
             HStack(spacing: 12) {
-                #if os(macOS)
-                Color.clear.frame(width: 52 / uiScale)
-                #endif
-                title(availableWidth: max(0, geometry.size.width - headerReservedWidth))
+                title(availableWidth: max(0, geometry.size.width - edgeInset * 2 - 24 - 48))
                 Spacer(minLength: 8)
                     .frame(height: 32)
                     .background { AeselWindowDragArea() }
@@ -226,7 +224,6 @@ struct ContentView: View {
             .padding(.horizontal, edgeInset)
             .frame(height: 32)
         }
-        .frame(height: 32)
     }
 
     private var titleURL: URL? {

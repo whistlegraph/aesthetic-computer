@@ -228,3 +228,60 @@ struct AeselWindowDragArea: View {
     var body: some View { Color.clear }
 }
 #endif
+
+#if os(macOS)
+/// Place header controls above AppKit's title-bar event layer.
+struct AeselTitlebarAccessory<Content: View>: NSViewRepresentable {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+    final class Carrier: NSView {
+        let accessory = NSTitlebarAccessoryViewController()
+        let hosting = NSHostingView(rootView: AnyView(EmptyView()))
+        weak var installedWindow: NSWindow?
+        var resizeObserver: NSObjectProtocol?
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            accessory.layoutAttribute = .right
+            accessory.view = hosting
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            DispatchQueue.main.async { [weak self] in self?.install() }
+        }
+        func install() {
+            guard let window, installedWindow !== window else { return }
+            detach()
+            installedWindow = window
+            resize()
+            window.addTitlebarAccessoryViewController(accessory)
+            resizeObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification,
+                object: window, queue: .main) { [weak self] _ in self?.resize() }
+        }
+        func resize() {
+            guard let installedWindow else { return }
+            // Standard window buttons own the leftmost 64 physical points.
+            hosting.setFrameSize(NSSize(width: max(0, installedWindow.frame.width - 64), height: 32))
+        }
+        func detach() {
+            if let resizeObserver { NotificationCenter.default.removeObserver(resizeObserver) }
+            resizeObserver = nil
+            if let window = installedWindow,
+               let index = window.titlebarAccessoryViewControllers.firstIndex(of: accessory) {
+                window.removeTitlebarAccessoryViewController(at: index)
+            }
+            installedWindow = nil
+        }
+    }
+    func makeNSView(context: Context) -> Carrier {
+        let view = Carrier(frame: .zero)
+        view.hosting.rootView = AnyView(content)
+        return view
+    }
+    func updateNSView(_ view: Carrier, context: Context) {
+        view.hosting.rootView = AnyView(content)
+        view.install()
+    }
+    static func dismantleNSView(_ view: Carrier, coordinator: ()) { view.detach() }
+}
+#endif
