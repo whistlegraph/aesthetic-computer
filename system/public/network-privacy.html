@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aesthetic network visit measurements</title>
+<style>body{max-width:42rem;margin:3rem auto;padding:0 1rem;font:18px/1.6 system-ui;color:#222;background:#fff}a{color:#174ca0}</style>
+<h1>Website visit measurements</h1>
+<p>Updated September 23, 2026.</p>
+<p>Our public websites send small visit summaries to Aesthetic Computer so we
+can understand which projects people open, interact with, and use.</p>
+<p>A random identifier lasts for one page visit. It is held in memory, with no
+tracking cookie or persistent browser identifier. We do not connect visits
+across websites. Each summary contains the property, a broad page category,
+visible-time bucket, interaction types and a few action flags such as following
+a link or completing a game round. The tracker does not send page text, full
+URLs, search queries, form contents, raw keys, pointer movements or account
+identity. Known automated browsers are counted separately.</p>
+<p>The visit database retains records for 35 days. Network requests necessarily
+reach our servers; existing access logs are separate from this database. The
+collector uses a temporary, salted address digest in memory for rate limiting,
+which expires after one minute and is not written into visit records.</p>
+<p>Do Not Track or Global Privacy Control disables this visit tracker. Embedded
+frames and private/admin routes are excluded. Browser blocking, offline use
+and unrecognized automation mean the measurements are estimates of activity,
+not a count of unique people.</p>
+<p>This describes the shared visit tracker. Existing account services, product
+analytics, purchases and public gameplay recordings have separate purposes
+and are not joined into its records.</p>
+<p>Questions: <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a>.</p>
+</html>

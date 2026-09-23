@@ -199,6 +199,7 @@
     #account-panel #account-redirect:hover { background: none; color: #f3f6ff; }
     #account-panel.working #account-field { opacity: .6; }
   </style>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar stick fight and lava climb"></canvas>
@@ -1127,6 +1128,12 @@
           method: "POST", headers: { "content-type": "application/json" }, body: payload,
         });
         if (!response.ok) throw new Error(`upload returned ${response.status}`);
+        globalThis.acVisits?.action("round_completed");
+        try {
+          const demo = JSON.parse(payload);
+          if (Array.isArray(demo.finalRoundWins) && Math.max(...demo.finalRoundWins) >= 5)
+            globalThis.acVisits?.action("match_completed");
+        } catch { /* telemetry must never interrupt gameplay */ }
         return true;
       } catch (error) {
         telemetry("REPLAY_WEB_ERROR", error.message);
@@ -1564,9 +1571,12 @@
     // Actions raised before it lands wait in a short queue.
     let analyticsReady = false;
     const analyticsQueue = [];
-    const analytics = (action, properties) => jevDemo ? false : analyticsReady
-      ? captureOskiewarAction(action, properties)
-      : analyticsQueue.push([action, properties]) > 0;
+    const analytics = (action, properties) => {
+      if (action === "match_started") globalThis.acVisits?.action("round_started");
+      return jevDemo ? false : analyticsReady
+        ? captureOskiewarAction(action, properties)
+        : analyticsQueue.push([action, properties]) > 0;
+    };
     if (!jevDemo) fetch("/api/product-analytics-config", { cache: "no-store" })
       .then((response) => response.ok ? response.json() : null)
       .catch(() => null)

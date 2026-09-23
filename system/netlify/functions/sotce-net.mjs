@@ -3427,6 +3427,7 @@ export const handler = async (event, context) => {
           <!-- Stripe.js and the Monaco editor load lazily on first use. -->
 
           ${!dev ? analyticsScript : ""}
+        <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         </head>
         <body>
           <div id="wrapper">
@@ -11825,6 +11826,7 @@ export const handler = async (event, context) => {
             name="viewport"
             content="width=device-width, initial-scale=1.0"
           />
+        <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         </head>
         <body>
           <h1>Sotce Net's Privacy Policy</h1>

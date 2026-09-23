@@ -1362,6 +1362,7 @@ async function fun(event, context) {
           "sourceOrganization": { "@type": "Organization", "name": "Aesthetic Computer", "url": "https://tangled.org/aesthetic.computer/core" }
         })}
         </script>
+      <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <article id="llm-context" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:0">
