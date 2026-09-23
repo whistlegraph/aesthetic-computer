@@ -116,6 +116,7 @@ const GROUPS = [
       "trio-spell-frisbee",
       "trio-spell-sophia",
       "trio-abc",
+      "trio-what-starts-with",
     ],
     claim: (slug, score) =>
       score.educational === true ||

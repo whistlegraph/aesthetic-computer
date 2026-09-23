@@ -1,0 +1,139 @@
+{
+  "tag": "probe11-v1",
+  "at": "2026-09-23T22:22:41.161Z",
+  "model": "ggml-small.en.bin",
+  "flags": {
+    "voice": "1",
+    "voice-name": "Tom (Enhanced)",
+    "tag": "probe11-v1",
+    "keep": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11",
+    "no-spoken": "1"
+  },
+  "scores": [
+    {
+      "score": "probe11.mbscore",
+      "bpm": 100,
+      "voices": [
+        {
+          "member": "blueberry",
+          "voice": "Tom (Enhanced)",
+          "lines": [
+            {
+              "line": 1,
+              "role": "lead",
+              "text": "A B C D E F G",
+              "lyrics": "A B C D E F G",
+              "notes": "50:1,49:1,47:1,45:1,47:2,49:1,50:1",
+              "duration": 4.799274376417234,
+              "peak": 0.800000011920929,
+              "spanOffset": 0,
+              "notesUsed": 7,
+              "noteCount": 7,
+              "renderMs": 557,
+              "heard": "ABCDA FG",
+              "wer": 1,
+              "errors": 7,
+              "words": 7,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11/probe11/blueberry/line-01.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 2,
+              "role": "lead",
+              "text": "A B C D E F G",
+              "lyrics": "A B C D E F G",
+              "notes": "r:8.5,50:1,49:1,47:1,49:1,50:2,49:1,47:1",
+              "duration": 5.699274376417233,
+              "peak": 0.800000011920929,
+              "spanOffset": 4.2,
+              "notesUsed": 7,
+              "noteCount": 7,
+              "renderMs": 449,
+              "heard": "A B C D E F G",
+              "wer": 0,
+              "errors": 0,
+              "words": 7,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11/probe11/blueberry/line-02.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 3,
+              "role": "lead",
+              "text": "A B C D E F G",
+              "lyrics": "A B C D E F G",
+              "notes": "r:17,49:1,50:1,49:1,47:1,50:2,49:1,47:1",
+              "duration": 5.3992743764172335,
+              "peak": 0.800000011920929,
+              "spanOffset": 9.6,
+              "notesUsed": 7,
+              "noteCount": 7,
+              "renderMs": 455,
+              "heard": "A B C D E F G",
+              "wer": 0,
+              "errors": 0,
+              "words": 7,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11/probe11/blueberry/line-03.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 4,
+              "role": "lead",
+              "text": "A B C D E F G",
+              "lyrics": "A B C D E F G",
+              "notes": "r:25.5,47:1,49:1,50:1,49:1,50:2,49:1,47:1",
+              "duration": 5.699274376417233,
+              "peak": 0.800000011920929,
+              "spanOffset": 14.399999999999999,
+              "notesUsed": 7,
+              "noteCount": 7,
+              "renderMs": 466,
+              "heard": "A B C D E F G",
+              "wer": 0,
+              "errors": 0,
+              "words": 7,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11/probe11/blueberry/line-04.wav",
+              "spokenWav": null
+            },
+            {
+              "line": 5,
+              "role": "lead",
+              "text": "and now we know them all",
+              "lyrics": "and now we know them all",
+              "notes": "r:34,47:1,49:1,50:1,49:1,47:1,45:2",
+              "duration": 4.799274376417234,
+              "peak": 0.800000011920929,
+              "spanOffset": 19.8,
+              "notesUsed": 6,
+              "noteCount": 6,
+              "renderMs": 389,
+              "heard": "And now we know them all.",
+              "wer": 0,
+              "errors": 0,
+              "words": 5,
+              "spokenHeard": null,
+              "spokenWer": null,
+              "wav": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/9d4f9efe-53b9-4c09-9eda-1262c18a7422/scratchpad/abc/wav11/probe11/blueberry/line-05.wav",
+              "spokenWav": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "total": {
+    "errors": 7,
+    "words": 33,
+    "wer": 0.21212121212121213,
+    "spokenErrors": 0,
+    "spokenWords": 0,
+    "spokenWer": 0
+  }
+}

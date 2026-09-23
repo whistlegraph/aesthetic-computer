@@ -1,0 +1,465 @@
+{
+  "title": "The MacNeoPolitan Trio — Spell Sophia",
+  "composer": "The machines, arr. compose-spell-sophia.mjs",
+  "bpm": 92,
+  "machines": 3,
+  "lead": 0,
+  "description": "A short spelling song for the house. 4/4, D major, 92 bpm, 80 beats. neo spells S-O-P-H-I-A a letter a beat, frisbee spells it back and sings the name whole at one beat a syllable, the only timing Zoe has ever said it clean at. Then three things in the room get spelled and named: M-O-O-N and the moon, L-I-D and the lid, C-O-F-F-E-E and a cup of coffee. blueberry hums under the whole thing and says the plain sentence each spelling is for.",
+  "arrangement": {
+    "total": 80,
+    "meter": "4/4",
+    "sections": [
+      {
+        "beat": 0,
+        "name": "Hum"
+      },
+      {
+        "beat": 4,
+        "name": "neo spells S O P H I A"
+      },
+      {
+        "beat": 10,
+        "name": "frisbee spells it back"
+      },
+      {
+        "beat": 16,
+        "name": "neo: this is how you spell it"
+      },
+      {
+        "beat": 22,
+        "name": "frisbee: Sophia"
+      },
+      {
+        "beat": 28,
+        "name": "M O O N · the moon is up"
+      },
+      {
+        "beat": 40,
+        "name": "L I D · the lid is down"
+      },
+      {
+        "beat": 52,
+        "name": "C O F F E E · a cup of coffee"
+      },
+      {
+        "beat": 64,
+        "name": "neo: that is how you spell it"
+      },
+      {
+        "beat": 72,
+        "name": "S O P H I A, both at once"
+      },
+      {
+        "beat": 76,
+        "name": "frisbee: Sophia"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "59:4,59:1,60:1,59:1,57:1,59:1,60:1,r:6,59:1,59:1,60:1,59:1,57:1,59:1,r:2,59:4,57:4,r:2,59:1,60:1,59:1,61:1,59:1,r:7,59:4,57:4,r:10,59:1,60:1,62:1,60:1,59:1,57:1,r:2,59:1,60:1,59:1,57:1,59:1,60:1,59:2",
+      "lyrics": "hmm / S O P H I A / this is how you spell it / hmm hmm / now you can spell it / hmm hmm / that is how you spell it / S O P H I A / hmm",
+      "lineRoles": [
+        "hum",
+        "lead",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.28,
+        0.56,
+        0.56,
+        0.28,
+        0.54,
+        0.28,
+        0.56,
+        0.58,
+        0.26
+      ],
+      "noteGains": [
+        [
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.6,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.55,
+            "pitch": 0
+          },
+          {
+            "beat": 84,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 88,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blueberry sings (Aaron (Enhanced))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "48:4,47:4,48:4,50:4,48:4,47:4,50:4,48:4,r:2,47:1,48:1,50:1,48:1,48:4,47:4,48:1,50:1,48:1,47:1,48:4,47:4,r:4,47:1,48:1,50:1,48:1,47:1,r:1,48:4,47:4,48:4",
+      "lyrics": "hmm hmm / hmm hmm / hmm hmm / hmm hmm / the moon is up / hmm hmm / the lid is down / hmm hmm / a cup of cof-fee / hmm hmm / hmm",
+      "lineRoles": [
+        "hum",
+        "hum",
+        "hum",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "lead",
+        "hum",
+        "hum"
+      ],
+      "lineGains": [
+        0.34,
+        0.34,
+        0.34,
+        0.34,
+        0.52,
+        0.34,
+        0.52,
+        0.34,
+        0.52,
+        0.34,
+        0.32
+      ],
+      "noteGains": [
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1,
+          0.7,
+          0.88,
+          0.66,
+          1
+        ],
+        [
+          1,
+          0.7
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 3.5,
+      "singF0Floor": 70,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.6,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.4,
+            "pitch": 0
+          },
+          {
+            "beat": 84,
+            "space": 0.4,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 88,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 64,
+      "notes": "55:4,r:6,55:1,56:1,55:1,54:1,55:1,56:1,r:6,55:1,56:1,55:1,r:3,55:0.75,56:0.75,55:0.75,54:0.75,r:1,56:1,55:1,r:6,55:0.75,56:0.75,55:0.75,r:1.75,56:1,55:1,r:6,55:0.75,56:0.75,55:0.75,54:0.75,55:0.75,r:0.75,56:1,r:2.5,56:1,55:1,r:4,55:1,56:1,55:1,54:1,55:1,56:1,r:4,55:1,56:1,55:1,55:1",
+      "lyrics": "ooh / S O P H I A / So-phi-a / M O O N / the moon / L I D / the lid / C O F F E E / cof-fee / that is how you spell it / So-phi-a / ooh",
+      "lineRoles": [
+        "hum",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "lead",
+        "hum"
+      ],
+      "lineGains": [
+        0.26,
+        0.56,
+        0.58,
+        0.56,
+        0.54,
+        0.56,
+        0.54,
+        0.56,
+        0.54,
+        0.56,
+        0.58,
+        0.26
+      ],
+      "noteGains": [
+        [
+          1
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.82,
+          0.9
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.82,
+          0.9,
+          0.78,
+          1,
+          0.82
+        ],
+        [
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.92,
+          0.72,
+          0.88,
+          0.7
+        ],
+        [
+          1,
+          0.76,
+          0.92
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 10,
+      "singVibratoHz": 5.5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.6,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.55,
+            "pitch": 0
+          },
+          {
+            "beat": 21.6,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 24.3,
+            "space": 0.55,
+            "pitch": 0
+          },
+          {
+            "beat": 24.8,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 27,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 75.6,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 78.3,
+            "space": 0.55,
+            "pitch": 0
+          },
+          {
+            "beat": 78.8,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 81,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 84,
+            "space": 0.55,
+            "pitch": 0,
+            "echo": 0.85
+          },
+          {
+            "beat": 88,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -35,6 +35,18 @@ Noelle, not a second soprano.
 - `hear.mjs` forwards neither the gains nor the gap/legato/sustain/shimmer
   knobs, so offline WAVs are flat and peak-normalised; judge dynamics live.
   It only scores lines with role `lead`.
+- Letters are the inverse of words: a sung letter wants a SHORT note, half a
+  beat to one beat, written as a bare capital with spaces (`F R I S B E E`);
+  held two beats it becomes a vowel drone. Never put a lone letter on a
+  line: the engine reads it as "capital B". W needs no help; "dou-ble-you"
+  is mush. A sung leading E is heard as A. In the low voice a letter before
+  "is" collides ("B is" → "he is"): give it a run-up ("and B is for"). Zoe
+  is the trio's speller; Aaron cannot hold a three-letter chunk but is the
+  best whole-word voice. Whisper sometimes writes a run unspaced ("OPQRS")
+  and scores it 100 % wrong though every letter is there.
+- One beat a syllable is the operative floor at every tempo tried (69–100
+  bpm); the 0.9 s figure was the 69 bpm reading of the same rule. The 1.4 s
+  ceiling stands.
 - Numbers need a sentence around them: "two" alone is a howl, "that is two"
   is "that is too", "that makes six" is worse. "the answer is two" and the
   whole equation ("one and one is two") both render 0 %. Whisper writes a
@@ -57,6 +69,10 @@ Noelle, not a second soprano.
 | styling-study | Stylings | six études, 96 bpm, wordless | 165 s | n/a | hocket · drone and close seconds · barbershop tag · bass and ticks · round at one bar · pulsing vowels |
 | sums | Sums | 4/4 D, 96 bpm, question · answer · confirmation | 83 s | 0/89 | 1+1 to 5+5; the answer lands a step above the question, the confirmation on the tonic |
 | take-away | Take away | 4/4 D, 92 bpm, the mirror of Sums | 87 s | 0/82 | 5−1 down to 1−1; the answer lands a step below; the piece counts itself down and stops where the arithmetic stops |
+| spell-frisbee | How to spell frisbee | 4/4 D, 96 bpm | 80 s | 6/121 | neo spells, frisbee spells back, blueberry gives the whole word; B-L-U-E-B-E-R-R-Y passed three letters at a time; a sung leading E is heard as A |
+| spell-sophia | Spell Sophia | 4/4 D, 92 bpm | 52 s | 0/73 | S O P H I A, then moon, lid, coffee; blueberry hums under; the rest before coffee's last E is load-bearing |
+| abc | A B C | 4/4 D, 100 bpm, not the Twinkle tune | 70 s | 0/108 | the letters climb the trio: blueberry A–G, frisbee H–N, neo O–S, all T–Z; the ladder twice, the second time turned over |
+| what-starts-with | What starts with | 4/4 D, 96 bpm, seven rounds | 78 s | 1/79 | neo names the letter, frisbee the word, blueberry both: B blueberry, C coffee, F frisbee, J Jeffrey, M moon, N neo, S Sophia; the one miss is Sophia spelled Sofia |
 
 ## Studies
 
@@ -78,3 +94,7 @@ Noelle, not a second soprano.
 4. Re-voice the doo-wop miniature now that Zoe measures as the mezzo?
 5. First live test tomorrow: the half-beat hocket étude, the best check of
    the conductor's clock correction.
+6. Spelling: keep the three-way B-L-U-E-B-E-R-R-Y split with its one shaky
+   chunk, or a clean two-way hocket? Score "Sofia" as correct?
+7. A B C runs the alphabet twice to reach length; keep, or one pass with a
+   longer middle?
