@@ -18,6 +18,9 @@ export const REEL_APPS = {
     // 60 because the shared media gate wants reels authored at 60fps, and the
     // CDP screencast delivers ~60 anyway (30 dropped every other frame).
     capture: { width: 1080, height: 1920, fps: 60 },
+    // The piece alone: no pals side stamps or title columns, and a cursor
+    // small enough to read as a pointer rather than a mascot.
+    stamp: { chrome: "none", cursorSize: 56 },
     segments: ["instrument", "draw", "instrument", "code"],
     tags: ["aestheticcomputer", "creativecoding", "digitalart", "generativeart", "webart"],
     recipes: [
@@ -38,6 +41,16 @@ export const REEL_APPS = {
         title: "bubble",
         segment: "instrument",
         line: "Ten touches turn into a bubble instrument.",
+      },
+      {
+        // The most-hit stored clock (110 hits on /api/store-clock, 2026-09-23):
+        // four saw voices; the lead loops every ~7.75 s, so 16 s is two loops.
+        id: "clock-wibe",
+        piece: "*wibe",
+        duration: 16,
+        title: "clock",
+        segment: "code",
+        line: "The most-played clock on aesthetic.computer: four saw voices, one tiny score.",
       },
       {
         id: "clock-square",

@@ -170,8 +170,14 @@ async function buildAesthetic({ config, day, index, slot, dir, source }) {
   run(process.execPath, captureArgs, { inherit: true });
   const base = join(capture, `base-${source.title}.mp4`);
   const reel = join(dir, "reel.mp4");
+  const stamp = config.stamp || {};
   run(process.execPath, [STAMP_AV, base, "--title", source.title, "--out", reel,
-    "--fps", String(config.capture.fps)], { inherit: true });
+    "--fps", String(config.capture.fps),
+    ...(stamp.chrome ? ["--chrome", stamp.chrome] : []),
+    ...(stamp.cursorSize ? ["--cursor-size", String(stamp.cursorSize)] : []),
+    // No scripted performance means the only "input" was capture-av's
+    // audio-unlock click — don't draw a cursor parked mid-frame for it.
+    ...(source.performance ? [] : ["--pointer", "none"])], { inherit: true });
   return {
     format: "ac.instagram.reel", version: 1, account: config.account,
     id: `${day}-s${index}-${source.id}`, day, index, slot, sourceId: source.id,

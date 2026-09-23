@@ -27,6 +27,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { PERFORMANCES } from "./performances.mjs";
+import { h264Args } from "../../../pop/lib/video-codec.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
@@ -347,7 +348,7 @@ const mapArgs = haveAudio
   ? ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
   : ["-map", "0:v"];
 const ff = spawnSync("ffmpeg", [...vArgs, ...aArgs,
-  "-vsync", "cfr", "-r", String(FPS), "-c:v", "libx264", "-preset", "medium", "-crf", "18",
+  "-vsync", "cfr", "-r", String(FPS), ...h264Args({ crf: 18, preset: "medium" }),
   "-pix_fmt", "yuv420p", ...mapArgs, "-movflags", "+faststart", OUTMP4], { stdio: ["ignore", "ignore", "inherit"] });
 if (ff.status !== 0) { console.error("✗ ffmpeg assemble failed"); process.exit(1); }
 

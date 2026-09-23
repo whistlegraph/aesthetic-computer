@@ -63,6 +63,8 @@ const FINGER_TINT = flags["finger-tint"]
 // shows it); lead the marker by CURSOR_LEAD seconds to line it up.
 const CURSOR_LEAD = parseFloat(flags["cursor-lead"] ?? 0.12);
 const CURSOR_SIZE = parseInt(flags["cursor-size"] || 104, 10);
+// --chrome none: skip the pals stamps + title columns; the cursor stays.
+const CHROME = flags.chrome !== "none";
 let PRESSES = [];
 let CURSOR_TRACK = null; // per-frame [{t,x,y,down}] — exact, no interpolation
 {
@@ -163,7 +165,7 @@ let palsImg = null, palsBlur = null;
     palsBlur = (rb.status === 0 && existsSync(blurPng)) ? await loadImage(blurPng) : palsImg;
   }
 }
-if (!palsImg) throw new Error("pals watermark failed to rasterize (need rsvg-convert)");
+if (!palsImg && CHROME) throw new Error("pals watermark failed to rasterize (need rsvg-convert)");
 
 // AC's real cursors for the "cursor" pointer style (precise=up, active=down).
 let cursorImgs = null;
@@ -277,7 +279,7 @@ function drawTitleChars(audioT) {
 }
 
 // ── frame pump: base → canvas → chrome → encoder (re-muxes base audio) ──────
-console.log(`▸ chroming ${FRAMES} frames · "${TITLE}" columns + pals seep${SHARPEN ? ` · substrate sharpen ×${SHARPEN}` : ""}${PRESSES.length ? ` · ${PRESSES.length} finger presses` : ""}`);
+console.log(`▸ chroming ${FRAMES} frames · ${CHROME ? `"${TITLE}" columns + pals seep` : "no chrome"}${SHARPEN ? ` · substrate sharpen ×${SHARPEN}` : ""}${PRESSES.length ? ` · ${PRESSES.length} finger presses` : ""}`);
 // substrate: area-downscale to the buffer grid then nearest-upscale = crisp fat
 // pixels, then unsharp to pop the block edges. Runs on the piece only (chrome +
 // fingers are drawn full-res afterward).
@@ -313,7 +315,7 @@ for await (const chunk of dec.stdout) {
           drawFingers(ctx, PRESSES, fi / FPS + CURSOR_LEAD, W, H, { style: EFF_POINTER, tint: FINGER_TINT, cursorImgs });
         }
       }
-      drawWatermark(fi / FPS);
+      if (CHROME) drawWatermark(fi / FPS);
       if (!enc.stdin.write(canvas.toBuffer("raw"))) await once(enc.stdin, "drain");
       fi++;
       if (fi % 120 === 0) console.log(`  ${fi}/${FRAMES} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);

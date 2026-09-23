@@ -16,6 +16,7 @@ import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadImage } from "canvas";
+import { h264Args } from "./video-codec.mjs";
 
 // The typeface is installed on the machines that render regularly, but it
 // also ships in-repo as a Menu Band resource. Prefer the installed copy
@@ -518,8 +519,7 @@ export function spawnFFmpegEncode({ audioPath, w, h, fps, outPath, crf = 20, vid
     "-i", "-",
     "-i", audioPath,
     ...(videoFilter ? ["-vf", videoFilter] : []),
-    "-c:v", "libx264", "-preset", "faster", "-crf", String(crf),
-    "-threads", "0",
+    ...h264Args({ crf }),
     "-c:a", "aac", "-b:a", "192k",
     "-pix_fmt", "yuv420p",
     "-shortest",
