@@ -157,6 +157,20 @@ const duelManager = new DuelManager();
 const fightManager = new FightManager();
 const oskiewarLiveManager = new OskiewarLiveManager();
 const agentPresenceManager = new AgentPresenceManager();
+// 🗼 lairk — only a verified handle with a spot (spoken in Laer Klokken and
+// @mentioned there) may walk; every handle's last position is kept in Redis.
+const lairkManager = new LairkManager({
+  verify: (token) => verifyFightIdentity(token),
+  fetchRoster: async () => {
+    const res = await fetch("https://aesthetic.computer/api/lairk-roster");
+    if (!res.ok) return null;
+    return (await res.json())?.handles;
+  },
+  save: (handle, pos) => {
+    if (!pub?.isReady) return;
+    pub.hSet("lairk:positions", handle, JSON.stringify(pos)).catch(() => {});
+  },
+});
 // 🌐 World Managers — Q3-style server-authoritative multiplayer, one
 // instance per 3D world. Wire protocol is shared; only the event prefix
 // differs (`arena:*`, `land:*`). Routing below is generic over this map —
@@ -174,6 +188,7 @@ import { FightManager } from "./fight-manager.mjs"; // Fight presence + seat que
 import { OskiewarLiveManager } from "./oskiewar-live-manager.mjs";
 import { AgentPresenceManager } from "./agent-presence.mjs"; // Handle-scoped agent awareness.
 import { WorldManager, ARENA_CFG, ARENA_SPAWNS } from "./world-manager.mjs"; // Server-authoritative 3D worlds.
+import { LairkManager } from "./lairk-manager.mjs"; // Walking in lairk, the Laer Klokken place.
 import { LAND_CFG, LAND_SPAWNS } from "../system/public/aesthetic.computer/lib/land-world.mjs";
 
 // *** AC Machines — remote device monitoring ***
@@ -586,6 +601,14 @@ if (pub) pub.on("error", (err) => {
     if (sub && pub) {
       await sub.connect();
       await pub.connect();
+
+      // 🗼 Where every handle last stood in lairk.
+      try {
+        const stored = await pub.hGetAll("lairk:positions");
+        lairkManager.restore(Object.entries(stored || {}).map(([h, v]) => [h, JSON.parse(v)]));
+      } catch (err) {
+        log("🗼 Could not restore lairk positions:", err?.message);
+      }
 
       await sub.subscribe("code", (message) => {
         const parsed = JSON.parse(message);
@@ -3006,6 +3029,17 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
+      // 🗼 lairk: watch, ask to walk (verified token), move.
+      if (msg.type.startsWith("lairk:")) {
+        let parsed;
+        try { parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content; }
+        catch { parsed = null; }
+        if (msg.type === "lairk:hello") lairkManager.hello(id);
+        else if (msg.type === "lairk:auth") lairkManager.auth(id, parsed?.token).catch(() => {});
+        else if (msg.type === "lairk:move") lairkManager.move(id, parsed);
+        return;
+      }
+
       if (msg.type === "fight:auth") {
         let parsed;
         try { parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content; }
@@ -3078,6 +3112,7 @@ wss.on("connection", async (ws, req) => {
     const departingHandle = normalizeProfileHandle(rawDepartingHandle);
     if (departingHandle) duelManager.playerLeave(departingHandle);
     fightManager.cleanup(id);
+    lairkManager.leave(id);
     // Worlds use the raw handle (matches <world>:hello), not the @-normalized
     // form. Pass the closing wsId so a quick reload-race doesn't delete the
     // freshly-rebound player (the new hello will have set a different wsId).
@@ -3277,6 +3312,10 @@ duelManager.setSendFunctions({
 
 fightManager.setSendFunction((wsId, type, content) => {
   connections[wsId]?.send(pack(type, JSON.stringify(content), "fight"));
+});
+
+lairkManager.setSendFunction((wsId, type, content) => {
+  connections[wsId]?.send(pack(type, JSON.stringify(content), "lairk"));
 });
 
 // 🌐 Wire WorldManager send functions (same shape as DuelManager; source tag

@@ -3,7 +3,9 @@
 //      Klokken (chat-clock) AND been @mentioned there by someone else.
 //      Read over the whole history, not a recent page, so an old mention
 //      still counts. The same list will gate walking in lairk.
-// Response: { handles: ["jeffrey", ...], at: ISO }
+// Response: { handles: ["jeffrey", ...], colors: { jeffrey: [{r,g,b}, ...] }, at }
+//   `colors` are the per-letter handle colors from @handles (index 0 is the
+//   "@"), only for handles that have set them.
 // Redis caching: 2 min TTL.
 
 import { connect } from "../../backend/database.mjs";
@@ -23,7 +25,7 @@ export async function handler(event) {
 
   try {
     const result = await getOrCompute(
-      "lairk:roster",
+      "lairk:roster:v2", // v2 carries colors
       async () => {
         const database = await connect();
         const chat = database.db.collection("chat-clock");
@@ -35,9 +37,14 @@ export async function handler(event) {
         const records = await database.db
           .collection("@handles")
           .find({ _id: { $in: subs } })
-          .project({ handle: 1 })
+          .project({ handle: 1, colors: 1 })
           .toArray();
-        for (const r of records) handleOf.set(r._id, r.handle.toLowerCase());
+        const colorsOf = new Map();
+        for (const r of records) {
+          const h = r.handle.toLowerCase();
+          handleOf.set(r._id, h);
+          if (Array.isArray(r.colors) && r.colors.length > 0) colorsOf.set(h, r.colors);
+        }
         const speakers = new Set(handleOf.values());
 
         // Mentions, counted only when the mentioner is someone else.
@@ -56,7 +63,9 @@ export async function handler(event) {
         await database.disconnect();
         const handles = [...speakers].filter((h) => mentioned.has(h)).sort();
         shell.log(`🗼 lairk roster: ${handles.length} of ${speakers.size} speakers`);
-        return { handles, at: new Date().toISOString() };
+        const colors = {};
+        for (const h of handles) if (colorsOf.has(h)) colors[h] = colorsOf.get(h);
+        return { handles, colors, at: new Date().toISOString() };
       },
       CACHE_TTLS.CHAT,
     );

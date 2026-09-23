@@ -14,15 +14,21 @@
   A spot is earned: only a handle that has spoken in Laer Klokken AND been
   @mentioned there by someone else stands in lairk. The server reads the
   whole of `chat-clock` for that (/api/lairk-roster); this piece only draws
-  the answer. Step 1 of the plan: nobody walks yet — each handle stands at a
-  default spot around the tower, lit when online and dimmed when not.
-  Walking (step 2) will use the same roster as its gate.
+  the answer. Each handle stands where it last stood (or a default spot
+  around the tower), lit when online and dimmed when not.
+
+  Walking: the session server (session-server/lairk-manager.mjs) lets a
+  verified handle on that roster move, keeps it on the ground and at a run,
+  remembers where every handle stood, and relays positions to everyone
+  watching. Your own body moves the frame you press; everyone else glides to
+  where the server last saw them — never guessed ahead.
  */
 
 /* #region 🏁 TODO
-  - [] Step 2: walking — position relay ~10 Hz, remotes interpolated.
-  - [] Server-side move gate (spoke + mentioned by someone else).
-  - [] Step 3: remember each handle's position within lairk.
+  + Done
+  - [x] Walking — position relay ~10 Hz, remotes glide.
+  - [x] Server-side move gate (spoke + mentioned by someone else).
+  - [x] Remember each handle's position within lairk.
 #endregion */
 
 import { Chat } from "../lib/chat.mjs";
@@ -45,7 +51,7 @@ let get; // `$.get`, kept for loading paintings as handles appear.
 const FOV = 60;
 const NEAR = 0.1;
 const FAR = 400;
-const TARGET = [0, 2.2, 0];
+const focus = [0, 2.2, 0]; // What the camera orbits: the tower, or you.
 let orbitAngle = 0.6; // radians around the tower
 let orbitHeight = 6; // eye height
 let orbitRadius = 17;
@@ -71,6 +77,27 @@ const ROSTER_MS = 120_000; // The server caches it for two minutes too.
 const lookQueue = []; // Characters waiting for their colors and painting.
 let looking = 0; // Look-ups in flight.
 const LOOKS_AT_ONCE = 4;
+const rosterColors = new Map(); // handle -> per-letter colors from @handles.
+
+// 🚶 Walking.
+let server = null; // The session socket, for lairk:* messages.
+let walker = null; // Your handle, once the server lets you walk.
+let walkNo = null; // Why not ("login", "mention", "unavailable").
+const placed = new Map(); // handle -> { x, z, facing } the server remembers.
+const held = new Set(); // Walk keys held down.
+let walkTo = null; // { x, z } — where a tap asked to go.
+let tap = null; // { travel } — a touch that hasn't become an orbit drag yet.
+let lastSent = 0; // When a move last went out, ms.
+let unsent = false; // Moved since then.
+let lastSim = 0; // For a real-time step.
+const WALK_SPEED = 5; // Units per second; the server allows up to 9.
+const SEND_MS = 100; // ~10 Hz while moving.
+const WALK_KEYS = {
+  w: "forward", arrowup: "forward",
+  s: "back", arrowdown: "back",
+  a: "left", arrowleft: "left",
+  d: "right", arrowright: "right",
+};
 
 // 💬 Speech bubbles: handle -> { text, until }.
 const bubbles = new Map();
@@ -85,7 +112,7 @@ let readoutBox = null; // Tap target for the top readout.
 let closeBox = null; // Tap target for "world" while the chat is open.
 let notice = null; // { text, until } — the walking gate courtesy note.
 
-function boot({ api, Form, debug, send, hud, store, colon, params, get: getter }) {
+function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, net, handle, authorize }) {
   get = getter;
   const tema = pickTema([...(colon || []), ...(params || [])], store);
   lakTheme = tema.name;
@@ -111,6 +138,29 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter }
   eligible = null;
   eligibleAt = 0;
   lookQueue.length = 0;
+  rosterColors.clear();
+  walker = null;
+  walkNo = null;
+  placed.clear();
+  held.clear();
+  walkTo = null;
+  focus[0] = 0;
+  focus[2] = 0;
+
+  // 🚶 Watch everyone's positions; ask to walk when signed in. The server
+  // checks the token and the roster — this piece never claims a handle.
+  server = net?.socket?.((_id, type, content) => {
+    if (type.startsWith("connected")) {
+      server.send("lairk:hello", {});
+      if (handle?.() && authorize) {
+        Promise.resolve(authorize())
+          .then((token) => token && server.send("lairk:auth", { token }))
+          .catch(() => (walkNo = "login"));
+      }
+      return;
+    }
+    if (type.startsWith("lairk:")) receiveLairk(type, parse(content));
+  });
 
   ground = buildGround(Form);
   tower = buildTower(Form);
@@ -144,6 +194,7 @@ function paint($) {
       part.position[0] = c.x;
       part.position[1] = 0;
       part.position[2] = c.z;
+      part.rotation[1] = c.facing || 0;
     }
     form([c.base, c.torso], cam, { cpu: true });
   }
@@ -195,6 +246,8 @@ function act($) {
   // 🌍 World mode.
   if (e.is("keyboard:down:enter") || (e.is("touch") && hit(readoutBox))) {
     chatOpen = true;
+    held.clear(); // Typing "wasd" into the chat shouldn't walk you.
+    tap = null;
     // Signed in, go straight to typing. Signed out, chat.mjs reads an open
     // keyboard as "log in", so leave that to its own Log in button.
     if ($.handle?.()) send({ type: "keyboard:open" });
@@ -206,10 +259,20 @@ function act($) {
     return;
   }
 
+  // A touch that barely travels is a tap: walk there. One that drags orbits.
+  if (e.is("touch")) tap = { travel: 0 };
   if (e.is("draw")) {
+    if (tap) tap.travel += Math.abs(e.delta.x) + Math.abs(e.delta.y);
     orbitAngle -= e.delta.x * 0.012;
     orbitHeight = clamp(orbitHeight + e.delta.y * 0.05, 1.5, 16);
     lastLookAt = performance.now();
+  }
+  if (e.is("lift") && tap) {
+    if (tap.travel < 6) {
+      if (walker) walkTo = groundPoint($.screen, e.x, e.y);
+      else notice = { text: walkNotice($), until: performance.now() + 4000 };
+    }
+    tap = null;
   }
 
   if (e.is("scroll")) {
@@ -217,9 +280,12 @@ function act($) {
     lastLookAt = performance.now();
   }
 
-  const walkKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
-  if (walkKeys.some((k) => e.is(`keyboard:down:${k}`))) {
-    notice = { text: walkNotice($), until: performance.now() + 4000 };
+  for (const key of Object.keys(WALK_KEYS)) {
+    if (e.is(`keyboard:down:${key}`)) {
+      if (walker) held.add(key);
+      else notice = { text: walkNotice($), until: performance.now() + 4000 };
+    }
+    if (e.is(`keyboard:up:${key}`)) held.delete(key);
   }
 }
 
@@ -227,7 +293,13 @@ function sim($) {
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
   chat.sim($);
 
-  if (performance.now() - lastLookAt > 5000) orbitAngle += 0.0012; // Drift.
+  const now = performance.now();
+  const dt = lastSim ? min(0.1, (now - lastSim) / 1000) : 0;
+  lastSim = now;
+
+  if (!walker && now - lastLookAt > 5000) orbitAngle += 0.0012; // Drift.
+  walk(dt, now);
+  glide(dt);
 
   noticeNewMessages();
   if (Date.now() - eligibleAt > ROSTER_MS) askRoster();
@@ -239,8 +311,8 @@ function sim($) {
     hands = buildHands($.Form, new Date());
   }
 
-  const now = Date.now();
-  for (const [handle, b] of bubbles) if (b.until < now) bubbles.delete(handle);
+  const wall = Date.now();
+  for (const [handle, b] of bubbles) if (b.until < wall) bubbles.delete(handle);
 }
 
 function leave() {
@@ -257,8 +329,12 @@ export { boot, paint, act, sim, leave };
 // (-x, y, -z) (see Vertex.transform in lib/graph.mjs), lands it where P·V
 // puts the plain world point. Also keeps P·V for projecting labels.
 function updateCamera(screen) {
-  const eye = [sin(orbitAngle) * orbitRadius, orbitHeight, cos(orbitAngle) * orbitRadius];
-  const view = lookAt(eye, TARGET);
+  const eye = [
+    focus[0] + sin(orbitAngle) * orbitRadius,
+    orbitHeight,
+    focus[2] + cos(orbitAngle) * orbitRadius,
+  ];
+  const view = lookAt(eye, focus);
   const proj = perspective(FOV, screen.width / screen.height, NEAR, FAR);
   camMatrix = mul(proj, view);
   cam.matrix = mul(camMatrix, [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1]);
@@ -331,6 +407,162 @@ const normalize = (a) => {
   return [a[0] / l, a[1] / l, a[2] / l];
 };
 const clamp = (n, lo, hi) => max(lo, min(hi, n));
+
+// 🚶 Walking
+
+// Messages from the session server (session-server/lairk-manager.mjs).
+function receiveLairk(type, data) {
+  if (!data) return;
+  if (type === "lairk:state") {
+    for (const [h, p] of Object.entries(data.positions || {})) place(h, p, true);
+  } else if (type === "lairk:pos") {
+    place(data.handle, data, false);
+  } else if (type === "lairk:auth:ok") {
+    walker = data.handle;
+    walkNo = null;
+    if (data.at) place(walker, data.at, true);
+    lastLookAt = performance.now(); // Stop the drift; the camera is yours now.
+  } else if (type === "lairk:auth:no") {
+    walkNo = data.reason || "mention";
+  }
+}
+
+function parse(content) {
+  if (typeof content !== "string") return content;
+  try { return JSON.parse(content); } catch { return null; }
+}
+
+// Where the server says a handle is. `snap` jumps there (a first sight);
+// otherwise the body glides to it.
+function place(handle, p, snap) {
+  if (!handle || !Number.isFinite(p?.x) || !Number.isFinite(p?.z)) return;
+  const h = handle.toLowerCase();
+  if (h === walker && !snap) return; // Yours moves locally, not by echo.
+  placed.set(h, { x: p.x, z: p.z, facing: p.facing || 0 });
+  const c = characters.get(h);
+  if (!c) return;
+  c.tx = p.x;
+  c.tz = p.z;
+  c.facing = p.facing || 0;
+  if (snap) {
+    c.x = p.x;
+    c.z = p.z;
+  }
+}
+
+// Your own body moves the frame you press, then tells the server (~10 Hz).
+function walk(dt, now) {
+  const me = walker && characters.get(walker);
+  if (!me || dt === 0) return;
+
+  // Keys walk relative to the camera; a tap walks to a spot.
+  const forward = [-sin(orbitAngle), -cos(orbitAngle)];
+  const right = [-cos(orbitAngle), sin(orbitAngle)];
+  let dx = 0;
+  let dz = 0;
+  for (const key of held) {
+    const way = WALK_KEYS[key];
+    if (way === "forward") { dx += forward[0]; dz += forward[1]; }
+    if (way === "back") { dx -= forward[0]; dz -= forward[1]; }
+    if (way === "right") { dx += right[0]; dz += right[1]; }
+    if (way === "left") { dx -= right[0]; dz -= right[1]; }
+  }
+  if (held.size > 0) {
+    walkTo = null;
+  } else if (walkTo) {
+    dx = walkTo.x - me.x;
+    dz = walkTo.z - me.z;
+    if (Math.hypot(dx, dz) < 0.15) walkTo = null;
+  }
+
+  const d = Math.hypot(dx, dz);
+  if (d > 0.001) {
+    const step = min(WALK_SPEED * dt, walkTo ? d : Infinity);
+    const next = keepOnGround(me.x + (dx / d) * step, me.z + (dz / d) * step);
+    me.x = me.tx = next.x;
+    me.z = me.tz = next.z;
+    me.facing = (Math.atan2(dx, dz) * 180) / PI;
+    unsent = true;
+  }
+
+  if (unsent && now - lastSent >= SEND_MS) {
+    server?.send("lairk:move", { x: me.x, z: me.z, facing: me.facing });
+    lastSent = now;
+    unsent = false;
+  }
+
+  // The camera follows you.
+  const k = 1 - Math.exp(-dt * 6);
+  focus[0] += (me.x - focus[0]) * k;
+  focus[2] += (me.z - focus[2]) * k;
+}
+
+// Everyone else eases toward where the server last saw them — never past it.
+function glide(dt) {
+  const k = 1 - Math.exp(-dt * 8);
+  for (const c of characters.values()) {
+    if (c.handle === walker || c.tx === undefined) continue;
+    c.x += (c.tx - c.x) * k;
+    c.z += (c.tz - c.z) * k;
+  }
+}
+
+// Mirrors keepOnGround in session-server/lairk-manager.mjs, so what you see
+// is what the server will accept.
+const BOUNDS = 26;
+const TOWER_KEEP = 1.6;
+function keepOnGround(x, z) {
+  const d = Math.hypot(x, z);
+  if (d > BOUNDS) return { x: (x / d) * BOUNDS, z: (z / d) * BOUNDS };
+  if (Math.abs(x) < TOWER_KEEP && Math.abs(z) < TOWER_KEEP) {
+    if (Math.abs(x) > Math.abs(z)) return { x: Math.sign(x || 1) * TOWER_KEEP, z };
+    return { x, z: Math.sign(z || 1) * TOWER_KEEP };
+  }
+  return { x, z };
+}
+
+// The spot on the ground under a screen pixel, or null for the sky.
+function groundPoint(screen, sx, sy) {
+  const inv = camMatrix && invert(camMatrix);
+  if (!inv) return null;
+  const nx = (2 * sx) / screen.width - 1;
+  const ny = 1 - (2 * sy) / screen.height;
+  const unproject = (nz) => {
+    const v = [nx, ny, nz, 1];
+    const out = [0, 1, 2, 3].map((r) =>
+      inv[r] * v[0] + inv[4 + r] * v[1] + inv[8 + r] * v[2] + inv[12 + r] * v[3]);
+    return [out[0] / out[3], out[1] / out[3], out[2] / out[3]];
+  };
+  const a = unproject(-1);
+  const b = unproject(1);
+  if (a[1] <= b[1]) return null; // Looking up, never reaching the ground.
+  const t = a[1] / (a[1] - b[1]);
+  return keepOnGround(a[0] + (b[0] - a[0]) * t, a[2] + (b[2] - a[2]) * t);
+}
+
+// General 4×4 inverse, column-major.
+function invert(m) {
+  const [a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23, a30, a31, a32, a33] = m;
+  const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10;
+  const b02 = a00 * a13 - a03 * a10, b03 = a01 * a12 - a02 * a11;
+  const b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12;
+  const b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30;
+  const b08 = a20 * a33 - a23 * a30, b09 = a21 * a32 - a22 * a31;
+  const b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
+  const det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+  if (!det) return null;
+  const i = 1 / det;
+  return [
+    (a11 * b11 - a12 * b10 + a13 * b09) * i, (a02 * b10 - a01 * b11 - a03 * b09) * i,
+    (a31 * b05 - a32 * b04 + a33 * b03) * i, (a22 * b04 - a21 * b05 - a23 * b03) * i,
+    (a12 * b08 - a10 * b11 - a13 * b07) * i, (a00 * b11 - a02 * b08 + a03 * b07) * i,
+    (a32 * b02 - a30 * b05 - a33 * b01) * i, (a20 * b05 - a22 * b02 + a23 * b01) * i,
+    (a10 * b10 - a11 * b08 + a13 * b06) * i, (a01 * b08 - a00 * b10 - a03 * b06) * i,
+    (a30 * b04 - a31 * b02 + a33 * b00) * i, (a21 * b02 - a20 * b04 - a23 * b00) * i,
+    (a11 * b07 - a10 * b09 - a12 * b06) * i, (a00 * b09 - a01 * b07 + a02 * b06) * i,
+    (a31 * b01 - a30 * b03 - a32 * b00) * i, (a20 * b03 - a21 * b01 + a22 * b00) * i,
+  ];
+}
 
 // 🧱 Geometry — every form is triangles with per-vertex colors (0–1).
 
@@ -537,7 +769,17 @@ function askRoster() {
   fetch("/api/lairk-roster")
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
-      if (Array.isArray(data?.handles)) eligible = new Set(data.handles);
+      if (!Array.isArray(data?.handles)) return;
+      eligible = new Set(data.handles);
+      // Per-letter handle colors, straight from @handles.
+      for (const [h, colors] of Object.entries(data.colors || {})) {
+        rosterColors.set(h, colors);
+        const c = characters.get(h);
+        if (c && c.colors !== colors) {
+          c.colors = colors;
+          c.dirty = true;
+        }
+      }
     })
     .catch(() => {});
 }
@@ -563,8 +805,11 @@ function updateRoster() {
       }
       continue;
     }
-    const spot = homeSpot(h, handles.size);
-    const c = { handle: h, x: spot.x, z: spot.z, online: isOnline, colors: null, texture: null, dirty: true };
+    const spot = placed.get(h) || homeSpot(h, handles.size);
+    const c = {
+      handle: h, x: spot.x, z: spot.z, tx: spot.x, tz: spot.z, facing: spot.facing || 0,
+      online: isOnline, colors: rosterColors.get(h) || null, texture: null, dirty: true,
+    };
     characters.set(h, c);
     lookQueue.push(c);
   }
@@ -586,19 +831,9 @@ function pumpLooks() {
   }
 }
 
-// Ask for a handle's colors and its most recent painting; each redresses
-// the body when it lands. Misses leave the fallbacks in place.
+// Ask for a handle's most recent painting; it redresses the body when it
+// lands. (Colors come with the roster.) A miss leaves the plain shirt.
 function lookUp(c) {
-  const colors = fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(c.handle)}`)
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => {
-      if (Array.isArray(data?.colors) && data.colors.length > 0) {
-        c.colors = data.colors;
-        c.dirty = true;
-      }
-    })
-    .catch(() => {});
-
   const painting = fetch(`/media-collection?for=${encodeURIComponent(`@${c.handle}/painting`)}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
@@ -617,7 +852,7 @@ function lookUp(c) {
     })
     .catch(() => {});
 
-  return Promise.all([colors, painting]);
+  return painting;
 }
 
 // A painting at most 96 pixels on a side (a torso is a few pixels tall on
@@ -706,14 +941,15 @@ function fit(text, chars) {
   return text.length > chars ? text.slice(0, max(0, chars - 3)) + "..." : text;
 }
 
-// 🚶 The walking gate is the roster: a spot in lairk is the right to walk
-// it. Walking itself is step 2, so for now this only says where you stand.
+// 🚶 Why you can't walk (yet): the server's answer, or the roster's.
 function walkNotice($) {
   const me = cleanHandle($.handle?.());
   if (!me) return "log in to take your spot in lairk";
   if (!eligible) return "asking laer klokken who is here...";
-  if (!eligible.has(me)) return "you must be mentioned in laer klokken to have a spot";
-  return "walking arrives soon - your spot is waiting";
+  if (walkNo === "mention" || !eligible.has(me)) return "you must be mentioned in laer klokken to have a spot";
+  if (walkNo === "unavailable") return "lairk can't check the roster right now";
+  if (walkNo === "login") return "your login couldn't be verified - try logging in again";
+  return "joining lairk...";
 }
 
 // 🏷️ Name tags and bubbles, far to near.
@@ -724,7 +960,7 @@ function paintTags($) {
   const crowded = characters.size > 24;
   for (const c of characters.values()) {
     const bubble = bubbles.get(c.handle);
-    if (crowded && !c.online && !bubble) continue;
+    if (crowded && !c.online && !bubble && c.handle !== walker) continue;
     const p = project(screen, c.x, 2.05, c.z);
     if (p) tags.push({ c, p, bubble });
   }
@@ -781,7 +1017,9 @@ function paintReadout($) {
 function paintHint($) {
   const { ink, screen, typeface } = $;
   const cw = typeface?.blockWidth || 6;
-  const text = "tap the top or press enter to chat";
+  const text = walker
+    ? "wasd or tap the ground to walk - enter to chat"
+    : "tap the top or press enter to chat";
   ink(0, 0, 0, 90).box(0, screen.height - 16, screen.width, 16);
   ink(210, 205, 230).write(text, {
     x: max(4, floor((screen.width - text.length * cw) / 2)),
