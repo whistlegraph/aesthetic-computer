@@ -323,3 +323,25 @@ test("the pro frame takes its shape from the layout", () => {
   assert.match(rows[8], /^ > /, "the prompt glyph is the layout's");
   assert.equal(rows[9].trim(), "gpt-6-astra | codex", "only the facts asked for, with the separator asked for");
 });
+
+test("in pro the model on the status line is the one thing to click, and it opens settings", async () => {
+  const { headerAction, proStatus } = await import("../src/render.mjs");
+  const state = {
+    workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", profile: { name: "pro" }, entries: [],
+  };
+  const { spans } = proStatus(state, 80, false);
+  const model = spans.find((span) => span.name === "model");
+  assert.ok(model, "the model is on the line");
+  assert.equal(spans[0].name, "handle");
+  assert.equal(spans[0].x, 1, "the line starts one cell in");
+  // Terminal mouse coordinates are one-based; the status line is the last row.
+  assert.equal(headerAction(state, 80, 24, model.x + 1, 24), "model");
+  assert.equal(headerAction(state, 80, 24, model.x + model.width, 24), "model");
+  assert.equal(headerAction(state, 80, 24, model.x + model.width + 2, 24), "", "past the model is nothing");
+  assert.equal(headerAction(state, 80, 24, model.x + 1, 23), "", "the row above is the air below the bar");
+  assert.equal(headerAction(state, 80, 24, 3, 22), "", "no header band to click in pro");
+  const moved = { ...state, layout: { bottom: ["status", "gap", "bar"] } };
+  const movedModel = proStatus(moved, 80, false, moved.layout).spans.find((span) => span.name === "model");
+  assert.equal(headerAction(moved, 80, 24, movedModel.x + 1, 22), "model", "the click follows the layout");
+});

@@ -2431,6 +2431,7 @@ function handleKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
+        if (mouse.click && action === "model") openSettings();
         if(mouse.click&&action.startsWith('settings:')){
           const row=Number(action.split(':')[1]);
           if(!state.settings)openSettings(row);

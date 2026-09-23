@@ -670,19 +670,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const account = state.account || "";
     const model = state.model || state.providerSettings?.model || "";
     const engine = state.providerSettings?.backend || "";
-    const muted = (text) => (text ? paint(useColor, "muted", text) : "");
-    const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
-    const fact = {
-      handle: () => (account ? (account.startsWith("@") ? coloredHandle(account, state.handleColors, useColor) : muted(account)) : ""),
-      workspace: () => muted(clipText(state.workspace || "", Math.max(8, Math.floor(width / 3)))),
-      model: () => muted(model ? `${model}${engine && engine !== "claude" && !shape.status.includes("engine") ? ` · ${engine}` : ""}` : ""),
-      engine: () => muted(engine),
-      mode: () => muted(mode.toLowerCase()),
-      activity: () => muted(state.busy ? requestFeedback(state) : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : ""),
-      inbox: () => muted(queuedInbox ? `${queuedInbox} inbox queued` : ""),
-    };
-    const facts = shape.status.map((name) => fact[name]?.() || "").filter(Boolean);
-    const statusLine = ` ${facts.join(muted(shape.separator))}`;
+    const statusLine = proStatus(state, width, useColor, shape).line;
     const rows = {
       gap: () => "",
       bar: () => bar,
@@ -731,6 +719,43 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     .join("\n");
 }
 
+// The status line under the bar, and where each fact on it starts, so the
+// frame can paint it and a click can find the model on it.
+export function proStatus(state, width, useColor, shape = state.layout || {}) {
+  const status = shape.status || ["handle", "workspace", "model", "mode", "activity"];
+  const separator = shape.separator ?? " · ";
+  const account = state.account || "";
+  const model = state.model || state.providerSettings?.model || "";
+  const engine = state.providerSettings?.backend || "";
+  const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
+  const plain = {
+    handle: account,
+    workspace: clipText(state.workspace || "", Math.max(8, Math.floor(width / 3))),
+    model: model ? `${model}${engine && engine !== "claude" && !status.includes("engine") ? ` · ${engine}` : ""}` : "",
+    engine,
+    mode: state.mode === "local" ? "local" : "remote",
+    activity: state.busy ? requestFeedback(state) : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
+  };
+  const muted = (text) => paint(useColor, "muted", text);
+  const spans = [];
+  let line = " ";
+  let x = 1;
+  for (const name of status) {
+    const text = plain[name] || "";
+    if (!text) continue;
+    if (spans.length) {
+      line += muted(separator);
+      x += textWidth(separator);
+    }
+    spans.push({ name, x, width: textWidth(text) });
+    // The model underlines under the mouse: it is the one fact that is a control.
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : name === "model" && state.hover === "model" && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    x += textWidth(text);
+  }
+  return { line, spans };
+}
+
 export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns), height = Math.max(10, rows);
   const qr = useColor && state.qr && width >= state.qr.width + 24 && height - 5 >= state.qr.height ? state.qr : null;
@@ -740,8 +765,15 @@ export function transcriptLineCount(state, columns = 80, rows = 24, useColor = t
 // Terminal mouse coordinates are one-based, like the displayed header row.
 export function headerAction(state, columns, rows, x, y) {
   if (columns < 32 || rows < 10) return "";
-  // Pro draws no header and no model controls; nothing up there to click.
-  if (state.profile?.name === "pro") return "";
+  // Pro draws no header and no model controls. The one thing to click is the
+  // model on the status line, which opens the settings drawer.
+  if (state.profile?.name === "pro") {
+    const shape = { bottom: ["gap", "bar", "gap", "status"], ...(state.layout || {}) };
+    const row = shape.bottom.lastIndexOf("status");
+    if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => span.name === "model" && x >= span.x + 1 && x <= span.x + span.width);
+    return hit ? "model" : "";
+  }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){
     const p=state.settings,options=drawerOptions(p),index=p.index??drawerIndex(p);

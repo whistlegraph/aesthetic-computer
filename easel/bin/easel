@@ -124,6 +124,12 @@ case "${1:-}" in
         doctor
         exit 0
         ;;
+    history)
+        # The way back into an earlier session: a list, a number, the old
+        # thread on the same engine in the same directory. `--last` skips the list.
+        shift
+        exec node "$PROJECT_DIR/src/history-cli.mjs" "$@"
+        ;;
     login|logout|whoami|publish)
         has_command node || fail "Node.js is required"
         exec node "$PROJECT_DIR/src/cli.mjs" "$@"
