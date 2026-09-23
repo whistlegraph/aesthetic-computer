@@ -555,6 +555,11 @@ let messageCopyModal = null;
 let editingMessage = null;
 let deleteAllowed = true; // Delete is allowed by default in all chat contexts
 let fightChallengeSocket = null;
+// A piece can only hold one session-socket receiver, and chat.boot claims it
+// (for fight challenges) after an await. A host piece that also needs the
+// socket passes `onSocket` to boot and hears every message here instead,
+// with the socket itself as the fourth argument. (lairk does.)
+let socketListener = null;
 let fightChallengeReady = false;
 let fightPendingInvite = null;
 
@@ -920,7 +925,9 @@ async function boot(
   // `fight @handle` works in both chat and laklok because laklok inherits this
   // module. Authentication is independently verified by the fight coordinator;
   // neither chat text nor a client-supplied handle can authorize a challenge.
+  socketListener = options?.onSocket || null;
   fightChallengeSocket = net.socket((_id, type, content) => {
+    socketListener?.(_id, type, content, fightChallengeSocket);
     if (type.startsWith("connected") && token) {
       fightChallengeSocket.send("fight:auth", { token });
     } else if (type === "fight:auth:ok") {

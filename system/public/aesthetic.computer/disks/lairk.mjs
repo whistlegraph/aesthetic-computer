@@ -114,7 +114,7 @@ let readoutBox = null; // Tap target for the top readout.
 let closeBox = null; // Tap target for "world" while the chat is open.
 let notice = null; // { text, until } — the walking gate courtesy note.
 
-function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, net }) {
+function boot({ api, Form, debug, send, hud, store, colon, params, get: getter }) {
   get = getter;
   const tema = pickTema([...(colon || []), ...(params || [])], store);
   lakTheme = tema.name;
@@ -127,7 +127,24 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, 
 
   client = new Chat(debug, send);
   client.connect("clock"); // Same room as laklok. (DB stays `chat-clock`.)
-  chat.boot(api, client.system);
+  // 🚶 chat.boot owns the session socket (a piece gets one receiver), so
+  // lairk listens through it: watch everyone's positions, and ask to walk
+  // once signed in. The server checks the token and the roster.
+  socketReady = false;
+  authAsked = false;
+  server = null;
+  chat.boot(api, client.system, {
+    onSocket: (_id, type, content, socket) => {
+      server = socket;
+      if (type.startsWith("connected")) {
+        socketReady = true;
+        authAsked = false; // A fresh socket needs its own walk request.
+        server.send("lairk:hello", {});
+      } else if (type.startsWith("lairk:")) {
+        receiveLairk(type, parse(content));
+      }
+    },
+  });
   hud.qr(null); // chat.boot stamps a prompt.ac/chat QR; lairk doesn't want it.
   hud.label("lairk");
 
@@ -151,17 +168,7 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, 
 
   // 🚶 Watch everyone's positions; ask to walk when signed in. The server
   // checks the token and the roster — this piece never claims a handle.
-  socketReady = false;
-  authAsked = false;
-  server = net?.socket?.((_id, type, content) => {
-    if (type.startsWith("connected")) {
-      socketReady = true;
-      authAsked = false; // A fresh socket needs its own walk request.
-      server.send("lairk:hello", {});
-      return;
-    }
-    if (type.startsWith("lairk:")) receiveLairk(type, parse(content));
-  });
+
 
   ground = buildGround(Form);
   tower = buildTower(Form);
