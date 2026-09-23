@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "paper": "Prompt Rocks, the last 24 hours",
+  "pdf": "prox-rocks-2026-09-15.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 3,
+  "visualInference": true,
+  "pdfSha256": "4402dc08fb6ad8ad35505f25a49d8ae58e07c52e840f99fe1166634a5bdc5a73",
+  "reviewedAt": "2026-09-16T03:12:00Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Single 12 x 18 in broadside. The wordmark appears twice through the \\ac macro, in the byline and the colophon; both inspected at 900 dpi with the pink period. Every other mention is the lowercase host aesthetic.computer or the mono kicker AESTHETIC.COMPUTER."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "rocks-morning",
+      "page": 1,
+      "crop": [
+        0.05,
+        0.19,
+        0.29,
+        0.66
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Nine rock cards, 08:03 to 12:37 on neo. Each card: a 1.22 in rock trimmed to its bounds on the left, mono host:name with an agent pill, a time-and-turns line with a status pill, then a three-to-five line sans paragraph. Rules between cards, equal card widths, no clipping; the column header carries its range right-aligned."
+    },
+    {
+      "id": "rocks-afternoon",
+      "page": 1,
+      "crop": [
+        0.355,
+        0.19,
+        0.29,
+        0.66
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Nine rock cards, 12:37 to 16:14 on neo, same grammar as the morning column; column bottom lands level with its neighbours within one rule of spacing. Pills read at size; no wraps break a name."
+    },
+    {
+      "id": "rocks-evening",
+      "page": 1,
+      "crop": [
+        0.662,
+        0.19,
+        0.29,
+        0.66
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Nine rock cards: six neo evening rocks then blueberry:zevo, blueberry:piro and panda:iris. Header shortened so it no longer wraps; the other-machine names run longer in mono but stay on one line beside their pills."
+    }
+  ]
+}
