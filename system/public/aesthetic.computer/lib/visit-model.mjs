@@ -1,5 +1,10 @@
 // Public property and event allowlists. No wildcard hosts or arbitrary labels.
+export const CLIENT_VISIT_PROPERTIES = Object.freeze(["false.work", "danzballet.studio", "regarde.io", "drvkforlife.com"]);
 export const VISIT_PROPERTIES = Object.freeze({
+  "false.work": ["www.false.work"],
+  "danzballet.studio": ["www.danzballet.studio"],
+  "regarde.io": ["www.regarde.io"],
+  "drvkforlife.com": ["www.drvkforlife.com"],
   "aesthetic.computer": ["www.aesthetic.computer", "p5.aesthetic.computer"],
   "oskiewar.com": ["www.oskiewar.com", "midi.oskiewar.com"],
   "nopaint.art": ["www.nopaint.art"],
@@ -37,6 +42,16 @@ export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "suppo
 export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "scroll", "gamepad"]);
 export const RETENTION_DAYS = 35;
 export const VISIT_COLLECTION = "network-visits";
+
+export function visitGroup(property) {
+  return CLIENT_VISIT_PROPERTIES.includes(property) ? "clients" : "studio";
+}
+
+export function visitScopeMatch(scope = "studio") {
+  if (!["studio", "clients", "all"].includes(scope)) throw new Error("Use --scope studio, clients, or all");
+  return { property: { $in: Object.keys(VISIT_PROPERTIES).filter(property =>
+    scope === "all" || visitGroup(property) === scope) } };
+}
 
 export function visitProperty(hostname) {
   const host = String(hostname || "").toLowerCase();
@@ -93,16 +108,16 @@ export function visitUpdate(visit, now = new Date()) {
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {
-    $setOnInsert: { property: visit.property, surface: visit.surface,
+    $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface,
       expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000) },
     $min: { startedAt: now }, $max: { ...max, lastSeenAt: now },
   };
 }
 
-export function visitReportPipeline(start, end, byPeriod = false) {
+export function visitReportPipeline(start, end, byPeriod = false, scope = "studio") {
   const count = field => ({ $sum: { $cond: [`$${field}`, 1, 0] } });
   return [
-    { $match: { startedAt: { $gte: start, $lt: end } } },
+    { $match: { ...visitScopeMatch(scope), startedAt: { $gte: start, $lt: end } } },
     { $group: {
       _id: { property: "$property", automated: "$automated", ...(byPeriod
         ? { period: { $floor: { $divide: [{ $subtract: ["$startedAt", start] }, 86400000] } } }

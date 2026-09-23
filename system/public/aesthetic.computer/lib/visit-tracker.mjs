@@ -121,7 +121,7 @@ export function startVisitTracker(win = window, doc = document) {
         pad?.axes?.slice(0, 4).some(axis => Math.abs(axis) > 0.5))) interact("gamepad");
     } catch { /* unavailable in some embedded browsers */ }
   }, 1000);
-  const api = { action, stop() { stopped = true; win.clearInterval(timer); listeners.forEach(remove => remove()); } };
+  const api = { action, stop() { stopped = true; win.clearInterval(timer); listeners.forEach(remove => remove()); if (win.acVisits === api) delete win.acVisits; } };
   win.acVisits = api;
   if (visible()) send();
   return api;

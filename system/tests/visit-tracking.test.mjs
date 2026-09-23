@@ -51,3 +51,44 @@ test("collector rejects invalid requests before opening the database", async () 
     { httpMethod: "POST", body: JSON.stringify(snapshot()), headers: { origin: "https://evil.test" } },
   ]) assert.ok((await handler(event)).statusCode >= 400);
 });
+
+test("report defaults to studio and client identity cannot be spoofed", async () => {
+  const { visitScopeMatch, visitGroup, visitReportPipeline, CLIENT_VISIT_PROPERTIES } = await import("../public/aesthetic.computer/lib/visit-model.mjs");
+  const studio = visitScopeMatch().property.$in;
+  for (const property of CLIENT_VISIT_PROPERTIES) {
+    assert.ok(!studio.includes(property));
+    assert.equal(visitGroup(property), "clients");
+    const visit = validateVisit({ ...snapshot(), group: "studio" }, `https://${property}`);
+    assert.equal(visitUpdate(visit).$setOnInsert.group, "clients");
+  }
+  assert.deepEqual(visitScopeMatch("clients").property.$in, [...CLIENT_VISIT_PROPERTIES]);
+  assert.ok(visitScopeMatch("all").property.$in.includes("jas.life"));
+  assert.throws(() => visitScopeMatch("typo"));
+  for (const byPeriod of [false, true]) {
+    const pipeline = visitReportPipeline(new Date(0), new Date(), byPeriod);
+    assert.deepEqual(pipeline[0].$match.property.$in, studio);
+  }
+  for (const host of ["labs.regarde.io", "draft.regarde.io", "builds.false.work", "xbq1m1-qa.myshopify.com"])
+    assert.equal(visitProperty(host), null);
+});
+
+test("Shopify tracking follows analytics consent, including revocation during loading", async () => {
+  const { startShopifyVisits } = await import("../public/aesthetic.computer/lib/visit-shopify.mjs");
+  let allowed = false, starts = 0, stops = 0, resolve;
+  const doc = new EventTarget();
+  const win = { Shopify: { customerPrivacy: { analyticsProcessingAllowed: () => allowed } } };
+  const module = { startVisitTracker() { starts++; win.acVisits = { stop() { stops++; delete win.acVisits; } }; } };
+  let pending = new Promise(r => { resolve = r; });
+  startShopifyVisits(win, doc, () => pending);
+  const tick = () => new Promise(r => setImmediate(r));
+  assert.equal(win.acVisitTrackingDisabled, true);
+  allowed = true; doc.dispatchEvent(new Event("visitorConsentCollected"));
+  allowed = false; doc.dispatchEvent(new Event("visitorConsentCollected"));
+  resolve(module); await tick(); assert.equal(starts, 0);
+  allowed = true; doc.dispatchEvent(new Event("visitorConsentCollected"));
+  await tick(); assert.equal(starts, 1); assert.equal(win.acVisitTrackingDisabled, false);
+  allowed = false; doc.dispatchEvent(new Event("visitorConsentCollected"));
+  assert.equal(stops, 1); assert.equal(win.acVisitTrackingDisabled, true);
+  allowed = true; doc.dispatchEvent(new Event("visitorConsentCollected"));
+  await tick(); assert.equal(starts, 2);
+});

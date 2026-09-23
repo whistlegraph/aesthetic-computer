@@ -79,6 +79,11 @@ cd /opt/ac/system
 node --env-file=.env ../toolchain/analytics/visits-report.mjs --hours 72
 ```
 
+The default scope is **Studio**. Use `--scope clients` for client properties or
+`--scope all` for both. Scope applies to every table, time period and earliest
+retained event. Classification is derived from the reviewed canonical domain,
+including older records; clients never enter the default studio totals.
+
 Optional `--end 2026-09-26T20:00:00Z` makes a report reproducible. Rows group by
 property, automation classification and broad surface. Report automation
 separately; subtract interacted from visits for unknown audience. The sum of
@@ -99,8 +104,13 @@ when those domains serve it. Static entry pages cover Whistlegraph, Jas,
 KidLisp, Prompt, Aesel, Just Another System, Quiltnet and the public AC paper,
 giving, bills, pop, NFT and language front doors. Oskiewar uses its standalone
 shell. Sotce uses its function-generated HTML. Client domains on the same DNS
-account (false.work, danzballet.studio, regarde.io, drvkforlife.com) are not
-included in the studio measurement catalog without explicit client scope.
+account (false.work, danzballet.studio, regarde.io, drvkforlife.com) are
+collected under **Clients**, following explicit authorization. Public landing
+pages only; draft/labs/builds hosts are excluded. Shopify uses
+`visit-shopify.mjs` and the existing
+[Customer Privacy API](https://shopify.dev/docs/api/customer-privacy)
+`analyticsProcessingAllowed()` decision. Denial or revocation stops collection;
+regrant begins a fresh visit. Merchant settings and consent are never changed.
 www aliases roll up to the same property. Reviewed public subdomains are
 explicit; unlisted hosts are denied. Archived RDP painting pages and other
 static documents without the script are not automatically covered.
