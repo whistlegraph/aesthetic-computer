@@ -290,7 +290,9 @@ const state = {
     },
     // Say why the session is not the default one, once. A piece session
     // opened by default has nothing to explain.
-    ...(pro || profile.private ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
+    // Pro says nothing about itself here; the status line under the bar
+    // already does. Private is worth one line, because it is a promise.
+    ...(profile.private ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
   ],
 };
 
@@ -2574,7 +2576,7 @@ try {
     addEntry("notice", "Not signed in to Aesthetic Computer · /login to publish under your @handle");
   }
   if (pro) {
-    addEntry("notice", `${cwd} · pro · your own settings and servers · /inbox · /mode`);
+    // Nothing: the directory and the model sit under the bar.
   } else if (!networked) {
     addEntry("notice", `${live.slug}${live.runtime.extension} · private · not pushed, not published`);
   } else {

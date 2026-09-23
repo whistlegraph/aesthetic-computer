@@ -281,6 +281,8 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
       status: "ready",
       busy: false,
       input: "",
+      account: "@tester",
+      model: "claude-sonnet-5",
       profile: { name: "pro" },
       entries: [
         { id: "u", kind: "user", text: "look at the diff" },
@@ -293,6 +295,13 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   );
   assert.match(frame, /YOU  look at the diff/);
   assert.match(frame, /↓    neo:sip · the build finished/);
-  assert.match(frame, /\/inbox · \/mode/, "pro shows its own footer");
+  // Codex's shape: no header band, a bar with air on both sides, and one
+  // line under it with the handle, the directory and the model.
+  assert.doesNotMatch(frame, /REMOTE · READY/, "pro has no header band");
   assert.doesNotMatch(frame, /\/publish/);
+  const rows = frame.split("\n");
+  assert.equal(rows[rows.length - 4].trim(), "", "air above the bar");
+  assert.match(rows[rows.length - 3], /^ › /, "the bar carries the prompt");
+  assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
+  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar");
 });

@@ -34,6 +34,9 @@ export const palette = {
   // A line from another session. Its own colour, because it has to be
   // unmistakable for what it is not: something the user typed.
   inbox: [120, 200, 255],
+  // The typing bar in pro: one shade up from the ground, so the line being
+  // written is a place and not just a row.
+  bar: [95, 70, 135],
 };
 
 const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
@@ -576,7 +579,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       `${audience.painted} `
     : paint(useColor, "muted", ` ${workspace}`);
 
-  const transcriptRows = height - 5;
+  // Pro has no header band: four rows at the bottom — air, the bar, air, the
+  // status line — and the rest is the conversation.
+  const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
+  const transcriptRows = pro ? height - 4 : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
   // own black on white to be scannable, so a window with colour switched off or
@@ -633,6 +639,48 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
 
   if (state.desktopProsePrompt) prompt = "";
 
+  if (pro) {
+    // Codex's shape: the transcript, a bar to type in with a blank line on
+    // either side, and one muted line under it saying who, where, which model.
+    // Nothing sits between the words and the typing.
+    const barBg = useColor ? bg(palette.bar) : "";
+    const ink = (rgb) => (useColor ? fg(rgb) : "");
+    let inner;
+    if (state.approval) {
+      const choices = cleanText(state.approval.choicesText || "y once  a session  n deny");
+      const room = Math.max(4, width - textWidth("ALLOW ") - textWidth(choices) - 4);
+      inner = `${ink(palette.highlight)}ALLOW${ink(palette.text)} ${clipText(state.approval.subject || "requested action", room)}  ${choices}`;
+    } else {
+      const input = Array.from(cleanText(state.input || ""));
+      const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
+      const room = Math.max(1, width - 4);
+      const start = Math.max(0, cursor - room + 1);
+      const shown = input.slice(start, start + room);
+      const at = cursor - start;
+      const under = shown[at] || " ";
+      // The cursor is painted by hand: `paint` would hand the row back to the
+      // ground after it, and the bar has to run to the edge.
+      const cursorCell = useColor ? `${bg(palette.block)}${under}${color.reset}${barBg}${ink(palette.text)}` : under;
+      inner = `${ink(palette.prompt)}›${ink(palette.text)} ${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${cursorCell}${shown.slice(at + 1).join("")}`;
+    }
+    const bar = `${barBg}${ink(palette.text)}${fit(` ${inner}`, width)}${reset}`;
+    const account = state.account || "";
+    const model = state.model || state.providerSettings?.model || "";
+    const engine = state.providerSettings?.backend || "";
+    const facts = [
+      account ? (account.startsWith("@") ? coloredHandle(account, state.handleColors, useColor) : paint(useColor, "muted", account)) : "",
+      paint(useColor, "muted", clipText(state.workspace || "", Math.max(8, Math.floor(width / 3)))),
+      model ? paint(useColor, "muted", `${model}${engine && engine !== "claude" ? ` · ${engine}` : ""}`) : "",
+      paint(useColor, "muted", mode.toLowerCase()),
+      state.busy ? paint(useColor, "muted", requestFeedback(state)) : state.scrollOffset ? paint(useColor, "muted", `${state.scrollOffset} lines above · End latest`) : "",
+    ].filter(Boolean);
+    const statusLine = ` ${facts.join(paint(useColor, "muted", " · "))}`;
+    return [...body, "", bar, "", statusLine]
+      .slice(0, height)
+      .map((line) => `${ground}${fit(line, width)}${reset}`)
+      .join("\n");
+  }
+
   const rule = paint(useColor, "muted", "─".repeat(width));
   // The little guy keeps the far corner from the QR code. He is one row and he
   // does not move: an animated footer costs a full repaint every few seconds
@@ -675,6 +723,8 @@ export function transcriptLineCount(state, columns = 80, rows = 24, useColor = t
 // Terminal mouse coordinates are one-based, like the displayed header row.
 export function headerAction(state, columns, rows, x, y) {
   if (columns < 32 || rows < 10) return "";
+  // Pro draws no header and no model controls; nothing up there to click.
+  if (state.profile?.name === "pro") return "";
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){
     const p=state.settings,options=drawerOptions(p),index=p.index??drawerIndex(p);
