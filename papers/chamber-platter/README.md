@@ -35,9 +35,11 @@ recording, the digest says so under a Debts heading.
 | [02 · spatial antiphony](digest/02-spatial-antiphony.md) | How placement is phrased: cori spezzati, Brant, Stockhausen, Xenakis, PLOrk; rotation rates that read as motion rather than blur |
 | [03 · process and envelopes](digest/03-process-and-envelopes.md) | Phrase hierarchies in process music; sine-stack recipes (Risset bell, Karplus-Strong law, marimba ratios) for plucked, struck, pad and tap voices |
 | [04 · pop strategies](digest/04-pop-strategies.md) | What AC's own `pop/` tracks already do: forms, builds, the warbling spatial techniques and their parameters |
+| [05 · hearing inside the ring](digest/05-hearing-inside-the-ring.md) | What an off-center listener actually gets from laptop speakers: precedence and the collapse of the crossfade, onsets and the placeable tone, motion limits, masking release, distance compression, bass below the speaker; nine rules the September 23 composer follows |
 
-Sources: `sources-01.json` … `sources-04.json`, flat `{id, title, author, year, url, kind}`
-arrays, one per digest.
+Sources: `sources-01.json` … `sources-05.json`, flat `{id, title, author, year, url, kind}`
+arrays, one per digest (05 adds a `checked` flag, as rhythm-platter does; an
+unchecked entry may not be cited in a paper).
 
 The long-form studies the digests were distilled from, with their
 recommendations for the CultureHub piece, are in

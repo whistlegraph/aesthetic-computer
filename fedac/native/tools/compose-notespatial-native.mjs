@@ -19,7 +19,7 @@
 //   V    Sneak         Cm 4/4    an offbeat bass creeps one seat a bar; a whole-tone tiptoe; the reveal
 //   VI   Lullaby       F  6/8    a cradle of arpeggios around the room; the whole field turns once
 //   VII  The Climb     C  4/4    four registers, a high line against the ring, the break
-//   VIII The Lift      D  4/4    the theme leaves the hands and orbits; the blast; the eight-turn spin; the tutti
+//   VIII The Lift      D  4/4    the theme leaves the hands and hops the ring; the blast; the eight-turn spin; the tutti
 //   IX   Fanfare       G  4/4    front pair calls, back pair answers, brass in triangle waves; a stinger
 //   X    Return        C  4/4    the theme back in the hands; the tour; the mirror; subtraction
 //   XI   Vanish        free      the ring hands back the last phrase; the hands close on C; one tap from behind
@@ -28,6 +28,14 @@
 // pluck, brass). The held voice warbles against a detuned copy, deeper as
 // the piece goes on. The whole field can turn (fieldShift), so laptops
 // trade channels: a blast, a spin, a tour.
+//
+// Written for an audience INSIDE the ring, on laptop speakers (see
+// papers/chamber-platter/digest/05-hearing-inside-the-ring.md): low roots
+// carry their octave and twelfth because a laptop passes little under
+// 200 Hz; anything meant to be placed has a fast attack and an octave above
+// 1.5 kHz; the theme and its answer hop seat to seat rather than glide,
+// since off-center nobody hears a crossfade as motion; the walk keeps to the
+// far side of the ring from the tune; a runner holds a seat 200 ms or more.
 //
 //   node fedac/native/tools/compose-notespatial-native.mjs
 //     → scores/notespatial-native.nsscore, plus one file per chapter
@@ -55,8 +63,16 @@ const KICK = lane('kick', [255, 107, 125], { az: ringAz(0) });
 const SNARE = lane('snare', [122, 223, 153], { az: ringAz(2) });
 const PAD = [0, 1, 2].map(m => lane(`pad ${'abc'[m]}`, [156, 179, 237], { orbitSeconds: 60, azOffset: 0 }));
 const TOP = lane('top line', [225, 235, 170], { orbitSeconds: 24, orbitDirection: -1 });
-const THEME = lane('theme (orbit)', [255, 194, 72], { orbitSeconds: 12.5 });
-const ANSWER = lane('answer (orbit)', [116, 210, 235], { orbitSeconds: 15, orbitDirection: -1 });
+// The theme and its answer travel the ring. By default they HOP: each note is
+// pinned whole to the seat nearest its orbit angle at onset, so one laptop
+// plays it (no two-laptop crossfade to flam under clock skew, and no phantom
+// image between seats, which only a centered listener would hear anyway;
+// chamber-platter digest 05). `--glide` writes them to continuously panning
+// lanes instead, the pre-September-23 behaviour.
+const GLIDE = process.argv.includes('--glide');
+const THEME_ORBIT = { orbitSeconds: 12.5, orbitDirection: 1 }, ANSWER_ORBIT = { orbitSeconds: 15, orbitDirection: -1 };
+const THEME = GLIDE ? lane('theme (orbit)', [255, 194, 72], THEME_ORBIT) : Array.from({ length: RING }, (_, k) => lane(`theme ${k + 1}`, [255, 194, 72], { az: ringAz(k) }));
+const ANSWER = GLIDE ? lane('answer (orbit)', [116, 210, 235], ANSWER_ORBIT) : Array.from({ length: RING }, (_, k) => lane(`answer ${k + 1}`, [116, 210, 235], { az: ringAz(k) }));
 const HATS = lane('hats', [230, 233, 241], { orbitSeconds: 5 });
 PAD.forEach((i, m) => { lanes[i].azOffset = m * TAU / 3 - i / lanes.length * TAU; });
 for (const l of lanes) if (!(l.center || Number.isFinite(l.az) || l.orbitSeconds > 0)) throw Error(`${l.name}: neither pinned, centered nor orbiting`);
@@ -86,16 +102,43 @@ function brass(i, t, dur, midi, g) { // fanfare: triangle body, sine octave, qui
   ev(i, t, dur * .8, midi + 12, g * .25, 'sine', .01, dur * .3, null, hz(midi) * 2);
 }
 const stacc = (i, t, dur, midi, g, wave = 'sine') => ev(i, t, dur, midi, g, wave, .003, dur * .6);
-const soft = (i, t, dur, midi, g) => ev(i, t, dur, midi, g, 'sine', .02, dur * .7); // echoes
+// Echoes: a sine with a short octave on top, so the answer carries energy
+// above 1.5 kHz and can be placed by level as well as timing (digest 05 R2).
+const soft = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g, 'sine', .02, dur * .7); ev(i, t, dur * .5, midi + 12, g * .22, 'sine', .002, dur * .4, null, hz(midi) * 2); };
 const pad = (i, t, dur, midi, g) => ev(i, t, dur, midi, g, 'sine', .6, dur * .5);
+// A low note on a laptop: the speaker rolls off under about 200 Hz, so the
+// root is carried by its octave and twelfth and heard as the residue pitch
+// (Ritsma 1967; digest 05 R1). The triangle fundamental stays for the small
+// speaker and for whatever the laptops do pass.
+function bassNote(i, t, dur, midi, g, attack = .015, decay = null) {
+  const d = decay ?? dur * .5;
+  ev(i, t, dur, midi, g, 'triangle', attack, d);
+  ev(i, t, dur * .9, midi + 12, g * .5, 'sine', attack, d * .8, null, hz(midi) * 2);
+  ev(i, t, dur * .7, midi + 19, g * .28, 'sine', attack, d * .6, null, hz(midi) * 3);
+}
 function tap(i, t, low, g) {
   ev(i, t, .27, null, g, 'sine', .012, .22, null, low ? 130 : 330);
   ev(i, t + .02, .31, null, g * .5, 'sine', .02, .26, null, low ? 90 : 220);
   ev(i, t, .03, null, g * .35, 'noise', .001, .02, null, 1000);
 }
+// Kick: the 78 Hz body is below what a laptop passes, so its second harmonic
+// and a click carry the hit; the body stays for any speaker that has it.
+function kick(t, g) {
+  ev(KICK, t, .03, null, .3 * g, 'noise', .001, .02, null, 2500); // 30 ms: nothing shorter survives a 25 ms scheduler frame
+  ev(KICK, t, .055, null, .8 * g, 'sine', .001, .04, null, 150);
+  ev(KICK, t + .06, .16, null, .75 * g, 'sine', .001, .11, null, 78);
+  ev(KICK, t + .06, .14, null, .45 * g, 'sine', .001, .1, null, 156);
+}
 const crash = (t, g) => { for (let k = 0; k < RING; k++) ev(WALK[k], t + k * .012, .5, null, g, 'noise', .002, .4, null, 3000); ev(VOICE, t, .4, null, g * .6, 'noise', .002, .3, null, 3000); };
 function orbitAngle(i, t) { const l = lanes[i]; return i / lanes.length * TAU + (l.azOffset || 0) + t / l.orbitSeconds * TAU * (l.orbitDirection === -1 ? -1 : 1); }
 const ringSeatOf = angle => ((Math.round(angle / TAU * RING) % RING) + RING) % RING;
+// Hop law for the theme and the answer: the seat nearest the orbit angle,
+// measured from `hopOrigin` so the theme leaves the hands at the front seat.
+let hopOrigin = 0;
+const hopSeat = (o, t) => ringSeatOf((t - hopOrigin) / o.orbitSeconds * TAU * (o.orbitDirection === -1 ? -1 : 1));
+const themeSeat = t => GLIDE ? ringSeatOf(orbitAngle(THEME, t)) : hopSeat(THEME_ORBIT, t);
+const themeLane = t => GLIDE ? THEME : THEME[hopSeat(THEME_ORBIT, t)];
+const answerLane = t => GLIDE ? ANSWER : ANSWER[hopSeat(ANSWER_ORBIT, t)];
 
 // ── material ──────────────────────────────────────────────────────────
 const TRIAD = { C: [60, 64, 67], Am: [57, 60, 64], F: [53, 57, 60], G: [55, 59, 62] };
@@ -139,10 +182,15 @@ function phrase(o) {
       for (const [a, d, m] of THEME_PHRASES[bar / 2]) {
         const up = lift && a >= 4 ? 12 : 0, midi = m + tr + register * 12 + up, tn = bt(bar, a), dur = d * beat * .92;
         if (themeWhere === 'center') bell(VOICE, tn, dur, midi, .5 * soft_ * swell);
-        else { ev(THEME, tn, dur, midi, .55 * soft_ * swell, 'sine', .004, dur * .7); if (warbleCents > 0 && dur > .5) ev(THEME, tn, dur, null, .27 * soft_ * swell, 'sine', .45, dur * .6, null, hz(midi) * 2 ** (warbleCents / 1200)); }
-        if (answer && a >= 4 && bar >= 2) ev(ANSWER, tn + .5 * beat, dur * .6, midi - 12, .26 * swell, 'triangle', .006, dur * .4);
+        else {
+          const L = themeLane(tn), g = .55 * soft_ * swell;
+          ev(L, tn, dur, midi, g, 'sine', .004, dur * .7);
+          ev(L, tn, dur * .5, midi + 12, g * .25, 'sine', .002, dur * .4, null, hz(midi) * 2); // the octave: energy above 1.5 kHz, so the travelling theme can be placed
+          if (warbleCents > 0 && dur > .5) ev(L, tn, dur, null, g * .5, 'sine', .45, dur * .6, null, hz(midi) * 2 ** (warbleCents / 1200));
+        }
+        if (answer && a >= 4 && bar >= 2) ev(answerLane(tn + .5 * beat), tn + .5 * beat, dur * .6, midi - 12, .26 * swell, 'triangle', .006, dur * .4);
         if (echoes && echoOf === 'theme' && (a === 0 || a === 2 || a === 4)) {
-          const base = themeWhere === 'orbit' ? ringSeatOf(orbitAngle(THEME, tn)) : echoHop;
+          const base = themeWhere === 'orbit' ? themeSeat(tn) : echoHop;
           const plan = [[.375, 2, .34], [.75, 3, .18], [1.5, 1, .09]];
           for (let e = 0; e < echoes; e++) soft(ECHO[seatMap((base + plan[e][1]) % RING)], tn + plan[e][0] * 2 * beat, .7, midi, .5 * soft_ * swell * plan[e][2]);
           echoHop++;
@@ -153,7 +201,8 @@ function phrase(o) {
       const cycles = last && cadence ? 1 : 2;
       for (let c = 0; c < cycles; c++) for (let j = 0; j < 3; j++) {
         const tn = bt(bar, c * 2 + swing(j / 3) * 2), midi = chord[j] + 12 + register * 12;
-        const seat = walkWhere === 'ring' ? walkHop % RING : walkWhere === 'split' ? (bar < 4 ? FRONT[walkHop % 3] : BACK[walkHop % 2]) : walkWhere === 'front' ? FRONT[walkHop % 3] : 0;
+        // While the theme travels, the walk keeps to the two seats across the ring from it (144° or more), so the tune is not masked by its own accompaniment (digest 05 R4).
+        const seat = walkWhere === 'ring' ? (theme && themeWhere === 'orbit' ? (themeSeat(tn) + 2 + walkHop % 2) % RING : walkHop % RING) : walkWhere === 'split' ? (bar < 4 ? FRONT[walkHop % 3] : BACK[walkHop % 2]) : walkWhere === 'front' ? FRONT[walkHop % 3] : 0;
         pluck(WALK[seatMap(seat)], tn, .6 * beat, midi, .34 * soft_ * swell, walkPartials);
         if (echoes && echoOf === 'walk' && j === 0) soft(ECHO[seatMap((seat + 2) % RING)], tn + .75 * beat, .6, midi, .12 * soft_ * swell);
         walkHop++;
@@ -166,9 +215,9 @@ function phrase(o) {
     }
     if (bass) {
       const root = chord[0] - 12;
-      if (drums) { for (const b of [0, 1.5, 2, 3.5]) ev(BASS, bt(bar, b), .42 * beat, root, .5 * swell, 'triangle', .008, .1); }
-      else if (last) ev(BASS, bt(bar, 0), 3.6 * beat, root, .4 * swell, 'triangle', .02, 2 * beat);
-      else for (const b of [0, 2]) ev(BASS, bt(bar, b), 1.6 * beat, root, .42 * swell, 'triangle', .015, .8 * beat);
+      if (drums) { for (const b of [0, 1.5, 2, 3.5]) bassNote(BASS, bt(bar, b), .42 * beat, root, .5 * swell, .008, .1); }
+      else if (last) bassNote(BASS, bt(bar, 0), 3.6 * beat, root, .4 * swell, .02, 2 * beat);
+      else for (const b of [0, 2]) bassNote(BASS, bt(bar, b), 1.6 * beat, root, .42 * swell, .015, .8 * beat);
     }
     if (pads && bar % 2 === 0) chord.forEach((p, m) => pad(PAD[m], bt(bar, 0), 7.6 * beat, p, .13 * swell));
     if (top && bar % 2 === 1) {
@@ -178,7 +227,7 @@ function phrase(o) {
     }
     if (hats && !(last && breakBar)) for (let b = 0; b < 4; b += .5) ev(HATS, bt(bar, b), b % 1 ? .045 : .027, null, (b % 1 ? .3 : .19) * swell, 'noise', .001, .02, null, 7000);
     if (drums) {
-      for (const a of [0, 2, ...(bar % 4 === 3 ? [3.5] : [])]) { ev(KICK, bt(bar, a), .055, null, .8 * swell, 'sine', .001, .04, null, 150); ev(KICK, bt(bar, a) + .06, .16, null, .75 * swell, 'sine', .001, .11, null, 78); }
+      for (const a of [0, 2, ...(bar % 4 === 3 ? [3.5] : [])]) kick(bt(bar, a), swell);
       if (!(last && finalChord)) for (const a of [1, 3]) { ev(SNARE, bt(bar, a), .11, null, .4 * swell, 'noise', .001, .08, null, 2400); ev(SNARE, bt(bar, a), .095, null, .45 * swell, 'triangle', .001, .07, null, 185); }
     }
   }
@@ -186,7 +235,7 @@ function phrase(o) {
   if (finalChord) {
     [60, 64, 67, 72, 76].forEach((m, k) => pluck(WALK[k], bt(6, 0), 8 * beat, m + tr, .5 * lvl, false));
     bell(VOICE, bt(6, 0), 8 * beat, 84 + tr, .55 * lvl);
-    ev(BASS, bt(6, 0), 8 * beat, 48 + tr, .5 * lvl, 'triangle', .01, 4 * beat);
+    bassNote(BASS, bt(6, 0), 8 * beat, 48 + tr, .5 * lvl, .01, 4 * beat);
   }
   cursor += 8 * barLen;
 }
@@ -231,7 +280,7 @@ chapter('III · Waltz', 'oom at the back, pah left, pah right; the ring takes th
   const hands = (k, t) => VOICE, hop = () => WALK[walkHop++ % RING];
   function oompah(bar, harm, lvl) {
     const [, root, chord] = harm[bar % 8];
-    ev(BASS, bt(bar, 0), .55 * beat, root, .5 * lvl, 'triangle', .008, .25 * beat);
+    bassNote(BASS, bt(bar, 0), .55 * beat, root, .5 * lvl, .008, .25 * beat);
     for (const b of [1, 2]) chord.forEach(m => pluck(WALK[b === 1 ? 1 : 4], bt(bar, b), .5 * beat, m, .17 * lvl, false));
   }
   // A A' in the hands
@@ -252,7 +301,7 @@ chapter('III · Waltz', 'oom at the back, pah left, pah right; the ring takes th
   for (const b of [124, 112]) {
     setTempo(b);
     const s = cursor;
-    for (let bar = 0; bar < 4; bar++) { const [, root, chord] = HA2[4 + bar]; ev(BASS, s + bar * 3 * beat, .55 * beat, root, .45, 'triangle', .008, .25 * beat); for (const k of [1, 2]) chord.forEach(m => pluck(WALK[k === 1 ? 1 : 4], s + (bar * 3 + k) * beat, .5 * beat, m, .15, false)); }
+    for (let bar = 0; bar < 4; bar++) { const [, root, chord] = HA2[4 + bar]; bassNote(BASS, s + bar * 3 * beat, .55 * beat, root, .45, .008, .25 * beat); for (const k of [1, 2]) chord.forEach(m => pluck(WALK[k === 1 ? 1 : 4], s + (bar * 3 + k) * beat, .5 * beat, m, .15, false)); }
     melody(TAG, s, hands, .5, bell);
     cursor = s + 12 * beat;
   }
@@ -269,10 +318,12 @@ chapter('IV · Chase', 'two runners circle the ring, one chasing the inversion o
   for (const [b, reps] of round === 0 ? [[152, 3], [168, 3], [184, 2]] : [[168, 2], [184, 2], [200, 2]]) {
     setTempo(b);
     const start = cursor, eighth = beat / 2;
+    // A seat must hold a runner for 200 ms or more to read as a place rather than a texture (digest 05 R5); above 150 BPM each seat takes two eighths.
+    const per = eighth < .2 ? 2 : 1;
     for (let r = 0; r < reps; r++) {
       const t0 = start + r * 8 * beat;
-      run.forEach((m, i) => stacc(WALK[(walkHop + i) % RING], t0 + i * eighth, eighth * .8, m, .4));
-      run.forEach((m, i) => stacc(WALK[(walkHop + i - 2 + RING * 2) % RING], t0 + (i + 4) * eighth, eighth * .8, 144 - m - 12, .3, 'triangle')); // the pursuer: inverted, an octave down, two seats behind
+      run.forEach((m, i) => stacc(WALK[(walkHop + Math.floor(i / per)) % RING], t0 + i * eighth, eighth * .8, m, .4));
+      run.forEach((m, i) => stacc(WALK[(walkHop + Math.floor(i / per) - 2 + RING * 2) % RING], t0 + (i + 4) * eighth, eighth * .8, 144 - m - 12, .3, 'triangle')); // the pursuer: inverted, an octave down, two seats behind
       walkHop += run.length;
       for (let k = 0; k < 4; k++) tap(TAP_F, t0 + k * 2 * beat, true, .18);
       bell(VOICE, t0 + 7 * beat, beat * .9, r % 2 ? 77 : 84, .35); // the hands call out the top at the breath
@@ -298,8 +349,9 @@ chapter('V · Sneak', 'an offbeat bass creeps one seat a bar around the audience
   function creep(bar, fast) {
     const seat = bar % RING, root = bar % 2 ? 43 : 48;
     const beats = fast ? [.5, 1.5, 2.5, 3.5] : [1, 3];
-    for (const b of beats) stacc(WALK[seat], bt(bar, b), .16, root, .42, 'triangle');
-    ev(WALK[seat], bt(bar, 0), .03, null, .12, 'noise', .001, .02, null, 2500);
+    // The creep is the one gesture whose whole point is WHERE; at 98 to 131 Hz a laptop barely passes it and nobody can place it, so every step carries its octave, twelfth and a tick (digest 05 R1, R2).
+    for (const b of beats) { bassNote(WALK[seat], bt(bar, b), .16, root, .42, .003, .1); ev(WALK[seat], bt(bar, b), .03, null, .1, 'noise', .001, .02, null, 2500); }
+    ev(WALK[seat], bt(bar, 0), .04, null, .2, 'noise', .001, .03, null, 2500);
   }
   const TIPTOE = [[75, 1], [73, 1], [71, 1], [0, 1], [69, 1], [67, 1], [65, 1], [0, 1], [63, 1], [61, 1], [59, 1], [0, 1], [0, 4]];
   for (let bar = 0; bar < 12; bar++) creep(bar, false);
@@ -314,7 +366,7 @@ chapter('V · Sneak', 'an offbeat bass creeps one seat a bar around the audience
   // silence for two beats, then the sneak again at double speed, and a last low C
   for (let bar = 13; bar < 19; bar++) creep(bar, true);
   melody(TIPTOE.slice(0, 11), bt(13, 0), () => VOICE, .38, (i, t, d, m, g) => ev(i, t, d, m, g, 'sine', .003, d * .55), .3);
-  stacc(WALK[4], bt(19, 0), 1.5 * beat, 36, .5, 'triangle');
+  bassNote(WALK[4], bt(19, 0), 1.5 * beat, 36, .5, .003, .9 * beat);
   bell(VOICE, bt(19, 0), 2 * beat, 60, .4);
   cursor = bt(20, 0) + 1.2;
 });
@@ -360,8 +412,9 @@ chapter('VII · The Climb', 'four registers an octave apart, a high line gliding
 
 // ── VIII · The Lift (D, 4/4) ──────────────────────────────────────────
 warbleCents = 22;
-chapter('VIII · The Lift', 'up a whole step: the theme leaves the hands and orbits over kick and snare; the blast; the eight-turn spin; the tutti', 1, () => {
+chapter('VIII · The Lift', 'up a whole step: the theme leaves the hands and hops the ring over kick and snare; the blast; the eight-turn spin; the tutti', 1, () => {
   const D = { tr: 2, register: -1, walkWhere: 'ring', walkPartials: false, theme: true, themeWhere: 'orbit', drums: true, taps: false, pads: true, echoes: 2, fill: false, cadence: false };
+  hopOrigin = cursor; // the theme leaves the hands and lands at the front seat, then hops clockwise one seat every 2.5 s
   turnsPlan.push({ type: 'blast', t: cursor });
   setTempo(120); phrase({ ...D, lvl: .95 });
   setTempo(120); phrase({ ...D, lvl: 1, answer: true });
@@ -394,14 +447,14 @@ chapter('IX · Fanfare', 'the front pair calls, the back pair answers, brass in 
   const themeG = THEME_PHRASES[0].map(([a, d, m]) => [m + 7, d]);
   melody(themeG, bt(8, 0), () => VOICE, .55, bell, .9);
   melody(THEME_PHRASES[3].map(([a, d, m]) => [m + 7, d]), bt(12, 0), () => VOICE, .55, bell, .9);
-  for (let bar = 8; bar < 16; bar++) { ev(BASS, bt(bar, 0), .5 * beat, 43, .5, 'triangle', .008, .2); ev(BASS, bt(bar, 2), .5 * beat, 50, .45, 'triangle', .008, .2); }
+  for (let bar = 8; bar < 16; bar++) { bassNote(BASS, bt(bar, 0), .5 * beat, 43, .5, .008, .2); bassNote(BASS, bt(bar, 2), .5 * beat, 50, .45, .008, .2); }
   // call and answer once more, then the stinger
   melody(CALL, bt(16, 0), front, .5, brass, .85);
   melody(ANS.map(([m, d]) => [m + 12, d]), bt(18, 0), back, .45, brass, .85);
   for (let b = 0; b < 4; b++) tap(TAP_F, bt(16 + b, 0), true, .22);
   G.forEach((m, k) => brass(WALK[k], bt(20, 0), .35 * beat, m + 12, .6));
   bell(VOICE, bt(20, 0), .35 * beat, 91, .6);
-  ev(BASS, bt(20, 0), .35 * beat, 43, .6, 'triangle', .005, .1);
+  bassNote(BASS, bt(20, 0), .35 * beat, 43, .6, .005, .1);
   cursor = bt(20, 0) + .35 * beat + 1.6; // silence
 });
 
