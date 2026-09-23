@@ -1,16 +1,6 @@
 import AppKit
 
-/// Combo trials for scales — the fighting-game practice loop worn by the
-/// pitch-slider page. A ladder of numbered trials (each one scale: name,
-/// root, ascending intervals); the strip shows the whole sequence as
-/// colored pills, a wrong note DROPS the pass back to the start (like a
-/// dropped combo), and playing it clean flashes a CLEAR banner, rings the
-/// clear chime, and auto-advances to the next trial. `/` toggles the mode,
-/// `-`/`=` skip backward/forward through the ladder.
-///
-/// A class, deliberately: this is the director that owns the trial list,
-/// the pass state, and the banner→advance clock, so the app delegate only
-/// feeds it notes and repaints.
+/// Self-paced scale practice: only the expected pitch advances the desktop tracks.
 final class ToneTrials {
     struct Trial {
         let title: String
@@ -57,6 +47,10 @@ final class ToneTrials {
     private var lastHitAt: CFTimeInterval = -.infinity
     private var lastDropAt: CFTimeInterval = -.infinity
     private var clearedAt: CFTimeInterval?
+    func trackPosition(at now: CFTimeInterval) -> Double {
+        let arrival = max(0, min(1, (now - lastHitAt) / 0.22))
+        return Double(progress) - (progress > 0 ? pow(1 - arrival, 3) : 0)
+    }
 
     var trial: Trial { Self.trials[index] }
 
@@ -90,11 +84,7 @@ final class ToneTrials {
         lastDropAt = -.infinity
     }
 
-    /// Judge a sounded note against the next degree, by pitch class so any
-    /// octave counts. Right note advances; re-striking the degree just hit
-    /// is free (repeats while phrasing are not drops); a wrong note DROPS
-    /// the whole pass back to the start — trials rules, not a scold: the
-    /// restart IS the practice. Notes during the CLEAR banner are ignored.
+    /// Wrong pitches leave the next note waiting. Practice begins immediately.
     func registerNote(_ midi: Int, at now: CFTimeInterval) {
         guard isActive, clearedAt == nil else { return }
         let intervals = trial.intervals
@@ -113,7 +103,6 @@ final class ToneTrials {
            pitchClass == (trial.root + intervals[progress - 1]) % 12 {
             return
         }
-        progress = 0
         lastDropAt = now
     }
 
@@ -174,6 +163,7 @@ struct ToneTrialsSnapshot {
 /// for eyeballing states, and the pixel source if a reel ever wants one.
 ///
 /// Flags after `--render-tonetrials`:
+///   --tracks           render desktop tracks and the actual target keyboard
 ///   --trial 3          1-based ladder position (default 1)
 ///   --progress 4       degrees already landed (default 0)
 ///   --clear | --drop   flash state to capture
@@ -228,9 +218,30 @@ enum ToneTrialsCLI {
             )
         }
 
-        let chart = PitchBendCursor.image(forBend: 0, echo: 0, keyDown: false)
-        let image = ToneTrialsStrip.composite(chart: chart,
-                                              snapshot: snapshot, dark: dark)
+        let image: NSImage
+        if args.contains("--tracks") {
+            if trials.progress < intervals.count {
+                KeyboardIconRenderer.practiceTargetMidi = 60 + trials.trial.root + intervals[trials.progress]
+            }
+            let keyboard = KeyboardIconRenderer.image(litNotes: [], enabled: false)
+            let view = ToneTrialsTracksView(frame: NSRect(x: 0, y: 0,
+                                                         width: keyboard.size.width, height: 180))
+            view.keys = (KeyboardIconRenderer.activeRange ?? 60...83).compactMap { midi in
+                KeyboardIconRenderer.keyRect(for: UInt8(midi)).map { (midi, $0) }
+            }
+            view.trials = trials
+            view.now = strikeAt + 0.3
+            image = NSImage(size: NSSize(width: keyboard.size.width,
+                                        height: 180 + keyboard.size.height))
+            image.lockFocus()
+            view.draw(view.bounds)
+            keyboard.draw(at: NSPoint(x: 0, y: 180), from: .zero,
+                          operation: .sourceOver, fraction: 1)
+            image.unlockFocus()
+        } else {
+            let chart = PitchBendCursor.image(forBend: 0, echo: 0, keyDown: false)
+            image = ToneTrialsStrip.composite(chart: chart, snapshot: snapshot, dark: dark)
+        }
         let scale = max(1, Double(value("--scale") ?? "3") ?? 3)
         let output = value("--out") ?? "/tmp/menuband-tonetrials.png"
         let pixelWidth = Int((image.size.width * scale).rounded())
@@ -417,5 +428,135 @@ enum ToneTrialsStrip {
                                     y: rect.midY - bannerSize.height / 2),
                         withAttributes: bannerAttrs)
         }
+    }
+}
+
+/// Click-through desktop lanes aligned with the real menu-bar keys.
+final class ToneTrialsTracks {
+    private let view = ToneTrialsTracksView(frame: .zero)
+    private let panel: NSPanel
+
+    init() {
+        panel = NSPanel(contentRect: .zero,
+                        styleMask: [.borderless, .nonactivatingPanel],
+                        backing: .buffered, defer: false)
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.ignoresMouseEvents = true
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.contentView = view
+    }
+
+    func hide() { panel.orderOut(nil) }
+
+    func update(trials: ToneTrials, button: NSStatusBarButton,
+                now: CFTimeInterval) {
+        guard trials.isActive, let window = button.window,
+              let range = KeyboardIconRenderer.activeRange else {
+            hide()
+            return
+        }
+        let buttonFrame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        let scale = KeyboardIconRenderer.iconScale
+        let offset = (button.bounds.width - KeyboardIconRenderer.imageSize.width) / 2
+        let keys: [(midi: Int, rect: NSRect)] = range.compactMap { midi in
+            guard let rect = KeyboardIconRenderer.keyRect(for: UInt8(midi)) else { return nil }
+            return (midi, NSRect(x: offset + rect.minX * scale, y: 0,
+                                width: rect.width * scale, height: 0))
+        }
+        guard let left = keys.map({ $0.rect.minX }).min(),
+              let right = keys.map({ $0.rect.maxX }).max() else { hide(); return }
+        let height: CGFloat = 180
+        let frame = NSRect(x: buttonFrame.minX + left, y: buttonFrame.minY - height,
+                           width: right - left, height: height)
+        panel.setFrame(frame, display: false)
+        view.keys = keys.map { ($0.midi, $0.rect.offsetBy(dx: -left, dy: 0)) }
+        view.trials = trials
+        view.now = now
+        view.needsDisplay = true
+        panel.orderFrontRegardless()
+    }
+}
+
+final class ToneTrialsTracksView: NSView {
+    var keys: [(midi: Int, rect: NSRect)] = []
+    var trials: ToneTrials?
+    var now: CFTimeInterval = 0
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let trials, let snapshot = trials.snapshot(at: now) else { return }
+        let targetY = bounds.height + 10
+        let spacing: CGFloat = 20
+        let position = trials.trackPosition(at: now)
+        let upcoming = trials.trial.intervals.enumerated().compactMap { index, interval
+            -> (index: Int, key: (midi: Int, rect: NSRect))? in
+            let midi = 60 + trials.trial.root + interval
+            guard let key = keys.first(where: { $0.midi == midi })
+                ?? keys.first(where: { $0.midi % 12 == midi % 12 }) else { return nil }
+            return (index, key)
+        }
+        // Quiet vertical dividers keep every lane registered to its key.
+        let centers = keys.map { $0.rect.midX }.sorted()
+        let lastIndex = upcoming.last?.index ?? trials.progress
+        let trackBottom = max(18, targetY - CGFloat(Double(lastIndex) - position) * spacing - 8)
+        if trials.progress < upcoming.count, centers.count > 1 {
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+            shadow.shadowBlurRadius = 1
+            shadow.shadowOffset = .zero
+            shadow.set()
+            NSColor.white.withAlphaComponent(0.22).setStroke()
+            for (left, right) in zip(centers, centers.dropFirst()) {
+                let x = (left + right) / 2
+                let divider = NSBezierPath()
+                divider.move(to: NSPoint(x: x, y: trackBottom))
+                divider.line(to: NSPoint(x: x, y: bounds.height))
+                divider.lineWidth = 0.5
+                divider.stroke()
+            }
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        for item in upcoming where item.index > trials.progress {
+            let distance = CGFloat(Double(item.index) - position)
+            let y = targetY - distance * spacing
+            guard y >= 22, y < bounds.height + 8,
+                  let label = KeyboardIconRenderer.labelByMidi[item.key.midi] else { continue }
+            let width = max(10, min(20, item.key.rect.width - 2))
+            let rect = NSRect(x: item.key.rect.midX - width / 2, y: y - 8,
+                              width: width, height: 16)
+            let color = KeyboardIconRenderer.noteColor(forMidi: item.key.midi)
+            NSGraphicsContext.saveGraphicsState()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+            shadow.shadowBlurRadius = 3
+            shadow.shadowOffset = NSSize(width: 0, height: -1)
+            shadow.set()
+            let pill = NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3)
+            color.setFill()
+            pill.fill()
+            NSGraphicsContext.restoreGraphicsState()
+            let rgb = color.usingColorSpace(.sRGB) ?? color
+            let light = 0.2126 * rgb.redComponent + 0.7152 * rgb.greenComponent
+                + 0.0722 * rgb.blueComponent
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
+                .foregroundColor: light > 0.5 ? NSColor.black : NSColor.white
+            ]
+            let size = label.size(withAttributes: attrs)
+            label.draw(at: NSPoint(x: rect.midX - size.width / 2,
+                                   y: rect.midY - size.height / 2), withAttributes: attrs)
+        }
+        let label = snapshot.clearBanner > 0 ? "✓" : snapshot.title
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+            .foregroundColor: NSColor.white,
+            .strokeColor: NSColor.black, .strokeWidth: -3
+        ]
+        let size = label.size(withAttributes: attrs)
+        let labelY = max(1, targetY - CGFloat(upcoming.count - trials.progress) * spacing - 12)
+        label.draw(at: NSPoint(x: bounds.midX - size.width / 2, y: labelY), withAttributes: attrs)
     }
 }

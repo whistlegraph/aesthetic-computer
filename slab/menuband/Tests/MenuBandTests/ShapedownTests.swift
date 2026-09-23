@@ -715,14 +715,14 @@ final class ShapedownTests: XCTestCase {
         )
     }
 
-    func testTrackDrumSlashAndHelpRemainDistinct() {
+    func testTrackDrumSlashAndScalesRemainDistinct() {
         XCTAssertEqual(
             AppDelegate.trackDrumSlashAction(keyCode: 44, flags: []),
             .trainer
         )
         XCTAssertEqual(
             AppDelegate.trackDrumSlashAction(keyCode: 44, flags: [.shift]),
-            .help
+            .scales
         )
         XCTAssertNil(
             AppDelegate.trackDrumSlashAction(keyCode: 44, flags: [.command])

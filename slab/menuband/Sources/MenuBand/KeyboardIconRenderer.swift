@@ -47,6 +47,40 @@ enum KeyboardIconRenderer {
         11: NSColor(srgbRed: 180/255, green:  80/255, blue: 255/255, alpha: 1),  // B
     ]
 
+    /// Practice target is a visual cue, never a sounding or held note.
+    static var practiceTargetMidi: Int?
+
+    private static func drawPracticeTarget(midi: Int, in rect: NSRect) {
+        let color = noteColor(forMidi: midi)
+        let face = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                xRadius: 2, yRadius: 2)
+        color.setFill()
+        face.fill()
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        face.lineWidth = 1
+        face.stroke()
+        guard let label = labelByMidi[midi] else { return }
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        let light = 0.2126 * rgb.redComponent + 0.7152 * rgb.greenComponent
+            + 0.0722 * rgb.blueComponent
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .bold),
+            .foregroundColor: light > 0.5 ? NSColor.black : NSColor.white
+        ]
+        let size = label.size(withAttributes: attrs)
+        let y = isWhite(midi) ? rect.minY + 1 : rect.midY - size.height / 2
+        label.draw(at: NSPoint(x: rect.midX - size.width / 2, y: y), withAttributes: attrs)
+    }
+
+    /// Shared melodic palette; accidentals sit between their neighboring naturals.
+    static func noteColor(forMidi midi: Int) -> NSColor {
+        let pitch = ((midi % 12) + 12) % 12
+        if let color = chromaticColorByPitchClass[pitch] { return color }
+        let lower = chromaticColorByPitchClass[(pitch + 11) % 12]!
+        let upper = chromaticColorByPitchClass[(pitch + 1) % 12]!
+        return lower.blended(withFraction: 0.5, of: upper) ?? lower
+    }
+
     /// Drum-pad colors (port of PERCUSSION_COLORS in lib/percussion.mjs),
     /// indexed by pitch class. Painted over the right-hand keys while the
     /// percussion split is active so the drum zone reads at a glance.
@@ -1234,7 +1268,9 @@ enum KeyboardIconRenderer {
                     // key the user is currently playing. Falls back to the
                     // legacy binary `typeMode` rendering when no closure is
                     // supplied (e.g., previews that don't drive animation).
-                    if tileOffset == 0, let letter = labelByMidi[m] {
+                    if tileOffset == 0, practiceTargetMidi == m {
+                        drawPracticeTarget(midi: m, in: rect)
+                    } else if tileOffset == 0, let letter = labelByMidi[m] {
                         let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {
@@ -1343,7 +1379,9 @@ enum KeyboardIconRenderer {
                         path.lineWidth = 0.6
                     }
                     path.stroke()
-                    if tileOffset == 0, let letter = labelByMidi[m] {
+                    if tileOffset == 0, practiceTargetMidi == m {
+                        drawPracticeTarget(midi: m, in: rect)
+                    } else if tileOffset == 0, let letter = labelByMidi[m] {
                         let display = Self.uppercaseForMidi(m) ? letter.uppercased() : letter
                         let a: CGFloat
                         if isLit {

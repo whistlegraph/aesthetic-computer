@@ -501,15 +501,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var polyrhythmEntryLastKeyAt: CFTimeInterval = -.infinity
     private static let polyrhythmEntryTimeout: CFTimeInterval = 2.0
     /// `/` off the TrackDrum surface: ToneTrials, the scale combo-trials
-    /// director (trial ladder, drop rules, CLEAR banner — ToneTrials.swift).
+    /// director, with desktop lanes anchored beneath the menu-bar keys.
     private let toneTrials = ToneTrials()
-    /// Drives the strip's hit/drop/CLEAR animation between gesture
-    /// repaints; runs only while the trials are up.
+    private let toneTracks = ToneTrialsTracks()
+    /// Animates the desktop lanes only during practice.
     private var toneTrialsRepaintTimer: Timer?
     /// Previous lit-note set, so the trials are fed exactly the notes that
     /// just began (`onLitChanged` itself only reports that the set changed).
     private var toneTrialsLitNotes: Set<UInt8> = []
-    private static let toneTrialsIndexDefaultsKey = "toneTrialsIndex"
     private var trackpadEnergyTimer: Timer?
     private var trackpadOverlayLastDraw: Double = 0
     /// Keep the last percussion surface readable after the final lift, like
@@ -615,7 +614,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Routed by what's on screen: circles when the
                     // TrackDrum surface is up, ToneTrials otherwise.
                     case .trainer: self.handleTrainerSlash()
-                    case .help: Self.openTips()
+                    case .scales: self.startScaleTracks()
                     }
                 }
             }
@@ -1020,6 +1019,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.toneTrials.registerNote(Int(note), at: now)
                 }
                 self.toneTrialsLitNotes = lit
+                self.updateScaleTracks()
             }
             // Subtle flash on every fresh note hit so the icon
             // pulses with playing activity. Only on count
@@ -1684,7 +1684,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     // Routed by what's on screen: circles when the
                     // TrackDrum surface is up, ToneTrials otherwise.
                     case .trainer: self.handleTrainerSlash()
-                    case .help: Self.openTips()
+                    case .scales: self.startScaleTracks()
                     }
                 }
                 return true
@@ -7042,15 +7042,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forBend: displayBendAmount / Self.bendRange, echo: fxX,
             keyDown: menuBand.keyboardNotesHeld
         )
-        // The trials strip rides the fx chart image itself, so every path
-        // that shows or refreshes the chart carries it for free.
-        guard trackpadPadMode == .fx,
-              let practice = toneTrials.snapshot(at: CACurrentMediaTime())
-        else { return chart }
-        let dark = NSApp.effectiveAppearance
-            .bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return ToneTrialsStrip.composite(chart: chart, snapshot: practice,
-                                         dark: dark)
+        return chart
     }
 
     /// Keep the puck attached to the bend that is actually sounding. Drawing
@@ -7158,57 +7150,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// `/` toggles ToneTrials, hosted on the pitch-slider page — summoning
-    /// it from the skin page hands the pad over first (the quiet Tab flip).
-    /// Ladder position persists across sessions; clearing a trial advances
-    /// it automatically, `-`/`=` skip by hand.
     private func toneTrialsSlashKey() {
-        guard pitchBendCursorPushed || keyboardPerformanceFocusActive else {
-            return
-        }
-        #if MAC_APP_STORE
-        guard trackpadPadMode == .fx else { return }
-        #else
+        if toneTrials.isActive { stopToneTrials() }
+        else { startScaleTracks() }
+    }
+
+    /// `?` always begins at the first scale, including while practicing.
+    private func startScaleTracks() {
+        #if !MAC_APP_STORE
         if trackpadPadMode != .fx { restoreFocusedPitchSlider() }
         #endif
-        if toneTrials.isActive {
-            stopToneTrials()
-            updatePitchBendOverlayImage()
-            // The strip was the reason the overlay stayed up; without a
-            // live gesture, let the bare chart take its leave.
-            pitchBendOverlay?.fadeOut(after: 0.6, duration: 0.4)
-            debugLog("ToneTrials = off")
-        } else {
-            toneTrials.onIndexChange = { index in
-                UserDefaults.standard.set(
-                    index, forKey: Self.toneTrialsIndexDefaultsKey
-                )
-            }
-            toneTrials.start(at: UserDefaults.standard.integer(
-                forKey: Self.toneTrialsIndexDefaultsKey
-            ))
-            toneTrialsLitNotes = Set(menuBand.litNotes)
-            startToneTrialsRepaint()
-            showPitchBendOverlay()
-            debugLog("ToneTrials = trial \(toneTrials.index + 1) "
-                + toneTrials.trial.title)
+        stopPolyrhythmTrainer()
+        toneTrials.start(at: 0)
+        toneTrialsLitNotes = Set(menuBand.litNotes)
+        startToneTrialsRepaint()
+        updateScaleTracks()
+    }
+
+    private func updateScaleTracks() {
+        var target: Int?
+        if toneTrials.isActive, toneTrials.progress < toneTrials.trial.intervals.count,
+           let range = KeyboardIconRenderer.activeRange {
+            let midi = 60 + toneTrials.trial.root + toneTrials.trial.intervals[toneTrials.progress]
+            target = range.contains(midi) ? midi : range.first { $0 % 12 == midi % 12 }
         }
+        if KeyboardIconRenderer.practiceTargetMidi != target {
+            KeyboardIconRenderer.practiceTargetMidi = target
+            updateIcon()
+        }
+        guard let button = statusItem?.button else { return }
+        toneTracks.update(trials: toneTrials, button: button,
+                          now: CACurrentMediaTime())
     }
 
     private func stepToneTrial(by delta: Int) {
         toneTrials.step(by: delta)
-        updatePitchBendOverlayImage()
+        updateScaleTracks()
         debugLog("ToneTrials = trial \(toneTrials.index + 1) "
             + toneTrials.trial.title)
     }
 
-    /// Everything that tears the slider page down funnels through here so
-    /// the strip, its repaint clock, and the note diff reset together.
+    /// End the desktop overlay and note tracking when performance focus ends.
     private func stopToneTrials() {
         guard toneTrials.isActive || toneTrialsRepaintTimer != nil else {
             return
         }
         toneTrials.stop()
+        toneTracks.hide()
+        KeyboardIconRenderer.practiceTargetMidi = nil
+        updateIcon()
         stopToneTrialsRepaint()
         toneTrialsLitNotes = []
     }
@@ -7221,7 +7211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // The director owns the CLEAR-banner clock; ticking it here is
             // what makes a finished trial load the next one.
             self.toneTrials.update(at: CACurrentMediaTime())
-            self.updatePitchBendOverlayImage()
+            self.updateScaleTracks()
         }
         RunLoop.main.add(timer, forMode: .common)
         toneTrialsRepaintTimer = timer
@@ -7232,7 +7222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         toneTrialsRepaintTimer = nil
     }
 
-    enum TrackDrumSlashAction: Equatable { case trainer, help }
+    enum TrackDrumSlashAction: Equatable { case trainer, scales }
 
     static func isABCToggleShortcut(
         keyCode: UInt16,
@@ -7252,7 +7242,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard keyCode == UInt16(kVK_ANSI_Slash),
               !flags.contains(.command), !flags.contains(.option),
               !flags.contains(.control) else { return nil }
-        return flags.contains(.shift) ? .help : .trainer
+        return flags.contains(.shift) ? .scales : .trainer
     }
 
     static func trackDrumRateDelta(
