@@ -20,6 +20,7 @@
     "dotenv": "^16.4.7",
     "ecpair": "^3.0.1",
     "libsodium-wrappers": "^0.7.15",
+    "mongodb": "^6.21.0",
     "opensea-js": "^8.0.19",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0"
