@@ -1096,6 +1096,17 @@ const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
 // replies, command confirmations, and the thinking state render in DOM even
 // though the composited prompt never paints. Runs from the prompt system's
 // sim in place of prompt_sim.
+let shellLabelLast = null;
+function shellLabelSync() {
+  const text = currentHUDTxt || "";
+  const plain = currentHUDPlainTxt || stripCodes(text) || "";
+  const color = Array.isArray(currentHUDTextColor) ? currentHUDTextColor.slice(0, 4) : null;
+  const state = text + "\0" + plain + "\0" + (color ? color.join(",") : "");
+  if (state === shellLabelLast) return;
+  shellLabelLast = state;
+  send({ type: "hud:label:shell", content: { text, plain, color } });
+}
+
 let shellPromptLast = null;
 function shellPromptSync($) {
   const input = $.system?.prompt?.input;
@@ -10217,6 +10228,7 @@ async function load(
     if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
   if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
+  shellLabelLast = null; // a fresh piece re-sends its label even if the text repeats
 
     currentColon = colon;
     currentParams = params;
@@ -14906,6 +14918,13 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
+
+      // 🐚 shellhtml: the composited label stands down, so hand the hosting
+      // shell (prompt.ac) the same string the raster would paint — color
+      // codes and all — whenever it changes. The shell's DOM corner label
+      // then shows exactly what aesthetic.computer shows, kidlisp source
+      // included, instead of re-deriving a label from the slug.
+      if (shellHTMLMode) shellLabelSync();
 
       // System info label (addressability).
       let label;

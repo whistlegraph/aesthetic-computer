@@ -13592,6 +13592,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    // The raster's corner label, as text: the shell paints it in DOM so a
+    // kidlisp piece shows its colored source there too, not just its slug.
+    if (type === "hud:label:shell") {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "ac:label",
+            text: content?.text || "",
+            plain: content?.plain || "",
+            color: content?.color || null,
+          },
+          "*",
+        );
+      }
+      return;
+    }
+
     if (type === "prompt:text:shell") {
       if (window.parent !== window) {
         window.parent.postMessage(
