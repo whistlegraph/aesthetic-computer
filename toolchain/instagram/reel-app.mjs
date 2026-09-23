@@ -165,7 +165,8 @@ async function buildAesthetic({ config, day, index, slot, dir, source }) {
   const captureArgs = [CAPTURE_AV, source.piece, "--duration", String(source.duration),
     "--slug", source.title, "--out", capture,
     "--width", String(config.capture.width), "--height", String(config.capture.height),
-    "--fps", String(config.capture.fps)];
+    "--fps", String(config.capture.fps),
+    ...(config.capture.density ? ["--density", String(config.capture.density)] : [])];
   if (source.performance) captureArgs.push("--perform", source.performance);
   run(process.execPath, captureArgs, { inherit: true });
   const base = join(capture, `base-${source.title}.mp4`);
@@ -182,7 +183,7 @@ async function buildAesthetic({ config, day, index, slot, dir, source }) {
     format: "ac.instagram.reel", version: 1, account: config.account,
     id: `${day}-s${index}-${source.id}`, day, index, slot, sourceId: source.id,
     piece: source.piece, segment: source.segment,
-    caption: aestheticCaption(source, config.tags), tags: config.tags,
+    caption: aestheticCaption(source), tags: [],
     approval: { recipe: "proven-av", humanAutoGate: `${config.prefix}_IG_AUTO=1` },
     files: { reel },
   };

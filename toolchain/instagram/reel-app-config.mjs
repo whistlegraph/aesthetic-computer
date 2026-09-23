@@ -17,7 +17,9 @@ export const REEL_APPS = {
     slotsPerDay: 1,
     // 60 because the shared media gate wants reels authored at 60fps, and the
     // CDP screencast delivers ~60 anyway (30 dropped every other frame).
-    capture: { width: 1080, height: 1920, fps: 60 },
+    // density 2 = each AC pixel is 2×2 video pixels (540×960 of piece);
+    // capture-av's default 3 read too chunky.
+    capture: { width: 1080, height: 1920, fps: 60, density: 2 },
     // The piece alone: no pals side stamps or title columns, and a cursor
     // small enough to read as a pointer rather than a mascot.
     stamp: { chrome: "none", cursorSize: 56 },
@@ -44,10 +46,11 @@ export const REEL_APPS = {
       },
       {
         // The most-hit stored clock (110 hits on /api/store-clock, 2026-09-23):
-        // four saw voices; the lead loops every ~7.75 s, so 16 s is two loops.
+        // four saw voices; the lead loops every ~7.75 s, so 24 s is three
+        // loops. Lane rule: whole loops landing in 20–30 s.
         id: "clock-wibe",
         piece: "*wibe",
-        duration: 16,
+        duration: 24,
         title: "clock",
         segment: "code",
         line: "The most-played clock on aesthetic.computer: four saw voices, one tiny score.",
@@ -112,7 +115,9 @@ export function whistlegraphCaption(post, segment, tags) {
   return [opening, "", action, "", tags.map((tag) => `#${tag}`).join(" ")].join("\n");
 }
 
-export function aestheticCaption(recipe, tags) {
-  return [recipe.line, "", `Play it — aesthetic.computer/${recipe.title}`, "",
-    tags.map((tag) => `#${tag}`).join(" ")].join("\n");
+// The caption is the prompt and nothing else: exactly what you'd type into
+// aesthetic.computer to get what the reel shows (`*wibe`, `notepat`). No
+// link, no hashtags, no line — the prompt is the whole invitation.
+export function aestheticCaption(recipe) {
+  return recipe.prompt || recipe.piece;
 }

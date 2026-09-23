@@ -30,11 +30,12 @@ describe("Instagram Reel apps", () => {
   it("writes short account-specific captions", () => {
     const whistle = whistlegraphCaption({ desc: "hello #old https://example.com", works: ["w0w"] },
       "play", REEL_APPS.whistlegraph.tags);
-    const aesthetic = aestheticCaption(REEL_APPS.aesthetic.recipes[0], REEL_APPS.aesthetic.tags);
+    const aesthetic = aestheticCaption(REEL_APPS.aesthetic.recipes[0]);
     expect(cleanCaption("hello #old https://example.com")).toBe("hello");
     expect(whistle).toContain("aesthetic.computer/whistlegraph");
     expect(whistle).not.toContain("#old");
-    expect(aesthetic).toContain("aesthetic.computer/notepat");
+    expect(aesthetic).toBe("notepat");
+    expect(aestheticCaption({ piece: "*wibe" })).toBe("*wibe");
     expect(whistle.length).toBeLessThan(2200);
     expect(aesthetic.length).toBeLessThan(2200);
   });
