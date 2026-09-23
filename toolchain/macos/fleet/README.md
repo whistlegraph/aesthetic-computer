@@ -1,7 +1,9 @@
 # Fleet Mac config
 
-Small idempotent scripts to keep @jeffrey's Macs (neo, blueberry, chicken, panda)
-consistently configured. Run from any host that can `ssh` the targets.
+Neo, Blueberry, and Frisbee share an AC working environment. A new family Mac
+gets its own identity and checkout, with the same shell and tracked dotfiles.
+Start with [Joining the family](JOINING.md). The scripts below manage optional
+fleet features; their historical `all` lists do not enumerate the family.
 
 ## Resource graph (Slab menu-bar system monitor)
 
@@ -147,10 +149,9 @@ bash ssh-mesh.sh all
 > the tailnet by name/IP (e.g. blueberry = `100.79.75.53`); the tailnet gives the
 > network path, `authorized_keys` gives the auth.
 
-## Blueberry bootstrap
+## Historical Blueberry SSH bootstrap
 
-Blueberry does **not** trust the fleet key yet and isn't SSH-reachable, so it can't
-be pushed to. `blueberry-join.sh` is a self-contained one-shot that adds the fleet
+During Blueberry's original setup it did not yet trust the fleet key. `blueberry-join.sh` is a self-contained one-shot that adds the fleet
 keys to its `authorized_keys` and configures its cursor identity. It's staged on neo, so run this
 **on blueberry** (blueberry already holds a key to neo):
 

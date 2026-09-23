@@ -6,6 +6,12 @@
 # -u: exit on unset variables
 set -eu
 
+# Native Macs share the family setup; the remaining path is for Linux.
+if [ "$(uname -s)" = Darwin ]; then
+    script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+    exec bash "$script_dir/../scripts/mac-family-setup.sh" --install
+fi
+
 create_symlinks() {
   # Get the directory in which this script lives.
   script_dir=$(dirname "$(readlink -f "$0")")
