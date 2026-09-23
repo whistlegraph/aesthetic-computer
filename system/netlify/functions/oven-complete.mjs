@@ -85,7 +85,7 @@ export async function handler(event, context) {
           mp4Status: "complete",
           mp4CompletedAt: new Date()
         },
-        $unset: { mp4Error: "" } 
+        $unset: { mp4Error: "" }
       }
     );
     
