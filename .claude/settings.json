@@ -17,6 +17,26 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/slab/bin/inbox-drain.mjs\" prompt",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/slab/bin/inbox-drain.mjs\" stop",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
