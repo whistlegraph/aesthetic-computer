@@ -82,6 +82,7 @@ const CHROME = [
   process.env.PUPPETEER_EXECUTABLE_PATH,
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+  "/usr/bin/google-chrome", // Linux reel farm (jastow)
 ].find((p) => p && existsSync(p));
 
 const BASE = flags.base || "https://aesthetic.computer";

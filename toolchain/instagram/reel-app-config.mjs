@@ -15,7 +15,9 @@ export const REEL_APPS = {
     prefix: "AESTHETIC",
     source: "av",
     slotsPerDay: 1,
-    capture: { width: 1080, height: 1920, fps: 30 },
+    // 60 because the shared media gate wants reels authored at 60fps, and the
+    // CDP screencast delivers ~60 anyway (30 dropped every other frame).
+    capture: { width: 1080, height: 1920, fps: 60 },
     segments: ["instrument", "draw", "instrument", "code"],
     tags: ["aestheticcomputer", "creativecoding", "digitalart", "generativeart", "webart"],
     recipes: [

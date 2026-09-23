@@ -65,9 +65,13 @@ function readLedger(account) {
   return readJson(ledgerPath(account), { format: "ac.instagram.reel-ledger", version: 1, account, posts: [] });
 }
 
-function appendLedger(account, entry) {
+// `ig.mjs post` already appends the publish row; fold the factory's fields
+// into that row (matched by mediaId) instead of writing a second one.
+function annotateLedger(account, entry) {
   const ledger = readLedger(account);
-  ledger.posts.push(entry);
+  const row = ledger.posts.find((post) => post.mediaId && post.mediaId === entry.mediaId);
+  if (row) Object.assign(row, entry, { insights: row.insights ?? null });
+  else ledger.posts.push(entry);
   writeFileSync(ledgerPath(account), JSON.stringify(ledger, null, 2) + "\n");
 }
 
@@ -166,7 +170,8 @@ async function buildAesthetic({ config, day, index, slot, dir, source }) {
   run(process.execPath, captureArgs, { inherit: true });
   const base = join(capture, `base-${source.title}.mp4`);
   const reel = join(dir, "reel.mp4");
-  run(process.execPath, [STAMP_AV, base, "--title", source.title, "--out", reel], { inherit: true });
+  run(process.execPath, [STAMP_AV, base, "--title", source.title, "--out", reel,
+    "--fps", String(config.capture.fps)], { inherit: true });
   return {
     format: "ac.instagram.reel", version: 1, account: config.account,
     id: `${day}-s${index}-${source.id}`, day, index, slot, sourceId: source.id,
@@ -205,7 +210,7 @@ async function publish(account, record, live, allowRepeat = false) {
     "--caption", record.caption, "--cover", record.files.cover]);
   const receipt = readJson(record.files.reel.replace(/\.[^.]+$/, ".instagram.json"), null);
   if (!receipt?.mediaId) throw new Error("Instagram returned without a publish receipt");
-  appendLedger(account, { id: record.id, sourceId: record.sourceId, day: record.day,
+  annotateLedger(account, { id: record.id, sourceId: record.sourceId, day: record.day,
     index: record.index, slot: record.slot, segment: record.segment,
     publishedAt: receipt.publishedAt, mediaId: receipt.mediaId,
     containerId: receipt.containerId, insights: null });
