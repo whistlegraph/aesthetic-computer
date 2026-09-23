@@ -284,11 +284,13 @@ const state = {
   // so the prompt is the whole boundary again and it starts closed.
   autoAllow: !pro,
   entries: [
-    {
+    // Pro opens onto nothing but the bar: the mode and the model sit under
+    // it, and the agreement was the disclosure.
+    ...(pro ? [] : [{
       id: "privacy",
       kind: "notice",
       text: "REMOTE INFERENCE · prompt content may leave this machine",
-    },
+    }]),
     // Say why the session is not the default one, once. A piece session
     // opened by default has nothing to explain.
     // Pro says nothing about itself here; the status line under the bar
@@ -318,7 +320,7 @@ if (!profile.private) try {
     metadata:{medium:state.medium},version:currentVersion(),session});
   await transcriptJournal.init();
   const status=await transcriptJournal.enableSharing({userSub:sharingAcknowledgment.owner,acknowledged:true,disclosureVersion:DISCLOSURE_VERSION});transcriptSharing=status.sharing;
-  state.entries.push({id:'transcript-status',kind:'notice',text:`Transcript: ${status.label} · /sharing`});
+  if (!pro) state.entries.push({id:'transcript-status',kind:'notice',text:`Transcript: ${status.label} · /sharing`});
 } catch(error) {
   transcriptJournal=null;
   state.entries.push({id:'transcript-error',kind:'error',text:`Local transcript unavailable: ${error.message}`});
@@ -646,6 +648,9 @@ function openEngine({ resume = "" } = {}) {
       }
     },
     environment: {
+      // The engine is this session's, not a rock of its own: Slab's Claude
+      // hooks see this and leave the marker to Easel.
+      EASEL_SESSION_ID: slabSession.sessionId,
       SLAB_PROMPT_SESSION_ID: slabSession.sessionId,
       SLAB_TERMINAL_TTY: slabSession.tty,
       SLAB_AGENT_TYPE: "easel",
@@ -2604,8 +2609,10 @@ try {
   state.status = "ready";
   state.model = connection?.model || model;
   await rememberProvider();
-  if (desktopRestored) {
-    // Restoring an existing thread is silent.
+  if (desktopRestored || pro) {
+    // Restoring an existing thread is silent, and so is pro: the status line
+    // under the bar already says the engine is there.
+    if (pro && resumeThreadId) restoreThread(connection.thread);
   } else if (resumeThreadId && !restoreThread(connection.thread)) {
     addEntry("notice", `Resumed thread · ${engineLabel()}`);
   } else {

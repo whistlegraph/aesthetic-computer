@@ -1,6 +1,9 @@
 #!/bin/bash
 # Random high-pitched major-chord ping every INTERVAL seconds while lid is CLOSED.
 # Exits automatically once the lid is reopened.
+# A Claude that Easel is driving is that session's engine, not a rock of its
+# own; Easel keeps the marker, so this hook has nothing to say.
+[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}

@@ -2,6 +2,9 @@
 # UserPromptSubmit hook: log prompt, mark session as active, set awake.
 # Writes JSON metadata to active-prompts/<session_id> so the menubar can
 # render per-session status (subject, cwd, tty, claude pid).
+# A Claude that Easel is driving is that session's engine, not a rock of its
+# own; Easel keeps the marker, so this hook has nothing to say.
+[[ -n "${EASEL_SESSION_ID:-}" ]] && exit 0
 set -u
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 SLAB_BIN=${SLAB_BIN:-$HOME/.local/bin}
