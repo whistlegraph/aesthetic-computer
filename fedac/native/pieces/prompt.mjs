@@ -40,6 +40,7 @@ const PIECE_DESC = {
   "os":            "system update (OTA)",
   "wifi":          "network picker",
   "claude":        "AI assistant",
+  "aesel":         "Claude writes a piece; tab runs it",
   "terminal":      "PTY terminal",
   "geo":           "geolocation",
   "chat":          "real-time chat",

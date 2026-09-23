@@ -212,6 +212,58 @@ Critical fixes applied to the OTA flash path:
 
 See [internals.md](internals.md) for the full boot sequence and system architecture narrative.
 
+## Aesel On Native
+
+`pieces/aesel.mjs` is the desktop Aesel drawn as a piece: a conversation with
+Claude on the left of the keyboard, the piece it is writing in `/pieces`, and
+one key (tab) that runs that piece on this machine. New flashes boot into it
+(`BOOT_PIECE` default in `scripts/flash-mac.sh`); a device already flashed
+keeps the piece its `/mnt/config.json` names — switch one over ssh with
+`sed -i 's/"piece":"[a-z-]*"/"piece":"aesel"/' /mnt/config.json`, or type
+`aesel` at the prompt.
+
+How it is built:
+
+- **Bridge**: `/bin/claude --print --input-format stream-json --output-format
+  stream-json`, the same headless protocol Easel's `claude-server.mjs` speaks,
+  with the same two load-bearing flags (`--permission-prompt-tool stdio`, so
+  approvals come to the piece; `--setting-sources ""`, so the account's
+  allow-lists and MCP servers stay out). `lib/aesel-bridge.mjs` is the
+  translator, pure and covered by `node --test lib/aesel-bridge.test.mjs`.
+- **Transport**: `system.pty2.spawn(cmd, args, cols, rows, { raw: true, cwd })`.
+  Raw mode (`pty_spawn_ex` in `src/pty.c`) puts the slave in `cfmakeraw` so
+  nothing the piece writes echoes back and no input line is cut at the
+  canonical 4095-byte limit; output bypasses the terminal grid and arrives as
+  `system.pty2.lines` (whole lines, drained once per paint) with
+  `system.pty2.overflow` when the 256 KB buffer dropped bytes. `pty_write`
+  now loops until a whole line is delivered.
+- **Workspace**: the child runs in `/pieces` with the session's blank piece at
+  `/pieces/<slug>.mjs`, and `--append-system-prompt` describes the native
+  piece API (see `instructionsFor` in the lib). Every write is gated by the
+  approval bar (`y` once, `a` for the session, `n` deny).
+- **Persistence**: the child outlives the piece. Escape goes to the prompt,
+  tab runs the authored piece, and `aesel` reattaches to the same
+  conversation. While Aesel is not painting, lines queue in the raw buffer;
+  once it is full the child blocks on stdout until Aesel returns. `/quit`
+  ends the session.
+
+- **Hosted engine** (`/backend ac`, or boot with `aesel:ac[:glm|qwen|deepseek]`):
+  Easel's `ac-server.mjs` ported in `lib/aesel-ac.mjs` (`node --test
+  lib/aesel-ac.test.mjs`). POSTs the conversation to
+  `/api/easel-inference` with the AC token the `link` pairing wrote into
+  `/mnt/config.json`, runs the one-tool agent loop (`write_piece`) on the
+  device, and reads the server-sent-event stream frame by frame through
+  `system.fetchPost(url, body, headers, { out, timeout })` — the new `out`
+  option streams curl unbuffered into a caller-owned file that is kept on
+  completion (the 8 KB `fetchResult` slot would truncate it) and carries the
+  server's error body on an HTTP refusal. No approvals: the tool only writes
+  the session's own piece. A device flashed without linking has no token and
+  the bridge says so.
+
+Not carried over from desktop Aesel yet: the `/run` live push and QR, the
+Codex bridge, and the piece preview beside the transcript (the piece runs
+full-screen instead).
+
 ## Operational Checks
 
 - USB logs must be checked on every release candidate:

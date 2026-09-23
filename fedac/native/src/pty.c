@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <pty.h>
 #include <termios.h>
+#include <poll.h>
 
 extern void ac_log(const char *fmt, ...);
 extern int ac_log_stderr_muted;
@@ -490,7 +491,13 @@ static void process_byte(ACPty *pty, uint8_t b) {
 }
 
 int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[]) {
+    return pty_spawn_ex(pty, cols, rows, cmd, argv, 0, NULL);
+}
+
+int pty_spawn_ex(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[],
+                 int raw, const char *cwd) {
     memset(pty, 0, sizeof(*pty));
+    pty->raw = raw ? 1 : 0;
     pty->cols = (cols > 0 && cols <= PTY_MAX_COLS) ? cols : 80;
     pty->rows = (rows > 0 && rows <= PTY_MAX_ROWS) ? rows : 24;
     pty->cur_fg = PTY_COLOR_DEFAULT_FG;
@@ -768,6 +775,23 @@ int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[
                 fclose(tf);
             }
         }
+        if (raw) {
+            // Headless bridge: the parent parses JSON lines, so nothing it
+            // writes may echo back, nothing may gain a carriage return on the
+            // way out, and no input line may be cut at the canonical limit.
+            struct termios tio;
+            if (tcgetattr(STDIN_FILENO, &tio) == 0) {
+                cfmakeraw(&tio);
+                tcsetattr(STDIN_FILENO, TCSANOW, &tio);
+            }
+            setenv("TERM", "dumb", 1);
+            setenv("NO_COLOR", "1", 1);
+        }
+        if (cwd && cwd[0]) {
+            mkdir(cwd, 0755);
+            if (chdir(cwd) != 0)
+                fprintf(stderr, "[pty-child] chdir '%s' failed: %s\r\n", cwd, strerror(errno));
+        }
         execvp(cmd, argv);
         // exec failed — write error to stderr (flows through PTY to parent)
         int err = errno;
@@ -809,24 +833,69 @@ int pty_pump(ACPty *pty) {
 
     uint8_t buf[4096];
     int total = 0;
+    int budget = pty->raw ? PTY_RAW_BUF : 32768; // don't block too long per frame
 
     for (;;) {
+        if (pty->raw && pty->raw_len >= PTY_RAW_BUF) break; // consumer must drain first
         ssize_t n = read(pty->master_fd, buf, sizeof(buf));
         if (n <= 0) break;
-        for (ssize_t i = 0; i < n; i++) {
-            process_byte(pty, buf[i]);
+        if (pty->raw) {
+            int room = PTY_RAW_BUF - pty->raw_len;
+            int take = (int)n < room ? (int)n : room;
+            memcpy(pty->raw_buf + pty->raw_len, buf, take);
+            pty->raw_len += take;
+            if (take < (int)n) pty->raw_overflow = 1;
+        } else {
+            for (ssize_t i = 0; i < n; i++) {
+                process_byte(pty, buf[i]);
+            }
         }
         total += (int)n;
-        if (total > 32768) break; // don't block too long per frame
+        if (total > budget) break;
     }
 
     return total;
 }
 
+int pty_next_line(ACPty *pty, char *out, int max) {
+    if (!pty->raw || pty->raw_len <= 0 || max <= 1) return -1;
+    char *nl = memchr(pty->raw_buf, '\n', pty->raw_len);
+    if (!nl) {
+        if (pty->raw_len >= PTY_RAW_BUF) {
+            // One line longer than the whole buffer: nothing sane to hand out.
+            pty->raw_len = 0;
+            pty->raw_overflow = 1;
+        }
+        return -1;
+    }
+    int len = (int)(nl - pty->raw_buf);
+    int copy = len < max - 1 ? len : max - 1;
+    memcpy(out, pty->raw_buf, copy);
+    out[copy] = '\0';
+    int rest = pty->raw_len - (len + 1);
+    if (rest > 0) memmove(pty->raw_buf, nl + 1, rest);
+    pty->raw_len = rest;
+    return copy;
+}
+
 int pty_write(ACPty *pty, const char *data, int len) {
     if (pty->master_fd < 0 || !data || len <= 0) return -1;
-    ssize_t written = write(pty->master_fd, data, len);
-    return (int)written;
+    // The master is non-blocking and the line discipline's input queue is
+    // only a few kilobytes, so one write() can land short. A bridge line (a
+    // tool approval echoing a whole file) must arrive intact, so keep going
+    // while the child is draining, and give up only when it has stopped.
+    int done = 0, waits = 0;
+    while (done < len) {
+        ssize_t w = write(pty->master_fd, data + done, len - done);
+        if (w > 0) { done += (int)w; continue; }
+        if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) && waits++ < 5) {
+            struct pollfd pfd = { .fd = pty->master_fd, .events = POLLOUT };
+            if (poll(&pfd, 1, 200) > 0) continue;
+        }
+        break;
+    }
+    if (done < len) ac_log("[pty] short write: %d of %d bytes\n", done, len);
+    return done;
 }
 
 int pty_resize(ACPty *pty, int cols, int rows) {

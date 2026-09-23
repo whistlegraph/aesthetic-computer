@@ -461,10 +461,13 @@ log "Writing ACBOOT (kernel-direct boot tree)…"
 mkdir -p "${M1}/EFI/BOOT"
 cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
-# Boot piece: notepat by default. Override per-flash with AC_BOOT_PIECE
-# (e.g. AC_BOOT_PIECE=babypat flash-mac.sh ...). Kernel resolves the
-# name to /pieces/<piece>.mjs at boot — see ac-native.c:3853.
-BOOT_PIECE="${AC_BOOT_PIECE:-notepat}"
+# Boot piece: aesel by default (the Claude session that writes pieces this
+# machine runs). Override per-flash with AC_BOOT_PIECE (e.g.
+# AC_BOOT_PIECE=notepat flash-mac.sh ...). The kernel resolves the name to
+# /pieces/<piece>.mjs at boot — see the "Boot piece from config" block in
+# ac-native.c. Devices already flashed keep whatever piece their
+# /mnt/config.json names.
+BOOT_PIECE="${AC_BOOT_PIECE:-aesel}"
 
 # Write a device config.json. Base identity fields come from the shell vars
 # (set from the inscription OR the legacy API path); the boot-personalization

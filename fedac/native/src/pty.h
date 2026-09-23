@@ -8,6 +8,11 @@
 #define PTY_MAX_COLS 256
 #define PTY_MAX_ROWS 128
 
+// Raw line mode buffer. A headless bridge (claude --print --output-format
+// stream-json) talks in JSON lines; a single tool result can carry a whole
+// file, so the buffer is sized for a few of those between frames.
+#define PTY_RAW_BUF (256 * 1024)
+
 // ANSI color palette (standard 16 colors)
 #define PTY_COLOR_DEFAULT_FG 7   // white
 #define PTY_COLOR_DEFAULT_BG 0   // black
@@ -60,11 +65,29 @@ typedef struct {
     // Saved cursor position (for ESC 7 / ESC 8)
     int saved_x, saved_y;
     uint8_t saved_fg, saved_bg, saved_bold;
+
+    // Raw line mode: bytes bypass the terminal emulator and accumulate here;
+    // pty_next_line() hands them out one whole line at a time.
+    int raw;             // 1 = raw line mode (grid is never touched)
+    int raw_len;         // bytes waiting in raw_buf
+    int raw_overflow;    // 1 = bytes were dropped since the last read
+    char raw_buf[PTY_RAW_BUF];
 } ACPty;
 
 // Create a PTY and spawn a command (e.g., "claude")
 // Returns 0 on success, -1 on error
 int pty_spawn(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[]);
+
+// The same, with options. raw=1 puts the slave in raw mode (no echo of what
+// the parent writes, no CRLF translation, no canonical line-length cap) and
+// buffers output as lines instead of driving the grid. cwd, when set, is
+// created and made the child's working directory after the standard setup.
+int pty_spawn_ex(ACPty *pty, int cols, int rows, const char *cmd, char *const argv[],
+                 int raw, const char *cwd);
+
+// Raw mode: copy the next complete line (without its newline) into out.
+// Returns its length, or -1 when no whole line is buffered yet.
+int pty_next_line(ACPty *pty, char *out, int max);
 
 // Read available output from the PTY and update the grid
 // Non-blocking. Returns number of bytes processed.

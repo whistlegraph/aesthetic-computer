@@ -4035,15 +4035,45 @@ static JSValue js_fetch_post(JSContext *ctx, JSValueConst this_val, int argc, JS
         fclose(hf);
     }
 
-    ac_log("[fetchPost] start: %s (body %ld bytes)\n", url, (long)strlen(body));
+    // Fourth argument, optional: { timeout: seconds, out: "/abs/path" }.
+    // `out` names a response file the caller owns: curl streams into it
+    // unbuffered, it is kept (not read into the 8 KB result slot, not
+    // unlinked) when the request ends, and an HTTP error still writes its
+    // body there so the caller can read the server's message. That is what
+    // lets a piece follow a long server-sent-event stream frame by frame.
+    int timeout = 120;
+    char out_path[256] = "/tmp/ac_fetch.json";
+    int keep = 0;
+    if (argc >= 4 && JS_IsObject(argv[3])) {
+        JSValue jt = JS_GetPropertyStr(ctx, argv[3], "timeout");
+        if (!JS_IsUndefined(jt)) JS_ToInt32(ctx, &timeout, jt);
+        JS_FreeValue(ctx, jt);
+        JSValue jo = JS_GetPropertyStr(ctx, argv[3], "out");
+        if (JS_IsString(jo)) {
+            const char *o = JS_ToCString(ctx, jo);
+            if (o && o[0] == '/' && strlen(o) < sizeof(out_path) && !strchr(o, '"') && !strchr(o, '\'')) {
+                snprintf(out_path, sizeof(out_path), "%s", o);
+                keep = 1;
+            }
+            if (o) JS_FreeCString(ctx, o);
+        }
+        JS_FreeValue(ctx, jo);
+    }
+    if (timeout < 1) timeout = 1;
+    if (timeout > 3600) timeout = 3600;
+    if (keep) unlink(out_path);
+    snprintf(current_rt->fetch_out, sizeof(current_rt->fetch_out), "%s", keep ? out_path : "");
+
+    ac_log("[fetchPost] start: %s (body %ld bytes%s)\n", url, (long)strlen(body), keep ? ", streamed" : "");
     char cmd[2048];
     snprintf(cmd, sizeof(cmd),
-        "sh -c 'curl -fsSL -X POST --retry 1 --connect-timeout 10 --max-time 120 "
+        "sh -c 'curl %s -X POST --retry 1 --connect-timeout 10 --max-time %d "
         "--cacert /etc/pki/tls/certs/ca-bundle.crt "
         "-K /tmp/ac_fetch_headers.txt "
         "-d @/tmp/ac_fetch_body.json "
-        "--output /tmp/ac_fetch.json \"%s\" 2>/tmp/ac_fetch_err;"
-        " echo $? > /tmp/ac_fetch_rc' &", url);
+        "--output %s \"%s\" 2>/tmp/ac_fetch_err;"
+        " echo $? > /tmp/ac_fetch_rc' &",
+        keep ? "-sSL --fail-with-body -N" : "-fsSL", timeout, out_path, url);
     system(cmd);
     current_rt->fetch_pending = 1;
     current_rt->fetch_result[0] = 0;
@@ -4065,6 +4095,10 @@ static JSValue js_fetch_cancel(JSContext *ctx, JSValueConst this_val, int argc, 
         unlink("/tmp/ac_fetch.json");
         unlink("/tmp/ac_fetch_rc");
         unlink("/tmp/ac_fetch_err");
+        if (current_rt->fetch_out[0]) {
+            unlink(current_rt->fetch_out);
+            current_rt->fetch_out[0] = 0;
+        }
         current_rt->fetch_pending = 0;
         current_rt->fetch_result[0] = 0;
         current_rt->fetch_error[0] = 0;
@@ -6076,7 +6110,23 @@ static JSValue js_pty_spawn(JSContext *ctx, JSValueConst this_val, int argc, JSV
     if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
     if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
 
-    int ok = pty_spawn(&current_rt->pty, cols, rows, cmd, child_argv);
+    // Fifth argument: {raw, cwd} (or a bare boolean for raw). See pty_spawn_ex.
+    int raw = 0;
+    const char *cwd = NULL;
+    if (argc > 4) {
+        if (JS_IsObject(argv[4])) {
+            JSValue jr = JS_GetPropertyStr(ctx, argv[4], "raw");
+            raw = JS_ToBool(ctx, jr) > 0;
+            JS_FreeValue(ctx, jr);
+            JSValue jc = JS_GetPropertyStr(ctx, argv[4], "cwd");
+            if (JS_IsString(jc)) cwd = JS_ToCString(ctx, jc);
+            JS_FreeValue(ctx, jc);
+        } else {
+            raw = JS_ToBool(ctx, argv[4]) > 0;
+        }
+    }
+    int ok = pty_spawn_ex(&current_rt->pty, cols, rows, cmd, child_argv, raw, cwd);
+    if (cwd) JS_FreeCString(ctx, cwd);
 
     // Free ToCString results for args
     for (int i = 1; i < nargs; i++) {
@@ -6153,7 +6203,23 @@ static JSValue js_pty2_spawn(JSContext *ctx, JSValueConst this_val, int argc, JS
     int cols = 80, rows = 24;
     if (argc > 2) JS_ToInt32(ctx, &cols, argv[2]);
     if (argc > 3) JS_ToInt32(ctx, &rows, argv[3]);
-    int ok = pty_spawn(&current_rt->pty2, cols, rows, cmd, child_argv);
+    // Fifth argument: {raw, cwd} (or a bare boolean for raw). See pty_spawn_ex.
+    int raw = 0;
+    const char *cwd = NULL;
+    if (argc > 4) {
+        if (JS_IsObject(argv[4])) {
+            JSValue jr = JS_GetPropertyStr(ctx, argv[4], "raw");
+            raw = JS_ToBool(ctx, jr) > 0;
+            JS_FreeValue(ctx, jr);
+            JSValue jc = JS_GetPropertyStr(ctx, argv[4], "cwd");
+            if (JS_IsString(jc)) cwd = JS_ToCString(ctx, jc);
+            JS_FreeValue(ctx, jc);
+        } else {
+            raw = JS_ToBool(ctx, argv[4]) > 0;
+        }
+    }
+    int ok = pty_spawn_ex(&current_rt->pty2, cols, rows, cmd, child_argv, raw, cwd);
+    if (cwd) JS_FreeCString(ctx, cwd);
     for (int i = 1; i < nargs; i++) JS_FreeCString(ctx, child_argv[i]);
     JS_FreeCString(ctx, cmd);
     if (ok == 0) { current_rt->pty2_active = 1; return JS_TRUE; }
@@ -7290,7 +7356,15 @@ static JSValue build_system_obj(JSContext *ctx) {
             ac_log("[fetch] done: curl exit=%d\n", code);
             current_rt->fetch_result[0] = 0;
             current_rt->fetch_error[0] = 0;
-            if (code == 0) {
+            int streamed = current_rt->fetch_out[0] != 0;
+            if (streamed) {
+                // The caller reads its own file; the result slot carries the path.
+                snprintf(current_rt->fetch_result, sizeof(current_rt->fetch_result), "%s", current_rt->fetch_out);
+                current_rt->fetch_out[0] = 0;
+            }
+            if (streamed && code == 0) {
+                unlink("/tmp/ac_fetch_err");
+            } else if (code == 0) {
                 FILE *fp = fopen("/tmp/ac_fetch.json", "r");
                 if (fp) {
                     int n = (int)fread(current_rt->fetch_result,
@@ -7736,6 +7810,24 @@ static JSValue build_system_obj(JSContext *ctx) {
                 current_rt->pty_active = 0;
             }
 
+            if (current_rt->pty.raw) {
+                // Raw line mode: hand the piece every whole line that arrived
+                // since the last frame. The grid below is never touched.
+                static char raw_line[PTY_RAW_BUF];
+                JSValue lines = JS_NewArray(ctx);
+                uint32_t n = 0;
+                int len;
+                // Only the paint build hands lines out: act and sim rebuild this
+                // object too, and a line drained there would never be seen.
+                if (strcmp(current_phase, "paint") == 0)
+                while ((len = pty_next_line(&current_rt->pty, raw_line, (int)sizeof(raw_line))) >= 0)
+                    JS_SetPropertyUint32(ctx, lines, n++, JS_NewStringLen(ctx, raw_line, len));
+                JS_SetPropertyStr(ctx, pty_obj, "raw", JS_TRUE);
+                JS_SetPropertyStr(ctx, pty_obj, "lines", lines);
+                JS_SetPropertyStr(ctx, pty_obj, "overflow", JS_NewBool(ctx, current_rt->pty.raw_overflow));
+                current_rt->pty.raw_overflow = 0;
+            }
+
             JS_SetPropertyStr(ctx, pty_obj, "alive",
                               JS_NewBool(ctx, current_rt->pty.alive));
             JS_SetPropertyStr(ctx, pty_obj, "cursorX",
@@ -7809,6 +7901,24 @@ static JSValue build_system_obj(JSContext *ctx) {
                                   JS_NewInt32(ctx, current_rt->pty2.exit_code));
                 pty_destroy(&current_rt->pty2);
                 current_rt->pty2_active = 0;
+            }
+
+            if (current_rt->pty2.raw) {
+                // Raw line mode: hand the piece every whole line that arrived
+                // since the last frame. The grid below is never touched.
+                static char raw_line[PTY_RAW_BUF];
+                JSValue lines = JS_NewArray(ctx);
+                uint32_t n = 0;
+                int len;
+                // Only the paint build hands lines out: act and sim rebuild this
+                // object too, and a line drained there would never be seen.
+                if (strcmp(current_phase, "paint") == 0)
+                while ((len = pty_next_line(&current_rt->pty2, raw_line, (int)sizeof(raw_line))) >= 0)
+                    JS_SetPropertyUint32(ctx, lines, n++, JS_NewStringLen(ctx, raw_line, len));
+                JS_SetPropertyStr(ctx, pty2_obj, "raw", JS_TRUE);
+                JS_SetPropertyStr(ctx, pty2_obj, "lines", lines);
+                JS_SetPropertyStr(ctx, pty2_obj, "overflow", JS_NewBool(ctx, current_rt->pty2.raw_overflow));
+                current_rt->pty2.raw_overflow = 0;
             }
 
             JS_SetPropertyStr(ctx, pty2_obj, "alive",

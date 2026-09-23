@@ -196,6 +196,9 @@ fi
 # The baked default score is the CultureHub piece, Note(s)pat(ial) Native.
 mkdir -p "${INITRAMFS_DIR}/lib" "${INITRAMFS_DIR}/scores"
 cp "${NATIVE_DIR}/lib/spatial-rehearsal.mjs" "${INITRAMFS_DIR}/lib/"
+# Aesel's Claude bridge translator (pieces/aesel.mjs imports it from /lib).
+cp "${NATIVE_DIR}/lib/aesel-bridge.mjs" "${INITRAMFS_DIR}/lib/"
+cp "${NATIVE_DIR}/lib/aesel-ac.mjs" "${INITRAMFS_DIR}/lib/"
 cp "${NATIVE_DIR}/scores/"*.nsscore "${INITRAMFS_DIR}/scores/"
 cp "${NATIVE_DIR}/scores/notespatial-native.nsscore" "${INITRAMFS_DIR}/pieces/spatial-rehearsal.nsscore"
 
