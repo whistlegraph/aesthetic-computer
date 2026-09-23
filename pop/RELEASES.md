@@ -7,62 +7,43 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
-## amazing grace — MASTERED · DistroKid packet staged 2026-09-15 (@jeffrey: pick the cover, then submit)
+## amazing grace — RELEASED · DistroKid accepted 2026-09-23
 
-- **Artist:** Aesthetic Dot Computer · **title:** `amazing grace` (lowercase, preserve-caps) ·
-  album **pixsies** · Electronic / Ambient, secondary Pop · songwriters John Newton (words,
-  1779, PD), William Walker (New Britain tune, 1835, PD), Jeffrey Scudder (arrangement) ·
-  performer + producer Jeffrey Scudder. Packet: `~/Documents/Shelf/amazing-grace-DISTROKID/`
-  (MASTER.flac 5.4 MB, cover 3000², release.json) — canonical copy of the metadata in
-  `pop/big-pictures/amazing-grace.release.json`; `distrokid-submit.mjs --dry-run` passes.
-- **Lane:** `pop/big-pictures/` · verse 1 of the hymn · 70 BPM · G major · **1:09**. Reified
-  2026-09-15 on the wannadash-era stack, replacing the 2026-05-20 cli.mjs/cool-sine WIP
-  (whose Shelf masters and illys were gone from every machine):
-  - **sung lead** — `bin/sing-amazing.mjs`: the two archived jeffrey-pvc takes
-    (`assets/pop/big-pictures/amazing{,-7verse}/vocal/`, ElevenLabs word timestamps) sliced
-    per word, the LONGER take of each word chosen, every word run through
-    `cult/bin/sing.py` (the Saitou WORLD recipe — vowel sustained to the note, f0 replaced by
-    the score, singer's formant) at exactly its `.np` duration, placed on the 70 BPM grid.
-    "a" (saved A wretch) is a 20 ms schwa in both takes, so it borrows the opening "a-" of
-    "Amazing". pyin verification within ±8¢ on all 28 notes. Receipt: `out/amazing-grace/vox-receipt.json`.
-  - **bed** — `c/amazinhym.c`, rewritten from a fixed 3/4 bar grid to the vocal's own
-    **cells**: the `.np` phrases the tune as (1 + 3) beats, so every strong syllable opens a
-    4-beat cell (6 where a phrase end is held), the kick lands with "-MA-", "GRACE", "SWEET",
-    "SOUND", chords from the standard G/C/D chart, plagal amen (C → G) after "see". Two intro
-    cells; the pickup "a-" at 6.0 s; amen hit at 64.29 s; ac stamp at 65.8 s.
-  - **mix + master** — `bin/bake-amazing.sh` (vox 1.20 with the cult cathedral IR at 0.20 wet,
-    bed 0.68) → `bin/cut-amazing.sh`: tone (the trancenwaltz brightening) + glue → measure →
-    one static dB → 4× oversampled true-peak limiter. Never a second loudnorm.
-- **Master:** `out/amazing-grace/amazing-grace-release.flac` — **−11.6 LUFS · −2.0 dBTP ·
-  LRA 6.1 · PLR 9.6 · phone loss −1.2 dB** · 69.29 s · 16/44.1 (24/48 WAV alongside). In the
-  house's "wider narrative" band for a hymn (`pop/MASTERING.md`).
-- **Cover:** `pop/big-pictures/covers/amazing-grace/amazing-grace-cover.jpg` (3000²) — the
-  church scene from `bin/gen-amazing-prompts.mjs` via illy / gpt-image-2: jeffrey in a pew
-  with the green Neo across his lap (whistlegraph-butterfly scrap on the lid), congregation
-  singing, honey light through stained glass. Working pick = variant **church-a**
-  (`covers/amazing-grace/out/amazing-grace-cover-cover.png`); **church-b** alongside has the
-  stronger face but paints the piano keys on the outside of the lid. **@jeffrey picks** —
-  re-run `bash pop/big-pictures/bin/stage-amazing-grace-assets.sh <png>` to swap.
-- **On AC:** https://aesthetic.computer/amazing-grace — `disks/amazing-grace.mjs` +
-  `disks/pop/amazing-grace.json` (6 sections: intro, the four lines, amen). CDN:
-  - audio · https://assets.aesthetic.computer/pop/amazing-grace.mp3 (320 k, cover embedded)
-  - cover · https://assets.aesthetic.computer/pop/amazing-grace.jpg (1200²)
-  - master · https://assets.aesthetic.computer/pop/amazing-grace/amazing-grace-master.flac
-  - stills · https://assets.aesthetic.computer/pop/amazing-grace/sec-{0..5}.jpg (crops of the cover)
-  - canvas · https://assets.aesthetic.computer/pop/amazing-grace-canvas.mp4 (`pop/bin/photo-canvas.mjs`,
-    2 bars @ 70 = 6.857 s, silent, seamless; to Spotify for Artists once live)
-- **Review video:** `out/amazing-grace/amazing-grace-review-2560x1920.mp4` · 2.5K tall
-  scrolling clip-timeline (`pop/big-pictures/viz/review-amazing.py`, the cult review-score
-  treatment without the tempo warp): sung notes pitch-placed with their syllables, the sine
-  melody, chords per cell, bells/piano + kick/clap from the engine's CELLS, true stems (vox,
-  bed band-split, stamp) as waveform clips, karaoke rail with vowel-stretch + phonics fill,
-  NOTES + CHORDS rails, the hymn act card, live loudness meter. `--preview --from S --to S`
-  for a window; `--light` for paper. Score JSON from `bin/amazing-score.mjs`.
-- **Bake (deterministic, ~1 min):** `bash pop/big-pictures/bin/bake-amazing.sh` →
-  `bash pop/big-pictures/bin/stage-amazing-grace-assets.sh` → `npm run pop:assets:up`.
-- **Next:** cover pick → `node pop/bin/distrokid-submit.mjs ~/Documents/Shelf/amazing-grace-DISTROKID`
-  (stops at the review screen; @jeffrey ticks the attestations + Continue) → paste the Spotify
-  link here → Canvas to S4A → reel → flip to RELEASED.
+- **Artist / label:** Aesthetic Dot Computer. Single: `amazing grace`, lowercase.
+  Electronic / Electronica–Downtempo, secondary Pop. Release date September 23, 2026.
+- **Distribution:** DistroKid confirmed “Hooray, your music is on its way!”;
+  streaming-store processing is still pending, not confirmed live.
+  [HyperFollow](https://distrokid.com/hyperfollow/aestheticdotcomputer/amazing-grace).
+  Album UUID: `BDCD1AE1-C656-4E12-9F966B8F137E7961`.
+  No paid extras; Mixea declined with “Use my originals”. AI vocal disclosure saved.
+- **Approved master:** choir-v2, heard and approved by @jeffrey before submission
+  and again afterward in QuickTime. **127.571 s · 24-bit/48 kHz · −11.6 LUFS ·
+  −2.5 dBTP · LRA 4.7**. Mono loss −0.2 dB, phone loss −1.4 dB, decoded AAC
+  peak −2.3 dBTP. Final FLAC SHA-256:
+  `fc65af4c0ea050479048cfa3b839711d2ff8e38b7c75b129685e67a88ad39202`.
+- **Arrangement:** 70 BPM, G major, two verses; second pass at 64.286 s.
+  Legato word joins, centered lead, independently scored inner and octave harmonies,
+  backing-vocal flange, room reflections, FM blips and stereo orbit bursts.
+  `hybrid-amazing.py` selects alternate how/was/blind attacks while retaining the
+  original second line. The later `CHOIR_FORWARD=1` audition is not the release.
+- **Checks:** 91 synthesized notes within 8 cents. Blind local OpenAI Whisper
+  small.en improves from 21/52 to 17/52 edits (32.7% WER), with residual errors
+  on “that saved a wretch” and “was blind”; human approval does not erase that
+  diagnostic limitation. [Audit and submission receipts](big-pictures/release/amazing-grace/).
+- **Credits:** John Newton (lyrics), William Walker (traditional tune attribution),
+  Jeffrey Scudder (arrangement, singing/vocals, producer). Public-domain hymn
+  arrangement with existing Jeffrey PVC sources; no new vocal recording.
+- **Cover:** close square image-tool crop derived from `IMG_5775.HEIC`, Jeffrey
+  with his mother, delivered as `amazing-grace-cover.jpg` (1254²). Supersedes the
+  earlier church illustration.
+- **Packet:** `~/Documents/Shelf/amazing-grace-DISTROKID/` on Frisbee and Blueberry;
+  final FLAC, cover, MP3 preview and release metadata. Earlier 69-second assets
+  remain archived. [Metadata](big-pictures/amazing-grace.release.json) and
+  [render/review notes](big-pictures/AMAZING-GRACE-REVIEW.md).
+- **AC command:** https://aesthetic.computer/amazing-grace remains available.
+  Its existing public audio, artwork, six-section manifest and Canvas still refer
+  to the earlier 69-second version; this DistroKid release did not replace them.
+  Next: verify store links and update the AC media/section map to the approved master.
 
 ---
 

@@ -1,0 +1,92 @@
+{
+  "model": "ggml-small.en.bin",
+  "audio": "pop/big-pictures/out/amazing-grace-choir-hybrid-2026-09-23/amazing-grace-release.flac",
+  "sha256": "fc65af4c0ea050479048cfa3b839711d2ff8e38b7c75b129685e67a88ad39202",
+  "method": "Blind local Whisper per sung line; no lyric prompt or forced alignment",
+  "limits": "ASR is a proxy, not a listening verdict; a familiar hymn may be inferred from context.",
+  "lines": [
+    {
+      "verse": 1,
+      "line": 1,
+      "start": 6.0,
+      "expected": "amazing grace how sweet the sound",
+      "heard": "Amazing grace so sweet the sound",
+      "errors": 1,
+      "words": 6,
+      "wer": 0.16666666666666666
+    },
+    {
+      "verse": 1,
+      "line": 2,
+      "start": 21.429,
+      "expected": "that saved a wretch like me",
+      "heard": "Let it save a rich like me.",
+      "errors": 4,
+      "words": 6,
+      "wer": 0.6666666666666666
+    },
+    {
+      "verse": 1,
+      "line": 3,
+      "start": 33.429,
+      "expected": "i once was lost but now am found",
+      "heard": "I once was lost but now I'm found",
+      "errors": 1,
+      "words": 8,
+      "wer": 0.125
+    },
+    {
+      "verse": 1,
+      "line": 4,
+      "start": 48.857,
+      "expected": "was blind but now i see",
+      "heard": "But now I see",
+      "errors": 2,
+      "words": 6,
+      "wer": 0.3333333333333333
+    },
+    {
+      "verse": 2,
+      "line": 1,
+      "start": 64.28571428571428,
+      "expected": "amazing grace how sweet the sound",
+      "heard": "Amazing grace so sweet the sound",
+      "errors": 1,
+      "words": 6,
+      "wer": 0.16666666666666666
+    },
+    {
+      "verse": 2,
+      "line": 2,
+      "start": 79.71471428571428,
+      "expected": "that saved a wretch like me",
+      "heard": "Let it save under a wretch like me.",
+      "errors": 4,
+      "words": 6,
+      "wer": 0.6666666666666666
+    },
+    {
+      "verse": 2,
+      "line": 3,
+      "start": 91.71471428571428,
+      "expected": "i once was lost but now am found",
+      "heard": "I once was lost but never found",
+      "errors": 2,
+      "words": 8,
+      "wer": 0.25
+    },
+    {
+      "verse": 2,
+      "line": 4,
+      "start": 107.14271428571428,
+      "expected": "was blind but now i see",
+      "heard": "\u266a But now I see \u266a",
+      "errors": 2,
+      "words": 6,
+      "wer": 0.3333333333333333
+    }
+  ],
+  "errors": 17,
+  "words": 52,
+  "wer": 0.3269230769230769
+}

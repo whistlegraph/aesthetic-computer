@@ -30,7 +30,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const REPO = resolve(LANE, "../..");
 const ARCH = resolve(REPO, "system/public/assets/pop/big-pictures");
-const OUT = resolve(LANE, "out/amazing-grace");
+const OUT = resolve(process.env.OUT || resolve(LANE, "out/amazing-grace"));
 const WORDS_DIR = resolve(OUT, "words");
 const SUNG_DIR = resolve(OUT, "sung");
 const PY = resolve(REPO, "pop/.venv/bin/python");
@@ -38,10 +38,12 @@ const SING = resolve(REPO, "pop/cult/bin/sing.py");
 const MANIFEST = resolve(LANE, "voice-takes/manifest.json");
 const FORCE = process.argv.includes("--force");
 const DRY = process.argv.includes("--dry");
+const SMOOTH = process.argv.includes("--smooth");
 
 const BPM = 70;
 const SPB = 60 / BPM;
 const GAP_S = 0.06;          // breath before the next word's consonant
+const PHRASE_ENDS = new Set(["sound", "me", "found", "see"]);
 const FLOOR = 65;            // jeffrey's f0 floor (cult/bin/sing.mjs)
 
 const TAKES = {
@@ -140,10 +142,13 @@ for (let i = 0; i < 26; i++) {
   const w = words[i];
   const nn = String(i).padStart(2, "0");
   w.sung = `${SUNG_DIR}/${nn}-${slug(w.text)}.wav`;
-  // NOTE:seconds — the word owns its notes' beats, minus a breath at the end
+  // The hymn's legato pass breathes at phrase ends only. Within a line,
+  // overlap 35 ms so the tail and next consonant meet without moving the grid.
+  const phraseEnd = PHRASE_ENDS.has(w.text);
+  const gap = SMOOTH ? (phraseEnd ? 0.10 : -0.035) : GAP_S;
   const spec = w.notes.map((n, k) => {
     const last = k === w.notes.length - 1;
-    const sec = n.durBeats * SPB - (last ? GAP_S : 0);
+    const sec = n.durBeats * SPB - (last ? gap : 0);
     return `${n.note}:${sec.toFixed(3)}`;
   }).join(",");
   const held = w.durBeats >= 3;
@@ -153,14 +158,18 @@ for (let i = 0; i < 26; i++) {
     "--vibrato-hz", "5.2",
     "--vibrato-cents", held ? "20" : "9",
     "--vibrato-onset-ms", held ? "420" : "200",
-    "--overshoot-cents", held ? "34" : "22",
+    "--overshoot-cents", SMOOTH ? "12" : (held ? "34" : "22"),
     "--formant-db", "2.4",
-    "--attack-ms", "18", "--release-ms", "150",
+    "--attack-ms", SMOOTH ? "12" : "18",
+    "--release-ms", SMOOTH ? (phraseEnd ? "120" : "55") : "150",
+    ...(SMOOTH ? ["--xfade-ms", "90", "--shimmer-frames", "0.35"] : []),
     "--deess", "0.05", "--gain", "0.9",
     "--verify",
   ];
   w.spec = spec;
   const key = createHash("sha256")
+    .update(readFileSync(SING))
+    .update(existsSync(w.slice) ? readFileSync(w.slice) : "")
     .update(args.slice(3).join(" ") + (existsSync(w.slice) ? statSync(w.slice).size : 0))
     .digest("hex").slice(0, 16);
   if (!FORCE && cache[w.sung]?.key === key && existsSync(w.sung)) { w.verify = cache[w.sung].verify; continue; }
@@ -202,6 +211,7 @@ print(f"  placed {len(plan['words'])} words · {n / sr:.2f}s · peak was {peak:.
 // ── receipt ───────────────────────────────────────────────────────────
 const receipt = {
   track: "amazing-grace", bpm: BPM, beatSec: SPB, totalBeats: TOTAL_BEATS,
+  phrasing: SMOOTH ? "legato: 35 ms word overlaps, phrase-end breaths, reduced envelope shimmer" : "original",
   engine: "WORLD (pyworld) via pop/cult/bin/sing.py — Saitou 2007 recipe",
   words: words.map((w, i) => ({
     i, text: w.text, start: +w.start.toFixed(4), beats: w.durBeats,

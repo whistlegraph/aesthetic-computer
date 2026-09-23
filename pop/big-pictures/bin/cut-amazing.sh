@@ -15,16 +15,17 @@ set -euo pipefail
 HERE="$(cd -- "$(dirname -- "$0")" && pwd)"
 LANE="$(cd -- "$HERE/.." && pwd)"
 REPO="$(cd -- "$LANE/../.." && pwd)"
-OUT="$LANE/out/amazing-grace"
+OUT="${OUT:-$LANE/out/amazing-grace}"
 PRE="${PRE:-$OUT/pre.wav}"
 TARGET="${TARGET:--11.5}"
-LIMIT="${LIMIT:-0.78}"       # ≈ −2.1 dBTP after 4× oversampling
+LIMIT="${LIMIT:-0.74}"       # leaves reconstruction headroom below −2 dBTP at 48 kHz
 SLUG="amazing-grace"
 TITLE="amazing grace"
 ARTIST="Aesthetic Dot Computer"
 ALBUM="pixsies"
 
 [ -f "$PRE" ] || { echo "✗ no premix at $PRE"; exit 1; }
+mkdir -p "$OUT"
 
 echo "→ tone + glue"
 ffmpeg -y -loglevel error -i "$PRE" -af "\
@@ -52,7 +53,8 @@ aresample=48000" \
   -c:a pcm_s24le "$OUT/${SLUG}-master.wav"
 
 echo "→ deliverables"
-ffmpeg -y -loglevel error -i "$OUT/${SLUG}-master.wav" -ar 44100 -sample_fmt s16 \
+ffmpeg -y -loglevel error -i "$OUT/${SLUG}-master.wav" -sample_fmt s32 \
+  -bits_per_raw_sample 24 \
   -c:a flac -compression_level 8 \
   -metadata title="$TITLE" -metadata artist="$ARTIST" -metadata album="$ALBUM" \
   "$OUT/${SLUG}-release.flac"

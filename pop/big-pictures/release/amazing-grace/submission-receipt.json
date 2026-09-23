@@ -1,0 +1,13 @@
+{
+  "confirmed": true,
+  "confirmation": "Hooray, your music is on its way!",
+  "title": "amazing grace",
+  "artist": "Aesthetic Dot Computer",
+  "albumUUID": "BDCD1AE1-C656-4E12-9F966B8F137E7961",
+  "hyperfollow": "https://distrokid.com/hyperfollow/aestheticdotcomputer/amazing-grace",
+  "submittedAt": "2026-09-23T21:39:14.401734+00:00",
+  "audioSha256": "fc65af4c0ea050479048cfa3b839711d2ff8e38b7c75b129685e67a88ad39202",
+  "master": "choir-v2",
+  "status": "processing; not confirmed live in stores",
+  "extrasCostUSD": 0
+}
