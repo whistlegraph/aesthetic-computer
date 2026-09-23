@@ -5,18 +5,18 @@ import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
 
 async function fixture({listError=false,objectErrors=false,identity=true,pds={deleted:true},authorized=true}={}) {
- const calls=[];
+ const calls=[],deletions=[];
  class ListObjectsV2Command {}
  class DeleteObjectsCommand {}
  const context=vm.createContext({process:{env:{}},console:{log(){},error(){}}});
- const collection={deleteMany:async()=>{},deleteOne:async()=>{},updateMany:async()=>{}};
+ const collection=name=>({deleteMany:async query=>deletions.push({name,query}),deleteOne:async query=>deletions.push({name,query}),updateMany:async()=>{}});
  const mocks={
   '../../backend/authorization.mjs':{
    authorize:async()=>authorized?{sub:'test-user'}:null,
    getHandleOrEmail:async()=>null,userIDFromEmail:async()=>null,
    deleteUser:async()=>{calls.push('identity');return {success:identity};}
   },
-  '../../backend/database.mjs':{connect:async()=>({db:{collection:()=>collection},disconnect:async()=>calls.push('disconnect')})},
+  '../../backend/database.mjs':{connect:async()=>({db:{collection},disconnect:async()=>calls.push('disconnect')})},
   '../../backend/http.mjs':{respond:(statusCode,body)=>({statusCode,body})},
   '@aws-sdk/client-s3':{ListObjectsV2Command,DeleteObjectsCommand,S3Client:class{async send(command){
    if(command instanceof ListObjectsV2Command){if(listError)throw Error('offline');return {Contents:[{Key:'test-user/art'}]};}
@@ -28,7 +28,7 @@ async function fixture({listError=false,objectErrors=false,identity=true,pds={de
  const module=new vm.SourceTextModule(await readFile(new URL('../netlify/functions/delete-erase-and-forget-me.mjs',import.meta.url),'utf8'),{context});
  await module.link(name=>new vm.SyntheticModule(Object.keys(mocks[name]),function(){for(const [key,value]of Object.entries(mocks[name]))this.setExport(key,value);},{context}));
  await module.evaluate();
- return {calls,run:()=>module.namespace.handler({httpMethod:'POST',headers:{}})};
+ return {calls,deletions,run:()=>module.namespace.handler({httpMethod:'POST',headers:{}})};
 }
 
 test('storage listing and partial object failures never report successful deletion',async()=>{
@@ -51,4 +51,10 @@ test('accounts with or without a linked identity complete and close the database
 });
 test('unauthenticated deletion cannot reach identity or database operations',async()=>{
  const f=await fixture({authorized:false});assert.equal((await f.run()).statusCode,401);assert.deepEqual(f.calls,[]);
+});
+
+test('deletion removes only the confirmed account transcripts and user record',async()=>{
+ const f=await fixture();assert.equal((await f.run()).statusCode,200);
+ assert.equal(JSON.stringify(f.deletions.find(d=>d.name==='easel-transcripts-private').query),JSON.stringify({owner:'test-user'}));
+ assert.equal(JSON.stringify(f.deletions.find(d=>d.name==='users').query),JSON.stringify({_id:'test-user'}));
 });

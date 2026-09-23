@@ -112,6 +112,9 @@ export async function handler(event, context) {
       await database.db.collection("push-tokens").deleteMany({ user: sub });
       console.log("🔔 Deleted push tokens.");
 
+      await database.db.collection("easel-transcripts-private").deleteMany({ owner: sub });
+      console.log("📓 Deleted Aesel transcripts.");
+
       await database.db
         .collection("tells")
         .deleteMany({ $or: [{ to: sub }, { from: sub }] });
@@ -198,6 +201,8 @@ export async function handler(event, context) {
       } else if (atprotoResult.reason !== "missing-did") {
         throw new Error("Could not delete the linked account. Please retry.");
       }
+
+      await database.db.collection("users").deleteOne({ _id: sub });
 
       console.log("❌ Deleted database data.");
 
