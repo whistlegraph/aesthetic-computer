@@ -146,6 +146,9 @@
       font-size: 12px; background: var(--card); opacity: .94; }
     .feed-media[data-interacting] { outline: 2px solid var(--link); outline-offset: -2px; }
     .feed-media[data-interacting] > .media-shield { display: none; }
+    .tape-player { position: absolute; inset: 0 0 48px; width: 100%; height: calc(100% - 48px); border: 0; background: var(--media); z-index: 2; }
+    .feed-media[data-tape][data-interacting] { min-height: 300px; }
+    .feed-media[data-tape][data-interacting] > :first-child { visibility: hidden; }
     .feed-media > [inert] { pointer-events: none; user-select: none; }
     .save-ribbon { min-width: 44px; padding: 8px; color: var(--author); background: transparent; border: 0; box-shadow: none; }
     .save-ribbon svg { width: 20px; height: 26px; fill: transparent; stroke: currentColor; stroke-width: 2; }
@@ -506,6 +509,7 @@ let interactingMedia = null;
 function exitMediaInteraction() {
   const frame = interactingMedia;
   if (!frame) return;
+  frame.querySelector(".tape-player")?.remove();
   delete frame.dataset.interacting;
   frame.firstElementChild.inert = true;
   if (frame.closest(".feed-post") && frame.firstElementChild.tagName === "VIDEO") frame.firstElementChild.muted = true;
@@ -534,6 +538,16 @@ function shieldMedia(frame, content, interactive) {
     interactingMedia = frame;
     frame.dataset.interacting = "true";
     content.inert = false;
+    if (frame.dataset.tape) {
+      if (content.tagName === "VIDEO") content.pause();
+      content.inert = true;
+      const player = el("iframe", "tape-player");
+      player.title = `Tape !${frame.dataset.tape} — audible left/right scrub player`;
+      player.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      player.allow = "autoplay";
+      player.src = "https://aesthetic.computer/video~!" + encodeURIComponent(frame.dataset.tape) + "?nogap=true&nolabel=true&noauth=true" + (window.acAutomation || new URLSearchParams(location.search).has("ac-automation") ? "&ac-automation=1" : "");
+      frame.append(player);
+    }
     button.textContent = "Scroll feed";
     button.setAttribute("aria-pressed", "true");
     syncPieceFocus();
@@ -840,6 +854,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const file = runnable ? renderRunnable(post) : renderFile(post.file);
     const frame = el("div", "feed-media");
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
+    if (post.media?.kind === "tape" && post.media.code) frame.dataset.tape = post.media.code;
     frame.append(file);
     if (["IMG", "VIDEO", "IFRAME", "PRE"].includes(file.tagName) || runnable) {
       const label = file.tagName === "VIDEO" ? "video" : file.tagName === "IMG" ? "image" : runnable ? "program" : "preview";
@@ -872,7 +887,7 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
       fit();
     }
     if (file.tagName === "AUDIO") frame.classList.add("media-audio");
-    shieldMedia(frame, file, runnable || ["IFRAME", "VIDEO", "AUDIO", "PRE", "A"].includes(file.tagName));
+    shieldMedia(frame, file, Boolean(frame.dataset.tape) || runnable || ["IFRAME", "VIDEO", "AUDIO", "PRE", "A"].includes(file.tagName));
     div.append(frame);
   }
   if (post.text) div.append(renderText(post.text));
@@ -1281,7 +1296,10 @@ window.addEventListener("resize", () => {
   }
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) view.querySelectorAll("video, audio").forEach((media) => media.pause());
+  if (document.hidden) {
+    exitMediaInteraction();
+    view.querySelectorAll("video, audio").forEach((media) => media.pause());
+  }
 });
 window.addEventListener("keydown", (event) => {
   if (!activeFeed?.nodes.length || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||

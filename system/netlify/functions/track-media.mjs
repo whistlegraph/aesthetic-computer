@@ -29,6 +29,11 @@ export async function handler(event, context) {
   let body;
   try {
     body = JSON.parse(event.body);
+    // Keep a private draft retryable if preview conversion is not configured.
+    if (event.httpMethod === "POST" && body.ext === "zip" && !process.env.OVEN_CALLBACK_SECRET) {
+      return respond(503, { error: "Tape conversion is unavailable; please retry shortly" });
+    }
+
     
     // Try to authorize user (but don't require it for guest uploads)
     let user;
@@ -42,7 +47,6 @@ export async function handler(event, context) {
     
     if (authHeader) {
       console.log(`🔑 Authorization header present, attempting to authorize...`);
-      console.log(`🔑 Token preview: ${authHeader.substring(0, 50)}...`);
       user = await authorize(event.headers);
       if (!user) {
         // Token validation failed - could be expired or invalid
@@ -315,7 +319,7 @@ export async function handler(event, context) {
           // Verify the ZIP is publicly accessible before sending to oven
           try {
             console.log(`🔍 Verifying ZIP is publicly accessible: ${zipUrl}`);
-            const testResponse = await fetch(zipUrl, { method: 'HEAD' });
+            const testResponse = await fetch(zipUrl, { method: 'HEAD', signal: AbortSignal.timeout(15000) });
             if (!testResponse.ok) {
               console.error(`⚠️  ZIP not accessible: ${testResponse.status} ${testResponse.statusText}`);
               console.error(`   This likely means the ACL wasn't set properly`);
@@ -337,7 +341,6 @@ export async function handler(event, context) {
             console.log(`🔥 Sending tape ${code} to oven for processing...`);
             console.log(`   Oven URL: ${ovenUrl}/bake`);
             console.log(`   Callback URL: ${callbackUrl}`);
-            console.log(`   Callback Secret: ${callbackSecret ? callbackSecret.substring(0, 10) + '...' : 'MISSING!'}`);
             
             const payload = JSON.stringify({
               mongoId: mediaId.toString(),
@@ -376,6 +379,7 @@ export async function handler(event, context) {
                   });
                 });
                 
+                req.setTimeout(15000, () => req.destroy(new Error('Oven request timed out')));
                 req.on('error', reject);
                 req.write(payload);
                 req.end();
@@ -387,7 +391,8 @@ export async function handler(event, context) {
               const ovenResponse = await fetch(`${ovenUrl}/bake`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: payload
+                body: payload,
+                signal: AbortSignal.timeout(15000)
               });
               
               if (!ovenResponse.ok) {

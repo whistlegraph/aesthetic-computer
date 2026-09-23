@@ -16,14 +16,15 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
   const fixture = (code, type, media) => ({ code, when: new Date().toISOString(), name: '@test', replies: 0,
     file: { name: code, type, url: `https://mime.ac/fixture/${code}` }, ...(media ? { media } : {}) });
   const posts = [fixture('wide', 'image/svg+xml'), fixture('program', 'text/javascript', { kind: 'piece', code: 'test', url: 'https://aesthetic.computer/test' }),
-    fixture('document', 'text/html'), fixture('longtext', 'text/plain'), fixture('below1', 'image/svg+xml'), fixture('below2', 'image/svg+xml'), fixture('deferred', 'text/plain'), fixture('video1', 'video/webm'), fixture('video2', 'video/webm')];
+    fixture('document', 'text/html'), fixture('longtext', 'text/plain'), fixture('below1', 'image/svg+xml'), fixture('below2', 'image/svg+xml'), fixture('deferred', 'text/plain'), fixture('video1', 'video/webm'), fixture('video2', 'video/webm'), fixture('tape', 'video/webm', { kind: 'tape', code: 'fixture-tape', url: 'https://aesthetic.computer/!fixture-tape' })];
   await context.route('**/*', async route => {
     const u = new URL(route.request().url()); requests.push(u.pathname);
     if (u.hostname === 'mime.ac' && u.pathname === '/') return route.fulfill({ contentType: 'text/html', body: html });
     if (u.pathname === '/api/mime') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ recent: posts, hasMore: false }) });
     if (u.pathname === '/fixture/longtext' || u.pathname === '/fixture/deferred') return route.fulfill({ body: 'A long line of text\n'.repeat(200) });
     if (u.pathname === '/fixture/document' || u.pathname === '/test') return route.fulfill({ contentType: 'text/html', body: `<style>body{margin:0;background:#264;color:white;height:3000px}button{padding:30px}</style><button onclick="this.textContent='clicked'">Program button</button><script>addEventListener('wheel',e=>e.preventDefault(),{passive:false});addEventListener('touchmove',e=>e.preventDefault(),{passive:false});</script>` });
-    if (/^\/fixture\/video[12]$/.test(u.pathname)) return route.fulfill({ contentType: 'video/webm', body: videoFixture });
+    if (u.pathname === '/video~!fixture-tape') return route.fulfill({ contentType: 'text/html', body: '<button>Tape scrubber</button>' });
+    if (/^\/fixture\/(video[12]|tape)$/.test(u.pathname)) return route.fulfill({ contentType: 'video/webm', body: videoFixture });
     if (u.pathname.startsWith('/fixture/')) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="300"><rect width="800" height="300" fill="#f9a"/><circle cx="400" cy="150" r="100" fill="#384"/></svg>' });
     return route.fulfill({ status: 200, body: '' });
   });
@@ -83,6 +84,20 @@ test('MIME: center scrolling, explicit interaction, natural image sizing and def
       assert.equal(await page.locator(`#${id} video`).evaluate(video => video.paused), true, 'manual pause survives the autoplay scheduler');
       await page.locator(`#${id} .media-toggle`).click();
     }
+    assert.equal(await page.locator('.tape-player').count(), 0, 'full tape player is not loaded for browsing');
+    await page.locator('#tape .media-toggle').click();
+    const tapePlayer = page.locator('#tape .tape-player');
+    await tapePlayer.waitFor();
+    assert.match(await tapePlayer.getAttribute('src'), /video~!fixture-tape/);
+    assert.equal(await tapePlayer.getAttribute('allow'), 'autoplay');
+    assert.equal(await page.locator('#tape video').evaluate(v => v.paused && v.inert), true);
+    await page.frameLocator('#tape .tape-player').getByRole('button', { name: 'Tape scrubber' }).click();
+    await page.locator('#tape .media-toggle').click();
+    assert.equal(await tapePlayer.count(), 0, 'exit destroys the audible player');
+    await page.locator('#tape .media-toggle').click();
+    await tapePlayer.waitFor();
+    await page.locator('#wide').evaluate(el => el.scrollIntoView({ block: 'start' }));
+    await page.waitForFunction(() => !document.querySelector('.tape-player'));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await program.evaluate(el => el.scrollIntoView({ block: 'center' }));

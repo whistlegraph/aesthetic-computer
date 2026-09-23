@@ -18,7 +18,7 @@ Checks cover center wheel scrolling over a scroll-capturing program, a document
 and long text; explicit interaction and returning to scrolling; resetting an
 interaction after scrolling away; touch scrolling at mobile width; natural
 image/video proportions; deferred offscreen text; a single dominant playing
-video; loading-state completion; and the three reviewed MIME action signals.
+video; on-demand tape player creation and destruction; loading-state completion; and the three reviewed MIME action signals.
 The tiny WebM fixture was generated with ffmpeg from a one-second solid color
 frame (160×90 at 10 fps); it contains no external media. Inspect the saved mobile and
 desktop screenshots as well as the assertions. Live media loading still needs

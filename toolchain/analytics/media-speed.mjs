@@ -24,9 +24,15 @@ if(args.includes('--all-types')) for(const {board} of (feed.boards||[]).slice(0,
  const r=await fetch(`${origin}/api/mime?board=${encodeURIComponent(board)}`,{signal:AbortSignal.timeout(20000)});
  if(r.ok){const data=await r.json();if(data.threads?.[0]?.op)candidates.push(data.threads[0].op);}
 }
+const forced=new Set();
+for(const code of option('--tapes','').split(',').filter(Boolean).slice(0,4)) {
+ const r=await fetch(`${origin}/api/mime?media=tape&code=${encodeURIComponent(code)}`,{signal:AbortSignal.timeout(20000)});
+ if(!r.ok)throw Error(`Tape lookup ${r.status}`);const {op}=await r.json();forced.add(op.code);
+ if(!candidates.some(p=>p.code===op.code))candidates.push(op);
+}
 const counts=new Map(),rows=[];
 for(const post of candidates){
- const type=post.file?.type;if(!type)continue;const max=type==='video/mp4'?2:1;if((counts.get(type)||0)>=max)continue;counts.set(type,(counts.get(type)||0)+1);
+ const type=post.file?.type;if(!type)continue;const max=type==='video/mp4'?2:1;if((counts.get(type)||0)>=max&&!forced.has(post.code))continue;counts.set(type,(counts.get(type)||0)+1);
  const row={code:post.code,kind:post.media?.kind||'upload',mime:type};
  try{const first=await probe(new URL(post.file.url,origin));delete first.finalUrl;row.first=first;
  const warm=await probe(new URL(post.file.url,origin));delete warm.finalUrl;row.repeat=warm;
