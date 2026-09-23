@@ -154,7 +154,14 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, 
       server.send("lairk:hello", {});
       if (handle?.() && authorize) {
         Promise.resolve(authorize())
-          .then((token) => token && server.send("lairk:auth", { token }))
+          .then((token) => {
+            if (!token) return (walkNo = "login"); // Signed in, but no token to show.
+            server.send("lairk:auth", { token });
+            // An answer comes back in well under a second; silence means trouble.
+            setTimeout(() => {
+              if (!walker && !walkNo) walkNo = "unavailable";
+            }, 8000);
+          })
           .catch(() => (walkNo = "login"));
       }
       return;
@@ -947,7 +954,7 @@ function walkNotice($) {
   if (!me) return "log in to take your spot in lairk";
   if (!eligible) return "asking laer klokken who is here...";
   if (walkNo === "mention" || !eligible.has(me)) return "you must be mentioned in laer klokken to have a spot";
-  if (walkNo === "unavailable") return "lairk can't check the roster right now";
+  if (walkNo === "unavailable") return "lairk isn't answering right now - try again soon";
   if (walkNo === "login") return "your login couldn't be verified - try logging in again";
   return "joining lairk...";
 }
