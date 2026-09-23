@@ -23,6 +23,7 @@
 //   node toolchain/instagram/ig.mjs refresh --all         # monthly cron
 //   node toolchain/instagram/ig.mjs --as oskiewar post reel.mp4 \
 //        [--caption "..."] [--cover cover.jpg] [--audio-name "..."]
+//        [--trial [manual|auto]]
 //   node toolchain/instagram/ig.mjs --as oskiewar insights <media-id>
 //   node toolchain/instagram/ig.mjs --as oskiewar snapshot
 //
@@ -303,6 +304,13 @@ async function doPost(creds) {
     : null;
   if (collaborators && collaborators.length > 3) die(`Instagram allows at most 3 collaborators`);
 
+  // Trial reel: shown to non-followers first. "manual" (the default) waits
+  // for a human to graduate it in the app; "auto" lets Instagram graduate it
+  // to followers if it performs (SS_PERFORMANCE).
+  const TRIAL = { manual: "MANUAL", auto: "SS_PERFORMANCE" };
+  const trial = flags.trial ? TRIAL[flags.trial === true ? "manual" : String(flags.trial)] : null;
+  if (flags.trial && !trial) die(`--trial takes manual or auto`);
+
   // Quota first — a spent budget should stop us before any bytes move.
   const quota = await fetchQuota(creds);
   console.log(`▸ quota ${quota.used}/${quota.total} used in the last 24h`);
@@ -323,6 +331,7 @@ async function doPost(creds) {
   if (urls.cover) body.cover_url = urls.cover;
   if (audioName) body.audio_name = audioName;
   if (collaborators?.length) body.collaborators = collaborators;
+  if (trial) body.trial_params = { graduation_strategy: trial };
   const created = await call(api(`${creds.igUserId}/media?access_token=${creds.token}`), {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -390,6 +399,7 @@ async function doPost(creds) {
     caption,
     audioName,
     collaborators,
+    trial,
     file: videoPath,
   };
   const sidecar = videoPath.replace(/\.[^.]+$/, "") + ".instagram.json";
@@ -405,6 +415,7 @@ async function doPost(creds) {
     source: relativeToRoot(videoPath),
     audioName,
     collaborators,
+    trial,
     urls: { reel: urls.reel, ...(urls.cover ? { cover: urls.cover } : {}) },
     insights: null,
   });
@@ -607,6 +618,7 @@ commands:
   refresh                  refresh the 60-day token, rewrite the vault env file in place
   refresh --all            refresh every provisioned account (monthly cron; no --as needed)
   post <video.mp4> [--caption "..."] [--cover img.jpg] [--audio-name "..."]
+       [--trial [manual|auto]]  trial reel: non-followers first; auto = SS_PERFORMANCE
                            publish a reel: Spaces upload → container → poll → publish
   insights <media-id>      per-reel metrics (views, reach, skip rate, …; --json for machines)
   insights --refresh       pull metrics for every post in the account's ledger

@@ -65,13 +65,13 @@ const TOOLS = [
   { name: "instagram_quota", description: "Read an account's official 24-hour Instagram content publishing quota.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "oskiewar" } } } },
   { name: "instagram_insights", description: "Read official Reel insights for one media ID.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "oskiewar" }, mediaId: { type: "string" } }, required: ["mediaId"] } },
   { name: "instagram_refresh", description: "Refresh and persist an account's long-lived token in its vault file. SIDE EFFECT: rewrites only the token line. Requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "oskiewar" }, confirm: { type: "boolean" } }, required: ["confirm"] } },
-  { name: "instagram_post_reel", description: "Publish a verified local MP4 through the official Instagram Graph API: public Spaces upload, container poll, publish, and receipt. SIDE EFFECT: creates a live Instagram Reel. Requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "oskiewar" }, videoPath: { type: "string" }, coverPath: { type: "string" }, caption: { type: "string", maxLength: 2200 }, confirm: { type: "boolean" } }, required: ["videoPath", "caption", "confirm"] } },
+  { name: "instagram_post_reel", description: "Publish a verified local MP4 through the official Instagram Graph API: public Spaces upload, container poll, publish, and receipt. SIDE EFFECT: creates a live Instagram Reel. Requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "oskiewar" }, videoPath: { type: "string" }, coverPath: { type: "string" }, caption: { type: "string", maxLength: 2200 }, trial: { type: "string", enum: ["manual", "auto"], description: "Post as a trial reel (non-followers first). manual = graduate in the app; auto = Instagram graduates it if it performs." }, confirm: { type: "boolean" } }, required: ["videoPath", "caption", "confirm"] } },
   { name: "oskiewar_reel_queue", description: "List staged Oskiewar Reel artifacts and their verification state.", inputSchema: { type: "object", properties: {} } },
   { name: "oskiewar_reel_render", description: "Render and verify an Oskiewar Reel into tmp/oskiewar-reels/queue. This may take several minutes but does not publish.", inputSchema: { type: "object", properties: { day: { type: "string", description: "YYYY-MM-DD" }, index: { type: "integer", minimum: 0 }, segment: { type: "string" }, seconds: { type: "number", minimum: 8, maximum: 120 }, door: { type: "string", enum: ["survival", "fight"], description: "Force the lava climb or the versus fight; omitted, the slot's seed deals it (the oven's oskiewaroll)." } } } },
   { name: "oskiewar_reel_publish", description: "Run the Oskiewar queue publisher. live:false writes/returns the dry-run payload; live:true uploads and posts. SIDE EFFECT when live:true. Requires confirm:true for live publication.", inputSchema: { type: "object", properties: { id: { type: "string" }, live: { type: "boolean", default: false }, confirm: { type: "boolean" } }, required: ["id"] } },
   { name: "instagram_reel_app_queue", description: "List staged Reel artifacts for the Whistlegraph or Aesthetic Computer Instagram app.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) } }, required: ["account"] } },
   { name: "instagram_reel_app_build", description: "Build and verify one deterministic Whistlegraph or Aesthetic Computer Reel slot. Stages locally; never publishes.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) }, day: { type: "string", description: "YYYY-MM-DD" }, index: { type: "integer", minimum: 0 }, redo: { type: "boolean", default: false } }, required: ["account"] } },
-  { name: "instagram_reel_app_publish", description: "Publish or dry-run one staged Whistlegraph/Aesthetic Reel. live:false writes the payload only; live:true creates a live Instagram Reel and requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) }, id: { type: "string" }, live: { type: "boolean", default: false }, confirm: { type: "boolean" } }, required: ["account", "id"] } },
+  { name: "instagram_reel_app_publish", description: "Publish or dry-run one staged Whistlegraph/Aesthetic Reel. live:false writes the payload only; live:true creates a live Instagram Reel and requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(reelApps) }, id: { type: "string" }, live: { type: "boolean", default: false }, trial: { type: "string", enum: ["manual", "auto"], description: "Post as a trial reel (non-followers first). manual = graduate in the app; auto = Instagram graduates it if it performs." }, confirm: { type: "boolean" } }, required: ["account", "id"] } },
 ];
 
 async function callTool(name, args = {}) {
@@ -88,6 +88,7 @@ async function callTool(name, args = {}) {
     if (args.confirm !== true) throw new Error("confirm:true is required to publish a live Reel");
     const argv = ["--as", as, "post", resolve(args.videoPath), "--caption", args.caption];
     if (args.coverPath) argv.push("--cover", resolve(args.coverPath));
+    if (args.trial) argv.push("--trial", args.trial);
     return text(await run(ig, argv));
   }
   if (name === "oskiewar_reel_queue") return text(await run(reel, ["--queue"]));
@@ -118,7 +119,7 @@ async function callTool(name, args = {}) {
     const app = reelApp(args.account);
     if (args.live && args.confirm !== true) throw new Error("confirm:true is required for live publication");
     return text(await run(reelApps[app], ["--publish", args.id,
-      ...(args.live ? ["--live"] : [])], 600_000));
+      ...(args.live ? ["--live"] : []), ...(args.trial ? ["--trial", args.trial] : [])], 600_000));
   }
   throw new Error(`unknown tool ${name}`);
 }

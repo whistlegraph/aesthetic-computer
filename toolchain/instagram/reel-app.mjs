@@ -195,10 +195,12 @@ function finishRecord(record, dir) {
   return record;
 }
 
-async function publish(account, record, live, allowRepeat = false) {
+// trial: null, or "manual"/"auto" — see ig.mjs --trial.
+async function publish(account, record, live, allowRepeat = false, trial = null) {
   if (!record.meta?.ok) throw new Error(`${record.id} failed the media gate`);
   if (!live) {
     dryRun(record, record.files, { igUserId: `{${account}-ig-user-id}` });
+    if (trial) console.log(`  → as a trial reel (${trial}): non-followers first`);
     console.log("  → add --live to publish; nothing left this machine");
     return;
   }
@@ -207,14 +209,22 @@ async function publish(account, record, live, allowRepeat = false) {
   if (prior && !allowRepeat)
     throw new Error(`${record.sourceId} already published as ${prior.mediaId || prior.id}; pass --allow-repeat deliberately`);
   await runAsync(process.execPath, [IG, "--as", account, "post", record.files.reel,
-    "--caption", record.caption, "--cover", record.files.cover]);
+    "--caption", record.caption, "--cover", record.files.cover,
+    ...(trial ? ["--trial", trial] : [])]);
   const receipt = readJson(record.files.reel.replace(/\.[^.]+$/, ".instagram.json"), null);
   if (!receipt?.mediaId) throw new Error("Instagram returned without a publish receipt");
   annotateLedger(account, { id: record.id, sourceId: record.sourceId, day: record.day,
     index: record.index, slot: record.slot, segment: record.segment,
     publishedAt: receipt.publishedAt, mediaId: receipt.mediaId,
-    containerId: receipt.containerId, insights: null });
+    containerId: receipt.containerId, trial: receipt.trial || null, insights: null });
   console.log(`📤 ${record.id} → ${receipt.mediaId}`);
+}
+
+function trialFlag(flags) {
+  if (!flags.trial) return null;
+  const trial = flags.trial === true ? "manual" : String(flags.trial);
+  if (!["manual", "auto"].includes(trial)) throw new Error("--trial takes manual or auto");
+  return trial;
 }
 
 export async function runReelApp(account, argv = process.argv.slice(2)) {
@@ -239,7 +249,8 @@ export async function runReelApp(account, argv = process.argv.slice(2)) {
   if (flags.publish) {
     const record = readJson(join(staging, String(flags.publish), "reel.json"), null);
     if (!record) throw new Error(`staged reel not found: ${flags.publish}`);
-    await publish(account, record, flags.live === true, flags["allow-repeat"] === true); return;
+    await publish(account, record, flags.live === true, flags["allow-repeat"] === true,
+      trialFlag(flags)); return;
   }
 
   const day = String(flags.day || new Date().toISOString().slice(0, 10));
@@ -264,7 +275,7 @@ export async function runReelApp(account, argv = process.argv.slice(2)) {
     if (!record.meta?.ok) throw new Error(`${record.id} held: media gate failed`);
     if (!autoEnabled(config))
       throw new Error(`${config.prefix}_IG_AUTO=1 is not set in ${envFile(account)}; staged but not posted`);
-    await publish(account, record, true, flags["allow-repeat"] === true);
+    await publish(account, record, true, flags["allow-repeat"] === true, trialFlag(flags));
   } else {
     console.log(`review ${record.files.reel}`);
     console.log(`then: node toolchain/instagram/${account === "aesthetic" ? "aesthetic-ig" : "whistlegraph-ig"}.mjs --publish ${record.id}`);
