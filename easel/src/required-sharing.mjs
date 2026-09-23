@@ -26,7 +26,11 @@ export function sharingScreen({columns=80,rows=24,useColor=true,signedIn=false}=
  const keys=`[A] Agree and continue${signedIn?'':' (sign in)'}   [Q] Quit`;
  const gap={plain:'',painted:''};
  const title=(mark)=>({plain:`${mark}Aesel data sharing`,painted:`${mark?ink('handle',mark):''}${ink('highlight','Aesel data sharing')}`});
- const tail=[gap,...paragraph.map(line=>({plain:line,painted:ink('soft',line)})),gap,
+ // One colour span for the whole paragraph, opened on its first line and
+ // closed on its last: the words between two lines stay plain text with plain
+ // whitespace, so anything reading the screen for a phrase still finds it.
+ const soft=useColor?color.soft||'':'';
+ const tail=[gap,...paragraph.map((line,i)=>({plain:line,painted:`${i===0?soft:''}${line}${i===paragraph.length-1&&soft?color.reset:''}`})),gap,
   {plain:keys,painted:`${ink('handle','[A]')} Agree and continue${signedIn?'':' (sign in)'}   ${ink('handle','[Q]')} Quit`}];
  // The whole donkey when the window has the rows for him; his one-row self
  // beside the title when it does not, so an 80×24 terminal still shows the
