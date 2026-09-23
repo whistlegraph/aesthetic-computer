@@ -44,3 +44,13 @@ test("colour inks the star on its own, and a narrow window still fits", () => {
   assert.ok(!plainRows(painted).at(-2).includes("(sign in)"), "signed in does not ask to sign in");
   assert.ok(plainRows(sharingScreen({ columns: 44, rows: 12, useColor: false })).every((row) => row.length <= 44), "nothing wraps at 44 columns");
 });
+
+test("an 80 by 24 terminal shows the whole disclosure and the keys, with the small donkey", () => {
+  const screen = sharingScreen({ columns: 80, rows: 24, useColor: false });
+  const rows = plainRows(screen);
+  assert.ok(rows.length <= 25, `fits in 24 rows, got ${rows.length}`);
+  assert.ok(!rows.some((row) => row.includes("( o o )") || row.includes("( - - )")), "no room for the full donkey");
+  assert.ok(rows.some((row) => /\/\/o>\s+Aesel data sharing/.test(row)), "his one-row self stands by the title");
+  assert.ok(rows.some((row) => row.includes("[Q] Quit")), "the keys are on screen");
+  assert.ok(rows.every((row) => row.length <= 80), "nothing wraps");
+});

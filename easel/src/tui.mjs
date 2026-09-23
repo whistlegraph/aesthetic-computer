@@ -309,7 +309,10 @@ const transcriptSeen = new Set(state.entries.map(entry=>entry.id));
 const transcriptCompleted = new Set();
 const transcriptRevisions = new Set();
 const transcriptEnqueued = new Map();
-try {
+// A private session keeps no shared journal at all — its transcript is the
+// local one in transcript.mjs, and nothing is uploaded — so there is nothing
+// to open here and no error to show for not opening it.
+if (!profile.private) try {
   transcriptJournal = new TranscriptJournal({root:path.join(homedir(),'.local','share','easel','transcripts'),
     ...(desktopRestored?.transcriptId ? {id:desktopRestored.transcriptId}:{}),
     metadata:{medium:state.medium},version:currentVersion(),session});
