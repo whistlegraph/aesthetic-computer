@@ -10,8 +10,8 @@ const members=['neo','blueberry','frisbee'];
 const cast=['Noelle (Enhanced)','Aaron (Enhanced)','Zoe (Premium)'];   // Aaron: speaks at 48.8, band 39–53 — the cradle sits inside it
 const BPM=69, BAR=3, BARS=20, TOTAL=BAR*BARS; // 60 beats ≈ 52 s
 const parts=[[],[],[]];
-const words=new Set(['good','morn-ing','So-phi-a','the','sun','is','on','your','lid','cof-fee','take','time','day','out','for','you','hmm']);
-function add(i,bar,notes,text,gain,role='word') {
+const words=new Set(['good','morn-ing','So-phi-a','the','sun-light','is','on','your','lid','cof-fee','take','time','day','out','for','you','hmm']);
+function add(i,bar,notes,text,gain,role='lead') {   // 'lead' = word line (hear.mjs scores these); 'hum' = held tail
   assert.equal(notes.filter(([n])=>n!=="r").length,text.split(" ").reduce((a,t)=>a+t.split("-").length,0),text);
   assert(text.split(' ').every(x=>words.has(x)),text);
   parts[i].push({at:bar*BAR,notes,text,gain,role});
@@ -19,17 +19,19 @@ function add(i,bar,notes,text,gain,role='word') {
 
 // neo — the words, each phrase two bars, each one a little higher than the last
 add(0,2, [[54,1],[57,1],[59,1],[62,1],[64,1.5],[62,.5]],'good morn-ing So-phi-a',.50);
-add(0,4, [[57,1],[59,1],[61,1],[62,.5],[64,.5],[66,2]],'the sun is on your lid',.48);
-add(0,8, [[59,1],[62,1],[64,1],[66,1],[67,2]],'the cof-fee is on',.50);
-add(0,10,[[66,1],[64,1],[62,4]],'take your time',.46);
-add(0,14,[[59,1],[62,1],[64,1],[66,.5],[64,.5],[62,2]],'the day is out for you',.48);
-add(0,16,[[62,1],[64,1],[66,4]],'good morn-ing',.46);
+add(0,4, [[57,1],[59,1],[61,1],[62,1],[64,1.2],['r',.8]],'sun-light on your lid',.48);   // 'the sun is' is heard as 'this land is' (probe Sept 23); this line renders 0%
+add(0,8, [[59,1],[62,1],[64,1],[66,1],[67,1.5],['r',.5]],'the cof-fee is on',.50);
+add(0,10,[[66,1],[64,1],[62,1.5]],'take your time',.46);
+add(0,10+3.5/3,[[62,2.5]],'hmm',.34,'hum');           // the tail of 'time', hummed
+add(0,14,[[59,1],[62,1],[64,1],[66,.5],[64,.5],[62,1.5],['r',.5]],'the day is out for you',.48);
+add(0,16,[[62,1],[64,1],[66,1.5]],'good morn-ing',.46);
+add(0,16+3.5/3,[[66,2.5]],'hmm',.34,'hum');           // the tail of 'morning', hummed
 add(0,18,[[62,6]],'hmm',.34,'hum');
 
-// frisbee — its first word is her name; it answers neo twice
-add(2,6, [[66,1],[64,1],[62,1],[64,.5],[62,.5],[59,2]],'So-phi-a So-phi-a',.44);
-add(2,12,[[67,1],[66,1],[64,3],['r',1]],'So-phi-a',.42);
-add(2,18,[[69,6]],'hmm',.30,'hum');
+// frisbee — its first word is her name; it answers neo twice. Zoe measured Sept 23: median 55.6, band 52.5–59.4.
+add(2,6, [[59,1],[57,1],[55,1],['r',3]],'So-phi-a',.44);   // in Zoe's band (52–59); one beat a syllable exactly — any longer 'a' is heard as 'fear'
+add(2,12,[[59,1],[57,1],[55,1],['r',3]],'So-phi-a',.42);
+add(2,18,[[57,6]],'hmm',.30,'hum');   // the fifth, A3
 
 // blueberry — the cradle, fifth on top now: root two beats, fifth one, every bar.
 // Written where Tom actually speaks (G2–D3 roots, fifths to A3): the first

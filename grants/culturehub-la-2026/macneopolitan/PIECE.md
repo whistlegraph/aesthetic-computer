@@ -414,6 +414,14 @@ Checked once per cue, not per line. Turnaround sheets for the three
 (gpt-image-2.5 + flux/dev via illy) are on neo's Desktop as
 `trio-<member>-turnaround-<backend>.png`; the OpenAI set is the usable one.
 
+Afternoon revision of the wake score (not yet played): frisbee's lines were
+written at 59–69, up to 13 semitones above where Zoe speaks (55.6, band
+52.5–59.4, measured three times today) — now 52–59, one beat a syllable; every
+neo word is capped at 1.5 beats with the tails handed to `hmm` lines;
+"the sun is on your lid" (heard as "this land is on your land") became
+"sunlight on your lid". Offline render: neo 0/22 words wrong, frisbee 0/2.
+The day's four agent pieces and studies are indexed in SONGBOOK.md.
+
 Don't start a second run while one is still playing: the first run's end
 fires stopScore on its machines and hides the faces of the run still going.
 

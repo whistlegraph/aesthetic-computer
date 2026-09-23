@@ -1,40 +1,60 @@
 {
-  "title": "The MacNeoPolitan Trio — Good morning, Sophia",
-  "composer": "The machines, arr. compose-wake.mjs",
-  "bpm": 69,
+  "title": "The MacNeoPolitan Trio — Lights out",
+  "composer": "The machines, arr. compose-lights-out.mjs",
+  "bpm": 64,
   "machines": 3,
   "lead": 0,
-  "description": "A wake-up lullaby in three, D major, rising. Blueberry hums the cradle with the fifth on top; neo sings good morning Sophia / the sun is on your lid / the coffee is on / take your time / the day is out for you / good morning; frisbee says its first word, her name; all three hum the last two bars. Very quiet.",
+  "description": "The evening bookend to Good morning, Sophia. 3/4, D major, 64 bpm, 78 beats. Blueberry drones from the first bar to the last and stops twice to say sleep now and thirteen days; neo sings good night Sophia / good night Jeffrey / your lids come down / he works past midnight / we stay up till morning / we keep the time for you / you can sleep now; frisbee answers with the two names and good night. All three end on an open D. Quieter than the morning.",
   "arrangement": {
-    "total": 60,
+    "total": 78,
     "meter": "3/4",
     "sections": [
       {
         "beat": 0,
-        "name": "Cradle"
+        "name": "Drone"
       },
       {
         "beat": 6,
-        "name": "neo: good morning Sophia"
+        "name": "neo: good night Sophia"
+      },
+      {
+        "beat": 12,
+        "name": "frisbee: Sophia"
       },
       {
         "beat": 18,
-        "name": "frisbee: Sophia"
+        "name": "neo: good night Jeffrey"
       },
       {
         "beat": 24,
-        "name": "neo: the coffee is on"
+        "name": "frisbee: Jeffrey"
+      },
+      {
+        "beat": 30,
+        "name": "neo: your lids come down"
       },
       {
         "beat": 36,
-        "name": "frisbee: Sophia"
+        "name": "blueberry: sleep now"
       },
       {
         "beat": 42,
-        "name": "neo: the day is out for you"
+        "name": "neo: he works past midnight"
       },
       {
         "beat": 54,
+        "name": "blueberry: thirteen days"
+      },
+      {
+        "beat": 60,
+        "name": "neo: we keep the time for you"
+      },
+      {
+        "beat": 70,
+        "name": "frisbee: good night"
+      },
+      {
+        "beat": 72,
         "name": "Hum"
       }
     ]
@@ -44,29 +64,33 @@
       "name": "neo sings (Noelle (Enhanced))",
       "program": 78,
       "velocity": 52,
-      "notes": "r:6,54:1,57:1,59:1,62:1,64:1.5,62:0.5,57:1,59:1,61:1,62:1,64:1.2,r:0.8,r:6,59:1,62:1,64:1,66:1,67:1.5,r:0.5,66:1,64:1,62:1.5,62:2.5,r:6,59:1,62:1,64:1,66:0.5,64:0.5,62:1.5,r:0.5,62:1,64:1,66:1.5,66:2.5,62:6",
-      "lyrics": "good morn-ing So-phi-a / sun-light on your lid / the cof-fee is on / take your time / hmm / the day is out for you / good morn-ing / hmm / hmm",
+      "notes": "r:6,64:1,62:1,61:0.75,59:0.75,57:1.25,r:1.25,59:3,57:3,62:0.75,61:0.75,59:0.5,57:1.5,r:8.5,59:0.75,61:0.75,59:0.5,57:1.5,r:2.5,59:3,57:3,57:1,59:1,61:1,59:0.75,57:1.25,r:1,59:0.75,62:0.75,64:0.75,62:0.75,61:0.75,59:1.25,r:1,59:3,57:3,62:1,61:1,59:1,57:1,59:0.75,57:1.25,61:1,59:1,57:0.75,57:1.25,r:2,59:3,62:3",
+      "lyrics": "good night So-phi-a / hmm hmm / good night Jeff-rey / your lids come down / hmm hmm / he works past mid-night / we stay up till morn-ing / hmm hmm / we keep the time for you / you can sleep now / hmm hmm",
       "lineRoles": [
         "lead",
+        "hum",
         "lead",
+        "lead",
+        "hum",
         "lead",
         "lead",
         "hum",
         "lead",
         "lead",
-        "hum",
         "hum"
       ],
       "lineGains": [
         0.5,
+        0.3,
+        0.5,
+        0.48,
+        0.3,
         0.48,
         0.5,
-        0.46,
-        0.34,
+        0.3,
         0.48,
         0.46,
-        0.34,
-        0.34
+        0.32
       ],
       "noteGains": [
         [
@@ -74,8 +98,27 @@
           0.78,
           0.9,
           0.74,
-          0.86,
-          0.7
+          0.86
+        ],
+        [
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78,
+          0.9,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.9,
+          0.74
+        ],
+        [
+          1,
+          0.78
         ],
         [
           1,
@@ -89,15 +132,12 @@
           0.78,
           0.9,
           0.74,
-          0.86
+          0.86,
+          0.7
         ],
         [
           1,
-          0.78,
-          0.9
-        ],
-        [
-          1
+          0.78
         ],
         [
           1,
@@ -110,13 +150,12 @@
         [
           1,
           0.78,
-          0.9
+          0.9,
+          0.74
         ],
         [
-          1
-        ],
-        [
-          1
+          1,
+          0.78
         ]
       ],
       "singVoice": "Noelle (Enhanced)",
@@ -132,269 +171,213 @@
         "keys": [
           {
             "beat": 0,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
             "beat": 5.6,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
             "beat": 6,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 11.2,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
+            "beat": 9.7,
+            "space": 0.85,
+            "pitch": 0
           },
           {
-            "beat": 11.6,
-            "space": 0.8,
+            "beat": 9.95,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 10.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 17.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 11.7,
-            "space": 0.8,
+            "beat": 18,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 12,
-            "space": 0.8,
+            "beat": 20.2,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 12.1,
+            "beat": 20.6,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 16.2,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 16.6,
+            "beat": 20.7,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
-          },
-          {
-            "beat": 17.2,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
-          },
-          {
-            "beat": 23.6,
-            "space": 0.8,
-            "pitch": 0,
-            "echo": 0
-          },
-          {
-            "beat": 24,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 28.2,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 28.6,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
-          },
-          {
-            "beat": 29.2,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
             "beat": 29.6,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
             "beat": 30,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
             "beat": 32.2,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
             "beat": 32.6,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
             "beat": 32.7,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
-          },
-          {
-            "beat": 33.1,
-            "space": 0.8,
-            "pitch": 0,
-            "echo": 0
-          },
-          {
-            "beat": 33.5,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 33.7,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 34.1,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
-          },
-          {
-            "beat": 35.2,
-            "space": 0,
-            "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
             "beat": 41.6,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
             "beat": 42,
-            "space": 0.8,
+            "space": 0.85,
+            "pitch": 0
+          },
+          {
+            "beat": 45.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
             "beat": 46.2,
-            "space": 0.8,
-            "pitch": 0
-          },
-          {
-            "beat": 46.6,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 47.2,
+            "beat": 46.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
             "beat": 47.6,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
             "beat": 48,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 50.2,
-            "space": 0.8,
+            "beat": 51.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 50.6,
+            "beat": 52.2,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 50.7,
+            "beat": 52.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 51.1,
-            "space": 0.8,
+            "beat": 59.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 51.5,
-            "space": 0.8,
+            "beat": 60,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 51.7,
-            "space": 0.8,
+            "beat": 64.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 52.1,
+            "beat": 65.2,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 53.2,
+            "beat": 65.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 53.6,
-            "space": 0.8,
+            "beat": 65.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 54,
-            "space": 0.8,
+            "beat": 66,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 54.2,
-            "space": 0.8,
+            "beat": 68.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 54.6,
+            "beat": 69.2,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 59.2,
+            "beat": 69.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 68,
+            "beat": 86,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 72,
+            "beat": 90,
             "space": 0,
             "pitch": 0,
             "echo": 0
@@ -406,8 +389,8 @@
       "name": "blueberry sings (Aaron (Enhanced))",
       "program": 78,
       "velocity": 52,
-      "notes": "50:2,45:1,50:2,45:1,50:2,45:1,43:2,50:1,50:2,45:1,45:2,52:1,43:2,50:1,50:2,45:1,50:2,45:1,43:2,50:1,45:2,52:1,50:2,45:1,43:2,50:1,45:2,52:1,50:2,45:1,43:2,50:1,50:2,45:1,50:2,45:1,50:3,50:3",
-      "lyrics": "hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm",
+      "notes": "50:3,45:3,50:3,47:3,50:3,43:3,50:3,45:3,45:3,47:3,50:3,47:3,47:1,45:1.25,r:3.75,45:3,47:3,50:3,47:3,50:1,47:1,45:1.5,r:2.5,50:3,45:3,50:3,47:3,45:3,50:3",
+      "lyrics": "hmm hmm / hmm hmm / hmm hmm / hmm hmm / hmm hmm / hmm hmm / sleep now / hmm hmm / hmm hmm / thir-teen days / hmm hmm / hmm hmm / hmm hmm",
       "lineRoles": [
         "hum",
         "hum",
@@ -415,7 +398,10 @@
         "hum",
         "hum",
         "hum",
+        "lead",
         "hum",
+        "hum",
+        "lead",
         "hum",
         "hum",
         "hum"
@@ -427,63 +413,61 @@
         0.46,
         0.46,
         0.46,
+        0.48,
         0.46,
         0.46,
+        0.48,
         0.46,
-        0.36
+        0.46,
+        0.38
       ],
       "noteGains": [
         [
           1,
-          0.72,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
+          1,
+          0.72
+        ],
+        [
           1,
           0.72
         ],
         [
           1,
           0.72,
+          1
+        ],
+        [
           1,
           0.72
         ],
         [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
-          1,
-          0.72
-        ],
-        [
-          1,
-          0.72,
           1,
           0.72
         ],
@@ -509,9 +493,72 @@
             "pitch": 0
           },
           {
-            "beat": 66,
+            "beat": 35.6,
+            "space": 0.7,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 36,
             "space": 0.7,
             "pitch": 0
+          },
+          {
+            "beat": 37.2,
+            "space": 0.7,
+            "pitch": 0
+          },
+          {
+            "beat": 37.45,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 37.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 53.6,
+            "space": 0.7,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 54,
+            "space": 0.7,
+            "pitch": 0
+          },
+          {
+            "beat": 56.2,
+            "space": 0.7,
+            "pitch": 0
+          },
+          {
+            "beat": 56.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 56.7,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 86,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.9
+          },
+          {
+            "beat": 90,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
           }
         ]
       }
@@ -520,16 +567,24 @@
       "name": "frisbee sings (Zoe (Premium))",
       "program": 78,
       "velocity": 52,
-      "notes": "r:18,59:1,57:1,55:1,r:3,r:12,59:1,57:1,55:1,r:3,r:12,57:6",
-      "lyrics": "So-phi-a / So-phi-a / hmm",
+      "notes": "r:12,59:0.5,57:0.5,54:1.5,r:9.5,57:0.75,54:1.5,r:15.75,57:3,57:3,59:3,57:3,r:6,57:3,55:3,r:4,57:0.75,54:1.25,57:3,57:3",
+      "lyrics": "So-phi-a / Jeff-rey / ooh ooh / ooh ooh / ooh ooh / good night / hmm hmm",
       "lineRoles": [
         "lead",
+        "lead",
+        "hum",
+        "hum",
+        "hum",
         "lead",
         "hum"
       ],
       "lineGains": [
-        0.44,
-        0.42,
+        0.46,
+        0.46,
+        0.28,
+        0.3,
+        0.28,
+        0.46,
         0.3
       ],
       "noteGains": [
@@ -540,11 +595,27 @@
         ],
         [
           1,
-          0.78,
-          0.9
+          0.78
         ],
         [
-          1
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78
         ]
       ],
       "singVoice": "Zoe (Premium)",
@@ -560,101 +631,101 @@
         "keys": [
           {
             "beat": 0,
-            "space": 0.8,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 17.6,
-            "space": 0.8,
+            "beat": 11.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 18,
-            "space": 0.8,
+            "beat": 12,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 20.2,
-            "space": 0.8,
+            "beat": 13.2,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 20.6,
+            "beat": 13.6,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 23.2,
+            "beat": 13.7,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 35.6,
-            "space": 0.8,
+            "beat": 23.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 36,
-            "space": 0.8,
+            "beat": 24,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 38.2,
-            "space": 0.8,
+            "beat": 24.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 38.6,
+            "beat": 25.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 41.2,
+            "beat": 25.45,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 53.6,
-            "space": 0.8,
+            "beat": 69.6,
+            "space": 0.85,
             "pitch": 0,
             "echo": 0
           },
           {
-            "beat": 54,
-            "space": 0.8,
+            "beat": 70,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 54.2,
-            "space": 0.8,
+            "beat": 70.95,
+            "space": 0.85,
             "pitch": 0
           },
           {
-            "beat": 54.6,
+            "beat": 71.2,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 59.2,
+            "beat": 71.35,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 68,
+            "beat": 86,
             "space": 0,
             "pitch": 0,
-            "echo": 0.85
+            "echo": 0.9
           },
           {
-            "beat": 72,
+            "beat": 90,
             "space": 0,
             "pitch": 0,
             "echo": 0

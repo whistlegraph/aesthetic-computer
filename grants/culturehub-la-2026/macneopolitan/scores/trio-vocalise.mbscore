@@ -1,0 +1,1615 @@
+{
+  "title": "The MacNeoPolitan Trio — Vocalise",
+  "composer": "The machines, arr. compose-vocalise.mjs",
+  "bpm": 90,
+  "machines": 3,
+  "lead": 0,
+  "phonemeOnly": true,
+  "description": "A wordless study in ornaments. frisbee trills and bips on top, neo turns and pulses in the middle, Aaron walks a doom bass with a mouth-percussion tick from whichever voice is free; at bar 20 all three trill one D major chord together. Every ornament is spelled out as notes because the singer locks one pitch per note. No words, no instruments, no spoken material.",
+  "arrangement": {
+    "total": 112,
+    "meter": "4/4",
+    "sections": [
+      {
+        "beat": 0,
+        "name": "Ground: doom bass, a tick, first bips"
+      },
+      {
+        "beat": 16,
+        "name": "Ornaments: trills above, turns in the middle"
+      },
+      {
+        "beat": 48,
+        "name": "Pulse: a Reich bed and rolls over it"
+      },
+      {
+        "beat": 80,
+        "name": "All three trill one chord"
+      },
+      {
+        "beat": 96,
+        "name": "Settle"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 72,
+      "notes": "r:12,59:0.5,59:0.5,59:0.5,59:0.5,r:4,57:0.25,59:0.25,57:0.25,56:0.25,57:1,59:0.25,61:0.25,59:0.25,58:0.25,59:1,r:2,59:0.5,59:0.5,59:0.5,59:0.5,61:0.25,63:0.25,61:0.25,60:0.25,61:1,r:2,59:0.125,60:0.125,59:0.75,62:0.125,64:0.125,62:0.125,61:0.125,62:0.5,r:2,62:0.125,61:0.125,62:0.75,62:0.1875,64:0.1875,62:0.1875,61:0.1875,62:0.75,59:0.5,59:0.5,59:0.5,r:2,59:0.25,59:0.25,59:0.25,59:0.25,59:0.25,59:0.25,59:0.25,59:0.25,61:0.25,63:0.25,61:0.25,60:0.25,61:1,r:4,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,r:2,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,62:0.25,59:0.25,61:0.25,59:0.25,58:0.25,59:2,r:2,59:0.5,61:0.5,59:0.5,61:0.5,57:0.5,57:0.5,57:0.5,57:0.5,59:0.25,61:0.25,59:0.25,58:0.25,59:1,r:2,57:0.4,59:0.4,61:0.4,62:0.4,64:0.4,62:0.5,62:0.5,62:0.5,62:0.5,59:0.25,61:0.25,59:0.25,58:0.25,59:1,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,57:0.5,59:0.5,59:0.25,61:0.25,59:0.25,58:0.25,59:1,57:0.5,59:0.5,57:0.5,59:0.5,57:4,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,59:0.5,60:0.5,61:0.5,62:0.5,62:2,59:2,62:6",
+      "lyrics": "dm dm dm dm / dah dah dah dah dah dee dee dee dee dee / nee nee nee nee dah dah dah dah dah / dee dee dee dah dah dah dah dah / dee dee dee dah dah dah dah dah lee lee lee / dee dee dee dee dee dee dee dee dah dah dah dah dah / nee nee nee nee nee nee nee nee nee nee nee nee nee nee nee nee / dee dee dee dee dee dee dee dee dee dee dee dee dah dah dah dah dah / tee tee tee tee lee lee lee lee dah dah dah dah dah / loo loo loo loo loo dee dee dee dee dah dah dah dah dah / dah dah dah dah dah dah dah dah dah dah dah dah dah dah dah dah / dah dah dah dah dah lee lee lee lee ah / nee nee nee nee nee nee nee nee ooh ooh ooh ooh ah / ah hmm",
+      "lineRoles": [
+        "tick",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "pulse",
+        "pulse",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "hum"
+      ],
+      "lineGains": [
+        0.34,
+        0.48,
+        0.48,
+        0.46,
+        0.5,
+        0.5,
+        0.46,
+        0.5,
+        0.5,
+        0.52,
+        0.58,
+        0.48,
+        0.44,
+        0.34
+      ],
+      "noteGains": [
+        [
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76
+        ]
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.55,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 11.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 12,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 13.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 13.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 14.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 17.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 18,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 21.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 21.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 21.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 23.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 24,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 27.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 27.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 27.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 29.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 30,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 31.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 31.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 32.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 33.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 34,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 37.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 37.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 38.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 39.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 40,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 43.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 43.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 43.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 47.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 48,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 55.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 55.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 56.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 57.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 58,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 62.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 62.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 63.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 65.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 66,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 71.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 71.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 71.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 73.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 74,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 79.20000000000003,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 79.20000000000003,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 79.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 79.60000000000002,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 80,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 87.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 87.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 87.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 88,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 88.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 92.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 92.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 95.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 95.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 96,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 102.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 102.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 103.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 103.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 104,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 106.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 106.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 111.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 120,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 124,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "blueberry sings (Aaron (Enhanced))",
+      "program": 78,
+      "velocity": 72,
+      "notes": "50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,47:1,47:1,54:1,47:1,43:1,43:1,50:1,43:1,45:1,45:1,52:1,45:1,50:1,50:1,45:1,50:1,47:1,47:1,54:1,47:1,43:1,43:1,50:1,43:1,45:1,45:1,52:1,45:1,50:1,50:1,45:1,50:1,47:1,47:1,54:1,47:1,43:1,43:1,50:1,43:1,45:1,45:1,52:1,45:1,50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,50:1,50:1,45:1,50:1,50:0.666667,49:0.666667,48:0.666667,47:0.666667,46:0.666667,45:0.666665,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:0.5,48:0.5,50:2,48:1,50:1,50:1,50:1,45:2,50:1,50:1,50:1,50:1,45:1,50:1,50:2,50:8",
+      "lyrics": "doom doom bom bom doom doom bom bom doom doom bom bom doom doom bom bom / doom doom bom bom doom doom bom bom doom doom bom bom doom doom bom bom / doom doom bom bom doom doom bom bom doom doom bom bom doom doom bom bom / doom doom bom bom doom doom bom bom doom doom bom bom / doom doom bom bom doom doom bom bom / doom doom bom bom doom doom bom bom dum dum dum dum dum dum / doom doom doom doom doom doom doom doom doom doom doom doom doom doom doom doom / doom bom doom dum dum doo / doom doom doom doom bom bom hmm / hmm",
+      "lineRoles": [
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "hum"
+      ],
+      "lineGains": [
+        0.52,
+        0.58,
+        0.58,
+        0.56,
+        0.56,
+        0.56,
+        0.6,
+        0.54,
+        0.5,
+        0.42
+      ],
+      "noteGains": [
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88,
+          0.74
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78
+        ],
+        [
+          1,
+          0.78,
+          0.88,
+          0.74,
+          1,
+          0.78,
+          0.88
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 3.5,
+      "singF0Floor": 70,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.55,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.55,
+            "pitch": 0
+          },
+          {
+            "beat": 118,
+            "space": 0.55,
+            "pitch": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 72,
+      "notes": "r:10,57:0.5,57:0.5,r:0.5,54:0.5,r:1,57:0.5,59:0.5,57:0.5,59:0.5,r:1,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,r:0.5,57:0.5,r:0.5,r:1,57:0.25,59:0.25,57:0.25,59:0.25,57:0.5,r:0.5,59:0.333333,57:0.333333,54:0.333334,r:2,55:0.25,57:0.25,55:0.25,57:0.25,55:0.25,57:0.25,55:0.25,57:0.25,57:0.333333,55:0.333333,52:0.333334,52:1,r:2,57:0.5,57:0.5,r:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,r:1,57:0.5,59:0.5,57:0.5,59:0.5,59:0.333333,57:0.333333,54:0.333334,r:2,55:0.25,57:0.25,55:0.25,57:0.25,55:0.25,57:0.25,55:0.25,57:0.25,52:0.5,52:0.5,54:0.333333,57:0.333333,59:0.333334,r:4,52:0.5,54:0.5,57:0.5,59:0.5,r:1,57:0.5,57:0.5,r:0.5,59:0.375,57:0.375,54:0.375,52:0.375,r:1,57:0.25,59:0.25,57:0.25,59:0.25,57:0.25,59:0.25,55:0.5,52:0.5,52:0.5,r:2,54:0.5,54:0.5,54:0.5,54:0.5,57:0.5,59:0.5,57:0.5,59:0.5,r:2,52:0.25,53:0.25,54:0.25,55:0.25,56:0.25,57:0.25,58:0.25,59:0.25,57:0.25,59:0.25,57:0.25,59:0.25,57:0.25,59:0.25,57:0.25,59:0.25,r:2,57:0.5,57:0.5,57:0.5,57:0.5,59:0.5,57:0.5,54:0.5,52:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.4,55:0.4,57:0.4,58:0.4,59:0.4,57:0.5,59:0.5,57:0.5,59:0.5,57:2,54:2,54:0.5,54:0.5,54:0.5,54:0.5,54:0.5,56:0.5,54:0.5,56:0.5,54:0.5,55:0.5,56:0.5,57:0.5,57:2,54:8",
+      "lyrics": "bip bip bip lee lee lee lee / lee lee lee lee la bip / lee lee lee lee la loo loo loo / lee lee lee lee lee lee lee lee loo loo loo poo / bip bip lee lee lee lee la / loo loo loo loo poo poo poo / lee lee lee lee lee lee lee lee bip bip loo loo loo / loo loo loo loo / dm dm la la la la / lee lee lee lee lee lee loo loo poo / bip bip bip bip loo loo loo loo / ooh ooh ooh ooh ooh ooh ooh ooh lee lee lee lee lee lee lee lee / bip bip bip bip loo loo loo loo lee lee lee lee / loo loo loo loo loo loo loo loo loo loo loo loo loo loo loo loo / ooh ooh ooh ooh ooh loo loo loo loo la ah / bip bip bip bip lee lee lee lee ooh ooh ooh ooh ah / hmm",
+      "lineRoles": [
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "tick",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "hum"
+      ],
+      "lineGains": [
+        0.44,
+        0.46,
+        0.48,
+        0.48,
+        0.46,
+        0.48,
+        0.5,
+        0.46,
+        0.42,
+        0.48,
+        0.48,
+        0.5,
+        0.52,
+        0.56,
+        0.48,
+        0.44,
+        0.32
+      ],
+      "noteGains": [
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86
+        ],
+        [
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1,
+          0.76,
+          0.9,
+          0.72,
+          0.86,
+          0.8,
+          1
+        ],
+        [
+          1
+        ]
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5.5,
+      "singF0Floor": 80,
+      "double": false,
+      "faceAlpha": 0.95,
+      "performance": {
+        "expression": 0.55,
+        "keys": [
+          {
+            "beat": 0,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 9.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 10,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 14.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 14.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 15.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 15.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 16,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 19.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 19.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 19.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 20.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 21,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 23.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 23.866666,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 24.266666,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 25.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 26,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 29.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 29.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 29.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 31.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 32,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 35.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 35.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 36.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 36.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 37,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 39.20000000000001,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 39.86666600000001,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 40.26666600000001,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 41.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 42,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 45.20000000000001,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 45.86666600000001,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 46.26666600000001,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 49.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 50,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 51.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 51.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 52.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 52.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 53,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 55.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 55.825,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 56.225,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 56.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 57,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 59.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 59.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 60.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 61.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 62,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 65.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 65.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 66.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 67.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 68,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 71.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 71.95,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 72.35,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 73.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 74,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 79.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 79.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 79.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 80,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 80.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 87.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 87.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 87.7,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 88,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 88.1,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 94.20000000000003,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 94.60000000000002,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 95.20000000000003,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 95.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 96,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 102.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 102.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 103.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 103.6,
+            "space": 0.75,
+            "pitch": 0,
+            "echo": 0
+          },
+          {
+            "beat": 104,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 104.2,
+            "space": 0.75,
+            "pitch": 0
+          },
+          {
+            "beat": 104.6,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 111.2,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 120,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0.8
+          },
+          {
+            "beat": 124,
+            "space": 0,
+            "pitch": 0,
+            "echo": 0
+          }
+        ]
+      }
+    }
+  ]
+}
