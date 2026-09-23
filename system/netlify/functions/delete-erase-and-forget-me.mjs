@@ -41,6 +41,7 @@ export async function handler(event, context) {
   }
 
   // 1. POST: Delete the user's account.
+  let database;
   try {
     const user = await authorize(event.headers);
 
@@ -65,6 +66,7 @@ export async function handler(event, context) {
           );
         } catch (err) {
           console.error("List error:", err);
+          throw new Error("Could not delete account storage. Please retry.");
         }
 
         if (
@@ -86,11 +88,14 @@ export async function handler(event, context) {
           },
         };
 
-        await s3User.send(new DeleteObjectsCommand(deleteParams));
+        const deletedObjects = await s3User.send(new DeleteObjectsCommand(deleteParams));
+        if (deletedObjects.Errors?.length) {
+          throw new Error("Could not delete all account storage. Please retry.");
+        }
         continuationToken = listedObjects.NextContinuationToken;
       } while (continuationToken);
 
-      const database = await connect();
+      database = await connect();
       const sub = user.sub;
 
       // Delete `paintings` and `moods` associated with the user's sub.
@@ -190,16 +195,17 @@ export async function handler(event, context) {
 
       if (atprotoResult.deleted) {
         console.log("🪦 Deleted PDS account.");
-      } else {
-        console.log("🪦 PDS account not removed:", atprotoResult.reason);
+      } else if (atprotoResult.reason !== "missing-did") {
+        throw new Error("Could not delete the linked account. Please retry.");
       }
 
       console.log("❌ Deleted database data.");
 
-      await database.disconnect();
-
       // 3. Delete the user's auth0 account.
       const deleted = await deleteUser(sub);
+      if (!deleted?.success) {
+        throw new Error("Could not delete the account registration. Please retry.");
+      }
       console.log("❌ Deleted user registration:", deleted);
 
       return respond(200, { result: "Deleted!" }); // Successful account deletion.
@@ -207,6 +213,8 @@ export async function handler(event, context) {
       return respond(401, { message: "Authorization failure..." });
     }
   } catch (error) {
-    return respond(500, { message: error });
+    return respond(500, { message: error.message || "Account deletion failed. Please retry." });
+  } finally {
+    if (database) await database.disconnect();
   }
 }
