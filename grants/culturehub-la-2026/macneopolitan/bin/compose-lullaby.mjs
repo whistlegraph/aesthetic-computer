@@ -7,7 +7,7 @@ import {writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 
 const members=['neo','blueberry','frisbee'];
-const cast=['Noelle (Enhanced)','Tom (Enhanced)','Zoe (Premium)'];
+const cast=['Noelle (Enhanced)','Aaron (Enhanced)','Zoe (Premium)'];   // Aaron since Sept 23: Tom croaked a fifth below his speaking pitch
 const BPM=63, BAR=3, BARS=17, TOTAL=BAR*BARS; // 51 beats ≈ 48.6 s
 const parts=[[],[],[]];
 const words=new Set(['the','moon','is','up','now','stars','are','out','for','you','on','your','lid','sleep','un-der','loo','hmm']);
@@ -32,15 +32,15 @@ add(2,10,low([[66,1],[69,1],[66,1],[67,2],[64,1]]),'loo loo loo loo loo',.50);
 add(2,14,low([[66,6]]),'hmm',.36,'hum');
 
 // blueberry — the cradle: root for two beats, fifth for one, every bar
-const roots=[38,38, 38,43, 38,45, 38,43, 38,45, 38,43, 43,'cad', 38,38,38];
+const roots=[50,50, 50,43, 50,45, 50,43, 50,45, 50,43, 43,'cad', 50,50,50];   // D as D3 (50): the cradle sits in Aaron's band 43–52
 for(let bar=0;bar<BARS;bar+=2) {
   const notes=[],text=[];
   for(const b of [bar,bar+1]) {
     if(b>=BARS)break;
     const r=roots[b];
-    if(r==='cad') {notes.push([45,1],[38,2]);text.push('hmm','hmm');}   // V–I under neo's cadence
-    else if(b>=14) {notes.push([38,3]);text.push('hmm');}               // the long hum
-    else {notes.push([r,2],[r+7,1]);text.push('hmm','hmm');}
+    if(r==='cad') {notes.push([45,1],[50,2]);text.push('hmm','hmm');}   // V–I under neo's cadence
+    else if(b>=14) {notes.push([50,3]);text.push('hmm');}               // the long hum
+    else {notes.push([r,2],[r===50?45:r+7,1]);text.push('hmm','hmm');}   // D's fifth below
   }
   add(1,bar,notes,text.join(' '),bar<2?.50:bar>=14?.44:.55,'hum');
 }
@@ -81,7 +81,7 @@ const voices=parts.map((lines,i)=>{
   return {name:`${members[i]} sings (${cast[i]})`,program:78,velocity:64,
     notes:notes.map(([n,d])=>`${n}:${+d.toFixed(6)}`).join(','),lyrics:lines.map(l=>l.text).join(' / '),
     lineRoles:lines.map(l=>l.role),lineGains:lines.map(l=>l.gain),noteGains:lines.map(l=>l.accents),
-    singVoice:cast[i],sayVoice:cast[i],singLock:1,singVibCents:8,singVibratoHz:[4.5,3.5,5][i],singF0Floor:i===1?55:80,double:false,
+    singVoice:cast[i],sayVoice:cast[i],singLock:1,singVibCents:8,singVibratoHz:[4.5,3.5,5][i],singF0Floor:i===1?70:80,double:false,
     performance:{expression:.6,keys:performanceKeys(lines,i)}};
 });
 const score={title:'The MacNeoPolitan Trio — Lullaby for frisbee',composer:'The machines, arr. compose-lullaby.mjs',

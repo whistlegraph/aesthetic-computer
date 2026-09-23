@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "paper": "MNPT Scores \u2014 Menu Band scores for the MacNeoPolitan Trio",
+  "pdf": "mnpt-scores.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 3,
+  "visualInference": true,
+  "pdfSha256": "9de7518652d07e5edfb30235ce1e75b3d88cc8f5f884a4cfb1a8009bb5c66580",
+  "reviewedAt": "2026-09-23T22:22:29Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Wordmark inspected at 600 dpi on the cover colophon; the period renders AC pink."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "cover-three-colors",
+      "page": 1,
+      "crop": [
+        0.1,
+        0.18,
+        0.8,
+        0.29
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Three member colors as one bar under the YWFT title; title, subtitle and date share a centre axis."
+    },
+    {
+      "id": "request-index",
+      "page": 2,
+      "crop": [
+        0.08,
+        0.05,
+        0.87,
+        0.5
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Group bands carry the hundreds colour; number, title, duration and one line read as four fixed columns."
+    },
+    {
+      "id": "karaoke-hocket",
+      "page": 24,
+      "crop": [
+        0.08,
+        0.055,
+        0.87,
+        0.72
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Section header states the assembled number the room hears; the three fragments below it are what each machine sings. Two columns because the lines are short."
+    }
+  ]
+}

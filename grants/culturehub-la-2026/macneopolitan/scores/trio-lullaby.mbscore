@@ -263,10 +263,10 @@
       }
     },
     {
-      "name": "blueberry sings (Tom (Enhanced))",
+      "name": "blueberry sings (Aaron (Enhanced))",
       "program": 78,
       "velocity": 64,
-      "notes": "38:2,45:1,38:2,45:1,38:2,45:1,43:2,50:1,38:2,45:1,45:2,52:1,38:2,45:1,43:2,50:1,38:2,45:1,45:2,52:1,38:2,45:1,43:2,50:1,43:2,50:1,45:1,38:2,38:3,38:3,38:3",
+      "notes": "50:2,45:1,50:2,45:1,50:2,45:1,43:2,50:1,50:2,45:1,45:2,52:1,50:2,45:1,43:2,50:1,50:2,45:1,45:2,52:1,50:2,45:1,43:2,50:1,43:2,50:1,45:1,50:2,50:3,50:3,50:3",
       "lyrics": "hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm hmm hmm / hmm hmm / hmm",
       "lineRoles": [
         "hum",
@@ -341,12 +341,12 @@
           1
         ]
       ],
-      "singVoice": "Tom (Enhanced)",
-      "sayVoice": "Tom (Enhanced)",
+      "singVoice": "Aaron (Enhanced)",
+      "sayVoice": "Aaron (Enhanced)",
       "singLock": 1,
       "singVibCents": 8,
       "singVibratoHz": 3.5,
-      "singF0Floor": 55,
+      "singF0Floor": 70,
       "double": false,
       "performance": {
         "expression": 0.6,

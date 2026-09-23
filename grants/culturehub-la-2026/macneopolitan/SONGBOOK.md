@@ -35,19 +35,28 @@ Noelle, not a second soprano.
 - `hear.mjs` forwards neither the gains nor the gap/legato/sustain/shimmer
   knobs, so offline WAVs are flat and peak-normalised; judge dynamics live.
   It only scores lines with role `lead`.
+- Numbers need a sentence around them: "two" alone is a howl, "that is two"
+  is "that is too", "that makes six" is worse. "the answer is two" and the
+  whole equation ("one and one is two") both render 0 %. Whisper writes a
+  bare sum as symbols ("1 + 1 = 2"), which the scorer counts as lost words;
+  "what is" in front keeps it in prose. "add" is heard as "and"; use "and"
+  or "plus". A low entry on A2 eats the first word; start blueberry's
+  worded lines on B2 or above.
 
 ## Pieces
 
 | slug | title | form | length | WER | notes |
 |---|---|---|---|---|---|
 | wake | Good morning, Sophia | 3/4 D, 69 bpm, rising | 52 s | 0/24 | the morning bookend; frisbee's first word is her name; revised Sept 23 pm (frisbee into Zoe's band, word holds capped, "sunlight on your lid") |
-| lullaby | Lullaby for frisbee | 3/4 D, 63 bpm | 49 s | unmeasured | the sleep lullaby (Sept 22) |
+| lullaby | Lullaby for frisbee | 3/4 D, 63 bpm | 49 s | unmeasured | the sleep lullaby (Sept 22); blueberry recast to Aaron with the cradle at D3 on Sept 23 |
 | lights-out | Lights out | 3/4 D, 64 bpm, blueberry drones throughout | 73 s | 0/37 | opens "good night Sophia"; he works past midnight / we stay up till morning / thirteen days / you can sleep now |
 | open-me | Open me | 4/4 D, 88 bpm, call and response | 76 s | 0/55 | the lids song; "o · pen · me" passed a syllable per machine, then all three |
 | thirteen-days | Thirteen days | 4/4 D minor, 70 bpm, drone | 82 s | 1/66 | blueberry holds exactly thirteen tones; neo and frisbee in fifths and seconds above |
 | the-record | The record | 4/4, 104 bpm, syllable hocket | 62 s | 59 % assembled | the numbers the machines keep; a true syllable hocket costs intelligibility — open question whether to hocket by word |
 | vocalise | Vocalise | 4/4 D, 90 bpm, wordless | 75 s | n/a | the toolkit proven: trills, turns, pulses, a bass of doom, all three shaking one D chord at bar 20 |
 | styling-study | Stylings | six études, 96 bpm, wordless | 165 s | n/a | hocket · drone and close seconds · barbershop tag · bass and ticks · round at one bar · pulsing vowels |
+| sums | Sums | 4/4 D, 96 bpm, question · answer · confirmation | 83 s | 0/89 | 1+1 to 5+5; the answer lands a step above the question, the confirmation on the tonic |
+| take-away | Take away | 4/4 D, 92 bpm, the mirror of Sums | 87 s | 0/82 | 5−1 down to 1−1; the answer lands a step below; the piece counts itself down and stops where the arithmetic stops |
 
 ## Studies
 
