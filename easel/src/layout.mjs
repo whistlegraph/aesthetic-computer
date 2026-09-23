@@ -38,6 +38,8 @@ export function normalize(spec = {}) {
   if (Array.isArray(spec.bar) && spec.bar.length === 3 && spec.bar.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) out.bar = spec.bar;
   if (typeof spec.prompt === "string" && spec.prompt.length > 0 && spec.prompt.length <= 2) out.prompt = spec.prompt;
   if (typeof spec.separator === "string" && spec.separator.length <= 5) out.separator = spec.separator;
+  // Notebook lines under the transcript rows; off for a plainer page.
+  if (typeof spec.lines === "boolean") out.lines = spec.lines;
   return out;
 }
 

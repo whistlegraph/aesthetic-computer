@@ -293,7 +293,10 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
     12,
     false,
   );
-  assert.match(frame, /YOU  look at the diff/);
+  // In pro a typed line wears the prompt glyph, not a badge; an inbox line
+  // still wears its arrow and its sender, so the two never pass for each other.
+  assert.match(frame, /›    look at the diff/);
+  assert.doesNotMatch(frame, /YOU/);
   assert.match(frame, /↓    neo:sip · the build finished/);
   // Codex's shape: no header band, a bar with air on both sides, and one
   // line under it with the handle, the directory and the model.

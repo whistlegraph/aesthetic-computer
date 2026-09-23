@@ -625,6 +625,7 @@ const inboxPoll = setInterval(() => {
 inboxPoll.unref?.();
 
 // One engine at a time, wired to the same handlers however it was built.
+let lastRelaunchAt = 0;
 function openEngine({ resume = "" } = {}) {
   const opened = new backend.Engine({
     cwd,
@@ -672,7 +673,21 @@ function openEngine({ resume = "" } = {}) {
     state.status = "offline";
     addEntry("error", errorText(error));
     slabSession.awaitingInput("easel engine bridge is offline");
+    // A turn the bridge died under is over; nothing will complete it.
+    if (state.busy) { state.busy = false; turnAssistant = []; }
     redraw();
+    // A bridge that died is relaunched so the next line has somewhere to go —
+    // the interface used to sit there deaf, with every key typed into a
+    // thread that no longer existed. Once a few seconds, so a bridge that
+    // dies on arrival does not spin.
+    if (Date.now() - lastRelaunchAt > 5000) {
+      lastRelaunchAt = Date.now();
+      setTimeout(() => {
+        if (closing || engine !== opened) return;
+        addEntry("notice", `Reopening ${backend.label} · the conversation so far goes with it`);
+        void restartEngine("Engine", backend, model, effort, { drain: false }).catch(() => {});
+      }, 300);
+    }
   });
   return opened;
 }

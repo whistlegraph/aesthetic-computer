@@ -290,6 +290,8 @@ const STYLES = {
   notice: ["·", "muted"],
   error: ["!", "error"],
   inbox: ["↓", "inbox"],
+  // A line you typed, in pro: the prompt glyph and the words, no badge.
+  typed: ["›", "prompt"],
 };
 
 const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox" };
@@ -600,7 +602,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
-    : state.entries.flatMap((entry) => entryLines(entry, contentWidth, useColor));
+    : state.entries.flatMap((entry) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed" } : entry, contentWidth, useColor));
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
@@ -680,7 +682,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       header: () => header,
       path: () => pathLine,
     };
-    return paintDropdown([...body, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
+    // Notebook lines: a faint rule under the rest of every transcript row,
+    // the way the GUI's page is ruled. Only the blank part of a row is
+    // underlined, so the words sit on the line rather than under a bar.
+    const ruled = shape.lines !== false && useColor ? body.map((row) => ruleRow(row, width)) : body;
+    return paintDropdown([...ruled, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
   }
@@ -793,6 +799,20 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
   return rows;
 }
 
+// The columns a painted row occupies, escapes not counted.
+function paintedWidth(row) {
+  return textWidth(String(row ?? "").replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g, ""));
+}
+
+// A transcript row on ruled paper: the words as they were, then the rest of
+// the line underlined in the muted ink, faint enough to read as paper.
+function ruleRow(row, width) {
+  const used = Math.min(width, paintedWidth(row));
+  const rest = width - used;
+  if (rest <= 0) return row;
+  return `${fit(row, used)}${color.muted}\x1b[2m\x1b[4m${" ".repeat(rest)}\x1b[24m\x1b[22m${color.reset}${color.ground}`;
+}
+
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
@@ -808,7 +828,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     model,
     engine: providerLabel(engine),
     mode: state.mode === "local" ? "local" : "remote",
-    activity: state.busy ? requestFeedback(state) : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    // The little guy dances on the line while the machine has the floor.
+    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${requestFeedback(state)}` : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);
