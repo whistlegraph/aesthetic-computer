@@ -11,11 +11,12 @@
   with the exact math the renderer uses), the chat with `chat.mjs` in its
   `embedded` mode over the top.
 
-  Step 1 of the plan: nobody walks yet. Each handle stands at a default spot
-  on a ring around the tower, lit when online and dimmed when not.
-  Walking arrives in step 2, and only for a handle that has spoken in Laer
-  Klokken AND been @mentioned there by someone else (checked by the server
-  against `chat-clock`, never here — the notice below is a courtesy).
+  A spot is earned: only a handle that has spoken in Laer Klokken AND been
+  @mentioned there by someone else stands in lairk. The server reads the
+  whole of `chat-clock` for that (/api/lairk-roster); this piece only draws
+  the answer. Step 1 of the plan: nobody walks yet — each handle stands at a
+  default spot around the tower, lit when online and dimmed when not.
+  Walking (step 2) will use the same roster as its gate.
  */
 
 /* #region 🏁 TODO
@@ -64,6 +65,12 @@ let handsMinute = -1;
 // rebuild the forms when either lands or the handle comes online.
 const characters = new Map();
 let rosterKey = ""; // Rebuilt when the handles in view change.
+let eligible = null; // Set of handles with a spot, from /api/lairk-roster.
+let eligibleAt = 0; // When it was last asked for, ms.
+const ROSTER_MS = 120_000; // The server caches it for two minutes too.
+const lookQueue = []; // Characters waiting for their colors and painting.
+let looking = 0; // Look-ups in flight.
+const LOOKS_AT_ONCE = 4;
 
 // 💬 Speech bubbles: handle -> { text, until }.
 const bubbles = new Map();
@@ -101,6 +108,9 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter }
   characters.clear();
   bubbles.clear();
   rosterKey = "";
+  eligible = null;
+  eligibleAt = 0;
+  lookQueue.length = 0;
 
   ground = buildGround(Form);
   tower = buildTower(Form);
@@ -220,6 +230,7 @@ function sim($) {
   if (performance.now() - lastLookAt > 5000) orbitAngle += 0.0012; // Drift.
 
   noticeNewMessages();
+  if (Date.now() - eligibleAt > ROSTER_MS) askRoster();
   updateRoster();
 
   const minute = new Date().getMinutes() + new Date().getHours() * 60;
@@ -520,18 +531,24 @@ function paintedBox(Form, x0, y0, z0, x1, y1, z1, texture) {
 
 // 🧍 Roster
 
-// Everyone who has spoken in the loaded history, plus whoever is online.
-function updateRoster() {
-  const sys = client.system;
-  const online = new Set((sys.onlineHandles || []).map(cleanHandle));
-  const handles = new Set();
-  for (const m of sys.messages) {
-    const h = cleanHandle(m.from);
-    if (h && h !== "log") handles.add(h);
-  }
-  for (const h of online) if (h) handles.add(h);
+// Who has a spot: the server's answer over the whole chat history.
+function askRoster() {
+  eligibleAt = Date.now();
+  fetch("/api/lairk-roster")
+    .then((res) => (res.ok ? res.json() : null))
+    .then((data) => {
+      if (Array.isArray(data?.handles)) eligible = new Set(data.handles);
+    })
+    .catch(() => {});
+}
 
-  const key = [...handles].sort().map((h) => (online.has(h) ? "+" : "-") + h).join(",");
+// Everyone on the roster stands in lairk; the online ones are lit.
+function updateRoster() {
+  if (!eligible) return; // Nobody stands until the roster arrives.
+  const online = new Set((client.system.onlineHandles || []).map(cleanHandle));
+  const handles = eligible;
+
+  const key = [...handles].map((h) => (online.has(h) ? "+" : "-") + h).join(",");
   if (key === rosterKey) return;
   rosterKey = key;
 
@@ -546,17 +563,33 @@ function updateRoster() {
       }
       continue;
     }
-    const spot = homeSpot(h);
+    const spot = homeSpot(h, handles.size);
     const c = { handle: h, x: spot.x, z: spot.z, online: isOnline, colors: null, texture: null, dirty: true };
     characters.set(h, c);
-    lookUp(c);
+    lookQueue.push(c);
+  }
+  // Online handles first, so the people in the room dress before the rest.
+  lookQueue.sort((a, b) => b.online - a.online);
+  pumpLooks();
+}
+
+// Works through lookQueue a few at a time.
+function pumpLooks() {
+  while (looking < LOOKS_AT_ONCE && lookQueue.length > 0) {
+    const c = lookQueue.shift();
+    if (!characters.has(c.handle)) continue;
+    looking += 1;
+    lookUp(c).finally(() => {
+      looking -= 1;
+      pumpLooks();
+    });
   }
 }
 
 // Ask for a handle's colors and its most recent painting; each redresses
 // the body when it lands. Misses leave the fallbacks in place.
 function lookUp(c) {
-  fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(c.handle)}`)
+  const colors = fetch(`/.netlify/functions/handle-colors?handle=${encodeURIComponent(c.handle)}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       if (Array.isArray(data?.colors) && data.colors.length > 0) {
@@ -566,7 +599,7 @@ function lookUp(c) {
     })
     .catch(() => {});
 
-  fetch(`/media-collection?for=${encodeURIComponent(`@${c.handle}/painting`)}`)
+  const painting = fetch(`/media-collection?for=${encodeURIComponent(`@${c.handle}/painting`)}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       const latest = data?.files?.at?.(-1); // Oldest first; the last is newest.
@@ -583,6 +616,8 @@ function lookUp(c) {
       c.dirty = true;
     })
     .catch(() => {});
+
+  return Promise.all([colors, painting]);
 }
 
 // A painting at most 96 pixels on a side (a torso is a few pixels tall on
@@ -605,11 +640,14 @@ function shrink(img, k) {
   return { width, height, pixels };
 }
 
-// Where a handle stands until it walks somewhere: a ring around the tower.
-function homeSpot(handle) {
+// Where a handle stands until it walks somewhere: a disc around the tower
+// that widens with the roster so a big room doesn't pile up (square-root
+// spacing keeps the density even out to the rim).
+function homeSpot(handle, count = 1) {
   const hash = handleHash(handle);
   const angle = ((hash % 3600) / 3600) * PI * 2;
-  const radius = 4.5 + ((hash >>> 12) % 60) / 10; // 4.5 – 10.4
+  const spread = clamp(sqrt(count) * 1.6, 6, 24);
+  const radius = 3.5 + sqrt(((hash >>> 12) % 1000) / 1000) * spread;
   return { x: sin(angle) * radius, z: cos(angle) * radius };
 }
 
@@ -668,19 +706,14 @@ function fit(text, chars) {
   return text.length > chars ? text.slice(0, max(0, chars - 3)) + "..." : text;
 }
 
-// 🚶 The walking gate, as far as this client can see it. The server decides.
+// 🚶 The walking gate is the roster: a spot in lairk is the right to walk
+// it. Walking itself is step 2, so for now this only says where you stand.
 function walkNotice($) {
   const me = cleanHandle($.handle?.());
-  if (!me) return "log in, speak in laer klokken, and get @mentioned to walk";
-  const messages = client.system.messages;
-  const spoke = messages.some((m) => cleanHandle(m.from) === me);
-  const mentioned = messages.some(
-    (m) =>
-      cleanHandle(m.from) !== me &&
-      new RegExp(`@${me.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(m.text || ""),
-  );
-  if (!spoke || !mentioned) return "you must be mentioned in laer klokken to walk";
-  return "walking arrives soon";
+  if (!me) return "log in to take your spot in lairk";
+  if (!eligible) return "asking laer klokken who is here...";
+  if (!eligible.has(me)) return "you must be mentioned in laer klokken to have a spot";
+  return "walking arrives soon - your spot is waiting";
 }
 
 // 🏷️ Name tags and bubbles, far to near.
