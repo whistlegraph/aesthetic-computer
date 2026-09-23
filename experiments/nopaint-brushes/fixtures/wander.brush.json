@@ -1,0 +1,45 @@
+{
+  "schema": "ac-brush",
+  "version": 1,
+  "id": "wander",
+  "operations": [
+    {
+      "op": "path",
+      "points": [
+        {
+          "x": 6,
+          "y": 7
+        },
+        {
+          "x": 12,
+          "y": 18
+        },
+        {
+          "x": 23,
+          "y": 26
+        },
+        {
+          "x": 40,
+          "y": 13
+        },
+        {
+          "x": 51,
+          "y": 20
+        }
+      ],
+      "color": [
+        40,
+        210,
+        180,
+        150
+      ],
+      "radius": 3,
+      "durationTicks": 60,
+      "jitter": 4,
+      "drift": {
+        "x": 1,
+        "y": -1
+      }
+    }
+  ]
+}

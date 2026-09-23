@@ -1,0 +1,24 @@
+{
+  "schema": "ac-brush",
+  "version": 1,
+  "id": "line",
+  "operations": [
+    {
+      "op": "walk",
+      "color": [
+        255,
+        60,
+        140,
+        180
+      ],
+      "radius": 1,
+      "durationTicks": 1800,
+      "jitter": 0,
+      "drift": {
+        "x": 0,
+        "y": 0
+      },
+      "steps": 128
+    }
+  ]
+}
