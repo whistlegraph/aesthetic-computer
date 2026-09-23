@@ -1,0 +1,96 @@
+{
+  "provider": "fal",
+  "model": "fal-ai/flux-2/klein/4b",
+  "request": {
+    "image_size": {
+      "width": 1216,
+      "height": 896
+    },
+    "num_inference_steps": 4,
+    "output_format": "webp",
+    "sync_mode": true,
+    "seed": 23092026,
+    "prompt": "Animation sprite sheet, exactly 12 frames in a precise 4-column by 3-row grid of equal square cells, edge-to-edge sheet with no gutters, no grid lines, no text or numbers. A full 360 degree turntable of ONE identical charming small blue bird figurine standing still, round cobalt-blue body, pale blue belly, short orange conical beak, black bead eyes, two little orange feet, folded wings, short tail, one small feather tuft. Simple matte clay illustration with clean bold silhouette. Pure white background in every cell. Fixed orthographic camera at bird eye level, fixed lighting, identical bird scale, centered body rotation axis and feet baseline in all 12 cells, generous white margin around the entire bird in each cell. The bird rotates in place about its vertical axis; it never walks, flies, tilts or changes pose. Frames read left to right then top to bottom. Row 1: front view at 0 degrees, 30 degrees toward right, 60 degrees toward right, exact right-facing profile at 90 degrees. Row 2: rear-right at 120 degrees, rear-right at 150 degrees, exact back at 180 degrees with beak and belly hidden, rear-left at 210 degrees. Row 3: rear-left at 240 degrees, exact left-facing profile at 270 degrees, front-left at 300 degrees, front-left at 330 degrees. Preserve identical anatomy, colors, proportions and character across all frames. Each cell contains exactly one complete bird, never clipped."
+  },
+  "started_at": "2026-09-23T19:45:32.405075+00:00",
+  "transport": "pooled HTTP/2 when supported; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_network": {
+        "connect_tcp_seconds": 2.1722027089999756,
+        "start_tls_seconds": 0.523513959000411,
+        "response_headers_seconds": 3.8334238330025983,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.11690904199713259,
+        "total_seconds": 3.9503401250003662
+      },
+      "api_seconds": 3.950345291999838,
+      "decode_download_save_seconds": 0.0037668750010197982,
+      "total_seconds": 3.954112167000858,
+      "output": "bird-comparison/klein/sample-01.webp",
+      "bytes": 79642,
+      "media_type": "image/webp",
+      "provider_timings": {
+        "inference": 0.389230826011044,
+        "safety_checker": 0.015238658990710974
+      },
+      "seed": 23092026
+    },
+    {
+      "sample": 2,
+      "api_network": {
+        "response_headers_seconds": 1.2289644580014283,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.24937991699698614,
+        "total_seconds": 1.4783502919999592
+      },
+      "api_seconds": 1.4783557080008904,
+      "decode_download_save_seconds": 0.0012409999981173314,
+      "total_seconds": 1.4795967079990078,
+      "output": "bird-comparison/klein/sample-02.webp",
+      "bytes": 79642,
+      "media_type": "image/webp",
+      "provider_timings": {
+        "inference": 0.40332621010020375,
+        "safety_checker": 0.02340870106127113
+      },
+      "seed": 23092026
+    },
+    {
+      "sample": 3,
+      "api_network": {
+        "response_headers_seconds": 1.8635271249986545,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.2349938330007717,
+        "total_seconds": 2.0985244160001457
+      },
+      "api_seconds": 2.098527541002113,
+      "decode_download_save_seconds": 0.0008329589982167818,
+      "total_seconds": 2.09936050000033,
+      "output": "bird-comparison/klein/sample-03.webp",
+      "bytes": 79642,
+      "media_type": "image/webp",
+      "provider_timings": {
+        "inference": 0.39771492686122656,
+        "safety_checker": 0.017081497237086296
+      },
+      "seed": 23092026
+    }
+  ],
+  "summary": {
+    "api_seconds": {
+      "median": 2.098527541002113,
+      "min": 1.4783557080008904,
+      "max": 3.950345291999838
+    },
+    "total_seconds": {
+      "median": 2.09936050000033,
+      "min": 1.4795967079990078,
+      "max": 3.954112167000858
+    }
+  }
+}

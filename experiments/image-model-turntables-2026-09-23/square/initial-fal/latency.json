@@ -1,0 +1,25 @@
+{
+  "provider": "fal",
+  "model": "recraft/v4.1/flash/text-to-image",
+  "request": {
+    "prompt": "a square on red"
+  },
+  "started_at": "2026-09-23T18:37:03.671464+00:00",
+  "transport": "synchronous HTTP; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_seconds": 8.033698999999615,
+      "decode_download_save_seconds": 6.980932374999611,
+      "total_seconds": 15.014631374999226,
+      "output": "square/initial-fal/sample-01.webp",
+      "bytes": 437676,
+      "media_type": "image/webp"
+    },
+    {
+      "sample": 2,
+      "failed_after_seconds": 183.196193916001,
+      "error": "TimeoutError"
+    }
+  ]
+}

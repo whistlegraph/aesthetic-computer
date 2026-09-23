@@ -1,0 +1,96 @@
+{
+  "models": [
+    {
+      "model": "recraft/recraft-v4.1-flash",
+      "provider": "openrouter",
+      "settings": {
+        "aspect_ratio": "4:3",
+        "model": "recraft/recraft-v4.1-flash",
+        "n": 1
+      },
+      "prompt_sha256": "5ef42000f8440e0fae088f5a153fee4a34b5639b9fe37a8762c3500c4fe3197e",
+      "dimensions": [
+        1216,
+        896
+      ],
+      "completed": 3,
+      "failed": [],
+      "saved_seconds": [
+        3.1237257089997,
+        2.067637707998074,
+        1.8325969170000462
+      ],
+      "median_saved_seconds": 2.067637707998074,
+      "cost_per_completed_sheet_usd": 0.007,
+      "cost_source": "API-reported usage",
+      "quality_sample": "bird-comparison/recraft/sample-01.webp",
+      "loop": "bird-comparison/recraft.gif"
+    },
+    {
+      "model": "fal-ai/flux-2/klein/4b",
+      "provider": "fal",
+      "settings": {
+        "image_size": {
+          "width": 1216,
+          "height": 896
+        },
+        "num_inference_steps": 4,
+        "output_format": "webp",
+        "sync_mode": true,
+        "seed": 23092026
+      },
+      "prompt_sha256": "5ef42000f8440e0fae088f5a153fee4a34b5639b9fe37a8762c3500c4fe3197e",
+      "dimensions": [
+        1216,
+        896
+      ],
+      "completed": 3,
+      "failed": [],
+      "saved_seconds": [
+        3.954112167000858,
+        1.4795967079990078,
+        2.09936050000033
+      ],
+      "median_saved_seconds": 2.09936050000033,
+      "cost_per_completed_sheet_usd": 0.005447680000000001,
+      "cost_source": "Estimated from fal price $0.005/MP; billing-events access denied; rounding unverified",
+      "quality_sample": "bird-comparison/klein/sample-01.webp",
+      "loop": "bird-comparison/klein.gif"
+    },
+    {
+      "model": "openai/gpt-image-2",
+      "provider": "openrouter",
+      "settings": {
+        "aspect_ratio": "4:3",
+        "quality": "medium",
+        "model": "openai/gpt-image-2",
+        "n": 1
+      },
+      "prompt_sha256": "5ef42000f8440e0fae088f5a153fee4a34b5639b9fe37a8762c3500c4fe3197e",
+      "dimensions": [
+        1536,
+        1152
+      ],
+      "completed": 1,
+      "failed": [
+        {
+          "sample": 2,
+          "api_network": {
+            "total_seconds": 180.0212259589971
+          },
+          "failed_after_seconds": 180.02126137499727,
+          "error": "ReadTimeout"
+        }
+      ],
+      "saved_seconds": [
+        39.5305940420003
+      ],
+      "median_saved_seconds": 39.5305940420003,
+      "cost_per_completed_sheet_usd": 0.05046,
+      "cost_source": "API-reported usage",
+      "quality_sample": "bird-comparison/gpt-image-2/sample-01.png",
+      "loop": "bird-comparison/gpt-image-2.gif"
+    }
+  ],
+  "method": "First completed sample from each benchmark run, same exact text prompt, no references. Klein fixed seed repetitions measure timing only. Raw requested 4-column by 3-row extraction for every model, original order; no pose repair or interpolation. GIF 12 frames, 160ms each. GPT Image 2 medium; output dimensions differ. Failed request charge unknown."
+}

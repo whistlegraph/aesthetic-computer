@@ -1,0 +1,96 @@
+{
+  "provider": "fal",
+  "model": "recraft/v4.1/flash/text-to-image",
+  "request": {
+    "prompt": "a square on red"
+  },
+  "started_at": "2026-09-23T19:10:25.015193+00:00",
+  "transport": "pooled HTTP/2 when supported; no automatic retries; sequential samples",
+  "samples": [
+    {
+      "sample": 1,
+      "api_network": {
+        "connect_tcp_seconds": 1.3118635000009817,
+        "start_tls_seconds": 0.5350730419995671,
+        "response_headers_seconds": 8.037457542000993,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.09765704199890024,
+        "total_seconds": 8.13513950000015
+      },
+      "api_seconds": 8.135158667000724,
+      "download_network": {
+        "connect_tcp_seconds": 0.18913029200120945,
+        "start_tls_seconds": 0.352039708999655,
+        "response_headers_seconds": 1.3764017499997863,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.5375710829994205,
+        "total_seconds": 1.9141009579998354
+      },
+      "decode_download_save_seconds": 1.9400900829987222,
+      "total_seconds": 10.075248749999446,
+      "output": "square/pooled-fal/sample-01.webp",
+      "bytes": 440414,
+      "media_type": "image/webp"
+    },
+    {
+      "sample": 2,
+      "api_network": {
+        "response_headers_seconds": 6.5939817920007044,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.0026917499999399297,
+        "total_seconds": 6.596707250000691
+      },
+      "api_seconds": 6.596768957999302,
+      "download_network": {
+        "response_headers_seconds": 0.617617916999734,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.263950874999864,
+        "total_seconds": 0.8815888749995793
+      },
+      "decode_download_save_seconds": 0.90239025000119,
+      "total_seconds": 7.499159208000492,
+      "output": "square/pooled-fal/sample-02.webp",
+      "bytes": 674468,
+      "media_type": "image/webp"
+    },
+    {
+      "sample": 3,
+      "api_network": {
+        "response_headers_seconds": 6.389722957999766,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.0038395000010496005,
+        "total_seconds": 6.393586250000226
+      },
+      "api_seconds": 6.393641000000571,
+      "download_network": {
+        "response_headers_seconds": 0.5049922079997486,
+        "http_version": "HTTP/2",
+        "status_code": 200,
+        "body_seconds": 0.11191274999873713,
+        "total_seconds": 0.6169099999988248
+      },
+      "decode_download_save_seconds": 0.6408138330007205,
+      "total_seconds": 7.034454833001291,
+      "output": "square/pooled-fal/sample-03.webp",
+      "bytes": 766922,
+      "media_type": "image/webp"
+    }
+  ],
+  "summary": {
+    "api_seconds": {
+      "median": 6.596768957999302,
+      "min": 6.393641000000571,
+      "max": 8.135158667000724
+    },
+    "total_seconds": {
+      "median": 7.499159208000492,
+      "min": 7.034454833001291,
+      "max": 10.075248749999446
+    }
+  }
+}
