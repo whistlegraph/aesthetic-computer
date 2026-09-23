@@ -305,3 +305,21 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
   assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar");
 });
+
+test("the pro frame takes its shape from the layout", () => {
+  const frame = renderFrame(
+    {
+      workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+      account: "@tester", model: "gpt-6-astra", providerSettings: { backend: "codex", model: "gpt-6-astra" },
+      profile: { name: "pro" },
+      layout: { bottom: ["rule", "bar", "status"], status: ["model", "engine"], prompt: ">", separator: " | " },
+      entries: [{ id: "u", kind: "user", text: "hi" }],
+    },
+    60, 10, false,
+  );
+  const rows = frame.split("\n");
+  assert.equal(rows.length, 10);
+  assert.match(rows[7], /^─+$/, "the rule is where the layout put it");
+  assert.match(rows[8], /^ > /, "the prompt glyph is the layout's");
+  assert.equal(rows[9].trim(), "gpt-6-astra | codex", "only the facts asked for, with the separator asked for");
+});

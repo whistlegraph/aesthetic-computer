@@ -44,6 +44,7 @@ import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
 import { LivePiece } from "./live.mjs";
 import { exampleConfig, resolveProfile } from "./profile.mjs";
+import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
 import { applyUpdate, checkForUpdate, currentVersion, installed } from "./updates.mjs";
 import { publishPiece } from "./publish.mjs";
@@ -590,6 +591,15 @@ transcript.meta({ cwd, engine: backend.id, model, handle: session.handle || "", 
 // never through the keyboard. The socket is optional: a path too long to bind
 // leaves the file queue, which `drainFile` still reads.
 const inbox = new Inbox({ sessionId: slabSession.sessionId });
+// The pro frame's shape, read from layouts/pro.json under ~/.config/easel's
+// override, and followed while the session runs — see layout.mjs.
+const shape = new Layout();
+state.layout = shape.spec;
+if (pro) shape.watch();
+shape.on("change", (spec) => {
+  state.layout = spec;
+  redraw();
+});
 // Listening before the bind: opening drains the file queue, and a line that
 // piled up while nobody was here is the first thing worth hearing.
 inbox.on("message", receiveInbox);
@@ -903,6 +913,7 @@ startNativeGamepad();
   // Both before the marker goes: a sender that finds the socket path in a
   // marker and no marker at all should be told the same thing — nobody home.
   await inbox.close().catch(() => {});
+  shape.close();
   slabSession.close();
   transcript.event("engine", { status: "closed", engine: backend.id, model: state.model || model });
   transcript.close();
@@ -1961,9 +1972,36 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         pro
-          ? "/ask [on|off] · /inbox · /mode · /backend [id] · /model [name] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /quit   ctrl-c interrupts a running turn"
+          ? "/ask [on|off] · /layout · /inbox · /mode · /backend [id] · /model [name] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /quit   ctrl-c interrupts a running turn"
           : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
+      return redraw();
+    }
+    if (command === "/layout") {
+      const [verb = "", key = "", ...valueWords] = restWords;
+      try {
+        if (!verb) {
+          addEntry(
+            "notice",
+            `Layout · ${JSON.stringify(shape.spec)}\n` +
+              `Edit ${shape.file} and the frame follows while you type; /layout set <key> <value> does one key.\n` +
+              `bottom: ${BOTTOM_ROWS.join(" ")} · status: ${STATUS_FACTS.join(" ")} · bar: r,g,b · prompt · separator\n` +
+              `/layout reset · /layout bake (writes ${shape.baked} and commits it)`,
+          );
+        } else if (verb === "set" && key) {
+          addEntry("notice", `Layout · ${key} = ${JSON.stringify(shape.set(key, valueWords.join(" ")))}`);
+        } else if (verb === "reset") {
+          shape.reset();
+          addEntry("notice", "Layout · back to the baked default");
+        } else if (verb === "bake") {
+          const baked = await shape.bake();
+          addEntry("notice", `Layout · baked to ${baked.file}${baked.commit ? ` · committed ${baked.commit}` : " · not a checkout, nothing committed"}`);
+        } else {
+          addEntry("error", "Usage: /layout · /layout set <key> <value> · /layout reset · /layout bake");
+        }
+      } catch (error) {
+        addEntry("error", errorText(error));
+      }
       return redraw();
     }
     if (command === "/mode") {

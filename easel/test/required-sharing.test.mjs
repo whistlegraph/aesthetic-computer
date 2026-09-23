@@ -17,3 +17,30 @@ test('an old retention acknowledgment requires agreement to the new disclosure',
  f.input.emit('data',Buffer.from('a'));
  assert.equal((await waiting).version,4);
 });
+
+// ── the screen itself ───────────────────────────────────────────────────
+import { DISCLOSURE_COLUMNS, TRANSCRIPT_DISCLOSURE, sharingScreen } from "../src/required-sharing.mjs";
+const plainRows = (screen) => screen.replace(/\x1b\[[0-9;]*m/g, "").split("\r\n");
+
+test("the disclosure stands in the middle of the window under the donkey", () => {
+  const rows = plainRows(sharingScreen({ columns: 120, rows: 40, useColor: false }));
+  const drawn = rows.filter((row) => row.trim());
+  assert.ok(rows.findIndex((row) => row.trim()) > 4, "blank rows above the block put it in the middle, not the corner");
+  assert.ok(drawn.some((row) => /\( [o-] [o-] \)/.test(row)), "the donkey is on the screen, eyes open or mid-blink");
+  const paragraph = rows.find((row) => row.includes("aesel requires sharing"));
+  const indent = paragraph.length - paragraph.trimStart().length;
+  assert.ok(indent >= (120 - DISCLOSURE_COLUMNS) / 2 - 1, "the block is centred horizontally");
+  assert.ok(Math.max(...drawn.map((row) => row.trimEnd().length - indent)) <= DISCLOSURE_COLUMNS, "no line runs past the paragraph's measure");
+  const donkey = rows.find((row) => row.includes("/\\ /\\"));
+  assert.ok(donkey.length - donkey.trimStart().length > indent, "the donkey stands over the middle of the words, not their left edge");
+  const words = drawn.map((row) => row.trim()).join(" ");
+  for (const word of TRANSCRIPT_DISCLOSURE.split(/\s+/).slice(0, 12)) assert.ok(words.includes(word), word);
+  assert.ok(drawn.at(-1).includes("[A] Agree and continue (sign in)"), "signed out asks to sign in");
+});
+
+test("colour inks the star on its own, and a narrow window still fits", () => {
+  const painted = sharingScreen({ columns: 100, rows: 30, useColor: true, signedIn: true });
+  assert.match(painted, /\x1b\[[0-9;]*m\*/, "the star on the canvas is inked on its own");
+  assert.ok(!plainRows(painted).at(-2).includes("(sign in)"), "signed in does not ask to sign in");
+  assert.ok(plainRows(sharingScreen({ columns: 44, rows: 12, useColor: false })).every((row) => row.length <= 44), "nothing wraps at 44 columns");
+});

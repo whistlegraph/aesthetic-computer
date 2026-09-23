@@ -582,7 +582,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // Pro has no header band: four rows at the bottom — air, the bar, air, the
   // status line — and the rest is the conversation.
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
-  const transcriptRows = pro ? height - 4 : height - 5;
+  // The shape is data — see layout.mjs — so the rows under the transcript are
+  // whatever the layout says, in the order it says them.
+  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...(state.layout || {}) };
+  const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
   // own black on white to be scannable, so a window with colour switched off or
@@ -643,7 +646,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Codex's shape: the transcript, a bar to type in with a blank line on
     // either side, and one muted line under it saying who, where, which model.
     // Nothing sits between the words and the typing.
-    const barBg = useColor ? bg(palette.bar) : "";
+    const barBg = useColor ? bg(shape.bar) : "";
     const ink = (rgb) => (useColor ? fg(rgb) : "");
     let inner;
     if (state.approval) {
@@ -661,21 +664,35 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       // The cursor is painted by hand: `paint` would hand the row back to the
       // ground after it, and the bar has to run to the edge.
       const cursorCell = useColor ? `${bg(palette.block)}${under}${color.reset}${barBg}${ink(palette.text)}` : under;
-      inner = `${ink(palette.prompt)}›${ink(palette.text)} ${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${cursorCell}${shown.slice(at + 1).join("")}`;
+      inner = `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${cursorCell}${shown.slice(at + 1).join("")}`;
     }
     const bar = `${barBg}${ink(palette.text)}${fit(` ${inner}`, width)}${reset}`;
     const account = state.account || "";
     const model = state.model || state.providerSettings?.model || "";
     const engine = state.providerSettings?.backend || "";
-    const facts = [
-      account ? (account.startsWith("@") ? coloredHandle(account, state.handleColors, useColor) : paint(useColor, "muted", account)) : "",
-      paint(useColor, "muted", clipText(state.workspace || "", Math.max(8, Math.floor(width / 3)))),
-      model ? paint(useColor, "muted", `${model}${engine && engine !== "claude" ? ` · ${engine}` : ""}`) : "",
-      paint(useColor, "muted", mode.toLowerCase()),
-      state.busy ? paint(useColor, "muted", requestFeedback(state)) : state.scrollOffset ? paint(useColor, "muted", `${state.scrollOffset} lines above · End latest`) : "",
-    ].filter(Boolean);
-    const statusLine = ` ${facts.join(paint(useColor, "muted", " · "))}`;
-    return [...body, "", bar, "", statusLine]
+    const muted = (text) => (text ? paint(useColor, "muted", text) : "");
+    const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
+    const fact = {
+      handle: () => (account ? (account.startsWith("@") ? coloredHandle(account, state.handleColors, useColor) : muted(account)) : ""),
+      workspace: () => muted(clipText(state.workspace || "", Math.max(8, Math.floor(width / 3)))),
+      model: () => muted(model ? `${model}${engine && engine !== "claude" && !shape.status.includes("engine") ? ` · ${engine}` : ""}` : ""),
+      engine: () => muted(engine),
+      mode: () => muted(mode.toLowerCase()),
+      activity: () => muted(state.busy ? requestFeedback(state) : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : ""),
+      inbox: () => muted(queuedInbox ? `${queuedInbox} inbox queued` : ""),
+    };
+    const facts = shape.status.map((name) => fact[name]?.() || "").filter(Boolean);
+    const statusLine = ` ${facts.join(muted(shape.separator))}`;
+    const rows = {
+      gap: () => "",
+      bar: () => bar,
+      status: () => statusLine,
+      rule: () => paint(useColor, "muted", "─".repeat(width)),
+      help: () => ` ${paint(useColor, "muted", clipText(state.busy ? requestFeedback(state) : "/help · /layout · /inbox · /mode · /ask · ctrl-c quit", width - 2))}`,
+      header: () => header,
+      path: () => pathLine,
+    };
+    return [...body, ...shape.bottom.map((name) => rows[name]?.() ?? "")]
       .slice(0, height)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
