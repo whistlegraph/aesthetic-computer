@@ -90,6 +90,8 @@ let tap = null; // { travel } — a touch that hasn't become an orbit drag yet.
 let lastSent = 0; // When a move last went out, ms.
 let unsent = false; // Moved since then.
 let lastSim = 0; // For a real-time step.
+let socketReady = false; // The session socket has said "connected".
+let authAsked = false; // A walk request has gone out for this socket.
 const WALK_SPEED = 5; // Units per second; the server allows up to 9.
 const SEND_MS = 100; // ~10 Hz while moving.
 const WALK_KEYS = {
@@ -112,7 +114,7 @@ let readoutBox = null; // Tap target for the top readout.
 let closeBox = null; // Tap target for "world" while the chat is open.
 let notice = null; // { text, until } — the walking gate courtesy note.
 
-function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, net, handle, authorize }) {
+function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, net }) {
   get = getter;
   const tema = pickTema([...(colon || []), ...(params || [])], store);
   lakTheme = tema.name;
@@ -149,21 +151,13 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, 
 
   // 🚶 Watch everyone's positions; ask to walk when signed in. The server
   // checks the token and the roster — this piece never claims a handle.
+  socketReady = false;
+  authAsked = false;
   server = net?.socket?.((_id, type, content) => {
     if (type.startsWith("connected")) {
+      socketReady = true;
+      authAsked = false; // A fresh socket needs its own walk request.
       server.send("lairk:hello", {});
-      if (handle?.() && authorize) {
-        Promise.resolve(authorize())
-          .then((token) => {
-            if (!token) return (walkNo = "login"); // Signed in, but no token to show.
-            server.send("lairk:auth", { token });
-            // An answer comes back in well under a second; silence means trouble.
-            setTimeout(() => {
-              if (!walker && !walkNo) walkNo = "unavailable";
-            }, 8000);
-          })
-          .catch(() => (walkNo = "login"));
-      }
       return;
     }
     if (type.startsWith("lairk:")) receiveLairk(type, parse(content));
@@ -300,6 +294,10 @@ function sim($) {
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
   chat.sim($);
 
+  // The socket often connects before sign-in settles, so ask to walk as soon
+  // as both are ready — whichever comes last.
+  if (socketReady && !authAsked && $.handle?.()) askToWalk($.authorize);
+
   const now = performance.now();
   const dt = lastSim ? min(0.1, (now - lastSim) / 1000) : 0;
   lastSim = now;
@@ -416,6 +414,22 @@ const normalize = (a) => {
 const clamp = (n, lo, hi) => max(lo, min(hi, n));
 
 // 🚶 Walking
+
+// Hand the server a token; it checks it and the roster, and answers.
+function askToWalk(authorize) {
+  authAsked = true;
+  if (!authorize) return (walkNo = "login");
+  Promise.resolve(authorize())
+    .then((token) => {
+      if (!token) return (walkNo = "login"); // Signed in, but no token to show.
+      server.send("lairk:auth", { token });
+      // An answer comes back in well under a second; silence means trouble.
+      setTimeout(() => {
+        if (!walker && !walkNo) walkNo = "unavailable";
+      }, 8000);
+    })
+    .catch(() => (walkNo = "login"));
+}
 
 // Messages from the session server (session-server/lairk-manager.mjs).
 function receiveLairk(type, data) {
