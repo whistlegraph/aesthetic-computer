@@ -92,3 +92,12 @@ test("Shopify tracking follows analytics consent, including revocation during lo
   allowed = true; doc.dispatchEvent(new Event("visitorConsentCollected"));
   await tick(); assert.equal(starts, 2);
 });
+
+test("MIME controls record only reviewed visit milestones", () => {
+  const visit = validateVisit({ ...snapshot(), actions: ["mime_interact", "mime_scroll_feed", "mime_original_open"] }, "https://mime.ac");
+  assert.ok(visit);
+  const update = visitUpdate(visit);
+  assert.equal(update.$max["actions.mime_interact"], true);
+  assert.equal(update.$max["actions.mime_scroll_feed"], true);
+  assert.equal(update.$max["actions.mime_original_open"], true);
+});

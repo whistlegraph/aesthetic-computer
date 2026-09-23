@@ -137,6 +137,10 @@
     .feed-media.media-audio { aspect-ratio: auto; min-height: 112px; }
     .feed-media.media-image, .feed-media.media-video { aspect-ratio: var(--media-ratio, 4 / 3); }
     .feed-media.media-image > img, .feed-media.media-video > video { object-fit: contain; }
+    .media-loading { position: absolute; z-index: 1; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      padding: 6px 10px; border-radius: 5px; background: var(--card); color: var(--dim); font-size: 12px; pointer-events: none; }
+    .feed-media[data-media-state="ready"] > .media-loading,
+    .feed-media[data-media-state="error"] > .media-loading { display: none; }
     .media-shield { position: absolute; inset: 0; z-index: 2; touch-action: pan-y pinch-zoom; }
     .media-toggle { position: absolute; right: 10px; bottom: 10px; z-index: 3;
       font-size: 12px; background: var(--card); opacity: .94; }
@@ -376,6 +380,7 @@ function engagementRecord(code) {
 }
 function sampleEngagement() {
   syncPieceFocus();
+  syncVideoPlayback();
   const now = performance.now();
   // A suspended browser must not turn a delayed timer into hours of attention.
   const elapsed = Math.max(0, Math.min(2000, Math.round(now - exposureAt)));
@@ -458,6 +463,7 @@ view.addEventListener("click", (event) => {
   const key = link.matches(".discussion, .all-comments") ? "commentOpens"
     : link.matches(".source-button, .media-label") && link.origin !== location.origin ? "originalOpens" : null;
   if (!key) return;
+  if (key === "originalOpens") window.acVisits?.action("mime_original_open");
   sampleEngagement();
   const record = engagementRecord(post.id);
   record[key] = Math.min(10000, record[key] + 1);
@@ -502,6 +508,7 @@ function exitMediaInteraction() {
   if (!frame) return;
   delete frame.dataset.interacting;
   frame.firstElementChild.inert = true;
+  if (frame.closest(".feed-post") && frame.firstElementChild.tagName === "VIDEO") frame.firstElementChild.muted = true;
   const button = frame.querySelector(".media-toggle");
   button.textContent = "Interact";
   button.setAttribute("aria-pressed", "false");
@@ -517,8 +524,12 @@ function shieldMedia(frame, content, interactive) {
   button.type = "button";
   button.setAttribute("aria-pressed", "false");
   button.setAttribute("aria-label", "Interact with this media; toggle to return to scrolling");
-  button.onclick = () => {
-    if (interactingMedia === frame) { exitMediaInteraction(); return; }
+  button.onclick = (event) => {
+    if (interactingMedia === frame) {
+      if (event.isTrusted) window.acVisits?.action("mime_scroll_feed");
+      exitMediaInteraction(); return;
+    }
+    if (event.isTrusted) window.acVisits?.action("mime_interact");
     exitMediaInteraction();
     interactingMedia = frame;
     frame.dataset.interacting = "true";
@@ -536,6 +547,27 @@ window.addEventListener("keydown", event => {
     button.focus({ preventScroll: true });
   }
 });
+
+// Only the dominant card auto-plays; nearby tapes warm metadata without competing playback.
+function syncVideoPlayback() {
+  if (!activeFeed) return;
+  const videos = [...view.querySelectorAll(".feed-media > video")];
+  const top = header.getBoundingClientRect().bottom;
+  let selected = null, largest = 0;
+  if (!document.hidden && document.hasFocus()) for (const frame of view.querySelectorAll(".feed-media")) {
+    const box = frame.getBoundingClientRect();
+    const visible = Math.max(0, Math.min(innerHeight, box.bottom) - Math.max(top, box.top));
+    const area = visible * box.width;
+    if (area > largest) { selected = frame; largest = area; }
+  }
+  if (!document.hidden && document.hasFocus() && interactingMedia?.isConnected) selected = interactingMedia;
+  for (const video of videos) {
+    if (selected?.contains(video)) {
+      if (interactingMedia === selected) continue; // Native pause/play belongs to the viewer in interaction mode.
+      if (video.paused && video.getAttribute("src")) video.play().catch(() => {});
+    } else if (!video.paused) video.pause();
+  }
+}
 
 let pieceFocused = null, piecePending = null, pieceFocusTimer = 0;
 function stopPiece() {
@@ -575,6 +607,7 @@ function syncPieceFocus() {
     iframe.title = focused.dataset.title;
     iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
     iframe.setAttribute("allow", "autoplay 'none'; camera 'none'; microphone 'none'");
+    iframe.addEventListener("load", () => { iframe.dataset.ready = "true"; }, { once: true });
     iframe.src = focused.dataset.player;
     focused.append(iframe);
     pieceFocused = focused;
@@ -613,6 +646,7 @@ function renderRunnable(post) {
   image.alt = preview.dataset.title;
   image.loading = "lazy";
   image.decoding = "async";
+  image.addEventListener("load", () => { image.dataset.ready = "true"; }, { once: true });
   image.src = "https://oven.aesthetic.computer/grab/webp/512/512/" + encodeURIComponent(kind.prefix + code);
   image.addEventListener("error", () => {
     image.remove();
@@ -644,7 +678,12 @@ function renderFile(file) {
     media.controls = true;
     media.playsInline = true;
     media.preload = "none";
-    nearViewport(media, () => { media.preload = "metadata"; media.src = file.url; });
+    nearViewport(media, () => {
+      media.dataset.loadStarted = performance.now();
+      media.preload = "metadata";
+      if (file.poster) media.poster = file.poster;
+      media.src = file.url;
+    });
   } else if (file.type === "application/pdf" || file.type === "text/html") {
     media = el("iframe", "doc");
     media.setAttribute("sandbox", ""); // markup renders, scripts never run
@@ -802,6 +841,27 @@ function renderPost(post, isOp, inThread = false, contextBoard, inFeed = false) 
     const frame = el("div", "feed-media");
     if (inFeed && file.tagName === "VIDEO") { file.muted = true; file.loop = true; }
     frame.append(file);
+    if (["IMG", "VIDEO", "IFRAME", "PRE"].includes(file.tagName) || runnable) {
+      const label = file.tagName === "VIDEO" ? "video" : file.tagName === "IMG" ? "image" : runnable ? "program" : "preview";
+      const loading = el("span", "media-loading", `Loading ${label}…`);
+      frame.dataset.mediaState = "loading";
+      frame.append(loading);
+      const ready = () => {
+        frame.dataset.mediaState = "ready";
+        if (file.dataset.loadStarted) frame.dataset.mediaLoadMs = Math.round(performance.now() - Number(file.dataset.loadStarted));
+      };
+      file.addEventListener(file.tagName === "VIDEO" ? "loadeddata" : "load", ready, { once: true });
+      file.addEventListener("error", () => { frame.dataset.mediaState = "error"; }, { once: true });
+      if (file.tagName === "PRE" || runnable) {
+        const observer = new MutationObserver(() => {
+          if (file.tagName === "PRE" && file.textContent !== "…" || runnable && file.querySelector("iframe, img")?.dataset.ready) {
+            ready(); observer.disconnect();
+          }
+        });
+        observer.observe(file, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-ready"] });
+      }
+      if (file.tagName === "IMG" && file.complete && file.naturalWidth) ready();
+    }
     if (["IMG", "VIDEO"].includes(file.tagName)) {
       frame.classList.add(file.tagName === "IMG" ? "media-image" : "media-video");
       const fit = () => {
@@ -1032,7 +1092,7 @@ function pages(page, hasMore, path) {
 async function home(page = 0, signal) {
   let state = feedCache?.startPage === page ? feedCache : null;
   if (!state) {
-    const data = await read(API + "?page=" + page, signal);
+    const data = await read(API + "?feed=1&page=" + page, signal);
     state = { startPage: page, nextPage: page + 1,
       hasMore: data.hasMore, nodes: [], codes: new Set(), index: 0, offset: null };
     for (const post of data.recent) {
@@ -1068,9 +1128,10 @@ async function home(page = 0, signal) {
       for (const entry of entries) {
         for (const media of entry.target.querySelectorAll("video, audio")) {
           if (!entry.isIntersecting || entry.intersectionRatio < 0.6) media.pause();
-          else if (media.tagName === "VIDEO" && !document.hidden) media.play().catch(() => {});
+
         }
       }
+      syncVideoPlayback();
     }, { threshold: [0, 0.6] });
     state.nodes.forEach((node) => playbackObserver.observe(node.querySelector(".feed-media") || node));
   }
@@ -1083,7 +1144,7 @@ async function home(page = 0, signal) {
     list.setAttribute("aria-busy", "true");
     feedObserver?.disconnect();
     try {
-      const data = await read(API + "?page=" + state.nextPage, signal);
+      const data = await read(API + "?feed=1&page=" + state.nextPage, signal);
       if (signal.aborted) return;
       for (const post of data.recent) {
         if (state.codes.has(post.code)) continue;

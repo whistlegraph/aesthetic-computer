@@ -48,6 +48,7 @@ export function mediaPipeline(kind, match = {}, activity = true) {
       _media: {
         kind: literal(kind), id: { $toString: "$_id" }, code: "$code",
         user: "$user", slug: "$slug", size: "$size",
+        hasPoster: { $ne: [{ $ifNull: ["$thumbnailUrl", ""] }, ""] },
       },
     } },
   ];
@@ -84,7 +85,8 @@ export async function resolveMedia(db, kind, ref) {
 export async function sourceRecord(db, code) {
   const ref = parseMediaThread(code);
   if (!ref) return null;
-  return db.collection(MEDIA_KINDS[ref.kind]).findOne({ ...visible, _id: ref.id });
+  return db.collection(MEDIA_KINDS[ref.kind]).findOne({ ...visible,
+    ...(ref.kind === "kidlisp" ? { source: nonempty } : { slug: nonempty }), _id: ref.id });
 }
 
 export async function publicPosts(db, docs) {
@@ -102,7 +104,8 @@ export async function publicPosts(db, docs) {
     }[doc.board];
     const url = `/api/mime?file=${encodeURIComponent(doc.code)}`;
     const file = media
-      ? { name: `${media.code || media.id}.${extension}`, type: doc.board, size: media.size ?? null, url }
+      ? { name: `${media.code || media.id}.${extension}`, type: doc.board, size: media.size ?? null, url,
+          ...(media.kind === "tape" && media.hasPoster ? { poster: `/api/mime?poster=${encodeURIComponent(doc.code)}` } : {}) }
       : doc.file ? { name: doc.file.name, type: doc.file.type, size: doc.file.size, url } : null;
     let original;
     if (media?.code) {
@@ -131,14 +134,7 @@ export function mediaFile(kind, record) {
     return { text: record.source };
   }
   if (kind === "tape" && record.mp4Status === "complete" && record.mp4Url) {
-    const url = new URL(record.mp4Url);
-    if (url.protocol !== "https:" || url.username || url.password || ![
-      "art-aesthetic-computer.sfo3.digitaloceanspaces.com",
-      "user-aesthetic-computer.sfo3.digitaloceanspaces.com",
-      "at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com",
-      "art.aesthetic.computer", "user.aesthetic.computer", "at-blobs.aesthetic.computer",
-    ].includes(url.hostname)) throw new Error("Unsupported media origin");
-    return { url: url.href };
+    return { url: publicMediaUrl(record.mp4Url) };
   }
   const bucket = record.bucket || (record.user ? "user-aesthetic-computer" : "art-aesthetic-computer");
   if (!["art-aesthetic-computer", "user-aesthetic-computer"].includes(bucket)) {
@@ -150,4 +146,15 @@ export function mediaFile(kind, record) {
   const key = record.user && !slug.startsWith(`${record.user}/`) ? `${record.user}/${slug}` : slug;
   if (key.split("/").some((part) => part === ".." || part === ".")) throw new Error("Invalid media path");
   return { url: `https://${bucket}.sfo3.digitaloceanspaces.com/${key.split("/").map(encodeURIComponent).join("/")}.${encodeURIComponent(ext)}` };
+}
+
+export function publicMediaUrl(value) {
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || ![
+    "art-aesthetic-computer.sfo3.digitaloceanspaces.com",
+    "user-aesthetic-computer.sfo3.digitaloceanspaces.com",
+    "at-blobs-aesthetic-computer.sfo3.digitaloceanspaces.com",
+    "art.aesthetic.computer", "user.aesthetic.computer", "at-blobs.aesthetic.computer",
+  ].includes(url.hostname)) throw new Error("Unsupported media origin");
+  return url.href;
 }

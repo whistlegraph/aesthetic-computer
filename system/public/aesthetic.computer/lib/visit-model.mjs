@@ -36,6 +36,7 @@ export const VISIT_PROPERTIES = Object.freeze({
 export const VISIT_ACTIONS = Object.freeze([
   "link_followed", "download_clicked", "canvas_interacted", "media_started",
   "round_started", "round_completed", "match_completed",
+  "mime_interact", "mime_scroll_feed", "mime_original_open",
 ]);
 export const ACTIVE_BUCKETS = Object.freeze([0, 10, 30, 60, 180, 600]);
 export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "support", "other"]);

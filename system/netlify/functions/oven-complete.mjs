@@ -28,17 +28,18 @@ export async function handler(event, context) {
     return respond(400, { message: "Invalid JSON body: " + error.message });
   }
 
-  const { mongoId, code, mp4Url, thumbnailUrl, secret } = body;
+  const { mongoId, code, mp4Url, thumbnailUrl, secret, error: bakeError } = body;
 
   // Verify callback secret
   const expectedSecret = process.env.OVEN_CALLBACK_SECRET;
-  if (expectedSecret && secret !== expectedSecret) {
+  if (!expectedSecret) return respond(503, { message: "Oven callback is not configured" });
+  if (secret !== expectedSecret) {
     console.error('❌ Invalid callback secret');
     return respond(401, { message: "Unauthorized" });
   }
 
-  if (!mongoId || !code || !mp4Url) {
-    console.error('❌ Missing required fields. Body:', JSON.stringify(body));
+  if (!mongoId || !code || (!mp4Url && !bakeError)) {
+    console.error('❌ Missing required callback fields');
     return respond(400, { message: "Missing required fields: mongoId, code, mp4Url" });
   }
 
@@ -67,6 +68,14 @@ export async function handler(event, context) {
     const { ObjectId } = await import("mongodb");
     const tapes = database.db.collection("tapes");
     
+    if (bakeError) {
+      await tapes.updateOne({ _id: new ObjectId(mongoId), code }, { $set: {
+        mp4Status: "oven-failed", mp4Error: String(bakeError).slice(0, 1000)
+      } });
+      await notifyOven(`${ovenUrl}/bake-complete`, { code, success: false, error: String(bakeError).slice(0, 1000) });
+      return respond(200, { ok: true, code, failed: true });
+    }
+
     await tapes.updateOne(
       { _id: new ObjectId(mongoId) },
       { 
@@ -75,11 +84,18 @@ export async function handler(event, context) {
           thumbnailUrl,
           mp4Status: "complete",
           mp4CompletedAt: new Date()
-        } 
+        },
+        $unset: { mp4Error: "" } 
       }
     );
     
     console.log(`✅ Updated tape with MP4 URLs`);
+
+    // Repairing a public preview must not create a new federated publication.
+    if (event.queryStringParameters?.previewOnly === "1") {
+      await notifyOven(`${ovenUrl}/bake-complete`, { code, success: true, mp4Url, thumbnailUrl });
+      return respond(200, { ok: true, code, previewOnly: true });
+    }
 
     // Download MP4 and thumbnail for ATProto upload
     await sendStatus('downloading', 'Downloading MP4 for ATProto');
@@ -210,6 +226,7 @@ function notifyOven(fullUrl, payload) {
       resolve();
     });
 
+    req.setTimeout(15000, () => req.destroy(new Error('Oven notification timed out')));
     req.on('error', reject);
     req.write(body);
     req.end();

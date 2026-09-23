@@ -155,3 +155,19 @@ checks should use marked automation and verify database milestones as well as
 HTTP responses. Do not label a 204 alone as verified measurement.
 
 `visits-clients-deployment.json` records the separate client rollout.
+
+MIME's explicit media controls add `mime_interact`, `mime_scroll_feed`, and
+`mime_original_open`. These count **visits with the action**, not total clicks.
+Automatic re-locking when a card leaves the viewport does not count as a click.
+They use the existing anonymous visit collector, opt-outs, automation flag,
+retention, and Studio scope; no post ID or destination URL is added.
+
+For bounded media loading probes, run `node toolchain/analytics/media-speed.mjs
+--all-types --out report.json`. Set `MIME_CDP_URL` to a dedicated Chrome's
+loopback DevTools URL to include video first-frame timing. The public MIME
+catalog supplies samples of shared AC media, not an exhaustive crawl of every
+studio domain. The probe reads at most a 128 KiB prefix per asset request and
+checks declared MIME against MP4/WebM signatures. Video playback stops at the
+first presented frame or a 20-second timeout. Source fetch timings for programs
+are not runtime/render-ready timings. Do not compare a prefix download to a
+full archive download or interpret one run as a stable network percentile.
