@@ -1,5 +1,9 @@
 // Portable shareable .easel JSON Lines; never a provider-session-state dump.
 export const TRANSCRIPT_FORMAT = 'aesthetic.easel';
+// The disclosure people agree to before sharing; a record cites the version it
+// was agreed under, and no record may cite one that does not exist yet. This
+// is the one place the number lives — required-sharing.mjs re-exports it.
+export const DISCLOSURE_VERSION = 5;
 export const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 export const MAX_BATCH_BYTES = 256 * 1024;
 const ID = /^[a-zA-Z0-9_-]{1,80}$/;
@@ -23,7 +27,7 @@ export function validateHeader(value) {
   if(metadata.title!==undefined)text(metadata.title,160,'title');
   const consent=object(value.consent??{sharing:'private'},['sharing','id','acceptedAt','disclosureVersion']);
   if(!['private','company'].includes(consent.sharing))throw new Error('Invalid sharing setting');
-  if(consent.sharing==='company') {id(consent.id);date(consent.acceptedAt);if(![1,2,3,4].includes(consent.disclosureVersion))throw new Error('Consent disclosure required');}
+  if(consent.sharing==='company') {id(consent.id);date(consent.acceptedAt);if(!Number.isInteger(consent.disclosureVersion)||consent.disclosureVersion<1||consent.disclosureVersion>DISCLOSURE_VERSION)throw new Error('Consent disclosure required');}
   const provenance=object(value.provenance??{application:'easel'},['application','version']);
   if(provenance.application!=='easel')throw new Error('Invalid provenance');
   if(provenance.version!==undefined)text(provenance.version,40,'application version');

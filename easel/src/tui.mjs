@@ -340,7 +340,9 @@ function journalFinalMessages() {
     }
     if(transcriptSharing)await transcriptJournal.flush();
   });
-  transcriptPending.catch(error=>{addEntry('error',`Transcript: ${error.message}`);redraw();});
+  // A journal that could not upload keeps its records for the next try; in
+  // pro that is not news, and it says nothing.
+  transcriptPending.catch(error=>{if(pro)return;addEntry('error',`Transcript: ${error.message}`);redraw();});
 }
 function journalRevision(artifact) {
   if(!transcriptJournal || !transcriptSharing || !artifact || session.read()?.user?.sub!==sharingAcknowledgment?.owner)return;
@@ -352,7 +354,7 @@ function journalRevision(artifact) {
     await transcriptJournal.append({type:'artifact',id,artifactId:artifact.id,medium:artifact.kind,revision:artifact.version});
     await transcriptJournal.flush();
   });
-  transcriptPending.catch(error=>{transcriptRevisions.delete(id);addEntry('error',`Transcript: ${error.message}`);redraw();});
+  transcriptPending.catch(error=>{transcriptRevisions.delete(id);if(pro)return;addEntry('error',`Transcript: ${error.message}`);redraw();});
 }
 async function commandSharing() {
   addEntry('notice',TRANSCRIPT_DISCLOSURE);

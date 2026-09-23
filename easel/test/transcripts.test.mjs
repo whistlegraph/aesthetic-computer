@@ -1,3 +1,4 @@
+import {DISCLOSURE_VERSION} from '../src/transcript-format.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile,stat,symlink,mkdir} from 'node:fs/promises';
@@ -105,9 +106,9 @@ test('required policy version 2 shares only new messages and preserves earlier o
 });
 
 test('historical and indefinite-retention disclosures round-trip while unknown versions are rejected',()=>{
- for(const version of [1,2,3,4]){
+ for(let version=1;version<=DISCLOSURE_VERSION;version+=1){
  const current={...header,consent:{...header.consent,disclosureVersion:version}};
  assert.equal(parseTranscript(serializeTranscript(current,[record])).header.consent.disclosureVersion,version);
  }
- assert.throws(()=>serializeTranscript({...header,consent:{...header.consent,disclosureVersion:5}},[record]),/disclosure/);
+ assert.throws(()=>serializeTranscript({...header,consent:{...header.consent,disclosureVersion:DISCLOSURE_VERSION+1}},[record]),/disclosure/);
 });

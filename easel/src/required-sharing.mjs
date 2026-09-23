@@ -4,7 +4,8 @@ import {join} from 'node:path';
 import {MASCOT_SETTLED_MS,MASCOT_WIDTH,mascotRow,mascotRows} from './mascot.mjs';
 const MASCOT_ROW_MARK=mascotRow(0,false);
 import {color,textWidth,wrapText} from './render.mjs';
-export const DISCLOSURE_VERSION=5;
+import {DISCLOSURE_VERSION} from './transcript-format.mjs';
+export {DISCLOSURE_VERSION};
 // One sentence, because that is how long a thing you are asked to agree to
 // should be. It says what is shared, with whom, for how long, and where the
 // words you type go. The keys under it are the whole choice: agree, or quit.
