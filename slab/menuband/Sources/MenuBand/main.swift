@@ -52,6 +52,11 @@ if PolyrhythmTrainerCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Headless capture of the fullscreen stage that mirrors those circles.
+if PolyrhythmStageCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
 // Headless capture of the pitch-slider page's ToneTrials strip.
 if ToneTrialsCLI.runIfRequested(CommandLine.arguments) {
     exit(0)

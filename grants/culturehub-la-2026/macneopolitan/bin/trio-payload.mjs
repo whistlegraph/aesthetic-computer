@@ -14,6 +14,8 @@ export function singerPayload({p, vj, score, bpm, epoch, face=true}) {
     if (p.speech) kv.push(`stemPath=${p.speech.stem}`, `wordsPath=${p.speech.meta}`);
     if (vj.color) kv.push(`captionColor=${vj.color}`);   // the member's color on its caption banner
     if (p.member && face) kv.push(`face=${p.member}`);   // its cartoon face, mouth on the onsets
+    if (p.voice.faceAlpha != null) kv.push(`faceAlpha=${p.voice.faceAlpha}`);   // < 1 lets the desktop through
+    if (p.voice.captionSize != null) kv.push(`captionSize=${p.voice.captionSize}`);
     for (const k of ["notes2", "notes3", "notes4", "velocity2", "velocity3", "velocity4"]) if (p.voice[k] != null) kv.push(`${k}=${p.voice[k]}`);
     if (p.voice.double) {
       const up = Number(p.voice.doubleTranspose) || 0;

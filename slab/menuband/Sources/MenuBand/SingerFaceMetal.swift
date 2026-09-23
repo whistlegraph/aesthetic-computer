@@ -190,6 +190,18 @@ final class SingerFaceCanvas {
             vertices.append(vertex(contour[(i+1)%contour.count].applying(transform),outer))
         }
     }
+    /// A vertical wash — one quad, `top` above `bottom`, colors (with alpha)
+    /// interpolated by the GPU. The translucent skin.
+    func wash(in rect: CGRect, top: NSColor, bottom: NSColor) {
+        if context != nil {
+            NSGradient(starting: bottom, ending: top)?.draw(in: rect, angle: 90)
+            return
+        }
+        let a = rgba(top), b = rgba(bottom)
+        let tl = CGPoint(x:rect.minX,y:rect.maxY).applying(transform), tr = CGPoint(x:rect.maxX,y:rect.maxY).applying(transform)
+        let bl = CGPoint(x:rect.minX,y:rect.minY).applying(transform), br = CGPoint(x:rect.maxX,y:rect.minY).applying(transform)
+        vertices += [vertex(bl,b),vertex(br,b),vertex(tr,a), vertex(bl,b),vertex(tr,a),vertex(tl,a)]
+    }
     func text(_ text: NSAttributedString, at point: CGPoint) {
         if context != nil { text.draw(at:point) } else { caption = (text,point) }
     }
@@ -220,6 +232,10 @@ final class SingerFaceMetalView: MTKView, MTKViewDelegate {
         super.init(frame:frame,device:device)
         self.queue = queue
         colorPixelFormat = .bgra8Unorm
+        // See-through: the skin may be a translucent wash, so the surface
+        // clears to nothing and the desktop shows where nothing is drawn.
+        clearColor = MTLClearColor(red:0,green:0,blue:0,alpha:0)
+        layer?.isOpaque = false
         sampleCount = device.supportsTextureSampleCount(4) ? 4 : 1
         framebufferOnly = true; isPaused = true; enableSetNeedsDisplay = false
         autoResizeDrawable = true
@@ -256,7 +272,7 @@ final class SingerFaceMetalView: MTKView, MTKViewDelegate {
         delegate = self
     }
     required init(coder:NSCoder) { fatalError("Code-only face") }
-    override var isOpaque: Bool { true }
+    override var isOpaque: Bool { false }
     @discardableResult
     func start() -> Bool {
         guard !running else { return true }

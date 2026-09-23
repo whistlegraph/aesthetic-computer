@@ -490,6 +490,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var trackpadSurfaceEnergy = TrackpadSurfaceEnergy()
     private var trackpadMembrane = TrackpadMembraneSimulation()
     private var polyrhythmTrainer = PolyrhythmTrainerClock()
+    /// The circles at wall size: one lane per rhythm across the whole
+    /// display, bursting where a finger lands. Lives and dies with the trainer.
+    private var polyrhythmStage: PolyrhythmStageWindow?
     /// Typed division entry — the digits/`/` string being composed while the
     /// circles are out ("7/4", "2/3/4"). Applied live on every keystroke;
     /// goes stale after `polyrhythmEntryTimeout` so `/` returns to walking
@@ -1450,6 +1453,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self,
             selector: #selector(handleStopNotification(_:)),
             name: NSNotification.Name("computer.aestheticcomputer.menuband.stop"),
+            object: nil
+        )
+
+        // Gaze: turn the lid camera on or off outside a score (userInfo
+        // "on" = 1/0), so the camera permission prompt can be raised before a
+        // performance instead of during its first sung line.
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleGazeNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.gaze"),
             object: nil
         )
 
@@ -4564,6 +4577,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func handleGazeNotification(_ note: Notification) {
+        let on = (note.userInfo?["on"] as? String ?? "1") != "0"
+        DispatchQueue.main.async { on ? SingerGaze.shared.start() : SingerGaze.shared.stop() }
+    }
+
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
     }
@@ -4744,6 +4762,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Parse a play spec (from a distributed notification or a fleet message)
     /// and schedule it. Keys are documented on handlePlayNotification.
     func playFromInfo(_ info: [String: String]) {
+        var info = info
+        // A closed lid at cue time: this member sings "open me" to the
+        // score's notes instead of its words (LidState.swift).
+        if let lyrics = info["lyrics"], !lyrics.isEmpty, Self.lidIsClosed() {
+            info["lyrics"] = Self.openMeLyrics(for: lyrics)
+            NSLog("▶ lid closed — singing \"open me\" to the score")
+        }
         let prepared = info["preparedId"].flatMap { singerPrepared.take($0,info:info) }
         if info["preparedId"] != nil && prepared == nil {
             NSLog("Trio prepared play rejected: missing/stale/mismatched preparation")
@@ -4982,6 +5007,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // `face=neo|blueberry|blush` puts the member's cartoon face up for
             // the sung part; its mouth follows the same onsets.
             let faceMember = (info["face"] ?? "0") == "0" ? nil : info["face"]
+            // `faceAlpha=0.7` — the skin becomes a translucent wash (default flat).
+            // `gaze=0` — leave the lid camera off (default: eyes follow the room).
+            let faceAlpha = CGFloat(Double(info["faceAlpha"] ?? "") ?? 1)
+            let faceGaze = (info["gaze"] ?? "1") != "0"
             var sylIndex = 0
 
             for (ti, track) in tracks.enumerated() {
@@ -5045,7 +5074,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     DispatchQueue.main.asyncAfter(deadline: at(onEpoch - 0.4)) { [weak self] in
                                         guard let self = self, self.playGeneration == gen else { return }
                                         caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
-                                        if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent) }
+                                        if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent, skin: faceAlpha, gaze: faceGaze) }
                                     }
                                 }
                                 DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
@@ -6257,7 +6286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setTrackpadFighterSuppressed(true)
         #endif
         trackpadPadMode = useTrackDrum ? .skin : .fx
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         #if MAC_APP_STORE
         trackpadPluginCaptureActive = useTrackDrum
@@ -6412,7 +6441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
         // The handoff chime names the destination by pitch, and the choice
@@ -6535,7 +6564,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restoreFocusedPitchSlider() {
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         trackpadPadMode = .fx
         releaseTrackpadPercussion()
@@ -7036,10 +7065,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && !NSEvent.modifierFlags.contains(.shift)
     }
 
+    private func stopPolyrhythmTrainer() {
+        polyrhythmTrainer.stop()
+        polyrhythmStage?.hide()
+    }
+
+    /// The stage follows the strip's own refresh: whenever the strip redraws
+    /// with a live snapshot the stage gets the same one, and a nil snapshot
+    /// takes it down.
+    private func syncPolyrhythmStage(_ snapshot: PolyrhythmTrainerSnapshot?) {
+        guard let snapshot else { polyrhythmStage?.hide(); return }
+        let screen = statusItem?.button?.window?.screen ?? NSScreen.main
+        guard let screen else { return }
+        if polyrhythmStage == nil { polyrhythmStage = PolyrhythmStageWindow() }
+        polyrhythmStage?.show(snapshot, on: screen)
+    }
+
     private func togglePolyrhythmTrainer() {
         guard trackpadPadMode == .skin,
               pitchBendCursorPushed || keyboardPerformanceFocusActive else { return }
         polyrhythmTrainer.cyclePattern(at: CACurrentMediaTime())
+        if !polyrhythmTrainer.isActive { polyrhythmStage?.hide() }
         if trackpadEnergyTimer == nil { startTrackpadEnergyDisplay() }
         showPitchBendOverlay()
         debugLog(polyrhythmTrainer.isActive
@@ -7261,6 +7307,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlay = ensurePitchBendOverlay()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
+            syncPolyrhythmStage(rhythm)
             overlay.showTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7402,6 +7449,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadOverlayLastDraw = CACurrentMediaTime()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
+            syncPolyrhythmStage(rhythm)
             overlay.updateTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7611,7 +7659,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // somehow already cleared.
         pitchBendModeLatched = false
         trackpadPerformanceSessionActive = false
-        polyrhythmTrainer.stop()
+        stopPolyrhythmTrainer()
         stopToneTrials()
         #if !MAC_APP_STORE
         setTrackpadFighterSuppressed(pianoWaveformWindowDelegate.isShown)

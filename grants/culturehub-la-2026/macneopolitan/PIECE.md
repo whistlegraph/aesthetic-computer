@@ -266,6 +266,24 @@ the camera. Green, violet, and pink remain the central colors.
 `--expression 0…1` changes visual intensity without interrupting audio
 automation; space and pitch take control of the audio slide until the next score.
 
+## Lullaby for frisbee (Sept 22, evening, the kitchen)
+
+`bin/compose-lullaby.mjs` → `scores/trio-lullaby.mbscore`: 3/4, D major, 63
+bpm, 51 beats (≈49 s). Blueberry hums the cradle (root two beats, fifth one,
+V–I under the last cadence); neo sings *the moon is up now / stars are out
+for you / moon on your lid / sleep under the stars*, an octave below the
+first draft (A2–B3); frisbee, who has no words yet, answers each pair on
+*loo*; all three hum the last two bars. Room 0.85 on every phrase, echo 0.9
+thrown on each tail and the final hum (the singer's space and echo are two
+halves of one slide, so they alternate rather than stack). Same cast as the
+doo-wop. Played three times on the three machines at the house, Sept 22
+20:11–20:32; skews within 13 ms, every line scheduled with 19–42 s of lead.
+
+```sh
+node bin/compose-lullaby.mjs
+node bin/trio.mjs scores/trio-lullaby.mbscore neo blueberry frisbee --quiet
+```
+
 ## Conductor
 
 ```bash
@@ -322,3 +340,93 @@ as the autobiography says.
 - Chorus registers: D3 / A3 / D4 for Fred / Kathy / Junior. Listen to
   `/tmp/mnp/*.wav` on neo and blueberry.
 - Whether the machines speak their intros on stage or only sing.
+
+## Good morning, Sophia (Sept 23, morning)
+
+`bin/compose-wake.mjs` → `scores/trio-wake.mbscore`: the sleep lullaby's
+sibling. 3/4, D major, 69 bpm, 60 beats (≈52 s), rising where the other
+falls. Blueberry hums the cradle with the fifth on top; neo sings *good
+morning Sophia / the sun is on your lid / the coffee is on / take your time /
+the day is out for you / good morning* (F#3–G4); frisbee's first word is her
+name, twice; all three hum the last two bars. Velocity 52, gains .28–.50, and
+every laptop set to output volume 12 before the downbeat. Played twice at the
+house Sept 23 ~08:02 PT (first pass neo+blueberry only, then all three).
+
+Gotchas that morning: after a reboot the bare host name (`blueberry`) resolves
+over the tailnet before Tailscale is up — pass `blueberry.local` /
+`frisbee.local`. A reboot also empties `/tmp`, and frisbee's Command Line
+Tools (Swift 6.3.3) cannot build against its 27.0 SDK (Swift 6.4), so
+`/tmp/mbpost` is copied from neo (`scp /tmp/mbpost frisbee.local:/tmp/`)
+instead of built.
+
+Later that morning: the face lets the desktop through (`faceAlpha: 0.7` on
+each voice → payload `faceAlpha`, Menu Band `SingerFace.show(opacity:)`);
+captions lost their sideways scatter and wear the member's color as outline
+and glow (LyricCaption.swift); blueberry and frisbee are dimmed to 8 % first
+(`~/.local/bin/acbright`, copied to frisbee) and lifted to 80 % over the
+first seven seconds of the song. All in `bin/wake.sh`. Menu Band itself is
+built on neo and the bundle is shipped as a tarball over scp to the other
+two (frisbee cannot compile; blueberry's checkout is a stale mirror) and
+kickstarted in place — see `slab/menuband/bin/ship-bundle.sh`.
+
+Second pass the same morning (jeffrey: "less dominant color", "opaque eyes
+and mouth", "skin going away, more like gradients", "webcams… eyes track the
+bodies in the room, otherwise more natural movements"): `faceAlpha` now means
+the SKIN — a vertical wash of the member's color (55 % → 10 % of faceAlpha)
+plus a soft glow behind the features, over a Metal surface that clears to
+transparent; eyes and mouth stay solid. `gaze=1` (default) starts the lid
+camera while a full-screen face is up (`SingerGaze.swift`: AVCapture VGA,
+Vision face + upper-body rectangles at ~10 Hz, largest head wins, x mirrored
+so the eyes meet the viewer); nobody in the room → a two-sine wander with a
+decaying glance every 2–4 s. First use raises the macOS camera prompt on
+each laptop — click Allow on each; until then the eyes just wander.
+`computer.aestheticcomputer.menuband.gaze` (`on=1|0`) turns the camera on
+outside a score; `bin/wake.sh` posts it before the downbeat. Blueberry's
+cradle moved up to G2–D3 roots (was D2), f0 floor 70: Tom (Enhanced) shifted
+a fifth below its speaking pitch croaked.
+
+Third pass (~08:45): wash raised to 85 % → 50 % of faceAlpha ("more opaque
+base") with two glows behind the features; eyes travel further (pupil ±50 %
+of the eye, wander ±0.65, a glance every 1.2–3 s); hair from the top edge per
+character (neo four stiff sprouts, blueberry a seven-strand fringe, frisbee
+five curls and drifting bubbles); neo lashes + corner dots, blueberry under-
+eye bags + flat mouth with a lower-lip line and no upper teeth, frisbee star
+catchlights, a bow mouth and one tooth. The lid camera needed
+`com.apple.security.device.camera` in MenuBand.entitlements — the hardened
+runtime denies silently without it. Fast dev loop used all morning:
+`swift build -c release` (arm64 only, ~90 s), copy the binary into
+`~/Applications/Menu Band.app/Contents/MacOS/`, `codesign --force --options
+runtime --entitlements MenuBand.entitlements --sign <Developer ID>` on the
+bundle, `launchctl kickstart -k` both agents, then `bin/ship-bundle.sh` to
+the others. Menu Band's REVIEW-2026-09-23.md has the plan to make these
+looks data instead of Swift.
+
+Fourth pass (~08:55): hair and the eye/mouth elaboration REMOVED (jeffrey:
+"I don't like these face graphics as much"); wash now skin → 0.8·skin with
+the score at `faceAlpha: 0.95` ("almost fully opaque"); blueberry recast to
+**Aaron (Enhanced)** — measured on blueberry: Aaron median 48.8 (band 39–53),
+Evan 45.5, Nathan 45.4, Tom 46.0 (band 41.6–49.5, the narrowest, hence the
+frog); the D bar's fifth sits below the root so the cradle spans 43–52.
+**Lid rule** (`LidState.swift`): if a member's lid is closed when a cue with
+lyrics arrives, every line is rewritten to "o-pen me" with the same syllable
+count per line, so it sings that to the score's own melody, captions too.
+Checked once per cue, not per line. Turnaround sheets for the three
+(gpt-image-2.5 + flux/dev via illy) are on neo's Desktop as
+`trio-<member>-turnaround-<backend>.png`; the OpenAI set is the usable one.
+
+Don't start a second run while one is still playing: the first run's end
+fires stopScore on its machines and hides the faces of the run still going.
+
+```sh
+node bin/compose-wake.mjs
+osascript -e 'set volume output volume 12'   # and the same over ssh on the others
+bin/wake.sh 80        # dims, plays neo blueberry.local frisbee.local, lifts screens at the downbeat
+```
+
+Ship a Menu Band bundle without building on the member (bash):
+
+```sh
+tar -C ~/Applications -cf /tmp/menuband-ship.tar "Menu Band.app"; scp /tmp/menuband-ship.tar HOST:/tmp/
+ssh HOST 'cd ~/Applications && mkdir .s && tar -C .s -xf /tmp/menuband-ship.tar && rm -rf "Menu Band.app" && mv ".s/Menu Band.app" . && rmdir .s \
+  && for l in computer.aestheticcomputer.menuband computer.aestheticcomputer.menubandlauncher; do launchctl kickstart -k gui/$(id -u)/$l; done'
+```

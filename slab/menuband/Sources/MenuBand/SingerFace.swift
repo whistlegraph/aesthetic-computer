@@ -94,8 +94,12 @@ final class SingerFace {
         return selected?.pose ?? SingerViseme.rest.pose
     }
 
-    func show(member: String, accent: NSColor) {
+    /// `skin` < 1 (payload `faceAlpha`) turns the flat color into a translucent
+    /// wash so the desktop shows through; eyes and mouth stay solid. `gaze`
+    /// turns the lid camera on so the eyes follow whoever is in the room.
+    func show(member: String, accent: NSColor, skin: CGFloat = 1, gaze: Bool = true) {
         precondition(Thread.isMainThread)
+        let skin = min(1, max(0, skin))
         guard let screen = NSScreen.screens.first ?? NSScreen.main else { return }
         let frame = slot?.tile(on: screen) ?? screen.frame
         let panel = self.panel ?? makePanel(frame)
@@ -107,7 +111,9 @@ final class SingerFace {
         if panel.contentView !== v { panel.contentView = v }
         v.member = member
         v.accent = accent
+        v.skin = skin
         v.label = slot == nil ? nil : member
+        if slot == nil { gaze ? SingerGaze.shared.start() : SingerGaze.shared.stop() }
         v.articulationPose = { [weak self] in self?.mouthPose() }
         v.articulationBreath = { [weak self] in self?.inhale() ?? 0 }
         v.configure(epoch: performanceEpoch, bpm: performanceBpm, expression: expression)
@@ -131,6 +137,7 @@ final class SingerFace {
 
     func hide() {
         precondition(Thread.isMainThread)
+        if slot == nil { SingerGaze.shared.stop() }
         guard let panel, let view else { return }
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.5
@@ -159,6 +166,7 @@ final class SingerFace {
 final class SingerFaceView: NSView {
     var member = "neo"
     var accent = NSColor.orange
+    var skin: CGFloat = 1                 // 1 = flat color; below, a translucent wash
     var label: String?                    // sim tile: the member's name in the corner
     var articulationPose: (() -> SingerMouthPose?)?
     var previewPose: SingerMouthPose?      // deterministic render inspection
@@ -205,6 +213,8 @@ final class SingerFaceView: NSView {
     private var gaze = CGPoint.zero
     private var gazeTarget = CGPoint.zero
     private var nextGaze = Date()
+    private var saccade = CGPoint.zero    // a quick glance that decays back into the wander
+    private var wanderT = 0.0
     private var bob: CGFloat = 0
 
     override var isFlipped: Bool { false }
@@ -337,14 +347,30 @@ final class SingerFaceView: NSView {
             blinkUntil = now.addingTimeInterval(0.13)
             nextBlink = now.addingTimeInterval(2.2 + Double(boil % 30) / 10)
         }
+        // Where to look. Someone in the room (lid camera, SingerGaze) wins;
+        // otherwise a slow wander of two sines with a quick glance every few
+        // seconds that eases back — not the old five-position jump.
+        wanderT += dt
         if now > nextGaze {
-            gazeTarget = CGPoint(x: CGFloat(Int(boil % 5)) / 2 - 1, y: CGFloat(Int((boil >> 3) % 3)) / 2 - 0.5)
+            saccade = CGPoint(x: (CGFloat(Int(boil % 7)) / 3 - 1) * 0.7, y: (CGFloat(Int((boil >> 3) % 5)) / 2 - 1) * 0.3)
             nextGaze = now.addingTimeInterval(1.2 + Double((boil >> 5) % 20) / 10)
         }
-        if expression > 0 {
-            gazeTarget = CGPoint(x: sin(beat * .pi / 4) * 0.85 * Double(vitality), y: 0.05 + Double(vitality)*0.35 + Double(breath)*0.55)
+        saccade.x *= CGFloat(exp(-dt/1.4)); saccade.y *= CGFloat(exp(-dt/1.4))
+        let wander = CGPoint(x: 0.65*sin(wanderT*0.37) + 0.3*sin(wanderT*0.91+1.3) + saccade.x,
+                             y: 0.22*sin(wanderT*0.53+0.7) + 0.1*sin(wanderT*1.31) + saccade.y)
+        var tau = 0.09
+        if let person = SingerGaze.shared.target {
+            let sway = expression > 0 ? sin(beat * .pi / 4) * 0.15 * Double(vitality) : 0
+            gazeTarget = CGPoint(x: person.x + sway, y: person.y + Double(breath)*0.15)
+            tau = 0.2
+        } else if expression > 0 {
+            gazeTarget = CGPoint(x: sin(beat * .pi / 4) * 0.85 * Double(vitality) + wander.x*0.7,
+                                 y: 0.05 + Double(vitality)*0.35 + Double(breath)*0.55 + wander.y*0.7)
+        } else {
+            gazeTarget = wander
         }
-        let response = CGFloat(1-exp(-dt/0.045))
+        gazeTarget.x = max(-1, min(1, gazeTarget.x)); gazeTarget.y = max(-0.6, min(0.6, gazeTarget.y))
+        let response = CGFloat(1-exp(-dt/tau))
         gaze.x += (gazeTarget.x - gaze.x) * response
         gaze.y += (gazeTarget.y - gaze.y) * response
         squash *= CGFloat(exp(-dt/0.067))
@@ -451,8 +477,21 @@ final class SingerFaceView: NSView {
                            blue:min(1,base.blueComponent*0.66+0.20),alpha:1)
         let litEdge = cool.blended(withFraction:life,of:warm) ?? base
         let edge = base.blended(withFraction:mood,of:litEdge) ?? base
-        ctx.fill(NSBezierPath(rect: bounds), color: base)
-        ctx.edgeLight(in:bounds,center:base,edge:edge)
+        if skin >= 0.999 {
+            ctx.fill(NSBezierPath(rect: bounds), color: base)
+            ctx.edgeLight(in:bounds,center:base,edge:edge)
+        } else {
+            // The skin as gradients: a wash of the member's color, stronger
+            // at the top, thinning to almost nothing below; a soft glow
+            // behind the features. The desktop reads through all of it.
+            ctx.wash(in: bounds, top: base.withAlphaComponent(skin), bottom: base.withAlphaComponent(skin*0.8))
+            // Two glows behind the features: a wide soft one and a tighter,
+            // stronger one, so the eyes and mouth sit on skin, not on desktop.
+            let glow = NSBezierPath(ovalIn: CGRect(x: W*0.08, y: H*0.08, width: W*0.84, height: H*0.86))
+            ctx.gradient(in: glow, color: edge.withAlphaComponent(skin*0.55))
+            let core = NSBezierPath(ovalIn: CGRect(x: W*0.22, y: H*0.2, width: W*0.56, height: H*0.62))
+            ctx.gradient(in: core, color: base.withAlphaComponent(skin*0.7))
+        }
 
         ctx.saveGState()
         // A small coordinated camera drift follows the common musical clock.
@@ -473,6 +512,64 @@ final class SingerFaceView: NSView {
         ctx.rotate(by: squash * lean * (isBB ? 0.025 : isFrisbee ? 0.065 : 0.045) * motion)
         ctx.scaleBy(x: 1 + (isBB ? 0.055 : 0.09) * squash * motion, y: 1 - (isBB ? 0.075 : 0.12) * squash * motion)
         ctx.translateBy(x: -W / 2, y: -H * 0.5)
+
+        // Hair, from the turnaround sheets (members/*/turnaround.png, Sept 23):
+        // neo three ink sprouts standing between the brows, blueberry a black
+        // bowl-cut fringe hanging from the top edge, frisbee five spiral curls
+        // floating above the brows. Drawn first so the features sit on top.
+        let inkColor = NSColor(white: 0.07, alpha: 1)
+        let hairSway = sway * motion * 0.6 + CGFloat(sin(cameraPhase * .pi / 5)) * 0.25
+        if isBB {
+            for i in 0..<5 {
+                let cx = W * (0.28 + 0.11 * CGFloat(i)) + hairSway * W * 0.004
+                let hw = W * 0.062, drop = H * (0.105 + 0.012 * (j(i + 40, 3) - 0.5))
+                let lobe = NSBezierPath()
+                lobe.move(to: CGPoint(x: cx - hw, y: H * 1.03))
+                lobe.curve(to: CGPoint(x: cx + hw, y: H * 1.03),
+                           controlPoint1: CGPoint(x: cx - hw * 1.05, y: H - drop * 1.35),
+                           controlPoint2: CGPoint(x: cx + hw * 1.05, y: H - drop * 1.35))
+                lobe.close()
+                ink(lobe, width: line * 0.6, fill: inkColor)
+            }
+        } else if isFrisbee {
+            let hop = bounce * H * 0.5
+            for i in 0..<5 {
+                let bx = W * (0.32 + 0.09 * CGFloat(i)) + W * 0.006 * (j(i + 50, 5) - 0.5)
+                let baseY = H * (0.885 + 0.012 * (j(i + 60, 3) - 0.5)) + hop * (i % 2 == 0 ? 1 : 0.6)
+                let dir: CGFloat = i % 2 == 0 ? 1 : -1
+                let stem = H * 0.04, r0 = W * 0.014
+                let center = CGPoint(x: bx + dir * r0 * 0.6 + hairSway * W * 0.006, y: baseY + stem + r0)
+                let curl = NSBezierPath()
+                curl.move(to: CGPoint(x: bx, y: baseY))
+                curl.curve(to: CGPoint(x: center.x - dir * r0, y: center.y),
+                           controlPoint1: CGPoint(x: bx - dir * W * 0.004, y: baseY + stem * 0.6),
+                           controlPoint2: CGPoint(x: center.x - dir * r0 * 1.1, y: center.y - r0 * 0.6))
+                let turns = 1.3, steps = 22
+                for k in 1...steps {
+                    let t = CGFloat(k) / CGFloat(steps)
+                    let a = CGFloat.pi + dir * t * CGFloat(turns) * 2 * .pi
+                    let r = r0 * (1 - t * 0.72)
+                    curl.line(to: CGPoint(x: center.x + cos(a) * r, y: center.y + sin(a) * r))
+                }
+                ink(curl, width: line * 0.85, fill: nil)
+            }
+        } else {
+            // three tapered sprouts: one straight up, two leaning out
+            let baseY = H * 0.865, cxs = W / 2 + hairSway * W * 0.003
+            for (k, lean) in [(0, CGFloat(-1)), (1, CGFloat(0)), (2, CGFloat(1))] {
+                let bx = cxs + lean * W * 0.03
+                let tip = CGPoint(x: bx + lean * W * 0.035 + hairSway * W * 0.01, y: baseY + H * (k == 1 ? 0.125 : 0.095))
+                let half = W * 0.009
+                let sprout = NSBezierPath()
+                sprout.move(to: CGPoint(x: bx - half, y: baseY))
+                sprout.curve(to: tip, controlPoint1: CGPoint(x: bx - half * 0.6, y: baseY + (tip.y - baseY) * 0.5),
+                             controlPoint2: CGPoint(x: tip.x - half * 0.3, y: tip.y - (tip.y - baseY) * 0.15))
+                sprout.curve(to: CGPoint(x: bx + half, y: baseY), controlPoint1: CGPoint(x: tip.x + half * 0.3, y: tip.y - (tip.y - baseY) * 0.15),
+                             controlPoint2: CGPoint(x: bx + half * 0.6, y: baseY + (tip.y - baseY) * 0.5))
+                sprout.close()
+                ctx.fill(sprout, color: inkColor)
+            }
+        }
 
         // Soft blush builds with vocal effort, never replacing member color.
         for side in [-1,1] as [CGFloat] {
@@ -516,9 +613,9 @@ final class SingerFaceView: NSView {
                 ink(shut, width: line, fill: nil)
             } else {
                 let eye = blob(cx: cx, cy: cy, rx: ew, ry: eh, lump: 0.025, salt: Int(side) + 20, n: 18)
-                ink(eye, width: line, fill: NSColor(white: 0.97, alpha: 1))
+                ink(eye, width: line, fill: NSColor(srgbRed: 0.98, green: 0.95, blue: 0.88, alpha: 1))
                 let pr = ew * (isBB ? 0.34 : isFrisbee ? 0.47 : 0.43)
-                let px = cx + gaze.x * ew * 0.35, py = cy + gaze.y * eh * 0.3
+                let px = cx + gaze.x * ew * 0.5, py = cy + gaze.y * eh * 0.4
                 ctx.fill(NSBezierPath(ovalIn: CGRect(x: px - pr, y: py - pr, width: pr * 2, height: pr * 2)), color: .black)
                 ctx.fill(NSBezierPath(ovalIn: CGRect(x: px - pr * 0.15, y: py + pr * 0.3, width: pr * 0.5, height: pr * 0.5)), color: .white)
                 if isBB {
@@ -540,7 +637,10 @@ final class SingerFaceView: NSView {
             let by = min(H*0.835, cy + eh * (isBB ? 1.25 : 1.39) + lift + curiosity) + H * 0.005 * j(Int(side) + 30, 6)
             brow.move(to: CGPoint(x: cx - ew * 0.95, y: by - (isBB ? 0 : eh * 0.12)))
             if isBB {
-                brow.curve(to: CGPoint(x: cx + ew * 0.95, y: by), controlPoint1: CGPoint(x: cx-ew*0.3,y:by+lift), controlPoint2: CGPoint(x:cx+ew*0.3,y:by+lift))
+                // a flat black bar, rounded ends
+                let bar = NSBezierPath(roundedRect: CGRect(x: cx - ew * 0.95, y: by + lift * 0.5 - line * 0.9, width: ew * 1.9, height: line * 1.8), xRadius: line * 0.6, yRadius: line * 0.6)
+                ctx.fill(bar, color: NSColor(white: 0.07, alpha: 1))
+                brow.move(to: CGPoint(x: cx, y: by))   // nothing left to stroke
             } else if isFrisbee {
                 brow.curve(to: CGPoint(x: cx + ew * 0.95, y: by - eh * 0.12), controlPoint1: CGPoint(x: cx - ew * 0.3, y: by + eh * 0.3), controlPoint2: CGPoint(x: cx + ew * 0.3, y: by + eh * 0.3))
             } else {

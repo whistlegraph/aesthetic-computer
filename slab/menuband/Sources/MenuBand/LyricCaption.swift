@@ -111,8 +111,12 @@ final class LyricCaption {
             + 0.0722 * accentRGB.blueComponent
         ink = lum > 0.58 ? NSColor(deviceWhite: 0.06, alpha: 1) : NSColor(deviceWhite: 0.98, alpha: 1)
         dim = ink.withAlphaComponent(0.38)
-        let stroke = lum > 0.58 ? NSColor(deviceWhite: 0.98, alpha: 0.85) : NSColor(white: 0.08, alpha: 1)
-        let hardShadow = accentRGB.blended(withFraction: 0.55, of: .black) ?? .black
+        // Like a prox rock's title: the letters are outlined and haloed in the
+        // member's own color — a saturated stroke hugging the glyph, a soft
+        // glow of the same hue around it, and a small darker drop for lift.
+        let stroke = accentRGB.blended(withFraction: lum > 0.58 ? 0.35 : 0.15, of: .black) ?? accentRGB
+        let glow = (accentRGB.blended(withFraction: 0.25, of: .white) ?? accentRGB).withAlphaComponent(0.95)
+        let hardShadow = accentRGB.blended(withFraction: 0.6, of: .black) ?? .black
 
         let lineH = ceil(pt * 1.5)
         let inset = ceil(pt * 0.6)
@@ -134,23 +138,26 @@ final class LyricCaption {
             g.font = font
             g.strokeColor = stroke
             g.shadowInk = hardShadow
+            g.glowColor = glow
             g.text = String(c.ch)
-            g.inset = ceil(pt * 0.25)
+            g.inset = ceil(pt * 0.5)
             g.bounds = CGRect(x: 0, y: 0, width: w + g.inset * 2, height: lineH + g.inset * 2)
             // MacPal jitter, deterministic per glyph (FNV-1a), like a rock's name.
             var h: UInt32 = 2_166_136_261
             for b in "\(line):\(i):\(c.ch)".utf8 { h = (h ^ UInt32(b)) &* 16_777_619 }
-            let jx = (CGFloat(Int(h % 7)) - 3) * pt / 24
-            let jy = (CGFloat(Int((h >> 8) % 5)) - 2) * pt / 24
-            let rot = (CGFloat(Int((h >> 16) % 9)) - 4) * .pi / 180
+            // Barely jittered (jeffrey, Sept 23: sideways scatter made the words
+            // hard to read): no x offset, a hair of y, at most a degree of tilt.
+            let jx: CGFloat = 0
+            let jy = (CGFloat(Int((h >> 8) % 5)) - 2) * pt / 60
+            let rot = (CGFloat(Int((h >> 16) % 5)) - 2) * 0.5 * .pi / 180
             g.position = CGPoint(x: pen + w / 2 + jx, y: y0 + jy)
             g.transform = CATransform3DMakeRotation(rot, 0, 0, 1)
             g.ink = dim
             g.setNeedsDisplay()
             root.addSublayer(g)
             let sway = CABasicAnimation(keyPath: "transform.translation.y")
-            sway.fromValue = -1.2
-            sway.toValue = 1.2
+            sway.fromValue = -0.6
+            sway.toValue = 0.6
             sway.duration = 1.6 + Double((h >> 4) % 9) / 10
             sway.autoreverses = true
             sway.repeatCount = .infinity
@@ -181,7 +188,7 @@ final class LyricCaption {
         }
         for g in syllableGlyphs[k] {
             let pop = CAKeyframeAnimation(keyPath: "transform.scale")
-            pop.values = [1, 1.34, 1.12]
+            pop.values = [1, 1.22, 1.08]
             pop.keyTimes = [0, 0.35, 1]
             pop.duration = 0.32
             pop.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -222,6 +229,7 @@ final class CaptionGlyphLayer: CALayer {
     var ink = NSColor.white
     var strokeColor = NSColor.black
     var shadowInk = NSColor.black
+    var glowColor = NSColor.clear
     var inset: CGFloat = 0
 
     // As in Oskiewar's glyph atlas, rasterize text once and let the GPU move
@@ -231,7 +239,7 @@ final class CaptionGlyphLayer: CALayer {
         let scale = max(1, contentsScale)
         let width = max(1, Int(ceil(bounds.width * scale)))
         let height = max(1, Int(ceil(bounds.height * scale)))
-        let key = "\(text)|\(font.fontName)|\(font.pointSize)|\(bounds)|\(scale)|\(ink)|\(strokeColor)|\(shadowInk)" as NSString
+        let key = "\(text)|\(font.fontName)|\(font.pointSize)|\(bounds)|\(scale)|\(ink)|\(strokeColor)|\(shadowInk)|\(glowColor)" as NSString
         if let cached = Self.bitmaps.object(forKey: key) { contents = cached.image; return }
         guard let ctx = CGContext(data: nil, width: width, height: height,
                                   bitsPerComponent: 8, bytesPerRow: width * 4,
@@ -245,18 +253,31 @@ final class CaptionGlyphLayer: CALayer {
     }
 
     override func draw(in ctx: CGContext) {
-        let sh = NSShadow()
-        sh.shadowBlurRadius = 0
-        sh.shadowOffset = NSSize(width: 2.5, height: -2.5)
-        sh.shadowColor = shadowInk
-        let attr = NSAttributedString(string: text, attributes: [
-            .font: font, .foregroundColor: ink, .strokeColor: strokeColor,
-            .strokeWidth: -4.5, .shadow: sh,
-        ])
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
-        let size = attr.size()
-        attr.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2))
+        let probe = NSAttributedString(string: text, attributes: [.font: font])
+        let size = probe.size()
+        let at = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+        // 1. the halo: a fat stroke in the member's color, blurred into a glow
+        if glowColor.alphaComponent > 0.01 {
+            let halo = NSShadow()
+            halo.shadowBlurRadius = font.pointSize * 0.28
+            halo.shadowOffset = .zero
+            halo.shadowColor = glowColor
+            NSAttributedString(string: text, attributes: [
+                .font: font, .foregroundColor: glowColor, .strokeColor: glowColor,
+                .strokeWidth: -7, .shadow: halo,
+            ]).draw(at: at)
+        }
+        // 2. the letter: ink fill, colored outline, a small hard drop for lift
+        let sh = NSShadow()
+        sh.shadowBlurRadius = 0
+        sh.shadowOffset = NSSize(width: 2, height: -2)
+        sh.shadowColor = shadowInk
+        NSAttributedString(string: text, attributes: [
+            .font: font, .foregroundColor: ink, .strokeColor: strokeColor,
+            .strokeWidth: -4.5, .shadow: sh,
+        ]).draw(at: at)
         NSGraphicsContext.restoreGraphicsState()
     }
 }
