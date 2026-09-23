@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-09-23T19:56:47.249034+00:00",
+  "release": "f55f62fb0b6e0545dde061f51dd0ed3bdd802094",
+  "defaultReportScope": "studio",
+  "reportScopes": [
+    "studio",
+    "clients",
+    "all"
+  ],
+  "rows": [
+    {
+      "property": "danzballet.studio",
+      "group": "clients",
+      "installed": true,
+      "browserVerified": true,
+      "databaseVerified": true,
+      "testTraffic": "marked automation",
+      "consentGate": null
+    },
+    {
+      "property": "regarde.io",
+      "group": "clients",
+      "installed": true,
+      "browserVerified": true,
+      "databaseVerified": true,
+      "testTraffic": "marked automation",
+      "consentGate": null
+    },
+    {
+      "property": "drvkforlife.com",
+      "group": "clients",
+      "installed": true,
+      "browserVerified": true,
+      "databaseVerified": true,
+      "testTraffic": "marked automation",
+      "consentGate": "Shopify analyticsProcessingAllowed"
+    },
+    {
+      "property": "false.work",
+      "group": "clients",
+      "installed": false,
+      "sourcePrepared": true,
+      "blocker": "Live Squarespace code-injection access not available; local Lith source is not the public host."
+    }
+  ],
+  "regardeDeployment": "https://b0ced004.regarde-eyg.pages.dev",
+  "validation": {
+    "focusedTestsPassed": 8,
+    "studioReportExcludesClients": true,
+    "clientRecordsTaggedByServer": true
+  }
+}

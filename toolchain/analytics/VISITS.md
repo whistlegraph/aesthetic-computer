@@ -120,8 +120,13 @@ Known deployment boundaries discovered September 23, 2026:
 - menuband.app `/` redirects to the App Store: no browser visit can fire on
   the redirect. Its hosted support/advanced pages are instrumented. App usage
   and App Store downloads are separate instruments.
-- Client regarde.io is on Cloudflare Pages, outside the Lith deploy.
-- Client drvkforlife.com is on Shopify, outside the Lith deploy.
+- Client regarde.io is on Cloudflare Pages, outside the Lith deploy; deployed
+  and browser/database verified September 23.
+- Client drvkforlife.com is on Shopify, outside the Lith deploy; live theme
+  and consent-allowed browser/database collection verified September 23.
+- Client false.work redirects to www.false.work on Squarespace. The Lith
+  source is prepared, but live installation requires Squarespace access.
+  Do not count it as covered. Danz is deployed and browser/database verified.
 - wipppps.world currently serves an external site despite old Lith routing.
 - aesthetic.direct and digitpain.com did not answer the initial HTTPS probe;
   local entry sources are prepared, but live coverage is not assumed.
@@ -148,3 +153,5 @@ The browser check exercises trusted versus synthetic input, form exclusion,
 engagement, duplicate installation, private SPA navigation and GPC. Production
 checks should use marked automation and verify database milestones as well as
 HTTP responses. Do not label a 204 alone as verified measurement.
+
+`visits-clients-deployment.json` records the separate client rollout.
