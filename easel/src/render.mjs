@@ -584,7 +584,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...(state.layout || {}) };
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -719,10 +719,42 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     .join("\n");
 }
 
+// What the engine is called on the bottom line and in the title: the hosted
+// bridge is Aesthetic Computer's own, so it says so.
+export function providerLabel(engine) {
+  return engine === "ac" ? "aesthetic" : engine || "";
+}
+
+// A path the way fish's prompt shows it: every directory on the way is its
+// first letter, the one you are in is whole — `~/a/c/easel` — so the end,
+// which is the part that tells you where you are, is never the part cut off.
+export function fishPath(path, home = process.env.HOME || "") {
+  if (!path) return "";
+  let rest = path;
+  let head = "";
+  if (home && (path === home || path.startsWith(`${home}/`))) {
+    head = "~";
+    rest = path.slice(home.length);
+  }
+  const parts = rest.split("/").filter(Boolean);
+  const short = parts.map((part, index) => (index === parts.length - 1 ? part : part.startsWith(".") ? part.slice(0, 2) : part[0]));
+  return `${head}${short.length ? `/${short.join("/")}` : head ? "" : "/"}`;
+}
+
+// The window's title, in the menubar's own vocabulary — a mark, the name, the
+// place, the provider, and what the machine is doing when it is doing
+// something — so an Easel tab reads like a Claude or Codex tab from across
+// the room.
+export function windowTitle(state) {
+  const provider = providerLabel(state.providerSettings?.backend);
+  const doing = state.approval ? "◉ approval" : state.busy ? "● working" : state.status === "connecting" ? "◌ connecting" : state.status === "offline" ? "○ offline" : "";
+  return ["🫏 aesel", fishPath(state.workspace), provider, doing].filter(Boolean).join(" · ");
+}
+
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
-  const status = shape.status || ["handle", "workspace", "model", "mode", "activity"];
+  const status = shape.status || ["handle", "workspace", "engine", "model", "mode", "activity"];
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
   const model = state.model || state.providerSettings?.model || "";
@@ -730,11 +762,11 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
   const plain = {
     handle: account,
-    workspace: clipText(state.workspace || "", Math.max(8, Math.floor(width / 3))),
-    model: model ? `${model}${engine && engine !== "claude" && !status.includes("engine") ? ` · ${engine}` : ""}` : "",
-    engine,
+    workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
+    model,
+    engine: providerLabel(engine),
     mode: state.mode === "local" ? "local" : "remote",
-    activity: state.busy ? requestFeedback(state) : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    activity: state.busy ? requestFeedback(state) : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);
@@ -750,7 +782,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     }
     spans.push({ name, x, width: textWidth(text) });
     // The model underlines under the mouse: it is the one fact that is a control.
-    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : name === "model" && state.hover === "model" && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : (name === "model" || name === "engine") && state.hover === "model" && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
     x += textWidth(text);
   }
   return { line, spans };
@@ -771,7 +803,7 @@ export function headerAction(state, columns, rows, x, y) {
     const shape = { bottom: ["gap", "bar", "gap", "status"], ...(state.layout || {}) };
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
-    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => span.name === "model" && x >= span.x + 1 && x <= span.x + span.width);
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => (span.name === "model" || span.name === "engine") && x >= span.x + 1 && x <= span.x + span.width);
     return hit ? "model" : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}

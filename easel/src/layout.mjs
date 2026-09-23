@@ -74,7 +74,7 @@ export class Layout extends EventEmitter {
     const base = normalize(readJson(this.baked) || {});
     const over = normalize(readJson(this.file) || {});
     this.override = over;
-    this.spec = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...base, ...over };
+    this.spec = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...base, ...over };
     return this.spec;
   }
 

@@ -51,7 +51,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount } from "./render.mjs";
+import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -774,6 +774,16 @@ function startDance() {
 }
 
 let bindingSnapshot={revision:'',bindings:[]},bindingSnapshotKey='';
+// The tab's title, set here rather than by the shell, so it names the tool,
+// the place and the provider — and says when the machine has the floor.
+let lastTitle = "";
+function retitle() {
+  if (process.env.EASEL_DESKTOP || !process.stdout.isTTY) return;
+  const title = windowTitle(state);
+  if (title === lastTitle) return;
+  lastTitle = title;
+  process.stdout.write(`\x1b]0;${title}\x07`);
+}
 function redraw() {
   // Provider metadata also belongs to the title screen, before its first frame.
   if (process.env.EASEL_DESKTOP && !closing) {
@@ -798,6 +808,7 @@ function redraw() {
     if (state.scrollOffset) state.scrollOffset = Math.max(0, state.scrollOffset + count - lastTranscriptLines);
     lastTranscriptLines = count;
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
+    retitle();
     if (process.env.EASEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,status:state.status,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
       if(prompt!==lastPrompt){lastPrompt=prompt;process.stdout.write(`\x1b]777;easel-prompt:${prompt}\x07`);}
@@ -2602,7 +2613,13 @@ function bootDone() {
   clearTimeout(bootTimer);
   bootTimer = null;
 }
-if(!process.env.EASEL_DESKTOP) bootFrame();
+if (pro) {
+  // No walk-in. The frame is up at once with the status line saying
+  // connecting, the engine answers behind it, and a line typed meanwhile
+  // waits in the queue for it.
+  state.status = "connecting";
+  redraw();
+} else if (!process.env.EASEL_DESKTOP) bootFrame();
 try {
   const connection = await engine.connect();
   bootDone();

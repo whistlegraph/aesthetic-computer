@@ -303,7 +303,7 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   assert.equal(rows[rows.length - 4].trim(), "", "air above the bar");
   assert.match(rows[rows.length - 3], /^ › /, "the bar carries the prompt");
   assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
-  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar");
+  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar (no provider without provider settings)");
 });
 
 test("the pro frame takes its shape from the layout", () => {
@@ -344,4 +344,24 @@ test("in pro the model on the status line is the one thing to click, and it open
   const moved = { ...state, layout: { bottom: ["status", "gap", "bar"] } };
   const movedModel = proStatus(moved, 80, false, moved.layout).spans.find((span) => span.name === "model");
   assert.equal(headerAction(moved, 80, 24, movedModel.x + 1, 22), "model", "the click follows the layout");
+});
+
+test("the bottom line names the provider, abbreviates the path the way fish does, and says connecting", async () => {
+  const { fishPath, providerLabel, proStatus, windowTitle } = await import("../src/render.mjs");
+  assert.equal(fishPath("/Users/jas/aesthetic-computer/easel", "/Users/jas"), "~/a/easel");
+  assert.equal(fishPath("/Users/jas/.config/easel", "/Users/jas"), "~/.c/easel");
+  assert.equal(fishPath("/Users/jas", "/Users/jas"), "~");
+  assert.equal(fishPath("/opt/homebrew/bin", "/Users/jas"), "/o/h/bin");
+  assert.equal(providerLabel("ac"), "aesthetic");
+  const state = {
+    workspace: "/Users/jas/aesthetic-computer/easel", mode: "remote", status: "connecting", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "ac", model: "claude-sonnet-5" },
+    profile: { name: "pro" }, entries: [],
+  };
+  const { line, spans } = proStatus(state, 100, false);
+  assert.equal(line.trim(), "@tester · ~/a/easel · aesthetic · claude-sonnet-5 · remote · connecting…");
+  assert.deepEqual(spans.map((span) => span.name), ["handle", "workspace", "engine", "model", "mode", "activity"]);
+  assert.equal(windowTitle(state), "🫏 aesel · ~/a/easel · aesthetic · ◌ connecting");
+  assert.equal(windowTitle({ ...state, status: "ready", busy: true }), "🫏 aesel · ~/a/easel · aesthetic · ● working");
+  assert.equal(windowTitle({ ...state, status: "ready" }), "🫏 aesel · ~/a/easel · aesthetic");
 });

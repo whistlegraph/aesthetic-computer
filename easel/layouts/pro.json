@@ -1,6 +1,6 @@
 {
   "bottom": ["gap", "bar", "gap", "status"],
-  "status": ["handle", "workspace", "model", "mode", "activity"],
+  "status": ["handle", "workspace", "engine", "model", "mode", "activity"],
   "bar": [95, 70, 135],
   "prompt": "›",
   "separator": " · "
