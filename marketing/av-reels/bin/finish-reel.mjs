@@ -1,17 +1,16 @@
 #!/usr/bin/env node
-// finish-reel.mjs — the "reel finish": compose a capture into Instagram's
-// safe zone and fire a glaze over the whole frame. One ffmpeg pass, so the
+// finish-reel.mjs — the "reel finish": frame a capture with a uniform
+// border and fire a glaze over the whole frame. One ffmpeg pass, so the
 // capture's audio rides through untouched and sync is exact by construction.
 //
 //   node marketing/av-reels/bin/finish-reel.mjs base.mp4 --glaze vhs --out reel.mp4
 //
-// Safe zone: Instagram lays its header over the top ~12% of a reel and the
-// caption, audio line and action buttons over the bottom ~25% (plus a column
-// of icons on the right). --box x,y,w,h is where the whole piece goes; the
-// default is a centered 4:5 window (960×1200 at 60,240) so nothing is under
-// the UI. Capture at the box's size (capture-av --width 960 --height 1200)
-// so the piece's pixels land 1:1. The margins are a dimmed, blurred copy of
-// the piece itself.
+// Frame: --box x,y,w,h is where the whole piece goes. The default is a
+// tight, uniform 40 px border (1000×1840 at 40,40) — near the reel's own
+// aspect, so the piece reads as the whole screen with a little air around
+// it. Capture at the box's size (capture-av --width 1000 --height 1840) so
+// the piece's pixels land 1:1; 1000×1840 divides evenly by density 5. The
+// border is a dimmed, blurred copy of the piece itself.
 //
 // Glazes are reel-only GLSL (marketing/av-reels/glazes/<name>.glsl, mpv
 // user-shader format) run on the GPU by ffmpeg's libplacebo filter. They are
@@ -29,7 +28,7 @@ import { h264Args } from "../../../pop/lib/video-codec.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GLAZES = resolve(HERE, "../glazes");
 const W = 1080, H = 1920;
-export const SAFE_BOX = { x: 60, y: 240, w: 960, h: 1200 };
+export const BOX = { x: 40, y: 40, w: 1000, h: 1840 };
 
 const argv = process.argv.slice(2);
 const flags = {};
@@ -52,7 +51,7 @@ const OUT = resolve(flags.out || BASE.replace(/\.mp4$/, "-finished.mp4"));
 const FPS = parseInt(flags.fps || 60, 10);
 const GLAZE = flags.glaze || "vhs";
 const [bx, by, bw, bh] = flags.box ? String(flags.box).split(",").map(Number)
-  : [SAFE_BOX.x, SAFE_BOX.y, SAFE_BOX.w, SAFE_BOX.h];
+  : [BOX.x, BOX.y, BOX.w, BOX.h];
 
 let shader = null;
 if (GLAZE !== "none") {

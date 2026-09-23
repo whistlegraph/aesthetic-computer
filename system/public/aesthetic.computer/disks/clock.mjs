@@ -565,6 +565,9 @@ let soundRef = null;
 
 // UI Buttons for octave control
 let octaveMinusBtn, octavePlusBtn;
+// `?nolabel` is how the reel farm (capture-av) loads a piece: a clean frame
+// with no chrome, so the octave picker stays hidden there.
+let hideOctave = false;
 
 // Visual logging throttling
 let lastLogTime = 0;
@@ -789,6 +792,7 @@ function getStampleByCode(code, { preload, sound }) {
 }
 
 async function boot({ ui, clock, params, colon, hud, screen, typeface, api, speak, num, help, store, net, sound }) {
+  hideOctave = api.query?.nolabel !== undefined;
   try {
     console.log(`🎵 CLOCK BOOT STARTED - params:`, params, `colon:`, colon);
   
@@ -1327,7 +1331,7 @@ function paint({
     clockDrawn = true;
 
     // Paint octave control buttons (only if typeface is loaded)
-    if (typeface?.glyphs?.["0"]?.resolution) {
+    if (!hideOctave && typeface?.glyphs?.["0"]?.resolution) {
       const octaveText = `${octave}`;
       const glyphWidth = typeface.glyphs["0"].resolution[0];
       const padding = 4; // Padding on left and right of octave number
@@ -1513,7 +1517,7 @@ function paint({
   drawFloatingHzDisplays(ink, write, screen);
 
   // Paint octave control buttons after timeline so they appear on top
-  if (typeface?.glyphs?.["0"]?.resolution) {
+  if (!hideOctave && typeface?.glyphs?.["0"]?.resolution) {
     const octaveText = `${octave}`;
     const glyphWidth = typeface.glyphs["0"].resolution[0];
     const padding = 4; // Padding on left and right of octave number
@@ -4642,7 +4646,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
   }
 
   // Handle octave button interactions
-  octavePlusBtn?.act(e, {
+  if (!hideOctave) octavePlusBtn?.act(e, {
     down: () => {
       // No feedback sound on down to keep it simple
     },
@@ -4665,7 +4669,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
     },
   });
 
-  octaveMinusBtn?.act(e, {
+  if (!hideOctave) octaveMinusBtn?.act(e, {
     down: () => {
       // No feedback sound on down to keep it simple
     },
