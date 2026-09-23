@@ -26,6 +26,7 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { homedir, hostname } from "node:os";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
+import { deliverLocal, drain, makeMessage, peek, stamp } from "./prox-inbox.mjs";
 import { clip, toon } from "../../shared/toon.mjs";
 
 const pexec = promisify(execFile);
@@ -287,6 +288,61 @@ async function toolPoke({ handle, by }) {
     signal: AbortSignal.timeout(5000),
   }).catch((e) => { throw new Error(`poke to ${r.host} (${r.ip}) failed: ${e.message}`); });
   return [{ type: "text", text: `poked ${r.host}:${r.name} as «${poker}» — its rock should blink + rattle (HTTP ${res.status}).` }];
+}
+
+// ── inbox: hand a session words, not keystrokes ─────────────────────────────
+// Same resolution as a poke. A local rock takes the line socket-first then
+// file; a remote one gets it through its owner's /send, which does the same.
+async function toolSend({ handle, text, urgency = "queue", by }) {
+  if (!handle) throw new Error("`handle` is required (a `host:name` or fuzzy name; see prox_find).");
+  const hits = resolve(await allRocks(), handle);
+  if (!hits.length) throw new Error(`no rock resolves «${handle}» to send to.`);
+  if (hits.length > 1) {
+    return [{ type: "text", text: `«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}). Send to a specific host:name.` }];
+  }
+  const r = hits[0];
+  const self = (await readJson(LOCAL_FILE))?.host || hostname().split(".")[0];
+  const message = makeMessage({ from: by || `${self}:prox`, to: `${r.host}:${r.name}`, toId: r.id, text, urgency });
+  if (r.self) {
+    const { via } = await deliverLocal(message);
+    return [{ type: "text", text: `sent to ${r.host}:${r.name} via ${via} as «${message.from}» (${urgency}, id ${message.id}).` }];
+  }
+  if (!r.ip) throw new Error(`no tailnet ip known for ${r.host} — can't reach its inbox.`);
+  const body = JSON.stringify(message);
+  const res = await fetch(`http://${r.ip}:${PORT}/send`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    body,
+    signal: AbortSignal.timeout(5000),
+  }).catch((e) => { throw new Error(`send to ${r.host} (${r.ip}) failed: ${e.message}`); });
+  let result;
+  try { result = await res.json(); } catch { throw new Error(`${r.host} returned an invalid /send response (HTTP ${res.status}).`); }
+  if (!res.ok || !result.ok) throw new Error(`send to ${r.host}:${r.name} failed: ${result.error || `HTTP ${res.status}`}`);
+  return [{ type: "text", text: `sent to ${r.host}:${r.name} via remote (${result.via || "?"} on ${r.host}) as «${message.from}» (${urgency}, id ${message.id}).` }];
+}
+
+// Reading is local only — an inbox is private to the machine that owns the
+// session. No handle means "my own", found through the session id the
+// harness exports to its children.
+async function toolInbox({ handle, consume = false } = {}) {
+  let id;
+  let label;
+  if (handle) {
+    const hits = resolve(await allRocks(), handle);
+    if (!hits.length) throw new Error(`no rock resolves «${handle}».`);
+    if (hits.length > 1) throw new Error(`«${handle}» is ambiguous (${hits.map((r) => `${r.host}:${r.name}`).join(", ")}).`);
+    const r = hits[0];
+    if (!r.self) throw new Error(`${r.host}:${r.name} runs on another machine — its inbox is only readable there.`);
+    id = r.id; label = `${r.host}:${r.name}`;
+  } else {
+    id = process.env.AGENT_SESSION_ID || process.env.CLAUDE_SESSION_ID || process.env.SLAB_PROMPT_SESSION_ID;
+    if (!id) throw new Error("`handle` is required — this process has no AGENT_SESSION_ID / CLAUDE_SESSION_ID to read its own inbox.");
+    label = `this session (${id.slice(0, 8)})`;
+  }
+  const messages = consume ? await drain(id) : await peek(id);
+  if (!messages.length) return [{ type: "text", text: `inbox for ${label} is empty.` }];
+  const head = `${messages.length} ${consume ? "drained" : "pending"} message(s) for ${label}:`;
+  return [{ type: "text", text: [head, ...messages.map((m) => stamp(m))].join("\n") }];
 }
 
 async function toolWake({ handle, prompt, by }) {
@@ -666,6 +722,33 @@ const TOOLS = [
     },
   },
   {
+    name: "prox_send",
+    description:
+      "Send a text message to a prompt rock's inbox — the session reads it at its next turn boundary (or at once, if its harness listens on its inbox socket). No keystrokes are injected. Resolves the same host:name / fuzzy handle as prox_poke and refuses ambiguous matches; a rock on another machine is reached through its owner's ledger server.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "`host:name` or a name that resolves to exactly one rock." },
+        text: { type: "string", description: "The message, at most 8000 characters." },
+        urgency: { type: "string", enum: ["queue", "urgent"], default: "queue", description: "`queue` waits for the next turn boundary; `urgent` lets a socket-listening harness interrupt its turn." },
+        by: { type: "string", description: "Sender shown to the receiver as host:name. Defaults to <thisHost>:prox." },
+      },
+      required: ["handle", "text"],
+    },
+  },
+  {
+    name: "prox_inbox",
+    description:
+      "Read a local prompt rock's pending inbox messages. Peeks by default; consume=true drains them (they move to the inbox log). Without a handle, reads the calling session's own inbox via AGENT_SESSION_ID / CLAUDE_SESSION_ID. Local machine only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        handle: { type: "string", description: "A local `host:name`, session id, or unambiguous fuzzy name. Omit for this session's own inbox." },
+        consume: { type: "boolean", default: false, description: "Drain the messages instead of peeking." },
+      },
+    },
+  },
+  {
     name: "prox_wake",
     description:
       "Wake one live Claude, Codex, or Easel rock with a bounded continuation prompt. Easel routes to its exact native window; terminal agents route to their exact tty. Resolves host:name and prox:easel:name handles and refuses ambiguous matches.",
@@ -759,6 +842,8 @@ async function callTool(name, args) {
     case "prox_list": return toolList(args || {});
     case "prox_find": return toolFind(args || {});
     case "prox_poke": return toolPoke(args || {});
+    case "prox_send": return toolSend(args || {});
+    case "prox_inbox": return toolInbox(args || {});
     case "prox_wake": return toolWake(args || {});
     case "prox_launch": return toolLaunch(args || {});
     case "prox_job": return toolJob(args || {});
@@ -809,4 +894,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 7773);
 if (port) serveHttp({ handleMessage, port, banner: "🪨 prox shared daemon" });
-else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_launch, prox_job, prox_close, prox_dump)" });
+else serveStdio({ handleMessage, banner: "🪨 prox started (prox_list, prox_find, prox_poke, prox_send, prox_inbox, prox_wake, prox_launch, prox_job, prox_close, prox_dump)" });

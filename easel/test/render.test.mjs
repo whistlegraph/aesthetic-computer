@@ -271,3 +271,28 @@ test("the energy estimate reaches the gauge row and drops first when squeezed", 
   assert.equal(audienceReadout({ here: 2, peak: 9, energy: 3600 }, 16, false).plain, "2 here · 9 peak");
   assert.equal(audienceReadout({ energy: 0 }, 80, false).plain, "", "an unmetered session claims nothing");
 });
+
+
+test("an inbox line names its sender and cannot pass for a typed one", () => {
+  const frame = renderFrame(
+    {
+      workspace: "/client",
+      mode: "remote",
+      status: "ready",
+      busy: false,
+      input: "",
+      profile: { name: "pro" },
+      entries: [
+        { id: "u", kind: "user", text: "look at the diff" },
+        { id: "i", kind: "inbox", from: "neo:sip", text: "the build finished" },
+      ],
+    },
+    70,
+    12,
+    false,
+  );
+  assert.match(frame, /YOU  look at the diff/);
+  assert.match(frame, /↓    neo:sip · the build finished/);
+  assert.match(frame, /\/inbox · \/mode/, "pro shows its own footer");
+  assert.doesNotMatch(frame, /\/publish/);
+});

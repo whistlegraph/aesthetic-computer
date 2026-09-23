@@ -304,6 +304,34 @@ test("adopt converts an ordinary Claude rock in place and renames it", async () 
   assert.equal(config.loops.fia.wake, true);
 });
 
+test("prox_send drops a line in a local rock's inbox and prox_inbox reads it", async () => {
+  const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
+  const id = "eeeeeeee-1111-2222-3333-444444444444";
+  await ordinaryRock(home, id);
+  const slabHome = join(home, ".local", "share", "slab");
+  const env = { SLAB_HOME: slabHome };
+
+  const sent = await callProx(home, "prox_send", { handle: "neo:surizu", text: "look at the diff" }, env);
+  assert.match(sent, /^sent to neo:surizu via file as «neo:prox» \(queue, id [0-9a-f-]{36}\)\.$/);
+  const lines = (await readFile(join(slabHome, "inbox", id, "messages.jsonl"), "utf8")).trim().split("\n");
+  assert.equal(lines.length, 1);
+  const message = JSON.parse(lines[0]);
+  assert.equal(message.to_id, id);
+  assert.equal(message.to, "neo:surizu");
+  assert.equal(message.from, "neo:prox");
+  assert.equal(message.text, "look at the diff");
+  assert.equal(message.urgency, "queue");
+
+  const tooLong = await callProx(home, "prox_send", { handle: "neo:surizu", text: "x".repeat(8001) }, env);
+  assert.match(tooLong, /exceeds 8000/);
+
+  const peeked = await callProx(home, "prox_inbox", { handle: "neo:surizu" }, env);
+  assert.match(peeked, /^1 pending message\(s\) for neo:surizu:\n\[inbox from neo:prox · \d{4}-\d{2}-\d{2} \d{2}:\d{2}\] look at the diff$/);
+  const own = await callProx(home, "prox_inbox", { consume: true }, { ...env, CLAUDE_SESSION_ID: id });
+  assert.match(own, /^1 drained message\(s\) for this session \(eeeeeeee\):/);
+  assert.match(await callProx(home, "prox_inbox", { handle: "neo:surizu" }, env), /is empty\.$/);
+});
+
 test("adopt refuses Codex-backed rocks and rocks guarded for someone else", async () => {
   const home = await mkdtemp(join(tmpdir(), "prox-mcp-test-"));
   const id = "dddddddd-1111-2222-3333-444444444444";

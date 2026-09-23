@@ -119,6 +119,23 @@ if EASEL_DRY_RUN=1 "$CLI" --backend gemini "$WORK_DIR" >/dev/null 2>&1; then
     exit 1
 fi
 
+# Pro and private ride through to the interface as flags; both default off.
+output="$(EASEL_DRY_RUN=1 "$CLI" "$WORK_DIR")"
+assert_contains "$output" 'pro=off'
+assert_contains "$output" 'private=off'
+
+output="$(EASEL_DRY_RUN=1 "$CLI" --pro "$WORK_DIR")"
+assert_contains "$output" 'pro=on'
+assert_contains "$output" 'private=off'
+
+output="$(EASEL_DRY_RUN=1 "$CLI" --private --pro "$WORK_DIR")"
+assert_contains "$output" 'pro=on'
+assert_contains "$output" 'private=on'
+
+output="$($CLI --help)"
+assert_contains "$output" '--pro'
+assert_contains "$output" '--private'
+
 output="$($CLI doctor)"
 assert_contains "$output" 'engine bridge claude:'
 assert_contains "$output" 'engine bridge codex:'

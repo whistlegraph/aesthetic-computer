@@ -31,6 +31,9 @@ export const palette = {
   you: [255, 90, 160],
   run: [255, 160, 60],
   edit: [130, 255, 130],
+  // A line from another session. Its own colour, because it has to be
+  // unmistakable for what it is not: something the user typed.
+  inbox: [120, 200, 255],
 };
 
 const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
@@ -94,6 +97,7 @@ export const color = {
   you: fg(palette.you),
   run: fg(palette.run),
   edit: fg(palette.edit),
+  inbox: fg(palette.inbox),
   block: bg(palette.block) + fg(palette.text),
 };
 
@@ -282,7 +286,10 @@ const STYLES = {
   publish: ["PUB", "handle"],
   notice: ["·", "muted"],
   error: ["!", "error"],
+  inbox: ["↓", "inbox"],
 };
+
+const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox" };
 
 function outputRows(text,width,useColor,tone,code=false){
   const links=Array.from(text.matchAll(/https?:\/\/[^\s<>"'`]+/g),m=>{const url=m[0].replace(/[.,;!?)\]}]+$/g,'');return {start:m.index,end:m.index+url.length,tone:'soft',url};});
@@ -303,8 +310,10 @@ function entryLines(entry, width, useColor) {
   const [label, tone] = STYLES[entry.kind] || STYLES.notice;
   const prefix = `${label.padEnd(4)} `;
   const continuation = " ".repeat(5);
-  const bodyTone = entry.kind === "notice" ? "muted" : entry.kind === "error" ? "error" : "text";
-  const rows=[],text=cleanText(entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
+  // An inbox line leads with who sent it — `↓ host:name · text` — so the
+  // sender is read before the request, the way the model reads the stamp.
+  const bodyTone = BODY_TONES[entry.kind] || "text";
+  const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
   for(const part of parts){
     if(/^[ \t]*```/.test(part)){
@@ -638,6 +647,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     : state.hover === "profile" ? " Open profile in browser · click"
     : state.busy
     ? ` ${requestFeedback(state)}`
+    : state.profile?.name === "pro" ? " /help \u00b7 /inbox \u00b7 /mode \u00b7 /ask \u00b7 ctrl-c quit"
     : process.env.EASEL_DESKTOP ? "" : " /settings \u00b7 /login \u00b7 /publish \u00b7 /open \u00b7 /qr \u00b7 ctrl-c quit";
   const footerRoom=width-MASCOT_ROW_WIDTH-3;
   const caption=clipText(helpText,Math.max(1,footerRoom));

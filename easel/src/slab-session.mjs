@@ -39,11 +39,17 @@ export class SlabSession {
     tty = terminalName(pid),
     sessionId = randomUUID(),
     slabHome = process.env.SLAB_HOME || join(homedir(), ".local", "share", "slab"),
+    pro = false,
+    // A private marker says the session exists and whether it is working, and
+    // nothing about what it is working on: the menubar and the prox ledger
+    // read this file, and neither should hold a client's brief.
+    private: isPrivate = false,
   }) {
     this.cwd = cwd;
     this.pid = pid;
     this.tty = tty;
     this.sessionId = sessionId;
+    this.private = Boolean(isPrivate);
     this.stateDir = join(slabHome, "state");
     this.active = join(this.stateDir, "active-prompts", sessionId);
     this.fleetActive = process.env.EASEL_DESKTOP === "1" ? join(homedir(), ".local/share/slab/state/active-prompts", sessionId) : null;
@@ -54,8 +60,8 @@ export class SlabSession {
     this.record = {
       session_id: sessionId,
       cwd,
-      subject: "easel",
-      summary: "easel",
+      subject: this.private ? "private" : "easel",
+      summary: this.private ? "private" : "easel",
       tty,
       agent_pid: pid,
       agent_type: "easel",
@@ -65,6 +71,11 @@ export class SlabSession {
         host_pid:Number(process.env.EASEL_HOST_PID)||process.ppid,
         host_window_id:Number(process.env.EASEL_HOST_WINDOW_ID)||0,
       }:{}),
+      pro: Boolean(pro),
+      private: this.private,
+      // Where a sender reaches this session without touching its keyboard.
+      // Empty until the inbox has bound; see inbox.mjs.
+      inbox_socket: "",
       handle: "",
       // The piece this session is writing, and the address a phone reaches it
       // at. The menubar draws these as a scannable code on the rock, which is
@@ -146,10 +157,16 @@ export class SlabSession {
     this.#update({ flow: clean });
   }
 
+  inboxSocket(path = "") {
+    this.#update({ inbox_socket: String(path || "") });
+  }
+
   working(prompt = "") {
     this.#remove(this.awaiting);
     this.#touch(this.running);
-    const clean = String(prompt || "").replace(/\s+/g, " ").trim();
+    // The prompt is the subject — unless the session is private, in which case
+    // the marker's subject was fixed at construction and stays there.
+    const clean = this.private ? "" : String(prompt || "").replace(/\s+/g, " ").trim();
     this.#update({
       state: "working",
       ...(clean ? { subject: clean.slice(0, 140), summary: summary(clean) } : {}),

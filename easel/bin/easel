@@ -29,6 +29,7 @@ Usage: ac [directory] [--runtime mjs|lisp|processing]
                       [--genre piece|nopaint]
                       [--backend claude|codex|ac] [--model NAME]
                       [--autopublish | --no-autopublish]
+                      [--pro] [--private]
        aesthetic [directory]
        aesthetic doctor
        aesthetic login | logout | whoami
@@ -54,6 +55,13 @@ worked on. On by default, because the address on the prompt rock is that
 published URL and it has to answer from the first second.
 --no-autopublish or EASEL_AUTOPUBLISH=0 turns it off, and /autopublish
 toggles it mid-session.
+
+--pro is the same interface as a general harness: no piece, no QR, nothing
+published, and the engine runs with your own settings, skills and MCP
+servers (approvals still come back here; /ask off runs without asking).
+--private keeps this session's subject out of the Slab marker and the
+transcript index. Either can also be set per directory in
+~/.config/easel/profiles.json (/profile shows the shape).
 EOF
 }
 
@@ -133,8 +141,18 @@ model=""
 # Empty means "whatever the environment says"; the interface reads
 # EASEL_AUTOPUBLISH itself, and these two flags override it.
 autopublish=""
+pro=""
+private=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --pro)
+            pro="on"
+            shift
+            ;;
+        --private)
+            private="on"
+            shift
+            ;;
         --autopublish)
             autopublish="on"
             shift
@@ -251,6 +269,8 @@ if [[ "${EASEL_DRY_RUN:-0}" == "1" ]]; then
     printf 'autopublish=%s\n' "${autopublish:-$([[ "${EASEL_AUTOPUBLISH:-0}" =~ ^(1|on|true|yes)$ ]] && printf on || printf off)}"
     printf 'backend=%s\n' "$selected_backend"
     printf 'model=%s\n' "${model:-$([[ "$selected_backend" == claude ]] && printf '%s' "$DEFAULT_CLAUDE_MODEL")}"
+    printf 'pro=%s\n' "${pro:-off}"
+    printf 'private=%s\n' "${private:-off}"
     exit 0
 fi
 
@@ -266,6 +286,8 @@ if [[ -n "$runtime" ]]; then arguments+=("--runtime" "$runtime"); fi
 if [[ -n "$genre" ]]; then arguments+=("--genre" "$genre"); fi
 if [[ "$autopublish" == "on" ]]; then arguments+=("--autopublish"); fi
 if [[ "$autopublish" == "off" ]]; then arguments+=("--no-autopublish"); fi
+if [[ "$pro" == "on" ]]; then arguments+=("--pro"); fi
+if [[ "$private" == "on" ]]; then arguments+=("--private"); fi
 arguments+=("--backend" "$selected_backend")
 if [[ -n "$model" ]]; then arguments+=("--model" "$model"); fi
 exec node "$PROJECT_DIR/src/tui.mjs" "${arguments[@]}"
