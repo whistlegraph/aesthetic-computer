@@ -35,6 +35,9 @@ test("browser funnel, automation, privacy opt-out, private SPA routes and duplic
     await page.locator("button").click();
     await page.waitForTimeout(50);
     assert.ok(received.some(row => row.interacted));
+    await page.mouse.wheel(0, 150);
+    await page.waitForTimeout(50);
+    assert.ok(received.some(row => row.inputs.includes("scroll")), "reader scrolling counts without storing movement");
     await page.clock.runFor(11000);
     await page.waitForTimeout(50);
     assert.ok(received.some(row => row.interacted && row.activeSeconds >= 10));

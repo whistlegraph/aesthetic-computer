@@ -11,7 +11,7 @@ replays. It does not export operational records to PostHog.
 | Measure | Definition |
 | --- | --- |
 | Visit | One visible top-level page load with a random in-memory ID; returning from a private route starts a fresh visit |
-| Interacted visit | Visible-page trusted pointer/touch/keyboard input outside form fields, or a pressed gamepad button |
+| Interacted visit | Visible-page trusted pointer/touch/keyboard/wheel input outside form fields, or focused gamepad input (button or stick beyond 0.5) |
 | Engaged visit | An interacted visit with at least 10 seconds of accumulated visible time |
 | Action visit | At least one occurrence of a reviewed action during that visit |
 | Known automation | WebDriver, recognizable bot UA, explicit render query, or `window.acAutomation = true` |
@@ -115,11 +115,17 @@ Known deployment boundaries discovered September 23, 2026:
 - wipppps.world currently serves an external site despite old Lith routing.
 - aesthetic.direct and digitpain.com did not answer the initial HTTPS probe;
   local entry sources are prepared, but live coverage is not assumed.
+- sotce.net failed this host's TLS probe, but the collector subsequently
+  received a non-automated visit and interaction from Sotce. Do not interpret
+  a failed local probe as proof that the property is globally unavailable.
 
 The domain allowlist is not a deployment-completion list. Run the coverage
 audit after shipping; external deployments require their own source/control
 path. Cloudflare's account inventory and Porkbun's registrar inventory were
 both consulted; neither alone is a complete list of public web properties.
+`visits-deployment.json` preserves the initial front-door audit and the four
+properties verified end-to-end through a browser and MongoDB. Measurement
+began September 23 at 18:34 UTC; no pre-installation history is invented.
 
 ## Verification
 

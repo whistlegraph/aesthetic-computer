@@ -34,7 +34,7 @@ export const VISIT_ACTIONS = Object.freeze([
 ]);
 export const ACTIVE_BUCKETS = Object.freeze([0, 10, 30, 60, 180, 600]);
 export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "support", "other"]);
-export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "gamepad"]);
+export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "scroll", "gamepad"]);
 export const RETENTION_DAYS = 35;
 export const VISIT_COLLECTION = "network-visits";
 

@@ -86,7 +86,7 @@ export function startVisitTracker(win = window, doc = document) {
     send(); return true;
   };
   reset();
-  for (const [event, input] of [["pointerdown", "pointer"], ["touchstart", "touch"], ["keydown", "keyboard"]]) {
+  for (const [event, input] of [["pointerdown", "pointer"], ["touchstart", "touch"], ["keydown", "keyboard"], ["wheel", "scroll"]]) {
     on(win, event, e => {
       if (!e.isTrusted) return;
       // Typing in account/contact/editor fields is not collected as interaction.
@@ -99,7 +99,7 @@ export function startVisitTracker(win = window, doc = document) {
     if (!e.isTrusted || e.target?.closest?.("[data-ac-no-track]")) return;
     const link = e.target?.closest?.("a[href]");
     if (!link) return;
-    interact("pointer");
+    interact(e.detail === 0 ? "keyboard" : "pointer");
     let url;
     try { url = new URL(link.href, win.location.href); } catch { return; }
     if (!/^https?:$/.test(url.protocol)) return;
@@ -116,7 +116,9 @@ export function startVisitTracker(win = window, doc = document) {
     tick();
     if (!visible() || !doc.hasFocus()) return;
     try {
-      if ([...(nav.getGamepads?.() || [])].some(pad => pad?.buttons?.some(button => button.pressed))) interact("gamepad");
+      if ([...(nav.getGamepads?.() || [])].some(pad =>
+        pad?.buttons?.some(button => button.pressed) ||
+        pad?.axes?.slice(0, 4).some(axis => Math.abs(axis) > 0.5))) interact("gamepad");
     } catch { /* unavailable in some embedded browsers */ }
   }, 1000);
   const api = { action, stop() { stopped = true; win.clearInterval(timer); listeners.forEach(remove => remove()); } };
