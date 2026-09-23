@@ -453,6 +453,16 @@ mount_fat() {  # $1=partition device  $2=mount point
     mount_msdos "$1" "$2"
 }
 log "Mounting partitions…"
+# macOS 26+ no longer loads the msdosfs kext (mount_msdos fails with "msdos
+# filesystem is not available"); FAT is mounted by a userland driver that
+# diskutil knows how to reach. diskutil mount also works on older releases.
+mount_fat() {
+    local part="$1" mnt="$2"
+    diskutil unmount "${part}" >/dev/null 2>&1 || true
+    diskutil mount -mountPoint "${mnt}" "${part}" >/dev/null \
+        || mount_msdos "${part}" "${mnt}" \
+        || die "Could not mount ${part} at ${mnt}"
+}
 mount_fat "${P1}" "${M1}"
 mount_fat "${P2}" "${M2}"
 
@@ -463,11 +473,12 @@ cp "${KERNEL}"   "${M1}/EFI/BOOT/BOOTX64.EFI"
 cp "${INITRAMFS}" "${M1}/initramfs.cpio.gz"
 # Boot piece: aesel by default (the Claude session that writes pieces this
 # machine runs). Override per-flash with AC_BOOT_PIECE (e.g.
-# AC_BOOT_PIECE=notepat flash-mac.sh ...). The kernel resolves the name to
-# /pieces/<piece>.mjs at boot — see the "Boot piece from config" block in
-# ac-native.c. Devices already flashed keep whatever piece their
-# /mnt/config.json names.
-BOOT_PIECE="${AC_BOOT_PIECE:-aesel}"
+# AC_BOOT_PIECE=notepat flash-mac.sh ...) or with usbConfig.piece in the
+# inscription. The kernel resolves the name to /pieces/<piece>.mjs at boot —
+# see the "Boot piece from config" block in ac-native.c. Devices already
+# flashed keep whatever piece their /mnt/config.json names.
+INSCRIBED_PIECE=$(node -e 'try { const c=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).usbConfig||{}; if (typeof c.piece === "string" && /^[a-z0-9-]+$/.test(c.piece)) process.stdout.write(c.piece); } catch {}' "${INSCRIPTION_FILE}")
+BOOT_PIECE="${AC_BOOT_PIECE:-${INSCRIBED_PIECE:-aesel}}"
 
 # Write a device config.json. Base identity fields come from the shell vars
 # (set from the inscription OR the legacy API path); the boot-personalization
@@ -485,7 +496,8 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
             if (c.city) cfg.city = c.city;
             if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
             if (c.mood) cfg.mood = c.mood;
-            if (c.mono) cfg.mono = true;
+            if (typeof c.mono === "boolean") cfg.mono = c.mono;
+            if (["left", "right", "both"].includes(c.monoOutput)) cfg.monoOutput = c.monoOutput;
         } catch (e) { /* no inscription (anon/legacy) — base fields only */ }
         fs.writeFileSync(dest, JSON.stringify(cfg) + "\n");
     ' "$1" "${USER_HANDLE}" "${BOOT_PIECE}" "${USER_SUB}" "${USER_EMAIL}" "$2" "${INSCRIPTION_FILE}"
