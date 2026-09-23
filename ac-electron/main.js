@@ -1216,11 +1216,13 @@ function readAcSession() {
 // Run the ac-login CLI under Electron's bundled node (no external node needed).
 // No args = interactive login (CLI opens the browser); ['logout'] clears the
 // token. When the child exits we refresh the tray status and notify the suite.
+// Resolves with the exit code (null when the CLI couldn't run).
 function runAcLogin(args = []) {
   if (!fs.existsSync(acLoginPath)) {
     console.warn('[ac-creds] ac-login CLI not found at', acLoginPath);
-    return;
+    return Promise.resolve(null);
   }
+  return new Promise((resolve) => {
   try {
     console.log('[ac-creds] running ac-login', args.join(' ') || '(login)');
     const child = spawn(process.execPath, [acLoginPath, ...args], {
@@ -1230,16 +1232,46 @@ function runAcLogin(args = []) {
     });
     child.on('error', (err) => {
       console.warn('[ac-creds] ac-login spawn error:', err?.message || err);
+      resolve(null);
     });
     child.on('exit', (code) => {
       console.log('[ac-creds] ac-login exited with code', code);
       rebuildTrayMenu();
       broadcastCredentialsChanged();
+      resolve(code);
     });
   } catch (err) {
     console.warn('[ac-creds] failed to run ac-login:', err?.message || err);
+    resolve(null);
+  }
+  });
+}
+
+// The shared session in the shape a page's boot.mjs takes as
+// `session-aesthetic` (the same one the VS Code extension hands its webviews):
+// base64 JSON of { accessToken, account: { label, id } }. Null when signed out
+// or expired.
+function acSessionParam() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(AC_TOKEN_PATH, 'utf8'));
+    if (!raw?.access_token || !raw?.user?.sub) return null;
+    if (typeof raw.expires_at === 'number' && raw.expires_at <= Date.now()) return null;
+    const session = { accessToken: raw.access_token, account: { label: raw.user.email, id: raw.user.sub } };
+    return Buffer.from(JSON.stringify(session)).toString('base64');
+  } catch (_) {
+    return null;
   }
 }
+
+// A page's `hi` / `login` inside the app (boot.mjs → window.acDESKTOP.login).
+// Auth0 only returns to allow-listed origins, so instead of an in-app
+// redirect the app signs in the way every AC Mac app does — ac-login in the
+// system browser, landing in ~/.ac-token — and hands the session back for the
+// page to boot with.
+ipcMain.handle('ac:desktop-login', async () => {
+  await runAcLogin(['fresh']);
+  return acSessionParam();
+});
 
 // Signal the rest of the AC suite that the shared token changed.
 // Suite apps (DateWizard, wizards, slab, menuband) read ~/.ac-token directly;
