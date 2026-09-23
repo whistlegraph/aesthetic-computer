@@ -262,7 +262,10 @@ async function uploadPublic(creds, files) {
     process.env.ART_SPACES_BUCKET || "art-aesthetic-computer";
   const client = new S3Client({ endpoint, region,
     credentials: { accessKeyId, secretAccessKey } });
-  const prefix = `ig/${creds.account}/${new Date().toISOString().slice(0, 10)}`;
+  // A per-upload stamp keeps same-day posts from overwriting each other's
+  // hosted files (every staged reel is named reel.mp4 / cover.jpg).
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const prefix = `ig/${creds.account}/${stamp.slice(0, 10)}/${stamp.slice(11, 19)}`;
   const urls = {};
   for (const [name, path] of Object.entries(files)) {
     const key = `${prefix}/${basename(path)}`;

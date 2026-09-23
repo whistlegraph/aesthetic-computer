@@ -17,11 +17,13 @@ export const REEL_APPS = {
     slotsPerDay: 1,
     // 60 because the shared media gate wants reels authored at 60fps, and the
     // CDP screencast delivers ~60 anyway (30 dropped every other frame).
-    // density 2 = each AC pixel is 2×2 video pixels (540×960 of piece);
-    // capture-av's default 3 read too chunky.
-    capture: { width: 1080, height: 1920, fps: 60, density: 2 },
-    // The piece alone: no pals side stamps or title columns, and a cursor
-    // small enough to read as a pointer rather than a mascot.
+    // Captured at finish-reel's box (a uniform 40 px border inside
+    // 1080×1920) at density 5: big 5×5 AC pixels, 200×368 of piece.
+    capture: { width: 1000, height: 1840, fps: 60, density: 5 },
+    // Reel finish: frame + the physically-modelled VHS glaze.
+    finish: { glaze: "vhs" },
+    // Only used without a finish: no pals side stamps or title columns, and
+    // a cursor small enough to read as a pointer rather than a mascot.
     stamp: { chrome: "none", cursorSize: 56 },
     segments: ["instrument", "draw", "instrument", "code"],
     tags: ["aestheticcomputer", "creativecoding", "digitalart", "generativeart", "webart"],

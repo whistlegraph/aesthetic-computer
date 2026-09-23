@@ -17,9 +17,16 @@
 // deliberately separate from the live site's glazes (lib/glazes/): these
 // only ever touch the finished video.
 //
-// Flags: --out PATH  --glaze vhs|crt|none  --box x,y,w,h  --fps 60
+// Sound finish (--sound): AC's synths leave the oscillators raw, which reads
+// as harsh on a phone. Every preset trims the fizz above ~4.5 kHz, puts the
+// sound in a small synthetic room (convolution with ~0.8 s of decaying,
+// slightly decorrelated pink noise) and lands it at -14 LUFS / -1.5 dBTP,
+// Instagram's own playback target. `vhs` also runs it through the linear
+// audio track: 80 Hz–10 kHz, wow + flutter, soft tape saturation, hiss.
+//
+// Flags: --out PATH  --glaze vhs|crt|none  --sound vhs|room|none  --box x,y,w,h  --fps 60
 
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -50,6 +57,8 @@ if (!BASE || !existsSync(BASE)) {
 const OUT = resolve(flags.out || BASE.replace(/\.mp4$/, "-finished.mp4"));
 const FPS = parseInt(flags.fps || 60, 10);
 const GLAZE = flags.glaze || "vhs";
+const SOUND = flags.sound || "vhs";
+if (!["vhs", "room", "none"].includes(SOUND)) { console.error(`✗ --sound takes vhs, room or none`); process.exit(1); }
 const [bx, by, bw, bh] = flags.box ? String(flags.box).split(",").map(Number)
   : [BOX.x, BOX.y, BOX.w, BOX.h];
 
@@ -69,12 +78,44 @@ const graph = [
   ...(shader ? [`[comp]libplacebo=w=${W}:h=${H}:custom_shader_path=${shader},format=yuv420p[v]`] : []),
 ].join(";");
 
-console.log(`▸ finish-reel · glaze ${GLAZE} · box ${bx},${by} ${bw}×${bh} → ${OUT}`);
+// The room: two pink-noise tails (one per ear, different seeds) with an
+// exponential fade, low-passed like soft walls. Generated in-graph.
+const ROOM = (seed) => `anoisesrc=d=0.8:c=pink:r=48000:a=0.5:seed=${seed},` +
+  `afade=t=out:st=0:d=0.8:curve=exp,lowpass=f=5500`;
+const TAPE = "highpass=f=80,lowpass=f=10000,vibrato=f=0.55:d=0.05,vibrato=f=9:d=0.012," +
+  "asoftclip=type=tanh:threshold=0.8";
+const audio = SOUND === "none" ? [] : [
+  `[0:a]aformat=sample_rates=48000:channel_layouts=stereo,highpass=f=40,` +
+    `treble=g=-4:f=4500${SOUND === "vhs" ? "," + TAPE : ""},asplit[dry][send]`,
+  `${ROOM(11)}[irl]`, `${ROOM(29)}[irr]`,
+  `[irl][irr]join=inputs=2:channel_layout=stereo[ir]`,
+  `[send][ir]afir[wet]`,
+  `[dry][wet]amix=inputs=2:weights=1 0.28:normalize=0` +
+    (SOUND === "vhs" ? `[mix]` : `,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]`),
+  ...(SOUND === "vhs" ? [
+    "anoisesrc=c=pink:r=48000:a=0.0035:seed=7,aformat=channel_layouts=stereo,lowpass=f=9000[hiss]",
+    "[mix][hiss]amix=inputs=2:normalize=0:duration=first," +
+      "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]"] : []),
+];
+
+console.log(`▸ finish-reel · glaze ${GLAZE} · sound ${SOUND} · box ${bx},${by} ${bw}×${bh} → ${OUT}`);
 const t0 = Date.now();
+// Sound is finished in its own pass to a float WAV: run in the same graph as
+// the video, the tape chain fed the AAC encoder NaNs (fine standalone).
+const WAV = OUT.replace(/\.mp4$/, ".sound.wav");
+if (audio.length) {
+  const sf = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", BASE,
+    "-filter_complex", audio.join(";"), "-map", "[a]", "-c:a", "pcm_f32le", WAV],
+    { stdio: ["ignore", "inherit", "inherit"] });
+  if (sf.status !== 0) { console.error("✗ finish-reel sound pass failed"); process.exit(1); }
+}
 const ff = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", BASE,
-  "-filter_complex", graph, "-map", "[v]", "-map", "0:a?",
+  ...(audio.length ? ["-i", WAV] : []),
+  "-filter_complex", graph, "-map", "[v]",
+  ...(audio.length ? ["-map", "1:a", "-shortest"] : ["-map", "0:a?"]),
   ...h264Args({ crf: 18, preset: "medium" }), "-r", String(FPS),
   "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", OUT],
   { stdio: ["ignore", "inherit", "inherit"] });
+rmSync(WAV, { force: true });
 if (ff.status !== 0) { console.error("✗ finish-reel ffmpeg failed"); process.exit(1); }
 console.log(`✓ ${OUT} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
