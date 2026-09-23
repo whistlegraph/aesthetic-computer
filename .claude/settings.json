@@ -74,7 +74,13 @@
       "Bash(fd:*)",
       "Bash(oxlint:*)",
       "Bash(difft:*)",
-      "Bash(tsgo --noEmit:*)"
+      "Bash(tsgo --noEmit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git -C * push:*)",
+      "Bash(git -C * pull:*)",
+      "Bash(git -C * fetch:*)"
     ]
   }
 }
