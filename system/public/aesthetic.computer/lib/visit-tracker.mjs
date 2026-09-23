@@ -30,6 +30,14 @@ export function startVisitTracker(win = window, doc = document) {
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
   };
+  const syncRoute = () => {
+    if (path === win.location.pathname) return;
+    path = win.location.pathname;
+    // Room/round URLs can change automatically. They are one page visit,
+    // not new arrivals. Only crossing a private boundary resets measurement.
+    const allowed = visitSurface(path) !== null;
+    if (allowed !== Boolean(state)) reset();
+  };
   const send = () => {
     if (!state || disabled() || stopped || win.performance.now() < retryAt) return;
     // Markers can be installed after the initial module by a render harness.
@@ -54,7 +62,7 @@ export function startVisitTracker(win = window, doc = document) {
   };
   const tick = () => {
     if (stopped) return;
-    if (path !== win.location.pathname) reset();
+    syncRoute();
     const now = win.performance.now();
     // Cap suspension gaps: a sleeping laptop is not engagement time.
     if (wasVisible) visibleMs += Math.min(2000, Math.max(0, now - lastTick));
@@ -72,7 +80,7 @@ export function startVisitTracker(win = window, doc = document) {
   };
   const action = name => {
     if (!VISIT_ACTIONS.includes(name) || !visible() || disabled()) return false;
-    if (path !== win.location.pathname) reset();
+    syncRoute();
     if (!state?.interacted) return false;
     if (!state.actions.includes(name)) state.actions.push(name);
     send(); return true;

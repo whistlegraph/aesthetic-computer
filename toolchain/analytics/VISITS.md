@@ -10,7 +10,7 @@ replays. It does not export operational records to PostHog.
 
 | Measure | Definition |
 | --- | --- |
-| Visit | One visible top-level page load, or new SPA pathname, with a random in-memory ID |
+| Visit | One visible top-level page load with a random in-memory ID; returning from a private route starts a fresh visit |
 | Interacted visit | Visible-page trusted pointer/touch/keyboard input outside form fields, or a pressed gamepad button |
 | Engaged visit | An interacted visit with at least 10 seconds of accumulated visible time |
 | Action visit | At least one occurrence of a reviewed action during that visit |
@@ -22,6 +22,8 @@ An automation framework can generate trusted events. Untagged automation may
 remain. IPs are not counted as people. No cross-page retention, unique-user,
 cross-domain journey or conversion-attribution claims can be made from these
 ephemeral IDs. A returning person loading three pages produces three visits.
+In-page SPA navigation and Oskiewar's automatic round-URL changes preserve the
+visit ID; the surface dimension describes the broad landing category.
 
 Visible-time lower-bound buckets are 0, 10, 30, 60, 180 and 600 seconds.
 This is foreground display time, not proof of attention. Polling gaps are

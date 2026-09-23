@@ -40,6 +40,9 @@ test("browser funnel, automation, privacy opt-out, private SPA routes and duplic
     assert.ok(received.some(row => row.interacted && row.activeSeconds >= 10));
     const ids = new Set(received.map(row => row.id));
     assert.equal(ids.size, 1);
+    await page.evaluate(() => history.replaceState({}, "", "/some-round"));
+    await page.clock.runFor(2000);
+    assert.equal(new Set(received.map(row => row.id)).size, 1, "automatic round URLs are not new visits");
     assert.ok(!JSON.stringify(received).includes("secret"));
     await page.evaluate(async () => (await import("https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs")).startVisitTracker());
     await page.evaluate(() => history.pushState({}, "", "/mail"));
