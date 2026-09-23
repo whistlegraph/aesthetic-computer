@@ -12,8 +12,6 @@ This workflow extends [the papers gate](../papers/aesthetic-eye.mjs) to an inter
    surface and overlays. Disabled or unported features remain explicit.
 3. Exercise the affected controls with `aesel_act`, then read `aesel_state` and
    `aesel_events`. An accepted action can still have asynchronous work pending.
-   Pass the observed `session.id` as `expectedSessionID` on every action. A
-   thread switch invalidates that observation; inspect again before continuing.
 4. Capture notebook, settings, expanded preview and narrow notebook. Add loading,
    failure, account or other states whenever the change affects them.
 5. Inspect each image at its intended size. Review type, contrast, spacing,
@@ -73,18 +71,6 @@ from the everyday app. This is especially useful with the existing debug
 notebook fixture; fixture tests do not demonstrate account, inference or purchase
 success. Physical-device transport and whole-window iOS capture are not provided.
 
-State includes the selected provider, its availability, model catalog and pending
-operation ID. `provider.select` takes `provider`, `model.select` takes `model`
-(an empty string selects CLI default), and `turn.reconnect` checks the existing
-operation without resending it. `ui.scale` takes `scale`; `preview.resize` takes
-`width` and `height`. The native action validates each control's bounds.
-
-For signed-out provider UI checks, the debug notebook fixture accepts
-`AESEL_PREVIEW_PROVIDER=claude` or `codex`. This supplies test readiness only;
-it does not connect a CLI or prove inference. Both fixtures use the stable
-`notebook-preview` thread ID. Shared-session tests separately exercise source
-updates through a fake provider and assert that no AC request is made.
-
 Diagnostics record event names and timestamps, not prompts, tokens, source or
 bridge payloads. State inspection includes visible piece/thread metadata.
 Screenshots can contain whatever the user has displayed; capture only for an
@@ -128,19 +114,3 @@ inspected, including the 420-point layout; this does not substitute for a workin
 native preview. Whole-window capture also lacked Screen Recording permission.
 No account, inference, publication, purchase or physical-iOS result is claimed.
 Rerun the gate on an unlocked test seat before declaring native UI acceptance.
-
-## Follow-up acceptance — 21 September 2026
-
-The same Mac build passed all four required scenarios on an unlocked fleet seat:
-notebook, settings, expanded preview, and 420-point notebook. The injected orange
-source renders in native WebKit with `nogap`, `nolabel`, and `autoreload`; the
-provider/model controls and return button are legible. Transparent notebook
-component captures were reviewed alongside their paper background in the app
-capture. No test window was activated.
-
-Build fingerprint: `ca30ec5997dda22af6c6c6e3ffe6b0225d9b0bfb279769842aff0c7c4a84702b`.
-Mac and iOS compile checks, 21 JavaScript checks, and native provider-readiness
-checks passed. The compiled fixture rejects stale thread actions and enables
-Send for connected Codex while signed out of AC. This accepts the fixture UI;
-it does not claim live provider inference, account, payment, publication, or
-physical-iPhone acceptance. The earlier locked-seat results remain failed.

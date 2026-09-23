@@ -61,33 +61,3 @@ test('Aesthetic Eye fails absent scenarios, unreviewed images, changed evidence,
     await writeFile(join(bundle,'code'),'build2');assert((await check(dir)).errors.some(e=>e.includes('Stale build')));
   }finally{await rm(dir,{recursive:true,force:true});}
 });
-
-test('MCP actions advertise and transmit the observed thread and new native control arguments', async () => {
-  const reply = await handleMessage({id:1,method:'tools/list'});
-  const schema = reply.result.tools.find(tool=>tool.name==='aesel_act').inputSchema;
-  assert(schema.required.includes('expectedSessionID'));
-  for (const name of ['provider','model','scale','width','height']) assert(schema.properties[name]);
-  await assert.rejects(request('action',{id:'settings.open'}), /expectedSessionID/);
-  const dir = await mkdtemp(join(tmpdir(),'aesel-action-'));
-  await chmod(dir,0o700); await mkdir(join(dir,'requests')); await mkdir(join(dir,'responses'));
-  await writeFile(join(dir,'instance.json'),JSON.stringify({schema:1,pid:process.pid,instance:'fixture'}));
-  const previous = process.env.AESEL_AUTOMATION_DIR;
-  process.env.AESEL_AUTOMATION_DIR = dir;
-  try {
-    const args = {id:'provider.select',expectedSessionID:'observed-thread',provider:'codex'};
-    const pending = handleMessage({id:2,method:'tools/call',params:{name:'aesel_act',arguments:args}});
-    let file;
-    for(let i=0;i<40&&!file;i++) { file=(await readdir(join(dir,'requests'))).find(n=>n.endsWith('.json')); if(!file) await new Promise(r=>setTimeout(r,10)); }
-    const input = JSON.parse(await readFile(join(dir,'requests',file),'utf8'));
-    assert.equal(input.method,'action'); assert.deepEqual(input.params,args);
-    // The native guard must still see the caller's observation, even when stale.
-    await writeFile(join(dir,'responses',file),JSON.stringify({id:input.id,error:'Stale or missing expectedSessionID; inspect state before acting'}));
-    const result = await pending;
-    assert.equal(result.result.isError,true);
-    assert.match(result.result.content[0].text,/Stale/);
-  } finally {
-    if(previous === undefined) delete process.env.AESEL_AUTOMATION_DIR;
-    else process.env.AESEL_AUTOMATION_DIR = previous;
-    await rm(dir,{recursive:true,force:true});
-  }
-});

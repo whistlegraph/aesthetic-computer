@@ -158,6 +158,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var deployTickCount = 28   // offset from asana so polls don't collide
     private var deployPending = false
     private var deployState = DeployStatusState()
+    /// Iris mission fleet. Polled off-main on a slow cadence via the helper,
+    /// which reads each machine's badge + the controller state over ssh. The
+    /// fleet (names, ssh aliases) lives only in the untracked iris config.
+    private var irisTickCount = 26     // offset from asana/deploy so polls don't collide
+    private var irisPending = false
+    private var irisState = IrisState()
+    /// Optional second status item showing the Iris avatar ("Iris Icon" in
+    /// the Work menu). Created/removed on the main thread when toggled; its
+    /// menu is one stable NSMenu filled lazily in `menuNeedsUpdate(_:)`.
+    private var irisIconItem: NSStatusItem?
+    private let irisIconMenu = NSMenu()
+    private var irisAvatar: NSImage?
+    private var irisAvatarMTime: Date?
+    private let irisHoverCard = IrisHoverCard()
     private var state = StateSnapshot()
     private let passphraseServer = PassphraseServer()
     /// System-wide ⌘⌥T → re-tile agent terminals. Kept alive for the app's
@@ -216,6 +230,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
         ResourceGraph.shared.syncEnabled()
+        irisIconMenu.autoenablesItems = false
+        irisIconMenu.delegate = self
+        if UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey) { showIrisIcon() }
 
         // A Slab that arrived as a download has no hooks behind it, so it
         // would sit in the menu bar watching nothing. Offer to finish the
@@ -598,6 +615,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.refreshDeploy()
                 }
 
+                // Iris missions — lanes move on a minutes cadence; poll ~every
+                // 30 ticks via the helper (two ssh round-trips, off-main).
+                self.irisTickCount += 1
+                if self.irisTickCount >= 30 && !self.irisPending {
+                    self.irisTickCount = 0
+                    self.refreshIris()
+                }
+
                 // No menu rebuild here — it's lazy via menuNeedsUpdate(_:).
                 // Consume any "open this PDF / video" asks (tiny main-thread
                 // stats; see PdfViewer.swift / VideoViewer.swift contracts).
@@ -641,6 +666,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// recent cached snapshot. Pure in-memory work (sub-millisecond), so the
     /// dropdown pops instantly and stays smooth while tracking.
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === irisIconMenu {
+            MenuBuilder.populateIris(menu, state: irisState, target: self)
+            return
+        }
         guard menu === self.menu else { return }
         MenuBuilder.populate(
             menu,
@@ -652,6 +681,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             signalConfigured: signalConfigured,
             asana: asanaState,
             deploy: deployState,
+            iris: irisState,
             target: self
         )
     }
@@ -1355,6 +1385,155 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync(Paths.asanaHelper, args: ["config"])
         let path = Paths.asanaConfig
         // Give the helper a beat to drop the stub, then open in the editor.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        }
+    }
+
+    // MARK: - Iris missions
+
+    /// Pull the mission fleet off-main via `slab/bin/iris status`. The helper
+    /// always exits 0 and prints one JSON line: `{configured, label, boardUrl,
+    /// machines:[…], controller:{…}|null, tasks:[…], recent:[…]}`. Two ssh
+    /// round-trips inside, so the timeout is generous; nothing here touches
+    /// the main thread until the parse is done.
+    private func refreshIris() {
+        let helper = Paths.irisHelper
+        guard FileManager.default.isExecutableFile(atPath: helper) else {
+            irisState = IrisState(configured: false, label: "Iris: helper missing")
+            return
+        }
+        irisPending = true
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let out = ShellRunner.run(helper, args: ["status"], timeout: 30).output
+            let line = out.split(separator: "\n").last.map(String.init) ?? ""
+            let parsed = Self.parseIris(line)
+            DispatchQueue.main.async {
+                self?.irisState = parsed
+                self?.irisPending = false
+                self?.updateIrisIcon()
+            }
+        }
+    }
+
+    /// Decode one JSON status line into an IrisState. Defensive: any missing
+    /// field collapses to an empty/unconfigured state rather than throwing.
+    private static func parseIris(_ line: String) -> IrisState {
+        guard let data = line.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return IrisState(configured: false, label: "Iris: —") }
+        var s = IrisState()
+        s.configured = (obj["configured"] as? Bool) ?? false
+        s.label = (obj["label"] as? String) ?? s.label
+        s.boardUrl = (obj["boardUrl"] as? String) ?? ""
+        if let c = obj["controller"] as? [String: Any] {
+            s.hasController = true
+            s.pollAge = (c["pollAge"] as? Int) ?? -1
+            s.lastError = (c["lastError"] as? String) ?? ""
+            s.expiresAt = (c["expiresAt"] as? String) ?? ""
+            s.windowOpen = (c["windowOpen"] as? Bool) ?? false
+            s.maxRunsPerTask = (c["maxRunsPerTask"] as? Int) ?? 0
+        }
+        let machines = (obj["machines"] as? [[String: Any]]) ?? []
+        s.machines = machines.map { m in
+            let items = (m["items"] as? [[String: Any]]) ?? []
+            return IrisMachine(
+                name: (m["name"] as? String) ?? "?",
+                role: (m["role"] as? String) ?? "lane",
+                online: (m["online"] as? Bool) ?? false,
+                error: (m["error"] as? String) ?? "",
+                heartbeatAge: (m["heartbeatAge"] as? Int) ?? -1,
+                headline: (m["headline"] as? String) ?? "",
+                nextStep: (m["nextStep"] as? String) ?? "",
+                items: items.compactMap { $0["text"] as? String })
+        }
+        let tasks = (obj["tasks"] as? [[String: Any]]) ?? []
+        s.tasks = tasks.map { t in
+            IrisTask(
+                id: (t["id"] as? String) ?? "",
+                name: (t["name"] as? String) ?? "(untitled)",
+                url: (t["url"] as? String) ?? "",
+                phase: (t["phase"] as? String) ?? "",
+                attempts: (t["attempts"] as? Int) ?? 0,
+                blocker: (t["blocker"] as? String) ?? "",
+                lane: (t["lane"] as? String) ?? "",
+                action: (t["action"] as? String) ?? "",
+                nextStep: (t["nextStep"] as? String) ?? "")
+        }
+        let recent = (obj["recent"] as? [[String: Any]]) ?? []
+        s.recent = recent.map { e in
+            IrisEvent(
+                at: (e["at"] as? String) ?? "",
+                kind: (e["kind"] as? String) ?? "",
+                id: (e["id"] as? String) ?? "",
+                lane: (e["lane"] as? String) ?? "",
+                text: (e["text"] as? String) ?? "")
+        }
+        return s
+    }
+
+    /// Force an immediate Iris re-poll from the submenu's "Refresh now".
+    @objc func refreshIrisNow() {
+        irisTickCount = 0
+        if !irisPending { refreshIris() }
+    }
+
+    /// Open the configured mission board in the browser.
+    @objc func openIrisBoard() {
+        ShellRunner.runAsync(Paths.irisHelper, args: ["open"])
+    }
+
+    /// Open one mission task (its URL rides on the menu item's representedObject).
+    @objc func openIrisTask(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? String, !url.isEmpty,
+              let u = URL(string: url) else { return }
+        NSWorkspace.shared.open(u)
+    }
+
+    /// "Iris Icon" checkbox in the Work menu: show/hide the avatar status item.
+    @objc func toggleIrisIcon() {
+        let on = !UserDefaults.standard.bool(forKey: Paths.irisIconDefaultsKey)
+        UserDefaults.standard.set(on, forKey: Paths.irisIconDefaultsKey)
+        if on { showIrisIcon() } else { hideIrisIcon() }
+    }
+
+    private func showIrisIcon() {
+        guard irisIconItem == nil else { return }
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.imagePosition = .imageOnly
+        item.menu = irisIconMenu
+        irisIconItem = item
+        if let button = item.button { irisHoverCard.attach(to: button) }
+        updateIrisIcon()
+    }
+
+    private func hideIrisIcon() {
+        guard let item = irisIconItem else { return }
+        irisHoverCard.detach()
+        NSStatusBar.system.removeStatusItem(item)
+        irisIconItem = nil
+    }
+
+    /// Re-render the avatar + condition dot and the hover text from the
+    /// cached `irisState`. Main thread, in-memory; the avatar file is
+    /// re-decoded only when its modification date changes.
+    private func updateIrisIcon() {
+        guard let button = irisIconItem?.button else { return }
+        let path = Paths.irisAvatar
+        let mtime = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date
+        if mtime != irisAvatarMTime {
+            irisAvatarMTime = mtime
+            irisAvatar = IrisIcon.loadAvatar(at: path)
+        }
+        button.image = IrisIcon.render(avatar: irisAvatar, condition: IrisIcon.condition(for: irisState))
+        button.toolTip = IrisIcon.toolTip(for: irisState)
+        irisHoverCard.update(irisState)
+    }
+
+    /// Ensure the (untracked) Iris config exists, then open it for editing.
+    @objc func openIrisConfig() {
+        ShellRunner.runAsync(Paths.irisHelper, args: ["config"])
+        let path = Paths.irisConfig
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NSWorkspace.shared.open(URL(fileURLWithPath: path))
         }

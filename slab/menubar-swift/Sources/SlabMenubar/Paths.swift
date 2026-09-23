@@ -63,6 +63,19 @@ enum Paths {
     static var deployStatusHelper: String { "\(slabBin)/deploy-status" }
     static var deployStatusConfig: String { "\(home)/.config/slab/deploy-status.json" }
 
+    /// Iris mission watcher for the Iris submenu. The fleet (machine names,
+    /// ssh aliases, board URL) lives in the untracked config below (never in
+    /// tracked code) — same convention as asanaConfig. The helper reads each
+    /// machine's badge + the controller's state over ssh and prints one JSON
+    /// summary line.
+    static var irisHelper: String { "\(slabBin)/iris" }
+    static var irisConfig: String { "\(home)/.config/slab/iris.json" }
+    /// Avatar PNG the iris helper caches from the controller machine, drawn
+    /// as the optional second status item ("Iris Icon" in the Work menu).
+    static var irisAvatar: String { "\(slabHome)/iris/avatar.png" }
+    /// UserDefaults key for the "Iris Icon" checkbox.
+    static let irisIconDefaultsKey = "slab.irisIcon"
+
     /// OVERTIME — autonomous task execution on machines armed as overtime
     /// workers. The flag file is shared with the desktop badge (right-click
     /// the avatar) and the worker LaunchAgent; the menubar is a third toggle
