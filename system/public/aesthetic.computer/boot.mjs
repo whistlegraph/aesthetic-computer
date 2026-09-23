@@ -1504,6 +1504,10 @@ if (!sandboxed && !localStorageBlocked) {
   } catch (e) {
     // localStorage access failed, assume not logged in
   }
+  // A session handed in by a host (the desktop app, the VS Code extension)
+  // counts too, or the fast path below would never read it.
+  const handed = /[?&]session-aesthetic=(?!null(?:&|$))/.test(location.search);
+  if (handed || safeLocalStorageGet("session-aesthetic")) likelyLoggedIn = true;
 }
 
 // If noauth mode OR no Auth0 cache found, skip auth entirely
@@ -1513,6 +1517,13 @@ const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.
 // from the restore flow below. Install it before attempting authentication.
 if (!sandboxed && !window.acNOAUTH) {
   window.acLOGIN = async (mode) => {
+    // 🖥️ The desktop app signs in the way every AC Mac app does — the
+    // system browser and the shared ~/.ac-token — and hands the session back
+    // (see ac-electron's `ac:desktop-login`). An in-app Auth0 redirect can
+    // only return to an allow-listed origin, which a local page isn't.
+    if (typeof window.acDESKTOP?.login === "function") {
+      return window.acDESKTOP.login(mode);
+    }
     // Lazy-load Auth0 if not already loaded
     if (!window.auth0Client) {
       console.log("🔐 Loading Auth0 on-demand for login...");

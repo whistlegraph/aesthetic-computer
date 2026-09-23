@@ -8,11 +8,11 @@ const source = readFileSync(new URL("../system/public/aesthetic.computer/boot.mj
 const auth = source.slice(source.indexOf("// noauth mode should skip"), source.indexOf("// Incoming window-message responder"));
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-async function boot({ cached = false, session, scriptFails = false, noauth = false } = {}) {
+async function boot({ cached = false, session, scriptFails = false, noauth = false, desktop } = {}) {
   const storage = new Map();
   if (cached) storage.set("@@auth0spajs@@::test", "{}");
   if (session) storage.set("session-aesthetic", session);
-  const messages = [], redirects = [];
+  const messages = [], redirects = [], fetches = [];
   let failScript = scriptFails;
   const client = {
     isAuthenticated: async () => false,
@@ -24,6 +24,7 @@ async function boot({ cached = false, session, scriptFails = false, noauth = fal
     acAuthTiming: { durations: {}, computeDurations() {}, summary() {} },
     acDISK_SEND: message => messages.push(message),
     postMessage() {},
+    acDESKTOP: desktop,
   };
   window.top = window;
   window.parent = window;
@@ -45,11 +46,11 @@ async function boot({ cached = false, session, scriptFails = false, noauth = fal
       } },
     },
     bootLog() {}, extractLegitimateParams: () => new URLSearchParams(),
-    atob, fetch: async () => ({ ok: false }),
+    atob, fetch: async (url, opts) => { fetches.push({ url, opts }); return { ok: false }; },
   });
   vm.runInContext(auth, context);
   await tick();
-  return { window, storage, messages, redirects };
+  return { window, storage, messages, redirects, fetches };
 }
 
 const expiredSession = btoa(JSON.stringify({ accessToken: "expired-test-token", account: { id: "test" } }));
@@ -87,4 +88,21 @@ test("anonymous boot keeps Auth0 lazy until login", async () => {
 test("noauth embeds do not enable login", async () => {
   const state = await boot({ noauth: true });
   assert.equal(state.window.acLOGIN, undefined);
+});
+
+test("a handed-in session is checked even without an Auth0 cache", async () => {
+  const session = btoa(JSON.stringify({ accessToken: "desktop-token", account: { id: "test" } }));
+  const state = await boot({ session });
+  await tick();
+  const check = state.fetches.find((f) => f.url === "/api/authorized");
+  assert.ok(check, "the session was never validated");
+  assert.equal(check.opts.headers.Authorization, "Bearer desktop-token");
+});
+
+test("the desktop app takes over login", async () => {
+  const asked = [];
+  const state = await boot({ desktop: { login: async (mode) => { asked.push(mode); return "desktop"; } } });
+  assert.equal(await state.window.acLOGIN("signup"), "desktop");
+  assert.deepEqual(asked, ["signup"]);
+  assert.equal(state.redirects.length, 0);
 });

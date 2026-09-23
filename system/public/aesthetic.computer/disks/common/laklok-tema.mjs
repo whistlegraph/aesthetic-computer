@@ -1,8 +1,9 @@
 // laklok-tema — the shared dress of the Laer Klokken rooms: `laklok` (the
-// chat) and `mail` (the post). One roster of temas, one saved choice
-// (`laklok:theme`), one interface language (`laklok:lang`), one census, and
-// the corner chrome both rooms wear — the QR, the ⚙ gear, the envelope with
-// its count, and the indstillinger pane.
+// chat), `mail` (the post) and `lairk` (the chat as a place). One roster of
+// temas, one saved choice (`laklok:theme`), one interface language
+// (`laklok:lang`), one census, the chat widgets (lakChatOptions), and the
+// corner chrome — the QR, the ⚙ gear, the envelope with its count, and the
+// indstillinger pane.
 //
 // The vector sister (system/public/html/index.html) mirrors LAK_THEMES and
 // LAK_REALTIME_CYCLES by name; toolchain/laklok-sisters/parity.mjs reads this
@@ -230,6 +231,25 @@ export function saveTema(store, name) {
 // counted. Fire-and-forget: the room never waits on it.
 export function reportTema(net, name) {
   net.userRequest("POST", "/api/laklok-theme", { theme: name });
+}
+
+// 💬 The chat widgets every Laer Klokken room draws — the options `chat.paint`
+// gets, so the message bar, the ＋ attach button after the input, the online
+// counter and the tema's colors are one thing in `laklok` and `lairk`. A room
+// passes only what is its own: the chat to show, a header backdrop, how much
+// corner chrome sits top-right, whether the input is drawn at all.
+export const LAK_CHAT_TOP = 34; // Top chrome height (chat.mjs' default is 42).
+export function lakChatOptions(tema, room = {}) {
+  return {
+    hideChrome: true,
+    topMargin: LAK_CHAT_TOP,
+    attachAfterInput: true,
+    inputPlaceholder: "Chat...",
+    presenceOnlineOnly: true,
+    presenceTop: 24, // "N online" sits low in the header.
+    theme: (LAK_THEMES[tema] || LAK_THEMES.ler).chat,
+    ...room,
+  };
 }
 
 // 🗣️ Interface language — the words on the chrome, not the letters or the

@@ -16,6 +16,22 @@ try {
   });
 } catch {}
 
+// 🔐 acDESKTOP.login — boot.mjs hands a page's `hi` / `login` here. The app
+// signs in through ac-login (system browser, ~/.ac-token) and returns the
+// session; the page reboots with it as `session-aesthetic`.
+try {
+  contextBridge.exposeInMainWorld('acDESKTOP', {
+    login: async (mode) => {
+      const session = await ipcRenderer.invoke('ac:desktop-login', mode);
+      if (!session) return null; // Cancelled or failed — stay put, signed out.
+      const url = new URL(location.href);
+      url.searchParams.set('session-aesthetic', session);
+      location.replace(url.toString());
+      return 'desktop';
+    },
+  });
+} catch {}
+
 const THRESHOLD = 4;            // px of travel before it counts as a drag
 let down = false, dragging = false, startX = 0, startY = 0;
 

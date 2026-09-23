@@ -40,13 +40,15 @@ import {
   paintTemaPane,
   temaRow,
   langRow,
+  LAK_CHAT_TOP,
+  lakChatOptions,
 } from "./common/laklok-tema.mjs";
 
 let client;
 
 // 📐 Top chrome height — shared between chat.paint (topMargin) and the circus
 // marquee so the banner fills the whole header down to the margin line.
-const LAK_TOP_MARGIN = 34;
+const LAK_TOP_MARGIN = LAK_CHAT_TOP;
 
 // 📱 laklok.com QR rendered in the top-right corner (see paintCorner).
 let lakQRCells = null;
@@ -363,23 +365,16 @@ function paintSettings($) {
 }
 
 function paint($) {
-  const themed = LAK_THEMES[lakTheme];
-  chat.paint($, {
+  // The widgets themselves are shared with `lairk` — see lakChatOptions.
+  chat.paint($, lakChatOptions(lakTheme, {
     otherChat: chatView(),
-    hideChrome: true,
     hideInput: lakTV, // 📺 broadcast face drops the login/message footer
-    topMargin: LAK_TOP_MARGIN, // Shorter top chrome panel than the default 42.
-    attachAfterInput: true,
-    inputPlaceholder: "Chat...",
-    presenceOnlineOnly: true,
     // QR box + gear + breathing room, and the envelope when it's drawn.
     presenceRightInset: 50 + (mailBox ? mailBox.w + 2 : 0),
     // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
     // painted under the online counter so the counter stays readable on top.
     paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),
-    presenceTop: 24, // "N online" counter sits low in the header, over the marquee.
-    theme: themed.chat,
-  });
+  }));
 
   // 🎪 The circus marquee is painted as the chat header backdrop (via the
   // paintHeader option above), so it fills the header under the counter.
