@@ -7,6 +7,15 @@
 > at `aesthetic-computer-vault/grants/SCORE.md` is older still and is history
 > only. Add new opportunities to the tracker first; rows here are a convenience
 > index into the `grants/` folders.
+>
+> **State on 2026-09-09:** submitted and waiting — Platform Dalí (Nov),
+> ICLC 2027 (Nov 1), LACMA Art+Tech, FUTO inquiry, Cloudflare gateway.
+> Decided — CultureHub LA **accepted** (residency Sept 16–25); Emergent
+> Ventures, Serpentine FAE, Tezos, Are.na, CAC **rejected/declined**.
+> Unfiled at deadline — Princeton (verify), CCI CALI Futures, SAT×LAB7,
+> James Castle, SSRC, Printed Matter. Next live cluster: Sept 30 – Oct 2
+> (Singapore Art Museum, Tezos Q3, NLnet, Paul R. Judy, Art Omi, Guthman,
+> Squeaky Wheel), then .ART Award Nov 1.
 
 Active applications, deadlines, and status. Newest deadlines first.
 

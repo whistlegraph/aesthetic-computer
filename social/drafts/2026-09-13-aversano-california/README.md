@@ -1,9 +1,7 @@
 # Fondazione Aversano — California
 
-Target: https://x.com/justinaversano/status/2095871975876972564
-
-Deadline: September 23, 2026
-
+Target: https://x.com/justinaversano/status/2095871975876972564  
+Deadline: September 23, 2026  
 Offer: acquisition from one artist in each U.S. state, up to $1,000
 
 ## Work

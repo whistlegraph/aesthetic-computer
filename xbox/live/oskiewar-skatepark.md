@@ -17,6 +17,7 @@ selects the map for both seats. Chain nodes, previous positions, rider
 attachments, loop progress and boosts participate in rollback. Live viewers
 receive bounded chain snapshots. Both players need the new protocol (v2).
 
-Character combat retains the mainline `sampleCombatBoxes` model, including
-animated pose sampling, named damage zones, and limb-loss rules. Rope grabs
-use the same swept-box intersection helper as projectiles.
+`fighterHitboxes` and `fighterAttackBoxes` define character collisions from
+simulation state. Animation only draws the character; changing its pose does
+not change what can be hit. Damage zones retain their part names and existing
+limb-loss rules. Detached debris still uses its own physical shape.
