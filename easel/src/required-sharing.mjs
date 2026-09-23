@@ -1,11 +1,14 @@
 import {createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename,lstat} from 'node:fs/promises';
 import {join} from 'node:path';
-import {MASCOT_SETTLED_MS,mascotRow,mascotRows} from './mascot.mjs';
+import {MASCOT_SETTLED_MS,MASCOT_WIDTH,mascotRow,mascotRows} from './mascot.mjs';
 const MASCOT_ROW_MARK=mascotRow(0,false);
 import {color,textWidth,wrapText} from './render.mjs';
-export const DISCLOSURE_VERSION=4;
-export const TRANSCRIPT_DISCLOSURE='aesel requires sharing your messages, assistant replies, and artifact revision references with Aesthetic Computer to improve aesel, including when you bring your own Codex or Claude account. Uploaded transcripts are accessible only to authorized AC staff and retained indefinitely until you delete them. Recognizable credentials are redacted, but messages may contain personal information. For AI generation, prompts, conversation context, source code and tool results are sent to your selected provider. Hosted text uses OpenRouter and the selected model provider; hosted images use OpenAI and include reference images you supply. Provider privacy policies apply. Earlier private conversations are not uploaded. You can export or delete uploaded transcripts. If you do not agree, quit without starting a session.';
+export const DISCLOSURE_VERSION=5;
+// One sentence, because that is how long a thing you are asked to agree to
+// should be. It says what is shared, with whom, for how long, and where the
+// words you type go. The keys under it are the whole choice: agree, or quit.
+export const TRANSCRIPT_DISCLOSURE='By continuing you agree that aesel shares your messages, the assistant\'s replies and artifact references with Aesthetic Computer to improve aesel, keeps them until you delete them, and sends what you write to the AI provider you choose under that provider\'s privacy policy.';
 const account=session=>session.read()?.user?.sub;
 // The first thing a new person sees. It used to be a paragraph in the corner
 // of a black window; now the donkey stands over it in the middle, painted the
@@ -20,22 +23,22 @@ export function sharingScreen({columns=80,rows=24,useColor=true,signedIn=false}=
   const plain=text.replace(/\s+$/,'');
   // The head is the mark, the body is the soft purple, and the star on the
   // canvas is the one orange thing on the screen.
-  return {plain,painted:useColor?plain.split('*').map(part=>ink(tone,part)).join(ink('highlight','*')):plain};
+  return {plain,donkey:true,painted:useColor?plain.split('*').map(part=>ink(tone,part)).join(ink('highlight','*')):plain};
  });
  const paragraph=wrapText(TRANSCRIPT_DISCLOSURE,Math.min(DISCLOSURE_COLUMNS,width-4));
- const keys=`[A] Agree and continue${signedIn?'':' (sign in)'}   [Q] Quit`;
+ const keys='[A] Agree   [Q] Quit';
  const gap={plain:'',painted:''};
- const title=(mark)=>({plain:`${mark}Aesel data sharing`,painted:`${mark?ink('handle',mark):''}${ink('highlight','Aesel data sharing')}`});
+ const title=(mark)=>({plain:`${mark}aesel`,painted:`${mark?ink('handle',mark):''}${ink('highlight','aesel')}`});
  // One colour span for the whole paragraph, opened on its first line and
  // closed on its last: the words between two lines stay plain text with plain
  // whitespace, so anything reading the screen for a phrase still finds it.
  const soft=useColor?color.soft||'':'';
  const tail=[gap,...paragraph.map((line,i)=>({plain:line,painted:`${i===0?soft:''}${line}${i===paragraph.length-1&&soft?color.reset:''}`})),gap,
-  {plain:keys,painted:`${ink('handle','[A]')} Agree and continue${signedIn?'':' (sign in)'}   ${ink('handle','[Q]')} Quit`}];
+  {plain:keys,painted:`${ink('handle','[A]')} Agree   ${ink('handle','[Q]')} Quit`}];
  // The whole donkey when the window has the rows for him; his one-row self
  // beside the title when it does not, so an 80×24 terminal still shows the
  // words whole and the keys on screen.
- const full=[...donkey,gap,title(''),...tail];
+ const full=[...donkey,...tail];
  const block=full.length<=height?full:[title(`${MASCOT_ROW_MARK}  `),...tail];
  const centred=new Set(paragraph);
  const blockWidth=Math.max(...block.map(row=>textWidth(row.plain)));
@@ -43,7 +46,10 @@ export function sharingScreen({columns=80,rows=24,useColor=true,signedIn=false}=
  const top=Math.max(0,Math.floor((height-block.length)/2));
  // The paragraph keeps a straight left edge; the donkey, the title and the
  // keys stand over its middle.
- const indent=row=>centred.has(row.plain)||!row.plain?0:Math.floor((blockWidth-textWidth(row.plain))/2);
+ // The donkey is one picture: every row of him moves by the same amount, or
+ // he comes apart. The keys stand over the middle on their own.
+ const donkeyIndent=Math.max(0,Math.floor((blockWidth-MASCOT_WIDTH)/2));
+ const indent=row=>row.donkey?donkeyIndent:centred.has(row.plain)||!row.plain?0:Math.floor((blockWidth-textWidth(row.plain))/2);
  return '\r\n'.repeat(top)+block.map(row=>' '.repeat(left+indent(row))+row.painted).join('\r\n')+'\r\n';
 }
 export async function readAcknowledgment(root,owner){
