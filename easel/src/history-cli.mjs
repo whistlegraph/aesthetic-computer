@@ -50,12 +50,15 @@ export function sessions(root = defaultRoot()) {
     .slice(0, LIMIT);
 }
 
+// The launcher takes the directory as its one bare word, so it goes last,
+// after the options; `--cwd` is the launcher's own word to the interface.
 export function launchArguments(meta) {
   const args = [];
   if (meta.pro) args.push("pro");
   if (meta.private) args.push("--private");
-  args.push("--cwd", meta.cwd, "--backend", meta.engineEvent.engine, "--resume", meta.engineEvent.thread);
+  args.push("--backend", meta.engineEvent.engine, "--resume", meta.engineEvent.thread);
   if (meta.engineEvent.model) args.push("--model", meta.engineEvent.model);
+  args.push(meta.cwd);
   return args;
 }
 

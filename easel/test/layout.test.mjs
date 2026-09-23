@@ -57,6 +57,11 @@ test("set writes one key to the override and reset takes it back", (context) => 
 
 test("bake writes the shape into the package and commits that one file", async (context) => {
   const { root, file } = scratch(context);
+  // The scratch repo commits unsigned: a signing key, or a gpg agent another
+  // process is holding, is not what this test is about.
+  const unsigned = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "commit.gpgsign", GIT_CONFIG_VALUE_0: "false" };
+  for (const [key, value] of Object.entries(unsigned)) process.env[key] = value;
+  context.after(() => { for (const key of Object.keys(unsigned)) delete process.env[key]; });
   execFileSync("git", ["-C", root, "init", "-q"]);
   execFileSync("git", ["-C", root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "start"]);
   writeFileSync(join(root, "stray.txt"), "not mine to commit");
