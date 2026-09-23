@@ -150,9 +150,9 @@ function kvFor(score, voice) {
   const kv = [`notes=${notes}`, `lyrics=${String(voice.lyrics).replace(/[;=]/g, " ")}`,
     `singVoice=${flags["voice-name"] || voice.singVoice || prof.base_voice || "Fred"}`,
     `singVibratoHz=${flags["vib-hz"] ?? voice.singVibratoHz ?? prof.sing?.vibrato_hz ?? 5}`,
-    `singVibCents=${flags["vib-cents"] ?? prof.sing?.vibrato_depth_cents ?? 18}`,
-    `singLock=${flags.lock ?? prof.sing?.harmony_lock ?? 0.875}`,
-    `singF0Floor=${flags["f0-floor"] ?? (flags["floor-was"] != null ? prof.f0_floor_was : null) ?? prof.f0_floor ?? 55}`];
+    `singVibCents=${flags["vib-cents"] ?? voice.singVibCents ?? prof.sing?.vibrato_depth_cents ?? 18}`,
+    `singLock=${flags.lock ?? voice.singLock ?? prof.sing?.harmony_lock ?? 0.875}`,
+    `singF0Floor=${flags["f0-floor"] ?? voice.singF0Floor ?? (flags["floor-was"] != null ? prof.f0_floor_was : null) ?? prof.f0_floor ?? 55}`];
   return { kv: kv.join(";"), member };
 }
 
@@ -204,16 +204,17 @@ for (const sp of scores) {
     console.log(`  ${member} (${man.voice})`);
     for (const ln of man.lines) {
       if (ln.error || !ln.wav) { console.log(`    ${String(ln.line).padStart(2)}. ✗ ${ln.error}`); continue; }
-      const heard = transcribe(ln.wav);
-      const s = wer(ln.text, heard);
+      const role = v.lineRoles?.[ln.line - 1] || "lead";
+      const heard = role === "lead" ? transcribe(ln.wav) : null;
+      const s = role === "lead" ? wer(ln.text, heard) : {wer:null,errors:0,words:0};
       let sh = null, ss = null;
       if (ln.spoken) { sh = transcribe(ln.spoken); ss = wer(ln.text, sh); spE += ss.errors; spW += ss.words; }
       sumE += s.errors; sumW += s.words;
       const mark = s.wer === 0 ? "✓" : s.wer <= 0.25 ? "~" : "✗";
-      console.log(`    ${String(ln.line).padStart(2)}. ${mark} ${(s.wer * 100).toFixed(0).padStart(3)}%${ss ? ` (spoken ${(ss.wer * 100).toFixed(0)}%)` : ""}  ${ln.duration.toFixed(1)}s  ${ln.text}`);
+      console.log(`    ${String(ln.line).padStart(2)}. ${role === "lead" ? `${mark} ${(s.wer * 100).toFixed(0).padStart(3)}%` : role}${ss ? ` (spoken ${(ss.wer * 100).toFixed(0)}%)` : ""}  ${ln.duration.toFixed(1)}s  ${ln.text}`);
       if (s.wer > 0) console.log(`         heard: ${heard || "(nothing)"}`);
-      ve.lines.push({ line: ln.line, text: ln.text, lyrics: ln.lyrics, notes: ln.notes, duration: ln.duration, peak: ln.peak,
-        notesUsed: ln.notesUsed, noteCount: ln.noteCount, renderMs: ln.renderMs, heard, wer: s.wer, errors: s.errors, words: s.words,
+      ve.lines.push({ line: ln.line, role, text: ln.text, lyrics: ln.lyrics, notes: ln.notes, duration: ln.duration, peak: ln.peak,
+        spanOffset: ln.spanOffset, notesUsed: ln.notesUsed, noteCount: ln.noteCount, renderMs: ln.renderMs, heard, wer: s.wer, errors: s.errors, words: s.words,
         spokenHeard: sh, spokenWer: ss?.wer ?? null, wav: ln.wav, spokenWav: ln.spoken ?? null });
     }
     entry.voices.push(ve);
@@ -223,5 +224,5 @@ for (const sp of scores) {
 results.total = { errors: sumE, words: sumW, wer: sumW ? sumE / sumW : 0, spokenErrors: spE, spokenWords: spW, spokenWer: spW ? spE / spW : 0 };
 mkdirSync(resolve(LANE, "hear"), { recursive: true });
 writeFileSync(resolve(LANE, "hear", `${tag}.json`), JSON.stringify(results, null, 2) + "\n");
-console.log(`\n═ ${tag}: sung WER ${(results.total.wer * 100).toFixed(1)}% (${sumE}/${sumW} words)${spW ? ` · spoken source WER ${(results.total.spokenWer * 100).toFixed(1)}%` : ""}`);
+console.log(`\n═ ${tag}: ${sumW ? `sung WER ${(results.total.wer * 100).toFixed(1)}% (${sumE}/${sumW} words)` : "phonemes only; word recognition not scored"}${spW ? ` · spoken source WER ${(results.total.spokenWer * 100).toFixed(1)}%` : ""}`);
 console.log(`  wavs: ${keep}\n  json: hear/${tag}.json`);

@@ -1138,6 +1138,8 @@ final class MenuBandSynth {
     /// in pitch alongside every other voice.
     func setSpeechPitchBend(amount: Float) {
         speechVoice.setBend(amount: amount)
+        singerVoice.setBend(amount: amount)
+        simSingers.values.forEach { $0.setBend(amount: amount) }
     }
 
     /// Keep the surface cues speaking at the sounding pitch — fed from the

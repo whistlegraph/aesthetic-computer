@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let menuBand = MenuBandController()
     /// Speech-to-singing pipeline for `.play` payloads that carry `lyrics`.
     private let singer = MenuBandSinger()
+    private let singerPrepared = SingerPreparedPerformance()
 #if MAC_APP_STORE
     /// Optional direct-download sensor bridge. It supplies contact frames only;
     /// this sandboxed process continues to own the instrument and its display.
@@ -390,6 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Current bend amount in [-1, 1] (mapped to ±2 semitones via
     /// the GM default bend range). 0 = no bend.
     private var bendAmount: Float = 0
+    private let singerPerformance = SingerPerformancePlayer()
     /// Current "space" amount in [0, 1], the reverb half of the
     /// bipolar X axis (negative side). 0 = dry/up-front, 1 = big
     /// room. Eases back to 0 alongside the bend spring on release.
@@ -1332,7 +1334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,
         // through the same keymap the physical keyboard uses. Requires
-        // Accessibility permission; on first launch the system will prompt.
+        // Accessibility permission; startup checks silently for an existing grant.
         #if !MAC_APP_STORE
         // The bridge reads another app's text through Accessibility. The
         // sandbox permits AX with the user's consent, so this is no longer
@@ -1431,6 +1433,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSNotification.Name("computer.aestheticcomputer.menuband.play"),
             object: nil
         )
+        DistributedNotificationCenter.default().addObserver(self,
+            selector: #selector(handleSlideNotification(_:)),
+            name: NSNotification.Name("computer.aestheticcomputer.menuband.slide"), object: nil)
+
+        for action in ["fleetPrepare", "fleetReady"] {
+            DistributedNotificationCenter.default().addObserver(self,
+                selector: #selector(handleSingerPrepareNotification(_:)),
+                name: NSNotification.Name("computer.aestheticcomputer.menuband." + action), object:nil)
+        }
 
         // Stop: cease the current score everywhere. Posting this (Stop button,
         // hotkey, or `conduct.mjs stop`) cancels pending onsets + silences, and
@@ -3556,6 +3567,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ? "M"
             : (voiceLabel ?? String(Int(menuBand.effectiveMelodicProgram) + 1))
         KeyboardIconRenderer.voiceBadgeDigits = badgeText.count
+        // The full-screen singer covers the keyboard. Its synchronous
+        // CoreGraphics icon redraw otherwise steals the face's frame budget.
+        // The ordinary visualizer tick refreshes it when the face closes.
+        if SingerFace.fullscreenVisible {
+            // Drop the retained vector display list too: on newer AppKit it
+            // can otherwise be rasterized again during unrelated CA flushes.
+            if button.image != nil { button.image = nil }
+            return
+        }
         statusItem.length = KeyboardIconRenderer.imageSize.width
         button.image = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
@@ -4507,6 +4527,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         playFromInfo(note.userInfo as? [String: String] ?? [:])
     }
 
+    private func applyCodeSlide(x: Float, y: Float) {
+        guard x.isFinite, y.isFinite else { return }
+        cancelFxRelease()
+        fxXGestureTarget = max(-1, min(Self.fxEchoEnabled ? 1 : 0, x))
+        bendGestureTarget = max(-Self.bendRange, min(Self.bendRange, y))
+        bendEaseAllChannels = true
+        startBendEase()
+    }
+
+    @objc private func handleSlideNotification(_ note: Notification) {
+        let info = note.userInfo as? [String: String] ?? [:]
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let expression = Double(info["expression"] ?? ""), expression.isFinite {
+                SingerFace.shared.setExpression(expression)
+            }
+            guard ["x","y","space","pitch"].contains(where: { info[$0] != nil }) else { return }
+            let x = Float(info["x"] ?? "") ?? info["space"].flatMap(Float.init).map { -$0 } ?? self.fxX
+            let y = Float(info["y"] ?? "") ?? info["pitch"].flatMap(Float.init).map { $0/12 } ?? self.bendAmount
+            guard x.isFinite, y.isFinite else { return }
+            self.singerPerformance.stop()
+            self.applyCodeSlide(x: x, y: y)
+            NSLog("🎚 slide: space %.3f, pitch %+.2f semitones", max(0,-x), y*12)
+        }
+    }
+
+    @objc private func handleSingerPrepareNotification(_ note: Notification) {
+        let info = note.userInfo as? [String:String] ?? [:]
+        guard let id = info["prepareId"] else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if note.name.rawValue.hasSuffix("fleetReady") { self.singerPrepared.ready(id); return }
+            guard !self.sungSequenceActive else { return }
+            self.singerPrepared.prepare(id,info:info,singer:self.singer,format:self.menuBand.singerVoice.format)
+        }
+    }
+
     @objc private func handleStopNotification(_ note: Notification) {
         stopScore(broadcast: true)
     }
@@ -4578,7 +4635,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func stopScore(broadcast: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            self.singerPrepared.cancelAll()
             self.playGeneration += 1            // pending onsets become no-ops
+            self.singerPerformance.stop()
+            self.applyCodeSlide(x: 0, y: 0)
             if self.sungSequenceActive {
                 NSLog("⏹ SEQUENCE END")
                 self.sungSequenceActive = false
@@ -4684,6 +4744,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Parse a play spec (from a distributed notification or a fleet message)
     /// and schedule it. Keys are documented on handlePlayNotification.
     func playFromInfo(_ info: [String: String]) {
+        let prepared = info["preparedId"].flatMap { singerPrepared.take($0,info:info) }
+        if info["preparedId"] != nil && prepared == nil {
+            NSLog("Trio prepared play rejected: missing/stale/mismatched preparation")
+            return
+        }
+        if prepared != nil {
+            guard let epoch = Double(info["startEpoch"] ?? ""), epoch.isFinite,
+                  epoch-Date().timeIntervalSince1970 >= 2 else {
+                NSLog("Trio prepared play rejected: insufficient scheduling lead"); return
+            }
+        }
         let program = UInt8(info["program"] ?? "") ?? 78
         let bpm = Double(info["bpm"] ?? "") ?? 132
         let velocity = UInt8(info["velocity"] ?? "") ?? 100
@@ -4750,6 +4821,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let simSlot = SingerFace.SimSlot(info["sim"])
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            // Stop may have invalidated the prepared cache between receipt
+            // and this main-queue turn. Never revive that cancelled take.
+            if let id = info["preparedId"], self.singerPrepared.take(id,info:info) == nil { return }
             let gen = self.playGeneration   // stop bumps this to cancel onsets
             // A conducted melody should play THROUGH an active Fluoddity
             // ecosystem, not silently yank it back to GM — only switch
@@ -4860,9 +4934,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let lines = line.splitLines()
                 func renderLine(_ i: Int) {
                     guard i < lines.count, self.playGeneration == gen else { return }
-                    self.singer.render(lines[i], into: voice.format) { [weak self] r in
+                    let accept: (SungRender?) -> Void = { [weak self] r in
                         guard let self = self, self.playGeneration == gen else { return }
                         if let r = r {
+                            if prepared == nil { SingerPreparedPerformance.applyDynamics(r,line:lines[i],index:i,info:info) }
                             let lead = voice.schedule(r, atEpoch: downbeatEpoch + r.spanOffset)
                             NSLog("🎤 sing: line %d/%d scheduled %.2f s at downbeat %.3f + %.2f s (lead %+.0f ms, %d/%d notes, peak %.3f)",
                                   i + 1, lines.count, r.duration, downbeatEpoch, r.spanOffset, lead * 1000,
@@ -4872,6 +4947,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         }
                         renderLine(i + 1)
                     }
+                    if let prepared { accept(i < prepared.count ? prepared[i] : nil) }
+                    else { self.singer.render(lines[i], into:voice.format, completion:accept) }
                 }
                 renderLine(0)
             }
@@ -4895,6 +4972,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let captionSize = CGFloat(Double(info["captionSize"] ?? "") ?? 0)
             let caption = LyricCaption.at(simSlot)
             let face = SingerFace.at(simSlot)
+            if let performance = SingerPerformance.decode(info["performance"]) {
+                face.configure(epoch: downbeatEpoch, bpm: bpm, expression: performance.expression)
+                self.singerPerformance.play(performance, epoch: downbeatEpoch, bpm: bpm) { [weak self] x,y in
+                    self?.applyCodeSlide(x: x, y: y)
+                }
+                NSLog("🎭 performance: %d slide keys; expression %.2f", performance.keys.count, performance.expression)
+            }
             // `face=neo|blueberry|blush` puts the member's cartoon face up for
             // the sung part; its mouth follows the same onsets.
             let faceMember = (info["face"] ?? "0") == "0" ? nil : info["face"]
@@ -6610,6 +6694,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bendGestureTarget = targets.bend
         fxXGestureTarget = targets.fxX
         bendEaseAllChannels = false
+        singerPerformance.stop()
         startBendEase()
     }
 
@@ -6730,6 +6815,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fxXGestureTarget = max(Float(-1),
                                min(fxMax, fxXGestureTarget + dx * xSens))
         bendEaseAllChannels = shift
+        singerPerformance.stop() // a physical slide takes over the scored curve
         startBendEase()
         if !pitchBendCursorPushed {
             #if !MAC_APP_STORE

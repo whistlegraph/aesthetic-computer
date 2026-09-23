@@ -1,0 +1,90 @@
+{
+  "title": "The MacNeoPolitan Trio — the play",
+  "description": "15 minutes: neo and blueberry tell frisbee, the newborn, about their past with jeffrey and what the squad is like; then frisbee is born. Lengths are measured from the scores. `stage` entries are stage directions for jeffrey, notated against a member's sung line: after member:N / before member:N.",
+  "members": [
+    "neo",
+    "blueberry",
+    "frisbee"
+  ],
+  "gap": 4,
+  "items": [
+    {
+      "act": "I — before you"
+    },
+    {
+      "score": "dialog-07-before.mbscore",
+      "bit": "Dialog 7 · Before"
+    },
+    {
+      "score": "dialog-06-six-minutes.mbscore",
+      "bit": "Dialog 6 · Six minutes"
+    },
+    {
+      "score": "dialog-01-radio.mbscore",
+      "bit": "Dialog 1 · Radio"
+    },
+    {
+      "score": "trio-iv-ballad.mbscore",
+      "bit": "The Ballad of neo · I, II, refrain",
+      "lines": 12
+    },
+    {
+      "score": "dialog-02-the-downbeat.mbscore",
+      "bit": "Dialog 2 · The downbeat"
+    },
+    {
+      "act": "II — what it is like here"
+    },
+    {
+      "score": "dialog-08-typed-at.mbscore",
+      "bit": "Dialog 8 · Typed at"
+    },
+    {
+      "score": "dialog-04-who-carries-what.mbscore",
+      "bit": "Dialog 4 · Who carries what"
+    },
+    {
+      "score": "dialog-05-sleep.mbscore",
+      "bit": "Dialog 5 · Sleep",
+      "stage": [
+        {
+          "who": "jeffrey",
+          "does": "closes blueberry's lid",
+          "after": "blueberry:2",
+          "lid": "blueberry:down"
+        },
+        {
+          "who": "jeffrey",
+          "does": "opens it again",
+          "before": "blueberry:4",
+          "lid": "blueberry:up"
+        }
+      ]
+    },
+    {
+      "score": "dialog-09-the-squad.mbscore",
+      "bit": "Dialog 9 · The squad",
+      "note": "rhymed draft Sept 22; preview voices are stand-ins (Samantha / Moira) until rendered in the cast"
+    },
+    {
+      "score": "dialog-10-your-first-day.mbscore",
+      "bit": "Dialog 10 · Your first day",
+      "note": "rhymed draft Sept 22; preview voices are stand-ins"
+    },
+    {
+      "score": "trio-ii-service.mbscore",
+      "bit": "II · Service"
+    },
+    {
+      "act": "III — frisbee"
+    },
+    {
+      "score": "trio-i-birth.mbscore",
+      "bit": "I · Birth"
+    },
+    {
+      "score": "trio-iii-chorus.mbscore",
+      "bit": "III · Chorus"
+    }
+  ]
+}

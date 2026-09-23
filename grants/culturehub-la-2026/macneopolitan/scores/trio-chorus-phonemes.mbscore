@@ -1,0 +1,182 @@
+{
+  "title": "The MacNeoPolitan Trio — Phoneme study",
+  "composer": "The machines, arr. compose-phonemes.mjs",
+  "bpm": 96,
+  "machines": 3,
+  "lead": 0,
+  "phonemeOnly": true,
+  "description": "Wordless vocal trio: la/loo motifs, bass dum/bum, hocket, open-vowel chords, shared hum. No instruments or spoken material.",
+  "arrangement": {
+    "total": 64,
+    "sections": [
+      {
+        "beat": 0,
+        "name": "la motifs"
+      },
+      {
+        "beat": 16,
+        "name": "hocket"
+      },
+      {
+        "beat": 32,
+        "name": "open vowels"
+      },
+      {
+        "beat": 48,
+        "name": "convergence"
+      }
+    ]
+  },
+  "voices": [
+    {
+      "name": "neo sings (Noelle (Enhanced))",
+      "program": 78,
+      "velocity": 80,
+      "notes": "54:0.75,57:0.25,54:1,62:1,57:0.75,r:0.25,54:0.75,57:0.25,54:1,62:1,57:0.75,r:0.25,50:0.75,54:0.25,50:1,59:1,54:0.75,r:0.25,59:0.75,62:0.25,59:1,67:1,62:0.75,r:0.25,54:0.5,57:0.5,54:0.5,r:2.5,61:0.5,64:0.5,61:0.5,r:2.5,55:0.5,59:0.5,55:0.5,r:2.5,61:0.5,64:0.5,61:0.5,r:2.5,50:2.5,54:1.25,r:0.25,59:2.5,62:1.25,r:0.25,54:2.5,57:1.25,r:0.25,61:2.5,64:1.25,r:0.25,59:0.666667,62:0.333333,59:0.666667,62:0.333333,59:1,62:0.75,r:0.25,61:0.666667,64:0.333333,61:0.666667,64:0.333333,61:1,64:0.75,r:0.25,54:0.666667,57:0.333333,54:0.666667,57:0.333333,54:1,57:0.75,r:0.25,57:4",
+      "lyrics": "la loo la la loo / la loo la la loo / la loo la la loo / la loo la la loo / doo la loo / doo la loo / doo la loo / doo la loo / ooh ah / ah loo / ooh ah / ah loo / la la loo la la ah / la la loo la la ah / la la loo la la ah / hmm",
+      "lineRoles": [
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "hum"
+      ],
+      "lineGains": [
+        0.82,
+        0.82,
+        0.82,
+        0.82,
+        0.82,
+        0.82,
+        0.82,
+        0.82,
+        0.66,
+        0.66,
+        0.66,
+        0.66,
+        0.84,
+        0.84,
+        0.84,
+        0.58
+      ],
+      "singVoice": "Noelle (Enhanced)",
+      "sayVoice": "Noelle (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5,
+      "singF0Floor": 80,
+      "double": false
+    },
+    {
+      "name": "blueberry sings (Tom (Enhanced))",
+      "program": 78,
+      "velocity": 80,
+      "notes": "38:1.5,r:0.5,45:0.75,38:0.75,r:0.5,38:1.5,r:0.5,45:0.75,38:0.75,r:0.5,35:1.5,r:0.5,42:0.75,35:0.75,r:0.5,43:1.5,r:0.5,50:0.75,43:0.75,r:1,38:0.75,r:1,45:0.75,38:0.75,r:0.75,45:0.75,r:1,52:0.75,45:0.75,r:0.75,40:0.75,r:1,47:0.75,40:0.75,r:0.75,45:0.75,r:1,52:0.75,45:0.75,r:0.25,35:3.75,r:0.25,43:3.75,r:0.25,38:3.75,r:0.25,45:3.75,r:0.25,43:1,r:0.5,50:0.5,43:1.75,r:0.25,45:1,r:0.5,52:0.5,45:1.75,r:0.25,38:1,r:0.5,45:0.5,38:1.75,r:0.25,38:4",
+      "lyrics": "dum bum dum / dum bum dum / dum bum dum / dum bum dum / dum bum dum / dum bum dum / dum bum dum / dum bum dum / ooh / ooh / ooh / ooh / dum bum dum / dum bum dum / dum bum dum / hmm",
+      "lineRoles": [
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "hum"
+      ],
+      "lineGains": [
+        0.75,
+        0.75,
+        0.75,
+        0.75,
+        0.72,
+        0.72,
+        0.72,
+        0.72,
+        0.7,
+        0.7,
+        0.7,
+        0.7,
+        0.8,
+        0.8,
+        0.8,
+        0.75
+      ],
+      "singVoice": "Tom (Enhanced)",
+      "sayVoice": "Tom (Enhanced)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 4,
+      "singF0Floor": 55,
+      "double": false
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:0.25,57:3.5,r:0.5,57:3.5,r:0.5,54:3.5,r:0.5,62:3.5,r:2,57:0.5,54:0.5,57:1,r:2,64:0.5,61:0.5,64:1,r:2,59:0.5,55:0.5,59:1,r:2,64:0.5,61:0.5,64:1,r:0.25,54:2.5,50:1.25,r:0.25,62:2.5,59:1.25,r:0.25,57:2.5,54:1.25,r:0.25,64:2.5,61:1.25,r:0.25,62:0.666667,59:0.333333,62:0.666667,59:0.333333,62:1,59:0.75,r:0.25,64:0.666667,61:0.333333,64:0.666667,61:0.333333,64:1,61:0.75,r:0.25,57:0.666667,54:0.333333,57:0.666667,54:0.333333,57:1,54:0.75,r:0.25,54:4",
+      "lyrics": "hmm / ooh / hmm / ooh / la la ah / la la ah / la la ah / la la ah / ah ooh / ooh ah / ah ooh / ooh ah / la la la loo la ah / la la la loo la ah / la la la loo la ah / hmm",
+      "lineRoles": [
+        "hum",
+        "phoneme",
+        "hum",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "phoneme",
+        "hum"
+      ],
+      "lineGains": [
+        0.46,
+        0.46,
+        0.46,
+        0.46,
+        0.84,
+        0.84,
+        0.84,
+        0.84,
+        0.64,
+        0.64,
+        0.64,
+        0.64,
+        0.8,
+        0.8,
+        0.8,
+        0.58
+      ],
+      "singVoice": "Zoe (Premium)",
+      "sayVoice": "Zoe (Premium)",
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5.5,
+      "singF0Floor": 80,
+      "double": false
+    }
+  ]
+}

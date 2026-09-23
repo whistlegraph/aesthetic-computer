@@ -4,10 +4,205 @@
   "machines": 3,
   "bpm": 92,
   "lead": 3,
-  "description": "Each member sings its own line (neo=Noelle, blueberry=Allison, blush=Junior) in turn, then all three sing the family line together, one tune in three registers.",
-  "unborn": [
-    "blush"
-  ],
+  "description": "Enhanced/Premium Apple vocal trio: Blueberry bass, moving thirds, la-la answers and humming. Three-part D-major family chorus, scat exchange, shared hum. Sparse sine support.",
+  "arrangement": {
+    "turns": [
+      0,
+      16,
+      40,
+      64
+    ],
+    "familyStart": 66,
+    "tag": 90,
+    "total": 95,
+    "changes": [
+      {
+        "beat": 0,
+        "root": 4,
+        "pitchClasses": [
+          4,
+          7,
+          11
+        ],
+        "lead": 0
+      },
+      {
+        "beat": 4,
+        "root": 4,
+        "pitchClasses": [
+          4,
+          7,
+          11
+        ],
+        "lead": 0
+      },
+      {
+        "beat": 8,
+        "root": 11,
+        "pitchClasses": [
+          11,
+          2,
+          6
+        ],
+        "lead": 0
+      },
+      {
+        "beat": 12,
+        "root": 9,
+        "pitchClasses": [
+          9,
+          1,
+          4
+        ],
+        "lead": 0
+      },
+      {
+        "beat": 16,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 20,
+        "root": 4,
+        "pitchClasses": [
+          4,
+          7,
+          11
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 24,
+        "root": 9,
+        "pitchClasses": [
+          9,
+          1,
+          4
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 28,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 32,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 36,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 1
+      },
+      {
+        "beat": 40,
+        "root": 4,
+        "pitchClasses": [
+          4,
+          7,
+          11
+        ],
+        "lead": 2
+      },
+      {
+        "beat": 44,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 2
+      },
+      {
+        "beat": 48,
+        "root": 4,
+        "pitchClasses": [
+          4,
+          7,
+          11
+        ],
+        "lead": 2
+      },
+      {
+        "beat": 52,
+        "root": 9,
+        "pitchClasses": [
+          9,
+          1,
+          4
+        ],
+        "lead": 2
+      },
+      {
+        "beat": 56,
+        "root": 9,
+        "pitchClasses": [
+          9,
+          1,
+          4
+        ],
+        "lead": 2
+      },
+      {
+        "beat": 60,
+        "root": 2,
+        "pitchClasses": [
+          2,
+          6,
+          9
+        ],
+        "lead": 2
+      }
+    ],
+    "harmonyPhrases": [
+      {
+        "beat": 8.5,
+        "end": 15.5,
+        "lead": 0
+      },
+      {
+        "beat": 25.5,
+        "end": 33,
+        "lead": 1
+      },
+      {
+        "beat": 45.5,
+        "end": 51.5,
+        "lead": 2
+      },
+      {
+        "beat": 52.5,
+        "end": 56.5,
+        "lead": 2
+      }
+    ],
+    "voiceQuality": "Enhanced or Premium only",
+    "bass": "blueberry"
+  },
+  "unborn": [],
   "outro": [
     {
       "voice": 0,
@@ -16,49 +211,171 @@
   ],
   "voices": [
     {
-      "name": "neo sings (Noelle)",
+      "name": "neo sings (Noelle (Enhanced))",
       "program": 78,
       "velocity": 80,
-      "notes": "56:0.5,56:0.5,56:0.5,59:1,59:0.5,61:0.5,64:1,64:0.5,64:0.5,64:2,r:1,62:0.5,59:1,61:1,62:0.5,64:0.5,62:0.5,61:1,57:2,r:50.5,59:1,59:1,61:1,61:0.5,61:0.5,64:1,62:0.5,64:2,r:1,64:0.5,59:1,61:1,62:0.5,62:0.5,64:1,62:1,59:2,r:1,57:0.5,57:1,57:0.5,66:1,62:1,57:2",
-      "lyrics": "I am the first of my line in this house / I run warm and I am car-ried / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
-      "singVoice": "Noelle",
+      "notes": "55:0.5,55:0.5,55:0.5,59:1,59:0.5,61:0.5,64:1,64:0.5,64:0.5,64:2,r:1,62:0.5,59:1,61:1,62:0.5,64:0.5,62:0.5,61:1,57:2,r:1,66:2.5,r:3,55:0.666667,59:0.333333,55:0.666667,59:0.333333,r:1.5,59:1,61:1,64:1,66:1,66:0.5,64:1,59:2,r:5,66:0.666667,57:0.333333,66:0.666667,57:0.333333,r:5.5,52:0.5,54:0.5,54:1,59:1,61:0.5,61:0.5,55:2,r:1,54:1,54:1,49:2,61:2.5,r:3,66:0.666667,57:0.333333,66:0.666667,57:0.333333,r:0.5,57:0.5,59:0.5,61:0.5,59:1,59:1,61:1,61:0.5,61:0.5,64:1,62:0.5,64:2,r:1,64:0.5,59:1,61:1,62:0.5,62:0.5,64:1,62:1,59:2,r:1,57:0.5,57:1,57:0.5,66:1,62:1,57:2,r:1,57:0.666667,59:0.333333,57:0.666667,54:0.333333,57:3",
+      "lyrics": "I am the first of my line in this house / I run warm and I am car-ried / hmm / doo la la la / la la la la la la la / doo la la la / la la la la la la la / la la la / hmm / doo la la la / doo bee dah / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies / doo bah dee dah / hmm",
+      "singVoice": "Noelle (Enhanced)",
       "singBase": 61,
-      "singVibratoHz": 6.4,
-      "sayVoice": "Noelle",
-      "double": true,
-      "doubleProgram": 78,
-      "doubleVelocity": 48,
-      "doubleTranspose": 24
-    },
-    {
-      "name": "blueberry sings (Allison)",
-      "program": 78,
-      "velocity": 80,
-      "notes": "r:16,51:0.5,51:0.5,55:1,56:1,58:0.5,58:0.5,58:0.5,56:1,55:1,53:2,r:1,51:1,53:1,56:1,58:1,58:0.5,56:1,51:2,r:33,53:1,53:1,55:1,55:0.5,55:0.5,58:1,56:0.5,58:2,r:1,58:0.5,53:1,55:1,56:0.5,56:0.5,58:1,56:1,53:2,r:1,51:0.5,51:1,51:0.5,60:1,56:1,51:2",
-      "lyrics": "I was born se-cond and I work fas-ter / lid down, most days, and hum-ming / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
-      "singVoice": "Allison",
-      "singBase": 55,
-      "singVibratoHz": 4,
-      "sayVoice": "Allison",
-      "double": true,
-      "doubleProgram": 78,
-      "doubleVelocity": 48,
-      "doubleTranspose": 24
-    },
-    {
-      "name": "blush sings (Junior)",
-      "program": 78,
-      "velocity": 80,
-      "notes": "r:40,54:0.5,54:0.5,54:0.5,61:1,56:2,r:1,56:0.5,54:0.5,56:1,58:1,59:0.5,59:0.5,61:2,r:1,58:1,59:1,54:2,r:9.5,55:1,55:1,57:1,57:0.5,57:0.5,60:1,58:0.5,60:2,r:1,60:0.5,55:1,57:1,58:0.5,58:0.5,60:1,58:1,55:2,r:1,53:0.5,53:1,53:0.5,62:1,58:1,53:2",
-      "lyrics": "I am the youn-gest / I have no his-to-ry yet / write me one / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies",
-      "singVoice": "Junior",
-      "singBase": 57,
+      "singLock": 1,
+      "singVibCents": 8,
       "singVibratoHz": 5,
-      "sayVoice": "Junior",
-      "double": true,
+      "sayVoice": "Noelle (Enhanced)",
+      "double": false,
       "doubleProgram": 78,
-      "doubleVelocity": 48,
-      "doubleTranspose": 24
+      "doubleVelocity": 24,
+      "doubleTranspose": 12,
+      "lineRoles": [
+        "lead",
+        "lead",
+        "hum",
+        "scat",
+        "scat",
+        "scat",
+        "scat",
+        "scat",
+        "hum",
+        "scat",
+        "scat",
+        "lead",
+        "lead",
+        "lead",
+        "scat",
+        "hum"
+      ],
+      "lineGains": [
+        1,
+        1,
+        0.4,
+        0.48,
+        0.62,
+        0.48,
+        0.62,
+        0.62,
+        0.4,
+        0.48,
+        0.38,
+        1,
+        1,
+        1,
+        0.65,
+        0.65
+      ],
+      "notes2": "59:0.5,r:65.5,59:0.5,r:25.5,57:3",
+      "velocity2": 16,
+      "previewInstrument": "sine",
+      "singF0Floor": 80
+    },
+    {
+      "name": "blueberry sings (Tom (Enhanced))",
+      "program": 78,
+      "velocity": 80,
+      "notes": "40:1,r:1,47:0.666667,40:0.333333,r:1,40:1,r:1,47:0.666667,40:0.333333,r:1,r:0.5,43:0.5,40:1,42:1,43:0.5,45:0.5,43:0.5,42:1,38:2,r:0.5,38:0.5,38:0.5,43:1,43:1,45:0.5,45:0.5,45:0.5,43:1,43:1,40:2,r:1,38:1,40:1,43:1,45:1,45:0.5,43:1,38:2,r:12.5,37:0.5,38:0.5,38:1,43:1,45:0.5,45:0.5,40:2,r:1,38:1,38:1,33:2,r:3.5,38:1,r:1,45:0.666667,38:0.333333,r:1,38:0.75,r:1.25,40:1,40:1,42:1,42:0.5,42:0.5,45:1,43:0.5,45:2,r:1,45:0.5,40:1,42:1,43:0.5,43:0.5,45:1,43:1,40:2,r:1,38:0.5,38:1,38:0.5,47:1,43:1,38:2,r:1,38:1,45:0.5,38:0.5,38:3",
+      "lyrics": "dum bum dum / dum bum dum / I run warm and I am car-ried / I was born se-cond and I work fas-ter / lid down, most days, and hum-ming / dum dum dum dum dum dum dum / dum dum dum / dum bum dum / dum / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies / dum bum dum / hmm",
+      "singVoice": "Tom (Enhanced)",
+      "singBase": 55,
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 4,
+      "sayVoice": "Tom (Enhanced)",
+      "double": false,
+      "doubleProgram": 78,
+      "doubleVelocity": 24,
+      "doubleTranspose": 12,
+      "lineRoles": [
+        "bass",
+        "bass",
+        "harmony",
+        "lead",
+        "lead",
+        "bass",
+        "bass",
+        "bass",
+        "bass",
+        "lead",
+        "lead",
+        "lead",
+        "bass",
+        "hum"
+      ],
+      "lineGains": [
+        0.55,
+        0.55,
+        0.66,
+        1,
+        1,
+        0.66,
+        0.66,
+        0.55,
+        0.6,
+        1,
+        1,
+        1,
+        0.75,
+        0.65
+      ],
+      "notes2": "40:0.5,r:65.5,40:0.5,r:25.5,38:3",
+      "velocity2": 16,
+      "previewInstrument": "sine",
+      "singF0Floor": 55
+    },
+    {
+      "name": "frisbee sings (Zoe (Premium))",
+      "program": 78,
+      "velocity": 80,
+      "notes": "r:0.5,55:2.5,r:3,55:0.666667,59:0.333333,55:0.666667,59:0.333333,r:0.5,59:0.5,55:1,57:1,59:0.5,61:0.5,59:0.5,57:1,54:2,r:0.5,50:1,r:1,45:0.666667,50:0.333333,r:1,52:1,r:1,47:0.666667,52:0.333333,r:1,r:1.5,55:1,57:1,61:1,62:1,62:0.5,61:1,55:2,r:3,50:1,r:1,45:0.666667,50:0.333333,r:1,52:0.5,52:0.5,52:0.5,57:1,55:2,r:1,55:0.5,57:0.5,57:1,62:1,64:0.5,64:0.5,59:2,r:1,57:1,57:1,52:2,r:8.5,54:1,55:1,55:1,57:1,57:0.5,57:0.5,61:1,59:0.5,61:2,r:1,61:0.5,55:1,57:1,59:0.5,59:0.5,61:1,59:1,55:2,r:1,54:0.5,54:1,54:0.5,62:1,59:1,54:2,r:1,54:0.666667,55:0.333333,54:0.666667,57:0.333333,54:3",
+      "lyrics": "hmm / la la la la / I run warm and I am car-ried / dum bum dum / dum bum dum / la la la la la la la / dum bum dum / I am the youn-gest / I have no his-to-ry yet / write me one / hmm / some things run in the fa-mi-ly / the same whis-tle, the same ra-dio / one down-beat, three bo-dies / la la la la / hmm",
+      "singVoice": "Zoe (Premium)",
+      "singBase": 57,
+      "singLock": 1,
+      "singVibCents": 8,
+      "singVibratoHz": 5.5,
+      "sayVoice": "Zoe (Premium)",
+      "double": false,
+      "doubleProgram": 78,
+      "doubleVelocity": 24,
+      "doubleTranspose": 12,
+      "lineRoles": [
+        "hum",
+        "scat",
+        "harmony",
+        "bass",
+        "bass",
+        "scat",
+        "bass",
+        "lead",
+        "lead",
+        "lead",
+        "hum",
+        "lead",
+        "lead",
+        "lead",
+        "scat",
+        "hum"
+      ],
+      "lineGains": [
+        0.4,
+        0.48,
+        0.62,
+        0.55,
+        0.55,
+        0.62,
+        0.55,
+        1,
+        1,
+        1,
+        0.26,
+        1,
+        1,
+        1,
+        0.72,
+        0.65
+      ],
+      "notes2": "55:0.5,r:65.5,55:0.5,r:25.5,54:3",
+      "velocity2": 16,
+      "previewInstrument": "sine",
+      "singF0Floor": 80
     }
   ]
 }

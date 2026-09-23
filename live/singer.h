@@ -81,11 +81,21 @@ typedef struct {
                        // way clear speech lengthens them. 1 = speaking rate.
   int    sustain_band; // 1 = judge the sustain zone by 400 Hz–4 kHz energy
                        // (vowel vs voiced consonant), 0 = total energy
+  double shimmer_frames; // small spectral read-head movement during held vowels
+  double legato_ms;       // short log-frequency smoothing, 0 = score steps
   int    loop_sustain; // 1 = a held vowel wanders its nucleus back and forth
                        // at speaking rate (alive); 0 = eased frozen hold.
 } singer_params;
 
 typedef struct singer singer;
+
+// Articulation boundaries from the most recent render, in seconds relative
+// to buffer[0]. These follow the actual consonant/vowel warp, not note gates.
+typedef struct {
+  double start, vowel_start, vowel_end, end;
+} singer_articulation;
+int singer_articulation_count(const singer *s);
+const singer_articulation *singer_articulations(const singer *s);
 
 // ── lifecycle ──────────────────────────────────────────────────────────
 singer *singer_create(const double *pcm, int n, int fs);

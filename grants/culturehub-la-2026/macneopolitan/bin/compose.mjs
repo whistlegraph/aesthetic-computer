@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // compose.mjs — write the MacNeoPolitan Trio's movements from the members'
 // harvested facts. The autobiographies are the material; this is where the
-// numbers become notes. Re-run after every harvest (especially blush's first
+// numbers become notes. Re-run after every harvest (especially frisbee's first
 // day) and the scores follow the machines.
 //
 //   node bin/compose.mjs            # writes scores/trio-*.mbscore + setlist
@@ -31,16 +31,18 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { arrangeChorus } from "./chorus-arrange.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
 const OUT = resolve(LANE, "scores");
+const chorusOnly = process.argv.includes("--only=chorus");
 mkdirSync(OUT, { recursive: true });
 
-// Band order = seniority. The third body is `blush`; until it is harvested
-// the `third` placeholder stands in.
-const ORDER = [["neo"], ["blueberry"], ["blush", "third"]];
-const CAST = { neo: "Fred", blueberry: "Kathy", blush: "Junior", third: "Junior" };
+// Band order = seniority. The third body is `frisbee` (named Sept 22, 2026;
+// earlier drafts said `blush`); until it is harvested the `third` placeholder stands in.
+const ORDER = [["neo"], ["blueberry"], ["frisbee", "blush", "third"]];
+const CAST = { neo: "Fred", blueberry: "Kathy", frisbee: "Junior", blush: "Junior", third: "Junior" };
 const WHISTLE = 78;
 
 function loadMember(names) {
@@ -211,7 +213,7 @@ function melodyFor(source, i) {
 }
 
 // ---- I. Birth ---------------------------------------------------------------
-{
+if (!chorusOnly) {
   const bpm = 132;
   const EIGHTH = 0.5;
   const entries = members.map((m) => Math.max(0, days(eldest.born, m.born))); // beats
@@ -268,7 +270,7 @@ function melodyFor(source, i) {
 }
 
 // ---- II. Service ------------------------------------------------------------
-{
+if (!chorusOnly) {
   const bpm = 120;
   const EIGHTH = 0.5;
   const DEGREE = [62, 69, 74]; // D, A, high D — the pulse of each body
@@ -322,6 +324,7 @@ function melodyFor(source, i) {
   const LINES = {
     neo: "I am the first of my line in this house / I run warm and I am car-ried",
     blueberry: "I was born se-cond and I work fas-ter / lid down, most days, and hum-ming",
+    frisbee: "I am the youn-gest / I have no his-to-ry yet / write me one",
     blush: "I am the youn-gest / I have no his-to-ry yet / write me one",
     third: "I am the youn-gest / I have no his-to-ry yet / write me one",
   };
@@ -340,8 +343,15 @@ function melodyFor(source, i) {
     if (after > 0) tokens.push(["r", after]);
     tokens.push(["r", 2]);
     const target = m.home ?? DEFAULT_HOME[i];
-    const shift = Math.round(target - sungMean(familyRel.notes));
-    tokens.push(...familyRel.notes.map(([t, d]) => [t === "r" ? "r" : t + shift, d]));
+    // One D-major harmony, voiced around the three measured registers.
+    // Independent semitone shifts put the old family line in three keys.
+    // Blueberry sings the root, Frisbee the third, Neo the fifth.
+    const harmonyDegree = [4, 0, 2][i];
+    tokens.push(...familyRel.notes.map(([t, d]) => {
+      if (t === "r") return [t, d];
+      const degree = MAJOR.indexOf(((t % 12) + 12) % 12) + 7 * Math.floor(t / 12);
+      return [degToMidi(50, degree + harmonyDegree), d];
+    }));
     return {
       name: `${m.name} sings (${m.say})`,
       program: m.program, velocity: 80,
@@ -349,9 +359,10 @@ function melodyFor(source, i) {
       lyrics: [...solo.tokens, "/", ...familyRel.tokens].join(" "),
       singVoice: m.say,
       singBase: target,
+      singLock: 1, singVibCents: 12,
       singVibratoHz: m.vibrato,
       sayVoice: m.say,
-      double: true, doubleProgram: m.program, doubleVelocity: 48, doubleTranspose: 24,
+      double: true, doubleProgram: m.program, doubleVelocity: 24, doubleTranspose: 12,
     };
   });
   function turnOf(j) {
@@ -359,18 +370,19 @@ function melodyFor(source, i) {
     const beats = melodyFor(LINES[mm.name] || LINES.third, j).notes.reduce((a, [, d]) => a + d, 0);
     return Math.ceil(beats / BAR) * BAR;
   }
-  const total = members.reduce((a, _, j) => a + turnOf(j), 0) + 2 + familyRel.notes.reduce((a, [, d]) => a + d, 0);
+  const arrangement = arrangeChorus(voices);
   const score = {
     title: "The MacNeoPolitan Trio — III. Chorus",
     composer: "The machines, arr. compose.mjs",
     machines: 3, bpm, lead: 3.0,
-    description: `Each member sings its own line (${members.map((m) => `${m.name}=${m.say}`).join(", ")}) in turn, then all three sing the family line together, one tune in three registers.`,
+    description: "Enhanced/Premium Apple vocal trio: Blueberry bass, moving thirds, la-la answers and humming. Three-part D-major family chorus, scat exchange, shared hum. Sparse sine support.",
+    arrangement,
     unborn,
     outro: [{ voice: 0, text: "That was us. Thank you." }],
     voices,
   };
   writeFileSync(resolve(OUT, "trio-iii-chorus.mbscore"), JSON.stringify(score, null, 2) + "\n");
-  console.log(`  III. Chorus   ${(total * 60 / bpm).toFixed(0)}s · ${members.map((m) => m.say).join(" / ")}`);
+  console.log(`  III. Chorus   ${(arrangement.total * 60 / bpm).toFixed(0)}s · ${voices.map((v) => v.singVoice).join(" / ")}`);
 }
 
 
@@ -379,7 +391,7 @@ function melodyFor(source, i) {
 // refrain. The refrain keeps one tune; each verse walks its own (seeded by
 // its number). Ballad tempo. The whistle doubles two octaves up; the other
 // two members hold a low drone pulse under it — the family, listening.
-{
+if (!chorusOnly) {
   const bpm = 100;   // was 84 — "a bit slow" (jeffrey, Sept 20)
   const src = readFileSync(resolve(LANE, "members", "neo", "ballad.md"), "utf8");
   const block = src.split("```")[1] || "";
@@ -427,12 +439,12 @@ function melodyFor(source, i) {
 }
 
 // ---- the setlist ------------------------------------------------------------
-writeFileSync(resolve(OUT, "setlist.json"), JSON.stringify({
+if (!chorusOnly) writeFileSync(resolve(OUT, "setlist.json"), JSON.stringify({
   title: "The MacNeoPolitan Trio",
   gap: 5.0,
   movements: ["trio-i-birth.mbscore", "trio-ii-service.mbscore", "trio-iii-chorus.mbscore", "trio-iv-ballad.mbscore"],
 }, null, 2) + "\n");
-console.log(`  setlist.json  → node bin/trio.mjs --setlist scores/setlist.json ${members.map((m) => m.name).join(" ")}`);
+if (!chorusOnly) console.log(`  setlist.json  → node bin/trio.mjs --setlist scores/setlist.json ${members.map((m) => m.name).join(" ")}`);
 
 function ordinal(n) { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 function monthName(d) { return d.toLocaleString("en-US", { month: "long" }); }
@@ -444,7 +456,7 @@ function monthName(d) { return d.toLocaleString("en-US", { month: "long" }); }
 // its own body (both = one tune, each in its own register). Lyric-source
 // tokens as elsewhere; " / " breaks a caption line. One score per poem →
 // scores/dialog-NN-<slug>.mbscore + scores/dialogs.json (a setlist).
-{
+if (!chorusOnly) {
   const bpm = 100;
   const dp = resolve(LANE, "members", "dialogs.md");
   const poems = [];

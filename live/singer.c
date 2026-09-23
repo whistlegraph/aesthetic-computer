@@ -45,6 +45,9 @@ struct singer {
   singer_note notes[SINGER_MAX_NOTES];
   int nnotes;
 
+  singer_articulation articulation[SINGER_MAX_NOTES];
+  int narticulation;
+
   singer_params p;
 
   // ── audio-thread state (no allocation past here) ──────────────────────
@@ -92,6 +95,7 @@ singer *singer_create(const double *pcm, int n, int fs) {
   p->level = 2.4; p->f0_floor = 70.0; p->consonant_gain = 1.25;
   p->sustain_db = 0.0;   // 0 = stretch the whole nucleus (the pre-Sept-21 behaviour)
   p->gap_ms = 0.0;       // 0 = legato right up to the next onset
+  p->shimmer_frames = 0.0; p->legato_ms = 0.0;
   p->presence_db = 0.0;  // 0 = no consonant-band lift
   p->voiced_consonant_mix = 0.0;   // 0 = voiced consonants fully vocoded
   p->hold_ms = 0.0;      // 0 = a vowel may fill its whole note
@@ -271,6 +275,7 @@ static int split_syllables(singer *s, int a, int b, int k, unit_t *U) {
 // Place units on the grid, warp vowels, write the f0 line, synthesize, and
 // composite the original consonants back in. Shared by both render paths.
 static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer_params p, int *out_len) {
+  s->narticulation = 0;
   double fp = SINGER_FP_MS;
   int spec = s->fft_size / 2 + 1;
 
@@ -308,6 +313,9 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
   if (cstretch < 1.0) cstretch = 1.0;
   double cmix = getenv("SINGER_CMIX") ? atof(getenv("SINGER_CMIX")) : p.voiced_consonant_mix;
   int loop_sustain = getenv("SINGER_LOOP") ? atoi(getenv("SINGER_LOOP")) : p.loop_sustain;
+  // Wannadash's sing.py: tiny movement through the spectral envelope keeps
+  // a held vowel alive without moving its scored pitch. Opt-in for Chorus.
+  double shimmer = getenv("SINGER_SHIMMER_FRAMES") ? atof(getenv("SINGER_SHIMMER_FRAMES")) : p.shimmer_frames;
   const int XF = getenv("SINGER_XF") ? atoi(getenv("SINGER_XF")) : 8;   // seam crossfade, frames (40 ms)
   for (int i = 0; i < nu; i++) {
     int a = U[i].a, b = U[i].b, vs = U[i].vs, ve = U[i].ve;
@@ -385,6 +393,14 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
 
     int wlen = c_on_out + vout + c_co_out;
     int o0 = (int)lround(U[i].grid - c_on_out * p.morph);
+    if (s->narticulation < SINGER_MAX_NOTES) {
+      const double sec = SINGER_FP_MS / 1000.0;
+      singer_articulation *aout = &s->articulation[s->narticulation++];
+      aout->start = clampi(o0, 0, total) * sec;
+      aout->vowel_start = clampi(o0 + c_on_out, 0, total) * sec;
+      aout->vowel_end = clampi(o0 + c_on_out + vout, 0, total) * sec;
+      aout->end = clampi(o0 + wlen, 0, total) * sec;
+    }
     if (getenv("SINGER_TRACE")) {
       double nextOn = i + 1 < nu ? U[i + 1].grid - (double)(U[i + 1].vs - U[i + 1].a) * cstretch * p.morph : -1;
       fprintf(stderr, "  [unit %2d] src a=%d vs=%d ve=%d b=%d (on %d vow %d coda %d fr) → grid %.0f slot %.0f | avail %.0f full %.2f st %.2f vout %d | out %d..%d nextOn %.0f%s\n",
@@ -423,6 +439,10 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
           // sits on the early nucleus and the off-glide happens late.
           double gamma = st > 2.0 ? 2.2 : 1.0;
           srcf = vs + pow(u, gamma) * (vlen - 1);
+        }
+        if (shimmer > 0 && st > 2.0) {
+          srcf += shimmer * sin(2 * M_PI * 0.8 * j * fp / 1000.0) * sin(M_PI * u);
+          srcf = fmax(vs, fmin(ve - 1, srcf));
         }
         isc = 0;
       }
@@ -466,9 +486,21 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     double tgt_m;
     int u = o_u[o];
     if (u >= 0 && U[u].tgt >= 0) {
+      // Consonants can begin before their syllable's vowel/downbeat. The
+      // speech fragment owning a frame must not move the melody early:
+      // while a written note is active, its pitch owns the score clock.
+      int pitch_u = u;
+      if (p.mode == SINGER_SCORE) {
+        for (int j = nu - 1; j >= 0; j--) {
+          if (o >= U[j].grid && o < U[j].grid + U[j].slot) {
+            pitch_u = j;
+            break;
+          }
+        }
+      }
       // SCORE: the note, plus (1-lock) of the spoken contour around its mean,
       // plus the profile's vibrato easing in over the first 150 ms.
-      tgt_m = U[u].tgt + (midi - umean[u]) * (1.0 - p.lock);
+      tgt_m = U[pitch_u].tgt + (midi - umean[u]) * (1.0 - p.lock);
       double tv = (o - uon[u]) * fp / 1000.0;
       double ramp = tv < 0.15 ? tv / 0.15 : 1.0;
       tgt_m += (p.vib_cents / 100.0) * ramp * sin(2 * M_PI * p.vib_hz * tv);
@@ -488,6 +520,28 @@ static double *synth_units(singer *s, const unit_t *U, int nu, int total, singer
     o_f0[o] = exp((1 - p.morph) * log(o_sf0[o]) + p.morph * log(note_hz_midi(tgt_m)));
   }
   free(umean); free(ucnt); free(uon);
+
+  // Short log-frequency transitions, as in pop/cult/bin/sing.py.
+  // No interpolation across breath/rest frames and no change to note centers.
+  double legato_ms = getenv("SINGER_LEGATO_MS") ? atof(getenv("SINGER_LEGATO_MS")) : p.legato_ms;
+  int radius = clampi((int)lround(legato_ms / fp), 0, 12);
+  if (radius > 0) {
+    double *smooth = (double *)calloc(total, sizeof(double));
+    for (int o = 0; o < total; o++) {
+      if (o_f0[o] <= 0) continue;
+      double sum = log(o_f0[o]), weights = 1;
+      for (int dir = -1; dir <= 1; dir += 2) {
+        for (int k = 1; k <= radius; k++) {
+          int j = o + dir * k;
+          if (j < 0 || j >= total || o_f0[j] <= 0) break;
+          double w = 0.5 * (1 + cos(M_PI * k / (radius + 1)));
+          sum += w * log(o_f0[j]); weights += w;
+        }
+      }
+      smooth[o] = exp(sum / weights);
+    }
+    memcpy(o_f0, smooth, total * sizeof(double)); free(smooth);
+  }
 
   int ylen = (int)(total * fp / 1000.0 * s->fs);
   double *y = (double *)calloc(ylen, sizeof(double));
@@ -658,9 +712,12 @@ void singer_set_score(singer *s, const singer_note *n, int count) {
   s->nnotes = count;
 }
 int singer_note_count(const singer *s) { return s->nnotes; }
+int singer_articulation_count(const singer *s) { return s->narticulation; }
+const singer_articulation *singer_articulations(const singer *s) { return s->articulation; }
 
 double *singer_render_score(singer *s, double from16, double to16,
                             int *out_len, int *notes_used) {
+  s->narticulation = 0;
   singer_params p = s->p;
   double fp = SINGER_FP_MS;
   double sixt = (60000.0 / p.bpm) / 4.0 / fp;

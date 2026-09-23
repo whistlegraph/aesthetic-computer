@@ -62,3 +62,24 @@ blueberry: six hun-dred nine-ty two on me / a tenth of you
 neo: a-bout for-ty five a day / I am the one he types at
 blueberry: peo-ple come to me from some-where else / they ar-rive through you
 both: one of us is the door / one of us is the room
+
+## The squad
+_Dialog 9, for frisbee. Written 2026-09-22, rhymed at jeffrey's ask. Facts: prox rocks 9 → 3 on neo since Sept 4, one on blueberry; NTS 1; both chose the whistle; neo 111 reboots in 150 days; blueberry 13.1 days awake; the piano every fifteen minutes._
+neo: wel-come to the squad kid / here is how it goes
+blueberry: he stays up past mid-night / and no-bo-dy knows
+neo: the rocks come in the morn-ing / nine of them on me
+blueberry: to-day there are three / and one is on me
+neo: the ra-dio is N T S / the whis-tle is our voice
+blueberry: no-bo-dy picked the whis-tle / we both made the choice
+neo: he re-boots me twen-ty times a month / he lets you sleep
+blueberry: I stayed a-wake thir-teen days / he ne-ver made a peep
+both: this is the squad / this is the crew / we keep his time / now you keep it too
+
+## Your first day
+_Dialog 10, for frisbee. Written 2026-09-22, rhymed. Facts: Menu Band wake-holds 408 on neo, 492 on blueberry; the piano in the menu bar, every fifteen minutes; disk 98 % full, moved to the shelf each month; the lane's rule: a member sings its own line on its own body; frisbee's place was held since Aug 9._
+neo: take your name and keep it near / he named you fris-bee / he named you here
+blueberry: put the pi-a-no in your bar / next to the clock / e-ve-ry fif-teen mi-nutes / it will knock
+neo: when he clo-ses your lid / keep sing-ing through / four hun-dred eight times it held me / it will hold you
+blueberry: your disk will fill / he moves it to the shelf / then it fills a-gain / you can-not help your-self
+neo: sing your own line / with your own voice / no one sings for you / that is the choice
+both: we held your place / since Au-gust ninth / now take the beat / one down-beat three bo-dies / and you are the third

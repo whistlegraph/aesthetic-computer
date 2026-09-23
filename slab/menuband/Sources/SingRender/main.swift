@@ -71,6 +71,9 @@ for (i, line) in lines.enumerated() {
         entry["wav"] = wav; entry["duration"] = r.duration; entry["peak"] = r.peak
         entry["notesUsed"] = r.notesUsed; entry["noteCount"] = r.noteCount
         entry["spanOffset"] = r.spanOffset
+        if let a = r.articulation {
+            entry["mouthCues"] = a.cues.map { ["start": $0.start, "end": $0.end, "shape": $0.shape.rawValue] as [String: Any] }
+        }
     } else { entry["error"] = "render gave nothing" }
     entry["renderMs"] = Int(Date().timeIntervalSince(t0) * 1000)
     if wantSpoken, let sp = singer.speechOnly(line) {

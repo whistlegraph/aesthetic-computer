@@ -1,0 +1,15 @@
+{
+  "hostname": "frisbee",
+  "model": "MacBook Neo",
+  "model_identifier": "Mac17,5",
+  "chip": "Apple A18 Pro",
+  "memory": "8 GB",
+  "serial_tail": "9W6M",
+  "os": "26.7",
+  "born": "2026-09-21T21:07:19",
+  "battery": { "cycles": 2, "condition": "Normal", "capacity": "100%" },
+  "shell": { "commands": 0, "since": null, "top": [] },
+  "agent_sessions": { "count": 0, "since": null },
+  "menuband": { "melodic_program": 78, "backend": "null", "radio": "null" },
+  "harvested_at": "2026-09-22T16:42:49Z"
+}

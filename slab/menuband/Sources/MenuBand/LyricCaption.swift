@@ -207,12 +207,42 @@ final class LyricCaption {
 /// One character of a caption: bubble lettering (fill + stroke + hard shadow)
 /// drawn from an attributed string, so each glyph can jitter and sway alone.
 final class CaptionGlyphLayer: CALayer {
+    private final class Bitmap: NSObject {
+        let image: CGImage
+        init(_ image: CGImage) { self.image = image }
+    }
+    private static let bitmaps: NSCache<NSString, Bitmap> = {
+        let cache = NSCache<NSString, Bitmap>()
+        cache.totalCostLimit = 16 * 1024 * 1024
+        cache.countLimit = 512
+        return cache
+    }()
     var text = ""
     var font = NSFont.systemFont(ofSize: 12)
     var ink = NSColor.white
     var strokeColor = NSColor.black
     var shadowInk = NSColor.black
     var inset: CGFloat = 0
+
+    // As in Oskiewar's glyph atlas, rasterize text once and let the GPU move
+    // its image. Explicit contents avoid replaying CoreGraphics text/shadow
+    // display lists as each letter scales and sways over the Metal face.
+    override func display() {
+        let scale = max(1, contentsScale)
+        let width = max(1, Int(ceil(bounds.width * scale)))
+        let height = max(1, Int(ceil(bounds.height * scale)))
+        let key = "\(text)|\(font.fontName)|\(font.pointSize)|\(bounds)|\(scale)|\(ink)|\(strokeColor)|\(shadowInk)" as NSString
+        if let cached = Self.bitmaps.object(forKey: key) { contents = cached.image; return }
+        guard let ctx = CGContext(data: nil, width: width, height: height,
+                                  bitsPerComponent: 8, bytesPerRow: width * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        ctx.scaleBy(x: scale, y: scale)
+        draw(in: ctx)
+        guard let image = ctx.makeImage() else { return }
+        Self.bitmaps.setObject(Bitmap(image), forKey: key, cost: width * height * 4)
+        contents = image
+    }
 
     override func draw(in ctx: CGContext) {
         let sh = NSShadow()

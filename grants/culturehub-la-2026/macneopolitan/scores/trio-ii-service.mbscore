@@ -4,22 +4,20 @@
   "machines": 3,
   "bpm": 120,
   "lead": 3,
-  "description": "One pulse per battery cycle: neo 212, blueberry 85, blush 0. All begin together; each falls silent when its cycles run out. Every eighth pulse lifts an octave.",
-  "unborn": [
-    "blush"
-  ],
+  "description": "One pulse per battery cycle: neo 212, blueberry 85, frisbee 2. All begin together; each falls silent when its cycles run out. Every eighth pulse lifts an octave.",
+  "unborn": [],
   "intro": [
     {
       "voice": 0,
-      "text": "neo. 212 battery cycles in 150 days. One pulse each."
+      "text": "neo. 212 battery cycles in 151 days. One pulse each."
     },
     {
       "voice": 1,
-      "text": "blueberry. 85 battery cycles in 102 days. One pulse each."
+      "text": "blueberry. 85 battery cycles in 103 days. One pulse each."
     },
     {
       "voice": 2,
-      "text": "blush. Zero battery cycles. I will be quiet."
+      "text": "frisbee. 2 battery cycles in 1 days. One pulse each."
     }
   ],
   "voices": [
@@ -50,16 +48,16 @@
       "velocity2": 60
     },
     {
-      "name": "blush · 0 cycles",
+      "name": "frisbee · 2 cycles",
       "program": 78,
       "velocity": 72,
-      "notes": "54:1,54:0.5,62:1,57:2,r:1,57:0.5,59:0.5,57:2,r:1,55:1,55:2,r:93.5",
-      "lyrics": "ze-ro times charged / I am new / teach me",
+      "notes": "52:1,55:2,r:1,53:0.5,53:0.5,58:1,60:0.5,58:1,55:2,r:1,55:0.5,57:1,60:2,r:1,60:0.5,57:1,58:1,60:0.5,58:0.5,57:0.5,53:2,r:85",
+      "lyrics": "two times / one a day and stea-dy / I run cool / I work while you are a-way",
       "singVoice": "Junior",
       "singBase": 57,
-      "singVibratoHz": 5,
+      "singVibratoHz": 8,
       "sayVoice": "Junior",
-      "notes2": "r:106",
+      "notes2": "74:0.5,74:0.5,r:105",
       "velocity2": 60
     }
   ]

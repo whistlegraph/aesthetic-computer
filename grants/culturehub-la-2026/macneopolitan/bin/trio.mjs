@@ -41,6 +41,7 @@
 // --quiet: skip intro and outro.
 // --dry: prepare everything (posters, skews, vox renders), schedule nothing.
 
+import { singerPayload } from "./trio-payload.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { hostname } from "node:os";
@@ -300,6 +301,10 @@ if (setlistMode) {
 
 const scorePath = resolve(scoreArg);
 const score = JSON.parse(readFileSync(scorePath, "utf8"));
+if (score.requiresFleet && !dry && !show) {
+  console.error("This arrangement requires the combined CultureHub fleet. Use fleet-trio.mjs to prepare/check readiness; singers-only playback is disabled.");
+  process.exit(1);
+}
 const bpm = score.bpm || 120;
 const beat = 60 / bpm;
 const voices = score.voices || [];
@@ -340,6 +345,24 @@ for (const s of skipped) console.log(`    ${s.padEnd(22)} → (no body yet — s
 
 // ---- prepare: tools, skews, renders ----------------------------------------
 console.log(`\n  preparing…`);
+if (via === "menuband" && !useVox && !show) {
+  const voiceLists = new Map();
+  const missing = [];
+  for (const p of parts.filter(p => p.sung)) {
+    if (!voiceLists.has(p.host)) voiceLists.set(p.host, shOn(p.host, "say -v '?'"));
+    const installed = voiceLists.get(p.host);
+    const wanted = p.voice.singVoice;
+    if (wanted && /\((Enhanced|Premium)\)$/.test(wanted) &&
+        (installed.status !== 0 || !installed.stdout.split("\n").some(l => l.startsWith(wanted + " ")))) {
+      missing.push(`${shortName(p.host)} needs ${wanted}`);
+    }
+    if (shOn(p.host, "pgrep -x MenuBand >/dev/null").status !== 0) missing.push(`${shortName(p.host)}: MenuBand is not running`);
+  }
+  if (missing.length) {
+    console.error(`  Cannot start the trio: ${missing.join("; ")}. No cues sent.`);
+    process.exit(1);
+  }
+}
 const ready = parts.map((p) => ensureTool(p.host, "mbpost", POSTER_SRC));
 for (const p of parts) if (p.sung && ready[p.idx]) {
   if (useVox) {
@@ -416,25 +439,7 @@ for (const p of parts) {
     // One payload: the sung line (lyrics + notes, track 0 lights keys only),
     // the whistle on notes2.., and the member's profile constraints.
     const vj = p.member ? JSON.parse(readFileSync(resolve(HERE, "..", "members", p.member, "voice.json"), "utf8")) : {};
-    const prof = vj.aesthetivox || {};
-    const kv = [`bpm=${bpm}`, `startEpoch=${skewed(p.host, downbeat)}`, `program=${p.voice.program ?? 78}`,
-      `notes=${p.voice.notes}`, `lyrics=${String(p.voice.lyrics).replace(/[;=]/g, " ")}`,
-      `singVoice=${p.voice.singVoice || prof.base_voice || "Fred"}`,
-      `singVibratoHz=${p.voice.singVibratoHz ?? prof.sing?.vibrato_hz ?? 5}`,
-      `singVibCents=${prof.sing?.vibrato_depth_cents ?? 18}`, `singLock=${prof.sing?.harmony_lock ?? 0.875}`,
-      `singF0Floor=${prof.f0_floor ?? 55}`];
-    if (p.speech) kv.push(`stemPath=${p.speech.stem}`, `wordsPath=${p.speech.meta}`);
-    if (vj.color) kv.push(`captionColor=${vj.color}`);   // the member's color on its caption banner
-    if (p.member && !flags.includes("--no-face")) kv.push(`face=${p.member}`);   // its cartoon face, mouth on the onsets
-    for (const k of ["notes2", "notes3", "notes4", "velocity2", "velocity3", "velocity4"]) if (p.voice[k] != null) kv.push(`${k}=${p.voice[k]}`);
-    if (p.voice.double) {
-      const up = Number(p.voice.doubleTranspose) || 0;
-      const doubled = String(p.voice.notes).split(",").map((t) => { const [tok, d] = t.split(":"); return /^\d+$/.test(tok) ? `${Number(tok) + up}:${d}` : t; }).join(",");
-      const slot = ["notes2", "notes3", "notes4"].find((k) => !p.voice[k]);
-      if (slot) kv.push(`${slot}=${doubled}`, `velocity${slot.slice(5)}=${p.voice.doubleVelocity ?? 48}`);
-    }
-    if (score.title) kv.push(`title=${score.title.replace(/[;'=]/g, " ").trim()}`);
-    if (p.sim) kv.push(`sim=${p.sim}`);
+    const kv = singerPayload({p,vj,score,bpm,epoch:skewed(p.host,downbeat),face:!flags.includes("--no-face")});
     sends.push({ kind: "menuband-sing", host: p.host, ok: await post(p.host, PLAY, kv.join(";")) });
     continue;
   }
@@ -483,7 +488,7 @@ for (let i = 0; i < outro.length; i++) {
 
 const failed = sends.filter((s) => !s.ok);
 console.log("");
-if (!failed.length) console.log(`  ✓ ${sends.length} cues sent to ${parts.length} computer${parts.length > 1 ? "s" : ""}.`);
+if (!failed.length) console.log(show ? `  ✓ ${sends.length} payloads inspected; nothing posted.` : `  ✓ ${sends.length} cues sent to ${parts.length} computer${parts.length > 1 ? "s" : ""}.`);
 else for (const f of failed) console.log(`  ✗ ${shortName(f.host)} — ${f.kind} did not send.`);
 console.log(`  ends at epoch ${endsAt.toFixed(3)}\n`);
 process.exitCode = failed.length ? 1 : 0;

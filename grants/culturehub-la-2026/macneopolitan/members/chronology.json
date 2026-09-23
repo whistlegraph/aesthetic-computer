@@ -1,0 +1,543 @@
+{
+  "generated_at": "2026-09-22T16:43:20.338Z",
+  "members": [
+    "neo",
+    "blueberry",
+    "frisbee"
+  ],
+  "newborn": "frisbee",
+  "events": [
+    {
+      "date": "2026-04-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "April: the repo takes 3598 commits (neo 0, blueberry 0, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-04-19",
+      "who": "neo",
+      "kind": "records",
+      "text": "neo's login records begin — 5 days before it is set up",
+      "source": "profile.logins.recorded_since"
+    },
+    {
+      "date": "2026-04-19",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.4",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-04-24",
+      "who": "neo",
+      "kind": "birth",
+      "text": "**neo is set up** at 00:37 — the birth minute (:37) becomes its phrase length",
+      "source": "facts.born"
+    },
+    {
+      "date": "2026-04-25",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.4.1",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-04-27",
+      "who": "stack",
+      "kind": "mention",
+      "text": "Menu Band leaves slab and becomes an app: slab/menuband: extract MenuBand into its own standalone app (f7bcf3476d)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-04-28",
+      "who": "stack",
+      "kind": "mention",
+      "text": "the first commit that names a MacBook Neo: slab/menuband: 0.1 — slim popover, named instrument list, click-to-sound, @jeffrey testimo (37a53a1b8b)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-05-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "May: the repo takes 3489 commits (neo 292, blueberry 0, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-05-01",
+      "who": "neo",
+      "kind": "sessions",
+      "text": "May is neo's busiest month: 298 agent sessions hosted",
+      "source": "profile.agent_workload.by_month"
+    },
+    {
+      "date": "2026-05-09",
+      "who": "neo",
+      "kind": "commits",
+      "text": "neo's commit ledger begins: “opinion: add \"The Studio File System\" essay Author-side study of the monorepo's ”",
+      "source": "journey.first_commit"
+    },
+    {
+      "date": "2026-05-09",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **papers** lane (41 commits through 2026-08-26): “papers: page-1 JPEG thumbs on the index Each paper card on papers.aest”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-05-11",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **menuband** lane (130 commits through 2026-09-01): “menuband: landing page → 1.1 release notes Download link + meta string”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-05-11",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **slab** lane (51 commits through 2026-08-18): “slab: jeffrey-voice event sounds + scoped fade/cancel/afplay helpers n”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-05-14",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.5",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-05-18",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **pop** lane (45 commits through 2026-08-16): “pop: track single releases — RELEASES.md (trancenwaltz shipped) - pop/”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-05-20",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **ac-electron** lane (20 commits through 2026-07-13): “ac-electron: grant clipboard permissions to webviews navigator.clipboa”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-05-28",
+      "who": "blueberry",
+      "kind": "uptime",
+      "text": "blueberry begins its longest unbroken stretch: 13.1 days awake",
+      "source": "profile.uptime"
+    },
+    {
+      "date": "2026-05-29",
+      "who": "blueberry",
+      "kind": "records",
+      "text": "blueberry's login records begin — 13 days before it is set up",
+      "source": "profile.logins.recorded_since"
+    },
+    {
+      "date": "2026-05-29",
+      "who": "blueberry",
+      "kind": "os",
+      "text": "blueberry takes macOS 26.5",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-06-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "June: the repo takes 465 commits (neo 405, blueberry 0, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-06-06",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.5.1",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-06-09",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **fedac/native** lane (23 commits through 2026-07-03): “fedac/native: lanserv LAN dev server (http + mdns/bonjour) + ssh in ov”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-06-11",
+      "who": "blueberry",
+      "kind": "birth",
+      "text": "**blueberry is set up** at 00:43 — the birth minute (:43) becomes its phrase length",
+      "source": "facts.born"
+    },
+    {
+      "date": "2026-06-11",
+      "who": "both",
+      "kind": "radio",
+      "text": "neo and blueberry are paired by radio — each has the other's name on its list",
+      "source": "deep.bluetooth_paired"
+    },
+    {
+      "date": "2026-06-11",
+      "who": "both",
+      "kind": "gap",
+      "text": "blueberry is born 48 days after neo, six minutes later on the clock",
+      "source": "facts.born"
+    },
+    {
+      "date": "2026-06-12",
+      "who": "blueberry",
+      "kind": "os",
+      "text": "blueberry takes macOS 26.5.1",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-06-14",
+      "who": "neo",
+      "kind": "uptime",
+      "text": "neo begins its longest unbroken stretch: 5.9 days awake",
+      "source": "profile.uptime"
+    },
+    {
+      "date": "2026-06-14",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **physmidi** lane (20 commits through 2026-06-15): “physmidi: pitch regression harness + fix clarinet octave Foundation fo”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-06-15",
+      "who": "stack",
+      "kind": "mention",
+      "text": "the repo first says “blueberry”: slab: go dark/light across tailscale macs (menubar + ⌃⌥⌘A hotkey + go.fish) (eb7bf7b8c8)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-07-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "July: the repo takes 999 commits (neo 580, blueberry 200, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-07-01",
+      "who": "blueberry",
+      "kind": "sessions",
+      "text": "July is blueberry's busiest month: 514 agent sessions hosted",
+      "source": "profile.agent_workload.by_month"
+    },
+    {
+      "date": "2026-07-08",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **whistlegraph** lane (54 commits through 2026-08-31): “whistlegraph: full dataset — 963 transcribed, 424 songs clustered (30 ”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-08",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **whistlegraph.org** lane (34 commits through 2026-08-26): “whistlegraph.org: proper caps, growing Index, final-glyph thumbs, anim”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-12",
+      "who": "stack",
+      "kind": "mention",
+      "text": "the singing engine: live: talking heads sing — WORLD f0 replacement, beat-locked, 564ms to sound (53c4bc1035)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-07-13",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.5.2",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-07-13",
+      "who": "blueberry",
+      "kind": "os",
+      "text": "blueberry takes macOS 26.5.2",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-07-14",
+      "who": "blueberry",
+      "kind": "commits",
+      "text": "blueberry's commit reflog begins: “boot: count success at disk-load, retry imports for real, fix telemetry fields”",
+      "source": "journey.first_commit"
+    },
+    {
+      "date": "2026-07-14",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **papers** lane (22 commits through 2026-08-13): “papers: new essay — Gaps in Granularity (consumer AV playback expressi”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-14",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **cancelok** lane (11 commits through 2026-08-10): “cancelok: crisper labels (MatrixChunky8) + a names list in the repo”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-14",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **papers/granularity** lane (6 commits through 2026-07-15): “papers/granularity: bring up to the quality rubric”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-14",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **stack** lane (3 commits through 2026-07-15): “stack: DevOps stack-knowledge poster + session-server DB upgrade plan”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-15",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **thespianjas** lane (3 commits through 2026-07-17): “thespianjas: add native Metal studio”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-17",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **menuband** lane (8 commits through 2026-08-13): “menuband: tune instant spoken digits”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-17",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **slab** lane (4 commits through 2026-08-13): “slab: sync fleet messaging and session helpers”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-19",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **video** lane (21 commits through 2026-07-19): “video: dial release ends steady hold — net-time PLL can always re-lock”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-19",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **bios** lane (6 commits through 2026-07-19): “bios: silent-zip tapes fall back to mp4 rendition audio”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-07-19",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **scrub-jam** lane (4 commits through 2026-07-19): “scrub-jam: solo baton passes after release completes — one player at a”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-08-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "August: the repo takes 1038 commits (neo 686, blueberry 202, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-08-09",
+      "who": "stack",
+      "kind": "mention",
+      "text": "the residency becomes a two-work program; the trio is named: Turn the CultureHub residency into a two-work program (ce606ac80e)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-08-09",
+      "who": "blueberry",
+      "kind": "commits",
+      "text": "blueberry's busiest day: 81 commits",
+      "source": "journey.busiest_day"
+    },
+    {
+      "date": "2026-08-12",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **whistlegraph.org** lane (4 commits through 2026-09-02): “whistlegraph.org: unlink the lapsed zine shop, quiet the captions”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-08-13",
+      "who": "blueberry",
+      "kind": "lane",
+      "text": "blueberry opens the **pop/maytrax** lane (13 commits through 2026-08-13): “pop/maytrax: femrag++ rhythmic rework + SHAKEOUT video pipeline”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-08-17",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **loner** lane (57 commits through 2026-08-31): “loner: repair whisper's word boundaries against the audio, and fix the”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-08-18",
+      "who": "neo",
+      "kind": "commits",
+      "text": "neo's busiest day: 82 commits",
+      "source": "journey.busiest_day"
+    },
+    {
+      "date": "2026-08-18",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **oskiewar** lane (28 commits through 2026-09-04): “oskiewar v74: the session gets a name, the debug fps survives the titl”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-08-28",
+      "who": "neo",
+      "kind": "os",
+      "text": "neo takes macOS 26.6.2",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-08-31",
+      "who": "neo",
+      "kind": "lane",
+      "text": "neo opens the **imab** lane (18 commits through 2026-08-31): “imab: the measured melody — 35-take statistical skeleton replaces the ”",
+      "source": "journey.lanes"
+    },
+    {
+      "date": "2026-09-01",
+      "who": "stack",
+      "kind": "cadence",
+      "text": "September: the repo takes 724 commits (neo 56, blueberry 13, frisbee 0)",
+      "source": "git log"
+    },
+    {
+      "date": "2026-09-02",
+      "who": "neo",
+      "kind": "boot",
+      "text": "neo boots for the stretch it is still on (reboot 111, as of the harvest)",
+      "source": "profile.boots.current_boot"
+    },
+    {
+      "date": "2026-09-02",
+      "who": "blueberry",
+      "kind": "os",
+      "text": "blueberry takes macOS 26.6.2",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-09-02",
+      "who": "blueberry",
+      "kind": "boot",
+      "text": "blueberry boots for the stretch it is still on (reboot 64, as of the harvest)",
+      "source": "profile.boots.current_boot"
+    },
+    {
+      "date": "2026-09-04",
+      "who": "stack",
+      "kind": "mention",
+      "text": "the members write their autobiographies: macneopolitan: the band members write their autobiographies (c392e3769c)",
+      "source": "git log --grep"
+    },
+    {
+      "date": "2026-09-04",
+      "who": "neo",
+      "kind": "harvest",
+      "text": "neo is harvested: 212 cycles, 1121 sessions, whistle (GM 78), radio nts1",
+      "source": "facts.harvested_at"
+    },
+    {
+      "date": "2026-09-04",
+      "who": "blueberry",
+      "kind": "harvest",
+      "text": "blueberry is harvested: 85 cycles, 925 sessions, whistle (GM 78), radio nts1",
+      "source": "facts.harvested_at"
+    },
+    {
+      "date": "2026-09-20",
+      "who": "both",
+      "kind": "piece",
+      "text": "09:57 — neo (Fred) and blueberry (Kathy) sing the chorus together on one epoch, every note within a few cents",
+      "source": "PIECE.md"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "both",
+      "kind": "piece",
+      "text": "the held-out test: the words are lost in the voice, not the tuning (hear/README.md)",
+      "source": "hear/README.md"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "frisbee",
+      "kind": "birth",
+      "text": "**frisbee is set up** at 21:07 — the birth minute (:07) becomes its phrase length",
+      "source": "facts.born"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "frisbee",
+      "kind": "uptime",
+      "text": "frisbee begins its longest unbroken stretch: 0.5 days awake",
+      "source": "profile.uptime"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "frisbee",
+      "kind": "boot",
+      "text": "frisbee boots for the stretch it is still on (reboot 1, as of the harvest)",
+      "source": "profile.boots.current_boot"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "frisbee",
+      "kind": "gap",
+      "text": "frisbee is born 151 days after neo and 103 after blueberry — at :07, the shortest phrase in the house",
+      "source": "facts.born"
+    },
+    {
+      "date": "2026-09-21",
+      "who": "all",
+      "kind": "radio",
+      "text": "frisbee already has both elders on its radio list on its first day",
+      "source": "deep.bluetooth_paired"
+    },
+    {
+      "date": "2026-09-22",
+      "who": "both",
+      "kind": "piece",
+      "text": "tech at the studio, as a duo",
+      "source": "PIECE.md runway"
+    },
+    {
+      "date": "2026-09-22",
+      "who": "frisbee",
+      "kind": "records",
+      "text": "frisbee's login records begin — 0 days before it is set up",
+      "source": "profile.logins.recorded_since"
+    },
+    {
+      "date": "2026-09-22",
+      "who": "frisbee",
+      "kind": "os",
+      "text": "frisbee takes macOS 26.7",
+      "source": "deep.macos_updates"
+    },
+    {
+      "date": "2026-09-22",
+      "who": "frisbee",
+      "kind": "harvest",
+      "text": "frisbee is harvested: 2 cycles, 0 sessions, whistle (GM 78), radio null",
+      "source": "facts.harvested_at"
+    },
+    {
+      "date": "2026-09-24",
+      "who": "all",
+      "kind": "piece",
+      "text": "CultureHub LA: *AC Presents 2 New Pieces*, piece 2 — the trio plays",
+      "source": "PIECE.md"
+    }
+  ]
+}
