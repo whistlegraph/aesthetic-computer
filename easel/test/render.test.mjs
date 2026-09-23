@@ -365,3 +365,32 @@ test("the bottom line names the provider, abbreviates the path the way fish does
   assert.equal(windowTitle({ ...state, status: "ready", busy: true }), "🫏 aesel · ~/a/easel · aesthetic · ● working");
   assert.equal(windowTitle({ ...state, status: "ready" }), "🫏 aesel · ~/a/easel · aesthetic");
 });
+
+test("a drop-down stands on the fact that opened it, and a click on one of its rows picks", async () => {
+  const { dropdownGeometry, headerAction, proStatus } = await import("../src/render.mjs");
+  const base = {
+    workspace: "/client", mode: "remote", status: "ready", busy: false, input: "",
+    account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "claude", model: "claude-sonnet-5" },
+    profile: { name: "pro" }, entries: [{ id: "u", kind: "user", text: "hi" }],
+  };
+  assert.equal(headerAction(base, 80, 24, proStatus(base, 80, false).spans.find((s) => s.name === "engine").x + 1, 24), "provider", "the provider is its own control");
+  const items = [
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5", detail: "claude-opus-5-5" },
+    { id: "claude-sonnet-5", label: "Claude Sonnet 5", detail: "claude-sonnet-5" },
+  ];
+  const state = { ...base, dropdown: { kind: "model", items, index: 1, loading: false } };
+  const g = dropdownGeometry(state, 80, 24);
+  assert.equal(g.count, 2);
+  assert.equal(g.top, 24 - 1 - 2 - 1, "title row, then the rows, all above the status line");
+  const modelSpan = proStatus(state, 80, false).spans.find((s) => s.name === "model");
+  assert.equal(g.x, modelSpan.x, "it stands on the model");
+  const frame = renderFrame(state, 80, 24, false).split("\n");
+  assert.match(frame[g.top], /▾ model/);
+  assert.match(frame[g.top + 1], /  Claude Opus 5.5 {2}claude-opus-5-5/);
+  assert.match(frame[g.top + 2], /› Claude Sonnet 5 {2}claude-sonnet-5/, "the current model is marked");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 2), "pick:0", "clicking the first row picks it");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 3), "pick:1");
+  assert.equal(headerAction(state, 80, 24, 2, 3), "dismiss", "anywhere else closes it");
+  const loading = renderFrame({ ...base, dropdown: { kind: "model", items: [], index: 0, loading: true } }, 80, 24, false);
+  assert.match(loading, /loading…/);
+});

@@ -19,12 +19,25 @@ export function codexModels({command='codex',args=['app-server','--listen','stdi
     send({id:1,method:'initialize',params:{clientInfo:{name:'easel-settings',version:'1'},capabilities:{}}});
   });
 }
+function claudeChoices(p) {
+  // A row names itself by `id` (model-catalog) or `model` (a raw Codex row).
+  const rows=p.catalog.map(m=>({id:m.id||m.model||'',label:m.displayName||m.id||m.model||'',detail:m.id||m.model||''})).filter(r=>r.id);
+  const alias=String(p.model||'');
+  if(alias&&!rows.some(r=>r.id===alias)){
+    const family=rows.find(r=>r.id.includes(alias));
+    if(family)return rows.map(r=>r===family?{...r,id:alias,detail:`${alias} → ${r.id}`}:r);
+  }
+  return rows;
+}
 export function pickerModels(p) {
   const backend=BACKENDS[p.backend];
   if(p.backend==='ac')return [{id:backend.defaultModel,label:'Automatic'}];
   const choices=p.backend==='ac'?Object.entries(backend.models).map(([label,id])=>({id,label}))
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
-    :p.backend==='claude'?[['fable','Claude Fable 5.1'],['opus','Claude Opus 5'],['sonnet','Claude Sonnet 5'],['haiku','Claude Haiku 4.5']].map(([family,label])=>{const resolved=String(p.model||'').includes(family)?p.model:family;return {id:resolved,label,detail:resolved};})
+    // Claude: the catalog the Models API answered with, when one has been
+    // fetched (model-catalog.mjs); a family alias the CLI resolves ('opus')
+    // selects the newest row of that family. Without a catalog, the families.
+    :p.backend==='claude'?(p.catalog?.length?claudeChoices(p):[['fable','Claude Fable 5.1'],['opus','Claude Opus 5'],['sonnet','Claude Sonnet 5'],['haiku','Claude Haiku 4.5']].map(([family,label])=>{const resolved=String(p.model||'').includes(family)?p.model:family;return {id:resolved,label,detail:resolved};}))
     :[{id:'',label:'CLI default'},...(p.catalog||[]).filter(x=>!x.hidden).map(x=>({id:x.model,label:x.displayName||x.model}))];
   if(!choices.some(x=>x.id===p.model))choices.unshift({id:p.model,label:p.model||'CLI default',detail:p.model?'custom':''});
   return choices;

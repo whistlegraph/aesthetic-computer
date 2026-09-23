@@ -680,8 +680,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       header: () => header,
       path: () => pathLine,
     };
-    return [...body, ...shape.bottom.map((name) => rows[name]?.() ?? "")]
-      .slice(0, height)
+    return paintDropdown([...body, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
   }
@@ -751,6 +750,49 @@ export function windowTitle(state) {
   return ["🫏 aesel", fishPath(state.workspace), provider, doing].filter(Boolean).join(" · ");
 }
 
+// A drop-down: a short list standing on the status line's fact that opened
+// it — provider or model — with the current row marked. Where it sits and
+// which rows are showing are computed once, here, so the frame that paints it
+// and the click that lands on it agree to the cell.
+export function dropdownGeometry(state, width, height, shape = state.layout || {}) {
+  const drop = state.dropdown;
+  if (!drop) return null;
+  const bottom = shape.bottom || ["gap", "bar", "gap", "status"];
+  const statusRow = bottom.lastIndexOf("status");
+  // The anchor row is the status line; without one, the bar.
+  const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
+  const span = proStatus(state, width, false, shape).spans.find((s) => s.name === (drop.kind === "provider" ? "engine" : "model"));
+  const items = drop.loading ? [{ id: "", label: "loading…", detail: "" }] : drop.items.length ? drop.items : [{ id: "", label: "nothing to choose", detail: "" }];
+  const count = Math.max(1, Math.min(items.length, 10, anchor - 2));
+  const index = Math.max(0, Math.min(drop.index || 0, items.length - 1));
+  const start = Math.max(0, Math.min(index - Math.floor(count / 2), items.length - count));
+  const labelWidth = Math.max(...items.map((item) => textWidth(item.label)));
+  const detailWidth = Math.max(...items.map((item) => textWidth(item.detail || "")));
+  const boxWidth = Math.min(width - 2, 4 + labelWidth + (detailWidth ? 2 + detailWidth : 0) + 1);
+  const x = Math.max(0, Math.min(span ? span.x : 1, width - boxWidth - 1));
+  // Row 0 is the title; rows 1..count are the choices; all sit above the anchor.
+  const top = anchor - count - 1;
+  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: drop.kind === "provider" ? "provider" : "model" };
+}
+
+function paintDropdown(rows, state, width, height, useColor, shape) {
+  const g = dropdownGeometry(state, width, height, shape);
+  if (!g || g.top < 0) return rows;
+  const bar = useColor ? bg(shape.bar || [95, 70, 135]) : "";
+  const reset = useColor ? color.reset : "";
+  const cell = (text, tone) => `${useColor ? (tone === "block" ? bg(palette.block) + fg(palette.text) : bar + fg(palette[tone] || palette.text)) : ""}${fit(text, g.boxWidth)}${reset}${useColor ? color.ground : ""}`;
+  const place = (y, painted) => { if (y >= 0 && y < rows.length) rows[y] = `${fit(rows[y], g.x)}${painted}`; };
+  place(g.top, cell(` ▾ ${g.title}`, "soft"));
+  for (let j = 0; j < g.count; j += 1) {
+    const item = g.items[g.start + j];
+    const selected = g.start + j === g.index;
+    const label = item.label.padEnd(g.labelWidth);
+    const text = ` ${selected ? "›" : " "} ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}`;
+    place(g.top + 1 + j, cell(text, selected ? "block" : "text"));
+  }
+  return rows;
+}
+
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
@@ -782,7 +824,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     }
     spans.push({ name, x, width: textWidth(text) });
     // The model underlines under the mouse: it is the one fact that is a control.
-    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : (name === "model" || name === "engine") && state.hover === "model" && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
     x += textWidth(text);
   }
   return { line, spans };
@@ -801,10 +844,17 @@ export function headerAction(state, columns, rows, x, y) {
   // model on the status line, which opens the settings drawer.
   if (state.profile?.name === "pro") {
     const shape = { bottom: ["gap", "bar", "gap", "status"], ...(state.layout || {}) };
+    // An open drop-down owns the mouse: a row of it picks, anywhere else closes.
+    const g = dropdownGeometry(state, Math.max(32, columns), Math.max(10, rows), shape);
+    if (g) {
+      const row = y - 1 - g.top - 1;
+      if (row >= 0 && row < g.count && x >= g.x + 1 && x <= g.x + g.boxWidth) return `pick:${g.start + row}`;
+      return "dismiss";
+    }
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
     const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => (span.name === "model" || span.name === "engine") && x >= span.x + 1 && x <= span.x + span.width);
-    return hit ? "model" : "";
+    return hit ? (hit.name === "engine" ? "provider" : "model") : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}
   if(state.settings){

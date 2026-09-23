@@ -38,7 +38,8 @@ import { createHash } from "node:crypto";
 import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mjs";
 import { Energy, energyReport } from "./energy.mjs";
-import {codexModels,pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
+import {pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
+import { loadCatalog } from "./model-catalog.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
@@ -678,7 +679,7 @@ let harnessPanelPending=false;
 const harnessSettings=createSettingsController({
  read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
   medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
-  providers:['ac','claude','codex'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:modelCatalog||[]})})),
+  providers:['ac','claude','codex'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
   supported:['provider','model','effort','autopublish']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
@@ -714,7 +715,77 @@ let redrawTimer = null;
 let lastDrawAt = 0;
 let pendingModelGlyphs = "", resetModelGlyphs = false;
 function queueModelGlyphs(delta) { if (process.env.EASEL_DESKTOP && typeof delta === "string") pendingModelGlyphs = (pendingModelGlyphs + cleanText(delta)).slice(-8192); }
-let modelCatalog = null, desktopHistoryKey = "", desktopHistory = [];
+let desktopHistoryKey = "", desktopHistory = [];
+// One catalog per provider, asked of the provider (model-catalog.mjs) the
+// first time a picker wants it, and kept for the session.
+const catalogs = {};
+const catalogLoads = {};
+function catalogFor(id) { return catalogs[id] || []; }
+function ensureCatalog(id, { force = false } = {}) {
+  if (catalogs[id] && !force) return Promise.resolve(catalogs[id]);
+  if (catalogLoads[id] && !force) return catalogLoads[id];
+  catalogLoads[id] = loadCatalog(id, { cwd, force }).then((models) => {
+    catalogs[id] = models;
+    if (state.settings?.backend === id) { state.settings.catalog = models; state.settings.loading = false; }
+    if (state.dropdown?.kind === "model" && state.dropdown.provider === id) fillModelDropdown(id);
+    redraw();
+    return models;
+  }).catch(() => {
+    if (state.settings?.backend === id) { state.settings.loading = false; state.settings.error = `${id} catalog unavailable · /model NAME still works`; }
+    if (state.dropdown?.kind === "model" && state.dropdown.provider === id) { state.dropdown.loading = false; redraw(); }
+    return [];
+  }).finally(() => { delete catalogLoads[id]; });
+  return catalogLoads[id];
+}
+
+// ── the drop-down ─────────────────────────────────────────────────────────
+// Two of them, one per fact that is a control: the provider, and the model
+// the provider can run. A pick restarts the engine the way /backend and
+// /model do; the drawer (/settings) stays for effort and for the keyboard.
+function openDropdown(kind) {
+  if (kind === "provider") {
+    const items = ["ac", "claude", "codex"].map((id) => ({ id, label: id === "ac" ? "aesthetic" : id, detail: id === "ac" ? "hosted · metered to your @handle" : `your ${id} account` }));
+    state.dropdown = { kind, items, index: Math.max(0, items.findIndex((item) => item.id === backend.id)), loading: false };
+  } else {
+    state.dropdown = { kind: "model", provider: backend.id, items: [], index: 0, loading: !catalogs[backend.id] && backend.id !== "ac" };
+    fillModelDropdown(backend.id);
+    if (backend.id !== "ac") void ensureCatalog(backend.id);
+  }
+  redraw();
+}
+function fillModelDropdown(id) {
+  const drop = state.dropdown;
+  if (!drop || drop.kind !== "model") return;
+  drop.items = pickerModels({ backend: id, model: state.model || model, catalog: catalogFor(id) }).map((choice) => ({ id: choice.id, label: choice.label, detail: choice.detail || (choice.id !== choice.label ? choice.id : "") }));
+  drop.index = Math.max(0, drop.items.findIndex((item) => item.id === (state.model || model)));
+  drop.loading = !catalogs[id] && id !== "ac" && !drop.items.length;
+}
+function closeDropdown() { state.dropdown = null; redraw(); }
+async function chooseDropdown(index = state.dropdown?.index) {
+  const drop = state.dropdown;
+  if (!drop) return;
+  const item = drop.items[index];
+  state.dropdown = null;
+  if (!item?.id && !(drop.kind === "model" && item)) return redraw();
+  if (drop.kind === "provider") {
+    if (item.id === backend.id) return redraw();
+    return commandBackend(item.id);
+  }
+  if (item.id === (state.model || model)) return redraw();
+  return commandModel(item.id);
+}
+function dropdownKey(input) {
+  const drop = state.dropdown;
+  if (!drop) return false;
+  const last = Math.max(0, drop.items.length - 1);
+  if (input === "\x1b[A") drop.index = drop.index > 0 ? drop.index - 1 : last;
+  else if (input === "\x1b[B") drop.index = drop.index < last ? drop.index + 1 : 0;
+  else if (input === "\r" || input === "\n") { void chooseDropdown(); return true; }
+  else if (input === "\x1b" || input === "\x03" || input === "\t") { closeDropdown(); return true; }
+  else return true;
+  redraw();
+  return true;
+}
 let lastLayout = "", lastProvider = "", lastConversation = "", lastPrompt = "";
 if (process.env.EASEL_DESKTOP) {
   lastProvider = JSON.stringify({backend:backend.id,model:state.model||model,effort,busy:state.busy});
@@ -1601,14 +1672,14 @@ async function restartEngine(note, nextBackend = backend, nextModel = model, nex
 function openSettings(row=0) {
   if(state.busy){addEntry("notice","Interrupt the current turn before changing model settings.");return redraw();}
   state.scrollOffset=0;
-  state.settings={backend:backend.id,model,effort,row,catalog:modelCatalog||[],loading:!modelCatalog};
+  state.settings={backend:backend.id,model,effort,row,catalog:catalogFor(backend.id),loading:!catalogs[backend.id]&&backend.id!=='ac'};
   state.settings.index=drawerIndex(state.settings);
   redraw();
-  if(!modelCatalog)codexModels({cwd}).then(catalog=>{modelCatalog=catalog;if(state.settings){state.settings.catalog=catalog;state.settings.loading=false;redraw();}}).catch(()=>{if(state.settings){state.settings.loading=false;state.settings.error='Codex catalog unavailable · /model NAME still works';redraw();}});
+  if(backend.id!=='ac')void ensureCatalog(backend.id);
 }
 
 async function commandBackend(rest) {
-  if (!rest) return openSettings();
+  if (!rest) return pro ? openDropdown("provider") : openSettings();
   if (state.busy) {
     addEntry("error", "Interrupt the current turn before switching engines.");
     return redraw();
@@ -1625,6 +1696,7 @@ async function commandBackend(rest) {
 }
 
 async function commandModel(rest) {
+  if (!rest && pro) return openDropdown("model");
   if(backend.id==='ac')return openSettings(0);
   if (!rest) return openSettings(1);
   if (state.busy) {
@@ -1996,6 +2068,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       );
       return redraw();
     }
+    if (command === "/provider") return commandBackend(rest);
     if (command === "/layout") {
       const [verb = "", key = "", ...valueWords] = restWords;
       try {
@@ -2154,7 +2227,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     return redraw();
   }
 
-  if(!profile.private && (!transcriptJournal || !transcriptSharing || session.read()?.user?.sub!==sharingAcknowledgment?.owner)){
+  if(!profile.private && !pro && (!transcriptJournal || !transcriptSharing || session.read()?.user?.sub!==sharingAcknowledgment?.owner)){
     if(fromEditor){state.input=text;state.cursor=Array.from(text).length;}else state.queued.unshift(...(submittedMessages||[text]));
     addEntry('error','Required transcript sharing is unavailable. Sign back into the accepted account, or restart aesel to review the policy for another account.');return redraw();
   }
@@ -2319,20 +2392,20 @@ function handleKey(input) {
   if(process.env.EASEL_DESKTOP&&input.startsWith('\x1b[99;6;')){
     const request=conceptRequest(input);
     if(request&&!desktopHandoff&&!finishing){
-      if(!transcriptJournal||!transcriptSharing||session.read()?.user?.sub!==sharingAcknowledgment?.owner){addEntry('error','Sign in before asking about a word.');return redraw();}
+      if(!pro&&(!transcriptJournal||!transcriptSharing||session.read()?.user?.sub!==sharingAcknowledgment?.owner)){addEntry('error','Sign in before asking about a word.');return redraw();}
       return enqueueUserMessage(request);
     }
     return;
   }
   if(state.queued.length)lastSubmittedInputAt=Date.now();
   if(process.env.EASEL_DESKTOP && input==='\x1b[99;5~') {
-    if(!modelCatalog)void codexModels({cwd}).then(catalog=>{modelCatalog=catalog;redraw();}).catch(()=>{});
+    if(backend.id!=='ac')void ensureCatalog(backend.id);
     return redraw();
   }
   const desktopModel=process.env.EASEL_DESKTOP && /^\x1b\[99;4;(\d+);(\d+)~$/.exec(input);
   if(desktopModel){
     if(state.busy||backend.id==='ac'||['ac','claude','codex'][Number(desktopModel[1])]!==backend.id)return;
-    const choice=pickerModels({backend:backend.id,model,catalog:modelCatalog||[]})[Number(desktopModel[2])];
+    const choice=pickerModels({backend:backend.id,model,catalog:catalogFor(backend.id)})[Number(desktopModel[2])];
     if(choice)return void restartEngine('Model',backend,choice.id);
     return;
   }
@@ -2365,6 +2438,7 @@ function handleKey(input) {
     splashTimer = null;
     redraw();
   }
+  if (dropdownKey(input)) return;
   if (answerApproval(input)) return;
 
   if (input === "\u0003") {
@@ -2442,7 +2516,10 @@ function handleKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
-        if (mouse.click && action === "model") openSettings();
+        if (mouse.click && action === "model") { if (pro) openDropdown("model"); else openSettings(); }
+        if (mouse.click && action === "provider") openDropdown("provider");
+        if (mouse.click && action === "dismiss") closeDropdown();
+        if (action.startsWith("pick:") && state.dropdown) { const index = Number(action.slice(5)); if (mouse.click) void chooseDropdown(index); else if (state.dropdown.index !== index) { state.dropdown.index = index; redraw(); } }
         if(mouse.click&&action.startsWith('settings:')){
           const row=Number(action.split(':')[1]);
           if(!state.settings)openSettings(row);

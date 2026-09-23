@@ -36,6 +36,9 @@ test("a saved edit reaches the running session as a change", async (context) => 
   context.after(() => layout.close());
   layout.watch();
   const changed = new Promise((resolve) => layout.once("change", resolve));
+  // The poller's first look is its baseline; a file written before that look
+  // is part of the baseline and never a change. Let it look first.
+  await new Promise((resolve) => setTimeout(resolve, 150));
   mkdirSync(join(root, "..", "cfg"), { recursive: true });
   writeFileSync(file, JSON.stringify({ bottom: ["gap", "status", "gap", "bar"] }));
   const spec = await changed;
