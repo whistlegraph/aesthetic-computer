@@ -18,10 +18,6 @@
 //   node pop/wattajetta/bin/render-wattajetta.mjs          → out/wattajetta.mp3
 //   node pop/wattajetta/bin/render-wattajetta.mjs --tiny-bells
 //                                                        → out/wattajetta-tinybells.mp3
-//   node pop/wattajetta/bin/render-wattajetta.mjs --stone-club
-//                                                  → out/wattajetta-stone-club-audition.mp3
-//   node pop/wattajetta/bin/render-wattajetta.mjs --stone-club --stems
-//                                                  → out/wattajetta-stone-club-stems/*.wav
 //   node pop/wattajetta/bin/render-wattajetta.mjs --score  → print the engine score
 //
 // Arc (bars):
@@ -38,7 +34,7 @@
 //   80–95  mist     stone tolls · vinyl wobble · underwater scrub ·
 //                   one last glass bell closing the circle
 
-import { writeFileSync, readFileSync, mkdirSync, unlinkSync, existsSync, statSync, renameSync } from "node:fs";
+import { writeFileSync, readFileSync, mkdirSync, unlinkSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,10 +86,6 @@ const humanRnd = () => ((_human = (_human * 1664525 + 1013904223) >>> 0) / 42949
 // e minor pentatonic — the bell runs live here. One octave down from
 // the first cuts: E5–E6 read piercing-tangy on laptop speakers
 const DROP_NOTES = ["E4", "G4", "A4", "B4", "D5", "E5"];
-// The club cut's mallet figures (octave stops, pickup runs, rolls) extend the
-// pentatonic ladder one octave DOWN — marimba left hand — so the perc-nerd
-// play never reaches above the E5 laptop-tang ceiling.
-const LADDER_BASE = 5; // canonical: DROP_NOTES[i] sits at full-ladder index i + 5
 const CHIME_NOTES = ["E5", "G5", "A5", "B5", "D6"];
 const BLOOP_HZ = [164.81, 196.0, 220.0, 246.94, 293.66]; // e3 pentatonic
 // sub roots: e1 g1 a1 d2 under each 2-bar phrase
@@ -112,13 +104,6 @@ const sines = [];  // t0 dur f0 f1 ampDb atk rel pan0 pan1 vibHz vibCents
 const noises = []; // t0 dur f0 f1 q peakDb atk rel pan
 const snares = []; // { t, strength } — also keys the independent bell duck
 const bells = [];  // { t, note, vel, pan, gain, material, geometry, dur, warp? }
-// Tagged pitched events that don't live in `bells` (they mix straight to the
-// bus), collected only so the graphic-score exporter can analyze the track.
-const scoreExtra = { uke: [], flyby: [], sub: [], disco: [] };
-// Staircase notes (rushes, glisses, pickups, arps) log themselves here so a
-// square-wave shadow voice can dilly-dally after them at mix time.
-const squareShadow = [];
-const SCORE_JSON = STONE_CLUB && process.argv.includes("--score-json");
 
 const bar = (n) => (n + INTRO_BARS) * BAR;
 const introBar = (n) => n * BAR;
@@ -145,8 +130,6 @@ const DROPS = STONE_STUDY
   ? STONE_DROPS.map((d) => ({ ...d, a: d.a * STONE_SCALE, z: d.z * STONE_SCALE }))
   : ORIGINAL_DROPS;
 const BREATHS = STONE_STUDY ? [] : [12, 28, 44, 60];
-// The club enters as percussion only; tonal material arrives after four bars.
-const INTRO_PERC_ONLY_BARS = STONE_CLUB ? 8 : 0;
 
 // ── watjetsto720: the wave form ───────────────────────────────────────
 // Suzanne Ciani's Seven Waves was written down, not patched, and her
@@ -293,29 +276,9 @@ if (WORLD) {
 // ── kicks: halftime 1+3 early (the part we loved), then the flight
 //    ramps — drop C flips to four-on-the-floor halfway, and the steel
 //    and stone drops drive full trance 4/4 ────────────────────────────
-const kickAt = (t, db = STONE_CLUB ? -0.8 : -2) => kicks.push([
-  t,
-  STONE_CLUB ? 126 : 118,
-  STONE_CLUB ? 43 : 41,
-  STONE_CLUB ? 0.088 : 0.075,
-  db,
-  STONE_CLUB ? 0.009 : 0.012,
-  STONE_CLUB ? 0.34 : 0.28,
-]);
+const kickAt = (t, db = -2) => kicks.push([t, 118, 41, 0.075, db, 0.012, 0.28]);
 for (const d of DROPS)
   for (let b = d.a; b < d.z; b++) {
-    // techno section: the kick tightens — shorter hole, faster decay, a
-    // shade louder. A bare machine pulse while every other voice steps out.
-    if (inTechno(b)) {
-      for (let k = 0; k < 4; k++)
-        kicks.push([bar(b) + k * BEAT, 128, 45, 0.06, -0.4, 0.007, 0.2]);
-      continue;
-    }
-    // slow build: the first four bars are percussion-only, with no kick.
-    // The low-end engine arrives after the room has established its pulse.
-    if (STONE_CLUB && b < INTRO_PERC_ONLY_BARS) {
-      continue;
-    }
     const fourFloor = STONE_STUDY || d.a >= 48 || (d.a === 32 && b >= 38);
     if (fourFloor) for (let k = 0; k < 4; k++) kickAt(bar(b) + k * BEAT);
     else { kickAt(bar(b)); kickAt(bar(b) + 2 * BEAT); }
@@ -335,149 +298,8 @@ if (STONE_STUDY) {
       noises.push([t, 0.085 + 0.035 * swell,
         1750 + 950 * swell, 900 + 350 * swell, 0.95 + 0.4 * swell,
         db, 0.002, 0.06 + 0.035 * swell, beat === 1 ? -0.08 : 0.08]);
-      snares.push({ t, strength: (0.68 + 0.32 * swell) * (b < INTRO_PERC_ONLY_BARS ? 0.38 : 1) });
+      snares.push({ t, strength: 0.68 + 0.32 * swell });
       snareIndex++;
-    }
-  }
-}
-
-// A narrow offbeat hat makes the quarter-note grid physical without covering
-// the stone and glass transients. It opens only at four-bar turns.
-if (STONE_CLUB) {
-  for (let b = 0; b < BARS; b++) { // the tick never stops — hats run bar 0 to the end
-    for (let beat = 0; beat < 4; beat++) {
-      const tech = inTechno(b);
-      const early = b < 4; // pre-build: a quiet tight tick that leads the room in
-      const open = beat === 3 && b % 4 === 3 && !tech && !early; // techno/intro: closed only
-      const hit = b * 4 + beat;
-      const t = bar(b) + (beat + 0.5) * BEAT + EAGER + (tech ? 0 : grooveJitter(hit, 73, 0.004));
-      const lateLift = b >= 36 ? 1.5 : b >= 18 ? 0.8 : 0;
-      const hand = tech ? 0 : (grooveUnit(hit, 91) - 0.5) * 2.6;
-      noises.push([t, open ? 0.18 : tech || early ? 0.03 : 0.055,
-        open ? 6900 : 7600, open ? 9800 : 8900, open ? 0.72 : 1.45,
-        (open ? -17.5 : tech ? -18.5 : early ? -21 : -19.5) + lateLift + hand,
-        0.001, open ? 0.14 : tech || early ? 0.02 : 0.035, drumOrbitPan(t, spatialEventPan(t, hit + 4, 0.42))]);
-    }
-  }
-
-  // Swung sixteenth shakers on Euclidean necklaces (Toussaint): E(k,16) with
-  // k climbing 5→7→9→11 as the material hardens, the necklace rotated by 5
-  // each bar — 5 is coprime to 16, so the rotation orbit visits all sixteen
-  // phases before repeating. Accents land where a counter-rotating E(3,16)
-  // agrees: coincidence, not a fixed backbeat. Timing feel is unchanged:
-  // eager, odd sixteenths late, ±4.5 ms hand scatter, velocity random walk.
-  const euclid = (k, n, rot) => {
-    const hits = [];
-    for (let i = 0; i < n; i++) {
-      const j = (i + n - (rot % n)) % n;
-      if (Math.floor((j + 1) * k / n) > Math.floor(j * k / n)) hits.push(i);
-    }
-    return hits;
-  };
-  for (let b = STONE_CLUB ? INTRO_PERC_ONLY_BARS : 1; b < BARS; b++) {
-    if (inTechno(b)) continue; // techno strips to kick/rim/closed-hat
-    const lateLift = b >= 54 ? 2.4 : b >= 36 ? 1.5 : b >= 18 ? 0.7 : 0;
-    const k = [5, 7, 9, 11][Math.min(3, Math.floor(b / 18))];
-    const accents = new Set(euclid(3, 16, (b * 7) % 16));
-    for (const step of euclid(k, 16, (b * 5) % 16)) {
-      if (b < 8 && step % 3 !== 0) continue;
-      const hit = b * 16 + step;
-      const swing = step % 2 ? SWING_16 : 0;
-      const t = bar(b) + step * (BEAT / 4) + EAGER + swing + grooveJitter(hit, 113, 0.0045);
-      const accent = accents.has(step) ? 2.1 : 0;
-      const hand = (grooveUnit(hit, 127) - 0.5) * 3.2;
-      noises.push([t, 0.026 + grooveUnit(hit, 131) * 0.022,
-        5200 + 1700 * grooveUnit(hit, 137), 7600 + 1500 * grooveUnit(hit, 139),
-        1.2 + 0.7 * grooveUnit(hit, 149), -28 + lateLift + accent + hand,
-        0.001, 0.018 + 0.018 * grooveUnit(hit, 151), drumOrbitPan(t, spatialEventPan(t, hit, 0.5))]);
-    }
-  }
-
-  // A coprime polymeter family over the 16-grid: a rim tick every 5
-  // sixteenths (realigns with the bar every 5 bars) and, once the steel
-  // half begins, a deeper wood tick every 3 (dotted-eighth pulse, 3-bar
-  // cycle). With the bar itself that's periods {3,4,5} — the full pattern
-  // only rephases every LCM = 15 bars, so the ear never catches it looping.
-  for (let s = 8 * 16; s < BARS * 16; s += 5) {
-    const t = bar(0) + s * (BEAT / 4) + EAGER * 0.5 + grooveJitter(s, 211, 0.003);
-    noises.push([t, 0.03, 2600, 2200, 2.4, -29.5 + (grooveUnit(s, 223) - 0.5) * 2,
-      0.001, 0.02, spatialEventPan(t, 900 + s, 0.55)]);
-  }
-  for (let s = 36 * 16; s < BARS * 16; s += 3) {
-    if (inTechno(Math.floor(s / 16))) continue;
-    const t = bar(0) + s * (BEAT / 4) + DRAG * 0.5 + grooveJitter(s, 227, 0.003);
-    noises.push([t, 0.042, 1050, 850, 2.0, -30.5 + (grooveUnit(s, 229) - 0.5) * 2,
-      0.001, 0.03, spatialEventPan(t, 940 + s, 0.5)]);
-  }
-
-  // Fibonacci-word ghost snares: the aperiodic binary word (s_n = s_{n-1} +
-  // s_{n-2}) decides which off-sixteenths get a tiny tap. Self-similar,
-  // never periodic, hit density exactly 1/φ² — structure without a loop.
-  let fibA = "0", fibB = "01";
-  while (fibB.length < BARS * 8) [fibA, fibB] = [fibB, fibB + fibA];
-  let fibCursor = 0;
-  for (let b = 18; b < BARS; b++)
-    for (const step of [1, 3, 5, 7, 9, 11, 13, 15]) {
-      if (fibB[fibCursor++ % fibB.length] !== "1") continue;
-      if (inTechno(b)) continue; // cursor still advances — the word doesn't reset
-      const hit = b * 16 + step;
-      const t = bar(b) + step * (BEAT / 4) + DRAG + grooveJitter(hit, 233, 0.004);
-      noises.push([t, 0.05, 1500 + 400 * grooveUnit(hit, 239), 950, 1.3,
-        -31 + (grooveUnit(hit, 241) - 0.5) * 2.4,
-        0.001, 0.035, step < 8 ? -0.14 : 0.14]);
-    }
-
-  // "Skipadoo" fills: the pattern skips a sixteenth, then answers with a
-  // tight double. Four skip shapes rotate and the tone ramp flips direction
-  // on odd fills, so no two consecutive fills say the same thing.
-  const SKIP_PATTERNS = [
-    [2.5, 2.75, 3.25, 3.5, 3.625, 3.75],
-    [2.25, 2.75, 3.0, 3.5, 3.75],
-    [2.5, 3.0, 3.25, 3.375, 3.625, 3.875],
-    [2.75, 3.25, 3.5, 3.625, 3.75],
-  ];
-  for (const [fillIndex, b] of [7, 17, 25, 35, 43, 53, 61, 69].entries()) {
-    if (b >= BARS || (STONE_CLUB && b < INTRO_PERC_ONLY_BARS)) continue;
-    const pattern = SKIP_PATTERNS[fillIndex % SKIP_PATTERNS.length];
-    const flip = fillIndex % 2 ? pattern.length - 1 : 0;
-    for (let i = 0; i < pattern.length; i++) {
-      const ramp = Math.abs(i - flip); // rises on even fills, falls on odd
-      const hit = fillIndex * 16 + i;
-      const t = bar(b) + pattern[i] * BEAT + EAGER + grooveJitter(hit, 181, 0.003);
-      noises.push([t, 0.038, 1450 + ramp * 170, 930 + ramp * 120, 1.6,
-        -22.5 + i * 0.65 + (grooveUnit(hit, 191) - 0.5) * 2,
-        0.001, 0.028, spatialEventPan(t, hit + 200, 0.62)]);
-    }
-  }
-
-  // Reverse-snare intakes and 32nd-note "tttttt" hat rushes announce each
-  // material mutation. The rush accelerates in brightness and width. Smaller
-  // cousins (no intake, half the hats, quieter) pair with the surprise bell
-  // rushes mid-mutation.
-  for (const [turn, targetBar] of [18, 36, 54, 68].entries()) {
-    if (targetBar >= BARS) continue;
-    const target = bar(targetBar);
-    noises.push([target - 0.72, 0.72, 850, 5200, 0.82, -19 + turn,
-      0.64, 0.025, spatialEventPan(target, 300 + turn, 0.7)]);
-    const count = 12;
-    const start = target - 0.75 * BEAT;
-    for (let i = 0; i < count; i++) {
-      const t = start + i * (0.75 * BEAT / count) + EAGER * 0.35 + grooveJitter(i, 331 + turn, 0.0015);
-      noises.push([t, 0.018 + 0.012 * (i / count), 7200 + i * 210, 9100 + i * 170,
-        1.45, -28 + i * 0.78 + turn * 0.7, 0.0005, 0.014,
-        spatialEventPan(t, 340 + turn * 16 + i, 0.78)]);
-    }
-  }
-  for (const [turn, targetBar] of [27, 45, 62].entries()) {
-    if (targetBar >= BARS) continue;
-    const target = bar(targetBar);
-    const count = 6;
-    const start = target - 0.4 * BEAT;
-    for (let i = 0; i < count; i++) {
-      const t = start + i * (0.4 * BEAT / count) + EAGER * 0.35 + grooveJitter(i, 397 + turn, 0.0015);
-      noises.push([t, 0.016 + 0.010 * (i / count), 7400 + i * 240, 9200 + i * 190,
-        1.45, -32 + i * 0.9, 0.0005, 0.012,
-        spatialEventPan(t, 420 + turn * 16 + i, 0.7)]);
     }
   }
 }
@@ -499,14 +321,11 @@ for (const d of DROPS)
   for (let b = d.a; b < d.z; b += 2) {
     const root = ROOTS[((b - d.a) / 2) % 4] * waveShift(b);
     if (STONE_STUDY || d.a >= 48) {
-      // trance gallop: offbeat eighth stabs — the sidechain makes the pump.
-      // The techno strip drops the gallop and keeps only the bare floor.
-      for (let bb = b; bb < b + 2; bb++) {
-        if (inTechno(bb)) continue;
+      // trance gallop: offbeat eighth stabs — the sidechain makes the pump
+      for (let bb = b; bb < b + 2; bb++)
         for (let k = 0; k < 4; k++)
           sines.push([bar(bb) + (k + 0.5) * BEAT, 0.16, root * 2, root * 2,
             -8, 0.005, 0.08, 0, 0, 0, 0]);
-      }
       sines.push([bar(b), 2 * BAR - 0.08, root, root,
         -9, 0.06, 0.25, 0, 0, 0, 0]); // sub floor stays
     } else {
@@ -526,51 +345,9 @@ let bellIndex = 2;
 let bellDirection = 1;
 let bellStep = 0;
 const BELL_MOVES = [1, 1, 0, 2, -1, 1, -2, 1, 0, 1, 2, -1, 0, -2, 1, 1, -1];
-// Where the melodic cursor stands at each bar's downbeat, as a MALLET_LADDER
-// position — the roll and pickup passes below aim at these so the perc-nerd
-// figures always land on the through-composed line, never beside it.
-const barLead = [];
-// One player, two mallets: while a roll or a pickup run is being played the
-// eighth-note line must YIELD — otherwise two melodic streams double up.
-// These predicates mirror the figure placement below exactly.
-const PICKUP_SEAMS = [18, 36, 54];
-const MINI_RUSH = [27, 40, 45, 62]; // surprise rush drops + the bar-40 breakout
-// cliff runs: the line scrawls up to the top of the ladder and slides back
-// down — the walk lays out for the whole bar while the hands climb
-const CLIFF_BARS = [24, 42, 56, 64];
-const pickupYield = (b, e) => STONE_CLUB &&
-  ((PICKUP_SEAMS.includes(b + 1) && (b + 1 === 54 ? e >= 6 : e === 7)) ||
-   (MINI_RUSH.includes(b + 1) && e === 7));
-// During a chorus the composed hook takes the first two bars of every four;
-// the walking line answers in the other two — call and response, never both.
-const hookBar = (b) => STONE_CLUB && sectionAt(b).name === "chorus" && (b - sectionAt(b).a) % 4 < 2;
-// The club line breathes: two incommensurate waves (13- and 7.3-bar periods)
-// make sparse valleys and dense crests that never lock to the 4-bar grid.
-// In a valley the player lays out and lets single strikes RING (long variable
-// FEM decays); on a crest the eighths swing harder and sprout sixteenth fills.
-// the intro's wave additionally ramps from 60% — the room assembles slowly
-const sectionWave = (b) => {
-  const s = sectionAt(b);
-  return s.name === "intro" ? s.wave * (0.6 + 0.4 * (b / Math.max(1, s.z))) : s.wave;
-};
-const waveAt = (b) => (STONE_CLUB ? sectionWave(b) : 1) * (0.35 + 0.9 *
-  (0.6 * (0.5 + 0.5 * Math.sin(TAU * b / 13 + 1.1)) +
-   0.4 * (0.5 + 0.5 * Math.sin(TAU * b / 7.3))));
-const sparseAt = (b) => STONE_CLUB && waveAt(b) < 0.62;
-const rollBar = (b) => STONE_CLUB && b + 1 < BARS && (b + 1) % 4 === 0 &&
-  bar(b) >= 45 && (b >= 54 || (b + 1) % 8 === 0) && !sparseAt(b + 1);
 function bellRun(b, d) {
   const inSparseOpening = STONE_STUDY && bar(b) < TINY_BELL_END;
   const earlyDensity = inSparseOpening ? 0.48 : 1;
-  // The club walks the section's mode ladder (the scale tour); the canonical
-  // cut keeps its original pentatonic window untouched.
-  const mode = STONE_CLUB ? modeAt(b) : null;
-  const winLen = mode ? LANES[mode].len : DROP_NOTES.length;
-  const winBase = mode ? LANES[mode].start : LADDER_BASE;
-  const octSteps = mode ? MODES[mode].length : 5;
-  // At most two ornaments a bar, and never two on one strike — a crest full
-  // of independent flams/diddles/stops/fills smears the melody into confusion.
-  let ornaments = 0;
   for (let e = 0; e < 8; e++) {
     if (bellStep > 0 && (bellStep % 11 === 0 || bellStep % 29 === 0))
       bellDirection *= -1;
@@ -582,19 +359,7 @@ function bellRun(b, d) {
       if (bellIndex >= POOL.length) bellIndex = 2 * (POOL.length - 1) - bellIndex;
       bellDirection *= -1;
     }
-    if (e === 0) barLead[b] = winBase + bellIndex;
-    // Consume the density gate every slot so the pitch walk and the engine
-    // textures stay aligned even where the club line lays out.
-    const gate = rnd();
-    const wave = STONE_CLUB ? waveAt(b) : 1;
-    const sparse = sparseAt(b);
-    // One player: the line yields while the hands are rolling or sweeping,
-    // steps aside for the hook's two chorus bars (call and response), lays
-    // out entirely for cliff runs and the whole stripped techno section.
-    const yielded = (rollBar(b) && e >= 6) || pickupYield(b, e) || hookBar(b) ||
-      (STONE_CLUB && CLIFF_BARS.includes(b)) || inTechno(b) ||
-      (sparse && e % 2 === 1); // valleys drop the offbeat answers entirely
-    if (!yielded && b >= INTRO_PERC_ONLY_BARS && gate < d.density * earlyDensity * Math.min(1, wave + 0.25)) {
+    if (rnd() < d.density * earlyDensity) {
       // Most opening bells remain pinpricks, but a deliberately rare FEM
       // strike becomes a structural tone with its full physical decay.
       const longTail = inSparseOpening && bellStep % 23 === 5;
@@ -605,289 +370,15 @@ function bellRun(b, d) {
         pan: (rnd() * 2 - 1) * 0.7,
         gain: Math.pow(10, (d.gainDb + (longTail ? -2.5 : 0)) / 20),
         material: d.mat, geometry: d.geom || "glass",
-        dur: openingBloom ? [7, 8.5, 10][Math.floor(bellStep / 23) % 3]
-          : ringDur ||
-            (STONE_CLUB && wave > 1.02 ? Math.min(baseDur, 0.7) : baseDur),
-        longTail: rings,
-        // the bridge is heard through water — the whole line submerges
-        ...(STONE_CLUB && sectionAt(b).name === "bridge"
-          ? { warp: { depth: 0.025, hz: 0.5 } } : {}),
-      };
-      bells.push(strike);
-      // The line harmonises: on right-hand strikes a quiet partner joins a
-      // diatonic third below (verses) or sixth below (choruses) from the
-      // section ladder — parallel organum riding the walk. Separate from the
-      // ornament budget: this is a voice, not a decoration.
-      if (STONE_CLUB && !rings && !sparse && !leftHand && b >= 8 && octSteps === 7 &&
-          grooveUnit(bellStep, 617) < (sectionAt(b).name === "chorus" ? 0.42 : 0.26))
-        bells.push({ ...strike,
-          note: lnote(mode, li - (sectionAt(b).name === "chorus" ? 5 : 2)),
-          vel: strike.vel * 0.5, pan: -strike.pan * 0.8,
-          dur: Math.min(strike.dur, 1.2) });
-      // Ornaments are mutually exclusive per strike and budgeted per bar —
-      // one flam OR diddle OR octave stop OR fill, never a pile-up.
-      if (STONE_CLUB && !rings && !sparse && ornaments < 2) {
-        // Flam: a soft grace note one scale step below, 30 ms ahead of the
-        // downbeat strike — the mallet brushes in before the accent.
-        if (e === 0 && b % 2 === 0 && b >= 4 && grooveUnit(bellStep, 421) < 0.45) {
-          bells.push({ ...strike, t: strike.t - 0.030,
-            note: lnote(mode, li - 1), vel: strike.vel * 0.42,
-            dur: 0.45, choke: true, pan: strike.pan * 0.5 });
-          ornaments++;
-        // Diddle: the left hand doubles its stroke into a tight sixteenth
-        // pair; in the tubular mutation the second stroke is a dead stroke —
-        // the mallet stays on the bar and chokes it.
-        } else if (leftHand && b >= 36 && wave > 0.8 && grooveUnit(bellStep, 431) < 0.38) {
-          bells.push({ ...strike, t: strike.t + 0.25 * BEAT,
-            vel: strike.vel * 0.55, dur: Math.min(strike.dur, 0.7),
-            choke: b < 54, pan: strike.pan * 0.7 });
-          ornaments++;
-        // Octave double-stop: the right hand's accent picks up its marimba
-        // left-hand partner an octave below — color on the accent, kept rare
-        // and soft enough that it never reads as a second melody.
-        } else if (!leftHand && b >= 18 &&
-            grooveUnit(bellStep, 441) < (b >= 54 ? 0.32 : 0.18)) {
-          bells.push({ ...strike, note: lnote(mode, li - octSteps),
-            vel: strike.vel * 0.68, pan: -strike.pan * 0.6 });
-          ornaments++;
-        // Crest fill: on a dense wave the right hand tucks in a soft choked
-        // sixteenth neighbor a step below — motion, not a parallel line.
-        } else if (!leftHand && wave > 1.02 && grooveUnit(bellStep, 459) < 0.3) {
-          bells.push({ ...strike, t: strike.t + 0.25 * BEAT,
-            note: lnote(mode, li - 1), vel: strike.vel * 0.5,
-            dur: 0.45, choke: true, pan: strike.pan * 0.4 });
-          ornaments++;
-        }
-      }
+        dur: longTail ? [7, 8.5, 10][Math.floor(bellStep / 23) % 3]
+          : d.durs[Math.floor(rnd() * d.durs.length)],
+        longTail,
+      });
     }
     bellStep++;
   }
 }
 for (const d of DROPS) for (let b = d.a; b < d.z; b++) bellRun(b, d);
-
-// The classic-xylo showpiece figures, aimed at the recorded bar leads:
-// tremolo rolls that crescendo across beat four into the next downbeat, and
-// George-Hamilton-Green pickup runs sweeping up the ladder into each 18-bar
-// mutation seam. Every strike is stone, so all of it survives the canonical
-// filter; every timing choice reads the groove clock.
-if (STONE_CLUB) {
-  const dropAt = (b) => DROPS.find((d) => b >= d.a && b < d.z) ?? DROPS.at(-1);
-  // Rolls never repeat a shape twice in a row — three variants cycle:
-  //   cresc — single-note tremolo swelling into the downbeat (the classic)
-  //   dyad  — two-mallet tremolo alternating the lead with its lower neighbor
-  //   rush  — an accelerating 32nd ladder climb, the "rush drop" — the
-  //           figure that earns its place at every appearance
-  let rollIndex = 0;
-  const ROLL_SHAPES = ["rush", "cresc", "dyad", "rush", "cresc", "rush"];
-  const playRush = (target, lead, mode, d, count, gainDb) => {
-    // Grid-perfect: exact 32nds into the landing, the pitch staircase spaced
-    // evenly up the ladder. No humanization here — at this speed, machine
-    // placement is what reads as intent; jitter reads as sloppiness.
-    const startIdx = Math.max(0, lead - 1 - Math.ceil(count * 0.8));
-    for (let i = 1; i <= count; i++) {
-      const t = target - i * (BEAT / 8);
-      const frac = 1 - (i - 1) / Math.max(1, count - 1); // 0 far → 1 at landing
-      const idx = clamp(Math.round(startIdx + (lead - 1 - startIdx) * frac), 0, LADDERS[mode].length - 1);
-      bells.push({ t, note: midiName(LADDERS[mode][idx]),
-        vel: 0.30 + 0.55 * frac,
-        pan: spatialEventPan(t, 620 + i, 0.55),
-        gain: Math.pow(10, gainDb / 20), material: d.mat,
-        geometry: d.geom || "glass", dur: 0.45, choke: true });
-      squareShadow.push({ t, midi: LADDERS[mode][idx], vel: 0.3 + 0.4 * frac });
-    }
-  };
-  for (let b = 0; b + 1 < BARS; b++) {
-    if (!rollBar(b) || inTechno(b) || inTechno(b + 1)) continue;
-    const d = dropAt(b);
-    const m1 = modeAt(b + 1);
-    const oct1 = MODES[m1].length;
-    const lead = barLead[b + 1] ?? barLead[b] ?? LANES[m1].start + 2;
-    const shape = ROLL_SHAPES[rollIndex++ % ROLL_SHAPES.length];
-    const rollGain = Math.pow(10, (d.gainDb - 1.5) / 20);
-    if (shape === "rush") {
-      playRush(bar(b + 1), lead, m1, d, 10, d.gainDb - 1.5);
-    } else {
-      for (let i = 0; i < 8; i++) {
-        const t = bar(b) + 3 * BEAT + i * (BEAT / 8); // exact 32nds — see playRush
-        bells.push({ t,
-          note: lnote(m1, shape === "dyad" && i % 2 ? lead - 1 : lead),
-          vel: 0.34 + 0.05 * (i % 2) + 0.28 * (i / 7),
-          pan: spatialEventPan(t, 600 + b, 0.4) + (i % 2 ? 0.14 : -0.14),
-          gain: rollGain, material: d.mat, geometry: d.geom || "glass",
-          dur: 0.45, choke: true });
-      }
-    }
-    // the roll resolves into the line's own downbeat — punctuate it with
-    // the left hand landing the octave below
-    if (lead - oct1 >= 0)
-      bells.push({ t: bar(b + 1), note: lnote(m1, lead - oct1), vel: 0.85,
-        pan: -0.2, gain: Math.pow(10, d.gainDb / 20),
-        material: d.mat, geometry: d.geom || "glass", dur: 0.7 });
-  }
-  // Seam pickups each get their own shape so the big sweeps evolve:
-  //   18 — five-note ascending sextuplet (the introduction)
-  //   36 — a descending turn from above the lead, answering 18
-  //   54 — the full two-octave ladder gliss (the payoff stays)
-  for (const seam of PICKUP_SEAMS) {
-    const next = dropAt(seam);
-    const m = modeAt(seam); // the pickup announces the ARRIVING mode
-    const top = LADDERS[m].length - 1;
-    const lead = barLead[seam] ?? LANES[m].start + 2;
-    const gainDb = next.gainDb - 1;
-    if (seam === 36) {
-      const turn = [Math.min(top, lead + 2), Math.min(top, lead + 1), lead - 1, lead - 2]
-        .filter((i) => i >= 0);
-      for (let k = 0; k < turn.length; k++) {
-        const t = bar(seam) - (turn.length - k) * (BEAT / 6); // exact sextuplets
-        bells.push({ t, note: lnote(m, turn[k]),
-          vel: 0.44 + 0.08 * k, pan: spatialEventPan(t, 700 + seam + k, 0.5),
-          gain: Math.pow(10, gainDb / 20), material: next.mat,
-          geometry: next.geom || "glass", dur: 0.45, choke: true });
-        squareShadow.push({ t, midi: LADDERS[m][clamp(turn[k], 0, LADDERS[m].length - 1)], vel: 0.4 });
-      }
-    } else {
-      const notes = seam === 54 ? Math.max(2, lead) : Math.min(5, lead);
-      const spacing = seam === 54 ? BEAT / 12 : BEAT / 6;
-      for (let k = notes; k >= 1; k--) {
-        const t = bar(seam) - k * spacing; // exact grid — the gliss is a machine
-        bells.push({ t, note: lnote(m, lead - k),
-          vel: 0.44 + 0.09 * (notes - k),
-          pan: spatialEventPan(t, 700 + seam + k, 0.5),
-          gain: Math.pow(10, gainDb / 20),
-          material: next.mat, geometry: next.geom || "glass",
-          dur: 0.45, choke: true });
-        squareShadow.push({ t, midi: LADDERS[m][clamp(lead - k, 0, LADDERS[m].length - 1)], vel: 0.42 });
-      }
-    }
-  }
-  // Surprise rush drops mid-mutation — the bar-54 compound rush was the
-  // track's best moment, so smaller cousins land where nobody expects them,
-  // skipping any that would rush into a sparse valley.
-  for (const b of MINI_RUSH) {
-    if (b >= BARS || sparseAt(b) || inTechno(b)) continue;
-    const d = dropAt(b);
-    // the breakout at 40 rushes longer and louder — it IS the switch-up
-    const breakout = b === 40;
-    playRush(bar(b), barLead[b] ?? LANES[modeAt(b)].start + 2, modeAt(b), d,
-      breakout ? 12 : 7, d.gainDb - (breakout ? 1 : 2.5));
-  }
-  // ── cliff runs: the line scrawls up to the top of the cliff — a two-gear
-  //    accelerating climb into the ladder's top octaves — plants ONE super-
-  //    high fast-attack LONG-decay glass bell at the summit, then slides
-  //    back down with a decelerating run onto the next bar's lead. High
-  //    notes taper in gain the further above E5 they reach: sparkle, never
-  //    tang. Placed at the crests of the complex sections. ────────────────
-  for (const b of CLIFF_BARS) {
-    if (b + 1 >= BARS) continue;
-    const m = modeAt(b);
-    const lad = LADDERS[m];
-    const d = dropAt(b);
-    const startIdx = barLead[b] ?? LANES[m].start + 2;
-    const peakIdx = Math.min(lad.length - 1, startIdx + 12);
-    const hiTaper = (idx) => Math.max(0, lad[idx] - 76) * 0.3; // dB per semitone above E5
-    // ascent: four 16ths then eight 32nds — two exact gears of acceleration
-    let t = bar(b);
-    for (let i = 0; i < 12; i++) {
-      const idx = Math.round(startIdx + (peakIdx - startIdx) * (i / 12));
-      bells.push({ t, note: midiName(lad[idx]), vel: 0.5 + 0.3 * (i / 12),
-        pan: spatialEventPan(t, 1000 + b * 16 + i, 0.5),
-        gain: Math.pow(10, (d.gainDb - 2 - hiTaper(idx)) / 20),
-        material: "stone", geometry: d.geom || "glass",
-        dur: 0.45, choke: true, cliff: true });
-      squareShadow.push({ t, midi: lad[idx], vel: 0.35 + 0.25 * (i / 12) });
-      t += i < 4 ? BEAT / 4 : BEAT / 8;
-    }
-    // the summit: struck once, rings for nine seconds — glass, not granite
-    bells.push({ t, note: midiName(lad[peakIdx]), vel: 0.95, pan: 0,
-      gain: Math.pow(10, (d.gainDb - 6.5) / 20),
-      material: "glass", geometry: "glass", dur: 9,
-      longTail: true, cliff: true });
-    // the slide down: a decelerating descent landing on the next downbeat
-    const landIdx = barLead[b + 1] ?? startIdx;
-    let td = t + BEAT / 8;
-    for (let i = 1; i <= 8; i++) {
-      const idx = Math.round(peakIdx + (landIdx - peakIdx) * (i / 9));
-      bells.push({ t: td, note: midiName(lad[idx]), vel: 0.62 - 0.03 * i,
-        pan: spatialEventPan(td, 1040 + b * 16 + i, 0.5),
-        gain: Math.pow(10, (d.gainDb - 2.5 - hiTaper(idx)) / 20),
-        material: "stone", geometry: d.geom || "glass",
-        dur: 0.45, choke: true, cliff: true });
-      td += i < 5 ? BEAT / 8 : BEAT / 4;
-    }
-  }
-  // The chorus hook: one composed two-bar riff — the same CONTOUR every
-  // chorus, so it stays hummable, but voiced in scale DEGREES so each
-  // chorus's mode re-colours it: minor in dorian, brightening through
-  // mixolydian, arriving major in ionian. It owns the first two bars of
-  // each four (the walking line yields there and answers in the next two).
-  // The last chorus doubles it an octave below. Exact grid, center-weighted.
-  const HOOK = [ // [beat, laneDegree, weight] — degrees {1,3,4,5,7} of the mode
-    [0, 0, 1], [0.75, 2, 0.8], [1.5, 4, 1], [2.5, 6, 0.9], [3.25, 4, 0.72],
-    [3.5, 3, 0.85], [4, 0, 1], [4.75, 2, 0.8], [5.5, 3, 0.95], [6.5, 2, 0.8],
-    [7, 0, 1.05],
-  ];
-  for (const s of CLUB_SECTIONS) {
-    if (s.name !== "chorus") continue;
-    const m = s.mode;
-    const base = LANES[m].start;
-    const oct = MODES[m].length;
-    for (let p = s.a; p + 1 < s.z; p += 4) {
-      const d = dropAt(p);
-      for (const [beat, deg, w] of HOOK) {
-        const t = bar(p) + beat * BEAT;
-        bells.push({ t, note: lnote(m, base + deg), vel: Math.min(0.98, 0.85 * w),
-          pan: 0.12 * Math.sin(beat), gain: Math.pow(10, (d.gainDb + 2) / 20),
-          material: d.mat, geometry: d.geom || "glass", dur: 0.7 });
-        if (s.a >= 54)
-          bells.push({ t, note: lnote(m, base + deg - oct), vel: Math.min(0.98, 0.85 * w * 0.7),
-            pan: -0.15, gain: Math.pow(10, (d.gainDb + 2) / 20),
-            material: d.mat, geometry: d.geom || "glass", dur: 0.7 });
-      }
-    }
-  }
-
-  // Quaternion-rotated motif: a four-note cell whose contour is literally
-  // rotated in 3-space by successive elements of the binary tetrahedral
-  // group (2T). Each appearance spins the same intervallic seed to a new
-  // orientation, requantized onto the pentatonic ladder — the melody turns
-  // in a higher dimension. It answers "at times": the tail of every chorus
-  // and through the bridge, where there is room to hear it. Stone, <bar 68,
-  // pentatonic, under E5 — it survives the canonical filter untouched.
-  // ── the lullaby: before the club, the fairy tale. The classic wattajetta
-  //    hook, alone, as a music box — plain glass bells an octave up, at half
-  //    speed, glinting through the crack under the door while the cap is
-  //    still on. The whole arrangement is this little melody's fever dream.
-  const LULLABY = [[0, "E5"], [1.5, "G5"], [3, "B5"], [5, "D6"], [6.5, "B5"],
-    [7, "A5"], [8, "E5"], [9.5, "G5"], [11, "A5"], [13, "G5"], [14, "E5"]];
-  if (!STONE_CLUB) for (const [beat, note] of LULLABY)
-    bells.push({ t: bar(0.5) + beat * BEAT, note, vel: 0.5,
-      pan: 0.25 * Math.sin(beat * 0.9), gain: Math.pow(10, -14 / 20),
-      material: "glass", geometry: "glass", dur: 2.4, longTail: true, cliff: true });
-
-  const QUAT_SPOTS = [22, 43, 46, 48, 60]; // clear of cliffs and the techno strip
-  const CELL = [2, 1, 3]; // seed intervals (ladder steps) — the hook's shape
-  let qk = 8;             // start on the tetrahedral vertices (true 120° turns)
-  for (const b of QUAT_SPOTS) {
-    if (b >= BARS || inTechno(b)) continue;
-    const m = modeAt(b);
-    const lad = LADDERS[m];
-    const d = dropAt(b);
-    const v = qRotate(QUAT_2T[qk % QUAT_2T.length], CELL);
-    qk += 5; // stride the group so consecutive spots are far apart
-    const base = (barLead[b] ?? LANES[m].start + 2) - 1;
-    let pos = base, prev = base;
-    const steps = [0, Math.round(v[0]), Math.round(v[1]), Math.round(v[2])];
-    for (let i = 0; i < 4; i++) {
-      pos = clamp(prev + steps[i], 0, lad.length - 1);
-      prev = pos;
-      const t = bar(b) + i * (BEAT / 3) + grooveJitter(b * 4 + i, 601, 0.002);
-      bells.push({ t, note: midiName(lad[pos]),
-        vel: 0.58 + 0.08 * i, pan: spatialEventPan(t, 900 + qk + i, 0.7),
-        gain: Math.pow(10, (d.gainDb - 0.5) / 20),
-        material: "stone", geometry: d.geom || "glass", dur: 1.1, quat: true });
-    }
-  }
-}
 
 // Clearly audible opening blooms: these are not reverbs or extended chokes,
 // but full 10–14 second FEM bodies in less-damped metals. Their asymmetric
@@ -914,17 +405,8 @@ for (const d of DROPS) {
   if (!d.bloops) continue;
   for (let b = d.a; b < d.z; b++)
     for (const slot of [1.75, 3.25, 3.75])
-      if (rnd() < d.bloops) {
-        // the club outro drips dry — a lone chirp on the fade reads as a
-        // stray boop, not water — and the techno strip has no water at all
-        if (STONE_CLUB && (b < INTRO_PERC_ONLY_BARS || b >= 66 || inTechno(b))) { rnd(); continue; }
-        // club drips tune to the section mode (E3-octave scale tones)
-        const pool = STONE_CLUB
-          ? MODES[modeAt(b)].map((s) => MIDI_HZ(52 + s))
-          : BLOOP_HZ;
-        bloop(bar(b) + slot * BEAT, pool[Math.floor(rnd() * pool.length)],
-          -17);
-      }
+      if (rnd() < d.bloops) bloop(bar(b) + slot * BEAT, BLOOP_HZ[Math.floor(rnd() * BLOOP_HZ.length)],
+        -17);
 }
 
 // ── water choir: formant-shaped sine stacks — an "ooh" breathed out of
@@ -944,11 +426,11 @@ function choirNote(t, dur, f0, db, pan) {
                   hdb - 9, dur * 0.35, dur * 0.4, pan, pan, 4.8, 7]);
   }
 }
-function choirChord(t, dur, db, thirdHz = 196.0) {
+function choirChord(t, dur, db) {
   choirNote(t, dur, 82.407, db - 2, 0);      // e2
   choirNote(t, dur, 123.47, db - 3, -0.35);  // b2
   choirNote(t, dur, 164.81, db, 0.35);       // e3
-  choirNote(t, dur, thirdHz, db - 4, -0.15); // the chord color — minor or major third
+  choirNote(t, dur, 196.0, db - 4, -0.15);   // g3 — the minor color
 }
 function choirStack(t, dur, db, notes) {
   notes.forEach((n, i) =>
@@ -1073,37 +555,6 @@ if (NEXT) {
   }
 }
 
-// Chordal material gates: the solo pentatonic line occasionally resolves into
-// a physical stone voicing. Tiny hand-strums keep the chord from behaving like
-// a keyboard block; later voicings wobble farther through the material.
-if (STONE_STUDY) {
-  // Gate voicings are lane degrees, so each gate rings in its section's
-  // mode — the 54 gate arrives as a major-seventh in ionian, the door to
-  // the final chorus. Canonical keeps the fixed pentatonic names.
-  const chordGates = [
-    { b: 18, notes: ["E4", "G4", "B4"], degs: [0, 2, 4], geom: "handbell", dur: 1.6, db: -15.5, wobble: 0.010 },
-    { b: 36, notes: ["E4", "A4", "D5"], degs: [0, 3, 6], geom: "tubular", dur: 1.6, db: -15.0, wobble: 0.017 },
-    { b: 54, notes: ["E4", "G4", "B4", "D5"], degs: [0, 2, 4, 6], geom: "glass", dur: 1.6, db: -14.2, wobble: 0.025 },
-    { b: 67, notes: ["E4", "B4", "E5"], degs: [0, 4, 7], geom: "church", dur: 2.5, db: -16.0, wobble: 0.032 },
-  ];
-  for (const [gateIndex, gate] of chordGates.entries()) {
-    const gm = modeAt(gate.b);
-    for (let i = 0; i < gate.notes.length; i++) {
-      const t = bar(gate.b) + i * (0.014 + gateIndex * 0.003);
-      bells.push({ t,
-        note: STONE_CLUB ? lnote(gm, LANES[gm].start + gate.degs[i]) : gate.notes[i],
-        vel: 0.64 + i * 0.045,
-        pan: spatialEventPan(t, 500 + gateIndex * 8 + i, 0.76),
-        gain: Math.pow(10, (gate.db - i * 0.45) / 20), material: "stone",
-        geometry: gate.geom, dur: gate.dur, longTail: true,
-        // the club keeps its gates nearly dry — ±25-cent chord wobble read
-        // as the track going out of tune at the tubular mutation
-        warp: { depth: gate.wobble * (STONE_CLUB ? 0.2 : 1),
-                hz: 0.42 + gateIndex * 0.11 + i * 0.035 } });
-    }
-  }
-}
-
 if (STONE_STUDY) {
   // Remove the parent arrangement's aluminum/bronze foreshadows and its
   // out-of-range coda. The locked form is strictly the bar-64 stone vocabulary.
@@ -1113,55 +564,6 @@ if (STONE_STUDY) {
   bells.push({ t: bar(63 * STONE_SCALE), note: "E4", vel: 0.55, pan: 0,
     gain: Math.pow(10, -17 / 20), material: "stone",
     geometry: "church", dur: 2.5 });
-}
-
-// The club opening is strictly non-tonal. Several inherited canonical bell
-// figures are assembled outside bellRun(), so gate the final event list—not
-// only the walking-line generator—to keep every bell, bowl, and uke resonance
-// out until bar 8.
-if (STONE_CLUB) {
-  const afterIntro = bells.filter((s) => s.t >= bar(INTRO_PERC_ONLY_BARS));
-  bells.length = 0;
-  bells.push(...afterIntro);
-}
-
-// Redundancy sweep + line audit. Independent figures (rolls landing, octave
-// stops, bowls, chord gates) can legally ask for the same note at the same
-// instant — one mallet can't strike a bar twice at once, so the sweep keeps
-// the stronger strike and drops the double. The audit then reports the
-// breathing (strikes-per-bar spread), the long-ring count, and asserts no
-// unchoked same-note near-unison survived.
-if (STONE_CLUB) {
-  bells.sort((x, y) => x.t - y.t);
-  const dropped = new Set();
-  for (let i = 0; i < bells.length; i++) {
-    if (dropped.has(i)) continue;
-    const s = bells[i];
-    if (s.choke) continue;
-    for (let j = i + 1; j < bells.length && bells[j].t - s.t < 0.04; j++) {
-      const o = bells[j];
-      if (dropped.has(j) || o.choke || o.note !== s.note) continue;
-      dropped.add(o.gain * o.vel <= s.gain * s.vel ? j : i);
-      if (dropped.has(i)) break;
-    }
-  }
-  if (dropped.size) {
-    const kept = bells.filter((_, i) => !dropped.has(i));
-    bells.length = 0;
-    bells.push(...kept);
-  }
-  const perBar = new Array(BARS).fill(0);
-  let ringing = 0, doubled = 0;
-  for (let i = 0; i < bells.length; i++) {
-    const s = bells[i];
-    perBar[Math.min(BARS - 1, Math.floor(s.t / BAR))]++;
-    if (s.dur >= 2.5) ringing++;
-    for (let j = i + 1; j < bells.length && bells[j].t - s.t < 0.04; j++)
-      if (bells[j].note === s.note && !s.choke && !bells[j].choke) doubled++;
-  }
-  const counts = perBar.slice(0, 68);
-  console.log(`line audit: ${bells.length} strikes (${dropped.size} doubles swept) · ${Math.min(...counts)}–${Math.max(...counts)}/bar · ${ringing} ringing ≥2.5s · ${doubled} same-note near-unisons`);
-  if (doubled > 0) { console.error("✗ melody doubling above tolerance"); process.exit(1); }
 }
 
 // ── flybys: sine dopplers at the seams, quiet ─────────────────────────
@@ -1177,7 +579,7 @@ flyby(bar(70 * STONE_SCALE), -1);
 // ── spray, whisper level: transition breaths only. Canonical deliberately
 //    has no bar-zero splash; it was too startling before the groove settled.
 for (const d of DROPS)
-  if (!(STONE_STUDY && d.a === 0) && !(STONE_CLUB && d.a < INTRO_PERC_ONLY_BARS))
+  if (!(STONE_STUDY && d.a === 0))
     noises.push([bar(d.a), 2.0, 2000, 300, 0.8, -23, 0.015, 1.8, 0]);
 if (!STONE_STUDY) noises.push([bar(80), 16 * BAR + 4, 3000, 500, 0.8, -27, 2.0, 14 * BAR, 0]);
 noises.push([0, DUR, 1100, 1100, 0.6, -41, 4, 4, 0]);
@@ -1188,9 +590,9 @@ const score = [
   `sr ${SR}`,
   `dur ${DUR.toFixed(3)}`,
   `normpeak 0.82`,
-  `fadein ${STONE_CLUB ? "0.02" : "0.004"}`,
-  `fadeout ${STONE_CLUB ? "0.10" : "4.0"}`,
-  `sidechain ${STONE_CLUB ? "0.008 0.17 -8" : "0.015 0.2 -6"}`,
+  `fadein 0.004`,
+  `fadeout 4.0`,
+  `sidechain 0.015 0.2 -6`,
   `kick ${kicks.length}`, fmt(kicks),
   `sine ${sines.length}`, fmt(sines),
   `noise ${noises.length}`, fmt(noises),
@@ -1216,22 +618,6 @@ const raw = readFileSync(rawPath);
 const mix = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
 const kraw = readFileSync(kickPath);
 const kickBus = new Float32Array(kraw.buffer, kraw.byteOffset, kraw.length / 4);
-// Club stems are true-summing premaster busses. Every linear arrangement
-// operation below is mirrored onto its source bus, while the nonlinear master
-// remains on the reference mix only.
-const waterBus = STEMS ? new Float32Array(mix) : null;
-const stemKickBus = STEMS ? new Float32Array(kickBus) : null;
-const bellBus = STEMS ? new Float32Array(mix.length) : null;
-const trashBus = STEMS ? new Float32Array(mix.length) : null;
-// Ableton-friendly granularity: the sample voices, the synth voices, and
-// the guitar each get their own true-summing stem.
-const sampleBus = STEMS ? new Float32Array(mix.length) : null; // owls/phones/modem/punches/castanets/stamp
-const synthBus = STEMS ? new Float32Array(mix.length) : null;  // disco bass + square shadows
-const gtrBus = STEMS ? new Float32Array(mix.length) : null;    // power chords + threads
-// The buffers are resident now; release their ~100 MB of temporary disk before
-// the final mixed bus is written. This matters on the small fleet Macs.
-try { unlinkSync(rawPath); } catch {}
-try { unlinkSync(kickPath); } catch {}
 const ns = mix.length / 2;
 const smooth = (p) => p * p * (3 - 2 * p);
 
@@ -1262,16 +648,8 @@ const smooth = (p) => p * p * (3 - 2 * p);
     for (let ch = 0; ch < 2; ch++) {
       const x = mix[2 * f + ch];
       mix[2 * f + ch] = x * (1 - m) + (Math.tanh(x * DRIVE) / norm) * m;
-      if (waterBus) {
-        const w = waterBus[2 * f + ch];
-        waterBus[2 * f + ch] = w * (1 - m) + (Math.tanh(w * DRIVE) / norm) * m;
-      }
       const k = kickBus[2 * f + ch];
       kickBus[2 * f + ch] = k * (1 - m) + (Math.tanh(k * DRIVE) / norm) * m;
-      if (stemKickBus) {
-        const sk = stemKickBus[2 * f + ch];
-        stemKickBus[2 * f + ch] = sk * (1 - m) + (Math.tanh(sk * DRIVE) / norm) * m;
-      }
     }
   }
 }
@@ -1287,33 +665,18 @@ const bellFor = ({ note, material, geometry, dur, renderDur = dur }) => {
     const cacheKey = `${note}-${material}-${geometry}-${dur}${modelVersion}`;
     const leftPath = resolve(cacheDir, `${cacheKey}-L.f32`);
     const rightPath = resolve(cacheDir, `${cacheKey}-R.f32`);
-    const validCache = existsSync(leftPath) && existsSync(rightPath)
-      && statSync(leftPath).size > 0
-      && statSync(leftPath).size === statSync(rightPath).size
-      && statSync(leftPath).size % 4 === 0;
-    if (validCache) {
+    if (existsSync(leftPath) && existsSync(rightPath)) {
       const left = readFileSync(leftPath), right = readFileSync(rightPath);
       bank.set(k, {
         L: new Float32Array(left.buffer.slice(left.byteOffset, left.byteOffset + left.byteLength)),
         R: new Float32Array(right.buffer.slice(right.byteOffset, right.byteOffset + right.byteLength)),
       });
     } else {
-      try { unlinkSync(leftPath); } catch {}
-      try { unlinkSync(rightPath); } catch {}
       console.log(`  bell ${note} (${material}/${geometry} ×${dur}s)…`);
       const rendered = renderBell({ note, material, geometry, dur });
       mkdirSync(cacheDir, { recursive: true });
-      const leftTmp = `${leftPath}.tmp-${process.pid}`;
-      const rightTmp = `${rightPath}.tmp-${process.pid}`;
-      try {
-        writeFileSync(leftTmp, Buffer.from(rendered.L.buffer, rendered.L.byteOffset, rendered.L.byteLength));
-        writeFileSync(rightTmp, Buffer.from(rendered.R.buffer, rendered.R.byteOffset, rendered.R.byteLength));
-        renameSync(leftTmp, leftPath);
-        renameSync(rightTmp, rightPath);
-      } finally {
-        try { unlinkSync(leftTmp); } catch {}
-        try { unlinkSync(rightTmp); } catch {}
-      }
+      writeFileSync(leftPath, Buffer.from(rendered.L.buffer, rendered.L.byteOffset, rendered.L.byteLength));
+      writeFileSync(rightPath, Buffer.from(rendered.R.buffer, rendered.R.byteOffset, rendered.R.byteLength));
       bank.set(k, rendered);
     }
   }
@@ -1385,9 +748,7 @@ for (const s of bells) {
   // The hybrid's opening wants the FEM materials as percussion, not wash:
   // choke every bell before 0:45 to a tiny 65–105 ms ping. Later bells keep
   // their composed tails so the material arc can still open up dramatically.
-  // `choke` is a played dead stroke (mallet held on the bar) — it stays a
-  // 65–105 ms ping even after the opening's tiny-bell window opens up.
-  const tiny = s.choke || (TINY_BELLS && s.t < TINY_BELL_END && !s.longTail);
+  const tiny = TINY_BELLS && s.t < TINY_BELL_END && !s.longTail;
   const chokeFrames = Math.floor((0.065 + 0.04 * Math.min(1, s.vel ?? 0.5)) * SR);
   const n = Math.min(L.length, ns - at, tiny ? chokeFrames : Number.MAX_SAFE_INTEGER);
   const fade = tiny
@@ -1407,947 +768,9 @@ for (const s of bells) {
         snareDuck = Math.min(snareDuck, 1 - 0.58 * snare.strength * shape);
       }
     }
-    const addL = L[i] * gl * env * snareDuck;
-    const addR = R[i] * gr * env * snareDuck;
-    if (STEMS && (!Number.isFinite(addL) || !Number.isFinite(addR))) {
-      console.error("✗ non-finite bell contribution", { strike: s, frame: i,
-        left: L[i], right: R[i], gl, gr, env, snareDuck });
-      process.exit(1);
-    }
-    mix[2 * (at + i)] += addL;
-    mix[2 * (at + i) + 1] += addR;
-    if (bellBus) {
-      bellBus[2 * (at + i)] += addL;
-      bellBus[2 * (at + i) + 1] += addR;
-    }
+    mix[2 * (at + i)] += L[i] * gl * env * snareDuck;
+    mix[2 * (at + i) + 1] += R[i] * gr * env * snareDuck;
   }
-}
-
-// The local macOS Empty Trash sound becomes a small transition toy: three
-// progressively slower throws land just before the 18-bar material mutations.
-// Keep it on a dedicated bus so every placement can be muted or rebuilt.
-const EMPTY_TRASH = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/finder/empty trash.aif";
-if (TRASH_SAMPLE && existsSync(EMPTY_TRASH)) {
-  const decoded = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
-    "-i", EMPTY_TRASH, "-f", "f32le", "-ar", String(SR), "-ac", "2", "-"],
-    { maxBuffer: 8 * 1024 * 1024 });
-  if (decoded.status !== 0) { console.error("✗ Empty Trash decode failed"); process.exit(1); }
-  const b = decoded.stdout;
-  const sample = new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
-  const throws = [
-    { t: 0.35, rate: 0.55, db: -18, pan: -0.08, reverse: true }, // a hidden reverse swell under the hats
-    { t: bar(18) - 0.72, rate: 1.18, db: 8, pan: -0.12 },
-    { t: bar(36) - 0.82, rate: 0.95, db: 7, pan: 0.12 },
-    { t: bar(54) - 1.00, rate: 0.78, db: 6, pan: 0 },
-  ];
-  for (const s of throws) {
-    const at = Math.floor(s.t * SR);
-    const frames = Math.floor(sample.length / 2 / s.rate);
-    const a = (s.pan + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, s.db / 20);
-    const gr = Math.sin(a) * Math.pow(10, s.db / 20);
-    for (let i = 0; i < frames && at + i < ns; i++) {
-      const pos = s.reverse ? (sample.length / 2 - 1) - i * s.rate : i * s.rate;
-      if (pos < 0) break;
-      const j = Math.floor(pos);
-      if (j + 1 >= sample.length / 2) break;
-      const fr = pos - j;
-      const l = sample[2 * j] * (1 - fr) + sample[2 * (j + 1)] * fr;
-      const r = sample[2 * j + 1] * (1 - fr) + sample[2 * (j + 1) + 1] * fr;
-      mix[2 * (at + i)] += l * gl;
-      mix[2 * (at + i) + 1] += r * gr;
-      if (trashBus) {
-        trashBus[2 * (at + i)] += l * gl;
-        trashBus[2 * (at + i) + 1] += r * gr;
-      }
-    }
-  }
-}
-
-// ── prox percussion: the fleet's own dings. Two live prompt rocks — vimib
-//    (a slab ping) and mugot (a slab beep, this very session) — become
-//    fully dynamic physical gestures in a virtual room, never one-shot
-//    clicks: THROWS (dice across the table — bounces tighten exponentially,
-//    fade, pitch creeps up, and travel across the stereo field), SHAKES
-//    (the cup rattle — a granular crescendo of micro-hits), and
-//    shake-into-throw (rattle the cup, roll the dice). Dense conversation
-//    in the intro, then a gesture every few bars for the whole flight;
-//    the machine strip keeps its dice. ─────────────────────────────────────
-const decodeSample = (path) => {
-  const p = spawnSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
-    "-i", path, "-f", "f32le", "-ar", String(SR), "-ac", "1", "-"],
-    { maxBuffer: 32 * 1024 * 1024 });
-  if (p.status !== 0) return null;
-  const b = p.stdout;
-  return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
-};
-if (STONE_CLUB) {
-  const vimibSrc = decodeSample(resolve(HERE, "../assets/clicks/vimib.wav")); // tight, high
-  const mugotSrc = decodeSample(resolve(HERE, "../assets/clicks/mugot.wav")); // woodier, lower
-  if (vimibSrc && mugotSrc) {
-    const clickFrom = (src, rate) => {
-      const n = Math.min(Math.floor(0.08 * SR), Math.floor(src.length / rate));
-      const out = new Float32Array(Math.max(1, n));
-      const fade = Math.floor(0.012 * SR);
-      for (let i = 0; i < n; i++) {
-        const pos = i * rate;
-        const j = Math.floor(pos), fr = pos - j;
-        const v = src[j] * (1 - fr) + (src[j + 1] ?? 0) * fr;
-        out[i] = v * (i > n - fade ? (n - i) / fade : 1) * Math.min(1, i / 40);
-      }
-      return out;
-    };
-    const placeClick = (t, buf, db, pan) => {
-      const at = Math.floor(t * SR);
-      const a = (clamp(pan, -0.95, 0.95) + 1) * 0.25 * Math.PI;
-      const gl = Math.cos(a) * Math.pow(10, db / 20);
-      const gr = Math.sin(a) * Math.pow(10, db / 20);
-      for (let i = 0; i < buf.length && at + i < ns; i++) {
-        mix[2 * (at + i)] += buf[i] * gl;
-        mix[2 * (at + i) + 1] += buf[i] * gr;
-        if (sampleBus) {
-          sampleBus[2 * (at + i)] += buf[i] * gl;
-          sampleBus[2 * (at + i) + 1] += buf[i] * gr;
-        }
-      }
-    };
-    // a die thrown across the room: bounces tighten by the restitution,
-    // soften ~1 dB each, pitch creeps up, and the pan travels p0 → p1
-    const bounceThrow = (t0, src, baseRate, db, p0, p1, count, rest, seed) => {
-      let t = t0, dt = 0.16 + 0.1 * grooveUnit(seed, 851);
-      for (let n = 0; n < count && dt > 0.016; n++) {
-        placeClick(t, clickFrom(src, baseRate * Math.pow(1.04, n)),
-          db - n * 1.0 + (grooveUnit(seed + n, 853) - 0.5) * 2,
-          p0 + (p1 - p0) * (1 - Math.pow(rest, n)));
-        t += dt; dt *= rest;
-      }
-      return t;
-    };
-    // the cup rattle: a granular stream of micro-hits, crescendo or fade
-    const shakeRoll = (t0, src, baseRate, db, pan, durS, cresc, seed) => {
-      let t = t0, n = 0;
-      while (t < t0 + durS && n < 64) {
-        const prog = (t - t0) / durS;
-        const u = grooveUnit(seed + n, 857);
-        placeClick(t, clickFrom(src, baseRate * (0.94 + 0.12 * u)),
-          db - 7 + 7 * (cresc ? prog : 1 - prog) + (u - 0.5) * 3,
-          pan + (grooveUnit(seed + n, 859) - 0.5) * 0.35);
-        t += 0.02 + 0.035 * grooveUnit(seed + n, 861);
-        n++;
-      }
-      return t;
-    };
-    // the gesture score: [bar, kind, timbre(0 vimib · 1 mugot), panFrom, panTo]
-    const GESTURES = [
-      [0.25, "shakeThrow", 0, -0.7, 0.5], [1.5, "throw", 1, 0.6, -0.4],
-      [2.75, "shake", 0, -0.2, 0], [4.0, "shakeThrow", 1, 0.5, -0.6],
-      [6.0, "throw", 0, -0.5, 0.7], [10.5, "throw", 1, 0.4, -0.5],
-      [15.0, "shakeThrow", 0, -0.6, 0.6], [21.0, "throw", 1, 0.5, -0.3],
-      [27.5, "shake", 0, 0.3, 0], [33.0, "throw", 0, -0.4, 0.6],
-      [39.5, "shakeThrow", 1, 0.6, -0.6], [44.5, "throw", 0, -0.3, 0.4],
-      [49.5, "shake", 1, 0.0, 0], [51.25, "throw", 0, -0.6, 0.6],
-      [53.0, "shakeThrow", 1, 0.5, -0.5], [58.0, "throw", 0, -0.5, 0.5],
-      [63.0, "shakeThrow", 1, 0.4, -0.6], [67.0, "throw", 0, -0.3, 0.5],
-      [70.0, "shake", 1, 0.2, 0],
-    ];
-    for (const [gb, kind, tim, p0, p1] of GESTURES) {
-      const src = tim ? mugotSrc : vimibSrc;
-      const baseRate = tim ? 1.4 : 2.1;
-      const db = gb < 8 ? -19 : -23;
-      const seed = Math.floor(gb * 16);
-      const t0 = bar(gb);
-      if (kind === "throw") {
-        bounceThrow(t0, src, baseRate, db, p0, p1, 9, 0.72, seed);
-      } else if (kind === "shake") {
-        shakeRoll(t0, src, baseRate, db, p0, BEAT, true, seed);
-      } else {
-        const te = shakeRoll(t0, src, baseRate, db - 2, p0, BEAT, true, seed);
-        bounceThrow(te, src, baseRate, db, p0, p1, 8, 0.7, seed + 99);
-      }
-    }
-  }
-}
-
-// ── owls: real hoots from the /pop sample sources (Freesound, cached and
-//    attributed in the vault) — the night around the water. One close call
-//    in the intro, a distant answer over the bridge, a last call in the
-//    outro. The bridge owl is heard through the water like everything else.
-if (STONE_CLUB) {
-  const owlAt = (file, t, db, pan, warp = null) => {
-    const src = decodeSample(resolve(HERE, "../assets/owls", file));
-    if (!src) { console.log(`  (owl missing: ${file})`); return; }
-    const n = Math.min(src.length, Math.floor(6.5 * SR));
-    const at = Math.floor(t * SR);
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, db / 20);
-    const gr = Math.sin(a) * Math.pow(10, db / 20);
-    const fade = Math.floor(0.4 * SR);
-    let pos = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const wob = warp ? 1 + warp.depth * Math.sin(TAU * warp.hz * (i / SR)) : 1;
-      const j = Math.floor(pos), fr = pos - j;
-      if (j + 1 >= src.length) break;
-      const v = src[j] * (1 - fr) + src[j + 1] * fr;
-      const env = Math.min(1, i / fade, (n - i) / fade);
-      mix[2 * (at + i)] += v * gl * env;
-      mix[2 * (at + i) + 1] += v * gr * env;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += v * gl * env;
-        sampleBus[2 * (at + i) + 1] += v * gr * env;
-      }
-      pos += wob;
-    }
-  };
-  owlAt("465697-owl_hoot.mp3", bar(1.5), -17, -0.4);
-  owlAt("784609-birds_of_prey_barred_owl_hooting_distant.mp3", bar(46), -19, 0.4,
-    { depth: 0.03, hz: 0.5 });
-  owlAt("465697-owl_hoot.mp3", bar(68.5), -18, -0.25);
-}
-
-// One house whip marks the bar-21 beat-two turn (36.96 s at 138 BPM).
-// It is punctual, not a new repeating voice.
-if (STONE_CLUB) {
-  const whip = decodeSample(resolve(HERE, "../../hellsine/samples/whip.wav"));
-  if (whip) {
-    const at = Math.floor((bar(21) + BEAT) * SR);
-    const n = Math.min(whip.length, ns - at);
-    const gain = Math.pow(10, -15 / 20);
-    for (let i = 0; i < n; i++) {
-      const tail = Math.min(1, (n - i) / Math.max(1, 0.09 * SR));
-      const v = whip[i] * gain * tail;
-      mix[2 * (at + i)] += v * 0.76;
-      mix[2 * (at + i) + 1] += v * 0.65;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += v * 0.76;
-        sampleBus[2 * (at + i) + 1] += v * 0.65;
-      }
-    }
-  }
-}
-
-// ── telephones (Freesound, vault-attributed). The dial tone is the real
-//    350+440 Hz dual tone, rate-shifted so its two tones LAND ON the
-//    section's scale degrees — it harmonizes instead of clashing: ×1.1225
-//    puts it on G+B (the iii dyad) over the E floor; ×0.9375 puts it on
-//    E+G# for the bright modes. The rotary bell (dominant ≈1616 Hz) rings
-//    pitch-MATCHED — resampled so its gong lands on the current bar lead,
-//    two octaves up. A phone heard from outside the club; someone answers
-//    at the bridge; one last call before the end. ─────────────────────────
-if (STONE_CLUB) {
-  const phoneAt = (file, t, { db, pan, rate = 1, maxDur = 6, fadeIn = 0.3, fadeOut = 0.5, warp = null }) => {
-    const src = decodeSample(resolve(HERE, "../assets/phones", file));
-    if (!src) { console.log(`  (phone missing: ${file})`); return; }
-    const at = Math.floor(t * SR);
-    const n = Math.min(Math.floor(src.length / rate), Math.floor(maxDur * SR));
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, db / 20);
-    const gr = Math.sin(a) * Math.pow(10, db / 20);
-    const fi = Math.floor(fadeIn * SR), fo = Math.floor(fadeOut * SR);
-    let pos = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const wob = warp ? 1 + warp.depth * Math.sin(TAU * warp.hz * (i / SR)) : 1;
-      const j = Math.floor(pos), fr = pos - j;
-      if (j + 1 >= src.length) break;
-      const v = src[j] * (1 - fr) + src[j + 1] * fr;
-      const env = Math.min(1, i / Math.max(1, fi), (n - i) / Math.max(1, fo));
-      mix[2 * (at + i)] += v * gl * env;
-      mix[2 * (at + i) + 1] += v * gr * env;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += v * gl * env;
-        sampleBus[2 * (at + i) + 1] += v * gr * env;
-      }
-      pos += rate * wob;
-    }
-  };
-  const DIAL = "97789-dial_wav.mp3";           // measured 352 + 440 Hz
-  const RING = "663840-1970_telephone_ring_1_4_seconds_cycle_nl_wav.mp3"; // dominant ≈1616 Hz
-  // off the hook outside the club — G+B over the bare E floor, fading as
-  // the door opens
-  phoneAt(DIAL, bar(INTRO_PERC_ONLY_BARS) + 0.5 * BEAT, {
-    db: -24, pan: 0.3, rate: 1.1225, maxDur: bar(5), fadeIn: 1.5, fadeOut: 3
-  });
-  // Carry the dial-tone dyad into the score after the finite recording ends.
-  // Its G4+B4 identity slowly resolves toward E4+B4, becoming harmony rather
-  // than disappearing as a sound effect at the door transition.
-  const dialMorphAt = bar(INTRO_PERC_ONLY_BARS) + 0.5 * BEAT;
-  const dialMorphDur = bar(12);
-  const dialMorph = (f0, f1, db, pan, attack, release) => {
-    const at = Math.floor(dialMorphAt * SR), n = Math.floor(dialMorphDur * SR);
-    const a = (pan + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, db / 20), gr = Math.sin(a) * Math.pow(10, db / 20);
-    let phase = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const u = i / Math.max(1, n - 1);
-      const hz = f0 + (f1 - f0) * smooth(u);
-      phase += TAU * hz / SR;
-      const env = Math.min(1, i / (attack * SR), (n - i) / (release * SR));
-      const v = Math.sin(phase) * Math.max(0, env);
-      mix[2 * (at + i)] += v * gl;
-      mix[2 * (at + i) + 1] += v * gr;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += v * gl;
-        sampleBus[2 * (at + i) + 1] += v * gr;
-      }
-    }
-  };
-  dialMorph(352 * 1.1225, 329.63, -29, -0.12, 1.8, 4.5);
-  dialMorph(440 * 1.1225, 493.88, -31, 0.14, 2.2, 5.0);
-  // the bridge answers in lydian — E+G#, heard through the water
-  phoneAt(DIAL, bar(45), { db: -25, pan: -0.3, rate: 0.9375, maxDur: bar(3), fadeIn: 2, fadeOut: 2.5,
-    warp: { depth: 0.03, hz: 0.45 } });
-  // CC0 Freesound spin/woosh, cut short and landed exactly on the bar-45
-  // downbeat (~1:22): a Sega-era arcade gesture without using game audio.
-  phoneAt("quick-woosh-245936.mp3", bar(45), {
-    db: -14, pan: 0.05, rate: 3.4, maxDur: 1.05, fadeIn: 0.01, fadeOut: 0.24
-  });
-  // pitch-matched rotary calls: the gong lands on the bar lead, 2 octaves up
-  const ringAt = (b, db, pan) => {
-    const m = modeAt(b);
-    const leadMidi = LADDERS[m][clamp((barLead[Math.floor(b)] ?? LANES[m].start + 2), 0, LADDERS[m].length - 1)];
-    const target = MIDI_HZ(Math.min(100, leadMidi + 24));
-    phoneAt(RING, bar(b), { db, pan, rate: clamp(target / 1616, 0.55, 1.7), maxDur: 3.2, fadeIn: 0.05, fadeOut: 0.8 });
-  };
-  ringAt(16.5, -21, 0.45);   // ringing as chorus 1 approaches
-  ringAt(47.5, -20, -0.4);   // ringing unanswered into the machine strip
-  ringAt(64.5, -22, 0.35);   // one last call at the final crest
-}
-
-// ── punches: fight-foley impacts (assets/punches/ — drop the SF6 stash in
-//    the same folder and the next render uses it). They land where fists
-//    belong: rimshot accents through the machine strip and the final-chorus
-//    phrase changes — combo hits on the biggest turns. ────────────────────
-if (STONE_CLUB) {
-  const PUNCH_FILES = ["209392-kung_fu_punch_1.mp3", "209393-kung_fu_punch_2.mp3",
-    "209490-kung_fu_punch_3.mp3", "209627-kung_fu_punch_4.mp3",
-    "210896-punch_2.mp3", "210897-kung_fu_punch_5.mp3"];
-  const punchBank = PUNCH_FILES.map((f) => decodeSample(resolve(HERE, "../assets/punches", f)));
-  const punchAt = (t, which, db, pan) => {
-    const src = punchBank[which % punchBank.length];
-    if (!src) return;
-    const at = Math.floor(t * SR);
-    const n = Math.min(src.length, Math.floor(0.9 * SR));
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, db / 20);
-    const gr = Math.sin(a) * Math.pow(10, db / 20);
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const env = Math.min(1, (n - i) / (0.08 * SR));
-      mix[2 * (at + i)] += src[i] * gl * env;
-      mix[2 * (at + i) + 1] += src[i] * gr * env;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += src[i] * gl * env;
-        sampleBus[2 * (at + i) + 1] += src[i] * gr * env;
-      }
-    }
-  };
-  // machine strip: a hit on beat 2 of every other bar, harder each time
-  let pi = 0;
-  for (let b = 49; b < 54; b++) {
-    if (b % 2 === 1) punchAt(bar(b) + BEAT, pi++, -13 + (b - 49) * 0.6, b % 4 < 2 ? -0.3 : 0.3);
-  }
-  // final chorus: combo hits on the phrase changes; a 1-2 on the last one
-  for (let b = 54; b < 66; b += 4) {
-    punchAt(bar(b), pi++, -12, 0.25);
-    punchAt(bar(b) + 0.5 * BEAT, pi++, -15, -0.3); // the answer jab
-  }
-  punchAt(bar(64) + 3.5 * BEAT, pi++, -11.5, 0);   // the finisher into the last crest
-}
-
-// ── MODEM: the track as protocol. Samples from pop/samples/modem/ (pitch-
-//    analyzed in its manifest; rates land carrier tones on E-world targets):
-//    the phone DIALS behind the wall, the techno strip IS the handshake
-//    negotiation (a B2-locked carrier + data-burst clicks), a 1200-baud
-//    carrier whistles under the lydian water, and the AT&T disconnect hangs
-//    up the whole track inside the shoegaze fade. ─────────────────────────
-if (STONE_CLUB) {
-  const MODEM_DIR = resolve(HERE, "../../samples/modem");
-  const modemAt = (file, t, { rate = 1, rateEnd = null, db, pan = 0, maxDur = 5, fadeIn = 0.25, fadeOut = 0.6, warp = null }) => {
-    const src = decodeSample(resolve(MODEM_DIR, file));
-    if (!src) { console.log(`  (modem missing: ${file})`); return; }
-    const at = Math.floor(t * SR);
-    const avgRate = rateEnd != null ? (rate + rateEnd) / 2 : rate;
-    const n = Math.min(Math.floor(src.length / avgRate), Math.floor(maxDur * SR));
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a) * Math.pow(10, db / 20);
-    const gr = Math.sin(a) * Math.pow(10, db / 20);
-    const fi = Math.max(1, Math.floor(fadeIn * SR)), fo = Math.max(1, Math.floor(fadeOut * SR));
-    let pos = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const wob = warp ? 1 + warp.depth * Math.sin(TAU * warp.hz * (i / SR)) : 1;
-      const r = rateEnd != null ? rate + (rateEnd - rate) * smooth(i / n) : rate; // the takeoff glide
-      const j = Math.floor(pos), fr = pos - j;
-      if (j + 1 >= src.length) break;
-      const v = src[j] * (1 - fr) + src[j + 1] * fr;
-      const env = Math.min(1, i / fi, (n - i) / fo);
-      mix[2 * (at + i)] += v * gl * env;
-      mix[2 * (at + i) + 1] += v * gr * env;
-      if (sampleBus) {
-        sampleBus[2 * (at + i)] += v * gl * env;
-        sampleBus[2 * (at + i) + 1] += v * gr * env;
-      }
-      pos += r * wob;
-    }
-  };
-  // ── the door: a soft boomy TAKEOFF — the low handshake carrier tuned to
-  //    E2, gliding up a full octave over the first six bars. Deep enough to
-  //    pass straight through the wall's dampening (lows always do) — the
-  //    runway rumble you feel before you're inside. A soft tubular RTTY
-  //    carrier answers high through the crack.
-  modemAt("454649-modem_3_aif.mp3", bar(0), { rate: 0.6868, rateEnd: 1.374, db: -13, pan: 0,
-    maxDur: 10.5, fadeIn: 2.5, fadeOut: 3 });
-  modemAt("109147-rtty_45_1000hz_ogg.mp3", bar(2), { rate: 0.654, db: -28, pan: -0.3,
-    maxDur: 5, fadeIn: 1.5, fadeOut: 2 });
-  // the phone dials behind the wall — B3-tuned, barely there, answering
-  // the dial-tone drone before the door opens
-  modemAt("658932-dial_up_sound_mp3_flac.mp3", bar(5), { rate: 0.5612, db: -26, pan: 0.35, maxDur: 4.5, fadeIn: 1 });
-  // section-seam data artifacts: one tiny burst announcing each chorus
-  modemAt("397079-digitalradio_noise4_wav.mp3", bar(18) - 0.4, { rate: 0.5488, db: -24, pan: -0.5, maxDur: 0.8, fadeIn: 0.05, fadeOut: 0.3 });
-  modemAt("397079-digitalradio_noise4_wav.mp3", bar(36) - 0.4, { rate: 0.7325, db: -24, pan: 0.5, maxDur: 0.8, fadeIn: 0.05, fadeOut: 0.3 });
-  // the 1200-baud carrier whistles under the lydian water, E6-locked
-  modemAt("78657-modem1200_wav.mp3", bar(46), { rate: 0.6388, db: -27, pan: 0.25, maxDur: 4.5, fadeIn: 1.5, fadeOut: 1.5, warp: { depth: 0.03, hz: 0.5 } });
-  // THE NEGOTIATION: the techno strip is a handshake — a B2-locked carrier
-  // groans under the machine while data clicks spray the offbeats
-  modemAt("454649-modem_3_aif.mp3", bar(49), { rate: 1.0289, db: -19, pan: 0, maxDur: 6.5, fadeIn: 0.8, fadeOut: 1 });
-  for (let b = 49; b < 54; b++)
-    for (const s of [3, 6, 10, 13])
-      if (grooveUnit(b * 16 + s, 911) < 0.55)
-        modemAt("8037-modem_1_53_wav.mp3", bar(b) + s * (BEAT / 4),
-          { rate: 0.5494 * (1 + (grooveUnit(b * 16 + s, 913) - 0.5) * 0.1), db: -22,
-            pan: (grooveUnit(b * 16 + s, 917) - 0.5) * 1.4, maxDur: 0.22, fadeIn: 0.005, fadeOut: 0.08 });
-  // the login sequence rises into the stamp and the drop
-  modemAt("49608-dialup_login_dec_2001_24_bit_wav.mp3", bar(52.5), { rate: 0.5345, db: -20, pan: -0.2, maxDur: 2.6, fadeIn: 0.4, fadeOut: 0.4 });
-  // and at the very end, the protocol hangs up inside the haze
-  modemAt("844723-at_t_internet_gateway_modem_ups_w_modem_disconne.mp3", bar(70.5),
-    { rate: 0.5118, db: -20, pan: 0.15, maxDur: 4, fadeIn: 0.3, fadeOut: 2 });
-}
-
-// ── the aesthetic dot computer stamp — the /pop signature, placed by the
-//    house convention (hellsine): 3.5 s before the climax drop, pitched up
-//    ×1.18 and harmonized in a triadic stack (fifth + octave above, a slow
-//    ×0.78 body underneath). Here it speaks out of the bare techno machine
-//    right before the gliss slams into the major-key final chorus — and it
-//    trails two protocol echoes, because this track is a protocol. ────────
-if (STONE_CLUB) {
-  const stampSrc = decodeSample(resolve(HERE, "../assets/aesthetic-dot-computer.wav"));
-  if (stampSrc) {
-    const stampAt = (t, rate, db, pan) => {
-      const at = Math.floor(t * SR);
-      const n = Math.floor(stampSrc.length / rate);
-      const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-      const gl = Math.cos(a) * Math.pow(10, db / 20);
-      const gr = Math.sin(a) * Math.pow(10, db / 20);
-      let pos = 0;
-      for (let i = 0; i < n && at + i < ns; i++) {
-        const j = Math.floor(pos), fr = pos - j;
-        if (j + 1 >= stampSrc.length) break;
-        const v = stampSrc[j] * (1 - fr) + stampSrc[j + 1] * fr;
-        const env = Math.min(1, i / 200, (n - i) / (0.04 * SR));
-        mix[2 * (at + i)] += v * gl * env;
-        mix[2 * (at + i) + 1] += v * gr * env;
-        if (sampleBus) {
-          sampleBus[2 * (at + i)] += v * gl * env;
-          sampleBus[2 * (at + i) + 1] += v * gr * env;
-        }
-      }
-    };
-    const sT = bar(54) - 3.5;
-    stampAt(sT, 1.18, -4, 0);                  // main, pitched up — front and center
-    stampAt(sT + 0.025, 1.18 * 1.5, -10, -0.35); // fifth above
-    stampAt(sT + 0.045, 1.18 * 2.0, -13, 0.35);  // octave above
-    stampAt(sT + 0.06, 0.78, -10.5, 0);          // slow body underneath
-    stampAt(sT + 0.42, 1.18, -14, 0.5);          // protocol echo 1
-    stampAt(sT + 0.84, 1.18, -20, -0.5);         // protocol echo 2
-  }
-}
-
-// ── power chords: distorted electric guitar for the ending high points.
-//    Synthesized in-lane — three Karplus-Strong strings (root/fifth/octave;
-//    no third, so the chord is mode-proof), double-tracked left/right with
-//    ±6-cent detune, driven hard through tanh and a cab-style lowpass.
-//    Stabs land on the final-chorus phrase changes with palm-mute chugs
-//    driving into each one; the whole bus ducks under the kick. ───────────
-if (STONE_CLUB) {
-  const gtr = new Float32Array(ns * 2);
-  // striation: after the pick, tiny noise keeps re-exciting the string — a
-  // scratchy bowed fizz in the sustain instead of a clean KS decay
-  const gtrString = (t, hz, dur, damp, level, ch, striation = 0.004) => {
-    const period = Math.max(2, Math.round(SR / hz));
-    const buf = new Float32Array(period);
-    let lp = 0;
-    const seed = ((t * 997) | 0) + period + ch;
-    let s = (Math.imul(seed + 1, 2654435761) ^ 0x9e3779b9) >>> 0;
-    const rand = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
-    for (let j = 0; j < period; j++) {
-      lp += 0.82 * ((rand() * 2 - 1) - lp); // hard pick
-      buf[j] = lp;
-    }
-    const at = Math.floor(t * SR), n = Math.floor(dur * SR);
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const j = i % period;
-      gtr[2 * (at + i) + ch] += buf[j] * level * Math.min(1, (n - i) / (0.25 * SR));
-      buf[j] = damp * 0.5 * (buf[j] + buf[(j + 1) % period])
-        + (rand() * 2 - 1) * striation * (1 - i / n);
-    }
-  };
-  // the twizzle: as a chord tapers, its timbre UNRAVELS — the plucked
-  // string blooms into a triangle wave mid-decay, then dissolves into raw
-  // sawtooth at the tail, while a pitch rattle (two incommensurate wobble
-  // rates, deepening as the chord dies) shakes it apart. Same drive/cab
-  // chain, so the morph stays inside the amp.
-  const twizzle = (t, hz, dur, level, ch, detCents) => {
-    const at = Math.floor(t * SR), n = Math.floor(dur * 1.25 * SR);
-    const f = hz * Math.pow(2, detCents / 1200);
-    let phase = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const u = i / (dur * SR);
-      const triW = Math.max(0, Math.sin(Math.PI * clamp((u - 0.25) / 0.55, 0, 1)));
-      const sawW = Math.max(0, Math.sin(Math.PI * clamp((u - 0.6) / 0.65, 0, 1)));
-      if (triW === 0 && sawW === 0) { phase += f / SR; continue; }
-      const rat = 0.006 + 0.035 * Math.min(1.25, u);      // the rattle deepens
-      const tt = i / SR;
-      const wob = 1 + rat * (0.6 * Math.sin(TAU * 9.7 * tt) + 0.4 * Math.sin(TAU * 13.3 * tt + 1.7));
-      phase += (f * wob) / SR;
-      const p = phase - Math.floor(phase);
-      const tri = 1 - 4 * Math.abs(p - 0.5);
-      const saw = 2 * p - 1;
-      const env = Math.exp(-u * 1.6) * level;
-      gtr[2 * (at + i) + ch] += (tri * 0.4 * triW + saw * 0.34 * sawW) * env;
-    }
-  };
-  // sine threads: quiet pure tones that peel off the chord and drift like
-  // threads in the wind — their pitch envelope is CV-mediated by a slow
-  // random-walk (a new gust every 50 ms, chased lazily), the drift deepening
-  // as the chord unravels underneath them.
-  const thread = (t, hz, dur, level, seedBase, pan) => {
-    const at = Math.floor(t * SR), n = Math.floor(dur * 1.3 * SR);
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const gl = Math.cos(a), gr = Math.sin(a);
-    let phase = 0, drift = 0, target = 0;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const u = i / (dur * SR);
-      if (i % 2400 === 0) target = (grooveUnit(seedBase + ((i / 2400) | 0), 941) - 0.5) * 2.5;
-      drift += (target - drift) * 0.0018; // the lazy chase — wind, not vibrato
-      phase += hz * Math.pow(2, (drift * (0.3 + u)) / 12) / SR;
-      const w = Math.max(0, Math.sin(Math.PI * clamp((u - 0.15) / 0.9, 0, 1)));
-      const v = Math.sin(TAU * phase) * w * level * Math.exp(-u * 1.2);
-      gtr[2 * (at + i)] += v * gl;
-      gtr[2 * (at + i) + 1] += v * gr;
-    }
-  };
-  // long-drain chords: five strings a side (root/fifth/octave + two ±15¢
-  // haze strings), rung so each chord still sounds when the next arrives
-  const powerChord = (t, rootMidi, dur, level, damp = 0.99955, striation = 0.004) => {
-    for (const [off, lv] of [[0, 1], [7, 0.8], [12, 0.6]])
-      for (const [ch, cents] of [[0, -6], [1, 6]]) {
-        gtrString(t + (ch ? 0.006 : 0), MIDI_HZ(rootMidi + off) * Math.pow(2, cents / 1200),
-          dur, damp, level * lv * 0.42, ch, striation);
-        if (dur > 1) // stabs and sustains unravel; palm-mute chugs stay plucked
-          twizzle(t + (ch ? 0.006 : 0), MIDI_HZ(rootMidi + off), dur, level * lv * 0.5, ch, cents);
-      }
-    if (dur > 1) // three threads lift off the chord tones, one per interval
-      for (const [k, off] of [[0, 12], [1, 19], [2, 24]].map((x, i) => [i, x[1]]))
-        thread(t + 0.3 + k * 0.22, MIDI_HZ(rootMidi + off), dur, level * 0.2,
-          ((t * 131) | 0) + k * 37, k === 0 ? -0.5 : k === 1 ? 0.5 : 0);
-    for (const [ch, cents] of [[0, -15], [1, 15]]) // the haze pair
-      gtrString(t + 0.012, MIDI_HZ(rootMidi + 12) * Math.pow(2, cents / 1200),
-        dur * 1.2, Math.min(0.99985, damp + 0.0002), level * 0.22, ch, striation * 1.6);
-  };
-  // final chorus: a stab on every 2-bar phrase change, chugs driving in;
-  // sustains overlap the next chord — the wall starts assembling
-  for (let b = 54; b < 66; b += 2) {
-    const rootMidi = 40 + progSemis(b, ((b - 54) / 2) % 4); // E2 region
-    for (const chug of [2.5, 3, 3.5])
-      powerChord(bar(b - 1) + chug * BEAT, rootMidi, 0.16, 0.5, 0.965, 0.002); // palm mutes
-    powerChord(bar(b), rootMidi, 4.6, 0.85, 0.99955, 0.004 + (b - 54) * 0.0009);
-  }
-  powerChord(bar(64), 40, 5.5, 1, 0.9997, 0.012); // the summit chord — already fraying
-  // the outro IS the shoegaze: three long haze chords, maximum striation,
-  // draining into each other all the way through the fade
-  powerChord(bar(66), 40, 8, 0.8, 0.99975, 0.018);
-  powerChord(bar(68), 43, 8, 0.72, 0.99978, 0.022);
-  powerChord(bar(70), 40, 10, 0.66, 0.9998, 0.028);
-  // drive (climbing toward the end) → cab lowpass → DC-safe highpass
-  const tEnd = bar(72);
-  for (let ch = 0; ch < 2; ch++) {
-    let cab = 0, hpX = 0, hpY = 0;
-    const aCab = 1 - Math.exp(-2 * Math.PI * 3400 / SR);
-    for (let i = 0; i < ns; i++) {
-      const x = gtr[2 * i + ch];
-      if (x === 0 && cab === 0 && hpY === 0) continue;
-      const t = i / SR;
-      const drv = 7 + 6 * smooth(clamp((t - bar(54)) / (tEnd - bar(54)), 0, 1)); // 7 → 13: gnarlier as it goes
-      const driven = Math.tanh(x * drv) / Math.tanh(drv);
-      cab += aCab * (driven - cab);
-      const y = cab - hpX + 0.996 * hpY; // ~30 Hz DC-safe highpass
-      hpX = cab; hpY = y;
-      gtr[2 * i + ch] = y;
-    }
-  }
-  // MBV smear: from the last cliff onward a cross-fed feedback delay washes
-  // the bus into haze — by the fade it's all bloom, no attack
-  {
-    const d = Math.floor(0.187 * SR);
-    const from = Math.floor(bar(63) * SR);
-    for (let i = from; i < ns; i++) {
-      const t = i / SR;
-      const fb = 0.2 + 0.42 * smooth(clamp((t - bar(63)) / (bar(70) - bar(63)), 0, 1));
-      if (i - d >= 0) {
-        gtr[2 * i] += gtr[2 * (i - d) + 1] * fb;       // cross-fed L←R
-        gtr[2 * i + 1] += gtr[2 * (i - d)] * fb * 0.94; // R←L
-      }
-    }
-  }
-  const kickTimes2 = kicks.map((k) => k[0]).sort((x, y) => x - y);
-  let ki2 = 0;
-  const G = Math.pow(10, -16 / 20);
-  for (let i = 0; i < ns; i++) {
-    const t = i / SR;
-    while (ki2 + 1 < kickTimes2.length && kickTimes2[ki2 + 1] <= t) ki2++;
-    const since = t - kickTimes2[ki2];
-    const duck = since >= 0 && since < 0.14 ? 1 - 0.45 * Math.exp(-since / 0.045) : 1;
-    const l = gtr[2 * i] * G * duck, r = gtr[2 * i + 1] * G * duck;
-    mix[2 * i] += l; mix[2 * i + 1] += r;
-    if (gtrBus) { gtrBus[2 * i] += l; gtrBus[2 * i + 1] += r; }
-  }
-}
-
-// ── ukulele: one stringed voice on the boat — a nylon Karplus-Strong pluck,
-//    no samples. Warm open strums follow the bowl roots two bars at a time
-//    (ringing longest in the valleys), choked "chnk" skanks ride the crest
-//    offbeats, and a bright open E rings each mutation seam's resolution.
-//    Voicings stay inside the pentatonic set and under the E5 ceiling. ────
-if (STONE_CLUB) {
-  // Tuned a whole octave below a real uke — baritone-nylon register, so the
-  // long tails sit under the stone bells instead of tangling with them.
-  // Voicings are stacked scale thirds on the progression degree, built from
-  // the section ladder — the uke re-tunes with the tour (quartal-ish in the
-  // pentatonic bookends, real triads in the modal middle).
-  const modeChord = (b, progIdx) => {
-    const m = modeAt(b);
-    const lad = LADDERS[m];
-    const L = MODES[m].length;
-    const r = progDegs(m)[progIdx];
-    return [r, r + 2, r + 4, r + L].map((i) => MIDI_HZ(lad[clamp(i, 0, lad.length - 1)]));
-  };
-  const ukeRand = (a) => {
-    let s = (Math.imul(a + 1, 2654435761) ^ 0x9e3779b9) >>> 0;
-    return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
-  };
-  const pluck = (hz, dur, damp, bright, seed) => {
-    const rand = ukeRand(seed);
-    const period = Math.max(2, Math.round(SR / hz));
-    const n = Math.floor(dur * SR);
-    const out = new Float32Array(n);
-    const buf = new Float32Array(period);
-    let lp = 0;
-    for (let j = 0; j < period; j++) {
-      lp += bright * ((rand() * 2 - 1) - lp); // nylon: pre-softened burst
-      buf[j] = lp;
-    }
-    for (let i = 0; i < n; i++) {
-      const j = i % period;
-      out[i] = buf[j] * Math.min(1, (n - i) / (0.05 * SR)); // click-safe tail
-      buf[j] = damp * 0.5 * (buf[j] + buf[(j + 1) % period]);
-    }
-    return out;
-  };
-  const strum = (t, chord, { db, dur, damp = 0.9965, bright = 0.55, up = false, pan = 0 }) => {
-    const g = Math.pow(10, db / 20);
-    const order = up ? [...chord].reverse() : chord;
-    if (SCORE_JSON) for (const hz of chord)
-      scoreExtra.uke.push({ t: +t.toFixed(4), hz: +hz.toFixed(2), db, dur, pan: +pan.toFixed(3) });
-    for (let s = 0; s < order.length; s++) {
-      const wave = pluck(order[s], dur, damp, bright, Math.floor(t * 977) + s);
-      const at = Math.floor((t + s * 0.013) * SR);
-      const a = (clamp(pan + (s - 1.5) * 0.09, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-      const gl = Math.cos(a) * g, gr = Math.sin(a) * g;
-      for (let i = 0; i < wave.length && at + i < ns; i++) {
-        mix[2 * (at + i)] += wave[i] * gl;
-        mix[2 * (at + i) + 1] += wave[i] * gr;
-        if (bellBus) {
-          bellBus[2 * (at + i)] += wave[i] * gl;
-          bellBus[2 * (at + i) + 1] += wave[i] * gr;
-        }
-      }
-    }
-  };
-  for (const d of DROPS)
-    for (let b = d.a; b < d.z; b += 2) {
-      if (b < INTRO_PERC_ONLY_BARS || inTechno(b)) continue; // no strings in intro/machine strip
-      const chord = modeChord(b, ((b - d.a) / 2) % 4);
-      const w = waveAt(b);
-      // 10× decay: the strings barely damp, so successive strums overlay
-      // into a harp-like wash — a couple dB quieter to pay for the overlap
-      strum(bar(b) + 0.01 + grooveJitter(b, 501, 0.004), chord, {
-        db: w < 0.62 ? -16.5 : -20, dur: w < 0.62 ? 24 : 11,
-        damp: 0.99965, pan: spatialEventPan(bar(b), 800 + b, 0.3),
-      });
-      for (const bb of [b, b + 1]) {
-        if (waveAt(bb) <= 0.9) continue;
-        for (const beat of [1.5, 3.5])
-          strum(bar(bb) + beat * BEAT + EAGER + grooveJitter(bb * 4 + beat * 2, 503, 0.003),
-            chord, { db: -21.5, dur: 0.09, damp: 0.86, bright: 0.8,
-              up: beat > 2, pan: 0.25 });
-      }
-    }
-  for (const seam of PICKUP_SEAMS)
-    strum(bar(seam) + 0.02, modeChord(seam, 0),
-      { db: -17, dur: 22, damp: 0.99965, bright: 0.65, pan: -0.15 });
-  // Fibonaccian arpeggiations: in the valleys and all through the bridge the
-  // uke picks single strings. The Fibonacci word (s_n = s_{n-1} + s_{n-2})
-  // decides pluck-or-rest on the eighth grid and the interval steps walk the
-  // Fibonacci cycle (1,1,2,3,5), reflecting at the ladder edges — the arp is
-  // self-similar at every scale but never loops. Grid-perfect placement.
-  let fA = "0", fB = "01";
-  while (fB.length < BARS * 8) [fA, fB] = [fB, fB + fA];
-  const FIB_STEPS = [1, 1, 2, 3, 5];
-  let arpIdx = 4, arpDir = 1, arpStep = 0, fCursor = 0;
-  for (let b = 0; b < BARS; b++) {
-    if (b < INTRO_PERC_ONLY_BARS || inTechno(b) ||
-        (!sparseAt(b) && sectionAt(b).name !== "bridge")) { fCursor += 8; continue; }
-    // the arp picks from the section ladder's low half — it re-tunes too
-    const arpLad = LADDERS[modeAt(b)].filter((m) => m <= 80);
-    for (let e = 0; e < 8; e++, fCursor++) {
-      if (fB[fCursor % fB.length] !== "1") continue;
-      arpIdx += FIB_STEPS[arpStep++ % FIB_STEPS.length] * arpDir;
-      while (arpIdx < 0 || arpIdx >= arpLad.length) {
-        if (arpIdx >= arpLad.length) arpIdx = 2 * (arpLad.length - 1) - arpIdx;
-        if (arpIdx < 0) arpIdx = -arpIdx;
-        arpDir *= -1;
-      }
-      strum(bar(b) + e * 0.5 * BEAT, [MIDI_HZ(arpLad[arpIdx])],
-        { db: -22.5, dur: 4, damp: 0.9994, bright: 0.6,
-          pan: e % 2 ? 0.3 : -0.3 });
-      squareShadow.push({ t: bar(b) + e * 0.5 * BEAT, midi: arpLad[arpIdx], vel: 0.3 });
-    }
-  }
-}
-
-// ── the square shadow: a purely synthetic square wave (odd-harmonic
-//    additive, so no aliasing) dilly-dallying after every staircase figure —
-//    trailing a sixteenth behind the rushes, glisses, pickups, and arps,
-//    skipping notes, hesitating, popping the octave. The chip kid copying
-//    the percussionist's homework. ─────────────────────────────────────────
-if (STONE_CLUB && squareShadow.length) {
-  const sq = (t, midi, vel, db, pan) => {
-    const hz = MIDI_HZ(midi);
-    const at = Math.floor(t * SR), n = Math.floor(0.13 * SR);
-    const a = (clamp(pan, -0.9, 0.9) + 1) * 0.25 * Math.PI;
-    const g = Math.pow(10, db / 20) * vel;
-    const gl = Math.cos(a) * g, gr = Math.sin(a) * g;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const ph = (i / SR) * hz;
-      let v = 0;
-      for (let k = 1; k <= 9; k += 2) v += Math.sin(2 * Math.PI * ph * k) / k;
-      const env = Math.exp(-i / (0.045 * SR)) * Math.min(1, i / 90);
-      mix[2 * (at + i)] += v * env * gl;
-      mix[2 * (at + i) + 1] += v * env * gr;
-      if (synthBus) {
-        synthBus[2 * (at + i)] += v * env * gl;
-        synthBus[2 * (at + i) + 1] += v * env * gr;
-      }
-    }
-  };
-  let si = 0;
-  for (const sh of squareShadow) {
-    si++;
-    if (grooveUnit(si, 901) < 0.28) continue;             // dally: skips notes
-    const hesitate = grooveUnit(si, 903) < 0.14 ? BEAT / 8 : 0;
-    const t = sh.t + BEAT / 4 + hesitate;                  // a sixteenth behind
-    sq(t, sh.midi, sh.vel, -25.5, si % 2 ? 0.5 : -0.5);
-    if (sh.midi + 12 <= 103 && grooveUnit(si, 907) < 0.16) // octave pop
-      sq(t + BEAT / 8, sh.midi + 12, sh.vel * 0.7, -28.5, si % 2 ? -0.4 : 0.4);
-  }
-}
-
-// ── disco bass: the FCUKERS move — a Bernard-Edwards/Chic disco bassline
-//    (octave jumps as flourish, syncopated 16ths, "chucking" ghost notes,
-//    root-fifth-octave, slides), plucky filtered saw + a sub sine for body,
-//    sidechained to the four-on-the-floor and sent to a high-passed plate
-//    reverb so the tail blooms without mudding the low end. Sits an octave
-//    above the fuselage sub, so weight and groove don't fight. ────────────
-if (STONE_CLUB && !process.env.NODISCO) {
-  const bassDry = new Float32Array(ns);
-  const hzFrom = (rootHz, semis) => rootHz * Math.pow(2, semis / 12);
-  // one repeating 16th pattern, disco-syncopated: R=root, 7=fifth, 12=octave.
-  // g = ghost (muted chuck), a = accent, s = slide from the previous note.
-  const _ = null;
-  const DISCO = [
-    { d: 0, a: 1 }, { d: 0, g: 1 }, { d: 0 }, { d: 12, s: 1 },
-    _,              { d: 0 },       { d: 7 }, { d: 12 },
-    { d: 0, a: 1 }, { d: 0, g: 1 }, { d: 12 },{ d: 7 },
-    { d: 0 },       { d: 12, s: 1 },{ d: 0, g: 1 }, { d: 10 },
-  ];
-  // a sparser skeleton for the bridge — dubby, let it ring into the reverb
-  const DISCO_DUB = DISCO.map((st, i) => (i % 8 === 0 ? { d: st?.d ?? 0, a: 1 } : (i === 11 ? { d: 12 } : _)));
-  // render one plucked note (saw + sub, resonant SVF, drive) into bassDry
-  let prevHz = null;
-  const pluckBass = (t, hz, { ghost, accent, slide }) => {
-    const dur = ghost ? 0.055 : accent ? 0.19 : 0.14;
-    const at = Math.floor(t * SR), n = Math.floor(dur * SR);
-    const g = ghost ? 0.16 : accent ? 1.0 : 0.8;
-    // Cascaded one-pole lowpass — unconditionally stable (a resonant SVF
-    // here blew up to NaN on high notes). Disco bass is rounded, not acid,
-    // so two poles + a bright pluck envelope give the right electric tone.
-    let lp1 = 0, lp2 = 0;
-    const fromHz = slide && prevHz ? prevHz : hz;
-    for (let i = 0; i < n && at + i < ns; i++) {
-      const age = i / SR;
-      const gl = slide ? Math.min(1, age / 0.05) : 1;   // 50 ms portamento
-      const f = fromHz + (hz - fromHz) * gl;
-      const ph = ((t + age) * f) % 1;
-      const saw = 2 * ph - 1;
-      const sub = Math.sin(2 * Math.PI * ((t + age) * f * 0.5)); // sub-octave body
-      const env = Math.exp(-age / (dur * 0.34)) * (age < 0.003 ? age / 0.003 : 1);
-      const cutoff = 700 + (accent ? 1700 : 950) * Math.exp(-age / 0.045);
-      const a = 1 - Math.exp(-2 * Math.PI * Math.min(6000, cutoff) / SR);
-      const inp = 0.8 * saw + 0.3 * sub;
-      lp1 += a * (inp - lp1);
-      lp2 += a * (lp1 - lp2);
-      const shaped = Math.tanh(lp2 * 1.8) / 1.8;         // gentle grit
-      bassDry[at + i] += shaped * env * g;
-    }
-    if (!ghost) prevHz = hz;
-  };
-  for (const d of DROPS)
-    for (let b = d.a; b < d.z; b++) {
-      const sec = sectionAt(b).name;
-      if (sec === "intro") continue;                   // the bass waits outside the door
-      if (sec === "techno") continue;                  // the machine strip has no disco
-      const rootHz = progHz(b, ((b - d.a) / 2) % 4) * 2; // an octave above the sub, mode-tuned
-      // the pattern's b7 becomes a natural 7 in the bright modes
-      const seventh = MODES[modeAt(b)][MODES[modeAt(b)].length - 1];
-      const pat = sec === "bridge" ? DISCO_DUB : DISCO;
-      for (let s = 0; s < 16; s++) {
-        const st = pat[s];
-        if (!st) continue;
-        if (sec === "verse" && s % 2 === 1 && !st.a && !st.g && grooveUnit(b * 16 + s, 71) < 0.4) continue;
-        const t = bar(b) + s * (BEAT / 4) + EAGER * 0.4 + grooveJitter(b * 16 + s, 211, 0.003);
-        const hz = hzFrom(rootHz, st.d === 10 ? seventh : st.d);
-        pluckBass(t, hz, { ghost: st.g, accent: st.a, slide: st.s });
-        if (SCORE_JSON && !st.g)
-          scoreExtra.disco.push({ t: +t.toFixed(4), hz: +hz.toFixed(2),
-            midi: +(69 + 12 * Math.log2(hz / 440)).toFixed(2), accent: st.a ? 1 : 0 });
-      }
-    }
-  // DC-block the pluck bus: the resonant SVF on short saw fragments leaves a
-  // per-note DC bias that the reverb combs would amplify into a huge offset.
-  // A ~7 Hz one-pole high-pass removes it while preserving the 40 Hz sub.
-  {
-    let xPrev = 0, yPrev = 0;
-    for (let i = 0; i < ns; i++) {
-      const x = Number.isFinite(bassDry[i]) ? bassDry[i] : 0; // never propagate a stray NaN
-      const y = x - xPrev + 0.999 * yPrev;
-      xPrev = x; yPrev = y;
-      bassDry[i] = y;
-    }
-  }
-  // ── Schroeder plate reverb on the bass, high-passed so lows stay tight ─
-  const combTune = [0.0297, 0.0371, 0.0411, 0.0437], combFb = [0.79, 0.80, 0.78, 0.81];
-  const combBuf = combTune.map((s) => new Float32Array(Math.max(1, Math.floor(s * SR))));
-  const combPos = combTune.map(() => 0);
-  const apTune = [0.0050, 0.0017], apFb = 0.7;
-  const apBuf = apTune.map((s) => new Float32Array(Math.max(1, Math.floor(s * SR))));
-  const apPos = apTune.map(() => 0);
-  const bassWet = new Float32Array(ns);
-  let hpPrevIn = 0, hpPrevOut = 0;
-  const hpA = 0.985; // ~150 Hz one-pole high-pass on the wet return
-  for (let i = 0; i < ns; i++) {
-    const x = bassDry[i];
-    let acc = 0;
-    for (let c = 0; c < combBuf.length; c++) {
-      const buf = combBuf[c];
-      const y = buf[combPos[c]];
-      buf[combPos[c]] = x + y * combFb[c];
-      combPos[c] = (combPos[c] + 1) % buf.length;
-      acc += y;
-    }
-    acc *= 0.25;
-    for (let ap = 0; ap < apBuf.length; ap++) {
-      const buf = apBuf[ap];
-      const bufout = buf[apPos[ap]];
-      const y = -apFb * acc + bufout;
-      buf[apPos[ap]] = acc + apFb * y;
-      apPos[ap] = (apPos[ap] + 1) % buf.length;
-      acc = y;
-    }
-    const hp = hpA * (hpPrevOut + acc - hpPrevIn);
-    hpPrevIn = acc; hpPrevOut = hp;
-    bassWet[i] = hp;
-  }
-  // ── sum dry + wet into the mix with a kick-pumped sidechain ────────────
-  const kickTimes = kicks.map((k) => k[0]).sort((a, b) => a - b);
-  const dryGain = Math.pow(10, -9.5 / 20), wetGain = Math.pow(10, -17 / 20);
-  let ki = 0;
-  for (let i = 0; i < ns; i++) {
-    const t = i / SR;
-    while (ki + 1 < kickTimes.length && kickTimes[ki + 1] <= t) ki++;
-    const since = t - kickTimes[ki];
-    const duck = since >= 0 && since < 0.16 ? 1 - 0.5 * Math.exp(-since / 0.05) : 1;
-    const v = (bassDry[i] * dryGain + bassWet[i] * wetGain) * duck;
-    mix[2 * i] += v; mix[2 * i + 1] += v;
-    if (synthBus) { synthBus[2 * i] += v; synthBus[2 * i + 1] += v; }
-  }
-}
-
-// ── graphic-score export: everything the composer knows about the track,
-//    written as analysis data for bin/score-video.mjs. Ground truth, not a
-//    re-analysis — exact times, pitches, materials, sections, drum density.
-if (SCORE_JSON) {
-  const NOTE_SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  const noteMidi = (n) => {
-    const m = /^([A-G])(#?)(-?\d)$/.exec(n);
-    if (!m) return null;
-    return 12 * (+m[3] + 1) + NOTE_SEMI[m[1]] + (m[2] ? 1 : 0);
-  };
-  const hzMidi = (hz) => 69 + 12 * Math.log2(hz / 440);
-  // Classify each bell into a score lane by its inspectable fields.
-  const bellLane = (s) => {
-    if (s.cliff && s.longTail) return "cliff";
-    if (s.quat) return "quat";
-    if (s.geometry === "bowl") return "bowl";
-    if (s.geometry === "church") return "toll";
-    if (s.dur >= 2.5 || s.longTail) return "ring";
-    if (s.choke) return "ornament";
-    return "melody";
-  };
-  const scoreBells = [...bells].sort((a, b) => a.t - b.t).map((s) => ({
-    t: +s.t.toFixed(4), midi: noteMidi(s.note), note: s.note,
-    vel: +(s.vel ?? 0.7).toFixed(3), dur: +(s.dur ?? 1).toFixed(3),
-    pan: +(s.pan ?? 0).toFixed(3), lane: bellLane(s),
-    material: s.material, geometry: s.geometry,
-  })).filter((s) => s.midi != null);
-  // Per-16th drum density — the mathematical grid made visible.
-  const STEP = BEAT / 4;
-  const drumSteps = Math.ceil(DUR / STEP);
-  const drumDensity = new Array(drumSteps).fill(0);
-  for (const nz of noises) drumDensity[Math.floor(nz[0] / STEP)]++;
-  // The playback tempo warp (same curve the audio's final resample uses):
-  // rate(t_out) = 0.92 + 0.08·smoothstep(t_out/DUR). Export the cumulative
-  // input position vs output time so the score video can map each composed
-  // event time to when it actually SOUNDS — otherwise the marks drift.
-  const rateOf = (t) => 0.92 + 0.08 * (((p) => p * p * (3 - 2 * p))(Math.max(0, Math.min(1, t / DUR))));
-  const tmDt = 0.02;
-  const cumInput = [];
-  let cum = 0;
-  for (let t = 0; t <= DUR + tmDt; t += tmDt) { cumInput.push(+cum.toFixed(4)); cum += rateOf(t) * tmDt; }
-  const payload = {
-    track: "wattajetta stone club",
-    transport: { bpm: BPM, beat: +BEAT.toFixed(5), bar: +BAR.toFixed(5),
-      bars: BARS, durationSec: +DUR.toFixed(3), sr: SR },
-    tempoMap: { dt: tmDt, cumInput },
-    sections: CLUB_SECTIONS.map((s) => ({ ...s, tStart: +bar(s.a).toFixed(3), tEnd: +bar(s.z).toFixed(3) })),
-    spinWindows: SPIN_WINDOWS.map((w) => ({ tStart: +w.at.toFixed(3), tEnd: +(w.at + w.dur).toFixed(3), turns: w.turns })),
-    kicks: kicks.map((k) => +k[0].toFixed(4)),
-    drumStep: +STEP.toFixed(5), drumDensity,
-    bells: scoreBells,
-    uke: scoreExtra.uke.map((u) => ({ ...u, midi: +hzMidi(u.hz).toFixed(2) })),
-    flyby: scoreExtra.flyby.map((f) => ({ ...f, midi: +hzMidi(f.hz).toFixed(2) })),
-    sub: scoreExtra.sub.map((s) => ({ ...s, midi: +hzMidi(s.hz).toFixed(2) })),
-    disco: scoreExtra.disco,
-  };
-  const jsonPath = resolve(OUT, "wattajetta-stone-club-score.json");
-  writeFileSync(jsonPath, JSON.stringify(payload) + "\n");
-  console.log(`✓ ${jsonPath} · ${scoreBells.length} bells, ${payload.uke.length} uke, ${payload.flyby.length} flyby, ${kicks.length} kicks`);
 }
 
 // ── super scratching: a hand scrubs the record — the playhead scrubs
@@ -2493,8 +916,10 @@ function loadVocal(file) {
   const b = p.stdout; // copy into an aligned buffer — stdout offset isn't guaranteed %4
   return new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.length - (b.length % 4)));
 }
-const VOCALS = STONE_STUDY ? [] : [
-  { t: bar(8), file: "wattajetta.mp3", db: -8, rate: 1 },              // title drop after the percussion-only intro
+const VOCALS = STONE_STUDY ? [
+  { t: bar(0), file: "wattajetta.mp3", db: -9, rate: 1 },
+] : [
+  { t: bar(0), file: "wattajetta.mp3", db: -8, rate: 1 },              // title drop over the steam
   { t: bar(15) - 0.15, file: "wayer.mp3", db: -6, rate: 1 },           // riding super scratch 1
   { t: bar(47) - 0.15, file: "wayer.mp3", db: -6, rate: 0.94 },        // into steel, a shade deeper
   { t: bar(63.5), file: "wayer.mp3", db: -8, rate: 0.8,
@@ -2632,52 +1057,6 @@ if (WORLD) {
 // ── the kick returns: layered back on top, untouched by every hand ────
 for (let i = 0; i < mix.length; i++) mix[i] += kickBus[i];
 
-// ── entering the room: for the first eight bars the whole track — kick
-//    included — is heard from behind the wall. A heavy lowpass holds dark
-//    for two bars, then the door swings open across bars 2–8: the cutoff
-//    sweeps exponentially from 280 Hz to transparent while the muffled
-//    −3.5 dB lifts away. By the verse you're inside. ────────────────────
-if (STONE_CLUB) {
-  const wallEnd = bar(8);
-  // The cap comes off by MEASURE: each bar it rests one notch higher, and
-  // between the downbeats the hand toys with it — two playful pumps lifting
-  // toward (past) the next notch before reseating. Pressure, tease, release.
-  const CAP = [0.02, 0.07, 0.15, 0.26, 0.4, 0.55, 0.72, 0.9, 1];
-  const capOpen = (t) => {
-    const bpos = t / BAR;
-    const bi = Math.min(8, Math.floor(bpos));
-    const ph = bpos - Math.floor(bpos);
-    const lo = CAP[bi], hi = CAP[Math.min(8, bi + 1)];
-    const lift = ph * ph;                                   // leans late in the bar
-    const tease = 0.5 + 0.5 * Math.sin(TAU * (2 * ph - 0.25)); // two pumps a bar
-    return clamp(lo + (hi + 0.1 - lo) * lift * (0.55 + 0.45 * tease), 0, 1);
-  };
-  const busses = [mix, waterBus, stemKickBus, bellBus, trashBus, sampleBus, synthBus, gtrBus].filter(Boolean);
-  const aHi = 1 - Math.exp(-2 * Math.PI * 4500 / SR); // wider crack: hat bodies fit through
-  for (const bus of busses) {
-    let l = 0, r = 0, hiL = 0, hiR = 0;
-    for (let i = 0; i < ns; i++) {
-      const t = i / SR;
-      if (t >= wallEnd) break;
-      const open = capOpen(t);
-      const fc = 280 * Math.pow(18000 / 280, open);
-      const a = 1 - Math.exp(-2 * Math.PI * fc / SR);
-      const dryL = bus[2 * i], dryR = bus[2 * i + 1];
-      l += a * (dryL - l);
-      r += a * (dryR - r);
-      // the crack under the door: a sliver of 6 kHz+ glints through the
-      // dampening — dice clicks and bell pinpricks sparkle while the body
-      // of the music stays behind the wall; the leak folds away as it opens
-      hiL += aHi * (dryL - hiL);
-      hiR += aHi * (dryR - hiR);
-      const leak = 0.24 * (1 - open) + 0.06; // never fully sealed — the tick punches through even at t=0
-      const lvl = 0.67 + 0.33 * open;
-      bus[2 * i] = l * lvl + (dryL - hiL) * leak;
-      bus[2 * i + 1] = r * lvl + (dryR - hiR) * leak;
-    }
-  }
-}
-
 // ── canonical stone has one uninterrupted tempo story: it starts slower
 //    and rises gradually, with no local scratch grabs or slowdowns. ─────
 {
@@ -2702,45 +1081,17 @@ if (STONE_CLUB) {
     }
     return r;
   };
-  const warpBus = (bus) => {
-    const warped = new Float32Array(bus.length);
-    let pos = 0;
-    for (let i = 0; i < ns; i++) {
-      const j = Math.floor(pos);
-      if (j >= ns - 1) break;
-      const fr = pos - j;
-      warped[2 * i] = bus[2 * j] * (1 - fr) + bus[2 * (j + 1)] * fr;
-      warped[2 * i + 1] = bus[2 * j + 1] * (1 - fr) + bus[2 * (j + 1) + 1] * fr;
-      pos += rate(i / SR);
-    }
-    bus.set(warped);
-  };
-  warpBus(mix);
-  for (const bus of [waterBus, stemKickBus, bellBus, trashBus, sampleBus, synthBus, gtrBus].filter(Boolean)) warpBus(bus);
-}
-
-// Narrative macro-dynamics: a slow reveal, three mutation valleys, a late
-// crest, and a long outro retreat. The envelope is shared by every stem so the
-// premaster sum remains exact; the gentler club compressor preserves the arc.
-if (STONE_CLUB) {
-  const arc = [
-    [0.00, -18], [0.035, -9], [0.10, -3], [0.22, 0],
-    [0.26, -3.2], [0.41, 0.6], [0.49, -4.0], [0.63, 0.7],
-    [0.71, -2.8], [0.86, 1.3], [0.90, 0], [0.94, -5.5], [1.00, -48],
-  ];
-  const gainAt = (p) => {
-    for (let i = 1; i < arc.length; i++) if (p <= arc[i][0]) {
-      const [a, adb] = arc[i - 1], [b, bdb] = arc[i];
-      const u = smooth((p - a) / (b - a));
-      return Math.pow(10, (adb + (bdb - adb) * u) / 20);
-    }
-    return Math.pow(10, arc.at(-1)[1] / 20);
-  };
-  const busses = [mix, waterBus, stemKickBus, bellBus, trashBus, sampleBus, synthBus, gtrBus].filter(Boolean);
+  const warped = new Float32Array(mix.length);
+  let pos = 0;
   for (let i = 0; i < ns; i++) {
-    const g = gainAt(i / Math.max(1, ns - 1));
-    for (const bus of busses) { bus[2 * i] *= g; bus[2 * i + 1] *= g; }
+    const j = Math.floor(pos);
+    if (j >= ns - 1) break;
+    const fr = pos - j;
+    warped[2 * i] = mix[2 * j] * (1 - fr) + mix[2 * (j + 1)] * fr;
+    warped[2 * i + 1] = mix[2 * j + 1] * (1 - fr) + mix[2 * (j + 1) + 1] * fr;
+    pos += rate(i / SR);
   }
+  mix.set(warped);
 }
 
 // The five seconds removed from the front are not thrown away. Later, the
@@ -2773,74 +1124,7 @@ if (NEXT) {
 // re-peak after the layers so the master sees a sane level
 let peak = 0;
 for (let i = 0; i < mix.length; i++) { const v = Math.abs(mix[i]); if (v > peak) peak = v; }
-if (peak > 0.9) {
-  const g = 0.9 / peak;
-  for (const bus of [mix, waterBus, stemKickBus, bellBus, trashBus, sampleBus, synthBus, gtrBus].filter(Boolean))
-    for (let i = 0; i < bus.length; i++) bus[i] *= g;
-}
-
-if (STEMS) {
-  const finiteStats = (name, bus) => {
-    let bad = 0, first = -1;
-    for (let i = 0; i < bus.length; i++) if (!Number.isFinite(bus[i])) {
-      bad++; if (first < 0) first = i;
-    }
-    console.log(`${name}: ${bad} non-finite${first >= 0 ? ` (first ${first})` : ""}`);
-    return bad;
-  };
-  const bad = [
-    finiteStats("premaster", mix), finiteStats("kick stem", stemKickBus),
-    finiteStats("water stem", waterBus), finiteStats("bell stem", bellBus),
-    finiteStats("trash stem", trashBus), finiteStats("sample stem", sampleBus),
-    finiteStats("synth stem", synthBus), finiteStats("guitar stem", gtrBus),
-  ].reduce((a, b) => a + b, 0);
-  if (bad) { console.error("✗ non-finite stem samples"); process.exit(1); }
-  let sumDiffSq = 0, mixLSq = 0, mixRSq = 0;
-  for (let i = 0; i < mix.length; i += 2) {
-    const stemL = waterBus[i] + stemKickBus[i] + bellBus[i] + trashBus[i] + sampleBus[i] + synthBus[i] + gtrBus[i];
-    const stemR = waterBus[i + 1] + stemKickBus[i + 1] + bellBus[i + 1] + trashBus[i + 1] + sampleBus[i + 1] + synthBus[i + 1] + gtrBus[i + 1];
-    const dl = mix[i] - stemL, dr = mix[i + 1] - stemR;
-    sumDiffSq += dl * dl + dr * dr;
-    mixLSq += mix[i] * mix[i]; mixRSq += mix[i + 1] * mix[i + 1];
-  }
-  const sumError = Math.sqrt(sumDiffSq / mix.length);
-  const balanceDb = 10 * Math.log10(mixRSq / mixLSq);
-  console.log(`stem sum error ${sumError.toExponential(3)} · premaster R-L ${balanceDb.toFixed(2)} dB`);
-  if (sumError > 1e-5) { console.error("✗ stem sum does not match premaster"); process.exit(1); }
-  const stemDir = resolve(OUT, "wattajetta-stone-club-stems");
-  mkdirSync(stemDir, { recursive: true });
-  const stemDefs = [
-    ["01-kick.wav", stemKickBus],
-    ["02-water-engine.wav", waterBus],
-    ["03-stone-bells-uke.wav", bellBus],
-    ["04-disco-bass-squares.wav", synthBus],
-    ["05-guitar.wav", gtrBus],
-    ["06-samples-fx.wav", sampleBus],
-    ["07-empty-trash-fx.wav", trashBus],
-  ];
-  for (const [name, bus] of stemDefs) {
-    const rawStem = resolve(OUT, `.stem-${name}.f32.raw`);
-    const wavStem = resolve(stemDir, name);
-    writeFileSync(rawStem, Buffer.from(bus.buffer, bus.byteOffset, bus.byteLength));
-    const encoded = spawnSync("ffmpeg", ["-hide_banner", "-y", "-loglevel", "error",
-      "-f", "f32le", "-ar", String(SR), "-ac", "2", "-i", rawStem,
-      "-c:a", "pcm_s24le", "-metadata", `title=${name.replace(/\.wav$/, "")}`,
-      wavStem], { stdio: "inherit" });
-    try { unlinkSync(rawStem); } catch {}
-    if (encoded.status !== 0) { console.error(`✗ stem encode failed: ${name}`); process.exit(1); }
-  }
-  writeFileSync(resolve(stemDir, "README.txt"), [
-    "wattajetta stone club audition — 138 BPM — 48 kHz / 24-bit stereo",
-    "All stems begin at 00:00 and sum to the premaster arrangement.",
-    "Apply the renderer's master chain to the summed stems for the reference sound.",
-    "01 kick | 02 water engine (sub, gallop, drums, bloops, choir, flybys, wub) | 03 stone bells + ukulele",
-    "04 disco bass + square shadows | 05 electric guitar (power chords, threads) | 06 samples (owls, phones, modem, punches, dice, AC stamp) | 07 Empty Trash FX",
-    "Kick/sub stay centered. Non-kick stems carry a side-only fixed-listener return that cancels in mono.",
-    "Empty Trash source: local macOS SystemSounds/finder/empty trash.aif",
-    "",
-  ].join("\n"));
-  console.log(`✓ ${stemDir} (${stemDefs.length} true-summing 24-bit stems)`);
-}
+if (peak > 0.9) { const g = 0.9 / peak; for (let i = 0; i < mix.length; i++) mix[i] *= g; }
 
 // The listener's chosen front door is five seconds into the first pickup cut:
 // 1:29 in the accepted world audition. The 2:30 sequence revisits rather than

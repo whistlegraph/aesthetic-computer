@@ -1214,29 +1214,6 @@ const TOOLS = [
     },
   },
   {
-    name: "frame_describe",
-    description:
-      "LOW-CONFIDENCE FALLBACK ONLY: after inspecting a normal frame, provide your confidence (0..1) and focused visual question. At or above threshold (default .65), inference is skipped at zero model cost. Below it, capture a fresh JPEG, combine its pixels with existing frame/OCR/AX/desktop evidence, run cheap low-latency visual inference, WAIT for completion, then return the JPEG plus structured description and timing/usage. Uses a 60-second identical-frame cache. Do not call routinely; plain frame is the normal no-inference path.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        machine: { type: "string", description: "Machine name (see frame_list)." },
-        confidence: { type: "number", minimum: 0, maximum: 1, description: "Your confidence after reading a normal frame. Inference runs only below threshold." },
-        threshold: { type: "number", minimum: 0, maximum: 1, description: "Low-confidence cutoff (default 0.65). At/above it, inference is skipped." },
-        question: { type: "string", description: "Focused uncertainty for the visual model; keep narrow for speed and useful evidence." },
-        screen: { type: "boolean", description: "Describe the complete display rather than the focused window (default false)." },
-        ocr: { type: "boolean", description: "Include OCR in the returned frame evidence (default true)." },
-        fast: { type: "boolean", description: "Use fast OCR for the evidence digest (default false)." },
-        cursor: { type: "boolean", description: "Draw the current pointer in the captured JPEG (default true)." },
-        detail: { type: "string", enum: ["low", "high", "auto", "original"], description: "Vision image detail (default low for speed/cost)." },
-        reasoning: { type: "string", enum: ["none", "low", "medium", "high"], description: "Vision reasoning effort (default none for speed/cost)." },
-        model: { type: "string", description: "Vision-capable model override; defaults to SLAB_FRAME_VISION_MODEL or gpt-5.6-luna." },
-        timeoutMs: { type: "number", minimum: 10000, maximum: 300000, description: "Per-attempt inference timeout in ms (default 90000)." },
-      },
-      required: ["machine", "confidence"],
-    },
-  },
-  {
     name: "frame_hover",
     description: "OBSERVES CONTEXT: move the real pointer without clicking, wait for hover-only controls/tooltips, then return a cheaper cropped reframe around that point. Lesson 1: when an element may reveal options, hover and reframe before clicking. Coordinates remain global and click-ready.",
     inputSchema: { type: "object", properties: { machine: { type: "string" }, x: { type: "number" }, y: { type: "number" }, width: { type: "number", description: "Crop width (default 720)." }, height: { type: "number", description: "Crop height (default 520)." }, ocr: { type: "boolean" }, fast: { type: "boolean" } }, required: ["machine", "x", "y"] },
