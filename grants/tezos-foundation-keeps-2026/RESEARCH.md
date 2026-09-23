@@ -69,7 +69,11 @@ August → first milestone payment late summer / early fall 2026.
 - `system/public/aesthetic.computer/disks/keep.mjs` — the mint UI (3,798 lines)
 - `system/netlify/functions/keep-confirm.mjs`, `keep-update.mjs` — backend
 
-## SUBMITTED 2026-05-22
+## REJECTED — status confirmed 2026-09-23
+
+Jeffrey confirmed the rejection in conversation on September 23, 2026. The rejection date and reason were not provided. This proposal is no longer an active funding prospect.
+
+### Submission history — 2026-05-22
 
 **Management page:** <https://grants.tezos.foundation/proposals/detail/a2c89b4d-a1ed-42cc-b2df-0e3e59954a7f/>
 
@@ -94,7 +98,7 @@ We landed in **Smart Contract Templates** because Milestone 4 is literally
 - **Submitted PDF:** `proposal.pdf` (4 pages, AC paper style — xelatex + YWFT
   Processing + Berkeley Mono + AC palette). Source: `proposal.tex` + `build.fish`.
 
-### What happens next
+### Review timeline expected at submission (historical)
 
 Tezos Foundation grants run on a rolling submission, quarterly review cycle:
 proposals submitted in a given quarter are reviewed the month following
