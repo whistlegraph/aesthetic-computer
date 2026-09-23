@@ -74,6 +74,28 @@
       "index": 0,
       "slot": 265,
       "segment": "code"
+    },
+    {
+      "mediaId": "18216701116356091",
+      "containerId": "18048412964809746",
+      "publishedAt": "2026-09-23T23:46:06.922Z",
+      "permalink": "https://www.instagram.com/reel/DdphTmokq96/",
+      "caption": "*wibe",
+      "source": "tmp/aesthetic-reels/queue/2026-09-23-s1-clock-wibe-room/reel.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "MANUAL",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-09-23/23-44-51/reel.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/aesthetic/2026-09-23/23-44-51/cover.jpg"
+      },
+      "insights": null,
+      "id": "2026-09-23-s1-clock-wibe-room",
+      "sourceId": "clock-wibe-room",
+      "day": "2026-09-23",
+      "index": 1,
+      "slot": 265,
+      "segment": "code"
     }
   ]
 }

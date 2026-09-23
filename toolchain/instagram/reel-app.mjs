@@ -176,7 +176,8 @@ async function buildAesthetic({ config, day, index, slot, dir, source }) {
     // The finish frames the whole capture and glazes it; it draws no cursor,
     // so scripted-performance recipes lose theirs on this path.
     run(process.execPath, [FINISH_AV, base, "--out", reel,
-      "--glaze", config.finish.glaze || "vhs", "--fps", String(config.capture.fps)], { inherit: true });
+      "--glaze", config.finish.glaze || "vhs", "--sound", config.finish.sound || "room",
+      "--fps", String(config.capture.fps)], { inherit: true });
   } else {
     const stamp = config.stamp || {};
     run(process.execPath, [STAMP_AV, base, "--title", source.title, "--out", reel,

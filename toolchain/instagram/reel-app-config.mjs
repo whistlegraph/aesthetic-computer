@@ -20,8 +20,10 @@ export const REEL_APPS = {
     // Captured at finish-reel's box (a uniform 40 px border inside
     // 1080×1920) at density 5: big 5×5 AC pixels, 200×368 of piece.
     capture: { width: 1000, height: 1840, fps: 60, density: 5 },
-    // Reel finish: frame + the physically-modelled VHS glaze.
-    finish: { glaze: "vhs" },
+    // Reel finish: frame + the physically-modelled VHS glaze, and the
+    // "room" sound (tamed highs, a small room, -14 LUFS) — picked over the
+    // tape-sound variant on 2026-09-23.
+    finish: { glaze: "vhs", sound: "room" },
     // Only used without a finish: no pals side stamps or title columns, and
     // a cursor small enough to read as a pointer rather than a mascot.
     stamp: { chrome: "none", cursorSize: 56 },
