@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "kind": "aesel-ui",
+  "bundle": "/Users/aesthetic/.local/share/aesel-ui-test/Aesel Native.app",
+  "buildSha256": "1a74ddf8c3021059c0d377ada09bad159dc1de3820094a86a823fb691577e674",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Codex"
+  },
+  "requiredScenarios": [
+    "notebook",
+    "settings",
+    "preview-expanded",
+    "notebook-narrow"
+  ],
+  "scenarios": [
+    {
+      "name": "notebook",
+      "capturedAt": "2026-09-21T20:33:10.018Z",
+      "instance": "79E41E78-B209-46A5-8C5E-C58503F07013",
+      "files": [
+        {
+          "path": "notebook-state.json",
+          "sha256": "60bff805582af8c7607c969cbc6ff83d6e520aa3294d2721ca142fe5198cba41"
+        },
+        {
+          "path": "notebook-app.png",
+          "sha256": "c07063dd2b74f63e5002beb1cebb9684dba521c4072fbfc8dc9d2529ed656816"
+        },
+        {
+          "path": "notebook-notebook.png",
+          "sha256": "c728de51e243c28e8e7e545d393865fb8896e8573b7486c375ffb6013408a14a"
+        },
+        {
+          "path": "notebook-preview.png",
+          "sha256": "f22cd72cc1325ccecb4355bff70a8b6ff7deb5bc72d660226ea2ef6ad61c55ac"
+        },
+        {
+          "path": "notebook-preview.json",
+          "sha256": "9a72289eb48c3ac61ca4f28b1704fd198f654a20943845fdbcf2b664a4806238"
+        }
+      ],
+      "design": "fail",
+      "checks": {
+        "type": "pass",
+        "contrast": "pass",
+        "spacing": "pass",
+        "chrome": "pass",
+        "preview": "fail",
+        "interaction": "pass"
+      },
+      "notes": "Title and v0 are opaque, composer placeholder absent, and separately captured notebook type is readable. Preview pixels are blank; native acceptance fails.",
+      "actions": []
+    },
+    {
+      "name": "settings",
+      "capturedAt": "2026-09-21T20:35:26.841Z",
+      "instance": "79E41E78-B209-46A5-8C5E-C58503F07013",
+      "files": [
+        {
+          "path": "settings-state.json",
+          "sha256": "9ead6a2d1d8f9dc7ff9364553edfe62ff300fbcc72654cb9ffa3b6c04f4d89df"
+        },
+        {
+          "path": "settings-app.png",
+          "sha256": "158a83d9868ef63cbadd6515d5b0584f73f8629bd07ee398220996b0dbffb939"
+        },
+        {
+          "path": "settings-preview.png",
+          "sha256": "f22cd72cc1325ccecb4355bff70a8b6ff7deb5bc72d660226ea2ef6ad61c55ac"
+        },
+        {
+          "path": "settings-preview.json",
+          "sha256": "9a72289eb48c3ac61ca4f28b1704fd198f654a20943845fdbcf2b664a4806238"
+        }
+      ],
+      "design": "fail",
+      "checks": {
+        "type": "pass",
+        "contrast": "pass",
+        "spacing": "pass",
+        "chrome": "pass",
+        "preview": "fail",
+        "interaction": "pass"
+      },
+      "notes": "Settings native controls are readable and open/close actions succeed. Background preview reports a runtime timeout; this is not an accepted working-preview state.",
+      "actions": []
+    },
+    {
+      "name": "preview-expanded",
+      "capturedAt": "2026-09-21T20:35:28.619Z",
+      "instance": "79E41E78-B209-46A5-8C5E-C58503F07013",
+      "files": [
+        {
+          "path": "preview-expanded-state.json",
+          "sha256": "a92c092f048ae8abf73769280ff29f1072ca35e9dbf2a022893ccd1244f9a69b"
+        },
+        {
+          "path": "preview-expanded-app.png",
+          "sha256": "70db81aec0018e8a525992299d62e5151897316b9b1710411deae37d4e53880f"
+        },
+        {
+          "path": "preview-expanded-preview.png",
+          "sha256": "e94011ba5a228bfc17e7149cf7df20a0d34be20f1e8bb99ef4a5a1e3edad85ec"
+        },
+        {
+          "path": "preview-expanded-preview.json",
+          "sha256": "f502e6ba223ec0652f962982b872043dbb45001db29777b7f200b31a1666544c"
+        }
+      ],
+      "design": "fail",
+      "checks": {
+        "type": "pass",
+        "contrast": "pass",
+        "spacing": "pass",
+        "chrome": "pass",
+        "preview": "fail",
+        "interaction": "pass"
+      },
+      "notes": "Expand/collapse actions succeed and return control is visible. WebKit preview is blank; acceptance fails.",
+      "actions": []
+    },
+    {
+      "name": "notebook-narrow",
+      "capturedAt": "2026-09-21T20:35:30.726Z",
+      "instance": "79E41E78-B209-46A5-8C5E-C58503F07013",
+      "files": [
+        {
+          "path": "notebook-narrow-state.json",
+          "sha256": "2ead0367e7be9bc6afbe0fd97afee227451f4751e81786f65bdf52f7f89809b0"
+        },
+        {
+          "path": "notebook-narrow-app.png",
+          "sha256": "86f52fe64bde58cef7d1f338108f9a487dc58e57d23c77b954146ec47f358069"
+        },
+        {
+          "path": "notebook-narrow-notebook.png",
+          "sha256": "a10f3b287be8efc7c0989ebe49552dc2d86cb71b100801399a365933bcc1150c"
+        },
+        {
+          "path": "notebook-narrow-preview.png",
+          "sha256": "f22cd72cc1325ccecb4355bff70a8b6ff7deb5bc72d660226ea2ef6ad61c55ac"
+        },
+        {
+          "path": "notebook-narrow-preview.json",
+          "sha256": "9a72289eb48c3ac61ca4f28b1704fd198f654a20943845fdbcf2b664a4806238"
+        }
+      ],
+      "design": "fail",
+      "checks": {
+        "type": "pass",
+        "contrast": "pass",
+        "spacing": "pass",
+        "chrome": "pass",
+        "preview": "fail",
+        "interaction": "pass"
+      },
+      "notes": "At 420 by 680 points title, v0, notebook text and controls remain readable. Blank preview prevents acceptance.",
+      "actions": []
+    }
+  ],
+  "reviewedAt": "2026-09-21T20:36:55.604140+00:00",
+  "limitations": [
+    "Component captures do not prove whole-window occlusion.",
+    "Native live preview did not render in the locked remote session.",
+    "Successful headless Chromium runtime evidence is separate from native acceptance."
+  ]
+}

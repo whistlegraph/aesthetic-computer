@@ -1,0 +1,207 @@
+{
+  "appVersion": "0.7.5",
+  "buildSha256": "1a74ddf8c3021059c0d377ada09bad159dc1de3820094a86a823fb691577e674",
+  "bundlePath": "/Users/aesthetic/.local/share/aesel-ui-test/Aesel Native.app",
+  "composer": {
+    "characters": 0,
+    "focused": false,
+    "placeholder": ""
+  },
+  "controls": [
+    {
+      "enabled": true,
+      "id": "settings.open",
+      "label": "Open settings"
+    },
+    {
+      "enabled": false,
+      "id": "settings.close",
+      "label": "Close settings"
+    },
+    {
+      "enabled": true,
+      "id": "home.open",
+      "label": "Show saved threads"
+    },
+    {
+      "enabled": false,
+      "id": "home.close",
+      "label": "Return to notebook"
+    },
+    {
+      "enabled": true,
+      "id": "help.open",
+      "label": "Open help"
+    },
+    {
+      "enabled": false,
+      "id": "help.close",
+      "label": "Close help"
+    },
+    {
+      "enabled": true,
+      "id": "composer.set",
+      "label": "Set message draft"
+    },
+    {
+      "enabled": true,
+      "id": "composer.clear",
+      "label": "Clear message draft"
+    },
+    {
+      "enabled": false,
+      "id": "composer.send",
+      "label": "Send message; may run inference and publish"
+    },
+    {
+      "enabled": false,
+      "id": "turn.stop",
+      "label": "Stop current turn"
+    },
+    {
+      "enabled": false,
+      "id": "session.retry",
+      "label": "Restore failed session"
+    },
+    {
+      "enabled": true,
+      "id": "session.new",
+      "label": "Start a blank piece"
+    },
+    {
+      "enabled": true,
+      "id": "session.resume",
+      "label": "Resume a saved thread"
+    },
+    {
+      "enabled": true,
+      "id": "preview.expand",
+      "label": "Expand preview"
+    },
+    {
+      "enabled": false,
+      "id": "preview.collapse",
+      "label": "Return to notebook"
+    },
+    {
+      "enabled": true,
+      "id": "preview.hide",
+      "label": "Hide preview"
+    },
+    {
+      "enabled": false,
+      "id": "preview.show",
+      "label": "Show preview"
+    },
+    {
+      "enabled": true,
+      "id": "preview.reload",
+      "label": "Reload embedded preview"
+    },
+    {
+      "enabled": false,
+      "id": "preview.retry",
+      "label": "Retry failed preview"
+    },
+    {
+      "enabled": true,
+      "id": "window.resize",
+      "label": "Resize app window without focusing it"
+    },
+    {
+      "enabled": true,
+      "id": "piece.open",
+      "label": "Open public piece in browser"
+    },
+    {
+      "enabled": true,
+      "id": "piece.publish",
+      "label": "Publish current source"
+    },
+    {
+      "enabled": false,
+      "id": "account.signin",
+      "label": "Open AC sign-in"
+    },
+    {
+      "enabled": false,
+      "id": "account.signin.close",
+      "label": "Close sign-in"
+    },
+    {
+      "enabled": false,
+      "id": "account.signin.retry",
+      "label": "Retry sign-in"
+    },
+    {
+      "enabled": true,
+      "id": "account.signout",
+      "label": "Sign out of AC"
+    },
+    {
+      "enabled": true,
+      "id": "balance.refresh",
+      "label": "Refresh balance"
+    },
+    {
+      "enabled": false,
+      "id": "credits.buy",
+      "label": "Open App Store purchase confirmation"
+    },
+    {
+      "enabled": false,
+      "id": "provider.select",
+      "label": "AC only; desktop CLI providers are not ported"
+    },
+    {
+      "enabled": false,
+      "id": "model.select",
+      "label": "Model managed automatically by AC"
+    }
+  ],
+  "footer": "v0",
+  "instance": "79E41E78-B209-46A5-8C5E-C58503F07013",
+  "notebook": {
+    "visible": true
+  },
+  "overlays": {
+    "help": false,
+    "home": false,
+    "settings": false,
+    "signin": false
+  },
+  "pid": 82633,
+  "piece": {
+    "previewURL": "https://aesthetic.computer/wipe?noauth=true&nogap=true&nolabel=true&autoreload=true",
+    "route": "@jeffrey/notebook",
+    "shareURL": "https://aesthetic.computer/blank",
+    "sourceBytes": 49,
+    "version": 0
+  },
+  "preview": {
+    "expanded": false,
+    "visible": true
+  },
+  "previewFailure": "",
+  "schema": 1,
+  "session": {
+    "busy": false,
+    "entryCount": 2,
+    "history": [],
+    "id": "",
+    "signedIn": true,
+    "status": "ready"
+  },
+  "surface": "notebook",
+  "telemetrySequence": 9,
+  "title": {
+    "linked": true,
+    "opacity": 1
+  },
+  "window": {
+    "height": 680,
+    "number": 312,
+    "visible": true,
+    "width": 420
+  }
+}

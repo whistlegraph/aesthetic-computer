@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aesthetic network resource map — 2026-09-05</title>
+<style>
+  @page { size: 16in 9in; margin: 0; }
+  :root {
+    --ink: #17131f;
+    --paper: #f4f0e8;
+    --panel: #fffdf7;
+    --muted: #6c6474;
+    --line: #d9d1c8;
+    --pink: #ff5d92;
+    --purple: #8357d7;
+    --cyan: #25b7ad;
+    --mint: #76d5ad;
+    --amber: #f4bb4a;
+    --red: #ed5968;
+    --navy: #27243f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #c9c3bb; color: var(--ink); }
+  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .page {
+    width: 1600px;
+    height: 900px;
+    padding: 54px 62px 42px;
+    background:
+      radial-gradient(circle at 88% 10%, rgba(131,87,215,.10), transparent 25%),
+      linear-gradient(135deg, #f9f6ef 0%, var(--paper) 100%);
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+  .page:last-child { page-break-after: auto; }
+  h1 { margin: 0; max-width: 1370px; font-size: 62px; line-height: .98; letter-spacing: -.045em; font-weight: 850; }
+  .pink { color: var(--pink); }
+  .cyan { color: #168d87; }
+  .footer {
+    position: absolute;
+    left: 62px;
+    right: 62px;
+    bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font: 600 15px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .footer span:last-child { margin-left: auto; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 32px; }
+  .stat {
+    min-height: 96px;
+    padding: 17px 20px;
+    background: var(--navy);
+    color: white;
+    border-radius: 17px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .stat strong { font-size: 46px; line-height: 1; }
+  .stat span { font-size: 20px; font-weight: 730; color: #dcd4ec; }
+  .fleet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 16px; }
+  .node {
+    height: 248px;
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 20px;
+    padding: 17px 18px;
+    box-shadow: 0 7px 20px rgba(39,36,63,.06);
+  }
+  .node-head { display: grid; grid-template-columns: 50px 1fr auto; gap: 12px; align-items: center; }
+  .node h2 { margin: 0; font-size: 27px; line-height: 1; letter-spacing: -.03em; }
+  .node .meta { margin-top: 5px; color: var(--muted); font: 700 15px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .icon { width: 50px; height: 50px; color: var(--navy); }
+  .badge {
+    border-radius: 999px;
+    padding: 7px 10px 6px;
+    font: 850 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: .08em;
+  }
+  .badge.locked { color: #fff; background: var(--purple); }
+  .badge.batch { color: #241b08; background: var(--amber); }
+  .badge.light { color: #042d29; background: var(--mint); }
+  .badge.elastic { color: #fff; background: var(--pink); }
+  .role { margin: 14px 0 12px; height: 36px; font-size: 18px; line-height: 1.05; font-weight: 760; }
+  .meter-row { display: grid; grid-template-columns: 66px 1fr 42px; gap: 8px; align-items: center; margin-top: 7px; }
+  .meter-label, .meter-value { font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .meter-value { text-align: right; color: var(--ink); }
+  .blocks { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; height: 14px; }
+  .block { border-radius: 3px; background: #e4ddd4; }
+  .block.on.cpu { background: var(--pink); }
+  .block.on.ram { background: var(--purple); }
+  .block.on.disk { background: var(--cyan); }
+  .block.on.hot { background: var(--red); }
+  .committed-layout { display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 288px; gap: 18px; margin-top: 34px; }
+  .commit-card {
+    background: var(--panel);
+    border: 3px solid var(--purple);
+    border-radius: 24px;
+    padding: 22px;
+    position: relative;
+  }
+  .commit-card.span2 { grid-column: span 2; }
+  .commit-card.span3 { grid-column: span 3; }
+  .commit-title { display: flex; align-items: center; gap: 14px; }
+  .commit-title h2 { margin: 0; font-size: 34px; letter-spacing: -.035em; }
+  .commit-role { margin: 20px 0 14px; font-size: 23px; line-height: 1.12; font-weight: 820; }
+  .service-list { color: var(--muted); font-size: 18px; line-height: 1.28; font-weight: 650; }
+  .constraint {
+    position: absolute;
+    left: 22px;
+    right: 22px;
+    bottom: 18px;
+    border-top: 2px solid var(--line);
+    padding-top: 11px;
+    color: #6b2b53;
+    font: 850 16px/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .edge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 42px; }
+  .edge-card { height: 596px; background: var(--panel); border-radius: 28px; padding: 28px; border: 3px solid var(--line); }
+  .edge-card.oven { border-color: var(--amber); }
+  .edge-card.jas { border-color: var(--pink); }
+  .edge-card.help { border-color: var(--mint); }
+  .edge-head { display: flex; align-items: center; gap: 18px; }
+  .edge-head .icon { width: 70px; height: 70px; }
+  .edge-head h2 { margin: 0; font-size: 43px; line-height: 1; letter-spacing: -.04em; }
+  .edge-role { margin: 28px 0 8px; font-size: 29px; font-weight: 850; }
+  .edge-copy { min-height: 74px; color: var(--muted); font-size: 20px; line-height: 1.28; font-weight: 650; }
+  .large-meters { margin: 23px 0 28px; }
+  .large-meters .meter-row { grid-template-columns: 76px 1fr 50px; margin-top: 12px; }
+  .large-meters .blocks { height: 22px; gap: 5px; }
+  .allocation {
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: #eeebe5;
+    font-size: 21px;
+    line-height: 1.18;
+    font-weight: 790;
+  }
+  .allocation strong { display: block; margin-bottom: 5px; font: 900 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; color: var(--muted); }
+  .allocation + .allocation { margin-top: 11px; }
+  .flow { display: grid; grid-template-columns: 1fr 54px 1.25fr 54px 1fr 54px 1fr 54px 1fr; align-items: center; gap: 6px; margin-top: 60px; }
+  .flow-node {
+    min-height: 255px;
+    border-radius: 26px;
+    background: var(--panel);
+    border: 3px solid var(--line);
+    padding: 25px 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .flow-node.oven { border-color: var(--amber); }
+  .flow-node.help { border-color: var(--mint); }
+  .flow-node.output { border-color: var(--pink); }
+  .flow-node .icon { width: 74px; height: 74px; }
+  .flow-node h2 { margin: 18px 0 8px; font-size: 32px; line-height: 1; letter-spacing: -.03em; }
+  .flow-node p { margin: 0; color: var(--muted); font-size: 19px; line-height: 1.25; font-weight: 650; }
+  .flow-arrow { text-align: center; color: var(--purple); font-size: 56px; font-weight: 900; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 44px; }
+  .compare-card { border-radius: 22px; padding: 20px 24px; background: var(--navy); color: white; display: grid; grid-template-columns: 200px 1fr 120px; align-items: center; gap: 22px; }
+  .compare-card strong { font-size: 28px; }
+  .compare-card .blocks { height: 30px; }
+  .compare-card .block { background: rgba(255,255,255,.14); }
+  .compare-card .amount { text-align: right; font: 900 28px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .route-note { margin-top: 20px; text-align: center; font-size: 22px; font-weight: 800; color: var(--muted); }
+</style>
+</head>
+<body>
+  <section class="page">
+    <h1><span class="pink">26 vCPU</span>, concentrated in two 8-core workers.</h1>
+    <div class="stats">
+      <div class="stat"><strong>8</strong><span>Droplets</span></div>
+      <div class="stat"><strong>50</strong><span>GiB memory</span></div>
+      <div class="stat"><strong>905</strong><span>GB root storage</span></div>
+      <div class="stat"><strong>$307</strong><span>per month</span></div>
+    </div>
+    <div class="fleet-grid" id="fleet-grid"></div>
+    <div class="footer"><span>Live fleet map · 2026-09-05</span><span>LOAD = 1-minute load ÷ vCPU</span></div>
+  </section>
+
+  <section class="page">
+    <h1>Five Droplets are <span class="pink">committed</span>; idle CPU is not spare.</h1>
+    <div class="committed-layout" id="committed-grid"></div>
+    <div class="footer"><span>Production state stays isolated from batch work</span><span>API + live service audit</span></div>
+  </section>
+
+  <section class="page">
+    <h1>Three hosts form the <span class="cyan">schedulable edge</span>.</h1>
+    <div class="edge-grid" id="edge-grid"></div>
+    <div class="footer"><span>Allocations are policy, not current reservations</span><span>All jobs require cgroup limits</span></div>
+  </section>
+
+  <section class="page">
+    <h1>WGTV should move as <span class="cyan">bytes</span>, not frames.</h1>
+    <div class="flow" id="wgtv-flow"></div>
+    <div class="comparison">
+      <div class="compare-card">
+        <strong>Live encode now</strong>
+        <div class="blocks" id="before-blocks"></div>
+        <div class="amount">1.5–2C</div>
+      </div>
+      <div class="compare-card">
+        <strong>Copy-only target</strong>
+        <div class="blocks" id="after-blocks"></div>
+        <div class="amount">&lt;0.25C</div>
+      </div>
+    </div>
+    <div class="route-note">Views become a daily snapshot in each master; ACTV remains the only live visual encoder.</div>
+    <div class="footer"><span>Chosen route: Oven → object storage → Help → YouTube</span><span>WGTV and ACTV currently paused</span></div>
+  </section>
+
+<script>
+const fleet = [
+  { id:"legacy", name:"Legacy", region:"NYC1", cap:"1C · 1G · 30G + 148G", badge:"LOCKED", kind:"locked", role:"Fourteen archival sites", cpu:0, ram:64, disk:97, diskLabel:"VOL" },
+  { id:"session", name:"Session", region:"NYC1", cap:"1C · 1G · 25G", badge:"LOCKED", kind:"locked", role:"Realtime multiplayer authority", cpu:0, ram:61, disk:36 },
+  { id:"knot", name:"Knot", region:"NYC3", cap:"2C · 4G · 25G", badge:"LOCKED", kind:"locked", role:"Tangled git origin", cpu:2, ram:39, disk:62 },
+  { id:"oven", name:"Oven", region:"SFO3", cap:"8C · 16G · 320G", badge:"BATCH", kind:"batch", role:"Media factory + IPFS", cpu:41, ram:21, disk:17 },
+  { id:"silo", name:"Silo", region:"SFO3", cap:"2C · 4G · 25G", badge:"LOCKED", kind:"locked", role:"Databases + media relay", cpu:1, ram:66, disk:74 },
+  { id:"help", name:"Help", region:"SFO3", cap:"2C · 4G · 80G", badge:"LIGHT", kind:"light", role:"AA bridge + edge proxy", cpu:4, ram:16, disk:8 },
+  { id:"lith", name:"Lith", region:"SFO3", cap:"2C · 4G · 80G", badge:"LOCKED", kind:"locked", role:"Public frontend + API", cpu:21, ram:50, disk:51 },
+  { id:"jasellite", name:"Jasellite", region:"SFO3", cap:"8C · 16G · 320G", badge:"ELASTIC", kind:"elastic", role:"Agents + Mediascholar", cpu:0, ram:9, disk:58 },
+];
+
+const paths = {
+  legacy:'<path d="M10 17h28v24H10zM7 10h34v8H7zM19 24h10"/>',
+  session:'<circle cx="13" cy="16" r="5"/><circle cx="35" cy="14" r="5"/><circle cx="25" cy="35" r="5"/><path d="M17 18l13-2M16 20l7 11M32 18l-5 12"/>',
+  knot:'<path d="M12 26c0-11 18-11 18-1 0 9-14 9-14 0 0-8 20-9 20 2 0 12-24 12-24-1z"/>',
+  oven:'<path d="M25 6c4 8-2 10 4 15 5-4 7-8 7-11 7 8 9 16 4 24-6 10-24 10-30 0-5-8-1-17 7-23-1 10 8 12 8 18 0 5 3 7 6 7 7 0 9-10 2-17z"/>',
+  silo:'<ellipse cx="24" cy="10" rx="15" ry="6"/><path d="M9 10v27c0 8 30 8 30 0V10M9 23c0 8 30 8 30 0M9 35c0 8 30 8 30 0"/>',
+  help:'<path d="M6 37h36M10 37V27c8-15 20-15 28 0v10M16 37V27c5-8 11-8 16 0v10"/>',
+  lith:'<path d="M8 13h32l-8 9H16zM8 25h32l-8 9H16zM8 37h32l-8 7H16z"/>',
+  jasellite:'<circle cx="24" cy="24" r="9"/><path d="M5 27c8-12 28-15 38-7M8 14l4 4M36 34l4 4M24 3v6M24 39v6"/><circle cx="41" cy="19" r="2" fill="currentColor"/>',
+  source:'<rect x="7" y="10" width="34" height="27" rx="4"/><path d="M12 17h24M15 31l7-8 7 6 5-5"/>',
+  cloud:'<path d="M11 37h27c10 0 10-15 1-16-2-12-21-14-25-3-11-1-13 17-3 19z"/>',
+  youtube:'<rect x="5" y="11" width="38" height="27" rx="8"/><path d="M21 18l12 7-12 7z" fill="currentColor"/>',
+};
+function icon(id) {
+  return `<svg class="icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[id]}</svg>`;
+}
+function blocks(pct, type="cpu") {
+  const n = Math.round(Math.max(0, Math.min(100, pct)) / 100 * 12);
+  const hot = pct >= 85 ? "hot" : type;
+  return `<div class="blocks">${Array.from({length:12}, (_,i)=>`<span class="block ${i<n?`on ${hot}`:""}"></span>`).join("")}</div>`;
+}
+function meter(label, pct, type) {
+  return `<div class="meter-row"><span class="meter-label">${label}</span>${blocks(pct,type)}<span class="meter-value">${pct}%</span></div>`;
+}
+document.querySelector("#fleet-grid").innerHTML = fleet.map(n => `
+  <article class="node">
+    <div class="node-head">${icon(n.id)}<div><h2>${n.name}</h2><div class="meta">${n.region} · ${n.cap}</div></div><span class="badge ${n.kind}">${n.badge}</span></div>
+    <div class="role">${n.role}</div>
+    ${meter("LOAD",n.cpu,"cpu")}${meter("RAM",n.ram,"ram")}${meter(n.diskLabel||"DISK",n.disk,"disk")}
+  </article>`).join("");
+
+const committed = [
+  { id:"legacy", name:"Legacy", span:"span2", role:"Archive preservation", services:"Apache · Rails/Passenger · PHP 7 · PostgreSQL 9.5", constraint:"EOL OS · archive volume 97%" },
+  { id:"session", name:"Session", span:"span2", role:"Realtime authority", services:"Arena state · Socket.io · geckos · Caddy", constraint:"1 GB RAM · latency-sensitive" },
+  { id:"knot", name:"Knot", span:"span2", role:"Repository origin", services:"Tangled knot · AT Protocol · container runtime", constraint:"Source of truth · disk 62%" },
+  { id:"silo", name:"Silo", span:"span3", role:"Persistent data plane", services:"MongoDB · Datomic · PostgreSQL · MediaMTX · KidLisp bridge", constraint:"RAM 66% · disk 74%" },
+  { id:"lith", name:"Lith", span:"span3", role:"Public application plane", services:"Frontend/API · Caddy · IPFS · Oxigraph · PostgreSQL · DP-1", constraint:"Production ingress · no batch" },
+];
+document.querySelector("#committed-grid").innerHTML = committed.map(n => `
+  <article class="commit-card ${n.span}">
+    <div class="commit-title">${icon(n.id)}<h2>${n.name}</h2><span class="badge locked">LOCKED</span></div>
+    <div class="commit-role">${n.role}</div>
+    <div class="service-list">${n.services}</div>
+    <div class="constraint">${n.constraint}</div>
+  </article>`).join("");
+
+const edge = [
+  { id:"oven", cls:"oven", name:"Oven", role:"Batch factory", copy:"Oven + IPFS + Chrome are active; spare cores remain suitable for throttled, interruptible production.", cpu:41, ram:21, disk:17, a:"WGTV broadcast masters", b:"Heavy media renders" },
+  { id:"jasellite", cls:"jas", name:"Jasellite", role:"Agent worker", copy:"Prox, mail, previews, and Mediascholar run here. ACTV and WGTV are paused.", cpu:0, ram:9, disk:58, a:"Mediascholar + agents", b:"ACTV live encoder" },
+  { id:"help", cls:"help", name:"Help", role:"Lightweight edge", copy:"The AA bridge and Caddy use little compute. Keep any added workload tiny and hard-capped.", cpu:4, ram:16, disk:8, a:"WGTV copy-only playout", b:"Fleet queue + leases" },
+];
+document.querySelector("#edge-grid").innerHTML = edge.map(n => `
+  <article class="edge-card ${n.cls}">
+    <div class="edge-head">${icon(n.id)}<div><h2>${n.name}</h2><div class="meta">${fleet.find(x=>x.id===n.id).cap}</div></div></div>
+    <div class="edge-role">${n.role}</div>
+    <div class="edge-copy">${n.copy}</div>
+    <div class="large-meters">${meter("LOAD",n.cpu,"cpu")}${meter("RAM",n.ram,"ram")}${meter("DISK",n.disk,"disk")}</div>
+    <div class="allocation"><strong>PRIMARY</strong>${n.a}</div>
+    <div class="allocation"><strong>SECONDARY</strong>${n.b}</div>
+  </article>`).join("");
+
+const flow = [
+  { id:"source", name:"135 works", copy:"Original archive MP4s + curation metadata" },
+  { id:"oven", cls:"oven", name:"Oven", copy:"Scale · pad · title/by/views · QR · H.264/AAC" },
+  { id:"cloud", name:"Masters", copy:"Versioned object-storage manifest" },
+  { id:"help", cls:"help", name:"Help", copy:"-re · -c copy · persistent RTMP" },
+  { id:"youtube", cls:"output", name:"YouTube", copy:"One continuous WGTV channel" },
+];
+document.querySelector("#wgtv-flow").innerHTML = flow.map((n,i) => `${i?'<div class="flow-arrow">→</div>':''}<article class="flow-node ${n.cls||''}">${icon(n.id)}<div><h2>${n.name}</h2><p>${n.copy}</p></div></article>`).join("");
+document.querySelector("#before-blocks").innerHTML = blocks(88,"cpu").replace(/^<div class="blocks">|<\/div>$/g,"");
+document.querySelector("#after-blocks").innerHTML = blocks(10,"cpu").replace(/^<div class="blocks">|<\/div>$/g,"");
+</script>
+</body>
+</html>
