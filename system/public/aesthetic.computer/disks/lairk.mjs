@@ -484,16 +484,15 @@ function dress(Form, c) {
       })();
 }
 
-// Head, legs and shirt, from the handle's letters when it has colors — the
-// first letter, the last, and the middle — or the tema's handle color.
+// Head, legs and shirt all wear the color of the handle's "@" (the first of
+// its per-letter colors, set in the `handle` piece), or the tema's handle
+// color when none are set — the same color chat draws the "@" in.
 function bodyColors(c) {
-  const letters = c.colors?.slice(1); // [0] colors the "@".
-  if (letters?.length) {
-    const rgb = (o) => [o.r, o.g, o.b];
-    return [rgb(letters[0]), rgb(letters[letters.length - 1]), rgb(letters[floor(letters.length / 2)])];
-  }
-  const fallback = (LAK_THEMES[lakTheme] || LAK_THEMES.ler).chat.handle || [255, 160, 120];
-  return [fallback, fallback, fallback];
+  const at = c.colors?.[0];
+  const color = at
+    ? [at.r, at.g, at.b]
+    : (LAK_THEMES[lakTheme] || LAK_THEMES.ler).chat.handle || [255, 160, 120];
+  return [color, color, color];
 }
 
 // A box whose four sides and top all show the painting, right way up.
@@ -577,7 +576,8 @@ function lookUp(c) {
       const slug = latest.split("/").pop().replace(/\.png$/, "");
       return get.picture(`/media/@${c.handle}/painting/${slug}.png`);
     })
-    .then((img) => {
+    .then((got) => {
+      const img = got?.img; // get.picture resolves { url, img }.
       if (!img?.pixels) return;
       c.texture = { lit: shrink(img, 1), dim: shrink(img, 0.4) };
       c.dirty = true;
