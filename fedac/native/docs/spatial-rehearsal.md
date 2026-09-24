@@ -59,3 +59,36 @@ This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both
 ## Octave Climb
 
 `node fedac/native/tools/compose-soft-swing.mjs --climb` writes `octave-climb.nsscore`. Four 17-second phrases rise by an octave each time, spanning three octave lifts. High-register gain tapers gently. A sparse seventh source adds two-note answering phrases and faint delayed returns above the melody. The soft 3:2 swing, taps, spatial echoes and 70.97-second duration remain. Deploy with `--score octave-climb`, then cue the two laptops.
+
+## Pending boot update — September 24, 2026
+
+Replace the spoken “connected to CULTUREHUB LA” announcement with a short,
+quiet sine-wave refrain when a laptop first connects to that network after
+boot. Play it once per boot; changing pieces or reconnecting must not repeat
+it. Keep the personalized Jeffrey startup greeting disabled, preserve the
+saved seat and arrangement, and persist the update on both USB boot copies.
+
+The connection announcement currently comes from the native runtime's Wi-Fi
+connection transition in `src/ac-native.c`, separately from the personalized
+startup greeting. Suppress that speech as part of the change; adding a melody
+in the performance wrapper alone would leave the speech audible.
+
+**Deferred at Jeffrey's request:** log this now and do other work before the
+next reboot. No Wi-Fi melody change has been installed and no further reboot
+is scheduled. The six laptops have already rebooted successfully into the
+updated arrangement and performance. Deployment receipts and rollback notes:
+`.tmp/notespatial-2026-09-24/`.
+
+### Live battery display and warning
+
+`lib/battery-watch.mjs` now keeps the percentage visible above the concert
+view and draws a flashing bell at 10% or below. The sine ding repeats every
+`max(1, percent * 3)` seconds: 30 seconds at 10%, 15 at 5%, 3 at 1%, and
+1 at 0%. It stops above 10%; a low reading still warns while charging.
+
+Loaded live on all six as `notespatial-battery-live`, with the score and
+performance hashes unchanged. Timing/threshold tests pass via
+`node --test fedac/native/tools/battery-watch.test.mjs`. Include this wrapper
+and helper in the next persistent USB update alongside the deferred Wi-Fi
+refrain; the current USB boot archive still contains the earlier wrapper.
+No reboot was performed for this live battery change.

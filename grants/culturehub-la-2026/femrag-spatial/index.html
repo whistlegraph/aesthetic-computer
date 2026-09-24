@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Femrag++ in the round</title>
+<style>body{margin:0;background:#100b09;color:#ffdcaa;font:20px system-ui}header{padding:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}button,select,input{font:inherit}canvas{width:100%;height:70vh}#status{padding:16px}</style>
+<header><strong>Femrag++ in the round</strong><button id="play">Play</button><button id="stop">Stop</button><label>Start <select id="section"></select></label><label>Output <select id="solo"><option value="all">Stereo room preview</option><option value="sub">Sub only</option></select></label><label>Master <input id="volume" type="range" min="0" max="25" value="25"> <span id="level">25%</span></label></header>
+<canvas id="stage"></canvas><div id="status">Local audition — no fleet or DMX commands.</div>
+<script type="module">
+const score=await fetch('./score.json').then(r=>r.json());
+const el=id=>document.getElementById(id),canvas=el('stage'),g=canvas.getContext('2d');
+score.sections.forEach((s,i)=>el('section').add(new Option(s.name,String(i))));
+score.seats.forEach((s,i)=>el('solo').add(new Option(s,String(i))));
+let audio,master,buffers={},origin=0,running=false,next=0,nodes=new Set(),timer,frame,lastPaint=0,visualNext=0,recentSeats=Array(6).fill(null);
+const midiName=m=>m==null?'':['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][Math.round(m)%12]+(Math.floor(m/12)-1);
+async function load(){
+ audio??=new AudioContext();await audio.resume();
+ if(master)return;
+ master=audio.createGain();master.gain.value=.25;
+ const limiter=audio.createDynamicsCompressor();limiter.threshold.value=-8;limiter.knee.value=4;limiter.ratio.value=12;limiter.attack.value=.003;limiter.release.value=.15;master.connect(limiter).connect(audio.destination);
+ await Promise.all(Object.entries(score.samples).map(async([k,s])=>buffers[k]=await audio.decodeAudioData(await fetch(s.url).then(r=>r.arrayBuffer()))));
+}
+function voice(e,at){
+ const selected=el('solo').value;if(selected!=='all'&&String(e.seat)!==selected)return;
+ const spec=score.samples[e.sample],src=audio.createBufferSource();src.buffer=buffers[e.sample];
+ const rate=spec.baseMidi!=null&&e.midi!=null?2**((e.midi-spec.baseMidi)/12):1;src.playbackRate.value=rate;
+ const gain=audio.createGain(),span=Math.min(e.duration,src.buffer.duration/rate);
+ gain.gain.setValueAtTime(0,at);gain.gain.linearRampToValueAtTime(e.gain*(spec.gainScale??1),at+Math.min(.006,span/4));
+ gain.gain.setValueAtTime(e.gain*(spec.gainScale??1),at+Math.max(.006,span-.04));gain.gain.linearRampToValueAtTime(0,at+span);
+ src.connect(gain);
+ if(e.seat==='sub'){
+   const hi=audio.createBiquadFilter();hi.type='highpass';hi.frequency.value=25;
+   const lo=audio.createBiquadFilter();lo.type='lowpass';lo.frequency.value=80;
+   gain.connect(hi).connect(lo).connect(master);
+ }else{
+   const pan=audio.createStereoPanner();pan.pan.value=[-.85,.85,.6,-.6,0,0][e.seat];gain.connect(pan).connect(master);
+ }
+ src.start(at);src.stop(at+span+.002);nodes.add(src);src.onended=()=>{nodes.delete(src);src.disconnect();gain.disconnect()};
+}
+function pump(){if(!running)return;const now=audio.currentTime;
+ while(next<score.events.length&&origin+score.events[next].t<now+.15){const e=score.events[next++];if(origin+e.t>=now+.003)voice(e,origin+e.t)}
+ if(now-origin>score.duration+.2)stop();
+}
+function paint(ms){frame=requestAnimationFrame(paint);if(ms-lastPaint<33)return;lastPaint=ms;
+ const w=canvas.clientWidth,h=canvas.clientHeight;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h}
+ g.fillStyle='#100b09';g.fillRect(0,0,w,h);const t=running?audio.currentTime-origin:-1;
+ while(running&&visualNext<score.events.length&&score.events[visualNext].t<=t){const e=score.events[visualNext++];if(e.seat!=='sub')recentSeats[e.seat]=e;}
+ for(let seat=0;seat<6;seat++){
+  const a=[324,36,108,252,180,0][seat]*Math.PI/180,r=Math.min(w,h)*.32;
+  const x=seat===5?w/2:w/2+Math.sin(a)*r,y=seat===5?h/2:h/2-Math.cos(a)*r;
+  const seen=recentSeats[seat],recent=running&&seen&&t>=seen.t&&t-seen.t<.45?seen:null;
+  const amp=recent?Math.exp(-(t-recent.t)*7):0;
+  // Gentle candle drift; no black/white strobe or full-screen flashing.
+  const candle=.88+.06*Math.sin(t*3.3+seat)+.04*Math.sin(t*7.1+seat*2);
+  g.fillStyle=`rgb(${Math.round((65+amp*110)*candle)},${Math.round((35+amp*60)*candle)},18)`;
+  g.beginPath();g.arc(x,y,Math.min(w,h)*.105,0,Math.PI*2);g.fill();
+  g.textAlign='center';g.fillStyle='#ffe6c3';g.font=`bold ${Math.max(22,Math.min(w,h)*.06)}px system-ui`;g.fillText(recent?(midiName(recent.midi)||recent.sample.toUpperCase()):'·',x,y+8);
+  g.font='14px system-ui';g.fillText(score.seats[seat],x,y+Math.min(w,h)*.15);
+ }
+ if(running){const section=score.sections.find(s=>t>=s.startSec&&t<s.endSec);el('status').textContent=`${Math.max(0,t).toFixed(1)} / ${score.duration.toFixed(1)} s · ${section?.name??'Ready'} · ${nodes.size} sample voices · stereo audition; no live DMX`}
+}
+function stop(){running=false;clearInterval(timer);for(const n of nodes){try{n.stop()}catch{}}nodes.clear();el('status').textContent='Stopped — no fleet or DMX commands.'}
+el('play').onclick=async()=>{stop();el('status').textContent='Loading samples…';await load();const start=score.sections[+el('section').value].startSec;next=score.events.findIndex(e=>e.t>=start);visualNext=next;recentSeats.fill(null);origin=audio.currentTime+.3-start;master.gain.value=+el('volume').value/100;running=true;pump();timer=setInterval(pump,25)};
+el('stop').onclick=stop;el('volume').oninput=()=>{el('level').textContent=el('volume').value+'%';if(master)master.gain.setTargetAtTime(+el('volume').value/100,audio.currentTime,.03)};
+window.addEventListener('pagehide',stop);requestAnimationFrame(paint);
+</script>

@@ -1,0 +1,2 @@
+# Small reproducible audition bank; full seven-output stem renders stay in .tmp.
+!assets/*.wav

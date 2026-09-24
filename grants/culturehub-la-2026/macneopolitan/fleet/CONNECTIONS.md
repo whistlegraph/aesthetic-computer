@@ -3,8 +3,30 @@
 Verified on 2026-09-24 on Blueberry. Jeffrey approved the announced 36-second,
 six-laptop + subwoofer + five-light replay: “yeah that was great.”
 The prox session on **Frisbee is reading/waiting for these connections to run a
-more synchronized singer test with the lights** (user report; handle unspecified).
+more synchronized singer test with the lights** (user report; subsequently resolved as `frisbee:todo`).
 This file is the handoff; writing it does not cue another performance.
+
+## Current live state
+
+Frisbee completed singer run `full-trio-8ff82a3c67` and released the rig:
+22 sung phrases, all six laptops finished, SUB at25%, four room PARs,
+then stop and blackout. See [FRISBEE-REQUEST.md](FRISBEE-REQUEST.md).
+Blueberry restored native following on8791 and silently loaded
+`notespatial-controls` on all six laptops. They are ready with backlights0,
+audio-driven brightness armed, large note mode and battery power indicators.
+The full Echo + Flange score is774.4119seconds; no new musical cue was issued.
+Windows audio is re-armed at25%, both channels, timing offset-60ms.
+No reboot or new USB image has been performed.
+
+## Desktop track awareness
+
+The Windows SUB display now shows the current title, phase, elapsed/total time
+and progress in concert mode. Score-hash changes refresh both audio and visual
+metadata together. Verified automatic Wake→Notepat transition without reload.
+The reference was Neo's current `xbox/live/oskiewar.js` performance-stage
+renderer and `lan-test.js` stage packet; no active Oskiewar prox conversation
+was found. Source and focused tests live in
+[the SUB display candidate](../../../../fedac/native/candidates/notespatial-2026-09-24/sub-display/README.md).
 
 ## Seats and outputs
 
@@ -192,11 +214,11 @@ TTS must finish before the musical start; spoken cue lead time is part of the
 score when announcements continue during the test.
 
 
-## Current follow-up setup
+## Verified follow-up and controls
 
 After the full orchestral baseline, all six screens were set to **100% hardware
-backlight**, with readback verified individually. Current piece:
-`connection-check` on all six, short 36-second score, performance master 25%.
+backlight**, with readback verified individually. That follow-up used
+`connection-check` on all six, short36-second score, performance master25%.
 Windows remains on Blueberry port 8791, both output channels and fullscreen.
 
 Brightness now has a live override file on each laptop:
@@ -207,14 +229,17 @@ curl -fsS -X PUT http://192.168.1.237/pieces/performance-controls.json \
 ```
 
 Read `/pieces/brightness-status.json` for requested/actual/supported/mode.
-Set `brightnessPercent` to `null` to enable the optional score field:
+For timed cues, the live control JSON uses `brightnessPercent:null`,
+`brightnessMode:"score"` and
 `"brightness":[{"t":0,"percent":100},{"t":8,"percent":60,"seat":5}]`.
 Cues are step changes in seconds; omitted seat means all seats. The native
 backlight adjusts in approximately 5% steps and retains its hardware minimum.
-The wrapper defaults to maximum at boot. Score edits require reloading the
-wrapper while idle; live overrides are read every quarter second.
+The latest wrapper respects its saved override at boot without flashing to
+maximum. The small control JSON, including brightness cues, is read every
+quarter second.
 Implementation: [`score-brightness.mjs`](../../../../fedac/native/lib/score-brightness.mjs).
-This is installed in the current live wrapper, not yet in the USB boot image.
+This was installed in `connection-controls` before the Trio handover, not
+yet in the USB boot image or in the Trio wrapper.
 
 SUB timing now uses seven explicit audio-clock probes per source, selecting the
 lowest RTT (17–34 ms in the follow-up). It computes score time from the mapped
@@ -261,6 +286,44 @@ center reported inactive RGB zero. This verifies control state, not acoustic
 onset alignment. The original accepted 15% RGB replay remains a separate baseline.
 
 Full orchestral measurements: [performance report](../../../../fedac/native/docs/performance/orchestral-stress-2026-09-24.md).
+
+## Current Notepat configuration
+
+Before the Trio handover, all six backlights were verified at0 and the
+`connection-controls` wrapper installed a lightning bolt immediately beside
+the battery percentage. It reads external-power online state once per second,
+so the bolt can remain on when plugged in at full charge; it hides when
+unplugged. Low-battery warning behavior remains unchanged.
+
+The latest saved controls are:
+
+```json
+{"brightnessPercent":null,"brightnessMode":"audio","brightnessRelease":0.3,"audioThreshold":0.004,"noteLabels":true}
+```
+
+In audio mode, local audible output above the threshold drives backlight100,
+then it decays smoothly to0. Idle/silent playback stays at0. A numeric
+`brightnessPercent` overrides that mode, including0 for a dark hold. Brightness
+writes are quantized and limited to20Hz; status/control reads use4Hz. This
+feature was armed before handover, but its live musical behavior still needs a
+musical audition; idle0 and ready status are verified on all six.
+
+The tested [renderer/FX candidate](../../../../fedac/native/candidates/notespatial-2026-09-24/CANDIDATE.md)
+and its `notespatial-controls.mjs` wrapper are deployed on all six after
+Frisbee released the fleet. They add optional large note names, an indexed and
+bounded frame renderer, selected quiet echo taps, and Notepat flange envelopes.
+The wrapper passes real overlay text even in concert mode, avoids per-frame
+configuration/status-file reads, and sends native DMX only when RGB changes.
+Tested limits:24 visual frames,48 hatch lines, one full fill;790 added echo taps,
+18 peak global voices. SUB events are unchanged. These operation-count checks
+are not an observed FPS improvement; repeat the baseline for that claim.
+
+[Femrag++ in the round](../../femrag-spatial/README.md) is a separate146.67-second
+sample study and browser audition. It is not yet inserted into the live
+sequence: native shared sample storage and its ten-second cap require a
+transport update. The study includes the arrangement, small bank and an
+optional per-seat stem exporter. See [REBOOT-CHECK.md](REBOOT-CHECK.md) before
+preparing USB images or an OS test.
 
 ## Persistence and next reboot
 
