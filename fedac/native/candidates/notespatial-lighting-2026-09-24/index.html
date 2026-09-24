@@ -1,0 +1,38 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Notepat score looks</title>
+<style>
+body{margin:24px;background:#090c13;color:#f1f2f5;font:16px system-ui}header{display:flex;align-items:center;gap:20px;margin-bottom:20px}h1{font-size:24px;margin:0}button,select{font:inherit;background:#222838;color:inherit;border:1px solid #555;border-radius:4px;padding:7px}main{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}canvas{width:100%;display:block;background:#04060b;image-rendering:pixelated}figure{margin:0}figcaption{display:flex;justify-content:space-between;padding-top:7px}i{display:inline-block;width:22px;height:22px;border-radius:50%;margin-left:5px}small{font:inherit;color:#a8b0c1}#transport{display:flex;align-items:center;gap:14px;margin-bottom:24px}input[type=range]{flex:1}#time{min-width:80px}
+</style>
+<header><h1>Notepat score looks</h1><select id="seat"><option value="5">Held center</option><option value="0">Left front</option><option value="1">Right front</option><option value="2">Right rear</option><option value="3">Left rear</option><option value="4">Center rear</option></select><label><input id="notes" type="checkbox"> Note letters</label><button id="play">Animate</button></header>
+<div id="transport"><input id="seek" type="range" min="0" max="1" value="0.5" step="0.001"><span id="time">Section 50%</span><small>Four room lights + held</small></div>
+<main id="gallery"></main>
+<script type="module">
+import {paintLook} from './score-look.mjs';
+import {fixtureFrame} from './fixture-frame.mjs';
+const timeline=await(await fetch('./notespatial-look.nstimeline')).json();
+const seat=document.querySelector('#seat'),notes=document.querySelector('#notes'),seek=document.querySelector('#seek');
+const cards=timeline.movements.map(m=>{
+  const fig=document.createElement('figure'),canvas=document.createElement('canvas');canvas.width=384;canvas.height=216;
+  const caption=document.createElement('figcaption'),label=document.createElement('span');label.textContent=m.name;
+  const lights=document.createElement('span'),bulbs=Array.from({length:5},()=>{const i=document.createElement('i');lights.append(i);return i;});
+  caption.append(label,lights);fig.append(canvas,caption);document.querySelector('#gallery').append(fig);
+  const ctx=canvas.getContext('2d');ctx.lineWidth=2;
+  const api={screen:{width:384,height:216},wipe(r,g,b){ctx.fillStyle=`rgb(${r} ${g} ${b})`;ctx.fillRect(0,0,384,216);},ink(r,g,b){ctx.fillStyle=ctx.strokeStyle=`rgb(${r} ${g} ${b})`;},line(x,y,a,b){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(a,b);ctx.stroke();},box(x,y,w,h,type){if(type==='fill')ctx.fillRect(x,y,w,h);else ctx.strokeRect(x,y,w,h);},write(text,{x,y,size=1}){ctx.font=`bold ${10*size}px monospace`;ctx.textBaseline='top';ctx.fillText(text,x,y);}};
+  return {m,api,bulbs};
+});
+let animate=false,start=performance.now();
+function draw(now){
+  for(const {m,api,bulbs} of cards){
+    const length=m.t1-m.t0,offset=animate?(now-start)/1000:0;
+    const t=m.t0+(Number(seek.value)*length+offset)%length;
+    paintLook(api,timeline,t,Number(seat.value),{noteLabels:notes.checked});
+    const frame=fixtureFrame(timeline,t);[...frame.room,frame.held].forEach((f,i)=>{bulbs[i].style.background=`rgb(${f.rgb.join(' ')})`;});
+  }
+  document.querySelector('#time').textContent=`Section ${Math.round(seek.value*100)}%`;
+  if(animate)requestAnimationFrame(draw);
+}
+document.querySelector('#play').onclick=()=>{animate=!animate;start=performance.now();document.querySelector('#play').textContent=animate?'Pause':'Animate';draw(start);};
+for(const control of [seat,notes,seek])control.oninput=()=>{if(!animate)draw(performance.now());};
+draw(performance.now());window.previewReady=true;
+</script>

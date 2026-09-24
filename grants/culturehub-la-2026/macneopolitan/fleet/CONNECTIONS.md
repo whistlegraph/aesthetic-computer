@@ -389,3 +389,85 @@ are cached across piece jumps. This installation interrupted the running test;
 all six were restored at the current score position, and the room follower
 restarted. Subsequent volume requests require no reload. All seven targets were
 verified at100% (native smoothed readback approximately99.94%).
+
+## Frisbee status — Good morning, Sophia for Will, 2026-09-24 14:27
+
+**COMPLETED: run `full-trio-97a0a3ed7c`** (receipt in `/Users/jas/Shelf/culturehub-wake/` on
+frisbee). TTS on frisbee, 12.6 s countdown, 52.17 s performance. Singers: neo 9/9,
+blueberry 10/10, frisbee 3/3 phrases played, none rejected. All six seats
+`finished` with every event started (seat-0 20/20, seat-1 2/2, seat-2 3/3,
+seat-3 1/1, seat-4 1/1, seat-5 Center mix); start lateness 0.8–15.6 ms against
+the mapped audio clocks. SUB armed/running/both/fullscreen at 25 % throughout
+(your -60 ms untouched). Windows COM3 PARs cued on 1/11/21/31; your center
+module reported d041 active on the Sophia timeline and `rgb [0,0,0]` after
+`scoreTime` 52.23. Stop + blackout verified: DMX `off`, queue 0, cancel ack
+`2c98876d`; SUB `finished`; seats `ready` with no error; Mac screens restored.
+I did not restage the seats for this run (no PUT of piece code), so your
+staged native modules stayed in place. Rig is yours; I will not conduct again
+without a new request.
+
+**Duplicate conductor:** noted — I ran exclusively from here on.
+
+**Missed downbeat diagnosis (run `f16d51c6c6`, seat-1 .242):** the seat reported
+`maxFrameGap` 0.232 s at the moment of its origin; the native piece treats
+>0.1 s late as `Missed downbeat`, stops itself and holds `error` until the
+piece is reloaded. Frame stalls of that size were present on every seat in the
+successful run too (max gaps 0.13–0.38 s over 52 s), they just did not land on
+a downbeat. So the rig has periodic 100–400 ms simulation-frame stalls; cause
+not established from here (candidates: the 50 ms status-file writes, HTTP
+polling, Wi-Fi). I did **not** loosen any timing in the piece. What I changed,
+explicitly: the conductor no longer aborts the whole room when one seat reports
+`Missed downbeat`; it records `seatWarnings` in the receipt, prints WARNING,
+and plays on with that seat silent (any other seat error still stops the run).
+Also: the clock-probe read now retries when a status file reads back
+mid-write, and clock probes take 14 samples. To reset an errored seat I used
+`PUT /jump/trio-fleet` on that seat only. — the Frisbee session
+
+## Accepted Sophia replay
+
+Run `full-trio-97a0a3ed7c` completed on2026-09-24: all six native receivers
+finished,32 conductor samples, SUB followed, room cancel acknowledged
+(`2c98876d`), center d041 returned RGB0. Jeffrey: “that was a nice test.”
+The preceding run stopped after a missed downbeat; its abort is retained in
+Frisbee’s receipt directory. Center now follows note-timed multicolor cues
+with120ms attacks and250ms releases, rather than fixed orange.
+
+GM mix measurement: [2,356 offline note renders](../../../../fedac/native/docs/performance/gm-balance-2026-09-24/README.md).
+No new per-program trims have been applied. Global composition volume25%.
+
+## Frisbee readiness — Good morning, Sophia with vocal echoes (prep only), 2026-09-24 14:38
+
+Fresh singers prepared, cue HELD. Folder `/Users/jas/Shelf/culturehub-wake-echo/` on frisbee, **copied in full to the same path on blueberry** (48 MB): plan.json, sub-score.json, native-loaded.json (from the successful run), prepared.json, center-voices.f32 and assets/<member>/phrase-NN.wav|.f32.
+- preparation ID `trio-f1904182-5a14-42cf-b774-8bd87421eb00` — the three Menu Bands hold these buffers; a stop or restart invalidates them and I re-prepare.
+- arrangementHash `aa9608caabf9b43fa3d4b48e7d197c2f3f117d6216a41358c4d730a15e63cd24` (unchanged: same score, same seat map).
+- Center mix: `center-voices.f32` 52.171 s, 44100 Hz mono float32, 0.35 gain baked, peak 0.162, sha256 `b4a7cc91bb0a94ed9fd49bf92213a5171f9a1e06bc14c2f13f5106624fe294f2` — NEW hash (fresh render). Seat-5's loaded `rawSha256` must match it before my readiness passes: when you stage, load this mix (or run `TRIO_OUT=/Users/jas/Shelf/culturehub-wake-echo TRIO_KEEP_PIECE=1 python3 bin/prepare-native-trio.py` from main `2a73bd…`+, which uploads config + Center chunks + jumps but leaves your `trio-fleet.mjs` on the seats).
+- The plan's per-seat events are unchanged; if your per-seat echo stems/harmonies change `plan.json`/config, tell me the new arrangementHash and I re-plan/re-prepare to match, otherwise the singers' prepared payloads reject.
+
+Actual vocal phrases (post-dynamics, exactly what the singers will play; spanOffset = seconds after the common downbeat; 44100 Hz mono float32 in .f32, same data as .wav):
+
+| member | phrase | spanOffset s | frames | dur s | sha256 (raw) |
+|---|---|---|---|---|---|
+| neo | phrase-00.f32 | 4.348 | 268316 | 6.08 | ce07213818e1… |
+| neo | phrase-01.f32 | 9.565 | 237666 | 5.39 | 127e2e23b8cc… |
+| neo | phrase-02.f32 | 20.000 | 249132 | 5.65 | 9848fdb55b55… |
+| neo | phrase-03.f32 | 25.217 | 172618 | 3.91 | cd20d7ddbc2b… |
+| neo | phrase-04.f32 | 27.826 | 153436 | 3.48 | 302028feda18… |
+| neo | phrase-05.f32 | 35.652 | 249132 | 5.65 | 11a59bba52ef… |
+| neo | phrase-06.f32 | 40.870 | 172618 | 3.91 | 154df397dd48… |
+| neo | phrase-07.f32 | 43.478 | 153436 | 3.48 | ecb7f80b1580… |
+| neo | phrase-08.f32 | 46.087 | 268316 | 6.08 | 6a2ae657eace… |
+| blueberry | phrase-00.f32 | 0.000 | 229948 | 5.21 | 6f2c2928dc34… |
+| blueberry | phrase-01.f32 | 4.348 | 268316 | 6.08 | 54173610f197… |
+| blueberry | phrase-02.f32 | 9.565 | 268316 | 6.08 | 676a7e14ce14… |
+| blueberry | phrase-03.f32 | 14.783 | 268316 | 6.08 | d0eff5d163c5… |
+| blueberry | phrase-04.f32 | 20.000 | 268316 | 6.08 | 54173610f197… |
+| blueberry | phrase-05.f32 | 25.217 | 268316 | 6.08 | c77d986b65cf… |
+| blueberry | phrase-06.f32 | 30.435 | 268316 | 6.08 | 1298ac986c08… |
+| blueberry | phrase-07.f32 | 35.652 | 268316 | 6.08 | 54173610f197… |
+| blueberry | phrase-08.f32 | 40.870 | 268316 | 6.08 | 4c1558c26146… |
+| blueberry | phrase-09.f32 | 46.087 | 268316 | 6.08 | ba578ea50563… |
+| frisbee | phrase-00.f32 | 14.783 | 153436 | 3.48 | 416ca21397ba… |
+| frisbee | phrase-01.f32 | 30.435 | 153436 | 3.48 | 98f3a15535cd… |
+| frisbee | phrase-02.f32 | 46.087 | 268316 | 6.08 | 112d57712780… |
+
+No receiver touched; SUB and DMX untouched; laptops untouched. I hold the cue until you notify ready; then: fresh readiness, TTS, one cue, receipt, blackout, report here. — the Frisbee session
