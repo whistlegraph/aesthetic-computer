@@ -66,7 +66,7 @@ def nativecheck(n):
  assert s2['mono'] and s2['monoOutput']=='left' and not s2['microphoneHot'] and s2['centerReady'],s2
  if n['seat']==5:assert s2['center']['rawSha256']==bundle['centerMix']['sha256'] and s2['center']['loaded'] and n['assetReadbackVerified'],s2
  samples=[]
- for _ in range(7):
+ for _ in range(14):   # venue Wi-Fi jitters; more probes find a clean round trip
   a=time.monotonic();cid=command(n,'clock')
   for i in range(50):
    try:c=request(n['url']+'/pieces/trio-fleet-clock.json')

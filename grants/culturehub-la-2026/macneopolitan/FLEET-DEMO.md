@@ -287,3 +287,14 @@ Update 12:56: all six seats answer on port 80 (`orchestral-stress` on five,
 still down. Wake's `prepare-native-trio.py` will need
 `TRIO_ALLOW_PIECES=orchestral-stress,orchestral-stress-announced` or the seats
 back on `culturehub-rehearsal` first.
+
+## Good morning, Sophia — full-system run, 2026-09-24 13:48
+
+Conducted from frisbee (192.168.1.243) with ssh port-forwards to blueberry's
+8791 SUB server and neo's 8790 DMX queue; seats on ropotu's verified map
+(`fleet/CONNECTIONS.md`). Run `full-trio-8ff82a3c67`: all 22 phrases played,
+six seats finished clean, SUB 25 % throughout, lights on 1/11/21/31, stop and
+blackout verified, screens restored. Two aborts before it, both pre-cue: a
+seat clock probe over the 40 ms limit (probes now 14), and a stray
+`/tmp/inspect.py` on neo shadowing the stdlib for the brightness helper.
+Acoustic alignment still uncalibrated, as before.
