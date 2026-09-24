@@ -664,7 +664,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -899,7 +899,7 @@ export function windowTitle(state) {
 export function dropdownGeometry(state, width, height, shape = state.layout || {}) {
   const drop = state.dropdown;
   if (!drop) return null;
-  const bottom = shape.bottom || ["gap", "bar", "gap", "status"];
+  const bottom = shape.bottom || ["bar", "gap", "status"];
   const statusRow = bottom.lastIndexOf("status");
   // The anchor row is the status line; without one, the bar.
   const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
@@ -936,9 +936,9 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
   return rows;
 }
 
-let CORNERS = "slant";
+let CORNERS = "flat";
 let TYPED_STYLE = "outline";
-export function setCorners(style) { CORNERS = style === "block" ? "block" : "slant"; }
+export function setCorners(style) { CORNERS = ["slant", "block", "flat"].includes(style) ? style : "flat"; }
 // How your own lines are set: an outline box (the default), a filled pink
 // bubble, or plain lines on the page.
 export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "lines"].includes(style) ? style : "outline"; }
@@ -977,11 +977,12 @@ function cloudRows(rows, width, tint = CLOUD_TINT) {
   const inner = Math.min(width - 2, Math.max(8, ...rows.map((row) => paintedWidth(row))));
   const edge = fg(tint.bg);
   const ground = `${color.reset}${color.ground}`;
-  // Slanted corners by default — the triangles cut the corner on the
-  // diagonal — or stepped quadrants when the layout says `corners: block`.
-  const slant = CORNERS !== "block";
-  const top = `${edge}${slant ? "◢" : "▗"}${"▄".repeat(inner)}${slant ? "◣" : "▖"}${ground}`;
-  const bottom = `${edge}${slant ? "◥" : "▝"}${"▀".repeat(inner)}${slant ? "◤" : "▘"}${ground}`;
+  // The edges: plain half-block rows by default, which read as a soft card —
+  // corner glyphs looked stepped or spiky at text size. `corners: slant` cuts
+  // them with the triangles, `corners: block` with the quadrants.
+  const ends = CORNERS === "slant" ? ["◢", "◣", "◥", "◤"] : CORNERS === "block" ? ["▗", "▖", "▝", "▘"] : ["▄", "▄", "▀", "▀"];
+  const top = `${edge}${ends[0]}${"▄".repeat(inner)}${ends[1]}${ground}`;
+  const bottom = `${edge}${ends[2]}${"▀".repeat(inner)}${ends[3]}${ground}`;
   const body = rows.map((row) => `${bg(tint.bg)}${fg(tint.ink)} ${fit(row.replace(/\x1b\[49m/g, bg(tint.bg)), inner)}${bg(tint.bg)} ${ground}`);
   return [top, ...body, bottom];
 }
@@ -1123,7 +1124,7 @@ export function headerAction(state, columns, rows, x, y) {
   // Pro draws no header and no model controls. The one thing to click is the
   // model on the status line, which opens the settings drawer.
   if (state.profile?.name === "pro") {
-    const shape = { bottom: ["gap", "bar", "gap", "status"], ...(state.layout || {}) };
+    const shape = { bottom: ["bar", "gap", "status"], ...(state.layout || {}) };
     // An open drop-down owns the mouse: a row of it picks, anywhere else closes.
     const g = dropdownGeometry(state, Math.max(32, columns), Math.max(10, rows), shape);
     if (g) {

@@ -1,5 +1,5 @@
 {
-  "bottom": ["gap", "bar", "gap", "status"],
+  "bottom": ["bar", "gap", "status"],
   "status": ["handle", "workspace", "model", "activity"],
   "bar": [95, 70, 135],
   "prompt": "",

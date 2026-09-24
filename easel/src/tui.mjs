@@ -2636,7 +2636,7 @@ function handleKeys(buffer) {
         // anchors, a drag stretches, the release copies. The bottom line keeps
         // its clicks; a wheel keeps its scroll.
         if (pro && !state.dropdown && !state.settings && !state.about) {
-          const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["gap", "bar", "gap", "status"]).length);
+          const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["bar", "gap", "status"]).length);
           if (mouse.press && mouse.y <= transcriptRows) {
             state.selection = { anchor: [mouse.x, mouse.y], head: [mouse.x, mouse.y], active: true };
             redraw();

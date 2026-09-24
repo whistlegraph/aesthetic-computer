@@ -303,7 +303,6 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   assert.doesNotMatch(frame, /REMOTE · READY/, "pro has no header band");
   assert.doesNotMatch(frame, /\/publish/);
   const rows = frame.split("\n");
-  assert.equal(rows[rows.length - 4].trim(), "", "air above the bar");
   assert.match(rows[rows.length - 3], /^ {3,}$/, "the bar is empty: the terminal's own cursor stands there");
   assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
   assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5/, "the facts sit under the bar");
@@ -393,7 +392,7 @@ test("a drop-down stands on the fact that opened it, and a click on one of its r
   assert.equal(g.x, modelSpan.x, "it stands on the model");
   const frame = renderFrame(state, 80, 24, false).split("\n");
   assert.match(frame[g.top], /▾ provider · model/);
-  assert.match(frame[g.top + 1], /^ *claude {2,}/, "a provider heads its group");
+  assert.match(frame[g.top + 1], /claude {2,}/, "a provider heads its group");
   assert.match(frame[g.top + 2], /  Claude Opus 5.5 {2,}claude-opus-5-5/);
   assert.match(frame[g.top + 3], /› Claude Sonnet 5 {2,}claude-sonnet-5/, "the current model is marked");
   assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 3), "pick:1", "clicking a model row picks it");

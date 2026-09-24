@@ -46,7 +46,7 @@ export function normalize(spec = {}) {
   if (typeof spec.mouse === "boolean") out.mouse = spec.mouse;
   // The bubbles' corners: slanted triangles, or stepped quadrant blocks for
   // a font without the triangles.
-  if (spec.corners === "slant" || spec.corners === "block") out.corners = spec.corners;
+  if (["slant", "block", "flat"].includes(spec.corners)) out.corners = spec.corners;
   // How your own lines are set: outline (default), bubble, or lines.
   if (["outline", "bubble", "lines"].includes(spec.typed)) out.typed = spec.typed;
   return out;
@@ -85,7 +85,7 @@ export class Layout extends EventEmitter {
     const base = normalize(readJson(this.baked) || {});
     const over = normalize(readJson(this.file) || {});
     this.override = over;
-    this.spec = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", mouse: true, lines: false, ...base, ...over };
+    this.spec = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", mouse: true, lines: false, ...base, ...over };
     return this.spec;
   }
 
