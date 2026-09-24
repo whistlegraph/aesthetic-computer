@@ -4,7 +4,12 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
+import {hostname} from 'node:os';
+// The conductor is whichever Mac runs this: its own member name is local,
+// the other two are reached over ssh. (Was hard-wired to neo.)
+const localName=((spawnSync('scutil',['--get','LocalHostName'],{encoding:'utf8'}).stdout||'').trim()||hostname().split('.')[0]).toLowerCase();
+const isLocal=h=>String(h).toLowerCase()===localName;
 import {buildPlan,canonical,digest,members,noteName,readinessProblems} from './trio-fleet-plan.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),command=args.shift();
@@ -14,7 +19,7 @@ for(const key of Object.keys(options))if(!['out','score','receipts'].includes(ke
 const out=resolve(options.out??'/Users/jas/Shelf/culturehub-trio');mkdirSync(out,{recursive:true});
 const score=JSON.parse(readFileSync(resolve(options.score??resolve(root,'scores/trio-chorus-doowop.mbscore'))));
 const profiles=Object.fromEntries(members.map(m=>[m,JSON.parse(readFileSync(resolve(root,`members/${m}/voice.json`)))]));
-const fleet=JSON.parse(readFileSync('/Users/jas/.ac-os/culturehub/fleet.json'));
+const fleet=JSON.parse(readFileSync(process.env.TRIO_FLEET??'/Users/jas/.ac-os/culturehub/fleet.json'));   // TRIO_FLEET=… the seat map to use
 const plan=buildPlan(score,profiles,fleet);
 const planPath=resolve(out,'plan.json');
 if(command!=='check') {
@@ -28,7 +33,7 @@ if(command!=='check') {
 const quote=s=>"'"+String(s).replaceAll("'","'\\''")+"'";
 function run(host,script,timeout=15000) {
  return new Promise((yes,no)=>{
-  const child=host==='neo'?spawn('bash',['-s']):spawn('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=8',host,'bash -s']);
+  const child=isLocal(host)?spawn('bash',['-s']):spawn('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=8',host,'bash -s']);
   let stdout='',stderr='',done=false;
   const timer=setTimeout(()=>{child.kill();no(Error(`${host}: command timeout`));},timeout);
   child.stdout.on('data',d=>stdout+=d);child.stderr.on('data',d=>stderr+=d);
@@ -56,7 +61,7 @@ async function prepare(payload,id) {
  if(status?.phase!=='ready')throw Error(`${member}: preparation timed out; nothing played`);
  const local=resolve(out,'assets',member);mkdirSync(local,{recursive:true});
  await new Promise((yes,no)=>{
-  const child=spawn('rsync',['-a',member==='neo'?folder+'/':`${member}:${folder}/`,local+'/']);
+  const child=spawn('rsync',['-a',isLocal(member)?folder+'/':`${member}:${folder}/`,local+'/']);
   child.on('error',no);child.on('close',c=>c===0?yes():no(Error(`${member}: copy failed`)));
  });
  const manifest=JSON.parse(readFileSync(resolve(local,'manifest.json')));
