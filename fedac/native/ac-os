@@ -1728,7 +1728,29 @@ pull_ota() {
     local INITRAMFS_URL="${CDN_BASE}/native-notepat-latest.initramfs.cpio.gz"
     local PULLED_SLIM="${PULL_DIR}/vmlinuz-slim"
     local PULLED_INITRAMFS="${PULL_DIR}/initramfs.cpio.gz"
-    if curl -sf --head "${SLIM_URL}" >/dev/null 2>&1; then
+    # One transient HEAD failure here used to skip this whole block and flash
+    # whatever was cached — a new kernel over a stale initramfs, silently
+    # (2026-09-24). Retry, and refuse to flash a stale cache if the CDN still
+    # won't answer; only a release that genuinely has no universal files
+    # (HTTP error, curl rc 22) falls through to the legacy kernel-only path.
+    cdn_head() {  # $1=url $2=label → 0 published, 22 not published, else unreachable
+        local rc=1 _try
+        for _try in 1 2 3 4 5; do
+            curl -sf --head --max-time 20 "$1" >/dev/null 2>&1 && return 0
+            rc=$?
+            [ "${rc}" -eq 22 ] && return 22
+            log "CDN HEAD for $2 failed (rc=${rc}, try ${_try}/5) — retrying…"
+            sleep 3
+        done
+        return "${rc}"
+    }
+    local SLIM_HEAD_RC=0
+    cdn_head "${SLIM_URL}" "universal boot files" || SLIM_HEAD_RC=$?
+    if [ "${SLIM_HEAD_RC}" -ne 0 ] && [ "${SLIM_HEAD_RC}" -ne 22 ]; then
+        err "CDN unreachable for universal boot files — refusing to flash the cached copies (they may be stale)"
+        exit 1
+    fi
+    if [ "${SLIM_HEAD_RC}" -eq 0 ]; then
         # Cache-aware downloads for slim+initramfs. These have no published
         # hash, and the previous check compared Content-Length only — which is
         # useless precisely when it matters: consecutive kernel builds come out
@@ -1773,8 +1795,13 @@ pull_ota() {
         # that boots UEFI machines only.
         local KPART_URL="${CDN_BASE}/native-notepat-latest.vmlinuz.kpart"
         local PULLED_KPART="${PULL_DIR}/vmlinuz.kpart"
-        if curl -sf --head "${KPART_URL}" >/dev/null 2>&1; then
+        local KPART_HEAD_RC=0
+        cdn_head "${KPART_URL}" "Chromebook kpart" || KPART_HEAD_RC=$?
+        if [ "${KPART_HEAD_RC}" -eq 0 ]; then
             fetch_if_stale "${KPART_URL}" "${PULLED_KPART}" "Chromebook kpart"
+        elif [ "${KPART_HEAD_RC}" -ne 22 ]; then
+            err "CDN unreachable for the Chromebook kpart — refusing to flash without it (would silently drop KERN-A)"
+            exit 1
         else
             rm -f "${PULLED_KPART}" "${PULLED_KPART}.etag"
             log "No Chromebook kpart published for this release — stick will boot UEFI machines only"

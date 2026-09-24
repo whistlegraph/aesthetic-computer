@@ -425,29 +425,58 @@ log "Zapping GPT + clearing first 16 MiB…"
 sgdisk --zap-all "${USB_DEV}" >/dev/null
 dd if=/dev/zero of="${USB_DEV}" bs=1m count=16 status=none
 
+write_gpt() {
+    # sgdisk output is kept visible: a failed primary-header write used to
+    # vanish into /dev/null and surface only as "partition did not appear".
+    if [ "${KPART_MB}" -gt 0 ]; then
+        # Partition 3 sits between ACBOOT and ACEFI on disk; numbering is what
+        # matters to macOS (disk4s3) and vboot scans every kernel-type partition.
+        # Type 7f00 = ChromeOS kernel. Attribute bits (cgpt semantics):
+        # 48-51 priority = 10 (bits 49,51), 52-55 tries = 5 (bits 52,54),
+        # 56 successful = 1 — the same flags chrx/ChromeOS recovery media use, so
+        # the firmware never counts the stick down to unbootable.
+        sgdisk \
+            --new=1:0:+${MAIN_MB}M  --typecode=1:0700 --change-name=1:ACBOOT \
+            --new=3:0:+${KPART_MB}M --typecode=3:7f00 --change-name=3:KERN-A \
+            --attributes=3:set:49 --attributes=3:set:51 \
+            --attributes=3:set:52 --attributes=3:set:54 \
+            --attributes=3:set:56 \
+            --new=2:0:0             --typecode=2:ef00 --change-name=2:ACEFI \
+            "${USB_DEV}" 2>&1 | sed 's/^/[sgdisk] /'
+    else
+        sgdisk \
+            --new=1:0:+${MAIN_MB}M --typecode=1:0700 --change-name=1:ACBOOT \
+            --new=2:0:0           --typecode=2:ef00 --change-name=2:ACEFI \
+            "${USB_DEV}" 2>&1 | sed 's/^/[sgdisk] /'
+    fi
+}
+gpt_ok() {
+    # A readable table lists ACEFI (and KERN-A when requested); a torn write
+    # prints "Main header: ERROR" instead.
+    local table
+    table=$(sgdisk -p "${USB_DEV}" 2>&1)
+    echo "${table}" | grep -q "ERROR" && return 1
+    echo "${table}" | grep -q "ACEFI" || return 1
+    [ "${KPART_MB}" -eq 0 ] || echo "${table}" | grep -q "KERN-A"
+}
 if [ "${KPART_MB}" -gt 0 ]; then
-    # Partition 3 sits between ACBOOT and ACEFI on disk; numbering is what
-    # matters to macOS (disk4s3) and vboot scans every kernel-type partition.
-    # Type 7f00 = ChromeOS kernel. Attribute bits (cgpt semantics):
-    # 48-51 priority = 10 (bits 49,51), 52-55 tries = 5 (bits 52,54),
-    # 56 successful = 1 — the same flags chrx/ChromeOS recovery media use, so
-    # the firmware never counts the stick down to unbootable.
     log "Creating GPT layout (ACBOOT + KERN-A + ACEFI)…"
-    sgdisk \
-        --new=1:0:+${MAIN_MB}M  --typecode=1:0700 --change-name=1:ACBOOT \
-        --new=3:0:+${KPART_MB}M --typecode=3:7f00 --change-name=3:KERN-A \
-        --attributes=3:set:49 --attributes=3:set:51 \
-        --attributes=3:set:52 --attributes=3:set:54 \
-        --attributes=3:set:56 \
-        --new=2:0:0             --typecode=2:ef00 --change-name=2:ACEFI \
-        "${USB_DEV}" >/dev/null
 else
     log "Creating GPT layout (ACBOOT + ACEFI)…"
-    sgdisk \
-        --new=1:0:+${MAIN_MB}M --typecode=1:0700 --change-name=1:ACBOOT \
-        --new=2:0:0           --typecode=2:ef00 --change-name=2:ACEFI \
-        "${USB_DEV}" >/dev/null
 fi
+# macOS DiskArbitration re-probes the disk the moment the zap lands and can
+# hold it while sgdisk writes the primary header, leaving a torn table
+# (backup OK, primary ERROR). Verify and retry rather than discover it later.
+for attempt in 1 2 3; do
+    diskutil unmountDisk force "${USB_DEV}" >/dev/null 2>&1 || true
+    write_gpt
+    sleep 1
+    gpt_ok && break
+    [ "${attempt}" -lt 3 ] || die "GPT did not verify after 3 attempts: $(sgdisk -p "${USB_DEV}" 2>&1 | grep -E 'ERROR|Invalid' | tr '\n' ' ')"
+    log "GPT write did not verify (attempt ${attempt}) — re-zapping and retrying…"
+    sleep 2
+    sgdisk --zap-all "${USB_DEV}" >/dev/null 2>&1 || true
+done
 
 # Force macOS to re-read the partition table after sgdisk wrote it. The
 # kernel caches the old layout until we explicitly notify it; without this,
@@ -583,7 +612,7 @@ with open(sys.argv[3], 'w') as f:
         && log "Merged $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") wifi networks (presets + preserved)"
     else
         printf '%s\n' "${WIFI_PRESETS_JSON}" > "${WIFI_MERGED}"
-        log "Wrote 6 preset wifi networks (no previous USB to preserve from)"
+        log "Wrote $(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "${WIFI_MERGED}") preset wifi networks (no previous USB to preserve from)"
     fi
 fi
 cp "${WIFI_MERGED}" "${M1}/wifi_creds.json"
