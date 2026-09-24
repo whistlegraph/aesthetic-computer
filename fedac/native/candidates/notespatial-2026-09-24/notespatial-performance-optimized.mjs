@@ -422,3 +422,11 @@ export function paint({ wipe, ink, box, line, circle, write, overlayWrite, scree
 
 export function act({ event, system }) { if (event.is('keyboard:down:escape')) system.jump('prompt'); }
 export function leave() { stopVoices(); if(lastSound)clearFx(lastSound); }
+
+// One-use handoff for a controller-authorized volume-control reload.
+export function resumeForVolume(saved, now) {
+ if(error || saved.phase!=='playing' || !Number.isFinite(saved.origin) ||
+    !Number.isFinite(saved.audioTime) || now<saved.audioTime || now-saved.audioTime>15 ||
+    now-saved.origin<0 || now-saved.origin>=runDuration() || saved.seat!==config.seat)return false;
+ origin=saved.origin;runId=saved.runId;mode='score';phase='playing';seenCommand='boot-arm';return true;
+}

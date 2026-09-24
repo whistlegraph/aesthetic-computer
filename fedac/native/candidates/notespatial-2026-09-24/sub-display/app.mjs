@@ -71,3 +71,13 @@ function setConcert(on){document.body.classList.toggle('concert',on);localStorag
 setConcert(localStorage.concertMode!=='false');
 $('concert').onclick=()=>setConcert(!document.body.classList.contains('concert'));
 window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='c'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();setConcert(!document.body.classList.contains('concert'));}});
+
+const volumeEndpoint=`http://${location.hostname}:8795/volume`;
+let volumeId='';
+async function pollCompositionVolume(){
+ try{const r=await fetch(volumeEndpoint,{cache:'no-store',signal:AbortSignal.timeout(700)});const v=await r.json();
+ if(r.ok&&v.id!==volumeId&&Number.isFinite(v.percent)&&v.percent>=0&&v.percent<=100){volumeId=v.id;$('level').value=v.percent;$('levelLabel').textContent=v.percent+'%';apply();}}
+ catch{}setTimeout(pollCompositionVolume,200);
+}
+pollCompositionVolume();
+$('level').addEventListener('change',()=>fetch(volumeEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({percent:Number($('level').value)})}).catch(()=>{}));

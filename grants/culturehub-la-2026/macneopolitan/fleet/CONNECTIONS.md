@@ -362,3 +362,30 @@ The original full score remains `/pieces/spatial-rehearsal.nsscore`, duration
 `d3ae52f7f427aa753734977c7079ec81c66167100107d88e2960e35cf5066d18`.
 Its sustained bass enters around 60 seconds; stronger/earlier sub arrangement
 work was discussed but was not part of the accepted short replay.
+
+## One-call composition volume
+
+Blueberry serves `:8795/volume`. One POST updates the desired SUB level and fans
+out to all six native players concurrently, without a piece reload or cue:
+
+```sh
+node fedac/native/tools/composition-volume.mjs 100
+# Or: curl -s http://127.0.0.1:8795/volume -H 'Content-Type: application/json' -d '{"percent":25}'
+```
+
+Range0–100 includes mute0. This is composition master gain; hardware mixers
+remain at100%. Native players consume `/pieces/composition-volume.json` at4Hz;
+the browser follows the same value at5Hz. Normal propagation is a few hundred
+milliseconds, not sample-accurate. The response reports each native upload;
+verify `/pieces/composition-volume-status.json` and the SUB heartbeat for actual
+application. Partial failures are reported, not silently treated as success.
+The SUB level slider also publishes the global setting on release.
+
+Start the controller with
+`node fedac/native/candidates/notespatial-2026-09-24/volume-server.mjs`.
+The live wrapper imports `notespatial-performance-volume-v2.mjs`, the versioned
+copy of `notespatial-performance-optimized.mjs`, because native module imports
+are cached across piece jumps. This installation interrupted the running test;
+all six were restored at the current score position, and the room follower
+restarted. Subsequent volume requests require no reload. All seven targets were
+verified at100% (native smoothed readback approximately99.94%).

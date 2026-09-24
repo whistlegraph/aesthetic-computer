@@ -2,7 +2,7 @@ import {createBatteryWatch} from './battery-watch-power-v2.mjs';
 import {createScoreBrightness} from './score-brightness-audio-v2.mjs';
 import {candlelightRgb} from './candlelight.mjs';
 const brightnessControl=createScoreBrightness();
-import * as rehearsal from './notespatial-performance-optimized.mjs';
+import * as rehearsal from './notespatial-performance-volume-v2.mjs';
 
 const batteryWatch = createBatteryWatch();
 let batteryReportAt=-Infinity;
@@ -29,12 +29,15 @@ function assign(system, seat, persist = false) {
   // Discard previous commands. A boot or seat selection must never start music.
   system.writeFile('/pieces/spatial-rehearsal-command.json', JSON.stringify({ id: 'boot-arm', action: 'arm' }));
   rehearsal.boot({ ...bootApi, colon: [], params: [] });
+  const resume=read(system,'/pieces/volume-resume.json');
+  system.writeFile('/pieces/volume-resume.json','null');
+  if(resume)rehearsal.resumeForVolume(resume,bootApi.sound.time);
   selected = true;
   return true;
 }
 export function boot(api) {
  brightnessControl.boot(api.system);
- api.sound.volume.setMix(.25);
+ api.sound.volume.setMix((read(api.system, '/pieces/composition-volume.json')?.percent ?? 25) / 100);
   bootApi = api;
   const display = read(api.system, DISPLAY_FILE) || {};
   concert = display.concert !== false; flipY = display.flipY === true;
@@ -110,6 +113,9 @@ let candleSystem, candleNext=0, lastRgb='', controlsAt=-Infinity, reportAt=-Infi
 export function paint(api) {
  if(api.sound.time-controlsAt>=.25){
   controlsAt=api.sound.time;
+  const volume=read(api.system,'/pieces/composition-volume.json');
+  if(Number.isFinite(volume?.percent)&&volume.percent>=0&&volume.percent<=100)api.sound.volume.setMix(volume.percent/100);
+  api.system.writeFile('/pieces/composition-volume-status.json',JSON.stringify({percent:api.sound.volume.mix*100,id:volume?.id,at:api.sound.time}));
   try{const controls=JSON.parse(api.system.readFile('/pieces/performance-controls.json'));rehearsal.setVisualMode(controls.noteLabels?'notes':'frames');}catch{}
  }
  paintOriginal(api);
