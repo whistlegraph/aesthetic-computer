@@ -14,6 +14,7 @@ import { homedir, hostname } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
+import { feedStatus } from "./oskiewar-feed.mjs";   // the displays: what the Xbox / ac7 feed is showing
 
 const pexec = promisify(execFile);
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -81,13 +82,14 @@ async function status(out) {
     const r = m === local ? await sh("pgrep", ["-x", "MenuBand"]) : await sh("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=6", m, "pgrep -x MenuBand"]);
     return { member: m, menuBand: r.code === 0 ? "running" : "not running" };
   }));
+  const display = await feedStatus();
   const dir = outDir(out);
   const plan = readJson(join(dir, "plan.json")), bundle = readJson(join(dir, "prepared.json")), state = readJson(join(dir, "preparation-state.json"));
   const active = [...runs.entries()].filter(([, r]) => r.child.exitCode === null).map(([id, r]) => ({ runId: id, out: r.out, seconds: Math.round(Date.now() / 1000 - r.startedAt) }));
   return { rig: rig(), activeRuns: active, out: dir, plan: plan && { title: plan.title, arrangementHash: plan.arrangementHash, duration: plan.duration, events: plan.events?.length, singers: plan.payloads?.map((p) => p.member) },
     prepared: bundle && { id: bundle.id, arrangementHash: bundle.arrangementHash?.slice(0, 12), stems: Object.keys(bundle.stems || {}), state: state?.phase },
     seats, sub: sub && { phase: sub.phase, live: sub.live, scoreHash: sub.scoreHash?.slice(0, 12), duration: sub.duration }, subReceivers: Array.isArray(subReceivers) ? subReceivers.map((r) => ({ ip: r.ip, online: r.online, armed: r.armed, level: r.level, route: r.route, fullscreen: r.fullscreen, scoreHash: r.scoreHash?.slice(0, 12) })) : subReceivers,
-    dmx, singers, lastReceipt: (() => { const r = latestReceipt(dir); return r && { runId: r.runId, completed: r.completed, error: r.error, seatWarnings: r.seatWarnings }; })() };
+    dmx, singers, display, lastReceipt: (() => { const r = latestReceipt(dir); return r && { runId: r.runId, completed: r.completed, error: r.error, seatWarnings: r.seatWarnings }; })() };
 }
 
 async function prepare({ score, out, stage = true, keepPiece = false, allowPieces = "" }) {

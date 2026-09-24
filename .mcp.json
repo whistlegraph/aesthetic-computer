@@ -89,6 +89,12 @@
       "args": [
         "toolchain/mcp/ac-venue-mcp.mjs"
       ]
+    },
+    "oskiewar": {
+      "command": "node",
+      "args": [
+        "toolchain/mcp/oskiewar-mcp.mjs"
+      ]
     }
   }
 }
