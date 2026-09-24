@@ -1768,6 +1768,17 @@ pull_ota() {
         local INIT_REMOTE_SIZE=$(curl -sfI "${INITRAMFS_URL}" | awk -F'[: ]+' '/^[Cc]ontent-[Ll]ength:/ {print $2+0}' | tr -d '\r')
         fetch_if_stale "${SLIM_URL}" "${PULLED_SLIM}" "slim kernel"
         fetch_if_stale "${INITRAMFS_URL}" "${PULLED_INITRAMFS}" "initramfs"
+        # Chromebook kernel partition image (vboot-packed). Older releases
+        # never published one; flash-mac.sh then writes a two-partition stick
+        # that boots UEFI machines only.
+        local KPART_URL="${CDN_BASE}/native-notepat-latest.vmlinuz.kpart"
+        local PULLED_KPART="${PULL_DIR}/vmlinuz.kpart"
+        if curl -sf --head "${KPART_URL}" >/dev/null 2>&1; then
+            fetch_if_stale "${KPART_URL}" "${PULLED_KPART}" "Chromebook kpart"
+        else
+            rm -f "${PULLED_KPART}" "${PULLED_KPART}.etag"
+            log "No Chromebook kpart published for this release — stick will boot UEFI machines only"
+        fi
         # A dropped transfer above leaves a truncated file (the || true
         # swallows curl's error) — flashing it makes an unbootable stick.
         # Compare against the remote Content-Length before proceeding.

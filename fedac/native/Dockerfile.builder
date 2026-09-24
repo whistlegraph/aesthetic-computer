@@ -99,6 +99,18 @@ RUN curl -fsSL https://claude.ai/install.sh | bash 2>/dev/null \
     || echo "Claude Code install skipped (non-fatal)"
 
 # ── Verify tools ──
+# ── vboot-utils: vbutil_kernel + public devkeys for the Chromebook kernel
+# partition (docker-build.sh packs vmlinuz.kpart; stock Chromebook firmware
+# boots it in developer mode via Ctrl+U). ──
+RUN dnf install -y --setopt=install_weak_deps=False vboot-utils \
+    && dnf clean all && rm -rf /var/cache/dnf \
+    && command -v vbutil_kernel \
+    && { find /usr/share -path '*devkeys/kernel.keyblock' | grep -q . \
+         || { mkdir -p /usr/share/vboot/devkeys \
+              && curl -fsSL "https://chromium.googlesource.com/chromiumos/platform/vboot_reference/+archive/HEAD/tests/devkeys.tar.gz" \
+                 | tar -xz -C /usr/share/vboot/devkeys \
+              && test -f /usr/share/vboot/devkeys/kernel.keyblock; }; }
+
 RUN gcc --version | head -1 && busybox --help >/dev/null 2>&1 && esbuild --version && echo "OK"
 
 # ── Copy source into image ──

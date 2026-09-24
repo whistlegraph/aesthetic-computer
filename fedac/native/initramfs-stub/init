@@ -1,0 +1,74 @@
+#!/bin/sh
+# AC Native OS — Chromebook boot stub.
+#
+# This tiny initramfs is embedded in vmlinuz (CONFIG_INITRAMFS_SOURCE) so the
+# kernel can be packed with vbutil_kernel into a ChromeOS kernel partition and
+# booted by stock Chromebook firmware (developer mode, Ctrl+U). Depthcharge
+# hands the kernel no initrd, so this script finds the stick's ACBOOT (or
+# ACEFI) FAT partition, unpacks the real initramfs.cpio.gz into a tmpfs and
+# switch_roots into it. From there boot is byte-identical to the UEFI path.
+#
+# On UEFI boots the firmware-supplied initrd is unpacked over this one, its
+# /init replaces this file, and this script never runs.
+
+export PATH=/bin:/sbin
+
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+
+say() {
+    echo "[ac-stub] $*" > /dev/kmsg 2>/dev/null
+    echo "[ac-stub] $*" > /dev/console 2>/dev/null
+}
+
+fail() {
+    say "$*"
+    say "dropping to a shell — the USB stick is probably missing initramfs.cpio.gz"
+    exec sh
+}
+
+say "chromebook boot stub: waiting for the AC OS stick"
+mkdir -p /boot /newroot
+
+# USB enumeration takes a second or three; poll for up to 30 s. Any FAT
+# partition carrying initramfs.cpio.gz + config.json is ours (ACBOOT is
+# partition 1, ACEFI partition 2 — either works, ACBOOT is found first).
+found=""
+tries=0
+while [ "$tries" -lt 60 ]; do
+    for p in /dev/sd[a-h][1-9] /dev/mmcblk[0-9]p[1-9] /dev/nvme[0-9]n[0-9]p[1-9]; do
+        [ -b "$p" ] || continue
+        mount -t vfat -o ro "$p" /boot 2>/dev/null || continue
+        if [ -f /boot/initramfs.cpio.gz ] && [ -f /boot/config.json ]; then
+            found="$p"
+            break
+        fi
+        umount /boot 2>/dev/null
+    done
+    [ -n "$found" ] && break
+    tries=$((tries + 1))
+    sleep 0.5
+done
+[ -n "$found" ] || fail "no partition with initramfs.cpio.gz appeared after 30 s"
+say "found AC OS files on $found"
+
+# The real initramfs is ~1 GB unpacked; the UEFI path holds the same bytes
+# in the kernel's rootfs, so the memory footprint is unchanged.
+mount -t tmpfs -o size=90%,mode=0755 tmpfs /newroot || fail "tmpfs mount failed"
+cd /newroot || fail "cannot enter /newroot"
+say "unpacking initramfs.cpio.gz"
+if ! gzip -dc /boot/initramfs.cpio.gz | cpio -idm 2>/dev/null; then
+    fail "initramfs.cpio.gz failed to unpack"
+fi
+[ -x /newroot/init ] || fail "unpacked initramfs has no /init"
+cd /
+umount /boot 2>/dev/null
+
+# Hand the live mounts to the new root, then pivot. The real /init mounts
+# proc/sys/dev itself and tolerates them already being there.
+mount -o move /dev  /newroot/dev  2>/dev/null
+mount -o move /proc /newroot/proc 2>/dev/null
+mount -o move /sys  /newroot/sys  2>/dev/null
+say "switching root"
+exec switch_root /newroot /init

@@ -809,6 +809,40 @@ INITRAMFS_SIZE=$(stat -c%s "$BUILD/initramfs.cpio.gz")
 log "  Initramfs: $((INITRAMFS_SIZE / 1048576))MB compressed (${GZIP_CMD%% *})"
 
 # ══════════════════════════════════════════════
+# Step 3b: Chromebook boot stub (embedded initramfs)
+# ══════════════════════════════════════════════
+# Stock Chromebook firmware (developer mode, Ctrl+U) boots a vboot-packed
+# kernel from a ChromeOS kernel partition and passes it NO initrd. So the
+# kernel carries a tiny embedded initramfs — static busybox + one script —
+# that finds the stick's ACBOOT partition, unpacks the real initramfs.cpio.gz
+# into a tmpfs and switch_roots into it. On UEFI boots the external initrd
+# overlays this one and its /init is never reached. See docs/chromebook-boot.md.
+log "Step 3b: Building Chromebook boot stub..."
+STUB_ROOT="$BUILD/stub-root"
+STUB_CPIO="$BUILD/stub-initramfs.cpio"
+rm -rf "$STUB_ROOT"
+mkdir -p "$STUB_ROOT"/{bin,sbin,dev,proc,sys,boot,newroot}
+if ! file "$BUSYBOX" | grep -q "statically linked"; then
+    err "busybox at $BUSYBOX is not statically linked — the Chromebook stub cannot use it"
+    exit 1
+fi
+for applet in sh mount umount gzip cpio switch_root sleep; do
+    "$BUSYBOX" --list 2>/dev/null | grep -qx "$applet" \
+        || { err "busybox lacks the '$applet' applet the Chromebook stub needs"; exit 1; }
+done
+cp "$BUSYBOX" "$STUB_ROOT/bin/busybox"
+for cmd in sh mount umount gzip cpio sleep mkdir cat echo ls; do
+    ln -sf busybox "$STUB_ROOT/bin/$cmd"
+done
+ln -sf ../bin/busybox "$STUB_ROOT/sbin/switch_root"
+cp "$NATIVE/initramfs-stub/init" "$STUB_ROOT/init"
+chmod 755 "$STUB_ROOT/init"
+sh -n "$STUB_ROOT/init" || { err "initramfs-stub/init has a syntax error"; exit 1; }
+(cd "$STUB_ROOT" && find . -print0 | cpio --null -o -H newc --quiet > "$STUB_CPIO")
+[ -s "$STUB_CPIO" ] || { err "stub initramfs cpio is empty"; exit 1; }
+log "  Stub: $(($(stat -c%s "$STUB_CPIO") / 1024))KB (busybox + init), embedded via CONFIG_INITRAMFS_SOURCE"
+
+# ══════════════════════════════════════════════
 # Step 4: Build kernel with embedded initramfs
 # ══════════════════════════════════════════════
 log "Step 4/4: Building kernel..."
@@ -975,7 +1009,13 @@ for sym in \
 ; do
     scripts/config --enable "CONFIG_$sym" 2>/dev/null || true
 done
+# Embed the Chromebook boot stub (Step 3b). Path is build-specific, so it is
+# set here rather than in config-minimal. kbuild re-packs usr/initramfs_data
+# whenever the cpio changes.
+scripts/config --set-str INITRAMFS_SOURCE "$STUB_CPIO"
 make olddefconfig >>"$KCFG_LOG" 2>&1 || { err "Kernel olddefconfig (post-config) failed"; tail -120 "$KCFG_LOG" >&2; exit 1; }
+grep -q "^CONFIG_INITRAMFS_SOURCE=\"$STUB_CPIO\"" .config \
+    || { err "CONFIG_INITRAMFS_SOURCE did not stick (stub would be missing from vmlinuz)"; exit 1; }
 tail -1 "$KCFG_LOG" || true
 
 # Verify the critical audio/GPIO symbols actually stuck after olddefconfig
@@ -1070,6 +1110,44 @@ cp arch/x86/boot/bzImage "$OUT/vmlinuz" 2>/dev/null || true
 cp arch/x86/boot/bzImage "$BUILD/vmlinuz-slim"
 cp arch/x86/boot/bzImage "$OUT/vmlinuz-slim" 2>/dev/null || true
 
+# ── Chromebook kernel partition image ──
+# vbutil_kernel wraps the bzImage in a vboot keyblock + preamble signed with
+# the public developer keys. Stock Chromebook firmware accepts those in
+# developer mode (Ctrl+U), which is how the same stick boots a Chromebook
+# without touching its firmware. flash-mac.sh dd's this into a ChromeOS
+# kernel-type GPT partition. The kernel's built-in CONFIG_CMDLINE supplies
+# the real command line (x86 appends the bootloader's to it); the config
+# passed here is just a marker so /proc/cmdline shows which path booted.
+if [ "${AC_SKIP_KPART:-0}" = "1" ]; then
+    log "  Chromebook kpart: SKIPPED (AC_SKIP_KPART=1) — this release will not boot stock Chromebooks"
+else
+    VBUTIL=$(command -v vbutil_kernel || true)
+    DEVKEYS=$(dirname "$(find /usr/share /usr/local/share -path '*devkeys/kernel.keyblock' 2>/dev/null | head -1)" 2>/dev/null || true)
+    if [ -z "$VBUTIL" ] || [ ! -f "$DEVKEYS/kernel.keyblock" ] || [ ! -f "$DEVKEYS/kernel_data_key.vbprivk" ]; then
+        err "vbutil_kernel or the vboot devkeys are missing (Dockerfile.builder installs vboot-utils)."
+        err "  Set AC_SKIP_KPART=1 to build without Chromebook support."
+        exit 1
+    fi
+    KPART="$BUILD/vmlinuz.kpart"
+    printf 'ac.boot=chromeos' > "$BUILD/kpart-cmdline.txt"
+    # x86 depthcharge ignores the bootloader blob but vbutil_kernel insists on one.
+    dd if=/dev/zero of="$BUILD/kpart-bootstub.bin" bs=512 count=1 status=none
+    "$VBUTIL" --pack "$KPART" \
+        --keyblock "$DEVKEYS/kernel.keyblock" \
+        --signprivate "$DEVKEYS/kernel_data_key.vbprivk" \
+        --version 1 \
+        --vmlinuz arch/x86/boot/bzImage \
+        --config "$BUILD/kpart-cmdline.txt" \
+        --bootloader "$BUILD/kpart-bootstub.bin" \
+        --arch x86 || { err "vbutil_kernel --pack failed"; exit 1; }
+    "$VBUTIL" --verify "$KPART" --signpubkey "$DEVKEYS/kernel_subkey.vbpubk" >/dev/null 2>&1 \
+        || { err "vbutil_kernel --verify rejected the packed kernel"; exit 1; }
+    cp "$KPART" "$OUT/vmlinuz.kpart" 2>/dev/null || true
+    KPART_SIZE=$(stat -c%s "$KPART")
+    KPART_SHA=$(sha256sum "$KPART" | awk '{print $1}')
+    log "  vmlinuz.kpart: $((KPART_SIZE / 1048576))MB (vboot devkeys, sha256: ${KPART_SHA:0:16}...)"
+fi
+
 # Post-build verification: confirm critical driver objects actually got
 # compiled. The .config saying =y isn't enough — kbuild's persistent
 # build state could skip re-compiling a driver whose toggle changed.
@@ -1163,6 +1241,8 @@ cat > "$OUT/build.json" << EOF
   "sha256": "$SHA",
   "iso_size": ${ISO_SIZE:-0},
   "iso_sha256": "${ISO_SHA:-}",
+  "kpart_size": ${KPART_SIZE:-0},
+  "kpart_sha256": "${KPART_SHA:-}",
   "handle": "$HANDLE"
 }
 EOF
