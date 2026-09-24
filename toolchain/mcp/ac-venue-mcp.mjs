@@ -55,8 +55,12 @@ async function mbpost(member, hook, kv) {
 const rig = () => readJson(RIG, { owner: null, since: null, activeRun: null, note: null });
 function setRig(patch) { const r = { ...rig(), ...patch, updatedAt: Date.now() / 1000, updatedBy: local }; writeFileSync(RIG, JSON.stringify(r, null, 2) + "\n"); return r; }
 const outDir = (out) => (out ? (out.startsWith("/") ? out : join(SHELF, out)) : join(SHELF, "culturehub-wake-v3"));
+// A song folder may bring its own conductor (Femrag++ came with run-fleet.py,
+// which preflights by default and cues with --run): prefer it over the lane's.
+const runnerOf = (dir) => (existsSync(join(dir, "run-fleet.py")) ? { cmd: "python3", args: [join(dir, "run-fleet.py")], cue: ["--run"], check: [], env: { FEMRAG_OUT: dir, TRIO_OUT: dir }, cwd: dir, receipts: /^(femrag|full-trio|run)-.*\.json$/ }
+  : { cmd: "python3", args: ["bin/run-full-trio.py"], cue: [], check: ["--check"], env: { TRIO_OUT: dir }, cwd: LANE, receipts: /^full-trio-.*\.json$/ });
 const latestReceipt = (out) => {
-  const files = readdirSync(out).filter((f) => /^full-trio-.*\.json$/.test(f)).map((f) => ({ f, t: statSync(join(out, f)).mtimeMs })).sort((a, b) => b.t - a.t);
+  const files = readdirSync(out).filter((f) => runnerOf(out).receipts.test(f)).map((f) => ({ f, t: statSync(join(out, f)).mtimeMs })).sort((a, b) => b.t - a.t);
   return files[0] ? readJson(join(out, files[0].f)) : null;
 };
 
@@ -111,25 +115,27 @@ async function prepare({ score, out, stage = true, keepPiece = false, allowPiece
 }
 async function check(out) {
   const dir = outDir(out);
-  const r = await sh("python3", ["bin/run-full-trio.py", "--check"], { TRIO_OUT: dir });
+  const R = runnerOf(dir);
+  const r = await sh(R.cmd, [...R.args, ...R.check], R.env, R.cwd);
   const lines = (r.out + "\n" + r.err).trim().split("\n").filter((l) => l.trim() && !/^\s+File|^\s{4}/.test(l));
-  return { ready: r.code === 0, tail: lines.slice(-4), receipt: latestReceipt(dir)?.runId };
+  return { ready: r.code === 0, runner: R.args[0], tail: lines.slice(-4), receipt: latestReceipt(dir)?.runId };
 }
 async function cue({ out, announce, voice = "Zoe (Premium)", rttMax }) {
   const dir = outDir(out);
   const owner = rig();
   if (owner.owner && owner.owner !== local) throw new Error(`rig is held by ${owner.owner} since ${owner.since}; venue_claim it first`);
   if ([...runs.values()].some((r) => r.child.exitCode === null)) throw new Error("a run is already active");
+  const R = runnerOf(dir);
   if (announce) { const at = (Date.now() / 1000 + 1).toFixed(3); await mbpost(local, "say", `text=${announce.replace(/[;'=]/g, " ")};voice=${voice};startEpoch=${at}`); }
   const log = join(dir, `run-${Date.now()}.log`);
-  const child = spawn("python3", ["bin/run-full-trio.py"], { cwd: LANE, env: { ...process.env, ...ENV, TRIO_OUT: dir, ...(rttMax ? { TRIO_CLOCK_RTT_MAX: String(rttMax) } : {}) }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(R.cmd, [...R.args, ...R.cue], { cwd: R.cwd, env: { ...process.env, ...ENV, ...R.env, ...(rttMax ? { TRIO_CLOCK_RTT_MAX: String(rttMax) } : {}) }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
   let buf = ""; child.stdout.on("data", (d) => { buf += d; writeFileSync(log, buf); }); child.stderr.on("data", (d) => { buf += d; writeFileSync(log, buf); });
   const id = `run-${Date.now().toString(36)}`;
   runs.set(id, { child, out: dir, log, startedAt: Date.now() / 1000 });
   setRig({ owner: local, since: rig().since || new Date().toISOString(), activeRun: id });
   child.on("close", () => setRig({ activeRun: null }));
   await new Promise((r) => setTimeout(r, 3000));
-  return { runId: id, log, started: buf.trim().split("\n").slice(-3), note: "readiness runs first; the downbeat is ~15 s after the cue; venue_result reports the receipt" };
+  return { runId: id, runner: R.args[0], log, started: buf.trim().split("\n").slice(-3), note: "readiness runs first; the downbeat is ~15 s after the cue; venue_result reports the receipt" };
 }
 function result(runId, out) {
   const r = runId ? runs.get(runId) : [...runs.values()].pop();
@@ -137,7 +143,7 @@ function result(runId, out) {
   const receipt = latestReceipt(dir);
   const tail = r ? readFileSync(r.log, "utf8").trim().split("\n").filter((l) => !/^\s+File|^\s{4}|^\s*$/.test(l)).slice(-8) : [];
   return { runId, running: r ? r.child.exitCode === null : false, exitCode: r?.child.exitCode ?? null, tail,
-    receipt: receipt && { runId: receipt.runId, completed: receipt.completed, error: receipt.error, seatWarnings: receipt.seatWarnings, singers: receipt.singerResults && Object.fromEntries(Object.entries(receipt.singerResults).map(([m, v]) => [m, `${v.played}/${v.scheduled}${v.rejected ? " REJECTED" : ""}`])),
+    receipt: receipt && { runId: receipt.runId, completed: receipt.completed, error: receipt.error, seatWarnings: receipt.seatWarnings, skippedLights: receipt.skippedLateOrQueuedLights, singers: receipt.singerResults && Object.fromEntries(Object.entries(receipt.singerResults).map(([m, v]) => [m, `${v.played}/${v.scheduled}${v.rejected ? " REJECTED" : ""}`])),
       seats: receipt.samples?.at(-1)?.native?.map((n) => `${n.receiverId} ${n.phase} ${n.eventsStarted}/${n.eventCount} gap ${Number(n.maxFrameGap || 0).toFixed(2)}`), cleanup: receipt.cleanup && { dmx: receipt.cleanup.dmx, sub: receipt.cleanup.sub } } };
 }
 async function stop() {
@@ -156,7 +162,7 @@ const TOOLS = [
   { name: "venue_status", description: "The room right now: rig ownership, active run, the staged plan/bundle in `out`, each seat's piece/phase/hash/brightness/mix, the SUB server and its Windows receiver, the DMX bridge, the three Menu Bands, and the last receipt.", inputSchema: { type: "object", properties: { out: { type: "string", description: "song folder (name under ~/Shelf or absolute); default culturehub-wake-v3" } } } },
   { name: "venue_prepare", description: "Silently prepare a piece: with `score` (a .mbscore name in the lane's scores/, or a path) it plans, renders the singers' actual phrases on their own Macs and mixes one stem per seat; then stages the six seats (their own stem, events, notation, lights) and loads the SUB score. Nothing plays. Without `score` it stages whatever plan/bundle already sits in `out` (a plan another session built).", inputSchema: { type: "object", properties: { score: { type: "string" }, out: { type: "string" }, stage: { type: "boolean", description: "stage the seats and load the SUB (default true)" }, keepPiece: { type: "boolean", description: "leave the seats' staged piece code alone (someone else's module)" }, allowPieces: { type: "string", description: "comma list of pieces a seat may be showing before loading" } } } },
   { name: "venue_check", description: "The silent readiness gate for `out`: singers' prepared caches, six seats (hash, stem, clocks), SUB and DMX. Nothing plays.", inputSchema: { type: "object", properties: { out: { type: "string" } } } },
-  { name: "venue_cue", description: "Cue the piece in `out` once on the whole room: readiness, then a ~15 s countdown, the performance, and stop + blackout. Optional `announce` is spoken first by this Mac's Menu Band. Refuses if another session holds the rig or a run is active. Returns the run id; poll venue_result.", inputSchema: { type: "object", properties: { out: { type: "string" }, announce: { type: "string" }, voice: { type: "string" }, rttMax: { type: "number", description: "clock round-trip limit in seconds (contract 0.04; venue Wi-Fi often needs 0.05)" } } } },
+  { name: "venue_cue", description: "Cue the piece in `out` once on the whole room: readiness, then a ~15 s countdown, the performance, and stop + blackout. If the folder carries its own run-fleet.py (Femrag++), that conductor is used with --run. Optional `announce` is spoken first by this Mac's Menu Band. Refuses if another session holds the rig or a run is active. Returns the run id; poll venue_result.", inputSchema: { type: "object", properties: { out: { type: "string" }, announce: { type: "string" }, voice: { type: "string" }, rttMax: { type: "number", description: "clock round-trip limit in seconds (contract 0.04; venue Wi-Fi often needs 0.05)" } } } },
   { name: "venue_result", description: "Progress or receipt of a run: running/exit, log tail, the receipt's singer tallies, per-seat event counts and stalls, cleanup acknowledgments.", inputSchema: { type: "object", properties: { runId: { type: "string" }, out: { type: "string" } } } },
   { name: "venue_stop", description: "Stop everything now: the active run (its cleanup blacks out), every seat, the SUB, the DMX queue (cancel + blackout) and the three Menu Bands. Also invalidates the singers' prepared caches.", inputSchema: { type: "object", properties: {} } },
   { name: "venue_claim", description: "Take rig ownership (a Shelf file other sessions read) or release it.", inputSchema: { type: "object", properties: { release: { type: "boolean" }, note: { type: "string" } } } },

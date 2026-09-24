@@ -330,3 +330,13 @@ laptops, all phrases played, 195/196 seat events, every seat at brightness
 100, blackout verified. Open: seat-3 (.236) stalls close to a second every
 run; the wedge telemetry file kept its last colour after stop (fixed in the
 piece, not yet restaged).
+
+## Femrag++ in the round — 2026-09-24 16:40, and the ac-venue MCP
+
+ropotu staged six decoded deck stems, a sample-based SUB stem and 1080 light
+cues under `/Users/jas/Shelf/femrag-spatial/` with its own conductor
+(`run-fleet.py`); frisbee cued it: run `femrag-c8fe7ad368`, 146.67 s, all
+seats to the end, no light skips, blackout verified. The room is now driven
+through `toolchain/mcp/ac-venue-mcp.mjs` (`venue` in .mcp.json):
+venue_prepare / venue_check / venue_cue / venue_result / venue_stop /
+venue_claim; a song folder that carries its own run-fleet.py is cued with it.
