@@ -26,10 +26,12 @@ def put(url,data):
     if not isinstance(data,bytes):data=json.dumps(data).encode()
     with urllib.request.urlopen(urllib.request.Request(url,data=data,method='PUT'),timeout=30) as r:return r.read()
 def load(node):
-    url=f"http://{node['host']}:{node['port']}";previous=json.loads(get(url+'/status'))
-    try:old_instance=json.loads(get(url+'/pieces/trio-fleet-status.json'))['instance']
-    except:old_instance=None
-    if previous['piece'] not in ALLOW:raise RuntimeError('Unexpected active piece '+previous['piece']+' (TRIO_ALLOW_PIECES to permit)')
+    url=f"http://{node['host']}:{node['port']}";previous={'piece':'dry'};old_instance=None
+    if not os.environ.get('TRIO_DRY'):
+        previous=json.loads(get(url+'/status'))
+        try:old_instance=json.loads(get(url+'/pieces/trio-fleet-status.json'))['instance']
+        except:old_instance=None
+        if previous['piece'] not in ALLOW:raise RuntimeError('Unexpected active piece '+previous['piece']+' (TRIO_ALLOW_PIECES to permit)')
     mine=lambda e:e['receiver']==node['id']
     colors=plan.get('colors',{})
     cfg={'schema':'trio-native-v1','receiverId':node['id'],'arrangementHash':plan['arrangementHash'],'bpm':plan['bpm'],'duration':plan['duration'],
@@ -39,7 +41,14 @@ def load(node):
      'routes':[{k:e[k] for k in ('t','dur','member','phrase','text','gain','role','delay','rgb')} for e in plan['events'] if mine(e) and e['layer']=='voice'],
      'lyrics':plan.get('lyrics',[]),
      'lightCues':[{'t':e['t'],'dur':e['dur'],'rgb':e['rgb']} for e in plan['events'] if mine(e) and e['layer']=='light'],
-     'colors':colors}
+     'colors':colors,
+     # the incoming-notes roll: every sounding event in the room, this seat's own marked `mine`
+     'notes':sorted([{'i':({'taiko':'kick','woodblock':'snare','brush':'hat'}.get(e.get('name'),'perc') if e['layer']=='perc' else 'bass' if e['layer']=='sub' else 'note'),'t':e['t'],'dur':e['dur'],'midi':e.get('note'),'gain':e.get('gain',.05),'label':e.get('name') or e.get('layer'),'mine':mine(e)} for e in plan['events'] if e['layer'] in ('harmony','inst','perc','bed','ornament','sub')]
+              +[{'i':'voice','t':e['t'],'dur':e['dur'],'midi':None,'gain':e['gain'],'label':e['role'].upper(),'text':e['text'],'rgb':e['rgb'],'mine':mine(e)} for e in plan['events'] if e['layer']=='voice'],key=lambda n:n['t']),
+     'sections':[{'name':s['name'],'startSec':s['beat']*60/plan['bpm'],'endSec':(plan['sections'][i+1]['beat'] if i+1<len(plan['sections']) else (plan.get('arrangement') or {}).get('total') or plan['duration']*plan['bpm']/60)*60/plan['bpm']} for i,s in enumerate(plan.get('sections',[]))],
+     'beatsPerBar':plan.get('layers',{}).get('beatsPerBar',4),'midiLow':36,'midiHigh':96,'title':plan.get('title')}
+    if os.environ.get('TRIO_DRY'):   # TRIO_DRY=1: write the configs beside the plan, touch no seat
+        d=OUT/'configs';d.mkdir(exist_ok=True);(d/(node['id']+'.json')).write_text(json.dumps(cfg,indent=1));print(node['id'],'dry config:',len(cfg['events']),'events',len(cfg['notes']),'notes',len(cfg['sections']),'sections',flush=True);return {**node,'dry':True}
     stem=stems.get(node['id'])
     if stem:
         wave,wavehash,rate=wave_of(stem);wavename='/pieces/trio-voices-'+wavehash[:16]+'.wav';chunks=[]

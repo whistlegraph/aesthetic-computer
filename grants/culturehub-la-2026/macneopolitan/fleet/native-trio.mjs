@@ -94,52 +94,79 @@ export function sim(a){
  }
 }
 // ---- notation ----------------------------------------------------------------
+// Incoming notes. Time flows right to left toward a strike line a third of the
+// way in; the next six seconds approach, the last second and a half trail
+// off. Pitched notes sit by pitch, percussion in lanes underneath. Notes this
+// seat plays are bright and glow on the hit; the rest of the room's notes are
+// there too, dim, so every laptop shows the whole score and its own part.
+// Feed: cfg.notes [{i,t,dur,midi,gain,pan,mine,label,text,rgb}] sorted by t,
+// cfg.sections [{name,startSec,endSec}] (optional). Trio pieces get the same
+// feed from their events; the lyric line and the phrase box stay on top.
 const FONT='6x10';
 function textWidth(s,size){return s.length*6*size;}
 function fitSize(s,maxW,maxSize){let size=maxSize;while(size>1&&textWidth(s,size)>maxW)size--;return size;}
 function centered(write,s,y,size,w){write(s,{x:Math.round((w-textWidth(s,size))/2),y,font:FONT,size});}
-const LAYER_RGB={inst:[255,214,120],perc:[200,200,200],harmony:[160,180,255],bed:[120,140,220],ornament:[255,170,220],sub:[120,120,120]};
+const NOTE_RGB={c:[255,50,50],d:[255,160,0],e:[255,230,0],f:[50,200,50],g:[50,120,255],a:[130,50,200],b:[180,80,255]};
+const NAMES=['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+function noteRgb(midi){const n=NAMES[((midi%12)+12)%12];return n.includes('#')?[235,235,235]:NOTE_RGB[n];}
+const KIND={kick:{lane:0,rgb:[255,90,60]},boom:{lane:0,rgb:[200,40,40]},snare:{lane:1,rgb:[245,245,245]},donk:{lane:1,rgb:[255,170,40]},hat:{lane:2,rgb:[170,170,170]},perc:{lane:1,rgb:[220,220,220]},riser:{lane:3,rgb:[120,200,255]},voice:{lane:3,rgb:[255,120,200]}};
+let noteCursor=0;
 export function paint({sound,wipe,ink,box,line,write,screen}){
  const w=screen.width,h=screen.height,t=origin===null?-1:sound.time-origin,active=phase==='playing';
- const color=cfg?.color||[143,209,63];wipe(12,15,23);
+ const color=cfg?.color||[143,209,63];wipe(10,12,20);
  if(error){ink(255,140,130);write(error,{x:8,y:h-24,font:FONT,size:1});}
  if(!cfg)return;
- // the breathing rings, dimmer now: the words sit in front of them
- if(active){
-  const pulse=Math.pow(Math.max(0,1-(t*cfg.bpm/60)%1),3);
-  for(let i=0;i<5;i++){const sc=((t*.25+i*.2)%1),rw=w*sc,rh=h*sc;ink(...color.map(v=>Math.round(v*(.08+.3*pulse)*(1-sc*.5))));box((w-rw)/2,(h-rh)/2,rw,rh,'outline');}
- }
- // seat name, top left; the bar count, top right
  ink(...color);write((cfg.label||cfg.receiverId||'').toLowerCase(),{x:10,y:10,font:FONT,size:2});
- if(phase==='countdown'){const left=Math.max(0,origin-sound.time);ink(240,240,240);centered(write,String(Math.ceil(left)),Math.round(h/2-40),8,w);ink(150,150,150);centered(write,'good morning, sophia',Math.round(h/2+50),2,w);return;}
+ if(phase==='countdown'){const left=Math.max(0,origin-sound.time);ink(240,240,240);centered(write,String(Math.ceil(left)),Math.round(h/2-40),8,w);ink(150,150,150);centered(write,(cfg.title||'').toLowerCase(),Math.round(h/2+50),2,w);return;}
  if(phase==='prepared'){ink(150,150,150);centered(write,'ready',Math.round(h/2-10),3,w);return;}
  if(!active&&phase!=='finished'){ink(110,110,110);centered(write,phase,Math.round(h/2-10),2,w);return;}
- const beat=60/cfg.bpm,bar=Math.floor(t/beat/3)+1;ink(120,120,120);write('bar '+bar,{x:w-10-textWidth('bar '+bar,2),y:10,font:FONT,size:2});
- // 1. the lyric being sung in the room, in the singer's colour; the next one dim
- const lyrics=cfg.lyrics||[];const cur=lyrics.filter(l=>t>=l.t-.3&&t<l.t+l.dur+.8).pop();const next=lyrics.find(l=>l.t>(cur?cur.t:t));
- const topY=Math.round(h*.16);
- if(cur){const size=fitSize(cur.text,w*.9,7);ink(...cur.rgb);centered(write,cur.text,topY,size,w);ink(...cur.rgb.map(v=>Math.round(v*.55)));write(cur.member,{x:Math.round((w-textWidth(cur.text,size))/2),y:topY-14,font:FONT,size:1});}
- if(next){const size=Math.max(1,fitSize(next.text,w*.7,3));ink(70,74,90);centered(write,next.text,topY+(cur?fitSize(cur.text,w*.9,7)*10+18:0),size,w);}
- // 2. what THIS seat carries right now: lead or echo of a phrase, boxed in the member's colour
+ const beat=60/cfg.bpm,bpb=cfg.beatsPerBar||4,bar=Math.floor(t/beat/bpb)+1,beatIn=Math.floor(t/beat)%bpb+1;
+ // the beat lamp and the bar count, top right
+ const pulse=Math.max(0,1-((t/beat)%1)*1.6);ink(...color.map(v=>Math.round(v*(.25+.75*pulse))));box(w-34,10,22,22);
+ ink(160,160,160);const bc=`${bar}.${beatIn}`;write(bc,{x:w-44-textWidth(bc,2),y:14,font:FONT,size:2});
+ // sections along the top: a thin strip, the current one lit, its name
+ const secs=cfg.sections||[];
+ if(secs.length){const total=cfg.duration;let cur=null;
+  for(const s of secs){const x0=Math.round(s.startSec/total*(w-20))+10,x1=Math.round(s.endSec/total*(w-20))+10,on=t>=s.startSec&&t<s.endSec;if(on)cur=s;
+   ink(...color.map(v=>Math.round(v*(on?.9:.25))));if(on)box(x0,40,Math.max(2,x1-x0-2),6);else box(x0,40,Math.max(2,x1-x0-2),6,'outline');}
+  if(cur){ink(...color);write(cur.name,{x:10,y:52,font:FONT,size:2});const nxt=secs[secs.indexOf(cur)+1];if(nxt){const left=Math.ceil((cur.endSec-t)/beat/bpb);ink(90,95,110);write(`${nxt.name} in ${left}`,{x:10+textWidth(cur.name,2)+14,y:56,font:FONT,size:1});}}
+ }
+ // Trio: the lyric being sung and the phrase this seat carries
+ const lyrics=cfg.lyrics||[];const curL=lyrics.filter(l=>t>=l.t-.3&&t<l.t+l.dur+.8).pop();
+ if(curL){const size=fitSize(curL.text,w*.9,6);ink(...curL.rgb);centered(write,curL.text,Math.round(h*.13),size,w);}
  const mine=(cfg.routes||[]).filter(r=>t>=r.t&&t<r.t+r.dur);
- const midY=Math.round(h*.5);
- if(mine.length){
-  const r=mine.sort((a,b)=>b.gain-a.gain)[0],size=fitSize(r.text,w*.8,5),tw=textWidth(r.text,size);
-  const bw=tw+40,bh=size*10+34,bx=Math.round((w-bw)/2),by=midY-Math.round(bh/2);
-  const fade=Math.min(1,(t-r.t)/.15,(r.t+r.dur-t)/.4);
-  ink(...r.rgb.map(v=>Math.round(v*(r.role==='lead'?.35:.18)*fade)));box(bx,by,bw,bh);
-  ink(...r.rgb.map(v=>Math.round(v*fade)));box(bx,by,bw,bh,'outline');
-  write(r.text,{x:bx+20,y:by+22,font:FONT,size});
-  const tag=r.role==='lead'?'LEAD':'ECHO '+(r.delay<beat*.75?'½':'1');ink(...r.rgb.map(v=>Math.round(v*.8*fade)));write(tag,{x:bx+20,y:by+6,font:FONT,size:1});
+ if(mine.length){const r=mine.sort((a,b)=>b.gain-a.gain)[0],size=fitSize(r.text,w*.6,4),tw=textWidth(r.text,size),bw=tw+30,bh=size*10+30,bx=Math.round((w-bw)/2),by=Math.round(h*.24);
+  const fade=Math.min(1,(t-r.t)/.15,(r.t+r.dur-t)/.4);ink(...r.rgb.map(v=>Math.round(v*(r.role==='lead'?.35:.18)*fade)));box(bx,by,bw,bh);ink(...r.rgb.map(v=>Math.round(v*fade)));box(bx,by,bw,bh,'outline');write(r.text,{x:bx+15,y:by+20,font:FONT,size});
+  const tag=r.role==='lead'?'LEAD':'ECHO';write(tag,{x:bx+15,y:by+5,font:FONT,size:1});}
+ // the roll
+ const notes=cfg.notes||[];if(!notes.length)return;
+ const ahead=6,behind=1.5,head=Math.round(w/3),px=w/(ahead+behind),top=Math.round(h*.36),bottom=Math.round(h*.78),laneY=[bottom+14,bottom+32,bottom+46,bottom+60];
+ const lo=cfg.midiLow||36,hi=cfg.midiHigh||108,yOf=m=>Math.round(bottom-(Math.max(lo,Math.min(hi,m))-lo)/(hi-lo)*(bottom-top));
+ ink(34,38,52);line(0,bottom,w,bottom);for(const y of laneY)line(0,y,w,y);
+ ink(...color.map(v=>Math.round(v*(.5+.5*pulse))));line(head,top-10,head,laneY[3]+8);
+ while(noteCursor<notes.length&&notes[noteCursor].t<t-behind-2)noteCursor++;
+ if(noteCursor>0&&notes[noteCursor-1].t>t-behind-2)noteCursor=0;   // a seek backwards (a new run) resets the cursor
+ for(let k=noteCursor;k<notes.length;k++){
+  const n=notes[k],dt=n.t-t;if(dt>ahead)break;if(dt<-behind)continue;
+  const x=Math.round(head+dt*px),len=Math.max(3,Math.round(Math.min(n.dur||.15,3)*px));
+  const on=t>=n.t&&t<n.t+Math.max(n.dur||.15,.12),just=t-n.t,hit=just>=0&&just<.18?1-just/.18:0;
+  const kind=KIND[n.i],dimF=n.mine?1:.32,rgb=n.rgb||(kind?kind.rgb:noteRgb(n.midi||60));
+  if(kind&&n.i!=='riser'&&n.i!=='voice'){   // percussion: a mark in its lane, bigger for louder
+   const y=laneY[kind.lane],sz=Math.max(3,Math.round(4+(n.gain||.1)*24)),c=rgb.map(v=>Math.round(v*dimF*(on?1:.6)));
+   ink(...c);if(n.i==='hat')box(x-1,y-2,3,3);else if(n.i==='donk'){box(x-sz/2,y-sz/2,sz,sz,'outline');}else box(x-Math.round(sz/2),y-Math.round(sz/2),sz,sz);
+   if(hit&&n.mine){ink(...rgb);box(x-sz,y-sz,sz*2,sz*2,'outline');}
+   continue;
+  }
+  if(n.i==='riser'||n.i==='voice'){const y=laneY[3],c=rgb.map(v=>Math.round(v*dimF));ink(...c);box(x,y-4,len,8,'outline');if(n.text&&x<w)write(n.text,{x:x+3,y:y-3,font:FONT,size:1});continue;}
+  // pitched: a bar by pitch, reverse bells a wedge that grows into the hit
+  const y=yOf(n.midi||60),hh=Math.max(4,Math.round(4+(n.gain||.05)*90)),c=rgb.map(v=>Math.round(v*dimF*(dt<0&&!on?.5:1)));
+  ink(...c);
+  if(n.i==='rbell'){const steps=6;for(let i=0;i<steps;i++){const f=i/steps;box(x+Math.round(len*f),y-Math.round(hh*f/2),Math.max(2,Math.round(len/steps)),Math.max(2,Math.round(hh*f)));}}
+  else if(n.i==='sub'||n.i==='throat'||n.i==='bass'){ink(...[150,90,255].map(v=>Math.round(v*dimF)));box(x,y-3,len,6);}
+  else box(x,y-Math.round(hh/2),len,hh);
+  if(hit&&n.mine){ink(...rgb);box(x-4,y-Math.round(hh/2)-4,len+8,hh+8,'outline');}
+  if(n.mine&&n.label&&dt>0&&dt<1.2&&n.i!=='sub'&&n.i!=='throat'){ink(...rgb.map(v=>Math.round(v*.8)));write(n.label,{x,y:y-Math.round(hh/2)-11,font:FONT,size:1});}
  }
- // 3. this seat's timeline: the next eight seconds of its own marks, a playhead at a third
- const y0=Math.round(h*.8),span=8,px=w/span,head=Math.round(w/3);
- ink(40,44,58);line(0,y0,w,y0);ink(200,200,200);line(head,y0-28,head,y0+28);
- for(const e of cfg.events){const dt=e.t-t;if(dt<-span/3||dt>span*2/3)continue;const x=Math.round(head+dt*px),ww=Math.max(3,Math.round(Math.min(e.dur,2)*px));const c=LAYER_RGB[e.layer]||[150,150,150],on=t>=e.t&&t<e.t+e.dur;
-  const hh=e.layer==='perc'?6:Math.max(6,Math.min(24,Math.round(((e.note||48)-36)/2)));ink(...c.map(v=>Math.round(v*(on?1:.45))));if(on)box(x,y0-hh,ww,hh);else box(x,y0-hh,ww,hh,'outline');
-  if(e.name&&on){ink(...c);write(e.name,{x,y:y0+6,font:FONT,size:1});}
- }
- for(const r of cfg.routes||[]){const dt=r.t-t;if(dt<-span/3||dt>span*2/3)continue;const x=Math.round(head+dt*px);ink(...r.rgb.map(v=>Math.round(v*(r.role==='lead'?.9:.5))));box(x,y0+10,Math.max(4,Math.round(r.dur*px)),r.role==='lead'?8:4);}
 }
 export function act({event,sound}){if(event.is('keyboard:down')&&event.key==='Escape')stop(sound);}
 export function leave(){if(api)stop(api.sound);}

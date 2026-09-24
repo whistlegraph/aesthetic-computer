@@ -133,6 +133,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
   requiredReceivers:[...members.map(m=>`singer-${m}`),...nodes.map(n=>n.id),'sub','dmx'],
   layers:src,routes,colors:Object.fromEntries(members.map((m,i)=>[m,colors[i]])),
   lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex]})),
+  sections:(score.arrangement?.sections??[]).map(s=>({name:s.name,beat:s.beat})),arrangement:{total:score.arrangement?.total??null,meter:score.arrangement?.meter??null},
   dmx:{host:'192.168.1.235',port:8790,activeAddresses:addresses,inactiveAddresses:[41,511]},
   sub:{host:'192.168.1.67',port:8788,transport:'rustdesk-local-bridge'},
   center:{receiver:'seat-5',actualVocals:true,preSlideEffects:true},playbackHeld:true};
