@@ -743,6 +743,12 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const ruled = shape.lines !== false && useColor ? body.map((row) => ruleRow(row, width)) : body;
     // The transcript as plain rows, for the selection to read and copy from.
     state.pageRows = body.map((row) => plainRow(row));
+    // A question takes the page: what is asked, and three answers, nothing
+    // else on screen until one is given.
+    if (state.approval) {
+      const modal = approvalModal(state, width, transcriptRows, useColor);
+      return [...modal, ...shape.bottom.map((name) => (name === "bar" ? `${useColor ? bg(shape.bar) : ""}${fit("", width)}${reset}` : rows[name]?.() ?? ""))].slice(0, height).map((line) => `${ground}${fit(line, width)}${reset}`).join("\n");
+    }
     // A selection in progress or just made: those cells in reverse video, on
     // top of whatever the row was painting.
     const shown = state.selection
@@ -882,6 +888,28 @@ function selectRow(plain, [from, to], width, useColor) {
   return `${paint(true, "text", before)}\x1b[7m${paint(true, "text", chosen)}\x1b[27m${paint(true, "text", after)}`;
 }
 
+// The question, centred, with its three answers under it. The row in hand
+// wears the block; y, a and n are written after each answer for the hand
+// that knows them.
+export function approvalModal(state, width, rows, useColor) {
+  const inner = Math.min(width - 4, 76);
+  const subject = wrapText(cleanText(state.approval.subject || "requested action"), inner);
+  const choices = [["Allow once", "y"], ["Allow every time this session", "a"], ["Deny", "n"]];
+  const index = state.approvalIndex || 0;
+  const lines = [
+    paint(useColor, "highlight bold", "allow?"),
+    "",
+    ...subject.map((line) => paint(useColor, "text", line)),
+    "",
+    ...choices.map(([label, key], i) => (i === index ? paint(useColor, "block bold", ` ${label} `) : paint(useColor, "soft", ` ${label} `)) + paint(useColor, "muted", `  ${key}`)),
+  ];
+  const top = Math.max(0, Math.floor((rows - lines.length) / 2));
+  const left = Math.max(0, Math.floor((width - inner) / 2));
+  const out = Array.from({ length: rows }, () => "");
+  lines.forEach((line, i) => { if (top + i < rows) out[top + i] = `${" ".repeat(left)}${line}`; });
+  return out;
+}
+
 // The columns a painted row occupies, escapes not counted.
 function paintedWidth(row) {
   return textWidth(String(row ?? "").replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g, ""));
@@ -933,7 +961,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     mode: state.mode === "local" ? "local" : "remote",
     // The little guy dances on the line while the machine has the floor, and
     // beside him the seconds, the way Claude Code counts them.
-    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}${state.toolNow ? ` · ${clipText(state.toolNow.replace(/\s+/g, " "), Math.max(12, Math.floor(width / 3)))}` : ""}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);

@@ -435,3 +435,20 @@ test("while the machine works the handle breathes on the dance clock", async () 
   assert.notEqual(bright, dim, "the handle is painted differently across the beat");
   assert.equal(proStatus({ ...base, busy: false, mascotMs: 700 }, 80, true).line, proStatus({ ...base, busy: false, mascotMs: 100 }, 80, true).line, "and holds still when idle");
 });
+
+test("in pro a question takes the page with three answers, and a running tool rides the status line", async () => {
+  const { approvalModal, proStatus } = await import("../src/render.mjs");
+  const base = { workspace: "/c", mode: "remote", status: "approval", input: "", account: "@t", model: "m", profile: { name: "pro" }, entries: [{ id: "a", kind: "assistant", text: "I will list the files." }] };
+  const frame = renderFrame({ ...base, approval: { id: 1, subject: "run: ls -la" }, approvalIndex: 1 }, 80, 20, false);
+  assert.match(frame, /allow\?/);
+  assert.match(frame, /run: ls -la/);
+  assert.match(frame, /Allow once {2,}y/);
+  assert.match(frame, /Allow every time this session {2,}a/);
+  assert.match(frame, /Deny {2,}n/);
+  assert.doesNotMatch(frame, /I will list the files/, "the conversation waits behind the question");
+  const rows = approvalModal({ approval: { subject: "x" }, approvalIndex: 0 }, 80, 12, false);
+  assert.equal(rows.length, 12, "the modal fills exactly the transcript rows");
+  const busy = { ...base, status: "working", busy: true, requestStartedAt: Date.now(), toolNow: "/bin/zsh -lc \"git status --short\"" };
+  assert.match(proStatus(busy, 100, false).line, /s… · \/bin\/zsh -lc "git status --short"/, "the tool shows beside the timer");
+  assert.doesNotMatch(renderFrame(busy, 100, 20, false), /RUN/, "and not as a line of the conversation");
+});

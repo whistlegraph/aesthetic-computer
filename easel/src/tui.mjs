@@ -1325,7 +1325,10 @@ function handleNotification({ method, params = {} }) {
       if (params.item?.type === "fileChange") state.status = "writing";
       const summary = itemSummary(params.item);
       if (summary) {
-        updateEntry(params.item.id, summary.kind, summary.text);
+        // Pro reports a tool on the status line while it runs, not as a line
+        // of the conversation; the transcript on disk still records it.
+        if (pro) state.toolNow = summary.text;
+        else updateEntry(params.item.id, summary.kind, summary.text);
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
       break;
@@ -1342,7 +1345,8 @@ function handleNotification({ method, params = {} }) {
         } else if (item.status) {
           suffix = ` · ${item.status}`;
         }
-        updateEntry(item.id, summary.kind, `${summary.text}${suffix}`);
+        if (pro) state.toolNow = "";
+        else updateEntry(item.id, summary.kind, `${summary.text}${suffix}`);
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
       break;
@@ -1460,16 +1464,20 @@ function handleRequest(request) {
     return;
   }
   // Every tool/provider follows the same default YOLO preference as edits/commands.
-  const automatic = state.autoAllow && defaultApprovalResponse(request);
+  // Opening an app or a file with `open` is allowed without asking: it hands
+  // something to the desktop and changes nothing here.
+  const opensApp = pro && approval.kind === "command" && /(^|\s|["'])open\s+(-a\s+|\S)/.test(approval.subject || "");
+  const automatic = (state.autoAllow || opensApp) && defaultApprovalResponse(request);
   if (automatic) {
     engine.respond(request.id, automatic);
-    transcript.event("approval", { subject: approval.subject, decision: "auto" });
+    transcript.event("approval", { subject: approval.subject, decision: opensApp ? "open" : "auto" });
     // Automatic approval is activity, not a conversation message.
     redraw();
     return;
   }
   approvalQueue.enqueue(request, engine);
-  addEntry(approval.kind === "unsupported" ? "error" : "notice", approval.subject);
+  if (!pro) addEntry(approval.kind === "unsupported" ? "error" : "notice", approval.subject);
+  state.approvalIndex = 0;
   showPendingApproval();
 }
 
@@ -1483,7 +1491,8 @@ function answerApproval(character) {
   engine.respond(answer.approval.id, answer.response);
   const key = character.toLowerCase();
   const result = key === "n" ? (answer.approval.kind === "unsupported" ? "Dismissed unsupported request" : "Denied") : key === "\u0003" ? "Cancelled" : "Allowed";
-  addEntry("notice", `${result}: ${answer.approval.subject}`);
+  if (pro) flash(`${result.toLowerCase()} · ${clipText(answer.approval.subject, 60)}`);
+  else addEntry("notice", `${result}: ${answer.approval.subject}`);
   transcript.event("approval", { subject: answer.approval.subject, decision: result });
   showPendingApproval();
   if (key === "\u0003" && !state.approval) slabSession.interrupted();
@@ -2526,6 +2535,14 @@ function handleKey(input) {
     redraw();
   }
   if (dropdownKey(input)) return;
+  // The approval modal in pro: arrows choose, Enter answers; y, a and n
+  // still answer directly.
+  if (pro && state.approval) {
+    const choices = ["y", "a", "n"];
+    if (input === "\x1b[A" || input === "\x1b[B") { state.approvalIndex = ((state.approvalIndex || 0) + (input === "\x1b[A" ? 2 : 1)) % 3; return redraw(); }
+    if (input === "\r" || input === "\n") return void answerApproval(choices[state.approvalIndex || 0]);
+    if (input === "\x1b") return void answerApproval("n");
+  }
   if (answerApproval(input)) return;
 
   if (input === "\u0003") {
