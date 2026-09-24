@@ -363,3 +363,20 @@ The renderer is ready for it: `fleet/native-trio.mjs` paints incoming notes
 percussion in lanes, sections counted in bars, own part bright), and
 `bin/femrag-notes.mjs --stage` merges per-seat feeds into the live configs
 without touching stems. Both wait for the rig.
+
+## The evening's set, orchestrated — 2026-09-24 18:20
+
+Ten Trio pieces planned through the room planner (voice bounce, harmonies,
+music box, pad, percussion in the piece's own meter, notation, wedge cues,
+backing sources from `scores/fleet-layers.json`) and silently prepared on
+the three Macs, one folder each under `~/Shelf/set-NN-<slug>/` on frisbee:
+wake 0:52, open-me 1:16, spell-sophia 0:52, abc 1:07, what-starts-with 1:17,
+sums 1:22, take-away 1:27 (one render retry: "incomplete phrase render" on
+neo the first time), thirteen-days 1:22, vocalise 1:15, lights-out 1:13 —
+12:06 of music, plus Femrag++ in the round (2:27) with its stems, notes and
+sections staged as a folder. `scores/setlist-room.json` is loaded into the
+room queue (`~/Shelf/venue-queue.json`, twelve items, autoplay off) for the
+`venue` MCP. The rig is blueberry's for the Notepat pass; nothing was staged
+on the seats. Known cost: the runner re-prepares each item before staging
+(the stop after every run clears the singers' caches), about a minute
+between songs; keeping caches across a natural end is the next fix.
