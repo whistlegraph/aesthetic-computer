@@ -107,6 +107,7 @@ front, then the held laptop last.
 ```sh
 node fedac/native/tools/compose-notespatial-native.mjs      # rebuild the score
 node fedac/native/tools/notespatial-native-check.mjs        # routing map, dry run, paint smoke test
+node fedac/native/tools/notespatial-native-perf.mjs --seat 3 # frame cost: draw calls per frame by chapter (--all for every seat)
 node fedac/native/tools/notespatial-native-render.mjs       # the video from the center, ~3 min to make
 node fedac/native/tools/notespatial-native-render.mjs --section 3 --fast   # one chapter in seconds
 node fedac/native/tools/spatial-rehearsal.mjs deploy --score notespatial-native H1 H2 H3 H4 H5 HELD
@@ -177,3 +178,12 @@ what to listen for per voicing: [VOICINGS.md](VOICINGS.md).
   eleven chapters. Its level is the one balance to set by ear.
 - **Battery.** Seat 5 died at 2% on September 18. Mains for the ring, the
   held laptop charged.
+- **Frame rate.** The screens looked slow at the September 22 run. The
+  cause was the hatch inside the flying frames: the Lift asked the software
+  raster for up to 2,600 line fills in one frame, 8.7 million over the
+  piece on a ring seat. The hatch is now budgeted to ten lines per frame
+  and drawn only on frames big enough to read; the peak is 275 draw calls
+  a frame, the screen glow no longer scans every event in the score each
+  frame, and the status file is written 4 times a second instead of 10.
+  `notespatial-native-perf.mjs` reports the per-chapter cost; deploy ships
+  the piece, so this needs no reflash, but it is in the next OTA too.

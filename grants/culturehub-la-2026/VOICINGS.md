@@ -44,12 +44,11 @@ sawBass sawBrass sawPad squareReed` (the engine), `gmFlute gmMarimba gmCelesta
 gmPad gmBass gmOcarina gmBrass gmVibes gmClarinet gmXylo` (GM by number).
 
 How the runtime hears them: a `wave` is passed as the synth `type`; an event
-with `gm` is passed as `gmProgram`, and the machine falls back to the wave
-when it has not implemented that program (the pianos, plucks, modal
-percussion, synth bass, strings, brass, reeds, pipes, pads and FX families are
-implemented in `src/gm_synth.c`; check the laptop, not the list). `piano`
-needs the Salamander bank in the image; a machine without it plays silence
-for that family, so the `native` voicing puts piano only on the answer.
+with `gm` is passed as `gmProgram`. ACOS implements all 128 GM programs
+(`gm_program_implemented` in `src/gm_synth.c` covers 0 to 127), the same
+engine notepat's instruments play through, so every laptop has the whole
+menu; the wave is only a fallback for an older image. `piano` is the
+Salamander bank the image carries in `/samples/piano`.
 
 ## Effects: `--fx studio`
 
@@ -107,10 +106,10 @@ the effects need no reflash. Listen for, per voicing:
   tick is what carries it), and does the vibraphone in the hands hold the
   long Overture bells or die too early?
 - **native**: the whistle's breath noise and vibrato on the small speaker;
-  whether harp plucks flam across seats in the Chase; whether the piano
-  answer sounds at all (bank present?).
-- **gm**: which programs actually engage on these machines; the flute and
-  the brass section are waveguides and may need their gain trimmed.
+  whether harp plucks flam across seats in the Chase; the piano answer's
+  level against the harp theme.
+- **gm**: the flute and the brass section are waveguides and may need their
+  gain trimmed against the sine stacks; the celesta echoes may want +3 dB.
 - **fx**: the room on the held laptop during the Lullaby, the drive on the
   Lift, and whether the glitch on the crash reads as a hit or a fault.
 

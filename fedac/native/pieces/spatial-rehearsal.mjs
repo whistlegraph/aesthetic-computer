@@ -161,8 +161,9 @@ export function sim({ sound, system, screen, wifi }) {
       }
     }
   }
-  if (now - lastStatus >= 0.1) {
+  if (now - lastStatus >= 0.25) { // 4 Hz: the bridge polls about once a second, and the JSON carries every lane
     lastStatus = now;
+    const activeLanes = new Set(mode === 'score' && phase === 'playing' ? voices.filter(v => v.end > now - origin).map(v => v.lane) : []);
     system.writeFile('/pieces/spatial-rehearsal-status.json', JSON.stringify({
       machineName: config?.machineName || 'ac-device', ip: wifi?.ip || config?.ip || '', seat: config?.seat, seats: config?.seats, phase, mode, runId, error, command: seenCommand, audioTime: now,
       scoreTime: origin === null ? null : Math.min(runDuration(), now - origin), origin,
@@ -174,7 +175,7 @@ export function sim({ sound, system, screen, wifi }) {
         const position = voicePosition(score, i, t);
         return { lane: i, name: lane.name, color: lane.color, position,
           seatGain: sourceGain(score, position, config.seat, config.seats),
-          active: mode === 'score' && phase === 'playing' && voices.some(v => v.lane === i && v.end > t),
+          active: activeLanes.has(i),
         };
       }) : [],
       timing: 'Wi-Fi estimated audio clock; output latency and drift uncalibrated',
@@ -186,7 +187,8 @@ export function sim({ sound, system, screen, wifi }) {
 export function paint({ wipe, ink, box, line, circle, write, screen, sound, system, wifi }) {
   const amp = Math.max(0, sound.speaker?.amplitudes?.left || 0, sound.speaker?.amplitudes?.right || 0);
   const focusTime = origin === null ? 0 : Math.max(0, sound.time - origin);
-  const focused = score && hasFocus(score, config.seat, config.seats, focusTime);
+  // Focus from the live voices (at most 32), not a scan of every event in the score each frame.
+  const focused = score && voices.some(v => v.lane !== undefined && v.end > focusTime && sourceGain(score, voicePosition(score, v.lane, focusTime), config.seat, config.seats) ** 2 >= .9);
   glow = focused && amp > .002 ? Math.min(1, Math.sqrt(amp) * 2.8) : 0;
   const own = score?.seatColors?.[config?.seat] || [255, 226, 120];
   wipe(Math.round(12 + (own[0] * .3 - 12) * glow), Math.round(15 + (own[1] * .3 - 15) * glow), Math.round(23 + (own[2] * .3 - 23) * glow));
@@ -235,11 +237,16 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
     const fw = Math.round(w * sc), fh = Math.round(h * sc), x0 = Math.round(cx - fw / 2), y0 = Math.round(cy - fh / 2);
     const bright = sounding ? .35 + .65 * left : .3 + .7 * near;
     const col = base.map(v => Math.round(v * bright)), dark = base.map(v => Math.round(v * bright * .45));
+    // Hatch on a budget: at most HATCH lines per frame, and only on frames big
+    // enough to read (the Lift once asked for 2,600 line fills in one frame; a
+    // laptop's software raster could not keep the rate). The look is the same
+    // at arm's length; the lines are simply spaced to the frame.
+    const HATCH = 10;
     if (sounding && -until < .08) { // the blink: the whole screen is the note for a moment
       ink(...col); box(x0, y0, fw, fh, 'fill');
-      ink(...dark); for (let y = y0 + 4; y < y0 + fh; y += 8) line(x0, y, x0 + fw, y);
+      ink(...dark); const gap = Math.max(8, Math.ceil(fh / 16)); for (let y = y0 + 4; y < y0 + fh; y += gap) line(x0, y, x0 + fw, y);
     } else {
-      if (sc > .12) { ink(...dark); const gap = sounding ? 6 : 4; for (let y = y0 + 3; y < y0 + fh - 1; y += gap) line(x0 + 2, y, x0 + fw - 3, y); }
+      if (sc > .3) { ink(...dark); const gap = Math.max(sounding ? 6 : 4, Math.ceil(fh / HATCH)); for (let y = y0 + 3; y < y0 + fh - 1; y += gap) line(x0 + 2, y, x0 + fw - 3, y); }
       ink(...(sharp ? [225, 225, 235] : col)); box(x0, y0, fw, fh, 'outline');
       if (sc > .25) { ink(...dark); box(x0 + 2, y0 + 2, fw - 4, fh - 4, 'outline'); }
     }
