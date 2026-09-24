@@ -77,9 +77,22 @@ export function buildPlan(score,profiles,fleet,levels={}) {
   lines.forEach((text,k)=>{const ns=parts[i].filter(n=>n.line===k);if(!ns.length)return;
    const toks=(v.lyrics.split(' / ')[k]||'').trim().split(/\s+/).filter(t=>t!=='/').flatMap(t=>t.split('-'));   // one syllable per note
    phrases.push({member:members[i],memberIndex:i,phrase:k,text,t:ns[0].t,dur:Math.max(...ns.map(n=>n.t+n.dur))-ns[0].t,notes:ns.map(n=>n.note),
+    role:v.lineRoles?.[k]??'lead',   // the score's own word: lead or hum
     syllables:ns.map((n,j)=>({t:+n.t.toFixed(3),dur:+n.dur.toFixed(3),text:toks[j]||'',note:n.note}))});});
  });
  phrases.sort((a,b)=>a.t-b.t||a.memberIndex-b.memberIndex);
+ // The answer: the line the room should show more. Named outright ("the
+ // answer is four"), or the middle of a call and response — a lead line by
+ // one member that follows another member's lead line within a bar and is
+ // itself followed by a third member's line (question · answer · confirmation).
+ const leads=phrases.filter(p=>p.role==='lead'),barS=layerSources(score).beatsPerBar*60/score.bpm;
+ const named=leads.filter(p=>/^the answer\b/i.test(p.text));
+ if(named.length)named.forEach(p=>p.answer=true);   // a piece that names its answers has them; nothing else is one
+ else leads.forEach((p,i)=>{
+  const prev=leads[i-1],next=leads[i+1];
+  const middle=prev&&next&&prev.member!==p.member&&next.member!==p.member&&next.member!==prev.member&&p.t-(prev.t+prev.dur)<barS&&next.t-(p.t+p.dur)<barS;
+  if(middle)p.answer=true;
+ });
  const beat=60/score.bpm;
  const events=[];const emit=(layer,receiver,e,extra={})=>events.push({id:`${layer}-${events.length}`,layer,receiver,...e,...extra});
  // The voice bounce: every actual sung phrase is heard from a seat, then
@@ -141,7 +154,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  const plan={schema:'trio-fleet-plan-v1',title:score.title,bpm:score.bpm,duration:dur,levels,payloads,nodes,events,
   requiredReceivers:[...members.map(m=>`singer-${m}`),...nodes.map(n=>n.id),'sub','dmx'],
   layers:src,routes,colors:Object.fromEntries(members.map((m,i)=>[m,colors[i]])),
-  lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex],syllables:p.syllables})),
+  lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex],role:p.role,...(p.answer?{answer:true}:{}),syllables:p.syllables})),
   sections:(score.arrangement?.sections??[]).map(s=>({name:s.name,beat:s.beat})),arrangement:{total:score.arrangement?.total??null,meter:score.arrangement?.meter??null},
   dmx:{host:'192.168.1.235',port:8790,activeAddresses:addresses,inactiveAddresses:[41,511]},
   sub:{host:'192.168.1.67',port:8788,transport:'rustdesk-local-bridge'},

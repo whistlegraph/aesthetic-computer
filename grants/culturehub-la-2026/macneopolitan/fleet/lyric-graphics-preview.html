@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>lyric graphics preview</title>
+<style>html,body{margin:0;background:#0a0c14;height:100%}canvas{display:block;width:100vw;height:100vh}</style>
+<canvas id="c"></canvas>
+<script type="module">
+import {drawTrioRoom} from './lyric-graphics.js';
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+function fit(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;}fit();addEventListener('resize',fit);
+// a sample transport, like the runner posts for Sums: question → answer → confirmation, hums under
+const lines=[
+ {t:0,dur:4,text:'what is one plus one',member:'neo',rgb:[143,209,63],role:'lead',syllables:[['what',0],['is',.6],['one',1.2],['plus',2],['one',2.8]]},
+ {t:4.4,dur:4,text:'the answer is two',member:'frisbee',rgb:[242,167,185],role:'lead',answer:true,syllables:[['the',4.4],['an',5],['swer',5.5],['is',6.2],['two',6.9]]},
+ {t:11.3,dur:4,text:'one and one is two',member:'blueberry',rgb:[90,87,211],role:'lead',syllables:[['one',11.3],['and',11.9],['one',12.5],['is',13.2],['two',13.9]]}];
+const hums={neo:{text:'ooh ooh',rgb:[143,209,63],role:'hum',t:0,dur:16},blueberry:{text:'dm dm dm dm',rgb:[90,87,211],role:'hum',t:0,dur:16},frisbee:{text:'ooh ooh',rgb:[242,167,185],role:'hum',t:0,dur:16}};
+const start=performance.now();
+function frame(){const el=((performance.now()-start)/1000)%16;const cur=lines.find(l=>el>=l.t&&el<l.t+l.dur)||null;const nxt=lines.find(l=>l.t>el)||null;
+ const music={title:'The MacNeoPolitan Trio — Sums',bpm:96,duration:16,elapsed:el,dance:'trio-round-v1',
+  lyric:cur&&{...cur,syllables:cur.syllables.map(([text,t])=>({t,dur:.5,text}))},next:nxt&&{text:nxt.text,member:nxt.member,rgb:nxt.rgb,in:nxt.t-el},
+  faces:{neo:cur?.member==='neo'?cur:hums.neo,blueberry:cur?.member==='blueberry'?cur:hums.blueberry,frisbee:cur?.member==='frisbee'?cur:hums.frisbee}};
+ ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.fillStyle='#0a0c14';ctx.fillRect(0,0,innerWidth,innerHeight);
+ drawTrioRoom(ctx,innerWidth,innerHeight,music,el,performance.now());requestAnimationFrame(frame);}
+frame();
+</script>
