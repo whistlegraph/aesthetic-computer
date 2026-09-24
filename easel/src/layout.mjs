@@ -40,6 +40,10 @@ export function normalize(spec = {}) {
   if (typeof spec.separator === "string" && spec.separator.length <= 5) out.separator = spec.separator;
   // Notebook lines under the transcript rows; off for a plainer page.
   if (typeof spec.lines === "boolean") out.lines = spec.lines;
+  // The mouse: true takes the pointer for the bottom line's drop-downs, false
+  // leaves it to the terminal so a drag selects text. Terminal mouse
+  // reporting is all or nothing, so this is a real choice, and it is kept.
+  if (typeof spec.mouse === "boolean") out.mouse = spec.mouse;
   return out;
 }
 
@@ -100,7 +104,9 @@ export class Layout extends EventEmitter {
   // come as comma-separated words, colours as three numbers, strings as-is.
   set(key, value) {
     const parsed =
-      key === "bottom" || key === "status"
+      key === "lines" || key === "mouse"
+        ? /^(1|on|true|yes)$/i.test(String(value))
+        : key === "bottom" || key === "status"
         ? String(value).split(/[,\s]+/).filter(Boolean)
         : key === "bar"
           ? String(value).split(/[,\s]+/).map(Number)

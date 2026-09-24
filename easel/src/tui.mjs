@@ -209,7 +209,9 @@ let archivedConversation = desktopRestored?.archivedConversation || [];
 // Pro leaves the mouse to the terminal, so a drag selects text the way it
 // does in any other window; /mouse on takes it for clicking the bottom line.
 // EASEL_MOUSE=1 or 0 overrides either default.
-let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? false : (desktopRestored?.options?.mouseEnabled ?? true);
+// The pro frame's shape, read early: the mouse default is part of it.
+const shape = new Layout();
+let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? false) : (desktopRestored?.options?.mouseEnabled ?? true);
 
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
@@ -604,7 +606,6 @@ transcript.meta({ cwd, engine: backend.id, model, handle: session.handle || "", 
 const inbox = new Inbox({ sessionId: slabSession.sessionId });
 // The pro frame's shape, read from layouts/pro.json under ~/.config/easel's
 // override, and followed while the session runs — see layout.mjs.
-const shape = new Layout();
 state.layout = shape.spec;
 if (pro) shape.watch();
 shape.on("change", (spec) => {
@@ -1961,6 +1962,9 @@ async function submitInput(submittedText, submittedMessages = null) {
     if (command === "/mouse") {
       mouseEnabled = rest !== "off";
       process.stdout.write(mouseEnabled ? MOUSE_ON : MOUSE_OFF);
+      // In pro the choice is kept with the layout, so the next session opens
+      // the way this one was left.
+      if (pro) { try { shape.set("mouse", mouseEnabled ? "on" : "off"); } catch {} }
       state.hover = "";
       addEntry("notice", `Mouse ${mouseEnabled ? "on · clicks reach the bottom line · ⌥-drag or shift-drag selects text" : "off · drag selects text · /provider and /model open the lists"}`);
       return redraw();
