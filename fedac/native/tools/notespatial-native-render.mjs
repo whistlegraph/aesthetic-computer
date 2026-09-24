@@ -28,13 +28,14 @@
 //        [--sub] add the Windows SUB feed and cabinet (front by default)
 //        [--sub-az 0] [--sub-level .25] [--sub-cutoff 80] [--solo sub]
 //        [--frame-out review.ppm --frame-at 420] save one rendered frame for QA
+//        [--wav-out mix.wav] keep the video render's full-quality audio too
 
-import { readFileSync, writeFileSync, mkdtempSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, existsSync, copyFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { voicePosition, sourceGain, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, ringSeats, noteColor, eventGain } from '../lib/spatial-rehearsal.mjs';
 import { renderSubFeed } from './notespatial-room-audio.mjs';
 import { renderGmBank } from './notespatial-gm-audio.mjs';
 import { renderSeatEffects } from './notespatial-fx-audio.mjs';
@@ -85,7 +86,7 @@ score.lanes.forEach((lane, li) => {
   for (const e of lane.events) {
     if (e.t + e.dur <= from || e.t >= to) continue;
     voiced++;
-    const g = Math.min(.65, Math.max(0, e.g * (score.gain ?? .35)));
+    const g = eventGain(score, e);
     const s0 = Math.round((e.t - from) * SR), len = Math.round(e.dur * SR);
     const attack = (e.attack ?? .01) * SR, decay = (e.decay ?? .06) * SR, decayStart = Math.max(0, len - decay);
     const inc = (e.hz || 220) / SR, wave = e.wave;
@@ -223,7 +224,8 @@ if (useHrtf) {
   writeStereoWav(binaural, L, R, N);
   tick('head: parametric');
 }
-if (flag('audio-only')) { const copied = spawnSync('cp', [binaural, outPath]); if (copied.status !== 0) throw Error('Audio copy failed'); console.log(outPath); process.exit(0); }
+if (opt('wav-out')) copyFileSync(binaural, resolve(opt('wav-out')));
+if (flag('audio-only')) { copyFileSync(binaural, outPath); console.log(outPath); process.exit(0); }
 
 // ── 3 · the picture ──────────────────────────────────────────────────
 const fontSrc = readFileSync(join(HERE, '../src/font-6x10.h'), 'utf8');
@@ -448,6 +450,7 @@ for (let f = 0; f < frames; f++) {
   }
   // panel
   const X = Math.round(W * .68), col0 = T.ink, dim = T.dim;
+  rect(X - 8, 0, W - X + 8, H, T.bg); // keep flying notes out of the instrument list
   text(ascii(score.name.split(' · ')[0]).toUpperCase(), X, 26, col0, 2);
   const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1) || (score.movements || []).at(-1);
   if (mv) {
@@ -464,7 +467,7 @@ for (let f = 0; f < frames; f++) {
   for (let k = 0; k < SEATS; k++) { const isC = k === CENTER; disc(X + 4, 262 + k * 13, 3, tone(SEAT_COLORS[k])); text(isC ? 'C   held, center, small speaker' : `${k + 1}   ${ringIndex(k) === 0 ? 'front' : 'at ' + Math.round(ringIndex(k) / RING * 360) + ' deg'}`, X + 14, 257 + k * 13, dim); }
   if (SUB) text(`SUB ${Math.round(SUB_LEVEL * 100)}%  ${SUB_CUTOFF} HZ  ${SUB_AZ} DEG`, X, 342, T.accent);
   const instruments = score.orchestra ? [...new Set(score.lanes.flatMap(l => l.events.filter(e => Number.isInteger(e.gm) && e.t <= t && e.t + e.dur > t).map(e => e.gm)))].slice(0, 5) : null;
-  if (instruments) instruments.forEach((p, i) => text(`${p + 1} ${GM_NAMES[p]}`.toUpperCase(), X, 370 + i * 17, col0));
+  if (instruments) instruments.forEach((p, i) => text(`${p + 1} ${GM_NAMES[p]}`.toUpperCase(), X, 370 + i * 24, col0, 2));
   else Object.entries(score.voicing || {}).forEach(([family, recipe], i) => {
     const col = i >= 5 ? 1 : 0, row = i % 5;
     text(`${family} ${recipe}`.toUpperCase(), X + col * 150, 370 + row * 17, col0);

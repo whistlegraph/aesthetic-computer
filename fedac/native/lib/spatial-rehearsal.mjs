@@ -1,4 +1,9 @@
 // Shared deterministic world math. No device or network dependencies.
+export function eventGain(score, event) {
+  const trim = Number.isInteger(event.gm) ? score.gmGains?.[event.gm] ?? 1 : 1;
+  return Math.min(.65, Math.max(0, event.g * (score.gain ?? .35) * (Number.isFinite(trim) ? trim : 1)));
+}
+
 export function ribbon(score, key, t, fallback = 0) {
   const a = score[key];
   if (!a?.length) return fallback;

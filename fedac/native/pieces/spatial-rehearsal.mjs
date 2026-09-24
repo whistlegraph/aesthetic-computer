@@ -1,6 +1,6 @@
 // Spatial rehearsal, 26.09.18
 // Local synthesis on every seat, coordinated over Wi-Fi. Microphones stay closed.
-import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor, ribbon } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor, ribbon, eventGain } from '../lib/spatial-rehearsal.mjs';
 
 let config, score, error = '', phase = 'ready', origin = null;
 let lastStatus = -1, lastRead = -1, seenCommand = '';
@@ -151,7 +151,7 @@ export function sim({ sound, system, screen, wifi }) {
         while (cursors[i] < events.length && events[cursors[i]].t <= t) {
           const e = events[cursors[i]++];
           if (e.t + e.dur <= t || t - e.t > 0.1) continue;
-          const g = Math.min(0.65, Math.max(0, e.g * (score.gain ?? 0.35)));
+          const g = eventGain(score, e);
           const gain = sourceGain(score, voicePosition(score, i, t), config.seat, config.seats);
           const voice = sound.synth({ type: e.wave, tone: e.hz || 220,
             duration: e.t + e.dur - t, volume: g * gain, attack: e.attack ?? 0.01, decay: e.decay ?? 0.04,

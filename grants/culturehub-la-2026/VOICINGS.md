@@ -52,6 +52,27 @@ continuous percussion. `orchestra.cues` in the score records entry times,
 program numbers, names and roles. Program numbers in score files are 0–127;
 the video's active-instrument list displays 1–128.
 
+GM128 carries a measured `gmGains` table shared by native playback and the
+preview. Calibration renders all 4,422 GM notes at unit gain, measures each
+note's strongest 100 ms RMS window, and takes the median for each program.
+The target is .18 RMS; boosts stop at +6 dB, cuts at −24 dB, and a peak guard
+limits transient-heavy voices. This retains the score's written accents and
+envelopes. The main percussion and separately synthesized SUB keep their
+written gains. These are electrical level trims; timbre and register still
+affect perceived loudness.
+
+The original middle 80% of program levels spanned 16.4 dB in the suite.
+An independent common-note audition improves from 14.0 to 8.7 dB; quiet
+patches stay bounded rather than receiving unlimited amplification. The
+measurements and synth source hash live in
+`fedac/native/tools/notespatial-gm-levels.json`. Recalibrate after GM synth or
+orchestration changes:
+
+```sh
+node fedac/native/tools/notespatial-gm-balance.mjs
+node fedac/native/tools/compose-notespatial-native.mjs --voicing gm128 --fx studio --kick
+```
+
 ```sh
 node fedac/native/tools/notespatial-native-render.mjs fedac/native/scores/notespatial-native-gm128-fx-kick.nsscore --fast --sub --audio-only --out grants/culturehub-la-2026/notespatial-native-gm128-fx-kick-sub.wav
 ```

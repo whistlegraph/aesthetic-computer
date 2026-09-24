@@ -40,7 +40,7 @@
 //   node fedac/native/tools/compose-notespatial-native.mjs
 //     → scores/notespatial-native.nsscore, plus one file per chapter
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { orchestrate128 } from './notespatial-orchestra.mjs';
 
 const RING = 5, CENTER = 5, SEATS = 6, TAU = Math.PI * 2;
@@ -699,6 +699,7 @@ const SHIFT_HZ = 25, turns = [];
 for (let i = 0; i <= Math.ceil(END * SHIFT_HZ); i++) turns.push(+shiftAt(i / SHIFT_HZ).toFixed(4));
 
 const orchestra = VOICING === 'gm128' ? orchestrate128(lanes, movements) : null;
+const balance = orchestra ? JSON.parse(await readFile(new URL('./notespatial-gm-levels.json', import.meta.url), 'utf8')) : null;
 for (const l of lanes) l.events.sort((a, b) => a.t - b.t);
 const seatColors = [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 255], [200, 130, 255], [255, 240, 200]];
 const score = {
@@ -706,6 +707,7 @@ const score = {
   dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes, voicing: table,
   ...(KICK_PULSE ? { kickPulse: true } : {}),
   ...(orchestra ? { orchestra } : {}),
+  ...(balance ? { gmGains: balance.programs.map(p => p.gain), gmBalance: { method: balance.method, target: balance.target, coreHash: balance.coreHash } } : {}),
 };
 
 // ── effects, as ribbons the runtime applies per seat ──────────────────

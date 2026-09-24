@@ -3,7 +3,7 @@
 // routed power landing on each laptop (through the runtime's own math),
 // then a full dry run of the spatial-rehearsal piece against a mock API.
 import { readFileSync } from 'node:fs';
-import { voicePosition, sourceGain } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, eventGain } from '../lib/spatial-rehearsal.mjs';
 
 const file = process.argv[2] || new URL('../scores/notespatial-native.nsscore', import.meta.url);
 const score = JSON.parse(readFileSync(file, 'utf8'));
@@ -19,7 +19,7 @@ for (let w0 = 0; w0 < score.dur; w0 += WIN) {
   score.lanes.forEach((l, i) => l.events.forEach(e => {
     if (e.t < w0 || e.t >= w0 + WIN) return;
     const pos = voicePosition(score, i, e.t);
-    for (let k = 0; k < seats; k++) power[k] += (e.g * sourceGain(score, pos, k, seats)) ** 2 * e.dur;
+    for (let k = 0; k < seats; k++) power[k] += (eventGain(score, e) * sourceGain(score, pos, k, seats)) ** 2 * e.dur;
   }));
   const mv = (score.movements || []).find(m => w0 >= m.t0 && w0 < m.t1);
   console.log(`${mmss(w0).padStart(6)}  ${power.map(p => ' ' + shade(p * 10)).join('')}   ${mv?.name || ''}`);
