@@ -33,11 +33,13 @@ case "$url" in
 esac
 
 # A preview window is small, and two of AC's defaults are tuned for a full
-# screen rather than a tile.
+# page in a browser rather than a native window.
 #
-# The system paints its corner label at (6, 6) so a visitor can get back. In a
-# window a few hundred pixels wide that label is a sizeable fraction of the
-# frame and there is nowhere to go back to, so `nolabel` reclaims it.
+# The window now wears the same native chrome as the app's own panes, whose
+# rounded corners already frame the canvas; AC's own inset gap would sit a
+# second, smaller-radius frame inside them. `nogap` runs the canvas to the
+# window edge so the system's corners are its corners. The corner label at
+# (6, 6) stays: it is the way back to the prompt, same as in the main pane.
 #
 # Density is an upscale factor, not a resolution: a higher number draws each AC
 # pixel across more screen pixels, so the canvas holds fewer, larger ones. The
@@ -51,7 +53,7 @@ case "$url" in
   https://aesthetic.computer/*|https://prompt.ac/*)
     sep="?"
     case "$url" in *\?*) sep="&" ;; esac
-    url="${url}${sep}nolabel&density=${SLAB_WEB_DENSITY:-2}"
+    url="${url}${sep}nogap&density=${SLAB_WEB_DENSITY:-2}"
     ;;
 esac
 

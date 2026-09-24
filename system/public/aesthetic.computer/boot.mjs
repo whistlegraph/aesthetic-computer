@@ -1339,8 +1339,12 @@ if (!parsed.search) {
 
 const nogap = params.has("nogap") || params.has("desktop") || location.search.includes("nogap") || location.host.includes("wipppps.world");
 
-// Check for nolabel parameter (no localStorage persistence)
-const nolabel = params.has("nolabel") || params.has("desktop") || location.search.includes("nolabel");
+// Check for nolabel parameter (no localStorage persistence). `desktop` used to
+// imply it too, back when the Electron pane had its own card chrome; the pane
+// wears the native title bar now and wants the corner label like any page. The
+// implied flag also got written into the URL (`preservedParams`), so the label
+// drew on the first piece and vanished for good on the next reload.
+const nolabel = params.has("nolabel") || location.search.includes("nolabel");
 
 // An embedded view has nobody to tap the update badge: a green arrow parked
 // in the corner of a 128-point preview card is a control nobody can reach,
@@ -1352,7 +1356,7 @@ const autoreload = params.has("autoreload") || location.search.includes("autorel
 // prompt/corner chrome in DOM; the composited equivalents stand down.
 const shellhtml = params.has("shellhtml") || location.search.includes("shellhtml");
 
-// Check for desktop mode (Electron app) - combines nogap + nolabel
+// Check for desktop mode (Electron app) - implies nogap
 const desktop = params.has("desktop") || location.search.includes("desktop");
 
 // Check for device parameter early (needed for density handling)
