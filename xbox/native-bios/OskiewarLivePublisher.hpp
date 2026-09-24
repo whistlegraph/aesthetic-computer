@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace ac::xbox {
 
@@ -20,6 +21,8 @@ class OskiewarLivePublisher final {
   OskiewarLivePublisher& operator=(const OskiewarLivePublisher&) = delete;
 
   void publish(std::string_view match_id, std::string_view state_json);
+  bool send_net(std::string_view match_id, std::string_view packet_json);
+  std::vector<std::string> poll_net();
   void shutdown();
 
  private:

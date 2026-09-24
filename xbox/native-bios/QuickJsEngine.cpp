@@ -543,6 +543,38 @@ JSValue PublishLive(JSContext* context, JSValueConst, int argc, JSValueConst* ar
   return JS_UNDEFINED;
 }
 
+JSValue OskiewarNetSend(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->net_send || argc < 2)
+    return JS_NewBool(context, false);
+  size_t ml = 0, pl = 0;
+  const char* match = JS_ToCStringLen(context, &ml, argv[0]);
+  if (!match) return JS_EXCEPTION;
+  const char* packet = JS_ToCStringLen(context, &pl, argv[1]);
+  if (!packet) { JS_FreeCString(context, match); return JS_EXCEPTION; }
+  const bool valid = ValidOskiewarMatchId(std::string_view(match, ml)) &&
+    pl >= 2 && pl <= 7168 && packet[0] == '{';
+  const bool sent = valid && scope->api->net_send(
+    std::string_view(match, ml), std::string_view(packet, pl));
+  JS_FreeCString(context, match); JS_FreeCString(context, packet);
+  return JS_NewBool(context, sent);
+}
+
+JSValue OskiewarNetPoll(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  JSValue result = JS_NewArray(context);
+  if (!scope || !scope->api || !scope->api->net_poll) return result;
+  uint32_t index = 0;
+  for (const auto& packet : scope->api->net_poll()) {
+    if (index >= 64) break;
+    if (packet.size() > 7168) continue;
+    JSValue value = JS_ParseJSON(context, packet.data(), packet.size(), "oskiewar-net");
+    if (JS_IsException(value)) { JS_FreeValue(context, JS_GetException(context)); continue; }
+    JS_SetPropertyUint32(context, result, index++, value);
+  }
+  return result;
+}
+
 JSValue RuntimeInfo(JSContext* context, JSValueConst, int, JSValueConst*) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api) return JS_EXCEPTION;
@@ -828,6 +860,8 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "gameSignal", JS_NewCFunction(context_, GameSignal, "gameSignal", 4));
     JS_SetPropertyStr(context_, global, "saveReplay", JS_NewCFunction(context_, SaveReplay, "saveReplay", 1));
     JS_SetPropertyStr(context_, global, "publishLive", JS_NewCFunction(context_, PublishLive, "publishLive", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarNetSend", JS_NewCFunction(context_, OskiewarNetSend, "oskiewarNetSend", 2));
+    JS_SetPropertyStr(context_, global, "oskiewarNetPoll", JS_NewCFunction(context_, OskiewarNetPoll, "oskiewarNetPoll", 0));
     JS_SetPropertyStr(context_, global, "runtime", JS_NewCFunction(context_, RuntimeInfo, "runtime", 0));
     JS_SetPropertyStr(context_, global, "gamepad", JS_NewCFunction(context_, GamepadState, "gamepad", 1));
     JS_SetPropertyStr(context_, global, "controllers", JS_NewCFunction(context_, Controllers, "controllers", 0));

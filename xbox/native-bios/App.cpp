@@ -444,6 +444,10 @@ public:
         std::string_view payload) {
       m_oskiewarLive->publish(matchId, payload);
     };
+    m_api->net_send = [this](std::string_view room, std::string_view packet) {
+      return m_oskiewarLive->send_net(room, packet);
+    };
+    m_api->net_poll = [this]() { return m_oskiewarLive->poll_net(); };
     m_photoDisc = std::make_unique<PhotoDiscService>(*m_api,
       [this](std::shared_ptr<const PhotoDiscImage> image) {
         std::lock_guard<std::mutex> lock(m_imageMutex);
@@ -482,7 +486,7 @@ public:
 
   virtual void Load(String^) {}
   virtual void Uninitialize() {
-    if (m_api) m_api->live_publish = {};
+    if (m_api) { m_api->live_publish = {}; m_api->net_send = {}; m_api->net_poll = {}; }
     if (m_oskiewarLive) m_oskiewarLive->shutdown();
     DestroyClientErrorUploads(); DestroyReplayUploads(); DestroyGameSignals();
     DestroyNetworkMidi(); DestroyMidi(); DestroyAudio();

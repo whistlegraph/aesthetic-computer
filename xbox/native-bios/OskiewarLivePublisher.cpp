@@ -58,6 +58,8 @@ struct OskiewarLivePublisher::State {
   std::uint64_t generation = 0;
   std::string match_id;
   std::string pending;
+  std::deque<std::string> net_pending;
+  std::vector<std::string> net_inbox;
 };
 
 namespace {
@@ -74,17 +76,20 @@ void Flush(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->stopped || !state->connected || state->writing ||
-        state->pending.empty() || !state->writer) return;
-    payload = std::move(state->pending);
-    state->pending.clear();
+        (state->pending.empty() && state->net_pending.empty()) || !state->writer) return;
+    if (!state->net_pending.empty()) {
+      payload = std::move(state->net_pending.front());
+      state->net_pending.pop_front();
+    } else {
+      payload = std::move(state->pending);
+      state->pending.clear();
+    }
     state->writing = true;
     writer = state->writer;
     generation = state->generation;
   }
   try {
-    const auto envelope = std::string("{\"type\":\"oskiewar:state\",\"content\":") +
-      payload + "}";
-    writer->WriteString(ref new String(Wide(envelope).c_str()));
+    writer->WriteString(ref new String(Wide(payload).c_str()));
     std::weak_ptr<OskiewarLivePublisher::State> weak = state;
     create_task(writer->StoreAsync()).then([weak, generation](task<unsigned> completed) {
       const auto state = weak.lock();
@@ -125,12 +130,27 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
   std::weak_ptr<OskiewarLivePublisher::State> weak = state;
   const auto message_token = socket->MessageReceived +=
     ref new TypedEventHandler<MessageWebSocket^, MessageWebSocketMessageReceivedEventArgs^>(
-      [weak](MessageWebSocket^, MessageWebSocketMessageReceivedEventArgs^ args) {
+      [weak, generation](MessageWebSocket^, MessageWebSocketMessageReceivedEventArgs^ args) {
         try {
           auto reader = args->GetDataReader();
           reader->UnicodeEncoding = UnicodeEncoding::Utf8;
-          if (reader->UnconsumedBufferLength)
-            reader->ReadString(reader->UnconsumedBufferLength);
+          const auto size = reader->UnconsumedBufferLength;
+          if (!size || size > 16384) return;
+          auto message = Windows::Data::Json::JsonObject::Parse(reader->ReadString(size));
+          if (message->GetNamedString("type", "") != "oskiewar:net") return;
+          auto content = message->GetNamedObject("content")->Stringify();
+          const int count = WideCharToMultiByte(CP_UTF8, 0, content->Data(),
+            content->Length(), nullptr, 0, nullptr, nullptr);
+          if (count < 2 || count > 7168) return;
+          std::string packet(count, '\0');
+          WideCharToMultiByte(CP_UTF8, 0, content->Data(), content->Length(),
+            packet.data(), count, nullptr, nullptr);
+          const auto state = weak.lock();
+          if (!state) return;
+          std::lock_guard<std::mutex> lock(state->mutex);
+          if (state->stopped || generation != state->generation) return;
+          if (state->net_inbox.size() >= 64) state->net_inbox.erase(state->net_inbox.begin());
+          state->net_inbox.push_back(std::move(packet));
         } catch (Exception^) {}
       });
   const auto closed_token = socket->Closed +=
@@ -205,6 +225,8 @@ void OskiewarLivePublisher::publish(std::string_view match_id,
       old_socket = state_->socket;
       ++state_->generation;
       state_->match_id.assign(match_id);
+      state_->net_pending.clear();
+      state_->net_inbox.clear();
       state_->writer = nullptr;
       state_->socket = nullptr;
       state_->connecting = false;
@@ -212,7 +234,8 @@ void OskiewarLivePublisher::publish(std::string_view match_id,
       state_->writing = false;
     }
     // Latest-only queue: a slow network never builds latency or memory.
-    state_->pending.assign(state_json);
+    state_->pending = std::string("{\"type\":\"oskiewar:state\",\"content\":") +
+      std::string(state_json) + "}";
     should_connect = !state_->connecting && !state_->connected;
   }
   if (old_socket) try {
@@ -220,6 +243,36 @@ void OskiewarLivePublisher::publish(std::string_view match_id,
   } catch (Exception^) {}
   if (should_connect) Connect(state_);
   else Flush(state_);
+}
+
+bool OskiewarLivePublisher::send_net(std::string_view match_id,
+    std::string_view packet_json) {
+  if (!ValidMatchId(match_id) || packet_json.size() < 2 ||
+      packet_json.size() > 7168 || packet_json.front() != '{') return false;
+  // Opening is asynchronous. The piece retries its hello until connected.
+  bool open = false;
+  {
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    if (state_->stopped) return false;
+    open = state_->match_id != match_id;
+  }
+  if (open) publish(match_id, "{}");
+  Connect(state_);
+  {
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    if (!state_->connected || state_->net_pending.size() >= 32) return false;
+    state_->net_pending.push_back(std::string("{\"type\":\"oskiewar:net\",\"content\":") +
+      std::string(packet_json) + "}");
+  }
+  Flush(state_);
+  return true;
+}
+
+std::vector<std::string> OskiewarLivePublisher::poll_net() {
+  std::lock_guard<std::mutex> lock(state_->mutex);
+  std::vector<std::string> packets;
+  packets.swap(state_->net_inbox);
+  return packets;
 }
 
 void OskiewarLivePublisher::shutdown() {
@@ -230,6 +283,8 @@ void OskiewarLivePublisher::shutdown() {
     state_->stopped = true;
     ++state_->generation;
     state_->pending.clear();
+    state_->net_pending.clear();
+    state_->net_inbox.clear();
     socket = state_->socket;
     state_->socket = nullptr;
     state_->writer = nullptr;

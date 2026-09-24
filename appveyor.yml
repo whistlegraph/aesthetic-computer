@@ -154,3 +154,4 @@ artifacts:
 branches:
   only:
     - main
+    - oskiewar-xbox-ac-test-20260924

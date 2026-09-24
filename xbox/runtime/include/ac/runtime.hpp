@@ -241,6 +241,9 @@ struct Api {
   // Latest-only live match state. The native host owns the fixed session-server
   // destination; pieces receive no socket, URL, credential, or response data.
   std::function<void(std::string_view, std::string_view)> live_publish = {};
+  // Fixed Oskiewar relay only, bounded packets, drained on the JS thread.
+  std::function<bool(std::string_view, std::string_view)> net_send = {};
+  std::function<std::vector<std::string>()> net_poll = {};
 };
 
 class Piece {
