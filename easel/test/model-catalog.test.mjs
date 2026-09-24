@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { CLAUDE_FALLBACK, catalogFile, claudeCredential, claudeModels, loadCatalog } from "../src/model-catalog.mjs";
+import { CLAUDE_FALLBACK, cachedCatalog, catalogFile, claudeCredential, claudeModels, family, loadCatalog, newestModel, preferNewer } from "../src/model-catalog.mjs";
 import { pickerModels } from "../src/provider-picker.mjs";
 
 const answer = (data, ok = true, status = 200) => async () => ({ ok, status, json: async () => ({ data }) });
@@ -65,4 +65,27 @@ test("the picker shows the live Claude list with versions, and an alias selects 
   assert.equal(aliased[0].id, "opus", "the alias in use stays selectable as itself");
   assert.equal(aliased[0].detail, "opus → claude-opus-5-5");
   assert.equal(pickerModels({ backend: "claude", model: "fable", catalog: [] }).length, 4, "no catalog: the families");
+});
+
+test("newer is preferred: a session opens on the newest model, and a remembered family moves up", async (context) => {
+  const list = [
+    { id: "claude-haiku-6", displayName: "Claude Haiku 6" },
+    { id: "claude-opus-5-5", displayName: "Claude Opus 5.5" },
+    { id: "claude-fable-5-1", displayName: "Claude Fable 5.1" },
+    { id: "claude-opus-5", displayName: "Claude Opus 5" },
+    { id: "claude-sonnet-5", displayName: "Claude Sonnet 5" },
+  ];
+  assert.equal(newestModel(list), "claude-opus-5-5", "the newest that is not the small tier");
+  assert.equal(newestModel([{ id: "claude-haiku-6" }]), "claude-haiku-6", "unless it is all there is");
+  assert.equal(family("claude-opus-5-5"), "opus");
+  assert.equal(family("gpt-6-astra"), "");
+  assert.equal(preferNewer("claude-opus-5", list), "claude-opus-5-5", "opus moves up to the newest opus");
+  assert.equal(preferNewer("claude-sonnet-5", list), "claude-sonnet-5", "sonnet stays where it is newest");
+  assert.equal(preferNewer("opus", list), "opus", "an alias the CLI resolves is left to the CLI");
+  assert.equal(preferNewer("gpt-6-astra", list), "gpt-6-astra", "another provider's id is untouched");
+  const root = mkdtempSync(join(tmpdir(), "catalog-"));
+  context.after(() => rmSync(root, { recursive: true, force: true }));
+  assert.deepEqual(cachedCatalog("claude", root), CLAUDE_FALLBACK, "no cache yet: the table");
+  await loadCatalog("claude", { root, loaders: { claude: async () => list }, now: () => 5 });
+  assert.equal(cachedCatalog("claude", root)[0].id, "claude-haiku-6", "the cache, read at once");
 });

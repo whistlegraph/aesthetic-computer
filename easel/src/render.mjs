@@ -38,6 +38,12 @@ export const palette = {
   // The typing bar in pro: one shade up from the ground, so the line being
   // written is a place and not just a row.
   bar: [95, 70, 135],
+  // A reply's cloud: near-white, so the machine's prose reads as a message
+  // in a bubble, dark ink on it, with a deeper purple for what is soft.
+  cloud: [246, 242, 252],
+  cloudInk: [42, 28, 66],
+  cloudSoft: [112, 72, 166],
+  cloudHighlight: [196, 74, 22],
 };
 
 const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
@@ -335,7 +341,7 @@ export function markdown(source) {
   return { text: out.join("\n"), spans };
 }
 
-function outputRows(source,width,useColor,tone,code=false,prose=false){
+function outputRows(source,width,useColor,tone,code=false,prose=false,ink=null){
   const read = prose && !code ? markdown(source) : { text: source, spans: [] };
   const text = read.text;
   const links=Array.from(text.matchAll(/https?:\/\/[^\s<>"'`]+/g),m=>{const url=m[0].replace(/[.,;!?)\]}]+$/g,'');return {start:m.index,end:m.index+url.length,tone:'soft',url};});
@@ -347,8 +353,8 @@ function outputRows(source,width,useColor,tone,code=false,prose=false){
   return wrapText(text,width).map(line=>{
     const start=Math.max(cursor,text.indexOf(line,cursor));cursor=start+line.length;
     return syntaxLine(text,spans,start,cursor,(role,value,span)=>{
-      const ink=paint(useColor,role==='text'?tone:role,value);
-      return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${ink}\x1b[24m\x1b]8;;\x07`:ink;
+      const painted=ink?ink(role==='text'?tone:role,value):paint(useColor,role==='text'?tone:role,value);
+      return useColor&&span?.url?`\x1b]8;;${span.url}\x07\x1b[4m${painted}\x1b[24m\x1b]8;;\x07`:painted;
     });
   });
 }
@@ -358,6 +364,10 @@ function entryLines(entry, width, useColor, gutter = "wide") {
   // Pro reads like a page: your lines and the replies flush left, and only
   // a notice, an error or an inbox line wears a two-cell mark.
   const flush = gutter === "narrow" && (entry.kind === "typed" || entry.kind === "assistant");
+  // In pro a reply is a cloud: its prose in dark ink on a near-white ground
+  // with a cell of air around it and rounded ends, so what the machine says
+  // reads as a message and not as more of the page.
+  const cloud = gutter === "narrow" && entry.kind === "assistant" && useColor;
   const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
   const continuation = " ".repeat(prefix.length);
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
@@ -385,7 +395,7 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     // a block and not as more prose.
     const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
     const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant').map(onGround));continue;}
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud?2:0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?cloudInk:null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
@@ -398,6 +408,7 @@ function entryLines(entry, width, useColor, gutter = "wide") {
       rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
     }
   }
+  if (cloud) return cloudRows(rows, width);
   if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
   return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
@@ -660,6 +671,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       ? state.qr
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
+  const unruled = new Set();
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
     : (() => {
@@ -668,7 +680,12 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         // letters, frame by frame on the dance clock, and settles when the
         // answer lands.
         const working = pro && state.busy ? state.entries.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
-        return state.entries.flatMap((entry, index) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide"));
+        return state.entries.flatMap((entry, index) => {
+          const lines = entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide");
+          // A cloud's rows are not ruled; the flag rides along with the row.
+          if (pro && entry.kind === "assistant") for (const line of lines) unruled.add(line);
+          return lines;
+        });
       })();
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
@@ -757,7 +774,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Notebook lines: a faint rule under the rest of every transcript row,
     // the way the GUI's page is ruled. Only the blank part of a row is
     // underlined, so the words sit on the line rather than under a bar.
-    const ruled = shape.lines !== false && useColor ? body.map((row) => ruleRow(row, width)) : body;
+    const ruled = shape.lines !== false && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
     // The transcript as plain rows, for the selection to read and copy from.
     state.pageRows = body.map((row) => plainRow(row));
     // A question takes the page: what is asked, and three answers, nothing
@@ -886,6 +903,33 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
     place(g.top + 1 + j, cell(text, selected ? "block" : item.header ? "highlight" : item.muted ? "muted" : "text"));
   }
   return rows;
+}
+
+// The cloud's ink: the reply's roles in colours that read on the near-white
+// ground, every segment carrying the ground with it so no reset lets the
+// purple back in mid-row.
+function cloudInk(role, value) {
+  const inks = { text: palette.cloudInk, soft: palette.cloudSoft, muted: palette.cloudSoft, highlight: palette.cloudHighlight, error: palette.error, inbox: palette.cloudSoft, prompt: palette.cloudSoft };
+  const bold = /\bbold\b/.test(role);
+  const base = role.replace(/\bbold\b/, "").trim() || "text";
+  return `${bg(palette.cloud)}${fg(inks[base] || palette.cloudInk)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
+}
+
+// Rows of a reply wrapped in their cloud: a rounded top edge drawn with the
+// lower half-blocks, the rows on the cloud's ground with a cell of air at
+// either side, a rounded bottom edge with the upper half-blocks. Code inside
+// keeps its own dark ground, the way a code block sits in any bubble.
+function cloudRows(rows, width) {
+  // Air is the cloud's own; blank rows at either end are not kept.
+  while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
+  while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
+  const inner = Math.min(width - 2, Math.max(8, ...rows.map((row) => paintedWidth(row))));
+  const edge = fg(palette.cloud);
+  const ground = `${color.reset}${color.ground}`;
+  const top = `${edge}▗${"▄".repeat(inner)}▖${ground}`;
+  const bottom = `${edge}▝${"▀".repeat(inner)}▘${ground}`;
+  const body = rows.map((row) => `${bg(palette.cloud)}${fg(palette.cloudInk)} ${fit(row.replace(/\x1b\[49m/g, bg(palette.cloud)), inner)}${bg(palette.cloud)} ${ground}`);
+  return [top, ...body, bottom];
 }
 
 // A painted row without its escapes: the words as they stand on the screen.

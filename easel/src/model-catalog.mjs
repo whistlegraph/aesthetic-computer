@@ -102,3 +102,33 @@ export async function loadCatalog(provider, { force = false, ttlMs = CATALOG_TTL
   if (cached?.models.length) return cached.models;
   return provider === "claude" ? CLAUDE_FALLBACK : [];
 }
+
+// The cache read at once, for a decision that cannot wait for a fetch: which
+// model a session opens on. Nothing here asks the provider.
+export function cachedCatalog(provider, root) {
+  return readCache(catalogFile(provider, root))?.models || (provider === "claude" ? CLAUDE_FALLBACK : []);
+}
+
+// The family a Claude id belongs to — opus, sonnet, fable, haiku — or "" for
+// anything that is not a Claude id.
+export function family(id) {
+  const m = /^claude-([a-z]+)/.exec(String(id || ""));
+  return m ? m[1] : "";
+}
+
+// Newer is better: the most recently released model in the list, leaving the
+// small tier out unless it is all there is. The list is newest first already.
+export function newestModel(models) {
+  const rows = models.filter((m) => m.id);
+  return (rows.find((m) => family(m.id) !== "haiku") || rows[0])?.id || "";
+}
+
+// A remembered model stays in its family but moves up to the family's newest
+// release — claude-opus-5 becomes claude-opus-5-5 the day it appears — so a
+// preference is a preference for a kind of model, not for one dated id.
+export function preferNewer(id, models) {
+  const kind = family(id);
+  if (!kind) return id;
+  const newest = models.find((m) => family(m.id) === kind);
+  return newest ? newest.id : id;
+}
