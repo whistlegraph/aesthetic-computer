@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, mascotAt, mascotRow } from "./mascot.mjs";
+import { rowSpan } from "./selection.mjs";
 import { handleCharacterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
@@ -729,7 +730,17 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // the way the GUI's page is ruled. Only the blank part of a row is
     // underlined, so the words sit on the line rather than under a bar.
     const ruled = shape.lines !== false && useColor ? body.map((row) => ruleRow(row, width)) : body;
-    return paintDropdown([...ruled, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
+    // The transcript as plain rows, for the selection to read and copy from.
+    state.pageRows = body.map((row) => plainRow(row));
+    // A selection in progress or just made: those cells in reverse video, on
+    // top of whatever the row was painting.
+    const shown = state.selection
+      ? ruled.map((row, index) => {
+          const span = rowSpan(index + 1, state.selection, width);
+          return span ? selectRow(state.pageRows[index], span, width, useColor) : row;
+        })
+      : ruled;
+    return paintDropdown([...shown, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
   }
@@ -840,6 +851,23 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
     place(g.top + 1 + j, cell(text, selected ? "block" : "text"));
   }
   return rows;
+}
+
+// A painted row without its escapes: the words as they stand on the screen.
+function plainRow(row) {
+  return String(row ?? "").replace(/\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))/g, "");
+}
+
+// A row with part of it selected: the plain words, the chosen cells in
+// reverse video. Selected rows give up their colours for the moment, which is
+// what a selection looks like everywhere else too.
+function selectRow(plain, [from, to], width, useColor) {
+  const chars = Array.from(fit(plain, width));
+  const before = chars.slice(0, from - 1).join("");
+  const chosen = chars.slice(from - 1, to).join("");
+  const after = chars.slice(to).join("");
+  if (!useColor) return `${before}${chosen}${after}`;
+  return `${paint(true, "text", before)}\x1b[7m${paint(true, "text", chosen)}\x1b[27m${paint(true, "text", after)}`;
 }
 
 // The columns a painted row occupies, escapes not counted.

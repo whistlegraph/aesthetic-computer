@@ -6,9 +6,15 @@ export function mouseEvent(token) {
   if (!match) return null;
   const [, code, x, y, end] = match;
   const button = Number(code);
+  const held = button & 3;
   return { x: Number(x), y: Number(y), motion: Boolean(button & 32),
     wheel: button & 64 ? (button & 1 ? 1 : -1) : 0,
-    click: end === "M" && button === 0 };
+    click: end === "M" && button === 0,
+    // The three moments of a drag: the left button going down, moving while
+    // it is down, and coming up — what a selection is made of.
+    press: end === "M" && button === 0,
+    drag: end === "M" && Boolean(button & 32) && held === 0 && !(button & 64),
+    release: end === "m" && (held === 0 || held === 3) && !(button & 64) };
 }
 
 // Keep split terminal escape sequences intact between stdin chunks.

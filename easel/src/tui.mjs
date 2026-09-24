@@ -29,6 +29,7 @@ import process from "node:process";
 import { StringDecoder } from "node:string_decoder";
 import { aboutMap, conversationHandoff } from "./about.mjs";
 import { InputDecoder, mouseEvent, MOUSE_ON, MOUSE_OFF } from "./mouse.mjs";
+import { selectedText } from "./selection.mjs";
 import { fetchHandleColors, handleCharacterColors } from "./handle-colors.mjs";
 import { ACSession, SITE, USER_AGENT } from "./ac-session.mjs";
 import { Audience } from "./audience.mjs";
@@ -211,7 +212,7 @@ let archivedConversation = desktopRestored?.archivedConversation || [];
 // EASEL_MOUSE=1 or 0 overrides either default.
 // The pro frame's shape, read early: the mouse default is part of it.
 const shape = new Layout();
-let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? false) : (desktopRestored?.options?.mouseEnabled ?? true);
+let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? true) : (desktopRestored?.options?.mouseEnabled ?? true);
 
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
@@ -913,8 +914,10 @@ function redraw() {
     }
     const view = process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP};
     const frame = renderFrame(view, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
-    // The renderer says where the bar's cursor cell is on the copy it was given.
+    // The renderer says where the bar's cursor cell is, and what plain words
+    // stand on each transcript row, on the copy it was given.
     state.cursorCell = view.cursorCell || null;
+    if (view.pageRows) state.pageRows = view.pageRows;
     const output = frameDiff.update(frame, process.stdout.columns);
     if (process.env.EASEL_DESKTOP) {
       const layout = JSON.stringify(frameLayout(state, process.stdout.rows));
@@ -2413,7 +2416,24 @@ async function applyNotebookBinding(request){
  finally{state.busy=false;state.status='ready';saveDesktopIdle();redraw();drainQueue();}
 }
 
+// The selection goes to the clipboard the moment the button lifts — the
+// terminal would have done the same, and ⌘C never reaches us.
+function copySelection(text) {
+  const lines = text.split("\n").length;
+  const tool = process.platform === "darwin" ? "pbcopy" : process.platform === "linux" ? "xclip" : "";
+  if (!tool) return;
+  const child = spawn(tool, tool === "xclip" ? ["-selection", "clipboard"] : [], { stdio: ["pipe", "ignore", "ignore"] });
+  child.on("error", () => {});
+  child.on("close", (code) => {
+    if (code === 0) addEntry("notice", `Copied ${lines} line${lines === 1 ? "" : "s"}`);
+    redraw();
+  });
+  child.stdin.end(text);
+}
+
 function handleKey(input) {
+  // A key after a selection is the next thing, not part of it.
+  if (state.selection && !state.selection.active) state.selection = null;
   if(process.env.EASEL_DESKTOP&&/^\x1b\[99;9;[01]~$/.test(input)){hostOffline=input.endsWith('0~');if(hostOffline)lostConnection('internet disconnected');else if(state.connectionNotice){clearTimeout(reconnectTimer);void checkConnection();}return;}
 
   const previewVersion=process.env.EASEL_DESKTOP&&/^\x1b\[99;8;(\d{1,8});(\d{1,10})~$/.exec(input);
@@ -2543,6 +2563,30 @@ function handleKeys(buffer) {
         if ((!mouseEnabled && !desktopSessionPath) || splashing) continue;
         if (state.about && mouse.wheel) { scrollAbout(mouse.wheel * 3); continue; }
         if (mouse.wheel) { if(state.settings)handleKey(mouse.wheel>0?"\x1b[B":"\x1b[A");else scrollTranscript(-mouse.wheel * 3); continue; }
+        // In pro the interface selects text itself: a press in the transcript
+        // anchors, a drag stretches, the release copies. The bottom line keeps
+        // its clicks; a wheel keeps its scroll.
+        if (pro && !state.dropdown && !state.settings && !state.about) {
+          const transcriptRows = (process.stdout.rows || 24) - ((state.layout?.bottom || ["gap", "bar", "gap", "status"]).length);
+          if (mouse.press && mouse.y <= transcriptRows) {
+            state.selection = { anchor: [mouse.x, mouse.y], head: [mouse.x, mouse.y], active: true };
+            redraw();
+            continue;
+          }
+          if (mouse.drag && state.selection?.active) {
+            state.selection.head = [Math.max(1, mouse.x), Math.max(1, Math.min(transcriptRows, mouse.y))];
+            redraw();
+            continue;
+          }
+          if (mouse.release && state.selection?.active) {
+            state.selection.active = false;
+            const text = selectedText(state.pageRows || [], state.selection, process.stdout.columns || 80);
+            if (text.trim()) copySelection(text);
+            else state.selection = null;
+            redraw();
+            continue;
+          }
+        }
         const action = headerAction(state, process.stdout.columns || 80, process.stdout.rows || 24, mouse.x, mouse.y);
         if (state.hover !== action) {
           state.hover = action;
