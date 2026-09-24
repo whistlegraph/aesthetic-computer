@@ -90,23 +90,33 @@ if(command==='plan') {
   throw Error(failed.map(r=>String(r.reason)).join('\n'));
  }
  const singers=results.map(r=>r.value),rate=singers[0].phrases[0].sampleRate;
- const length=Math.max(...singers.flatMap(s=>s.phrases.map(p=>Math.round(p.spanOffset*rate)+p.frames)));
- const mix=new Float32Array(length);
- for(const s of singers)for(const p of s.phrases) {
+ // One stem per seat: every route (a member's phrase, a seat, an offset and
+ // an absolute gain) mixed from that member's actual raw phrase. Seat 5's
+ // stem doubles as `centerMix` for the older readiness checks.
+ const phraseOf=(member,k)=>{const sg=singers.find(s=>s.member===member),p=sg?.phrases[k];if(!p)throw Error(`${member}: phrase ${k} not prepared`);return {p,dir:dirname(sg.manifest)};};
+ const length=Math.max(...plan.routes.map(r=>{const {p}=phraseOf(r.member,r.phrase);return Math.round((p.spanOffset+r.delay)*rate)+p.frames;}));
+ const seatMix={};for(const n of plan.nodes)seatMix[n.id]=new Float32Array(length);
+ for(const r of plan.routes){
+  const {p,dir}=phraseOf(r.member,r.phrase);
   if(p.sampleRate!==rate)throw Error('Mixed sample rates need explicit resampling before relay');
-  const raw=readFileSync(resolve(dirname(s.manifest),p.rawFile)),offset=Math.round(p.spanOffset*rate);
+  const raw=readFileSync(resolve(dir,p.rawFile)),offset=Math.round((p.spanOffset+r.delay)*rate),mix=seatMix[`seat-${r.seat}`];
   if(raw.length!==p.frames*4)throw Error('PCM frame count mismatch');
-  for(let n=0;n<p.frames;n++)mix[offset+n]+=raw.readFloatLE(n*4)*plan.levels.voice;
+  for(let n=0;n<p.frames;n++)mix[offset+n]+=raw.readFloatLE(n*4)*r.gain;
  }
- let peak=0;for(const sample of mix){if(!Number.isFinite(sample))throw Error('Non-finite relay audio');peak=Math.max(peak,Math.abs(sample));}
- if(peak>=1)throw Error('Center mix exceeds headroom; reduce voice layer gain');
- const bytes=Buffer.from(mix.buffer),file=resolve(out,'center-voices.f32');writeFileSync(file,bytes);
- const bundle={schema:'trio-fleet-assets-v1',id,arrangementHash:plan.arrangementHash,singers,
-  centerMix:{file,sha256:digest(bytes),frames:mix.length,sampleRate:rate,channels:1,format:'float32-le',bakedGain:plan.levels.voice,playbackGain:1,peak,spanOffset:0},
+ const stems={};
+ for(const [id,mix] of Object.entries(seatMix)){
+  let peak=0;for(const sample of mix){if(!Number.isFinite(sample))throw Error('Non-finite relay audio');peak=Math.max(peak,Math.abs(sample));}
+  if(peak>=1)throw Error(`${id}: stem exceeds headroom; reduce voice/echo levels`);
+  const bytes=Buffer.from(mix.buffer),file=resolve(out,`${id}.f32`);writeFileSync(file,bytes);
+  stems[id]={file,sha256:digest(bytes),frames:mix.length,sampleRate:rate,channels:1,format:'float32-le',peak,spanOffset:0,routes:plan.routes.filter(r=>`seat-${r.seat}`===id).length};
+ }
+ const centerStem=stems['seat-5'];
+ const bundle={schema:'trio-fleet-assets-v2',id,arrangementHash:plan.arrangementHash,singers,stems,
+  centerMix:{...centerStem,bakedGain:plan.levels.voice,playbackGain:1},
   playbackHeld:true,receiverTransferAcknowledged:false};
  writeFileSync(resolve(out,'prepared.json'),JSON.stringify(bundle,null,2)+'\n');
  writeFileSync(resolve(out,'preparation-state.json'),JSON.stringify({id,phase:'ready',arrangementHash:plan.arrangementHash,playbackHeld:true}));
- console.log('All actual voices staged; Center mix built. No fleet receiver has been armed or started.');
+ console.log(`All actual voices staged; ${Object.keys(stems).length} seat stems mixed from ${plan.routes.length} routes. No fleet receiver has been armed or started.`);
 } else {
  const prepared=existsSync(resolve(out,'prepared.json'))?JSON.parse(readFileSync(resolve(out,'prepared.json'))):null;
  const receipts=options.receipts?JSON.parse(readFileSync(resolve(options.receipts))):[];
