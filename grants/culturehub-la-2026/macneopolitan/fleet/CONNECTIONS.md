@@ -191,6 +191,77 @@ Label missing metrics rather than substituting HTTP polling rate for FPS.
 TTS must finish before the musical start; spoken cue lead time is part of the
 score when announcements continue during the test.
 
+
+## Current follow-up setup
+
+After the full orchestral baseline, all six screens were set to **100% hardware
+backlight**, with readback verified individually. Current piece:
+`connection-check` on all six, short 36-second score, performance master 25%.
+Windows remains on Blueberry port 8791, both output channels and fullscreen.
+
+Brightness now has a live override file on each laptop:
+
+```sh
+curl -fsS -X PUT http://192.168.1.237/pieces/performance-controls.json \
+  -d '{"brightnessPercent":100}'
+```
+
+Read `/pieces/brightness-status.json` for requested/actual/supported/mode.
+Set `brightnessPercent` to `null` to enable the optional score field:
+`"brightness":[{"t":0,"percent":100},{"t":8,"percent":60,"seat":5}]`.
+Cues are step changes in seconds; omitted seat means all seats. The native
+backlight adjusts in approximately 5% steps and retains its hardware minimum.
+The wrapper defaults to maximum at boot. Score edits require reloading the
+wrapper while idle; live overrides are read every quarter second.
+Implementation: [`score-brightness.mjs`](../../../../fedac/native/lib/score-brightness.mjs).
+This is installed in the current live wrapper, not yet in the USB boot image.
+
+SUB timing now uses seven explicit audio-clock probes per source, selecting the
+lowest RTT (17–34 ms in the follow-up). It computes score time from the mapped
+clock and native run origin instead of treating cached status as a fresh clock.
+The browser smoothly corrects small timing differences without stepping its
+animation timeline backward. Invalid/stale calibration disables live playback;
+calibration expires after 30 minutes and must be redone after a reboot.
+
+The browser reported 10 ms base latency and 48 ms output latency. The follow-up
+uses **-60 ms timing offset** as an initial listening estimate. This does not
+measure VBMatrix, external hardware, filtering, or acoustic propagation; user
+acceptance of the corrected timing remains necessary.
+
+The corrected server bundle is currently local at
+`.tmp/notespatial-2026-09-24/sub-timing/`. Before a later cue, while the conductor
+is idle, run its `calibrate.mjs` with all six IPs in the seat order above, then
+start/restart its `server.mjs` on 8791 to load `clocks.json`. Never run these
+clock probes concurrently with another conductor's prepare/play/stop commands.
+Helpers: [`sub-clock.mjs`](../../../../fedac/native/tools/sub-clock.mjs) and
+[`sub-timeline.mjs`](../../../../fedac/native/lib/sub-timeline.mjs).
+Heartbeat `timing` now reports offset, browser output latency and calibration.
+
+Follow-up lighting uses steady warm amber with small irregular changes.
+The held wedge scales the candle profile by four: a 192/255 ceiling instead of
+48/255 (observed active RGB included `[172,88,8]`). This is a DMX value increase,
+not a claim of four times measured light output. Room fixtures retain their
+lower levels. Both transports fade into/out of the bounded 36-second check.
+
+The existing Windows worker receives a single all-room update at a bounded
+rate (at most 8 Hz), only when its queue is empty; each command expires in
+750 ms if updates stop. This avoids a per-fixture/per-frame queue backlog.
+The native center refreshes locally at approximately 25 Hz. A future worker
+profile can render smoother local motion at 40 Hz without HTTP updates.
+Neo follower: `/Users/jas/.ac-os/culturehub/light-monitor/candle-room.mjs`;
+receipt beside it: `candle-room-receipt.json`. Blueberry follow-up wrapper and
+telemetry are in `.tmp/notespatial-2026-09-24/followup/`.
+
+The first follow-up had an offset adjustment during playback and is not a clean
+timing comparison; a second announced 36-second check used the fixed -60 ms
+setting. Its 27 recorded playing heartbeats all confirmed calibrated timing,
+-60 ms, 25% and fullscreen. The room follower sent 194 updates, skipped none
+for queue pressure, and received a successful final blackout acknowledgment;
+center reported inactive RGB zero. This verifies control state, not acoustic
+onset alignment. The original accepted 15% RGB replay remains a separate baseline.
+
+Full orchestral measurements: [performance report](../../../../fedac/native/docs/performance/orchestral-stress-2026-09-24.md).
+
 ## Persistence and next reboot
 
 ### Next lighting treatment: candlelight
@@ -203,11 +274,11 @@ small irregular brightness changes smoothly interpolated over 170 ms, slower
 drops to black. Seed each fixture separately while evaluating the shared score
 clock; use a smooth entrance/exit fade outside the profile.
 
-This profile is prepared, not deployed or visually accepted. The orchestral
-measurement run retains its original four-second color cycle. Render the
-candle motion locally at each USB worker's regular frame cadence; do not flood
-the room's HTTP queue with per-frame commands. The current Windows worker
-needs an explicit profile implementation before it can render this function.
+The profile was deployed for the short follow-up described above; visual
+acceptance is pending. The orchestral measurement run retained its original
+four-second color cycle. Native center evaluates the function locally; room
+updates use the bounded queue-aware adapter until the Windows worker has a
+local profile implementation.
 
 ### Boot state
 
