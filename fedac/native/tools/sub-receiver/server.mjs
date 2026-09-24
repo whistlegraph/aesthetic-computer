@@ -9,7 +9,9 @@ const port=Number(process.env.PORT||config.port||8788),bind=process.env.SUB_BIND
 const sources=process.env.SUB_SOURCE?[process.env.SUB_SOURCE]:(config.sources||['192.168.1.241','192.168.1.242','192.168.1.238','192.168.1.236','192.168.1.237:8080','192.168.1.239']);
 if(!sources.length||sources.some(s=>!/^[-\w.]+(?::\d+)?$/.test(s)))throw Error('Invalid source host');
 let source=sources[0];
-let raw;try{raw=await readFile(new URL('./score.nsscore',import.meta.url));}catch{raw=await readFile(new URL('../../scores/notespatial-native.nsscore',import.meta.url));}
+let raw;
+if(process.env.SUB_SCORE) raw=await readFile(process.env.SUB_SCORE);
+else {try{raw=await readFile(new URL('./score.nsscore',import.meta.url));}catch{raw=await readFile(new URL('../../scores/notespatial-native.nsscore',import.meta.url));}}
 let score={...makeSubScore(JSON.parse(raw)),hash:createHash('sha256').update(raw).digest('hex')};
 let trio=null;
 let sample=null,changedAt=0,lastClock=null,receivedAt=0,sourceRtt=0;

@@ -8,11 +8,11 @@
 //
 // Not one build. Eleven chapters, each its own little ode with its own
 // key, meter, tempo, tune and spatial gesture, cut together the way a
-// cartoon score is: on the downbeat, with stingers and silences. What
+// cartoon score is: on the downbeat, with stingers and melodic rests. What
 // ties them is the theme (a diatonic tune in four two-bar phrases), the
-// held voice as narrator, and the room itself.
+// held voice as narrator, the room itself, and percussion through every chapter.
 //
-//   I    Overture      free      the hands breathe the theme; the ring learns it
+//   I    Overture      pulse     the hands breathe the theme; the ring learns it
 //   II   The Walk      C  4/4    pulse, the walk in halves, the theme in the hands
 //   III  Waltz         Am 3/4    oom (back) pah (left) pah (right); the ring takes the tune, the hands answer in counterpoint
 //   IV   Chase         F  4/4    two runners circle the ring, one chasing the other's inversion; a crash
@@ -22,7 +22,7 @@
 //   VIII The Lift      D  4/4    the theme leaves the hands and hops the ring; the blast; the eight-turn spin; the tutti
 //   IX   Fanfare       G  4/4    front pair calls, back pair answers, brass in triangle waves; a stinger
 //   X    Return        C  4/4    the theme back in the hands; the tour; the mirror; subtraction
-//   XI   Vanish        free      the ring hands back the last phrase; the hands close on C; one tap from behind
+//   XI   Vanish        pulse     the ring hands back the last phrase; the hands close on C; one tap from behind
 //
 // Envelopes are stacks of sine partials with shorter upper tails (bell,
 // pluck, brass). The held voice warbles against a detuned copy, deeper as
@@ -212,7 +212,8 @@ const bassNote = (...a) => I.bass(...a), topNote = (...a) => I.top(...a), brass 
 const themeNote = (...a) => I.theme(...a), answerNote = (...a) => I.answer(...a), stacc = (...a) => I.stacc(...a); // phrase() destructures `theme`, `answer` and `top` as flags, hence the names
 const FX = opt('fx', 'none');
 if (!['none', 'studio'].includes(FX)) throw Error('--fx none|studio');
-const TAG = ((VOICING === 'sine' && !SETS.length ? '' : '-' + [VOICING, ...SETS.map(([f, r]) => `${f}-${r}`)].join('-')) + (FX === 'studio' ? '-fx' : '')).toLowerCase();
+const KICK_PULSE = process.argv.includes('--kick');
+const TAG = ((VOICING === 'sine' && !SETS.length ? '' : '-' + [VOICING, ...SETS.map(([f, r]) => `${f}-${r}`)].join('-')) + (FX === 'studio' ? '-fx' : '') + (KICK_PULSE ? '-kick' : '')).toLowerCase();
 function tap(i, t, low, g) {
   ev(i, t, .27, null, g, 'sine', .012, .22, null, low ? 130 : 330);
   ev(i, t + .02, .31, null, g * .5, 'sine', .02, .26, null, low ? 90 : 220);
@@ -255,7 +256,6 @@ const MIRROR = [0, 4, 3, 2, 1]; // the ring flipped about the front axis
 const movements = [], tempo = [], turnsPlan = [];
 let cursor = 0, beat = 60 / 96;
 function setTempo(b) { beat = 60 / b; tempo.push({ t: r4(cursor), bpm: b }); }
-const free = () => tempo.push({ t: r4(cursor), bpm: null });
 function chapter(name, sub, level, body) { const t0 = cursor; body(); movements.push({ name, sub, t0: r4(t0), t1: r4(cursor), level }); }
 // a melody as [midi, beats] pairs, played from t0; `where(k, t)` picks the lane for the k-th note
 function melody(seq, t0, where, g, inst, dur = .9) { let t = t0, k = 0; for (const [m, d] of seq) { if (m) inst(where(k, t), t, d * beat * dur, m, g); t += d * beat; k++; } return t; }
@@ -333,8 +333,8 @@ function phrase(o) {
   cursor += 8 * barLen;
 }
 
-// ── I · Overture (free) ───────────────────────────────────────────────
-free();
+// ── I · Overture (free melody over a pulse) ───────────────────────────
+setTempo(60 / 1.1);
 chapter('I · Overture', 'the held laptop breathes the theme; the ring learns it', .3, () => {
   let t = 0;
   for (const [m, dur, gap] of [[60, 3.2, 2.6], [67, 3.4, 2.0], [64, 3.0, 1.8], [60, 3.6, 2.4]]) { bell(VOICE, t, dur, m, .5); t += dur + gap; }
@@ -344,6 +344,7 @@ chapter('I · Overture', 'the held laptop breathes the theme; the ring learns it
   let hop = 0;
   for (let pass = 0; pass < 4; pass++) {
     const q = [.95, .74, .56, .44][pass];
+    tempo.push({ t: r4(t), bpm: 60 / q });
     for (const [a, d, m] of P1) { pluck(WALK[hop % RING], t + a * q, Math.max(.25, d * q * .9), m, .46); hop++; }
     if (pass < 3) bell(VOICE, t + 6 * q, 2 * q, 72, .3);
     t += 8 * q + (pass < 3 ? q * 2 : 0);
@@ -354,7 +355,7 @@ chapter('I · Overture', 'the held laptop breathes the theme; the ring learns it
 
 // ── II · The Walk (C, 4/4) ────────────────────────────────────────────
 warbleCents = 4;
-chapter('II · The Walk', 'the pulse arrives front and back; the ring walks in halves; the theme in the hands', .55, () => {
+chapter('II · The Walk', 'the pulse grows front and back; the ring walks in halves; the theme in the hands', .55, () => {
   setTempo(100); phrase({ lvl: .7, walkWhere: 'front' });
   setTempo(102); phrase({ lvl: .8, walkWhere: 'split' });
   setTempo(104); phrase({ lvl: .9, theme: true, echoes: 1 });
@@ -562,9 +563,9 @@ chapter('X · Return', 'home in C, the theme back in the hands; the room takes o
   setTempo(92); phrase({ lvl: .65, theme: true, echoes: 0, walkWhere: 'seat1', walkPartials: false, bass: false, taps: false });
   setTempo(88); phrase({ lvl: .5, theme: true, walk: false, bass: false, taps: false, fill: false, cadence: false });
 });
-free();
+setTempo(60);
 
-// ── XI · Vanish (free) ────────────────────────────────────────────────
+// ── XI · Vanish (free melody over a pulse) ────────────────────────────
 warbleCents = 0;
 chapter('XI · Vanish', 'the ring hands the last phrase back, one laptop at a time; the hands close on C; one tap from behind', .3, () => {
   let t = cursor + 1.2;
@@ -576,6 +577,55 @@ chapter('XI · Vanish', 'the ring hands the last phrase back, one laptop at a ti
   cursor = t + 10 + 2.6 + 3;
 });
 const END = cursor;
+
+// Percussion carries the beat through every chapter, including melodic
+// rests. Keep the written taps, kicks, snares and crashes; fill their gaps
+// on the chapter's grid without doubling an existing percussion attack.
+// Reuse pinned lanes so adding percussion cannot move the orbiting voices.
+const pulseParts = [
+  { meter: 4, gain: .22 },                 // Overture: low / high heartbeat
+  { meter: 4, gain: .16 },                 // Walk: between the swung taps
+  { meter: 3, gain: .19 },                 // Waltz: oom, pah, pah
+  { meter: 4, gain: .18 },                 // Chase: quarter-note footing
+  { meter: 4, gain: .14 },                 // Sneak: quiet steps under the offbeats
+  { meter: 2, gain: .17, divisions: 3 },   // Lullaby: two thumps, six brushed eighths
+  { meter: 4, gain: .16 },                 // Climb: carry through the break
+  { meter: 4, gain: .16 },                 // Lift: existing drums lead
+  { meter: 4, gain: .20 },                 // Fanfare: march under the brass
+  { meter: 4, gain: .16 },                 // Return: pulse survives subtraction
+  { meter: 4, gain: .14 },                 // Vanish: keep time until the last knock
+];
+const percussion = new Set([TAP_F, TAP_BL, TAP_BR, KICK, SNARE, HATS]);
+const writtenHits = lanes.flatMap((l, i) => l.events
+  .filter(e => percussion.has(i) || e.wave === 'noise').map(e => e.t));
+for (const [index, m] of movements.entries()) {
+  const { meter, gain, divisions = 1 } = pulseParts[index];
+  // The final knock ends the pulse; its three-second release stays clear.
+  const end = index === movements.length - 1 ? m.t1 - 3 : m.t1;
+  const changes = tempo.filter(x => x.t >= m.t0 && x.t < end);
+  for (const [j, change] of changes.entries()) {
+    const stop = Math.min(end, changes[j + 1]?.t ?? end);
+    const step = 60 / change.bpm / divisions;
+    for (let n = 0; change.t + n * step < stop - .0001; n++) {
+      const t = change.t + n * step;
+      const b = Math.floor(n / divisions), down = b % meter === 0;
+      // A restrained kick on the main steps; the Lift's written kit wins.
+      // It uses the same lane as the kit, so the SUB receiver follows it.
+      if (KICK_PULSE && n % divisions === 0 && (down || meter === 2 || meter === 4 && b % meter === 2)
+          && !lanes[KICK].events.some(e => Math.abs(e.t - t) < .1)) {
+        kick(t, gain * 1.8);
+        continue;
+      }
+      if (writtenHits.some(hit => Math.abs(hit - t) < .035)) continue;
+      const lane = down ? TAP_F : b % 2 ? TAP_BR : TAP_BL;
+      if (n % divisions) {
+        ev(lane, t, .065, null, gain * .45, 'noise', .004, .055, null, 2500);
+      } else {
+        tap(lane, t, down, gain * (down ? 1 : .72));
+      }
+    }
+  }
+}
 
 // ── the field turns ───────────────────────────────────────────────────
 const ease5 = u => u * u * u * (u * (u * 6 - 15) + 10);
@@ -596,6 +646,7 @@ const seatColors = [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 
 const score = {
   name: 'Note(s)pat(ial) Native' + (TAG ? ` · ${TAG.slice(1)}` : ''), geometry: 'ring', seats: SEATS, ring: RING, center: CENTER, seatColors,
   dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes, voicing: table,
+  ...(KICK_PULSE ? { kickPulse: true } : {}),
 };
 
 // ── effects, as ribbons the runtime applies per seat ──────────────────

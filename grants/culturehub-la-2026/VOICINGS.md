@@ -5,7 +5,8 @@ recipe, so the same 12:54 can be heard as sine stacks, as a mallet ensemble,
 as the engine's own flute, harp and piano, or as General MIDI programs, and
 the studio can try a family at a time. Nothing about form, timing, seats or
 the hops changes; only what each voice is made of. Drums, taps and the crash
-are the same in every voicing.
+are the same in every voicing. Percussion carries the beat through all
+eleven chapters; `--kick` adds a restrained kick on their main steps.
 
 ```sh
 node fedac/native/tools/compose-notespatial-native.mjs                       # sine (the September 22 orchestra, default)
@@ -84,8 +85,8 @@ window) and rebuild; or set a mix by hand from the prompt on one laptop.
 ## Voice budget
 
 The runtime has 32 voices per machine and steals the oldest when full. Peak
-polyphony by voicing, from the composer's report: sine 26, mallets 28,
-native 23, gm 17. Mallet stacks reach 28 only because a caller asking for a
+polyphony with continuous percussion: sine 26, mallets 29, native 23,
+gm 17; mallets with `--kick` peaks at 28. A caller asking for a
 plain sound (the tutti chords, fills and pickup laps) gets the fundamental
 alone, as in the sine voicing.
 
@@ -120,5 +121,8 @@ the Lift in each voicing render in about 20 s each:
 node fedac/native/tools/notespatial-native-render.mjs fedac/native/scores/notespatial-native-mallets.nsscore --section 8 --fast --out ~/Desktop/notespatial-voicings/mallets-8-lift.mp4
 ```
 
-The render stands in for whistle, harp and piano with harmonic sketches and
-does not model the effects; the laptops are the only place to hear those.
+The render stands in for whistle, harp and piano with harmonic sketches.
+GM scores and effects scores are rejected rather than silently dropping
+their timbres or effects; the laptops are the place to hear those. Mallet
+partials render directly from the score. Add `--sub` to model the room's
+separate bass output; see [the full render recipe](NOTESPATIAL-ARRANGEMENT.md#mallets-kick-and-sub-preview).

@@ -12,6 +12,11 @@ The receiver registers as SUB at `/api/receivers`; a heartbeat older than four s
 
 `SUB_SOURCE=192.168.1.237:8080` selects the reference laptop; `PORT=8788` changes the listening port. The source must run spatial-rehearsal-compatible status updates. The source score must match the bundled Note(s)pat(ial) Native score. Wi-Fi polling, browser scheduling, and device latency make synchronization approximate; adjust Timing offset after listening. Windows hardware/cabling and acoustic phase require an on-site test. The app does not request a microphone.
 
+`SUB_SCORE=/path/to/arrangement.nsscore` selects the arrangement explicitly,
+including `notespatial-native-mallets-kick.nsscore`. Use the same file on
+the laptops. Noise clicks and partials outside 20–200 Hz after the octave
+drop are excluded from the SUB feed; they remain in the laptop score.
+
     node --test fedac/native/tools/sub-receiver/core.test.mjs
 
 This is a local-network service with no Internet account or dependency installation. Keep it on the rehearsal LAN. The app uses Windows' selected output; it does not automatically change system audio devices.

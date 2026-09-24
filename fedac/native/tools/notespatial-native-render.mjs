@@ -24,24 +24,32 @@
 //        [--audio-only] [--fast] [--light | --dark]   (theme follows macOS unless given)
 //        [--plan]   top-down instead of the isometric view
 //        [--solo 3] hear one laptop alone (C is 6)
+//        [--sub] add the Windows SUB feed and cabinet (front by default)
+//        [--sub-az 0] [--sub-level .25] [--sub-cutoff 80] [--solo sub]
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { voicePosition, sourceGain, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
+import { renderSubFeed } from './notespatial-room-audio.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso'];
+const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso', 'sub'];
 const flag = k => args.includes('--' + k);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-const SOLO = opt('solo') !== undefined ? +opt('solo') - 1 : -1; // audition one laptop (1-based; C = 6)
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !FLAGS.includes(args[i - 1].slice(2))));
 const scorePath = positional[0] || join(HERE, '../scores/notespatial-native.nsscore');
 const score = JSON.parse(readFileSync(scorePath, 'utf8'));
 const SEATS = score.seats || 6, CENTER = Number.isInteger(score.center) ? score.center : -1, RING = ringSeats(score, SEATS);
+const SUB = flag('sub'), OUTPUTS = SEATS + (SUB ? 1 : 0);
+const SUB_AZ = +opt('sub-az', 0), SUB_LEVEL = +opt('sub-level', .25), SUB_CUTOFF = +opt('sub-cutoff', 80);
+const SOLO = opt('solo') === 'sub' ? SEATS : opt('solo') !== undefined ? +opt('solo') - 1 : -1;
+if (!Number.isFinite(SUB_AZ) || !Number.isInteger(SOLO) || SOLO < -1 || SOLO >= OUTPUTS) throw Error('Invalid output or SUB position');
+if (score.lanes.some(l => l.events.some(e => Number.isInteger(e.gm)))) throw Error('GM audio needs the native engine; choose --voicing mallets for a faithful modal render.');
+if (score.seatFx || ['fxRoom', 'fxDrive', 'fxWobble', 'fxGlitch'].some(k => score[k]?.length)) throw Error('Score effects are not modeled by this renderer. Render a dry score or use the native engine.');
 const ringIndex = k => k > CENTER && CENTER >= 0 ? k - 1 : k;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const parseT = s => s === undefined ? undefined : s.includes(':') ? s.split(':').reduce((a, b) => a * 60 + +b, 0) : +s;
@@ -55,8 +63,7 @@ if (opt('section')) {
 const FPS = +opt('fps', 30), [W, H] = opt('size', '960x540').split('x').map(Number);
 const suffix = opt('section') ? '-' + opt('section') : (from || to !== score.dur) ? `-${mmss(from).replace(':', 'm')}-${mmss(to).replace(':', 'm')}` : '';
 const outPath = resolve(opt('out', join(HERE, '../../../grants/culturehub-la-2026/notespatial-native-sim' + suffix + (flag('audio-only') ? '.wav' : '.mp4'))));
-const work = join(tmpdir(), 'notespatial-render');
-mkdirSync(work, { recursive: true });
+const work = mkdtempSync(join(tmpdir(), 'notespatial-render-'));
 const tick = (() => { let t = performance.now(); return label => { const n = performance.now(); console.log(`${label.padEnd(30)} ${((n - t) / 1000).toFixed(1)} s`); t = n; }; })();
 
 // ── 1 · the feeds ────────────────────────────────────────────────────
@@ -91,8 +98,8 @@ score.lanes.forEach((lane, li) => {
         else {
           const f = phase - Math.floor(phase);
           const P = phase * Math.PI * 2;
+          // Native instrument sketches; modal mallets use the exact score partials.
           v = wave === 'triangle' ? 2 * Math.abs(2 * f - 1) - 1 : wave === 'sawtooth' ? 2 * f - 1 : wave === 'square' ? (f < .5 ? 1 : -1)
-            // stand-ins for the engine's own instruments, so a preview is not a bare sine: the flute's soft second harmonic and breath, the plucked string's and the piano's harmonic tilt
             : wave === 'whistle' ? (Math.sin(P) + .22 * Math.sin(2 * P)) / 1.2 + .03 * rnd()
             : wave === 'harp' ? (Math.sin(P) + .5 * Math.sin(2 * P) + .3 * Math.sin(3 * P) + .15 * Math.sin(4 * P)) / 1.6
             : wave === 'piano' ? (Math.sin(P) + .6 * Math.sin(2 * P) + .35 * Math.sin(3 * P) + .2 * Math.sin(4 * P) + .1 * Math.sin(5 * P)) / 1.8
@@ -110,13 +117,15 @@ score.lanes.forEach((lane, li) => {
     }
   }
 });
+const subModel = SUB ? renderSubFeed(score, { sampleRate: SR, from, to, tail: TAIL, level: SUB_LEVEL, cutoff: SUB_CUTOFF }) : null;
+if (SUB) feeds.push(subModel.feed);
 let peak = 0;
 for (const F of feeds) for (let i = 0; i < N; i += 7) peak = Math.max(peak, Math.abs(F[i]));
 const norm = peak > 0 ? .5 / peak : 1;
 for (const F of feeds) for (let i = 0; i < N; i++) F[i] *= norm;
-if (SOLO >= 0) for (let k = 0; k < SEATS; k++) if (k !== SOLO) feeds[k].fill(0);
+if (SOLO >= 0) for (let k = 0; k < OUTPUTS; k++) if (k !== SOLO) feeds[k].fill(0);
 { // what each laptop is asked to play, before any head: RMS of its feed
-  const row = feeds.map((F, k) => { let a = 0; for (let i = 0; i < N; i += 3) a += F[i] * F[i]; const rms = Math.sqrt(a / (N / 3)); return `${k === CENTER ? 'C' : k + 1}:${(20 * Math.log10(rms + 1e-9)).toFixed(1)}`; });
+  const row = feeds.map((F, k) => { let a = 0; for (let i = 0; i < N; i += 3) a += F[i] * F[i]; const rms = Math.sqrt(a / (N / 3)); return `${k === SEATS ? 'SUB' : k === CENTER ? 'C' : k + 1}:${(20 * Math.log10(rms + 1e-9)).toFixed(1)}`; });
   console.log('feed RMS dBFS per laptop   ' + row.join('  '));
 }
 tick(`feeds: ${voiced} events, ${mmss(span)}${SOLO >= 0 ? `, laptop ${SOLO === CENTER ? 'C' : SOLO + 1} alone` : ''}`);
@@ -124,7 +133,7 @@ tick(`feeds: ${voiced} events, ${mmss(span)}${SOLO >= 0 ? `, laptop ${SOLO === C
 // ── 2 · the head ─────────────────────────────────────────────────────
 // Ring seats sit at their azimuth; a held center laptop is a small speaker
 // just ahead of the listener, so it comes from straight in front, close.
-const seatAzDeg = k => k === CENTER ? 0 : ringIndex(k) / RING * 360;
+const seatAzDeg = k => k === SEATS ? SUB_AZ : k === CENTER ? 0 : ringIndex(k) / RING * 360;
 function writeStereoWav(path, L, R, n) {
   let pk = 0;
   for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
@@ -158,22 +167,22 @@ if (useHrtf) {
     return swap ? [R, L] : [L, R];
   };
   const inputs = [], graph = [];
-  for (let k = 0; k < SEATS; k++) {
+  for (let k = 0; k < OUTPUTS; k++) {
     writeFileSync(join(work, `seat${k}.f32`), Buffer.from(feeds[k].buffer));
     const [L, R] = ir(seatAzDeg(k));
     writeFileSync(join(work, `ir${k}L.f32`), Buffer.from(L.buffer));
     writeFileSync(join(work, `ir${k}R.f32`), Buffer.from(R.buffer));
     inputs.push('-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', join(work, `seat${k}.f32`));
   }
-  for (let k = 0; k < SEATS; k++) for (const ear of 'LR') inputs.push('-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', join(work, `ir${k}${ear}.f32`));
-  for (let k = 0; k < SEATS; k++) {
+  for (let k = 0; k < OUTPUTS; k++) for (const ear of 'LR') inputs.push('-f', 'f32le', '-ar', String(SR), '-ac', '1', '-i', join(work, `ir${k}${ear}.f32`));
+  for (let k = 0; k < OUTPUTS; k++) {
     const w = k === CENTER ? 1.1 : 1; // the small speaker is nearer than the ring
     graph.push(`[${k}:a]asplit[s${k}a][s${k}b]`);
-    graph.push(`[s${k}a][${SEATS + k * 2}:a]afir=gtype=none:dry=1:wet=${w}[l${k}]`);
-    graph.push(`[s${k}b][${SEATS + k * 2 + 1}:a]afir=gtype=none:dry=1:wet=${w}[r${k}]`);
+    graph.push(`[s${k}a][${OUTPUTS + k * 2}:a]afir=gtype=none:dry=1:wet=${w}[l${k}]`);
+    graph.push(`[s${k}b][${OUTPUTS + k * 2 + 1}:a]afir=gtype=none:dry=1:wet=${w}[r${k}]`);
   }
-  graph.push(Array.from({ length: SEATS }, (_, k) => `[l${k}]`).join('') + `amix=inputs=${SEATS}:normalize=0[L]`);
-  graph.push(Array.from({ length: SEATS }, (_, k) => `[r${k}]`).join('') + `amix=inputs=${SEATS}:normalize=0[R]`);
+  graph.push(Array.from({ length: OUTPUTS }, (_, k) => `[l${k}]`).join('') + `amix=inputs=${OUTPUTS}:normalize=0[L]`);
+  graph.push(Array.from({ length: OUTPUTS }, (_, k) => `[r${k}]`).join('') + `amix=inputs=${OUTPUTS}:normalize=0[R]`);
   graph.push('[L][R]join=inputs=2:channel_layout=stereo[out]');
   const mixed = join(work, 'binaural.f32');
   const r = spawnSync('ffmpeg', ['-y', '-v', 'error', ...inputs, '-filter_complex', graph.join(';'), '-map', '[out]', '-f', 'f32le', '-c:a', 'pcm_f32le', mixed], { stdio: 'inherit' });
@@ -185,7 +194,7 @@ if (useHrtf) {
   tick('head: measured KEMAR HRTF');
 } else {
   const L = new Float32Array(N), R = new Float32Array(N);
-  for (let k = 0; k < SEATS; k++) {
+  for (let k = 0; k < OUTPUTS; k++) {
     const az = seatAzDeg(k) * Math.PI / 180, s = Math.sin(az), c = Math.cos(az);
     const itd = Math.round(Math.abs(s) * .00066 * SR);
     const farGain = 10 ** (-(4 * Math.abs(s)) / 20), rear = c < 0 ? .78 : 1, near = k === CENTER ? 1.1 : 1;
@@ -275,6 +284,8 @@ function bar(x0, y0, x1, y1, w, c, a) {
   }
 }
 const light = new Array(SEATS).fill(0), flash = new Array(SEATS).fill(0), landed = new Set();
+const kickEvents = score.lanes.find(l => l.name === 'kick')?.events || [];
+let subLight = 0;
 const SEAT_COLORS = score.seatColors || Array.from({ length: SEATS }, (_, k) => k === CENTER ? [255, 240, 200] : [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 255], [200, 130, 255], [110, 220, 230]][ringIndex(k) % 6]);
 // a note wears the color of where it lands; between two seats it blends by routed power
 const destColor = (li, t) => { const gk = gainsAt(li, t); let c = [0, 0, 0], sum = 0; for (let k = 0; k < SEATS; k++) { const w = gk[k] * gk[k]; if (w > 0) { sum += w; c = c.map((v, i) => v + SEAT_COLORS[k][i] * w); } } return sum > 0 ? c.map(v => Math.round(v / sum)) : [200, 200, 200]; };
@@ -389,9 +400,38 @@ for (let f = 0; f < frames; f++) {
     if (isC) text('C', x + bw / 2 + 5, y - 5, T.ink, 2);
     else { const [ox, oy] = floor(seatAngle(k), R + bw * .5 + 14); text(String(k + 1), ox - 6, oy - 10, T.ink, 2); }
   }
+  // The SUB is its own stationary output, outside the rotating laptop field.
+  // Its cone follows filtered audio, while the kick icon follows kit attacks.
+  if (SUB) {
+    let energy = 0;
+    for (let i = s0; i < s1; i++) energy += feeds[SEATS][i] ** 2;
+    const level = Math.min(1, Math.sqrt(energy / Math.max(1, s1 - s0)) / norm * 35);
+    subLight = Math.max(level, subLight * Math.exp(-dt / .18));
+    const [x, y] = floor(SUB_AZ * Math.PI / 180, R + 130);
+    const c = mix(T.dim, [235, 120, 55], subLight);
+    rect(x - 26, y - 63, 52, 60, T.box);
+    bar(x - 26, y - 63, x + 26, y - 63, 2, c, 1);
+    bar(x - 26, y - 63, x - 26, y - 3, 2, c, 1);
+    bar(x + 26, y - 63, x + 26, y - 3, 2, c, 1);
+    bar(x - 26, y - 3, x + 26, y - 3, 2, c, 1);
+    disc(x | 0, (y - 32) | 0, 18, T.ink);
+    ring(x, y - 32, 12 + subLight * 4, c);
+    disc(x | 0, (y - 32) | 0, 5, c);
+    text('SUB', x - 18, y + 5, T.ink, 2);
+  }
+  if (kickEvents.length) {
+    const [x, y] = floor(0, R * .53);
+    const hit = kickEvents.filter(e => e.wave !== 'noise' && t >= e.t && t < e.t + .22)
+      .reduce((a, e) => Math.max(a, Math.sqrt(e.g) * Math.exp(-(t - e.t) / .09)), 0);
+    const c = mix(T.dim, [245, 90, 110], Math.min(1, hit * 2));
+    disc(x | 0, y | 0, 15, T.box);
+    ring(x, y, 15, c); ring(x, y, 11 + hit * 3, c);
+    bar(x, y + 4, x + 5, y + 18, 2, T.ink, 1);
+    text('KICK', x + 22, y - 4, T.ink, 2);
+  }
   // panel
   const X = Math.round(W * .68), col0 = T.ink, dim = T.dim;
-  text(ascii(score.name).toUpperCase(), X, 26, col0, 2);
+  text(ascii(score.name.split(' · ')[0]).toUpperCase(), X, 26, col0, 2);
   const mv = (score.movements || []).find(m => t >= m.t0 && t < m.t1) || (score.movements || []).at(-1);
   if (mv) {
     text(ascii(mv.name), X, 64, T.accent, 2);
@@ -401,10 +441,15 @@ for (let f = 0; f < frames; f++) {
   }
   text(`${mmss(Math.min(Math.max(0, t), score.dur))} / ${mmss(score.dur)}`, X, 156, col0, 2);
   const bpm = tempoAt(t);
-  text(bpm ? `${bpm} BPM` : 'FREE TIME', X, 190, T.accent, 2);
+  text(bpm ? `${+bpm.toFixed(1)} BPM` : 'FREE TIME', X, 190, T.accent, 2);
   text(`${(recent / 2).toFixed(1).padStart(5)} notes/s   ${String(sounding).padStart(2)} voices`, X, 214, dim);
   text(`ring of ${RING}${CENTER >= 0 ? ' + held center' : ''}   ${useHrtf ? 'KEMAR HRTF' : 'parametric head'}`, X, 230, dim);
   for (let k = 0; k < SEATS; k++) { const isC = k === CENTER; disc(X + 4, 262 + k * 13, 3, tone(SEAT_COLORS[k])); text(isC ? 'C   held, center, small speaker' : `${k + 1}   ${ringIndex(k) === 0 ? 'front' : 'at ' + Math.round(ringIndex(k) / RING * 360) + ' deg'}`, X + 14, 257 + k * 13, dim); }
+  if (SUB) text(`SUB ${Math.round(SUB_LEVEL * 100)}%  ${SUB_CUTOFF} HZ  ${SUB_AZ} DEG`, X, 342, T.accent);
+  Object.entries(score.voicing || {}).forEach(([family, recipe], i) => {
+    const col = i >= 5 ? 1 : 0, row = i % 5;
+    text(`${family} ${recipe}`.toUpperCase(), X + col * 150, 370 + row * 17, col0);
+  });
   // timeline
   const TX = X, TW = W - X - 16, TY = H - 40;
   (score.movements || []).forEach((m, i) => rect(TX + m.t0 / score.dur * TW, TY, Math.max(1, (m.t1 - m.t0) / score.dur * TW - 1), 10, T.seg[i % 2]));
@@ -413,7 +458,11 @@ for (let f = 0; f < frames; f++) {
   (score.movements || []).forEach((m, i) => { const label = ascii(m.name).split(' ')[0], wseg = (m.t1 - m.t0) / score.dur * TW; if (wseg >= label.length * 6 + 4) text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); else if (i % 2) text(label, TX + m.t0 / score.dur * TW + 1, TY + 26, dim); else text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); });
   await write(Buffer.from(frame));
 }
+const done = new Promise((resolve, reject) => {
+  ff.on('error', reject);
+  ff.on('close', code => code === 0 ? resolve() : reject(Error(`ffmpeg video failed (${code})`)));
+});
 ff.stdin.end();
-await new Promise(res => ff.on('close', res));
+await done;
 tick(`video: ${frames} frames at ${FPS} fps`);
 console.log(outPath);
