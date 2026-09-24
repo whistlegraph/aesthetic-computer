@@ -9,6 +9,7 @@ let identifyAt = null, glow = 0, flyCursors = [];
 let beepCount = 0, outputPeak = 0, maxFrameGap = 0, previousTime = null;
 let networkHalfRttMs = null, runId = null;
 let presence = null, presenceRaw = '', presenceSeen = -Infinity, presencePoll = -Infinity;
+const FRAME_E = new Array(48), FRAME_U = new Float64Array(48); // paint's bounded frame list, allocated once
 
 function seatConnection(i, now) {
   if (!presence || now - presenceSeen > 5) return 'unknown';
@@ -213,46 +214,69 @@ export function paint({ wipe, ink, box, line, circle, write, screen, sound, syst
   // The view into the space: this laptop's notes come from far away as
   // frames in the screen's own aspect, growing as they approach, filling
   // the screen exactly when they sound, then fading with the note.
-  const LOOK = 3, cx = w * .5, cy = h * .5;
-  const frames = [];
+  //
+  // On a budget. A dense second (Rush E: 726 events, 37 lanes) used to cost
+  // a seat-gain evaluation per event in the look-ahead, a sort of all of
+  // them, and boxes, hatch lines and a label for every frame that passed —
+  // 2,600 line fills in one paint on a software raster. Now: one seat gain
+  // per LANE per frame (the ring turns slowly; an event's gain a second
+  // ahead is its lane's gain now), lanes this seat does not carry are never
+  // scanned, at most NEAR per lane and MAX_FRAMES in all (the nearest win),
+  // repeated ticks in a lane merge, hatching has a per-paint budget, labels
+  // only on frames big enough to read and at most LABELS of them.
+  const LOOK = 3, cx = w * .5, cy = h * .5, MAX_FRAMES = 48, NEAR = 6, LABELS = 16, HATCH_BUDGET = 48, HATCH = 4, MERGE = .08;
+  let count = 0;
   for (let i = 0; i < score.lanes.length; i++) {
     const lane = score.lanes[i], evs = lane.events;
     let j = flyCursors[i] || 0;
     while (j < evs.length && evs[j].t + evs[j].dur + .6 < t) j++;
     flyCursors[i] = j;
-    for (let k = j; k < evs.length && evs[k].t <= t + LOOK; k++) {
+    if (j >= evs.length || evs[j].t > t + LOOK) continue;
+    const gain = sourceGain(score, voicePosition(score, i, t), config.seat, config.seats);
+    if (gain * gain < .5) continue;
+    let kept = 0, lastT = -Infinity;
+    for (let k = j; k < evs.length && kept < NEAR; k++) {
       const e = evs[k];
-      const gain = sourceGain(score, voicePosition(score, i, e.t), config.seat, config.seats);
-      if (gain * gain < .5) continue;
-      frames.push({ e, until: e.t - t });
+      if (e.t > t + LOOK) break;
+      if (e.t - lastT < MERGE && e.dur < .12) continue; // a run of ticks reads as one
+      lastT = e.t;
+      const until = e.t - t;
+      if (count < MAX_FRAMES) { FRAME_E[count] = e; FRAME_U[count] = until; count++; }
+      else { // keep the nearest MAX_FRAMES: replace the farthest if this one is nearer
+        let far = 0; for (let m = 1; m < MAX_FRAMES; m++) if (FRAME_U[m] > FRAME_U[far]) far = m;
+        if (until < FRAME_U[far]) { FRAME_E[far] = e; FRAME_U[far] = until; } else break; // this lane only gets farther
+      }
+      kept++;
     }
   }
-  frames.sort((p, q) => q.until - p.until); // far first, so near frames draw on top
-  for (const { e, until } of frames) {
-    const base = noteColor(e.note) || own, sharp = e.note && e.note.includes('#');
+  // far first, so near frames draw on top: insertion sort on the bounded arrays
+  for (let a = 1; a < count; a++) { const e = FRAME_E[a], u = FRAME_U[a]; let b = a - 1; while (b >= 0 && FRAME_U[b] < u) { FRAME_E[b + 1] = FRAME_E[b]; FRAME_U[b + 1] = FRAME_U[b]; b--; } FRAME_E[b + 1] = e; FRAME_U[b + 1] = u; }
+  let hatchLeft = HATCH_BUDGET, labels = 0;
+  for (let n = 0; n < count; n++) {
+    const e = FRAME_E[n], until = FRAME_U[n];
+    const base = noteColor(e.note) || own, sharp = !!(e.note && e.note.includes('#'));
     const sounding = until <= 0, held = Math.max(.3, e.dur), left = sounding ? Math.max(0, 1 - (-until) / held) : 1;
     // approaching: grows on a square law; hit: one short blink; then it reverses and recedes over the note
     const near = sounding ? left : 1 - Math.max(0, Math.min(1, until / LOOK));
-    const sc = sounding && -until < .08 ? 1 : .05 + .95 * Math.pow(near, sounding ? 1.6 : 2.2);
+    const blink = sounding && -until < .08;
+    const sc = blink ? 1 : .05 + .95 * Math.pow(near, sounding ? 1.6 : 2.2);
     const fw = Math.round(w * sc), fh = Math.round(h * sc), x0 = Math.round(cx - fw / 2), y0 = Math.round(cy - fh / 2);
     const bright = sounding ? .35 + .65 * left : .3 + .7 * near;
-    const col = base.map(v => Math.round(v * bright)), dark = base.map(v => Math.round(v * bright * .45));
-    // Hatch on a budget: at most HATCH lines per frame, and only on frames big
-    // enough to read (the Lift once asked for 2,600 line fills in one frame; a
-    // laptop's software raster could not keep the rate). The look is the same
-    // at arm's length; the lines are simply spaced to the frame.
-    const HATCH = 10;
-    if (sounding && -until < .08) { // the blink: the whole screen is the note for a moment
-      ink(...col); box(x0, y0, fw, fh, 'fill');
-      ink(...dark); const gap = Math.max(8, Math.ceil(fh / 16)); for (let y = y0 + 4; y < y0 + fh; y += gap) line(x0, y, x0 + fw, y);
+    const cr = Math.round(base[0] * bright), cg = Math.round(base[1] * bright), cb = Math.round(base[2] * bright);
+    const dr = Math.round(cr * .45), dg = Math.round(cg * .45), db = Math.round(cb * .45);
+    if (blink) { // the whole screen is the note for a moment
+      ink(cr, cg, cb); box(x0, y0, fw, fh, 'fill');
+      ink(dr, dg, db); const gap = Math.max(8, Math.ceil(fh / 16)); for (let y = y0 + 4; y < y0 + fh && hatchLeft > 0; y += gap, hatchLeft--) line(x0, y, x0 + fw, y);
     } else {
-      if (sc > .3) { ink(...dark); const gap = Math.max(sounding ? 6 : 4, Math.ceil(fh / HATCH)); for (let y = y0 + 3; y < y0 + fh - 1; y += gap) line(x0 + 2, y, x0 + fw - 3, y); }
-      ink(...(sharp ? [225, 225, 235] : col)); box(x0, y0, fw, fh, 'outline');
-      if (sc > .25) { ink(...dark); box(x0 + 2, y0 + 2, fw - 4, fh - 4, 'outline'); }
+      if (sc > .3 && hatchLeft > 0) { ink(dr, dg, db); const gap = Math.max(sounding ? 6 : 4, Math.ceil(fh / HATCH)); for (let y = y0 + 3; y < y0 + fh - 1 && hatchLeft > 0; y += gap, hatchLeft--) line(x0 + 2, y, x0 + fw - 3, y); }
+      if (sharp) ink(225, 225, 235); else ink(cr, cg, cb);
+      box(x0, y0, fw, fh, 'outline');
+      if (sc > .25) { ink(dr, dg, db); box(x0 + 2, y0 + 2, fw - 4, fh - 4, 'outline'); }
     }
-    if (e.note && sc > .18) {
-      ink(...(sharp ? [225, 225, 235] : col));
-      write(e.note, { x: x0 + 4, y: y0 + 3, font: '6x10', size: sc > .6 ? 3 : sc > .35 ? 2 : 1 });
+    if (e.note && sc > .35 && labels < LABELS) {
+      labels++;
+      if (sharp) ink(225, 225, 235); else ink(cr, cg, cb);
+      write(e.note, { x: x0 + 4, y: y0 + 3, font: '6x10', size: sc > .6 ? 3 : 2 });
     }
   }
   ink(...own);
