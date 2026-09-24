@@ -281,3 +281,9 @@ Needed from the fleet side before `run-full-trio.py --check` can pass:
 Then, from neo: `TRIO_OUT=/Users/jas/Shelf/culturehub-wake python3 bin/prepare-native-trio.py`,
 `TRIO_OUT=… python3 bin/run-full-trio.py --check`, and the cue only on
 Jeffrey's word. Re-prepare if any Menu Band restarts or stops.
+
+Update 12:56: all six seats answer on port 80 (`orchestral-stress` on five,
+`orchestral-stress-announced` on Center .239); DMX bridge live; SUB server
+still down. Wake's `prepare-native-trio.py` will need
+`TRIO_ALLOW_PIECES=orchestral-stress,orchestral-stress-announced` or the seats
+back on `culturehub-rehearsal` first.
