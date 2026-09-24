@@ -11,8 +11,9 @@ LOCAL=(subprocess.run(['scutil','--get','LocalHostName'],capture_output=True,tex
 SUB=os.environ.get('TRIO_SUB','http://127.0.0.1:8788').rstrip('/');DMX=os.environ.get('TRIO_DMX','http://127.0.0.1:8790').rstrip('/')
 def islocal(h):return h.lower()==LOCAL
 RTT_MAX=float(os.environ.get('TRIO_CLOCK_RTT_MAX','0.04'))   # seconds; the 40 ms contract unless explicitly widened
-bundle=json.loads((OUT/'prepared.json').read_text());plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
-members=['neo','blueberry','frisbee'];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
+plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
+bundle=json.loads((OUT/'prepared.json').read_text()) if (OUT/'prepared.json').exists() else {'id':None,'singers':[],'stems':{}}   # a piece without singers has no bundle
+members=[p['member'] for p in plan.get('payloads',[])];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
 locks={n['id']:threading.Lock() for n in nodes}
 def request(url,data=None,method=None):
  raw=None if data is None else json.dumps(data).encode()
@@ -65,7 +66,8 @@ def nativecheck(n):
  assert s2['audioTime']>s['audioTime'] and s2['instance']==s['instance'],n['id']+' stale'
  assert s2['phase']=='ready' and not s2['error'] and s2['arrangementHash']==plan['arrangementHash'] and s2['receiverId']==n['id'],s2
  assert s2['mono'] and s2['monoOutput']=='left' and not s2['microphoneHot'] and s2['centerReady'],s2
- if n['seat']==5:assert s2['center']['rawSha256']==bundle['centerMix']['sha256'] and s2['center']['loaded'] and n['assetReadbackVerified'],s2
+ want=(bundle.get('stems') or {}).get(n['id']) or (bundle.get('centerMix') if n['seat']==5 else None) or n.get('stem')   # the stem this seat was staged with
+ if want:assert s2['center']['rawSha256']==want['sha256'] and s2['center']['loaded'] and n['assetReadbackVerified'],s2
  samples=[]
  for _ in range(24):   # venue Wi-Fi jitters; more probes find a clean round trip
   a=time.monotonic();cid=command(n,'clock')
@@ -111,12 +113,13 @@ def lights():
   try:request(DMX+'/command',dict(e['command'],eventId=e['id']))
   except Exception as x:errors.append('DMX '+str(x));return
 try:
- hosts=dict(parallel(singercheck,members));native=dict(parallel(nativecheck,nodes));record['checks']={'singers':hosts,'native':native,'sub':subcheck(),'dmx':dmxcheck()};save()
- print('Ready: three singers, six ACOS including actual Center vocals, Windows SUB, four DMX fixtures.',flush=True)
+ hosts=dict(parallel(singercheck,members)) if members else {};native=dict(parallel(nativecheck,nodes));record['checks']={'singers':hosts,'native':native,'sub':subcheck(),'dmx':dmxcheck()};save()
+ print('Ready: %s six ACOS, Windows SUB, four DMX fixtures.'%(('%d singers,'%len(members)) if members else 'no singers,'),flush=True)
  if '--check' in sys.argv:sys.exit(0)
 except Exception as e:
  record['error']=str(e);save();raise
-cancel='/tmp/'+runid+'.cancel';brightness='/tmp/'+runid+'.brightness.json';epoch=time.time()+15;downbeat=time.monotonic()+(epoch-time.time());duration=max(60,bundle['centerMix']['frames']/bundle['centerMix']['sampleRate'])+2
+cancel='/tmp/'+runid+'.cancel';brightness='/tmp/'+runid+'.brightness.json';epoch=time.time()+15;downbeat=time.monotonic()+(epoch-time.time())
+cm=bundle.get('centerMix');duration=max(plan['duration'],(cm['frames']/cm['sampleRate']) if cm else 0)+2
 record.update(startEpoch=epoch,duration=duration)
 armed=False;threads=[]
 def cleanup():
@@ -147,12 +150,13 @@ try:
   if not islocal(h):subprocess.check_call(['scp','-q',str(ROOT/'bin/trio-brightness.py'),h+':/tmp/trio-brightness.py'])   # the helper rides along
   shell(h,f'nohup python3 {shlex.quote(helper)} run --start-epoch {localepoch:.6f} --duration {duration:.6f} --cancel-file {cancel} --status-file {brightness} > /tmp/{runid}.brightness.log 2>&1 < /dev/null &')
   time.sleep(.2);r=json.loads(shell(h,'cat '+brightness));assert r['phase']=='armed',(h,r);return h,r
- record['brightnessArmed']=dict(parallel(bright,members));subcheck();assert epoch-time.time()>4 and not errors
+ record['brightnessArmed']=dict(parallel(bright,members)) if members else {};subcheck();assert epoch-time.time()>4 and not errors
  def playnative(n):command(n,'play',runId=runid);return n['id'],ack(n,'countdown')
  record['nativeCountdown']=dict(parallel(playnative,nodes));record['subCountdown']=request(SUB+'/api/trio/play',{'runId':runid})
  def sing(h):
   payload=dict(next(p['info'] for p in plan['payloads'] if p['member']==h));payload.update(preparedId=bundle['id'],startEpoch=f"{hosts[h]['startEpoch']:.6f}");post(h,'play',payload)
- parallel(sing,members);assert epoch-time.time()>2
+ if members:parallel(sing,members)
+ assert epoch-time.time()>2
  t=threading.Thread(target=lights,daemon=True);threads.append(t);t.start();save();print('FULL SYSTEM CUED. Downbeat in',round(epoch-time.time(),1),'seconds.',flush=True)
  last=-1
  while time.monotonic()<downbeat+duration+.2:
@@ -173,7 +177,7 @@ try:
  def collect(h):
   logs=shell(h,'tail -n +'+str(hosts[h]['logBase']+1)+' /tmp/menuband.err');(OUT/(runid+'-'+h+'.log')).write_text(logs)
   return h,{'scheduled':logs.count('scheduled '),'played':logs.count('sing: playing'),'rejected':'prepared play rejected' in logs,'brightness':json.loads(shell(h,'cat '+brightness))}
- record['singerResults']=dict(parallel(collect,members));record['completed']=True
+ record['singerResults']=dict(parallel(collect,members)) if members else {};record['completed']=True
  print('Performance ended.',json.dumps(record['singerResults']),flush=True)
 except BaseException as e:record['error']=str(e);print('Stopping:',repr(e),flush=True);raise
 finally:cleanup()

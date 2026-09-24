@@ -83,6 +83,12 @@
       "args": [
         "slab/bin/aesel-mcp.mjs"
       ]
+    },
+    "venue": {
+      "command": "node",
+      "args": [
+        "toolchain/mcp/ac-venue-mcp.mjs"
+      ]
     }
   }
 }
