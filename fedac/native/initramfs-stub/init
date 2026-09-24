@@ -65,6 +65,42 @@ fi
 cd /
 umount /boot 2>/dev/null
 
+# Built-in drivers probed while this stub was the whole root, so anything
+# that wanted firmware (Intel wifi, SOF audio DSP, Realtek wifi) failed at
+# ~0.7 s with "Direct firmware load failed" and gave up. Point the kernel's
+# firmware search path at the unpacked tree, re-probe those drivers, and
+# wait for the results so ac-native finds a sound card and a wlan the
+# moment it starts. The path entry is left in place: after switch_root it
+# is a dead directory the loader skips before its normal /lib/firmware.
+if [ -w /sys/module/firmware_class/parameters/path ]; then
+    echo /newroot/lib/firmware > /sys/module/firmware_class/parameters/path
+    want_wlan=0; want_snd=0
+    for drv in /sys/bus/pci/drivers/iwlwifi /sys/bus/pci/drivers/rtw88_* \
+               /sys/bus/pci/drivers/rtw89_* /sys/bus/pci/drivers/ath1* \
+               /sys/bus/pci/drivers/mt76* /sys/bus/pci/drivers/sof-audio-pci-intel-*; do
+        [ -d "$drv" ] || continue
+        for dev in "$drv"/0000:*; do
+            [ -e "$dev" ] || continue
+            d=$(basename "$dev")
+            case "$drv" in *sof-audio*) want_snd=1 ;; *) want_wlan=1 ;; esac
+            echo "$d" > "$drv/unbind" 2>/dev/null
+            echo "$d" > "$drv/bind" 2>/dev/null
+            say "re-probed $d ($(basename "$drv")) with firmware from the stick"
+        done
+    done
+    # Both drivers load firmware asynchronously after bind; give them ~8 s.
+    waited=0
+    while [ "$waited" -lt 40 ]; do
+        ok=1
+        if [ "$want_wlan" = 1 ]; then ls /sys/class/net 2>/dev/null | grep -q '^wl' || ok=0; fi
+        if [ "$want_snd" = 1 ]; then grep -q '^ *[0-9]' /proc/asound/cards 2>/dev/null || ok=0; fi
+        [ "$ok" = 1 ] && break
+        waited=$((waited + 1))
+        sleep 0.2
+    done
+    say "firmware re-probe done after $((waited / 5)).$((waited % 5 * 2)) s (wlan wanted=$want_wlan, sound wanted=$want_snd): $(ls /sys/class/net 2>/dev/null | tr '\n' ' ')/ $(grep -c '^ *[0-9]' /proc/asound/cards 2>/dev/null || echo 0) sound card(s)"
+fi
+
 # Hand the live mounts to the new root, then pivot. The real /init mounts
 # proc/sys/dev itself and tolerates them already being there.
 mount -o move /dev  /newroot/dev  2>/dev/null

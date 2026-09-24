@@ -31,6 +31,15 @@ and `config.json`, unpacks the real initramfs into a tmpfs and
 `switch_root`s into it. From there boot is identical to the UEFI path,
 including the inscription baked into `initramfs.cpio.gz` at flash time.
 
+Built-in drivers probe while the stub is still the whole root, so Intel
+wifi (iwlwifi) and the SOF audio DSP fail their firmware loads at ~0.7 s and
+give up. After unpacking, the stub points `firmware_class.path` at the
+unpacked tree, unbinds and rebinds those PCI drivers, and waits up to 8 s
+for a `wl*` interface and a sound card before switching root. Without this
+the Lenovo 500e came up with no wifi and no speaker (2026-09-24). The
+regulatory database is still loaded only once by cfg80211 and stays on
+the world default on this path.
+
 On UEFI boots the firmware-supplied initrd is unpacked over the embedded
 one, so its `/init` replaces the stub and the stub never runs.
 `/proc/cmdline` contains `ac.boot=chromeos` only on the depthcharge path;
