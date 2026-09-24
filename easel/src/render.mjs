@@ -732,7 +732,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Codex's shape: the transcript, a bar to type in with a blank line on
     // either side, and one muted line under it saying who, where, which model.
     // Nothing sits between the words and the typing.
-    const barBg = useColor ? bg(shape.bar) : "";
+    const barBg = useColor ? bg(state.tray === "light" ? [232, 232, 236] : state.tray === "dark" ? [28, 28, 32] : shape.bar) : "";
     const ink = (rgb) => (useColor ? fg(rgb) : "");
     let inner;
     state.cursorCell = null;
@@ -774,7 +774,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Notebook lines: a faint rule under the rest of every transcript row,
     // the way the GUI's page is ruled. Only the blank part of a row is
     // underlined, so the words sit on the line rather than under a bar.
-    const ruled = shape.lines !== false && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
+    const ruled = shape.lines === true && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
     // The transcript as plain rows, for the selection to read and copy from.
     state.pageRows = body.map((row) => plainRow(row));
     // A question takes the page: what is asked, and three answers, nothing
@@ -791,7 +791,16 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
           return span ? selectRow(state.pageRows[index], span, width, useColor) : row;
         })
       : ruled;
-    return paintDropdown([...shown, ...shape.bottom.map((name) => rows[name]?.() ?? "")].slice(0, height), state, width, height, useColor, shape)
+    // Under the hood: the tray — the air, the bar, the status line — sits on
+    // black, or on white in light mode, whatever ground the window has. The
+    // transcript above is the hood; this is the machinery, and it always
+    // looks like itself.
+    const light = state.tray === "light";
+    const trayGround = useColor ? `${bg(light ? [255, 255, 255] : [0, 0, 0])}${fg(light ? [40, 40, 40] : [230, 230, 230])}` : "";
+    const trayMuted = useColor ? fg(light ? [110, 110, 110] : [150, 150, 150]) : "";
+    const onTray = (row) => (useColor ? `${trayGround}${String(row).replace(/\x1b\[0m/g, `\x1b[0m${trayGround}`).replace(new RegExp(color.ground.replace(/[[\]\\]/g, "\\$&"), "g"), trayGround).replace(new RegExp(color.muted.replace(/[[\]\\]/g, "\\$&"), "g"), trayMuted)}${trayGround}` : row);
+    const trayRows = shape.bottom.map((name) => onTray(name === "bar" ? bar : name === "gap" ? fit("", width) : rows[name]?.() ?? ""));
+    return paintDropdown([...shown, ...trayRows].slice(0, height), state, width, height, useColor, shape)
       .map((line) => `${ground}${fit(line, width)}${reset}`)
       .join("\n");
   }

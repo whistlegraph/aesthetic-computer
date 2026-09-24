@@ -16,7 +16,7 @@ import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
 import {API_WORKFLOW} from "./api-context.mjs";
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { writeFile as writeExport } from "node:fs/promises";
 import { TranscriptJournal } from "./transcript-journal.mjs";
@@ -40,7 +40,7 @@ import { Diagnostics } from "./diagnostics.mjs";
 import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mjs";
 import { Energy, energyReport } from "./energy.mjs";
 import {pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
-import { loadCatalog } from "./model-catalog.mjs";
+import { cachedCatalog, loadCatalog, newestModel, preferNewer } from "./model-catalog.mjs";
 import { providerLabel } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { GENRES, genreFor } from "./genres.mjs";
@@ -204,8 +204,15 @@ const providerChoice=chooseProviderPreferences({restored:desktopRestored, saved:
  explicit:{backend:option('--backend')||process.env.EASEL_BACKEND||undefined,model:option('--model')||undefined,effort:option('--effort')||undefined},fallback:process.env.EASEL_DESKTOP?'ac':DEFAULT_BACKEND});
 let backend=backendFor(providerChoice.backend);
 let model=backend.id==='ac'?backend.defaultModel:providerChoice.model??backend.defaultModel;
+// Newer is preferred. Unless a model was named on the way in, a pro session on
+// Claude opens on the newest model the provider's cached list knows — and a
+// remembered family moves up to its newest release the day one appears.
+if (pro && backend.id === "claude" && !option("--model")) {
+  const known = cachedCatalog("claude");
+  model = providerChoice.model ? preferNewer(providerChoice.model, known) : newestModel(known) || model;
+}
 let effort=providerChoice.effort;
-async function rememberProvider(){try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
+async function rememberProvider(){if(process.env.EASEL_NO_REMEMBER==='1')return;try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
 let handoff = desktopRestored?.handoff || "";
 let archivedConversation = desktopRestored?.archivedConversation || [];
 // Pro leaves the mouse to the terminal, so a drag selects text the way it
@@ -213,6 +220,13 @@ let archivedConversation = desktopRestored?.archivedConversation || [];
 // EASEL_MOUSE=1 or 0 overrides either default.
 // The pro frame's shape, read early: the mouse default is part of it.
 const shape = new Layout();
+// Which appearance the Mac is in, for the tray's ground: black in dark mode,
+// white in light. Asked once at start and again on every resize, which is
+// also when the Slab menubar redresses a window.
+function appearance() {
+  if (process.platform !== "darwin") return "dark";
+  try { return /dark/i.test(execFileSync("defaults", ["read", "-g", "AppleInterfaceStyle"], { encoding: "utf8", timeout: 1500, stdio: ["ignore", "pipe", "ignore"] })) ? "dark" : "light"; } catch { return "light"; }
+}
 let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? (shape.spec.mouse ?? true) : (desktopRestored?.options?.mouseEnabled ?? true);
 
 // Every session opens on a new blank piece with a random name. It is a real
@@ -291,6 +305,7 @@ const state = {
   // Not in pro. There the engine carries the user's own settings and servers,
   // so the prompt is the whole boundary again and it starts closed.
   autoAllow: !pro,
+  tray: pro ? appearance() : "",
   entries: [
     // Pro opens onto nothing but the bar: the mode and the model sit under
     // it, and the agreement was the disclosure.
@@ -2704,7 +2719,7 @@ process.stdin.setRawMode(true);
 process.stdin.resume();
 startNativeGamepad();
 process.stdin.on("data", handleKeys);
-process.stdout.on("resize", redraw);
+process.stdout.on("resize", () => { if (pro) state.tray = appearance(); redraw(); });
 process.on("SIGWINCH", () => { frameDiff.reset(); lastLayout = ""; lastProvider = ""; lastConversation = ""; lastPrompt = ""; redraw(); });
 if (desktopSessionPath) process.on("SIGUSR2", () => {
   readDesktopIntent(process.env.EASEL_DESKTOP_INTENT).then(requestDesktop).catch((error) => { addEntry("error", errorText(error)); redraw(); });
