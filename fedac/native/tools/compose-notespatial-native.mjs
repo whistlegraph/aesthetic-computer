@@ -267,7 +267,7 @@ function phrase(o) {
     tr = 0, lvl = 1, register = 0,
     theme = false, themeWhere = 'center', walk = true, walkWhere = 'split', walkPartials = true,
     echoes = 0, echoOf = 'theme', taps = true, bass = true, pads = false, top = false, hats = false, drums = false, answer = false,
-    cadence = true, fill = true, lift = false, breakBar = false, finalChord = false, centerHold = false, mirror = false,
+    cadence = true, fill = true, lift = false, breakBar = false, finalChord = false, centerHold = false, mirror = false, weave = 0,
   } = o;
   const soft_ = .86 ** Math.max(0, register), start = cursor, barLen = 4 * beat;
   const bt = (bar, b) => start + bar * barLen + b * beat;
@@ -309,6 +309,13 @@ function phrase(o) {
     if (bass) {
       const root = chord[0] - 12;
       if (drums) { for (const b of [0, 1.5, 2, 3.5]) bassNote(BASS, bt(bar, b), .42 * beat, root, .5 * swell, .008, .1); }
+      else if (weave >= 2 && !last) {
+        // Root, fifth, root, then a chromatic pickup into the next chord.
+        // Shorten the bodies so the new bass rhythm has room to articulate.
+        const nextRoot = chordAt(bar + 1)[0] - 12;
+        for (const [b, m] of [[0, root], [.75, root + 7], [2, root], [3.5, nextRoot - 1]])
+          bassNote(BASS, bt(bar, b), .48 * beat, m, .36 * swell, .008, .2 * beat);
+      }
       else if (last) bassNote(BASS, bt(bar, 0), 3.6 * beat, root, .4 * swell, .02, 2 * beat);
       else for (const b of [0, 2]) bassNote(BASS, bt(bar, b), 1.6 * beat, root, .42 * swell, .015, .8 * beat);
     }
@@ -317,6 +324,29 @@ function phrase(o) {
       const high = Math.min(106, chord[1] + 24 + register * 12), tn = bt(bar, .36);
       topNote(TOP, tn, .40, high, .055 * soft_ * swell, .06, .3);
       topNote(TOP, tn + .46 * beat, .52, Math.min(108, high + 2), .04 * soft_ * swell, .08, .4);
+    }
+    if (weave && !last) {
+      // A separate 3+3+2 eighth-note line, moving against the walk. It enters
+      // on alternate bars, then stays; its contour reverses every two bars.
+      // Damped fundamentals keep the contrapuntal part clear and affordable.
+      if (weave >= 2 || bar % 2) {
+        const degrees = bar % 4 < 2 ? [2, 1, 0] : [0, 1, 2];
+        for (const [k, b] of [.5, 2, 3.5].entries()) {
+          const seat = seatMap((RING * 8 - bar * 2 - k) % RING);
+          const midi = Math.min(96, chord[degrees[k]] + 12 + Math.max(-1, register) * 12);
+          answerNote(ECHO[seat], bt(bar, b), .38 * beat, midi, .19 * soft_ * swell, false);
+        }
+      }
+      if (weave >= 2) {
+        // Light backbeats; the Lift retains the full snare and driving kit.
+        for (const b of [1, 3]) ev(SNARE, bt(bar, b), .07, null, .10 * swell, 'noise', .002, .055, null, 2400);
+        if (!hats) for (const b of [.5, 1.5, 2.5, 3.5]) ev(HATS, bt(bar, b), .035, null, .055 * swell, 'noise', .001, .028, null, 7000);
+      }
+      if (weave >= 3 && bar % 4 === 3) {
+        // An answering tom turn, once in four bars, between the main hits.
+        tap(TAP_BR, bt(bar, 2.75), false, .12 * swell);
+        tap(TAP_BL, bt(bar, 3.25), true, .14 * swell);
+      }
     }
     if (hats && !(last && breakBar)) for (let b = 0; b < 4; b += .5) ev(HATS, bt(bar, b), b % 1 ? .045 : .027, null, (b % 1 ? .3 : .19) * swell, 'noise', .001, .02, null, 7000);
     if (drums) {
@@ -355,15 +385,15 @@ chapter('I · Overture', 'the held laptop breathes the theme; the ring learns it
 
 // ── II · The Walk (C, 4/4) ────────────────────────────────────────────
 warbleCents = 4;
-chapter('II · The Walk', 'the pulse grows front and back; the ring walks in halves; the theme in the hands', .55, () => {
+chapter('II · The Walk', 'the walk gains a counter-melody, syncopated bass and a backbeat; the theme enters in the hands', .55, () => {
   setTempo(100); phrase({ lvl: .7, walkWhere: 'front' });
-  setTempo(102); phrase({ lvl: .8, walkWhere: 'split' });
-  setTempo(104); phrase({ lvl: .9, theme: true, echoes: 1 });
+  setTempo(102); phrase({ lvl: .8, walkWhere: 'split', weave: 1 });
+  setTempo(104); phrase({ lvl: .9, theme: true, echoes: 1, weave: 2 });
 });
 
 // ── III · Waltz for Five Laptops (Am, 3/4) ────────────────────────────
 warbleCents = 6;
-chapter('III · Waltz', 'oom at the back, pah left, pah right; the ring takes the tune and the hands answer in counterpoint', .65, () => {
+chapter('III · Waltz', 'three steps under two accents; the ring takes the tune, the hands answer, and a second line crosses behind', .65, () => {
   setTempo(132);
   const A = [[76, 2], [77, 1], [76, 3], [81, 2], [79, 1], [76, 3], [74, 2], [76, 1], [77, 2], [76, 1], [74, 2], [72, 1], [71, 3]];
   const A2 = [...A.slice(0, 10), [74, 1], [72, 1], [71, 1], [69, 3]];
@@ -389,6 +419,21 @@ chapter('III · Waltz', 'oom at the back, pah left, pah right; the ring takes th
   melody(A, bt(32, 0), hands, .55, bell); melody(A2, bt(40, 0), hands, .58, bell);
   const third = seq => seq.map(([m, d]) => [m - (m === 71 || m === 76 ? 3 : 4), d]);
   melody(third(A), bt(32, 0), hop, .16, pluck); melody(third(A2), bt(40, 0), hop, .17, pluck);
+  // Four answering notes across two 3/4 bars: two against three, with the
+  // second line behind the foreground tune. The bass adds a pickup later.
+  for (let bar = 16; bar < 48; bar++) {
+    const harm = bar % 16 < 8 ? HA : HA2, [, , chord] = harm[bar % 8];
+    for (const [k, b] of [.5, 2].entries()) {
+      const seat = (RING * 12 - bar - k * 2) % RING;
+      const midi = chord[(bar + k) % 3] + (bar < 32 ? 12 : 0);
+      answerNote(ECHO[seat], bt(bar, b), .42 * beat, midi, bar < 32 ? .15 : .19, false);
+    }
+    for (const b of [0, 1.5]) ev(HATS, bt(bar, b), .045, null, b ? .07 : .10, 'noise', .002, .035, null, 5000);
+    if (bar >= 32 && bar % 4 !== 3) {
+      const nextRoot = harm[(bar + 1) % 8][1];
+      bassNote(BASS, bt(bar, 2.5), .28 * beat, nextRoot - 1, .20, .003, .12 * beat);
+    }
+  }
   cursor = bt(48, 0);
   // tag: the last four bars twice, easing, ending on A with every laptop
   const TAG = [[74, 2], [76, 1], [77, 2], [76, 1], [74, 1], [72, 1], [71, 1], [69, 3]];
@@ -494,12 +539,12 @@ chapter('VI · Lullaby', 'a cradle of arpeggios rocks around the room; the tune 
 
 // ── VII · The Climb (C, 4/4) ──────────────────────────────────────────
 warbleCents = 16;
-chapter('VII · The Climb', 'four registers an octave apart, a high line gliding against the ring, hats, then the break', .9, () => {
+chapter('VII · The Climb', 'four rising registers; a descending answer, syncopated bass, high chimes and tom turns gather before the break', .9, () => {
   const C = { pads: true, walkWhere: 'ring', theme: true };
-  setTempo(112); phrase({ ...C, lvl: .9, register: -1, echoes: 2 });
-  setTempo(116); phrase({ ...C, lvl: .95, register: 0, echoes: 3 });
-  setTempo(120); phrase({ ...C, lvl: 1, register: 1, echoes: 3, top: true });
-  setTempo(124); phrase({ ...C, lvl: 1, register: 2, echoes: 2, top: true, hats: true, fill: false, breakBar: true });
+  setTempo(112); phrase({ ...C, lvl: .9, register: -1, echoes: 2, weave: 1 });
+  setTempo(116); phrase({ ...C, lvl: .95, register: 0, echoes: 2, weave: 2 });
+  setTempo(120); phrase({ ...C, lvl: 1, register: 1, echoes: 2, top: true, weave: 3 });
+  setTempo(124); phrase({ ...C, lvl: 1, register: 2, echoes: 1, top: true, hats: true, fill: false, breakBar: true, weave: 3 });
   const b8 = cursor - 4 * beat;
   [62, 64, 66, 67, 69].forEach((m, k) => pluck(WALK[k], b8 + k * .5 * beat, .45 * beat, m, .45, false)); // D E F# G A into silence
 });
@@ -554,10 +599,10 @@ chapter('IX · Fanfare', 'the front pair calls, the back pair answers, brass in 
 
 // ── X · Return (C, 4/4) ───────────────────────────────────────────────
 warbleCents = 9;
-chapter('X · Return', 'home in C, the theme back in the hands; the room takes one slow tour; the ring mirrors; something leaves every phrase', .6, () => {
+chapter('X · Return', 'home in C with the Walk\'s counter-melody and bass groove; the room tours and mirrors, then the parts fall away', .6, () => {
   turnsPlan.push({ type: 'tour', t0: cursor, t1: cursor + 20, laps: 1 });
-  setTempo(104); phrase({ lvl: .9, theme: true, echoes: 3, pads: true, walkWhere: 'ring' });
-  setTempo(100); phrase({ lvl: .85, theme: true, echoes: 2, pads: true, mirror: true, bass: false });
+  setTempo(104); phrase({ lvl: .9, theme: true, echoes: 2, pads: true, walkWhere: 'ring', weave: 2 });
+  setTempo(100); phrase({ lvl: .85, theme: true, echoes: 2, pads: true, mirror: true, bass: false, weave: 1 });
   setTempo(96); phrase({ lvl: .75, theme: true, echoes: 1, pads: true, walkWhere: 'front', bass: false });
   setTempo(94); phrase({ lvl: .7, theme: true, echoes: 1, walkWhere: 'front', mirror: true, bass: false, taps: false });
   setTempo(92); phrase({ lvl: .65, theme: true, echoes: 0, walkWhere: 'seat1', walkPartials: false, bass: false, taps: false });
