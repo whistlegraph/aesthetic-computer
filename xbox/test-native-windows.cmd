@@ -23,6 +23,12 @@ cl /nologo /std:c++20 /EHsc /W4 ^
   /Fe:"%BUILD%\runtime-contract.exe" || exit /b 1
 "%BUILD%\runtime-contract.exe" || exit /b 1
 
+cl /nologo /std:c++17 /EHsc /W4 ^
+  /I"%ROOT%\xbox\runtime\include" ^
+  "%ROOT%\xbox\runtime\tests\net_send_queue_contract.cpp" ^
+  /Fe:"%BUILD%\net-send-queue-contract.exe" || exit /b 1
+"%BUILD%\net-send-queue-contract.exe" || exit /b 1
+
 cl /nologo /std:c++20 /EHsc /W4 ^
   /I"%ROOT%\xbox\runtime\include" ^
   "%ROOT%\xbox\runtime\tests\image_effects_contract.cpp" ^

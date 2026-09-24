@@ -174,7 +174,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 167;
+const buildVersion = 168;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -996,6 +996,9 @@ const cameraPin = 80;
 // cut off screen for any camera that is meaningfully above the floor, and the
 // coordinates it asks for in exchange are what the guard band is for.
 const cameraNear = 8;
+// World projection occupies [-1.4, 1.4]; the photo must stay behind even
+// distant AIR DROP fighters. Native sprite depth accepts [-1.5, 1.5].
+const photoBackdropDepth = 1.49;
 // Projected faces are cut to a band one viewport wide on every side before
 // they are handed over. The scene is allowed to run off screen; it is not
 // allowed to run off into coordinates the rasterizer cannot hold, which is
@@ -6383,7 +6386,7 @@ function netChallengerHello(now) {
   // resetRound re-applies the deal every round, so the wrong name was restamped
   // even after the real one arrived. A shell with no account system is an older
   // build, not a visitor still being asked, and is never held here.
-  if (accountState() && !accountReady()) return;
+  if (webAccountState() && !accountReady()) return;
   const at = Date.now();
   if (at < netLaneBlockedUntil) return;
   if (at - netHelloSentAt < NET_HELLO_INTERVAL_MS) return;
@@ -6421,7 +6424,7 @@ function netHostBegin(now) {
   if (workshopMap) return false;
   // Same door, other side: a deal struck before this seat knows its own handle
   // names the host for the rest of the fight, on both screens.
-  if (accountState() && !accountReady()) return false;
+  if (webAccountState() && !accountReady()) return false;
   const deal = netMakeDeal();
   const room = "ow-" + versusRoomName;
   const send = (content) => typeof globalThis.__oskiewarNetSend === "function"
@@ -6984,7 +6987,9 @@ function updateCamera(dt) {
   rect.right += rightDrift;
   rect.top += upDrift;
   rect.bottom += downDrift;
-  const maxWidth = Math.max(worldRight - worldLeft,
+  // AIR DROP has no floor: the starting room cannot cap vertical framing
+  // once fighters fall farther apart than that room was tall.
+  const maxWidth = airRoundActive() ? Infinity : Math.max(worldRight - worldLeft,
     (floorY - ceilingY) * cameraAspect);
   // Perspective orbit and uneven ground skew the projected silhouette beyond
   // its orthographic pushbox. A small fixed overscan keeps complete bodies in
@@ -7056,7 +7061,16 @@ function updateCameraDoll(dt, now) {
   if (freeForAll() || airRoundActive()) {
     updateCamera(dt);
     const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-    const width = cameraWidth * playerCameraZoom;
+    const containmentWidth = fighterContainmentRequiredWidth(
+      (now - startedAt) / 1000000) * 1.04;
+    const growth = dt > 0 ? Math.max(0,
+      containmentWidth - previousContainmentWidth) / dt : 0;
+    previousContainmentWidth = containmentWidth;
+    cameraContainFloor = Math.max(cameraContainFloor, containmentWidth + growth / 19);
+    const naturalWidth = cameraWidth * 1.015;
+    if (naturalWidth < cameraContainFloor * .92)
+      cameraContainFloor = lerp(cameraContainFloor, naturalWidth, 1 - Math.exp(-dt * 1.6));
+    const width = Math.max(naturalWidth, cameraContainFloor) * playerCameraZoom;
     cameraDoll.track({ target, position: {
       x: target.x + Math.sin(playerCameraYaw) * width * 1.35,
       y: target.y - width * (.026 + playerCameraPitch),
@@ -7344,12 +7358,13 @@ function finishRound(now) {
   if (matchOver && !netSession) finishReplay();
 }
 
-function resultCardText() {
+function resultCardText(display = false) {
   if (roundResult === "TIE") return { winner: "tie", action: "" };
   const encoded = roundResult.match(/^(@\S+)\s+WINS\b/i);
   const winner = encoded?.[1] ||
     (roundWinner()?.name || "TIE");
-  return { winner: winner.toLowerCase(), action: "" };
+  const handle = display && globalThis.__oskiewarDeviceHandles?.[roundWinner()?.pad];
+  return { winner: (handle || winner).toLowerCase(), action: "" };
 }
 
 function updateResultReactions(now) {
@@ -7476,7 +7491,7 @@ function spitMouthPose(player) {
   const radius = 22;
   const direction = player.facing || 1;
   const head = { x: player.x, y: player.y - radius };
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   const localX = direction * radius * .2;
   const localY = radius * .3;
@@ -7952,7 +7967,7 @@ function updateBullets(dt, now, combat = true) {
     // Flipping `owner` lets the returned shot hurt whoever fired it.
     if (target.blocking) {
       const shield = shieldGeometry(target);
-      const guard = sampleCombatBoxes(target,now).guard[0];
+      const guard = sampleCombatBoxes(target,now,null,false).guard[0];
       if (guard && segmentBoxEntry({x1:bullet.previousX??bullet.x,y1:bullet.previousY??bullet.y,
           z1:bullet.z,x2:bullet.x,y2:bullet.y,z2:bullet.z},guard,24)!==null) {
         let nx = bullet.x - shield.x;
@@ -8520,7 +8535,7 @@ function updateBall(ball, dt, now) {
         now < ball.safeUntil))
       continue;
     if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
-    const boxes = sampleCombatBoxes(player, now);
+    const boxes = sampleCombatBoxes(player, now, null, false);
     for (const strike of boxes.hit) {
       const distance = pointBoxDistance(strike, ball.x, ball.y, ball.z);
       if (distance <= ball.radius) {
@@ -8543,7 +8558,7 @@ function updateBall(ball, dt, now) {
       continue;
     if (!nearRunner(player, ball.x, ball.y, ball.z, ball.radius + travel)) continue;
     if (player.blocking) {
-      const guard = sampleCombatBoxes(player, now).guard[0];
+      const guard = sampleCombatBoxes(player, now, null, false).guard[0];
       const distance = guard ? pointBoxDistance(guard, ball.x, ball.y, ball.z) : Infinity;
       if (distance <= ball.radius) {
         const shield = shieldGeometry(player);
@@ -8553,7 +8568,7 @@ function updateBall(ball, dt, now) {
         return;
       }
     }
-    const headBox = sampleCombatBoxes(player,now).hurt.find(b=>b.part==='head');
+    const headBox = sampleCombatBoxes(player,now,null,false).hurt.find(b=>b.part==='head');
     const currentHeadDistance = pointBoxDistance(headBox,ball.x,ball.y,ball.z);
     const sweptHeadDistance = segmentBoxEntry(
       { x1: previous.x, y1: previous.y, z1: previous.z,
@@ -8873,7 +8888,20 @@ function bounceHeadOnSurface(player, incomingVy, horizontal) {
   }
 }
 
+// Conservative cheap superset of sampleCombatBoxes' hitbox eligibility.
+// Missing attack limbs/head-only may pass this gate, but an active hitbox never
+// fails it. Pogo contacts remain eligible even without an attackKind.
+function mayHaveMeleeHit(player, now) {
+  if (!player.alive) return false;
+  if (isPogo(player) && !player.grounded && !player.pogoHit) return true;
+  return !player.attackHit && !player.blocking && now >= player.hitStunUntil &&
+    meleeFrame(player, now).phase === "active";
+}
+
 function resolveMelee(now) {
+  // Most movement ticks have no strike. Avoid building every fighter's full
+  // skeletal pose and hurtbox tree when no melee contact can possibly occur.
+  if (!players.some(player => mayHaveMeleeHit(player, now))) return;
   const poseTime = (now - startedAt) / 1000000;
   const contacts = [];
   const samples = players.map(player => sampleCombatBoxes(player, now));
@@ -11082,7 +11110,8 @@ function photoSurface(region, a, b, c, d) {
   const points = [a, b, c, d];
   if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
       Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
-  return themeQuad(1, ...photoRegions[region],
+  const wall = region === "wall";
+  return themeQuad(wall ? 0 : 1, ...(wall ? [550,180,500,500] : photoRegions[region]),
     a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
 }
 
@@ -11154,6 +11183,44 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
   }
   filledDisc(segment.x1, segment.y1, radius, firstColor);
   filledDisc(segment.x2, segment.y2, radius, lastColor);
+}
+
+function distantFighterLocator(player, head) {
+  if (!player?.alive || shellMode !== "GAME" || head.radius >= 8 ||
+      ![head.x, head.y, head.radius].every(Number.isFinite)) return null;
+  const safe = actionSafeRect();
+  const size = compactLayout() ? 24 : 28;
+  const fullName = visibleHandle(player);
+  const label = fullName.length > 16 ? fullName.slice(0, 14) + ".." : fullName;
+  const width = handleWidth(label, size) + 24;
+  const height = size + 12;
+  // Leave the top controls/debug block and bottom player/music HUD clear.
+  const top = Math.max(safe.top + 64, viewHeight * .24);
+  const bottom = Math.min(safe.bottom - 96, viewHeight * .78);
+  const anchorX = clamp(head.x, safe.left + 10, safe.right - 10);
+  const anchorY = clamp(head.y, safe.top + 10, safe.bottom - 10);
+  const x = clamp(anchorX - width / 2, safe.left + 8, safe.right - width - 8);
+  // Opposite vertical offsets keep two nearby fighters' labels distinct.
+  const offset = player.pad === 1 ? 18 : -height - 18 - (player.pad === 2 ? height + 8 : 0);
+  const y = clamp(anchorY + offset, top, bottom - height);
+  return { x, y, width, height, size, label, anchorX, anchorY, color: player.color };
+}
+
+function drawDistantFighterLocator(player, head) {
+  const marker = distantFighterLocator(player, head);
+  if (!marker) return;
+  const previousDepth = triangleDepth;
+  triangleDepth = -1.43;
+  try {
+    const { x, y, width, height, anchorX: ax, anchorY: ay, color } = marker;
+    const edgeY = ay < y ? y : y + height;
+    filledCapsule(ax, ay, clamp(ax, x + 10, x + width - 10), edgeY, 2, color);
+    screenTriangle(ax - 8, ay, ax, ay - 8, ax + 8, ay, ...color);
+    screenTriangle(ax - 8, ay, ax + 8, ay, ax, ay + 8, ...color);
+    screenRect(x, y, width, height, [9, 10, 20]);
+    screenRect(x, y, 3, height, color);
+    typeWrite(marker.label, x + 12, y + 6, marker.size, ...color);
+  } finally { triangleDepth = previousDepth; }
 }
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
@@ -12183,7 +12250,7 @@ function runnerDistanceToPoint(player, t, px, py, pz = 0) {
 
 function runnerContactToPoint(player, t, px, py, pz = 0) {
   const now = runtime().simMonotonicUs || runtime().monotonicUs;
-  const boxes = sampleCombatBoxes(player, now);
+  const boxes = sampleCombatBoxes(player, now, null, false);
   let headDistance = Infinity, bodyDistance = Infinity, segmentIndex = -1;
   for (const hurt of boxes.hurt) {
     const distance = pointBoxDistance(hurt, px, py, pz);
@@ -13022,7 +13089,7 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
-  if (photoThemeActive) return; // Eyes belong to the retained head photograph.
+  if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -13032,7 +13099,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   // in flat face-space and spun around the head's center on the way to the
   // canvas — eyes, mouth, hair, tears, hearts, all of it — instead of the old
   // look where the head traveled and the face stayed nailed upright.
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   const spin = (x, y) => roll === 0 ? { x, y } : {
     x: head.x + (x - head.x) * cosRoll - (y - head.y) * sinRoll,
@@ -13075,10 +13142,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(head.x - r * .08, head.y - r * .18,
       head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
-  const eyeY = head.y - r * .18;
-  const eyeGap = r * .34;
-  const faceX = head.x + direction * r * .08;
-  const eyeWidth = Math.max(1.4, r * .1);
+  const eyeY = head.y - r * (photoThemeActive ? .07 : .18);
+  const eyeGap = r * (photoThemeActive ? .30 : .34);
+  const faceX = head.x + direction * r * (photoThemeActive ? .22 : .08);
+  const eyeWidth = Math.max(1.4, r * (photoThemeActive ? .125 : .1));
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
@@ -13087,6 +13154,12 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
+  if (photoThemeActive) {
+    // Cover the photographed eyes completely before drawing live gaze and
+    // expressions. Closed lids are opaque, including the baked pupils.
+    const socket = blink ? (player.pad === 0 ? [135,101,190] : [115,162,53]) : [237,234,221];
+    for (const offset of [-eyeGap,eyeGap]) disc(faceX+offset,eyeY,r*.315,socket);
+  }
   if (!player.alive || player.hit > .6 || inertDummy) {
     for (const offset of [-eyeGap, eyeGap]) {
       stroke(faceX + offset - eyeWidth, eyeY - eyeWidth,
@@ -13549,6 +13622,7 @@ function drawRunner(player, t, showLabel = true) {
   // storefront, and whoever sits under it should look back.
   drawFace(player, geometry.head, contrastShadow(color), t, displayNow);
   drawInventory(player, displayNow, geometry);
+  drawDistantFighterLocator(player, geometry.head);
   if (player.blocking) {
     const worldShield = shieldGeometry(player);
     const shield = projectPoint(worldShield.x, worldShield.y, worldShield.z);
@@ -16384,7 +16458,7 @@ function gamePaint() {
   wipe(...outside);
   if (photoThemeActive) {
     themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
-      viewWidth(),viewHeight,0,false,.98);
+      viewWidth(),viewHeight,0,false,photoBackdropDepth);
   } else if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
@@ -16652,7 +16726,7 @@ function gamePaint() {
     // One fact, in the middle of the frame: who won. The recording stops on
     // the result card, so anything queued behind the name would never survive
     // the trim — and a name alone is the whole story a reel owes a stranger.
-    const result = resultCardText();
+    const result = resultCardText(true);
     const winnerSize = compactLayout() ? 46 : 64;
     // Up top, where the fight is not. The celebration push puts the winner's
     // head in the middle of the frame, so a name anywhere near center lands on
@@ -16671,7 +16745,7 @@ function gamePaint() {
       drawCenteredKeycapRun(replayControlKeys(instantReplay.paused),
         940, 19, inputPads[0]?.down || [], titleInk);
     } else {
-      const result = resultCardText();
+      const result = resultCardText(true);
       // The result is a small ownership mark, not a second title screen.
       // Character reactions carry the emotional result in the arena.
       const winnerSize = compactLayout() ? 30 : 42;

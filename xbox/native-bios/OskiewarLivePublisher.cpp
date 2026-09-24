@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "OskiewarLivePublisher.hpp"
 #include "../runtime/include/ac/relay_endpoint.hpp"
+#include "../runtime/include/ac/net_send_queue.hpp"
 #include <fstream>
 
 using namespace Platform;
@@ -77,7 +78,7 @@ struct OskiewarLivePublisher::State {
   std::uint64_t generation = 0;
   std::string match_id;
   std::string pending;
-  std::deque<std::string> net_pending;
+  NetSendQueue net_pending;
   std::vector<std::string> net_inbox;
 };
 
@@ -97,8 +98,8 @@ void Flush(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
     if (state->stopped || !state->connected || state->writing ||
         (state->pending.empty() && state->net_pending.empty()) || !state->writer) return;
     if (!state->net_pending.empty()) {
-      payload = std::move(state->net_pending.front());
-      state->net_pending.pop_front();
+      payload = std::string("{\"type\":\"oskiewar:net\",\"content\":") +
+        state->net_pending.pop() + "}";
     } else {
       payload = std::move(state->pending);
       state->pending.clear();
@@ -282,9 +283,7 @@ bool OskiewarLivePublisher::send_net(std::string_view match_id,
   Connect(state_);
   {
     std::lock_guard<std::mutex> lock(state_->mutex);
-    if (!state_->connected || state_->net_pending.size() >= 32) return false;
-    state_->net_pending.push_back(std::string("{\"type\":\"oskiewar:net\",\"content\":") +
-      std::string(packet_json) + "}");
+    if (!state_->connected || !state_->net_pending.push(std::string(packet_json))) return false;
   }
   Flush(state_);
   return true;
