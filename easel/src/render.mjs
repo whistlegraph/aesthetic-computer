@@ -55,12 +55,13 @@ function cube(rgb) {
   const [r, g, b] = rgb.map(nearest);
   return 16 + 36 * r + 6 * g + b;
 }
-const followsSlab = process.env.EASEL_THEME === "slab";
 const themeSlots = new Map(Object.entries({text:7,prompt:13,highlight:3,handle:5,soft:6,muted:8,status:2,error:1,you:9,run:11,edit:10}).map(([role,index]) => [palette[role].join(","),index]));
 export function coloredHandle(account,colors,useColor=true,hover=false){
   if(!useColor)return account;
   const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
-  return (hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m';
+  // A dark cell behind every letter: the handle's colours are light, and
+  // whatever the window's ground is, they need something to stand on.
+  return '\x1b[48;5;233m'+(hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m'+color.ground;
 }
 const fg = (rgb) => followsSlab ? `\x1b[38;5;${themeSlots.get(rgb.join(",")) ?? 7}m` : (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
 const bg = (rgb) => followsSlab ? (rgb === palette.background ? "\x1b[49m" : "\x1b[48;5;13m") : (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
@@ -82,6 +83,10 @@ const slabState = join(
 const groundMode = (process.env.EASEL_GROUND || "").toLowerCase();
 const slabManagesWindow =
   process.env.TERM_PROGRAM === "Apple_Terminal" && existsSync(slabState);
+// In a window Slab dresses, the ink follows Slab's theme slots too, so the
+// words sit in the palette the window was given rather than in 24-bit tones
+// Terminal.app renders pale. EASEL_THEME=own keeps the interface's own ink.
+const followsSlab = process.env.EASEL_THEME === "slab" || (process.env.EASEL_THEME !== "own" && slabManagesWindow);
 export const paintsGround =
   groundMode === "paint" || (groundMode !== "inherit" && !slabManagesWindow);
 
@@ -365,17 +370,22 @@ function entryLines(entry, width, useColor, gutter = "wide") {
       fenced=!fenced;
       rows.push(paint(useColor,"muted",part.trim()));continue;
     }
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant'));continue;}
+    // Code, and what a command printed, stand on their own ground — a darker
+    // cell behind every row, the syntax colours on top — so a block reads as
+    // a block and not as more prose.
+    const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
+    const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant').map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
       let start=offset,used=0;
       for(const ch of line){
         const w=charWidth(ch);
-        if(used+w>Math.max(1,width-5)&&used){rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));start=offset;used=0;}
+        if(used+w>Math.max(1,width-5)&&used){rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));start=offset;used=0;}
         offset+=ch.length;used+=w;
       }
-      rows.push(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value)));offset++;
+      rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
     }
   }
   if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
@@ -880,10 +890,11 @@ function paintedWidth(row) {
 // A transcript row on ruled paper: the words as they were, then the rest of
 // the line underlined in the muted ink, faint enough to read as paper.
 function ruleRow(row, width) {
-  const used = Math.min(width, paintedWidth(row));
-  const rest = width - used;
-  if (rest <= 0) return row;
-  return `${fit(row, used)}${color.muted}\x1b[2m\x1b[4m${" ".repeat(rest)}\x1b[24m\x1b[22m${color.reset}${color.ground}`;
+  // The underline runs the whole row, words included, in the muted ink where
+  // the terminal can colour an underline (SGR 58) and in the text's own ink
+  // where it cannot. The ruled paper is the point; the words sit on it.
+  const ink = truecolor ? `\x1b[58;2;${palette.muted.join(";")}m` : `\x1b[58;5;${cube(palette.muted)}m`;
+  return `\x1b[4m${ink}${fit(row, width).replace(/\x1b\[0m/g, `\x1b[0m\x1b[4m${ink}`)}\x1b[59m\x1b[24m`;
 }
 
 // While the machine works the handle breathes: its colours slide toward the

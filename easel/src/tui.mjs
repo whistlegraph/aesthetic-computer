@@ -2621,6 +2621,9 @@ function handleKeys(buffer) {
         const action = headerAction(state, process.stdout.columns || 80, process.stdout.rows || 24, mouse.x, mouse.y);
         if (state.hover !== action) {
           state.hover = action;
+          // kitty, WezTerm and Ghostty change the pointer on OSC 22; Terminal.app
+          // ignores it, which costs nothing.
+          if (!process.env.EASEL_DESKTOP) process.stdout.write(`\x1b]22;${action ? "pointer" : "default"}\x07`);
           if (desktopSessionPath) process.stdout.write(`\x1b]777;easel-pointer:${action}\x07`);
           redraw();
         }
