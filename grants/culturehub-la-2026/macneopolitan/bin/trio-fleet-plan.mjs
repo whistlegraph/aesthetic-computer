@@ -64,6 +64,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
   const pairs=singerPayload({p:{voice,member},vj:profiles[member],score,bpm:score.bpm,epoch:0});
   const info=Object.fromEntries(pairs.map(p=>{const i=p.indexOf('=');return[p.slice(0,i),p.slice(i+1)];}));
   delete info.startEpoch;
+  info.faceAlpha='1';info.captionSize='110';   // the room: a full, opaque face and big captions on every singer's screen
   return {member,info};
  });
  const parts=score.voices.map(v=>notesOf(v,score.bpm));
