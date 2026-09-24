@@ -21,6 +21,13 @@ if(!service.includes('// Femrag visual follower'))service=service.replace(marker
     if(p?.playing && p.dance==='femrag-round-v1' && Number.isFinite(p.elapsed))return p;
   }catch{}
 `);
+// Trio lyric transports ride the same follower; the display keeps yielding to idle feeds.
+if(!service.includes("'trio-round-v1'"))service=service.replace("p.dance==='femrag-round-v1'","(p.dance==='femrag-round-v1' || p.dance==='trio-round-v1')");
+if(!service.includes("'trio-round-v1'"))throw Error('Unsupported stage feed filter');
+// One log line per lyric change, so the stage log shows the Trio packet as it passes through.
+if(!service.includes('trioLyricLogged'))service=service.replace("&& Number.isFinite(p.elapsed))return p;",
+ "&& Number.isFinite(p.elapsed)){\n      if(p.dance==='trio-round-v1' && (p.lyric?.text||null)!==globalThis.trioLyricLogged){globalThis.trioLyricLogged=p.lyric?.text||null;console.log(new Date().toISOString()+' trio lyric '+JSON.stringify(p.lyric||null)+' next '+JSON.stringify(p.next?.text||null));}\n      return p;}");
+if(!service.includes('trioLyricLogged'))throw Error('Unsupported stage feed return');
 const fn=readFileSync(resolve(here,'oskiewar-dance.js'),'utf8');
 const start=draw.indexOf('// Included in Neo\'s existing Oskiewar renderer;');
 if(start>=0)draw=draw.slice(0,start)+draw.slice(draw.indexOf('function performanceStageActive()',start));
@@ -29,6 +36,11 @@ if(!draw.includes("if (music.dance === 'femrag-round-v1') drawFemragDance")){
  const at=draw.indexOf(drawMarker,draw.indexOf('function drawPerformanceStage()'));
  if(at<0)throw Error('Missing performance drawing loop');
  draw=draw.slice(0,at)+"  if (music.dance === 'femrag-round-v1') drawFemragDance(music, elapsed);\n  else\n"+draw.slice(at);
+}
+if(!draw.includes("music.dance === 'trio-round-v1'")){
+ const at=draw.indexOf("if (music.dance === 'femrag-round-v1') drawFemragDance",draw.indexOf('function drawPerformanceStage()'));
+ if(at<0)throw Error('Missing Femrag drawing branch');
+ draw=draw.slice(0,at)+"if (music.dance === 'trio-round-v1') drawTrioLyric(music, elapsed);\n  else "+draw.slice(at);
 }
 const cfg=JSON.parse(readFileSync(config,'utf8'));
 cfg.femrag=process.env.FEMRAG_FEED||'http://192.168.1.234:8796/api/performance';

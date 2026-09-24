@@ -18,3 +18,19 @@ export function visualPerformance(score, transport, receivedAt, now = Date.now()
     dance:'femrag-round-v1', section:section?.name, hits:hits.slice(0,48).map(e=>[Math.round((e.t-elapsed)*100),e.seat==='sub'?6:e.seat,Number.isFinite(e.midi)?e.midi:-1]),
     notes:hits.filter(e=>e.t<=elapsed && Number.isFinite(e.midi)).slice(-2).map(e=>e.midi)};
 }
+
+// The MacNeoPolitan Trio: a lyric display follower. The transport itself
+// carries the sung phrase, so no score gate applies; nothing here schedules audio.
+export function trioPerformance(transport, receivedAt, now = Date.now()) {
+  if (transport?.dance !== 'trio-round-v1' || !transport.playing) return null;
+  if (now - receivedAt > 1250 || now < receivedAt) return null;
+  const duration = Number(transport.duration) || 0;
+  const elapsed = transport.elapsed + (now - receivedAt) / 1000;
+  if (elapsed < 0 || (duration > 0 && elapsed > duration + 1)) return null;
+  const phrase = value => value && typeof value.text === 'string' ? value : null;
+  const lyric = phrase(transport.lyric), next = phrase(transport.next);
+  return {title:String(transport.title || 'The MacNeoPolitan Trio').slice(0, 110),
+    source:'MacNeoPolitan Trio · ' + (lyric?.member || ''),
+    playing:true, phase:'playing', elapsed, duration, bpm:Number(transport.bpm) || 0,
+    dance:'trio-round-v1', section:lyric?.member || null, lyric, next, hits:[], notes:[]};
+}

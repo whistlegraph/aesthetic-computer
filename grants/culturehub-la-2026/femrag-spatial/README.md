@@ -33,6 +33,15 @@ Xbox screenshot inspected with six dancing figures and section/time footer.
 Both acknowledged the return after Stop; the feed returned `null`.
 Verification was a silent visual-only probe, not a full-fleet audio audition.
 
+The same feed carries the MacNeoPolitan Trio's lyrics. A transport with
+`dance:'trio-round-v1'` (plus `title`, `bpm`, `duration`, `lyric`, `next`)
+skips the Femrag score gate and is validated against its own `duration`;
+`trioPerformance` in `visual-feed.mjs` returns it as a lyric follower with no
+note tuples. Order: a fresh Trio transport, then the Notepat feed, then Femrag.
+Neo's stage forwards `lyric`/`next` unchanged and `drawTrioLyric` in
+`oskiewar-dance.js` draws the phrase large in the singer's colour, the singer
+above, the next line dim beneath, over six breathing figures.
+
 `install-oskiewar.mjs` applies the small source/config integration on Neo and
 keeps `.pre-femrag` backups. It preserves other local Oskiewar work. Run it on
 Neo before its existing paired hot-deploy workflow; restart the stage service
