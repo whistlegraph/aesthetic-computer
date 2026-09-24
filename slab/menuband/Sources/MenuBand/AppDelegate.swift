@@ -1189,6 +1189,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // left edge. The closure returns nil when the popover
         // isn't visible, falling the panel back to the menubar
         // status-item anchor.
+        // The corner ghost hangs under the menu-bar keyboard: tell the face where it is.
+        SingerFace.SimSlot.keyboardFrame = { [weak self] in
+            guard let self, let button = self.statusItem?.button, let w = button.window else { return nil }
+            return w.convertToScreen(button.frame)
+        }
         pianoWaveformWindowDelegate.popoverFrameProvider = { [weak self] in
             guard let self = self, self.isPopoverPanelShown else { return nil }
             return self.popoverPanel?.frame
@@ -4844,6 +4849,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // this one machine: its own singer node (panned), a tile-sized face
         // and caption instead of the whole display.
         let simSlot = SingerFace.SimSlot(info["sim"])
+        // `corner=1|<pt>`: the preview — a small ghost tile under the menu-bar
+        // keys on this body, resting between its lines; the voice stays the
+        // shared singer.
+        let cornerSlot = SingerFace.SimSlot.corner(info["corner"])
+        let tileSlot = simSlot ?? cornerSlot
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             // Stop may have invalidated the prepared cache between receipt
@@ -4995,8 +5005,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             let captionAccent = LyricCaption.color(hex: info["captionColor"])
             let captionSize = CGFloat(Double(info["captionSize"] ?? "") ?? 0)
-            let caption = LyricCaption.at(simSlot)
-            let face = SingerFace.at(simSlot)
+            let caption = LyricCaption.at(tileSlot)
+            let face = SingerFace.at(tileSlot)
+            if simSlot == nil { self.menuBand.singerVoice.face = face }   // the jaw meter reaches the tile
             if let performance = SingerPerformance.decode(info["performance"]) {
                 face.configure(epoch: downbeatEpoch, bpm: bpm, expression: performance.expression)
                 self.singerPerformance.play(performance, epoch: downbeatEpoch, bpm: bpm) { [weak self] x,y in
@@ -5009,8 +5020,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let faceMember = (info["face"] ?? "0") == "0" ? nil : info["face"]
             // `faceAlpha=0.7` — the skin becomes a translucent wash (default flat).
             // `gaze=0` — leave the lid camera off (default: eyes follow the room).
-            let faceAlpha = CGFloat(Double(info["faceAlpha"] ?? "") ?? 1)
+            let faceAlpha = CGFloat(Double(info["faceAlpha"] ?? "") ?? (cornerSlot != nil ? 0.72 : 1))
             let faceGaze = (info["gaze"] ?? "1") != "0"
+            var activeLine = -1     // the line whose show came last: only its end may rest the face
+            if cornerSlot != nil, let fm = faceMember {
+                // the ghost is up from the downbeat, resting until its first line
+                DispatchQueue.main.asyncAfter(deadline: at(downbeatEpoch - 0.6)) { [weak self] in
+                    guard let self = self, self.playGeneration == gen else { return }
+                    face.show(member: fm, accent: captionAccent, skin: faceAlpha, gaze: faceGaze)
+                    face.rest(true)
+                }
+            }
             var sylIndex = 0
 
             for (ti, track) in tracks.enumerated() {
@@ -5075,6 +5095,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                         guard let self = self, self.playGeneration == gen else { return }
                                         caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
                                         if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent, skin: faceAlpha, gaze: faceGaze) }
+                                        activeLine = li
+                                        if faceMember != nil { face.rest(false) }
                                     }
                                 }
                                 DispatchQueue.main.asyncAfter(deadline: at(onEpoch)) { [weak self] in
@@ -5092,6 +5114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.2)) { [weak self] in
                                         guard let self = self, self.playGeneration == gen else { return }
                                         caption.hide(line: li)
+                                        if faceMember != nil, activeLine == li { face.rest(true) }   // not if the next line already began
                                     }
                                 }
                                 if si + 1 == lineOfSyllable.count, faceMember != nil {

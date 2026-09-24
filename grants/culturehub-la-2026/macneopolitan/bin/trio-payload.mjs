@@ -25,5 +25,6 @@ export function singerPayload({p, vj, score, bpm, epoch, face=true}) {
     }
     if (score.title) kv.push(`title=${score.title.replace(/[;'=]/g, " ").trim()}`);
     if (p.sim) kv.push(`sim=${p.sim}`);
+    if (p.corner) kv.push(`corner=${p.corner}`);   // the ghost tile under the keys (see trio.mjs --corner)
     return kv;
 }

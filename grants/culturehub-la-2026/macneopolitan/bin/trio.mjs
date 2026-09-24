@@ -38,6 +38,11 @@
 //   voice i posts with `sim=i/n`, so Menu Band gives it its own singer node
 //   (panned across the stage), a tile-sized face and caption at the bottom
 //   right of the screen, and every member sings at once. No hosts needed.
+// --corner[=pt] (or --preview): preview mode — every member still sings on
+//   its own body, but its face is a small translucent ghost under the Menu
+//   Band keyboard (280 pt wide, or the width given), caption inside, eyes on
+//   the keys, resting between its lines. Posts `corner=`; needs a Menu Band
+//   built after 2026-09-24. The full-screen face is the show; this is rehearsal.
 // --quiet: skip intro and outro.
 // --dry: prepare everything (posters, skews, vox renders), schedule nothing.
 
@@ -259,6 +264,8 @@ const flags = argv.filter((a) => a.startsWith("--"));
 const words = argv.filter((a) => !a.startsWith("--"));
 const reduce = flags.includes("--reduce");
 const sim = flags.includes("--sim");
+const cornerFlag = flags.find((f) => /^--(corner|preview)(=|$)/.test(f));
+const corner = !sim && cornerFlag ? (cornerFlag.split("=")[1] || "1") : null;   // "1" or a width in pt: the ghost tile
 const useVox = flags.includes("--vox");
 const via = (flags.find((f) => f.startsWith("--via")) || "").split("=")[1] || (words.includes("livesing") ? "livesing" : "menuband");
 const quiet = flags.includes("--quiet");
@@ -272,7 +279,7 @@ const hosts = sim ? [localName] : givenHosts;   // the simulator plays the whole
 // phrase); Menu Band reads them, the older paths (livesing, vox, stems) don't.
 const bareLyrics = (l) => String(l).trim().split(/\s+/).filter((t) => t !== "/").join(" ");
 if (!scoreArg || !hosts.length) {
-  console.log("usage: node bin/trio.mjs <score.mbscore> <host1> [host2 host3] [--reduce] [--quiet] [--dry]");
+  console.log("usage: node bin/trio.mjs <score.mbscore> <host1> [host2 host3] [--reduce] [--quiet] [--dry] [--corner]");
   console.log("       node bin/trio.mjs <score.mbscore> --sim            (the whole band on this machine)");
   console.log("       node bin/trio.mjs --setlist <setlist.json> <host1> [host2 host3] [--reduce]");
   process.exit(1);
@@ -322,7 +329,7 @@ if (hosts.length < need && !reduce && !sim) {
 // Assignment: voice i → host i. With --reduce, the unhosted voices fold.
 const roster = sim ? voices.map(() => hosts[0]) : hosts.slice(0, Math.min(need, hosts.length));
 const parts = roster.map((h, i) => ({ host: h, voice: { ...voices[i] }, idx: i, sung: !!voices[i].lyrics,
-  sim: sim ? `${i}/${voices.length}` : null }));
+  sim: sim ? `${i}/${voices.length}` : null, corner }));
 const skipped = [];
 if (reduce) {
   let track = 2;
@@ -340,7 +347,7 @@ if (reduce) {
 console.log(`\n♪ ${score.title} — ${bpm} bpm, ~${durSec.toFixed(0)}s`);
 console.log(`  assignment:`);
 for (const p of parts)
-  console.log(`    ${p.voice.name.padEnd(22)} → ${shortName(p.host)}${isLocal(p.host) ? " (local)" : ""}${p.sim ? `  [sim tile ${p.idx + 1}/${parts.length}]` : ""}${p.sung ? "  ♫ sung" : ""}${p.folded ? `  + folded: ${p.folded.join(", ")}` : ""}`);
+  console.log(`    ${p.voice.name.padEnd(22)} → ${shortName(p.host)}${isLocal(p.host) ? " (local)" : ""}${sim ? `  [sim tile ${p.idx + 1}/${parts.length}]` : corner ? "  [corner tile]" : ""}${p.sung ? "  ♫ sung" : ""}${p.folded ? `  + folded: ${p.folded.join(", ")}` : ""}`);
 for (const s of skipped) console.log(`    ${s.padEnd(22)} → (no body yet — skipped; a member sings only its own line)`);
 
 // ---- prepare: tools, skews, renders ----------------------------------------
@@ -457,6 +464,7 @@ for (const p of parts) {
       if (p.voice.notes4) kv.push(`notes3=${p.voice.notes4}`, `velocity3=${p.voice.velocity4 ?? 56}`);
       if (score.title) kv.push(`title=${score.title.replace(/[;'=]/g, " ").trim()}`);
       if (p.sim) kv.push(`sim=${p.sim}`);
+      if (p.corner) kv.push(`corner=${p.corner}`);
       sends.push({ kind: "tracks", host: p.host, ok: await post(p.host, PLAY, kv.join(";")) });
     }
     // A sung voice may also carry a whistle double on its own machine.
@@ -468,6 +476,7 @@ for (const p of parts) {
       const kv = [`bpm=${bpm}`, `startEpoch=${skewed(p.host, downbeat)}`, `program=${p.voice.doubleProgram ?? 78}`,
         `velocity=${p.voice.doubleVelocity ?? 56}`, `notes=${doubled}`];
       if (p.sim) kv.push(`sim=${p.sim}`);
+      if (p.corner) kv.push(`corner=${p.corner}`);
       sends.push({ kind: "double", host: p.host, ok: await post(p.host, PLAY, kv.join(";")) });
     }
     continue;
@@ -478,6 +487,7 @@ for (const p of parts) {
       kv.push(`${k}=${v}`);
   if (score.title) kv.push(`title=${score.title.replace(/[;'=]/g, " ").trim()}`);
   if (p.sim) kv.push(`sim=${p.sim}`);
+  if (p.corner) kv.push(`corner=${p.corner}`);
   sends.push({ kind: "music", host: p.host, ok: await post(p.host, PLAY, kv.join(";")) });
 }
 

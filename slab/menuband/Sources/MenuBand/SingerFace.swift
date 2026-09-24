@@ -19,6 +19,12 @@ final class SingerFace {
     /// machine) before the real bodies are spread across the room.
     struct SimSlot: Hashable {
         let index: Int, count: Int
+        /// The corner ghost (`corner=1` or `corner=<pt>` on a play payload):
+        /// one small translucent tile under the menu-bar keyboard on THIS
+        /// body, so a piece can be previewed while the desk stays usable.
+        /// The voice is the ordinary shared singer, not a sim node.
+        var corner = false
+        var width: CGFloat = 0
         /// "i/n" → slot; anything else → nil (the full display).
         init?(_ raw: String?) {
             guard let raw, !raw.isEmpty, raw != "0" else { return nil }
@@ -26,10 +32,32 @@ final class SingerFace {
             guard p.count == 2, let i = Int(p[0]), let n = Int(p[1]), n > 0, i >= 0, i < n else { return nil }
             index = i; count = n
         }
+        private init(cornerWidth: CGFloat) { index = 0; count = 1; corner = true; width = cornerWidth }
+        /// "1" → the default corner tile; "<pt>" → that wide; nil/""/"0" → nil.
+        static func corner(_ raw: String?) -> SimSlot? {
+            guard let raw = raw?.trimmingCharacters(in: .whitespaces), !raw.isEmpty, raw != "0" else { return nil }
+            let w = Double(raw) ?? 1
+            return SimSlot(cornerWidth: w > 1 ? CGFloat(w) : 0)
+        }
+        /// The face and caption a slot owns: sim tiles by index, the corner its own.
+        var key: Int { corner ? -1 : index }
+        /// The menu-bar keyboard's screen rect, set by the app; the corner
+        /// tile centres under it.
+        static var keyboardFrame: (() -> NSRect?)?
         /// Tiles side by side along the bottom-right of the menu-bar screen,
-        /// 16:10, each at most 520 pt wide.
+        /// 16:10, each at most 520 pt wide. The corner tile hangs under the
+        /// keys instead: 280 pt wide unless the payload says otherwise.
         func tile(on screen: NSScreen) -> NSRect {
             let vf = screen.visibleFrame
+            if corner {
+                let w = min(vf.width - 32, width > 0 ? width : 280)
+                let h = floor(w * 0.625)
+                var x = vf.maxX - 16 - w
+                if let keys = SimSlot.keyboardFrame?(), keys.width > 0 {
+                    x = min(vf.maxX - 16 - w, max(vf.minX + 16, round(keys.midX - w / 2)))
+                }
+                return NSRect(x: x, y: vf.maxY - 6 - h, width: w, height: h)
+            }
             let margin: CGFloat = 16, gap: CGFloat = 12
             let w = min(520, floor((vf.width - margin * 2 - gap * CGFloat(count - 1)) / CGFloat(count)))
             let h = floor(w * 0.625)
@@ -43,8 +71,8 @@ final class SingerFace {
     /// The face for a payload: `shared` for the full display, one per tile in sim mode.
     static func at(_ slot: SimSlot?) -> SingerFace {
         guard let slot else { return shared }
-        if let f = slots[slot.index] { f.slot = slot; return f }
-        let f = SingerFace(); f.slot = slot; slots[slot.index] = f; return f
+        if let f = slots[slot.key] { f.slot = slot; return f }
+        let f = SingerFace(); f.slot = slot; slots[slot.key] = f; return f
     }
     static func hideAll() { shared.hide(); slots.values.forEach { $0.hide() } }
 
@@ -112,7 +140,9 @@ final class SingerFace {
         v.member = member
         v.accent = accent
         v.skin = skin
-        v.label = slot == nil ? nil : member
+        v.label = slot == nil || slot?.corner == true ? nil : member   // sim tiles are named; the ghost is not
+        v.watchKeys = slot?.corner == true              // the ghost watches the keys light
+        v.zoom = slot?.corner == true ? 0.78 : 1        // …and sits smaller in its tile, room for the fade
         if slot == nil { gaze ? SingerGaze.shared.start() : SingerGaze.shared.stop() }
         v.articulationPose = { [weak self] in self?.mouthPose() }
         v.articulationBreath = { [weak self] in self?.inhale() ?? 0 }
@@ -128,6 +158,12 @@ final class SingerFace {
     func onset(_ syllable: String, hold: Double) {
         precondition(Thread.isMainThread)
         view?.onset(syllable, hold: hold)
+    }
+
+    /// Between lines the face rests: lids down, eyes drifting, a slow breath.
+    func rest(_ resting: Bool) {
+        precondition(Thread.isMainThread)
+        view?.resting = resting
     }
 
     /// Live level from the singer's audio tap: the jaw follows the sound.
@@ -168,6 +204,10 @@ final class SingerFaceView: NSView {
     var accent = NSColor.orange
     var skin: CGFloat = 1                 // 1 = flat color; below, a translucent wash
     var label: String?                    // sim tile: the member's name in the corner
+    var watchKeys = false                 // corner ghost: eyes up toward the menu-bar keys
+    var resting = false                   // between lines: lids come down, eyes drift, a slow breath
+    var zoom: CGFloat = 1                 // the whole face scaled about the centre (corner ghost < 1)
+    private var drowsy: CGFloat = 0       // eased `resting`, 0…1
     var articulationPose: (() -> SingerMouthPose?)?
     var previewPose: SingerMouthPose?      // deterministic render inspection
     var previewEffort: CGFloat?          // expression render inspection
@@ -218,7 +258,6 @@ final class SingerFaceView: NSView {
     private var bob: CGFloat = 0
 
     override var isFlipped: Bool { false }
-
     private var metalFace: SingerFaceMetalView?
     private var canvas: SingerFaceCanvas?
     private var link: AnyObject?          // CADisplayLink on macOS 14+
@@ -343,7 +382,8 @@ final class SingerFaceView: NSView {
         boil = UInt64(phase)
         let fraction = CGFloat(phase - floor(phase))
         boilBlend = fraction*fraction*(3-2*fraction)
-        if expression == 0 && now > nextBlink {
+        // A quiet face blinks on its own clock, performance or not.
+        if (expression == 0 || vitality < 0.08) && now > nextBlink {
             blinkUntil = now.addingTimeInterval(0.13)
             nextBlink = now.addingTimeInterval(2.2 + Double(boil % 30) / 10)
         }
@@ -363,6 +403,14 @@ final class SingerFaceView: NSView {
             let sway = expression > 0 ? sin(beat * .pi / 4) * 0.15 * Double(vitality) : 0
             gazeTarget = CGPoint(x: person.x + sway, y: person.y + Double(breath)*0.15)
             tau = 0.2
+        } else if watchKeys && drowsy < 0.5 {
+            // the corner ghost: eyes up at the keys as they light, a little wander
+            gazeTarget = CGPoint(x: wander.x * 0.35, y: 0.55 + wander.y * 0.15)
+            tau = 0.25
+        } else if drowsy >= 0.5 {
+            // resting: a lazy look around, a touch downward under the lids
+            gazeTarget = CGPoint(x: wander.x * 0.8, y: wander.y * 0.6 - 0.15 * Double(drowsy))
+            tau = 0.5
         } else if expression > 0 {
             gazeTarget = CGPoint(x: sin(beat * .pi / 4) * 0.85 * Double(vitality) + wander.x*0.7,
                                  y: 0.05 + Double(vitality)*0.35 + Double(breath)*0.55 + wander.y*0.7)
@@ -389,6 +437,10 @@ final class SingerFaceView: NSView {
         effort += (sounding-effort)*CGFloat(1-exp(-dt/(sounding>effort ? 0.045 : 0.20)))
         let incoming = articulationBreath?() ?? 0
         breath += (incoming-breath)*CGFloat(1-exp(-dt/0.028))
+        // Resting eases in slowly (the lids drift down) and out fast (a line
+        // is coming); while resting, a free-running breath rides underneath.
+        drowsy += ((resting ? 1 : 0) - drowsy) * CGFloat(1 - exp(-dt / (resting ? 0.9 : 0.22)))
+        if drowsy > 0.01 { breath = max(breath, CGFloat(0.5 + 0.5 * sin(wanderT * 1.35)) * 0.4 * drowsy) }
         if expression > 0, breath > 0.15, let pose = drawnPose, pose.seal > 0.95, pose.press == 0 {
             var inhale = SingerViseme.oh.pose
             inhale.jaw = Double(breath)*0.22; inhale.width = 0.65
@@ -457,6 +509,11 @@ final class SingerFaceView: NSView {
             }
         }
         let W = bounds.width, H = bounds.height
+        if zoom != 1 {
+            ctx.saveGState()
+            ctx.translateBy(x: W / 2, y: H / 2); ctx.scaleBy(x: zoom, y: zoom); ctx.translateBy(x: -W / 2, y: -H / 2)
+        }
+        defer { if zoom != 1 { ctx.restoreGState() } }
         let isBB = member == "blueberry"
         let isFrisbee = member == "frisbee"
         let line = W * 0.011
@@ -481,16 +538,36 @@ final class SingerFaceView: NSView {
             ctx.fill(NSBezierPath(rect: bounds), color: base)
             ctx.edgeLight(in:bounds,center:base,edge:edge)
         } else {
-            // The skin as gradients: a wash of the member's color, stronger
-            // at the top, thinning to almost nothing below; a soft glow
-            // behind the features. The desktop reads through all of it.
-            ctx.wash(in: bounds, top: base.withAlphaComponent(skin), bottom: base.withAlphaComponent(skin*0.8))
-            // Two glows behind the features: a wide soft one and a tighter,
-            // stronger one, so the eyes and mouth sit on skin, not on desktop.
-            let glow = NSBezierPath(ovalIn: CGRect(x: W*0.08, y: H*0.08, width: W*0.84, height: H*0.86))
-            ctx.gradient(in: glow, color: edge.withAlphaComponent(skin*0.55))
-            let core = NSBezierPath(ovalIn: CGRect(x: W*0.22, y: H*0.2, width: W*0.56, height: H*0.62))
-            ctx.gradient(in: core, color: base.withAlphaComponent(skin*0.7))
+            // The ghost skin (`faceAlpha` < 1, and the corner tile): not a
+            // wash over the whole frame but a BODY — a lumpy, boiling blob of
+            // the member's color, densest in the middle and thinning to
+            // nothing at its own edge, with clouds of cooler and warmer tone
+            // drifting through it, and no line where it ends. Drawn
+            // in the face's own coordinates, so the same surface fills a
+            // display or hangs under the keys.
+            let cxb = W / 2, cyb = H / 2
+            // Nested fans of the color, each fading to nothing at its own
+            // lumpy contour: stacked, the middle plateaus and the edge
+            // dissolves softly into the desk — no line, no hard edge.
+            let layers: [(inset: CGFloat, tone: NSColor, a: CGFloat)] = [
+                (0.00, cool, 0.45), (0.06, base, 0.55), (0.13, base, 0.55), (0.22, warm, 0.50)]
+            for (k, l) in layers.enumerated() {
+                let body = blob(cx: cxb, cy: cyb, rx: W * (0.5 - l.inset), ry: H * (0.5 - l.inset),
+                                lump: 0.04 + 0.02 * CGFloat(k), salt: 40 + k, n: 40)
+                ctx.gradient(in: body, color: l.tone.withAlphaComponent(skin * l.a))
+            }
+            // seven clouds: soft radials of an off-tone, each on its own slow
+            // orbit, jittered by the boil, kept inside the body
+            for i in 0..<7 {
+                let fi = CGFloat(i)
+                let drift = CGFloat(wanderT) * (0.05 + 0.02 * fi)
+                let px = cxb + W * (0.24 * sin(drift + fi * 1.7) + 0.015 * j(i, 60))
+                let py = cyb + H * (0.20 * cos(drift * 0.8 + fi * 2.3) + 0.015 * j(i, 61))
+                let r = W * (0.12 + 0.035 * CGFloat((i * 7) % 4))
+                let tone = i % 3 == 0 ? warm : i % 3 == 1 ? cool : edge
+                let cloud = blob(cx: px, cy: py, rx: r, ry: r * 0.72, lump: 0.12, salt: 70 + i, n: 22)
+                ctx.gradient(in: cloud, color: tone.withAlphaComponent(skin * 0.32))
+            }
         }
 
         ctx.saveGState()
@@ -508,7 +585,10 @@ final class SingerFaceView: NSView {
         ctx.scaleBy(x: zoom, y: zoom)
         ctx.translateBy(x: -W/2, y: -H/2)
         // squash on the onset around the face's center, leaning left then right
-        ctx.translateBy(x: W / 2, y: H * 0.5 + sin(bob * 1.1) * H * 0.018 * motion)
+        // …and under everything a breath: a slow lift that never stops,
+        // deeper while resting, so a silent face still reads as alive.
+        let breathing = sin(bob * 1.3) * H * 0.012 * (0.3 + 0.7 * drowsy)
+        ctx.translateBy(x: W / 2, y: H * 0.5 + sin(bob * 1.1) * H * 0.018 * motion + breathing)
         ctx.rotate(by: squash * lean * (isBB ? 0.025 : isFrisbee ? 0.065 : 0.045) * motion)
         ctx.scaleBy(x: 1 + (isBB ? 0.055 : 0.09) * squash * motion, y: 1 - (isBB ? 0.075 : 0.12) * squash * motion)
         ctx.translateBy(x: -W / 2, y: -H * 0.5)
@@ -615,14 +695,17 @@ final class SingerFaceView: NSView {
                 let eye = blob(cx: cx, cy: cy, rx: ew, ry: eh, lump: 0.025, salt: Int(side) + 20, n: 18)
                 ink(eye, width: line, fill: NSColor(srgbRed: 0.98, green: 0.95, blue: 0.88, alpha: 1))
                 let pr = ew * (isBB ? 0.34 : isFrisbee ? 0.47 : 0.43)
-                let px = cx + gaze.x * ew * 0.5, py = cy + gaze.y * eh * 0.4
+                let px = cx + gaze.x * ew * 0.5, py = cy + gaze.y * eh * 0.4 - drowsy * eh * 0.2
                 ctx.fill(NSBezierPath(ovalIn: CGRect(x: px - pr, y: py - pr, width: pr * 2, height: pr * 2)), color: .black)
                 ctx.fill(NSBezierPath(ovalIn: CGRect(x: px - pr * 0.15, y: py + pr * 0.3, width: pr * 0.5, height: pr * 0.5)), color: .white)
-                if isBB {
-                    // heavy lids: the top of each eye in the face's own color
+                // Lids: blueberry's are heavy by nature; everyone's come down
+                // while resting, until the eye is a slit under the lid line.
+                let lidBase = isBB ? eh * (0.2 + mood*energy*0.3) : eh * 1.05
+                let lid = lidBase - drowsy * (lidBase + eh * 0.72)
+                if isBB || drowsy > 0.02 {
                     ctx.saveGState(); ctx.clip(eye)
-                    let lid = eh * (0.2 + mood*energy*0.3)
-                    ctx.fill(NSBezierPath(rect: CGRect(x: cx - ew * 1.2, y: cy + lid, width: ew * 2.4, height: eh * 1.2)), color: accent)
+                    ctx.fill(NSBezierPath(rect: CGRect(x: cx - ew * 1.2, y: cy + lid, width: ew * 2.4, height: eh * 2.4)),
+                             color: accent.withAlphaComponent(0.5 + 0.5 * skin))   // a ghost's lids are a little sheer too
                     ctx.restoreGState()
                     let edge = NSBezierPath()
                     edge.move(to: CGPoint(x: cx - ew, y: cy + lid))

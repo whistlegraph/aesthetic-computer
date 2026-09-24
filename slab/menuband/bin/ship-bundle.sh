@@ -19,6 +19,9 @@ mv ".menuband-ship/Menu Band.app" "Menu Band.app"
 rmdir ".menuband-ship"
 codesign --verify --deep --strict "Menu Band.app" >/dev/null 2>&1 && echo "signature ok" || echo "signature: not verified"
 uid=$(id -u)
+# kickstart -k only restarts the agent's own child; an instance launched any
+# other way survives and the new one exits as a duplicate. Kill it first.
+pkill -x MenuBand 2>/dev/null && sleep 1
 for label in computer.aestheticcomputer.menuband computer.aestheticcomputer.menubandlauncher; do
   launchctl kickstart -k "gui/$uid/$label" 2>/dev/null && echo "kickstarted $label" || echo "no agent $label"
 done
