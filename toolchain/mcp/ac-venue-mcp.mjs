@@ -182,7 +182,7 @@ async function runQueueOnce() {
   try {
     setRig({ owner: local, since: new Date().toISOString(), note: `setlist: ${item.label || item.out}` });
     const ownConductor = existsSync(join(outDir(item.out), "run-fleet.py"));   // a folder with its own conductor stages itself
-    if (item.status !== "ready" && !ownConductor) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, allowPieces: item.allowPieces || "notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
+    if (item.status !== "ready" && !ownConductor) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
     mark("cueing"); const r = await cue({ out: item.out, announce: item.announce, rttMax: item.rttMax || 0.08 });   // venue Wi-Fi: ±40 ms clocks, printed as a warning mark("playing", { runId: r.runId, startedAt: Date.now() / 1000 });

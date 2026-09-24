@@ -95,7 +95,7 @@ if(command==='plan') {
  // an absolute gain) mixed from that member's actual raw phrase. Seat 5's
  // stem doubles as `centerMix` for the older readiness checks.
  const phraseOf=(member,k)=>{const sg=singers.find(s=>s.member===member),p=sg?.phrases[k];if(!p)throw Error(`${member}: phrase ${k} not prepared`);return {p,dir:dirname(sg.manifest)};};
- const length=Math.max(...plan.routes.map(r=>{const {p}=phraseOf(r.member,r.phrase);return Math.round((p.spanOffset+r.delay)*rate)+p.frames;}));
+ const length=Math.max(Math.round((plan.duration+1)*rate),...plan.routes.map(r=>{const {p}=phraseOf(r.member,r.phrase);return Math.round((p.spanOffset+r.delay)*rate)+p.frames;}));
  const seatMix={};for(const n of plan.nodes)seatMix[n.id]=new Float32Array(length);
  for(const r of plan.routes){
   const {p,dir}=phraseOf(r.member,r.phrase);
@@ -104,6 +104,32 @@ if(command==='plan') {
   if(raw.length!==p.frames*4)throw Error('PCM frame count mismatch');
   for(let n=0;n<p.frames;n++)mix[offset+n]+=raw.readFloatLE(n*4)*r.gain;
  }
+ // Bake every sounding event layer into the seat's stem too — sine beds,
+ // harmonies, the music box and pad (approximated), the percussion — so
+ // nothing on a seat is fired from a simulation frame: the deck plays it all
+ // sample-locked from the downbeat. The events stay in the plan for the
+ // notation and are marked `baked` so native staging keeps them off the
+ // seat's live event list.
+ const bake=(mix,e)=>{
+  const start=Math.round(e.t*rate),len=Math.round(Math.min(e.dur,12)*rate)+Math.round((e.release??.12)*rate);
+  const att=Math.max(1,Math.round((e.attack??.015)*rate)),rel=Math.max(1,Math.round((e.release??.12)*rate)),hold=Math.max(0,Math.round(e.dur*rate)-att);
+  const f=e.frequency,g=e.gain,gm=e.gmProgram;let ph=0,ph2=0,seed=(start%9973)+1;
+  for(let n=0;n<len&&start+n<mix.length;n++){
+   const env=n<att?n/att:n<att+hold?1:Math.max(0,1-(n-att-hold)/rel);
+   if(env<=0)break;
+   let v;
+   if(e.wave==='noise'){seed=(seed*1103515245+12345)&0x7fffffff;v=(seed/0x7fffffff*2-1)*.6;}
+   else if(gm===11){ph+=2*Math.PI*f/rate;ph2+=2*Math.PI*f*4.1/rate;const dk=Math.exp(-n/rate*6);v=(Math.sin(ph)*.7+Math.sin(ph2)*.3*dk)*dk;}          // music box: bright partial, quick decay
+   else if(gm===89){ph+=2*Math.PI*f/rate;ph2+=2*Math.PI*f*1.004/rate;v=(Math.sin(ph)+Math.sin(ph2)+.3*Math.sin(ph*2))/2.3;}                          // warm pad: two detuned sines
+   else if(gm===116){const fr=f*(1+2.5*Math.exp(-n/rate*30));ph+=2*Math.PI*fr/rate;v=Math.sin(ph)*Math.exp(-n/rate*8);}                              // taiko: pitch drop, fast decay
+   else if(gm===115){ph+=2*Math.PI*f/rate;v=(Math.sin(ph)*.6+Math.sin(ph*2.76)*.4)*Math.exp(-n/rate*40);}                                              // woodblock: inharmonic tick
+   else{ph+=2*Math.PI*f/rate;v=e.wave==='triangle'?(2/Math.PI)*Math.asin(Math.sin(ph)):e.wave==='square'?Math.sign(Math.sin(ph)):Math.sin(ph);}
+   mix[start+n]+=v*g*env;
+  }
+ };
+ const BAKED=['harmony','inst','perc','bed','ornament'];
+ for(const e of plan.events)if(BAKED.includes(e.layer)&&seatMix[e.receiver]){bake(seatMix[e.receiver],e);e.baked=true;}
+ writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');   // the plan now says which events the stems carry
  const stems={};
  for(const [id,mix] of Object.entries(seatMix)){
   let peak=0;for(const sample of mix){if(!Number.isFinite(sample))throw Error('Non-finite relay audio');peak=Math.max(peak,Math.abs(sample));}
