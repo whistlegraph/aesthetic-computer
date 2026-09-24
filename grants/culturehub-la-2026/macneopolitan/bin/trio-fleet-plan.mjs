@@ -23,6 +23,20 @@ export function notesOf(voice,bpm) {
  if(result.length!==counts.reduce((a,b)=>a+b,0))throw Error('Notes and sung syllables must match');
  return result;
 }
+// Which member's part feeds each backing layer, and the bar length. A score
+// may say so in `fleet` ({bass, bed, ornament, beatsPerBar}); the meter in
+// `arrangement.meter` ("3/4") sets the bar when `fleet` does not. Defaults are
+// the One Big Voice choices: bass from blueberry, bed from frisbee, ornaments
+// from neo for four bars then frisbee.
+export function layerSources(score) {
+ const f=score.fleet??{};
+ const meter=/^(\d+)\s*\/\s*\d+$/.exec(String(score.arrangement?.meter??''));
+ const beatsPerBar=f.beatsPerBar??(meter?Number(meter[1]):4);
+ if(!Number.isInteger(beatsPerBar)||beatsPerBar<1||beatsPerBar>12)throw Error('Invalid beats per bar');
+ const idx=v=>{const i=typeof v==='number'?v:members.indexOf(v);if(!(i>=0&&i<3))throw Error('fleet layer sources must name a member');return i;};
+ return {beatsPerBar,bass:idx(f.bass??1),bed:idx(f.bed??2),ornament:f.ornament==null?null:idx(f.ornament),ornamentLate:idx(f.ornamentLate??2)};
+}
+export const noteName=n=>['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'][((n%12)+12)%12]+String(Math.floor(n/12)-1);
 export function buildPlan(score,profiles,fleet,levels={}) {
  if(score.voices?.length!==3||score.voices.some(v=>typeof v.lyrics!=='string'||!v.lyrics.trim()))throw Error('Expected three sung member parts');
  if(!Number.isFinite(score.bpm)||score.bpm<=0)throw Error('Invalid BPM');
@@ -43,13 +57,14 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  const parts=score.voices.map(v=>notesOf(v,score.bpm));
  const dur=Math.max(...parts.flat().map(e=>e.t+e.dur));
  const events=[];const emit=(layer,receiver,e,extra={})=>events.push({id:`${layer}-${events.length}`,layer,receiver,...e,...extra});
- for(const e of parts[1])emit('sub','sub',{t:e.t,dur:e.dur,note:e.note-12,frequency:440*2**((e.note-12-69)/12),gain:levels.sub*e.gain,attack:.015,release:.12,sourceNote:e.index,wave:'sine'});
- const barSeconds=240/score.bpm;
+ const src=layerSources(score);
+ for(const e of parts[src.bass])emit('sub','sub',{t:e.t,dur:e.dur,note:e.note-12,frequency:440*2**((e.note-12-69)/12),gain:levels.sub*e.gain,attack:.015,release:.12,sourceNote:e.index,wave:'sine'});
+ const barSeconds=src.beatsPerBar*60/score.bpm;
  for(let bar=0;bar*barSeconds<dur-.01;bar++) {
   const t=bar*barSeconds;
-  const inner=parts[2].find(e=>e.t>=t-1e-4&&e.t<t+barSeconds);
+  const inner=parts[src.bed].find(e=>e.t>=t-1e-4&&e.t<t+barSeconds);
   if(inner)emit('bed','seat-0',{t,dur:Math.min(barSeconds*.92,dur-t),note:inner.note-12,frequency:440*2**((inner.note-12-69)/12),gain:levels.bed,attack:.2,release:.22,wave:'sine'});
-  const lead=parts[bar<4?0:2].find(e=>e.t>=t-1e-4&&e.t<t+barSeconds);
+  const lead=parts[src.ornament??(bar<4?0:src.ornamentLate)].find(e=>e.t>=t-1e-4&&e.t<t+barSeconds);
   if(lead&&bar%2===0)emit('ornament',`seat-${1+(bar/2)%4}`,{t:t+60/score.bpm*.5,dur:60/score.bpm*.65,note:lead.note+12,frequency:440*2**((lead.note+12-69)/12),gain:levels.ornament,attack:.01,release:.2,wave:'sine'});
  }
  const addresses=[1,11,21,31],palette=[[143,209,63],[90,87,211],[242,167,185]];
@@ -62,6 +77,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  events.sort((a,b)=>a.t-b.t||a.id.localeCompare(b.id));
  const plan={schema:'trio-fleet-plan-v1',title:score.title,bpm:score.bpm,duration:dur,levels,payloads,nodes,events,
   requiredReceivers:[...members.map(m=>`singer-${m}`),...nodes.map(n=>n.id),'sub','dmx'],
+  layers:src,
   dmx:{host:'192.168.1.235',port:8790,activeAddresses:addresses,inactiveAddresses:[41,511]},
   sub:{host:'192.168.1.67',port:8788,transport:'rustdesk-local-bridge'},
   center:{receiver:'seat-5',actualVocals:true,preSlideEffects:true},playbackHeld:true};

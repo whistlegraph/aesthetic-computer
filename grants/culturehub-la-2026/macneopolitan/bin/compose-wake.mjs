@@ -88,6 +88,9 @@ const voices=parts.map((lines,i)=>{
 const score={title:'The MacNeoPolitan Trio — Good morning, Sophia',composer:'The machines, arr. compose-wake.mjs',
   bpm:BPM,machines:3,lead:0,
   description:'A wake-up lullaby in three, D major, rising. Blueberry hums the cradle with the fifth on top; neo sings good morning Sophia / the sun is on your lid / the coffee is on / take your time / the day is out for you / good morning; frisbee says its first word, her name; all three hum the last two bars. Very quiet.',
+  // the fleet's backing: bass and the sine bed on blueberry's cradle, the
+  // ring's ornaments on neo's line (frisbee sings seven syllables here)
+  fleet:{bass:'blueberry',bed:'blueberry',ornament:'neo'},
   arrangement:{total:TOTAL,meter:'3/4',sections:[{beat:0,name:'Cradle'},{beat:6,name:'neo: good morning Sophia'},{beat:18,name:'frisbee: Sophia'},{beat:24,name:'neo: the coffee is on'},{beat:36,name:'frisbee: Sophia'},{beat:42,name:'neo: the day is out for you'},{beat:54,name:'Hum'}]},voices};
 writeFileSync(new URL('../scores/trio-wake.mbscore',import.meta.url),JSON.stringify(score,null,2)+'\n');
 console.log(`Wake: ${TOTAL} beats at ${BPM} bpm ≈ ${(TOTAL*60/BPM).toFixed(1)} s; ${parts.map((p,i)=>`${members[i]} ${p.length} lines`).join(', ')}.`);

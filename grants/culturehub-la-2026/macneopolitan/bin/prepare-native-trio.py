@@ -2,7 +2,9 @@
 """Stage the new native piece and exact Center WAV. Never sends prepare/play."""
 import concurrent.futures,hashlib,json,struct,time,urllib.request
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];OUT=Path('/Users/jas/Shelf/culturehub-one-big-voice')
+import os
+ROOT=Path(__file__).resolve().parents[1];OUT=Path(os.environ.get('TRIO_OUT','/Users/jas/Shelf/culturehub-one-big-voice'))   # TRIO_OUT=… picks the song's shelf folder
+ALLOW=['culturehub-rehearsal','culturehub-concert','trio-fleet']+[p for p in os.environ.get('TRIO_ALLOW_PIECES','').split(',') if p]   # pieces a seat may be showing before we load
 plan=json.loads((OUT/'plan.json').read_text());assets=json.loads((OUT/'prepared.json').read_text())
 assert assets['arrangementHash']==plan['arrangementHash']
 raw=Path(assets['centerMix']['file']).read_bytes();rate=assets['centerMix']['sampleRate']
@@ -19,7 +21,7 @@ def load(node):
  url=f"http://{node['host']}:{node['port']}";previous=json.loads(get(url+'/status'))
  try:old_instance=json.loads(get(url+'/pieces/trio-fleet-status.json'))['instance']
  except:old_instance=None
- if previous['piece'] not in ['culturehub-rehearsal','culturehub-concert','trio-fleet']:raise RuntimeError('Unexpected active piece '+previous['piece'])
+ if previous['piece'] not in ALLOW:raise RuntimeError('Unexpected active piece '+previous['piece']+' (TRIO_ALLOW_PIECES to permit)')
  cfg={'schema':'trio-native-v1','receiverId':node['id'],'arrangementHash':plan['arrangementHash'],'bpm':plan['bpm'],'duration':plan['duration'],
  'color':[[143,209,63],[90,87,211],[242,167,185]][node['seat']%3],
  'events':[e for e in plan['events'] if e['receiver']==node['id'] and e['layer']!='dmx']}

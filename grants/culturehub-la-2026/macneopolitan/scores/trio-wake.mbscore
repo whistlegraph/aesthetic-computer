@@ -5,6 +5,11 @@
   "machines": 3,
   "lead": 0,
   "description": "A wake-up lullaby in three, D major, rising. Blueberry hums the cradle with the fifth on top; neo sings good morning Sophia / the sun is on your lid / the coffee is on / take your time / the day is out for you / good morning; frisbee says its first word, her name; all three hum the last two bars. Very quiet.",
+  "fleet": {
+    "bass": "blueberry",
+    "bed": "blueberry",
+    "ornament": "neo"
+  },
   "arrangement": {
     "total": 60,
     "meter": "3/4",

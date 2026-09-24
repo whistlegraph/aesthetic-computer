@@ -5,7 +5,7 @@ import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {spawn} from 'node:child_process';
-import {buildPlan,canonical,digest,members,readinessProblems} from './trio-fleet-plan.mjs';
+import {buildPlan,canonical,digest,members,noteName,readinessProblems} from './trio-fleet-plan.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),command=args.shift();
 if(!['plan','prepare','check'].includes(command))throw Error('Use fleet-trio.mjs plan|prepare|check [--out=DIR]. Playback remains held.');
@@ -17,7 +17,14 @@ const profiles=Object.fromEntries(members.map(m=>[m,JSON.parse(readFileSync(reso
 const fleet=JSON.parse(readFileSync('/Users/jas/.ac-os/culturehub/fleet.json'));
 const plan=buildPlan(score,profiles,fleet);
 const planPath=resolve(out,'plan.json');
-if(command!=='check')writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');
+if(command!=='check') {
+ writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');
+ // The Windows SUB's score: the bass layer alone, in the sub-receiver's own
+ // event shape, hashed as the arrangement so its receipt can be matched.
+ const subScore={name:plan.title,hash:plan.arrangementHash,dur:plan.duration,
+  events:plan.events.filter(e=>e.layer==='sub').map(e=>({id:e.id,t:e.t,dur:e.dur,hz:e.frequency,g:e.gain,attack:e.attack,decay:e.release,wave:e.wave,note:noteName(e.note)}))};
+ writeFileSync(resolve(out,'sub-score.json'),JSON.stringify(subScore)+'\n');
+}
 const quote=s=>"'"+String(s).replaceAll("'","'\\''")+"'";
 function run(host,script,timeout=15000) {
  return new Promise((yes,no)=>{
@@ -66,7 +73,7 @@ async function prepare(payload,id) {
  return {member,prepareId:id,instance:status.instance,pid:status.pid,fingerprint:status.fingerprint,manifest:resolve(local,'manifest.json'),phrases:manifest.phrases};
 }
 if(command==='plan') {
- console.log(`${planPath}: ${plan.events.length} bass/bed/ornament/light events; all six seats and three singers required. No devices cued.`);
+ console.log(`${planPath}: ${plan.events.length} bass/bed/ornament/light events (${plan.layers.beatsPerBar} beats a bar); sub-score.json beside it; all six seats and three singers required. No devices cued.`);
 } else if(command==='prepare') {
  const id='trio-'+randomUUID();
  writeFileSync(resolve(out,'preparation-state.json'),JSON.stringify({id,phase:'preparing',arrangementHash:plan.arrangementHash,playbackHeld:true}));

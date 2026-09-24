@@ -233,3 +233,51 @@ Jeffrey requested shutdown and commit/push after the successful full demo. All s
 Resume tomorrow: power on the six ACOS nodes; launch the installed MenuBand build on each Mac; restart the SUB server and the installed light-monitor server; use RustDesk to enable the correct LAN SUB page, both channels, fullscreen Concert. Regenerate/prepare `trio-one-big-voice.mbscore` through `bin/fleet-trio.mjs` into `/Users/jas/Shelf/culturehub-one-big-voice`, stage native receivers with `bin/prepare-native-trio.py`, then load `sub-score.json` through `/api/trio/load`. Run `bin/run-full-trio.py --check` before the next authorized cue. Old prepare IDs are invalid. Runtime pieces were not persisted to USB. `fleet/dmx-server.py` and `fleet/dmx-bridge.ps1` preserve the working bridge source; deploy beside the existing light-monitor state/assets.
 
 First technical follow-up: investigate Center deck position versus conductor time; startup acknowledgment is not proof of sustained acoustic alignment. The room test was completed, but that calibration remains open. The combined-run receipt is `full-trio-1b086cf240.json` in the Shelf folder.
+
+## Good morning, Sophia — full-system wiring, 2026-09-24 (frisbee session, for prox:ropotu)
+
+Jeffrey asked for `trio-wake.mbscore` (Good morning, Sophia; 52.17 s, 69 bpm,
+3/4) on the full room: three singers, six ACOS seats, Windows SUB and DMX.
+The One Big Voice path is now reusable per song:
+
+- `bin/fleet-trio.mjs plan|prepare|check --score=scores/<song>.mbscore --out=DIR`
+  writes `plan.json` **and `sub-score.json`** (the bass layer in the
+  sub-receiver's event shape, `hash` = arrangementHash, `dur` = plan duration,
+  ready for `POST /api/trio/load`). Bars follow the score's
+  `arrangement.meter`; a score's `fleet: {bass, bed, ornament, beatsPerBar}`
+  names which member feeds each backing layer. Wake sets bass and bed on
+  blueberry's cradle and ornaments on neo's line (frisbee has three phrases).
+- `TRIO_OUT=DIR bin/prepare-native-trio.py` and `TRIO_OUT=DIR bin/run-full-trio.py [--check]`
+  take the song folder from the environment (default is still the One Big
+  Voice folder). `TRIO_ALLOW_PIECES=a,b` lets a seat be loaded from a piece
+  other than culturehub-rehearsal/concert/trio-fleet.
+- All three Macs run the same clean Menu Band build (installed 12:38 from
+  `/tmp/mb-corner` on neo, origin/main `f9e3562577` + the corner ghost); the
+  fleetPrepare/fleetReady hooks are in it. Note: a Menu Band silently ignores
+  fleetPrepare while `sungSequenceActive` is set — post `stop` to all three
+  before preparing after any play.
+
+Staged, silently, in `/Users/jas/Shelf/culturehub-wake/` on neo:
+`plan.json` (110 events: 38 sub, 20 bed, 7 ornament, 45 dmx; arrangement
+`f85af6a95611…`), `sub-score.json`, `prepared.json` with preparation ID
+`trio-ab3a6466-f8ca-407e-9a91-0281bc4bdbb6` (neo 9, blueberry 10, frisbee 3
+phrases, all hashes verified), `center-voices.f32` (52.17 s, 0.35 baked gain,
+peak 0.162). No receiver has been touched; nothing has played.
+
+Room state read at 12:50 from neo (192.168.1.235): seats .237/.241/.242/.238
+answer on port 80 and are showing `sub-check-laptop`; Center `.239` and ac4
+`.236` did not answer on 80 or 8080; the DMX bridge on neo:8790 is up
+(`all off`); the SUB server (neo:8788) is **not running**; Windows `.67`
+(desktop-vidv882) not checked.
+
+Needed from the fleet side before `run-full-trio.py --check` can pass:
+1. All six seats reachable in `fleet.json` order and back on
+   `culturehub-rehearsal` (or tell me the piece to allow), Concert mode,
+   mono-left, microphones closed.
+2. SUB server started on neo (`fedac/native/tools/sub-receiver/server.mjs`,
+   PORT 8788), Windows receiver `.67` armed, both channels, fullscreen; then
+   `POST /api/trio/load` with `/Users/jas/Shelf/culturehub-wake/sub-score.json`.
+3. Confirm d041's channel mode or leave it inactive (the plan uses 1/11/21/31).
+Then, from neo: `TRIO_OUT=/Users/jas/Shelf/culturehub-wake python3 bin/prepare-native-trio.py`,
+`TRIO_OUT=… python3 bin/run-full-trio.py --check`, and the cue only on
+Jeffrey's word. Re-prepare if any Menu Band restarts or stops.

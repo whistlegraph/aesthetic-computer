@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """One-shot full Trio rehearsal. --check performs only silent readiness checks."""
-import concurrent.futures as cf,json,select,shlex,subprocess,time,uuid,urllib.request,threading,signal,sys
+import concurrent.futures as cf,json,os,select,shlex,subprocess,time,uuid,urllib.request,threading,signal,sys
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];OUT=Path('/Users/jas/Shelf/culturehub-one-big-voice')
+ROOT=Path(__file__).resolve().parents[1];OUT=Path(os.environ.get('TRIO_OUT','/Users/jas/Shelf/culturehub-one-big-voice'))   # TRIO_OUT=… the song's shelf folder
 bundle=json.loads((OUT/'prepared.json').read_text());plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
 members=['neo','blueberry','frisbee'];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
 locks={n['id']:threading.Lock() for n in nodes}
