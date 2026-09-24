@@ -321,3 +321,12 @@ opaque faces, captions 110) and conducted `full-trio-7c86a0a43b`: all phrases
 played, 138/141 seat events, center stem full length, blackout verified.
 Jeffrey: "nice, that was great" — next: notation on the six laptops, brighter
 screens, instruments and percussion for them.
+
+## Good morning, Sophia v3 — the whole room, 2026-09-24 15:55
+
+Run `full-trio-63b022dc49` from frisbee: the voice bounce mixed by the repo
+pipeline, harmonies, music box, pad, percussion, notation and wedge on the six
+laptops, all phrases played, 195/196 seat events, every seat at brightness
+100, blackout verified. Open: seat-3 (.236) stalls close to a second every
+run; the wedge telemetry file kept its last colour after stop (fixed in the
+piece, not yet restaged).

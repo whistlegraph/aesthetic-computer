@@ -12,7 +12,7 @@ let voices=[],cursor=0,startedAt=null,heartbeat=-Infinity,maxFrameGap=0,prior=nu
 let brightSteps=0,volumeAt=-Infinity,lightAt=-Infinity,lastLight='';
 const instance=String(Date.now())+'-'+Math.random().toString(36).slice(2);
 function read(system,path){const bytes=new Uint8Array(system.readFileBytes(path));let text='';for(let i=0;i<bytes.length;i+=4096)text+=String.fromCharCode.apply(null,bytes.subarray(i,i+4096));return JSON.parse(text);}
-function dark(system){if(cfg?.heldCenter){try{system.dmxSend(new Array(64).fill(0));}catch{}lastLight='0,0,0';}}
+function dark(system){if(cfg?.heldCenter){let ok=false;try{ok=system.dmxSend(new Array(64).fill(0));}catch{}lastLight='0,0,0';system.writeFile('/pieces/center-dmx-live.json',JSON.stringify({ok,rgb:[0,0,0],active:false,scoreTime:origin===null?-1:api.sound.time-origin,address:41}));}}
 function stop(sound){dark(api.system);for(const v of voices)v?.kill?.(.025);voices=[];sound.deck.pause(0);origin=null;cursor=0;phase=error?'error':'ready';}
 export function boot(a){
  api=a;a.sound.microphone.close();a.sound.volume.setMono(true);a.sound.volume.setMonoOutput('left');
