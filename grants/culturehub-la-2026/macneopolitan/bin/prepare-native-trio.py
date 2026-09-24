@@ -32,8 +32,11 @@ def load(node):
    put(url+name,chunk);assert hashlib.sha256(get(url+name)).digest()==hashlib.sha256(chunk).digest();chunks.append(name)
   cfg['center']={'file':wavename,'parts':chunks,'sha256':wavehash,'rawSha256':assets['centerMix']['sha256'],'duration':assets['centerMix']['frames']/rate,'bytes':len(wave),'gainBakedIn':assets['centerMix']['bakedGain']}
  put(url+'/pieces/trio-fleet-config.json',cfg);put(url+'/pieces/trio-fleet-command.json',{'id':'boot-idle-'+str(time.time_ns()),'action':'idle'})
- put(url+'/pieces/trio-fleet.mjs',code)
- assert hashlib.sha256(get(url+'/pieces/trio-fleet.mjs')).digest()==hashlib.sha256(code).digest()
+ if os.environ.get('TRIO_KEEP_PIECE'):   # TRIO_KEEP_PIECE=1 leaves the seat's staged trio-fleet.mjs alone (someone else's module); config + Center still load
+  print(node['id'],'keeping the staged piece code',flush=True)
+ else:
+  put(url+'/pieces/trio-fleet.mjs',code)
+  assert hashlib.sha256(get(url+'/pieces/trio-fleet.mjs')).digest()==hashlib.sha256(code).digest()
  put(url+'/jump/trio-fleet',b'')
  deadline=time.monotonic()+25
  while time.monotonic()<deadline:
