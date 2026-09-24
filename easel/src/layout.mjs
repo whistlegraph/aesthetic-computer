@@ -27,7 +27,7 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 export const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const BOTTOM_ROWS = ["gap", "bar", "status", "rule", "help", "header", "path"];
-export const STATUS_FACTS = ["handle", "workspace", "model", "engine", "mode", "activity", "inbox"];
+export const STATUS_FACTS = ["handle", "workspace", "media", "model", "engine", "mode", "activity", "inbox"];
 
 // What a saved shape may say, and nothing else. Unknown keys are dropped and
 // unknown tokens skipped, so a typo in the file costs a row, not the frame.
@@ -85,7 +85,7 @@ export class Layout extends EventEmitter {
     const base = normalize(readJson(this.baked) || {});
     const over = normalize(readJson(this.file) || {});
     this.override = over;
-    this.spec = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", mouse: true, lines: false, ...base, ...over };
+    this.spec = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", mouse: true, lines: false, ...base, ...over };
     return this.spec;
   }
 

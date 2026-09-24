@@ -22,6 +22,16 @@ let audioHTML = sound.html(nonce:"test")
 assert(audioHTML.contains("controls preload='metadata'"))
 assert(!audioHTML.contains("autoplay"))
 assert(audioHTML.contains("onloadedmetadata=ready"))
+assert(audioHTML.contains("<div class='name' title='/tmp/sound.wav'>sound.wav</div>"))
+let reelMarker: [String: Any] = ["path":"/tmp/reel one.mov", "mime":"video/quicktime", "version":3,"artifactId":"video-one"]
+let reel = LocalArtifactPreview(marker: reelMarker, kind:"video")!
+assert(reel.name == "reel one.mov")
+assert(reel.sizeLimit > 64 * 1024 * 1024)
+let videoHTML = reel.html(nonce:"test")
+assert(videoHTML.contains("<video id='artifact' controls muted autoplay loop"))
+assert(videoHTML.contains("onloadedmetadata=ready"))
+assert(videoHTML.contains(">reel one.mov</div>"))
+assert(LocalArtifactPreview(marker: reelMarker, kind:"picture") == nil)
 let paper = LocalArtifactPreview(marker: ["path":"/tmp/source.txt", "mime":"text/plain", "version":1,"artifactId":"paper-one"], kind:"paper")!
 let html = paper.html(text:"<script>oops()</script>", nonce:"test")
 assert(html.contains("&lt;script&gt;oops()&lt;/script&gt;"))
@@ -38,6 +48,13 @@ let link = directory.appendingPathComponent("link.txt")
 try FileManager.default.createSymbolicLink(at:link,withDestinationURL:file)
 let linked = LocalArtifactPreview(marker:["path":link.path,"mime":"text/plain","version":1,"artifactId":"paper-one"],kind:"paper")!
 do { _ = try linked.readValidatedFile(); fatalError("accepted symlink") } catch {}
+let staging = directory.appendingPathComponent("stage")
+try FileManager.default.createDirectory(at:staging,withIntermediateDirectories:true)
+let staged = try actual.stageFile(into: staging)
+assert(staged.lastPathComponent == "artifact")
+let stagedBytes = try Data(contentsOf: staged)
+assert(stagedBytes == Data("Hello".utf8))
+do { _ = try linked.stageFile(into: staging); fatalError("staged symlink") } catch {}
 var wav = Data(repeating: 0, count: 48)
 wav.replaceSubrange(0..<4, with: Data("RIFF".utf8))
 wav.replaceSubrange(8..<16, with: Data("WAVEfmt ".utf8))

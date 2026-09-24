@@ -58,6 +58,7 @@ import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGe
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
+import { mediaPaths, itemText, mediaChanged } from "./media.mjs";
 import { Artifacts, MEDIA } from './artifacts.mjs';
 import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDesktopEngine, writeDesktopControl, readDesktopIntent } from "./desktop-session.mjs";
 import { archiveThread, replaceWork } from './new-work.mjs';
@@ -897,9 +898,9 @@ function danceTick() {
   const next = mascotRowNextFrameIn(state.mascotMs, state.busy);
   if (next === null) return;
   redraw();
-  // Pro breathes and counts on this clock, so it ticks often enough to be
-  // fluid; the frame diff makes each tick cheap.
-  danceTimer = setTimeout(danceTick, pro && state.busy ? Math.min(next, 120) : next);
+  // Pro breathes and counts tenths on this clock, so it ticks ten times a
+  // second; the frame diff makes each tick cheap.
+  danceTimer = setTimeout(danceTick, pro && state.busy ? Math.min(next, 100) : next);
   danceTimer.unref?.();
 }
 function startDance() {
@@ -1269,6 +1270,22 @@ function itemSummary(item) {
   return null;
 }
 
+// Mime awareness. A pro session has no piece to put on the Slab card, so the
+// card shows the media the tools are touching instead: the png a brush just
+// wrote, the mp4 ffmpeg just finished, the filename under it. Every tool
+// call is read twice, when it starts and when it ends, because the file a
+// command is about to write only exists once it has run. A private session
+// keeps the file to itself; the status line still names it.
+function noteMedia(item) {
+  if (!pro) return;
+  const next = mediaPaths(itemText(item), cwd)[0];
+  if (!mediaChanged(state.media, next)) return;
+  state.media = { ...next, version: (state.media?.version || 0) + 1 };
+  transcript.event("media", { path: next.path, mime: next.mime, kind: next.kind });
+  if (profile.private) return;
+  slabSession.artifact(next.kind, { path: next.path, mime: next.mime, name: next.name, version: state.media.version, artifactId: slabSession.sessionId });
+}
+
 function restoreThread(thread) {
   const restored = [];
   for (const turn of thread?.turns || []) {
@@ -1340,6 +1357,7 @@ function handleNotification({ method, params = {} }) {
       break;
     case "item/started": {
       observeToolActivity(state, method, params.item);
+      noteMedia(params.item);
       if (process.env.EASEL_DESKTOP && /(?:^|__)ac_frame(?:$|\s)/.test(String(params.item?.tool || ""))) process.stdout.write('\x1b]777;easel-camera:request\x07');
       state.status = "tool";
       if (params.item?.type === "fileChange") state.status = "writing";
@@ -1354,6 +1372,7 @@ function handleNotification({ method, params = {} }) {
       break;
     }
     case "item/completed": {
+      noteMedia(params.item);
       const item = params.item;
       observeToolActivity(state, method, item);
       if (item?.type === "agentMessage") { updateEntry(item.id, "assistant", item.text); transcriptCompleted.add(item.id);if (!turnAssistant.includes(item.id)) turnAssistant.push(item.id);const entry=state.entries.find(e=>e.id===item.id);if(entry){entry.activityOnly=state.busy;state.activityMessageId=entry.id;state.activityText=entry.text;} }

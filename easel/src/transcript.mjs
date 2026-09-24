@@ -28,6 +28,8 @@ export const SUMMARY_MAX = 500;
 export const KINDS = [
   "user", "inbox", "assistant", "tool_call", "tool_result",
   "approval", "notice", "turn", "engine",
+  // The media file the session took up: a path, a mime and a kind.
+  "media",
 ];
 
 export const defaultRoot = () =>

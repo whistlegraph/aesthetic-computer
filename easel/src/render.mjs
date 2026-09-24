@@ -688,7 +688,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["bar", "gap", "status"], status: ["handle", "workspace", "media", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -913,7 +913,8 @@ export function fishPath(path, home = process.env.HOME || "") {
 export function windowTitle(state) {
   const provider = providerLabel(state.providerSettings?.backend);
   const doing = state.approval ? "◉ approval" : state.busy ? "● working" : state.status === "connecting" ? "◌ connecting" : state.status === "offline" ? "○ offline" : "";
-  return ["🫏 aesel", fishPath(state.workspace), provider, doing].filter(Boolean).join(" · ");
+  const media = state.media ? `${state.media.glyph} ${state.media.name}` : "";
+  return ["🫏 aesel", fishPath(state.workspace), media, provider, doing].filter(Boolean).join(" · ");
 }
 
 // A drop-down: a short list standing on the status line's fact that opened
@@ -1077,7 +1078,8 @@ function ruleRow(row, width) {
 // `28s…`, and `· quiet 20s` once nothing has arrived for a while.
 export function workingTimer(state, now = Date.now()) {
   const started = state.requestStartedAt || now;
-  const seconds = Math.max(0, Math.floor((now - started) / 1000));
+  // Tenths, so the count is visibly running rather than visibly waiting.
+  const seconds = (Math.max(0, now - started) / 1000).toFixed(1);
   const quiet = Math.max(0, Math.floor((now - (state.lastRequestEventAt || started)) / 1000));
   return `${seconds}s…${quiet >= 15 && state.status !== "approval" ? ` · quiet ${quiet}s` : ""}`;
 }
@@ -1093,7 +1095,7 @@ export function breathingHandle(account, state) {
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
-  const status = shape.status || ["handle", "workspace", "model", "activity"];
+  const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
   const model = state.modelLabel || state.model || state.providerSettings?.model || "";
@@ -1105,6 +1107,8 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     model,
     engine: providerLabel(engine),
     mode: state.mode === "local" ? "local" : "remote",
+    // The media file the session has its hands on, by its own name.
+    media: state.media ? `${state.media.glyph} ${clipText(state.media.name, Math.max(12, Math.floor(width / 4)))}` : "",
     // The little guy dances on the line while the machine has the floor, and
     // beside him the seconds, the way Claude Code counts them.
     activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}${state.toolNow ? ` · ${clipText(state.toolNow.replace(/\s+/g, " "), Math.max(12, Math.floor(width / 3)))}` : ""}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
@@ -1116,7 +1120,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
   // the machine is doing is the last thing to be cut.
   const keep = new Set(status);
   const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1);
-  for (const name of ["engine", "workspace", "model", "handle", "mode", "inbox"]) {
+  for (const name of ["engine", "media", "workspace", "model", "handle", "mode", "inbox"]) {
     if (measure() <= width - 1) break;
     keep.delete(name);
   }

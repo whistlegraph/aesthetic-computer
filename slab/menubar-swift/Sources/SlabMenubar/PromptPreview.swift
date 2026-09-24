@@ -177,7 +177,7 @@ final class PromptPreview {
     private static let openDuration: TimeInterval = 0.16
 
     private let window: PromptPreviewWindow
-    private let webView: WKWebView
+    private let webView: PromptPreviewWebView
     private let refreshBridge = PromptPreviewRefreshBridge()
     private var lastRefresh = Date.distantPast
     /// Scale through AppKit's frame/bounds mapping, not a layer transform.
@@ -349,6 +349,7 @@ final class PromptPreview {
         publicationToken = publication
         requestedArtifact = nil
         readyArtifact = nil
+        webView.dragFile = nil
         artifactLoading = false
         artifactFailed = false
         refreshBridge.localDirectory = nil
@@ -389,8 +390,10 @@ final class PromptPreview {
         let nonce = UUID().uuidString
         var stagedDirectory: URL?
         do {
-            let bytes = try artifact.readValidatedFile()
-            let dimensions = artifact.dimensions(bytes)
+            // A video is never read into memory here: it is linked into the
+            // staging directory and WebKit streams it from there.
+            let bytes = artifact.kind == "video" ? Data() : try artifact.readValidatedFile()
+            let dimensions = artifact.kind == "video" ? artifact.videoDimensions() : artifact.dimensions(bytes)
             if artifact.kind == "picture", NSImage(data: bytes) == nil { throw CocoaError(.fileReadCorruptFile) }
             if artifact.mime == "application/pdf", (PDFDocument(data: bytes)?.pageCount ?? 0) == 0 { throw CocoaError(.fileReadCorruptFile) }
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent("slab-artifact-\(UUID().uuidString)", isDirectory: true)
@@ -406,6 +409,9 @@ final class PromptPreview {
                 if artifact.kind == "paper" {
                     guard bytes.count <= 2 * 1024 * 1024, let decoded = String(data: bytes, encoding: .utf8) else { throw CocoaError(.fileReadCorruptFile) }
                     text = decoded
+                } else if artifact.kind == "video" {
+                    text = nil
+                    _ = try artifact.stageFile(into: directory)
                 } else {
                     text = nil
                     try bytes.write(to: directory.appendingPathComponent("artifact"), options: .atomic)
@@ -425,6 +431,8 @@ final class PromptPreview {
                 self.artifactDirectory = directory
                 self.refreshBridge.localDirectory = directory
                 self.refreshBridge.nonce = nonce
+                // The file on the card can be dragged off it, as itself.
+                self.webView.dragFile = URL(fileURLWithPath: artifact.path)
                 self.artifactNavigation = self.webView.loadFileURL(target, allowingReadAccessTo: directory)
             }
             coverTimer?.invalidate()
@@ -868,6 +876,7 @@ final class PromptPreview {
     var isOnScreen: Bool { window.isVisible }
 
     func close() {
+        webView.dragFile = nil
         frameCaptureID = nil
         frameContext = ""
         setHovered(false)
@@ -950,6 +959,52 @@ final class PromptPreviewWindow: NSWindow {
 }
 
 /// The first left-click both focuses and reaches the piece's actual controls.
-private final class PromptPreviewWebView: WKWebView {
+///
+/// When the card shows a file, a drag lifts a copy of that file off the card
+/// — into a message, a folder, an editor — and a click still reaches the
+/// media's own controls. The click is held back until the pointer has said
+/// which of the two it is: a press that lets go where it landed is replayed
+/// to the page as the click it was.
+private final class PromptPreviewWebView: WKWebView, NSDraggingSource {
+    /// The file behind the page, when the page is a file. Nil for a live piece.
+    var dragFile: URL?
+    private static let dragSlop: CGFloat = 5
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let file = dragFile, let window else { super.mouseDown(with: event); return }
+        let start = event.locationInWindow
+        while true {
+            guard let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else { continue }
+            if next.type == .leftMouseUp {
+                super.mouseDown(with: event)
+                super.mouseUp(with: next)
+                return
+            }
+            if hypot(next.locationInWindow.x - start.x, next.locationInWindow.y - start.y) >= Self.dragSlop {
+                beginFileDrag(file, from: event)
+                return
+            }
+        }
+    }
+
+    private func beginFileDrag(_ file: URL, from event: NSEvent) {
+        let item = NSDraggingItem(pasteboardWriter: file as NSURL)
+        // A picture drags as itself; anything else drags as its Finder icon.
+        let image = NSImage(contentsOf: file) ?? NSWorkspace.shared.icon(forFile: file.path)
+        var size = image.size
+        if size.width > 0, size.height > 0 {
+            let scale = min(bounds.width / size.width, bounds.height / size.height, 1)
+            size = NSSize(width: size.width * scale, height: size.height * scale)
+        } else {
+            size = NSSize(width: 64, height: 64)
+        }
+        let at = convert(event.locationInWindow, from: nil)
+        item.setDraggingFrame(NSRect(x: at.x - size.width / 2, y: at.y - size.height / 2, width: size.width, height: size.height), contents: image)
+        beginDraggingSession(with: [item], event: event, source: self)
+    }
+
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
+    func ignoreModifierKeys(for session: NSDraggingSession) -> Bool { true }
 }

@@ -513,13 +513,14 @@ export class ClaudeServer extends EventEmitter {
     const field = FILE_TOOLS.get(block.name);
     if (field) {
       const path = block.input?.[field];
-      return { id: block.id, type: "fileChange", changes: path ? [{ path }] : [] };
+      return { id: block.id, type: "fileChange", changes: path ? [{ path }] : [], input: block.input };
     }
     if (COMMAND_TOOLS.has(block.name)) {
-      return { id: block.id, type: "commandExecution", command: block.input?.command || block.name };
+      return { id: block.id, type: "commandExecution", command: block.input?.command || block.name, input: block.input };
     }
     const detail = toolDetail(block.input);
-    return { id: block.id, type: "dynamicToolCall", tool: detail ? `${block.name} · ${detail}` : block.name };
+    // The whole input rides along: the interface reads media paths out of it.
+    return { id: block.id, type: "dynamicToolCall", tool: detail ? `${block.name} · ${detail}` : block.name, input: block.input };
   }
 
   #toolResults(message) {
