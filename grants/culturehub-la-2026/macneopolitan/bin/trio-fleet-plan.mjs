@@ -74,7 +74,9 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  score.voices.forEach((v,i)=>{
   const lines=v.lyrics.split(' / ').map(l=>l.trim().split(/\s+/).filter(t=>t!=='/').map(t=>t.replace(/-/g,'')).join(' '));   // words, not syllables, for the notation
   lines.forEach((text,k)=>{const ns=parts[i].filter(n=>n.line===k);if(!ns.length)return;
-   phrases.push({member:members[i],memberIndex:i,phrase:k,text,t:ns[0].t,dur:Math.max(...ns.map(n=>n.t+n.dur))-ns[0].t,notes:ns.map(n=>n.note)});});
+   const toks=(v.lyrics.split(' / ')[k]||'').trim().split(/\s+/).filter(t=>t!=='/').flatMap(t=>t.split('-'));   // one syllable per note
+   phrases.push({member:members[i],memberIndex:i,phrase:k,text,t:ns[0].t,dur:Math.max(...ns.map(n=>n.t+n.dur))-ns[0].t,notes:ns.map(n=>n.note),
+    syllables:ns.map((n,j)=>({t:+n.t.toFixed(3),dur:+n.dur.toFixed(3),text:toks[j]||'',note:n.note}))});});
  });
  phrases.sort((a,b)=>a.t-b.t||a.memberIndex-b.memberIndex);
  const beat=60/score.bpm;
@@ -138,7 +140,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  const plan={schema:'trio-fleet-plan-v1',title:score.title,bpm:score.bpm,duration:dur,levels,payloads,nodes,events,
   requiredReceivers:[...members.map(m=>`singer-${m}`),...nodes.map(n=>n.id),'sub','dmx'],
   layers:src,routes,colors:Object.fromEntries(members.map((m,i)=>[m,colors[i]])),
-  lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex]})),
+  lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex],syllables:p.syllables})),
   sections:(score.arrangement?.sections??[]).map(s=>({name:s.name,beat:s.beat})),arrangement:{total:score.arrangement?.total??null,meter:score.arrangement?.meter??null},
   dmx:{host:'192.168.1.235',port:8790,activeAddresses:addresses,inactiveAddresses:[41,511]},
   sub:{host:'192.168.1.67',port:8788,transport:'rustdesk-local-bridge'},

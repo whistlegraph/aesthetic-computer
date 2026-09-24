@@ -23,7 +23,11 @@ def lyric_at(t):
 def visuals(playing,elapsed):
  cur,nxt=lyric_at(elapsed) if playing else (None,None)
  body={'playing':playing,'elapsed':max(-1,min(plan['duration']+1,elapsed)),'title':plan.get('title'),'dance':'trio-round-v1','bpm':plan['bpm'],'duration':plan['duration'],
-  'lyric':cur and {'text':cur['text'],'member':cur['member'],'rgb':cur['rgb'],'t':cur['t'],'dur':cur['dur']},'next':nxt and {'text':nxt['text'],'member':nxt['member'],'rgb':nxt['rgb'],'in':round(nxt['t']-elapsed,2)}}
+  'lyric':cur and {'text':cur['text'],'member':cur['member'],'rgb':cur['rgb'],'t':cur['t'],'dur':cur['dur'],'syllables':cur.get('syllables',[]),
+   'syllable':next((i for i in range(len(cur.get('syllables',[]))-1,-1,-1) if cur['syllables'][i]['t']<=elapsed),-1)},
+  'next':nxt and {'text':nxt['text'],'member':nxt['member'],'rgb':nxt['rgb'],'in':round(nxt['t']-elapsed,2)},
+  'faces':{m:(l and {'text':l['text'],'rgb':l['rgb'],'t':l['t'],'dur':l['dur']}) for m,l in ((m,next((l for l in plan.get('lyrics',[]) if l['member']==m and elapsed>=l['t']-.3 and elapsed<l['t']+l['dur']+.8),None)) for m in ('neo','blueberry','frisbee'))},
+  'sentAt':time.time()}
  try:
   raw=json.dumps(body).encode()
   with urllib.request.urlopen(urllib.request.Request(VIS+'/api/transport',raw,{'Content-Type':'application/json','Origin':VIS},method='POST'),timeout=1) as r:r.read()
@@ -129,7 +133,10 @@ def keepalive():
    request(SUB+'/api/trio/keepalive',{'runId':runid})
    t=time.monotonic()-downbeat;record['visuals']=visuals(0<=t<plan['duration'],t)
   except Exception as e:errors.append(str(e));return
-  quit.wait(.5)
+  for _ in range(4):   # the display beat runs at 5 Hz between the 0.5 s keepalives
+   if quit.wait(.1):return
+   t=time.monotonic()-downbeat;visuals(0<=t<plan['duration'],t)
+  quit.wait(.1)
 def lights():
  for e in (x for x in plan['events'] if x['layer']=='dmx'):
   if quit.wait(max(0,downbeat+e['t']-time.monotonic())):return
