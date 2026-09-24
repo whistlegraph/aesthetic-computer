@@ -2,7 +2,9 @@
 
 A playable **146.67-second sample study** for the Notepat spatial sequence:
 144 BPM, 88 bars, six laptop positions and a dedicated sub lane. The local
-stereo audition is ready; fleet sample playback and live DMX are **not connected**.
+stereo audition and full-fleet deck playback are prepared. All six native
+receivers and the Windows sample SUB passed readiness at 25% on 2026-09-24.
+Frisbee owns the announced cue; completion requires a run receipt.
 
 Xbox/Oskiewar **visual dances are connected** through Neo's existing stage
 service. Use the connected audition on Blueberry:
@@ -35,8 +37,8 @@ Verification was a silent visual-only probe, not a full-fleet audio audition.
 keeps `.pre-femrag` backups. It preserves other local Oskiewar work. Run it on
 Neo before its existing paired hot-deploy workflow; restart the stage service
 when changing its source/config. `oskiewar-dance.js` is the renderer source.
-The future fleet conductor must publish its actual score clock to this feed;
-it must not run an independent visual timer alongside fleet audio.
+`run-fleet.py` publishes its actual downbeat clock to this feed. Do not play
+the standalone browser audition while the fleet conductor owns the display.
 
 ```sh
 python3 -m http.server 8793 --bind 127.0.0.1 --directory grants/culturehub-la-2026/femrag-spatial
@@ -66,15 +68,13 @@ master or invokes a video encoder. Rebuild with:
 node grants/culturehub-la-2026/femrag-spatial/build.mjs
 ```
 
-The optional `render-stems.mjs` exports seven mono 48 kHz PCM16 WAVs to
-`.tmp/femrag-spatial-stems/`, with per-stem hashes and peaks in `manifest.json`.
-A validation render completed in under a second: 98,560,322 bytes across seven
-stems, maximum absolute PCM peak 0.06442. Generated stem WAVs were removed
-after verification to keep the workspace light; the exporter remains.
-**25% master is baked into these stems**: do not apply another 25% master
-without compensating, or change the exporter to emit unity-master stems. The
-standalone browser instead applies 25% live. Native ten-second limits still
-prevent direct full-stem loading.
+`render-stems.mjs` exports seven mono 48 kHz PCM16 WAVs to
+`.tmp/femrag-spatial-stems/`, with hashes and peaks in `manifest.json`.
+The stems use unity master (maximum PCM peak 0.257672); the shared live
+25% control is applied once at playback. Each stem is 146.666688 seconds.
+Native `sound.deck` loads these long files independently of the ten-second
+`sound.sample` buffer. Windows decodes the dedicated SUB stem before arming;
+its existing both-channel output, filter, limiter and master remain in use.
 
 The map has **2,947 events**. Negative-time events from the removed intro are
 excluded. The renderer logs each donk twice (donk plus its nested sub); the
@@ -126,8 +126,9 @@ The manifest carries the existing fixture map: d001/d011/d031/d021 for seats
 profile has room ceiling 96 and center ceiling 192, with 120 ms entrances and
 450 ms releases. Layer small seeded candle drift above a continuous warm floor;
 close hits raise the envelope instead of restarting from black. No strobing.
-The web preview illustrates this treatment; it sends no DMX. Integrate the
-existing candlelight function and bounded queue adapter before running it live.
+The web preview sends no DMX. The fleet plan contains room envelopes; the
+conductor drops cues more than 200 ms late or when its queue estimate reaches
+eight. Held-center light envelopes run locally with a continuous warm floor.
 
 For note typography, the preview reuses one canvas at 30 FPS; there are no
 movies, image decoding, shaders or per-note DOM nodes. Hardware backlight can
@@ -135,23 +136,42 @@ follow a smoothed per-seat amplitude envelope through the shared brightness
 controller, returning to the current 0% idle baseline; the preview only changes its drawn circles and does not assert
 hardware support.
 
-## Native transport work still required
+## Fleet operation
 
-Current native `sound.sample.loadData` swaps one shared sample buffer
-(`fedac/native/src/audio.c`), limited to ten seconds
-(`fedac/native/src/audio.h`). Loading a new instrument while old sample voices
-play cannot serve as an independent immutable sample bank. The existing
-`.nsscore` synth scheduler and SUB bass/kick filter also do not consume this
-sample-event manifest.
+`prepare-native.mjs` builds the hashed plan and six configs from the unity
+stems. `deploy-native.py` performs local validation by default; `--deploy`
+requires all six receivers to be idle, uploads 4 MB chunks with readback hash
+checks, and loads each deck without playing. Battery/charging indicators,
+large note labels and the existing composition-volume polling are retained.
 
-The useful next implementation is immutable sample handles with per-voice
-buffer ownership, bounded ahead-of-time sample scheduling, and cached preload
-receipts per device. Alternatively render one continuous mono stem per seat
-and add shared-clock streaming/seek support; the current ten-second buffer
-cannot hold this movement. In either case all seven receivers must acknowledge
-the same score hash and scheduled origin before any audio or DMX starts.
-No fleet upload, live cue, USB change or reboot is part of this study.
+`install-sub.py <existing-sub-runtime-folder>` adds the fixed stem route,
+server-side checksum validation, browser predecode and stem-ready heartbeat.
+Restart that server and reload/re-arm the browser after applying it, while
+idle. The runtime expects `.tmp/femrag-spatial-stems/sub.wav`. Never substitute
+the dummy zero-gain synth event for the actual stem: it is compatibility
+metadata for the older score validator, not the bass part.
 
-Validation: event/sample checks passed; headless Chrome loaded all 12 sections
-and eight output choices with no page errors. The idle screenshot was inspected.
-No live or local audible playback was started; listening acceptance is pending.
+Frisbee's `~/Shelf/femrag-spatial/` holds `plan.json`, `manifest.json`,
+`native-loaded.json`, `sub-score.json` and `run-fleet.py`. Its existing SSH
+forwards reach Blueberry SUB8791 and Neo DMX8790. The runner defaults to a
+silent check. Once the rig owner is ready:
+
+```sh
+FEMRAG_OUT=/Users/jas/Shelf/femrag-spatial \
+TRIO_SUB=http://127.0.0.1:8791 TRIO_DMX=http://127.0.0.1:8790 \
+python3 /Users/jas/Shelf/femrag-spatial/run-fleet.py --run
+```
+
+The runner checks hashes, decoder duration, volume, fullscreen SUB, live DMX
+and a clock round trip below 40 ms for every seat. It announces on the
+conducting Mac, schedules a 15-second lead, keeps receivers alive and records
+status every two seconds. Any native error stops the run. Cleanup stops six
+decks and SUB, releases the visual feed and requests acknowledged DMX blackout.
+Deck starts are dispatched on simulation frames; acoustic onset is not calibrated.
+No Mac singers, USB image changes or reboots are required for this arrangement.
+
+Validation: 2,947-event sample checks and three visual-feed tests pass; all
+six decks verified ready with matching hash, duration and volume; Windows
+reported matching decoded stem, armed, fullscreen and both channels at25%.
+The silent visual probe was acknowledged on AC/Xbox and visually inspected.
+Listening acceptance and the full-run receipt are still pending.
