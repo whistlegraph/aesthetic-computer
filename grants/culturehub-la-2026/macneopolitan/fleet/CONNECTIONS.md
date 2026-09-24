@@ -193,6 +193,24 @@ score when announcements continue during the test.
 
 ## Persistence and next reboot
 
+### Next lighting treatment: candlelight
+
+Jeffrey requested subtle, quick changes with a candlelight feel, explicitly
+“not strobey.” The staged profile is
+[`candlelightRgb`](../../../../fedac/native/lib/candlelight.mjs): warm amber,
+small irregular brightness changes smoothly interpolated over 170 ms, slower
+1.7-second drift, and slight warmth variation. During an active cue it never
+drops to black. Seed each fixture separately while evaluating the shared score
+clock; use a smooth entrance/exit fade outside the profile.
+
+This profile is prepared, not deployed or visually accepted. The orchestral
+measurement run retains its original four-second color cycle. Render the
+candle motion locally at each USB worker's regular frame cadence; do not flood
+the room's HTTP queue with per-frame commands. The current Windows worker
+needs an explicit profile implementation before it can render this function.
+
+### Boot state
+
 Keep battery percentage visible. The live battery watcher flashes a bell and
 sounds sine tones at 10% or lower, every `max(1, percent * 3)` seconds: 30 seconds
 at 10%, 15 at 5%, 3 at 1%. These live wrappers have not all been persisted to USB.
