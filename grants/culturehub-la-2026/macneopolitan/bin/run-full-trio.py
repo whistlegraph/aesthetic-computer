@@ -11,6 +11,24 @@ LOCAL=(subprocess.run(['scutil','--get','LocalHostName'],capture_output=True,tex
 SUB=os.environ.get('TRIO_SUB','http://127.0.0.1:8788').rstrip('/');DMX=os.environ.get('TRIO_DMX','http://127.0.0.1:8790').rstrip('/')
 def islocal(h):return h.lower()==LOCAL
 RTT_MAX=float(os.environ.get('TRIO_CLOCK_RTT_MAX','0.04'))   # seconds; the 40 ms contract unless explicitly widened
+# The display feed (blueberry:8796 → neo's stage service → Xbox / ac7): a
+# transport heartbeat with the lyric being sung. Best effort, never fatal.
+VIS=os.environ.get('TRIO_VIS','http://192.168.1.234:8796').rstrip('/')
+def lyric_at(t):
+ cur=None;nxt=None
+ for l in plan.get('lyrics',[]):
+  if t>=l['t']-.3 and t<l['t']+l['dur']+.8:cur=l
+  elif l['t']>t and nxt is None:nxt=l
+ return cur,nxt
+def visuals(playing,elapsed):
+ cur,nxt=lyric_at(elapsed) if playing else (None,None)
+ body={'playing':playing,'elapsed':max(-1,min(plan['duration']+1,elapsed)),'title':plan.get('title'),'dance':'trio-round-v1','bpm':plan['bpm'],'duration':plan['duration'],
+  'lyric':cur and {'text':cur['text'],'member':cur['member'],'rgb':cur['rgb'],'t':cur['t'],'dur':cur['dur']},'next':nxt and {'text':nxt['text'],'member':nxt['member'],'rgb':nxt['rgb'],'in':round(nxt['t']-elapsed,2)}}
+ try:
+  raw=json.dumps(body).encode()
+  with urllib.request.urlopen(urllib.request.Request(VIS+'/api/transport',raw,{'Content-Type':'application/json','Origin':VIS},method='POST'),timeout=1) as r:r.read()
+  return True
+ except Exception:return False
 plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
 bundle=json.loads((OUT/'prepared.json').read_text()) if (OUT/'prepared.json').exists() else {'id':None,'singers':[],'stems':{}}   # a piece without singers has no bundle
 members=[p['member'] for p in plan.get('payloads',[])];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
@@ -62,7 +80,11 @@ def ack(n,phase):
   time.sleep(.02)
  raise RuntimeError((n['id'],'No '+phase+' acknowledgment'))
 def nativecheck(n):
- s=status(n);time.sleep(.07);s2=status(n)
+ # a seat mid-stall reads the same audioTime twice: try again a few times before calling it stale
+ for attempt in range(6):
+  s=status(n);time.sleep(.07);s2=status(n)
+  if s2['audioTime']>s['audioTime'] and s2['instance']==s['instance']:break
+  time.sleep(.3)
  assert s2['audioTime']>s['audioTime'] and s2['instance']==s['instance'],n['id']+' stale'
  assert s2['phase']=='ready' and not s2['error'] and s2['arrangementHash']==plan['arrangementHash'] and s2['receiverId']==n['id'],s2
  assert s2['mono'] and s2['monoOutput']=='left' and not s2['microphoneHot'] and s2['centerReady'],s2
@@ -105,6 +127,7 @@ def keepalive():
   try:
    parallel(lambda n:command(n,'keepalive',runId=runid),nodes)
    request(SUB+'/api/trio/keepalive',{'runId':runid})
+   t=time.monotonic()-downbeat;record['visuals']=visuals(0<=t<plan['duration'],t)
   except Exception as e:errors.append(str(e));return
   quit.wait(.5)
 def lights():
@@ -136,6 +159,8 @@ def cleanup():
  for h in members:
   try:post(h,'stop',{});shell(h,'touch '+cancel);results[h]='stopped; brightness restoration requested'
   except Exception as e:results[h]=str(e)
+ try:visuals(False,0)
+ except Exception:pass
  record['cleanup']=results;save()
 def interrupted(*_):raise KeyboardInterrupt()
 signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
