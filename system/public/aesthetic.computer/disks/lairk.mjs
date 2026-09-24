@@ -17,11 +17,14 @@
   the answer. Each handle stands where it last stood (or a default spot
   around the tower), lit when online and dimmed when not.
 
-  Walking: the session server (session-server/lairk-manager.mjs) lets a
-  verified handle on that roster move, keeps it on the ground and at a run,
-  remembers where every handle stood, and relays positions to everyone
-  watching. Your own body moves the frame you press; everyone else glides to
-  where the server last saw them — never guessed ahead.
+  Walking is arena's (Quake pmove, jump, a platform with thickness) with
+  oskiewar's netcode — see lib/lairk-world.mjs. Your body is predicted from
+  your inputs at a fixed 60 Hz and sent to the session server
+  (session-server/lairk-manager.mjs) by tick; the server runs the same step
+  and is the truth, and when it answers we snap to it and replay what it
+  hasn't seen. Everyone else is drawn ~100 ms behind, between snapshots.
+  Cameras: third person (behind you) or first (your eyes), `v` to switch;
+  watchers who can't walk get an orbit around the tower.
  */
 
 /* #region 🏁 TODO
@@ -29,6 +32,8 @@
   - [x] Walking — position relay ~10 Hz, remotes glide.
   - [x] Server-side move gate (spoke + mentioned by someone else).
   - [x] Remember each handle's position within lairk.
+  - [x] Arena controls, jump, bodies and platform; first/third person.
+  - [x] Oskiewar-style netcode: inputs by tick, prediction + replay.
 #endregion */
 
 import { Chat } from "../lib/chat.mjs";
@@ -40,6 +45,19 @@ import {
   realtimeTick,
   lakChatOptions,
 } from "./common/laklok-tema.mjs";
+import { humanoid, HUMANOID_TORSO } from "../lib/humanoid.mjs";
+import {
+  lairkSpawn,
+  lairkStep,
+  packInput,
+  unpackState,
+  BTN,
+  LAIRK_DT,
+  LAIRK_HALF,
+  LAIRK_THICKNESS,
+  LAIRK_TOWER_HALF,
+  LAIRK_TOWER_TOP,
+} from "../lib/lairk-world.mjs";
 
 const { sin, cos, tan, sqrt, min, max, floor, PI } = Math;
 
@@ -47,7 +65,11 @@ let client; // The `clock` chat connection (the same room as laklok).
 let lakTheme = "ler"; // The visitor's laklok tema, so the chat wears it here too.
 let get; // `$.get`, kept for loading paintings as handles appear.
 
-// 🎥 Orbit camera around the tower.
+// 🎥 Cameras: "orbit" around the tower (watchers), or — once you walk —
+// "third" (behind you) and "first" (your eyes).
+let view = "orbit";
+let look = { yaw: 180, pitch: -8 }; // Where you face, degrees; +pitch is up.
+let penLocked = false; // Mouse captured for looking (desktop).
 const FOV = 60;
 const NEAR = 0.1;
 const FAR = 400;
@@ -60,7 +82,7 @@ let camMatrix = null; // P·V — projects world points for labels
 const cam = { matrix: null, resize() {} }; // What `form` reads.
 
 // 🌍 World forms.
-let ground, tower, faces;
+let ground, tower, faces, shadow;
 let hands = null; // Rebuilt when the minute changes.
 let handsMinute = -1;
 
@@ -83,23 +105,39 @@ const rosterColors = new Map(); // handle -> per-letter colors from @handles.
 let server = null; // The session socket, for lairk:* messages.
 let walker = null; // Your handle, once the server lets you walk.
 let walkNo = null; // Why not ("login", "mention", "unavailable").
-const placed = new Map(); // handle -> { x, z, facing } the server remembers.
-const held = new Set(); // Walk keys held down.
-let walkTo = null; // { x, z } — where a tap asked to go.
-let tap = null; // { travel } — a touch that hasn't become an orbit drag yet.
-let lastSent = 0; // When a move last went out, ms.
-let unsent = false; // Moved since then.
-let lastSim = 0; // For a real-time step.
 let socketReady = false; // The session socket has said "connected".
 let authAsked = false; // A walk request has gone out for this socket.
-const WALK_SPEED = 5; // Units per second; the server allows up to 9.
-const SEND_MS = 100; // ~10 Hz while moving.
-const WALK_KEYS = {
-  w: "forward", arrowup: "forward",
+const placed = new Map(); // handle -> { x, z, facing } the server remembers.
+
+// Prediction (oskiewar §5): your body runs locally at a fixed tick, and the
+// inputs the server hasn't acknowledged wait here to be replayed.
+let me = null; // { state, home } — your predicted body.
+let tick = 0; // Your last simulated input tick.
+let stepClock = 0; // Leftover time toward the next tick, seconds.
+let lastSim = 0; // performance.now() of the previous sim.
+const pending = []; // [{ tick, cmd }] not yet acknowledged.
+const SEND_EVERY = 2; // Ticks between input packets (30 Hz)...
+const REDUNDANCY = 6; // ...each carrying the last few inputs again.
+const correction = [0, 0, 0]; // Visual offset after a snap, eased away.
+
+// Everyone else, drawn in the past between snapshots, never ahead.
+const remotes = new Map(); // handle -> [{ at, s }] (at = server ms)
+let clockOffset = null; // Estimated server ms minus local ms.
+const INTERP_MS = 100;
+
+// Input.
+const held = new Set(); // Movement keys held down.
+let walkTo = null; // { x, z } — a tap on the ground steers you there.
+let tap = null; // { travel } — a touch that hasn't become a look drag yet.
+const MOVE_KEYS = {
+  w: "fwd", arrowup: "fwd",
   s: "back", arrowdown: "back",
   a: "left", arrowleft: "left",
   d: "right", arrowright: "right",
+  space: "jump",
+  shift: "crouch",
 };
+let viewChip = null; // Tap target for the 1st / 3rd toggle.
 
 // 💬 Speech bubbles: handle -> { text, until }.
 const bubbles = new Map();
@@ -163,14 +201,19 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter }
   placed.clear();
   held.clear();
   walkTo = null;
+  me = null;
+  tick = 0;
+  stepClock = 0;
+  pending.length = 0;
+  remotes.clear();
+  clockOffset = null;
+  correction.fill(0);
+  view = "orbit";
   focus[0] = 0;
   focus[2] = 0;
 
-  // 🚶 Watch everyone's positions; ask to walk when signed in. The server
-  // checks the token and the roster — this piece never claims a handle.
-
-
   ground = buildGround(Form);
+  shadow = buildShadow(Form);
   tower = buildTower(Form);
   faces = buildFaces(Form);
 }
@@ -198,13 +241,26 @@ function paint($) {
   form([ground, tower, faces, hands], cam, { cpu: true });
   for (const c of characters.values()) {
     if (c.dirty) dress($.Form, c);
+    const p = placeFor(c);
+    c.rx = p.x; c.ry = p.y; c.rz = p.z; // Where it's drawn (tags use it).
+    if (c.handle === walker && view === "first") continue; // You are the camera.
     for (const part of [c.base, c.torso]) {
-      part.position[0] = c.x;
-      part.position[1] = 0;
-      part.position[2] = c.z;
-      part.rotation[1] = c.facing || 0;
+      if (!part) continue;
+      part.position[0] = p.x;
+      part.position[1] = p.y; // Eye height: the humanoid hangs below it.
+      part.position[2] = p.z;
+      part.rotation[1] = p.yaw;
     }
     form([c.base, c.torso], cam, { cpu: true });
+    // A drop shadow on the platform, smaller the higher you are.
+    if (Math.abs(p.x) < LAIRK_HALF && Math.abs(p.z) < LAIRK_HALF) {
+      const k = clamp(1 - (p.y - 2) / 6, 0.35, 1);
+      shadow.position[0] = p.x;
+      shadow.position[1] = 0.02;
+      shadow.position[2] = p.z;
+      shadow.scale = [k, 1, k];
+      form(shadow, cam, { cpu: true });
+    }
   }
 
   paintTags($);
@@ -222,6 +278,7 @@ function paint($) {
   } else {
     paintReadout($);
     paintHint($);
+    paintViewChip($);
   }
 
   paintNotice($);
@@ -256,6 +313,7 @@ function act($) {
     chatOpen = true;
     held.clear(); // Typing "wasd" into the chat shouldn't walk you.
     tap = null;
+    walkTo = null;
     // Signed in, go straight to typing. Signed out, chat.mjs reads an open
     // keyboard as "log in", so leave that to its own Log in button.
     if ($.handle?.()) send({ type: "keyboard:open" });
@@ -267,33 +325,52 @@ function act($) {
     return;
   }
 
-  // A touch that barely travels is a tap: walk there. One that drags orbits.
+  if (e.is("pen:locked")) penLocked = true;
+  if (e.is("pen:unlocked")) penLocked = false;
+
+  // 👀 Walking: look with the mouse (click to capture it) or by dragging;
+  // `v` or the chip switches between third and first person.
+  if (walker) {
+    if (e.is("touch") && hit(viewChip)) {
+      toggleView();
+      return;
+    }
+    if (e.is("keyboard:down:v")) toggleView();
+    if (e.is("touch") && e.device === "mouse" && !penLocked) $.penLock();
+    if (penLocked && e.is("move")) turn(e.delta.x * 0.2, e.delta.y * 0.2);
+  }
+
+  // A touch that barely travels is a tap (walk there); one that drags looks.
   if (e.is("touch")) tap = { travel: 0 };
   if (e.is("draw")) {
     if (tap) tap.travel += Math.abs(e.delta.x) + Math.abs(e.delta.y);
-    orbitAngle -= e.delta.x * 0.012;
-    orbitHeight = clamp(orbitHeight + e.delta.y * 0.05, 1.5, 16);
-    lastLookAt = performance.now();
+    if (walker) {
+      if (!penLocked) turn(e.delta.x * 0.35, e.delta.y * 0.35);
+    } else {
+      orbitAngle -= e.delta.x * 0.012;
+      orbitHeight = clamp(orbitHeight + e.delta.y * 0.05, 1.5, 16);
+      lastLookAt = performance.now();
+    }
   }
   if (e.is("lift") && tap) {
-    if (tap.travel < 6) {
+    if (tap.travel < 6 && !penLocked) {
       if (walker) walkTo = groundPoint($.screen, e.x, e.y);
       else notice = { text: walkNotice($), until: performance.now() + 4000 };
     }
     tap = null;
   }
 
-  if (e.is("scroll")) {
+  if (e.is("scroll") && !walker) {
     orbitRadius = clamp(orbitRadius + e.y * 0.02, 8, 34);
     lastLookAt = performance.now();
   }
 
-  for (const key of Object.keys(WALK_KEYS)) {
+  for (const key of Object.keys(MOVE_KEYS)) {
     if (e.is(`keyboard:down:${key}`)) {
-      if (walker) held.add(key);
-      else notice = { text: walkNotice($), until: performance.now() + 4000 };
+      if (walker) held.add(MOVE_KEYS[key]);
+      else if (key !== "shift") notice = { text: walkNotice($), until: performance.now() + 4000 };
     }
-    if (e.is(`keyboard:up:${key}`)) held.delete(key);
+    if (e.is(`keyboard:up:${key}`)) held.delete(MOVE_KEYS[key]);
   }
 }
 
@@ -306,12 +383,13 @@ function sim($) {
   if (socketReady && !authAsked && $.handle?.()) askToWalk($.authorize);
 
   const now = performance.now();
-  const dt = lastSim ? min(0.1, (now - lastSim) / 1000) : 0;
+  const dt = lastSim ? min(0.25, (now - lastSim) / 1000) : 0;
   lastSim = now;
 
   if (!walker && now - lastLookAt > 5000) orbitAngle += 0.0012; // Drift.
-  walk(dt, now);
-  glide(dt);
+  predict(dt);
+  const ease = Math.exp(-dt * 12); // Snap corrections fade over ~100 ms.
+  for (let i = 0; i < 3; i++) correction[i] *= ease;
 
   noticeNewMessages();
   if (Date.now() - eligibleAt > ROSTER_MS) askRoster();
@@ -341,14 +419,38 @@ export { boot, paint, act, sim, leave };
 // (-x, y, -z) (see Vertex.transform in lib/graph.mjs), lands it where P·V
 // puts the plain world point. Also keeps P·V for projecting labels.
 function updateCamera(screen) {
-  const eye = [
-    focus[0] + sin(orbitAngle) * orbitRadius,
-    orbitHeight,
-    focus[2] + cos(orbitAngle) * orbitRadius,
-  ];
-  const view = lookAt(eye, focus);
+  let eye;
+  let target;
+  if (walker && me) {
+    const p = {
+      x: me.state.x + correction[0],
+      y: me.state.y + correction[1],
+      z: me.state.z + correction[2],
+    };
+    const yr = (look.yaw * PI) / 180;
+    const pr = (look.pitch * PI) / 180;
+    const ahead = [sin(yr) * cos(pr), sin(pr), cos(yr) * cos(pr)];
+    if (view === "first") {
+      eye = [p.x, p.y, p.z];
+      target = [p.x + ahead[0], p.y + ahead[1], p.z + ahead[2]];
+    } else {
+      // Third person: behind and a little above, looking past your head.
+      const back = 5;
+      eye = [p.x - ahead[0] * back, p.y + 0.8 - ahead[1] * back, p.z - ahead[2] * back];
+      eye[1] = max(eye[1], 0.4); // Not under the platform.
+      target = [p.x + ahead[0] * 2, p.y + 0.3 + ahead[1] * 2, p.z + ahead[2] * 2];
+    }
+  } else {
+    eye = [
+      focus[0] + sin(orbitAngle) * orbitRadius,
+      orbitHeight,
+      focus[2] + cos(orbitAngle) * orbitRadius,
+    ];
+    target = focus;
+  }
+  const viewMatrix = lookAt(eye, target);
   const proj = perspective(FOV, screen.width / screen.height, NEAR, FAR);
-  camMatrix = mul(proj, view);
+  camMatrix = mul(proj, viewMatrix);
   cam.matrix = mul(camMatrix, [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1]);
 }
 
@@ -442,16 +544,24 @@ function askToWalk(authorize) {
 function receiveLairk(type, data) {
   if (!data) return;
   if (type === "lairk:state") {
-    for (const [h, p] of Object.entries(data.positions || {})) place(h, p, true);
-  } else if (type === "lairk:pos") {
-    place(data.handle, data, false);
+    for (const [h, p] of Object.entries(data.positions || {})) place(h, p);
   } else if (type === "lairk:auth:ok") {
     walker = data.handle;
     walkNo = null;
-    if (data.at) place(walker, data.at, true);
-    lastLookAt = performance.now(); // Stop the drift; the camera is yours now.
+    me = { state: unpackState(data.state), home: data.home };
+    tick = 0;
+    pending.length = 0;
+    correction.fill(0);
+    look.yaw = me.state.yaw;
+    look.pitch = -8;
+    view = "third";
   } else if (type === "lairk:auth:no") {
     walkNo = data.reason || "mention";
+  } else if (type === "lairk:snap") {
+    snapshot(data);
+  } else if (type === "lairk:still") {
+    remotes.delete(data.handle);
+    place(data.handle, data);
   }
 }
 
@@ -460,96 +570,143 @@ function parse(content) {
   try { return JSON.parse(content); } catch { return null; }
 }
 
-// Where the server says a handle is. `snap` jumps there (a first sight);
-// otherwise the body glides to it.
-function place(handle, p, snap) {
+// Where the server remembers a handle standing (not walking right now).
+function place(handle, p) {
   if (!handle || !Number.isFinite(p?.x) || !Number.isFinite(p?.z)) return;
   const h = handle.toLowerCase();
-  if (h === walker && !snap) return; // Yours moves locally, not by echo.
   placed.set(h, { x: p.x, z: p.z, facing: p.facing || 0 });
   const c = characters.get(h);
-  if (!c) return;
-  c.tx = p.x;
-  c.tz = p.z;
+  if (!c || h === walker) return;
+  c.x = p.x;
+  c.z = p.z;
   c.facing = p.facing || 0;
-  if (snap) {
-    c.x = p.x;
-    c.z = p.z;
+}
+
+// Your input this tick, from keys (relative to where you face) or a tap.
+function currentInput() {
+  let fwd = (held.has("fwd") ? 1 : 0) - (held.has("back") ? 1 : 0);
+  let right = (held.has("right") ? 1 : 0) - (held.has("left") ? 1 : 0);
+  let yaw = look.yaw;
+  if (fwd || right) walkTo = null;
+  else if (walkTo && me) {
+    const dx = walkTo.x - me.state.x;
+    const dz = walkTo.z - me.state.z;
+    if (Math.hypot(dx, dz) < 0.4) walkTo = null;
+    else {
+      yaw = (Math.atan2(dx, dz) * 180) / PI; // pmove: yaw 0 faces +z.
+      look.yaw = yaw;
+      fwd = 1;
+    }
+  }
+  const buttons = (held.has("jump") ? BTN.JUMP : 0) | (held.has("crouch") ? BTN.CROUCH : 0);
+  return { fwd, right, yaw, pitch: look.pitch, buttons };
+}
+
+// Fixed-step prediction: one lairkStep per 1/60 s of real time, each input
+// kept until the server acknowledges it, sent a few times over for loss.
+function predict(dt) {
+  if (!me || !server) return;
+  stepClock = min(stepClock + dt, 0.25); // After a stall, don't sprint to catch up.
+  while (stepClock >= LAIRK_DT) {
+    stepClock -= LAIRK_DT;
+    tick += 1;
+    const cmd = currentInput();
+    me.state = lairkStep(me.state, cmd, me.home);
+    pending.push({ tick, cmd });
+    if (tick % SEND_EVERY === 0) {
+      const inputs = pending.slice(-REDUNDANCY).map((p) => packInput(p.tick, p.cmd));
+      server.send("lairk:input", { inputs });
+    }
+  }
+  if (pending.length > 240) pending.splice(0, pending.length - 240); // 4 s cap.
+}
+
+// A snapshot: adopt the server's truth for you and replay what's in flight
+// (oskiewar reconciliation); buffer everyone else for interpolation.
+function snapshot(data) {
+  const local = performance.now();
+  if (Number.isFinite(data.ms)) {
+    // Max-filter the offset: the least-delayed packet is the best estimate.
+    const sample = data.ms - local;
+    clockOffset = clockOffset === null ? sample : max(sample, clockOffset - 1);
+  }
+  for (const { h, s } of data.players || []) {
+    if (h === walker) {
+      if (me && Number.isFinite(data.ack)) reconcile(unpackState(s), data.ack);
+      continue;
+    }
+    const buf = remotes.get(h) || [];
+    buf.push({ at: data.ms, s: unpackState(s) });
+    while (buf.length > 20) buf.shift();
+    remotes.set(h, buf);
   }
 }
 
-// Your own body moves the frame you press, then tells the server (~10 Hz).
-function walk(dt, now) {
-  const me = walker && characters.get(walker);
-  if (!me || dt === 0) return;
-
-  // Keys walk relative to the camera; a tap walks to a spot.
-  const forward = [-sin(orbitAngle), -cos(orbitAngle)];
-  const right = [-cos(orbitAngle), sin(orbitAngle)];
-  let dx = 0;
-  let dz = 0;
-  for (const key of held) {
-    const way = WALK_KEYS[key];
-    if (way === "forward") { dx += forward[0]; dz += forward[1]; }
-    if (way === "back") { dx -= forward[0]; dz -= forward[1]; }
-    if (way === "right") { dx += right[0]; dz += right[1]; }
-    if (way === "left") { dx -= right[0]; dz -= right[1]; }
+function reconcile(truth, ack) {
+  while (pending.length && pending[0].tick <= ack) pending.shift();
+  const before = me.state;
+  let s = truth;
+  for (const p of pending) s = lairkStep(s, p.cmd, me.home);
+  // Small differences ease out visually; a big one (a real correction) snaps.
+  const dx = before.x - s.x, dy = before.y - s.y, dz = before.z - s.z;
+  if (Math.hypot(dx, dy, dz) < 2) {
+    correction[0] += dx;
+    correction[1] += dy;
+    correction[2] += dz;
+  } else {
+    correction.fill(0);
   }
-  if (held.size > 0) {
-    walkTo = null;
-  } else if (walkTo) {
-    dx = walkTo.x - me.x;
-    dz = walkTo.z - me.z;
-    if (Math.hypot(dx, dz) < 0.15) walkTo = null;
-  }
-
-  const d = Math.hypot(dx, dz);
-  if (d > 0.001) {
-    const step = min(WALK_SPEED * dt, walkTo ? d : Infinity);
-    const next = keepOnGround(me.x + (dx / d) * step, me.z + (dz / d) * step);
-    me.x = me.tx = next.x;
-    me.z = me.tz = next.z;
-    me.facing = (Math.atan2(dx, dz) * 180) / PI;
-    unsent = true;
-  }
-
-  if (unsent && now - lastSent >= SEND_MS) {
-    server?.send("lairk:move", { x: me.x, z: me.z, facing: me.facing });
-    lastSent = now;
-    unsent = false;
-  }
-
-  // The camera follows you.
-  const k = 1 - Math.exp(-dt * 6);
-  focus[0] += (me.x - focus[0]) * k;
-  focus[2] += (me.z - focus[2]) * k;
+  me.state = s;
 }
 
-// Everyone else eases toward where the server last saw them — never past it.
-function glide(dt) {
-  const k = 1 - Math.exp(-dt * 8);
-  for (const c of characters.values()) {
-    if (c.handle === walker || c.tx === undefined) continue;
-    c.x += (c.tx - c.x) * k;
-    c.z += (c.tz - c.z) * k;
+// Where to draw a character this frame: you (predicted), a walker (in the
+// past, between snapshots), or someone standing where they last stood.
+function placeFor(c) {
+  if (c.handle === walker && me) {
+    return {
+      x: me.state.x + correction[0],
+      y: me.state.y + correction[1],
+      z: me.state.z + correction[2],
+      yaw: me.state.yaw,
+    };
   }
+  const buf = remotes.get(c.handle);
+  if (buf?.length && clockOffset !== null) {
+    const t = performance.now() + clockOffset - INTERP_MS;
+    let a = buf[0];
+    let b = buf[0];
+    for (const snap of buf) {
+      if (snap.at <= t) a = snap;
+      if (snap.at >= t) { b = snap; break; }
+      b = snap; // Past the newest: hold it (never extrapolate).
+    }
+    const span = b.at - a.at;
+    const k = span > 0 ? clamp((t - a.at) / span, 0, 1) : 1;
+    return {
+      x: a.s.x + (b.s.x - a.s.x) * k,
+      y: a.s.y + (b.s.y - a.s.y) * k,
+      z: a.s.z + (b.s.z - a.s.z) * k,
+      yaw: lerpAngle(a.s.yaw, b.s.yaw, k),
+    };
+  }
+  return { x: c.x, y: 2, z: c.z, yaw: c.facing || 0 }; // Eye height standing.
 }
 
-// Mirrors keepOnGround in session-server/lairk-manager.mjs, so what you see
-// is what the server will accept.
-const BOUNDS = 26;
-const TOWER_KEEP = 1.6;
-function keepOnGround(x, z) {
-  const d = Math.hypot(x, z);
-  if (d > BOUNDS) return { x: (x / d) * BOUNDS, z: (z / d) * BOUNDS };
-  if (Math.abs(x) < TOWER_KEEP && Math.abs(z) < TOWER_KEEP) {
-    if (Math.abs(x) > Math.abs(z)) return { x: Math.sign(x || 1) * TOWER_KEEP, z };
-    return { x, z: Math.sign(z || 1) * TOWER_KEEP };
-  }
-  return { x, z };
+function lerpAngle(a, b, k) {
+  const d = ((((b - a) % 360) + 540) % 360) - 180;
+  return a + d * k;
 }
 
-// The spot on the ground under a screen pixel, or null for the sky.
+function turn(dx, dy) {
+  look.yaw += dx;
+  look.pitch = clamp(look.pitch - dy, -80, 80);
+}
+
+function toggleView() {
+  view = view === "first" ? "third" : "first";
+}
+
+// The spot on the platform under a screen pixel, or null for the sky.
 function groundPoint(screen, sx, sy) {
   const inv = camMatrix && invert(camMatrix);
   if (!inv) return null;
@@ -565,7 +722,10 @@ function groundPoint(screen, sx, sy) {
   const b = unproject(1);
   if (a[1] <= b[1]) return null; // Looking up, never reaching the ground.
   const t = a[1] / (a[1] - b[1]);
-  return keepOnGround(a[0] + (b[0] - a[0]) * t, a[2] + (b[2] - a[2]) * t);
+  const x = a[0] + (b[0] - a[0]) * t;
+  const z = a[2] + (b[2] - a[2]) * t;
+  if (Math.abs(x) > LAIRK_HALF || Math.abs(z) > LAIRK_HALF) return null;
+  return { x, z };
 }
 
 // General 4×4 inverse, column-major.
@@ -618,17 +778,16 @@ function pushBox(positions, colors, x0, y0, z0, x1, y1, z1, color) {
   quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], 0.5); // -x
 }
 
-// A checkered disc of tiles, so depth reads without lighting.
+// A square platform of checkered tiles with a thick skirt below its edge,
+// like arena's — so depth reads without lighting and the edge reads as a
+// drop.
 function buildGround(Form) {
   const positions = [];
   const colors = [];
   const size = 2;
-  const reach = 14; // tiles from the center
-  for (let i = -reach; i < reach; i += 1) {
-    for (let j = -reach; j < reach; j += 1) {
-      const cx = (i + 0.5) * size;
-      const cz = (j + 0.5) * size;
-      if (sqrt(cx * cx + cz * cz) > reach * size) continue;
+  const n = LAIRK_HALF / size;
+  for (let i = -n; i < n; i += 1) {
+    for (let j = -n; j < n; j += 1) {
       const odd = (i + j) & 1;
       const col = odd ? [0.36, 0.52, 0.34, 1] : [0.31, 0.46, 0.3, 1];
       const x0 = i * size;
@@ -642,11 +801,49 @@ function buildGround(Form) {
       colors.push(col, col, col, col, col, col);
     }
   }
+  // The skirt: four sides from the top edge down, earth under turf.
+  const h = LAIRK_HALF;
+  const lip = [0.24, 0.36, 0.22, 1];
+  const earth = [0.3, 0.22, 0.17, 1];
+  const deep = [0.16, 0.12, 0.1, 1];
+  const side = (a, b) => {
+    const [ax, az] = a;
+    const [bx, bz] = b;
+    const y1 = -0.25;
+    const y2 = -LAIRK_THICKNESS;
+    positions.push(
+      [ax, 0, az, 1], [bx, 0, bz, 1], [bx, y1, bz, 1],
+      [ax, 0, az, 1], [bx, y1, bz, 1], [ax, y1, az, 1],
+      [ax, y1, az, 1], [bx, y1, bz, 1], [bx, y2, bz, 1],
+      [ax, y1, az, 1], [bx, y2, bz, 1], [ax, y2, az, 1],
+    );
+    colors.push(lip, lip, lip, lip, lip, lip, earth, earth, deep, earth, deep, deep);
+  };
+  side([-h, h], [h, h]);
+  side([h, -h], [-h, -h]);
+  side([h, h], [h, -h]);
+  side([-h, -h], [-h, h]);
   return triangles(Form, positions, colors);
 }
 
-const TOWER_HALF = 1.1;
-const TOWER_TOP = 7;
+// A soft dark disc laid on the platform under a body.
+function buildShadow(Form) {
+  const positions = [];
+  const colors = [];
+  const segs = 12;
+  const r = 0.55;
+  const dark = [0, 0, 0, 0.35];
+  for (let i = 0; i < segs; i += 1) {
+    const a0 = (i / segs) * PI * 2;
+    const a1 = ((i + 1) / segs) * PI * 2;
+    positions.push([0, 0, 0, 1], [cos(a0) * r, 0, sin(a0) * r, 1], [cos(a1) * r, 0, sin(a1) * r, 1]);
+    colors.push(dark, dark, dark);
+  }
+  return triangles(Form, positions, colors);
+}
+
+const TOWER_HALF = LAIRK_TOWER_HALF;
+const TOWER_TOP = LAIRK_TOWER_TOP;
 const FACE_Y = 5.4; // Clock center height.
 const FACE_R = 0.8;
 
@@ -729,35 +926,23 @@ function buildHands(Form, date) {
   return triangles(Form, positions, colors);
 }
 
-// A small blocky person, feet at the origin, in two forms: head and legs in
-// the handle's own colors, and a torso wearing their latest painting.
+// Arena's person (lib/humanoid.mjs), hung from its eye at the origin, in two
+// forms: the body in the handle's "@" color, and a torso wearing their latest
+// painting. Handles that aren't online are dimmed.
 function dress(Form, c) {
   c.dirty = false;
-  const dim = c.online ? 1 : 0.4;
-  const [head, legs, shirt] = bodyColors(c);
-  const tone = (col, k) => [(col[0] / 255) * k * dim, (col[1] / 255) * k * dim, (col[2] / 255) * k * dim];
-
-  const positions = [];
-  const colors = [];
-  pushBox(positions, colors, -0.22, 0, -0.14, -0.04, 0.6, 0.14, tone(legs, 0.8)); // legs
-  pushBox(positions, colors, 0.04, 0, -0.14, 0.22, 0.6, 0.14, tone(legs, 0.8));
-  pushBox(positions, colors, -0.2, 1.36, -0.2, 0.2, 1.76, 0.2, tone(head, 1.1)); // head
-  c.base = triangles(Form, positions, colors);
-
+  const dim = c.online ? 1 : 0.45;
+  const [color] = bodyColors(c);
   const tex = c.texture ? (c.online ? c.texture.lit : c.texture.dim) : null;
-  c.torso = tex
-    ? paintedBox(Form, -0.3, 0.6, -0.18, 0.3, 1.3, 0.18, tex)
-    : (() => {
-        const p = [];
-        const k = [];
-        pushBox(p, k, -0.3, 0.6, -0.18, 0.3, 1.3, 0.18, tone(shirt, 1));
-        return triangles(Form, p, k);
-      })();
+  const { positions, colors } = humanoid(color.map((v) => v * dim), { torso: !tex });
+  c.base = triangles(Form, positions, colors);
+  // Without a painting the humanoid already wears a plain torso.
+  c.torso = tex ? paintedBox(Form, ...HUMANOID_TORSO, tex) : null;
 }
 
-// Head, legs and shirt all wear the color of the handle's "@" (the first of
-// its per-letter colors, set in the `handle` piece), or the tema's handle
-// color when none are set — the same color chat draws the "@" in.
+// A body wears the color of the handle's "@" (the first of its per-letter
+// colors, set in the `handle` piece), or the tema's handle color when none
+// are set — the same color chat draws the "@" in.
 function bodyColors(c) {
   const at = c.colors?.[0];
   const color = at
@@ -909,7 +1094,7 @@ function shrink(img, k) {
 function homeSpot(handle, count = 1) {
   const hash = handleHash(handle);
   const angle = ((hash % 3600) / 3600) * PI * 2;
-  const spread = clamp(sqrt(count) * 1.6, 6, 24);
+  const spread = clamp(sqrt(count) * 1.6, 6, LAIRK_HALF - 5);
   const radius = 3.5 + sqrt(((hash >>> 12) % 1000) / 1000) * spread;
   return { x: sin(angle) * radius, z: cos(angle) * radius };
 }
@@ -989,7 +1174,9 @@ function paintTags($) {
   for (const c of characters.values()) {
     const bubble = bubbles.get(c.handle);
     if (crowded && !c.online && !bubble && c.handle !== walker) continue;
-    const p = project(screen, c.x, 2.05, c.z);
+    if (c.handle === walker && view === "first") continue; // Your own eyes.
+    if (c.rx === undefined) continue;
+    const p = project(screen, c.rx, c.ry + 0.55, c.rz);
     if (p) tags.push({ c, p, bubble });
   }
   tags.sort((a, b) => b.p.depth - a.p.depth);
@@ -1046,13 +1233,26 @@ function paintHint($) {
   const { ink, screen, typeface } = $;
   const cw = typeface?.blockWidth || 6;
   const text = walker
-    ? "wasd or tap the ground to walk - enter to chat"
+    ? fit("wasd walk  space jump  v view  enter chat", floor((screen.width - 60) / cw))
     : "tap the top or press enter to chat";
   ink(0, 0, 0, 90).box(0, screen.height - 16, screen.width, 16);
   ink(210, 205, 230).write(text, {
     x: max(4, floor((screen.width - text.length * cw) / 2)),
     y: screen.height - 13,
   });
+}
+
+// The 1st / 3rd person chip, bottom right while walking.
+function paintViewChip($) {
+  viewChip = null;
+  if (!walker) return;
+  const { ink, screen, typeface } = $;
+  const cw = typeface?.blockWidth || 6;
+  const label = view === "first" ? "1st" : "3rd";
+  const w = label.length * cw + 8;
+  viewChip = { x: screen.width - w - 3, y: screen.height - 16, w, h: 16 };
+  ink(70, 62, 110).box(viewChip.x, viewChip.y + 1, w, 14);
+  ink(240, 236, 255).write(label, { x: viewChip.x + 4, y: viewChip.y + 3 });
 }
 
 function paintCloseButton($) {

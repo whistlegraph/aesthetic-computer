@@ -158,7 +158,9 @@ const fightManager = new FightManager();
 const oskiewarLiveManager = new OskiewarLiveManager();
 const agentPresenceManager = new AgentPresenceManager();
 // 🗼 lairk — only a verified handle with a spot (spoken in Laer Klokken and
-// @mentioned there) may walk; every handle's last position is kept in Redis.
+// @mentioned there) may walk. Walkers send inputs by tick; the manager runs
+// them through the shared step (oskiewar-style authority) and snapshots
+// everyone at 20 Hz. Every handle's last position is kept in Redis.
 const lairkManager = new LairkManager({
   verify: (token) => verifyFightIdentity(token),
   fetchRoster: async () => {
@@ -3029,14 +3031,14 @@ wss.on("connection", async (ws, req) => {
         return;
       }
 
-      // 🗼 lairk: watch, ask to walk (verified token), move.
+      // 🗼 lairk: watch, ask to walk (verified token), send inputs.
       if (msg.type.startsWith("lairk:")) {
         let parsed;
         try { parsed = typeof msg.content === "string" ? JSON.parse(msg.content) : msg.content; }
         catch { parsed = null; }
         if (msg.type === "lairk:hello") lairkManager.hello(id);
         else if (msg.type === "lairk:auth") lairkManager.auth(id, parsed?.token).catch(() => {});
-        else if (msg.type === "lairk:move") lairkManager.move(id, parsed);
+        else if (msg.type === "lairk:input") lairkManager.input(id, parsed);
         return;
       }
 
@@ -3317,6 +3319,7 @@ fightManager.setSendFunction((wsId, type, content) => {
 lairkManager.setSendFunction((wsId, type, content) => {
   connections[wsId]?.send(pack(type, JSON.stringify(content), "lairk"));
 });
+setInterval(() => lairkManager.tick(), 10); // Snapshots go out at 20 Hz inside.
 
 // 🌐 Wire WorldManager send functions (same shape as DuelManager; source tag
 // = the world prefix). Lifecycle broadcasts are member-scoped inside the
