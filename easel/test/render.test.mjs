@@ -306,7 +306,8 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   assert.equal(rows[rows.length - 4].trim(), "", "air above the bar");
   assert.match(rows[rows.length - 3], /^ {3,}$/, "the bar is empty: the terminal's own cursor stands there");
   assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
-  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar (no provider without provider settings)");
+  assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5/, "the facts sit under the bar");
+  assert.doesNotMatch(rows[rows.length - 1], /remote/, "the mode is not a fact worth a word");
 });
 
 test("the pro frame takes its shape from the layout", () => {
@@ -362,11 +363,13 @@ test("the bottom line names the provider, abbreviates the path the way fish does
     profile: { name: "pro" }, entries: [],
   };
   const { line, spans } = proStatus(state, 100, false);
-  assert.equal(line.trim(), "@tester · ~/a/easel · aesthetic · claude-sonnet-5 · remote · connecting…");
-  assert.deepEqual(spans.map((span) => span.name), ["handle", "workspace", "engine", "model", "mode", "activity"]);
+  assert.equal(line.trim(), "@tester · ~/a/easel · claude-sonnet-5 · connecting…");
+  assert.deepEqual(spans.map((span) => span.name), ["handle", "workspace", "model", "activity"]);
   assert.equal(windowTitle(state), "🫏 aesel · ~/a/easel · aesthetic · ◌ connecting");
   assert.equal(windowTitle({ ...state, status: "ready", busy: true }), "🫏 aesel · ~/a/easel · aesthetic · ● working");
   assert.equal(windowTitle({ ...state, status: "ready" }), "🫏 aesel · ~/a/easel · aesthetic");
+  assert.equal(proStatus({ ...state, modelLabel: "Claude Opus 5.5", status: "ready" }, 100, false).line.trim(), "@tester · ~/a/easel · Claude Opus 5.5", "the proper name when the list knows it");
+  assert.equal(proStatus({ ...state, status: "ready" }, 34, false).line.trim(), "@tester · claude-sonnet-5", "short of room, the place goes before the model");
 });
 
 test("a drop-down stands on the fact that opened it, and a click on one of its rows picks", async () => {
@@ -376,23 +379,25 @@ test("a drop-down stands on the fact that opened it, and a click on one of its r
     account: "@tester", model: "claude-sonnet-5", providerSettings: { backend: "claude", model: "claude-sonnet-5" },
     profile: { name: "pro" }, entries: [{ id: "u", kind: "user", text: "hi" }],
   };
-  assert.equal(headerAction(base, 80, 24, proStatus(base, 80, false).spans.find((s) => s.name === "engine").x + 1, 24), "provider", "the provider is its own control");
+  assert.equal(proStatus(base, 80, false).spans.find((s) => s.name === "engine"), undefined, "the provider is folded into the model");
   const items = [
-    { id: "claude-opus-5-5", label: "Claude Opus 5.5", detail: "claude-opus-5-5" },
-    { id: "claude-sonnet-5", label: "Claude Sonnet 5", detail: "claude-sonnet-5" },
+    { header: true, label: "claude", detail: "your claude account" },
+    { id: "claude-opus-5-5", label: "Claude Opus 5.5", detail: "claude-opus-5-5", provider: "claude" },
+    { id: "claude-sonnet-5", label: "Claude Sonnet 5", detail: "claude-sonnet-5", provider: "claude" },
   ];
-  const state = { ...base, dropdown: { kind: "model", items, index: 1, loading: false } };
+  const state = { ...base, dropdown: { kind: "model", items, index: 2, loading: false } };
   const g = dropdownGeometry(state, 80, 24);
-  assert.equal(g.count, 2);
-  assert.equal(g.top, 24 - 1 - 2 - 1, "title row, then the rows, all above the status line");
+  assert.equal(g.count, 3);
+  assert.equal(g.top, 24 - 1 - 3 - 1, "title row, then the rows, all above the status line");
   const modelSpan = proStatus(state, 80, false).spans.find((s) => s.name === "model");
   assert.equal(g.x, modelSpan.x, "it stands on the model");
   const frame = renderFrame(state, 80, 24, false).split("\n");
-  assert.match(frame[g.top], /▾ model/);
-  assert.match(frame[g.top + 1], /  Claude Opus 5.5 {2}claude-opus-5-5/);
-  assert.match(frame[g.top + 2], /› Claude Sonnet 5 {2}claude-sonnet-5/, "the current model is marked");
-  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 2), "pick:0", "clicking the first row picks it");
-  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 3), "pick:1");
+  assert.match(frame[g.top], /▾ provider · model/);
+  assert.match(frame[g.top + 1], /^ *claude {2,}/, "a provider heads its group");
+  assert.match(frame[g.top + 2], /  Claude Opus 5.5 {2,}claude-opus-5-5/);
+  assert.match(frame[g.top + 3], /› Claude Sonnet 5 {2,}claude-sonnet-5/, "the current model is marked");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 3), "pick:1", "clicking a model row picks it");
+  assert.equal(headerAction(state, 80, 24, g.x + 2, g.top + 4), "pick:2");
   assert.equal(headerAction(state, 80, 24, 2, 3), "dismiss", "anywhere else closes it");
   const loading = renderFrame({ ...base, dropdown: { kind: "model", items: [], index: 0, loading: true } }, 80, 24, false);
   assert.match(loading, /loading…/);

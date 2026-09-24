@@ -626,7 +626,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "model", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -821,7 +821,8 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
   const statusRow = bottom.lastIndexOf("status");
   // The anchor row is the status line; without one, the bar.
   const anchor = height - bottom.length + (statusRow >= 0 ? statusRow : Math.max(0, bottom.lastIndexOf("bar")));
-  const span = proStatus(state, width, false, shape).spans.find((s) => s.name === (drop.kind === "provider" ? "engine" : "model"));
+  const facts = proStatus(state, width, false, shape).spans;
+  const span = facts.find((s) => s.name === "model") || facts.find((s) => s.name === "engine");
   const items = drop.loading ? [{ id: "", label: "loading…", detail: "" }] : drop.items.length ? drop.items : [{ id: "", label: "nothing to choose", detail: "" }];
   const count = Math.max(1, Math.min(items.length, 10, anchor - 2));
   const index = Math.max(0, Math.min(drop.index || 0, items.length - 1));
@@ -832,7 +833,7 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
   const x = Math.max(0, Math.min(span ? span.x : 1, width - boxWidth - 1));
   // Row 0 is the title; rows 1..count are the choices; all sit above the anchor.
   const top = anchor - count - 1;
-  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: drop.kind === "provider" ? "provider" : "model" };
+  return { x, top, count, start, index, items, labelWidth, detailWidth, boxWidth, title: "provider · model" };
 }
 
 function paintDropdown(rows, state, width, height, useColor, shape) {
@@ -847,8 +848,8 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
     const item = g.items[g.start + j];
     const selected = g.start + j === g.index;
     const label = item.label.padEnd(g.labelWidth);
-    const text = ` ${selected ? "›" : " "} ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}`;
-    place(g.top + 1 + j, cell(text, selected ? "block" : "text"));
+    const text = item.header ? ` ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}` : ` ${selected ? "›" : " "} ${label}${g.detailWidth ? `  ${item.detail || ""}` : ""}`;
+    place(g.top + 1 + j, cell(text, selected ? "block" : item.header ? "highlight" : item.muted ? "muted" : "text"));
   }
   return rows;
 }
@@ -906,10 +907,10 @@ export function breathingHandle(account, state) {
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
-  const status = shape.status || ["handle", "workspace", "engine", "model", "mode", "activity"];
+  const status = shape.status || ["handle", "workspace", "model", "activity"];
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
-  const model = state.model || state.providerSettings?.model || "";
+  const model = state.modelLabel || state.model || state.providerSettings?.model || "";
   const engine = state.providerSettings?.backend || "";
   const queuedInbox = (state.queued || []).filter((line) => line?.inbox).length;
   const plain = {
@@ -920,14 +921,24 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     mode: state.mode === "local" ? "local" : "remote",
     // The little guy dances on the line while the machine has the floor, and
     // beside him the seconds, the way Claude Code counts them.
-    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.selection && !state.selection.active ? "selected · Enter copies · Esc clears" : state.flash && state.flash.until > Date.now() ? state.flash.text : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);
+  // When the line is short of room, the facts that matter least go first —
+  // the engine, then the place, then the model, then the handle — so what
+  // the machine is doing is the last thing to be cut.
+  const keep = new Set(status);
+  const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1);
+  for (const name of ["engine", "workspace", "model", "handle", "mode", "inbox"]) {
+    if (measure() <= width - 1) break;
+    keep.delete(name);
+  }
   const spans = [];
   let line = " ";
   let x = 1;
   for (const name of status) {
+    if (!keep.has(name)) continue;
     const text = plain[name] || "";
     if (!text) continue;
     if (spans.length) {

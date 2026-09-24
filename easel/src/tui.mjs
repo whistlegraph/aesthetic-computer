@@ -41,6 +41,7 @@ import { EASEL_HEIGHT, aeselFrame, aeselNextFrame, aeselWidth } from "./easel.mj
 import { Energy, energyReport } from "./energy.mjs";
 import {pickerModels,drawerKey,drawerIndex} from "./provider-picker.mjs";
 import { loadCatalog } from "./model-catalog.mjs";
+import { providerLabel } from "./render.mjs";
 import { backendFor, backendMenu, DEFAULT_BACKEND } from "./backends.mjs";
 import { GENRES, genreFor } from "./genres.mjs";
 import { Inbox } from "./inbox.mjs";
@@ -743,18 +744,29 @@ let desktopHistoryKey = "", desktopHistory = [];
 const catalogs = {};
 const catalogLoads = {};
 function catalogFor(id) { return catalogs[id] || []; }
+// What the bottom line calls the model: its proper name and version when the
+// provider's list knows it ("Claude Opus 5.5"), an alias's newest family
+// member ("fable" → "Claude Fable 5.1"), else the id itself.
+function modelLabel(provider, id) {
+  if (provider === "ac") return `aesthetic · ${String(id || "").split("/").at(-1) || "automatic"}`;
+  const rows = catalogFor(provider);
+  const exact = rows.find((m) => (m.id || m.model) === id);
+  if (exact) return exact.displayName || id;
+  const family = id && rows.find((m) => String(m.id || m.model).includes(id));
+  return family ? family.displayName || family.id || family.model : id || "";
+}
 function ensureCatalog(id, { force = false } = {}) {
   if (catalogs[id] && !force) return Promise.resolve(catalogs[id]);
   if (catalogLoads[id] && !force) return catalogLoads[id];
   catalogLoads[id] = loadCatalog(id, { cwd, force }).then((models) => {
     catalogs[id] = models;
     if (state.settings?.backend === id) { state.settings.catalog = models; state.settings.loading = false; }
-    if (state.dropdown?.kind === "model" && state.dropdown.provider === id) fillModelDropdown(id);
+    if (state.dropdown?.kind === "model") fillModelDropdown();
     redraw();
     return models;
   }).catch(() => {
     if (state.settings?.backend === id) { state.settings.loading = false; state.settings.error = `${id} catalog unavailable · /model NAME still works`; }
-    if (state.dropdown?.kind === "model" && state.dropdown.provider === id) { state.dropdown.loading = false; redraw(); }
+    if (state.dropdown?.kind === "model") { fillModelDropdown(); redraw(); }
     return [];
   }).finally(() => { delete catalogLoads[id]; });
   return catalogLoads[id];
@@ -764,23 +776,32 @@ function ensureCatalog(id, { force = false } = {}) {
 // Two of them, one per fact that is a control: the provider, and the model
 // the provider can run. A pick restarts the engine the way /backend and
 // /model do; the drawer (/settings) stays for effort and for the keyboard.
-function openDropdown(kind) {
-  if (kind === "provider") {
-    const items = ["ac", "claude", "codex"].map((id) => ({ id, label: id === "ac" ? "aesthetic" : id, detail: id === "ac" ? "hosted · metered to your @handle" : `your ${id} account` }));
-    state.dropdown = { kind, items, index: Math.max(0, items.findIndex((item) => item.id === backend.id)), loading: false };
-  } else {
-    state.dropdown = { kind: "model", provider: backend.id, items: [], index: 0, loading: !catalogs[backend.id] && backend.id !== "ac" };
-    fillModelDropdown(backend.id);
-    if (backend.id !== "ac") void ensureCatalog(backend.id);
-  }
+// One switcher for both: every provider, and under each what it can run,
+// with the row in use marked. A pick on another provider's model restarts
+// the engine there; a pick under the current one just changes the model.
+const PROVIDERS = ["claude", "codex", "ac"];
+function openDropdown() {
+  state.dropdown = { kind: "model", items: [], index: 0, loading: false };
+  fillModelDropdown();
+  for (const id of PROVIDERS) if (id !== "ac" && !catalogs[id]) void ensureCatalog(id);
   redraw();
 }
-function fillModelDropdown(id) {
+function fillModelDropdown() {
   const drop = state.dropdown;
   if (!drop || drop.kind !== "model") return;
-  drop.items = pickerModels({ backend: id, model: state.model || model, catalog: catalogFor(id) }).map((choice) => ({ id: choice.id, label: choice.label, detail: choice.detail || (choice.id !== choice.label ? choice.id : "") }));
-  drop.index = Math.max(0, drop.items.findIndex((item) => item.id === (state.model || model)));
-  drop.loading = !catalogs[id] && id !== "ac" && !drop.items.length;
+  const current = state.model || model;
+  const items = [];
+  for (const id of PROVIDERS) {
+    items.push({ header: true, label: providerLabel(id), detail: id === "ac" ? "hosted · metered to your @handle" : `your ${id} account` });
+    if (id !== "ac" && !catalogs[id]) { items.push({ id: "", label: "loading…", detail: "", provider: id, muted: true }); continue; }
+    for (const choice of pickerModels({ backend: id, model: id === backend.id ? current : backendFor(id).defaultModel, catalog: catalogFor(id) })) {
+      items.push({ id: choice.id, label: choice.label, detail: choice.detail || (choice.id !== choice.label ? choice.id : ""), provider: id });
+    }
+  }
+  drop.items = items;
+  const mine = items.findIndex((item) => item.provider === backend.id && item.id === current);
+  drop.index = mine >= 0 ? mine : items.findIndex((item) => !item.header && item.id);
+  drop.loading = false;
 }
 function closeDropdown() { state.dropdown = null; redraw(); }
 async function chooseDropdown(index = state.dropdown?.index) {
@@ -788,20 +809,18 @@ async function chooseDropdown(index = state.dropdown?.index) {
   if (!drop) return;
   const item = drop.items[index];
   state.dropdown = null;
-  if (!item?.id && !(drop.kind === "model" && item)) return redraw();
-  if (drop.kind === "provider") {
-    if (item.id === backend.id) return redraw();
-    return commandBackend(item.id);
-  }
+  if (!item || item.header || item.muted) return redraw();
+  if (item.provider && item.provider !== backend.id) return commandBackend(`${item.provider} ${item.id}`.trim());
   if (item.id === (state.model || model)) return redraw();
   return commandModel(item.id);
 }
 function dropdownKey(input) {
   const drop = state.dropdown;
   if (!drop) return false;
-  const last = Math.max(0, drop.items.length - 1);
-  if (input === "\x1b[A") drop.index = drop.index > 0 ? drop.index - 1 : last;
-  else if (input === "\x1b[B") drop.index = drop.index < last ? drop.index + 1 : 0;
+  const pickable = (i) => drop.items[i] && !drop.items[i].header && !drop.items[i].muted;
+  const step = (from, by) => { let i = from; for (let n = 0; n < drop.items.length; n += 1) { i = (i + by + drop.items.length) % drop.items.length; if (pickable(i)) return i; } return from; };
+  if (input === "\x1b[A") drop.index = step(drop.index, -1);
+  else if (input === "\x1b[B") drop.index = step(drop.index, 1);
   else if (input === "\r" || input === "\n") { void chooseDropdown(); return true; }
   else if (input === "\x1b" || input === "\x03" || input === "\t") { closeDropdown(); return true; }
   else return true;
@@ -904,6 +923,7 @@ function redraw() {
     if (state.scrollOffset) state.scrollOffset = Math.max(0, state.scrollOffset + count - lastTranscriptLines);
     lastTranscriptLines = count;
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
+    state.modelLabel = modelLabel(backend.id, state.model || model);
     retitle();
     if (process.env.EASEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,status:state.status,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
@@ -1714,7 +1734,7 @@ function openSettings(row=0) {
 }
 
 async function commandBackend(rest) {
-  if (!rest) return pro ? openDropdown("provider") : openSettings();
+  if (!rest) return pro ? openDropdown() : openSettings();
   if (state.busy) {
     addEntry("error", "Interrupt the current turn before switching engines.");
     return redraw();
@@ -1731,7 +1751,7 @@ async function commandBackend(rest) {
 }
 
 async function commandModel(rest) {
-  if (!rest && pro) return openDropdown("model");
+  if (!rest && pro) return openDropdown();
   if(backend.id==='ac')return openSettings(0);
   if (!rest) return openSettings(1);
   if (state.busy) {
@@ -2107,6 +2127,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
     if (command === "/provider") return commandBackend(rest);
+    if (command === "/copy") { if (!state.selection) { flash("nothing selected · drag over the transcript first"); return; } return copySelection(); }
     if (command === "/layout") {
       const [verb = "", key = "", ...valueWords] = restWords;
       try {
@@ -2418,22 +2439,33 @@ async function applyNotebookBinding(request){
 
 // The selection goes to the clipboard the moment the button lifts — the
 // terminal would have done the same, and ⌘C never reaches us.
-function copySelection(text) {
+function flash(text, ms = 2500) {
+  state.flash = { text, until: Date.now() + ms };
+  redraw();
+  const timer = setTimeout(() => { if (state.flash && state.flash.until <= Date.now()) { state.flash = null; redraw(); } }, ms + 50);
+  timer.unref?.();
+}
+function copySelection() {
+  const text = state.selection ? selectedText(state.pageRows || [], state.selection, process.stdout.columns || 80) : "";
+  state.selection = null;
+  if (!text.trim()) return redraw();
   const lines = text.split("\n").length;
   const tool = process.platform === "darwin" ? "pbcopy" : process.platform === "linux" ? "xclip" : "";
-  if (!tool) return;
+  if (!tool) return flash("no clipboard tool here");
   const child = spawn(tool, tool === "xclip" ? ["-selection", "clipboard"] : [], { stdio: ["pipe", "ignore", "ignore"] });
-  child.on("error", () => {});
-  child.on("close", (code) => {
-    if (code === 0) addEntry("notice", `Copied ${lines} line${lines === 1 ? "" : "s"}`);
-    redraw();
-  });
+  child.on("error", () => flash("copy failed"));
+  child.on("close", (code) => flash(code === 0 ? `copied ${lines} line${lines === 1 ? "" : "s"}` : "copy failed"));
   child.stdin.end(text);
 }
 
 function handleKey(input) {
-  // A key after a selection is the next thing, not part of it.
-  if (state.selection && !state.selection.active) state.selection = null;
+  // A held selection: Enter with nothing typed copies it, Esc lets it go,
+  // and any other key is the next thing, not part of it.
+  if (state.selection && !state.selection.active) {
+    if ((input === "\r" || input === "\n") && !state.input) return copySelection();
+    if (input === "\x1b") { state.selection = null; return redraw(); }
+    state.selection = null;
+  }
   if(process.env.EASEL_DESKTOP&&/^\x1b\[99;9;[01]~$/.test(input)){hostOffline=input.endsWith('0~');if(hostOffline)lostConnection('internet disconnected');else if(state.connectionNotice){clearTimeout(reconnectTimer);void checkConnection();}return;}
 
   const previewVersion=process.env.EASEL_DESKTOP&&/^\x1b\[99;8;(\d{1,8});(\d{1,10})~$/.exec(input);
@@ -2579,10 +2611,9 @@ function handleKeys(buffer) {
             continue;
           }
           if (mouse.release && state.selection?.active) {
+            // The words stay chosen; Enter (with nothing typed) or /copy takes them.
             state.selection.active = false;
-            const text = selectedText(state.pageRows || [], state.selection, process.stdout.columns || 80);
-            if (text.trim()) copySelection(text);
-            else state.selection = null;
+            if (!selectedText(state.pageRows || [], state.selection, process.stdout.columns || 80).trim()) state.selection = null;
             redraw();
             continue;
           }
@@ -2595,8 +2626,7 @@ function handleKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
-        if (mouse.click && action === "model") { if (pro) openDropdown("model"); else openSettings(); }
-        if (mouse.click && action === "provider") openDropdown("provider");
+        if (mouse.click && (action === "model" || action === "provider")) { if (pro) openDropdown(); else openSettings(); }
         if (mouse.click && action === "dismiss") closeDropdown();
         if (action.startsWith("pick:") && state.dropdown) { const index = Number(action.slice(5)); if (mouse.click) void chooseDropdown(index); else if (state.dropdown.index !== index) { state.dropdown.index = index; redraw(); } }
         if(mouse.click&&action.startsWith('settings:')){
@@ -2782,6 +2812,9 @@ try {
   slabSession.connected(connection?.thread?.id || engine.threadId);
   state.status = "ready";
   state.model = connection?.model || model;
+  // The bottom line names the model properly once the provider's list is
+  // in; it is cached on disk, so this is usually at once.
+  if (pro && backend.id !== "ac") void ensureCatalog(backend.id);
   await rememberProvider();
   if (desktopRestored || pro) {
     // Restoring an existing thread is silent, and so is pro: the status line
