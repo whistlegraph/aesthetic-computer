@@ -1,6 +1,6 @@
 # Notepat score lighting and raster candidate
 
-Prepared offline; no live device writes, playback, reboot, or USB changes.
+Lighting/raster timeline prepared offline. Oskiewar visual adapter subsequently deployed under the lowered curtain; no audio cue or reboot was performed by this work.
 
 The existing held fixture uses `candlelightRgb(t,5) * 4`: a constant orange with shallow noise, independent of notes, harmonies and movements. This candidate replaces that source with a compiled timeline that follows the actual routed score.
 
@@ -26,3 +26,23 @@ No existing wrapper or room follower is modified by this candidate. Preserve com
 ## Validation
 
 `node --test look.test.mjs` verifies held/ring isolation, pitch changes, decay, deterministic seeking, blackouts, fixture slots, full-byte loading, raster draw budget and real-score palette/brightness/slew bounds. `preview.png` is a rendered contact sheet from the silent browser preview.
+
+## Oskiewar adapter deployment
+
+`oskiewar-adapter.js` adapts the same eleven native raster modes to Oskiewar's screen rectangles/capsules and type writer. The score feed supplies `visual:'notepat-score-v1'`, `playing`, `elapsed`, `duration`, `title`, `look` and `movement:{t0,t1}`. The curtain remains lowered: only the Notepat visual and composition footer replace curtain directions while that feed is playing. Fighters remain paused; no soundtrack is added. Idle, countdown and stale feeds retain normal curtain behavior.
+
+`install-oskiewar.py` patches Neo's current renderer and stage feed filter with exact-match guards and timestamped backups. Applied September 24, 2026, backup stamp `20260924150645`; syntax checks passed. Paired deployment through `oskiewar-lan-test.mjs ... --hot` verified AC7 revision `bf85788b73f3` and Xbox live generation31. `oskiewar-deployment.json` records curtain=true and matching peer acknowledgment. `node --test oskiewar-adapter.test.mjs` checks every movement's finite geometry without audio/device APIs. Musical visual audition remains for the parent-controlled cue.
+
+## Live integration
+
+`notespatial-controls.mjs` replaces its frame painter with `paintLook` before
+the battery overlay, retains the shared volume/brightness controls, and uses
+the timeline RGB for held-center DMX. Its versioned performance import avoids
+native module-cache reuse. Deploy `score-look.mjs` as `score-look-live-v1.mjs`.
+
+`notepat-feed.mjs` serves score-clock look packets through the Blueberry8796
+visual server. Neo's Oskiewar adapter renders these during the curtain without
+resuming the game. `room-follow.mjs` runs on Neo: one latest fixture update
+at a time only with an empty queue, four distinct colors, overlapping gentle
+envelopes, stale bridge/run guards and final blackout. Plain-text DMX command
+acknowledgments are accepted alongside JSON status replies.

@@ -1,0 +1,26 @@
+{
+  "ac7Revision": "bf85788b73f3",
+  "xboxGeneration": 31,
+  "sourceBackup": "20260924150645",
+  "stage": {
+    "id": "mug31d23-71",
+    "curtain": true,
+    "performance": {
+      "title": "Note(s)pat(ial) Native \u00b7 gm128-fx-kick \u00b7 selected echo + flange",
+      "source": "Notepat Spatial",
+      "elapsed": 0,
+      "duration": 774.4119,
+      "playing": false,
+      "phase": "ready",
+      "notes": [],
+      "lyrics": [],
+      "intensity": 0,
+      "curtainStyle": "auto",
+      "active": false
+    },
+    "receivedAt": 1790273522144,
+    "peerAck": "mug31clq-70",
+    "stopFrame": 0
+  },
+  "auditioned": false
+}

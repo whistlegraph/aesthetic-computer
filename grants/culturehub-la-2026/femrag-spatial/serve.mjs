@@ -1,3 +1,4 @@
+import {notepatFeed} from '../../../fedac/native/candidates/notespatial-lighting-2026-09-24/notepat-feed.mjs';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {visualPerformance} from './visual-feed.mjs';
@@ -11,7 +12,7 @@ const server = createServer(async (req,res) => {
     const path = new URL(req.url,'http://localhost').pathname;
     if (path === '/api/performance' && req.method === 'GET') {
       res.setHeader('Content-Type','application/json');
-      return res.end(JSON.stringify(visualPerformance(score,transport,receivedAt)));
+      return res.end(JSON.stringify(await notepatFeed() || visualPerformance(score,transport,receivedAt)));
     }
     if (path === '/api/transport' && req.method === 'POST') {
       if (req.headers.origin !== 'http://' + req.headers.host) {
