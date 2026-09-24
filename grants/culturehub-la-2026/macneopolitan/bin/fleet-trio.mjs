@@ -17,7 +17,8 @@ if(!['plan','prepare','check'].includes(command))throw Error('Use fleet-trio.mjs
 const options=Object.fromEntries(args.map(a=>{if(!a.startsWith('--')||!a.includes('='))throw Error(`Invalid option ${a}`);const at=a.indexOf('=');return [a.slice(2,at),a.slice(at+1)];}));
 for(const key of Object.keys(options))if(!['out','score','receipts'].includes(key))throw Error(`Unknown option ${key}`);
 const out=resolve(options.out??'/Users/jas/Shelf/culturehub-trio');mkdirSync(out,{recursive:true});
-const score=JSON.parse(readFileSync(resolve(options.score??resolve(root,'scores/trio-chorus-doowop.mbscore'))));
+const scorePath=resolve(options.score??resolve(root,'scores/trio-chorus-doowop.mbscore'));
+const score={...JSON.parse(readFileSync(scorePath)),slug:scorePath.split('/').pop().replace(/\.mbscore$/,'')};
 const profiles=Object.fromEntries(members.map(m=>[m,JSON.parse(readFileSync(resolve(root,`members/${m}/voice.json`)))]));
 const fleet=JSON.parse(readFileSync(process.env.TRIO_FLEET??'/Users/jas/.ac-os/culturehub/fleet.json'));   // TRIO_FLEET=… the seat map to use
 const plan=buildPlan(score,profiles,fleet);

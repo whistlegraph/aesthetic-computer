@@ -28,8 +28,14 @@ export function notesOf(voice,bpm) {
 // `arrangement.meter` ("3/4") sets the bar when `fleet` does not. Defaults are
 // the One Big Voice choices: bass from blueberry, bed from frisbee, ornaments
 // from neo for four bars then frisbee.
+import {readFileSync as _read} from 'node:fs';
+import {resolve as _resolve,dirname as _dirname} from 'node:path';
+import {fileURLToPath as _furl} from 'node:url';
+const LAYER_FILE=_resolve(_dirname(_furl(import.meta.url)),'../scores/fleet-layers.json');
+let LAYERS={};try{LAYERS=JSON.parse(_read(LAYER_FILE,'utf8'));}catch{}
 export function layerSources(score) {
- const f=score.fleet??{};
+ const slug=String(score.slug??'').replace(/\.mbscore$/,'');
+ const f=score.fleet??LAYERS[slug]??{};
  const meter=/^(\d+)\s*\/\s*\d+$/.exec(String(score.arrangement?.meter??''));
  const beatsPerBar=f.beatsPerBar??(meter?Number(meter[1]):4);
  if(!Number.isInteger(beatsPerBar)||beatsPerBar<1||beatsPerBar>12)throw Error('Invalid beats per bar');

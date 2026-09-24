@@ -1,0 +1,14 @@
+{
+  "_": "Per-piece backing sources for the room planner (bin/trio-fleet-plan.mjs): which member feeds bass, bed and ornaments, and beats per bar. A score's own `fleet` block wins over this file.",
+  "trio-open-me":          { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-spell-sophia":     { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-abc":              { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-what-starts-with": { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-sums":             { "bass": "blueberry", "bed": "blueberry", "ornament": "frisbee" },
+  "trio-take-away":        { "bass": "blueberry", "bed": "blueberry", "ornament": "frisbee" },
+  "trio-thirteen-days":    { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-vocalise":         { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-lights-out":       { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-lullaby":          { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
+  "trio-the-record":       { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" }
+}
