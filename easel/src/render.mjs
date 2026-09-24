@@ -73,8 +73,27 @@ export function coloredHandle(account,colors,useColor=true,hover=false){
   // whatever the window's ground is, they need something to stand on.
   return '\x1b[48;5;233m'+(hover?'\x1b[4m':'')+Array.from(account).map((ch,i)=>`${truecolor?'\x1b[38;2;'+rgb[i].join(';')+'m':'\x1b[38;5;'+cube(rgb[i])+'m'}${ch}`).join('')+'\x1b[0m'+color.ground;
 }
-const fg = (rgb) => followsSlab ? `\x1b[38;5;${themeSlots.get(rgb.join(",")) ?? 7}m` : (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
-const bg = (rgb) => followsSlab ? (rgb === palette.background ? "\x1b[49m" : "\x1b[48;5;13m") : (truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
+// Ink, by role. In a window Slab dresses the page's own roles follow the
+// window: plain text is the profile's text colour, the muted and soft roles
+// the same dimmed, the highlight its bold colour, and the coloured roles the
+// standard ANSI slots. Everything else — the cloud's inks, the tray's, the
+// outline's — is the interface's own and keeps its exact colour anywhere.
+const exact = (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${cube(rgb)}m`);
+const SLAB_INK = new Map([
+  [palette.text.join(","), "\x1b[39m"],
+  [palette.soft.join(","), "\x1b[39m\x1b[2m"],
+  [palette.muted.join(","), "\x1b[39m\x1b[2m"],
+  [palette.highlight.join(","), "\x1b[39m\x1b[1m"],
+]);
+const fg = (rgb) => {
+  if (!followsSlab) return exact(rgb);
+  const key = rgb.join(",");
+  if (SLAB_INK.has(key)) return SLAB_INK.get(key);
+  return themeSlots.has(key) ? `\x1b[38;5;${themeSlots.get(key)}m` : exact(rgb);
+};
+// The ground is the window's own in a Slab window; every other ground the
+// interface paints — the bar, the tray, the cloud — is exact.
+const bg = (rgb) => (followsSlab && rgb === palette.background ? "\x1b[49m" : truecolor ? `\x1b[48;2;${rgb.join(";")}m` : `\x1b[48;5;${cube(rgb)}m`);
 
 // Slab tints the whole Terminal window by session status — lifted while the
 // machine works, pulled toward the prompt's pink when it wants you, settled
@@ -379,13 +398,18 @@ function entryLines(entry, width, useColor, gutter = "wide") {
   // sender is read before the request, the way the model reads the stamp.
   const bodyTone = BODY_TONES[entry.kind] || "text";
   if (entry.kind === "typed" && entry.wave !== undefined && useColor) {
-    // The wave: each letter takes the next hue along, the whole run shifted
-    // one step per frame, the splash's own colours in the splash's own order.
-    const hues = aeselInk.name;
-    let at = entry.wave;
+    // The shimmer: the words in the page's ink with a spark of the prompt's
+    // pink, three letters wide, travelling through them one step per frame —
+    // alive, but quiet enough to sit on any ground Slab gives the window.
+    const spark = [fg(palette.prompt), fg(palette.highlight), fg(palette.prompt)];
+    const hues = { length: 1 };
+    let at = 0;
+    const total = Array.from(cleanText(entry.text)).length + 3;
+    const head = entry.wave % Math.max(1, total);
+    const inkFor = () => { const d = at - head; at += 1; return d >= -2 && d <= 0 ? spark[d + 2] : color.text; };
     const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : 4));
-    const painted = wrapText(cleanText(entry.text), inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${hues[(at++) % hues.length]}${ch}`).join(""));
-    return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length) : painted.map((row) => `${row}${color.reset}${color.ground}`);
+    const painted = wrapText(cleanText(entry.text), inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${inkFor()}${ch}`).join(""));
+    return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length, true) : painted.map((row) => `${row}${color.reset}${color.ground}`);
   }
   const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
@@ -946,7 +970,7 @@ export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "line
 // Your words in an outline: rounded box-drawing corners in the prompt's ink,
 // the words inside in the same ink, the ground showing through — the
 // machine's cloud is filled, yours is drawn, and that is the difference.
-function outlineRows(rows, width) {
+function outlineRows(rows, width, painted = false) {
   while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
   while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
   const inner = Math.min(width - 4, Math.max(4, ...rows.map((row) => paintedWidth(row))));
@@ -954,10 +978,16 @@ function outlineRows(rows, width) {
   const line = (text) => `${ink}${text}${color.reset}${color.ground}`;
   // The words inside are set in the page's own ink, white on the ground —
   // the pink is the frame around them, not the words themselves.
-  const words = (row) => `${color.text}${fit(row.replace(new RegExp(ink.replace(/[[\]\\]/g, "\\$&"), "g"), color.text), inner)}`;
+  // Painted rows (the shimmer) keep their own inks; plain rows take the page's.
+  const words = (row) => `${color.text}${fit(painted ? row : row.replace(new RegExp(ink.replace(/[[\]\\]/g, "\\$&"), "g"), color.text), inner)}`;
   return [line(`╭${"─".repeat(inner + 2)}╮`), ...rows.map((row) => `${line("│ ")}${words(row)}${line(" │")}`), line(`╰${"─".repeat(inner + 2)}╯`)];
 }
-const CLOUD_TINT = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+let LIGHT = false;
+// On a light page the cloud is a light gray, not a white that would vanish.
+export function setAppearance(mode) { LIGHT = mode === "light"; }
+const CLOUD_TINT_DARK = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+const CLOUD_TINT_LIGHT = { bg: [226, 220, 238], ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+const CLOUD_TINT = new Proxy({}, { get: (_, key) => (LIGHT ? CLOUD_TINT_LIGHT : CLOUD_TINT_DARK)[key] });
 const TYPED_TINT = { bg: palette.typedCloud, ink: palette.typedInk, soft: [170, 80, 130], highlight: palette.cloudHighlight };
 function cloudInk(role, value, tint = CLOUD_TINT) {
   const inks = { text: tint.ink, soft: tint.soft, muted: tint.soft, highlight: tint.highlight, error: palette.error, inbox: tint.soft, prompt: tint.ink };

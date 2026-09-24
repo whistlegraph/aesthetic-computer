@@ -54,7 +54,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners, setTypedStyle } from "./render.mjs";
+import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners, setTypedStyle, setAppearance } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -305,7 +305,7 @@ const state = {
   // Not in pro. There the engine carries the user's own settings and servers,
   // so the prompt is the whole boundary again and it starts closed.
   autoAllow: !pro,
-  tray: pro ? appearance() : "",
+  tray: pro ? (() => { const mode = appearance(); setAppearance(mode); return mode; })() : "",
   entries: [
     // Pro opens onto nothing but the bar: the mode and the model sit under
     // it, and the agreement was the disclosure.
@@ -316,9 +316,9 @@ const state = {
     }]),
     // Say why the session is not the default one, once. A piece session
     // opened by default has nothing to explain.
-    // Pro says nothing about itself here; the status line under the bar
-    // already does. Private is worth one line, because it is a promise.
-    ...(profile.private ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
+    // Pro says nothing about itself here, private or not; /mode says it when
+    // asked, and the status line under the bar carries the rest.
+    ...(profile.private && !pro ? [{ id: "profile", kind: "notice", text: `Profile · ${profile.reason}` }] : []),
   ],
 };
 
@@ -2723,7 +2723,7 @@ process.stdin.setRawMode(true);
 process.stdin.resume();
 startNativeGamepad();
 process.stdin.on("data", handleKeys);
-process.stdout.on("resize", () => { if (pro) state.tray = appearance(); redraw(); });
+process.stdout.on("resize", () => { if (pro) { state.tray = appearance(); setAppearance(state.tray); } redraw(); });
 process.on("SIGWINCH", () => { frameDiff.reset(); lastLayout = ""; lastProvider = ""; lastConversation = ""; lastPrompt = ""; redraw(); });
 if (desktopSessionPath) process.on("SIGUSR2", () => {
   readDesktopIntent(process.env.EASEL_DESKTOP_INTENT).then(requestDesktop).catch((error) => { addEntry("error", errorText(error)); redraw(); });
