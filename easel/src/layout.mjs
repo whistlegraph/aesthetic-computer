@@ -47,6 +47,8 @@ export function normalize(spec = {}) {
   // The bubbles' corners: slanted triangles, or stepped quadrant blocks for
   // a font without the triangles.
   if (spec.corners === "slant" || spec.corners === "block") out.corners = spec.corners;
+  // How your own lines are set: outline (default), bubble, or lines.
+  if (["outline", "bubble", "lines"].includes(spec.typed)) out.typed = spec.typed;
   return out;
 }
 

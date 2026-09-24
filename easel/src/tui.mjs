@@ -54,7 +54,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners } from "./render.mjs";
+import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners, setTypedStyle } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -626,10 +626,12 @@ const inbox = new Inbox({ sessionId: slabSession.sessionId });
 // override, and followed while the session runs — see layout.mjs.
 state.layout = shape.spec;
 setCorners(shape.spec.corners);
+setTypedStyle(shape.spec.typed);
 if (pro) shape.watch();
 shape.on("change", (spec) => {
   state.layout = spec;
   setCorners(spec.corners);
+  setTypedStyle(spec.typed);
   redraw();
 });
 // Listening before the bind: opening drains the file queue, and a line that

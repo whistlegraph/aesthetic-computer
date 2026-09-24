@@ -383,8 +383,9 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     // one step per frame, the splash's own colours in the splash's own order.
     const hues = aeselInk.name;
     let at = entry.wave;
-    const tint = TYPED_TINT;
-    return cloudRows(wrapText(cleanText(entry.text), Math.max(1, width - prefix.length - 2)).map((line) => Array.from(line).map((ch) => `${bg(tint.bg)}${hues[(at++) % hues.length]}${ch}`).join("")), width - prefix.length, tint);
+    const inner = Math.max(1, width - prefix.length - (TYPED_STYLE === "lines" ? 0 : 4));
+    const painted = wrapText(cleanText(entry.text), inner).map((line) => Array.from(line).map((ch) => `${TYPED_STYLE === "bubble" ? bg(TYPED_TINT.bg) : ""}${hues[(at++) % hues.length]}${ch}`).join(""));
+    return TYPED_STYLE === "bubble" ? cloudRows(painted, width - prefix.length, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(painted, width - prefix.length) : painted.map((row) => `${row}${color.reset}${color.ground}`);
   }
   const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
@@ -398,7 +399,7 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     // a block and not as more prose.
     const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
     const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud||typed?2:0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?(r,v)=>cloudInk(r,v,CLOUD_TINT):typed?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud?2:typed?(TYPED_STYLE==='bubble'?2:TYPED_STYLE==='outline'?4:0):0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?(r,v)=>cloudInk(r,v,CLOUD_TINT):typed&&TYPED_STYLE==='bubble'?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
@@ -412,9 +413,9 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     }
   }
   if (cloud) return cloudRows(rows, width, CLOUD_TINT);
-  // A typed line in pro is a bubble of its own kind: the cloud's shape in a
-  // pink tint, dark pink ink — two voices, two bubbles.
-  if (typed) return cloudRows(rows, width, TYPED_TINT);
+  // A typed line in pro is set the way the layout says: outlined, bubbled,
+  // or plain on the page.
+  if (typed) return TYPED_STYLE === "bubble" ? cloudRows(rows, width, TYPED_TINT) : TYPED_STYLE === "outline" ? outlineRows(rows, width) : rows;
   if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
   return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
@@ -936,7 +937,26 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
 }
 
 let CORNERS = "slant";
+let TYPED_STYLE = "outline";
 export function setCorners(style) { CORNERS = style === "block" ? "block" : "slant"; }
+// How your own lines are set: an outline box (the default), a filled pink
+// bubble, or plain lines on the page.
+export function setTypedStyle(style) { TYPED_STYLE = ["outline", "bubble", "lines"].includes(style) ? style : "outline"; }
+
+// Your words in an outline: rounded box-drawing corners in the prompt's ink,
+// the words inside in the same ink, the ground showing through — the
+// machine's cloud is filled, yours is drawn, and that is the difference.
+function outlineRows(rows, width) {
+  while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
+  while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
+  const inner = Math.min(width - 4, Math.max(4, ...rows.map((row) => paintedWidth(row))));
+  const ink = paint(true, "prompt", "").replace(/\x1b\[0m.*$/, "");
+  const line = (text) => `${ink}${text}${color.reset}${color.ground}`;
+  // The words inside are set in the page's own ink, white on the ground —
+  // the pink is the frame around them, not the words themselves.
+  const words = (row) => `${color.text}${fit(row.replace(new RegExp(ink.replace(/[[\]\\]/g, "\\$&"), "g"), color.text), inner)}`;
+  return [line(`╭${"─".repeat(inner + 2)}╮`), ...rows.map((row) => `${line("│ ")}${words(row)}${line(" │")}`), line(`╰${"─".repeat(inner + 2)}╯`)];
+}
 const CLOUD_TINT = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
 const TYPED_TINT = { bg: palette.typedCloud, ink: palette.typedInk, soft: [170, 80, 130], highlight: palette.cloudHighlight };
 function cloudInk(role, value, tint = CLOUD_TINT) {
