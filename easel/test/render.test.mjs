@@ -452,3 +452,20 @@ test("in pro a question takes the page with three answers, and a running tool ri
   assert.match(proStatus(busy, 100, false).line, /s… · \/bin\/zsh -lc "git status --short"/, "the tool shows beside the timer");
   assert.doesNotMatch(renderFrame(busy, 100, 20, false), /RUN/, "and not as a line of the conversation");
 });
+
+test("while the machine works, the line it is working on runs a colour wave, frame by frame", () => {
+  const base = { workspace: "/c", mode: "remote", status: "working", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
+    entries: [{ id: "u0", kind: "user", text: "earlier line" }, { id: "u1", kind: "user", text: "make it sing" }] };
+  const a = renderFrame({ ...base, mascotMs: 0 }, 60, 12, true).split("\n");
+  const b = renderFrame({ ...base, mascotMs: 240 }, 60, 12, true).split("\n");
+  const row = (rows) => rows.find((r) => r.includes("make it sing".slice(-4)) && r.includes("\x1b[38;"));
+  const wave = (rows) => rows.find((r) => /m\x1b\[38;[^m]*ma/.test(r) || /make/.test(r.replace(/\x1b\[[0-9;]*m/g, "")) && (r.match(/\x1b\[38;/g) || []).length >= 6);
+  assert.ok(wave(a), "each letter of the working line carries its own hue");
+  assert.notEqual(wave(a), wave(b), "and the hues move between frames");
+  const distinctInks = (r) => new Set(r.match(/\x1b\[38;[0-9;]*m/g) || []).size;
+  const earlier = a.find((r) => r.replace(/\x1b\[[0-9;]*m/g, "").includes("earlier line"));
+  assert.ok(distinctInks(earlier) <= 3, "an earlier line keeps one ink");
+  assert.ok(distinctInks(wave(a)) >= 5, "the working line wears many");
+  const idle = renderFrame({ ...base, busy: false, mascotMs: 240 }, 60, 12, true).split("\n");
+  assert.equal(wave(idle), undefined, "and so does the line once the answer has landed");
+});

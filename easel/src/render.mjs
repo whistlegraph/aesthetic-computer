@@ -363,6 +363,16 @@ function entryLines(entry, width, useColor, gutter = "wide") {
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
   // sender is read before the request, the way the model reads the stamp.
   const bodyTone = BODY_TONES[entry.kind] || "text";
+  if (entry.kind === "typed" && entry.wave !== undefined && useColor) {
+    // The wave: each letter takes the next hue along, the whole run shifted
+    // one step per frame, the splash's own colours in the splash's own order.
+    const hues = aeselInk.name;
+    let at = entry.wave;
+    return wrapText(cleanText(entry.text), Math.max(1, width - prefix.length)).map((line, index) => {
+      const painted = Array.from(line).map((ch) => `${hues[(at++) % hues.length]}${ch}`).join("");
+      return `${paint(useColor, tone, index === 0 ? prefix : continuation)}${painted}${color.reset}${color.ground}`;
+    });
+  }
   const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
   for(const part of parts){
@@ -652,7 +662,14 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
-    : state.entries.flatMap((entry) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed" } : entry, contentWidth, useColor, pro ? "narrow" : "wide"));
+    : (() => {
+        // In pro the line being worked on is the animation: while the machine
+        // has the floor, the last thing typed runs a colour wave through its
+        // letters, frame by frame on the dance clock, and settles when the
+        // answer lands.
+        const working = pro && state.busy ? state.entries.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
+        return state.entries.flatMap((entry, index) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide"));
+      })();
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
