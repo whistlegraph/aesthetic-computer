@@ -699,7 +699,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     } else {
       const input = Array.from(cleanText(state.input || ""));
       const cursor = Math.max(0, Math.min(state.cursor ?? input.length, input.length));
-      const room = Math.max(1, width - 4);
+      const room = Math.max(1, width - 2);
       const start = Math.max(0, cursor - room + 1);
       const shown = input.slice(start, start + room);
       const at = cursor - start;
@@ -710,9 +710,10 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       // the way it does everywhere else. The frame says where it goes.
       const lead = `${shape.prompt ? `${shape.prompt} ` : ""}${start > 0 ? "‹" : ""}`;
       inner = `${shape.prompt ? `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ` : ""}${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${under === " " && at >= shown.length ? "" : under}${shown.slice(at + 1).join("")}`;
-      state.cursorCell = { row: height - shape.bottom.length + shape.bottom.indexOf("bar") + 1, col: 2 + textWidth(lead) + textWidth(shown.slice(0, at).join("")) };
+      state.cursorCell = { row: height - shape.bottom.length + shape.bottom.indexOf("bar") + 1, col: 1 + textWidth(lead) + textWidth(shown.slice(0, at).join("")) };
     }
-    const bar = `${barBg}${ink(palette.text)}${fit(` ${inner}`, width)}${reset}`;
+    // The words start on the bar's first cell: the purple is the margin.
+    const bar = `${barBg}${ink(palette.text)}${fit(inner, width)}${reset}`;
     const account = state.account || "";
     const model = state.model || state.providerSettings?.model || "";
     const engine = state.providerSettings?.backend || "";

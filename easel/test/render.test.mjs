@@ -324,7 +324,7 @@ test("the pro frame takes its shape from the layout", () => {
   const rows = frame.split("\n");
   assert.equal(rows.length, 10);
   assert.match(rows[7], /^─+$/, "the rule is where the layout put it");
-  assert.match(rows[8], /^ > /, "the prompt glyph is the layout's");
+  assert.match(rows[8], /^> /, "the prompt glyph is the layout's, on the bar's first cell");
   assert.equal(rows[9].trim(), "gpt-6-astra | codex", "only the facts asked for, with the separator asked for");
 });
 
