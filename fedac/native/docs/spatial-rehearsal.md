@@ -63,3 +63,7 @@ This version lasts 40.32 seconds with 48 notes and 24 left-to-right passes. Both
 ## Note(s)pat(ial) Native
 
 `compose-notespatial-native.mjs` writes `notespatial-native.nsscore`: the 13:08 performance score for six seats in a ring, plus one file per section rebased to zero. `notespatial-native-check.mjs` prints the routed power per laptop in 20-second windows, the seat of each early hop, and dry-runs the piece against the full score. Form, cue points and risks: `grants/culturehub-la-2026/NOTESPATIAL-ARRANGEMENT.md`. Deploy with `--score notespatial-native` and hosts in seat order 1–6 clockwise from the front. `notespatial-native-render.mjs` renders any ring score as an mp4 heard from the center (KEMAR HRTF via ffmpeg afir, or `--fast` parametric), whole, by `--section n`, or by `--from/--to`.
+
+## Voicings and effects (September 23)
+
+`compose-notespatial-native.mjs --voicing mallets | native | gm` rebuilds the piece with each instrument family made of modal mallet stacks, the engine's whistle, harp and piano, or GM programs (`--set family=recipe` swaps one family; `--fx studio` adds room, drive, wobble and glitch ribbons per chapter). Scores carry the tag, so `--score notespatial-native-mallets-8-the-lift` deploys one chapter in one orchestra. The playback piece now passes an event's `gm` as `gmProgram` and applies a score's `fxRoom`, `fxDrive`, `fxWobble` and `fxGlitch` ribbons (with `seatFx` overrides) ten times a second, zeroing them on stop. Menu and listening notes: `grants/culturehub-la-2026/VOICINGS.md`.

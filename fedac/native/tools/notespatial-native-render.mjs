@@ -90,7 +90,13 @@ score.lanes.forEach((lane, li) => {
         if (wave === 'noise') v = rnd();
         else {
           const f = phase - Math.floor(phase);
-          v = wave === 'triangle' ? 2 * Math.abs(2 * f - 1) - 1 : wave === 'sawtooth' ? 2 * f - 1 : wave === 'square' ? (f < .5 ? 1 : -1) : Math.sin(phase * Math.PI * 2);
+          const P = phase * Math.PI * 2;
+          v = wave === 'triangle' ? 2 * Math.abs(2 * f - 1) - 1 : wave === 'sawtooth' ? 2 * f - 1 : wave === 'square' ? (f < .5 ? 1 : -1)
+            // stand-ins for the engine's own instruments, so a preview is not a bare sine: the flute's soft second harmonic and breath, the plucked string's and the piano's harmonic tilt
+            : wave === 'whistle' ? (Math.sin(P) + .22 * Math.sin(2 * P)) / 1.2 + .03 * rnd()
+            : wave === 'harp' ? (Math.sin(P) + .5 * Math.sin(2 * P) + .3 * Math.sin(3 * P) + .15 * Math.sin(4 * P)) / 1.6
+            : wave === 'piano' ? (Math.sin(P) + .6 * Math.sin(2 * P) + .35 * Math.sin(3 * P) + .2 * Math.sin(4 * P) + .1 * Math.sin(5 * P)) / 1.8
+            : Math.sin(P);
           phase += inc;
         }
         buf[i] = v * env * g;

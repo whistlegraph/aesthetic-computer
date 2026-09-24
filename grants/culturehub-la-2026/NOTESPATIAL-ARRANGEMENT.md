@@ -125,6 +125,15 @@ the others write their tune as `[midi, beats]` pairs. Add or cut a
 phrase to change length. `warbleCents` before each chapter sets the
 wiggle. `turnsPlan` holds the field turns.
 
+**Other orchestras.** `--voicing mallets | native | gm` rebuilds the same
+score with each instrument family made of something else (marimba family,
+the engine's whistle, harp and piano, or GM programs), `--set
+held=whistle,bass=sawBass` swaps one family at a time, and `--fx studio`
+adds room, drive, wobble and glitch ribbons per chapter, applied on each
+laptop by the playback piece. Files carry the tag
+(`notespatial-native-mallets-8-the-lift`). The menu, the effects plan and
+what to listen for per voicing: [VOICINGS.md](VOICINGS.md).
+
 ## Listen for, at the tech
 
 1. **0:00** — the first bell from the held laptop alone. Set the small

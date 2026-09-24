@@ -79,43 +79,140 @@ for (const l of lanes) if (!(l.center || Number.isFinite(l.az) || l.orbitSeconds
 
 // ── instruments ───────────────────────────────────────────────────────
 // label: undefined → named from midi; null → unlabeled (partials, drums). freq overrides the pitch.
-function ev(i, t, dur, midi, g, wave = 'sine', attack = .01, decay = .06, label, freq = null) {
+function ev(i, t, dur, midi, g, wave = 'sine', attack = .01, decay = .06, label, freq = null, extra = null) {
   if (!(dur > 0) || !(g > 0)) return;
   if (freq === null && midi === null) throw Error('event with neither midi nor freq');
   const e = { t: r4(t), dur: r4(dur), hz: +(freq ?? hz(midi)).toFixed(2), g: +g.toFixed(3), wave, attack: +attack.toFixed(4), decay: +decay.toFixed(4) };
   if (label === undefined && midi !== null) e.note = noteName(midi);
+  if (Number.isInteger(extra?.gm)) e.gm = extra.gm; // a GM program the runtime passes as gmProgram; `wave` is its fallback
   lanes[i].events.push(e);
 }
 let warbleCents = 0; // the wannadash wiggle: a detuned copy beating a few Hz, ramped in after the onset
-function bell(i, t, dur, midi, g) { // the held voice
+const warble = (i, t, dur, midi, g, tail = .7) => { if (warbleCents > 0 && dur > .5) ev(i, t, dur, null, g, 'sine', .45, dur * tail, null, hz(midi) * 2 ** (warbleCents / 1200)); };
+
+// ── voicings ──────────────────────────────────────────────────────────
+// One score, several orchestras. A voicing maps each instrument family
+// (held, ring, echo, pad, bass, top, brass, theme, answer, stacc) to a
+// recipe; `--voicing NAME` picks a table and `--set held=whistle,ring=marimba`
+// overrides families one at a time. `sine` is the September 22 orchestra
+// and the default. Recipes are stacks of sine partials (any laptop, and the
+// render previews them faithfully), the engine's own instruments (whistle:
+// the STK flute waveguide; harp: Karplus-Strong; piano: the Salamander
+// bank), or GM programs by number, which the runtime passes as gmProgram
+// and which fall back to the named wave on a machine that has not
+// implemented the program. Drums, taps and the crash are the same in every
+// voicing.
+const R = {};
+// sine stacks: the original orchestra
+R.bell = (i, t, dur, midi, g) => { // the held voice
   ev(i, t, dur, midi, g, 'sine', .004, dur * .8);
   ev(i, t, dur * .55, midi + 12, g * .28, 'sine', .002, dur * .45, null, hz(midi) * 2);
   ev(i, t, dur * .3, midi + 19, g * .1, 'sine', .002, dur * .25, null, hz(midi) * 3);
-  if (warbleCents > 0 && dur > .5) ev(i, t, dur, null, g * .5, 'sine', .45, dur * .7, null, hz(midi) * 2 ** (warbleCents / 1200));
-}
-function pluck(i, t, dur, midi, g, partial = true) { // the ring
+  warble(i, t, dur, midi, g * .5);
+};
+R.pluck = (i, t, dur, midi, g, partial = true) => { // the ring
   ev(i, t, dur, midi, g, 'sine', .003, dur * .78);
-  if (partial) ev(i, t, dur * .5, midi + 12, g * .22, 'sine', .002, dur * .42, null, hz(midi) * 2);
-}
-function brass(i, t, dur, midi, g) { // fanfare: triangle body, sine octave, quick bite
+  if (partial === true) ev(i, t, dur * .5, midi + 12, g * .22, 'sine', .002, dur * .42, null, hz(midi) * 2);
+};
+R.brassTri = (i, t, dur, midi, g) => { // fanfare: triangle body, sine octave, quick bite
   ev(i, t, dur, midi, g, 'triangle', .012, dur * .35);
   ev(i, t, dur * .8, midi + 12, g * .25, 'sine', .01, dur * .3, null, hz(midi) * 2);
-}
-const stacc = (i, t, dur, midi, g, wave = 'sine') => ev(i, t, dur, midi, g, wave, .003, dur * .6);
+};
+R.staccSine = (i, t, dur, midi, g, wave = 'sine') => ev(i, t, dur, midi, g, typeof wave === 'string' ? wave : 'sine', .003, dur * .6);
 // Echoes: a sine with a short octave on top, so the answer carries energy
 // above 1.5 kHz and can be placed by level as well as timing (digest 05 R2).
-const soft = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g, 'sine', .02, dur * .7); ev(i, t, dur * .5, midi + 12, g * .22, 'sine', .002, dur * .4, null, hz(midi) * 2); };
-const pad = (i, t, dur, midi, g) => ev(i, t, dur, midi, g, 'sine', .6, dur * .5);
+R.soft = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g, 'sine', .02, dur * .7); ev(i, t, dur * .5, midi + 12, g * .22, 'sine', .002, dur * .4, null, hz(midi) * 2); };
+R.padSine = (i, t, dur, midi, g) => ev(i, t, dur, midi, g, 'sine', .6, dur * .5);
+R.topSine = (i, t, dur, midi, g, attack = .06, decay = dur * .75) => ev(i, t, dur, midi, g, 'sine', attack, decay);
+R.themeSine = (i, t, dur, midi, g) => { // the travelling theme: bell-like, with the octave that makes it placeable
+  ev(i, t, dur, midi, g, 'sine', .004, dur * .7);
+  ev(i, t, dur * .5, midi + 12, g * .25, 'sine', .002, dur * .4, null, hz(midi) * 2);
+  warble(i, t, dur, midi, g * .5, .6);
+};
+R.answerTri = (i, t, dur, midi, g) => ev(i, t, dur, midi, g, 'triangle', .006, dur * .667);
 // A low note on a laptop: the speaker rolls off under about 200 Hz, so the
 // root is carried by its octave and twelfth and heard as the residue pitch
 // (Ritsma 1967; digest 05 R1). The triangle fundamental stays for the small
 // speaker and for whatever the laptops do pass.
-function bassNote(i, t, dur, midi, g, attack = .015, decay = null) {
+R.bassResidue = (i, t, dur, midi, g, attack = .015, decay = null) => {
   const d = decay ?? dur * .5;
   ev(i, t, dur, midi, g, 'triangle', attack, d);
   ev(i, t, dur * .9, midi + 12, g * .5, 'sine', attack, d * .8, null, hz(midi) * 2);
   ev(i, t, dur * .7, midi + 19, g * .28, 'sine', attack, d * .6, null, hz(midi) * 3);
+};
+// mallets: modal ratios, relative gains and T60s from pop/marimba/synths/marimba.mjs
+// (Rossing 2000 ch. 4; Fletcher & Rossing 1998 ch. 19). Each partial rings for
+// its own T60, or a little past the written note, whichever is shorter; rings
+// halve every two octaves above middle C; a 30 ms noise tick is the mallet.
+// `ring` lets a bar sound past the written note (1 = damped at the note's end);
+// a partial under 0.02 of gain is not written, so the 32-voice cap is spent on
+// what can be heard. The mallets voicing peaks at the Lift's tutti chord.
+// A caller asking for a plain sound (pluck's `partial = false`: tutti chords,
+// fills, pickup laps) gets the fundamental alone, as the sine voicing does.
+function modal(ratios, amps, t60, { attack = .001, tick = 0, ring = 1.15, minGain = .02 } = {}) {
+  return (i, t, dur, midi, g, partial = true) => {
+    const reg = 2 ** (-(midi - 60) / 24), plain = partial === false;
+    ratios.forEach((r, k) => {
+      if (plain && k > 0) return;
+      if (g * amps[k] < minGain) return;
+      const d = Math.max(.08, Math.min(dur * ring, t60[k] * reg));
+      ev(i, t, d, k ? null : midi, g * amps[k], 'sine', attack, d * .85, k ? null : undefined, hz(midi) * r);
+    });
+    if (tick > 0 && !plain) ev(i, t, .03, null, g * tick, 'noise', .001, .025, null, 3000);
+  };
 }
+R.marimba = modal([1, 4, 9.2], [1, .32, .10], [1.6, .32, .09], { tick: .08, ring: 1, minGain: .045 }); // the walk keeps two partials; the tick and the 9.2 partial appear only on louder notes
+R.xylophone = modal([1, 3, 6, 9.6], [1, .55, .28, .1], [.45, .18, .07, .025], { tick: .05 });
+R.vibraphone = modal([1, 4, 10], [1, .22, .08], [4.5, .9, .25], { attack: .002, ring: 1.1 });
+R.glockenspiel = modal([1, 2.76, 5.4, 8.93], [.7, 1, .45, .18], [2.2, 1.4, .45, .12], { ring: 1.5 });
+R.gamelan = modal([1, 2.4, 4.7, 7.2], [1, .5, .3, .12], [3.2, 1.2, .45, .12], { attack: .003 });
+R.kalimba = modal([1, 5.9, 8.1], [1, .2, .08], [1.8, .3, .12], { attack: .002, ring: 1 });
+R.woodblock = modal([1, 1.8, 2.7, 4.1, 6.3], [1, .85, .65, .4, .2], [.18, .1, .06, .03, .015], { tick: .35 });
+R.gong = modal([1, 2.4], [1, .5], [3.2, 1.2], { attack: .25, ring: 1 }); // the gamelan bar struck softly, as a pad: two partials, since three pad lanes hold them for whole phrases
+R.bassMarimba = (i, t, dur, midi, g, attack = .002) => modal([1, 2, 3], [1, .5, .28], [2.4, 1.9, 1.2], { attack: typeof attack === 'number' ? attack : .002, ring: 1 })(i, t, dur, midi, g); // the bass bar with the residue octave and twelfth (R1)
+// the engine's own instruments
+R.whistle = (i, t, dur, midi, g) => ev(i, t, dur, midi, g * .9, 'whistle', .05, dur * .3);
+R.harp = (i, t, dur, midi, g) => { const d = Math.max(dur, .3); ev(i, t, d, midi, g, 'harp', .001, d * .6); };
+R.piano = (i, t, dur, midi, g) => ev(i, t, dur, midi, g * .9, 'piano', .001, dur * .35);
+R.sawBass = (i, t, dur, midi, g, attack = .01, decay = null) => { // a sawtooth has every harmonic, so a laptop passes its pitch on its own
+  const a = typeof attack === 'number' ? attack : .01, d = typeof decay === 'number' ? decay : dur * .5;
+  ev(i, t, dur, midi, g * .6, 'sawtooth', a, d);
+  ev(i, t, dur * .9, midi + 12, g * .3, 'sine', a, d * .8, null, hz(midi) * 2);
+};
+R.sawBrass = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g * .55, 'sawtooth', .02, dur * .4); ev(i, t, dur, null, g * .4, 'square', .03, dur * .35, null, hz(midi) * 2 ** (6 / 1200)); }; // a detuned pair: the chorus of digest 04, rule 3
+R.sawPad = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g * .5, 'sawtooth', .6, dur * .5); ev(i, t, dur, null, g * .5, 'sawtooth', .6, dur * .5, null, hz(midi) * 2 ** (-7 / 1200)); };
+R.squareReed = (i, t, dur, midi, g) => { ev(i, t, dur, midi, g * .6, 'square', .03, dur * .4); ev(i, t, dur, null, g * .25, 'sine', .01, dur * .5, null, hz(midi) * 2); };
+// GM programs, 0-based: 8 celesta, 11 vibraphone, 12 marimba, 13 xylophone, 38 synth bass 1,
+// 61 brass section, 71 clarinet, 73 flute, 79 ocarina, 89 warm pad. The wave is the fallback.
+const gm = (program, wave = 'sine', attack = .005, tail = .5) => (i, t, dur, midi, g, a, d) =>
+  ev(i, t, dur, midi, g, wave, typeof a === 'number' ? a : attack, typeof d === 'number' ? d : dur * tail, undefined, null, { gm: program });
+R.gmFlute = gm(73, 'whistle', .05, .3); R.gmMarimba = gm(12, 'sine', .001, .8); R.gmCelesta = gm(8, 'sine', .001, .7);
+R.gmPad = gm(89, 'triangle', .6, .5); R.gmBass = gm(38, 'sawtooth', .01, .5); R.gmOcarina = gm(79, 'sine', .04, .5);
+R.gmBrass = gm(61, 'sawtooth', .02, .4); R.gmVibes = gm(11, 'sine', .002, .8); R.gmClarinet = gm(71, 'square', .02, .5); R.gmXylo = gm(13, 'sine', .001, .6);
+
+const VOICINGS = {
+  sine:    { held: 'bell', ring: 'pluck', echo: 'soft', pad: 'padSine', bass: 'bassResidue', top: 'topSine', brass: 'brassTri', theme: 'themeSine', answer: 'answerTri', stacc: 'staccSine' },
+  mallets: { held: 'vibraphone', ring: 'marimba', echo: 'kalimba', pad: 'gong', bass: 'bassMarimba', top: 'glockenspiel', brass: 'gamelan', theme: 'marimba', answer: 'xylophone', stacc: 'xylophone' },
+  native:  { held: 'whistle', ring: 'harp', echo: 'harp', pad: 'sawPad', bass: 'sawBass', top: 'whistle', brass: 'sawBrass', theme: 'harp', answer: 'piano', stacc: 'harp' },
+  gm:      { held: 'gmFlute', ring: 'gmMarimba', echo: 'gmCelesta', pad: 'gmPad', bass: 'gmBass', top: 'gmOcarina', brass: 'gmBrass', theme: 'gmVibes', answer: 'gmClarinet', stacc: 'gmXylo' },
+};
+const opt = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; };
+const VOICING = opt('voicing', 'sine');
+if (!VOICINGS[VOICING]) throw Error(`no voicing "${VOICING}"; have ${Object.keys(VOICINGS).join(', ')}`);
+const SETS = process.argv.flatMap((a, i) => a === '--set' ? (process.argv[i + 1] || '').split(',') : []).filter(Boolean).map(s => s.split('='));
+const table = { ...VOICINGS[VOICING] };
+for (const [family, recipe] of SETS) {
+  if (!(family in table)) throw Error(`--set: no family "${family}"; have ${Object.keys(table).join(', ')}`);
+  if (!R[recipe]) throw Error(`--set: no recipe "${recipe}"; have ${Object.keys(R).join(', ')}`);
+  table[family] = recipe;
+}
+const I = Object.fromEntries(Object.entries(table).map(([f, r]) => [f, R[r]]));
+const bell = (...a) => I.held(...a), pluck = (...a) => I.ring(...a), soft = (...a) => I.echo(...a), pad = (...a) => I.pad(...a);
+const bassNote = (...a) => I.bass(...a), topNote = (...a) => I.top(...a), brass = (...a) => I.brass(...a);
+const themeNote = (...a) => I.theme(...a), answerNote = (...a) => I.answer(...a), stacc = (...a) => I.stacc(...a); // phrase() destructures `theme`, `answer` and `top` as flags, hence the names
+const FX = opt('fx', 'none');
+if (!['none', 'studio'].includes(FX)) throw Error('--fx none|studio');
+const TAG = ((VOICING === 'sine' && !SETS.length ? '' : '-' + [VOICING, ...SETS.map(([f, r]) => `${f}-${r}`)].join('-')) + (FX === 'studio' ? '-fx' : '')).toLowerCase();
 function tap(i, t, low, g) {
   ev(i, t, .27, null, g, 'sine', .012, .22, null, low ? 130 : 330);
   ev(i, t + .02, .31, null, g * .5, 'sine', .02, .26, null, low ? 90 : 220);
@@ -129,7 +226,8 @@ function kick(t, g) {
   ev(KICK, t + .06, .16, null, .75 * g, 'sine', .001, .11, null, 78);
   ev(KICK, t + .06, .14, null, .45 * g, 'sine', .001, .1, null, 156);
 }
-const crash = (t, g) => { for (let k = 0; k < RING; k++) ev(WALK[k], t + k * .012, .5, null, g, 'noise', .002, .4, null, 3000); ev(VOICE, t, .4, null, g * .6, 'noise', .002, .3, null, 3000); };
+const hits = []; // moments the studio effects plan may glitch on: the crashes and the hang-up
+const crash = (t, g) => { hits.push(t); for (let k = 0; k < RING; k++) ev(WALK[k], t + k * .012, .5, null, g, 'noise', .002, .4, null, 3000); ev(VOICE, t, .4, null, g * .6, 'noise', .002, .3, null, 3000); };
 function orbitAngle(i, t) { const l = lanes[i]; return i / lanes.length * TAU + (l.azOffset || 0) + t / l.orbitSeconds * TAU * (l.orbitDirection === -1 ? -1 : 1); }
 const ringSeatOf = angle => ((Math.round(angle / TAU * RING) % RING) + RING) % RING;
 // Hop law for the theme and the answer: the seat nearest the orbit angle,
@@ -182,13 +280,8 @@ function phrase(o) {
       for (const [a, d, m] of THEME_PHRASES[bar / 2]) {
         const up = lift && a >= 4 ? 12 : 0, midi = m + tr + register * 12 + up, tn = bt(bar, a), dur = d * beat * .92;
         if (themeWhere === 'center') bell(VOICE, tn, dur, midi, .5 * soft_ * swell);
-        else {
-          const L = themeLane(tn), g = .55 * soft_ * swell;
-          ev(L, tn, dur, midi, g, 'sine', .004, dur * .7);
-          ev(L, tn, dur * .5, midi + 12, g * .25, 'sine', .002, dur * .4, null, hz(midi) * 2); // the octave: energy above 1.5 kHz, so the travelling theme can be placed
-          if (warbleCents > 0 && dur > .5) ev(L, tn, dur, null, g * .5, 'sine', .45, dur * .6, null, hz(midi) * 2 ** (warbleCents / 1200));
-        }
-        if (answer && a >= 4 && bar >= 2) ev(answerLane(tn + .5 * beat), tn + .5 * beat, dur * .6, midi - 12, .26 * swell, 'triangle', .006, dur * .4);
+        else themeNote(themeLane(tn), tn, dur, midi, .55 * soft_ * swell);
+        if (answer && a >= 4 && bar >= 2) answerNote(answerLane(tn + .5 * beat), tn + .5 * beat, dur * .6, midi - 12, .26 * swell);
         if (echoes && echoOf === 'theme' && (a === 0 || a === 2 || a === 4)) {
           const base = themeWhere === 'orbit' ? themeSeat(tn) : echoHop;
           const plan = [[.375, 2, .34], [.75, 3, .18], [1.5, 1, .09]];
@@ -222,8 +315,8 @@ function phrase(o) {
     if (pads && bar % 2 === 0) chord.forEach((p, m) => pad(PAD[m], bt(bar, 0), 7.6 * beat, p, .13 * swell));
     if (top && bar % 2 === 1) {
       const high = Math.min(106, chord[1] + 24 + register * 12), tn = bt(bar, .36);
-      ev(TOP, tn, .40, high, .055 * soft_ * swell, 'sine', .06, .3);
-      ev(TOP, tn + .46 * beat, .52, Math.min(108, high + 2), .04 * soft_ * swell, 'sine', .08, .4);
+      topNote(TOP, tn, .40, high, .055 * soft_ * swell, .06, .3);
+      topNote(TOP, tn + .46 * beat, .52, Math.min(108, high + 2), .04 * soft_ * swell, .08, .4);
     }
     if (hats && !(last && breakBar)) for (let b = 0; b < 4; b += .5) ev(HATS, bt(bar, b), b % 1 ? .045 : .027, null, (b % 1 ? .3 : .19) * swell, 'noise', .001, .02, null, 7000);
     if (drums) {
@@ -479,7 +572,7 @@ chapter('XI · Vanish', 'the ring hands the last phrase back, one laptop at a ti
   for (let k = 0; k < RING; k++) { pluck(WALK[(RING - k) % RING], t, 2.4, LAST[k], .42); t += 3.2 + k * .4; }
   for (const [m, dur, gap] of [[67, 3.4, 3.0], [64, 3.8, 4.2], [60, 4.4, 5.6]]) { bell(VOICE, t, dur, m, .45); t += dur + gap; }
   ev(VOICE, t, 10, 60, .45, 'sine', 3.5, 5);
-  tap(TAP_BL, t + 10 + 2.6, true, .3); // the hang-up
+  tap(TAP_BL, t + 10 + 2.6, true, .3); hits.push(t + 10 + 2.6); // the hang-up
   cursor = t + 10 + 2.6 + 3;
 });
 const END = cursor;
@@ -501,22 +594,48 @@ for (let i = 0; i <= Math.ceil(END * SHIFT_HZ); i++) turns.push(+shiftAt(i / SHI
 for (const l of lanes) l.events.sort((a, b) => a.t - b.t);
 const seatColors = [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 255], [200, 130, 255], [255, 240, 200]];
 const score = {
-  name: 'Note(s)pat(ial) Native', geometry: 'ring', seats: SEATS, ring: RING, center: CENTER, seatColors,
-  dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes,
+  name: 'Note(s)pat(ial) Native' + (TAG ? ` · ${TAG.slice(1)}` : ''), geometry: 'ring', seats: SEATS, ring: RING, center: CENTER, seatColors,
+  dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes, voicing: table,
 };
+
+// ── effects, as ribbons the runtime applies per seat ──────────────────
+// --fx studio: the engine's room (a delay-line reverb), drive (tanh soft
+// clip), wobble (a flanger) and glitch (sample-hold) as dry/wet mixes over
+// time, sampled at 4 Hz: global ribbons plus a wetter room for the held
+// laptop. Chapter values glide over the first second after each door. An
+// effect is colour on a seat; digest 05 R3 still holds, it never moves a
+// sound. Every mix returns to zero when the piece stops.
+const FX_HZ = 4, FX_KEYS = ['fxRoom', 'fxDrive', 'fxWobble', 'fxGlitch'];
+if (FX === 'studio') {
+  const short = m => m.name.split(' · ')[1];
+  const ROOM = { Overture: .25, 'The Walk': .1, Waltz: .15, Chase: 0, Sneak: .1, Lullaby: .4, 'The Climb': .15, 'The Lift': .1, Fanfare: .2, Return: .25, Vanish: .5 };
+  const DRIVE = { 'The Lift': .35, Fanfare: .25 }, WOBBLE = { Sneak: .3, 'The Climb': .15 };
+  const at = t => movements.find(m => t >= m.t0 && t < m.t1) || movements.at(-1);
+  const glide = tableOf => t => { const m = at(t), prev = movements[movements.indexOf(m) - 1], v = tableOf[short(m)] ?? 0; if (!prev) return v; const p = tableOf[short(prev)] ?? 0, u = t - m.t0; return u < 1 ? p + (v - p) * u : v; };
+  const roomOf = glide(ROOM), driveOf = glide(DRIVE), wobbleOf = glide(WOBBLE);
+  const glitchOf = t => hits.some(h => t >= h && t < h + .5) ? .7 : 0;
+  const sample = f => Array.from({ length: Math.ceil(END * FX_HZ) + 1 }, (_, i) => +f(i / FX_HZ).toFixed(3));
+  score.fxRoom = sample(roomOf); score.fxDrive = sample(driveOf); score.fxWobble = sample(wobbleOf); score.fxGlitch = sample(glitchOf);
+  score.seatFx = { [CENTER]: { fxRoom: sample(t => Math.min(1, roomOf(t) + .15)) } };
+}
+const ribbonAt = (arr, t) => { const u = Math.max(0, Math.min(1, t / END)) * (arr.length - 1), i = Math.floor(u), j = Math.min(i + 1, arr.length - 1); return arr[i] + (arr[j] - arr[i]) * (u - i); };
+const resample = (arr, t0, dur) => { const n = Math.ceil(dur * FX_HZ) + 1; return Array.from({ length: n }, (_, k) => +ribbonAt(arr, t0 + k * dur / (n - 1)).toFixed(3)); };
 
 // ── write ─────────────────────────────────────────────────────────────
 const dir = new URL('../scores/', import.meta.url);
 await mkdir(dir, { recursive: true });
-await writeFile(new URL('notespatial-native.nsscore', dir), JSON.stringify(score) + '\n');
+await writeFile(new URL(`notespatial-native${TAG}.nsscore`, dir), JSON.stringify(score) + '\n');
 const slug = s => s.toLowerCase().replace(/^[ivx]+ · /, '').replace(/[^a-z]+/g, '-').replace(/^-|-$/g, '');
 await Promise.all(movements.map((m, n) => {
+  const dur = r4(m.t1 - m.t0 + 2);
   const part = {
-    ...score, fieldShift: undefined, name: `${score.name} — ${m.name}`, dur: r4(m.t1 - m.t0 + 2), movements: [{ ...m, t0: 0, t1: r4(m.t1 - m.t0) }],
+    ...score, fieldShift: undefined, name: `${score.name} — ${m.name}`, dur, movements: [{ ...m, t0: 0, t1: r4(m.t1 - m.t0) }],
     tempo: tempo.filter(x => x.t >= m.t0 && x.t < m.t1).map(x => ({ ...x, t: r4(x.t - m.t0) })),
     lanes: lanes.map(l => ({ ...l, events: l.events.filter(e => e.t >= m.t0 && e.t < m.t1).map(e => ({ ...e, t: r4(e.t - m.t0) })) })),
   };
-  return writeFile(new URL(`notespatial-native-${n + 1}-${slug(m.name)}.nsscore`, dir), JSON.stringify(part) + '\n');
+  for (const k of FX_KEYS) if (score[k]) part[k] = resample(score[k], m.t0, dur);
+  if (score.seatFx) part.seatFx = Object.fromEntries(Object.entries(score.seatFx).map(([seat, fx]) => [seat, Object.fromEntries(Object.entries(fx).map(([k, arr]) => [k, resample(arr, m.t0, dur)]))]));
+  return writeFile(new URL(`notespatial-native${TAG}-${n + 1}-${slug(m.name)}.nsscore`, dir), JSON.stringify(part) + '\n');
 }));
 
 // ── report ────────────────────────────────────────────────────────────
@@ -529,6 +648,8 @@ function maxVoices(a, b) {
   return mx;
 }
 console.log(`${score.name}: ${mmss(END)} (${END.toFixed(1)} s), ${lanes.length} lanes, ${all.length} events, ring of ${RING} + center`);
+console.log(`voicing ${VOICING}${SETS.length ? ' + ' + SETS.map(s => s.join('=')).join(' ') : ''}: ${Object.entries(table).map(([f, r]) => `${f}=${r}`).join(' ')}${FX === 'studio' ? '; studio effects ribbons' : ''}`);
+console.log(`→ scores/notespatial-native${TAG}.nsscore and one file per chapter`);
 console.log('chapter          start   length  events  maxvoices  tempo');
 for (const m of movements) {
   const evs = all.filter(e => e.t >= m.t0 && e.t < m.t1);

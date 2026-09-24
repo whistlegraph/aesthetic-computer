@@ -1,6 +1,6 @@
 // Spatial rehearsal, 26.09.18
 // Local synthesis on every seat, coordinated over Wi-Fi. Microphones stay closed.
-import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
+import { voicePosition, sourceGain, hasFocus, ringSeats, noteColor, ribbon } from '../lib/spatial-rehearsal.mjs';
 
 let config, score, error = '', phase = 'ready', origin = null;
 let lastStatus = -1, lastRead = -1, seenCommand = '';
@@ -29,6 +29,31 @@ function readJSON(system, path) {
 }
 function runDuration() { return mode === 'beeps' ? 20 : (config?.maxSeconds || score?.dur || 20); }
 function stopVoices() { for (const v of voices) v.voice?.kill?.(0.03); voices = []; }
+
+// Effects a score may carry as dry/wet ribbons over its duration (fxRoom,
+// fxDrive, fxWobble, fxGlitch), with per-seat overrides in score.seatFx[seat].
+// Applied ten times a second to the engine's global mixes; every mix returns
+// to zero when the piece stops, so a rehearsal never leaves a laptop wet.
+const FX_UNITS = { fxRoom: 'room', fxDrive: 'drive', fxWobble: 'wobble', fxGlitch: 'glitch' };
+let fxLast = {}, fxAt = -Infinity;
+function applyFx(sound, t) {
+  if (t - fxAt < 0.1) return;
+  fxAt = t;
+  const mine = score.seatFx?.[config.seat] || {};
+  for (const [key, unit] of Object.entries(FX_UNITS)) {
+    const arr = mine[key] || score[key];
+    if (!arr?.length) continue;
+    const v = Math.max(0, Math.min(1, ribbon({ dur: score.dur, [key]: arr }, key, t)));
+    if (Math.abs((fxLast[key] ?? -1) - v) < 0.005) continue;
+    fxLast[key] = v;
+    sound[unit]?.setMix?.(v);
+  }
+}
+function clearFx(sound) {
+  for (const [key, unit] of Object.entries(FX_UNITS)) if (fxLast[key] > 0) sound[unit]?.setMix?.(0);
+  fxLast = {}; fxAt = -Infinity;
+}
+const hasFx = () => !!(score && (score.seatFx || Object.keys(FX_UNITS).some(k => score[k]?.length)));
 
 let standalone = false; // seat given on the command line: play the baked score on its own clock
 export function boot({ system, sound, colon, params }) {
@@ -84,11 +109,11 @@ export function sim({ sound, system, screen, wifi }) {
       }
       if (cmd.action === 'identify') identifyAt = now + 1 + config.seat * 0.7;
       if (cmd.action === 'stop' || cmd.action === 'arm') {
-        stopVoices(); origin = null; identifyAt = null;
+        stopVoices(); clearFx(sound); origin = null; identifyAt = null;
         phase = error ? 'error' : 'ready';
       }
       if (cmd.action === 'prepare' && !error && Number.isFinite(cmd.startAt) && cmd.startAt > now + 1) {
-        stopVoices(); origin = cmd.startAt; phase = 'prepared'; runId = cmd.id;
+        stopVoices(); clearFx(sound); origin = cmd.startAt; phase = 'prepared'; runId = cmd.id;
         mode = cmd.mode === 'beeps' ? 'beeps' : 'score';
         networkHalfRttMs = cmd.networkHalfRttMs;
         cursors = score.lanes.map(() => 0); flyCursors = []; lastBeep = -1; beepCount = 0; outputPeak = 0; maxFrameGap = 0;
@@ -104,7 +129,7 @@ export function sim({ sound, system, screen, wifi }) {
     const t = now - origin;
     if (t >= 0) phase = 'playing';
     if (t >= runDuration()) {
-      stopVoices(); phase = 'finished';
+      stopVoices(); clearFx(sound); phase = 'finished';
     } else if (t >= 0 && mode === 'beeps') {
       const beat = Math.floor(t);
       if (beat !== lastBeep) {
@@ -115,6 +140,7 @@ export function sim({ sound, system, screen, wifi }) {
         }
       }
     } else if (t >= 0) {
+      if (hasFx()) applyFx(sound, t);
       voices = voices.filter(v => {
         if (t >= v.end) return false;
         v.voice?.update?.({ volume: v.g * sourceGain(score, voicePosition(score, v.lane, t), config.seat, config.seats) });
@@ -128,7 +154,8 @@ export function sim({ sound, system, screen, wifi }) {
           const g = Math.min(0.65, Math.max(0, e.g * (score.gain ?? 0.35)));
           const gain = sourceGain(score, voicePosition(score, i, t), config.seat, config.seats);
           const voice = sound.synth({ type: e.wave, tone: e.hz || 220,
-            duration: e.t + e.dur - t, volume: g * gain, attack: e.attack ?? 0.01, decay: e.decay ?? 0.04 });
+            duration: e.t + e.dur - t, volume: g * gain, attack: e.attack ?? 0.01, decay: e.decay ?? 0.04,
+            ...(Number.isInteger(e.gm) ? { gmProgram: e.gm } : {}) }); // a GM program when the score names one; `type` is its fallback
           voices.push({ voice, lane: i, end: e.t + e.dur, g });
         }
       }
