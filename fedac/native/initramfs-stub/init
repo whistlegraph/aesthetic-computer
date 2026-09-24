@@ -75,20 +75,36 @@ umount /boot 2>/dev/null
 if [ -w /sys/module/firmware_class/parameters/path ]; then
     echo /newroot/lib/firmware > /sys/module/firmware_class/parameters/path
     want_wlan=0; want_snd=0
-    for drv in /sys/bus/pci/drivers/iwlwifi /sys/bus/pci/drivers/rtw88_* \
-               /sys/bus/pci/drivers/rtw89_* /sys/bus/pci/drivers/ath1* \
-               /sys/bus/pci/drivers/mt76* /sys/bus/pci/drivers/sof-audio-pci-intel-*; do
+    # 1. A driver whose probe failed outright (iwlwifi with no firmware) left
+    #    its device unbound, so there is nothing to unbind: ask the PCI bus to
+    #    probe every unbound wireless (class 0x0280xx) or audio (0x04xxxx)
+    #    device again now that the firmware tree is reachable.
+    for dev in /sys/bus/pci/devices/*; do
+        [ -e "$dev/driver" ] && continue
+        class=$(cat "$dev/class" 2>/dev/null)
+        case "$class" in
+            0x028*) want_wlan=1 ;;
+            0x04*)  want_snd=1 ;;
+            *) continue ;;
+        esac
+        addr=${dev##*/}
+        echo "$addr" > /sys/bus/pci/drivers_probe 2>/dev/null
+        say "asked the PCI bus to re-probe unbound $addr (class $class)"
+    done
+    # 2. SOF binds fine and only fails later in its firmware workqueue, so it
+    #    stays bound with a dead DSP: unbind and bind to rerun the probe.
+    for drv in /sys/bus/pci/drivers/sof-audio-pci-intel-*; do
         [ -d "$drv" ] || continue
         for dev in "$drv"/0000:*; do
             [ -e "$dev" ] || continue
-            d=$(basename "$dev")
-            case "$drv" in *sof-audio*) want_snd=1 ;; *) want_wlan=1 ;; esac
-            echo "$d" > "$drv/unbind" 2>/dev/null
-            echo "$d" > "$drv/bind" 2>/dev/null
-            say "re-probed $d ($(basename "$drv")) with firmware from the stick"
+            addr=${dev##*/}
+            want_snd=1
+            echo "$addr" > "$drv/unbind" 2>/dev/null
+            echo "$addr" > "$drv/bind" 2>/dev/null
+            say "re-bound $addr on ${drv##*/} with firmware from the stick"
         done
     done
-    # Both drivers load firmware asynchronously after bind; give them ~8 s.
+    # Firmware loads finish asynchronously after bind; give them ~8 s.
     waited=0
     while [ "$waited" -lt 40 ]; do
         ok=1
@@ -98,7 +114,7 @@ if [ -w /sys/module/firmware_class/parameters/path ]; then
         waited=$((waited + 1))
         sleep 0.2
     done
-    say "firmware re-probe done after $((waited / 5)).$((waited % 5 * 2)) s (wlan wanted=$want_wlan, sound wanted=$want_snd): $(ls /sys/class/net 2>/dev/null | tr '\n' ' ')/ $(grep -c '^ *[0-9]' /proc/asound/cards 2>/dev/null || echo 0) sound card(s)"
+    say "firmware re-probe done after $((waited / 5)).$((waited % 5 * 2)) s (wlan wanted=$want_wlan, sound wanted=$want_snd): net=[$(ls /sys/class/net 2>/dev/null | tr '\n' ' ')] cards=$(grep -c '^ *[0-9]' /proc/asound/cards 2>/dev/null || echo 0)"
 fi
 
 # Hand the live mounts to the new root, then pivot. The real /init mounts
