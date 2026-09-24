@@ -2,6 +2,7 @@
 <title>Femrag++ in the round</title>
 <style>body{margin:0;background:#100b09;color:#ffdcaa;font:20px system-ui}header{padding:16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}button,select,input{font:inherit}canvas{width:100%;height:70vh}#status{padding:16px}</style>
 <header><strong>Femrag++ in the round</strong><button id="play">Play</button><button id="stop">Stop</button><label>Start <select id="section"></select></label><label>Output <select id="solo"><option value="all">Stereo room preview</option><option value="sub">Sub only</option></select></label><label>Master <input id="volume" type="range" min="0" max="25" value="25"> <span id="level">25%</span></label></header>
+<div id="visual-status" style="padding:0 16px">Xbox dance feed available on port 8796.</div>
 <canvas id="stage"></canvas><div id="status">Local audition — no fleet or DMX commands.</div>
 <script type="module">
 const score=await fetch('./score.json').then(r=>r.json());
@@ -9,6 +10,24 @@ const el=id=>document.getElementById(id),canvas=el('stage'),g=canvas.getContext(
 score.sections.forEach((s,i)=>el('section').add(new Option(s.name,String(i))));
 score.seats.forEach((s,i)=>el('solo').add(new Option(s,String(i))));
 let audio,master,buffers={},origin=0,running=false,next=0,nodes=new Set(),timer,frame,lastPaint=0,visualNext=0,recentSeats=Array(6).fill(null);
+let feedBusy=false, pendingVisual=null;
+function publishVisuals(){
+ if(location.port!=='8796')return;
+ pendingVisual={playing:running,elapsed:running?audio.currentTime-origin:0};
+ void flushVisuals();
+}
+async function flushVisuals(){
+ if(feedBusy||!pendingVisual)return;
+ feedBusy=true;
+ const value=pendingVisual;pendingVisual=null;
+ try {
+  const r=await fetch('/api/transport',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value),keepalive:true,signal:AbortSignal.timeout(900)});
+  if(!r.ok)throw Error('HTTP '+r.status);
+  el('visual-status').textContent=running?'Xbox dance feed active · display acknowledgment checked separately':'Xbox dance feed stopped';
+ }catch{el('visual-status').textContent='Xbox dance feed unavailable';}
+ finally{feedBusy=false;if(pendingVisual)void flushVisuals();}
+}
+setInterval(()=>{if(running)publishVisuals()},250);
 const midiName=m=>m==null?'':['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][Math.round(m)%12]+(Math.floor(m/12)-1);
 async function load(){
  audio??=new AudioContext();await audio.resume();
@@ -56,8 +75,8 @@ function paint(ms){frame=requestAnimationFrame(paint);if(ms-lastPaint<33)return;
  }
  if(running){const section=score.sections.find(s=>t>=s.startSec&&t<s.endSec);el('status').textContent=`${Math.max(0,t).toFixed(1)} / ${score.duration.toFixed(1)} s · ${section?.name??'Ready'} · ${nodes.size} sample voices · stereo audition; no live DMX`}
 }
-function stop(){running=false;clearInterval(timer);for(const n of nodes){try{n.stop()}catch{}}nodes.clear();el('status').textContent='Stopped — no fleet or DMX commands.'}
-el('play').onclick=async()=>{stop();el('status').textContent='Loading samples…';await load();const start=score.sections[+el('section').value].startSec;next=score.events.findIndex(e=>e.t>=start);visualNext=next;recentSeats.fill(null);origin=audio.currentTime+.3-start;master.gain.value=+el('volume').value/100;running=true;pump();timer=setInterval(pump,25)};
+function stop(){running=false;clearInterval(timer);for(const n of nodes){try{n.stop()}catch{}}nodes.clear();publishVisuals();el('status').textContent='Stopped — audio and visual feed stopped; no DMX commands.'}
+el('play').onclick=async()=>{stop();el('status').textContent='Loading samples…';await load();const start=score.sections[+el('section').value].startSec;next=score.events.findIndex(e=>e.t>=start);visualNext=next;recentSeats.fill(null);origin=audio.currentTime+.3-start;master.gain.value=+el('volume').value/100;running=true;publishVisuals();pump();timer=setInterval(pump,25)};
 el('stop').onclick=stop;el('volume').oninput=()=>{el('level').textContent=el('volume').value+'%';if(master)master.gain.setTargetAtTime(+el('volume').value/100,audio.currentTime,.03)};
 window.addEventListener('pagehide',stop);requestAnimationFrame(paint);
 </script>

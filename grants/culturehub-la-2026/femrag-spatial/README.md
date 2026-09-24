@@ -4,6 +4,40 @@ A playable **146.67-second sample study** for the Notepat spatial sequence:
 144 BPM, 88 bars, six laptop positions and a dedicated sub lane. The local
 stereo audition is ready; fleet sample playback and live DMX are **not connected**.
 
+Xbox/Oskiewar **visual dances are connected** through Neo's existing stage
+service. Use the connected audition on Blueberry:
+
+```sh
+node grants/culturehub-la-2026/femrag-spatial/serve.mjs
+```
+
+Open `http://192.168.1.234:8796/`. Play publishes the browser audio clock;
+Stop releases the display. Six colored figures dance to routed notes, gather
+during buildup, reverse their orbit in ragga sections, and soften in the outro.
+Sub hits swell a floor line. This visual connection adds no Xbox audio or DMX.
+The separate port 8793 static preview below remains local-only.
+
+The bridge publishes `GET /api/performance`; its transport heartbeat expires
+after 1.25 seconds. Neo polls it through `config.femrag`, then uses the existing
+AC→Xbox stage packets. Display mode is `auto`, curtain remains raised. A
+coalescing browser sender bounds pending requests; compact note tuples avoid
+the oversized packet failure observed with full event objects. Future note
+cues cover up to one second; network/display latency is not acoustically
+calibrated. The current paired LAN session expires at midnight and must be
+re-established for another day.
+
+Verified 2026-09-24: native AC and Xbox both acknowledged `femrag-round-v1`;
+Xbox screenshot inspected with six dancing figures and section/time footer.
+Both acknowledged the return after Stop; the feed returned `null`.
+Verification was a silent visual-only probe, not a full-fleet audio audition.
+
+`install-oskiewar.mjs` applies the small source/config integration on Neo and
+keeps `.pre-femrag` backups. It preserves other local Oskiewar work. Run it on
+Neo before its existing paired hot-deploy workflow; restart the stage service
+when changing its source/config. `oskiewar-dance.js` is the renderer source.
+The future fleet conductor must publish its actual score clock to this feed;
+it must not run an independent visual timer alongside fleet audio.
+
 ```sh
 python3 -m http.server 8793 --bind 127.0.0.1 --directory grants/culturehub-la-2026/femrag-spatial
 ```

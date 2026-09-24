@@ -1,0 +1,20 @@
+// A display follower only; never schedules audio, DMX, or device volume.
+export function visualPerformance(score, transport, receivedAt, now = Date.now()) {
+  if (!transport?.playing || now - receivedAt > 1250 || now < receivedAt) return null;
+  const elapsed = transport.elapsed + (now - receivedAt) / 1000;
+  if (elapsed < 0 || elapsed >= score.duration) return null;
+  const section = score.sections.find(s => elapsed >= s.startSec && elapsed < s.endSec);
+  // Binary search a small window, rather than scanning the entire arrangement each tick.
+  let lo = 0, hi = score.events.length;
+  while (lo < hi) { const mid = (lo + hi) >>> 1;
+    if (score.events[mid].t < elapsed - .6) lo = mid + 1; else hi = mid; }
+  const hits = [];
+  for (let i = lo; i < score.events.length && score.events[i].t <= elapsed + 1; i++) {
+    const e = score.events[i];
+    hits.push({t:e.t, seat:e.seat, midi:e.midi, sample:e.sample, gain:Math.min(1,e.gain)});
+  }
+  return {title:score.title, source:'Femrag++ · ' + (section?.name || ''),
+    playing:true, phase:'playing', elapsed, duration:score.duration, bpm:score.bpm,
+    dance:'femrag-round-v1', section:section?.name, hits:hits.slice(0,48).map(e=>[Math.round((e.t-elapsed)*100),e.seat==='sub'?6:e.seat,Number.isFinite(e.midi)?e.midi:-1]),
+    notes:hits.filter(e=>e.t<=elapsed && Number.isFinite(e.midi)).slice(-2).map(e=>e.midi)};
+}
