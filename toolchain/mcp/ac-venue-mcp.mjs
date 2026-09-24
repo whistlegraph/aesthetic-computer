@@ -179,7 +179,8 @@ async function runQueueOnce() {
   const mark = (status, extra = {}) => { const qq = queue(); const it = qq.items.find((i) => i.id === item.id); if (it) Object.assign(it, { status, ...extra }); saveQueue(qq); };
   try {
     setRig({ owner: local, since: new Date().toISOString(), note: `setlist: ${item.label || item.out}` });
-    if (item.status !== "ready") { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, allowPieces: item.allowPieces || "notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
+    const ownConductor = existsSync(join(outDir(item.out), "run-fleet.py"));   // a folder with its own conductor stages itself
+    if (item.status !== "ready" && !ownConductor) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, allowPieces: item.allowPieces || "notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
     mark("cueing"); const r = await cue({ out: item.out, announce: item.announce, rttMax: item.rttMax || 0.05 }); mark("playing", { runId: r.runId, startedAt: Date.now() / 1000 });
     runnerNote = `playing ${item.label || item.out} (${r.runId})`;
@@ -251,4 +252,4 @@ async function handleMessage(msg) {
 }
 const port = httpPort(process.argv, 0);
 if (port) serveHttp({ handleMessage, port, banner: "🎪 ac-venue-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "🎪 ac-venue-mcp started (venue_status, venue_prepare, venue_check, venue_cue, venue_result, venue_stop, venue_claim)" });
+else serveStdio({ handleMessage, banner: "🎪 ac-venue-mcp started (venue_enqueue, venue_setlist, venue_dequeue, venue_autoplay, venue_next, venue_status, venue_prepare, venue_check, venue_cue, venue_result, venue_stop, venue_claim)" });
