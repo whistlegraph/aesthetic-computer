@@ -298,3 +298,15 @@ blackout verified, screens restored. Two aborts before it, both pre-cue: a
 seat clock probe over the 40 ms limit (probes now 14), and a stray
 `/tmp/inspect.py` on neo shadowing the stdlib for the brightness helper.
 Acoustic alignment still uncalibrated, as before.
+
+## Good morning, Sophia — second full-system run, for Will, 2026-09-24 14:27
+
+Run `full-trio-97a0a3ed7c` from frisbee: all phrases and all seat events
+played, start lateness under 16 ms, blackout verified. ropotu's staged center
+module drove the held-center wedge d041 on the same timeline. One earlier
+attempt (`f16d51c6c6`) was aborted by a 232 ms frame stall on seat-1 at its
+downbeat; every seat shows 130–380 ms stalls during playback, so the conductor
+now plays on with a missed seat silent (recorded as `seatWarnings`) instead of
+stopping the room, and retries a status file that reads back mid-write. The
+native piece's 100 ms downbeat tolerance is unchanged; the stalls are the open
+question.

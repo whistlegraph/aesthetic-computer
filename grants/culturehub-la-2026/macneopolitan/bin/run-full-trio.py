@@ -73,7 +73,7 @@ def nativecheck(n):
    except urllib.error.HTTPError as e:
     if e.code!=404:raise
     time.sleep(.005);continue
-   if c.get('id')==cid:break
+   if isinstance(c,dict) and c.get('id')==cid:break   # a partial write reads back as text: try again
    time.sleep(.005)
   else:raise RuntimeError(n['id']+' clock probe failed')
   b=time.monotonic();assert c['instance']==s2['instance'];samples.append({'offset':c['audioTime']-(a+b)/2,'rtt':b-a})
@@ -155,7 +155,12 @@ try:
   elapsed=time.monotonic()-downbeat
   if elapsed>0 and int(elapsed)//2!=last:
    last=int(elapsed)//2;ss=parallel(status,nodes)
-   for s in ss:assert not s['error'],s
+   # One seat stalling on its downbeat silences that seat, not the room:
+   # record it and play on; anything else is still a stop.
+   for s in ss:
+    if s['error'] and 'Missed downbeat' in s['error']:
+     if s['receiverId'] not in record.setdefault('seatWarnings',{}):record['seatWarnings'][s['receiverId']]=s['error'];print('WARNING',s['receiverId'],s['error'],flush=True)
+    else:assert not s['error'],s
    sub=subcheck();dmx=request(DMX+'/state');assert time.time()-dmx['bridgeSeen']<4,'DMX offline'
    record['samples'].append({'t':elapsed,'native':ss,'sub':sub,'dmxResult':dmx.get('lastResult')});save()
    if last%5==0:print('Playing',round(elapsed),'sec; all receivers online.',flush=True)
