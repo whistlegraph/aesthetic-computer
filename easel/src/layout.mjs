@@ -44,6 +44,9 @@ export function normalize(spec = {}) {
   // leaves it to the terminal so a drag selects text. Terminal mouse
   // reporting is all or nothing, so this is a real choice, and it is kept.
   if (typeof spec.mouse === "boolean") out.mouse = spec.mouse;
+  // The bubbles' corners: slanted triangles, or stepped quadrant blocks for
+  // a font without the triangles.
+  if (spec.corners === "slant" || spec.corners === "block") out.corners = spec.corners;
   return out;
 }
 

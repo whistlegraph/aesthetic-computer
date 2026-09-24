@@ -44,6 +44,10 @@ export const palette = {
   cloudInk: [42, 28, 66],
   cloudSoft: [112, 72, 166],
   cloudHighlight: [196, 74, 22],
+  // Your own bubble: a pink tint of the cloud, dark pink ink, so the two
+  // voices read as two voices.
+  typedCloud: [248, 228, 240],
+  typedInk: [132, 22, 84],
 };
 
 const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
@@ -368,6 +372,7 @@ function entryLines(entry, width, useColor, gutter = "wide") {
   // with a cell of air around it and rounded ends, so what the machine says
   // reads as a message and not as more of the page.
   const cloud = gutter === "narrow" && entry.kind === "assistant" && useColor;
+  const typed = gutter === "narrow" && entry.kind === "typed" && useColor;
   const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
   const continuation = " ".repeat(prefix.length);
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
@@ -378,10 +383,8 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     // one step per frame, the splash's own colours in the splash's own order.
     const hues = aeselInk.name;
     let at = entry.wave;
-    return wrapText(cleanText(entry.text), Math.max(1, width - prefix.length)).map((line, index) => {
-      const painted = Array.from(line).map((ch) => `${hues[(at++) % hues.length]}${ch}`).join("");
-      return `${paint(useColor, tone, index === 0 ? prefix : continuation)}${painted}${color.reset}${color.ground}`;
-    });
+    const tint = TYPED_TINT;
+    return cloudRows(wrapText(cleanText(entry.text), Math.max(1, width - prefix.length - 2)).map((line) => Array.from(line).map((ch) => `${bg(tint.bg)}${hues[(at++) % hues.length]}${ch}`).join("")), width - prefix.length, tint);
   }
   const rows=[],text=cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text),parts=text.split(/(^[ \t]*```[^\n]*$)/m);
   let fenced=false;
@@ -395,7 +398,7 @@ function entryLines(entry, width, useColor, gutter = "wide") {
     // a block and not as more prose.
     const codeGround=useColor&&(fenced||entry.kind==='command'||entry.kind==='change');
     const onGround=(line)=>codeGround?`\x1b[48;5;234m${fit(line,Math.max(1,width-prefix.length))}\x1b[49m`:line;
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud?2:0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?cloudInk:null).map(onGround));continue;}
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length-(cloud||typed?2:0)),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant',cloud?(r,v)=>cloudInk(r,v,CLOUD_TINT):typed?(r,v)=>cloudInk(r,v,TYPED_TINT):null).map(onGround));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
@@ -408,7 +411,10 @@ function entryLines(entry, width, useColor, gutter = "wide") {
       rows.push(onGround(syntaxLine(code,spans,start,offset,(tone,value)=>paint(useColor,tone,value))));offset++;
     }
   }
-  if (cloud) return cloudRows(rows, width);
+  if (cloud) return cloudRows(rows, width, CLOUD_TINT);
+  // A typed line in pro is a bubble of its own kind: the cloud's shape in a
+  // pink tint, dark pink ink — two voices, two bubbles.
+  if (typed) return cloudRows(rows, width, TYPED_TINT);
   if(entry.kind === "notice" && /^Desktop (thread restored|restart|update)/.test(text)) return rows.map(line=>" ".repeat(Math.max(0,Math.floor((width-textWidth(line))/2)))+line);
   return rows.map((line,index)=>`${paint(useColor,tone,index===0?prefix:continuation)}${line}`);
 }
@@ -679,14 +685,29 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
         // has the floor, the last thing typed runs a colour wave through its
         // letters, frame by frame on the dance clock, and settles when the
         // answer lands.
-        const working = pro && state.busy ? state.entries.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
-        return state.entries.flatMap((entry, index) => {
+        // A run of typed lines is one bubble: what you said before the machine
+        // answered, together, rather than a stack of pills.
+        const grouped = pro ? state.entries.reduce((list, entry) => {
+          const last = list[list.length - 1];
+          if (entry.kind === "user" && last?.kind === "user") { last.text = `${last.text}\n${entry.text}`; return list; }
+          list.push(entry.kind === "user" ? { ...entry } : entry);
+          return list;
+        }, []) : state.entries;
+        const working = pro && state.busy ? grouped.reduce((found, entry, index) => (entry.kind === "user" ? index : found), -1) : -1;
+        return grouped.flatMap((entry, index) => {
           const lines = entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed", ...(index === working ? { wave: Math.floor((state.mascotMs || 0) / 120) } : {}) } : entry, contentWidth, useColor, pro ? "narrow" : "wide");
           // A cloud's rows are not ruled; the flag rides along with the row.
-          if (pro && entry.kind === "assistant") for (const line of lines) unruled.add(line);
+          if (pro && (entry.kind === "assistant" || entry.kind === "user")) for (const line of lines) unruled.add(line);
           return lines;
         });
       })();
+  // Provisional rows: the tools and subtasks running right now, one line each
+  // at the foot of the transcript, gone the moment each one finishes. They
+  // are not entries; nothing of them is kept on the page.
+  const provisional = pro && state.busy && state.toolsNow?.size
+    ? [...state.toolsNow.values()].map((text) => paint(useColor, "muted", clipText(`⋯ ${String(text).replace(/\s+/g, " ")}`, contentWidth)))
+    : [];
+  for (const row of provisional) { transcript.push(row); unruled.add(row); }
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
@@ -914,30 +935,34 @@ function paintDropdown(rows, state, width, height, useColor, shape) {
   return rows;
 }
 
-// The cloud's ink: the reply's roles in colours that read on the near-white
-// ground, every segment carrying the ground with it so no reset lets the
-// purple back in mid-row.
-function cloudInk(role, value) {
-  const inks = { text: palette.cloudInk, soft: palette.cloudSoft, muted: palette.cloudSoft, highlight: palette.cloudHighlight, error: palette.error, inbox: palette.cloudSoft, prompt: palette.cloudSoft };
+let CORNERS = "slant";
+export function setCorners(style) { CORNERS = style === "block" ? "block" : "slant"; }
+const CLOUD_TINT = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
+const TYPED_TINT = { bg: palette.typedCloud, ink: palette.typedInk, soft: [170, 80, 130], highlight: palette.cloudHighlight };
+function cloudInk(role, value, tint = CLOUD_TINT) {
+  const inks = { text: tint.ink, soft: tint.soft, muted: tint.soft, highlight: tint.highlight, error: palette.error, inbox: tint.soft, prompt: tint.ink };
   const bold = /\bbold\b/.test(role);
   const base = role.replace(/\bbold\b/, "").trim() || "text";
-  return `${bg(palette.cloud)}${fg(inks[base] || palette.cloudInk)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
+  return `${bg(tint.bg)}${fg(inks[base] || tint.ink)}${bold ? "\x1b[1m" : ""}${value}${bold ? "\x1b[22m" : ""}`;
 }
 
 // Rows of a reply wrapped in their cloud: a rounded top edge drawn with the
 // lower half-blocks, the rows on the cloud's ground with a cell of air at
 // either side, a rounded bottom edge with the upper half-blocks. Code inside
 // keeps its own dark ground, the way a code block sits in any bubble.
-function cloudRows(rows, width) {
+function cloudRows(rows, width, tint = CLOUD_TINT) {
   // Air is the cloud's own; blank rows at either end are not kept.
   while (rows.length > 1 && !paintedWidth(rows[rows.length - 1])) rows.pop();
   while (rows.length > 1 && !paintedWidth(rows[0])) rows.shift();
   const inner = Math.min(width - 2, Math.max(8, ...rows.map((row) => paintedWidth(row))));
-  const edge = fg(palette.cloud);
+  const edge = fg(tint.bg);
   const ground = `${color.reset}${color.ground}`;
-  const top = `${edge}▗${"▄".repeat(inner)}▖${ground}`;
-  const bottom = `${edge}▝${"▀".repeat(inner)}▘${ground}`;
-  const body = rows.map((row) => `${bg(palette.cloud)}${fg(palette.cloudInk)} ${fit(row.replace(/\x1b\[49m/g, bg(palette.cloud)), inner)}${bg(palette.cloud)} ${ground}`);
+  // Slanted corners by default — the triangles cut the corner on the
+  // diagonal — or stepped quadrants when the layout says `corners: block`.
+  const slant = CORNERS !== "block";
+  const top = `${edge}${slant ? "◢" : "▗"}${"▄".repeat(inner)}${slant ? "◣" : "▖"}${ground}`;
+  const bottom = `${edge}${slant ? "◥" : "▝"}${"▀".repeat(inner)}${slant ? "◤" : "▘"}${ground}`;
+  const body = rows.map((row) => `${bg(tint.bg)}${fg(tint.ink)} ${fit(row.replace(/\x1b\[49m/g, bg(tint.bg)), inner)}${bg(tint.bg)} ${ground}`);
   return [top, ...body, bottom];
 }
 

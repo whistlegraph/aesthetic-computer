@@ -54,7 +54,7 @@ import { publishPiece } from "./publish.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle } from "./render.mjs";
+import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners } from "./render.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -625,9 +625,11 @@ const inbox = new Inbox({ sessionId: slabSession.sessionId });
 // The pro frame's shape, read from layouts/pro.json under ~/.config/easel's
 // override, and followed while the session runs — see layout.mjs.
 state.layout = shape.spec;
+setCorners(shape.spec.corners);
 if (pro) shape.watch();
 shape.on("change", (spec) => {
   state.layout = spec;
+  setCorners(spec.corners);
   redraw();
 });
 // Listening before the bind: opening drains the file queue, and a line that
@@ -1297,7 +1299,7 @@ function handleNotification({ method, params = {} }) {
   switch (method) {
     case "turn/started":
       pendingModelGlyphs="";resetModelGlyphs=true;
-      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
+      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();state.toolsNow?.clear();state.toolNow="";
       state.requestStartedAt ||= Date.now();
       state.busy = true;
       startDance();
@@ -1343,7 +1345,7 @@ function handleNotification({ method, params = {} }) {
       if (summary) {
         // Pro reports a tool on the status line while it runs, not as a line
         // of the conversation; the transcript on disk still records it.
-        if (pro) state.toolNow = summary.text;
+        if (pro) { (state.toolsNow ||= new Map()).set(params.item.id, summary.text); state.toolNow = summary.text; }
         else updateEntry(params.item.id, summary.kind, summary.text);
         transcript.event("tool_call", { id: params.item.id, name: summary.kind, input: summary.text });
       }
@@ -1361,7 +1363,7 @@ function handleNotification({ method, params = {} }) {
         } else if (item.status) {
           suffix = ` · ${item.status}`;
         }
-        if (pro) state.toolNow = "";
+        if (pro) { state.toolsNow?.delete(item.id); state.toolNow = state.toolsNow?.size ? [...state.toolsNow.values()].at(-1) : ""; }
         else updateEntry(item.id, summary.kind, `${summary.text}${suffix}`);
         transcript.event("tool_result", { id: item.id, name: summary.kind, summary: `${summary.text}${suffix}` });
       }
@@ -1380,7 +1382,7 @@ function handleNotification({ method, params = {} }) {
       // message of its own, so the meter reads it from here when it is there.
       if (params.turn?.usage) state.energy.add(params.turn.model || state.model || model, params.turn.usage);
       const finalReply=state.entries.find(e=>e.id===state.activityMessageId);if(finalReply)delete finalReply.activityOnly;
-      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();
+      state.activityText="";state.activityIntent="";state.activityStage="";state.activityMessageId=null;state.activityTools?.clear();state.toolsNow?.clear();state.toolNow="";
       state.busy = false;
       state.status = params.turn?.status === "failed" ? "failed" : "ready";
       engine.turnId = null;

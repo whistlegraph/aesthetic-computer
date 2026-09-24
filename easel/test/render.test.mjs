@@ -455,11 +455,11 @@ test("in pro a question takes the page with three answers, and a running tool ri
 
 test("while the machine works, the line it is working on runs a colour wave, frame by frame", () => {
   const base = { workspace: "/c", mode: "remote", status: "working", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
-    entries: [{ id: "u0", kind: "user", text: "earlier line" }, { id: "u1", kind: "user", text: "make it sing" }] };
+    entries: [{ id: "u0", kind: "user", text: "earlier line" }, { id: "a0", kind: "assistant", text: "ok" }, { id: "u1", kind: "user", text: "make it sing" }] };
   const a = renderFrame({ ...base, mascotMs: 0 }, 60, 12, true).split("\n");
   const b = renderFrame({ ...base, mascotMs: 240 }, 60, 12, true).split("\n");
   const row = (rows) => rows.find((r) => r.includes("make it sing".slice(-4)) && r.includes("\x1b[38;"));
-  const wave = (rows) => rows.find((r) => /m\x1b\[38;[^m]*ma/.test(r) || /make/.test(r.replace(/\x1b\[[0-9;]*m/g, "")) && (r.match(/\x1b\[38;/g) || []).length >= 6);
+  const wave = (rows) => rows.find((r) => /make it sing/.test(r.replace(/\x1b\[[0-9;]*m/g, "")) && new Set(r.match(/\x1b\[38;[0-9;]*m/g) || []).size >= 5);
   assert.ok(wave(a), "each letter of the working line carries its own hue");
   assert.notEqual(wave(a), wave(b), "and the hues move between frames");
   const distinctInks = (r) => new Set(r.match(/\x1b\[38;[0-9;]*m/g) || []).size;
@@ -468,4 +468,14 @@ test("while the machine works, the line it is working on runs a colour wave, fra
   assert.ok(distinctInks(wave(a)) >= 5, "the working line wears many");
   const idle = renderFrame({ ...base, busy: false, mascotMs: 240 }, 60, 12, true).split("\n");
   assert.equal(wave(idle), undefined, "and so does the line once the answer has landed");
+});
+
+test("running tools are provisional rows at the foot of the page, and leave when they finish", () => {
+  const base = { workspace: "/c", mode: "remote", status: "tool", input: "", account: "@t", model: "m", profile: { name: "pro" }, busy: true, requestStartedAt: Date.now(),
+    entries: [{ id: "u", kind: "user", text: "check the tree" }] };
+  const running = renderFrame({ ...base, toolsNow: new Map([["t1", "git status --short"], ["t2", "Task · look for the failing test"]]) }, 80, 16, false);
+  assert.match(running, /⋯ git status --short/);
+  assert.match(running, /⋯ Task · look for the failing test/);
+  const done = renderFrame({ ...base, busy: false, toolsNow: new Map() }, 80, 16, false);
+  assert.doesNotMatch(done, /⋯/, "nothing of them stays");
 });
