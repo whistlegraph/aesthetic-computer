@@ -304,6 +304,67 @@ JSValue Sprites3d(JSContext* context, JSValueConst, int argc, JSValueConst* argv
   return JS_NewInt32(context, static_cast<int32_t>(requestedCount));
 }
 
+JSValue ThemeReady(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  return JS_NewBool(context, scope && scope->api && scope->api->graphics.theme_ready());
+}
+
+JSValue ThemeSpriteDraw(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 12)
+    return JS_ThrowTypeError(context, "themeSprite requires 12 arguments");
+  int32_t asset = 0;
+  if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
+  if (asset < 0 || asset > 1) return JS_ThrowRangeError(context, "invalid theme asset");
+  double v[10]{};
+  for (int i = 0; i < 9; ++i) {
+    if (JS_ToFloat64(context, &v[i], argv[i + 1])) return JS_EXCEPTION;
+  }
+  if (JS_ToFloat64(context, &v[9], argv[11])) return JS_EXCEPTION;
+  for (double value : v) if (!std::isfinite(value) || std::abs(value) > 32768)
+    return JS_ThrowRangeError(context, "invalid theme coordinates");
+  const double sourceWidth = asset == 0 ? 1672 : 1774;
+  const double sourceHeight = asset == 0 ? 941 : 887;
+  if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
+      v[0] + v[2] > sourceWidth || v[1] + v[3] > sourceHeight ||
+      v[6] <= 0 || v[7] <= 0 || v[9] < -1.5 || v[9] > 1.5)
+    return JS_ThrowRangeError(context, "theme rectangle outside bounds");
+  if (!scope->api->graphics.theme_ready()) return JS_FALSE;
+  scope->api->graphics.theme_sprite({asset,
+    static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
+    static_cast<float>(v[3]), static_cast<float>(v[4]), static_cast<float>(v[5]),
+    static_cast<float>(v[6]), static_cast<float>(v[7]), static_cast<float>(v[8]),
+    static_cast<float>(v[9]), JS_ToBool(context, argv[10]) > 0});
+  return JS_TRUE;
+}
+
+JSValue ThemeQuadDraw(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 17)
+    return JS_ThrowTypeError(context, "themeQuad requires 17 arguments");
+  int32_t asset = 0;
+  if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
+  if (asset < 0 || asset > 1) return JS_ThrowRangeError(context, "invalid theme asset");
+  float v[16]{};
+  for (int i = 0; i < 16; ++i) {
+    double number = 0;
+    if (JS_ToFloat64(context, &number, argv[i + 1])) return JS_EXCEPTION;
+    if (!std::isfinite(number) || std::abs(number) > 32768)
+      return JS_ThrowRangeError(context, "invalid theme quad coordinates");
+    v[i] = static_cast<float>(number);
+  }
+  if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
+      v[0] + v[2] > (asset == 0 ? 1672 : 1774) ||
+      v[1] + v[3] > (asset == 0 ? 941 : 887))
+    return JS_ThrowRangeError(context, "theme rectangle outside bounds");
+  for (int i = 6; i < 16; i += 3) if (v[i] < -1.5 || v[i] > 1.5)
+    return JS_ThrowRangeError(context, "invalid theme quad depth");
+  if (!scope->api->graphics.theme_ready()) return JS_FALSE;
+  scope->api->graphics.theme_quad({asset, v[0],v[1],v[2],v[3],
+    v[4],v[5],v[6], v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14],v[15]});
+  return JS_TRUE;
+}
+
 // UV-mapped triangle stream. Layout repeats three x,y,z,u,v vertices followed
 // by an RGB light tint: 18 floats per triangle.
 JSValue TexturedTriangles3d(JSContext* context, JSValueConst, int argc,
@@ -849,6 +910,9 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
     JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
+    JS_SetPropertyStr(context_, global, "themeReady", JS_NewCFunction(context_, ThemeReady, "themeReady", 0));
+    JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
+    JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));
     JS_SetPropertyStr(context_, global, "ywftWrite", JS_NewCFunction(context_, YwftWrite, "ywftWrite", 7));
     JS_SetPropertyStr(context_, global, "comicWrite", JS_NewCFunction(context_, ComicWrite, "comicWrite", 7));

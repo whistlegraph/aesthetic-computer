@@ -12,6 +12,7 @@ clone_script:
   - cmd: git remote add origin https://github.com/whistlegraph/aesthetic-computer.git
   - cmd: git config core.sparseCheckout true
   - cmd: echo xbox/assets/>>.git\info\sparse-checkout
+  - cmd: echo xbox/themes/photorealistic/native/>>.git\info\sparse-checkout
   - cmd: echo xbox/live/>>.git\info\sparse-checkout
   - cmd: echo xbox/native-bios/>>.git\info\sparse-checkout
   - cmd: echo xbox/runtime/>>.git\info\sparse-checkout

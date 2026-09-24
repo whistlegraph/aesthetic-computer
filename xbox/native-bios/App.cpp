@@ -237,6 +237,8 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::Triangle&)> on_triangle;
   std::function<void(const ac::xbox::TexturedTriangle&)> on_textured_triangle;
   std::function<void(const ac::xbox::Sprite&)> on_sprite;
+  std::function<bool()> is_theme_ready;
+  std::function<void(const ac::xbox::ThemeQuad&)> on_theme_quad;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -253,6 +255,19 @@ class HostGraphics final : public Graphics {
   }
   void sprite(const ac::xbox::Sprite& sprite) override {
     if (on_sprite) on_sprite(sprite);
+  }
+  bool theme_ready() const override { return is_theme_ready && is_theme_ready(); }
+  void theme_quad(const ac::xbox::ThemeQuad& quad) override {
+    if (on_theme_quad) on_theme_quad(quad);
+  }
+  void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
+    const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
+    const float hx = sprite.width * .5f, hy = sprite.height * .5f;
+    const auto x = [&](float dx, float dy) { return sprite.x + dx*c - dy*s; };
+    const auto y = [&](float dx, float dy) { return sprite.y + dx*s + dy*c; };
+    theme_quad({sprite.asset, sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+      x(-hx,-hy),y(-hx,-hy),sprite.z, x(hx,-hy),y(hx,-hy),sprite.z,
+      x(hx,hy),y(hx,hy),sprite.z, x(-hx,hy),y(-hx,hy),sprite.z,sprite.flip});
   }
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
   void system_write(const ac::xbox::SystemText& text) override {
@@ -359,6 +374,13 @@ public:
     m_graphics->on_sprite = [this](const ac::xbox::Sprite& sprite) {
       if (m_frameSprites.size() < kMaxSprites) m_frameSprites.push_back(sprite);
       else ++m_frameSpritesDropped;
+    };
+    m_graphics->is_theme_ready = [this]() {
+      return m_themeViews[0] && m_themeViews[1] && m_spriteVertexShader && m_spritePixelShader &&
+        m_spriteVertexBuffer && m_linearSampler && m_triangleDepthView;
+    };
+    m_graphics->on_theme_quad = [this](const ac::xbox::ThemeQuad& quad) {
+      if (m_frameThemeQuads.size() < kMaxThemeQuads) m_frameThemeQuads.push_back(quad);
     };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
@@ -520,6 +542,7 @@ public:
       m_frameTriangles.clear();
       m_frameTexturedTriangles.clear();
       m_frameSprites.clear();
+      m_frameThemeQuads.clear();
       m_frameTexts.clear();
       m_frameSystemTexts.clear();
       m_frameSystemGlyphs.clear();
@@ -880,6 +903,63 @@ private:
     LogTelemetry("AC_NATIVE_GPU_SPRITES ready=1 max=512 atlas=16x8 filter=point jeffreyTexture=" +
       (m_jeffreyTextureView ? std::to_string(m_jeffreyTextureSize) + "x" +
         std::to_string(m_jeffreyTextureSize) + " filter=linear" : "missing"));
+    const wchar_t* themePaths[] = {L"Assets\\ThemeUnderpass.rgba", L"Assets\\ThemeProps.rgba"};
+    for (int asset = 0; asset < 2; ++asset) {
+      const auto rgba = ReadPackageBytes(themePaths[asset]);
+      texture.Width = 1024; texture.Height = asset == 0 ? 576 : 512;
+      if (rgba.size() != static_cast<std::size_t>(texture.Width) * texture.Height * 4) continue;
+      pixels.pSysMem = rgba.data(); pixels.SysMemPitch = texture.Width * 4;
+      ComPtr<ID3D11Texture2D> retained;
+      if (SUCCEEDED(m_device->CreateTexture2D(&texture, &pixels, &retained)))
+        m_device->CreateShaderResourceView(retained.Get(), nullptr, &m_themeViews[asset]);
+    }
+    m_frameThemeQuads.reserve(kMaxThemeQuads);
+    LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
+      (m_themeViews[0] && m_themeViews[1] ? "1" : "0") + " rgbaBytes=4456448 maxQuads=1024");
+  }
+
+  bool DrawGpuThemeQuads() {
+    if (m_frameThemeQuads.empty()) return true;
+    if (!m_themeViews[0] || !m_themeViews[1] || !m_spriteVertexBuffer || !m_triangleDepthView)
+      return false;
+    for (int asset = 0; asset < 2; ++asset) {
+      D3D11_MAPPED_SUBRESOURCE mapped{};
+      if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+        return false;
+      auto* output = static_cast<GpuSpriteVertex*>(mapped.pData);
+      std::size_t count = 0;
+      const auto append = [&](float x, float y, float z, float u, float v) {
+        output[count++] = {x/960.f-1.f, 1.f-y/540.f,
+          (std::max)(0.f,(std::min)(1.f,(z+1.5f)/3.f)),u,v,1,1,1,1};
+      };
+      const float sourceWidth = asset == 0 ? 1672.f : 1774.f;
+      const float sourceHeight = asset == 0 ? 941.f : 887.f;
+      for (const auto& q : m_frameThemeQuads) {
+        if (q.asset != asset) continue;
+        float u0=q.sx/sourceWidth, u1=(q.sx+q.sw)/sourceWidth;
+        if (q.flip) std::swap(u0,u1);
+        const float v0=q.sy/sourceHeight,v1=(q.sy+q.sh)/sourceHeight;
+        append(q.x1,q.y1,q.z1,u0,v0);append(q.x2,q.y2,q.z2,u1,v0);append(q.x3,q.y3,q.z3,u1,v1);
+        append(q.x1,q.y1,q.z1,u0,v0);append(q.x3,q.y3,q.z3,u1,v1);append(q.x4,q.y4,q.z4,u0,v1);
+      }
+      m_context->Unmap(m_spriteVertexBuffer.Get(),0);
+      if (!count) continue;
+      const UINT stride=sizeof(GpuSpriteVertex),offset=0;
+      m_context->IASetInputLayout(m_spriteInputLayout.Get());
+      m_context->IASetVertexBuffers(0,1,m_spriteVertexBuffer.GetAddressOf(),&stride,&offset);
+      m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+      m_context->VSSetShader(m_spriteVertexShader.Get(),nullptr,0);
+      m_context->PSSetShader(m_spritePixelShader.Get(),nullptr,0);
+      m_context->PSSetShaderResources(0,1,m_themeViews[asset].GetAddressOf());
+      m_context->PSSetSamplers(0,1,m_linearSampler.GetAddressOf());
+      m_context->RSSetState(m_triangleRasterState.Get());
+      m_context->OMSetDepthStencilState(m_triangleDepthState.Get(),1);
+      m_context->OMSetBlendState(nullptr,nullptr,0xffffffff);
+      m_context->OMSetRenderTargets(1,m_sceneTarget.GetAddressOf(),m_triangleDepthView.Get());
+      m_context->Draw(static_cast<UINT>(count),0);
+      ID3D11ShaderResourceView* nullView=nullptr;m_context->PSSetShaderResources(0,1,&nullView);
+    }
+    return true;
   }
 
   bool DrawGpuTexturedTriangles() {
@@ -2443,12 +2523,13 @@ private:
         m_frameWidth * sizeof(uint32_t), 0);
       }
       if ((!m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
-          !m_frameSprites.empty()) && m_triangleDepthView)
+          !m_frameSprites.empty() || !m_frameThemeQuads.empty()) && m_triangleDepthView)
         m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
           D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
       DrawGpuTriangles();
       DrawGpuTexturedTriangles();
       DrawGpuSprites();
+      DrawGpuThemeQuads();
       if (!m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
         m_d2dContext->BeginDraw();
         m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -2614,6 +2695,7 @@ private:
   static constexpr std::size_t kMaxTriangles = 8192;
   static constexpr std::size_t kMaxTexturedTriangles = 2048;
   static constexpr std::size_t kMaxSprites = 512;
+  static constexpr std::size_t kMaxThemeQuads = 1024;
   std::size_t m_frameSystemDrawsDropped = 0;
   std::size_t m_frameTrianglesDropped = 0;
   std::size_t m_frameTexturedTrianglesDropped = 0;
@@ -2626,6 +2708,7 @@ private:
   std::vector<ac::xbox::Triangle> m_frameTriangles;
   std::vector<ac::xbox::TexturedTriangle> m_frameTexturedTriangles;
   std::vector<ac::xbox::Sprite> m_frameSprites;
+  std::vector<ac::xbox::ThemeQuad> m_frameThemeQuads;
   std::vector<ac::xbox::Text> m_frameTexts;
   std::vector<ac::xbox::SystemText> m_frameSystemTexts;
   std::vector<ac::xbox::SystemGlyph> m_frameSystemGlyphs;
@@ -2669,6 +2752,7 @@ private:
   ComPtr<ID3D11Buffer> m_spriteVertexBuffer;
   ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
   ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
+  ComPtr<ID3D11ShaderResourceView> m_themeViews[2];
   ComPtr<ID3D11SamplerState> m_pointSampler;
   ComPtr<ID3D11SamplerState> m_linearSampler;
   UINT m_jeffreyTextureSize = 0;
