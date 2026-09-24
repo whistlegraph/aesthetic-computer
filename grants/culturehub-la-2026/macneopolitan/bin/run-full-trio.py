@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[1];OUT=Path(os.environ.get('TRIO_OUT','/Us
 LOCAL=(subprocess.run(['scutil','--get','LocalHostName'],capture_output=True,text=True).stdout.strip() or os.uname().nodename.split('.')[0]).lower()
 SUB=os.environ.get('TRIO_SUB','http://127.0.0.1:8788').rstrip('/');DMX=os.environ.get('TRIO_DMX','http://127.0.0.1:8790').rstrip('/')
 def islocal(h):return h.lower()==LOCAL
+RTT_MAX=float(os.environ.get('TRIO_CLOCK_RTT_MAX','0.04'))   # seconds; the 40 ms contract unless explicitly widened
 bundle=json.loads((OUT/'prepared.json').read_text());plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loaded.json').read_text())
 members=['neo','blueberry','frisbee'];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
 locks={n['id']:threading.Lock() for n in nodes}
@@ -66,9 +67,9 @@ def nativecheck(n):
  assert s2['mono'] and s2['monoOutput']=='left' and not s2['microphoneHot'] and s2['centerReady'],s2
  if n['seat']==5:assert s2['center']['rawSha256']==bundle['centerMix']['sha256'] and s2['center']['loaded'] and n['assetReadbackVerified'],s2
  samples=[]
- for _ in range(14):   # venue Wi-Fi jitters; more probes find a clean round trip
+ for _ in range(24):   # venue Wi-Fi jitters; more probes find a clean round trip
   a=time.monotonic();cid=command(n,'clock')
-  for i in range(50):
+  for i in range(400):   # up to ~2 s: a seat mid-stall answers late, and that sample simply loses to a faster one
    try:c=request(n['url']+'/pieces/trio-fleet-clock.json')
    except urllib.error.HTTPError as e:
     if e.code!=404:raise
@@ -77,7 +78,11 @@ def nativecheck(n):
    time.sleep(.005)
   else:raise RuntimeError(n['id']+' clock probe failed')
   b=time.monotonic();assert c['instance']==s2['instance'];samples.append({'offset':c['audioTime']-(a+b)/2,'rtt':b-a})
- best=min(samples,key=lambda x:x['rtt']);assert best['rtt']<.04,(n['id'],'clock uncertainty',best)
+ best=min(samples,key=lambda x:x['rtt'])
+ # Clock uncertainty is half the round trip. 40 ms is the contract; a wider
+ # limit must be asked for (TRIO_CLOCK_RTT_MAX) and is printed, never silent.
+ assert best['rtt']<RTT_MAX,(n['id'],'clock uncertainty',best)
+ if best['rtt']>=.04:print('WARNING',n['id'],'clock round trip %.1f ms exceeds the 40 ms contract (limit raised to %.0f ms)'%(best['rtt']*1000,RTT_MAX*1000),flush=True)
  return n['id'],{'clock':best,'receipt':s2}
 def subcheck():
  rs=request(SUB+'/api/receivers');r=next((x for x in rs if x['ip'].endswith('192.168.1.67') and x['online'] and x['armed'] and x['scoreHash']==plan['arrangementHash']),None)
