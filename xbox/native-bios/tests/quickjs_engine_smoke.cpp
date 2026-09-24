@@ -1,4 +1,5 @@
 #include "QuickJsEngine.hpp"
+#include "ac/relay_endpoint.hpp"
 #include <cassert>
 using namespace ac::xbox;
 namespace {
@@ -6,6 +7,16 @@ class GraphicsProbe final : public Graphics { public: bool themeAvailable = true
 class SoundProbe final : public Sound { public: int calls = 0; int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
 }
 int main() {
+  assert(valid_lan_relay("ws://192.168.1.235:7793/oskiewar-live"));
+  assert(valid_lan_relay("ws://10.0.0.2:80/oskiewar-live"));
+  assert(valid_lan_relay("ws://172.16.0.2:65535/oskiewar-live"));
+  for (const auto* invalid : {"ws://172.32.0.2:80/oskiewar-live",
+      "ws://example.com:80/oskiewar-live", "ws://192.168.01.2:80/oskiewar-live",
+      "ws://192.168.1.2:0/oskiewar-live", "ws://192.168.1.2:65536/oskiewar-live",
+      "ws://192.168.1.2:80/oskiewar-live?secret=x", "ws://192.168.1.2:80/other",
+      "ws://127.0.0.1:80/oskiewar-live", "wss://192.168.1.2:80/oskiewar-live",
+      "ws://user@192.168.1.2:80/oskiewar-live", "ws://192.168.1.2/oskiewar-live"})
+    assert(!valid_lan_relay(invalid));
   GraphicsProbe graphics; SoundProbe sound; Api api{{}, {}, {}, {}, graphics, sound, {}};
   int telemetryCalls = 0;
   int gameSignalCalls = 0;

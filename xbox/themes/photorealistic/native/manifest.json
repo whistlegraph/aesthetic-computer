@@ -1,0 +1,40 @@
+{
+  "format": "RGBA8",
+  "alpha": "straight",
+  "sourceCoordinates": "master pixels",
+  "textureUpload": "once at host initialization",
+  "assets": [
+    {
+      "id": 0,
+      "name": "underpass",
+      "size": [
+        1024,
+        576
+      ],
+      "master": [
+        1672,
+        941
+      ],
+      "file": "underpass-1024x576.rgba",
+      "bytes": 2359296,
+      "sha256": "56d9a4beffcb17a630769db9c68c6b9b877fd3ac37279a349907fabb6d4f90ce",
+      "masterSha256": "42952663be9942c93befae22a28fe43dcf47c1ae2253552e20704a37225c6cc3"
+    },
+    {
+      "id": 1,
+      "name": "props",
+      "size": [
+        1024,
+        512
+      ],
+      "master": [
+        1774,
+        887
+      ],
+      "file": "props-1024x512.rgba",
+      "bytes": 2097152,
+      "sha256": "d1dc6e39e7ec45f3af47c40e0aff0a6cc2d29d2860b8f01b4f9a51893e2098ed",
+      "masterSha256": "440397bfb5369377817404545faf24d631302c8034c1492b14da28245d1f1c7c"
+    }
+  ]
+}

@@ -48,6 +48,36 @@ JSValue Wipe(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   return JS_UNDEFINED;
 }
 
+JSValue AccountState(JSContext* context, JSValueConst, int, JSValueConst*) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  const auto json = scope && scope->api && scope->api->account_state
+    ? scope->api->account_state() : std::string("{\"status\":\"unavailable\"}");
+  return JS_ParseJSON(context, json.data(), json.size(), "account-state");
+}
+JSValue AccountAction(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || !scope->api->account_action || argc < 1) return JS_FALSE;
+  const char* raw = JS_ToCString(context, argv[0]);
+  if (!raw) return JS_EXCEPTION;
+  const std::string action(raw); JS_FreeCString(context, raw);
+  if (action != "login" && action != "logout" && action != "cancel" && action != "leaderboard")
+    return JS_ThrowRangeError(context, "unknown account action");
+  std::string payload;
+  if(argc>1) {const char* rawPayload=JS_ToCString(context,argv[1]);
+    if(!rawPayload)return JS_EXCEPTION;payload=rawPayload;JS_FreeCString(context,rawPayload);}
+  if(payload.size()>256)return JS_ThrowRangeError(context,"account payload too large");
+  scope->api->account_action(action,payload); return JS_TRUE;
+}
+
+JSValue AccountReport(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope=static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if(!scope||!scope->api||!scope->api->account_report||argc<1)return JS_FALSE;
+  const char* raw=JS_ToCString(context,argv[0]);if(!raw)return JS_EXCEPTION;
+  const std::string payload(raw);JS_FreeCString(context,raw);
+  if(payload.size()>4096)return JS_ThrowRangeError(context,"account report too large");
+  return JS_NewBool(context,scope->api->account_report(payload));
+}
+
 JSValue Synth(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   double frequency = 440.0, duration = .05;
@@ -910,6 +940,9 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "triangles3d", JS_NewCFunction(context_, Triangles3d, "triangles3d", 2));
     JS_SetPropertyStr(context_, global, "sprites3d", JS_NewCFunction(context_, Sprites3d, "sprites3d", 2));
     JS_SetPropertyStr(context_, global, "texturedTriangles3d", JS_NewCFunction(context_, TexturedTriangles3d, "texturedTriangles3d", 2));
+    JS_SetPropertyStr(context_, global, "accountState", JS_NewCFunction(context_, AccountState, "accountState", 0));
+    JS_SetPropertyStr(context_, global, "accountAction", JS_NewCFunction(context_, AccountAction, "accountAction", 2));
+    JS_SetPropertyStr(context_, global, "accountReport", JS_NewCFunction(context_, AccountReport, "accountReport", 1));
     JS_SetPropertyStr(context_, global, "themeReady", JS_NewCFunction(context_, ThemeReady, "themeReady", 0));
     JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
     JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));

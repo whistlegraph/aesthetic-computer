@@ -174,7 +174,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 166;
+const buildVersion = 167;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -225,7 +225,8 @@ let gridWidth = gridCols * tileSize;
 const gridHeight = gridRows * tileSize;
 const worldLeft = gridLeft - wallThickness;
 let worldRight = gridLeft + gridWidth + wallThickness;
-const ceilingY = floorY - gridHeight - wallThickness;
+// Keep the authored ground grid while giving launches four times the headroom.
+const ceilingY = floorY - gridHeight * 4 - wallThickness;
 // Depth is the eye's dimension, not the fight's — fighters live near z = 0 —
 // so it is authored rather than derived. It was the cube's own width back
 // when those were the same number; widening the map to twenty tiles must not
@@ -3870,12 +3871,12 @@ function versusRequested() {
 // `setVersusRequiresAccount`.
 let versusRequiresAccount = false;
 
-const accountState = () => globalThis.__oskiewarAccount || null;
+const webAccountState = () => globalThis.__oskiewarAccount || null;
 // Nobody is turned away before the shell has finished asking. A silent session
 // check takes a moment, and a door that flashed up inside it would send a
 // signed-in player off to sign in again.
-const accountReady = () => accountState()?.ready === true;
-const accountHandle = () => String(accountState()?.handle || "");
+const accountReady = () => webAccountState()?.ready === true;
+const accountHandle = () => String(webAccountState()?.handle || "");
 // A shell with no account system at all is not a locked-out visitor, it is an
 // older build, and it must not be left standing in a waiting room that can
 // never start. The two halves of this door — the panel over there, the refusal
@@ -3886,16 +3887,16 @@ const accountHandle = () => String(accountState()?.handle || "");
 // wire has always been whatever the client says it is, and a console can set
 // any global it likes. Enforcement would mean the relay verifying a token on
 // the seat, and that is a different piece of work.
-const versusAllowed = () => !versusRequiresAccount || !accountState() ||
-  (accountReady() && accountState().signedIn === true &&
+const versusAllowed = () => !versusRequiresAccount || !webAccountState() ||
+  (accountReady() && webAccountState().signedIn === true &&
     Boolean(accountHandle()));
 
 // Which door, if any, stands between this visitor and a fight. Empty while the
 // shell is still asking, and empty for anyone already through.
 function versusDoor() {
   if (!versusRequiresAccount) return "";
-  if (!accountState() || !accountReady()) return "";
-  if (accountState().signedIn !== true) return "login";
+  if (!webAccountState() || !accountReady()) return "";
+  if (webAccountState().signedIn !== true) return "login";
   if (!accountHandle()) return "handle";
   return "";
 }
@@ -11049,7 +11050,48 @@ function generatedPartColor(appearance, segment) {
   return appearance.shirt;
 }
 
+// Retained photographic materials use the same projected poses and collision
+// surfaces as the vector theme. Assets are uploaded by the native host once.
+let photoThemeActive = false;
+const photoRegions = {
+  acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
+  acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
+  gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
+  platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
+  concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
+};
+function photoSprite(region, x, y, width, height, angle = 0, flip = false,
+    depth = triangleDepth) {
+  if (!photoThemeActive || ![x, y, width, height, angle, depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(1, ...photoRegions[region], x, y, width, height,
+    angle, flip, depth) !== false;
+}
+function photoLimb(segment, seat) {
+  const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy);
+  if (length < .001) return;
+  photoSprite(seat === 0 ? "acLimb" : "xboxLimb",
+    (segment.x1 + segment.x2) / 2, (segment.y1 + segment.y2) / 2,
+    segment.width, length + segment.width,
+    Math.atan2(dy, dx) - Math.PI / 2);
+}
+function photoSurface(region, a, b, c, d) {
+  if (!photoThemeActive || typeof themeQuad !== "function") return false;
+  const points = [a, b, c, d];
+  if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
+      Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
+  return themeQuad(1, ...photoRegions[region],
+    a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
+}
+
 function drawSkeletonSegments(segments, color, outline, player = null) {
+  if (photoThemeActive && player) {
+    for (const segment of segments)
+      if (!segment.hitboxOnly) photoLimb(segment, player.pad);
+    return;
+  }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
   for (const segment of segments) {
@@ -11116,6 +11158,14 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(geometry.segments, color, outline, player);
+  if (photoThemeActive && player) {
+    const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
+    photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
+      head.radius * 2, head.radius * 2,
+      isHeadOnly(player) ? player.headRoll || 0 : player.skateRotation || 0,
+      (seat === 0 ? 1 : -1) !== (player.facing || 1), triangleDepth - .01);
+    return;
+  }
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -12972,6 +13022,7 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
+  if (photoThemeActive) return; // Eyes belong to the retained head photograph.
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -13259,6 +13310,19 @@ function drawInventory(player, now, geometry) {
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
+    if (photoThemeActive) {
+      // Place the photograph's grip at the solved wrist. Reflect its local X
+      // before rotation so aiming left does not turn the grip upside down.
+      const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const flip = player.facing < 0;
+      const width = Math.max(18, length / .72), height = width * 253 / 365;
+      const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
+      const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
+      const c = Math.cos(angle), s = Math.sin(angle);
+      photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
+        width, height, angle, flip, triangleDepth - .025);
+    } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
     const gripX = hand.x - player.facing * 8 * scale;
@@ -13283,6 +13347,7 @@ function drawInventory(player, now, geometry) {
       filledCapsule(rearX, rearY, barrel.x, barrel.y,
         barrelWidth * 1.8, gunColor);
       filledDisc(barrel.x, barrel.y, barrelWidth * 1.45, [104, 62, 48]);
+    }
     }
     if (firing) {
       const normalX = -pose.dy;
@@ -13386,8 +13451,11 @@ function drawBrokenRunner(player, age) {
     triangleDepth = projectPoint(midX + dx, midY + dy,
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
-    filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
-    filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
+    else {
+      filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
+      filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    }
   }
   drawDigitalHeadBurst(player, world.head, age);
 }
@@ -13435,7 +13503,7 @@ function drawRunner(player, t, showLabel = true) {
   }
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
-    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], null);
+    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
@@ -13661,7 +13729,7 @@ function drawPlayerHud(player, x, pad) {
 }
 
 function visibleHandle(player) {
-  return player.name.toLowerCase();
+  return (globalThis.__oskiewarDeviceHandles?.[player.pad] || player.name).toLowerCase();
 }
 
 function nationFlag(country) {
@@ -14294,6 +14362,10 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
           previous=index;
           continue;
         }
+        if (photoSurface(wall ? "wall" : "concrete", p, q, r, s)) {
+          previous = index;
+          continue;
+        }
         const lit = litQuadColor(a1, a, b, shade);
         if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
           projectedTriangle(a1.screen, a.screen, b.screen, lit);
@@ -14663,6 +14735,16 @@ function projectedBallRadius(ball) {
 
 function drawSkateboard(player) {
   const at = skateFrame(player);
+  if (photoThemeActive) {
+    const centerWorld = at(0, 5, 0);
+    const center = projectPoint(centerWorld.x, centerWorld.y, centerWorld.z);
+    const left = at(-64, 5, 0), right = at(64, 5, 0);
+    const a = projectPoint(left.x,left.y,left.z), b = projectPoint(right.x,right.y,right.z);
+    const width = Math.hypot(b.x-a.x,b.y-a.y);
+    photoSprite("skateboard", center.x, center.y, width, width * 136 / 412,
+      Math.atan2(b.y-a.y,b.x-a.x), false, center.z - .01);
+    return;
+  }
   const deck = [236, 76, 118], grip = [34, 25, 39], truck = [174, 184, 202];
   const quad = (a, b, c, d, color) => worldQuad(at(...a), at(...b), at(...c), at(...d), color);
   const axle = (a, b, width, color) => {
@@ -14837,6 +14919,12 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (photoThemeActive) {
+    const point = projectPoint(pickup.x,bobY,pickup.z);
+    const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
+    photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
+    return;
+  }
   const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
   const barrelWidth = Math.max(2, 5 * scale);
@@ -15034,6 +15122,12 @@ function drawGrenade(grenade) {
     return;
   }
   if (grenade.rocket) {
+    if (photoThemeActive) {
+      const scale = cameraScale();
+      const angle = Math.atan2(grenade.vy,grenade.vx);
+      photoSprite("rocket",point.x,point.y,64*scale,41*scale,angle,false,point.z-.02);
+      return;
+    }
     const length = Math.hypot(grenade.vx, grenade.vy) || 1;
     const tail = projectPoint(grenade.x - grenade.vx / length * 54,
       grenade.y - grenade.vy / length * 54, grenade.z);
@@ -16118,6 +16212,12 @@ function drawDetachedPart(fragment) {
       Math.abs(second.x) + margin > 30000 ||
       Math.abs(second.y) + margin > 30000 ||
       Math.hypot(second.x - first.x, second.y - first.y) > 30000) return;
+  if (photoThemeActive) {
+    // Ownership changes when a limb is hit; its material keeps its source color.
+    const seat = fragment.color[1] > fragment.color[0] ? 1 : 0;
+    photoLimb({x1:first.x,y1:first.y,x2:second.x,y2:second.y,width}, seat);
+    return;
+  }
   filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
   drawPaletteCapsule({ x1: first.x, y1: first.y, x2: second.x, y2: second.y,
     width, part: fragment.part }, fragment.colors,
@@ -16282,7 +16382,10 @@ function gamePaint() {
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   wipe(...outside);
-  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
+  if (photoThemeActive) {
+    themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
+      viewWidth(),viewHeight,0,false,.98);
+  } else if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);
@@ -16344,7 +16447,12 @@ function gamePaint() {
     const ledgeLeft = Math.max(ledge.left, spanLeft);
     const ledgeRight = Math.min(ledge.right, spanRight);
     if (ledgeLeft >= ledgeRight) continue;
-    worldQuad(
+    const photoLedge = photoThemeActive && photoSurface("concrete",
+      projectPoint(ledgeLeft,ledge.y,platformNear),
+      projectPoint(ledgeRight,ledge.y,platformNear),
+      projectPoint(ledgeRight,ledge.y,platformFar),
+      projectPoint(ledgeLeft,ledge.y,platformFar));
+    if (!photoLedge) worldQuad(
       { x: ledgeLeft, y: ledge.y, z: platformNear },
       { x: ledgeRight, y: ledge.y, z: platformNear },
       { x: ledgeRight, y: ledge.y, z: platformFar },
@@ -16724,6 +16832,9 @@ function sim() {
 }
 
 function paint() {
+  photoThemeActive = globalThis.__oskiewarGraphicsTheme !== "flat" &&
+    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
+  globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
   if (drawPerformanceStage()) return;
   if (clientError) {
     try { drawClientError(); }

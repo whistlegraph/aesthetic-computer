@@ -240,6 +240,10 @@ struct Api {
   // endpoints. Pieces never receive a general network primitive.
   std::shared_ptr<const AcSnapshot> ac = std::make_shared<const AcSnapshot>();
   PhotoDisc disc;
+  // Device-local Oskiewar identity; the public snapshot never contains tokens.
+  std::function<std::string()> account_state = {};
+  std::function<void(std::string_view, std::string_view)> account_action = {};
+  std::function<bool(std::string_view)> account_report = {};
   // Sandboxed pieces can emit structured diagnostic lines without receiving
   // filesystem, process, Device Portal, or arbitrary WinRT access.
   std::function<void(std::string_view)> telemetry = {};

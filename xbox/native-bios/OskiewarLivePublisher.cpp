@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "OskiewarLivePublisher.hpp"
+#include "../runtime/include/ac/relay_endpoint.hpp"
+#include <fstream>
 
 using namespace Platform;
 using namespace Windows::Foundation;
@@ -9,6 +11,23 @@ using namespace concurrency;
 
 namespace ac::xbox {
 namespace {
+
+std::wstring RelayBase() {
+#if AC_DEV_LIVE_PIECE
+  try {
+    const std::wstring path = std::wstring(Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data()) +
+      L"\\oskiewar-relay.txt";
+    std::ifstream input(path, std::ios::binary);
+    char buffer[202]{};
+    if (input.getline(buffer, sizeof(buffer))) {
+      std::string value(buffer);
+      if (!value.empty() && value.back()=='\r') value.pop_back();
+      if (valid_lan_relay(value)) return std::wstring(value.begin(),value.end());
+    }
+  } catch (...) {}
+#endif
+  return L"wss://session-server.aesthetic.computer/oskiewar-live";
+}
 
 std::wstring Wide(std::string_view value) {
   if (value.empty()) return {};
@@ -174,7 +193,10 @@ void Connect(const std::shared_ptr<OskiewarLivePublisher::State>& state) {
     state->closed_token = closed_token;
     state->subscribed = true;
   }
-  const auto url = L"wss://session-server.aesthetic.computer/oskiewar-live?match=" +
+  const auto base = RelayBase();
+  Log(state, std::string("AC_NATIVE_OSKIEWAR_RELAY route=") +
+    (base.substr(0,5)==L"ws://" ? "lan" : "cloud"));
+  const auto url = base + L"?match=" +
     Wide(match_id) + L"&role=publisher&surface=xbox";
   create_task(socket->ConnectAsync(ref new Uri(ref new String(url.c_str())))).then(
     [weak, generation, socket](task<void> completed) {

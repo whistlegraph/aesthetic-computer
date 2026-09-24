@@ -2,6 +2,7 @@
 #include "QuickJsEngine.hpp"
 #include "PhotoDiscService.hpp"
 #include "OskiewarLivePublisher.hpp"
+#include "OskiewarAccountService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
 #include "render/ac_surface.hpp"
 
@@ -411,9 +412,10 @@ public:
     };
     m_sound->get_rate = [this]() { return static_cast<int>(m_sampleRate); };
     m_api = std::make_unique<Api>(Api{{1920, 1080, 1}, {}, {}, {}, *m_graphics, *m_sound, {}});
+    m_oskiewarAccount = std::make_shared<OskiewarAccountService>(*m_api);
     m_api->system.render_width = m_frameWidth;
     m_api->system.render_height = m_frameHeight;
-    m_api->system.version = "1.0.0.41";
+    m_api->system.version = "1.0.0.43";
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -2819,6 +2821,7 @@ private:
   std::unique_ptr<PieceSupervisor> m_supervisor;
   std::unique_ptr<PhotoDiscService> m_photoDisc;
   std::unique_ptr<OskiewarLivePublisher> m_oskiewarLive;
+  std::shared_ptr<OskiewarAccountService> m_oskiewarAccount;
 };
 
 ref class AppSource sealed : public IFrameworkViewSource {
