@@ -41,6 +41,7 @@
 //     → scores/notespatial-native.nsscore, plus one file per chapter
 
 import { mkdir, writeFile } from 'node:fs/promises';
+import { orchestrate128 } from './notespatial-orchestra.mjs';
 
 const RING = 5, CENTER = 5, SEATS = 6, TAU = Math.PI * 2;
 const hz = n => 440 * 2 ** ((n - 69) / 12);
@@ -197,9 +198,11 @@ const VOICINGS = {
   gm:      { held: 'gmFlute', ring: 'gmMarimba', echo: 'gmCelesta', pad: 'gmPad', bass: 'gmBass', top: 'gmOcarina', brass: 'gmBrass', theme: 'gmVibes', answer: 'gmClarinet', stacc: 'gmXylo' },
 };
 const opt = (k, d) => { const i = process.argv.indexOf('--' + k); return i >= 0 ? process.argv[i + 1] : d; };
+VOICINGS.gm128 = { ...VOICINGS.gm };
 const VOICING = opt('voicing', 'sine');
 if (!VOICINGS[VOICING]) throw Error(`no voicing "${VOICING}"; have ${Object.keys(VOICINGS).join(', ')}`);
 const SETS = process.argv.flatMap((a, i) => a === '--set' ? (process.argv[i + 1] || '').split(',') : []).filter(Boolean).map(s => s.split('='));
+if (VOICING === 'gm128' && SETS.length) throw Error('gm128 owns its chapter palettes; use --voicing gm for --set overrides');
 const table = { ...VOICINGS[VOICING] };
 for (const [family, recipe] of SETS) {
   if (!(family in table)) throw Error(`--set: no family "${family}"; have ${Object.keys(table).join(', ')}`);
@@ -207,6 +210,14 @@ for (const [family, recipe] of SETS) {
   table[family] = recipe;
 }
 const I = Object.fromEntries(Object.entries(table).map(([f, r]) => [f, R[r]]));
+if (VOICING === 'gm128') for (const family of Object.keys(I)) {
+  const recipe = I[family];
+  I[family] = (...args) => {
+    const events = lanes[args[0]].events, before = events.length;
+    recipe(...args);
+    for (let i = before; i < events.length; i++) events[i].role = family;
+  };
+}
 const bell = (...a) => I.held(...a), pluck = (...a) => I.ring(...a), soft = (...a) => I.echo(...a), pad = (...a) => I.pad(...a);
 const bassNote = (...a) => I.bass(...a), topNote = (...a) => I.top(...a), brass = (...a) => I.brass(...a);
 const themeNote = (...a) => I.theme(...a), answerNote = (...a) => I.answer(...a), stacc = (...a) => I.stacc(...a); // phrase() destructures `theme`, `answer` and `top` as flags, hence the names
@@ -521,7 +532,8 @@ chapter('VI · Lullaby', 'a cradle of arpeggios rocks around the room; the tune 
   for (let bar = 0; bar < BARS; bar++) {
     const ch = CH[bar % 8], fade = bar >= 36 ? 1 - (bar - 36) / 8 : 1;
     for (let e = 0; e < 6; e++) pluck(WALK[walkHop++ % RING], bt(bar, e), eighth * 1.6, ch[e % 3] + (e >= 3 ? 12 : 0), .17 * fade, false);
-    if (bar % 8 === 0 && bar < 36) ch.forEach((p, m) => pad(PAD[m], bt(bar, 0), 8 * barLen * .95, p + 12, .11));
+    const padBars = VOICING === 'gm128' ? 4 : 8;
+    if (bar % padBars === 0 && bar < 36) ch.forEach((p, m) => pad(PAD[m], bt(bar, 0), padBars * barLen * .95, p + 12, .11));
   }
   const rock = (i, t, d, m, g) => bell(i, t, d, m, g);
   const eighthMel = (seq, t0, where, g, inst) => { let t = t0; for (const [m, d] of seq) { if (m) inst(where, t, d * eighth * .92, m, g); t += d * eighth; } };
@@ -686,12 +698,14 @@ function shiftAt(t) {
 const SHIFT_HZ = 25, turns = [];
 for (let i = 0; i <= Math.ceil(END * SHIFT_HZ); i++) turns.push(+shiftAt(i / SHIFT_HZ).toFixed(4));
 
+const orchestra = VOICING === 'gm128' ? orchestrate128(lanes, movements) : null;
 for (const l of lanes) l.events.sort((a, b) => a.t - b.t);
 const seatColors = [[255, 110, 110], [255, 180, 70], [120, 220, 130], [95, 170, 255], [200, 130, 255], [255, 240, 200]];
 const score = {
   name: 'Note(s)pat(ial) Native' + (TAG ? ` · ${TAG.slice(1)}` : ''), geometry: 'ring', seats: SEATS, ring: RING, center: CENTER, seatColors,
   dur: r4(END), gain: .36, swing: .6, tempo, movements, fieldShift: turns, lanes, voicing: table,
   ...(KICK_PULSE ? { kickPulse: true } : {}),
+  ...(orchestra ? { orchestra } : {}),
 };
 
 // ── effects, as ribbons the runtime applies per seat ──────────────────
@@ -730,6 +744,8 @@ await Promise.all(movements.map((m, n) => {
     lanes: lanes.map(l => ({ ...l, events: l.events.filter(e => e.t >= m.t0 && e.t < m.t1).map(e => ({ ...e, t: r4(e.t - m.t0) })) })),
   };
   for (const k of FX_KEYS) if (score[k]) part[k] = resample(score[k], m.t0, dur);
+  if (orchestra) part.orchestra = { ...orchestra, programs: new Set(part.lanes.flatMap(l => l.events).filter(e => Number.isInteger(e.gm)).map(e => e.gm)).size,
+    cues: orchestra.cues.filter(c => c.chapter === n + 1).map(c => ({ ...c, t: r4(c.t - m.t0) })) };
   if (score.seatFx) part.seatFx = Object.fromEntries(Object.entries(score.seatFx).map(([seat, fx]) => [seat, Object.fromEntries(Object.entries(fx).map(([k, arr]) => [k, resample(arr, m.t0, dur)]))]));
   return writeFile(new URL(`notespatial-native${TAG}-${n + 1}-${slug(m.name)}.nsscore`, dir), JSON.stringify(part) + '\n');
 }));

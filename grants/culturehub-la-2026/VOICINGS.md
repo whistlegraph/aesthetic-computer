@@ -13,6 +13,7 @@ node fedac/native/tools/compose-notespatial-native.mjs                       # s
 node fedac/native/tools/compose-notespatial-native.mjs --voicing mallets
 node fedac/native/tools/compose-notespatial-native.mjs --voicing native
 node fedac/native/tools/compose-notespatial-native.mjs --voicing gm
+node fedac/native/tools/compose-notespatial-native.mjs --voicing gm128 --fx studio --kick
 node fedac/native/tools/compose-notespatial-native.mjs --fx studio            # sine, with the effects ribbons
 node fedac/native/tools/compose-notespatial-native.mjs --voicing mallets --set held=whistle,bass=sawBass --fx studio
 ```
@@ -22,6 +23,38 @@ chapter (`…<-tag>-8-the-lift`), so any mix can be deployed whole or a chapter
 at a time. The tag is the voicing, any `--set` pairs, and `-fx`.
 
 ## The families and what is on the menu
+
+`gm128` uses every GM program across the complete suite. Timbral groups
+change together over successive note onsets; simultaneous chords keep the
+same instrument. The existing melodies, counterpoint, tempo map and spatial
+gestures remain. Lullaby's pad changes shorten from eight to four bars to
+give its eight pad instruments time to sound.
+
+| Chapter | Principal palette |
+|---|---|
+| Overture | Eight keyboards; eight pipes |
+| Walk | Eight mallets; eight guitars; eight basses |
+| Waltz | Eight reeds; solo strings, pizzicato and harp |
+| Chase | Eight ethnic instruments; eight tuned percussion voices |
+| Sneak | Eight organs, accordions and harmonica |
+| Lullaby | Ensembles and voices; eight synth pads |
+| Climb | Eight synth leads; eight synth effects |
+| Lift | Returning synth leads, guitars, mallets and synth basses |
+| Fanfare | Eight brass voices; timpani and orchestra hit |
+| Return | Piano, electric piano, vibes and flute; guitars and strings |
+| Vanish | Music box, celesta and piano |
+
+The eight GM sound effects appear as short stage cues: breath at the opening,
+fret noise in Walk, helicopter and gunshot in Chase, telephone in Sneak,
+seashore in Lullaby, applause in Fanfare, and a bird in Vanish. These are
+programs 120–127, separate from MIDI's drum channel and from the score's
+continuous percussion. `orchestra.cues` in the score records entry times,
+program numbers, names and roles. Program numbers in score files are 0–127;
+the video's active-instrument list displays 1–128.
+
+```sh
+node fedac/native/tools/notespatial-native-render.mjs fedac/native/scores/notespatial-native-gm128-fx-kick.nsscore --fast --sub --audio-only --out grants/culturehub-la-2026/notespatial-native-gm128-fx-kick-sub.wav
+```
 
 | Family | Where it plays | sine | mallets | native | gm |
 |---|---|---|---|---|---|
@@ -86,7 +119,8 @@ window) and rebuild; or set a mix by hand from the prompt on one laptop.
 
 The runtime has 32 voices per machine and steals the oldest when full. Peak
 polyphony with continuous percussion: sine 26, mallets 29, native 23,
-gm 17; mallets with `--kick` peaks at 28. A caller asking for a
+gm 17; mallets with `--kick` peaks at 28; gm128 with effects and kick peaks
+at 17. A caller asking for a
 plain sound (the tutti chords, fills and pickup laps) gets the fundamental
 alone, as in the sine voicing.
 
@@ -121,8 +155,14 @@ the Lift in each voicing render in about 20 s each:
 node fedac/native/tools/notespatial-native-render.mjs fedac/native/scores/notespatial-native-mallets.nsscore --section 8 --fast --out ~/Desktop/notespatial-voicings/mallets-8-lift.mp4
 ```
 
-The render stands in for whistle, harp and piano with harmonic sketches.
-GM scores and effects scores are rejected rather than silently dropping
-their timbres or effects; the laptops are the place to hear those. Mallet
-partials render directly from the score. Add `--sub` to model the room's
-separate bass output; see [the full render recipe](NOTESPATIAL-ARRANGEMENT.md#mallets-kick-and-sub-preview).
+GM previews compile and use the native `gm_synth.c` core with a C compiler;
+all 128 programs are synthesized with deterministic per-note seeds. Effects
+use a mono seat model of the native room, glitch, compressor, wobble and
+drive equations before spatial placement. Excerpts start effects with empty
+delay buffers; full renders retain their history. This is a 44.1 kHz preview,
+without hardware gain, DAC latency or physical room acoustics. SUB retains
+its separate bass crossover and compression, outside the creative FX chain.
+
+Non-GM `whistle`, `harp` and `piano` still use harmonic sketches; mallet
+partials render directly from the score. Add `--sub` for the separate bass
+output; see [the full render recipe](NOTESPATIAL-ARRANGEMENT.md#mallets-kick-and-sub-preview).

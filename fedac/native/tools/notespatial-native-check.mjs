@@ -48,11 +48,13 @@ const system = {
   battery: { percent: 80, charging: true },
 };
 let id = 0;
+const gmPrograms = new Set(), fxMixes = {}, fxCalls = {};
 const sound = {
   time: 0, microphone: { hot: false, recording: false, close() {} },
   speaker: { amplitudes: { left: .1, right: .1 } },
-  synth() { synths++; const v = { id: id++, update() { updates++; }, kill() { killed++; live.delete(v.id); } }; live.add(v.id); return v; },
+  synth(options) { if (Number.isInteger(options.gmProgram)) gmPrograms.add(options.gmProgram); synths++; const v = { id: id++, update() { updates++; }, kill() { killed++; live.delete(v.id); } }; live.add(v.id); return v; },
 };
+for (const unit of ['room', 'drive', 'wobble', 'glitch']) sound[unit] = { setMix(v) { fxMixes[unit] = v; if (v > 0) fxCalls[unit] = (fxCalls[unit] || 0) + 1; } };
 const api = { sound, system, screen: { width: 455, height: 256 }, wifi: { ip: '0.0.0.0' } };
 piece.boot(api);
 cmd = { id: 'prepare', action: 'prepare', startAt: 3, mode: 'score' }; sound.time = .1; piece.sim(api);
@@ -67,3 +69,11 @@ for (const t of [3.5, 3 + score.dur * .3, 3 + score.dur * .6]) { sound.time = t;
 const total = score.lanes.reduce((a, l) => a + l.events.length, 0);
 console.log(`\ndry run seat 3: ${synths}/${total} events voiced, ${updates} gain updates, ${statuses} status writes, sim cost ${(ms / (score.dur * 40)).toFixed(3)} ms/frame on this Mac; paint drew ${calls.box} boxes, ${calls.write} labels over three frames`);
 if (synths !== total) { console.error('some events were skipped'); process.exit(1); }
+const expectedGm = new Set(score.lanes.flatMap(l => l.events).filter(e => Number.isInteger(e.gm)).map(e => e.gm));
+if (expectedGm.size !== gmPrograms.size || [...expectedGm].some(p => !gmPrograms.has(p))) throw Error('GM program passthrough failed');
+for (const [key, unit] of Object.entries({ fxRoom: 'room', fxDrive: 'drive', fxWobble: 'wobble', fxGlitch: 'glitch' })) {
+  const values = score.seatFx?.[2]?.[key] || score[key];
+  if (values?.some(v => v > .01) && !fxCalls[unit]) throw Error(`${unit} was never applied`);
+  if (fxMixes[unit] > 0) throw Error(`${unit} was not reset at finish`);
+}
+console.log(`GM passthrough: ${gmPrograms.size} programs; effects applied and reset: ${Object.keys(fxCalls).join(', ') || 'dry'}`);

@@ -2,9 +2,10 @@
 // notespatial-native-render — hear a ring .nsscore from the middle of the
 // room, and watch the notation fly in.
 //
-// Sound: the laptop feeds are synthesized exactly as the spatial-rehearsal
-// piece routes them (lib/spatial-rehearsal.mjs voicePosition + sourceGain,
-// the native linear attack/decay envelope), then each feed is placed at
+// Sound: feeds use the spatial-rehearsal routing (voicePosition + sourceGain),
+// native linear envelopes and the actual gm_synth.c core for GM programs.
+// Other native instruments use harmonic sketches. A mono model of audio.c's
+// effects processes each seat before each feed is placed at
 // its seat around a listener at the center: seat 1 ahead, numbers
 // clockwise, a held laptop at the center if the score has one. Placement
 // is measured KEMAR HRTF (tools/hrir, via ffmpeg afir) or, with --fast, a
@@ -26,6 +27,7 @@
 //        [--solo 3] hear one laptop alone (C is 6)
 //        [--sub] add the Windows SUB feed and cabinet (front by default)
 //        [--sub-az 0] [--sub-level .25] [--sub-cutoff 80] [--solo sub]
+//        [--frame-out review.ppm --frame-at 420] save one rendered frame for QA
 
 import { readFileSync, writeFileSync, mkdtempSync, existsSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -34,6 +36,9 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { voicePosition, sourceGain, ringSeats, noteColor } from '../lib/spatial-rehearsal.mjs';
 import { renderSubFeed } from './notespatial-room-audio.mjs';
+import { renderGmBank } from './notespatial-gm-audio.mjs';
+import { renderSeatEffects } from './notespatial-fx-audio.mjs';
+import { GM_NAMES } from './notespatial-orchestra.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -48,8 +53,6 @@ const SUB = flag('sub'), OUTPUTS = SEATS + (SUB ? 1 : 0);
 const SUB_AZ = +opt('sub-az', 0), SUB_LEVEL = +opt('sub-level', .25), SUB_CUTOFF = +opt('sub-cutoff', 80);
 const SOLO = opt('solo') === 'sub' ? SEATS : opt('solo') !== undefined ? +opt('solo') - 1 : -1;
 if (!Number.isFinite(SUB_AZ) || !Number.isInteger(SOLO) || SOLO < -1 || SOLO >= OUTPUTS) throw Error('Invalid output or SUB position');
-if (score.lanes.some(l => l.events.some(e => Number.isInteger(e.gm)))) throw Error('GM audio needs the native engine; choose --voicing mallets for a faithful modal render.');
-if (score.seatFx || ['fxRoom', 'fxDrive', 'fxWobble', 'fxGlitch'].some(k => score[k]?.length)) throw Error('Score effects are not modeled by this renderer. Render a dry score or use the native engine.');
 const ringIndex = k => k > CENTER && CENTER >= 0 ? k - 1 : k;
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const parseT = s => s === undefined ? undefined : s.includes(':') ? s.split(':').reduce((a, b) => a * 60 + +b, 0) : +s;
@@ -75,6 +78,7 @@ const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296 * 2 
 const BLOCK = 256;
 let voiced = 0;
 const gainsAt = (li, t) => { const p = voicePosition(score, li, t); return Array.from({ length: SEATS }, (_, k) => sourceGain(score, p, k, SEATS)); };
+const gmBank = await renderGmBank(score.lanes.flatMap(l => l.events).filter(e => Number.isInteger(e.gm) && e.t + e.dur > from && e.t < to), { work, sampleRate: SR });
 score.lanes.forEach((lane, li) => {
   const still = lane.center || (Number.isFinite(lane.az) && !score.fieldShift);
   const fixed = still ? gainsAt(li, 0) : null;
@@ -85,6 +89,7 @@ score.lanes.forEach((lane, li) => {
     const s0 = Math.round((e.t - from) * SR), len = Math.round(e.dur * SR);
     const attack = (e.attack ?? .01) * SR, decay = (e.decay ?? .06) * SR, decayStart = Math.max(0, len - decay);
     const inc = (e.hz || 220) / SR, wave = e.wave;
+    const gmPcm = gmBank.read(e);
     let phase = 0;
     for (let b = 0; b < len; b += BLOCK) {
       const bl = Math.min(BLOCK, len - b), gk = fixed || gainsAt(li, e.t + b / SR);
@@ -93,6 +98,7 @@ score.lanes.forEach((lane, li) => {
         const n = b + i;
         let env = attack > 0 && n < attack ? n / attack : 1;
         if (decay > 0 && n > decayStart) env *= Math.max(0, 1 - (n - decayStart) / decay);
+        if (gmPcm) { buf[i] = gmPcm[n] * g; continue; } // core already applies the envelope
         let v;
         if (wave === 'noise') v = rnd();
         else {
@@ -117,6 +123,11 @@ score.lanes.forEach((lane, li) => {
     }
   }
 });
+gmBank.close();
+for (let k = 0; k < SEATS; k++) {
+  renderSeatEffects(feeds[k], score, k, { sampleRate: SR, from });
+  if (score.fxRoom || score.seatFx) console.log(`seat ${k + 1} effects rendered`);
+}
 const subModel = SUB ? renderSubFeed(score, { sampleRate: SR, from, to, tail: TAIL, level: SUB_LEVEL, cutoff: SUB_CUTOFF }) : null;
 if (SUB) feeds.push(subModel.feed);
 let peak = 0;
@@ -212,7 +223,7 @@ if (useHrtf) {
   writeStereoWav(binaural, L, R, N);
   tick('head: parametric');
 }
-if (flag('audio-only')) { spawnSync('cp', [binaural, outPath]); console.log(outPath); process.exit(0); }
+if (flag('audio-only')) { const copied = spawnSync('cp', [binaural, outPath]); if (copied.status !== 0) throw Error('Audio copy failed'); console.log(outPath); process.exit(0); }
 
 // ── 3 · the picture ──────────────────────────────────────────────────
 const fontSrc = readFileSync(join(HERE, '../src/font-6x10.h'), 'utf8');
@@ -291,7 +302,13 @@ const SEAT_COLORS = score.seatColors || Array.from({ length: SEATS }, (_, k) => 
 const destColor = (li, t) => { const gk = gainsAt(li, t); let c = [0, 0, 0], sum = 0; for (let k = 0; k < SEATS; k++) { const w = gk[k] * gk[k]; if (w > 0) { sum += w; c = c.map((v, i) => v + SEAT_COLORS[k][i] * w); } } return sum > 0 ? c.map(v => Math.round(v / sum)) : [200, 200, 200]; };
 const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', `${W}x${H}`, '-r', String(FPS), '-i', 'pipe:0',
   '-i', binaural, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-shortest', outPath], { stdio: ['pipe', 'inherit', 'inherit'] });
-const write = buf => new Promise(res => ff.stdin.write(buf, () => res()) || ff.stdin.once('drain', res));
+const done = new Promise((resolve, reject) => {
+  ff.on('error', reject);
+  ff.on('close', code => code === 0 ? resolve() : reject(Error(`ffmpeg video failed (${code})`)));
+});
+done.catch(() => {}); // observed again after the frame stream closes
+const write = buf => new Promise((resolve, reject) => ff.stdin.write(buf, error => error ? reject(error) : resolve()));
+ff.stdin.on('error', () => {}); // write callbacks carry stream failures
 
 for (let f = 0; f < frames; f++) {
   const t = from + f / FPS;
@@ -446,7 +463,9 @@ for (let f = 0; f < frames; f++) {
   text(`ring of ${RING}${CENTER >= 0 ? ' + held center' : ''}   ${useHrtf ? 'KEMAR HRTF' : 'parametric head'}`, X, 230, dim);
   for (let k = 0; k < SEATS; k++) { const isC = k === CENTER; disc(X + 4, 262 + k * 13, 3, tone(SEAT_COLORS[k])); text(isC ? 'C   held, center, small speaker' : `${k + 1}   ${ringIndex(k) === 0 ? 'front' : 'at ' + Math.round(ringIndex(k) / RING * 360) + ' deg'}`, X + 14, 257 + k * 13, dim); }
   if (SUB) text(`SUB ${Math.round(SUB_LEVEL * 100)}%  ${SUB_CUTOFF} HZ  ${SUB_AZ} DEG`, X, 342, T.accent);
-  Object.entries(score.voicing || {}).forEach(([family, recipe], i) => {
+  const instruments = score.orchestra ? [...new Set(score.lanes.flatMap(l => l.events.filter(e => Number.isInteger(e.gm) && e.t <= t && e.t + e.dur > t).map(e => e.gm)))].slice(0, 5) : null;
+  if (instruments) instruments.forEach((p, i) => text(`${p + 1} ${GM_NAMES[p]}`.toUpperCase(), X, 370 + i * 17, col0));
+  else Object.entries(score.voicing || {}).forEach(([family, recipe], i) => {
     const col = i >= 5 ? 1 : 0, row = i % 5;
     text(`${family} ${recipe}`.toUpperCase(), X + col * 150, 370 + row * 17, col0);
   });
@@ -456,12 +475,11 @@ for (let f = 0; f < frames; f++) {
   if (from > 0 || to < score.dur) rect(TX + from / score.dur * TW, TY - 4, Math.max(1, (to - from) / score.dur * TW), 2, T.accent);
   bar(TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY - 3, TX + Math.min(Math.max(0, t), score.dur) / score.dur * TW, TY + 13, 2, T.play, 1);
   (score.movements || []).forEach((m, i) => { const label = ascii(m.name).split(' ')[0], wseg = (m.t1 - m.t0) / score.dur * TW; if (wseg >= label.length * 6 + 4) text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); else if (i % 2) text(label, TX + m.t0 / score.dur * TW + 1, TY + 26, dim); else text(label, TX + m.t0 / score.dur * TW + 1, TY + 14, dim); });
+  if (opt('frame-out') && f === Math.round(((parseT(opt('frame-at')) ?? from) - from) * FPS)) {
+    writeFileSync(resolve(opt('frame-out')), Buffer.concat([Buffer.from(`P6\n${W} ${H}\n255\n`), frame]));
+  }
   await write(Buffer.from(frame));
 }
-const done = new Promise((resolve, reject) => {
-  ff.on('error', reject);
-  ff.on('close', code => code === 0 ? resolve() : reject(Error(`ffmpeg video failed (${code})`)));
-});
 ff.stdin.end();
 await done;
 tick(`video: ${frames} frames at ${FPS} fps`);
