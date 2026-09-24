@@ -853,7 +853,9 @@ function danceTick() {
   const next = mascotRowNextFrameIn(state.mascotMs, state.busy);
   if (next === null) return;
   redraw();
-  danceTimer = setTimeout(danceTick, next);
+  // Pro breathes and counts on this clock, so it ticks often enough to be
+  // fluid; the frame diff makes each tick cheap.
+  danceTimer = setTimeout(danceTick, pro && state.busy ? Math.min(next, 120) : next);
   danceTimer.unref?.();
 }
 function startDance() {
@@ -865,6 +867,7 @@ let bindingSnapshot={revision:'',bindings:[]},bindingSnapshotKey='';
 // The tab's title, set here rather than by the shell, so it names the tool,
 // the place and the provider — and says when the machine has the floor.
 let lastTitle = "";
+let cursorShown = false;
 function retitle() {
   if (process.env.EASEL_DESKTOP || !process.stdout.isTTY) return;
   const title = windowTitle(state);
@@ -904,13 +907,21 @@ function redraw() {
       const conversation=JSON.stringify({hidden:!!(state.settings||state.about),entries:state.entries.filter(e=>notebookConversationEntry(e)&&e.id!=='feed-registration'&&!(e.kind==='error'&&(connectionFailure(e.text)||/^Live push failed: Incomplete or invalid JavaScript/.test(e.text)))&&(e.id!=='autopublish'||e.kind==='error')).map(e=>({id:e.id,kind:e.kind,at:e.at,text:e.kind==='error'?conciseFailure(e.text):e.text}))});
       if(conversation!==lastConversation){lastConversation=conversation;process.stdout.write(`\x1b]777;easel-conversation:${conversation}\x07`);}
     }
-    const frame = renderFrame(process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP}, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
+    const view = process.env.EASEL_DESKTOP && !state.settings && !state.about ? {...state,desktop:true,entries:[],desktopProsePrompt:!state.approval} : {...state,desktop:!!process.env.EASEL_DESKTOP};
+    const frame = renderFrame(view, process.stdout.columns, process.stdout.rows, process.env.NO_COLOR !== "1");
+    // The renderer says where the bar's cursor cell is on the copy it was given.
+    state.cursorCell = view.cursorCell || null;
     const output = frameDiff.update(frame, process.stdout.columns);
     if (process.env.EASEL_DESKTOP) {
       const layout = JSON.stringify(frameLayout(state, process.stdout.rows));
       if (layout !== lastLayout) { lastLayout = layout; process.stdout.write(`\x1b]777;easel-layout:${layout}\x07`); }
     }
     if (output) process.stdout.write(output);
+    // Pro leaves the terminal's own cursor on the bar, blinking as it does
+    // everywhere else; every other mode hides it and paints its own.
+    if (state.cursorCell && !process.env.EASEL_DESKTOP) process.stdout.write(`\x1b[${state.cursorCell.row};${state.cursorCell.col}H\x1b[?25h`);
+    else if (cursorShown) process.stdout.write("\x1b[?25l");
+    cursorShown = Boolean(state.cursorCell);
   } finally {
     drawing = false;
   }

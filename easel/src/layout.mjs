@@ -36,7 +36,7 @@ export function normalize(spec = {}) {
   if (Array.isArray(spec.bottom)) out.bottom = spec.bottom.filter((row) => BOTTOM_ROWS.includes(row));
   if (Array.isArray(spec.status)) out.status = spec.status.filter((fact) => STATUS_FACTS.includes(fact));
   if (Array.isArray(spec.bar) && spec.bar.length === 3 && spec.bar.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) out.bar = spec.bar;
-  if (typeof spec.prompt === "string" && spec.prompt.length > 0 && spec.prompt.length <= 2) out.prompt = spec.prompt;
+  if (typeof spec.prompt === "string" && spec.prompt.length <= 2) out.prompt = spec.prompt;
   if (typeof spec.separator === "string" && spec.separator.length <= 5) out.separator = spec.separator;
   // Notebook lines under the transcript rows; off for a plainer page.
   if (typeof spec.lines === "boolean") out.lines = spec.lines;
@@ -76,7 +76,7 @@ export class Layout extends EventEmitter {
     const base = normalize(readJson(this.baked) || {});
     const over = normalize(readJson(this.file) || {});
     this.override = over;
-    this.spec = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...base, ...over };
+    this.spec = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...base, ...over };
     return this.spec;
   }
 

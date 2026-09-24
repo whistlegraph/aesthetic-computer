@@ -295,16 +295,16 @@ test("an inbox line names its sender and cannot pass for a typed one", () => {
   );
   // In pro a typed line wears the prompt glyph, not a badge; an inbox line
   // still wears its arrow and its sender, so the two never pass for each other.
-  assert.match(frame, /›    look at the diff/);
+  assert.match(frame, /^ look at the diff/m, "your line sits flush left with no badge");
   assert.doesNotMatch(frame, /YOU/);
-  assert.match(frame, /↓    neo:sip · the build finished/);
+  assert.match(frame, /^ ↓ neo:sip · the build finished/m, "an inbox line keeps its arrow");
   // Codex's shape: no header band, a bar with air on both sides, and one
   // line under it with the handle, the directory and the model.
   assert.doesNotMatch(frame, /REMOTE · READY/, "pro has no header band");
   assert.doesNotMatch(frame, /\/publish/);
   const rows = frame.split("\n");
   assert.equal(rows[rows.length - 4].trim(), "", "air above the bar");
-  assert.match(rows[rows.length - 3], /^ › /, "the bar carries the prompt");
+  assert.match(rows[rows.length - 3], /^ {3,}$/, "the bar is empty: the terminal's own cursor stands there");
   assert.equal(rows[rows.length - 2].trim(), "", "air below the bar");
   assert.match(rows[rows.length - 1], /@tester · \/client · claude-sonnet-5 · remote/, "the facts sit under the bar (no provider without provider settings)");
 });
@@ -396,4 +396,37 @@ test("a drop-down stands on the fact that opened it, and a click on one of its r
   assert.equal(headerAction(state, 80, 24, 2, 3), "dismiss", "anywhere else closes it");
   const loading = renderFrame({ ...base, dropdown: { kind: "model", items: [], index: 0, loading: true } }, 80, 24, false);
   assert.match(loading, /loading…/);
+});
+
+test("a reply's markdown is read, not shown, and pro's page is flush left", async () => {
+  const { markdown } = await import("../src/render.mjs");
+  const read = markdown("## Plan\n- **Airtable** needs `auth` first\n- see [docs](https://example.com/x)");
+  assert.equal(read.text, "Plan\n• Airtable needs auth first\n• see docs");
+  assert.deepEqual(read.spans.map((s) => [s.tone, read.text.slice(s.start, s.end)]), [["highlight bold", "Plan"], ["bold", "Airtable"], ["soft", "auth"], ["soft", "docs"]]);
+  const frame = renderFrame(
+    {
+      workspace: "/client", mode: "remote", status: "ready", busy: false, input: "", account: "@tester",
+      profile: { name: "pro" },
+      entries: [
+        { id: "u", kind: "user", text: "hi" },
+        { id: "a", kind: "assistant", text: "Hi.\n\n- **Airtable** needs authorization before `/mcp` works." },
+        { id: "n", kind: "notice", text: "a notice" },
+      ],
+    },
+    70, 14, false,
+  );
+  assert.match(frame, /^ hi\s*$/m, "the typed line, alone");
+  assert.match(frame, /^ Hi\.\s*$/m, "the reply flush left");
+  assert.match(frame, /^ • Airtable needs authorization before \/mcp works\.\s*$/m, "markers gone, bullet kept");
+  assert.match(frame, /^ · a notice\s*$/m, "a notice keeps a two-cell mark");
+  assert.doesNotMatch(frame, /\*\*|AC {3}/);
+});
+
+test("while the machine works the handle breathes on the dance clock", async () => {
+  const { proStatus } = await import("../src/render.mjs");
+  const base = { workspace: "/c", mode: "remote", status: "ready", input: "", account: "@tester", model: "m", profile: { name: "pro" }, entries: [], busy: true, requestStartedAt: Date.now() };
+  const bright = proStatus({ ...base, mascotMs: 100 }, 80, true).line;
+  const dim = proStatus({ ...base, mascotMs: 700 }, 80, true).line;
+  assert.notEqual(bright, dim, "the handle is painted differently across the beat");
+  assert.equal(proStatus({ ...base, busy: false, mascotMs: 700 }, 80, true).line, proStatus({ ...base, busy: false, mascotMs: 100 }, 80, true).line, "and holds still when idle");
 });

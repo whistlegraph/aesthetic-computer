@@ -294,13 +294,49 @@ const STYLES = {
   typed: ["›", "prompt"],
 };
 
-const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox" };
+const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox", typed: "prompt" };
 
-function outputRows(text,width,useColor,tone,code=false){
+// The little markdown a reply is written in, read rather than shown: the
+// markers come out and what they marked keeps its meaning as a tone. Bold is
+// bold, inline code is soft, a heading is the highlight, a bullet is a bullet.
+// Offsets are on the cleaned text, which is what gets wrapped and painted.
+export function markdown(source) {
+  const spans = [];
+  const lines = String(source ?? "").split("\n");
+  let offset = 0;
+  const out = lines.map((line) => {
+    let text = line;
+    let lineTone = "";
+    const heading = /^\s{0,3}(#{1,6})\s+(.*)$/.exec(text);
+    if (heading) { text = heading[2]; lineTone = "highlight bold"; }
+    text = text.replace(/^(\s*)[-*+]\s+/, "$1• ");
+    // Inline marks, innermost first: code keeps its insides verbatim.
+    const inline = [];
+    let cleaned = "";
+    let i = 0;
+    while (i < text.length) {
+      let m;
+      if ((m = /^`([^`\n]+)`/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\*\*([^*\n]+)\*\*/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "bold" }); cleaned += m[1]; i += m[0].length; continue; }
+      if ((m = /^\[([^\]\n]+)\]\((https?:[^)\s]+)\)/.exec(text.slice(i)))) { inline.push({ start: cleaned.length, end: cleaned.length + m[1].length, tone: "soft", url: m[2] }); cleaned += m[1]; i += m[0].length; continue; }
+      cleaned += text[i]; i += 1;
+    }
+    if (lineTone) spans.push({ start: offset, end: offset + cleaned.length, tone: lineTone });
+    else for (const span of inline) spans.push({ ...span, start: span.start + offset, end: span.end + offset });
+    offset += cleaned.length + 1;
+    return cleaned;
+  });
+  return { text: out.join("\n"), spans };
+}
+
+function outputRows(source,width,useColor,tone,code=false,prose=false){
+  const read = prose && !code ? markdown(source) : { text: source, spans: [] };
+  const text = read.text;
   const links=Array.from(text.matchAll(/https?:\/\/[^\s<>"'`]+/g),m=>{const url=m[0].replace(/[.,;!?)\]}]+$/g,'');return {start:m.index,end:m.index+url.length,tone:'soft',url};});
   let sourceOffset=0;
   const codeSpans=code?text.split('\n').flatMap(line=>{const tokens=syntaxSpans(line).map(s=>({...s,start:s.start+sourceOffset,end:s.end+sourceOffset}));sourceOffset+=line.length+1;return tokens;}):[];
-  const spans=[...codeSpans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start)),...links].sort((a,b)=>a.start-b.start);
+  const marked=read.spans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start));
+  const spans=[...codeSpans.filter(s=>!links.some(l=>s.start<l.end&&s.end>l.start)),...marked,...links].sort((a,b)=>a.start-b.start);
   let cursor=0;
   return wrapText(text,width).map(line=>{
     const start=Math.max(cursor,text.indexOf(line,cursor));cursor=start+line.length;
@@ -311,10 +347,13 @@ function outputRows(text,width,useColor,tone,code=false){
   });
 }
 
-function entryLines(entry, width, useColor) {
+function entryLines(entry, width, useColor, gutter = "wide") {
   const [label, tone] = STYLES[entry.kind] || STYLES.notice;
-  const prefix = `${label.padEnd(4)} `;
-  const continuation = " ".repeat(5);
+  // Pro reads like a page: your lines and the replies flush left, and only
+  // a notice, an error or an inbox line wears a two-cell mark.
+  const flush = gutter === "narrow" && (entry.kind === "typed" || entry.kind === "assistant");
+  const prefix = flush ? "" : gutter === "narrow" ? `${label.slice(0, 1)} ` : `${label.padEnd(4)} `;
+  const continuation = " ".repeat(prefix.length);
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
   // sender is read before the request, the way the model reads the stamp.
   const bodyTone = BODY_TONES[entry.kind] || "text";
@@ -325,7 +364,7 @@ function entryLines(entry, width, useColor) {
       fenced=!fenced;
       rows.push(paint(useColor,"muted",part.trim()));continue;
     }
-    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-5),useColor,bodyTone,entry.kind==='command'||entry.kind==='change'));continue;}
+    if(!fenced){rows.push(...outputRows(part.replace(/^\n|\n$/g,''),Math.max(1,width-prefix.length),useColor,bodyTone,entry.kind==='command'||entry.kind==='change',entry.kind==='assistant'));continue;}
     const code=part.replace(/^\n|\n$/g,''),spans=syntaxSpans(code);
     let offset=0;
     for(const line of code.split("\n")){
@@ -586,7 +625,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const pro = state.profile?.name === "pro" && !(state.desktop || state.desktopProsePrompt);
   // The shape is data — see layout.mjs — so the rows under the transcript are
   // whatever the layout says, in the order it says them.
-  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "›", separator: " · ", ...(state.layout || {}) };
+  const shape = { bottom: ["gap", "bar", "gap", "status"], status: ["handle", "workspace", "engine", "model", "mode", "activity"], bar: [95, 70, 135], prompt: "", separator: " · ", ...(state.layout || {}) };
   const transcriptRows = pro ? height - shape.bottom.length : height - 5;
   // The QR code keeps its own column on the right, so the transcript is
   // narrowed rather than overdrawn. A code is an image, not text: it needs its
@@ -602,7 +641,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const transcript = state.about
     ? aboutMap().flatMap((line) => wrapText(line, contentWidth))
-    : state.entries.flatMap((entry) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed" } : entry, contentWidth, useColor));
+    : state.entries.flatMap((entry) => entryLines(pro && entry.kind === "user" ? { ...entry, kind: "typed" } : entry, contentWidth, useColor, pro ? "narrow" : "wide"));
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=transcriptRows-drawer.length;
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
@@ -651,6 +690,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     const barBg = useColor ? bg(shape.bar) : "";
     const ink = (rgb) => (useColor ? fg(rgb) : "");
     let inner;
+    state.cursorCell = null;
     if (state.approval) {
       const choices = cleanText(state.approval.choicesText || "y once  a session  n deny");
       const room = Math.max(4, width - textWidth("ALLOW ") - textWidth(choices) - 4);
@@ -665,8 +705,11 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
       const under = shown[at] || " ";
       // The cursor is painted by hand: `paint` would hand the row back to the
       // ground after it, and the bar has to run to the edge.
-      const cursorCell = useColor ? `${bg(palette.block)}${under}${color.reset}${barBg}${ink(palette.text)}` : under;
-      inner = `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${cursorCell}${shown.slice(at + 1).join("")}`;
+      // No painted block: the terminal's own cursor stands here and blinks
+      // the way it does everywhere else. The frame says where it goes.
+      const lead = `${shape.prompt ? `${shape.prompt} ` : ""}${start > 0 ? "‹" : ""}`;
+      inner = `${shape.prompt ? `${ink(palette.prompt)}${shape.prompt}${ink(palette.text)} ` : ""}${start > 0 ? "‹" : ""}${shown.slice(0, at).join("")}${under === " " && at >= shown.length ? "" : under}${shown.slice(at + 1).join("")}`;
+      state.cursorCell = { row: height - shape.bottom.length + shape.bottom.indexOf("bar") + 1, col: 2 + textWidth(lead) + textWidth(shown.slice(0, at).join("")) };
     }
     const bar = `${barBg}${ink(palette.text)}${fit(` ${inner}`, width)}${reset}`;
     const account = state.account || "";
@@ -813,6 +856,25 @@ function ruleRow(row, width) {
   return `${fit(row, used)}${color.muted}\x1b[2m\x1b[4m${" ".repeat(rest)}\x1b[24m\x1b[22m${color.reset}${color.ground}`;
 }
 
+// While the machine works the handle breathes: its colours slide toward the
+// muted ink and back on a slow sine, a few seconds a cycle, so the pulse
+// reads as breathing rather than blinking. Idle, the colours stand still.
+// `28s…`, and `· quiet 20s` once nothing has arrived for a while.
+export function workingTimer(state, now = Date.now()) {
+  const started = state.requestStartedAt || now;
+  const seconds = Math.max(0, Math.floor((now - started) / 1000));
+  const quiet = Math.max(0, Math.floor((now - (state.lastRequestEventAt || started)) / 1000));
+  return `${seconds}s…${quiet >= 15 && state.status !== "approval" ? ` · quiet ${quiet}s` : ""}`;
+}
+export const BREATH_MS = 3200;
+export function breathingHandle(account, state) {
+  const base = Array.isArray(state.handleColors) && state.handleColors.length === Array.from(account).length ? state.handleColors : handleCharacterColors(account);
+  if (!state.busy) return base;
+  const phase = 0.5 + 0.5 * Math.sin(((state.mascotMs || 0) / BREATH_MS) * Math.PI * 2);
+  const k = 0.35 + 0.65 * phase;
+  return base.map(([r, g, b]) => [r, g, b].map((v, i) => Math.round(palette.muted[i] + (v - palette.muted[i]) * k)));
+}
+
 // The status line under the bar, and where each fact on it starts, so the
 // frame can paint it and a click can find the model on it.
 export function proStatus(state, width, useColor, shape = state.layout || {}) {
@@ -828,8 +890,9 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     model,
     engine: providerLabel(engine),
     mode: state.mode === "local" ? "local" : "remote",
-    // The little guy dances on the line while the machine has the floor.
-    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${requestFeedback(state)}` : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
+    // The little guy dances on the line while the machine has the floor, and
+    // beside him the seconds, the way Claude Code counts them.
+    activity: state.busy ? `${mascotRow(state.mascotMs ?? 0, true)} ${workingTimer(state)}` : state.status === "connecting" ? "connecting…" : state.status === "offline" ? "offline" : state.scrollOffset ? `${state.scrollOffset} lines above · End latest` : "",
     inbox: queuedInbox ? `${queuedInbox} inbox queued` : "",
   };
   const muted = (text) => paint(useColor, "muted", text);
@@ -846,7 +909,9 @@ export function proStatus(state, width, useColor, shape = state.layout || {}) {
     spans.push({ name, x, width: textWidth(text) });
     // The model underlines under the mouse: it is the one fact that is a control.
     const hovered = (name === "model" && state.hover === "model") || (name === "engine" && state.hover === "provider");
-    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, state.handleColors, useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
+    // While the machine works the handle breathes: bright, then muted, on the
+    // dance clock — a pulse you can see from across the room.
+    line += name === "handle" && text.startsWith("@") ? coloredHandle(text, breathingHandle(text, state), useColor) : hovered && useColor ? paint(useColor, "muted", `\x1b[4m${text}\x1b[24m`) : muted(text);
     x += textWidth(text);
   }
   return { line, spans };
