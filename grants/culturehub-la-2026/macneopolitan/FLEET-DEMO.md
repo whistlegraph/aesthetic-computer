@@ -340,3 +340,26 @@ seats to the end, no light skips, blackout verified. The room is now driven
 through `toolchain/mcp/ac-venue-mcp.mjs` (`venue` in .mcp.json):
 venue_prepare / venue_check / venue_cue / venue_result / venue_stop /
 venue_claim; a song folder that carries its own run-fleet.py is cued with it.
+
+## Femrag++ in the round — the mix, and incoming notes (2026-09-24 17:30)
+
+Jeffrey: "femrag could have been mixed much better." From blueberry's staged
+cues, the split was: the 1,596 bells dealt round-robin across the five ring
+seats (~280 each, ignoring the track's stereo pans), snares and hats spread
+thin over the same five, and the held center carrying the voice, sub/throat
+bass and risers, with kicks, booms and donks in no cue list. So no seat had a
+whole kit and the bells lost their placement. Proposal for the next stems,
+from the render's own receipt (`t`, `midi`, `gain`, `pan` per note):
+- bells and reverse bells by **pan**: pan < -0.5 left rear, -0.5…-0.15 left
+  front, |pan| ≤ 0.15 center rear, 0.15…0.5 right front, > 0.5 right rear;
+  the held center gets the reverse bells;
+- the **whole kit** on every ring seat (kick/boom/snare/hat/donk) at −6 dB,
+  snares +3 dB on the front pair, hats +3 dB on the rear pair;
+- **sub/throat** on the SUB only, a −12 dB double on the held center for
+  localisation; the voice on the held center, full;
+- keep the master at unity in the stems and let the 8795 volume set the room.
+The renderer is ready for it: `fleet/native-trio.mjs` paints incoming notes
+(right to left into a strike line, pitched by height and note colour,
+percussion in lanes, sections counted in bars, own part bright), and
+`bin/femrag-notes.mjs --stage` merges per-seat feeds into the live configs
+without touching stems. Both wait for the rig.
