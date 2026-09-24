@@ -310,3 +310,14 @@ now plays on with a missed seat silent (recorded as `seatWarnings`) instead of
 stopping the room, and retries a status file that reads back mid-write. The
 native piece's 100 ms downbeat tolerance is unchanged; the stalls are the open
 question.
+
+## Good morning, Sophia with vocal echoes — 2026-09-24 15:10
+
+ropotu built six per-seat vocal echo stems from the 22 prepared phrases
+(primary phrase cycling seats 0,1,2,4,3,5 with half- and full-beat echoes on
+the next seats at 40 %/20 %) plus 116 quiet octave/fifth sines, arrangement
+`d74cfbeb…`. Frisbee re-prepared the singers only (`bin/reprepare-singers.py`,
+opaque faces, captions 110) and conducted `full-trio-7c86a0a43b`: all phrases
+played, 138/141 seat events, center stem full length, blackout verified.
+Jeffrey: "nice, that was great" — next: notation on the six laptops, brighter
+screens, instruments and percussion for them.
