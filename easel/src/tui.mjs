@@ -206,7 +206,10 @@ let effort=providerChoice.effort;
 async function rememberProvider(){try{await saveProviderPreferences({backend:backend.id,model,effort});}catch(error){addEntry('error',`Could not remember provider: ${error.message}`);}}
 let handoff = desktopRestored?.handoff || "";
 let archivedConversation = desktopRestored?.archivedConversation || [];
-let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : (desktopRestored?.options?.mouseEnabled ?? true);
+// Pro leaves the mouse to the terminal, so a drag selects text the way it
+// does in any other window; /mouse on takes it for clicking the bottom line.
+// EASEL_MOUSE=1 or 0 overrides either default.
+let mouseEnabled = process.env.EASEL_MOUSE === "0" ? false : process.env.EASEL_MOUSE === "1" ? true : pro ? false : (desktopRestored?.options?.mouseEnabled ?? true);
 
 // Every session opens on a new blank piece with a random name. It is a real
 // file in the workspace, and every edit is pushed to whatever scanned the QR.
@@ -1959,7 +1962,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       mouseEnabled = rest !== "off";
       process.stdout.write(mouseEnabled ? MOUSE_ON : MOUSE_OFF);
       state.hover = "";
-      addEntry("notice", `Mouse ${mouseEnabled ? "on · shift-drag selects in supporting terminals" : "off · terminal selection restored"}`);
+      addEntry("notice", `Mouse ${mouseEnabled ? "on · clicks reach the bottom line · ⌥-drag or shift-drag selects text" : "off · drag selects text · /provider and /model open the lists"}`);
       return redraw();
     }
     if (command === "/profile") return openProfile();
@@ -2091,7 +2094,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         pro
-          ? "/ask [on|off] · /layout · /inbox · /mode · /backend [id] · /model [name] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /quit   ctrl-c interrupts a running turn"
+          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /update · /new · /clear · /quit   ctrl-c interrupts a running turn"
           : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /update · /open · /qr · /new [thread] · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
