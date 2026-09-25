@@ -76,7 +76,8 @@ async function open(path, { phone = false, failed = false, roomStatus = null, as
     } catch { await req.respond({ status: 404, body: '' }); }
   });
   await page.goto('https://oskiewar.com' + path, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__oskiewarAccount?.ready && window.__oskiewarTouch,
+  await page.waitForFunction(() => window.__oskiewarAccount?.ready && window.__oskiewarTouch &&
+    window.__oskiewarGraphicsThemeStatus,
     { timeout: 20000 });
   await pause(1100); // Exercise the 500 ms room URL updater after the first paint.
   const pixels = await page.evaluate(() => {
