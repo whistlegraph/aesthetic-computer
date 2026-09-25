@@ -1146,7 +1146,14 @@ else
         exit 1
     fi
     KPART="$BUILD/vmlinuz.kpart"
-    printf 'ac.boot=chromeos' > "$BUILD/kpart-cmdline.txt"
+    # snd_intel_dspcfg.dsp_driver=3 forces the SOF path for the audio DSP.
+    # The kernel's auto-select takes SOF on Gemini/Jasper Lake only when the
+    # NHLT table lists DMICs; the HP "Meep" (no DMICs in NHLT) fell back to
+    # legacy HDA, got a codec-less "HDA Intel PCH" card and no sound
+    # (2026-09-24). Every Chromebook that boots this kpart has a SOF-era DSP,
+    # and the parameter is read-only after boot, so it rides the kpart
+    # command line only — UEFI boots (ThinkPads, Macs) are untouched.
+    printf 'ac.boot=chromeos snd_intel_dspcfg.dsp_driver=3' > "$BUILD/kpart-cmdline.txt"
     # x86 depthcharge ignores the bootloader blob but vbutil_kernel insists on one.
     dd if=/dev/zero of="$BUILD/kpart-bootstub.bin" bs=512 count=1 status=none
     "$VBUTIL" --pack "$KPART" \
