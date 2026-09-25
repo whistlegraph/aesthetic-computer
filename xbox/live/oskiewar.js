@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 149;
+const buildVersion = 150;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -15048,9 +15048,9 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     };
     rounded(x + (hovered ? 7 : 4), y + (hovered ? 9 : 6),
       button.width, button.height, 14, shadowInk);
-    rounded(x, y, button.width, button.height, 14, [110, 118, 141]);
+    rounded(x, y, button.width, button.height, 14, [178, 139, 32]);
     rounded(x + 3, y + 3, button.width - 6, button.height - 6, 11,
-      hovered ? [217, 223, 238] : [176, 184, 202]);
+      hovered ? [255, 240, 139] : [255, 221, 74]);
     typeWrite(prompt, x + (button.width - button.textWidth) / 2,
       y + (button.height - button.textSize) / 2 - 2,
       button.textSize, ...promptInk);

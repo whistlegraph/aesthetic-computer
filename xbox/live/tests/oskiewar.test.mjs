@@ -2587,8 +2587,8 @@ test("start button flashes yellow green lime before lifting off the fight", () =
   assert.equal(fight.selectionState().selecting, false);
   assert.match(source, /const prompt = "start"/);
   assert.match(source, /const button = titleButtonRect\(\)/);
-  // The prominent button shares the account button palette.
-  assert.match(source, /\[176, 184, 202\]/);
+  // Start retains its yellow identity in the larger button.
+  assert.match(source, /\[255, 221, 74\]/);
   pads[0].down = ["Y"];
   tick();
   assert.equal(fight.shellState().mode, "MENU");
