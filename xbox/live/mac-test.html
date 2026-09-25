@@ -38,6 +38,9 @@
   <link rel="modulepreload" href="/oskiewar-midi.mjs">
   <link rel="modulepreload" href="/frame-driver.mjs">
   <link rel="modulepreload" href="/render-quality.mjs">
+  <link rel="modulepreload" href="/photo-theme.mjs">
+  <link rel="preload" as="image" href="/themes/photorealistic/assets/underpass.png">
+  <link rel="preload" as="image" href="/themes/photorealistic/assets/props.png">
   <link rel="modulepreload" href="/account.mjs">
   <link rel="modulepreload" href="/round-room.mjs">
   <link rel="modulepreload" href="/aesthetic.computer/dep/@akamfoad/qr/qr.mjs">
@@ -1453,7 +1456,7 @@
       runtime, gamepad, controllers, capabilities, telemetry, gameSignal,
       sampleInput: sampleGamepads,
       saveReplay, publishLive, ac, drum, wipe, box, line, triangle,
-      write, systemWrite, comicWrite, gameView, flushFaces,
+      write, systemWrite, comicWrite, gameView, flushFaces, canvasContext: context,
     };
   </script>
   <script type="module">
@@ -1462,6 +1465,7 @@
     import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
     import { renderSurface, nextResolutionScale } from "/render-quality.mjs";
+    import createPhotoTheme from "/photo-theme.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
     import { mountWorkshop } from "/oskiewar-workshop.mjs";
@@ -1657,7 +1661,13 @@
       } catch {}
     }
 
+    const requestedGraphics = new URLSearchParams(location.search).get("graphics");
+    globalThis.__oskiewarGraphicsTheme = requestedGraphics === "flat" ? "flat" : "photorealistic";
+    const photoTheme = createPhotoTheme(globalThis.__fightHost.canvasContext,
+      globalThis.__fightHost.flushFaces);
+    Object.assign(globalThis.__fightHost, photoTheme);
     async function start() {
+      if (globalThis.__oskiewarGraphicsTheme === "photorealistic") await photoTheme.ready;
       let source = globalThis.__fightPieceSource;
       if (!source) {
         const response = await pieceSourceFetch;
@@ -1669,11 +1679,11 @@
       const piece = new Function(
         "runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView",
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad",
         `${source}\nreturn { boot, sim, paint };`
       )(...["runtime", "gamepad", "controllers", "capabilities", "telemetry",
         "gameSignal", "saveReplay", "publishLive", "analytics", "ac", "drum", "wipe", "box",
-        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView"]
+        "line", "triangle", "write", "systemWrite", "comicWrite", "gameView", "themeReady", "themeAssetReady", "themeSprite", "themeQuad"]
         .map((name) => globalThis.__fightHost[name]));
       piece.boot();
       performance.mark("oskiewar:booted");

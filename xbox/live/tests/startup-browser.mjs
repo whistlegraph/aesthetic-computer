@@ -13,7 +13,7 @@ const browser = await puppeteer.launch({
   headless: true, args: ['--mute-audio', '--no-first-run'],
 });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function open(path, { phone = false, failed = false, roomStatus = null } = {}) {
+async function open(path, { phone = false, failed = false, roomStatus = null, assetFailure = false } = {}) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors = [], discoveries = [];
@@ -51,6 +51,8 @@ async function open(path, { phone = false, failed = false, roomStatus = null } =
   page.on('request', async req => {
     try {
       const u = new URL(req.url());
+      if (assetFailure && u.pathname.endsWith('/props.png'))
+        return req.respond({status:404,body:''});
       const json = body => req.respond({ status: 200, contentType: 'application/json',
         headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) });
       if (u.pathname === '/oskiewar-open-room') {
@@ -85,6 +87,8 @@ async function open(path, { phone = false, failed = false, roomStatus = null } =
         Math.round(bounds.height * devicePixelRatio)] };
   });
   assert.deepEqual(pixels.actual, pixels.expected, 'canvas maps to exact display pixels');
+  assert.equal(await page.evaluate(() => __oskiewarGraphicsThemeStatus),
+    assetFailure || path.includes('graphics=flat') ? 'flat' : 'photorealistic');
   assert.deepEqual(errors, [], 'no browser exceptions');
   assert.deepEqual(discoveries, [], 'startup never discovers an unsolicited match');
   return { page, context };
@@ -112,6 +116,12 @@ try {
     else await page.mouse.click(button.x, button.y);
     await page.waitForFunction(() => __oskiewarTouch.screen !== 'title');
     console.log(`PASS ${phone ? 'phone' : 'desktop'}: root stays on title; Start enters play`);
+    await context.close();
+  }
+  for (const [path, options] of [['/?graphics=flat', {}], ['/', {assetFailure:true}]]) {
+    const {page,context}=await open(path, options);
+    assert.equal((await state(page)).screen, 'title');
+    console.log(`PASS ${options.assetFailure ? 'missing texture fallback' : 'explicit flat theme'}`);
     await context.close();
   }
   for (const failed of [false, true]) {

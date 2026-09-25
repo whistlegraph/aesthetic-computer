@@ -17,6 +17,7 @@ const replayOven = await readFile(new URL(
   "../marketing/replay-oven.mjs", import.meta.url), "utf8");
 const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
 const renderQualitySource = await readFile(new URL("../render-quality.mjs", import.meta.url));
+const photoThemeSource = await readFile(new URL("../photo-theme.mjs", import.meta.url));
 const socialRenderer = await readFile(new URL(
   "../render-social-preview.mjs", import.meta.url));
 const socialManifest = JSON.parse(await readFile(new URL(
@@ -699,7 +700,7 @@ test("web relayout observes live viewport element resizing", () => {
     /new ResizeObserver\(resizeCanvas\)\.observe\(document\.documentElement\)/);
   assert.match(source, /syncGameView\(\);/);
   assert.match(webShell, /window\.devicePixelRatio \|\| 1/);
-  assert.match(webShell, /context\.setTransform\(density, 0, 0, density, 0, 0\)/);
+  assert.match(webShell, /context\.setTransform\(scaleX, 0, 0, scaleY, 0, 0\)/);
 });
 
 test("update-ready panel automatically reloads at the round boundary", () => {
@@ -762,14 +763,14 @@ test("colored glyph runs share Comic Relief advances across every host", () => {
   assert.doesNotMatch(source, /handle\[index\] === "@" \? \.88 : \.58/);
 });
 
-test("web defaults to the shared sun theme with explicit light and dark overrides", () => {
+test("web uses the realistic theme with shared sun colors as fallback", () => {
   assert.match(webShell, /colorScheme: socialPreview \? "light" : browserTheme \|\| "sun"/);
   assert.match(source, /const sun = losAngelesSun\(\)/);
   assert.match(source,
     /caps\.platform === "web" \|\| caps\.platform === "macos"/);
   assert.match(source,
     /return \{ \.\.\.sun, light: caps\.colorScheme === "light" \? 1 : 0 \}/);
-  assert.match(source, /visualTheme = displayTheme\(\)/);
+  assert.match(source, /visualTheme = photoThemeActive \? \{ light: 0, sunset: 0 \} : displayTheme\(\)/);
 });
 
 test("tab title animates playful phoneme spacing", () => {
@@ -788,7 +789,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.match(webShell, /property="og:image:height" content="630"/);
   assert.match(webShell, /property="og:video:width" content="720"/);
   assert.match(webShell, /property="og:video:height" content="1280"/);
-  assert.equal(socialManifest.theme, "light");
+  assert.equal(socialManifest.theme, "photorealistic");
   assert.equal(socialManifest.videoWidth, 720);
   assert.equal(socialManifest.videoHeight, 1280);
   assert.equal(socialManifest.durationSeconds, 4);
@@ -804,7 +805,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.ok(socialVideo.length > 60000);
   const expectedBuild = createHash("sha256").update(source).update(webShell)
     .update(frameDriverSource)
-    .update(renderQualitySource)
+    .update(renderQualitySource).update(photoThemeSource)
     .update(socialRenderer).digest("hex").slice(0, 16);
   assert.equal(socialManifest.build, expectedBuild);
   assert.match(lithDeploy, /render-social-preview\.mjs --check/);
@@ -6245,7 +6246,7 @@ test("jump framing cannot reveal a contrasting clear-color flash", () => {
 });
 
 test("facing and opponent mode are visible in fighter faces", () => {
-  assert.match(source, /const faceX = head\.x \+ direction \* r \* \.08/);
+  assert.match(source, /const faceX = head\.x \+ direction \* r \* \(photoThemeActive \? \.22 : \.08\)/);
   assert.match(source, /The facing-side foot is visibly planted forward/);
   assert.match(source, /const inertDummy = player\.npc && !player\.bot/);
   assert.match(source, /player\.bot && player\.alive && !player\.blocking/);

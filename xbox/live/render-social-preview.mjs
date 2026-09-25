@@ -18,7 +18,7 @@ const posterSize = { width: 1200, height: 630 };
 const videoSize = { width: 720, height: 1280 };
 const captureSeconds = 2;
 const loopSeconds = captureSeconds * 2;
-const sources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs", "render-quality.mjs"];
+const sources = ["oskiewar.js", "mac-test.html", "frame-driver.mjs", "render-quality.mjs", "photo-theme.mjs"];
 const sourceHash = createHash("sha256");
 for (const name of sources) sourceHash.update(await readFile(join(live, name)));
 sourceHash.update(await readFile(new URL(import.meta.url)));
@@ -35,7 +35,7 @@ if (process.argv.includes("--check")) {
 const mime = new Map([
   [".html", "text/html; charset=utf-8"], [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"], [".ttf", "font/ttf"],
-  [".svg", "image/svg+xml"],
+  [".svg", "image/svg+xml"], [".png", "image/png"],
 ]);
 function fileFor(pathname) {
   if (pathname === "/" || pathname === "/mac-test.html")
@@ -43,9 +43,12 @@ function fileFor(pathname) {
   // Every module the shell imports has to be listed, or the page dies on a 404
   // and the capture comes out empty rather than loudly wrong.
   if (["/oskiewar.js", "/oskiewar-sfx.mjs", "/oskiewar-voice.mjs",
-      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/render-quality.mjs", "/account.mjs",
+      "/oskiewar-midi.mjs", "/frame-driver.mjs", "/render-quality.mjs", "/photo-theme.mjs", "/account.mjs",
       "/oskiewar-wizard.mjs", "/oskiewar-fighter.mjs", "/oskiewar-workshop.mjs", "/oskiewar-map.mjs",
       "/round-room.mjs"].includes(pathname)) return join(live, pathname.slice(1));
+  if (["underpass.png", "props.png", "explosions-v1.png", "weapons-v2.png"]
+      .some(name => pathname === "/themes/photorealistic/assets/" + name))
+    return join(live, pathname.slice(1));
   if (pathname === "/aesthetic.computer/lib/auth0-otp.mjs")
     return join(repo, "system/public/aesthetic.computer/lib/auth0-otp.mjs");
   if (pathname === "/aesthetic.computer/dep/@akamfoad/qr/qr.mjs")
@@ -126,7 +129,7 @@ try {
   if (encoded.status !== 0) throw new Error(encoded.stderr || "ffmpeg failed");
   await writeFile(manifestPath, JSON.stringify({
     format: "ac.oskiewar.social-preview", version: 2, build,
-    theme: "light", imageWidth: posterSize.width, imageHeight: posterSize.height,
+    theme: "photorealistic", imageWidth: posterSize.width, imageHeight: posterSize.height,
     videoWidth: videoSize.width, videoHeight: videoSize.height,
     durationSeconds: loopSeconds, framesPerSecond: 30, audio: false,
     image: "oskiewar-title.jpg", video: "oskiewar-title.mp4",

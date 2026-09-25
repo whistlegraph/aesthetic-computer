@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 150;
+const buildVersion = 151;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -10654,7 +10654,96 @@ function generatedPartColor(appearance, segment) {
   return appearance.shirt;
 }
 
+// Retained photographic materials use the same projected poses and collision
+// surfaces as the vector theme. Assets are uploaded by the native host once.
+let photoThemeActive = false;
+let photoEffectsActive = false, photoWeaponsActive = false;
+function roundGraphicsTheme() {
+  return globalThis.__oskiewarGraphicsTheme === "photorealistic" ? "photorealistic" : "flat";
+}
+function refreshPhotoTheme() {
+  photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
+    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
+  photoEffectsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(2);
+  photoWeaponsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(3);
+}
+const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
+  [908,34,400,400],[1352,37,400,400],[37,458,400,400],
+  [472,453,400,400],[917,470,400,400],[1368,484,400,400]];
+const photoWeaponRegions = { grenade:[160,82,330,520],
+  launcher:[629,218,610,270], smg:[8,780,624,320], flash:[640,760,606,370] };
+function photoEffectSprite(asset, region, x, y, width, height,
+    angle = 0, flip = false, depth = triangleDepth, depthWrite = true) {
+  if (!(asset === 2 ? photoEffectsActive : photoWeaponsActive) ||
+      ![x,y,width,height,angle,depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(asset,...region,x,y,width,height,angle,flip,
+    clamp(depth,-1.49,1.49),depthWrite) !== false;
+}
+function photoExplosionFrame(age) {
+  return photoExplosionFrames[Math.min(7,Math.floor(clamp(age,0,1)*8))];
+}
+function drawPhotoExplosion(x,y,radius,age,depth=triangleDepth) {
+  if (!photoEffectsActive || !Number.isFinite(age) || !Number.isFinite(radius)) return false;
+  const diameter = Math.min(1800,Math.max(12,radius*2.25));
+  if (x+diameter/2<0 || y+diameter/2<0 || x-diameter/2>viewWidth() || y-diameter/2>viewHeight) return true;
+  return photoEffectSprite(2,photoExplosionFrame(age),x,y,diameter,diameter,0,false,depth,false);
+}
+function drawPhotoHeldWeapon(mode,hand,barrel,flip,depth) {
+  if (!photoWeaponsActive || !["RUBBER SMG","ROCKET LAUNCHER"].includes(mode)) return false;
+  const region = photoWeaponRegions[mode === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+  const dx=barrel.x-hand.x,dy=barrel.y-hand.y;
+  const angle=Math.atan2(dy,dx)-(flip?Math.PI:0),c=Math.cos(angle),s=Math.sin(angle);
+  const width=Math.max(24,Math.hypot(dx,dy)/.58),height=width*region[3]/region[2];
+  const ox=(flip?-1:1)*width*.08,oy=-height*.25;
+  return photoEffectSprite(3,region,hand.x+ox*c-oy*s,hand.y+ox*s+oy*c,
+    width,height,angle,flip,depth,true);
+}
+const photoRegions = {
+  acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
+  acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
+  gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
+  platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
+  concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
+};
+function photoSprite(region, x, y, width, height, angle = 0, flip = false,
+    depth = triangleDepth) {
+  if (!photoThemeActive || ![x, y, width, height, angle, depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(1, ...photoRegions[region], x, y, width, height,
+    angle, flip, depth) !== false;
+}
+function photoLimb(segment, seat) {
+  const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
+  const length = Math.hypot(dx, dy);
+  if (length < .001) return;
+  const width = Math.max(2, segment.width);
+  photoSprite(seat === 0 ? "acLimb" : "xboxLimb",
+    (segment.x1 + segment.x2) / 2, (segment.y1 + segment.y2) / 2,
+    width, length + width,
+    Math.atan2(dy, dx) - Math.PI / 2);
+}
+function photoSurface(region, a, b, c, d) {
+  // Tall structural faces keep their shaded map color. Stretching a thin
+  // texture strip over them made the back of the arena look like a curtain.
+  if (region === "wall") return false;
+  if (!photoThemeActive || typeof themeQuad !== "function") return false;
+  const points = [a, b, c, d];
+  if (points.some(p => ![p.x,p.y,p.z].every(Number.isFinite) ||
+      Math.abs(p.x) > 30000 || Math.abs(p.y) > 30000)) return false;
+  // Structural faces use the material atlas, never a stretched skybox crop.
+  return themeQuad(1, ...photoRegions[region],
+    a.x,a.y,a.z, b.x,b.y,b.z, c.x,c.y,c.z, d.x,d.y,d.z) !== false;
+}
+
 function drawSkeletonSegments(segments, color, outline, player = null) {
+  if (photoThemeActive && player) {
+    for (const segment of segments)
+      if (!segment.hitboxOnly) photoLimb(segment, player.pad);
+    return;
+  }
   const edge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   if (player?.skateboard) segments = segments.slice().sort((a, b) => b.depth - a.depth);
   for (const segment of segments) {
@@ -10721,6 +10810,15 @@ function drawPaletteCapsule(segment, colors, coordinate, fallback, player = null
 
 function drawFighterSilhouette(geometry, color, outline, player = null) {
   drawSkeletonSegments(geometry.segments, color, outline, player);
+  if (photoThemeActive && player) {
+    const head = geometry.head, seat = player.pad === 0 ? 0 : 1;
+    const radius = Math.max(2, head.radius);
+    photoSprite(seat ? "xboxHead" : "acHead", head.x, head.y,
+      radius * 2, radius * 2,
+      isHeadOnly(player) ? player.headRoll || 0 : player.skateRotation || 0,
+      (seat === 0 ? 1 : -1) !== (player.facing || 1), triangleDepth - .01);
+    return;
+  }
   const headEdge = Math.max(1.25, Math.min(3, cameraScale() * 1.8));
   // The neck connector and solid head are emitted into the same triangle
   // silhouette pass, so the head cannot detach as a separate line-layer ring.
@@ -12546,6 +12644,7 @@ function drawHandle(handle, x, y, size, colors, fallback) {
 }
 
 function drawFace(player, head, color, t, now = runtime().monotonicUs) {
+  if (photoThemeActive) color = [20, 12, 26];
   if (head.radius < 5) return;
   const bodyDepth = triangleDepth;
   triangleDepth = bodyDepth - .012;
@@ -12555,7 +12654,7 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   // in flat face-space and spun around the head's center on the way to the
   // canvas — eyes, mouth, hair, tears, hearts, all of it — instead of the old
   // look where the head traveled and the face stayed nailed upright.
-  const roll = isHeadOnly(player) ? player.headRoll || 0 : 0;
+  const roll = isHeadOnly(player) ? player.headRoll || 0 : photoThemeActive ? player.skateRotation || 0 : 0;
   const cosRoll = Math.cos(roll), sinRoll = Math.sin(roll);
   const spin = (x, y) => roll === 0 ? { x, y } : {
     x: head.x + (x - head.x) * cosRoll - (y - head.y) * sinRoll,
@@ -12598,10 +12697,10 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
     stroke(head.x - r * .08, head.y - r * .18,
       head.x + r * .42, head.y - r * .5, width * .72, hair);
   }
-  const eyeY = head.y - r * .18;
-  const eyeGap = r * .34;
-  const faceX = head.x + direction * r * .08;
-  const eyeWidth = Math.max(1.4, r * .1);
+  const eyeY = head.y - r * (photoThemeActive ? .07 : .18);
+  const eyeGap = r * (photoThemeActive ? .30 : .34);
+  const faceX = head.x + direction * r * (photoThemeActive ? .22 : .08);
+  const eyeWidth = Math.max(1.4, r * (photoThemeActive ? .125 : .1));
   const lineWidth = Math.max(1.2, r * .1);
   const blink = player.alive && !player.blocking && !player.attackKind &&
     Math.sin(t * .73 + player.pad * 2.1) > .985;
@@ -12610,6 +12709,12 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
   const inertDummy = player.npc && !player.bot;
   const victoryAmount = deathCinematic?.winnerPad === player.pad
     ? clamp(deathCinematicAge(now) / 1.15, 0, 1) : 0;
+  if (photoThemeActive) {
+    // Cover the photographed eyes completely before drawing live gaze and
+    // expressions. Closed lids are opaque, including the baked pupils.
+    const socket = blink ? (player.pad === 0 ? [135,101,190] : [115,162,53]) : [237,234,221];
+    for (const offset of [-eyeGap,eyeGap]) disc(faceX+offset,eyeY,r*.315,socket);
+  }
   if (!player.alive || player.hit > .6 || inertDummy) {
     for (const offset of [-eyeGap, eyeGap]) {
       stroke(faceX + offset - eyeWidth, eyeY - eyeWidth,
@@ -12816,13 +12921,36 @@ function drawInventory(player, now, geometry) {
     }
   }
   if ((player.gunAmmo > 0 || firing) && !throwing) {
+    const forearm = photoThemeActive ? itemForearm(player, geometry) : null;
     const pose = gunPose(player, now);
-    const hand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
-    const barrel = projectPoint(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
+    const projectedHand = projectPoint(pose.hand.x, pose.hand.y, pose.hand.z);
+    // Render reactions and replay poses may move the drawn skeleton after
+    // projection. Its actual wrist remains the final attachment point.
+    const hand = forearm ? {x:forearm.x2, y:forearm.y2} : projectedHand;
+    const offsetX = hand.x - projectedHand.x, offsetY = hand.y - projectedHand.y;
+    const projectWeapon = (x, y, z) => {
+      const point = projectPoint(x, y, z);
+      return {x:point.x + offsetX, y:point.y + offsetY};
+    };
+    const barrel = projectWeapon(pose.muzzle.x, pose.muzzle.y, pose.muzzle.z);
     const barrelWidth = Math.max(3, 9 * scale);
     const gripWidth = Math.max(2, 6 * scale);
     // Xbox batches its native line layer underneath GPU fighter triangles.
     // Held items therefore use the same depth-aware capsule path as the hand.
+    if (photoThemeActive) {
+      // Place the photograph's grip at the solved wrist. Reflect its local X
+      // before rotation so aiming left does not turn the grip upside down.
+      const dx = barrel.x - hand.x, dy = barrel.y - hand.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const flip = player.facing < 0;
+      const width = Math.max(18, length / .72), height = width * 253 / 365;
+      const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
+      const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
+      const c = Math.cos(angle), s = Math.sin(angle);
+      if (!drawPhotoHeldWeapon(player.gunMode,hand,barrel,flip,triangleDepth-.025))
+        photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
+          width, height, angle, flip, triangleDepth - .025);
+    } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
     const gripX = hand.x - player.facing * 8 * scale;
@@ -12848,26 +12976,37 @@ function drawInventory(player, now, geometry) {
         barrelWidth * 1.8, gunColor);
       filledDisc(barrel.x, barrel.y, barrelWidth * 1.45, [104, 62, 48]);
     }
+    }
     if (firing) {
+      const flashAngle=Math.atan2(barrel.y-hand.y,barrel.x-hand.x);
+      const flashSize=Math.max(18,54*scale);
+      const photoFlash=photoEffectSprite(3,photoWeaponRegions.flash,
+        barrel.x+Math.cos(flashAngle)*flashSize*.43,
+        barrel.y+Math.sin(flashAngle)*flashSize*.43,
+        flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
+      if (!photoFlash) {
       const normalX = -pose.dy;
       const normalY = pose.dx;
-      const flashA = projectPoint(
+      const flashA = projectWeapon(
         pose.muzzle.x + pose.dx * 28 + normalX * 18,
         pose.muzzle.y + pose.dy * 28 + normalY * 18, pose.muzzle.z);
-      const flashB = projectPoint(
+      const flashB = projectWeapon(
         pose.muzzle.x + pose.dx * 28 - normalX * 18,
         pose.muzzle.y + pose.dy * 28 - normalY * 18, pose.muzzle.z);
       filledCapsule(barrel.x, barrel.y, flashA.x, flashA.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
+      }
     }
   }
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
-      Math.max(2, 5 * scale), grenadeColor);
+    if (!photoEffectSprite(3,photoWeaponRegions.grenade,hand.x,hand.y,
+        Math.max(8,24*scale),Math.max(12,38*scale),0,false,triangleDepth-.03,true))
+      hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
+        Math.max(2, 5 * scale), grenadeColor);
   }
 }
 
@@ -12950,8 +13089,11 @@ function drawBrokenRunner(player, age) {
     triangleDepth = projectPoint(midX + dx, midY + dy,
       (segment.z1 + segment.z2) / 2 + dz).z;
     const width = Math.max(2, segment.width * cameraScale());
-    filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
-    filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    if (photoThemeActive) photoLimb({x1:a.x,y1:a.y,x2:b.x,y2:b.y,width}, player.pad);
+    else {
+      filledCapsule(a.x, a.y, b.x, b.y, width + 3, outline);
+      filledCapsule(a.x, a.y, b.x, b.y, width, player.color);
+    }
   }
   drawDigitalHeadBurst(player, world.head, age);
 }
@@ -12999,7 +13141,7 @@ function drawRunner(player, t, showLabel = true) {
   }
   if (player.fallenBodyGeometry) {
     const fallen = projectRunnerWorldGeometry(player.fallenBodyGeometry);
-    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], null);
+    drawSkeletonSegments(fallen.segments, player.color, [8, 12, 24], photoThemeActive ? player : null);
   }
   const geometry = player.replayGeometry
     ? projectRunnerWorldGeometry(player.replayGeometry)
@@ -13849,6 +13991,10 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
       if (a1.front && a.front && b.front && b1.front) {
+        if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
+          previous = index;
+          continue;
+        }
         const lit = litQuadColor(a1, a, b, shade);
         if (a1.inBand && a.inBand && b.inBand && b1.inBand) {
           projectedTriangle(a1.screen, a.screen, b.screen, lit);
@@ -14218,6 +14364,16 @@ function projectedBallRadius(ball) {
 
 function drawSkateboard(player) {
   const at = skateFrame(player);
+  if (photoThemeActive) {
+    const centerWorld = at(0, 5, 0);
+    const center = projectPoint(centerWorld.x, centerWorld.y, centerWorld.z);
+    const left = at(-64, 5, 0), right = at(64, 5, 0);
+    const a = projectPoint(left.x,left.y,left.z), b = projectPoint(right.x,right.y,right.z);
+    const width = Math.hypot(b.x-a.x,b.y-a.y);
+    photoSprite("skateboard", center.x, center.y, width, width * 136 / 412,
+      Math.atan2(b.y-a.y,b.x-a.x), false, center.z - .01);
+    return;
+  }
   const deck = [236, 76, 118], grip = [34, 25, 39], truck = [174, 184, 202];
   const quad = (a, b, c, d, color) => worldQuad(at(...a), at(...b), at(...c), at(...d), color);
   const axle = (a, b, width, color) => {
@@ -14392,6 +14548,15 @@ function drawGunPickup(pickup, t) {
   if (!pickup.active) return;
   const bobY = pickup.y + Math.sin(t * 3 + pickup.x * .001) * 8;
   const scale = cameraScale();
+  if (photoThemeActive) {
+    const point = projectPoint(pickup.x,bobY,pickup.z);
+    const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
+    const region=photoWeaponRegions[pickup.kind === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+    if (["ROCKET LAUNCHER","RUBBER SMG"].includes(pickup.kind) &&
+        photoEffectSprite(3,region,point.x,point.y,width,width*region[3]/region[2],0,false,point.z-.02,true)) return;
+    photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
+    return;
+  }
   const metal = mixColor([202, 212, 228], [52, 59, 72], visualTheme.light);
   const grip = mixColor([126, 106, 88], [40, 43, 52], visualTheme.light);
   const barrelWidth = Math.max(2, 5 * scale);
@@ -14568,6 +14733,8 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(7,20*scale),Math.max(11,32*scale),0,false,point.z-.02,true)) return;
   const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
@@ -14582,6 +14749,8 @@ function drawGrenadePickup(pickup, t) {
 function drawGrenade(grenade) {
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
+    if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
+        grenade.blastAge/grenadeBlastDuration,point.z-.025)) return;
     const radius = grenade.blastRadius * cameraScale();
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
@@ -14589,6 +14758,12 @@ function drawGrenade(grenade) {
     return;
   }
   if (grenade.rocket) {
+    if (photoThemeActive) {
+      const scale = cameraScale();
+      const angle = Math.atan2(grenade.vy,grenade.vx);
+      photoSprite("rocket",point.x,point.y,64*scale,41*scale,angle,false,point.z-.02);
+      return;
+    }
     const length = Math.hypot(grenade.vx, grenade.vy) || 1;
     const tail = projectPoint(grenade.x - grenade.vx / length * 54,
       grenade.y - grenade.vy / length * 54, grenade.z);
@@ -14602,6 +14777,9 @@ function drawGrenade(grenade) {
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(9,30*cameraScale()),Math.max(14,48*cameraScale()),
+      grenade.fuse*5,grenade.vx<0,point.z-.02,true)) return;
   const color = blink ? [255, 255, 255] : players[grenade.owner].color;
   filledDisc(point.x, point.y, Math.max(4, 22 * cameraScale()), color);
   const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
@@ -15577,7 +15755,8 @@ function drawImpacts() {
       const edge = projectPoint(impact.x + impact.blastRadius,
         impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000 &&
+          !drawPhotoExplosion(center.x,center.y,radius,age,center.z-.025)) {
         filledRing(center.x, center.y, radius,
           Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
@@ -15610,6 +15789,12 @@ function drawDetachedPart(fragment) {
       Math.abs(second.x) + margin > 30000 ||
       Math.abs(second.y) + margin > 30000 ||
       Math.hypot(second.x - first.x, second.y - first.y) > 30000) return;
+  if (photoThemeActive) {
+    // Ownership changes when a limb is hit; its material keeps its source color.
+    const seat = fragment.color[1] > fragment.color[0] ? 1 : 0;
+    photoLimb({x1:first.x,y1:first.y,x2:second.x,y2:second.y,width}, seat);
+    return;
+  }
   filledCapsule(first.x, first.y, second.x, second.y, width + 3, [9, 12, 22]);
   drawPaletteCapsule({ x1: first.x, y1: first.y, x2: second.x, y2: second.y,
     width, part: fragment.part }, fragment.colors,
@@ -15721,7 +15906,9 @@ function gamePaint() {
   // a profile lookup here would answer empty and strip them every frame.
   for (const player of players)
     if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
-  visualTheme = displayTheme();
+  refreshPhotoTheme();
+  globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
+  visualTheme = photoThemeActive ? { light: 0, sunset: 0 } : displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
   const reelHud = typeof capabilities === "function" &&
@@ -15773,7 +15960,9 @@ function gamePaint() {
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   wipe(...outside);
-  if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
+  if (photoThemeActive) themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
+    viewWidth(),viewHeight,0,false,1.49);
+  else if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
     box(0, 0, viewWidth(), viewHeight, ...menuArena);
     drawSelectionScreen(t, menuInk, menuPanel);

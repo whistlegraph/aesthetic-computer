@@ -1,0 +1,31 @@
+{
+  "tool": "image_gen.imagegen (built-in)",
+  "backgroundPrompt": "Use case: stylized-concept. Asset type: production game background plate for Oskiewar, a side-on 2D platform battle game, photorealistic miniature skatepark theme. Create a wide 16:9 photograph of a real hand-built miniature underground skatepark at night. Straight-on orthographic side elevation, no perspective tilt. Dark weathered concrete wall, tiny glossy puddles, scuffed concrete floor only along bottom 15 percent; deep blue-black shadows and moody muted violet light on left, muted emerald green light on right. Fine realistic tactile cement, metal, moisture detail; cinematic but understated. Huge clear open playable space in central 75 percent, no major obstacles or foreground occluders. Keep brightness subdued to support brightly colored game characters overlaid later. No characters, no people, no text, no letters, no logos, no HUD, no decorative border. This image must work as an actual seamless-looking backdrop behind an existing game, not a poster. Flat gameplay plane and level horizontal floor at 85 percent down the image, no ramps intruding into gameplay.",
+  "atlasPrompt": "Use case: product-mockup. Asset type: transparent PNG game sprite atlas for a photorealistic miniature Oskiewar theme. A precisely organized 4-column by 2-row grid of eight separate objects, each centered inside its own equal square cell with generous transparent padding and no shadows outside the object. Front-on orthographic photographs of practical miniature props, black box studio controlled soft upper-left lighting. TOP ROW left to right: (1) a small perfectly round purple painted wooden head with two white circular inset eyes and little black pupils looking right; (2) exactly matching bright leafy green round head, pupils looking left; (3) a vertical slim purple painted metal cylinder with rounded ends, a straight stick-puppet limb; (4) an exactly matching leafy green vertical limb. BOTTOM ROW left to right: (1) a tiny chunky metallic gray sci-fi toy blaster aiming right; (2) a side-view narrow skateboard black grip tape with four small orange wheels; (3) a dark gray rectangular weathered concrete platform slab with a straight flat top and visible chipped front edge; (4) a short orange toy rocket pointing right. Use realistic wood grain, matte brushed metal, chipped enamel, believable tactile materials. Purple matches RGB159,122,232 and green matches RGB120,200,72. Exact 4x2 grid, eight isolated sprites total. The head circles have a friendly abstract stickman face, no bodies or hair. Transparent background, actual alpha outside every object, no checkerboard, no text, no lines, no cell borders, no logos. Square cells aligned edge-to-edge. Objects don't touch their cell edges. Wide 2:1 canvas.",
+  "assets": [
+    {
+      "path": "assets/underpass.png",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "bytes": 2107579,
+      "sha256": "42952663be9942c93befae22a28fe43dcf47c1ae2253552e20704a37225c6cc3"
+    },
+    {
+      "path": "assets/props.png",
+      "size": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "alphaExtrema": [
+        0,
+        255
+      ],
+      "bytes": 912828,
+      "sha256": "440397bfb5369377817404545faf24d631302c8034c1492b14da28245d1f1c7c"
+    }
+  ]
+}
