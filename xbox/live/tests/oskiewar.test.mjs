@@ -16,6 +16,7 @@ const reelRenderer = await readFile(new URL(
 const replayOven = await readFile(new URL(
   "../marketing/replay-oven.mjs", import.meta.url), "utf8");
 const frameDriverSource = await readFile(new URL("../frame-driver.mjs", import.meta.url));
+const renderQualitySource = await readFile(new URL("../render-quality.mjs", import.meta.url));
 const socialRenderer = await readFile(new URL(
   "../render-social-preview.mjs", import.meta.url));
 const socialManifest = JSON.parse(await readFile(new URL(
@@ -803,7 +804,7 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   assert.ok(socialVideo.length > 60000);
   const expectedBuild = createHash("sha256").update(source).update(webShell)
     .update(frameDriverSource)
-    .update(readFileSync(new URL("../render-quality.mjs", import.meta.url)))
+    .update(renderQualitySource)
     .update(socialRenderer).digest("hex").slice(0, 16);
   assert.equal(socialManifest.build, expectedBuild);
   assert.match(lithDeploy, /render-social-preview\.mjs --check/);
