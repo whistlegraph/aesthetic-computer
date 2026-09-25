@@ -78,9 +78,12 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git fetch:*)",
-      "Bash(git -C * push:*)",
-      "Bash(git -C * pull:*)",
-      "Bash(git -C * fetch:*)"
+      "Bash(git -C /Users/jas/aesthetic-computer push:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer pull:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer fetch:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault push:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault pull:*)",
+      "Bash(git -C /Users/jas/aesthetic-computer/aesthetic-computer-vault fetch:*)"
     ]
   }
 }
