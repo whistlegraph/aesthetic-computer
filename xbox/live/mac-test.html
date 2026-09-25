@@ -37,6 +37,7 @@
   <link rel="modulepreload" href="/oskiewar-voice.mjs">
   <link rel="modulepreload" href="/oskiewar-midi.mjs">
   <link rel="modulepreload" href="/frame-driver.mjs">
+  <link rel="modulepreload" href="/render-quality.mjs">
   <link rel="modulepreload" href="/account.mjs">
   <link rel="modulepreload" href="/round-room.mjs">
   <link rel="modulepreload" href="/aesthetic.computer/dep/@akamfoad/qr/qr.mjs">
@@ -315,6 +316,7 @@
     const logicalInset = { top: 0, right: 0, bottom: 0, left: 0 };
     const insetProbe = document.querySelector("#inset-probe");
     function resizeCanvas() {
+      if (!globalThis.__oskiewarRenderDensity) return;
       const bounds = canvas.getBoundingClientRect();
       const width = Math.max(1, bounds.width);
       const height = Math.max(1, bounds.height);
@@ -340,8 +342,8 @@
       // raster area against primitive count on a machine suspected of
       // software-rasterizing the frame.
       // Logical coordinates stay at 1080; pixels follow the actual display.
-      const density = Math.min(1, height / logicalHeight *
-        Math.max(1, window.devicePixelRatio || 1)) * resolutionScale;
+      const density = globalThis.__oskiewarRenderDensity(height, logicalHeight,
+        window.devicePixelRatio || 1, resolutionScale);
       const pixelWidth = Math.round(logicalWidth * density);
       const pixelHeight = Math.round(logicalHeight * density);
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -352,22 +354,16 @@
         context.imageSmoothingQuality = "high";
       }
     }
-    resizeCanvas();
-    // The sliding performance default: measured on the Xbox, the frame is
-    // substantially raster-area-bound — res .66 alone held 60 fps — so the
-    // shell watches the game's own measured rate and trades backing-store
-    // resolution for frames, a step at a time. Struggling frames also drag
-    // the fixed-step simulation into catch-up work that deepens the hole,
-    // so cheaper pixels pay that debt off too. A manual res flag from the
-    // experiment lane pins the dial; zero hands it back.
+    // Reduce resolution only when drawing is expensive. A refresh or power
+    // cap cannot be fixed by shrinking pixels. Manual res pins the dial.
     setInterval(() => {
       if (manualResolution !== null) return;
       const fps = Number(globalThis.__oskiewarDisplayFps) || 60;
-      if (fps < 52 && resolutionScale > .62) {
-        resolutionScale = Math.max(.62, resolutionScale - .12);
-        resizeCanvas();
-      } else if (fps >= 58 && resolutionScale < 1) {
-        resolutionScale = Math.min(1, resolutionScale + .06);
+      const next = globalThis.__oskiewarNextResolutionScale?.(resolutionScale, {
+        fps, renderCpuMs: globalThis.__oskiewarFrameStats?.renderCpuMs || 0,
+      }) ?? resolutionScale;
+      if (next !== resolutionScale) {
+        resolutionScale = next;
         resizeCanvas();
       }
     }, 2000);
@@ -889,13 +885,14 @@
     if (new URLSearchParams(location.search).has("self-play"))
       globalThis.__oskiewarSelfPlay = true;
 
+    const browserTheme = new URLSearchParams(location.search).get("theme");
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
       return { platform: mac ? "macos" : "web",
         showControlLegend: false,
         inputFamily: touchEnabled ? "touch" : hasGamepad ? "xbox" : "keyboard",
-        colorScheme: matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark",
+        colorScheme: socialPreview ? "light" : browserTheme || "sun",
         socialPreview: new URLSearchParams(location.search).has("social-preview"),
         // Offline replay burns ask the game for world pixels only. This is a
         // render capability, never a player preference, so HUD-free footage
@@ -1460,6 +1457,7 @@
     import createOskiewarVoice from "/oskiewar-voice.mjs";
     import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
+    import { renderDensity, nextResolutionScale } from "/render-quality.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
     import { mountWorkshop } from "/oskiewar-workshop.mjs";
@@ -1481,6 +1479,9 @@
     // `__oskiewarAccountDoor` to raise a panel, and both want their real owner
     // in place first. The door sounds like the rest of the furniture — a soft
     // tick on approach, a firmer knock on the way through.
+    globalThis.__oskiewarRenderDensity = renderDensity;
+    globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
+    globalThis.__oskiewarInsetsChanged();
     const accountDoor = mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
@@ -1604,7 +1605,13 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
-      if (globalThis.__oskiewarTouch?.screen === "title") return;
+      if (globalThis.__oskiewarTouch?.screen === "title") {
+        if (globalThis.__oskiewarRoomUnavailable && !workshopRoute) {
+          history.replaceState(null, "", "/" + location.search);
+          globalThis.__oskiewarRoomUnavailable = "";
+        }
+        return;
+      }
       if (globalThis.__oskiewarLocalVersus) {
         if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
         return;

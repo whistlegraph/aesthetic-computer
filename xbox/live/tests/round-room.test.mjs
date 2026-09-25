@@ -125,3 +125,21 @@ test("a denied chair still reaches the grandstand while the replay retry runs", 
   assert.equal(room.timers.reconnect, null);
   assert.equal(room.timers.replay, null);
 });
+
+test("empty requires both a host status and a successful replay lookup", async () => {
+  for (const scenario of ["empty", "live", "saved", "error"]) {
+    const room = new RoundRoom("simma356", {
+      WebSocketImpl: Socket,
+      fetchImpl: async () => scenario === "error" ? { ok: false, status: 503 }
+        : { ok: true, json: async () => ({ replay: scenario === "saved" ? {} : null }) },
+    });
+    room.start(() => {});
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(room.empty, false, "no host status yet");
+    Socket.all.at(-1).event("message", JSON.stringify({
+      type: "oskiewar:status", content: { live: scenario === "live" },
+    }));
+    assert.equal(room.empty, scenario === "empty", scenario);
+    room.stop();
+  }
+});

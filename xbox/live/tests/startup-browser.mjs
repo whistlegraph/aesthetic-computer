@@ -13,14 +13,14 @@ const browser = await puppeteer.launch({
   headless: true, args: ['--mute-audio', '--no-first-run'],
 });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function open(path, { phone = false, failed = false } = {}) {
+async function open(path, { phone = false, failed = false, roomStatus = null } = {}) {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors = [], discoveries = [];
   await page.setViewport(phone ? { width: 390, height: 844, isMobile: true, hasTouch: true }
     : { width: 1200, height: 700 });
   page.on('pageerror', e => errors.push(e.message));
-  await page.evaluateOnNewDocument((failed) => {
+  await page.evaluateOnNewDocument(({ failed, roomStatus }) => {
     speechSynthesis.speak = () => {};
     let signed = false;
     window.__authCalls = [];
@@ -39,9 +39,14 @@ async function open(path, { phone = false, failed = false } = {}) {
     window.WebSocket = class {
       static OPEN = 1; static CONNECTING = 0; static CLOSED = 3;
       constructor() { this.readyState = 0; }
-      send() {} close() {} addEventListener() {} removeEventListener() {}
+      send() {} close() {} removeEventListener() {}
+      addEventListener(type, listener) {
+        if (type === 'message' && roomStatus !== null) setTimeout(() => listener({
+          data: JSON.stringify({type: 'oskiewar:status', content: {live: roomStatus}})
+        }), 100);
+      }
     };
-  }, failed);
+  }, { failed, roomStatus });
   await page.setRequestInterception(true);
   page.on('request', async req => {
     try {
@@ -112,6 +117,18 @@ try {
     assert.equal(got.handle, failed ? '' : '@TESTER');
     await page.screenshot({ path: `${output}/signin-${failed ? 'retry' : 'success'}.png` });
     console.log(`PASS sign-in ${failed ? 'retry' : 'success'} returns to title`);
+    await context.close();
+  }
+  for (const live of [false, true]) {
+    const { page, context } = await open('/simma356', { roomStatus: live });
+    const got = await state(page);
+    assert.equal(got.signedIn, false);
+    assert.equal(got.path, live ? '/simma356' : '/');
+    assert.equal(got.room, live ? 'simma356' : '');
+    if (live) assert.notEqual(got.screen, 'title');
+    else assert.equal(got.screen, 'title');
+    await page.screenshot({ path: `${output}/room-${live ? 'live' : 'empty'}.png` });
+    console.log(`PASS anonymous ${live ? 'live room stays open' : 'empty room returns to title'}`);
     await context.close();
   }
   const { page, context } = await open('/daffo394');

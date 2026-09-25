@@ -761,9 +761,8 @@ test("colored glyph runs share Comic Relief advances across every host", () => {
   assert.doesNotMatch(source, /handle\[index\] === "@" \? \.88 : \.58/);
 });
 
-test("web theme follows the system while arena color still follows Los Angeles", () => {
-  assert.match(webShell,
-    /matchMedia\("\(prefers-color-scheme: light\)"\)\.matches \? "light" : "dark"/);
+test("web defaults to the shared sun theme with explicit light and dark overrides", () => {
+  assert.match(webShell, /colorScheme: socialPreview \? "light" : browserTheme \|\| "sun"/);
   assert.match(source, /const sun = losAngelesSun\(\)/);
   assert.match(source,
     /caps\.platform === "web" \|\| caps\.platform === "macos"/);
@@ -2289,20 +2288,14 @@ test("a fighter killed mid-jump in the waiting room falls instead of hanging", (
     player.removedParts = ["torso"];
     tick();
     assert.equal(player.alive, false);
-    for (let frame = 0; frame < 40; frame++) tick();
-    assert.ok(player.grounded, "the body came down");
-    assert.ok(Math.abs(player.y - floor) < 1, `and settled: ${player.y - floor}`);
-    assert.equal(player.alive, false, "still dead, for the whole beat");
-    // And it stays down: a corpse takes no input, so nothing hops it again.
-    const landed = player.y;
-    for (let hop = 0; hop < 4; hop++) {
-      pads[0].leftY = 1;
-      tick();
-      pads[0].leftY = 0;
-      for (let frame = 0; frame < 3; frame++) tick();
-    }
-    assert.equal(player.y, landed);
-    assert.equal(player.alive, false);
+    const deathVy = player.vy;
+    for (let frame = 0; frame < 12; frame++) tick();
+    assert.ok(player.vy > deathVy || player.grounded, "gravity acts before the replay");
+    for (let frame = 0; frame < 22; frame++) tick();
+    assert.equal(fight.instantReplayState().active, true);
+    for (let frame = 0; frame < 480; frame++) tick();
+    assert.equal(fight.instantReplayState().active, false);
+    assert.equal(player.alive, true);
   } finally {
     globalThis.__oskiewarVersusCapable = capable;
   }
@@ -2332,23 +2325,10 @@ test("waiting-room death cancels actions and respawns without a frozen body", ()
     assert.equal(player.pounding, false);
     assert.equal(player.itemAction, "");
     assert.equal(player.frozenGeometry, undefined);
-    const x = player.x, y = player.y;
-    const before = signals.length;
-    for (let frame = 0; frame < 100; frame++) {
-      pads[0].down = frame % 2 ? [] : ["A", "B", "X", "Y"];
-      pads[0].leftX = 1;
-      pads[0].leftY = frame % 2 ? 0 : 1;
-      tick();
-    }
-    assert.equal(player.alive, false);
-    assert.equal(player.x, x);
-    assert.equal(player.y, y);
-    assert.equal(player.attackKind, "");
-    assert.ok(!signals.slice(before).some(([name]) =>
-      ["jump", "punch", "kick", "fire", "throw", "dash"].includes(name)));
-    pads[0].down = [];
-    pads[0].leftX = pads[0].leftY = 0;
-    tick(1000000);
+    for (let frame = 0; frame < 34; frame++) tick();
+    assert.equal(fight.instantReplayState().active, true);
+    for (let frame = 0; frame < 480; frame++) tick();
+    assert.equal(fight.instantReplayState().active, false);
     assert.equal(player.alive, true);
     assert.equal(player.frozenGeometry, undefined);
     assert.equal(player.headBustedAt, undefined);
@@ -6268,19 +6248,19 @@ test("facing and opponent mode are visible in fighter faces", () => {
   assert.match(source, /player\.bot && player\.alive && !player\.blocking/);
 });
 
-test("instant replay is deprecated out of the match flow", () => {
-  const { fight, pads, tick } = createFight();
+test("self-death replays recent demo frames and returns a playable body", () => {
+  const { fight, tick } = createFight();
   for (let frame = 0; frame < 220; frame++) tick(33334);
-  assert.equal(fight.replayFrameCount(), 0);
-  fight.players[0].score = 1;
-  for (let frame = 0; frame < 680; frame++) tick(33334);
-  assert.match(fight.roundState().roundResult, /WINS ROUND/);
-  pads[0].down = ["Y"];
-  tick();
+  assert.ok(fight.replayFrameCount() > 0);
+  assert.ok(fight.replayFrameCount() <= 240);
+  fight.killLocal();
+  for (let frame = 0; frame < 20; frame++) tick(33334);
+  assert.equal(fight.instantReplayState().active, true);
+  assert.ok(fight.instantReplayState().frames <= 90);
+  for (let frame = 0; frame < 300; frame++) tick(33334);
   assert.equal(fight.instantReplayState().active, false);
-  assert.match(source, /const INSTANT_REPLAY = false/);
-  assert.match(source, /if \(!INSTANT_REPLAY\) return false/);
-  assert.match(source, /if \(!roundViewer && INSTANT_REPLAY\)/);
+  assert.equal(fight.players[0].alive, true);
+  assert.equal(fight.clientErrorState(), "");
 });
 
 test("a completed demo plays one modem receipt only after upload", async () => {

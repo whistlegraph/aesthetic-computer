@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 147;
+const buildVersion = 148;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -1445,7 +1445,8 @@ function losAngelesSun() {
 function displayTheme() {
   const sun = losAngelesSun();
   const caps = typeof capabilities === "function" ? capabilities() : {};
-  if (caps.platform === "web" || caps.platform === "macos") {
+  if ((caps.platform === "web" || caps.platform === "macos") &&
+      (caps.colorScheme === "light" || caps.colorScheme === "dark")) {
     return { ...sun, light: caps.colorScheme === "light" ? 1 : 0 };
   }
   return sun;
@@ -1952,10 +1953,8 @@ let acFeed = {};
 // is still moving and this is the shape we may want to compare against. Flip
 // it true and the wheel comes back exactly as it was.
 const PAL_SELECT = false;
-// The frame recorder remains intact for future review tooling, but replay is
-// not part of the match flow. One flag restores the viewer, its controls and
-// its offer together; production currently moves directly through results.
-const INSTANT_REPLAY = false;
+// Keep recent frames for match review and automatic solo-death replays.
+const INSTANT_REPLAY = true;
 let selecting = false;
 // Self-play is a harness mode: both fighters run the bot, no pad can enter or
 // leave it, and rounds roll over on their own.
@@ -2119,6 +2118,7 @@ let previousRoundName = "";
 let roundReplayFrames = [];
 let roundReplayLastAt = 0;
 let instantReplay = null;
+let soloDeathReplayPending = null;
 let replayOfferPrevious = [];
 let shellMode = "MENU";
 let gameplayStarted = false;
@@ -2711,6 +2711,7 @@ function makeRoundReplayFrame(now) {
   return {
     ropes: structuredClone(skateRopes),
     players: players.map((player) => ({
+      present: !lobbyActive() || player.pad === 0,
       x: player.x, y: player.y, z: player.z,
       vx: player.vx, vy: player.vy, vz: player.vz,
       facing: player.facing, grounded: player.grounded,
@@ -2792,9 +2793,21 @@ function applyRoundReplayFrame(frame, now) {
 
 function finishInstantReplay(now) {
   if (!instantReplay) return;
+  const respawn = instantReplay.respawn;
   applyRoundReplayFrame(instantReplay.endFrame, now);
   for (const player of players) delete player.replayGeometry;
   instantReplay = null;
+  if (respawn) {
+    soloDeathReplayPending = null;
+    deathCinematic = null;
+    if (respawn.lobby) beginVersusLobby(now, { title: respawn.title });
+    else {
+      resetRound(now, true);
+      shellMode = respawn.title ? "MENU" : "GAME";
+      gameplayStarted = !respawn.title;
+    }
+    return;
+  }
   roundOverAt = now;
   replayOfferPrevious = padSnapshots[0]?.down?.slice() || [];
 }
@@ -2807,6 +2820,7 @@ function finishInstantReplay(now) {
 function frameAction(frame) {
   let action = 0;
   for (const player of frame.players) {
+    if (player.present === false) continue;
     if (!player.alive) action = Math.max(action, 1);
     if (player.hit) action = Math.max(action, 1);
     if (player.blockFlash > 0) action = Math.max(action, .7 * player.blockFlash);
@@ -2840,11 +2854,12 @@ function replayRampStep(speed, action, elapsedSeconds) {
     Math.min(1, Math.max(0, elapsedSeconds) * replayRampPerSecond);
 }
 
-function startInstantReplay(now) {
+function startInstantReplay(now, respawn = null) {
   if (!INSTANT_REPLAY) return false;
   if (roundReplayFrames.length < 2) return false;
-  const frames = roundReplayFrames.slice();
+  const frames = respawn ? roundReplayFrames.slice(-90) : roundReplayFrames.slice();
   instantReplay = { frames, cursor: 0, lastAt: now, paused: false,
+    respawn,
     previous: padSnapshots[0]?.down?.slice() || [],
     action: replayActionCurve(frames), speed: 1,
     endFrame: frames[frames.length - 1] };
@@ -2853,6 +2868,16 @@ function startInstantReplay(now) {
   applyRoundReplayFrame(frames[0], now);
   telemetry("ROUND_REPLAY", "start frames=" + frames.length);
   return true;
+}
+
+function queueSoloDeathReplay(player, now) {
+  if (player.pad !== 0 || netSession || roundViewer || localVersusActive() ||
+      versusActive() || survivalActive() || soloDeathReplayPending || instantReplay) return;
+  soloDeathReplayPending = { at: now + 500000,
+    title: shellMode === "MENU", lobby: lobbyActive() };
+  deathCinematic = { startedAt: now, loserPad: player.pad,
+    winnerPad: player.pad, cause: roundCause, solo: true };
+  emitSignal("killcam", player.pad, player.pad, 1);
 }
 
 function updateInstantReplay(now, dt) {
@@ -4032,7 +4057,7 @@ function updateLobbyMortality(now) {
   player.stance = "HIT";
   delete player.frozenGeometry;
   delete player.frozenAt;
-  deathCinematic = null;
+  queueSoloDeathReplay(player, now);
 }
 
 // Deprecated with PAL_SELECT — see the flag.
@@ -6163,35 +6188,19 @@ function netDrainHostInbox() {
   inbox.length = 0;
 }
 
-// A visitor who arrived through a shared address and found nobody hosting
-// takes the room over — the link a friend sent must keep working after the
-// sender's tab closed. The chair-holder claims first; a seat-denied watcher
-// waits three times as long, so two arrivals at a dead address stagger
-// instead of racing, and updateVersusConflict catches the tie anyway.
+// An address with neither a live host nor a saved replay returns to the
+// title. This works before sign-in; Start handles the account door later.
 function updateVersusClaim(now) {
   if (globalThis.__oskiewarVersusCapable !== true || !roundViewer) return false;
-  // Claiming a dead address means hosting, and hosting is playing. Whoever
-  // arrives next deserves a room with a named fighter standing in it.
-  if (!versusAllowed()) return false;
-  // A room with a live host is a fight to join; a room with a stored demo is
-  // a replay page and keeps being one — versus rooms never record, so only a
-  // truly empty address falls through to the claim.
-  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO") {
-    versusClaimArmedAt = 0;
-    return false;
-  }
-  if (!versusClaimArmedAt) {
-    versusClaimArmedAt = now;
-    return false;
-  }
-  const wait = roundViewer.seat === "challenger"
-    ? versusClaimAfterUs : versusClaimAfterUs * 3;
-  if (now - versusClaimArmedAt < wait) return false;
+  if (roundViewer.live || roundViewerDemo || roundViewerMode === "DEMO" ||
+      !roundViewer.empty) return false;
   const name = roundViewer.name;
   versusFallbackBridge = roundViewer;
   roundViewerStop?.();
   roundViewerStop = null;
   roundViewer = null;
+  globalThis.__oskiewarRoundBridge = null;
+  globalThis.__oskiewarRoomUnavailable = name;
   roundViewerMode = "";
   roundViewerDemo = null;
   roundViewerStatus = "CONNECTING";
@@ -6199,7 +6208,7 @@ function updateVersusClaim(now) {
   versusClaimArmedAt = 0;
   versusRoomName = name;
   globalThis.__oskiewarRemotePad = null;
-  beginVersusLobby(now);
+  beginVersusLobby(now, { title: true });
   telemetry("VERSUS_CLAIM", name);
   return true;
 }
@@ -6331,6 +6340,7 @@ function resetRound(now, resetMatch = false, keepMap = false) {
   bullets.length = 0;
   grenades.length = 0;
   roundReplayFrames = [];
+  soloDeathReplayPending = null;
   roundReplayLastAt = 0;
   instantReplay = null;
   replayOfferPrevious = [];
@@ -6762,6 +6772,15 @@ function updateCamera(dt) {
 }
 
 function updateCameraDoll(dt, now) {
+  if (deathCinematic?.solo && !instantReplay) {
+    const player = players[deathCinematic.loserPad];
+    const width = 680 * portraitPull();
+    const target = { x: player.x, y: player.y - 110, z: player.z };
+    cameraDoll.track({ target,
+      position: { x: target.x, y: target.y, z: target.z - width * 1.35 },
+      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    return;
+  }
   if (skateparkMap && !survivalActive() && shellMode === "GAME") {
     const rider = players[netSession?.seat || 0];
     const width = Math.max(1100, 900 * cameraAspect) * playerCameraZoom;
@@ -8380,6 +8399,7 @@ function killPlayer(target, killerPad, now, cause = "KO") {
   if (!lobbyActive()) emitSignal("killcam", killerPad, target.pad, 1);
   playDrum("snare", 1.15, panPlayer(target));
   updateLobbyMortality(now);
+  if (killerPad === target.pad) queueSoloDeathReplay(target, now);
   // The training opponent is the one everybody gets for free, and its fight is
   // already running under the title screen — so its head is the one number
   // the whole site can share without anybody signing in. The count follows the
@@ -10099,6 +10119,22 @@ function gameSim() {
   // gates the fight, the claim and the wire, so it is settled once on the tick
   // rather than re-asked by each of them mid-paint.
   updateAccountDoor();
+  if (instantReplay?.respawn || soloDeathReplayPending && now >= soloDeathReplayPending.at) {
+    padSnapshots[0] = samplePad(0);
+    inputPads[0] = padSnapshots[0];
+    if (!instantReplay) {
+      const resume = soloDeathReplayPending;
+      captureRoundReplay(now, true);
+      if (startInstantReplay(now, resume)) {
+        shellMode = "GAME";
+        gameplayStarted = true;
+      } else soloDeathReplayPending = null;
+    }
+    if (instantReplay?.respawn) {
+      updateInstantReplay(now, dt);
+      return;
+    }
+  }
   if (resimPending) {
     startResim(resimPending, now);
     resimPending = null;
@@ -15991,7 +16027,12 @@ function gamePaint() {
   if (matchHud && survivalActive() && shellMode === "GAME" &&
       gameplayStarted && !roundResult && !counting)
     drawSurvivalHud(titleInk);
-  if (survivalActive() && roundResult && resultUiReady) {
+  if (instantReplay?.respawn) {
+    const label = "replay";
+    const size = compactLayout() ? 34 : 42;
+    typeWrite(label, viewCenterX() - handleWidth(label, size) / 2,
+      hudSafeRect().bottom - size - 12, size, ...titleInk);
+  } else if (survivalActive() && roundResult && resultUiReady) {
     drawSurvivalResult(titleInk, statusShadow);
   } else if (reelMinimal && roundResult && resultUiReady) {
     // One fact, in the middle of the frame: who won. The recording stops on
@@ -16093,7 +16134,7 @@ const versusLabelNoise = new Set(["NONE", "UP", "DOWN", "LEFT", "RIGHT",
 // the address, and until they arrive every move the lone fighter makes is
 // named back at them — the empty room as training mode.
 function drawVersusHud(t, ink, run) {
-  if (!versusLane() || shellMode !== "GAME") return;
+  if (instantReplay || !versusLane() || shellMode !== "GAME") return;
   if (!lobbyActive()) return;
   const hud = hudSafeRect();
   const compact = compactLayout();
