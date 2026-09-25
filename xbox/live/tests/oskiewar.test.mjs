@@ -7176,3 +7176,35 @@ test("rollback restores station dimensions after leaving the long course", () =>
   assert.equal(fight.gridWidth, 3600);
   assert.equal(fight.skateRopes.length, 0);
 });
+
+test('realistic armed fighters render every weapon without a client error', () => {
+  const keys = ['__oskiewarGraphicsTheme', 'themeReady', 'themeAssetReady', 'themeSprite', 'themeQuad'];
+  const saved = keys.map(key => globalThis[key]);
+  let sprites = 0;
+  Object.assign(globalThis, {
+    __oskiewarGraphicsTheme: 'photorealistic', themeReady: () => true,
+    themeAssetReady: () => true, themeSprite: () => { sprites++; return true; },
+    themeQuad: () => true,
+  });
+  try {
+    const { fight, tick } = createFight(false, false, 'web');
+    fight.startFight(); tick(3000001);
+    for (const debug of [false, true]) {
+      fight.setDebugHitboxes(debug);
+      for (const gunMode of ['GUN', 'RUBBER SMG', 'ROCKET LAUNCHER', 'SPACE LASER']) {
+        for (const facing of [-1, 1]) {
+          Object.assign(fight.players[0], { gunMode, gunAmmo: 10, facing,
+            itemAction: 'FIRE', itemActionUntil: 1e12 });
+          fight.paint();
+          assert.equal(fight.clientErrorState(), '', JSON.stringify(fight.clientErrorDetailState()));
+        }
+      }
+    }
+    assert.ok(sprites > 0, 'the texture renderer was exercised');
+  } finally {
+    keys.forEach((key, index) => {
+      if (saved[index] === undefined) delete globalThis[key];
+      else globalThis[key] = saved[index];
+    });
+  }
+});

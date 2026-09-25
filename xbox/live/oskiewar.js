@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 151;
+const buildVersion = 152;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -12850,6 +12850,14 @@ function drawFace(player, head, color, t, now = runtime().monotonicUs) {
       mouthY - smile, lineWidth);
   }
   triangleDepth = bodyDepth;
+}
+
+function itemForearm(player, geometry) {
+  const arm = itemHand(player);
+  return geometry.segments.find(segment => segment.part === arm &&
+    (segment.role === "item-forearm" || segment.role === "attack-forearm")) ||
+    geometry.segments.find(segment => segment.part === arm &&
+      segment.role?.endsWith("forearm"));
 }
 
 function drawInventory(player, now, geometry) {
