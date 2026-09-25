@@ -274,6 +274,13 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  }
  for(const e of events.filter(e=>e.layer==='voice'&&e.receiver==='seat-5'))
   emit('light','seat-5',{t:e.t,dur:e.dur,rgb:e.rgb.map(v=>Math.round(v*Math.min(1,e.gain/levels.voice))),sourceEvent:e.id});
+ // The centre light (bridge address 41, verified today) mirrors every held-centre cue — the wedge the laptop
+ // drives on its own port and the PAR above it breathe together.
+ for(const e of [...events].filter(e=>e.layer==='light'&&e.receiver==='seat-5')){
+  const rgb=e.rgb.map(v=>Math.max(0,Math.min(128,Math.round(v*levels.lights))));
+  emit('dmx','dmx',{t:e.t,dur:e.dur,note:0,sourceEvent:e.sourceEvent,address:41,rgb,level:Math.max(...rgb),attack:.015,release:.12,
+   command:{address:41,color:'rgb',rgb,level:Math.max(...rgb),duration:+e.dur.toFixed(3),envelope:{attack:.015,decay:.12}}});
+ }
  events.sort((a,b)=>a.t-b.t||a.id.localeCompare(b.id));
  const plan={schema:'trio-fleet-plan-v1',title:score.title,bpm:score.bpm,duration:dur,levels,payloads,nodes,events,
   requiredReceivers:[...members.map(m=>`singer-${m}`),...nodes.map(n=>n.id),'sub','dmx'],
@@ -281,7 +288,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
   lyrics:phrases.map(p=>({t:p.t,dur:p.dur,text:p.text,member:p.member,rgb:colors[p.memberIndex],role:p.role,...(p.answer?{answer:true}:{}),syllables:p.syllables})),
   sections:score.arrangement?.sections?score.arrangement.sections.map(s=>({name:s.name,beat:s.beat})):authored?authored.map(s=>({name:s.name,beat:s.beat,kind:s.kind})):[],
   arrangement:{total:score.arrangement?.total??entry.arrangement?.total??null,meter:score.arrangement?.meter??entry.arrangement?.meter??null},
-  dmx:{host:'192.168.1.235',port:8790,activeAddresses:addresses,inactiveAddresses:[41,511]},
+  dmx:{host:'192.168.1.235',port:8790,activeAddresses:[...addresses,41],inactiveAddresses:[511]},
   sub:{host:'192.168.1.67',port:8788,transport:'rustdesk-local-bridge'},
   center:{receiver:'seat-5',actualVocals:true,preSlideEffects:true},playbackHeld:true};
  return {...plan,arrangementHash:digest(canonical(plan))};
