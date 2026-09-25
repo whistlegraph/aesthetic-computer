@@ -92,7 +92,7 @@ async function status(out) {
     dmx, singers, display, lastReceipt: (() => { const r = latestReceipt(dir); return r && { runId: r.runId, completed: r.completed, error: r.error, seatWarnings: r.seatWarnings }; })() };
 }
 
-async function prepare({ score, out, stage = true, keepPiece = false, allowPieces = "", announce = null }) {
+async function prepare({ score, out, stage = true, keepPiece = false, allowPieces = "", announce = null, sing = false }) {
   const dir = outDir(out); const steps = [];
   const scorePath = score ? (score.startsWith("/") ? score : join(LANE, "scores", score.endsWith(".mbscore") ? score : `${score}.mbscore`)) : null;
   if (scorePath) {
@@ -101,7 +101,7 @@ async function prepare({ score, out, stage = true, keepPiece = false, allowPiece
     await new Promise((r) => setTimeout(r, 2000));
     const plan = await sh("node", ["bin/fleet-trio.mjs", "plan", `--score=${scorePath}`, `--out=${dir}`]); steps.push({ plan: plan.out.trim().split("\n").pop(), err: plan.err.trim() });
     if (plan.code) throw new Error(`plan failed: ${plan.err}`);
-    const prep = await sh("node", ["bin/fleet-trio.mjs", "prepare", `--score=${scorePath}`, `--out=${dir}`, ...(announce ? [`--announce=${announce}`] : [])]); steps.push({ prepare: prep.out.trim().split("\n").slice(-4), err: prep.err.trim() });
+    const prep = await sh("node", ["bin/fleet-trio.mjs", "prepare", `--score=${scorePath}`, `--out=${dir}`, ...(announce ? [`--announce=${announce}`] : []), ...(sing ? ["--sing=1"] : [])]); steps.push({ prepare: prep.out.trim().split("\n").slice(-4), err: prep.err.trim() });
     if (prep.code) throw new Error(`prepare failed: ${prep.err}`);
   } else steps.push({ note: `no score given: using the plan and bundle already in ${dir}` });
   if (stage) {
@@ -196,7 +196,7 @@ async function runQueueOnce() {
       const c0 = await check(item.out); already = c0.ready;   // singers still hold it, seats and SUB still match: no render needed
       if (!already) runnerNote = `re-preparing ${item.label || item.out}: ${c0.tail.slice(-1)[0] || "stale"}`;
     }
-    if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
+    if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, sing: !!item.sing, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
     const baked = !!readJson(join(outDir(item.out), "plan.json"))?.leadIn;   // the announcement rides the stems: no Mac TTS

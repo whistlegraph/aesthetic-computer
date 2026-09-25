@@ -16,7 +16,7 @@ const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),command=args.shift();
 if(!['plan','prepare','check'].includes(command))throw Error('Use fleet-trio.mjs plan|prepare|check [--out=DIR]. Playback remains held.');
 const options=Object.fromEntries(args.map(a=>{if(!a.startsWith('--')||!a.includes('='))throw Error(`Invalid option ${a}`);const at=a.indexOf('=');return [a.slice(2,at),a.slice(at+1)];}));
-for(const key of Object.keys(options))if(!['out','score','receipts','announce'].includes(key))throw Error(`Unknown option ${key}`);
+for(const key of Object.keys(options))if(!['out','score','receipts','announce','sing'].includes(key))throw Error(`Unknown option ${key}`);
 const out=resolve(options.out??'/Users/jas/Shelf/culturehub-trio');mkdirSync(out,{recursive:true});
 const scorePath=resolve(options.score??resolve(root,'scores/trio-chorus-doowop.mbscore'));
 const score={...JSON.parse(readFileSync(scorePath)),slug:scorePath.split('/').pop().replace(/\.mbscore$/,'')};
@@ -100,7 +100,10 @@ if(command==='plan') {
  // lead-in; the singers start after it (run-full-trio adds plan.leadIn).
  let lead=0,announced=null;
  if(options.announce){
-  announced=await announce(options.announce);lead=+(announced.seconds+.6).toFixed(3);
+  // --sing: the title sung on the piece's own opening — the first lead line's notes
+  const firstLead=(plan.lyrics||[]).find(l=>l.role!=='hum'&&(l.syllables||[]).length);
+  const melody=options.sing&&firstLead?firstLead.syllables.slice(0,8).map(y=>y.note):null;
+  announced=await announce(options.announce,{sing:melody});lead=+(announced.seconds+.6).toFixed(3);
   const shift=e=>{e.t=+(e.t+lead).toFixed(4);};
   for(const e of plan.events)shift(e);
   for(const l of plan.lyrics||[]){shift(l);for(const y of l.syllables||[])shift(y);}
