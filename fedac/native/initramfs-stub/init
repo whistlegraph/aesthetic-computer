@@ -108,13 +108,21 @@ if [ -w /sys/module/firmware_class/parameters/path ]; then
     waited=0
     while [ "$waited" -lt 40 ]; do
         ok=1
-        if [ "$want_wlan" = 1 ]; then ls /sys/class/net 2>/dev/null | grep -q '^wl' || ok=0; fi
-        if [ "$want_snd" = 1 ]; then grep -q '^ *[0-9]' /proc/asound/cards 2>/dev/null || ok=0; fi
+        # Plain globs and tests: the stub's busybox has no reason to carry
+        # more than it must, and a missing tool here would silently turn the
+        # wait into a fixed 8 s (as it did on 2026-09-24 without grep).
+        if [ "$want_wlan" = 1 ]; then
+            have_wl=0; for n in /sys/class/net/wl*; do [ -e "$n" ] && have_wl=1; done
+            [ "$have_wl" = 1 ] || ok=0
+        fi
+        if [ "$want_snd" = 1 ]; then [ -d /proc/asound/card0 ] || ok=0; fi
         [ "$ok" = 1 ] && break
         waited=$((waited + 1))
         sleep 0.2
     done
-    say "firmware re-probe done after $((waited / 5)).$((waited % 5 * 2)) s (wlan wanted=$want_wlan, sound wanted=$want_snd): net=[$(ls /sys/class/net 2>/dev/null | tr '\n' ' ')] cards=$(grep -c '^ *[0-9]' /proc/asound/cards 2>/dev/null || echo 0)"
+    nets=""; for n in /sys/class/net/*; do [ -e "$n" ] && nets="$nets ${n##*/}"; done
+    cards=""; for c in /proc/asound/card[0-9]*; do [ -d "$c" ] && cards="$cards ${c##*/}"; done
+    say "firmware re-probe done after $((waited / 5)).$((waited % 5 * 2)) s (wlan wanted=$want_wlan, sound wanted=$want_snd): net=[$nets ] cards=[$cards ]"
 fi
 
 # Hand the live mounts to the new root, then pivot. The real /init mounts

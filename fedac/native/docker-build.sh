@@ -548,7 +548,11 @@ if [ -n "$FWDIR" ]; then
         src="$FWDIR/$subdir"
         if [ -d "$src" ]; then
             mkdir -p "$IROOT/lib/firmware/$subdir"
-            (cd "$src" && find . -type f \
+            # Symlinks matter: sof-bin ships platform aliases as links
+            # (community/sof-glk.ri -> sof-apl.ri), and `-type f` alone
+            # left the Lenovo 500e (Gemini Lake) with no DSP firmware.
+            # cp -L dereferences, so each alias lands as a real file.
+            (cd "$src" && find . \( -type f -o -type l \) \
                 \( -name '*.ri' -o -name '*.tplg' \
                    -o -name '*.ri.xz' -o -name '*.tplg.xz' \
                    -o -name '*.ri.zst' -o -name '*.tplg.zst' \) \
@@ -826,15 +830,28 @@ if ! file "$BUSYBOX" | grep -q "statically linked"; then
     err "busybox at $BUSYBOX is not statically linked — the Chromebook stub cannot use it"
     exit 1
 fi
-for applet in sh mount umount gzip cpio switch_root sleep; do
+for applet in sh mount umount gzip cpio switch_root sleep grep tr; do
     "$BUSYBOX" --list 2>/dev/null | grep -qx "$applet" \
         || { err "busybox lacks the '$applet' applet the Chromebook stub needs"; exit 1; }
 done
 cp "$BUSYBOX" "$STUB_ROOT/bin/busybox"
-for cmd in sh mount umount gzip cpio sleep mkdir cat echo ls; do
+for cmd in sh mount umount gzip cpio sleep mkdir cat echo ls grep tr; do
     ln -sf busybox "$STUB_ROOT/bin/$cmd"
 done
 ln -sf ../bin/busybox "$STUB_ROOT/sbin/switch_root"
+# cfg80211 loads regulatory.db once, at kernel init — before the stub can
+# offer anything — so the world regdomain would stick for the whole session
+# on the Chromebook path. It is ~6 KB; carry it in the stub.
+mkdir -p "$STUB_ROOT/lib/firmware"
+for f in regulatory.db regulatory.db.p7s; do
+    for cand in "$FWDIR/$f" "$FWDIR/$f.xz" "$FWDIR/$f.zst"; do
+        [ -f "$cand" ] || continue
+        cp -L "$cand" "$STUB_ROOT/lib/firmware/"
+        case "$cand" in *.xz) xz -d "$STUB_ROOT/lib/firmware/$f.xz" ;; *.zst) zstd -d --rm "$STUB_ROOT/lib/firmware/$f.zst" ;; esac
+        break
+    done
+done
+[ -f "$STUB_ROOT/lib/firmware/regulatory.db" ] && log "  Stub carries regulatory.db" || log "  WARNING: regulatory.db not found in $FWDIR — Chromebook path stays on the world regdomain"
 cp "$NATIVE/initramfs-stub/init" "$STUB_ROOT/init"
 chmod 755 "$STUB_ROOT/init"
 sh -n "$STUB_ROOT/init" || { err "initramfs-stub/init has a syntax error"; exit 1; }
