@@ -1,6 +1,13 @@
 // Preserve sharp pixels when the browser limits refresh rather than draw time.
-export function renderDensity(height, logicalHeight, devicePixelRatio = 1, scale = 1) {
-  return height / logicalHeight * Math.max(1, Math.min(2, devicePixelRatio)) * scale;
+export function renderSurface(width, height, logicalWidth, logicalHeight,
+  devicePixelRatio = 1, scale = 1) {
+  // Round display pixels directly. Deriving them from rounded logical bounds
+  // can miss a pixel and make the compositor filter the entire canvas.
+  const density = Math.max(1, devicePixelRatio) * scale;
+  const pixelWidth = Math.max(1, Math.round(width * density));
+  const pixelHeight = Math.max(1, Math.round(height * density));
+  return { pixelWidth, pixelHeight,
+    scaleX: pixelWidth / logicalWidth, scaleY: pixelHeight / logicalHeight };
 }
 
 export function nextResolutionScale(scale, { fps = 60, renderCpuMs = 0 } = {}) {

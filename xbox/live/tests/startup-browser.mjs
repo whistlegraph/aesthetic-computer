@@ -17,8 +17,8 @@ async function open(path, { phone = false, failed = false, roomStatus = null } =
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors = [], discoveries = [];
-  await page.setViewport(phone ? { width: 390, height: 844, isMobile: true, hasTouch: true }
-    : { width: 1200, height: 700 });
+  await page.setViewport(phone ? { width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true }
+    : { width: 1200, height: 700, deviceScaleFactor: 2 });
   page.on('pageerror', e => errors.push(e.message));
   await page.evaluateOnNewDocument(({ failed, roomStatus }) => {
     speechSynthesis.speak = () => {};
@@ -77,6 +77,14 @@ async function open(path, { phone = false, failed = false, roomStatus = null } =
   await page.waitForFunction(() => window.__oskiewarAccount?.ready && window.__oskiewarTouch,
     { timeout: 20000 });
   await pause(1100); // Exercise the 500 ms room URL updater after the first paint.
+  const pixels = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    const bounds = canvas.getBoundingClientRect();
+    return { actual: [canvas.width, canvas.height],
+      expected: [Math.round(bounds.width * devicePixelRatio),
+        Math.round(bounds.height * devicePixelRatio)] };
+  });
+  assert.deepEqual(pixels.actual, pixels.expected, 'canvas maps to exact display pixels');
   assert.deepEqual(errors, [], 'no browser exceptions');
   assert.deepEqual(discoveries, [], 'startup never discovers an unsolicited match');
   return { page, context };

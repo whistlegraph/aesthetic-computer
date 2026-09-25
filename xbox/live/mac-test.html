@@ -308,6 +308,7 @@
     let logicalWidth = 1920;
     let logicalHeight = 1080;
     let resolutionScale = 1;
+    let renderScaleX = 1, renderScaleY = 1;
     let manualResolution = null;
     // Hardware occlusions in logical units: home indicator, notch, rounded
     // corners. env() covers the browsers; the iOS shell pins its scroll view
@@ -316,7 +317,7 @@
     const logicalInset = { top: 0, right: 0, bottom: 0, left: 0 };
     const insetProbe = document.querySelector("#inset-probe");
     function resizeCanvas() {
-      if (!globalThis.__oskiewarRenderDensity) return;
+      if (!globalThis.__oskiewarRenderSurface) return;
       const bounds = canvas.getBoundingClientRect();
       const width = Math.max(1, bounds.width);
       const height = Math.max(1, bounds.height);
@@ -342,17 +343,18 @@
       // raster area against primitive count on a machine suspected of
       // software-rasterizing the frame.
       // Logical coordinates stay at 1080; pixels follow the actual display.
-      const density = globalThis.__oskiewarRenderDensity(height, logicalHeight,
-        window.devicePixelRatio || 1, resolutionScale);
-      const pixelWidth = Math.round(logicalWidth * density);
-      const pixelHeight = Math.round(logicalHeight * density);
+      const { pixelWidth, pixelHeight, scaleX, scaleY } =
+        globalThis.__oskiewarRenderSurface(width, height, logicalWidth, logicalHeight,
+          window.devicePixelRatio || 1, resolutionScale);
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
         canvas.width = pixelWidth;
         canvas.height = pixelHeight;
-        context.setTransform(density, 0, 0, density, 0, 0);
         context.imageSmoothingEnabled = true;
         context.imageSmoothingQuality = "high";
       }
+      renderScaleX = scaleX;
+      renderScaleY = scaleY;
+      context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
     }
     // Reduce resolution only when drawing is expensive. A refresh or power
     // cap cannot be fixed by shrinking pixels. Manual res pins the dial.
@@ -605,7 +607,8 @@
       context.fillStyle = color(ink);
       context.font = `${size}px "Segoe UI", Arial, sans-serif`;
       context.textBaseline = "top";
-      context.fillText(String(text), x, y);
+      context.fillText(String(text), Math.round(x * renderScaleX) / renderScaleX,
+        Math.round(y * renderScaleY) / renderScaleY);
     }
 
     function write(text, x, y, size, ...ink) {
@@ -644,7 +647,8 @@
       context.textBaseline = "top";
       const lines = String(text).split("\n");
       for (let index = 0; index < lines.length; index++)
-        context.fillText(lines[index], x, y + index * size * 1.15);
+        context.fillText(lines[index], Math.round(x * renderScaleX) / renderScaleX,
+          Math.round((y + index * size * 1.15) * renderScaleY) / renderScaleY);
     }
 
     let clientErrorReportStatus = "";
@@ -1457,7 +1461,7 @@
     import createOskiewarVoice from "/oskiewar-voice.mjs";
     import createOskiewarMidi from "/oskiewar-midi.mjs";
     import createFrameDriver from "/frame-driver.mjs";
-    import { renderDensity, nextResolutionScale } from "/render-quality.mjs";
+    import { renderSurface, nextResolutionScale } from "/render-quality.mjs";
     import mountAccount from "/account.mjs";
     import mountWizard from "/oskiewar-wizard.mjs";
     import { mountWorkshop } from "/oskiewar-workshop.mjs";
@@ -1479,7 +1483,7 @@
     // `__oskiewarAccountDoor` to raise a panel, and both want their real owner
     // in place first. The door sounds like the rest of the furniture — a soft
     // tick on approach, a firmer knock on the way through.
-    globalThis.__oskiewarRenderDensity = renderDensity;
+    globalThis.__oskiewarRenderSurface = renderSurface;
     globalThis.__oskiewarNextResolutionScale = nextResolutionScale;
     globalThis.__oskiewarInsetsChanged();
     const accountDoor = mountAccount({
