@@ -802,7 +802,9 @@ test("Open Graph uses a landscape fallback and silent vertical title loop", () =
   // compression varies with the attract scene the clock deals.
   assert.ok(socialVideo.length > 60000);
   const expectedBuild = createHash("sha256").update(source).update(webShell)
-    .update(frameDriverSource).update(socialRenderer).digest("hex").slice(0, 16);
+    .update(frameDriverSource)
+    .update(readFileSync(new URL("../render-quality.mjs", import.meta.url)))
+    .update(socialRenderer).digest("hex").slice(0, 16);
   assert.equal(socialManifest.build, expectedBuild);
   assert.match(lithDeploy, /render-social-preview\.mjs --check/);
   assert.match(lithWebhook, /render-social-preview\.mjs --check/);
