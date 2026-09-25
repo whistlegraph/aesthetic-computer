@@ -174,7 +174,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 168;
+const buildVersion = 171;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -11081,6 +11081,61 @@ function generatedPartColor(appearance, segment) {
 // Retained photographic materials use the same projected poses and collision
 // surfaces as the vector theme. Assets are uploaded by the native host once.
 let photoThemeActive = false;
+let photoEffectsActive = false, photoWeaponsActive = false;
+function refreshPhotoTheme() {
+  photoThemeActive = globalThis.__oskiewarGraphicsTheme !== "flat" &&
+    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
+  photoEffectsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(2);
+  photoWeaponsActive = photoThemeActive && typeof themeAssetReady === "function" && themeAssetReady(3);
+}
+const photoExplosionFrames = [[24,64,400,400],[462,53,400,400],
+  [908,34,400,400],[1352,37,400,400],[37,458,400,400],
+  [472,453,400,400],[917,470,400,400],[1368,484,400,400]];
+const photoWeaponRegions = { grenade:[160,82,330,520],
+  launcher:[629,218,610,270], smg:[8,780,624,320], flash:[640,760,606,370] };
+function photoEffectSprite(asset, region, x, y, width, height,
+    angle = 0, flip = false, depth = triangleDepth, depthWrite = true) {
+  if (!(asset === 2 ? photoEffectsActive : photoWeaponsActive) ||
+      ![x,y,width,height,angle,depth].every(Number.isFinite) ||
+      width <= 0 || height <= 0 || width > 30000 || height > 30000 ||
+      Math.abs(x) > 30000 || Math.abs(y) > 30000) return false;
+  return themeSprite(asset,...region,x,y,width,height,angle,flip,
+    clamp(depth,-1.49,1.49),depthWrite) !== false;
+}
+function photoExplosionFrame(age) {
+  return photoExplosionFrames[Math.min(7,Math.floor(clamp(age,0,1)*8))];
+}
+function drawPhotoExplosion(x,y,radius,age,depth=triangleDepth) {
+  if (!photoEffectsActive || !Number.isFinite(age) || !Number.isFinite(radius)) return false;
+  const diameter = Math.min(1800,Math.max(12,radius*2.25));
+  if (x+diameter/2<0 || y+diameter/2<0 || x-diameter/2>viewWidth() || y-diameter/2>viewHeight) return true;
+  return photoEffectSprite(2,photoExplosionFrame(age),x,y,diameter,diameter,0,false,depth,false);
+}
+// The caller owns the single readable WIN/LOSE/TIE word and all controls.
+function drawPhotoRoundOutcome(result,age,x,y,width,height) {
+  refreshPhotoTheme();
+  if (!photoEffectsActive || ![age,x,y,width,height].every(Number.isFinite) || width<=0 || height<=0) return false;
+  const win = String(result).toUpperCase()==="WIN";
+  const phase = ((Math.max(0,age)%2.4)/2.4);
+  const frame = win ? phase : .55+phase*.45;
+  const size = Math.min(viewHeight*.46,Math.max(height*1.5,180));
+  for (const side of [-1,1]) {
+    const cx = clamp(x+width/2+side*width*.46,size*.42,viewWidth()-size*.42);
+    photoEffectSprite(2,photoExplosionFrame(frame),cx,y+height*.48,
+      size,size,side*.22,side<0,-1.465,false);
+  }
+  return true;
+}
+function drawPhotoHeldWeapon(mode,hand,barrel,flip,depth) {
+  if (!photoWeaponsActive || !["RUBBER SMG","ROCKET LAUNCHER"].includes(mode)) return false;
+  const region = photoWeaponRegions[mode === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+  const dx=barrel.x-hand.x,dy=barrel.y-hand.y;
+  const angle=Math.atan2(dy,dx)-(flip?Math.PI:0),c=Math.cos(angle),s=Math.sin(angle);
+  const width=Math.max(24,Math.hypot(dx,dy)/.58),height=width*region[3]/region[2];
+  const ox=(flip?-1:1)*width*.08,oy=-height*.25;
+  return photoEffectSprite(3,region,hand.x+ox*c-oy*s,hand.y+ox*s+oy*c,
+    width,height,angle,flip,depth,true);
+}
 const photoRegions = {
   acHead: [80, 104, 285, 285], xboxHead: [524, 104, 285, 285],
   acLimb: [1058, 48, 104, 372], xboxLimb: [1503, 48, 104, 372],
@@ -13393,8 +13448,9 @@ function drawInventory(player, now, geometry) {
       const angle = Math.atan2(dy, dx) - (flip ? Math.PI : 0);
       const ox = (flip ? -1 : 1) * width * .25, oy = -height * .1;
       const c = Math.cos(angle), s = Math.sin(angle);
-      photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
-        width, height, angle, flip, triangleDepth - .025);
+      if (!drawPhotoHeldWeapon(player.gunMode,hand,barrel,flip,triangleDepth-.025))
+        photoSprite("gun", hand.x + ox*c - oy*s, hand.y + ox*s + oy*c,
+          width, height, angle, flip, triangleDepth - .025);
     } else {
     filledCapsule(hand.x, hand.y, barrel.x, barrel.y,
       barrelWidth, gunColor);
@@ -13423,6 +13479,13 @@ function drawInventory(player, now, geometry) {
     }
     }
     if (firing) {
+      const flashAngle=Math.atan2(barrel.y-hand.y,barrel.x-hand.x);
+      const flashSize=Math.max(18,54*scale);
+      const photoFlash=photoEffectSprite(3,photoWeaponRegions.flash,
+        barrel.x+Math.cos(flashAngle)*flashSize*.43,
+        barrel.y+Math.sin(flashAngle)*flashSize*.43,
+        flashSize,flashSize*.61,flashAngle,false,triangleDepth-.03,false);
+      if (!photoFlash) {
       const normalX = -pose.dy;
       const normalY = pose.dx;
       const flashA = projectWeapon(
@@ -13435,13 +13498,16 @@ function drawInventory(player, now, geometry) {
         Math.max(2, 5 * scale), [255, 248, 190]);
       filledCapsule(barrel.x, barrel.y, flashB.x, flashB.y,
         Math.max(2, 5 * scale), [255, 248, 190]);
+      }
     }
   }
   if (throwing || bashing) {
     const target = itemHandTarget(player, now);
     const hand = projectPoint(target.x, target.y, target.z);
-    hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
-      Math.max(2, 5 * scale), grenadeColor);
+    if (!photoEffectSprite(3,photoWeaponRegions.grenade,hand.x,hand.y,
+        Math.max(8,24*scale),Math.max(12,38*scale),0,false,triangleDepth-.03,true))
+      hudCircle(hand.x, hand.y, Math.max(5, 15 * scale),
+        Math.max(2, 5 * scale), grenadeColor);
   }
 }
 
@@ -13674,12 +13740,7 @@ function drawDoubleJumpMotion(player, t) {
 // over every recording of it. VIEW (tab) is now the only thing that shows
 // them — `impactHitboxesUntil` still times the flash, but only for someone
 // who has already asked to see the geometry.
-// A capsule needs two half-caps, not two overlapping full discs.
-const debugArcs = [3, 4, 6, 8, 10].map((steps) =>
-  Array.from({ length: steps + 1 }, (_, i) => [
-    Math.cos(Math.PI / 2 + i * Math.PI / steps),
-    Math.sin(Math.PI / 2 + i * Math.PI / steps),
-  ]));
+// Rectangle outlines need square joins, not tessellated semicircle caps.
 function debugCapsule(x1, y1, x2, y2, width, color) {
   if (nativeHudOverlay) { line(x1, y1, x2, y2, width, ...color); return; }
   const dx = x2 - x1, dy = y2 - y1;
@@ -13687,23 +13748,13 @@ function debugCapsule(x1, y1, x2, y2, width, color) {
   const c = length ? dx / length : 1, sn = length ? dy / length : 0;
   const radius = width / 2;
   const nx = -sn * radius, ny = c * radius;
+  x1 -= c * radius; y1 -= sn * radius;
+  x2 += c * radius; y2 += sn * radius;
   const [r, g, b] = color;
   screenTriangle(x1 + nx, y1 + ny, x1 - nx, y1 - ny,
     x2 + nx, y2 + ny, r, g, b);
   screenTriangle(x1 - nx, y1 - ny, x2 - nx, y2 - ny,
     x2 + nx, y2 + ny, r, g, b);
-  const arc = debugArcs[radius < 6 ? 0 : radius < 13 ? 1 : radius < 26 ? 2 : radius < 52 ? 3 : 4];
-  for (let end = 0; end < 2; end++) {
-    const x = end ? x2 : x1, y = end ? y2 : y1;
-    const scale = end ? -radius : radius;
-    for (let i = 1; i < arc.length; i++) {
-      const a = arc[i - 1], next = arc[i];
-      screenTriangle(x, y, x + (a[0] * c - a[1] * sn) * scale,
-        y + (a[0] * sn + a[1] * c) * scale,
-        x + (next[0] * c - next[1] * sn) * scale,
-        y + (next[0] * sn + next[1] * c) * scale, r, g, b);
-    }
-  }
 }
 
 function drawDebugHitboxes(player, t) {
@@ -13745,8 +13796,9 @@ function drawFrameMeter() {
   const safe = hudSafeRect();
   const pip = Math.max(2, Math.min(7, Math.floor(
     (safe.right - safe.left) * .55 / frameMeterLength) - 1));
-  // Subpixel gaps on the AC framebuffer add calls without readable detail.
-  const gap = pip > 3 && !nativeHudOverlay ? 1 : 0;
+  // Native meters draw contiguous color runs, preserving each frame boundary
+  // while avoiding hundreds of separate triangle submissions per frame.
+  const gap = pip > 3 && !nativeHudOverlay && !nativeTrianglePass ? 1 : 0;
   // Tall enough to read a color at a glance. The pips are the resolution;
   // the row height is only whether you can see them, and a meter you have to
   // lean toward is a meter nobody reads mid-fight.
@@ -13763,8 +13815,7 @@ function drawFrameMeter() {
     // The empty track, so a meter that has not filled yet reads as a meter
     // rather than as nothing having happened.
     hudBox(left, y, width, rowHeight, 16, 19, 30);
-    // Adjacent equal pips without a gap are one rectangle. Keep gaps
-    // on larger displays and preserve the exact frame/color boundaries.
+    // Adjacent equal pips without a gap are one rectangle.
     for (let index = 0; index < meter.length;) {
       const key = meter[index];
       let end = index + 1;
@@ -13843,6 +13894,8 @@ function drawFloatingHandle(player, x, y, size) {
 function drawPlayerHandle(player, t, side) {
   const { x, y, size } = playerHandleLayout(player, side);
   const handle = visibleHandle(player);
+  const colors = globalThis.__oskiewarDeviceHandles?.[player.pad]
+    ? globalThis.__oskiewarDeviceHandleColors?.[player.pad] : player.handleColors;
   const drawGlyphs = (dx, dy, colors, fallback) => {
     let cursor = x + dx;
     for (let index = 0; index < handle.length; index++) {
@@ -13852,8 +13905,8 @@ function drawPlayerHandle(player, t, side) {
       cursor += comicGlyphAdvance(character, size);
     }
   };
-  drawGlyphs(3, 4, player.handleColors?.map(runShadow), runShadow(player.color));
-  drawGlyphs(0, 0, player.handleColors, player.color);
+  drawGlyphs(3, 4, colors?.map(runShadow), runShadow(player.color));
+  drawGlyphs(0, 0, colors, player.color);
   const flag = nationFlag(player.nation);
   if (flag) {
     const flagSize = Math.round(size * .92);
@@ -14996,6 +15049,9 @@ function drawGunPickup(pickup, t) {
   if (photoThemeActive) {
     const point = projectPoint(pickup.x,bobY,pickup.z);
     const width = (pickup.kind === "ROCKET LAUNCHER" ? 105 : 56) * scale;
+    const region=photoWeaponRegions[pickup.kind === "ROCKET LAUNCHER" ? "launcher" : "smg"];
+    if (["ROCKET LAUNCHER","RUBBER SMG"].includes(pickup.kind) &&
+        photoEffectSprite(3,region,point.x,point.y,width,width*region[3]/region[2],0,false,point.z-.02,true)) return;
     photoSprite("gun", point.x,point.y,width,width * 253 / 365,0,false,point.z-.02);
     return;
   }
@@ -15175,6 +15231,8 @@ function drawGrenadePickup(pickup, t) {
   const bobY = pickup.y + Math.sin(t * 3.2 + pickup.x * .001) * 8;
   const point = projectPoint(pickup.x, bobY, pickup.z);
   const scale = cameraScale();
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(7,20*scale),Math.max(11,32*scale),0,false,point.z-.02,true)) return;
   const shell = mixColor([166, 194, 112], [72, 96, 58], visualTheme.light);
   const fuse = mixColor([210, 218, 232], [45, 50, 60], visualTheme.light);
   const radius = Math.max(3, 9 * scale);
@@ -15189,6 +15247,8 @@ function drawGrenadePickup(pickup, t) {
 function drawGrenade(grenade) {
   const point = projectPoint(grenade.x, grenade.y, grenade.z);
   if (grenade.exploding) {
+    if (drawPhotoExplosion(point.x,point.y,grenadeBlastRadius*cameraScale(),
+        grenade.blastAge/grenadeBlastDuration,point.z-.025)) return;
     const radius = grenade.blastRadius * cameraScale();
     const width = Math.max(3, 10 * cameraScale());
     filledRing(point.x, point.y, radius,
@@ -15215,6 +15275,9 @@ function drawGrenade(grenade) {
     return;
   }
   const blink = grenade.fuse < .45 && Math.floor(grenade.fuse * 20) % 2 === 0;
+  if (photoEffectSprite(3,photoWeaponRegions.grenade,point.x,point.y,
+      Math.max(9,30*cameraScale()),Math.max(14,48*cameraScale()),
+      grenade.fuse*5,grenade.vx<0,point.z-.02,true)) return;
   const color = blink ? [255, 255, 255] : players[grenade.owner].color;
   filledDisc(point.x, point.y, Math.max(4, 22 * cameraScale()), color);
   const tail = projectPoint(grenade.x - Math.sign(grenade.vx) * 90,
@@ -16253,7 +16316,8 @@ function drawImpacts() {
       const edge = projectPoint(impact.x + impact.blastRadius,
         impact.y - 3, impact.z || 0);
       const radius = Math.abs(edge.x - center.x);
-      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000) {
+      if ([center.x, center.y, radius].every(Number.isFinite) && radius < 4000 &&
+          !drawPhotoExplosion(center.x,center.y,radius,age,center.z-.025)) {
         filledRing(center.x, center.y, radius,
           Math.max(0, radius - Math.max(7, 22 * (1 - age))),
           mixColor([255, 218, 86], [111, 74, 48], age));
@@ -16906,8 +16970,7 @@ function sim() {
 }
 
 function paint() {
-  photoThemeActive = globalThis.__oskiewarGraphicsTheme !== "flat" &&
-    typeof themeReady === "function" && typeof themeSprite === "function" && themeReady();
+  refreshPhotoTheme();
   globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
   if (drawPerformanceStage()) return;
   if (clientError) {
@@ -16984,6 +17047,72 @@ function drawFemragDance(music, elapsed) {
   screenRect(width*.12,height*.76,width*.76,3+sub*8,[94,110,143]);
 }
 
+// The MacNeoPolitan Trio: three rows, one per member in its own colour, each
+// showing the line that member is singing; the singer's row lights syllable by
+// syllable from the display's own clock. Primitive-only and silent; the stage
+// keeps its title, section/time footer and progress bar beneath.
+const TRIO_MEMBERS=[['neo',[143,209,63]],['blueberry',[90,87,211]],['frisbee',[242,167,185]]];
+function drawTrioLyric(music, elapsed) {
+  const width=viewWidth(), height=viewHeight, centerX=viewCenterX();
+  const phrase=v=>v&&typeof v.text==='string'&&v.text.trim()?v:null;
+  const rgb=(v,fallback)=>Array.isArray(v)&&v.length>=3?v.slice(0,3).map(c=>clamp(Math.round(Number(c)||0),0,255)):fallback;
+  const shade=(color,k)=>color.map(v=>Math.round(v*k));
+  const measure=(text,size)=>handleWidth(String(text).toLowerCase(),size);
+  const lyric=phrase(music.lyric), next=phrase(music.next), faces=music.faces||{};
+  const singer=lyric?String(lyric.member||music.section||''):'';
+  const rowGap=height*.2, firstY=height*.17, maxWidth=width*.8;
+  const fit=(text,cap)=>{let size=Math.round(cap);while(size>16&&measure(text,size)>maxWidth)size-=2;return size;};
+  triangleDepth=-.8;
+  TRIO_MEMBERS.forEach(([member,fallback],row)=>{
+    const face=phrase(faces[member]), sung=member===singer, line=sung?lyric:face;
+    const color=rgb(line?.rgb||face?.rgb,fallback), y=firstY+row*rowGap;
+    // The member's name and a breathing figure hold the left edge of its row.
+    const scale=Math.min(width,height)*.028, limb=scale*.17, fx=width*.07, fy=y+scale*.4;
+    const breath=platformMath.sin(elapsed*1.4+row*2)*scale*.08, ink=shade(color,line?.9:.4);
+    filledCapsule(fx,fy-scale*.25-breath,fx,fy+scale*.65,limb,ink);
+    filledDisc(fx,fy-scale*.8-breath,scale*.42,ink);
+    for(const side of [-1,1]) {
+      filledCapsule(fx,fy-breath,fx+side*scale*(sung?.85:.55),fy+scale*(sung?.05:.45),limb,ink);
+      filledCapsule(fx,fy+scale*.6,fx+side*scale*.35,fy+scale*1.35,limb,ink);
+    }
+    typeWrite(member,fx+scale*1.1,fy-scale*.5,Math.max(16,Math.round(height*.022)),...shade(color,line?.85:.4));
+    if(!line) { screenRect(centerX-scale,y+height*.05,scale*2,3,shade(color,.25)); return; }
+    const size=fit(line.text,sung?height*.105:height*.075);
+    if(sung&&Array.isArray(lyric.syl)&&lyric.syl.length) {
+      // Karaoke: rebuild the words from the syllables, keeping the line's spaces.
+      const text=String(lyric.text).toLowerCase(), parts=[]; let cursor=0;
+      for(const [t,raw] of lyric.syl) {
+        const s=String(raw??''); if(!s)continue;
+        const at=text.indexOf(s.toLowerCase(),cursor);
+        const gap=at>=0?/\s/.test(text.slice(cursor,at)):true;
+        if(at>=0)cursor=at+s.length;
+        parts.push({t:Number(t),text:s,space:gap&&parts.length>0});
+      }
+      let current=-1; for(let i=0;i<parts.length;i++)if(parts[i].t<=elapsed)current=i;
+      const spaceWidth=measure('m',size)*.55;
+      const total=parts.reduce((w,p)=>w+measure(p.text,size)+(p.space?spaceWidth:0),0);
+      let x=centerX-total/2;
+      parts.forEach((p,i)=>{
+        if(p.space)x+=spaceWidth;
+        const lit=i<=current, fresh=lit&&i===current?clamp(1-(elapsed-p.t)/.25,0,1):0;
+        const ink=lit?color.map(v=>Math.round(Math.min(255,v+(255-v)*fresh*.6))):shade(color,.32);
+        typeWrite(p.text,x,y-(lit?size*.02:0),size,...ink);
+        x+=measure(p.text,size);
+      });
+    } else typeWrite(line.text,centerX-measure(line.text,size)/2,y,size,...(sung?color:shade(color,.7)));
+    if(sung&&next) {
+      const nsize=Math.max(16,Math.round(size*.36));
+      typeWrite(next.text,centerX-measure(next.text,nsize)/2,y+size*1.2,nsize,...shade(rgb(next.rgb,fallback),.45));
+    }
+  });
+  if(!lyric&&next) {
+    // Between phrases: the coming line, dim, under its singer's row.
+    const row=Math.max(0,TRIO_MEMBERS.findIndex(([m])=>m===next.member));
+    const size=Math.max(16,Math.round(height*.04));
+    typeWrite(next.text,centerX-measure(next.text,size)/2,firstY+row*rowGap+height*.09,size,...shade(rgb(next.rgb,TRIO_MEMBERS[row][1]),.45));
+  }
+}
+
 function performanceStageActive() {
   const stage = globalThis.__oskiewarStageState;
   return Boolean(stage?.curtain || stage?.performance?.active);
@@ -17007,6 +17136,7 @@ function drawPerformanceStage() {
   const t = elapsed;
   triangleDepth = -.8;
   if (music.visual === 'notepat-score-v1' && music.playing) drawNotepatScore(music, elapsed);
+  else if (music.dance === 'trio-round-v1') drawTrioLyric(music, elapsed);
   else if (music.dance === 'femrag-round-v1') drawFemragDance(music, elapsed);
   else
   for (let index = 0; index < 2; index++) {

@@ -87,6 +87,12 @@
     <Content Include="..\themes\photorealistic\native\props-1024x512.rgba">
       <Link>Assets\ThemeProps.rgba</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\themes\photorealistic\native\explosions-v1-1024x512.rgba">
+      <Link>Assets\ThemeExplosions.rgba</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\themes\photorealistic\native\weapons-v2-1024x1024.rgba">
+      <Link>Assets\ThemeWeapons.rgba</Link><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\system\public\type\webfonts\ywft-processing-regular.ttf">
@@ -115,6 +121,9 @@
       <ShaderType>Vertex</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
     <FxCompile Include="SpritePixelShader.hlsl">
+      <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
+    </FxCompile>
+    <FxCompile Include="ThemePixelShader.hlsl">
       <ShaderType>Pixel</ShaderType><ShaderModel>5.0</ShaderModel><EntryPointName>main</EntryPointName>
     </FxCompile>
   </ItemGroup>

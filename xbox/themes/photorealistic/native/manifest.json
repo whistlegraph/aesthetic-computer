@@ -35,6 +35,42 @@
       "bytes": 2097152,
       "sha256": "d1dc6e39e7ec45f3af47c40e0aff0a6cc2d29d2860b8f01b4f9a51893e2098ed",
       "masterSha256": "440397bfb5369377817404545faf24d631302c8034c1492b14da28245d1f1c7c"
+    },
+    {
+      "id": 2,
+      "name": "explosions-v1",
+      "size": [
+        1024,
+        512
+      ],
+      "master": [
+        1774,
+        887
+      ],
+      "blend": "straight-alpha",
+      "depthWrite": false,
+      "file": "explosions-v1-1024x512.rgba",
+      "bytes": 2097152,
+      "sha256": "cb6af5f631a173a91b34782addffd87d267ebba14cb7b5d9ad6b9a7df158b292",
+      "masterSha256": "197426015e878e4b2ec4cbc5e1e30b9c0d5366f9cb6c5bc20b19712c4786e778"
+    },
+    {
+      "id": 3,
+      "name": "weapons-v2",
+      "size": [
+        1024,
+        1024
+      ],
+      "master": [
+        1254,
+        1254
+      ],
+      "blend": "straight-alpha",
+      "depthWrite": true,
+      "file": "weapons-v2-1024x1024.rgba",
+      "bytes": 4194304,
+      "sha256": "8892d9d15ddf8ef0c5b401f0361f9cd853b020b192db9bc5cbef96f12fb8ae22",
+      "masterSha256": "cdc1511046b18b6e0da79644503d7dfb41f1b6fa59b375c917e9daafd833ebd6"
     }
   ]
 }

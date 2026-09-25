@@ -3,7 +3,7 @@
 #include <cassert>
 using namespace ac::xbox;
 namespace {
-class GraphicsProbe final : public Graphics { public: bool themeAvailable = true; int themeSprites = 0, themeQuads = 0; ThemeSprite lastTheme{}; bool theme_ready() const override { return themeAvailable; } void theme_sprite(const ThemeSprite& value) override { ++themeSprites; lastTheme = value; } void theme_quad(const ThemeQuad&) override { ++themeQuads; } Color color{}; int boxes = 0; int lines = 0; int triangles = 0; int textured = 0; int sprites = 0; int writes = 0; int systemWrites = 0; int glyphs = 0; int images = 0; int blurs = 0; ImageDraw lastImage{}; void wipe(Color value) override { color = value; } void box(const Rect&) override { ++boxes; } void line(const Line&) override { ++lines; } void triangle(const Triangle&) override { ++triangles; } void textured_triangle(const TexturedTriangle&) override { ++textured; } void sprite(const Sprite&) override { ++sprites; } void write(const Text&) override { ++writes; } void system_write(const SystemText&) override { ++systemWrites; } void system_glyph(const SystemGlyph&) override { ++glyphs; } void image(const ImageDraw& draw) override { ++images; lastImage = draw; } void blur(unsigned) override { ++blurs; } };
+class GraphicsProbe final : public Graphics { public: bool themeAvailable = true; int themeSprites = 0, themeQuads = 0; ThemeSprite lastTheme{}; bool theme_ready() const override { return themeAvailable; } bool theme_asset_ready(int asset) const override { return themeAvailable && asset >= 0 && asset < 4; } void theme_sprite(const ThemeSprite& value) override { ++themeSprites; lastTheme = value; } void theme_quad(const ThemeQuad&) override { ++themeQuads; } Color color{}; int boxes = 0; int lines = 0; int triangles = 0; int textured = 0; int sprites = 0; int writes = 0; int systemWrites = 0; int glyphs = 0; int images = 0; int blurs = 0; ImageDraw lastImage{}; void wipe(Color value) override { color = value; } void box(const Rect&) override { ++boxes; } void line(const Line&) override { ++lines; } void triangle(const Triangle&) override { ++triangles; } void textured_triangle(const TexturedTriangle&) override { ++textured; } void sprite(const Sprite&) override { ++sprites; } void write(const Text&) override { ++writes; } void system_write(const SystemText&) override { ++systemWrites; } void system_glyph(const SystemGlyph&) override { ++glyphs; } void image(const ImageDraw& draw) override { ++images; lastImage = draw; } void blur(unsigned) override { ++blurs; } };
 class SoundProbe final : public Sound { public: int calls = 0; int oscillators = 0; int stops = 0; int drums = 0; void synth(const SynthVoice&) override { ++calls; } void stop_all() override {} int sample_rate() const override { return 48000; } void oscillator(float, float) override { ++oscillators; } void oscillator_stop() override { ++stops; } void drum(std::string_view, float, float) override { ++drums; } };
 }
 int main() {
@@ -68,11 +68,11 @@ int main() {
   )JS", "test"}, {}, error);
   auto theme = engine.compile({"theme", "test", R"JS(
     function paint() {
-      if (!themeReady()) throw Error('theme unavailable');
+      if (!themeReady() || !themeAssetReady(3) || themeAssetReady(4)) throw Error('theme unavailable');
       if (!themeSprite(1,80,104,285,285,100,200,60,70,.4,true,-.5)) throw Error('sprite');
       if (!themeQuad(0,0,0,1672,941,0,0,.8,1920,0,.8,1920,1080,.8,0,1080,.8)) throw Error('quad');
       for (const call of [
-        () => themeSprite(2,0,0,1,1,0,0,1,1,0,false,0),
+        () => themeSprite(4,0,0,1,1,0,0,1,1,0,false,0),
         () => themeSprite(1,1773,0,2,1,0,0,1,1,0,false,0),
         () => themeSprite(1,0,0,1,1,NaN,0,1,1,0,false,0),
         () => themeQuad(1,0,0,1,1,0,0,2,1,0,0,1,1,0,0,1,0),
@@ -83,12 +83,19 @@ int main() {
   assert(theme && error.empty()); theme->paint(api);
   assert(graphics.themeSprites == 1 && graphics.themeQuads == 1);
   assert(graphics.lastTheme.asset == 1 && graphics.lastTheme.flip && graphics.lastTheme.z == -.5f);
+  auto softTheme = engine.compile({"soft-theme", "test", R"JS(
+    function paint() {
+      if (!themeSprite(3,640,760,606,370,100,200,60,70,.4,true,-.5,false)) throw Error('soft sprite');
+    }
+  )JS", "test"}, {}, error);
+  assert(softTheme && error.empty()); softTheme->paint(api);
+  assert(graphics.themeSprites == 2 && graphics.lastTheme.asset == 3 && !graphics.lastTheme.depth_write);
   graphics.themeAvailable = false;
   auto unavailable = engine.compile({"missing-theme", "test", R"JS(
-    function paint() { if (themeReady() || themeSprite(0,0,0,1,1,0,0,1,1,0,false,0)) throw Error('missing theme must fall back'); }
+    function paint() { if (themeReady() || themeAssetReady(2) || themeSprite(0,0,0,1,1,0,0,1,1,0,false,0)) throw Error('missing theme must fall back'); }
   )JS", "test"}, {}, error);
   assert(unavailable && error.empty()); unavailable->paint(api);
-  assert(graphics.themeSprites == 1);
+  assert(graphics.themeSprites == 2);
   assert(network && error.empty()); network->boot(api); assert(netCalls == 1);
   assert(piece && error.empty()); piece->boot(api); piece->paint(api);
   assert(graphics.color.r == 1 && graphics.color.g == 2 && graphics.color.b == 3);

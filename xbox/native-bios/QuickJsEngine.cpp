@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include "QuickJsEngine.hpp"
+#include "../runtime/include/ac/theme_assets.hpp"
 extern "C" {
 #include "third_party/quickjs-ng/quickjs.h"
 }
@@ -339,13 +340,21 @@ JSValue ThemeReady(JSContext* context, JSValueConst, int, JSValueConst*) {
   return JS_NewBool(context, scope && scope->api && scope->api->graphics.theme_ready());
 }
 
+JSValue ThemeAssetReady(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  int32_t asset = -1;
+  if (argc < 1 || JS_ToInt32(context, &asset, argv[0])) return JS_FALSE;
+  return JS_NewBool(context, scope && scope->api && asset >= 0 &&
+    asset < static_cast<int>(theme_assets.size()) && scope->api->graphics.theme_asset_ready(asset));
+}
+
 JSValue ThemeSpriteDraw(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || argc < 12)
     return JS_ThrowTypeError(context, "themeSprite requires 12 arguments");
   int32_t asset = 0;
   if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
-  if (asset < 0 || asset > 1) return JS_ThrowRangeError(context, "invalid theme asset");
+  if (asset < 0 || asset >= static_cast<int>(theme_assets.size())) return JS_ThrowRangeError(context, "invalid theme asset");
   double v[10]{};
   for (int i = 0; i < 9; ++i) {
     if (JS_ToFloat64(context, &v[i], argv[i + 1])) return JS_EXCEPTION;
@@ -353,18 +362,19 @@ JSValue ThemeSpriteDraw(JSContext* context, JSValueConst, int argc, JSValueConst
   if (JS_ToFloat64(context, &v[9], argv[11])) return JS_EXCEPTION;
   for (double value : v) if (!std::isfinite(value) || std::abs(value) > 32768)
     return JS_ThrowRangeError(context, "invalid theme coordinates");
-  const double sourceWidth = asset == 0 ? 1672 : 1774;
-  const double sourceHeight = asset == 0 ? 941 : 887;
+  const double sourceWidth = theme_assets[asset].master_width;
+  const double sourceHeight = theme_assets[asset].master_height;
   if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
       v[0] + v[2] > sourceWidth || v[1] + v[3] > sourceHeight ||
       v[6] <= 0 || v[7] <= 0 || v[9] < -1.5 || v[9] > 1.5)
     return JS_ThrowRangeError(context, "theme rectangle outside bounds");
-  if (!scope->api->graphics.theme_ready()) return JS_FALSE;
+  if (!scope->api->graphics.theme_asset_ready(asset)) return JS_FALSE;
   scope->api->graphics.theme_sprite({asset,
     static_cast<float>(v[0]), static_cast<float>(v[1]), static_cast<float>(v[2]),
     static_cast<float>(v[3]), static_cast<float>(v[4]), static_cast<float>(v[5]),
     static_cast<float>(v[6]), static_cast<float>(v[7]), static_cast<float>(v[8]),
-    static_cast<float>(v[9]), JS_ToBool(context, argv[10]) > 0});
+    static_cast<float>(v[9]), JS_ToBool(context, argv[10]) > 0,
+    argc < 13 || JS_ToBool(context, argv[12]) > 0});
   return JS_TRUE;
 }
 
@@ -374,7 +384,7 @@ JSValue ThemeQuadDraw(JSContext* context, JSValueConst, int argc, JSValueConst* 
     return JS_ThrowTypeError(context, "themeQuad requires 17 arguments");
   int32_t asset = 0;
   if (JS_ToInt32(context, &asset, argv[0])) return JS_EXCEPTION;
-  if (asset < 0 || asset > 1) return JS_ThrowRangeError(context, "invalid theme asset");
+  if (asset < 0 || asset >= static_cast<int>(theme_assets.size())) return JS_ThrowRangeError(context, "invalid theme asset");
   float v[16]{};
   for (int i = 0; i < 16; ++i) {
     double number = 0;
@@ -384,12 +394,12 @@ JSValue ThemeQuadDraw(JSContext* context, JSValueConst, int argc, JSValueConst* 
     v[i] = static_cast<float>(number);
   }
   if (v[0] < 0 || v[1] < 0 || v[2] <= 0 || v[3] <= 0 ||
-      v[0] + v[2] > (asset == 0 ? 1672 : 1774) ||
-      v[1] + v[3] > (asset == 0 ? 941 : 887))
+      v[0] + v[2] > theme_assets[asset].master_width ||
+      v[1] + v[3] > theme_assets[asset].master_height)
     return JS_ThrowRangeError(context, "theme rectangle outside bounds");
   for (int i = 6; i < 16; i += 3) if (v[i] < -1.5 || v[i] > 1.5)
     return JS_ThrowRangeError(context, "invalid theme quad depth");
-  if (!scope->api->graphics.theme_ready()) return JS_FALSE;
+  if (!scope->api->graphics.theme_asset_ready(asset)) return JS_FALSE;
   scope->api->graphics.theme_quad({asset, v[0],v[1],v[2],v[3],
     v[4],v[5],v[6], v[7],v[8],v[9], v[10],v[11],v[12],v[13],v[14],v[15]});
   return JS_TRUE;
@@ -944,6 +954,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "accountAction", JS_NewCFunction(context_, AccountAction, "accountAction", 2));
     JS_SetPropertyStr(context_, global, "accountReport", JS_NewCFunction(context_, AccountReport, "accountReport", 1));
     JS_SetPropertyStr(context_, global, "themeReady", JS_NewCFunction(context_, ThemeReady, "themeReady", 0));
+    JS_SetPropertyStr(context_, global, "themeAssetReady", JS_NewCFunction(context_, ThemeAssetReady, "themeAssetReady", 1));
     JS_SetPropertyStr(context_, global, "themeSprite", JS_NewCFunction(context_, ThemeSpriteDraw, "themeSprite", 12));
     JS_SetPropertyStr(context_, global, "themeQuad", JS_NewCFunction(context_, ThemeQuadDraw, "themeQuad", 17));
     JS_SetPropertyStr(context_, global, "systemWrite", JS_NewCFunction(context_, SystemWrite, "systemWrite", 7));

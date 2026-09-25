@@ -4,6 +4,7 @@
 #include "OskiewarLivePublisher.hpp"
 #include "OskiewarAccountService.hpp"
 #include "../runtime/include/ac/image_effects.hpp"
+#include "../runtime/include/ac/theme_assets.hpp"
 #include "render/ac_surface.hpp"
 
 using Microsoft::WRL::ComPtr;
@@ -239,6 +240,7 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::TexturedTriangle&)> on_textured_triangle;
   std::function<void(const ac::xbox::Sprite&)> on_sprite;
   std::function<bool()> is_theme_ready;
+  std::function<bool(int)> is_theme_asset_ready;
   std::function<void(const ac::xbox::ThemeQuad&)> on_theme_quad;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
@@ -258,6 +260,7 @@ class HostGraphics final : public Graphics {
     if (on_sprite) on_sprite(sprite);
   }
   bool theme_ready() const override { return is_theme_ready && is_theme_ready(); }
+  bool theme_asset_ready(int asset) const override { return is_theme_asset_ready && is_theme_asset_ready(asset); }
   void theme_quad(const ac::xbox::ThemeQuad& quad) override {
     if (on_theme_quad) on_theme_quad(quad);
   }
@@ -268,7 +271,7 @@ class HostGraphics final : public Graphics {
     const auto y = [&](float dx, float dy) { return sprite.y + dx*s + dy*c; };
     theme_quad({sprite.asset, sprite.sx, sprite.sy, sprite.sw, sprite.sh,
       x(-hx,-hy),y(-hx,-hy),sprite.z, x(hx,-hy),y(hx,-hy),sprite.z,
-      x(hx,hy),y(hx,hy),sprite.z, x(-hx,hy),y(-hx,hy),sprite.z,sprite.flip});
+      x(hx,hy),y(hx,hy),sprite.z, x(-hx,hy),y(-hx,hy),sprite.z,sprite.flip,sprite.depth_write});
   }
   void write(const ac::xbox::Text& text) override { if (on_write) on_write(text); }
   void system_write(const ac::xbox::SystemText& text) override {
@@ -380,6 +383,11 @@ public:
       return m_themeViews[0] && m_themeViews[1] && m_spriteVertexShader && m_spritePixelShader &&
         m_spriteVertexBuffer && m_linearSampler && m_triangleDepthView;
     };
+    m_graphics->is_theme_asset_ready = [this](int asset) {
+      return asset >= 0 && asset < static_cast<int>(theme_assets.size()) &&
+        m_themeViews[asset] && m_graphics->theme_ready() &&
+        (asset < 2 || (m_themePixelShader && m_themeBlendState && m_themeSoftDepthState));
+    };
     m_graphics->on_theme_quad = [this](const ac::xbox::ThemeQuad& quad) {
       if (m_frameThemeQuads.size() < kMaxThemeQuads) m_frameThemeQuads.push_back(quad);
     };
@@ -415,7 +423,7 @@ public:
     m_oskiewarAccount = std::make_shared<OskiewarAccountService>(*m_api);
     m_api->system.render_width = m_frameWidth;
     m_api->system.render_height = m_frameHeight;
-    m_api->system.version = "1.0.0.44";
+    m_api->system.version = "1.0.0.45";
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -782,6 +790,8 @@ private:
     depthState.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
     depthState.BackFace = depthState.FrontFace;
     Check(m_device->CreateDepthStencilState(&depthState, &m_triangleDepthState));
+    depthState.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+    Check(m_device->CreateDepthStencilState(&depthState, &m_themeSoftDepthState));
 
     D3D11_RASTERIZER_DESC raster{};
     raster.FillMode = D3D11_FILL_SOLID;
@@ -843,6 +853,20 @@ private:
       &m_spriteVertexShader));
     Check(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr,
       &m_spritePixelShader));
+    const auto themePixelBytes = ReadPackageBytes(L"ThemePixelShader.cso");
+    if (!themePixelBytes.empty())
+      Check(m_device->CreatePixelShader(themePixelBytes.data(), themePixelBytes.size(), nullptr,
+        &m_themePixelShader));
+    D3D11_BLEND_DESC blend{};
+    blend.RenderTarget[0].BlendEnable = TRUE;
+    blend.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blend.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    blend.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    blend.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    blend.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+    blend.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    blend.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    Check(m_device->CreateBlendState(&blend, &m_themeBlendState));
     const D3D11_INPUT_ELEMENT_DESC elements[] = {
       {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
         D3D11_INPUT_PER_VERTEX_DATA, 0},
@@ -905,10 +929,11 @@ private:
     LogTelemetry("AC_NATIVE_GPU_SPRITES ready=1 max=512 atlas=16x8 filter=point jeffreyTexture=" +
       (m_jeffreyTextureView ? std::to_string(m_jeffreyTextureSize) + "x" +
         std::to_string(m_jeffreyTextureSize) + " filter=linear" : "missing"));
-    const wchar_t* themePaths[] = {L"Assets\\ThemeUnderpass.rgba", L"Assets\\ThemeProps.rgba"};
-    for (int asset = 0; asset < 2; ++asset) {
+    const wchar_t* themePaths[] = {L"Assets\\ThemeUnderpass.rgba", L"Assets\\ThemeProps.rgba",
+      L"Assets\\ThemeExplosions.rgba", L"Assets\\ThemeWeapons.rgba"};
+    for (int asset = 0; asset < static_cast<int>(theme_assets.size()); ++asset) {
       const auto rgba = ReadPackageBytes(themePaths[asset]);
-      texture.Width = 1024; texture.Height = asset == 0 ? 576 : 512;
+      texture.Width = theme_assets[asset].width; texture.Height = theme_assets[asset].height;
       if (rgba.size() != static_cast<std::size_t>(texture.Width) * texture.Height * 4) continue;
       pixels.pSysMem = rgba.data(); pixels.SysMemPitch = texture.Width * 4;
       ComPtr<ID3D11Texture2D> retained;
@@ -917,14 +942,22 @@ private:
     }
     m_frameThemeQuads.reserve(kMaxThemeQuads);
     LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
-      (m_themeViews[0] && m_themeViews[1] ? "1" : "0") + " rgbaBytes=4456448 maxQuads=1024");
+      (m_themeViews[0] && m_themeViews[1] ? "1" : "0") +
+      " effects=" + (m_themeViews[2] && m_themeViews[3] && m_themePixelShader ? "1" : "0") +
+      " rgbaBytes=10747904 maxQuads=1024");
   }
 
   bool DrawGpuThemeQuads() {
     if (m_frameThemeQuads.empty()) return true;
     if (!m_themeViews[0] || !m_themeViews[1] || !m_spriteVertexBuffer || !m_triangleDepthView)
       return false;
-    for (int asset = 0; asset < 2; ++asset) {
+    // Solid props precede soft effects, which depth-test without punching
+    // holes in subsequent translucent draws. Base atlases keep their cutout path.
+    const int assets[] = {0, 1, 3, 3, 2};
+    for (int pass = 0; pass < 5; ++pass) {
+      const int asset = assets[pass];
+      if (!m_themeViews[asset] || (asset >= 2 && !m_themePixelShader)) continue;
+      const bool depthWrite = pass < 3;
       D3D11_MAPPED_SUBRESOURCE mapped{};
       if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
         return false;
@@ -934,10 +967,11 @@ private:
         output[count++] = {x/960.f-1.f, 1.f-y/540.f,
           (std::max)(0.f,(std::min)(1.f,(z+1.5f)/3.f)),u,v,1,1,1,1};
       };
-      const float sourceWidth = asset == 0 ? 1672.f : 1774.f;
-      const float sourceHeight = asset == 0 ? 941.f : 887.f;
+      const float sourceWidth = static_cast<float>(theme_assets[asset].master_width);
+      const float sourceHeight = static_cast<float>(theme_assets[asset].master_height);
       for (const auto& q : m_frameThemeQuads) {
         if (q.asset != asset) continue;
+        if (asset == 3 && q.depth_write != depthWrite) continue;
         float u0=q.sx/sourceWidth, u1=(q.sx+q.sw)/sourceWidth;
         if (q.flip) std::swap(u0,u1);
         const float v0=q.sy/sourceHeight,v1=(q.sy+q.sh)/sourceHeight;
@@ -951,16 +985,18 @@ private:
       m_context->IASetVertexBuffers(0,1,m_spriteVertexBuffer.GetAddressOf(),&stride,&offset);
       m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
       m_context->VSSetShader(m_spriteVertexShader.Get(),nullptr,0);
-      m_context->PSSetShader(m_spritePixelShader.Get(),nullptr,0);
+      m_context->PSSetShader(!depthWrite ? m_themePixelShader.Get() : m_spritePixelShader.Get(),nullptr,0);
       m_context->PSSetShaderResources(0,1,m_themeViews[asset].GetAddressOf());
       m_context->PSSetSamplers(0,1,m_linearSampler.GetAddressOf());
       m_context->RSSetState(m_triangleRasterState.Get());
-      m_context->OMSetDepthStencilState(m_triangleDepthState.Get(),1);
-      m_context->OMSetBlendState(nullptr,nullptr,0xffffffff);
+      m_context->OMSetDepthStencilState(depthWrite ? m_triangleDepthState.Get() : m_themeSoftDepthState.Get(),1);
+      m_context->OMSetBlendState(asset >= 2 ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
       m_context->OMSetRenderTargets(1,m_sceneTarget.GetAddressOf(),m_triangleDepthView.Get());
       m_context->Draw(static_cast<UINT>(count),0);
       ID3D11ShaderResourceView* nullView=nullptr;m_context->PSSetShaderResources(0,1,&nullView);
     }
+    m_context->OMSetBlendState(nullptr,nullptr,0xffffffff);
+    m_context->OMSetDepthStencilState(m_triangleDepthState.Get(),1);
     return true;
   }
 
@@ -2754,7 +2790,10 @@ private:
   ComPtr<ID3D11Buffer> m_spriteVertexBuffer;
   ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
   ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
-  ComPtr<ID3D11ShaderResourceView> m_themeViews[2];
+  ComPtr<ID3D11ShaderResourceView> m_themeViews[4];
+  ComPtr<ID3D11PixelShader> m_themePixelShader;
+  ComPtr<ID3D11BlendState> m_themeBlendState;
+  ComPtr<ID3D11DepthStencilState> m_themeSoftDepthState;
   ComPtr<ID3D11SamplerState> m_pointSampler;
   ComPtr<ID3D11SamplerState> m_linearSampler;
   UINT m_jeffreyTextureSize = 0;
