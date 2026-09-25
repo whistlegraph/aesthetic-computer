@@ -196,6 +196,11 @@ async function runQueueOnce() {
       const c0 = await check(item.out); already = c0.ready;   // singers still hold it, seats and SUB still match: no render needed
       if (!already) runnerNote = `re-preparing ${item.label || item.out}: ${c0.tail.slice(-1)[0] || "stale"}`;
     }
+    if (ownConductor) {   // a ring-score conductor expects the seats on the stock rehearsal piece, not on trio-fleet
+      const fleet = readJson(ENV.TRIO_FLEET, []); let jumped = 0;
+      await Promise.all(fleet.map(async ([host, port]) => { try { const st = await fetchJson(`http://${host}:${port}/status`, {}, 2500); if (st.piece === "trio-fleet") { await fetch(`http://${host}:${port}/jump/spatial-rehearsal`, { method: "PUT", body: "" }); jumped++; } } catch {} }));
+      if (jumped) { runnerNote = `moved ${jumped} seats to spatial-rehearsal for ${item.label}`; await new Promise((r) => setTimeout(r, 14000)); }
+    }
     if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, sing: !!item.sing, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
