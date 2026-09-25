@@ -8,6 +8,23 @@
 // front of a palette. Rebase once, here, so time starts at zero whatever the
 // host reports. The host builds a fresh object per call, so this rewrites
 // that copy rather than allocating another.
+// QuickJS on the console has no structuredClone, and replay capture and
+// rollback both lean on it. Typed arrays, aliases, cycles, Sets and Maps
+// survive; JSON would corrupt them.
+globalThis.structuredClone ||= function clone(value, seen = new Map()) {
+  if (value === null || typeof value !== "object") return value;
+  if (seen.has(value)) return seen.get(value);
+  if (value instanceof ArrayBuffer) return value.slice(0);
+  if (ArrayBuffer.isView(value)) return new value.constructor(value);
+  const copy = Array.isArray(value) ? [] : value instanceof Set ? new Set()
+    : value instanceof Map ? new Map() : {};
+  seen.set(value, copy);
+  if (value instanceof Set) for (const entry of value) copy.add(clone(entry, seen));
+  else if (value instanceof Map) for (const [key, entry] of value)
+    copy.set(clone(key, seen), clone(entry, seen));
+  else for (const key of Object.keys(value)) copy[key] = clone(value[key], seen);
+  return copy;
+};
 const hostRuntime = runtime;
 let clockEpoch = null;
 // Rollback netplay's hooks into the clock and the side effects. The session
