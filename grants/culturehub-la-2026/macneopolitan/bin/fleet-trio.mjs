@@ -147,7 +147,7 @@ if(command==='plan') {
   }
  };
  if(announced){const a=readFileSync(announced.f32);for(const mix of Object.values(seatMix))for(let n=0;n*4<a.length&&n<mix.length;n++)mix[n]+=a.readFloatLE(n*4)*.9;}
- const BAKED=['harmony','inst','perc','bed','ornament'];
+ const BAKED=['harmony','inst','perc','bed','ornament','drone'];
  for(const e of plan.events)if(BAKED.includes(e.layer)&&seatMix[e.receiver]){bake(seatMix[e.receiver],e);e.baked=true;}
  writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');   // the plan now says which events the stems carry
  const stems={};

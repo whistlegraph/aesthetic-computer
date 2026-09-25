@@ -163,8 +163,10 @@ def cleanup():
  except Exception as e:results['sub']=str(e)
  try:results['dmx']=cancel_dmx()
  except Exception as e:results['dmx']=str(e)
- for h in members:
-  try:post(h,'stop',{});shell(h,'touch '+cancel);results[h]='stopped; brightness restoration requested'
+ for h in members:   # after a clean finish the singers keep their preparations (stop would clear every cached piece)
+  try:
+   if not record.get('completed'):post(h,'stop',{})
+   shell(h,'touch '+cancel);results[h]=('finished; preparations kept' if record.get('completed') else 'stopped')+'; brightness restoration requested'
   except Exception as e:results[h]=str(e)
  try:visuals(False,0)
  except Exception:pass

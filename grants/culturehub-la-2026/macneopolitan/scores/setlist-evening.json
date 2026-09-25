@@ -1,0 +1,13 @@
+{
+  "title": "CultureHub LA, 2026-09-24, 7:00 pm — three acts",
+  "gap": 8,
+  "items": [
+    { "out": "set-00-notepat-spatial", "label": "Act I — Note(s)pat(ial)", "announce": null },
+    { "hold": 600, "label": "Open oskiewar — hang time (10 min)" },
+    { "score": "trio-toxic-sketch", "out": "act3-00-sketch", "label": "Act III intro — Toxic sketch", "announce": "The MacNeoPolitan Trio." },
+    { "score": "trio-wake", "out": "act3-01-wake", "label": "Good morning, Sophia", "announce": "Good morning, Sophia." },
+    { "score": "trio-rowboat", "out": "act3-02-rowboat", "label": "Row, row, row your boat", "announce": "Row, row, row your boat." },
+    { "score": "trio-iv-ballad", "out": "act3-03-ballad", "label": "The Ballad of neo", "announce": "The ballad of neo." },
+    { "score": "trio-vocalise", "out": "act3-04-vocalise", "label": "Vocalise", "announce": "Vocalise." }
+  ]
+}

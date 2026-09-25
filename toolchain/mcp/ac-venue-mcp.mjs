@@ -9,7 +9,7 @@
 // Rig ownership is a file on the Shelf that every session can read.
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -181,10 +181,22 @@ async function runQueueOnce() {
   const mark = (status, extra = {}) => { const qq = queue(); const it = qq.items.find((i) => i.id === item.id); if (it) Object.assign(it, { status, ...extra }); saveQueue(qq); };
   try {
     setRig({ owner: local, since: new Date().toISOString(), note: `setlist: ${item.label || item.out}` });
+    if (item.hold) {   // a timed rest: the room is open (oskiewar hang time), nothing is cued
+      mark("playing", { startedAt: Date.now() / 1000 }); runnerNote = `holding ${item.label} for ${item.hold} s`;
+      const until = Date.now() + item.hold * 1000;
+      while (Date.now() < until) { if (existsSync(join(SHELF, "venue-runner.skip"))) { try { unlinkSync(join(SHELF, "venue-runner.skip")); } catch {} break; } await new Promise((r) => setTimeout(r, 2000)); }
+      mark("done", { finishedAt: Date.now() / 1000 }); runnerNote = `finished hold ${item.label}`; return;
+    }
     // A folder with its own conductor stages itself — unless it also carries a
     // prepared bundle (stems) that our staging knows how to put on the seats.
     const ownConductor = existsSync(join(outDir(item.out), "run-fleet.py")) && !existsSync(join(outDir(item.out), "prepared.json"));
-    if (item.status !== "ready" && !ownConductor) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
+    let already = false;
+    if (item.status !== "ready" && !ownConductor && item.score && existsSync(join(outDir(item.out), "prepared.json"))) {
+      mark("checking"); runnerNote = `checking a previous preparation of ${item.label || item.out}`;
+      const c0 = await check(item.out); already = c0.ready;   // singers still hold it, seats and SUB still match: no render needed
+      if (!already) runnerNote = `re-preparing ${item.label || item.out}: ${c0.tail.slice(-1)[0] || "stale"}`;
+    }
+    if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
     const baked = !!readJson(join(outDir(item.out), "plan.json"))?.leadIn;   // the announcement rides the stems: no Mac TTS
@@ -203,7 +215,7 @@ function setAutoplay(on) { const q = saveQueue({ ...queue(), autoplay: !!on }); 
 if (queue().autoplay) setAutoplay(true);
 
 const TOOLS = [
-  { name: "venue_enqueue", description: "Add a piece to the room's setlist: `out` (song folder under ~/Shelf or absolute; with `score` it is planned and prepared first, otherwise the folder's plan/bundle is staged as is), optional `label`, `announce` (spoken before the cue), `gap` seconds of rest after, `allowPieces`. Items play in order when autoplay is on and the rig is free. `setlist` loads every item of a scores/*.json setlist file at once.", inputSchema: { type: "object", properties: { out: { type: "string" }, score: { type: "string" }, label: { type: "string" }, announce: { type: "string" }, gap: { type: "number" }, allowPieces: { type: "string" }, rttMax: { type: "number" }, setlist: { type: "string", description: "path or name of a setlist json in the lane's scores/ (items: [{score,out,label,announce}])" } } } },
+  { name: "venue_enqueue", description: "Add a piece to the room's setlist — or a timed rest with `hold` seconds (the room stays open, nothing is cued; `touch ~/Shelf/venue-runner.skip` ends it early): `out` (song folder under ~/Shelf or absolute; with `score` it is planned and prepared first, otherwise the folder's plan/bundle is staged as is), optional `label`, `announce` (spoken before the cue), `gap` seconds of rest after, `allowPieces`. Items play in order when autoplay is on and the rig is free. `setlist` loads every item of a scores/*.json setlist file at once.", inputSchema: { type: "object", properties: { out: { type: "string" }, hold: { type: "number" }, score: { type: "string" }, label: { type: "string" }, announce: { type: "string" }, gap: { type: "number" }, allowPieces: { type: "string" }, rttMax: { type: "number" }, sing: { type: "boolean" }, setlist: { type: "string", description: "path or name of a setlist json in the lane's scores/ (items: [{score,out,label,announce}])" } } } },
   { name: "venue_setlist", description: "The setlist: every item with its status (queued, preparing, checking, cueing, playing, done, failed), autoplay, what the runner is waiting on, rig ownership, and the last plays.", inputSchema: { type: "object", properties: {} } },
   { name: "venue_dequeue", description: "Remove an item by id, or every queued item (`all: true`). A playing item is not removed; use venue_stop.", inputSchema: { type: "object", properties: { id: { type: "string" }, all: { type: "boolean" } } } },
   { name: "venue_autoplay", description: "Turn the setlist runner on or off. On, it advances whenever the rig is ours or unowned and nothing is playing: prepare, check, cue, wait for the receipt, rest, next; it releases the rig when the queue drains.", inputSchema: { type: "object", properties: { on: { type: "boolean" } }, required: ["on"] } },
@@ -226,9 +238,9 @@ async function callTool(name, args = {}) {
     case "venue_stop": return text(await stop());
     case "venue_enqueue": {
       const q = queue(); const added = [];
-      const push = (it) => { const id = `q-${Date.now().toString(36)}-${added.length}`; q.items.push({ id, out: outDir(it.out), score: it.score || null, label: it.label || it.score || it.out, announce: it.announce || null, gap: it.gap ?? 8, allowPieces: it.allowPieces || null, rttMax: it.rttMax || null, status: "queued", addedAt: Date.now() / 1000 }); added.push(id); };
+      const push = (it) => { const id = `q-${Date.now().toString(36)}-${added.length}`; q.items.push({ id, out: it.hold ? null : outDir(it.out), score: it.score || null, hold: it.hold || null, label: it.label || it.score || it.out || `hold ${it.hold}s`, announce: it.announce || null, gap: it.gap ?? 8, allowPieces: it.allowPieces || null, rttMax: it.rttMax || null, sing: it.sing || null, status: "queued", addedAt: Date.now() / 1000 }); added.push(id); };
       if (args.setlist) { const p = args.setlist.startsWith("/") ? args.setlist : join(LANE, "scores", args.setlist.endsWith(".json") ? args.setlist : `${args.setlist}.json`); const list = readJson(p); if (!list?.items) throw new Error(`no setlist at ${p}`); for (const it of list.items) push({ gap: list.gap, ...it }); }
-      else { if (!args.out) throw new Error("out (or setlist) is required"); push(args); }
+      else { if (!args.out && !args.hold) throw new Error("out, hold, or setlist is required"); push(args); }
       saveQueue(q); return text({ added, queued: q.items.filter((i) => i.status === "queued").length, autoplay: q.autoplay, note: q.autoplay ? "the runner takes them when the rig is free" : "autoplay is off: venue_autoplay on, or venue_next" });
     }
     case "venue_setlist": { const q = queue(); return text({ autoplay: q.autoplay, runner: runnerNote || (q.autoplay ? "idle" : "off"), rig: rig(), items: q.items.map((i) => ({ id: i.id, label: i.label, status: i.status, out: i.out, score: i.score, announce: i.announce, runId: i.runId, error: i.error })), history: (q.history || []).slice(-5).map((i) => ({ label: i.label, status: i.status, receipt: i.receipt })) }); }

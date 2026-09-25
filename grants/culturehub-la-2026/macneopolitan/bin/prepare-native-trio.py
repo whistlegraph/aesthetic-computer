@@ -46,7 +46,7 @@ def load(node):
      'lightCues':[{'t':e['t'],'dur':e['dur'],'rgb':e['rgb']} for e in plan['events'] if mine(e) and e['layer']=='light'],
      'colors':colors,
      # the incoming-notes roll: every sounding event in the room, this seat's own marked `mine`
-     'notes':sorted([{'i':({'taiko':'kick','woodblock':'snare','brush':'hat'}.get(e.get('name'),'perc') if e['layer']=='perc' else 'bass' if e['layer']=='sub' else 'note'),'t':e['t'],'dur':e['dur'],'midi':e.get('note'),'gain':e.get('gain',.05),'label':e.get('name') or e.get('layer'),'mine':mine(e)} for e in plan['events'] if e['layer'] in ('harmony','inst','perc','bed','ornament','sub')]
+     'notes':sorted([{'i':({'taiko':'kick','woodblock':'snare','brush':'hat'}.get(e.get('name'),'perc') if e['layer']=='perc' else 'bass' if e['layer']=='sub' else 'note'),'t':e['t'],'dur':e['dur'],'midi':e.get('note'),'gain':e.get('gain',.05),'label':e.get('name') or e.get('layer'),'mine':mine(e)} for e in plan['events'] if e['layer'] in ('harmony','inst','perc','bed','ornament','sub','drone')]
               +[{'i':'voice','t':e['t'],'dur':e['dur'],'midi':None,'gain':e['gain'],'label':e['role'].upper(),'text':e['text'],'rgb':e['rgb'],'mine':mine(e)} for e in plan['events'] if e['layer']=='voice'],key=lambda n:n['t']),
      'sections':[{'name':s['name'],'startSec':s['beat']*60/plan['bpm']+plan.get('leadIn',0),'endSec':(plan['sections'][i+1]['beat'] if i+1<len(plan['sections']) else (plan.get('arrangement') or {}).get('total') or plan['duration']*plan['bpm']/60)*60/plan['bpm']+plan.get('leadIn',0)} for i,s in enumerate(plan.get('sections',[]))],
      'beatsPerBar':plan.get('layers',{}).get('beatsPerBar',4),'midiLow':36,'midiHigh':96,'title':plan.get('title')}

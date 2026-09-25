@@ -9,7 +9,8 @@ export function canonical(value) {
 }
 export function notesOf(voice,bpm) {
  let beat=0,index=0,line=0,inLine=0;
- const counts=voice.lyrics.split(' / ').map(t=>t.trim().split(/\s+/).reduce((s,t)=>s+t.split('-').length,0));
+ const sung=typeof voice.lyrics==='string'&&voice.lyrics.trim().length>0;
+ const counts=sung?voice.lyrics.split(' / ').map(t=>t.trim().split(/\s+/).reduce((s,t)=>s+t.split('-').length,0)):[Infinity];
  const result=voice.notes.split(',').flatMap(token=>{
   const [n,d]=token.split(':'),dur=Number(d);
   if(!Number.isFinite(dur)||dur<=0)throw Error('Invalid note duration');
@@ -20,7 +21,8 @@ export function notesOf(voice,bpm) {
   inLine++;
   return [{index:index++,line,beat:at,t:at*60/bpm,dur:dur*60/bpm,note,gain}];
  });
- if(result.length!==counts.reduce((a,b)=>a+b,0))throw Error('Notes and sung syllables must match');
+ const want=counts.reduce((a,b)=>a+b,0);
+ if(sung&&Math.abs(result.length-want)>2)throw Error(`Notes and sung syllables must match (${result.length} notes, ${want} syllables)`);   // a syllable or two adrift over a long ballad is forgiven
  return result;
 }
 // Which member's part feeds each backing layer, and the bar length. A score
@@ -50,7 +52,8 @@ export const hexRgb=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(String(h||''));const v
 // the next two seats of the walk, half a beat and a beat later.
 export const BOUNCE=[0,1,2,4,3,5];
 export function buildPlan(score,profiles,fleet,levels={}) {
- if(score.voices?.length!==3||score.voices.some(v=>typeof v.lyrics!=='string'||!v.lyrics.trim()))throw Error('Expected three sung member parts');
+ if(score.voices?.length!==3||!score.voices.some(v=>typeof v.lyrics==='string'&&v.lyrics.trim()))throw Error('Expected three member parts, at least one sung');
+ const isSung=v=>typeof v.lyrics==='string'&&v.lyrics.trim().length>0;
  if(!Number.isFinite(score.bpm)||score.bpm<=0)throw Error('Invalid BPM');
  levels={voice:.35,echo1:.4,echo2:.2,harmony:.018,inst:.06,pad:.03,perc:.05,sub:.18,bed:.05,ornament:.07,lights:.28,mix:.25,...levels};
  if(Object.values(levels).some(x=>!Number.isFinite(x)||x<0||x>1))throw Error('Layer levels must be 0…1');
@@ -58,8 +61,10 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  const seats={'CENTER REAR':0,'RIGHT FRONT':1,'RIGHT REAR':2,'LEFT REAR':3,'LEFT FRONT':4,'HELD CENTER':5};
  const nodes=fleet.map(([host,port,label])=>({id:`seat-${seats[label]}`,seat:seats[label],host,port,label}));
  if(nodes.length!==6||new Set(nodes.map(n=>n.seat)).size!==6||nodes.some(n=>n.seat==null))throw Error('All six surround seats are required');
- const payloads=score.voices.map((voice,i)=>{
+ const payloads=score.voices.map((voice,i)=>[voice,i]).filter(([voice])=>isSung(voice)).map(([voice,i])=>{
   const member=members[i];
+  // a bare cast name ("Noelle") resolves to the member's Enhanced/Premium voice from its profile
+  if(!/\((Enhanced|Premium)\)$/.test(voice.singVoice||'')){const bare=(voice.singVoice||profiles[member]?.aesthetivox?.base_voice||'').replace(/\s*\(.*\)$/,'');const full={Noelle:'Noelle (Enhanced)',Aaron:'Aaron (Enhanced)',Tom:'Tom (Enhanced)',Zoe:'Zoe (Premium)',Samantha:'Samantha (Enhanced)'}[bare];if(full)voice={...voice,singVoice:full};}
   if(!voice.name.toLowerCase().startsWith(member)||! /\((Enhanced|Premium)\)$/.test(voice.singVoice))throw Error('Member/voice assignment must be explicit and Enhanced/Premium');
   const pairs=singerPayload({p:{voice,member},vj:profiles[member],score,bpm:score.bpm,epoch:0});
   const info=Object.fromEntries(pairs.map(p=>{const i=p.indexOf('=');return[p.slice(0,i),p.slice(i+1)];}));
@@ -73,6 +78,7 @@ export function buildPlan(score,profiles,fleet,levels={}) {
  // Phrases: one per lyric line per member, in time order across the trio.
  const phrases=[];
  score.voices.forEach((v,i)=>{
+  if(!isSung(v))return;
   const lines=v.lyrics.split(' / ').map(l=>l.trim().split(/\s+/).filter(t=>t!=='/').map(t=>t.replace(/-/g,'')).join(' '));   // words, not syllables, for the notation
   lines.forEach((text,k)=>{const ns=parts[i].filter(n=>n.line===k);if(!ns.length)return;
    const toks=(v.lyrics.split(' / ')[k]||'').trim().split(/\s+/).filter(t=>t!=='/').flatMap(t=>t.split('-'));   // one syllable per note
@@ -107,10 +113,12 @@ export function buildPlan(score,profiles,fleet,levels={}) {
    emit('voice',`seat-${seat}`,{t:ph.t+delay,dur:ph.dur,member:ph.member,phrase:ph.phrase,text:ph.text,gain,role,delay,rgb:colors[ph.memberIndex]});
   });
  });
+ score.voices.forEach((v,i)=>{if(isSung(v))return;const seat=i===1?4:i===2?0:2;
+  for(const n of parts[i])emit('drone',`seat-${seat}`,{t:n.t,dur:n.dur,note:n.note,frequency:hz(n.note),gain:.045*n.gain,attack:.3,release:.45,wave:'sine',name:members[i]+' drone'});});
  // Harmony: a quiet sine a fifth above or an octave below each of neo's and
  // frisbee's notes, walking the ring, so the room hums the tune's shadow.
  let hk=0;
- for(const i of [0,2])for(const n of parts[i]){
+ for(const i of [0,2].filter(i=>isSung(score.voices[i])))for(const n of parts[i]){
   const up=hk%2===0,note=n.note+(up?7:-12),seat=hk%5;hk++;
   emit('harmony',`seat-${seat}`,{t:n.t,dur:n.dur,note,frequency:hz(note),gain:levels.harmony*n.gain,attack:.08,release:.18,wave:'sine'});
  }
