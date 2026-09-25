@@ -38,9 +38,7 @@ if(!service.includes('feedLive')){
   ["    curtainStyle,active:mode==='performance'","    relayedAt:Date.now(),curtainStyle,active:mode==='performance'"]];
  for(const [from,to] of edits){if(!service.includes(from))throw Error('Unsupported stage source for 5 Hz: '+from.slice(0,40));service=service.replace(from,to);}
 }
-// The room's lyric language rides along, scoped so its helpers cannot collide with the game.
-const room=readFileSync(resolve(here,'lyric-graphics.js'),'utf8').replace(/^export /gm,'');
-const fn=readFileSync(resolve(here,'oskiewar-dance.js'),'utf8')+'\n// lyric-graphics.js (fleet/lyric-graphics.js), scoped.\nconst drawTrioRoom=(()=>{\n'+room+'\nreturn drawTrioRoom;\n})();\n';
+const fn=readFileSync(resolve(here,'oskiewar-dance.js'),'utf8');
 const start=draw.indexOf('// Included in Neo\'s existing Oskiewar renderer;');
 if(start>=0)draw=draw.slice(0,start)+draw.slice(draw.indexOf('function performanceStageActive()',start));
 draw=draw.replace('function performanceStageActive()',fn+'\nfunction performanceStageActive()');
