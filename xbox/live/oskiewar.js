@@ -1054,7 +1054,8 @@ class FightCamDoll {
       z: baseUp.z * rollCos - baseRight.z * rollSin };
     this.view = { forward, right, up,
       centerX: (stageLeft + stageRight) / 2,
-      centerY: (stageTop + stageBottom) / 2,
+      centerY: (stageTop + stageBottom) / 2 +
+        (stageBottom - stageTop) * consoleFrameDrop(),
       orthoScale: (stageRight - stageLeft) / this.width,
       focal: (stageRight - stageLeft) /
         (2 * Math.tan(this.fov * Math.PI / 360)) };
@@ -1442,9 +1443,16 @@ function losAngelesSun() {
   return { light: light * light * (3 - 2 * light), sunset };
 }
 
+function consoleFrameDrop() {
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  return caps.platform === "xbox-uwp" || caps.platform === "xbox" ? .1 : 0;
+}
+
 function displayTheme() {
   const sun = losAngelesSun();
   const caps = typeof capabilities === "function" ? capabilities() : {};
+  if (caps.platform === "xbox-uwp" || caps.platform === "xbox")
+    return { light: 1, sunset: 0 };
   if ((caps.platform === "web" || caps.platform === "macos") &&
       (caps.colorScheme === "light" || caps.colorScheme === "dark")) {
     return { ...sun, light: caps.colorScheme === "light" ? 1 : 0 };
@@ -12533,8 +12541,11 @@ function drawControlLegend(ink) {
         directionActive(button))
       : drawPadButton(cap, x, y, size,
         button.startsWith("Arrow") ? directionActive(button) : held.includes(button));
-    if (action) typeWrite(action, x + width + 10,
-      y + Math.round(size * .25), size, ...ink);
+    if (action) {
+      const labelX = x + width + 10, labelY = y + Math.round(size * .25);
+      typeWrite(action, labelX + 2, labelY + 3, size, ...contrastShadow(ink));
+      typeWrite(action, labelX, labelY, size, ...ink);
+    }
   }
   let legendBottom = safe.top + controls.length * step;
   if (m30) legendBottom = drawM30Cluster(x, legendBottom, size, held,
@@ -16049,7 +16060,7 @@ function gamePaint() {
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
   updateSceneLighting(run.monotonicUs);
   wipe(...outside);
-  if (photoThemeActive) themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
+  if (photoThemeActive && visualTheme.light < .5) themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
     viewWidth(),viewHeight,0,false,1.49);
   else if (renderFlags.sky !== false) drawSkyAtmosphere(sky, arena);
   if (PAL_SELECT && selecting) {
