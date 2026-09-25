@@ -67,11 +67,20 @@ private final class PalsWallpaperView: NSView {
         rebuild()
     }
 
+    /// Posted after the system appearance flips, so the delegate can rebuild
+    /// the windows once things settle: macOS's light/dark treatment for the
+    /// menu bar backdrop (the 74pt band it draws above desktop-level windows)
+    /// can wedge on the old appearance, and only a desktop-level window
+    /// coming or going makes WindowServer derive it again.
+    static let appearanceFlipped = Notification.Name(
+        "computer.aesthetic.blueberry-wallpaper.appearance-flipped")
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         let appearance = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua])
         guard appearance != loadedAppearance else { return }
         rebuild()
+        NotificationCenter.default.post(name: Self.appearanceFlipped, object: self)
     }
 
     private var dark: Bool {
@@ -93,13 +102,17 @@ private final class PalsWallpaperView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         background.frame = bounds
-        background.startPoint = CGPoint(x: 0, y: 1)
-        background.endPoint = CGPoint(x: 1, y: 0)
+        // Top of the field first (CALayer y=1 is the top edge on macOS): the
+        // tone the menu bar sits on. Light mode keeps its lightest colour up
+        // there, dark mode its darkest — never the reverse, so the translucent
+        // menu bar always reads on the tone the system expects for the mode.
+        background.startPoint = CGPoint(x: 0.5, y: 1)
+        background.endPoint = CGPoint(x: 0.5, y: 0)
         background.colors = dark
             ? [NSColor(srgbRed: 0.045, green: 0.09, blue: 0.16, alpha: 1).cgColor,
                NSColor(srgbRed: 0.12, green: 0.07, blue: 0.19, alpha: 1).cgColor]
-            : [NSColor(srgbRed: 0.72, green: 0.84, blue: 0.98, alpha: 1).cgColor,
-               NSColor(srgbRed: 0.90, green: 0.86, blue: 1.00, alpha: 1).cgColor]
+            : [NSColor(srgbRed: 0.90, green: 0.86, blue: 1.00, alpha: 1).cgColor,
+               NSColor(srgbRed: 0.72, green: 0.84, blue: 0.98, alpha: 1).cgColor]
         marks.forEach { $0.container.removeFromSuperlayer() }
         marks.removeAll()
 
@@ -195,10 +208,23 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
                            name: NSApplication.didChangeScreenParametersNotification, object: nil)
         center.addObserver(self, selector: #selector(rebuildWindows),
                            name: NSWorkspace.screensDidWakeNotification, object: nil)
+        center.addObserver(self, selector: #selector(appearanceFlipped),
+                           name: PalsWallpaperView.appearanceFlipped, object: nil)
+    }
+
+    /// Pending post-flip rebuild; a run of flips ends in exactly one rebuild.
+    private var flipRebuild: DispatchWorkItem?
+
+    @objc private func appearanceFlipped() {
+        flipRebuild?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.rebuildWindows() }
+        flipRebuild = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
     }
 
     @objc private func rebuildWindows() {
-        windows.forEach { $0.close() }
+        let retired = windows
+        defer { retired.forEach { $0.close() } }
         windows = NSScreen.screens.map { screen in
             let window = NSWindow(contentRect: screen.frame, styleMask: .borderless,
                                   backing: .buffered, defer: false, screen: screen)

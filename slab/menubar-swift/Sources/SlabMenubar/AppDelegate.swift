@@ -69,9 +69,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// refresh only re-sets the wallpaper when the aggregate status changed.
     private var lastDesktopTint: String?
     /// Appearance the last wallpaper Slab actually pushed was rendered for.
-    /// Starts nil so the first push after launch is never mistaken for a
-    /// dark↔light flip. See `pushDesktopPicture`.
-    private var lastAppliedDark: Bool?
+    /// Seeded from the tint Slab persisted last time (`current-color.json`),
+    /// so a dark↔light flip that happens across a Slab restart still counts
+    /// as a flip and repairs the menu bar; nil only when nothing was ever
+    /// published. See `pushDesktopPicture`.
+    private lazy var lastAppliedDark: Bool? = DesktopTint.publishedDark()
     /// Base font size from the most recent `tileNow()` pass. `applyTerminalDecor`
     /// scales typography off this — `.awaiting` ("orange") tiles get bumped
     /// up so focus reads typographically while the cell geometry stays put.
