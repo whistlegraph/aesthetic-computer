@@ -740,6 +740,7 @@ extern int drm_acquire_master(void *display);
 // Boot title — defaults to "notepat", overridden by config.json handle
 int wifi_disabled = 0; // set from config.json "wifi":false (extern'd in js-bindings.c)
 int config_mono = 0;   // set from config.json "mono":true — applied once audio is up
+int config_volume = -1; // config.json "volume" (percent baseline); -1 = card default
 static char boot_title[80] = "notepat";
 static ACColor boot_title_colors[80];
 static int boot_title_colors_len = 0;
@@ -784,6 +785,21 @@ static int parse_config_string(const char *json, const char *key, char *out, int
     if (len <= 0 || len >= out_sz) return 0;
     memcpy(out, q1 + 1, len);
     out[len] = 0;
+    return 1;
+}
+
+// Parse an integer value for `key` ("\"volume\"") out of a flat JSON blob.
+static int parse_config_int(const char *json, const char *key, int *out) {
+    const char *p = strstr(json, key);
+    if (!p) return 0;
+    p = strchr(p + strlen(key), ':');
+    if (!p) return 0;
+    p++;
+    while (*p == ' ' || *p == '\t') p++;
+    char *end = NULL;
+    long v = strtol(p, &end, 10);
+    if (end == p) return 0;
+    *out = (int)v;
     return 1;
 }
 
@@ -917,6 +933,16 @@ static void load_boot_visual_config(void) {
     if (parse_config_bool(json, "\"mono\"", &mono_val)) {
         config_mono = mono_val ? 1 : 0;
         ac_log("[config] audio: %s\n", config_mono ? "mono" : "stereo");
+    }
+
+    // Read baseline output volume (percent). Baked per stick by
+    // `ac-inscribe --volume`; lets a loud speaker path be tamed without a
+    // rebuild. Applied as the software gain default before audio_init.
+    int volume_val = -1;
+    if (parse_config_int(json, "\"volume\"", &volume_val) && volume_val >= 0 && volume_val <= 400) {
+        config_volume = volume_val;
+        audio_set_default_system_volume(config_volume);
+        ac_log("[config] audio volume: %d%%\n", config_volume);
     }
 
     // Bake Claude/GitHub tokens early so boot-fade badge check (access())

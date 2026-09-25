@@ -574,6 +574,7 @@ write_device_config() {  # $1=dest  $2=udp(1=include udpMidiBroadcast)
             if (Array.isArray(c.colors) && c.colors.length) cfg.colors = c.colors;
             if (c.mood) cfg.mood = c.mood;
             if (typeof c.mono === "boolean") cfg.mono = c.mono;
+            if (Number.isFinite(c.volume)) cfg.volume = Math.max(0, Math.min(400, Math.round(c.volume)));
             if (["left", "right", "both"].includes(c.monoOutput)) cfg.monoOutput = c.monoOutput;
         } catch (e) { /* no inscription (anon/legacy) — base fields only */ }
         fs.writeFileSync(dest, JSON.stringify(cfg) + "\n");
