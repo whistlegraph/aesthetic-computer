@@ -1,0 +1,13 @@
+{
+  "provider": "built-in image_gen",
+  "model": "default (identifier not exposed)",
+  "prompt": "Use case: photorealistic-natural\nAsset type: retained background texture for an airborne fighting game, wide 16:9 landscape.\nPrimary request: A real photographic view suspended high in the sky among immense luminous white cumulus clouds, with no visible ground. The feeling of falling through open air above and between cloud layers.\nComposition: very wide uninterrupted panoramic sky, soft open blue-violet space in the middle for small game characters to remain readable, rich sculptural cloud banks concentrated around lower corners and along the far horizon. The top third is deeper atmospheric blue and subtle violet. Natural depth and atmospheric perspective, realistic wispy edges and sunlit billowing volumes.\nLighting/mood: moody late afternoon high-altitude light, luminous ivory-white clouds with subtle lavender shadows, balanced exposure, restrained colors. Photographic natural clouds, not illustrated or painted. No objects, no buildings, no land, no mountains, no aircraft, no people, no text, no logos, no borders, no stars, no graphic gradients. Opaque image edge to edge.",
+  "source": "/Users/jas/.codex/generated_images/01a0d55e-d5e9-7f52-a085-445a000521f5/exec-c5b352d9-ebad-41a7-8951-eb985d39ed0b.png",
+  "file": "assets/sky-clouds-v1.png",
+  "master": [
+    1672,
+    940
+  ],
+  "assetId": 4,
+  "inspected": true
+}

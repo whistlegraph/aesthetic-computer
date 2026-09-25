@@ -71,6 +71,24 @@
       "bytes": 4194304,
       "sha256": "8892d9d15ddf8ef0c5b401f0361f9cd853b020b192db9bc5cbef96f12fb8ae22",
       "masterSha256": "cdc1511046b18b6e0da79644503d7dfb41f1b6fa59b375c917e9daafd833ebd6"
+    },
+    {
+      "id": 4,
+      "name": "sky-clouds-v1",
+      "size": [
+        1024,
+        576
+      ],
+      "master": [
+        1672,
+        940
+      ],
+      "blend": "opaque",
+      "depthWrite": true,
+      "file": "sky-clouds-v1-1024x576.rgba",
+      "bytes": 2359296,
+      "sha256": "ff0334805d9c7c5821d2548314a443e49e29e3627d37229ccf1f0c4f877699b5",
+      "masterSha256": "6ef393e004975b33a5ac7be9045460ac9b9a6365b80ec9df53727e1b3d8c4d03"
     }
   ]
 }

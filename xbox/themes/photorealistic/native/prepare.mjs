@@ -8,7 +8,8 @@ const root=path.dirname(fileURLToPath(import.meta.url));
 const assets=[{id:0,name:'underpass',size:[1024,576],master:[1672,941]},
  {id:1,name:'props',size:[1024,512],master:[1774,887]},
  {id:2,name:'explosions-v1',size:[1024,512],master:[1774,887],blend:'straight-alpha',depthWrite:false},
- {id:3,name:'weapons-v2',size:[1024,1024],master:[1254,1254],blend:'straight-alpha',depthWrite:true}];
+ {id:3,name:'weapons-v2',size:[1024,1024],master:[1254,1254],blend:'straight-alpha',depthWrite:true},
+ {id:4,name:'sky-clouds-v1',size:[1024,576],master:[1672,940],blend:'opaque',depthWrite:true}];
 for(const a of assets){
  const source=path.join(root,'../assets',a.name+'.png');
  a.file=`${a.name}-${a.size[0]}x${a.size[1]}.rgba`;

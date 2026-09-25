@@ -386,7 +386,7 @@ public:
     m_graphics->is_theme_asset_ready = [this](int asset) {
       return asset >= 0 && asset < static_cast<int>(theme_assets.size()) &&
         m_themeViews[asset] && m_graphics->theme_ready() &&
-        (asset < 2 || (m_themePixelShader && m_themeBlendState && m_themeSoftDepthState));
+        (asset < 2 || asset == 4 || (m_themePixelShader && m_themeBlendState && m_themeSoftDepthState));
     };
     m_graphics->on_theme_quad = [this](const ac::xbox::ThemeQuad& quad) {
       if (m_frameThemeQuads.size() < kMaxThemeQuads) m_frameThemeQuads.push_back(quad);
@@ -423,7 +423,7 @@ public:
     m_oskiewarAccount = std::make_shared<OskiewarAccountService>(*m_api);
     m_api->system.render_width = m_frameWidth;
     m_api->system.render_height = m_frameHeight;
-    m_api->system.version = "1.0.0.45";
+    m_api->system.version = "1.0.0.46";
     m_api->telemetry = [this](std::string_view line) {
       std::string safe(line);
       for (auto& character : safe) if (character == '\n' || character == '\r') character = ' ';
@@ -930,7 +930,7 @@ private:
       (m_jeffreyTextureView ? std::to_string(m_jeffreyTextureSize) + "x" +
         std::to_string(m_jeffreyTextureSize) + " filter=linear" : "missing"));
     const wchar_t* themePaths[] = {L"Assets\\ThemeUnderpass.rgba", L"Assets\\ThemeProps.rgba",
-      L"Assets\\ThemeExplosions.rgba", L"Assets\\ThemeWeapons.rgba"};
+      L"Assets\\ThemeExplosions.rgba", L"Assets\\ThemeWeapons.rgba", L"Assets\\ThemeSkyClouds.rgba"};
     for (int asset = 0; asset < static_cast<int>(theme_assets.size()); ++asset) {
       const auto rgba = ReadPackageBytes(themePaths[asset]);
       texture.Width = theme_assets[asset].width; texture.Height = theme_assets[asset].height;
@@ -944,7 +944,7 @@ private:
     LogTelemetry(std::string("AC_NATIVE_THEME ready=") +
       (m_themeViews[0] && m_themeViews[1] ? "1" : "0") +
       " effects=" + (m_themeViews[2] && m_themeViews[3] && m_themePixelShader ? "1" : "0") +
-      " rgbaBytes=10747904 maxQuads=1024");
+      " sky=" + (m_themeViews[4] ? "1" : "0") + " rgbaBytes=13107200 maxQuads=1024");
   }
 
   bool DrawGpuThemeQuads() {
@@ -953,11 +953,11 @@ private:
       return false;
     // Solid props precede soft effects, which depth-test without punching
     // holes in subsequent translucent draws. Base atlases keep their cutout path.
-    const int assets[] = {0, 1, 3, 3, 2};
-    for (int pass = 0; pass < 5; ++pass) {
+    const int assets[] = {4, 0, 1, 3, 3, 2};
+    for (int pass = 0; pass < 6; ++pass) {
       const int asset = assets[pass];
-      if (!m_themeViews[asset] || (asset >= 2 && !m_themePixelShader)) continue;
-      const bool depthWrite = pass < 3;
+      if (!m_themeViews[asset] || ((asset == 2 || asset == 3) && !m_themePixelShader)) continue;
+      const bool depthWrite = pass < 4;
       D3D11_MAPPED_SUBRESOURCE mapped{};
       if (FAILED(m_context->Map(m_spriteVertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
         return false;
@@ -990,7 +990,7 @@ private:
       m_context->PSSetSamplers(0,1,m_linearSampler.GetAddressOf());
       m_context->RSSetState(m_triangleRasterState.Get());
       m_context->OMSetDepthStencilState(depthWrite ? m_triangleDepthState.Get() : m_themeSoftDepthState.Get(),1);
-      m_context->OMSetBlendState(asset >= 2 ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
+      m_context->OMSetBlendState((asset == 2 || asset == 3) ? m_themeBlendState.Get() : nullptr,nullptr,0xffffffff);
       m_context->OMSetRenderTargets(1,m_sceneTarget.GetAddressOf(),m_triangleDepthView.Get());
       m_context->Draw(static_cast<UINT>(count),0);
       ID3D11ShaderResourceView* nullView=nullptr;m_context->PSSetShaderResources(0,1,&nullView);
@@ -2790,7 +2790,7 @@ private:
   ComPtr<ID3D11Buffer> m_spriteVertexBuffer;
   ComPtr<ID3D11ShaderResourceView> m_spriteAtlasView;
   ComPtr<ID3D11ShaderResourceView> m_jeffreyTextureView;
-  ComPtr<ID3D11ShaderResourceView> m_themeViews[4];
+  ComPtr<ID3D11ShaderResourceView> m_themeViews[5];
   ComPtr<ID3D11PixelShader> m_themePixelShader;
   ComPtr<ID3D11BlendState> m_themeBlendState;
   ComPtr<ID3D11DepthStencilState> m_themeSoftDepthState;
