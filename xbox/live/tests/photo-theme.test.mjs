@@ -39,3 +39,30 @@ test('a projected rectangle maps its atlas crop into both triangles',async()=>{
   const transforms=calls.filter(c=>c[0]==='transform');
   assert.deepEqual(transforms,[['transform',2,0,0,2,10,20],['transform',2,0,0,2,10,20]]);
 });
+
+test('lighting caches highlights once and adds no pass outside a light', async()=>{
+  const saved = globalThis.OffscreenCanvas;
+  let cached = 0;
+  globalThis.OffscreenCanvas = class {
+    constructor(width,height) { this.width=width;this.height=height;cached++; }
+    getContext() { return {drawImage(){},fillRect(){}}; }
+  };
+  try {
+    const {theme,calls}=fixture(); await theme.ready;
+    const count=cached;
+    assert.equal(count,2, 'only props and weapons get a highlight atlas');
+    theme.themeLighting([{x:100,y:200,radius:100,strength:1}]);
+    theme.themeSprite(1,80,104,285,285,100,200,60,70);
+    assert.equal(calls.filter(c=>c[0]==='drawImage').length,2);
+    calls.length=0;
+    theme.themeSprite(1,80,104,285,285,1000,200,60,70);
+    assert.equal(calls.filter(c=>c[0]==='drawImage').length,1);
+    assert.equal(cached,count,'rendering never allocates another highlight canvas');
+    calls.length=0;theme.themeLighting([]);
+    theme.themeSprite(1,80,104,285,285,100,200,60,70);
+    assert.equal(calls.filter(c=>c[0]==='drawImage').length,1);
+  } finally {
+    if (saved === undefined) delete globalThis.OffscreenCanvas;
+    else globalThis.OffscreenCanvas=saved;
+  }
+});

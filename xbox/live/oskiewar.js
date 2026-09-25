@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 152;
+const buildVersion = 153;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2910,10 +2910,14 @@ function updateInstantReplay(now, dt) {
   applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
   instantReplay.previous = down.slice();
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
-  cameraDoll.track({ target,
-    position: { x: cameraCenter - cameraWidth * .06,
-      y: cameraCenterY - cameraWidth * .04, z: -cameraWidth * 1.35 },
-    width: cameraWidth, perspective: 0, fov: 55 }, dt, 18);
+  const visible = activePlayers();
+  if (instantReplay.respawn && visible.length) {
+    target.x = visible[0].x; target.y = visible[0].y - 110;
+    target.z = visible[0].z;
+  }
+  cameraDoll.track(deathOrbitShot(target,
+    instantReplay.respawn ? 900 * portraitPull() : Math.max(900 * portraitPull(), cameraWidth),
+    instantReplay.cursor / Math.max(1, instantReplay.frames.length - 1)), dt, 18);
 }
 
 // A finished round in a rollback fight is not finished yet: the frames that
@@ -6771,14 +6775,27 @@ function updateCamera(dt) {
   cameraCenterY += (desiredCenterY - cameraCenterY) * centerBlend;
 }
 
+// A bounded corkscrew stays on the audience side of the arena. Its zoom and
+// orbit follow replay progress, so pausing or scrubbing also pauses the camera.
+function deathOrbitShot(target, width, progress) {
+  const phase = clamp(progress, 0, 1) * Math.PI * 2;
+  const orbit = Math.sin(phase) * .62;
+  const distance = Math.max(width * 1.4, Math.abs(worldNear) + width);
+  return { target, position: {
+    x: target.x + Math.sin(orbit) * distance,
+    y: target.y - distance * (.12 + .09 * Math.sin(phase * 2)),
+    z: target.z - Math.cos(orbit) * distance },
+    width: width * (1 - .18 * Math.sin(phase / 2)),
+    perspective: .65, fov: 55, roll: Math.sin(phase) * .035 };
+}
+
 function updateCameraDoll(dt, now) {
   if (deathCinematic?.solo && !instantReplay) {
     const player = players[deathCinematic.loserPad];
     const width = 680 * portraitPull();
     const target = { x: player.x, y: player.y - 110, z: player.z };
-    cameraDoll.track({ target,
-      position: { x: target.x, y: target.y, z: target.z - width * 1.35 },
-      width, perspective: 0, fov: 55, roll: 0 }, dt, 12);
+    cameraDoll.track(deathOrbitShot(target, width,
+      deathCinematicAge(now) / 1.45), dt, 12);
     return;
   }
   if (skateparkMap && !survivalActive() && shellMode === "GAME") {
@@ -6858,8 +6875,8 @@ function updateCameraDoll(dt, now) {
       // settles toward the span the returning wide shot uses.
       const shotWidth = Math.min(headGap * 1.7, headGap + 900) * portraitPull();
       if (age < .86) {
-        cameraDoll.track({ target: focus, position: shoulder,
-          width: shotWidth, perspective: 0, fov: 55, roll: 0 }, dt, 11);
+        cameraDoll.track(deathOrbitShot(focus, Math.max(900 * portraitPull(), shotWidth),
+          age / 1.45), dt, 11);
         return;
       }
       // Reels celebrate instead of returning. The lens narrows onto the
@@ -14326,6 +14343,69 @@ function shadowSurfaceY(x, y) {
   return surfaceYAt(x, y);
 }
 
+// Project the existing pose onto the receiving surface: no shadow map,
+// offscreen blur, physics changes, or second character render.
+function drawPoseShadow(player, t, color) {
+  const world = player.replayGeometry || player.frozenGeometry || runnerWorldGeometry(player, t);
+  const surface = shadowSurfaceY(player.x, player.y);
+  const project = (x, y, z) => {
+    const height = Math.max(0, surface - y);
+    const sx = clamp(x + globalLight.x / globalLight.y * height, worldLeft, worldRight);
+    const sz = clamp(z + globalLight.z / globalLight.y * height, worldNear + 4, worldFar - 4);
+    return projectPoint(sx, shadowSurfaceY(sx, surface - 5) - 2, sz);
+  };
+  const previousDepth = triangleDepth;
+  triangleDepth = projectPoint(player.x, player.y, player.z).z + .018;
+  for (const segment of world.segments) {
+    if (segment.hitboxOnly) continue;
+    const a = project(segment.x1, segment.y1, segment.z1);
+    const b = project(segment.x2, segment.y2, segment.z2);
+    const dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
+    if (![a.x,a.y,b.x,b.y,length].every(Number.isFinite) || length < .01 ||
+        Math.max(Math.abs(a.x),Math.abs(a.y),Math.abs(b.x),Math.abs(b.y)) > 12000) continue;
+    const radius = Math.max(1, segment.width * cameraScale() * .48);
+    const nx = -dy / length * radius, ny = dx / length * radius;
+    screenTriangle(a.x+nx,a.y+ny,a.x-nx,a.y-ny,b.x+nx,b.y+ny,...color);
+    screenTriangle(a.x-nx,a.y-ny,b.x-nx,b.y-ny,b.x+nx,b.y+ny,...color);
+  }
+  const head = project(world.head.x, world.head.y, world.head.z);
+  for (let side = 0; side < 12; side++) {
+    const a = side * Math.PI / 6, b = (side + 1) * Math.PI / 6;
+    const first = project(world.head.x + Math.cos(a)*world.head.radius,
+      world.head.y, world.head.z + Math.sin(a)*world.head.radius);
+    const second = project(world.head.x + Math.cos(b)*world.head.radius,
+      world.head.y, world.head.z + Math.sin(b)*world.head.radius);
+    if ([head.x,head.y,first.x,first.y,second.x,second.y].every(value =>
+        Number.isFinite(value) && Math.abs(value) < 12000))
+      screenTriangle(head.x,head.y,first.x,first.y,second.x,second.y,...color);
+  }
+  triangleDepth = previousDepth;
+}
+
+function updateSceneLighting(now) {
+  if (typeof themeLighting !== "function") return;
+  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([]); return; }
+  const span = worldRight - worldLeft;
+  const lights = [.18,.82].map((part) => {
+    const x = worldLeft + span * part;
+    const point = projectPoint(x, terrainFloorAt(x) - 420, -180);
+    return {x:point.x,y:point.y,radius:Math.max(100,1500*cameraScale()),strength:.65};
+  });
+  for (const impact of impacts) {
+    if (!impact.explosion || lights.length >= 4) continue;
+    const point = projectPoint(impact.x,impact.y,impact.z || 0);
+    lights.push({x:point.x,y:point.y,radius:Math.max(80,700*cameraScale()),strength:1});
+  }
+  for (const player of activePlayers()) {
+    if (lights.length >= 4) break;
+    if (player.itemAction !== "FIRE" || now >= player.itemActionUntil) continue;
+    const pose = gunPose(player, now);
+    const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
+    lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
+  }
+  themeLighting(lights);
+}
+
 function drawSpotShadow(x, y, z, radius, color) {
   const surfaceY = shadowSurfaceY(x, y);
   const height = Math.max(0, surfaceY - y);
@@ -15967,6 +16047,7 @@ function gamePaint() {
   const menuPanel = mixColor([20, 28, 56], [215, 225, 239], visualTheme.light);
   const menuInk = mixColor([245, 248, 255], [24, 35, 72], visualTheme.light);
   renderFlags = globalThis.__oskiewarRenderFlags || renderFlags;
+  updateSceneLighting(run.monotonicUs);
   wipe(...outside);
   if (photoThemeActive) themeSprite(0,0,0,1672,941,viewCenterX(),viewHeight/2,
     viewWidth(),viewHeight,0,false,1.49);
@@ -16051,9 +16132,11 @@ function gamePaint() {
     visualTheme.light * .72);
   if (renderFlags.shadows !== false) {
     for (const player of activePlayers())
-      if (player.alive || roundResult)
+      if (player.alive || roundResult || deathCinematic) {
+        if (renderFlags.poseShadows !== false) drawPoseShadow(player, t, shadowInk);
         drawSpotShadow(player.x, player.y, player.z, player.ducking ? 52 : 64,
           shadowInk);
+      }
     for (const item of balls)
       if (item.active)
         drawSpotShadow(item.x, item.y, item.z, item.radius * 1.18, shadowInk);

@@ -3,7 +3,18 @@ const paths = ['underpass.png', 'props.png', 'explosions-v1.png', 'weapons-v2.pn
 export default function createPhotoTheme(context, flushFaces, {
   ImageImpl = globalThis.Image, timeoutMs = 12000,
 } = {}) {
-  const images = [];
+  const images = [], highlights = [];
+  let lights = [];
+  function makeHighlight(image) {
+    if (typeof OffscreenCanvas !== 'function') return null;
+    const canvas = new OffscreenCanvas(image.naturalWidth, image.naturalHeight);
+    const ink = canvas.getContext('2d');
+    ink.drawImage(image,0,0);
+    ink.globalCompositeOperation = 'source-atop';
+    ink.fillStyle = 'rgba(255,230,188,.48)';
+    ink.fillRect(0,0,canvas.width,canvas.height);
+    return canvas;
+  }
   const loads = paths.map((path, id) => new Promise(resolve => {
     const image = new ImageImpl();
     const timeout = setTimeout(() => resolve(false), timeoutMs);
@@ -11,6 +22,7 @@ export default function createPhotoTheme(context, flushFaces, {
       try {
         await image.decode?.();
         images[id] = image;
+        if (id === 1 || id === 3) highlights[id] = makeHighlight(image);
         clearTimeout(timeout);
         resolve(true);
       } catch { clearTimeout(timeout); resolve(false); }
@@ -37,6 +49,18 @@ export default function createPhotoTheme(context, flushFaces, {
     context.rotate(angle);
     context.scale(flip ? -1 : 1, 1);
     context.drawImage(images[id], sx, sy, sw, sh, -width / 2, -height / 2, width, height);
+    if (highlights[id] && lights.length && id !== 0) {
+      let intensity = 0;
+      for (const light of lights) {
+        const dx = x-light.x, dy = y-light.y;
+        const attenuation = Math.max(0, 1-(dx*dx+dy*dy)/(light.radius*light.radius));
+        intensity += attenuation*attenuation*light.strength;
+      }
+      if (intensity > .015) {
+        context.globalAlpha = Math.min(.8,intensity);
+        context.drawImage(highlights[id],sx,sy,sw,sh,-width/2,-height/2,width,height);
+      }
+    }
     context.restore();
     return true;
   }
@@ -66,5 +90,7 @@ export default function createPhotoTheme(context, flushFaces, {
   }
   return { ready: Promise.all(loads.slice(0, 2)),
     themeReady: () => Boolean(images[0] && images[1]),
-    themeAssetReady: id => Boolean(images[id]), themeSprite, themeQuad };
+    themeAssetReady: id => Boolean(images[id]), themeSprite, themeQuad,
+    themeLighting: values => { lights = values.slice(0,4).filter(light =>
+      [light.x,light.y,light.radius,light.strength].every(Number.isFinite) && light.radius > 0); } };
 }

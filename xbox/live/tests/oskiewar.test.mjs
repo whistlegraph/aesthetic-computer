@@ -1384,7 +1384,8 @@ test("loss sequence freezes, enters killer cam, breaks the body, and returns", (
   assert.equal(fight.deathCinematicState().loserPad, 1);
   assert.equal(fight.deathCinematicState().winnerPad, 0);
   for (let frame = 0; frame < 28; frame++) tick();
-  assert.equal(fight.cameraState().doll.perspective, 0);
+  assert.ok(fight.cameraState().doll.perspective > .5);
+  assert.ok(fight.cameraState().doll.perspective <= .65);
   assert.match(source, /function drawBrokenRunner\(player, age\)/);
   assert.match(source, /function drawDeathFlash\(\)/);
   assert.match(source, /if \(age < \.86\)/);
@@ -7207,4 +7208,26 @@ test('realistic armed fighters render every weapon without a client error', () =
       else globalThis[key] = saved[index];
     });
   }
+});
+
+test('self-death replay orbits in 3D and changes zoom before respawning', () => {
+  const { fight, tick } = createFight();
+  for (let frame = 0; frame < 220; frame++) tick(33334);
+  fight.killLocal();
+  const shots = [];
+  for (let frame = 0; frame < 260; frame++) {
+    tick(16667); fight.paint();
+    assert.equal(fight.clientErrorState(), '', JSON.stringify(fight.clientErrorDetailState()));
+    if (fight.instantReplayState().active) shots.push(fight.cameraState().doll);
+  }
+  assert.ok(shots.length > 20);
+  assert.ok(shots.some(shot => shot.perspective > .5));
+  const offsets = shots.map(shot => shot.position.x - shot.target.x);
+  assert.ok(Math.max(...offsets) - Math.min(...offsets) > 200, 'camera moves around the subject');
+  const widths = shots.map(shot => shot.width);
+  assert.ok(Math.max(...widths) - Math.min(...widths) > 70, 'camera zooms during the spiral');
+  for (const shot of shots) assert.ok(Object.values(shot.position).every(Number.isFinite));
+  for (let frame = 0; frame < 300; frame++) tick(33334);
+  assert.equal(fight.instantReplayState().active, false);
+  assert.equal(fight.players[0].alive, true);
 });
