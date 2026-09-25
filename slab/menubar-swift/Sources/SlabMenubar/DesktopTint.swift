@@ -59,6 +59,15 @@ enum DesktopTint {
             didChangeNotification, object: nil, userInfo: payload, deliverImmediately: true)
     }
 
+    /// The appearance the last published tint was rendered for, read back
+    /// from `current-color.json`; nil before Slab has ever published.
+    static func publishedDark() -> Bool? {
+        guard let data = FileManager.default.contents(atPath: currentColorFile),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        else { return nil }
+        return obj["dark"] as? Bool
+    }
+
     /// Ensure the flat-color PNG named `name` filled with `color`
     /// (AppleScript 0–65535 RGB) exists, and return its path.
     /// Content-addressed: the color is hashed into the filename, so a

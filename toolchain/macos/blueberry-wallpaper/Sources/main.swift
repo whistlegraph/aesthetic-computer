@@ -112,9 +112,20 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         sceneView.layer?.contentsScale = scale
     }
 
+    /// Posted after the system appearance flips. macOS keeps a light/dark
+    /// treatment for the translucent menu bar's backdrop — the 74pt band it
+    /// draws above every desktop-level window — and that treatment can wedge
+    /// on the old appearance: blueberry sat in light mode with a dark shade
+    /// pressing down on a light field (2026-09-25). Only a desktop-level
+    /// window coming or going made WindowServer derive it again, so the
+    /// delegate rebuilds the windows once the flip has settled.
+    static let appearanceFlipped = Notification.Name(
+        "computer.aesthetic.blueberry-wallpaper.appearance-flipped")
+
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         updateAppearance(animated: true)
+        NotificationCenter.default.post(name: Self.appearanceFlipped, object: self)
     }
 
     @objc private func systemColorsDidChange() {
@@ -327,20 +338,43 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
     private var windows: [NSWindow] = []
     private var views: [PalsWallpaperView] = []
 
+    /// Pending post-flip rebuild; every flip cancels the last so a run of
+    /// appearance changes ends in exactly one rebuild.
+    private var flipRebuild: DispatchWorkItem?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         rebuildWindows()
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWindows),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appearanceFlipped),
+            name: PalsWallpaperView.appearanceFlipped, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidSleep),
             name: NSWorkspace.screensDidSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(screensDidWake),
             name: NSWorkspace.screensDidWakeNotification, object: nil)
     }
 
+    /// Let slab's tint, the desktop picture and the Dock settle first
+    /// (slab restarts the Dock on a flip), then make WindowServer look again.
+    @objc private func appearanceFlipped() {
+        flipRebuild?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            print("appearance flipped — rebuilding windows so the menu bar backdrop re-derives")
+            fflush(stdout)
+            self?.rebuildWindows()
+        }
+        flipRebuild = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
+    }
+
     @objc private func rebuildWindows() {
-        windows.forEach { $0.close() }
+        // New field first, old field after: the swap never shows the bare
+        // desktop picture, and the window coming in plus the one going out
+        // each give WindowServer its cue to re-derive the menu bar backdrop.
+        let retired = windows
         windows.removeAll()
         views.removeAll()
+        defer { retired.forEach { $0.close() } }
         let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         for screen in NSScreen.screens {
             let window = NSWindow(contentRect: screen.frame, styleMask: [.borderless],
