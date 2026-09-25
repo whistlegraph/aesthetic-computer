@@ -10701,7 +10701,13 @@ function generatedPartColor(appearance, segment) {
 let photoThemeActive = false;
 let photoEffectsActive = false, photoWeaponsActive = false;
 function roundGraphicsTheme() {
-  return globalThis.__oskiewarGraphicsTheme === "photorealistic" ? "photorealistic" : "flat";
+  const requested = globalThis.__oskiewarGraphicsTheme;
+  if (requested === "flat" || requested === "photorealistic") return requested;
+  // The console ships the retained atlases in its package, so it wears the
+  // photographic materials unless a host asks for vectors.
+  const caps = typeof capabilities === "function" ? capabilities() : {};
+  return caps.platform === "xbox-uwp" || caps.platform === "xbox"
+    ? "photorealistic" : "flat";
 }
 function refreshPhotoTheme() {
   photoThemeActive = roundGraphicsTheme() === "photorealistic" &&
@@ -12531,15 +12537,14 @@ function drawControlLegend(ink) {
   const dash = legendFighter.lastButton === "DASH" &&
     runtime().monotonicUs - legendFighter.lastButtonAt < 700000;
   const controls = [
-    ["LEFT", "ArrowLeft", directionActive("ArrowLeft") ? "MOVE" : ""],
-    ["RIGHT", "ArrowRight", dash ? "DASH >>" :
-      directionActive("ArrowRight") ? "MOVE" : ""],
-    ["STICK_UP", "ArrowUp", directionActive("ArrowUp") ? "AIR" : ""],
-    ["DOWN", "ArrowDown", directionActive("ArrowDown") ? "CROUCH" : ""],
-    ["A", "A", both ? "GRAB" : held.includes("A") ? "KICK" : ""],
-    ["B", "B", !both && held.includes("B") ? "PUNCH" : ""],
-    ["X", "X", held.includes("X") ? "SHIELD" : ""],
-    ["Y", "Y", held.includes("Y") ? "USE ITEM" : ""],
+    ["LEFT", "ArrowLeft", "MOVE"],
+    ["RIGHT", "ArrowRight", dash ? "DASH >>" : "MOVE"],
+    ["STICK_UP", "ArrowUp", "AIR"],
+    ["DOWN", "ArrowDown", "CROUCH"],
+    ["A", "A", both ? "GRAB" : "KICK"],
+    ["B", "B", both ? "GRAB" : itemMelee[heldItem(legendFighter)] || "PUNCH"],
+    ["X", "X", "SHIELD"],
+    ["Y", "Y", "USE ITEM"],
   ];
   if (survivalActive()) controls.length = 4;
   const keyboard = keycapFamily();
