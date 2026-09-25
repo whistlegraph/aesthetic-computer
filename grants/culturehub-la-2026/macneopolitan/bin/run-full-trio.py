@@ -185,8 +185,8 @@ try:
  record['brightnessArmed']=dict(parallel(bright,members)) if members else {};subcheck();assert epoch-time.time()>4 and not errors
  def playnative(n):command(n,'play',runId=runid);return n['id'],ack(n,'countdown')
  record['nativeCountdown']=dict(parallel(playnative,nodes));record['subCountdown']=request(SUB+'/api/trio/play',{'runId':runid})
- def sing(h):
-  payload=dict(next(p['info'] for p in plan['payloads'] if p['member']==h));payload.update(preparedId=bundle['id'],startEpoch=f"{hosts[h]['startEpoch']:.6f}");post(h,'play',payload)
+ def sing(h):   # the singers come in after the announcement lead-in, if the plan has one
+  payload=dict(next(p['info'] for p in plan['payloads'] if p['member']==h));payload.update(preparedId=bundle['id'],startEpoch=f"{hosts[h]['startEpoch']+plan.get('leadIn',0):.6f}");post(h,'play',payload)
  if members:parallel(sing,members)
  assert epoch-time.time()>2
  t=threading.Thread(target=lights,daemon=True);threads.append(t);t.start();save();print('FULL SYSTEM CUED. Downbeat in',round(epoch-time.time(),1),'seconds.',flush=True)

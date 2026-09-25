@@ -11,11 +11,12 @@ import {hostname} from 'node:os';
 const localName=((spawnSync('scutil',['--get','LocalHostName'],{encoding:'utf8'}).stdout||'').trim()||hostname().split('.')[0]).toLowerCase();
 const isLocal=h=>String(h).toLowerCase()===localName;
 import {buildPlan,canonical,digest,members,noteName,readinessProblems} from './trio-fleet-plan.mjs';
+import {announce} from './announce.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2),command=args.shift();
 if(!['plan','prepare','check'].includes(command))throw Error('Use fleet-trio.mjs plan|prepare|check [--out=DIR]. Playback remains held.');
 const options=Object.fromEntries(args.map(a=>{if(!a.startsWith('--')||!a.includes('='))throw Error(`Invalid option ${a}`);const at=a.indexOf('=');return [a.slice(2,at),a.slice(at+1)];}));
-for(const key of Object.keys(options))if(!['out','score','receipts'].includes(key))throw Error(`Unknown option ${key}`);
+for(const key of Object.keys(options))if(!['out','score','receipts','announce'].includes(key))throw Error(`Unknown option ${key}`);
 const out=resolve(options.out??'/Users/jas/Shelf/culturehub-trio');mkdirSync(out,{recursive:true});
 const scorePath=resolve(options.score??resolve(root,'scores/trio-chorus-doowop.mbscore'));
 const score={...JSON.parse(readFileSync(scorePath)),slug:scorePath.split('/').pop().replace(/\.mbscore$/,'')};
@@ -25,8 +26,11 @@ const plan=buildPlan(score,profiles,fleet);
 const planPath=resolve(out,'plan.json');
 if(command!=='check') {
  writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');
- // The Windows SUB's score: the bass layer alone, in the sub-receiver's own
- // event shape, hashed as the arrangement so its receipt can be matched.
+ writeSubScore();
+}
+// The Windows SUB's score: the bass layer alone, in the sub-receiver's own
+// event shape, hashed as the arrangement so its receipt can be matched.
+function writeSubScore(){
  const subScore={name:plan.title,hash:plan.arrangementHash,dur:plan.duration,
   events:plan.events.filter(e=>e.layer==='sub').map(e=>({id:e.id,t:e.t,dur:e.dur,hz:e.frequency,g:e.gain,attack:e.attack,decay:e.release,wave:e.wave,note:noteName(e.note)}))};
  writeFileSync(resolve(out,'sub-score.json'),JSON.stringify(subScore)+'\n');
@@ -91,16 +95,31 @@ if(command==='plan') {
   throw Error(failed.map(r=>String(r.reason)).join('\n'));
  }
  const singers=results.map(r=>r.value),rate=singers[0].phrases[0].sampleRate;
+ // The announcement: a line in Jeffrey's voice on all six speakers, then a
+ // breath, then the downbeat. Everything timed in the plan moves by that
+ // lead-in; the singers start after it (run-full-trio adds plan.leadIn).
+ let lead=0,announced=null;
+ if(options.announce){
+  announced=await announce(options.announce);lead=+(announced.seconds+.6).toFixed(3);
+  const shift=e=>{e.t=+(e.t+lead).toFixed(4);};
+  for(const e of plan.events)shift(e);
+  for(const l of plan.lyrics||[]){shift(l);for(const y of l.syllables||[])shift(y);}
+  for(const r of plan.routes||[])r.offsetSeconds=+(r.offsetSeconds+lead).toFixed(4);
+  plan.duration=+(plan.duration+lead).toFixed(4);plan.leadIn=lead;plan.announce={text:options.announce,seconds:announced.seconds,hash:announced.hash};
+  delete plan.arrangementHash;plan.arrangementHash=digest(canonical(plan));
+  writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');writeSubScore();
+  console.log(`announce: "${options.announce}" ${announced.seconds}s in Jeffrey's voice; lead-in ${lead}s; arrangement ${plan.arrangementHash.slice(0,12)}`);
+ }
  // One stem per seat: every route (a member's phrase, a seat, an offset and
  // an absolute gain) mixed from that member's actual raw phrase. Seat 5's
  // stem doubles as `centerMix` for the older readiness checks.
  const phraseOf=(member,k)=>{const sg=singers.find(s=>s.member===member),p=sg?.phrases[k];if(!p)throw Error(`${member}: phrase ${k} not prepared`);return {p,dir:dirname(sg.manifest)};};
- const length=Math.max(Math.round((plan.duration+1)*rate),...plan.routes.map(r=>{const {p}=phraseOf(r.member,r.phrase);return Math.round((p.spanOffset+r.delay)*rate)+p.frames;}));
+ const length=Math.max(Math.round((plan.duration+1)*rate),...plan.routes.map(r=>{const {p}=phraseOf(r.member,r.phrase);return Math.round((p.spanOffset+r.delay+lead)*rate)+p.frames;}));
  const seatMix={};for(const n of plan.nodes)seatMix[n.id]=new Float32Array(length);
  for(const r of plan.routes){
   const {p,dir}=phraseOf(r.member,r.phrase);
   if(p.sampleRate!==rate)throw Error('Mixed sample rates need explicit resampling before relay');
-  const raw=readFileSync(resolve(dir,p.rawFile)),offset=Math.round((p.spanOffset+r.delay)*rate),mix=seatMix[`seat-${r.seat}`];
+  const raw=readFileSync(resolve(dir,p.rawFile)),offset=Math.round((p.spanOffset+r.delay+lead)*rate),mix=seatMix[`seat-${r.seat}`];
   if(raw.length!==p.frames*4)throw Error('PCM frame count mismatch');
   for(let n=0;n<p.frames;n++)mix[offset+n]+=raw.readFloatLE(n*4)*r.gain;
  }
@@ -127,6 +146,7 @@ if(command==='plan') {
    mix[start+n]+=v*g*env;
   }
  };
+ if(announced){const a=readFileSync(announced.f32);for(const mix of Object.values(seatMix))for(let n=0;n*4<a.length&&n<mix.length;n++)mix[n]+=a.readFloatLE(n*4)*.9;}
  const BAKED=['harmony','inst','perc','bed','ornament'];
  for(const e of plan.events)if(BAKED.includes(e.layer)&&seatMix[e.receiver]){bake(seatMix[e.receiver],e);e.baked=true;}
  writeFileSync(planPath,JSON.stringify(plan,null,2)+'\n');   // the plan now says which events the stems carry
