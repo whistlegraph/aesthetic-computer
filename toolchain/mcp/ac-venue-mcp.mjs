@@ -181,7 +181,9 @@ async function runQueueOnce() {
   const mark = (status, extra = {}) => { const qq = queue(); const it = qq.items.find((i) => i.id === item.id); if (it) Object.assign(it, { status, ...extra }); saveQueue(qq); };
   try {
     setRig({ owner: local, since: new Date().toISOString(), note: `setlist: ${item.label || item.out}` });
-    const ownConductor = existsSync(join(outDir(item.out), "run-fleet.py"));   // a folder with its own conductor stages itself
+    // A folder with its own conductor stages itself — unless it also carries a
+    // prepared bundle (stems) that our staging knows how to put on the seats.
+    const ownConductor = existsSync(join(outDir(item.out), "run-fleet.py")) && !existsSync(join(outDir(item.out), "prepared.json"));
     if (item.status !== "ready" && !ownConductor) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
