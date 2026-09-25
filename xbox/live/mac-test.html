@@ -30,19 +30,6 @@
       globalThis.__oskiewarVersusCapable = !harness.has("social-preview") &&
         !harness.has("replay-oven") && !harness.has("self-play") && !harness.has("workshop") && !harness.has("map");
     }
-    // A bare front door asks the relay for one open room, and the first
-    // frame waits on the answer. The ask used to leave only after the whole
-    // module graph had landed; leaving with the first byte hides its round
-    // trip — a second origin, a fresh TLS handshake — under the module
-    // download instead of stacking it on top.
-    globalThis.__oskiewarOpenRoomFetch = location.pathname === "/" &&
-      !new URLSearchParams(location.search).has("map") &&
-      !new URLSearchParams(location.search).has("opponent") &&
-      globalThis.__oskiewarVersusCapable === true
-      ? fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
-          { cache: "no-store", signal: AbortSignal.timeout(2500) })
-        .catch(() => null)
-      : null;
   </script>
   <!-- The whole module graph, two levels deep, fetched from the head in one
        round trip instead of being discovered a level at a time. -->
@@ -1494,7 +1481,7 @@
     // `__oskiewarAccountDoor` to raise a panel, and both want their real owner
     // in place first. The door sounds like the rest of the furniture — a soft
     // tick on approach, a firmer knock on the way through.
-    mountAccount({
+    const accountDoor = mountAccount({
       sfx: (name, amount, pan) => oskiewarSfx.drum(name, amount, pan),
       probe: !socialPreview,
     });
@@ -1589,6 +1576,9 @@
       });
     globalThis.__fightHost.analytics = analytics;
     globalThis.qrcode = qrcode;
+    // Finish a web sign-in before matchmaking or room URL updates can consume
+    // its callback URL. Ordinary anonymous visits still boot immediately.
+    if (accountDoor.redirectPending) await accountDoor.ready;
     const workshopRoute = /^\/workshop\/?$/.test(location.pathname);
     const roundName = roundNameFromPath(location.pathname) || (workshopRoute
       ? roundNameFromPath("/" + (new URLSearchParams(location.search).get("room") || "")) : "");
@@ -1599,25 +1589,9 @@
     const pieceSourceFetch = globalThis.__fightPieceSource ? null
       : globalThis.__oskiewarPieceSourceFetch ||
         fetch("/oskiewar.js", { cache: "no-cache" });
-    // A bare front door still finds the fight: while the module downloads,
-    // the relay is asked for one open room — a live host, an empty second
-    // chair — and a hit turns this visit into that room's challenger. A
-    // miss, or a slow relay, leaves the visitor hosting a room of their own.
-    const openRoom = !workshopRoute && !roundName && globalThis.__oskiewarVersusCapable === true
-      ? (globalThis.__oskiewarOpenRoomFetch ||
-          fetch("https://session-server.aesthetic.computer/oskiewar-open-room",
-            { cache: "no-store", signal: AbortSignal.timeout(2500) }))
-          .then((response) => response?.ok ? response.json() : null)
-          .then((body) => roundNameFromPath("/" + (body?.room || "")))
-          .catch(() => "")
-      : Promise.resolve("");
-    const offeredRoom = await openRoom;
-    // Controllers may become visible while the room lookup is in flight.
-    // An explicit room link still watches/joins that room; the front door
-    // seats two local players before accepting an automatic online match.
-    const joinName = roundName || (scanPads().length >= 2 ? "" : offeredRoom);
-    if (joinName && !roundName && !workshopRoute)
-      history.replaceState(null, "", "/" + joinName);
+    // The root opens the title. Only an explicit room link joins a fight;
+    // background discovery must not turn a visit or sign-in into a match.
+    const joinName = roundName;
     // A visitor arriving through a shared address asks for the second chair
     // — first to open the link fights the host, everybody after watches.
     // Harness lanes stay pure spectators.
@@ -1630,6 +1604,7 @@
     // it as soon as the game mints one — copying the URL is sharing the
     // fight.
     setInterval(() => {
+      if (globalThis.__oskiewarTouch?.screen === "title") return;
       if (globalThis.__oskiewarLocalVersus) {
         if (location.pathname !== "/") history.replaceState(null, "", "/" + location.search);
         return;

@@ -81,7 +81,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 146;
+const buildVersion = 147;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2136,12 +2136,9 @@ let dummyGuideStartedAt = null;
 // (App.cpp overflows int64 converting QPC ticks past ~10 days of uptime),
 // and a >= 0 sentinel then swallows every legitimate timestamp.
 let titleTransitionAt = null;
-// The wordmark is a toy: every letter of "oskiewar" and of "start" keeps its
-// own swell and shudder, and the prompt keeps one shared bounce the letters
-// take in turn. Paint owns these because they are pointer feel, not state.
+// The wordmark is a toy: every letter keeps its own swell and shudder.
+// Paint owns these because they are pointer feel, not state.
 const titleToys = [];
-const promptToys = [];
-let promptBounce = 0;
 let titleToyAt = -1;
 // Which letter the pointer currently owns. The letters never hold still — each
 // one bobs and drifts a good fraction of its own width — so a bare hit test
@@ -14843,47 +14840,12 @@ function drawDummyPopLine(titleY, titleSize, transitionInk) {
   typeWrite(line, x, y, size, ...ink);
 }
 
-// "Add your coach." @jeffrey: "itd be cool so any user can claude into an
-// oskiewar game ... 'coach' would be the feature ... which could then analyze
-// your matches / do things / get ur data". The relay has always counted a
-// read-only `agent` seat apart from the grandstand; this offers that seat on
-// the title as a thing a player can do — hand oskiewar.com/coach.mjs to their
-// own Claude and it sits in on this room, reading every frame a phone reads.
-// The room name is the whole invitation, since it is what a coach attaches
-// to, so it is printed here under START where a newcomer is already looking.
-// Once a coach is seated the line says so, with the antenna the debug
-// read-out lights, and keeps the name up so the player can tell the coach is
-// watching this room and not an earlier one. Never on the poster: the social
-// preview is hash-bound, and a room name changes with every burn.
-function drawCoachLine(button, transitionInk) {
-  if (typeof capabilities !== "function" ||
-      capabilities().socialPreview === true) return;
-  const room = versusRoomName || sessionName;
-  if (!room) return;
-  const compact = compactLayout();
-  const linked = linkedAgents();
-  const line = linked ? "coach linked  " + room
-    : "add your coach  oskiewar.com/coach  " + room;
-  const size = Math.round(hudTypeSize * (compact ? .46 : .56));
-  const width = handleWidth(line, size);
-  const glyph = linked ? Math.round(size * 1.2) : 0;
-  const x = viewCenterX() - (width + glyph) / 2 + glyph;
-  const y = button.y + button.height + (compact ? 6 : 10);
-  if (y + size > viewHeight - 8) return;
-  const ink = transitionInk || (linked ? [120, 226, 255]
-    : mixColor([198, 206, 232], [58, 70, 104], visualTheme.light));
-  typeWrite(line, x + 2, y + 2, size,
-    ...mixColor([8, 10, 26], [226, 234, 246], visualTheme.light));
-  typeWrite(line, x, y, size, ...ink);
-  if (linked) drawAgentLink(x - glyph * .6, y + size * .55, size / 26, linked);
-}
-
 function titleButtonRect() {
   const compact = compactLayout();
-  const textSize = hudTypeSize;
+  const textSize = compact ? 64 : 60;
   const textWidth = handleWidth("start", textSize);
-  const width = textWidth + (compact ? 54 : 76);
-  const height = textSize + (compact ? 24 : 34);
+  const width = Math.min(viewWidth() - 48, compact ? 320 : 360);
+  const height = 112;
   return { x: viewCenterX() - width / 2,
     y: viewHeight * (compact ? .61 : .64) - (compact ? 10 : 15),
     width, height, textSize, textWidth };
@@ -15036,39 +14998,26 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
     globalThis.__oskiewarTouch.titleGlyph = held;
   }
   titleGlyphHot = held;
-  promptBounce += ((hovered ? 1 : 0) - promptBounce) *
-    (1 - Math.exp(-dt * (hovered ? 14 : 6)));
-  const promptPulse = .68 + (Math.sin(t * 3.2) + 1) * .16;
-  const promptInk = transitionInk ||
-    mixColor([196, 142, 18], [255, 238, 82], promptPulse);
-  // The word floats on its own; the rect survives only as the touch target.
-  // Yellow type on a bright sky needs an edge, so a sharp offset shadow
-  // deepens as the background lightens and lifts as it goes to night.
+  const promptInk = transitionInk || [23, 27, 40];
+  const shadowInk = [20, 25, 38];
   if (!socialPreview) {
-    let promptCursor = button.x + (button.width - button.textWidth) / 2;
-    const promptY = button.y + (button.height - button.textSize) / 2 - 2;
-    const offset = Math.max(3, Math.round(button.textSize * .1));
-    const shadowInk = mixColor([10, 12, 30], [86, 26, 116], visualTheme.light);
-    const litInk = hovered
-      ? mixColor(promptInk, [255, 255, 255], .35) : promptInk;
-    for (let index = 0; index < prompt.length; index++) {
-      const character = prompt[index];
-      const advance = comicGlyphAdvance(character, button.textSize);
-      const toy = toyGlyph(promptToys, index,
-        pointInCell(pointer, promptCursor, promptY, advance, button.textSize),
-        dt);
-      // The whole word takes the bounce, but each letter takes it a beat after
-      // the one before, so start reads as a hop travelling along the word.
-      const hop = promptBounce * button.textSize * .3 *
-        Math.abs(Math.sin(t * 5.4 - index * .62));
-      const size = button.textSize * (1 + toy.grow * .2 + toy.kick * .12);
-      const x = promptCursor + (advance - comicGlyphAdvance(character, size)) / 2;
-      const y = promptY - hop - (size - button.textSize) * .5;
-      if (!transitionInk)
-        typeWrite(character, x + offset, y + offset, size, ...shadowInk);
-      typeWrite(character, x, y, size, ...litInk);
-      promptCursor += advance;
-    }
+    const x = button.x - (hovered ? 2 : 0);
+    const y = button.y - (hovered ? 3 : 0);
+    const rounded = (left, top, width, height, radius, color) => {
+      hudBox(left + radius, top, width - radius * 2, height, ...color);
+      hudBox(left, top + radius, width, height - radius * 2, ...color);
+      for (const cx of [left + radius, left + width - radius])
+        for (const cy of [top + radius, top + height - radius])
+          filledDisc(cx, cy, radius, color);
+    };
+    rounded(x + (hovered ? 7 : 4), y + (hovered ? 9 : 6),
+      button.width, button.height, 14, shadowInk);
+    rounded(x, y, button.width, button.height, 14, [110, 118, 141]);
+    rounded(x + 3, y + 3, button.width - 6, button.height - 6, 11,
+      hovered ? [217, 223, 238] : [176, 184, 202]);
+    typeWrite(prompt, x + (button.width - button.textWidth) / 2,
+      y + (button.height - button.textSize) / 2 - 2,
+      button.textSize, ...promptInk);
     // The pace dial. Quiet unless the clock is off its default — or was just
     // touched, so stepping back to one still answers the keypress — and it
     // lives large in the bottom-right corner, a dashboard readout rather
@@ -15084,7 +15033,6 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
       typeWrite(pace, paceX + 3, paceY + 4, paceSize, ...shadowInk);
       typeWrite(pace, paceX, paceY, paceSize, ...promptInk);
     }
-    drawCoachLine(button, transitionInk);
   }
   // Touch play keeps its thumbs in the bottom corners, and the fight is live
   // under this screen now, so the stamp yields the pad rather than sit on it.

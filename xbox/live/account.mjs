@@ -90,6 +90,11 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   // different places.
   let who = "";
   let spa = null; // The auth0-spa-js client, built only if the redirect path is used.
+  // Capture the response before the game's room URL updater can replace it.
+  const returnUrl = new URL(location.href);
+  const redirectPending = returnUrl.searchParams.has("state") &&
+    (returnUrl.searchParams.has("code") || returnUrl.searchParams.has("error"));
+  let restoring;
 
   // ⌨️ The steps, as the field wants to be dressed for each one. The input
   // attributes are the whole reason this panel is DOM and not canvas text: a
@@ -262,26 +267,54 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   // when the origin is missing from Auth0's allowed web origins, which from in
   // here is indistinguishable from being logged out, so a failure shows no
   // handle and still offers the door rather than hiding the way in.
-  async function restore() {
-    const native = otp.session();
-    if (native?.sub && (await otp.token())) {
-      source = "otp";
-      who = native.sub;
-      publish({ ...(await readProfile(who)), signedIn: true });
-      account.ready = true;
-      return;
-    }
+  function restore() {
+    return restoring ||= restoreSession();
+  }
+
+  async function restoreSession() {
     try {
+      // An explicit web sign-in takes precedence over any old OTP session.
+      if (!redirectPending) {
+        const native = otp.session();
+        if (native?.sub && (await otp.token())) {
+          source = "otp";
+          who = native.sub;
+          publish({ ...(await readProfile(who)), signedIn: true });
+          return;
+        }
+      }
       const client = await spaClient();
-      await client?.checkSession();
+      if (redirectPending) {
+        const result = await client.handleRedirectCallback(returnUrl.href);
+        const target = new URL(result?.appState?.returnTo || "/", location.origin);
+        // Auth0 validates the transaction; only this origin can be restored.
+        if (target.origin === location.origin)
+          history.replaceState(null, "", target.pathname + target.search + target.hash);
+      } else await client?.checkSession();
       const sub = (await client?.getUser())?.sub;
       if (sub) {
         source = "sso";
         who = sub;
-        publish({ ...(await readProfile(who)), signedIn: true });
+        const profile = await readProfile(who);
+        publish({ ...profile, signedIn: true });
+        if (redirectPending && !profile.handle) ask("handle", "you're in — now pick a name");
+      } else if (redirectPending) {
+        throw new Error("missing sign-in session");
       }
-    } catch {}
-    account.ready = true;
+    } catch {
+      if (redirectPending) {
+        ask("login");
+        say("web sign-in couldn't finish — please try again", true);
+      }
+    } finally {
+      if (redirectPending) {
+        const clean = new URL(location.href);
+        for (const key of ["code", "state", "error", "error_description", "iss"])
+          clean.searchParams.delete(key);
+        history.replaceState(null, "", clean.pathname + clean.search + clean.hash);
+      }
+      account.ready = true;
+    }
   }
 
   // An access token for whichever door is open, because claiming a handle is the
@@ -377,6 +410,9 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
       const client = await spaClient();
       await client?.loginWithRedirect({
         authorizationParams: { redirect_uri: location.origin },
+        appState: { returnTo:
+          (globalThis.__oskiewarTouch?.screen === "title" ? "/" : location.pathname) +
+          location.search + location.hash },
       });
     } catch { say("couldn't open the web sign-in page", true); }
   });
@@ -411,7 +447,8 @@ export default function mountAccount({ sfx = () => {}, probe = true } = {}) {
   // The poster and the title loop are burned headless from this same shell, and
   // a handle is nobody's business in an Open Graph card — so the harness mounts
   // the door (the game still writes to it) without ever asking who is watching.
-  if (probe) restore(); else account.ready = true;
+  if (!probe) account.ready = true;
+  const ready = probe ? restore() : Promise.resolve();
 
-  return { restore };
+  return { restore, ready, redirectPending };
 }
