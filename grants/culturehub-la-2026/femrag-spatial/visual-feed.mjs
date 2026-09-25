@@ -28,9 +28,23 @@ export function trioPerformance(transport, receivedAt, now = Date.now()) {
   const elapsed = transport.elapsed + (now - receivedAt) / 1000;
   if (elapsed < 0 || (duration > 0 && elapsed > duration + 1)) return null;
   const phrase = value => value && typeof value.text === 'string' ? value : null;
-  const lyric = phrase(transport.lyric), next = phrase(transport.next);
+  const next = phrase(transport.next);
+  // Syllables travel as compact [t, text] tuples so the stage packet stays small;
+  // the renderer picks the sung syllable from its own extrapolated clock.
+  let lyric = phrase(transport.lyric);
+  if (lyric) {
+    const {syllables, ...rest} = lyric;
+    lyric = {...rest, syl:(Array.isArray(syllables) ? syllables : []).slice(0, 40)
+      .filter(s => s && Number.isFinite(Number(s.t))).map(s => [Math.round(Number(s.t) * 100) / 100, String(s.text ?? '')])};
+  }
+  const faces = {};
+  for (const member of ['neo', 'blueberry', 'frisbee']) {
+    const face = phrase(transport.faces?.[member]);
+    faces[member] = face ? {text:face.text, rgb:face.rgb, t:face.t, dur:face.dur, role:face.role} : null;
+  }
   return {title:String(transport.title || 'The MacNeoPolitan Trio').slice(0, 110),
     source:'MacNeoPolitan Trio · ' + (lyric?.member || ''),
     playing:true, phase:'playing', elapsed, duration, bpm:Number(transport.bpm) || 0,
-    dance:'trio-round-v1', section:lyric?.member || null, lyric, next, hits:[], notes:[]};
+    sentAt:Number(transport.sentAt) || null,
+    dance:'trio-round-v1', section:lyric?.member || null, lyric, next, faces, hits:[], notes:[]};
 }

@@ -28,7 +28,19 @@ if(!service.includes("'trio-round-v1'"))throw Error('Unsupported stage feed filt
 if(!service.includes('trioLyricLogged'))service=service.replace("&& Number.isFinite(p.elapsed))return p;",
  "&& Number.isFinite(p.elapsed)){\n      if(p.dance==='trio-round-v1' && (p.lyric?.text||null)!==globalThis.trioLyricLogged){globalThis.trioLyricLogged=p.lyric?.text||null;console.log(new Date().toISOString()+' trio lyric '+JSON.stringify(p.lyric||null)+' next '+JSON.stringify(p.next?.text||null));}\n      return p;}");
 if(!service.includes('trioLyricLogged'))throw Error('Unsupported stage feed return');
-const fn=readFileSync(resolve(here,'oskiewar-dance.js'),'utf8');
+// 5 Hz while a display feed is live (lyrics need it); the idle status polls stay at 2 Hz.
+if(!service.includes('feedLive')){
+ const edits=[["let lastError='', lastSent=null, sequence=0, updating=false;","let lastError='', lastSent=null, sequence=0, updating=false;\nlet feedLive=false, lastUpdate=0;"],
+  ["  if(config.femrag)try {","  feedLive=false;\n  if(config.femrag)try {"],
+  ["      return p;}","      feedLive=true; return p;}"],
+  ["async function update() {\n  if(updating)return;","async function update() {\n  if(updating)return;\n  if(!feedLive && Date.now()-lastUpdate<450)return;\n  lastUpdate=Date.now();"],
+  ["const timer=setInterval(update,500);","const timer=setInterval(update,200);"],
+  ["    curtainStyle,active:mode==='performance'","    relayedAt:Date.now(),curtainStyle,active:mode==='performance'"]];
+ for(const [from,to] of edits){if(!service.includes(from))throw Error('Unsupported stage source for 5 Hz: '+from.slice(0,40));service=service.replace(from,to);}
+}
+// The room's lyric language rides along, scoped so its helpers cannot collide with the game.
+const room=readFileSync(resolve(here,'lyric-graphics.js'),'utf8').replace(/^export /gm,'');
+const fn=readFileSync(resolve(here,'oskiewar-dance.js'),'utf8')+'\n// lyric-graphics.js (fleet/lyric-graphics.js), scoped.\nconst drawTrioRoom=(()=>{\n'+room+'\nreturn drawTrioRoom;\n})();\n';
 const start=draw.indexOf('// Included in Neo\'s existing Oskiewar renderer;');
 if(start>=0)draw=draw.slice(0,start)+draw.slice(draw.indexOf('function performanceStageActive()',start));
 draw=draw.replace('function performanceStageActive()',fn+'\nfunction performanceStageActive()');

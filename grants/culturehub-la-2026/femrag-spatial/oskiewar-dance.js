@@ -37,55 +37,47 @@ function drawFemragDance(music, elapsed) {
   screenRect(width*.12,height*.76,width*.76,3+sub*8,[94,110,143]);
 }
 
-// The MacNeoPolitan Trio: the sung phrase, large and centred in the singer's
-// colour; the six figures only breathe. Primitive-only and silent; the stage
-// keeps its own title, section/time footer and progress bar beneath this.
+// The MacNeoPolitan Trio draws in the room's shared lyric language
+// (lyric-graphics.js, drawTrioRoom), written for a dark 2D canvas. This shim
+// maps the few context calls it makes onto the renderer's primitives so the
+// Xbox and AC OS show the same picture as the sub page. Primitive-only and
+// silent; the stage keeps its title, section/time footer and progress bar.
+function trioCanvasShim(background=[3,5,10]) {
+  const parse=style=>{
+    const s=String(style||'');
+    let m=s.match(/rgba?\(([^)]+)\)/);
+    if(m){const v=m[1].split(',').map(Number);return [v[0]||0,v[1]||0,v[2]||0,Number.isFinite(v[3])?v[3]:1];}
+    m=s.match(/^#([0-9a-f]{3,8})$/i);
+    if(m){let h=m[1];if(h.length<=4)h=[...h].map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16),h.length>=8?parseInt(h.slice(6,8),16)/255:1];}
+    return [240,240,240,1];
+  };
+  // No alpha in the primitives: blend toward the stage background instead.
+  const ink=style=>{const [r,g,b,a]=parse(style),k=clamp(a,0,1);return [r,g,b].map((v,i)=>Math.round(background[i]+(v-background[i])*k));};
+  const measure=text=>handleWidth(String(text).toLowerCase(),px);
+  let px=24, path=[], discs=[];
+  const ctx={fillStyle:'#fff',strokeStyle:'#fff',lineWidth:1,textAlign:'left',textBaseline:'top',
+    get font(){return '600 '+px+'px sans-serif';},
+    set font(value){const m=String(value).match(/(\d+(?:\.\d+)?)px/);if(m)px=Math.max(1,Number(m[1]));},
+    save(){},restore(){},
+    measureText(text){return {width:measure(text)};},
+    fillText(text,x,y){
+      if(ctx.textAlign==='center')x-=measure(text)/2;else if(ctx.textAlign==='right')x-=measure(text);
+      if(ctx.textBaseline==='middle')y-=px/2;else if(ctx.textBaseline==='alphabetic'||ctx.textBaseline==='bottom')y-=px;
+      typeWrite(text,x,y,px,...ink(ctx.fillStyle));
+    },
+    fillRect(x,y,w,h){screenRect(x,y,w,h,ink(ctx.fillStyle));},
+    beginPath(){path=[];discs=[];},
+    moveTo(x,y){path.push([x,y,null]);},
+    lineTo(x,y){const last=path[path.length-1];path.push([x,y,last?[last[0],last[1]]:null]);},
+    arc(x,y,r){discs.push([x,y,r]);},
+    fill(){const c=ink(ctx.fillStyle);for(const [x,y,r] of discs)filledDisc(x,y,r,c);},
+    stroke(){const c=ink(ctx.strokeStyle),half=Math.max(1,Number(ctx.lineWidth)||1)/2;for(const [x,y,from] of path)if(from)filledCapsule(from[0],from[1],x,y,half,c);},
+  };
+  return ctx;
+}
 function drawTrioLyric(music, elapsed) {
-  const width=viewWidth(), height=viewHeight, centerX=viewCenterX();
-  const phrase=v=>v&&typeof v.text==='string'&&v.text.trim()?v:null;
-  const rgb=v=>Array.isArray(v)&&v.length>=3?v.slice(0,3).map(c=>clamp(Math.round(Number(c)||0),0,255)):[236,236,244];
-  const lyric=phrase(music.lyric), next=phrase(music.next);
-  const colors=[[244,128,179],[91,215,227],[163,223,91],[255,191,90],[169,142,248],[249,154,103]];
   triangleDepth=-.8;
-  const scale=Math.min(width,height)*.03, limb=scale*.17;
-  for(let seat=0;seat<6;seat++) {
-    const a=seat*2*Math.PI/6+Math.PI/6;
-    const x=centerX+platformMath.sin(a)*width*.38, y=height*.40+platformMath.cos(a)*height*.27;
-    const breath=platformMath.sin(elapsed*1.3+seat)*scale*.08;
-    const color=colors[seat].map(v=>Math.round(v*.45));
-    filledCapsule(x,y-scale*.25-breath,x,y+scale*.65,limb,color);
-    filledDisc(x,y-scale*.8-breath,scale*.42,color);
-    for(const side of [-1,1]) {
-      filledCapsule(x,y-breath,x+side*scale*.6,y+scale*.45,limb,color);
-      filledCapsule(x,y+scale*.6,x+side*scale*.35,y+scale*1.35,limb,color);
-    }
-  }
-  const maxWidth=width*.82, measure=(text,size)=>handleWidth(String(text).toLowerCase(),size);
-  const centred=(text,y,size,color)=>typeWrite(text,centerX-measure(text,size)/2,y,size,...color);
-  if(lyric) {
-    const color=rgb(lyric.rgb), words=String(lyric.text).trim().split(/\s+/);
-    // Fit to width: wrap words greedily, then shrink until the block fits.
-    let size=Math.min(height*.15,width*.11), lines=[];
-    for(;;) {
-      lines=[]; let line='';
-      for(const word of words) {
-        const trial=line?line+' '+word:word;
-        if(line&&measure(trial,size)>maxWidth){lines.push(line);line=word;} else line=trial;
-      }
-      if(line)lines.push(line);
-      const widest=Math.max(0,...lines.map(l=>measure(l,size)));
-      if((widest<=maxWidth&&lines.length*size*1.15<=height*.48)||size<=18)break;
-      size=Math.max(18,size*.9);
-    }
-    const lineHeight=size*1.15, top=height*.42-lines.length*lineHeight/2;
-    const singer=String(lyric.member||music.section||'');
-    const small=Math.max(16,Math.round(size*.3));
-    if(singer)centred(singer,top-small*1.6,small,color.map(v=>Math.round(v*.8)));
-    lines.forEach((line,i)=>centred(line,top+i*lineHeight,size,color));
-    if(next)centred(next.text,top+lines.length*lineHeight+size*.3,Math.max(16,Math.round(size*.4)),rgb(next.rgb).map(v=>Math.round(v*.42)));
-  } else if(next) {
-    // Between phrases: only the coming line, dim, in its singer's colour.
-    const size=Math.max(18,Math.min(height*.06,width*.045));
-    centred(next.text,height*.42-size/2,size,rgb(next.rgb).map(v=>Math.round(v*.42)));
-  }
+  // The feed sends syllables as compact [t, text] tuples; the room language wants objects.
+  const lyric=music.lyric&&{...music.lyric,syllables:music.lyric.syllables||(music.lyric.syl||[]).map(([t,text])=>({t,dur:0,text}))};
+  drawTrioRoom(trioCanvasShim(),viewWidth(),viewHeight,{...music,lyric},elapsed,Date.now());
 }
