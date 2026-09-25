@@ -110,7 +110,7 @@ const NOTE_RGB={c:[255,50,50],d:[255,160,0],e:[255,230,0],f:[50,200,50],g:[50,12
 const NAMES=['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
 function noteRgb(midi){const n=NAMES[((midi%12)+12)%12];return n.includes('#')?[235,235,235]:NOTE_RGB[n];}
 const KIND={kick:{lane:0,rgb:[255,90,60]},boom:{lane:0,rgb:[200,40,40]},snare:{lane:1,rgb:[245,245,245]},donk:{lane:1,rgb:[255,170,40]},hat:{lane:2,rgb:[170,170,170]},perc:{lane:1,rgb:[220,220,220]},riser:{lane:3,rgb:[120,200,255]},voice:{lane:3,rgb:[255,120,200]}};
-let noteCursor=0,lyricCursor=0,routeCursor=0,lastPaintT=-1;
+let noteCursor=0,lyricCursor=0,routeCursor=0,lastPaintT=-1,wordCursor=0;
 // Per-frame budgets: the roll draws at most NOTES marks (this seat's own
 // always, the room's until OTHERS), LABELS note names, and merges a run of
 // ticks in one lane closer than MERGE seconds. No arrays are made per frame.
