@@ -8,6 +8,11 @@
    "label": "Preshow \u2014 starfield + sine bed (skip file ends it)"
   },
   {
+   "piece": "notepat",
+   "stopAfter": true,
+   "label": "Notepat keyboard on all six \u2014 Jeffrey shows the room (runner parks; rm the stop file for Act I)"
+  },
+  {
    "out": "set-00-notepat-spatial",
    "label": "Act I \u2014 Note(s)pat(ial)",
    "announce": null

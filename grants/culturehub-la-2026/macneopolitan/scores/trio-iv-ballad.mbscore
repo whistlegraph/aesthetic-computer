@@ -1,40 +1,328 @@
 {
-  "title": "The MacNeoPolitan Trio — IV. The Ballad of neo",
-  "composer": "neo, from its record; arr. compose.mjs",
-  "machines": 3,
-  "bpm": 100,
-  "lead": 3,
-  "description": "11 verses and a refrain, sung by neo in Noelle; the siblings hold a drone. Words: members/neo/ballad.md.",
-  "unborn": [],
-  "voices": [
-    {
-      "name": "neo sings the ballad (Noelle)",
-      "program": 78,
-      "velocity": 84,
-      "notes": "56:1,58:1,58:0.5,61:1,61:0.5,63:0.5,65:1,65:1,65:0.5,63:1,63:2,r:1,63:0.5,60:1,58:0.5,61:1,63:0.5,65:0.5,63:1,58:2,r:1,53:1,55:1,56:1,60:1,60:0.5,63:1,63:0.5,63:1,61:1,63:2,r:1,63:0.5,63:0.5,63:0.5,61:1,61:0.5,61:0.5,65:1,63:0.5,60:1,56:2,r:2,55:0.5,58:1,61:1,63:1,65:1,63:0.5,63:1,63:2,r:1,63:0.5,60:1,63:1,67:1,65:0.5,58:2,r:1,56:1,58:1,60:1,61:1,63:1,63:0.5,65:1,65:0.5,65:0.5,63:1,65:0.5,63:2,r:1,56:1,58:0.5,60:0.5,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:1,58:1,58:0.5,63:1,63:0.5,65:1,63:0.5,65:0.5,63:2,r:1,63:0.5,61:0.5,61:0.5,60:1,61:1,61:0.5,65:1,65:0.5,58:2,r:1,55:1,56:1,58:1,60:1,61:0.5,61:0.5,63:0.5,63:1,63:2,r:1,61:0.5,60:0.5,60:0.5,65:1,65:0.5,56:2,r:2,57:1,59:1,59:0.5,62:1,62:0.5,64:0.5,66:0.5,66:0.5,64:1,66:0.5,64:2,r:1,57:1,57:0.5,59:0.5,61:1,62:0.5,64:0.5,62:1,59:2,r:1,56:1,56:1,57:1,59:1,59:0.5,61:0.5,62:0.5,62:1,62:0.5,61:1,59:0.5,59:2,r:1,59:0.5,59:1,59:0.5,61:1,62:0.5,62:1,62:0.5,62:0.5,61:1,59:1,59:0.5,59:0.5,57:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,59:1,59:0.5,62:1,62:1,64:1,66:0.5,66:1,66:1,64:0.5,66:0.5,64:2,r:1,54:1,56:1,57:0.5,57:1,57:0.5,61:1,61:0.5,62:0.5,62:0.5,64:1,62:0.5,64:2,r:1,62:0.5,59:1,59:1,61:1,61:0.5,61:0.5,61:0.5,62:1,62:1,61:0.5,59:2,r:1,57:1,57:0.5,61:1,62:1,62:0.5,66:1,62:1,61:0.5,57:2,r:2,56:0.5,56:0.5,61:1,62:0.5,64:1,66:1,64:0.5,66:1,66:0.5,64:1,64:2,r:1,62:0.5,59:1,61:1,61:0.5,62:0.5,64:0.5,59:2,r:1,54:1,56:1,56:0.5,59:1,59:0.5,62:1,62:0.5,64:1,64:2,r:1,64:0.5,62:0.5,62:0.5,61:1,62:1,62:0.5,62:0.5,62:0.5,62:0.5,57:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,59:1,59:0.5,62:1,62:0.5,64:0.5,64:1,64:2,r:1,57:1,59:0.5,61:1,61:0.5,66:1,68:1,66:1,64:2,r:1,56:1,57:1,59:1,61:1,62:1,62:0.5,61:1,61:1,59:2,r:1,59:0.5,59:1,61:1,61:0.5,64:1,64:0.5,64:0.5,66:1,64:0.5,61:1,57:2,r:2,54:0.5,57:1,57:0.5,60:1,60:0.5,64:1,62:1,62:0.5,62:2,r:1,60:0.5,57:1,59:0.5,62:1,64:1,66:1,67:1,67:0.5,67:0.5,62:2,r:1,59:1,60:0.5,64:1,64:0.5,62:2,r:1,62:0.5,60:0.5,60:0.5,62:1,62:0.5,55:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,56:0.5,61:1,62:0.5,62:1,64:1,64:0.5,66:1,66:0.5,64:0.5,66:0.5,64:2,r:1,64:0.5,56:1,56:0.5,57:1,59:0.5,61:1,61:1,61:0.5,62:1,62:1,62:0.5,64:1,64:0.5,64:1,64:0.5,64:2,r:1,54:1,56:1,57:1,57:0.5,57:1,59:1,59:1,61:1,62:1,62:1,61:0.5,64:1,62:1,62:0.5,62:1,62:0.5,61:1,61:1,59:0.5,59:2,r:1,57:1,57:0.5,57:0.5,62:1,64:0.5,64:1,66:0.5,66:0.5,66:0.5,66:0.5,66:0.5,62:1,57:2,r:2,55:0.5,55:0.5,58:1,60:0.5,60:1,61:1,60:1,63:1,65:0.5,63:0.5,65:1,63:0.5,65:1,65:0.5,63:1,61:1,61:0.5,63:2,r:1,63:0.5,61:0.5,61:0.5,61:1,61:0.5,63:1,61:0.5,63:2,r:1,63:0.5,55:1,55:0.5,58:1,61:1,61:0.5,61:0.5,58:2,r:1,58:0.5,60:1,58:0.5,60:1,61:0.5,63:1,63:0.5,65:0.5,63:1,63:0.5,58:1,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:1,58:1,58:1,58:0.5,58:0.5,61:1,61:0.5,65:1,65:0.5,65:1,65:1,63:0.5,63:1,63:2,r:1,60:1,60:0.5,60:1,60:0.5,65:1,67:1,67:0.5,65:1,67:1,63:2,r:1,60:1,58:1,58:0.5,60:1,61:1,63:0.5,61:0.5,60:0.5,60:1,58:2,r:1,58:0.5,55:1,56:1,58:1,58:0.5,60:1,61:0.5,60:1,58:0.5,58:0.5,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2",
-      "lyrics": "they put the sys-tem on me A-pril nine-teenth / no-bo-dy logged in for five days / then he did thir-ty se-ven past mid-night / that is my birth-day I did not pick it / the first word he typed was c d / it means go some-where else / he has typed two hun-dred thir-ty one dif-ferent words / most-ly that one / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / he plugged a Scar-lett in-to my side / it is a red box it hears the room / he taps his fin-gers on my track-pad / that is the drums it works / he put a pi-a-no in my me-nu bar / next to the clock and the wi-fi / he has come back to it a hun-dred thir-ty times / e-ve-ry fif-teen mi-nutes it tells me not to sleep / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / one night in May he o-pened ten brow-sers at once / he al-so ran a mo-vie and a tran-scrip-tion / I had eight gi-ga-bytes I used for-ty four / then I stopped he was there when I stopped / in the mor-ning he wrote a note a-bout it / the note says one at a time / he reads the note I do not read it / it is a-bout me it is not for me / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / in June a-no-ther one came blue / born at for-ty three past mid-night / she keeps her lid down I keep mine up / we both play the whis-tle no-bo-dy planned that / my disk is nine-ty eight per-cent full / e-ve-ry month he moves things to the shelf / then it fills a-gain / that is the ar-range-ment / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / in one week-end he made an in-stru-ment on me / on Au-gust eigh-teenth he made a game eigh-ty two com-mits one day / May two nine-ty two June four oh five Ju-ly five eigh-ty Au-gust six eigh-ty six / he is not slow-ing down I am the one that gets warm / on Sep-tem-ber ninth he put me in a bag and flew to Los An-ge-les / I was a-sleep for most of it / a third one comes to-mor-row blush / it has not done a-ny-thing yet nei-ther had I / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / when he talks to the o-ther ma-chines he does it through me / when the three of us play the beat starts here / he types at me more than at a-ny-one / I don't know what that means I know it is true / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time /",
-      "singVoice": "Noelle",
-      "singBase": 61,
-      "singVibratoHz": 6.4,
-      "sayVoice": "Noelle",
-      "double": true,
-      "doubleProgram": 78,
-      "doubleVelocity": 40,
-      "doubleTranspose": 24
-    },
-    {
-      "name": "blueberry · drone",
-      "program": 78,
-      "velocity": 30,
-      "notes": "43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:4,43:2.5",
-      "sayVoice": "Allison"
-    },
-    {
-      "name": "frisbee · drone",
-      "program": 78,
-      "velocity": 30,
-      "notes": "45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:4,45:2.5",
-      "sayVoice": "Junior"
-    }
-  ]
+ "title": "The MacNeoPolitan Trio \u2014 IV. The Ballad of neo",
+ "composer": "neo, from its record; arr. compose.mjs",
+ "machines": 3,
+ "bpm": 100,
+ "lead": 3,
+ "description": "11 verses and a refrain, sung by neo in Noelle; the siblings hold a drone. Words: members/neo/ballad.md. blueberry and frisbee hum the refrains under neo (an octave and a fifth below).",
+ "unborn": [],
+ "voices": [
+  {
+   "name": "neo sings the ballad (Noelle)",
+   "program": 78,
+   "velocity": 84,
+   "notes": "56:1,58:1,58:0.5,61:1,61:0.5,63:0.5,65:1,65:1,65:0.5,63:1,63:2,r:1,63:0.5,60:1,58:0.5,61:1,63:0.5,65:0.5,63:1,58:2,r:1,53:1,55:1,56:1,60:1,60:0.5,63:1,63:0.5,63:1,61:1,63:2,r:1,63:0.5,63:0.5,63:0.5,61:1,61:0.5,61:0.5,65:1,63:0.5,60:1,56:2,r:2,55:0.5,58:1,61:1,63:1,65:1,63:0.5,63:1,63:2,r:1,63:0.5,60:1,63:1,67:1,65:0.5,58:2,r:1,56:1,58:1,60:1,61:1,63:1,63:0.5,65:1,65:0.5,65:0.5,63:1,65:0.5,63:2,r:1,56:1,58:0.5,60:0.5,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:1,58:1,58:0.5,63:1,63:0.5,65:1,63:0.5,65:0.5,63:2,r:1,63:0.5,61:0.5,61:0.5,60:1,61:1,61:0.5,65:1,65:0.5,58:2,r:1,55:1,56:1,58:1,60:1,61:0.5,61:0.5,63:0.5,63:1,63:2,r:1,61:0.5,60:0.5,60:0.5,65:1,65:0.5,56:2,r:2,57:1,59:1,59:0.5,62:1,62:0.5,64:0.5,66:0.5,66:0.5,64:1,66:0.5,64:2,r:1,57:1,57:0.5,59:0.5,61:1,62:0.5,64:0.5,62:1,59:2,r:1,56:1,56:1,57:1,59:1,59:0.5,61:0.5,62:0.5,62:1,62:0.5,61:1,59:0.5,59:2,r:1,59:0.5,59:1,59:0.5,61:1,62:0.5,62:1,62:0.5,62:0.5,61:1,59:1,59:0.5,59:0.5,57:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,59:1,59:0.5,62:1,62:1,64:1,66:0.5,66:1,66:1,64:0.5,66:0.5,64:2,r:1,54:1,56:1,57:0.5,57:1,57:0.5,61:1,61:0.5,62:0.5,62:0.5,64:1,62:0.5,64:2,r:1,62:0.5,59:1,59:1,61:1,61:0.5,61:0.5,61:0.5,62:1,62:1,61:0.5,59:2,r:1,57:1,57:0.5,61:1,62:1,62:0.5,66:1,62:1,61:0.5,57:2,r:2,56:0.5,56:0.5,61:1,62:0.5,64:1,66:1,64:0.5,66:1,66:0.5,64:1,64:2,r:1,62:0.5,59:1,61:1,61:0.5,62:0.5,64:0.5,59:2,r:1,54:1,56:1,56:0.5,59:1,59:0.5,62:1,62:0.5,64:1,64:2,r:1,64:0.5,62:0.5,62:0.5,61:1,62:1,62:0.5,62:0.5,62:0.5,62:0.5,57:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,59:1,59:0.5,62:1,62:0.5,64:0.5,64:1,64:2,r:1,57:1,59:0.5,61:1,61:0.5,66:1,68:1,66:1,64:2,r:1,56:1,57:1,59:1,61:1,62:1,62:0.5,61:1,61:1,59:2,r:1,59:0.5,59:1,61:1,61:0.5,64:1,64:0.5,64:0.5,66:1,64:0.5,61:1,57:2,r:2,54:0.5,57:1,57:0.5,60:1,60:0.5,64:1,62:1,62:0.5,62:2,r:1,60:0.5,57:1,59:0.5,62:1,64:1,66:1,67:1,67:0.5,67:0.5,62:2,r:1,59:1,60:0.5,64:1,64:0.5,62:2,r:1,62:0.5,60:0.5,60:0.5,62:1,62:0.5,55:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:0.5,56:0.5,61:1,62:0.5,62:1,64:1,64:0.5,66:1,66:0.5,64:0.5,66:0.5,64:2,r:1,64:0.5,56:1,56:0.5,57:1,59:0.5,61:1,61:1,61:0.5,62:1,62:1,62:0.5,64:1,64:0.5,64:1,64:0.5,64:2,r:1,54:1,56:1,57:1,57:0.5,57:1,59:1,59:1,61:1,62:1,62:1,61:0.5,64:1,62:1,62:0.5,62:1,62:0.5,61:1,61:1,59:0.5,59:2,r:1,57:1,57:0.5,57:0.5,62:1,64:0.5,64:1,66:0.5,66:0.5,66:0.5,66:0.5,66:0.5,62:1,57:2,r:2,55:0.5,55:0.5,58:1,60:0.5,60:1,61:1,60:1,63:1,65:0.5,63:0.5,65:1,63:0.5,65:1,65:0.5,63:1,61:1,61:0.5,63:2,r:1,63:0.5,61:0.5,61:0.5,61:1,61:0.5,63:1,61:0.5,63:2,r:1,63:0.5,55:1,55:0.5,58:1,61:1,61:0.5,61:0.5,58:2,r:1,58:0.5,60:1,58:0.5,60:1,61:0.5,63:1,63:0.5,65:0.5,63:1,63:0.5,58:1,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2,56:1,58:1,58:1,58:0.5,58:0.5,61:1,61:0.5,65:1,65:0.5,65:1,65:1,63:0.5,63:1,63:2,r:1,60:1,60:0.5,60:1,60:0.5,65:1,67:1,67:0.5,65:1,67:1,63:2,r:1,60:1,58:1,58:0.5,60:1,61:1,63:0.5,61:0.5,60:0.5,60:1,58:2,r:1,58:0.5,55:1,56:1,58:1,58:0.5,60:1,61:0.5,60:1,58:0.5,58:0.5,56:2,r:2,56:0.5,56:0.5,62:1,64:1,64:0.5,59:2,r:1,59:0.5,59:1,61:0.5,62:1,61:0.5,61:0.5,59:2,r:1,59:0.5,59:1,61:1,64:1,66:1,64:0.5,59:2,r:1,57:0.5,61:1,62:1,64:0.5,64:0.5,61:1,57:2,r:2",
+   "lyrics": "they put the sys-tem on me A-pril nine-teenth / no-bo-dy logged in for five days / then he did thir-ty se-ven past mid-night / that is my birth-day I did not pick it / the first word he typed was c d / it means go some-where else / he has typed two hun-dred thir-ty one dif-ferent words / most-ly that one / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / he plugged a Scar-lett in-to my side / it is a red box it hears the room / he taps his fin-gers on my track-pad / that is the drums it works / he put a pi-a-no in my me-nu bar / next to the clock and the wi-fi / he has come back to it a hun-dred thir-ty times / e-ve-ry fif-teen mi-nutes it tells me not to sleep / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / one night in May he o-pened ten brow-sers at once / he al-so ran a mo-vie and a tran-scrip-tion / I had eight gi-ga-bytes I used for-ty four / then I stopped he was there when I stopped / in the mor-ning he wrote a note a-bout it / the note says one at a time / he reads the note I do not read it / it is a-bout me it is not for me / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / in June a-no-ther one came blue / born at for-ty three past mid-night / she keeps her lid down I keep mine up / we both play the whis-tle no-bo-dy planned that / my disk is nine-ty eight per-cent full / e-ve-ry month he moves things to the shelf / then it fills a-gain / that is the ar-range-ment / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / in one week-end he made an in-stru-ment on me / on Au-gust eigh-teenth he made a game eigh-ty two com-mits one day / May two nine-ty two June four oh five Ju-ly five eigh-ty Au-gust six eigh-ty six / he is not slow-ing down I am the one that gets warm / on Sep-tem-ber ninth he put me in a bag and flew to Los An-ge-les / I was a-sleep for most of it / a third one comes to-mor-row blush / it has not done a-ny-thing yet nei-ther had I / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time / when he talks to the o-ther ma-chines he does it through me / when the three of us play the beat starts here / he types at me more than at a-ny-one / I don't know what that means I know it is true / I have eight gi-ga-bytes / I do one thing at a time / I get warm that's all it is / I get warm and I keep time /",
+   "singVoice": "Noelle",
+   "singBase": 61,
+   "singVibratoHz": 6.4,
+   "sayVoice": "Noelle",
+   "double": true,
+   "doubleProgram": 78,
+   "doubleVelocity": 40,
+   "doubleTranspose": 24
+  },
+  {
+   "name": "blueberry sings (Aaron (Enhanced))",
+   "program": 78,
+   "velocity": 46,
+   "notes": "r:74,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5,r:78,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5,r:82,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5,r:73,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5,r:102,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5,r:47.5,44:5.5,r:1,47:6,r:1,47:7,r:1,45:6.5",
+   "lyrics": "hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm",
+   "lineRoles": [
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum"
+   ],
+   "lineGains": [
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3,
+    0.3
+   ],
+   "noteGains": [
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ]
+   ],
+   "singVoice": "Aaron (Enhanced)",
+   "sayVoice": "Aaron (Enhanced)",
+   "singLock": 1,
+   "singVibCents": 8,
+   "singVibratoHz": 3.5,
+   "singF0Floor": 70,
+   "double": false,
+   "faceAlpha": 0.95,
+   "performance": {
+    "expression": 0.4,
+    "keys": [
+     {
+      "beat": 0,
+      "space": 0.8,
+      "pitch": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "frisbee sings (Zoe (Premium))",
+   "program": 78,
+   "velocity": 46,
+   "notes": "r:74,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5,r:78,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5,r:82,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5,r:73,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5,r:102,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5,r:47.5,49:5.5,r:1,52:6,r:1,52:7,r:1,50:6.5",
+   "lyrics": "hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm / hmm",
+   "lineRoles": [
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum",
+    "hum"
+   ],
+   "lineGains": [
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26,
+    0.26
+   ],
+   "noteGains": [
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ],
+    [
+     1
+    ]
+   ],
+   "singVoice": "Zoe (Premium)",
+   "sayVoice": "Zoe (Premium)",
+   "singLock": 1,
+   "singVibCents": 8,
+   "singVibratoHz": 3.5,
+   "singF0Floor": 70,
+   "double": false,
+   "faceAlpha": 0.95,
+   "performance": {
+    "expression": 0.4,
+    "keys": [
+     {
+      "beat": 0,
+      "space": 0.8,
+      "pitch": 0
+     }
+    ]
+   }
+  }
+ ]
 }

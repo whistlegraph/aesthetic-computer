@@ -37,12 +37,17 @@ plan=json.loads((OUT/'plan.json').read_text());nodes=json.loads((OUT/'native-loa
 bundle=json.loads((OUT/'prepared.json').read_text()) if (OUT/'prepared.json').exists() else {'id':None,'singers':[],'stems':{}}   # a piece without singers has no bundle
 members=[p['member'] for p in plan.get('payloads',[])];runid='full-trio-'+uuid.uuid4().hex[:10];errors=[];quit=threading.Event();record={'runId':runid,'arrangementHash':plan['arrangementHash'],'timing':'Native simulation-frame dispatch; acoustic alignment not calibrated','checks':{},'samples':[]}
 locks={n['id']:threading.Lock() for n in nodes}
-def request(url,data=None,method=None):
+def request(url,data=None,method=None,tries=1):
  raw=None if data is None else json.dumps(data).encode()
- with urllib.request.urlopen(urllib.request.Request(url,data=raw,method=method,headers={'Content-Type':'application/json'}),timeout=2) as r:
-  b=r.read()
-  try:return json.loads(b)
-  except:return b.decode()
+ for attempt in range(tries):   # venue Wi-Fi drops a request now and then; one timeout must not end the show
+  try:
+   with urllib.request.urlopen(urllib.request.Request(url,data=raw,method=method,headers={'Content-Type':'application/json'}),timeout=2) as r:
+    b=r.read()
+    try:return json.loads(b)
+    except:return b.decode()
+  except (urllib.error.URLError,TimeoutError,ConnectionError,OSError) as e:
+   if attempt==tries-1 or isinstance(e,urllib.error.HTTPError):raise
+   time.sleep(.4)
 def save(): (OUT/(runid+'.json')).write_text(json.dumps(record,indent=2))
 def parallel(fn,items):
  with cf.ThreadPoolExecutor(max_workers=12) as p:return list(p.map(fn,items))
@@ -71,7 +76,7 @@ def singercheck(h):
  e=next(x for x in bundle['singers'] if x['member']==h)
  assert s['phase']=='ready' and s['instance']==e['instance'] and s['fingerprint']==e['fingerprint'],(h,s)
  return h,{'clock':skew(h),'logBase':int(shell(h,'wc -l < /tmp/menuband.err')),'receipt':s}
-def status(n):return request(n['url']+'/pieces/trio-fleet-status.json')
+def status(n):return request(n['url']+'/pieces/trio-fleet-status.json',tries=3)
 def command(n,action,**kw):
  with locks[n['id']]:
   c={'id':uuid.uuid4().hex,'action':action,**kw};request(n['url']+'/pieces/trio-fleet-command.json',c,'PUT');return c['id']

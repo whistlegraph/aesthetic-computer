@@ -4,7 +4,7 @@
 //   card          — a huge word edge to edge in the seat's colour ("oskiewartime!")
 // The starfield hums: each seat swells its ring note (cfg.hz) as a slow sine bed,
 // with an octave or fifth now and then — the preshow ambient mix. Mic closed; backlight up.
-let cfg={mode:'starfield',text:''},color=[143,209,63],brightSteps=14,cfgAt=-Infinity,api=null,pulse=0,nextSwell=0,voices=[];
+let cfg={mode:'starfield',text:''},color=[143,209,63],brightSteps=14,cfgAt=-Infinity,api=null,pulse=0,nextSwell=0,voices=[],motifStep=0;
 const N=160,SPREAD=40;const sx=new Float64Array(N),sy=new Float64Array(N),sz=new Float64Array(N);
 const FONT='6x10';
 function textWidth(s,size){return s.length*6*size;}
@@ -20,9 +20,12 @@ export function sim({sound,system,screen}){
  if(brightSteps>0){brightSteps--;try{system.brightnessAdjust(1);}catch{}}
  if(sound.time-cfgAt>1){cfgAt=sound.time;const was=cfg.mode+'|'+(cfg.text||'');readCfg(system);if(cfg.mode+'|'+(cfg.text||'')!==was)try{system.writeFile('/pieces/venue-screen-status.json',JSON.stringify({mode:cfg.mode,text:cfg.text||'',at:Date.now()/1000}));}catch{}}
  pulse+=1/60;
- if(cfg.mode==='starfield'&&cfg.bed!==false&&sound.time>=nextSwell){const hz=cfg.hz||261.63;const pick=Math.random();const tone=pick<.55?hz:pick<.8?hz*1.5:pick<.92?hz*2:hz/2;const dur=7+Math.random()*7;
-  try{const v=sound.synth({type:'sine',tone,volume:(cfg.bedGain||.07)*(tone>hz?.7:1),duration:dur,attack:dur*.45,decay:dur*.45});voices.push(v);if(voices.length>8)voices.shift();}catch{}
-  nextSwell=sound.time+4+Math.random()*7;}
+ if(cfg.mode==='starfield'&&cfg.bed!==false&&sound.time>=nextSwell){const hz=cfg.hz||261.63;
+  // A slow pentatonic motif over the seat's ring note, each seat entering a step later, so the room hums a canon.
+  const MOTIF=[0,4,7,9,7,4,2,0,-3,0,4,7,12,9,7,4];const semi=MOTIF[(motifStep+(cfg.seat||0)*3)%MOTIF.length];motifStep++;
+  const tone=hz*Math.pow(2,(cfg.octave??-1)+semi/12);const dur=5+Math.random()*4;   // an octave under the ring note unless cfg.octave says otherwise
+  try{const v=sound.synth({type:'sine',tone,volume:(cfg.bedGain||.02)*(semi>=12?.7:1),duration:dur,attack:dur*.4,decay:dur*.45});voices.push(v);if(voices.length>8)voices.shift();}catch{}
+  nextSwell=sound.time+3.2+Math.random()*1.6;}
  if(cfg.mode==='starfield'){const speed=cfg.speed||2.1,w=screen.width,h=screen.height;
   for(let i=0;i<N;i++){sz[i]-=.01*speed;if(sz[i]<=0){reset(i);continue;}const x=Math.tan(sx[i]/sz[i])*w/2+w/2,y=Math.tan(sy[i]/sz[i])*h/2+h/2;if(x<0||x>=w||y<0||y>=h)reset(i);}}}
 export function paint({wipe,ink,plot,write,screen}){
