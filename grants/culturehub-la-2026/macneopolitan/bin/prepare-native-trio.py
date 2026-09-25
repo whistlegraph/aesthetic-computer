@@ -10,7 +10,7 @@ its wedge cues. Never sends prepare/play.
 import concurrent.futures,hashlib,json,os,struct,time,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1];OUT=Path(os.environ.get('TRIO_OUT','/Users/jas/Shelf/culturehub-one-big-voice'))   # TRIO_OUT=… picks the song's shelf folder
-ALLOW=['culturehub-rehearsal','culturehub-concert','trio-fleet','spatial-rehearsal','notespatial-controls']+[p for p in os.environ.get('TRIO_ALLOW_PIECES','').split(',') if p]   # pieces a seat may be showing before we load
+ALLOW=['culturehub-rehearsal','culturehub-concert','trio-fleet','spatial-rehearsal','notespatial-controls','notespatial-live-vol','notespatial-live-263da9','venue-screen','notepat']+[p for p in os.environ.get('TRIO_ALLOW_PIECES','').split(',') if p]   # pieces a seat may be showing before we load
 plan=json.loads((OUT/'plan.json').read_text());assets=json.loads((OUT/'prepared.json').read_text())
 assert assets['arrangementHash']==plan['arrangementHash']
 stems=assets.get('stems') or {'seat-5':assets['centerMix']}   # v1 bundles carry only the Center mix
@@ -39,7 +39,7 @@ def load(node):
     colors=plan.get('colors',{})
     cfg={'schema':'trio-native-v1','receiverId':node['id'],'arrangementHash':plan['arrangementHash'],'bpm':plan['bpm'],'duration':plan['duration'],
      'color':[[143,209,63],[90,87,211],[242,167,185]][node['seat']%3],'seat':node['seat'],'label':node.get('label'),'heldCenter':node['seat']==5,
-     'mix':plan.get('levels',{}).get('mix',.25),
+     'mix':plan.get('levels',{}).get('mix',.25),'fx':plan.get('fx') or {'room':.15},   # air: a little room on every Trio seat unless the plan says otherwise
      'events':[e for e in plan['events'] if mine(e) and e['layer'] not in ('dmx','voice','light') and not e.get('baked')],   # baked layers ride the stem
      'routes':[{k:e[k] for k in ('t','dur','member','phrase','text','gain','role','delay','rgb')} for e in plan['events'] if mine(e) and e['layer']=='voice'],
      'lyrics':plan.get('lyrics',[]),

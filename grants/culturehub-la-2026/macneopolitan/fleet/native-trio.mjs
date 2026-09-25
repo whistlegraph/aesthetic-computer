@@ -13,7 +13,7 @@ let brightSteps=0,volumeAt=-Infinity,lightAt=-Infinity,lastLight='';
 const instance=String(Date.now())+'-'+Math.random().toString(36).slice(2);
 function read(system,path){const bytes=new Uint8Array(system.readFileBytes(path));let text='';for(let i=0;i<bytes.length;i+=4096)text+=String.fromCharCode.apply(null,bytes.subarray(i,i+4096));return JSON.parse(text);}
 function dark(system){if(cfg?.heldCenter){let ok=false;try{ok=system.dmxSend(new Array(64).fill(0));}catch{}lastLight='0,0,0';system.writeFile('/pieces/center-dmx-live.json',JSON.stringify({ok,rgb:[0,0,0],active:false,scoreTime:origin===null?-1:api.sound.time-origin,address:41}));}}
-function stop(sound){dark(api.system);for(const v of voices)v?.kill?.(.025);voices=[];sound.deck.pause(0);origin=null;cursor=0;phase=error?'error':'ready';}
+function stop(sound){dark(api.system);for(const v of voices)v?.kill?.(.025);voices=[];sound.deck.pause(0);origin=null;cursor=0;phase=error?'error':'ready';try{sound.room?.setMix?.(0);}catch{}}   // the air (room mix) never outlives a piece
 export function boot(a){
  api=a;a.sound.microphone.close();a.sound.volume.setMono(true);a.sound.volume.setMonoOutput('left');
  try{
@@ -59,7 +59,7 @@ export function sim(a){
   if(cmd.action==='stop')stop(sound);
   if(cmd.action==='keepalive'&&cmd.runId===runId)heartbeat=now;
   if(cmd.action==='prepare'&&!error&&cmd.arrangementHash===cfg.arrangementHash&&Number.isFinite(cmd.startAt)&&cmd.startAt>now+2){
-   stop(sound);origin=cmd.startAt;target=origin;eventsStarted=0;runId=cmd.runId;phase='prepared';heartbeat=now;startedAt=null;maxFrameGap=0;brightSteps=14;
+   stop(sound);origin=cmd.startAt;target=origin;eventsStarted=0;runId=cmd.runId;phase='prepared';heartbeat=now;startedAt=null;maxFrameGap=0;brightSteps=14;try{sound.room?.setMix?.(Number.isFinite(cfg.fx?.room)?cfg.fx.room:0);}catch{}   // air: the room reverb the plan asks for (cfg.fx.room)
    if(cfg.center)sound.deck.seek(0,0);
   }
   if(cmd.action==='play'&&cmd.runId===runId&&phase==='prepared'&&origin>now+.5){phase='countdown';heartbeat=now;}
@@ -88,7 +88,7 @@ export function sim(a){
   system.writeFile('/pieces/trio-fleet-status.json',JSON.stringify({schema:'trio-native-status-v1',instance,receiverId:cfg?.receiverId,
    arrangementHash:cfg?.arrangementHash,phase,error,command:seen,runId,origin,audioTime:now,startedAt,startLateMs:startedAt===null?null:1000*(startedAt-target),
    maxFrameGap,centerReady,center:cfg?.center?{...cfg.center,loaded:deck.loaded,playing:deck.playing,position:deck.position,duration:deck.duration,error:deck.error}:null,
-   eventCount:cfg?.events.length,eventsStarted,duration:cfg?.duration,mono:sound.volume.mono,monoOutput:sound.volume.monoOutput,mix:sound.volume.mix,brightness:system.brightness,
+   eventCount:cfg?.events.length,eventsStarted,duration:cfg?.duration,mono:sound.volume.mono,monoOutput:sound.volume.monoOutput,mix:sound.volume.mix,room:sound.room?.mix,brightness:system.brightness,
    microphoneHot:sound.microphone.hot,displayMode:'concert',fullscreen:true,pointerHidden:true,clockPrecision:'simulation-frame',
    output:sound.speaker.amplitudes}));
  }

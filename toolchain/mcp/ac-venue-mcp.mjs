@@ -225,20 +225,20 @@ async function runQueueOnce() {
     }
     if (ownConductor) {   // a ring-score conductor expects the seats on the stock rehearsal piece, not on trio-fleet
       const fleet = readJson(ENV.TRIO_FLEET, []); let jumped = 0;
-      // The seats' OS image carries an older lib/spatial-rehearsal.mjs (no eventGain) and their runtime keeps the
-      // old module cached under its name, so the current piece is staged importing a freshly named copy of the lib.
-      try { const lib = readFileSync(join(REPO, "fedac/native/lib/spatial-rehearsal.mjs")); const piece = readFileSync(join(REPO, "fedac/native/pieces/spatial-rehearsal.mjs"), "utf8").replace("'../lib/spatial-rehearsal.mjs'", "'../lib/spatial-rehearsal-v2.mjs'")
-          .replace("export function sim({ sound, system, screen, wifi }) {", "let __volAt = -Infinity;\nexport function sim({ sound, system, screen, wifi }) {\n  if (sound.time - __volAt > .25) { __volAt = sound.time; try { const v = JSON.parse(system.readFile('/pieces/composition-volume.json')); if (Number.isFinite(v.percent) && v.percent >= 0 && v.percent <= 100 && Math.abs(sound.volume.mix - v.percent / 100) > .002) sound.volume.setMix(v.percent / 100); } catch {} }   // the room volume file, as trio-fleet follows it");
-        if (!piece.includes("__volAt")) console.error("seat patch: the volume follower did not apply (sim signature changed)");
-        await Promise.all(fleet.map(async ([host, port]) => { try { await fetch(`http://${host}:${port}/lib/spatial-rehearsal-v2.mjs`, { method: "PUT", body: lib }); await fetch(`http://${host}:${port}/pieces/spatial-rehearsal.mjs`, { method: "PUT", body: piece }); } catch (e) { console.error(`seat patch ${host}: ${e.message || e}`); } })); } catch (e) { console.error(`seat patch: ${e.message || e}`); }
-      await Promise.all(fleet.map(async ([host, port]) => { try { const st = await fetchJson(`http://${host}:${port}/status`, {}, 2500); if (st.piece === "trio-fleet" || st.piece === "venue-screen") { await fetch(`http://${host}:${port}/jump/spatial-rehearsal`, { method: "PUT", body: "" }); jumped++; } } catch {} }));
-      if (jumped) { runnerNote = `moved ${jumped} seats to spatial-rehearsal for ${item.label}`; await new Promise((r) => setTimeout(r, 14000)); }
+      // Act I runs on the performance build installed by the USB update (notespatial-live-263da9 → notespatial-performance-263da9:
+      // the concert look, no HUD, the master normalizer), staged here under fresh names with the room-volume follower added —
+      // the runtime caches modules by name, so the installed files are left alone. The ring conductor keeps whatever piece a seat is on.
+      const RING_PIECE = "notespatial-live-vol";
+      try { const mod = readFileSync(join(SHELF, "act1-seat/notespatial-performance-263da9-vol.mjs")), wrap = readFileSync(join(SHELF, "act1-seat/notespatial-live-vol.mjs"));
+        await Promise.all(fleet.map(async ([host, port]) => { try { await fetch(`http://${host}:${port}/pieces/notespatial-performance-263da9-vol.mjs`, { method: "PUT", body: mod }); await fetch(`http://${host}:${port}/pieces/notespatial-live-vol.mjs`, { method: "PUT", body: wrap }); } catch (e) { console.error(`seat stage ${host}: ${e.message || e}`); } })); } catch (e) { console.error(`seat stage: ${e.message || e}`); }
+      await Promise.all(fleet.map(async ([host, port]) => { try { const st = await fetchJson(`http://${host}:${port}/status`, {}, 2500); if (st.piece !== RING_PIECE) { await fetch(`http://${host}:${port}/jump/${RING_PIECE}`, { method: "PUT", body: "" }); jumped++; } } catch {} }));
+      if (jumped) { runnerNote = `moved ${jumped} seats to ${RING_PIECE} for ${item.label}`; await new Promise((r) => setTimeout(r, 14000)); }
       if (item.subReset !== false) {   // blueberry's SUB server only leaves Trio mode by restarting; its seat clocks must be fresh (< 30 min)
         runnerNote = `resetting the SUB server for ${item.label}`;
         try { const r = await pexec("bash", [join(SHELF, "sub-reset.sh")], { timeout: 60000 }); console.error("sub reset: " + (r.stdout || "").trim().slice(-200)); } catch (e) { console.error(`sub reset failed: ${e.message || e}`); }
       }
     }
-    if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, sing: !!item.sing, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
+    if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, sing: !!item.sing, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,notespatial-live-vol,notespatial-live-263da9,venue-screen,notepat,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
     mark("checking"); runnerNote = `checking ${item.label || item.out}`; const c = await check(item.out); if (!c.ready) throw new Error(`not ready: ${c.tail.join(" | ")}`);
     const baked = !!readJson(join(outDir(item.out), "plan.json"))?.leadIn;   // the announcement rides the stems: no Mac TTS
