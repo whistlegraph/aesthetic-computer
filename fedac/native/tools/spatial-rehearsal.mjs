@@ -102,19 +102,21 @@ if (action === 'deploy') {
       throw Error('Supply the complete ensemble with unique seats');
     if (allowMissing) console.log('Missing seats stay silent at their assigned positions: ' + expected.filter(i => !before.some(s => s.seat === i)).map(i => i + 1).join(', '));
     const clocks = await Promise.all(hosts.map(async host => {
-      let best = null;
+      let best = null, lost = 0;
       for (let i = 0; i < 7; i++) {
         const probeId = `${id}-clock-${i}`;
         const sent = performance.now() / 1000;
         await request(host, '/pieces/spatial-rehearsal-command.json', JSON.stringify({ id: probeId, action: 'clock' }));
-        let reply;
-        const deadline = sent + 3;
+        let reply, timedOut = false;
+        const deadline = sent + 4;
         do {
           try { reply = JSON.parse(await request(host, '/pieces/spatial-rehearsal-clock.json')); } catch (_) { /* retry */ }
           if (reply?.id === probeId) break;
-          if (performance.now() / 1000 >= deadline) throw Error(`${host}: clock probe timed out`);
+          if (performance.now() / 1000 >= deadline) { timedOut = true; break; }
           await delay(10);
         } while (true);
+        // a seat that has just parsed a large score answers late once or twice; venue Wi-Fi drops a probe now and then
+        if (timedOut) { if (++lost > 4) throw Error(`${host}: clock probe timed out (${lost} of ${i + 1})`); console.log(`${host}: clock probe ${i} lost, retrying`); i--; continue; }
         const received = performance.now() / 1000;
         const rtt = received - sent;
         if (!best || rtt < best.rtt) best = { rtt, offset: reply.audioTime - (sent + received) / 2 };

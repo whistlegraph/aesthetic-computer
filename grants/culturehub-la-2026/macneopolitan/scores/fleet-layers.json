@@ -1,14 +1,400 @@
 {
-  "_": "Per-piece backing sources for the room planner (bin/trio-fleet-plan.mjs): which member feeds bass, bed and ornaments, and beats per bar. A score's own `fleet` block wins over this file.",
-  "trio-open-me":          { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-spell-sophia":     { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-abc":              { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-what-starts-with": { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-sums":             { "bass": "blueberry", "bed": "blueberry", "ornament": "frisbee" },
-  "trio-take-away":        { "bass": "blueberry", "bed": "blueberry", "ornament": "frisbee" },
-  "trio-thirteen-days":    { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-vocalise":         { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-lights-out":       { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-lullaby":          { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" },
-  "trio-the-record":       { "bass": "blueberry", "bed": "blueberry", "ornament": "neo" }
+ "_": "Per-piece backing sources for the room planner (bin/trio-fleet-plan.mjs): which member feeds bass, bed and ornaments, and beats per bar. A score's own `fleet` block wins over this file. An entry may also author the arrangement: `sections` [{beat,name,kind}] and a `kinds` table, each kind a multiplier per layer (harmony, inst, pad, perc, sub, bed, ornament, drone), a `dmx` colour arc for neo's four PARs (breathe | chase | pulse, colours 0-255 scaled by the lights level, `entry` flashes all four at the section start) and a `light` cue for the held center's wedge (per bar or per beat).",
+ "trio-open-me": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-spell-sophia": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-abc": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-what-starts-with": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-sums": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "frisbee"
+ },
+ "trio-take-away": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "frisbee"
+ },
+ "trio-thirteen-days": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-vocalise": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-lights-out": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-lullaby": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-the-record": {
+  "bass": "blueberry",
+  "bed": "blueberry",
+  "ornament": "neo"
+ },
+ "trio-iv-ballad": {
+  "_": "The Ballad of neo (6:16, 100 bpm in four): eleven verses and a refrain sung by neo; the siblings hold their drone. Warm sustained bed and a heartbeat under the verses, the refrain swells in harmony with the pulse kept on the SUB, the slow eleventh verse thins to the heartbeat, and the last refrain is everything at once.",
+  "bass": "neo",
+  "bed": "neo",
+  "ornament": "neo",
+  "beatsPerBar": 4,
+  "arrangement": {
+   "meter": "4/4",
+   "total": 626.5
+  },
+  "sections": [
+   {
+    "beat": 0,
+    "name": "I. April nineteenth",
+    "kind": "verse"
+   },
+   {
+    "beat": 40,
+    "name": "II. The first word",
+    "kind": "verse"
+   },
+   {
+    "beat": 74,
+    "name": "Refrain",
+    "kind": "refrain"
+   },
+   {
+    "beat": 104,
+    "name": "III. The Scarlett",
+    "kind": "verse"
+   },
+   {
+    "beat": 138,
+    "name": "IV. A piano in the menu bar",
+    "kind": "verse"
+   },
+   {
+    "beat": 180,
+    "name": "Refrain",
+    "kind": "refrain"
+   },
+   {
+    "beat": 210,
+    "name": "V. Ten browsers",
+    "kind": "verse"
+   },
+   {
+    "beat": 253.5,
+    "name": "VI. The note",
+    "kind": "verse"
+   },
+   {
+    "beat": 290,
+    "name": "Refrain",
+    "kind": "refrain"
+   },
+   {
+    "beat": 320,
+    "name": "VII. Blue",
+    "kind": "verse"
+   },
+   {
+    "beat": 359,
+    "name": "VIII. The shelf",
+    "kind": "verse"
+   },
+   {
+    "beat": 391,
+    "name": "Refrain",
+    "kind": "refrain"
+   },
+   {
+    "beat": 421,
+    "name": "IX. Eighty-two commits",
+    "kind": "verse"
+   },
+   {
+    "beat": 477.5,
+    "name": "X. Los Angeles",
+    "kind": "verse"
+   },
+   {
+    "beat": 521,
+    "name": "Refrain",
+    "kind": "refrain"
+   },
+   {
+    "beat": 551,
+    "name": "XI. The beat starts here",
+    "kind": "bridge"
+   },
+   {
+    "beat": 596.5,
+    "name": "Last refrain",
+    "kind": "last"
+   }
+  ],
+  "kinds": {
+   "verse": {
+    "harmony": {
+     "gain": 0.6,
+     "every": 2,
+     "intervals": [
+      -12
+     ]
+    },
+    "inst": {
+     "gain": 0.6
+    },
+    "perc": {
+     "gain": 0.85,
+     "ticks": 0.3
+    },
+    "sub": {
+     "thump": 1.1,
+     "sustain": 0.5
+    },
+    "bed": {
+     "gain": 1
+    },
+    "ornament": {
+     "gain": 0.8,
+     "notes": 3
+    },
+    "drone": 0.8,
+    "dmx": {
+     "mode": "breathe",
+     "colors": [
+      [
+       255,
+       150,
+       40
+      ],
+      [
+       255,
+       110,
+       20
+      ],
+      [
+       235,
+       90,
+       60
+      ],
+      [
+       255,
+       130,
+       30
+      ]
+     ],
+     "level": 0.9
+    }
+   },
+   "refrain": {
+    "harmony": {
+     "gain": 1.4,
+     "every": 1,
+     "intervals": [
+      7,
+      -12
+     ],
+     "swell": 0.5
+    },
+    "inst": {
+     "gain": 1
+    },
+    "pad": {
+     "gain": 1,
+     "fifth": 0.7
+    },
+    "perc": {
+     "gain": 1,
+     "ticks": 0.45,
+     "brush": 1
+    },
+    "sub": {
+     "thump": 1.25,
+     "sustain": 0.7,
+     "third": 0.9
+    },
+    "bed": {
+     "gain": 1.2,
+     "fifth": 0.6
+    },
+    "ornament": {
+     "gain": 1,
+     "notes": 3
+    },
+    "drone": 1,
+    "dmx": {
+     "mode": "chase",
+     "colors": [
+      [
+       143,
+       209,
+       63
+      ],
+      [
+       90,
+       87,
+       211
+      ],
+      [
+       242,
+       167,
+       185
+      ]
+     ],
+     "level": 1.2,
+     "entry": true
+    },
+    "light": {
+     "rgb": [
+      242,
+      167,
+      185
+     ],
+     "per": "bar",
+     "gain": 0.35
+    }
+   },
+   "bridge": {
+    "harmony": {
+     "gain": 0.5,
+     "every": 2,
+     "intervals": [
+      -12
+     ]
+    },
+    "inst": {
+     "gain": 0.4
+    },
+    "pad": {
+     "gain": 0.6
+    },
+    "perc": {
+     "gain": 0.6
+    },
+    "sub": {
+     "thump": 0.9,
+     "sustain": 0.4
+    },
+    "bed": {
+     "gain": 0.9,
+     "attack": 0.5
+    },
+    "ornament": {
+     "gain": 0.6,
+     "notes": 2
+    },
+    "drone": 0.6,
+    "dmx": {
+     "mode": "breathe",
+     "colors": [
+      [
+       140,
+       80,
+       255
+      ],
+      [
+       60,
+       60,
+       220
+      ]
+     ],
+     "level": 0.6
+    }
+   },
+   "last": {
+    "harmony": {
+     "gain": 1.6,
+     "both": true,
+     "intervals": [
+      7,
+      -12
+     ]
+    },
+    "inst": {
+     "gain": 1.2
+    },
+    "pad": {
+     "gain": 1.3,
+     "fifth": 0.8
+    },
+    "perc": {
+     "gain": 1.1,
+     "ticks": 0.5,
+     "brush": 2,
+     "third": 0.8
+    },
+    "sub": {
+     "thump": 1.35,
+     "sustain": 0.75,
+     "third": 1.1
+    },
+    "bed": {
+     "gain": 1.4,
+     "fifth": 0.7
+    },
+    "ornament": {
+     "gain": 1.1,
+     "notes": 3
+    },
+    "drone": 1.15,
+    "dmx": {
+     "mode": "pulse",
+     "colors": [
+      [
+       255,
+       220,
+       180
+      ],
+      [
+       143,
+       209,
+       63
+      ],
+      [
+       90,
+       87,
+       211
+      ],
+      [
+       242,
+       167,
+       185
+      ]
+     ],
+     "level": 1.6,
+     "entry": true
+    },
+    "light": {
+     "rgb": [
+      255,
+      220,
+      180
+     ],
+     "per": "beat",
+     "gain": 0.35
+    }
+   }
+  }
+ }
 }

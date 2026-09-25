@@ -170,6 +170,18 @@ async function stop() {
 const queue = () => readJson(QUEUE, { items: [], autoplay: false, history: [] });
 const saveQueue = (q) => { writeFileSync(QUEUE, JSON.stringify({ ...q, updatedAt: Date.now() / 1000 }, null, 2) + "\n"); return q; };
 let runnerBusy = false, runnerTimer = null, runnerNote = "";
+const SCREEN_PIECE = join(LANE, "fleet/venue-screen.mjs");
+async function showScreen(mode, text, sub) {   // stage fleet/venue-screen.mjs on every seat with its config and jump to it
+  const fleet = readJson(ENV.TRIO_FLEET, []); const code = readFileSync(SCREEN_PIECE); let shown = 0;
+  await Promise.all(fleet.map(async ([host, port, label, note, hz], i) => { const url = `http://${host}:${port}`; try {
+    const cfg = { mode, text, sub, seat: i, label, hz: Number.isFinite(hz) ? hz : 261.63, at: Date.now() / 1000 };
+    await fetch(`${url}/pieces/venue-screen-config.json`, { method: "PUT", body: JSON.stringify(cfg) });
+    await fetch(`${url}/pieces/venue-screen.mjs`, { method: "PUT", body: code });
+    await fetch(`${url}/jump/venue-screen`, { method: "PUT", body: "" }); shown++;
+  } catch (e) { console.error(`screen ${host}: ${e.message || e}`); } }));
+  await new Promise((r) => setTimeout(r, 3000));
+  return shown;
+}
 async function runQueueOnce() {
   if (runnerBusy) return;
   const q = queue(); const item = q.items.find((i) => i.status === "queued" || i.status === "ready");
@@ -181,11 +193,26 @@ async function runQueueOnce() {
   const mark = (status, extra = {}) => { const qq = queue(); const it = qq.items.find((i) => i.id === item.id); if (it) Object.assign(it, { status, ...extra }); saveQueue(qq); };
   try {
     setRig({ owner: local, since: new Date().toISOString(), note: `setlist: ${item.label || item.out}` });
+    if (item.piece) {   // hand every laptop to a stock piece (notepat after the set: come up and play)
+      mark("preparing"); runnerNote = `jumping the seats to ${item.piece}`; const fleet = readJson(ENV.TRIO_FLEET, []); let jumped = 0;
+      await Promise.all(fleet.map(async ([host, port]) => { try { await fetch(`http://${host}:${port}/jump/${item.piece}`, { method: "PUT", body: "" }); jumped++; } catch (e) { console.error(`jump ${host}: ${e.message || e}`); } }));
+      runnerNote = `${item.piece} on ${jumped} seats`; mark("done", { finishedAt: Date.now() / 1000 });
+      if (item.stopAfter) { try { writeFileSync(join(SHELF, "venue-runner.stop"), `after ${item.label}\n`); } catch {} }
+      return;
+    }
+    if (item.screen) {   // a seat screen (starfield / a card) on every laptop, then a hold
+      mark("preparing"); runnerNote = `putting ${item.screen} on the seats`;
+      const shown = await showScreen(item.screen, item.text || null, item.sub || null);
+      runnerNote = `${item.screen} on ${shown} seats`;
+      if (!item.hold) { mark("done", { finishedAt: Date.now() / 1000 }); return; }
+    }
     if (item.hold) {   // a timed rest: the room is open (oskiewar hang time), nothing is cued
       mark("playing", { startedAt: Date.now() / 1000 }); runnerNote = `holding ${item.label} for ${item.hold} s`;
       const until = Date.now() + item.hold * 1000;
       while (Date.now() < until) { if (existsSync(join(SHELF, "venue-runner.skip"))) { try { unlinkSync(join(SHELF, "venue-runner.skip")); } catch {} break; } await new Promise((r) => setTimeout(r, 2000)); }
-      mark("done", { finishedAt: Date.now() / 1000 }); runnerNote = `finished hold ${item.label}`; return;
+      mark("done", { finishedAt: Date.now() / 1000 }); runnerNote = `finished hold ${item.label}`;
+      if (item.stopAfter) { try { writeFileSync(join(SHELF, "venue-runner.stop"), `after ${item.label}\n`); } catch {} runnerNote += "; runner parked (stopAfter)"; }
+      return;
     }
     // A folder with its own conductor stages itself — unless it also carries a
     // prepared bundle (stems) that our staging knows how to put on the seats.
@@ -198,8 +225,18 @@ async function runQueueOnce() {
     }
     if (ownConductor) {   // a ring-score conductor expects the seats on the stock rehearsal piece, not on trio-fleet
       const fleet = readJson(ENV.TRIO_FLEET, []); let jumped = 0;
-      await Promise.all(fleet.map(async ([host, port]) => { try { const st = await fetchJson(`http://${host}:${port}/status`, {}, 2500); if (st.piece === "trio-fleet") { await fetch(`http://${host}:${port}/jump/spatial-rehearsal`, { method: "PUT", body: "" }); jumped++; } } catch {} }));
+      // The seats' OS image carries an older lib/spatial-rehearsal.mjs (no eventGain) and their runtime keeps the
+      // old module cached under its name, so the current piece is staged importing a freshly named copy of the lib.
+      try { const lib = readFileSync(join(REPO, "fedac/native/lib/spatial-rehearsal.mjs")); const piece = readFileSync(join(REPO, "fedac/native/pieces/spatial-rehearsal.mjs"), "utf8").replace("'../lib/spatial-rehearsal.mjs'", "'../lib/spatial-rehearsal-v2.mjs'")
+          .replace("export function sim({ sound, system, screen, wifi }) {", "let __volAt = -Infinity;\nexport function sim({ sound, system, screen, wifi }) {\n  if (sound.time - __volAt > .25) { __volAt = sound.time; try { const v = JSON.parse(system.readFile('/pieces/composition-volume.json')); if (Number.isFinite(v.percent) && v.percent >= 0 && v.percent <= 100 && Math.abs(sound.volume.mix - v.percent / 100) > .002) sound.volume.setMix(v.percent / 100); } catch {} }   // the room volume file, as trio-fleet follows it");
+        if (!piece.includes("__volAt")) console.error("seat patch: the volume follower did not apply (sim signature changed)");
+        await Promise.all(fleet.map(async ([host, port]) => { try { await fetch(`http://${host}:${port}/lib/spatial-rehearsal-v2.mjs`, { method: "PUT", body: lib }); await fetch(`http://${host}:${port}/pieces/spatial-rehearsal.mjs`, { method: "PUT", body: piece }); } catch (e) { console.error(`seat patch ${host}: ${e.message || e}`); } })); } catch (e) { console.error(`seat patch: ${e.message || e}`); }
+      await Promise.all(fleet.map(async ([host, port]) => { try { const st = await fetchJson(`http://${host}:${port}/status`, {}, 2500); if (st.piece === "trio-fleet" || st.piece === "venue-screen") { await fetch(`http://${host}:${port}/jump/spatial-rehearsal`, { method: "PUT", body: "" }); jumped++; } } catch {} }));
       if (jumped) { runnerNote = `moved ${jumped} seats to spatial-rehearsal for ${item.label}`; await new Promise((r) => setTimeout(r, 14000)); }
+      if (item.subReset !== false) {   // blueberry's SUB server only leaves Trio mode by restarting; its seat clocks must be fresh (< 30 min)
+        runnerNote = `resetting the SUB server for ${item.label}`;
+        try { const r = await pexec("bash", [join(SHELF, "sub-reset.sh")], { timeout: 60000 }); console.error("sub reset: " + (r.stdout || "").trim().slice(-200)); } catch (e) { console.error(`sub reset failed: ${e.message || e}`); }
+      }
     }
     if (item.status !== "ready" && !ownConductor && !already) { mark("preparing"); runnerNote = `preparing ${item.label || item.out}`; await prepare({ score: item.score, out: item.out, stage: true, keepPiece: false, announce: item.score ? item.announce : null, sing: !!item.sing, allowPieces: item.allowPieces || "spatial-rehearsal,notespatial-controls,culturehub-rehearsal,red,connection-check,connection-controls,say" }); }
     await new Promise((r) => setTimeout(r, 4000));   // the seats settle after a jump before the gate reads them
@@ -207,7 +244,10 @@ async function runQueueOnce() {
     const baked = !!readJson(join(outDir(item.out), "plan.json"))?.leadIn;   // the announcement rides the stems: no Mac TTS
     mark("cueing"); const r = await cue({ out: item.out, announce: baked ? null : item.announce, rttMax: item.rttMax || 0.08 });   // venue Wi-Fi: ±40 ms clocks, printed as a warning mark("playing", { runId: r.runId, startedAt: Date.now() / 1000 });
     runnerNote = `playing ${item.label || item.out} (${r.runId})`;
+    let lights = null;
+    if (ownConductor && item.lights !== false) { try { lights = spawn("node", [join(LANE, "bin/ring-lights.mjs")], { env: { ...process.env, TRIO_DMX: ENV.TRIO_DMX, RING_LIGHTS_RECEIPT: join(outDir(item.out), "ring-lights-receipt.json") }, stdio: ["ignore", "ignore", "inherit"] }); } catch (e) { console.error(`ring lights: ${e.message || e}`); } }
     const run = runs.get(r.runId); await new Promise((done) => run.child.on("close", done));
+    if (lights) setTimeout(() => { try { lights.kill(); } catch {} }, 8000);
     const rc = result(r.runId, item.out);
     mark(rc.receipt?.completed ? "done" : "failed", { finishedAt: Date.now() / 1000, receipt: rc.receipt?.runId, error: rc.receipt?.error || null });
     const qq = queue(); qq.history = [...(qq.history || []), { ...qq.items.find((i) => i.id === item.id) }].slice(-50); saveQueue(qq);
@@ -220,7 +260,7 @@ function setAutoplay(on) { const q = saveQueue({ ...queue(), autoplay: !!on }); 
 if (queue().autoplay) setAutoplay(true);
 
 const TOOLS = [
-  { name: "venue_enqueue", description: "Add a piece to the room's setlist — or a timed rest with `hold` seconds (the room stays open, nothing is cued; `touch ~/Shelf/venue-runner.skip` ends it early): `out` (song folder under ~/Shelf or absolute; with `score` it is planned and prepared first, otherwise the folder's plan/bundle is staged as is), optional `label`, `announce` (spoken before the cue), `gap` seconds of rest after, `allowPieces`. Items play in order when autoplay is on and the rig is free. `setlist` loads every item of a scores/*.json setlist file at once.", inputSchema: { type: "object", properties: { out: { type: "string" }, hold: { type: "number" }, score: { type: "string" }, label: { type: "string" }, announce: { type: "string" }, gap: { type: "number" }, allowPieces: { type: "string" }, rttMax: { type: "number" }, sing: { type: "boolean" }, setlist: { type: "string", description: "path or name of a setlist json in the lane's scores/ (items: [{score,out,label,announce}])" } } } },
+  { name: "venue_enqueue", description: "Add a piece to the room's setlist — or a timed rest with `hold` seconds (the room stays open, nothing is cued; `touch ~/Shelf/venue-runner.skip` ends it early): `out` (song folder under ~/Shelf or absolute; with `score` it is planned and prepared first, otherwise the folder's plan/bundle is staged as is), optional `label`, `announce` (spoken before the cue), `gap` seconds of rest after, `allowPieces`. Items play in order when autoplay is on and the rig is free. `setlist` loads every item of a scores/*.json setlist file at once.", inputSchema: { type: "object", properties: { out: { type: "string" }, hold: { type: "number" }, screen: { type: "string", description: "starfield | card — shown on every seat (with `hold` seconds; `text`/`sub` for the card)" }, text: { type: "string" }, sub: { type: "string" }, piece: { type: "string", description: "jump every seat to this stock piece (e.g. notepat after the set) and mark done" }, stopAfter: { type: "boolean", description: "park the runner after this item (Jeffrey triggers the next by hand)" }, score: { type: "string" }, label: { type: "string" }, announce: { type: "string" }, gap: { type: "number" }, allowPieces: { type: "string" }, rttMax: { type: "number" }, sing: { type: "boolean" }, setlist: { type: "string", description: "path or name of a setlist json in the lane's scores/ (items: [{score,out,label,announce}])" } } } },
   { name: "venue_setlist", description: "The setlist: every item with its status (queued, preparing, checking, cueing, playing, done, failed), autoplay, what the runner is waiting on, rig ownership, and the last plays.", inputSchema: { type: "object", properties: {} } },
   { name: "venue_dequeue", description: "Remove an item by id, or every queued item (`all: true`). A playing item is not removed; use venue_stop.", inputSchema: { type: "object", properties: { id: { type: "string" }, all: { type: "boolean" } } } },
   { name: "venue_autoplay", description: "Turn the setlist runner on or off. On, it advances whenever the rig is ours or unowned and nothing is playing: prepare, check, cue, wait for the receipt, rest, next; it releases the rig when the queue drains.", inputSchema: { type: "object", properties: { on: { type: "boolean" } }, required: ["on"] } },
@@ -243,9 +283,9 @@ async function callTool(name, args = {}) {
     case "venue_stop": return text(await stop());
     case "venue_enqueue": {
       const q = queue(); const added = [];
-      const push = (it) => { const id = `q-${Date.now().toString(36)}-${added.length}`; q.items.push({ id, out: it.hold ? null : outDir(it.out), score: it.score || null, hold: it.hold || null, label: it.label || it.score || it.out || `hold ${it.hold}s`, announce: it.announce || null, gap: it.gap ?? 8, allowPieces: it.allowPieces || null, rttMax: it.rttMax || null, sing: it.sing || null, status: "queued", addedAt: Date.now() / 1000 }); added.push(id); };
+      const push = (it) => { const id = `q-${Date.now().toString(36)}-${added.length}`; q.items.push({ id, out: it.hold ? null : outDir(it.out), score: it.score || null, hold: it.hold || null, label: it.label || it.score || it.out || `hold ${it.hold}s`, announce: it.announce || null, gap: it.gap ?? 8, allowPieces: it.allowPieces || null, rttMax: it.rttMax || null, sing: it.sing || null, screen: it.screen || null, piece: it.piece || null, text: it.text || null, sub: it.sub || null, stopAfter: !!it.stopAfter, status: "queued", addedAt: Date.now() / 1000 }); added.push(id); };
       if (args.setlist) { const p = args.setlist.startsWith("/") ? args.setlist : join(LANE, "scores", args.setlist.endsWith(".json") ? args.setlist : `${args.setlist}.json`); const list = readJson(p); if (!list?.items) throw new Error(`no setlist at ${p}`); for (const it of list.items) push({ gap: list.gap, ...it }); }
-      else { if (!args.out && !args.hold) throw new Error("out, hold, or setlist is required"); push(args); }
+      else { if (!args.out && !args.hold && !args.screen && !args.piece) throw new Error("out, hold, screen, or setlist is required"); push(args); }
       saveQueue(q); return text({ added, queued: q.items.filter((i) => i.status === "queued").length, autoplay: q.autoplay, note: q.autoplay ? "the runner takes them when the rig is free" : "autoplay is off: venue_autoplay on, or venue_next" });
     }
     case "venue_setlist": { const q = queue(); return text({ autoplay: q.autoplay, runner: runnerNote || (q.autoplay ? "idle" : "off"), rig: rig(), items: q.items.map((i) => ({ id: i.id, label: i.label, status: i.status, out: i.out, score: i.score, announce: i.announce, runId: i.runId, error: i.error })), history: (q.history || []).slice(-5).map((i) => ({ label: i.label, status: i.status, receipt: i.receipt })) }); }
