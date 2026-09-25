@@ -110,51 +110,91 @@ const NOTE_RGB={c:[255,50,50],d:[255,160,0],e:[255,230,0],f:[50,200,50],g:[50,12
 const NAMES=['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
 function noteRgb(midi){const n=NAMES[((midi%12)+12)%12];return n.includes('#')?[235,235,235]:NOTE_RGB[n];}
 const KIND={kick:{lane:0,rgb:[255,90,60]},boom:{lane:0,rgb:[200,40,40]},snare:{lane:1,rgb:[245,245,245]},donk:{lane:1,rgb:[255,170,40]},hat:{lane:2,rgb:[170,170,170]},perc:{lane:1,rgb:[220,220,220]},riser:{lane:3,rgb:[120,200,255]},voice:{lane:3,rgb:[255,120,200]}};
-let noteCursor=0,wordCursor=0,routeCursor=0,lastPaintT=-1;
+let noteCursor=0,lyricCursor=0,routeCursor=0,lastPaintT=-1;
 // Per-frame budgets: the roll draws at most NOTES marks (this seat's own
 // always, the room's until OTHERS), LABELS note names, and merges a run of
 // ticks in one lane closer than MERGE seconds. No arrays are made per frame.
 const NOTES=72,OTHERS=40,LABELS=16,MERGE=.06;
 const laneLastT=[-9,-9,-9,-9];
 function inkRgb(ink,r,g,b,k){ink(Math.round(r*k),Math.round(g*k),Math.round(b*k));}
-// The room's lyric language (LYRICS-SCREENS.md): the seat's colour edge to
-// edge; the HEADLINE is the lead line being sung, syllables lit as sung, the
-// singer's name above, the next lead line faint beneath; an ANSWER line is
-// bigger, boxed in a tint, flashes to white on its first syllable and lingers
-// after it ends; HUMS are texture: small, low, breathing with the beat.
-const LINGER_ANSWER=2.5,LINGER=.8,FLASH=.25;
-let headCursor=0,humCursor=0;
-function layoutRows(words,w,maxSize,minSize,maxRows){
- // biggest size at which the words wrap into ≤ maxRows rows; returns [size, rows]
- for(let size=maxSize;size>=minSize;size--){
-  const rows=[];let row='';
-  for(const wd of words){const cand=row?row+' '+wd:wd;if(textWidth(cand,size)>w*.9&&row){rows.push(row);row=wd;}else row=cand;}
-  if(row)rows.push(row);
-  if(rows.length<=maxRows||size===minSize)return [size,rows];
+function paintRoll({sound,wipe,ink,box,line,write,screen}){
+ const w=screen.width,h=screen.height,t=origin===null?-1:sound.time-origin,active=phase==='playing';
+ // The screen IS the seat's colour: full strength while a piece is prepared
+ // or playing, a darker shade at rest so the room still reads as six colours.
+ // Everything else is drawn in an ink chosen against that colour's luminance.
+ const color=cfg?.color||[143,209,63],lit=['prepared','countdown','playing'].includes(phase)?1:.35;
+ wipe(Math.round(color[0]*lit),Math.round(color[1]*lit),Math.round(color[2]*lit));
+ const lum=(.2126*color[0]+.7152*color[1]+.0722*color[2])*lit,dark=lum>110;
+ const ir=dark?16:248,ig=dark?16:248,ib=dark?24:250;                     // the ink
+ const tint=k=>dark?[Math.round(color[0]*lit/k),Math.round(color[1]*lit/k),Math.round(color[2]*lit/k)]:[Math.round(255-(255-color[0]*lit)/k),Math.round(255-(255-color[1]*lit)/k),Math.round(255-(255-color[2]*lit)/k)];   // darker on a bright ground, lighter on a deep one
+ if(error){ink(ir,ig,ib);write(error,{x:8,y:h-24,font:FONT,size:1});}
+ if(!cfg)return;
+ // seat name, top left
+ ink(ir,ig,ib);write((cfg.label||cfg.receiverId||'').toLowerCase(),{x:10,y:10,font:FONT,size:2});
+ if(phase==='countdown'){const left=Math.max(0,origin-sound.time);centered(write,String(Math.ceil(left)),Math.round(h/2-40),8,w);inkRgb(ink,ir,ig,ib,.75);centered(write,(cfg.title||'').toLowerCase(),Math.round(h/2+50),2,w);return;}
+ if(phase==='prepared'){inkRgb(ink,ir,ig,ib,.75);centered(write,'ready',Math.round(h/2-10),3,w);return;}
+ if(!active&&phase!=='finished'){inkRgb(ink,ir,ig,ib,.6);centered(write,phase,Math.round(h/2-10),2,w);return;}
+ const beat=60/cfg.bpm,bpb=cfg.beatsPerBar||4,bar=Math.floor(t/beat/bpb)+1,beatIn=Math.floor(t/beat)%bpb+1;
+ // the beat lamp (a flash of ink) and the bar count, top right
+ const pulse=Math.max(0,1-((t/beat)%1)*1.6);const tp=tint(1.35);ink(Math.round(tp[0]+(ir-tp[0])*pulse),Math.round(tp[1]+(ig-tp[1])*pulse),Math.round(tp[2]+(ib-tp[2])*pulse));box(w-34,10,22,22);
+ inkRgb(ink,ir,ig,ib,.8);const bc=`${bar}.${beatIn}`;write(bc,{x:w-44-textWidth(bc,2),y:14,font:FONT,size:2});
+ // sections along the top: a thin strip, the current one in ink, its name
+ const secs=cfg.sections||[];
+ if(secs.length){const total=cfg.duration;let cur=null;const td=tint(1.35);
+  for(const s of secs){const x0=Math.round(s.startSec/total*(w-20))+10,x1=Math.round(s.endSec/total*(w-20))+10,on=t>=s.startSec&&t<s.endSec;if(on)cur=s;
+   if(on){ink(ir,ig,ib);box(x0,40,Math.max(2,x1-x0-2),6);}else{ink(td[0],td[1],td[2]);box(x0,40,Math.max(2,x1-x0-2),6,'outline');}}
+  if(cur){ink(ir,ig,ib);write(cur.name,{x:10,y:52,font:FONT,size:2});const nxt=secs[secs.indexOf(cur)+1];if(nxt){const left=Math.ceil((cur.endSec-t)/beat/bpb);inkRgb(ink,ir,ig,ib,.6);write(`${nxt.name} in ${left}`,{x:10+textWidth(cur.name,2)+14,y:56,font:FONT,size:1});}}
  }
- return [minSize,[words.join(' ')]];
-}
-function drawKaraoke(write,ink,line,t,x0,y0,size,rowH,w,litRGB,dimRGB){
- // syllables map onto words in order; each word takes the syllables that spell it
- const words=line.text.split(' '),syls=line.syllables||[];
- let sung=-1;for(let i=0;i<syls.length;i++){if(syls[i].t<=t)sung=i;else break;}
- const [sz,rows]=[size,null];
- let sylIdx=0,r=0,row='';const rowsOut=[];
- for(const wd of words){const cand=row?row+' '+wd:wd;if(textWidth(cand,sz)>w*.9&&row){rowsOut.push(row);row=wd;}else row=cand;}
- if(row)rowsOut.push(row);
- for(const rw of rowsOut){
-  let x=Math.round((w-textWidth(rw,sz))/2),y=y0+r*rowH;r++;
-  for(const wd of rw.split(' ')){
-   let take=0,acc='';while(sylIdx+take<syls.length&&acc.length<wd.length){acc+=syls[sylIdx+take].text;take++;}
-   if(take===0)take=1;
-   let cx=x;
-   for(let k=0;k<take;k++){const piece=syls[sylIdx+k]?.text??wd;const lit=(sylIdx+k)<=sung;ink(...(lit?litRGB:dimRGB));write(piece,{x:cx,y,font:FONT,size:sz});cx+=textWidth(piece,sz);}
-   sylIdx+=take;x+=textWidth(wd,sz)+6*sz;
+ // Trio: the lyric being sung and the phrase this seat carries. Cursors,
+ // not scans: lyrics and routes are sorted by time; a new run (t went back)
+ // rewinds them.
+ if(t<lastPaintT){lyricCursor=0;routeCursor=0;noteCursor=0;}lastPaintT=t;
+ const lyrics=cfg.lyrics||[];while(lyricCursor<lyrics.length&&t>=lyrics[lyricCursor].t+lyrics[lyricCursor].dur+.8)lyricCursor++;
+ let curL=null;for(let i=lyricCursor;i<lyrics.length&&lyrics[i].t-.3<=t;i++)if(t<lyrics[i].t+lyrics[i].dur+.8)curL=lyrics[i];
+ if(curL){const size=fitSize(curL.text,w*.9,6);ink(ir,ig,ib);centered(write,curL.text,Math.round(h*.13),size,w);inkRgb(ink,ir,ig,ib,.7);write(curL.member,{x:Math.round((w-textWidth(curL.text,size))/2),y:Math.round(h*.13)-13,font:FONT,size:1});}
+ const routes=cfg.routes||[];while(routeCursor<routes.length&&t>=routes[routeCursor].t+routes[routeCursor].dur)routeCursor++;
+ let r=null;for(let i=routeCursor;i<routes.length&&routes[i].t<=t;i++){const x=routes[i];if(t<x.t+x.dur&&(!r||x.gain>r.gain))r=x;}
+ if(r){
+  const size=fitSize(r.text,w*.6,4),tw=textWidth(r.text,size),bw=tw+30,bh=size*10+30,bx=Math.round((w-bw)/2),by=Math.round(h*.24);
+  const fade=Math.min(1,(t-r.t)/.15,(r.t+r.dur-t)/.4),tb=tint(r.role==='lead'?1.5:1.25);ink(tb[0],tb[1],tb[2]);box(bx,by,bw,bh);ink(ir,ig,ib);box(bx,by,bw,bh,'outline');inkRgb(ink,ir,ig,ib,.4+.6*fade);write(r.text,{x:bx+15,y:by+20,font:FONT,size});
+  ink(r.rgb[0],r.rgb[1],r.rgb[2]);box(bx,by+bh-5,bw,5);ink(ir,ig,ib);write(r.role==='lead'?'LEAD':'ECHO',{x:bx+15,y:by+5,font:FONT,size:1});}
+ // the roll
+ const notes=cfg.notes||[];if(!notes.length)return;
+ const ahead=6,behind=1.5,head=Math.round(w/3),px=w/(ahead+behind),top=Math.round(h*.36),bottom=Math.round(h*.78),laneY=[bottom+14,bottom+32,bottom+46,bottom+60];
+ const lo=cfg.midiLow||36,hi=cfg.midiHigh||108,yOf=m=>Math.round(bottom-(Math.max(lo,Math.min(hi,m))-lo)/(hi-lo)*(bottom-top));
+ inkRgb(ink,ir,ig,ib,.35);line(0,bottom,w,bottom);for(const y of laneY)line(0,y,w,y);
+ inkRgb(ink,ir,ig,ib,.5+.5*pulse);line(head,top-10,head,laneY[3]+8);
+ while(noteCursor<notes.length&&notes[noteCursor].t<t-behind)noteCursor++;
+ let drawn=0,others=0,labels=0;laneLastT[0]=laneLastT[1]=laneLastT[2]=laneLastT[3]=-9;
+ for(let k=noteCursor;k<notes.length&&drawn<NOTES;k++){
+  const n=notes[k],dt=n.t-t;if(dt>ahead)break;
+  const kind=KIND[n.i];
+  if(!n.mine&&others>=OTHERS)continue;
+  if(kind&&n.i!=='riser'&&n.i!=='voice'){if(n.t-laneLastT[kind.lane]<MERGE&&!n.mine)continue;laneLastT[kind.lane]=n.t;}   // a run of ticks reads as one
+  if(!n.mine)others++;drawn++;
+  const x=Math.round(head+dt*px),len=Math.max(3,Math.round(Math.min(n.dur||.15,3)*px));
+  const on=t>=n.t&&t<n.t+Math.max(n.dur||.15,.12),just=t-n.t,hit=just>=0&&just<.18?1-just/.18:0;
+  const dimF=n.mine?1:.32,rgb=n.rgb||(kind?kind.rgb:noteRgb(n.midi||60));
+  if(kind&&n.i!=='riser'&&n.i!=='voice'){   // percussion: a mark in its lane, bigger for louder
+   const y=laneY[kind.lane],sz=Math.max(3,Math.round(4+(n.gain||.1)*24));
+   inkRgb(ink,rgb[0],rgb[1],rgb[2],dimF*(on?1:.6));if(n.i==='hat'){ink(ir,ig,ib);box(x-1,y-2,3,3);}else if(n.i==='donk'){box(x-sz/2,y-sz/2,sz,sz,'outline');}else{box(x-Math.round(sz/2),y-Math.round(sz/2),sz,sz);if(n.mine){ink(ir,ig,ib);box(x-Math.round(sz/2),y-Math.round(sz/2),sz,sz,'outline');}}
+   if(hit&&n.mine){ink(rgb[0],rgb[1],rgb[2]);box(x-sz,y-sz,sz*2,sz*2,'outline');}
+   continue;
   }
+  if(n.i==='riser'||n.i==='voice'){const y=laneY[3];inkRgb(ink,rgb[0],rgb[1],rgb[2],dimF);box(x,y-4,len,8,'outline');if(n.text&&x<w&&labels<LABELS){labels++;write(n.text,{x:x+3,y:y-3,font:FONT,size:1});}continue;}
+  // pitched: a bar by pitch, reverse bells a wedge that grows into the hit
+  const y=yOf(n.midi||60),hh=Math.max(4,Math.round(4+(n.gain||.05)*90));
+  inkRgb(ink,rgb[0],rgb[1],rgb[2],dimF*(dt<0&&!on?.5:1));
+  if(n.i==='rbell'){const steps=4;for(let i=0;i<steps;i++){const f=i/steps;box(x+Math.round(len*f),y-Math.round(hh*f/2),Math.max(2,Math.round(len/steps)),Math.max(2,Math.round(hh*f)));}}
+  else if(n.i==='sub'||n.i==='throat'||n.i==='bass'){inkRgb(ink,150,90,255,dimF);box(x,y-3,len,6);}
+  else{box(x,y-Math.round(hh/2),len,hh);if(n.mine){ink(ir,ig,ib);box(x,y-Math.round(hh/2),len,hh,'outline');}}   // an ink edge so it reads on the bright ground
+  if(hit&&n.mine){ink(ir,ig,ib);box(x-4,y-Math.round(hh/2)-4,len+8,hh+8,'outline');}
+  if(n.mine&&n.label&&dt>0&&dt<1.2&&labels<LABELS&&n.i!=='sub'&&n.i!=='throat'){labels++;ink(ir,ig,ib);write(n.label,{x,y:y-Math.round(hh/2)-11,font:FONT,size:1});}
  }
- return rowsOut.length;
 }
-export function paint({sound,wipe,ink,write,screen}){
+export function paint(api){
+ if(!(cfg?.lyrics||[]).length&&(cfg?.notes||[]).length)return paintRoll(api);   // no words (Femrag): the incoming-notes roll
+ const {sound,wipe,ink,write,screen}=api;
  // Active words only. The seat's colour edge to edge and the word being
  // sung, huge, centred; the singer's name small above it. Nothing else.
  const w=screen.width,h=screen.height,t=origin===null?-1:sound.time-origin,active=phase==='playing';
