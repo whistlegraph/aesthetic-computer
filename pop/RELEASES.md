@@ -36,6 +36,14 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 - **Cover:** close square image-tool crop derived from `IMG_5775.HEIC`, Jeffrey
   with his mother, delivered as `amazing-grace-cover.jpg` (1254²). Supersedes the
   earlier church illustration.
+- **Canvas (2026-09-25):** `big-pictures/covers/amazing-grace/amazing-grace-canvas.mp4`
+  (also in the packet) — 1080×1920, 7.714 s = three bars of three at 70 BPM, 231 frames,
+  silent AAC, seamless. A vibe over the album artwork in the `wattajetta` canvas lineage,
+  rendered by `big-pictures/bin/amazing-grace-canvas.mjs` straight from `IMG_5775.jpg`
+  (the 9:16 window keeps the cover's centre line, opens tent above the heads, runs down to
+  the copper mugs): one breath of zoom, a small circle of drift, a hair of rock once per
+  bar, the evening sun on the faces swelling twice, golden motes rising, amber grade,
+  vignette, grain. No text, no AI. Uploaded to Spotify for Artists by @jeffrey 2026-09-25.
 - **Packet:** `~/Documents/Shelf/amazing-grace-DISTROKID/` on Frisbee and Blueberry;
   final FLAC, cover, MP3 preview and release metadata. Earlier 69-second assets
   remain archived. [Metadata](big-pictures/amazing-grace.release.json) and
