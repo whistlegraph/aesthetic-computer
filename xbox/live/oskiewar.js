@@ -1460,9 +1460,13 @@ function losAngelesSun() {
   return { light: light * light * (3 - 2 * light), sunset };
 }
 
-function consoleFrameDrop() {
+function consoleHost() {
   const caps = typeof capabilities === "function" ? capabilities() : {};
-  return caps.platform === "xbox-uwp" || caps.platform === "xbox" ? .1 : 0;
+  return caps.platform === "xbox-uwp" || caps.platform === "xbox";
+}
+
+function consoleFrameDrop() {
+  return consoleHost() ? .1 : 0;
 }
 
 function displayTheme() {
@@ -12552,6 +12556,10 @@ function drawControlLegend(ink) {
   // page — the drawn controller carries its d-pad, so no rows remain.
   const m30 = !keyboard && !survivalActive() && m30Seated();
   if (m30) controls.length = 0;
+  const pressed = controls.filter(([, button, action]) =>
+    (button.startsWith("Arrow") ? directionActive(button) : held.includes(button)) ||
+    action === "DASH >>");
+  controls.splice(0, controls.length, ...pressed);
   const keyboardCap = { LEFT: "A", RIGHT: "D", STICK_UP: "W", DOWN: "S",
     A: "SPACE", B: "ENTER", X: "SHIFT", Y: "ALT" };
   const step = Math.round(size * 1.82);
@@ -15338,21 +15346,12 @@ function drawTitleScreen(t, ink, transitionAge = -1) {
   if (!socialPreview) {
     const x = button.x - (hovered ? 2 : 0);
     const y = button.y - (hovered ? 3 : 0);
-    const rounded = (left, top, width, height, radius, color) => {
-      hudBox(left + radius, top, width - radius * 2, height, ...color);
-      hudBox(left, top + radius, width, height - radius * 2, ...color);
-      for (const cx of [left + radius, left + width - radius])
-        for (const cy of [top + radius, top + height - radius])
-          filledDisc(cx, cy, radius, color);
-    };
-    rounded(x + (hovered ? 7 : 4), y + (hovered ? 9 : 6),
-      button.width, button.height, 14, shadowInk);
-    rounded(x, y, button.width, button.height, 14, [178, 139, 32]);
-    rounded(x + 3, y + 3, button.width - 6, button.height - 6, 11,
-      hovered ? [255, 240, 139] : [255, 221, 74]);
-    typeWrite(prompt, x + (button.width - button.textWidth) / 2,
-      y + (button.height - button.textSize) / 2 - 2,
-      button.textSize, ...promptInk);
+    const startInk = transitionInk || ink;
+    const startX = x + (button.width - button.textWidth) / 2;
+    const startY = y + (button.height - button.textSize) / 2 - 2;
+    typeWrite(prompt, startX + 3, startY + 4, button.textSize,
+      ...contrastShadow(startInk));
+    typeWrite(prompt, startX, startY, button.textSize, ...startInk);
     // The pace dial. Quiet unless the clock is off its default — or was just
     // touched, so stepping back to one still answers the keypress — and it
     // lives large in the bottom-right corner, a dashboard readout rather
@@ -15613,7 +15612,7 @@ function drawDebugPerformance(ink) {
   // playing lets still show fps in hud". One short word, so the read-out
   // costs the frame it measures almost nothing.
   const bare = !debugHitboxes;
-  if (bare && !bareFrameRateShown()) return;
+  if (bare) return;
   const metaSize = debugReadoutMetaSize();
   const run = runtime();
   // Every line waits for a real measurement. The read-out used to answer with
@@ -16029,7 +16028,8 @@ function gamePaint() {
     if (!player.remote) player.handleColors = fighterProfile(player.name).colors;
   refreshPhotoTheme();
   globalThis.__oskiewarGraphicsThemeStatus = photoThemeActive ? "photorealistic" : "flat";
-  visualTheme = photoThemeActive ? { light: 0, sunset: 0 } : displayTheme();
+  visualTheme = photoThemeActive && !consoleHost()
+    ? { light: 0, sunset: 0 } : displayTheme();
   const replayOven = typeof capabilities === "function" &&
     capabilities().replayOven === true;
   const reelHud = typeof capabilities === "function" &&

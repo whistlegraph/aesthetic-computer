@@ -770,7 +770,9 @@ test("web uses the realistic theme with shared sun colors as fallback", () => {
     /caps\.platform === "web" \|\| caps\.platform === "macos"/);
   assert.match(source,
     /return \{ \.\.\.sun, light: caps\.colorScheme === "light" \? 1 : 0 \}/);
-  assert.match(source, /visualTheme = photoThemeActive \? \{ light: 0, sunset: 0 \} : displayTheme\(\)/);
+  // The website pairs photographs with night; the console keeps daylight.
+  assert.match(source,
+    /visualTheme = photoThemeActive && !consoleHost\(\)\s*\? \{ light: 0, sunset: 0 \} : displayTheme\(\)/);
 });
 
 test("tab title animates playful phoneme spacing", () => {
@@ -2589,8 +2591,9 @@ test("start button flashes yellow green lime before lifting off the fight", () =
   assert.equal(fight.selectionState().selecting, false);
   assert.match(source, /const prompt = "start"/);
   assert.match(source, /const button = titleButtonRect\(\)/);
-  // Start retains its yellow identity in the larger button.
-  assert.match(source, /\[255, 221, 74\]/);
+  // Start is the word alone in high-contrast ink: no plate behind it.
+  assert.match(source, /typeWrite\(prompt, startX, startY, button\.textSize, \.\.\.startInk\)/);
+  assert.doesNotMatch(source, /rounded\(x, y, button\.width, button\.height/);
   pads[0].down = ["Y"];
   tick();
   assert.equal(fight.shellState().mode, "MENU");
