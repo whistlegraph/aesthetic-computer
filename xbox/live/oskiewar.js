@@ -2858,8 +2858,67 @@ function makeRoundReplayFrame(now) {
     // kill shows the thing that made it.
     bullets: structuredClone(bullets),
     grenades: structuredClone(grenades),
+    // And what it did: the strike sparks, the death burst, a blast ring and
+    // the limbs that came off. Without them a replay was two bodies moving
+    // through an explosion that never showed.
+    impacts: structuredClone(impacts),
+    detachedParts: structuredClone(detachedParts),
     camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
   };
+}
+
+// Reconcile a live collection with a frame's copy without replacing the
+// objects that survive: render interpolation is keyed on object identity, so
+// a mote or a limb that keeps its object keeps its smooth motion between
+// ticks. `key` pairs entries across frames; index order is the fallback.
+function syncReplayCollection(target, source, key) {
+  const wanted = source || [];
+  const kept = [];
+  for (let index = 0; index < wanted.length; index++) {
+    const state = wanted[index];
+    const match = key
+      ? target.find((item) => item[key] === state[key] && !kept.includes(item))
+      : target[index];
+    if (match && !kept.includes(match)) {
+      syncReplayObject(match, state);
+      kept.push(match);
+    } else kept.push(structuredClone(state));
+  }
+  target.splice(0, target.length, ...kept);
+}
+
+function syncReplayObject(target, state) {
+  for (const field of Object.keys(state)) {
+    const value = state[field];
+    if (Array.isArray(value) && Array.isArray(target[field]) &&
+        target[field].length === value.length &&
+        value.every((entry) => entry && typeof entry === "object")) {
+      value.forEach((entry, index) => syncReplayObject(target[field][index], entry));
+    } else target[field] = value && typeof value === "object"
+      ? structuredClone(value) : value;
+  }
+  for (const field of Object.keys(target))
+    if (!(field in state)) delete target[field];
+}
+
+// Frames land every instantReplayStepUs; the sim ticks faster than that and
+// slower still under the action ramp, so a body read straight off the nearer
+// frame steps while its shadow and position glide. Blend the two neighbouring
+// poses by the cursor's fraction instead — every numeric field, head and
+// segment alike, when both frames describe the same body.
+function blendReplayGeometry(from, to, mix) {
+  if (!to || !from || mix <= 0 || !from.segments || !to.segments ||
+      from.segments.length !== to.segments.length) return from;
+  const lerpFields = (a, b) => {
+    const out = { ...a };
+    for (const field of Object.keys(a))
+      if (typeof a[field] === "number" && typeof b?.[field] === "number")
+        out[field] = a[field] + (b[field] - a[field]) * mix;
+    return out;
+  };
+  return { ...from, head: lerpFields(from.head, to.head),
+    segments: from.segments.map((segment, index) =>
+      lerpFields(segment, to.segments[index])) };
 }
 
 function captureRoundReplay(now, force = false) {
@@ -2897,17 +2956,23 @@ function captureFrameTelemetry(now, force = false) {
   frameTelemetryFlushAt = now + 1000000;
 }
 
-function applyRoundReplayFrame(frame, now) {
+function applyRoundReplayFrame(frame, now, next = null, mix = 0) {
   if (frame.ropes) skateRopes.splice(0, skateRopes.length, ...structuredClone(frame.ropes));
   for (let index = 0; index < players.length; index++) {
     const player = players[index];
     const state = frame.players[index];
+    const ahead = next?.players[index];
     for (const key of ["x", "y", "z", "vx", "vy", "vz", "facing",
       "grounded", "ducking", "alive", "blocking", "blockFlash", "hit",
       "attackKind", "ropeIndex", "ropeLink", "skateRotation", "skateboard"]) player[key] = state[key];
+    const blend = ahead && mix > 0 && ahead.alive === state.alive;
+    if (blend)
+      for (const key of ["x", "y", "z"])
+        player[key] = state[key] + (ahead[key] - state[key]) * mix;
     player.attackStartedAt = now + state.attackStartedOffset;
     player.attackUntil = now + state.attackUntilOffset;
-    player.replayGeometry = state.geometry;
+    player.replayGeometry = blend
+      ? blendReplayGeometry(state.geometry, ahead.geometry, mix) : state.geometry;
   }
   const frameBalls = frame.balls || [frame.ball];
   for (let index = 0; index < balls.length; index++) {
@@ -2916,8 +2981,11 @@ function applyRoundReplayFrame(frame, now) {
     for (const key of ["x", "y", "z", "vx", "vy", "active"])
       balls[index][key] = state[key];
   }
-  if (frame.bullets) bullets.splice(0, bullets.length, ...structuredClone(frame.bullets));
-  if (frame.grenades) grenades.splice(0, grenades.length, ...structuredClone(frame.grenades));
+  // Frames recorded before a collection rode along leave the live one be.
+  if (frame.bullets) syncReplayCollection(bullets, frame.bullets);
+  if (frame.grenades) syncReplayCollection(grenades, frame.grenades);
+  if (frame.impacts) syncReplayCollection(impacts, frame.impacts, "id");
+  if (frame.detachedParts) syncReplayCollection(detachedParts, frame.detachedParts);
   cameraCenter = frame.camera.center;
   cameraCenterY = frame.camera.centerY;
   cameraWidth = frame.camera.width;
@@ -3062,7 +3130,9 @@ function updateInstantReplay(now, dt) {
       return;
     }
   }
-  applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
+  const at = Math.floor(instantReplay.cursor);
+  applyRoundReplayFrame(instantReplay.frames[at], now,
+    instantReplay.frames[at + 1] || null, instantReplay.cursor - at);
   instantReplay.previous = down.slice();
   const target = { x: cameraCenter, y: cameraCenterY, z: 0 };
   const visible = activePlayers();
@@ -7421,9 +7491,55 @@ function quantizedInput(pad, suppressed = []) {
   return { horizontal, vertical };
 }
 
+// The keys behind a move, in the command stream's own glyphs: a double-tap
+// move names its two taps, anything else names what the hand is holding as
+// the move lands. Directions first, then the face buttons, so "> /" reads as
+// "right then kick" the way the fingers did it.
+const moveKeyGlyphs = { ArrowLeft: "<", ArrowRight: ">", ArrowUp: "^",
+  ArrowDown: "v", A: "/", B: "*", X: ")", Y: "+", LeftShoulder: "+",
+  RightShoulder: "+" };
+const doubleTapKeys = { "DASH LEFT": "< <", "DASH RIGHT": "> >",
+  "ULTRA AIR": "^ ^", "GROUND POUND": "v v", SINK: "v v",
+  "CROUCH HOP": "v v", "VERT OUT": "> >" };
+function moveKeys(label, held = []) {
+  const move = String(label || "").toUpperCase();
+  for (const name of Object.keys(doubleTapKeys))
+    if (move === name || move.startsWith(name + " "))
+      return doubleTapKeys[name].replace(/>/g, move.endsWith("LEFT") ? "<" : ">");
+  const keys = [];
+  for (const button of Object.keys(moveKeyGlyphs))
+    if (held.includes(button) && !keys.includes(moveKeyGlyphs[button]))
+      keys.push(moveKeyGlyphs[button]);
+  return keys.join(" ");
+}
+
+// Every move wears its own color: a hue hashed off the name, spread by the
+// golden angle so neighbours in the table land far apart on the wheel, at a
+// saturation and lightness that stay legible over the arena in both themes.
+function moveColor(label) {
+  let hash = 0;
+  for (const char of String(label || "").toUpperCase())
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  const hue = (hash * 137.508) % 360;
+  return hslColor(hue, .82, .62);
+}
+
+function hslColor(hue, saturation, lightness) {
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const wedge = (hue % 360 + 360) % 360 / 60;
+  const second = chroma * (1 - Math.abs(wedge % 2 - 1));
+  const [r, g, b] = wedge < 1 ? [chroma, second, 0] : wedge < 2 ? [second, chroma, 0]
+    : wedge < 3 ? [0, chroma, second] : wedge < 4 ? [0, second, chroma]
+    : wedge < 5 ? [second, 0, chroma] : [chroma, 0, second];
+  const lift = lightness - chroma / 2;
+  return [r, g, b].map((value) => Math.round((value + lift) * 255));
+}
+
 function remember(player, button) {
   player.lastButton = buttonLabel(button);
   player.lastButtonAt = runtime().monotonicUs;
+  player.lastButtonKeys = moveKeys(player.lastButton,
+    inputPads[player.pad]?.down || []);
   const command = { A: "/", B: "*", X: ")", Y: "+",
     LeftShoulder: "+", RightShoulder: "+" }[button] || player.lastButton;
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
@@ -8649,6 +8765,8 @@ function updateBall(ball, dt, now) {
 
 // Returns whether the tap was spent on a double-tap move, so a single tap can
 // still mean something else to the caller.
+const headDashSpeed = 2600;
+const headDashHop = 380;
 function directionTap(player, direction, now) {
   const previousTap = player.lastTap[direction] || -10000000;
   const releasedAt = player.lastRelease[direction] || -10000000;
@@ -8729,6 +8847,23 @@ function directionTap(player, direction, now) {
     }
   } else {
     player.facing = direction === "RIGHT" ? 1 : -1;
+    // Every sideways dash streaks: the lines trail the body for a beat.
+    player.dashLinesUntil = now + 260000;
+    player.dashLinesFacing = player.facing;
+    // A head has no legs to dash on; the double-tap boosts the ball instead —
+    // a shove along the floor with a hop and a spin, the way it travels.
+    if (isHeadOnly(player)) {
+      // A head's momentum is its roll (`skateVx`), grounded or airborne, so
+      // the boost goes there rather than into the on-foot dash lane.
+      player.skateVx = player.facing *
+        Math.max(Math.abs(player.skateVx || 0), headDashSpeed);
+      player.vx = player.skateVx;
+      if (player.grounded) player.vy = Math.min(player.vy, -headDashHop);
+      player.grounded = false;
+      player.headRollRate = player.facing * 6;
+      emitSignal("dash", player.pad, player.facing, 1);
+      return true;
+    }
     // Out of a vert air, a dash breaks the lock: the rider leaves the pipe's
     // plane sideways — over the coping onto the deck, or back out across
     // the pipe.
@@ -11266,6 +11401,9 @@ const photoRegions = {
   gun: [51, 543, 365, 253], skateboard: [460, 611, 412, 136],
   platform: [900, 606, 418, 162], rocket: [1368, 542, 372, 236],
   concrete: [970, 625, 270, 43], wall: [930, 698, 350, 55],
+  // The same material as `wall`, for the near skirt, which is drawn in
+  // bands so the strip repeats instead of stretching into a curtain.
+  skirt: [930, 698, 350, 55],
 };
 function photoSprite(region, x, y, width, height, angle = 0, flip = false,
     depth = triangleDepth) {
@@ -13801,6 +13939,26 @@ function drawDiveMotion(player, t) {
   }
 }
 
+// Speed lines trail a sideways dash: horizontal streaks behind the body
+// (or behind the head, when that is all there is), fading over the beat.
+function drawDashMotion(player, t) {
+  const now = runtime().monotonicUs;
+  if (now >= (player.dashLinesUntil || 0)) return;
+  const life = clamp((player.dashLinesUntil - now) / 260000, 0, 1);
+  const facing = player.dashLinesFacing || player.facing || 1;
+  const color = mixColor(player.color, [244, 250, 255], .55);
+  const head = isHeadOnly(player);
+  const count = head ? 4 : 6;
+  for (let index = 0; index < count; index++) {
+    const y = head ? player.y - 8 - index * 9
+      : player.y - 24 - index * 22 + Math.sin(t * 17 + index) * 3;
+    const startX = player.x - facing * (head ? 26 : 34 + index % 2 * 14);
+    const endX = startX - facing * (56 + index * 12) * life;
+    worldCapsule(startX, y, player.z + 16, endX, y, player.z + 16,
+      3 + life * 3, color, .029);
+  }
+}
+
 function drawDoubleJumpMotion(player, t) {
   const now = runtime().monotonicUs;
   if (now >= (player.doubleJumpLinesUntil || 0)) return;
@@ -14553,7 +14711,25 @@ function terrainVertex(slot, index, x, y, z) {
 // `bottomY` null: the bottom vertex shares the profile's y (the surface
 // pass, top at z `zTop`, bottom at z `zBottom`). Otherwise a wall: both
 // vertices at `zTop`, the bottom one dropped to `bottomY`.
-function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
+// The near skirt fills the bottom of the frame at the TV lens, and a flat
+// shade there read as a blank slab under a photographed floor. Split each
+// segment's drop into `rows` bands, each wearing the whole wall strip, so
+// the material repeats down the face at about the strip's own proportion.
+// Falls back to the shaded quad when the theme cannot draw (no atlas, or a
+// corner off the frame), so the wall is never missing.
+function terrainSkirtTiles(topLeft, topRight, bottomRight, bottomLeft, rows) {
+  for (let row = 0; row < rows; row++) {
+    const from = row / rows, to = (row + 1) / rows;
+    const corner = (top, bottom, mix) => projectPoint(top.x,
+      top.y + (bottom.y - top.y) * mix, top.z);
+    if (!photoSurface("skirt", corner(topLeft, bottomLeft, from),
+        corner(topRight, bottomRight, from), corner(topRight, bottomRight, to),
+        corner(topLeft, bottomLeft, to))) return row > 0;
+  }
+  return true;
+}
+
+function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf, tileRows = 1) {
   const { top, bottom } = terrainScratch;
   const wall = bottomY !== null;
   const terrainProfile = terrainDrawProfile;
@@ -14574,6 +14750,11 @@ function terrainPass(left, right, zTop, zBottom, bottomY, shadeOf) {
       const a1 = top[previous], b1 = bottom[previous];
       const shade = shadeOf(previous);
       if (a1.front && a.front && b.front && b1.front) {
+        if (wall && tileRows > 1 && photoThemeActive &&
+            terrainSkirtTiles(a1, a, b, b1, tileRows)) {
+          previous = index;
+          continue;
+        }
         if (photoSurface(wall ? "wall" : "concrete", a1.screen, a.screen, b.screen, b1.screen)) {
           previous = index;
           continue;
@@ -14636,7 +14817,9 @@ function drawTerrainFrontWall(left, right, near, color) {
   const wall = mixColor(color, [63, 54, 46], .36);
   const wallZ = reel ? 55 : near - 2;
   const wallBottom = parkDeepest + (reel ? 9000 : 720);
-  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall);
+  // Four bands down the 720 drop keeps the strip near its own proportion;
+  // the reel's deep skirt stays shaded, its framing is test-enshrined.
+  terrainPass(left, right, wallZ, wallZ, wallBottom, () => wall, reel ? 1 : 4);
 }
 
 function drawTerrainBackWall(left, right, far, color) {
@@ -14973,7 +15156,7 @@ function drawPoseShadow(player, t, color) {
 
 function updateSceneLighting(now) {
   if (typeof themeLighting !== "function") return;
-  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([]); return; }
+  if (!photoThemeActive || renderFlags.lighting === false) { themeLighting([], visualTheme.light); return; }
   const span = worldRight - worldLeft;
   const lights = [.18,.82].map((part) => {
     const x = worldLeft + span * part;
@@ -14992,7 +15175,7 @@ function updateSceneLighting(now) {
     const point = projectPoint(pose.muzzle.x,pose.muzzle.y,pose.muzzle.z);
     lights.push({x:point.x,y:point.y,radius:Math.max(60,450*cameraScale()),strength:.9});
   }
-  themeLighting(lights);
+  themeLighting(lights, visualTheme.light);
 }
 
 function drawSpotShadow(x, y, z, radius, color) {
@@ -16839,6 +17022,7 @@ function gamePaint() {
     else {
       drawDiveMotion(renderable.item, t);
       drawDoubleJumpMotion(renderable.item, t);
+      drawDashMotion(renderable.item, t);
       drawRunner(renderable.item, t, showRunnerLabels);
     }
   }
@@ -17059,10 +17243,20 @@ function drawVersusHud(t, ink, run) {
   const moveWidth = handleWidth(player.lastButton, moveSize);
   const moveX = viewCenterX() - moveWidth / 2;
   const moveY = Math.round(viewHeight * .62) - Math.round((1 - fade) * 26);
-  const moveInk = fade > .4 ? ink : mixColor(contrastShadow(ink), ink, fade / .4);
+  // The move's own color, and under it the keys that made it.
+  const tint = moveColor(player.lastButton);
+  const moveInk = fade > .4 ? tint : mixColor(contrastShadow(ink), tint, fade / .4);
   typeWrite(player.lastButton, moveX + 3, moveY + 3, moveSize,
     ...contrastShadow(ink));
   typeWrite(player.lastButton, moveX, moveY, moveSize, ...moveInk);
+  const keys = player.lastButtonKeys;
+  if (!keys) return;
+  const keySize = Math.round(moveSize * .6);
+  const keyWidth = handleWidth(keys, keySize);
+  const keyX = viewCenterX() - keyWidth / 2;
+  const keyY = moveY + moveSize + 6;
+  typeWrite(keys, keyX + 2, keyY + 2, keySize, ...contrastShadow(ink));
+  typeWrite(keys, keyX, keyY, keySize, ...moveInk);
 }
 
 function boot() {

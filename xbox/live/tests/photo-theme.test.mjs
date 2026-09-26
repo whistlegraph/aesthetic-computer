@@ -50,7 +50,7 @@ test('lighting caches highlights once and adds no pass outside a light', async()
   try {
     const {theme,calls}=fixture(); await theme.ready;
     const count=cached;
-    assert.equal(count,2, 'only props and weapons get a highlight atlas');
+    assert.equal(count,3, 'daylight backdrop plus props and weapon highlights');
     theme.themeLighting([{x:100,y:200,radius:100,strength:1}]);
     theme.themeSprite(1,80,104,285,285,100,200,60,70);
     assert.equal(calls.filter(c=>c[0]==='drawImage').length,2);

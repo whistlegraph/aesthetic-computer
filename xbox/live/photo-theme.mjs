@@ -4,7 +4,7 @@ export default function createPhotoTheme(context, flushFaces, {
   ImageImpl = globalThis.Image, timeoutMs = 12000,
 } = {}) {
   const images = [], highlights = [];
-  let lights = [];
+  let lights = [], daylight = null, ambient = 0;
   function makeHighlight(image) {
     if (typeof OffscreenCanvas !== 'function') return null;
     const canvas = new OffscreenCanvas(image.naturalWidth, image.naturalHeight);
@@ -22,6 +22,14 @@ export default function createPhotoTheme(context, flushFaces, {
       try {
         await image.decode?.();
         images[id] = image;
+        if (id === 0 && typeof OffscreenCanvas === 'function') {
+          daylight = new OffscreenCanvas(image.naturalWidth,image.naturalHeight);
+          const sky = daylight.getContext('2d');
+          sky.drawImage(image,0,0);
+          sky.globalCompositeOperation = 'screen';
+          sky.fillStyle = 'rgba(190,207,218,.86)';
+          sky.fillRect(0,0,daylight.width,daylight.height);
+        }
         if (id === 1 || id === 3) highlights[id] = makeHighlight(image);
         clearTimeout(timeout);
         resolve(true);
@@ -48,9 +56,9 @@ export default function createPhotoTheme(context, flushFaces, {
     context.translate(x, y);
     context.rotate(angle);
     context.scale(flip ? -1 : 1, 1);
-    context.drawImage(images[id], sx, sy, sw, sh, -width / 2, -height / 2, width, height);
-    if (highlights[id] && lights.length && id !== 0) {
-      let intensity = 0;
+    context.drawImage(id === 0 && ambient >= .5 && daylight ? daylight : images[id], sx, sy, sw, sh, -width / 2, -height / 2, width, height);
+    if (highlights[id] && (lights.length || ambient) && id !== 0) {
+      let intensity = ambient * .65;
       for (const light of lights) {
         const dx = x-light.x, dy = y-light.y;
         const attenuation = Math.max(0, 1-(dx*dx+dy*dy)/(light.radius*light.radius));
@@ -91,6 +99,8 @@ export default function createPhotoTheme(context, flushFaces, {
   return { ready: Promise.all(loads.slice(0, 2)),
     themeReady: () => Boolean(images[0] && images[1]),
     themeAssetReady: id => Boolean(images[id]), themeSprite, themeQuad,
-    themeLighting: values => { lights = values.slice(0,4).filter(light =>
+    themeLighting: (values, light = 0) => {
+      ambient = Number.isFinite(light) ? Math.max(0,Math.min(1,light)) : 0;
+      lights = values.slice(0,4).filter(light =>
       [light.x,light.y,light.radius,light.strength].every(Number.isFinite) && light.radius > 0); } };
 }

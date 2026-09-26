@@ -127,6 +127,13 @@
       box-shadow: 2px 3px 0 rgba(20, 25, 38, .35); cursor: pointer;
       transition: transform .12s ease, background .12s ease,
         box-shadow .12s ease; }
+    #theme-toggle { position: fixed; right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom)); z-index: 4;
+      padding: 9px 12px; border: 2px solid #5b647a; border-radius: 9px;
+      background: #b8c1d2; color: #172036; cursor: pointer;
+      font: 700 15px/1 "Comic Relief", Arial, sans-serif; }
+    body:not(.title-open) #theme-toggle, body.social-preview #theme-toggle { display: none; }
+    #theme-toggle:focus-visible { outline: 3px solid #e6cd5c; outline-offset: 2px; }
     #logout:hover { background: #d9dfee; transform: translate(-1px, -2px);
       box-shadow: 4px 6px 0 rgba(20, 25, 38, .4); }
     #logout:active { transform: translate(1px, 2px);
@@ -195,6 +202,7 @@
 <body>
   <canvas id="screen" width="1920" height="1080" aria-label="oskiewar stick fight and lava climb"></canvas>
   <div id="inset-probe" aria-hidden="true"></div>
+  <button id="theme-toggle" type="button">Auto theme</button>
   <div id="status" role="alert" aria-live="polite"></div>
   <div id="account">
     <span id="account-handle" hidden></span>
@@ -249,6 +257,7 @@
     let titleOpen = true;
     const keyMap = new Map([
       ["KeyW", [0, "ArrowUp"]], ["KeyS", [0, "ArrowDown"]],
+      ["BracketLeft", [0, "LeftShoulder"]], ["BracketRight", [0, "RightShoulder"]],
       ["KeyA", [0, "ArrowLeft"]], ["KeyD", [0, "ArrowRight"]],
       ["Space", [0, "A"]], ["Enter", [0, "B"]],
       ["ShiftLeft", [0, "X"]], ["ShiftRight", [0, "X"]],
@@ -892,7 +901,28 @@
     if (new URLSearchParams(location.search).has("self-play"))
       globalThis.__oskiewarSelfPlay = true;
 
-    const browserTheme = new URLSearchParams(location.search).get("theme");
+    let browserTheme = new URLSearchParams(location.search).get("theme");
+    if (!["light", "dark", "sun"].includes(browserTheme)) {
+      try { browserTheme = localStorage.getItem("oskiewar-theme"); } catch {}
+      if (!["light", "dark", "sun"].includes(browserTheme)) browserTheme = "sun";
+    }
+    // The toggle is a web-only control; the test shell's document has no
+    // such button, so every touch of it is guarded.
+    const themeButton = document.querySelector?.("#theme-toggle");
+    const themeButtonLive = Boolean(themeButton?.addEventListener);
+    function updateThemeButton() {
+      if (!themeButtonLive) return;
+      themeButton.textContent = browserTheme === "sun" ? "Auto theme" :
+        browserTheme === "light" ? "Light mode" : "Dark mode";
+      themeButton.setAttribute("aria-label", themeButton.textContent + "; change appearance");
+    }
+    if (themeButtonLive) themeButton.addEventListener("click", () => {
+      browserTheme = browserTheme === "sun" ? "light" : browserTheme === "light" ? "dark" : "sun";
+      try { localStorage.setItem("oskiewar-theme", browserTheme); } catch {}
+      updateThemeButton();
+      themeButton.blur();
+    });
+    updateThemeButton();
     function capabilities() {
       const mac = navigator.userAgent.includes("Mac");
       const hasGamepad = padSeats.some((padIndex) => padIndex !== null);
