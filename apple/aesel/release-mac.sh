@@ -25,9 +25,13 @@ publish() {
     [[ -f "$DMG" ]] || { echo "no $DMG — build first" >&2; exit 1; }
     xcrun stapler validate "$DMG"
     spctl -a -t open --context context:primary-signature "$DMG"
+    local built_version built_number
+    built_version=$(/usr/libexec/PlistBuddy -c Print:CFBundleShortVersionString "$DIST/Aesel.app/Contents/Info.plist")
+    built_number=$(/usr/libexec/PlistBuddy -c Print:CFBundleVersion "$DIST/Aesel.app/Contents/Info.plist")
+    [[ "$built_version" == "$VERSION" ]] || { echo "build version differs from source; rebuild first" >&2; exit 1; }
     local sha; sha=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
     printf '{\n  "version": "%s",\n  "build": %s,\n  "dmg": "aesel-%s-arm64.dmg",\n  "sha256": "%s"\n}\n' \
-        "$VERSION" "$BUILD" "$VERSION" "$sha" > "$DIST/latest.json"
+        "$built_version" "$built_number" "$built_version" "$sha" > "$DIST/latest.json"
     export AWS_ACCESS_KEY_ID="$SPACES_KEY" AWS_SECRET_ACCESS_KEY="$SPACES_SECRET"
     local s3=(aws s3 cp --endpoint-url "${SPACES_ENDPOINT:-https://sfo3.digitaloceanspaces.com}" --acl public-read)
     "${s3[@]}" "$DMG" "s3://releases-aesthetic-computer/aesel/mac/$(basename "$DMG")" \
@@ -48,6 +52,13 @@ notarize() {
     grep -q '"status" *: *"Accepted"' "$DIST/notary.json" || { echo "notarization not accepted" >&2; exit 1; }
 }
 
+# A release must include the fleet work already preserved upstream.
+if git -C "$REPO" rev-parse --verify origin/main >/dev/null 2>&1; then
+    git -C "$REPO" merge-base --is-ancestor origin/main HEAD || {
+        echo "checkout is behind or diverged from origin/main; integrate fleet work before releasing" >&2
+        exit 1
+    }
+fi
 echo "aesel $VERSION ($BUILD)"
 ./bundle-session.sh
 xcodegen generate >/dev/null
