@@ -1,0 +1,34 @@
+{
+  "pipeline": "marketing",
+  "pipelineFile": null,
+  "description": "Campaign illy: cover-prompt.txt + refs/ -> gens/<variant>.png",
+  "targetDir": "/Users/jas/aesthetic-computer/easel/art/donkey-3d",
+  "creativePrompt": "Create one clean modeling reference of the SAME donkey depicted in the attached Aesel animation sheet. The sheet shows multiple moments of one donkey; output exactly one donkey, not a sheet or multiple views.\n\nPreserve the distinctive blue-gray pencil fur, cream muzzle and belly, expressive dark eyes, oversized upright ears with pale inner ears, short dark spiky mane, dark hooves, and dark tufted tail. Preserve the friendly natural donkey proportions. Keep visible colored-pencil strokes as the surface texture, while clarifying a fully volumetric body rather than a flat cutout.\n\nAdd the donkey's defining red reading glasses: small recognizable bright-red frames sitting low on the muzzle, expressive eyes clearly visible above the upper rims. The bridge rests plausibly on the muzzle, and slender curved temples reach toward stable support at the ear bases. Clear lenses, no opaque sunglasses. The glasses are a permanent part of this character's identity. Keep the frames distinct from the face, with simple clean geometry suitable for later separation as an accessory; do not fuse them into fur or hide the eyes.\n\nFull-body three-quarter side view with the head facing right, camera at shoulder height. Neutral quadruped bind pose, standing on all four hooves, legs straight but not locked, all four legs separately readable with air gaps between them. Ears separated, tail gently extended away from hind legs. No saddle, clothing, other props, pedestal, labels, borders, text, or extra limbs. Plain warm-white background, even diffuse light, minimal contact shadow beneath the hooves. Center the complete donkey including ear tips and tail with generous margin.\n\nThis is a rigging reference: preserve correct equine knees/hocks and a balanced weight-bearing stance. Do not make a biped or a toy with fused legs. No running pose or motion blur.",
+  "prompt": "Create one clean modeling reference of the SAME donkey depicted in the attached Aesel animation sheet. The sheet shows multiple moments of one donkey; output exactly one donkey, not a sheet or multiple views.\n\nPreserve the distinctive blue-gray pencil fur, cream muzzle and belly, expressive dark eyes, oversized upright ears with pale inner ears, short dark spiky mane, dark hooves, and dark tufted tail. Preserve the friendly natural donkey proportions. Keep visible colored-pencil strokes as the surface texture, while clarifying a fully volumetric body rather than a flat cutout.\n\nAdd the donkey's defining red reading glasses: small recognizable bright-red frames sitting low on the muzzle, expressive eyes clearly visible above the upper rims. The bridge rests plausibly on the muzzle, and slender curved temples reach toward stable support at the ear bases. Clear lenses, no opaque sunglasses. The glasses are a permanent part of this character's identity. Keep the frames distinct from the face, with simple clean geometry suitable for later separation as an accessory; do not fuse them into fur or hide the eyes.\n\nFull-body three-quarter side view with the head facing right, camera at shoulder height. Neutral quadruped bind pose, standing on all four hooves, legs straight but not locked, all four legs separately readable with air gaps between them. Ears separated, tail gently extended away from hind legs. No saddle, clothing, other props, pedestal, labels, borders, text, or extra limbs. Plain warm-white background, even diffuse light, minimal contact shadow beneath the hooves. Center the complete donkey including ear tips and tail with generous margin.\n\nThis is a rigging reference: preserve correct equine knees/hocks and a balanced weight-bearing stance. Do not make a biped or a toy with fused legs. No running pose or motion blur.\n\nPHYSICAL ACCURACY CONTRACT — REQUIRED, NOT OPTIONAL.\nRender one coherent physical state. Preserve exact object and character counts, identities, topology, and scale; no duplicates, fusions, substitutions, or parts appearing twice.\nMake every support and contact legible: feet bear weight on the stated surface, wheels meet the ground, hands close around held objects, mounted objects remain attached at their brackets, and contact shadows agree with those connections.\nRespect gravity, inertia, balance, joint limits, load paths, and plausible weight distribution. Limbs bend correctly; grips, stance, and object orientation must be mechanically usable.\nKeep camera geometry physically coherent. A first-person camera cannot also show its owner's face or body except the explicitly visible near limbs; reflections and occlusion must agree with the viewpoint.\nIf the prompt names motion, depict exactly one named instant with a readable cause, current action, and supported body state. Do not collapse before, impact, and aftermath into one contradictory tableau.\nDo not use blur, cropping, darkness, particles, or spectacle to hide uncertain anatomy, contact, or mechanics. Reject the image if the action only works because the relevant connection is obscured.",
+  "promptPath": "/Users/jas/aesthetic-computer/easel/art/donkey-3d/reference-prompt.txt",
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "promptHash": "6c94d93260e9d8013368d5542a0a692a8c5649c0a31f5c076d622f2e44298aaa",
+  "refs": [
+    "/Users/jas/aesthetic-computer/easel/shared/assets/donkey-pencil-run-v2.png"
+  ],
+  "mode": "edit",
+  "provider": "fal",
+  "model": "openai/gpt-image-2.5/sunburst/edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "slug": "donkey-3d",
+  "variant": "v1",
+  "output": "/Users/jas/aesthetic-computer/easel/art/donkey-3d/reference.png",
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance"
+  ],
+  "force": false,
+  "plannerNote": "Temporary explicit fal edit schema registration; direct runner owns array image_urls mapping."
+}

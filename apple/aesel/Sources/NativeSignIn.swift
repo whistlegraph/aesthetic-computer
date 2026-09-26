@@ -7,12 +7,14 @@ import Security
 struct NativeSignIn {
     static let clientID = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"
     static let callback = "http://localhost:44233/callback"
+    let signUp: Bool
     let verifier: String
     let state: String
     let created = Date()
     private(set) var consumed = false
 
-    init() throws {
+    init(signUp: Bool = false) throws {
+        self.signUp = signUp
         func random() throws -> String {
             var bytes = [UInt8](repeating: 0, count: 32)
             guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { throw Self.failure("Could not start sign-in") }
@@ -29,6 +31,7 @@ struct NativeSignIn {
                           "scope":"openid profile email", "state":state,
                           "code_challenge":Self.base64url(Data(SHA256.hash(data: Data(verifier.utf8)))),
                           "code_challenge_method":"S256", "prompt":"login"].map { URLQueryItem(name: $0.key, value: $0.value) }
+        if signUp { url.queryItems?.append(URLQueryItem(name: "screen_hint", value: "signup")) }
         return url.url!
     }
     static func isCallback(_ url: URL) -> Bool {

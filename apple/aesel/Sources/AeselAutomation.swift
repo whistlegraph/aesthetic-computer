@@ -12,6 +12,7 @@ import ScreenCaptureKit
 final class AeselAutomation {
     var inspect: (() -> [String: Any])?
     var perform: ((String, [String: Any]) async throws -> Void)?
+    weak var host: WKWebView?
     weak var preview: WKWebView?
     weak var notebook: WKWebView?
     var retryPreview: (() -> Void)?
@@ -24,7 +25,7 @@ final class AeselAutomation {
     private let instance = UUID().uuidString
     private let buildSha256: String
 
-    init() {
+    init(windowID: String = "main") {
         var hash = SHA256()
         let bundle = Bundle.main.bundleURL
         func visit(_ folder: URL) {
@@ -44,9 +45,10 @@ final class AeselAutomation {
         buildSha256 = hash.finalize().map { String(format: "%02x", $0) }.joined()
         let requested = ProcessInfo.processInfo.environment["AESEL_AUTOMATION_NAMESPACE"] ?? ""
         let namespace = requested.range(of: "^[a-z0-9-]{1,32}$", options: .regularExpression) != nil ? "-" + requested : ""
+        let windowSuffix = windowID == "main" ? "" : "-window-" + windowID
         directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "computer.aesthetic.aesel.native")
-            .appendingPathComponent("automation" + namespace)
+            .appendingPathComponent("automation" + namespace + windowSuffix)
     }
 
     func start() {
@@ -114,7 +116,13 @@ final class AeselAutomation {
             state["telemetrySequence"] = sequence
             state["previewFailure"] = previewFailure ?? ""
             #if os(macOS)
-            if let window = NSApp.windows.first(where: { !($0 is NSPanel) && $0.contentView != nil }) {
+            if let scroll = notebook?.enclosingScrollView {
+                state["notebookScroll"] = ["offset": scroll.contentView.bounds.minY,
+                    "documentHeight": scroll.documentView?.bounds.height ?? 0,
+                    "viewportHeight": scroll.contentView.bounds.height,
+                    "elastic": scroll.verticalScrollElasticity != .none]
+            }
+            if let window = notebook?.window ?? preview?.window ?? host?.window {
                 state["window"] = ["number": window.windowNumber, "width": window.contentView!.bounds.width, "height": window.contentView!.bounds.height, "visible": window.isVisible, "toolbarStyle": window.toolbarStyle.rawValue, "hasToolbar": window.toolbar != nil, "styleMask": window.styleMask.rawValue, "titlebarHeight": window.frame.height - window.contentLayoutRect.height]
             }
             #endif
@@ -147,7 +155,7 @@ final class AeselAutomation {
                 return ["mimeType": "image/png", "data": png.base64EncodedString(), "target": targetName]
             }
             #if os(macOS)
-            guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "workspace" }) ?? NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }),
+            guard let window = notebook?.window ?? preview?.window ?? host?.window,
                   window.contentView != nil else { throw failure("No app window available") }
             if targetName == "app" {
                 guard let view = window.contentView, let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw failure("No app content available") }

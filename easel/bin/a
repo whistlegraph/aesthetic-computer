@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Terminal harness; the GUI is launched with aesel.
+set -euo pipefail
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+    script_directory="$(cd "$(dirname "$script_path")" && pwd -P)"
+    link_target="$(readlink "$script_path")"
+    if [[ "$link_target" == /* ]]; then script_path="$link_target";
+    else script_path="$script_directory/$link_target"; fi
+done
+exec "$(cd "$(dirname "$script_path")" && pwd)/easel" pro "$@"

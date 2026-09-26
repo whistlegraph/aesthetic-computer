@@ -47,7 +47,6 @@ struct AeselProviderPicker: View {
                 option("ac", title: "Aesthetic.Computer", available: true)
                 option("claude", title: "Claude", available: session.providers.first { $0.id == "claude" }?.available == true)
                 option("codex", title: "Codex", available: session.providers.first { $0.id == "codex" }?.available == true)
-                Button("Refresh connection") { host.refreshProviders() }.padding(6)
             }
             .padding(8)
             .frame(width: 310)

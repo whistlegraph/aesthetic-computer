@@ -109,7 +109,7 @@
    "examples": [
     "disks/25.4.13.19.24.mjs:52  paste(drawing, x, y, scale);",
     "disks/angel.mjs:65  paste(painting, xposition, screen.height - painting.height);",
-    "disks/arena.mjs:3262  paste(buffer, centerX, centerY);"
+    "disks/arena.mjs:3185  paste(buffer, centerX, centerY);"
    ]
   },
   {
@@ -438,7 +438,7 @@
    "doc": "Clip drawing to a rectangle until unmask().",
    "source": "lib/graph.mjs:1838",
    "examples": [
-    "disks/chat.mjs:1378  mask({",
+    "disks/chat.mjs:1385  mask({",
     "disks/clocks.mjs:152  mask({",
     "disks/commits.mjs:326  mask({ x: 0, y: topMargin, width: w, height: chatHeight });"
    ]
@@ -450,7 +450,7 @@
    "doc": "Lift the clip set by mask().",
    "source": "lib/graph.mjs:1843",
    "examples": [
-    "disks/chat.mjs:2288  unmask();",
+    "disks/chat.mjs:2295  unmask();",
     "disks/clocks.mjs:205  unmask(); // End masking",
     "disks/commits.mjs:485  unmask();"
    ]
@@ -546,7 +546,9 @@
    "signature": "invert()",
    "doc": "Invert every pixel's color.",
    "source": "lib/graph.mjs:2106",
-   "examples": []
+   "examples": [
+    "disks/lairk.mjs:711  const inv = camMatrix && invert(camMatrix);"
+   ]
   },
   {
    "name": "contrast",
@@ -655,7 +657,7 @@
    "path": "sound.synth",
    "signature": "sound.synth(…)",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13334",
+   "source": "lib/disk.mjs:13335",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -667,7 +669,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13249",
+   "source": "lib/disk.mjs:13250",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -681,9 +683,9 @@
    "doc": "A button. In paint: btn.paint((b) => { ink(b.down ? \"yellow\" : \"gray\").box(b.box) }). In act: btn.act(e, { push: () => {}, down: () => {}, up: () => {}, cancel: () => {} }). Pass pens() as the 3rd arg to act for multitouch. Rebuild buttons in `reframed`.",
    "source": "lib/ui.mjs:264",
    "examples": [
-    "disks/arena.mjs:3554  up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: \"forward\", label: \"↑\", isArrow: true },",
-    "disks/arena.mjs:3556  left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: \"left\", label: \"←\", isArrow: true },",
-    "disks/arena.mjs:3559  view: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: \"view\", label: \"VIEW\", color: [150, 110, 200], isView: true },"
+    "disks/arena.mjs:3477  up: { btn: new ui.Button(moveX + btnSize + gap, moveY, btnSize, btnSize), key: \"forward\", label: \"↑\", isArrow: true },",
+    "disks/arena.mjs:3479  left: { btn: new ui.Button(moveX, moveY + btnSize + gap, btnSize, btnSize), key: \"left\", label: \"←\", isArrow: true },",
+    "disks/arena.mjs:3482  view: { btn: new ui.Button(actionX, actionY, btnSizeWide, btnSize), key: \"view\", label: \"VIEW\", color: [150, 110, 200], isView: true },"
    ]
   },
   {
@@ -717,9 +719,9 @@
    "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
    "source": "lib/disk.mjs:5741",
    "examples": [
-    "disks/arena.mjs:2908  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
-    "disks/arena.mjs:2918  write(t, { x, y }, undefined, undefined, false, font);",
-    "disks/arena.mjs:3094  write(msg1, { x: Math.floor(screen.width / 2 - msg1.length * 2), y: bannerY }, undefined, undefined, false, \"MatrixChunky8\");"
+    "disks/arena.mjs:2831  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
+    "disks/arena.mjs:2841  write(t, { x, y }, undefined, undefined, false, font);",
+    "disks/arena.mjs:3017  write(msg1, { x: Math.floor(screen.width / 2 - msg1.length * 2), y: bannerY }, undefined, undefined, false, \"MatrixChunky8\");"
    ]
   },
   {

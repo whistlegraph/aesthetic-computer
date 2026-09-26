@@ -51,7 +51,11 @@ struct AeselNotebook: AeselWebViewRepresentable {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(context.coordinator.scheme, forURLScheme: "aesel-bundle")
         config.userContentController.add(context.coordinator, name: "notebook")
+        #if os(macOS)
+        let view = NotebookWebView(frame: .zero, configuration: config)
+        #else
         let view = WKWebView(frame: .zero, configuration: config)
+        #endif
         view.navigationDelegate = context.coordinator
         automation?.notebook = view
         ApplePlatform.configureEmbeddedView(view)
@@ -63,7 +67,7 @@ struct AeselNotebook: AeselWebViewRepresentable {
     }
     func updateWebView(_ view: WKWebView, context: Context) {
         ApplePlatform.setAppearance(view, colorScheme: paint.css["colorScheme"] == "light" ? .light : .dark)
-        var entries = session.entries.filter { $0.kind != .edit }.map { entry in
+        var entries = session.displayedEntries.filter { $0.kind != .edit }.map { entry in
             ["id": entry.id.uuidString, "kind": entry.kind == .you ? "user" : entry.kind == .ac ? "assistant" : entry.kind == .bad ? "error" : "notice", "text": entry.text]
         }
         if let fatal = session.fatal { entries.append(["id": "fatal", "kind": "error", "text": fatal]) }

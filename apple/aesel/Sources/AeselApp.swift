@@ -2,51 +2,87 @@ import SwiftUI
 
 @main
 struct AeselApp: App {
-    @State private var session = Session()
-    @State private var host: SessionHost
+    init() { ApplePlatform.registerFonts() }
+
+    var body: some Scene {
+        #if os(macOS)
+        WindowGroup("", id: "workspace", for: String.self) { $windowID in
+            AeselWorkspace(windowID: windowID ?? "main")
+        } defaultValue: { "main" }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 840, height: 680)
+        .commands { AeselWindowCommands() }
+        #else
+        WindowGroup { AeselWorkspace(windowID: "main") }
+        #endif
+    }
+
+    /// Release sessions load immutable app resources. Developers can explicitly
+    /// opt into a hosted session through the launch environment.
+    static var hostURL: URL {
+        if let text = ProcessInfo.processInfo.environment["AESEL_HOST"],
+           let url = URL(string: text) {
+            return url
+        }
+        return URL(string: "aesel-bundle://app/easel/phone/host.html")!
+    }
+}
+
+#if os(macOS)
+private struct AeselWindowCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+    @AppStorage("aesel.uiScale") private var uiScale = 1.0
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("New Window") { openWindow(id: "workspace", value: UUID().uuidString) }
+                .keyboardShortcut("n", modifiers: .command)
+        }
+        CommandGroup(after: .toolbar) {
+            Button("Larger UI") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
+                .keyboardShortcut("=", modifiers: .command).disabled(uiScale >= 1.75)
+            Button("Larger UI (+)") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
+                .keyboardShortcut("+", modifiers: .command).disabled(uiScale >= 1.75)
+            Button("Smaller UI") { uiScale = max(0.7, ((uiScale - 0.1) * 100).rounded() / 100) }
+                .keyboardShortcut("-", modifiers: .command).disabled(uiScale <= 0.7)
+            Button("Actual UI Size") { uiScale = 1 }.keyboardShortcut("0", modifiers: .command)
+        }
+    }
+}
+#endif
+
+@MainActor private final class WorkspaceSession: ObservableObject {
+    let session: Session
+    let host: SessionHost
+    init(windowID: String) {
+        session = Session()
+        host = SessionHost(session: session, store: SessionStore(windowID: windowID), windowID: windowID)
+    }
+}
+
+private struct AeselWorkspace: View {
+    @StateObject private var owner: WorkspaceSession
+    private var session: Session { owner.session }
+    private var host: SessionHost { owner.host }
     @State private var started = false
     @AppStorage("aesel.uiScale") private var uiScale = 1.0
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.displayScale) private var displayScale
 
-    init() {
-        ApplePlatform.registerFonts()
-        let session = Session()
-        _session = State(initialValue: session)
-        _host = State(initialValue: SessionHost(session: session, store: SessionStore()))
+    init(windowID: String) {
+        _owner = StateObject(wrappedValue: WorkspaceSession(windowID: windowID))
     }
 
-    var body: some Scene {
+    var body: some View {
         #if os(macOS)
-        Window("", id: "workspace") {
-            GeometryReader { geometry in
-                workspace
-                    .frame(width: ceil(geometry.size.width * displayScale) / displayScale / uiScale,
-                           height: ceil(geometry.size.height * displayScale) / displayScale / uiScale)
-                    .environment(\.aeselUIScale, uiScale)
-                    .scaleEffect(uiScale, anchor: .topLeading)
-            }.frame(minWidth: 220, minHeight: 160).clipped().ignoresSafeArea(.container, edges: .top)
-        }
-        .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 840, height: 680)
-        .commands {
-            CommandGroup(after: .toolbar) {
-                Button("Larger UI") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
-                    .keyboardShortcut("=", modifiers: .command).disabled(uiScale >= 1.75)
-                Button("Larger UI (+)") { uiScale = min(1.75, ((uiScale + 0.1) * 100).rounded() / 100) }
-                    .keyboardShortcut("+", modifiers: .command).disabled(uiScale >= 1.75)
-                Button("Smaller UI") { uiScale = max(0.7, ((uiScale - 0.1) * 100).rounded() / 100) }
-                    .keyboardShortcut("-", modifiers: .command).disabled(uiScale <= 0.7)
-                Button("Actual UI Size") { uiScale = 1 }.keyboardShortcut("0", modifiers: .command)
-            }
-            CommandGroup(replacing: .newItem) {
-                Button("New Piece") { host.newSession(medium: "piece") }
-                    .keyboardShortcut("n")
-                    .disabled(session.busy)
-            }
-        }
+        GeometryReader { geometry in
+            workspace
+                .frame(width: ceil(geometry.size.width * displayScale) / displayScale / uiScale,
+                       height: ceil(geometry.size.height * displayScale) / displayScale / uiScale)
+                .environment(\.aeselUIScale, uiScale)
+                .scaleEffect(uiScale, anchor: .topLeading)
+        }.frame(minWidth: 220, minHeight: 160).clipped().ignoresSafeArea(.container, edges: .top)
         #else
-        WindowGroup { workspace }
+        workspace
         #endif
     }
 
@@ -99,17 +135,8 @@ struct AeselApp: App {
                         return
                     }
                     #endif
-                    host.start(hostURL: Self.hostURL)
+                    host.start(hostURL: AeselApp.hostURL)
                 }
     }
 
-    /// Release sessions load immutable app resources. Developers can explicitly
-    /// opt into a hosted session through the launch environment.
-    static var hostURL: URL {
-        if let text = ProcessInfo.processInfo.environment["AESEL_HOST"],
-           let url = URL(string: text) {
-            return url
-        }
-        return URL(string: "aesel-bundle://app/easel/phone/host.html")!
-    }
 }

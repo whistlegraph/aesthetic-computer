@@ -183,18 +183,36 @@ static int nv_write_wav(const char *path, const float *buf, int nframes) {
 }
 
 /* ── driver ───────────────────────────────────────────────────────── */
+/* --notes FILE: a written line for a track, one note per line, "freq start dur vel"
+   (freq in Hz, 0 = rest; times in seconds). Rendered to <outdir>/<voice>-notes.wav
+   with the same -1 dBFS normalization as the test melodies. */
+static NvNote *nv_notes_from_file(const char *path, int *count, double *length) {
+  FILE *f = fopen(path, "r");
+  if (!f) { fprintf(stderr, "novelizer: cannot read %s\n", path); return NULL; }
+  int cap = 256, n = 0; NvNote *v = (NvNote *)malloc((size_t)cap * sizeof(NvNote));
+  double end = 0; char line[256];
+  while (fgets(line, sizeof line, f)) {
+    NvNote t; if (sscanf(line, "%lf %lf %lf %lf", &t.freq, &t.start, &t.dur, &t.vel) != 4) continue;
+    if (n == cap) { cap *= 2; v = (NvNote *)realloc(v, (size_t)cap * sizeof(NvNote)); }
+    v[n++] = t; if (t.start + t.dur > end) end = t.start + t.dur;
+  }
+  fclose(f); *count = n; *length = end; return v;
+}
 static int nv_main(int argc, char **argv, const char *voice, NvRenderFn render) {
-  const char *only = NULL, *outdir = "out";
+  const char *only = NULL, *outdir = "out", *notesPath = NULL;
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--melody") && i + 1 < argc) only = argv[++i];
     else if (!strcmp(argv[i], "--out") && i + 1 < argc) outdir = argv[++i];
-    else { fprintf(stderr, "usage: %s [--melody name] [--out dir]\n", argv[0]); return 2; }
+    else if (!strcmp(argv[i], "--notes") && i + 1 < argc) notesPath = argv[++i];
+    else { fprintf(stderr, "usage: %s [--melody name] [--notes file] [--out dir]\n", argv[0]); return 2; }
   }
   nv_init_melodies();
+  NvMelody written = { "notes", NULL, 0, 0 };
+  if (notesPath) { int c = 0; double len = 0; NvNote *nn = nv_notes_from_file(notesPath, &c, &len); if (!nn || !c) { fprintf(stderr, "novelizer: no notes in %s\n", notesPath); return 2; } written.notes = nn; written.count = c; written.length = len; }
   mkdir(outdir, 0755);
   int rendered = 0;
-  for (int i = 0; i < NV_MELODY_COUNT; i++) {
-    const NvMelody *m = &nv_melodies[i];
+  for (int i = 0; i < (notesPath ? 1 : NV_MELODY_COUNT); i++) {
+    const NvMelody *m = notesPath ? &written : &nv_melodies[i];
     if (only && strcmp(only, m->name)) continue;
     int nframes = (int)((m->length + NV_TAIL_SEC) * NV_SR);
     float *buf = (float *)calloc((size_t)nframes, sizeof(float));

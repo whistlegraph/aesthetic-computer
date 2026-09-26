@@ -43,4 +43,4 @@ writeFileSync(plist,`<?xml version="1.0" encoding="UTF-8"?>
 </dict></plist>`,{mode:0o600});
 const result=spawnSync('launchctl',['bootstrap',domain,plist],{encoding:'utf8'});
 if(result.status!==0)throw new Error(result.stderr.trim()||'Could not start Aesel Host');
-console.log('Aesel Host installed. In Aesel Native, open the provider menu and refresh the connection.');
+console.log('Aesel Host installed. Open Settings in Aesel to see connected providers.');

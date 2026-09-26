@@ -195,7 +195,9 @@ export function renderSkrill(ev, opts = {}) {
   const rng = makeRng(`skrill:${presetName}:${ev.midi}:${(ev.startSec ?? 0).toFixed(4)}`);
 
   // State.
-  let modPhase = 0, carPhase = 0, lfoPhase = rng();
+  let modPhase = 0, carPhase = 0, subPhase = 0;
+  // opts.phaseSync: LFO starts on the beat grid (see wobble.mjs). Off by default for reproducibility.
+  let lfoPhase = opts.phaseSync ? (((ev.startSec ?? 0) * lfoHz) % 1 + 1) % 1 : rng();
   // Two Chamberlin SVF band-pass filters (formant F1/F2).
   let l1 = 0, b1 = 0, l2 = 0, b2 = 0;
   const damp = 1 / Math.max(0.5, P.q ?? 6);   // 1/Q → resonance
@@ -226,7 +228,8 @@ export function renderSkrill(ev, opts = {}) {
     // "Constant modulation": index breathes with the wub — the thing
     // every Skrillex tutorial stresses.
     const idx = (P.fmIndex ?? 5) * (0.35 + 0.65 * lv);
-    carPhase += carrierF / sampleRate; if (carPhase >= 1) carPhase -= 1;
+    carPhase += carrierF / sampleRate;
+    subPhase += (carrierF / sampleRate) * 0.5; if (subPhase >= 1) subPhase -= 1; if (carPhase >= 1) carPhase -= 1;
     let voice = Math.sin(TWO_PI * carPhase + idx * mod);
     // Raw-saw edge so it cuts through a dense trance bed.
     voice = voice * (1 - (P.edge ?? 0.2)) + (2 * carPhase - 1) * (P.edge ?? 0.2);
@@ -262,7 +265,10 @@ export function renderSkrill(ev, opts = {}) {
     }
 
     // ── clean sine sub an octave down (unmodulated body) ──
-    const sub = Math.sin(TWO_PI * carPhase * 0.5) * (P.subGain ?? 0.35);
+    // opts.trueSub: a real sine one octave below the carrier. The original expression sin(π·carPhase)
+    // is a half-wave hump at the carrier pitch with a DC offset (measured 2026-09-25); kept as the default so
+    // existing renders reproduce, fixed behind the flag.
+    const sub = (opts.trueSub ? Math.sin(TWO_PI * subPhase) : Math.sin(TWO_PI * carPhase * 0.5)) * (P.subGain ?? 0.35);
 
     out[i] = (s * 0.78 + sub) * env * gain;
   }

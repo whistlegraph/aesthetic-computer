@@ -4,8 +4,15 @@ import {readFile,writeFile,rename,unlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {homedir} from 'node:os';
 import {randomUUID} from 'node:crypto';
-const directory=join(homedir(),'Library/Containers/computer.aesthetic.aesel.native/Data/Library/Application Support/computer.aesthetic.aesel.native/automation');
-export async function nativeRequest(method,params={}, {root=directory}={}) {
+const directories=['computer.aesthetic.easel','computer.aesthetic.aesel.native'].map(id=>join(homedir(),`Library/Containers/${id}/Data/Library/Application Support/${id}/automation`));
+async function runningDirectory() {
+ for (const directory of directories) {
+  try { const instance=JSON.parse(await readFile(join(directory,'instance.json'),'utf8'));process.kill(instance.pid,0);return directory; } catch {}
+ }
+ throw Error('Aesel is not running');
+}
+export async function nativeRequest(method,params={}, {root}={}) {
+ root ??= await runningDirectory();
  const instance=JSON.parse(await readFile(join(root,'instance.json'),'utf8'));
  if(!Number.isInteger(instance.pid) || typeof instance.instance!=='string')throw Error('Invalid native app instance');
  try{process.kill(instance.pid,0);}catch{throw Error('Native app is not running');}

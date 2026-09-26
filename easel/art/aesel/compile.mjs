@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {decode,encode} from '../../media/picture/png.mjs';
 const image=decode(readFileSync(new URL('./sheet-source.png',import.meta.url)));
 if(image.width!==1024||image.height!==1024)throw new Error('Expected4×4 sheet at1024px');
-const dir=fileURLToPath(new URL('../../desktop/assets/',import.meta.url));mkdirSync(dir,{recursive:true});
+const dir=fileURLToPath(new URL('../../shared/assets/',import.meta.url));mkdirSync(dir,{recursive:true});
 const data=Buffer.alloc(256*256*4),frames=[];
 const green=(r,g,b)=>g>r+12&&g>b+12;
 for(let n=0;n<16;n++){
@@ -28,6 +28,3 @@ writeFileSync(dir+'aesel.png',encode({width:256,height:256,data}));
 const manifest={name:'Aesel',cellWidth:64,cellHeight:64,columns:4,rows:4,anchor:{x:60,y:59},animations:{idle:{frames:[0,1],durations:[1400,180]},awake:{frames:[2,3],durations:[500,500]},sleeping:{frames:[4,5,6,7],durations:[900,900,900,900]},working:{frames:[8,9,10,11],durations:[180,180,180,180]},running:{frames:[12,13,14,15],durations:[120,120,120,120]}},extraction:frames};
 writeFileSync(dir+'aesel.json',JSON.stringify(manifest,null,2)+'\n');
 console.log('Compiled16 anchored64px frames.');
-
-const icon=new URL('../../desktop/build/icon.svg',import.meta.url);
-writeFileSync(icon,readFileSync(icon,'utf8').replace(/href="data:image\/png;base64,[^"]+"/,`href="data:image/png;base64,${readFileSync(dir+'aesel-icon.png').toString('base64')}"`));

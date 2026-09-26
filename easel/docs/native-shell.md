@@ -1,3 +1,5 @@
+> Historical proposal, superseded by [native Aesel](../../apple/aesel/README.md). The Electron implementation and its build chain have been removed.
+
 # A native Aesel
 
 Written 2026-09-13. Nothing here is implemented. Line counts, flags and file

@@ -15,6 +15,8 @@
 		1A0F35CCE1C51897FB881351 /* PreviewResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC974F17F071328B039F80B8 /* PreviewResize.swift */; };
 		1F53641C03321161A7665F3B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		2026E504A366EFEB32F2F822 /* AeselModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26176753E43E445E2CF551D /* AeselModelPicker.swift */; };
+		209EDA86EAD34DFC2EFD8848 /* NotebookWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */; };
+		2177ABB4922D91CD4C857EF1 /* NotebookWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */; };
 		23BD42525B15F37C435178AB /* AeselProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */; };
 		2CD2971FBDBCCE62B7D958EB /* AeselVersionList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD16B382BBDB5D06475826D /* AeselVersionList.swift */; };
 		2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7CE6904A010A2BEC894D13C /* AeselApp.swift */; };
@@ -22,6 +24,7 @@
 		2EC2911B60E5BF85985277EE /* AeselComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */; };
 		2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90DE4FA98343A247299E9ACA /* NotebookDocument.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
+		409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
 		44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
 		466E32FFFB239E88D25A3C66 /* Braincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */; };
 		496F27216049A66E73C95E09 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
@@ -36,15 +39,21 @@
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
 		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
 		7B612E66F6A4D5A255F683D6 /* AeselVersionList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD16B382BBDB5D06475826D /* AeselVersionList.swift */; };
+		7D4D4BC2F4E1DE8EABFD4AEF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */; };
+		86A620DE0C4F07F29CC1FE94 /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6EB43A9F66C25770CFD5A05 /* AccountDeletion.swift */; };
+		88E37D6CCFAEFCD974496F1F /* AccountDeletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6EB43A9F66C25770CFD5A05 /* AccountDeletion.swift */; };
 		8A7F1BBCD12CDD5FE9707061 /* AeselHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */; };
+		8C8ABE58FEAE08FF90C5AEEF /* AeselProx.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D06A336C257DC6663C0E51 /* AeselProx.swift */; };
 		8D922558DA9CF175830F7418 /* AeselWoodFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C5979E119A7D487AD7ED90D /* AeselWoodFrame.swift */; };
 		90D6ABA9E53184A2BCD5A127 /* preview-continuity.js in Resources */ = {isa = PBXBuildFile; fileRef = F9AA1A94FD57EA03B4309E30 /* preview-continuity.js */; };
 		928997979C8BC6E92AC2B3A9 /* AeselHoverSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */; };
 		9722A94D57514795BC92F83D /* PreviewResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC974F17F071328B039F80B8 /* PreviewResize.swift */; };
 		975A2C86AF7C7B60369819B6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505E152C400C5CE69463B39F /* ContentView.swift */; };
 		9D73D7FD54B29205733E3BC9 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
+		A10EC17AA74EA9E2FB9495B6 /* AeselProx.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D06A336C257DC6663C0E51 /* AeselProx.swift */; };
 		A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
 		A4B8792BDBB5F95822088FB0 /* AeselNotebook.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */; };
+		A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
 		A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */; };
 		A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
 		AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
@@ -62,6 +71,7 @@
 		CAD62C40B80A11D34190847E /* AeselSourceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */; };
 		CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
 		D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
+		E24FA3D4F33A360267A7EAB6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */; };
 		E269C78DB87E568CC6F63CC8 /* AeselProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */; };
 		E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
 		E9877D833B3CE6FE4FB14192 /* AeselButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */; };
@@ -73,6 +83,7 @@
 		0C5979E119A7D487AD7ED90D /* AeselWoodFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselWoodFrame.swift; sourceTree = "<group>"; };
 		13B505C3279E0F8DB5292B86 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
 		174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselSourceView.swift; sourceTree = "<group>"; };
+		196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		22509229E839210D9200B4AA /* Aesel.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Aesel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		228E709932A29DC953A73B71 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselProviderPicker.swift; sourceTree = "<group>"; };
@@ -89,10 +100,13 @@
 		9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeHostConnection.swift; sourceTree = "<group>"; };
 		99EE09710898E704A2EDB590 /* AeselMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeselMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ComicRelief-Bold.ttf"; sourceTree = "<group>"; };
+		9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotebookWebView.swift; sourceTree = "<group>"; };
 		9DD20E2826C7E253AFDDDF7C /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHoverSound.swift; sourceTree = "<group>"; };
 		A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselButtonStyle.swift; sourceTree = "<group>"; };
+		A6EB43A9F66C25770CFD5A05 /* AccountDeletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletion.swift; sourceTree = "<group>"; };
 		AACC6D25723505FB156B46F0 /* slab-theme.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "slab-theme.json"; sourceTree = "<group>"; };
+		B4D06A336C257DC6663C0E51 /* AeselProx.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselProx.swift; sourceTree = "<group>"; };
 		B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHost.swift; sourceTree = "<group>"; };
 		B7CE6904A010A2BEC894D13C /* AeselApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselApp.swift; sourceTree = "<group>"; };
 		BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotebook.swift; sourceTree = "<group>"; };
@@ -102,12 +116,14 @@
 		EC974F17F071328B039F80B8 /* PreviewResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewResize.swift; sourceTree = "<group>"; };
 		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
 		F9AA1A94FD57EA03B4309E30 /* preview-continuity.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "preview-continuity.js"; sourceTree = "<group>"; };
+		FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeWebAuthentication.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		10821474428BA314BB316CD0 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				A6EB43A9F66C25770CFD5A05 /* AccountDeletion.swift */,
 				B7CE6904A010A2BEC894D13C /* AeselApp.swift */,
 				E270B97E651FC0013152574F /* AeselAutomation.swift */,
 				A512F7F818F52E3E58D3B7CB /* AeselButtonStyle.swift */,
@@ -118,6 +134,7 @@
 				BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */,
 				72A337044339282DB88573A0 /* AeselPieceView.swift */,
 				3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */,
+				B4D06A336C257DC6663C0E51 /* AeselProx.swift */,
 				7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */,
 				174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */,
 				3BD16B382BBDB5D06475826D /* AeselVersionList.swift */,
@@ -127,7 +144,9 @@
 				505E152C400C5CE69463B39F /* ContentView.swift */,
 				9675E31C13077439E6F36AE1 /* NativeHostConnection.swift */,
 				6975BD799206CFA5D9095BDB /* NativeSignIn.swift */,
+				FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */,
 				90DE4FA98343A247299E9ACA /* NotebookDocument.swift */,
+				9CDBBA3D80069AB001DCB170 /* NotebookWebView.swift */,
 				EC974F17F071328B039F80B8 /* PreviewResize.swift */,
 				13B505C3279E0F8DB5292B86 /* Session.swift */,
 				B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */,
@@ -162,6 +181,7 @@
 				4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */,
 				99FE2FC14157DB3F88708A6B /* ComicRelief-Bold.ttf */,
 				F9AA1A94FD57EA03B4309E30 /* preview-continuity.js */,
+				196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */,
 				AACC6D25723505FB156B46F0 /* slab-theme.json */,
 			);
 			path = Resources;
@@ -253,6 +273,7 @@
 				7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */,
 				44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */,
 				AC7B6241A0E7F2791E06F1CA /* ComicRelief-Bold.ttf in Resources */,
+				E24FA3D4F33A360267A7EAB6 /* PrivacyInfo.xcprivacy in Resources */,
 				C48716DE150CDF3FE383298E /* Session in Resources */,
 				61636BC5717C14D1D6A3F51F /* preview-continuity.js in Resources */,
 				B7D0EF78D26BBA38AB801393 /* slab-theme.json in Resources */,
@@ -266,6 +287,7 @@
 				BAC151C354229839F584BDDF /* Assets.xcassets in Resources */,
 				EE331E96C91793CBF5E52157 /* COMIC-RELIEF-OFL-1.1.txt in Resources */,
 				15625BEE72859E0B3AA9421E /* ComicRelief-Bold.ttf in Resources */,
+				7D4D4BC2F4E1DE8EABFD4AEF /* PrivacyInfo.xcprivacy in Resources */,
 				C5E4BB3C192D944F7CB281FC /* Session in Resources */,
 				90D6ABA9E53184A2BCD5A127 /* preview-continuity.js in Resources */,
 				084DDDE9E374CC8B27DEA518 /* slab-theme.json in Resources */,
@@ -279,6 +301,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				88E37D6CCFAEFCD974496F1F /* AccountDeletion.swift in Sources */,
 				2DB3100BC43BD21115A1BA37 /* AeselApp.swift in Sources */,
 				D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */,
 				A989A8D07DAA87AB483EC748 /* AeselButtonStyle.swift in Sources */,
@@ -289,6 +312,7 @@
 				A2CDE2052DDB891D3A4659D6 /* AeselNotebook.swift in Sources */,
 				06DAB9B425E19C4E02F25A24 /* AeselPieceView.swift in Sources */,
 				E269C78DB87E568CC6F63CC8 /* AeselProviderPicker.swift in Sources */,
+				A10EC17AA74EA9E2FB9495B6 /* AeselProx.swift in Sources */,
 				B8236CE8844912F069905928 /* AeselScene.swift in Sources */,
 				CAD62C40B80A11D34190847E /* AeselSourceView.swift in Sources */,
 				7B612E66F6A4D5A255F683D6 /* AeselVersionList.swift in Sources */,
@@ -298,7 +322,9 @@
 				1F53641C03321161A7665F3B /* ContentView.swift in Sources */,
 				52D74FA73C3384F2C2FF141B /* NativeHostConnection.swift in Sources */,
 				E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */,
+				409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */,
 				B6CD08B664BE9DA1354DEA03 /* NotebookDocument.swift in Sources */,
+				2177ABB4922D91CD4C857EF1 /* NotebookWebView.swift in Sources */,
 				1A0F35CCE1C51897FB881351 /* PreviewResize.swift in Sources */,
 				3661DCFA19E2594688511C86 /* Session.swift in Sources */,
 				6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */,
@@ -310,6 +336,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				86A620DE0C4F07F29CC1FE94 /* AccountDeletion.swift in Sources */,
 				4A5FFF82FBF2EF81CD8D158A /* AeselApp.swift in Sources */,
 				AC4159B335B9A16CFF670F02 /* AeselAutomation.swift in Sources */,
 				E9877D833B3CE6FE4FB14192 /* AeselButtonStyle.swift in Sources */,
@@ -320,6 +347,7 @@
 				A4B8792BDBB5F95822088FB0 /* AeselNotebook.swift in Sources */,
 				56DF7E946D2DDC7451AA9F0E /* AeselPieceView.swift in Sources */,
 				23BD42525B15F37C435178AB /* AeselProviderPicker.swift in Sources */,
+				8C8ABE58FEAE08FF90C5AEEF /* AeselProx.swift in Sources */,
 				5FF391305FB9EEF4AB630D42 /* AeselScene.swift in Sources */,
 				60D63C84E3196DD0C030FF63 /* AeselSourceView.swift in Sources */,
 				2CD2971FBDBCCE62B7D958EB /* AeselVersionList.swift in Sources */,
@@ -329,7 +357,9 @@
 				975A2C86AF7C7B60369819B6 /* ContentView.swift in Sources */,
 				B7FDFEA06B2AF78A0D5E0398 /* NativeHostConnection.swift in Sources */,
 				CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */,
+				A6126E0DBAC8A47345F0079B /* NativeWebAuthentication.swift in Sources */,
 				2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */,
+				209EDA86EAD34DFC2EFD8848 /* NotebookWebView.swift in Sources */,
 				9722A94D57514795BC92F83D /* PreviewResize.swift in Sources */,
 				0B56E0A1E07AD7B531824F41 /* Session.swift in Sources */,
 				496F27216049A66E73C95E09 /* SessionHost.swift in Sources */,
@@ -494,7 +524,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.aesel.native;
-				PRODUCT_NAME = "Aesel Native";
+				PRODUCT_NAME = Aesel;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -511,8 +541,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.aesel.native;
-				PRODUCT_NAME = "Aesel Native";
+				PRODUCT_BUNDLE_IDENTIFIER = computer.aesthetic.easel;
+				PRODUCT_NAME = Aesel;
 				SDKROOT = macosx;
 			};
 			name = Release;

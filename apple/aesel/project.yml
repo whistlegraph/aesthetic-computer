@@ -43,11 +43,14 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.aesel.native
-        PRODUCT_NAME: Aesel Native
+        PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.easel
+        PRODUCT_NAME: Aesel
         INFOPLIST_FILE: MacInfo.plist
         CODE_SIGN_ENTITLEMENTS: Mac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: computer.aesthetic.aesel.native
     scheme:
       gatherCoverageData: false

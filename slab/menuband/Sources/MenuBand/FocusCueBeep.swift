@@ -46,6 +46,24 @@ final class FocusCueBeep {
         if !player.isPlaying { player.play() }
     }
 
+    /// REC just started: two quick ticks and the rising bell — unlike the
+    /// plain focus bell, so the ear knows the tape is now rolling.
+    func recordStart() {
+        guard ensureStarted() else { return }
+        guard let tick = makeClickBuffer(), let bell = makeBuffer(rising: true) else { return }
+        let fmt = tick.format
+        guard let gap = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(fmt.sampleRate * 0.09)) else { return }
+        gap.frameLength = gap.frameCapacity
+        if let d = gap.floatChannelData { for ch in 0..<Int(fmt.channelCount) { memset(d[ch], 0, Int(gap.frameLength) * MemoryLayout<Float>.size) } }
+        player.stop()
+        player.scheduleBuffer(tick, completionHandler: nil)
+        player.scheduleBuffer(gap, completionHandler: nil)
+        player.scheduleBuffer(tick, completionHandler: nil)
+        player.scheduleBuffer(gap, completionHandler: nil)
+        player.scheduleBuffer(bell, completionHandler: nil)
+        player.play()
+    }
+
     /// The Tab handoff chime — which trackpad page just took over. A low,
     /// soft-attacked sine in the airport-PA register, deliberately unlike
     /// the high focus bell so "mode changed" and "focus changed" never blur:

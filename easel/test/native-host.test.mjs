@@ -40,6 +40,50 @@ test('one durable operation starts once and carries source plus scoped approvals
  assert.equal(events.operation.status,'completed');assert.ok(events.events.some(x=>x.type==='source'));
  await host.rpc('turn',p);assert.equal(engine.turns.length,1);
 });
+const mcpRequest=(id,serverName='ac',properties={})=>({id,method:'mcpServer/elicitation/request',params:{serverName,mode:'form',message:'Run this tool?',requestedSchema:{type:'object',properties}}});
+test('native MCP confirmations default to allowed for every connected server, but real input still prompts',async t=>{
+ const {host,engine,configure}=fixture(t);await configure();
+ await host.rpc('turn',{sessionID:'test',operationID:'mcp',text:'draw'});await until(()=>engine.turns.length===1);
+ for(const [id,server] of ['ac','external'].entries())engine.emit('request',mcpRequest(id,server));
+ assert.deepEqual(engine.answers,[0,1].map(id=>({id,result:{action:'accept',content:{}}})));
+ assert.equal(host.session('test').approvals.size,0);
+ engine.emit('request',mcpRequest(2,'ac',{password:{type:'string'}}));
+ const approval=(await host.rpc('events',{sessionID:'test'})).approvals[0];
+ assert.equal(approval.title,'Input needed');assert.equal(approval.canAccept,false);assert.equal(approval.alwaysLabel,null);
+ await assert.rejects(host.rpc('approval',{sessionID:'test',operationID:'mcp',id:'2',decision:'always'}),/Unsupported/);
+ await host.rpc('approval',{sessionID:'test',operationID:'mcp',id:'2',decision:'decline'});
+ assert.deepEqual(engine.answers.at(-1),{id:2,result:{action:'cancel',content:null}});
+});
+test('MCP prompt mode persists; allow once and deny use MCP protocol; Always allow resolves the queue and survives restart',async t=>{
+ const {host,engine,root,configure}=fixture(t);await configure();
+ await host.rpc('approvalPolicy',{mcpAutoAllow:false});
+ assert.equal((await host.capabilities()).mcpAutoAllow,false);
+ const check=new NativeHost({root});assert.equal(check.mcpAutoAllow,false);check.close();
+ await host.rpc('turn',{sessionID:'test',operationID:'mcp',text:'draw'});await until(()=>engine.turns.length===1);
+ for(let id=1;id<=4;id++)engine.emit('request',mcpRequest(id));
+ const approval=(await host.rpc('events',{sessionID:'test'})).approvals[0];
+ assert.equal(approval.detail,'ac: Run this tool?');assert.equal(approval.alwaysLabel,'Always allow');
+ const respond=(id,decision,operationID='mcp')=>host.rpc('approval',{sessionID:'test',operationID,id:String(id),decision});
+ await assert.rejects(respond(1,'always','stale'),/expired/);assert.equal(host.mcpAutoAllow,false);
+ await respond(1,'decline');await respond(2,'accept');assert.equal(host.mcpAutoAllow,false);
+ assert.deepEqual(engine.answers,[{id:1,result:{action:'decline',content:null}},{id:2,result:{action:'accept',content:{}}}]);
+ await respond(3,'always');assert.equal(host.session('test').approvals.size,0);
+ assert.deepEqual(engine.answers.slice(2),[3,4].map(id=>({id,result:{action:'accept',content:{}}})));
+ assert.equal((await host.capabilities()).mcpAutoAllow,true);
+ const next=new NativeHost({root});assert.equal(next.mcpAutoAllow,true);next.close();
+});
+test('command permission stays explicit and Allow for session uses the provider session decision',async t=>{
+ const {host,engine,configure}=fixture(t);await configure();
+ await host.rpc('turn',{sessionID:'test',operationID:'command',text:'draw'});await until(()=>engine.turns.length===1);
+ engine.emit('request',{id:1,method:'item/commandExecution/requestApproval',params:{command:'example'}});
+ assert.equal(engine.answers.length,0);
+ assert.equal((await host.rpc('events',{sessionID:'test'})).approvals[0].alwaysLabel,'Allow for session');
+ await host.rpc('approval',{sessionID:'test',operationID:'command',id:'1',decision:'always'});
+ assert.deepEqual(engine.answers,[{id:1,result:{decision:'acceptForSession'}}]);
+ await host.rpc('approvalPolicy',{mcpAutoAllow:false});
+ engine.emit('request',mcpRequest(2));engine.complete();await until(()=>host.session('test').active===null);
+ assert.deepEqual(engine.answers.at(-1),{id:2,result:{action:'cancel',content:null}});
+});
 test('stop during connection cannot launch the pending prompt',async t=>{
  const {host,engine,configure}=fixture(t);await configure();
  let release;engine.wait=new Promise(resolve=>release=resolve);

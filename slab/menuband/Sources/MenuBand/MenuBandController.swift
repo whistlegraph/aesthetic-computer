@@ -2174,6 +2174,7 @@ final class MenuBandController {
         synth.addWaveformTapPin(tapeWaveformPinReason)
         synth.pinHotMic(reason: tapeMicPinReason)
         tape.record(micAlreadyInMix: inputMonitoringEnabled, mix: currentMixSnapshot())
+        FocusCueBeep.shared.recordStart()
     }
 
     func stopTape() { tape.stop() }
@@ -2356,7 +2357,11 @@ final class MenuBandController {
             NSLog("MenuBand: auto interface reset at launch")
             self.resetAudioInterface()
         }
-        MenuBandAudioDevices.observeDeviceList { [weak self] in self?.autoMonitorForInterface() }
+        MenuBandAudioDevices.observeDeviceList { [weak self] in
+            self?.synth.resetBindingAudit()
+            self?.audioWorkQueue.async { self?.synth.refreshMonitorDevice() }
+            self?.autoMonitorForInterface()
+        }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in self?.autoMonitorForInterface() }

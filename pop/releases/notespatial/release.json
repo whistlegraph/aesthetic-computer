@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "slug": "notespatial",
+  "ddex": {
+    "ernVersion": "4.3.2",
+    "namespace": "http://ddex.net/xml/ern/432",
+    "releaseProfileVersionId": "SimpleAudioSingle",
+    "releaseProfilesVersion": "2.3.1",
+    "avsVersionId": "11"
+  },
+  "release": {
+    "title": "notespatial",
+    "displayArtist": "Aesthetic Dot Computer",
+    "labelName": "Aesthetic Dot Computer",
+    "releaseDate": null,
+    "genre": "Electronic",
+    "subGenre": "Experimental",
+    "parentalWarningType": "NotExplicit",
+    "territoryCode": "Worldwide",
+    "deals": [
+      {
+        "commercialModelType": "AdvertisementSupportedModel",
+        "useTypes": ["NonInteractiveStream", "OnDemandStream"]
+      },
+      {
+        "commercialModelType": "SubscriptionModel",
+        "useTypes": ["ConditionalDownload", "NonInteractiveStream", "OnDemandStream"]
+      },
+      {
+        "commercialModelType": "PayAsYouGoModel",
+        "useTypes": ["PermanentDownload"]
+      }
+    ]
+  },
+  "recording": {
+    "title": "notespatial",
+    "type": "MusicalWorkSoundRecording",
+    "durationSeconds": 775.912,
+    "hasVocalPerformance": false,
+    "hasForegroundVocalPerformance": false,
+    "containsAI": "None",
+    "binaural": true
+  },
+  "artwork": {
+    "type": "FrontCoverImage",
+    "containsAI": "None"
+  },
+  "assets": {
+    "audio": {
+      "localPath": "~/Documents/Shelf/notespatial-DISTROKID/notespatial-MASTER.flac",
+      "fileName": "notespatial-MASTER.flac",
+      "containerFormat": "FLAC",
+      "audioCodecType": "FLAC",
+      "samplingRate": 44100,
+      "bitsPerSample": 24,
+      "numberOfChannels": 2
+    },
+    "cover": {
+      "localPath": "~/Documents/Shelf/notespatial-DISTROKID/notespatial-cover.jpg",
+      "fileName": "notespatial-cover.jpg",
+      "imageCodecType": "JPEG",
+      "width": 3000,
+      "height": 3000
+    }
+  },
+  "privateOverlay": {
+    "defaultPath": "~/Documents/Shelf/notespatial-DISTROKID/release.private.json"
+  },
+  "source": {
+    "score": "fedac/native/scores/notespatial-native.nsscore",
+    "arrangement": "grants/culturehub-la-2026/NOTESPATIAL-ARRANGEMENT.md",
+    "lane": "pop/notespatial/README.md",
+    "releaseLedger": "pop/RELEASES.md"
+  }
+}

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {requireAccountEntry} from "./account-entry.mjs";
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_REPLY} from './piece-prompt.mjs';
 import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCTIONS,PIECE_INSTRUCTIONS} from './harness-settings.mjs';
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
@@ -94,6 +95,9 @@ function workspaceLabel(directory) {
 }
 
 const session = new ACSession();
+try {
+  if (!await requireAccountEntry(session)) process.exit(0);
+} catch (error) { process.stderr.write(error.message + "\n"); process.exit(1); }
 const slabSession = new SlabSession({ cwd, pro, private: profile.private });
 slabSession.start();
 slabSession.identity(session.handle);
@@ -1556,6 +1560,7 @@ function publishBlankOnce() {
   if (!autopublish.enabled || autopublishBlocker()) return;
   blankPublished = true;
   autopublish.note(live.source());
+  autopublish.flush().then(result => { if (!result) blankPublished = false; });
 }
 
 // A turn is the natural moment to publish. Mid-turn the agent may write a file
@@ -1624,7 +1629,7 @@ function commandLogout() {
   const removed = session.logout();
   refreshAccount();
   addEntry("notice", removed ? "Signed out" : "Already signed out");
-  redraw();
+  return finish();
 }
 
 function commandAutopublish(argumentText) {
@@ -2383,6 +2388,12 @@ function inboxReport() {
 // Hand a line to the engine. A typed line was shown and remembered on the way
 // in; an inbox line was shown when it arrived and is nobody's to recall with ↑.
 async function startTurn(text, { from = "" } = {}) {
+  try { await session.requireAccount(); }
+  catch (error) {
+    addEntry("error", error.message + " Reopen a to complete account setup.");
+    state.queued = [];
+    return finish();
+  }
   if (!from) {
     transcript.event("user", { text });
     // The first thing asked is what the session was about.
@@ -2752,6 +2763,7 @@ process.on("SIGHUP", () => finish(129));
 
 // A sign-in or sign-out anywhere in the AC suite shows up here live.
 session.watch().on("change", () => {
+  if (!session.signedIn || !session.handle) { void finish(); return; }
   refreshAccount(true);
   redraw();
 });

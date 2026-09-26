@@ -1,3 +1,4 @@
+import {verifyAccount, requireHandle} from "/easel/src/account-access.mjs";
 // The headless half of a phone session: everything that is not a renderer.
 //
 // `app.mjs` draws the browser UI and `apple/aesel` draws a SwiftUI one. Both
@@ -21,6 +22,7 @@ import { publishPiece } from "/easel/src/publish.mjs";
 import * as vfs from "/easel/phone/shim/fs.mjs";
 import { createCredits } from "./credits.mjs";
 import {revisionSummary} from "/easel/src/revision-summary.mjs";
+import {migrateRevisionCheckpoints} from "./revision-history.mjs";
 import {validatePieceSource} from "./shim/revisions.mjs";
 import { NativeProvider } from "./native-provider.mjs";
 
@@ -89,8 +91,9 @@ const memoryStore = () => {
   };
 };
 
-export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, retryOptions = {} } = {}) {
+export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, retryOptions = {}, accountFetch = (...args) => fetch(...args) } = {}) {
   const state = {
+    accountVerified: false,
     token: "",
     handle: "",
     slug: "",
@@ -112,11 +115,13 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     providerModels: {},
     hostOperation: null,
     revisions: [],
+    selectedRevision: null,
     publication: null,
     autoPublish: true,
   };
   Object.defineProperty(state,"version",{enumerable:true,get:()=>state.revisions.at(-1)?.version ?? 0});
   let hostProviders = [];
+  let mcpAutoAllow = true, supportsApprovalPolicy = false;
   let accountEpoch = 0;
   const credits = createCredits({ token: () => state.token, emit, site: SITE });
 
@@ -144,15 +149,21 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     } catch { return []; }
   };
   let saveTimer;
+  let pendingRevision = null;
   const say = (type, payload = {}) => {
     const event = { type, ...payload };
     const ephemeral = type === "bridge" && ["turn/progress", "item/modelCode/delta"].includes(payload.method);
     if (state.id && !ephemeral && ["you", "note", "bad", "bridge"].includes(type)) {
       const last = state.transcript.at(-1);
-      if (type === "bridge" && payload.method === "item/agentMessage/delta" && last?.method === payload.method) {
+      if (type === "bridge" && payload.method === "item/agentMessage/delta" && last?.method === payload.method && !state.revisions.some(r=>r.transcriptEnd === state.transcript.length)) {
         last.params.delta += payload.params?.delta || "";
       } else {
         state.transcript.push(JSON.parse(JSON.stringify(event)));
+      }
+      if (type === "bridge" && payload.method === "turn/completed" && pendingRevision !== null) {
+        const revision = state.revisions.find(r=>r.version === pendingRevision);
+        if (revision) revision.transcriptEnd = state.transcript.length;
+        pendingRevision = null;
       }
       clearTimeout(saveTimer);
       saveTimer = setTimeout(saveCurrent, 250);
@@ -180,6 +191,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
       source: vfs.readFileSync(state.file), published: state.published, version:state.version,
       events: state.transcript, engine, composer: state.composer,
       revisionSchema: 2, revisions: state.revisions, publication: state.publication, autoPublish: state.autoPublish,
+      selectedRevision: state.selectedRevision,
       provider: state.provider, providerModels: state.providerModels, hostOperation: state.hostOperation,
     };
     const items = readThreads().filter(entry => entry.id !== state.id);
@@ -207,6 +219,8 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   }
 
   function loadThread(item) {
+    state.selectedRevision = null;
+    pendingRevision = null;
     state.id = item.id;
     state.owner = item.handle || state.handle;
     state.medium = item.medium || "piece";
@@ -227,6 +241,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     if(!state.revisions.length && Number.isInteger(item.version) && item.version>=0) {
       state.revisions=[{version:item.version,source:item.source || STARTER,reason:"opened",summary:item.version===0?"First version.":"Saved version.",at:item.savedAt || new Date().toISOString()}];
     }
+    state.revisions = migrateRevisionCheckpoints(state.revisions, state.transcript);
     state.autoPublish = item.autoPublish !== false;
     mountPiece(item.slug, item.source || STARTER);
     recordRevision(item.source || STARTER, "opened");
@@ -238,6 +253,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     if (state.published && state.handle) say("preview", {url: pieceUrl()});
     else if (item.source && item.source !== STARTER) say("source", {source: item.source});
     say("status", {text: state.token ? "ready" : "signed out", kind: "idle"});
+    if (Number.isInteger(item.selectedRevision) && state.revisions.some(r=>r.version === item.selectedRevision) && !state.hostOperation) selectRevision(item.selectedRevision);
   }
 
   async function resumeSession(id) {
@@ -248,6 +264,20 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     item = readThreads().find(entry => entry.id === id);
     loadThread(item);
     emit({type: "history", items: history()});
+    await prepublishBlank();
+  }
+
+  let blankPublication = null;
+  function prepublishBlank() {
+    if (!state.accountVerified || !state.token || !state.handle || !state.id ||
+        !state.autoPublish || state.published || state.selectedRevision !== null ||
+        vfs.readFileSync(state.file) !== STARTER) return Promise.resolve();
+    // Account restoration and opening a notebook can finish in either order.
+    // Coalesce both paths, including verification before the upload starts.
+    if (!blankPublication) {
+      blankPublication = publish().finally(() => { blankPublication = null; });
+    }
+    return blankPublication;
   }
 
   async function newSession(medium = "piece") {
@@ -256,9 +286,11 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     const slug = freshSlug();
     loadThread({id: `${Date.now()}-${slug}`, slug, medium, source: STARTER, events: [], published: false});
     saveCurrent();
+    await prepublishBlank();
   }
 
   function setDraft(text, threadID = state.id) {
+    requireCurrentRevision();
     if (!threadID || threadID !== state.id) throw new Error("The draft belongs to another thread.");
     if (typeof text !== "string" || new TextEncoder().encode(text).length > 32768) throw new Error("Drafts are limited to 32 KB.");
     if (state.composer === text) return;
@@ -268,7 +300,8 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
 
   function exportNotebook() {
     const notebook={format:"aesel-notebook",schema:1,revisionStart:0,medium:"piece",title:state.title,source:vfs.readFileSync(state.file),
-      composer:state.composer,revisions:state.revisions.map(({version,source,reason,at,summary})=>({version,source,reason,at,summary})),
+      composer:state.composer,revisions:state.revisions.map(({version,source,reason,at,summary,transcriptEnd})=>({version,source,reason,at,summary,
+        ...(Number.isInteger(transcriptEnd)?{transcriptEnd:state.transcript.slice(0,transcriptEnd).filter(e=>e.type==="you" || (e.type==="bridge" && e.method==="item/agentMessage/delta")).length}:{})})),
       transcript:state.transcript.filter(e=>e.type==="you" || (e.type==="bridge" && e.method==="item/agentMessage/delta"))
         .map(e=>({role:e.type==="you"?"user":"assistant",text:e.text || e.params?.delta || ""}))};
     const json=JSON.stringify(notebook,null,2);
@@ -290,7 +323,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     for(const record of value.revisions){
       if(!Number.isInteger(record.version) || record.version<0 || record.version<=(revisions.at(-1)?.version ?? -1))throw new Error("Invalid revision order.");
       await check(record.source);
-      revisions.push({version:record.version,source:record.source,summary:String(record.summary || "").slice(0,160),reason:String(record.reason || "imported").slice(0,100),at:String(record.at || "").slice(0,40)});
+      revisions.push({version:record.version,source:record.source,...(Number.isInteger(record.transcriptEnd) && record.transcriptEnd>=0 && record.transcriptEnd <= (value.transcript?.length ?? 0)?{transcriptEnd:record.transcriptEnd}:{}),summary:String(record.summary || "").slice(0,160),reason:String(record.reason || "imported").slice(0,100),at:String(record.at || "").slice(0,40)});
     }
     const composer=typeof value.composer==="string"?value.composer:"";
     if(new TextEncoder().encode(composer).length>32768)throw new Error("Imported draft exceeds 32 KB.");
@@ -330,9 +363,10 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     if (state.revisions.at(-1)?.source === source) return;
     const version = (state.revisions.at(-1)?.version ?? -1) + 1;
     const restoredFrom=/^restored v(\d+)$/.exec(reason)?.[1];
-    state.revisions.push({version, source, reason, at:new Date().toISOString(),
+    state.revisions.push({version, source, reason, at:new Date().toISOString(), transcriptEnd:state.transcript.length,
       summary:revisionSummary(state.revisions.at(-1)?.source,source,restoredFrom!==undefined?{restoredFrom:Number(restoredFrom)}:{})});
     while (state.revisions.length > 50) state.revisions.shift();
+    if (state.busy) pendingRevision = version;
   }
 
   function reportRevisions() {
@@ -342,6 +376,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   }
 
   function editable(threadID) {
+    requireCurrentRevision();
     if(threadID !== state.id) throw new Error("This edit belongs to another thread.");
     if(state.busy || state.hostOperation) throw new Error("Finish the current turn before editing source.");
   }
@@ -360,6 +395,23 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     const revision=state.revisions.find(item=>item.version===version);
     if(!revision)throw new Error("This version is no longer saved.");
     say("revisionPreview",{threadID,version,source:revision.source,summary:revision.summary || revision.reason});
+  }
+
+  function requireCurrentRevision() {
+    if (state.selectedRevision !== null) throw new Error(`Return to v${state.version} to make changes.`);
+  }
+
+  function selectRevision(version, threadID = state.id) {
+    if (threadID !== state.id) throw new Error("This version belongs to another thread.");
+    if (state.busy || state.publishing || state.hostOperation) throw new Error("Wait for the current turn and upload before viewing history.");
+    const revision = state.revisions.find(r=>r.version === version);
+    if (!revision) throw new Error("This version is no longer saved.");
+    const current = version === state.version;
+    state.selectedRevision = current ? null : version;
+    const available = current || Number.isInteger(revision.transcriptEnd);
+    emit({type:"revisionSelection", threadID, version, current:state.version, source:current ? vfs.readFileSync(state.file) : revision.source,
+      events:current ? state.transcript : available ? state.transcript.slice(0, revision.transcriptEnd) : [], transcriptAvailable:available});
+    saveCurrent();
   }
 
   async function restoreRevision(version,threadID = state.id) {
@@ -387,6 +439,8 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   }
 
   async function publish() {
+    try { await verifyWorkAccount(); } catch (error) { say("notice", {scope:"account",text:error.message,action:"signIn"}); return; }
+    requireCurrentRevision();
     if (state.publishing) return state.publishing;
     if (!state.token || !state.handle) {
       say("notice", {scope:"publish", text: "Sign in with an Aesthetic.Computer @handle to publish.", action:"signIn" });
@@ -506,7 +560,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   function reportProvider() {
     const providers=[{id:"ac",available:true,models:[{id:DEFAULT_AC_MODEL,title:"Automatic"}]},
       ...["claude","codex"].map(id=>hostProviders.find(p=>p.id===id)||{id,available:false,models:[],notice:"Connect Aesel Host on your Mac."})];
-    say("providers",{selected:state.provider,choices:providers});
+    say("providers",{selected:state.provider,choices:providers,mcpAutoAllow,supportsApprovalPolicy});
     const selected=providers.find(p=>p.id===state.provider);
     say("model",{requested:state.model,choices:selected.models});
     say("hostOperation",{operation:state.hostOperation});
@@ -514,9 +568,21 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
 
   async function refreshProviders() {
     if (hostRPC) {
-      try { hostProviders=(await hostRPC("capabilities",{})).providers || []; }
-      catch(error) { hostProviders=["claude","codex"].map(id=>({id,available:false,models:[],notice:error.message})); }
+      try {
+        const capabilities=await hostRPC("capabilities",{});
+        hostProviders=capabilities.providers || [];
+        supportsApprovalPolicy=typeof capabilities.mcpAutoAllow === "boolean";
+        mcpAutoAllow=capabilities.mcpAutoAllow !== false;
+      }
+      catch(error) { supportsApprovalPolicy=false;hostProviders=["claude","codex"].map(id=>({id,available:false,models:[],notice:error.message})); }
     }
+    reportProvider();
+  }
+
+  async function setMcpAutoAllow(value) {
+    if (!hostRPC || !supportsApprovalPolicy) throw new Error("Update Aesel Host to change MCP permissions.");
+    const result=await hostRPC("approvalPolicy",{mcpAutoAllow:value});
+    mcpAutoAllow=result.mcpAutoAllow;
     reportProvider();
   }
 
@@ -532,47 +598,55 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   }
 
   async function resumeTurn() {
+    await verifyWorkAccount();
     if (!state.hostOperation || state.busy) return;
     state.busy=true;say("busy",{busy:true});
     try { if(!state.server)state.server=buildServer();await state.server.follow(); }
     catch(error) { say("bad",{text:error.message}); }
-    finally { state.busy=false;say("busy",{busy:false});saveCurrent(); }
+    finally { state.busy=false;say("busy",{busy:false});say("approval",{approval:null});saveCurrent(); }
   }
 
   async function respondToApproval(id, decision) {
-    if (!state.server?.respond) throw new Error("This approval is no longer available.");
-    await state.server.respond(id,decision);say("approval",{approval:null});
+    if (decision !== "decline") await verifyWorkAccount();
+    try {
+      if (!state.server?.respond) throw new Error("This approval is no longer available.");
+      await state.server.respond(id,decision);
+    } finally { say("approval",{approval:null}); }
+    if (decision === "always") await refreshProviders();
   }
 
   async function ask(text) {
+    requireCurrentRevision();
     const command = text.trim().match(/^\/model(?:\s+(.+))?$/i);
     if (command) {
+      requireAccountReady();
       if (command[1]) setModel(command[1]);
-      else say("note", {text: "Braincell models are managed automatically."});
+      else say("note", {text:"Braincell models are managed automatically."});
       return;
     }
     if (!text.trim() || state.busy) return;
     if (state.hostOperation) throw new Error("Reconnect to resolve the previous host turn before sending another request.");
-    if (state.provider === "ac" && !state.token) { say("bad", { text: "Sign in to AC to make a piece." }); return; }
-    if (state.provider !== "ac" && !hostProviders.some(p => p.id === state.provider && p.available)) {
-      say("bad", { text: "This provider is not connected. Refresh the connection in Settings." }); return;
-    }
-    if (!state.title || state.title === state.slug) state.title = text.trim().slice(0, 120);
-    say("notice",{scope:"inference",text:""});
-    say("you", { text });
     state.busy = true;
-    say("busy", { busy: true });
+    say("busy", {busy:true});
     try {
+      await verifyWorkAccount();
+      if (state.provider !== "ac" && !hostProviders.some(p => p.id === state.provider && p.available)) {
+        throw new Error("This provider is not connected. Open Settings to check its availability.");
+      }
+      if (!state.title || state.title === state.slug) state.title = text.trim().slice(0, 120);
+      say("notice", {scope:"inference",text:""});
+      say("you", {text});
       if (!state.server) state.server = buildServer();
       await state.server.startTurn(text);
     } catch (error) {
-      say("bad", { text: error.message });
-      say("status", { text: "failed", kind: "failed" });
+      say("bad", {text:error.message});
+      say("status", {text:"failed",kind:"failed"});
     } finally {
       state.busy = false;
-      say("busy", { busy: false });
+      say("busy", {busy:false});
+      say("approval", {approval:null});
       saveCurrent();
-      void credits.refresh();
+      if (state.accountVerified && state.handle) void credits.refresh();
     }
   }
 
@@ -584,14 +658,34 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
   // Two calls, because a token is worth nothing here without the @handle that
   // says where a piece goes.
   async function resolveHandle(token) {
-    const json = (url, headers) => withNetworkDeadline(async signal => {
-      const response = await fetch(url, {headers, signal});
-      if (!response.ok) throw httpError(`Sign-in check failed (HTTP ${response.status}).`, response.status);
-      return response.json();
-    }, {timeoutMs:8000});
-    const user = await json(`https://${AUTH_DOMAIN}/userinfo`, {Authorization:`Bearer ${token}`});
-    const data = await json(`${SITE}/handle?for=${encodeURIComponent(user.sub)}`, {Accept:"application/json"});
-    return String(data?.handle || "").replace(/^@/, "");
+    return (await verifyAccount(token, {fetch:accountFetch})).handle;
+  }
+
+  function requireAccountReady() {
+    if (!state.accountVerified || !state.token || !state.handle) {
+      throw new Error("Sign in to Aesthetic Computer and claim an @handle to use Aesel.");
+    }
+  }
+
+  async function verifyWorkAccount() {
+    const epoch = accountEpoch, token = state.token;
+    try {
+      const account = await verifyAccount(token, {fetch:accountFetch});
+      if (epoch !== accountEpoch || token !== state.token) throw new Error("Your AC account changed. Sign in again.");
+      state.accountVerified = true;
+      state.handle = account.handle;
+      write({handle:account.handle});
+      say("signedIn", {handle:account.handle});
+      requireHandle(account);
+      return account;
+    } catch (error) {
+      if (epoch === accountEpoch) {
+        state.accountVerified = false;
+        say("accountRequired", {signedIn:error.code === "no-handle", text:error.message});
+        stop();
+      }
+      throw error;
+    }
   }
 
   async function loadHandleColors(handle) {
@@ -605,12 +699,14 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     const epoch = ++accountEpoch;
     const handle = await resolveHandle(token);
     if (epoch !== accountEpoch) return "";
+    state.accountVerified = true;
     state.token = token;
     state.handle = handle;
     write({ token, handle });
     say("signedIn", { handle });
     void loadHandleColors(handle);
     void credits.refresh();
+    await prepublishBlank();
     return handle;
   }
 
@@ -619,24 +715,27 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     const saved = read();
     const epoch = ++accountEpoch;
     if (!saved.token) return false;
+    state.accountVerified = false;
     state.token = saved.token;
-    state.handle = saved.handle || "";
+    state.handle = "";
     try {
       const handle = await resolveHandle(saved.token);
       if (epoch !== accountEpoch) return false;
+      state.accountVerified = true;
       state.handle = handle;
       write({ handle: state.handle });
       say("signedIn", { handle: state.handle });
       void loadHandleColors(state.handle);
       void credits.refresh();
+      await prepublishBlank();
       return true;
     } catch (error) {
       if (epoch !== accountEpoch) return false;
       if (error.status !== 401 && error.status !== 403) {
         // A connection failure is not evidence that the saved login expired.
-        if (state.handle) say("signedIn", {handle:state.handle});
-        say("notice", {scope:"account",text:"Connection interrupted. Your notebook is available offline."});
-        return Boolean(state.handle);
+        state.accountVerified = false;
+        say("accountRequired", {signedIn:false, text:"Connect to verify your AC account, then try again."});
+        return false;
       }
       state.token = "";
       state.handle = "";
@@ -651,6 +750,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     accountEpoch++;
     saveCurrent();
     stop();
+    state.accountVerified = false;
     state.token = "";
     state.handle = "";
     state.server = null;
@@ -672,6 +772,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
       saveCurrent();
     }
     emit({type: "history", items: history()});
+    await prepublishBlank();
   }
 
   async function begin() {
@@ -693,20 +794,22 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
     ask,
     stop,
     publish,
-    exportNotebook,
-    importNotebook,
-    editSource,
-    restoreRevision,
-    previewRevision,
-    setAutoPublish,
-    newPiece: newSession,
-    newSession,
-    resumeSession,
+    exportNotebook: (...args) => { requireAccountReady(); return exportNotebook(...args); },
+    importNotebook: (...args) => { requireAccountReady(); return importNotebook(...args); },
+    editSource: (...args) => { requireAccountReady(); return editSource(...args); },
+    restoreRevision: (...args) => { requireAccountReady(); return restoreRevision(...args); },
+    selectRevision: (...args) => { requireAccountReady(); return selectRevision(...args); },
+    previewRevision: (...args) => { requireAccountReady(); return previewRevision(...args); },
+    setAutoPublish: (...args) => { requireAccountReady(); return setAutoPublish(...args); },
+    newPiece: (...args) => { requireAccountReady(); return newSession(...args); },
+    newSession: (...args) => { requireAccountReady(); return newSession(...args); },
+    resumeSession: (...args) => { requireAccountReady(); return resumeSession(...args); },
     saveCurrent,
-    setDraft,
-    setModel,
-    setProvider,
+    setDraft: (...args) => { requireAccountReady(); return setDraft(...args); },
+    setModel: (...args) => { requireAccountReady(); return setModel(...args); },
+    setProvider: (...args) => { requireAccountReady(); return setProvider(...args); },
     refreshProviders,
+    setMcpAutoAllow: (...args) => { requireAccountReady(); return setMcpAutoAllow(...args); },
     resumeTurn,
     respondToApproval,
     history,

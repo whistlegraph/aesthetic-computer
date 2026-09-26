@@ -15,10 +15,17 @@ import Security
 /// ES modules. JavaScriptCore has none of those.
 @MainActor
 final class SessionHost: NSObject {
-    let automation = AeselAutomation()
+    private static let instances = NSHashTable<SessionHost>.weakObjects()
+    private static var deletingAccount = false
+    private var deletionToken: String?
+    let automation: AeselAutomation
+    #if os(macOS)
+    let prox: AeselProx
+    #endif
     private var webView: WKWebView!
     private var loginWebView: WKWebView?
     private var signInAttempt: NativeSignIn?
+    private var signingUp = false
     private var signInGeneration = UUID()
     private var signInExchange: Task<Void, Never>?
     private var loginTimeout: Task<Void, Never>?
@@ -35,10 +42,15 @@ final class SessionHost: NSObject {
         $0.isEmpty ? nil : $0
     }
 
-    init(session: Session, store: SessionStore) {
+    init(session: Session, store: SessionStore, windowID: String = "main") {
+        automation = AeselAutomation(windowID: windowID)
         self.session = session
         self.store = store
+        #if os(macOS)
+        prox = AeselProx(session: session)
+        #endif
         super.init()
+        Self.instances.add(self)
         if let issue = store.issue { session.fatal = issue }
 
         let controller = WKUserContentController()
@@ -79,6 +91,7 @@ final class SessionHost: NSObject {
 
         webView = WKWebView(frame: .zero, configuration: configuration)
         nativeHost.sessionView = webView
+        automation.host = webView
         webView.navigationDelegate = self
         webView.isHidden = true
     }
@@ -102,6 +115,7 @@ final class SessionHost: NSObject {
     func importNotebook(_ text: String) { call("void aesel.importNotebook(\(quote(text)));") }
     func editSource(_ source: String, threadID: String) { call("void aesel.editSource(\(quote(source)), \(quote(threadID)));") }
     func previewRevision(_ version: Int, threadID: String) { call("void aesel.previewRevision(\(version), \(quote(threadID)));") }
+    func selectRevision(_ version: Int) { call("void aesel.selectRevision(\(version), \(quote(session.currentSessionID)));") }
     func restoreRevision(_ version: Int, threadID: String) { call("void aesel.restoreRevision(\(version), \(quote(threadID)));") }
     func setAutoPublish(_ enabled: Bool) { call("void aesel.setAutoPublish(\(enabled ? "true" : "false"));") }
     func stop() { call("void aesel.stop();") }
@@ -117,6 +131,7 @@ final class SessionHost: NSObject {
     func setModel(id: String) { setModel(model: id) }
     func setProvider(_ id: String) { call("void aesel.setProvider(\(quote(id)));") }
     func refreshProviders() { call("void aesel.refreshProviders();") }
+    func setMcpAutoAllow(_ value: Bool) { call("void aesel.setMcpAutoAllow(\(value ? "true" : "false"));") }
     func resumeHostTurn() { call("void aesel.resumeTurn();") }
     func respondToApproval(id: String, decision: String) {
         call("void aesel.respondToApproval(\(quote(id)), \(quote(decision)));")
@@ -125,6 +140,40 @@ final class SessionHost: NSObject {
     func restore() { call("void aesel.restore();") }
     func refreshCredits() { call("void aesel.refreshCredits();") }
     func accessToken() -> String? { store.token() }
+
+    func prepareAccountDeletion() -> String? {
+        guard session.signedIn, !session.busy, !Self.deletingAccount, let token = store.token() else { return nil }
+        deletionToken = token
+        session.accountNotice = ""
+        return session.handle.isEmpty ? "your Aesthetic Computer account" : "@\(session.handle)"
+    }
+
+    func cancelAccountDeletion() { deletionToken = nil }
+
+    func deleteAccount() {
+        guard !Self.deletingAccount, let token = deletionToken, store.token() == token else {
+            session.accountNotice = "Your account changed. Reopen account deletion to continue."
+            deletionToken = nil
+            return
+        }
+        deletionToken = nil
+        Self.deletingAccount = true
+        session.accountDeletionBusy = true
+        Task {
+            defer { Self.deletingAccount = false; session.accountDeletionBusy = false }
+            do {
+                try await AccountDeletion.delete(token: token)
+                // Collect before clearing the shared Keychain. A different
+                // account signed in during the request must remain signed in.
+                let affected = Self.instances.allObjects.filter { $0.store.token() == token }
+                for host in affected {
+                    host.signOut()
+                    host.session.accountNotice = "Your Aesthetic Computer account was deleted. Local notebooks remain on this Mac."
+                    host.session.accountDeleted = true
+                }
+            } catch { session.accountNotice = error.localizedDescription }
+        }
+    }
 
     var signInView: WKWebView {
         if let loginWebView { return loginWebView }
@@ -135,13 +184,14 @@ final class SessionHost: NSObject {
         return view
     }
 
-    func signIn() {
+    func signIn(signUp: Bool = false) {
         cancelSignIn()
+        signingUp = signUp
         session.showSignIn = true
         session.signInError = nil
         session.signInLoading = true
         do {
-            let attempt = try NativeSignIn()
+            let attempt = try NativeSignIn(signUp: signUp)
             signInAttempt = attempt
             armLoginTimeout()
             signInView.load(URLRequest(url: attempt.url))
@@ -151,12 +201,37 @@ final class SessionHost: NSObject {
         }
     }
 
+    func retrySignIn() { signIn(signUp: signingUp) }
+
     func cancelSignIn() {
         signInGeneration = UUID()
         signInAttempt = nil
         signInExchange?.cancel(); signInExchange = nil
         loginTimeout?.cancel()
         loginWebView?.stopLoading()
+    }
+
+    private func completeSignIn(_ url: URL) {
+        do {
+            guard let body = try signInAttempt?.exchangeBody(for: url) else { throw NativeSignIn.failure("Sign-in expired") }
+            let generation = signInGeneration
+            loginTimeout?.cancel()
+            session.signInError = nil
+            session.signInLoading = true
+            signInExchange = Task { [weak self] in
+                do {
+                    let token = try await NativeSignIn.exchange(body)
+                    guard let self, !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
+                    guard self.loaded else { throw NativeSignIn.failure("The notebook is still loading. Try again.") }
+                    _ = try await self.webView.callAsyncJavaScript("return await aesel.adoptToken(token);", arguments: ["token": token], in: nil, contentWorld: .page)
+                    guard !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
+                    self.session.signInError = nil; self.session.signInLoading = false; self.session.showSignIn = false
+                } catch {
+                    guard let self, !Task.isCancelled, self.signInGeneration == generation else { return }
+                    self.session.signInLoading = false; self.session.signInError = error.localizedDescription
+                }
+            }
+        } catch { session.signInLoading = false; session.signInError = error.localizedDescription }
     }
 
     private func armLoginTimeout() {
@@ -267,32 +342,7 @@ extension SessionHost: WKNavigationDelegate {
             }
             decisionHandler(.cancel)
             guard action.targetFrame?.isMainFrame == true, session.showSignIn, signInAttempt?.consumed != true else { return }
-            do {
-                guard let body = try signInAttempt?.exchangeBody(for: url) else { throw NativeSignIn.failure("Sign-in expired") }
-                let generation = signInGeneration
-                loginTimeout?.cancel()
-                session.signInError = nil
-                session.signInLoading = true
-                signInExchange = Task { [weak self] in
-                    do {
-                        let token = try await NativeSignIn.exchange(body)
-                        guard let self, !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
-                        guard self.loaded else { throw NativeSignIn.failure("The notebook is still loading. Try again.") }
-                        _ = try await self.webView.callAsyncJavaScript("return await aesel.adoptToken(token);", arguments: ["token": token], in: nil, contentWorld: .page)
-                        guard !Task.isCancelled, self.signInGeneration == generation, self.session.showSignIn else { return }
-                        self.session.signInError = nil
-                        self.session.signInLoading = false
-                        self.session.showSignIn = false
-                    } catch {
-                        guard let self, !Task.isCancelled, self.signInGeneration == generation else { return }
-                        self.session.signInLoading = false
-                        self.session.signInError = error.localizedDescription
-                    }
-                }
-            } catch {
-                session.signInLoading = false
-                session.signInError = error.localizedDescription
-            }
+            completeSignIn(url)
         }
     }
 

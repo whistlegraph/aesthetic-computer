@@ -6,7 +6,7 @@ import WebKit
 @MainActor
 final class NativeHostConnection: NSObject, WKScriptMessageHandlerWithReply {
     weak var sessionView: WKWebView?
-    private let methods: Set<String> = ["capabilities", "configure", "turn", "events", "interrupt", "approval"]
+    private let methods: Set<String> = ["capabilities", "configure", "turn", "events", "interrupt", "approval", "approvalPolicy"]
 
     private struct Configuration: Decodable { let schema: Int; let url: URL; let token: String }
     private func configuration() throws -> Configuration {

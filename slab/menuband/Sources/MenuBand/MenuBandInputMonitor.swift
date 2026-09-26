@@ -404,12 +404,32 @@ final class MenuBandInputMonitor {
     // MARK: - Device resolution
 
     private static func resolveInputDevice() -> AudioDeviceID? {
+        // Only ever a device in the CURRENT list: after a USB blink this
+        // process can keep answering the old id as "default input", and
+        // opening that ghost succeeds while delivering garbage.
+        let live = MenuBandAudioDevices.all().filter { $0.inputChannels > 0 }
         if let uid = MenuBandAudioDevices.pinnedInputUID,
-           let pinned = MenuBandAudioDevices.device(uid: uid),
-           pinned.inputChannels > 0 {
+           let pinned = live.first(where: { $0.uid == uid }) {
             return pinned.id
         }
-        return MenuBandAudioDevices.systemDefaultInputID()
+        // Automatic = prefer a Focusrite/Scarlett when one is present (the
+        // input menu's own wording), else the system default input.
+        if let focusrite = live.first(where: {
+            $0.name.localizedCaseInsensitiveContains("scarlett") || $0.name.localizedCaseInsensitiveContains("focusrite")
+        }) {
+            return focusrite.id
+        }
+        if let def = MenuBandAudioDevices.systemDefaultInputID(), live.contains(where: { $0.id == def }) {
+            return def
+        }
+        return live.first?.id
+    }
+
+    /// True when the unit is open on the device automatic/pinned resolution
+    /// would pick right now — false after a plug-in/unplug changed the answer.
+    var boundDeviceIsCurrent: Bool {
+        guard attached else { return true }
+        return Self.resolveInputDevice() == inputDevice
     }
 
     // MARK: - AUHAL plumbing
@@ -519,7 +539,20 @@ final class MenuBandInputMonitor {
         guard let au = inputUnit, let list = renderList else { return noErr }
         let frames = Int(frameCount)
         guard frames > 0, frames <= renderCapacity else { return noErr }
-        lastCallbackFrames = frames
+        if frames != lastCallbackFrames {
+            lastCallbackFrames = frames
+            // The input unit may slice larger than the engine's cycle (a
+            // built-in mic stays at 512 while the engine runs 16): the
+            // reader's cushion must cover a whole input slice or it drains
+            // the ring between callbacks and underflows every cycle.
+            os_unfair_lock_lock(ringLock)
+            if frames > leadFrames {
+                leadFrames = frames
+                writeIndex += frames
+                NSLog("MenuBand monitor: input slices \(frames) frames — ring lead raised to \(leadFrames)")
+            }
+            os_unfair_lock_unlock(ringLock)
+        }
         for i in 0..<list.count {
             list[i].mDataByteSize = UInt32(frames * MemoryLayout<Float>.size)
         }

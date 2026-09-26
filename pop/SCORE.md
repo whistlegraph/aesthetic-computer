@@ -164,7 +164,20 @@ Voice posture: instrumental. **Headphones required** — on speakers the track c
 
 See [`bracelet/README.md`](bracelet/README.md) for the mapping law, the form, and the per-strike verification. Status: first cut rendered 2026-08-07 (`bracelet`, 1:49, 138 BPM, A minor).
 
-### 11. (open)
+### 11. notespatial (`notespatial/`)
+
+The ring, heard from the middle. *Note(s)pat(ial) Native* — the eleven-chapter
+spatial suite for six AC OS laptops written for the September 24, 2026 CultureHub
+LA performance — printed **binaurally from the center seat** by the studio's
+model of the room (`fedac/native/tools/notespatial-native-render.mjs`: the
+runtime's own envelopes and gm_synth core, per-seat effects, measured KEMAR
+HRTFs), then mastered by the house law with one static gain. The score is the
+release; the room is the instrument. Instrumental, 12:56, headphones.
+
+See [`notespatial/README.md`](notespatial/README.md). Status: master cut and
+packet staged 2026-09-25, awaiting @jeffrey's listen.
+
+### 12. (open)
 
 More lanes will land here as they prove themselves. Candidates: kidlisp-as-instrument tracks, AC-native ensemble cuts, voice-memo-grade demo lane. None of them have earned a swimlane yet — they need a real track first.
 

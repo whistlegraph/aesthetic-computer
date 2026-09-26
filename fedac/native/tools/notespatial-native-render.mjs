@@ -29,6 +29,7 @@
 //        [--sub-az 0] [--sub-level .25] [--sub-cutoff 80] [--solo sub]
 //        [--frame-out review.ppm --frame-at 420] save one rendered frame for QA
 //        [--wav-out mix.wav] keep the video render's full-quality audio too
+//        [--float] write 32-bit float WAVs instead of 16-bit (a mastering source)
 
 import { readFileSync, writeFileSync, mkdtempSync, existsSync, copyFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -43,7 +44,7 @@ import { GM_NAMES } from './notespatial-orchestra.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso', 'sub'];
+const FLAGS = ['audio-only', 'fast', 'light', 'dark', 'plan', 'iso', 'sub', 'float'];
 const flag = k => args.includes('--' + k);
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 const positional = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--') && !FLAGS.includes(args[i - 1].slice(2))));
@@ -150,6 +151,15 @@ function writeStereoWav(path, L, R, n) {
   let pk = 0;
   for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(L[i]), Math.abs(R[i]));
   const g = pk > 0 ? .95 / pk : 1;
+  if (flag('float')) { // 32-bit float print for mastering (--float); same 0.95 peak
+    const pcm = Buffer.alloc(44 + n * 8);
+    pcm.write('RIFF', 0); pcm.writeUInt32LE(36 + n * 8, 4); pcm.write('WAVE', 8); pcm.write('fmt ', 12);
+    pcm.writeUInt32LE(16, 16); pcm.writeUInt16LE(3, 20); pcm.writeUInt16LE(2, 22); pcm.writeUInt32LE(SR, 24);
+    pcm.writeUInt32LE(SR * 8, 28); pcm.writeUInt16LE(8, 32); pcm.writeUInt16LE(32, 34); pcm.write('data', 36); pcm.writeUInt32LE(n * 8, 40);
+    for (let i = 0; i < n; i++) { pcm.writeFloatLE(L[i] * g, 44 + i * 8); pcm.writeFloatLE(R[i] * g, 48 + i * 8); }
+    writeFileSync(path, pcm);
+    return;
+  }
   const pcm = Buffer.alloc(44 + n * 4);
   pcm.write('RIFF', 0); pcm.writeUInt32LE(36 + n * 4, 4); pcm.write('WAVE', 8); pcm.write('fmt ', 12);
   pcm.writeUInt32LE(16, 16); pcm.writeUInt16LE(1, 20); pcm.writeUInt16LE(2, 22); pcm.writeUInt32LE(SR, 24);

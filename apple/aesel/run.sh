@@ -22,7 +22,7 @@ if [ "$MODE" = "mac" ]; then
   xcodebuild -project Aesel.xcodeproj -scheme AeselMac \
     -destination 'platform=macOS' -derivedDataPath "$DERIVED" \
     -jobs 2 CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES build
-  APP="$DERIVED/Build/Products/Debug/Aesel Native.app"
+  APP="$DERIVED/Build/Products/Debug/Aesel.app"
   open -n "$APP" --env "AESEL_ASK=$ASK"
   exit 0
 fi

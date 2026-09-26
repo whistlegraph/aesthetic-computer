@@ -1,5 +1,8 @@
 # Aesel integration and feature plan
 
+Electron Aesel was retired on September 23, 2026. References below describe
+historical parity work; use [README.md](README.md) for current entry points.
+
 One workspace across Mac and iPhone: a notebook, a persistent upper-right web
 preview, and the same pieces, threads, providers, and artifacts. Share the
 session and tool logic; adapt windowing, files, input, and execution to the host.
@@ -9,7 +12,7 @@ This is the remaining implementation plan, dated September 21, 2026. “Native�
 means the shared SwiftUI Mac/iOS targets. “Desktop” means the existing Electron
 and CLI implementation. A capability present in desktop is not automatically
 available in native. [EXPERIENCE.md](EXPERIENCE.md) governs appearance, the AC
-curtain, guest work, and provider controls.
+account gate and provider controls.
 
 ## Inventory
 
@@ -20,7 +23,7 @@ curtain, guest work, and provider controls.
 | Corner web preview | Starter, local source, public piece, expand/return, retry | Preserve one runtime through expansion, input focus, audio controls, revision-aware readiness |
 | Providers and models | AC execution; all three identities in the menu | Native Claude/Codex execution and their real model catalogs |
 | AC account | Trusted web curtain, native Keychain, sign-out | Expiration/refresh recovery and optional shared account component with AC iOS |
-| Guest work | Local threads and draft preview | Persist unsent text; optional capped hosted guest AI |
+| Account entry | Verified AC login and handle required in GUI and TUI | No guest or anonymous workspace |
 | Braincells | Balance display and StoreKit client | Purchase/restore/receipt/device acceptance; native Mac distribution decision |
 | Publishing | Piece saves auto-publish with a handle | Visible publication controls, exact-revision receipts, conflict and retry handling |
 | Threads | Local source, transcript, and agent conversation | Provider handoff, durable composer, export/import, migration and concurrent writers |
@@ -113,11 +116,10 @@ private host address appears in shared URLs or exported diagnostics.
 
 ## Accounts, consent, billing, and publication
 
-Treat AC login, vendor login, pairing, and publication ownership as separate
-identities. A Claude/Codex user can make local work without an AC account once
-the bridge exists. Publishing to AC requires the intended AC account and handle.
-Hosted AC generation continues to require available braincells unless a guest
-allowance is deliberately implemented.
+AC login and an @handle are required for all providers and both interfaces.
+Claude/Codex credentials and pairing are additional requirements, not substitutes.
+Hosted AC generation also requires available braincells. No guest allowance or
+anonymous workspace is supported.
 
 Retain the real AC curtain and preserve draft/composer state on cancel, failure,
 and success. Extend token-expiration handling without automatically resending a

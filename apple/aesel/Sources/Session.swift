@@ -40,7 +40,11 @@ struct ProviderChoice: Identifiable {
 
 struct ProviderApproval: Identifiable {
     let id: String
+    let title: String
     let detail: String
+    let canAccept: Bool
+    let alwaysLabel: String?
+    let alwaysScope: String?
 }
 
 struct SessionNotice: Identifiable {
@@ -103,13 +107,20 @@ final class Session {
     var modelChoices: [ModelChoice] = []
     var provider = "ac"
     var providers: [ProviderChoice] = []
+    var accountDeletionBusy = false
+    var accountDeleted = false
+    var accountNotice = ""
+    var mcpAutoAllow = true
+    var supportsApprovalPolicy = false
     var approval: ProviderApproval?
     var hostOperationID: String?
     var providerNotice: String { providers.first { $0.id == provider }?.notice ?? "" }
+    var accountReady: Bool { signedIn && !handle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var accessNotice = "An AC account and @handle are required."
     var providerReady: Bool {
         provider == "ac" ? signedIn : providers.contains { $0.id == provider && $0.available }
     }
-    var canStartTurn: Bool { providerReady && !busy && hostOperationID == nil && fatal == nil }
+    var canStartTurn: Bool { accountReady && !viewingHistory && providerReady && !busy && hostOperationID == nil && fatal == nil }
     var reportedModel = ""
     var currentThreadID = ""
     var currentSessionID: String { currentThreadID }
@@ -123,6 +134,14 @@ final class Session {
     var revisions: [SourceRevision] = []
     var inspectedRevision: InspectedRevision?
     var currentRevision = 0
+    var selectedRevision: Int?
+    var historicalSource = ""
+    var historicalEntries: [Entry] = []
+    var historicalTranscriptAvailable = true
+    var viewingHistory: Bool { selectedRevision != nil }
+    var displayedRevision: Int { selectedRevision ?? currentRevision }
+    var displayedSource: String { viewingHistory ? historicalSource : source }
+    var displayedEntries: [Entry] { viewingHistory ? historicalEntries : entries }
     var pieceVersion: Int { currentRevision }
     var publishedRevision: Int?
     var autoPublish = true
@@ -189,6 +208,17 @@ final class Session {
     func receive(_ event: [String: Any]) {
         guard let type = event["type"] as? String else { return }
         switch type {
+        case "revisionSelection":
+            guard event["threadID"] as? String == currentSessionID,
+                  let version = event["version"] as? Int, let current = event["current"] as? Int else { return }
+            selectedRevision = version == current ? nil : version
+            historicalSource = event["source"] as? String ?? ""
+            historicalTranscriptAvailable = event["transcriptAvailable"] as? Bool ?? false
+            let projection = Session()
+            for entry in event["events"] as? [[String: Any]] ?? [] {
+                if ["you", "note", "bad", "bridge"].contains(entry["type"] as? String ?? "") { projection.receive(entry) }
+            }
+            historicalEntries = projection.entries
         case "revisionPreview":
             guard event["threadID"] as? String == currentSessionID,
                   let version = event["version"] as? Int, let source = event["source"] as? String else { return }
@@ -206,6 +236,8 @@ final class Session {
         case "publication":
             shareURL = (event["url"] as? String).flatMap(URL.init(string:))
         case "providers":
+            mcpAutoAllow = event["mcpAutoAllow"] as? Bool ?? true
+            supportsApprovalPolicy = event["supportsApprovalPolicy"] as? Bool ?? false
             provider = event["selected"] as? String ?? provider
             providers = (event["choices"] as? [[String: Any]] ?? []).compactMap { value in
                 guard let id = value["id"] as? String else { return nil }
@@ -216,8 +248,10 @@ final class Session {
         case "approval":
             if let value = event["approval"] as? [String: Any], let id = value["id"] as? String {
                 let params = value["params"] as? [String: Any] ?? [:]
-                let detail = params["command"] as? String ?? params["reason"] as? String ?? value["method"] as? String ?? "Provider action"
-                approval = ProviderApproval(id: id, detail: detail)
+                let detail = value["detail"] as? String ?? params["message"] as? String ?? params["command"] as? String ?? params["reason"] as? String ?? "Provider action"
+                approval = ProviderApproval(id: id, title: value["title"] as? String ?? "Allow this action?", detail: detail,
+                    canAccept: value["canAccept"] as? Bool ?? true, alwaysLabel: value["alwaysLabel"] as? String,
+                    alwaysScope: value["alwaysScope"] as? String)
             } else { approval = nil }
         case "credits":
             braincells = event["total"] as? Double
@@ -246,6 +280,9 @@ final class Session {
             }
 
         case "thread":
+            selectedRevision = nil
+            historicalEntries = []
+            historicalSource = ""
             inspectedRevision = nil
             composer = event["composer"] as? String ?? ""
             reportedModel = ""
@@ -271,14 +308,18 @@ final class Session {
             creditsStatus = "Loading braincells"
             signedIn = true
             handle = event["handle"] as? String ?? ""
-            if handle.isEmpty {
-                append(.note, "Signed in, but this account has no @handle yet. Claim one at aesthetic.computer/handle to publish.")
-            }
+            accessNotice = handle.isEmpty ? "Claim an AC @handle to use Aesel." : ""
+
+        case "accountRequired":
+            signedIn = event["signedIn"] as? Bool ?? false
+            handle = ""
+            accessNotice = event["text"] as? String ?? "An AC account and @handle are required."
 
         case "handleColors":
             if event["handle"] as? String == handle { handleColors = event["colors"] as? [String] ?? [] }
 
         case "signedOut":
+            accessNotice = "An AC account and @handle are required."
             braincells = nil
             braincellDollars = nil
             freeDollars = nil

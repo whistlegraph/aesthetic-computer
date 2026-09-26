@@ -26,6 +26,12 @@ import Foundation
         let query = URLComponents(url: auth.url, resolvingAgainstBaseURL: false)!.queryItems!
         precondition(query.contains { $0.name == "code_challenge_method" && $0.value == "S256" })
         precondition(!auth.url.absoluteString.contains(auth.verifier))
+        precondition(!query.contains { $0.name == "screen_hint" })
+        let signup = try NativeSignIn(signUp: true)
+        let signupQuery = URLComponents(url: signup.url, resolvingAgainstBaseURL: false)!.queryItems!
+        precondition(signupQuery.contains { $0.name == "screen_hint" && $0.value == "signup" })
+        precondition(signupQuery.contains { $0.name == "code_challenge_method" && $0.value == "S256" })
+
         let wrong = URL(string: NativeSignIn.callback + "?code=test&state=wrong")!
         do { _ = try auth.exchangeBody(for: wrong); preconditionFailure("Wrong state accepted") } catch {}
         let callback = URL(string: NativeSignIn.callback + "?code=test&state=" + auth.state)!

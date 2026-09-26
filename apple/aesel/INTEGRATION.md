@@ -1,5 +1,8 @@
 # aesel on Mac and iPhone
 
+Electron Aesel was retired on September 23, 2026. References below describe
+historical parity work; use [README.md](README.md) for current entry points.
+
 The current shared-shell contracts and remaining work are in
 [EXPERIENCE.md](EXPERIENCE.md) and [ROADMAP.md](ROADMAP.md). They supersede the
 older launch, appearance, preview, and prototype identity assumptions below.
@@ -55,7 +58,7 @@ release authentication mechanism. The implemented phone flow uses the
 existing AC web sign-in inside an app-owned WebKit view, extracts the resulting
 session only from the trusted AC main-frame origin, and stores the app's bearer
 credential in Keychain. Cancellation, expiration, logout, and retry must return
-to a usable signed-out state. Authentication scripts and tokens must never be
+to account setup. Authentication scripts and tokens must never be
 printed in logs or placed in URLs.
 
 A retained web session can make a later sign-in easier, but an expired access
@@ -111,13 +114,11 @@ has returned a valid URL. A draft route or stale revision must not masquerade
 as a working public link. An external open uses the HTTPS AC URL, without
 private session data.
 
-## Optional anonymous mode
+## Required account
 
-A signed-out visitor can view a published public piece or a local starter/draft
-without borrowing an account. Keep this separate from authenticated creation:
-publishing still requires a handle, and anonymous AI generation would require
-an explicit backend quota, abuse controls and a billing decision. No anonymous
-AI allowance is enabled by this change.
+The GUI and TUI require a verified AC login and an @handle before workspace use,
+including Claude/Codex and pro/private sessions. There is no anonymous mode.
+Saved notebooks survive logout, but remain behind account setup until verified.
 
 ## Implemented in this change
 

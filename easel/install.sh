@@ -9,9 +9,10 @@ FISH_CONFIG="${XDG_CONFIG_HOME:-${HOME}/.config}/fish/config.fish"
 ZSH_PROFILE="${ZDOTDIR:-${HOME}}/.zprofile"
 
 mkdir -p "$BIN_DIR" "$CONFIG_DIR"
-chmod +x "$PROJECT_DIR/bin/easel"
+chmod +x "$PROJECT_DIR/bin/"{easel,aesel,easel-desktop,a}
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/easel"
-ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/aesel"
+ln -sfn "$PROJECT_DIR/bin/aesel" "$BIN_DIR/aesel"
+ln -sfn "$PROJECT_DIR/bin/a" "$BIN_DIR/a"
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/ac"
 
 # The tool was called `aesthetic` before it was called Aesel, and that name

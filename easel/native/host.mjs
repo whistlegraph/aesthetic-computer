@@ -11,6 +11,7 @@ import {codexModels, pickerModels} from '../src/provider-picker.mjs';
 import {validatePieceSource} from '../src/revisions.mjs';
 import {nativeInstructions} from './prompt.mjs';
 import {nativeInputPixels} from './preview.mjs';
+import {nativeApproval, nativeApprovalResponse} from './approvals.mjs';
 
 const LIMIT = 1024 * 1024;
 const digest = value => createHash('sha256').update(value).digest('hex');
@@ -47,6 +48,8 @@ export class NativeHost {
     mkdirSync(this.root, {recursive:true,mode:0o700});
     if (lstatSync(this.root).isSymbolicLink()) throw new Error('Host storage must not be a symlink');
     this.sessions = new Map();
+    this.policyFile = join(this.root, 'permissions.json');
+    this.mcpAutoAllow = readJSON(this.policyFile, {}).mcpAutoAllow !== false;
     this.engineFactory = engineFactory || ((provider, options) => new BACKENDS[provider].Engine(options));
     this.discover = discover || executable;
     this.capturePreview = capturePreview;
@@ -68,7 +71,7 @@ export class NativeHost {
         notice:!command ? `Install and sign in to ${id} on this Mac.` : error,
       });
     }
-    const value = {schema:1,providers,media:['piece'],transport:'loopback',features:['stream','interrupt','approvals','reconnect']};
+    const value = {schema:1,providers,mcpAutoAllow:this.mcpAutoAllow,media:['piece'],transport:'loopback',features:['stream','interrupt','approvals','reconnect']};
     this.catalog = {at:Date.now(),value};
     return value;
   }
@@ -165,9 +168,16 @@ export class NativeHost {
     });
     engine.on('request', request => {
       if (s.engine !== engine || !s.active) return;
+      const approval = nativeApproval(request);
+      if (!approval) { engine.reject?.(request.id,-32601,'Unsupported provider request'); return; }
+      if (this.mcpAutoAllow && approval.mcp && approval.canAccept) {
+        engine.respond(request.id,approval.responses.y); return;
+      }
       const id = String(request.id);
-      const event=this.event(s,{type:'approval',id,method:request.method,params:request.params});
-      s.approvals.set(id,{id:request.id,operation:s.active.id,event});
+      const event=this.event(s,{type:'approval',id,method:request.method,params:request.params,
+        title:approval.title,detail:approval.detail,canAccept:approval.canAccept,
+        alwaysLabel:approval.alwaysLabel,alwaysScope:approval.alwaysScope});
+      s.approvals.set(id,{id:request.id,operation:s.active.id,event,approval});
     });
     engine.on('fatal', error => { if(s.engine===engine) void this.finish(s,'failed',error.message); });
     engine.on('exit', () => { if(s.engine===engine) { s.engine=null; if(s.active) void this.finish(s,'failed','Provider exited during the turn'); } });
@@ -187,7 +197,7 @@ export class NativeHost {
     const operation = s.active;
     try { await this.source(s); } catch(failure) { error = failure.message; status = 'failed'; }
     operation.status = status; operation.error = error || ''; operation.finishedAt = Date.now();
-    for(const pending of s.approvals.values()) { try { s.engine?.respond(pending.id,{decision:'decline'}); } catch {} }
+    for(const pending of s.approvals.values()) { try { s.engine?.respond(pending.id,nativeApprovalResponse(pending.approval,'cancel')); } catch {} }
     clearTimeout(s.interruptTimer);
     s.approvals.clear();
     this.event(s,{type:'done',status,error:error || ''});
@@ -198,6 +208,11 @@ export class NativeHost {
   async rpc(method,p={}) {
     if(this.closed)throw new Error('The host is shutting down');
     if (method === 'capabilities') return this.capabilities();
+    if (method === 'approvalPolicy') {
+      if (typeof p.mcpAutoAllow !== 'boolean') throw new Error('Choose whether MCP tool calls are allowed');
+      this.setMcpAutoAllow(p.mcpAutoAllow);
+      return {mcpAutoAllow:this.mcpAutoAllow};
+    }
     if (method === 'configure') return this.configure(p);
     const s = this.session(p.sessionID);
     if (method === 'turn') {
@@ -254,11 +269,27 @@ export class NativeHost {
     if (method === 'approval') {
       const pending = s.approvals.get(String(p.id));
       if (!pending || !s.active || pending.operation !== s.active.id || p.operationID !== s.active.id) throw new Error('This approval has expired');
-      if (!['accept','decline','cancel'].includes(p.decision)) throw new Error('Unsupported approval decision');
-      s.approvals.delete(String(p.id)); s.engine.respond(pending.id,{decision:p.decision});
+      const response = nativeApprovalResponse(pending.approval,p.decision);
+      if (!response) throw new Error('Unsupported approval decision');
+      if (p.decision === 'always' && pending.approval.mcp) {
+        this.setMcpAutoAllow(true); // Also resolves other queued MCP confirmations.
+      } else {
+        s.engine.respond(pending.id,response); s.approvals.delete(String(p.id));
+      }
       return {accepted:true};
     }
     throw new Error('Unsupported host method');
+  }
+
+  setMcpAutoAllow(value) {
+    atomic(this.policyFile,{mcpAutoAllow:value});
+    this.mcpAutoAllow = value; this.catalog = null;
+    if (!value) return;
+    for (const s of this.sessions.values()) for (const [id,pending] of s.approvals) {
+      if (!s.active || pending.operation !== s.active.id || !pending.approval.mcp || !pending.approval.canAccept) continue;
+      s.engine.respond(pending.id,pending.approval.responses.y);
+      s.approvals.delete(id);
+    }
   }
 
   close() {
@@ -299,9 +330,11 @@ async function main() {
   const server=await serveHost({host,token,port:8776});
   const config={schema:1,url:`http://127.0.0.1:${server.address().port}/rpc`,token};
   atomic(configFile,config);
-  const appDirectory=join(homedir(),'Library/Containers/computer.aesthetic.aesel.native/Data/Library/Application Support/computer.aesthetic.aesel.native');
-  mkdirSync(appDirectory,{recursive:true,mode:0o700});atomic(join(appDirectory,'host.json'),config);
-  console.log('Aesel host ready on loopback. Connection saved for Aesel Native.');
+  for (const bundleID of ['computer.aesthetic.easel','computer.aesthetic.aesel.native']) {
+    const appDirectory=join(homedir(),`Library/Containers/${bundleID}/Data/Library/Application Support/${bundleID}`);
+    mkdirSync(appDirectory,{recursive:true,mode:0o700});atomic(join(appDirectory,'host.json'),config);
+  }
+  console.log('Aesel host ready on loopback. Connection saved for Aesel.');
   for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{host.close();server.close(()=>process.exit(0));});
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main().catch(error=>{console.error(error.message);process.exitCode=1;});

@@ -1,22 +1,19 @@
 # Aesel
 
-Aesel by Aesthetic Computer. The canonical command is `aesel`; `ac` and
-`easel` remain compatible. The source directory, `EASEL_*` settings, existing
-thread paths, and bundle ID remain stable so upgrades preserve user data.
+`aesel` opens the native SwiftUI Mac GUI in [`apple/aesel`](../apple/aesel/README.md).
+`a` opens the TUI in pro mode; `ac` and `easel` retain the piece-oriented TUI.
+Install these commands with `cd easel && ./install.sh`. Install the native Mac
+beta from https://aesel.app, or build it with Xcode using `apple/aesel/run.sh mac`.
 
-A coding interface for the terminal. Lives at `easel/` in the
-Aesthetic Computer repository.
+Both interfaces require a verified Aesthetic Computer login and an @handle,
+including pro/private mode and Claude/Codex providers.
 
-```sh
-cd easel && ./install.sh
-ac
-```
-
-`ac` and `aesthetic` open the same full-screen interface in the current
-directory. Pass a directory to open another workspace:
+The Electron GUI is retired. Its shell, installers, updater and release scripts
+have been removed; shared native notebook resources now live in `easel/shared/`.
+The native app uses its own saved threads and does not accept TUI workspace flags.
 
 ```sh
-ac ~/project
+a ~/project
 ```
 
 The interface owns the conversation, streaming, tool activity, interruption,

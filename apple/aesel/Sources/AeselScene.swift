@@ -1,8 +1,8 @@
 import SwiftUI
 
 
-// The desktop's palette, typefaces and mascot, shared without redraws.
-// Title lettering is the desktop's Comic Sans MS Bold. iOS has no Comic Sans,
+// The shared renderer's palette, typefaces and mascot, shared without redraws.
+// Title lettering is the shared renderer's Comic Sans MS Bold. iOS has no Comic Sans,
 // so the app bundles Comic Relief Bold, its metric-compatible SIL OFL twin
 // (Resources/COMIC-RELIEF-OFL-1.1.txt); Chalkboard SE Bold is the last resort.
 //
@@ -24,7 +24,7 @@ struct Paint: Equatable {
     // The preview frame: --aesel-background 75% + accent, edged 65% toward white.
     var frame = Color(rgb: 0x744478)
     var frameEdge = Color(rgb: 0xa485a7)
-    // The desktop's --user-ink: foreground 65% toward #c12b87.
+    // The shared renderer's --user-ink: foreground 65% toward #c12b87.
     var userInk = Color(rgb: 0xe9b5d5)
     // What the notebook web view is told, as CSS hex.
     var css: [String: String] = ["background": "#463264", "foreground": "#ffffff", "userInk": "#e9b5d5"]
@@ -122,7 +122,7 @@ struct Paint: Equatable {
         let x = luminance(a), y = luminance(b)
         return (max(x, y) + 0.05) / (min(x, y) + 0.05)
     }
-    // The desktop's `readable`: keep the hue, move only as far toward black or
+    // The shared renderer's `readable`: keep the hue, move only as far toward black or
     // white as WCAG AA (4.5:1) against the background needs.
     private static func readable(_ color: RGB, on background: RGB) -> RGB {
         if contrast(color, background) >= 4.5 { return color }
@@ -143,7 +143,7 @@ extension EnvironmentValues {
     }
 }
 
-/// The desktop's native Prox lettering (easel/desktop/native/credit-label.swift),
+/// The shared renderer's native Prox lettering (easel/shared/native/credit-label.swift),
 /// drawn with a light face, a dark edge and tight cyan, purple and pink accents.
 /// One cached image per letter lets the notebook
 /// tilt and sway each one on its own.
@@ -217,7 +217,7 @@ struct AeselCloth: View {
     var body: some View { paint.bg.accessibilityHidden(true) }
 }
 
-/// The desktop's ruled sheet: one faint line per 24px row, from 10px in to
+/// The shared renderer's ruled sheet: one faint line per 24px row, from 10px in to
 /// the trailing edge, drawn behind everything so title, prose and the draft
 /// all sit on the same paper.
 private struct UIScaleKey: EnvironmentKey { static let defaultValue: CGFloat = 1 }
@@ -268,10 +268,10 @@ struct AeselWordmark: View {
     }
 }
 
-/// The desktop's piece title: Prox lettering with handle letters tinted by the
+/// The shared renderer's piece title: Prox lettering with handle letters tinted by the
 /// account palette, every letter leaning by the FNV hash Slab uses (so the
 /// phone and the rock agree on each letter's tilt) and swaying on its own
-/// 1.8s beat like the desktop's qr-name-wiggle.
+/// 1.8s beat like the shared renderer's qr-name-wiggle.
 struct AeselTitle: View {
     let text: String
     var colors: [String] = []
@@ -356,14 +356,15 @@ private struct RockLetter: View {
     }
 }
 
-/// The desktop's pencil companion: eight 512px cells on a 4×2 sheet, copied in
-/// by bundle-session.sh, drawn smooth and running only while a turn is live.
+/// The shared renderer's pencil companion: eight 512px cells on a 4×2 sheet, copied in
+/// by bundle-session.sh, running while requested and respecting Reduce Motion.
 struct AeselDonkey: View {
     var busy: Bool
     var failed: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var frameIndex = 0
     private static let frames: [AeselImage] = {
-        guard let url = Bundle.main.url(forResource: "donkey-pencil-run-v2", withExtension: "png", subdirectory: "Session/easel/desktop/assets"),
+        guard let url = Bundle.main.url(forResource: "donkey-pencil-run-v2", withExtension: "png", subdirectory: "Session/easel/shared/assets"),
               let sheet = ApplePlatform.cgImage(at: url) else { return [] }
         let cell = sheet.width / 4
         return (0..<8).compactMap { index in
@@ -372,16 +373,27 @@ struct AeselDonkey: View {
     }()
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.09, paused: reduceMotion || !busy)) { timeline in
-            let index = busy && !reduceMotion ? Int(timeline.date.timeIntervalSinceReferenceDate / 0.09) % 8 : 0
-            if Self.frames.indices.contains(index) {
-                Image(aeselImage: Self.frames[index])
+        Group {
+            if Self.frames.indices.contains(frameIndex) {
+                Image(aeselImage: Self.frames[frameIndex])
                     .resizable()
                     .scaledToFit()
                     .opacity(failed ? 0.5 : 1)
             }
         }
         .frame(width: 112, height: 112)
+        .task(id: busy && !reduceMotion) {
+            frameIndex = 0
+            guard busy && !reduceMotion && !Self.frames.isEmpty else { return }
+            // Advance one pose per tick. Deriving the index from wall time
+            // skipped poses whenever a redraw crossed a frame boundary.
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .milliseconds(90)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                frameIndex = (frameIndex + 1) % Self.frames.count
+            }
+        }
         .accessibilityLabel(busy ? "aesel is working" : "aesel the donkey")
     }
 }

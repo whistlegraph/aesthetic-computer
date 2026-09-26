@@ -164,7 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.setMonitorFocused(now)
         if now, MenuBandAudioDevices.focusriteInputPresent() {
             let t = ProcessInfo.processInfo.systemUptime
-            if t - lastEngagementReset > 30 {
+            if t - lastEngagementReset > 600 {   // refocus is instant; a rebuild here is a rare backstop
                 lastEngagementReset = t
                 NSLog("MenuBand: engaged — interface reset")
                 menuBand.resetAudioInterface()
@@ -629,7 +629,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return true
             }
             if self.pitchBendCursorPushed {
-                DispatchQueue.main.async { self.exitPerformanceFocusFromEscape() }
+                DispatchQueue.main.async { debugLog("focus exit via global Escape monitor"); self.exitPerformanceFocusFromEscape() }
                 return true
             }
         }
@@ -895,6 +895,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         trackpadPlugin.onExitRequested = { [weak self] in
+            debugLog("focus exit via trackpad plugin exit request")
             self?.exitPerformanceFocusFromEscape()
         }
         trackpadPlugin.onSummonRequested = { [weak self] in
@@ -1249,6 +1250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return self.localCapture.isArmed || self.pianoWaveformWindowDelegate.isKeyboardFocused
         }
         pianoWaveformWindowDelegate.onFocusRelease = { [weak self] in
+            debugLog("focus exit via piano window release")
             self?.exitPerformanceFocusFromEscape()
         }
         pianoWaveformWindowDelegate.onToggleKeymap = { [weak self] in
@@ -1732,6 +1734,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return true
                 }
 #endif
+                debugLog("focus exit via Escape key in capture (keyCode=\(keyCode))")
                 self.exitPerformanceFocusFromEscape()
                 return true
             }
@@ -2135,6 +2138,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.updateIcon()
         }
         let shortcut = MenuBandShortcut.defaultTapeRecord
+        // Inside focus the capture panel owns the keys: route the same
+        // shortcut through it so a second ⌘⌥R stops the take instead of
+        // tripping the focus gesture.
+        localCapture.recordShortcut = shortcut
+        localCapture.onRecordShortcut = { [weak self] in
+            guard let self else { return }
+            if self.menuBand.tape.state == .recording {
+                NSLog("MenuBand: ⌘⌥R (in focus) — stop + drop")
+                self.menuBand.stopTape()
+                self.dropTapeOnDesktop()
+            } else {
+                NSLog("MenuBand: ⌘⌥R (in focus) — record")
+                self.menuBand.toggleTapeRecording()
+            }
+            self.updateIcon()
+        }
         if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
             tapeRecordHotkey = hotkey
             NSLog("MenuBand: ⌘⌥R bound to focus + record")
@@ -4205,7 +4224,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 } catch { NSLog("MenuBand: tape copy failed: \(error)") }
                 let revealedFile = reveal
-                DispatchQueue.main.async { NSWorkspace.shared.activateFileViewerSelecting([revealedFile]) }
+                DispatchQueue.main.async {
+                    ReadyChime.shared.play()   // done baking
+                    NSWorkspace.shared.activateFileViewerSelecting([revealedFile])
+                }
             }
 #endif
         }
@@ -4304,25 +4326,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             wav.deletingPathExtension().lastPathComponent + ".mp3")
         try? FileManager.default.removeItem(at: mp3)
 
+        // Voice not monitored (built-in mic + speakers, or monitoring off):
+        // the mic stem carries the instruments bleeding from the speakers.
+        // Menu Band knows exactly what it played, so cancel it: an adaptive
+        // filter (NLMS, 2048 taps) learns the speaker→mic path from the
+        // rendered mix and subtracts it. The cleaned stem is saved next to
+        // the raw one (voice-clean.wav) and is what the mp3 carries.
+        var cleanVoice: URL?
+        if !micWasInMix {
+            let stemsDir = wav.deletingLastPathComponent()
+                .appendingPathComponent(wav.deletingPathExtension().lastPathComponent + "-stems", isDirectory: true)
+            let out = (FileManager.default.fileExists(atPath: stemsDir.path) ? stemsDir : tmp)
+                .appendingPathComponent("voice-clean.wav")
+            try? FileManager.default.removeItem(at: out)
+            let aec = Process()
+            aec.qualityOfService = .utility
+            aec.executableURL = URL(fileURLWithPath: ffmpeg)
+            aec.arguments = ["-y", "-threads", "1", "-i", wav.path, "-filter_threads", "1", "-filter_complex",
+                             "[0:a]pan=mono|c0=0.5*c0+0.5*c1[ref];[0:a]pan=mono|c0=c2[mic];[mic][ref]anlms=order=2048:mu=0.0015:out_mode=e[v]",
+                             "-map", "[v]", "-c:a", "pcm_s16le", out.path]
+            aec.standardOutput = nil; aec.standardError = nil
+            if (try? aec.run()) != nil {
+                aec.waitUntilExit()
+                if aec.terminationStatus == 0, FileManager.default.fileExists(atPath: out.path) {
+                    cleanVoice = out
+                    NSLog("MenuBand: voice stem echo-cancelled against the mix → \(out.lastPathComponent)")
+                } else {
+                    NSLog("MenuBand: echo cancel failed (status \(aec.terminationStatus)) — using the raw mic stem")
+                }
+            }
+        }
+
         var args = ["-y", "-threads", "1", "-i", wav.path]
+        if let cleanVoice { args += ["-i", cleanVoice.path] }
+        let coverIndex = cleanVoice == nil ? 1 : 2
+        let voiceGain = max(0.1, menuBand.monitorGain)
+        // The heard mix is channels 1–2 exactly. With the voice never in it,
+        // add the (cancelled) mic stem at the Mic fader's level.
+        let graph: String
+        if micWasInMix {
+            graph = "[0:a]pan=stereo|c0=c0|c1=c1[out]"
+        } else if cleanVoice != nil {
+            graph = "[0:a]pan=stereo|c0=c0|c1=c1[inst];[1:a]volume=\(voiceGain)[v];[inst][v]amix=inputs=2:normalize=0[out]"
+        } else {
+            graph = "[0:a]pan=stereo|c0=c0+\(voiceGain)*c2|c1=c1+\(voiceGain)*c3[out]"
+        }
         if haveCover {
-            args += ["-i", coverURL.path, "-map", "0:a:0", "-map", "1:v:0",
+            args += ["-i", coverURL.path, "-filter_threads", "1", "-filter_complex", graph,
+                     "-map", "[out]", "-map", "\(coverIndex):v:0",
                      "-c:v", "copy", "-disposition:v:0", "attached_pic",
                      "-metadata:s:v", "title=Album cover",
                      "-metadata:s:v", "comment=Cover (front)"]
         } else {
-            args += ["-map", "0:a:0"]
+            args += ["-filter_threads", "1", "-filter_complex", graph, "-map", "[out]"]
         }
-        // Down-mix the 4-channel take to stereo MP3 at 192kbps + ID3v2.
-        // ffmpeg's default 4→2 fold ADDS channels 3–4 (the dry mic stem) onto
-        // 1–2. With monitoring on, 1–2 already carry the voice as heard
-        // (effects, ducking, gain), so the fold doubled it dry and loud.
-        // Take exactly what was heard; only add the dry stem when the voice
-        // was never in the mix (monitoring off).
-        let fold = micWasInMix
-            ? "pan=stereo|c0=c0|c1=c1"
-            : "pan=stereo|c0=c0+c2|c1=c1+c3"
-        args += ["-filter_threads", "1", "-af", fold]
         args += ["-threads", "1", "-c:a", "libmp3lame", "-b:a", "192k", "-ac", "2",
                  "-id3v2_version", "3", mp3.path]
 

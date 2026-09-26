@@ -12639,6 +12639,7 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "chat" &&
           currentText !== "laer-klokken" &&
           currentText !== "laklok" &&
+          currentText !== "lairk" && // Enter opens its chat, Escape closes it
           currentText !== "aa" &&
           currentText !== "mail" && // composing — it leaves on its own terms
           currentText !== "amail" &&

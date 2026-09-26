@@ -35,6 +35,13 @@
         "slab/bin/instagram-mcp.mjs"
       ]
     },
+    "dm": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "slab/bin/dm-mcp.mjs"
+      ]
+    },
     "photo": {
       "type": "stdio",
       "command": "node",

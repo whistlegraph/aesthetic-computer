@@ -7,6 +7,63 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## climbalift — WIP (v15, 2026-09-25)
+
+- **Lane:** `pop/notespatial/` · the Climb and the Lift cut out of *Note(s)pat(ial)
+  Native* and rebuilt as a club record: 100 bars, 3:06, Bm → Dm → Fm, big-room /
+  witch-house, binaural through the KEMAR head, the mill's physically modelled
+  voices (FEM bells, marimba, friction, two-mass, waveguide guitar) and the dance
+  lane's bass engines used the way the new `papers/bass-platter/` says.
+  Everything in [`pop/notespatial/CLIMBALIFT.md`](notespatial/CLIMBALIFT.md).
+- **Master (v15):** −12.3 LUFS · −1.9 dBTP · LRA 8.1 · phone loss 5.4 dB (documented
+  exception: the club pump and the real sub). Not yet a release: @jeffrey is still
+  directing the arrangement by ear against the score video.
+
+---
+
+## notespatial — PACKET-READY (2026-09-25 · @jeffrey listens, then submits)
+
+- **Lane:** `pop/notespatial/` · *Note(s)pat(ial) Native*, the eleven-chapter
+  spatial suite written for the September 24 CultureHub LA ring of six AC OS
+  laptops, printed **binaurally from the center seat** · instrumental · 12:56
+  (775.9 s with the tail). **Headphones.** Score
+  `fedac/native/scores/notespatial-native.nsscore` (unchanged); arrangement in
+  `grants/culturehub-la-2026/NOTESPATIAL-ARRANGEMENT.md`.
+- **Engine:** `fedac/native/tools/notespatial-native-render.mjs --audio-only
+  --sub --float` (the `--float` flag is new: a 32-bit float print for
+  mastering; the 16-bit print is for review) → `pop/notespatial/bin/master.sh`:
+  20 Hz high-pass, bass mono under 120 Hz, **one static +3 dB**, 4× oversampled
+  true-peak limiter (6/90 ms, ASC, −2.2 dBTP ceiling), 24-bit FLAC at 44.1 k.
+  `bash pop/notespatial/bin/render.sh` makes the whole record in ~30 s.
+- **Master:** `out/notespatial-MASTER.flac` — **−16.7 LUFS · −2.1 dBTP · LRA 15.7 ·
+  PLR 14.6** · decoded AAC-256 peak −1.6 dBTP · mono loss −2.1 dB (the binaural
+  placement is the piece; same exception as bracelet) · phone loss −2.9 dB.
+  Chapters sit between −25 and −15 LUFS; the +3 dB was set by measuring the
+  limiter against a limiter-less pass: >2 dB of reduction for 2.2 s total,
+  4.5 dB once on the Lift's tutti chord. Ambient exception to the house
+  target, documented in the lane README. SHA-256
+  `21d175b4d50747d0ce7662731901c5eef39cc8ae2aa60edab8e7771d9a9d7403`.
+- **Cover:** `out/notespatial-cover-dark-3000.jpg` — the render tool's own
+  isometric view of the room at 8:35 in the Lift's spin (laptops lit by what
+  they play, the held laptop at center, the kick, notes flying in), 1500²
+  render cropped to the ring and scaled ×3 nearest-neighbor. Light-theme
+  alternate in the packet. No AI, no photo.
+- **Packet:** `~/Documents/Shelf/notespatial-DISTROKID/` — release.json
+  (Electronic / Classical, subgenre Experimental; songwriter Jeffrey Scudder;
+  instrumental; release asap), MASTER.flac (79 MB — larger than any file the
+  submit tool has pushed before; fall back to a manual drag if the upload
+  bridge balks), cover, 320 k preview mp3 with embedded cover, audit TSV.
+  The packet has every field and file `distrokid-submit.mjs` requires (checked by
+  hand; the tool itself needs `playwright`, which is not installed here). Public record
+  `pop/releases/notespatial/release.json`.
+- **Next:** @jeffrey listens to the preview in headphones (Lift at 7:21, Vanish
+  at 11:53) and approves or asks for a different gain/sub level → submit →
+  paste the Spotify link here → CDN (`pop/notespatial.mp3`, `.jpg`) → an AC
+  page (`disks/notespatial.mjs` + `disks/pop/notespatial.json`, eleven chapter
+  stills from the same render tool) → a Canvas from the sim video.
+
+---
+
 ## amazing grace — RELEASED · DistroKid accepted 2026-09-23
 
 - **Artist / label:** Aesthetic Dot Computer. Single: `amazing grace`, lowercase.

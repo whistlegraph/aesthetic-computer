@@ -8,7 +8,7 @@ struct AeselSourceView: View {
     @State private var revision = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.paint) private var paint
-    private var locked: Bool { session.busy || session.hostOperationID != nil || threadID != session.currentSessionID }
+    private var locked: Bool { session.viewingHistory || session.busy || session.hostOperationID != nil || threadID != session.currentSessionID }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
