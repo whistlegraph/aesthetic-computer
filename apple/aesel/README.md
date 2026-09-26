@@ -177,3 +177,17 @@ app explicitly with `--options runtime --timestamp --entitlements Mac.entitlemen
 to omit Xcode's development `get-task-allow` entitlement. Sign the DMG with a secure
 timestamp, submit it to `notarytool`, require `Accepted`, and staple and validate
 the DMG before uploading. No credentials belong in the release or repository.
+
+## Direct Mac release
+
+`release-mac.sh` builds the signed, notarized DMG with the terminal and Node
+included. `aesel` opens the native app; `a` and `aes` open the terminal.
+All providers require verified AC login and an @handle. The direct build keeps
+`computer.aesthetic.aesel.native` so existing notebooks and Keychain entries
+remain available; the App Store target retains its own identity and sandbox.
+
+Build from current upstream source. The 0.8.1 recovery includes Frisbee’s
+account curtain, embedded login/signup panel, and GUI/TUI gates preserved in
+`f6574e12cc`; 0.8.0 was built from the older Neo checkout without those changes.
+`release-mac.sh publish` uploads the DMG and feed and prepares the terminal
+archive; deploy the archive, manifest, installers and website separately.

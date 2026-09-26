@@ -2,7 +2,12 @@ import SwiftUI
 
 @main
 struct AeselApp: App {
-    init() { ApplePlatform.registerFonts() }
+    init() {
+        ApplePlatform.registerFonts()
+        #if os(macOS)
+        AeselTerminal.install()
+        #endif
+    }
 
     var body: some Scene {
         #if os(macOS)

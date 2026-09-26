@@ -1,6 +1,6 @@
 {
   "name": "aesel",
-  "version": "0.7.40",
+  "version": "0.8.1",
   "private": true,
   "type": "module",
   "scripts": {

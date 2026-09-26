@@ -16,7 +16,13 @@ final class NativeHostConnection: NSObject, WKScriptMessageHandlerWithReply {
         #else
         let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         #endif
-        let file = directory.appendingPathComponent("host.json")
+        var file = directory.appendingPathComponent("host.json")
+        #if os(macOS)
+        if ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] == nil {
+            file = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/Aesel Host/connection.json")
+        }
+        #endif
         guard let data = try? Data(contentsOf: file), data.count < 8192,
               let config = try? JSONDecoder().decode(Configuration.self, from: data),
               config.schema == 1, config.token.count >= 32,

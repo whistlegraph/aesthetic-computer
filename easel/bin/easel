@@ -15,6 +15,10 @@ while [[ -L "$script_path" ]]; do
     fi
 done
 PROJECT_DIR="$(cd "$(dirname "$script_path")/.." && pwd -P)"
+# Prefer the runtime carried by the native Mac bundle.
+if [[ -x "$PROJECT_DIR/../../Helpers/node" ]]; then
+    PATH="$(cd "$PROJECT_DIR/../../Helpers" && pwd -P):$PATH"
+fi
 
 # One source of truth. This used to be a literal, which meant that after a
 # self-update the launcher went on reporting the version it was written with

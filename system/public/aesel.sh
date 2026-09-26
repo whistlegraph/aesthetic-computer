@@ -78,6 +78,7 @@ chmod +x "$PREFIX/bin/easel" "$PREFIX/bin/aesel" "$PREFIX/bin/easel-desktop" "$P
 ln -sfn "$PREFIX/bin/easel" "$BIN/easel"
 ln -sfn "$PREFIX/bin/aesel" "$BIN/aesel"
 ln -sfn "$PREFIX/bin/a" "$BIN/a"
+ln -sfn "$PREFIX/bin/aes" "$BIN/aes"
 ln -sfn "$PREFIX/bin/easel" "$BIN/ac"
 
 VERSION=$(node -p "require('$PREFIX/package.json').version" 2>/dev/null || echo "?")

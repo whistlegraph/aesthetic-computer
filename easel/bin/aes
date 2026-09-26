@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# aes — Aesel in the terminal: the TUI as a general harness for this directory.
+# Takes every ac flag (--private, --backend, --model, ...).
+set -euo pipefail
+script_path="${BASH_SOURCE[0]}"
+while [[ -L "$script_path" ]]; do
+    link_target="$(readlink "$script_path")"
+    [[ "$link_target" == /* ]] && script_path="$link_target" || script_path="$(dirname "$script_path")/$link_target"
+done
+easel="$(cd "$(dirname "$script_path")" && pwd -P)/easel"
+# Words that are not a session go straight through.
+case "${1:-}" in
+    --help|-h|help|--version|-V|version|doctor|history) exec "$easel" "$@" ;;
+esac
+exec "$easel" --pro "$@"

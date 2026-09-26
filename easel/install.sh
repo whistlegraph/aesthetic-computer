@@ -13,6 +13,7 @@ chmod +x "$PROJECT_DIR/bin/"{easel,aesel,easel-desktop,a}
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/easel"
 ln -sfn "$PROJECT_DIR/bin/aesel" "$BIN_DIR/aesel"
 ln -sfn "$PROJECT_DIR/bin/a" "$BIN_DIR/a"
+ln -sfn "$PROJECT_DIR/bin/aes" "$BIN_DIR/aes"
 ln -sfn "$PROJECT_DIR/bin/easel" "$BIN_DIR/ac"
 
 # The tool was called `aesthetic` before it was called Aesel, and that name

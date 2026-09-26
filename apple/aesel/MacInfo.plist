@@ -7,8 +7,8 @@
   <key>CFBundleName</key><string>Aesel</string>
   <key>CFBundleDisplayName</key><string>Aesel</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.7.19</string>
-  <key>CFBundleVersion</key><string>0.7.19</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
   <key>NSHumanReadableCopyright</key><string>© 2026 Aesthetic Computer</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>LSMinimumSystemVersion</key><string>$(MACOSX_DEPLOYMENT_TARGET)</string>

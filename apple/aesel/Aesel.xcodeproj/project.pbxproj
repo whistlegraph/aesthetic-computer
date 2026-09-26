@@ -23,8 +23,10 @@
 		2E279865F6223B274E33E996 /* AeselComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */; };
 		2EC2911B60E5BF85985277EE /* AeselComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */; };
 		2F68084D06FAA7A44BA04C71 /* NotebookDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90DE4FA98343A247299E9ACA /* NotebookDocument.swift */; };
+		32BC67BB516A0013CEBABB9D /* AeselTerminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = D182E09559F9A925B015A88C /* AeselTerminal.swift */; };
 		3661DCFA19E2594688511C86 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B505C3279E0F8DB5292B86 /* Session.swift */; };
 		409522297780D3241B3182FF /* NativeWebAuthentication.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD0D3F1FABED1CF8FA86867 /* NativeWebAuthentication.swift */; };
+		425B0F1B7F268C335FDC4043 /* AeselTerminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = D182E09559F9A925B015A88C /* AeselTerminal.swift */; };
 		44709587196D5718C5B25542 /* COMIC-RELIEF-OFL-1.1.txt in Resources */ = {isa = PBXBuildFile; fileRef = 4A54F121629B5E78C6F46F6A /* COMIC-RELIEF-OFL-1.1.txt */; };
 		466E32FFFB239E88D25A3C66 /* Braincells.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9AB5CF1D7C27E6930F81B1 /* Braincells.swift */; };
 		496F27216049A66E73C95E09 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
@@ -112,6 +114,7 @@
 		BB9C447ACCA3590492C05AC5 /* AeselNotebook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselNotebook.swift; sourceTree = "<group>"; };
 		C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselComposer.swift; sourceTree = "<group>"; };
 		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
+		D182E09559F9A925B015A88C /* AeselTerminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselTerminal.swift; sourceTree = "<group>"; };
 		E270B97E651FC0013152574F /* AeselAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselAutomation.swift; sourceTree = "<group>"; };
 		EC974F17F071328B039F80B8 /* PreviewResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewResize.swift; sourceTree = "<group>"; };
 		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
@@ -137,6 +140,7 @@
 				B4D06A336C257DC6663C0E51 /* AeselProx.swift */,
 				7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */,
 				174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */,
+				D182E09559F9A925B015A88C /* AeselTerminal.swift */,
 				3BD16B382BBDB5D06475826D /* AeselVersionList.swift */,
 				0C5979E119A7D487AD7ED90D /* AeselWoodFrame.swift */,
 				7F4BC5239A9B70F128C1DC84 /* ApplePlatform.swift */,
@@ -315,6 +319,7 @@
 				A10EC17AA74EA9E2FB9495B6 /* AeselProx.swift in Sources */,
 				B8236CE8844912F069905928 /* AeselScene.swift in Sources */,
 				CAD62C40B80A11D34190847E /* AeselSourceView.swift in Sources */,
+				32BC67BB516A0013CEBABB9D /* AeselTerminal.swift in Sources */,
 				7B612E66F6A4D5A255F683D6 /* AeselVersionList.swift in Sources */,
 				8D922558DA9CF175830F7418 /* AeselWoodFrame.swift in Sources */,
 				9D73D7FD54B29205733E3BC9 /* ApplePlatform.swift in Sources */,
@@ -350,6 +355,7 @@
 				8C8ABE58FEAE08FF90C5AEEF /* AeselProx.swift in Sources */,
 				5FF391305FB9EEF4AB630D42 /* AeselScene.swift in Sources */,
 				60D63C84E3196DD0C030FF63 /* AeselSourceView.swift in Sources */,
+				425B0F1B7F268C335FDC4043 /* AeselTerminal.swift in Sources */,
 				2CD2971FBDBCCE62B7D958EB /* AeselVersionList.swift in Sources */,
 				C4EB6869993CE785E330AF79 /* AeselWoodFrame.swift in Sources */,
 				A766FD4831AD3177B8902DA5 /* ApplePlatform.swift in Sources */,
