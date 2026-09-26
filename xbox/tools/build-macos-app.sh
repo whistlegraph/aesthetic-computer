@@ -44,6 +44,11 @@ if [ "$install" -eq 1 ]; then
   destination="/Applications/oskiewar.app"
   rm -rf "$destination"
   ditto "$app" "$destination"
+  # Replacing the bundle in place leaves LaunchServices and the Dock holding
+  # the old icon (a blank tile after the first install); touch it and
+  # re-register so the Dock redraws the current Oskiewar.icns.
+  touch "$destination"
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$destination" >/dev/null 2>&1 || true
   dock_snapshot=$(mktemp "${TMPDIR:-/tmp}/oskiewar-dock.XXXXXX.plist")
   dock_found=0
   if defaults export com.apple.dock "$dock_snapshot" >/dev/null 2>&1; then
