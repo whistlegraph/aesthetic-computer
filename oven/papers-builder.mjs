@@ -7,6 +7,7 @@
 import { promises as fs } from "fs";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { spawn, execFile } from "child_process";
 
@@ -164,7 +165,12 @@ async function publishToLith(job) {
   const SITE_DIR = path.join(GIT_REPO_DIR, "system", "public", "papers.aesthetic.computer");
   const LITH_HOST = process.env.LITH_PAPERS_HOST || "root@lith.aesthetic.computer";
   const LITH_DEST = process.env.LITH_PAPERS_DEST || "/opt/ac/system/public/papers.aesthetic.computer/";
-  const SSH_KEY = process.env.LITH_SSH_KEY || "/root/.ssh/oven-to-lith";
+  // The oven service runs as the `oven` user (oven/infra/oven.service), so
+  // the key and its known-hosts file live in that user's ~/.ssh, not /root.
+  const SSH_DIR = path.join(os.homedir(), ".ssh");
+  const SSH_KEY = process.env.LITH_SSH_KEY || path.join(SSH_DIR, "oven-to-lith");
+  const KNOWN_HOSTS =
+    process.env.LITH_SSH_KNOWN_HOSTS || path.join(SSH_DIR, "oven-known-hosts");
 
   addLogLine(job, "stdout", `  RSYNC: pushing PDFs + platter to ${LITH_HOST}...`);
   job.stage = "rsync";
@@ -181,7 +187,7 @@ async function publishToLith(job) {
           "--include=*.pdf",
           "--include=*.html",
           "--exclude=*",
-          "-e", `ssh -i ${SSH_KEY} -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/root/.ssh/oven-known-hosts`,
+          "-e", `ssh -i ${SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=${KNOWN_HOSTS}`,
           SITE_DIR + "/",
           `${LITH_HOST}:${LITH_DEST}`,
         ],
