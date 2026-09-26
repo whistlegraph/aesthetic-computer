@@ -157,14 +157,16 @@ struct ContentView: View {
 
     private var signInPanel: some View {
         GeometryReader { geometry in
+            let layout = SignInPanelLayout(available: geometry.size)
             ZStack {
                 Color.black.opacity(0.25).ignoresSafeArea()
                     .onTapGesture { session.showSignIn = false }
                 ZStack(alignment: .topTrailing) {
                     ZStack {
-                        SignInCarrier(host: host, viewport: CGSize(
-                            width: min(380, max(0, geometry.size.width - 24)),
-                            height: min(580, max(0, geometry.size.height - 24))))
+                        SignInCarrier(host: host, viewport: SignInPanelLayout.canvas)
+                            .frame(width: SignInPanelLayout.canvas.width, height: SignInPanelLayout.canvas.height)
+                            .scaleEffect(layout.scale)
+                            .frame(width: layout.size.width, height: layout.size.height)
                         if session.signInLoading {
                             ProgressView().padding(16).background(paint.bg, in: RoundedRectangle(cornerRadius: 8))
                         }
@@ -184,8 +186,7 @@ struct ContentView: View {
                     .keyboardShortcut(.cancelAction)
                     .padding(6)
                 }
-                .frame(width: min(380, max(0, geometry.size.width - 24)),
-                       height: min(580, max(0, geometry.size.height - 24)))
+                .frame(width: layout.size.width, height: layout.size.height)
                 .background(paint.bg)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .shadow(color: .black.opacity(0.2), radius: 18, y: 6)

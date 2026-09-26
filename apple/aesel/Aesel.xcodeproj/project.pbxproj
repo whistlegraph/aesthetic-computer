@@ -37,6 +37,7 @@
 		5FF391305FB9EEF4AB630D42 /* AeselScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CB1DC30F6BBB5B2167272D2 /* AeselScene.swift */; };
 		60D63C84E3196DD0C030FF63 /* AeselSourceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */; };
 		61636BC5717C14D1D6A3F51F /* preview-continuity.js in Resources */ = {isa = PBXBuildFile; fileRef = F9AA1A94FD57EA03B4309E30 /* preview-continuity.js */; };
+		633F0065719420EF155326A0 /* SignInPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */; };
 		6C328E19AB09BC33ECF7E26E /* AeselHoverSound.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BE7BCB5067054611C54637 /* AeselHoverSound.swift */; };
 		6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */; };
 		7AE3B1696F71BFDE82E8B72E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 228E709932A29DC953A73B71 /* Assets.xcassets */; };
@@ -73,6 +74,7 @@
 		CAD62C40B80A11D34190847E /* AeselSourceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174356CADCC7413BFE9ABF1A /* AeselSourceView.swift */; };
 		CC92640C1396E0646F1CDD0F /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
 		D1D4EE707AFBE4CB22C77682 /* AeselAutomation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E270B97E651FC0013152574F /* AeselAutomation.swift */; };
+		D975E3BE49FE480A8E0EE2A9 /* SignInPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */; };
 		E24FA3D4F33A360267A7EAB6 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 196EC264FACF61F5D4F16400 /* PrivacyInfo.xcprivacy */; };
 		E269C78DB87E568CC6F63CC8 /* AeselProviderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3405C669DD22957E6E9FC52B /* AeselProviderPicker.swift */; };
 		E86DBFD43D2C7D107F428424 /* NativeSignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6975BD799206CFA5D9095BDB /* NativeSignIn.swift */; };
@@ -115,6 +117,7 @@
 		C37CCFBE31D100ED13EF7DAD /* AeselComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselComposer.swift; sourceTree = "<group>"; };
 		CC2D2E4941E446673BAF4F97 /* AeselHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselHomeView.swift; sourceTree = "<group>"; };
 		D182E09559F9A925B015A88C /* AeselTerminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselTerminal.swift; sourceTree = "<group>"; };
+		E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInPanelLayout.swift; sourceTree = "<group>"; };
 		E270B97E651FC0013152574F /* AeselAutomation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselAutomation.swift; sourceTree = "<group>"; };
 		EC974F17F071328B039F80B8 /* PreviewResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewResize.swift; sourceTree = "<group>"; };
 		F26176753E43E445E2CF551D /* AeselModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AeselModelPicker.swift; sourceTree = "<group>"; };
@@ -155,6 +158,7 @@
 				13B505C3279E0F8DB5292B86 /* Session.swift */,
 				B71285DFFDAE5A8B3FB1FBD5 /* SessionHost.swift */,
 				9DD20E2826C7E253AFDDDF7C /* SessionStore.swift */,
+				E18D254092D8CB3C00DA9756 /* SignInPanelLayout.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -334,6 +338,7 @@
 				3661DCFA19E2594688511C86 /* Session.swift in Sources */,
 				6E01FC52B2208E175FFC6985 /* SessionHost.swift in Sources */,
 				50A41749DCD169840D079FCA /* SessionStore.swift in Sources */,
+				D975E3BE49FE480A8E0EE2A9 /* SignInPanelLayout.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -370,6 +375,7 @@
 				0B56E0A1E07AD7B531824F41 /* Session.swift in Sources */,
 				496F27216049A66E73C95E09 /* SessionHost.swift in Sources */,
 				113D31E951393CC4B352014A /* SessionStore.swift in Sources */,
+				633F0065719420EF155326A0 /* SignInPanelLayout.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
