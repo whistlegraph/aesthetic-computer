@@ -8055,10 +8055,15 @@ function sim($) {
       }
     });
 
-    if (login) login.btn.disabled = true;
-    if (signup) signup.btn.disabled = true;
+    // The session landed after boot: the logged-out buttons were built for a
+    // user we did not know yet. Drop them (not just disable them) so nothing
+    // in `activated` or `setTheme` can revive them beside the handle.
+    login = undefined;
+    signup = undefined;
     delete $.store["handle:received"];
     profileAction = "profile";
+    // Match whatever curtain state the prompt is in right now.
+    profile.btn.disabled = $.system.prompt.input.canType || theme !== "default";
     $.needsPaint();
   }
 
@@ -9155,11 +9160,22 @@ function activated($, state) {
   }
   // console.log(state, firstCommandSent)
   // if (state === false && firstCommandSent) return;
-  const hideCurtain = theme !== "default";
-  if (login) login.btn.disabled = state || hideCurtain;
-  if (signup) signup.btn.disabled = state || hideCurtain;
-  if (profile) profile.btn.disabled = state || hideCurtain;
+  setCurtainButtons(state || theme !== "default");
   if (chatTickerButton) chatTickerButton.disabled = state;
+}
+
+// Enable or disable the curtain's buttons. The profile button (a logged-in
+// user) always wins over the login / signup pair, so a session that lands
+// after boot can never show both sets at once.
+function setCurtainButtons(disabled) {
+  if (profile) {
+    profile.btn.disabled = disabled;
+    if (login) login.btn.disabled = true;
+    if (signup) signup.btn.disabled = true;
+    return;
+  }
+  if (login) login.btn.disabled = disabled;
+  if (signup) signup.btn.disabled = disabled;
 }
 
 // 💬 Receive each response in full.
@@ -9451,10 +9467,7 @@ function setTheme(newTheme, $) {
     $["store"]["prompt:theme"] = theme;
     $["store"].persist?.("prompt:theme");
   }
-  const hideCurtain = theme !== "default";
-  if (login) login.btn.disabled = hideCurtain;
-  if (signup) signup.btn.disabled = hideCurtain;
-  if (profile) profile.btn.disabled = hideCurtain;
+  setCurtainButtons(theme !== "default");
 }
 
 async function makeMotd({ system, needsPaint, handle, user, net, api, notice }) {
