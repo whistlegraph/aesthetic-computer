@@ -98,7 +98,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 163;
+const buildVersion = 165;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
