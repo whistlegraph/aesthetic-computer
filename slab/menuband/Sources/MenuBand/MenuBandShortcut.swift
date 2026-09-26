@@ -32,6 +32,20 @@ struct MenuBandShortcut: Equatable {
 
     /// Toggle the right-hand percussion split. ⌘⌃⌥D ("D" for drums) —
     /// same modifier family as the other Menu Band global toggles.
+    /// ⌘⌥R from anywhere: focus Menu Band and roll the tape; again to stop
+    /// and drop the take (mix + raw stems) on the Desktop.
+    static let defaultTapeRecord = MenuBandShortcut(
+        keyCode: UInt32(kVK_ANSI_R),
+        modifiers: UInt32(cmdKey | optionKey)
+    )
+
+    /// ⌘⌥⇧R from anywhere: rebuild the interface's USB streams (the fix
+    /// for a Scarlett whose output died while macOS still lists it healthy).
+    static let defaultInterfaceReset = MenuBandShortcut(
+        keyCode: UInt32(kVK_ANSI_R),
+        modifiers: UInt32(cmdKey | optionKey | shiftKey)
+    )
+
     static let defaultPercussionToggle = MenuBandShortcut(
         keyCode: UInt32(kVK_ANSI_D),
         modifiers: UInt32(cmdKey | controlKey | optionKey)

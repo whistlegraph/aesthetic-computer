@@ -142,7 +142,6 @@ final class SingerFace {
         v.skin = skin
         v.label = slot == nil || slot?.corner == true ? nil : member   // sim tiles are named; the ghost is not
         v.watchKeys = slot?.corner == true              // the ghost watches the keys light
-        v.zoom = slot?.corner == true ? 0.78 : 1        // …and sits smaller in its tile, room for the fade
         if slot == nil { gaze ? SingerGaze.shared.start() : SingerGaze.shared.stop() }
         v.articulationPose = { [weak self] in self?.mouthPose() }
         v.articulationBreath = { [weak self] in self?.inhale() ?? 0 }
@@ -206,7 +205,6 @@ final class SingerFaceView: NSView {
     var label: String?                    // sim tile: the member's name in the corner
     var watchKeys = false                 // corner ghost: eyes up toward the menu-bar keys
     var resting = false                   // between lines: lids come down, eyes drift, a slow breath
-    var zoom: CGFloat = 1                 // the whole face scaled about the centre (corner ghost < 1)
     private var drowsy: CGFloat = 0       // eased `resting`, 0…1
     var articulationPose: (() -> SingerMouthPose?)?
     var previewPose: SingerMouthPose?      // deterministic render inspection
@@ -509,11 +507,6 @@ final class SingerFaceView: NSView {
             }
         }
         let W = bounds.width, H = bounds.height
-        if zoom != 1 {
-            ctx.saveGState()
-            ctx.translateBy(x: W / 2, y: H / 2); ctx.scaleBy(x: zoom, y: zoom); ctx.translateBy(x: -W / 2, y: -H / 2)
-        }
-        defer { if zoom != 1 { ctx.restoreGState() } }
         let isBB = member == "blueberry"
         let isFrisbee = member == "frisbee"
         let line = W * 0.011
@@ -542,18 +535,17 @@ final class SingerFaceView: NSView {
             // wash over the whole frame but a BODY — a lumpy, boiling blob of
             // the member's color, densest in the middle and thinning to
             // nothing at its own edge, with clouds of cooler and warmer tone
-            // drifting through it, and no line where it ends. Drawn
+            // drifting through it and a thin inked rim where it ends. Drawn
             // in the face's own coordinates, so the same surface fills a
             // display or hangs under the keys.
             let cxb = W / 2, cyb = H / 2
-            // Nested fans of the color, each fading to nothing at its own
-            // lumpy contour: stacked, the middle plateaus and the edge
-            // dissolves softly into the desk — no line, no hard edge.
             let layers: [(inset: CGFloat, tone: NSColor, a: CGFloat)] = [
-                (0.00, cool, 0.45), (0.06, base, 0.55), (0.13, base, 0.55), (0.22, warm, 0.50)]
+                (0.02, cool, 0.50), (0.10, base, 0.72), (0.22, warm, 0.58)]
+            var rim: NSBezierPath?
             for (k, l) in layers.enumerated() {
                 let body = blob(cx: cxb, cy: cyb, rx: W * (0.5 - l.inset), ry: H * (0.5 - l.inset),
-                                lump: 0.04 + 0.02 * CGFloat(k), salt: 40 + k, n: 40)
+                                lump: 0.05 + 0.02 * CGFloat(k), salt: 40 + k, n: 40)
+                if k == 0 { rim = body }
                 ctx.gradient(in: body, color: l.tone.withAlphaComponent(skin * l.a))
             }
             // seven clouds: soft radials of an off-tone, each on its own slow
@@ -568,6 +560,7 @@ final class SingerFaceView: NSView {
                 let cloud = blob(cx: px, cy: py, rx: r, ry: r * 0.72, lump: 0.12, salt: 70 + i, n: 22)
                 ctx.gradient(in: cloud, color: tone.withAlphaComponent(skin * 0.32))
             }
+            if let rim { ink(rim, width: line * 0.55, fill: nil) }
         }
 
         ctx.saveGState()

@@ -62,6 +62,7 @@ enum GarageBandLibrary {
         let sampler = AVAudioUnitSampler()
         engine.attach(sampler)
         engine.connect(sampler, to: engine.mainMixerNode, format: nil)
+        MenuBandAudioDevices.bindToRawOutput(engine, label: "GarageBandLibrary")
         do { try engine.start() } catch {
             NSLog("MenuBand: GB library scan engine start failed: \(error)")
             return

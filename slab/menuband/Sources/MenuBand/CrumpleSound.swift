@@ -29,6 +29,7 @@ final class CrumpleSound {
     func play() {
         if !started {
             do {
+                MenuBandAudioDevices.bindToRawOutput(engine, label: "CrumpleSound")
                 try engine.start()
                 started = true
             } catch {

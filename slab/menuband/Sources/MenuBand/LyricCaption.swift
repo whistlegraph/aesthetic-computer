@@ -24,12 +24,6 @@ final class LyricCaption {
     private var shownLine: Int?
     private var syllableGlyphs: [[CaptionGlyphLayer]] = []
     private var litUpTo = -1
-    // the rolling caption: one layer per word, the sung word in focus
-    private var wordLayers: [CALayer] = []
-    private var wordWidths: [CGFloat] = []
-    private var wordOfSyllable: [Int] = []
-    private var focus = -1
-    private var stageWidth: CGFloat = 0, baseY: CGFloat = 0, wordGap: CGFloat = 0
     private var ink = NSColor.white
     private var dim = NSColor.white
 
@@ -87,12 +81,12 @@ final class LyricCaption {
 
         // One glyph per character, a space between words, and which
         // syllable each glyph belongs to (-1 = the space).
-        var chars: [(ch: Character, syl: Int, word: Int)] = []
+        var chars: [(ch: Character, syl: Int)] = []
         var nsyl = 0
         for (wi, t) in tokens.enumerated() {
-            if wi > 0 { chars.append((" ", -1, -1)) }
+            if wi > 0 { chars.append((" ", -1)) }
             for part in t.split(separator: "-") {
-                for c in part { chars.append((c, nsyl, wi)) }
+                for c in part { chars.append((c, nsyl)) }
                 nsyl += 1
             }
         }
@@ -100,20 +94,18 @@ final class LyricCaption {
 
         var pt = requested > 0 ? requested
             : slot == nil ? max(22, round(stage.width / 34))
-            : slot?.corner == true ? max(14, round(stage.width / 14)) : max(11, round(stage.width / 26))
+            : slot?.corner == true ? max(13, round(stage.width / 17)) : max(11, round(stage.width / 26))
+        let maxWidth = stage.width * 0.86
         var font = LyricCaption.font(pt)
         var widths: [CGFloat] = []
-        func widest() -> CGFloat {   // the widest single word — the only thing that must fit
+        func measure() -> CGFloat {
             widths = chars.map { ceil((String($0.ch) as NSString).size(withAttributes: [.font: font]).width) }
-            var best: CGFloat = 0, run: CGFloat = 0, cur = -2
-            for (i, c) in chars.enumerated() {
-                if c.word != cur { best = max(best, run); run = 0; cur = c.word }
-                if c.syl >= 0 { run += widths[i] }
-            }
-            return max(best, run)
+            return widths.reduce(0, +)
         }
-        var w0 = widest()
-        while w0 > stage.width * 0.8 && pt > 12 { pt = floor(pt * 0.92); font = LyricCaption.font(pt); w0 = widest() }
+        var total = measure()
+        while total > maxWidth && pt > 14 {
+            pt = floor(pt * 0.92); font = LyricCaption.font(pt); total = measure()
+        }
 
         let accentRGB = accent.usingColorSpace(.deviceRGB) ?? accent
         let lum = 0.2126 * accentRGB.redComponent + 0.7152 * accentRGB.greenComponent
@@ -128,37 +120,20 @@ final class LyricCaption {
         let hardShadow = accentRGB.blended(withFraction: 0.6, of: .black) ?? .black
 
         let lineH = ceil(pt * 1.5)
+        let inset = ceil(pt * 0.6)
+        let x0 = round((stage.width - total) / 2)
         let y0 = slot == nil
             ? round(screen.visibleFrame.minY - screen.frame.minY + stage.height * 0.09)
             : round(stage.height * 0.11)
-        stageWidth = stage.width; baseY = y0; wordGap = ceil(pt * 0.45)
 
-        // The rolling caption: each word is its own layer. Only the word being
-        // sung sits in focus at the centre; the next one or two hang dim to
-        // its right, and sung words slide off left and fade. Nothing is laid
-        // out to the frame's width, so nothing crops, and the singer reveals
-        // the line a word at a time.
+        // no banner — the lettering carries itself (stroke + hard shadow)
+
         var groups: [[CaptionGlyphLayer]] = Array(repeating: [], count: nsyl)
-        wordLayers = []; wordWidths = []; wordOfSyllable = Array(repeating: 0, count: nsyl)
-        var wi = -1, pen: CGFloat = 0
-        var word: CALayer?
+        var pen = x0
         for (i, c) in chars.enumerated() {
-            guard c.syl >= 0 else { continue }          // spaces: the gap is laid out, not drawn
             let w = widths[i]
-            if c.word != wi {
-                wi = c.word
-                let wl = CALayer()
-                wl.contentsScale = screen.backingScaleFactor
-                let width = chars.indices.filter { chars[$0].word == wi && chars[$0].syl >= 0 }.reduce(CGFloat(0)) { $0 + widths[$1] }
-                wl.bounds = CGRect(x: 0, y: 0, width: width, height: lineH + pt)
-                wl.position = CGPoint(x: stage.width / 2, y: y0)
-                wl.opacity = 0
-                root.addSublayer(wl)
-                wordLayers.append(wl); wordWidths.append(width)
-                word = wl; pen = 0
-            }
-            guard let wl = word else { continue }
-            wordOfSyllable[c.syl] = wordLayers.count - 1
+            defer { pen += w }
+            guard c.syl >= 0 else { continue }
             let g = CaptionGlyphLayer()
             g.contentsScale = screen.backingScaleFactor
             g.font = font
@@ -168,17 +143,19 @@ final class LyricCaption {
             g.text = String(c.ch)
             g.inset = ceil(pt * 0.5)
             g.bounds = CGRect(x: 0, y: 0, width: w + g.inset * 2, height: lineH + g.inset * 2)
-            // MacPal jitter, deterministic per glyph (FNV-1a), like a rock's name:
-            // a hair of y, at most a degree of tilt, no sideways scatter.
+            // MacPal jitter, deterministic per glyph (FNV-1a), like a rock's name.
             var h: UInt32 = 2_166_136_261
             for b in "\(line):\(i):\(c.ch)".utf8 { h = (h ^ UInt32(b)) &* 16_777_619 }
+            // Barely jittered (jeffrey, Sept 23: sideways scatter made the words
+            // hard to read): no x offset, a hair of y, at most a degree of tilt.
+            let jx: CGFloat = 0
             let jy = (CGFloat(Int((h >> 8) % 5)) - 2) * pt / 60
             let rot = (CGFloat(Int((h >> 16) % 5)) - 2) * 0.5 * .pi / 180
-            g.position = CGPoint(x: pen + w / 2, y: wl.bounds.midY + jy)
+            g.position = CGPoint(x: pen + w / 2 + jx, y: y0 + jy)
             g.transform = CATransform3DMakeRotation(rot, 0, 0, 1)
             g.ink = dim
             g.setNeedsDisplay()
-            wl.addSublayer(g)
+            root.addSublayer(g)
             let sway = CABasicAnimation(keyPath: "transform.translation.y")
             sway.fromValue = -0.6
             sway.toValue = 0.6
@@ -188,12 +165,9 @@ final class LyricCaption {
             sway.timeOffset = Double(h % 100) / 50
             g.add(sway, forKey: "sway")
             groups[c.syl].append(g)
-            pen += w
         }
         syllableGlyphs = groups
         shownLine = line
-        focus = -1                    // the first word waits just right of centre…
-        layout(animated: false)       // …and rolls in on its first syllable
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0
@@ -202,41 +176,8 @@ final class LyricCaption {
         panel.orderFrontRegardless()
     }
 
-    /// Slide the words so `focus` sits centred at full size, its neighbours
-    /// smaller and dimmer beside it, everything further gone. A word that
-    /// would poke past the frame fades out instead of cropping.
-    private func layout(animated: Bool) {
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(animated ? 0.24 : 0)
-        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-        let mid = stageWidth / 2
-        let fw = focus >= 0 && focus < wordWidths.count ? wordWidths[focus] : 0
-        let side: CGFloat = 0.78              // a word out of focus
-        for (i, wl) in wordLayers.enumerated() {
-            let d = i - focus
-            var x = mid
-            if d > 0 {
-                x = mid + fw / 2 + wordGap
-                for j in (focus + 1)..<i { x += wordWidths[j] * side + wordGap }
-                x += wordWidths[i] * side / 2
-            } else if d < 0 {
-                x = mid - fw / 2 - wordGap
-                for j in (i + 1)..<focus { x -= wordWidths[j] * side + wordGap }
-                x -= wordWidths[i] * side / 2
-            }
-            let half = wordWidths[i] * (d == 0 ? 1 : side) / 2
-            var alpha: Float = d == 0 ? 1 : d == 1 ? 0.55 : d == 2 ? 0.22 : d == -1 ? 0.3 : 0
-            if x - half < 0 || x + half > stageWidth { alpha = 0 }
-            wl.position = CGPoint(x: x, y: baseY)
-            wl.opacity = alpha
-            let sc = d == 0 ? 1 : side
-            wl.transform = CATransform3DMakeScale(sc, sc, 1)
-        }
-        CATransaction.commit()
-    }
-
-    /// Light syllable `k` of the shown line: its word rolls into focus, it
-    /// and everything before it turn full ink, and it pops.
+    /// Light syllable `k` of the shown line: it and everything before it turn
+    /// full ink, and it pops.
     func highlight(line: Int, syllable k: Int) {
         precondition(Thread.isMainThread)
         guard shownLine == line, k < syllableGlyphs.count else { return }
@@ -246,7 +187,6 @@ final class LyricCaption {
             }
             litUpTo = k
         }
-        if k < wordOfSyllable.count, wordOfSyllable[k] != focus { focus = wordOfSyllable[k]; layout(animated: true) }
         for g in syllableGlyphs[k] {
             let pop = CAKeyframeAnimation(keyPath: "transform.scale")
             pop.values = [1, 1.22, 1.08]

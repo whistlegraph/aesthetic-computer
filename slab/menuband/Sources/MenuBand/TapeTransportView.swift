@@ -272,8 +272,10 @@ final class TapeTransportView: NSView {
         // export path (no extra Finder window pop); the popover button
         // is a fallback for users who don't think to drag the menubar
         // cassette.
-        guard let url = menuBand?.ejectTape() else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([url])
+        menuBand?.tape.ejectAsync { take in
+            guard let take else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([take.file])
+        }
     }
 }
 

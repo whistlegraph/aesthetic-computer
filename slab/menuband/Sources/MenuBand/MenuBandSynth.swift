@@ -70,7 +70,7 @@ final class MenuBandSynth {
         let v = MenuBandSingerVoice()
         v.face = SingerFace.at(slot)
         v.pan = slot.pan
-        v.attach(to: engine, output: preLimiterMixer)
+        v.attach(to: engine, output: tonesBus)
         simSingers[slot.index] = v
         NSLog("🎤 sim: singer %d/%d attached, pan %.2f", slot.index + 1, slot.count, slot.pan)
         return v
@@ -80,6 +80,8 @@ final class MenuBandSynth {
     /// Tab handoff chime + FX-page rub, on the fx bus so both preview the
     /// live bend/space/echo. See `MenuBandSurfaceCue`.
     private let surfaceCue = MenuBandSurfaceCue()
+    /// ⇧Space air: a tuned noise bed on the fx bus. See `MenuBandAirVoice`.
+    private let airVoice = MenuBandAirVoice()
     /// Right-hand percussion split — the AC-native 12-drum kit, synthesized
     /// live. Always attached; only sounds when the controller fires hits.
     let percussion = MenuBandPercussion()
@@ -110,6 +112,25 @@ final class MenuBandSynth {
     /// directly and a chord across melodic + drums + midiSynth could exceed
     /// 0 dBFS at the output (audible clipping/crackle).
     private let preLimiterMixer = AVAudioMixerNode()
+    /// Raw stem buses. Every instrument joins `tonesBus`; the drum sampler
+    /// and the synthesized kit join `percBus`. Each bus feeds a FADER mixer
+    /// that carries the user's trim (headset menu), so a tap on the bus is
+    /// pre-fader, dry "raw" audio for the tape's stems while the fader still
+    /// shapes what is heard. `tonesFader` → `preLimiterMixer` (fx chain);
+    /// `percFader` → `postFxMixer` (dry, as percussion always was).
+    /// Mixers in front of the echo and space units so a second source (the
+    /// live voice monitor) can join the wet sends without touching the
+    /// dry path — effects have a single input bus, mixers have many.
+    private let echoInMixer = AVAudioMixerNode()
+    private let reverbInMixer = AVAudioMixerNode()
+    private let tonesBus = AVAudioMixerNode()
+    private let tonesFader = AVAudioMixerNode()
+    private let percBus = AVAudioMixerNode()
+    private let percFader = AVAudioMixerNode()
+    /// Raw stem consumers (the tape). Installed with the waveform tap.
+    var onTonesBuffer: ((AVAudioPCMBuffer) -> Void)?
+    var onPercussionBuffer: ((AVAudioPCMBuffer) -> Void)?
+    private var stemTapsInstalled = false
     /// Realtime gain stage after melodic compression. Percussion-triggered
     /// automation moves this node without disturbing the proximity EQ's own
     /// user-controlled makeup gain.
@@ -120,6 +141,10 @@ final class MenuBandSynth {
     /// touch the drums — they still get master volume + final limiting and
     /// are captured by the tape (which taps `mainMixerNode`, downstream).
     private let postFxMixer = AVAudioMixerNode()
+    /// Sum AFTER the limiter: the mastered synth plus the live voice's dry
+    /// path (which must not pay the limiter's lookahead). The reverse tape
+    /// is fed from here, so a rewind carries the voice too.
+    private let postBus = AVAudioMixerNode()
     /// Apple PeakLimiter on the master path. Catches transient peaks from
     /// chords or stacked sustains and holds output below 0 dBFS regardless
     /// of how many notes are pressed simultaneously. Parameters tuned for
@@ -232,6 +257,58 @@ final class MenuBandSynth {
     /// off-main; 256 keeps useful scheduler headroom without accepting the
     /// 11.6 ms buffer delay of 512 frames at 44.1 kHz.
     private static let targetIOBufferFrames: UInt32 = 256
+    /// IO cycle while the mic monitor is wired — live-tunable from the
+    /// headset menu (persisted; 64 by default). See `setMonitorIOBufferFrames`.
+    static let monitorIOBufferKey = "notepat.monitorIOBufferFrames"
+    static var monitorIOBufferFrames: UInt32 {
+        let v = UserDefaults.standard.integer(forKey: monitorIOBufferKey)
+        return v > 0 ? UInt32(max(16, v)) : 64
+    }
+
+    /// Pick the monitor's IO cycle and apply it NOW (up or down) when the
+    /// monitor is live — no relaunch, so 16/32/64 can be A/B'd by ear.
+    func setMonitorIOBufferFrames(_ frames: UInt32) {
+        UserDefaults.standard.set(Int(frames), forKey: Self.monitorIOBufferKey)
+        engineLock.lock(); defer { engineLock.unlock() }
+        guard started, inputMonitor.isAttached else { return }
+        inputMonitor.preferredIOBufferFrames = frames
+        forceIOBufferFrames(frames)
+        // The AUHAL only takes a new slice size across an initialize, so
+        // the mic unit is reopened — otherwise it keeps delivering the old
+        // size and the ring underflows every other cycle.
+        inputMonitor.restartInput()
+    }
+
+    /// Exact-size write (clamped to the device's range) on the output AU and
+    /// the device — the raise-or-lower cousin of `lowerOutputBufferSizeIfNeeded`.
+    private func forceIOBufferFrames(_ requested: UInt32) {
+        guard let outAU = engine.outputNode.audioUnit else { return }
+        var deviceID = AudioDeviceID(0)
+        var devSize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(outAU, kAudioOutputUnitProperty_CurrentDevice,
+                                   kAudioUnitScope_Global, 0, &deviceID, &devSize) == noErr,
+              deviceID != 0 else { return }
+        var rangeAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSizeRange,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var range = AudioValueRange(mMinimum: 0, mMaximum: 0)
+        var rangeSize = UInt32(MemoryLayout<AudioValueRange>.size)
+        var target = requested
+        if AudioObjectGetPropertyData(deviceID, &rangeAddr, 0, nil, &rangeSize, &range) == noErr {
+            target = min(UInt32(range.mMaximum), max(UInt32(range.mMinimum), requested))
+        }
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSize,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        let auStatus = AudioUnitSetProperty(
+            outAU, AudioUnitPropertyID(kAudioDevicePropertyBufferFrameSize),
+            kAudioUnitScope_Global, 0, &target, UInt32(MemoryLayout<UInt32>.size))
+        let devStatus = AudioObjectSetPropertyData(
+            deviceID, &addr, 0, nil, UInt32(MemoryLayout<UInt32>.size), &target)
+        NSLog("MenuBand: monitor IO buffer → \(target) frames (requested \(requested); au=\(auStatus) dev=\(devStatus))")
+    }
     /// True once we've successfully taken hog mode on the active
     /// output device. Tracks the device ID alongside so we can
     /// release the right one on shutdown / device switch.
@@ -389,22 +466,21 @@ final class MenuBandSynth {
     func setInputMonitoringEnabled(_ enabled: Bool) {
         inputMonitoringWanted = enabled
         let needsAttach = enabled && !inputMonitor.isAttached && duplexMonitorEligible()
-        let needsDetach = !enabled && inputMonitor.isAttached
+        // Never detach on a plain toggle: closing and reopening the mic
+        // unit restarts the Scarlett's USB streams and its OUTPUT dies until
+        // a rebuild (every silence today followed a stream reopen). Off is a
+        // mute; the unit only closes when the device itself goes away.
+        let needsDetach = false
+        NSLog("MenuBand monitor: set \(enabled) — attached=\(inputMonitor.isAttached) eligible=\(duplexMonitorEligible()) started=\(started) running=\(engine.isRunning) → attach=\(needsAttach) detach=\(needsDetach)")
         if needsAttach || needsDetach {
             engineLock.lock()
             if started {
-                // Wiring inputNode in or out of a live engine only
-                // negotiates cleanly across a start — bounce it. A
-                // self-initiated stop → start does not post
-                // AVAudioEngineConfigurationChange, so this never enters
-                // the device-switch recovery path.
-                engine.stop()
+                // The monitor is a source node + its own AUHAL now, so it
+                // joins and leaves a RUNNING engine. No stop → start here:
+                // an engine bounce resets the GM synth to its sine state
+                // (every instrument then plays a sine until a rebuild).
                 syncInputMonitorGraph()
                 applyInputChannelMap()
-                do { try engine.start() } catch {
-                    NSLog("MenuBand: engine restart after monitor graph change failed: \(error)")
-                }
-                applyOutputDeviceOverride()
                 lowerOutputBufferSizeIfNeeded()
             }
             // Pre-start the wish is applied by bootstrap's own
@@ -412,10 +488,13 @@ final class MenuBandSynth {
             engineLock.unlock()
         }
         if enabled && !inputMonitor.isAttached {
-            NSLog("MenuBand: monitoring on but duplex ineligible — input and output are different devices; pick the same interface for both")
+            NSLog("MenuBand: monitoring on but no input device could be opened")
         }
-        inputMonitor.setEnabled(enabled)
-        sampleVoice.setInputMonitoringEnabled(enabled)
+        inputMonitor.setEnabled(enabled && !monitorFocusMuted)
+        // SampleVoice's own monitoring flag wakes its record engine (a second
+        // duplex client on the interface) — only let it while the direct
+        // duplex path is NOT carrying the monitor.
+        sampleVoice.setInputMonitoringEnabled(enabled && !inputMonitor.isAttached)
     }
 
     /// The direct duplex monitor is only wired when the engine's output
@@ -436,18 +515,12 @@ final class MenuBandSynth {
     /// calls the same Scarlett two different devices and refuses a monitor
     /// toggle that should succeed.
     private func duplexMonitorEligible() -> Bool {
-        guard let input = MenuBandAudioDevices.systemDefaultInputID(),
-              let inputUID = MenuBandAudioDevices.uid(for: input) else { return false }
-        let outputUID: String?
-        if let uid = MenuBandAudioDevices.pinnedOutputUID,
+        // The monitor no longer rides the engine's inputNode, so it needs no
+        // same-device pairing — only an input device to open.
+        if let uid = MenuBandAudioDevices.pinnedInputUID,
            let pinned = MenuBandAudioDevices.device(uid: uid),
-           pinned.outputChannels > 0 {
-            outputUID = pinned.uid
-        } else {
-            outputUID = MenuBandAudioDevices.systemDefaultOutputID()
-                .flatMap { MenuBandAudioDevices.uid(for: $0) }
-        }
-        return outputUID == inputUID
+           pinned.inputChannels > 0 { return true }
+        return MenuBandAudioDevices.systemDefaultInputID() != nil
     }
 
     /// Attach or detach the duplex monitor to match `inputMonitoringWanted`
@@ -455,15 +528,31 @@ final class MenuBandSynth {
     /// stopped (bootstrap pre-start, a configuration-change recovery, or an
     /// explicit bounce) and hold `engineLock` where one is live.
     private func syncInputMonitorGraph() {
-        if inputMonitoringWanted, duplexMonitorEligible() {
-            inputMonitor.attach(to: engine, output: preLimiterMixer)
-            inputMonitor.setEnabled(true)
+        NSLog("MenuBand monitor: sync — wanted=\(inputMonitoringWanted) eligible=\(duplexMonitorEligible()) attached=\(inputMonitor.isAttached) running=\(engine.isRunning)")
+        // Stay wired whenever an input device exists (see setInputMonitoringEnabled);
+        // "wanted" only decides audibility.
+        if duplexMonitorEligible() {
+            inputMonitor.preferredIOBufferFrames = Self.monitorIOBufferFrames
+            if inputMonitor.isAttached {
+                // Already wired: this is a device-change recovery or a
+                // bounce — reopen the input unit on the current device.
+                inputMonitor.restartInput()
+            } else {
+                // Straight to the output mixer: the master chain's limiter
+                // alone looks ahead ~12 ms, which a live voice can't afford.
+                // The tape still hears it (its mix tap sits on mainMixer).
+                inputMonitor.attach(to: engine, output: postBus,
+                                    wet: [echoInMixer, reverbInMixer])
+            }
+            inputMonitor.setEnabled(inputMonitoringWanted && !monitorFocusMuted)
         } else {
+            removeDuplexMicTapIfNeeded()
             if inputMonitor.isAttached {
                 NSLog("MenuBand: duplex monitor detached (devices diverged or monitoring off)")
             }
             inputMonitor.detach(from: engine)
         }
+        reconcileMicSource()
     }
 
     func ingestMonitoredInput(_ buffer: AVAudioPCMBuffer) {
@@ -474,12 +563,91 @@ final class MenuBandSynth {
     /// "tape-record" while REC is engaged). Forwards to the sample
     /// voice's pin mechanism. Returns true if the mic stream is now
     /// flowing.
+    /// While the DUPLEX monitor is wired, pins are served by a tap on this
+    /// engine's own `inputNode` instead of SampleVoice's record engine. Two
+    /// AVAudioEngines each running input+output on the same USB interface
+    /// (two private aggregates pulling one Scarlett) skipped audibly in the
+    /// monitor (frisbee, 2026-09-25). With the duplex attached the interface
+    /// has ONE client, and the tape's dry voice stem rides the same pull.
+    private var micPins: Set<String> = []
+    private var duplexMicTapInstalled = false
+    private var lastDuplexInputLog: TimeInterval = 0
+
     @discardableResult
     func pinHotMic(reason: String) -> Bool {
-        sampleVoice.addHotMicPin(reason)
+        micPins.insert(reason)
+        if inputMonitor.isAttached {
+            installDuplexMicTapIfNeeded()
+            return duplexMicTapInstalled
+        }
+        return sampleVoice.addHotMicPin(reason)
     }
     func unpinHotMic(reason: String) {
+        micPins.remove(reason)
         sampleVoice.removeHotMicPin(reason)
+        if micPins.isEmpty { removeDuplexMicTapIfNeeded() }
+    }
+
+    private func installDuplexMicTapIfNeeded() {
+        guard !duplexMicTapInstalled, inputMonitor.isAttached else { return }
+        let ok = inputMonitor.installDryTap { [weak self] buffer in
+            guard let self else { return }
+            self.sampleVoice.onInputBuffer?(buffer)
+            self.logDuplexInputLevel(buffer)
+        }
+        if ok {
+            duplexMicTapInstalled = true
+            NSLog("MenuBand: voice stem tapped off the duplex dry bus")
+        } else {
+            NSLog("MenuBand: duplex mic tap skipped — monitor graph not ready")
+        }
+    }
+
+    private func removeDuplexMicTapIfNeeded() {
+        guard duplexMicTapInstalled else { return }
+        inputMonitor.removeDryTap()
+        duplexMicTapInstalled = false
+    }
+
+    /// After the duplex graph attaches or detaches, move live pins to the
+    /// matching source so the tape never loses its voice stem.
+    private func reconcileMicSource() {
+        if inputMonitor.isAttached {
+            // One client on the interface: park the record engine now (not
+            // after its idle grace) and re-tap the duplex input so the tap's
+            // format follows whatever device the engine just moved to.
+            sampleVoice.setInputMonitoringEnabled(false)
+            for reason in micPins { sampleVoice.removeHotMicPin(reason) }
+            sampleVoice.stopUnpinnedHotMicNow()
+            removeDuplexMicTapIfNeeded()
+            if !micPins.isEmpty { installDuplexMicTapIfNeeded() }
+        } else {
+            removeDuplexMicTapIfNeeded()
+            // Only a rolling tape needs the record engine (a second, duplex
+            // engine that builds an aggregate device); the monitor's own pin
+            // must not wake it just because the interface blinked away.
+            sampleVoice.setInputMonitoringEnabled(false)
+            for reason in micPins where reason != "input-monitor" { _ = sampleVoice.addHotMicPin(reason) }
+        }
+    }
+
+    /// 1 Hz input level on the duplex path — the same observability the
+    /// record engine's tap used to give while it owned the mic.
+    private func logDuplexInputLevel(_ buffer: AVAudioPCMBuffer) {
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastDuplexInputLog >= 5 else { return }
+        lastDuplexInputLog = now
+        guard let data = buffer.floatChannelData else { return }
+        let frames = Int(buffer.frameLength)
+        guard frames > 0 else { return }
+        var levels: [String] = []
+        for ch in 0..<Int(buffer.format.channelCount) {
+            var sum: Float = 0
+            for i in 0..<frames { let v = data[ch][i]; sum += v * v }
+            let rms = sqrt(sum / Float(frames))
+            levels.append(String(format: "ch%d=%.1fdB", ch + 1, rms > 0 ? 20 * log10(rms) : -120))
+        }
+        NSLog("MenuBand duplex input: \(levels.joined(separator: " "))")
     }
     func stopUnpinnedHotMicNow() {
         sampleVoice.stopUnpinnedHotMicNow()
@@ -535,8 +703,8 @@ final class MenuBandSynth {
         connectDrumsSamplerIfNeeded()
         // CDJ Radio shares the pre-limiter FX bus but stays silent until a
         // listening source is selected.
-        radio.attach(to: engine, output: preLimiterMixer)
-        spotifyDeck.attach(to: engine, output: preLimiterMixer)
+        radio.attach(to: engine, output: tonesBus)
+        spotifyDeck.attach(to: engine, output: tonesBus)
         cdjScratch.attach(
             to: engine,
             output: preLimiterMixer,
@@ -548,7 +716,7 @@ final class MenuBandSynth {
         // Sample voice: same pre-limiter sum bus. Master gate stays
         // closed until the user records a clip and `setSampleBackend`
         // opens it. Voice nodes attach lazily on first noteOn.
-        sampleVoice.attach(to: engine, output: preLimiterMixer)
+        sampleVoice.attach(to: engine, output: tonesBus)
         // Duplex monitor: attached only when monitoring is actually wanted
         // AND the input/output resolve to the same interface — see
         // `duplexMonitorEligible` for why an unconditional attach kills
@@ -564,16 +732,20 @@ final class MenuBandSynth {
         )
         // Sung lines: same pre-limiter bus, so a voice conducted over the
         // fleet is bent and spaced like the instrument it sings with.
-        singerVoice.attach(to: engine, output: preLimiterMixer)
+        singerVoice.attach(to: engine, output: tonesBus)
         // Surface cues: same pre-limiter sum bus, so the Tab chime and the
         // pitch-page rub bloom with whatever space/echo the gesture holds.
-        surfaceCue.attach(to: engine, output: preLimiterMixer)
+        surfaceCue.attach(to: engine, output: tonesBus)
+        // Air: same bus, so the woosh is echoed and spaced with the notes.
+        airVoice.attach(to: engine, output: tonesBus)
         // Percussion: same pre-limiter sum bus. Renders silence until the
         // right-hand split fires a drum, so it's free while inactive.
         // Percussion routes to the DRY post-fx mixer, NOT preLimiterMixer —
         // so trackpad echo/reverb (and pitch-bend) never hit the
         // drums. Still compressed + limited + tape-captured downstream.
-        percussion.attach(to: engine, output: postFxMixer)
+        percussion.attach(to: engine, output: percBus)
+        // The kit renders at unity; `percFader` is the one percussion trim.
+        percussion.setOutputLevel(1)
         // AC GM synth: melodic backend, so it joins the pre-limiter fx bus
         // alongside MIDISynth / sampler / radio / sample — picking up the
         // trackpad space/echo exactly like every other melodic
@@ -583,12 +755,12 @@ final class MenuBandSynth {
         // means its render callback never runs, so the crashing audio-thread
         // path can't be entered at all.
         if gmSynthEnabled {
-            gmSynth.attach(to: engine, output: preLimiterMixer)
+            gmSynth.attach(to: engine, output: tonesBus)
             gmSynth.setProgram(currentMelodicProgram)
         }
         // Fluoddity ecosystem voice: same pre-limiter melodic bus, same
         // silent-until-routed contract as the GM node.
-        fluodVoice.attach(to: engine, output: preLimiterMixer)
+        fluodVoice.attach(to: engine, output: tonesBus)
         // Spacebar reverse-replay voice. Plays DRY into mainMixerNode (NOT
         // the pre-limiter bus) so the already-effected captured audio isn't
         // re-processed. Its rolling capture ring is fed from a dedicated tap
@@ -631,8 +803,8 @@ final class MenuBandSynth {
         // unwinds clean out of applicationDidFinishLaunching — the app comes
         // up headless (audio alive, no status item). nil adopts the live bus
         // format; feed() already handles tap-format changes.
-        debugLog("synth.start: pre-rewind-tap fmt=\(limiter.outputFormat(forBus: 0).sampleRate)/\(limiter.outputFormat(forBus: 0).channelCount)")
-        limiter.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
+        debugLog("synth.start: pre-rewind-tap fmt=\(postBus.outputFormat(forBus: 0).sampleRate)/\(postBus.outputFormat(forBus: 0).channelCount)")
+        postBus.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
             self?.rewindVoice.feed(buffer)
         }
         debugLog("synth.start: rewind tap installed")
@@ -719,6 +891,7 @@ final class MenuBandSynth {
         }
         applyOutputDeviceOverride()
         lowerOutputBufferSizeIfNeeded()
+        logAudioBindings(context: "after device switch \(audioConfigEpoch)")
         // The MIDISynth can't be coaxed back from its reset sine state by a
         // bank re-set OR an engine stop→start (both observed to no-op after
         // a device switch). The only reliable recovery is to REBUILD it —
@@ -964,13 +1137,28 @@ final class MenuBandSynth {
         // click-free, sample-ramped gesture control. fxSumMixer rejoins them
         // before the existing compressor/duck/master/limiter chain. Dry
         // percussion still joins downstream and remains unaffected.
+        engine.attach(echoInMixer)
+        engine.attach(reverbInMixer)
         let destinations = [
             AVAudioConnectionPoint(node: dryFxMixer, bus: 0),
-            AVAudioConnectionPoint(node: echo, bus: 0),
-            AVAudioConnectionPoint(node: spaceReverb, bus: 0),
+            AVAudioConnectionPoint(node: echoInMixer, bus: 0),
+            AVAudioConnectionPoint(node: reverbInMixer, bus: 0),
         ]
         engine.connect(preLimiterMixer, to: destinations,
                        fromBus: 0, format: nil)
+        engine.connect(echoInMixer, to: echo, format: nil)
+        engine.connect(reverbInMixer, to: spaceReverb, format: nil)
+        // Stem buses → faders → their historical join points. Explicit
+        // stereo at the engine rate so the buses have a real format (and a
+        // tappable one) before any instrument connects.
+        let busRate = engine.outputNode.outputFormat(forBus: 0).sampleRate
+        let busFormat = AVAudioFormat(standardFormatWithSampleRate: busRate > 0 ? busRate : 48_000,
+                                      channels: 2)
+        for node in [tonesBus, tonesFader, percBus, percFader] { engine.attach(node) }
+        engine.connect(tonesBus, to: tonesFader, format: busFormat)
+        engine.connect(tonesFader, to: preLimiterMixer, format: busFormat)
+        engine.connect(percBus, to: percFader, format: busFormat)
+        engine.connect(percFader, to: postFxMixer, format: busFormat)
         engine.connect(dryFxMixer, to: fxSumMixer,
                        fromBus: 0, toBus: 0, format: nil)
         engine.connect(echo, to: echoSendMixer, format: nil)
@@ -983,7 +1171,9 @@ final class MenuBandSynth {
         engine.connect(compressor, to: melodicDuckMixer, format: nil)
         engine.connect(melodicDuckMixer, to: postFxMixer, format: nil)
         engine.connect(postFxMixer, to: limiter, format: nil)
-        engine.connect(limiter, to: engine.mainMixerNode, format: nil)
+        engine.attach(postBus)
+        engine.connect(limiter, to: postBus, format: nil)
+        engine.connect(postBus, to: engine.mainMixerNode, format: nil)
         dryFxMixer.outputVolume = 1
         echoSendMixer.outputVolume = 0
         reverbSendMixer.outputVolume = 0
@@ -1057,6 +1247,8 @@ final class MenuBandSynth {
     /// bare digital repeat. `max` keeps the two gestures from summing loudly
     /// during the brief center crossing.
     private func updateReverbSend() {
+        // The live voice hears only its effected self as the wheel comes up.
+        inputMonitor.setEffectsAmount(max(spaceAmount, echoAmount))
         let hall = pow(spaceAmount, 1.10) * 0.52
         let echoBloom = pow(echoAmount, 1.15) * 0.14
         reverbSendMixer.outputVolume = max(hall, echoBloom)
@@ -1146,6 +1338,21 @@ final class MenuBandSynth {
     /// controller's single bend funnel alongside the other bus voices.
     func setSurfaceCueBend(amount: Float) {
         surfaceCue.setBend(amount: amount)
+        airVoice.setBend(amount: amount)
+    }
+
+    /// ⇧Space down: woosh air in around these pitches.
+    func pushAir(pitches: [UInt8]) {
+        airVoice.push(pitches: pitches)
+    }
+
+    /// ⇧Space up: let the air drift out.
+    func releaseAir() {
+        airVoice.release()
+    }
+
+    func stopAir() {
+        airVoice.stop()
     }
 
     /// Tab handoff chime through the fx bus, at the bent pitch. False when
@@ -1167,7 +1374,7 @@ final class MenuBandSynth {
     private func connectMelodicSamplerIfNeeded() {
         engineLock.lock(); defer { engineLock.unlock() }
         guard !melodicConnected else { return }
-        engine.connect(melodic, to: preLimiterMixer, format: nil)
+        engine.connect(melodic, to: tonesBus, format: nil)
         melodicConnected = true
     }
 
@@ -1182,7 +1389,7 @@ final class MenuBandSynth {
     private func connectDrumsSamplerIfNeeded() {
         engineLock.lock(); defer { engineLock.unlock() }
         guard !drumsConnected else { return }
-        engine.connect(drums, to: preLimiterMixer, format: nil)
+        engine.connect(drums, to: percBus, format: nil)
         drumsConnected = true
     }
 
@@ -1196,7 +1403,7 @@ final class MenuBandSynth {
 
     private func connectMIDISynthIfNeeded(_ avUnit: AVAudioUnit) {
         guard !midiSynthConnected else { return }
-        engine.connect(avUnit, to: preLimiterMixer, format: nil)
+        engine.connect(avUnit, to: tonesBus, format: nil)
         midiSynthConnected = true
     }
 
@@ -1328,7 +1535,7 @@ final class MenuBandSynth {
 
     private func scheduleIdleSuspendIfNeeded() {
         guard started, !waveformCaptureEnabled, activeNotes.isEmpty,
-              !sampleRecordingActive else { return }
+              !sampleRecordingActive, !inputMonitor.isAttached else { return }
         idleSuspendWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
@@ -1340,8 +1547,11 @@ final class MenuBandSynth {
     private func suspendAudioEngineForHiddenIdleIfNeeded() {
         engineLock.lock(); defer { engineLock.unlock() }
         idleSuspendWorkItem = nil
+        // A live mic monitor is never idle: pausing the engine here would
+        // stop the voice and leave every player node facing a paused engine
+        // (AVAudioPlayerNode.play() then throws — two crashes on 2026-09-25).
         guard started, engine.isRunning, !waveformCaptureEnabled, activeNotes.isEmpty,
-              !sampleRecordingActive, !keepEngineWarm else { return }
+              !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached else { return }
         removeWaveformTapIfNeeded()
         engine.pause()
     }
@@ -1451,6 +1661,13 @@ final class MenuBandSynth {
     /// user's pinned output pick when one is set, otherwise the system
     /// default (the original behavior).
     private func applyOutputDeviceOverride() {
+        // With the duplex monitor wired, AVAudioEngine hosts input + output
+        // on a PRIVATE AGGREGATE device even when both sides are the same
+        // interface (frisbee, 2026-09-25: engine on 122 while the Scarlett
+        // itself was 88). Re-binding the output AU to the raw device then
+        // silences the whole engine — no synth, no monitor — so leave the
+        // aggregate alone; `duplexMonitorEligible` already guarantees it
+        // resolves to the user's pick (or the default) on both sides.
         guard let au = engine.outputNode.audioUnit else { return }
         var deviceID = AudioDeviceID(0)
         // A user pick from the headphone icon's right-click menu wins over
@@ -1490,6 +1707,55 @@ final class MenuBandSynth {
         } else {
             NSLog("MenuBand: output device override — engine re-bound \(current) → \(deviceID)")
         }
+    }
+
+    /// Auto-recovery, part 1: every 5 s, make sure the device the engine
+    /// renders into still exists. After a USB blink the interface can come
+    /// back under a new id while this process keeps a ghost of the old one
+    /// (frisbee, 2026-09-25: engine on 142, the live Scarlett was 89 — silence
+    /// while every meter looked healthy). A ghost → the normal device-switch
+    /// recovery, which rebinds output and monitor to the live device.
+    private var bindingAuditTimer: DispatchSourceTimer?
+    private var bindingAuditStrikes = 0
+    func startBindingAudit() {
+        bindingAuditTimer?.cancel()
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + 5, repeating: 5)
+        t.setEventHandler { [weak self] in self?.auditBindings() }
+        t.resume()
+        bindingAuditTimer = t
+    }
+    private func auditBindings() {
+        guard started, let au = engine.outputNode.audioUnit else { return }
+        var outID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        guard AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+                                   kAudioUnitScope_Global, 0, &outID, &size) == noErr, outID != 0 else { return }
+        let live = MenuBandAudioDevices.all()
+        let ghost = !live.contains { $0.id == outID }
+        let monitorGhost = inputMonitor.isAttached && !live.contains { $0.id == inputMonitor.boundDeviceID }
+        if ghost || monitorGhost {
+            bindingAuditStrikes += 1
+            NSLog("MenuBand audit: bound device is a ghost (output \(outID) ghost=\(ghost), monitor \(inputMonitor.boundDeviceID) ghost=\(monitorGhost)); strike \(bindingAuditStrikes) — running device-switch recovery")
+            handleEngineConfigurationChange()
+        } else {
+            bindingAuditStrikes = 0
+        }
+    }
+
+    /// Which device the engine's output AU is bound to right now, by id and
+    /// name, plus the monitor's input device — the first thing to read when
+    /// the interface flaps and the app goes quiet.
+    func logAudioBindings(context: String) {
+        var outID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        if let au = engine.outputNode.audioUnit {
+            AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+                                 kAudioUnitScope_Global, 0, &outID, &size)
+        }
+        let outName = MenuBandAudioDevices.all().first { $0.id == outID }?.name ?? "(not in device list)"
+        let sysOut = MenuBandAudioDevices.systemDefaultOutputID() ?? 0
+        NSLog("MenuBand bindings \(context): engine output → \(outID) \(outName); system default output \(sysOut); running=\(engine.isRunning); monitor input → \(inputMonitor.boundDeviceDescription)")
     }
 
     // MARK: - Device picks (headphone icon right-click menu)
@@ -1547,15 +1813,12 @@ final class MenuBandSynth {
     /// configuration-change recovery before the restart) — see
     /// `MenuBandAudioDevices.applyChannelMap`.
     private func applyInputChannelMap() {
-        // Never touch `engine.inputNode` unless the duplex graph is wired:
-        // merely ACCESSING the property creates the input AU and makes the
-        // engine consider itself duplex — an unconnected input AU then
-        // fails engine start with kAudioUnitErr_Uninitialized (kAUStartIO).
+        // The monitor owns its own AUHAL input; the pick is applied on its
+        // ring reader, live, with no engine bounce and no `engine.inputNode`
+        // (merely touching that property would build the private aggregate).
         guard inputMonitor.isAttached else { return }
-        guard let au = engine.inputNode.audioUnit else { return }
-        let clientChannels = Int(engine.inputNode.inputFormat(forBus: 0).channelCount)
-        MenuBandAudioDevices.applyChannelMap(
-            to: au, clientChannels: clientChannels, label: "duplex")
+        inputMonitor.setMonitorChannel(
+            MenuBandAudioDevices.monitorChannelWasEverSet ? MenuBandAudioDevices.monitorChannel : 0)
     }
 
     /// Drive the engine's output AU toward a 128-frame IO buffer so
@@ -1612,8 +1875,15 @@ final class MenuBandSynth {
         // (observed as constant kAudioUnitErr_TooManyFramesToProcess spam,
         // inFramesToProcess=257 vs mMaxFramesPerSlice=256). Double the
         // budget while monitoring so the occasional long pull still fits.
-        var desired = Self.targetIOBufferFrames
-        if inputMonitor.isAttached { desired *= 2 }
+        // (The former ×2 while monitoring guarded the engine-hosted duplex
+        // input's one-frame-over pulls; the monitor now has its own AUHAL
+        // and a ring, so the same target applies with or without it.)
+        // While the mic monitor is live, chase a much tighter IO cycle: the
+        // software path stacks input + ring + output buffers, so 64 frames
+        // (1.3 ms each at 48 kHz) keeps voice-in-headphones near the feel of
+        // a hardware direct monitor. Without the monitor the synth alone
+        // keeps its usual target.
+        let desired: UInt32 = inputMonitor.isAttached ? Self.monitorIOBufferFrames : Self.targetIOBufferFrames
         var target = desired
         if rangeStatus == noErr {
             let lo = UInt32(range.mMinimum)
@@ -1634,8 +1904,7 @@ final class MenuBandSynth {
         // occasional one-frame-over pull fail every cycle (-10874 fuzz),
         // so a smaller current buffer must be RAISED. Without monitoring,
         // keep the old lower-only semantics.
-        let mustRaise = inputMonitor.isAttached && current < target
-        if currStatus == noErr, current > 0, current <= target, !mustRaise {
+        if currStatus == noErr, current > 0, current <= target {
             return  // already at-or-below target, leave it alone
         }
 
@@ -1826,12 +2095,39 @@ final class MenuBandSynth {
             self?.ingestWaveformBuffer(buffer)
         }
         waveformTapInstalled = true
+        installStemTapsIfNeeded()
     }
 
     private func removeWaveformTapIfNeeded() {
         guard waveformTapInstalled else { return }
         engine.mainMixerNode.removeTap(onBus: 0)
         waveformTapInstalled = false
+        removeStemTapsIfNeeded()
+    }
+
+    /// Pre-fader taps on the tones + percussion buses — the tape's raw stems.
+    private func installStemTapsIfNeeded() {
+        guard !stemTapsInstalled else { return }
+        let tf = tonesBus.outputFormat(forBus: 0)
+        let pf = percBus.outputFormat(forBus: 0)
+        guard tf.channelCount > 0, pf.channelCount > 0 else {
+            NSLog("MenuBand: stem taps skipped — bus format not negotiated yet")
+            return
+        }
+        tonesBus.installTap(onBus: 0, bufferSize: 256, format: tf) { [weak self] buffer, _ in
+            self?.onTonesBuffer?(buffer)
+        }
+        percBus.installTap(onBus: 0, bufferSize: 256, format: pf) { [weak self] buffer, _ in
+            self?.onPercussionBuffer?(buffer)
+        }
+        stemTapsInstalled = true
+    }
+
+    private func removeStemTapsIfNeeded() {
+        guard stemTapsInstalled else { return }
+        tonesBus.removeTap(onBus: 0)
+        percBus.removeTap(onBus: 0)
+        stemTapsInstalled = false
     }
 
     private func ingestWaveformBuffer(_ buffer: AVAudioPCMBuffer) {
@@ -1924,9 +2220,32 @@ final class MenuBandSynth {
         postFxMixer.outputVolume = clamped
     }
 
-    /// Independent percussion trim before the joined master bus.
+    /// Independent percussion trim before the joined master bus. Lives on
+    /// `percFader`, AFTER the raw stem tap, so the tape's percussion stem
+    /// is unity while the mix follows the slider.
     func setPercussionVolume(_ value: Float) {
-        percussion.setOutputLevel(max(0, min(1, value)))
+        percFader.outputVolume = max(0, min(1, value))
+    }
+
+    /// Tones trim (every instrument) — same pre-tap/post-fader split.
+    func setTonesVolume(_ value: Float) {
+        tonesFader.outputVolume = max(0, min(1, value))
+    }
+
+    /// The monitor is audible only while Menu Band has performance focus:
+    /// defocus (Esc) mutes it, the Command gesture / focus shortcut brings it
+    /// back. The graph stays wired and the tape keeps its dry stem.
+    private var monitorFocusMuted = false   // audible at launch; Esc (defocus) mutes, focus unmutes
+    func setMonitorFocusMute(_ muted: Bool) {
+        monitorFocusMuted = muted
+        inputMonitor.setEnabled(inputMonitoringWanted && !muted)
+        NSLog("MenuBand monitor: focus \(muted ? "lost → muted" : "gained → audible") (wanted=\(inputMonitoringWanted) attached=\(inputMonitor.isAttached))")
+    }
+
+    /// Mic monitor gain, 0…2 (unity = 1). Only what the duplex monitor
+    /// feeds into the mix; the tape's voice stem stays the dry input.
+    func setMonitorGain(_ value: Float) {
+        inputMonitor.setGain(max(0, min(2, value)))
     }
 
     /// Fast musical sidechain on the melodic bus. Kick-like events make the
@@ -2234,7 +2553,7 @@ final class MenuBandSynth {
         if usingSampleBackend { leaveSampleBackend() }
 
         engine.attach(avUnit)
-        engine.connect(avUnit, to: preLimiterMixer, format: nil)
+        engine.connect(avUnit, to: tonesBus, format: nil)
         pluginConnected = true
         pluginUnit = avUnit
         usingPluginInstrument = true
@@ -2365,6 +2684,20 @@ final class MenuBandSynth {
         // has already stopped. This is synchronous: application termination
         // returns only after CoreAudio input ownership has been released.
         sampleVoice.shutdown()
+        // Below 64 frames, hand the interface back at a comfortable size
+        // before any stream closes: quitting at 32/16 left the Scarlett
+        // wedged (every later open blocked) until a replug.
+        if Self.monitorIOBufferFrames < 64 { forceIOBufferFrames(512) }
+        // The monitor's own AUHAL input runs independently of the engine,
+        // so close it FIRST and unconditionally: when the engine had been
+        // parked by the idle suspend, the `started` guard below skipped
+        // this and the process exited with the Scarlett input still open —
+        // the interface then wedged for every client until a replug.
+        removeDuplexMicTapIfNeeded()
+        if inputMonitor.isAttached {
+            inputMonitor.detach(from: engine)
+            NSLog("MenuBand: monitor input closed at shutdown")
+        }
         guard started else { return }
         if let obs = configChangeObserver {
             NotificationCenter.default.removeObserver(obs)
@@ -2379,6 +2712,10 @@ final class MenuBandSynth {
         // ours-but-idle, and Music.app etc. tend to give up retrying.
         releaseHogModeIfNeeded()
         engine.stop()
+        // Unwire the duplex input before the engine goes away so the private
+        // aggregate is torn down deliberately, not by process exit — a
+        // dangling input registration wedges the Scarlett for every client.
+        NSLog("MenuBand: audio engine stopped — interface released")
         started = false
         midiSynthReady = false
         waveformCaptureEnabled = false
@@ -2719,6 +3056,29 @@ final class MenuBandSynth {
     func setRadioPitchBend(amount: Float) {
         radio.setBend(amount: amount)
         spotifyDeck.setPitch(semitones: amount * 12)
+    }
+
+    /// The live voice monitor's wet sends (echo/space) follow the wheel's
+    /// pitch bend through a time-pitch stage; the dry voice stays unshifted
+    /// so it keeps its direct-monitor latency.
+    private var lastMonitorBendLog: TimeInterval = 0
+    /// After an interface reset (rate flip) the device comes back at its own
+    /// default IO size; put the user's pick back on it.
+    func reassertMonitorIOBuffer() {
+        engineLock.lock(); defer { engineLock.unlock() }
+        guard started, inputMonitor.isAttached else { return }
+        forceIOBufferFrames(Self.monitorIOBufferFrames)
+        inputMonitor.preferredIOBufferFrames = Self.monitorIOBufferFrames
+        inputMonitor.assertDeviceBuffer()
+    }
+
+    func setMonitorPitchBend(amount: Float) {
+        inputMonitor.setPitchBend(amount: amount)
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastMonitorBendLog > 0.5 {
+            lastMonitorBendLog = now
+            NSLog(String(format: "MenuBand monitor: wet pitch %+.0f cents", amount * 1200))
+        }
     }
 
     /// Per-channel Expression (CC 11), 0–127. Used by the linger

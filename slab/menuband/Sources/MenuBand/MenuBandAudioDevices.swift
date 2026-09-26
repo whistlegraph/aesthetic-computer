@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import CoreAudio
 import AudioToolbox
@@ -166,6 +167,167 @@ enum MenuBandAudioDevices {
         NSLog("MenuBand audio: \(label) input channel map → \(channel == 0 ? "mix" : "ch \(channel)") (status \(status))")
     }
 
+    // MARK: - Preferred interface sample rate
+
+    /// The rate Menu Band runs a Focusrite at. 44.1 kHz by default while we
+    /// test whether the 48 kHz output stream is what dies under usbaudiod
+    /// (macOS 26). Applied at launch before the engine starts and restored
+    /// by `resetInterface`.
+    static var preferredInterfaceRate: Double {
+        let v = UserDefaults.standard.double(forKey: "notepat.interfaceSampleRate")
+        return v > 0 ? v : 44_100
+    }
+
+    static func nominalRate(of id: AudioDeviceID) -> Double {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var rate: Double = 0
+        var size = UInt32(MemoryLayout<Double>.size)
+        AudioObjectGetPropertyData(id, &address, 0, nil, &size, &rate)
+        return rate
+    }
+
+    /// Put the interface on the preferred rate (synchronously, ~1 s settle
+    /// if it changes). Returns true when a change was made.
+    @discardableResult
+    static func applyPreferredRate(to id: AudioDeviceID) -> Bool {
+        let want = preferredInterfaceRate
+        let have = nominalRate(of: id)
+        guard have > 0, abs(have - want) > 1 else { return false }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyNominalSampleRate,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var rate = want
+        let status = AudioObjectSetPropertyData(id, &address, 0, nil, UInt32(MemoryLayout<Double>.size), &rate)
+        NSLog("MenuBand audio: interface \(id) rate \(have) → \(want) (status \(status))")
+        Thread.sleep(forTimeInterval: 0.5)
+        return status == noErr
+    }
+
+    // MARK: - Raw-device binding for helper engines
+
+    /// On macOS 26 EVERY AVAudioEngine builds a private aggregate device
+    /// around the default in/out the moment its I/O unit exists, and running
+    /// IO through that aggregate restarts the Scarlett's USB streams — the
+    /// output dies until a rebuild. Pin the engine's I/O unit to the raw
+    /// default output (or the user's pick) BEFORE it starts, so the aggregate
+    /// is never the device it runs on. Call this right before `start()`.
+    @discardableResult
+    static func bindToRawOutput(_ engine: AVAudioEngine, label: String) -> Bool {
+        guard let au = engine.outputNode.audioUnit else { return false }
+        var target: AudioDeviceID = 0
+        if let uid = pinnedOutputUID, let dev = device(uid: uid), dev.outputChannels > 0 {
+            target = dev.id
+        } else {
+            target = systemDefaultOutputID() ?? 0
+        }
+        guard target != 0 else { return false }
+        var current = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        if AudioUnitGetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+                                kAudioUnitScope_Global, 0, &current, &size) == noErr, current == target {
+            return true
+        }
+        var dev = target
+        let status = AudioUnitSetProperty(au, kAudioOutputUnitProperty_CurrentDevice,
+                                          kAudioUnitScope_Global, 0, &dev, size)
+        NSLog("MenuBand audio: \(label) engine → raw device \(target) (was \(current), status \(status))")
+        return status == noErr
+    }
+
+    // MARK: - Interface reset
+
+    /// Kick a USB interface whose output has gone dead while macOS still
+    /// reports its streams active (Scarlett Solo on macOS 26 after a few
+    /// bus blinks): flipping the nominal sample rate makes usbaudiod tear
+    /// down and rebuild both streams — what a replug does, without the plug.
+    /// Runs off the main thread; the engine absorbs the resulting
+    /// configuration change like any device switch.
+    private static let resetQueue = DispatchQueue(label: "menuband.interface-reset", qos: .userInitiated)
+    private static let resetCoordinator = InterfaceResetCoordinator(
+        perform: { id, completion in performInterfaceReset(id, completion: completion) },
+        busyChanged: { busy in
+            NotificationCenter.default.post(name: .menuBandInterfaceResetting, object: busy)
+        })
+
+    static func resetInterface(_ id: AudioDeviceID, completion: ((Bool) -> Void)? = nil) {
+        if Thread.isMainThread {
+            resetCoordinator.request(id, completion: completion)
+        } else {
+            DispatchQueue.main.async { resetCoordinator.request(id, completion: completion) }
+        }
+    }
+
+    private static func performInterfaceReset(_ id: AudioDeviceID, completion: @escaping (Bool) -> Void) {
+        resetQueue.async {
+            var address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyNominalSampleRate,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain)
+            var rate: Double = 0
+            var size = UInt32(MemoryLayout<Double>.size)
+            guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &rate) == noErr, rate > 0 else {
+                NSLog("MenuBand audio: interface reset — device \(id) has no nominal rate")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+            let want = preferredInterfaceRate
+            var other: Double = want == 44_100 ? 48_000 : 44_100
+            let s1 = AudioObjectSetPropertyData(id, &address, 0, nil, size, &other)
+            // Release the worker during USB teardown. The coordinator keeps
+            // this device in flight until both the flip and settling finish.
+            let originalRate = rate, alternateRate = other
+            resetQueue.asyncAfter(deadline: .now() + 0.4) {
+                var restoreAddress = AudioObjectPropertyAddress(
+                    mSelector: kAudioDevicePropertyNominalSampleRate,
+                    mScope: kAudioObjectPropertyScopeGlobal,
+                    mElement: kAudioObjectPropertyElementMain)
+                var back = want
+                let s2 = AudioObjectSetPropertyData(id, &restoreAddress, 0, nil,
+                                                    UInt32(MemoryLayout<Double>.size), &back)
+                NSLog("MenuBand audio: interface reset on \(id): \(originalRate) → \(alternateRate) (\(s1)) → \(want) (\(s2))")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    completion(s1 == noErr && s2 == noErr)
+                }
+            }
+        }
+    }
+
+    // MARK: - Device-list observation
+
+    private static var deviceListQueue = DispatchQueue(label: "menuband.devicelist")
+    private static var deviceListBlock: AudioObjectPropertyListenerBlock?
+
+    /// Fire `handler` on the main thread (debounced ~0.8 s) whenever the
+    /// system's audio device list changes — plug/unplug of an interface.
+    static func observeDeviceList(_ handler: @escaping () -> Void) {
+        guard deviceListBlock == nil else { return }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var pending: DispatchWorkItem?
+        let block: AudioObjectPropertyListenerBlock = { _, _ in
+            pending?.cancel()
+            let work = DispatchWorkItem { handler() }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+        }
+        deviceListBlock = block
+        AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject), &address, deviceListQueue, block)
+    }
+
+    /// True when a Focusrite/Scarlett interface with inputs is attached.
+    static func focusriteInputPresent() -> Bool {
+        all().contains { $0.inputChannels > 0 &&
+            ($0.name.localizedCaseInsensitiveContains("scarlett") ||
+             $0.name.localizedCaseInsensitiveContains("focusrite")) }
+    }
+
     // MARK: - Property plumbing
 
     private static func deviceUID(_ id: AudioDeviceID) -> String? {
@@ -216,4 +378,10 @@ enum MenuBandAudioDevices {
         return UnsafeMutableAudioBufferListPointer(list)
             .reduce(0) { $0 + Int($1.mNumberChannels) }
     }
+}
+
+
+extension Notification.Name {
+    /// object = true while the interface's streams are being rebuilt, false when settled.
+    static let menuBandInterfaceResetting = Notification.Name("MenuBandInterfaceResetting")
 }

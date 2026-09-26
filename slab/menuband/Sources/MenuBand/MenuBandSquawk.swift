@@ -143,6 +143,7 @@ final class MenuBandSquawk {
 
         // Detach the mic first so no more audio arrives, then close the
         // request so the recognizer flushes its final result.
+        menuBandNoteInputNodeAccess("squawk")
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         request?.endAudio()
@@ -175,6 +176,7 @@ final class MenuBandSquawk {
         request.requiresOnDeviceRecognition = recognizer.supportsOnDeviceRecognition
         self.request = request
 
+        menuBandNoteInputNodeAccess("squawk")
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
         input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
@@ -183,6 +185,7 @@ final class MenuBandSquawk {
 
         engine.prepare()
         do {
+            MenuBandAudioDevices.bindToRawOutput(engine, label: "MenuBandSquawk")
             try engine.start()
         } catch {
             NSLog("MenuBand Squawk: engine start failed: \(error)")

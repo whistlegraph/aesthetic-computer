@@ -191,7 +191,12 @@ final class MenuBandSpeechVoice {
         }
         numberPlayer.stop()
         numberPlayer.scheduleBuffer(buffer, completionHandler: nil)
-        if let engine = engine, !engine.isRunning { try? engine.start() }
+        if let engine = engine, !engine.isRunning {
+            do { try engine.start() } catch {
+                NSLog("MenuBand speech: engine start failed, skipping number: \(error)")
+                return
+            }
+        }
         numberPlayer.play()
     }
 
@@ -227,7 +232,12 @@ final class MenuBandSpeechVoice {
         _ = synthesizer.stopSpeaking(at: .immediate)
         player.stop()
         player.scheduleBuffer(buffer, completionHandler: nil)
-        if let engine, !engine.isRunning { try? engine.start() }
+        if let engine, !engine.isRunning {
+            do { try engine.start() } catch {
+                NSLog("MenuBand speech: engine start failed, skipping line: \(error)")
+                return
+            }
+        }
         player.play()
     }
 

@@ -488,7 +488,12 @@ final class MenuBandRewindVoice {
         // The ring keeps recording throughout (its tap is on the limiter,
         // upstream of where this reverse player joins), so notes played while
         // reversing land in the buffer and the next press reverses them too.
-        if !engine.isRunning { try? engine.start() }
+        if !engine.isRunning {
+            do { try engine.start() } catch {
+                NSLog("MenuBand rewind: engine start failed, not playing: \(error)")
+                return false
+            }
+        }
         player.stop()
         // Own the player for this press — invalidates any pending release-fade
         // from a prior press and restores full level (a release fade may have

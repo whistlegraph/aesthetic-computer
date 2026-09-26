@@ -96,19 +96,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// timer counts from here rather than the tape's buffer duration, which
     /// can read stale on the UI tick.
     private var recStartTime: CFTimeInterval = 0
-    /// Cached MP3 export, keyed by the source WAV's path. Every eject path
-    /// (REC-dot stop-and-drop, popover EJECT button, cassette drag-out)
-    /// funnels through `exportTapeMP3()` so they all yield the same
-    /// shareable MP3 with cover art; the transcode runs once per take and
-    /// is reused. A fresh take always produces a new (collision-suffixed)
-    /// WAV name, so a stale entry simply never matches — no explicit
-    /// invalidation needed. Access is serialized by `tapeExportLock`.
-    private var cachedTapeMP3: (wavPath: String, mp3: URL)?
-    /// Serializes the ffmpeg encode + cache read/write so an in-flight
-    /// pre-warm and a follow-up drag/eject can't launch two encoders
-    /// writing the same temp MP3. Held only around CPU/cache work — never
-    /// across a hop to the main thread — so it can't deadlock.
-    private let tapeExportLock = NSLock()
+    private struct ExportedTape {
+        let file: URL
+        let stems: URL?
+        let cover: NSImage?
+    }
+    // Main-thread state; encoding and file IO run on the serial utility queue.
+    private var cachedTapeExports: [UUID: ExportedTape] = [:]
+    private var pendingTapeExports: [UUID: [(ExportedTape?) -> Void]] = [:]
     /// Tracks the tape's recording state across `onChange` ticks so we can
     /// fire a single MP3 pre-warm on the recording→idle edge — covering
     /// every stop path (icon REC dot, popover transport, keyboard, 90 s
@@ -136,7 +131,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var reverseWaveformHUD = ReverseWaveformHUD(menuBand: menuBand)
     private var appBeforePopover: NSRunningApplication?
     private var appBeforeFocusCapture: NSRunningApplication?
-    private var keyboardPerformanceFocusActive = false
+    private var keyboardPerformanceFocusActive = false {
+        didSet {
+            guard oldValue != keyboardPerformanceFocusActive else { return }
+            refreshEngagement(reason: keyboardPerformanceFocusActive ? "focus gained" : "focus lost")
+            // Leaving focus (Esc, the Command double-tap) ends a rolling take
+            // and drops it on the Desktop — focus IS the recording session.
+            if !keyboardPerformanceFocusActive, menuBand.tape.state == .recording {
+                NSLog("MenuBand: focus ended while recording — stop + drop")
+                menuBand.stopTape()
+                dropTapeOnDesktop()
+                updateIcon()
+            }
+        }
+    }
+    private var tapeRecordHotkey: GlobalHotkey?
+
+    /// One path for "the player is here", whether they arrived by keyboard
+    /// (performance focus) or by mouse (the app came to the front): the
+    /// monitor is audible while engaged, and the interface's streams are
+    /// rebuilt on the rising edge (debounced) because the Scarlett's output
+    /// dies silently under macOS 26 and this is the moment it matters.
+    private var engaged = false
+    private var lastEngagementReset: TimeInterval = 0
+    private func refreshEngagement(reason: String) {
+        // Engage on keyboard focus OR the app coming to the front; disengage
+        // only on an explicit focus loss (Esc), never on a mere app switch.
+        let now = reason == "focus lost" ? false : (engaged || keyboardPerformanceFocusActive || NSApp.isActive)
+        guard now != engaged else { return }
+        engaged = now
+        NSLog("MenuBand: engagement → \(now ? "on" : "off") (\(reason))")
+        menuBand.setMonitorFocused(now)
+        if now, MenuBandAudioDevices.focusriteInputPresent() {
+            let t = ProcessInfo.processInfo.systemUptime
+            if t - lastEngagementReset > 30 {
+                lastEngagementReset = t
+                NSLog("MenuBand: engaged — interface reset")
+                menuBand.resetAudioInterface()
+            }
+        }
+    }
 
     /// Periodic check that the status item is actually visible in the
     /// menu bar. macOS silently hides items when there's no room (notch +
@@ -445,7 +479,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The physical drum skin is the default trackpad instrument. Tab toggles
     /// between that skin and pitch-bend FX; Shift momentarily exposes sliding
     /// FX from a continuous surface.
-    enum TrackpadPadMode { case fx, kit, skin, synth }
+    enum TrackpadPadMode { case fx, kit, skin, synth, split, mouse }   // mouse = trackpad handed back to the pointer
     enum FocusedInputMode: String { case localFX, trackDrum }
     private var trackpadPadMode: TrackpadPadMode = .skin
     private var trackpadPercussionState = TrackpadPercussionPad.State()
@@ -457,6 +491,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// grabs — the slide is relative, so each fresh grab re-anchors here
     /// instead of jumping the held values to the new touch point.
     private var trackpadFXLastPrimaryPoint: CGPoint?
+    /// Which half of the ⇧Tab-bisected pad each finger belongs to.
+    private var trackpadSplitOwnership = TrackpadSplitSurface.Ownership()
     private var trackpadSkinFrameTimestamp: Double = 0
     /// Stabilized lengths-per-second for membrane friction. Raw per-frame
     /// distances inherit trackpad quantization and callback jitter, which made
@@ -492,7 +528,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var polyrhythmTrainer = PolyrhythmTrainerClock()
     /// The circles at wall size: one lane per rhythm across the whole
     /// display, bursting where a finger lands. Lives and dies with the trainer.
-    private var polyrhythmStage: PolyrhythmStageWindow?
     /// Typed division entry — the digits/`/` string being composed while the
     /// circles are out ("7/4", "2/3/4"). Applied live on every keystroke;
     /// goes stale after `polyrhythmEntryTimeout` so `/` returns to walking
@@ -677,7 +712,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         guard keyCode == 48 /* Tab */, isDown else { return false }
-        if !isRepeat { DispatchQueue.main.async { self.toggleTrackpadPadMode() } }
+        let splitTab = flags.contains(.maskShift)
+        if !isRepeat {
+            DispatchQueue.main.async { self.toggleTrackpadPadMode(split: splitTab) }
+        }
         return true  // consume — don't let ⌘-Tab / focus traversal fire
     }
     #else
@@ -966,9 +1004,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self = self else { return }
                 // Pre-warm the MP3 export on the recording→idle edge so the
                 // first drag-out / EJECT after a take feels instant. One
-                // hook covers all stop paths; the lock in exportTapeMP3
-                // makes overlap with an explicit stop-and-drop harmless.
+                // hook covers all stop paths; callers share the same pending
+                // export, including an explicit stop-and-drop.
                 let recordingNow = self.menuBand.tape.state == .recording
+                // The tape stopping on its own (90 s cap) must land on the
+                // Desktop like every other stop; the explicit stops already
+                // dropped, so only drop when nothing else did for this take.
+                if self.tapeWasRecording && !recordingNow && !self.tapeDroppedThisTake {
+                    NSLog("MenuBand: tape stopped by itself — dropping on Desktop")
+                    self.dropTapeOnDesktop()
+                }
+                if recordingNow { self.tapeDroppedThisTake = false }
                 if self.tapeWasRecording && !recordingNow
                     && self.menuBand.tape.hasRecording {
                     self.prewarmTapeMP3()
@@ -1338,6 +1384,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Voice squawk (⌘⌃⌥`) — self-gates on the Advanced flag, so this
         // is a no-op unless the user has switched it on in the About window.
         registerSquawkHotkey()
+        // ⌘⌃⌥R — tape record / stop-and-drop (always on; it's the studio's REC).
+        registerTapeRecordHotkey()
+        registerInterfaceResetHotkey()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshEngagement(reason: "app active") }
+        // (No resign observer on purpose: clicking into Terminal or a DAW must
+        // not mute the monitor — only Esc / losing performance focus does.)
 
         // Start the Stickies bridge — watches the focused sticky's text
         // and plays a note for each character typed after an `mbN` token,
@@ -1653,13 +1707,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             // PLAIN Tab toggles percussion and pitch bend — but only
             // mid-bend (the overlay is up) and only where the MultitouchSupport
-            // tap exists. Modified Tab (⌘-Tab app switcher, ⌃-Tab, …) must pass
+            // tap exists. ⇧Tab bisects the pad (pitch left, drum right).
+            // Other modified Tabs (⌘-Tab app switcher, ⌃-Tab, …) must pass
             // straight through, so require no command/option/control here.
             if keyCode == 48 /* kVK_Tab */, self.trackpadFxAvailable,
                (self.pitchBendCursorPushed || self.keyboardPerformanceFocusActive),
                !flags.contains(.command), !flags.contains(.option),
                !flags.contains(.control) {
-                if isDown && !isRepeat { self.toggleTrackpadPadMode() }
+                if isDown && !isRepeat {
+                    self.toggleTrackpadPadMode(split: flags.contains(.shift))
+                }
                 return true
             }
             // Escape disarms capture explicitly. Useful when the user
@@ -2052,6 +2109,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             modifiers: shortcut.modifiers
         ) {
             layoutToggleHotkey = hotkey
+        }
+    }
+
+    /// ⌘⌃⌥R: start a take; press again to stop and drop it on the Desktop.
+    private func registerTapeRecordHotkey() {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D425243),  // 'MBRC'
+            id: 1
+        ) { [weak self] in
+            guard let self else { return }
+            if self.menuBand.tape.state == .recording {
+                NSLog("MenuBand: ⌘⌥R — stop + drop")
+                self.menuBand.stopTape()
+                self.dropTapeOnDesktop()
+            } else {
+                // Focused recording mode: take performance focus first (which
+                // also unmutes the monitor), then roll.
+                NSLog("MenuBand: ⌘⌥R — focus + record")
+                if !self.keyboardPerformanceFocusActive {
+                    self.beginFocusCaptureFromShortcut(keepPopoverOpen: true)
+                }
+                self.menuBand.toggleTapeRecording()
+            }
+            self.updateIcon()
+        }
+        let shortcut = MenuBandShortcut.defaultTapeRecord
+        if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
+            tapeRecordHotkey = hotkey
+            NSLog("MenuBand: ⌘⌥R bound to focus + record")
+        } else {
+            NSLog("MenuBand: could not bind ⌘⌥R")
+        }
+    }
+
+    private var interfaceResetHotkey: GlobalHotkey?
+    /// ⌘⌥⇧R: Reset Interface, same as the headset menu item.
+    private func registerInterfaceResetHotkey() {
+        let hotkey = GlobalHotkey(
+            signature: OSType(0x4D425249),  // 'MBRI'
+            id: 1
+        ) { [weak self] in
+            NSLog("MenuBand: ⌘⌥⇧R — interface reset")
+            self?.menuBand.resetAudioInterface()
+        }
+        let shortcut = MenuBandShortcut.defaultInterfaceReset
+        if hotkey.register(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) {
+            interfaceResetHotkey = hotkey
+            NSLog("MenuBand: ⌘⌥⇧R bound to interface reset")
         }
     }
 
@@ -2875,21 +2980,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// and re-voice the held key between a single note and a triad. The chord
     /// scheme matches the keyDown path — ⌘ = major, ⌥ = minor, ⌘+⌥ = sus,
     /// ⌃ = augmented (the raised-fifth opposite of minor) — so a note that
-    /// started plain and one that started chorded morph the same way.
+    /// started plain and one that started chorded morph the same way. The
+    /// raw flags go through whole because ⌘ and ⌥ are handed: the left
+    /// ones morph only left-half keys, the right ones only right-half keys.
     /// Both a global monitor (TYPE mode / background apps) and a local one
     /// (quiet-focus, Menu Band frontmost) feed the same handler; the
     /// controller no-ops when nothing is held, so wiring both is harmless.
     private func startChordMorphMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            let flags = event.modifierFlags
-            let cmd = flags.contains(.command)
-            let opt = flags.contains(.option)
-            let ctl = flags.contains(.control)
-            self.menuBand.morphHeldKeys(chordModifier: cmd || opt || ctl,
-                                        chordMinor: opt,
-                                        chordSus: cmd && opt,
-                                        chordAug: ctl)
+            self.menuBand.morphHeldKeys(
+                rawFlags: UInt64(event.modifierFlags.rawValue)
+            )
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -4063,30 +4165,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Stop-and-drop: the direct build writes a shareable MP3 to the Desktop;
     /// the sandboxed Store build asks the user where to save its WAV.
-    private func dropTapeOnDesktop() {
-        guard menuBand.tape.hasRecording else {
+    private var tapeDroppedThisTake = false
+    func dropTapeOnDesktop() {
+        menuBand.stopTape()
+        guard let snapshot = menuBand.tape.snapshotForExport() else {
             NSSound.beep()
             return
         }
+        tapeDroppedThisTake = true
+        exportTapeMP3(snapshot: snapshot) { [weak self] result in
+            guard let self else { return }
+            guard let result else {
+                if self.menuBand.tape.takeID == snapshot.takeID { self.tapeDroppedThisTake = false }
+                NSLog("MenuBand: tape export failed")
+                NSSound.beep()
+                return
+            }
 #if MAC_APP_STORE
-        guard let file = exportTapeMP3() else { return }
-        presentTapeSavePanel(source: file)
+            self.presentTapeSavePanel(source: result.file)
 #else
-        guard let desktop = FileManager.default.urls(
-            for: .desktopDirectory, in: .userDomainMask).first else {
-            if let f = exportTapeMP3() {
-                NSWorkspace.shared.activateFileViewerSelecting([f])
+            guard let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else {
+                NSWorkspace.shared.activateFileViewerSelecting([result.file])
+                return
             }
-            return
-        }
-        // Export off the main thread (ffmpeg blocks), reveal on completion.
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let file = self?.exportTapeMP3() else { return }
-            DispatchQueue.main.async {
-                self?.revealOnDesktop(file, desktop: desktop)
+            MenuBandTape.exportQueue.async {
+                // Keep the cached artifacts intact for a later drag/eject.
+                // Both files belong to the captured take, even if REC has
+                // already started again by the time the encoder finishes.
+                let dest = self.uniqueDestinationOnDesktop(in: desktop,
+                    preferredName: result.file.lastPathComponent)
+                var reveal = result.file
+                do {
+                    try FileManager.default.copyItem(at: result.file, to: dest)
+                    reveal = dest
+                    if let stems = result.stems {
+                        let target = self.uniqueDestinationOnDesktop(in: desktop,
+                            preferredName: stems.lastPathComponent)
+                        try FileManager.default.copyItem(at: stems, to: target)
+                    }
+                } catch { NSLog("MenuBand: tape copy failed: \(error)") }
+                let revealedFile = reveal
+                DispatchQueue.main.async { NSWorkspace.shared.activateFileViewerSelecting([revealedFile]) }
             }
-        }
 #endif
+        }
     }
 
 #if MAC_APP_STORE
@@ -4118,73 +4240,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    /// Eject the current take and return a shareable stereo MP3 with the
-    /// cassette cover art embedded + stamped as the file icon. Falls back
-    /// to the raw 4-channel WAV if ffmpeg is missing or the encode fails.
-    /// The transcode result is cached per take, so the three eject paths
-    /// (stop-and-drop, EJECT button, cassette drag-out) share one encode.
-    /// Safe to call on the main thread (drag-out needs the file
-    /// synchronously) or a background queue (stop-and-drop).
-    @discardableResult
-    private func exportTapeMP3() -> URL? {
-        // 1. Main-thread work first, outside the lock: `tape.eject()` renders
-        //    the WAV + stamps its icon via NSWorkspace, and we grab that
-        //    cover for the encoder. Doing this before locking keeps the lock
-        //    free of any main-thread hop (no deadlock when a background
-        //    pre-warm holds it while the main thread also wants to export).
-        let prep: (wav: URL, cover: NSImage)? = onMain {
-            guard let wav = self.menuBand.ejectTape() else { return nil }
-            return (wav, NSWorkspace.shared.icon(forFile: wav.path))
+    /// Every consumer joins one asynchronous export of a frozen take. No
+    /// WAV conversion, artwork rendering, ffmpeg wait, or export lock on main.
+    private func exportTapeMP3(snapshot supplied: MenuBandTape? = nil,
+                               completion: @escaping (ExportedTape?) -> Void) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        guard let snapshot = supplied ?? menuBand.tape.snapshotForExport() else { completion(nil); return }
+        let id = snapshot.takeID
+        if let cached = cachedTapeExports[id], FileManager.default.fileExists(atPath: cached.file.path) {
+            completion(cached)
+            return
         }
-        guard let prep = prep else { return nil }
-
-#if MAC_APP_STORE
-        // App Store builds cannot launch an external ffmpeg process. The raw
-        // WAV is fully playable and is copied through NSSavePanel instead.
-        return prep.wav
-#else
-        // 2. Serialize cache lookup + encode. A second caller blocks here
-        //    until the first finishes, then hits the cache instead of
-        //    launching a duplicate ffmpeg against the same temp file.
-        tapeExportLock.lock()
-        if let c = cachedTapeMP3, c.wavPath == prep.wav.path,
-           FileManager.default.fileExists(atPath: c.mp3.path) {
-            tapeExportLock.unlock()
-            return c.mp3
+        if pendingTapeExports[id] != nil {
+            pendingTapeExports[id]?.append(completion)
+            return
         }
-        let encoded = transcodeToMP3(wav: prep.wav, cover: prep.cover)
-        if let mp3 = encoded { cachedTapeMP3 = (prep.wav.path, mp3) }
-        tapeExportLock.unlock()
-
-        // 3. Stamp the cover as the file icon on main, outside the lock.
-        guard let mp3 = encoded else {
-            return prep.wav  // no encoder / encode failed — the WAV still plays
-        }
-        onMain { NSWorkspace.shared.setIcon(prep.cover, forFile: mp3.path, options: []) }
-        return mp3
+        pendingTapeExports[id] = [completion]
+        MenuBandTape.exportQueue.async { [self] in
+            let started = ProcessInfo.processInfo.systemUptime
+            var result: ExportedTape?
+            if let take = snapshot.eject() {
+                var file = take.file
+#if !MAC_APP_STORE
+                if let cover = take.cover,
+                   let mp3 = transcodeToMP3(wav: take.file, cover: cover, micWasInMix: snapshot.micWasInMix) {
+                    file = mp3
+                    NSWorkspace.shared.setIcon(cover, forFile: file.path, options: [])
+                }
 #endif
+                result = ExportedTape(file: file, stems: take.stems, cover: take.cover)
+            }
+            NSLog("MenuBand: tape export finished in \(ProcessInfo.processInfo.systemUptime - started)s off main")
+            let exported = result
+            DispatchQueue.main.async { [self] in
+                if let exported {
+                    if cachedTapeExports.count >= 4 { cachedTapeExports.removeAll() }
+                    cachedTapeExports[id] = exported
+                }
+                let callbacks = pendingTapeExports.removeValue(forKey: id) ?? []
+                callbacks.forEach { $0(exported) }
+            }
+        }
     }
 
-    /// Kick off the MP3 transcode for the just-finished take on a
-    /// background queue so the cache is warm by the time the user reaches
-    /// for drag-out or EJECT — keeps those paths feeling instant. No-op if
-    /// there's nothing recorded or the cache is already populated.
     private func prewarmTapeMP3() {
-#if !MAC_APP_STORE
         guard menuBand.tape.hasRecording else { return }
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            self?.exportTapeMP3()
-        }
-#endif
+        exportTapeMP3 { _ in }
     }
 
 #if !MAC_APP_STORE
     /// Transcode the 4-channel tape WAV to a stereo MP3, embedding `cover`
     /// (the cassette art) as the ID3 attached picture. Pure CPU/IO — no
-    /// NSWorkspace, no main-thread hops — so it's safe to call while
-    /// holding `tapeExportLock`. The caller stamps the file icon. Returns
+    /// NSWorkspace, no main-thread hops. The caller stamps the file icon. Returns
     /// nil if no ffmpeg is found or the encode fails.
-    private func transcodeToMP3(wav: URL, cover: NSImage) -> URL? {
+    private func transcodeToMP3(wav: URL, cover: NSImage, micWasInMix: Bool) -> URL? {
         guard let ffmpeg = Self.ffmpegPath() else { return nil }
         // Write the cover to a temp PNG for ffmpeg to embed.
         let tmp = FileManager.default.temporaryDirectory
@@ -4195,7 +4304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             wav.deletingPathExtension().lastPathComponent + ".mp3")
         try? FileManager.default.removeItem(at: mp3)
 
-        var args = ["-y", "-i", wav.path]
+        var args = ["-y", "-threads", "1", "-i", wav.path]
         if haveCover {
             args += ["-i", coverURL.path, "-map", "0:a:0", "-map", "1:v:0",
                      "-c:v", "copy", "-disposition:v:0", "attached_pic",
@@ -4205,10 +4314,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             args += ["-map", "0:a:0"]
         }
         // Down-mix the 4-channel take to stereo MP3 at 192kbps + ID3v2.
-        args += ["-c:a", "libmp3lame", "-b:a", "192k", "-ac", "2",
+        // ffmpeg's default 4→2 fold ADDS channels 3–4 (the dry mic stem) onto
+        // 1–2. With monitoring on, 1–2 already carry the voice as heard
+        // (effects, ducking, gain), so the fold doubled it dry and loud.
+        // Take exactly what was heard; only add the dry stem when the voice
+        // was never in the mix (monitoring off).
+        let fold = micWasInMix
+            ? "pan=stereo|c0=c0|c1=c1"
+            : "pan=stereo|c0=c0+c2|c1=c1+c3"
+        args += ["-filter_threads", "1", "-af", fold]
+        args += ["-threads", "1", "-c:a", "libmp3lame", "-b:a", "192k", "-ac", "2",
                  "-id3v2_version", "3", mp3.path]
 
         let proc = Process()
+        proc.qualityOfService = .utility
         proc.executableURL = URL(fileURLWithPath: ffmpeg)
         proc.arguments = args
         proc.standardOutput = nil
@@ -4227,20 +4346,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    /// Run `work` on the main thread and return its result, executing
-    /// inline if already on main (so callers on either thread are safe and
-    /// can't deadlock on `DispatchQueue.main.sync`).
-    @discardableResult
-    private func onMain<T>(_ work: () -> T) -> T {
-        if Thread.isMainThread { return work() }
-        return DispatchQueue.main.sync(execute: work)
-    }
 
 #if !MAC_APP_STORE
     /// Locate a usable ffmpeg (Homebrew arm64 / Intel). The launch-agent's
     /// PATH may not include Homebrew, so probe absolute paths.
     private static func ffmpegPath() -> String? {
-        for p in ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"] {
+        for p in [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/ffmpeg").path,
+                  "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"] {
             if FileManager.default.isExecutableFile(atPath: p) { return p }
         }
         return nil
@@ -4253,20 +4365,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
               let png = rep.representation(using: .png, properties: [:]) else { return false }
         do { try png.write(to: url); return true }
         catch { NSLog("MenuBand: cover PNG write failed: \(error)"); return false }
-    }
-
-    /// Move a freshly-made tape onto the Desktop (collision-safe) and reveal
-    /// it in Finder; reveal in place if the move fails.
-    private func revealOnDesktop(_ src: URL, desktop: URL) {
-        let dest = uniqueDestinationOnDesktop(
-            in: desktop, preferredName: src.lastPathComponent)
-        do {
-            try FileManager.default.moveItem(at: src, to: dest)
-            NSWorkspace.shared.activateFileViewerSelecting([dest])
-        } catch {
-            NSLog("MenuBand: tape move failed: \(error)")
-            NSWorkspace.shared.activateFileViewerSelecting([src])
-        }
     }
 
     /// Pick a non-colliding filename inside `dir` for the freshly
@@ -4322,43 +4420,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Begin a drag session whose pasteboard item is the freshly
-    /// exported MP3. Mirrors `SheetMusicView.beginPDFDrag` — eager
-    /// render to a temp file BEFORE calling `beginDraggingSession`,
-    /// then animate the cassette "ejecting" downward so the user
-    /// sees the artifact leave the menubar. `exportTapeMP3()` is
-    /// usually a cache hit (pre-warmed on stop), so the synchronous
-    /// call here returns immediately; on a cold cache it transcodes
-    /// inline, and the cassette-eject animation masks the brief wait.
+    /// File promises let the cassette follow the pointer immediately while
+    /// its export finishes. The drop retains this exact take and its stems.
     @discardableResult
     private func startTapeEjectDrag(button: NSStatusBarButton,
                                     event: NSEvent) -> Bool {
-        guard menuBand.tape.hasRecording else {
-            NSLog("MenuBand: tape eject ignored — no recording")
-            return false
-        }
-        // The shareable MP3 (or the raw WAV if ffmpeg is unavailable).
-        guard let file = exportTapeMP3() else {
-            NSLog("MenuBand: tape eject failed to write file")
-            return false
-        }
-        let dragItem = NSDraggingItem(pasteboardWriter: file as NSURL)
-        // Drag preview = the exact icon the export stamped on the
-        // file. Reading it back through `NSWorkspace` rather than
-        // re-rendering keeps the preview and the on-disk icon
-        // identical, so the user sees the same cassette artwork
-        // riding the cursor that they'll see in Finder after drop.
-        let previewIcon = NSWorkspace.shared.icon(forFile: file.path)
-        let previewSize = NSSize(width: 96, height: 96)
-        let local = button.convert(event.locationInWindow, from: nil)
-        let dragFrame = NSRect(x: local.x - previewSize.width / 2,
-                                y: local.y - previewSize.height / 2,
-                                width: previewSize.width,
-                                height: previewSize.height)
-        dragItem.setDraggingFrame(dragFrame, contents: previewIcon)
+        menuBand.stopTape()
+        guard let snapshot = menuBand.tape.snapshotForExport() else { return false }
+        exportTapeMP3(snapshot: snapshot) { _ in }
+#if MAC_APP_STORE
+        let ext = "wav", type = "com.microsoft.waveform-audio"
+#else
+        let ext = Self.ffmpegPath() == nil ? "wav" : "mp3"
+        let type = ext == "mp3" ? "public.mp3" : "com.microsoft.waveform-audio"
+#endif
         let source = TapeDragSource()
+        let audio = TapeFilePromise(name: snapshot.exportName + "." + ext) { [self] done in
+            exportTapeMP3(snapshot: snapshot) { result in
+                // An encoder failure still saves a WAV through stop-and-drop;
+                // never deliver WAV bytes under an MP3 file promise.
+                done(result?.file.pathExtension == ext ? result?.file : nil)
+            }
+        }
+        let stems = TapeFilePromise(name: snapshot.exportName + "-stems") { [self] done in
+            exportTapeMP3(snapshot: snapshot) { done($0?.stems) }
+        }
+        let local = button.convert(event.locationInWindow, from: nil)
+        let frame = NSRect(x: local.x - 48, y: local.y - 48, width: 96, height: 96)
+        let preview = cachedTapeExports[snapshot.takeID]?.cover
+            ?? NSImage(named: NSImage.multipleDocumentsName)
+        let audioItem = NSDraggingItem(pasteboardWriter: audio.provider(fileType: type))
+        audioItem.setDraggingFrame(frame, contents: preview)
+        let stemsItem = NSDraggingItem(pasteboardWriter: stems.provider(fileType: "public.folder"))
+        stemsItem.setDraggingFrame(frame.offsetBy(dx: 18, dy: -18), contents: NSImage(named: NSImage.folderName))
         tapeDragSource = source
-        button.beginDraggingSession(with: [dragItem], event: event, source: source)
+        button.beginDraggingSession(with: [audioItem, stemsItem], event: event, source: source)
         return true
     }
 
@@ -5022,7 +5118,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // `gaze=0` — leave the lid camera off (default: eyes follow the room).
             let faceAlpha = CGFloat(Double(info["faceAlpha"] ?? "") ?? (cornerSlot != nil ? 0.72 : 1))
             let faceGaze = (info["gaze"] ?? "1") != "0"
-            var activeLine = -1     // the line whose show came last: only its end may rest the face
             if cornerSlot != nil, let fm = faceMember {
                 // the ghost is up from the downbeat, resting until its first line
                 DispatchQueue.main.asyncAfter(deadline: at(downbeatEpoch - 0.6)) { [weak self] in
@@ -5095,7 +5190,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                         guard let self = self, self.playGeneration == gen else { return }
                                         caption.show(line: li, tokens: words, accent: captionAccent, size: captionSize)
                                         if si == 0, let fm = faceMember { face.show(member: fm, accent: captionAccent, skin: faceAlpha, gaze: faceGaze) }
-                                        activeLine = li
                                         if faceMember != nil { face.rest(false) }
                                     }
                                 }
@@ -5114,7 +5208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     DispatchQueue.main.asyncAfter(deadline: at(offEpoch + 1.2)) { [weak self] in
                                         guard let self = self, self.playGeneration == gen else { return }
                                         caption.hide(line: li)
-                                        if faceMember != nil, activeLine == li { face.rest(true) }   // not if the next line already began
+                                        if faceMember != nil { face.rest(true) }
                                     }
                                 }
                                 if si + 1 == lineOfSyllable.count, faceMember != nil {
@@ -5720,10 +5814,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// overlay's touch dots fresh.
     private func handleTrackpadFrame(_ contacts: [TrackpadContact], timestamp: Double,
                                      callbackTime: Double) {
+        let previousContacts = trackpadContactsByID
         let changes = TrackpadContactChanges.resolve(
-            previous: trackpadContactsByID, contacts: contacts
+            previous: previousContacts, contacts: contacts
         )
         trackpadContactsByID = changes.activeByID
+        if trackpadPadMode == .mouse { return }   // pointer owns the trackpad
         #if MAC_APP_STORE
         // Renewed from any live contact, which is too loose: a resting finger
         // streams frames forever, so the guard never lapses and an app switch
@@ -5737,7 +5833,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             localCapture.protectNextResignForTrackDrumInput()
         }
 #else
-        if keyboardPerformanceFocusActive, trackpadPadMode == .skin,
+        if keyboardPerformanceFocusActive,
+           trackpadPadMode == .skin || trackpadPadMode == .split,
            !contacts.isEmpty {
             localCapture.protectNextResignForTrackDrumInput()
         }
@@ -5796,6 +5893,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // from them instead of jumping to the new finger's spot.
                 trackpadFXLastPrimaryPoint = nil
             }
+        } else if trackpadPadMode == .split, pitchBendCursorPushed {
+            // A finger that lands left of center rides the slider exactly
+            // as the fx page does; one that lands right of it strikes the
+            // drum. Each keeps that job until it lifts, wherever it drifts.
+            let frame = trackpadSplitOwnership.resolve(
+                previous: previousContacts, active: changes.active
+            )
+            if let primaryTouch = trackpadFXPrimaryContact.update(frame.pitch) {
+                applyTrackpadFXSlide(to: primaryTouch)
+            } else {
+                trackpadFXLastPrimaryPoint = nil
+            }
+            updateTrackpadSurface(
+                frame.drumTouches,
+                timestamp: timestamp, callbackTime: callbackTime,
+                began: frame.drumBegan, lifted: frame.drumLifted,
+                synthetic: false, performAudio: performAudioOnMain
+            )
         } else if shiftSlides {
             trackpadSkinTouches = touches
             trackpadSkinFrameTimestamp = timestamp
@@ -6211,7 +6326,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             self.trackpadSurfaceEnergy.decay(to: CACurrentMediaTime())
-            if self.trackpadPadMode == .skin || self.trackpadPadMode == .synth {
+            if self.trackpadPadMode == .skin || self.trackpadPadMode == .synth
+                || self.trackpadPadMode == .split {
                 let now = CACurrentMediaTime()
                 // Quiet reference cues: distinct enough to follow, but well
                 // below a played TrackDrum strike. The guide is a clock, not
@@ -6224,7 +6340,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
                 self.trackpadMembrane.advance(
-                    to: now, touches: self.mtTouches
+                    to: now,
+                    touches: self.trackpadPadMode == .split
+                        ? self.trackpadSplitOwnership.drumTouches(
+                            in: self.trackpadContactsByID)
+                        : self.mtTouches
                 )
                 self.updateTrackpadOverlayIfDue()
             }
@@ -6416,7 +6536,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The melodic FX remain latched when percussion takes the trackpad: the
     /// percussion bus is dry, so there is no reason to erase the instrument's
     /// pitch/space/echo state just to play the skin.
-    private func toggleTrackpadPadMode() {
+    /// Tab walks slider ↔ drum. ⇧Tab (`split`) bisects the pad instead,
+    /// and a second ⇧Tab puts the whole pad back on the drum.
+    private func toggleTrackpadPadMode(split: Bool = false) {
         if pianoWaveformWindowDelegate.isShown {
             trackpadPadMode = .fx
             #if !MAC_APP_STORE
@@ -6464,9 +6586,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
+        trackpadSplitOwnership.reset()
         stopPolyrhythmTrainer()
         stopToneTrials()
-        trackpadPadMode = Self.trackpadPadModeAfterTab(trackpadPadMode)
+        let leavingMouse = trackpadPadMode == .mouse
+        trackpadPadMode = split
+            ? Self.trackpadPadModeAfterShiftTab(trackpadPadMode)
+            : Self.trackpadPadModeAfterTab(trackpadPadMode)
+        if leavingMouse, trackpadPadMode != .mouse, keyboardPerformanceFocusActive {
+            // The pointer was freed for mouse mode; the pad pages need it
+            // locked and hidden again or the fx slide drags the real cursor
+            // across the screen (and into other apps).
+            if !pitchBendCursorLocked {
+                CGAssociateMouseAndMouseCursorPosition(0)
+                pitchBendCursorLocked = true
+            }
+            hideSystemCursorIfNeeded()
+            pitchBendCursorPushed = true
+        }
         // The handoff chime names the destination by pitch, and the choice
         // is remembered so regaining focus later reopens this same page.
         // Through the fx bus when it's up: the chime arrives bent and
@@ -6479,6 +6616,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ? FocusedInputMode.localFX : .trackDrum).rawValue,
             forKey: Self.focusedInputModeDefaultsKey
         )
+        if trackpadPadMode == .mouse {
+            // Hand the trackpad back: no drum, no slide, no click shield,
+            // pointer free. Ending the bend session unlocks the cursor (and
+            // resets the mode to skin as a side effect, so re-assert mouse).
+            releaseTrackpadPercussion()
+            trackpadSkinTouches.removeAll()
+            #if !MAC_APP_STORE
+            stopTrackpadPercussionSystemClickShield()
+            #endif
+            // Free the pointer WITHOUT ending the session (that would drop
+            // performance focus): re-associate the cursor and show it.
+            if pitchBendCursorLocked {
+                CGAssociateMouseAndMouseCursorPosition(1)
+                pitchBendCursorLocked = false
+            }
+            showSystemCursorIfNeeded()
+            trackpadPadMode = .mouse
+            updatePitchBendOverlayImage()
+            debugLog("trackpad pad mode = mouse (trackpad released)")
+            return
+        }
         if trackpadPadMode != .fx {
             pitchBendEndTimer?.invalidate()
             pitchBendEndTimer = nil
@@ -6507,15 +6665,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 releaseTrackpadPercussion()
                 #if !MAC_APP_STORE
                 trackpadAudioLane.setMode(
-                    trackpadPadMode == .synth ? .synth : .skin
+                    trackpadPadMode == .synth ? .synth
+                        : trackpadPadMode == .split ? .split : .skin
                 )
                 #endif
                 trackpadSkinTouches.removeAll()
                 let now = CACurrentMediaTime()
-                updateTrackpadSurface(mtTouches, timestamp: now,
-                                      callbackTime: now,
-                                      synthetic: trackpadPadMode == .synth,
-                                      performAudio: !trackpadAudioRunsOffMain)
+                // Fingers already resting when the pad bisects belong to
+                // nobody yet; the next frame assigns them by where they sit.
+                updateTrackpadSurface(
+                    trackpadPadMode == .split ? [] : mtTouches,
+                    timestamp: now, callbackTime: now,
+                    synthetic: trackpadPadMode == .synth,
+                    performAudio: !trackpadAudioRunsOffMain)
             }
         } else {
             releaseTrackpadPercussion()
@@ -6599,7 +6761,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     static func trackpadPadModeAfterTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
-        mode == .fx ? .skin : .fx
+        switch mode {
+        case .fx: return .skin
+        case .skin: return .mouse
+        default: return .fx
+        }
+    }
+
+    /// ⇧Tab cycles split → skin → mouse → split, so both trackpad takeovers
+    /// (slide/fx and TrackDrum) can be parked and the pointer used normally.
+    static func trackpadPadModeAfterShiftTab(_ mode: TrackpadPadMode) -> TrackpadPadMode {
+        switch mode {
+        case .split: return .skin
+        case .skin: return .mouse
+        default: return .split
+        }
     }
 
     static func focusedInputModeAfterTab(_ mode: FocusedInputMode) -> FocusedInputMode {
@@ -7004,6 +7180,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.stopFocusCursorWatchdog()
                 return
             }
+            // In mouse mode the pointer is MEANT to be visible — the trackpad was
+            // handed back on purpose, so a visible cursor is not a lost focus.
+            guard self.trackpadPadMode != .mouse else { return }
             guard CACurrentMediaTime() >= self.focusCursorGraceUntil,
                   !self.pitchBendSystemCursorHidden else { return }
             debugLog("focus cursor watchdog: cursor visible while armed — exiting focus")
@@ -7060,6 +7239,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         } else if trackpadPadMode == .synth && !momentarySurfaceFx {
             return TrackpadSynthPad.image(touches: mtTouches, energy: energy)
+        } else if trackpadPadMode == .split {
+            return TrackpadSplitSurface.image(
+                chart: PitchBendCursor.image(
+                    forBend: displayBendAmount / Self.bendRange, echo: fxX,
+                    keyDown: menuBand.keyboardNotesHeld
+                ),
+                skin: TrackpadDrumSkinPad.image(
+                    touches: trackpadSplitOwnership.drumTouches(in: trackpadContactsByID),
+                    energy: trackpadSurfaceEnergy.snapshot(at: CACurrentMediaTime()),
+                    membrane: trackpadMembrane.snapshot()
+                ),
+                pitchTouches: trackpadSplitOwnership.pitchTouches(in: trackpadContactsByID)
+            )
         }
         let chart = PitchBendCursor.image(
             forBend: displayBendAmount / Self.bendRange, echo: fxX,
@@ -7082,25 +7274,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func stopPolyrhythmTrainer() {
         polyrhythmTrainer.stop()
-        polyrhythmStage?.hide()
-    }
-
-    /// The stage follows the strip's own refresh: whenever the strip redraws
-    /// with a live snapshot the stage gets the same one, and a nil snapshot
-    /// takes it down.
-    private func syncPolyrhythmStage(_ snapshot: PolyrhythmTrainerSnapshot?) {
-        guard let snapshot else { polyrhythmStage?.hide(); return }
-        let screen = statusItem?.button?.window?.screen ?? NSScreen.main
-        guard let screen else { return }
-        if polyrhythmStage == nil { polyrhythmStage = PolyrhythmStageWindow() }
-        polyrhythmStage?.show(snapshot, on: screen)
     }
 
     private func togglePolyrhythmTrainer() {
         guard trackpadPadMode == .skin,
               pitchBendCursorPushed || keyboardPerformanceFocusActive else { return }
         polyrhythmTrainer.cyclePattern(at: CACurrentMediaTime())
-        if !polyrhythmTrainer.isActive { polyrhythmStage?.hide() }
         if trackpadEnergyTimer == nil { startTrackpadEnergyDisplay() }
         showPitchBendOverlay()
         debugLog(polyrhythmTrainer.isActive
@@ -7311,7 +7490,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if MAC_APP_STORE
         guard !trackDrumInstallPromptActive else { return }
         #endif
-        if (trackpadPadMode == .skin || trackpadPadMode == .synth),
+        if (trackpadPadMode == .skin || trackpadPadMode == .synth
+                || trackpadPadMode == .split),
            trackpadEnergyTimer == nil {
             trackpadSurfaceEnergy.reset(at: CACurrentMediaTime())
             trackpadMembrane.reset(at: CACurrentMediaTime())
@@ -7320,7 +7500,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let overlay = ensurePitchBendOverlay()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
-            syncPolyrhythmStage(rhythm)
             overlay.showTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7334,9 +7513,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let image = currentFxCursorImage()
-        overlay.show(image: image,
-                     atScreenPoint: focusedFXOverlayAnchor(
-                        imageSize: image.size, fallback: pitchBendLockScreenPoint))
+        overlay.show(image: image, atScreenPoint: imageOverlayAnchor(image))
+    }
+
+    /// The bisected pad sits where TrackDrum does; every other image page
+    /// keeps the slider's pointer-relative spot.
+    private func imageOverlayAnchor(_ image: NSImage) -> NSPoint {
+        trackpadPadMode == .split
+            ? trackpadOverlayAnchor(imageSize: image.size,
+                                    fallback: pitchBendLockScreenPoint)
+            : focusedFXOverlayAnchor(imageSize: image.size,
+                                     fallback: pitchBendLockScreenPoint)
     }
 
     /// Keep TrackDrum centered along the bottom of Menu Band's display.
@@ -7462,7 +7649,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         trackpadOverlayLastDraw = CACurrentMediaTime()
         if showingTracktrampSkin {
             let rhythm = polyrhythmTrainer.snapshot(at: CACurrentMediaTime())
-            syncPolyrhythmStage(rhythm)
             overlay.updateTracktramp(
                 trackpadMembrane.snapshot(),
                 touches: mtTouches,
@@ -7476,9 +7662,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let image = currentFxCursorImage()
-        overlay.update(image: image,
-                       atScreenPoint: focusedFXOverlayAnchor(
-                        imageSize: image.size, fallback: pitchBendLockScreenPoint))
+        overlay.update(image: image, atScreenPoint: imageOverlayAnchor(image))
     }
 
     /// Touch frames remain at the hardware's full 125 Hz for sound, while the
@@ -7639,7 +7823,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // shields alive between hits; Escape/focus loss clears
         // keyboardPerformanceFocusActive before returning here and performs
         // the full teardown below.
-        if keyboardPerformanceFocusActive, trackpadPadMode == .skin {
+        if keyboardPerformanceFocusActive,
+           trackpadPadMode == .skin || trackpadPadMode == .split {
             releaseTrackpadPercussion()
             trackpadSkinTouches.removeAll()
             // The guide owns a continuous clock even when the player's hands
@@ -7663,6 +7848,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pitchBendReleaseGraceUntil = nil
         trackpadFXPrimaryContact.reset()
         trackpadFXLastPrimaryPoint = nil
+        trackpadSplitOwnership.reset()
         // Stop the bend easer so it can't keep nudging pitch after teardown;
         // the fx spring-back (startFxRelease below) owns `bendAmount` now.
         stopBendEase()

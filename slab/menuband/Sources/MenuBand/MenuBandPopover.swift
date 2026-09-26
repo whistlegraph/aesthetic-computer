@@ -421,6 +421,10 @@ final class MenuBandPopoverViewController: NSViewController {
     private var abcLayerCheckbox: NSButton?
     private var monoOutputCheckbox: NSButton?
     private var inputMonitorButton: NSButton?
+    private var tapeRecButton: NSButton?
+    private var tapeChangeToken: NSObjectProtocol?
+    private var interfaceResetToken: NSObjectProtocol?
+    private var interfaceResetting = false
     /// Right-click menu on the headset button: audio input device /
     /// monitored input channel / output device. Rebuilt on every open so
     /// it always reflects what is actually plugged in.
@@ -1201,6 +1205,33 @@ final class MenuBandPopoverViewController: NSViewController {
         monitorDeviceMenu = deviceMenu
         refreshInputMonitorButton()
 
+        // REC sits right beside the headset: one press rolls the tape (mic
+        // + tones + percussion stems), a second press stops it. The cassette
+        // in the menubar / EJECT then hands the take out.
+        let recButton = HoverFeedbackButton()
+        recButton.bezelStyle = .inline
+        recButton.isBordered = false
+        recButton.controlSize = .small
+        recButton.imagePosition = .imageOnly
+        recButton.target = self
+        recButton.action = #selector(toggleTapeRec(_:))
+        recButton.setAccessibilityLabel("Record tape")
+        tapeRecButton = recButton
+        refreshTapeRecButton()
+        if interfaceResetToken == nil {
+            interfaceResetToken = NotificationCenter.default.addObserver(
+                forName: .menuBandInterfaceResetting, object: nil, queue: .main
+            ) { [weak self] note in
+                self?.interfaceResetting = (note.object as? Bool) ?? false
+                self?.refreshInputMonitorButton()
+            }
+        }
+        if tapeChangeToken == nil {
+            tapeChangeToken = NotificationCenter.default.addObserver(
+                forName: .menuBandTapeChanged, object: nil, queue: .main
+            ) { [weak self] _ in self?.refreshTapeRecButton() }
+        }
+
         // Listening tools get their own small row above the footer. ABC sits
         // immediately left of the Juke disc; the input monitor closes the row.
         let listeningRow = NSStackView()
@@ -1216,6 +1247,7 @@ final class MenuBandPopoverViewController: NSViewController {
         listeningRow.addArrangedSubview(jukeButton)
 #endif
         listeningRow.addArrangedSubview(monitorButton)
+        listeningRow.addArrangedSubview(recButton)
         stack.addArrangedSubview(listeningRow)
         listeningRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                              constant: -16).isActive = true
@@ -2700,14 +2732,41 @@ final class MenuBandPopoverViewController: NSViewController {
         refreshInputMonitorButton()
     }
 
+    private func refreshTapeRecButton() {
+        let recording = menuBand?.tape.state == .recording
+        tapeRecButton?.image = NSImage(
+            systemSymbolName: recording ? "stop.circle.fill" : "record.circle",
+            accessibilityDescription: recording ? "Stop recording" : "Record tape")
+        tapeRecButton?.contentTintColor = recording ? .systemRed : .secondaryLabelColor
+        tapeRecButton?.toolTip = recording
+            ? "Recording — click to stop (then drag the cassette out or EJECT)"
+            : "Record a take: mic + tones + percussion as raw stems"
+    }
+
+    @objc private func toggleTapeRec(_ sender: Any?) {
+        guard let menuBand else { return }
+        if menuBand.tape.state == .recording {
+            menuBand.stopTape()
+            // Stop = done: the take (mix + stems folder) lands on the Desktop.
+            (NSApp.delegate as? AppDelegate)?.dropTapeOnDesktop()
+        } else {
+            menuBand.toggleTapeRecording()
+        }
+        refreshTapeRecButton()
+    }
+
     private func refreshInputMonitorButton() {
         let enabled = menuBand?.inputMonitoringEnabled == true
         let symbol = enabled ? "headphones.circle.fill" : "headphones"
         inputMonitorButton?.image = NSImage(
             systemSymbolName: symbol,
             accessibilityDescription: "Monitor audio input")
-        inputMonitorButton?.contentTintColor = enabled
-            ? .systemGreen : .secondaryLabelColor
+        // Dimmed while the interface's streams are being rebuilt: the wait
+        // is visible instead of the app looking stalled.
+        inputMonitorButton?.contentTintColor = interfaceResetting
+            ? .tertiaryLabelColor
+            : (enabled ? .systemGreen : .secondaryLabelColor)
+        inputMonitorButton?.alphaValue = interfaceResetting ? 0.45 : 1
         inputMonitorButton?.toolTip = (enabled
             ? "Audio input monitoring on — click to turn off"
             : "Monitor audio input — click to turn on")
@@ -2723,6 +2782,54 @@ final class MenuBandPopoverViewController: NSViewController {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         return item
+    }
+
+    /// A menu row holding a label + mini slider (a fader). The menu rebuilds
+    /// on every open (`menuNeedsUpdate`), so the slider always shows the
+    /// live value; `isContinuous` makes drags land while the menu is up.
+    private static func faderMenuItem(_ label: String, value: Double, max: Double,
+                                      target: AnyObject, action: Selector) -> NSMenuItem {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 8
+        row.edgeInsets = NSEdgeInsets(top: 2, left: 14, bottom: 2, right: 14)
+        let text = NSTextField(labelWithString: label)
+        text.font = NSFont.menuFont(ofSize: NSFont.systemFontSize(for: .small))
+        text.widthAnchor.constraint(equalToConstant: 72).isActive = true
+        let slider = NSSlider(value: value, minValue: 0, maxValue: max,
+                              target: target, action: action)
+        slider.controlSize = .small
+        slider.isContinuous = true
+        slider.widthAnchor.constraint(equalToConstant: 120).isActive = true
+        slider.toolTip = max > 1 ? "\(label) — unity at the middle" : label
+        row.addArrangedSubview(text)
+        row.addArrangedSubview(slider)
+        row.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
+        let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+        item.view = row
+        return item
+    }
+
+    @objc private func resetMixLevels(_ sender: NSMenuItem) {
+        guard let menuBand else { return }
+        menuBand.tonesVolume = 1
+        menuBand.percussionVolume = 0.9
+        menuBand.monitorGain = 1
+        menuBand.masterVolume = 1
+        volumeSlider?.doubleValue = 1
+        refreshVolumeIcon()
+    }
+
+    @objc private func tonesFaderChanged(_ sender: NSSlider) {
+        menuBand?.tonesVolume = Float(sender.doubleValue)
+    }
+
+    @objc private func percussionFaderChanged(_ sender: NSSlider) {
+        menuBand?.percussionVolume = Float(sender.doubleValue)
+    }
+
+    @objc private func micFaderChanged(_ sender: NSSlider) {
+        menuBand?.monitorGain = Float(sender.doubleValue)
     }
 
     /// Rebuild the routing menu against live hardware. Three sections:
@@ -2742,6 +2849,40 @@ final class MenuBandPopoverViewController: NSViewController {
     ///  and leaves the system-wide setting alone.
     fileprivate func buildAudioRoutingMenu(into menu: NSMenu) {
         menu.autoenablesItems = false
+        // Mix — one fader per stem. Each slider writes straight to the
+        // controller (persisted + live), and the tape logs every move.
+        menu.addItem(Self.audioMenuHeader("Mix"))
+        menu.addItem(Self.faderMenuItem("Tones", value: Double(menuBand?.tonesVolume ?? 1), max: 1,
+                                        target: self, action: #selector(tonesFaderChanged(_:))))
+        menu.addItem(Self.faderMenuItem("Percussion", value: Double(menuBand?.percussionVolume ?? 0.9), max: 1,
+                                        target: self, action: #selector(percussionFaderChanged(_:))))
+        menu.addItem(Self.faderMenuItem("Mic", value: Double(menuBand?.monitorGain ?? 1), max: 2,
+                                        target: self, action: #selector(micFaderChanged(_:))))
+        let resetMix = NSMenuItem(title: "Reset Mix (tones 100 · drums 90 · mic 100 · master 100)",
+                                  action: #selector(resetMixLevels(_:)), keyEquivalent: "")
+        resetMix.target = self
+        menu.addItem(resetMix)
+        menu.addItem(.separator())
+        // Monitor latency — the IO cycle while the mic is live. Applies at
+        // once, so sizes can be compared by ear without a relaunch.
+        menu.addItem(Self.audioMenuHeader("Monitor Latency"))
+        let currentFrames = menuBand?.monitorIOBufferFrames ?? 64
+        for frames in [16, 32, 64, 128, 256] {
+            let ms = Double(frames) / 48.0
+            let item = NSMenuItem(
+                title: String(format: "%d frames · %.1f ms per buffer", frames, ms),
+                action: #selector(pickMonitorLatency(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = frames
+            item.state = frames == currentFrames ? .on : .off
+            menu.addItem(item)
+        }
+        let reset = NSMenuItem(title: "Reset Interface (rebuild USB streams)",
+                               action: #selector(resetAudioInterface(_:)), keyEquivalent: "")
+        reset.target = self
+        reset.toolTip = "When the interface goes silent but stays listed: flip its sample rate so macOS rebuilds its streams — a replug without the plug"
+        menu.addItem(reset)
+        menu.addItem(.separator())
         let devices = MenuBandAudioDevices.all()
         let inputs = devices.filter { $0.inputChannels > 0 }
         let outputs = devices.filter { $0.outputChannels > 0 }
@@ -2819,6 +2960,14 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func pickAudioInput(_ sender: NSMenuItem) {
         menuBand?.setAudioInputDevice(uid: sender.representedObject as? String)
+    }
+
+    @objc private func resetAudioInterface(_ sender: NSMenuItem) {
+        menuBand?.resetAudioInterface()
+    }
+
+    @objc private func pickMonitorLatency(_ sender: NSMenuItem) {
+        menuBand?.setMonitorIOBufferFrames(sender.representedObject as? Int ?? 64)
     }
 
     @objc private func pickMonitorChannel(_ sender: NSMenuItem) {

@@ -51,18 +51,32 @@ final class MenuBandController {
     private let tapeWaveformPinReason = "tape"
     private let inputMonitorPinReason = "input-monitor"
     private static let inputMonitoringKey = "MBInputMonitoring"
+    /// CoreAudio work that can stall (engine bounce, opening the mic unit,
+    /// buffer-size changes) runs here, never on the main thread, so the
+    /// popover and menubar keep painting while the device settles.
+    private let audioWorkQueue = DispatchQueue(label: "menuband.audio-work", qos: .userInitiated)
+
     var inputMonitoringEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) }
         set {
+            NSLog("MenuBand monitor: request \(newValue ? "ON" : "OFF") (was \(UserDefaults.standard.bool(forKey: Self.inputMonitoringKey) ? "on" : "off")) — \(Thread.callStackSymbols.dropFirst().prefix(3).map { $0.split(separator: " ").dropFirst(3).prefix(2).joined(separator: " ") }.joined(separator: " < "))")
             UserDefaults.standard.set(newValue, forKey: Self.inputMonitoringKey)
-            synth.setInputMonitoringEnabled(newValue)
-            if newValue {
-                _ = synth.pinHotMic(reason: inputMonitorPinReason)
-            } else {
-                synth.unpinHotMic(reason: inputMonitorPinReason)
-            }
+            // Flip the UI now; the audio graph follows on the work queue.
             NotificationCenter.default.post(
                 name: .menuBandInputMonitoringChanged, object: self)
+            audioWorkQueue.async { [weak self] in
+                guard let self else { return }
+                self.synth.setInputMonitoringEnabled(newValue)
+                if newValue {
+                    _ = self.synth.pinHotMic(reason: self.inputMonitorPinReason)
+                } else {
+                    self.synth.unpinHotMic(reason: self.inputMonitorPinReason)
+                }
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(
+                        name: .menuBandInputMonitoringChanged, object: self)
+                }
+            }
         }
     }
     /// Audio-routing picks from the headphone icon's right-click menu.
@@ -71,6 +85,55 @@ final class MenuBandController {
     func setAudioInputDevice(uid: String?) { synth.setPreferredInputDevice(uid: uid) }
     func setAudioOutputDevice(uid: String?) { synth.setPreferredOutputDevice(uid: uid) }
     func setAudioMonitorChannel(_ channel: Int) { synth.setMonitorInputChannel(channel) }
+    /// Performance focus gates the monitor's audibility (see synth).
+    func setMonitorFocused(_ focused: Bool) { synth.setMonitorFocusMute(!focused) }
+
+    /// Headset menu → Reset interface: rebuild the current output device's
+    /// USB streams (see `MenuBandAudioDevices.resetInterface`).
+    private var interfaceResetGeneration = 0
+    private var pendingMonitorBufferChange: DispatchWorkItem?
+    private var pendingMonitorBufferReset: DispatchWorkItem?
+    private var monitorBufferGeneration = 0
+    func resetAudioInterface() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let id = MenuBandAudioDevices.pinnedOutputUID.flatMap { MenuBandAudioDevices.device(uid: $0)?.id }
+            ?? MenuBandAudioDevices.systemDefaultOutputID() ?? 0
+        guard id != 0 else { return }
+        interfaceResetGeneration += 1
+        let generation = interfaceResetGeneration
+        NSLog("MenuBand audio: interface reset requested on \(id)")
+        MenuBandAudioDevices.resetInterface(id) { [weak self] _ in
+            guard let self, self.interfaceResetGeneration == generation else { return }
+            // Completion now includes stream settling. Only the most recent
+            // request restores the current pick, on the audio-control queue.
+            self.audioWorkQueue.async { [weak self] in self?.synth.reassertMonitorIOBuffer() }
+        }
+    }
+
+    /// Monitor IO cycle in frames (16…256); applies live while monitoring.
+    var monitorIOBufferFrames: Int { Int(MenuBandSynth.monitorIOBufferFrames) }
+    func setMonitorIOBufferFrames(_ frames: Int) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        pendingMonitorBufferChange?.cancel()
+        pendingMonitorBufferReset?.cancel()
+        monitorBufferGeneration += 1
+        let generation = monitorBufferGeneration
+        let change = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.audioWorkQueue.async { [weak self] in
+                self?.synth.setMonitorIOBufferFrames(UInt32(max(16, frames)))
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.monitorBufferGeneration == generation else { return }
+                    let reset = DispatchWorkItem { [weak self] in self?.resetAudioInterface() }
+                    self.pendingMonitorBufferReset = reset
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: reset)
+                }
+            }
+        }
+        pendingMonitorBufferChange = change
+        // A quick run through latency choices applies only the final pick.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: change)
+    }
     /// Closing the input UI releases the mic ONLY when nothing pins it.
     /// Monitoring itself is a persistent mode (the Scarlett studio-monitor
     /// setup) that survives popover closes and relaunches — the macOS
@@ -182,6 +245,56 @@ final class MenuBandController {
     // of both CGEventFlags and NSEvent.ModifierFlags.
     private static let kLeftShiftBit: UInt64 = 0x0000_0002
     private static let kRightShiftBit: UInt64 = 0x0000_0004
+    private static let kLeftCommandBit: UInt64 = 0x0000_0008
+    private static let kRightCommandBit: UInt64 = 0x0000_0010
+    private static let kLeftOptionBit: UInt64 = 0x0000_0020
+    private static let kRightOptionBit: UInt64 = 0x0000_0040
+    private static let kCommandMask: UInt64 = 0x0010_0000
+    private static let kOptionMask: UInt64 = 0x0008_0000
+    private static let kControlMask: UInt64 = 0x0004_0000
+
+    /// What ⌘/⌥/⌃ mean for one key. ⌘ and ⌥ are handed, on the same split
+    /// the shifts use: the left ones chord only left-half keys and the
+    /// right ones only right-half keys, so one hand can hold a triad while
+    /// the other rings single notes. ⌃ reaches the whole board. A flag set
+    /// with no device side at all (synthetic events) reaches both halves.
+    struct ChordFlags: Equatable {
+        var modifier = false
+        var minor = false
+        var sus = false
+        var aug = false
+    }
+
+    static func chordFlags(rawFlags: UInt64, hand: LingerSide) -> ChordFlags {
+        func handed(left: UInt64, right: UInt64, any: UInt64) -> Bool {
+            let l = rawFlags & left != 0, r = rawFlags & right != 0
+            let sideless = !l && !r && rawFlags & any != 0
+            switch hand {
+            case .left: return l || sideless
+            case .right: return r || sideless
+            case .neutral, .none: return l || r || sideless
+            }
+        }
+        let cmd = handed(left: kLeftCommandBit, right: kRightCommandBit,
+                         any: kCommandMask)
+        let opt = handed(left: kLeftOptionBit, right: kRightOptionBit,
+                         any: kOptionMask)
+        let ctl = rawFlags & kControlMask != 0
+        return ChordFlags(modifier: cmd || opt || ctl, minor: opt,
+                          sus: cmd && opt, aug: ctl)
+    }
+
+    /// Which half of the board a key sits on, by the same pitch split the
+    /// shifts and the percussion latches use. Non-note keys are neutral so
+    /// their modifiers keep meaning what they mean to the system.
+    private func chordHand(forKeyCode keyCode: UInt16) -> LingerSide {
+        let shift = octaveShift
+        guard let note = MenuBandLayout.midiNote(forKeyCode: keyCode,
+                                                 octaveShift: shift,
+                                                 keymap: keymap) else { return .neutral }
+        let dn = max(60, min(83, Int(note) - shift * 12))
+        return dn < MenuBandLayout.lingerSplitMidi ? .left : .right
+    }
 
     /// Resolve which shift side is arming linger from the raw modifier
     /// bits. Falls back to `.neutral` when shift/caps is on but the
@@ -216,6 +329,8 @@ final class MenuBandController {
     private let percussionVolumeKey = "notepat.percussionVolume"
     private let percussionVolume90MigrationKey = "notepat.percussionVolume90Migration"
     private let masterVolumeKey = "notepat.masterVolume"
+    private let tonesVolumeKey = "notepat.tonesVolume"
+    private let monitorGainKey = "notepat.monitorGain"
     /// Active instrument backend: `"gm"` for the General MIDI bank, or
     /// `"gb"` for a GarageBand sampler patch. Default is GM. Stored as a
     /// string so future backends (Logic, EXS3rd-party, etc.) can be
@@ -269,7 +384,15 @@ final class MenuBandController {
     /// plays when picking a voice matches whatever the user last
     /// touched, instead of always defaulting to middle C.
     /// Defaults to 60 (C4) on a fresh session.
-    private(set) var lastPlayedNote: UInt8 = 60
+    private(set) var lastPlayedNote: UInt8 = 60 {
+        didSet { lastPlayedChord = [lastPlayedNote] }
+    }
+    /// The last thing played, as pitches: one note, or a root and the
+    /// extensions it was chorded with. ⇧Space tunes its air to this.
+    private(set) var lastPlayedChord: [UInt8] = [60]
+    /// True while ⇧Space is down, so its key-up ends the air even if Shift
+    /// let go first — and never reaches the reverse's release.
+    private var airKeyHeld = false
 
     /// Format a MIDI note as the user's preferred name pattern —
     /// "<octave><pitch class>" like 4C, 5D#, 3G. C4 (MIDI 60) is the
@@ -1173,7 +1296,68 @@ final class MenuBandController {
             let clamped = max(0, min(1, newValue))
             UserDefaults.standard.set(Double(clamped), forKey: masterVolumeKey)
             synth.setMasterVolume(clamped)
+            tape.noteMixParam("master", clamped)
         }
+    }
+
+    /// Persistent tones (every instrument) trim, 0…1. The tape records the
+    /// tones stem BEFORE this fader, so the raw take never depends on it.
+    var tonesVolume: Float {
+        get {
+            if UserDefaults.standard.object(forKey: tonesVolumeKey) == nil { return 1.0 }
+            return Float(max(0.0, min(1.0, UserDefaults.standard.double(forKey: tonesVolumeKey))))
+        }
+        set {
+            let clamped = max(0, min(1, newValue))
+            UserDefaults.standard.set(Double(clamped), forKey: tonesVolumeKey)
+            synth.setTonesVolume(clamped)
+            tape.noteMixParam("tones", clamped)
+            onChange?()
+        }
+    }
+
+    /// Persistent mic monitor gain, 0…2 (unity 1). What the Scarlett input
+    /// contributes to the headphone mix; the voice stem on tape stays dry.
+    var monitorGain: Float {
+        get {
+            if UserDefaults.standard.object(forKey: monitorGainKey) == nil { return 1.0 }
+            return Float(max(0.0, min(2.0, UserDefaults.standard.double(forKey: monitorGainKey))))
+        }
+        set {
+            let clamped = max(0, min(2, newValue))
+            UserDefaults.standard.set(Double(clamped), forKey: monitorGainKey)
+            synth.setMonitorGain(clamped)
+            tape.noteMixParam("mic", clamped)
+            onChange?()
+        }
+    }
+
+    /// Auto-monitor: on when a Focusrite input is attached, off when it goes.
+    private func autoMonitorForInterface() {
+        let present = MenuBandAudioDevices.focusriteInputPresent()
+        NSLog("MenuBand monitor: auto check — focusrite present=\(present) monitoring=\(inputMonitoringEnabled) devices=\(MenuBandAudioDevices.all().map { "\($0.id):\($0.name)" }.joined(separator: ", "))")
+        guard present != inputMonitoringEnabled else { return }
+        NSLog("MenuBand: auto monitor → \(present ? "on (Focusrite present)" : "off (Focusrite gone)")")
+        inputMonitoringEnabled = present
+        if present {
+            // Auto-recovery, part 2: an interface that just came back on the
+            // bus often has a dead output stream while macOS reports it
+            // active. Kick its streams once things settle (~2.5 s), the same
+            // flip the headset menu's Reset Interface does.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                guard let self, MenuBandAudioDevices.focusriteInputPresent() else { return }
+                NSLog("MenuBand: auto interface reset after reappearance")
+                self.resetAudioInterface()
+            }
+        }
+    }
+
+    /// The fader positions a take starts from — written into the stems'
+    /// mix.json so the heard mix can be rebuilt from the raw stems.
+    func currentMixSnapshot() -> [String: Float] {
+        ["tones": tonesVolume, "percussion": percussionVolume,
+         "mic": monitorGain, "master": masterVolume,
+         "monitoring": inputMonitoringEnabled ? 1 : 0]
     }
 
     /// Persistent percussion-only output trim. 100% is the kit's historical
@@ -1200,6 +1384,7 @@ final class MenuBandController {
             let clamped = max(0, min(1, newValue))
             UserDefaults.standard.set(Double(clamped), forKey: percussionVolumeKey)
             synth.setPercussionVolume(clamped)
+            tape.noteMixParam("percussion", clamped)
             onChange?()
         }
     }
@@ -1371,6 +1556,15 @@ final class MenuBandController {
         synth.stopSurfaceRub()
     }
 
+    /// ⇧Space: air in the pitch of the last note or chord.
+    func pushAir() {
+        synth.pushAir(pitches: lastPlayedChord)
+    }
+
+    func releaseAir() {
+        synth.releaseAir()
+    }
+
     /// Spacebar reverse-replay (notepat-native parity). Plays the most-recent
     /// few seconds of what just sounded, backwards. The synth keeps a rolling
     /// ring of its post-FX output at all times; this snapshots + reverses it.
@@ -1418,6 +1612,9 @@ final class MenuBandController {
     func rewindLiveInputPeak() -> Float { synth.rewindLiveInputPeak() }
 
     func setBend(amount: Float, allChannels: Bool = false) {
+        // The live voice monitor's wet sends follow the wheel in every mode
+        // (MIDI mode included), so it's fed before any branching below.
+        synth.setMonitorPitchBend(amount: amount)
         // No clamp here — the trackpad accumulator can swing past
         // ±1 and the sample voice can vari-speed an arbitrary
         // amount; the MIDI value saturates naturally inside
@@ -1976,7 +2173,7 @@ final class MenuBandController {
         // already lands in the buffer.
         synth.addWaveformTapPin(tapeWaveformPinReason)
         synth.pinHotMic(reason: tapeMicPinReason)
-        tape.record(micAlreadyInMix: inputMonitoringEnabled)
+        tape.record(micAlreadyInMix: inputMonitoringEnabled, mix: currentMixSnapshot())
     }
 
     func stopTape() { tape.stop() }
@@ -2080,6 +2277,13 @@ final class MenuBandController {
         if UserDefaults.standard.object(forKey: melodicProgramKey) == nil {
             UserDefaults.standard.set(78, forKey: melodicProgramKey)
         }
+        // Own the interface's sample rate before the engine negotiates
+        // against it (usbaudiod resets a Focusrite to 48 kHz whenever its
+        // last client leaves).
+        if MenuBandAudioDevices.focusriteInputPresent(),
+           let out = MenuBandAudioDevices.systemDefaultOutputID() {
+            MenuBandAudioDevices.applyPreferredRate(to: out)
+        }
         synth.start()
         debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
@@ -2105,6 +2309,9 @@ final class MenuBandController {
             self?.tape.ingestMic(buffer)
             self?.synth.ingestMonitoredInput(buffer)
         }
+        // Raw stems: pre-fader tones + percussion, straight off their buses.
+        synth.onTonesBuffer = { [weak self] buffer in self?.tape.ingestTones(buffer) }
+        synth.onPercussionBuffer = { [weak self] buffer in self?.tape.ingestPercussion(buffer) }
         if inputMonitoringEnabled {
             debugLog("bootstrap: monitor-enable begin")
             synth.setInputMonitoringEnabled(true)
@@ -2135,6 +2342,25 @@ final class MenuBandController {
         // survive the relaunch.
         synth.setMasterVolume(masterVolume)
         synth.setPercussionVolume(percussionVolume)
+        synth.setTonesVolume(tonesVolume)
+        synth.setMonitorGain(monitorGain)
+        // Studio reflex: a Focusrite on the bus means "monitor me". Checked
+        // now, on every device-list change (plug/unplug), and whenever the
+        // app comes to the front; unplugging turns the monitor back off.
+        synth.startBindingAudit()
+        // Auto-recovery, part 3: a fresh process on the Scarlett got a dead
+        // output stream at every launch today (macOS 26 usbaudiod) until its
+        // streams were rebuilt. Kick them once the engine has settled.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            guard let self, MenuBandAudioDevices.focusriteInputPresent() else { return }
+            NSLog("MenuBand: auto interface reset at launch")
+            self.resetAudioInterface()
+        }
+        MenuBandAudioDevices.observeDeviceList { [weak self] in self?.autoMonitorForInterface() }
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.autoMonitorForInterface() }
+        autoMonitorForInterface()
         // Migrate the former radio-as-piano backend into the standalone CDJ
         // deck. The saved GM voice remains the keyboard instrument.
         if instrumentBackend == .kpbj {
@@ -2760,6 +2986,9 @@ final class MenuBandController {
     private func setChordVoices(keyCode: UInt16, rootNote: UInt8, shift: Int,
                                quality: Int) {
         let desired = Set(Self.chordIntervals(quality: quality))
+        lastPlayedChord = [rootNote] + desired.sorted().map {
+            UInt8(max(0, min(127, Int(rootNote) + $0)))
+        }
         let pan = MenuBandLayout.panForKeyCode(keyCode)
         heldLock.lock()
         var ext = morphExt[keyCode] ?? [:]
@@ -2901,10 +3130,7 @@ final class MenuBandController {
     /// the key still down. Idempotent per key (skips when the shape is
     /// unchanged) so the stream of flagsChanged events that a single modifier
     /// press emits doesn't machine-gun retriggers.
-    func morphHeldKeys(chordModifier: Bool, chordMinor: Bool, chordSus: Bool, chordAug: Bool = false) {
-        let desired = Self.chordQuality(modifier: chordModifier,
-                                        minor: chordMinor, sus: chordSus,
-                                        aug: chordAug)
+    func morphHeldKeys(rawFlags: UInt64) {
         // Snapshot under the lock — the per-key revoice helpers below take
         // `heldLock` themselves (NSLock isn't recursive), so we must NOT hold
         // it across them. Copying the intent dictionaries up front also gives
@@ -2916,6 +3142,11 @@ final class MenuBandController {
         let qualities = morphQuality
         heldLock.unlock()
         for (keyCode, root) in roots {
+            let chord = Self.chordFlags(rawFlags: rawFlags,
+                                        hand: chordHand(forKeyCode: keyCode))
+            let desired = Self.chordQuality(modifier: chord.modifier,
+                                            minor: chord.minor, sus: chord.sus,
+                                            aug: chord.aug)
             let current = qualities[keyCode] ?? 0
             if current == desired { continue }
             let shift = shifts[keyCode] ?? 0
@@ -3345,7 +3576,12 @@ final class MenuBandController {
             }
             return true
         }
-        let hasMod = flags.contains(.maskCommand) || flags.contains(.maskControl) || flags.contains(.maskAlternate)
+        // Handed ⌘/⌥: a modifier held by the other hand leaves this key a
+        // plain note, and that note is consumed — it must never fall through
+        // to the focused app as a shortcut.
+        let chord = Self.chordFlags(rawFlags: flags.rawValue,
+                                    hand: chordHand(forKeyCode: keyCode))
+        let hasMod = chord.modifier
         // Linger armed when EITHER shift is currently held OR caps lock
         // is on. Caps lock latches the mode so the user can play a
         // long ambient passage without having to keep shift down. The
@@ -3356,11 +3592,12 @@ final class MenuBandController {
                                    capsOn: flags.contains(.maskAlphaShift))
         return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                             hasModifier: hasMod, lingerSide: side,
-                            chordModifier: flags.contains(.maskCommand) || flags.contains(.maskAlternate) || flags.contains(.maskControl),
-                            chordMinor: flags.contains(.maskAlternate),
-                            chordSus: flags.contains(.maskCommand) && flags.contains(.maskAlternate),
-                            chordAug: flags.contains(.maskControl),
-                            control: flags.contains(.maskControl))
+                            chordModifier: chord.modifier,
+                            chordMinor: chord.minor,
+                            chordSus: chord.sus,
+                            chordAug: chord.aug,
+                            control: flags.contains(.maskControl),
+                            shift: flags.contains(.maskShift))
     }
 
     /// Sandbox-friendly key path: same note logic as the global tap, but
@@ -3389,7 +3626,11 @@ final class MenuBandController {
         // in playKeyEvent consumes modifier+note before the passthrough gate
         // below, so it never reaches the system as a shortcut).
         // Modified NON-note keys (⌘-Tab, ⌃-arrow, …) still pass through.
-        let hasMod = flags.contains(.command) || flags.contains(.control) || flags.contains(.option)
+        // ⌘/⌥ are handed (see `chordFlags`): the other hand's modifier
+        // leaves this key a plain, consumed note.
+        let chord = Self.chordFlags(rawFlags: UInt64(flags.rawValue),
+                                    hand: chordHand(forKeyCode: keyCode))
+        let hasMod = chord.modifier
         // Caps lock latches linger so the user can play hands-free
         // without holding shift; shift held still works as a momentary.
         // The shift side pans the lingering note (left → left, right →
@@ -3399,11 +3640,12 @@ final class MenuBandController {
                                    capsOn: flags.contains(.capsLock))
         return playKeyEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                             hasModifier: hasMod, lingerSide: side,
-                            chordModifier: flags.contains(.command) || flags.contains(.option) || flags.contains(.control),
-                            chordMinor: flags.contains(.option),
-                            chordSus: flags.contains(.command) && flags.contains(.option),
-                            chordAug: flags.contains(.control),
-                            control: flags.contains(.control))
+                            chordModifier: chord.modifier,
+                            chordMinor: chord.minor,
+                            chordSus: chord.sus,
+                            chordAug: chord.aug,
+                            control: flags.contains(.control),
+                            shift: flags.contains(.shift))
     }
 
     /// Shared note logic for both the global CGEventTap path and the
@@ -3413,7 +3655,7 @@ final class MenuBandController {
     /// past key-up so it rings on its release envelope (sustained
     /// voices) rather than cutting on release.
     @discardableResult
-    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, chordAug: Bool = false, control: Bool = false) -> Bool {
+    private func playKeyEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool, hasModifier: Bool, lingerSide: LingerSide = .none, chordModifier: Bool = false, chordMinor: Bool = false, chordSus: Bool = false, chordAug: Bool = false, control: Bool = false, shift: Bool = false) -> Bool {
         // Modifier-chord: holding ⌘/⌥/⌃ + a note key plays & HOLDS that
         // key's triad (the pressed note is the root), lingering on release
         // just like Shift. ⌘ = major, ⌥ = minor, ⌘+⌥ = sus, ⌃ = augmented
@@ -3538,11 +3780,30 @@ final class MenuBandController {
         // note or a literal space character. Trigger on the first key-down
         // (ignore auto-repeat); consume key-up too so it stays swallowed.
         if keyCode == 49 /* kVK_Space */ {
+            // ⇧Space is air, not reverse: hold it and a bed of noise tuned
+            // to the last note or chord wooshes in; let go and it drifts
+            // out. The key-up is claimed by whichever of the two the
+            // key-down began, so a Shift released early still ends the
+            // air and never fires the reverse's release.
+            if isDown, shift, !airKeyHeld, !isRewinding {
+                debugLog("air push pitches=\(lastPlayedChord)")
+                airKeyHeld = true
+                DispatchQueue.main.async { [weak self] in self?.pushAir() }
+                return true
+            }
+            if airKeyHeld {
+                if !isDown {
+                    debugLog("air release")
+                    airKeyHeld = false
+                    DispatchQueue.main.async { [weak self] in self?.releaseAir() }
+                }
+                return true
+            }
             // Hold-to-reverse with a persistent cursor: the first press
             // rewinds from "now"; release banks the playhead; the next press
             // RESUMES from that same reverse point. Playing a note re-anchors
             // the cursor at the live head (see MenuBandRewindVoice).
-            debugLog("space \(isDown ? "down" : "up") repeat=\(isRepeat) rewinding=\(isRewinding)")
+            debugLog("space \(isDown ? "down" : "up") repeat=\(isRepeat) shift=\(shift) rewinding=\(isRewinding)")
             if isDown {
                 if !isRepeat { rewind() }
             } else {

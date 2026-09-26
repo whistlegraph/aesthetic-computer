@@ -52,8 +52,8 @@ if PolyrhythmTrainerCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
-// Headless capture of the fullscreen stage that mirrors those circles.
-if PolyrhythmStageCLI.runIfRequested(CommandLine.arguments) {
+// Headless capture of the ⇧Tab-bisected pad (pitch left, drum right).
+if TrackpadSplitCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
@@ -84,4 +84,12 @@ let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
 app.setActivationPolicy(.accessory)  // menubar-only, no Dock icon
+// A plain SIGTERM (pkill, launchd stop) would kill the process without
+// `applicationWillTerminate`, skipping the audio teardown — and a duplex
+// session on the Scarlett that dies mid-render leaves the interface wedged
+// for every client until a replug. Route the signal through the normal quit.
+signal(SIGTERM, SIG_IGN)
+let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+sigtermSource.setEventHandler { NSApp.terminate(nil) }
+sigtermSource.resume()
 app.run()

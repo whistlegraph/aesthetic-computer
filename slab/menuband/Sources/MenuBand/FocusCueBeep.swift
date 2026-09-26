@@ -113,6 +113,7 @@ final class FocusCueBeep {
     private func ensureStarted() -> Bool {
         if started { return true }
         do {
+            MenuBandAudioDevices.bindToRawOutput(engine, label: "FocusCueBeep")
             try engine.start()
             started = true
             return true
