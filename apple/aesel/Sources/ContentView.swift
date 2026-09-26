@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var showExport = false
     @State private var fileNotice: String?
     @State private var showSettings = false
+    @State private var signInArrived = false
     @State private var showAccountDeletion = false
     @State private var deletionAccount = ""
     @State private var showVolume = false
@@ -39,6 +40,7 @@ struct ContentView: View {
     @AppStorage("aesel.uiScale") private var uiScale = 1.0
     @Environment(\.openURL) private var openURL
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One ruled row of the sheet, as the desktop's --notebook-line-height.
     private let row: CGFloat = 24
@@ -131,11 +133,23 @@ struct ContentView: View {
     }
 
     private var styledSheet: some View {
-        Group {
-            if !session.accountReady { accountEntry }
-            else if expandedPreview { expandedPiece } else { sheet }
+        ZStack {
+            if !session.accountReady {
+                accountEntry
+                    .scaleEffect(session.showSignIn && !reduceMotion ? 0.975 : 1)
+                    .opacity(session.showSignIn ? 0.65 : 1)
+                    .animation(.easeInOut(duration: 0.24), value: session.showSignIn)
+                    .transition(.opacity)
+            } else {
+                Group { if expandedPreview { expandedPiece } else { sheet } }
+                    .allowsHitTesting(session.accountReady)
+                    .accessibilityHidden(!session.accountReady)
+                    .transition(.opacity)
+            }
         }
-        .blur(radius: session.accountReady && showSettings ? 4 : 0)
+        // Reveal the notebook gently; lock it immediately when account access ends.
+        .animation(session.accountReady ? .easeInOut(duration: reduceMotion ? 0.12 : 0.35) : nil,
+                   value: session.accountReady)
         .overlay {
             if session.accountReady && showHome {
                 AeselHomeView(session: session, host: host) { showHome = false }
@@ -152,7 +166,8 @@ struct ContentView: View {
         .environment(\.paint, paint)
         .coordinateSpace(name: "aesel-ui")
         .animation(.easeInOut(duration: 0.5), value: paint)
-        .overlay { if session.showSignIn { signInPanel } }
+        .overlay { if session.showSignIn { signInPanel.transition(.opacity) } }
+        .animation(.easeOut(duration: reduceMotion ? 0.12 : 0.22), value: session.showSignIn)
     }
 
     private var signInPanel: some View {
@@ -192,9 +207,18 @@ struct ContentView: View {
                 .shadow(color: .black.opacity(0.2), radius: 18, y: 6)
                 .buttonStyle(AeselButtonStyle())
                 .foregroundStyle(paint.ink)
+                .scaleEffect(signInArrived || reduceMotion ? 1 : 0.94)
+                .offset(y: signInArrived || reduceMotion ? 0 : 12)
+                .opacity(signInArrived ? 1 : 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .onAppear {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.38, dampingFraction: 0.9)) {
+                signInArrived = true
+            }
+        }
+        .onDisappear { signInArrived = false }
     }
 
     private var managedSheet: some View {
@@ -221,6 +245,7 @@ struct ContentView: View {
         .onChange(of: session.showSignIn) { if !session.showSignIn { host.cancelSignIn() } }
         .onChange(of: session.signedIn) { if session.signedIn { Task { await braincells.load() } } }
         .task { braincells.start(token: { host.accessToken() }, credited: { host.refreshCredits() }) }
+        .onDisappear { host.automation.stop() }
         .onAppear {
             host.automation.inspect = { automationState }
             host.automation.perform = { action, params in try await automationAction(action, params) }
@@ -573,7 +598,7 @@ struct ContentView: View {
 
     private func usd(_ value: Double) -> String { value.formatted(.currency(code: "USD")) }
 
-    /// The desktop's #provider-menu: a centred card over the blurred sheet,
+    /// The desktop's #provider-menu: a centred card over the dimmed sheet,
     /// 15pt Helvetica, hairline sections, with the account, the automatic
     /// model, braincells and the way to buy more.
     private var settingsPane: some View {
@@ -592,7 +617,7 @@ struct ContentView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             let fields = geometry.size.width < 420 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
                             fields {
-                                settingsField("Provider") { AeselProviderPicker(session: session, host: host) }
+                                settingsField("Provider", bordered: false) { AeselProviderPicker(session: session, host: host) }
                                 if session.provider != "ac" {
                                     settingsField("Model") { AeselModelPicker(session: session, host: host) }
                                 }
@@ -607,14 +632,21 @@ struct ContentView: View {
                             if session.signedIn {
                                 Text(session.handle.isEmpty ? "Aesthetic Computer account" : "@\(session.handle)")
                                 HStack {
-                                    Button("Sign out") { host.signOut() }
+                                    Button { host.signOut() } label: {
+                                        Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
+                                            .padding(.horizontal, 14).padding(.vertical, 10)
+                                    }.buttonStyle(AeselTintedButtonStyle(tint: Color(rgb: 0x287bdb)))
                                     Spacer()
+                                    Menu {
                                     Button(session.accountDeletionBusy ? "Deleting account…" : "Delete account…", role: .destructive) {
                                         if let label = host.prepareAccountDeletion() {
                                             deletionAccount = label
                                             showAccountDeletion = true
                                         }
                                     }.disabled(session.busy || session.accountDeletionBusy)
+                                    } label: { Image(systemName: "ellipsis").frame(width: 32, height: 32) }
+                                    .menuStyle(.borderlessButton).fixedSize()
+                                    .accessibilityLabel("Account actions")
                                 }
                             } else {
                                 settingsItem("Sign in to Aesthetic Computer") { closeSettings { host.signIn() } }
@@ -691,7 +723,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 24) {
             AeselWordmark()
             Text("describe a picture, a sound, or a little world. aesel writes it while you watch.")
-            Text("/new     start a piece\n/publish share your piece\n/open    open in your browser\n/login   your AC account\n/logout  sign out")
+            Text("/new     start a piece\n/publish share your piece\n/open    open in your browser\n/login   your AC account\n/logout  log out")
                 .foregroundStyle(paint.dim)
             Button("/close") { showHelp = false }.foregroundStyle(paint.you)
             Spacer()
@@ -757,7 +789,7 @@ struct ContentView: View {
             ("account.handle", "Choose an AC handle", session.signedIn && !session.accountReady),
             ("account.signin.close", "Close sign-in", session.showSignIn),
             ("account.signin.retry", "Retry sign-in", session.showSignIn && session.signInError != nil),
-            ("account.signout", "Sign out of AC", session.signedIn),
+            ("account.signout", "Log out of AC", session.signedIn),
             ("balance.refresh", "Refresh balance", session.signedIn),
             ("credits.buy", "Open App Store purchase confirmation", session.signedIn && !braincells.busy && braincells.product != nil),
             ("source.open", "Open source and revisions", !session.busy && !session.viewingHistory),

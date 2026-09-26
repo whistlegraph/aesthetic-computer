@@ -6,12 +6,12 @@ struct AeselProviderPicker: View {
     let host: SessionHost
     @Environment(\.paint) private var paint
     @State private var expanded = false
-    @State private var palURL = URL(string: "https://pals.aesthetic.computer/random.webp?menu=\(UUID().uuidString)")!
+    private static let palURL = URL(string: "https://pals.aesthetic.computer/random.webp?menu=\(UUID().uuidString)")!
 
     private func mark(_ provider: String, size: CGFloat = 28) -> some View {
         Group {
             if provider == "ac" {
-                AsyncImage(url: palURL) { image in
+                AsyncImage(url: Self.palURL) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     Image("provider-ac").resizable().renderingMode(.template).scaledToFill().foregroundStyle(paint.ac)
@@ -27,6 +27,10 @@ struct AeselProviderPicker: View {
         .accessibilityHidden(true)
     }
 
+    private func tint(_ provider: String) -> Color {
+        Color(rgb: provider == "ac" ? 0x9d327a : provider == "claude" ? 0x98472e : 0x176a57)
+    }
+
     var body: some View {
         Button { expanded.toggle() } label: {
             HStack(spacing: 9) {
@@ -35,15 +39,16 @@ struct AeselProviderPicker: View {
                 Spacer()
                 Image(systemName: "chevron.down").font(.system(size: 11))
             }
-            .frame(maxWidth: .infinity).frame(height: 36)
+            .padding(.horizontal, 8).frame(maxWidth: .infinity).frame(height: 36)
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
+        .buttonStyle(AeselTintedButtonStyle(tint: tint(session.provider)))
         .frame(height: 36)
         .disabled(session.busy || session.hostOperationID != nil)
         .accessibilityLabel("Provider, \(session.provider == "ac" ? "Aesthetic.Computer" : session.provider.capitalized)")
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .popover(isPresented: $expanded, arrowEdge: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
                 option("ac", title: "Aesthetic.Computer", available: true)
                 option("claude", title: "Claude", available: session.providers.first { $0.id == "claude" }?.available == true)
                 option("codex", title: "Codex", available: session.providers.first { $0.id == "codex" }?.available == true)
@@ -80,6 +85,7 @@ struct AeselProviderPicker: View {
             .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 40)
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
+        .buttonStyle(AeselTintedButtonStyle(tint: tint(provider)))
         .disabled(!available)
     }
 }

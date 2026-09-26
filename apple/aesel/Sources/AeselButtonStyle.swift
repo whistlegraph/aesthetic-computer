@@ -73,14 +73,37 @@ private struct AeselCursorRegion: NSViewRepresentable {
         }
         override func viewDidMoveToWindow() { window?.invalidateCursorRects(for: self) }
         override func setFrameSize(_ size: NSSize) {
+            guard size != frame.size else { return }
             super.setFrameSize(size)
             window?.invalidateCursorRects(for: self)
         }
     }
     func makeNSView(context: Context) -> CursorView { CursorView() }
     func updateNSView(_ view: CursorView, context: Context) {
-        view.enabled = enabled
-        view.window?.invalidateCursorRects(for: view)
+        if view.enabled != enabled {
+            view.enabled = enabled
+            view.window?.invalidateCursorRects(for: view)
+        }
     }
 }
 #endif
+
+/// Color and lightweight interaction feedback, without changing layout.
+struct AeselTintedButtonStyle: ButtonStyle {
+    let tint: Color
+    @Environment(\.isEnabled) private var enabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hovered = false
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(.white)
+            .background(tint, in: RoundedRectangle(cornerRadius: 8))
+            .brightness(configuration.isPressed ? -0.12 : hovered ? 0.06 : 0)
+            .scaleEffect(reduceMotion ? 1 : configuration.isPressed ? 0.97 : 1)
+            .opacity(enabled ? 1 : 0.45)
+            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.14), value: hovered)
+            .onHover { hovered = $0 }
+            .modifier(AeselButtonPointer(enabled: enabled))
+    }
+}

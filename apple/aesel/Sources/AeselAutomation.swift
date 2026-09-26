@@ -66,6 +66,14 @@ final class AeselAutomation {
         record("automation.ready")
     }
 
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        inspect = nil
+        perform = nil
+        retryPreview = nil
+    }
+
     func record(_ kind: String) {
         sequence += 1
         events.append(["sequence": sequence, "at": Date().timeIntervalSince1970, "kind": String(kind.prefix(100))])
@@ -88,6 +96,7 @@ final class AeselAutomation {
                   let info = try? file.resourceValues(forKeys: [.fileSizeKey, .isSymbolicLinkKey]), info.isSymbolicLink != true,
                   (info.fileSize ?? 0) <= 65536, let data = try? Data(contentsOf: file),
                   let request = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { continue }
+            guard request["instance"] as? String == instance else { continue }
             try? FileManager.default.removeItem(at: file)
             let id = file.deletingPathExtension().lastPathComponent
             guard request["id"] as? String == id, request["instance"] as? String == instance,

@@ -7,7 +7,7 @@ struct AeselVersionList: View {
     @Environment(\.paint) private var paint
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        LazyVStack(alignment: .leading, spacing: 8) {
             Text("Versions").font(Paint.font(15)).fontWeight(.semibold)
             ForEach(session.revisions.reversed()) { revision in
                 Button {
