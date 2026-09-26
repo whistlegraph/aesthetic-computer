@@ -98,7 +98,7 @@ if (hostAnalytics)
   };
 
 // Monotonic count of committed revisions to this piece (next revision included).
-const buildVersion = 161;
+const buildVersion = 163;
 const floorY = 1800;
 // Oskiewar now opens as a versus game. An ordinary web visit hosts a room —
 // the URL becomes the invitation — and until a friend opens it, all you can
@@ -2854,6 +2854,10 @@ function makeRoundReplayFrame(now) {
       active: ball.active },
     balls: balls.map((item) => ({ x: item.x, y: item.y, z: item.z,
       vx: item.vx, vy: item.vy, active: item.active })),
+    // What was in the air: shots, grenades and rockets, so a replay of a
+    // kill shows the thing that made it.
+    bullets: structuredClone(bullets),
+    grenades: structuredClone(grenades),
     camera: { center: cameraCenter, centerY: cameraCenterY, width: cameraWidth },
   };
 }
@@ -2912,6 +2916,8 @@ function applyRoundReplayFrame(frame, now) {
     for (const key of ["x", "y", "z", "vx", "vy", "active"])
       balls[index][key] = state[key];
   }
+  if (frame.bullets) bullets.splice(0, bullets.length, ...structuredClone(frame.bullets));
+  if (frame.grenades) grenades.splice(0, grenades.length, ...structuredClone(frame.grenades));
   cameraCenter = frame.camera.center;
   cameraCenterY = frame.camera.centerY;
   cameraWidth = frame.camera.width;
@@ -2988,7 +2994,16 @@ function startInstantReplay(now, respawn = null) {
     respawn,
     previous: padSnapshots[0]?.down?.slice() || [],
     action: replayActionCurve(frames), speed: 1,
+    // Played through once, then wound back to just before the biggest
+    // moment and played through it again — the way a replay is watched.
+    direction: 1, pass: 1,
     endFrame: frames[frames.length - 1] };
+  const curve = instantReplay.action || [];
+  let peak = -1, peakAction = 0;
+  for (let index = 0; index < curve.length; index++)
+    if (curve[index] > peakAction) { peakAction = curve[index]; peak = index; }
+  instantReplay.rewindTo = peak >= 0 && frames.length > 30
+    ? Math.max(0, peak - 24) : -1;
   impacts.length = 0;
   detachedParts.length = 0;
   applyRoundReplayFrame(frames[0], now);
@@ -3023,15 +3038,29 @@ function updateInstantReplay(now, dt) {
   const elapsed = Math.max(0, now - instantReplay.lastAt) / 1000000;
   instantReplay.speed = replayRampStep(instantReplay.speed,
     instantReplay.action?.[Math.floor(instantReplay.cursor)] || 0, elapsed);
-  if (!instantReplay.paused)
-    instantReplay.cursor += (now - instantReplay.lastAt) /
-      instantReplayStepUs * instantReplay.speed;
+  if (!instantReplay.paused) {
+    const step = (now - instantReplay.lastAt) / instantReplayStepUs;
+    // The rewind runs at a steady 2.5× so it reads as a rewind.
+    instantReplay.cursor += instantReplay.direction < 0
+      ? -step * 2.5 : step * instantReplay.speed;
+  }
   instantReplay.lastAt = now;
+  if (instantReplay.direction < 0 && instantReplay.cursor <= instantReplay.rewindTo) {
+    instantReplay.cursor = instantReplay.rewindTo;
+    instantReplay.direction = 1;
+  }
   instantReplay.cursor = clamp(instantReplay.cursor, 0,
     instantReplay.frames.length);
   if (instantReplay.cursor >= instantReplay.frames.length) {
-    finishInstantReplay(now);
-    return;
+    if (instantReplay.pass === 1 && instantReplay.rewindTo >= 0 && !instantReplay.paused) {
+      instantReplay.pass = 2;
+      instantReplay.direction = -1;
+      instantReplay.cursor = instantReplay.frames.length - 1;
+      emitSignal("replay-rewind", -1, instantReplay.rewindTo, 0);
+    } else {
+      finishInstantReplay(now);
+      return;
+    }
   }
   applyRoundReplayFrame(instantReplay.frames[Math.floor(instantReplay.cursor)], now);
   instantReplay.previous = down.slice();
@@ -7325,6 +7354,20 @@ function finishRound(now) {
   // files it closes the match out afterwards.
   if (matchOver && !netSession) finishReplay();
 }
+
+function resultHeadline(result = resultCardText()) {
+  if (roundResult === "TIE") return "tie";
+  const local = players[0];
+  const playing = !selfPlay && !local.npc && !local.bot && !replayOvenActive();
+  if (playing) {
+    const localWon = String(local.name || "").toLowerCase() === result.winner ||
+      (!local.name && local.score >= players[1].score);
+    return localWon ? "you win" : "you lose";
+  }
+  return (result.winner || "nobody") + " wins";
+}
+const replayOvenActive = () => typeof capabilities === "function" &&
+  capabilities().replayOven === true;
 
 function resultCardText() {
   if (roundResult === "TIE") return { winner: "tie", action: "" };
@@ -16694,8 +16737,8 @@ function gamePaint() {
     const timedRound = roundIsTimed();
     const remainingSeconds = roundResult || !timedRound ? 0 : Math.max(0,
       Math.ceil((roundDurationUs - roundElapsedUs) / 1000000));
-    const timerText = roundResult
-      ? roundResult === "TIE" ? "tie!" : ""
+    // The result has its own headline now; the timer lane stays quiet.
+    const timerText = roundResult ? ""
       : timedRound ? String(remainingSeconds).padStart(2, "0") : "";
     const hud = hudSafeRect();
     const timerSize = hudTypeSize;
@@ -16881,14 +16924,18 @@ function gamePaint() {
         940, 19, inputPads[0]?.down || [], titleInk);
     } else {
       const result = resultCardText();
-      // The result is a small ownership mark, not a second title screen.
-      // Character reactions carry the emotional result in the arena.
-      const winnerSize = compactLayout() ? 30 : 42;
-      const winnerWidth = handleWidth(result.winner, winnerSize);
-      const resultY = hudSafeRect().top + 62;
-      typeWrite(result.winner, viewCenterX() - winnerWidth / 2 + 3, resultY + 4,
+      // The round's outcome, said plainly and large: a small mark up in the
+      // top lane was lost under the pickups and decks that live there. It
+      // sits a fifth of the way down, below that furniture, in the title's
+      // ink on a heavy shadow — you win / you lose to a player, the winner's
+      // name when bots fight, tie for a draw.
+      const winnerSize = compactLayout() ? 66 : 112;
+      const headline = resultHeadline(result);
+      const winnerWidth = handleWidth(headline, winnerSize);
+      const resultY = Math.round(viewHeight * .17);
+      typeWrite(headline, viewCenterX() - winnerWidth / 2 + 5, resultY + 6,
         winnerSize, ...statusShadow);
-      typeWrite(result.winner, viewCenterX() - winnerWidth / 2, resultY,
+      typeWrite(headline, viewCenterX() - winnerWidth / 2, resultY,
         winnerSize, ...titleInk);
       if (result.action) {
         const actionSize = Math.min(44, winnerSize * .54);

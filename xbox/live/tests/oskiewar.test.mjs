@@ -7702,3 +7702,33 @@ test("loops click like the ground does, and a lone head can ride one", () => {
   }
   assert.ok(best >= Math.PI * 2, `head went ${(best / Math.PI / 2).toFixed(2)} of the way round`);
 });
+
+test("replays show projectiles, and wind back to play the big moment again", () => {
+  const { fight, tick, now } = createFight();
+  for (let frame = 0; frame < 30; frame++) tick();
+  // A shot in flight across the middle of the recording, and a hit on it.
+  fight.bullets.push({ x: 1500, y: 1700, z: 0, previousX: 1480, previousY: 1700,
+    vx: 2400, vy: 0, owner: 0, alive: true, life: 1 });
+  for (let frame = 0; frame < 20; frame++) {
+    tick();
+    if (frame === 10) fight.players[1].hit = 1;
+  }
+  fight.players[1].hit = 0;
+  for (let frame = 0; frame < 30; frame++) tick();
+  // Replays play on the result screen, so end the round first.
+  fight.knockOut();
+  for (let frame = 0; frame < 5; frame++) tick();
+  assert.ok(fight.roundState().roundResult, "round over");
+  assert.ok(fight.startInstantReplay(now()));
+  let sawShot = false, wentBack = false, last = -1;
+  for (let frame = 0; frame < 1200 && fight.instantReplayState().active; frame++) {
+    tick();
+    if (fight.bullets.length) sawShot = true;
+    const cursor = fight.instantReplayState().cursor;
+    if (cursor !== undefined && last >= 0 && cursor < last - .5) wentBack = true;
+    if (cursor !== undefined) last = cursor;
+  }
+  assert.ok(sawShot, "the shot is in the replay");
+  assert.ok(wentBack, "the replay wound back");
+  assert.equal(fight.instantReplayState().active, false, "and then finished");
+});
